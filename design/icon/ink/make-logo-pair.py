@@ -5,11 +5,13 @@
 应用图标（`ink-lab.py` 的 `plan_a`）只有墨底一版。侧栏要跟着主题翻面，
 所以照同一构图补一张纸底版：字换成焦墨，朱印留着。
 
-**底色去掉了（透明）**。理由不是省事：
-1. 图标原尺寸 1024px，侧栏栏顶只有 34×45，那个圆角方块在这个尺寸下只剩
+**底色去掉了（透明）**，立方底座改由 CSS 画（`AppRail.vue` 的 `.rail-mark`）：
+1. 图标原尺寸 1024px，侧栏栏顶只有 34×34，那个圆角方块在这个尺寸下只剩
    「一圈比纸略深的边」——读作贴了张图标，和整页的纸面语言打架；
 2. 图标自带的墨不匀纹理在 34px 上变成噪点，方块边反而显脏；
-3. 去掉底之后，字才能吃满 34px 宽度——留白在方图里是构图，在 34px 里是浪费。
+3. 去掉底之后，底座的高光、边框、投影都能跟着主题令牌走，而不是烧死在 PNG 里。
+
+所以这里只取图标里的**图案**：行楷「梦」+ 右下朱印「耶」，透明底、正方形画布。
 
 所以这里只取图标里的**图案**：行楷「梦」+ 右下朱印「耶」，透明底两版。
 
@@ -45,20 +47,21 @@ INK_DARK = (0xec, 0xe3, 0xcd)
 CINN = (0xa8, 0x32, 0x2b)
 CINN_DARK = (0xd0, 0x75, 0x5f)
 
-# 输出高度。侧栏按 36px 显示，2x 屏要 72px，取 192 留到 5x 也够。
+# 输出边长。侧栏按 34px 显示（与目录槽同宽），2x 屏要 68px，取 192 留到 5x 也够。
 H = 192
 # 裁到墨迹后再留一圈空气：紧贴 bbox 会让「梦」的最后一笔顶到图边。
 PAD = 0.04
+# 补成正方形之后，四周再统一留一点白。标现在装在一个 34px 的立体底座里，
+# 底座自己已经有 1px 边线与内影，图里这圈白只需要把墨迹从框线上让开——
+# 给多了字就显小，撑不满底座，「饱满」也就没了。
+EDGE = 0.03
 
 
 def build(ink_color, seal_color):
-    # 字单独合成一次，用来取「视觉中心」。
-    # 整体 bbox 的中心不能用来居中：朱印在右下，会把中心拉到字的右侧，
-    # 于是方框居中、字偏左——栏只有 34px 宽，偏 3px 就看得出来。
-    # 所以按**字**的中心对齐，印允许伸出去。
+    # 字单独合成一次再落印：直接在大画布上落印会让印盖到字的墨迹上，
+    # 而 `stamp` 需要一张只有字的底图来判断哪里已经有墨。
     glyph = ink.lay(ink.Image.new('RGBA', (ink.S, ink.S), (0, 0, 0, 0)),
                     ink.brush(ink.glyph('梦', **GLYPH), **GLYPH_OPT), ink_color)
-    cx = (lambda b: (b[0] + b[2]) / 2)(glyph.getbbox())
 
     im = ink.stamp(
         glyph, STAMP['cx'], STAMP['cy'], int(ink.S * STAMP['side']),
@@ -66,10 +69,22 @@ def build(ink_color, seal_color):
     )
     x0, y0, x1, y1 = im.getbbox()
     pad = int(ink.S * PAD)
-    half = max(cx - x0, x1 - cx) + pad
-    im = im.crop((round(cx - half), max(0, y0 - pad), round(cx + half), min(ink.S, y1 + pad)))
-    w = max(1, round(im.width * H / im.height))
-    return im.resize((w, H), ink.Image.LANCZOS)
+    # 按**整体墨迹**的 bbox 裁，不再按字心对称裁。
+    # 字心居中会让朱印把右边吃掉：171 宽的图里左边空 40、右边只空 22，
+    # 缩到 32px 是 3px 的偏差——一个正方形框里明显偏左。牌记现在是「方框 + 标」，
+    # 读者比较的是框线到墨迹的四条边距，字偏不偏已经退到第二位。
+    im = im.crop((
+        max(0, x0 - pad), max(0, y0 - pad),
+        min(ink.S, x1 + pad), min(ink.S, y1 + pad),
+    ))
+
+    # 补成正方形。牌记是方的、落款框是方的，图也必须是方的：
+    # 原来输出 171×192，`object-fit: contain` 之后左右贴边、上下留白，
+    # 「四周等距」就只是句口号。按长边补成方画布再居中，留白由 EDGE 统一给。
+    side = int(round(max(im.size) * (1 + EDGE)))
+    canvas = ink.Image.new('RGBA', (side, side), (0, 0, 0, 0))
+    canvas.paste(im, ((side - im.width) // 2, (side - im.height) // 2), im)
+    return canvas.resize((H, H), ink.Image.LANCZOS)
 
 
 if __name__ == '__main__':

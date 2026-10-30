@@ -100,9 +100,19 @@ const options = computed(() =>
     width: calc(50px * var(--fs-scale));
     /* 顶边距交给牌记自己（它有页头那一套 padding），栏不再自带 top padding——
      * 两处各留一点的话，那道账线就永远差几个像素对不齐。 */
-    padding: 0 calc(8px * var(--fs-scale)) calc(10px * var(--fs-scale));
+    padding: 0 calc(8px * var(--fs-scale)) calc(8px * var(--fs-scale));
     background-color: var(--paper);
-    background-image: linear-gradient(180deg, var(--bevel-hi), transparent 96px);
+    /* 顶部受光只铺到牌记底边。强度收在变量里，暗色下再压一档（见 `.dark` 那段）：
+     * 原来满强度 `--bevel-hi` 铺 96px，亮色下没问题，暗色下却是 8% 白叠在深纸上，
+     * 足以把牌记区从 #2a2622 提到 #3a3733——栏顶像糊了一块浅色纸
+     * （用户截图指出「黑的时候上面偏白」）。
+     */
+    --rail-sheen: color-mix(in srgb, var(--bevel-hi) 45%, transparent);
+    background-image: linear-gradient(
+        180deg,
+        var(--rail-sheen),
+        transparent calc(56px * var(--fs-scale))
+    );
     box-shadow:
         inset -1px 0 0 var(--bevel-hi),
         inset -3px 0 5px -4px var(--bevel-lo),
@@ -113,6 +123,13 @@ const options = computed(() =>
      * `36fs + 11 + 666fs` 取「较大」字号（fs = 1.1）时的需求值，见那里的注释。
      * 这里用 hidden 而不是 auto：既然保证放得下，就不要再留一条可能出现的滚动条。 */
     overflow: hidden;
+}
+
+/* 暗色下这层受光几乎要消失：`--bevel-hi` 在暗色是 18% 白，乘 45% 之后仍有 8%，
+ * 在深色纸上的视觉当量远高于亮色那 37%——所以按主题分档，压到 14%（≈2.5% 白）。
+ * 牌记区与标题栏回到同色，栏顶不再是一块亮面。 */
+:global(html.dark .rail) {
+    --rail-sheen: color-mix(in srgb, var(--bevel-hi) 14%, transparent);
 }
 
 /* ---------- 牌记 ----------
@@ -128,9 +145,9 @@ const options = computed(() =>
  * 高度算式里的那 1px 仍然留着：它不是给线的，是给两栏的对齐余量。
  *
  * 图案取自应用图标（行楷「梦」+ 右下朱印），但**去掉了图标的圆角方块底**：
- * 34px 见方时那块底只剩一圈比纸略深的边，加图标的墨不匀纹理，读作「贴了张图标」；
- * 去了底，字才能吃满栏宽，也才谈得上「黑版 / 白版」——有底色时两版只差一层方框。
- * 生成脚本：`design/icon/ink/make-logo-pair.py`。
+ * 那块底在这个尺寸下只剩一圈比纸略深的边，加图标的墨不匀纹理，读作「贴了张图标」。
+ * 去底之后，这片空白改由下面那条 1px 的细线框来收——线是自己画的，粗细可控，
+ * 不像图标自带底那样带噪点。生成脚本：`design/icon/ink/make-logo-pair.py`。
  */
 .rail-brand {
     display: flex;
@@ -142,22 +159,83 @@ const options = computed(() =>
     height: calc(19px + var(--fs-xl) * 1.15 + var(--w-hair));
 }
 
-/* 图是裁到墨迹的 171×192（宽高比 ≈ 0.89），所以定高、宽自适应。
- * 高 34px 在 45.3px 的牌记区里上下各余 5.6px——再高就贴到账线上了。
- * 宽度 30.3px，栏内剩 1.8px 边距：横向比纵向更满，因为字是竖长的，横向再收就压不住栏宽。 */
+/* 图是正方形（192×192，四周自带一圈透明留白，见脚本里的 EDGE），所以宽高同值。
+ *
+ * **宽度取目录槽的宽**（`--vs-w`，34px）：标与槽上下同宽，整条栏读作一列，
+ * 而不是「上面一枚图 + 下面一条槽」。牌记区高 45.3px，34 的方框上下各余 5.6px。
+ *
+ * **立体靠「侧面」而不是靠渐变。** 34px 见方时，一块面上的渐变只有十几像素
+ * 的过渡带，读出来是「这块颜色不匀」，不是「这块有厚度」；上一版就是 82% 白
+ * 铺 45% 再转 14% 黑，两个主题下都只是一片发灰的柔光。
+ * 现在把厚度做成**一条真的边**：底边 2px、单独一个色，与面拉开一档，
+ * 其余三边仍是 1px 细线。2px 是「侧面」，不是「加粗的描边」——加粗描边四面等宽，
+ * 眼睛立刻读成框；只有一边厚，才读成块。
+ *
+ * **圆角取 `--r-2`**，与目录槽的 `--vs-radius`、格里的朱印同一个值：栏里三样东西
+ * （标、槽、印）的转角必须在同一条曲线上，否则 34px 见方时 3px 与 4px 的差别
+ * 一眼就能看出「这个角是另一种东西」。这个值不乘 `--fs-scale`——圆角是绝对曲率，
+ * 槽那边也没乘，两处一起缩放反而对不上。侧厚同理，不跟字号缩放。
+ */
 .rail-mark {
+    /* 三个面在这里定义一次，暗色整组换掉（见文件末尾）。
+     * 亮色面就取纸色：标与纸同色，靠侧面和投影立起来，不靠「比纸更白」——
+     * 纸已经是最亮的了，再亮只能发灰。 */
+    --mark-face: var(--paper);
+    /* 侧面：纸往分割线的颜色里压一档。压太少就成了「描边」，压太多读成脏斑。 */
+    --mark-lip: color-mix(in srgb, var(--paper) 45%, var(--rule-2));
+    /* 其余三边的细线与落地那道线，都与槽的描边同源（`--rule-2` 掺纸），
+     * 这样标和槽在接缝处是同一层级的两条线，不会一边虚一边实。 */
+    --mark-edge: color-mix(in srgb, var(--rule-2) 75%, var(--paper));
+
     display: block;
     flex: none;
+    box-sizing: border-box;
+    width: calc(34px * var(--fs-scale));
     height: calc(34px * var(--fs-scale));
-    width: auto;
-    max-width: 100%;
+    border: var(--w-hair) solid var(--mark-edge);
+    border-bottom: 2px solid var(--mark-lip);
+    border-radius: var(--r-2);
+    background-color: var(--mark-face);
+    /* 顶边一道硬高光：面的受光边。没有它，底边那条 2px 侧面就只是个深色下边框。
+     * 投影用 `--bevel-lo`：`--shadow` 在亮色只有 8% 黑，涂在纸上等于没有；
+     * 也不能用 `--ink`——暗色下它是纸白，会把标涂出一圈白光。 */
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        0 1px 0 var(--mark-edge),
+        0 3px 4px -1px var(--bevel-lo),
+        0 5px 9px -4px color-mix(in srgb, var(--bevel-lo) 75%, transparent);
+}
+
+/* ---------- 暗色下的牌记 ----------
+ * 亮色面取纸色就够——纸已经是最亮的，再往上只能发灰；暗色反过来了：
+ * 纸 #1c1912 是最暗的，标必须**比纸亮一档**才浮得起来，所以要往 `--ink`
+ * （暗色下就是纸白 #ece3cd）里掺 12%，得到 #353128 的面。
+ * 侧面在暗色直接落到纸色：比面暗一档，同时又与周围的栏底同色，
+ * 底边于是没有「一道深色的边」，只有「面结束了」——这正好是纸上的厚度感。
+ * 因此暗色去掉亮色那道 `0 1px 0` 落地线：它会在侧面与投影之间插一条浅线，
+ * 把一块完整的厚度切成两半。
+ */
+:global(html.dark .rail-mark) {
+    --mark-face: color-mix(in srgb, var(--paper) 88%, var(--ink));
+    --mark-lip: var(--paper);
+    --mark-edge: color-mix(in srgb, var(--rule-2) 85%, var(--paper));
+
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        inset 0 -1px 0 var(--bevel-lo),
+        0 2px 4px -1px color-mix(in srgb, var(--bevel-lo) 80%, transparent),
+        0 5px 10px -4px var(--bevel-lo);
 }
 
 /* 槽不参与 flex 分配：让它在栏顶按自身高度摆着，底部的工具条才不会被推下去。
- * 与牌记之间留 8px：紧贴着起排，第一格的图标会贴上字的下沿。 */
+ *
+ * **槽顶与页头的下边框同高**，中间不留间距：牌记区的高度与 `PageHeader` 等值，
+ * 页头底线就是牌记的底边，槽从这里起排，那条账线才在视觉上「拐个弯继续走」；
+ * 早先留 6px，槽顶比右侧横线低半格，两栏在接缝处永远差一个台阶（用户截图指出）。
+ * 以为「不留间距第一格会贴住字」是多余的担心：图形只有 34/45 高，牌记区里
+ * 本来就余下 5.6px，槽顶离字还有一段。 */
 .rail-nav {
     flex: none;
-    margin-top: calc(8px * var(--fs-scale));
 }
 
 /* ---------- 底部 ----------
@@ -178,7 +256,7 @@ const options = computed(() =>
     align-items: center;
     gap: 8px;
     margin-top: auto;
-    padding-top: 10px;
+    padding-top: 8px;
     border-top: var(--w-hair) solid var(--rule);
     --slot-h: calc(30px * var(--fs-scale));
     --slot-w: calc(30px * var(--fs-scale));

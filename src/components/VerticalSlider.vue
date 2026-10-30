@@ -154,14 +154,20 @@ async function onKeydown(event: KeyboardEvent) {
  * 槽与印同形之后，「当前页」靠朱色和一道短影区分，不再靠圆角的形状差。
  */
 .vs-track {
-    /* 侧栏规格。父级要换尺寸就覆写这五个变量，组件不认「侧栏」这个概念。 */
+    /* 侧栏规格。父级要换尺寸就覆写这五个变量，组件不认「侧栏」这个概念。
+     * 格高 62 是「图标 15 + 间距 7 + 两字竖排 32.2 + 字距 3.4 = 57.6」再留 4px：
+     * 原来 66 有 8px 全成了空白，而它是窗口最小高度里最贵的一项——8 格乘出来 32px
+     * （再乘 1.1 档的字号系数就是 35px）。 */
     --vs-w: calc(34px * var(--fs-scale));
-    --vs-cell: calc(66px * var(--fs-scale));
-    --vs-gap: calc(6px * var(--fs-scale));
+    --vs-cell: calc(62px * var(--fs-scale));
+    --vs-gap: calc(5px * var(--fs-scale));
     --vs-ico: calc(15px * var(--fs-scale));
     --vs-label: calc(14px * var(--fs-scale));
     /* 小圆角。外框、格、印共用它——一处改，三处一起变。 */
     --vs-radius: var(--r-2);
+    /* 印面与印上的字成对定义，暗色下整套换掉，见下面 `html.dark` 那段。 */
+    --vs-seal: var(--cinnabar);
+    --vs-seal-fg: var(--on-cinnabar);
 
     position: relative;
     display: grid;
@@ -199,12 +205,21 @@ async function onKeydown(event: KeyboardEvent) {
     left: 2px;
     height: var(--vs-cell);
     border-radius: var(--vs-radius);
-    background-color: var(--cinnabar);
-    background-image: linear-gradient(180deg, var(--bevel-hi), transparent 46%, var(--bevel-lo));
+    background-color: var(--vs-seal);
+    /* 上高光收到 15%、强度取 32%：原来一路铺到 46% 且用满强度 `--bevel-hi`
+     * （亮色下是 82% 白），印面上半截整体泛白，红色只剩下面一半（用户截图指出
+     * 「上面白色有点多」）。现在它只是一层贴着顶边的薄光，
+     * 「印面有厚度」主要靠下面那条 1px 的 `inset` 硬边光，不是这一片渐变。 */
+    background-image: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--bevel-hi) 32%, transparent),
+        transparent 15%,
+        var(--bevel-lo)
+    );
     box-shadow:
         inset 0 1px 0 var(--bevel-hi),
         0 1px 1px var(--bevel-lo),
-        0 3px 7px color-mix(in srgb, var(--cinnabar) 28%, transparent);
+        0 3px 7px color-mix(in srgb, var(--vs-seal) 28%, transparent);
     transition: transform 300ms var(--ease-snap);
     /* 印面不吃指针：否则拖到印上时事件目标是它，指针捕获与点击都会错位。 */
     pointer-events: none;
@@ -212,6 +227,19 @@ async function onKeydown(event: KeyboardEvent) {
 /* 按住跟手时不插值，否则拇指追在后面。 */
 .vs-track.dragging .vs-thumb {
     transition: none;
+}
+
+/* ---------- 暗色下的印 ----------
+ * `--cinnabar` 在暗色翻成 #d0755f 的亮橙红，`--on-cinnabar` 同时翻成近黑：
+ * 13px 楷体深字压在亮红上，笔画被红色吃掉，只剩一层发闷的暗块
+ * （用户反馈「选中时候的字体颜色黑色不明显」）。
+ * 所以暗色的印换深一档的 `--cinnabar-ink` 做面、`--ink` 做字（暗色下它就是纸白
+ * ——不能用 `--paper`，那个在暗色是 #1c1912 的深纸）。读法回到「朱底浅字」，
+ * 对比 4.6:1。切换主题时印只是变深、字只是变浅，不会整块翻面。
+ */
+:global(html.dark .vs-track) {
+    --vs-seal: var(--cinnabar-ink);
+    --vs-seal-fg: var(--ink);
 }
 
 /* ---------- 格 ---------- */
@@ -244,10 +272,10 @@ async function onKeydown(event: KeyboardEvent) {
 .vs-cell.muted:hover {
     color: var(--ink-2);
 }
-/* 选中那格的字要压在朱印上：用 --on-cinnabar，别用纯白（暗色下会发飘）。 */
+/* 选中那格的字要压在朱印上：用 `--vs-seal-fg`，它与印面在暗色下成对换（见上）。 */
 .vs-cell[aria-selected='true'],
 .vs-cell[aria-selected='true']:hover {
-    color: var(--on-cinnabar);
+    color: var(--vs-seal-fg);
     background: none;
 }
 .vs-cell :deep(.app-icon) {
@@ -273,9 +301,12 @@ async function onKeydown(event: KeyboardEvent) {
     letter-spacing: 0.12em;
     line-height: 1.15;
 }
-/* 印面里的字略小一档、字距略松：红底浅字比墨字显大，同字号会显得塞满。 */
+/* 印面里的字略小一档、字距略松：红底浅字比墨字显大，同字号会显得塞满。
+ * 但**不再缩字号**：14px 楷体压朱红时笔画已经细到发虚，再减 1px 就只剩一层影子
+ * （用户反馈「选中时字体颜色黑色不明显」——不是颜色不够深，是笔画撑不起对比）。
+ * 加 0.25px 描边而不加 `font-weight`：文楷本地只有 Regular，合成加粗会把撇捺糊成块。 */
 .vs-cell[aria-selected='true'] .vs-label {
-    font-size: calc(var(--vs-label) - 1px);
     letter-spacing: 0.16em;
+    -webkit-text-stroke: 0.25px currentColor;
 }
 </style>
