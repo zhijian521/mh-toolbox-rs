@@ -296,14 +296,22 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
         height 220ms var(--ease-soft);
 }
 
-/* 朱印：内缩 2px 落在槽里。缩进量对齐 `.size-thumb` 相对轨道的 2px。 */
+/* 朱印：内缩 1px 落进槽里——只留一道槽底 + 一道金边，印面才占得住这块地。
+ * 缩到 2px 时印只剩 39×22，四周一圈 2px 的槽底显得「里面小小的」。
+ * 印面渐变压得很淡（30% 白 / 32% 就透明）：真正的印泥是均匀一片朱色，
+ * 立体感交给那 1px 顶边高光和外投影去撑。渐变一重，读起来就是塑料按键不是印。 */
 .rail-tool::before {
     content: '';
     position: absolute;
-    inset: 2px;
+    inset: 1px;
     border-radius: calc(var(--r-2) - 1px);
     background-color: var(--cinnabar);
-    background-image: linear-gradient(180deg, var(--bevel-hi), transparent 46%, var(--bevel-lo));
+    background-image: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--bevel-hi) 30%, transparent),
+        transparent 32%,
+        var(--bevel-lo)
+    );
     box-shadow:
         inset 0 1px 0 var(--bevel-hi),
         0 1px 1px var(--bevel-lo),
@@ -335,10 +343,14 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
     box-shadow: inset 0 2px 4px var(--bevel-lo);
 }
 
-/* 图标要压在伪元素上面：绝对定位的 ::before 会盖住非定位内容。 */
+/* 图标要压在伪元素上面：绝对定位的 ::before 会盖住非定位内容。
+ * 尺寸放大到 16px：默认的 14px 在 24px 高的印面上只占四成，四周一圈留白，
+ * 看着就是「里面小小的」。16px 撑到三分之二，印面才饱满。 */
 .rail-tool :deep(.app-icon) {
     position: relative;
     z-index: 1;
+    width: calc(16px * var(--fs-scale));
+    height: calc(16px * var(--fs-scale));
 }
 
 /* 聚焦环不能再用朱红：悬停时底就是朱红，红环会消失。 */
