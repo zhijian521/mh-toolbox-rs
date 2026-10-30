@@ -71,12 +71,12 @@
             }
             .brand-name {
                 color: var(--ink);
-                font-size: 13.5px;
+                font-size: var(--fs-base);
                 line-height: 1.3;
                 white-space: nowrap;
             }
             .brand-sub {
-                font-family: var(--font-hei);
+                font-family: var(--font-ui);
                 font-size: var(--fs-mini);
                 letter-spacing: 0.16em;
                 color: var(--muted);
@@ -97,7 +97,7 @@
                 border-left: 2px solid transparent;
                 background: none;
                 color: var(--muted);
-                font-size: 13px;
+                font-size: calc(13px * var(--fs-scale));
                 text-align: left;
                 transition:
                     color var(--t-quick) var(--ease-soft),
@@ -196,7 +196,7 @@
                 padding-left: 0;
             }
             .figure-label {
-                font-family: var(--font-hei);
+                font-family: var(--font-ui);
                 font-size: var(--fs-mini);
                 letter-spacing: 0.2em;
                 color: var(--muted);
@@ -217,7 +217,7 @@
                 font-variant-numeric: tabular-nums;
             }
             .figure-value i {
-                font-family: var(--font-hei);
+                font-family: var(--font-ui);
                 font-size: var(--fs-sm);
                 font-style: normal;
                 color: var(--muted);
@@ -276,7 +276,7 @@
                 gap: 7px;
                 flex: none;
                 color: var(--ink);
-                font-size: 13.5px;
+                font-size: var(--fs-base);
             }
             .quick-field {
                 display: flex;
@@ -308,7 +308,7 @@
             }
             .quick-num b {
                 color: var(--ink);
-                font-family: var(--font-hei);
+                font-family: var(--font-ui);
                 font-size: var(--fs-base);
                 font-weight: 400;
                 font-variant-numeric: tabular-nums;
@@ -367,7 +367,7 @@
                 border-bottom: var(--w-hair) solid var(--rule-2);
             }
             .book-row .time {
-                font-family: var(--font-hei);
+                font-family: var(--font-ui);
                 font-size: var(--fs-xs);
                 color: var(--muted);
                 font-variant-numeric: tabular-nums;
@@ -387,7 +387,7 @@
             .book-row .amount {
                 text-align: right;
                 color: var(--ink);
-                font-family: var(--font-hei);
+                font-family: var(--font-ui);
                 font-variant-numeric: tabular-nums;
             }
             .book-row.out .amount {
@@ -472,14 +472,14 @@
             .session-time {
                 text-align: right;
                 color: var(--ink-2);
-                font-family: var(--font-hei);
+                font-family: var(--font-ui);
                 font-size: var(--fs-xs);
                 font-variant-numeric: tabular-nums;
             }
             .session-cost {
                 text-align: right;
                 color: var(--muted);
-                font-family: var(--font-hei);
+                font-family: var(--font-ui);
                 font-size: var(--fs-xs);
                 font-variant-numeric: tabular-nums;
             }
@@ -487,7 +487,7 @@
             .role-amount {
                 text-align: right;
                 color: var(--ink);
-                font-family: var(--font-hei);
+                font-family: var(--font-ui);
                 font-size: var(--fs-sm);
                 font-variant-numeric: tabular-nums;
             }
@@ -509,7 +509,7 @@
             .sessions-foot b {
                 margin-left: auto;
                 color: var(--ink);
-                font-family: var(--font-hei);
+                font-family: var(--font-ui);
                 font-size: var(--fs-sm);
                 font-weight: 400;
                 font-variant-numeric: tabular-nums;
@@ -574,7 +574,7 @@
                 line-height: var(--lh-base);
             }
             .spec-note code {
-                font-family: var(--font-hei);
+                font-family: var(--font-ui);
                 font-size: var(--fs-xs);
                 letter-spacing: 0;
             }
@@ -611,7 +611,7 @@
                 font-weight: 400;
             }
             .swatch code {
-                font-family: var(--font-hei);
+                font-family: var(--font-ui);
                 font-size: var(--fs-mini);
                 letter-spacing: 0;
             }
@@ -636,7 +636,7 @@
                 flex: none;
                 width: 96px;
                 color: var(--muted);
-                font-family: var(--font-hei);
+                font-family: var(--font-ui);
                 font-size: var(--fs-xs);
                 letter-spacing: 0;
             }
@@ -644,7 +644,7 @@
                 flex: none;
                 width: 56px;
                 color: var(--muted);
-                font-family: var(--font-hei);
+                font-family: var(--font-ui);
                 font-size: var(--fs-xs);
                 font-style: normal;
             }
@@ -690,7 +690,7 @@
             }
             .kit-group > small {
                 color: var(--muted);
-                font-family: var(--font-hei);
+                font-family: var(--font-ui);
                 font-size: var(--fs-mini);
                 letter-spacing: 0.14em;
             }
@@ -1148,14 +1148,14 @@
             ).join('');
 
             const TYPES = [
-                ['--fs-mini', '10px', '印章 · 表头', 'var(--fs-mini)', 'var(--font-hei)'],
-                ['--fs-xs', '11px', '元信息 · 时间', 'var(--fs-xs)', 'var(--font-hei)'],
-                ['--fs-sm', '12px', '胶囊 · 流水', 'var(--fs-sm)', 'var(--font-kai)'],
-                ['--fs-base', '13.5px', '正文 · 表单', 'var(--fs-base)', 'var(--font-kai)'],
-                ['--fs-md', '14.5px', '分栏标题', 'var(--fs-md)', 'var(--font-kai)'],
-                ['--fs-lg', '17px', '弹窗标题', 'var(--fs-lg)', 'var(--font-kai)'],
-                ['--fs-xl', '22px', '页面标题', 'var(--fs-xl)', 'var(--font-kai)'],
-                ['--fs-amount', '29px', '金额', 'var(--fs-amount)', 'var(--font-kai)'],
+                ['--fs-mini', '10px', '印章 · 表头', 'var(--fs-mini)', 'var(--font-ui)'],
+                ['--fs-xs', '11px', '元信息 · 时间', 'var(--fs-xs)', 'var(--font-ui)'],
+                ['--fs-sm', '12px', '胶囊 · 流水', 'var(--fs-sm)', 'var(--font-ui)'],
+                ['--fs-base', '13.5px', '正文 · 表单', 'var(--fs-base)', 'var(--font-ui)'],
+                ['--fs-md', '14.5px', '分栏标题', 'var(--fs-md)', 'var(--font-ui)'],
+                ['--fs-lg', '17px', '弹窗标题', 'var(--fs-lg)', 'var(--font-ui)'],
+                ['--fs-xl', '22px', '页面标题', 'var(--fs-xl)', 'var(--font-ui)'],
+                ['--fs-amount', '29px', '金额', 'var(--fs-amount)', 'var(--font-ui)'],
             ];
             document.getElementById('type-scale').innerHTML = TYPES.map(
                 ([token, px, usage, size, family]) => `

@@ -14,17 +14,21 @@
 |---|---|
 | Tauri 2 窗口 | 1280×820，最小 1024×680，居中；productName `梦幻养老助手`，identifier `com.zhijian.mhtoolbox.rs` |
 | IPC 通路 | `app_info` 命令，前端经 `src/services/desktop.ts` 调用（渲染层唯一允许碰系统的地方） |
-| 设置页 | 主题三档 + 组件预览（色板 / 字号 / 按钮 / 凹槽胶囊 / 两格开关 / 勾选 / 印章 / 金额 / 文武线 + 账线） |
+| 设置页 | 主题三档 + 字号三档（滑块）+ 组件预览（色板 / 字号 / 按钮 / 凹槽胶囊 / 两格开关 / 勾选 / 印章 / 金额 / 文武线 + 账线） |
 | 设计语言 | `design/tokens.css`、`design/base.css`、`design/income.html`（收益页样张，只读参考） |
 
 未开始：数据层（SQLite）、领域层、其余七个页面、OCR、e2e。
+
+**字体与字号都只有一条通路。** 全站唯一字体是霞鹜文楷（不再与黑体混排）；八档字号全部写成
+`calc(Npx * var(--fs-scale))`，设置页的三档滑块只改 `--fs-scale` 一个变量（0.92 / 1 / 1.1）。
+连左栏宽度、印章尺寸也跟着缩放——否则放大字号时「梦幻养老助手」会被截成「梦幻养…」。
 
 ## 目录
 
 ```
 ├── src/                  Vue 前端
-│   ├── components/       SealMark / BevelPill / CostSwitch / BaseCheck / LedgerSection
-│   ├── composables/      use-theme（主题只有 color-scheme 一条通路）
+│   ├── components/       SealMark / BevelPill / CostSwitch / BaseCheck / LedgerSection / FontSizeSlider
+│   ├── composables/      use-theme（主题）/ use-font-scale（字号三档）
 │   ├── services/         desktop.ts —— 渲染层唯一的系统能力出口
 │   ├── styles/           tokens.css（令牌）/ base.css（重置 + 四件套）
 │   └── views/            SettingsView

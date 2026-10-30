@@ -18,7 +18,7 @@ body {
 }
 
 body {
-    font-family: var(--font-kai);
+    font-family: var(--font-ui);
     font-size: var(--fs-base);
     color: var(--ink-2);
     background: var(--bg);
@@ -142,9 +142,9 @@ svg {
     );
 }
 
-/* 表头：黑体小字 + 字距，像印刷体的栏目名。 */
+/* 表头：小字 + 字距，像印刷体的栏目名。 */
 .col-head {
-    font-family: var(--font-hei);
+    font-family: var(--font-ui);
     font-size: var(--fs-mini);
     letter-spacing: 0.18em;
     color: var(--muted);
@@ -158,12 +158,13 @@ svg {
     display: inline-grid;
     place-items: center;
     flex: none;
-    width: 26px;
-    height: 26px;
+    /* 印章随字号缩放：字变大了印章不变，会显得那颗印比旁边的字还小。 */
+    width: calc(26px * var(--fs-scale));
+    height: calc(26px * var(--fs-scale));
     border: 1.5px solid var(--cinnabar);
     border-radius: var(--r-1);
     color: var(--cinnabar);
-    font-size: 15px;
+    font-size: calc(15px * var(--fs-scale));
     line-height: 1;
     transform: rotate(-2.5deg);
     box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--paper) 100%, transparent);
@@ -428,9 +429,9 @@ svg {
 .positive {
     color: var(--moss);
 }
-/* 数字一律黑体 + 等宽数字：楷体的数字宽度不一，列一对齐就散。 */
+/* 数字一律用等宽数字（tabular-nums）：霞鹜的数字宽度不一，列一对齐就散。 */
 .num {
-    font-family: var(--font-hei);
+    font-family: var(--font-ui);
     font-variant-numeric: tabular-nums;
     letter-spacing: 0;
 }

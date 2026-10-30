@@ -3,18 +3,21 @@ import { onMounted, ref } from 'vue';
 import BaseCheck from '../components/BaseCheck.vue';
 import BevelPill from '../components/BevelPill.vue';
 import CostSwitch from '../components/CostSwitch.vue';
+import FontSizeSlider from '../components/FontSizeSlider.vue';
 import LedgerSection from '../components/LedgerSection.vue';
 import SealMark from '../components/SealMark.vue';
+import { useFontScale } from '../composables/use-font-scale';
 import { useTheme, type ThemeMode } from '../composables/use-theme';
 import { appInfo, type AppInfo } from '../services/desktop';
 
 /**
- * 设置页：这一版只做两件事——把主题通路跑通，把设计语言落成真组件。
+ * 设置页：这一版只做两件事——把主题与字号两条通路跑通，把设计语言落成真组件。
  *
  * 组件预览不是「演示页」，它是这套语言的验收面：色板、字号、凹槽、开关、勾选、印章、
  * 文武线与账线都在这里出现一次。以后新增控件先加进这一块，再进业务页面。
  */
 const { mode } = useTheme();
+const { scale } = useFontScale();
 
 const themes: { key: ThemeMode; label: string; note: string }[] = [
     { key: 'system', label: '跟随系统', note: '默认' },
@@ -50,9 +53,10 @@ const swatches: { token: string; label: string }[] = [
     { token: '--moss', label: '苔' },
 ];
 
-const typeScale: { token: string; px: string; usage: string; size: string; hei?: boolean }[] = [
-    { token: '--fs-mini', px: '10px', usage: '印章 · 表头', size: 'var(--fs-mini)', hei: true },
-    { token: '--fs-xs', px: '11px', usage: '元信息 · 时间', size: 'var(--fs-xs)', hei: true },
+/* 全站唯一字体，所以这里只列字号；px 是「默认档」下的实际值。 */
+const typeScale: { token: string; px: string; usage: string; size: string }[] = [
+    { token: '--fs-mini', px: '10px', usage: '印章 · 表头', size: 'var(--fs-mini)' },
+    { token: '--fs-xs', px: '11px', usage: '元信息 · 时间', size: 'var(--fs-xs)' },
     { token: '--fs-sm', px: '12px', usage: '胶囊 · 流水', size: 'var(--fs-sm)' },
     { token: '--fs-base', px: '13.5px', usage: '正文 · 表单', size: 'var(--fs-base)' },
     { token: '--fs-md', px: '14.5px', usage: '分栏标题', size: 'var(--fs-md)' },
@@ -91,10 +95,17 @@ const typeScale: { token: string; px: string; usage: string; size: string; hei?:
                     </div>
                     <span class="hint">当前：{{ themes.find((item) => item.key === mode)?.label }}</span>
                 </div>
+                <div class="row row-gap">
+                    <span class="row-label">字号</span>
+                    <FontSizeSlider v-model="scale" />
+                    <span class="hint">全站文字同步缩放，印章与金额一起变</span>
+                </div>
                 <p class="note">
                     切主题只改根元素上的 <code>color-scheme</code>，颜色令牌不需要第二份；
                     「跟随系统」时监听 <code>prefers-color-scheme</code>，Tauri 侧以后接
                     <code>setTheme('system')</code> 即可，前端不用改。
+                    字号同理：三档只改 <code>--fs-scale</code> 一个变量（0.92 / 1 / 1.1），
+                    八档字号全是 <code>calc(Npx * var(--fs-scale))</code>。
                 </p>
             </LedgerSection>
 
@@ -112,15 +123,12 @@ const typeScale: { token: string; px: string; usage: string; size: string; hei?:
             </LedgerSection>
 
             <!-- 字号 -->
-            <LedgerSection title="字号与双字体" seal="字" hint="楷体题字 · 黑体记账">
+            <LedgerSection title="字号阶梯" seal="字" hint="霞鹜文楷 · 八档 · 受上方滑块控制">
                 <div class="type-scale">
                     <div v-for="item in typeScale" :key="item.token" class="type-row">
                         <code class="type-token">{{ item.token }}</code>
                         <em class="type-px">{{ item.px }}</em>
-                        <span
-                            class="type-sample"
-                            :style="{ fontSize: item.size, fontFamily: item.hei ? 'var(--font-hei)' : 'var(--font-kai)' }"
-                        >
+                        <span class="type-sample" :style="{ fontSize: item.size }">
                             {{ item.usage }} · 梦幻养老助手 328.6 万
                         </span>
                     </div>
@@ -292,9 +300,12 @@ const typeScale: { token: string; px: string; usage: string; size: string; hei?:
     gap: 12px;
     flex-wrap: wrap;
 }
+.row-gap {
+    margin-top: 12px;
+}
 .row-label {
     color: var(--muted);
-    font-family: var(--font-hei);
+    font-family: var(--font-ui);
     font-size: var(--fs-xs);
     letter-spacing: 0.14em;
 }
@@ -315,7 +326,7 @@ const typeScale: { token: string; px: string; usage: string; size: string; hei?:
 }
 .note code,
 dd code {
-    font-family: var(--font-hei);
+    font-family: var(--font-ui);
     font-size: var(--fs-xs);
     letter-spacing: 0;
 }
@@ -357,7 +368,7 @@ dd code {
     font-weight: 400;
 }
 .swatch code {
-    font-family: var(--font-hei);
+    font-family: var(--font-ui);
     font-size: var(--fs-mini);
     letter-spacing: 0;
 }
@@ -383,7 +394,7 @@ dd code {
     flex: none;
     width: 96px;
     color: var(--muted);
-    font-family: var(--font-hei);
+    font-family: var(--font-ui);
     font-size: var(--fs-xs);
     letter-spacing: 0;
 }
@@ -391,7 +402,7 @@ dd code {
     flex: none;
     width: 52px;
     color: var(--muted);
-    font-family: var(--font-hei);
+    font-family: var(--font-ui);
     font-size: var(--fs-xs);
     font-style: normal;
 }
@@ -450,7 +461,7 @@ dd code {
 .amount-value i {
     margin-left: 4px;
     color: var(--muted);
-    font-family: var(--font-hei);
+    font-family: var(--font-ui);
     font-size: var(--fs-sm);
     font-style: normal;
 }
@@ -486,7 +497,7 @@ dd code {
 }
 .ledger-line .time {
     color: var(--muted);
-    font-family: var(--font-hei);
+    font-family: var(--font-ui);
     font-size: var(--fs-xs);
     font-variant-numeric: tabular-nums;
 }
@@ -520,7 +531,7 @@ dd code {
 }
 .about dt {
     color: var(--muted);
-    font-family: var(--font-hei);
+    font-family: var(--font-ui);
     font-size: var(--fs-xs);
     letter-spacing: 0.08em;
 }

@@ -22,11 +22,11 @@
     color-scheme: light;
 
     /* ---------- 字体 ----------
-     * 双字体体系：楷体给标题、金额、装备名（有笔锋，是「题字」）；
-     * 黑体给元信息、表头、数字列（小字要清晰，楷体在 10–11px 会糊）。
+     * 全站唯一字体：霞鹜文楷。标题、金额、元信息、数字列都用它，不再与黑体混排——
+     * 混排会让「题字」与「记账」两套字形互相抵消，字号缩放也要照顾两种字体。
+     * 楷体在 10–11px 偏细，小字号靠一点点字距补，不靠加粗硬撑。
      */
-    --font-kai: 'LXGW WenKai Screen', 'Microsoft YaHei', sans-serif;
-    --font-hei: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    --font-ui: 'LXGW WenKai Screen', 'Microsoft YaHei', sans-serif;
 
     /* ---------- 纸 ---------- */
     --bg: light-dark(#eee5cf, #131109);
@@ -71,17 +71,18 @@
     --scrollbar-thumb-active: light-dark(#8e7850, #83714f);
 
     /* ---------- 字号阶梯 ----------
-     * 基准 13.5px。标题走楷体，比同尺寸黑体显小，所以页面标题提到 22px 才压得住。
-     * 金额单独一档（--fs-amount），它是这页唯一允许超过标题的字。
+     * 基准 13.5px，八档封顶。每个档位都乘 `--fs-scale`：设置页的「较小 / 默认 / 较大」
+     * 只改这一个变量，全站字号跟着缩放——不用给组件写第二套值，也不会漏。
      */
-    --fs-mini: 10px; /* 印、类别签、表头 */
-    --fs-xs: 11px; /* 元信息、部位 */
-    --fs-sm: 12px; /* 胶囊、次要说明 */
-    --fs-base: 13.5px; /* 正文、表单 */
-    --fs-md: 14.5px; /* 分栏标题 */
-    --fs-lg: 17px; /* 弹窗标题 */
-    --fs-xl: 22px; /* 页面标题 */
-    --fs-amount: 29px; /* 金额 */
+    --fs-scale: 1;
+    --fs-mini: calc(10px * var(--fs-scale)); /* 印、类别签、表头 */
+    --fs-xs: calc(11px * var(--fs-scale)); /* 元信息、部位 */
+    --fs-sm: calc(12px * var(--fs-scale)); /* 胶囊、次要说明 */
+    --fs-base: calc(13.5px * var(--fs-scale)); /* 正文、表单 */
+    --fs-md: calc(14.5px * var(--fs-scale)); /* 分栏标题 */
+    --fs-lg: calc(17px * var(--fs-scale)); /* 弹窗标题 */
+    --fs-xl: calc(22px * var(--fs-scale)); /* 页面标题 */
+    --fs-amount: calc(29px * var(--fs-scale)); /* 金额 */
     --lh-tight: 1.45;
     --lh-base: 1.72;
 

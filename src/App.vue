@@ -84,11 +84,13 @@ const current = ref('settings');
 }
 
 /* ---------- 书脊式导航 ---------- */
+/* 宽度跟着字号缩放：左栏是结构件，字大了它不跟着宽，标题就会被截成「梦幻养…」。
+   实测 1.1 档下 158px 已经装不下六个字。 */
 .rail {
     display: flex;
     flex: none;
     flex-direction: column;
-    width: 158px;
+    width: calc(158px * var(--fs-scale));
     padding: 14px 12px 12px;
     border-right: var(--w-hair) solid var(--rule);
     background: var(--paper);
@@ -108,13 +110,13 @@ const current = ref('settings');
 }
 .brand-name {
     color: var(--ink);
-    font-size: 13.5px;
+    font-size: var(--fs-base);
     line-height: 1.3;
     white-space: nowrap;
 }
 .brand-sub {
     color: var(--muted);
-    font-family: var(--font-hei);
+    font-family: var(--font-ui);
     font-size: var(--fs-mini);
     letter-spacing: 0.16em;
 }
@@ -135,7 +137,7 @@ const current = ref('settings');
     border-left: 2px solid transparent;
     background: none;
     color: var(--muted);
-    font-size: 13px;
+    font-size: calc(13px * var(--fs-scale));
     text-align: left;
     transition:
         color var(--t-quick) var(--ease-soft),
@@ -169,7 +171,7 @@ const current = ref('settings');
     padding: 9px 8px 0;
     border-top: var(--w-hair) solid var(--rule);
     color: var(--muted);
-    font-family: var(--font-hei);
+    font-family: var(--font-ui);
     font-size: var(--fs-mini);
     letter-spacing: 0.02em;
 }
