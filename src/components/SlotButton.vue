@@ -19,13 +19,7 @@ withDefaults(defineProps<{ label: string; disabled?: boolean }>(), { disabled: f
 </script>
 
 <template>
-    <button
-        type="button"
-        class="slot-btn"
-        :title="label"
-        :aria-label="label"
-        :disabled="disabled"
-    >
+    <button type="button" class="slot-btn" :title="label" :aria-label="label" :disabled="disabled">
         <slot />
     </button>
 </template>

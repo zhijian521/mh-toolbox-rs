@@ -10,12 +10,12 @@
 
 骨架已起，只有一个页面。
 
-| 已完成 | 说明 |
-|---|---|
-| Tauri 2 窗口 | 1280×820，最小 1024×680，居中；productName `梦幻养老助手`，identifier `com.zhijian.mhtoolbox.rs` |
-| IPC 通路 | `app_info` 命令，前端经 `src/services/desktop.ts` 调用（渲染层唯一允许碰系统的地方） |
-| 设置页 | 主题三档 + 字号三档（滑块）+ 组件预览（色板 / 字号 / 按钮 / 凹槽胶囊 / 两格开关 / 勾选 / 印章 / 金额 / 文武线 + 账线） |
-| 设计语言 | `design/tokens.css`、`design/base.css`、`design/income.html`（收益页样张，只读参考） |
+| 已完成       | 说明                                                                                                                   |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Tauri 2 窗口 | 1280×820，最小 1024×680，居中；productName `梦幻养老助手`，identifier `com.zhijian.mhtoolbox.rs`                       |
+| IPC 通路     | `app_info` 命令，前端经 `src/services/desktop.ts` 调用（渲染层唯一允许碰系统的地方）                                   |
+| 设置页       | 主题三档 + 字号三档（滑块）+ 组件预览（色板 / 字号 / 按钮 / 凹槽胶囊 / 两格开关 / 勾选 / 印章 / 金额 / 文武线 + 账线） |
+| 设计语言     | `design/tokens.css`、`design/base.css`、`design/income.html`（收益页样张，只读参考）                                   |
 
 未开始：数据层（SQLite）、领域层、其余七个页面、OCR、e2e。
 
@@ -36,6 +36,17 @@
 ├── src-tauri/            Rust 壳（窗口、命令、能力配置）
 ├── design/               设计语言样张与令牌原件
 └── assets/fonts/         霞鹜文楷 Screen（全量 9.8 MB，不子集化，OFL 1.1）
+```
+
+工程约定单独成文，开工前先读这两份：
+
+- **[`AGENTS.md`](AGENTS.md)** — 本机环境硬约束（沙箱能做什么、不能做什么）、验证方式、红线、明确不做的事
+- **[`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)** — 工程规范、全仓审查发现、分批落地计划
+
+质量门只有一条命令：
+
+```bash
+npm run check    # format:check + lint + typecheck
 ```
 
 ## 启动
@@ -59,7 +70,7 @@ start.bat --force    遇到占用或残留实例时直接处理，不询问
 3. **独占资源预检：窗口实例 + 5173 端口**。这是启动失败最常见的原因，两条都要查。
    `vite.config.ts` 开了 `strictPort`，5173 被占时 Vite 不换端口而是直接退出，
    `tauri dev` 只会抛一句 `Error The "beforeDevCommand" terminated with a non-zero status
-   code.`——完全不提端口。脚本会把占用者 PID 打出来并询问是否结束，**只结束 `node.exe`**，
+code.`——完全不提端口。脚本会把占用者 PID 打出来并询问是否结束，**只结束 `node.exe`**，
    别的进程一律不动；结束之后还会**轮询等端口真正释放**（最多 10 秒），
    避免 kill 完立刻 bind 的偶发失败。
 4. **`System32` 显式提到 PATH 前段**。从 Git Bash 里调用本脚本时，PATH 里混着 Git 的
@@ -74,7 +85,6 @@ target 目录被占用）。
 >
 > 在 Git Bash 里请用 `cmd //c start.bat`；直接在 mintty 里跑会因编码不同显示成乱码
 > （不影响功能）。非交互终端下无法弹询问，脚本会提示改用 `--force`。
-
 
 ## 开发
 

@@ -17,7 +17,11 @@ withDefaults(defineProps<{ text: string; solid?: boolean; size?: number }>(), {
     <span
         class="seal"
         :class="{ solid, sized: size > 0 }"
-        :style="size > 0 ? { width: `${size}px`, height: `${size}px`, fontSize: `${size * 0.58}px` } : undefined"
+        :style="
+            size > 0
+                ? { width: `${size}px`, height: `${size}px`, fontSize: `${size * 0.58}px` }
+                : undefined
+        "
         aria-hidden="true"
         >{{ text }}</span
     >

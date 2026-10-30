@@ -19,7 +19,11 @@ const options: { value: FontScale; label: string }[] = [
     { value: 'large', label: '较大' },
 ];
 
-const indexOf = (value: FontScale) => Math.max(0, options.findIndex((item) => item.value === value));
+const indexOf = (value: FontScale) =>
+    Math.max(
+        0,
+        options.findIndex((item) => item.value === value),
+    );
 
 function choose(value: FontScale) {
     if (props.disabled || value === props.modelValue) return;

@@ -177,7 +177,16 @@ export const ICON_GROUPS: { label: string; note: string; names: IconName[] }[] =
     {
         label: '导航',
         note: '左栏八个入口',
-        names: ['overview', 'income', 'equipment', 'prices', 'characters', 'accounts', 'goals', 'settings'],
+        names: [
+            'overview',
+            'income',
+            'equipment',
+            'prices',
+            'characters',
+            'accounts',
+            'goals',
+            'settings',
+        ],
     },
     {
         label: '动作',

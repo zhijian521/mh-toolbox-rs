@@ -1,0 +1,17 @@
+# 工具链声明。
+#
+# 这里写 `stable` 而不是具体版本号，是被本机环境逼出来的折衷：
+# 本机装的是 `stable` 这个 toolchain（实测解析为 rustc 1.99.1），
+# 写成 `channel = "1.99.1"` 时 rustup 认为那是**另一个**工具链，会重新下载
+# 6 个组件（实测卡在下载，且这一步没有进度显示）。
+#
+# 所以版本锁定靠两件事，不靠这个文件的 channel：
+#   1. `Cargo.toml` 的 `rust-version` 声明最低要求；
+#   2. 这一行注释 + AGENTS.md 记下实测版本（1.99.1 / cargo 1.99.1），
+#      升级时同步改注释并跑一次 `cargo check`，是一次显式动作。
+#
+# 如果将来要做可复现构建（CI、多人协作），改成 `channel = "1.99.1"`，
+# 并在每台机器上先执行 `rustup toolchain install 1.99.1`。
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]

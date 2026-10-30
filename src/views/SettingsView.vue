@@ -45,7 +45,6 @@ const withCost = ref(false);
 
 /* 图标清单直接按 icons.ts 的分组渲染，新加图标不用回来改这一页。 */
 
-
 const swatches: { token: string; label: string }[] = [
     { token: '--bg', label: '页面底' },
     { token: '--paper', label: '纸面' },
@@ -87,7 +86,9 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
                 <div class="row">
                     <span class="row-label">主题</span>
                     <SegmentedPills v-model="mode" :options="themeOptions" label="主题" />
-                    <span class="hint">当前：{{ themeOptions.find((item) => item.value === mode)?.label }}</span>
+                    <span class="hint"
+                        >当前：{{ themeOptions.find((item) => item.value === mode)?.label }}</span
+                    >
                 </div>
                 <div class="row row-gap">
                     <span class="row-label">字号</span>
@@ -97,9 +98,9 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
                 <p class="note">
                     切主题只改根元素上的 <code>color-scheme</code>，颜色令牌不需要第二份；
                     「跟随系统」时监听 <code>prefers-color-scheme</code>，Tauri 侧以后接
-                    <code>setTheme('system')</code> 即可，前端不用改。
-                    字号同理：三档只改 <code>--fs-scale</code> 一个变量（0.92 / 1 / 1.1），
-                    八档字号全是 <code>calc(Npx * var(--fs-scale))</code>。
+                    <code>setTheme('system')</code> 即可，前端不用改。 字号同理：三档只改
+                    <code>--fs-scale</code> 一个变量（0.92 / 1 / 1.1）， 八档字号全是
+                    <code>calc(Npx * var(--fs-scale))</code>。
                 </p>
             </LedgerSection>
 
@@ -112,8 +113,8 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
                             <SegmentedPills v-model="mode" :options="themeOptions" label="主题" />
                         </div>
                         <p class="note">
-                            一组里选一个。选项文案与值的类型由调用方给（泛型 T），
-                            单格质感全交给 <code>BevelPill</code>，它自己不重复写。
+                            一组里选一个。选项文案与值的类型由调用方给（泛型 T）， 单格质感全交给
+                            <code>BevelPill</code>，它自己不重复写。
                         </p>
                     </div>
 
@@ -138,7 +139,8 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
                         </div>
                         <p class="note">
                             常态是槽（槽底 + 金边），悬停时朱印内缩 1px 落进去——移上去看。
-                            尺寸不写死：侧栏经 <code>--slot-h</code> / <code>--slot-w</code> 传 30px 正方形。
+                            尺寸不写死：侧栏经 <code>--slot-h</code> / <code>--slot-w</code> 传 30px
+                            正方形。
                         </p>
                     </div>
                 </div>
@@ -207,7 +209,9 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
                             </BevelPill>
                             <BevelPill disabled>已归档</BevelPill>
                         </div>
-                        <p class="note">凹要四件齐（槽底、上暗下亮、上沿内阴影、下沿高光）；选中是灌满，不是描边。</p>
+                        <p class="note">
+                            凹要四件齐（槽底、上暗下亮、上沿内阴影、下沿高光）；选中是灌满，不是描边。
+                        </p>
                     </div>
 
                     <div class="kit-cell">
@@ -216,7 +220,11 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
                             <CostSwitch v-model="cardCost" />
                             <CostSwitch v-model="autoSave" off-label="手动" on-label="自动" />
                         </div>
-                        <p class="note">滑块 240ms <code>cubic-bezier(0.34,1.28,0.6,1)</code> 带过冲；关闭态是灭灯，不是变灰。</p>
+                        <p class="note">
+                            滑块 240ms
+                            <code>cubic-bezier(0.34,1.28,0.6,1)</code>
+                            带过冲；关闭态是灭灯，不是变灰。
+                        </p>
                     </div>
 
                     <div class="kit-cell">
@@ -226,7 +234,9 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
                             <BaseCheck v-model="withCost">含点卡成本</BaseCheck>
                             <BaseCheck :model-value="false" disabled>停用项</BaseCheck>
                         </div>
-                        <p class="note">多选用胶囊、互斥用开关、是/否用勾选——别把三种语义混着用。</p>
+                        <p class="note">
+                            多选用胶囊、互斥用开关、是/否用勾选——别把三种语义混着用。
+                        </p>
                     </div>
 
                     <div class="kit-cell">
@@ -235,7 +245,9 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
                             <SealMark text="梦" />
                             <SealMark text="记" />
                             <SealMark text="账" solid />
-                            <span class="hint">标记已定稿 / 已入账 / 已达成，全站唯一允许歪 2.5° 的元素。</span>
+                            <span class="hint"
+                                >标记已定稿 / 已入账 / 已达成，全站唯一允许歪 2.5° 的元素。</span
+                            >
                         </div>
                     </div>
 
@@ -245,7 +257,9 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
                             <span class="amount-value">232.6<i>万</i></span>
                             <span class="amount-note">净收益 · 今日</span>
                         </div>
-                        <p class="note">金额单独一档字号（29px），下方一条金额线；它是唯一允许超过页面标题的字。</p>
+                        <p class="note">
+                            金额单独一档字号（29px），下方一条金额线；它是唯一允许超过页面标题的字。
+                        </p>
                     </div>
                 </div>
             </LedgerSection>
@@ -270,11 +284,11 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
                 </div>
 
                 <p class="note">
-                    图标来自成套库（tabler），我们只维护「业务名 → 图标」的映射。早先那套是手画的
-                    16 格 path，问题不在能不能画对，而在一致性——28 个图标一次画完，圆角、边长比例、
-                    留白各走各的，放大看就参差，加一个新图标还得重新对齐一次。
-                    实际使用尺寸是 <code>calc(14px * var(--fs-scale))</code>，调大字号图标一起长；
-                    下面的清单固定 18px，只为看清形状。标题栏三个窗口键另用固定 13px。
+                    图标来自成套库（tabler），我们只维护「业务名 → 图标」的映射。早先那套是手画的 16
+                    格 path，问题不在能不能画对，而在一致性——28 个图标一次画完，圆角、边长比例、
+                    留白各走各的，放大看就参差，加一个新图标还得重新对齐一次。 实际使用尺寸是
+                    <code>calc(14px * var(--fs-scale))</code>，调大字号图标一起长； 下面的清单固定
+                    18px，只为看清形状。标题栏三个窗口键另用固定 13px。
                 </p>
             </LedgerSection>
 
@@ -288,24 +302,32 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
                             <span class="col-head">来源</span>
                             <span class="col-head amount-col">金额</span>
                         </div>
-                        <div v-for="row in [
-                            ['09:12', '黑山老妖', '师门任务', '8.8'],
-                            ['11:44', '一剪梅', '金柳露 ×3', '8.4'],
-                            ['12:25', '五开合计', '点卡成本', '96.0'],
-                        ]" :key="row[0]" class="ledger-line">
+                        <div
+                            v-for="row in [
+                                ['09:12', '黑山老妖', '师门任务', '8.8'],
+                                ['11:44', '一剪梅', '金柳露 ×3', '8.4'],
+                                ['12:25', '五开合计', '点卡成本', '96.0'],
+                            ]"
+                            :key="row[0]"
+                            class="ledger-line"
+                        >
                             <span class="time">{{ row[0] }}</span>
                             <span>{{ row[1] }}</span>
                             <span class="from">{{ row[2] }}</span>
-                            <span class="amount-col num" :class="{ out: row[3] === '96.0' }">{{ row[3] }}</span>
+                            <span class="amount-col num" :class="{ out: row[3] === '96.0' }">{{
+                                row[3]
+                            }}</span>
                         </div>
                     </div>
                     <div class="structure-note">
                         <p class="note">
-                            <b>文武线</b>：外框 1px <code>--rule-2</code> + 内框 1px <code>--rule</code>，中间留 3px——
+                            <b>文武线</b>：外框 1px <code>--rule-2</code> + 内框 1px
+                            <code>--rule</code>，中间留 3px——
                             本页每个区块都是它，替代旧版的「圆角卡片 + 投影」。
                         </p>
                         <p class="note">
-                            <b>账线</b>：行高严格 28px，线在 27–28px 之间。只用在「一行一条记录」的列表上，
+                            <b>账线</b>：行高严格 28px，线在 27–28px
+                            之间。只用在「一行一条记录」的列表上，
                             铺到底色上就成格子纸，反而看不清字。
                         </p>
                     </div>
@@ -320,12 +342,18 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
                     <dt>版本</dt>
                     <dd>
                         <template v-if="info">{{ info.version }}</template>
-                        <template v-else><span class="warn">未连到 Rust 侧</span>（浏览器预览）</template>
+                        <template v-else
+                            ><span class="warn">未连到 Rust 侧</span>（浏览器预览）</template
+                        >
                     </dd>
                     <dt>标识</dt>
-                    <dd><code>{{ info?.identifier ?? 'com.zhijian.mhtoolbox.rs' }}</code></dd>
+                    <dd>
+                        <code>{{ info?.identifier ?? 'com.zhijian.mhtoolbox.rs' }}</code>
+                    </dd>
                     <dt>数据目录</dt>
-                    <dd><code>{{ info?.dataDir ?? '%APPDATA%\\mh-tool-v2' }}</code></dd>
+                    <dd>
+                        <code>{{ info?.dataDir ?? '%APPDATA%\\mh-tool-v2' }}</code>
+                    </dd>
                     <dt>运行环境</dt>
                     <dd>{{ info?.webview ?? '系统 WebView2（Tauri 2）' }}</dd>
                     <dt>字体</dt>

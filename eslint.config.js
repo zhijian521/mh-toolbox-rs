@@ -1,0 +1,114 @@
+import js from '@eslint/js';
+import pluginVue from 'eslint-plugin-vue';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
+
+/*
+ * 静态检查只拦「会出事」的问题，不拦风格——风格一律交给 Prettier。
+ * 两套都管格式化会互相打架，最后总要关掉一边。
+ *
+ * 分组按运行环境切，不按「哪个插件推荐」切：
+ * - src：浏览器 + ESM。Vue 组件与 TS 混在一起，共用一份规则。
+ * - 根配置文件（vite.config.ts 等）：Node 环境，能读 process。
+ * - scripts：Node 的 .mjs，允许控制台输出（它们是命令行工具，输出就是产物）。
+ */
+export default tseslint.config(
+    {
+        ignores: [
+            'dist/**',
+            'node_modules/**',
+            'src-tauri/**',
+            // 生成物与设计产物：不是手写代码，检查它们只会产生噪音。
+            'design/**',
+            'src-tauri/icons/**',
+            '.runtime/**',
+            '.workbuddy/**',
+        ],
+    },
+
+    js.configs.recommended,
+
+    // ---------- 源码：TS + Vue ----------
+    ...tseslint.configs.recommended,
+    // 只用 `essential`，不用 `recommended`。后者带一整套**格式化**规则
+    // （html-indent 期望 2 空格、max-attributes-per-line、singleline-content-newline…），
+    // 与本仓的 4 空格 + Prettier 直接冲突，实测一次报 619 条。
+    // `essential` 只保留「会真的出错」的那一层：解析错误、重复 key、无效指令、v-for 缺 key。
+    ...pluginVue.configs['flat/essential'],
+    {
+        files: ['src/**/*.{ts,vue}'],
+        languageOptions: {
+            ecmaVersion: 'latest',
+            sourceType: 'module',
+            globals: { ...globals.browser },
+            parserOptions: {
+                // .vue 里 `<script lang="ts">` 由 vue-eslint-parser 交给 TS 解析器。
+                parser: tseslint.parser,
+                extraFileExtensions: ['.vue'],
+            },
+        },
+        rules: {
+            // 未使用变量：下划线前缀表示「签名占位，故意不用」。
+            '@typescript-eslint/no-unused-vars': [
+                'error',
+                {
+                    args: 'after-used',
+                    argsIgnorePattern: '^_',
+                    caughtErrors: 'all',
+                    caughtErrorsIgnorePattern: '^_',
+                },
+            ],
+            // 模板里禁用 v-html：这套界面全部由模板渲染，一旦允许拼 HTML，
+            // 就回到「字符串拼界面」的老路，也让 XSS 有了入口。
+            'vue/no-v-html': 'error',
+            // 组件必须显式声明 emits，否则父级监听的事件在类型上是 `any`。
+            'vue/require-explicit-emits': 'error',
+            // 模板块里组件名统一 PascalCase，与 import 名一致，便于全局搜索。
+            'vue/component-name-in-template-casing': ['error', 'PascalCase'],
+            // 属性顺序：语义（is/v-for/v-if）→ 绑定 → 事件 → 其余。
+            'vue/attributes-order': 'warn',
+            // 宏（defineProps / defineEmits / defineOptions）按固定顺序，读起来一致。
+            'vue/define-macros-order': [
+                'warn',
+                { order: ['defineOptions', 'defineProps', 'defineEmits'] },
+            ],
+            'no-console': ['warn', { allow: ['warn', 'error'] }],
+        },
+    },
+
+    // 渲染层不许直接拿系统能力：只有 src/services/ 能 invoke。
+    // 这条是 `services/desktop.ts` 头注释里那句约定的可执行版本——
+    // 光写在注释里，第一次赶进度就会有人绕过去。
+    {
+        files: [
+            'src/components/**/*.{ts,vue}',
+            'src/views/**/*.{ts,vue}',
+            'src/composables/**/*.ts',
+        ],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    paths: [
+                        {
+                            name: '@tauri-apps/api/core',
+                            message: '系统能力统一走 src/services/，不要在组件里直接 invoke。',
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+
+    // ---------- 根配置与脚本：Node 环境 ----------
+    {
+        files: ['*.config.{ts,js,mjs}', 'scripts/**/*.{js,mjs}'],
+        languageOptions: {
+            globals: { ...globals.node },
+        },
+        rules: {
+            // 命令行工具的输出就是它的产物。
+            'no-console': 'off',
+        },
+    },
+);

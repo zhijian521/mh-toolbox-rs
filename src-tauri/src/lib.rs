@@ -70,8 +70,7 @@ fn open_external(url: String) -> Result<(), String> {
 
 /// WebView2 自带的默认开关。自己设 `additional_browser_args` 会**整串覆盖**它，
 /// 所以拼调试端口时必须把这一段原样带上，否则右键菜单、PDF 壳这些行为会跟着变。
-const WEBVIEW_DEFAULT_ARGS: &str =
-    "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
+const WEBVIEW_DEFAULT_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
 
 /// 调试端口：只有 debug 构建读 `MH_CDP_PORT`，发布版一律不开。
 ///
@@ -81,7 +80,9 @@ const WEBVIEW_DEFAULT_ARGS: &str =
 #[cfg(debug_assertions)]
 fn debug_browser_args() -> Option<String> {
     let port = std::env::var("MH_CDP_PORT").ok()?;
-    Some(format!("{WEBVIEW_DEFAULT_ARGS} --remote-debugging-port={port}"))
+    Some(format!(
+        "{WEBVIEW_DEFAULT_ARGS} --remote-debugging-port={port}"
+    ))
 }
 
 #[cfg(not(debug_assertions))]
@@ -94,19 +95,16 @@ fn debug_browser_args() -> Option<String> {
 /// 尺寸与 `tauri.conf.json` 里原本声明的完全一致（1280×820 / 最小 1024×680 / 居中），
 /// 只是改成代码里建：这样才能挂上调试参数。
 fn create_main_window(app: &mut tauri::App) -> tauri::Result<()> {
-    let mut builder = tauri::WebviewWindowBuilder::new(
-        app,
-        "main",
-        tauri::WebviewUrl::App("index.html".into()),
-    )
-    .title("梦幻养老助手")
-    .inner_size(1280.0, 820.0)
-    .min_inner_size(1024.0, 680.0)
-    .resizable(true)
-    // 无边框：系统标题栏是一条蓝色栏 + 三个系统按钮，与纸面语言冲突。
-    // 标题栏由前端的 TitleBar.vue 自绘，拖动靠 data-tauri-drag-region。
-    .decorations(false)
-    .center();
+    let mut builder =
+        tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
+            .title("梦幻养老助手")
+            .inner_size(1280.0, 820.0)
+            .min_inner_size(1024.0, 680.0)
+            .resizable(true)
+            // 无边框：系统标题栏是一条蓝色栏 + 三个系统按钮，与纸面语言冲突。
+            // 标题栏由前端的 TitleBar.vue 自绘，拖动靠 data-tauri-drag-region。
+            .decorations(false)
+            .center();
 
     if let Some(args) = debug_browser_args() {
         builder = builder.additional_browser_args(&args);

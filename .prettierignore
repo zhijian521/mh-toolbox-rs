@@ -1,0 +1,25 @@
+# 依赖与产物
+node_modules/
+dist/
+src-tauri/target/
+
+# 生成物：每次编译/生成都会重建，格式没有意义
+src-tauri/gen/
+src-tauri/icons/
+package-lock.json
+src-tauri/Cargo.lock
+
+# 设计产物：图标脚本、预览页、样张与令牌副本都是过程稿，格式与代码无关。
+# 尤其 design/income.html 是「只读参考样张」，格式化它等于改设计原件。
+design/
+
+# 字体二进制随 OFL 保留，但不参与格式化
+assets/fonts/
+
+# 批处理是 GBK + CRLF，Prettier 一律按 UTF-8 处理会把中文写坏
+*.bat
+*.cmd
+
+# 本地探针与截图（已 gitignore）
+.runtime/
+.workbuddy/

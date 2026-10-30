@@ -1,0 +1,26 @@
+# 编辑器统一。Prettier 会覆盖其中一部分，但 .bat 的 CRLF 只有这里能保证。
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Windows 批处理必须是 CRLF：LF 会让 cmd 按双字节切行，中文注释被当成命令执行，
+# 报错位置与真实问题完全无关。这条与 .gitattributes 的 *.bat 一起，双保险。
+#
+# charset 故意不写：start.bat 实际存的是 GBK，而 EditorConfig 的 charset 没有 gbk 这一档
+# （只有 latin1 / utf-8 / utf-8-bom / utf-16*），写了 utf-8 反而会诱导编辑器另存成 UTF-8 把脚本弄坏。
+[*.{bat,cmd}]
+end_of_line = crlf
+
+[*.md]
+# Markdown 用尾随空格表示换行，不能裁。
+trim_trailing_whitespace = false
+
+[*.{yml,yaml,json}]
+indent_size = 2
