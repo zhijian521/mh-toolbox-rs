@@ -435,3 +435,18 @@ svg {
     font-variant-numeric: tabular-nums;
     letter-spacing: 0;
 }
+
+/* ---------- 页面骨架 ----------
+ * 一个页面 = 固定页头 + 可滚内容，就靠这两个类配合：
+ * 页头（`PageHeader` 内）是 flex: none，`.page-content` 吃掉剩余高度并自己滚。
+ * 于是滚动条只出现在内容区里，页头不跟着走。若把 overflow 放在外层，
+ * 整页一起滚，页头会随之下移——这正是要避免的。
+ */
+.page-content {
+    flex: 1;
+    min-height: 0;
+    padding: 16px 20px 26px;
+    overflow: auto;
+    /* 滚动条始终占位：内容不满一屏的页面若不留，右侧会被撑宽约 10px，切页时页头右端会跳。 */
+    scrollbar-gutter: stable;
+}

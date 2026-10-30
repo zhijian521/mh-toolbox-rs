@@ -301,9 +301,6 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
 </template>
 
 <style scoped>
-.page-content {
-    padding: 16px 20px 26px;
-}
 .stack {
     display: flex;
     flex-direction: column;
