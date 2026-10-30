@@ -92,14 +92,30 @@ fn debug_browser_args() -> Option<String> {
 
 /// 主窗口。
 ///
-/// 尺寸与 `tauri.conf.json` 里原本声明的完全一致（1280×820 / 最小 1024×680 / 居中），
-/// 只是改成代码里建：这样才能挂上调试参数。
+/// 尺寸原本与 `tauri.conf.json` 声明的一致（1280×820 / 居中），改成代码里建是为了
+/// 挂调试参数；高度后来抬到 860，原因见下（侧栏加了牌记，825.6 > 820 放不下）。
+///
+/// **最小高度是量出来的，不是估的。** 侧栏不滚动（`AppRail.vue` 的
+/// `overflow: hidden`），高度由字体三档缩放决定。实测（页面内探针读
+/// `rail.scrollHeight`，三档字号各一次）：
+///
+/// | 字号档 | `--fs-scale` | 侧栏需要 | 加标题栏后 |
+/// | --- | --- | --- | --- |
+/// | 较小 | 0.92 | 664 | 697.1 |
+/// | 默认 | 1 | 718 | 754.0 |
+/// | 较大 | 1.1 | **786** | **825.6** |
+///
+/// 取 **828**：比「较大」档的需求多 2.4px，够吃掉设备像素取整；
+/// 再调低就刚好压到最后一格，再调高就是白占屏幕。默认窗口相应给到 860
+/// （不能小于最小高度，否则打开就被钳到这里）。
+const MIN_HEIGHT: f64 = 828.0;
+
 fn create_main_window(app: &mut tauri::App) -> tauri::Result<()> {
     let mut builder =
         tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
             .title("梦幻养老助手")
-            .inner_size(1280.0, 820.0)
-            .min_inner_size(1024.0, 680.0)
+            .inner_size(1280.0, 860.0)
+            .min_inner_size(1024.0, MIN_HEIGHT)
             .resizable(true)
             // 无边框：系统标题栏是一条蓝色栏 + 三个系统按钮，与纸面语言冲突。
             // 标题栏由前端的 TitleBar.vue 自绘，拖动靠 data-tauri-drag-region。

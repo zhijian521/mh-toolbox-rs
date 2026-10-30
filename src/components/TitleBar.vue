@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import AppIcon from './AppIcon.vue';
-import SealMark from './SealMark.vue';
 import { useAppInfo } from '../composables/use-app-info';
 
 /**
@@ -10,7 +9,10 @@ import { useAppInfo } from '../composables/use-app-info';
  *
  * 系统标题栏在这套纸面语言里是异物：Windows 会给它一条蓝色标题栏和三个系统按钮，
  * 浅色下与宣纸底打架，深色下又与纸面同色读不出边界。所以窗口改成无边框
- * （`decorations(false)`），标题栏由我们自己画：一条账线、一枚印、三个细笔按钮。
+ * （`decorations(false)`），标题栏由我们自己画：一条账线、一个版名、三个细笔按钮。
+ *
+ * 版名前不放印章：栏里已经有一行版名，再加一枚 20px 的「梦」只是同一个标识说两遍，
+ * 而且它把栏左侧那段留白吃掉，整条看起来往右偏。印章留在页内的 `LedgerSection` 上。
  *
  * 三个技术点：
  * 1. 拖动靠 `data-tauri-drag-region`，且**每个可点的文字块都要单独标**——只标父元素时，
@@ -48,7 +50,6 @@ const close = () => void appWindow?.close();
 <template>
     <header class="titlebar" data-tauri-drag-region>
         <div class="brand" data-tauri-drag-region>
-            <SealMark text="梦" :size="20" />
             <span class="brand-name" data-tauri-drag-region>梦幻养老助手</span>
             <span class="brand-tag" data-tauri-drag-region>RUST · V{{ shortVersion }}</span>
         </div>

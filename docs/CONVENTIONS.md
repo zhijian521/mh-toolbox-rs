@@ -98,7 +98,8 @@ Tauri 跑的是本地文件，`createWebHashHistory()` 零成本，不需要服�
 
 #### G. 没有状态层
 
-`current` 在 `App.vue`，`collapsed` 在 `AppRail`，`mode`/`scale` 在 composable。
+`current` 在 `App.vue`，`mode`/`scale` 在 composable（侧栏的 `collapsed` 已随竖向滑块一起删除，
+50px 的栏不需要第二套宽度）。
 到目前够用，但业务数据一进来（角色列表、流水、装备）就需要一个明确的答案：
 Pinia 还是 provide/inject？现在没定，第一个做业务页的人会自己发明一套。
 
@@ -269,12 +270,23 @@ types/          （待建）跨组件共享的类型
    立了这条，现在要把它变成可检查的约束（ESLint `no-restricted-imports` 拦
    `@tauri-apps/api` 出现在 `components/` 与 `views/` 里）。
 2. **质感在组件内，布局在父级**。`SlotButton` 只认 `--slot-h`/`--slot-w`，不写死尺寸；
-   父级用 `.rail-tools .slot-btn { flex: 1 }` 摆。这条已经在用（`AppRail.vue` 的注释写了
-   原理：父组件 scoped 样式能命中子组件根元素），要写进文档让后来者照做。
+   父级用 `.rail-foot { --slot-w/--slot-h: calc(30px * var(--fs-scale)) }` 传。`VerticalSlider`
+   同理：默认值是侧栏规格（轨道 34 / 格 66 / 图标 15 / 字 14），父级要换尺寸就覆写
+   这五个 `--vs-*` 变量。原理：父组件 scoped 样式能命中子组件根元素。
 3. **一个组件要么管状态，要么管样子，不要两个都管**。`SegmentedPills` 管「选一个」，
    质感全交给 `BevelPill`——这是范本。
 4. **新增控件先进设置页的「原子组件」卡**（`SettingsView.vue:107`），再进业务页。
    设置页是这套语言的验收面，不是演示页。
+5. **侧栏不滚动，窗口最小高度由它决定**。`AppRail.vue` 是 `overflow: hidden`——
+   8 档一旦要滚，拇指就跑出视口，「第几档」的位置感失效。所以高度交给窗口兜底：
+   `src-tauri/src/lib.rs` 的 `min_inner_size` 取「较大」字号（`--fs-scale: 1.1`）时的实测需求
+   （侧栏 786 + 标题栏 39.6 = 825.6 → 取 **828**，默认窗口 1280×860）。加高侧栏里的东西
+   （多一格、加大格高、底部再加一个按钮）必须同步抬这个数，否则最后一格会被裁掉。
+   **栏顶牌记的高度与 `PageHeader` 等值**（`19px + --fs-xl × 1.15 + 1px`），改页头的
+   padding 或标题行高，两处要一起改——否则下面那道槽的起点会在 50px 栏宽处与页头
+   底边错开一个台阶。**牌记本身不画下边框**：那里放的是直接落在纸上的应用标
+   （`assets/mark-ink.png` / `mark-paper.png`，与 `assets/fonts/` 同处，随主题翻面），横线会把它切成一个
+   「头部区块」，而上面并不是区块名。
 
 ### 2.4 样式
 
@@ -284,6 +296,8 @@ types/          （待建）跨组件共享的类型
 1. **颜色只能来自令牌**。禁止 `#rrggbb`、`rgb()`、颜色名。需要的色先用 `color-mix()` 从令牌混。
 2. **字号只能来自 `--fs-*`**，且每个令牌已经乘过 `--fs-scale`。禁止 `font-size: 14px`。
 3. **圆角只能来自 `--r-1/2/3/pill`**。账簿方向基本不用圆角，唯一例外是滚动条滑块。
+   侧栏竖滑块（`VerticalSlider.vue`）外框、格、印**共用 `--vs-radius`（`--r-2`，3px）**——
+   一处改三处一起变。胶囊（`--r-pill`）现在只留给三档滑块、分段胶囊这类横向控件。
 4. **间距优先 `--sp-*`**。现状里有不少 `gap: 5px`/`padding: 14px 10px` 的裸值（
    `AppRail.vue`、`SettingsView.vue` 多处）——这块**不建议现在全改**，成本高收益低。
    规则改成：新代码用令牌，旧值遇到再顺手换。
@@ -378,9 +392,9 @@ types/          （待建）跨组件共享的类型
 - 设置页 8 个 section、图标 33 项（8/16/5/4）都在，`truncation` 探针为空
 - **生产 CSP 实测**：`tauri build --debug --no-bundle` 出包后运行，8 个 section 正常、
   字体加载成功、`appInfo` IPC 通、控制台零报错（`Log` + `Runtime` 事件全收，含 CSP 拦截）
-- **降动效实测**：CDP `Emulation.setEmulatedMedia` 模拟 `prefers-reduced-motion: reduce` 后，
-  `.cost-thumb` 与 `.rail` 的 `transition-duration` 均为 `0.001s`（后者 220ms 是写死的，
-  证明通配规则确实兜住了令牌之外的写法）
+- **降动效实测**：`--force-prefers-reduced-motion` 下，`.cost-thumb` 与 `.vs-thumb` 的
+  `transition-duration` 由 `0.3s` 变为 `0.001s`（后者是写死的 300ms，证明通配规则
+  确实兜住了令牌之外的写法）
 
 ### 第三批：领域层地基（在写第一行业务逻辑之前）
 
