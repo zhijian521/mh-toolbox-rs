@@ -357,7 +357,7 @@ types/          （待建）跨组件共享的类型
    导航数据抽成 `src/navigation.ts`（`NAV_ITEMS` / `NAV_BY_KEY`），路由、左栏、页头标题共用一份。
    未实现页共用一个 `PlaceholderView`，标题读 `route.meta.title`——不为七个空页写七份模板
 9. ✅ 拆 `SettingsView`：`views/settings/` 下 8 个 section（外观 / 原子组件 / 色板 / 字号阶梯 /
-   控件 / 图标 / 结构 / 关于）+ `shared.ts`，视图本身 **45 行**，只剩组合与顺序
+   控件 / 图标 / 结构 / 关于）+ `shared.ts`，视图本身 **52 行**（含 6 行样式），只剩组合与顺序
 10. ✅ `useFontScale` 改模块级单例（惰性 `wire()`），与 `useTheme` 同形
 11. ✅ `icons.ts` 四表合一：`ICON_META` 一张表，`IconName` 由 key 推，其余三个导出由值推
 12. ✅ 令牌单一真源：删掉 `design/tokens.css` 与 `design/base.css`，`design/income.html` 直接引
@@ -374,7 +374,7 @@ types/          （待建）跨组件共享的类型
 **验收结果**（2026-10-30 实测）：
 
 - `npm run check` 全绿（format:check + lint + typecheck + check:version）
-- 8 个页面都能 URL 直达；未知路径兜底回设置页；`SettingsView.vue` 45 行
+- 8 个页面都能 URL 直达；未知路径兜底回设置页；`SettingsView.vue` 52 行（含 6 行样式）
 - 设置页 8 个 section、图标 33 项（8/16/5/4）都在，`truncation` 探针为空
 - **生产 CSP 实测**：`tauri build --debug --no-bundle` 出包后运行，8 个 section 正常、
   字体加载成功、`appInfo` IPC 通、控制台零报错（`Log` + `Runtime` 事件全收，含 CSP 拦截）
