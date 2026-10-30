@@ -16,20 +16,28 @@ withDefaults(
         options: { value: T; label: string }[];
         label?: string;
         disabled?: boolean;
+        /** 外壳圆角。默认大圆角胶囊；贴进方角结构里时用 `sm`。 */
+        radius?: 'pill' | 'sm';
     }>(),
-    { label: '', disabled: false },
+    { label: '', disabled: false, radius: 'pill' },
 );
 
 const emit = defineEmits<{ 'update:modelValue': [value: T] }>();
 </script>
 
 <template>
-    <div class="segmented" role="group" :aria-label="label || undefined">
+    <div
+        class="segmented"
+        :class="{ 'radius-sm': radius === 'sm' }"
+        role="group"
+        :aria-label="label || undefined"
+    >
         <BevelPill
             v-for="option in options"
             :key="option.value"
             :on="modelValue === option.value"
             :disabled="disabled"
+            :radius="radius"
             @click="emit('update:modelValue', option.value)"
         >
             {{ option.label }}
@@ -45,5 +53,9 @@ const emit = defineEmits<{ 'update:modelValue': [value: T] }>();
     padding: 3px;
     border-radius: var(--r-pill);
     background: var(--paper-2);
+}
+/* 小圆角外壳比里面的胶囊大一号（4 vs 3）：同心才不显得边缘毛糙。 */
+.segmented.radius-sm {
+    border-radius: var(--r-3);
 }
 </style>

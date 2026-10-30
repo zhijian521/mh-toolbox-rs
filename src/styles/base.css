@@ -273,6 +273,13 @@ svg {
         color var(--t-quick) var(--ease-soft),
         box-shadow var(--t-quick) var(--ease-soft);
 }
+/* 小圆角变体：分段胶囊贴进栏里时用。大圆角会把一列方角结构读成「一排按钮」，
+ * 而小圆角仍算方角家族。只换外壳，四件套（底/渐变/内阴影/高光）一律不动——
+ * 厚度是这套控件的身份。
+ */
+.bevel-pill.radius-sm {
+    border-radius: var(--r-2);
+}
 .bevel-pill:hover:not(:disabled) {
     border-color: color-mix(in srgb, var(--cinnabar) 55%, transparent);
     background-color: color-mix(in srgb, var(--well) 78%, var(--paper));

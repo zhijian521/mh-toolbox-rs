@@ -10,23 +10,6 @@ export interface RailPage {
 </script>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
-import AppIcon from './AppIcon.vue';
-import SlotButton from './SlotButton.vue';
-import { useTheme } from '../composables/use-theme';
-import { appInfo, openExternal } from '../services/desktop';
-
-/** 项目地址。一个仓库、没有多环境之分，写死在这里比读配置省事。 */
-const REPO_URL = 'https://github.com/zhijian521/mh-toolbox-rs';
-
-/* 版本号从 Rust 侧取，不再手写：写死的那个数字升级后必然忘记改（这里原先就是 v0.1.0）。
- * 浏览器里跑时 appInfo 返回 null，退回占位串。 */
-const version = ref('0.1.0');
-onMounted(async () => {
-    const info = await appInfo();
-    if (info) version.value = info.version;
-});
-
 /**
  * 左栏：一条书脊，八枚凹槽。
  *
@@ -39,8 +22,26 @@ onMounted(async () => {
  * - 文字用 `width:0 + opacity:0` 收，不是 `display:none`，否则边缘会跳
  * - 折叠按钮在栏底，图标表示**下一步**（收起 / 展开），不是当前状态
  */
+import { onMounted, ref, watch } from 'vue';
+import AppIcon from './AppIcon.vue';
+import BevelPill from './BevelPill.vue';
+import SlotButton from './SlotButton.vue';
+import { useTheme } from '../composables/use-theme';
+import { appInfo, openExternal } from '../services/desktop';
+
 const props = defineProps<{ pages: RailPage[]; current: string }>();
 const emit = defineEmits<{ (event: 'update:current', key: string): void }>();
+
+/** 项目地址。一个仓库、没有多环境之分，写死在这里比读配置省事。 */
+const REPO_URL = 'https://github.com/zhijian521/mh-toolbox-rs';
+
+/* 版本号从 Rust 侧取，不再手写：写死的那个数字升级后必然忘记改（这里原先就是 v0.1.0）。
+ * 浏览器里跑时 appInfo 返回 null，退回占位串。 */
+const version = ref('0.1.0');
+onMounted(async () => {
+    const info = await appInfo();
+    if (info) version.value = info.version;
+});
 
 const { isDark, toggle: toggleTheme } = useTheme();
 
@@ -52,10 +53,10 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
 <template>
     <aside class="rail" :class="{ collapsed }">
         <nav class="rail-nav" aria-label="主导航">
-            <button
+            <BevelPill
                 v-for="page in props.pages"
                 :key="page.key"
-                type="button"
+                radius="sm"
                 class="rail-item"
                 :class="{
                     on: props.current === page.key,
@@ -67,7 +68,7 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
             >
                 <AppIcon :name="page.icon" />
                 <span class="rail-label">{{ page.label }}</span>
-            </button>
+            </BevelPill>
         </nav>
 
         <div class="rail-foot">
@@ -77,10 +78,7 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
             </p>
 
             <div class="rail-tools">
-                <SlotButton
-                    :label="isDark ? '切到日间' : '切到夜间'"
-                    @click="toggleTheme"
-                >
+                <SlotButton :label="isDark ? '切到日间' : '切到夜间'" @click="toggleTheme">
                     <AppIcon :name="isDark ? 'sun' : 'moon'" />
                 </SlotButton>
 
@@ -124,53 +122,42 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
     padding: 10px 9px;
 }
 
+/* ---------- 导航：八枚独立的胶囊 ----------
+ * 每一项自己就是一枚胶囊（`.bevel-pill` 的四件套 + 小圆角），不是一条大槽里的八段：
+ * 大槽会把八个目标读成一整块控件，而这里每一项都是独立入口。
+ * 互斥关系由数据保证——`current` 只有一个值。
+ *
+ * 间距 6px（原来是 2px）：贴太紧会连成一片，认不出是八个独立目标。
+ */
 .rail-nav {
     display: flex;
     flex: 1;
     flex-direction: column;
-    gap: 2px;
+    gap: 6px;
     min-height: 0;
     overflow-y: auto;
 }
 
-/* ---------- 导航项：一条槽 ----------
- * 未选中几乎与纸齐平，只留一圈极淡的凹轮廓——八条深槽会抢戏。
- * 悬停时槽沉下去（上沿内阴影 + 下沿高光同时加重）。
+/* 只改尺寸与对齐，底/边/渐变/内阴影全部交给 `.bevel-pill`——质感只有一份。
+ * 选择器带上 .rail-nav 是为了稳压 `.bevel-pill.on` 与各伪类态（同权时会打成平手）。
  */
-.rail-item {
+.rail-nav .rail-item {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: calc(9px * var(--fs-scale));
-    height: calc(31px * var(--fs-scale));
-    padding: 0 calc(9px * var(--fs-scale));
-    border: 0;
-    border-radius: var(--r-2);
-    background-color: color-mix(in srgb, var(--well) 52%, var(--paper));
-    box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--bevel-lo) 62%, transparent),
-        inset 0 -1px 0 color-mix(in srgb, var(--bevel-hi) 70%, transparent);
+    height: calc(33px * var(--fs-scale));
+    padding: 0 calc(10px * var(--fs-scale));
     color: var(--ink-2);
     font-size: calc(13px * var(--fs-scale));
     line-height: 1;
     text-align: left;
     white-space: nowrap;
-    transition:
-        color var(--t-quick) var(--ease-soft),
-        border-color var(--t-quick) var(--ease-soft),
-        background-color var(--t-quick) var(--ease-soft),
-        box-shadow var(--t-quick) var(--ease-soft);
-}
-.rail-item:hover:not(.on) {
-    background-color: color-mix(in srgb, var(--well) 90%, var(--paper));
-    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
-    box-shadow:
-        inset 0 1px 3px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
-    color: var(--ink);
 }
 
-/* 选中：灌满朱红，印从纸里抬起来。与 .bevel-pill.on 同一套明暗。 */
-.rail-item.on {
+/* 选中：灌满朱红，印从纸里抬起来。 */
+.rail-nav .rail-item.on,
+.rail-nav .rail-item.on:hover:not(:disabled) {
     background-color: var(--cinnabar);
     background-image: linear-gradient(180deg, var(--bevel-hi), transparent 46%, var(--bevel-lo));
     box-shadow:
@@ -178,27 +165,26 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
         0 1px 1px var(--bevel-lo),
         0 3px 7px color-mix(in srgb, var(--cinnabar) 26%, transparent);
     color: var(--on-cinnabar);
-    opacity: 1;
 }
-.rail-item.on :deep(.app-icon) {
+.rail-nav .rail-item.on :deep(.app-icon) {
     color: var(--on-cinnabar);
 }
-/* 按下去：渐变倒过来、投影收紧——同一枚印被压回纸里。 */
-.rail-item.on:active {
+/* 按下去：渐变倒过来、投影收紧——同一枚印被压回槽里。 */
+.rail-nav .rail-item.on:active:not(:disabled) {
     background-image: linear-gradient(180deg, var(--bevel-lo), transparent 58%);
     box-shadow:
         inset 0 1px 3px var(--bevel-lo),
         0 1px 2px color-mix(in srgb, var(--cinnabar) 22%, transparent);
 }
 
-.rail-item:focus-visible {
+.rail-nav .rail-item:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--cinnabar) 60%, transparent);
     outline-offset: 1px;
 }
-.rail-item.pending {
+.rail-nav .rail-item.pending {
     opacity: 0.52;
 }
-.rail-item.pending:hover {
+.rail-nav .rail-item.pending:hover {
     opacity: 0.86;
 }
 
@@ -214,7 +200,11 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
 }
 
 /* ---------- 折叠态 ---------- */
-.rail.collapsed .rail-item {
+/* 选择器带上 .rail-nav：`.rail-nav .rail-item` 是三个类，这里必须同权或更高才能压住。 */
+.rail.collapsed .rail-nav {
+    gap: 4px;
+}
+.rail.collapsed .rail-nav .rail-item {
     justify-content: center;
     gap: 0;
     padding: 0;
