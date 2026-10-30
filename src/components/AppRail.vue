@@ -219,9 +219,14 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
     padding-top: 10px;
     border-top: var(--w-hair) solid var(--rule);
 }
+/* 版本号与「开发中」排成一行、水平居中。竖排堆两行时它是一小块左对齐的文字块，
+ * 与下面等宽均分的三枚印不在同一条轴线上；并成一行居中后，底栏三层（元信息、
+ * 工具条、栏底）都收在同一条中轴上。
+ * `gap` 给两个词一点呼吸，不加「·」之类的分隔符——两段文字本身已经分得开。 */
 .rail-meta {
     display: flex;
-    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
     margin: 0;
     color: var(--muted);
     font-size: var(--fs-mini);
