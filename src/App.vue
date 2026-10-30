@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import AppIcon from './components/AppIcon.vue';
+import PageHeader from './components/PageHeader.vue';
 import TitleBar from './components/TitleBar.vue';
 import type { IconName } from './components/icons';
 import SettingsView from './views/SettingsView.vue';
@@ -25,6 +26,9 @@ const pages: { key: string; label: string; icon: IconName }[] = [
 ];
 
 const current = ref('settings');
+
+/* 占位页也要有页头，否则「页头」就只是设置页的私有排版，谈不上统一。 */
+const currentLabel = computed(() => pages.find((page) => page.key === current.value)?.label ?? '');
 </script>
 
 <template>
@@ -57,11 +61,18 @@ const current = ref('settings');
 
             <main class="app">
                 <SettingsView v-if="current === 'settings'" />
-                <div v-else class="placeholder">
-                    <p>「{{ pages.find((page) => page.key === current)?.label }}」还没开始。</p>
-                    <p class="hint">当前阶段只做设置页，先把设计语言落到真实组件上。</p>
-                    <button class="btn" type="button" @click="current = 'settings'">回到设置</button>
-                </div>
+                <template v-else>
+                    <PageHeader :title="currentLabel" desc="这一页还没开始">
+                        <span class="hint">当前阶段只做设置页</span>
+                    </PageHeader>
+                    <div class="placeholder">
+                        <p>「{{ currentLabel }}」还没开始。</p>
+                        <p class="hint">先把设计语言落到真实组件上，再按页推进。</p>
+                        <button class="btn" type="button" @click="current = 'settings'">
+                            回到设置
+                        </button>
+                    </div>
+                </template>
             </main>
         </div>
     </div>
@@ -151,6 +162,9 @@ const current = ref('settings');
     flex-direction: column;
     min-width: 0;
     overflow: auto;
+    /* 滚动条始终占位：否则内容不满一屏的页面比满屏的页面宽 10px，
+       页头右侧的说明文字会在切页时左右跳一下。 */
+    scrollbar-gutter: stable;
 }
 .placeholder {
     display: flex;

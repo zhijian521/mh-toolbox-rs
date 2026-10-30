@@ -106,14 +106,15 @@ const close = () => void appWindow?.close();
     display: flex;
     align-self: stretch;
 }
-/* 三个窗口按钮：细笔画方形，之间只有一条账线，不做圆角也不做阴影。 */
+/* 三个窗口按钮：细笔画方形，互相之间不画分隔线。
+ * 原来每个按钮都带一条 border-left，三个连起来像表格格线——窗口按钮是一组同权动作，
+ * 不是三条独立条目，靠留白与 hover 底色区分即可。 */
 .tb-btn {
     display: grid;
     place-items: center;
     width: calc(42px * var(--fs-scale));
     height: 100%;
     border: 0;
-    border-left: var(--w-hair) solid var(--rule);
     background: none;
     color: var(--muted);
     transition:
@@ -129,7 +130,6 @@ const close = () => void appWindow?.close();
 }
 /* 关闭是唯一灌朱的窗口按钮：与「支出」同一条语义（会造成损失的动作）。 */
 .tb-btn.close:hover {
-    border-left-color: var(--cinnabar-ink);
     background: var(--cinnabar);
     color: var(--on-cinnabar);
 }

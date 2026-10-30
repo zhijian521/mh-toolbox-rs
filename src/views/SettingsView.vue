@@ -6,6 +6,7 @@ import BevelPill from '../components/BevelPill.vue';
 import CostSwitch from '../components/CostSwitch.vue';
 import FontSizeSlider from '../components/FontSizeSlider.vue';
 import LedgerSection from '../components/LedgerSection.vue';
+import PageHeader from '../components/PageHeader.vue';
 import SealMark from '../components/SealMark.vue';
 import { ICON_GROUPS, ICON_LABELS } from '../components/icons';
 import { useFontScale } from '../composables/use-font-scale';
@@ -71,15 +72,9 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
 </script>
 
 <template>
-    <header class="page-head">
-        <div>
-            <h1>设置</h1>
-            <p class="page-desc">主题 · 组件预览 · 关于</p>
-        </div>
-        <div class="page-actions">
-            <span class="hint">设计样张见 design/income.html</span>
-        </div>
-    </header>
+    <PageHeader title="设置" desc="主题 · 组件预览 · 关于">
+        <span class="hint">设计样张见 design/income.html</span>
+    </PageHeader>
 
     <div class="page-content">
         <div class="stack">
@@ -306,25 +301,6 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
 </template>
 
 <style scoped>
-.page-head {
-    display: flex;
-    align-items: flex-end;
-    gap: 14px;
-    padding: 16px 20px 12px;
-    border-bottom: var(--w-rule) solid var(--rule-2);
-}
-.page-desc {
-    margin-top: 4px;
-    color: var(--muted);
-    font-size: var(--fs-sm);
-    letter-spacing: 0.06em;
-}
-.page-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-left: auto;
-}
 .page-content {
     padding: 16px 20px 26px;
 }
