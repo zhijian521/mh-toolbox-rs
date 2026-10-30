@@ -258,13 +258,15 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
 }
 
 /* ---------- 底部工具条 ----------
- * 语义取自设置页的 `.size-slider`，把它拆成三个独立按钮：
- *   未选中的格子 = 裸图标（无底、无边、--muted）
- *   选中的格子   = 一枚朱印（--cinnabar 底 + 上亮下暗 + 内高光 + 外投影 + --on-cinnabar）
- * 两态分别接到指针上：不悬停是「未选中」，悬停就是「选中」，按下是印被压回去。
+ * 两态，照设置页 `.size-slider` 的「轨道 + 滑块」关系拆开用：
+ *   常态  = 轨道：--well 底、一道 --rule-2 金边、上沿内阴影，凹进纸面
+ *   悬停  = 朱印落进槽里：伪元素内缩 2px，四周仍露出槽底与金边（.size-thumb 与轨道就是这个关系）
+ *   按下  = 印被压进去
  *
- * 圆角 --r-2（3px）与导航项同档：方，但角不刺手——这里不跟 `.size-thumb` 的圆胶囊，
- * 因为侧栏底部是工具条，不是滑块。
+ * 朱红走伪元素而不是直接改按钮底色：底色一改，金边与槽就整片被盖掉了，
+ * 那读起来是「换了块色板」，不是「一枚印落在槽里」。
+ *
+ * 圆角 --r-2（3px）与导航项同档：方，但角不刺手。
  */
 .rail-tools {
     display: flex;
@@ -272,6 +274,7 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
 }
 
 .rail-tool {
+    position: relative;
     display: flex;
     flex: 1 1 0;
     align-items: center;
@@ -279,40 +282,66 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
     min-width: 0;
     height: 26px;
     padding: 0;
-    border: 0;
+    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 80%, transparent);
     border-radius: var(--r-2);
-    background: none;
-    box-shadow: none;
-    color: var(--muted);
+    background-color: var(--well);
+    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
+    box-shadow:
+        inset 0 1px 2px var(--bevel-lo),
+        inset 0 -1px 0 var(--bevel-hi);
+    color: var(--ink-2);
     transition:
-        background-color var(--t-quick) var(--ease-soft),
+        border-color var(--t-quick) var(--ease-soft),
         color var(--t-quick) var(--ease-soft),
-        box-shadow var(--t-quick) var(--ease-soft),
         height 220ms var(--ease-soft);
 }
 
-/* 悬停 = 选中：整枚灌朱红，印从纸里抬起来。明暗照 `.size-thumb` 与 `.bevel-pill.on`。 */
-.rail-tool:hover {
+/* 朱印：内缩 2px 落在槽里。缩进量对齐 `.size-thumb` 相对轨道的 2px。 */
+.rail-tool::before {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    border-radius: calc(var(--r-2) - 1px);
     background-color: var(--cinnabar);
     background-image: linear-gradient(180deg, var(--bevel-hi), transparent 46%, var(--bevel-lo));
     box-shadow:
         inset 0 1px 0 var(--bevel-hi),
         0 1px 1px var(--bevel-lo),
-        0 3px 7px color-mix(in srgb, var(--cinnabar) 28%, transparent);
+        0 2px 5px color-mix(in srgb, var(--cinnabar) 30%, transparent);
+    opacity: 0;
+    transform: scale(0.94);
+    transition:
+        opacity var(--t-quick) var(--ease-soft),
+        transform 200ms var(--ease-snap),
+        background-color var(--t-quick) var(--ease-soft),
+        box-shadow var(--t-quick) var(--ease-soft);
+}
+
+.rail-tool:hover::before {
+    opacity: 1;
+    transform: scale(1);
+}
+.rail-tool:hover {
     color: var(--on-cinnabar);
 }
 .rail-tool:hover :deep(.app-icon) {
     color: var(--on-cinnabar);
 }
 
-/* 按下：同一枚印被压回纸里，渐变倒过来、投影收掉。 */
-.rail-tool:active {
+/* 按下：印被压进槽底的凹痕。 */
+.rail-tool:active::before {
     background-color: color-mix(in srgb, var(--cinnabar) 82%, var(--ink));
     background-image: linear-gradient(180deg, var(--bevel-lo), transparent 58%);
     box-shadow: inset 0 2px 4px var(--bevel-lo);
 }
 
-/* 聚焦环不能再用朱红：悬停时底色就是朱红，红环会消失。 */
+/* 图标要压在伪元素上面：绝对定位的 ::before 会盖住非定位内容。 */
+.rail-tool :deep(.app-icon) {
+    position: relative;
+    z-index: 1;
+}
+
+/* 聚焦环不能再用朱红：悬停时底就是朱红，红环会消失。 */
 .rail-tool:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--ink) 45%, transparent);
     outline-offset: 1px;
