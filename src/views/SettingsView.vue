@@ -8,6 +8,8 @@ import FontSizeSlider from '../components/FontSizeSlider.vue';
 import LedgerSection from '../components/LedgerSection.vue';
 import PageHeader from '../components/PageHeader.vue';
 import SealMark from '../components/SealMark.vue';
+import SegmentedPills from '../components/SegmentedPills.vue';
+import SlotButton from '../components/SlotButton.vue';
 import { ICON_GROUPS, ICON_LABELS } from '../components/icons';
 import { useFontScale } from '../composables/use-font-scale';
 import { useTheme, type ThemeMode } from '../composables/use-theme';
@@ -22,10 +24,11 @@ import { appInfo, type AppInfo } from '../services/desktop';
 const { mode } = useTheme();
 const { scale } = useFontScale();
 
-const themes: { key: ThemeMode; label: string; note: string }[] = [
-    { key: 'system', label: '跟随系统', note: '默认' },
-    { key: 'light', label: '浅色', note: '宣纸' },
-    { key: 'dark', label: '深色', note: '夜墨' },
+/* 分段胶囊只认 { value, label }：选项怎么描述由调用方定，组件不掺业务字段。 */
+const themeOptions: { value: ThemeMode; label: string }[] = [
+    { value: 'system', label: '跟随系统' },
+    { value: 'light', label: '浅色' },
+    { value: 'dark', label: '深色' },
 ];
 
 const info = ref<AppInfo | null>(null);
@@ -43,7 +46,8 @@ const withCost = ref(false);
 /* 图标清单直接按 icons.ts 的分组渲染，新加图标不用回来改这一页。 */
 
 
-const swatches: { token: string; label: string }[] = [    { token: '--bg', label: '页面底' },
+const swatches: { token: string; label: string }[] = [
+    { token: '--bg', label: '页面底' },
     { token: '--paper', label: '纸面' },
     { token: '--paper-2', label: '纸面·次' },
     { token: '--well', label: '凹槽' },
@@ -82,17 +86,8 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
             <LedgerSection title="外观" seal="貌" hint="一键换纸：令牌全部走 light-dark()">
                 <div class="row">
                     <span class="row-label">主题</span>
-                    <div class="pill-group">
-                        <BevelPill
-                            v-for="theme in themes"
-                            :key="theme.key"
-                            :on="mode === theme.key"
-                            @click="mode = theme.key"
-                        >
-                            {{ theme.label }}
-                        </BevelPill>
-                    </div>
-                    <span class="hint">当前：{{ themes.find((item) => item.key === mode)?.label }}</span>
+                    <SegmentedPills v-model="mode" :options="themeOptions" label="主题" />
+                    <span class="hint">当前：{{ themeOptions.find((item) => item.value === mode)?.label }}</span>
                 </div>
                 <div class="row row-gap">
                     <span class="row-label">字号</span>
@@ -106,6 +101,47 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
                     字号同理：三档只改 <code>--fs-scale</code> 一个变量（0.92 / 1 / 1.1），
                     八档字号全是 <code>calc(Npx * var(--fs-scale))</code>。
                 </p>
+            </LedgerSection>
+
+            <!-- 原子组件：三个被抽出来复用的小件，业务页面直接拿去用 -->
+            <LedgerSection title="原子组件" seal="原" hint="抽出来复用的三件，业务页直接拿去用">
+                <div class="kit atoms-kit">
+                    <div class="kit-cell">
+                        <span class="col-head">SegmentedPills · 分段胶囊</span>
+                        <div class="kit-row">
+                            <SegmentedPills v-model="mode" :options="themeOptions" label="主题" />
+                        </div>
+                        <p class="note">
+                            一组里选一个。选项文案与值的类型由调用方给（泛型 T），
+                            单格质感全交给 <code>BevelPill</code>，它自己不重复写。
+                        </p>
+                    </div>
+
+                    <div class="kit-cell">
+                        <span class="col-head">FontSizeSlider · 三档滑块</span>
+                        <div class="kit-row">
+                            <FontSizeSlider v-model="scale" />
+                        </div>
+                        <p class="note">
+                            三个落点，不是连续值——所以滑块要「啪」地掉到格上（240ms 回弹），
+                            而不是三格各自变亮。凹轨道由它自己带。
+                        </p>
+                    </div>
+
+                    <div class="kit-cell">
+                        <span class="col-head">SlotButton · 槽按钮</span>
+                        <div class="kit-row">
+                            <SlotButton label="主题"><AppIcon name="moon" /></SlotButton>
+                            <SlotButton label="仓库"><AppIcon name="github" /></SlotButton>
+                            <SlotButton label="收起"><AppIcon name="rail-collapse" /></SlotButton>
+                            <SlotButton label="停用" disabled><AppIcon name="trash" /></SlotButton>
+                        </div>
+                        <p class="note">
+                            常态是槽（槽底 + 金边），悬停时朱印内缩 1px 落进去——移上去看。
+                            尺寸不写死：侧栏经 <code>--slot-h</code> / <code>--slot-w</code> 传 30px 正方形。
+                        </p>
+                    </div>
+                </div>
             </LedgerSection>
 
             <!-- 色板 -->
