@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import AppIcon from '../../components/AppIcon.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import FontSizeSlider from '../../components/FontSizeSlider.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
@@ -53,15 +52,15 @@ const autoSave = ref(false);
             <div class="kit-cell">
                 <span class="col-head">SlotButton · 槽按钮</span>
                 <div class="kit-row">
-                    <SlotButton label="主题"><AppIcon name="moon" /></SlotButton>
-                    <SlotButton label="仓库"><AppIcon name="github" /></SlotButton>
-                    <SlotButton label="收起"><AppIcon name="rail-collapse" /></SlotButton>
-                    <SlotButton label="停用" disabled><AppIcon name="trash" /></SlotButton>
+                    <SlotButton label="收起侧栏" icon="rail-collapse" />
+                    <SlotButton label="导出账目" icon="download" text="导出" />
+                    <SlotButton label="刷新" text="刷新" />
+                    <SlotButton label="停用" icon="trash" disabled />
                 </div>
                 <p class="note">
-                    常态是槽（槽底 + 金边），悬停时朱印内缩 1px 落进去——移上去看。
-                    尺寸不写死：侧栏经 <code>--slot-h</code> / <code>--slot-w</code> 传 30px
-                    正方形。
+                    悬停时朱印内缩 1px 落进槽里，移上去看。三种形态由 props 组合定，不另开组件：只给
+                    <code>icon</code> 是纯图标（正方形），<code>icon</code> +
+                    <code>text</code> 是图标带字，只给 <code>text</code> 是纯文字。
                 </p>
             </div>
 

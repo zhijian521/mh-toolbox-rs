@@ -15,7 +15,6 @@
  * 导航项形状见 `navigation.ts` 的 `NavItem`——那是导航与路由共用的单一真源。
  */
 import { ref, watch } from 'vue';
-import AppIcon from './AppIcon.vue';
 import BevelPill from './BevelPill.vue';
 import SlotButton from './SlotButton.vue';
 import type { NavItem } from '../navigation';
@@ -68,21 +67,24 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
             </p>
 
             <div class="rail-tools">
-                <SlotButton :label="isDark ? '切到日间' : '切到夜间'" @click="toggleTheme">
-                    <AppIcon :name="isDark ? 'sun' : 'moon'" />
-                </SlotButton>
+                <SlotButton
+                    :label="isDark ? '切到日间' : '切到夜间'"
+                    :icon="isDark ? 'sun' : 'moon'"
+                    @click="toggleTheme"
+                />
 
-                <SlotButton label="在浏览器里打开项目仓库" @click="openExternal(REPO_URL)">
-                    <AppIcon name="github" />
-                </SlotButton>
+                <SlotButton
+                    label="在浏览器里打开项目仓库"
+                    icon="github"
+                    @click="openExternal(REPO_URL)"
+                />
 
                 <SlotButton
                     :label="collapsed ? '展开侧栏' : '收起侧栏'"
+                    :icon="collapsed ? 'rail-expand' : 'rail-collapse'"
                     :aria-expanded="!collapsed"
                     @click="collapsed = !collapsed"
-                >
-                    <AppIcon :name="collapsed ? 'rail-expand' : 'rail-collapse'" />
-                </SlotButton>
+                />
             </div>
         </div>
     </aside>

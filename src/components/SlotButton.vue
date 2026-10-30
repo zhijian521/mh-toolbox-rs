@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import AppIcon from './AppIcon.vue';
+import type { IconName } from './icons';
+
 /**
- * 槽按钮：一枚图标落在凹槽里；悬停时朱印落进槽中。
+ * 槽按钮：内容落在凹槽里；悬停时朱印落进槽中。
  *
  * 结构分两层，这是它和普通按钮最大的差别：
  *   - **按钮本体 = 槽**。`--well` 底 + 一道 `--rule-2` 金边 + 上沿内阴影，
@@ -11,16 +14,42 @@
  * 为什么不能直接给按钮刷朱红：底色一改，金边和槽就整片被盖掉，读起来是
  * 「换了块色板」，不是「一枚印落进槽里」。两态的差异必须落在子层。
  *
+ * 三种形态由 props 的组合决定，不另开组件：
+ *   - 只有 `text`      → 纯文字
+ *   - `icon` + `text`  → 图标在左、文字在右
+ *   - 只有 `icon`      → 纯图标，**正方形**（宽取高）
+ *
+ * 判定写在模板的类名上而不是另设 `variant` prop：多一个 prop 就多一处「声明与内容
+ * 不一致」的可能（`variant="icon"` 却塞了文字），而「有没有 text」是现成的、不会骗人。
+ *
  * 尺寸不写死：父级给 `--slot-h` / `--slot-w`（侧栏展开 26px 等分、收起 30px 正方形，
  * 普通场景不传就是一枚 26px 高的自然宽按钮）。`label` 出 `title` 与 `aria-label`，
  * 其余 `aria-*` 与事件由 attrs 落到根元素。
  */
-withDefaults(defineProps<{ label: string; disabled?: boolean }>(), { disabled: false });
+withDefaults(
+    defineProps<{
+        label: string;
+        /** 可见文字。不传就是纯图标。 */
+        text?: string;
+        /** 图标。不传就是纯文字。 */
+        icon?: IconName;
+        disabled?: boolean;
+    }>(),
+    { text: '', disabled: false },
+);
 </script>
 
 <template>
-    <button type="button" class="slot-btn" :title="label" :aria-label="label" :disabled="disabled">
-        <slot />
+    <button
+        type="button"
+        class="slot-btn"
+        :class="{ 'icon-only': icon && !text }"
+        :title="label"
+        :aria-label="label"
+        :disabled="disabled"
+    >
+        <AppIcon v-if="icon" :name="icon" />
+        <span v-if="text" class="slot-text">{{ text }}</span>
     </button>
 </template>
 
@@ -30,6 +59,7 @@ withDefaults(defineProps<{ label: string; disabled?: boolean }>(), { disabled: f
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 5px;
     width: var(--slot-w, auto);
     height: var(--slot-h, 26px);
     padding: 0 9px;
@@ -45,6 +75,13 @@ withDefaults(defineProps<{ label: string; disabled?: boolean }>(), { disabled: f
     transition:
         color var(--t-quick) var(--ease-soft),
         height 220ms var(--ease-soft);
+}
+
+/* 纯图标要正方形：宽度默认取高度，父级显式给了 `--slot-w` 才听父级的。
+ * 侧栏展开态那三个按钮仍是等分的——`flex: 1 1 0` 的 basis 为 0，宽度由剩余空间分。 */
+.slot-btn.icon-only {
+    width: var(--slot-w, var(--slot-h, 26px));
+    padding: 0;
 }
 
 /* 朱印：内缩 1px 落进槽里，只留一道槽底 + 一道金边，印面才占得住这块地。
@@ -101,6 +138,16 @@ withDefaults(defineProps<{ label: string; disabled?: boolean }>(), { disabled: f
     z-index: 1;
     width: calc(16px * var(--fs-scale));
     height: calc(16px * var(--fs-scale));
+}
+
+/* 文字同图标一样要抬到印面之上。行高压到 1：26px 的槽里 12px 字号再带默认行高，
+ * 视觉重心会往上飘半格。 */
+.slot-text {
+    position: relative;
+    z-index: 1;
+    font-size: var(--fs-sm);
+    line-height: 1;
+    white-space: nowrap;
 }
 
 /* 聚焦环不能用朱红：悬停时底就是朱红，红环会消失。 */
