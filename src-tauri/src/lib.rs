@@ -1,5 +1,4 @@
 use serde::Serialize;
-use tauri::Manager;
 
 /// 前端「关于」要的那点信息。
 ///
@@ -40,16 +39,57 @@ fn app_info(app: tauri::AppHandle) -> AppInfo {
     }
 }
 
+/// WebView2 自带的默认开关。自己设 `additional_browser_args` 会**整串覆盖**它，
+/// 所以拼调试端口时必须把这一段原样带上，否则右键菜单、PDF 壳这些行为会跟着变。
+const WEBVIEW_DEFAULT_ARGS: &str =
+    "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
+
+/// 调试端口：只有 debug 构建读 `MH_CDP_PORT`，发布版一律不开。
+///
+/// 为什么不用环境变量 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`：Tauri 建 webview 时会
+/// 显式传自己的 `additional_browser_args`，把那个环境变量整个盖掉（实测 9222 端口起不来）。
+/// 只有在代码里建窗口才能把参数递进去——所以窗口从 `tauri.conf.json` 挪到了这里。
+#[cfg(debug_assertions)]
+fn debug_browser_args() -> Option<String> {
+    let port = std::env::var("MH_CDP_PORT").ok()?;
+    Some(format!("{WEBVIEW_DEFAULT_ARGS} --remote-debugging-port={port}"))
+}
+
+#[cfg(not(debug_assertions))]
+fn debug_browser_args() -> Option<String> {
+    None
+}
+
+/// 主窗口。
+///
+/// 尺寸与 `tauri.conf.json` 里原本声明的完全一致（1280×820 / 最小 1024×680 / 居中），
+/// 只是改成代码里建：这样才能挂上调试参数。
+fn create_main_window(app: &mut tauri::App) -> tauri::Result<()> {
+    let mut builder = tauri::WebviewWindowBuilder::new(
+        app,
+        "main",
+        tauri::WebviewUrl::App("index.html".into()),
+    )
+    .title("梦幻养老助手")
+    .inner_size(1280.0, 820.0)
+    .min_inner_size(1024.0, 680.0)
+    .resizable(true)
+    .center();
+
+    if let Some(args) = debug_browser_args() {
+        builder = builder.additional_browser_args(&args);
+    }
+
+    builder.build()?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![app_info])
         .setup(|app| {
-            // 单实例：两个进程同时写同一份数据是唯一不能容忍的事故。
-            // 先只创建主窗口（配置里已声明），后续再接单实例插件与主题联动。
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.set_title("梦幻养老助手");
-            }
+            create_main_window(app)?;
             Ok(())
         })
         .run(tauri::generate_context!())

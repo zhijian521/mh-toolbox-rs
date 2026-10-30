@@ -10,20 +10,7 @@
         "frontendDist": "../dist"
     },
     "app": {
-        "windows": [
-            {
-                "label": "main",
-                "title": "梦幻养老助手",
-                "width": 1280,
-                "height": 820,
-                "minWidth": 1024,
-                "minHeight": 680,
-                "center": true,
-                "resizable": true,
-                "theme": null,
-                "backgroundColor": "#eee5cf"
-            }
-        ],
+        "windows": [],
         "security": {
             "csp": null
         }

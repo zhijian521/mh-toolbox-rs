@@ -47,6 +47,21 @@ npm run build          # 类型检查 + 构建前端
 npm run desktop:build  # 打包
 ```
 
+### 调试端口（e2e 的唯一通道）
+
+WebView2 支持 CDP，但**必须由代码把参数递进去**：Tauri 建 webview 时会显式传自己的
+`additional_browser_args`，把环境变量 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 整个盖掉。
+所以窗口从 `tauri.conf.json` 挪到了 `src-tauri/src/lib.rs` 的 `create_main_window()`，
+只有 debug 构建才读 `MH_CDP_PORT`（发布版不含调试端口）。
+
+```bash
+MH_CDP_PORT=9222 npm run desktop                  # 起带调试端口的窗口
+curl --noproxy '*' http://127.0.0.1:9222/json/list # 拿到 webSocketDebuggerUrl
+```
+
+连上后 `Runtime.evaluate` 等价于旧版的 `executeJavaScript`，`Page.captureScreenshot`
+直接抓真窗口——以后 e2e 就走这条，断言仍是 DOM + invoke 返回值。
+
 ### Windows 上编译必须先设环境（本机实测）
 
 `vcvars64.bat` 依赖 `reg.exe`，而它在沙箱黑名单里，LIB 补不全 → 链接报
