@@ -22,9 +22,12 @@ import type { IconName } from './icons';
  * 判定写在模板的类名上而不是另设 `variant` prop：多一个 prop 就多一处「声明与内容
  * 不一致」的可能（`variant="icon"` 却塞了文字），而「有没有 text」是现成的、不会骗人。
  *
- * 尺寸不写死：父级给 `--slot-h` / `--slot-w`（侧栏展开 26px、收起 30px，两者同一值
+ * 尺寸不写死：父级给 `--slot-h` / `--slot-w`（侧栏展开与收起都用 26px，两者同一值
  * 即正方形；普通场景不传就是一枚 26px 高的自然宽按钮）。`label` 出 `title` 与
- * `aria-label`，其余 `aria-*` 与事件由 attrs 落到根元素。
+ * `aria-label`，其余属性（含 `aria-expanded`）由 attrs 透传到 button——
+ * **不要**为 ARIA 属性单独声明 prop：一旦声明，Vue 就不再自动透传，而组件内部
+ * 又拿不到带连字符的 key（`$props['aria-x']` 在 `<script setup>` 里恒为 undefined，
+ * 重命名解构也一样），属性会静默消失。类型检查由 `src/types/vue-augment.d.ts` 放开。
  */
 withDefaults(
     defineProps<{

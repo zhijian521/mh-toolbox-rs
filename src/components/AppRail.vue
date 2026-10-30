@@ -48,10 +48,8 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
                 :key="item.key"
                 radius="sm"
                 class="rail-item"
-                :class="{
-                    on: props.current === item.key,
-                    pending: !item.view && props.current !== item.key,
-                }"
+                :class="{ pending: !item.view && props.current !== item.key }"
+                :on="props.current === item.key"
                 :title="item.view ? item.label : item.label + '（未实现）'"
                 :aria-current="props.current === item.key ? 'page' : undefined"
                 @click="emit('update:current', item.key)"
@@ -240,16 +238,22 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
 /* ---------- 底部工具条 ----------
  * 三枚槽按钮，排布随折叠方向走：展开一行，收起一列。
  *
- * **每一枚都是正方形**。纯图标按钮的语义就是一枚方印：宽度一拉长，印面变成
- * 竖长的色块，四周的槽底与金边被摊平，读起来既不像印也不像按钮。
+ * **每一枚都是正方形，且两态同尺寸**。纯图标按钮的语义就是一枚方印：宽度一拉长，
+ * 印面变成竖长的色块，四周的槽底与金边被摊平，读起来既不像印也不像按钮。
  * 所以这里 `flex: none`、不参与等分（等分会让宽随栏宽漂移），宽高由同一组
- * `--slot-w` / `--slot-h` 给死。展开态左对齐——与导航项、元信息共用同一条左缘，
- * 账簿的「结构靠线」就靠这条线，散了就不成账。
+ * `--slot-w` / `--slot-h` 给死 26px——正是 `SlotButton` 的默认规格（原子页不传
+ * 变量就是 26px）。折叠态不再放大到 30px：切换时按钮尺寸不动，只有排布方向变。
+ *
+ * 展开态在栏内**平均分布**：`space-between` 让三枚之间的空白严格等宽，首尾贴住
+ * 栏内边线。第一枚左缘仍与导航项、元信息共用同一条左缘，账簿的「结构靠线」不散；
+ * 只是把右侧那段空档摊给两处间隙，整条底边读起来是一条被三枚印均匀占位的横线，
+ * 而不是挤在左边的三枚小点。
  *
  * 尺寸仍由父级经变量传下去，`SlotButton` 自己不写死。
  */
 .rail-tools {
     display: flex;
+    justify-content: space-between;
     gap: 5px;
     --slot-h: 26px;
     --slot-w: 26px;
@@ -257,11 +261,13 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
 .rail-tools .slot-btn {
     flex: none;
 }
+/* 折叠：竖排一列居中。竖直方向必须回到 `flex-start`——`space-between` 在 column
+ * 轴上会把三枚拉成「贴顶 / 居中 / 贴底」，行距随栏高乱漂。
+ * 尺寸不重设，继承上面的 26px，与展开态一致。 */
 .rail.collapsed .rail-tools {
     flex-direction: column;
     align-items: center;
+    justify-content: flex-start;
     gap: 6px;
-    --slot-h: 30px;
-    --slot-w: 30px;
 }
 </style>

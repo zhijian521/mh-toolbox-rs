@@ -61,6 +61,22 @@ export default tseslint.config(
             // 模板里禁用 v-html：这套界面全部由模板渲染，一旦允许拼 HTML，
             // 就回到「字符串拼界面」的老路，也让 XSS 有了入口。
             'vue/no-v-html': 'error',
+            /**
+             * 模板里用了但没 import 的组件，必须报错。
+             *
+             * 这条是被一次真实事故逼出来的：改 `SlotButton` 时顺手删了 `AppRail` 的
+             * `AppIcon` import，Vue 把 `<AppIcon>` 静默渲染成未知标签 `<appicon>`，
+             * 侧栏八个导航图标整片消失——不报错、不警告，`check` 全绿，只有看截图才发现。
+             *
+             * 开启 `strictTemplates` 后 vue-tsc 也能报同一条（TS2339），这条规则的价值
+             * 在于更快、且不依赖类型上下文，编辑器里敲下标签那一刻就红。
+             * 注意两条检查都需要真的把 import 删掉才会触发——用脚本改 CRLF 文件时
+             * 按 `\n` 匹配会静默删不掉，别被「删了却没报错」骗过去。
+             *
+             * `RouterView` / `RouterLink` 由 `app.use(router)` 全局注册，本地没有 import，
+             * 属于合法用法，列进豁免。
+             */
+            'vue/no-undef-components': ['error', { ignorePatterns: ['RouterView', 'RouterLink'] }],
             // 组件必须显式声明 emits，否则父级监听的事件在类型上是 `any`。
             'vue/require-explicit-emits': 'error',
             // 模板块里组件名统一 PascalCase，与 import 名一致，便于全局搜索。
