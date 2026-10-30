@@ -1,14 +1,3 @@
-<script lang="ts">
-import type { IconName } from './icons';
-
-/** 导航项的形状。放在普通 `<script>` 块里才能被外部 import——`script setup` 不允许 export。 */
-export interface RailPage {
-    key: string;
-    label: string;
-    icon: IconName;
-}
-</script>
-
 <script setup lang="ts">
 /**
  * 左栏：一条书脊，八枚凹槽。
@@ -21,27 +10,28 @@ export interface RailPage {
  * - 宽度 158 → 58（不跟 `--fs-scale` 走，折叠态只放图标，放得下就是放得下）
  * - 文字用 `width:0 + opacity:0` 收，不是 `display:none`，否则边缘会跳
  * - 折叠按钮在栏底，图标表示**下一步**（收起 / 展开），不是当前状态
+ *
+ * 它不知道路由的存在：收 `items` 和 `current`，点出去一个 key。
+ * 导航项形状见 `navigation.ts` 的 `NavItem`——那是导航与路由共用的单一真源。
  */
-import { onMounted, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import AppIcon from './AppIcon.vue';
 import BevelPill from './BevelPill.vue';
 import SlotButton from './SlotButton.vue';
+import type { NavItem } from '../navigation';
 import { useTheme } from '../composables/use-theme';
-import { appInfo, openExternal } from '../services/desktop';
+import { openExternal } from '../services/desktop';
+import { useAppInfo } from '../composables/use-app-info';
 
-const props = defineProps<{ pages: RailPage[]; current: string }>();
+const props = defineProps<{ items: NavItem[]; current: string }>();
 const emit = defineEmits<{ (event: 'update:current', key: string): void }>();
 
 /** 项目地址。一个仓库、没有多环境之分，写死在这里比读配置省事。 */
 const REPO_URL = 'https://github.com/zhijian521/mh-toolbox-rs';
 
-/* 版本号从 Rust 侧取，不再手写：写死的那个数字升级后必然忘记改（这里原先就是 v0.1.0）。
- * 浏览器里跑时 appInfo 返回 null，退回占位串。 */
-const version = ref('0.1.0');
-onMounted(async () => {
-    const info = await appInfo();
-    if (info) version.value = info.version;
-});
+/* 版本号经 `useAppInfo` 取：真窗口里来自 Rust，浏览器预览时退回 package.json 的值。
+ * 写死的数字升级后必然忘记改（这里原先就是手写的 v0.1.0）。 */
+const { version } = useAppInfo();
 
 const { isDark, toggle: toggleTheme } = useTheme();
 
@@ -54,20 +44,20 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
     <aside class="rail" :class="{ collapsed }">
         <nav class="rail-nav" aria-label="主导航">
             <BevelPill
-                v-for="page in props.pages"
-                :key="page.key"
+                v-for="item in props.items"
+                :key="item.key"
                 radius="sm"
                 class="rail-item"
                 :class="{
-                    on: props.current === page.key,
-                    pending: props.current !== page.key && page.key !== 'settings',
+                    on: props.current === item.key,
+                    pending: !item.view && props.current !== item.key,
                 }"
-                :title="page.key === 'settings' ? page.label : page.label + '（未实现）'"
-                :aria-current="props.current === page.key ? 'page' : undefined"
-                @click="emit('update:current', page.key)"
+                :title="item.view ? item.label : item.label + '（未实现）'"
+                :aria-current="props.current === item.key ? 'page' : undefined"
+                @click="emit('update:current', item.key)"
             >
-                <AppIcon :name="page.icon" />
-                <span class="rail-label">{{ page.label }}</span>
+                <AppIcon :name="item.icon" />
+                <span class="rail-label">{{ item.label }}</span>
             </BevelPill>
         </nav>
 

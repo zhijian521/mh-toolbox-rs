@@ -3,8 +3,11 @@
     <head>
         <meta charset="utf-8" />
         <title>设计语言样张 · 收益页（账簿）</title>
-        <link rel="stylesheet" href="./tokens.css" />
-        <link rel="stylesheet" href="./base.css" />
+        <!-- 直接引应用内的样式表：令牌只有一个真源，不再有 design/ 下的手工副本。
+             字体 url 是相对 CSS 文件自身解析的，所以这里引用即可正常加载。 -->
+        <link rel="stylesheet" href="../src/styles/tokens.css" />
+        <link rel="stylesheet" href="../src/styles/base.css" />
+        <link rel="stylesheet" href="../src/styles/blocks.css" />
         <style>
             /* ============================================================
              * 样张外壳

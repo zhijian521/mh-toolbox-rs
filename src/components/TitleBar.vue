@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import AppIcon from './AppIcon.vue';
 import SealMark from './SealMark.vue';
+import { useAppInfo } from '../composables/use-app-info';
 
 /**
  * 自绘标题栏。
@@ -20,6 +21,11 @@ import SealMark from './SealMark.vue';
  */
 const hasTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 const appWindow = hasTauri ? getCurrentWindow() : null;
+
+/* 版本标签取真版本的前两段（0.1.0 → 0.1）：标题栏是常驻窄条，
+ * 三位数字会把它撑长，而补丁号在标题栏里没有信息量。 */
+const { version } = useAppInfo();
+const shortVersion = computed(() => version.value.split('.').slice(0, 2).join('.'));
 
 const maximized = ref(false);
 let unlisten: (() => void) | null = null;
@@ -44,7 +50,7 @@ const close = () => void appWindow?.close();
         <div class="brand" data-tauri-drag-region>
             <SealMark text="梦" :size="20" />
             <span class="brand-name" data-tauri-drag-region>梦幻养老助手</span>
-            <span class="brand-tag" data-tauri-drag-region>RUST · V0.1</span>
+            <span class="brand-tag" data-tauri-drag-region>RUST · V{{ shortVersion }}</span>
         </div>
         <div class="drag-space" data-tauri-drag-region />
         <div class="actions">

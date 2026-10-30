@@ -12,6 +12,10 @@ const STORAGE_KEY = 'mh-font-scale';
  *
  * 系数不是等差的：中文在 0.9 以下笔画开始粘连，1.15 以上行高会撑破既有版式。
  * 0.92 / 1 / 1.1 是「看得出差别但不破版」的区间。
+ *
+ * **状态放在模块作用域，不放在函数里**：设置页拆成「外观」和「原子组件」两个组件后，
+ * 两处都会调 `useFontScale()`——各 new 一个 ref 的话，拖其中一个另一个不动，
+ * 而且每次挂载都多注册一次 `watch`。这和 `use-theme.ts` 是同一个坑，只是换了个文件。
  */
 const FACTOR: Record<FontScale, number> = {
     small: 0.92,
@@ -19,19 +23,26 @@ const FACTOR: Record<FontScale, number> = {
     large: 1.1,
 };
 
-export function useFontScale() {
-    const stored = localStorage.getItem(STORAGE_KEY) as FontScale | null;
-    const scale = ref<FontScale>(stored && stored in FACTOR ? stored : 'default');
+const stored = localStorage.getItem(STORAGE_KEY) as FontScale | null;
+const scale = ref<FontScale>(stored && stored in FACTOR ? stored : 'default');
 
-    const apply = () => {
-        document.documentElement.style.setProperty('--fs-scale', String(FACTOR[scale.value]));
-    };
+function apply() {
+    document.documentElement.style.setProperty('--fs-scale', String(FACTOR[scale.value]));
+}
 
+let wired = false;
+
+function wire() {
+    if (wired) return;
+    wired = true;
     watch(scale, () => {
         apply();
         localStorage.setItem(STORAGE_KEY, scale.value);
     });
     apply();
+}
 
+export function useFontScale() {
+    wire();
     return { scale };
 }

@@ -1,5 +1,5 @@
 /**
- * 图标 = 现成库（tabler）+ 一层「业务名 → 图标组件」的映射。
+ * 图标 = 现成库（tabler）+ 一层「业务名 → 图标」的映射。
  *
  * 为什么不再手画：早先这里是 28 个手写的 16 格 path。问题不在画得对不对，而在**一致性**——
  * 一次画完的 28 个图标，圆角半径、边长比例、视觉留白各走各的，放大看就参差；
@@ -11,6 +11,13 @@
  *
  * 规格不由库决定，由 `AppIcon.vue` 的 CSS 决定：24 网格、笔宽 1.8 user units
  * （显示 14px 时约 1.05 物理像素，与账线同一种细笔）、尺寸 `calc(14px * var(--fs-scale))`。
+ *
+ * ---- 为什么只有一张表 ----
+ * 原先这里是四张平行的表：图标映射、中文名、分组、名字联合类型。四张表意味着加一个图标要
+ * 改四处，少改一处不会报错——中文名漏了界面上就是空白，分组漏了设置页就少一格，
+ * 全是「跑起来才发现」的错。现在只有 `ICON_META` 一张，其余全部派生：
+ * `IconName` 从 key 推、`ICONS` / `ICON_LABELS` / `ICON_GROUPS` 从值推。
+ * 加图标 = 表里加一行，漏字段 = 类型报错。
  */
 import type { Component } from 'vue';
 
@@ -20,12 +27,12 @@ import {
     IconBrandGithubFilled,
     IconCalendar,
     IconCamera,
-    IconChevronsLeft,
-    IconChevronsRight,
     IconCash,
     IconCheck,
     IconChevronDown,
     IconChevronRight,
+    IconChevronsLeft,
+    IconChevronsRight,
     IconClipboard,
     IconClock,
     IconCopy,
@@ -50,174 +57,98 @@ import {
     IconX,
 } from '@tabler/icons-vue';
 
-export type IconName =
-    | 'overview'
-    | 'income'
-    | 'equipment'
-    | 'prices'
-    | 'characters'
-    | 'accounts'
-    | 'goals'
-    | 'settings'
-    | 'add'
-    | 'edit'
-    | 'trash'
-    | 'search'
-    | 'filter'
-    | 'archive'
-    | 'camera'
-    | 'paste'
-    | 'upload'
-    | 'download'
-    | 'calendar'
-    | 'clock'
-    | 'pin'
-    | 'check'
-    | 'chevron-down'
-    | 'chevron-right'
-    | 'sun'
-    | 'moon'
-    | 'github'
-    | 'rail-collapse'
-    | 'rail-expand'
-    | 'minimize'
-    | 'maximize'
-    | 'restore'
-    | 'close';
+/** 分组只影响设置页的排布：导航、动作、外壳、窗口四种用途不该混在一张清单里。 */
+type IconGroup = 'nav' | 'action' | 'shell' | 'window';
 
-export const ICONS: Record<IconName, Component> = {
+/** 分组标题与显示顺序。表的顺序就是设置页里出现的顺序。 */
+const GROUP_META: { id: IconGroup; label: string; note: string }[] = [
+    { id: 'nav', label: '导航', note: '左栏八个入口' },
+    { id: 'action', label: '动作', note: '按钮与行操作' },
+    { id: 'shell', label: '外壳', note: '侧栏与主题' },
+    { id: 'window', label: '窗口', note: '标题栏三键' },
+];
+
+interface IconEntry {
+    /** 库里的图标组件，原样引用，不改几何。 */
+    glyph: Component;
+    /** 中文名只给设置页的清单用；业务页面自己写文案，不从这里取。 */
+    label: string;
+    group: IconGroup;
+}
+
+/**
+ * 唯一真源。顺序即清单顺序，所以这里的分组是按用途成段写的。
+ */
+const ICON_META = {
     /* ---------- 导航 ---------- */
-    overview: IconLayoutDashboard,
+    overview: { glyph: IconLayoutDashboard, label: '总览', group: 'nav' },
     // 收益用「钞票」而不是「硬币」：硬币在 24 网格里必然带一个货币符号，
     // 显示到 14px 时符号糊成一道竖线，而且 ¥/$ 都跟游戏币对不上；钞票是矩形加一圆，轮廓最稳。
-    income: IconCash,
-    equipment: IconShield,
-    prices: IconTag,
-    characters: IconUsers,
-    accounts: IconWallet,
-    goals: IconFlag,
+    income: { glyph: IconCash, label: '收益', group: 'nav' },
+    equipment: { glyph: IconShield, label: '装备', group: 'nav' },
+    prices: { glyph: IconTag, label: '物价', group: 'nav' },
+    characters: { glyph: IconUsers, label: '角色', group: 'nav' },
+    accounts: { glyph: IconWallet, label: '账号', group: 'nav' },
+    goals: { glyph: IconFlag, label: '目标', group: 'nav' },
     // 设置：两条横线带滑块，读作「调节」；用齿轮在 14px 下会糊成太阳。
-    settings: IconAdjustmentsHorizontal,
+    settings: { glyph: IconAdjustmentsHorizontal, label: '设置', group: 'nav' },
 
     /* ---------- 动作 ---------- */
-    add: IconPlus,
-    edit: IconPencil,
-    trash: IconTrash,
-    search: IconSearch,
-    filter: IconFilter,
-    archive: IconArchive,
-    camera: IconCamera,
-    paste: IconClipboard,
-    upload: IconUpload,
-    download: IconDownload,
-    calendar: IconCalendar,
-    clock: IconClock,
-    pin: IconMapPin,
-    check: IconCheck,
-    'chevron-down': IconChevronDown,
-    'chevron-right': IconChevronRight,
+    add: { glyph: IconPlus, label: '新增', group: 'action' },
+    edit: { glyph: IconPencil, label: '编辑', group: 'action' },
+    trash: { glyph: IconTrash, label: '删除', group: 'action' },
+    search: { glyph: IconSearch, label: '搜索', group: 'action' },
+    filter: { glyph: IconFilter, label: '筛选', group: 'action' },
+    archive: { glyph: IconArchive, label: '归档', group: 'action' },
+    camera: { glyph: IconCamera, label: '截图', group: 'action' },
+    paste: { glyph: IconClipboard, label: '粘贴', group: 'action' },
+    upload: { glyph: IconUpload, label: '上传', group: 'action' },
+    download: { glyph: IconDownload, label: '下载', group: 'action' },
+    calendar: { glyph: IconCalendar, label: '日期', group: 'action' },
+    clock: { glyph: IconClock, label: '计时', group: 'action' },
+    pin: { glyph: IconMapPin, label: '定位', group: 'action' },
+    check: { glyph: IconCheck, label: '勾选', group: 'action' },
+    'chevron-down': { glyph: IconChevronDown, label: '下拉', group: 'action' },
+    'chevron-right': { glyph: IconChevronRight, label: '右折', group: 'action' },
 
     /* ---------- 外壳 ---------- */
     // 太阳/月亮只表示「点了会变成什么」，不表示当前状态——按钮说的是下一步。
-    // 折叠用双箭头而不是「侧栏收起」那个带竖线的方框：14px 下方框会糊成一根竖线。
-    sun: IconSun,
-    moon: IconMoon,
+    sun: { glyph: IconSun, label: '日间', group: 'shell' },
+    moon: { glyph: IconMoon, label: '夜间', group: 'shell' },
     // GitHub 用实心标。线性版（24 网格里那只猫的轮廓线）14px 下糊成一个方框，
     // 实心剪影至少还认得出耳朵和尾巴——品牌标宁可重一点，也要认得出。
-    github: IconBrandGithubFilled,
-    'rail-collapse': IconChevronsLeft,
-    'rail-expand': IconChevronsRight,
+    github: { glyph: IconBrandGithubFilled, label: '仓库', group: 'shell' },
+    // 折叠用双箭头而不是「侧栏收起」那个带竖线的方框：14px 下方框会糊成一根竖线。
+    'rail-collapse': { glyph: IconChevronsLeft, label: '收起', group: 'shell' },
+    'rail-expand': { glyph: IconChevronsRight, label: '展开', group: 'shell' },
 
     /* ---------- 窗口按钮 ---------- */
-    minimize: IconMinus,
-    maximize: IconSquare,
-    restore: IconCopy,
-    close: IconX,
-};
+    minimize: { glyph: IconMinus, label: '最小化', group: 'window' },
+    maximize: { glyph: IconSquare, label: '最大化', group: 'window' },
+    restore: { glyph: IconCopy, label: '还原', group: 'window' },
+    close: { glyph: IconX, label: '关闭', group: 'window' },
+} satisfies Record<string, IconEntry>;
 
-/** 中文名只给设置页的清单用；业务页面自己写文案，不从这里取。 */
-export const ICON_LABELS: Record<IconName, string> = {
-    overview: '总览',
-    income: '收益',
-    equipment: '装备',
-    prices: '物价',
-    characters: '角色',
-    accounts: '账号',
-    goals: '目标',
-    settings: '设置',
-    add: '新增',
-    edit: '编辑',
-    trash: '删除',
-    search: '搜索',
-    filter: '筛选',
-    archive: '归档',
-    camera: '截图',
-    paste: '粘贴',
-    upload: '上传',
-    download: '下载',
-    calendar: '日期',
-    clock: '计时',
-    pin: '定位',
-    check: '勾选',
-    'chevron-down': '下拉',
-    'chevron-right': '右折',
-    sun: '日间',
-    github: '仓库',
-    moon: '夜间',
-    'rail-collapse': '收起',
-    'rail-expand': '展开',
-    minimize: '最小化',
-    maximize: '最大化',
-    restore: '还原',
-    close: '关闭',
-};
+/** 业务名联合类型。加图标只改上面那张表，这里自动跟着长。 */
+export type IconName = keyof typeof ICON_META;
 
-/** 分组只影响设置页的排布：导航、动作、窗口三种用途不该混在一张表里。 */
-export const ICON_GROUPS: { label: string; note: string; names: IconName[] }[] = [
-    {
-        label: '导航',
-        note: '左栏八个入口',
-        names: [
-            'overview',
-            'income',
-            'equipment',
-            'prices',
-            'characters',
-            'accounts',
-            'goals',
-            'settings',
-        ],
-    },
-    {
-        label: '动作',
-        note: '按钮与行操作',
-        names: [
-            'add',
-            'edit',
-            'trash',
-            'search',
-            'filter',
-            'archive',
-            'camera',
-            'paste',
-            'upload',
-            'download',
-            'calendar',
-            'clock',
-            'pin',
-            'check',
-            'chevron-down',
-            'chevron-right',
-        ],
-    },
-    {
-        label: '外壳',
-        note: '侧栏与主题',
-        names: ['sun', 'moon', 'github', 'rail-collapse', 'rail-expand'],
-    },
-    {
-        label: '窗口',
-        note: '标题栏三键',
-        names: ['minimize', 'maximize', 'restore', 'close'],
-    },
-];
+const NAMES = Object.keys(ICON_META) as IconName[];
+
+/** 业务名 → 组件。`AppIcon` 只认这一张。 */
+export const ICONS: Record<IconName, Component> = Object.fromEntries(
+    NAMES.map((name) => [name, ICON_META[name].glyph]),
+) as Record<IconName, Component>;
+
+/** 业务名 → 中文名。 */
+export const ICON_LABELS: Record<IconName, string> = Object.fromEntries(
+    NAMES.map((name) => [name, ICON_META[name].label]),
+) as Record<IconName, string>;
+
+/** 按 `GROUP_META` 的顺序分组，组内保持表里的书写顺序。 */
+export const ICON_GROUPS: { label: string; note: string; names: IconName[] }[] = GROUP_META.map(
+    (group) => ({
+        label: group.label,
+        note: group.note,
+        names: NAMES.filter((name) => ICON_META[name].group === group.id),
+    }),
+);

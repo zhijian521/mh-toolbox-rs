@@ -1,0 +1,61 @@
+/*
+ * 组合块：由多个基础元素拼出来的展示区块，跨组件复用。
+ *
+ * 与 `base.css` 的分工：base 管**元素级**基座（按钮、胶囊、开关、勾选、线、印章），
+ * blocks 管**组合级**排版（说明文字、组件展示网格）。
+ *
+ * 这些类原先写在 `SettingsView.vue` 的 scoped 样式里。设置页拆成八个 section 组件后，
+ * 每个组件各写一份 `.note` 就变成八份重复，而且改一处要改八处——提到这里只留一份。
+ *
+ * 注意：scoped 样式不会作用于子组件插槽里的内容（插槽内容由使用方编译、带使用方的
+ * scope id），所以这类「跨组件共用」的类只能放全局样式表，不能留在某个组件里。
+ */
+
+/* ---------- 说明文字 ---------- */
+.note {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    line-height: 1.72;
+}
+.note code {
+    font-family: var(--font-ui);
+    font-size: var(--fs-xs);
+    letter-spacing: 0;
+}
+/* 说明里的强调不用加粗：文楷没有真粗体，浏览器会伪造描边，糊成一团。 */
+.note b {
+    color: var(--ink-2);
+    font-weight: 400;
+}
+
+/* ---------- 组件展示网格 ---------- */
+.kit {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+    gap: 14px;
+}
+.kit-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 10px 11px 11px;
+    border: var(--w-hair) solid var(--rule);
+    background: var(--bg);
+}
+.kit-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+.kit-row.checks {
+    gap: 14px;
+    padding: 2px 0;
+}
+.kit-row.seals {
+    gap: 10px;
+}
+.kit-cell .note {
+    margin-top: 0;
+}

@@ -68,13 +68,15 @@ start.bat --force    遇到占用直接处理，不询问
 
 ## 五、验证方式
 
-| 要验什么              | 怎么做                                                                                                                  |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| 代码质量              | `npm run check`                                                                                                         |
-| 界面观感              | `npm run build` → `python -m http.server 5199 --directory dist` → Edge headless 开 `--remote-debugging-port` → CDP 截图 |
-| IPC / 外链 / 窗口操作 | **必须回 Tauri 真窗口**。`MH_CDP_PORT=9223 npm run desktop`，连 `http://127.0.0.1:9223/json/list`                       |
-| 悬停、按下等伪类      | CDP 的 `Input.dispatchMouseEvent` 真移动鼠标。**js 派发事件不会激活 `:hover`**，拿那个截图是自欺                        |
-| 几何是否对齐          | 读 `getBoundingClientRect()` 断言，不要靠眼看截图                                                                       |
+| 要验什么              | 怎么做                                                                                                                                                                                                                                                                                                                        |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 代码质量              | `npm run check`                                                                                                                                                                                                                                                                                                               |
+| 界面观感              | `npm run build` → `python -m http.server 5199 --directory dist` → Edge headless 开 `--remote-debugging-port` → CDP 截图                                                                                                                                                                                                       |
+| IPC / 外链 / 窗口操作 | **必须回 Tauri 真窗口**。`MH_CDP_PORT=9223 npm run desktop`，连 `http://127.0.0.1:9223/json/list`                                                                                                                                                                                                                             |
+| CSP / 安全策略        | **`tauri dev` 走的是 `devCsp`，验不到生产的 `csp`**。要验就出包：`npm run tauri build -- --debug --no-bundle`，再 `MH_CDP_PORT=9224 ./src-tauri/target/debug/mh-toolbox-rs.exe`（它从 `tauri.localhost` 加载内嵌产物，才是生产策略）。判据：8 个 section 在、字体 `loaded`、`appInfo` IPC 通、`Log`/`Runtime` 事件零 CSP 拦截 |
+| 降动效                | CDP `Emulation.setEmulatedMedia` 传 `features: [{ name: 'prefers-reduced-motion', value: 'reduce' }]`，再读 `getComputedStyle(el).transitionDuration`，应为 `0.001s`                                                                                                                                                          |
+| 悬停、按下等伪类      | CDP 的 `Input.dispatchMouseEvent` 真移动鼠标。**js 派发事件不会激活 `:hover`**，拿那个截图是自欺                                                                                                                                                                                                                              |
+| 几何是否对齐          | 读 `getBoundingClientRect()` 断言，不要靠眼看截图                                                                                                                                                                                                                                                                             |
 
 三条截图经验（都踩过）：
 
@@ -98,8 +100,9 @@ start.bat --force    遇到占用直接处理，不询问
    会把两个安装包当成同一个应用互相覆盖。
 3. **渲染层只有 `src/services/` 能碰系统**。ESLint 已拦 `@tauri-apps/api/core` 出现在
    `components/`、`views/`、`composables/` 里。
-4. **令牌只有一份真源**：`src/styles/tokens.css`。`design/tokens.css` 是设计稿副本，
-   要改就两边都改——或者（更好）别改副本，以 `src/` 为准。
+4. **令牌只有一份真源**：`src/styles/` 下的 `tokens.css` / `base.css` / `blocks.css`。
+   `design/` 下**不再有副本**（2026-10-30 已删），`design/income.html` 直接引 `../src/styles/*.css`。
+   以后做设计稿也引同一份文件，不要复制。
 5. **卸载不删数据**（`deleteAppDataOnUninstall` 保持 false）。
 6. 数据层落地后必须做 **SQLite → JSON 反向镜像**，否则一旦转换就退不回旧版。
 

@@ -3,6 +3,9 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <!-- 空 data URI：浏览器不再去要 /favicon.ico。窗口图标由 Tauri 的 icons/ 提供，
+             这里留空只是不想让每次启动都有一条 404 污染控制台——真出问题时它最碍事。 -->
+        <link rel="icon" href="data:," />
         <title>梦幻养老助手</title>
     </head>
     <body>

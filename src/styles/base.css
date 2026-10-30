@@ -457,3 +457,26 @@ svg {
     /* 滚动条始终占位：内容不满一屏的页面若不留，右侧会被撑宽约 10px，切页时页头右端会跳。 */
     scrollbar-gutter: stable;
 }
+
+/* ---------- 动效降级 ----------
+ * 系统开了「减少动态效果」（前庭敏感、晕动症）就全站停掉位移与回弹。
+ *
+ * 为什么是通配 + `!important` 而不是改 `--t-*`：这套语言的位移不全是走令牌的——
+ * 侧栏展开、槽按钮高度、朱印内缩各有自己的时长（140/200/220ms），写死在组件里。
+ * 逐处改成令牌要动五个组件，而且以后新写的组件照样会漏；一条通配能一次兜住现在和将来。
+ *
+ * 为什么是 1ms 不是 0s：`transition: none` 会让依赖 `transitionend` 的逻辑收不到事件，
+ * 状态机就卡在中间态。1ms 既看不见，也照常触发。
+ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        transition-duration: 1ms !important;
+        transition-delay: 0ms !important;
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        animation-delay: 0ms !important;
+        scroll-behavior: auto !important;
+    }
+}

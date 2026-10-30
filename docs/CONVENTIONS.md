@@ -102,7 +102,7 @@ Tauri 跑的是本地文件，`createWebHashHistory()` 零成本，不需要服�
 到目前够用，但业务数据一进来（角色列表、流水、装备）就需要一个明确的答案：
 Pinia 还是 provide/inject？现在没定，第一个做业务页的人会自己发明一套。
 
-#### H. 设计令牌是双份，而且已经漂了
+#### H. 设计令牌是双份，而且已经漂了 —— ✅ 已修（第二批 12）
 
 `src/styles/tokens.css` 与 `design/tokens.css` 是两份手工维护的副本。
 `diff` 实测已经出现 4 处差异（`@font-face` 路径、两处注释措辞、`base.css` 里
@@ -133,7 +133,7 @@ pub struct AppInfo { product_name: String, version: String, /* ... */ }
 现在不建也没事，但**第一次写领域代码时如果顺手塞进 `src-tauri/src/`，就再也拆不出来了**。
 应该在建目录的同一刻把边界写进文档。
 
-#### K. `design/icon/` 里躺着 3.9 MB 废弃产物
+#### K. `design/icon/` 里躺着 3.9 MB 废弃产物 —— ✅ 已清（第二批 13）
 
 ```
 design/icon/icon-lab.py          ← 账簿四方案（用户已否）
@@ -149,20 +149,20 @@ design/icon/old/                 ← 旧图标备份，保留
 
 ### 1.3 细节级（顺手改）
 
-| #   | 位置                                      | 问题                                                                                                                                                                    | 建议                                                                                                                                     |
-| --- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `src/composables/use-font-scale.ts:22-36` | **每次调用都 `ref()` + `watch()` + `apply()`**。现在只有 `SettingsView.vue:25` 一处调用，所以没暴露；第二个组件一调，就是两份互不相干的 ref，且每次挂载重复注册 `watch` | 照 `use-theme.ts` 的做法改成模块级单例 + 惰性 `wire()`。**这是刚修过的同一个 bug，只是换了个文件**（`use-theme.ts:17` 的注释写明了原因） |
-| 2   | `src-tauri/src/lib.rs:22`                 | `format!("{base}\\mh-tool-v2")` 手工拼反斜杠                                                                                                                            | 用 `PathBuf::from(base).join("mh-tool-v2")`。`APPDATA` 带尾斜杠时会拼出双斜杠                                                            |
-| 3   | `src-tauri/src/lib.rs:52`                 | `url.starts_with("https://")` 只判前缀，`https://` 空 host 也能过                                                                                                       | 加 `url` crate 解析，校验 scheme + host 非空。这是安全边界，不该宽松                                                                     |
-| 4   | `src-tauri/tauri.conf.json:15`            | `"csp": null`                                                                                                                                                           | 配一份严格 CSP。当前无远程资源（字体本地、图标本地），可以直接开                                                                         |
-| 5   | 全局                                      | **无 `prefers-reduced-motion` 降级**（`grep` 无一处）。站内有 120/180/240ms 位移 + 回弹                                                                                 | 加一条全局媒体查询把 `--t-*` 归零、`--ease-*` 换 linear。改 4 个变量，全站生效                                                           |
-| 6   | `src/components/icons.ts`                 | 加一个图标要改 **4 处**：`IconName`（:53）、`ICONS`（:88）、`ICON_LABELS`（:139）、`ICON_GROUPS`（:176）                                                                | 合并成一张 `{ name, icon, label, group }[]`，由它派生其余三者                                                                            |
-| 7   | 版本号                                    | **4 处手写**：`package.json:4`、`src-tauri/tauri.conf.json:4`、`src-tauri/Cargo.toml:3`、`TitleBar.vue:47`（`RUST · V0.1`）+ `AppRail.vue:24`（`ref('0.1.0')` 兜底值）  | 定一个真源（`package.json`），其余由构建脚本注入或在 CI 里校验一致                                                                       |
-| 8   | `src/components/`                         | 命名不统一：`BaseCheck` 带 `Base` 前缀，`SlotButton`/`SegmentedPills`/`AppIcon` 不带                                                                                    | 见 §2.2 的三条前缀规则                                                                                                                   |
-| 9   | `src/App.vue:3`                           | `import AppRail, { type RailPage } from './components/AppRail.vue'` —— 跨组件类型从 SFC 里导出，靠双 `<script>` 块才能做到                                              | 跨组件类型收进 `src/types/`                                                                                                              |
-| 10  | `src/styles/base.css:101`                 | `border-radius: 10px` 是唯一硬编码圆角                                                                                                                                  | 滚动条滑块不是设计元素，可以保留，但加一行注释说明为什么例外                                                                             |
-| 11  | `README.md`                               | 目录清单已过期：components 一栏没有 `AppRail`/`SlotButton`/`SegmentedPills`/`IconName` 体系                                                                             | 顺手更新，或干脆改成指 `docs/`                                                                                                           |
-| 12  | `docs/`                                   | 不存在。所有约定都靠代码注释承载（注释质量很高，但 456 行 `base.css` + 15 个组件，新人读不到全貌）                                                                      | 见 §2.6                                                                                                                                  |
+| #   | 位置                                      | 问题                                                                                                                                                                    | 建议                                                                                                                                                                |
+| --- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `src/composables/use-font-scale.ts:22-36` | **每次调用都 `ref()` + `watch()` + `apply()`**。现在只有 `SettingsView.vue:25` 一处调用，所以没暴露；第二个组件一调，就是两份互不相干的 ref，且每次挂载重复注册 `watch` | 照 `use-theme.ts` 的做法改成模块级单例 + 惰性 `wire()`。**这是刚修过的同一个 bug，只是换了个文件**（`use-theme.ts:17` 的注释写明了原因）                            |
+| 2   | `src-tauri/src/lib.rs:22`                 | `format!("{base}\\mh-tool-v2")` 手工拼反斜杠                                                                                                                            | 用 `PathBuf::from(base).join("mh-tool-v2")`。`APPDATA` 带尾斜杠时会拼出双斜杠                                                                                       |
+| 3   | `src-tauri/src/lib.rs:52`                 | `url.starts_with("https://")` 只判前缀，`https://` 空 host 也能过                                                                                                       | 加 `url` crate 解析，校验 scheme + host 非空。这是安全边界，不该宽松                                                                                                |
+| 4   | `src-tauri/tauri.conf.json:15`            | `"csp": null`                                                                                                                                                           | ✅ 已配（见 §3 第二批 14）。生产 `csp` 严格、开发 `devCsp` 另列；真窗口实测 IPC 通、零控制台报错                                                                    |
+| 5   | 全局                                      | **无 `prefers-reduced-motion` 降级**（`grep` 无一处）。站内有 120/180/240ms 位移 + 回弹                                                                                 | ✅ 已加（`base.css` 末尾）。实测改成**通配 + `!important`**：位移时长有 140/200/220ms 几处写死在组件里，改令牌兜不住；且用 1ms 不用 0s，否则 `transitionend` 不触发 |
+| 6   | `src/components/icons.ts`                 | 加一个图标要改 **4 处**：`IconName`（:53）、`ICONS`（:88）、`ICON_LABELS`（:139）、`ICON_GROUPS`（:176）                                                                | ✅ 已合并成 `ICON_META` 一张表，`IconName`/`ICONS`/`ICON_LABELS`/`ICON_GROUPS` 全部派生                                                                             |
+| 7   | 版本号                                    | **4 处手写**：`package.json:4`、`src-tauri/tauri.conf.json:4`、`src-tauri/Cargo.toml:3`、`TitleBar.vue:47`（`RUST · V0.1`）+ `AppRail.vue:24`（`ref('0.1.0')` 兜底值）  | 定一个真源（`package.json`），其余由构建脚本注入或在 CI 里校验一致                                                                                                  |
+| 8   | `src/components/`                         | 命名不统一：`BaseCheck` 带 `Base` 前缀，`SlotButton`/`SegmentedPills`/`AppIcon` 不带                                                                                    | 见 §2.2 的三条前缀规则                                                                                                                                              |
+| 9   | `src/App.vue:3`                           | `import AppRail, { type RailPage } from './components/AppRail.vue'` —— 跨组件类型从 SFC 里导出，靠双 `<script>` 块才能做到                                              | 跨组件类型收进 `src/types/`                                                                                                                                         |
+| 10  | `src/styles/base.css:101`                 | `border-radius: 10px` 是唯一硬编码圆角                                                                                                                                  | 滚动条滑块不是设计元素，可以保留，但加一行注释说明为什么例外                                                                                                        |
+| 11  | `README.md`                               | 目录清单已过期：components 一栏没有 `AppRail`/`SlotButton`/`SegmentedPills`/`IconName` 体系                                                                             | 顺手更新，或干脆改成指 `docs/`                                                                                                                                      |
+| 12  | `docs/`                                   | 不存在。所有约定都靠代码注释承载（注释质量很高，但 456 行 `base.css` + 15 个组件，新人读不到全貌）                                                                      | 见 §2.6                                                                                                                                                             |
 
 ---
 
@@ -291,9 +291,9 @@ types/          （待建）跨组件共享的类型
    「凸起」的一次性投影。
 6. **动效必须走 `--t-*` + `--ease-*`**，位移类动效统一带 `--ease-snap`（回弹）。
 7. **`prefers-reduced-motion` 必须有降级**（见 §1.3-5）。
-8. **令牌只有一个真源**。`design/tokens.css` 要么删掉，要么改成指向
-   `src/styles/tokens.css` 的软链/说明页。设计稿需要独立打开时，用构建脚本从 `src/` 生成。
-   **同样处理 `design/base.css`**。
+8. **令牌只有一个真源**（✅ 已执行）。`design/` 下不再有样式表副本，`design/income.html`
+   直接引 `../src/styles/tokens.css` / `base.css` / `blocks.css`。以后要做独立设计稿，
+   **引同一份文件，不要复制**——需要「记得两边都改」的东西一定会漂。
 
 ### 2.5 注释
 
@@ -351,19 +351,36 @@ types/          （待建）跨组件共享的类型
 `cargo fmt --check` 与 `cargo clippy --all-targets -- -D warnings` 均无输出；
 `npm run lint:commits` 最近 20 条全部合规。
 
-### 第二批：结构（2–3 天）
+### 第二批：结构（2–3 天）— **✅ 2026-10-30 已完成**
 
-8. 引入 `vue-router`（`createWebHashHistory`），8 个页面各一个路由，`App.vue` 的 `v-if` 收掉
-9. 拆 `SettingsView`：8 个 section → `views/settings/` 下 8 个组件，视图本身降到 100 行内
-10. `useFontScale` 改单例
-11. `icons.ts` 四表合一
-12. 令牌单一真源（删 `design/tokens.css`/`base.css` 副本，或改成生成物）
-13. 清理 `design/icon/` 的废弃产物（`icon-lab.py`、`icon-preview.html`、`png/`、
-    `make-preview.py` 共约 3.9 MB）
-14. `csp` 从 `null` 换成严格策略 + `prefers-reduced-motion` 降级
-15. 版本号收敛到一处
+8. ✅ 引入 `vue-router`（`createWebHashHistory`），8 个页面各一个路由，`App.vue` 的 `v-if` 收掉。
+   导航数据抽成 `src/navigation.ts`（`NAV_ITEMS` / `NAV_BY_KEY`），路由、左栏、页头标题共用一份。
+   未实现页共用一个 `PlaceholderView`，标题读 `route.meta.title`——不为七个空页写七份模板
+9. ✅ 拆 `SettingsView`：`views/settings/` 下 8 个 section（外观 / 原子组件 / 色板 / 字号阶梯 /
+   控件 / 图标 / 结构 / 关于）+ `shared.ts`，视图本身 **45 行**，只剩组合与顺序
+10. ✅ `useFontScale` 改模块级单例（惰性 `wire()`），与 `useTheme` 同形
+11. ✅ `icons.ts` 四表合一：`ICON_META` 一张表，`IconName` 由 key 推，其余三个导出由值推
+12. ✅ 令牌单一真源：删掉 `design/tokens.css` 与 `design/base.css`，`design/income.html` 直接引
+    `../src/styles/*.css`（字体 url 相对 CSS 自身解析，实测正常）
+13. ✅ 清掉 `design/icon/` 的废弃产物（`icon-lab.py`、`icon-preview.html`、顶层
+    `make-preview.py`、`png/`、`ink/png/` 共约 1.4 MB）。保留 `ink/`（定稿 + 生成脚本 + 自包含
+    的 `preview.html`）与 `old/`（旧图标备份）
+14. ✅ `csp` 换成严格策略（`devCsp` 另列，放行 Vite 的 `ws:` 与 `'unsafe-eval'`）+
+    `prefers-reduced-motion` 降级
+15. ✅ 版本号收敛：`useAppInfo` 单例（真窗口读 Rust 返回值，浏览器预览退回 `package.json`），
+    `TitleBar` 与 `AppRail` 不再写死；`scripts/check-version.mjs` 校验三处清单文件一致，
+    已挂进 `npm run check`
 
-**验收**：`npm run check` 全绿；8 个页面都能通过 URL 直达；`SettingsView.vue` < 120 行。
+**验收结果**（2026-10-30 实测）：
+
+- `npm run check` 全绿（format:check + lint + typecheck + check:version）
+- 8 个页面都能 URL 直达；未知路径兜底回设置页；`SettingsView.vue` 45 行
+- 设置页 8 个 section、图标 33 项（8/16/5/4）都在，`truncation` 探针为空
+- **生产 CSP 实测**：`tauri build --debug --no-bundle` 出包后运行，8 个 section 正常、
+  字体加载成功、`appInfo` IPC 通、控制台零报错（`Log` + `Runtime` 事件全收，含 CSP 拦截）
+- **降动效实测**：CDP `Emulation.setEmulatedMedia` 模拟 `prefers-reduced-motion: reduce` 后，
+  `.cost-thumb` 与 `.rail` 的 `transition-duration` 均为 `0.001s`（后者 220ms 是写死的，
+  证明通配规则确实兜住了令牌之外的写法）
 
 ### 第三批：领域层地基（在写第一行业务逻辑之前）
 
