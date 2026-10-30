@@ -38,6 +38,37 @@
 └── assets/fonts/         霞鹜文楷 Screen（全量 9.8 MB，不子集化，OFL 1.1）
 ```
 
+## 启动
+
+双击根目录的 **`start.bat`** 即可。它会自己补齐 MSVC 的 `LIB` 与 `PATH`（原因见文末
+「Windows 上编译必须先设环境」），然后起窗口。
+
+```bat
+start.bat            普通启动
+start.bat debug      启动并开 CDP 9222（供 e2e / 实拍）
+start.bat --check    只做环境自检，不启动
+start.bat --force    端口被占时直接清掉，不询问
+```
+
+它做四件事，每件都对应一个真踩过的坑：
+
+1. **按目录探测 MSVC 与 Windows SDK 的最新版本**，不写死版本号——装了新 BuildTools 或新 SDK
+   之后脚本不用改。
+2. **并行度压到 4**（`CARGO_BUILD_JOBS`）。本机 rustc 高并发编译时崩过
+   `STATUS_ACCESS_VIOLATION`，这是编译器进程崩，不是代码错。
+3. **5173 端口预检**。`vite.config.ts` 开了 `strictPort`，端口被上次残留的 Vite 占着时，
+   Vite 不会换端口而是直接退出，`tauri dev` 跟着失败且没有明确提示。脚本会指出占用者
+   PID 并询问是否结束——**只结束 `node.exe`**，别的进程一律不动。
+4. **`System32` 显式提到 PATH 前段**。从 Git Bash 里调用本脚本时，PATH 里混着 Git 的
+   `usr/bin`，同名的 `timeout.exe` 会抢在 Windows 的 `timeout` 前面被调用。
+
+> **`start.bat` 必须保存为 GBK(936) 编码 + CRLF 换行。** 存成 UTF-8 时 cmd 会按双字节切行，
+> 中文注释被拆成命令，报一堆「xxx 不是内部或外部命令」，而且报错位置与真实问题毫无关系。
+> 用 VSCode 编辑时确认右下角是 `GB 2312` 与 `CRLF`。
+>
+> 在 Git Bash 里请用 `cmd //c start.bat`；直接在 mintty 里跑会因编码不同显示成乱码
+> （不影响功能）。
+
 ## 开发
 
 ```bash
@@ -47,6 +78,8 @@ npm run desktop        # 起 Tauri 窗口（vite + cargo run）
 npm run build          # 类型检查 + 构建前端
 npm run desktop:build  # 打包
 ```
+
+直接跑 `npm run desktop` 需要先按文末手动设好环境；`start.bat` 就是这一步的封装。
 
 ### 调试端口（e2e 的唯一通道）
 

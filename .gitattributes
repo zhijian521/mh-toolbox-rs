@@ -1,0 +1,4 @@
+# Windows 批处理必须是 CRLF 换行；LF 会让 cmd 解析错位、报出与真实问题无关的错误。
+# 显式声明，避免在 autocrlf=false 的机器上 clone 出来变成 LF。
+*.bat text eol=crlf
+*.cmd text eol=crlf
