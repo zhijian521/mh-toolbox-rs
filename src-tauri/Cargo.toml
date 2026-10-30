@@ -1,0 +1,32 @@
+[package]
+name = "mh-toolbox-rs"
+version = "0.1.0"
+description = "梦幻养老助手 Rust 版"
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "mh_toolbox_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# dev 构建不生成调试信息：本机 rustc 在并行编译时出现过 STATUS_ACCESS_VIOLATION，
+# 关掉 debuginfo 既减少内存峰值也快得多；真要调试时用 `RUSTFLAGS=-g` 单独开。
+[profile.dev]
+debug = 0
+incremental = true
+
+# 与最终产物一致的体积口径：strip 符号 + LTO + 单编译单元 + 体积优先。
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"
+panic = "abort"

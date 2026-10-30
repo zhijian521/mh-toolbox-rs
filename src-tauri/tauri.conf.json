@@ -1,0 +1,42 @@
+{
+    "$schema": "https://schema.tauri.app/config/2",
+    "productName": "梦幻养老助手",
+    "version": "0.1.0",
+    "identifier": "com.zhijian.mhtoolbox.rs",
+    "build": {
+        "beforeDevCommand": "npm run dev",
+        "devUrl": "http://localhost:5173",
+        "beforeBuildCommand": "npm run build",
+        "frontendDist": "../dist"
+    },
+    "app": {
+        "windows": [
+            {
+                "label": "main",
+                "title": "梦幻养老助手",
+                "width": 1280,
+                "height": 820,
+                "minWidth": 1024,
+                "minHeight": 680,
+                "center": true,
+                "resizable": true,
+                "theme": null,
+                "backgroundColor": "#eee5cf"
+            }
+        ],
+        "security": {
+            "csp": null
+        }
+    },
+    "bundle": {
+        "active": true,
+        "targets": ["nsis"],
+        "icon": ["icons/icon.ico"],
+        "windows": {
+            "nsis": {
+                "languages": ["SimpChinese"],
+                "displayLanguageSelector": false
+            }
+        }
+    }
+}

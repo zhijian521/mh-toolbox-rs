@@ -12,7 +12,7 @@
 
 @font-face {
     font-family: 'LXGW WenKai Screen';
-    src: url('./fonts/LXGWWenKaiScreen.woff2') format('woff2');
+    src: url('../assets/fonts/LXGWWenKaiScreen.woff2') format('woff2');
     font-style: normal;
     font-weight: 400;
     font-display: swap;

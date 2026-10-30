@@ -1,0 +1,541 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import BaseCheck from '../components/BaseCheck.vue';
+import BevelPill from '../components/BevelPill.vue';
+import CostSwitch from '../components/CostSwitch.vue';
+import LedgerSection from '../components/LedgerSection.vue';
+import SealMark from '../components/SealMark.vue';
+import { useTheme, type ThemeMode } from '../composables/use-theme';
+import { appInfo, type AppInfo } from '../services/desktop';
+
+/**
+ * 设置页：这一版只做两件事——把主题通路跑通，把设计语言落成真组件。
+ *
+ * 组件预览不是「演示页」，它是这套语言的验收面：色板、字号、凹槽、开关、勾选、印章、
+ * 文武线与账线都在这里出现一次。以后新增控件先加进这一块，再进业务页面。
+ */
+const { mode } = useTheme();
+
+const themes: { key: ThemeMode; label: string; note: string }[] = [
+    { key: 'system', label: '跟随系统', note: '默认' },
+    { key: 'light', label: '浅色', note: '宣纸' },
+    { key: 'dark', label: '深色', note: '夜墨' },
+];
+
+const info = ref<AppInfo | null>(null);
+onMounted(async () => {
+    info.value = await appInfo();
+});
+
+/* 组件预览的交互状态 */
+const picked = ref('小号一');
+const cardCost = ref(true);
+const autoSave = ref(false);
+const onlyEarn = ref(true);
+const withCost = ref(false);
+
+const swatches: { token: string; label: string }[] = [
+    { token: '--bg', label: '页面底' },
+    { token: '--paper', label: '纸面' },
+    { token: '--paper-2', label: '纸面·次' },
+    { token: '--well', label: '凹槽' },
+    { token: '--rule', label: '账线' },
+    { token: '--rule-2', label: '描边' },
+    { token: '--ink', label: '墨' },
+    { token: '--ink-2', label: '正文' },
+    { token: '--muted', label: '淡墨' },
+    { token: '--cinnabar', label: '朱' },
+    { token: '--ochre', label: '赭' },
+    { token: '--indigo', label: '靛' },
+    { token: '--moss', label: '苔' },
+];
+
+const typeScale: { token: string; px: string; usage: string; size: string; hei?: boolean }[] = [
+    { token: '--fs-mini', px: '10px', usage: '印章 · 表头', size: 'var(--fs-mini)', hei: true },
+    { token: '--fs-xs', px: '11px', usage: '元信息 · 时间', size: 'var(--fs-xs)', hei: true },
+    { token: '--fs-sm', px: '12px', usage: '胶囊 · 流水', size: 'var(--fs-sm)' },
+    { token: '--fs-base', px: '13.5px', usage: '正文 · 表单', size: 'var(--fs-base)' },
+    { token: '--fs-md', px: '14.5px', usage: '分栏标题', size: 'var(--fs-md)' },
+    { token: '--fs-lg', px: '17px', usage: '弹窗标题', size: 'var(--fs-lg)' },
+    { token: '--fs-xl', px: '22px', usage: '页面标题', size: 'var(--fs-xl)' },
+    { token: '--fs-amount', px: '29px', usage: '金额', size: 'var(--fs-amount)' },
+];
+</script>
+
+<template>
+    <header class="page-head">
+        <div>
+            <h1>设置</h1>
+            <p class="page-desc">主题 · 组件预览 · 关于</p>
+        </div>
+        <div class="page-actions">
+            <span class="hint">设计样张见 design/income.html</span>
+        </div>
+    </header>
+
+    <div class="page-content">
+        <div class="stack">
+            <!-- 主题 -->
+            <LedgerSection title="外观" seal="貌" hint="一键换纸：令牌全部走 light-dark()">
+                <div class="row">
+                    <span class="row-label">主题</span>
+                    <div class="pill-group">
+                        <BevelPill
+                            v-for="theme in themes"
+                            :key="theme.key"
+                            :on="mode === theme.key"
+                            @click="mode = theme.key"
+                        >
+                            {{ theme.label }}
+                        </BevelPill>
+                    </div>
+                    <span class="hint">当前：{{ themes.find((item) => item.key === mode)?.label }}</span>
+                </div>
+                <p class="note">
+                    切主题只改根元素上的 <code>color-scheme</code>，颜色令牌不需要第二份；
+                    「跟随系统」时监听 <code>prefers-color-scheme</code>，Tauri 侧以后接
+                    <code>setTheme('system')</code> 即可，前端不用改。
+                </p>
+            </LedgerSection>
+
+            <!-- 色板 -->
+            <LedgerSection title="色板" seal="色" hint="纸是暖的，墨是灰的，朱只给三处">
+                <div class="swatches">
+                    <div v-for="item in swatches" :key="item.token" class="swatch">
+                        <i :style="{ '--c': `var(${item.token})` }" />
+                        <span>
+                            <b>{{ item.label }}</b>
+                            <code>{{ item.token }}</code>
+                        </span>
+                    </div>
+                </div>
+            </LedgerSection>
+
+            <!-- 字号 -->
+            <LedgerSection title="字号与双字体" seal="字" hint="楷体题字 · 黑体记账">
+                <div class="type-scale">
+                    <div v-for="item in typeScale" :key="item.token" class="type-row">
+                        <code class="type-token">{{ item.token }}</code>
+                        <em class="type-px">{{ item.px }}</em>
+                        <span
+                            class="type-sample"
+                            :style="{ fontSize: item.size, fontFamily: item.hei ? 'var(--font-hei)' : 'var(--font-kai)' }"
+                        >
+                            {{ item.usage }} · 梦幻养老助手 328.6 万
+                        </span>
+                    </div>
+                </div>
+            </LedgerSection>
+
+            <!-- 控件 -->
+            <LedgerSection title="控件" seal="件" hint="一种动作只有一种质感">
+                <div class="kit">
+                    <div class="kit-cell">
+                        <span class="col-head">按钮</span>
+                        <div class="kit-row">
+                            <button class="btn" type="button">次要</button>
+                            <button class="btn primary" type="button">主要</button>
+                            <button class="btn compact" type="button">紧凑</button>
+                            <button class="btn" type="button" disabled>禁用</button>
+                        </div>
+                        <p class="note">灌朱的按钮一页不超过两个，主操作只留一个。</p>
+                    </div>
+
+                    <div class="kit-cell">
+                        <span class="col-head">凹槽胶囊 · 单选</span>
+                        <div class="kit-row pill-group">
+                            <BevelPill
+                                v-for="name in ['主号', '小号一', '小号二']"
+                                :key="name"
+                                :on="picked === name"
+                                @click="picked = name"
+                            >
+                                {{ name }}
+                            </BevelPill>
+                            <BevelPill disabled>已归档</BevelPill>
+                        </div>
+                        <p class="note">凹要四件齐（槽底、上暗下亮、上沿内阴影、下沿高光）；选中是灌满，不是描边。</p>
+                    </div>
+
+                    <div class="kit-cell">
+                        <span class="col-head">两格开关 · 位移</span>
+                        <div class="kit-row">
+                            <CostSwitch v-model="cardCost" />
+                            <CostSwitch v-model="autoSave" off-label="手动" on-label="自动" />
+                        </div>
+                        <p class="note">滑块 240ms <code>cubic-bezier(0.34,1.28,0.6,1)</code> 带过冲；关闭态是灭灯，不是变灰。</p>
+                    </div>
+
+                    <div class="kit-cell">
+                        <span class="col-head">勾选</span>
+                        <div class="kit-row checks">
+                            <BaseCheck v-model="onlyEarn">只显示进账</BaseCheck>
+                            <BaseCheck v-model="withCost">含点卡成本</BaseCheck>
+                            <BaseCheck :model-value="false" disabled>停用项</BaseCheck>
+                        </div>
+                        <p class="note">多选用胶囊、互斥用开关、是/否用勾选——别把三种语义混着用。</p>
+                    </div>
+
+                    <div class="kit-cell">
+                        <span class="col-head">印章</span>
+                        <div class="kit-row seals">
+                            <SealMark text="梦" />
+                            <SealMark text="记" />
+                            <SealMark text="账" solid />
+                            <span class="hint">标记已定稿 / 已入账 / 已达成，全站唯一允许歪 2.5° 的元素。</span>
+                        </div>
+                    </div>
+
+                    <div class="kit-cell">
+                        <span class="col-head">金额</span>
+                        <div class="amount-demo">
+                            <span class="amount-value">232.6<i>万</i></span>
+                            <span class="amount-note">净收益 · 今日</span>
+                        </div>
+                        <p class="note">金额单独一档字号（29px），下方一条金额线；它是唯一允许超过页面标题的字。</p>
+                    </div>
+                </div>
+            </LedgerSection>
+
+            <!-- 结构 -->
+            <LedgerSection title="结构" seal="构" hint="结构靠线，不靠阴影">
+                <div class="structure">
+                    <div class="ledger-demo">
+                        <div class="ledger-head">
+                            <span class="col-head">时间</span>
+                            <span class="col-head">角色</span>
+                            <span class="col-head">来源</span>
+                            <span class="col-head amount-col">金额</span>
+                        </div>
+                        <div v-for="row in [
+                            ['09:12', '黑山老妖', '师门任务', '8.8'],
+                            ['11:44', '一剪梅', '金柳露 ×3', '8.4'],
+                            ['12:25', '五开合计', '点卡成本', '96.0'],
+                        ]" :key="row[0]" class="ledger-line">
+                            <span class="time">{{ row[0] }}</span>
+                            <span>{{ row[1] }}</span>
+                            <span class="from">{{ row[2] }}</span>
+                            <span class="amount-col num" :class="{ out: row[3] === '96.0' }">{{ row[3] }}</span>
+                        </div>
+                    </div>
+                    <div class="structure-note">
+                        <p class="note">
+                            <b>文武线</b>：外框 1px <code>--rule-2</code> + 内框 1px <code>--rule</code>，中间留 3px——
+                            本页每个区块都是它，替代旧版的「圆角卡片 + 投影」。
+                        </p>
+                        <p class="note">
+                            <b>账线</b>：行高严格 28px，线在 27–28px 之间。只用在「一行一条记录」的列表上，
+                            铺到底色上就成格子纸，反而看不清字。
+                        </p>
+                    </div>
+                </div>
+            </LedgerSection>
+
+            <!-- 关于 -->
+            <LedgerSection title="关于" seal="关" hint="版本与运行环境">
+                <dl class="about">
+                    <dt>产品名</dt>
+                    <dd>{{ info?.productName ?? '梦幻养老助手' }}（开发中）</dd>
+                    <dt>版本</dt>
+                    <dd>
+                        <template v-if="info">{{ info.version }}</template>
+                        <template v-else><span class="warn">未连到 Rust 侧</span>（浏览器预览）</template>
+                    </dd>
+                    <dt>标识</dt>
+                    <dd><code>{{ info?.identifier ?? 'com.zhijian.mhtoolbox.rs' }}</code></dd>
+                    <dt>数据目录</dt>
+                    <dd><code>{{ info?.dataDir ?? '%APPDATA%\\mh-tool-v2' }}</code></dd>
+                    <dt>运行环境</dt>
+                    <dd>{{ info?.webview ?? '系统 WebView2（Tauri 2）' }}</dd>
+                    <dt>字体</dt>
+                    <dd>霞鹜文楷 Screen（SIL OFL 1.1，全量不子集化）</dd>
+                </dl>
+            </LedgerSection>
+        </div>
+    </div>
+</template>
+
+<style scoped>
+.page-head {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    padding: 16px 20px 12px;
+    border-bottom: var(--w-rule) solid var(--rule-2);
+}
+.page-desc {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    letter-spacing: 0.06em;
+}
+.page-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+.page-content {
+    padding: 16px 20px 26px;
+}
+.stack {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 1240px;
+}
+
+/* ---------- 通用行 ---------- */
+.row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.row-label {
+    color: var(--muted);
+    font-family: var(--font-hei);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.14em;
+}
+/* 凹槽胶囊要垫一层 --paper 承载面：直接摆在页面底色上读不出凹（暗色下尤甚）。 */
+.pill-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px;
+    border-radius: var(--r-pill);
+    background: var(--paper-2);
+}
+.note {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    line-height: 1.72;
+}
+.note code,
+dd code {
+    font-family: var(--font-hei);
+    font-size: var(--fs-xs);
+    letter-spacing: 0;
+}
+.note b {
+    color: var(--ink-2);
+    font-weight: 400;
+}
+
+/* ---------- 色板 ---------- */
+.swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+    gap: 8px;
+}
+.swatch {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 8px;
+    border: var(--w-hair) solid var(--rule);
+}
+.swatch i {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border: var(--w-hair) solid var(--rule-2);
+    background: var(--c);
+}
+.swatch span {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+}
+.swatch b {
+    color: var(--ink);
+    font-size: var(--fs-sm);
+    font-weight: 400;
+}
+.swatch code {
+    font-family: var(--font-hei);
+    font-size: var(--fs-mini);
+    letter-spacing: 0;
+}
+
+/* ---------- 字号 ---------- */
+.type-scale {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+.type-row {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding-bottom: 7px;
+    border-bottom: 1px dashed var(--rule);
+}
+.type-row:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+.type-token {
+    flex: none;
+    width: 96px;
+    color: var(--muted);
+    font-family: var(--font-hei);
+    font-size: var(--fs-xs);
+    letter-spacing: 0;
+}
+.type-px {
+    flex: none;
+    width: 52px;
+    color: var(--muted);
+    font-family: var(--font-hei);
+    font-size: var(--fs-xs);
+    font-style: normal;
+}
+.type-sample {
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------- 控件 ---------- */
+.kit {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+    gap: 14px;
+}
+.kit-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 10px 11px 11px;
+    border: var(--w-hair) solid var(--rule);
+    background: var(--bg);
+}
+.kit-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+.kit-row.checks {
+    gap: 14px;
+    padding: 2px 0;
+}
+.kit-row.seals {
+    gap: 10px;
+}
+.kit-cell .note {
+    margin-top: 0;
+}
+
+/* ---------- 金额 ---------- */
+.amount-demo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.amount-value {
+    padding-bottom: 3px;
+    border-bottom: var(--w-hair) solid var(--rule-2);
+    color: var(--ink);
+    font-size: var(--fs-amount);
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+.amount-value i {
+    margin-left: 4px;
+    color: var(--muted);
+    font-family: var(--font-hei);
+    font-size: var(--fs-sm);
+    font-style: normal;
+}
+.amount-note {
+    color: var(--muted);
+    font-size: var(--fs-xs);
+}
+
+/* ---------- 结构 ---------- */
+.structure {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+}
+.ledger-demo {
+    border-top: var(--w-rule) solid var(--rule-2);
+}
+.ledger-head,
+.ledger-line {
+    display: grid;
+    grid-template-columns: 54px 92px minmax(0, 1fr) 70px;
+    align-items: center;
+    gap: 8px;
+    height: 28px;
+    font-size: var(--fs-sm);
+}
+.ledger-head {
+    height: 24px;
+    border-bottom: var(--w-hair) solid var(--rule-2);
+}
+.ledger-line {
+    border-bottom: var(--w-hair) solid var(--rule);
+}
+.ledger-line .time {
+    color: var(--muted);
+    font-family: var(--font-hei);
+    font-size: var(--fs-xs);
+    font-variant-numeric: tabular-nums;
+}
+.ledger-line .from {
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.amount-col {
+    text-align: right;
+}
+.ledger-line .amount-col {
+    color: var(--ink);
+}
+.ledger-line .amount-col.out {
+    color: var(--cinnabar);
+}
+.structure-note {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* ---------- 关于 ---------- */
+.about {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr);
+    gap: 6px 12px;
+    align-items: baseline;
+}
+.about dt {
+    color: var(--muted);
+    font-family: var(--font-hei);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.08em;
+}
+.about dd {
+    color: var(--ink-2);
+    font-size: var(--fs-sm);
+    overflow-wrap: anywhere;
+}
+.warn {
+    color: var(--cinnabar);
+}
+
+@media (max-width: 1080px) {
+    .structure {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+</style>
