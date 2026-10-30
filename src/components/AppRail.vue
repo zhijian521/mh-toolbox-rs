@@ -258,12 +258,13 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
 }
 
 /* ---------- 底部工具条 ----------
- * 三枚纯图标按钮。默认是**槽**：--well 底、上沿内阴影、下沿高光，凹进纸面。
- * 悬停时翻成**凸起**：边上一圈框、内部上亮下暗、整枚抬离纸面——明暗关系照
- * `.bevel-pill.on`，只是不灌朱红（三枚同时悬停时满屏红会抢戏）。
- * 按下再压回槽里，阴影加重。
+ * 语义取自设置页的 `.size-slider`，把它拆成三个独立按钮：
+ *   未选中的格子 = 裸图标（无底、无边、--muted）
+ *   选中的格子   = 一枚朱印（--cinnabar 底 + 上亮下暗 + 内高光 + 外投影 + --on-cinnabar）
+ * 两态分别接到指针上：不悬停是「未选中」，悬停就是「选中」，按下是印被压回去。
  *
- * 圆角走 --r-2（3px），与导航项同一档：方，但角不刺手。
+ * 圆角 --r-2（3px）与导航项同档：方，但角不刺手——这里不跟 `.size-thumb` 的圆胶囊，
+ * 因为侧栏底部是工具条，不是滑块。
  */
 .rail-tools {
     display: flex;
@@ -278,47 +279,42 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
     min-width: 0;
     height: 26px;
     padding: 0;
-    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 80%, transparent);
+    border: 0;
     border-radius: var(--r-2);
-    background-color: var(--well);
-    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
-    box-shadow:
-        inset 0 1px 2px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
-    color: var(--ink-2);
+    background: none;
+    box-shadow: none;
+    color: var(--muted);
     transition:
-        border-color var(--t-quick) var(--ease-soft),
         background-color var(--t-quick) var(--ease-soft),
         color var(--t-quick) var(--ease-soft),
         box-shadow var(--t-quick) var(--ease-soft),
         height 220ms var(--ease-soft);
 }
 
+/* 悬停 = 选中：整枚灌朱红，印从纸里抬起来。明暗照 `.size-thumb` 与 `.bevel-pill.on`。 */
 .rail-tool:hover {
-    border-color: color-mix(in srgb, var(--cinnabar) 58%, transparent);
-    background-color: color-mix(in srgb, var(--well) 20%, var(--paper));
+    background-color: var(--cinnabar);
     background-image: linear-gradient(180deg, var(--bevel-hi), transparent 46%, var(--bevel-lo));
-    /* 上沿一道高光、下沿一道内暗影：这两笔合起来才是「盖子被顶起来」的厚度。 */
     box-shadow:
         inset 0 1px 0 var(--bevel-hi),
-        inset 0 -2px 3px -1px var(--bevel-lo),
-        0 2px 3px color-mix(in srgb, var(--ink) 14%, transparent),
-        0 5px 10px color-mix(in srgb, var(--ink) 16%, transparent);
-    color: var(--ink);
+        0 1px 1px var(--bevel-lo),
+        0 3px 7px color-mix(in srgb, var(--cinnabar) 28%, transparent);
+    color: var(--on-cinnabar);
+}
+.rail-tool:hover :deep(.app-icon) {
+    color: var(--on-cinnabar);
 }
 
-/* 按下去：同一枚被压回纸里，渐变倒过来、投影收掉、内阴影加重。 */
+/* 按下：同一枚印被压回纸里，渐变倒过来、投影收掉。 */
 .rail-tool:active {
-    border-color: color-mix(in srgb, var(--cinnabar-ink) 64%, transparent);
-    background-color: color-mix(in srgb, var(--well) 86%, var(--ink));
+    background-color: color-mix(in srgb, var(--cinnabar) 82%, var(--ink));
     background-image: linear-gradient(180deg, var(--bevel-lo), transparent 58%);
-    box-shadow:
-        inset 0 1px 3px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
+    box-shadow: inset 0 2px 4px var(--bevel-lo);
 }
 
+/* 聚焦环不能再用朱红：悬停时底色就是朱红，红环会消失。 */
 .rail-tool:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--cinnabar) 60%, transparent);
+    outline: 2px solid color-mix(in srgb, var(--ink) 45%, transparent);
     outline-offset: 1px;
 }
 
