@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+import AppIcon from '../components/AppIcon.vue';
 import BaseCheck from '../components/BaseCheck.vue';
 import BevelPill from '../components/BevelPill.vue';
 import CostSwitch from '../components/CostSwitch.vue';
 import FontSizeSlider from '../components/FontSizeSlider.vue';
 import LedgerSection from '../components/LedgerSection.vue';
 import SealMark from '../components/SealMark.vue';
+import { ICONS, type IconName } from '../components/icons';
 import { useFontScale } from '../composables/use-font-scale';
 import { useTheme, type ThemeMode } from '../composables/use-theme';
 import { appInfo, type AppInfo } from '../services/desktop';
@@ -37,8 +39,10 @@ const autoSave = ref(false);
 const onlyEarn = ref(true);
 const withCost = ref(false);
 
-const swatches: { token: string; label: string }[] = [
-    { token: '--bg', label: '页面底' },
+/* 图标清单直接从 icons.ts 取，新加图标不用回来改这一页。 */
+const iconNames = Object.keys(ICONS) as IconName[];
+
+const swatches: { token: string; label: string }[] = [    { token: '--bg', label: '页面底' },
     { token: '--paper', label: '纸面' },
     { token: '--paper-2', label: '纸面·次' },
     { token: '--well', label: '凹槽' },
@@ -142,9 +146,19 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
                         <span class="col-head">按钮</span>
                         <div class="kit-row">
                             <button class="btn" type="button">次要</button>
-                            <button class="btn primary" type="button">主要</button>
-                            <button class="btn compact" type="button">紧凑</button>
+                            <button class="btn primary" type="button">
+                                <AppIcon name="add" :size="13" />主要
+                            </button>
+                            <button class="btn compact" type="button">
+                                <AppIcon name="download" :size="12" />导出
+                            </button>
                             <button class="btn" type="button" disabled>禁用</button>
+                            <button class="icon-button" type="button" title="编辑">
+                                <AppIcon name="edit" :size="13" />
+                            </button>
+                            <button class="icon-button" type="button" title="删除">
+                                <AppIcon name="trash" :size="13" />
+                            </button>
                         </div>
                         <p class="note">灌朱的按钮一页不超过两个，主操作只留一个。</p>
                     </div>
@@ -203,6 +217,21 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
                         <p class="note">金额单独一档字号（29px），下方一条金额线；它是唯一允许超过页面标题的字。</p>
                     </div>
                 </div>
+            </LedgerSection>
+
+            <!-- 图标 -->
+            <LedgerSection title="图标" seal="图" hint="16 格线稿 · 1.25 笔宽 · 随字号缩放">
+                <div class="icons">
+                    <div v-for="name in iconNames" :key="name" class="icon-cell">
+                        <AppIcon :name="name" />
+                        <span>{{ name }}</span>
+                    </div>
+                </div>
+                <p class="note">
+                    一套手画的线稿，没有引入图标库——现成包的笔宽与圆头会与账线的细笔打架。
+                    尺寸默认 <code>calc(14px * var(--fs-scale))</code>，上方滑块调大字号时图标一起长；
+                    标题栏那三个窗口按钮用固定 13px，避免贴着窗口边缘放大。
+                </p>
             </LedgerSection>
 
             <!-- 结构 -->
@@ -468,6 +497,28 @@ dd code {
 .amount-note {
     color: var(--muted);
     font-size: var(--fs-xs);
+}
+
+/* ---------- 图标 ---------- */
+.icons {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(98px, 1fr));
+    gap: 6px;
+}
+.icon-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 4px 9px;
+    border: var(--w-hair) solid var(--rule);
+    background: var(--bg);
+    color: var(--ink-2);
+}
+.icon-cell span {
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.02em;
 }
 
 /* ---------- 结构 ---------- */

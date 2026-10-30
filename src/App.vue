@@ -1,138 +1,110 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import SealMark from './components/SealMark.vue';
+import AppIcon from './components/AppIcon.vue';
+import TitleBar from './components/TitleBar.vue';
+import type { IconName } from './components/icons';
 import SettingsView from './views/SettingsView.vue';
 
 /**
- * 外壳：左边一条书脊式导航，右边是当前页面。
+ * 外壳：自绘标题栏 + 一条书脊式导航 + 当前页面。
  *
- * 现阶段只有设置页是真的，其余七页先占位并置灰——导航顺序按最终形态排好，
- * 后面加页面时只改 `pages` 与 `views` 两处，不动样式。
+ * 图标名走 `IconName` 联合类型，拼错在编译期就红，不会等到运行时画出一个空 svg。
+ *
+ * 现阶段只有设置页是真的，其余七页先占位并置灰；加页面时改 `pages` 与下面那个
+ * `v-if` 分支即可，样式不用动。
  */
-const pages = [
-    { key: 'overview', label: '总览', icon: 'M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z' },
-    {
-        key: 'income',
-        label: '收益',
-        icon: 'M8 14A6 6 0 108 2a6 6 0 000 12zM8 4.6v6.8M6 7h4M6 9.4h4',
-    },
-    { key: 'equipment', label: '装备', icon: 'M2.5 13.5 12 4M10.2 2.2l3.6 3.6M3.4 11.4l1.2 1.2' },
-    { key: 'prices', label: '物价', icon: 'M2 8V2.6h5.4L14 9.2 8.8 14.4 2 8zM4.8 4.8h.01' },
-    {
-        key: 'characters',
-        label: '角色',
-        icon: 'M8 7.6a2.8 2.8 0 100-5.6 2.8 2.8 0 000 5.6zM2 14c0-2.9 2.7-4.4 6-4.4s6 1.5 6 4.4',
-    },
-    { key: 'accounts', label: '账号', icon: 'M13.5 4.5V3H2.5v10h11v-1.5M8 5.5h6v5H8z' },
-    { key: 'goals', label: '目标', icon: 'M3 14V2M3 2.8h9.4l-2 3.2 2 3.2H3' },
-    { key: 'settings', label: '设置', icon: 'M8 10a2 2 0 100-4 2 2 0 000 4zM8 2v1.6M8 12.4V14M2 8h1.6M12.4 8H14' },
+const pages: { key: string; label: string; icon: IconName }[] = [
+    { key: 'overview', label: '总览', icon: 'overview' },
+    { key: 'income', label: '收益', icon: 'income' },
+    { key: 'equipment', label: '装备', icon: 'equipment' },
+    { key: 'prices', label: '物价', icon: 'prices' },
+    { key: 'characters', label: '角色', icon: 'characters' },
+    { key: 'accounts', label: '账号', icon: 'accounts' },
+    { key: 'goals', label: '目标', icon: 'goals' },
+    { key: 'settings', label: '设置', icon: 'settings' },
 ];
 
-/** 唯一实现的页面；其余点了不跳转，用 title 说明原因。 */
 const current = ref('settings');
 </script>
 
 <template>
-    <div class="shell">
-        <nav class="rail">
-            <div class="brand">
-                <SealMark text="梦" />
-                <span class="brand-text">
-                    <span class="brand-name">梦幻养老助手</span>
-                    <span class="brand-sub">RUST · V0.1</span>
-                </span>
-            </div>
-            <div class="rail-nav">
-                <button
-                    v-for="page in pages"
-                    :key="page.key"
-                    type="button"
-                    class="rail-item"
-                    :class="{ on: current === page.key, pending: current !== page.key && page.key !== 'settings' }"
-                    :title="page.key === 'settings' ? page.label : page.label + '（未实现）'"
-                    @click="current = page.key"
-                >
-                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round">
-                        <path :d="page.icon" />
-                    </svg>
-                    {{ page.label }}
-                </button>
-            </div>
-            <div class="rail-foot">
-                <span>v0.1.0 · 开发中</span>
-                <span>数据在 mh-tool-v2</span>
-            </div>
-        </nav>
+    <div class="app-root">
+        <TitleBar />
+        <div class="shell">
+            <nav class="rail">
+                <div class="rail-nav">
+                    <button
+                        v-for="page in pages"
+                        :key="page.key"
+                        type="button"
+                        class="rail-item"
+                        :class="{
+                            on: current === page.key,
+                            pending: current !== page.key && page.key !== 'settings',
+                        }"
+                        :title="page.key === 'settings' ? page.label : page.label + '（未实现）'"
+                        @click="current = page.key"
+                    >
+                        <AppIcon :name="page.icon" />
+                        {{ page.label }}
+                    </button>
+                </div>
+                <div class="rail-foot">
+                    <span>v0.1.0 · 开发中</span>
+                    <span>数据在 mh-tool-v2</span>
+                </div>
+            </nav>
 
-        <main class="app">
-            <SettingsView v-if="current === 'settings'" />
-            <div v-else class="placeholder">
-                <p>「{{ pages.find((page) => page.key === current)?.label }}」还没开始。</p>
-                <p class="hint">当前阶段只做设置页，先把设计语言落到真实组件上。</p>
-                <button class="btn" type="button" @click="current = 'settings'">回到设置</button>
-            </div>
-        </main>
+            <main class="app">
+                <SettingsView v-if="current === 'settings'" />
+                <div v-else class="placeholder">
+                    <p>「{{ pages.find((page) => page.key === current)?.label }}」还没开始。</p>
+                    <p class="hint">当前阶段只做设置页，先把设计语言落到真实组件上。</p>
+                    <button class="btn" type="button" @click="current = 'settings'">回到设置</button>
+                </div>
+            </main>
+        </div>
     </div>
 </template>
 
 <style scoped>
-.shell {
+.app-root {
     display: flex;
+    flex-direction: column;
     height: 100vh;
     overflow: hidden;
     background: var(--bg);
 }
+.shell {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
 
 /* ---------- 书脊式导航 ---------- */
-/* 宽度跟着字号缩放：左栏是结构件，字大了它不跟着宽，标题就会被截成「梦幻养…」。
-   实测 1.1 档下 158px 已经装不下六个字。 */
 .rail {
     display: flex;
     flex: none;
     flex-direction: column;
+    /* 宽度跟着字号缩放：左栏是结构件，字大了它不跟着宽，导航文字会被截。 */
     width: calc(158px * var(--fs-scale));
-    padding: 14px 12px 12px;
+    padding: 10px 12px 12px;
     border-right: var(--w-hair) solid var(--rule);
     background: var(--paper);
-}
-.brand {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0 4px 13px;
-    border-bottom: var(--w-hair) solid var(--rule);
-}
-.brand-text {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-}
-.brand-name {
-    color: var(--ink);
-    font-size: var(--fs-base);
-    line-height: 1.3;
-    white-space: nowrap;
-}
-.brand-sub {
-    color: var(--muted);
-    font-family: var(--font-ui);
-    font-size: var(--fs-mini);
-    letter-spacing: 0.16em;
 }
 .rail-nav {
     display: flex;
     flex-direction: column;
     gap: 1px;
-    padding-top: 10px;
 }
 /* 选中用「朱红细条压边 + 纸色」，不铺色块：导航是一排位置，不是一组挑选动作。 */
 .rail-item {
     display: flex;
     align-items: center;
-    gap: 9px;
-    height: 31px;
-    padding: 0 8px;
+    gap: calc(9px * var(--fs-scale));
+    height: calc(31px * var(--fs-scale));
+    padding: 0 calc(8px * var(--fs-scale));
     border: 0;
     border-left: 2px solid transparent;
     background: none;
@@ -144,10 +116,6 @@ const current = ref('settings');
         border-color var(--t-quick) var(--ease-soft),
         background-color var(--t-quick) var(--ease-soft);
 }
-.rail-item svg {
-    width: 14px;
-    height: 14px;
-}
 .rail-item:hover {
     color: var(--ink);
     background: var(--paper-2);
@@ -157,7 +125,8 @@ const current = ref('settings');
     background: var(--paper-2);
     color: var(--ink);
 }
-.rail-item.on svg {
+/* 选中时图标转朱红：只有一枚红，不铺满整行。 */
+.rail-item.on :deep(.app-icon) {
     color: var(--cinnabar);
 }
 .rail-item.pending {
@@ -171,7 +140,6 @@ const current = ref('settings');
     padding: 9px 8px 0;
     border-top: var(--w-hair) solid var(--rule);
     color: var(--muted);
-    font-family: var(--font-ui);
     font-size: var(--fs-mini);
     letter-spacing: 0.02em;
 }

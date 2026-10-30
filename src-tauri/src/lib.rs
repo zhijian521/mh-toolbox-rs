@@ -74,6 +74,9 @@ fn create_main_window(app: &mut tauri::App) -> tauri::Result<()> {
     .inner_size(1280.0, 820.0)
     .min_inner_size(1024.0, 680.0)
     .resizable(true)
+    // 无边框：系统标题栏是一条蓝色栏 + 三个系统按钮，与纸面语言冲突。
+    // 标题栏由前端的 TitleBar.vue 自绘，拖动靠 data-tauri-drag-region。
+    .decorations(false)
     .center();
 
     if let Some(args) = debug_browser_args() {
