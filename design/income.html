@@ -1,0 +1,1207 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8" />
+        <title>设计语言样张 · 收益页（账簿）</title>
+        <link rel="stylesheet" href="./tokens.css" />
+        <link rel="stylesheet" href="./base.css" />
+        <style>
+            /* ============================================================
+             * 样张外壳
+             * ============================================================ */
+            body {
+                padding: 26px 32px 60px;
+            }
+            .doc-head {
+                display: flex;
+                align-items: flex-end;
+                gap: 16px;
+                width: 1280px;
+                margin: 0 auto 16px;
+            }
+            .doc-head h1 {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .doc-head p {
+                margin-top: 5px;
+                color: var(--muted);
+                font-size: var(--fs-sm);
+            }
+            .doc-actions {
+                display: flex;
+                gap: 8px;
+                margin-left: auto;
+            }
+
+            .window {
+                display: flex;
+                width: 1280px;
+                margin: 0 auto;
+                border: var(--w-hair) solid var(--rule-2);
+                background: var(--bg);
+                box-shadow: 0 16px 40px var(--shadow-lg);
+            }
+
+            /* ---------- 左轨 ----------
+             * 账簿里导航像书脊：竖排一条细线隔开，选中用朱红细条压边，不铺底色块。
+             */
+            .rail {
+                display: flex;
+                flex: none;
+                flex-direction: column;
+                width: 158px;
+                padding: 16px 12px 12px;
+                border-right: var(--w-hair) solid var(--rule);
+                background: var(--paper);
+            }
+            .brand {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 0 4px 15px;
+                border-bottom: var(--w-hair) solid var(--rule);
+            }
+            .brand-text {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                min-width: 0;
+            }
+            .brand-name {
+                color: var(--ink);
+                font-size: 13.5px;
+                line-height: 1.3;
+                white-space: nowrap;
+            }
+            .brand-sub {
+                font-family: var(--font-hei);
+                font-size: var(--fs-mini);
+                letter-spacing: 0.16em;
+                color: var(--muted);
+            }
+            .rail-nav {
+                display: flex;
+                flex-direction: column;
+                gap: 1px;
+                padding-top: 10px;
+            }
+            .rail-item {
+                display: flex;
+                align-items: center;
+                gap: 9px;
+                height: 31px;
+                padding: 0 8px;
+                border: 0;
+                border-left: 2px solid transparent;
+                background: none;
+                color: var(--muted);
+                font-size: 13px;
+                text-align: left;
+                transition:
+                    color var(--t-quick) var(--ease-soft),
+                    border-color var(--t-quick) var(--ease-soft),
+                    background-color var(--t-quick) var(--ease-soft);
+            }
+            .rail-item svg {
+                width: 14px;
+                height: 14px;
+            }
+            .rail-item:hover {
+                color: var(--ink);
+                background: var(--paper-2);
+            }
+            .rail-item.on {
+                border-left-color: var(--cinnabar);
+                background: var(--paper-2);
+                color: var(--ink);
+            }
+            .rail-item.on svg {
+                color: var(--cinnabar);
+            }
+            .rail-foot {
+                margin-top: auto;
+                padding: 9px 8px 0;
+                border-top: var(--w-hair) solid var(--rule);
+                color: var(--muted);
+                font-size: var(--fs-mini);
+                line-height: 1.8;
+            }
+
+            /* ---------- 页面骨架 ---------- */
+            .app {
+                display: flex;
+                flex: 1;
+                flex-direction: column;
+                min-width: 0;
+            }
+            .page-head {
+                display: flex;
+                align-items: flex-end;
+                gap: 14px;
+                padding: 16px 20px 12px;
+                border-bottom: var(--w-rule) solid var(--rule-2);
+            }
+            .page-head h1 {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .page-desc {
+                margin-top: 4px;
+                color: var(--muted);
+                font-size: var(--fs-sm);
+                letter-spacing: 0.06em;
+            }
+            .page-actions {
+                display: flex;
+                gap: 8px;
+                margin-left: auto;
+                align-items: center;
+            }
+            .page-content {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) 292px;
+                gap: 18px;
+                flex: 1;
+                min-height: 0;
+                padding: 16px 20px 22px;
+                align-items: start;
+            }
+            .col {
+                display: flex;
+                flex-direction: column;
+                gap: 14px;
+                min-width: 0;
+            }
+
+            /* ---------- 三数（今日） ----------
+             * 账簿的正中央是「本日合计」：三个数并排，每个数下面一条金额线。
+             * 进账墨色、支出朱红、净收益看正负取墨或朱。
+             */
+            .today {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr)) 132px;
+                gap: 0;
+                align-items: stretch;
+                padding: 14px 0 0;
+            }
+            .today .figure {
+                padding: 0 18px;
+                border-left: var(--w-hair) solid var(--rule);
+            }
+            .today .figure:first-child {
+                border-left: 0;
+                padding-left: 0;
+            }
+            .figure-label {
+                font-family: var(--font-hei);
+                font-size: var(--fs-mini);
+                letter-spacing: 0.2em;
+                color: var(--muted);
+            }
+            .figure-value {
+                display: flex;
+                align-items: baseline;
+                gap: 5px;
+                margin-top: 3px;
+                padding-bottom: 5px;
+                border-bottom: var(--w-hair) solid var(--rule-2);
+                color: var(--ink);
+            }
+            .figure-value b {
+                font-size: var(--fs-amount);
+                font-weight: 400;
+                line-height: 1.15;
+                font-variant-numeric: tabular-nums;
+            }
+            .figure-value i {
+                font-family: var(--font-hei);
+                font-size: var(--fs-sm);
+                font-style: normal;
+                color: var(--muted);
+            }
+            .figure-value.out b {
+                color: var(--cinnabar);
+            }
+            .figure-note {
+                margin-top: 6px;
+                color: var(--muted);
+                font-size: var(--fs-xs);
+            }
+            /* 近 14 天：标题横排在柱子上方，柱子贴账线站立，今天那根朱红。 */
+            .spark {
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-end;
+                gap: 5px;
+                padding-left: 16px;
+                border-left: var(--w-hair) solid var(--rule);
+            }
+            .spark-label {
+                text-align: right;
+                letter-spacing: 0.14em;
+            }
+            .spark-bars {
+                display: flex;
+                align-items: flex-end;
+                gap: 3px;
+                height: 50px;
+                /* 柱子要有站立的地面：一条账线。没有基线，柱子看起来是悬空的。 */
+                border-bottom: var(--w-hair) solid var(--rule-2);
+            }
+            .spark-bars i {
+                flex: 1 1 0;
+                min-width: 0;
+                background: color-mix(in srgb, var(--indigo) 38%, transparent);
+            }
+            .spark-bars i.today {
+                background: var(--cinnabar);
+            }
+
+            /* ---------- 速记条 ----------
+             * 账簿里写字的地方就是纸上的空格：不用输入框描边，用一条虚线托底。
+             */
+            .quick {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px 0 12px;
+                border-bottom: var(--w-hair) solid var(--rule);
+            }
+            .quick-title {
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                flex: none;
+                color: var(--ink);
+                font-size: 13.5px;
+            }
+            .quick-field {
+                display: flex;
+                align-items: baseline;
+                gap: 6px;
+                flex: 1 1 auto;
+                min-width: 0;
+                padding: 4px 2px 3px;
+                border-bottom: 1px dashed var(--rule-2);
+            }
+            .quick-field input {
+                width: 100%;
+                border: 0;
+                background: none;
+                outline: none;
+                color: var(--ink);
+                font-size: var(--fs-base);
+            }
+            .quick-field input::placeholder {
+                color: color-mix(in srgb, var(--muted) 82%, var(--paper));
+            }
+            .quick-num {
+                display: flex;
+                align-items: baseline;
+                gap: 4px;
+                flex: none;
+                color: var(--muted);
+                font-size: var(--fs-sm);
+            }
+            .quick-num b {
+                color: var(--ink);
+                font-family: var(--font-hei);
+                font-size: var(--fs-base);
+                font-weight: 400;
+                font-variant-numeric: tabular-nums;
+            }
+            .quick-total {
+                flex: none;
+                padding-right: 2px;
+                color: var(--cinnabar);
+                font-size: var(--fs-base);
+                font-variant-numeric: tabular-nums;
+            }
+            .quick-pills {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                padding-top: 10px;
+            }
+            .pill-wrap {
+                display: flex;
+                gap: 6px;
+                padding: 3px;
+                border-radius: var(--r-pill);
+                background: var(--paper-2);
+            }
+
+            /* ---------- 流水 ---------- */
+            .book-head {
+                display: flex;
+                align-items: baseline;
+                gap: 10px;
+                margin-bottom: 8px;
+            }
+            .book-head h2 {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .book-head .hint {
+                margin-left: auto;
+                font-size: var(--fs-xs);
+            }
+            .book {
+                border-top: var(--w-rule) solid var(--rule-2);
+            }
+            .book-row {
+                display: grid;
+                grid-template-columns: 54px 92px minmax(0, 1fr) 92px;
+                align-items: center;
+                gap: 8px;
+                height: 28px;
+                border-bottom: var(--w-hair) solid var(--rule);
+                font-size: var(--fs-sm);
+            }
+            .book-row.head {
+                height: 24px;
+                border-bottom: var(--w-hair) solid var(--rule-2);
+            }
+            .book-row .time {
+                font-family: var(--font-hei);
+                font-size: var(--fs-xs);
+                color: var(--muted);
+                font-variant-numeric: tabular-nums;
+            }
+            .book-row .who {
+                color: var(--ink-2);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .book-row .from {
+                color: var(--ink);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .book-row .amount {
+                text-align: right;
+                color: var(--ink);
+                font-family: var(--font-hei);
+                font-variant-numeric: tabular-nums;
+            }
+            .book-row.out .amount {
+                color: var(--cinnabar);
+            }
+            .book-row .amount::after {
+                content: ' 万';
+                color: var(--muted);
+                font-size: var(--fs-mini);
+            }
+            .book-row.sum {
+                border-bottom: 0;
+                border-top: var(--w-rule) solid var(--rule-2);
+                color: var(--ink);
+            }
+            .book-row.sum .sum-label {
+                grid-column: 1 / 3;
+                font-size: var(--fs-xs);
+                letter-spacing: 0.1em;
+                color: var(--muted);
+            }
+            .book-row.sum .amount {
+                font-size: var(--fs-base);
+                color: var(--ink);
+            }
+
+            /* ---------- 右栏：计时 ---------- */
+            .side-head {
+                display: flex;
+                align-items: baseline;
+                gap: 8px;
+                margin-bottom: 9px;
+            }
+            .side-head h2 {
+                display: flex;
+                align-items: center;
+                gap: 7px;
+            }
+            .side-head .hint {
+                margin-left: auto;
+                font-size: var(--fs-mini);
+                letter-spacing: 0.1em;
+            }
+            .sessions {
+                display: flex;
+                flex-direction: column;
+            }
+            .session {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) 46px 58px;
+                align-items: center;
+                gap: 8px;
+                height: 27px;
+                border-bottom: var(--w-hair) solid var(--rule);
+                font-size: var(--fs-sm);
+            }
+            .session:last-child {
+                border-bottom: 0;
+            }
+            .session-name {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                min-width: 0;
+                color: var(--ink);
+            }
+            .session-name span {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .session-dot {
+                flex: none;
+                width: 4px;
+                height: 4px;
+                border-radius: 50%;
+                background: var(--moss);
+            }
+            .session-dot.idle {
+                background: var(--rule-2);
+            }
+            .session-time {
+                text-align: right;
+                color: var(--ink-2);
+                font-family: var(--font-hei);
+                font-size: var(--fs-xs);
+                font-variant-numeric: tabular-nums;
+            }
+            .session-cost {
+                text-align: right;
+                color: var(--muted);
+                font-family: var(--font-hei);
+                font-size: var(--fs-xs);
+                font-variant-numeric: tabular-nums;
+            }
+            /* 「今日按角色」的金额是正文级信息，比计时里的成本更重要，所以取墨色。 */
+            .role-amount {
+                text-align: right;
+                color: var(--ink);
+                font-family: var(--font-hei);
+                font-size: var(--fs-sm);
+                font-variant-numeric: tabular-nums;
+            }
+            .role-amount::after {
+                content: ' 万';
+                color: var(--muted);
+                font-size: var(--fs-mini);
+            }
+            .sessions-foot {
+                display: flex;
+                align-items: baseline;
+                gap: 8px;
+                margin-top: 8px;
+                padding-top: 8px;
+                border-top: var(--w-hair) solid var(--rule-2);
+                font-size: var(--fs-xs);
+                color: var(--muted);
+            }
+            .sessions-foot b {
+                margin-left: auto;
+                color: var(--ink);
+                font-family: var(--font-hei);
+                font-size: var(--fs-sm);
+                font-weight: 400;
+                font-variant-numeric: tabular-nums;
+            }
+
+            /* ---------- 右栏：记给谁 + 开关 ---------- */
+            .targets {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                margin-top: 2px;
+            }
+            .switch-row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-top: 12px;
+                padding-top: 11px;
+                border-top: var(--w-hair) solid var(--rule);
+            }
+            .switch-row .switch-label {
+                display: flex;
+                flex-direction: column;
+                gap: 1px;
+                min-width: 0;
+            }
+            .switch-label b {
+                color: var(--ink);
+                font-size: var(--fs-sm);
+                font-weight: 400;
+            }
+            .switch-label small {
+                color: var(--muted);
+                font-size: var(--fs-mini);
+            }
+            .switch-row .cost-switch {
+                margin-left: auto;
+            }
+
+            /* ============================================================
+             * 规格表
+             * ============================================================ */
+            .spec {
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+                width: 1280px;
+                margin: 30px auto 0;
+            }
+            .spec .frame {
+                padding: 16px 20px 18px;
+            }
+            .spec h2 {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .spec-note {
+                margin-top: 6px;
+                color: var(--muted);
+                font-size: var(--fs-sm);
+                line-height: var(--lh-base);
+            }
+            .spec-note code {
+                font-family: var(--font-hei);
+                font-size: var(--fs-xs);
+                letter-spacing: 0;
+            }
+            .swatches {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 8px;
+                margin-top: 14px;
+            }
+            .swatch {
+                display: flex;
+                align-items: center;
+                gap: 9px;
+                padding: 6px 8px;
+                border: var(--w-hair) solid var(--rule);
+            }
+            .swatch i {
+                flex: none;
+                width: 26px;
+                height: 26px;
+                border: var(--w-hair) solid var(--rule-2);
+                background: var(--c);
+            }
+            .swatch span {
+                display: flex;
+                flex-direction: column;
+                min-width: 0;
+                color: var(--muted);
+                font-size: var(--fs-xs);
+            }
+            .swatch b {
+                color: var(--ink);
+                font-size: var(--fs-sm);
+                font-weight: 400;
+            }
+            .swatch code {
+                font-family: var(--font-hei);
+                font-size: var(--fs-mini);
+                letter-spacing: 0;
+            }
+            .type-scale {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                margin-top: 14px;
+            }
+            .type-row {
+                display: flex;
+                align-items: baseline;
+                gap: 14px;
+                padding-bottom: 8px;
+                border-bottom: 1px dashed var(--rule);
+            }
+            .type-row:last-child {
+                border-bottom: 0;
+                padding-bottom: 0;
+            }
+            .type-row code {
+                flex: none;
+                width: 96px;
+                color: var(--muted);
+                font-family: var(--font-hei);
+                font-size: var(--fs-xs);
+                letter-spacing: 0;
+            }
+            .type-row em {
+                flex: none;
+                width: 56px;
+                color: var(--muted);
+                font-family: var(--font-hei);
+                font-size: var(--fs-xs);
+                font-style: normal;
+            }
+            .type-row span {
+                color: var(--ink);
+            }
+            .bevels {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 10px;
+                margin-top: 14px;
+            }
+            .bevel-demo {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 9px;
+                padding: 13px 12px;
+                border: var(--w-hair) solid var(--rule);
+                background: var(--bg);
+            }
+            .bevel-demo b {
+                color: var(--ink);
+                font-size: var(--fs-sm);
+                font-weight: 400;
+            }
+            .bevel-demo p {
+                color: var(--muted);
+                font-size: var(--fs-xs);
+                line-height: 1.62;
+            }
+            .kit {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: flex-start;
+                gap: 20px;
+                margin-top: 14px;
+            }
+            .kit-group {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+            .kit-group > small {
+                color: var(--muted);
+                font-family: var(--font-hei);
+                font-size: var(--fs-mini);
+                letter-spacing: 0.14em;
+            }
+            .kit-row {
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                padding: 4px;
+                border-radius: var(--r-pill);
+                background: var(--paper-2);
+            }
+        </style>
+    </head>
+    <body>
+        <header class="doc-head">
+            <div>
+                <h1><span class="seal solid">账</span>设计语言样张 · 收益页</h1>
+                <p>
+                    账簿方向 · 1280 宽基准 · 双字体（楷体题字 / 黑体记账） · 朱红只给印章、选中、支出
+                </p>
+            </div>
+            <div class="doc-actions">
+                <button class="btn" id="toggle-theme" type="button">切到深色</button>
+            </div>
+        </header>
+
+        <div class="window">
+            <nav class="rail">
+                <div class="brand">
+                    <span class="seal">梦</span>
+                    <span class="brand-text">
+                        <span class="brand-name">梦幻养老助手</span>
+                        <span class="brand-sub">RUST · V3</span>
+                    </span>
+                </div>
+                <div class="rail-nav" id="rail"></div>
+                <div class="rail-foot">
+                    <div>今日已记 10 笔</div>
+                    <div>上次保存 12:26</div>
+                </div>
+            </nav>
+
+            <div class="app">
+                <header class="page-head">
+                    <div>
+                        <h1>收益</h1>
+                        <p class="page-desc">今日进账 · 点卡成本 · 五开计时</p>
+                    </div>
+                    <div class="page-actions">
+                        <button class="btn" type="button">记支出</button>
+                        <button class="btn primary" type="button">记一笔</button>
+                    </div>
+                </header>
+
+                <div class="page-content">
+                    <div class="col">
+                        <!-- 今日三数 -->
+                        <section class="frame">
+                            <div class="today">
+                                <div class="figure">
+                                    <div class="figure-label">今日进账</div>
+                                    <div class="figure-value"><b>328.6</b><i>万</i></div>
+                                    <div class="figure-note">10 笔 · 自 09:12 起</div>
+                                </div>
+                                <div class="figure out">
+                                    <div class="figure-label">点卡成本</div>
+                                    <div class="figure-value out"><b>96.0</b><i>万</i></div>
+                                    <div class="figure-note">8 时 10 分 · 五开</div>
+                                </div>
+                                <div class="figure">
+                                    <div class="figure-label">净收益</div>
+                                    <div class="figure-value"><b>232.6</b><i>万</i></div>
+                                    <div class="figure-note positive">较昨日 +18.4 万</div>
+                                </div>
+                                <div class="spark">
+                                    <span class="col-head spark-label">近 14 天</span>
+                                    <span class="spark-bars" id="spark"></span>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- 速记 -->
+                        <section class="frame">
+                            <div class="quick">
+                                <span class="quick-title"><span class="seal">记</span>速记</span>
+                                <span class="quick-field">
+                                    <input value="金柳露" aria-label="物品" />
+                                </span>
+                                <span class="quick-num">数量 <b>3</b></span>
+                                <span class="quick-num">单价 <b>2.8</b> 万</span>
+                                <span class="quick-total">＝ 8.4 万</span>
+                                <button class="btn primary" type="button">入账</button>
+                            </div>
+                            <div class="quick-pills">
+                                <span class="pill-wrap" id="pills">
+                                    <button class="bevel-pill on" type="button">金柳露</button>
+                                    <button class="bevel-pill" type="button">超级金柳露</button>
+                                    <button class="bevel-pill" type="button">60 级书铁</button>
+                                    <button class="bevel-pill" type="button">宝石</button>
+                                    <button class="bevel-pill" type="button">兽决</button>
+                                </span>
+                            </div>
+                        </section>
+
+                        <!-- 流水 -->
+                        <section>
+                            <div class="book-head">
+                                <h2><span class="seal">目</span>今日流水</h2>
+                                <span class="hint">全部 10 条 · 完整记录在账号页</span>
+                            </div>
+                            <div class="book" id="book"></div>
+                        </section>
+                    </div>
+
+                    <div class="col">
+                        <!-- 计时 -->
+                        <section class="frame">
+                            <div class="side-head">
+                                <h2><span class="seal">时</span>五开计时</h2>
+                                <span class="hint">在线 3</span>
+                            </div>
+                            <div class="sessions" id="sessions"></div>
+                            <div class="sessions-foot">
+                                <span>合计 8:10</span>
+                                <span>·</span>
+                                <span>点卡 6 点 / 时</span>
+                                <b>96.0 万</b>
+                            </div>
+                        </section>
+
+                        <!-- 记给谁 -->
+                        <section class="frame">
+                            <div class="side-head">
+                                <h2><span class="seal">谁</span>记给谁</h2>
+                                <span class="hint">速记均分</span>
+                            </div>
+                            <div class="targets pill-wrap" id="targets">
+                                <button class="bevel-pill" type="button">主号</button>
+                                <button class="bevel-pill on" type="button">小号一</button>
+                                <button class="bevel-pill" type="button">小号二</button>
+                            </div>
+                            <div class="switch-row">
+                                <span class="switch-label">
+                                    <b>计入点卡</b>
+                                    <small>关闭后不再计成本</small>
+                                </span>
+                                <span class="cost-switch" id="switch">
+                                    <span class="cost-thumb right"></span>
+                                    <button class="cost-opt" type="button" aria-checked="false">
+                                        不记
+                                    </button>
+                                    <button class="cost-opt" type="button" aria-checked="true">
+                                        记
+                                    </button>
+                                </span>
+                            </div>
+                        </section>
+
+                        <!-- 今日按角色：把「谁在挣」摊开，右栏不足一屏时用它补齐 -->
+                        <section class="frame">
+                            <div class="side-head">
+                                <h2><span class="seal">人</span>今日按角色</h2>
+                                <span class="hint">5 个号</span>
+                            </div>
+                            <div class="sessions" id="roles"></div>
+                            <div class="sessions-foot">
+                                <span>进账合计</span>
+                                <b>328.6 万</b>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 规格表 ==================== -->
+        <section class="spec">
+            <div class="frame">
+                <h2><span class="seal">色</span>色板</h2>
+                <p class="spec-note">
+                    每枚令牌一份 <code>light-dark(亮, 暗)</code>，切换只看根元素的
+                    <code>color-scheme</code>。纸是暖的（不是纯白），墨是灰的（不是纯黑），
+                    朱红只给印章、当前选中与支出三处。
+                </p>
+                <div class="swatches" id="swatches"></div>
+            </div>
+
+            <div class="frame">
+                <h2><span class="seal">字</span>字号与双字体</h2>
+                <p class="spec-note">
+                    楷体给标题、金额、物品名（有笔锋，是「题字」）；黑体给元信息、表头、数字列
+                    （10–11px 的楷体会糊，数字宽度也不齐）。
+                </p>
+                <div class="type-scale" id="type-scale"></div>
+            </div>
+
+            <div class="frame">
+                <h2><span class="seal">体</span>微立体四态</h2>
+                <p class="spec-note">
+                    凹槽四件齐：<code>--well</code> 底、上暗下亮渐变、上沿内阴影、下沿高光。
+                    选中不是「描边」也不是「变亮」，是灌满朱红——把印泥按进槽里，纸面抬起一层。
+                </p>
+                <div class="bevels">
+                    <div class="bevel-demo">
+                        <b>凹（未选中）</b>
+                        <button class="bevel-pill" type="button">小号一</button>
+                        <p>槽比纸面深一档，字压回正文色。不选它，它就不该有重量。</p>
+                    </div>
+                    <div class="bevel-demo">
+                        <b>朱印（选中）</b>
+                        <button class="bevel-pill on" type="button">小号一</button>
+                        <p>整枚灌朱，渐变翻成上亮下暗，加一层朱红外投影。</p>
+                    </div>
+                    <div class="bevel-demo">
+                        <b>灭灯（开关关闭）</b>
+                        <span class="cost-switch off" style="--thumb-fg: var(--ink)">
+                            <span class="cost-thumb"></span>
+                            <button class="cost-opt" type="button" aria-checked="false">
+                                不记
+                            </button>
+                            <button class="cost-opt" type="button" aria-checked="true">记</button>
+                        </span>
+                        <p>关闭态用墨 16% 灭灯：朱的明度比槽底高，浅色下会与槽同色。</p>
+                    </div>
+                    <div class="bevel-demo">
+                        <b>按压</b>
+                        <span
+                            class="bevel-pill on"
+                            style="
+                                background-color: color-mix(in srgb, var(--cinnabar) 82%, var(--ink));
+                                background-image: linear-gradient(
+                                    180deg,
+                                    var(--bevel-lo),
+                                    transparent 58%
+                                );
+                                box-shadow:
+                                    inset 0 1px 3px var(--bevel-lo),
+                                    0 1px 2px color-mix(in srgb, var(--cinnabar) 22%, transparent);
+                            "
+                            >小号一</span
+                        >
+                        <p>渐变倒过来、投影收紧：同一枚印被按回纸里，不是缩小也不是变暗。</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="frame">
+                <h2><span class="seal">件</span>控件库</h2>
+                <p class="spec-note">
+                    挑选动作只有一种质感（凹槽胶囊），位置切换只有一种（两格开关），勾选只有一种。
+                    按钮是纸上的方框，主操作才灌朱——一个页面里灌朱的按钮不超过两个。
+                </p>
+                <div class="kit">
+                    <div class="kit-group">
+                        <small>凹槽胶囊 · 单选</small>
+                        <div class="kit-row" id="pill-demo">
+                            <button class="bevel-pill" type="button">主号</button>
+                            <button class="bevel-pill on" type="button">小号一</button>
+                            <button class="bevel-pill" type="button">小号二</button>
+                            <button class="bevel-pill" type="button" disabled>已归档</button>
+                        </div>
+                    </div>
+                    <div class="kit-group">
+                        <small>两格开关</small>
+                        <div class="kit-row">
+                            <span class="cost-switch" id="switch-a">
+                                <span class="cost-thumb right"></span>
+                                <button class="cost-opt" type="button" aria-checked="false">
+                                    不记
+                                </button>
+                                <button class="cost-opt" type="button" aria-checked="true">记</button>
+                            </span>
+                            <span class="cost-switch off" id="switch-b">
+                                <span class="cost-thumb"></span>
+                                <button class="cost-opt" type="button" aria-checked="false">
+                                    不记
+                                </button>
+                                <button class="cost-opt" type="button" aria-checked="true">记</button>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="kit-group">
+                        <small>按钮与印章</small>
+                        <div class="kit-row" style="padding: 4px 6px">
+                            <button class="btn" type="button">次要</button>
+                            <button class="btn primary" type="button">主要</button>
+                            <button class="btn compact" type="button">紧凑</button>
+                            <span class="seal">印</span>
+                        </div>
+                    </div>
+                    <div class="kit-group">
+                        <small>勾选</small>
+                        <div class="kit-row" style="gap: 14px; padding: 5px 10px">
+                            <label class="check">
+                                <input type="checkbox" checked />
+                                <span class="check-box">
+                                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                        <path
+                                            d="M2 5.2 4.2 7.4 8 2.8"
+                                            stroke="currentColor"
+                                            stroke-width="1.4"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        />
+                                    </svg>
+                                </span>
+                                计入点卡
+                            </label>
+                            <label class="check">
+                                <input type="checkbox" />
+                                <span class="check-box"></span>
+                                不算
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <script>
+            /* ---------------- 数据 ---------------- */
+            const NAV = [
+                ['总览', 'M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z'],
+                ['收益', 'M8 14A6 6 0 108 2a6 6 0 000 12zM8 4.6v6.8M6 7h4M6 9.4h4'],
+                ['装备', 'M2.5 13.5 12 4M10.2 2.2l3.6 3.6M3.4 11.4l1.2 1.2'],
+                ['物价', 'M2 8V2.6h5.4L14 9.2 8.8 14.4 2 8zM4.8 4.8h.01'],
+                ['角色', 'M8 7.6a2.8 2.8 0 100-5.6 2.8 2.8 0 000 5.6zM2 14c0-2.9 2.7-4.4 6-4.4s6 1.5 6 4.4'],
+                ['账号', 'M13.5 4.5V3H2.5v10h11v-1.5M8 5.5h6v5H8z'],
+                ['目标', 'M3 14V2M3 2.8h9.4l-2 3.2 2 3.2H3'],
+                ['设置', 'M8 10a2 2 0 100-4 2 2 0 000 4zM8 2v1.6M8 12.4V14M2 8h1.6M12.4 8H14'],
+            ];
+
+            const SESSIONS = [
+                ['黑山老妖', '2:41', '26.9', false],
+                ['青衫客', '2:41', '26.9', false],
+                ['一剪梅', '2:10', '21.7', false],
+                ['白展堂', '0:38', '6.3', false],
+                ['阿七', '未上线', '—', true],
+            ];
+
+            const BOOK = [
+                ['09:12', '黑山老妖', '师门任务', '8.8', false],
+                ['09:41', '青衫客', '押镖 · 长安', '24.5', false],
+                ['10:05', '一剪梅', '抓鬼 · 五轮', '12.0', false],
+                ['10:33', '黑山老妖', '帮派任务', '6.2', false],
+                ['11:02', '青衫客', '副本 · 天罡', '48.6', false],
+                ['11:20', '五开合计', '点卡成本', '96.0', true],
+                ['11:44', '一剪梅', '金柳露 ×3', '8.4', false],
+                ['12:03', '白展堂', '跑环 · 第 12 环', '16.8', false],
+                ['12:18', '黑山老妖', '摆摊 · 兽决', '154.0', false],
+                ['12:26', '一剪梅', '抓鬼 · 八轮', '49.3', false],
+            ];
+
+            const SPARK = [22, 31, 18, 40, 35, 12, 28, 44, 30, 25, 38, 41, 33, 47];
+
+            /* 按角色汇总与 BOOK 严格对平：169.0 + 69.7 + 73.1 + 16.8 = 328.6。 */
+            const ROLES = [
+                ['黑山老妖', 3, '169.0'],
+                ['一剪梅', 3, '69.7'],
+                ['青衫客', 2, '73.1'],
+                ['白展堂', 1, '16.8'],
+                ['阿七', 0, '—'],
+            ];
+
+            /* ---------------- 渲染 ---------------- */
+            document.getElementById('rail').innerHTML = NAV.map(
+                ([label, path], index) => `
+                <button class="rail-item ${index === 1 ? 'on' : ''}" type="button">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                         stroke-width="1.2" stroke-linecap="round"><path d="${path}"/></svg>
+                    ${label}
+                </button>`,
+            ).join('');
+
+            const maxHeight = Math.max(...SPARK);
+            document.getElementById('spark').innerHTML = SPARK.map(
+                (value, index) =>
+                    `<i class="${index === SPARK.length - 1 ? 'today' : ''}"
+                        style="height:${Math.round((value / maxHeight) * 48)}px"></i>`,
+            ).join('');
+
+            document.getElementById('sessions').innerHTML = SESSIONS.map(
+                ([name, time, cost, idle]) => `
+                <div class="session">
+                    <span class="session-name">
+                        <i class="session-dot ${idle ? 'idle' : ''}"></i><span>${name}</span>
+                    </span>
+                    <span class="session-time">${time}</span>
+                    <span class="session-cost">${cost === '—' ? '—' : cost + ' 万'}</span>
+                </div>`,
+            ).join('');
+
+            document.getElementById('roles').innerHTML = ROLES.map(
+                ([name, count, amount]) => `
+                <div class="session">
+                    <span class="session-name">
+                        <i class="session-dot ${count ? '' : 'idle'}"></i><span>${name}</span>
+                    </span>
+                    <span class="session-time">${count ? count + ' 笔' : '—'}</span>
+                    ${
+                        amount === '—'
+                            ? '<span class="session-cost">—</span>'
+                            : `<span class="role-amount">${amount}</span>`
+                    }
+                </div>`,
+            ).join('');
+
+            const sum = BOOK.reduce(
+                (total, [, , , amount, out]) => total + (out ? -Number(amount) : Number(amount)),
+                0,
+            );
+            document.getElementById('book').innerHTML =
+                `<div class="book-row head">
+                    <span class="col-head">时间</span>
+                    <span class="col-head">角色</span>
+                    <span class="col-head">来源</span>
+                    <span class="col-head" style="text-align:right">金额</span>
+                </div>` +
+                BOOK.map(
+                    ([time, who, from, amount, out]) => `
+                <div class="book-row ${out ? 'out' : ''}">
+                    <span class="time">${time}</span>
+                    <span class="who">${who}</span>
+                    <span class="from">${from}</span>
+                    <span class="amount">${amount}</span>
+                </div>`,
+                ).join('') +
+                `<div class="book-row sum">
+                    <span class="sum-label">今日净额</span>
+                    <span class="amount" style="grid-column:4">${sum.toFixed(1)}</span>
+                </div>`;
+
+            /* ---------------- 规格表 ---------------- */
+            const SWATCHES = [
+                ['--bg', '页面底'],
+                ['--paper', '纸面'],
+                ['--paper-2', '纸面·次'],
+                ['--well', '凹槽'],
+                ['--rule', '账线'],
+                ['--rule-2', '描边'],
+                ['--ink', '墨'],
+                ['--ink-2', '正文'],
+                ['--muted', '淡墨'],
+                ['--cinnabar', '朱 · 印章/选中/支出'],
+                ['--ochre', '赭 · 装备'],
+                ['--indigo', '靛 · 进度'],
+                ['--moss', '苔 · 已达成'],
+            ];
+            document.getElementById('swatches').innerHTML = SWATCHES.map(
+                ([token, label]) => `
+                <div class="swatch">
+                    <i style="--c: var(${token})"></i>
+                    <span><b>${label}</b><code>${token}</code></span>
+                </div>`,
+            ).join('');
+
+            const TYPES = [
+                ['--fs-mini', '10px', '印章 · 表头', 'var(--fs-mini)', 'var(--font-hei)'],
+                ['--fs-xs', '11px', '元信息 · 时间', 'var(--fs-xs)', 'var(--font-hei)'],
+                ['--fs-sm', '12px', '胶囊 · 流水', 'var(--fs-sm)', 'var(--font-kai)'],
+                ['--fs-base', '13.5px', '正文 · 表单', 'var(--fs-base)', 'var(--font-kai)'],
+                ['--fs-md', '14.5px', '分栏标题', 'var(--fs-md)', 'var(--font-kai)'],
+                ['--fs-lg', '17px', '弹窗标题', 'var(--fs-lg)', 'var(--font-kai)'],
+                ['--fs-xl', '22px', '页面标题', 'var(--fs-xl)', 'var(--font-kai)'],
+                ['--fs-amount', '29px', '金额', 'var(--fs-amount)', 'var(--font-kai)'],
+            ];
+            document.getElementById('type-scale').innerHTML = TYPES.map(
+                ([token, px, usage, size, family]) => `
+                <div class="type-row">
+                    <code>${token}</code>
+                    <em>${px}</em>
+                    <span style="font-size:${size};font-family:${family}">${usage} · 梦幻养老助手 328.6 万</span>
+                </div>`,
+            ).join('');
+
+            /* ---------------- 交互 ---------------- */
+            const bindSwitch = (element) => {
+                const opts = element.querySelectorAll('.cost-opt');
+                const thumb = element.querySelector('.cost-thumb');
+                const apply = (right) => {
+                    element.classList.toggle('off', !right);
+                    thumb.classList.toggle('right', right);
+                    opts.forEach((opt, index) =>
+                        opt.setAttribute('aria-checked', String(index === 1 ? right : !right)),
+                    );
+                };
+                opts.forEach((opt, index) => opt.addEventListener('click', () => apply(index === 1)));
+                apply(thumb.classList.contains('right'));
+            };
+            ['switch', 'switch-a', 'switch-b'].forEach((id) =>
+                bindSwitch(document.getElementById(id)),
+            );
+
+            const bindGroup = (id) => {
+                const group = document.getElementById(id);
+                group.addEventListener('click', (event) => {
+                    const pill = event.target.closest('.bevel-pill');
+                    if (!pill || pill.disabled) return;
+                    group.querySelectorAll('.bevel-pill').forEach((item) =>
+                        item.classList.toggle('on', item === pill),
+                    );
+                });
+            };
+            ['pills', 'targets', 'pill-demo'].forEach(bindGroup);
+
+            const root = document.documentElement;
+            const toggle = document.getElementById('toggle-theme');
+            toggle.addEventListener('click', () => {
+                const dark = root.classList.toggle('dark');
+                toggle.textContent = dark ? '切到浅色' : '切到深色';
+            });
+        </script>
+    </body>
+</html>

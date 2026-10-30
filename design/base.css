@@ -1,0 +1,436 @@
+/*
+ * 基座层 —— 元素重置 + 跨页面复用的最小工具类（账簿方向）。
+ *
+ * 四类：按钮与印章、凹槽胶囊、两格开关、勾选项；另加两条「账簿语法」：
+ * .frame（文武线外框）与 .ledger-lines（账线底纹）。
+ */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    height: 100%;
+}
+
+body {
+    font-family: var(--font-kai);
+    font-size: var(--fs-base);
+    color: var(--ink-2);
+    background: var(--bg);
+    font-style: normal;
+    -webkit-font-smoothing: antialiased;
+    /* 楷体在小字号下需要一点字距，否则「记账」两字的笔画会贴在一起。 */
+    letter-spacing: 0.01em;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+dl,
+dd,
+figure {
+    margin: 0;
+}
+h1,
+h2,
+h3,
+h4 {
+    color: var(--ink);
+    font-weight: 400;
+}
+h1 {
+    font-size: var(--fs-xl);
+    line-height: 1.25;
+}
+h2 {
+    font-size: var(--fs-md);
+}
+h3 {
+    font-size: var(--fs-base);
+}
+p {
+    line-height: var(--lh-base);
+}
+small {
+    font-size: var(--fs-sm);
+}
+a {
+    color: inherit;
+    text-decoration: none;
+}
+button,
+input,
+select,
+textarea {
+    font: inherit;
+    color: inherit;
+}
+button {
+    cursor: pointer;
+}
+button:disabled {
+    cursor: default;
+    opacity: 0.42;
+}
+svg {
+    flex: none;
+    vertical-align: middle;
+}
+:focus-visible {
+    outline: 1px dashed var(--cinnabar);
+    outline-offset: 1px;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    min-height: 32px;
+    border: 3px solid transparent;
+    border-radius: 10px;
+    background: var(--scrollbar-thumb);
+    background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+    border-width: 2px;
+    background-color: var(--scrollbar-thumb-hover);
+}
+::-webkit-scrollbar-thumb:active {
+    background-color: var(--scrollbar-thumb-active);
+}
+
+/* ---------- 账簿语法 1：文武线 ----------
+ * 外框粗一档、内框细一档，中间留 3px 空隙。账本的天头地脚就是这个结构，
+ * 比「圆角卡片 + 投影」便宜也更像纸。任何主区块都用它代替 .card。
+ */
+.frame {
+    position: relative;
+    padding: var(--sp-9);
+    border: var(--w-hair) solid var(--rule-2);
+    background: var(--paper);
+}
+.frame::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border: var(--w-hair) solid var(--rule);
+    pointer-events: none;
+}
+
+/* ---------- 账簿语法 2：账线 ----------
+ * 横向细线，行高与线距严格 28px 对齐。只用在「一行一条记录」的列表上，
+ * 铺到底色上就成了格子纸，反而看不清内容。
+ */
+.ledger-lines {
+    background-image: repeating-linear-gradient(
+        180deg,
+        transparent 0,
+        transparent 27px,
+        var(--rule) 27px,
+        var(--rule) 28px
+    );
+}
+
+/* 表头：黑体小字 + 字距，像印刷体的栏目名。 */
+.col-head {
+    font-family: var(--font-hei);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.18em;
+    color: var(--muted);
+}
+
+/* ---------- 印章 ----------
+ * 朱红方框、微微歪一点、内圈留白。它是这个界面唯一允许「不端正」的元素，
+ * 用来标记「这一块已经定稿」的东西（页面标题、已入账、已达成）。
+ */
+.seal {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border: 1.5px solid var(--cinnabar);
+    border-radius: var(--r-1);
+    color: var(--cinnabar);
+    font-size: 15px;
+    line-height: 1;
+    transform: rotate(-2.5deg);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--paper) 100%, transparent);
+    opacity: 0.92;
+}
+.seal.solid {
+    background: var(--cinnabar);
+    color: var(--on-cinnabar);
+}
+
+/* ---------- 按钮 ---------- */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-3);
+    min-height: 31px;
+    padding: 5px 13px;
+    border: var(--w-hair) solid var(--rule-2);
+    border-radius: var(--r-2);
+    background: var(--paper);
+    color: var(--ink-2);
+    font-size: var(--fs-sm);
+    white-space: nowrap;
+    transition:
+        border-color var(--t-quick) var(--ease-soft),
+        background-color var(--t-quick) var(--ease-soft),
+        color var(--t-quick) var(--ease-soft);
+}
+.btn:hover:not(:disabled) {
+    border-color: var(--cinnabar);
+    color: var(--ink);
+}
+.btn.primary {
+    background: var(--cinnabar);
+    border-color: var(--cinnabar-ink);
+    color: var(--on-cinnabar);
+}
+.btn.primary:hover:not(:disabled) {
+    background: var(--cinnabar-ink);
+    color: var(--on-cinnabar);
+}
+.btn.compact {
+    min-height: 26px;
+    padding: 3px 9px;
+    font-size: var(--fs-xs);
+}
+.btn.danger {
+    color: var(--cinnabar);
+}
+.icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: var(--w-hair) solid transparent;
+    border-radius: var(--r-1);
+    background: transparent;
+    color: var(--muted);
+}
+.icon-button:hover:not(:disabled) {
+    border-color: var(--rule-2);
+    background: var(--paper-2);
+    color: var(--ink);
+}
+.text-button {
+    border: 0;
+    padding: 0;
+    background: none;
+    color: inherit;
+}
+.text-button:hover:not(:disabled) {
+    color: var(--cinnabar);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+/* ---------- 凹槽胶囊 ----------
+ * 四件套：--well 底 + 上暗下亮渐变 + 上沿内阴影 + 下沿高光。少一样就读不出凹。
+ * 选中不是「描边」也不是「变亮」，是**灌满朱红**——像把印泥按进槽里，纸面抬起一层。
+ * 直接摆在页面底色上时槽读不出来，必须先垫一层 --paper 承载面；最薄 23px。
+ */
+.bevel-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-height: 23px;
+    padding: 2px 10px;
+    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 80%, transparent);
+    border-radius: var(--r-pill);
+    background-color: var(--well);
+    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
+    box-shadow:
+        inset 0 1px 2px var(--bevel-lo),
+        inset 0 -1px 0 var(--bevel-hi);
+    color: var(--ink-2);
+    font-size: var(--fs-sm);
+    line-height: 17px;
+    white-space: nowrap;
+    transition:
+        border-color var(--t-quick) var(--ease-soft),
+        background-color var(--t-quick) var(--ease-soft),
+        color var(--t-quick) var(--ease-soft),
+        box-shadow var(--t-quick) var(--ease-soft);
+}
+.bevel-pill:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--cinnabar) 55%, transparent);
+    background-color: color-mix(in srgb, var(--well) 78%, var(--paper));
+    color: var(--ink);
+}
+.bevel-pill:active:not(:disabled) {
+    background-color: color-mix(in srgb, var(--well) 86%, var(--ink));
+}
+.bevel-pill.on {
+    border-color: var(--cinnabar-ink);
+    background-color: var(--cinnabar);
+    background-image: linear-gradient(180deg, var(--bevel-hi), transparent 46%, var(--bevel-lo));
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        0 1px 1px var(--bevel-lo),
+        0 4px 9px color-mix(in srgb, var(--cinnabar) 30%, transparent);
+    color: var(--on-cinnabar);
+    font-weight: 600;
+}
+.bevel-pill.on:hover:not(:disabled) {
+    background-color: var(--cinnabar-ink);
+    color: var(--on-cinnabar);
+}
+/* 按下去：渐变倒过来、投影收紧——同一枚印被压回纸里。 */
+.bevel-pill.on:active:not(:disabled) {
+    background-color: color-mix(in srgb, var(--cinnabar) 82%, var(--ink));
+    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 58%);
+    box-shadow:
+        inset 0 1px 3px var(--bevel-lo),
+        0 1px 2px color-mix(in srgb, var(--cinnabar) 22%, transparent);
+}
+.bevel-pill.on:focus-visible {
+    border-color: var(--cinnabar-ink);
+    box-shadow:
+        0 0 0 2px color-mix(in srgb, var(--ink) 45%, transparent),
+        0 3px 7px color-mix(in srgb, var(--cinnabar) 26%, transparent);
+}
+
+/* ---------- 两格位移开关 ----------
+ * 轨道同款凹槽，滑块是一枚朱印：translateX 走 240ms 回弹曲线。
+ * 关闭态用 --ink 16% 灭灯——朱红的明度比槽底高，浅色下会与槽同色。
+ */
+.cost-switch {
+    position: relative;
+    display: inline-grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    padding: 2px;
+    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 80%, transparent);
+    border-radius: var(--r-pill);
+    background-color: var(--well);
+    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
+    box-shadow:
+        inset 0 1px 2px var(--bevel-lo),
+        inset 0 -1px 0 var(--bevel-hi);
+    --thumb-bg: var(--cinnabar);
+    --thumb-fg: var(--on-cinnabar);
+}
+.cost-switch.off {
+    --thumb-bg: color-mix(in srgb, var(--ink) 16%, var(--well));
+    --thumb-fg: var(--ink);
+}
+.cost-thumb {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    width: calc(50% - 2px);
+    border-radius: var(--r-pill);
+    background-color: var(--thumb-bg);
+    background-image: linear-gradient(180deg, var(--bevel-hi), transparent 46%, var(--bevel-lo));
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        0 1px 1px var(--bevel-lo),
+        0 3px 7px color-mix(in srgb, var(--ink) 22%, transparent);
+    transition:
+        transform var(--t-thumb) var(--ease-snap),
+        background-color var(--t-mid) var(--ease-soft);
+}
+.cost-thumb.right {
+    transform: translateX(100%);
+}
+.cost-switch.off .cost-thumb {
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        0 1px 1px var(--bevel-lo);
+}
+.cost-switch:active .cost-thumb {
+    box-shadow: inset 0 2px 4px var(--bevel-lo);
+}
+.cost-opt {
+    position: relative;
+    z-index: 1;
+    padding: 3px 10px;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: none;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    line-height: 17px;
+    white-space: nowrap;
+    transition: color var(--t-mid) var(--ease-soft);
+}
+.cost-opt[aria-checked='true'] {
+    color: var(--thumb-fg);
+}
+
+/* ---------- 勾选项 ---------- */
+.check {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--ink-2);
+    font-size: var(--fs-base);
+    cursor: pointer;
+}
+.check-box {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 16px;
+    height: 16px;
+    border: var(--w-hair) solid var(--rule-2);
+    border-radius: var(--r-1);
+    background: var(--well);
+    box-shadow: inset 0 1px 2px var(--bevel-lo);
+    color: transparent;
+}
+.check input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.check input:checked + .check-box {
+    border-color: var(--cinnabar-ink);
+    background: var(--cinnabar);
+    box-shadow: none;
+    color: var(--on-cinnabar);
+}
+.check input:focus-visible + .check-box {
+    outline: 1px dashed var(--cinnabar);
+    outline-offset: 1px;
+}
+
+/* ---------- 文本 ---------- */
+.hint {
+    color: var(--muted);
+    font-size: var(--fs-sm);
+}
+.error {
+    color: var(--cinnabar);
+}
+.positive {
+    color: var(--moss);
+}
+/* 数字一律黑体 + 等宽数字：楷体的数字宽度不一，列一对齐就散。 */
+.num {
+    font-family: var(--font-hei);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+}
