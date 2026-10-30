@@ -1,12 +1,50 @@
 /**
- * 图标几何：一套手画的 16 格线稿。
+ * 图标 = 现成库（tabler）+ 一层「业务名 → 图标组件」的映射。
  *
- * 与 `AppIcon.vue` 分开，是因为 `<script setup>` 里不能 `export`，类型得放在普通模块里：
- * 页面只用 `IconName` 约束名字，不会写错字符串。
+ * 为什么不再手画：早先这里是 28 个手写的 16 格 path。问题不在画得对不对，而在**一致性**——
+ * 一次画完的 28 个图标，圆角半径、边长比例、视觉留白各走各的，放大看就参差；
+ * 每加一个图标都要重新对齐一次，成本只会往上走。成套库把这件事一次性解决。
  *
- * 规格：16×16 网格、1.25 笔宽、方端点、无填充。改图标时别引入曲线圆头或渐变，
- * 那会立刻与账线的细笔质感打架。
+ * 为什么是 tabler 而不是 lucide：两库同为 24 网格，同一批图标并排看过，
+ * tabler 的转角更硬（总览是直角四方格，lucide 是圆角），更贴账簿「圆角归零、结构靠线」的规矩；
+ * lucide 更圆润，容易滑向通用后台界面。两库都试过，lucide 已卸掉，换回去只需改这一张表。
+ *
+ * 规格不由库决定，由 `AppIcon.vue` 的 CSS 决定：24 网格、笔宽 1.8 user units
+ * （显示 14px 时约 1.05 物理像素，与账线同一种细笔）、尺寸 `calc(14px * var(--fs-scale))`。
  */
+import type { Component } from 'vue';
+
+import {
+    IconAdjustmentsHorizontal,
+    IconArchive,
+    IconCalendar,
+    IconCamera,
+    IconCash,
+    IconCheck,
+    IconChevronDown,
+    IconChevronRight,
+    IconClipboard,
+    IconClock,
+    IconCopy,
+    IconDownload,
+    IconFilter,
+    IconFlag,
+    IconLayoutDashboard,
+    IconMapPin,
+    IconMinus,
+    IconPencil,
+    IconPlus,
+    IconSearch,
+    IconShield,
+    IconSquare,
+    IconTag,
+    IconTrash,
+    IconUpload,
+    IconUsers,
+    IconWallet,
+    IconX,
+} from '@tabler/icons-vue';
+
 export type IconName =
     | 'overview'
     | 'income'
@@ -37,69 +75,109 @@ export type IconName =
     | 'restore'
     | 'close';
 
-export const ICONS: Record<IconName, string[]> = {
+export const ICONS: Record<IconName, Component> = {
     /* ---------- 导航 ---------- */
-    // 四方格：与总览页的三块板对应，不是「首页」。
-    overview: [
-        'M2.5 2.5h4.5v4.5H2.5z',
-        'M9 2.5h4.5v4.5H9z',
-        'M2.5 9h4.5v4.5H2.5z',
-        'M9 9h4.5v4.5H9z',
-    ],
-    // 铜钱：外圆内方。方孔 3.6 格才看得见，再小就成一个点、读起来像同心圆。
-    income: ['M8 13.4A5.4 5.4 0 108 2.6a5.4 5.4 0 000 10.8z', 'M6.2 6.2h3.6v3.6H6.2z'],
-    // 剑：14px 下剑身只有一条线，会被读成斜杠；换成盾，装备类目更稳。
-    equipment: ['M8 2.6l4.8 1.7v4c0 2.9-2.2 4.4-4.8 5.1-2.6-.7-4.8-2.2-4.8-5.1v-4z', 'M5.6 8.2h4.8'],
-    // 价签：一角带孔，内部一条横线当「价目」；线要压低居中，否则像袋口。
-    prices: ['M2.6 8V2.6h5.4L13.6 8.2 8.2 13.6z', 'M4.6 9.2h4'],
-    characters: [
-        'M8 7.7a2.7 2.7 0 100-5.4 2.7 2.7 0 000 5.4z',
-        'M2.6 13.6c0-2.8 2.4-4.2 5.4-4.2s5.4 1.4 5.4 4.2',
-    ],
-    // 钱袋：原来那个「矩形 + 小扣」在 14px 下像纸箱，袋形才读得出是钱。
-    accounts: [
-        'M6.2 4h3.6',
-        'M3.2 10.4c0 1.9 2.1 3.1 4.8 3.1s4.8-1.2 4.8-3.1c0-2.2-2.6-4.2-3.2-5.6H6.4C5.8 6.2 3.2 8.2 3.2 10.4z',
-    ],
-    // 旗：旗面要够高（6.8 格），矮了在 14px 下读成一个直角拐。
-    goals: ['M3.2 13.8V2.4', 'M3.2 2.8h9.2l-2.2 3.4 2.2 3.4H3.2z'],
-    // 设置：原来「圆 + 八条射线」是太阳，不是齿轮。三横两钮在 14px 下一眼就是「调节」。
-    settings: [
-        'M2.6 4.6h10.8',
-        'M2.6 8h10.8',
-        'M2.6 11.4h10.8',
-        'M5.4 3.2h2v2.8h-2z',
-        'M8.8 6.6h2v2.8h-2z',
-        'M3.8 10h2v2.8h-2z',
-    ],
+    overview: IconLayoutDashboard,
+    // 收益用「钞票」而不是「硬币」：硬币在 24 网格里必然带一个货币符号，
+    // 显示到 14px 时符号糊成一道竖线，而且 ¥/$ 都跟游戏币对不上；钞票是矩形加一圆，轮廓最稳。
+    income: IconCash,
+    equipment: IconShield,
+    prices: IconTag,
+    characters: IconUsers,
+    accounts: IconWallet,
+    goals: IconFlag,
+    // 设置：两条横线带滑块，读作「调节」；用齿轮在 14px 下会糊成太阳。
+    settings: IconAdjustmentsHorizontal,
 
     /* ---------- 动作 ---------- */
-    add: ['M8 3.2v9.6', 'M3.2 8h9.6'],
-    edit: ['M3 13l.9-3.1 7.1-7.1 2.2 2.2-7.1 7.1z', 'M10.4 3.4l2.2 2.2'],
-    trash: ['M3.2 4.6h9.6', 'M6.4 4.6V3.2h3.2v1.4', 'M4.6 4.6l.6 8.4h5.6l.6-8.4'],
-    search: ['M7.2 11.4a4.2 4.2 0 100-8.4 4.2 4.2 0 000 8.4z', 'M10.4 10.4l3 3'],
-    filter: ['M2.6 3.4h10.8l-4.2 4.7v4.5l-2.4-1.4V8.1z'],
-    archive: ['M2.5 5h11v8.4h-11z', 'M2.5 5l1.4-2.4h8.2L13.5 5', 'M6.2 8.2h3.6'],
-    camera: [
-        'M2.6 5.4h2.2l1-1.6h4.4l1 1.6h2.2v7H2.6z',
-        'M8 11a2.2 2.2 0 100-4.4A2.2 2.2 0 008 11z',
-    ],
-    paste: ['M5.6 3.4H4.2v10h7.6v-10h-1.4', 'M6.2 2.6h3.6v1.8H6.2z'],
-    upload: ['M8 11V3.4', 'M5.2 6.2 8 3.4l2.8 2.8', 'M3.4 12.6h9.2'],
-    download: ['M8 3.4V11', 'M5.2 8.2 8 11l2.8-2.8', 'M3.4 12.6h9.2'],
-    calendar: ['M3 5h10v8H3z', 'M3 7.4h10', 'M5.6 3v2.6', 'M10.4 3v2.6'],
-    clock: ['M8 13.4A5.4 5.4 0 108 2.6a5.4 5.4 0 000 10.8z', 'M8 4.8v3.4l2.4 1.4'],
-    pin: [
-        'M8 13.6s4-4.2 4-7A4 4 0 004 6.6c0 2.8 4 7 4 7z',
-        'M8 8.4a1.8 1.8 0 100-3.6 1.8 1.8 0 000 3.6z',
-    ],
-    check: ['M3.4 8.4l3 3 6.2-6.8'],
-    'chevron-down': ['M4.6 6.4 8 9.8l3.4-3.4'],
-    'chevron-right': ['M6.4 4.6 9.8 8l-3.4 3.4'],
+    add: IconPlus,
+    edit: IconPencil,
+    trash: IconTrash,
+    search: IconSearch,
+    filter: IconFilter,
+    archive: IconArchive,
+    camera: IconCamera,
+    paste: IconClipboard,
+    upload: IconUpload,
+    download: IconDownload,
+    calendar: IconCalendar,
+    clock: IconClock,
+    pin: IconMapPin,
+    check: IconCheck,
+    'chevron-down': IconChevronDown,
+    'chevron-right': IconChevronRight,
 
     /* ---------- 窗口按钮 ---------- */
-    minimize: ['M3.4 8.5h9.2'],
-    maximize: ['M3.4 3.4h9.2v9.2H3.4z'],
-    restore: ['M5.6 5.6h6.8v6.8H5.6z', 'M10.4 5.6V3.6H3.6v6.8h2'],
-    close: ['M4.2 4.2l7.6 7.6', 'M11.8 4.2l-7.6 7.6'],
+    minimize: IconMinus,
+    maximize: IconSquare,
+    restore: IconCopy,
+    close: IconX,
 };
+
+/** 中文名只给设置页的清单用；业务页面自己写文案，不从这里取。 */
+export const ICON_LABELS: Record<IconName, string> = {
+    overview: '总览',
+    income: '收益',
+    equipment: '装备',
+    prices: '物价',
+    characters: '角色',
+    accounts: '账号',
+    goals: '目标',
+    settings: '设置',
+    add: '新增',
+    edit: '编辑',
+    trash: '删除',
+    search: '搜索',
+    filter: '筛选',
+    archive: '归档',
+    camera: '截图',
+    paste: '粘贴',
+    upload: '上传',
+    download: '下载',
+    calendar: '日期',
+    clock: '计时',
+    pin: '定位',
+    check: '勾选',
+    'chevron-down': '下拉',
+    'chevron-right': '右折',
+    minimize: '最小化',
+    maximize: '最大化',
+    restore: '还原',
+    close: '关闭',
+};
+
+/** 分组只影响设置页的排布：导航、动作、窗口三种用途不该混在一张表里。 */
+export const ICON_GROUPS: { label: string; note: string; names: IconName[] }[] = [
+    {
+        label: '导航',
+        note: '左栏八个入口',
+        names: ['overview', 'income', 'equipment', 'prices', 'characters', 'accounts', 'goals', 'settings'],
+    },
+    {
+        label: '动作',
+        note: '按钮与行操作',
+        names: [
+            'add',
+            'edit',
+            'trash',
+            'search',
+            'filter',
+            'archive',
+            'camera',
+            'paste',
+            'upload',
+            'download',
+            'calendar',
+            'clock',
+            'pin',
+            'check',
+            'chevron-down',
+            'chevron-right',
+        ],
+    },
+    {
+        label: '窗口',
+        note: '标题栏三键',
+        names: ['minimize', 'maximize', 'restore', 'close'],
+    },
+];

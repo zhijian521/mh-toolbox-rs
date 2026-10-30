@@ -7,7 +7,7 @@ import CostSwitch from '../components/CostSwitch.vue';
 import FontSizeSlider from '../components/FontSizeSlider.vue';
 import LedgerSection from '../components/LedgerSection.vue';
 import SealMark from '../components/SealMark.vue';
-import { ICONS, type IconName } from '../components/icons';
+import { ICON_GROUPS, ICON_LABELS } from '../components/icons';
 import { useFontScale } from '../composables/use-font-scale';
 import { useTheme, type ThemeMode } from '../composables/use-theme';
 import { appInfo, type AppInfo } from '../services/desktop';
@@ -39,8 +39,8 @@ const autoSave = ref(false);
 const onlyEarn = ref(true);
 const withCost = ref(false);
 
-/* 图标清单直接从 icons.ts 取，新加图标不用回来改这一页。 */
-const iconNames = Object.keys(ICONS) as IconName[];
+/* 图标清单直接按 icons.ts 的分组渲染，新加图标不用回来改这一页。 */
+
 
 const swatches: { token: string; label: string }[] = [    { token: '--bg', label: '页面底' },
     { token: '--paper', label: '纸面' },
@@ -220,17 +220,30 @@ const typeScale: { token: string; px: string; usage: string; size: string }[] = 
             </LedgerSection>
 
             <!-- 图标 -->
-            <LedgerSection title="图标" seal="图" hint="16 格线稿 · 1.25 笔宽 · 随字号缩放">
-                <div class="icons">
-                    <div v-for="name in iconNames" :key="name" class="icon-cell">
-                        <AppIcon :name="name" />
-                        <span>{{ name }}</span>
+            <LedgerSection title="图标" seal="图" hint="成套线稿 · 24 网格 · 笔宽 1.8 · 随字号缩放">
+                <div class="icon-sheet">
+                    <div v-for="group in ICON_GROUPS" :key="group.label" class="icon-group">
+                        <div class="icon-group-head">
+                            <span class="icon-group-label">{{ group.label }}</span>
+                            <span class="icon-group-note">{{ group.note }}</span>
+                            <span class="icon-group-count">{{ group.names.length }}</span>
+                        </div>
+                        <div class="icon-list">
+                            <div v-for="name in group.names" :key="name" class="icon-item">
+                                <AppIcon :name="name" :size="18" />
+                                <b>{{ ICON_LABELS[name] }}</b>
+                                <code>{{ name }}</code>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
                 <p class="note">
-                    一套手画的线稿，没有引入图标库——现成包的笔宽与圆头会与账线的细笔打架。
-                    尺寸默认 <code>calc(14px * var(--fs-scale))</code>，上方滑块调大字号时图标一起长；
-                    标题栏那三个窗口按钮用固定 13px，避免贴着窗口边缘放大。
+                    图标来自成套库（tabler），我们只维护「业务名 → 图标」的映射。早先那套是手画的
+                    16 格 path，问题不在能不能画对，而在一致性——28 个图标一次画完，圆角、边长比例、
+                    留白各走各的，放大看就参差，加一个新图标还得重新对齐一次。
+                    实际使用尺寸是 <code>calc(14px * var(--fs-scale))</code>，调大字号图标一起长；
+                    下面的清单固定 18px，只为看清形状。标题栏三个窗口键另用固定 13px。
                 </p>
             </LedgerSection>
 
@@ -499,26 +512,68 @@ dd code {
     font-size: var(--fs-xs);
 }
 
-/* ---------- 图标 ---------- */
-.icons {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(98px, 1fr));
-    gap: 6px;
+/* ---------- 图标 ----------
+ * 不堆卡片格子。图标清单本质是一张目录：一行（或一格）一条记录，靠账线分隔、
+ * 靠留白呼吸。28 个描边方框堆在一起是最典型的模板感，也正是这次要修掉的。
+ */
+.icon-group {
+    padding-top: 14px;
 }
-.icon-cell {
+.icon-group-head {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 7px;
-    padding: 11px 4px 9px;
-    border: var(--w-hair) solid var(--rule);
-    background: var(--bg);
-    color: var(--ink-2);
+    align-items: baseline;
+    gap: 8px;
+    padding-bottom: 5px;
+    border-bottom: var(--w-hair) solid var(--rule-2);
 }
-.icon-cell span {
+.icon-group-label {
+    color: var(--ink);
+    font-size: var(--fs-sm);
+    letter-spacing: 0.1em;
+}
+.icon-group-note {
     color: var(--muted);
     font-size: var(--fs-mini);
-    letter-spacing: 0.02em;
+}
+.icon-group-count {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    font-variant-numeric: tabular-nums;
+}
+.icon-list {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.icon-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 7px 8px 7px 2px;
+    border-bottom: var(--w-hair) solid var(--rule);
+    color: var(--ink-2);
+    font-size: var(--fs-xs);
+}
+.icon-item b {
+    flex: none;
+    color: var(--ink);
+    font-weight: normal;
+    letter-spacing: 0.04em;
+}
+.icon-item code {
+    min-width: 0;
+    margin-left: 6px;
+    overflow: hidden;
+    color: var(--muted);
+    font-family: var(--font-ui);
+    font-size: var(--fs-mini);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.7;
+}
+.icon-item:hover code {
+    opacity: 1;
 }
 
 /* ---------- 结构 ---------- */

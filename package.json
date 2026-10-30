@@ -13,6 +13,7 @@
         "desktop:build": "tauri build"
     },
     "dependencies": {
+        "@tabler/icons-vue": "^3.50.0",
         "@tauri-apps/api": "^2",
         "vue": "^3.5.13"
     },

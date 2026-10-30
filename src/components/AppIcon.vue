@@ -3,36 +3,27 @@ import { computed } from 'vue';
 import { ICONS, type IconName } from './icons';
 
 /**
- * 图标渲染器。几何数据在 `icons.ts`，这里只负责「怎么画」：
+ * 图标渲染器。图标本体来自成套库（tabler），几何不再由我们维护；
+ * 这里只负责**统一规格**，这才是自己写图标的真正理由。
  *
- * 16×16 网格、1.25 笔宽、方端点、无填充——与账线同一种细笔质感，
- * 所以它塞进账簿结构里不会像贴纸。
+ * 规格由 CSS 定，不由库定：
+ *   - 24 网格（库的 viewBox 原样保留，不改几何）
+ *   - 笔宽 1.8 user units → 显示 14px 时约 1.05 物理像素，与账线同一种细笔
+ *   - 尺寸 `calc(14px * var(--fs-scale))`，调大字号图标一起长
  *
- * 尺寸默认乘 `--fs-scale`（`calc(14px * var(--fs-scale))`），设置里调大字号图标一起长；
- * 需要固定尺寸时传 `size`（数字，按 px）。
+ * 笔宽走 CSS 而不是组件 prop：`stroke-width` 声明会覆盖 `<svg>` 上的同名 attribute，
+ * 以后换库也只用改这一行。
  */
 const props = withDefaults(defineProps<{ name: IconName; size?: number }>(), { size: 0 });
 
-const paths = computed(() => ICONS[props.name] ?? []);
+const glyph = computed(() => ICONS[props.name]);
 const box = computed(() =>
     props.size ? { width: `${props.size}px`, height: `${props.size}px` } : undefined,
 );
 </script>
 
 <template>
-    <svg
-        class="app-icon"
-        :style="box"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.25"
-        stroke-linecap="square"
-        stroke-linejoin="miter"
-        aria-hidden="true"
-    >
-        <path v-for="(d, index) in paths" :key="index" :d="d" />
-    </svg>
+    <component :is="glyph" class="app-icon" :style="box" :size="24" aria-hidden="true" />
 </template>
 
 <style scoped>
@@ -40,5 +31,6 @@ const box = computed(() =>
     flex: none;
     width: calc(14px * var(--fs-scale));
     height: calc(14px * var(--fs-scale));
+    stroke-width: 1.8;
 }
 </style>

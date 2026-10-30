@@ -27,7 +27,8 @@
 
 ```
 ├── src/                  Vue 前端
-│   ├── components/       SealMark / BevelPill / CostSwitch / BaseCheck / LedgerSection / FontSizeSlider
+│   ├── components/       SealMark / BevelPill / CostSwitch / BaseCheck / LedgerSection /
+│   │                     FontSizeSlider / TitleBar / AppIcon（图标走 tabler，只维护名字映射）
 │   ├── composables/      use-theme（主题）/ use-font-scale（字号三档）
 │   ├── services/         desktop.ts —— 渲染层唯一的系统能力出口
 │   ├── styles/           tokens.css（令牌）/ base.css（重置 + 四件套）
