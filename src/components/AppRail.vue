@@ -244,30 +244,40 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
  * `--slot-w` / `--slot-h` 给死 26px——正是 `SlotButton` 的默认规格（原子页不传
  * 变量就是 26px）。折叠态不再放大到 30px：切换时按钮尺寸不动，只有排布方向变。
  *
- * 展开态在栏内**平均分布**：`space-between` 让三枚之间的空白严格等宽，首尾贴住
- * 栏内边线。第一枚左缘仍与导航项、元信息共用同一条左缘，账簿的「结构靠线」不散；
- * 只是把右侧那段空档摊给两处间隙，整条底边读起来是一条被三枚印均匀占位的横线，
- * 而不是挤在左边的三枚小点。
+ * 展开态在栏内**平均分布**：`space-evenly` 把三枚之间的两处间隙与左右两侧的留白
+ * 分成四个等份——两份间隔、两边边距，四段一样宽。首尾不再贴边（原先 `space-between`
+ * 会让第一枚压在栏内边线上、右侧留一整段空档），整条底边读起来是三枚印在一片纸上
+ * 均匀落位，而不是挤在某一头。
+ *
+ * 必须用负 margin 吃掉 `.rail` 的左右 10px 内边距：否则那 10px 会白加在两侧，
+ * 量出来是 25 / 15 / 15 / 25——中间挤、两头散，一眼就看出不齐。吃满整栏后
+ * 四段严格等宽（158 栏宽 − 78 按钮 = 80，四段各 20）。
+ *
+ * 这里**不能留 `gap`**：`space-evenly` 的均分以「项目间已有间隙」为底数，再叠加
+ * `gap` 会让间隔比两侧边距多出那 5px，四段就不再等宽了。
  *
  * 尺寸仍由父级经变量传下去，`SlotButton` 自己不写死。
  */
 .rail-tools {
     display: flex;
-    justify-content: space-between;
-    gap: 5px;
+    justify-content: space-evenly;
+    margin-inline: -10px;
     --slot-h: 26px;
     --slot-w: 26px;
 }
 .rail-tools .slot-btn {
     flex: none;
 }
-/* 折叠：竖排一列居中。竖直方向必须回到 `flex-start`——`space-between` 在 column
- * 轴上会把三枚拉成「贴顶 / 居中 / 贴底」，行距随栏高乱漂。
+/* 折叠：竖排一列居中。竖直方向必须回到 `flex-start`——`space-evenly` 在 column
+ * 轴上会把三枚顺着栏高摊开，行距随窗口高度乱漂。
+ * 折叠态间距靠 `gap` 给死 6px（横轴已无均分需求），负 margin 必须撤掉：
+ * 58px 的栏再往外撑 18px 会溢出。
  * 尺寸不重设，继承上面的 26px，与展开态一致。 */
 .rail.collapsed .rail-tools {
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
+    margin-inline: 0;
     gap: 6px;
 }
 </style>
