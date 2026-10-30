@@ -23,3 +23,22 @@ export async function appInfo(): Promise<AppInfo | null> {
         return null;
     }
 }
+
+/**
+ * 用系统默认浏览器打开外部链接。
+ *
+ * 为什么不用 `<a target="_blank">`：WebView2 里那会走 Tauri 的新窗口请求，
+ * 默认被拦下来，点了没反应。所以外链统一交给这条通道。
+ * 浏览器里跑（没有 Tauri）时退回 `window.open`，至少预览时能点开。
+ */
+export async function openExternal(url: string): Promise<boolean> {
+    try {
+        await invoke('open_external', { url });
+        return true;
+    } catch {
+        if (typeof window !== 'undefined') {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+        return false;
+    }
+}

@@ -13,6 +13,10 @@ export interface RailPage {
 import { ref, watch } from 'vue';
 import AppIcon from './AppIcon.vue';
 import { useTheme } from '../composables/use-theme';
+import { openExternal } from '../services/desktop';
+
+/** 项目地址。一个仓库、没有多环境之分，写死在这里比读配置省事。 */
+const REPO_URL = 'https://github.com/zhijian521/mh-toolbox-rs';
 
 /**
  * 左栏：一条书脊，八枚凹槽。
@@ -72,7 +76,16 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
                     @click="toggleTheme"
                 >
                     <AppIcon :name="isDark ? 'sun' : 'moon'" />
-                    <span class="rail-tool-label">{{ isDark ? '日间' : '夜间' }}</span>
+                </button>
+
+                <button
+                    type="button"
+                    class="rail-tool"
+                    title="在浏览器里打开项目仓库"
+                    aria-label="在浏览器里打开项目仓库"
+                    @click="openExternal(REPO_URL)"
+                >
+                    <AppIcon name="github" />
                 </button>
 
                 <button
@@ -84,7 +97,6 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
                     @click="collapsed = !collapsed"
                 >
                     <AppIcon :name="collapsed ? 'rail-expand' : 'rail-collapse'" />
-                    <span class="rail-tool-label">{{ collapsed ? '展开' : '收起' }}</span>
                 </button>
             </div>
         </div>
@@ -245,60 +257,62 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
     height: 0;
 }
 
+/* ---------- 底部工具条 ----------
+ * 三枚纯图标按钮，样式照搬 `.bevel-pill`：胶囊圆角、--well 底、上沿内阴影 + 下沿高光。
+ * 展开时一行等分，收起时一列（58px 宽度放不下三个横排）。
+ * 不带文字：图标本身认得出来，带两个字反而把这一条撑得比导航项还重。
+ */
 .rail-tools {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    gap: 5px;
 }
 
-/* 图标按钮也是一条槽：默认平，悬停沉下去，按下更沉。 */
 .rail-tool {
     display: flex;
+    flex: 1 1 0;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    width: 100%;
-    height: calc(30px * var(--fs-scale));
-    border: 0;
-    border-radius: var(--r-2);
-    background-color: color-mix(in srgb, var(--well) 52%, var(--paper));
-    box-shadow:
-        inset 0 1px 1px color-mix(in srgb, var(--bevel-lo) 62%, transparent),
-        inset 0 -1px 0 color-mix(in srgb, var(--bevel-hi) 70%, transparent);
-    color: var(--ink-2);
-    transition:
-        color var(--t-quick) var(--ease-soft),
-        border-color var(--t-quick) var(--ease-soft),
-        background-color var(--t-quick) var(--ease-soft),
-        box-shadow var(--t-quick) var(--ease-soft);
-}
-.rail-tool:hover {
-    background-color: color-mix(in srgb, var(--well) 90%, var(--paper));
+    min-width: 0;
+    height: 26px;
+    padding: 0;
+    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 80%, transparent);
+    border-radius: var(--r-pill);
+    background-color: var(--well);
     background-image: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
     box-shadow:
         inset 0 1px 2px var(--bevel-lo),
         inset 0 -1px 0 var(--bevel-hi);
+    color: var(--ink-2);
+    transition:
+        border-color var(--t-quick) var(--ease-soft),
+        background-color var(--t-quick) var(--ease-soft),
+        color var(--t-quick) var(--ease-soft),
+        box-shadow var(--t-quick) var(--ease-soft),
+        height 220ms var(--ease-soft);
+}
+.rail-tool:hover {
+    border-color: color-mix(in srgb, var(--cinnabar) 55%, transparent);
+    background-color: color-mix(in srgb, var(--well) 78%, var(--paper));
     color: var(--ink);
 }
-.rail-tool-label {
-    font-size: calc(11.5px * var(--fs-scale));
-    line-height: 1;
-    white-space: nowrap;
-}
-.rail.collapsed .rail-tool-label {
-    display: none;
-}
 .rail-tool:active {
-    background-color: color-mix(in srgb, var(--well) 84%, var(--ink));
+    background-color: color-mix(in srgb, var(--well) 86%, var(--ink));
     box-shadow: inset 0 1px 3px var(--bevel-lo);
 }
 .rail-tool:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--cinnabar) 60%, transparent);
     outline-offset: 1px;
 }
+
+/* 收起：一行改一列，宽高改成正方形——胶囊圆角会自动读成圆。 */
+.rail.collapsed .rail-tools {
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
 .rail.collapsed .rail-tool {
+    flex: none;
     width: 30px;
     height: 30px;
-    margin-inline: auto;
 }
 </style>

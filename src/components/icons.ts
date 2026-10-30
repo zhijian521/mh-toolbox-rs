@@ -17,6 +17,7 @@ import type { Component } from 'vue';
 import {
     IconAdjustmentsHorizontal,
     IconArchive,
+    IconBrandGithubFilled,
     IconCalendar,
     IconCamera,
     IconChevronsLeft,
@@ -76,6 +77,7 @@ export type IconName =
     | 'chevron-right'
     | 'sun'
     | 'moon'
+    | 'github'
     | 'rail-collapse'
     | 'rail-expand'
     | 'minimize'
@@ -120,6 +122,9 @@ export const ICONS: Record<IconName, Component> = {
     // 折叠用双箭头而不是「侧栏收起」那个带竖线的方框：14px 下方框会糊成一根竖线。
     sun: IconSun,
     moon: IconMoon,
+    // GitHub 用实心标。线性版（24 网格里那只猫的轮廓线）14px 下糊成一个方框，
+    // 实心剪影至少还认得出耳朵和尾巴——品牌标宁可重一点，也要认得出。
+    github: IconBrandGithubFilled,
     'rail-collapse': IconChevronsLeft,
     'rail-expand': IconChevronsRight,
 
@@ -157,6 +162,7 @@ export const ICON_LABELS: Record<IconName, string> = {
     'chevron-down': '下拉',
     'chevron-right': '右折',
     sun: '日间',
+    github: '仓库',
     moon: '夜间',
     'rail-collapse': '收起',
     'rail-expand': '展开',
@@ -198,7 +204,7 @@ export const ICON_GROUPS: { label: string; note: string; names: IconName[] }[] =
     {
         label: '外壳',
         note: '侧栏与主题',
-        names: ['sun', 'moon', 'rail-collapse', 'rail-expand'],
+        names: ['sun', 'moon', 'github', 'rail-collapse', 'rail-expand'],
     },
     {
         label: '窗口',

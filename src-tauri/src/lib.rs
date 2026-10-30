@@ -39,6 +39,35 @@ fn app_info(app: tauri::AppHandle) -> AppInfo {
     }
 }
 
+/// 用系统默认浏览器打开一个外部链接。
+///
+/// 不走 `cmd /C start`：URL 里一旦带 `&`，会被 shell 当成命令分隔符截断，
+/// 剪掉后面的查询参数。`rundll32 url.dll,FileProtocolHandler` 是把链接当**参数**
+/// 递过去，不经过 shell，也就没有转义问题。
+///
+/// 只放行 http(s)：否则前端一旦被注入，就能把 `file:` / `ms-settings:` 这类
+/// 协议递给系统，那是任意本地程序调用的口子。
+#[tauri::command]
+fn open_external(url: String) -> Result<(), String> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err("只允许打开 http(s) 链接".to_string());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("rundll32")
+            .args(["url.dll,FileProtocolHandler", &url])
+            .spawn()
+            .map_err(|error| format!("打不开链接：{error}"))?;
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err("当前平台未实现外部链接打开".to_string())
+    }
+}
+
 /// WebView2 自带的默认开关。自己设 `additional_browser_args` 会**整串覆盖**它，
 /// 所以拼调试端口时必须把这一段原样带上，否则右键菜单、PDF 壳这些行为会跟着变。
 const WEBVIEW_DEFAULT_ARGS: &str =
@@ -90,7 +119,7 @@ fn create_main_window(app: &mut tauri::App) -> tauri::Result<()> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![app_info])
+        .invoke_handler(tauri::generate_handler![app_info, open_external])
         .setup(|app| {
             create_main_window(app)?;
             Ok(())
