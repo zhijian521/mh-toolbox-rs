@@ -19,6 +19,8 @@ import {
     IconArchive,
     IconCalendar,
     IconCamera,
+    IconChevronsLeft,
+    IconChevronsRight,
     IconCash,
     IconCheck,
     IconChevronDown,
@@ -32,11 +34,13 @@ import {
     IconLayoutDashboard,
     IconMapPin,
     IconMinus,
+    IconMoon,
     IconPencil,
     IconPlus,
     IconSearch,
     IconShield,
     IconSquare,
+    IconSun,
     IconTag,
     IconTrash,
     IconUpload,
@@ -70,6 +74,10 @@ export type IconName =
     | 'check'
     | 'chevron-down'
     | 'chevron-right'
+    | 'sun'
+    | 'moon'
+    | 'rail-collapse'
+    | 'rail-expand'
     | 'minimize'
     | 'maximize'
     | 'restore'
@@ -107,6 +115,14 @@ export const ICONS: Record<IconName, Component> = {
     'chevron-down': IconChevronDown,
     'chevron-right': IconChevronRight,
 
+    /* ---------- 外壳 ---------- */
+    // 太阳/月亮只表示「点了会变成什么」，不表示当前状态——按钮说的是下一步。
+    // 折叠用双箭头而不是「侧栏收起」那个带竖线的方框：14px 下方框会糊成一根竖线。
+    sun: IconSun,
+    moon: IconMoon,
+    'rail-collapse': IconChevronsLeft,
+    'rail-expand': IconChevronsRight,
+
     /* ---------- 窗口按钮 ---------- */
     minimize: IconMinus,
     maximize: IconSquare,
@@ -140,6 +156,10 @@ export const ICON_LABELS: Record<IconName, string> = {
     check: '勾选',
     'chevron-down': '下拉',
     'chevron-right': '右折',
+    sun: '日间',
+    moon: '夜间',
+    'rail-collapse': '收起',
+    'rail-expand': '展开',
     minimize: '最小化',
     maximize: '最大化',
     restore: '还原',
@@ -174,6 +194,11 @@ export const ICON_GROUPS: { label: string; note: string; names: IconName[] }[] =
             'chevron-down',
             'chevron-right',
         ],
+    },
+    {
+        label: '外壳',
+        note: '侧栏与主题',
+        names: ['sun', 'moon', 'rail-collapse', 'rail-expand'],
     },
     {
         label: '窗口',
