@@ -15,6 +15,7 @@
  * 导航项形状见 `navigation.ts` 的 `NavItem`——那是导航与路由共用的单一真源。
  */
 import { ref, watch } from 'vue';
+import AppIcon from './AppIcon.vue';
 import BevelPill from './BevelPill.vue';
 import SlotButton from './SlotButton.vue';
 import type { NavItem } from '../navigation';
@@ -237,26 +238,30 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
 }
 
 /* ---------- 底部工具条 ----------
- * 三枚槽按钮，排布随折叠方向走：展开一行等分，收起一列。
- * 质感在 `SlotButton` 里，这里只管位置与尺寸——尺寸经 `--slot-h` / `--slot-w` 传下去，
- * 组件自己不写死。
+ * 三枚槽按钮，排布随折叠方向走：展开一行，收起一列。
+ *
+ * **每一枚都是正方形**。纯图标按钮的语义就是一枚方印：宽度一拉长，印面变成
+ * 竖长的色块，四周的槽底与金边被摊平，读起来既不像印也不像按钮。
+ * 所以这里 `flex: none`、不参与等分（等分会让宽随栏宽漂移），宽高由同一组
+ * `--slot-w` / `--slot-h` 给死。展开态左对齐——与导航项、元信息共用同一条左缘，
+ * 账簿的「结构靠线」就靠这条线，散了就不成账。
+ *
+ * 尺寸仍由父级经变量传下去，`SlotButton` 自己不写死。
  */
 .rail-tools {
     display: flex;
     gap: 5px;
     --slot-h: 26px;
+    --slot-w: 26px;
 }
 .rail-tools .slot-btn {
-    flex: 1 1 0;
+    flex: none;
 }
 .rail.collapsed .rail-tools {
     flex-direction: column;
     align-items: center;
     gap: 6px;
     --slot-h: 30px;
-}
-.rail.collapsed .rail-tools .slot-btn {
-    flex: none;
     --slot-w: 30px;
 }
 </style>

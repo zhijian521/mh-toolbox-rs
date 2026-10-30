@@ -22,9 +22,9 @@ import type { IconName } from './icons';
  * 判定写在模板的类名上而不是另设 `variant` prop：多一个 prop 就多一处「声明与内容
  * 不一致」的可能（`variant="icon"` 却塞了文字），而「有没有 text」是现成的、不会骗人。
  *
- * 尺寸不写死：父级给 `--slot-h` / `--slot-w`（侧栏展开 26px 等分、收起 30px 正方形，
- * 普通场景不传就是一枚 26px 高的自然宽按钮）。`label` 出 `title` 与 `aria-label`，
- * 其余 `aria-*` 与事件由 attrs 落到根元素。
+ * 尺寸不写死：父级给 `--slot-h` / `--slot-w`（侧栏展开 26px、收起 30px，两者同一值
+ * 即正方形；普通场景不传就是一枚 26px 高的自然宽按钮）。`label` 出 `title` 与
+ * `aria-label`，其余 `aria-*` 与事件由 attrs 落到根元素。
  */
 withDefaults(
     defineProps<{
@@ -74,11 +74,12 @@ withDefaults(
     font-family: var(--font-ui);
     transition:
         color var(--t-quick) var(--ease-soft),
+        width 220ms var(--ease-soft),
         height 220ms var(--ease-soft);
 }
 
 /* 纯图标要正方形：宽度默认取高度，父级显式给了 `--slot-w` 才听父级的。
- * 侧栏展开态那三个按钮仍是等分的——`flex: 1 1 0` 的 basis 为 0，宽度由剩余空间分。 */
+ * 父级若要正方形，把 `--slot-w` 传成与 `--slot-h` 同一个值即可（侧栏就是这么用的）。 */
 .slot-btn.icon-only {
     width: var(--slot-w, var(--slot-h, 26px));
     padding: 0;
