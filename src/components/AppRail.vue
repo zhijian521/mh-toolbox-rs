@@ -258,9 +258,12 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
 }
 
 /* ---------- 底部工具条 ----------
- * 三枚纯图标按钮，样式照搬 `.bevel-pill`：胶囊圆角、--well 底、上沿内阴影 + 下沿高光。
- * 展开时一行等分，收起时一列（58px 宽度放不下三个横排）。
- * 不带文字：图标本身认得出来，带两个字反而把这一条撑得比导航项还重。
+ * 三枚纯图标按钮。默认是**槽**：--well 底、上沿内阴影、下沿高光，凹进纸面。
+ * 悬停时翻成**凸起**：边上一圈框、内部上亮下暗、整枚抬离纸面——明暗关系照
+ * `.bevel-pill.on`，只是不灌朱红（三枚同时悬停时满屏红会抢戏）。
+ * 按下再压回槽里，阴影加重。
+ *
+ * 圆角走 --r-2（3px），与导航项同一档：方，但角不刺手。
  */
 .rail-tools {
     display: flex;
@@ -276,7 +279,7 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
     height: 26px;
     padding: 0;
     border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 80%, transparent);
-    border-radius: var(--r-pill);
+    border-radius: var(--r-2);
     background-color: var(--well);
     background-image: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
     box-shadow:
@@ -290,21 +293,36 @@ watch(collapsed, (value) => localStorage.setItem(STORAGE_KEY, String(value)));
         box-shadow var(--t-quick) var(--ease-soft),
         height 220ms var(--ease-soft);
 }
+
 .rail-tool:hover {
-    border-color: color-mix(in srgb, var(--cinnabar) 55%, transparent);
-    background-color: color-mix(in srgb, var(--well) 78%, var(--paper));
+    border-color: color-mix(in srgb, var(--cinnabar) 58%, transparent);
+    background-color: color-mix(in srgb, var(--well) 20%, var(--paper));
+    background-image: linear-gradient(180deg, var(--bevel-hi), transparent 46%, var(--bevel-lo));
+    /* 上沿一道高光、下沿一道内暗影：这两笔合起来才是「盖子被顶起来」的厚度。 */
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        inset 0 -2px 3px -1px var(--bevel-lo),
+        0 2px 3px color-mix(in srgb, var(--ink) 14%, transparent),
+        0 5px 10px color-mix(in srgb, var(--ink) 16%, transparent);
     color: var(--ink);
 }
+
+/* 按下去：同一枚被压回纸里，渐变倒过来、投影收掉、内阴影加重。 */
 .rail-tool:active {
+    border-color: color-mix(in srgb, var(--cinnabar-ink) 64%, transparent);
     background-color: color-mix(in srgb, var(--well) 86%, var(--ink));
-    box-shadow: inset 0 1px 3px var(--bevel-lo);
+    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 58%);
+    box-shadow:
+        inset 0 1px 3px var(--bevel-lo),
+        inset 0 -1px 0 var(--bevel-hi);
 }
+
 .rail-tool:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--cinnabar) 60%, transparent);
     outline-offset: 1px;
 }
 
-/* 收起：一行改一列，宽高改成正方形——胶囊圆角会自动读成圆。 */
+/* 收起：一行改一列；宽高收成正方形，方角不变。 */
 .rail.collapsed .rail-tools {
     flex-direction: column;
     align-items: center;
