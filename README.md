@@ -47,7 +47,7 @@
 start.bat            普通启动
 start.bat debug      启动并开 CDP 9222（供 e2e / 实拍）
 start.bat --check    只做环境自检，不启动
-start.bat --force    端口被占时直接清掉，不询问
+start.bat --force    遇到占用或残留实例时直接处理，不询问
 ```
 
 它做四件事，每件都对应一个真踩过的坑：
@@ -56,18 +56,25 @@ start.bat --force    端口被占时直接清掉，不询问
    之后脚本不用改。
 2. **并行度压到 4**（`CARGO_BUILD_JOBS`）。本机 rustc 高并发编译时崩过
    `STATUS_ACCESS_VIOLATION`，这是编译器进程崩，不是代码错。
-3. **5173 端口预检**。`vite.config.ts` 开了 `strictPort`，端口被上次残留的 Vite 占着时，
-   Vite 不会换端口而是直接退出，`tauri dev` 跟着失败且没有明确提示。脚本会指出占用者
-   PID 并询问是否结束——**只结束 `node.exe`**，别的进程一律不动。
+3. **独占资源预检：窗口实例 + 5173 端口**。这是启动失败最常见的原因，两条都要查。
+   `vite.config.ts` 开了 `strictPort`，5173 被占时 Vite 不换端口而是直接退出，
+   `tauri dev` 只会抛一句 `Error The "beforeDevCommand" terminated with a non-zero status
+   code.`——完全不提端口。脚本会把占用者 PID 打出来并询问是否结束，**只结束 `node.exe`**，
+   别的进程一律不动；结束之后还会**轮询等端口真正释放**（最多 10 秒），
+   避免 kill 完立刻 bind 的偶发失败。
 4. **`System32` 显式提到 PATH 前段**。从 Git Bash 里调用本脚本时，PATH 里混着 Git 的
    `usr/bin`，同名的 `timeout.exe` 会抢在 Windows 的 `timeout` 前面被调用。
+
+启动失败时脚本不再只丢一个退出码，而是列出三条对应的排查方向（谁抢了 5173 / rustc 报错 /
+target 目录被占用）。
 
 > **`start.bat` 必须保存为 GBK(936) 编码 + CRLF 换行。** 存成 UTF-8 时 cmd 会按双字节切行，
 > 中文注释被拆成命令，报一堆「xxx 不是内部或外部命令」，而且报错位置与真实问题毫无关系。
 > 用 VSCode 编辑时确认右下角是 `GB 2312` 与 `CRLF`。
 >
 > 在 Git Bash 里请用 `cmd //c start.bat`；直接在 mintty 里跑会因编码不同显示成乱码
-> （不影响功能）。
+> （不影响功能）。非交互终端下无法弹询问，脚本会提示改用 `--force`。
+
 
 ## 开发
 

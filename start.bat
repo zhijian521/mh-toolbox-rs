@@ -10,7 +10,7 @@ rem  用法：
 rem    start.bat            普通启动
 rem    start.bat debug      启动并开 CDP 9222（供 e2e / 实拍）
 rem    start.bat --check    只做环境自检，不启动
-rem    start.bat --force    端口被占时直接清掉，不询问
+rem    start.bat --force    遇到占用/残留实例时直接处理，不询问
 rem
 rem  ------------------------------------------------------------
 rem  【本文件必须保存为 GBK(936) 编码 + CRLF 换行】
@@ -79,6 +79,7 @@ if not defined SDK_VER goto :no_sdk
 if not exist "%SDK_LIB_ROOT%\%SDK_VER%\um\x64" goto :no_sdk
 
 set "LIB=%MSVC_DIR%\lib\x64;%SDK_LIB_ROOT%\%SDK_VER%\um\x64;%SDK_LIB_ROOT%\%SDK_VER%\ucrt\x64"
+
 rem System32 要显式提到前面：从 Git Bash 里调用本脚本时，PATH 里混着 Git 的
 rem usr/bin，同名的 timeout.exe 会抢在 Windows 的 timeout 前面被调用。
 set "PATH=%MSVC_DIR%\bin\Hostx64\x64;%SystemRoot%\System32;%USERPROFILE%\.cargo\bin;%PATH%"
@@ -105,25 +106,60 @@ if not exist "node_modules\.bin" (
 )
 
 rem ------------------------------------------------------------
-rem  3. 端口预检
-rem     vite.config.ts 开了 strictPort：5173 被占时 Vite 不会换端口，
-rem     而是直接退出，tauri dev 跟着失败、窗口起不来也没有明确提示。
-rem     这里先把上一次残留的 node 清掉，只清 node.exe，别的进程不动。
-rem     必须限定 LISTENING：TIME_WAIT 的旧连接也挂着 5173 这个地址，
-rem     但它们的 PID 是 0，抓错了就会显示「被 System Idle Process 占用」。
+rem  3. 独占资源预检 —— 这里才是启动失败最常见的真正原因
+rem
+rem     tauri dev 的 beforeDevCommand 是 npm run dev（vite），而
+rem     vite.config.ts 开了 strictPort：5173 被占时 Vite 不换端口，
+rem     直接退出，tauri 只抛一句
+rem       Error The "beforeDevCommand" terminated with a non-zero status
+rem     完全不提「端口被占」。所以这一步必须先把端口和自己的残留实例清掉。
+rem
+rem     注意：必须限定 LISTENING。TIME_WAIT 的旧连接也挂着 5173 这个地址，
+rem     但它们的 PID 是 0，不限定就会显示「被 System Idle Process 占用」。
 rem ------------------------------------------------------------
+
+rem 3a. 自己上一次没退干净的窗口实例
+set "APP_PID="
+for /f "tokens=2 delims=," %%n in ('tasklist /fi "IMAGENAME eq mh-toolbox-rs.exe" /nh /fo csv 2^>nul ^| findstr /i "mh-toolbox-rs.exe"') do if not defined APP_PID set "APP_PID=%%~n"
+
+if not defined APP_PID goto :app_check_done
+
+echo.
+echo   [实例] 已有一个窗口在运行 ^(PID %APP_PID%^)。
+echo          两个实例会共用同一个 WebView2 数据目录与同一个 5173，必须只留一个。
+
+if "%CHECK_ONLY%"=="1" (
+    echo   [实例] 自检模式，不做处理。
+    goto :app_check_done
+)
+
+if "%FORCE%"=="1" goto :app_kill
+choice /c YN /n /m "  结束它并重新启动？[Y/N] "
+if errorlevel 255 (
+    echo   [提示] 当前不是交互式终端，无法询问。加 --force 参数可直接处理。
+    goto :abort
+)
+if errorlevel 2 goto :abort
+
+:app_kill
+taskkill /PID %APP_PID% /F >nul 2>nul
+echo   [实例] 已结束 PID %APP_PID%
+%SystemRoot%\System32\ping.exe -n 2 127.0.0.1 >nul
+
+:app_check_done
+
+rem 3b. 端口占用
 set "PORT_PID="
 for /f "tokens=5" %%p in ('netstat -ano 2^>nul ^| findstr /r /c:":5173 .*LISTENING"') do if not defined PORT_PID set "PORT_PID=%%p"
 
 if not defined PORT_PID goto :port_free
 
-rem tasklist 的 /fo csv 是逗号分隔，默认按空格切会切不开，必须指定 delims=,
 set "PORT_NAME=unknown"
-for /f "tokens=1 delims=," %%n in ('tasklist /fi "PID eq %PORT_PID%" /nh /fo csv 2^>nul') do set "PORT_NAME=%%~n"
+for /f "tokens=1 delims=," %%n in ('tasklist /fi "PID eq %PORT_PID%" /nh /fo csv 2^>nul ^| findstr /i ".exe"') do set "PORT_NAME=%%~n"
 
 echo.
 echo   [端口] 5173 已被占用：%PORT_NAME% ^(PID %PORT_PID%^)
-echo          大多是上次没退干净的 Vite，不处理会直接启动失败。
+echo          大多是上次没退干净的 Vite，或另一个会话在跑 npm run dev。
 
 if "%CHECK_ONLY%"=="1" (
     echo   [端口] 自检模式，不做处理。
@@ -138,6 +174,10 @@ if /i not "%PORT_NAME%"=="node.exe" (
 if "%FORCE%"=="1" goto :port_kill
 
 choice /c YN /n /m "  结束这个进程并继续？[Y/N] "
+if errorlevel 255 (
+    echo   [提示] 当前不是交互式终端，无法询问。加 --force 参数可直接处理。
+    goto :abort
+)
 if errorlevel 2 goto :abort
 
 :port_kill
@@ -147,7 +187,21 @@ if errorlevel 1 (
     goto :abort
 )
 echo   [端口] 已结束 PID %PORT_PID%
-timeout /t 1 /nobreak >nul
+
+rem 等端口真的释放。不等待的话，刚 kill 完立刻 bind 会偶发失败，
+rem 表现就是一句 beforeDevCommand 错误，很难查。
+set /a WAIT=0
+:wait_free
+set "STILL="
+for /f "tokens=5" %%p in ('netstat -ano 2^>nul ^| findstr /r /c:":5173 .*LISTENING"') do set "STILL=%%p"
+if not defined STILL goto :port_free
+set /a WAIT+=1
+if %WAIT% GEQ 10 (
+    echo   [端口] 等了 10 秒仍被 PID %STILL% 占用，放弃。
+    goto :abort
+)
+%SystemRoot%\System32\ping.exe -n 2 127.0.0.1 >nul
+goto :wait_free
 
 :port_free
 echo   [端口] 5173 空闲
@@ -180,13 +234,24 @@ echo.
 call npm run desktop
 set "CODE=%ERRORLEVEL%"
 
-if not "%CODE%"=="0" (
-    echo.
-    echo   启动失败，退出码 %CODE%
-    pause
+if "%CODE%"=="0" (
+    endlocal
+    exit /b 0
 )
+
+echo.
+echo   启动失败，退出码 %CODE%
+echo.
+echo   按这几条依次排查：
+echo     1. 出现 beforeDevCommand terminated 说明 5173 又被别人抢了
+echo        （多半是另一个会话在跑 npm run dev，先停掉它）
+echo     2. 出现 rustc 的 error 说明 Rust 侧编译没过，看上面第一个 error
+echo     3. 出现 拒绝访问 / Access denied 说明另一个窗口实例还占着
+echo        target 目录，用 tasklist 找 mh-toolbox-rs.exe 结束掉
+echo.
+pause
 endlocal
-exit /b %CODE%
+exit /b 1
 
 rem ------------------------------------------------------------
 rem  错误出口
