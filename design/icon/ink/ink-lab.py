@@ -17,7 +17,12 @@ PAPER = (249, 245, 235)
 JIAO = (28, 23, 20)
 CINN = (166, 43, 34)
 DAN = (116, 105, 92)
-RAD = 62
+# ---- 暗色（拓片）：
+NIGHT = (38, 33, 27)        # 墨底（比 #202020 任务栏亮一档，否则边界消失）
+NIGHT_DEEP = (9, 7, 6)      # 压深用的更深的墨
+PAPER_L = (243, 236, 219)   # 拓片留白（碑字凹处）
+CINN_L = (188, 64, 50)      # 暗底上的朱
+RAD = int(2048 * 0.18)
 
 
 # ---------------------------------------------------------------- 纸与墨
@@ -33,12 +38,36 @@ def lowfreq(seed, cell, contrast=2.8):
     return im.point(lambda v: max(0, min(255, int(128 + (v - 128) * contrast))))
 
 
+def clip_to_shape(im):
+    """把 alpha 裁到圆角矩形内。叠加层（渐变、纹理）会溢出到圆角外的透明区，
+    不裁的话四角残留半透明深色，在浅色桌面上就是一圈脏边。"""
+    shape = Image.new('L', (S, S), 0)
+    ImageDraw.Draw(shape).rounded_rectangle([0, 0, S - 1, S - 1], radius=RAD, fill=255)
+    shape = shape.filter(ImageFilter.GaussianBlur(S * 0.0015))
+    a = ImageChops.multiply(im.getchannel('A'), shape)
+    im.putalpha(a)
+    return im
+
+
+def night_paper():
+    """拓片的底：深墨 + 墨不匀 + 底部压深。"""
+    im = Image.new('RGBA', (S, S), NIGHT + (0,))
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle([0, 0, S - 1, S - 1], radius=RAD, fill=NIGHT + (255,))
+    # 墨不匀用更深的墨叠，不用纸色——亮斑在暗底上像脏点
+    im = lay(im, lowfreq(3, 30).point(lambda v: int(v * 0.22)), NIGHT_DEEP)
+    # 底部压深一档：让色块有体积，深色任务栏上不至于糊成一块
+    im = lay(im, vgrad(0.0).point(lambda v: 255 - v).point(lambda v: int(v * 0.45)),
+             NIGHT_DEEP, opacity=0.65)
+    return clip_to_shape(im)
+
+
 def paper():
     im = Image.new('RGBA', (S, S), PAPER + (0,))
     d = ImageDraw.Draw(im)
     d.rounded_rectangle([0, 0, S - 1, S - 1], radius=RAD, fill=PAPER + (255,))
     im = lay(im, lowfreq(3, 26).point(lambda v: int(v * 0.011)), JIAO)
-    return im
+    return clip_to_shape(im)
 
 
 def lay(base, alpha, color=JIAO, opacity=1.0):
@@ -159,11 +188,12 @@ def stamp(base, cx, cy, side, angle=-3.2, **kw):
 
 # ---------------------------------------------------------------- 甲 · 焦墨
 def plan_a():
-    """一个字，浓墨，落一枚印。其余全是纸。"""
-    im = paper()
-    im = lay(im, brush(glyph('梦', 0.630, 0.500, 0.438),
-                       soft=0.0022, amp=0.14, halo=0.13, fade=0.92, core=0.90))
-    return stamp(im, 0.742, 0.782, int(S * 0.192), c_ratio=0.70)
+    """拓片：墨底上留白的字，落一枚朱印。碑刻的读法。"""
+    im = night_paper()
+    im = lay(im, brush(glyph('梦', 0.660, 0.498, 0.436),
+                       soft=0.0022, amp=0.14, halo=0.0, fade=0.92, core=0.90), PAPER_L)
+    return stamp(im, 0.742, 0.782, int(S * 0.192), c_ratio=0.70,
+                 color=CINN_L, t_ratio=0.090)
 
 
 # ---------------------------------------------------------------- 乙 · 界格
