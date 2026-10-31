@@ -6,28 +6,24 @@ import type { IconName } from './icons';
  * 槽按钮：内容落在凹槽里；悬停时朱印落进槽中。
  *
  * 结构分两层，这是它和普通按钮最大的差别：
- *   - **按钮本体 = 槽**。`--well` 底 + 一道 `--rule-2` 金边 + 上沿内阴影，
- *     常态与悬停**都不变**。
- *   - **朱印 = `::before`**，`inset: 1px`。悬停时淡入并 `scale 0.94 → 1`，
- *     四周仍露出槽底与金边。
+ *   - **按钮本体 = 槽**。深度来自全局 `.well`，常态与悬停**都不变**。
+ *   - **朱印 = 一层 `.slot-stamp`**（`inset: 1px`，面来自 `.stamp`）。悬停时淡入并
+ *     `scale 0.94 → 1`，四周仍露出槽底与金边。
  *
  * 为什么不能直接给按钮刷朱红：底色一改，金边和槽就整片被盖掉，读起来是
  * 「换了块色板」，不是「一枚印落进槽里」。两态的差异必须落在子层。
  *
- * 三种形态由 props 的组合决定，不另开组件：
- *   - 只有 `text`      → 纯文字
- *   - `icon` + `text`  → 图标在左、文字在右
- *   - 只有 `icon`      → 纯图标，**正方形**（宽取高）
+ * 三种形态由 props 的组合决定，不另开组件：只有 `text` 是纯文字、`icon` + `text`
+ * 是图标带字、只有 `icon` 是纯图标（正方形）。判定写在模板的类名上而不是另设
+ * `variant` prop——多一个 prop 就多一处「声明与内容不一致」的可能
+ * （`variant="icon"` 却塞了文字），而「有没有 text」是现成的、不会骗人。
  *
- * 判定写在模板的类名上而不是另设 `variant` prop：多一个 prop 就多一处「声明与内容
- * 不一致」的可能（`variant="icon"` 却塞了文字），而「有没有 text」是现成的、不会骗人。
- *
- * 尺寸不写死：父级给 `--slot-h` / `--slot-w`（侧栏展开与收起都用 26px，两者同一值
- * 即正方形；普通场景不传就是一枚 26px 高的自然宽按钮）。`label` 出 `title` 与
- * `aria-label`，其余属性（含 `aria-expanded`）由 attrs 透传到 button——
- * **不要**为 ARIA 属性单独声明 prop：一旦声明，Vue 就不再自动透传，而组件内部
- * 又拿不到带连字符的 key（`$props['aria-x']` 在 `<script setup>` 里恒为 undefined，
- * 重命名解构也一样），属性会静默消失。类型检查由 `src/types/vue-augment.d.ts` 放开。
+ * 尺寸不写死：父级给 `--slot-h` / `--slot-w`，两者同一值即正方形；不传就是一枚
+ * 26px 高的自然宽按钮。`label` 出 `title` 与 `aria-label`，其余属性（含
+ * `aria-expanded`）由 attrs 透传到 button——**不要**为 ARIA 属性单独声明 prop：
+ * 一旦声明，Vue 就不再自动透传，而组件内部又拿不到带连字符的 key
+ * （`$props['aria-x']` 在 `<script setup>` 里恒为 undefined，重命名解构也一样），
+ * 属性会静默消失。类型检查由 `src/types/vue-augment.d.ts` 放开。
  */
 withDefaults(
     defineProps<{
@@ -51,6 +47,7 @@ withDefaults(
         :aria-label="label"
         :disabled="disabled"
     >
+        <span class="slot-stamp stamp" aria-hidden="true" />
         <AppIcon v-if="icon" :name="icon" />
         <span v-if="text" class="slot-text">{{ text }}</span>
     </button>
@@ -59,6 +56,8 @@ withDefaults(
 <style scoped>
 /* 深度来自全局 `.well`；这里只写「一枚 26px 的方印槽」这件几何。 */
 .slot-btn {
+    --icon-size: calc(16px * var(--fs-scale));
+
     position: relative;
     display: inline-flex;
     align-items: center;
@@ -69,7 +68,6 @@ withDefaults(
     padding: 0 9px;
     border-radius: var(--r-2);
     color: var(--ink-2);
-    font-family: var(--font-ui);
     transition:
         color var(--t-quick) var(--ease-soft),
         width 220ms var(--ease-soft),
@@ -84,24 +82,12 @@ withDefaults(
 }
 
 /* 朱印：内缩 1px 落进槽里，只留一道槽底 + 一道金边，印面才占得住这块地。
- * 印面渐变压得很淡（30% 白 / 32% 就透明）：真印泥是均匀一片朱色，
- * 立体感交给那 1px 顶边高光和外投影。渐变一重，读起来就是塑料按键不是印。 */
-.slot-btn::before {
-    content: '';
+ * 面本身来自全局 `.stamp`（底色 / 受光 / 高光 / 投影），这里只有「藏起来、悬停时按下去」
+ * 这件事——它是真元素而不是 `::before`，否则没法挂 `.stamp`。 */
+.slot-stamp {
     position: absolute;
     inset: 1px;
     border-radius: calc(var(--r-2) - 1px);
-    background-color: var(--seal);
-    background-image: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--bevel-hi) 30%, transparent),
-        transparent 32%,
-        var(--bevel-lo)
-    );
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        0 1px 1px var(--bevel-lo),
-        0 2px 5px color-mix(in srgb, var(--seal) 30%, transparent);
     opacity: 0;
     transform: scale(0.94);
     transition:
@@ -111,32 +97,27 @@ withDefaults(
         box-shadow var(--t-quick) var(--ease-soft);
 }
 
-.slot-btn:hover:not(:disabled)::before {
+.slot-btn:hover:not(:disabled) .slot-stamp {
     opacity: 1;
     transform: scale(1);
 }
 .slot-btn:hover:not(:disabled) {
     color: var(--on-seal);
 }
-.slot-btn:hover:not(:disabled) :deep(.app-icon) {
-    color: var(--on-seal);
-}
 
 /* 按下：印被压进槽底的凹痕。 */
-.slot-btn:active:not(:disabled)::before {
+.slot-btn:active:not(:disabled) .slot-stamp {
     background-color: color-mix(in srgb, var(--seal) 78%, var(--ink));
     background-image: linear-gradient(180deg, var(--bevel-lo), transparent 58%);
     box-shadow: inset 0 2px 4px var(--bevel-lo);
 }
 
-/* 图标要压在伪元素上面：绝对定位的 ::before 会盖住非定位内容。
+/* 图标要压在印面上面：绝对定位的 `.slot-stamp` 会盖住非定位内容。
  * 16px 是这个控件的规格——14px 在 24px 的印面上只占四成，四周一圈留白，
- * 看着就是「里面小小的」；16px 撑到三分之二才饱满。 */
+ * 看着就是「里面小小的」；16px 撑到三分之二才饱满。尺寸仍走 `--icon-size`。 */
 .slot-btn :deep(.app-icon) {
     position: relative;
     z-index: 1;
-    width: calc(16px * var(--fs-scale));
-    height: calc(16px * var(--fs-scale));
 }
 
 /* 文字同图标一样要抬到印面之上。行高压到 1：26px 的槽里 12px 字号再带默认行高，
@@ -153,10 +134,5 @@ withDefaults(
 .slot-btn:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--ink) 45%, transparent);
     outline-offset: 1px;
-}
-
-.slot-btn:disabled {
-    opacity: 0.45;
-    cursor: default;
 }
 </style>

@@ -20,9 +20,6 @@ import { useRovingFocus } from '../composables/use-roving-focus';
  * 也没人给 `aria-controls`。所以根元素是 `<nav>`、当前项给 `aria-current="page"`，
  * 而不是 `tablist` / `aria-selected`——后者会让读屏宣布「标签页 1/8」然后找不到面板。
  *
- * 键盘与 Tab 停靠点交给 `useRovingFocus`（与三个单选组共用同一套）：整组一个停靠点，
- * 上下键移动选中并带走焦点，Home / End 跳首尾。
- *
  * 尺寸全部走 `--vs-*` 变量且默认乘 `--fs-scale`：设置里切「较大」时
  * 格高、字、图标、轨道宽一起长，竖排字不会溢出格子。
  */
@@ -39,20 +36,21 @@ const props = defineProps<{ modelValue: string; options: SliderOption[]; label: 
 const emit = defineEmits<{ (event: 'update:modelValue', value: string): void }>();
 
 const track = ref<HTMLElement | null>(null);
-const cells = ref<HTMLButtonElement[]>([]);
 const dragging = ref(false);
 
-const index = computed(() =>
-    Math.max(
-        0,
-        props.options.findIndex((option) => option.value === props.modelValue),
-    ),
-);
+/* 键盘与 Tab 停靠点交给 `useRovingFocus`（与三个单选组共用同一套）：整组一个停靠点，
+ * 上下键移动选中并带走焦点，Home / End 跳首尾。`cells` 也由它持有。 */
+const { cells, activeIndex, tabIndexFor, onKeydown } = useRovingFocus<string>({
+    values: () => props.options.map((option) => option.value),
+    activeValue: () => props.modelValue,
+    pick,
+    axis: 'vertical',
+});
 
 /* 位移直接写在 style 上，不用 `--i` 自定义属性：`translateY` 是唯一需要 index 的地方，
  * 多注入一个变量只会多一层「类型上不认、运行时才对」的隐患。 */
 const thumbStyle = computed(() => ({
-    transform: `translateY(calc(${index.value} * (var(--vs-cell) + var(--vs-gap))))`,
+    transform: `translateY(calc(${activeIndex.value} * (var(--vs-cell) + var(--vs-gap))))`,
 }));
 
 function pick(target: number) {
@@ -69,7 +67,6 @@ function indexAt(clientY: number): number {
     const style = getComputedStyle(el);
     const gap = parseFloat(style.rowGap) || 0;
     const step = cellHeight + gap;
-    if (step <= 0) return 0;
     /* 起点要算上边框：绝对定位与 grid 内容都从 padding box 起算，`clientTop` 才是那条金边。 */
     const origin =
         el.getBoundingClientRect().top + el.clientTop + (parseFloat(style.paddingTop) || 0);
@@ -97,14 +94,6 @@ function onPointerUp(event: PointerEvent) {
     const el = track.value;
     if (el?.hasPointerCapture(event.pointerId)) el.releasePointerCapture(event.pointerId);
 }
-
-const { tabIndexFor, onKeydown } = useRovingFocus({
-    count: () => props.options.length,
-    activeIndex: () => index.value,
-    pick,
-    cells: () => cells.value,
-    axis: 'vertical',
-});
 </script>
 
 <template>
@@ -119,7 +108,7 @@ const { tabIndexFor, onKeydown } = useRovingFocus({
         @pointercancel="onPointerUp"
         @keydown="onKeydown"
     >
-        <span class="vs-thumb" aria-hidden="true" :style="thumbStyle" />
+        <span class="vs-thumb stamp" aria-hidden="true" :style="thumbStyle" />
 
         <button
             v-for="(option, i) in options"
@@ -143,7 +132,7 @@ const { tabIndexFor, onKeydown } = useRovingFocus({
 /* ---------- 轨道：一道竖槽 ----------
  * 深度全部来自全局 `.well.upright`（`base.css`：金边 / `--well` 底 / 左壁暗 / 顶影 / 下沿亮边），
  * 这里只写几何。没有为「长槽」额外加深，两版的差别只在圆角：
- *   外框 `--vs-radius`（默认 `--r-2`，3px），里面的印取同一个值，不再是胶囊。
+ *   外框、格、印一律 `--r-2`（3px），不再是胶囊。
  * 槽与印同形之后，「当前页」靠朱色和一道短影区分，不再靠圆角的形状差。
  *
  * 竖槽的暗面在左壁而不是顶边（光从左上），这条由 `.well.upright` 覆写；
@@ -159,12 +148,6 @@ const { tabIndexFor, onKeydown } = useRovingFocus({
     --vs-gap: calc(5px * var(--fs-scale));
     --vs-ico: calc(15px * var(--fs-scale));
     --vs-label: calc(14px * var(--fs-scale));
-    /* 小圆角。外框、格、印共用它——一处改，三处一起变。 */
-    --vs-radius: var(--r-2);
-    /* 印面与印上的字直接取全站那一对（`tokens.css` 的 `--seal` / `--on-seal`），
-     * 不再在这里自己写一份暗色覆写：那套映射现在是所有「灌朱的控件」共用的。 */
-    --vs-seal: var(--seal);
-    --vs-seal-fg: var(--on-seal);
 
     position: relative;
     display: grid;
@@ -172,7 +155,7 @@ const { tabIndexFor, onKeydown } = useRovingFocus({
     row-gap: var(--vs-gap);
     width: var(--vs-w);
     padding: 2px;
-    border-radius: var(--vs-radius);
+    border-radius: var(--r-2);
     touch-action: none;
     cursor: pointer;
     /* 拖动时选中文字会在整条槽上拉出一道蓝，必须关掉。 */
@@ -180,6 +163,9 @@ const { tabIndexFor, onKeydown } = useRovingFocus({
 }
 
 /* ---------- 拇指：一枚朱印 ----------
+ * 印面（底色 / 受光 / 上沿高光 / 落地线与朱色投影）来自全局 `.stamp`，
+ * 与横版滑块、两格开关、胶囊选中、槽按钮悬停共用同一份，这里只有几何与位移。
+ *
  * `inset` 与轨道 padding 对齐（2px），于是印面比格宽出两侧的槽壁厚度，
  * 读作「印落在槽口上」而不是「槽里填了块红」。
  */
@@ -189,22 +175,7 @@ const { tabIndexFor, onKeydown } = useRovingFocus({
     right: 2px;
     left: 2px;
     height: var(--vs-cell);
-    border-radius: var(--vs-radius);
-    background-color: var(--vs-seal);
-    /* 上高光收到 15%、强度取 32%：原来一路铺到 46% 且用满强度 `--bevel-hi`
-     * （亮色下是 82% 白），印面上半截整体泛白，红色只剩下面一半（用户截图指出
-     * 「上面白色有点多」）。现在它只是一层贴着顶边的薄光，
-     * 「印面有厚度」主要靠下面那条 1px 的 `inset` 硬边光，不是这一片渐变。 */
-    background-image: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--bevel-hi) 32%, transparent),
-        transparent 15%,
-        var(--bevel-lo)
-    );
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        0 1px 1px var(--bevel-lo),
-        0 3px 7px color-mix(in srgb, var(--vs-seal) 28%, transparent);
+    border-radius: var(--r-2);
     transition: transform 300ms var(--ease-snap);
     /* 印面不吃指针：否则拖到印上时事件目标是它，指针捕获与点击都会错位。 */
     pointer-events: none;
@@ -214,12 +185,10 @@ const { tabIndexFor, onKeydown } = useRovingFocus({
     transition: none;
 }
 
-/* 暗色下「朱底浅字」的映射已经上移到 `tokens.css` 的 `--seal` / `--on-seal`，
- * 这里不再单独覆写：全站灌朱的控件（竖版滑块、横版三档滑块、胶囊、槽按钮、
- * 勾选框、标题栏关闭钮）共用同一对，才不会出现「这个印的字是白的、那个是黑的」。 */
-
 /* ---------- 格 ---------- */
 .vs-cell {
+    --icon-size: var(--vs-ico);
+
     position: relative;
     z-index: 1;
     display: flex;
@@ -229,10 +198,10 @@ const { tabIndexFor, onKeydown } = useRovingFocus({
     gap: calc(7px * var(--fs-scale));
     border: 0;
     /* 格与外框同圆角：悬停那层淡纸是一条「槽内的段」。 */
-    border-radius: var(--vs-radius);
+    border-radius: var(--r-2);
+    /* 按钮本体的重置在 `base.css`（`button { font: inherit }`），这里不再重复。 */
     background: none;
     color: var(--ink-2);
-    font-family: inherit;
     cursor: pointer;
     transition: color var(--t-mid) var(--ease-soft);
 }
@@ -254,12 +223,8 @@ const { tabIndexFor, onKeydown } = useRovingFocus({
  * 「当前在哪一页」由那枚朱印本身交代——位置、颜色、投影三样都说过，不必让字再喊一遍。 */
 .vs-cell[aria-current='page'],
 .vs-cell[aria-current='page']:hover {
-    color: var(--vs-seal-fg);
+    color: var(--on-seal);
     background: none;
-}
-.vs-cell :deep(.app-icon) {
-    width: var(--vs-ico);
-    height: var(--vs-ico);
 }
 /* 聚焦环不能用朱红：选中时底就是朱红，红环会消失。负 offset 收进印面里，
  * 免得在 34px 宽的槽上向外撑出一圈。 */

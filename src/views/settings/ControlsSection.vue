@@ -35,18 +35,16 @@ const withCost = ref(false);
                 <span class="col-head">按钮</span>
                 <div class="kit-row">
                     <button class="btn" type="button">次要</button>
-                    <button class="btn primary" type="button">
-                        <AppIcon name="add" :size="13" />主要
-                    </button>
+                    <button class="btn primary" type="button"><AppIcon name="add" />主要</button>
                     <button class="btn compact" type="button">
-                        <AppIcon name="download" :size="12" />导出
+                        <AppIcon name="download" />导出
                     </button>
                     <button class="btn" type="button" disabled>禁用</button>
                     <button class="icon-button" type="button" title="编辑">
-                        <AppIcon name="edit" :size="13" />
+                        <AppIcon name="edit" />
                     </button>
                     <button class="icon-button" type="button" title="删除">
-                        <AppIcon name="trash" :size="13" />
+                        <AppIcon name="trash" />
                     </button>
                 </div>
                 <p class="note">灌朱的按钮一页不超过两个，主操作只留一个。</p>

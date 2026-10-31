@@ -1,8 +1,10 @@
 /*
  * 基座层 —— 元素重置 + 跨页面复用的最小工具类（账簿方向）。
  *
- * 四类：按钮与印章、凹槽胶囊、两格开关、勾选项；另加两条「账簿语法」：
- * .frame（文武线外框）与 .ledger-lines（账线底纹）。
+ * 五类：凹槽 `.well` 与印面 `.stamp`（同一件事的正反面）、按钮与印章、
+ * 凹槽胶囊与承载面、两格开关与轨道选项格、勾选项；
+ * 另加「账簿语法」`.frame`（文武线外框）与页面骨架 `.page-content`。
+ * 组合级的排版类（`.note`、`.kit`）在 `blocks.css`。
  */
 
 *,
@@ -167,8 +169,13 @@ svg {
     color: var(--on-seal);
 }
 
-/* ---------- 按钮 ---------- */
+/* ---------- 按钮 ----------
+ * 图标尺寸走 `--icon-size`（见 `AppIcon.vue`）：按钮这一档是 13，
+ * 紧凑档压到 12——26px 高的按钮里 13px 图标会顶到上下边框。
+ */
 .btn {
+    --icon-size: calc(13px * var(--fs-scale));
+
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -202,6 +209,8 @@ svg {
     color: var(--on-seal);
 }
 .btn.compact {
+    --icon-size: calc(12px * var(--fs-scale));
+
     min-height: 26px;
     padding: 3px 9px;
     font-size: var(--fs-xs);
@@ -210,6 +219,8 @@ svg {
     color: var(--cinnabar);
 }
 .icon-button {
+    --icon-size: calc(13px * var(--fs-scale));
+
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -260,6 +271,32 @@ svg {
     box-shadow:
         inset 0 2px 3px -1px var(--bevel-lo),
         inset 0 -1px 0 var(--bevel-hi);
+}
+
+/* ---------- 印面：一块灌了朱色的凸面 ----------
+ * `.well` 的反面：槽是凹的，印是按进槽里的那一块。四件套是
+ * 底色 + 顶边受光 + 上沿高光 + 落地线与朱色投影，少一样就只像「一块红底」。
+ *
+ * 受光写成**像素过渡带**（9px）而不是百分比：百分比按元素自身高度解析，
+ * 同一串数落在 23px 的胶囊上和 62px 的格上会得出两种宽度。原来五处各拍一套
+ * （46/46/46/32/15%），改任一处高度就得重调五处——那正是这一条要消掉的。
+ *
+ * 底色走 `--stamp-bg`：两格开关「灭灯」时换的是同一个变量，不另开一份面。
+ * 按下态不在这里：滑块按下去是「拖动中」（只压内影），按钮按下去是「被压回纸里」
+ * （底色压深 + 渐变倒置），两种反馈不同，由各自的父级选择器决定。
+ */
+.stamp {
+    background-color: var(--stamp-bg, var(--seal));
+    background-image: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--bevel-hi) 32%, transparent),
+        transparent 9px,
+        var(--bevel-lo)
+    );
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        0 1px 1px var(--bevel-lo),
+        0 3px 7px color-mix(in srgb, var(--stamp-bg, var(--seal)) 28%, transparent);
 }
 
 /* ---------- 承载面 ----------
@@ -317,19 +354,17 @@ svg {
 .bevel-pill:active:not(:disabled) {
     background-color: color-mix(in srgb, var(--well) 86%, var(--ink));
 }
+/* 选中态换的是**类**：`well` 摘掉、`stamp` 加上——槽与印不该同时存在，
+ * 这也正是「选中」这件事在结构上的说法。所以金边要在这里自己写一份
+ * （未选中时那条 border 来自 `.well`），面的四件套则在 `.stamp` 里。
+ *
+ * 选中**不加粗**，与两个滑块（`VerticalSlider` / `FontSizeSlider`）一致：
+ * 全站的「选中」是一个朱底，不是一次字重变化。文楷本地只有 Regular，
+ * 600 是浏览器合成，会把撇捺糊成块；而一枚灌朱、带内高光与投影的胶囊
+ * 本身已经把「选中的是它」说清楚了，字不必再喊一遍。 */
 .bevel-pill.on {
-    border-color: var(--seal-edge);
-    background-color: var(--seal);
-    background-image: linear-gradient(180deg, var(--bevel-hi), transparent 46%, var(--bevel-lo));
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        0 1px 1px var(--bevel-lo),
-        0 4px 9px color-mix(in srgb, var(--seal) 30%, transparent);
+    border: var(--w-hair) solid var(--seal-edge);
     color: var(--on-seal);
-    /* 选中**不加粗**，与两个滑块（`VerticalSlider` / `FontSizeSlider`）一致：
-     * 全站的「选中」是一个朱底，不是一次字重变化。文楷本地只有 Regular，
-     * 600 是浏览器合成，会把撇捺糊成块；而一枚灌朱、带内高光与投影的胶囊
-     * 本身已经把「选中的是它」说清楚了，字不必再喊一遍。 */
 }
 .bevel-pill.on:hover:not(:disabled) {
     background-color: color-mix(in srgb, var(--seal) 86%, var(--ink));
@@ -350,56 +385,16 @@ svg {
         0 3px 7px color-mix(in srgb, var(--seal) 26%, transparent);
 }
 
-/* ---------- 两格位移开关 ----------
- * 轨道同款凹槽（外加 `.well`），滑块是一枚朱印：translateX 走 240ms 回弹曲线。
- * 关闭态用 --ink 16% 灭灯——朱红的明度比槽底高，浅色下会与槽同色。
+/* ---------- 轨道里的一格 ----------
+ * 凹槽轨道上的可点区域：两格开关（`.cost-opt`）与三档滑块（`.size-opt`）共用，
+ * 两者只差内边距。字必须压在印面之上（`z-index: 1`），否则被 thumb 盖住。
+ *
+ * 选中后的字色由轨道给 `--opt-fg`：默认是印上的字（`--on-seal`），
+ * 两格开关「灭灯」时换成 `--ink`——那时面上没有朱色，白字会读不出来。
  */
-.cost-switch {
-    position: relative;
-    display: inline-grid;
-    grid-template-columns: 1fr 1fr;
-    align-items: center;
-    padding: 2px;
-    border-radius: var(--r-pill);
-    --thumb-bg: var(--seal);
-    --thumb-fg: var(--on-seal);
-}
-.cost-switch.off {
-    --thumb-bg: color-mix(in srgb, var(--ink) 16%, var(--well));
-    --thumb-fg: var(--ink);
-}
-.cost-thumb {
-    position: absolute;
-    top: 2px;
-    bottom: 2px;
-    left: 2px;
-    width: calc(50% - 2px);
-    border-radius: var(--r-pill);
-    background-color: var(--thumb-bg);
-    background-image: linear-gradient(180deg, var(--bevel-hi), transparent 46%, var(--bevel-lo));
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        0 1px 1px var(--bevel-lo),
-        0 3px 7px color-mix(in srgb, var(--ink) 22%, transparent);
-    transition:
-        transform var(--t-thumb) var(--ease-snap),
-        background-color var(--t-mid) var(--ease-soft);
-}
-.cost-thumb.right {
-    transform: translateX(100%);
-}
-.cost-switch.off .cost-thumb {
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        0 1px 1px var(--bevel-lo);
-}
-.cost-switch:active .cost-thumb {
-    box-shadow: inset 0 2px 4px var(--bevel-lo);
-}
-.cost-opt {
+.track-opt {
     position: relative;
     z-index: 1;
-    padding: 3px 10px;
     border: 0;
     border-radius: var(--r-pill);
     background: none;
@@ -409,8 +404,57 @@ svg {
     white-space: nowrap;
     transition: color var(--t-mid) var(--ease-soft);
 }
-.cost-opt[aria-checked='true'] {
-    color: var(--thumb-fg);
+/* 选中只换字色，**不加粗、不描边、不加字距**（CONVENTIONS §2.4-9）：
+ * 文楷本地只有 Regular，600 与 `-webkit-text-stroke` 都是浏览器合成，
+ * 会把撇捺糊成块——竖版滑块曾用 0.25px 描边，眼睛读到的就是「这格加粗了」。
+ * 「选中了」由那枚朱印交代，字不必再喊一遍。 */
+.track-opt[aria-checked='true'] {
+    color: var(--opt-fg, var(--on-seal));
+}
+
+/* ---------- 两格位移开关 ----------
+ * 轨道同款凹槽（外加 `.well`），滑块是一枚朱印（`.stamp`）：translateX 走回弹曲线。
+ * 关闭态不换面、只把 `--stamp-bg` 灭灯——朱红的明度比槽底高，浅色下会与槽同色。
+ */
+.cost-switch {
+    position: relative;
+    display: inline-grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    padding: 2px;
+    border-radius: var(--r-pill);
+    --stamp-bg: var(--seal);
+    --opt-fg: var(--on-seal);
+}
+.cost-switch.off {
+    --stamp-bg: color-mix(in srgb, var(--ink) 16%, var(--well));
+    --opt-fg: var(--ink);
+}
+.cost-thumb {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    width: calc(50% - 2px);
+    border-radius: var(--r-pill);
+    transition:
+        transform var(--t-thumb) var(--ease-snap),
+        background-color var(--t-mid) var(--ease-soft);
+}
+.cost-thumb.right {
+    transform: translateX(100%);
+}
+/* 灭灯状态下印面没有朱色，那圈朱色投影也就不该在——只剩顶高光与落地线。 */
+.cost-switch.off .cost-thumb {
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        0 1px 1px var(--bevel-lo);
+}
+.cost-switch:active .cost-thumb {
+    box-shadow: inset 0 2px 4px var(--bevel-lo);
+}
+.cost-opt {
+    padding: 3px 10px;
 }
 
 /* ---------- 勾选项 ---------- */

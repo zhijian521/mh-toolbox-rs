@@ -1,5 +1,4 @@
 <script setup lang="ts" generic="T extends string">
-import { ref } from 'vue';
 import { useRovingFocus } from '../composables/use-roving-focus';
 
 /**
@@ -32,15 +31,9 @@ const props = withDefaults(
 
 const emit = defineEmits<{ 'update:modelValue': [value: T] }>();
 
-const cells = ref<HTMLButtonElement[]>([]);
-
-const indexOf = (value: T) =>
-    Math.max(
-        0,
-        props.options.findIndex((option) => option.value === value),
-    );
-
 const isDisabled = (index: number) => Boolean(props.options[index]?.disabled);
+
+const isOn = (value: T) => value === props.modelValue;
 
 function choose(value: T) {
     if (props.disabled || value === props.modelValue) return;
@@ -48,11 +41,10 @@ function choose(value: T) {
 }
 
 /* 与侧栏竖槽、两个滑块共用同一套键盘行为：整组一个 Tab 停靠点，左右键切换并带走焦点。 */
-const { tabIndexFor, onKeydown } = useRovingFocus({
-    count: () => props.options.length,
-    activeIndex: () => indexOf(props.modelValue),
+const { cells, tabIndexFor, onKeydown } = useRovingFocus<T>({
+    values: () => props.options.map((option) => option.value),
+    activeValue: () => props.modelValue,
     pick: (index) => choose(props.options[index].value),
-    cells: () => cells.value,
     axis: 'horizontal',
     enabled: () => !props.disabled,
     isDisabled,
@@ -72,10 +64,15 @@ const { tabIndexFor, onKeydown } = useRovingFocus({
             :key="option.value"
             ref="cells"
             type="button"
-            class="bevel-pill well"
-            :class="{ on: modelValue === option.value, 'radius-sm': radius === 'sm' }"
+            class="bevel-pill"
+            :class="{
+                well: !isOn(option.value),
+                on: isOn(option.value),
+                stamp: isOn(option.value),
+                'radius-sm': radius === 'sm',
+            }"
             role="radio"
-            :aria-checked="modelValue === option.value"
+            :aria-checked="isOn(option.value)"
             :tabindex="tabIndexFor(i)"
             :disabled="disabled || option.disabled"
             @click="choose(option.value)"

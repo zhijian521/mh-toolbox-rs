@@ -41,12 +41,12 @@ withDefaults(defineProps<{ title: string; desc?: string }>(), { desc: '' });
     background: var(--paper);
     white-space: nowrap;
 }
+/* h1 的 `margin: 0` 与 `font-weight: 400` 在 `base.css` 里已经给过，这里不重复——
+ * scoped 选择器特异性更高，重复写只会让「全站标题多重」这件事多一个说不清的地方。 */
 .page-title {
     flex: none;
-    margin: 0;
     color: var(--ink);
     font-size: var(--fs-xl);
-    font-weight: normal;
     letter-spacing: 0.04em;
     line-height: 1.15;
 }

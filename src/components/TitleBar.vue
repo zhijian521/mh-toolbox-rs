@@ -56,7 +56,7 @@ const close = () => void appWindow?.close();
         <div class="drag-space" data-tauri-drag-region />
         <div class="actions">
             <button class="tb-btn" type="button" title="最小化" @click="minimize">
-                <AppIcon name="minimize" :size="13" />
+                <AppIcon name="minimize" />
             </button>
             <button
                 class="tb-btn"
@@ -64,10 +64,10 @@ const close = () => void appWindow?.close();
                 :title="maximized ? '还原' : '最大化'"
                 @click="toggleMaximize"
             >
-                <AppIcon :name="maximized ? 'restore' : 'maximize'" :size="13" />
+                <AppIcon :name="maximized ? 'restore' : 'maximize'" />
             </button>
             <button class="tb-btn close" type="button" title="关闭" @click="close">
-                <AppIcon name="close" :size="13" />
+                <AppIcon name="close" />
             </button>
         </div>
     </header>
@@ -117,6 +117,8 @@ const close = () => void appWindow?.close();
  * 原来每个按钮都带一条 border-left，三个连起来像表格格线——窗口按钮是一组同权动作，
  * 不是三条独立条目，靠留白与 hover 底色区分即可。 */
 .tb-btn {
+    --icon-size: calc(13px * var(--fs-scale));
+
     display: grid;
     place-items: center;
     width: calc(42px * var(--fs-scale));

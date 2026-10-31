@@ -22,7 +22,7 @@ import { ICON_GROUPS, ICON_LABELS } from '../../components/icons';
                 </div>
                 <div class="icon-list">
                     <div v-for="name in group.names" :key="name" class="icon-item">
-                        <AppIcon :name="name" :size="18" />
+                        <AppIcon :name="name" />
                         <b>{{ ICON_LABELS[name] }}</b>
                         <code>{{ name }}</code>
                     </div>
@@ -36,8 +36,10 @@ import { ICON_GROUPS, ICON_LABELS } from '../../components/icons';
             放大看就参差，加一个新图标还得重新对齐一次。
         </p>
         <p class="note">
-            实际使用尺寸是 <code>calc(14px * var(--fs-scale))</code>，调大字号图标一起长；
-            下面的清单固定 18px，只为看清形状。标题栏三个窗口键另用固定 13px。
+            尺寸只有一个入口：<code>--icon-size</code>，默认
+            <code>calc(14px * var(--fs-scale))</code>，调大字号图标一起长。按钮里是 13（紧凑档
+            12）、清单里放大到 18 只为看清形状、标题栏三个窗口键 13——都是父级改同一个变量，
+            组件不认「这是哪个位置的图标」。
         </p>
     </LedgerSection>
 </template>
@@ -73,6 +75,8 @@ import { ICON_GROUPS, ICON_LABELS } from '../../components/icons';
     grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .icon-item {
+    --icon-size: calc(18px * var(--fs-scale));
+
     display: flex;
     align-items: center;
     gap: 8px;

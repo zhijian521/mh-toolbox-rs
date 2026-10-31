@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { useRovingFocus } from '../composables/use-roving-focus';
 
 /**
@@ -22,8 +22,6 @@ const props = withDefaults(
 );
 const emit = defineEmits<{ (event: 'update:modelValue', value: boolean): void }>();
 
-const cells = ref<HTMLButtonElement[]>([]);
-
 /* 两格写成一份数据而不是两段硬编码的模板：顺序、`aria-checked`、tabindex 都只有一个来源，
  * 加第三格时也不必再复制一段。 */
 const items = computed(() => [
@@ -36,11 +34,10 @@ function choose(value: boolean) {
     emit('update:modelValue', value);
 }
 
-const { tabIndexFor, onKeydown } = useRovingFocus({
-    count: () => items.value.length,
-    activeIndex: () => (props.modelValue ? 1 : 0),
+const { cells, tabIndexFor, onKeydown } = useRovingFocus<boolean>({
+    values: () => items.value.map((item) => item.value),
+    activeValue: () => props.modelValue,
     pick: (index) => choose(index === 1),
-    cells: () => cells.value,
     axis: 'horizontal',
     enabled: () => !props.disabled,
 });
@@ -54,12 +51,12 @@ const { tabIndexFor, onKeydown } = useRovingFocus({
         :aria-disabled="disabled"
         @keydown="onKeydown"
     >
-        <span class="cost-thumb" :class="{ right: modelValue }" aria-hidden="true" />
+        <span class="cost-thumb stamp" :class="{ right: modelValue }" aria-hidden="true" />
         <button
             v-for="(item, i) in items"
             :key="String(item.value)"
             ref="cells"
-            class="cost-opt"
+            class="cost-opt track-opt"
             type="button"
             role="radio"
             :aria-checked="modelValue === item.value"

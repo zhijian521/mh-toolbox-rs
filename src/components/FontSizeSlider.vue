@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ref } from 'vue';
 import type { FontScale } from '../composables/use-font-scale';
 import { useRovingFocus } from '../composables/use-roving-focus';
 
@@ -22,24 +21,15 @@ const options: { value: FontScale; label: string }[] = [
     { value: 'large', label: '较大' },
 ];
 
-const cells = ref<HTMLButtonElement[]>([]);
-
-const indexOf = (value: FontScale) =>
-    Math.max(
-        0,
-        options.findIndex((item) => item.value === value),
-    );
-
 function choose(value: FontScale) {
     if (props.disabled || value === props.modelValue) return;
     emit('update:modelValue', value);
 }
 
-const { tabIndexFor, onKeydown } = useRovingFocus({
-    count: () => options.length,
-    activeIndex: () => indexOf(props.modelValue),
+const { cells, indexOf, tabIndexFor, onKeydown } = useRovingFocus<FontScale>({
+    values: () => options.map((option) => option.value),
+    activeValue: () => props.modelValue,
     pick: (index) => choose(options[index].value),
-    cells: () => cells.value,
     axis: 'horizontal',
     enabled: () => !props.disabled,
 });
@@ -48,7 +38,7 @@ const { tabIndexFor, onKeydown } = useRovingFocus({
 <template>
     <span class="size-slider well" role="radiogroup" aria-label="字号" @keydown="onKeydown">
         <span
-            class="size-thumb"
+            class="size-thumb stamp"
             aria-hidden="true"
             :style="{ transform: `translateX(${indexOf(modelValue) * 100}%)` }"
         />
@@ -57,7 +47,7 @@ const { tabIndexFor, onKeydown } = useRovingFocus({
             :key="option.value"
             ref="cells"
             type="button"
-            class="size-opt"
+            class="size-opt track-opt"
             role="radio"
             :aria-checked="modelValue === option.value"
             :tabindex="tabIndexFor(i)"
@@ -82,7 +72,8 @@ const { tabIndexFor, onKeydown } = useRovingFocus({
 /* 宽度按「padding box 减去两侧内边距再三等分」算，不能写 `33.3333% - 2px`：
  * 百分比以 padding box（含 2px×2 内边距）为基准解析，减 2px 只得 47.33 而不是 48，
  * 位移又是 `translateX(i * 100%)`（按自身宽度步进），于是末档累计空出 2px、右缘露缝。
- * 两格的 `.cost-thumb` 恰好在 `50% - 2px` 上对得齐，三格才把误差放大出来。 */
+ * 两格的 `.cost-thumb` 恰好在 `50% - 2px` 上对得齐，三格才把误差放大出来。
+ * 印面（底色 / 受光 / 投影）来自全局 `.stamp`，这里只有几何。 */
 .size-thumb {
     position: absolute;
     top: 2px;
@@ -90,36 +81,16 @@ const { tabIndexFor, onKeydown } = useRovingFocus({
     left: 2px;
     width: calc((100% - 4px) / 3);
     border-radius: var(--r-pill);
-    background-color: var(--seal);
-    background-image: linear-gradient(180deg, var(--bevel-hi), transparent 46%, var(--bevel-lo));
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        0 1px 1px var(--bevel-lo),
-        0 3px 7px color-mix(in srgb, var(--seal) 28%, transparent);
     transition: transform var(--t-thumb) var(--ease-snap);
 }
+/* 拖动中只压内影：滑块按下去是「正在拖」，不是「被按」——不换底色。 */
 .size-slider:active .size-thumb {
     box-shadow: inset 0 2px 4px var(--bevel-lo);
 }
+/* 单选格：格本身的样式（字色、行高、白空间、过渡）来自全局 `.track-opt`，
+ * 这里只有内边距——三格比两格窄，字两侧的留白要收紧 2px。 */
 .size-opt {
-    position: relative;
-    z-index: 1;
     padding: 3px 12px;
-    border: 0;
-    border-radius: var(--r-pill);
-    background: none;
-    color: var(--muted);
-    font-family: inherit;
-    font-size: var(--fs-sm);
-    line-height: 17px;
-    white-space: nowrap;
-    transition: color var(--t-mid) var(--ease-soft);
-}
-/* 选中那格的字要压在朱印上：用成对的 `--on-seal`（暗色下它与 `--seal` 一起换）。
- * 不加粗：文楷本地只有 Regular，600 是合成加粗，会把撇捺糊成一块；
- * 也不描边——竖版那个滑块就是被 0.25px 描边撑成了「假粗」，两版要有一致的字重。 */
-.size-opt[aria-checked='true'] {
-    color: var(--on-seal);
 }
 .size-opt:disabled {
     cursor: default;

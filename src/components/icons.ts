@@ -31,8 +31,6 @@ import {
     IconCheck,
     IconChevronDown,
     IconChevronRight,
-    IconChevronsLeft,
-    IconChevronsRight,
     IconClipboard,
     IconClock,
     IconCopy,
@@ -118,9 +116,6 @@ const ICON_META = {
     // GitHub 用实心标。线性版（24 网格里那只猫的轮廓线）14px 下糊成一个方框，
     // 实心剪影至少还认得出耳朵和尾巴——品牌标宁可重一点，也要认得出。
     github: { glyph: IconBrandGithubFilled, label: '仓库', group: 'shell' },
-    // 折叠用双箭头而不是「侧栏收起」那个带竖线的方框：14px 下方框会糊成一根竖线。
-    'rail-collapse': { glyph: IconChevronsLeft, label: '收起', group: 'shell' },
-    'rail-expand': { glyph: IconChevronsRight, label: '展开', group: 'shell' },
 
     /* ---------- 窗口按钮 ---------- */
     minimize: { glyph: IconMinus, label: '最小化', group: 'window' },

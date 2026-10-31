@@ -38,15 +38,14 @@ withDefaults(defineProps<{ title: string; seal?: string; hint?: string }>(), {
     gap: 10px;
     margin-bottom: 12px;
 }
-/* 不写 `font-weight`：区块标题与全站标题同为 400（`base.css` 的 `h2`）。
- * 这里曾写 600，scoped 选择器特异性高于全局 `h2`，把标题顶成了浏览器合成加粗；
- * 文楷本地只有 Regular，合成的笔画外扩会把撇捺糊成块，与 CONVENTIONS §2.4-9 直接冲突。
- * 层级靠文武线外框和朱印小标交代，不靠字重。 */
+/* 不写 `font-weight`，也不写 `font-size`：区块标题与全站标题共用 `base.css` 的 `h2`
+ * （400 / `--fs-md`）。这里曾写 600，scoped 选择器特异性高于全局 `h2`，
+ * 把标题顶成了浏览器合成加粗；文楷本地只有 Regular，合成的笔画外扩会把撇捺糊成块，
+ * 与 CONVENTIONS §2.4-9 直接冲突。层级靠文武线外框和朱印小标交代，不靠字重。 */
 h2 {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: var(--fs-md);
 }
 .hint {
     font-size: var(--fs-xs);

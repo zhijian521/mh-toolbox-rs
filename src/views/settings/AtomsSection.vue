@@ -52,7 +52,7 @@ const autoSave = ref(false);
             <div class="kit-cell">
                 <span class="col-head">SlotButton · 槽按钮</span>
                 <div class="kit-row">
-                    <SlotButton label="收起侧栏" icon="rail-collapse" />
+                    <SlotButton label="归档" icon="archive" />
                     <SlotButton label="导出账目" icon="download" text="导出" />
                     <SlotButton label="刷新" text="刷新" />
                     <SlotButton label="停用" icon="trash" disabled />
