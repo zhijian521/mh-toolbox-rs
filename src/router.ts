@@ -21,6 +21,9 @@ export const router = createRouter({
     history: createWebHashHistory(),
     routes: [
         { path: '/', redirect: DEFAULT_PATH },
+        // 装备并入角色后，旧地址仍要能到达。落到下面的兜底重定向也「不会 404」，
+        // 但那会把用户送回设置页，读起来像「这一页没了」；显式指过去才是「换了个地方」。
+        { path: '/equipment', redirect: '/characters' },
         ...NAV_ITEMS.map((item) => ({
             path: item.path,
             name: item.key,

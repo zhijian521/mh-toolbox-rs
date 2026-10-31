@@ -44,10 +44,10 @@ import {
     IconPencil,
     IconPlus,
     IconSearch,
-    IconShield,
     IconSquare,
     IconSun,
     IconTag,
+    IconTool,
     IconTrash,
     IconUpload,
     IconUsers,
@@ -83,11 +83,13 @@ const ICON_META = {
     // 收益用「钞票」而不是「硬币」：硬币在 24 网格里必然带一个货币符号，
     // 显示到 14px 时符号糊成一道竖线，而且 ¥/$ 都跟游戏币对不上；钞票是矩形加一圆，轮廓最稳。
     income: { glyph: IconCash, label: '收益', group: 'nav' },
-    equipment: { glyph: IconShield, label: '装备', group: 'nav' },
     prices: { glyph: IconTag, label: '物价', group: 'nav' },
     characters: { glyph: IconUsers, label: '角色', group: 'nav' },
     accounts: { glyph: IconWallet, label: '账号', group: 'nav' },
     goals: { glyph: IconFlag, label: '目标', group: 'nav' },
+    // 工具用单把扳手，不用「扳手+螺丝刀」那种两件交叉：14px 下交叉会糊成一团，
+    // 单件的斜柄加开口仍是清楚的轮廓。
+    tools: { glyph: IconTool, label: '工具', group: 'nav' },
     // 设置：两条横线带滑块，读作「调节」；用齿轮在 14px 下会糊成太阳。
     settings: { glyph: IconAdjustmentsHorizontal, label: '设置', group: 'nav' },
 
