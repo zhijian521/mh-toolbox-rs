@@ -27,7 +27,11 @@ import { useTheme } from '../composables/use-theme';
 import { openExternal } from '../services/desktop';
 
 const props = defineProps<{ items: NavItem[]; current: string }>();
-const emit = defineEmits<{ (event: 'update:current', key: string): void }>();
+const emit = defineEmits<{
+    (event: 'update:current', key: string): void;
+    /** 隐藏入口：三连击牌记。路由由外壳决定，栏本身不知道 `/dev` 这回事。 */
+    (event: 'request-dev'): void;
+}>();
 
 /** 项目地址。一个仓库、没有多环境之分，写死在这里比读配置省事。 */
 const REPO_URL = 'https://github.com/zhijian521/mh-toolbox-rs';
@@ -45,11 +49,20 @@ const options = computed(() =>
         title: item.view ? item.label : `${item.label}（未实现）`,
     })),
 );
+
+/* 隐藏入口：三连击牌记进开发页。用原生 `event.detail`（同一元素上的连击计数），
+ * 不自己攒时间戳——`detail` 的判定用的是系统双击间隔，跟用户的设置一致。
+ *
+ * 牌记本身仍是 `aria-hidden` 且不可聚焦：它不是按钮，不该出现在 Tab 序列和读屏目录里，
+ * 也不该给用户一个「这里能点」的暗示。触屏没有三连击，所以开发页也支持 `#/dev` 直达。 */
+function onBrandClick(event: MouseEvent) {
+    if (event.detail === 3) emit('request-dev');
+}
 </script>
 
 <template>
     <aside class="rail">
-        <div class="rail-brand" aria-hidden="true">
+        <div class="rail-brand" aria-hidden="true" @click="onBrandClick">
             <img class="rail-mark" :src="isDark ? markPaper : markInk" alt="" />
         </div>
 

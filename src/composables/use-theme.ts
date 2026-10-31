@@ -2,6 +2,14 @@ import { computed, effectScope, ref, watch } from 'vue';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
+/** 三档主题的取值与文案。设置页的胶囊、开发页的演示都取这里，不各写一份字面量——
+ * 改文案时漏一处，界面上就是两种叫法。 */
+export const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
+    { value: 'system', label: '跟随系统' },
+    { value: 'light', label: '浅色' },
+    { value: 'dark', label: '深色' },
+];
+
 const STORAGE_KEY = 'mh-theme';
 
 /**

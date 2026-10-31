@@ -2,55 +2,31 @@
 import PageHeader from '../components/PageHeader.vue';
 import AboutSection from './settings/AboutSection.vue';
 import AppearanceSection from './settings/AppearanceSection.vue';
-import AtomsSection from './settings/AtomsSection.vue';
-import IconsSection from './settings/IconsSection.vue';
-import PaletteSection from './settings/PaletteSection.vue';
-import TypeScaleSection from './settings/TypeScaleSection.vue';
 
 /**
- * 设置页只做一件事：把六块按顺序排起来。
+ * 设置页：给用户用的两件事——换纸与字号，外加版本信息。
  *
- * 这一页原先 667 行、一个文件装下全部内容和样式——主题只改一行也要在六百行里找准位置，
- * 改字号阶梯的间距会碰到色板的样式。拆开之后每块自己带数据、自己带样式，
- * 加一块就是加一行，删一块就是删一行。
+ * 这一页原先有六张卡，其中四张（原子组件、色板、字号阶梯、图标）是开发时查的东西，
+ * 已经整体搬去 `views/dev/DevKitView.vue`（三连击左上角标进入）。
+ * 判据不是「有多少内容」，而是**这一页的读者是谁**：设置页的读者只有用户，
+ * 用户在这里要办的事也只有换纸与字号；多一张卡就多一次「这跟我有关系吗」的停顿。
  *
- * 顺序有讲究：先是**能操作**的（外观），再是**被抽出来复用的**（原子组件），
- * 然后是**只能看不能改的规范**（色板、字号、图标），最后是关于。
- * 把可操作的放在最上面，是因为这一页现在唯一的真实功能就是换主题与字号。
+ * 「控件」与「结构」两张演示卡更早就删了：它们演示的组件与线条各有其主，
+ * 同一件事留两处演示，改一处就得记得改另一处。
  *
- * 「控件」那块已删：它演示的按钮、胶囊、开关、勾选、金额，在组件拆分完成后各有其主
- * （`SlotButton` / `SegmentedPills` / `CostSwitch` / `BaseCheck`），而「原子组件」
- * 摆出来的就是这四个真组件。同一件事留两处演示，改一处就得记得改另一处。
- *
- * 「结构」那块也已删：它演示的文武线与账线现在**每个区块自己就是实例**——六张卡
- * 全是 `.frame`，一眼能看出结构，不需要再拿一张卡去讲同一件事。等业务页真有几条
- * 记录的列表时，账线的样子再回到这里。
+ * 只剩两张卡，就并成一排（`.stack-pair`）：竖排时两张白纸挤在左上角、右边空出一屏，
+ * 那是「删剩两张」之后才有的浪费。并排之后整页一屏到头，不用滚；断点由卡片内容宽度决定，
+ * 窗口窄了自动退回一列，不做两套布局。
  */
 </script>
 
 <template>
-    <PageHeader title="设置" desc="主题 · 组件预览 · 关于">
-        <span class="hint">设计样张见 design/income.html</span>
-    </PageHeader>
+    <PageHeader title="设置" desc="主题 · 字号 · 关于" />
 
     <div class="page-content">
-        <div class="stack">
+        <div class="stack stack-pair">
             <AppearanceSection />
-            <AtomsSection />
-            <PaletteSection />
-            <TypeScaleSection />
-            <IconsSection />
             <AboutSection />
         </div>
     </div>
 </template>
-
-<style scoped>
-/* 区块之间 14px：比区块内的 12px 行距略大，一眼能分出「块」与「行」；再大就散了。 */
-.stack {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    max-width: 1240px;
-}
-</style>

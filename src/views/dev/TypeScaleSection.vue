@@ -2,7 +2,7 @@
 import { onMounted, ref, watch } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import { useFontScale } from '../../composables/use-font-scale';
-import { declaredTokens, tokenFontSize } from './shared';
+import { declaredTokens, tokenFontSize } from './tokens';
 
 /**
  * 字号阶梯：令牌名从样式表读、`px` 值实测，两列都不在这里抄。

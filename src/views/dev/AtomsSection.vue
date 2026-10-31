@@ -6,8 +6,7 @@ import LedgerSection from '../../components/LedgerSection.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SlotButton from '../../components/SlotButton.vue';
 import { useFontScale } from '../../composables/use-font-scale';
-import { useTheme } from '../../composables/use-theme';
-import { THEME_OPTIONS } from './shared';
+import { THEME_OPTIONS, useTheme } from '../../composables/use-theme';
 
 /**
  * 原子组件：四个抽出来复用的小件。

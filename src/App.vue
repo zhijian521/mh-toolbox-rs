@@ -17,12 +17,22 @@ import { NAV_BY_KEY, NAV_ITEMS } from './navigation';
 const route = useRoute();
 const router = useRouter();
 
-/** 当前页的 key。路由名就是导航 key，所以直接取 `route.name`。 */
-const current = computed(() => String(route.name ?? ''));
+/** 当前页的 key。路由名就是导航 key，所以直接取 `route.name`。
+ * 开发页（`dev-kit`）不在导航里，取不到对应格——给空串，槽按「无选中」处理
+ * （见 `VerticalSlider` 的 `hasActive`），否则那枚朱印会停在「总览」上误导人。 */
+const current = computed(() => {
+    const name = String(route.name ?? '');
+    return NAV_BY_KEY.has(name) ? name : '';
+});
 
 function go(key: string) {
     const item = NAV_BY_KEY.get(key);
     if (item) void router.push(item.path);
+}
+
+/** 隐藏入口：三连击左栏牌记。放在外壳里，栏只负责发事件。 */
+function openDevKit() {
+    void router.push('/dev');
 }
 </script>
 
@@ -30,7 +40,12 @@ function go(key: string) {
     <div class="app-root">
         <TitleBar />
         <div class="shell">
-            <AppRail :items="NAV_ITEMS" :current="current" @update:current="go" />
+            <AppRail
+                :items="NAV_ITEMS"
+                :current="current"
+                @update:current="go"
+                @request-dev="openDevKit"
+            />
 
             <main class="app">
                 <RouterView />

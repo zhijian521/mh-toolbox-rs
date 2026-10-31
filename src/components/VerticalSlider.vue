@@ -53,6 +53,11 @@ const thumbStyle = computed(() => ({
     transform: `translateY(calc(${activeIndex.value} * (var(--vs-cell) + var(--vs-gap))))`,
 }));
 
+/* 当前值不在选项里（停在一张不属于导航的页面，例如开发页）：**没有选中**。
+ * `useRovingFocus` 的 `indexOf` 找不到值就返回 0，若照它画，朱印会停在「总览」上——
+ * 读者会以为自己在总览，这比不显示更糟。所以让印收起，只在原地保留 Tab 停靠点。 */
+const hasActive = computed(() => props.options.some((option) => option.value === props.modelValue));
+
 function pick(target: number) {
     const option = props.options[target];
     if (!option || option.value === props.modelValue) return;
@@ -108,7 +113,12 @@ function onPointerUp(event: PointerEvent) {
         @pointercancel="onPointerUp"
         @keydown="onKeydown"
     >
-        <span class="vs-thumb stamp" aria-hidden="true" :style="thumbStyle" />
+        <span
+            class="vs-thumb stamp"
+            :class="{ dormant: !hasActive }"
+            aria-hidden="true"
+            :style="thumbStyle"
+        />
 
         <button
             v-for="(option, i) in options"
@@ -176,13 +186,20 @@ function onPointerUp(event: PointerEvent) {
     left: 2px;
     height: var(--vs-cell);
     border-radius: var(--r-2);
-    transition: transform 300ms var(--ease-snap);
+    transition:
+        transform 300ms var(--ease-snap),
+        opacity var(--t-mid) var(--ease-soft);
     /* 印面不吃指针：否则拖到印上时事件目标是它，指针捕获与点击都会错位。 */
     pointer-events: none;
 }
 /* 按住跟手时不插值，否则拇指追在后面。 */
 .vs-track.dragging .vs-thumb {
     transition: none;
+}
+/* 无选中（不在导航里的页面）：印收起。淡出而不是 `display: none`——它还要参与
+ * 下一次切页时的位移过渡，突然出现比淡入更像卡了一下。 */
+.vs-thumb.dormant {
+    opacity: 0;
 }
 
 /* ---------- 格 ---------- */

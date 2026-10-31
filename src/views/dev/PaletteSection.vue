@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
-import { colorTokens, declaredTokens } from './shared';
+import { colorTokens, declaredTokens } from './tokens';
 
 /**
  * 色板：**清单从样式表读**，不在这里抄第二份。

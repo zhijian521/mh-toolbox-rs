@@ -1,16 +1,9 @@
-import type { ThemeMode } from '../../composables/use-theme';
-
 /**
- * 设置页内部共享的常量与小工具。
+ * 开发页（`#/dev`）内部共享的令牌读取工具。
  *
- * 主题选项被「外观」和「原子组件」两处用到——放在这里各取一份，
- * 不要在两个组件里各写一遍字面量，那样改文案会漏。
+ * 这里原先还有一份 `THEME_OPTIONS`，因为「外观」与「原子组件」两张卡都要它。
+ * 拆出开发页之后那两张卡分居两处，选项挪回 `use-theme.ts`——它本来就和 `ThemeMode` 是一件事。
  */
-export const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
-    { value: 'system', label: '跟随系统' },
-    { value: 'light', label: '浅色' },
-    { value: 'dark', label: '深色' },
-];
 
 /* ---------- 令牌读取 ----------
  * 「色板」和「字号阶梯」两页展示的都是 `tokens.css` 里的东西。早先两张表都是手抄的
@@ -20,7 +13,7 @@ export const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
  * 所以改成运行时读：令牌名从已加载的样式表里枚举，值套到探针元素上让浏览器算。
  * 代价是这两页只在前端跑（本来就是），收益是它们**永远等于真源**。
  *
- * 只在设置页用。业务样式不要调这里的任何函数——那是 CSS 的活。
+ * 只在开发页用。业务样式不要调这里的任何函数——那是 CSS 的活。
  */
 
 /** 枚举所有样式表里声明的 `--*` 名字，按声明顺序、同名只留第一次出现。 */
