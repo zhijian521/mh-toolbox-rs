@@ -155,20 +155,20 @@ design/icon/old/                 ← 旧图标备份，保留
 
 ### 1.3 细节级（顺手改）
 
-| #   | 位置                                      | 问题                                                                                                                                                                    | 建议                                                                                                                                                                |
-| --- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `src/composables/use-font-scale.ts:22-36` | **每次调用都 `ref()` + `watch()` + `apply()`**。现在只有 `SettingsView.vue:25` 一处调用，所以没暴露；第二个组件一调，就是两份互不相干的 ref，且每次挂载重复注册 `watch` | 照 `use-theme.ts` 的做法改成模块级单例 + 惰性 `wire()`。**这是刚修过的同一个 bug，只是换了个文件**（`use-theme.ts:17` 的注释写明了原因）                            |
-| 2   | `src-tauri/src/lib.rs:22`                 | `format!("{base}\\mh-tool-v2")` 手工拼反斜杠                                                                                                                            | 用 `PathBuf::from(base).join("mh-tool-v2")`。`APPDATA` 带尾斜杠时会拼出双斜杠                                                                                       |
-| 3   | `src-tauri/src/lib.rs:52`                 | `url.starts_with("https://")` 只判前缀，`https://` 空 host 也能过                                                                                                       | 加 `url` crate 解析，校验 scheme + host 非空。这是安全边界，不该宽松                                                                                                |
-| 4   | `src-tauri/tauri.conf.json:15`            | `"csp": null`                                                                                                                                                           | ✅ 已配（见 §3 第二批 14）。生产 `csp` 严格、开发 `devCsp` 另列；真窗口实测 IPC 通、零控制台报错                                                                    |
-| 5   | 全局                                      | **无 `prefers-reduced-motion` 降级**（`grep` 无一处）。站内有 120/180/240ms 位移 + 回弹                                                                                 | ✅ 已加（`base.css` 末尾）。实测改成**通配 + `!important`**：位移时长有 140/200/220ms 几处写死在组件里，改令牌兜不住；且用 1ms 不用 0s，否则 `transitionend` 不触发 |
-| 6   | `src/components/icons.ts`                 | 加一个图标要改 **4 处**：`IconName`（:53）、`ICONS`（:88）、`ICON_LABELS`（:139）、`ICON_GROUPS`（:176）                                                                | ✅ 已合并成 `ICON_META` 一张表，`IconName`/`ICONS`/`ICON_LABELS`/`ICON_GROUPS` 全部派生                                                                             |
-| 7   | 版本号                                    | **4 处手写**：`package.json:4`、`src-tauri/tauri.conf.json:4`、`src-tauri/Cargo.toml:3`、`TitleBar.vue:47`（`RUST · V0.1`）+ `AppRail.vue:24`（`ref('0.1.0')` 兜底值）  | 定一个真源（`package.json`），其余由构建脚本注入或在 CI 里校验一致                                                                                                  |
-| 8   | `src/components/`                         | 命名不统一：`BaseCheck` 带 `Base` 前缀，`SlotButton`/`SegmentedPills`/`AppIcon` 不带                                                                                    | 见 §2.2 的三条前缀规则                                                                                                                                              |
-| 9   | `src/App.vue:3`                           | `import AppRail, { type RailPage } from './components/AppRail.vue'` —— 跨组件类型从 SFC 里导出，靠双 `<script>` 块才能做到                                              | 跨组件类型收进 `src/types/`                                                                                                                                         |
-| 10  | `src/styles/base.css:101`                 | `border-radius: 10px` 是唯一硬编码圆角                                                                                                                                  | 滚动条滑块不是设计元素，可以保留，但加一行注释说明为什么例外                                                                                                        |
-| 11  | `README.md`                               | ✅ 已修（2026-10-31）。原问题：目录清单缺 `AppRail`/`SlotButton`/`SegmentedPills`/`IconName` 体系，最小高度还写着 680（实际 780）                                       | 已按实测校准，并顺手改掉 `.cargo` 路径里写死的旧用户目录                                                                                                            |
-| 12  | `docs/`                                   | 不存在。所有约定都靠代码注释承载（注释质量很高，但 456 行 `base.css` + 15 个组件，新人读不到全貌）                                                                      | 见 §2.6                                                                                                                                                             |
+| #   | 位置                                | 问题                                                                                                                                                                 | 建议                                                                                                                                                                |
+| --- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `src/composables/use-font-scale.ts` | ✅ 已修。原问题：每次调用都 `ref()` + `watch()` + `apply()`，第二个组件一调就是两份互不相干的 ref                                                                    | 现为模块级单例，`watch` 包进 `effectScope(true)`；`use-theme.ts` 同坑同修，`main.ts` 挂载前各调一次                                                                 |
+| 2   | `src-tauri/src/lib.rs:22`           | ⏳ **未修**。`format!("{base}\\mh-tool-v2")` 手工拼反斜杠                                                                                                            | 用 `PathBuf::from(base).join("mh-tool-v2")`。`APPDATA` 带尾斜杠时会拼出双斜杠                                                                                       |
+| 3   | `src-tauri/src/lib.rs:52`           | ⏳ **未修**。`url.starts_with("https://")` 只判前缀，`https://` 空 host 也能过                                                                                       | 加 `url` crate 解析，校验 scheme + host 非空。这是安全边界，不该宽松                                                                                                |
+| 4   | `src-tauri/tauri.conf.json:15`      | `"csp": null`                                                                                                                                                        | ✅ 已配（见 §3 第二批 14）。生产 `csp` 严格、开发 `devCsp` 另列；真窗口实测 IPC 通、零控制台报错                                                                    |
+| 5   | 全局                                | **无 `prefers-reduced-motion` 降级**（`grep` 无一处）。站内有 120/180/240ms 位移 + 回弹                                                                              | ✅ 已加（`base.css` 末尾）。实测改成**通配 + `!important`**：位移时长有 140/200/220ms 几处写死在组件里，改令牌兜不住；且用 1ms 不用 0s，否则 `transitionend` 不触发 |
+| 6   | `src/components/icons.ts`           | 加一个图标要改 **4 处**：`IconName`、`ICONS`、`ICON_LABELS`、`ICON_GROUPS`                                                                                           | ✅ 已合并成 `ICON_META` 一张表，四个导出全部派生                                                                                                                    |
+| 7   | 版本号                              | 原问题：**4 处手写**（`package.json`、`tauri.conf.json`、`Cargo.toml`、组件里的 `V0.1` 与 `ref('0.1.0')` 兜底）                                                      | ✅ 已修（§3 第二批 15）。真源是 `package.json`，`scripts/check-version.mjs` 校验三处一致                                                                            |
+| 8   | `src/components/`                   | 命名不统一：`BaseCheck` 带 `Base` 前缀，`SlotButton`/`SegmentedPills`/`AppIcon` 不带                                                                                 | 见 §2.2 的三条前缀规则（不重命名，新基元直接用功能名）                                                                                                              |
+| 9   | `src/navigation.ts`                 | ✅ 已修。原问题：`import AppRail, { type RailPage } from './components/AppRail.vue'`——跨组件类型从 SFC 里导出，靠双 `<script>` 块才做得到；`RailPage` 现已全仓不存在 | 没有按原建议收进 `types/`，而是留成 `navigation.ts` 的 `NavItem`：**类型跟着数据源走**，`NAV_ITEMS` 就在隔壁                                                        |
+| 10  | `src/styles/base.css:101`           | `border-radius: 10px` 是唯一硬编码圆角                                                                                                                               | ✅ 已加注释说明为什么例外（滚动条滑块要跟着轨道宽走，套任何圆角令牌都错）                                                                                           |
+| 11  | `README.md`                         | ✅ 已修（2026-10-31）。原问题：目录清单缺 `AppRail`/`SlotButton`/`SegmentedPills`/`IconName` 体系，最小高度还写着 680（实际 780）                                    | 已按实测校准，并顺手改掉 `.cargo` 路径里写死的旧用户目录                                                                                                            |
+| 12  | `docs/`                             | ✅ 已建。原问题：不存在，所有约定都靠代码注释承载                                                                                                                    | 现为三份：`ARCHITECTURE.md` / `CONVENTIONS.md` / 根目录 `AGENTS.md`，分工见 §2.6                                                                                    |
 
 ---
 
@@ -186,8 +186,8 @@ design/icon/old/                 ← 旧图标备份，保留
 | Rust 格式 | `rustfmt.toml`                                                                    | `max_width = 100`、`edition = "2021"`                                                                                         |
 | Rust 检查 | clippy                                                                            | `cargo clippy -- -D warnings`（`unwrap`/`expect` 由人工把关，不靠 lint 全禁）                                                 |
 
-**依据**：现有代码实测 30 个文件（19 `.vue` + 8 `.ts` + 3 `.css`）全是 4 空格缩进、0 个 2 空格；最长行 96 字符
-（`src/components/icons.ts:143`）。`printWidth: 100` 这一档不会折任何一行，可以接受。
+**依据**：现有代码实测 31 个文件（20 `.vue` + 8 `.ts` + 3 `.css`）全是 4 空格缩进、0 个 2 空格；最长行 96 字符
+（`src/components/icons.ts`）。`printWidth: 100` 这一档不会折任何一行，可以接受。
 
 **脚本约定**（照搬旧仓的命名，肌肉记忆不用改）。下面这段是**已落地**的实际内容，
 与 `package.json` 一致：
@@ -467,7 +467,15 @@ types/          （待建）跨组件共享的类型
     的下限；写死 `1fr 1fr` 再配媒体查询，断点就和内容脱钩了——滑块被压扁、说明掉到第二行
     发生在哪个宽度，没人管得住。并排时两卡的文武线要齐（grid 默认 `stretch`）：短的那张
     下面留白，比两张卡底边错开一截好看；退回一列时每行只有一张卡，`stretch` 自然失效，
-    各自按内容高——不需要第二套规则。开发页仍是单列：那四张卡高度差得远，并排会拉出两个大洞。
+    各自按内容高——不需要第二套规则。开发页的卡片列表仍是单列：那四张卡高度差得远，
+    并排会拉出两个大洞。
+
+    **同一条也约束卡内的网格**：开发页 `.atoms-kit` 要「四件两行两列」，用的是
+    `repeat(auto-fit, minmax(480px, 1fr))` 而不是 `repeat(2, 1fr)` + `@media (max-width: 1080px)`。
+    原先那对写法把同一件事判断了两次：一次按内容要不要折行，一次按视口猜。
+    480 与 `.stack-pair` 的 420 **不是同一个数，也不是同一个理由**：420 是「一行装得下」，
+    480 是「说明不掉出孤行」——正文可用 968（窗口 1024）时两列各 442，`CostSwitch` 那条说明
+    会断出「件。」两个字。**同的是判断方法（按内容量），不是阈值。**
 
 21. **「按下即选值」与「拖动关过渡」不能同时生效**。竖槽原先把两件事都写在 `pointerdown` 里：
     先置 `dragging`（`.dragging` 把 `transition` 关成 `none`），紧接着 `pick()`——点击是在
@@ -501,21 +509,31 @@ types/          （待建）跨组件共享的类型
 
 ### 2.6 文档
 
-`src/` 之外应该有四份东西，都不长（旧仓的四份加起来 534 行）：
+`src/` 之外该有几份东西，都不长（旧仓的四份加起来 534 行）。**分工按读者分**，
+不按内容类型分——同一句「这个值不许硬编码」，给写界面的人和给开工的人，位置不一样。
 
-| 文件                   | 内容                                                                   | 什么时候读 |
-| ---------------------- | ---------------------------------------------------------------------- | ---------- |
-| `docs/ARCHITECTURE.md` | 分层、数据流、IPC 边界、crate 划分、数据兼容红线                       | 开工前     |
-| `docs/UI_GUIDE.md`     | 视觉基座、令牌语义、控件契约（每个控件的「什么时候用它」）、焦点与键盘 | 写界面前   |
-| `docs/PAGE_GUIDE.md`   | 新增一个页面的固定动作清单 + 反模式                                    | 写页面前   |
-| `AGENTS.md`            | 本机环境硬约束表（沙箱能做什么、不能做什么）、验证方式、明确不做的事   | 每次开工   |
+| 文件                   | 内容                                                                    | 什么时候读 | 状态                     |
+| ---------------------- | ----------------------------------------------------------------------- | ---------- | ------------------------ |
+| `AGENTS.md`            | 本机环境硬约束表、验证方式、红线、明确不做的事                          | 每次开工   | ✅                       |
+| `docs/ARCHITECTURE.md` | 分层、数据流、IPC 边界、crate 划分、数据兼容红线                        | 开工前     | ✅                       |
+| `docs/CONVENTIONS.md`  | 工程规范（基线 / 命名 / 分层 / 样式 / 注释 / 文档）、审查发现、落地批次 | 改代码前   | ✅                       |
+| `docs/UI_GUIDE.md`     | 视觉基座、令牌语义、控件契约（「什么时候用它」）、焦点与键盘            | 写界面前   | 暂缺，约定在 §2.3 / §2.4 |
+| `docs/PAGE_GUIDE.md`   | 新增一个页面的固定动作清单 + 反模式                                     | 写页面前   | 暂缺，清单在 §2.3-4      |
 
-`AGENTS.md` 尤其重要：现在那些环境坑（5173 占用、WebView2 crashpad 占住数据目录、
-`git commit -m` 里不能出现某些词、`start.bat` 必须 GBK+CRLF）**只存在于
-`.workbuddy/memory/`，而这个目录被 `.gitignore` 排除了**——换台机器、换个会话、
-或者别人接手，全部丢失。它们应该进 `AGENTS.md`。
+后两份**没有单独建**，因为现在写它们就是把本文件 §2.3 / §2.4 再抄一遍——同一份规矩两处维护，
+改一处忘一处。等业务页真的开始铺（第一个真实列表页落地时），再把「页面动作清单」抽出去，
+届时它会有代码可对照，写出来才不是空话。
 
-`docs/CONVENTIONS.md`（本文件）作为工程规范的入口，与上面四份并列。
+**决定不建的部分**：`CHANGELOG`（改动原因写在提交正文就够了，另养一份必然漂）、
+单独的 `STYLEGUIDE`（视觉约定在 §2.4，令牌真源在 `tokens.css`，第三份没有读者）。
+
+`AGENTS.md` 尤其重要：那些环境坑（5173 占用、WebView2 crashpad 占住数据目录、
+`git commit -m` 里不能出现某些词、`start.bat` 必须 GBK+CRLF）原先**只存在于
+`.workbuddy/memory/`，而那个目录被 `.gitignore` 排除了**——换台机器、换个会话、
+或者别人接手，全部丢失。现在它们都在 `AGENTS.md` 里，这是那份文件存在的主要理由。
+
+一条反向要求：**同理，凡是「只在这一台机器上成立」的东西（MSVC 路径、沙箱限制、
+代理、字体安装），不要写进本文件**，写 `AGENTS.md`。本文件描述的是换台机器也该成立的规范。
 
 ---
 

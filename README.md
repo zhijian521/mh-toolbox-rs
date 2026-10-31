@@ -41,19 +41,24 @@
 │   └── views/            SettingsView（2 个 section）+ DevKitView（开发帮助，5 张卡）
 │                         PlaceholderView
 ├── src-tauri/            Rust 壳（窗口、命令、能力配置）
+├── docs/                 架构（ARCHITECTURE）/ 工程规范（CONVENTIONS）
+├── scripts/              质量门小工具：版本号一致、提交信息
+├── tools/probe/          CDP 探针（截图 / 量几何；内置静态服务与三条防翻车前提）
+├── .github/workflows/    CI：npm run check + cargo fmt --check
 ├── design/               设计语言样张与令牌原件
 └── assets/fonts/         霞鹜文楷 Screen（全量 9.8 MB，不子集化，OFL 1.1）
 ```
 
-工程约定单独成文，开工前先读这两份：
+工程约定单独成文，开工前先读这三份：
 
 - **[`AGENTS.md`](AGENTS.md)** — 本机环境硬约束（沙箱能做什么、不能做什么）、验证方式、红线、明确不做的事
+- **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — 分层、数据流、IPC 边界、crate 划分、数据兼容红线
 - **[`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)** — 工程规范、全仓审查发现、分批落地计划
 
-质量门只有一条命令：
+质量门只有一条命令，本机与 GitHub Actions 跑的是同一条：
 
 ```bash
-npm run check    # format:check + lint + typecheck + check:version
+npm run check    # format:check + lint + typecheck + check:version + lint:commits
 ```
 
 ## 启动
@@ -135,11 +140,11 @@ crates 走中科大镜像（`~/.cargo/config.toml` 的 source replace，直连�
 
 ## 红线
 
-1. **数据目录固定 `%APPDATA%\mh-tool-v2`**，与旧版共用；Tauri 默认会写到
-   `%APPDATA%\<identifier>`，必须显式指回，否则朋友升级后数据「消失」。
-2. **identifier 必须与旧版 appId 不同**，否则 Windows 会把两个安装包当成同一个应用互相覆盖。
-3. 数据层落地后必须做 **SQLite → JSON 反向镜像**，否则一旦转换就退不回旧版。
-4. 卸载不删数据（`deleteAppDataOnUninstall` 保持 false）。
+**红线只有一份，在 [`AGENTS.md` §六](AGENTS.md#六红线改代码前必须知道)。** 六条：数据目录、
+identifier、渲染层边界、令牌真源、卸载不删数据、SQLite → JSON 镜像。
+
+这里原先手抄了四条，已经和 AGENTS 那份对不上（少了「渲染层只有 services 能碰系统」与
+「令牌只有一份真源」，顺序也不一样）。同一份规矩写两处，改一处忘一处就变成两条互相矛盾的规矩。
 
 ## 许可
 

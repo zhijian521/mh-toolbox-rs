@@ -80,14 +80,15 @@ const autoSave = ref(false);
 </template>
 
 <style scoped>
-/* 四件正好两行两列。交给 `.kit` 的 auto-fit 会算成三列，第四件独占一行、右边留一格空洞。 */
+/* 四件两行两列。断点由卡片**内容宽度**算，不写 `@media`——与 `.stack-pair` 同一条
+ * （CONVENTIONS §2.4-20）。这里原先用 `@media (max-width: 1080px)` 退回一列，
+ * 于是同一套「最少多宽才放得下」的判断，一处在 CSS 里量、一处按视口猜。
+ *
+ * `.kit` 默认 `minmax(330px, 1fr)` 在正文宽度下会算成三列，第四件独占一行、右边留个空洞，
+ * 所以要覆写。480 不是抄 `.stack-pair` 的 420，是量出来的：正文可用 968（窗口 1024）时，
+ * 两列各 442，`CostSwitch` 那条说明会掉到第二行末尾剩两个字（「…还是这同一个件。」→「件。」）。
+ * 480 让它在 1024 退回一列，1280（两列各 570）仍是两行两列。 */
 .atoms-kit {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-/* 窗口最窄 1024，再两列就挤到说明文字每行只放得下七八个字。 */
-@media (max-width: 1080px) {
-    .atoms-kit {
-        grid-template-columns: minmax(0, 1fr);
-    }
+    grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
 }
 </style>
