@@ -1,4 +1,21 @@
+# 行尾由**仓库**说了算，不靠每台机器的 git 配置。
+#
+# 原先这里只声明了批处理，源文件的行尾全靠本机的 `core.autocrlf=true`——那是用户级配置，
+# 不随仓库走。换台机器、或者 clone 到 Linux 上，`worktree` 就变成 LF，于是「脚本改一个
+# 文件，git status 恒显示 M 而 git diff 是空的」这类问题会换个形状再来一次。
+# 实测（`git ls-files --eol`）：64 个 CRLF，另有 3 个 LF 混在里面。
+#
+# `text=auto eol=crlf`：仓库里存 LF（blob 归一化），检出到工作区一律 CRLF。
+# `eol=crlf` 而不是 `eol=lf`：这是 Windows 端游工具，`.bat` 必须 CRLF，源码跟着统一，
+# 免得同一棵树上两种行尾靠肉眼分辨。
+* text=auto eol=crlf
+
 # Windows 批处理必须是 CRLF 换行；LF 会让 cmd 解析错位、报出与真实问题无关的错误。
-# 显式声明，避免在 autocrlf=false 的机器上 clone 出来变成 LF。
+# 下面两条与上面重复但保留：它们把「批处理」这件事写明白，改上面的默认值时不会误伤。
 *.bat text eol=crlf
 *.cmd text eol=crlf
+
+# 二进制：不让 git 猜，也不做行尾转换。
+*.png binary
+*.ico binary
+*.woff2 binary

@@ -4,7 +4,10 @@ root = true
 
 [*]
 charset = utf-8
-end_of_line = lf
+# 与 `.gitattributes` 的 `* text=auto eol=crlf` 一致。
+# 原先这里写 `lf`，而磁盘上 64 个文本文件全是 CRLF——编辑器按它存成 LF，
+# 就会出现「只改了一行、`git status` 却显示整篇 M、`git diff` 还是空的」。
+end_of_line = crlf
 indent_style = space
 indent_size = 4
 insert_final_newline = true

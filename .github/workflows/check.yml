@@ -1,0 +1,46 @@
+# 质量门。人跑的和这里跑的是同一条命令，这是 CONVENTIONS §2.1 的约定，
+# 所以这个文件只有一步：`npm run check`。
+#
+# 为什么要它：`npm run check` 一直只在本机跑。规范与代码脱钩过一次——
+# `lint:commits` 的正则要求冒号后带空格，而 8 条提交是紧贴写的，
+# 因为没人在 CI 里跑，谁都不知道它是红的。
+
+name: check
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  web:
+    name: 前端质量门
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `lint:commits` 读最近 20 条提交信息，浅克隆（默认 depth 1）只剩一条，
+          # 校验器等于没跑。20 条够它看到习惯，也不至于拉整段历史。
+          fetch-depth: 20
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+
+  rust:
+    name: Rust 格式
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      # 只查格式。`cargo clippy` 在 Linux 上要先装 webkit2gtk 等一整套系统库才编得动
+      # （见 AGENTS.md §三），而这条链路本来就在 Windows + MSVC 下验证的。
+      # 等真有人用 CI 做发布，再把 clippy 与打包一起接上。
+      - run: cargo fmt --check

@@ -232,6 +232,20 @@ cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings
 "packageManager": "npm@10.9.7"
 ```
 
+`.nvmrc` 写 `22.22.2`（本机实测版本）。CI 用 `node-version-file: .nvmrc` 读它——
+`engines` 只在大版本上拦人，`.nvmrc` 才能让 CI 与本机跑同一档。
+
+**行尾由仓库说了算**：`.gitattributes` 里 `* text=auto eol=crlf`（仓库存 LF、工作区 CRLF），
+`.editorconfig` 的 `end_of_line = crlf` 与它一致。
+
+原先只有 `*.bat` / `*.cmd` 有声明，源文件全赖本机的 `core.autocrlf=true`——那是**用户级**
+配置，不随仓库走。实测当时 64 个文本文件里混着 3 个 LF（被脚本按 `\n` 写出来的那几个）。
+症状不是乱码，是**静默**：改一行而 `git status` 显示整篇 M、`git diff` 却是空的，
+或者反过来漏掉真正的改动。换台机器、或在 Linux 上 clone，整套行尾预期都会变一次。
+
+规范化只做一次：`git add --renormalize .`（索引本来就是 LF，实测 0 处变更），
+再 `rm` 掉那几个 LF 文件、`git checkout --` 让它们按新属性重新落地。
+
 ```toml
 # src-tauri/rust-toolchain.toml
 [toolchain]
