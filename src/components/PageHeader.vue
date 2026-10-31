@@ -36,7 +36,7 @@ withDefaults(defineProps<{ title: string; desc?: string }>(), { desc: '' });
     flex: none;
     gap: 12px;
     min-height: var(--page-head-h);
-    padding: 10px 20px 9px;
+    padding: 10px 16px 9px;
     border-bottom: var(--w-hair) solid var(--rule);
     background: var(--paper);
     white-space: nowrap;

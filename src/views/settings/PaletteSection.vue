@@ -56,7 +56,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <LedgerSection title="色板" seal="色" hint="纸是暖的，墨是灰的，朱只给三处">
+    <LedgerSection title="色板" hint="纸是暖的，墨是灰的，朱只给三处">
         <div class="swatches">
             <div v-for="item in swatches" :key="item.token" class="swatch">
                 <i :style="{ '--c': `var(${item.token})` }" />

@@ -1,7 +1,7 @@
 /*
  * 组合块：由多个基础元素拼出来的展示区块，跨组件复用。
  *
- * 与 `base.css` 的分工：base 管**元素级**基座（按钮、胶囊、开关、勾选、线、印章），
+ * 与 `base.css` 的分工：base 管**元素级**基座（按钮、区块标、胶囊、开关、勾选、线），
  * blocks 管**组合级**排版（说明文字、组件展示网格）。
  *
  * 这些类原先写在 `SettingsView.vue` 的 scoped 样式里。设置页拆成八个 section 组件后，
@@ -48,13 +48,6 @@
     align-items: center;
     gap: 7px;
     flex-wrap: wrap;
-}
-.kit-row.checks {
-    gap: 14px;
-    padding: 2px 0;
-}
-.kit-row.seals {
-    gap: 10px;
 }
 .kit-cell .note {
     margin-top: 0;

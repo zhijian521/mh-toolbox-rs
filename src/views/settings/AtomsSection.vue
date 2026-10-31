@@ -25,7 +25,7 @@ const autoSave = ref(false);
 </script>
 
 <template>
-    <LedgerSection title="原子组件" seal="原" hint="抽出来复用的四件，业务页直接拿去用">
+    <LedgerSection title="原子组件" hint="抽出来复用的四件，业务页直接拿去用">
         <div class="kit atoms-kit">
             <div class="kit-cell">
                 <span class="col-head">SegmentedPills · 分段胶囊</span>

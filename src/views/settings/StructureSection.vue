@@ -15,7 +15,7 @@ const rows: [string, string, string, string][] = [
 </script>
 
 <template>
-    <LedgerSection title="结构" seal="构" hint="结构靠线，不靠阴影">
+    <LedgerSection title="结构" hint="结构靠线，不靠阴影">
         <div class="structure">
             <div class="ledger-demo">
                 <div class="ledger-head">
@@ -90,7 +90,7 @@ const rows: [string, string, string, string][] = [
 .ledger-line .amount-col {
     color: var(--ink);
 }
-/* 支出用朱：全站只有印章、当前选中、支出金额三处允许朱红。 */
+/* 支出用朱：全站只有区块标、当前选中、支出金额三处允许朱红。 */
 .ledger-line .amount-col.out {
     color: var(--cinnabar);
 }

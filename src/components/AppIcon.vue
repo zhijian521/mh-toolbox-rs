@@ -12,7 +12,7 @@ import { ICONS, type IconName } from './icons';
  *   - 尺寸取 `--icon-size`，默认 `calc(14px * var(--fs-scale))`：调大字号图标一起长
  *
  * 尺寸走**变量**而不是 prop：父级要 13px 就在自己的规则里写 `--icon-size`，
- * 与 `SlotButton` 的 `--slot-h`、`SealMark` 的 `--seal-size` 是同一条约定。
+ * 与 `SlotButton` 的 `--slot-h`、`VerticalSlider` 的 `--vs-*` 是同一条约定。
  * 曾经的 `size` prop 写 inline px，会把默认值整个顶掉、也不跟 `--fs-scale`
  * 一起缩放——「较大」档里字号长了而图标不长，正是那个 prop 造成的。
  *

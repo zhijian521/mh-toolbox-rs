@@ -13,7 +13,7 @@ const { info } = useAppInfo();
 </script>
 
 <template>
-    <LedgerSection title="关于" seal="关" hint="版本与运行环境">
+    <LedgerSection title="关于" hint="版本与运行环境">
         <dl class="about">
             <dt>产品名</dt>
             <dd>{{ info?.productName ?? '梦幻养老助手' }}（开发中）</dd>

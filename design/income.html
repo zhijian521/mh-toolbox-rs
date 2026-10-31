@@ -710,9 +710,9 @@
     <body>
         <header class="doc-head">
             <div>
-                <h1><span class="seal solid">账</span>设计语言样张 · 收益页</h1>
+                <h1><span class="section-mark"></span>设计语言样张 · 收益页</h1>
                 <p>
-                    账簿方向 · 1280 宽基准 · 全站霞鹜文楷 · 字号三档缩放 · 朱红只给印章、选中、支出
+                    账簿方向 · 1280 宽基准 · 全站霞鹜文楷 · 字号三档缩放 · 朱红只给区块标、选中、支出
                 </p>
             </div>
             <div class="doc-actions">
@@ -723,7 +723,7 @@
         <div class="window">
             <nav class="rail">
                 <div class="brand">
-                    <span class="seal">梦</span>
+                    <span class="section-mark"></span>
                     <span class="brand-text">
                         <span class="brand-name">梦幻养老助手</span>
                         <span class="brand-sub">RUST · V3</span>
@@ -778,7 +778,7 @@
                         <!-- 速记 -->
                         <section class="frame">
                             <div class="quick">
-                                <span class="quick-title"><span class="seal">记</span>速记</span>
+                                <span class="quick-title"><span class="section-mark"></span>速记</span>
                                 <span class="quick-field">
                                     <input value="金柳露" aria-label="物品" />
                                 </span>
@@ -801,7 +801,7 @@
                         <!-- 流水 -->
                         <section>
                             <div class="book-head">
-                                <h2><span class="seal">目</span>今日流水</h2>
+                                <h2><span class="section-mark"></span>今日流水</h2>
                                 <span class="hint">全部 10 条 · 完整记录在账号页</span>
                             </div>
                             <div class="book" id="book"></div>
@@ -812,7 +812,7 @@
                         <!-- 计时 -->
                         <section class="frame">
                             <div class="side-head">
-                                <h2><span class="seal">时</span>五开计时</h2>
+                                <h2><span class="section-mark"></span>五开计时</h2>
                                 <span class="hint">在线 3</span>
                             </div>
                             <div class="sessions" id="sessions"></div>
@@ -827,7 +827,7 @@
                         <!-- 记给谁 -->
                         <section class="frame">
                             <div class="side-head">
-                                <h2><span class="seal">谁</span>记给谁</h2>
+                                <h2><span class="section-mark"></span>记给谁</h2>
                                 <span class="hint">速记均分</span>
                             </div>
                             <div class="targets pill-wrap" id="targets">
@@ -855,7 +855,7 @@
                         <!-- 今日按角色：把「谁在挣」摊开，右栏不足一屏时用它补齐 -->
                         <section class="frame">
                             <div class="side-head">
-                                <h2><span class="seal">人</span>今日按角色</h2>
+                                <h2><span class="section-mark"></span>今日按角色</h2>
                                 <span class="hint">5 个号</span>
                             </div>
                             <div class="sessions" id="roles"></div>
@@ -872,17 +872,17 @@
         <!-- ==================== 规格表 ==================== -->
         <section class="spec">
             <div class="frame">
-                <h2><span class="seal">色</span>色板</h2>
+                <h2><span class="section-mark"></span>色板</h2>
                 <p class="spec-note">
                     每枚令牌一份 <code>light-dark(亮, 暗)</code>，切换只看根元素的
                     <code>color-scheme</code>。纸是暖的（不是纯白），墨是灰的（不是纯黑），
-                    朱红只给印章、当前选中与支出三处。
+                    朱红只给区块标、当前选中与支出三处。
                 </p>
                 <div class="swatches" id="swatches"></div>
             </div>
 
             <div class="frame">
-                <h2><span class="seal">字</span>字号阶梯</h2>
+                <h2><span class="section-mark"></span>字号阶梯</h2>
                 <p class="spec-note">
                     全站唯一字体是霞鹜文楷，不再混排黑体。八档字号都乘 <code>--fs-scale</code>，
                     设置页的「较小 / 默认 / 较大」只改这一个变量；数字列靠 <code>tabular-nums</code> 对齐。
@@ -891,7 +891,7 @@
             </div>
 
             <div class="frame">
-                <h2><span class="seal">体</span>微立体四态</h2>
+                <h2><span class="section-mark"></span>微立体四态</h2>
                 <p class="spec-note">
                     凹槽四件齐：<code>--well</code> 底、上暗下亮渐变、上沿内阴影、下沿高光。
                     选中不是「描边」也不是「变亮」，是灌满朱红——把印泥按进槽里，纸面抬起一层。
@@ -941,7 +941,7 @@
             </div>
 
             <div class="frame">
-                <h2><span class="seal">件</span>控件库</h2>
+                <h2><span class="section-mark"></span>控件库</h2>
                 <p class="spec-note">
                     挑选动作只有一种质感（凹槽胶囊），位置切换只有一种（两格开关），勾选只有一种。
                     按钮是纸上的方框，主操作才灌朱——一个页面里灌朱的按钮不超过两个。
@@ -976,12 +976,12 @@
                         </div>
                     </div>
                     <div class="kit-group">
-                        <small>按钮与印章</small>
+                        <small>按钮与区块标</small>
                         <div class="kit-row" style="padding: 4px 6px">
                             <button class="btn" type="button">次要</button>
                             <button class="btn primary" type="button">主要</button>
                             <button class="btn compact" type="button">紧凑</button>
-                            <span class="seal">印</span>
+                            <span class="section-mark"></span>
                         </div>
                     </div>
                     <div class="kit-group">

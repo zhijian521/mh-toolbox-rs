@@ -17,7 +17,7 @@ const { scale } = useFontScale();
 </script>
 
 <template>
-    <LedgerSection title="外观" seal="貌" hint="一键换纸：令牌全部走 light-dark()">
+    <LedgerSection title="外观" hint="一键换纸：令牌全部走 light-dark()">
         <div class="row">
             <span class="row-label">主题</span>
             <SegmentedPills v-model="mode" :options="THEME_OPTIONS" label="主题" />
@@ -28,7 +28,7 @@ const { scale } = useFontScale();
         <div class="row row-gap">
             <span class="row-label">字号</span>
             <FontSizeSlider v-model="scale" />
-            <span class="hint">全站文字同步缩放，印章与金额一起变</span>
+            <span class="hint">全站文字同步缩放，区块标与金额一起变</span>
         </div>
         <p class="note">
             切主题只改根元素上的 <code>color-scheme</code>，颜色令牌不需要第二份；

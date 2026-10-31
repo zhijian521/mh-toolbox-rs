@@ -4,32 +4,32 @@
 > 那个仓库冻结保留，继续给朋友用；它是本项目的差分测试基准与数据兼容基准。
 
 梦幻西游端游的养成记账工具。技术栈 Rust + Tauri 2 + Vue 3 + SQLite，
-界面走「账簿」方向：宣纸底、墨字、朱红印章、结构靠线不靠阴影。
+界面走「账簿」方向：宣纸底、墨字、朱红作记、结构靠线不靠阴影。
 
 ## 当前状态（2026-10-31）
 
 骨架已起：八个页面都有路由，其中**只有设置页有内容**，其余七个是占位；设计语言（令牌、控件、
 账簿语法）已成型并各有演示卡片，是这一阶段的验收面。
 
-| 已完成       | 说明                                                                                                                   |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| Tauri 2 窗口 | 1280×820，最小 1024×780，居中；productName `梦幻养老助手`，identifier `com.zhijian.mhtoolbox.rs`                       |
-| IPC 通路     | `app_info` 命令，前端经 `src/services/desktop.ts` 调用（渲染层唯一允许碰系统的地方）                                   |
-| 路由         | `vue-router` + hash 模式，8 个页面各一条；`src/navigation.ts` 是真源，路由与左栏都由它派生                             |
-| 设置页       | 8 个区块：外观 / 原子组件 / 色板 / 字号阶梯 / 控件 / 图标 / 结构 / 关于。色板与字号阶梯**运行时读令牌**，不会与 CSS 漂 |
-| 设计语言     | `src/styles/tokens.css` / `base.css` / `blocks.css`（唯一真源）、`design/income.html`（收益页样张，直接引同一份 CSS）  |
+| 已完成       | 说明                                                                                                                  |
+| ------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Tauri 2 窗口 | 1280×820，最小 1024×780，居中；productName `梦幻养老助手`，identifier `com.zhijian.mhtoolbox.rs`                      |
+| IPC 通路     | `app_info` 命令，前端经 `src/services/desktop.ts` 调用（渲染层唯一允许碰系统的地方）                                  |
+| 路由         | `vue-router` + hash 模式，8 个页面各一条；`src/navigation.ts` 是真源，路由与左栏都由它派生                            |
+| 设置页       | 7 个区块：外观 / 原子组件 / 色板 / 字号阶梯 / 图标 / 结构 / 关于。色板与字号阶梯**运行时读令牌**，不会与 CSS 漂       |
+| 设计语言     | `src/styles/tokens.css` / `base.css` / `blocks.css`（唯一真源）、`design/income.html`（收益页样张，直接引同一份 CSS） |
 
 未开始：数据层（SQLite）、领域层、七个业务页的内容、OCR、e2e。
 
 **字体与字号都只有一条通路。** 全站唯一字体是霞鹜文楷（不再与黑体混排）；八档字号全部写成
 `calc(Npx * var(--fs-scale))`，设置页的三档滑块只改 `--fs-scale` 一个变量（0.92 / 1 / 1.1）。
-连左栏宽度、印章尺寸也跟着缩放——否则放大字号时「梦幻养老助手」会被截成「梦幻养…」。
+连左栏宽度、区块标的尺寸也跟着缩放——否则放大字号时「梦幻养老助手」会被截成「梦幻养…」。
 
 ## 目录
 
 ```
 ├── src/                  Vue 前端
-│   ├── components/       SealMark / SegmentedPills / SlotButton / VerticalSlider / CostSwitch /
+│   ├── components/       SegmentedPills / SlotButton / VerticalSlider / CostSwitch /
 │   │                     BaseCheck / LedgerSection / FontSizeSlider / TitleBar / PageHeader /
 │   │                     AppRail / AppIcon（图标走 tabler，只维护名字映射）
 │   ├── composables/      use-theme（主题）/ use-font-scale（字号三档）/
@@ -37,7 +37,7 @@
 │   ├── services/         desktop.ts —— 渲染层唯一的系统能力出口
 │   ├── styles/           tokens.css（令牌）/ base.css（重置 + `.well` 凹槽 + 胶囊）/
 │   │                     blocks.css（页面级版式）
-│   └── views/            SettingsView（8 个 section 在 settings/ 下）+ PlaceholderView
+│   └── views/            SettingsView（7 个 section 在 settings/ 下）+ PlaceholderView
 ├── src-tauri/            Rust 壳（窗口、命令、能力配置）
 ├── design/               设计语言样张与令牌原件
 └── assets/fonts/         霞鹜文楷 Screen（全量 9.8 MB，不子集化，OFL 1.1）

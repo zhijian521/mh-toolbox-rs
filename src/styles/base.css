@@ -1,7 +1,7 @@
 /*
  * 基座层 —— 元素重置 + 跨页面复用的最小工具类（账簿方向）。
  *
- * 五类：凹槽 `.well` 与印面 `.stamp`（同一件事的正反面）、按钮与印章、
+ * 五类：凹槽 `.well` 与印面 `.stamp`（同一件事的正反面）、按钮与区块标、
  * 凹槽胶囊与承载面、两格开关与轨道选项格、勾选项；
  * 另加「账簿语法」`.frame`（文武线外框）与页面骨架 `.page-content`。
  * 组合级的排版类（`.note`、`.kit`）在 `blocks.css`。
@@ -140,33 +140,31 @@ svg {
     color: var(--muted);
 }
 
-/* ---------- 印章 ----------
- * 朱红方框、微微歪一点、内圈留白。它是这个界面唯一允许「不端正」的元素，
- * 用来标记「这一块已经定稿」的东西（页面标题、已入账、已达成）。
+/* ---------- 区块标 ----------
+ * 标题左侧那道凸起的短竖条：只交代「一块从这里开始」，不参与叙事。
+ *
+ * 光源与别处一致：左沿受光（`--bevel-hi`）、右沿落暗（`--bevel-lo`）、
+ * 下方一线落地影。三个面全用同一套 `--bevel-*`，所以它和凹槽、印面是同一个光向——
+ * 早先这里是一枚歪 2.5° 的朱红方框（`SealMark`），块与块之间被八枚印压得发闷，
+ * 而「印章」在账本语境里本来就该留给「已入账 / 已达成」这类状态，不该拿来当标题前缀。
+ *
+ * 尺寸跟着字号走（`--fs-scale`）：字放大了标记不长，会显得比标题矮半截。
+ * 宽 3 / 高 15 是让它在 14.5px 的楷体标题旁读成「一竖」，再宽就成色块了。
  */
-.seal {
-    /* 尺寸只有一枚变量：默认 26px 乘字号系数（字变大了印章不变，会显得那颗印
-     * 比旁边的字还小）。父级要另一个尺寸就覆写 `--seal-size`，不要给组件加 prop——
-     * 「标题栏里那枚要小一点」是位置知识，属于父级。字与框的比例 0.58 跟着它走。 */
-    --seal-size: calc(26px * var(--fs-scale));
+.section-mark {
+    --mark-w: calc(3px * var(--fs-scale));
+    --mark-h: calc(15px * var(--fs-scale));
 
-    display: inline-grid;
-    place-items: center;
+    display: block;
     flex: none;
-    width: var(--seal-size);
-    height: var(--seal-size);
-    border: 1.5px solid var(--cinnabar);
-    border-radius: var(--r-1);
-    color: var(--cinnabar);
-    font-size: calc(var(--seal-size) * 0.58);
-    line-height: 1;
-    transform: rotate(-2.5deg);
-    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--paper) 100%, transparent);
-    opacity: 0.92;
-}
-.seal.solid {
-    background: var(--seal);
-    color: var(--on-seal);
+    width: var(--mark-w);
+    height: var(--mark-h);
+    border-radius: 1px;
+    background: var(--cinnabar);
+    box-shadow:
+        inset 1px 0 0 var(--bevel-hi),
+        inset -1px 0 0 var(--bevel-lo),
+        0 1px 1px color-mix(in srgb, var(--cinnabar) 40%, transparent);
 }
 
 /* ---------- 按钮 ----------
@@ -522,7 +520,9 @@ svg {
 .page-content {
     flex: 1;
     min-height: 0;
-    padding: 16px 20px 26px;
+    /* 上下 12/18、左右 16：页头也是左右 16，两边对齐才不会让第一张卡的框比标题左缘缩进一截。
+     * 原先是 16/20/26，四边都大一圈，1280 下正文能用的宽度被白吃掉 40px。 */
+    padding: 12px 16px 18px;
     overflow: auto;
     /* 滚动条始终占位：内容不满一屏的页面若不留，右侧会被撑宽约 10px，切页时页头右端会跳。 */
     scrollbar-gutter: stable;

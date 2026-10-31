@@ -12,7 +12,7 @@ import { ICON_GROUPS, ICON_LABELS } from '../../components/icons';
 </script>
 
 <template>
-    <LedgerSection title="图标" seal="图" hint="成套线稿 · 24 网格 · 笔宽 1.8 · 随字号缩放">
+    <LedgerSection title="图标" hint="成套线稿 · 24 网格 · 笔宽 1.8 · 随字号缩放">
         <div class="icon-sheet">
             <div v-for="group in ICON_GROUPS" :key="group.label" class="icon-group">
                 <div class="icon-group-head">
