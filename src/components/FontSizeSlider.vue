@@ -1,14 +1,17 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import type { FontScale } from '../composables/use-font-scale';
+import { useRovingFocus } from '../composables/use-roving-focus';
 
 /**
  * 三段字号滑块。
  *
  * 不做原生 `<input type="range">`：那条控件在 Windows 上永远是系统外观，与凹槽语言
- * 完全不搭，也读不出「凹」。这里用同一套四件套做轨道，滑块是一枚朱印，
+ * 完全不搭，也读不出「凹」。这里用同一套凹槽做轨道，滑块是一枚朱印，
  * 位移走 240ms 回弹曲线——三格是三个落点，不是连续值，所以滑块必须「啪」地落到格上。
  *
- * 语义是单选，给 `radiogroup`；左右方向键可切换。
+ * 语义是单选，给 `radiogroup`；三格共用一个 Tab 停靠点，左右方向键切换
+ * （`useRovingFocus`，与侧栏竖槽、两格开关、分段胶囊同一套）。
  */
 const props = defineProps<{ modelValue: FontScale; disabled?: boolean }>();
 const emit = defineEmits<{ (event: 'update:modelValue', value: FontScale): void }>();
@@ -18,6 +21,8 @@ const options: { value: FontScale; label: string }[] = [
     { value: 'default', label: '默认' },
     { value: 'large', label: '较大' },
 ];
+
+const cells = ref<HTMLButtonElement[]>([]);
 
 const indexOf = (value: FontScale) =>
     Math.max(
@@ -30,33 +35,32 @@ function choose(value: FontScale) {
     emit('update:modelValue', value);
 }
 
-function onKeydown(event: KeyboardEvent) {
-    if (props.disabled) return;
-    const current = indexOf(props.modelValue);
-    if (event.key === 'ArrowLeft' && current > 0) {
-        event.preventDefault();
-        choose(options[current - 1].value);
-    } else if (event.key === 'ArrowRight' && current < options.length - 1) {
-        event.preventDefault();
-        choose(options[current + 1].value);
-    }
-}
+const { tabIndexFor, onKeydown } = useRovingFocus({
+    count: () => options.length,
+    activeIndex: () => indexOf(props.modelValue),
+    pick: (index) => choose(options[index].value),
+    cells: () => cells.value,
+    axis: 'horizontal',
+    enabled: () => !props.disabled,
+});
 </script>
 
 <template>
-    <span class="size-slider" role="radiogroup" aria-label="字号" @keydown="onKeydown">
+    <span class="size-slider well" role="radiogroup" aria-label="字号" @keydown="onKeydown">
         <span
             class="size-thumb"
             aria-hidden="true"
             :style="{ transform: `translateX(${indexOf(modelValue) * 100}%)` }"
         />
         <button
-            v-for="option in options"
+            v-for="(option, i) in options"
             :key="option.value"
+            ref="cells"
             type="button"
             class="size-opt"
             role="radio"
             :aria-checked="modelValue === option.value"
+            :tabindex="tabIndexFor(i)"
             :disabled="disabled"
             @click="choose(option.value)"
         >
@@ -66,20 +70,14 @@ function onKeydown(event: KeyboardEvent) {
 </template>
 
 <style scoped>
-/* 轨道：与 .cost-switch 同一套凹槽四件套，只是三格而不是两格。 */
+/* 轨道：深度来自全局 `.well`（`base.css`），这里只管它是「三格」这件几何。 */
 .size-slider {
     position: relative;
     display: inline-grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: center;
     padding: 2px;
-    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 80%, transparent);
     border-radius: var(--r-pill);
-    background-color: var(--well);
-    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
-    box-shadow:
-        inset 0 1px 2px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
 }
 /* 宽度按「padding box 减去两侧内边距再三等分」算，不能写 `33.3333% - 2px`：
  * 百分比以 padding box（含 2px×2 内边距）为基准解析，减 2px 只得 47.33 而不是 48，

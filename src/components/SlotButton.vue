@@ -45,7 +45,7 @@ withDefaults(
 <template>
     <button
         type="button"
-        class="slot-btn"
+        class="slot-btn well"
         :class="{ 'icon-only': icon && !text }"
         :title="label"
         :aria-label="label"
@@ -57,6 +57,7 @@ withDefaults(
 </template>
 
 <style scoped>
+/* 深度来自全局 `.well`；这里只写「一枚 26px 的方印槽」这件几何。 */
 .slot-btn {
     position: relative;
     display: inline-flex;
@@ -66,13 +67,7 @@ withDefaults(
     width: var(--slot-w, auto);
     height: var(--slot-h, 26px);
     padding: 0 9px;
-    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 80%, transparent);
     border-radius: var(--r-2);
-    background-color: var(--well);
-    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
-    box-shadow:
-        inset 0 1px 2px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
     color: var(--ink-2);
     font-family: var(--font-ui);
     transition:

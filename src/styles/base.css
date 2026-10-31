@@ -246,10 +246,62 @@ svg {
     text-underline-offset: 3px;
 }
 
+/* ---------- 凹槽：四件套 ----------
+ * 一道槽只有四个零件：金边 + `--well` 底 + 上暗下亮的渐变 + 上沿内影与下沿**亮**高光。
+ * 少一样就读不出凹；下沿若也用暗阴影，凹会读成凸——这是唯一容易写反的一笔。
+ *
+ * 这里只写「深度」，几何（宽高、内边距、圆角、排布）一律留给各自控件覆写。
+ * 胶囊、两格开关、三档滑块、槽按钮、侧栏竖槽是同一道槽切成五种形状，
+ * 深度只能由一处说了算：改厚度就改这几行，不要在组件里再开一份。
+ *
+ * 做成**类**而不是把五个选择器分组：类名能 grep 到、能数出有几道槽，
+ * `design/income.html` 也能直接套用，不必记住"哪几个类算凹槽"。
+ */
+.well {
+    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 80%, transparent);
+    background-color: var(--well);
+    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
+    box-shadow:
+        inset 0 1px 2px var(--bevel-lo),
+        inset 0 -1px 0 var(--bevel-hi);
+}
+/* 竖过来的槽（侧栏）：光从左上，暗面于是在左壁而不是顶边，顶影也再深一档。
+ * 暗面必须用 `--bevel-lo`（恒偏黑），不能用 `--ink`——`--ink` 是字色，
+ * 暗色主题下它是纸白，混出来的「暗面」会把槽提亮成凸起。 */
+.well.upright {
+    background-image: linear-gradient(
+        90deg,
+        var(--bevel-lo),
+        transparent 26%,
+        transparent 74%,
+        color-mix(in srgb, var(--bevel-hi) 38%, transparent)
+    );
+    box-shadow:
+        inset 0 2px 3px -1px var(--bevel-lo),
+        inset 0 -1px 0 var(--bevel-hi);
+}
+
+/* ---------- 承载面 ----------
+ * 一组凹槽胶囊不能直接躺在页面底色上：槽只比纸深一档，直接摆会读成「一片淡黄」。
+ * 先垫一层 `--paper-2` 的板，槽才有对照。这是**容器**的职责，与胶囊本身无关。
+ * 分段胶囊的壳与演示页的胶囊组共用这一条，别再各写一份。
+ */
+.pill-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px;
+    border-radius: var(--r-pill);
+    background: var(--paper-2);
+}
+/* 小圆角外壳比里面的胶囊大一号（4 vs 3）：同心才不显得边缘毛糙。 */
+.pill-group.radius-sm {
+    border-radius: var(--r-3);
+}
+
 /* ---------- 凹槽胶囊 ----------
- * 四件套：--well 底 + 上暗下亮渐变 + 上沿内阴影 + 下沿高光。少一样就读不出凹。
  * 选中不是「描边」也不是「变亮」，是**灌满朱红**——像把印泥按进槽里，纸面抬起一层。
- * 直接摆在页面底色上时槽读不出来，必须先垫一层 --paper 承载面；最薄 23px。
+ * 直接摆在页面底色上时槽读不出来，必须先垫一层 `.pill-group` 承载面；最薄 23px。
  */
 .bevel-pill {
     display: inline-flex;
@@ -258,13 +310,7 @@ svg {
     gap: 5px;
     min-height: 23px;
     padding: 2px 10px;
-    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 80%, transparent);
     border-radius: var(--r-pill);
-    background-color: var(--well);
-    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
-    box-shadow:
-        inset 0 1px 2px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
     color: var(--ink-2);
     font-size: var(--fs-sm);
     line-height: 17px;
@@ -324,7 +370,7 @@ svg {
 }
 
 /* ---------- 两格位移开关 ----------
- * 轨道同款凹槽，滑块是一枚朱印：translateX 走 240ms 回弹曲线。
+ * 轨道同款凹槽（外加 `.well`），滑块是一枚朱印：translateX 走 240ms 回弹曲线。
  * 关闭态用 --ink 16% 灭灯——朱红的明度比槽底高，浅色下会与槽同色。
  */
 .cost-switch {
@@ -333,13 +379,7 @@ svg {
     grid-template-columns: 1fr 1fr;
     align-items: center;
     padding: 2px;
-    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 80%, transparent);
     border-radius: var(--r-pill);
-    background-color: var(--well);
-    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
-    box-shadow:
-        inset 0 1px 2px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
     --thumb-bg: var(--seal);
     --thumb-fg: var(--on-seal);
 }

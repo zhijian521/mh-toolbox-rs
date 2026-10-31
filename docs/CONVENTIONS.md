@@ -236,11 +236,11 @@ components = ["rustfmt", "clippy"]
 
 三条前缀规则，覆盖 `src/` 全部：
 
-| 前缀 / 形态 | 含义                                       | 例子                                                                 |
-| ----------- | ------------------------------------------ | -------------------------------------------------------------------- |
-| `Base*`     | 通用控件基元，与业务无关，可被任何页面复用 | `BaseCheck`、`BevelPill`（历史命名）、`SegmentedPills`、`SlotButton` |
-| `App*`      | 应用外壳的一部分，全局唯一                 | `AppRail`、`AppIcon`、`PageHeader`、`TitleBar`                       |
-| 业务名      | 只服务于某一页/某一域                      | `IncomeLedger`、`EquipmentCard`                                      |
+| 前缀 / 形态 | 含义                                       | 例子                                           |
+| ----------- | ------------------------------------------ | ---------------------------------------------- |
+| `Base*`     | 通用控件基元，与业务无关，可被任何页面复用 | `BaseCheck`、`SegmentedPills`、`SlotButton`    |
+| `App*`      | 应用外壳的一部分，全局唯一                 | `AppRail`、`AppIcon`、`PageHeader`、`TitleBar` |
+| 业务名      | 只服务于某一页/某一域                      | `IncomeLedger`、`EquipmentCard`                |
 
 现状里 `BaseCheck` 与 `SlotButton` 分属两套命名。**建议不重命名**（改名会冲掉 git blame），
 而是在文档里明确：`Base*` 是历史遗留的基元前缀，新基元直接用功能名（`SlotButton` 这种），
@@ -271,10 +271,13 @@ types/          （待建）跨组件共享的类型
    `@tauri-apps/api` 出现在 `components/` 与 `views/` 里）。
 2. **质感在组件内，布局在父级**。`SlotButton` 只认 `--slot-h`/`--slot-w`，不写死尺寸；
    父级用 `.rail-foot { --slot-w/--slot-h: calc(30px * var(--fs-scale)) }` 传。`VerticalSlider`
-   同理：默认值是侧栏规格（轨道 34 / 格 66 / 图标 15 / 字 14），父级要换尺寸就覆写
+   同理：默认值是侧栏规格（轨道 34 / 格 62 / 图标 15 / 字 14），父级要换尺寸就覆写
    这五个 `--vs-*` 变量。原理：父组件 scoped 样式能命中子组件根元素。
 3. **一个组件要么管状态，要么管样子，不要两个都管**。`SegmentedPills` 管「选一个」，
-   质感全交给 `BevelPill`——这是范本。
+   格子的质感交给全局 `.bevel-pill` 类——这是范本。
+   这里**不包一层 `BevelPill` 组件**：那枚胶囊自带 `aria-pressed`，是「独立开关」的语义，
+   放进互斥组会与 `aria-checked` 打架；而一组格子还需要 roving tabindex，
+   也不是单枚胶囊能表达的状态。全局类既能被组件用，也能被 `design/income.html` 直接用。
 4. **新增控件先进设置页的「原子组件」卡**（`SettingsView.vue:107`），再进业务页。
    设置页是这套语言的验收面，不是演示页。
 5. **侧栏不滚动，窗口最小高度由它决定**。`AppRail.vue` 是 `overflow: hidden`——
@@ -351,6 +354,18 @@ types/          （待建）跨组件共享的类型
    而代码里 `font-weight` 根本没变，查的时候容易找错地方。
    同理，组件里的 `font-weight` 要慎写：scoped 选择器（如 `h2[data-v]`）特异性高于
    全局的 `h2`，一处漏写就会把某个区块顶成合成加粗，而全局表里看不出来。
+10. **一组「选一个」＝ 一个 Tab 停靠点**。`radiogroup` + `radio` + `aria-checked`；
+    只有当前项 `tabindex=0`，其余 -1；方向键换选项并**把焦点带走**，`Home` / `End` 跳首尾。
+    四个控件（侧栏竖槽、三档滑块、两格开关、分段胶囊）统一走
+    `src/composables/use-roving-focus.ts`，不再各写一套——此前只有侧栏做全了，
+    另两处能 Tab 进每一项，分段胶囊连方向键都没有。组里允许个别禁用项时用
+    `isDisabled`，方向键会跨过它而不是卡住。
+    导航用 `<nav>` + `aria-current="page"`，**不用** `tablist`：全站没有 tabpanel、
+    也没有 `aria-controls`，读屏会宣布「标签页 1/8」然后找不到面板。
+11. **凹槽只有一处定义（`.well`）**。金边 + `--well` 底 + 上暗下亮渐变 + 上沿内影与
+    下沿**亮**高光，写在 `base.css` 的 `.well` 里；竖起来的槽用 `.well.upright`（暗面换到左壁）。
+    控件只写几何（宽高、内边距、圆角、排布），不重写深度。改厚度就改那一处，
+    改完五道槽同时变——想给某个控件单独调淡，先想清楚是不是约定错了。
 
 ### 2.5 注释
 

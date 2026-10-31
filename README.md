@@ -27,11 +27,14 @@
 
 ```
 ├── src/                  Vue 前端
-│   ├── components/       SealMark / BevelPill / CostSwitch / BaseCheck / LedgerSection /
-│   │                     FontSizeSlider / TitleBar / PageHeader / AppIcon（图标走 tabler，只维护名字映射）
-│   ├── composables/      use-theme（主题）/ use-font-scale（字号三档）
+│   ├── components/       SealMark / SegmentedPills / SlotButton / VerticalSlider / CostSwitch /
+│   │                     BaseCheck / LedgerSection / FontSizeSlider / TitleBar / PageHeader /
+│   │                     AppRail / AppIcon（图标走 tabler，只维护名字映射）
+│   ├── composables/      use-theme（主题）/ use-font-scale（字号三档）/
+│   │                     use-roving-focus（单选组键盘）/ use-app-info（版本）
 │   ├── services/         desktop.ts —— 渲染层唯一的系统能力出口
-│   ├── styles/           tokens.css（令牌）/ base.css（重置 + 四件套）
+│   ├── styles/           tokens.css（令牌）/ base.css（重置 + `.well` 凹槽 + 胶囊）/
+│   │                     blocks.css（页面级版式）
 │   └── views/            SettingsView
 ├── src-tauri/            Rust 壳（窗口、命令、能力配置）
 ├── design/               设计语言样张与令牌原件

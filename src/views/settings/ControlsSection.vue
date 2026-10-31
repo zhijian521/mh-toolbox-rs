@@ -2,10 +2,10 @@
 import { ref } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
 import BaseCheck from '../../components/BaseCheck.vue';
-import BevelPill from '../../components/BevelPill.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import SealMark from '../../components/SealMark.vue';
+import SegmentedPills from '../../components/SegmentedPills.vue';
 
 /**
  * 控件：每种动作只有一种质感。
@@ -14,6 +14,14 @@ import SealMark from '../../components/SealMark.vue';
  * 静态截图看不出凹槽的厚度、开关的位移和印的倾斜。
  */
 const picked = ref('小号一');
+/* 最后一枚「已归档」单独禁用：演示「组里允许有个别选项不可选」，
+ * 方向键会跳过它而不是卡在上面。 */
+const ledgerOptions = [
+    { value: '主号', label: '主号' },
+    { value: '小号一', label: '小号一' },
+    { value: '小号二', label: '小号二' },
+    { value: '已归档', label: '已归档', disabled: true },
+];
 const cardCost = ref(true);
 const autoSave = ref(false);
 const onlyEarn = ref(true);
@@ -46,16 +54,8 @@ const withCost = ref(false);
 
             <div class="kit-cell">
                 <span class="col-head">凹槽胶囊 · 单选</span>
-                <div class="kit-row pill-group">
-                    <BevelPill
-                        v-for="name in ['主号', '小号一', '小号二']"
-                        :key="name"
-                        :on="picked === name"
-                        @click="picked = name"
-                    >
-                        {{ name }}
-                    </BevelPill>
-                    <BevelPill disabled>已归档</BevelPill>
+                <div class="kit-row">
+                    <SegmentedPills v-model="picked" :options="ledgerOptions" label="账本" />
                 </div>
                 <p class="note">
                     凹要四件齐（槽底、上暗下亮、上沿内阴影、下沿高光）；选中是灌满，不是描边。
@@ -111,16 +111,6 @@ const withCost = ref(false);
 </template>
 
 <style scoped>
-/* 凹槽胶囊要垫一层 --paper-2 承载面：直接摆在页面底色上读不出凹（暗色下尤甚）。 */
-.pill-group {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px;
-    border-radius: var(--r-pill);
-    background: var(--paper-2);
-}
-
 .amount-demo {
     display: flex;
     align-items: center;

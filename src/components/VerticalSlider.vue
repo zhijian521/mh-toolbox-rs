@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue';
+import { computed, ref } from 'vue';
 import AppIcon from './AppIcon.vue';
 import type { IconName } from './icons';
+import { useRovingFocus } from '../composables/use-roving-focus';
 
 /**
  * 竖版滑块：把 `FontSizeSlider` 那一套凹槽语言立起来。
@@ -12,11 +13,15 @@ import type { IconName } from './icons';
  *   - 竖过来之后光从左上：左壁压暗、右壁提亮（横版只有上壁）。
  *
  * 格内排法是「图标在上、两字竖排在下」（`writing-mode: vertical-rl`）。
- * 这条**限定标签必须两字**：竖排三字在 66px 格里放不下（3 × 14 × 1.15 ≈ 55，
+ * 这条**限定标签必须两字**：竖排三字在 62px 格里放不下（3 × 14 × 1.15 ≈ 48，
  * 加图标 15 与间距 7 就撑破）。导航标签恰好全是两字，新增页面时守住这一点。
  *
- * 语义按 `tablist` 而不是 `radiogroup`：这里选的是一个页面，不是一个值。
- * 上下方向键移动选中并带走焦点（`tabindex` 只在选中项上是 0，Tab 只停一次）。
+ * 语义是**页面导航**，不是标签页：这里选的是一个路由，而且全站没有 tabpanel、
+ * 也没人给 `aria-controls`。所以根元素是 `<nav>`、当前项给 `aria-current="page"`，
+ * 而不是 `tablist` / `aria-selected`——后者会让读屏宣布「标签页 1/8」然后找不到面板。
+ *
+ * 键盘与 Tab 停靠点交给 `useRovingFocus`（与三个单选组共用同一套）：整组一个停靠点，
+ * 上下键移动选中并带走焦点，Home / End 跳首尾。
  *
  * 尺寸全部走 `--vs-*` 变量且默认乘 `--fs-scale`：设置里切「较大」时
  * 格高、字、图标、轨道宽一起长，竖排字不会溢出格子。
@@ -93,31 +98,20 @@ function onPointerUp(event: PointerEvent) {
     if (el?.hasPointerCapture(event.pointerId)) el.releasePointerCapture(event.pointerId);
 }
 
-async function onKeydown(event: KeyboardEvent) {
-    const last = props.options.length - 1;
-    const current = index.value;
-    /* 不给初值：四个方向键分支之外直接 return，初值永远用不上（eslint 也会拦）。 */
-    let next: number;
-    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') next = Math.min(last, current + 1);
-    else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') next = Math.max(0, current - 1);
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = last;
-    else return;
-    event.preventDefault();
-    pick(next);
-    /* 等 DOM 换过 `tabindex` 再聚焦：否则焦点落在仍是 -1 的旧格上，Tab 会跳走。 */
-    await nextTick();
-    cells.value[next]?.focus();
-}
+const { tabIndexFor, onKeydown } = useRovingFocus({
+    count: () => props.options.length,
+    activeIndex: () => index.value,
+    pick,
+    cells: () => cells.value,
+    axis: 'vertical',
+});
 </script>
 
 <template>
-    <div
+    <nav
         ref="track"
-        class="vs-track"
+        class="vs-track well upright"
         :class="{ dragging }"
-        role="tablist"
-        aria-orientation="vertical"
         :aria-label="label"
         @pointerdown="onPointerDown"
         @pointermove="onPointerMove"
@@ -134,30 +128,26 @@ async function onKeydown(event: KeyboardEvent) {
             type="button"
             class="vs-cell"
             :class="{ muted: option.muted }"
-            role="tab"
-            :aria-selected="modelValue === option.value"
-            :tabindex="modelValue === option.value ? 0 : -1"
+            :aria-current="modelValue === option.value ? 'page' : undefined"
+            :tabindex="tabIndexFor(i)"
             :title="option.title ?? option.label"
             @click="pick(i)"
         >
             <AppIcon :name="option.icon" />
             <span class="vs-label">{{ option.label }}</span>
         </button>
-    </div>
+    </nav>
 </template>
 
 <style scoped>
 /* ---------- 轨道：一道竖槽 ----------
- * 深度沿用横版 `.size-slider` 的四件套（金边 / `--well` 底 / 顶部内影 / 单向左壁渐变），
- * 没有为「长槽」额外加深——两版的差别只在圆角：
+ * 深度全部来自全局 `.well.upright`（`base.css`：金边 / `--well` 底 / 左壁暗 / 顶影 / 下沿亮边），
+ * 这里只写几何。没有为「长槽」额外加深，两版的差别只在圆角：
  *   外框 `--vs-radius`（默认 `--r-2`，3px），里面的印取同一个值，不再是胶囊。
  * 槽与印同形之后，「当前页」靠朱色和一道短影区分，不再靠圆角的形状差。
  *
- * 竖起来之后光从左上，于是比横版多一道左壁暗。暗面一律用 `--bevel-lo`，不能用 `--ink`：
- * `--ink` 是字色，亮色下深、暗色下浅，混出来的「暗面」在暗色主题会变成一条提亮带
- * （槽底 #171409 叠纸白 11% 得 #2e2b1f，比右壁那 6.9% 白还亮，凹槽读成了凸起）。
- * `--bevel-lo` 恒偏黑，是与其余四处凹槽（`.bevel-pill` / `.cost-switch` /
- * `FontSizeSlider` / `SlotButton`）共用的同一个暗面，切主题时方向不会翻。
+ * 竖槽的暗面在左壁而不是顶边（光从左上），这条由 `.well.upright` 覆写；
+ * 暗面必须是 `--bevel-lo`，用 `--ink` 会在暗色主题翻成一条提亮带——理由见 `base.css`。
  */
 .vs-track {
     /* 侧栏规格。父级要换尺寸就覆写这五个变量，组件不认「侧栏」这个概念。
@@ -182,19 +172,7 @@ async function onKeydown(event: KeyboardEvent) {
     row-gap: var(--vs-gap);
     width: var(--vs-w);
     padding: 2px;
-    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 80%, transparent);
     border-radius: var(--vs-radius);
-    background-color: var(--well);
-    background-image: linear-gradient(
-        90deg,
-        var(--bevel-lo),
-        transparent 26%,
-        transparent 74%,
-        color-mix(in srgb, var(--bevel-hi) 38%, transparent)
-    );
-    box-shadow:
-        inset 0 2px 3px -1px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
     touch-action: none;
     cursor: pointer;
     /* 拖动时选中文字会在整条槽上拉出一道蓝，必须关掉。 */
@@ -274,8 +252,8 @@ async function onKeydown(event: KeyboardEvent) {
  * 早先给 `.vs-label` 加过 0.25px `-webkit-text-stroke`，本意是让 14px 楷体压得住朱红，
  * 但眼睛读到的就是「这格加粗了」；而文楷本地只有 Regular，描边与合成加粗都会把撇捺糊成块。
  * 「当前在哪一页」由那枚朱印本身交代——位置、颜色、投影三样都说过，不必让字再喊一遍。 */
-.vs-cell[aria-selected='true'],
-.vs-cell[aria-selected='true']:hover {
+.vs-cell[aria-current='page'],
+.vs-cell[aria-current='page']:hover {
     color: var(--vs-seal-fg);
     background: none;
 }

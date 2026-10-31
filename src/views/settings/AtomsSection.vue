@@ -33,8 +33,8 @@ const autoSave = ref(false);
                     <SegmentedPills v-model="mode" :options="THEME_OPTIONS" label="主题" />
                 </div>
                 <p class="note">
-                    一组里选一个。选项文案与值的类型由调用方给（泛型 T），单格质感全交给
-                    <code>BevelPill</code>，它自己不重复写。
+                    一组里选一个。选项文案与值的类型由调用方给（泛型 T），单格质感是全站的
+                    <code>.bevel-pill</code>，它自己不重复写；整组只占一个 Tab 停靠点，左右键切换。
                 </p>
             </div>
 
