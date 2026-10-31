@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue';
+import { effectScope, ref, watch } from 'vue';
 
 export type FontScale = 'small' | 'default' | 'large';
 
@@ -32,12 +32,22 @@ function apply() {
 
 let wired = false;
 
+/** 脱离组件的独立作用域，见 `wire()` 里的说明。模块级持有，避免被回收。 */
+const scope = effectScope(true);
+
 function wire() {
     if (wired) return;
     wired = true;
-    watch(scale, () => {
-        apply();
-        localStorage.setItem(STORAGE_KEY, scale.value);
+    // `watch` 必须注册在脱离组件的独立作用域里。`wire()` 第一次是在「外观」那张卡的
+    // setup 里被调用的，裸 `watch` 会被记进那个组件的 effect scope —— 离开设置页时组件
+    // 卸载，watcher 随之停掉；而 `wired` 已置位，再进来也不会补注册。
+    // 表现就是：首次进设置页切字号一直有效，去别的页面转一圈回来，滑块能动、字号不动、
+    // 存储也不写了。`use-theme.ts` 同一个坑（那边首调者是常驻的左栏，才侥幸没暴露）。
+    scope.run(() => {
+        watch(scale, () => {
+            apply();
+            localStorage.setItem(STORAGE_KEY, scale.value);
+        });
     });
     apply();
 }

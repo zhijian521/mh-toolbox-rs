@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue';
+import { computed, effectScope, ref, watch } from 'vue';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -26,20 +26,28 @@ const isDark = computed(
 
 let wired = false;
 
+/** 脱离组件的独立作用域，见 `wire()` 里的说明。模块级持有，避免被回收。 */
+const scope = effectScope(true);
+
 function wire() {
     if (wired) return;
     wired = true;
     media.addEventListener('change', (event) => {
         systemDark.value = event.matches;
     });
-    watch(
-        [mode, systemDark],
-        () => {
-            document.documentElement.classList.toggle('dark', isDark.value);
-            localStorage.setItem(STORAGE_KEY, mode.value);
-        },
-        { immediate: true },
-    );
+    // 与 `use-font-scale.ts` 同一个坑：`wire()` 是在某个组件的 setup 里被第一次调用的，
+    // 裸 `watch` 会绑到那个组件上、随它卸载而停。主题这边首调者是常驻的左栏，
+    // 所以一直没暴露；但谁先调是可以变的，别赌。
+    scope.run(() => {
+        watch(
+            [mode, systemDark],
+            () => {
+                document.documentElement.classList.toggle('dark', isDark.value);
+                localStorage.setItem(STORAGE_KEY, mode.value);
+            },
+            { immediate: true },
+        );
+    });
 }
 
 export function useTheme() {
