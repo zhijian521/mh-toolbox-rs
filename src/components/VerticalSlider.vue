@@ -80,21 +80,53 @@ function indexAt(clientY: number): number {
 }
 
 /* 拖动是附加能力，不是主路径：点一下就能切页，按住才连续跟手。
- * 捕获指针是为了手指滑出轨道后仍然跟手；`dragging` 期间关掉 transition 才有跟手感。 */
+ * 捕获指针是为了手指滑出轨道后仍然跟手；`dragging` 期间关掉 transition 才有跟手感。
+ *
+ * 选值时机分两种，这是「点一下有没有滑动」的关键：
+ *   - **纯点击**在 `pointerup` 才选。早先在 `pointerdown` 就选，而那时 `dragging` 已经置位、
+ *     过渡被关掉，于是朱印是「闪」过去的——点得越准越像没有动画；
+ *   - **拖动**过了 `DRAG_THRESHOLD` 才认作拖动：此后的选值跟随指针，过渡仍然关掉。
+ * 阈值存在的意义是把「手抖 1px 的点击」留在点击那条路上，不然每次点都会先滑再断。
+ */
+const DRAG_THRESHOLD = 4;
+
+let pressed = false;
+let moved = false;
+let pressY = 0;
+
 function onPointerDown(event: PointerEvent) {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
-    dragging.value = true;
+    pressed = true;
+    moved = false;
+    pressY = event.clientY;
     track.value?.setPointerCapture(event.pointerId);
-    pick(indexAt(event.clientY));
 }
 
 function onPointerMove(event: PointerEvent) {
-    if (!dragging.value) return;
+    if (!pressed) return;
+    if (!moved) {
+        if (Math.abs(event.clientY - pressY) < DRAG_THRESHOLD) return;
+        moved = true;
+        dragging.value = true;
+    }
     pick(indexAt(event.clientY));
 }
 
 function onPointerUp(event: PointerEvent) {
-    if (!dragging.value) return;
+    if (!pressed) return;
+    pressed = false;
+    /* 没越过阈值 = 点击：此刻才选值，过渡还开着，朱印从原位滑过去。 */
+    if (!moved) pick(indexAt(event.clientY));
+    moved = false;
+    dragging.value = false;
+    const el = track.value;
+    if (el?.hasPointerCapture(event.pointerId)) el.releasePointerCapture(event.pointerId);
+}
+
+/* 取消（系统手势、指针丢失）不选值：那一下不是用户在点。 */
+function onPointerCancel(event: PointerEvent) {
+    pressed = false;
+    moved = false;
     dragging.value = false;
     const el = track.value;
     if (el?.hasPointerCapture(event.pointerId)) el.releasePointerCapture(event.pointerId);
@@ -110,7 +142,7 @@ function onPointerUp(event: PointerEvent) {
         @pointerdown="onPointerDown"
         @pointermove="onPointerMove"
         @pointerup="onPointerUp"
-        @pointercancel="onPointerUp"
+        @pointercancel="onPointerCancel"
         @keydown="onKeydown"
     >
         <span
