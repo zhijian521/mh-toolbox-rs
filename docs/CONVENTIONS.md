@@ -195,14 +195,24 @@ design/icon/old/                 ← 旧图标备份，保留
 ```json
 "format":       "prettier --write .",
 "format:check": "prettier --check .",
-"lint":         "eslint .",
+"lint":         "eslint . --max-warnings 0",
 "lint:fix":     "eslint . --fix",
 "lint:commits": "git log -20 --no-merges --format=%s | node scripts/check-commits.mjs",
 "typecheck":    "vue-tsc --noEmit",
-"check":        "npm run format:check && npm run lint && npm run typecheck"
+"check":        "npm run format:check && npm run lint && npm run typecheck && npm run check:version && npm run lint:commits"
 ```
 
-`npm run check` 是唯一入口，人跑的和 CI 跑的是同一条命令——这个约定比规则本身重要。
+`npm run check` 是唯一入口，人跑的和 CI（`.github/workflows/check.yml`）跑的是同一条命令
+——这个约定比规则本身重要，因为它意味着「本机绿 = CI 绿」。
+
+两条都踩过，写在这里：
+
+- **`--max-warnings 0`**：原先 `lint` 就是 `eslint .`，而 `attributes-order` /
+  `define-macros-order` / `no-console` 三条是 `warn`。警告不影响退出码，等于这半条检查
+  只打印不拦人。现在只要有噪音就是红的。
+- **`lint:commits` 进 `check`**：它原先只作为独立脚本存在，于是「自己已经红了」这件事
+  没人发现——正则要求冒号后带空格，而实际 8 条提交是紧贴写的。**没接进唯一入口的检查，
+  等于没写。**
 
 两处刻意的「不做」：
 
@@ -229,10 +239,14 @@ channel = "stable"
 components = ["rustfmt", "clippy"]
 ```
 
-**提交规范**：`<type>(<scope>): <中文摘要>`，type 白名单
+**提交规范**：`<type>(<scope>):<中文摘要>`，type 白名单
 `feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert`。
+**冒号后不加空格**——中文摘要贴着冒号读是一行，加空格反而多一个断点；
+校验器 `scripts/check-commits.mjs` 对两种写法都放行（`:\s*\S`），因为现有 45 条提交里
+8 条是紧贴写成的，改习惯的成本高于放宽正则，而放宽的只是「一个空格」，不是格式本身。
 正文写「为什么」，不写「改了什么」——`git show` 已经能看到改了什么。
-现有 21 个提交全部合规，接上校验即可，不需要重写历史。
+`npm run lint:commits` 只看最近 20 条；更早的 45 条是旧仓历史（`[feat][20241225][…]` 那种），
+不追溯、不改写历史。
 
 **不用 husky**（沿用旧仓的判断）：本机沙箱对带管道的子进程不稳定，钩子容易误报。
 校验放 `npm run check` + CI。
@@ -274,9 +288,12 @@ types/          （待建）跨组件共享的类型
 
 四条硬规则：
 
-1. **组件不调 `invoke`**。只有 `services/desktop.ts` 能碰系统——`desktop.ts:4-9` 的注释已经
-   立了这条，现在要把它变成可检查的约束（ESLint `no-restricted-imports` 拦
-   `@tauri-apps/api` 出现在 `components/` 与 `views/` 里）。
+1. **组件不调 `invoke`**。只有 `services/desktop.ts` 能碰系统——`desktop.ts` 头注释立了这条，
+   ESLint 的 `no-restricted-imports` 把它变成可检查的约束：`components/`、`views/`、
+   `composables/` 里出现 `@tauri-apps/api`、`@tauri-apps/api/*` 或 `@tauri-apps/*` 一律报错。
+   早先只拦了 `@tauri-apps/api/core`（`paths` 只匹配一模一样的模块名），于是 `TitleBar.vue`
+   直接引 `@tauri-apps/api/window` 管窗口按钮，lint 照样全绿——**规矩写着「只有 services 能碰
+   系统」，检查却只管一个入口**。改成 `patterns` 后整族都拦，窗口控制也搬进了 `desktop.ts`。
 2. **质感在组件内，布局在父级**。`SlotButton` 只认 `--slot-h`/`--slot-w`，不写死尺寸；
    父级用 `.rail-foot { --slot-w/--slot-h: calc(30px * var(--fs-scale)) }` 传。`VerticalSlider`
    同理：默认值是侧栏规格（轨道 34 / 格 62 / 图标 15 / 字 14），父级要换尺寸就覆写

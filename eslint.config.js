@@ -95,6 +95,12 @@ export default tseslint.config(
     // 渲染层不许直接拿系统能力：只有 src/services/ 能 invoke。
     // 这条是 `services/desktop.ts` 头注释里那句约定的可执行版本——
     // 光写在注释里，第一次赶进度就会有人绕过去。
+    //
+    // 用 `patterns` 而不是 `paths`：`paths` 只匹配**一模一样**的模块名，原先只列了
+    // `@tauri-apps/api/core`，于是 `TitleBar.vue` 直接 `import ... from
+    // '@tauri-apps/api/window'` 照样全绿——规矩写着「只有 services 能碰系统」，
+    // 检查却只管一个入口。现在整族都拦：`@tauri-apps/api`、它的任意子路径、以及以后的
+    // `@tauri-apps/plugin-*`。新增系统能力时先把封装加进 `services/desktop.ts`。
     {
         files: [
             'src/components/**/*.{ts,vue}',
@@ -105,10 +111,10 @@ export default tseslint.config(
             'no-restricted-imports': [
                 'error',
                 {
-                    paths: [
+                    patterns: [
                         {
-                            name: '@tauri-apps/api/core',
-                            message: '系统能力统一走 src/services/，不要在组件里直接 invoke。',
+                            group: ['@tauri-apps/api', '@tauri-apps/api/*', '@tauri-apps/*'],
+                            message: '系统能力统一走 src/services/，不要在组件里直接调 Tauri。',
                         },
                     ],
                 },

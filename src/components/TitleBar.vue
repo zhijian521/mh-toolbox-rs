@@ -1,8 +1,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import AppIcon from './AppIcon.vue';
 import { useAppInfo } from '../composables/use-app-info';
+import {
+    closeWindow,
+    hasDesktop,
+    minimizeWindow,
+    onWindowResized,
+    toggleMaximizeWindow,
+    windowMaximized,
+} from '../services/desktop';
 
 /**
  * 自绘标题栏。
@@ -20,10 +27,9 @@ import { useAppInfo } from '../composables/use-app-info';
  * 2. 最大化状态要监听 `onResized` 回读 `isMaximized()`：双击拖动区最大化、拖边还原，
  *    这些都不经过我们的按钮，状态会漂。
  * 3. 浏览器里（`npm run dev` 无 Tauri）没有窗口 API，按钮退化成空操作，页面照样能看。
+ *    这个降级收在 `services/desktop.ts` 里（`hasDesktop` + 一组无操作的窗口函数），
+ *    组件不需要知道 `@tauri-apps/api` 的存在——那是「渲染层只有 services 能碰系统」那条红线。
  */
-const hasTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-const appWindow = hasTauri ? getCurrentWindow() : null;
-
 /* 版本标签取真版本的前两段（0.1.0 → 0.1）：标题栏是常驻窄条，
  * 三位数字会把它撑长，而补丁号在标题栏里没有信息量。 */
 const { version } = useAppInfo();
@@ -33,18 +39,18 @@ const maximized = ref(false);
 let unlisten: (() => void) | null = null;
 
 onMounted(async () => {
-    if (!appWindow) return;
-    maximized.value = await appWindow.isMaximized();
-    unlisten = await appWindow.onResized(async () => {
-        maximized.value = await appWindow.isMaximized();
+    if (!hasDesktop()) return;
+    maximized.value = await windowMaximized();
+    unlisten = await onWindowResized(async () => {
+        maximized.value = await windowMaximized();
     });
 });
 
 onBeforeUnmount(() => unlisten?.());
 
-const minimize = () => void appWindow?.minimize();
-const toggleMaximize = () => void appWindow?.toggleMaximize();
-const close = () => void appWindow?.close();
+const minimize = () => minimizeWindow();
+const toggleMaximize = () => toggleMaximizeWindow();
+const close = () => closeWindow();
 </script>
 
 <template>
