@@ -152,6 +152,12 @@ async function onKeydown(event: KeyboardEvent) {
  * 没有为「长槽」额外加深——两版的差别只在圆角：
  *   外框 `--vs-radius`（默认 `--r-2`，3px），里面的印取同一个值，不再是胶囊。
  * 槽与印同形之后，「当前页」靠朱色和一道短影区分，不再靠圆角的形状差。
+ *
+ * 竖起来之后光从左上，于是比横版多一道左壁暗。暗面一律用 `--bevel-lo`，不能用 `--ink`：
+ * `--ink` 是字色，亮色下深、暗色下浅，混出来的「暗面」在暗色主题会变成一条提亮带
+ * （槽底 #171409 叠纸白 11% 得 #2e2b1f，比右壁那 6.9% 白还亮，凹槽读成了凸起）。
+ * `--bevel-lo` 恒偏黑，是与其余四处凹槽（`.bevel-pill` / `.cost-switch` /
+ * `FontSizeSlider` / `SlotButton`）共用的同一个暗面，切主题时方向不会翻。
  */
 .vs-track {
     /* 侧栏规格。父级要换尺寸就覆写这五个变量，组件不认「侧栏」这个概念。
@@ -165,9 +171,10 @@ async function onKeydown(event: KeyboardEvent) {
     --vs-label: calc(14px * var(--fs-scale));
     /* 小圆角。外框、格、印共用它——一处改，三处一起变。 */
     --vs-radius: var(--r-2);
-    /* 印面与印上的字成对定义，暗色下整套换掉，见下面 `html.dark` 那段。 */
-    --vs-seal: var(--cinnabar);
-    --vs-seal-fg: var(--on-cinnabar);
+    /* 印面与印上的字直接取全站那一对（`tokens.css` 的 `--seal` / `--on-seal`），
+     * 不再在这里自己写一份暗色覆写：那套映射现在是所有「灌朱的控件」共用的。 */
+    --vs-seal: var(--seal);
+    --vs-seal-fg: var(--on-seal);
 
     position: relative;
     display: grid;
@@ -180,13 +187,13 @@ async function onKeydown(event: KeyboardEvent) {
     background-color: var(--well);
     background-image: linear-gradient(
         90deg,
-        color-mix(in srgb, var(--ink) 11%, transparent),
+        var(--bevel-lo),
         transparent 26%,
         transparent 74%,
         color-mix(in srgb, var(--bevel-hi) 38%, transparent)
     );
     box-shadow:
-        inset 0 2px 3px -1px color-mix(in srgb, var(--ink) 18%, transparent),
+        inset 0 2px 3px -1px var(--bevel-lo),
         inset 0 -1px 0 var(--bevel-hi);
     touch-action: none;
     cursor: pointer;
@@ -229,18 +236,9 @@ async function onKeydown(event: KeyboardEvent) {
     transition: none;
 }
 
-/* ---------- 暗色下的印 ----------
- * `--cinnabar` 在暗色翻成 #d0755f 的亮橙红，`--on-cinnabar` 同时翻成近黑：
- * 13px 楷体深字压在亮红上，笔画被红色吃掉，只剩一层发闷的暗块
- * （用户反馈「选中时候的字体颜色黑色不明显」）。
- * 所以暗色的印换深一档的 `--cinnabar-ink` 做面、`--ink` 做字（暗色下它就是纸白
- * ——不能用 `--paper`，那个在暗色是 #1c1912 的深纸）。读法回到「朱底浅字」，
- * 对比 4.6:1。切换主题时印只是变深、字只是变浅，不会整块翻面。
- */
-:global(html.dark .vs-track) {
-    --vs-seal: var(--cinnabar-ink);
-    --vs-seal-fg: var(--ink);
-}
+/* 暗色下「朱底浅字」的映射已经上移到 `tokens.css` 的 `--seal` / `--on-seal`，
+ * 这里不再单独覆写：全站灌朱的控件（竖版滑块、横版三档滑块、胶囊、槽按钮、
+ * 勾选框、标题栏关闭钮）共用同一对，才不会出现「这个印的字是白的、那个是黑的」。 */
 
 /* ---------- 格 ---------- */
 .vs-cell {
@@ -272,7 +270,10 @@ async function onKeydown(event: KeyboardEvent) {
 .vs-cell.muted:hover {
     color: var(--ink-2);
 }
-/* 选中那格的字要压在朱印上：用 `--vs-seal-fg`，它与印面在暗色下成对换（见上）。 */
+/* 选中那格：只换字色（`--vs-seal-fg`，与印面成对翻），**不加粗、不加描边、不加字距**。
+ * 早先给 `.vs-label` 加过 0.25px `-webkit-text-stroke`，本意是让 14px 楷体压得住朱红，
+ * 但眼睛读到的就是「这格加粗了」；而文楷本地只有 Regular，描边与合成加粗都会把撇捺糊成块。
+ * 「当前在哪一页」由那枚朱印本身交代——位置、颜色、投影三样都说过，不必让字再喊一遍。 */
 .vs-cell[aria-selected='true'],
 .vs-cell[aria-selected='true']:hover {
     color: var(--vs-seal-fg);
@@ -300,13 +301,5 @@ async function onKeydown(event: KeyboardEvent) {
     font-size: var(--vs-label);
     letter-spacing: 0.12em;
     line-height: 1.15;
-}
-/* 印面里的字略小一档、字距略松：红底浅字比墨字显大，同字号会显得塞满。
- * 但**不再缩字号**：14px 楷体压朱红时笔画已经细到发虚，再减 1px 就只剩一层影子
- * （用户反馈「选中时字体颜色黑色不明显」——不是颜色不够深，是笔画撑不起对比）。
- * 加 0.25px 描边而不加 `font-weight`：文楷本地只有 Regular，合成加粗会把撇捺糊成块。 */
-.vs-cell[aria-selected='true'] .vs-label {
-    letter-spacing: 0.16em;
-    -webkit-text-stroke: 0.25px currentColor;
 }
 </style>

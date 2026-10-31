@@ -96,7 +96,7 @@ withDefaults(
     position: absolute;
     inset: 1px;
     border-radius: calc(var(--r-2) - 1px);
-    background-color: var(--cinnabar);
+    background-color: var(--seal);
     background-image: linear-gradient(
         180deg,
         color-mix(in srgb, var(--bevel-hi) 30%, transparent),
@@ -106,7 +106,7 @@ withDefaults(
     box-shadow:
         inset 0 1px 0 var(--bevel-hi),
         0 1px 1px var(--bevel-lo),
-        0 2px 5px color-mix(in srgb, var(--cinnabar) 30%, transparent);
+        0 2px 5px color-mix(in srgb, var(--seal) 30%, transparent);
     opacity: 0;
     transform: scale(0.94);
     transition:
@@ -121,15 +121,15 @@ withDefaults(
     transform: scale(1);
 }
 .slot-btn:hover:not(:disabled) {
-    color: var(--on-cinnabar);
+    color: var(--on-seal);
 }
 .slot-btn:hover:not(:disabled) :deep(.app-icon) {
-    color: var(--on-cinnabar);
+    color: var(--on-seal);
 }
 
 /* 按下：印被压进槽底的凹痕。 */
 .slot-btn:active:not(:disabled)::before {
-    background-color: color-mix(in srgb, var(--cinnabar) 82%, var(--ink));
+    background-color: color-mix(in srgb, var(--seal) 78%, var(--ink));
     background-image: linear-gradient(180deg, var(--bevel-lo), transparent 58%);
     box-shadow: inset 0 2px 4px var(--bevel-lo);
 }

@@ -171,8 +171,8 @@ svg {
     opacity: 0.92;
 }
 .seal.solid {
-    background: var(--cinnabar);
-    color: var(--on-cinnabar);
+    background: var(--seal);
+    color: var(--on-seal);
 }
 
 /* ---------- 按钮 ---------- */
@@ -199,13 +199,15 @@ svg {
     color: var(--ink);
 }
 .btn.primary {
-    background: var(--cinnabar);
-    border-color: var(--cinnabar-ink);
-    color: var(--on-cinnabar);
+    background: var(--seal);
+    border-color: var(--seal-edge);
+    color: var(--on-seal);
 }
+/* 悬停/按下都往 `--ink` 混：`--ink` 在亮色是墨、在暗色是纸白，
+ * 同一条式子于是自动变成「亮色压深一档、暗色提亮一档」，两边都看得出反馈。 */
 .btn.primary:hover:not(:disabled) {
-    background: var(--cinnabar-ink);
-    color: var(--on-cinnabar);
+    background: color-mix(in srgb, var(--seal) 86%, var(--ink));
+    color: var(--on-seal);
 }
 .btn.compact {
     min-height: 26px;
@@ -289,33 +291,36 @@ svg {
     background-color: color-mix(in srgb, var(--well) 86%, var(--ink));
 }
 .bevel-pill.on {
-    border-color: var(--cinnabar-ink);
-    background-color: var(--cinnabar);
+    border-color: var(--seal-edge);
+    background-color: var(--seal);
     background-image: linear-gradient(180deg, var(--bevel-hi), transparent 46%, var(--bevel-lo));
     box-shadow:
         inset 0 1px 0 var(--bevel-hi),
         0 1px 1px var(--bevel-lo),
-        0 4px 9px color-mix(in srgb, var(--cinnabar) 30%, transparent);
-    color: var(--on-cinnabar);
-    font-weight: 600;
+        0 4px 9px color-mix(in srgb, var(--seal) 30%, transparent);
+    color: var(--on-seal);
+    /* 选中**不加粗**，与两个滑块（`VerticalSlider` / `FontSizeSlider`）一致：
+     * 全站的「选中」是一个朱底，不是一次字重变化。文楷本地只有 Regular，
+     * 600 是浏览器合成，会把撇捺糊成块；而一枚灌朱、带内高光与投影的胶囊
+     * 本身已经把「选中的是它」说清楚了，字不必再喊一遍。 */
 }
 .bevel-pill.on:hover:not(:disabled) {
-    background-color: var(--cinnabar-ink);
-    color: var(--on-cinnabar);
+    background-color: color-mix(in srgb, var(--seal) 86%, var(--ink));
+    color: var(--on-seal);
 }
 /* 按下去：渐变倒过来、投影收紧——同一枚印被压回纸里。 */
 .bevel-pill.on:active:not(:disabled) {
-    background-color: color-mix(in srgb, var(--cinnabar) 82%, var(--ink));
+    background-color: color-mix(in srgb, var(--seal) 78%, var(--ink));
     background-image: linear-gradient(180deg, var(--bevel-lo), transparent 58%);
     box-shadow:
         inset 0 1px 3px var(--bevel-lo),
-        0 1px 2px color-mix(in srgb, var(--cinnabar) 22%, transparent);
+        0 1px 2px color-mix(in srgb, var(--seal) 22%, transparent);
 }
 .bevel-pill.on:focus-visible {
-    border-color: var(--cinnabar-ink);
+    border-color: var(--seal-edge);
     box-shadow:
         0 0 0 2px color-mix(in srgb, var(--ink) 45%, transparent),
-        0 3px 7px color-mix(in srgb, var(--cinnabar) 26%, transparent);
+        0 3px 7px color-mix(in srgb, var(--seal) 26%, transparent);
 }
 
 /* ---------- 两格位移开关 ----------
@@ -335,8 +340,8 @@ svg {
     box-shadow:
         inset 0 1px 2px var(--bevel-lo),
         inset 0 -1px 0 var(--bevel-hi);
-    --thumb-bg: var(--cinnabar);
-    --thumb-fg: var(--on-cinnabar);
+    --thumb-bg: var(--seal);
+    --thumb-fg: var(--on-seal);
 }
 .cost-switch.off {
     --thumb-bg: color-mix(in srgb, var(--ink) 16%, var(--well));
@@ -415,10 +420,10 @@ svg {
     height: 0;
 }
 .check input:checked + .check-box {
-    border-color: var(--cinnabar-ink);
-    background: var(--cinnabar);
+    border-color: var(--seal-edge);
+    background: var(--seal);
     box-shadow: none;
-    color: var(--on-cinnabar);
+    color: var(--on-seal);
 }
 .check input:focus-visible + .check-box {
     outline: 1px dashed var(--cinnabar);

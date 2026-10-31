@@ -81,19 +81,23 @@ function onKeydown(event: KeyboardEvent) {
         inset 0 1px 2px var(--bevel-lo),
         inset 0 -1px 0 var(--bevel-hi);
 }
+/* 宽度按「padding box 减去两侧内边距再三等分」算，不能写 `33.3333% - 2px`：
+ * 百分比以 padding box（含 2px×2 内边距）为基准解析，减 2px 只得 47.33 而不是 48，
+ * 位移又是 `translateX(i * 100%)`（按自身宽度步进），于是末档累计空出 2px、右缘露缝。
+ * 两格的 `.cost-thumb` 恰好在 `50% - 2px` 上对得齐，三格才把误差放大出来。 */
 .size-thumb {
     position: absolute;
     top: 2px;
     bottom: 2px;
     left: 2px;
-    width: calc(33.3333% - 2px);
+    width: calc((100% - 4px) / 3);
     border-radius: var(--r-pill);
-    background-color: var(--cinnabar);
+    background-color: var(--seal);
     background-image: linear-gradient(180deg, var(--bevel-hi), transparent 46%, var(--bevel-lo));
     box-shadow:
         inset 0 1px 0 var(--bevel-hi),
         0 1px 1px var(--bevel-lo),
-        0 3px 7px color-mix(in srgb, var(--cinnabar) 28%, transparent);
+        0 3px 7px color-mix(in srgb, var(--seal) 28%, transparent);
     transition: transform var(--t-thumb) var(--ease-snap);
 }
 .size-slider:active .size-thumb {
@@ -113,10 +117,11 @@ function onKeydown(event: KeyboardEvent) {
     white-space: nowrap;
     transition: color var(--t-mid) var(--ease-soft);
 }
-/* 选中那格的字要压在朱印上：用 --on-cinnabar，别用纯白（暗色下会发飘）。 */
+/* 选中那格的字要压在朱印上：用成对的 `--on-seal`（暗色下它与 `--seal` 一起换）。
+ * 不加粗：文楷本地只有 Regular，600 是合成加粗，会把撇捺糊成一块；
+ * 也不描边——竖版那个滑块就是被 0.25px 描边撑成了「假粗」，两版要有一致的字重。 */
 .size-opt[aria-checked='true'] {
-    color: var(--on-cinnabar);
-    font-weight: 600;
+    color: var(--on-seal);
 }
 .size-opt:disabled {
     cursor: default;

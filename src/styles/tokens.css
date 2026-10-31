@@ -48,6 +48,22 @@
     --cinnabar: light-dark(#a8322b, #d0755f);
     --cinnabar-ink: light-dark(#8a2620, #b85b49);
     --on-cinnabar: light-dark(#fbf4e4, #171310);
+
+    /* ---------- 印面：一块灌了朱色的面 + 面上的字 ----------
+     * 这三枚是**成套**的，不能拆开用。`--cinnabar` 在暗色翻成 #d0755f 的亮橙红，
+     * `--on-cinnabar` 同时翻成近黑 #171310：深字压亮红，13px 楷体笔画被红色吃掉，
+     * 只剩一块发闷的暗色（用户反馈「选中时字体颜色黑色不明显」）。
+     * 所以暗色的面改用深一档的 `--cinnabar-ink`、字改用纸白 `--ink`，
+     * 两个主题统一成「朱底浅字」，切主题时面只是变深、字只是变浅，
+     * 不会在翻面的一瞬间整块反色。
+     *
+     * 用法分界：**填充**朱色的地方（按钮底、选中格、印章实心、勾选框）用 `--seal` /
+     * `--on-seal` / `--seal-edge`；把朱当**前景**用的地方（字、线、描边、强调数字）
+     * 继续用 `--cinnabar`，那种场合不存在「面与字一起翻」的问题。
+     */
+    --seal: var(--cinnabar);
+    --seal-edge: var(--cinnabar-ink);
+    --on-seal: var(--on-cinnabar);
     /* 赭：装备类目与铜色徽章。 */
     --ochre: light-dark(#8a5a2b, #c49a6a);
     /* 靛：进度、宝石、次要数据。 */
@@ -125,4 +141,13 @@
 
 :root.dark {
     color-scheme: dark;
+
+    /* 印面整组重映射，理由见上面 `--seal` 那一段。
+     * 注意 `--on-cinnabar` 本身仍留在暗色的近黑不动——它只在
+     * 「亮色面 + 深色字」的场合有意义，而现在没有地方该这么用。 */
+    --seal: var(--cinnabar-ink);
+    /* 亮色下印边比印面深一档（`--cinnabar-ink`）；暗色下印面已经是 `--cinnabar-ink`，
+     * 再用它就分不出来了，所以往纸白方向提 30%，让边浮在面之上。 */
+    --seal-edge: color-mix(in srgb, var(--cinnabar-ink) 70%, var(--ink));
+    --on-seal: var(--ink);
 }

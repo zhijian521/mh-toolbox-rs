@@ -137,10 +137,10 @@ const close = () => void appWindow?.close();
 }
 /* 关闭是唯一灌朱的窗口按钮：与「支出」同一条语义（会造成损失的动作）。 */
 .tb-btn.close:hover {
-    background: var(--cinnabar);
-    color: var(--on-cinnabar);
+    background: var(--seal);
+    color: var(--on-seal);
 }
 .tb-btn.close:active {
-    background: var(--cinnabar-ink);
+    background: color-mix(in srgb, var(--seal) 78%, var(--ink));
 }
 </style>
