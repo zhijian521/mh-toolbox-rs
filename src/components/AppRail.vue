@@ -27,10 +27,13 @@ import { useTheme } from '../composables/use-theme';
 import { openExternal } from '../services/desktop';
 
 const props = defineProps<{ items: NavItem[]; current: string }>();
+/* 事件一律写成「名字 → 参数元组」。另一种写法 `{ (event: 'x', v: T): void }` 也能用，
+ * 但两种并存时，`defineEmits` 那块就得先认一阵形状再看内容。选元组是因为它把参数
+ * 写在名字右边，加第二个事件时不会读成「又一个函数签名」。 */
 const emit = defineEmits<{
-    (event: 'update:current', key: string): void;
+    'update:current': [key: string];
     /** 隐藏入口：三连击牌记。路由由外壳决定，栏本身不知道 `/dev` 这回事。 */
-    (event: 'request-dev'): void;
+    'request-dev': [];
 }>();
 
 /** 项目地址。一个仓库、没有多环境之分，写死在这里比读配置省事。 */

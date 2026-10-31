@@ -20,7 +20,7 @@ const props = withDefaults(
     }>(),
     { offLabel: '不记', onLabel: '记', disabled: false },
 );
-const emit = defineEmits<{ (event: 'update:modelValue', value: boolean): void }>();
+const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>();
 
 /* 两格写成一份数据而不是两段硬编码的模板：顺序、`aria-checked`、tabindex 都只有一个来源，
  * 加第三格时也不必再复制一段。 */

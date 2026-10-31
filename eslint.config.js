@@ -124,7 +124,7 @@ export default tseslint.config(
 
     // ---------- 根配置与脚本：Node 环境 ----------
     {
-        files: ['*.config.{ts,js,mjs}', 'scripts/**/*.{js,mjs}'],
+        files: ['*.config.{ts,js,mjs}', 'scripts/**/*.{js,mjs}', 'tools/**/*.{js,mjs}'],
         languageOptions: {
             globals: { ...globals.node },
         },

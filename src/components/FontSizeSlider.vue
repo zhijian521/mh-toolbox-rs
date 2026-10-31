@@ -13,7 +13,7 @@ import { useRovingFocus } from '../composables/use-roving-focus';
  * （`useRovingFocus`，与侧栏竖槽、两格开关、分段胶囊同一套）。
  */
 const props = defineProps<{ modelValue: FontScale; disabled?: boolean }>();
-const emit = defineEmits<{ (event: 'update:modelValue', value: FontScale): void }>();
+const emit = defineEmits<{ 'update:modelValue': [value: FontScale] }>();
 
 const options: { value: FontScale; label: string }[] = [
     { value: 'small', label: '较小' },

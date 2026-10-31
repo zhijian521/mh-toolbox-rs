@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PageHeader from '../../components/PageHeader.vue';
+import PageShell from '../../components/PageShell.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import AtomsSection from './AtomsSection.vue';
 import IconsSection from './IconsSection.vue';
@@ -23,11 +23,11 @@ import TypeScaleSection from './TypeScaleSection.vue';
 </script>
 
 <template>
-    <PageHeader title="开发帮助" desc="组件 · 令牌 · 图标 · 线条">
-        <span class="hint">设计样张见 design/income.html</span>
-    </PageHeader>
+    <PageShell title="开发帮助" desc="组件 · 令牌 · 图标 · 线条">
+        <template #actions>
+            <span class="hint">设计样张见 design/income.html</span>
+        </template>
 
-    <div class="page-content">
         <div class="stack">
             <LedgerSection title="入口与约定" hint="左栏里没有这一页">
                 <p class="note">
@@ -53,5 +53,5 @@ import TypeScaleSection from './TypeScaleSection.vue';
             <TypeScaleSection />
             <IconsSection />
         </div>
-    </div>
+    </PageShell>
 </template>

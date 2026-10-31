@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import PageHeader from '../components/PageHeader.vue';
+import PageShell from '../components/PageShell.vue';
 import { DEFAULT_PATH } from '../navigation';
 
 /**
@@ -13,20 +13,21 @@ import { DEFAULT_PATH } from '../navigation';
 const route = useRoute();
 const router = useRouter();
 
-const title = computed(() => String(route.meta.title ?? ''));
+const title = computed(() => route.meta.title);
 </script>
 
 <template>
-    <PageHeader :title="title" desc="这一页还没开始">
-        <span class="hint">当前阶段只做设置页</span>
-    </PageHeader>
-    <div class="page-content">
+    <PageShell :title="title" desc="这一页还没开始">
+        <template #actions>
+            <span class="hint">当前阶段只做设置页</span>
+        </template>
+
         <div class="placeholder">
             <p>「{{ title }}」还没开始。</p>
             <p class="hint">先把设计语言落到真实组件上，再按页推进。</p>
             <button class="btn" type="button" @click="router.push(DEFAULT_PATH)">回到设置</button>
         </div>
-    </div>
+    </PageShell>
 </template>
 
 <style scoped>

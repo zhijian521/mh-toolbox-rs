@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import pkg from './package.json';
 
 /*
  * Tauri 起的是「已启动的 dev server」，所以端口必须固定：5173 被别人占走时
@@ -8,6 +9,12 @@ import vue from '@vitejs/plugin-vue';
 export default defineConfig({
     plugins: [vue()],
     clearScreen: false,
+    /* 版本号在这里注入成常量，客户端不再 `import '../../package.json'`——
+     * 那等于让 `src/` 反向依赖仓库根的清单文件。真源仍是 `package.json`，
+     * 与 `tauri.conf.json` / `Cargo.toml` 的一致性由 `scripts/check-version.mjs` 守。 */
+    define: {
+        __APP_VERSION__: JSON.stringify(pkg.version),
+    },
     server: {
         port: 5173,
         strictPort: true,

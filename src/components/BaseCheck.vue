@@ -8,7 +8,7 @@
  * 2. 对齐靠 `.text` 的行高，不靠 flex 居中——16px 方框与 13.5px 文字的中线不会自己重合。
  */
 defineProps<{ modelValue: boolean; disabled?: boolean }>();
-const emit = defineEmits<{ (event: 'update:modelValue', value: boolean): void }>();
+const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>();
 </script>
 
 <template>

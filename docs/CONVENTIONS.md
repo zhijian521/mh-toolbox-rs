@@ -10,17 +10,25 @@
 
 ## 0. 现状测绘（2026-10-31 实测）
 
-| 项         | 数值                            | 备注                                                                                      |
-| ---------- | ------------------------------- | ----------------------------------------------------------------------------------------- |
-| 前端       | 3389 行 / 31 个文件             | `.vue` 20 个 + `.ts` 8 个 + `.css` 3 个                                                   |
-| Rust       | 153 行 / 2 个文件               | 只有壳：`app_info` / `open_external`                                                      |
-| 最大单文件 | `base.css` 562 行               | 组件最大 `VerticalSlider.vue`（297 行）；设置页 2 个 section，开发页 5 张卡 + `tokens.ts` |
-| 提交       | 90 个                           | 前 45 个是旧项目历史，本仓实际 45 个（截至第 9 小批）                                     |
-| 依赖       | 4 个运行时 / 11 个开发          | 极简，很好                                                                                |
-| 测试       | **0**                           | 无 vitest，Rust 无 `#[test]`                                                              |
-| 静态检查   | ESLint 9 + Prettier + `vue-tsc` | 外加 `check-version` 校验三处清单文件；`npm run check` 一条全绿                           |
-| CI         | **0**                           | 无 `.github/`                                                                             |
-| 文档       | README + AGENTS + 本文件        | 三份，数值都按实测校准过                                                                  |
+| 项         | 数值                            | 备注                                                                                          |
+| ---------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
+| 前端       | 3688 行 / 38 个文件             | `.vue` 22 个 + `.ts` 13 个 + `.css` 3 个                                                      |
+| Rust       | 153 行 / 2 个文件               | 只有壳：`app_info` / `open_external`                                                          |
+| 最大单文件 | `base.css` 562 行               | 组件最大 `VerticalSlider.vue`（297 行）；设置页 2 个 section，开发页 5 张卡 + `tokens.ts`     |
+| 提交       | 94 个                           | 前 45 个是旧项目历史，本仓实际 49 个（截至第 10 小批）                                        |
+| 依赖       | 4 个运行时 / 11 个开发          | 极简，很好                                                                                    |
+| 测试       | **0**                           | 无 vitest，Rust 无 `#[test]`                                                                  |
+| 静态检查   | ESLint 9 + Prettier + `vue-tsc` | 外加 `check-version` 验三处版本号、`check-commits` 验最近 20 条提交；`npm run check` 一条全绿 |
+| CI         | 1 个 workflow                   | `.github/workflows/check.yml`：`npm run check` + `cargo fmt --check`                          |
+| 文档       | README + AGENTS + `docs/` 两份  | ARCHITECTURE / CONVENTIONS，数值都按实测校准过                                                |
+
+**测法**（上一版这里写错过：用 `git ls-files 'src/**/*.vue'` 统计，`**` 要求至少一层目录，
+于是 `src/App.vue`、`main.ts`、`router.ts`、`navigation.ts` 四个顶层文件被漏掉，一直少报 4 个）：
+
+```bash
+find src -name '*.vue' -o -name '*.ts' -o -name '*.css' | xargs wc -l | tail -1   # 行数
+for e in vue ts css; do find src -name "*.$e" | wc -l; done                        # 分项
+```
 
 ---
 
@@ -732,6 +740,54 @@ types/          （待建）跨组件共享的类型
 `--ease-snap` 的超调）。把过渡 `pause()` 在 40ms 截图，朱印确实压着「目标」「设置」两格。
 拖动时 `transitionDuration = 0s`、位移逐段跟随（402 → 335 → 268），松手后恢复 `0.3s`；
 键盘 End 同样走 300ms 过渡。`npm run check` 与 `npm run build` 全绿，控制台零报错。
+
+### 第 10 小批：工程护栏与仓库结构（2026-10-31）— **✅ 已完成**
+
+起因是一次全仓审查，结论一句话：**设计语言没问题，护栏是空的**——规范写着、代码破了，
+而没有任何一处会自动发现。四条真会出事的，都修了。
+
+1. ✅ **提交信息校验器自己是红的**。`check-commits.mjs` 要求冒号后带空格，8 条提交是紧贴写的；
+   它又没接进 `check`，所以半年没人发现。正则放宽成 `:\s*\S`（冒号后零或多个空格），
+   并把 `lint:commits` 接进 `check`。
+2. ✅ **「渲染层只有 services 能碰系统」被绕过**。`TitleBar.vue` 直接引 `@tauri-apps/api/window`，
+   而 ESLint 只拦 `@tauri-apps/api/core`（`paths` 只匹配一模一样的模块名）。改成 `patterns`
+   拦整族 `@tauri-apps/*`；窗口四件事（最小化 / 最大化 / 关闭 / 尺寸变化）搬进 `services/desktop.ts`，
+   浏览器里跑时返回无操作。
+3. ✅ **行尾靠本机 `core.autocrlf`**。`.gitattributes` 只声明了 `*.bat/*.cmd`，实测 64 个文本文件里
+   混着 3 个 LF；`.editorconfig` 还写着 `lf`，与磁盘相反。现在 `* text=auto eol=crlf` +
+   `.editorconfig` 同值，3 个 LF 文件重新检出。
+4. ✅ **`lint` 不带 `--max-warnings 0`**，三条 `warn` 规则只打印不拦人。
+
+结构性的补齐：
+
+5. ✅ CI：`.github/workflows/check.yml`（前端跑 `npm run check`，Rust 只查 `cargo fmt --check`，
+   clippy 需要 webkit 那套系统库，留在本机）。
+6. ✅ `docs/ARCHITECTURE.md` 建了——它被 `AGENTS.md` 与本文件引用却一直不存在。分层、数据流、
+   IPC 边界、crate 规划、数据兼容红线都在里面，未建的段落明确标「计划」。
+7. ✅ `.nvmrc`（22.22.2），CI 用 `node-version-file` 读它。
+8. ✅ `PageShell.vue`：把「页头 + `.page-content`」收成一个组件。这条契约原本是
+   「两处 16px 必须相等」的注释，现在改成结构问题。
+9. ✅ `RouteMeta` 声明（`types/router-meta.d.ts`），`PlaceholderView` 去掉 `String(...)` 兜底。
+   **注意**：vue-router 的 `RouteMeta` 自带 `Record<PropertyKey, unknown>` 索引签名，
+   拼错的字段名仍然抓不住（实测 `meta.titel` 不报错），它只保证「读对的字段有类型」。
+10. ✅ 版本号改成 `vite.config.ts` 的 `define` 注入 `__APP_VERSION__`，`src/` 不再反向
+    `import '../../package.json'`。
+11. ✅ `defineEmits` 统一成命名元组写法（此前 4 处函数重载 + 2 处元组）。
+12. ✅ `tools/probe/cdp.mjs`：常驻探针（自带静态服务、关缓存、URL 带时间戳、注入禁动效、
+    `--fresh` 清存储、`--light/--dark`）。此前每轮现写再删，那几条前提每次重踩。
+13. ✅ 文档收口：README 的红线改成指向 AGENTS（那份已经和 AGENTS 的六条对不上）；
+    `DevKitView` 注释的「四张卡」改五张；§1.3 逐条标状态（1/7/9/10/12 标 ✅，2/3 标 ⏳ 未修）。
+14. ✅ **§0 的测法换掉**：原先用 `git ls-files 'src/**/*.vue'` 统计，`**` 要求至少一层目录，
+    四个顶层文件（`App.vue` / `main.ts` / `router.ts` / `navigation.ts`）从来没被数进去，
+    一直少报 4 个。改用 `find`，并把命令写进 §0——**数字可以错，测法不能藏在脑子里**。
+
+**验收结果**：`npm run check` 五项全绿（format / lint / typecheck / version / commits）；
+反向验证过三条新护栏——往组件里写 `@tauri-apps/api/window` 报 `no-restricted-imports`、
+写一句 `console.log` 让 `--max-warnings 0` 退出码 1、`npm run lint:commits` 从「8 条不合规」
+变成「校验通过（20 条）」。CDP 实测：设置页 1280 两列 589×2、`scrollH = clientH = 744`；
+1024 两列 461×2；开发页 `atoms-kit` 1280 两列 570×2、1024 退回单列 898（480 是量出来的下限：
+442 时 `CostSwitch` 那条说明会断出「件。」两个字）；页头与内容区 `padding-left` 都是 16px，
+两处网格 `scrollWidth === clientWidth`，浅色/深色都过。
 
 ---
 

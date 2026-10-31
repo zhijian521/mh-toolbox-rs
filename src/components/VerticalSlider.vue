@@ -33,7 +33,7 @@ interface SliderOption {
 }
 
 const props = defineProps<{ modelValue: string; options: SliderOption[]; label: string }>();
-const emit = defineEmits<{ (event: 'update:modelValue', value: string): void }>();
+const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
 
 const track = ref<HTMLElement | null>(null);
 const dragging = ref(false);

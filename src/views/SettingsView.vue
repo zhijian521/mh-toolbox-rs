@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PageHeader from '../components/PageHeader.vue';
+import PageShell from '../components/PageShell.vue';
 import AboutSection from './settings/AboutSection.vue';
 import AppearanceSection from './settings/AppearanceSection.vue';
 
@@ -21,12 +21,10 @@ import AppearanceSection from './settings/AppearanceSection.vue';
 </script>
 
 <template>
-    <PageHeader title="设置" desc="主题 · 字号 · 关于" />
-
-    <div class="page-content">
+    <PageShell title="设置" desc="主题 · 字号 · 关于">
         <div class="stack stack-pair">
             <AppearanceSection />
             <AboutSection />
         </div>
-    </div>
+    </PageShell>
 </template>
