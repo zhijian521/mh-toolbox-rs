@@ -16,7 +16,7 @@
 | Tauri 2 窗口 | 1280×820，最小 1024×780，居中；productName `梦幻养老助手`，identifier `com.zhijian.mhtoolbox.rs`                      |
 | IPC 通路     | `app_info` 命令，前端经 `src/services/desktop.ts` 调用（渲染层唯一允许碰系统的地方）                                  |
 | 路由         | `vue-router` + hash 模式，8 个页面各一条；`src/navigation.ts` 是真源，路由与左栏都由它派生                            |
-| 设置页       | 7 个区块：外观 / 原子组件 / 色板 / 字号阶梯 / 图标 / 结构 / 关于。色板与字号阶梯**运行时读令牌**，不会与 CSS 漂       |
+| 设置页       | 6 个区块：外观 / 原子组件 / 色板 / 字号阶梯 / 图标 / 关于。色板与字号阶梯**运行时读令牌**，不会与 CSS 漂              |
 | 设计语言     | `src/styles/tokens.css` / `base.css` / `blocks.css`（唯一真源）、`design/income.html`（收益页样张，直接引同一份 CSS） |
 
 未开始：数据层（SQLite）、领域层、七个业务页的内容、OCR、e2e。
@@ -37,7 +37,7 @@
 │   ├── services/         desktop.ts —— 渲染层唯一的系统能力出口
 │   ├── styles/           tokens.css（令牌）/ base.css（重置 + `.well` 凹槽 + 胶囊）/
 │   │                     blocks.css（页面级版式）
-│   └── views/            SettingsView（7 个 section 在 settings/ 下）+ PlaceholderView
+│   └── views/            SettingsView（6 个 section 在 settings/ 下）+ PlaceholderView
 ├── src-tauri/            Rust 壳（窗口、命令、能力配置）
 ├── design/               设计语言样张与令牌原件
 └── assets/fonts/         霞鹜文楷 Screen（全量 9.8 MB，不子集化，OFL 1.1）
