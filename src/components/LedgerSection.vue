@@ -34,7 +34,12 @@ withDefaults(defineProps<{ title: string; hint?: string }>(), { hint: '' });
 }
 .section-head {
     display: flex;
-    align-items: baseline;
+    /* 不用 baseline：`h2` 自己也是个 flex 容器，它第一个 item 是那枚空标记，
+     * 而空元素的基线就是自身底边——于是 11px 的 hint 被对齐到标记底边，
+     * 比标题文字还低 2.5px，整行读起来是「小字掉下去了」。
+     * 改底边对齐后两者的字底严格重合（实测 128.30 = 128.30），且 `h2` 仍是 19 高。
+     * 也不要把 `h2` 退回 inline 排版来修：那会让 18px 的标记撑高行框到 20.6。 */
+    align-items: flex-end;
     gap: 10px;
     margin-bottom: 12px;
 }
