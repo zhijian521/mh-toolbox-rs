@@ -1,30 +1,57 @@
 <script setup lang="ts">
+import { onMounted, ref, watch } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
+import { useFontScale } from '../../composables/use-font-scale';
+import { declaredTokens, tokenFontSize } from './shared';
 
 /**
- * 字号阶梯。`px` 是「默认档」下的实际值，`size` 走令牌所以会跟着滑块缩放。
- * 两列都留着：左边告诉设计者原值，右边让他看见缩放后的样子。
+ * 字号阶梯：令牌名从样式表读、`px` 值实测，两列都不在这里抄。
+ *
+ * 早先这张表手写着 8 档 `px` 字符串，`tokens.css` 一改它就变成谎话。
+ * 现在把每个 `--fs-*` 套成 `font-size` 读计算值，于是左列永远是**当前档位下的真实像素**：
+ * 切到「较大」时数字会跟着长，这恰好是这一页该展示的东西——设计者要看的是
+ * 「这行在用户眼里多大」，不是「初始值写的是多少」。
+ *
+ * `USAGE` 只给读感；将来新增一档字号，它会带着原名自动出现在表里。
  */
-const typeScale: { token: string; px: string; usage: string; size: string }[] = [
-    { token: '--fs-mini', px: '10px', usage: '印章 · 表头', size: 'var(--fs-mini)' },
-    { token: '--fs-xs', px: '11px', usage: '元信息 · 时间', size: 'var(--fs-xs)' },
-    { token: '--fs-sm', px: '12px', usage: '胶囊 · 流水', size: 'var(--fs-sm)' },
-    { token: '--fs-base', px: '13.5px', usage: '正文 · 表单', size: 'var(--fs-base)' },
-    { token: '--fs-md', px: '14.5px', usage: '分栏标题', size: 'var(--fs-md)' },
-    { token: '--fs-lg', px: '17px', usage: '弹窗标题', size: 'var(--fs-lg)' },
-    { token: '--fs-xl', px: '22px', usage: '页面标题', size: 'var(--fs-xl)' },
-    { token: '--fs-amount', px: '29px', usage: '金额', size: 'var(--fs-amount)' },
-];
+const USAGE: Record<string, string> = {
+    '--fs-mini': '印章 · 表头',
+    '--fs-xs': '元信息 · 时间',
+    '--fs-sm': '胶囊 · 流水',
+    '--fs-base': '正文 · 表单',
+    '--fs-md': '分栏标题',
+    '--fs-lg': '弹窗标题',
+    '--fs-xl': '页面标题',
+    '--fs-amount': '金额',
+};
+
+const rows = ref<{ token: string; px: number; label: string }[]>([]);
+const { scale } = useFontScale();
+
+function measure() {
+    /* `--fs-scale` 是系数本身（一个纯数字），不是档位，得排掉。 */
+    rows.value = declaredTokens('--fs-')
+        .filter((token) => token !== '--fs-scale')
+        .map((token) => ({
+            token,
+            px: tokenFontSize(token),
+            label: USAGE[token] ?? '样例',
+        }));
+}
+
+onMounted(measure);
+/* 滑块只改 `--fs-scale`，DOM 上没有任何变化能触发重绘；等一帧让 `apply()` 先落地再量。 */
+watch(scale, () => requestAnimationFrame(measure));
 </script>
 
 <template>
     <LedgerSection title="字号阶梯" seal="字" hint="霞鹜文楷 · 八档 · 受上方滑块控制">
         <div class="type-scale">
-            <div v-for="item in typeScale" :key="item.token" class="type-row">
+            <div v-for="item in rows" :key="item.token" class="type-row">
                 <code class="type-token">{{ item.token }}</code>
-                <em class="type-px">{{ item.px }}</em>
-                <span class="type-sample" :style="{ fontSize: item.size }">
-                    {{ item.usage }} · 梦幻养老助手 328.6 万
+                <em class="type-px">{{ Math.round(item.px * 10) / 10 }}px</em>
+                <span class="type-sample" :style="{ fontSize: `var(${item.token})` }">
+                    {{ item.label }} · 梦幻养老助手 328.6 万
                 </span>
             </div>
         </div>

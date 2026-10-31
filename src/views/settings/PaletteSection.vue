@@ -1,22 +1,58 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
+import { colorTokens, declaredTokens } from './shared';
 
-/** 令牌清单。新增颜色令牌时加一行，色板自动多一格。 */
-const swatches: { token: string; label: string }[] = [
-    { token: '--bg', label: '页面底' },
-    { token: '--paper', label: '纸面' },
-    { token: '--paper-2', label: '纸面·次' },
-    { token: '--well', label: '凹槽' },
-    { token: '--rule', label: '账线' },
-    { token: '--rule-2', label: '描边' },
-    { token: '--ink', label: '墨' },
-    { token: '--ink-2', label: '正文' },
-    { token: '--muted', label: '淡墨' },
-    { token: '--cinnabar', label: '朱' },
-    { token: '--ochre', label: '赭' },
-    { token: '--indigo', label: '靛' },
-    { token: '--moss', label: '苔' },
-];
+/**
+ * 色板：**清单从样式表读**，不在这里抄第二份。
+ *
+ * 早先这张表是手写的 13 行，而 `tokens.css` 里已经有 25 枚以上的颜色令牌——
+ * 后来新增的 `--seal` / `--seal-edge` / `--on-seal` 一次都没出现在色板上。
+ * 现在枚举全部 `--*` 再筛出颜色，色板恒等于真源；新增令牌不需要改这个文件。
+ *
+ * `LABELS` 只提供**读感**，不是数据：没登记的令牌照样会出现，只是标签显示原名。
+ * 顺序也是样式表里的声明顺序（纸 → 线 → 朱 → 印面 → 诸色 → 立体），不是字母序——
+ * 字母序会把 `--on-seal` 排到 `--seal` 前面，读的人看不出它们是一对。
+ */
+const LABELS: Record<string, string> = {
+    '--bg': '页面底',
+    '--paper': '纸面',
+    '--paper-2': '纸面·次',
+    '--well': '凹槽',
+    '--ink': '墨',
+    '--ink-2': '正文',
+    '--muted': '淡墨',
+    '--rule': '账线',
+    '--rule-2': '描边',
+    '--cinnabar': '朱',
+    '--cinnabar-ink': '朱·深',
+    '--on-cinnabar': '朱上字',
+    '--seal': '印面',
+    '--seal-edge': '印边',
+    '--on-seal': '印上字',
+    '--ochre': '赭',
+    '--indigo': '靛',
+    '--moss': '苔',
+    '--bevel-hi': '受光',
+    '--bevel-lo': '背光',
+    '--shadow': '投影',
+    '--shadow-lg': '投影·大',
+    '--overlay': '遮罩',
+    '--danger-bg': '危险底',
+    '--warn-bg': '警示底',
+    '--scrollbar-thumb': '滑杆',
+    '--scrollbar-thumb-hover': '滑杆·悬停',
+    '--scrollbar-thumb-active': '滑杆·按下',
+};
+
+const swatches = ref<{ token: string; label: string }[]>([]);
+
+onMounted(() => {
+    swatches.value = colorTokens(declaredTokens()).map((token) => ({
+        token,
+        label: LABELS[token] ?? token.replace(/^--/, ''),
+    }));
+});
 </script>
 
 <template>
@@ -30,6 +66,11 @@ const swatches: { token: string; label: string }[] = [
                 </span>
             </div>
         </div>
+        <p v-if="swatches.length" class="note">
+            这 {{ swatches.length }} 枚是从 <code>tokens.css</code> 运行时读出来的，不是手写的清单——
+            新增令牌会自动出现在这里。半透明的（受光 / 背光 / 投影 /
+            遮罩）显示的是它叠在纸上的样子。
+        </p>
     </LedgerSection>
 </template>
 
@@ -70,5 +111,9 @@ const swatches: { token: string; label: string }[] = [
     font-family: var(--font-ui);
     font-size: var(--fs-mini);
     letter-spacing: 0;
+    /* `--scrollbar-thumb-active` 这类长名要能断行，断在连字符上比溢出好；
+     * 行高收一点，两行的格子才不会比同行高出半个字。 */
+    line-height: 1.35;
+    overflow-wrap: anywhere;
 }
 </style>

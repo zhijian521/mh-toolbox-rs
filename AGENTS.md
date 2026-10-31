@@ -6,7 +6,7 @@
 ## 一、一条命令验证
 
 ```bash
-npm run check     # format:check + lint + typecheck，人跑的和 CI 跑的是同一条
+npm run check     # format:check + lint + typecheck + check:version，人跑的和 CI 跑的是同一条
 ```
 
 Rust 侧需要单独跑（要先设 MSVC 环境，见 §三）：
@@ -39,7 +39,7 @@ cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings
 MSVC="C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Tools/MSVC/14.44.35207"
 SDK="C:/Program Files (x86)/Windows Kits/10"; SDKVER=10.0.26100.0
 export LIB="$MSVC/lib/x64;$SDK/Lib/$SDKVER/um/x64;$SDK/Lib/$SDKVER/ucrt/x64"
-export PATH="/c/Users/pc/.cargo/bin:$MSVC/bin/Hostx64/x64:$PATH"
+export PATH="$HOME/.cargo/bin:$MSVC/bin/Hostx64/x64:$PATH"
 export CARGO_BUILD_JOBS=4
 ```
 

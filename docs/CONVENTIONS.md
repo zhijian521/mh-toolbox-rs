@@ -1,25 +1,26 @@
 # 工程规范与优化清单
 
-> 2026-10-30 对全仓做的一次审查。**这一版只列问题与方案，没有改代码。**
-> 结论先行：设计语言已经很扎实，缺的是工程侧的护栏——没有静态检查、没有测试、没有 CI、
-> 没有文档。项目现在 2800 行，还来得及立规矩；等到领域层（SQLite + 6000 行逻辑 + OCR）
-> 进来再补，成本要翻好几倍。
+> 2026-10-30 对全仓做的一次审查，2026-10-31 按 §3 落地并校准。
+> **§1「审查发现」是那天的原始记录**（含当时的行号），已修项的标题后标了 ✅——
+> 要读现状请看 §0 与 §3，不要把 §1 里的数字当成现在的数字。
+> 结论仍然成立：设计语言已经很扎实，缺的是工程侧的护栏——静态检查、测试、CI；
+> 领域层（SQLite + 6000 行逻辑 + OCR）动工前必须补齐。
 
 ---
 
-## 0. 现状测绘
+## 0. 现状测绘（2026-10-31 实测）
 
-| 项         | 数值                      | 备注                                         |
-| ---------- | ------------------------- | -------------------------------------------- |
-| 前端       | 2732 行 / 21 个文件       | `.vue` 15 个 + `.ts` 4 个 + `.css` 2 个      |
-| Rust       | 135 行 / 2 个文件         | 只有壳：`app_info` / `open_external`         |
-| 最大单文件 | `SettingsView.vue` 667 行 | 8 个 section 挤在一起                        |
-| 提交       | 66 个                     | 前 45 个是旧项目历史，本仓实际 21 个         |
-| 依赖       | 3 个运行时 / 5 个开发     | 极简，很好                                   |
-| 测试       | **0**                     | 无 vitest，Rust 无 `#[test]`                 |
-| 静态检查   | **0**                     | 无 ESLint / Prettier / rustfmt / clippy 配置 |
-| CI         | **0**                     | 无 `.github/`                                |
-| 文档       | 1 份 README               | 且已部分过期                                 |
+| 项         | 数值                            | 备注                                                               |
+| ---------- | ------------------------------- | ------------------------------------------------------------------ |
+| 前端       | 3696 行 / 37 个文件             | `.vue` 23 个 + `.ts` 11 个 + `.css` 3 个                           |
+| Rust       | 153 行 / 2 个文件               | 只有壳：`app_info` / `open_external`                               |
+| 最大单文件 | `base.css` 506 行               | 组件里最大是 `VerticalSlider.vue`（283 行）；设置页已拆成 8 个文件 |
+| 提交       | 80 个                           | 前 45 个是旧项目历史，本仓实际 35 个                               |
+| 依赖       | 4 个运行时 / 11 个开发          | 极简，很好                                                         |
+| 测试       | **0**                           | 无 vitest，Rust 无 `#[test]`                                       |
+| 静态检查   | ESLint 9 + Prettier + `vue-tsc` | 外加 `check-version` 校验三处清单文件；`npm run check` 一条全绿    |
+| CI         | **0**                           | 无 `.github/`                                                      |
+| 文档       | README + AGENTS + 本文件        | 三份，数值都按实测校准过                                           |
 
 ---
 
@@ -29,7 +30,7 @@
 
 ### 1.1 阻断级（现在不做，后面要付利息）
 
-#### A. 一行静态检查都没有
+#### A. 一行静态检查都没有 —— ✅ 已修（第一批 1–3）
 
 `ls` 实测：无 `.eslintrc*`、无 `eslint.config.js`、无 `.prettierrc*`、无 `.editorconfig`、
 无 `rustfmt.toml`、无 `clippy.toml`。唯一的质量门是 `package.json:7` 的
@@ -42,7 +43,7 @@
 **为什么必须现在做**：现在 21 个文件，接上 lint 大概是改十几处；等 100 个文件、几十个
 页面时接，要么一次性改几百处，要么关掉规则假装通过。**规范的价值在于「从第一天就没有例外」**。
 
-#### B. 零测试，而项目定位是「拿旧仓当 oracle 做差分」
+#### B. 零测试，而项目定位是「拿旧仓当 oracle 做差分」 —— ⏳ 待第三批
 
 README 写着「6333 行领域逻辑是唯一可信规格」、`tests/fixtures/legacy-domain/` 要 vendor 进来
 做逐字段对比。但：
@@ -54,7 +55,7 @@ README 写着「6333 行领域逻辑是唯一可信规格」、`tests/fixtures/l
 现在 Rust 只有 135 行，`data_dir()` 这种纯函数已经可以测了。**harness 要在写第一行领域代码
 之前就建好**——这是记忆里已经写下的结论，但还没落地。
 
-#### C. 工具链版本没锁
+#### C. 工具链版本没锁 —— ⚠️ 部分完成（`engines` 与 `rust-toolchain.toml` 已加，无 `.nvmrc`）
 
 - `package.json` 无 `engines`、无 `packageManager`（实测 `node -e` 输出「无」）
 - 无 `rust-toolchain.toml`；`src-tauri/Cargo.toml:6` 的 `rust-version = "1.77"` 只是**最低**
@@ -64,7 +65,7 @@ README 写着「6333 行领域逻辑是唯一可信规格」、`tests/fixtures/l
 本机是 node 22.22.2 / npm 10.9.7。换机、重装、或者以后接 CI，只要 node 主版本跳一档，
 `vite 6` / `vue-tsc` 的行为就可能变，而这种变化会伪装成「代码坏了」。
 
-#### D. 提交信息无强制
+#### D. 提交信息无强制 —— ✅ 已有校验器（`npm run lint:commits`，未并进 `check`）
 
 `git log` 实测：66 个提交里 21 个带 `type:` 前缀（前 45 个是旧项目历史，不算）。
 最近 20 个**全部合规**，说明习惯已经养成。但这是自律，不是机制——旧仓有
@@ -72,7 +73,7 @@ README 写着「6333 行领域逻辑是唯一可信规格」、`tests/fixtures/l
 
 ### 1.2 结构级（影响后续每一步）
 
-#### E. 没有路由，8 个页面靠 `v-if` 硬编码
+#### E. 没有路由，8 个页面靠 `v-if` 硬编码 —— ✅ 已修（第二批 8）
 
 ```ts
 // src/App.vue:25
@@ -88,7 +89,7 @@ Tauri 跑的是本地文件，`createWebHashHistory()` 零成本，不需要服�
 每页一个路由、可深链接（以后「从托盘直接打开收益页」）、浏览器前进后退可用、
 `SettingsView` 的 667 行能被路由懒加载摊开。
 
-#### F. `SettingsView.vue` 667 行 / 8 个 section
+#### F. `SettingsView.vue` 667 行 / 8 个 section —— ✅ 已拆（第二批 9）
 
 `src/views/SettingsView.vue` 里：外观（86）、原子组件（107）、色板（148）、字号阶梯（161）、
 控件（174）、图标（254）、结构（282）、关于（316），每个 section 都带一段 300–100 行的 scoped 样式。
@@ -162,7 +163,7 @@ design/icon/old/                 ← 旧图标备份，保留
 | 8   | `src/components/`                         | 命名不统一：`BaseCheck` 带 `Base` 前缀，`SlotButton`/`SegmentedPills`/`AppIcon` 不带                                                                                    | 见 §2.2 的三条前缀规则                                                                                                                                              |
 | 9   | `src/App.vue:3`                           | `import AppRail, { type RailPage } from './components/AppRail.vue'` —— 跨组件类型从 SFC 里导出，靠双 `<script>` 块才能做到                                              | 跨组件类型收进 `src/types/`                                                                                                                                         |
 | 10  | `src/styles/base.css:101`                 | `border-radius: 10px` 是唯一硬编码圆角                                                                                                                                  | 滚动条滑块不是设计元素，可以保留，但加一行注释说明为什么例外                                                                                                        |
-| 11  | `README.md`                               | 目录清单已过期：components 一栏没有 `AppRail`/`SlotButton`/`SegmentedPills`/`IconName` 体系                                                                             | 顺手更新，或干脆改成指 `docs/`                                                                                                                                      |
+| 11  | `README.md`                               | ✅ 已修（2026-10-31）。原问题：目录清单缺 `AppRail`/`SlotButton`/`SegmentedPills`/`IconName` 体系，最小高度还写着 680（实际 780）                                       | 已按实测校准，并顺手改掉 `.cargo` 路径里写死的旧用户目录                                                                                                            |
 | 12  | `docs/`                                   | 不存在。所有约定都靠代码注释承载（注释质量很高，但 456 行 `base.css` + 15 个组件，新人读不到全貌）                                                                      | 见 §2.6                                                                                                                                                             |
 
 ---
@@ -251,7 +252,10 @@ components = ["rustfmt", "clippy"]
 - 组件文件 `PascalCase.vue`，一个文件一个组件
 - composable `use-xxx.ts`，导出 `useXxx`
 - 类型 / 接口 `PascalCase`，**不加 `I` 前缀**（现有 `AppInfo`、`RailPage` 已经是对的）
-- CSS 类名 `kebab-case`，BEM 不强制；**层级靠块前缀**（`.rail-item`、`.rail-foot`）而不是嵌套选择器
+- CSS 类名 `kebab-case`，BEM 不强制；**层级靠块前缀**（`.rail-item`、`.rail-foot`）而不是嵌套选择器。
+  **类名不要求等于组件名**：`.rail-mark`、`.size-slider`、`.vs-track` 都是块语义命名，与
+  `AppRail` / `FontSizeSlider` / `VerticalSlider` 不同名。找组件靠 grep 模板里的标签名，不靠类名；
+  反过来为了「对齐」而批量改名，会冲掉 git blame，收益低于成本。
 - 设计令牌 `--<类别>-<语义>`：`--paper`、`--ink-2`、`--fs-base`、`--r-2`、`--sp-4`、`--t-quick`
 
 ### 2.3 组件分层
@@ -291,10 +295,11 @@ types/          （待建）跨组件共享的类型
    **注意「最小高度」不等于「默认档刚好填满」**：按 1.1 档定，默认档必然在槽与底栏之间
    留一段空白，那是留白，不是没排完——留白由 `.rail-foot` 的 `margin-top: auto` 吸收，
    底栏永远贴底。
-   **栏顶牌记的高度与 `PageHeader` 等值**（`19px + --fs-xl × 1.15 + 1px`），改页头的
-   padding 或标题行高，两处要一起改——否则下面那道槽的起点会在 50px 栏宽处与页头
-   底边错开一个台阶。**槽顶紧贴这条线**（`.rail-nav` 不设 margin-top）：留 6px 时槽顶
-   比右侧横线低半格，接缝处永远差一个台阶。
+   **栏顶牌记的高度与 `PageHeader` 等值**：两处都取 `--page-head-h`。那枚令牌写的就是
+   「padding 10 + `--fs-xl` × 1.15 + 9 + 1px 账线」，改页头的 padding 或标题行高只改它一处。
+   （曾经两边各抄一份算式，正是 §1.2-H 里反对的那种写法。）否则下面那道槽的起点会在
+   50px 栏宽处与页头底边错开一个台阶。**槽顶紧贴这条线**（`.rail-nav` 不设 margin-top）：
+   留 6px 时槽顶比右侧横线低半格，接缝处永远差一个台阶。
    **牌记本身不画下边框**：那里放的是直接落在纸上的应用标
    （`assets/mark-ink.png` / `mark-paper.png`，与 `assets/fonts/` 同处，随主题翻面），横线会把它切成一个
    「头部区块」，而上面并不是区块名。
@@ -334,8 +339,10 @@ types/          （待建）跨组件共享的类型
 4. **间距优先 `--sp-*`**。现状里有不少 `gap: 5px`/`padding: 14px 10px` 的裸值（
    `AppRail.vue`、`SettingsView.vue` 多处）——这块**不建议现在全改**，成本高收益低。
    规则改成：新代码用令牌，旧值遇到再顺手换。
-5. **结构靠线，不靠阴影**。分区用文武线 `.frame`，列表用账线 `.ledger-lines`。阴影只用于
-   「凸起」的一次性投影。
+5. **结构靠线，不靠阴影**。分区用文武线 `.frame`；列表的行分隔用行级
+   `border-bottom: var(--w-hair) solid var(--rule)`。阴影只用于「凸起」的一次性投影。
+   曾经有个全局 `.ledger-lines`（整片 `repeating-linear-gradient` 画满横线），全站零引用，已删——
+   真要用「格子纸」，那是**某个列表**的私有样式，写在该组件的 scoped 里，不要再升成全局类。
 6. **动效必须走 `--t-*` + `--ease-*`**，位移类动效统一带 `--ease-snap`（回弹）。
 7. **`prefers-reduced-motion` 必须有降级**（见 §1.3-5）。
 8. **令牌只有一个真源**（✅ 已执行）。`design/` 下不再有样式表副本，`design/income.html`
@@ -366,6 +373,24 @@ types/          （待建）跨组件共享的类型
     下沿**亮**高光，写在 `base.css` 的 `.well` 里；竖起来的槽用 `.well.upright`（暗面换到左壁）。
     控件只写几何（宽高、内边距、圆角、排布），不重写深度。改厚度就改那一处，
     改完五道槽同时变——想给某个控件单独调淡，先想清楚是不是约定错了。
+12. **令牌表里有一部分是「词汇表」，不是死码**。`--sp-*` 十档现有 8 档零引用，
+    `--z-*` / `--overlay` / `--danger-bg` / `--warn-bg` 全零引用——它们是给还没写的页面
+    备的词（弹窗、错误态、遮罩），`AGENTS.md` §七 已定「新代码用令牌、旧值遇到再换」。
+    审查时别把零引用令牌当垃圾清：删掉只会让下一个人重新写 `z-index: 200` 和 `gap: 8px`。
+    **死码是「零引用的类和组件」，不是令牌。**
+13. **展示令牌的页面必须运行时读，不许手抄**。「色板」「字号阶梯」曾经是两份手写清单
+    （13 个颜色、8 档 px），`tokens.css` 后来新增的 `--seal` 组一次都没在色板上出现过——
+    这就是「需要记得两边都改」的代价。现在两页都走 `views/settings/shared.ts` 的
+    `declaredTokens` / `colorTokens` / `tokenFontSize`：名字从已加载的样式表里枚举，
+    值挂到隐藏探针上让浏览器算（判断颜色用的是「套成 `background-color` 读回来」，
+    不是 `CSS.supports`——后者只要值里含 `var()` 就返回 true，会把 `--fs-*` 误判成颜色）。
+    新增令牌不需要动页面。**任何「文档页」都不要抄代码里的数字。**
+14. **一个控件的「皮」放哪里，只看一条：样张要不要裸用**。`design/income.html` 是不经组件的
+    静态 HTML，它只认得类名——被它用到的控件（`.frame` / `.seal` / `.bevel-pill` /
+    `.cost-switch` / `.check` / `.well`）必须留在全局表；只被 Vue 组件用的
+    （`.size-slider` / `.slot-btn` / `.vs-*`）写组件 scoped。判据不是「通用不通用」：
+    再通用的控件，样张不用就不用进全局。**进了全局就要接受「全局类改名要同步样张」的代价**——
+    B 批给 `.well` 拆类时，样张里 15 处 `.bevel-pill` 和 4 处 `.cost-switch` 是手工补的 `well`。
 
 ### 2.5 注释
 
@@ -463,6 +488,33 @@ types/          （待建）跨组件共享的类型
 20. 写 `docs/ARCHITECTURE.md` / `UI_GUIDE.md` / `PAGE_GUIDE.md`
 
 **验收**：`cargo test` 有真实用例；harness 能对一个已知函数产出「一致 / 不一致」的结论。
+
+### 后续：样式统一三小批（2026-10-31）— **✅ 已完成**
+
+审查后按「先修真错的、再合并重复的、最后清文档」拆成三批，各自独立提交、独立验证。
+每条都用 Edge headless + CDP 实测过，不是「构建通过就算」。
+
+21. ✅ 印面令牌成对化：`--seal` / `--seal-edge` / `--on-seal`，9 处控件迁移（§2.4-1）
+22. ✅ 选中态取消假粗：删 `-webkit-text-stroke: 0.25px` 与 `font-weight: 600`；
+    `LedgerSection` 的 scoped `h2` 曾顶掉全局 400，是当时唯一的真加粗（§2.4-9）
+23. ✅ 凹槽五份归一为 `.well` / `.well.upright`（§2.4-11）；
+    竖槽那两行在用 `--ink` 当暗面，暗色下把凹槽翻成了提亮带，一并改正
+24. ✅ 承载面归一为 `.pill-group`（分段胶囊与演示页共用）
+25. ✅ 四个单选组统一 `useRovingFocus`（§2.4-10）；侧栏 `tablist` → `<nav>` + `aria-current`；
+    删零引用且语义冲突的 `BevelPill` 组件
+26. ✅ 色板 / 字号阶梯改运行时读令牌，不再手抄第二份（§2.4-13）
+27. ✅ 页头高度收成 `--page-head-h`，左栏牌记与它同源——此前两处各抄一份算式（§2.3-5）
+28. ✅ 死码清零：`.ledger-lines`、`.text-button`、`SealMark` 的 `size` prop（全站无人传，
+    其兜底规则被 inline style 永久压过）、页头空转的 `position: sticky` + `z-index`
+29. ✅ 文档按实测校准：README 的最小高度与 `.cargo` 路径、AGENTS 的 check 命令、本文件 §0
+
+**验收结果**（2026-10-31 实测）：
+
+- `npm run check` 全绿；`npm run build` 通过
+- 色板 28 枚颜色令牌（此前手写 13 枚，`--seal` 组从未出现过），顺序等于 `tokens.css` 声明顺序
+- 字号阶梯 8 档默认值 `10/11/12/13.5/14.5/17/22/29`，切「较大」后 `11/12.1/13.2/14.9/16/18.7/24.2/31.9`
+- `.page-head` 与 `.rail-brand` 高度、底边 y 完全相等（较大档 47.83 / 87.42，两栏零差）
+- 三档滑块末档 `dLeft` / `dRight` 均为 0；9 个 radiogroup 每组恰好一个 `tabindex=0`
 
 ---
 

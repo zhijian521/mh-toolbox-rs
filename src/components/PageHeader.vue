@@ -9,8 +9,12 @@
  *    看着像没有落款。
  * 3. `flex: none` + 实底背景。页头本身不滚（滚动交给 `.page-content`），
  *    但内容会从它下沿经过，没有底色就会透出来。
+ *    **不写 `position: sticky`**：页头是 `.page-content` 的兄弟而不是子节点，
+ *    它本来就不在滚动容器里，`sticky` + `z-index` 那两行从来没生效过。
  * 4. 分界是**通栏** 1px 账线。早先试过内缩 20px 的写法，两端与区块框错开，
  *    反而读作「断头线」；撑满到内容区两侧才对得上左栏那条竖线。
+ * 5. 高度由 `--page-head-h` 说了算（左栏牌记引同一枚，两栏的横线才对得齐）。
+ *    `min-height` 只是兜底：正常情况 padding 撑出来的值恰好等于它。
  */
 withDefaults(defineProps<{ title: string; desc?: string }>(), { desc: '' });
 </script>
@@ -27,13 +31,11 @@ withDefaults(defineProps<{ title: string; desc?: string }>(), { desc: '' });
 
 <style scoped>
 .page-head {
-    position: sticky;
-    top: 0;
-    z-index: 2;
     display: flex;
     align-items: baseline;
     flex: none;
     gap: 12px;
+    min-height: var(--page-head-h);
     padding: 10px 20px 9px;
     border-bottom: var(--w-hair) solid var(--rule);
     background: var(--paper);
