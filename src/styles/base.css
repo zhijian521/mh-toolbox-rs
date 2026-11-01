@@ -2,7 +2,8 @@
  * 基座层 —— 元素重置 + 跨页面复用的最小工具类（账簿方向）。
  *
  * 五类：凹槽 `.well` 与印面 `.stamp`（同一件事的正反面）、按钮与区块标、
- * 凹槽胶囊与承载面、两格开关与轨道选项格、勾选项；
+ * 凹槽胶囊与承载面、两格开关与轨道选项格、文本级词汇（`.hint` / `.error` /
+ * `.positive` / `.num`）；
  * 另加「账簿语法」`.frame`（文武线外框）与页面骨架 `.page-content`。
  * 组合级的排版类（`.note`、`.kit`）在 `blocks.css`。
  */
@@ -120,7 +121,7 @@ svg {
  */
 .frame {
     position: relative;
-    padding: var(--sp-9);
+    padding: 20px;
     border: var(--w-hair) solid var(--rule-2);
     background: var(--paper);
 }
@@ -183,7 +184,7 @@ svg {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: var(--sp-3);
+    gap: 6px;
     min-height: 31px;
     padding: 5px 13px;
     border: var(--w-hair) solid var(--rule-2);
@@ -218,28 +219,6 @@ svg {
     min-height: 26px;
     padding: 3px 9px;
     font-size: var(--fs-xs);
-}
-.btn.danger {
-    color: var(--cinnabar);
-}
-.icon-button {
-    --icon-size: calc(13px * var(--fs-scale));
-
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    padding: 0;
-    border: var(--w-hair) solid transparent;
-    border-radius: var(--r-1);
-    background: transparent;
-    color: var(--muted);
-}
-.icon-button:hover:not(:disabled) {
-    border-color: var(--rule-2);
-    background: var(--paper-2);
-    color: var(--ink);
 }
 
 /* ---------- 凹槽：四件套 ----------
@@ -461,48 +440,13 @@ svg {
     padding: 3px 10px;
 }
 
-/* ---------- 勾选项 ---------- */
-.check {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    color: var(--ink-2);
-    font-size: var(--fs-base);
-    cursor: pointer;
-}
-.check-box {
-    display: grid;
-    place-items: center;
-    flex: none;
-    width: 16px;
-    height: 16px;
-    border: var(--w-hair) solid var(--rule-2);
-    border-radius: var(--r-1);
-    background: var(--well);
-    box-shadow: inset 0 1px 2px var(--bevel-lo);
-    color: transparent;
-}
-.check input {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-.check input:checked + .check-box {
-    border-color: var(--seal-edge);
-    background: var(--seal);
-    box-shadow: none;
-    color: var(--on-seal);
-}
-.check input:focus-visible + .check-box {
-    outline: 1px dashed var(--cinnabar);
-    outline-offset: 1px;
-}
-
 /* ---------- 文本 ----------
- * `.error` / `.positive` / `.num` 三个目前没有调用方，但它们是**文本级词汇**，与 `--sp-*`
- * 同性质：错误提示、收入金额、金额列各要用一条，删掉下次还得原样加回来。
- * 判死码看「有没有第二种写法」，不看「今天有几个调用方」——这三条各自只此一份。
+ * `.error` / `.positive` / `.num` 三个目前没有调用方，但它们是**文本级词汇**：
+ * 错误提示、收入金额、金额列各要用一条，各有唯一一份定义，删掉下次还得原样加回来。
+ * 判死码看「有没有第二种写法」，不看「今天有几个调用方」。
+ *
+ * 与 `--sp-*` 那组刻度不是一回事：刻度是一套**可选的值**，用不上就等于没有，
+ * 留着反而让人以为「选令牌」比写 px 更正确（那组 10 档只用过 2 档，已删）。
  */
 .hint {
     color: var(--muted);

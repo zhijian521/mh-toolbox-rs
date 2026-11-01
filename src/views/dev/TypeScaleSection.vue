@@ -20,9 +20,7 @@ const USAGE: Record<string, string> = {
     '--fs-sm': '胶囊 · 流水',
     '--fs-base': '正文 · 表单',
     '--fs-md': '分栏标题',
-    '--fs-lg': '弹窗标题',
     '--fs-xl': '页面标题',
-    '--fs-amount': '金额',
 };
 
 const rows = ref<{ token: string; px: number; label: string }[]>([]);
@@ -45,7 +43,7 @@ watch(scale, () => requestAnimationFrame(measure));
 </script>
 
 <template>
-    <LedgerSection title="字号阶梯" hint="霞鹜文楷 · 八档 · 受上方滑块控制">
+    <LedgerSection title="字号阶梯" hint="霞鹜文楷 · 六档 · 受上方滑块控制">
         <div class="type-scale">
             <div v-for="item in rows" :key="item.token" class="type-row">
                 <code class="type-token">{{ item.token }}</code>

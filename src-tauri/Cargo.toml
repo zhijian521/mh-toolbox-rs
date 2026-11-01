@@ -15,7 +15,8 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# 没有直接依赖 serde_json：IPC 的序列化由 tauri 自己做，Rust 侧从不手写 JSON。
+# 需要读 `public/maps/maps.json` 的是前端（`ghost-maps.ts` 走 fetch），不是这里。
 
 # PaddleOCR（PP-OCRv4）离线识别：检测 + 方向分类 + 识别三个 ONNX 模型。
 #

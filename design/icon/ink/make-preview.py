@@ -4,7 +4,6 @@ import base64
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OLD = os.path.join(HERE, '..', 'old', 'mh-icon-light-1024.png')
 
 
 def b64(path, name=None):
@@ -17,7 +16,6 @@ def ic(name):
 
 
 big = b64(os.path.join(HERE, 'mh-icon-1024.png'))
-old = b64(OLD)
 
 sizes = ''.join(
     f'<img src="{ic(f"ink1_{s}.png")}" style="width:{s}px;height:{s}px" alt="{s}">'
@@ -76,10 +74,6 @@ h3 {{ font-size: 11px; letter-spacing: .2em; color: var(--muted); font-weight: 4
 .env .cap {{ font-size: 11px; color: var(--muted); padding: 7px 10px; border-top: 1px solid var(--rule2);
   background: var(--paper); letter-spacing: .1em; }}
 
-.compare {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }}
-.compare figure {{ margin: 0; border: 1px solid var(--rule2); background: var(--paper); padding: 14px; }}
-.compare img {{ width: 100%; display: block; }}
-.compare figcaption {{ font-size: 12px; color: var(--muted); margin-top: 10px; }}
 
 footer {{ margin-top: 44px; border-top: 1px solid var(--rule2); padding-top: 20px; }}
 footer p {{ margin: 0 0 9px; font-size: 13px; color: var(--ink2); }}
@@ -143,12 +137,6 @@ code {{ font-family: 'Cascadia Mono', Consolas, monospace; font-size: .92em; col
         <img src="{ic('ink1_32.png')}" style="width:32px;height:32px">
       </div><div class="cap">深色任务栏</div>
     </div>
-  </div>
-
-  <h3>与上一版对照</h3>
-  <div class="compare">
-    <figure><img src="{old}" alt="亮色版"><figcaption>上一版：宣纸米白，圆角 3%（近乎方形）</figcaption></figure>
-    <figure><img src="{big}" alt="暗色版"><figcaption>定稿：墨底拓片，圆角 18%</figcaption></figure>
   </div>
 
   <footer>

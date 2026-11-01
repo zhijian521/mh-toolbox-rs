@@ -17,8 +17,6 @@ export interface GhostMap {
     aliases?: string[];
     maxX: number;
     maxY: number;
-    imgW: number;
-    imgH: number;
     img: string;
     /** 该场景任务栏坐标恒为 `0,0`（无坐标域），只能走「全层热区」降级。 */
     noCoord?: boolean;

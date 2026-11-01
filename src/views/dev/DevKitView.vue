@@ -43,7 +43,7 @@ import TypeScaleSection from './TypeScaleSection.vue';
                 <p class="note">
                     <b>两条机制</b>：主题只改根元素上的 <code>color-scheme</code>，
                     颜色令牌不需要第二份，全部走 <code>light-dark()</code>；字号只改
-                    <code>--fs-scale</code> 一个变量（0.92 / 1 / 1.1），八档字号都是
+                    <code>--fs-scale</code> 一个变量（0.92 / 1 / 1.1），每一档字号都是
                     <code>calc(Npx * var(--fs-scale))</code>。
                 </p>
             </LedgerSection>

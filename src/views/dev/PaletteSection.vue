@@ -37,8 +37,6 @@ const LABELS: Record<string, string> = {
     '--bevel-lo': '背光',
     '--shadow': '投影',
     '--shadow-lg': '投影·大',
-    '--overlay': '遮罩',
-    '--danger-bg': '危险底',
     '--warn-bg': '警示底',
     '--scrollbar-thumb': '滑杆',
     '--scrollbar-thumb-hover': '滑杆·悬停',

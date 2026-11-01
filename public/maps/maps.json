@@ -1,5 +1,5 @@
 {
-    "note": "px = gx*imgW/maxX, py = imgH - gy*imgH/maxY（原点左下）。aliases 是文件名与游戏原文不一致时的兼容写法。noCoord 表示该场景任务栏坐标恒为 0,0（无坐标域）。",
+    "note": "maxX / maxY 是这张图的游戏坐标值域（不是像素）。img 是底图相对路径。aliases 是文件名与游戏原文不一致时的兼容写法。noCoord 表示该场景任务栏坐标恒为 0,0（无坐标域）。图片自己的像素宽高不入库：绘制只用到值域与容器尺寸，像素尺寸由浏览器加载后给出。",
     "maps": [
         {
             "id": "aolaiguo",
@@ -7,8 +7,6 @@
             "aliases": [],
             "maxX": 223,
             "maxY": 151,
-            "imgW": 514,
-            "imgH": 346,
             "img": "/maps/aolaiguo.webp"
         },
         {
@@ -17,8 +15,6 @@
             "aliases": [],
             "maxX": 160,
             "maxY": 120,
-            "imgW": 552,
-            "imgH": 415,
             "img": "/maps/baoxiangguo.webp"
         },
         {
@@ -27,8 +23,6 @@
             "aliases": [],
             "maxX": 228,
             "maxY": 170,
-            "imgW": 460,
-            "imgH": 346,
             "img": "/maps/beijuluzhou.webp"
         },
         {
@@ -37,8 +31,6 @@
             "aliases": [],
             "maxX": 95,
             "maxY": 144,
-            "imgW": 276,
-            "imgH": 414,
             "img": "/maps/boyuedong.webp"
         },
         {
@@ -47,8 +39,6 @@
             "aliases": [],
             "maxX": 160,
             "maxY": 210,
-            "imgW": 335,
-            "imgH": 439,
             "img": "/maps/changshoucun.webp"
         },
         {
@@ -57,8 +47,6 @@
             "aliases": [],
             "maxX": 640,
             "maxY": 120,
-            "imgW": 960,
-            "imgH": 182,
             "img": "/maps/datangjingwai.webp"
         },
         {
@@ -67,8 +55,6 @@
             "aliases": [],
             "maxX": 120,
             "maxY": 90,
-            "imgW": 461,
-            "imgH": 342,
             "img": "/maps/diyumigong3.webp"
         },
         {
@@ -77,8 +63,6 @@
             "aliases": [],
             "maxX": 64,
             "maxY": 48,
-            "imgW": 461,
-            "imgH": 346,
             "img": "/maps/haidimigong1.webp",
             "noCoord": true
         },
@@ -88,8 +72,6 @@
             "aliases": [],
             "maxX": 160,
             "maxY": 120,
-            "imgW": 462,
-            "imgH": 346,
             "img": "/maps/huaguoshan.webp"
         },
         {
@@ -98,8 +80,6 @@
             "aliases": [],
             "maxX": 160,
             "maxY": 120,
-            "imgW": 463,
-            "imgH": 343,
             "img": "/maps/jiangnanyewai.webp"
         },
         {
@@ -108,8 +88,6 @@
             "aliases": ["建业城"],
             "maxX": 287,
             "maxY": 144,
-            "imgW": 697,
-            "imgH": 346,
             "img": "/maps/jianyecheng.webp"
         },
         {
@@ -118,8 +96,6 @@
             "aliases": [],
             "maxX": 127,
             "maxY": 144,
-            "imgW": 401,
-            "imgH": 452,
             "img": "/maps/nvercun.webp"
         },
         {
@@ -128,8 +104,6 @@
             "aliases": [],
             "maxX": 192,
             "maxY": 144,
-            "imgW": 472,
-            "imgH": 354,
             "img": "/maps/nvwashenji.webp"
         },
         {
@@ -138,8 +112,6 @@
             "aliases": [],
             "maxX": 96,
             "maxY": 72,
-            "imgW": 462,
-            "imgH": 346,
             "img": "/maps/putuoshan.webp"
         },
         {
@@ -148,8 +120,6 @@
             "aliases": [],
             "maxX": 191,
             "maxY": 142,
-            "imgW": 462,
-            "imgH": 346,
             "img": "/maps/qilinshan.webp"
         },
         {
@@ -158,8 +128,6 @@
             "aliases": [],
             "maxX": 253,
             "maxY": 168,
-            "imgW": 526,
-            "imgH": 350,
             "img": "/maps/tiangong.webp"
         },
         {
@@ -168,8 +136,6 @@
             "aliases": [],
             "maxX": 95,
             "maxY": 192,
-            "imgW": 214,
-            "imgH": 426,
             "img": "/maps/wanzishan.webp"
         },
         {
@@ -178,8 +144,6 @@
             "aliases": [],
             "maxX": 100,
             "maxY": 75,
-            "imgW": 463,
-            "imgH": 347,
             "img": "/maps/wuzhuangguan.webp"
         },
         {
@@ -188,8 +152,6 @@
             "aliases": [],
             "maxX": 164,
             "maxY": 124,
-            "imgW": 465,
-            "imgH": 353,
             "img": "/maps/xiliangnvgou.webp"
         },
         {
@@ -198,8 +160,6 @@
             "aliases": [],
             "maxX": 192,
             "maxY": 120,
-            "imgW": 550,
-            "imgH": 346,
             "img": "/maps/zhuziguo.webp"
         }
     ]

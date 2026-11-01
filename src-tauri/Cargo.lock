@@ -2250,7 +2250,6 @@ dependencies = [
  "ort",
  "paddle-ocr-rs",
  "serde",
- "serde_json",
  "tauri",
  "tauri-build",
  "windows",

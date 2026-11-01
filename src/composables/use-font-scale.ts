@@ -7,7 +7,7 @@ const STORAGE_KEY = 'mh-font-scale';
 /**
  * 字号三档：较小 / 默认 / 较大。
  *
- * 只改根元素上的 `--fs-scale` 一个变量——`tokens.css` 里八档字号全是
+ * 只改根元素上的 `--fs-scale` 一个变量——`tokens.css` 里每一档字号都是
  * `calc(Npx * var(--fs-scale))`，所以全站跟着缩放，组件不需要第二套值。
  *
  * 系数不是等差的：中文在 0.9 以下笔画开始粘连，1.15 以上行高会撑破既有版式。
