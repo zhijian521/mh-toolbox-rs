@@ -1,5 +1,6 @@
 import type { Component } from 'vue';
 import type { IconName } from './components/icons';
+import CharactersView from './views/CharactersView.vue';
 import SettingsView from './views/SettingsView.vue';
 import ToolsView from './views/ToolsView.vue';
 
@@ -27,7 +28,13 @@ export const NAV_ITEMS: NavItem[] = [
     { key: 'prices', label: '物价', icon: 'prices', path: '/prices', view: null },
     // 装备不再是独立一页，并进了角色：一个人穿什么、备哪些，本来就是「这个角色」的属性。
     // 旧地址 `/equipment` 在 `router.ts` 里重定向到这里，收藏夹不会落到设置页。
-    { key: 'characters', label: '角色', icon: 'characters', path: '/characters', view: null },
+    {
+        key: 'characters',
+        label: '角色',
+        icon: 'characters',
+        path: '/characters',
+        view: CharactersView,
+    },
     { key: 'accounts', label: '账号', icon: 'accounts', path: '/accounts', view: null },
     { key: 'goals', label: '目标', icon: 'goals', path: '/goals', view: null },
     // 工具排在「目标」与「设置」之间：它是干活的入口，不是资料页；设置永远压在末尾。
