@@ -91,6 +91,21 @@ channel = "stable"
 components = ["rustfmt", "clippy"]
 ```
 
+**大户资源必须可再生**。`assets/fonts/LXGWWenKaiScreen.woff2` 是**裁过**的（GB2312 全集，
+1.75MB），别手改它：要改覆盖范围就改 `tools/font/subset-font.py` 再跑一遍。同目录的
+`LXGWWenKaiScreen.full.woff2`（9.84MB 原件）**必须留在库里**——没有它就再也裁不出第二版，
+而游戏更新一批生僻地名时一定得再裁。同理 `public/maps/*.webp` 的切图现场已经删了，
+只剩成品，属于「不可再生但已定型」，别再对着成品做二次压缩。
+
+**性能改动先量基线，量完再改**。`node tools/probe/startup.mjs --exe <路径> --runs 5`
+分三段报数（进程→导航 / 导航→FCP / 导航→字体就位）。三条纪律：
+
+- **同一份 exe 做 A/B**，靠 `--browser-args` 传参而不是改 Rust 重编。换二进制会让
+  「启动变快」混进链接布局变化的干扰。
+- **取中位不取单次**。同一台机器上机器有负载时的方差能到 2 倍（实测同版本 660ms 与 2100ms）。
+- **报数字要报对是哪一段**。`font-display: swap` 之后字体不阻塞首屏，裁字体不会让 FCP 变快，
+  提前的是「字长对了」那一刻——把两件事混成一句「启动快了 300ms」就是假话。
+
 **提交规范**：`<type>(<scope>):<中文摘要>`，type 白名单
 `feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert`。
 **冒号后不加空格**——中文摘要贴着冒号读是一行，加空格反而多一个断点；

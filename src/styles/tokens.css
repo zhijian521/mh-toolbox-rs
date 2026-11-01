@@ -10,6 +10,21 @@
  * 亮面恒偏白、暗面恒偏黑、凹槽恒比纸面深。别拿 --paper / --ink 顶替。
  */
 
+/*
+ * 字体是**裁过的**：`assets/fonts/LXGWWenKaiScreen.woff2` 只保留 GB2312 全集
+ * + ASCII + 中文标点 + 全角字符，1.75MB；同目录的 `.full.woff2` 是 9.84MB 的原件，
+ * 留着当裁剪源。要加字符就改 `tools/font/subset-font.py` 重跑，别去改 woff2。
+ *
+ * 全量字体 47,883 个码位里有大量繁体、日文、韩文，本应用一个都不显示，却占了
+ * 安装包三分之一。裁掉的只是「保留哪些字」，字形轮廓一个比特没变。
+ *
+ * GB2312 之外的字（生僻字、繁体、假名）回退到 Microsoft YaHei：不缺字、不乱码，
+ * 只是那几个字换成黑体。界面上有一整块文字来自 OCR 识别结果，内容无法提前穷举，
+ * 所以覆盖范围取全集而不是「源码里出现过的字」——后者只有 302KB，但赌不起。
+ *
+ * `font-display: swap`：先用回退字体把字画出来，字体到了再换。1.75MB 也已经比
+ * 首屏 JS 大一个数量级，不 swap 就是白屏等字体。
+ */
 @font-face {
     font-family: 'LXGW WenKai Screen';
     src: url('../../assets/fonts/LXGWWenKaiScreen.woff2') format('woff2');

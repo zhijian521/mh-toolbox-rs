@@ -24,7 +24,8 @@
 
 未开始：数据层（SQLite）、领域层、六个尚未写的业务页、e2e。
 
-**字体与字号都只有一条通路。** 全站唯一字体是霞鹜文楷（不再与黑体混排）；六档字号全部写成
+**字体与字号都只有一条通路。** 全站唯一字体是霞鹜文楷（不再与黑体混排；裁到 GB2312 全集，
+越界的生僻字才回退雅黑）；六档字号全部写成
 `calc(Npx * var(--fs-scale))`，设置页的三档滑块只改 `--fs-scale` 一个变量（0.92 / 1 / 1.1）。
 连左栏宽度、区块标的尺寸也跟着缩放——否则放大字号时「梦幻养老助手」会被截成「梦幻养…」。
 
@@ -47,10 +48,11 @@
 ├── src-tauri/            Rust 壳（窗口、命令、截屏、OCR、能力配置）
 ├── docs/                 ARCHITECTURE / CONVENTIONS / RECORD / GHOST-HUNT
 ├── scripts/              质量门小工具：版本号一致、提交信息
-├── tools/probe/          CDP 探针（截图 / 量几何；内置静态服务与防翻车前提）
+├── tools/probe/          CDP 探针（截图 / 量几何 / 量启动；内置静态服务与防翻车前提）
+├── tools/font/           字体子集脚本（全量 9.8 MB → 1.75 MB，见脚本头部）
 ├── .github/workflows/    CI：npm run check + cargo fmt --check + Windows cargo test --lib
 ├── design/               设计语言样张与图标源（.py 生成脚本）
-└── assets/               霞鹜文楷 Screen（全量 9.8 MB，不子集化，OFL 1.1）+ 牌记 PNG
+└── assets/               霞鹜文楷 Screen（GB2312 子集 1.75 MB + 全量原件，OFL 1.1）+ 牌记 PNG
 ```
 
 工程约定单独成文，开工前先读这四份：

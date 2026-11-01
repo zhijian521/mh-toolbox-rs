@@ -33,7 +33,7 @@ const { info } = useAppInfo();
             <dt>运行环境</dt>
             <dd>{{ info?.webview ?? '系统 WebView2（Tauri 2）' }}</dd>
             <dt>字体</dt>
-            <dd>霞鹜文楷 Screen（SIL OFL 1.1，全量不子集化）</dd>
+            <dd>霞鹜文楷 Screen（SIL OFL 1.1，GB2312 子集）</dd>
         </dl>
     </LedgerSection>
 </template>
