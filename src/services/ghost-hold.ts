@@ -54,7 +54,7 @@ export function createHold(): HoldState {
  * 判不了。三段，权重按「缺了谁更致命」定：
  *
  * - 1 地名对上底图：没有它连图都铺不出来；
- * - 2 句尾（`附近` / `处`）：有它才知道画范围还是画精确点；
+ * - 句尾（`附近` / `处` / 空）：有它才知道画范围还是画精确点，档位见 `tailScore`；
  * - 4 坐标：有它才画得出框。
  *
  * 坐标给到最大权重不是随手排的：**丢了坐标的一帧绝不能顶掉句尾没读全的一帧**。
@@ -66,11 +66,31 @@ export function createHold(): HoldState {
  *
  * `0,0` 在白名单外的场景拿不到坐标那 4 分：那是坐标被读没了，不是「坐标为 0」。
  */
+/**
+ * 句尾拿几分。三档，不是两档。
+ *
+ * - **2**：读到 `附近` 或 `处`，画范围还是画点有字为凭；
+ * - **1**：`silent`——坐标读到了，句尾一个字都没有。这**大概率是真开了天眼**
+ *   （游戏把 `附近` 删了），但「少了两个字」也可能只是 OCR 漏读，所以比有字低一档；
+ * - **0**：`unknown`，走的是兜底句式，结构都没了。
+ *
+ * `silent` 定 1 而不是 2，是为了让**误判能自己退回去**：某一帧漏读了「附近」被判成
+ * 精确点，下一帧读回 `附近` 就是更高分，按规则 2 立刻换回范围，用户最多看到一次闪。
+ * 若定 2，两者同分，「漏读 → 正确」要等三帧确认，三秒多里用户照着一个点去找。
+ *
+ * 代价是「`nearby` → `silent`」成了降分，按分数永远走不动——那一步由 `revealStep`
+ * 单独放行，见下。
+ */
+function tailScore(reveal: ParsedTask['reveal']): number {
+    if (reveal === 'nearby' || reveal === 'exact') return 2;
+    if (reveal === 'silent') return 1;
+    return 0;
+}
+
 export function scoreTask(task: ParsedTask): number {
     if (!task.map) return 0;
     const hasCoords = task.x !== 0 || task.y !== 0 || task.map.noCoord === true;
-    const hasTail = task.reveal !== 'unknown';
-    return 1 + (hasTail ? 2 : 0) + (hasCoords ? 4 : 0);
+    return 1 + tailScore(task.reveal) + (hasCoords ? 4 : 0);
 }
 
 /**
@@ -98,20 +118,33 @@ function switchedMap(current: ParsedTask, incoming: ParsedTask): boolean {
 }
 
 /**
- * 同一张图、同一个坐标，只是句尾从 `附近` 变成了 `处`——开了天眼。
+ * 「附近」消失后要连续几帧才认。见 `revealStep`。
  *
- * 这是唯一一种「其余部分完全没变」的同分改动，信息只增不减，可以立刻采纳。
- * 反过来（`处` → `附近`）不在此列：天眼是否失效只靠这一个字判断，误读更常见，
- * 让它走三帧确认。
+ * 2 帧 ≈ 2.2 秒（`POLL_MS` 1100）。NPC 走过去把一行字糊掉通常一两秒就过去，
+ * 凑不满两帧；而真开眼之后「附近」是**永久**不再出现，两帧之后必然满足。
  */
-function revealedExact(current: ParsedTask, incoming: ParsedTask): boolean {
-    return (
-        current.reveal === 'nearby' &&
-        incoming.reveal === 'exact' &&
-        current.x === incoming.x &&
-        current.y === incoming.y &&
-        !switchedMap(current, incoming)
-    );
+export const REVEAL_SILENT_FRAMES = 2;
+
+/**
+ * 天眼推进：同一张图、同一个坐标，句尾从 `附近` 变成了别的。
+ *
+ * 返回值是要凑的帧数，0 表示不适用。两种推进的强度**不一样**：
+ *
+ * - `nearby → exact`（读到 `处`）：信息只增不减，一帧即采纳；
+ * - `nearby → silent`（`附近` 两个字没了）：这是**缺失**，而缺失比存在弱——
+ *   OCR 漏读两个字比凭空多读两个字常见得多，所以要求连续两帧。
+ *
+ * 反向（`exact` / `silent` → `nearby`）不走这里，交给分数：`nearby` 是 2 分、
+ * `silent` 是 1 分，更高分按规则 2 立刻采纳。这就是 `tailScore` 里把 `silent`
+ * 定成 1 的用处——误判能在下一帧自己退回去，不用等三帧。
+ */
+function revealStep(current: ParsedTask, incoming: ParsedTask): number {
+    if (current.reveal !== 'nearby') return 0;
+    if (current.x !== incoming.x || current.y !== incoming.y) return 0;
+    if (switchedMap(current, incoming)) return 0;
+    if (incoming.reveal === 'exact') return 1;
+    if (incoming.reveal === 'silent') return REVEAL_SILENT_FRAMES;
+    return 0;
 }
 
 /**
@@ -148,9 +181,10 @@ function adopt(task: ParsedTask, score: number, now: number): Held {
  *
  * 1. 一样的内容 → 只刷新时刻（界面上的「Ns 前」归零）；
  * 2. 更完整 → 立刻换（好结果可能只出现一帧，等确认等于丢掉它）；
- * 3. 更残缺 → 一律不动（这就是「保留最佳」）；
- * 4. 同分但换了图 / 只是开了天眼 → 立刻换（见 `switchedMap` / `revealedExact`）；
- * 5. 其余同分不同内容 → 见 `sameTaskNewCoords` 与 `CONFIRM_FRAMES`。
+ * 3. 更残缺 → 不动，**除了天眼推进**（「附近」消失本身就是降分，见 `revealStep`）；
+ * 4. 同分但换了图 / 读到 `处` 开了天眼 → 立刻换（见 `switchedMap` / `revealStep`）；
+ * 5. 其余同分不同内容 → 见 `sameTaskNewCoords` 与 `CONFIRM_FRAMES`；
+ *    其中「`附近` 两个字消失」这一种按 `REVEAL_SILENT_FRAMES` 两帧确认。
  */
 export function absorbFrame(hold: HoldState, tasks: ParsedTask[], now: number): void {
     const fresh = new Map<TaskKind, ParsedTask>();
@@ -185,8 +219,11 @@ export function absorbFrame(hold: HoldState, tasks: ParsedTask[], now: number): 
             hold[kind] = adopt(incoming, score, now);
             continue;
         }
-        if (score < current.score) continue;
-        if (switchedMap(current.task, incoming) || revealedExact(current.task, incoming)) {
+        // 降分是常态（糊掉的一帧），唯一的例外是天眼推进——「附近」两个字消失本身
+        // 就是一次降分，所以要在「更残缺一律不动」之前放行。
+        const step = revealStep(current.task, incoming);
+        if (score < current.score && step === 0) continue;
+        if (switchedMap(current.task, incoming) || step === 1) {
             hold[kind] = adopt(incoming, score, now);
             continue;
         }
@@ -195,9 +232,10 @@ export function absorbFrame(hold: HoldState, tasks: ParsedTask[], now: number): 
 
         // 待定计数只认「同一套内容连续出现」：中间夹一帧读回原样或夹一帧别的读法，
         // 都要从头数起——半途中断的连续不算连续。
+        const need = step > 1 ? step : CONFIRM_FRAMES;
         current.pendingCount = current.pendingKey === key ? current.pendingCount + 1 : 1;
         current.pendingKey = key;
-        if (current.pendingCount >= CONFIRM_FRAMES) hold[kind] = adopt(incoming, score, now);
+        if (current.pendingCount >= need) hold[kind] = adopt(incoming, score, now);
     }
 }
 

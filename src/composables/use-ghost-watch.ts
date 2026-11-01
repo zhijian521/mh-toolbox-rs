@@ -10,7 +10,7 @@ import {
     isSettling,
     SLOTS,
 } from '../services/ghost-hold';
-import { planFor, type EdgeRule, type GhostPlan } from '../services/ghost-model';
+import { planFor, type GhostPlan } from '../services/ghost-model';
 
 /**
  * 自动识别的状态机。
@@ -29,6 +29,24 @@ const POLL_MS = 1100;
 
 /** 连续失败几次才报错。偶发一次失败（窗口切到后台）不该让界面闪红。 */
 const FAIL_TOLERANCE = 3;
+
+/**
+ * 「高概率区域」开关的存储键。
+ *
+ * 只持久化这一项，因为它是**显示偏好**：用户关掉多半是因为那块深红挡住了地形，
+ * 下次进页面又要关一次就是白做。不要把 `running` 之类的也存进来——「进页面自动
+ * 开始」是这一页的既定行为，存了状态就会变成「上次是停的，这次进来还是停的」。
+ */
+const HOT_KEY = 'mh-ghost-hot';
+
+function readHot(): boolean {
+    try {
+        return window.localStorage.getItem(HOT_KEY) !== '0';
+    } catch {
+        // 存储被禁时 `getItem` 会抛。默认开——关着的话这个功能第一次进来根本看不见。
+        return true;
+    }
+}
 
 /**
  * Rust 侧「指定句柄已经不在窗口列表里」的原文（`ghost.rs` 的 `ghost_probe`）。
@@ -75,7 +93,13 @@ export function useGhostWatch() {
      * 用户据此判断「这条任务是不是没了」，标错就是误导。
      */
     const ages = ref<Record<TaskKind, number>>({ small: 0, big: 0 });
-    const rule = ref<EdgeRule>('relative');
+    /**
+     * 是否画「高概率区域」（社区经验：假坐标 ≤50 往小、≥150 往大）。
+     *
+     * 做成开关而不是固定画：那块深红会压掉一半地形，而地形本身就是缩小范围的
+     * 依据（洞口、通道、水陆分界）。有人靠它，有人嫌它挡图，两种都合理。
+     */
+    const hot = ref(readHot());
 
     /**
      * 每个槽位保留的那一份。规则全在 `services/ghost-hold` 里——那一层是纯函数，
@@ -91,7 +115,7 @@ export function useGhostWatch() {
     let disposed = false;
 
     function recompute() {
-        plans.value = heldTasks(hold).map((task) => planFor(task, rule.value));
+        plans.value = heldTasks(hold).map((task) => planFor(task, hot.value));
     }
 
     function resetHeld() {
@@ -186,8 +210,15 @@ export function useGhostWatch() {
         await refreshWindows();
     }
 
-    // 规则一改立刻重算，不等下一帧——用户点「绝对阈值」是为了马上看到差别。
-    watch(rule, recompute);
+    // 开关一改立刻重算，不等下一帧——开它就是为了马上看到那块深红。
+    watch(hot, (value) => {
+        try {
+            window.localStorage.setItem(HOT_KEY, value ? '1' : '0');
+        } catch {
+            // 存不上只影响下次进页面的默认值，本次显示照常。
+        }
+        recompute();
+    });
 
     onScopeDispose(() => {
         disposed = true;
@@ -208,7 +239,7 @@ export function useGhostWatch() {
         dpi,
         settling,
         ages,
-        rule,
+        hot,
         start,
         stop,
         toggle,

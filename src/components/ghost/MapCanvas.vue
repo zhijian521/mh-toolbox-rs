@@ -58,7 +58,13 @@ let colorCache: { key: string; colors: MapColors } | null = null;
 
 interface MapColors {
     cinnabar: string;
-    indigo: string;
+    mapSeal: string;
+    mapSealInk: string;
+    mapHalo: string;
+    wash: string;
+    washEdge: string;
+    hot: string;
+    hotEdge: string;
     paper: string;
     ink: string;
     rule: string;
@@ -77,7 +83,13 @@ function resolveColors(dark: boolean): MapColors {
     };
     const colors: MapColors = {
         cinnabar: read('--cinnabar'),
-        indigo: read('--indigo'),
+        mapSeal: read('--map-seal'),
+        mapSealInk: read('--map-seal-ink'),
+        mapHalo: read('--map-halo'),
+        wash: read('--ghost-wash'),
+        washEdge: read('--ghost-wash-edge'),
+        hot: read('--ghost-hot'),
+        hotEdge: read('--ghost-hot-edge'),
         paper: read('--paper'),
         ink: read('--ink'),
         rule: read('--rule-2'),
@@ -148,11 +160,14 @@ function draw() {
     // 而一个位置错误的框比两者都糟。原因由模板里的覆盖文字说明。
     if (plan.mode === 'invalid') return;
 
-    const { cinnabar, indigo, paper, ink } = colors;
+    const { cinnabar, mapSeal, mapSealInk, mapHalo, wash, washEdge, hot, hotEdge, paper, ink } =
+        colors;
 
     const FONT = '12px "LXGW WenKai Screen", "Microsoft YaHei", sans-serif';
-    /* 三个标签共用同一套字号与内边距：坐标、官方格数、收窄比例是一类东西，
-     * 大小不一会被读成「重要性不同」，而它们只是三个不同来源的数字。 */
+    /* 开眼时的坐标比标签大一档：它是这一屏唯一要照着走的数字，而且写在地形上、
+     * 没有底板托着，小一号就压不住背景的杂色。 */
+    const FONT_EXACT = '13.5px "LXGW WenKai Screen", "Microsoft YaHei", sans-serif';
+    /* 剩下的文字标签只有两类：坐标与「整层」那句。大小统一，读起来才是同一层信息。 */
     const PAD_X = 4;
     const PAD_Y = 3;
     const BOX_H = 18;
@@ -164,23 +179,12 @@ function draw() {
         h: number;
     }
 
-    /** 已经占住的标签矩形。 */
-    const placed: LabelBox[] = [];
-    const collides = (a: LabelBox) =>
-        placed.some(
-            (b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h,
-        );
-
     /**
-     * 落一个标签并占位。
+     * 落一个标签。
      *
-     * 图上最多三个标签，各有各的锚点，在「假坐标贴边」这类位置上会撞在一起：
-     * 十字贴着框的上边缘、它的数字又只能往左翻，正好压在「最可能 · 收窄 N%」上，
-     * 两个数字都读不全。撞了就上下让一格——挪 20px 仍读得成「属于这个框的标签」，
-     * 互相盖住则两个都废掉。
-     *
-     * 顺带夹进地图矩形：框可能贴到图的最上沿或最右沿，标签按原样画会落到留白上，
-     * 变成「飘着的一行字」，看不出它属于哪个框。
+     * 每个 plan 上最多一个标签（坐标，或「整层」那句话），所以不需要避让逻辑——
+     * 早先范围框自带两枚说明文字时才需要。留着的只有「夹进地图矩形」这一步：
+     * 坐标可以贴到图的最上沿或最右沿，标签按原样画会落到留白上，变成飘着的一行字。
      */
     const placeLabel = (
         text: string,
@@ -190,20 +194,12 @@ function draw() {
         color: string,
         border: boolean,
     ) => {
-        const clampY = (top: number) =>
-            Math.min(Math.max(top, layout.top + 2), layout.top + layout.height - BOX_H - 2);
         const box: LabelBox = {
             x: Math.min(Math.max(x, layout.left + 2), layout.left + layout.width - w - 2),
-            y: clampY(y),
+            y: Math.min(Math.max(y, layout.top + 2), layout.top + layout.height - BOX_H - 2),
             w,
             h: BOX_H,
         };
-        const baseY = box.y;
-        for (const shift of [0, -20, 20, -40, 40]) {
-            box.y = clampY(baseY + shift);
-            if (!collides(box)) break;
-        }
-        placed.push({ ...box });
 
         ctx.save();
         ctx.font = FONT;
@@ -238,41 +234,43 @@ function draw() {
         const width = bottomRight.px - topLeft.px;
         const height = bottomRight.py - topLeft.py;
 
-        // 官方范围：靛色虚线 + 极淡填充。虚线表示「这是规则给的，不是算出来的边界」。
-        ctx.save();
-        ctx.globalAlpha = isDark.value ? 0.16 : 0.12;
-        ctx.fillStyle = indigo;
-        ctx.fillRect(topLeft.px, topLeft.py, width, height);
-        ctx.restore();
+        /**
+         * 半透明铺块。
+         *
+         * 不铺实色：这张图上真正用来缩小范围的是地形（洞口、通道、水陆分界），
+         * 盖死等于把唯一的线索抹掉。原先给到 0.62 / 0.70，看着「有块红」，代价是
+         * 整片地形只剩一团糊——而玩家要做的恰恰是照着地形走过去，范围只是入口。
+         * 现在压到 0.24 / 0.42：**范围的边界交给 `edge` 的 2px 线，填充只表示
+         * 「这一片」，不承担识别**。两层仍靠明度差区分，alpha 逐块控制。
+         */
+        const tint = (x: number, y: number, w: number, h: number, color: string, alpha: number) => {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, w, h);
+            ctx.restore();
+        };
 
-        // 先铺一道浅色实线当衬底，再画靛色虚线。
-        // 底图是写实的深绿深蓝地形，靛色细线直接画上去几乎看不见——
-        // 这不是配色问题，是「读不读得到」的问题。朱红框不用衬底：红在绿上本来就很跳。
-        //
-        // 衬底用**固定的浅色**而不是 `--paper`：纸色跟着主题翻面，暗色下成了近黑，
-        // 衬进去反而把线压得更糊。它要对抗的是地形，不是一个会变的主题色。
-        ctx.save();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.78)';
-        ctx.lineWidth = 3.5;
-        ctx.strokeRect(topLeft.px, topLeft.py, width, height);
-        ctx.restore();
+        /**
+         * 2px 实线边框。
+         *
+         * 填充压到两成出头之后，**这一圈线就是范围唯一的凭据**，所以从 1px 加到 2px：
+         * 1px 在写实地形上会被树丛、山棱的线条吃掉，读起来像地图自带的一格。
+         *
+         * 两层都用实线、靠**颜色深浅**区分，不靠线型：虚线会与树丛、小路的纹理打架。
+         */
+        const edge = (x: number, y: number, w: number, h: number, color: string) => {
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            // 2px 线沿着 0.5 偏移会糊到两个像素各一半，偏移 1 才是内外各占 1px 的实线。
+            ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+            ctx.restore();
+        };
 
-        ctx.save();
-        ctx.setLineDash([6, 4]);
-        ctx.strokeStyle = indigo;
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(topLeft.px, topLeft.py, width, height);
-        ctx.restore();
-
-        // 外框标签压到框内左下角。两个框常常共用同一条上边（某轴没被收窄时），
-        // 都放顶部必然叠在一起，而叠掉的恰好是「收窄多少」这个最该看见的数字。
-        label(
-            `官方 ±50 · ${plan.range.officialCells} 格`,
-            topLeft.px + 3,
-            bottomRight.py - 3,
-            indigo,
-            'left',
-        );
+        // 官方 ±50：浅红底。这是「规则给的」那一层，只负责「这一片有鬼」。
+        tint(topLeft.px, topLeft.py, width, height, wash, isDark.value ? 0.3 : 0.24);
+        edge(topLeft.px, topLeft.py, width, height, washEdge);
 
         if (likely) {
             const innerTop = project(layout, map, likely.x0, likely.y1);
@@ -280,32 +278,17 @@ function draw() {
             const innerWidth = innerBottom.px - innerTop.px;
             const innerHeight = innerBottom.py - innerTop.py;
 
-            // 最可能区域：朱红实线 + 更浓的填充。这是整个界面上唯一的红，最该抢眼。
-            ctx.save();
-            ctx.globalAlpha = isDark.value ? 0.3 : 0.22;
-            ctx.fillStyle = cinnabar;
-            ctx.fillRect(innerTop.px, innerTop.py, innerWidth, innerHeight);
-            ctx.restore();
-
-            ctx.strokeStyle = cinnabar;
-            ctx.lineWidth = 2;
-            ctx.strokeRect(innerTop.px, innerTop.py, innerWidth, innerHeight);
-
-            const cut = Math.round((1 - plan.range.likelyCells / plan.range.officialCells) * 100);
-            const text = `最可能 · 收窄 ${cut}%`;
-            // 内框窄到放不下字时贴到框外面，否则字会压在框线上。
-            const textWidth = (() => {
-                ctx.font = '12px "LXGW WenKai Screen", "Microsoft YaHei", sans-serif';
-                return ctx.measureText(text).width + 8;
-            })();
-            if (innerWidth > textWidth + 6 && innerHeight > 24) {
-                // 框里放得下就写在框内顶部（y 是文字底边，+18 让标签底落在框内 3px 处）。
-                label(text, innerTop.px + 3, innerTop.py + 18, cinnabar, 'left');
-            } else {
-                // 放不下就从右边界向左延伸：往右伸会冲出地图，往左伸只是压在图上，
-                // 信息的可读性一样，但不会出画。
-                label(text, innerBottom.px - 2, innerTop.py - 2, cinnabar, 'right');
-            }
+            // 高概率区域：深红底。比浅红浓一倍，压在浅红里能读成「同一块地里的内芯」，
+            // 而不是另一个不相干的框。
+            tint(
+                innerTop.px,
+                innerTop.py,
+                innerWidth,
+                innerHeight,
+                hot,
+                isDark.value ? 0.48 : 0.42,
+            );
+            edge(innerTop.px, innerTop.py, innerWidth, innerHeight, hotEdge);
         }
     }
 
@@ -351,32 +334,71 @@ function draw() {
             Math.min(Math.max(rawX, 0), map.maxX),
             Math.min(Math.max(rawY, 0), map.maxY),
         );
-        const size = plan.mode === 'exact' ? 11 : 7;
 
-        // 裁到地图矩形：贴边时十字的两臂与那圈圆会有半个露在地图外，浮在纸面上
-        // 读起来像一枚不相干的符号；裁掉之后半个符号正好读成「压在边界上」。
+        // 裁到地图矩形：贴边时标记会有半个露在地图外，浮在纸面上读起来像一枚
+        // 不相干的符号；裁掉之后半个符号正好读成「压在边界上」。
         ctx.save();
         ctx.beginPath();
         ctx.rect(layout.left, layout.top, layout.width, layout.height);
         ctx.clip();
 
-        ctx.strokeStyle = ink;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(px - size, py);
-        ctx.lineTo(px + size, py);
-        ctx.moveTo(px, py - size);
-        ctx.lineTo(px, py + size);
-        ctx.stroke();
+        const text = outside ? `${rawX},${rawY} 图外` : `${rawX},${rawY}`;
 
         if (plan.mode === 'exact') {
-            // 精确点：外面再套一圈，读作「就在这里」，与「大致范围」区分开。
-            ctx.strokeStyle = cinnabar;
-            ctx.lineWidth = 2;
+            // 开眼之后任务栏给的是**真坐标**，没有范围可猜，所以这里不画任何框。
+            //
+            // 中心一枚朱红点、外面一圈纸白细环：环不是装饰，是为了在任何底色上
+            // 都能读出点的边界——没有环，点会与深色的山地、水面融成一片。
+            ctx.fillStyle = mapSeal;
             ctx.beginPath();
-            ctx.arc(px, py, 10, 0, Math.PI * 2);
+            ctx.arc(px, py, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = mapHalo;
+            ctx.lineWidth = 1.3;
+            ctx.beginPath();
+            ctx.arc(px, py, 5.1, 0, Math.PI * 2);
             ctx.stroke();
+
+            // 坐标是**写在地形上的**，没有底板、没有边框。范围模式那一层用纸色标签，
+            // 因为它是一块「区域」，需要一个边界；这里是「一个点」，再套一个框
+            // 就成了界面控件贴在地图上，与纸墨这一层语言不搭。
+            //
+            // 可读性靠纸白描边：写实地形从雪白到近黑都有，单靠朱色压不住。
+            ctx.font = FONT_EXACT;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.lineJoin = 'round';
+            const textWidth = ctx.measureText(text).width;
+            const gap = 11;
+            // 默认写在点的右侧；贴到右边缘时翻到左侧。不翻会被裁在地图外，
+            // 剩一个点什么信息都没有。
+            const fitsRight = px + gap + textWidth <= layout.left + layout.width - 2;
+            const textX = fitsRight ? px + gap : px - gap - textWidth;
+            // 与点同高才读得出「这串数字属于这个点」，所以只能夹到不出图，
+            // 不能像标签那样整体挪走。
+            const textY = Math.min(Math.max(py, layout.top + 8), layout.top + layout.height - 8);
+
+            // 先描边再填字。`strokeText` 的 lineWidth 骑在字形轮廓上、内外各一半，
+            // 随后填字会把朝内那一半盖掉，净剩向外的 1px；反过来先填后描会
+            // 把笔画本身吃细，小字号下直接糊。楷体在 13.5px 上笔画只有一像素宽，
+            // 描边再粗一档，字口就被白色吃掉了（实测 1.2px 时「4」几乎读不出缺口）。
+            ctx.strokeStyle = mapHalo;
+            ctx.lineWidth = 2;
+            ctx.strokeText(text, textX, textY);
+            ctx.fillStyle = mapSealInk;
+            ctx.fillText(text, textX, textY);
         } else {
+            const size = 7;
+            ctx.strokeStyle = ink;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(px - size, py);
+            ctx.lineTo(px + size, py);
+            ctx.moveTo(px, py - size);
+            ctx.lineTo(px, py + size);
+            ctx.stroke();
+
             ctx.fillStyle = paper;
             ctx.strokeStyle = ink;
             ctx.lineWidth = 1.5;
@@ -384,23 +406,20 @@ function draw() {
             ctx.arc(px, py, 3, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
-        }
 
-        const text = outside ? `${rawX},${rawY} 图外` : `${rawX},${rawY}`;
-        ctx.font = FONT;
-        const boxWidth = ctx.measureText(text).width + PAD_X * 2;
-        const gap = size + 3;
-        // 数字默认写在十字右侧；贴到右边缘时右侧已经没地方，翻到左侧。
-        // 不翻就会被裁在地图外，剩一个十字什么信息都没有。
-        const fitsRight = px + gap + boxWidth <= layout.left + layout.width - 2;
-        placeLabel(
-            text,
-            fitsRight ? px + gap : px - gap - boxWidth,
-            py - BOX_H / 2,
-            boxWidth,
-            ink,
-            false,
-        );
+            ctx.font = FONT;
+            const boxWidth = ctx.measureText(text).width + PAD_X * 2;
+            const gap = size + 3;
+            const fitsRight = px + gap + boxWidth <= layout.left + layout.width - 2;
+            placeLabel(
+                text,
+                fitsRight ? px + gap : px - gap - boxWidth,
+                py - BOX_H / 2,
+                boxWidth,
+                ink,
+                false,
+            );
+        }
 
         ctx.restore();
     }

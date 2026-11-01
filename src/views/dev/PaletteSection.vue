@@ -31,7 +31,6 @@ const LABELS: Record<string, string> = {
     '--seal-edge': '印边',
     '--on-seal': '印上字',
     '--ochre': '赭',
-    '--indigo': '靛',
     '--moss': '苔',
     '--bevel-hi': '受光',
     '--bevel-lo': '背光',

@@ -13,14 +13,17 @@ import type { ParsedTask } from './ghost-parse';
 /** 官方口径的容差。攻略原文：任务栏提示坐标 ±50 范围内。 */
 const TOLERANCE = 50;
 
-/** 单边规则的判定口径。 */
-export type EdgeRule =
-    /** 按「离边界多远」判，与地图大小无关，20 张图一套规则。 */
-    | 'relative'
-    /** 照搬社区经验「≤50 往小、≥150 往大」，符合老玩家直觉，但在小图上失效。 */
-    | 'absolute'
-    /** 只给官方范围，不做收窄。 */
-    | 'off';
+/**
+ * 社区经验的两条线：假坐标 ≤50 时真坐标一定更小，≥150 时一定更大。
+ *
+ * 这是**绝对阈值，不按地图归一化**。曾经有过一档「按比例 25%/75%」，它其实是把
+ * 这两条线除以「假设坐标域宽 200」的结果——坐标域不是 200 时两者就开始分歧。
+ * 实测 20 张图里只有 3 张接近 200 宽，而攻略原文给的是绝对值，所以只留绝对口径。
+ * 代价是 51~149 的中间带一条线索都不给，但那正是社区原话：「没有规律只能硬找」。
+ * 论证与外部出处见 `docs/GHOST-HUNT.md` §6。
+ */
+const EDGE_LOW = 50;
+const EDGE_HIGH = 150;
 
 /** 某轴假坐标偏向哪一侧。`none` = 居中，两个方向都可能。 */
 export type Side = 'low' | 'high' | 'none';
@@ -46,13 +49,14 @@ export interface Box {
 export interface SearchRange {
     /** 官方 ±50，已按地图边界裁剪。 */
     official: Box;
-    /** 单边规则收窄后的范围。与外框完全重合时为 `null`——此时不画第二层。 */
+    /**
+     * 经验收窄后的范围，即「高概率区域」。三种情况为 `null`：
+     * 开关关掉、某轴落在 51~149 的中间带、收窄结果与外框完全重合。
+     * 为 `null` 时不画第二层——画一个与外框重叠的框只会让人以为那就是范围。
+     */
     likely: Box | null;
     x: AxisInfo;
     y: AxisInfo;
-    /** 面积，单位「格」。按含两端的整数点数计：`(x1-x0+1) × (y1-y0+1)`。 */
-    officialCells: number;
-    likelyCells: number;
 }
 
 /**
@@ -62,7 +66,8 @@ export interface SearchRange {
  *
  * | 文本 | 模式 |
  * | --- | --- |
- * | `去X处`（开了天眼） | `exact` 精确点 |
+ * | `去X，Y`（开天眼后「附近」被删掉，句尾为空） | `exact` 精确点 |
+ * | `去X处`（另一种天眼写法） | `exact` 精确点 |
  * | `去X，Y附近`，坐标有效 | `range` 双层范围 |
  * | `去X附近`，坐标为 `0,0` 且场景登记为无坐标域 | `whole` 全层 |
  */
@@ -88,25 +93,20 @@ function isNoCoordinate(map: GhostMap, x: number, y: number): boolean {
 /**
  * 判断某轴往哪边收。
  *
- * `relative` 用 25% / 75% 两条线：地图坐标系原点在左下、值域就是全体可走范围，
- * 所以「贴近 1/4 以内」在语义上等于「贴着这条边」。
- * 用它而不是绝对阈值，是因为实测地图值域跨度极大（五庄观 100×75，大唐境外 640×120），
- * 固定阈值 50/150 在小图上永远触发不了——江南野外 maxX=160，假坐标 134 占 84%（明显贴右边），
- * 按绝对阈值却判成「51~149 无规律」，把最容易收敛的一类白白丢掉。
+ * 只有两条线，中间带一律 `none`。社区口径的原话是「51-149 没有规律只能硬找」，
+ * 所以中间带**不给任何方向**——给它一个方向就是编出一条社区明确否认的规则。
+ *
+ * 注意这两条线隐含「坐标域大致 0~200」。实测 `maxY < 150` 有 15/20 张、
+ * `maxX < 150` 有 7/20 张，这些图上「往大走」数学上不可达，属规则的适用范围
+ * 而不是判错，详见 `docs/GHOST-HUNT.md` §6。
  */
-function sideOf(value: number, max: number, rule: EdgeRule): Side {
-    if (rule === 'off' || max <= 0) return 'none';
+function sideOf(value: number, max: number): Side {
+    if (max <= 0) return 'none';
     // 越界的不窄。范围本来就已经顶到那条边了，`value ± 50` 再被裁一次只会剩
     // 一根 0 宽的线；而「鬼在比 100 更靠右的地方」对一张 96 格宽的图没有意义。
     if (value < 0 || value > max) return 'none';
-    if (rule === 'absolute') {
-        if (value <= 50) return 'low';
-        if (value >= 150) return 'high';
-        return 'none';
-    }
-    const ratio = value / max;
-    if (ratio <= 0.25) return 'low';
-    if (ratio >= 0.75) return 'high';
+    if (value <= EDGE_LOW) return 'low';
+    if (value >= EDGE_HIGH) return 'high';
     return 'none';
 }
 
@@ -124,16 +124,15 @@ function axisBox(value: number, max: number, side: Side): { lo: number; hi: numb
     return { lo, hi };
 }
 
-function cells(box: Box): number {
-    return Math.max(0, box.x1 - box.x0 + 1) * Math.max(0, box.y1 - box.y0 + 1);
-}
-
-export function computeRange(map: GhostMap, x: number, y: number, rule: EdgeRule): SearchRange {
+/**
+ * @param hot 是否计算「高概率区域」。关掉时只给官方 ±50，`likely` 恒为 `null`。
+ */
+export function computeRange(map: GhostMap, x: number, y: number, hot: boolean): SearchRange {
     // 判边用原值（越界判 `none`），算框用**夹回值域**的值。这两步不能合成一步：
     // 用原值算 600-50=550 与 min(95, 650)=95 会得到 x0 > x1 的倒框，画出来是
     // 一条反向的线；用夹回值判边，134→160 这种贴右在夹完仍是 134，不受影响。
-    const xSide = sideOf(x, map.maxX, rule);
-    const ySide = sideOf(y, map.maxY, rule);
+    const xSide = hot ? sideOf(x, map.maxX) : 'none';
+    const ySide = hot ? sideOf(y, map.maxY) : 'none';
     const cx = clamp(x, map.maxX);
     const cy = clamp(y, map.maxY);
 
@@ -169,19 +168,19 @@ export function computeRange(map: GhostMap, x: number, y: number, rule: EdgeRule
         likely,
         x: { value: x, max: map.maxX, side: xSide },
         y: { value: y, max: map.maxY, side: ySide },
-        officialCells: cells(official),
-        likelyCells: likely ? cells(likely) : cells(official),
     };
 }
 
 /** 把一条解析好的任务变成绘图指令。 */
-export function planFor(task: ParsedTask, rule: EdgeRule): GhostPlan {
+export function planFor(task: ParsedTask, hot: boolean): GhostPlan {
     const { map } = task;
     if (!map) {
         return { mode: 'invalid', map: null, reason: `没有「${task.mapText}」的底图`, task };
     }
 
-    if (task.reveal === 'exact') {
+    // 开天眼后游戏把「附近」两个字直接删掉，句子只剩 `去江南野外134,54抓…`，
+    // 于是句尾是**空**的（`silent`），不是某个替代字。这两种都得画点。
+    if (task.reveal === 'exact' || task.reveal === 'silent') {
         return { mode: 'exact', map, x: task.x, y: task.y, task };
     }
 
@@ -203,5 +202,5 @@ export function planFor(task: ParsedTask, rule: EdgeRule): GhostPlan {
         };
     }
 
-    return { mode: 'range', map, range: computeRange(map, task.x, task.y, rule), task };
+    return { mode: 'range', map, range: computeRange(map, task.x, task.y, hot), task };
 }

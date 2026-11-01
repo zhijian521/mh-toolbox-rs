@@ -2,13 +2,13 @@
 import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import AppIcon from '../../components/AppIcon.vue';
+import CostSwitch from '../../components/CostSwitch.vue';
 import PageShell from '../../components/PageShell.vue';
-import SteppedSlider from '../../components/SteppedSlider.vue';
 import MapCanvas from '../../components/ghost/MapCanvas.vue';
 import { useGhostWatch } from '../../composables/use-ghost-watch';
 import { hasDesktop } from '../../services/desktop';
 import { CONFIRM_FRAMES } from '../../services/ghost-hold';
-import type { EdgeRule, GhostPlan } from '../../services/ghost-model';
+import type { GhostPlan } from '../../services/ghost-model';
 
 /**
  * 捉鬼助手。
@@ -37,27 +37,13 @@ const {
     dpi,
     settling,
     ages,
-    rule,
+    hot,
     start,
     toggle,
     prepare,
 } = useGhostWatch();
 
 const desktop = hasDesktop();
-
-const RULE_OPTIONS: { value: EdgeRule; label: string }[] = [
-    { value: 'relative', label: '按比例' },
-    { value: 'absolute', label: '按数值' },
-    { value: 'off', label: '不收窄' },
-];
-
-/* 三句只回答「这一档怎么判」，不重复上面那行机制——否则每切一档都要重读一遍
- * 「鬼往边上跑」这件事，读三次就变成噪声。 */
-const RULE_HINT: Record<EdgeRule, string> = {
-    relative: '判定：某轴 ≤25% 或 ≥75% 算贴边。20 张图一套口径，与地图多大无关',
-    absolute: '判定：≤50 往小、≥150 往大。小地图坐标到不了 150，几乎不触发',
-    off: '不收窄：只给官方 ±50，不套经验规律',
-};
 
 const statusText = computed(() => {
     if (!desktop) return '浏览器预览里读不到屏幕';
@@ -199,21 +185,22 @@ onMounted(async () => {
                         改窗口前先停止识别。游戏窗口要在前台，被挡住的部分截不到。
                     </p>
 
-                    <div class="field field-block">
-                        <span class="field-label">单边规则</span>
-                        <!-- 先给机制再给口径：只写「按比例 / 按数值」四个字，用户无法判断
-                             内框画得对不对，只能信。这行把凭据摆在操作之前。 -->
-                        <p class="field-note field-lead">
-                            经验：鬼只出现在假坐标贴近的那一侧——贴边的轴砍掉反向那一半。
-                        </p>
-                        <SteppedSlider
-                            v-model="rule"
-                            :options="RULE_OPTIONS"
-                            label="单边规则"
-                            class="rule-slider"
-                        />
+                    <div class="field">
+                        <span class="field-label">高概率区域</span>
+                        <CostSwitch v-model="hot" off-label="关" on-label="开" class="hot-switch" />
                     </div>
-                    <p class="field-note">{{ RULE_HINT[rule] }}</p>
+                    <!-- 判定写死成一句，不再给三档选择：`≤50 / ≥150` 是社区共识的
+                         唯一口径，「按比例」是把这两条线除以「假设坐标域 200」得来的，
+                         坐标域不是 200 的图上两种口径会给出相反结论。 -->
+                    <p class="field-note">假坐标 ≤50 只往小走、≥150 只往大走；51–149 没有方向。</p>
+                    <div class="legend">
+                        <span class="legend-item">
+                            <i class="swatch swatch-wash" aria-hidden="true" />官方 ±50
+                        </span>
+                        <span v-if="hot" class="legend-item">
+                            <i class="swatch swatch-hot" aria-hidden="true" />高概率区域
+                        </span>
+                    </div>
                 </section>
 
                 <details v-if="report" class="frame detail-block">
@@ -395,22 +382,39 @@ onMounted(async () => {
     font-size: var(--fs-mini);
     line-height: 1.6;
 }
-/* 单边规则独起一行：标签 + 滑块 + 两句说明横向排不进 248px 的侧栏，
- * 而三档的档名（按比例 / 按数值 / 不收窄）一个都不能缩成两字。 */
-.field-block {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
+/* 开关靠右与「监听窗口」的下拉同一条竖线：两行都是「标签在左、控件在右」，
+ * 对齐之后侧栏才读成一列表单，而不是一堆各在各处的零件。 */
+.hot-switch {
+    margin-left: auto;
 }
-/* 机制说明贴在标签下面，与滑块的间距比与标签的间距大一点：
- * 它是「这一段在讲什么」的引言，不是滑块的一部分。 */
-.field-lead {
-    margin: 1px 0 3px;
+/* 图例：两块色就是图上那两块，色值直接引 `MapCanvas` 用的同一令牌，
+ * 两处各写一份就等于以后必然不同步。 */
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px 12px;
+    margin-top: 8px;
 }
-/* 滑块自己收缩到内容宽，这里让它吃满侧栏：三格等分靠的是 1fr，
- * 收缩状态下每格只有档名那么宽，点右半格容易落到空白处。 */
-.rule-slider {
-    width: 100%;
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+}
+.swatch {
+    display: block;
+    width: 15px;
+    height: 9px;
+    border-radius: 1px;
+}
+.swatch-wash {
+    border: 1px solid var(--ghost-wash-edge);
+    background: var(--ghost-wash);
+}
+.swatch-hot {
+    border: 1px solid var(--ghost-hot-edge);
+    background: var(--ghost-hot);
 }
 
 /* ---------- 识别原文 ---------- */

@@ -34,8 +34,21 @@ import { findGhostMap } from './ghost-maps';
 /** 小鬼走「钟馗抓鬼」，大鬼走「降服千年厉鬼」，场景完全不重叠。 */
 export type TaskKind = 'small' | 'big';
 
-/** 天眼状态。`附近` = 未开眼，`处` = 已开眼；两个字都没读到时为 `unknown`。 */
-export type RevealState = 'nearby' | 'exact' | 'unknown';
+/**
+ * 天眼状态。四档全部由「坐标后面跟着什么」直接读出来。
+ *
+ * - `nearby`：读到 `附近` → 未开眼，任务栏给的是假坐标，画 ±50 范围；
+ * - `exact`：读到 `处` → 已开眼；
+ * - `silent`：坐标读到了，但后面既没有 `附近` 也没有 `处` → **已开眼**。
+ *   游戏开天眼是把 `附近` 两个字**直接删掉**，句子变成
+ *   `去江南野外134,54抓巳时四刻偷尸鬼。`，不给替代字；
+ * - `unknown`：走的是兜底句式，那一层根本不捕获句尾，无从判断。
+ *
+ * `silent` 与 `unknown` 必须分开，混成一个会同时错两头：当成 `exact` 则每一条
+ * 兜底解析出来的任务都画成一个点；当成 `unknown` 则开了天眼的任务永远停在
+ * ±50 范围上，用户只能自己跑遍 100×100 格去找。
+ */
+export type RevealState = 'nearby' | 'exact' | 'silent' | 'unknown';
 
 export interface ParsedTask {
     kind: TaskKind;
@@ -156,6 +169,70 @@ const LOOSE_SMALL =
 const LOOSE_BIG =
     /厉鬼[^去]{0,12}?(?:去|昊)(.{1,12}?)(\d{1,4})[,，、．.][^\d,，、．.]{0,1}(\d{1,4})/;
 
+/**
+ * 第三层：分隔符整个没了的坐标。
+ *
+ * 任务栏折行**正好落在逗号上**时，逗号落在行尾被裁掉，两段数字在拼接后粘成
+ * 一串（2026-11-01 真机实测）：
+ *
+ * ```
+ * 降服千年厉鬼（第8个
+ * 去麒麟山的119
+ * 107附近降服子时
+ * ```
+ *
+ * 拼成一整串是 `去麒麟山的119107附近`。这一帧上面两层都救不了：严格正则要求
+ * 分隔符，兜底也一样；而**把分隔符写成可选更糟**——`(\d{1,4})` 贪婪会给出
+ * `1191` + `07` 这种看着合法、实际错几十格的读法，没有任何正则内部的信息能
+ * 分辨它。
+ *
+ * 所以这一层的匹配只负责「锚点 + 地名 + 一串纯数字」，切分交给
+ * `splitCoordDigits()`，靠**这张图的坐标值域**定夺。
+ */
+const NOSEP_SMALL = /抓鬼[^去]{0,12}?(?:去|昊)(.{1,12}?)的?(\d{4,7})(附近|处)?/;
+const NOSEP_BIG = /厉鬼[^去]{0,12}?(?:去|昊)(.{1,12}?)的?(\d{4,7})(附近|处)?/;
+
+/**
+ * 把粘连的数字串切成两段坐标。
+ *
+ * 判据只有一条：**切完之后 x ≤ maxX 且 y ≤ maxY**。这条判据出奇地硬——
+ * 20 张图里 maxX 最大 640、maxY 最大 210，都是三位数：
+ *
+ * | 位数 | 可能的切法 | 结果 |
+ * | --- | --- | --- |
+ * | 6 位 `119107` | 1+5 / 2+4 / 3+3 / 4+2 / 5+1 | 只有 3+3 能让两轴都不爆值域 |
+ * | 5 位 `13454`  | 1+4 / 2+3 / 3+2 / 4+1     | 4 位那段必爆，通常只剩 3+2 |
+ * | 4 位 `1234`   | 1+3 / 2+2 / 3+1            | 取两段长度差最小的 2+2 |
+ *
+ * 值域筛不唯一时用「两段等长」（长度差最小）定；还不唯一就**放弃**，宁可这
+ * 一帧不出结果、让「保留最佳」顶着上一帧，也不要给一个错几十格的坐标。
+ *
+ * 前导零只允许 `0` 本身：`07` 不可能是坐标，它只说明切错了。
+ */
+function splitCoordDigits(digits: string, map: GhostMap | null): { x: number; y: number } | null {
+    // 地名没对上底图就没有值域可用，这时唯一的依据是「两段等长」，而等长恰恰
+    // 是最容易被推翻的猜测。直接放弃，别在没底图的情况下编一个坐标出来。
+    if (!map) return null;
+
+    const options: Array<{ x: number; y: number; gap: number }> = [];
+    for (let cut = 1; cut < digits.length; cut += 1) {
+        const head = digits.slice(0, cut);
+        const tail = digits.slice(cut);
+        const leadingZero = (part: string) => part.length > 1 && part.startsWith('0');
+        if (leadingZero(head) || leadingZero(tail)) continue;
+        const x = Number(head);
+        const y = Number(tail);
+        if (x > map.maxX || y > map.maxY) continue;
+        options.push({ x, y, gap: Math.abs(head.length - tail.length) });
+    }
+    if (options.length === 0) return null;
+
+    const minGap = Math.min(...options.map((option) => option.gap));
+    const winners = options.filter((option) => option.gap === minGap);
+    const [only] = winners;
+    return winners.length === 1 && only ? { x: only.x, y: only.y } : null;
+}
+
 /** 把字母混淆改回数字，并记录改了哪些。 */
 function normalize(raw: string): { text: string; corrections: Correction[] } {
     // 全串删空白：折行、字间空隙、OCR 插入的空格都会让数字被切开（`5 59`）。
@@ -186,6 +263,24 @@ function cleanMapText(text: string): string {
         .replace(/的+$/, '');
 }
 
+/**
+ * 句尾 → 天眼状态。
+ *
+ * 空串与 `undefined` 必须区别对待，这是这一层唯一的坑：
+ * 严格句式的 `(附近|处)?` 是可选组，没匹配上是 `''`（调用方 `?? ''` 归一），
+ * 表示「坐标读到了，后面确实什么都没有」；而兜底句式压根没有这个捕获组，
+ * 传进来是 `undefined`，表示「这一段没看」。
+ *
+ * 把 `undefined` 也当成「没有附近」，会让每一条兜底解析的任务都变成精确点——
+ * 而兜底恰恰是最不确定的那一类帧。
+ */
+function revealOf(tail: string | undefined): RevealState {
+    if (tail === '附近') return 'nearby';
+    if (tail === '处') return 'exact';
+    if (tail === '') return 'silent';
+    return 'unknown';
+}
+
 function buildTask(
     kind: TaskKind,
     indexText: string | undefined,
@@ -204,7 +299,7 @@ function buildTask(
         mapText,
         x: Number(xText),
         y: Number(yText),
-        reveal: tail === '处' ? 'exact' : tail === '附近' ? 'nearby' : 'unknown',
+        reveal: revealOf(tail),
         raw,
     };
 }
@@ -225,14 +320,31 @@ export function parseGhostTasks(lines: OcrLine[], maps: GhostMap[]): ParseReport
 
     // 对整串做**全局**匹配：同一帧里可能同时抓到两条小鬼（任务多时）或
     // 一条小鬼加一条大鬼。用 `exec` 循环而不是只取第一次。
-    const collect = (strict: RegExp, loose: RegExp, kind: TaskKind, marker: string) => {
+    const collect = (
+        strict: RegExp,
+        loose: RegExp,
+        noSep: RegExp,
+        kind: TaskKind,
+        marker: string,
+    ) => {
         const scan = new RegExp(strict.source, 'g');
         let hit = scan.exec(text);
         let matched = 0;
         let kept = 0;
         while (hit) {
             matched += 1;
-            const task = buildTask(kind, hit[1], hit[2], hit[3], hit[4], hit[5], hit[0], maps);
+            // `?? ''` 是语义转换，不是防空：可选组没匹配上时 `exec` 给的是
+            // `undefined`，而这里要表达的恰恰是「确认没有句尾」（见 `revealOf`）。
+            const task = buildTask(
+                kind,
+                hit[1],
+                hit[2],
+                hit[3],
+                hit[4],
+                hit[5] ?? '',
+                hit[0],
+                maps,
+            );
             // 坐标落在该图值域外**不丢**。任务栏给的是假坐标：游戏按真实位置的
             // ±50 随机、不按地图边界裁剪，所以真身贴着右边时提示坐标本身就会越过
             // maxX（2026-11-01 实测普陀山 96×72 读到 100,66）。早先按「OCR 认错一位」
@@ -251,8 +363,8 @@ export function parseGhostTasks(lines: OcrLine[], maps: GhostMap[]): ParseReport
             hit = scan.exec(text);
         }
 
-        // 严格句式一段都没命中才上兜底。命中过就不兜底——否则同一段会被松一层
-        // 的规则再解析一遍，得到两条一模一样的任务。
+        // 严格句式一段都没命中才上后两层。命中过就不再往下兜——否则同一段会被
+        // 松一层的规则再解析一遍，得到两条一模一样的任务。
         if (matched === 0) {
             const looseHit = new RegExp(loose.source).exec(text);
             if (looseHit) {
@@ -263,12 +375,53 @@ export function parseGhostTasks(lines: OcrLine[], maps: GhostMap[]): ParseReport
                         looseHit[1],
                         looseHit[2],
                         looseHit[3],
+                        // 第 6 个参数留 `undefined` 而不是 `''`：兜底句式没捕获句尾，
+                        // 是「没看」不是「没有」，据此判天眼会把最糊的帧画成精确点。
                         undefined,
                         looseHit[0],
                         maps,
                     ),
                 );
                 kept += 1;
+            } else {
+                const noSepHit = new RegExp(noSep.source).exec(text);
+                if (noSepHit) {
+                    const rawMapText = noSepHit[1];
+                    const digits = noSepHit[2];
+                    const found = findGhostMap(maps, cleanMapText(rawMapText));
+                    const point = splitCoordDigits(digits, found);
+                    if (point) {
+                        // 句尾只在**明确读到字**时才带出去。这一层本来就缺了逗号、
+                        // 是残帧，再让它去判「附近消失了 = 开了天眼」就成了拿最不
+                        // 可信的帧下最不可逆的结论；读不到就留 `undefined`（unknown），
+                        // 照常画范围。
+                        const tail = noSepHit[3];
+                        tasks.push(
+                            buildTask(
+                                kind,
+                                undefined,
+                                rawMapText,
+                                String(point.x),
+                                String(point.y),
+                                tail === '附近' || tail === '处' ? tail : undefined,
+                                noSepHit[0],
+                                maps,
+                            ),
+                        );
+                        issues.push(
+                            `「${cleanMapText(rawMapText)}」坐标缺分隔符，已按值域切成 ` +
+                                `${point.x},${point.y}`,
+                        );
+                        kept += 1;
+                    } else if (found) {
+                        // 有底图却切不开：`119107` 这种要么是更长的误读，要么两轴
+                        // 都超过了这张图。不猜，留给「保留最佳」顶着上一帧。
+                        issues.push(
+                            `「${cleanMapText(rawMapText)}」坐标 ${digits} 没有分隔符，` +
+                                `按该图值域切不出唯一解`,
+                        );
+                    }
+                }
             }
         }
 
@@ -277,8 +430,8 @@ export function parseGhostTasks(lines: OcrLine[], maps: GhostMap[]): ParseReport
         }
     };
 
-    collect(SMALL_PATTERN, LOOSE_SMALL, 'small', '抓鬼');
-    collect(BIG_PATTERN, LOOSE_BIG, 'big', '降服');
+    collect(SMALL_PATTERN, LOOSE_SMALL, NOSEP_SMALL, 'small', '抓鬼');
+    collect(BIG_PATTERN, LOOSE_BIG, NOSEP_BIG, 'big', '降服');
     // 大鬼句首走样时连「降服」都不在（真机帧 7 读成「挚月艮千厉鬼」），
     // 上面按「降服」判断的那条提示不会触发，这里改用「厉鬼」补一次。
     // 两个条件互斥（一个是「有降服」，一个是「没降服」），不会重复报。

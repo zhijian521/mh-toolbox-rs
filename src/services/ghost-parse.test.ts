@@ -265,3 +265,119 @@ describe('parseGhostTasks：单条容错', () => {
         expect(issues.some((issue) => issue.includes('没有对应的底图'))).toBe(true);
     });
 });
+
+/** 取某条任务的天眼状态。 */
+function revealOf(lines: OcrLine[], kind: 'small' | 'big') {
+    return parseGhostTasks(lines, maps).tasks.find((task) => task.kind === kind)?.reveal;
+}
+
+/**
+ * 天眼状态的四档。
+ *
+ * 这一层最容易在后续「顺手简化」时被压成两档（有句尾 / 没句尾），而压掉的正好是
+ * `silent` 与 `unknown` 的区别——一个画点、一个画范围，混淆的后果是**整类任务**
+ * 都画错，不是个别帧。
+ */
+describe('parseGhostTasks：天眼状态', () => {
+    it('读到「附近」→ nearby（未开眼）', () => {
+        const lines = rows('钟馗抓鬼（第1个）：去江南野外134,54附近抓巳时四刻偷尸鬼。');
+        expect(revealOf(lines, 'small')).toBe('nearby');
+    });
+
+    it('读到「处」→ exact（开天眼）', () => {
+        const lines = rows('钟馗抓鬼（第1个）：去江南野外134,54处抓巳时四刻偷尸鬼。');
+        expect(revealOf(lines, 'small')).toBe('exact');
+    });
+
+    it('「附近」被整段删掉 → silent（另一种开天眼写法）', () => {
+        // 游戏开天眼不给替代字，只是把「附近」两个字删掉，句子缩成
+        // `去江南野外134,54抓…`。句尾这时是**空**的，但语义与「处」相同。
+        const lines = rows('钟馗抓鬼（第1个）：去江南野外134,54抓巳时四刻偷尸鬼。');
+        expect(revealOf(lines, 'small')).toBe('silent');
+    });
+
+    it('走兜底句式时是 unknown，不能当成「没有附近」', () => {
+        // 句首整段走样、只能靠「抓鬼…去…坐标」兜底，这一层压根不捕获句尾。
+        // 若把它也判成 silent，每一条兜底解析的任务都会变成一个精确点。
+        const lines = rows('中旭抓鬼昊建邺城204,107抓辰时二刻');
+        expect(revealOf(lines, 'small')).toBe('unknown');
+    });
+});
+
+/**
+ * 逗号丢在折行处。
+ *
+ * 任务栏折行**正好落在逗号上**时，逗号落在行尾被裁掉，两段数字拼起来粘成一串。
+ * 这一组的每一帧都来自 2026-11-01 用户实测的原文，按他给的行切开——行怎么分
+ * 其实不影响结果（`normalize` 会删光空白），但留着才是原始证据。
+ *
+ * 判分点的取舍：切不开时**不猜**。错几十格的坐标比没有坐标更坏——用户会照着
+ * 走过去，而界面上一切正常。
+ */
+describe('parseGhostTasks：逗号丢在折行处', () => {
+    it('用户实测帧：麒麟山 119107 → 119,107（六位串只有 3+3 能让两轴都不爆值域）', () => {
+        const { big, issues } = pick(
+            rows(
+                '任务追踪',
+                'L',
+                '鬼王',
+                '降服千年厉鬼（第8个',
+                '去麒麟山的119',
+                '107附近降服子时',
+                '三刻摄毒鬼王，剩余（',
+                '35）分钟',
+            ),
+        );
+        expect(big).toBe('麒麟山 119,107');
+        // 切分这件事要明说：它是算出来的，不是读出来的，用户有权怀疑。
+        expect(issues.some((issue) => issue.includes('缺分隔符'))).toBe(true);
+        expect(revealOf(rows('降服千年厉鬼（第8个去麒麟山的119107附近降服'), 'big')).toBe('nearby');
+    });
+
+    it('五位串取「多的一位归 x」：13454 在江南野外读成 134,54', () => {
+        // 1+4 / 2+4 的尾巴都爆 maxY(120)，4+1 的头爆 maxX(160)，只剩 3+2。
+        const { small } = pick(rows('钟馗抓鬼（第1个）：去江南野外的13454附近'));
+        expect(small).toBe('江南野外 134,54');
+    });
+
+    it('四位串取两段等长：1234 在五庄观读成 12,34', () => {
+        // 五庄观 100×75。1+3 的 234 爆 maxY，3+1 的 123 爆 maxX，2+2 独活。
+        const { small } = pick(rows('钟馗抓鬼（第1个）：去五庄观的1234附近'));
+        expect(small).toBe('五庄观 12,34');
+    });
+
+    it('两种切法都合法时判失败，不靠猜', () => {
+        // 大唐境外 640×120，`12115` 既可以切成 12,115 也可以 121,15，两段都是
+        // 正数开头、都落在值域内、长度差都是 1。没有第三条信息能分辨，只能放弃。
+        const { big, issues } = pick(rows('降服千年厉鬼（第1个）去大唐境外的12115附近'));
+        expect(big).toBeNull();
+        expect(issues.some((issue) => issue.includes('切不出唯一解'))).toBe(true);
+    });
+
+    it('前导零直接排除切法：`12105` 只可能是 12,105', () => {
+        // 若坐标是 121,5，逗号丢了粘起来是 `1215`（4 位），不可能是 5 位——
+        // 多出来的那个 `0` 只能属于前一段。这条约束比「等长」硬得多。
+        const { big } = pick(rows('降服千年厉鬼（第1个）去大唐境外的12105附近'));
+        expect(big).toBe('大唐境外 12,105');
+    });
+
+    it('地名没对上底图时不切——没有值域就没有判据', () => {
+        // 只剩「两段等长」这一条猜测，而它恰恰最容易被推翻。
+        const { small } = pick(rows('钟馗抓鬼（第1个）：去不存在的地方1234附近'));
+        expect(small).toBeNull();
+    });
+
+    it('缺逗号的残帧不判天眼：读不到句尾一律 unknown', () => {
+        // 若这一层也按「没有附近 = 开了天眼」处理，一次折行丢逗号就会把范围
+        // 画成一个点——而缺逗号恰恰说明这一帧不完整。
+        const lines = rows('降服千年厉鬼（第8个去麒麟山的119107降服子时');
+        expect(revealOf(lines, 'big')).toBe('unknown');
+    });
+
+    it('逗号还在的帧不受影响（回归保护）', () => {
+        // 第三层只在上面两层都没命中时才跑，正常帧连碰都不该碰到。
+        const { small, issues } = pick(rows('钟馗抓鬼（第1个）：去江南野外134,54附近抓巳时'));
+        expect(small).toBe('江南野外 134,54');
+        expect(issues.some((issue) => issue.includes('缺分隔符'))).toBe(false);
+    });
+});

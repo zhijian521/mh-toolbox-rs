@@ -42,14 +42,16 @@ function frame(...texts: string[]): ParsedTask[] {
 const STEP = 1000;
 
 describe('scoreTask', () => {
-    it('缺哪一段就低一档：读全 > 缺句尾 > 坐标读没了 > 连地名都没对上', () => {
+    it('缺哪一段就低一档：读全 > 句尾消失 > 坐标读没了 > 连地名都没对上', () => {
         const full = frame('钟馗抓鬼（第1个）：去江南野外134,54附近')[0];
         const noTail = frame('钟馗抓鬼（第1个）：去江南野外134,54')[0];
         const lostCoords = frame('钟馗抓鬼（第1个）：去江南野外0,0附近')[0];
         const noMap = frame('钟馗抓鬼（第1个）：去莫名其妙的地方134,54附近')[0];
 
         expect(scoreTask(full)).toBe(7);
-        expect(scoreTask(noTail)).toBe(5);
+        // 「附近」消失只拿 1 分而不是 2：这既可能是真开了天眼，也可能是 OCR 漏读。
+        // 比有字低一档，误判才能在下一帧被更高分立刻顶回去（见 `tailScore`）。
+        expect(scoreTask(noTail)).toBe(6);
         // 关键：丢了坐标的一帧**不许**高过只丢句尾的一帧，否则「0,0」会顶掉真坐标。
         expect(scoreTask(lostCoords)).toBe(3);
         expect(scoreTask(noMap)).toBe(0);
@@ -86,7 +88,32 @@ describe('absorbFrame', () => {
         absorbFrame(hold, frame('钟馗抓鬼（第1个）：去江南野外134,54'), STEP);
         absorbFrame(hold, frame('钟馗抓鬼（第1个）：去江南野外0,0附近'), STEP * 2);
 
-        expect(heldTasks(hold)[0]).toMatchObject({ x: 134, y: 54, reveal: 'unknown' });
+        expect(heldTasks(hold)[0]).toMatchObject({ x: 134, y: 54, reveal: 'silent' });
+    });
+
+    it('「附近」消失 = 开了天眼，但要连稳两帧才换成精确点', () => {
+        const hold = createHold();
+        absorbFrame(hold, frame('钟馗抓鬼（第1个）：去江南野外134,54附近'), STEP);
+
+        // 第一帧没了「附近」：可能真开眼，也可能这两个字正被 NPC 挡住。先不动。
+        absorbFrame(hold, frame('钟馗抓鬼（第1个）：去江南野外134,54'), STEP * 2);
+        expect(heldTasks(hold)[0].reveal).toBe('nearby');
+
+        // 第二帧还是没「附近」——开眼是永久的，遮挡不是。换。
+        absorbFrame(hold, frame('钟馗抓鬼（第1个）：去江南野外134,54'), STEP * 3);
+        expect(heldTasks(hold)[0].reveal).toBe('silent');
+    });
+
+    it('漏读「附近」被误判之后，下一帧读回来立刻退回范围', () => {
+        const hold = createHold();
+        // 开局就是没有句尾的那一帧（真开眼与漏读在这里长得一模一样，只能先认）。
+        absorbFrame(hold, frame('钟馗抓鬼（第1个）：去江南野外134,54'), STEP);
+        expect(heldTasks(hold)[0].reveal).toBe('silent');
+
+        // 下一帧读到了「附近」，分更高，按「更完整立刻换」直接生效——
+        // 把 `silent` 定成 1 分的全部意义就在这里，否则要等三帧，用户照着点跑错方向。
+        absorbFrame(hold, frame('钟馗抓鬼（第1个）：去江南野外134,54附近'), STEP * 2);
+        expect(heldTasks(hold)[0].reveal).toBe('nearby');
     });
 
     it('丢了「处」不会把精确点闪回成范围框', () => {
