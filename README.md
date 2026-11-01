@@ -6,23 +6,25 @@
 梦幻西游端游的养成记账工具。技术栈 Rust + Tauri 2 + Vue 3 + SQLite，
 界面走「账簿」方向：宣纸底、墨字、朱红作记、结构靠线不靠阴影。
 
-## 当前状态（2026-10-31）
+## 当前状态（2026-11-01）
 
-骨架已起：八个导航页都有路由，其中**只有设置页有内容**，其余七个是占位；此外还有一张不进导航的
-开发页（`#/dev`）。设计语言（令牌、控件、账簿语法）已成型，验收面放在那张**隐藏的开发页**
-（三连击左栏顶部的标进入）。
+八个导航页都有路由，其中**设置页与工具页有内容**，其余六页是占位；工具页下挂子页
+（捉鬼助手 `/tools/ghost`，可用）。另有一张不进导航的开发页 `#/dev`，
+入口是**三连击左栏顶部的标**。
 
-| 已完成       | 说明                                                                                                                                                                                             |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Tauri 2 窗口 | 1280×820，最小 1024×780，居中；productName `梦幻养老助手`，identifier `com.zhijian.mhtoolbox.rs`                                                                                                 |
-| IPC 通路     | `app_info` 命令，前端经 `src/services/desktop.ts` 调用（渲染层唯一允许碰系统的地方）                                                                                                             |
-| 路由         | `vue-router` + hash 模式，8 个导航页各一条 + 一条隐藏的 `#/dev`；`src/navigation.ts` 是真源，路由与左栏都由它派生。装备已并入角色，`/equipment` 重定向到 `/characters`；「工具」是新增的一级入口 |
-| 设置页       | 2 个区块：外观（主题 / 字号）/ 关于，宽度够时并排一行两卡。开发用的四张卡（组件、色板、字号阶梯、图标）搬去了 `#/dev`                                                                            |
-| 设计语言     | `src/styles/tokens.css` / `base.css` / `blocks.css`（唯一真源）、`design/income.html`（收益页样张，直接引同一份 CSS）                                                                            |
+| 已完成       | 说明                                                                                                                                           |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tauri 2 窗口 | 1280×820，最小 1024×780，居中；productName `梦幻养老助手`，identifier `com.zhijian.mhtoolbox.rs`                                               |
+| IPC 通路     | `app_info` 命令，前端经 `src/services/desktop.ts` 调用；捉鬼的 `ghost_*` 命令经 `src/services/ghost.ts`                                        |
+| 路由         | `vue-router` + hash 模式；`src/navigation.ts` 是真源，路由与左栏都由它派生；工具子路由来自 `src/tools.ts`。`/equipment` 重定向到 `/characters` |
+| 设置页       | 外观（主题 / 字号）+ 关于，两块卡片，宽度够时并排                                                                                              |
+| 工具页       | 桌面图标式启动器：92px 格子、56px 压印图标块（`PressTile`）、名称在下，没有副标题                                                              |
+| 捉鬼助手     | 截屏 + 本地 OCR（PP-OCRv4，缺模型退回系统 OCR）读任务栏的假坐标，在底图上画该往哪找；ROI 按显示器 DPI 换算                                     |
+| 设计语言     | `src/styles/tokens.css` / `base.css` / `blocks.css`（唯一真源）、`design/income.html`（收益页样张，直接引同一份 CSS）                          |
 
-未开始：数据层（SQLite）、领域层、七个业务页的内容、OCR、e2e。
+未开始：数据层（SQLite）、领域层、六个尚未写的业务页、e2e。
 
-**字体与字号都只有一条通路。** 全站唯一字体是霞鹜文楷（不再与黑体混排）；八档字号全部写成
+**字体与字号都只有一条通路。** 全站唯一字体是霞鹜文楷（不再与黑体混排）；六档字号全部写成
 `calc(Npx * var(--fs-scale))`，设置页的三档滑块只改 `--fs-scale` 一个变量（0.92 / 1 / 1.1）。
 连左栏宽度、区块标的尺寸也跟着缩放——否则放大字号时「梦幻养老助手」会被截成「梦幻养…」。
 
@@ -30,35 +32,38 @@
 
 ```
 ├── src/                  Vue 前端
-│   ├── components/       SegmentedPills / SlotButton / VerticalSlider / CostSwitch /
-│   │                     BaseCheck / LedgerSection / FontSizeSlider / TitleBar / PageHeader /
-│   │                     AppRail / AppIcon（图标走 tabler，只维护名字映射）
-│   ├── composables/      use-theme（主题）/ use-font-scale（字号三档）/
-│   │                     use-roving-focus（单选组键盘）/ use-app-info（版本）
-│   ├── services/         desktop.ts —— 渲染层唯一的系统能力出口
-│   ├── styles/           tokens.css（令牌）/ base.css（重置 + `.well` 凹槽 + 胶囊）/
+│   ├── components/       控件与外壳件：AppRail / AppIcon / PressTile / SlotButton /
+│   │                     SegmentedPills / CostSwitch / SteppedSlider / VerticalSlider /
+│   │                     FontSizeSlider / PageHeader / PageShell / TitleBar / LedgerSection
+│   │                     ghost/MapCanvas（底图与范围绘制）；icons.ts 只维护名字到 tabler 映射
+│   ├── composables/      use-theme / use-font-scale / use-roving-focus / use-app-info /
+│   │                     use-ghost-watch
+│   ├── services/         系统能力与纯规则：desktop（唯一外壳出口）/ ghost（IPC 契约）/
+│   │                     ghost-maps / ghost-parse / ghost-model / ghost-hold（可单测的纯函数）
+│   ├── styles/           tokens.css（令牌）/ base.css（重置 + `.well` 凹槽 + 印面）/
 │   │                     blocks.css（页面级版式）
-│   └── views/            SettingsView（2 个 section）+ DevKitView（开发帮助，5 张卡）
-│                         PlaceholderView
-├── src-tauri/            Rust 壳（窗口、命令、能力配置）
-├── docs/                 架构（ARCHITECTURE）/ 工程规范（CONVENTIONS）
+│   └── views/            SettingsView + settings/（外观、关于）/ ToolsView/tools/
+│                         （捉鬼助手）/ dev/（开发帮助，5 张卡）/ PlaceholderView
+├── src-tauri/            Rust 壳（窗口、命令、截屏、OCR、能力配置）
+├── docs/                 ARCHITECTURE / CONVENTIONS / RECORD / GHOST-HUNT
 ├── scripts/              质量门小工具：版本号一致、提交信息
-├── tools/probe/          CDP 探针（截图 / 量几何；内置静态服务与三条防翻车前提）
-├── .github/workflows/    CI：npm run check + cargo fmt --check
-├── design/               设计语言样张与令牌原件
-└── assets/fonts/         霞鹜文楷 Screen（全量 9.8 MB，不子集化，OFL 1.1）
+├── tools/probe/          CDP 探针（截图 / 量几何；内置静态服务与防翻车前提）
+├── .github/workflows/    CI：npm run check + cargo fmt --check + Windows cargo test --lib
+├── design/               设计语言样张与图标源（.py 生成脚本）
+└── assets/               霞鹜文楷 Screen（全量 9.8 MB，不子集化，OFL 1.1）+ 牌记 PNG
 ```
 
-工程约定单独成文，开工前先读这三份：
+工程约定单独成文，开工前先读这四份：
 
 - **[`AGENTS.md`](AGENTS.md)** — 本机环境硬约束（沙箱能做什么、不能做什么）、验证方式、红线、明确不做的事
 - **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — 分层、数据流、IPC 边界、crate 划分、数据兼容红线
-- **[`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)** — 工程规范、全仓审查发现、分批落地计划
+- **[`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)** — 现在该怎么写：命名、分层、样式语言、控件契约、验收方式
+- **[`docs/RECORD.md`](docs/RECORD.md)** — 过程记录：全仓审查的原始发现与十六个小批的落地历史
 
 质量门只有一条命令，本机与 GitHub Actions 跑的是同一条：
 
 ```bash
-npm run check    # format:check + lint + typecheck + check:version + lint:commits
+npm run check    # format:check + lint + typecheck + test + check:version + lint:commits
 ```
 
 ## 启动

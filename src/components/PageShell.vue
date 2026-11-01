@@ -8,7 +8,7 @@ import PageHeader from './PageHeader.vue';
  * `PageHeader` 的 `padding` 是 16px，`.page-content` 的 `padding` 也是 `16px`——
  * 这两个数字一旦不等，页头那道通栏账线就会比下面的卡片短或长一截，接缝处差一个台阶。
  * 原先这条契约靠注释记着（两处各写一遍，改一处就得记得改另一处），
- * 而这正是 CONVENTIONS §1.2-H 反对的那种「需要记得两边都改」。
+ * 而这正是 RECORD.md §1.2-H 反对的那种「需要记得两边都改」。
  * 收进一个组件后，页头与内容区在同一个文件里，**改成结构问题而不是记忆力问题**。
  *
  * 为什么是两个根节点而不是再包一个 div：外壳是 `flex column`，

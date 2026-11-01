@@ -1,0 +1,672 @@
+# 审查记录与落地历史
+
+> 这份文件是**过程记录**：全仓审查的原始发现、分批落地的每一步、以及当时否掉了什么。
+> 规范条款在 [`CONVENTIONS.md`](CONVENTIONS.md)，那里只写「现在该怎么做」。
+> 两者分开是因为它们的读者不同：写代码的人要的是条款，回头查「当初为什么这么做」的人才要过程。
+> 章节号沿用拆分时的原编号（0 / 1 / 3），这样代码与文档里既有的「§3 第 N 小批」引用仍然对得上。
+
+---
+
+## 0. 现状测绘（2026-10-31 实测）
+
+| 项         | 数值                            | 备注                                                                                          |
+| ---------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
+| 前端       | 3696 行 / 38 个文件             | `.vue` 22 个 + `.ts` 13 个 + `.css` 3 个                                                      |
+| Rust       | 153 行 / 2 个文件               | 只有壳：`app_info` / `open_external`                                                          |
+| 最大单文件 | `base.css` 562 行               | 组件最大 `VerticalSlider.vue`（297 行）；设置页 2 个 section，开发页 5 张卡 + `tokens.ts`     |
+| 提交       | 95 个                           | 前 45 个是旧项目历史，本仓实际 50 个（截至第 11 小批）                                        |
+| 依赖       | 4 个运行时 / 11 个开发          | 极简，很好                                                                                    |
+| 测试       | 前端 25 条 / Rust 7 条          | vitest（`npm run test`，在 `check` 里）；Rust 侧 `cargo test --lib`                           |
+| 静态检查   | ESLint 9 + Prettier + `vue-tsc` | 外加 `check-version` 验三处版本号、`check-commits` 验最近 20 条提交；`npm run check` 一条全绿 |
+| CI         | 1 个 workflow                   | `.github/workflows/check.yml`：`npm run check` + `cargo fmt --check`                          |
+| 文档       | README + AGENTS + `docs/` 两份  | ARCHITECTURE / CONVENTIONS，数值都按实测校准过                                                |
+
+**测法**（上一版这里写错过：用 `git ls-files 'src/**/*.vue'` 统计，`**` 要求至少一层目录，
+于是 `src/App.vue`、`main.ts`、`router.ts`、`navigation.ts` 四个顶层文件被漏掉，一直少报 4 个）：
+
+```bash
+find src -name '*.vue' -o -name '*.ts' -o -name '*.css' | xargs wc -l | tail -1   # 行数
+for e in vue ts css; do find src -name "*.$e" | wc -l; done                        # 分项
+```
+
+---
+
+## 1. 审查发现
+
+按「会不会真的出事」排序，不按「改起来容易」排。
+
+### 1.1 阻断级（现在不做，后面要付利息）
+
+#### A. 一行静态检查都没有 —— ✅ 已修（第一批 1–3）
+
+`ls` 实测：无 `.eslintrc*`、无 `eslint.config.js`、无 `.prettierrc*`、无 `.editorconfig`、
+无 `rustfmt.toml`、无 `clippy.toml`。唯一的质量门是 `package.json:7` 的
+`vue-tsc --noEmit && vite build`——它只查类型，不查「有没有写 `v-html`」「有没有用
+`:any`」「Vue 属性顺序对不对」「有没有未使用的 ref」。
+
+旧仓 `mh-tool` 有 `eslint.config.js`（含 renderer / main / tests 三组环境分离）。新仓连
+`eslint-plugin-vue` 都没装。
+
+**为什么必须现在做**：现在 21 个文件，接上 lint 大概是改十几处；等 100 个文件、几十个
+页面时接，要么一次性改几百处，要么关掉规则假装通过。**规范的价值在于「从第一天就没有例外」**。
+
+#### B. 零测试，而项目定位是「拿旧仓当 oracle 做差分」 —— ⏳ 待第三批
+
+README 写着「6333 行领域逻辑是唯一可信规格」、`tests/fixtures/legacy-domain/` 要 vendor 进来
+做逐字段对比。但：
+
+- 没有 `vitest`（前端）
+- `src-tauri` 下没有任何 `#[test]` / `tests/` 目录
+- 没有 harness 骨架
+
+现在 Rust 只有 135 行，`data_dir()` 这种纯函数已经可以测了。**harness 要在写第一行领域代码
+之前就建好**——这是记忆里已经写下的结论，但还没落地。
+
+#### C. 工具链版本没锁 —— ⚠️ 部分完成（`engines` 与 `rust-toolchain.toml` 已加，无 `.nvmrc`）
+
+- `package.json` 无 `engines`、无 `packageManager`（实测 `node -e` 输出「无」）
+- 无 `rust-toolchain.toml`；`src-tauri/Cargo.toml:6` 的 `rust-version = "1.77"` 只是**最低**
+  声明，不锁实际版本
+- 无 `.nvmrc` / `.node-version`
+
+本机是 node 22.22.2 / npm 10.9.7。换机、重装、或者以后接 CI，只要 node 主版本跳一档，
+`vite 6` / `vue-tsc` 的行为就可能变，而这种变化会伪装成「代码坏了」。
+
+#### D. 提交信息无强制 —— ✅ 已有校验器（`npm run lint:commits`，未并进 `check`）
+
+`git log` 实测：66 个提交里 21 个带 `type:` 前缀（前 45 个是旧项目历史，不算）。
+最近 20 个**全部合规**，说明习惯已经养成。但这是自律，不是机制——旧仓有
+`scripts/check-commits.mjs` + `npm run lint:commits`，本仓没有。
+
+### 1.2 结构级（影响后续每一步）
+
+#### E. 没有路由，8 个页面靠 `v-if` 硬编码 —— ✅ 已修（第二批 8）
+
+```ts
+// src/App.vue:25
+const current = ref('settings');
+// src/App.vue:38
+<SettingsView v-if="current === 'settings'" />
+```
+
+加一个页面要同时改两处：`pages` 数组（`App.vue:14-23`）和模板里的 `v-if` 分支。
+七个占位页共用一个 `PageHeader` + 占位块，这个 if-else 会长成 8 个分支的 switch。
+
+Tauri 跑的是本地文件，`createWebHashHistory()` 零成本，不需要服务端配置。收益是
+每页一个路由、可深链接（以后「从托盘直接打开收益页」）、浏览器前进后退可用、
+`SettingsView` 的 667 行能被路由懒加载摊开。
+
+#### F. `SettingsView.vue` 667 行 / 8 个 section —— ✅ 已拆（第二批 9）
+
+`src/views/SettingsView.vue` 里：外观（86）、原子组件（107）、色板（148）、字号阶梯（161）、
+控件（174）、图标（254）、结构（282）、关于（316），每个 section 都带一段 300–100 行的 scoped 样式。
+（本节是拆分**前**的测绘。其中两张卡已删：「控件」于第 5 小批删掉——组件齐了之后它只是
+`SlotButton` / `SegmentedPills` / `CostSwitch` / `BaseCheck` 的第二份演示；「结构」于第 6 小批删掉——
+文武线与账线的实例就是每张卡自己的 `.frame`，不必再拿一张卡讲同一件事。第 7 小批起开发用的四张卡
+搬到 `views/dev/`，现为 2 个 section——验收面在 `#/dev`，见 §2.4-19。）
+
+这不是样式问题，是「一个文件承担了 8 件事」。而且它同时是**设计系统的验收面**——
+`SettingsView.vue:20-22` 的注释写着「以后新增控件先加进这一块」。这意味着它只会继续变长。
+
+#### G. 没有状态层
+
+`current` 在 `App.vue`，`mode`/`scale` 在 composable（侧栏的 `collapsed` 已随竖向滑块一起删除，
+50px 的栏不需要第二套宽度）。
+到目前够用，但业务数据一进来（角色列表、流水、装备）就需要一个明确的答案：
+Pinia 还是 provide/inject？现在没定，第一个做业务页的人会自己发明一套。
+
+#### H. 设计令牌是双份，而且已经漂了 —— ✅ 已修（第二批 12）
+
+`src/styles/tokens.css` 与 `design/tokens.css` 是两份手工维护的副本。
+`diff` 实测已经出现 4 处差异（`@font-face` 路径、两处注释措辞、`base.css` 里
+`.page-content` 只在 `src/` 有）。记忆里写着「改令牌两边都要改」——这句话本身就是问题：
+**凡是需要「记得两边都改」的东西，迟早会不一致。**
+
+#### I. IPC 契约是两份手抄
+
+```ts
+// src/services/desktop.ts:11-18
+export interface AppInfo {
+    productName: string;
+    version: string; /* ... */
+}
+```
+
+```rust
+// src-tauri/src/lib.rs:10-16
+pub struct AppInfo { product_name: String, version: String, /* ... */ }
+```
+
+`#[serde(rename_all = "camelCase")]` 让两边字段名对得上，靠的是人记得加这个属性。
+命令只有 2 个时无所谓，20 个时必然出错。`tauri-specta` 未上（记忆里已列为计划）。
+
+#### J. `crates/` 目录还不存在
+
+规划里领域层要拆成独立 crate（`mh-domain` / `mh-store` …），但根目录没有 `crates/`。
+现在不建也没事，但**第一次写领域代码时如果顺手塞进 `src-tauri/src/`，就再也拆不出来了**。
+应该在建目录的同一刻把边界写进文档。
+
+#### K. `design/icon/` 里躺着 3.9 MB 废弃产物 —— ✅ 已清（第二批 13）
+
+```
+design/icon/icon-lab.py          ← 账簿四方案（用户已否）
+design/icon/icon-preview.html    ← 同上
+design/icon/png/                 ← 32 张废弃 PNG
+design/icon/make-preview.py      ← 同上
+design/icon/ink/                 ← 定稿（水墨焦墨 + 耶印），保留
+design/icon/old/                 ← 旧图标备份，保留
+```
+
+> **2026-11-01 追补**：`old/` 已删（`make-preview.py` 里的「与上一版对照」段落一并去掉）。
+> 旧版图标在 `src-tauri/icons/` 的 git 历史里仍有，需要时 `git log -p` 取回。
+
+`grep` 全仓无任何代码或文档引用前四项（只有 `.workbuddy/memory` 提过）。它们是过程产物，
+留着会让下一个人以为「有两个并行的图标方案」。
+
+### 1.3 细节级（顺手改）
+
+| #   | 位置                                | 问题                                                                                                                                                                 | 建议                                                                                                                                                                |
+| --- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `src/composables/use-font-scale.ts` | ✅ 已修。原问题：每次调用都 `ref()` + `watch()` + `apply()`，第二个组件一调就是两份互不相干的 ref                                                                    | 现为模块级单例，`watch` 包进 `effectScope(true)`；`use-theme.ts` 同坑同修，`main.ts` 挂载前各调一次                                                                 |
+| 2   | `src-tauri/src/lib.rs:22`           | ⏳ **未修**。`format!("{base}\\mh-tool-v2")` 手工拼反斜杠                                                                                                            | 用 `PathBuf::from(base).join("mh-tool-v2")`。`APPDATA` 带尾斜杠时会拼出双斜杠                                                                                       |
+| 3   | `src-tauri/src/lib.rs:52`           | ⏳ **未修**。`url.starts_with("https://")` 只判前缀，`https://` 空 host 也能过                                                                                       | 加 `url` crate 解析，校验 scheme + host 非空。这是安全边界，不该宽松                                                                                                |
+| 4   | `src-tauri/tauri.conf.json:15`      | `"csp": null`                                                                                                                                                        | ✅ 已配（见 §3 第二批 14）。生产 `csp` 严格、开发 `devCsp` 另列；真窗口实测 IPC 通、零控制台报错                                                                    |
+| 5   | 全局                                | **无 `prefers-reduced-motion` 降级**（`grep` 无一处）。站内有 120/180/240ms 位移 + 回弹                                                                              | ✅ 已加（`base.css` 末尾）。实测改成**通配 + `!important`**：位移时长有 140/200/220ms 几处写死在组件里，改令牌兜不住；且用 1ms 不用 0s，否则 `transitionend` 不触发 |
+| 6   | `src/components/icons.ts`           | 加一个图标要改 **4 处**：`IconName`、`ICONS`、`ICON_LABELS`、`ICON_GROUPS`                                                                                           | ✅ 已合并成 `ICON_META` 一张表，四个导出全部派生                                                                                                                    |
+| 7   | 版本号                              | 原问题：**4 处手写**（`package.json`、`tauri.conf.json`、`Cargo.toml`、组件里的 `V0.1` 与 `ref('0.1.0')` 兜底）                                                      | ✅ 已修（§3 第二批 15）。真源是 `package.json`，`scripts/check-version.mjs` 校验三处一致                                                                            |
+| 8   | `src/components/`                   | 命名不统一：`BaseCheck` 带 `Base` 前缀，`SlotButton`/`SegmentedPills`/`AppIcon` 不带                                                                                 | 见 §2.2 的三条前缀规则（不重命名，新基元直接用功能名）                                                                                                              |
+| 9   | `src/navigation.ts`                 | ✅ 已修。原问题：`import AppRail, { type RailPage } from './components/AppRail.vue'`——跨组件类型从 SFC 里导出，靠双 `<script>` 块才做得到；`RailPage` 现已全仓不存在 | 没有按原建议收进 `types/`，而是留成 `navigation.ts` 的 `NavItem`：**类型跟着数据源走**，`NAV_ITEMS` 就在隔壁                                                        |
+| 10  | `src/styles/base.css:101`           | `border-radius: 10px` 是唯一硬编码圆角                                                                                                                               | ✅ 已加注释说明为什么例外（滚动条滑块要跟着轨道宽走，套任何圆角令牌都错）                                                                                           |
+| 11  | `README.md`                         | ✅ 已修（2026-10-31）。原问题：目录清单缺 `AppRail`/`SlotButton`/`SegmentedPills`/`IconName` 体系，最小高度还写着 680（实际 780）                                    | 已按实测校准，并顺手改掉 `.cargo` 路径里写死的旧用户目录                                                                                                            |
+| 12  | `docs/`                             | ✅ 已建。原问题：不存在，所有约定都靠代码注释承载                                                                                                                    | 现为三份：`ARCHITECTURE.md` / `CONVENTIONS.md` / 根目录 `AGENTS.md`，分工见 §2.6                                                                                    |
+
+---
+
+## 3. 落地顺序
+
+分三批，每批都能独立验证、独立提交。**不要合并成一次大重构**。
+
+### 第一批：护栏（不改业务代码，1–2 天）— **✅ 2026-10-30 已完成**
+
+1. ✅ `.editorconfig` + `.prettierrc.json` + `.prettierignore` + `src-tauri/rustfmt.toml`
+2. ✅ 跑 `prettier --write .`，实际只改了 11 个文件、全是长行折行，无语义变化
+3. ✅ `eslint.config.js`（四组环境分离；`eslint-plugin-vue` 用 `flat/essential`）
+4. ✅ `cargo fmt` + `cargo clippy --all-targets -- -D warnings`，0 告警
+5. ✅ `scripts/check-commits.mjs`（从旧仓搬，改了一行示例文案）
+6. ⚠️ `engines` 已加；`rust-toolchain.toml` 用 `channel = "stable"` 而非具体版本
+   （写 `1.99.1` 时 rustup 判定为另一套工具链并触发下载，本机卡住）。实测版本记在文件注释里
+7. ✅ `AGENTS.md`
+
+**验收结果**：`npm run check` 全绿（format:check + lint + typecheck）；
+`cargo fmt --check` 与 `cargo clippy --all-targets -- -D warnings` 均无输出；
+`npm run lint:commits` 最近 20 条全部合规。
+
+### 第二批：结构（2–3 天）— **✅ 2026-10-30 已完成**
+
+8. ✅ 引入 `vue-router`（`createWebHashHistory`），8 个页面各一个路由，`App.vue` 的 `v-if` 收掉。
+   导航数据抽成 `src/navigation.ts`（`NAV_ITEMS` / `NAV_BY_KEY`），路由、左栏、页头标题共用一份。
+   未实现页共用一个 `PlaceholderView`，标题读 `route.meta.title`——不为七个空页写七份模板
+9. ✅ 拆 `SettingsView`：`views/settings/` 下 8 个 section（外观 / 原子组件 / 色板 / 字号阶梯 /
+   控件 / 图标 / 结构 / 关于）+ `shared.ts`，视图本身 **52 行**（含 6 行样式），只剩组合与顺序
+   （现为 6 个：控件与结构两张卡分别在第 5、6 小批删除）
+10. ✅ `useFontScale` 改模块级单例（惰性 `wire()`），与 `useTheme` 同形
+11. ✅ `icons.ts` 四表合一：`ICON_META` 一张表，`IconName` 由 key 推，其余三个导出由值推
+12. ✅ 令牌单一真源：删掉 `design/tokens.css` 与 `design/base.css`，`design/income.html` 直接引
+    `../src/styles/*.css`（字体 url 相对 CSS 自身解析，实测正常）
+13. ✅ 清掉 `design/icon/` 的废弃产物（`icon-lab.py`、`icon-preview.html`、顶层
+    `make-preview.py`、`png/`、`ink/png/` 共约 1.4 MB）。保留 `ink/`（定稿 + 生成脚本 + 自包含
+    的 `preview.html`）与 `old/`（旧图标备份）
+14. ✅ `csp` 换成严格策略（`devCsp` 另列，放行 Vite 的 `ws:` 与 `'unsafe-eval'`）+
+    `prefers-reduced-motion` 降级
+15. ✅ 版本号收敛：`useAppInfo` 单例（真窗口读 Rust 返回值，浏览器预览退回 `package.json`），
+    `TitleBar` 与 `AppRail` 不再写死；`scripts/check-version.mjs` 校验三处清单文件一致，
+    已挂进 `npm run check`
+
+**验收结果**（2026-10-30 实测）：
+
+- `npm run check` 全绿（format:check + lint + typecheck + check:version）
+- 8 个页面都能 URL 直达；未知路径兜底回设置页；`SettingsView.vue` 52 行（含 6 行样式）
+- 设置页 8 个 section、图标 33 项（8/16/5/4）都在，`truncation` 探针为空
+- **生产 CSP 实测**：`tauri build --debug --no-bundle` 出包后运行，8 个 section 正常、
+  字体加载成功、`appInfo` IPC 通、控制台零报错（`Log` + `Runtime` 事件全收，含 CSP 拦截）
+- **降动效实测**：`--force-prefers-reduced-motion` 下，`.cost-thumb` 与 `.vs-thumb` 的
+  `transition-duration` 由 `0.3s` 变为 `0.001s`（后者是写死的 300ms，证明通配规则
+  确实兜住了令牌之外的写法）
+
+### 第三批：领域层地基（在写第一行业务逻辑之前）
+
+16. `crates/` 建立，先只放一个 `mh-domain` 空 crate，把模块边界写进 `docs/ARCHITECTURE.md`
+17. `tauri-specta` 接上，`AppInfo` 开始由 Rust 生成 TS 类型
+18. 测试基座：`vitest` + `src-tauri` 的 `#[test]` + 旧仓 `domain/` 的 vendor 目录
+19. 差分 harness 骨架：Node 侧跑旧实现落 JSON，Rust 侧跑同输入逐字段比
+20. 写 `docs/ARCHITECTURE.md` / `UI_GUIDE.md` / `PAGE_GUIDE.md`
+
+**验收**：`cargo test` 有真实用例；harness 能对一个已知函数产出「一致 / 不一致」的结论。
+
+### 后续：样式统一三小批（2026-10-31）— **✅ 已完成**
+
+审查后按「先修真错的、再合并重复的、最后清文档」拆成三批，各自独立提交、独立验证。
+每条都用 Edge headless + CDP 实测过，不是「构建通过就算」。
+
+21. ✅ 印面令牌成对化：`--seal` / `--seal-edge` / `--on-seal`，9 处控件迁移（§2.4-1）
+22. ✅ 选中态取消假粗：删 `-webkit-text-stroke: 0.25px` 与 `font-weight: 600`；
+    `LedgerSection` 的 scoped `h2` 曾顶掉全局 400，是当时唯一的真加粗（§2.4-9）
+23. ✅ 凹槽五份归一为 `.well` / `.well.upright`（§2.4-11）；
+    竖槽那两行在用 `--ink` 当暗面，暗色下把凹槽翻成了提亮带，一并改正
+24. ✅ 承载面归一为 `.pill-group`（分段胶囊与演示页共用）
+25. ✅ 四个单选组统一 `useRovingFocus`（§2.4-10）；侧栏 `tablist` → `<nav>` + `aria-current`；
+    删零引用且语义冲突的 `BevelPill` 组件
+26. ✅ 色板 / 字号阶梯改运行时读令牌，不再手抄第二份（§2.4-13）
+27. ✅ 页头高度收成 `--page-head-h`，左栏牌记与它同源——此前两处各抄一份算式（§2.3-5）
+28. ✅ 死码清零：`.ledger-lines`、`.text-button`、`SealMark` 的 `size` prop（全站无人传，
+    其兜底规则被 inline style 永久压过）、页头空转的 `position: sticky` + `z-index`
+29. ✅ 文档按实测校准：README 的最小高度与 `.cargo` 路径、AGENTS 的 check 命令、本文件 §0
+
+### 第 4 小批：简洁化（2026-10-31）— **✅ 已完成**
+
+承接上三批。判据只有一句：**同一件事有几份写法**。行数不是目标，概念数才是。
+
+30. ✅ 印面五份归一为 `.stamp`（§2.4-11）。此前受光参数是 46/46/46/32/15% 五套、
+    朱色投影四种模糊，且 `.cost-thumb` 是唯一用 `--ink` 投白光的。现在五处 computed
+    的 `background-image` 与 `box-shadow` 逐字符相同（实测比对的字符串完全一致）。
+    选中胶囊从「`well` + 覆写四件套」改成「摘 `well`、挂 `stamp`」——槽与印不共存。
+31. ✅ 图标尺寸改 `--icon-size`，删 `AppIcon` 的 `size` prop（§2.4-15）。7 处传参消失；
+    实测「较大」档下标题栏 13 → 14.30、紧凑按钮 12 → 13.19、槽按钮 16 → 17.59，
+    此前这些数字一个都不动。
+32. ✅ 轨道里的一格归一为 `.track-opt`（§2.4-16）。`cost-opt` / `size-opt` 曾逐行相同。
+33. ✅ `cells` ref 与 `indexOf` 收进 `useRovingFocus`：四个控件不再各写一份
+    `ref<HTMLButtonElement[]>([])` 与 `Math.max(0, findIndex(...))`。
+34. ✅ 注释瘦身与文档对齐：`AppRail` 的注释从 122 行压到 86 行（历史叙事进本文件），
+    `base.css` 头注释里已删除的 `.ledger-lines` 去掉；栏宽 34 从两处收成 `--rail-slot-w`；
+    删 `icons.ts` 的 `rail-collapse` / `rail-expand`（折叠功能早已不存在，
+    演示页却还在演示「收起侧栏」）。
+
+**验收结果**（2026-10-31 实测）：
+
+- `npm run check` 全绿；`npm run build` 通过
+- 色板 28 枚颜色令牌（此前手写 13 枚，`--seal` 组从未出现过），顺序等于 `tokens.css` 声明顺序
+- 字号阶梯 8 档默认值 `10/11/12/13.5/14.5/17/22/29`，切「较大」后 `11/12.1/13.2/14.9/16/18.7/24.2/31.9`
+- `.page-head` 与 `.rail-brand` 高度、底边 y 完全相等（较大档 47.83 / 87.42，两栏零差）
+- 三档滑块末档 `dLeft` / `dRight` 均为 0；9 个 radiogroup 每组恰好一个 `tabindex=0`
+- 五处印面 computed `background-image` / `box-shadow` 逐字符相同；暗色下胶囊与竖槽拇指
+  同底色 `#b85b49`、同阴影，`--on-seal` 落在 `#ece3cd`
+- 槽按钮悬停时 `.slot-stamp` 的 `opacity` 由 0 → 1、`transform` 回到 `matrix(1,0,0,1,0,0)`
+
+### 第 5 小批：版式收边（2026-10-31）— **✅ 已完成**
+
+三条反馈：页面四边留白偏大、卡片标题旁的朱印不喜欢、组件齐了之后「控件」卡冗余。
+
+1. ✅ `.page-content` 的 16/20/26 收成 12/16/18，`.page-head` 左右同步 20 → 16。
+   左右必须同值：页头与内容区各写各的，第一张卡的文武线就会比标题左缘缩进一截
+   （实测现在两侧同为 `x = 66`）。
+2. ✅ 标题前缀从朱印换成 `.section-mark`：4×18 的凸起短竖条，左沿受光、右沿落暗、
+   下方一线落地影，三个面全走 `--bevel-*`，与 `.well` / `.stamp` 同一光向；宽度乘 `--fs-scale`。
+   区块不再各编一个字，`LedgerSection` 的 `seal` prop 一并删掉（7 处调用同步去掉）。
+   理由是八枚歪 2.5° 的红方框会把块与块之间压闷，而「印章」在账本语境里该留给
+   「已入账 / 已达成」这类状态（§2.4-17）。
+3. ✅ 删「控件」卡（`ControlsSection.vue`）、`SealMark.vue`、`.seal` / `.seal.solid`、
+   `--seal-size`、`.kit-row.checks` / `.kit-row.seals`；样张 12 处 `.seal` 同步换 `.section-mark`。
+   朱红三处随之改为「区块标 / 当前选中 / 支出」。
+
+**验收结果**（2026-10-31 实测）：7 张卡、7 枚 mark；「较大」档 mark 为 4.4 × 19.8；
+浅色与深色下左沿皆受光、右沿皆落暗（深色 `rgba(255,255,255,.18)` / `rgba(0,0,0,.55)`）；
+样张 12 枚全部继承同一份样式；`npm run check` 全绿，控制台零报错。
+
+### 第 6 小批：删「结构」卡（2026-10-31）— **✅ 已完成**
+
+1. ✅ 删 `views/settings/StructureSection.vue`（108 行，其中 58 行是 scoped 样式）。它演示
+   文武线与账线，而这两件的**实例就是每张卡自己的 `.frame`**——拿一张卡去讲「卡是怎么做的」，
+   属于同一件事的第二份演示。
+2. ✅ `SettingsView` 收到 6 个 section；`README`（设置页一行、目录一行）、`AGENTS.md` 的 CSP 判据、
+   §0-F 与 §3 第二批第 9 条的 section 数量同步为 6。
+
+**验收结果**（2026-10-31 实测）：6 张卡、6 枚 mark，标题顺序 外观 / 原子组件 / 色板 / 字号阶梯 /
+图标 / 关于；`.ledger-demo` / `.ledger-line` 等类零残留；控制台零报错。
+
+`.num` / `.error` / `.positive` 三个文本类现在都没有调用方（结构卡是 `.num` 的唯一调用方），
+但它们是**文本级词汇**：等宽数字、错误红、收入绿，业务页的金额列与提示语必然要用。
+判死码看「有没有第二种写法」，不看「今天有几个调用方」——这三条各自只有一份定义，别跟着删。
+
+### 第 7 小批：设置页只留用户要用的（2026-10-31）— **✅ 已完成**
+
+反馈：「设置里我们开发中用到的帮我隐藏起来，留下给用户用的就可以。我们连点三下左上 logo
+可以进入我们的开发帮助页面，可以看组件之类的」。
+
+1. ✅ 四张开发卡搬进 `views/dev/`（原子组件 / 色板 / 字号阶梯 / 图标），设置页只剩外观 / 关于。
+   判据是读者：用户来设置页只为换纸换字号，组件与令牌清单是给写界面的人查的。
+2. ✅ 新页面 `DevKitView`（`#/dev`，路由名 `dev-kit`，`meta.hidden`），单独挂在 `router.ts`，
+   不进 `NAV_ITEMS`；入口是三连击牌记，用原生 `event.detail === 3`，不自己攒时间戳。
+   牌记仍 `aria-hidden` 且不可聚焦——它不是按钮，不给「这里能点」的暗示。
+3. ✅ `THEME_OPTIONS` 从 `settings/shared.ts` 挪进 `use-theme.ts`（两张卡现在分居两处，
+   选项本来就和 `ThemeMode` 是一件事）；令牌读取函数随卡片搬到 `views/dev/tokens.ts`。
+4. ✅ `.stack`（一叠卡的 14px 间距 + 1240 上限）从两个视图的 scoped 样式提到 `blocks.css`。
+5. ✅ `VerticalSlider` 补「无选中」：`modelValue` 不在选项里时朱印淡出（`hasActive`）。
+6. ✅ 外观卡里的机制说明（`color-scheme` / `--fs-scale`）搬进开发页的「入口与约定」卡。
+
+**验收结果**（CDP 实测）：设置页 2 卡、开发页 5 卡；三连击进 `#/dev`、双击不误触、
+点左栏「设置」回得去；开发页 `aria-current` 为 `null`、朱印 `opacity: 0`、Tab 停靠点仍 1 个；
+1024×780 无横向溢出（964 = 964），浅色 / 深色都过；控制台零报错。
+
+### 第 8 小批：设置页两张卡并排（2026-10-31）— **✅ 已完成**
+
+反馈：「设置里的卡片 如果宽度够 可以 一行两个」。
+
+1. ✅ `.stack` 加修饰类 `.stack-pair`（`auto-fit` + `minmax(420px, 1fr)`），只挂在 `SettingsView`
+   这一处（§2.4-20）。不写媒体查询：断点由卡片内容宽度自己算，窗口窄了退回一列。
+2. ✅ 高度用 grid 默认的 `stretch`：两张卡的文武线在同一底线收口，短的那张（外观）下方留白。
+   单列时这个行为天然消失，不需要第二套规则。
+
+**验收结果**（CDP 实测）：1280 → 两列 587×2、卡高 192、内容区 `scrollH = clientH = 739`
+（并排后整页一屏到头，不再滚）；1024「较大」→ 两列 456.5、三段滑块仍 157 宽、「全站文字一起缩放」
+不掉行；960 → 两列 427；800 → 单列 708（两卡各自 136 / 192 高，即未并排时的原样）。
+五种情形 `.stack` 的 `scrollWidth === clientWidth`（无横向溢出），浅色 / 深色皆过，控制台零报错；
+`npm run check` 与 `npm run build` 全绿。
+
+### 第 9 小批：左栏朱印改成「滑到点击处」（2026-10-31）— **✅ 已完成**
+
+反馈：「左侧菜单栏 我点击切换的时候 红色块 想要一个 滑动到点击位置的动画」。
+
+1. ✅ `VerticalSlider` 的选值时机拆成两条（§2.4-21）：点击在 `pointerup` 选值——此时过渡还开着，
+   朱印从原位滑过去；指针越过 `DRAG_THRESHOLD = 4` 才认作拖动，此后 `transition: none` 跟手。
+   原先两件事挤在 `pointerdown` 里，点击恰好发生在过渡被关掉的那一刻，所以是「闪」过去的。
+2. ✅ `pointercancel` 单独一个处理函数：系统手势、指针丢失不选值——那一下不是用户在点。
+
+**验收结果**（CDP 实测）：点第 7 格（总览 → 目标，6 格 / 402px）后 `getAnimations()` 里有
+`CSSTransition`（`transform` / 300ms / running），rAF 采样 52 帧得 **36 个不同位移**：
+0ms 469 → 40ms 439.78 → 90ms 415.67 → 150ms 402.55 → 300ms 402（末段 1.6px 回弹是
+`--ease-snap` 的超调）。把过渡 `pause()` 在 40ms 截图，朱印确实压着「目标」「设置」两格。
+拖动时 `transitionDuration = 0s`、位移逐段跟随（402 → 335 → 268），松手后恢复 `0.3s`；
+键盘 End 同样走 300ms 过渡。`npm run check` 与 `npm run build` 全绿，控制台零报错。
+
+### 第 10 小批：工程护栏与仓库结构（2026-10-31）— **✅ 已完成**
+
+起因是一次全仓审查，结论一句话：**设计语言没问题，护栏是空的**——规范写着、代码破了，
+而没有任何一处会自动发现。四条真会出事的，都修了。
+
+1. ✅ **提交信息校验器自己是红的**。`check-commits.mjs` 要求冒号后带空格，8 条提交是紧贴写的；
+   它又没接进 `check`，所以半年没人发现。正则放宽成 `:\s*\S`（冒号后零或多个空格），
+   并把 `lint:commits` 接进 `check`。
+2. ✅ **「渲染层只有 services 能碰系统」被绕过**。`TitleBar.vue` 直接引 `@tauri-apps/api/window`，
+   而 ESLint 只拦 `@tauri-apps/api/core`（`paths` 只匹配一模一样的模块名）。改成 `patterns`
+   拦整族 `@tauri-apps/*`；窗口四件事（最小化 / 最大化 / 关闭 / 尺寸变化）搬进 `services/desktop.ts`，
+   浏览器里跑时返回无操作。
+3. ✅ **行尾靠本机 `core.autocrlf`**。`.gitattributes` 只声明了 `*.bat/*.cmd`，实测 64 个文本文件里
+   混着 3 个 LF；`.editorconfig` 还写着 `lf`，与磁盘相反。现在 `* text=auto eol=crlf` +
+   `.editorconfig` 同值，3 个 LF 文件重新检出。
+4. ✅ **`lint` 不带 `--max-warnings 0`**，三条 `warn` 规则只打印不拦人。
+
+结构性的补齐：
+
+5. ✅ CI：`.github/workflows/check.yml`（前端跑 `npm run check`，Rust 只查 `cargo fmt --check`，
+   clippy 需要 webkit 那套系统库，留在本机）。
+6. ✅ `docs/ARCHITECTURE.md` 建了——它被 `AGENTS.md` 与本文件引用却一直不存在。分层、数据流、
+   IPC 边界、crate 规划、数据兼容红线都在里面，未建的段落明确标「计划」。
+7. ✅ `.nvmrc`（22.22.2），CI 用 `node-version-file` 读它。
+8. ✅ `PageShell.vue`：把「页头 + `.page-content`」收成一个组件。这条契约原本是
+   「两处 16px 必须相等」的注释，现在改成结构问题。
+9. ✅ `RouteMeta` 声明（`types/router-meta.d.ts`），`PlaceholderView` 去掉 `String(...)` 兜底。
+   **注意**：vue-router 的 `RouteMeta` 自带 `Record<PropertyKey, unknown>` 索引签名，
+   拼错的字段名仍然抓不住（实测 `meta.titel` 不报错），它只保证「读对的字段有类型」。
+10. ✅ 版本号改成 `vite.config.ts` 的 `define` 注入 `__APP_VERSION__`，`src/` 不再反向
+    `import '../../package.json'`。
+11. ✅ `defineEmits` 统一成命名元组写法（此前 4 处函数重载 + 2 处元组）。
+12. ✅ `tools/probe/cdp.mjs`：常驻探针（自带静态服务、关缓存、URL 带时间戳、注入禁动效、
+    `--fresh` 清存储、`--light/--dark`）。此前每轮现写再删，那几条前提每次重踩。
+13. ✅ 文档收口：README 的红线改成指向 AGENTS（那份已经和 AGENTS 的六条对不上）；
+    `DevKitView` 注释的「四张卡」改五张；§1.3 逐条标状态（1/7/9/10/12 标 ✅，2/3 标 ⏳ 未修）。
+14. ✅ **§0 的测法换掉**：原先用 `git ls-files 'src/**/*.vue'` 统计，`**` 要求至少一层目录，
+    四个顶层文件（`App.vue` / `main.ts` / `router.ts` / `navigation.ts`）从来没被数进去，
+    一直少报 4 个。改用 `find`，并把命令写进 §0——**数字可以错，测法不能藏在脑子里**。
+
+**验收结果**：`npm run check` 五项全绿（format / lint / typecheck / version / commits）；
+反向验证过三条新护栏——往组件里写 `@tauri-apps/api/window` 报 `no-restricted-imports`、
+写一句 `console.log` 让 `--max-warnings 0` 退出码 1、`npm run lint:commits` 从「8 条不合规」
+变成「校验通过（20 条）」。CDP 实测：设置页 1280 两列 589×2、`scrollH = clientH = 744`；
+1024 两列 461×2；开发页 `atoms-kit` 1280 两列 570×2、1024 退回单列 898（480 是量出来的下限：
+442 时 `CostSwitch` 那条说明会断出「件。」两个字）；页头与内容区 `padding-left` 都是 16px，
+两处网格 `scrollWidth === clientWidth`，浅色/深色都过。
+
+### 第 11 小批：装备并入角色，新增「工具」（2026-10-31）— **✅ 已完成**
+
+左栏从「总览 / 收益 / **装备** / 物价 / 角色 / 账号 / 目标 / 设置」改为「总览 / 收益 / 物价 /
+角色 / 账号 / 目标 / **工具** / 设置」——**仍是八格**，所以竖槽的格高、朱印位移、Tab 停靠点
+一个都没变，只是名字换了位置。
+
+- **装备并进角色**：一个人穿什么、备哪些，本来就是「这个角色」的属性；独立成页会让同一份
+  数据分两处维护，而且「装备」页迟早要让你先选一个角色才看得下去。`/equipment` 在
+  `router.ts` 里**显式重定向到 `/characters`**，没有交给末尾的兜底：兜底也能「不 404」，
+  但它会把旧地址送回设置页，读起来像「这一页没了」；显式指过去才是「换了个地方」。
+- **「工具」排在目标与设置之间**：它是干活的入口，不是资料页；设置永远压在末尾。
+- **图标选 `IconTool`（单把扳手）而不是 `IconTools`（扳手 + 螺丝刀交叉）**：14px 下两件交叉
+  会糊成一团，单件的斜柄加开口仍是清楚轮廓。`equipment` 那条目随菜单项一起删——表里不留
+  没人用的名字，`IconShield` 的 import 也同步清掉（否则 `no-unused-vars` 当场报）。
+
+实测（CDP）：八格 `top` 依次 84.3 / 151.3 / 218.3 / 285.3 / 352.3 / 419.3 / 486.3 / 553.3，
+每格 62；在 `#/tools` 上第 7 格与朱印 `top` **完全重合**（486.3，偏差 0），`aria-current="page"`
+落在工具格；`#/equipment` 访问后 `location.hash` 变成 `#/characters`、标题「角色」；
+图标 `path` 非空、`documentElement.scrollWidth === innerWidth`；浅色 / 深色都过。
+
+### 第 12 小批：工具列表改成卡片，改名「捉鬼助手」（2026-10-31）— **✅ 已完成**
+
+反馈：「工具列表 做成一个一个卡片的 可以一行多个，可以多行展示，只不过现在只有一个」，
+以及「捉鬼可视化 修改为 捉鬼助手」。
+
+1. ✅ `ToolsView` 从「一行一件的目录」改成卡片网格（§2.4-20 新增的 `auto-fill` 一条）。
+   目录那种形状只在条目够多时成立：只有一件工具时，它是一行字压在一整张纸的上沿，看着像
+   表格没加载完。卡片不依赖条目数量成立——一件是一格，十件是十格。
+2. ✅ 卡片直接用全站的 `.frame`（文武线外框），只覆盖内边距 20 → `13px 14px 14px`：
+   20 是给「一块区块」的，用在 30px 图标框周围会空得能再塞一行字。悬停只改线的颜色与文字
+   颜色（外线、内线、名称、箭头一起转朱红），**不做浮起**——在纸上浮起没有对应物。
+3. ✅ 说明文字压到两行（`-webkit-line-clamp`）：三行会让同一行的卡片高低不齐，而这两行只是
+   「它干什么」，不需要说全。
+4. ✅ 改名：`tools.ts` 的 `name`、详情页 `PageShell` 的 `title`、`docs/GHOST-HUNT.md` 标题
+   三处一起改。列表名与详情页标题共用 `ToolEntry.name`，所以这两处天然一致，只有文档要手动跟。
+
+**验收结果**（CDP 实测，另克隆 7 个占位条目验多行）：
+1280 → 4 列各 288；1024 → 3 列各 302.67；900 → 3 列各 261.33；三种宽度
+`page-content` 横向溢出 0、`documentElement` 横向溢出 0。8 格 4 列 × 2 行，
+行内卡片等高（短说明 83.8 全等；塞一条超长说明后三格一起变 101.6，长说明自身
+`clientHeight` 仍是两行 36，末尾出省略号）。卡内几何：图标中心 122.3 = 标题中心 122.3 =
+箭头中心 122.3，说明文字左缘 81 与图标左缘 81 重合。浅色 / 深色都过，`npm run check` 全绿。
+
+### 第 13 小批：工具卡片改立体纸板，单边规则换三档滑块（2026-10-31）— **✅ 已完成**
+
+反馈：「换一种样式 可以参靠 我们的主题风格的3D风格，还有 单边规则 这三个使用三档滑块这个组件」。
+
+1. ✅ **卡片从平板改成凸起的纸板**。原先是 `.frame` 的文武线（两层描边、零厚度），
+   放在列表里读起来是「表格的一行」。现在三层：上沿 `inset 0 1px 0 var(--bevel-hi)` 受光、
+   底部 `0 2px 0 var(--shadow-lg)` 当**厚度**、再 `0 7px 14px -5px var(--shadow-lg)` 软影落地。
+2. ✅ **底色 `--paper-2` → `--paper`**。实测用 `--paper-2` 时卡片 `rgb(242,234,214)` 只比
+   页面底 `rgb(238,229,207)` 亮 4 个色阶，配 8% 透明度的软影，肉眼读成「一圈线」而不是
+   「一块纸板」。凸起的东西迎着光，本来就该比周围亮——`--paper-2` 是承载面的颜色，用在
+   凸面上会把光向反过来说。
+3. ✅ **图标框改成凹槽**（复用全局 `.well` 四件套，只给 30px 几何）。凸面上开一道小凹，
+   是这套材质里唯一能同时表达「这是卡片」与「这是卡片上的一处」的做法。
+4. ✅ **悬停抬起 2px**（厚度 2→3px、软影拉开到 10px/18px），**按下整块翻成 `.well`**
+   （内影取代投影、`translateY(1px)`）。第 12 小批写过「不做浮起——在纸上浮起没有对应物」，
+   那句是给**平板**写的；凸面成立之后，抬起/压下就成了同一套 `--bevel-*` 光向下的自然动作，
+   不再是无对应物的位移。厚度必须跟着收：按下去还留着 2px 底边，会读成卡片在抖。
+5. ✅ **焦点自绘** `outline: 2px solid var(--cinnabar)`：整套反馈都靠颜色与光影，
+   留着 `outline: none` 的话焦点态与悬停态是同一个样子，键盘用户看不出焦点在哪。
+6. ✅ **抽出 `SteppedSlider`**（泛型 `T extends string`，档数由 `options` 长度定），
+   `FontSizeSlider` 退化成「字号 / 较小 · 默认 · 较大」的预设壳，几何只有一份。
+   单边规则从 `SegmentedPills`（一排各自独立的胶囊）换成它——三档是**同一条轴上的三个落点**，
+   不是三个并列的开关，滑块说得比胶囊准。
+7. ✅ **单边规则补了三行说明**：机制一句（鬼只出现在假坐标贴近的那一侧）、口径一句
+   （这一档的判定线）、数据一行（`x 134/160 · 84% 贴大边 / y 54/120 · 45% 不判`）。
+   判定结果写「不判」不写「居中」——按数值口径（≤50 / ≥150）下 120 既不靠边也不算居中，
+   三个口径共用一张表，词就得中性。阈值不写进文案：它随口径变，写死就是第二个真源。
+8. ✅ **探针加 `--hover` / `--active`**（`CSS.forcePseudoState`，与 DevTools「强制元素状态」
+   同一套）。此前验不了悬停/按下态，只能靠真鼠标或注一份假样式——后者验的是抄来的 CSS。
+
+**验收结果**（CDP 实测）：
+
+- 三档滑块几何：设置页轨道 126（含 1px 边 ×2）→ padding box 124，`getComputedStyle` 得
+  `40px 40px 40px`；滑块宽 40，落在第二格时左偏 43（= 边 1 + 内边距 2 + 一格 40）。
+  这是 `calc((100% - 4px) / N)` 直接算出来的，不需要 `33.3333% - 2px` 那种补丁。
+- 卡片三态（`--hover` / `--active` 各截一张）：常态底部 2px 厚边 + 软影；悬停上移 2px、
+  厚度 3px、边框与标题转朱；按下底色转 `--well`、投影换成内影、`translateY(1px)`。
+- 捉鬼页 1280 / 1024：三格文字（按比例 / 按数值 / 不收窄）不换行不溢出，滑块撑满侧栏，
+  浅色 / 深色都可读；`page-content` 横向溢出 0。
+- `npm run check` 五项全绿。
+
+### 第 14 小批：工具列表改成桌面图标格（2026-11-01）— **✅ 已完成**
+
+> 数值已被第 15 小批覆盖（块面 92%、四棱不对称、落地影 3px + 8px、图标不做字口），
+> 材质本身已被第 16 小批收进 `PressTile`。本节保留当时的取舍与理由，具体数值以那两批为准。
+
+反馈：「工具页的工具列表卡片不好看」→ 看过账目行、印章格、书脊条、扉页大卡四版之后指出
+「不要账本的符号，要桌面图标那种」→ 看过五种底座后选「压印」，再补一句
+「只有图标和名称即可，下面的描述删除。并且现在的 3D 效果不是很明显的，可以加重一点」。
+
+1. ✅ **形态换成桌面启动器**：格子 92 宽、图标块 56×56、名称在下方居中，没有别的字。
+   卡片那版的病不在颜色、圆角或阴影，在**「一件工具被放进一条 1198px 宽的容器」**：
+   247×90 的纸板连着大半页空纸，读起来像表格没加载完。图标格不靠「行」成立，
+   一件是一枚、十件是十枚。
+2. ✅ **列宽写死 92px，不用 `1fr`**（§2.4-20 已改）：拉伸出来的不是格子而是按钮。
+   同时整片 `margin-left: -18px`——格子里图标块居中，第一列块的左缘会比内容左线缩进
+   `(92-56)/2`，不移回来就与页头标题错开，读不出「这一页从这里开始」。
+3. ✅ **删掉页面上的说明文字**。先做过「网格下方一条固定行高的细字、悬停显示」的版本，
+   但它把一句话又请回了页面，等于给图标格加回副标题。`tool.desc` 改为只进 `aria-label`。
+4. ✅ **图标块是压印，四层**：块面 `--paper` 58% + 上沿 `inset 0 1px 0 var(--bevel-hi)` +
+   下沿 `inset 0 -2px 0` + 落地 `0 2px 0 var(--shadow)` 与 `0 5px 9px -4px var(--shadow-lg)`。
+   下沿**不能用 `--bevel-lo`**：亮色下它是 12% 黑，压在浅底上差十阶，画了等于没画；
+   改用 `--rule-2` 并降到 72%。厚度取 **2px 而不是 1px**——1px 只读成描边，2px 才读成
+   「这块东西有厚度」（这是「3D 不明显」的直接原因）。
+5. ✅ **不用边框**：边框四面等重，读起来是「画了一个框」；内阴影只有上下两条，方向由光决定，
+   才分得出受光的上棱与背光的下棱。也**不用 `drop-shadow` 给图标做浮雕**：线图标是细笔画，
+   投影落在笔画外侧的空处，2 倍放大下也读不出来，只会让图标发毛。
+6. ✅ **深色三处换值**：块面比例 58% → 78%（同一个 `--paper` 在暗底上只落两三阶差）、
+   下沿回到 `--bevel-lo`（`--rule-2` 在暗色下比块面**亮**，画在底边会成一条发光的线，
+   光向反了）、落地影两层都用 `--shadow-lg`。上沿线不用改：18% 白压在块面上差 40 阶。
+7. ✅ **四态齐全**：悬停只提亮块面并把图标/名称转朱红（**不位移**——桌面图标被指到是
+   「底色变浅」，弹跳会破坏一格格排好的秩序）；按下翻成 `.well` 四件套 + `translateY(2px)`；
+   焦点 `outline` 画在图标块上（跟随 9px 圆角）；禁用 0.5 透明。
+
+**验收结果**（CDP 实测）：
+
+- 四态用 `--hover` / `--active`（`CSS.forcePseudoState`）逐个截图核对，不是注假样式：
+  悬停块面变亮、图标名称转朱红；按下上沿出现渐深内影、底色转 `--well`、整块下沉 2px，
+  与悬停态一眼可分。
+- 浅色 / 深色块面都读作「微微凸起的一块纸」，暗底不再糊进背景。
+- 十枚（克隆节点模拟）：9 + 1 换行，间距均匀，无重叠溢出；900 窄窗无遮挡。
+- `npm run check` 六项全绿（43 条 vitest）。
+
+### 第 15 小批：图标块的光向对齐牌记（2026-11-01）— **✅ 已完成**
+
+反馈：「名称上面的图标，是不是和 logo 的 3D 样式保持一致，更加好看一点」。
+
+先把 logo 拆开看：牌记（`assets/mark-ink.png`）的光**从左上来**，笔画左上缘亮、
+右下缘暗，亮暗之间是软渐变。而图标块当时只有「上亮下暗」——等于把光源摆在正上方，
+两块东西不在一个屋里。所以真正该对齐的是**光向**，不是给图标加厚度。
+
+1. ✅ **块面提到 `--paper` 92%**。58% 时只比页面底亮两三阶，光画得再准也读不出高低差；
+   这是「3D 不明显」的第二个来源（第一个是上一批把厚度从 1px 改成 2px）。
+2. ✅ **加一层左上角偏光**（`radial-gradient(120% 96% at 20% 6%, ...)`）+ 145° 高光渐变。
+   没有它，块面是一整片均匀的浅色，「光从哪来」只能靠四条棱去猜。
+3. ✅ **四条棱改成不对称**：上、左各 1px 亮线，下 2px、右 1px 暗线。四面等宽就是边框，
+   不对称才读得出方向。落地影同时加厚到 `3px` 硬边 + `8px` 软影。
+4. ✅ **图标本体不做字口**（这是被否掉的三条路，写下来免得再试一遍）：
+    - 叠一层亮线一层暗线（±1px）：26px 下是「笔画外面多一圈边」，3 倍放大像描粗一遍，
+      1:1 看发虚；
+    - SVG 光照浮雕（`feGaussianBlur` + `feSpecularLighting` + `feDistantLight`，即
+      Photoshop 那套 Bevel，与 logo 同一算法）：能算出真凹凸，但笔画被高光切成空心，
+      1:1 下图标反而变细；
+    - 单侧暗影（只压右下）：能读，但省下的那点厚度不值当。
+      结论：线图标要的是**落在纸上**，不是自己凸起来。
+5. ✅ **改回正墨 `--ink`**（原 `--ink-2`）：牌记那只字是满墨的，淡一号的图标放在凸起
+   块面上读作「占位图」。
+6. ✅ **只留 0.5px 接触影**（`.tool-glyph`，第 16 批随材质一起收进 `PressTile` 的
+   `.press-content`）：让笔画贴着块面而不是浮在上面。
+   暗色主题必须换成黑色落影——`--ink` 在暗色里是浅色，照着用等于给图标描一圈光。
+7. ✅ **按下态的亮线从左上换到右下**：光还是从左上来，压回去之后照到的是对面那条内缘。
+   跟着改的有底色渐变方向（`325deg`）与位移（`translateY(2px)`）。
+
+**验收结果**（CDP 实测）：
+
+- 对照页（`dist/options.html`，临时，已删）里 1:1 摆过九种做法：叠三层字口（弱/强）、
+  光照浮雕（软/深）、单侧暗影、凹刻、斜光块面、斜光+右厚度、斜光+图标落影。
+  1:1 与 3 倍各看一遍，字口与浮雕两族全部否掉，理由见上。
+- 四态截图（`--hover` / `--active` 强制伪类，不是注假样式）：悬停块面提亮并把图标名称
+  转朱红、不位移；按下上沿出现渐深内影、整块下沉 2px；深色块面读作凸起、不糊背景。
+- `npm run check` 六项全绿（43 条 vitest）。
+
+### 第 16 小批：压印块收成组件，牌记换上同一块（2026-11-01）— **✅ 已完成**
+
+反馈：「可以。我感觉这个效果真的好。可以封装为组件，并且把我们的 logo 也可以替换成这种样式，
+作为可以点击的，作为我们隐藏的进入组件库之类的入口」。
+
+1. ✅ **抽出 `PressTile`**（`components/PressTile.vue`）。只画材质，不认识内容：工具页的图标格
+   与左栏牌记都套它。几何走四个变量——`--tile-w` / `--tile-h`（默认同宽，方形）/
+   `--tile-r`（默认 9px）/ `--tile-drop`（落地影尺度，默认 1）；图标尺寸仍归 `--icon-size`。
+   悬停与按下**留在组件里**：这两态与「一块可点的凸起」绑死，不是使用方的语义差异。
+2. ✅ **牌记从 `<img>` 换成 `PressTile` + `<img>`**，几何见 §2.3。入口仍是**三连击**
+   （`event.detail === 3`），不改成单击：左栏那八格是用户真会点的目录，牌记是彩蛋，
+   单击就进开发者页等于给普通用户挖了个坑。块仍 `aria-hidden`、不进 Tab 序列，
+   但**按下会凹回去**——三连击时要让人知道点到了。
+3. ⚠️ **收进组件的代价：暗色的悬停/按下整段失效。** 原先这两态由
+   `.tool-item:active:not(:disabled) .tool-tile`（四层选择器，0,4,0）驱动，压得住
+   `:root.dark .tool-tile`（0,3,0）；收成 `.press-tile:active`（0,2,0）之后反过来被压住，
+   于是**暗色里块面永远不动，亮色一切正常**。所以组件里凭空多出
+   `html.dark .press-tile:hover` / `:active` 两条——不是重复劳动，是特异性账。
+   这是「状态写在父级」改成「状态写在组件里」时最容易漏掉的一笔：亮色看不出问题，
+   只有切到暗色、且只在那两个态下才失效。
+4. ✅ **悬停从「改颜色」改成「块面变实 + 影子拉长」**。上一版是
+   `background-color: color-mix(--paper 76%, transparent)`，读作「提亮」，实际算下来比 92%
+   更透、更接近底色，**是变暗**——1:1 下几乎看不出这一态。现在块面走实色 `--paper`、
+   落地影从 3/8px 抬到 4/10px：纸色已经是最亮，再往上只能发灰，「被指到」只能靠影子和实度说。
+   按下同时加深（`--well` 64% → 82%，内影 3px → 4px）：原来那档在 56px 的块上只比底深两三阶，
+   读不出「压回去」。
+5. ✅ **`--tile-drop` 是给牌记的**：34px 沿用工具页那套 8px 软影会读作「浮在纸上的小卡片」，
+   缩到 0.85；但不缩到 0.6——栏底就是 `--paper`，块面与栏底同色，影子是唯一的凸起证据。
+6. ✅ **`.kit-tile` / `.kit-tile-sm` 进开发页陈列**（第 5 件），按真身给尺寸（56 与 34），
+   不另调一套演示值，否则「演示里好看、业务页不对劲」又要多查一轮。
+
+**验收结果**（CDP 实测，`--hover` / `--active` 强制伪类，不是注假样式）：
+
+- 3 倍图逐块核对：工具块四棱明暗读得出光从左上；牌记 34px 块的字占 72%，四周露出约 4.8px；
+  牌记与槽的圆角关系没变（仍 `--r-2`）。
+- 浅 / 深两主题的悬停与按下各截一遍：悬停影子变长、按下块面转暗并下沉 2px、暗色无发光边。
+- 开发页 `#/dev` 1280 宽下五件排成 2+2+1，最后一格右侧留空；三块并排尺寸差一眼可分。
+- `npm run check` 六项全绿（43 条 vitest）。
+
+### 第 17 小批：全仓清理（2026-11-01）— **✅ 已完成**
+
+反馈：「整体 Review 审查全部项目，这次的主要目的是规范化，简约简化，删除无用内容」。
+
+做法是先扫后删：按 class / 令牌 / export / 文件 / 依赖五层枚举「定义了但没人引用」的东西，
+再逐条人工确认哪些是死码、哪些是「词汇表」，最后只删前者。**先扫后删，不凭印象清**——
+这一轮里 17 个零引用令牌中有 1 个（`--indigo`）其实被 `MapCanvas` 用 `getPropertyValue` 读着，
+正则扫 `var()` 是扫不到的。
+
+1. ✅ **删 `BaseCheck.vue`**（46 行，零 import）。全仓没有任何 `type="checkbox"` 的用法，
+   与之配套的 `.check` / `.check-box` / `.check input`（约 36 行）一并删除。
+   `Base*` 前缀随之停用，见 CONVENTIONS §2.2。
+2. ✅ **删零引用令牌 17 个**：`--sp-1…10`（十档只用过 2 档）、`--z-popover/modal/toast`、
+   `--overlay`、`--danger-bg`、`--fs-lg`、`--fs-amount`、`--w-rule`。
+   **口径反了过来**：原先 CONVENTIONS 说「令牌是词汇表，零引用也别删」，现在改成
+   「零引用就删，要用时再加」——一套 80% 没人用的刻度，只会让人以为选令牌比写 px 更正确。
+   两处 `var(--sp-*)` 就地改成字面值（`.frame` 的 20px、`.btn` 的 6px），视觉零变化。
+3. ✅ **删零引用 CSS 规则**：`.icon-button`（19 行，早已被 `SlotButton` 取代）、`.btn.danger`。
+4. ✅ **删地图清单里的死字段**：`imgW` / `imgH` 在 20 条记录里各存一份，全仓无人读取
+   （绘制只用值域与容器尺寸）。同时改写 `maps.json` 顶部的 `note`——它原本还按这两个字段
+   解释坐标换算公式，删字段后那句话就成了谎。
+5. ✅ **删本地 47MB `map/` 原料**（gitignore 已排除）与 `design/icon/old/` 旧图标备份；
+   `make-preview.py` 里依赖旧图标的「与上一版对照」段落一并去掉，脚本仍是可跑的
+   完整流程（`ink-lab.py` 出 `png/` → `make-preview.py` 出 `preview.html`）。
+6. ✅ **文档按读者拆开**：`CONVENTIONS.md` 从 1035 行收到 405 行，只留条款；
+   §0 现状测绘 / §1 审查发现 / §3 十六个小批搬进本文件。**章节号不重排**——
+   代码里到处是「CONVENTIONS §2.4-20」这类引用，重排等于让它们全部失准。
+7. ✅ **README 按现状重写**：「只有设置页有内容」「未开始：OCR」「开发页四张卡」三处已经
+   和代码对不上；组件 / 服务 / 文档清单也补齐了捉鬼那一整条链路。
+   `npm run check` 的注释漏了 `test` 一项，补上。
+
+**验收**：`npm run check` 六项全绿（43 条 vitest）；`cargo clippy --all-targets -D warnings`
+零告警；`#/dev` 色板 26 枚、字号阶梯 6 行；`?m=edge` 夹具两张图与「图外」标记正常。
+
+**留着没删的两处**（有明确理由，不是漏了）：
+
+- `.num` / `.error` / `.positive` 三个文本级类零调用方，但它们是**写法**不是值：
+  各有唯一一份定义、语义不会变，删掉下次还得原样加回来（CONVENTIONS §2.4-12 的例外）。
+- `icons.ts` 里 34 枚图标有 11 枚没被业务用到。图标目录本身就是 `#/dev` 的一项陈列，
+  删掉会让那份目录变成「残缺的清单」；而一枚图标只有几百字节。
