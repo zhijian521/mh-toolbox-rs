@@ -23,5 +23,11 @@ declare module 'vue-router' {
         ready: boolean;
         /** 不在左栏出现的页面（当前只有 `dev-kit`）。 */
         hidden?: boolean;
+        /**
+         * 这一页属于左栏哪一档。子页（如 `/tools/ghost`）靠它让朱印仍停在父级，
+         * 否则进详情页左栏就成了「无选中」，看起来像走丢了。
+         * 值是 `NAV_ITEMS` 里的 key。
+         */
+        nav?: string;
     }
 }

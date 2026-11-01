@@ -14,6 +14,11 @@ src-tauri/icons/ios/
 # 临时探针、截图脚本产物（用完即删，不入库）
 .runtime/
 
+# 地图素材的加工现场：40MB 原始整窗截图 + 切图产物 + 核对页。
+# 产品用的是 public/maps/ 下的 webp 与 maps.json（共 1.4MB，入库）；
+# 这里是原料，留着能重跑切图，但不该进版本库。
+map/
+
 # 项目记忆与工具上下文
 .workbuddy/
 

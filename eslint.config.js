@@ -133,4 +133,17 @@ export default tseslint.config(
             'no-console': 'off',
         },
     },
+
+    // ---------- 探针夹具：跑在**浏览器**里 ----------
+    // `tools/probe/fixtures/*` 不是命令行脚本，它们由 CDP 的
+    // `Page.addScriptToEvaluateOnNewDocument` 注入到页面中执行，
+    // 用的是 `window` / `location` / `document` 这套浏览器全局。
+    // 上一块给整个 `tools/**` 装了 Node 全局，在这里是错的：`window` 会被报 no-undef。
+    // 按运行环境分组（而不是按目录），这条覆盖必须放在 Node 那块**之后**才会生效。
+    {
+        files: ['tools/probe/fixtures/**/*.js'],
+        languageOptions: {
+            globals: { ...globals.browser },
+        },
+    },
 );

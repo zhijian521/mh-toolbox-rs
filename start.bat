@@ -30,6 +30,7 @@ rem ============================================================
 set "CHECK_ONLY=0"
 set "USE_DEBUG_PORT=0"
 set "FORCE=0"
+set "USE_RELEASE=1"
 
 rem 逐个别名判断，不用 for %%a in (%*)：无参数时那个空列表容易出岔子。
 if /i "%~1"=="debug" set "USE_DEBUG_PORT=1"
@@ -40,6 +41,9 @@ if /i "%~2"=="debug" set "USE_DEBUG_PORT=1"
 if /i "%~2"=="--debug" set "USE_DEBUG_PORT=1"
 if /i "%~2"=="--check" set "CHECK_ONLY=1"
 if /i "%~2"=="--force" set "FORCE=1"
+if /i "%~1"=="release" set "USE_RELEASE=1"
+if /i "%~2"=="release" set "USE_RELEASE=1"
+if "%USE_DEBUG_PORT%"=="1" set "USE_RELEASE=0"
 
 echo.
 echo   梦幻养老助手  ^(Rust 版^)  ·  开发启动
@@ -231,7 +235,13 @@ echo   改 src/ 下的前端文件热更新；改 src-tauri/ 下的 Rust 会自动重编译。
 echo   关闭这个窗口即结束应用。
 echo.
 
-call npm run desktop
+if "%USE_RELEASE%"=="1" (
+    rem Reuse the already-built release deps; a cold release build takes ~8 min.
+    set "CARGO_TARGET_DIR=%~dp0.runtime\target-lab"
+    call npx tauri dev --release
+) else (
+    call npm run desktop
+)
 set "CODE=%ERRORLEVEL%"
 
 if "%CODE%"=="0" (

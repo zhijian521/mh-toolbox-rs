@@ -1,6 +1,7 @@
 import type { Component } from 'vue';
 import type { IconName } from './components/icons';
 import SettingsView from './views/SettingsView.vue';
+import ToolsView from './views/ToolsView.vue';
 
 /**
  * 导航 + 路由的**单一真源**。
@@ -30,7 +31,9 @@ export const NAV_ITEMS: NavItem[] = [
     { key: 'accounts', label: '账号', icon: 'accounts', path: '/accounts', view: null },
     { key: 'goals', label: '目标', icon: 'goals', path: '/goals', view: null },
     // 工具排在「目标」与「设置」之间：它是干活的入口，不是资料页；设置永远压在末尾。
-    { key: 'tools', label: '工具', icon: 'tools', path: '/tools', view: null },
+    // 左栏到这里为止：具体某件工具（如捉鬼）是 `/tools` 的子页，不进导航——
+    // 工具会越加越多，一件一行会把八档的槽撑成一列，位置感就没了。
+    { key: 'tools', label: '工具', icon: 'tools', path: '/tools', view: ToolsView },
     { key: 'settings', label: '设置', icon: 'settings', path: '/settings', view: SettingsView },
 ];
 

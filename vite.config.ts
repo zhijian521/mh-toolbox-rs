@@ -18,6 +18,13 @@ export default defineConfig({
     server: {
         port: 5173,
         strictPort: true,
+        /* 必须显式钉 IPv4。不写 host 时 Vite 用 `localhost`，而 Node 17+ 按系统
+         * getaddrinfo 的顺序解析，本机返回 `::1` 优先 → 实际只监听 `[::1]:5173`
+         * （`netstat` 可见），`127.0.0.1:5173` 没人应答。
+         * WebView2 走 IPv4，于是窗口里是 `net::ERR_CONNECTION_REFUSED` + 白屏，
+         * 而用浏览器打开却是好的——两边解析顺序不同，这类问题只能靠钉地址消掉。
+         * `devUrl` 同步写成 `http://127.0.0.1:5173`，不再依赖任何解析结果。 */
+        host: '127.0.0.1',
     },
     build: {
         // Tauri 用系统 WebView2，不需要为老浏览器降级。

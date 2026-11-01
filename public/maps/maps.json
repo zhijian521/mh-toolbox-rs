@@ -1,0 +1,206 @@
+{
+    "note": "px = gx*imgW/maxX, py = imgH - gy*imgH/maxY（原点左下）。aliases 是文件名与游戏原文不一致时的兼容写法。noCoord 表示该场景任务栏坐标恒为 0,0（无坐标域）。",
+    "maps": [
+        {
+            "id": "aolaiguo",
+            "name": "傲来国",
+            "aliases": [],
+            "maxX": 223,
+            "maxY": 151,
+            "imgW": 514,
+            "imgH": 346,
+            "img": "/maps/aolaiguo.webp"
+        },
+        {
+            "id": "baoxiangguo",
+            "name": "宝象国",
+            "aliases": [],
+            "maxX": 160,
+            "maxY": 120,
+            "imgW": 552,
+            "imgH": 415,
+            "img": "/maps/baoxiangguo.webp"
+        },
+        {
+            "id": "beijuluzhou",
+            "name": "北俱芦洲",
+            "aliases": [],
+            "maxX": 228,
+            "maxY": 170,
+            "imgW": 460,
+            "imgH": 346,
+            "img": "/maps/beijuluzhou.webp"
+        },
+        {
+            "id": "boyuedong",
+            "name": "波月洞",
+            "aliases": [],
+            "maxX": 95,
+            "maxY": 144,
+            "imgW": 276,
+            "imgH": 414,
+            "img": "/maps/boyuedong.webp"
+        },
+        {
+            "id": "changshoucun",
+            "name": "长寿村",
+            "aliases": [],
+            "maxX": 160,
+            "maxY": 210,
+            "imgW": 335,
+            "imgH": 439,
+            "img": "/maps/changshoucun.webp"
+        },
+        {
+            "id": "datangjingwai",
+            "name": "大唐境外",
+            "aliases": [],
+            "maxX": 640,
+            "maxY": 120,
+            "imgW": 960,
+            "imgH": 182,
+            "img": "/maps/datangjingwai.webp"
+        },
+        {
+            "id": "diyumigong3",
+            "name": "地狱迷宫三层",
+            "aliases": [],
+            "maxX": 120,
+            "maxY": 90,
+            "imgW": 461,
+            "imgH": 342,
+            "img": "/maps/diyumigong3.webp"
+        },
+        {
+            "id": "haidimigong1",
+            "name": "海底迷宫一层",
+            "aliases": [],
+            "maxX": 64,
+            "maxY": 48,
+            "imgW": 461,
+            "imgH": 346,
+            "img": "/maps/haidimigong1.webp",
+            "noCoord": true
+        },
+        {
+            "id": "huaguoshan",
+            "name": "花果山",
+            "aliases": [],
+            "maxX": 160,
+            "maxY": 120,
+            "imgW": 462,
+            "imgH": 346,
+            "img": "/maps/huaguoshan.webp"
+        },
+        {
+            "id": "jiangnanyewai",
+            "name": "江南野外",
+            "aliases": [],
+            "maxX": 160,
+            "maxY": 120,
+            "imgW": 463,
+            "imgH": 343,
+            "img": "/maps/jiangnanyewai.webp"
+        },
+        {
+            "id": "jianyecheng",
+            "name": "建邺城",
+            "aliases": ["建业城"],
+            "maxX": 287,
+            "maxY": 144,
+            "imgW": 697,
+            "imgH": 346,
+            "img": "/maps/jianyecheng.webp"
+        },
+        {
+            "id": "nvercun",
+            "name": "女儿村",
+            "aliases": [],
+            "maxX": 127,
+            "maxY": 144,
+            "imgW": 401,
+            "imgH": 452,
+            "img": "/maps/nvercun.webp"
+        },
+        {
+            "id": "nvwashenji",
+            "name": "女娲神迹",
+            "aliases": [],
+            "maxX": 192,
+            "maxY": 144,
+            "imgW": 472,
+            "imgH": 354,
+            "img": "/maps/nvwashenji.webp"
+        },
+        {
+            "id": "putuoshan",
+            "name": "普陀山",
+            "aliases": [],
+            "maxX": 96,
+            "maxY": 72,
+            "imgW": 462,
+            "imgH": 346,
+            "img": "/maps/putuoshan.webp"
+        },
+        {
+            "id": "qilinshan",
+            "name": "麒麟山",
+            "aliases": [],
+            "maxX": 191,
+            "maxY": 142,
+            "imgW": 462,
+            "imgH": 346,
+            "img": "/maps/qilinshan.webp"
+        },
+        {
+            "id": "tiangong",
+            "name": "天宫",
+            "aliases": [],
+            "maxX": 253,
+            "maxY": 168,
+            "imgW": 526,
+            "imgH": 350,
+            "img": "/maps/tiangong.webp"
+        },
+        {
+            "id": "wanzishan",
+            "name": "碗子山",
+            "aliases": [],
+            "maxX": 95,
+            "maxY": 192,
+            "imgW": 214,
+            "imgH": 426,
+            "img": "/maps/wanzishan.webp"
+        },
+        {
+            "id": "wuzhuangguan",
+            "name": "五庄观",
+            "aliases": [],
+            "maxX": 100,
+            "maxY": 75,
+            "imgW": 463,
+            "imgH": 347,
+            "img": "/maps/wuzhuangguan.webp"
+        },
+        {
+            "id": "xiliangnvgou",
+            "name": "西梁女国",
+            "aliases": [],
+            "maxX": 164,
+            "maxY": 124,
+            "imgW": 465,
+            "imgH": 353,
+            "img": "/maps/xiliangnvgou.webp"
+        },
+        {
+            "id": "zhuziguo",
+            "name": "朱紫国",
+            "aliases": [],
+            "maxX": 192,
+            "maxY": 120,
+            "imgW": 550,
+            "imgH": 346,
+            "img": "/maps/zhuziguo.webp"
+        }
+    ]
+}

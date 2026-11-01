@@ -1,5 +1,17 @@
 use serde::Serialize;
 
+// 截屏与 OCR 全是对 Win32 / WinRT 的直接调用，非 Windows 平台没有替身实现。
+// 整个模块按 cfg 门控，而不是在函数体内散落 `#[cfg]`——那样编译错误会指向
+// 「这一段为什么没被编」而不是「这个平台不支持」。
+#[cfg(windows)]
+mod ghost;
+#[cfg(windows)]
+mod ocr;
+#[cfg(windows)]
+mod ocr_paddle;
+#[cfg(windows)]
+mod screen;
+
 /// 前端「关于」要的那点信息。
 ///
 /// 现在只有一个命令，但它立住了两件事：① IPC 走 `invoke` + serde 结构体，
@@ -70,6 +82,9 @@ fn open_external(url: String) -> Result<(), String> {
 
 /// WebView2 自带的默认开关。自己设 `additional_browser_args` 会**整串覆盖**它，
 /// 所以拼调试端口时必须把这一段原样带上，否则右键菜单、PDF 壳这些行为会跟着变。
+///
+/// 只在 debug 构建用到：发布版不传参数，留着会报 dead_code。
+#[cfg(debug_assertions)]
 const WEBVIEW_DEFAULT_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
 
 /// 调试端口：只有 debug 构建读 `MH_CDP_PORT`，发布版一律不开。
@@ -77,6 +92,10 @@ const WEBVIEW_DEFAULT_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSma
 /// 为什么不用环境变量 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`：Tauri 建 webview 时会
 /// 显式传自己的 `additional_browser_args`，把那个环境变量整个盖掉（实测 9222 端口起不来）。
 /// 只有在代码里建窗口才能把参数递进去——所以窗口从 `tauri.conf.json` 挪到了这里。
+///
+/// 反过来说，**没传参数时那个环境变量是生效的**：2026-11-01 定位白屏时，就是靠
+/// `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223` 挂上
+/// release 包的调试端口，才看到 webview 停在 `chrome-error://chromewebdata/`。
 #[cfg(debug_assertions)]
 fn debug_browser_args() -> Option<String> {
     let port = std::env::var("MH_CDP_PORT").ok()?;
@@ -136,9 +155,37 @@ fn create_main_window(app: &mut tauri::App) -> tauri::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![app_info, open_external])
+    let builder = tauri::Builder::default();
+
+    // 命令表按平台分两份而不是用 `#[cfg]` 逐个包：`generate_handler!` 里出现
+    // 一个未定义的符号就整表编不过，条件编译写在宏里反而看不出是哪一条。
+    #[cfg(windows)]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        app_info,
+        open_external,
+        ghost::ghost_windows,
+        ghost::ghost_probe
+    ]);
+    #[cfg(not(windows))]
+    let builder = builder.invoke_handler(tauri::generate_handler![app_info, open_external]);
+
+    builder
         .setup(|app| {
+            // OCR 模型路径要在第一次识别前告诉引擎。放在 setup 而不是懒加载：
+            // 模型目录随平台/打包方式变，越早定下来，出错时越早看到一条干净的错误。
+            #[cfg(windows)]
+            {
+                use tauri::Manager;
+                let resource = app.path().resource_dir().ok();
+                ocr_paddle::set_models_dir(ocr_paddle::locate_models(resource.as_deref()));
+                // 加载三个 ONNX 模型约 1 秒。放到后台线程：开局时用户正在点「开始识别」，
+                // 那一刻卡住界面是最容易被当成「坏了」的地方。
+                std::thread::spawn(|| {
+                    if let Err(err) = ocr_paddle::warm_up() {
+                        eprintln!("⚠ OCR 模型预热失败：{err}");
+                    }
+                });
+            }
             create_main_window(app)?;
             Ok(())
         })

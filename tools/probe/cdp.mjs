@@ -20,6 +20,8 @@
  *   node tools/probe/cdp.mjs --root dist --hash '#/settings' --eval "document.title"
  *   node tools/probe/cdp.mjs --root dist --hash '#/dev' --dark --shot .runtime/shots/dev-dark.png
  *   node tools/probe/cdp.mjs --url http://127.0.0.1:5173/ --eval "document.body.scrollHeight"
+ *   node tools/probe/cdp.mjs --root dist --hash '#/tools/ghost' --inject .runtime/stub.js --shot shot.png
+ *   node tools/probe/cdp.mjs --root dist --hash '#/tools' --hover .tool-card --shot hover.png
  *
  * 需要本机已经有一个开了调试端口的 Edge：
  *
@@ -175,6 +177,21 @@ async function main() {
     await cdp.send('Runtime.enable');
     await cdp.send('Network.enable');
     await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
+
+    // `--inject <file>`：在**新文档执行任何脚本之前**注入一段 JS。
+    //
+    // 为什么必须有「在文档之前」这个时点：有些判断在模块顶层就定型了。
+    // 例如 `services/desktop.ts` 的 `hasTauri` 是模块求值时算的一次常量，
+    // 用 `--eval` 事后补一个 `window.__TAURI_INTERNALS__` 已经晚了——页面早就
+    // 按「浏览器预览」渲染完。要预览需要宿主（Tauri IPC）才能出的界面，
+    // 只能在文档开始前把 IPC 桩好。
+    const injectFile = arg('inject', '');
+    if (injectFile) {
+        await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
+            source: readFileSync(resolve(injectFile), 'utf8'),
+        });
+    }
+
     // 真窗口（Tauri）要量「最大化后变宽了多少」时不能设视口覆盖，否则宽度被钉死，
     // 窗口怎么动都量不出差别。那种场合传 `--no-metrics`。
     if (!flag('no-metrics')) {
@@ -224,6 +241,33 @@ async function main() {
     });
 
     const out = { url, width, height, theme };
+
+    // `--hover` / `--active`：把某个元素的伪类**真的**挂上（`CSS.forcePseudoState`），
+    // 而不是往页面里注一份「看起来像悬停」的样式——后者验的是我抄的那份 CSS，
+    // 不是产品里那份。
+    //
+    // 放在 eval 之前：这样 `--eval` 量的就是悬停/按下那一刻的几何与计算样式。
+    // 两态都不参与媒体查询与布局流，所以必须在截图前挂、且不能用鼠标移动代替
+    // （headless 里没有真实指针，`dispatchMouseEvent` 也只走到 hover 这一层）。
+    const hoverSel = arg('hover', '');
+    const activeSel = arg('active', '');
+    if (hoverSel || activeSel) {
+        await cdp.send('DOM.enable');
+        await cdp.send('CSS.enable');
+        const { root } = await cdp.send('DOM.getDocument', { depth: -1 });
+        const force = async (selector, classes) => {
+            const { nodeId } = await cdp.send('DOM.querySelector', {
+                nodeId: root.nodeId,
+                selector,
+            });
+            if (!nodeId) throw new Error(`找不到元素：${selector}`);
+            await cdp.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: classes });
+        };
+        // 按下时把 hover 一起挂上：真实指针按下去那一刻必然是悬停着的，
+        // 只挂 active 会漏掉 `:hover` 里那些颜色与阴影的叠加。
+        if (hoverSel) await force(hoverSel, ['hover']);
+        if (activeSel) await force(activeSel, ['hover', 'active']);
+    }
 
     if (evalExpr) {
         const result = await cdp.send('Runtime.evaluate', {

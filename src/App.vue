@@ -18,11 +18,15 @@ const route = useRoute();
 const router = useRouter();
 
 /** 当前页的 key。路由名就是导航 key，所以直接取 `route.name`。
- * 开发页（`dev-kit`）不在导航里，取不到对应格——给空串，槽按「无选中」处理
+ * 子页（如 `tool-ghost`）不在导航里，退到 `meta.nav` 找它的父级——
+ * 否则进工具详情页左栏就成了「无选中」，看起来像走丢了。
+ * 开发页（`dev-kit`）两条都取不到，给空串，槽按「无选中」处理
  * （见 `VerticalSlider` 的 `hasActive`），否则那枚朱印会停在「总览」上误导人。 */
 const current = computed(() => {
     const name = String(route.name ?? '');
-    return NAV_BY_KEY.has(name) ? name : '';
+    if (NAV_BY_KEY.has(name)) return name;
+    const parent = route.meta.nav;
+    return typeof parent === 'string' && NAV_BY_KEY.has(parent) ? parent : '';
 });
 
 function go(key: string) {

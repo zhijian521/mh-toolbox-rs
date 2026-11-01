@@ -19,3 +19,13 @@
 *.png binary
 *.ico binary
 *.woff2 binary
+
+# PP-OCRv4 模型。ONNX 内部是 protobuf，一旦被当成文本做换行归一化就彻底废掉，
+# 而且是「文件还在、加载时报一堆看不懂的错」这种最难查的形态——必须显式声明。
+*.onnx binary
+
+# OCR 字典：6623 行、一行一个字，**必须逐字节保持上游原样**，不做任何行尾转换。
+# crate 里是 `content.split('\n')`，CRLF 会让每个字后面多带一个 `\r`——
+# 文件还在、模型也加载成功，只是认出来的每个字都错成别的码位。
+# 这条与代码里的 `trim_end_matches('\r')` 是双保险：仓库保证不转换，代码也不依赖这一点。
+src-tauri/models/*.txt -text

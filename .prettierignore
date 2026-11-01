@@ -23,3 +23,8 @@ assets/fonts/
 # 本地探针与截图（已 gitignore）
 .runtime/
 .workbuddy/
+
+# 地图素材的加工现场：原始整窗截图、切图脚本产物、核对页。
+# 产品真正用的是 public/maps/ 下的 webp 与 maps.json，这里只是原料，
+# 格式化一份 47MB 的中间产物没有意义。
+map/

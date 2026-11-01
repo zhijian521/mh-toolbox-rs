@@ -17,6 +17,61 @@ tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# PaddleOCR（PP-OCRv4）离线识别：检测 + 方向分类 + 识别三个 ONNX 模型。
+#
+# 为什么换掉 `Windows.Media.Ocr`：那个引擎对**彩色描边大字**几乎必错。
+# 2026-11-01 用三张真机截图量过：同一帧里白字全对，而黄色高亮的「金钱镖」
+# 「金童子」「龙女妹妹」整段读不出来，且不返回置信度，错了也不知道。
+# PP-OCRv4 是中文专门训练的，且分「检测 → 识别」两步，先框出文本行再认，
+# 对暗底亮字、半透明面板、彩色字都稳得多。
+#
+# 代价：模型 16MB 随包分发，onnxruntime 约 12MB。换来的是识别率，
+# 而这一页的全部价值就是「认得准」。
+paddle-ocr-rs = "0.6"
+
+# 把 ort 钉死在 rc.10：`paddle-ocr-rs` 的 Cargo.toml 只写 `2.0.0-rc.10`，
+# 而预发布版本号在 caret 语义下会一路爬到 rc.15——rc.13 之后 `inputs!` 宏
+# 的返回值从 `Result` 变成裸 `Vec`，第三方 crate 里 15 处 `?` 全部编译失败。
+# 这类漂移只有在真正编译时才会暴露，写死在依赖里比等上游发版可靠。
+ort = "=2.0.0-rc.10"
+
+# `RgbImage` 只在构造 OCR 输入时用，编码器一个都不需要。
+image = { version = "0.25", default-features = false }
+
+# 截屏 + 离线 OCR。只用系统自带能力，不引入 onnxruntime / 模型文件。
+#
+# 为什么不用 `windows-sys`：WinRT 那一族（`Windows.Media.Ocr`）在 `windows-sys` 里
+# 只有裸 vtable，调一次要手写百来行；`windows` 已经把 `OcrEngine` 包成方法。
+# 代价是编译慢一些（独立 profile 下约 +40s），只影响首次构建。
+#
+# feature 清单按「用到才开」列，不做通配：`windows` 开一个 Win32 分区会拖进上千个
+# 常量与函数签名，全开能让 rlib 从 3MB 涨到 40MB。
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+    "Foundation",
+    "Globalization",
+    "Graphics_Imaging",
+    "Media_Ocr",
+    "Storage_Streams",
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_System_WinRT",
+    "Win32_UI_HiDpi",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+# 发布版把前端产物**嵌进可执行文件**，开发版才去连 devUrl。
+#
+# 这一块不能省。Tauri 的机制是：`tauri dev` 带 `--no-default-features` 编译
+# （日志里能看见），把下面的默认 feature 关掉 → 走 `devUrl`；`tauri build`
+# 用默认 feature → 走内嵌资源。没有 `[features]` 时 `--no-default-features`
+# 是空操作，两种构建编出来的二进制**一模一样**，`tauri build` 的产物仍然去连
+# `http://127.0.0.1:5173`——装到没起 dev server 的机器上就是白屏。
+# 2026-11-01 实测：release 包起来后 `location.href` 就是 devUrl，不是 `tauri://localhost`。
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
 # dev 构建不生成调试信息：本机 rustc 在并行编译时出现过 STATUS_ACCESS_VIOLATION，
 # 关掉 debuginfo 既减少内存峰值也快得多；真要调试时用 `RUSTFLAGS=-g` 单独开。
 [profile.dev]
