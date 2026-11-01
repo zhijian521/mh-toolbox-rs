@@ -87,7 +87,7 @@ export interface CharacterMock {
     trainings: TrainingRow[];
     trainingFoot: string;
     gear: GearSlot[];
-    gearMeta: { special: string; suit: string; count: string };
+    gearMeta: { special: string; suit: string };
 }
 
 export const CHARACTERS: CharacterMock[] = [
@@ -353,7 +353,7 @@ export const CHARACTERS: CharacterMock[] = [
                 },
             },
         ],
-        gearMeta: { special: '破血·野兽', suit: '天罡 5/5', count: '10/12' },
+        gearMeta: { special: '破血·野兽', suit: '天罡 5/5' },
     },
     {
         id: 'yun-zhong-he',
@@ -602,6 +602,6 @@ export const CHARACTERS: CharacterMock[] = [
                 },
             },
         ],
-        gearMeta: { special: '慈航普度', suit: '慈悲 3/5', count: '10/12' },
+        gearMeta: { special: '慈航普度', suit: '慈悲 3/5' },
     },
 ];

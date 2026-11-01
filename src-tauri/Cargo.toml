@@ -3,7 +3,10 @@ name = "mh-toolbox-rs"
 version = "0.1.0"
 description = "梦幻养老助手 Rust 版"
 edition = "2021"
-rust-version = "1.77"
+# 取依赖树里最高的那个：锁定的 `tauri 2.12.5` 自己写着 1.90（`windows` 是 1.82）。
+# 这里写低了不会「更兼容」，只会让 1.77~1.89 的机器在编依赖时报一堆第三方 crate 的
+# 语法错，而不是本仓能读懂的一句「需要 1.90」。真正要改的时机是换 tauri 版本。
+rust-version = "1.90"
 
 [lib]
 name = "mh_toolbox_lib"

@@ -43,9 +43,15 @@
      */
     --font-ui: 'LXGW WenKai Screen', 'Microsoft YaHei', sans-serif;
 
-    /* ---------- 纸 ---------- */
+    /* ---------- 纸 ----------
+     * `--paper-base` 是**不翻面**的纸白绝对值，只给「要往纸白方向提一档」的混色当锚点。
+     * 为什么需要它：`--paper` 在暗色下翻成 #1c1912，所以「把某个暗色往纸白提一档」的
+     * 地方（比如装备浮片要在暗色里浮出格子）拿 `--paper` 去混等于往黑里提。这类地方
+     * 以前直接手抄 #f8f3e6，等于把纸色抄了第二份——改纸色得记得改几处。
+     */
+    --paper-base: #f8f3e6;
     --bg: light-dark(#eee5cf, #131109);
-    --paper: light-dark(#f8f3e6, #1c1912);
+    --paper: light-dark(var(--paper-base), #1c1912);
     --paper-2: light-dark(#f2ead6, #231f16);
     --well: light-dark(#e7dcc0, #171409);
     --ink: light-dark(#292520, #ece3cd);
@@ -109,7 +115,9 @@
      */
     --map-seal: #a8322b;
     --map-seal-ink: #8a2620;
-    --map-halo: #f8f3e6;
+    /* 白环就是纸白，但**不能**写成 `var(--paper)`——那一枚会跟着主题翻成 #1c1912。
+     * 引 `--paper-base`（不翻面）才是想要的那个值。 */
+    --map-halo: var(--paper-base);
 
     /* ---------- 立体与阴影 ---------- */
     --bevel-hi: light-dark(#fffaecd0, #ffffff2e);
@@ -124,7 +132,8 @@
     --scrollbar-thumb-active: light-dark(#8e7850, #83714f);
 
     /* ---------- 字号阶梯 ----------
-     * 基准 13.5px，八档封顶。每个档位都乘 `--fs-scale`：设置页的「较小 / 默认 / 较大」
+     * 基准 13.5px，六档封顶（mini / xs / sm / base / md / xl —— 没有 lg，量出来的
+     * 下一档直接跳到标题的 xl）。每个档位都乘 `--fs-scale`：设置页的「较小 / 默认 / 较大」
      * 只改这一个变量，全站字号跟着缩放——不用给组件写第二套值，也不会漏。
      */
     --fs-scale: 1;

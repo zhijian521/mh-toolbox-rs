@@ -11,13 +11,13 @@
 
 **必须装**（全部是旧仓已验证过的组合，不需要重新选型）：
 
-| 用途      | 依赖                                                                              | 配置要点                                                                                                                      |
-| --------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 静态检查  | `eslint` 9 + `@eslint/js` + `eslint-plugin-vue` + `typescript-eslint` + `globals` | flat config；`vue/flat/recommended`；**不开风格类规则**（交给 Prettier，避免两套格式化打架）                                  |
-| 格式化    | `prettier`                                                                        | `printWidth: 100`、`tabWidth: 4`、`singleQuote: true`、`trailingComma: "all"`、`semi: true`、`vueIndentScriptAndStyle: false` |
-| 编辑器    | `.editorconfig`                                                                   | `indent_style = space`、`indent_size = 4`、`end_of_line = crlf`（.bat）、`charset = utf-8`                                    |
-| Rust 格式 | `rustfmt.toml`                                                                    | `max_width = 100`、`edition = "2021"`                                                                                         |
-| Rust 检查 | clippy                                                                            | `cargo clippy -- -D warnings`（`unwrap`/`expect` 由人工把关，不靠 lint 全禁）                                                 |
+| 用途      | 依赖                                                                               | 配置要点                                                                                                                      |
+| --------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 静态检查  | `eslint` 10 + `@eslint/js` + `eslint-plugin-vue` + `typescript-eslint` + `globals` | flat config；`vue/flat/essential`（**不是** `recommended`，那套带 600+ 条格式化规则）；不开风格类规则（交给 Prettier）        |
+| 格式化    | `prettier`                                                                         | `printWidth: 100`、`tabWidth: 4`、`singleQuote: true`、`trailingComma: "all"`、`semi: true`、`vueIndentScriptAndStyle: false` |
+| 编辑器    | `.editorconfig`                                                                    | `indent_style = space`、`indent_size = 4`、`end_of_line = crlf`（.bat）、`charset = utf-8`                                    |
+| Rust 格式 | `rustfmt.toml`                                                                     | `max_width = 100`、`edition = "2021"`                                                                                         |
+| Rust 检查 | clippy                                                                             | `cargo clippy -- -D warnings`（`unwrap`/`expect` 由人工把关，不靠 lint 全禁）                                                 |
 
 **依据**：现有代码实测 31 个文件（20 `.vue` + 8 `.ts` + 3 `.css`）全是 4 空格缩进、0 个 2 空格；最长行 96 字符
 （`src/components/icons.ts`）。`printWidth: 100` 这一档不会折任何一行，可以接受。
@@ -36,8 +36,19 @@
 "check":        "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run check:version && npm run lint:commits"
 ```
 
-`npm run check` 是唯一入口，人跑的和 CI（`.github/workflows/check.yml`）跑的是同一条命令
-——这个约定比规则本身重要，因为它意味着「本机绿 = CI 绿」。
+`npm run check` 是前端的唯一入口，CI（`.github/workflows/check.yml`）的 `web` job 跑的就是
+这一条——这个约定比规则本身重要，因为它意味着这一项「本机绿 = CI 绿」。
+
+但 CI 还有两个 job，**不在** `npm run check` 里，别以为跑绿了就能安心推：
+
+| job         | 跑什么                        | 提示                                 |
+| ----------- | ----------------------------- | ------------------------------------ |
+| `rust`      | `cargo fmt --check`           | 本机要单独跑                         |
+| `rust-test` | `cargo test --lib`（windows） | 前置 `npm ci && npm run build`，见下 |
+
+`rust-test` 必须先有前端产物：`tauri::generate_context!` 在 `custom-protocol` 开启（默认）时按
+`frontendDist` 读 `dist/`，目录不存在是**直接 panic**；而 `dist/` 不入库（`.gitignore`）。所以
+干净检出上那个 job 原本必定是红的，本机绿只是因为工作区里恰好留着 `dist/`。
 
 两条都踩过，写在这里：
 
@@ -135,6 +146,13 @@ components = ["rustfmt", "clippy"]
 其余约定：
 
 - 组件文件 `PascalCase.vue`，一个文件一个组件
+- **一个 `.vue` 太大时，先拆「样子」和「纯计算」，不要先拆组件。** 同目录允许放
+  `kebab-case.css`（`<style scoped src="./x.css">`：选择器与写在 `.vue` 里逐条等价，
+  含 `:deep()`）与纯函数模块（如 `components/ghost/map-paint.ts`：入参进、像素出、不碰 Vue）。
+  判据是 §2.3-3——**拆完之后每个文件只回答一个问题**：`CharacterCard.vue` 答「这张卡长什么样」，
+  `character-card.css` 答「每一块怎么画」；`MapCanvas.vue` 答「什么时候画」，
+  `map-paint.ts` 答「画成什么样」。拆成子组件是最后一步，因为它会同时引入 props 契约与
+  插槽，而多数「太大」只是两件事混在一个文件里。
 - composable `use-xxx.ts`，导出 `useXxx`
 - 类型 / 接口 `PascalCase`，**不加 `I` 前缀**（现有 `AppInfo`、`RailPage` 已经是对的）
 - CSS 类名 `kebab-case`，BEM 不强制；**层级靠块前缀**（`.rail-item`、`.rail-foot`）而不是嵌套选择器。
@@ -149,13 +167,14 @@ components = ["rustfmt", "clippy"]
 views/          页面 = 路由目标。只做编排：拉数据、拼区块、处理路由参数
 components/     组件 = 有视觉语义的 UI 单元。不直接调 services/，不读路由
 composables/    跨组件的状态与副作用。单例状态放模块作用域
-services/       系统能力唯一出口（desktop.ts）。页面与组件都不许绕过它调 invoke
+services/       系统能力唯一出口，**一个能力一个文件**（desktop.ts、ghost.ts）。页面与组件都不许绕过它调 invoke
 types/          （待建）跨组件共享的类型
 ```
 
 四条硬规则：
 
-1. **组件不调 `invoke`**。只有 `services/desktop.ts` 能碰系统——`desktop.ts` 头注释立了这条，
+1. **组件不调 `invoke`**。只有 `services/` 能碰系统（一个能力一个文件，现在有 `desktop.ts`
+   管窗口与「关于」、`ghost.ts` 管捉鬼读取通道）——`desktop.ts` 头注释立了这条，
    ESLint 的 `no-restricted-imports` 把它变成可检查的约束：`components/`、`views/`、
    `composables/` 里出现 `@tauri-apps/api`、`@tauri-apps/api/*` 或 `@tauri-apps/*` 一律报错。
    早先只拦了 `@tauri-apps/api/core`（`paths` 只匹配一模一样的模块名），于是 `TitleBar.vue`
@@ -218,19 +237,31 @@ types/          （待建）跨组件共享的类型
    （`tokens.css` 里 `--seal` 那一段有完整推导）。分界是**面还是前景**：
    填充用这一组，把朱当字/线/描边用仍取 `--cinnabar`。
    `--paper` **暗色是深纸**（#1c1912），不是纸白；要纸白取 `--ink`。
+   需要**不随主题翻面**的纸白（`color-mix()` 的提亮锚点、画在截图上的标记）取
+   `--paper-base`——它是纸白的绝对值，`--paper` 的亮色档就是由它算出来的。
    组件里若仍需写暗色覆写，**必须整条写进 `:global()`**：
    `:global(html.dark .sel)` 编出来是 `html.dark .sel`，而 `:global(html.dark) .sel`
    会被编译成只剩 `html.dark`，后半截选择器直接丢掉（构建产物里 grep 一下就能看见）。
 2. **字号只能来自 `--fs-*`**，且每个令牌已经乘过 `--fs-scale`。禁止 `font-size: 14px`。
-3. **圆角只能来自 `--r-1/2/3/pill`**。账簿方向基本不用圆角，唯一例外是滚动条滑块。
+3. **圆角优先用 `--r-1/2/3/pill`，落不进这四档的就地写 px**。账簿方向基本不用圆角。
    侧栏竖滑块（`VerticalSlider.vue`）外框、格、印**共用 `--vs-radius`（`--r-2`，3px）**——
    一处改三处一起变。胶囊（`--r-pill`）现在只留给三档滑块、分段胶囊这类横向控件。
+   **这条原先写的是「只能来自这四档」**，全仓审查时发现套不上，于是改条款而不是改代码：
+   现有六处裸值里有三种真实需求是这四档表达不了的——滚动条滑块的 `10px`（必须跟着
+   10px 轨道宽走，套 `--r-pill` 成药丸、套 `--r-3` 成方角）、细线的 `1px`、圆形的 `50%`。
+   为它们各造一档，等于把「一个值一个令牌」摆回来；那和 `--sp-*` 十档是同一个错误。
+   判据：**这个值会不会被第二个地方用到**。会，就进令牌；不会（曲率由某个具体尺寸决定），
+   就地写并加一行注释说明它跟着谁走。
 4. **间距就地写 px，不做刻度**。2026-11-01 删掉了 `--sp-1…10` 十档：它们只被引用过
    2 次（`.frame` 的 20px、`.btn` 的 6px），其余八档一次没用上。一套 80% 没人用的刻度
    比没有更糟——它让人以为「选令牌」比写 `gap: 8px` 更正确，而表里的值从没在任何界面上
    被验证过。现在写 `gap: 8px`，一眼看得出意图；真到了「间距必须统一」那天再定。
 5. **结构靠线，不靠阴影**。分区用文武线 `.frame`；列表的行分隔用行级
    `border-bottom: var(--w-hair) solid var(--rule)`。阴影只用于「凸起」的一次性投影。
+   **内衬那道细线只有一份定义**：`.frame` 自带，别的区块要同样的内衬就给元素加
+   `dual-rule` 类（`.char`、`.gear-tip` 这么用），小尺寸容器要收紧只覆写 `--dual-inset`。
+   早先 `.frame` / `.char` / `.gear-tip` 各抄一份，抄到第三遍时已经漂了——浮片写着
+   「与卡片同一套」却是 2px 而不是 3px。
    曾经有个全局 `.ledger-lines`（整片 `repeating-linear-gradient` 画满横线），全站零引用，已删——
    真要用「格子纸」，那是**某个列表**的私有样式，写在该组件的 scoped 里，不要再升成全局类。
 6. **动效必须走 `--t-*` + `--ease-*`**，位移类动效统一带 `--ease-snap`（回弹）。
@@ -423,8 +454,10 @@ types/          （待建）跨组件共享的类型
 
 ## 5. 一句话总结
 
-**设计语言已经成立，工程护栏还没建。**
+**设计语言与工程护栏都已成立，剩下的缺口在领域层。**
 
 视觉与组件的那部分（令牌、四件套、控件契约、注释质量）是这个仓最值钱的东西，
-规范的作用是把它固化下来别再退回去；工程的那部分（lint / test / CI / 文档）是从零开始，
-而且必须在领域层动工之前完成——那 6000 行逻辑是唯一没有安全网的部分。
+规范的作用是把它固化下来别再退回去。工程的那部分已经补齐：`npm run check` 六项、
+CI 三个 job、61 条纯函数测试（`ghost-model` / `ghost-parse` / `ghost-hold`）。
+还没被网住的是那 6000 行领域逻辑本身——它现在有解析层的回归用例，但截屏与 OCR
+这半段仍然只能靠 `cargo test --lib` 与真机验证。

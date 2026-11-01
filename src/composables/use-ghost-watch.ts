@@ -1,9 +1,11 @@
-import { onScopeDispose, ref, shallowRef, watch } from 'vue';
+import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
+import { hasDesktop } from '../services/desktop';
 import { listGhostWindows, probeGhostTask, type GhostWindow } from '../services/ghost';
 import { loadGhostMaps, type GhostMap } from '../services/ghost-maps';
 import { parseGhostTasks, type ParseReport, type TaskKind } from '../services/ghost-parse';
 import {
     absorbFrame,
+    CONFIRM_FRAMES,
     createHold,
     heldTasks,
     holdAges,
@@ -100,6 +102,67 @@ export function useGhostWatch() {
      * 依据（洞口、通道、水陆分界）。有人靠它，有人嫌它挡图，两种都合理。
      */
     const hot = ref(readHot());
+
+    /**
+     * 有没有 Tauri 宿主。浏览器预览里页面照样能渲染，但没有截屏能力，
+     * 这不是「出错了」，得单独说一句，否则用户会一直等一个永远不来的结果。
+     */
+    const desktop = hasDesktop();
+
+    /**
+     * 状态行那句话。
+     *
+     * 它属于业务而不是版式：「这一帧到底在等什么」只有这里知道（连不稳要等两帧、
+     * 失败要连续三次才报）。早先写在页面里，页面于是间接持有了 `CONFIRM_FRAMES`
+     * 这个时序常量——页面不该知道时序。
+     */
+    const statusText = computed(() => {
+        if (!desktop) return '浏览器预览里读不到屏幕';
+        if (error.value) return error.value;
+        if (starting.value) return '正在启动';
+        if (!running.value) return '未开始';
+        // 「识别中」不是「还没读到」：画面上的结果是留住的那一份，只是这一帧读到了
+        // 另一套内容、还没连稳到足够可信。这句话必须说清楚在等什么，否则用户看到
+        // 地图不动、灯在跳，只会以为卡住了。
+        if (settling.value) return `另一套读法等 ${CONFIRM_FRAMES} 帧确认`;
+        return '监听中';
+    });
+
+    /** 状态灯的三种颜色。是否出错由这里判，页面只负责按名字上色。 */
+    const statusKind = computed<'idle' | 'live' | 'warn'>(() => {
+        if (error.value) return 'warn';
+        return running.value ? 'live' : 'idle';
+    });
+
+    /**
+     * 引擎名。两个名字刻意写得不一样长：`PP-OCRv4` 是正常态，看到「系统 OCR」
+     * 就说明模型没加载、退回了 Windows 自带引擎——那时候识别差是预期的，不是新 bug。
+     */
+    const engineLabel = computed(() => {
+        if (!engine.value) return '';
+        return engine.value === 'paddle' ? 'PP-OCRv4' : '系统 OCR';
+    });
+
+    /**
+     * 是否退回了系统 OCR。
+     *
+     * 这条必须**自己说出来**。`ghost.rs` 在模型加载失败时会静默退回 `Windows.Media.Ocr`：
+     * 截屏照截、正则照跑、状态灯照样是绿的，只有彩色字全认不出。用户看到的会是
+     * 「识别水平就这样」，而不是「有个东西坏了」——2026-11-01 就是这样白等了一整天，
+     * 当时真因只是打包漏了一个字典文件。
+     *
+     * 所以降级不许安静：引擎名挂在「识别原文」标题上还不够（那是折叠区，不点开看不见），
+     * 页面要在状态区直接摊开。
+     */
+    const degraded = computed(() => engine.value === 'windows');
+
+    /**
+     * 系统缩放比。ROI 的标定值是在 125% 下量的，Rust 每帧按这个数换算成物理像素。
+     *
+     * 摆在状态行里是因为「改了系统缩放识别就变差」是真实踩过的坑：先确认这个数
+     * 和系统设置一致，再怀疑别的。不一致就说明窗口不在你以为的那块屏上。
+     */
+    const scalePercent = computed(() => Math.round((dpi.value / 96) * 100));
 
     /**
      * 每个槽位保留的那一份。规则全在 `services/ghost-hold` 里——那一层是纯函数，
@@ -225,10 +288,12 @@ export function useGhostWatch() {
         stop();
     });
 
+    // 只导出页面真的会用到的。`maps` / `stop` / `refreshWindows` 在内部被
+    // `start` / `toggle` / 句柄自愈用着，但页面一次都没解构过——摆在这里等于
+    // 多三个「看起来可以调」的入口，谁哪天拿去用就会在不该停的时候停表。
     return {
         running,
         starting,
-        maps,
         windows,
         selectedHwnd,
         report,
@@ -240,10 +305,14 @@ export function useGhostWatch() {
         settling,
         ages,
         hot,
+        desktop,
+        statusText,
+        statusKind,
+        engineLabel,
+        degraded,
+        scalePercent,
         start,
-        stop,
         toggle,
         prepare,
-        refreshWindows,
     };
 }

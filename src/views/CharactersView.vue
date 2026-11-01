@@ -76,7 +76,9 @@ import { CHARACTERS } from './characters/mock';
     cursor: default;
 }
 .char-blank .plus {
-    font-size: 26px;
+    /* 那个「+」没有对应的字号档，但必须跟着 `--fs-scale` 走：
+     * 写死 26px 时「较大」档下它会显得比旁边的说明字还小。 */
+    font-size: calc(var(--fs-xl) + 4px);
     line-height: 1;
 }
 .char-blank .blank-text {

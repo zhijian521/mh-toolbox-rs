@@ -44,7 +44,7 @@ export const NAV_ITEMS: NavItem[] = [
     { key: 'settings', label: '设置', icon: 'settings', path: '/settings', view: SettingsView },
 ];
 
-/** 默认落在哪一页。设置页是当前唯一实现的页面，所以启动就停在这里。 */
+/** 默认落在哪一页。设置页永远是最稳的落点：它不依赖任何数据，也就不会开局就空着。 */
 export const DEFAULT_PATH = '/settings';
 
 export const NAV_BY_KEY = new Map(NAV_ITEMS.map((item) => [item.key, item]));

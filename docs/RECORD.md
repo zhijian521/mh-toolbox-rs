@@ -981,3 +981,106 @@ design/icon/old/                 ← 旧图标备份，保留
 - `?m=eyeout` 两张（普陀山 100,66 / 碗子山 600,45）文字完整、都在点左侧，
   没有跑出地图被裁；
 - `npm run check` 六项全过。
+
+### 第 23 小批：第二轮全仓审查（2026-11-01）— **✅ 已完成**
+
+用户要求「整体 Review 一下」。结论是：**代码大体守得住规矩，漂的是规矩自己**——
+令牌零引用 0、全局类零死码、`@tauri-apps` 无越界、无 600/700 字重，这些机械检查全干净；
+真正的问题集中在「文档/注释与实现脱钩」和「同一份东西抄了第二遍」。
+
+#### 一、必须修：一条 CI 任务在干净检出上必定是红的
+
+`rust-test` 只跑 `cargo test --lib`，而 `tauri::generate_context!` 在
+`custom-protocol`（默认 feature）开启时按 `frontendDist` 去读 `dist/`，
+目录不存在**直接 panic**，不会提示「缺文件」。`dist/` 不入库，所以那个 job 原本
+在干净检出上必然失败；本机绿只是因为工作区里恰好留着上次构建的 `dist/`。
+
+修法是给它补上前端产物（`npm ci && npm run build`），而不是改成
+`--no-default-features`——后者测的是另一套 feature，与真实产物不一致。
+
+顺带把那个文件开头「本机跑什么这里就跑什么，所以只有一步」的说法改掉：实际是三个
+job，其中 `cargo fmt --check` 与 `cargo test` 都**不在** `npm run check` 里。
+
+#### 二、发布版唯一的崩溃点没人看得见
+
+`lib.rs` 结尾是 `.expect("Tauri 应用启动失败")`，而 `main.rs` 在发布版是
+`windows_subsystem = "windows"`——没有控制台，那行字写进 stderr 之后就消失了。
+用户看到的只是窗口闪一下。WebView2 运行时缺失、建窗失败这两类**新机器上最常见的失败**
+正好都走这条路。改成 `report_fatal()`：先写 `%APPDATA%\mh-tool-v2\startup-error.log`，
+再弹一个原生 `MessageBoxW`，把日志路径写在对话框里。
+
+#### 三、八处口径与实现脱钩
+
+最危险的一处是 `CONVENTIONS` §2.1：写着 eslint **9** + `vue/flat/recommended`，
+实际是 eslint **10.13** + `vue/flat/essential`。`recommended` 恰恰带 600+ 条格式化规则，
+是本仓明确不要的那一层，照着文档配一遍就会与 4 空格 + Prettier 打架。
+
+其余七处：
+
+- `services/` 只写了 `desktop.ts`（现在是 desktop + ghost 两个文件）
+- §5 结论「工程护栏还没建」（已经建了：check 六项 + 三个 CI job + 61 条测试）
+- `tokens.css` 注释说字号「八档」（六档）
+- `base.css` 注释说 `.num` 没有调用方（角色卡里用了 7 处）
+- `README` 说「其余六页是占位」「六个业务页未写」（角色页已有内容，剩五个）；目录树也缺
+  `CharactersView` 与 `views/characters/`
+- `navigation.ts` 的 `DEFAULT_PATH` 注释说「设置页是当前唯一实现的页面」
+- `design/income.html` 的样张里还留着一组 `class="check"`，而那两个类随 `BaseCheck`
+  一起删了——勾选框那组直接去掉（样张里的控件必须是全局表里还在的那些）
+
+#### 四、两处硬编码颜色 + 一处三连抄
+
+- `GearTip` 的暗色底写 `color-mix(..., #f8f3e6 14%)`，那个字面值就是 `--paper` 的亮色档。
+- `CharacterCard` 的进度条高光写 `#fff`，纯白在这套暖纸里是唯一一处冷色。
+
+两处的共同点是「要一个**不随主题翻面**的纸白」。新增 `--paper-base: #f8f3e6` 当这个锚点，
+`--paper: light-dark(var(--paper-base), #1c1912)` 从它算出来，两处引用它，
+`--map-halo` 也改成引用它（原先又抄了一遍同一个字面值）。
+
+文武线内衬（外框内 3px 处的细线）原先在 `.frame` / `.char` / `.gear-tip` 各写一份，
+而且抄第二遍时就漂了：装备浮片的注释写着「与卡片同一套」，实际是 `inset: 2px`。
+收成全局 `.dual-rule`（与 `.frame::before` 共用一条规则），小尺寸容器要收紧只覆写
+`--dual-inset` 一个变量。
+
+#### 五、结构：两个大文件各拆一刀
+
+- `CharacterCard.vue` 658 → 265 行，394 行 scoped CSS 移到同目录 `character-card.css`
+  （`<style scoped src>`，选择器逐条等价，含两处 `:deep()`）。模板一行没动。
+- `MapCanvas.vue` 541 → 199 行，`draw()` 里那 320 行绘制搬进 `map-paint.ts`：
+  组件只管「什么时候画」（尺寸、dpr、观察者、生命周期），那一层不管 Vue。
+- 页面里的业务推导搬进 composable：`statusText` / `statusKind` / `engineLabel` /
+  `degraded` / `scalePercent` / `desktop` 六个。`GhostHuntView` 原先为了拼状态那句话，
+  不得不 import 时序常量 `CONFIRM_FRAMES`——页面不该知道「连不稳要等两帧」。
+- 死码：`use-ghost-watch` 不再导出 `maps` / `stop` / `refreshWindows`（内部都在用，
+  页面一次没解构过）；`gearMeta.count` 三处删掉（页面用 `filled` 自己数）。
+- canvas 里的字号原本写死 `12px` / `13.5px`，字号调到「较大」时地图标签是唯一不跟着变的一块。
+  改成从 `--fs-sm` / `--fs-base` 求值（取色探针顺便读字号），并 watch 字号档触发重画。
+
+#### 六、配置与脚本
+
+- `Cargo.toml` 的 `rust-version` 从 `1.77` 提到 `1.90`：锁定的 tauri 2.12.5 自己写着 1.90。
+  写低了不会更兼容，只会让 1.77~1.89 的机器在编第三方 crate 时报语法错。
+- `check-version.mjs` 从核 3 个文件扩到 **6 处**（补 `package-lock.json` 两处与
+  `src-tauri/Cargo.lock`），并校验 semver：三处一起写成 `0.1.0rc1` 原先能一路通过，
+  最后生成畸形的安装包文件名。破坏性验证过（临时改 `Cargo.lock` → 报「不是合法 semver」）。
+- 新增 `vitest.config.ts`，只做一件事：排除 `.runtime/**`。那里留着一份早期草稿，
+  导致本机 73 条、干净检出 61 条——多出来的 12 条根本不在仓库里。
+
+#### 七、改条款而不是改代码的两处
+
+- §2.4-3 原写「圆角只能来自 `--r-1/2/3/pill`」。现有 6 处裸值里有三种需求这四档表达不了：
+  滚动条滑块的 `10px`（必须跟着 10px 轨道宽走）、细线的 `1px`、圆形的 `50%`。
+  为它们各造一档就是把「一个值一个令牌」摆回来，和已删的 `--sp-*` 十档同一个错误。
+  判据改成**这个值会不会被第二处用到**。
+- `.error` / `.positive` 零引用保留：§2.4-12 的例外条款拦的是「没验证过的值」，
+  不是「唯一一份写法」。
+
+#### 八、验证
+
+- canvas 重构前后**逐像素比对**：`range` / `hot` / `exact` 三档 0 像素差异；
+  `whole` 只有 3943 像素、最大通道差 21，全部落在 4px 白线那一圈——那是
+  故意的改动（`rgba(255,255,255,.78)` → 纸白 `--map-halo` 同透明度）。
+- 角色卡亮/暗两套截图，放大 4× 确认外框内 3px 处的内衬线仍在；装备浮片浅色下
+  `background` 实测 `rgb(248,243,230)`、暗色下 `color(srgb .254 .238 .200)`
+  （= paper-2 提 14% 纸白，手算一致）。
+- `cargo check --lib` 与 `cargo fmt --check` 通过；`npm run check` 六项全绿，
+  vitest 61 条（与干净检出同数）。

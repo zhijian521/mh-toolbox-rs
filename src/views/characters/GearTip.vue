@@ -64,7 +64,7 @@ watch(
     <Teleport to="body">
         <div
             ref="el"
-            class="gear-tip"
+            class="gear-tip dual-rule"
             :class="{ on: detail !== null }"
             :style="{ left: `${pos.left}px`, top: `${pos.top}px` }"
             role="tooltip"
@@ -125,13 +125,10 @@ watch(
         transform 90ms var(--ease-soft),
         visibility 0s linear 90ms;
 }
-/* 文武线内衬，与卡片同一套。 */
-.gear-tip::before {
-    content: '';
-    position: absolute;
-    inset: 2px;
-    border: var(--w-hair) solid var(--rule);
-    pointer-events: none;
+/* 文武线内衬走全局 `.dual-rule`（`base.css`），这里只把它收紧一档：
+ * 浮片整宽 216、内边距 10~12，按 3px 会让内衬几乎贴住文字。 */
+.gear-tip {
+    --dual-inset: 2px;
 }
 .gear-tip.on {
     visibility: visible;
@@ -139,10 +136,11 @@ watch(
     transform: none;
     transition-delay: 0s;
 }
-/* 暗色下投影是黑压黑，等于没有浮起；靠把纸面提亮一阶表达「在上面一层」。
- * 只提一阶不够——格子本身也是 paper-2，浮片会和身后的格子糊成一片。 */
+/* 暗色下投影是黑压黑，等于没有浮起；靠把纸面往纸白提一档表达「在上面一层」。
+ * 只提一档不够——格子本身也是 paper-2，浮片会和身后的格子糊成一片。
+ * 往 `--paper-base`（不翻面）提，不是往 `--paper`（暗色下是 #1c1912）提。 */
 :root.dark .gear-tip {
-    background: color-mix(in srgb, var(--paper-2) 86%, #f8f3e6 14%);
+    background: color-mix(in srgb, var(--paper-2) 86%, var(--paper-base) 14%);
 }
 
 .tip-top {

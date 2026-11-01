@@ -8,7 +8,7 @@
 
 ## 当前状态（2026-11-01）
 
-八个导航页都有路由，其中**设置页与工具页有内容**，其余六页是占位；工具页下挂子页
+八个导航页都有路由，其中**设置页 / 工具页 / 角色页有内容**，其余五页是占位；工具页下挂子页
 （捉鬼助手 `/tools/ghost`，可用）。另有一张不进导航的开发页 `#/dev`，
 入口是**三连击左栏顶部的标**。
 
@@ -22,7 +22,7 @@
 | 捉鬼助手     | 截屏 + 本地 OCR（PP-OCRv4，缺模型退回系统 OCR）读任务栏的假坐标，在底图上画该往哪找；ROI 按显示器 DPI 换算                                     |
 | 设计语言     | `src/styles/tokens.css` / `base.css` / `blocks.css`（唯一真源）、`design/income.html`（收益页样张，直接引同一份 CSS）                          |
 
-未开始：数据层（SQLite）、领域层、六个尚未写的业务页、e2e。
+未开始：数据层（SQLite）、领域层、五个尚未写的业务页、e2e。
 
 **字体与字号都只有一条通路。** 全站唯一字体是霞鹜文楷（不再与黑体混排；裁到 GB2312 全集，
 越界的生僻字才回退雅黑）；六档字号全部写成
@@ -39,12 +39,13 @@
 │   │                     ghost/MapCanvas（底图与范围绘制）；icons.ts 只维护名字到 tabler 映射
 │   ├── composables/      use-theme / use-font-scale / use-roving-focus / use-app-info /
 │   │                     use-ghost-watch
-│   ├── services/         系统能力与纯规则：desktop（唯一外壳出口）/ ghost（IPC 契约）/
+│   ├── services/         一个能力一个文件：desktop（窗口与「关于」）/ ghost（捉鬼读取通道）/
 │   │                     ghost-maps / ghost-parse / ghost-model / ghost-hold（可单测的纯函数）
 │   ├── styles/           tokens.css（令牌）/ base.css（重置 + `.well` 凹槽 + 印面）/
 │   │                     blocks.css（页面级版式）
-│   └── views/            SettingsView + settings/（外观、关于）/ ToolsView/tools/
-│                         （捉鬼助手）/ dev/（开发帮助，5 张卡）/ PlaceholderView
+│   ├── views/            SettingsView + settings/（外观、关于）/ ToolsView + tools/（捉鬼助手）/
+│   │                     CharactersView + characters/（角色卡、装备浮片）/ dev/（开发帮助，5 张卡）/
+│   │                     PlaceholderView
 ├── src-tauri/            Rust 壳（窗口、命令、截屏、OCR、能力配置）
 ├── docs/                 ARCHITECTURE / CONVENTIONS / RECORD / GHOST-HUNT
 ├── scripts/              质量门小工具：版本号一致、提交信息
@@ -62,11 +63,14 @@
 - **[`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)** — 现在该怎么写：命名、分层、样式语言、控件契约、验收方式
 - **[`docs/RECORD.md`](docs/RECORD.md)** — 过程记录：全仓审查的原始发现与十六个小批的落地历史
 
-质量门只有一条命令，本机与 GitHub Actions 跑的是同一条：
+前端质量门只有一条命令，CI 的 `web` job 跑的就是它：
 
 ```bash
 npm run check    # format:check + lint + typecheck + test + check:version + lint:commits
 ```
+
+CI 另有 `rust`（`cargo fmt --check`）与 `rust-test`（`cargo test --lib`）两个 job，这两项
+**不在** `npm run check` 里——本机绿不等于能推。口径见 `docs/CONVENTIONS.md` §2.1。
 
 ## 启动
 

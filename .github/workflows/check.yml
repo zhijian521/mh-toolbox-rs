@@ -1,5 +1,11 @@
-# 质量门。人跑的和这里跑的是同一条命令，这是 CONVENTIONS §2.1 的约定，
-# 所以这个文件只有一步：`npm run check`。
+# 质量门。三个 job，**不是**「本机跑什么这里就跑什么」：
+#
+#   web        = `npm run check` 原样一条（本机六项全在这里）
+#   rust        = `cargo fmt --check`，本机 `npm run check` **不含**这一项
+#   rust-test  = `cargo test --lib`，本机 `npm run check` 也**不含**
+#
+# 所以「本机绿 = CI 绿」只在 web 这一项上成立。另两项靠背，别指望跑完
+# `npm run check` 就能安心推。
 #
 # 为什么要它：`npm run check` 一直只在本机跑。规范与代码脱钩过一次——
 # `lint:commits` 的正则要求冒号后带空格，而 8 条提交是紧贴写的，
@@ -65,4 +71,18 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+      # 必须先有前端产物，否则 `cargo test` 编不过——`tauri::generate_context!`
+      # 在 `custom-protocol` 开启（默认）时按 `frontendDist` 去读 `dist/`，
+      # 目录不存在直接 panic，而不是报缺文件。`dist/` 不入库（.gitignore:3），
+      # 所以干净检出上这条 job 原本**必定**是红的；本机之所以绿，只是工作区
+      # 里恰好留着 dist/。
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # 这两步要在仓库根跑（job 默认工作目录是 src-tauri），所以单独覆盖。
+      - run: npm ci
+        working-directory: .
+      - run: npm run build
+        working-directory: .
       - run: cargo test --lib

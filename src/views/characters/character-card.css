@@ -1,0 +1,400 @@
+/*
+ * 角色卡的样式。
+ *
+ * 单独成文件是因为它占了这个组件六成的行数：五套分区版式、页签、装备格、
+ * 浮片锚点各有一段。留在 .vue 里时，改一行模板要先翻过四百行 CSS。
+ *
+ * 仍是 scoped（`<style scoped src>`），选择器与写在 .vue 里逐条等价，
+ * 包括那两处 `:deep()`。
+ */
+/* ======================================================================
+ * 卡片本体
+ * ==================================================================== */
+.char {
+    position: relative;
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    /* 360 × 480 = 0.75，与游戏「人物属性」面板同为竖版。 */
+    width: 360px;
+    height: 480px;
+    border: var(--w-hair) solid var(--rule-2);
+    background: var(--paper);
+    box-shadow:
+        0 1px 2px var(--shadow),
+        0 10px 22px -12px var(--shadow-lg);
+}
+/* 文武线内衬走全局 `.dual-rule`（`base.css` 里与 `.frame` 同一份），这里只补一处特例：
+ * 卡内的分区是绝对定位的，要明确压在内衬之上，所以给内衬一个 0 的层级。 */
+.char::before {
+    z-index: 0;
+}
+
+.char-head {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    flex: none;
+    padding: 11px 14px 9px;
+}
+.who-block {
+    min-width: 0;
+}
+.who {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    min-width: 0;
+}
+.who h2 {
+    font-size: calc(var(--fs-md) + 2px);
+    letter-spacing: 0.06em;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+.lv {
+    color: var(--ink-2);
+    font-size: var(--fs-sm);
+}
+.school {
+    padding: 1px 5px;
+    border: var(--w-hair) solid var(--rule-2);
+    border-radius: var(--r-1);
+    color: var(--ochre);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.08em;
+}
+.more {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    margin-left: auto;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    line-height: 1;
+}
+.more:hover {
+    color: var(--cinnabar);
+}
+.char-sub {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.04em;
+}
+.char-sub .dot {
+    opacity: 0.5;
+}
+
+/* ---------- 卡内页签 ----------
+ * 外壳用全局 `.pill-group`（`--paper-2` 承载面 + 3px 内边距），只管排布：
+ * 覆盖成等宽五列。`.pill-group` 原本是 `inline-flex`（按内容宽），
+ * 而卡内要的是「五个格子均分整条」——那个差异属于调用方的排版，写在这里。
+ */
+.tabs {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    flex: none;
+    margin: 0 12px;
+}
+/* 胶囊默认 `min-height: 23px` 是按「一行字」定的；卡内页签要更矮一点，
+ * 免得页签条从正文里抢走一整行数据的高度。 */
+.tabs :deep(.bevel-pill) {
+    padding: 2px 4px;
+    font-size: var(--fs-xs);
+    letter-spacing: 0.04em;
+}
+
+.char-body {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    min-height: 0;
+    padding: 10px 14px 12px;
+    overflow: auto;
+    /* 滚动条始终占位：五个分区的宽度必须一致，否则切页签时整列文字会左右跳。 */
+    scrollbar-gutter: stable;
+}
+
+/* 卡高固定，内容少的分区把注脚压到卡底，空白就成了「间距」而不是「没画完」。 */
+.pane {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+.pane .foot {
+    margin-top: auto;
+    padding-top: 10px;
+}
+
+/* ======================================================================
+ * 属性
+ * ==================================================================== */
+.attr-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    flex: 1;
+    gap: 0 18px;
+}
+/* 两组靠上排、不上下摊开：摊开会在卡中间挖出一个 90px 的洞，比底部留白更难看。 */
+.attr-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.group-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 1px;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.14em;
+}
+.group-head .section-mark {
+    --mark-w: 3px;
+    --mark-h: 11px;
+}
+.ledger {
+    display: grid;
+}
+.ledger > div {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
+    padding: 3px 0;
+    font-size: var(--fs-sm);
+}
+/* 点线放在 dt 内部而不是 dt 与 dd 之间：`<dl><div><dt/><span/><dd/></div></dl>`
+ * 的 span 不是 dt/dd，不属于 dl 的内容模型。dt 吃掉剩余宽度、点线在其中撑开，
+ * 视觉与「夹在中间」完全一致。 */
+.ledger dt {
+    display: flex;
+    flex: 1;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
+    color: var(--ink-2);
+}
+.ledger .leader {
+    flex: 1;
+    min-width: 8px;
+    height: 0;
+    border-bottom: var(--w-hair) dotted color-mix(in srgb, var(--rule-2) 62%, transparent);
+    transform: translateY(-3px);
+}
+.ledger dd {
+    flex: none;
+    margin: 0;
+    color: var(--ink);
+}
+.ledger dd .sub {
+    color: var(--muted);
+    font-size: var(--fs-mini);
+}
+.ledger dd.strong {
+    color: var(--cinnabar);
+}
+
+/* ======================================================================
+ * 师门 / 辅助
+ * ==================================================================== */
+.skill-list {
+    display: grid;
+    flex: 1;
+    /* 卡高固定，行数少的分区把行距摊开，而不是在底下留一截空白。 */
+    align-content: space-between;
+}
+.skill-row {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    padding: 8px 0 7px;
+    border-bottom: var(--w-hair) solid var(--rule);
+    font-size: var(--fs-sm);
+}
+.skill-row .name {
+    color: var(--ink);
+}
+.skill-row .leader {
+    flex: 1;
+    height: 0;
+    border-bottom: var(--w-hair) dotted color-mix(in srgb, var(--rule-2) 55%, transparent);
+    transform: translateY(-3px);
+}
+.skill-row .lv {
+    color: var(--ink-2);
+}
+.skill-row .lv.max {
+    color: var(--cinnabar);
+}
+.skill-row .tag {
+    flex: none;
+    padding: 0 4px;
+    border: var(--w-hair) solid var(--rule-2);
+    border-radius: var(--r-1);
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.06em;
+}
+.skill-row.off .name,
+.skill-row.off .lv {
+    color: var(--muted);
+}
+
+/* ======================================================================
+ * 修炼
+ * ==================================================================== */
+.training-list {
+    display: grid;
+    flex: 1;
+    align-content: space-between;
+    gap: 20px;
+}
+.training-row {
+    display: grid;
+    grid-template-columns: 62px 1fr 42px;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--fs-sm);
+}
+.training-row .name {
+    color: var(--ink);
+}
+.training-row .track {
+    position: relative;
+    height: 4px;
+    border-radius: 2px;
+    background-color: var(--well);
+    box-shadow: inset 0 1px 2px var(--bevel-lo);
+}
+/* 用 `--moss` 而不是蓝：这套语言的辅助色只有赭与苔，绿条 + 朱色数字正好分开
+ * 「在练」与「已满」两种状态。
+ * 高光是独立的 box-shadow，不写进 background 简写——简写里只要有一个值解析失败
+ * （比如引了不存在的令牌），整条声明都会被丢掉，条会静默变成透明。
+ * 提亮的那一档引 `--paper-base`（不翻面的纸白），不写 `#fff`：纯白在这套暖纸里
+ * 是唯一一处冷色，而且暗色主题下同样要往纸白提。 */
+.training-row .track i {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--moss);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--moss) 55%, var(--paper-base));
+}
+.training-row .lv {
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    text-align: right;
+}
+.training-row.done .lv {
+    color: var(--cinnabar);
+}
+
+/* ======================================================================
+ * 装备
+ * ==================================================================== */
+.gear-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+}
+.gear-cell {
+    display: block;
+    height: 66px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-2);
+    background: none;
+    text-align: left;
+    font-family: var(--font-ui);
+    color: var(--ink);
+}
+.gear-tile {
+    /* 底是 `--paper`，沿用 PressTile 默认的半透明纸色会与卡面同色，只剩棱、读不出「凸」。 */
+    --tile-w: 100%;
+    --tile-h: 66px;
+    --tile-r: var(--r-2);
+    --tile-face: var(--paper-2);
+    --tile-drop: 1;
+}
+/* PressTile 悬停会把块面提亮成 `--paper`，而卡底就是 `--paper`——
+ * 在工具页（底是更暗的 `--bg`）那是「块面转实」，在卡片上等于把块面抹平。
+ * 这里只把面上按回 `--paper-2`；影子仍随悬停拉长，「块底下抬起一点」照样读得出。 */
+.gear-grid .gear-cell:hover :deep(.press-tile) {
+    background-color: var(--paper-2);
+}
+.gear-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    width: 100%;
+    padding: 0 8px;
+    box-sizing: border-box;
+}
+.gear-inner .slot {
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.12em;
+    transition: color var(--t-quick) var(--ease-soft);
+}
+.gear-inner .gear-name {
+    width: 100%;
+    overflow: hidden;
+    color: var(--ink);
+    font-size: var(--fs-xs);
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.gear-cell:hover .slot {
+    color: var(--cinnabar);
+}
+.gear-cell:focus-visible {
+    outline: 2px solid var(--cinnabar);
+    outline-offset: 2px;
+}
+.gear-cell.empty {
+    display: grid;
+    place-items: center;
+    border: var(--w-hair) dashed var(--rule-2);
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.1em;
+    cursor: default;
+}
+.gear-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-top: 9px;
+    padding-top: 7px;
+    border-top: var(--w-hair) solid var(--rule-2);
+    color: var(--ink-2);
+    font-size: var(--fs-mini);
+}
+.gear-meta .k {
+    margin-right: 4px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+}
+.gear-meta .v.seal {
+    color: var(--cinnabar);
+}
+.gear-meta .v.ochre {
+    color: var(--ochre);
+}
+.gear-meta .push {
+    margin-left: auto;
+    color: var(--muted);
+}

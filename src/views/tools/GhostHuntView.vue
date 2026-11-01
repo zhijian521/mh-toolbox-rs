@@ -6,15 +6,16 @@ import CostSwitch from '../../components/CostSwitch.vue';
 import PageShell from '../../components/PageShell.vue';
 import MapCanvas from '../../components/ghost/MapCanvas.vue';
 import { useGhostWatch } from '../../composables/use-ghost-watch';
-import { hasDesktop } from '../../services/desktop';
-import { CONFIRM_FRAMES } from '../../services/ghost-hold';
 import type { GhostPlan } from '../../services/ghost-model';
 
 /**
  * 捉鬼助手。
  *
- * 页面只负责三件事：把 composable 的状态画出来、把每条任务画成一张地图、提供启停。
- * 所有时序逻辑都在 `use-ghost-watch` 里——这一页不该知道轮询间隔是多少。
+ * 页面只负责三件事：把 composable 的状态画出来、把每条任务画成一张地图、把
+ * 开始/停止接到按钮上。时序与判定全在 `use-ghost-watch` 里——这一页不该知道
+ * 轮询间隔是多少，也不该知道「连不稳要等两帧」「失败三次才报错」。
+ * 状态那句话（`statusText`）连同灯色、引擎名、降级提示、缩放比一起住在
+ * composable：它们是**判定**，换个页面还得是同一个结论，不是这一页的版式。
  *
  * 大小鬼是一起捉的，两条任务同时成立，所以两张图同卡上下分栏，一眼同时看到
  * 「小鬼往哪走、大鬼往哪走」。做成切换是把「看两个」变成「看一个再点一下」，
@@ -31,71 +32,24 @@ const {
     selectedHwnd,
     report,
     plans,
-    error,
     stats,
-    engine,
-    dpi,
-    settling,
+    engineLabel,
     ages,
     hot,
-    start,
+    desktop,
+    statusText,
+    statusKind,
+    degraded,
+    scalePercent,
     toggle,
     prepare,
+    start,
 } = useGhostWatch();
-
-const desktop = hasDesktop();
-
-const statusText = computed(() => {
-    if (!desktop) return '浏览器预览里读不到屏幕';
-    if (error.value) return error.value;
-    if (starting.value) return '正在启动';
-    if (!running.value) return '未开始';
-    // 「识别中」不是「还没读到」：画面上的结果是留住的那一份，只是这一帧读到了
-    // 另一套内容、还没连稳到足够可信。这句话必须说清楚在等什么，否则用户看到
-    // 地图不动、灯在跳，只会以为卡住了。
-    if (settling.value) return `另一套读法等 ${CONFIRM_FRAMES} 帧确认`;
-    return '监听中';
-});
-
-const statusKind = computed<'idle' | 'live' | 'warn'>(() => {
-    if (error.value) return 'warn';
-    return running.value ? 'live' : 'idle';
-});
 
 const corrections = computed(() => {
     const list = report.value?.corrections ?? [];
     return list.map((item) => `${item.from}→${item.to}`).join(' ');
 });
-
-/**
- * 引擎名。两个名字刻意写得不一样长：`PP-OCRv4` 是正常态，看到「系统 OCR」
- * 就说明模型没加载、退回了 Windows 自带引擎——那时候识别差是预期的，不是新 bug。
- */
-const engineLabel = computed(() => {
-    if (!engine.value) return '';
-    return engine.value === 'paddle' ? 'PP-OCRv4' : '系统 OCR';
-});
-
-/**
- * 是否退回了系统 OCR。
- *
- * 这条必须**自己说出来**。`ghost.rs` 在模型加载失败时会静默退回 `Windows.Media.Ocr`：
- * 截屏照截、正则照跑、状态灯照样是绿的，只有彩色字全认不出。用户看到的会是
- * 「识别水平就这样」，而不是「有个东西坏了」——2026-11-01 就是这样白等了一整天，
- * 当时真因只是打包漏了一个字典文件。
- *
- * 所以降级不许安静：引擎名挂在「识别原文」标题上还不够（那是折叠区，不点开看不见），
- * 要在状态区直接摊开。
- */
-const degraded = computed(() => engine.value === 'windows');
-
-/**
- * 系统缩放比。ROI 的标定值是在 125% 下量的，Rust 每帧按这个数换算成物理像素。
- *
- * 摆在状态行里是因为「改了系统缩放识别就变差」是真实踩过的坑：先确认这个数
- * 和系统设置一致，再怀疑别的。不一致就说明窗口不在你以为的那块屏上。
- */
-const scalePercent = computed(() => Math.round((dpi.value / 96) * 100));
 
 /** 头上只写「哪一条」。坐标与范围全在图上，这行不重复。 */
 function kindLabel(plan: GhostPlan): string {

@@ -29,10 +29,58 @@ pub struct AppInfo {
 
 /// 数据目录必须与旧版 Electron 指向同一个目录，否则朋友升级后数据「消失」。
 /// 旧版见 `mh-tool/src/main/profile.cjs:5`：`path.join(app.getPath('appData'), 'mh-tool-v2')`。
+fn data_dir_path() -> Option<std::path::PathBuf> {
+    std::env::var("APPDATA")
+        .ok()
+        .map(|base| std::path::PathBuf::from(base).join("mh-tool-v2"))
+}
+
+/// 同一件事的两个出口：前端「关于」要的是字符串，`report_fatal` 要的是路径。
 fn data_dir() -> String {
-    match std::env::var("APPDATA") {
-        Ok(base) => format!("{base}\\mh-tool-v2"),
-        Err(_) => "未知".to_string(),
+    data_dir_path()
+        .map(|path| path.display().to_string())
+        .unwrap_or_else(|| "未知".to_string())
+}
+
+/// 启动失败的最后一站：先写日志文件，再弹一个原生对话框。
+///
+/// 为什么不能只 `expect`：发布版 `main.rs` 是 `windows_subsystem = "windows"`，
+/// 没有控制台，`expect` 写进 stderr 的那行字**没有任何人会看到**——用户看到的
+/// 只是窗口闪一下就没了，连「是坏了」都判断不了。WebView2 运行时缺失、建窗
+/// 失败这两类机器环境问题都走这条路，而它们恰恰是新机器上最常见的失败。
+///
+/// 日志落在数据目录而不是 exe 旁边：装到 `Program Files` 时那里只读。
+fn report_fatal(message: &str) {
+    // `APPDATA` 缺失（服务账户、极端精简环境）时退到临时目录，否则日志会
+    // 落到当前工作目录，那时谁也不知道该去哪里找。
+    let dir = data_dir_path().unwrap_or_else(std::env::temp_dir);
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join("startup-error.log");
+    // 连日志都写不进去也不能再抛：这是最后一条兜底路径，它自己崩掉就彻底没信息了。
+    let _ = std::fs::write(&path, format!("{message}\n"));
+    eprintln!("启动失败：{message}");
+
+    #[cfg(windows)]
+    {
+        use windows::core::PCWSTR;
+        use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
+
+        let wide =
+            |text: &str| -> Vec<u16> { text.encode_utf16().chain(std::iter::once(0)).collect() };
+        let body = wide(&format!(
+            "梦幻养老助手没能启动。\n\n{message}\n\n详细信息已写入：\n{}",
+            path.display()
+        ));
+        let title = wide("启动失败");
+        // SAFETY: 两个串都以 0 结尾且活到调用返回之后；`None` 表示无父窗口。
+        unsafe {
+            MessageBoxW(
+                None,
+                PCWSTR(body.as_ptr()),
+                PCWSTR(title.as_ptr()),
+                MB_OK | MB_ICONERROR,
+            );
+        }
     }
 }
 
@@ -169,7 +217,7 @@ pub fn run() {
     #[cfg(not(windows))]
     let builder = builder.invoke_handler(tauri::generate_handler![app_info, open_external]);
 
-    builder
+    let started = builder
         .setup(|app| {
             // OCR 模型路径要在第一次识别前告诉引擎。放在 setup 而不是懒加载：
             // 模型目录随平台/打包方式变，越早定下来，出错时越早看到一条干净的错误。
@@ -189,6 +237,11 @@ pub fn run() {
             create_main_window(app)?;
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("Tauri 应用启动失败");
+        // 不用 `expect`：发布版没有控制台，`expect` 的输出去不了任何地方。
+        // 见 `report_fatal` 的注释。
+        .run(tauri::generate_context!());
+
+    if let Err(error) = started {
+        report_fatal(&format!("{error}"));
+    }
 }
