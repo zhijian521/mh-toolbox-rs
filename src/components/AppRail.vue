@@ -14,12 +14,18 @@
  * 墨字版给亮色、纸白版给暗色；两版构图参数逐项相同
  * （`design/icon/ink/make-logo-pair.py`），换主题时那只字不会挪位。
  *
+ * 牌记的**块**是 `PressTile`（与工具页图标格同一块材质），里面才是那只字。
+ * 换成压印之前，这里自己写过一套「细线框 + 2px 底边」的立体，34px 见方时读作
+ * 「贴了张带框的图标」——线框把字圈住了，而工具页那边已经是「纸面被顶起一块」。
+ * 一个应用里两套厚度语言，读起来就像两个时代的控件并排放着。
+ *
  * 它不知道路由的存在：收 `items` 和 `current`，点出去一个 key。
  * 导航项形状见 `navigation.ts` 的 `NavItem`——导航与路由共用的单一真源。
  */
 import { computed } from 'vue';
 import VerticalSlider from './VerticalSlider.vue';
 import SlotButton from './SlotButton.vue';
+import PressTile from './PressTile.vue';
 import markInk from '../../assets/mark-ink.png';
 import markPaper from '../../assets/mark-paper.png';
 import type { NavItem } from '../navigation';
@@ -66,7 +72,9 @@ function onBrandClick(event: MouseEvent) {
 <template>
     <aside class="rail">
         <div class="rail-brand" aria-hidden="true" @click="onBrandClick">
-            <img class="rail-mark" :src="isDark ? markPaper : markInk" alt="" />
+            <PressTile class="rail-mark">
+                <img class="rail-glyph" :src="isDark ? markPaper : markInk" alt="" />
+            </PressTile>
         </div>
 
         <VerticalSlider
@@ -151,8 +159,8 @@ function onBrandClick(event: MouseEvent) {
  * 读作「书名在上，目录在下」。高度算式里那 1px 仍然留着：它不是给线的，是两栏的对齐余量。
  *
  * 图案取自应用图标（行楷「梦」+ 右下朱印），但**去掉了图标的圆角方块底**：
- * 那块底在这个尺寸下只剩一圈比纸略深的边，读作「贴了张图标」。去底之后这片空白
- * 改由下面那条 1px 细线框来收——线是自己画的，粗细可控，不像图标自带底那样带噪点。
+ * 那块底在这个尺寸下只剩一圈比纸略深的边，读作「贴了张图标」；块由 `PressTile` 给，
+ * 面、棱、影都有出处，图只负责字本身。
  */
 .rail-brand {
     display: flex;
@@ -164,71 +172,41 @@ function onBrandClick(event: MouseEvent) {
     height: var(--page-head-h);
 }
 
-/* 图是正方形（192×192，四周自带一圈透明留白，见脚本里的 EDGE），所以宽高同值。
+/* 块 = `PressTile`，这里只给几何。
  *
  * **宽度取目录槽的宽**（`--rail-slot-w`）：标与槽上下同宽，整条栏读作一列，
- * 而不是「上面一枚图 + 下面一条槽」。牌记区高 45.3px，34 的方框上下各余 5.6px。
- *
- * **立体靠「侧面」而不是靠渐变。** 34px 见方时，一块面上的渐变只有十几像素
- * 的过渡带，读出来是「这块颜色不匀」，不是「这块有厚度」；上一版就是 82% 白
- * 铺 45% 再转 14% 黑，两个主题下都只是一片发灰的柔光。
- * 现在把厚度做成**一条真的边**：底边 2px、单独一个色，与面拉开一档，
- * 其余三边仍是 1px 细线。2px 是「侧面」，不是「加粗的描边」——加粗描边四面等宽，
- * 眼睛立刻读成框；只有一边厚，才读成块。
+ * 而不是「上面一枚图 + 下面一条槽」。牌记区高 45.3px，34 的方块上下各余 5.6px。
  *
  * **圆角取 `--r-2`**，与目录槽、格里的朱印同一个值：栏里三样东西（标、槽、印）的
  * 转角必须在同一条曲线上，否则 34px 见方时 3px 与 4px 的差别一眼就能看出
- * 「这个角是另一种东西」。圆角与侧厚都不乘 `--fs-scale`——绝对曲率，槽那边也没乘。
+ * 「这个角是另一种东西」。圆角不乘 `--fs-scale`——绝对曲率，槽那边也没乘。
+ *
+ * **落地影缩到 0.85 倍**（`--tile-drop`）：工具页那套是给 56px 的块算的，
+ * 8px 软影落在 34px 的块下面，读作「浮在纸上的小卡片」。但也不能缩太多——
+ * 栏底色就是 `--paper`，块面与栏底**同色**，凸起几乎全靠这道影和四条棱撑着；
+ * 缩到 0.6 时影子只剩 1px 宽的一条，块读作「一张平的浅色方块」。
  */
 .rail-mark {
-    /* 三个面在这里定义一次，暗色整组换掉（见文件末尾）。
-     * 亮色面就取纸色：标与纸同色，靠侧面和投影立起来，不靠「比纸更白」——
-     * 纸已经是最亮的了，再亮只能发灰。 */
-    --mark-face: var(--paper);
-    /* 侧面：纸往分割线的颜色里压一档。压太少就成了「描边」，压太多读成脏斑。 */
-    --mark-lip: color-mix(in srgb, var(--paper) 45%, var(--rule-2));
-    /* 其余三边的细线与落地那道线，都与槽的描边同源（`--rule-2` 掺纸），
-     * 这样标和槽在接缝处是同一层级的两条线，不会一边虚一边实。 */
-    --mark-edge: color-mix(in srgb, var(--rule-2) 75%, var(--paper));
-
-    display: block;
-    flex: none;
-    box-sizing: border-box;
-    width: var(--rail-slot-w);
-    height: var(--rail-slot-w);
-    border: var(--w-hair) solid var(--mark-edge);
-    border-bottom: 2px solid var(--mark-lip);
-    border-radius: var(--r-2);
-    background-color: var(--mark-face);
-    /* 顶边一道硬高光：面的受光边。没有它，底边那条 2px 侧面就只是个深色下边框。
-     * 投影用 `--bevel-lo`：`--shadow` 在亮色只有 8% 黑，涂在纸上等于没有；
-     * 也不能用 `--ink`——暗色下它是纸白，会把标涂出一圈白光。 */
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        0 1px 0 var(--mark-edge),
-        0 3px 4px -1px var(--bevel-lo),
-        0 5px 9px -4px color-mix(in srgb, var(--bevel-lo) 75%, transparent);
+    --tile-w: var(--rail-slot-w);
+    --tile-r: var(--r-2);
+    --tile-drop: 0.85;
+    /* 块面：亮色就跟纸同色（纸已经是最亮的，再亮只能发灰），暗色必须比纸**亮一档**。
+     * 栏底色就是 `--paper`，块面若也用 `--paper`，暗色下整块会消失得只剩那只字——
+     * 工具页没有这个问题，因为那边的页面底是 `--bg`，本来就比纸暗。
+     * `light-dark()` 一次写完两主题：`--ink` 在暗色就是纸白，掺 14% 得到 #353128 的面。 */
+    --tile-face: light-dark(
+        color-mix(in srgb, var(--paper) 92%, transparent),
+        color-mix(in srgb, var(--paper) 86%, var(--ink))
+    );
 }
 
-/* ---------- 暗色下的牌记 ----------
- * 亮色面取纸色就够——纸已经是最亮的，再往上只能发灰；暗色反过来了：
- * 纸 #1c1912 是最暗的，标必须**比纸亮一档**才浮得起来，所以要往 `--ink`
- * （暗色下就是纸白 #ece3cd）里掺 12%，得到 #353128 的面。
- * 侧面在暗色直接落到纸色：比面暗一档，同时又与周围的栏底同色，
- * 底边于是没有「一道深色的边」，只有「面结束了」——这正好是纸上的厚度感。
- * 因此暗色去掉亮色那道 `0 1px 0` 落地线：它会在侧面与投影之间插一条浅线，
- * 把一块完整的厚度切成两半。
- */
-:global(html.dark .rail-mark) {
-    --mark-face: color-mix(in srgb, var(--paper) 88%, var(--ink));
-    --mark-lip: var(--paper);
-    --mark-edge: color-mix(in srgb, var(--rule-2) 85%, var(--paper));
-
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        inset 0 -1px 0 var(--bevel-lo),
-        0 2px 4px -1px color-mix(in srgb, var(--bevel-lo) 80%, transparent),
-        0 5px 10px -4px var(--bevel-lo);
+/* 图形占块的 72%：图本身自带 3% 透明边（`make-logo-pair.py` 的 EDGE），满铺会贴到
+ * 块的下沿那 2px 厚度上，字与厚度粘成一片；82% 时仍是「一圈窄边裹着一只字」，
+ * 读作带框的图标。72% 让四周露出约 4.8px 的块面，字才像压在这块纸的中间。 */
+.rail-glyph {
+    display: block;
+    width: calc(var(--rail-slot-w) * 0.72);
+    height: auto;
 }
 
 /* 槽不参与 flex 分配：让它在栏顶按自身高度摆着，底部的工具条才不会被推下去。
