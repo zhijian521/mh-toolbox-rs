@@ -44,3 +44,25 @@ jobs:
       # （见 AGENTS.md §三），而这条链路本来就在 Windows + MSVC 下验证的。
       # 等真有人用 CI 做发布，再把 clippy 与打包一起接上。
       - run: cargo fmt --check
+
+  rust-test:
+    # 截屏与 OCR 全是 Win32 / WinRT 直接调用，**只能在 Windows 上编**，
+    # 所以单独一个 job，不并进上面那个 ubuntu 的格式检查。
+    #
+    # 它验的是真实链路：WinRT apartment 初始化 → SoftwareBitmap → 中文 OCR 引擎
+    # → 异步识别 → 取行；以及 GDI 的窗口枚举与整数定点放大。
+    # 这几步各自的失败方式（apartment 模型不对、位图参数不符、语言包缺失、
+    # 采样偏移写反）都只在真机上才暴露，靠 code review 看不出来。
+    name: Rust 测试
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # tauri 的依赖树编译很慢，缓存尽量让这条 job 别每次都重编一遍。
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: cargo test --lib

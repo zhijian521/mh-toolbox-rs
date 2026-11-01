@@ -18,7 +18,9 @@
         "lint:commits": "git log -20 --no-merges --format=%s | node scripts/check-commits.mjs",
         "check:version": "node scripts/check-version.mjs",
         "typecheck": "vue-tsc --noEmit",
-        "check": "npm run format:check && npm run lint && npm run typecheck && npm run check:version && npm run lint:commits"
+        "test": "vitest run",
+        "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
+        "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run check:version && npm run lint:commits"
     },
     "engines": {
         "node": ">=22.0.0 <23",
@@ -42,6 +44,7 @@
         "typescript": "^5.7.2",
         "typescript-eslint": "^8.72.1",
         "vite": "^6.0.7",
+        "vitest": "^5.0.5",
         "vue-tsc": "^2.2.0"
     }
 }

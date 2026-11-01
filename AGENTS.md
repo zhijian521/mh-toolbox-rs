@@ -6,7 +6,7 @@
 ## 一、一条命令验证
 
 ```bash
-npm run check     # format:check + lint + typecheck + check:version，人跑的和 CI 跑的是同一条
+npm run check     # format:check + lint + typecheck + test + check:version + lint:commits，人跑的和 CI 跑的是同一条
 ```
 
 Rust 侧需要单独跑（要先设 MSVC 环境，见 §三）：
@@ -75,20 +75,24 @@ start.bat --force    遇到占用直接处理，不询问
 | IPC / 外链 / 窗口操作 | **必须回 Tauri 真窗口**。`MH_CDP_PORT=9223 npm run desktop`，连 `http://127.0.0.1:9223/json/list`                                                                                                                                                                                                                                                             |
 | CSP / 安全策略        | **`tauri dev` 走的是 `devCsp`，验不到生产的 `csp`**。要验就出包：`npm run tauri build -- --debug --no-bundle`，再 `MH_CDP_PORT=9224 ./src-tauri/target/debug/mh-toolbox-rs.exe`（它从 `tauri.localhost` 加载内嵌产物，才是生产策略）。判据：设置页 2 个 section + 开发页（`#/dev`）5 张卡在、字体 `loaded`、`appInfo` IPC 通、`Log`/`Runtime` 事件零 CSP 拦截 |
 | 降动效                | CDP `Emulation.setEmulatedMedia` 传 `features: [{ name: 'prefers-reduced-motion', value: 'reduce' }]`，再读 `getComputedStyle(el).transitionDuration`，应为 `0.001s`                                                                                                                                                                                          |
-| 悬停、按下等伪类      | CDP 的 `Input.dispatchMouseEvent` 真移动鼠标。**js 派发事件不会激活 `:hover`**，拿那个截图是自欺                                                                                                                                                                                                                                                              |
+| 悬停、按下等伪类      | 探针加 `--hover <选择器>` / `--active <选择器>`：走 `CSS.forcePseudoState`，与 DevTools 的「强制元素状态」同一套，样式引擎**真的**当作悬停/按下。它只改样式、不派发 `mouseenter` / `pointerdown`，所以验「悬停时才开始预载」这类 **JS 行为**仍要 `Input.dispatchMouseEvent` 真移鼠标。**js 派发 DOM 事件不会激活 `:hover`**，拿那个截图是自欺                 |
 | 几何是否对齐          | 读 `getBoundingClientRect()` 断言，不要靠眼看截图                                                                                                                                                                                                                                                                                                             |
 
 **截图与量几何一律走 `tools/probe/cdp.mjs`。** 它把踩过的前提写死在代码里，别每轮现写一个
 `probe-xxx.mjs` 再删掉：关缓存、URL 带时间戳（只改 hash 不会重新加载文档）、注入
 `transition:none`（无焦点 headless 不推进动画，`getComputedStyle` 会返回上一拍的值）、
-`--fresh` 清 localStorage（否则上一轮存的 `mh-theme: dark` 会让 `--light` 失效）。
+`--fresh` 清 localStorage（否则上一轮存的 `mh-theme: dark` 会让 `--light` 失效）、
+`--inject` 在文档执行前补 IPC 桩（模块求值就定型的判断，事后补已经晚了）、
+`--hover` / `--active` 强推伪类（截图验悬停与按下态）。
 
 剩下三件还得人记：
 
 1. **Chrome headless 在本机静默失败**（进程起来、图不落地）→ 用 **Edge**。工具默认调
    `C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe`，加 `--launch` 自己起。
-2. **伪类要真鼠标**：CDP 的 `Input.dispatchMouseEvent`。js 派发事件不会激活 `:hover`，
-   拿那个截图是自欺。指针残留还会让上一枚按钮一直保持 hover，截「常态」前先移到空白处。
+2. **伪类分两种验法**：只看样式用 `--hover` / `--active`（`CSS.forcePseudoState`，真挂在目标
+   元素上）；要连带触发 JS 行为（`mouseenter` 预载、拖动）才用 `Input.dispatchMouseEvent` 真移
+   鼠标。js 派发 DOM 事件不会激活 `:hover`，拿那个截图是自欺。指针残留还会让上一枚按钮
+   一直保持 hover，截「常态」前先挪开。
 3. **Git Bash 会把 `#/dev` 吃掉**：MSYS 把 `/dev` 当路径转成 `C:/…/dev`，页面于是走兜底
    重定向落到设置页——**量出来的是另一页的数据**。用 `MSYS_NO_PATHCONV=1` 跑探针。
 
