@@ -69,7 +69,13 @@ export interface ParseReport {
     lines: string[];
     tasks: ParsedTask[];
     corrections: Correction[];
-    /** 读到疑似任务但没解析出来的原因。为空才是干净的。 */
+    /**
+     * 这一帧要打的招呼。为空才是干净的。
+     *
+     * 两种来源：一是**没解析出来**（读到「抓鬼 / 厉鬼」却没出坐标、地名没有底图），
+     * 二是**解析出来了但有保留**（假坐标越出该图值域，图会按贴边画）。
+     * 后者不是失败，别把它当错误信息去缩窄正则。
+     */
     issues: string[];
 }
 
@@ -122,7 +128,8 @@ const DIGIT_FIXES: Array<[RegExp, string]> = [
  * - 分隔符**后面**允许 1 个非数字字符，但**不能再是分隔符**：
  *   `[^\d,，、．.]{0,1}`。真机出现过 `36，一145`（多一个「一」）需要放行；
  *   而 `36，，45` 是 `36，145` 把「1」读成了逗号，若放行就得到 `36,45`——一个
- *   看起来完全合法、实际错 100 格的坐标，值域校验也拦不住。这种帧宁可判失败，
+ *   看起来完全合法、实际错 100 格的坐标——没有任何外部约束拦得住它（值域只能
+ *   提示越界，不能否决，理由见 `collect` 里那段）。这种帧宁可判失败，
  *   让「保留最佳」继续顶着上一帧的正确值。
  */
 const SMALL_PATTERN =
@@ -226,39 +233,42 @@ export function parseGhostTasks(lines: OcrLine[], maps: GhostMap[]): ParseReport
         while (hit) {
             matched += 1;
             const task = buildTask(kind, hit[1], hit[2], hit[3], hit[4], hit[5], hit[0], maps);
-            // 坐标超出该场景值域的，判为识别错误而不是当真。值域校验是
-            // 「OCR 认错一位」的唯一外部约束——误差会被后面画到图外的框放大成误导。
+            // 坐标落在该图值域外**不丢**。任务栏给的是假坐标：游戏按真实位置的
+            // ±50 随机、不按地图边界裁剪，所以真身贴着右边时提示坐标本身就会越过
+            // maxX（2026-11-01 实测普陀山 96×72 读到 100,66）。早先按「OCR 认错一位」
+            // 一律丢弃，等于把一条本来能用的任务判成没读到。
+            //
+            // 但它也确实**可能是**认错一位，所以给图一个处置口径：按贴边画
+            // （见 `ghost-model.ts` 的 `clamp`），并把这件事留在「识别原文」里。
             if (task.map && (task.x > task.map.maxX || task.y > task.map.maxY)) {
                 issues.push(
                     `「${task.mapText}」坐标 ${task.x},${task.y} 超出该图值域 ` +
-                        `${task.map.maxX}×${task.map.maxY}，已丢弃`,
+                        `${task.map.maxX}×${task.map.maxY}，按贴边画`,
                 );
-            } else {
-                tasks.push(task);
-                kept += 1;
             }
+            tasks.push(task);
+            kept += 1;
             hit = scan.exec(text);
         }
 
-        // 严格句式一段都没命中才上兜底。命中过就不兜底——即使被值域校验丢掉了，
-        // 也说明这一帧读到的确实是那句话，再松一层只会把同一段重复解析一遍。
+        // 严格句式一段都没命中才上兜底。命中过就不兜底——否则同一段会被松一层
+        // 的规则再解析一遍，得到两条一模一样的任务。
         if (matched === 0) {
             const looseHit = new RegExp(loose.source).exec(text);
             if (looseHit) {
-                const task = buildTask(
-                    kind,
-                    undefined,
-                    looseHit[1],
-                    looseHit[2],
-                    looseHit[3],
-                    undefined,
-                    looseHit[0],
-                    maps,
+                tasks.push(
+                    buildTask(
+                        kind,
+                        undefined,
+                        looseHit[1],
+                        looseHit[2],
+                        looseHit[3],
+                        undefined,
+                        looseHit[0],
+                        maps,
+                    ),
                 );
-                if (!task.map || (task.x <= task.map.maxX && task.y <= task.map.maxY)) {
-                    tasks.push(task);
-                    kept += 1;
-                }
+                kept += 1;
             }
         }
 

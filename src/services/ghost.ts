@@ -70,6 +70,8 @@ export interface ProbeResult {
     lines: OcrLine[];
     /** 这一帧是哪个引擎认的：`paddle`（PaddleOCR）或 `windows`（系统自带）。 */
     engine: string;
+    /** 目标窗口所在显示器的有效 DPI：96 = 100%，144 = 150%。ROI 按它换算。 */
+    dpi: number;
     grabMs: number;
     ocrMs: number;
 }
@@ -88,6 +90,10 @@ export interface ProbeResult {
  * `scale` 取 2：换成 PaddleOCR 后实测 2 倍就全对且最快。它与旧引擎的结论（3 倍）
  * 不同——PP-OCRv4 自带检测分支，放大只为「够检测框住一行字」，不靠放大提清晰度；
  * 倍数再往上只是变慢，还会在标题栏上方框出杂字。
+ *
+ * **这五个数都是 125% 缩放下的标定值，不是任何缩放都能直接用。** 面板的物理像素
+ * 跟着系统缩放走：125% 下宽 205，150% 下 246。Rust 侧每帧按显示器 DPI 换算并回传
+ * `dpi`，所以这里不要自己做换算，也不要在前端缓存换算结果。
  */
 export const DEFAULT_ROI: Roi = {
     rightPx: 6,

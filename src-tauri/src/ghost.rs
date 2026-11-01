@@ -41,6 +41,40 @@ pub struct Roi {
     pub scale: u32,
 }
 
+/// 下面这组 ROI 像素是在 **125%（120 DPI）** 下量的。
+///
+/// 梦幻的 UI 是「固定像素」只对**窗口尺寸**成立：拉大窗口只露出更多地图，面板不长。
+/// 但系统显示缩放一改，整块面板的物理像素会跟着变——游戏不声明 DPI 感知时由系统
+/// 位图拉伸，声明了则自己按 DPI 铺 UI，两种实现观察到的结果一样：面板宽度 ∝ 缩放比。
+/// 所以四个像素值是**标定值**，用之前必须按当前显示器的 DPI 换算，见 `Roi::at_dpi`。
+const CALIB_DPI: u32 = 120;
+
+impl Roi {
+    /// 把「标定像素」换算成当前显示器上的物理像素。
+    ///
+    /// 不换算会怎样：125% 下调好的 `top_px = 200`，在 100% 下就是偏下 40px——
+    /// 正好切掉面板第一行（通常是第一条任务的整行）；在 150% 下则从面板上方
+    /// 40px 处开始，把下半条任务切掉。两种都表现为「识别时好时坏」，
+    /// 而游戏分辨率怎么调都没事，因为那条路只改客户区尺寸、不改面板的物理尺寸。
+    ///
+    /// `scale` 反向补偿：放大倍数的意义是「让送进 OCR 的字够大」，字小了就该多放大。
+    /// 只往大调、绝不小于标定值——高缩放比下字本来就大，再压倍数只是白丢精度，
+    /// 而「多放大一档」最差也只是慢一点。
+    fn at_dpi(&self, dpi: u32) -> Self {
+        let factor = dpi.max(1) as f64 / CALIB_DPI as f64;
+        let px = |value: i32| (value as f64 * factor).round() as i32;
+        let inv = CALIB_DPI as f64 / dpi.max(1) as f64;
+        let wanted = (self.scale as f64 * inv).round() as u32;
+        Self {
+            right_px: px(self.right_px),
+            width_px: px(self.width_px),
+            top_px: px(self.top_px),
+            height_px: px(self.height_px),
+            scale: wanted.max(self.scale).clamp(1, ocr_paddle::MAX_SCALE),
+        }
+    }
+}
+
 impl Default for Roi {
     fn default() -> Self {
         // 实测来源（2026-11-01，1295×1038 客户区，125% 缩放）：
@@ -48,6 +82,9 @@ impl Default for Roi {
         //
         // 三个尺寸的截图交叉验证过：815×679 / 1015×829 / 1295×1039 三种窗口下，
         // 面板宽度都是 205px、左缘距右缘都是 210px，所以这组像素值可以直接搬。
+        //
+        // 注意：这一组是 **125% 缩放下的物理像素**，也就是「标定值」，不是任何缩放
+        // 都能直接用。运行时会按显示器 DPI 换算（`at_dpi`），125% 下原样不动。
         //
         // 右边界贴着客户区右缘减 6px：面板右边还有一道细边，取 0 会把它截成半列。
         Self {
@@ -73,6 +110,11 @@ pub struct ProbeResult {
     pub roi_y: i32,
     pub roi_width: u32,
     pub roi_height: u32,
+    /// 目标窗口所在显示器的有效 DPI（96 = 100%，120 = 125%）。
+    ///
+    /// 给界面显示用，也是 ROI 换算的依据：识别结果不对时，先看这个数对不对——
+    /// 显示 125%、实际也是 125%，说明换算没问题，问题在别处。
+    pub dpi: u32,
     /// 行坐标已除回放大倍数，等于 ROI 内的像素偏移。
     pub lines: Vec<TextLine>,
     /// 这一帧是哪个引擎认的：`paddle` / `windows`。
@@ -118,9 +160,6 @@ pub fn ghost_windows() -> Vec<screen::WindowInfo> {
 #[tauri::command(async)]
 pub fn ghost_probe(hwnd: Option<i64>, roi: Option<Roi>) -> Result<ProbeResult, String> {
     let roi = roi.unwrap_or_default();
-    // 上限取自 `ocr_paddle`，与引擎侧的 clamp 是同一个数：两处各写一个，
-    // 「传 6 被静默压成 4」这种既不改结果、也不报错的情况就会一直存在。
-    let scale = roi.scale.clamp(1, ocr_paddle::MAX_SCALE);
 
     // 计时从进命令就开始，把窗口枚举也算进 `grab_ms`：枚举一次要过一遍全部可见窗口，
     // 若放在计时之外，界面上的「截屏 + 识别」会比真实一帧的开销少一截，
@@ -139,6 +178,14 @@ pub fn ghost_probe(hwnd: Option<i64>, roi: Option<Roi>) -> Result<ProbeResult, S
     };
 
     let window = windows::Win32::Foundation::HWND(target.hwnd as *mut std::ffi::c_void);
+
+    // 每帧现问一次显示器 DPI：用户可能刚改了系统缩放，或者把窗口拖到了另一块屏。
+    // 缓存下来就会「改完缩放必须重启应用才生效」，而这件事恰恰是用户会去试的。
+    let dpi = screen::monitor_dpi(window);
+    let roi = roi.at_dpi(dpi);
+    // 上限取自 `ocr_paddle`，与引擎侧的 clamp 是同一个数：两处各写一个，
+    // 「传 6 被静默压成 4」这种既不改结果、也不报错的情况就会一直存在。
+    let scale = roi.scale.clamp(1, ocr_paddle::MAX_SCALE);
 
     // 客户区拿不到（窗口已销毁、`GetClientRect` 失败）时退回窗口尺寸：
     // 那种情况下截屏本身也会失败，这里只是为了不让除零。
@@ -167,6 +214,7 @@ pub fn ghost_probe(hwnd: Option<i64>, roi: Option<Roi>) -> Result<ProbeResult, S
         roi_y: y0,
         roi_width: rw as u32,
         roi_height: rh as u32,
+        dpi,
         lines,
         engine: engine.to_string(),
         grab_ms,
@@ -244,7 +292,9 @@ mod tests {
         // 而这条测试的全部意义恰恰是「线上那一帧到底认成了什么」。
         ocr_paddle::set_models_dir(ocr_paddle::locate_models(None));
 
-        let roi = Roi::default();
+        // 标定值，下面按每个候选窗口所在显示器的 DPI 换算——与线上同一条换算，
+        // 否则这把「尺子」量的不是线上那一帧。
+        let base_roi = Roi::default();
         let mut chosen = None;
 
         for target in candidates {
@@ -253,6 +303,7 @@ mod tests {
                 continue;
             }
             let hwnd = windows::Win32::Foundation::HWND(target.hwnd as *mut std::ffi::c_void);
+            let roi = base_roi.at_dpi(screen::monitor_dpi(hwnd));
             let (x0, y0, rw, rh) = roi_of_window(target, &roi);
 
             let started = std::time::Instant::now();
@@ -293,7 +344,7 @@ mod tests {
             );
 
             if !frame.is_blank() {
-                chosen = Some((target, real_game, frame));
+                chosen = Some((target, real_game, frame, roi));
                 break;
             }
             // 梦幻窗口截成全黑是真问题（说明这台机器上 BitBlt 看不见游戏），
@@ -305,7 +356,7 @@ mod tests {
             println!("  纯黑，跳过");
         }
 
-        let (target, _real_game, frame) = chosen.expect(
+        let (target, _real_game, frame, roi) = chosen.expect(
             "没有一个窗口能截到像素：最常见的原因是屏幕锁着——锁屏时 BitBlt 对任何窗口都返回全黑",
         );
         println!("用 {}「{}」跑 OCR", target.hwnd, target.title);
@@ -377,12 +428,30 @@ mod tests {
             .expect("没找到梦幻窗口");
         let hwnd = windows::Win32::Foundation::HWND(target.hwnd as *mut std::ffi::c_void);
         let (_, _, cw, ch) = screen::client_box(hwnd);
+        // 先打 DPI：换系统缩放之后「识别变差」时，第一个要看的就是这个数。
+        let dpi = screen::monitor_dpi(hwnd);
         println!(
-            "\n靶子「{}」 窗口 {}×{}  客户区 {}×{}",
-            target.title, target.width, target.height, cw, ch
+            "\n靶子「{}」 窗口 {}×{}  客户区 {}×{}  显示器 {dpi} DPI（{}%）",
+            target.title,
+            target.width,
+            target.height,
+            cw,
+            ch,
+            dpi * 100 / 96
         );
 
-        let roi = Roi::default();
+        // 与线上同一条换算：标定值（125%）→ 当前显示器物理像素。
+        // `LAB_RAW_ROI=1` 跳过换算，复现「换缩放之后识别变差」的旧行为——
+        // 判断补偿是否必要，看的就是这两次的差别。
+        let roi = if std::env::var("LAB_RAW_ROI")
+            .map(|v| v == "1")
+            .unwrap_or(false)
+        {
+            println!("⚠ LAB_RAW_ROI=1：跳过 DPI 换算，直接用标定值截");
+            Roi::default()
+        } else {
+            Roi::default().at_dpi(dpi)
+        };
         let (x0, y0, rw, rh) = roi_of_window(target, &roi);
         let frame = screen::grab(hwnd, x0, y0, rw, rh).expect("截屏失败");
         println!("ROI {rw}×{rh} @ ({x0},{y0})");
@@ -532,5 +601,54 @@ impl Roi {
         let cy1 = (y1 - offset.1).clamp(cy0 + 1, client_h);
 
         (cx0, cy0, cx1 - cx0, cy1 - cy0)
+    }
+}
+
+#[cfg(test)]
+mod roi_tests {
+    use super::*;
+
+    /// 标定档（125% / 120 DPI）必须**逐字段不变**：这组数字是真机上量的，
+    /// 换算逻辑一动手，至少要在这一档上等于没动。
+    #[test]
+    fn at_calibration_dpi_nothing_changes() {
+        let roi = Roi::default();
+        let same = roi.at_dpi(CALIB_DPI);
+        assert_eq!(same.right_px, roi.right_px);
+        assert_eq!(same.width_px, roi.width_px);
+        assert_eq!(same.top_px, roi.top_px);
+        assert_eq!(same.height_px, roi.height_px);
+        assert_eq!(same.scale, roi.scale);
+    }
+
+    /// 100%：面板物理像素小 0.8 倍，ROI 跟着缩，放大倍数补回 3 倍。
+    /// 不补偿的后果是 `top_px` 停在 200，而面板首行在 160——整整切掉一行。
+    #[test]
+    fn at_100_percent_roi_shrinks_and_scale_grows() {
+        let roi = Roi::default().at_dpi(96);
+        assert_eq!(roi.right_px, 5);
+        assert_eq!(roi.width_px, 172);
+        assert_eq!(roi.top_px, 160);
+        assert_eq!(roi.height_px, 320);
+        assert_eq!(roi.scale, 3);
+    }
+
+    /// 150%：面板大 1.2 倍，放大倍数**不往下压**（字本来就大，压了只是白丢精度）。
+    #[test]
+    fn at_150_percent_roi_grows_but_scale_never_drops() {
+        let roi = Roi::default().at_dpi(144);
+        assert_eq!(roi.right_px, 7);
+        assert_eq!(roi.width_px, 258);
+        assert_eq!(roi.top_px, 240);
+        assert_eq!(roi.height_px, 480);
+        assert_eq!(roi.scale, 2, "标定值 2 是下限，不能被压成 1");
+    }
+
+    /// 换算后的矩形必须整块落在客户区内：`BitBlt` 拿到越界区域只会回一句「失败」。
+    #[test]
+    fn scaled_box_stays_inside_client() {
+        let roi = Roi::default().at_dpi(96);
+        let (x, y, w, h) = roi.pixel_box((1295, 1039), (1295, 1039), (0, 0));
+        assert_eq!((x, y, w, h), (1295 - 5 - 172, 160, 172, 320));
     }
 }

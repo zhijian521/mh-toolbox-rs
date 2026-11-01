@@ -73,6 +73,25 @@ describe('computeRange', () => {
         expect(range.official.x0).toBe(0);
         expect(range.official.y1).toBe(120);
     });
+
+    it('越界的假坐标按贴边算框，不产生倒框、也不窄那一条边', () => {
+        // 用户实测：普陀山 96×72 读到 100,66。判边用原值（100 > 96 → 不窄），
+        // 算框用夹回来的 96，于是 [46,96]；若拿原值算会得到 100..96 的倒框。
+        const range = computeRange(map('普陀山'), 100, 66, 'relative');
+        expect(range.x.value).toBe(100);
+        expect(range.x.side).toBe('none');
+        expect(range.official).toEqual({ x0: 46, x1: 96, y0: 16, y1: 72 });
+        // y 没越界，照常判贴上方。
+        expect(range.y.side).toBe('high');
+        expect(range.likely).toEqual({ x0: 46, x1: 96, y0: 66, y1: 72 });
+    });
+
+    it('越界几十格也只夹不判错：挤到边上，宽度仍是 ±50', () => {
+        const range = computeRange(map('碗子山'), 600, 45, 'relative');
+        expect(range.official.x0).toBeLessThanOrEqual(range.official.x1);
+        expect(range.official.x1).toBe(95);
+        expect(range.official.x0).toBe(45);
+    });
 });
 
 describe('planFor', () => {
@@ -104,6 +123,11 @@ describe('planFor', () => {
 
     it('常规坐标 → 双层范围', () => {
         const plan = planFor(task({ map: map('江南野外'), x: 134, y: 54 }), 'relative');
+        expect(plan.mode).toBe('range');
+    });
+
+    it('越界坐标仍然是 range——「图中没有这个点」不等于「这条任务读错了」', () => {
+        const plan = planFor(task({ map: map('普陀山'), x: 100, y: 66 }), 'relative');
         expect(plan.mode).toBe('range');
     });
 });

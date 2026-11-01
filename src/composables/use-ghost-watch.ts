@@ -1,12 +1,15 @@
 import { onScopeDispose, ref, shallowRef, watch } from 'vue';
 import { listGhostWindows, probeGhostTask, type GhostWindow } from '../services/ghost';
 import { loadGhostMaps, type GhostMap } from '../services/ghost-maps';
+import { parseGhostTasks, type ParseReport, type TaskKind } from '../services/ghost-parse';
 import {
-    parseGhostTasks,
-    type ParsedTask,
-    type ParseReport,
-    type TaskKind,
-} from '../services/ghost-parse';
+    absorbFrame,
+    createHold,
+    heldTasks,
+    holdAges,
+    isSettling,
+    SLOTS,
+} from '../services/ghost-hold';
 import { planFor, type EdgeRule, type GhostPlan } from '../services/ghost-model';
 
 /**
@@ -24,15 +27,6 @@ import { planFor, type EdgeRule, type GhostPlan } from '../services/ghost-model'
 /** 轮询间隔。一次截屏 + OCR 实测在 200ms 上下，1.1s 留足余量，人感觉不到延迟。 */
 const POLL_MS = 1100;
 
-/**
- * 同分待定要连续多少帧才采纳。
- *
- * 只作用于「读到了另一套内容、完整度却一样」的情况——典型是把地名认成隔壁那张图。
- * 完整度**更高**的一帧立刻采纳，不等第二帧：游戏在动，清楚的那一帧可能只出现一次，
- * 等确认的代价就是把它丢掉，而那恰恰是最值钱的一帧。
- */
-const STABLE_FRAMES = 2;
-
 /** 连续失败几次才报错。偶发一次失败（窗口切到后台）不该让界面闪红。 */
 const FAIL_TOLERANCE = 3;
 
@@ -44,47 +38,6 @@ const FAIL_TOLERANCE = 3;
  * 要搜一次引用（`WINDOW_GONE`）。
  */
 const WINDOW_GONE = '窗口已关闭';
-
-/**
- * 结果的槽位。大小鬼是两条独立任务，各留各的最好一帧——
- * 小鬼那一行干净、大鬼那一行糊掉是常态，整帧一起丢等于把干净的那条也废了。
- */
-const SLOTS: TaskKind[] = ['small', 'big'];
-
-/** 保留下来的一条任务。 */
-interface Held {
-    task: ParsedTask;
-    /** 完整度，见 `scoreTask`。新一帧不如它就一律不采纳。 */
-    score: number;
-    /** 最后一次「本帧读到的就是它」的时刻，用来算陈旧秒数。 */
-    seenAt: number;
-    /** 同分待定的内容指纹与累计帧数。 */
-    pendingKey: string;
-    pendingCount: number;
-}
-
-/**
- * 一条任务读得有多完整。0 = 连地名都没对上，2 = 只有地名没有坐标，3 = 坐标可用。
- *
- * 分档依据是**这条结果还能不能画**：画得出范围比只能铺一层底图有用，
- * 铺得出底图比只剩一个地名有用。用它只做比较，不做展示。
- *
- * `0,0` 在白名单外的场景记 0 分：那是坐标被读没了，不是「坐标为 0」。
- * 照常采纳会静默降级成「全层找」，界面看起来完全正常，画的却是没有信息的底色。
- */
-function scoreTask(task: ParsedTask): number {
-    if (!task.map) return 0;
-    if (task.x === 0 && task.y === 0) return task.map.noCoord === true ? 2 : 0;
-    return 3;
-}
-
-/** 一条任务的内容指纹。只含读到的原文，不含范围计算——改规则不算「识别结果变了」。 */
-function taskKey(task: ParsedTask): string {
-    // 不含 `index`：界面早已不显示「第几个」，而序号是最容易被漏读的一个数字。
-    // 把它算进指纹，某一帧丢了序号就会变成「同分但内容不同」→ 白等两帧 → 无谓地
-    // 换一次内容，状态文案也跟着在「识别中 / 监听中」之间跳一下。
-    return [task.kind, task.mapText, task.x, task.y, task.reveal].join(':');
-}
 
 export function useGhostWatch() {
     const running = ref(false);
@@ -104,6 +57,14 @@ export function useGhostWatch() {
      * 界面上把引擎名摆出来，省得每次都要先猜是哪一个在跑。
      */
     const engine = ref('');
+    /**
+     * 目标窗口所在显示器的有效 DPI（96 = 100%，144 = 150%）。
+     *
+     * ROI 的那组像素是按 125% 量的，Rust 侧每帧按这个数换算。摆到界面上是因为
+     * 「改了系统缩放就识别变差」是真实发生过的问题：先看这个数对不对，
+     * 显示 150% 而系统也确实 150%，才轮到怀疑 ROI 本身。
+     */
+    const dpi = ref(96);
     /** 有同分待定还没确认。界面据此显示「识别中」。 */
     const settling = ref(false);
     /**
@@ -117,16 +78,12 @@ export function useGhostWatch() {
     const rule = ref<EdgeRule>('relative');
 
     /**
-     * 每个槽位保留的那一份。这是整个模块的核心：
+     * 每个槽位保留的那一份。规则全在 `services/ghost-hold` 里——那一层是纯函数，
+     * 能直接喂一串帧测出「会不会闪」，而时序的错法截一张图是看不出来的。
      *
-     * 游戏画面一直在动，同一行文字这一帧读得干净、下一帧就糊掉。「糊掉」并不代表
-     * 任务变了，只代表这一帧没读清。早先的写法是整帧替换，于是**一帧糊就把前面
-     * 读到的好结果冲没了**，界面上表现为地图反复消失又出现。
-     *
-     * 现在按槽位保留：新的不如旧的就留着旧的，只有更好才换。旧结果持续不被刷新时
-     * 通过 `ages` 如实告年龄，而不是假装它还是新的，也不是把它抹掉。
+     * 这里只负责持有：新的一帧进来就并一次，界面永远画「保留区」而不是「这一帧」。
      */
-    const held: Record<TaskKind, Held | null> = { small: null, big: null };
+    const hold = createHold();
 
     let timer: number | null = null;
     let inFlight = false;
@@ -134,94 +91,14 @@ export function useGhostWatch() {
     let disposed = false;
 
     function recompute() {
-        plans.value = SLOTS.map((kind) => held[kind])
-            .filter((item): item is Held => item !== null)
-            .map((item) => planFor(item.task, rule.value));
+        plans.value = heldTasks(hold).map((task) => planFor(task, rule.value));
     }
 
     function resetHeld() {
-        for (const kind of SLOTS) held[kind] = null;
+        for (const kind of SLOTS) hold[kind] = null;
         plans.value = [];
         settling.value = false;
         ages.value = { small: 0, big: 0 };
-    }
-
-    /**
-     * 把这一帧读到的任务并进保留区。
-     *
-     * 三种情况分开处理，顺序不能换：
-     * 1. 更好 → 直接换（好结果只有一帧也要抓住）
-     * 2. 更差 → 不动（这就是「保留最佳」的全部内容）
-     * 3. 一样好但内容不同 → 攒够帧数再换（挡掉把地名认成隔壁图的那种稳定误读）
-     */
-    function absorb(tasks: ParsedTask[], now: number) {
-        const fresh = new Map<TaskKind, ParsedTask>();
-        for (const task of tasks) {
-            // 同一帧抓到两条同类型的（任务多时会出现）只取第一条：界面就两个位置，
-            // 第三条既放不下也没法在图上区分。
-            if (!fresh.has(task.kind)) fresh.set(task.kind, task);
-        }
-
-        for (const kind of SLOTS) {
-            const incoming = fresh.get(kind);
-            // 这一帧压根没读到这条：留着上一次的。任务栏滚动、折行变化都会造成这种缺行，
-            // 把它当成「任务没了」会让图闪一下再回来。
-            if (!incoming) continue;
-
-            const current = held[kind];
-            const key = taskKey(incoming);
-            const score = scoreTask(incoming);
-
-            if (!current) {
-                held[kind] = {
-                    task: incoming,
-                    score,
-                    seenAt: now,
-                    pendingKey: '',
-                    pendingCount: 0,
-                };
-                continue;
-            }
-            if (key === taskKey(current.task)) {
-                current.seenAt = now;
-                current.pendingKey = '';
-                current.pendingCount = 0;
-                continue;
-            }
-            if (score > current.score) {
-                Object.assign(current, {
-                    task: incoming,
-                    score,
-                    seenAt: now,
-                    pendingKey: '',
-                    pendingCount: 0,
-                });
-                continue;
-            }
-            if (score < current.score) continue;
-
-            current.pendingCount = current.pendingKey === key ? current.pendingCount + 1 : 1;
-            current.pendingKey = key;
-            if (current.pendingCount >= STABLE_FRAMES) {
-                Object.assign(current, {
-                    task: incoming,
-                    score,
-                    seenAt: now,
-                    pendingKey: '',
-                    pendingCount: 0,
-                });
-            }
-        }
-    }
-
-    /** 每条任务各自多久没被读到，逐槽位记，互不影响。 */
-    function syncAge(now: number) {
-        const next: Record<TaskKind, number> = { small: 0, big: 0 };
-        for (const kind of SLOTS) {
-            const item = held[kind];
-            if (item) next[kind] = Math.round((now - item.seenAt) / 1000);
-        }
-        ages.value = next;
     }
 
     async function refreshWindows() {
@@ -242,16 +119,17 @@ export function useGhostWatch() {
             const now = Date.now();
             stats.value = { grabMs: result.grabMs, ocrMs: result.ocrMs };
             engine.value = result.engine;
+            dpi.value = result.dpi;
 
             const parsed = parseGhostTasks(result.lines, maps.value);
             // 原文每帧都换，不跟着「是否采纳」走：要排查的恰恰是糊掉的那些帧，
             // 只留干净的那一份等于把证据藏起来。
             report.value = parsed;
 
-            absorb(parsed.tasks, now);
+            absorbFrame(hold, parsed.tasks, now);
             recompute();
-            syncAge(now);
-            settling.value = SLOTS.some((kind) => (held[kind]?.pendingCount ?? 0) > 0);
+            ages.value = holdAges(hold, now);
+            settling.value = isSettling(hold);
         } catch (cause) {
             const message = cause instanceof Error ? cause.message : String(cause);
             // 游戏重开后句柄就作废了。若继续拿着旧 hwnd，之后每一帧都会得到同一个
@@ -327,6 +205,7 @@ export function useGhostWatch() {
         error,
         stats,
         engine,
+        dpi,
         settling,
         ages,
         rule,

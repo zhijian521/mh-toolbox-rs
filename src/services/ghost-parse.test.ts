@@ -235,17 +235,28 @@ describe('parseGhostTasks：单条容错', () => {
 
     it('分隔符后紧跟分隔符一律判失败，不硬凑一个「合法」坐标', () => {
         // `36，，45` 是 `36，145` 把「1」读成了逗号。放行会得到 36,45——
-        // 差 100 格，值域校验也拦不住，图上却是另一个位置。
+        // 差 100 格，没有任何外部约束拦得住，图上却是另一个位置。
         const { big, issues } = pick(rows('降服千年厉鬼（第1个）去碗子山的36，，45附近'));
         expect(big).toBeNull();
         expect(issues.some((issue) => issue.includes('降服'))).toBe(true);
     });
 
-    it('坐标超出该图值域时丢弃并说明，不当真去画', () => {
-        // 碗子山 95×192，读到 600 只能是认错了。
-        const { big, issues } = pick(rows('降服千年厉鬼（第1个）去碗子山的600，45附近'));
-        expect(big).toBeNull();
+    it('假坐标超出该图值域时照样保留，只留一句说明', () => {
+        // 用户实测：普陀山 96×72 读到 100,66。任务栏给的是假坐标，游戏按真实位置
+        // ±50 随机、**不按地图边界裁剪**，真身贴着右边时提示坐标本身就会越界。
+        // 早先按「OCR 认错一位」丢弃，等于把一条本来能用的任务判成没读到。
+        const { small, issues } = pick(rows('钟馗抓鬼（第1个）：去普陀山100,66附近抓辰时二刻'));
+        expect(small).toBe('普陀山 100,66');
         expect(issues.some((issue) => issue.includes('超出该图值域'))).toBe(true);
+        expect(issues.some((issue) => issue.includes('已丢弃'))).toBe(false);
+    });
+
+    it('越界再多也只是「按贴边画」，任务照样保留', () => {
+        // 600 对碗子山 95 格几乎肯定是认错了。但判错是用户的事——框贴着右边缘、
+        // 说明里写着越界，信不信由他；任务直接消失则连判断的机会都没有。
+        const { big, issues } = pick(rows('降服千年厉鬼（第1个）去碗子山的600，45附近'));
+        expect(big).toBe('碗子山 600,45');
+        expect(issues.some((issue) => issue.includes('按贴边画'))).toBe(true);
     });
 
     it('地名完全对不上底图时仍给出任务，只是没有图（交给界面显示原因）', () => {

@@ -26,6 +26,10 @@ export type EdgeRule =
 export type Side = 'low' | 'high' | 'none';
 
 export interface AxisInfo {
+    /**
+     * 任务栏给的原始假坐标。**可能超出 `max`**——游戏按真实位置 ±50 随机，
+     * 不按地图边界裁剪，所以真身贴着右边时提示值本身就会越过 maxX。
+     */
     value: number;
     max: number;
     side: Side;
@@ -92,6 +96,9 @@ function isNoCoordinate(map: GhostMap, x: number, y: number): boolean {
  */
 function sideOf(value: number, max: number, rule: EdgeRule): Side {
     if (rule === 'off' || max <= 0) return 'none';
+    // 越界的不窄。范围本来就已经顶到那条边了，`value ± 50` 再被裁一次只会剩
+    // 一根 0 宽的线；而「鬼在比 100 更靠右的地方」对一张 96 格宽的图没有意义。
+    if (value < 0 || value > max) return 'none';
     if (rule === 'absolute') {
         if (value <= 50) return 'low';
         if (value >= 150) return 'high';
@@ -103,7 +110,12 @@ function sideOf(value: number, max: number, rule: EdgeRule): Side {
     return 'none';
 }
 
-/** 单轴的范围，含边界裁剪。 */
+/** 夹回值域。越界的假坐标要靠它才算得出框，不然 `value ± 50` 会给出 x0 > x1 的倒框。 */
+function clamp(value: number, max: number): number {
+    return Math.min(Math.max(value, 0), max);
+}
+
+/** 单轴的范围，含边界裁剪。`value` 必须已夹进 `[0, max]`。 */
 function axisBox(value: number, max: number, side: Side): { lo: number; hi: number } {
     const lo = Math.max(0, value - TOLERANCE);
     const hi = Math.min(max, value + TOLERANCE);
@@ -117,11 +129,16 @@ function cells(box: Box): number {
 }
 
 export function computeRange(map: GhostMap, x: number, y: number, rule: EdgeRule): SearchRange {
+    // 判边用原值（越界判 `none`），算框用**夹回值域**的值。这两步不能合成一步：
+    // 用原值算 600-50=550 与 min(95, 650)=95 会得到 x0 > x1 的倒框，画出来是
+    // 一条反向的线；用夹回值判边，134→160 这种贴右在夹完仍是 134，不受影响。
     const xSide = sideOf(x, map.maxX, rule);
     const ySide = sideOf(y, map.maxY, rule);
+    const cx = clamp(x, map.maxX);
+    const cy = clamp(y, map.maxY);
 
-    const officialX = axisBox(x, map.maxX, 'none');
-    const officialY = axisBox(y, map.maxY, 'none');
+    const officialX = axisBox(cx, map.maxX, 'none');
+    const officialY = axisBox(cy, map.maxY, 'none');
     const official: Box = {
         x0: officialX.lo,
         x1: officialX.hi,
@@ -129,8 +146,8 @@ export function computeRange(map: GhostMap, x: number, y: number, rule: EdgeRule
         y1: officialY.hi,
     };
 
-    const likelyX = axisBox(x, map.maxX, xSide);
-    const likelyY = axisBox(y, map.maxY, ySide);
+    const likelyX = axisBox(cx, map.maxX, xSide);
+    const likelyY = axisBox(cy, map.maxY, ySide);
     const candidate: Box = {
         x0: likelyX.lo,
         x1: likelyX.hi,

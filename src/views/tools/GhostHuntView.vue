@@ -7,6 +7,7 @@ import SteppedSlider from '../../components/SteppedSlider.vue';
 import MapCanvas from '../../components/ghost/MapCanvas.vue';
 import { useGhostWatch } from '../../composables/use-ghost-watch';
 import { hasDesktop } from '../../services/desktop';
+import { CONFIRM_FRAMES } from '../../services/ghost-hold';
 import type { EdgeRule, GhostPlan } from '../../services/ghost-model';
 
 /**
@@ -33,6 +34,7 @@ const {
     error,
     stats,
     engine,
+    dpi,
     settling,
     ages,
     rule,
@@ -62,7 +64,10 @@ const statusText = computed(() => {
     if (error.value) return error.value;
     if (starting.value) return '正在启动';
     if (!running.value) return '未开始';
-    if (settling.value) return '识别中（等第二帧确认）';
+    // 「识别中」不是「还没读到」：画面上的结果是留住的那一份，只是这一帧读到了
+    // 另一套内容、还没连稳到足够可信。这句话必须说清楚在等什么，否则用户看到
+    // 地图不动、灯在跳，只会以为卡住了。
+    if (settling.value) return `另一套读法等 ${CONFIRM_FRAMES} 帧确认`;
     return '监听中';
 });
 
@@ -97,6 +102,14 @@ const engineLabel = computed(() => {
  * 要在状态区直接摊开。
  */
 const degraded = computed(() => engine.value === 'windows');
+
+/**
+ * 系统缩放比。ROI 的标定值是在 125% 下量的，Rust 每帧按这个数换算成物理像素。
+ *
+ * 摆在状态行里是因为「改了系统缩放识别就变差」是真实踩过的坑：先确认这个数
+ * 和系统设置一致，再怀疑别的。不一致就说明窗口不在你以为的那块屏上。
+ */
+const scalePercent = computed(() => Math.round((dpi.value / 96) * 100));
 
 /** 头上只写「哪一条」。坐标与范围全在图上，这行不重复。 */
 function kindLabel(plan: GhostPlan): string {
@@ -163,7 +176,8 @@ onMounted(async () => {
                         <span class="status-text">{{ statusText }}</span>
                     </div>
                     <p v-if="stats" class="status-meta">
-                        截屏 {{ stats.grabMs }}ms · 识别 {{ stats.ocrMs }}ms
+                        截屏 {{ stats.grabMs }}ms · 识别 {{ stats.ocrMs }}ms · 系统
+                        {{ scalePercent }}%
                     </p>
                     <!-- 降级摊开在状态区，不藏进折叠的「识别原文」：
                          链路照跑、灯照样绿，不说的话看起来完全正常，只是字全认错。 -->

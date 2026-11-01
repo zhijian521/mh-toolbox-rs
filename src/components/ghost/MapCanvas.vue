@@ -150,38 +150,85 @@ function draw() {
 
     const { cinnabar, indigo, paper, ink } = colors;
 
-    const label = (text: string, x: number, y: number, color: string, align: 'left' | 'right') => {
-        ctx.font = '12px "LXGW WenKai Screen", "Microsoft YaHei", sans-serif';
-        const width = ctx.measureText(text).width;
-        const padX = 4;
-        const padY = 3;
-        const boxX = align === 'left' ? x : x - width - padX * 2;
-        const boxWidth = width + padX * 2;
-        // 夹在地图范围内：范围框可能贴到图的最上沿或最右沿，标签按原样画会跑到图外面，
-        // 落在留白上就成了「飘着的一行字」，看不出它属于哪个框。
-        const boxY = Math.min(
-            Math.max(y - 12 - padY, layout.top + 2),
-            layout.top + layout.height - 20,
-        );
-        const boxXClamped = Math.min(
-            Math.max(boxX, layout.left + 2),
-            layout.left + layout.width - boxWidth - 2,
+    const FONT = '12px "LXGW WenKai Screen", "Microsoft YaHei", sans-serif';
+    /* 三个标签共用同一套字号与内边距：坐标、官方格数、收窄比例是一类东西，
+     * 大小不一会被读成「重要性不同」，而它们只是三个不同来源的数字。 */
+    const PAD_X = 4;
+    const PAD_Y = 3;
+    const BOX_H = 18;
+
+    interface LabelBox {
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+    }
+
+    /** 已经占住的标签矩形。 */
+    const placed: LabelBox[] = [];
+    const collides = (a: LabelBox) =>
+        placed.some(
+            (b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h,
         );
 
-        // 标签底：地图本身颜色杂，纯文字在任何位置都可能与地形撞色。
+    /**
+     * 落一个标签并占位。
+     *
+     * 图上最多三个标签，各有各的锚点，在「假坐标贴边」这类位置上会撞在一起：
+     * 十字贴着框的上边缘、它的数字又只能往左翻，正好压在「最可能 · 收窄 N%」上，
+     * 两个数字都读不全。撞了就上下让一格——挪 20px 仍读得成「属于这个框的标签」，
+     * 互相盖住则两个都废掉。
+     *
+     * 顺带夹进地图矩形：框可能贴到图的最上沿或最右沿，标签按原样画会落到留白上，
+     * 变成「飘着的一行字」，看不出它属于哪个框。
+     */
+    const placeLabel = (
+        text: string,
+        x: number,
+        y: number,
+        w: number,
+        color: string,
+        border: boolean,
+    ) => {
+        const clampY = (top: number) =>
+            Math.min(Math.max(top, layout.top + 2), layout.top + layout.height - BOX_H - 2);
+        const box: LabelBox = {
+            x: Math.min(Math.max(x, layout.left + 2), layout.left + layout.width - w - 2),
+            y: clampY(y),
+            w,
+            h: BOX_H,
+        };
+        const baseY = box.y;
+        for (const shift of [0, -20, 20, -40, 40]) {
+            box.y = clampY(baseY + shift);
+            if (!collides(box)) break;
+        }
+        placed.push({ ...box });
+
         ctx.save();
+        ctx.font = FONT;
+        // 标签底：地图本身颜色杂，纯文字在任何位置都可能与地形撞色。
         ctx.globalAlpha = 0.9;
         ctx.fillStyle = paper;
-        ctx.fillRect(boxXClamped, boxY, boxWidth, 12 + padY * 2);
+        ctx.fillRect(box.x, box.y, box.w, BOX_H);
         ctx.restore();
 
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(boxXClamped + 0.5, boxY + 0.5, boxWidth - 1, 12 + padY * 2 - 1);
+        if (border) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(box.x + 0.5, box.y + 0.5, box.w - 1, BOX_H - 1);
+        }
         ctx.fillStyle = color;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
-        ctx.fillText(text, boxXClamped + padX, boxY + padY);
+        ctx.fillText(text, box.x + PAD_X, box.y + PAD_Y);
+    };
+
+    /** 带边框的说明标签：给一个锚点，自己量宽、自己找位置。 */
+    const label = (text: string, x: number, y: number, color: string, align: 'left' | 'right') => {
+        ctx.font = FONT;
+        const w = ctx.measureText(text).width + PAD_X * 2;
+        placeLabel(text, align === 'left' ? x : x - w, y - 12 - PAD_Y, w, color, true);
     };
 
     if (plan.mode === 'range') {
@@ -291,10 +338,27 @@ function draw() {
     }
 
     if (plan.mode === 'range' || plan.mode === 'exact') {
-        const x = plan.mode === 'range' ? plan.range.x.value : plan.x;
-        const y = plan.mode === 'range' ? plan.range.y.value : plan.y;
-        const { px, py } = project(layout, map, x, y);
+        const rawX = plan.mode === 'range' ? plan.range.x.value : plan.x;
+        const rawY = plan.mode === 'range' ? plan.range.y.value : plan.y;
+        // 假坐标可以落在值域外：游戏按真实位置 ±50 随机，不按地图边界裁剪，
+        // 所以真身贴边时提示坐标本身就越界（普陀山 96×72 读到 100,66）。
+        // 按**贴边**画，并在数字后面标「图外」——画在边缘说的是「就在那条边上」，
+        // 而丢掉这条任务或把标记画到图上外面，都是在丢信息。
+        const outside = rawX > map.maxX || rawY > map.maxY;
+        const { px, py } = project(
+            layout,
+            map,
+            Math.min(Math.max(rawX, 0), map.maxX),
+            Math.min(Math.max(rawY, 0), map.maxY),
+        );
         const size = plan.mode === 'exact' ? 11 : 7;
+
+        // 裁到地图矩形：贴边时十字的两臂与那圈圆会有半个露在地图外，浮在纸面上
+        // 读起来像一枚不相干的符号；裁掉之后半个符号正好读成「压在边界上」。
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(layout.left, layout.top, layout.width, layout.height);
+        ctx.clip();
 
         ctx.strokeStyle = ink;
         ctx.lineWidth = 1.5;
@@ -322,17 +386,23 @@ function draw() {
             ctx.stroke();
         }
 
-        const text = `${x},${y}`;
-        ctx.font = '12px "LXGW WenKai Screen", "Microsoft YaHei", sans-serif';
-        const textWidth = ctx.measureText(text).width;
-        ctx.fillStyle = paper;
-        ctx.globalAlpha = 0.88;
-        ctx.fillRect(px + size + 3, py - 7, textWidth + 6, 15);
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = ink;
-        ctx.textBaseline = 'middle';
-        ctx.textAlign = 'left';
-        ctx.fillText(text, px + size + 6, py);
+        const text = outside ? `${rawX},${rawY} 图外` : `${rawX},${rawY}`;
+        ctx.font = FONT;
+        const boxWidth = ctx.measureText(text).width + PAD_X * 2;
+        const gap = size + 3;
+        // 数字默认写在十字右侧；贴到右边缘时右侧已经没地方，翻到左侧。
+        // 不翻就会被裁在地图外，剩一个十字什么信息都没有。
+        const fitsRight = px + gap + boxWidth <= layout.left + layout.width - 2;
+        placeLabel(
+            text,
+            fitsRight ? px + gap : px - gap - boxWidth,
+            py - BOX_H / 2,
+            boxWidth,
+            ink,
+            false,
+        );
+
+        ctx.restore();
     }
 }
 

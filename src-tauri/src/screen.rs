@@ -24,11 +24,12 @@ use windows::core::BOOL;
 use windows::Win32::Foundation::{HWND, LPARAM, RECT};
 use windows::Win32::Graphics::Gdi::{
     BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC, GetDIBits,
-    ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HDC, HGDIOBJ,
-    SRCCOPY,
+    MonitorFromWindow, ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB,
+    DIB_RGB_COLORS, HDC, HGDIOBJ, MONITOR_DEFAULTTONEAREST, SRCCOPY,
 };
 use windows::Win32::UI::HiDpi::{
-    SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
+    GetDpiForMonitor, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
+    MDT_EFFECTIVE_DPI,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetWindowRect, GetWindowTextLengthW, GetWindowTextW, IsWindowVisible,
@@ -52,6 +53,31 @@ pub fn ensure_dpi_awareness() {
             let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         }
     });
+}
+
+/// 目标窗口所在显示器的**有效 DPI**：96 = 100%，120 = 125%，144 = 150%。
+///
+/// 为什么取显示器而不是 `GetDpiForWindow(hwnd)`：后者返回的是**目标窗口自己的** DPI。
+/// 梦幻这类老客户端不声明 DPI 感知，系统给它的是虚拟化视图，`GetDpiForWindow` 对它
+/// 返回 96——那说明「它自己以为没缩放」，恰恰是「实际被系统拉伸了」的证据，
+/// 拿来做换算系数会得到 1.0，等于不补偿。物理像素只有显示器知道。
+///
+/// 同一台机器上换了缩放、或窗口拖到另一块不同 DPI 的屏，这里都会跟着变，
+/// 所以每帧都要重新问，不能缓存。
+pub fn monitor_dpi(hwnd: HWND) -> u32 {
+    ensure_dpi_awareness();
+    // SAFETY: 两个调用都只读显示器属性，失败时各自返回可兜底的值。
+    unsafe {
+        let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        let mut dx = 96u32;
+        let mut dy = 96u32;
+        if GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &mut dx, &mut dy).is_ok() && dx >= 96 {
+            dx
+        } else {
+            // 读不到就当 100%：宁可少补偿，也别凭空放大一倍。
+            96
+        }
+    }
 }
 
 /// 一个可见的顶层窗口。前端用它做「监听哪个客户端」的选择。
