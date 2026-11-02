@@ -63,16 +63,16 @@
 
 ## 4. 目录归属速查
 
-| 要加的东西       | 放哪                                                                  | 不该放哪                                                   |
-| ---------------- | --------------------------------------------------------------------- | ---------------------------------------------------------- |
-| 新页面           | `src/views/`，然后在 `src/navigation.ts` 加一项                       | 不要改 `router.ts` 的数组——它从 `NAV_ITEMS` 生成           |
-| 工具的子页       | `src/views/tools/`，然后在 `src/tools.ts` 加一项                      | 不要进 `NAV_ITEMS`——工具越加越多，一件一格会把左栏撑成一列 |
-| 新控件           | `src/components/`，先加进 `views/dev/AtomsSection.vue` 验收           | 不要为一次性用途新开组件                                   |
-| 新系统能力       | `src/services/<能力>.ts` 一个函数 + Rust 一个 `#[tauri::command]`     | 不要在组件里 `invoke`；也不要全塞进 `desktop.ts`           |
-| 业务逻辑（计划） | `crates/mh-domain`，纯函数、无 IO                                     | 不要塞进 `src-tauri/src/`——塞进去就再也拆不出来            |
-| 前端的纯规则     | `src/services/`（如 `ghost-parse.ts`、`ghost-model.ts`），不碰 IO     | 不要塞进 composable——那里一有 ref 就不好单测了             |
-| 开发期工具       | 页面内的放 `views/dev/` 旁边（如 `tokens.ts`）；跨页面的放 `scripts/` | 不要放进 `src/components/`                                 |
-| 设计样张         | `design/`，直接引 `../src/styles/*.css`                               | 不要复制样式表                                             |
+| 要加的东西       | 放哪                                                                                                | 不该放哪                                                   |
+| ---------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| 新页面           | `src/views/`，然后在 `src/navigation.ts` 加一项                                                     | 不要改 `router.ts` 的数组——它从 `NAV_ITEMS` 生成           |
+| 工具的子页       | `src/views/tools/`，然后在 `src/tools.ts` 加一项                                                    | 不要进 `NAV_ITEMS`——工具越加越多，一件一格会把左栏撑成一列 |
+| 新控件           | `src/components/`，先加进 `views/dev/AtomsSection.vue` 验收                                         | 不要为一次性用途新开组件                                   |
+| 新系统能力       | `src/services/<能力>.ts` 一个函数 + Rust 一个 `#[tauri::command]`                                   | 不要在组件里 `invoke`；也不要全塞进 `desktop.ts`           |
+| 业务逻辑（计划） | `crates/mh-domain`，纯函数、无 IO                                                                   | 不要塞进 `src-tauri/src/`——塞进去就再也拆不出来            |
+| 前端的纯规则     | `src/services/`（如 `ghost-parse.ts`、`ghost-model.ts`），不碰 IO                                   | 不要塞进 composable——那里一有 ref 就不好单测了             |
+| 开发期工具       | 页面内的放 `views/dev/` 旁边（如 `tokens.ts`）；跨页面的放 `scripts/`                               | 不要放进 `src/components/`                                 |
+| 图标源图         | `assets/icon/app-icon-1024.png` 是 `tauri icon` 的输入；生成脚本在 `scripts/icon/`（`out/` 已忽略） | 不要手改 `src-tauri/icons/` 里的产物                       |
 
 ## 5. 还没定的
 

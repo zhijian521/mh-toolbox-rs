@@ -24,10 +24,6 @@ import TypeScaleSection from './TypeScaleSection.vue';
 
 <template>
     <PageShell title="开发帮助" desc="组件 · 令牌 · 图标 · 线条">
-        <template #actions>
-            <span class="hint">设计样张见 design/income.html</span>
-        </template>
-
         <div class="stack">
             <LedgerSection title="入口与约定" hint="左栏里没有这一页">
                 <p class="note">

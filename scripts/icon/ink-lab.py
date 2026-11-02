@@ -3,6 +3,16 @@
 应用图标 · 水墨方向 v3
 笔意只来自两处：行楷字形本身，以及从行楷里取出的「一」「丨」两笔。
 四个方案的区别在墨怎么用：焦、淡、晕、界格。
+
+只出**候选方案**（`out/png/<方案>_<尺寸>.png`，4 方案 × 8 档，最高 512）。
+定稿那个 1024 的成品**不是它出的**：成品在 `assets/icon/app-icon-1024.png`，
+`tauri icon` 拿它当输入。要改图标，先在这里挑方案，再按同一构图导出 1024 覆盖成品。
+
+脚本和成品分两处，是因为生成物是实验、成品是资源：
+`out/` 在 `.gitignore` 里，`assets/icon/` 进仓库。
+
+`make-logo-pair.py` 会 import 本文件取构图函数（`glyph` / `brush` / `stamp`），
+所以这两个脚本必须待在同一个目录里。
 """
 import math
 import os
@@ -10,7 +20,7 @@ import random
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageChops
 
 S = 2048
-OUT = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out')
 F_XING = 'C:/Windows/Fonts/STXINGKA.TTF'
 
 PAPER = (249, 245, 235)

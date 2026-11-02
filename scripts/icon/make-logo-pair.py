@@ -24,14 +24,15 @@
 两版要在切换主题的瞬间**不跳动**——差 1% 换主题时那只字就会挪一下，
 读起来是两张图而不是一张图翻了面。
 
-用法：python design/icon/ink/make-logo-pair.py
+用法：python scripts/icon/make-logo-pair.py
 输出：assets/mark-ink.png（亮色用）、assets/mark-paper.png（暗色用），与 `assets/fonts/` 同处
 """
 import importlib.util
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
+# 从 `scripts/icon/` 回仓库根：比原先在 `design/icon/ink/` 时少一层。
+ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 OUT = os.path.join(ROOT, 'assets')
 
 spec = importlib.util.spec_from_file_location('inklab', os.path.join(HERE, 'ink-lab.py'))

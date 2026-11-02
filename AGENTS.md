@@ -62,9 +62,9 @@ start.bat --force    遇到占用直接处理，不询问
   `.gitattributes` 与 `.editorconfig` 已声明 `*.bat` 为 CRLF 双保险。
 - **启动失败时 tauri 只会说 `Error The "beforeDevCommand" terminated with a non-zero status code.`**
   ——一个字不提真正原因。已知两种，别一看到这句就认定是端口：
-  1. **5173 被占**（多半是另一个会话在跑 `npm run dev`）。`strictPort` 开着，Vite 不换端口、
-     直接退出；
-  2. **Vite 监视器撞上构建产物** → `EBUSY`，见下一条。
+    1. **5173 被占**（多半是另一个会话在跑 `npm run dev`）。`strictPort` 开着，Vite 不换端口、
+       直接退出；
+    2. **Vite 监视器撞上构建产物** → `EBUSY`，见下一条。
 - **`EBUSY: resource busy or locked, watch '…\*.o'`**（2026-11-02 实际崩过）：
   Vite 默认只忽略 `node_modules` 与 `.git`，于是会去 watch `.runtime/target-lab` 这类
   独立 cargo target 目录（1.4GB，含 `.o` 中间产物）。rustc 正锁着某个 `.o` 时就抛 EBUSY，
@@ -117,8 +117,8 @@ start.bat --force    遇到占用直接处理，不询问
 3. **渲染层只有 `src/services/` 能碰系统**。ESLint 已拦 `@tauri-apps/api/core` 出现在
    `components/`、`views/`、`composables/` 里。
 4. **令牌只有一份真源**：`src/styles/` 下的 `tokens.css` / `base.css` / `blocks.css`。
-   `design/` 下**不再有副本**（2026-10-30 已删），`design/income.html` 直接引 `../src/styles/*.css`。
-   以后做设计稿也引同一份文件，不要复制。
+   全仓**没有任何样式表副本**：2026-10-30 删掉 `design/` 下那两份，2026-11-02 又删掉最后一份
+   脱离应用的样张 `design/income.html`。以后要做设计稿也引同一份文件，不要复制。
 5. **卸载不删数据**（`deleteAppDataOnUninstall` 保持 false）。
 6. 数据层落地后必须做 **SQLite → JSON 反向镜像**，否则一旦转换就退不回旧版。
 

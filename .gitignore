@@ -27,3 +27,6 @@ map/
 .DS_Store
 Thumbs.db
 *.log
+
+# 图标脚本的中间产物（4 方案 × 8 档，可随时重跑）
+scripts/icon/out/

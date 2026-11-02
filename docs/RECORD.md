@@ -213,6 +213,7 @@ design/icon/old/                 ← 旧图标备份，保留
 11. ✅ `icons.ts` 四表合一：`ICON_META` 一张表，`IconName` 由 key 推，其余三个导出由值推
 12. ✅ 令牌单一真源：删掉 `design/tokens.css` 与 `design/base.css`，`design/income.html` 直接引
     `../src/styles/*.css`（字体 url 相对 CSS 自身解析，实测正常）
+    ↩ **2026-11-02 这份样张本身也删了**，见第 25 小批：全仓已无任何脱离应用的样式入口。
 13. ✅ 清掉 `design/icon/` 的废弃产物（`icon-lab.py`、`icon-preview.html`、顶层
     `make-preview.py`、`png/`、`ink/png/` 共约 1.4 MB）。保留 `ink/`（定稿 + 生成脚本 + 自包含
     的 `preview.html`）与 `old/`（旧图标备份）
@@ -1148,3 +1149,52 @@ job，其中 `cargo fmt --check` 与 `cargo test` 都**不在** `npm run check` 
 - `npm run check` 六项全绿、68 条（样例测试随文件搬到 `views/tools/` 仍被收集）。
 - 实测：无任务文本 → `status warn` + 「测试文字没解析出任务」；测试态点「开始」→ 原文面板消失、
   `plans` 清空；测试面板 245px 高 < `max-height` 788px，未被截断；开眼标记（十字 + 朱红心）正常。
+
+---
+
+### 第 25 小批：删掉设计样张（2026-11-02）— **✅ 已完成**
+
+- 删 `design/income.html`（49 KB）与草稿区的自检脚本 `.runtime/cdp-income.mjs`。
+- 为什么删得掉：它的内容在开发页已经有了——色板、字号阶梯、控件裸用分别落在
+  `#/dev` 的 `PaletteSection` / `TypeScaleSection` / `AtomsSection`，而且那边是**真组件**，
+  不会因为全局类改名而与样张漂开（当年 `.well` 拆类要手工补 15 处就是这么来的）。
+- 丢掉的是什么：收益页的**整页构成**（账目行、走势、左栏、印章排布）在开发页没有等价物。
+  收益页目前还是占位页，真做的时候按现有业务页（角色 / 捉鬼）的构成推，不再回到样张；
+  需要考古时从 git 取回即可（`git show <sha>:design/income.html`）。
+- 连带改了 6 处引用：`AGENTS.md` §令牌真源、`ARCHITECTURE.md` 归属表（那行改成「图标源图」）、
+  `CONVENTIONS.md` §2.3-3 / §2.4-8 / §2.4-14（§2.4-14 的判据从「样张要不要裸用」改成
+  「开发页会不会裸用」，历史代价保留为注释）、`README.md` 能力表、`DevKitView` 页头那句提示。
+- `design/` 当时只剩 `icon/ink/`：`ink-lab.py`（出图标方案）、`make-logo-pair.py`（出
+  `assets/mark-*.png`，左栏牌记在用）、源图 `mh-icon-1024.png`、`preview.html`（1.7 MB 产物，
+  跑 `ink-lab.py` → `make-preview.py` 可重建）。
+  ↩ **同日再拆一次**，见第 26 小批：`design/` 整个目录已经不存在了。
+
+---
+
+### 第 26 小批：`design/` 拆空（2026-11-02）— **✅ 已完成**
+
+样张删掉之后 `design/` 只剩图标那几件，而「设计样张」这个分类已经不存在了——一个只装
+图标源的目录，名字却在说另一件事。按内容归位，目录本身消失。
+
+- **成品源图** → `assets/icon/app-icon-1024.png`。它是 `tauri icon` 的输入，也是四个方案里
+  定稿那一枚的 1024 版。`assets/` 里本来就住着 `mark-ink.png` / `fonts/` 这类**被引用**的资源，
+  图标源图是同一类东西的另一半——它不被前端 `import`，只被工具链吃，但同样「是资源、不是草稿」。
+  重生成图标的命令因此变成：`npx tauri icon assets/icon/app-icon-1024.png -o src-tauri/icons`。
+- **生成脚本** → `scripts/icon/`。`scripts/` 原来的住户是 `check-version` / `check-commits`
+  这类「跨页面、不进产物」的工具，脚本正属于这一类。两个脚本必须同目录：
+  `make-logo-pair.py` 要 `import` 同目录的 `ink-lab.py` 取构图函数（`glyph` / `brush` / `stamp`）。
+- **`ink-lab.py` 的输出改到 `scripts/icon/out/` 并加进 `.gitignore`**。原先它写在自己旁边，
+  于是「实验产物」和「脚本」混在一个目录里——这正是 `design/icon/` 越来越难判断的原因。
+  现在 `out/` 是草稿、`assets/icon/` 是资源，一眼分得开。
+- **删掉 `preview.html`（1.7 MB）与 `make-preview.py`**。前者的图全部 base64 内联，是后者的
+  产物；而后者的输入 `png/` 在第二批 13 就删了，脚本早已跑不起来（`FileNotFoundError`）。
+  一个「只能靠不存在的输入生成」的脚本 + 一份 1.7 MB 的内联图，没有留下的理由。
+- 连带改：`ARCHITECTURE.md` 归属表那行（改成 `assets/icon` 输入 + `scripts/icon` 脚本）、
+  `.gitignore` 加 `scripts/icon/out/`、第 25 小批末尾加 ↩。
+
+**迁移后实测过两个脚本**（路径改了就得多跑一遍，否则只是看起来搬对了）：
+
+- `python scripts/icon/ink-lab.py` → `out/png/` 32 张（4 方案 × 8 档），全成功。
+- `python scripts/icon/make-logo-pair.py` → 覆盖 `assets/mark-ink.png` / `mark-paper.png`，
+  产物 **sha256 与仓库里原有的完全一致**，说明 ROOT 由「三层回退」改成「两层」之后算对了。
+- `npm run check` 六项全绿。

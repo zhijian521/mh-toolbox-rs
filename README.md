@@ -20,7 +20,7 @@
 | 设置页       | 外观（主题 / 字号）+ 关于，两块卡片，宽度够时并排                                                                                              |
 | 工具页       | 桌面图标式启动器：92px 格子、56px 压印图标块（`PressTile`）、名称在下，没有副标题                                                              |
 | 捉鬼助手     | 截屏 + 本地 OCR（PP-OCRv4，缺模型退回系统 OCR）读任务栏的假坐标，在底图上画该往哪找；ROI 按显示器 DPI 换算                                     |
-| 设计语言     | `src/styles/tokens.css` / `base.css` / `blocks.css`（唯一真源）、`design/income.html`（收益页样张，直接引同一份 CSS）                          |
+| 设计语言     | `src/styles/tokens.css` / `base.css` / `blocks.css` 是唯一真源（全仓无样式表副本）；开发页 `#/dev` 是这套语言的验收面                          |
 
 未开始：数据层（SQLite）、领域层、五个尚未写的业务页、e2e。
 
@@ -48,12 +48,11 @@
 │   │                     PlaceholderView
 ├── src-tauri/            Rust 壳（窗口、命令、截屏、OCR、能力配置）
 ├── docs/                 ARCHITECTURE / CONVENTIONS / RECORD / GHOST-HUNT
-├── scripts/              质量门小工具：版本号一致、提交信息
+├── scripts/              质量门小工具（版本号一致、提交信息）+ `icon/` 图标生成脚本
 ├── tools/probe/          CDP 探针（截图 / 量几何 / 量启动；内置静态服务与防翻车前提）
 ├── tools/font/           字体子集脚本（全量 9.8 MB → 1.75 MB，见脚本头部）
 ├── .github/workflows/    CI：npm run check + cargo fmt --check + Windows cargo test --lib
-├── design/               设计语言样张与图标源（.py 生成脚本）
-└── assets/               霞鹜文楷 Screen（GB2312 子集 1.75 MB + 全量原件，OFL 1.1）+ 牌记 PNG
+└── assets/               霞鹜文楷 Screen（GB2312 子集 1.75 MB + 全量原件，OFL 1.1）、牌记 PNG、`icon/` 应用图标源图
 ```
 
 工程约定单独成文，开工前先读这四份：
