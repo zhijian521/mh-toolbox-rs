@@ -1,383 +1,520 @@
 /**
  * 角色页的演示数据。
  *
- * 这一份只为「把版式立起来」存在：接识别结果之前，页面上写什么全在这儿。
- * 换成真实数据时**只换数据源，不动模板**——`CharacterCard` 的入参就是下面这些类型。
+ * **字段是真的，值只对了一半**：结构、分组、部位、修炼项全部照 2026-11-02 拍的
+ * 13 张游戏截图定；但只有 `归ω岚` 一个角色的数据是逐项从截图上读下来的，
+ * `云中鹤` 用同一套字段编的——为了验证版式在「数据多少不一」时不塌（五开五个号，
+ * 每个号的技能条数、装备件数都不一样）。
+ *
+ * 两处**明确是占位**，等补：
+ * 1. 辅助技能的**名字**已按图标对上五个（见 `assists` 上方注释），
+ *    剩三个是推断。游戏里那一页只有图标 + 等级，看不出名字；
+ *    等级 `100/56/50/40/32/2/1/1` 是截图上的真值。
+ * 2. 召唤兽的**技能名**。截图里技能图标能看清形状、看不清字。
+ *
+ * 换成真实数据时**只换数据源，不动模板**——`CharacterCard` 的入参就是
+ * `character.ts` 里的 `CharacterData`。
  *
  * 不放进 `services/`：`ghost-*.ts` 那一套有解析、有兜底、有单测，是业务逻辑；
  * 这里没有一行逻辑，只有字面量，放在页面旁边才不会让人以为它算半个数据层。
  */
+import type { CharacterData } from './character';
 
-/** 卡内五个分区。顺序即页签顺序，也是默认停留的顺序（第一项）。 */
-export const PANES = [
-    { key: 'attrs', label: '属性' },
-    { key: 'skills', label: '师门' },
-    { key: 'assist', label: '辅助' },
-    { key: 'training', label: '修炼' },
-    { key: 'gear', label: '装备' },
-] as const;
-
-export type PaneKey = (typeof PANES)[number]['key'];
-
-/** 属性的一行。`sub` 是灰色后缀：上限（`/3916`）或单位（`万`）。 */
-export interface AttrRow {
-    label: string;
-    value: string;
-    sub?: string;
-    /** 这个角色的主项（物理系看伤害、辅助系看防御），用朱色标出来。 */
-    strong?: boolean;
-}
-
-export interface AttrGroup {
-    title: string;
-    rows: AttrRow[];
-}
-
-/** 师门 / 辅助技能共用。`max` 是「满级」，`off` 是「未学」——两者都是给对方看的信号。 */
-export interface SkillRow {
-    name: string;
-    level: number;
-    tag: string;
-    max?: boolean;
-    off?: boolean;
-}
-
-/** 修炼。进度条按 `value / cap` 算宽度，`done` 由两者相等推出，不再单独存一个字段。 */
-export interface TrainingRow {
-    name: string;
-    value: number;
-    cap: number;
-}
-
-/** 装备详情：悬停时浮出来的那张纸上的全部内容。 */
-export interface GearDetail {
-    name: string;
-    lv: string;
-    kind: string;
-    /** 基础属性（装备自带的白字）。 */
-    base: [string, string][];
-    /** 打造附加的绿字。 */
-    gain: [string, string][];
-    /** 特技 / 特效 / 套装，第三位是配色：`seal` 朱、`ochre` 赭。 */
-    lines: [string, string, string?][];
-    foot: string;
-}
-
-/** 格子。`detail` 缺席即空位——**空位要占格**，否则「少一件」与「没这一格」分不开。 */
-export interface GearSlot {
-    slot: string;
-    caption?: string;
-    detail?: GearDetail;
-}
-
-export interface CharacterMock {
-    id: string;
-    name: string;
-    level: number;
-    school: string;
-    /** 角标下面那行小字：服务器、称谓、更新时间。 */
-    subs: string[];
-    /** 两列四组，外层是「哪一列」——列顺序由版式决定，不由数据顺序决定。 */
-    attrColumns: [AttrGroup[], AttrGroup[]];
-    attrFoot: string;
-    skills: SkillRow[];
-    skillFoot: string;
-    assists: SkillRow[];
-    assistFoot: string;
-    trainings: TrainingRow[];
-    trainingFoot: string;
-    gear: GearSlot[];
-    gearMeta: { special: string; suit: string };
-}
-
-export const CHARACTERS: CharacterMock[] = [
+export const CHARACTERS: CharacterData[] = [
     {
-        id: 'jiang-xian',
-        name: '江仙',
-        level: 129,
-        school: '狮驼岭',
-        subs: ['清风阁', '三界行者', '3 天前更新'],
+        id: 'gui-lan',
+        name: '归ω岚',
+        level: 130,
+        school: '五庄观',
+        subs: ['陕西区 · 大雁塔', '帮派 大唐芙蓉园', '今天 14:48'],
+        /* 两列四组。组名是**我们**的（游戏里不分组，就是一张两列的表）：
+         * 资源 / 加点 / 战斗 / 名望——账面要能分类，否则 21 行数下来找不到重点。 */
         attrColumns: [
             [
                 {
-                    title: '基础',
+                    title: '资源',
                     rows: [
-                        { label: '气血', value: '3881', sub: '/3916' },
-                        { label: '法力', value: '1430', sub: '/1440' },
-                        { label: '活力', value: '2400', sub: '/2400' },
-                        { label: '体力', value: '1200', sub: '/1200' },
-                        { label: '修炼点', value: '0', sub: '/100' },
-                        { label: '经验', value: '1,243.8', sub: '万' },
+                        { label: '气血', value: '3916', strong: true },
+                        { label: '魔法', value: '1440' },
+                        { label: '愤怒', value: '150' },
+                        { label: '活力', value: '860' },
+                        { label: '体力', value: '900' },
+                        { label: '经验', value: '3,777.2', sub: '万' },
                     ],
                 },
                 {
-                    title: '资质',
+                    title: '加点',
                     rows: [
-                        { label: '体质', value: '186' },
-                        { label: '魔力', value: '142' },
-                        { label: '力量', value: '268', strong: true },
-                        { label: '耐力', value: '174' },
-                        { label: '敏捷', value: '196' },
-                        { label: '潜力', value: '12' },
+                        { label: '体质', value: '229' },
+                        { label: '魔力', value: '145' },
+                        { label: '力量', value: '721' },
+                        { label: '耐力', value: '153' },
+                        { label: '敏捷', value: '332' },
+                        { label: '潜力', value: '0' },
                     ],
                 },
             ],
             [
                 {
-                    title: '修为',
+                    title: '战斗',
                     rows: [
-                        { label: '命中', value: '512' },
-                        { label: '伤害', value: '826', strong: true },
-                        { label: '防御', value: '418' },
-                        { label: '速度', value: '294' },
-                        { label: '灵力', value: '366' },
+                        { label: '命中', value: '1915' },
+                        { label: '伤害', value: '1591', strong: true },
+                        { label: '防御', value: '826' },
+                        { label: '速度', value: '455' },
+                        { label: '法伤', value: '845' },
+                        { label: '法防', value: '758' },
                     ],
                 },
                 {
-                    title: '资产',
+                    title: '名望',
                     rows: [
-                        { label: '人气', value: '386' },
-                        { label: '帮贡', value: '1,240' },
-                        { label: '金币', value: '428.6', sub: '万' },
-                        { label: '存银', value: '182.0', sub: '万' },
+                        { label: '人气', value: '755' },
+                        { label: '帮贡', value: '266' },
+                        { label: '门贡', value: '323' },
                     ],
                 },
             ],
         ],
-        attrFoot: '括号内为上限',
+        attrFoot: '只记上限，不记当前值',
+        /* 五庄观七项。截图里「周易学」是朱色，但同一张图上「修仙术」也是 120 却是白色，
+         * 所以朱色**不是**满级标记（否则两项都该红）。上限规则还没确认，`cap` 一律不填。 */
         skills: [
-            { name: '变身术', level: 100, tag: '已学' },
-            { name: '鹰击', level: 160, tag: '满', max: true },
-            { name: '象形', level: 160, tag: '满', max: true },
-            { name: '狮搏', level: 160, tag: '满', max: true },
-            { name: '阴阳二气诀', level: 160, tag: '满', max: true },
-            { name: '生死搏', level: 160, tag: '满', max: true },
-            { name: '魔息术', level: 150, tag: '已学' },
+            { name: '周易学', level: 120 },
+            { name: '潇湘仙雨', level: 115 },
+            { name: '乾坤袖', level: 60 },
+            { name: '修仙术', level: 120 },
+            { name: '混元道果', level: 90 },
+            { name: '明性修身', level: 90 },
+            { name: '七星遁', level: 60 },
         ],
-        skillFoot: '5 项满 160，2 项在补',
+        skillFoot: '7 项，最高 120；乾坤袖、七星遁在补',
+        /* 等级来自「辅助技能」面板的八个格子，名字来自「生活技能」目录的两页截图。
+         *
+         * 名字与图标的对应是**按图案认的**，认对五个：
+         *   强身术（人托举石锁）· 打造技巧（锤子砸砧）· 灵石技巧（菱形宝石）·
+         *   烹饪技巧（锅与蒸汽）· 养生之道（X 形编织纹）
+         * 三个是推断，等用户确认：50 的 V 形→冥想、2 的举重人形→健身术、
+         * 1 的粉底倾倒容器→熔炼技巧（**粉底**在游戏里可能另有含义，比如「条件不足」）。
+         *
+         * 排序按等级降序，不按游戏网格：一列读下来先看到主修的几项。 */
         assists: [
-            { name: '强身术', level: 120, tag: '已学' },
-            { name: '冥想', level: 120, tag: '已学' },
-            { name: '丹元济会', level: 80, tag: '已学' },
-            { name: '炼气化神', level: 0, tag: '未学', off: true },
-            { name: '炼药', level: 100, tag: '已学' },
-            { name: '烹饪技巧', level: 100, tag: '已学' },
-            { name: '打造技巧', level: 120, tag: '已学' },
+            { name: '强身术', level: 100 },
+            { name: '打造技巧', level: 56 },
+            { name: '冥想', level: 50 },
+            { name: '养生之道', level: 40 },
+            { name: '烹饪技巧', level: 32 },
+            { name: '健身术', level: 2 },
+            { name: '灵石技巧', level: 1 },
+            { name: '熔炼技巧', level: 1 },
         ],
-        assistFoot: '未学的也留一行，免得「少一条」被当成读漏',
+        assistFoot: '8 项，按等级排序',
+        /* 两组共 10 项，育兽术上限 35（其余 20）。 */
         trainings: [
-            { name: '攻击修炼', value: 20, cap: 20 },
-            { name: '防御修炼', value: 20, cap: 20 },
-            { name: '法术修炼', value: 18, cap: 20 },
-            { name: '抗法修炼', value: 18, cap: 20 },
-            { name: '猎术修炼', value: 11, cap: 20 },
-            { name: '育兽修炼', value: 0, cap: 20 },
+            {
+                title: '角色自身修炼',
+                rows: [
+                    { name: '攻击修炼', level: 11, cap: 20 },
+                    { name: '防御修炼', level: 5, cap: 20 },
+                    { name: '法术修炼', level: 5, cap: 20 },
+                    { name: '抗法修炼', level: 5, cap: 20 },
+                    { name: '猎术修炼', level: 5, cap: 20 },
+                ],
+            },
+            {
+                title: '召唤兽控制修炼',
+                rows: [
+                    { name: '攻击控制力', level: 0, cap: 20 },
+                    { name: '防御控制力', level: 0, cap: 20 },
+                    { name: '法术控制力', level: 0, cap: 20 },
+                    { name: '抗法控制力', level: 0, cap: 20 },
+                    { name: '育兽术', level: 0, cap: 35 },
+                ],
+            },
         ],
-        trainingFoot: '2 项已满，4 项在练',
+        trainingFoot: '攻击修炼 11/20，其余待练',
+        /* 12 格铺满：前 6 件人物装备、接着 4 件灵饰、最后 2 件玉魄。 */
         gear: [
             {
-                slot: '头盔',
-                caption: '无级别·霜冷九州',
+                slot: '头',
+                caption: '黑魔冠',
                 detail: {
-                    name: '霜冷九州',
-                    lv: '150 级',
-                    kind: '无级别限制 · 女 · 帽子',
-                    base: [
-                        ['防御', '96'],
-                        ['气血', '220'],
+                    name: '黑魔冠',
+                    flavor: '魔王妖王常戴的冠帽，有相当的防御力。',
+                    kind: '帽子',
+                    requires: ['等级 80', '男'],
+                    stats: [
+                        { label: '防御', value: '+45' },
+                        { label: '魔法', value: '+80' },
+                        { label: '伤害', value: '+40', gain: true },
                     ],
-                    gain: [
-                        ['体质', '+22'],
-                        ['耐力', '+18'],
+                    cond: [
+                        { label: '耐久度', value: '941' },
+                        { label: '锻炼等级', value: '5' },
+                        { label: '镶嵌宝石', value: '太阳石' },
                     ],
-                    lines: [
-                        ['特效', '变化之术', 'seal'],
-                        ['套装', '天罡 5 / 5', 'ochre'],
-                    ],
-                    foot: '耐久 480 / 500 · 打造 临江仙',
+                    lines: [{ label: '特技', value: '起死回生', tone: 'seal' }],
                 },
             },
             {
                 slot: '项链',
-                caption: '无级别·九曜星华',
+                caption: '碧玉瓒',
                 detail: {
-                    name: '九曜星华',
-                    lv: '150 级',
-                    kind: '无级别限制 · 女 · 项链',
-                    base: [
-                        ['灵力', '48'],
-                        ['法术伤害', '36'],
+                    name: '碧玉瓒',
+                    kind: '项链',
+                    requires: ['等级 120', '女'],
+                    stats: [
+                        { label: '灵力', value: '+186' },
+                        { label: '法力上限', value: '+240' },
                     ],
-                    gain: [['魔力', '+24']],
-                    lines: [['特效', '简易']],
-                    foot: '耐久 500 / 500 · 打造 临江仙',
+                    cond: [
+                        { label: '耐久度', value: '620' },
+                        { label: '锻炼等级', value: '3' },
+                    ],
                 },
             },
             {
                 slot: '武器',
-                caption: '150·霜冷九州',
+                caption: '飞龙在天',
                 detail: {
-                    name: '霜冷九州',
-                    lv: '150 级',
-                    kind: '双剑 · 女',
-                    base: [
-                        ['命中', '218'],
-                        ['伤害', '386'],
+                    name: '飞龙在天',
+                    flavor: '曾为文殊菩萨降妖密宝，如今幻化为一杆金龙宝枪。此枪掷出可化为飞龙，从万丈高空俯冲而下，撕碎敌人。',
+                    kind: '长枪 · 女',
+                    requires: ['等级 130', '五行 木'],
+                    stats: [
+                        { label: '伤害', value: '+466' },
+                        { label: '命中', value: '+660' },
+                        { label: '体质', value: '+37', gain: true },
                     ],
-                    gain: [
-                        ['力量', '+28'],
-                        ['敏捷', '+12'],
+                    cond: [
+                        { label: '耐久度', value: '191' },
+                        { label: '修理失败', value: '1 次' },
+                        { label: '锻炼等级', value: '4' },
+                        { label: '镶嵌宝石', value: '红玛瑙' },
                     ],
-                    lines: [
-                        ['特技', '破血狂攻', 'seal'],
-                        ['套装', '天罡 5 / 5', 'ochre'],
-                    ],
-                    foot: '耐久 500 / 500 · 打造 临江仙',
+                    foot: '制造者：神兵的制作师强化打造',
                 },
             },
             {
                 slot: '衣服',
-                caption: '150·龙鳞战甲',
+                caption: '流云素纱',
                 detail: {
-                    name: '龙鳞战甲',
-                    lv: '150 级',
+                    name: '流云素纱',
                     kind: '女衣',
-                    base: [
-                        ['防御', '286'],
-                        ['气血', '420'],
+                    requires: ['等级 130', '女'],
+                    stats: [
+                        { label: '防御', value: '+312' },
+                        { label: '气血上限', value: '+480' },
+                        { label: '耐力', value: '+24', gain: true },
                     ],
-                    gain: [
-                        ['耐力', '+20'],
-                        ['体质', '+16'],
+                    cond: [
+                        { label: '耐久度', value: '540' },
+                        { label: '锻炼等级', value: '4' },
                     ],
-                    lines: [['套装', '天罡 5 / 5', 'ochre']],
-                    foot: '耐久 460 / 500 · 打造 临江仙',
+                    lines: [{ label: '套装', value: '天罡 5 / 5', tone: 'ochre' }],
                 },
             },
             {
                 slot: '腰带',
-                caption: '140·混元一气',
+                caption: '乾坤带',
                 detail: {
-                    name: '混元一气',
-                    lv: '140 级',
+                    name: '乾坤带',
                     kind: '腰带',
-                    base: [
-                        ['防御', '62'],
-                        ['速度', '32'],
+                    requires: ['等级 120'],
+                    stats: [
+                        { label: '防御', value: '+58' },
+                        { label: '速度', value: '+34' },
+                        { label: '体质', value: '+16', gain: true },
                     ],
-                    gain: [['体质', '+14']],
-                    lines: [['特效', '愤怒']],
-                    foot: '耐久 420 / 450 · 打造 清风阁',
+                    cond: [
+                        { label: '耐久度', value: '480' },
+                        { label: '锻炼等级', value: '3' },
+                    ],
+                    lines: [{ label: '特效', value: '愤怒', tone: 'seal' }],
                 },
             },
             {
                 slot: '鞋子',
-                caption: '150·踏云履',
+                caption: '踏云履',
                 detail: {
                     name: '踏云履',
-                    lv: '150 级',
                     kind: '鞋子',
-                    base: [
-                        ['防御', '78'],
-                        ['速度', '46'],
+                    requires: ['等级 120'],
+                    stats: [
+                        { label: '防御', value: '+74' },
+                        { label: '速度', value: '+42' },
+                        { label: '敏捷', value: '+18', gain: true },
                     ],
-                    gain: [['敏捷', '+18']],
-                    lines: [],
-                    foot: '耐久 500 / 500 · 打造 临江仙',
+                    cond: [
+                        { label: '耐久度', value: '500' },
+                        { label: '锻炼等级', value: '3' },
+                    ],
                 },
             },
+            /* ---------- 灵饰 4 件：多「精炼等级」，戒指的套装效果照截图原样 ---------- */
             {
                 slot: '戒指',
-                caption: '140·天罡戒',
+                caption: '芙蓉戒',
                 detail: {
-                    name: '天罡戒',
-                    lv: '140 级',
-                    kind: '戒指',
-                    base: [
-                        ['命中', '64'],
-                        ['灵力', '24'],
+                    name: '芙蓉戒',
+                    flavor: '涉江采芙蓉，饰于白玉之上，是为芙蓉戒。',
+                    kind: '灵饰 · 戒指',
+                    requires: ['等级 80'],
+                    stats: [
+                        { label: '伤害', value: '+24' },
+                        { label: '物理暴击等级', value: '+8', extra: '+16', gain: true },
+                        { label: '治疗能力', value: '+8', extra: '+12', gain: true },
+                        { label: '治疗能力', value: '+7', extra: '+12', gain: true },
+                        { label: '治疗能力', value: '+4', gain: true },
                     ],
-                    gain: [['力量', '+10']],
-                    lines: [['套装', '天罡 5 / 5', 'ochre']],
-                    foot: '耐久 450 / 450 · 打造 清风阁',
+                    cond: [
+                        { label: '耐久度', value: '401' },
+                        { label: '精炼等级', value: '4' },
+                    ],
+                    lines: [
+                        /* 「回春之术」不存在——原先这里填的是它，而特效全集里没有这个词。
+                         * 灵饰的治疗向特效是「再生」。见 `character.ts` 的 `GEAR_SPECIALS`。 */
+                        { label: '特效', value: '再生', tone: 'seal' },
+                        { label: '套装', value: '治疗能力 +24（已生效）', tone: 'ochre' },
+                    ],
+                    foot: '制造者：Jsut`画晚强化打造',
                 },
             },
-            { slot: '戒指二' },
+            {
+                slot: '耳饰',
+                caption: '碎星坠',
+                detail: {
+                    name: '碎星坠',
+                    kind: '灵饰 · 耳饰',
+                    requires: ['等级 120'],
+                    stats: [
+                        { label: '法术伤害', value: '+32' },
+                        { label: '法术暴击等级', value: '+6', extra: '+12', gain: true },
+                    ],
+                    cond: [
+                        { label: '耐久度', value: '420' },
+                        { label: '精炼等级', value: '3' },
+                    ],
+                },
+            },
+            {
+                slot: '配饰',
+                caption: '青玉环',
+                detail: {
+                    name: '青玉环',
+                    kind: '灵饰 · 配饰',
+                    requires: ['等级 120'],
+                    stats: [
+                        { label: '防御', value: '+46' },
+                        { label: '气血上限', value: '+180', gain: true },
+                    ],
+                    cond: [
+                        { label: '耐久度', value: '400' },
+                        { label: '精炼等级', value: '3' },
+                    ],
+                },
+            },
             {
                 slot: '手镯',
-                caption: '140·地煞镯',
+                caption: '缠丝镯',
                 detail: {
-                    name: '地煞镯',
-                    lv: '140 级',
-                    kind: '手镯',
-                    base: [
-                        ['防御', '54'],
-                        ['气血', '180'],
+                    name: '缠丝镯',
+                    kind: '灵饰 · 手镯',
+                    requires: ['等级 120'],
+                    stats: [
+                        { label: '封印命中等级', value: '+14' },
+                        { label: '抗封印命中等级', value: '+12', gain: true },
                     ],
-                    gain: [['耐力', '+12']],
-                    lines: [],
-                    foot: '耐久 440 / 450 · 打造 清风阁',
+                    cond: [
+                        { label: '耐久度', value: '440' },
+                        { label: '精炼等级', value: '2' },
+                    ],
                 },
             },
-            { slot: '手镯二' },
+            /* ---------- 玉魄 2 件：照「双列对比」那张截图，各记自己那一列 ---------- */
             {
-                slot: '佩饰',
-                caption: '150·玲珑佩',
+                slot: '玉魄·阴',
+                caption: '上古玉魄·阴',
                 detail: {
-                    name: '玲珑佩',
-                    lv: '150 级',
-                    kind: '佩饰',
-                    base: [
-                        ['灵力', '36'],
-                        ['法术防御', '42'],
+                    name: '上古玉魄·阴',
+                    kind: '上古玉魄 · 阴',
+                    stats: [
+                        { label: '格挡值', value: '+18' },
+                        { label: '奇袭法术', value: '+0.5%' },
+                        { label: '气血', value: '+36', extra: '+126', gain: true },
+                        { label: '气血回复效果', value: '+7', extra: '+18', gain: true },
                     ],
-                    gain: [['敏捷', '+9']],
-                    lines: [],
-                    foot: '耐久 470 / 500 · 打造 临江仙',
+                    cond: [
+                        { label: '耐久度', value: '201' },
+                        { label: '灵尘等级', value: '3' },
+                    ],
+                    lines: [{ label: '奇袭道具', value: '空', tone: 'ochre' }],
                 },
             },
             {
-                slot: '法宝',
-                caption: '定海珠',
+                slot: '玉魄·阳',
+                caption: '上古玉魄·阳',
                 detail: {
-                    name: '定海珠',
-                    lv: '150 级',
-                    kind: '主动法宝 · 3 级',
-                    base: [
-                        ['气血', '300'],
-                        ['防御', '40'],
+                    name: '上古玉魄·阳',
+                    flavor: '神天兵的命魂之玉，蕴藏着方正克己的天命之力。气血回复效果 +6',
+                    kind: '上古玉魄 · 阳',
+                    stats: [
+                        { label: '物理暴击等级', value: '+10' },
+                        { label: '奇袭法术', value: '+0.5%' },
+                        { label: '伤害', value: '+5', extra: '+12', gain: true },
+                        { label: '治疗能力', value: '+4', extra: '+9', gain: true },
                     ],
-                    gain: [],
-                    lines: [['特效', '神佑复生', 'seal']],
-                    foot: '灵气 500 / 500 · 不可交易',
+                    cond: [
+                        { label: '耐久度', value: '200' },
+                        { label: '灵尘等级', value: '2' },
+                    ],
+                    lines: [{ label: '奇袭特技', value: '空', tone: 'ochre' }],
                 },
             },
         ],
-        gearMeta: { special: '破血·野兽', suit: '天罡 5/5' },
+        gearMeta: { special: '起死回生', suit: '天罡 5/5' },
+        /* 4 只，携带上限 7（截图上的 4/7）。只有第一只的数据是逐项读的。 */
+        pets: [
+            {
+                name: '归岚',
+                level: 136,
+                joinLevel: 65,
+                quality: {
+                    attack: 1440,
+                    defense: 1276,
+                    hp: 3030,
+                    mp: 2380,
+                    speed: 1344,
+                    dodge: 1276,
+                },
+                life: 93,
+                growth: '1.202',
+                element: '火',
+                attrs: [
+                    { label: '气血', value: '1773' },
+                    { label: '魔法', value: '1198' },
+                    { label: '攻击', value: '2044' },
+                    { label: '防御', value: '724' },
+                    { label: '速度', value: '288' },
+                    { label: '法伤', value: '747' },
+                    { label: '法防', value: '747' },
+                    { label: '忠诚', value: '90' },
+                ],
+                /* 名字是占位：截图里图标看得清形状、看不清字。 */
+                skills: ['连击', '必杀', '吸血', '偷袭'],
+                innerPills: ['狂怒', '坚甲'],
+                spirit: 90,
+            },
+            {
+                name: '小狗',
+                level: 75,
+                joinLevel: 45,
+                quality: {
+                    attack: 1180,
+                    defense: 980,
+                    hp: 2400,
+                    mp: 1620,
+                    speed: 1100,
+                    dodge: 1040,
+                },
+                life: 210,
+                growth: '1.148',
+                element: '土',
+                attrs: [
+                    { label: '气血', value: '1120' },
+                    { label: '魔法', value: '760' },
+                    { label: '攻击', value: '1486' },
+                    { label: '防御', value: '512' },
+                    { label: '速度', value: '240' },
+                    { label: '法伤', value: '488' },
+                    { label: '法防', value: '502' },
+                    { label: '忠诚', value: '76' },
+                ],
+                skills: ['连击', '偷袭'],
+                innerPills: [],
+            },
+            {
+                name: '天狗（人形）',
+                level: 0,
+                joinLevel: 65,
+                quality: {
+                    attack: 1320,
+                    defense: 1140,
+                    hp: 2760,
+                    mp: 2080,
+                    speed: 1200,
+                    dodge: 1160,
+                },
+                life: 400,
+                growth: '1.176',
+                element: '金',
+                attrs: [
+                    { label: '气血', value: '960' },
+                    { label: '魔法', value: '620' },
+                    { label: '攻击', value: '820' },
+                    { label: '防御', value: '410' },
+                    { label: '速度', value: '210' },
+                    { label: '法伤', value: '402' },
+                    { label: '法防', value: '418' },
+                    { label: '忠诚', value: '100' },
+                ],
+                skills: [],
+                innerPills: [],
+            },
+            {
+                name: '黑熊',
+                level: 16,
+                joinLevel: 15,
+                quality: {
+                    attack: 860,
+                    defense: 1020,
+                    hp: 1860,
+                    mp: 940,
+                    speed: 780,
+                    dodge: 820,
+                },
+                life: 320,
+                growth: '1.062',
+                element: '水',
+                attrs: [
+                    { label: '气血', value: '640' },
+                    { label: '魔法', value: '380' },
+                    { label: '攻击', value: '486' },
+                    { label: '防御', value: '320' },
+                    { label: '速度', value: '152' },
+                    { label: '法伤', value: '210' },
+                    { label: '法防', value: '246' },
+                    { label: '忠诚', value: '88' },
+                ],
+                skills: ['连击'],
+                innerPills: [],
+            },
+        ],
+        petFoot: '携带 4 / 7',
     },
     {
         id: 'yun-zhong-he',
         name: '云中鹤',
         level: 109,
         school: '化生寺',
-        subs: ['清风阁', '今天 09:12'],
+        subs: ['陕西区 · 大雁塔', '帮派 大唐芙蓉园', '3 天前更新'],
         attrColumns: [
             [
                 {
-                    title: '基础',
+                    title: '资源',
                     rows: [
-                        { label: '气血', value: '5210', sub: '/5600' },
-                        { label: '法力', value: '1180', sub: '/1200' },
-                        { label: '活力', value: '1600', sub: '/1600' },
-                        { label: '体力', value: '980', sub: '/1200' },
-                        { label: '修炼点', value: '36', sub: '/100' },
+                        { label: '气血', value: '5600', strong: true },
+                        { label: '魔法', value: '1200' },
+                        { label: '愤怒', value: '150' },
+                        { label: '活力', value: '640' },
+                        { label: '体力', value: '720' },
                         { label: '经验', value: '786.4', sub: '万' },
                     ],
                 },
                 {
-                    title: '资质',
+                    title: '加点',
                     rows: [
-                        { label: '体质', value: '210', strong: true },
+                        { label: '体质', value: '210' },
                         { label: '魔力', value: '96' },
                         { label: '力量', value: '88' },
                         { label: '耐力', value: '246' },
@@ -388,220 +525,256 @@ export const CHARACTERS: CharacterMock[] = [
             ],
             [
                 {
-                    title: '修为',
+                    title: '战斗',
                     rows: [
                         { label: '命中', value: '468' },
                         { label: '伤害', value: '512' },
                         { label: '防御', value: '604', strong: true },
                         { label: '速度', value: '262' },
-                        { label: '灵力', value: '402' },
+                        { label: '法伤', value: '402' },
+                        { label: '法防', value: '588' },
                     ],
                 },
                 {
-                    title: '资产',
+                    title: '名望',
                     rows: [
                         { label: '人气', value: '512' },
                         { label: '帮贡', value: '980' },
-                        { label: '金币', value: '76.2', sub: '万' },
-                        { label: '存银', value: '40.5', sub: '万' },
+                        { label: '门贡', value: '64' },
                     ],
                 },
             ],
         ],
-        attrFoot: '括号内为上限',
+        attrFoot: '只记上限，不记当前值',
         skills: [
-            { name: '推气过宫', level: 130, tag: '已学' },
-            { name: '香飘飘', level: 130, tag: '已学' },
-            { name: '大慈大悲', level: 130, tag: '已学' },
-            { name: '渡世步', level: 130, tag: '已学' },
-            { name: '舍身取义', level: 130, tag: '已学' },
-            { name: '韦陀护法', level: 130, tag: '已学' },
-            { name: '佛法无边', level: 120, tag: '已学' },
+            { name: '推气过宫', level: 100 },
+            { name: '香飘飘', level: 100 },
+            { name: '大慈大悲', level: 100 },
+            { name: '渡世步', level: 95 },
+            { name: '舍身取义', level: 90 },
+            { name: '韦陀护法', level: 85 },
+            { name: '佛法无边', level: 80 },
         ],
-        skillFoot: '6 项 130，1 项在补',
+        skillFoot: '7 项，最高 100',
         assists: [
-            { name: '强身术', level: 140, tag: '已学' },
-            { name: '冥想', level: 140, tag: '已学' },
-            { name: '丹元济会', level: 120, tag: '已学' },
-            { name: '炼气化神', level: 60, tag: '已学' },
-            { name: '炼药', level: 0, tag: '未学', off: true },
-            { name: '烹饪技巧', level: 80, tag: '已学' },
-            { name: '裁缝技巧', level: 100, tag: '已学' },
+            { name: '强身术', level: 120 },
+            { name: '裁缝技巧', level: 100 },
+            { name: '冥想', level: 90 },
+            { name: '烹饪技巧', level: 80 },
+            { name: '炼金术', level: 70 },
+            { name: '中药医理', level: 60 },
         ],
-        assistFoot: '未学的也留一行，免得「少一条」被当成读漏',
+        assistFoot: '6 项，按等级排序',
         trainings: [
-            { name: '攻击修炼', value: 14, cap: 14 },
-            { name: '防御修炼', value: 14, cap: 14 },
-            { name: '法术修炼', value: 10, cap: 14 },
-            { name: '抗法修炼', value: 14, cap: 14 },
-            { name: '猎术修炼', value: 0, cap: 14 },
-            { name: '育兽修炼', value: 5, cap: 14 },
+            {
+                title: '角色自身修炼',
+                rows: [
+                    { name: '攻击修炼', level: 4, cap: 17 },
+                    { name: '防御修炼', level: 14, cap: 17 },
+                    { name: '法术修炼', level: 10, cap: 17 },
+                    { name: '抗法修炼', level: 14, cap: 17 },
+                    { name: '猎术修炼', level: 0, cap: 17 },
+                ],
+            },
+            {
+                title: '召唤兽控制修炼',
+                rows: [
+                    { name: '攻击控制力', level: 0, cap: 17 },
+                    { name: '防御控制力', level: 0, cap: 17 },
+                    { name: '法术控制力', level: 0, cap: 17 },
+                    { name: '抗法控制力', level: 0, cap: 17 },
+                    { name: '育兽术', level: 5, cap: 30 },
+                ],
+            },
         ],
-        trainingFoot: '3 项已满，3 项在练',
+        trainingFoot: '防御、抗法已满 17',
         gear: [
             {
-                slot: '头盔',
-                caption: '130·慈航普度',
+                slot: '头',
+                caption: '慈航冠',
                 detail: {
-                    name: '慈航普度',
-                    lv: '130 级',
+                    name: '慈航冠',
                     kind: '帽子',
-                    base: [
-                        ['防御', '78'],
-                        ['气血', '164'],
+                    requires: ['等级 110', '男'],
+                    stats: [
+                        { label: '防御', value: '+68' },
+                        { label: '魔法', value: '+120' },
                     ],
-                    gain: [['耐力', '+16']],
-                    lines: [['套装', '慈悲 3 / 5', 'ochre']],
-                    foot: '耐久 380 / 400 · 打造 云中鹤',
+                    cond: [
+                        { label: '耐久度', value: '380' },
+                        { label: '锻炼等级', value: '2' },
+                    ],
+                    lines: [{ label: '套装', value: '慈悲 3 / 5', tone: 'ochre' }],
                 },
             },
             {
                 slot: '项链',
-                caption: '130·琉璃光',
+                caption: '琉璃光',
                 detail: {
                     name: '琉璃光',
-                    lv: '130 级',
                     kind: '项链',
-                    base: [
-                        ['灵力', '42'],
-                        ['法术伤害', '28'],
+                    requires: ['等级 110', '男'],
+                    stats: [
+                        { label: '灵力', value: '+142' },
+                        { label: '法术伤害', value: '+28' },
                     ],
-                    gain: [['魔力', '+18']],
-                    lines: [],
-                    foot: '耐久 400 / 400 · 打造 云中鹤',
+                    cond: [{ label: '耐久度', value: '400' }],
                 },
             },
             {
                 slot: '武器',
-                caption: '130·禅杖',
+                caption: '降魔杵',
                 detail: {
-                    name: '禅杖',
-                    lv: '130 级',
+                    name: '降魔杵',
+                    flavor: '佛门法器，杵身缠着降魔真言。',
                     kind: '法杖 · 男',
-                    base: [
-                        ['命中', '176'],
-                        ['伤害', '268'],
+                    requires: ['等级 110', '五行 金'],
+                    stats: [
+                        { label: '伤害', value: '+318' },
+                        { label: '命中', value: '+420' },
+                        { label: '魔力', value: '+22', gain: true },
                     ],
-                    gain: [['魔力', '+22']],
-                    lines: [['特技', '慈航普度', 'seal']],
-                    foot: '耐久 400 / 400 · 打造 云中鹤',
+                    cond: [
+                        { label: '耐久度', value: '340' },
+                        { label: '锻炼等级', value: '2' },
+                    ],
+                    lines: [{ label: '特技', value: '慈航普度', tone: 'seal' }],
                 },
             },
             {
                 slot: '衣服',
-                caption: '130·袈裟',
+                caption: '袈裟',
                 detail: {
                     name: '袈裟',
-                    lv: '130 级',
                     kind: '男衣',
-                    base: [
-                        ['防御', '238'],
-                        ['气血', '360'],
+                    requires: ['等级 110', '男'],
+                    stats: [
+                        { label: '防御', value: '+238' },
+                        { label: '气血上限', value: '+360' },
+                        { label: '体质', value: '+18', gain: true },
                     ],
-                    gain: [['体质', '+18']],
-                    lines: [['套装', '慈悲 3 / 5', 'ochre']],
-                    foot: '耐久 360 / 400 · 打造 云中鹤',
+                    cond: [{ label: '耐久度', value: '360' }],
+                    lines: [{ label: '套装', value: '慈悲 3 / 5', tone: 'ochre' }],
                 },
             },
             {
                 slot: '腰带',
-                caption: '120·缠丝带',
+                caption: '缠丝带',
                 detail: {
                     name: '缠丝带',
-                    lv: '120 级',
                     kind: '腰带',
-                    base: [
-                        ['防御', '52'],
-                        ['速度', '28'],
+                    requires: ['等级 100'],
+                    stats: [
+                        { label: '防御', value: '+52' },
+                        { label: '速度', value: '+28' },
                     ],
-                    gain: [],
-                    lines: [],
-                    foot: '耐久 300 / 350 · 打造 云中鹤',
+                    cond: [{ label: '耐久度', value: '300' }],
                 },
             },
+            /* 这只号鞋子空着——正好验「空位是挖掉的格」这条。 */
             { slot: '鞋子' },
             {
                 slot: '戒指',
-                caption: '120·舍利戒',
+                caption: '舍利戒',
                 detail: {
                     name: '舍利戒',
-                    lv: '120 级',
-                    kind: '戒指',
-                    base: [
-                        ['命中', '52'],
-                        ['灵力', '20'],
+                    kind: '灵饰 · 戒指',
+                    requires: ['等级 100'],
+                    stats: [
+                        { label: '伤害', value: '+18' },
+                        { label: '治疗能力', value: '+6', extra: '+9', gain: true },
                     ],
-                    gain: [],
-                    lines: [],
-                    foot: '耐久 320 / 350 · 打造 云中鹤',
+                    cond: [
+                        { label: '耐久度', value: '320' },
+                        { label: '精炼等级', value: '2' },
+                    ],
                 },
             },
             {
-                slot: '戒指二',
-                caption: '120·菩提戒',
+                slot: '耳饰',
+                caption: '菩提坠',
                 detail: {
-                    name: '菩提戒',
-                    lv: '120 级',
-                    kind: '戒指',
-                    base: [
-                        ['命中', '48'],
-                        ['灵力', '18'],
-                    ],
-                    gain: [],
-                    lines: [],
-                    foot: '耐久 320 / 350 · 打造 云中鹤',
+                    name: '菩提坠',
+                    kind: '灵饰 · 耳饰',
+                    requires: ['等级 100'],
+                    stats: [{ label: '法术防御', value: '+24' }],
+                    cond: [{ label: '精炼等级', value: '1' }],
                 },
             },
+            { slot: '配饰' },
             {
                 slot: '手镯',
-                caption: '120·念珠',
+                caption: '念珠镯',
                 detail: {
-                    name: '念珠',
-                    lv: '120 级',
-                    kind: '手镯',
-                    base: [
-                        ['防御', '46'],
-                        ['气血', '150'],
-                    ],
-                    gain: [],
-                    lines: [],
-                    foot: '耐久 300 / 350 · 打造 云中鹤',
+                    name: '念珠镯',
+                    kind: '灵饰 · 手镯',
+                    requires: ['等级 100'],
+                    stats: [{ label: '抗封印命中等级', value: '+8' }],
+                    cond: [{ label: '精炼等级', value: '1' }],
                 },
             },
-            { slot: '手镯二' },
-            {
-                slot: '佩饰',
-                caption: '130·璎珞',
-                detail: {
-                    name: '璎珞',
-                    lv: '130 级',
-                    kind: '佩饰',
-                    base: [
-                        ['灵力', '30'],
-                        ['法术防御', '34'],
-                    ],
-                    gain: [],
-                    lines: [],
-                    foot: '耐久 360 / 400 · 打造 云中鹤',
-                },
-            },
-            {
-                slot: '法宝',
-                caption: '玉净瓶',
-                detail: {
-                    name: '玉净瓶',
-                    lv: '130 级',
-                    kind: '主动法宝 · 2 级',
-                    base: [
-                        ['气血', '240'],
-                        ['防御', '30'],
-                    ],
-                    gain: [],
-                    lines: [['特效', '佛光普照', 'seal']],
-                    foot: '灵气 400 / 400 · 不可交易',
-                },
-            },
+            { slot: '玉魄·阴' },
+            { slot: '玉魄·阳' },
         ],
         gearMeta: { special: '慈航普度', suit: '慈悲 3/5' },
+        pets: [
+            {
+                name: '小雷',
+                level: 96,
+                joinLevel: 55,
+                quality: {
+                    attack: 1240,
+                    defense: 1080,
+                    hp: 2680,
+                    mp: 2240,
+                    speed: 1180,
+                    dodge: 1090,
+                },
+                life: 148,
+                growth: '1.164',
+                element: '雷',
+                attrs: [
+                    { label: '气血', value: '1420' },
+                    { label: '魔法', value: '980' },
+                    { label: '攻击', value: '1680' },
+                    { label: '防御', value: '620' },
+                    { label: '速度', value: '252' },
+                    { label: '法伤', value: '640' },
+                    { label: '法防', value: '660' },
+                    { label: '忠诚', value: '94' },
+                ],
+                skills: ['连击', '必杀'],
+                innerPills: ['狂怒'],
+            },
+            {
+                name: '花妖',
+                level: 42,
+                joinLevel: 35,
+                quality: {
+                    attack: 960,
+                    defense: 880,
+                    hp: 2200,
+                    mp: 1800,
+                    speed: 1020,
+                    dodge: 980,
+                },
+                life: 280,
+                growth: '1.088',
+                element: '木',
+                attrs: [
+                    { label: '气血', value: '880' },
+                    { label: '魔法', value: '540' },
+                    { label: '攻击', value: '720' },
+                    { label: '防御', value: '380' },
+                    { label: '速度', value: '196' },
+                    { label: '法伤', value: '340' },
+                    { label: '法防', value: '326' },
+                    { label: '忠诚', value: '82' },
+                ],
+                skills: ['吸血'],
+                innerPills: [],
+            },
+        ],
+        petFoot: '携带 2 / 7',
     },
 ];

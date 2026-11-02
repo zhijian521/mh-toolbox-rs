@@ -1,0 +1,415 @@
+{
+    "generated-by": "tools/game-icons/slice.py",
+    "groups": {
+        "skill": [
+            {
+                "id": "skill-01",
+                "name": "强身术"
+            },
+            {
+                "id": "skill-02",
+                "name": "暗器技巧"
+            },
+            {
+                "id": "skill-03",
+                "name": "打造技巧"
+            },
+            {
+                "id": "skill-04",
+                "name": "裁缝技巧"
+            },
+            {
+                "id": "skill-05",
+                "name": "逃离技巧"
+            },
+            {
+                "id": "skill-06",
+                "name": "炼金术"
+            },
+            {
+                "id": "skill-07",
+                "name": "冥想"
+            },
+            {
+                "id": "skill-08",
+                "name": "中药医理"
+            },
+            {
+                "id": "skill-09",
+                "name": "烹饪技巧"
+            },
+            {
+                "id": "skill-10",
+                "name": "追捕技巧"
+            },
+            {
+                "id": "skill-11",
+                "name": "养生之道"
+            },
+            {
+                "id": "skill-12",
+                "name": "健身术"
+            },
+            {
+                "id": "skill-13",
+                "name": "巧匠之术"
+            },
+            {
+                "id": "skill-14",
+                "name": "熔炼技巧"
+            },
+            {
+                "id": "skill-15",
+                "name": "灵石技巧"
+            },
+            {
+                "id": "skill-16",
+                "name": "强壮"
+            },
+            {
+                "id": "skill-17",
+                "name": "淬灵之术"
+            },
+            {
+                "id": "skill-18",
+                "name": "神速"
+            },
+            {
+                "id": "skill-19",
+                "name": "风之感应"
+            },
+            {
+                "id": "skill-20",
+                "name": "雨之感应"
+            },
+            {
+                "id": "skill-21",
+                "name": "雪之感应"
+            }
+        ],
+        "story": [
+            {
+                "id": "story-01",
+                "name": "调息"
+            },
+            {
+                "id": "story-02",
+                "name": "打坐"
+            },
+            {
+                "id": "story-03",
+                "name": "丹元济会"
+            },
+            {
+                "id": "story-04",
+                "name": "妙手空空"
+            },
+            {
+                "id": "story-05",
+                "name": "宝石工艺"
+            },
+            {
+                "id": "story-06",
+                "name": "奇门遁甲"
+            },
+            {
+                "id": "story-07",
+                "name": "古董评估"
+            },
+            {
+                "id": "story-08",
+                "name": "仙灵店铺"
+            },
+            {
+                "id": "story-09",
+                "name": "建筑之术"
+            },
+            {
+                "id": "story-10",
+                "name": "变化之术"
+            },
+            {
+                "id": "story-11",
+                "name": "火眼金睛"
+            }
+        ],
+        "active": [
+            {
+                "id": "active-01",
+                "name": "气疗术"
+            },
+            {
+                "id": "active-02",
+                "name": "心疗术"
+            },
+            {
+                "id": "active-03",
+                "name": "命疗术"
+            },
+            {
+                "id": "active-04",
+                "name": "凝气诀"
+            },
+            {
+                "id": "active-05",
+                "name": "凝神诀"
+            },
+            {
+                "id": "active-06",
+                "name": "气归术"
+            },
+            {
+                "id": "active-07",
+                "name": "命归术"
+            },
+            {
+                "id": "active-08",
+                "name": "四海升平"
+            },
+            {
+                "id": "active-09",
+                "name": "回魂咒"
+            },
+            {
+                "id": "active-10",
+                "name": "起死回生"
+            },
+            {
+                "id": "active-11",
+                "name": "水清诀"
+            },
+            {
+                "id": "active-12",
+                "name": "冰清诀"
+            },
+            {
+                "id": "active-13",
+                "name": "玉清诀"
+            },
+            {
+                "id": "active-14",
+                "name": "晶清诀"
+            },
+            {
+                "id": "active-15",
+                "name": "诅咒之伤"
+            },
+            {
+                "id": "active-16",
+                "name": "诅咒之亡"
+            },
+            {
+                "id": "active-17",
+                "name": "笑里藏刀"
+            },
+            {
+                "id": "active-18",
+                "name": "绝幻魔音"
+            },
+            {
+                "id": "active-19",
+                "name": "野兽之力"
+            },
+            {
+                "id": "active-20",
+                "name": "魔兽之印"
+            },
+            {
+                "id": "active-21",
+                "name": "光辉之甲"
+            },
+            {
+                "id": "active-22",
+                "name": "圣灵之甲"
+            },
+            {
+                "id": "active-23",
+                "name": "流云诀"
+            },
+            {
+                "id": "active-24",
+                "name": "啸风诀"
+            },
+            {
+                "id": "active-25",
+                "name": "太极护法"
+            },
+            {
+                "id": "active-26",
+                "name": "罗汉金钟"
+            },
+            {
+                "id": "active-27",
+                "name": "修罗咒"
+            },
+            {
+                "id": "active-28",
+                "name": "天衣无缝"
+            },
+            {
+                "id": "active-29",
+                "name": "放下屠刀"
+            },
+            {
+                "id": "active-30",
+                "name": "河东狮吼"
+            },
+            {
+                "id": "active-31",
+                "name": "破甲术"
+            },
+            {
+                "id": "active-32",
+                "name": "碎甲术"
+            },
+            {
+                "id": "active-33",
+                "name": "凝滞术"
+            },
+            {
+                "id": "active-34",
+                "name": "停陷术"
+            },
+            {
+                "id": "active-35",
+                "name": "破血狂攻"
+            },
+            {
+                "id": "active-36",
+                "name": "弱点击破"
+            },
+            {
+                "id": "active-37",
+                "name": "吸血"
+            },
+            {
+                "id": "active-38",
+                "name": "残月"
+            },
+            {
+                "id": "active-39",
+                "name": "冥王暴杀"
+            },
+            {
+                "id": "active-40",
+                "name": "乾坤斩"
+            },
+            {
+                "id": "active-41",
+                "name": "破碎无双"
+            },
+            {
+                "id": "active-42",
+                "name": "帝释无双"
+            },
+            {
+                "id": "active-43",
+                "name": "伽罗无双"
+            },
+            {
+                "id": "active-44",
+                "name": "虚空之刃"
+            },
+            {
+                "id": "active-45",
+                "name": "亡灵之刃"
+            },
+            {
+                "id": "active-46",
+                "name": "死亡之音"
+            },
+            {
+                "id": "active-47",
+                "name": "身似菩提"
+            },
+            {
+                "id": "active-48",
+                "name": "心如明镜"
+            },
+            {
+                "id": "active-49",
+                "name": "慈航普度"
+            },
+            {
+                "id": "active-50",
+                "name": "移形换影"
+            },
+            {
+                "id": "active-51",
+                "name": "凝心诀"
+            },
+            {
+                "id": "active-52",
+                "name": "聚精会神"
+            },
+            {
+                "id": "active-53",
+                "name": "先发制人"
+            },
+            {
+                "id": "active-54",
+                "name": "燃烧之光"
+            },
+            {
+                "id": "active-55",
+                "name": "毁灭之光"
+            },
+            {
+                "id": "active-56",
+                "name": "金刚不坏"
+            },
+            {
+                "id": "active-57",
+                "name": "菩提心佑"
+            },
+            {
+                "id": "active-58",
+                "name": "金刚怒目"
+            },
+            {
+                "id": "active-59",
+                "name": "琴音三叠"
+            },
+            {
+                "id": "active-60",
+                "name": "乾坤挪移"
+            },
+            {
+                "id": "active-61",
+                "name": "疾风荡魄"
+            },
+            {
+                "id": "active-62",
+                "name": "玄鸟之灵"
+            },
+            {
+                "id": "active-63",
+                "name": "神鸟之印"
+            },
+            {
+                "id": "active-64",
+                "name": "伯牙绝弦"
+            },
+            {
+                "id": "active-65",
+                "name": "焚琴煮鹤"
+            },
+            {
+                "id": "active-66",
+                "name": "攻心术"
+            },
+            {
+                "id": "active-67",
+                "name": "惊心术"
+            },
+            {
+                "id": "active-68",
+                "name": "妙法之护"
+            },
+            {
+                "id": "active-69",
+                "name": "神机之护"
+            }
+        ]
+    }
+}

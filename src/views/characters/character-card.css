@@ -68,20 +68,10 @@
 .school {
     color: var(--ochre);
 }
-.more {
-    flex: none;
-    width: 22px;
-    height: 22px;
-    margin-left: auto;
-    border: 0;
-    background: none;
-    color: var(--muted);
-    font-size: var(--fs-sm);
-    line-height: 1;
-}
-.more:hover {
-    color: var(--cinnabar);
-}
+/* 头部右侧原有一枚「⋯」（`aria-label="更多操作"`），点下去没有任何反应——
+ * 台账里没有对应菜单，它只是一个看起来能点的装饰。2026-11-02 删掉：
+ * **点了没反应的控件比没有这个控件更糟**，用户会以为自己点错了。
+ * 真要加「更多操作」时，按钮和菜单一起加，别只加按钮。 */
 /* 颜色与字号来自全局 `.meta`；这里只剩排布（三点分隔）与它离上面那行的距离。 */
 .char-sub {
     display: flex;
@@ -103,7 +93,11 @@
     position: relative;
     z-index: 1;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    /* 列数跟着 `PANES` 走：等分 + 按序铺列，加减一个页签不用回来改这一行。
+     * 六个页签各 56px（336 / 6），最长的「召唤兽」三个字约 43px（1.1 字号档 46），
+     * 放得下但不宽松——56px 是余量底线，第七个页签就得改文案了。 */
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
     flex: none;
     margin: 0 12px;
 }
@@ -122,7 +116,7 @@
     min-height: 0;
     padding: 10px 14px 12px;
     overflow: auto;
-    /* 滚动条始终占位：五个分区的宽度必须一致，否则切页签时整列文字会左右跳。 */
+    /* 滚动条始终占位：六个分区的宽度必须一致，否则切页签时整列文字会左右跳。 */
     scrollbar-gutter: stable;
 }
 
@@ -187,11 +181,12 @@
     min-width: 0;
     color: var(--ink-2);
 }
-/* 点线：把「名目」与「数值」连起来的那串点。属性行与技能行原先各写一份，
+/* 点线：把「名目」与「数值」连起来的那串点。属性行、技能行、召唤兽行原先各写一份，
  * 浓度还抄漂了——62% 与 55%，同一件事两种深浅。合并成一段，取 62%（属性行是主用法，
- * 技能行的行距也撑得住）。 */
+ * 另两行的行距也撑得住）。 */
 .ledger .leader,
-.skill-row .leader {
+.skill-row .leader,
+.pet-row .leader {
     flex: 1;
     min-width: 8px;
     height: 0;
@@ -237,9 +232,17 @@
 .skill-row .lv.max {
     color: var(--cinnabar);
 }
-/* 技能签的框是全局 `.chip`；这里只留「别被行内文字挤压」这一件事。 */
+/* 技能签的框是全局 `.chip`；这里只留两件事：别被行内文字挤压、满级要跳出来。 */
 .skill-row .tag {
     flex: none;
+}
+/* 只有知道上限（`cap`）时才挂这个签，所以「满」一定可信。
+ * 现在演示数据里一个 `cap` 都没填：截图里「周易学 120」是朱色而「修仙术 120」是白色，
+ * 说明朱色不是满级标记，上限规则（130 级人物最高 120 还是 130）还没确认。
+ * 宁可少一个提示，也不猜一个错的。 */
+.skill-row .tag.on {
+    border-color: var(--seal-edge);
+    color: var(--cinnabar);
 }
 .skill-row.off .name,
 .skill-row.off .lv {
@@ -249,11 +252,19 @@
 /* ======================================================================
  * 修炼
  * ==================================================================== */
+/* 游戏里修炼分两组（角色自身 / 召唤兽控制），组是它自己划的，照抄。
+ * 两组共 10 行，原来那套 `flex: 1 + align-content: space-between` 的摊开法
+ * 在这里会把行距拉到 30px 以上，一页读成两张不相干的表。改成定值行距 + 组间留白。 */
+.training-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
 .training-list {
     display: grid;
-    flex: 1;
-    align-content: space-between;
-    gap: 20px;
+    /* 十行都在一页里，7px 时行与行粘成一片，组标题也顶在上一组末行上；
+     * 11px 能在 365px 里放下（实测 310），读起来才是一行一项而不是一段文字。 */
+    gap: 11px;
 }
 .training-row {
     display: grid;
@@ -270,7 +281,13 @@
     height: 4px;
     border-radius: 2px;
     background-color: var(--well);
-    box-shadow: inset 0 1px 2px var(--bevel-lo);
+    /* 槽要有边界：`--well` 在暗色只比 `--paper` 暗一档（#171409 对 #1c1912），
+     * 4px 高的条在深底上等于一条隐形线，5/20 与 11/20 只能靠条端的位置猜。
+     * 不套全局 `.well`——那套带渐变和 1px 边框，压到 4px 高会读成一枚胶囊；
+     * 只借它的描边一层，浓度降到 45%。 */
+    box-shadow:
+        inset 0 1px 2px var(--bevel-lo),
+        0 0 0 1px color-mix(in srgb, var(--rule-2) 45%, transparent);
 }
 /* 用 `--moss` 而不是蓝：这套语言的辅助色只有赭与苔，绿条 + 朱色数字正好分开
  * 「在练」与「已满」两种状态。
@@ -292,6 +309,11 @@
 }
 .training-row.done .lv {
     color: var(--cinnabar);
+}
+/* 0 级的那几项整行淡下去：它们不是「数据」，是「还没开始」。
+ * 十行里有六行是 0，不淡下来会让人以为这一页练了很多。 */
+.training-row.idle .name {
+    color: var(--muted);
 }
 
 /* ======================================================================
@@ -392,4 +414,64 @@
 .gear-meta .push {
     margin-left: auto;
     color: var(--muted);
+}
+
+/* ======================================================================
+ * 召唤兽
+ * ==================================================================== */
+/* 纵向列表而不是网格：一只兽要回答的东西（六项资质 + 成长 + 五行 + 寿命）
+ * 是一件装备的两倍，塞进 100px 宽的格子里只写得下名字。
+ * 一屏能看四五只，正好对得上「携带 4 / 7」这个量级。 */
+.pet-list {
+    display: grid;
+}
+.pet-row {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    padding: 9px 0;
+    border: 0;
+    border-bottom: var(--w-hair) solid var(--rule);
+    background: none;
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: var(--fs-sm);
+    text-align: left;
+    cursor: pointer;
+}
+/* 悬停时名字转朱，与装备格的「部位转朱」同一条手势：这一行可以看详情。
+ * 两侧都不加底色——底色会把那串点线截断。 */
+.pet-row:hover .pet-name {
+    color: var(--cinnabar);
+}
+.pet-row:focus-visible {
+    outline: var(--ring);
+    outline-offset: var(--ring-offset);
+}
+.pet-name {
+    color: var(--ink);
+    transition: color var(--t-quick) var(--ease-soft);
+}
+.pet-row .lv {
+    color: var(--ink-2);
+}
+/* 参战等级的框是全局 `.chip`；这里只留「别被长名字挤没」。 */
+.pet-join {
+    flex: none;
+}
+/* 一只都没有时：不留一片空白，也不画一行空槽——说清「还没有记录」。
+ * 与 `.char-blank` 同一条：空态不能装成「正在加载」，也不能装成「坏了」。 */
+.empty-note {
+    margin: 0;
+    padding: 26px 0;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    text-align: center;
+}
+/* 行数少（这个号 4 只）时列表撑不满卡高。让合计**紧跟列表**，不跟着
+ * `margin-top: auto` 落到卡底——那样列表与合计之间会隔出一百多像素，
+ * 读起来像「还有内容没加载出来」。空白留在合计下面，与装备页
+ * 「格子排完、底下留白」是同一种读法。 */
+.pane-pets .foot {
+    margin-top: 10px;
 }
