@@ -201,8 +201,7 @@ const expText = computed(() => {
                                 <!-- 空值画一个淡「—」，不画一片空白：一行里只有引导线和
                                      一个空档时，「没填」读起来像「值恰好很短」。 -->
                                 <dd class="num" :class="{ strong: row.strong, blank: !row.value }">
-                                    {{ row.value || '—'
-                                    }}<span v-if="row.sub" class="sub">{{ row.sub }}</span>
+                                    {{ row.value || '—' }}
                                 </dd>
                             </div>
                         </dl>

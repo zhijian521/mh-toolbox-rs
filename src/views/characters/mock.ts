@@ -27,9 +27,8 @@ export const CHARACTERS: CharacterData[] = [
         level: 130,
         school: '五庄观',
         subs: ['陕西区 · 大雁塔', '帮派 大唐芙蓉园', '今天 14:48'],
-        /* 两列四组。组名是**我们**的（游戏里不分组，就是一张两列的表）：
-         * 资源 / 加点 / 战斗 / 名望——账面要能分类，否则 21 行数下来找不到重点。 */
         /* 四组，**顺序即网格顺序**（两行两列，行优先）：资源 / 名望、战斗 / 加点。
+         * 组名与行由 `ATTR_GROUPS` 定死（用户 2026-11-02），这里只填数值。
          * 经验不在这里——它单独一行带进度条（见 `experience`）。 */
         attrGroups: [
             {
@@ -37,7 +36,6 @@ export const CHARACTERS: CharacterData[] = [
                 rows: [
                     { label: '气血', value: '3916', strong: true },
                     { label: '魔法', value: '1440' },
-                    { label: '愤怒', value: '150' },
                     { label: '活力', value: '860' },
                     { label: '体力', value: '900' },
                 ],
@@ -69,7 +67,6 @@ export const CHARACTERS: CharacterData[] = [
                     { label: '力量', value: '721' },
                     { label: '耐力', value: '153' },
                     { label: '敏捷', value: '332' },
-                    { label: '潜力', value: '0' },
                 ],
             },
         ],
@@ -510,7 +507,6 @@ export const CHARACTERS: CharacterData[] = [
                 rows: [
                     { label: '气血', value: '5600', strong: true },
                     { label: '魔法', value: '1200' },
-                    { label: '愤怒', value: '150' },
                     { label: '活力', value: '640' },
                     { label: '体力', value: '720' },
                 ],
@@ -542,7 +538,6 @@ export const CHARACTERS: CharacterData[] = [
                     { label: '力量', value: '88' },
                     { label: '耐力', value: '246' },
                     { label: '敏捷', value: '132' },
-                    { label: '潜力', value: '0' },
                 ],
             },
         ],

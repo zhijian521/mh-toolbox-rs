@@ -21,9 +21,11 @@
  */
 import { ref } from 'vue';
 import {
+    ATTR_GROUPS,
     GEAR_SLOTS,
     type AssistSkill,
     type AttrGroup,
+    type AttrRow,
     type CharacterData,
     type GearDetail,
     type GearSlot,
@@ -60,7 +62,7 @@ const optionalInt = (value: unknown): number | undefined =>
 
 const rows = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
-/** 可选的字符串字段：空串一律还原成 `undefined`，否则 `v-if="row.sub"` 仍会画一个空 span。 */
+/** 可选的字符串字段：空串一律还原成 `undefined`，否则 `v-if="row.extra"` 仍会画一个空 span。 */
 const optionalText = (value: unknown): string | undefined =>
     typeof value === 'string' && value ? value : undefined;
 
@@ -71,25 +73,12 @@ const asTone = (value: unknown): GearTone | undefined => GEAR_TONES.find((tone) 
  * 空白角色的骨架
  * ==================================================================== */
 
-/**
- * 属性四组的**默认项**：这一块是游戏面板里固定的几行，不是「用户想记什么就记什么」。
- * 先铺好标签、数值留空，录入时只填数字——省掉「照着游戏面板抄一遍标签」这件事，
- * 也顺手保证了两个号的行序一致（属性面板左右对照时能对齐）。
- *
- * 顺序 = 网格顺序（两行两列，行优先）：资源 / 名望、战斗 / 加点。
- * 经验不在这里，它是单独一行（`experience`）。
- */
+/** 属性四组的空骨架：组名、行、顺序全来自 `ATTR_GROUPS`，这里只负责「数值留空」。 */
 function blankAttrGroups(): AttrGroup[] {
-    const group = (title: string, labels: string[]): AttrGroup => ({
-        title,
-        rows: labels.map((label) => ({ label, value: '' })),
-    });
-    return [
-        group('资源', ['气血', '魔法', '愤怒', '活力', '体力']),
-        group('名望', ['人气', '帮贡', '门贡']),
-        group('战斗', ['命中', '伤害', '防御', '速度', '法伤', '法防']),
-        group('加点', ['体质', '魔力', '力量', '耐力', '敏捷', '潜力']),
-    ];
+    return ATTR_GROUPS.map((group) => ({
+        title: group.title,
+        rows: group.labels.map((label) => ({ label, value: '' })),
+    }));
 }
 
 /** 修炼两组十项，上限照游戏：育兽术 35，其余 20。 */
@@ -198,7 +187,6 @@ function normalizeAttrGroup(raw: unknown): AttrGroup {
                 {
                     label,
                     value: text(row.value),
-                    sub: optionalText(row.sub),
                     strong: row.strong === true ? true : undefined,
                 },
             ];
@@ -206,27 +194,32 @@ function normalizeAttrGroup(raw: unknown): AttrGroup {
     };
 }
 
-/** 四组的固定顺序。归位而不是照抄，是因为版式按名字定位：上排资源 / 名望、
- * 下排战斗 / 加点。顺序错了整张表就挪位，而「哪一组叫什么」是稳定的事实。 */
-const ATTR_ORDER = ['资源', '名望', '战斗', '加点'];
-
-function orderAttrGroups(groups: AttrGroup[]): AttrGroup[] {
-    const known = ATTR_ORDER.flatMap((title) => groups.filter((group) => group.title === title));
-    // 认不出的组（将来加第五组）排在后面，不丢——宁可多一行，也不要吞掉用户的数据。
-    const rest = groups.filter((group) => !ATTR_ORDER.includes(group.title));
-    return [...known, ...rest];
-}
-
 /**
- * 属性四组。兼容上一版的**两列结构**（`[[组, 组], [组, 组]]`）：
- * 老数据在 `attrColumns` 里，新的是平铺的 `attrGroups`。展开成一维再按固定顺序归位，
- * 用户之前录过的号不会因为改了版式而变成一张空表。
+ * 属性四组：**按固定清单重建**，只从存下来的数据里取数值。
+ *
+ * 一次拿到三件事：清单外的行丢掉（`愤怒`、`潜力`，以及手工加过的）、缺的行补空
+ * （旧数据里没有的项）、顺序恒定（由 `ATTR_GROUPS` 定，不由数据里的顺序定）。
+ * 三件事其实是同一件——用户要的是「这张表固定」，那么**结构就不该由数据决定**。
+ *
+ * 兼容上一版的**两列结构**（`[[组, 组], [组, 组]]`）：老数据在 `attrColumns` 里，
+ * 展开成一维后按标签查。已经录过的号改版之后数值还在，只是行按新清单排。
  */
 function normalizeAttrGroups(source: Record<string, unknown>): AttrGroup[] {
     const legacy = rows(source.attrColumns).flat();
     const flat = rows(source.attrGroups).length ? rows(source.attrGroups) : legacy;
-    const groups = flat.map(normalizeAttrGroup).filter((group) => group.title || group.rows.length);
-    return groups.length ? orderAttrGroups(groups) : blankAttrGroups();
+
+    const saved = new Map<string, AttrRow>();
+    for (const item of flat) {
+        for (const row of normalizeAttrGroup(item).rows) {
+            // 同名重复时取第一条：清单里每个标签只出现一次，重复说明这份数据被改过。
+            if (!saved.has(row.label)) saved.set(row.label, row);
+        }
+    }
+
+    return ATTR_GROUPS.map((group) => ({
+        title: group.title,
+        rows: group.labels.map((label) => saved.get(label) ?? { label, value: '' }),
+    }));
 }
 
 function normalizeGearStat(raw: unknown): GearStat | null {

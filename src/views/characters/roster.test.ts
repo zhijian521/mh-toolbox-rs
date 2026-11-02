@@ -139,8 +139,18 @@ describe('技能与修炼', () => {
     });
 });
 
-describe('属性四组归位', () => {
-    it('顺序乱的四组按「资源 / 名望 / 战斗 / 加点」排回来', () => {
+describe('属性四组按固定清单重建', () => {
+    /** 按「组名 + 标签」取值——不能按下标，因为下标由清单定，不由数据定。 */
+    const valueOf = (
+        character: ReturnType<typeof normalizeCharacter>,
+        title: string,
+        label: string,
+    ) =>
+        character.attrGroups
+            .find((group) => group.title === title)!
+            .rows.find((row) => row.label === label)!.value;
+
+    it('顺序乱的四组按清单排回来，值跟着标签走', () => {
         const character = normalizeCharacter({
             attrGroups: [
                 { title: '加点', rows: [{ label: '体质', value: '1' }] },
@@ -155,10 +165,43 @@ describe('属性四组归位', () => {
             '战斗',
             '加点',
         ]);
+        expect(valueOf(character, '资源', '气血')).toBe('4');
+        expect(valueOf(character, '战斗', '命中')).toBe('2');
+    });
+
+    it('清单外的行丢掉，清单里的行缺了就补空', () => {
+        /* 用户 2026-11-02 把属性表定死：资源去掉「愤怒」、加点去掉「潜力」。
+         * 老数据里这两行还在，重建时丢掉；清单里有而数据里没有的，补一个空值行。 */
+        const character = normalizeCharacter({
+            attrGroups: [
+                {
+                    title: '资源',
+                    rows: [
+                        { label: '气血', value: '3916' },
+                        { label: '愤怒', value: '150' },
+                        { label: '魔法', value: '1440' },
+                    ],
+                },
+                { title: '加点', rows: [{ label: '潜力', value: '0' }] },
+            ],
+        });
+        const resource = character.attrGroups.find((group) => group.title === '资源')!;
+        expect(resource.rows.map((row) => row.label)).toEqual(['气血', '魔法', '活力', '体力']);
+        expect(resource.rows[3].value).toBe('');
+        // 「潜力」整行不见，但「加点」这一组还在，只是全空。
+        const points = character.attrGroups.find((group) => group.title === '加点')!;
+        expect(points.rows.map((row) => row.label)).toEqual([
+            '体质',
+            '魔力',
+            '力量',
+            '耐力',
+            '敏捷',
+        ]);
+        expect(points.rows.every((row) => row.value === '')).toBe(true);
     });
 
     it('上一版的两列结构（[[组,组],[组,组]]）还能读回来', () => {
-        /* 用户可能已经在 localStorage 里存过两列结构。展开成一维再归位，
+        /* 用户可能已经在 localStorage 里存过两列结构。展开成一维再按标签取值，
          * 改版式不该让已录的号变成一张空表。 */
         const character = normalizeCharacter({
             attrColumns: [
@@ -178,9 +221,10 @@ describe('属性四组归位', () => {
             '战斗',
             '加点',
         ]);
-        // 值也要跟着走，不能只搬标题。
-        expect(character.attrGroups[0].rows[0].value).toBe('3916');
-        expect(character.attrGroups[2].rows[0].value).toBe('1591');
+        // 值跟着标签走：战斗组第一行是「命中」，但「伤害」的 1591 仍在它自己那一行。
+        expect(valueOf(character, '资源', '气血')).toBe('3916');
+        expect(valueOf(character, '战斗', '伤害')).toBe('1591');
+        expect(valueOf(character, '加点', '体质')).toBe('229');
     });
 });
 

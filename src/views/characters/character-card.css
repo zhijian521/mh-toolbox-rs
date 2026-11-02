@@ -185,27 +185,32 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: 1px;
+    margin-bottom: 2px;
     color: var(--muted);
-    font-size: var(--fs-mini);
+    /* 组标题从 `--fs-mini` 提到 `--fs-xs`（10 → 11，2026-11-02 用户要求）：
+     * 这一档本来是「元信息」，而「资源 / 名望 / 战斗 / 加点」是**这一页的分栏名**，
+     * 与属性值只差 1px 时读不出层级。别提到 `--fs-sm`——那是属性值的字号，
+     * 一样大就又平了。 */
+    font-size: var(--fs-xs);
     letter-spacing: 0.14em;
 }
+/* 竖条跟着字一起长（3 × 11 → 4 × 13）：字号调了而条不动，条会显得是「一个标点」。 */
 .group-head .section-mark {
-    --mark-w: 3px;
-    --mark-h: 11px;
+    --mark-w: 4px;
+    --mark-h: 13px;
 }
 .ledger {
     display: grid;
 }
-/* 行距 4（不是 3）：卡宽从 360 长到 450 之后，行横向变宽、纵向不变，
- * 21 行读起来是「一叠扁条」。加 1px 上下留白，行高从 16.7 到 18.7——
- * 属性页正好把这 540 高的卡填满，注脚之前不再空出一截。 */
+/* 行距 5：属性表在 2026-11-02 定死为 18 行（资源 4、名望 3、战斗 6、加点 5），
+ * 比原先的 20 行少两行。同样的卡高下，行距 4 会在经验条与注脚之间空出一截；
+ * 5 正好把这段填回去（18 × 2px = 36px），也让 18 行不至于读成「一叠扁条」。 */
 .ledger > div {
     display: flex;
     align-items: baseline;
     gap: 5px;
     min-width: 0;
-    padding: 4px 0;
+    padding: 5px 0;
     font-size: var(--fs-sm);
 }
 /* 点线放在 dt 内部而不是 dt 与 dd 之间：`<dl><div><dt/><span/><dd/></div></dl>`
@@ -235,10 +240,6 @@
     flex: none;
     margin: 0;
     color: var(--ink);
-}
-.ledger dd .sub {
-    color: var(--muted);
-    font-size: var(--fs-mini);
 }
 .ledger dd.strong {
     color: var(--cinnabar);
