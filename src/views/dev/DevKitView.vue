@@ -27,20 +27,16 @@ import TypeScaleSection from './TypeScaleSection.vue';
         <div class="stack">
             <LedgerSection title="入口与约定" hint="左栏里没有这一页">
                 <p class="note">
-                    <b>怎么进来</b>：三连击左栏顶部的标（那枚朱印「梦」）。浏览器预览时地址栏补
-                    <code>#/dev</code> 也行——桌面窗口里没有地址栏，所以三连击是唯一入口。
-                    导航槽里不放这一项：那八格是用户真会点的页面，不该混进开发者清单。
+                    <b>怎么进来</b>：三连击左栏顶部的标（朱印「梦」）；浏览器预览可补
+                    <code>#/dev</code>。导航槽里不放这一项。
                 </p>
                 <p class="note">
-                    <b>边界</b>：设置页只留「外观」与「关于」两件用户要动的东西；
-                    组件演示、令牌清单、图标目录全在这一页。给用户看的和给做界面的人看的，
-                    不放在同一屏里互相解释。
+                    <b>边界</b>：设置页只留用户要动的「外观」与「关于」；组件演示、色板、
+                    字号、图标全在这一页。
                 </p>
                 <p class="note">
-                    <b>两条机制</b>：主题只改根元素上的 <code>color-scheme</code>，
-                    颜色令牌不需要第二份，全部走 <code>light-dark()</code>；字号只改
-                    <code>--fs-scale</code> 一个变量（0.92 / 1 / 1.1），每一档字号都是
-                    <code>calc(Npx * var(--fs-scale))</code>。
+                    <b>两条机制</b>：主题只改根元素的 <code>color-scheme</code>，颜色全走
+                    <code>light-dark()</code>；字号只改 <code>--fs-scale</code>（0.92 / 1 / 1.1）。
                 </p>
             </LedgerSection>
 

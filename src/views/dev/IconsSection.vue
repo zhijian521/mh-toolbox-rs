@@ -31,15 +31,9 @@ import { ICON_GROUPS, ICON_LABELS } from '../../components/icons';
         </div>
 
         <p class="note">
-            图标来自成套库（tabler），我们只维护「业务名 → 图标」的映射。早先那套是手画的 16 格
-            path，问题不在能不能画对，而在一致性——28 个图标一次画完，圆角、边长比例、留白各走各的，
-            放大看就参差，加一个新图标还得重新对齐一次。
-        </p>
-        <p class="note">
-            尺寸只有一个入口：<code>--icon-size</code>，默认
-            <code>calc(14px * var(--fs-scale))</code>，调大字号图标一起长。按钮里是 13（紧凑档
-            12）、清单里放大到 18 只为看清形状、标题栏三个窗口键 13——都是父级改同一个变量，
-            组件不认「这是哪个位置的图标」。
+            图标来自 tabler 成套库，只维护「业务名 → 图标」的映射。尺寸只有一个入口
+            <code>--icon-size</code>（默认 <code>calc(14px * var(--fs-scale))</code>），
+            由父级改，组件不认自己在哪个位置；清单里放大到 18 只为看清形状。
         </p>
     </LedgerSection>
 </template>

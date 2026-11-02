@@ -64,9 +64,8 @@ onMounted(() => {
             </div>
         </div>
         <p v-if="swatches.length" class="note">
-            这 {{ swatches.length }} 枚是从 <code>tokens.css</code> 运行时读出来的，不是手写的清单——
-            新增令牌会自动出现在这里。半透明的（受光 / 背光 / 投影 /
-            遮罩）显示的是它叠在纸上的样子。
+            {{ swatches.length }} 枚，运行时从 <code>tokens.css</code> 读出，新增令牌自动出现。
+            半透明的显示它叠在纸上的样子。
         </p>
     </LedgerSection>
 </template>

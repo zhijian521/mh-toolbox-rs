@@ -35,8 +35,8 @@ const autoSave = ref(false);
                     <SegmentedPills v-model="mode" :options="THEME_OPTIONS" label="主题" />
                 </div>
                 <p class="note">
-                    一组里选一个。选项文案与值的类型由调用方给（泛型 T），单格质感是全站的
-                    <code>.bevel-pill</code>，它自己不重复写；整组只占一个 Tab 停靠点，左右键切换。
+                    一组选一个，整组只占一个 Tab 停靠点。单格质感用全局
+                    <code>.bevel-pill</code>，组件内不另写。
                 </p>
             </div>
 
@@ -45,10 +45,7 @@ const autoSave = ref(false);
                 <div class="kit-row">
                     <FontSizeSlider v-model="scale" />
                 </div>
-                <p class="note">
-                    三个落点，不是连续值——所以滑块要「啪」地掉到格上（240ms 回弹），
-                    而不是三格各自变亮。凹轨道由它自己带。
-                </p>
+                <p class="note">三档，不是连续值；滑块 240ms 回弹落格。凹轨道自带。</p>
             </div>
 
             <div class="kit-cell">
@@ -60,23 +57,27 @@ const autoSave = ref(false);
                     <SlotButton label="停用" icon="trash" disabled />
                 </div>
                 <!-- 变体与尺寸各占一行：`seal` 是「印在不在」，`size` 是「槽多大」，
-                     混在同一行会让人以为它们是同一种分类。 -->
+                     混在同一行会让人以为它们是同一种分类。
+                     主操作那行给 md / lg 两枚、都用两字文案「开始」，是为了在**一行内**
+                     看出尺寸差；业务页里仍然一屏只该有一枚。 -->
                 <div class="kit-row">
-                    <SlotButton label="主操作（印已落定）" icon="play" text="开始识别" seal />
+                    <SlotButton label="主操作 · 默认 26px" icon="play" text="开始" seal />
+                    <SlotButton
+                        label="主操作 · 大一号 31px"
+                        icon="play"
+                        text="开始"
+                        size="lg"
+                        seal
+                    />
                 </div>
                 <div class="kit-row">
-                    <SlotButton label="小一号 24px" text="sm" size="sm" />
                     <SlotButton label="默认 26px" text="md" />
                     <SlotButton label="大一号 31px" text="lg" size="lg" />
                 </div>
                 <p class="note">
-                    悬停时朱印内缩落进槽里（内缩随尺寸走：<code>md</code>/<code>sm</code> 1px、
-                    <code>lg</code> 2px），移上去看。三种形态由 props 组合定，不另开组件：只给
-                    <code>icon</code> 是纯图标（正方形），<code>icon</code> +
-                    <code>text</code> 是图标带字，只给 <code>text</code> 是纯文字。
-                    <code>seal</code> 是变体不是形态：印面常驻，用于主操作——一屏只该有一枚，
-                    两枚就等于没有主次。<code>size</code> 是尺寸预设（<code>sm</code> 24 /
-                    <code>lg</code> 31），落在 <code>--slot-h</code> 上，父级仍可用变量覆写。
+                    形态由 props 定：只给 <code>icon</code> 是纯图标，<code>icon</code> +
+                    <code>text</code> 带字，只给 <code>text</code> 是纯文字。<code>seal</code>
+                    是变体，主操作用，一屏一枚；尺寸 <code>md</code> 26 / <code>lg</code> 31。
                 </p>
             </div>
 
@@ -87,9 +88,8 @@ const autoSave = ref(false);
                     <CostSwitch v-model="autoSave" off-label="手动" on-label="自动" />
                 </div>
                 <p class="note">
-                    滑块真的滑过去，240ms 带回弹；关闭态是灭灯，不是变灰。两格文案由
-                    <code>off-label</code> / <code>on-label</code> 给——「否 / 是」就是最朴素的用法，
-                    换成「手动 / 自动」「不记 / 记」还是这同一个件。
+                    两格文案由 <code>off-label</code> / <code>on-label</code> 给；滑块 240ms
+                    回弹，关闭态灭灯不是变灰。
                 </p>
             </div>
 
@@ -104,31 +104,24 @@ const autoSave = ref(false);
                         </PressTile>
                     </div>
                 </div>
-                <!-- 下面一排是 `PressButton`——同一块纸当按钮用，三形态与 `SlotButton`
-                     一个思路：只给 text / icon+text / 只给 icon（正方形）。 -->
+                <!-- 第一行压印块，第二行四种内容（纯文字 / 图标带字 / 纯图标 / 灌朱），
+                     第三行尺寸：内容和「槽多大」不是一种分类，混在一行读起来像四个尺寸。 -->
                 <div class="kit-row">
                     <PressButton text="归档" label="归档：纯文字按钮" />
                     <PressButton icon="download" text="导出" label="导出：图标 + 文字" />
+                    <PressButton icon="pin" label="纯图标按钮" />
+                    <PressButton icon="play" text="开始" label="开始：主操作（块面灌朱）" seal />
                 </div>
                 <div class="kit-row">
-                    <PressButton icon="play" text="开始" label="开始：主操作（块面灌朱）" seal />
-                    <PressButton icon="pin" label="纯图标按钮" />
-                    <PressButton text="sm" label="小一号 24px" size="sm" />
+                    <PressButton text="md" label="默认 26px" />
                     <PressButton text="lg" label="大一号 31px" size="lg" />
                 </div>
                 <p class="note">
-                    一块光从左上方来的压印纸：块面、左上偏光、四条不对称的棱（上左受光、下 2px 右
-                    1px 背光）、落地影。工具页的图标格与左栏牌记都是它——悬停亮一档、按下凹回
-                    纸里，试试。几何走
-                    <code>--tile-w</code> / <code>--tile-h</code> / <code>--tile-r</code> /
-                    <code>--tile-drop</code>，图标尺寸仍归 <code>--icon-size</code>。
-                </p>
-                <p class="note">
-                    <b>下面两排是压印块做成的按钮</b>（<code>PressButton</code>）：块凸着、字压在
-                    块上，按下去被压回纸里。三档尺寸与 <code>SlotButton</code> 逐像素同值，
-                    两种按钮并排时基线齐；<code>seal</code> 把块面灌成朱红，用于主操作，
-                    一屏只该有一枚。<b>它和槽按钮是两种材质，别在同一行混用</b>——
-                    一凹一凸并排，读起来是两种器件。
+                    <b>上排是压印块</b>：一块光从左上方来的纸，左上偏光、四棱受力不均、落地影。
+                    工具页图标格与左栏牌记都是它，悬停亮一档、按下凹回纸里。
+                    <b>下面两排是压印按钮</b>：同一块纸当按钮用，<code>seal</code> 把块面灌朱，
+                    用于主操作，一屏一枚。尺寸与槽按钮逐像素同值——
+                    <b>但一凹一凸是两种材质，别混在同一行</b>。
                 </p>
             </div>
         </div>
@@ -176,9 +169,10 @@ const autoSave = ref(false);
  * 于是同一套「最少多宽才放得下」的判断，一处在 CSS 里量、一处按视口猜。
  *
  * `.kit` 默认 `minmax(330px, 1fr)` 在正文宽度下会算成三列，第四件独占一行、右边留个空洞，
- * 所以要覆写。480 不是抄 `.stack-pair` 的 420，是量出来的：正文可用 968（窗口 1024）时，
- * 两列各 442，`CostSwitch` 那条说明会掉到第二行末尾剩两个字（「…还是这同一个件。」→「件。」）。
- * 480 让它在 1024 退回一列，1280（两列各 570）仍是两行两列。
+ * 所以要覆写。480 不是抄 `.stack-pair` 的 420，是量出来的：420 时窗口 1024 会排两列、
+ * 各 442 宽，槽按钮的 `md` / `lg` 两枚折成上下两行（2026-11-02 在 432 宽实测即折）——
+ * 那两枚是要在**同一行**看出尺寸差的，折了就白摆了。480 让它到 1024 仍是一列（878），
+ * 1280（两列各 570）两行两列。
  *
  * 五件之后最后一行只剩 `PressTile` 一格，右边空着——**不再为它调列宽**。
  * 那格的内容是三块并排的方块，本来就不满宽；把一个满宽的第四件硬拉成三列，
@@ -215,11 +209,12 @@ const autoSave = ref(false);
 }
 /* 演示用的替身字：线上牌记摆的是一张 192px 的图（行楷「梦」），笔画很细——
  * 实测最深处虽然是 #231f1b，但不透明像素只有约 1200 个，绝大部分是抗锯齿的边。
- * 一只 17px 的实心楷体字压上去比它重得多，所以这里用次级墨，让演示看着接近那块图；
+ * 一只 17px 的实心楷体字压上去比它重得多，所以它靠 `PressTile` 的默认字色
+ * （`--ink-2`）就够了，**不在这里另设 color**：上一版是「图标满墨、这字降一档」，
+ * 2026-11-02 把默认值统一下来之后，两者本来就同色了。
  * 真要改线上那块，改的是 `assets/mark-ink.png`，不是这一行。 */
 .kit-tile-word {
     font-size: calc(17px * var(--fs-scale));
     line-height: 1;
-    color: var(--ink-2);
 }
 </style>

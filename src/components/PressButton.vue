@@ -19,9 +19,10 @@ import type { IconName } from './icons';
  * 判定写在类名上而不是另设 `variant`：`icon && !text` 是现成的、不会骗人的依据。
  *
  * ---- 尺寸 ----
- * `sm` 24 / `md` 26 / `lg` 31，三档与 `SlotButton` 逐像素同值——两种按钮并排
+ * `md` 26 / `lg` 31，与 `SlotButton` 逐像素同值——两种按钮并排
  * （比如页头左边一枚压印块、右边一枚槽按钮）基线才对得齐。尺寸仍走 `--tile-h`，
- * 父级要精确值就覆写变量。
+ * 父级要精确值就覆写变量。`sm`（24px）2026-11-02 与 `SlotButton` 那档一起删掉：
+ * 与 `md` 只差 2px，并排读不出区别，业务页也没用过。
  *
  * ---- 印记变体 ----
  * `seal` 把块面灌成朱红、字翻成纸白，用于**主操作**（一屏只该有一枚）。
@@ -40,7 +41,7 @@ withDefaults(
         disabled?: boolean;
         /** 块面灌朱：主操作，一屏一屏只该有一枚。 */
         seal?: boolean;
-        size?: 'sm' | 'md' | 'lg';
+        size?: 'md' | 'lg';
     }>(),
     { text: '', disabled: false, seal: false, size: 'md' },
 );
@@ -80,10 +81,6 @@ withDefaults(
     font-size: var(--fs-sm);
     cursor: pointer;
 }
-.press-btn.size-sm {
-    --tile-h: calc(24px * var(--fs-scale));
-    --icon-size: calc(14px * var(--fs-scale));
-}
 .press-btn.size-lg {
     --tile-h: calc(31px * var(--fs-scale));
     --icon-size: calc(17px * var(--fs-scale));
@@ -106,20 +103,22 @@ withDefaults(
     padding: 0;
 }
 
-/* 字色挂在**内层**而不是块上：块的 `:hover` 会把 `color` 改成朱红（那是纸块的说法），
- * 而印记块上朱红字压在朱红面里等于没有字。内层自带颜色，就不受块那条规则影响，
- * 也不用跟组件比特异性。 */
+/* 内层只做**一件事**：印记块上把字翻成纸白。常态不设色——继承块的 `--ink-2`
+ * （`PressTile` 的默认值），不在这里抄第二遍；悬停也不写，块自己会把 `color`
+ * 转成朱红，内层跟着继承即可（见下一条）。
+ *
+ * 之所以要留这一层、而不是在块上直接设色：块上有 `:hover` 那条规则，朱红块指上去时
+ * 字必须仍压得住朱红面（`--on-seal`），内层自带颜色既不受那条规则管，
+ * 也不用 `:deep()` 去赌样式注入顺序。 */
 .press-btn-inner {
     display: flex;
     align-items: center;
     /* 5px 与 `SlotButton` 的图标—文字间距同值。 */
     gap: 5px;
-    color: var(--ink-2);
     line-height: 1;
 }
-.press-btn:hover:not(:disabled) .press-btn-inner {
-    color: var(--cinnabar);
-}
+/* 悬停不必单独写：块自己会把 `color` 转成朱红，内层继承即可。
+ * 只有印记块要盖掉它——朱红面上的朱红字等于没有字。 */
 .press-btn.seal .press-btn-inner,
 .press-btn.seal:hover:not(:disabled) .press-btn-inner {
     color: var(--on-seal);
