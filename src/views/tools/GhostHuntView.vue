@@ -6,6 +6,7 @@ import CostSwitch from '../../components/CostSwitch.vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import MapCanvas from '../../components/ghost/MapCanvas.vue';
+import { useDevMode } from '../../composables/use-dev-mode';
 import { useGhostWatch } from '../../composables/use-ghost-watch';
 import type { GhostPlan } from '../../services/ghost-model';
 import GhostTestPanel from './GhostTestPanel.vue';
@@ -53,6 +54,8 @@ const {
     applyTest,
     clearTest,
 } = useGhostWatch();
+
+const { devMode } = useDevMode();
 
 /** 纠错对（`甲→乙`）按空格连成一句话，挂在「识别原文」的标题上。 */
 const corrections = computed(() => {
@@ -198,18 +201,28 @@ onMounted(async () => {
                     </p>
                 </details>
             </aside>
-        </div>
 
-        <!-- 测试文字：不开游戏也能把整条链跑起来。
-             固定在右下角而不是塞进右栏——它不是这一页的功能，是「临时替身」。
-             摆进栏里会与「监听窗口」「高概率区域」并排，读起来像第五个设置项；
-             而且它要的是「随时能开、不占版面」，折叠后只留一条标题栏。 -->
-        <GhostTestPanel
-            :testing="testing"
-            :count="plans.length"
-            @apply="applyTest"
-            @exit="clearTest"
-        />
+            <!-- 测试文字：不开游戏也能把整条链跑起来。它受「开发者模式」管（`useDevMode`），
+                 关着时连 DOM 都不生成——关着的东西用 `v-show` 藏，tab 仍能摸到。
+
+                 关掉开关时不需要额外清测试数据：`testing` 是这一页的 ref（`useGhostWatch`
+                 里 new 的），而改开关必须离开这一页去开发页，回来时组件已重建、本来就是空的。
+                 别在这里补一个 `watch(devMode)`——它永远不会触发，是死代码。
+
+                 写在 `.hunt` 里而不是外面，只为继承 `--side-col`：宽度与右栏取同一个值，
+                 于是它与左边地图卡的间距恒等于 `.hunt` 的 gap（14px），放大字号也不再
+                 被挤到贴边。`position: fixed` 让它不参与 grid 布局，放进容器不占格子。
+
+                 但不塞进 `.hunt-side` 内部：那会与「监听窗口」「高概率区域」并排，读起来
+                 像第五个设置项；而且它要「随时能开、不占版面」，折叠后只留一条标题栏。 -->
+            <GhostTestPanel
+                v-if="devMode"
+                :testing="testing"
+                :count="plans.length"
+                @apply="applyTest"
+                @exit="clearTest"
+            />
+        </div>
     </PageShell>
 </template>
 
@@ -218,8 +231,16 @@ onMounted(async () => {
  * `.page-content` 是 flex: 1 且高度确定，所以 100% 拿到的就是「页头与页底边距之外」的净高。
  * 行写 `minmax(0, 1fr)` 才有确定的行高可供格子拉伸，否则行高仍是内容高。 */
 .hunt {
+    /* 右栏宽度。浮动的「测试文字」面板也引这一枚——两者同宽，于是面板与左边地图卡的
+     * 间距恒等于下面的 `gap`（14px），放大字号也不会被挤到贴边。
+     *
+     * 写死 306 是安全的：窗口最小内宽 1024 时内容区 992，右栏仍取 306。原先写作
+     * `minmax(248px, 306px)`，那个 248 的下限在实测的 1280 / 1024 两档里一次都没
+     * 触发过——留着它只是让「面板要多宽」失去唯一答案。 */
+    --side-col: 306px;
+
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(248px, 306px);
+    grid-template-columns: minmax(0, 1fr) var(--side-col);
     grid-template-rows: minmax(0, 1fr);
     gap: 14px;
     height: 100%;

@@ -115,7 +115,14 @@ function run() {
     right: var(--page-pad);
     bottom: var(--page-pad);
     z-index: 4;
-    width: calc(288px * var(--fs-scale));
+    /* 宽度跟右栏走（`--side-col` 由 `GhostHuntView` 的 `.hunt` 给）。两者同宽，
+     * 它与左边地图卡的间距就恒等于那一格的 `gap`（14px）。
+     *
+     * 原先写 `calc(288px * var(--fs-scale))`：默认字号 288 时离地图卡 32px（比上面两张
+     * 卡的 14px 松），调到「较大」变成 317——**比右栏的 306 还宽**，与地图卡只剩 3px。
+     * 一个值同时管「内容多宽」和「离别人多远」，两件事必然打架；宽度跟着栏走就只剩一件事。
+     * fallback 留着：万一这个面板被搬到别的页面，还能有个自洽的宽度。 */
+    width: var(--side-col, calc(288px * var(--fs-scale)));
     /* 视口再矮也不许长出去：它是浮层，顶到窗口外就等于把「套用」按钮藏了。
      * 内部自己滚，面板位置不动。 */
     max-height: calc(100vh - 2 * var(--page-pad));

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import PageShell from '../../components/PageShell.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
+import CostSwitch from '../../components/CostSwitch.vue';
+import { useDevMode } from '../../composables/use-dev-mode';
 import AtomsSection from './AtomsSection.vue';
 import IconsSection from './IconsSection.vue';
 import PaletteSection from './PaletteSection.vue';
@@ -17,9 +19,11 @@ import TypeScaleSection from './TypeScaleSection.vue';
  * 不复用左栏入口，是因为那一条竖槽是这个应用的目录：八个入口都是用户真会点的页面。
  * 往里加第九个「开发者」，等于每时每刻都在提醒用户「这里还有一堆你不该动的东西」。
  *
- * 这一页本身也只做一件事：按顺序把五张卡排起来（用法说明 + 四张演示卡）。加一张卡就是加一行——
+ * 这一页本身也只做一件事：按顺序把六张卡排起来（说明 + 开关 + 四张演示卡）。加一张卡就是加一行——
  * 与 `SettingsView` 同一个写法，因为它们本来是同一种页面（一叠 `.frame` 卡）。
  */
+
+const { devMode } = useDevMode();
 </script>
 
 <template>
@@ -37,6 +41,20 @@ import TypeScaleSection from './TypeScaleSection.vue';
                 <p class="note">
                     <b>两条机制</b>：主题只改根元素的 <code>color-scheme</code>，颜色全走
                     <code>light-dark()</code>；字号只改 <code>--fs-scale</code>（0.92 / 1 / 1.1）。
+                </p>
+            </LedgerSection>
+
+            <LedgerSection title="开发者模式" hint="测试入口的总开关">
+                <div class="form-row">
+                    <span class="field-label">测试工具</span>
+                    <CostSwitch v-model="devMode" off-label="关" on-label="开" />
+                    <span class="meta">{{
+                        devMode ? '捉鬼助手的「测试文字」已显示' : '捉鬼助手的「测试文字」已隐藏'
+                    }}</span>
+                </div>
+                <p class="note">
+                    关着的时候，捉鬼页右下角那块「测试文字」<b>不生成</b>——它是没有游戏时的
+                    临时替身，不该被当成功能。以后的测试工具都挂这一个开关，不再各配一个。
                 </p>
             </LedgerSection>
 
