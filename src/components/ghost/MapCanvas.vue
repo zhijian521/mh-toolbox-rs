@@ -140,14 +140,14 @@ onBeforeUnmount(() => {
 <template>
     <div ref="stage" class="map-stage">
         <canvas ref="canvas" class="map-canvas" />
-        <p v-if="!plan" class="map-hint">还没有读到任务</p>
+        <p v-if="!plan" class="map-overlay map-hint">还没有读到任务</p>
         <!-- 识别失败时底图还在，提示要压在图上，所以给一块实底：
              只靠文字阴影，在写实地形上基本读不出来。 -->
-        <div v-else-if="plan.mode === 'invalid'" class="map-alert">
+        <div v-else-if="plan.mode === 'invalid'" class="map-overlay map-alert">
             <span>{{ plan.reason }}</span>
         </div>
-        <p v-else-if="loading && !image" class="map-hint">底图加载中</p>
-        <p v-else-if="!image" class="map-hint">底图没加载上</p>
+        <p v-else-if="loading && !image" class="map-overlay map-hint">底图加载中</p>
+        <p v-else-if="!image" class="map-overlay map-hint">底图没加载上</p>
     </div>
 </template>
 
@@ -166,24 +166,21 @@ onBeforeUnmount(() => {
 .map-canvas {
     display: block;
 }
-.map-hint {
+/* 覆盖层：空状态提示与识别失败提示都压在图上、都吃掉整块、都不吃指针。
+ * 原先两段各写一遍 position / inset / display / padding / place-items，
+ * 差别只有「失败提示里那块实底小牌」。 */
+.map-overlay {
     position: absolute;
     inset: 0;
     display: grid;
-    margin: 0;
     padding: 0 24px;
     place-items: center;
-    color: var(--muted);
-    font-size: var(--fs-sm);
     pointer-events: none;
 }
-.map-alert {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    padding: 0 24px;
-    place-items: center;
-    pointer-events: none;
+.map-hint {
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--fs-sm);
 }
 .map-alert span {
     max-width: 330px;

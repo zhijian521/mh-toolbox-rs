@@ -95,8 +95,8 @@ withDefaults(
     color: var(--ink-2);
     transition:
         color var(--t-quick) var(--ease-soft),
-        width 220ms var(--ease-soft),
-        height 220ms var(--ease-soft);
+        width var(--t-shape) var(--ease-soft),
+        height var(--t-shape) var(--ease-soft);
 }
 
 /* ---------- 尺寸预设 ----------
@@ -147,7 +147,7 @@ withDefaults(
     transform: scale(0.94);
     transition:
         opacity var(--t-quick) var(--ease-soft),
-        transform 200ms var(--ease-snap),
+        transform var(--t-press) var(--ease-snap),
         background-color var(--t-quick) var(--ease-soft),
         box-shadow var(--t-quick) var(--ease-soft);
 }
@@ -209,7 +209,7 @@ withDefaults(
 
 /* 聚焦环不能用朱红：悬停时底就是朱红，红环会消失。 */
 .slot-btn:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--ink) 45%, transparent);
-    outline-offset: 1px;
+    outline: var(--ring-inv);
+    outline-offset: var(--ring-offset);
 }
 </style>

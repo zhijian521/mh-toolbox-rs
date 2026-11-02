@@ -72,9 +72,9 @@ const filled = computed(() => props.character.gear.filter((slot) => slot.detail)
                 <div class="who">
                     <h2>{{ character.name }}</h2>
                     <span class="lv num">{{ character.level }} 级</span>
-                    <span class="school">{{ character.school }}</span>
+                    <span class="chip school">{{ character.school }}</span>
                 </div>
-                <p class="char-sub">
+                <p class="meta char-sub">
                     <template v-for="(sub, i) in character.subs" :key="sub">
                         <span v-if="i > 0" class="dot">·</span>
                         <span>{{ sub }}</span>
@@ -155,7 +155,7 @@ const filled = computed(() => props.character.gear.filter((slot) => slot.detail)
                         <span class="name">{{ row.name }}</span>
                         <span class="leader"></span>
                         <span class="lv num" :class="{ max: row.max }">{{ row.level }}</span>
-                        <span class="tag">{{ row.tag }}</span>
+                        <span class="chip tag">{{ row.tag }}</span>
                     </div>
                 </div>
                 <p class="hint foot">{{ character.skillFoot }}</p>
@@ -179,7 +179,7 @@ const filled = computed(() => props.character.gear.filter((slot) => slot.detail)
                         <span class="name">{{ row.name }}</span>
                         <span class="leader"></span>
                         <span class="lv num">{{ row.level }}</span>
-                        <span class="tag">{{ row.tag }}</span>
+                        <span class="chip tag">{{ row.tag }}</span>
                     </div>
                 </div>
                 <p class="hint foot">{{ character.assistFoot }}</p>
@@ -243,7 +243,7 @@ const filled = computed(() => props.character.gear.filter((slot) => slot.detail)
                         </div>
                     </template>
                 </div>
-                <div class="gear-meta">
+                <div class="meta gear-meta">
                     <span
                         ><span class="k">特技</span
                         ><span class="v seal">{{ character.gearMeta.special }}</span></span

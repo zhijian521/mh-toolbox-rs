@@ -112,13 +112,13 @@ onMounted(async () => {
                     <!-- 头上只留「哪一条 · 哪张图」。坐标、范围格数、收窄比例全画在地图里，
                          这里再抄一遍等于同一句话看两遍，还把地图挤矮。 -->
                     <header class="map-head">
-                        <span class="head-kind">{{ kindLabel(plan) }}</span>
+                        <span class="chip">{{ kindLabel(plan) }}</span>
                         <span class="head-map">{{ mapLabel(plan) }}</span>
                         <!-- 结果是被「保留」住的，不是每帧都在读——所以它会有年龄。
                              不标出来会变成一条不会消失的幽灵任务：任务早就交了，图上还在。
                              年龄按**这一条**算：两条任务独立读，共用同一个数会把一直在读的
                              那条也标成很旧。 -->
-                        <span v-if="running && ages[plan.task.kind] >= 3" class="head-age">
+                        <span v-if="running && ages[plan.task.kind] >= 3" class="meta head-age">
                             {{ ages[plan.task.kind] }}s 前
                         </span>
                     </header>
@@ -135,18 +135,18 @@ onMounted(async () => {
                         <span class="status-dot" aria-hidden="true" />
                         <span class="status-text">{{ statusText }}</span>
                     </div>
-                    <p v-if="stats" class="status-meta">
+                    <p v-if="stats" class="meta status-meta">
                         截屏 {{ stats.grabMs }}ms · 识别 {{ stats.ocrMs }}ms · 系统
                         {{ scalePercent }}%
                     </p>
                     <!-- 降级摊开在状态区，不藏进折叠的「识别原文」：
                          链路照跑、灯照样绿，不说的话看起来完全正常，只是字全认错。 -->
-                    <p v-if="degraded" class="engine-warn">
+                    <p v-if="degraded" class="meta engine-warn">
                         模型没加载，正用系统 OCR
                         兜底：黄色、绿色的字基本认不出。重启应用可重试加载。
                     </p>
 
-                    <div class="field">
+                    <div class="form-row">
                         <span class="field-label">监听窗口</span>
                         <select v-model="selectedHwnd" class="field-select" :disabled="running">
                             <option :value="null">自动（标题含「梦幻西游」）</option>
@@ -159,22 +159,22 @@ onMounted(async () => {
                          两条摞起来占掉四行高度，中间还夹着「高概率区域」那行开关，
                          读起来像三段互不相干的备注。改成同一句式（短句 + 分号 + 短句）、
                          各 ≤24 字之后，两条都单行，长度也接近，才是「一对」说明。 -->
-                    <p class="field-note">换窗口前先停止识别；游戏在前台，遮挡处截不到。</p>
+                    <p class="meta field-note">换窗口前先停止识别；游戏在前台，遮挡处截不到。</p>
 
-                    <div class="field">
+                    <div class="form-row">
                         <span class="field-label">高概率区域</span>
                         <CostSwitch v-model="hot" off-label="关" on-label="开" class="hot-switch" />
                     </div>
                     <!-- 判定写死成一句，不再给三档选择：`≤50 / ≥150` 是社区共识的
                          唯一口径，「按比例」是把这两条线除以「假设坐标域 200」得来的，
                          坐标域不是 200 的图上两种口径会给出相反结论。 -->
-                    <p class="field-note">假坐标 ≥150 往大、≤50 往小；51–149 无方向。</p>
+                    <p class="meta field-note">假坐标 ≥150 往大、≤50 往小；51–149 无方向。</p>
                     <div class="legend">
                         <span class="legend-item">
-                            <i class="swatch swatch-wash" aria-hidden="true" />官方 ±50
+                            <i class="legend-swatch legend-wash" aria-hidden="true" />官方 ±50
                         </span>
                         <span v-if="hot" class="legend-item">
-                            <i class="swatch swatch-hot" aria-hidden="true" />高概率区域
+                            <i class="legend-swatch legend-hot" aria-hidden="true" />高概率区域
                         </span>
                     </div>
                 </section>
@@ -183,15 +183,17 @@ onMounted(async () => {
                     <summary class="detail-head">
                         <AppIcon name="chevron-right" class="detail-arrow" />
                         识别原文
-                        <span v-if="engineLabel" class="detail-tag">{{ engineLabel }}</span>
-                        <span v-if="corrections" class="detail-tag">纠错 {{ corrections }}</span>
+                        <span v-if="engineLabel" class="meta detail-tag">{{ engineLabel }}</span>
+                        <span v-if="corrections" class="meta detail-tag"
+                            >纠错 {{ corrections }}</span
+                        >
                     </summary>
                     <!-- 按行原样列出而不是给拼接后的整串：任务栏会按像素折行，
                          「这个地名是不是被切断过」只有对着折行才看得出来。 -->
                     <ol class="detail-lines">
                         <li v-for="(line, index) in report.lines" :key="index">{{ line }}</li>
                     </ol>
-                    <p v-for="issue in report.issues" :key="issue" class="detail-issue">
+                    <p v-for="issue in report.issues" :key="issue" class="meta detail-issue">
                         {{ issue }}
                     </p>
                 </details>
@@ -250,23 +252,16 @@ onMounted(async () => {
     gap: 8px;
     padding-bottom: 5px;
 }
-.head-kind {
-    padding: 0 4px;
-    border: var(--w-hair) solid var(--rule-2);
-    border-radius: var(--r-1);
-    color: var(--muted);
-    font-size: var(--fs-mini);
-    letter-spacing: 0.06em;
-}
+/* 头上这一行是三样东西：类别签（全局 `.chip`，与门派签、技能签同一个件）、
+ * 地名、年龄。这里只剩地名要一档正文大小——签自带框与字号，年龄走 `.meta`，
+ * 两者都不该在页面里再写一份。 */
 .head-map {
     font-size: var(--fs-sm);
 }
-/* 年龄靠右、最轻一档颜色：它只在「这一条最近没被读到」时出现，
- * 存在的意义是提醒而不是抢注意力。数字用等宽，两图同时陈旧时能竖着对齐。 */
+/* 年龄靠右、最轻一档颜色（颜色与字号来自全局 `.meta`）：它只在「这一条最近没被读到」
+ * 时出现，存在的意义是提醒而不是抢注意力。数字用等宽，两图同时陈旧时能竖着对齐。 */
 .head-age {
     margin-left: auto;
-    color: var(--muted);
-    font-size: var(--fs-mini);
     font-variant-numeric: tabular-nums;
 }
 /* 子组件根元素会带父组件的 scope id，所以这里能直接命中 `.map-stage`。
@@ -284,7 +279,7 @@ onMounted(async () => {
     min-width: 0;
 }
 .side-block {
-    padding: 12px 14px 13px;
+    padding: var(--block-pad-tight);
 }
 
 /* ---------- 状态 ---------- */
@@ -318,8 +313,6 @@ onMounted(async () => {
 }
 .status-meta {
     margin: 5px 0 0;
-    color: var(--muted);
-    font-size: var(--fs-mini);
     letter-spacing: 0.04em;
 }
 /* 与 `.status.warn` 用同一个底（--warn-bg），但不抢状态灯：
@@ -329,17 +322,15 @@ onMounted(async () => {
     padding: 7px 9px;
     border-radius: var(--r-2);
     background: var(--warn-bg);
-    color: var(--muted);
-    font-size: var(--fs-mini);
-    line-height: 1.6;
 }
 
-/* ---------- 表单 ---------- */
-.field {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    margin-top: 13px;
+/* ---------- 表单 ----------
+ * 行是全局 `.form-row`（`base.css`：标签在左、控件在右、gap 10）——与设置页的
+ * 「主题 / 字号」两行同一件东西，原先两处各写一份（gap 9 对 12、纵向 13 对 12）。
+ * 这里只补纵向节奏：`.page-content` 里第一行要离状态区 12px，
+ * 说明行（`.field-note`）夹在两行之间时用 6px 贴住它上面那一行。 */
+.side-block > .form-row {
+    margin-top: 12px;
 }
 /* `.field-label` 是全局的（`base.css`）：设置页的「主题 / 字号」与这里的
  * 「监听窗口 / 高概率区域」是同一种标签，原先两处各写一份逐字相同的规则。 */
@@ -361,9 +352,6 @@ onMounted(async () => {
 }
 .field-note {
     margin: 6px 0 0;
-    color: var(--muted);
-    font-size: var(--fs-mini);
-    line-height: 1.6;
 }
 /* 开关靠右与「监听窗口」的下拉同一条竖线：两行都是「标签在左、控件在右」，
  * 对齐之后侧栏才读成一列表单，而不是一堆各在各处的零件。 */
@@ -371,7 +359,9 @@ onMounted(async () => {
     margin-left: auto;
 }
 /* 图例：两块色就是图上那两块，色值直接引 `MapCanvas` 用的同一令牌，
- * 两处各写一份就等于以后必然不同步。 */
+ * 两处各写一份就等于以后必然不同步。
+ * 类名不叫 `.swatch`：开发页的色板已经用着那个名字（26×26 的令牌样本），
+ * 同一个词在同一个仓里指两种尺寸的东西，grep 的时候会看错。 */
 .legend {
     display: flex;
     flex-wrap: wrap;
@@ -385,24 +375,24 @@ onMounted(async () => {
     color: var(--muted);
     font-size: var(--fs-mini);
 }
-.swatch {
+.legend-swatch {
     display: block;
     width: 15px;
     height: 9px;
     border-radius: 1px;
 }
-.swatch-wash {
+.legend-wash {
     border: 1px solid var(--ghost-wash-edge);
     background: var(--ghost-wash);
 }
-.swatch-hot {
+.legend-hot {
     border: 1px solid var(--ghost-hot-edge);
     background: var(--ghost-hot);
 }
 
 /* ---------- 识别原文 ---------- */
 .detail-block {
-    padding: 10px 13px 12px;
+    padding: var(--block-pad-tight);
 }
 .detail-head {
     display: flex;
@@ -426,7 +416,6 @@ onMounted(async () => {
 .detail-tag {
     margin-left: auto;
     color: var(--ochre);
-    font-size: var(--fs-mini);
 }
 /* 序号弱化到颜色更浅的一档：它的作用是「看得出这是第几行」，
  * 不是让人去数行号，所以不做成表格那种带框的编号列。 */
@@ -447,8 +436,6 @@ onMounted(async () => {
 .detail-issue {
     margin: 6px 0 0;
     color: var(--ochre);
-    font-size: var(--fs-mini);
-    line-height: 1.6;
 }
 
 /* 测试文字面板的样式跟着组件走了（`GhostTestPanel.vue`）。

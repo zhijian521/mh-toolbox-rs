@@ -132,9 +132,10 @@ withDefaults(
 
     /* 朱红块的受光面与背光面：都从块面自己派生，不借用纸的那套。
      * 背光不能直接取 `--seal-edge`：它在亮色比块面深（#8a2620）、在暗色却比块面**浅**
-     * （#c88471），照用会让暗色的底棱变成一条发光的线。压 30% 黑两个主题都成立。 */
+     * （#c88471），照用会让暗色的底棱变成一条发光的线。压 30% 纯黑两个主题都成立——
+     * 用的是不翻面的 `--ink-base`，`--ink` 在暗色是纸白，混出来反而会把底棱提亮。 */
     --seal-lt: color-mix(in srgb, var(--seal) 62%, var(--paper-base));
-    --seal-dp: color-mix(in srgb, var(--seal) 70%, #000);
+    --seal-dp: color-mix(in srgb, var(--seal) 70%, var(--ink-base));
 }
 
 /* ---------- 朱红块单独一套棱 ----------
@@ -218,12 +219,12 @@ withDefaults(
 }
 
 /* 焦点环画在块上、跟随块的圆角——与工具页 `.tool-item:focus-visible .tool-tile` 同一条。
- * 印记块上不能用朱红环（红压红看不见），换成墨。 */
+ * 印记块上不能用朱红环（红压红看不见），整条换成墨环。 */
 .press-btn:focus-visible .press-btn-tile {
-    outline: 2px solid var(--cinnabar);
-    outline-offset: 3px;
+    outline: var(--ring);
+    outline-offset: var(--ring-offset);
 }
 .press-btn.seal:focus-visible .press-btn-tile {
-    outline-color: color-mix(in srgb, var(--ink) 55%, transparent);
+    outline: var(--ring-inv);
 }
 </style>

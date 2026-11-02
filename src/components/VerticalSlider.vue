@@ -219,7 +219,7 @@ function onPointerCancel(event: PointerEvent) {
     height: var(--vs-cell);
     border-radius: var(--r-2);
     transition:
-        transform 300ms var(--ease-snap),
+        transform var(--t-slide) var(--ease-snap),
         opacity var(--t-mid) var(--ease-soft);
     /* 印面不吃指针：否则拖到印上时事件目标是它，指针捕获与点击都会错位。 */
     pointer-events: none;
@@ -276,9 +276,9 @@ function onPointerCancel(event: PointerEvent) {
     background: none;
 }
 /* 聚焦环不能用朱红：选中时底就是朱红，红环会消失。负 offset 收进印面里，
- * 免得在 34px 宽的槽上向外撑出一圈。 */
+ * 免得在 34px 宽的槽上向外撑出一圈——这一处是**唯一**的负值，不是另一种默认。 */
 .vs-cell:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--ink) 45%, transparent);
+    outline: var(--ring-inv);
     outline-offset: -2px;
 }
 

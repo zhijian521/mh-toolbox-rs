@@ -25,9 +25,9 @@
     height: var(--char-h, 480px);
     border: var(--w-hair) solid var(--rule-2);
     background: var(--paper);
-    box-shadow:
-        0 1px 2px var(--shadow),
-        0 10px 22px -12px var(--shadow-lg);
+    /* 卡片是「纸片抬离桌面」的一种，与装备浮片、测试面板共用 `--shadow-lift`
+     * （原先三处各写一套 22/-12、32/-16、8px 混墨）。 */
+    box-shadow: var(--shadow-lift);
 }
 /* 文武线内衬走全局 `.dual-rule`（`base.css` 里与 `.frame` 同一份），这里只补一处特例：
  * 卡内的分区是绝对定位的，要明确压在内衬之上，所以给内衬一个 0 的层级。 */
@@ -63,13 +63,10 @@
     color: var(--ink-2);
     font-size: var(--fs-sm);
 }
+/* 门派的框是全局 `.chip`（`base.css`），这里只有一处不同：字用赭色。
+ * 赭在这套语言里就管「门派 / 类目」，与苔（达成）、朱（支出）各占一件事。 */
 .school {
-    padding: 1px 5px;
-    border: var(--w-hair) solid var(--rule-2);
-    border-radius: var(--r-1);
     color: var(--ochre);
-    font-size: var(--fs-mini);
-    letter-spacing: 0.08em;
 }
 .more {
     flex: none;
@@ -85,13 +82,12 @@
 .more:hover {
     color: var(--cinnabar);
 }
+/* 颜色与字号来自全局 `.meta`；这里只剩排布（三点分隔）与它离上面那行的距离。 */
 .char-sub {
     display: flex;
     align-items: baseline;
     gap: 6px;
     margin-top: 3px;
-    color: var(--muted);
-    font-size: var(--fs-mini);
     letter-spacing: 0.04em;
 }
 .char-sub .dot {
@@ -191,7 +187,11 @@
     min-width: 0;
     color: var(--ink-2);
 }
-.ledger .leader {
+/* 点线：把「名目」与「数值」连起来的那串点。属性行与技能行原先各写一份，
+ * 浓度还抄漂了——62% 与 55%，同一件事两种深浅。合并成一段，取 62%（属性行是主用法，
+ * 技能行的行距也撑得住）。 */
+.ledger .leader,
+.skill-row .leader {
     flex: 1;
     min-width: 8px;
     height: 0;
@@ -231,26 +231,15 @@
 .skill-row .name {
     color: var(--ink);
 }
-.skill-row .leader {
-    flex: 1;
-    height: 0;
-    border-bottom: var(--w-hair) dotted color-mix(in srgb, var(--rule-2) 55%, transparent);
-    transform: translateY(-3px);
-}
 .skill-row .lv {
     color: var(--ink-2);
 }
 .skill-row .lv.max {
     color: var(--cinnabar);
 }
+/* 技能签的框是全局 `.chip`；这里只留「别被行内文字挤压」这一件事。 */
 .skill-row .tag {
     flex: none;
-    padding: 0 4px;
-    border: var(--w-hair) solid var(--rule-2);
-    border-radius: var(--r-1);
-    color: var(--muted);
-    font-size: var(--fs-mini);
-    letter-spacing: 0.06em;
 }
 .skill-row.off .name,
 .skill-row.off .lv {
@@ -366,8 +355,8 @@
     color: var(--cinnabar);
 }
 .gear-cell:focus-visible {
-    outline: 2px solid var(--cinnabar);
-    outline-offset: 2px;
+    outline: var(--ring);
+    outline-offset: var(--ring-offset);
 }
 .gear-cell.empty {
     display: grid;
@@ -385,13 +374,14 @@
     margin-top: 9px;
     padding-top: 7px;
     border-top: var(--w-hair) solid var(--rule-2);
-    color: var(--ink-2);
-    font-size: var(--fs-mini);
 }
 .gear-meta .k {
     margin-right: 4px;
-    color: var(--muted);
     letter-spacing: 0.1em;
+}
+/* 值比键深一档：`.meta` 给的是 `--muted`（键那一档），值要读得出来。 */
+.gear-meta .v {
+    color: var(--ink-2);
 }
 .gear-meta .v.seal {
     color: var(--cinnabar);

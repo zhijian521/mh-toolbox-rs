@@ -109,8 +109,8 @@ function open(tool: ToolEntry) {
 /* 键盘焦点：环画在图标块上，跟随块的圆角。
  * 只靠「颜色变朱红」不够——那也是悬停态，读不出「焦点停在这里」。 */
 .tool-item:focus-visible .tool-tile {
-    outline: 2px solid var(--cinnabar);
-    outline-offset: 3px;
+    outline: var(--ring);
+    outline-offset: var(--ring-offset);
 }
 
 .tool-item:disabled {

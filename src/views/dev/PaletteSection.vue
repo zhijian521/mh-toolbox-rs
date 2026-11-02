@@ -16,6 +16,8 @@ import { colorTokens, declaredTokens } from './tokens';
  */
 const LABELS: Record<string, string> = {
     '--bg': '页面底',
+    '--paper-base': '纸白·绝对',
+    '--ink-base': '墨黑·绝对',
     '--paper': '纸面',
     '--paper-2': '纸面·次',
     '--well': '凹槽',
@@ -32,6 +34,13 @@ const LABELS: Record<string, string> = {
     '--on-seal': '印上字',
     '--ochre': '赭',
     '--moss': '苔',
+    '--ghost-wash': '范围·浅',
+    '--ghost-wash-edge': '范围边·浅',
+    '--ghost-hot': '范围·深',
+    '--ghost-hot-edge': '范围边·深',
+    '--map-seal': '地图标记',
+    '--map-seal-ink': '地图标记·深',
+    '--map-halo': '标记白环',
     '--bevel-hi': '受光',
     '--bevel-lo': '背光',
     '--shadow': '投影',

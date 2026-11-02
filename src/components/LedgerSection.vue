@@ -30,7 +30,7 @@ withDefaults(defineProps<{ title: string; hint?: string }>(), { hint: '' });
 
 <style scoped>
 .ledger-section {
-    padding: 15px 18px 18px;
+    padding: var(--block-pad);
 }
 .section-head {
     display: flex;

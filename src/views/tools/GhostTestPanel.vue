@@ -47,7 +47,7 @@ function run() {
         <header class="test-head">
             <AppIcon name="flask" class="test-icon" />
             <span class="test-title">测试文字</span>
-            <span class="test-tag" :class="{ on: props.testing }">
+            <span class="meta test-tag" :class="{ on: props.testing }">
                 {{ props.testing ? `已套用 ${props.count} 条` : '未使用' }}
             </span>
             <PressButton
@@ -91,7 +91,7 @@ function run() {
                     v-for="sample in GHOST_TEST_SAMPLES"
                     :key="sample.label"
                     type="button"
-                    class="test-sample"
+                    class="chip chip-action"
                     :title="sample.note"
                     @click="useSample(sample)"
                 >
@@ -120,9 +120,10 @@ function run() {
      * 内部自己滚，面板位置不动。 */
     max-height: calc(100vh - 2 * var(--page-pad));
     overflow: auto;
-    padding: 9px 11px 11px;
-    /* 它是盖在内容上的一层：没有投影会读成「右下角又多了一个区块」，而不是浮着的一块。 */
-    box-shadow: 0 8px 22px color-mix(in srgb, var(--ink) 14%, transparent);
+    padding: var(--block-pad-tight);
+    /* 它是盖在内容上的一层：没有投影会读成「右下角又多了一个区块」，而不是浮着的一块。
+     * 与卡片、装备浮片共用同一枚「纸片抬起」的影子。 */
+    box-shadow: var(--shadow-lift);
 }
 .test-head {
     display: flex;
@@ -140,8 +141,6 @@ function run() {
 /* 状态标签吃掉中间的弹性空间：标题在左、开关在右，中间那段留白归它。 */
 .test-tag {
     margin-left: auto;
-    color: var(--muted);
-    font-size: var(--fs-mini);
     letter-spacing: 0.04em;
 }
 /* 已套用才染赭色：它提醒「现在看的是假数据」，未使用时不该也亮着。 */
@@ -175,30 +174,7 @@ function run() {
     padding-top: 8px;
     border-top: var(--w-hair) solid var(--rule);
 }
-/* 样例是一枚「小签」，不是按钮：有边框、无底色、无内影。
- * 点它只是换一份输入，不执行动作——做成按钮会与上面两枚槽按钮抢层级。 */
-.test-sample {
-    padding: 2px 6px;
-    border: var(--w-hair) solid var(--rule-2);
-    border-radius: var(--r-1);
-    background: none;
-    color: var(--ink-2);
-    font-family: var(--font-ui);
-    font-size: var(--fs-mini);
-    line-height: 1.6;
-    cursor: pointer;
-    transition:
-        border-color var(--t-quick) var(--ease-soft),
-        background-color var(--t-quick) var(--ease-soft),
-        color var(--t-quick) var(--ease-soft);
-}
-.test-sample:hover {
-    border-color: color-mix(in srgb, var(--seal-edge) 55%, var(--rule-2));
-    background-color: color-mix(in srgb, var(--seal) 8%, transparent);
-    color: var(--ink);
-}
-.test-sample:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--seal) 45%, transparent);
-    outline-offset: 1px;
-}
+/* 样例是一枚「小签」，不是按钮——边框、内边距、悬停全在全局 `.chip` /
+ * `.chip-action` 里（与门派签、技能签、地图上的「小鬼」同一个件）。
+ * 这一格在 `base.css` 里只剩「可点的那档多 1px 内边距」这一条差别。 */
 </style>

@@ -19,14 +19,14 @@ const { scale } = useFontScale();
 
 <template>
     <LedgerSection title="外观">
-        <div class="row">
+        <div class="form-row">
             <span class="field-label">主题</span>
             <SegmentedPills v-model="mode" :options="THEME_OPTIONS" label="主题" />
             <span class="hint"
                 >当前：{{ THEME_OPTIONS.find((item) => item.value === mode)?.label }}</span
             >
         </div>
-        <div class="row row-gap">
+        <div class="form-row">
             <span class="field-label">字号</span>
             <FontSizeSlider v-model="scale" />
             <span class="hint">全站文字一起缩放</span>
@@ -35,13 +35,14 @@ const { scale } = useFontScale();
 </template>
 
 <style scoped>
-.row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-.row-gap {
+/* 行是全局 `.form-row`（`base.css`：flex + gap 10）——与捉鬼页的「监听窗口 /
+ * 高概率区域」同一件东西。原先这里叫 `.row`，gap 12、纵向 12，那边 gap 9、纵向 13，
+ * 两页翻着看时行内挤法确实不一样。
+ *
+ * 这里只留**这一页**的纵向节奏：两行紧邻时 12px。捉鬼页那边不同，它的一行后面
+ * 还跟着一条 `.meta` 说明，相邻兄弟选择器落不到，所以那 12px 写在页面自己身上
+ * （见 `GhostHuntView` 的 `.side-block > .form-row`）。 */
+.form-row + .form-row {
     margin-top: 12px;
 }
 /* 标签的样式在全局 `.field-label`（`base.css`）：与捉鬼页的「监听窗口」「高概率区域」

@@ -1,9 +1,9 @@
 /*
  * 基座层 —— 元素重置 + 跨页面复用的最小工具类（账簿方向）。
  *
- * 五类：凹槽 `.well` 与印面 `.stamp`（同一件事的正反面）、按钮与区块标、
- * 凹槽胶囊与承载面、两格开关与轨道选项格、文本级词汇（`.hint` / `.error` /
- * `.positive` / `.num`）；
+ * 六类：凹槽 `.well` 与印面 `.stamp`（同一件事的正反面）、按钮与区块标、
+ * 凹槽胶囊与承载面、两格开关与轨道选项格、文本级词汇（`.hint` / `.meta` /
+ * `.num` / `.field-label` / `.chip`）、表单行 `.form-row`；
  * 另加「账簿语法」`.frame`（文武线外框）与页面骨架 `.page-content`。
  * 组合级的排版类（`.note`、`.kit`）在 `blocks.css`。
  */
@@ -86,9 +86,12 @@ svg {
     flex: none;
     vertical-align: middle;
 }
+/* 焦点环全站只有这一种（朱环 + 偏移 2px）：纸底上的任何可聚焦元素都用它。
+ * 朱底上的控件改用 `--ring-inv`（墨环），见各控件自己的 `:focus-visible`——
+ * 红底画红环等于没有环。两枚令牌与理由在 `tokens.css` 的「焦点环」段。 */
 :focus-visible {
-    outline: 1px dashed var(--cinnabar);
-    outline-offset: 1px;
+    outline: var(--ring);
+    outline-offset: var(--ring-offset);
 }
 
 ::-webkit-scrollbar {
@@ -313,10 +316,11 @@ svg {
         0 1px 2px color-mix(in srgb, var(--seal) 22%, transparent);
 }
 .bevel-pill.on:focus-visible {
-    border-color: var(--seal-edge);
-    box-shadow:
-        0 0 0 2px color-mix(in srgb, var(--ink) 45%, transparent),
-        0 3px 7px color-mix(in srgb, var(--seal) 26%, transparent);
+    /* 选中的胶囊底是朱红的，朱环看不见——改用墨环。底面那条 `--seal-edge` 描边
+     * 仍留着（它是「印落在槽里」的一圈边，不是焦点记号）。 */
+    outline: var(--ring-inv);
+    outline-offset: var(--ring-offset);
+    box-shadow: 0 3px 7px color-mix(in srgb, var(--seal) 26%, transparent);
 }
 
 /* ---------- 轨道里的一格 ----------
@@ -392,17 +396,37 @@ svg {
 }
 
 /* ---------- 文本 ----------
- * `.error` / `.positive` 目前没有调用方，但它们是**文本级词汇**：
- * 错误提示、收入金额各要用一条，各有唯一一份定义，删掉下次还得原样加回来。
- * 判死码看「有没有第二种写法」，不看「今天有几个调用方」。
- * （`.num` 不属于这一类——角色卡里的金额列已经在用，它是活码。）
+ * `.error` / `.positive` 2026-11-02 删掉了：它们从添加之日起一次都没被调用过，
+ * 而当下的「错误」是 `.engine-warn`（警示底 + 淡墨）、「正收益」是 `.gain dd`（苔色），
+ * 各有各的形态，不是一条「换个颜色」的类能覆盖的。原先留着它们的理由是「文本级词汇，
+ * 删掉下次还得加回来」——那是 §2.4-12 在 2026-11-01 之前的旧口径，反过来之后
+ * **零引用就删，要用时再加一行**。
  *
- * 与 `--sp-*` 那组刻度不是一回事：刻度是一套**可选的值**，用不上就等于没有，
+ * 与 `--sp-*` 那组刻度是同一条：刻度是一套**可选的值**，用不上就等于没有，
  * 留着反而让人以为「选令牌」比写 px 更正确（那组 10 档只用过 2 档，已删）。
  */
 .hint {
     color: var(--muted);
     font-size: var(--fs-sm);
+}
+/* 元信息：日期、量测值、部位、「已套用 N 条」这类**附在主体旁边的一行小字**。
+ *
+ * 全站的小字只有三档，按「读者要不要读它」分，不按字号分：
+ *   `.note`  块级说明——要读，一段话（`--fs-xs` + 1.72 行高）
+ *   `.hint`  行内提示——扫一眼（`--fs-sm`）
+ *   `.meta`  元信息——找的时候才看（`--fs-mini`）
+ * 2026-11-02 之前第三档散在十个地方各写一份（`.field-note` / `.status-meta` /
+ * `.detail-tag` / `.head-age` / `.tip-kind` / `.gear-meta` / `.char-sub` …），
+ * 字号都是 `--fs-mini`、颜色都是 `--muted`，只有 margin 和行高在 5px/6px、
+ * 1.6/1.7 之间游走——那不是「就地决定」，是抄第二遍时的手抖。
+ *
+ * 不设 `letter-spacing`：小字要放宽多少，取决于它旁边站的是什么（标签 0.14em、
+ * 状态 0.04em），这件事交给调用方，本类只管「哪一档、什么颜色、几倍行高」。
+ * 也不设 `margin`：margin 属于父级节奏，写在这里会让每处都要再覆盖一次。 */
+.meta {
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    line-height: 1.6;
 }
 /* 一行里的标签（「主题」「字号」「监听窗口」「高概率区域」）。
  * 全站只有一种读法：次级墨、一档小字、字距放宽——它只交代「这一格是什么」，
@@ -415,17 +439,66 @@ svg {
     font-size: var(--fs-xs);
     letter-spacing: 0.14em;
 }
-.error {
-    color: var(--cinnabar);
-}
-.positive {
-    color: var(--moss);
+/* 「标签在左、控件在右」的一行。设置页（主题 / 字号）与捉鬼页（监听窗口 / 高概率区域）
+ * 是同一件事，原先各写一份：`gap` 12 对 9、纵向间距 12 对 13——差 3px 和 1px，
+ * 谁都读不出来，但两页并排翻的时候，行内挤法确实不一样。
+ *
+ * 只给行内的排布，**不给纵向间距**：捉鬼页的两行之间还夹着一条 `.meta` 说明，
+ * 节奏是「行 12 → 说明 6 → 行 12」，塞进本类反而要在每一处再覆盖。 */
+.form-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 /* 数字一律用等宽数字（tabular-nums）：霞鹜的数字宽度不一，列一对齐就散。 */
 .num {
     font-family: var(--font-ui);
     font-variant-numeric: tabular-nums;
     letter-spacing: 0;
+}
+
+/* ---------- 小签 ----------
+ * 一枚带框的小字：门派的「大唐官府」、技能旁的「已满」、道具格上的「武器」、
+ * 测试面板里的样例。它不是按钮，也不是标签页——只是一段被框住的分类字。
+ *
+ * 原先四处各写一份（`.school` 1px 5px、技能签 0 4px、地图上「小鬼」0 4px、
+ * 样例签 2px 6px），边框、圆角、字号一个不差，只有内边距在 0/1/2px 之间漂。
+ * 这一档漂移没有任何信息量：它不影响可点面积（那是 `.chip-action` 的事），
+ * 只是抄的时候各人对了一眼自己的上下文。
+ *
+ * 静态签 1px 5px；**可点的另加 `.chip-action`**（2px 6px + 悬停）。可点的那档
+ * 内边距更大不是为了好看，是为了让指针落在框内任意处都算命中。 */
+.chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 5px;
+    border: var(--w-hair) solid var(--rule-2);
+    border-radius: var(--r-1);
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.06em;
+    line-height: 1.6;
+    white-space: nowrap;
+}
+.chip-action {
+    padding: 2px 6px;
+    background: none;
+    /* 可点的那档比静态签深一档：它是「可以点的候选」，不是「这是个分类」。 */
+    color: var(--ink-2);
+    font-family: var(--font-ui);
+    cursor: pointer;
+    transition:
+        border-color var(--t-quick) var(--ease-soft),
+        background-color var(--t-quick) var(--ease-soft),
+        color var(--t-quick) var(--ease-soft);
+}
+/* 悬停只在边框与底上「洇开一点朱」，不把整枚灌朱：它是样例、是候选，
+ * 不是这一屏的主操作——灌朱的只有 `.seal` 那一族。 */
+.chip-action:hover {
+    border-color: color-mix(in srgb, var(--seal-edge) 55%, var(--rule-2));
+    background-color: color-mix(in srgb, var(--seal) 8%, transparent);
+    color: var(--ink);
 }
 
 /* ---------- 页面骨架 ----------

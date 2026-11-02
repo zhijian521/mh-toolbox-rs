@@ -75,7 +75,7 @@ watch(
                     <span class="tip-name">{{ detail.name }}</span>
                     <span class="tip-lv num">{{ detail.lv }}</span>
                 </div>
-                <div class="tip-kind">{{ detail.kind }}</div>
+                <div class="meta tip-kind">{{ detail.kind }}</div>
                 <div class="rule"></div>
                 <dl>
                     <div v-for="[label, value] in detail.base" :key="`b-${label}`">
@@ -98,7 +98,7 @@ watch(
                         <span class="v" :class="tone">{{ value }}</span>
                     </div>
                 </template>
-                <div class="tip-foot">{{ detail.foot }}</div>
+                <div class="meta tip-foot">{{ detail.foot }}</div>
             </template>
         </div>
     </Teleport>
@@ -109,21 +109,20 @@ watch(
     position: fixed;
     z-index: 60;
     width: 216px;
-    padding: 10px 12px 11px;
+    padding: var(--block-pad-tight);
     border: var(--w-hair) solid var(--rule-2);
     background: var(--paper);
-    box-shadow:
-        0 1px 2px var(--shadow),
-        0 16px 32px -16px var(--shadow-lg);
+    /* 与整张卡片、测试面板同一枚「纸片抬起」的影子。 */
+    box-shadow: var(--shadow-lift);
     /* 藏起来时不能留 tab 停靠点，也不能被读屏念到（`aria-hidden` 兜住内容）。 */
     visibility: hidden;
     opacity: 0;
     pointer-events: none;
     transform: translateY(-3px);
     transition:
-        opacity 90ms var(--ease-soft),
-        transform 90ms var(--ease-soft),
-        visibility 0s linear 90ms;
+        opacity var(--t-tip) var(--ease-soft),
+        transform var(--t-tip) var(--ease-soft),
+        visibility 0s linear var(--t-tip);
 }
 /* 文武线内衬走全局 `.dual-rule`（`base.css`），这里只把它收紧一档：
  * 浮片整宽 216、内边距 10~12，按 3px 会让内衬几乎贴住文字。 */
@@ -138,8 +137,9 @@ watch(
 }
 /* 暗色下投影是黑压黑，等于没有浮起；靠把纸面往纸白提一档表达「在上面一层」。
  * 只提一档不够——格子本身也是 paper-2，浮片会和身后的格子糊成一片。
- * 往 `--paper-base`（不翻面）提，不是往 `--paper`（暗色下是 #1c1912）提。 */
-:root.dark .gear-tip {
+ * 往 `--paper-base`（不翻面）提，不是往 `--paper`（暗色下是 #1c1912）提。
+ * 暗色覆写整条写进 `:global()`：与 `AppRail` 的写法一致（§2.4-1）。 */
+:global(html.dark .gear-tip) {
     background: color-mix(in srgb, var(--paper-2) 86%, var(--paper-base) 14%);
 }
 
@@ -161,8 +161,6 @@ watch(
 }
 .tip-kind {
     margin-top: 2px;
-    color: var(--muted);
-    font-size: var(--fs-mini);
     letter-spacing: 0.08em;
 }
 .rule {
@@ -221,8 +219,6 @@ dd {
     margin-top: 6px;
     padding-top: 5px;
     border-top: var(--w-hair) dotted var(--rule-2);
-    color: var(--muted);
-    font-size: var(--fs-mini);
     letter-spacing: 0.04em;
 }
 </style>
