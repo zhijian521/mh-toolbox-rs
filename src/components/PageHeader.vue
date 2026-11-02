@@ -36,7 +36,9 @@ withDefaults(defineProps<{ title: string; desc?: string }>(), { desc: '' });
     flex: none;
     gap: 12px;
     min-height: var(--page-head-h);
-    padding: 10px 16px 9px;
+    /* 左右取 `--page-pad`，与 `.page-content` 的四边同一个值——这里写死 16 就会
+     * 变成「第二份」，改内容区留白时页头不会跟着走，那道通栏账线立刻比卡片短一截。 */
+    padding: 10px var(--page-pad) 9px;
     border-bottom: var(--w-hair) solid var(--rule);
     background: var(--paper);
     white-space: nowrap;

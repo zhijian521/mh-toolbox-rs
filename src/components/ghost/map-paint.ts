@@ -144,6 +144,17 @@ export function paintMap(ctx: CanvasRenderingContext2D, input: PaintInput): void
     const PAD_X = 4;
     const PAD_Y = 3;
     const BOX_H = 18;
+    /* 坐标点的十字半臂。提到这里是因为它同时决定「标签离点多远」——
+     * 两处各自写 7 与 10，改一个忘一个，标签就会压到十字尖上。
+     *
+     * 9 而不是 7：7 时整枚标记只有 14px 见方，在 800px 宽的地图上是一粒沙，
+     * 一眼扫过去要靠读旁边的数字才找得到点。9 让它涨到 18px 见方（+29%），
+     * 圆心同时 3 → 4，仍然小于路口、传送点那些自带图标，不会抢地形。
+     * **线宽不跟着加**：1.5 在 dpr 2 下正好落在整物理像素上（3px），
+     * 1.75 会骑到半像素上变柔；放大靠几何，不靠加粗。 */
+    const MARK_SIZE = 9;
+    /** 圆心半径。跟半臂一起放大（3 → 4），单独成常量是因为 `marker()` 里只该有一个魔数来源。 */
+    const MARK_DOT = 4;
 
     interface LabelBox {
         x: number;
@@ -313,21 +324,39 @@ export function paintMap(ctx: CanvasRenderingContext2D, input: PaintInput): void
 
         const text = outside ? `${rawX},${rawY} 图外` : `${rawX},${rawY}`;
 
+        /**
+         * 坐标点：一枚十字 + 一枚圆心。**两个模式共用这一份几何**
+         * （十字半臂 9、圆心 4、线宽 1.5），差别只有圆心的填色——
+         * 范围模式填纸色（一个待定的点），开眼模式填朱红（真身已定）。
+         *
+         * 早先两处各画一套：范围是「墨十字 + 纸心墨圈」，开眼是「朱红实心点 + 纸白细环」，
+         * 同一张图上是两种符号，开眼一到位就像换了个控件，还读不出「这是同一个点，
+         * 只是确定了」。统一之后开眼只多一层信息：圆心由白转红。
+         *
+         * 不各写一遍：样式一旦分开维护，下一轮改粗细、改半径就会只改一处。
+         */
+        const marker = (x: number, y: number, fill: string) => {
+            ctx.strokeStyle = ink;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(x - MARK_SIZE, y);
+            ctx.lineTo(x + MARK_SIZE, y);
+            ctx.moveTo(x, y - MARK_SIZE);
+            ctx.lineTo(x, y + MARK_SIZE);
+            ctx.stroke();
+
+            // 圆沿用上面那支笔（ink / 1.5）：只有填色变，描边与十字是同一支。
+            ctx.fillStyle = fill;
+            ctx.beginPath();
+            ctx.arc(x, y, MARK_DOT, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        };
+
         if (plan.mode === 'exact') {
             // 开眼之后任务栏给的是**真坐标**，没有范围可猜，所以这里不画任何框。
-            //
-            // 中心一枚朱红点、外面一圈纸白细环：环不是装饰，是为了在任何底色上
-            // 都能读出点的边界——没有环，点会与深色的山地、水面融成一片。
-            ctx.fillStyle = mapSeal;
-            ctx.beginPath();
-            ctx.arc(px, py, 4, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.strokeStyle = mapHalo;
-            ctx.lineWidth = 1.3;
-            ctx.beginPath();
-            ctx.arc(px, py, 5.1, 0, Math.PI * 2);
-            ctx.stroke();
+            // 点本身与范围模式同一枚，只有圆心是朱红的。
+            marker(px, py, mapSeal);
 
             // 坐标是**写在地形上的**，没有底板、没有边框。范围模式那一层用纸色标签，
             // 因为它是一块「区域」，需要一个边界；这里是「一个点」，再套一个框
@@ -339,7 +368,9 @@ export function paintMap(ctx: CanvasRenderingContext2D, input: PaintInput): void
             ctx.textBaseline = 'middle';
             ctx.lineJoin = 'round';
             const textWidth = ctx.measureText(text).width;
-            const gap = 11;
+            /* 与点之间的距离也从 `MARK_SIZE` 推：原先是写死 11（= 当时的半臂 7 + 4），
+             * 十字一放大就会让坐标压到十字尖上。+4 是「再留半个圆」的余量。 */
+            const gap = MARK_SIZE + 4;
             // 默认写在点的右侧；贴到右边缘时翻到左侧。不翻会被裁在地图外，
             // 剩一个点什么信息都没有。
             const fitsRight = px + gap + textWidth <= layout.left + layout.width - 2;
@@ -358,27 +389,11 @@ export function paintMap(ctx: CanvasRenderingContext2D, input: PaintInput): void
             ctx.fillStyle = mapSealInk;
             ctx.fillText(text, textX, textY);
         } else {
-            const size = 7;
-            ctx.strokeStyle = ink;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(px - size, py);
-            ctx.lineTo(px + size, py);
-            ctx.moveTo(px, py - size);
-            ctx.lineTo(px, py + size);
-            ctx.stroke();
-
-            ctx.fillStyle = paper;
-            ctx.strokeStyle = ink;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.arc(px, py, 3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
+            marker(px, py, paper);
 
             ctx.font = FONT;
             const boxWidth = ctx.measureText(text).width + PAD_X * 2;
-            const gap = size + 3;
+            const gap = MARK_SIZE + 3;
             const fitsRight = px + gap + boxWidth <= layout.left + layout.width - 2;
             placeLabel(
                 text,

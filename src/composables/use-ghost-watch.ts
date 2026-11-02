@@ -2,7 +2,13 @@ import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
 import { hasDesktop } from '../services/desktop';
 import { listGhostWindows, probeGhostTask, type GhostWindow } from '../services/ghost';
 import { loadGhostMaps, type GhostMap } from '../services/ghost-maps';
-import { parseGhostTasks, type ParseReport, type TaskKind } from '../services/ghost-parse';
+import {
+    parseGhostTasks,
+    linesFromText,
+    type ParseReport,
+    type ParsedTask,
+    type TaskKind,
+} from '../services/ghost-parse';
 import {
     absorbFrame,
     CONFIRM_FRAMES,
@@ -31,24 +37,6 @@ const POLL_MS = 1100;
 
 /** 连续失败几次才报错。偶发一次失败（窗口切到后台）不该让界面闪红。 */
 const FAIL_TOLERANCE = 3;
-
-/**
- * 「高概率区域」开关的存储键。
- *
- * 只持久化这一项，因为它是**显示偏好**：用户关掉多半是因为那块深红挡住了地形，
- * 下次进页面又要关一次就是白做。不要把 `running` 之类的也存进来——「进页面自动
- * 开始」是这一页的既定行为，存了状态就会变成「上次是停的，这次进来还是停的」。
- */
-const HOT_KEY = 'mh-ghost-hot';
-
-function readHot(): boolean {
-    try {
-        return window.localStorage.getItem(HOT_KEY) !== '0';
-    } catch {
-        // 存储被禁时 `getItem` 会抛。默认开——关着的话这个功能第一次进来根本看不见。
-        return true;
-    }
-}
 
 /**
  * Rust 侧「指定句柄已经不在窗口列表里」的原文（`ghost.rs` 的 `ghost_probe`）。
@@ -100,8 +88,28 @@ export function useGhostWatch() {
      *
      * 做成开关而不是固定画：那块深红会压掉一半地形，而地形本身就是缩小范围的
      * 依据（洞口、通道、水陆分界）。有人靠它，有人嫌它挡图，两种都合理。
+     *
+     * **默认开、且不持久化**。早先它存进 `localStorage`（`mh-ghost-hot`），理由是
+     * 「关掉多半是嫌挡地形，下次进来又要关一次」；实际跑下来这条理由站不住：那枚深红
+     * 是「这一片更可能」的唯一凭据，默认关着等于把功能藏起来，用户得先知道有它才谈得上
+     * 要不要关。而「记住上次」会让默认值变成「上次」——关过一次就再也不是默认开了。
+     * 现在关掉的偏好只在本次停留里有效（状态本来就活在这个实例上）；旧键不再读取，
+     * 留在用户机器上也不影响任何显示。
      */
-    const hot = ref(readHot());
+    const hot = ref(true);
+
+    /**
+     * 是否在「测试文字」模式。
+     *
+     * 它不是一个调试开关，而是**这一页在没有游戏时的唯一可用路径**：解析链是纯的，
+     * 喂一段任务栏原文就能走到与真机完全相同的 `planFor` → 画图。
+     *
+     * 生效期间必须停掉轮询：否则 1.1 秒后真帧回来，把刚套用的结果盖掉，
+     * 界面表现为「点了一下、图闪一下就没了」。
+     */
+    const testing = ref(false);
+    /** 测试模式下解析出来的任务。与 `hold` 分开持有：`hold` 是「跨帧保留」的时序结构，测试只有一帧。 */
+    const testTasks = shallowRef<ParsedTask[]>([]);
 
     /**
      * 有没有 Tauri 宿主。浏览器预览里页面照样能渲染，但没有截屏能力，
@@ -117,6 +125,13 @@ export function useGhostWatch() {
      * 这个时序常量——页面不该知道时序。
      */
     const statusText = computed(() => {
+        // 测试模式排在最前：它不是「读不到屏幕」的降级，而是**有意不读屏幕**。
+        // 放在 `!desktop` 之后的话，浏览器预览里套用测试文字会显示
+        // 「浏览器预览里读不到屏幕」——事实相反，图上明明画出来了。
+        if (testing.value) {
+            const count = plans.value.length;
+            return count > 0 ? `测试文字 · ${count} 条` : '测试文字没解析出任务';
+        }
         if (!desktop) return '浏览器预览里读不到屏幕';
         if (error.value) return error.value;
         if (starting.value) return '正在启动';
@@ -131,6 +146,10 @@ export function useGhostWatch() {
     /** 状态灯的三种颜色。是否出错由这里判，页面只负责按名字上色。 */
     const statusKind = computed<'idle' | 'live' | 'warn'>(() => {
         if (error.value) return 'warn';
+        // 测试模式不能按 `running` 判：轮询是停着的，恒为 idle。但「一条都没解析出来」
+        // 是真失败，得给赭色——否则和「待命中」长得一模一样，用户只会以为还没生效。
+        // 有结果时仍给 idle：这会儿确实没在读屏幕，亮成 live 反而撒谎。
+        if (testing.value) return plans.value.length > 0 ? 'idle' : 'warn';
         return running.value ? 'live' : 'idle';
     });
 
@@ -178,7 +197,11 @@ export function useGhostWatch() {
     let disposed = false;
 
     function recompute() {
-        plans.value = heldTasks(hold).map((task) => planFor(task, hot.value));
+        // 测试模式不经过 `hold`：那一层解决的是「这一帧没读清，用上一帧顶着」，
+        // 而测试文字只有一帧，没有跨帧可保留。绕过它不是偷懒——把它也塞进 hold
+        // 会让 `holdAges` 把测试结果算成「3 秒前读到的」，界面上莫名冒出年龄标签。
+        const tasks = testing.value ? testTasks.value : heldTasks(hold);
+        plans.value = tasks.map((task) => planFor(task, hot.value));
     }
 
     function resetHeld() {
@@ -186,6 +209,54 @@ export function useGhostWatch() {
         plans.value = [];
         settling.value = false;
         ages.value = { small: 0, big: 0 };
+    }
+
+    /**
+     * 用一段文字代替游戏截屏。
+     *
+     * 走的是**与真机同一条**链路：`linesFromText` → `parseGhostTasks` → `planFor`。
+     * 特意不在页面里另写一套「模拟」——那样测出来的只是模拟器自己。
+     *
+     * 三件事必须一起做：停轮询（否则 1.1 秒后被真帧盖掉）、清掉保留区
+     * （否则上一轮真帧或上一条测试的年龄标签会跟过来）、把统计与引擎名清空
+     * （那是真机的读数，留着会让「识别 0ms」这种假数据出现在界面上）。
+     *
+     * **用序号挡重入**：面板上六条样例一屏排开，连点两下很正常，而 `await` 之后
+     * 谁先返回不由调用顺序决定——没有这道闸，点 A 再看 B 时可能被先发出、后返回的
+     * A 覆盖，界面显示的和刚点的那条对不上。序号一变，在飞的那次写完也作废。
+     */
+    let testSeq = 0;
+
+    async function applyTest(text: string) {
+        const trimmed = text.trim();
+        if (!trimmed) {
+            clearTest();
+            return;
+        }
+        const seq = ++testSeq;
+        stop();
+        if (maps.value.length === 0) maps.value = await loadGhostMaps();
+        // 期间又点了一次、或点了「退出」：这次的结果已经不新鲜，丢掉。
+        if (seq !== testSeq || disposed) return;
+        const parsed = parseGhostTasks(linesFromText(trimmed), maps.value);
+        resetHeld();
+        testTasks.value = parsed.tasks;
+        report.value = parsed;
+        testing.value = true;
+        error.value = '';
+        stats.value = null;
+        engine.value = '';
+        recompute();
+    }
+
+    /** 退出测试模式，回到「未开始」。不自动重启轮询：测试时多半没开游戏，重启只会立刻报错。 */
+    function clearTest() {
+        // 序号自增：正在 `await` 的那次回来时作废，否则刚点了退出又被它写回测试态。
+        testSeq += 1;
+        testing.value = false;
+        testTasks.value = [];
+        resetHeld();
+        report.value = null;
     }
 
     async function refreshWindows() {
@@ -238,12 +309,20 @@ export function useGhostWatch() {
 
     async function start() {
         if (running.value || starting.value) return;
+        // 真机接管：测试文字要让位。不然第一帧还没回来时 `recompute` 会把上一轮
+        // 测试的结果和真帧的结果交替写进 `plans`，图来回跳。
+        testing.value = false;
+        testTasks.value = [];
         starting.value = true;
         try {
             if (maps.value.length === 0) maps.value = await loadGhostMaps();
             if (windows.value.length === 0) await refreshWindows();
             running.value = true;
             resetHeld();
+            /* `resetHeld` 只清 `plans`，`report` 还留着上一轮——从测试文字点「开始」
+             * 而游戏没开时，状态行报「没找到梦幻西游窗口」，下面「识别原文」却列着
+             * 刚才那段测试文本，读起来像「其实读到了」。所以这里一并清掉。 */
+            report.value = null;
             failCount = 0;
             error.value = '';
             await tick();
@@ -274,14 +353,7 @@ export function useGhostWatch() {
     }
 
     // 开关一改立刻重算，不等下一帧——开它就是为了马上看到那块深红。
-    watch(hot, (value) => {
-        try {
-            window.localStorage.setItem(HOT_KEY, value ? '1' : '0');
-        } catch {
-            // 存不上只影响下次进页面的默认值，本次显示照常。
-        }
-        recompute();
-    });
+    watch(hot, recompute);
 
     onScopeDispose(() => {
         disposed = true;
@@ -305,6 +377,7 @@ export function useGhostWatch() {
         settling,
         ages,
         hot,
+        testing,
         desktop,
         statusText,
         statusKind,
@@ -314,5 +387,7 @@ export function useGhostWatch() {
         start,
         toggle,
         prepare,
+        applyTest,
+        clearTest,
     };
 }

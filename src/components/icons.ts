@@ -24,6 +24,7 @@ import type { Component } from 'vue';
 import {
     IconAdjustmentsHorizontal,
     IconArchive,
+    IconArrowLeft,
     IconBrandGithubFilled,
     IconCalendar,
     IconCamera,
@@ -37,11 +38,14 @@ import {
     IconDownload,
     IconFilter,
     IconFlag,
+    IconFlask,
     IconLayoutDashboard,
     IconMapPin,
     IconMinus,
     IconMoon,
     IconPencil,
+    IconPlayerPlay,
+    IconPlayerStop,
     IconPlus,
     IconSearch,
     IconSquare,
@@ -94,6 +98,13 @@ const ICON_META = {
     settings: { glyph: IconAdjustmentsHorizontal, label: '设置', group: 'nav' },
 
     /* ---------- 动作 ---------- */
+    // 返回 / 开始 / 停止 / 测试四个是与「跑起来」直接相关的动作，排在最前。
+    // 早先这四处用的是「纯文字按钮 + 箭头字符」，箭头的大小与基线跟中文字对不齐。
+    back: { glyph: IconArrowLeft, label: '返回', group: 'action' },
+    play: { glyph: IconPlayerPlay, label: '开始', group: 'action' },
+    stop: { glyph: IconPlayerStop, label: '停止', group: 'action' },
+    // 测试文字入口：烧瓶＝「不进正式流程的试跑」，比齿轮/扳手更像实验而不是设置。
+    flask: { glyph: IconFlask, label: '测试', group: 'action' },
     add: { glyph: IconPlus, label: '新增', group: 'action' },
     edit: { glyph: IconPencil, label: '编辑', group: 'action' },
     trash: { glyph: IconTrash, label: '删除', group: 'action' },

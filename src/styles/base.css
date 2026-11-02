@@ -92,8 +92,8 @@ svg {
 }
 
 ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: var(--scrollbar-w);
+    height: var(--scrollbar-w);
 }
 ::-webkit-scrollbar-track {
     background: transparent;
@@ -481,9 +481,22 @@ svg {
 .page-content {
     flex: 1;
     min-height: 0;
-    /* 上下 12/18、左右 16：页头也是左右 16，两边对齐才不会让第一张卡的框比标题左缘缩进一截。
-     * 原先是 16/20/26，四边都大一圈，1280 下正文能用的宽度被白吃掉 40px。 */
-    padding: 12px 16px 18px;
+    /* **四边同值**，都取 `--page-pad`（与页头左右同一枚）。原先写 `12px 16px 18px`：
+     * 上边比左右窄 4px，第一张卡离页头线比离左缘近，整页读起来「顶得慌」；
+     * 下边又多 2px，四边没有一个面是同宽的。留白一致之后，卡片的顶边、左缘、
+     * 页头的左右两端落在同一套边框上，一眼看得出这是一页而不是几块拼起来的东西。
+     * 不留 0：卡片是纸片，纸片不能压到纸边。
+     *
+     * 右侧再减一条滚动条轨道：`scrollbar-gutter: stable` 把轨道算在**内边距里**，
+     * 于是右边的视觉留白 = 内边距 + 10px 轨道，比左边宽一条；卡片右缘也就比页头
+     * 右端的按钮缩进一条轨道。轨道本来就是纸边的一部分，所以从内边距里扣掉它，
+     * 两边到窗口的净距才相等。轨道宽与 `::-webkit-scrollbar` 同一枚 `--scrollbar-w`。
+     *
+     * 下限写 `max(0px, …)`：这个减法成立的前提是轨道比页边距窄（10 < 16）。哪天有人
+     * 把轨道调到 16 以上，纯 `calc()` 会算出负内边距——浏览器按 0 处理，卡片直接贴边，
+     * 而报错一个都不会有。 */
+    padding: var(--page-pad);
+    padding-right: max(0px, calc(var(--page-pad) - var(--scrollbar-w)));
     overflow: auto;
     /* 滚动条始终占位：内容不满一屏的页面若不留，右侧会被撑宽约 10px，切页时页头右端会跳。 */
     scrollbar-gutter: stable;

@@ -58,10 +58,24 @@ const autoSave = ref(false);
                     <SlotButton label="刷新" text="刷新" />
                     <SlotButton label="停用" icon="trash" disabled />
                 </div>
+                <!-- 变体与尺寸各占一行：`seal` 是「印在不在」，`size` 是「槽多大」，
+                     混在同一行会让人以为它们是同一种分类。 -->
+                <div class="kit-row">
+                    <SlotButton label="主操作（印已落定）" icon="play" text="开始识别" seal />
+                </div>
+                <div class="kit-row">
+                    <SlotButton label="小一号 24px" text="sm" size="sm" />
+                    <SlotButton label="默认 26px" text="md" />
+                    <SlotButton label="大一号 31px" text="lg" size="lg" />
+                </div>
                 <p class="note">
-                    悬停时朱印内缩 1px 落进槽里，移上去看。三种形态由 props 组合定，不另开组件：只给
+                    悬停时朱印内缩落进槽里（内缩随尺寸走：<code>md</code>/<code>sm</code> 1px、
+                    <code>lg</code> 2px），移上去看。三种形态由 props 组合定，不另开组件：只给
                     <code>icon</code> 是纯图标（正方形），<code>icon</code> +
                     <code>text</code> 是图标带字，只给 <code>text</code> 是纯文字。
+                    <code>seal</code> 是变体不是形态：印面常驻，用于主操作——一屏只该有一枚，
+                    两枚就等于没有主次。<code>size</code> 是尺寸预设（<code>sm</code> 24 /
+                    <code>lg</code> 31），落在 <code>--slot-h</code> 上，父级仍可用变量覆写。
                 </p>
             </div>
 
