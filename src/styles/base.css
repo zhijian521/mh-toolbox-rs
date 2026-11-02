@@ -456,6 +456,124 @@ svg {
     gap: 10px;
 }
 
+/* ---------- 纸带行：凸起的色带表格 ----------
+ * 一条 `.paper-row` = 一条凸起的纸带：标签在左、数值在右，行间 2px 露纸。
+ * 角色卡的属性/技能/召唤兽行与编辑弹窗的属性行是**同一种器件**，2026-11-02 从
+ * `character-card.css` 的 `.ledger > div` 提上来——两处各写一份时，亮暗两档棱色、
+ * 交替色、缝宽已经开始各自漂移，弹窗那张表因此读起来「像另一个界面」。
+ *
+ * 厚度是**缝给的**，不是棱给的：两块都凸时上块的下暗棱朝下、下块的上亮棱朝上，
+ * 贴住就是「暗棱压亮棱」，厚度互相抵消，整页退回一条平色带（做过无缝反例）。
+ * 1px 也不够，两块会粘成「色带 + 一条暗线」；2px 是这套 26px 行高的下限。
+ *
+ * 色带画在 `::before` 上，行只负责排版，伪元素承担色带与四道棱，两件事互不牵连。
+ * `inset: 0`：色带铺满整列，**不两端内收**——内收与「字在带内」不可兼得，文字
+ * 没跟着收时右端数字的右缘会露在带外（2026-11-02 按截图实测超 7px）。留白交给
+ * 行的左右内边距 10；10 不是凑的，组头是「竖条 4 + gap 6」，带内文字正好与组头
+ * 文字落在同一条竖线上。
+ */
+.paper-rows {
+    display: grid;
+    /* 棱色两个主题各一档：暗色下 `--bevel-hi` 只有 18% 白，压在深纸上读不出，
+     * 只剩「下暗」，凸起会反过来读成嵌进纸里的黑框。 */
+    --hi-ridge: light-dark(var(--bevel-hi), #ffffff52);
+    --lo-ridge: light-dark(var(--bevel-lo), #0000006b);
+}
+.paper-row {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
+    padding: 5px 10px;
+    font-size: var(--fs-sm);
+    /* 字**不压浮雕**（2026-11-02 用户：「不要浮雕了，感觉有点眨眼」）。原先上下各一道：
+     * `0 -1px 0 #fff` 抬笔画上沿、`0 1px 1px #0000005c` 抹下沿，在 12px 楷体上等于
+     * 给每一笔描了一圈亮边 + 灰边——小字号里最刺眼的就是这个，而且纸带本身已经凸了，
+     * 字再浮一层是「两层立体打架」。现在只留一道 1px、不到一成黑的贴纸影：
+     * 墨压在纸上的一点交代，笔画本身不描边。暗色底深、影无意义，直接撤掉。 */
+    text-shadow: 0 1px 0 light-dark(#00000014, #00000000);
+}
+.paper-row + .paper-row {
+    margin-top: 2px;
+}
+/* 色带与四道棱：上/左 1px 亮，下 2px、右 1px 暗，底下 1px 影——光向恒左上。 */
+.paper-row::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background: var(--paper-2);
+    box-shadow:
+        inset 1px 0 0 var(--hi-ridge),
+        inset 0 1px 0 var(--hi-ridge),
+        inset -1px 0 0 var(--lo-ridge),
+        inset 0 -2px 0 var(--lo-ridge),
+        0 1px 2px var(--shadow);
+}
+/* 偶数行的带色**不能直接用 `--paper`**——那就是卡片本身的纸色，带子与卡底同色，
+ * 只剩上下两道棱，读起来是「这行没有纸带」、字浮在外面（2026-11-02 用户截图）。
+ * 往 `--paper-2` 里掺一半，两行都看得出带子、奇偶又还分得开，暗色下自动跟着翻。 */
+.paper-row:nth-child(even)::before {
+    background: color-mix(in srgb, var(--paper-2) 55%, var(--paper));
+}
+/* 通栏组：卡片与编辑弹窗都有这么一组——只有两项的「潜能」（乾元丹 / 潜能果）。
+ * 它跨满两列、内部再切成两格并排，读作一笔小计；只占左半格时右边空出半行，
+ * 会被读成「另一项漏填了」。
+ *
+ * 两处的列距不同（卡 26 / 面板 20），所以由容器给 `--pair-gap`，这条只读它。 */
+.attr-group.wide {
+    grid-column: 1 / -1;
+}
+.attr-group.wide .paper-rows {
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--pair-gap, 26px);
+}
+/* 并排之后要拆掉两件「上下相邻」的约定：
+ * 1. `.paper-row + .paper-row` 的 2px 上缝——同一行的第二格会被它往下推 2px，
+ *    两块纸带的底棱错开，一眼就是「右边那个歪了」；
+ * 2. 偶数行的浅色——同一行的两格该同色，第二格单独变浅读起来像「这格没填」。
+ *    两格都回到 `--paper-2`（奇数行的颜色）。 */
+.attr-group.wide .paper-row + .paper-row {
+    margin-top: 0;
+}
+.attr-group.wide .paper-row:nth-child(even)::before {
+    background: var(--paper-2);
+}
+/* 引线：把「名目」与「数值」连起来的那串点。属性行、技能行、召唤兽行共用一份。
+ *
+ * **不画 `border-bottom: dotted`**（2026-11-02 用户：「中间的省略号感觉不是很好看」）。
+ * 1px dotted 在屏幕上被渲染成 1×1 的**方**点、间隔只有 1px，左端紧贴名目、右端顶着
+ * 数值——整行读下来是一串被拉长的省略号，底下还留着下划线的错觉，一屏并排就是十来条。
+ *
+ * 改成用 `radial-gradient` 铺**圆点**：直径约 1px、每 5px 一颗、两端各让 6px。节奏一疏、
+ * 形状一圆，「引线」才成立；两端让出去的那 6px 是关键——点不贴着字，视线才不会被
+ * 拽回标签上。浓度 60% 与原来的 62% 基本持平：圆点比同尺寸的方点看着轻，不必再压。
+ *
+ * 高度必须给 4px：`height: 0` 上画不出背景（原来的写法靠 border 画在盒外，才不用高度）。
+ * `translateY(-5px)` 把点抬到基线上方约 3px，正好是 x-height 的中线，不压字脚也不飘到字腰。
+ * 行是 `align-items: baseline`，这 4px 不参与行高，撑不动 26。
+ */
+.leader {
+    flex: 1;
+    min-width: 8px;
+    height: 4px;
+    margin: 0 6px;
+    background-image: radial-gradient(
+        circle at 50% 50%,
+        color-mix(in srgb, var(--rule-2) 60%, transparent) 0.5px,
+        transparent 0.6px
+    );
+    background-size: 5px 4px;
+    background-position: 0 50%;
+    background-repeat: repeat-x;
+    /* 只抬 2px。这 4px 的盒在 dt 里是 baseline 对齐的，不位移时点中心落在 11——
+     * 贴着 x-height 下沿，像一道没画完的下划线；抬 2 之后在 9，正落在 x-height 中线，
+     * 才是「从字腰引出去的一条线」。（写成 -5 会顶到 x-height 上沿，比字高半头。） */
+    transform: translateY(-2px);
+}
+
 /* ---------- 输入格 ----------
  * 纸上挖出来的一格：底比纸深一档、内侧上沿压一道影、一圈细账线。与 `.well` 同一个光向，
  * 但**不直接复用 `.well`**：那个的 `background-image` 是给「一整条 26px 高以上的轨道」
@@ -465,41 +583,107 @@ svg {
  * 表单里输入框和按钮经常并排（加一行、删一行），高差 2px 整行就歪了。
  *
  * 焦点态**不用** `outline`：`outline` 是方的，而输入格是 `--r-2` 圆角，两者在四角打架。
- * 改换边色——焦点在这里的意思是「这一格在等着你写」，与按钮的焦点环
- * （「键盘现在停在这枚按钮上」）是两种事，不必长得一样。
+ * 焦点也不换边色（见下面 `.field:focus`），只把这道槽再压深一档。
  */
 .field {
+    /* **边框是「墨线」，不是「黑框」**。2026-11-02 五轮下来把这一格的粗细与深浅都试到了边界：
+     * 1.5px 被 Chromium 向下取整回 1px（`getComputedStyle` 量得 1px），等于白写；2px 在 26px
+     * 高的格子里上下各吃 2px，小格读作「加了相框」，判「太粗」；而为了在 1px 上「看得清」把
+     * 颜色压到 88 阶（掺墨 52%），又被判「黑色边框太丑」。
+     * 结论：**厚度固定 1px，颜色取褐不取黑**——`--rule-2`（暖褐 169 阶）掺 16% 墨到 155 阶。
+     * 这条线比纸(229)深 74 阶、比槽底(220)深 65 阶，1px 也读得清；而因为它仍是褐的、不是黑的，
+     * 落在米色纸上像一道笔线，不像围着格子的框。 */
+    --lip-shade: color-mix(in srgb, var(--rule-2) 84%, var(--ink-base));
+    /* 迎光侧只比背光侧亮一档，够分出光向，不会变成一条亮带。
+     * 暗色下要提得更亮一点：1px 的暗线压在极暗的槽底上会糊掉，提亮才看得见。 */
+    --lip-light: light-dark(
+        color-mix(in srgb, var(--rule-2) 92%, var(--ink-base)),
+        color-mix(in srgb, var(--rule-2) 92%, var(--paper-base))
+    );
+
     min-width: 0;
     height: calc(26px * var(--fs-scale));
     padding: 0 7px;
-    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 80%, transparent);
+    border: var(--w-hair) solid var(--lip-shade);
+    border-color: var(--lip-shade) var(--lip-light) var(--lip-light) var(--lip-shade);
     border-radius: var(--r-2);
-    /* 底取槽色（`--well`）而不是纸色：与面板同色的输入框只能靠一圈细边认出来，
-     * 读作「贴在纸上的白方块」。槽色 + 一道内侧上影，才是「纸被挖开一格」。 */
-    background: var(--well);
-    box-shadow: inset 0 1px 2px var(--bevel-lo);
+    /* 槽底直接用 `--well`（220 阶，比纸低 9 阶）。前三版在 205 / 213 / 223 / 227 之间
+     * 来回挪都被判过，根因不在这一个数上——是边没了，才显得「要么一块灰底、要么一片
+     * 白」。边修好之后回 `--well` 原值即可：一档之差负责「这不是纸面」，深浅的活儿
+     * 交给边与影。暗色仍往墨里压 32%：`--well` #171409 与纸 #1c1912 只差 3 阶。 */
+    background-color: light-dark(var(--well), color-mix(in srgb, var(--well) 68%, var(--ink-base)));
+    /* 顶壁：光从左上进来，槽顶那一段背光。带子只做 9px——`.well` 那条 62% 的斜面是
+     * 给 26px 高的整条轨道调的，压到单行输入框上会一路糊到文字基线。 */
+    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 9px);
+    box-shadow:
+        inset 0 1px 2px var(--bevel-lo),
+        /* 底壁那道**亮**线：凹与凸的分界就在这一笔，缺了它就只是「一块灰底」。 */ inset 0 -1px 0
+            var(--bevel-hi);
     color: var(--ink);
     font-family: var(--font-ui);
     font-size: var(--fs-sm);
     line-height: calc(24px * var(--fs-scale));
-    transition: border-color var(--t-quick) var(--ease-soft);
+    transition:
+        border-color var(--t-quick) var(--ease-soft),
+        box-shadow var(--t-quick) var(--ease-soft);
 }
 .field::placeholder {
     color: var(--muted);
 }
+/* 悬停把整圈**再压深一档**，不是抹平分光：圈先立住，再在这条圈上加深，
+ * 读起来是「这一格离你更近了」。三档（常态 / 悬停 / 焦点）在亮色下是
+ * 84 / 76 / 66 的掺墨比例，暗色下是 84 / 74 / 64——**单调渐深**，
+ * 改这组数之前先确认顺序没被写反。悬停只走 8 个点：常态已经是淡墨线，
+ * 一档跨太大就成了「一悬停忽然换了个框」。 */
 .field:hover:not(:disabled) {
-    border-color: var(--rule-2);
+    --lip-shade: light-dark(
+        color-mix(in srgb, var(--rule-2) 76%, var(--ink-base)),
+        color-mix(in srgb, var(--rule-2) 74%, var(--ink-base))
+    );
+    --lip-light: light-dark(
+        color-mix(in srgb, var(--rule-2) 84%, var(--ink-base)),
+        color-mix(in srgb, var(--rule-2) 82%, var(--paper-base))
+    );
 }
-.field:focus-visible {
+/* 焦点**不换色**。朱红留给印、注记与按钮的焦点环；一圈朱边贴在槽沿上，会把
+ * 「纸被挖开一格」读成「表单里被高亮的那一栏」。
+ *
+ * 同一套语汇再进一层：整圈再压一档（95 / 115），顶壁影由 2px 加厚到 3px，
+ * 读作「这一格刚被按住」。
+ * **槽底不跟着沉**：底色一深就整块发闷（用户 2026-11-02 判「背景太深」），
+ * 深度交给边与那层顶壁影，底只是「比纸低一档」。
+ * 光标给朱色——长笔画里那一点红足够说明「现在写在这里」，比框住整格轻得多。
+ *
+ * 用 `:focus` 而不是 `:focus-visible`：焦点这一态在此处的意思是「这一格被按住了」，
+ * 鼠标点进来也该有回应。以前是红色边框，鼠标点进来必须看见，所以原样挂在
+ * `:focus-visible` 上时只有键盘走到才亮——换成「深度」之后就该两种输入一视同仁。
+ *
+ * 选择器为什么带 `:not(:disabled)`：悬停那条是 `.field:hover:not(:disabled)`（0-3-0），
+ * 而「鼠标点进来」几乎必然同时处于悬停，只写 `.field:focus`（0-2-0）压不住，
+ * 焦点会静默退回悬停那一档。禁用元素无法聚焦，这个 `:not` 不改语义，只为对齐特异性。
+ */
+.field:focus:not(:disabled) {
     outline: none;
-    border-color: var(--cinnabar);
+    --lip-shade: light-dark(
+        color-mix(in srgb, var(--rule-2) 66%, var(--ink-base)),
+        color-mix(in srgb, var(--rule-2) 64%, var(--ink-base))
+    );
+    --lip-light: light-dark(
+        color-mix(in srgb, var(--rule-2) 76%, var(--ink-base)),
+        color-mix(in srgb, var(--rule-2) 72%, var(--paper-base))
+    );
+    box-shadow:
+        inset 0 1px 3px var(--bevel-lo),
+        inset 0 -1px 0 var(--bevel-hi);
+    caret-color: var(--cinnabar);
 }
 .field:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 /* 多行输入：高度交给 `rows`，内边距改成四边——单行那套 `0 7px` + `line-height: 24px`
- * 用在 textarea 上会让第一行贴着上边框。 */
+ * 用在 textarea 上会让第一行贴着上边框。左右与单行同为 7px，所以边框 + 内距
+ * 两边都是「文字距外沿 8px」，单行与多行上下叠放时左沿对得齐。 */
 .field.area {
     height: auto;
     padding: 5px 7px;

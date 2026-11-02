@@ -22,6 +22,7 @@
  *   node tools/probe/cdp.mjs --url http://127.0.0.1:5173/ --eval "document.body.scrollHeight"
  *   node tools/probe/cdp.mjs --root dist --hash '#/tools/ghost' --inject .runtime/stub.js --shot shot.png
  *   node tools/probe/cdp.mjs --root dist --hash '#/tools' --hover .tool-card --shot hover.png
+ *   node tools/probe/cdp.mjs --root dist --hash '#/dev' --focus .kit-field --shot focus.png
  *
  * 需要本机已经有一个开了调试端口的 Edge：
  *
@@ -251,7 +252,12 @@ async function main() {
     // （headless 里没有真实指针，`dispatchMouseEvent` 也只走到 hover 这一层）。
     const hoverSel = arg('hover', '');
     const activeSel = arg('active', '');
-    if (hoverSel || activeSel) {
+    // `--focus`：headless 里页面拿不到系统焦点（`document.hasFocus()` 为假），
+    // 元素 `.focus()` 之后 `document.activeElement` 是它，但 `:focus` 一个都不匹配——
+    // 量出来永远是常态样式。所以要先打开焦点模拟，再把伪类挂上。
+    const focusSel = arg('focus', '');
+    if (hoverSel || activeSel || focusSel) {
+        if (focusSel) await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
         await cdp.send('DOM.enable');
         await cdp.send('CSS.enable');
         const { root } = await cdp.send('DOM.getDocument', { depth: -1 });
@@ -267,6 +273,8 @@ async function main() {
         // 只挂 active 会漏掉 `:hover` 里那些颜色与阴影的叠加。
         if (hoverSel) await force(hoverSel, ['hover']);
         if (activeSel) await force(activeSel, ['hover', 'active']);
+        // 焦点同理带上 hover：鼠标点进来的那一刻一定在悬停。
+        if (focusSel) await force(focusSel, ['focus', 'focus-visible', 'hover']);
     }
 
     if (evalExpr) {

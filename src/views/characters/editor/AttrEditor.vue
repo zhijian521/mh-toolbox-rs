@@ -2,7 +2,7 @@
 import type { AttrGroup, ExpRow } from '../character';
 
 /**
- * 属性分区：四组固定行 + 经验一行，**只有数值那一格能改**。
+ * 属性分区：五组固定行 + 经验一行，**只有数值那一格能改**。
  *
  * 组名、行、顺序都由 `ATTR_GROUPS` 定死（用户 2026-11-02）：这一页是「照着游戏面板
  * 抄数字」，不是「想记什么就记什么」。所以这里没有加行、没有删行、没有改组名的输入框，
@@ -10,7 +10,19 @@ import type { AttrGroup, ExpRow } from '../character';
  *
  * 少掉那三样之后，一行只剩「标签 + 一格数」，正好对得上录入时的动作：
  * 打开游戏面板，从左到右把数字抄下来。原先每行后面跟着开关与删除按钮，
- * 一屏四组的右缘参差，抄数字时眼睛还要绕开它们。
+ * 一屏五组的右缘参差，抄数字时眼睛还要绕开它们。
+ *
+ * **排布与卡上同一张表**（2026-11-02 用户要求「属性展示和角色卡片保持一致，一行两个」）：
+ * 两行两列、行优先，上排资源 / 名望、下排战斗 / 加点，末组「潜能」通栏切两格，
+ * 经验再跨两列单独一行。
+ * 不只是好看——录完一个号回卡上核对时，眼睛按同一个位置找「战斗」，不用重新定位；
+ * 面板内容区 622 宽时一列排五组会把表拉成一根竖条，两列反而把五组收进一屏。
+ *
+ * **行本身也用卡上那一条纸带**（同日用户要求「弹窗里也同步属性的样式」）：
+ * 这里原先是一列凹槽输入框——同样几组数，在卡上是一条条凸起的纸带、在弹窗里是一排
+ * 挖开的槽，看着像两个界面。现在行、色带、点线、字色全走 `base.css` 的 `.paper-row`，
+ * 输入框是纸带上挖出的一小格：淡槽底、无边框、右对齐，与卡上的数字同一个落点。
+ * 底色一直在（不再「悬停才显形」）——这一页要一格一格填，格子先得看得见。
  *
  * 数组走 `v-model`（绑的就是草稿里那一个）：只读 prop 过不了 `vue/no-mutating-props`。
  * 没有第二份副本——这一层没有保存动作，回传无从谈起。
@@ -21,78 +33,168 @@ const experience = defineModel<ExpRow>('experience', { required: true });
 
 <template>
     <div class="attr-editor">
-        <section v-for="group in groups" :key="group.title" class="attr-group">
+        <section
+            v-for="group in groups"
+            :key="group.title"
+            class="attr-group"
+            :class="{ wide: group.wide }"
+        >
             <div class="group-head"><span class="section-mark"></span>{{ group.title }}</div>
-            <div v-for="row in group.rows" :key="row.label" class="erow">
-                <span class="row-label">{{ row.label }}</span>
-                <input
-                    v-model="row.value"
-                    class="field num value-field"
-                    :aria-label="row.label"
-                    :placeholder="`${row.label}值`"
-                />
+            <div class="paper-rows">
+                <!-- `<label>` 包住整行：点标签上的字也能落到数字格，比把可点面积
+                     收进右侧那一小格宽得多。 -->
+                <label v-for="row in group.rows" :key="row.label" class="paper-row">
+                    <span class="row-label">{{ row.label }}<span class="leader"></span></span>
+                    <input
+                        v-model="row.value"
+                        class="field num value-field"
+                        :aria-label="row.label"
+                        :placeholder="`${row.label}值`"
+                    />
+                </label>
             </div>
         </section>
 
-        <!-- 经验不占四组的位置：它没有「项目名」，只有两个数（当前 / 升级所需）。 -->
-        <section class="attr-group">
+        <!-- 经验不占五组的位置：它没有「项目名」，只有两个数（当前 / 升级所需），
+             所以跨满两列单独一行——前四组是 2 × 2 的表，末组通栏，它不属于任何一格。 -->
+        <section class="attr-group exp-group">
             <div class="group-head"><span class="section-mark"></span>经验</div>
-            <div class="erow">
-                <span class="row-label">当前</span>
-                <input
-                    v-model="experience.value"
-                    class="field num exp-field"
-                    aria-label="当前经验"
-                    placeholder="如 3,777.2万"
-                />
-                <span class="row-label sub">升级所需</span>
-                <input
-                    v-model="experience.need"
-                    class="field num exp-field"
-                    aria-label="升级所需经验"
-                    placeholder="如 4,200万"
-                />
+            <div class="paper-rows">
+                <!-- 这一条里有**两组**「名目 + 数值」，各占半行、各自带点线：
+                     两个数之间不连，所以不是四样东西平铺在一行上。 -->
+                <div class="paper-row exp-row">
+                    <span class="exp-cell">
+                        <span class="row-label">当前<span class="leader"></span></span>
+                        <input
+                            v-model="experience.value"
+                            class="field num value-field"
+                            aria-label="当前经验"
+                            placeholder="如 3,777.2万"
+                        />
+                    </span>
+                    <span class="exp-cell">
+                        <span class="row-label">升级所需<span class="leader"></span></span>
+                        <input
+                            v-model="experience.need"
+                            class="field num value-field"
+                            aria-label="升级所需经验"
+                            placeholder="如 4,200万"
+                        />
+                    </span>
+                </div>
             </div>
-            <p class="hint exp-hint">填了「升级所需」，卡上才画进度</p>
         </section>
     </div>
 </template>
 
 <style scoped>
 .attr-editor {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+    /* 两行两列，行优先：前四组按 `ATTR_GROUPS` 的顺序自动落格、末组（潜能）通栏，
+     * 与卡上 `.attr-layout` 同一套排法。列距 20 比卡上的 26 小：内容区 622 而卡的
+     * 属性区只有 398，同值会让两列之间空出一条窄巷，几组读成「几张分开的小表」。
+     *
+     * 左右留白**不在这里加**：这一层写过 `padding: 0 32px`，只有属性页往里收，
+     * 页头与页签条仍贴边，一眼错位。现在留白统一由外框给（`.editor` 的
+     * `--editor-pad-x` = 16，纸本身也缩到 656），六个页签一视同仁；
+     * 这里再写一份就是双重内缩。 */
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 20px;
+    /* 通栏组（潜能：乾元丹 / 潜能果）内部两格的列距，见 `base.css` 的
+     * `.attr-group.wide`。取 20 而不是卡上的 26：内容区 622 宽，26 会让两格离得太远。 */
+    --pair-gap: 20px;
 }
+/* 经验是第四条「组」，但它不属于 2 × 2 的任何一格——跨满两列，落在表格下方。 */
+.exp-group {
+    grid-column: 1 / -1;
+}
+/* 组头与卡上同一个读法：次级墨、一档小字、字距放宽。它只交代「这一栏叫什么」，
+ * 不该比组里的数字更响。原先这里 gap 7 / 间距 5，与卡上的 6 / 2 各写一份，
+ * 两处并排翻就是同一页的两个版本。 */
 .group-head {
     display: flex;
     align-items: center;
-    gap: 7px;
-    margin-bottom: 5px;
+    gap: 6px;
+    margin-bottom: 2px;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.14em;
 }
-/* 每行只有两样东西：固定标签 + 一格数。标签定宽 72，四组的数字左缘因此对齐——
- * 对齐之后竖着扫下来是一列数，而不是四段各自开头。 */
+/* 标签吃掉剩余宽度，点线在其中撑开——与卡上 `.ledger dt` 逐条对应，
+ * 所以弹窗里「气血 …… 3916」的断点位置与卡上一样。 */
 .row-label {
-    flex: none;
-    width: 72px;
+    display: flex;
+    flex: 1;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
     color: var(--ink-2);
     font-size: var(--fs-sm);
 }
-.row-label.sub {
-    width: auto;
-    margin-left: 8px;
+/* 经验行是**两组**「名目 + 数值」，各占半行；组内与属性行同构（标签吃剩宽、
+ * 点线撑开、数右对齐），所以这一条读起来仍是表，不是「四个控件的排布」。 */
+.exp-row {
+    gap: 16px;
 }
-/* 数值格给固定宽，**不撑满**：一行只剩「标签 + 一格数」之后，撑满会把输入框拉到
- * 500 宽，填一个 3916 像是往一张空表里写一个字。180 够放「3,777.2万」，
- * 也让四组的数字站在同一条竖线上、右边留白一致。 */
+.exp-cell {
+    display: flex;
+    flex: 1 1 0;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
+}
+
+/* ---------- 纸带上的数字格 ----------
+ * 常态就是一格**看得见的数**：淡槽底、右对齐、无边框（2026-11-02 用户：
+ * 「输入框直接就显示现在 hover 上的样式」）。原先常态透明、悬停才浮出色块，
+ * 可这一页是要一格一格填的——全隐起来像在纸上凌空写字，填之前还得先「找到」格子。
+ *
+ * 三态：常态 45% 槽色 → 悬停 68%（「这里能点」）→ 聚焦实槽 + 一圈朱线（「正在写」）。
+ * 底色比纸带深一档，正好读成「凸起纸带上挖出的一小格」，与 `.field` 同一个光向。
+ *
+ * 高度不能沿用 `.field` 的 26：那是表单里的标准格，套进 5px 内边距的纸带行里，
+ * 整行会从 26 长到 36，几组一拍就散。这里改 `auto` + `line-height: 1.35`，
+ * 行高与卡上同为 26。 */
 .value-field {
-    width: 180px;
+    flex: none;
+    width: 104px;
+    height: auto;
+    padding: 0 6px;
+    /* 边框宽度归零，而不是只把颜色改透明：`.field` 那 1px 边框上下各占一行的高度，
+     * 留着会让整行 26 → 28，与卡上的行距对不齐。焦点圈改用 `box-shadow` 画，
+     * 视觉效果一样、不参与盒模型。 */
+    border-width: 0;
+    background: color-mix(in srgb, var(--well) 45%, transparent);
+    color: var(--ink);
+    /* 行高按 1.35 压：`normal` 在 input 上算出 18px，再叠 2px 边框，整行就从 26
+     * 长到 28——弹窗与卡并排时这点差看得出（行距不齐）。1.35 让内容高与卡上的
+     * 文本行高同为 16。 */
+    line-height: 1.35;
+    text-align: right;
+    transition:
+        background-color var(--t-quick) var(--ease-soft),
+        box-shadow var(--t-quick) var(--ease-soft);
 }
-.exp-field {
-    flex: 1;
-    min-width: 140px;
+/* 悬停只加深底色，不加边：这是「可点」的提示，不是焦点。 */
+.value-field:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--well) 68%, transparent);
 }
-.exp-hint {
-    margin-top: 6px;
+/* 聚焦：实槽 + 一道加厚的顶壁影，**不描朱边**。与 `.field` 的焦点同一套读数——
+ * 焦点在这里是「这一格被按住了」，不是「这一格被涂红」。这一格只有 16px 高，
+ * 一圈 1px 红边占掉它四分之一，读起来像警示框而不是光标停在这儿。
+ * 用 `:focus` 而不是 `:focus-visible`——鼠标点进来也要立刻有回应，两种输入没区别。
+ * 带 `:not(:disabled)` 是为了压过上面那条悬停（0-3-0）：点进去时必然同时在悬停，
+ * 写成 0-2-0 的话底色会停在悬停那档，聚焦看不出变化。 */
+.value-field:focus:not(:disabled) {
+    background: var(--well);
+    box-shadow:
+        inset 0 1px 3px var(--bevel-lo),
+        inset 0 -1px 0 var(--bevel-hi);
+    caret-color: var(--cinnabar);
+}
+/* 空格的提示字比常规 placeholder 再淡一档：纸带上的「气血值」只是标位，
+ * 浓了会被当成填进去的内容。 */
+.value-field::placeholder {
+    color: color-mix(in srgb, var(--muted) 72%, transparent);
 }
 </style>

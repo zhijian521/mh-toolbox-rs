@@ -175,7 +175,7 @@ const expText = computed(() => {
         />
 
         <div class="char-body" @scroll="closeAll">
-            <!-- ---------- 属性：四组，两行两列（行优先） ---------- -->
+            <!-- ---------- 属性：五组，前四组两行两列（行优先），末组通栏 ---------- -->
             <section
                 v-show="active === 'attrs'"
                 :id="`${character.id}-pane-attrs`"
@@ -191,12 +191,13 @@ const expText = computed(() => {
                         v-for="group in character.attrGroups"
                         :key="group.title"
                         class="attr-group"
+                        :class="{ wide: group.wide }"
                     >
                         <div class="group-head">
                             <span class="section-mark"></span>{{ group.title }}
                         </div>
-                        <dl class="ledger">
-                            <div v-for="row in group.rows" :key="row.label">
+                        <dl class="ledger paper-rows">
+                            <div v-for="row in group.rows" :key="row.label" class="paper-row">
                                 <dt>{{ row.label }}<span class="leader"></span></dt>
                                 <!-- 空值画一个淡「—」，不画一片空白：一行里只有引导线和
                                      一个空档时，「没填」读起来像「值恰好很短」。 -->
@@ -214,8 +215,6 @@ const expText = computed(() => {
                     <span class="group-head"><span class="section-mark"></span>经验</span>
                     <MeterBar :percent="expPercentValue" label="经验进度" :text="expText" />
                 </div>
-
-                <p v-if="character.attrFoot" class="hint foot">{{ character.attrFoot }}</p>
             </section>
 
             <!-- ---------- 师门 ---------- -->

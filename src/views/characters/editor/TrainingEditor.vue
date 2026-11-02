@@ -86,11 +86,21 @@ function addRow(group: TrainingGroup) {
     padding: 0 4px;
     border-color: transparent;
     background: none;
+    /* 三道槽料各自关掉：边框透明、底色清空之后，若不连阴影一起关，
+     * 标题下方会剩一道 1px 的亮线（`.field` 的底壁高光）——标题不是格子。 */
+    box-shadow: none;
     font-size: var(--fs-sm);
     letter-spacing: 0.06em;
 }
 .group-title:hover {
     border-color: var(--rule-2);
+}
+/* 聚焦时才真的长成一格。全局 `.field:focus:not(:disabled)` 会给它补上槽的
+ * 顶壁影与底壁亮线，这里把边和底也补齐——否则一道内影浮在透明框里，像标题下方
+ * 蹭了一块脏。只有这一处要补：`.field` 的其余变体本来就带着边与底。 */
+.group-title:focus {
+    border-color: var(--lip-shade) var(--lip-light) var(--lip-light) var(--lip-shade);
+    background: var(--well);
 }
 /* 名字给固定宽，**不 flex: 1**：一撑满，`0 / 20` 就被推到行尾，
  * 中间空出大半行——读起来是「一列空白」而不是「一个修炼项配一个进度」。

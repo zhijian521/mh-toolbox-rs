@@ -33,14 +33,20 @@ describe('名册解析', () => {
         expect(character.name).toBe('只有名字');
         expect(character.level).toBe(0);
         // 属性与修炼是游戏面板里的固定行，缺了要补回骨架，否则那两个页签是空白。
-        // 顺序 = 网格顺序（两行两列，行优先）：上排资源 / 名望，下排战斗 / 加点。
+        // 顺序 = 网格顺序（两行两列，行优先）：上排资源 / 名望，下排战斗 / 加点，
+        // 最后是通栏的「潜能」（乾元丹 / 潜能果，2026-11-02 加）。
         expect(character.attrGroups.map((group) => group.title)).toEqual([
             '资源',
             '名望',
             '战斗',
             '加点',
+            '潜能',
         ]);
         expect(character.experience).toEqual({ value: '', need: '' });
+        /* 通栏标记也要从清单跟着来：卡片与编辑弹窗靠 `wide` 把「潜能」跨两列、
+         * 内部切两格。丢了它，两格会退回左半格、右边空半行（读成漏填）。 */
+        expect(character.attrGroups.filter((group) => group.wide)).toHaveLength(1);
+        expect(character.attrGroups.find((group) => group.wide)?.title).toBe('潜能');
         expect(character.trainings.flatMap((group) => group.rows)).toHaveLength(10);
         expect(character.gear).toHaveLength(GEAR_SLOTS.length);
         expect(character.pets).toEqual([]);
@@ -139,7 +145,7 @@ describe('技能与修炼', () => {
     });
 });
 
-describe('属性四组按固定清单重建', () => {
+describe('属性五组按固定清单重建', () => {
     /** 按「组名 + 标签」取值——不能按下标，因为下标由清单定，不由数据定。 */
     const valueOf = (
         character: ReturnType<typeof normalizeCharacter>,
@@ -150,7 +156,7 @@ describe('属性四组按固定清单重建', () => {
             .find((group) => group.title === title)!
             .rows.find((row) => row.label === label)!.value;
 
-    it('顺序乱的四组按清单排回来，值跟着标签走', () => {
+    it('顺序乱的四组按清单排回来，值跟着标签走，缺的通栏组补空', () => {
         const character = normalizeCharacter({
             attrGroups: [
                 { title: '加点', rows: [{ label: '体质', value: '1' }] },
@@ -164,6 +170,7 @@ describe('属性四组按固定清单重建', () => {
             '名望',
             '战斗',
             '加点',
+            '潜能',
         ]);
         expect(valueOf(character, '资源', '气血')).toBe('4');
         expect(valueOf(character, '战斗', '命中')).toBe('2');
@@ -220,6 +227,7 @@ describe('属性四组按固定清单重建', () => {
             '名望',
             '战斗',
             '加点',
+            '潜能',
         ]);
         // 值跟着标签走：战斗组第一行是「命中」，但「伤害」的 1591 仍在它自己那一行。
         expect(valueOf(character, '资源', '气血')).toBe('3916');

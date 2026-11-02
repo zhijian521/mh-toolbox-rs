@@ -73,11 +73,13 @@ const asTone = (value: unknown): GearTone | undefined => GEAR_TONES.find((tone) 
  * 空白角色的骨架
  * ==================================================================== */
 
-/** 属性四组的空骨架：组名、行、顺序全来自 `ATTR_GROUPS`，这里只负责「数值留空」。 */
+/** 属性五组的空骨架：组名、行、顺序、通栏标记全来自 `ATTR_GROUPS`，这里只负责「数值留空」。 */
 function blankAttrGroups(): AttrGroup[] {
     return ATTR_GROUPS.map((group) => ({
         title: group.title,
         rows: group.labels.map((label) => ({ label, value: '' })),
+        // `wide` 只在清单里标了的组上存在，`in` 是打开联合类型的窄化写法。
+        ...('wide' in group ? { wide: true } : {}),
     }));
 }
 
@@ -122,7 +124,6 @@ export function emptyCharacter(): CharacterData {
         subs: [],
         attrGroups: blankAttrGroups(),
         experience: { value: '', need: '' },
-        attrFoot: '',
         skills: [],
         skillFoot: '',
         assists: [],
@@ -195,7 +196,7 @@ function normalizeAttrGroup(raw: unknown): AttrGroup {
 }
 
 /**
- * 属性四组：**按固定清单重建**，只从存下来的数据里取数值。
+ * 属性五组：**按固定清单重建**，只从存下来的数据里取数值。
  *
  * 一次拿到三件事：清单外的行丢掉（`愤怒`、`潜力`，以及手工加过的）、缺的行补空
  * （旧数据里没有的项）、顺序恒定（由 `ATTR_GROUPS` 定，不由数据里的顺序定）。
@@ -219,6 +220,7 @@ function normalizeAttrGroups(source: Record<string, unknown>): AttrGroup[] {
     return ATTR_GROUPS.map((group) => ({
         title: group.title,
         rows: group.labels.map((label) => saved.get(label) ?? { label, value: '' }),
+        ...('wide' in group ? { wide: true } : {}),
     }));
 }
 
@@ -378,7 +380,6 @@ export function normalizeCharacter(raw: unknown): CharacterData {
             value: text(isObject(character.experience) ? character.experience.value : ''),
             need: text(isObject(character.experience) ? character.experience.need : ''),
         },
-        attrFoot: text(character.attrFoot),
         skills: normalizeSkills(character.skills),
         skillFoot: text(character.skillFoot),
         assists: normalizeAssists(character.assists),

@@ -19,6 +19,12 @@ import { useRovingFocus } from '../composables/use-roving-focus';
  * **宽度不给**，由调用方定：`inline-grid` 收缩到内容宽，外面写 `width: 100%`
  * （父级 scoped 样式挂在这个根元素上即可）就撑满可用宽度。
  *
+ * **高度也不给，走 `--step-pad-y` / `--step-pad-x`**（§2.3-15：尺寸只有一个入口，
+ * 组件不认 prop）。默认 `3px 8px` 是设置页那种「一行说明里的开关」的规格（格子 23，
+ * 整条 29）；当页签条用时六格要一眼点得准，父级写 `--step-pad-y: 6px`（格子 29，
+ * 整条 35），印面的 `top/bottom: 2px` 会自动跟着长，不需要在父级重画。横向同理，
+ * 但卡内六格只有 69.7 宽，父级把它收到 4px。
+ *
  * ---- 两种语义，一套几何 ----
  * `as="tab"` 把它当**页签条**用（角色卡内六个分区就是它）：几何、落格、回弹一字不改，
  * 换的只有 ARIA——`tablist` / `tab` + `aria-selected` + 每格的 `id` 与 `aria-controls`。
@@ -140,9 +146,15 @@ const { cells, indexOf, tabIndexFor, onKeydown } = useRovingFocus<T>({
 }
 /* 单选格：格本身的样式（字色、行高、白空间、过渡）来自全局 `.track-opt`，
  * 这里只有内边距。三格比两格窄，字两侧的留白要收紧到 8px——
- * 12px 在侧栏那种 220px 宽的槽里会让「不收窄」把格子顶出去。 */
+ * 12px 在侧栏那种 220px 宽的槽里会让「不收窄」把格子顶出去。
+ *
+ * 纵向留白是**这枚控件的尺寸入口**：格子高 = 17px 行高 + 2 × `--step-pad-y`
+ * （默认 23、页签条 29）；整条再加轨道的 2px 内边距与 `.well` 的 1px 描边，
+ * 得 29 / 35（2026-11-02 实测）。
+ * 不用 `min-height`：那要让按钮自己居中，而 `.track-opt` 被两格开关共用，
+ * 改它的对齐会影响另一个控件。 */
 .step-opt {
-    padding: 3px 8px;
+    padding: var(--step-pad-y, 3px) var(--step-pad-x, 8px);
 }
 .step-opt:disabled {
     cursor: default;

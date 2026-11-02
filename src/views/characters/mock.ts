@@ -27,8 +27,10 @@ export const CHARACTERS: CharacterData[] = [
         level: 130,
         school: '五庄观',
         subs: ['陕西区 · 大雁塔', '帮派 大唐芙蓉园', '今天 14:48'],
-        /* 四组，**顺序即网格顺序**（两行两列，行优先）：资源 / 名望、战斗 / 加点。
-         * 组名与行由 `ATTR_GROUPS` 定死（用户 2026-11-02），这里只填数值。
+        /* 五组，**顺序即网格顺序**（前四组两行两列、行优先，末组「潜能」通栏）：
+         * 资源 / 名望、战斗 / 加点、潜能。
+         * 组名与行由 `ATTR_GROUPS` 定死（用户 2026-11-02），这里只填数值
+         * （归一化时会按清单重建，`wide` 也跟着清单走，不用在这里写）。
          * 经验不在这里——它单独一行带进度条（见 `experience`）。 */
         attrGroups: [
             {
@@ -69,11 +71,17 @@ export const CHARACTERS: CharacterData[] = [
                     { label: '敏捷', value: '332' },
                 ],
             },
+            {
+                title: '潜能',
+                rows: [
+                    { label: '乾元丹', value: '8' },
+                    { label: '潜能果', value: '42' },
+                ],
+            },
         ],
         /* `need` 是占位：截图里只拍到了当前经验，没拍升级所需。
          * 填一个相近的数，是为了让进度条有个看得见的样子；真实值由用户录。 */
         experience: { value: '3,777.2万', need: '4,200万' },
-        attrFoot: '只记上限，不记当前值',
         /* 五庄观七项。截图里「周易学」是朱色，但同一张图上「修仙术」也是 120 却是白色，
          * 所以朱色**不是**满级标记（否则两项都该红）。上限规则还没确认，`cap` 一律不填。 */
         skills: [
@@ -540,9 +548,15 @@ export const CHARACTERS: CharacterData[] = [
                     { label: '敏捷', value: '132' },
                 ],
             },
+            {
+                title: '潜能',
+                rows: [
+                    { label: '乾元丹', value: '3' },
+                    { label: '潜能果', value: '12' },
+                ],
+            },
         ],
         experience: { value: '786.4万', need: '' },
-        attrFoot: '只记上限，不记当前值',
         skills: [
             { name: '推气过宫', level: 100, cap: 180 },
             { name: '香飘飘', level: 100, cap: 180 },

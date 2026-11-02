@@ -10,6 +10,7 @@ import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SlotButton from '../../components/SlotButton.vue';
+import SteppedSlider from '../../components/SteppedSlider.vue';
 import { useFontScale } from '../../composables/use-font-scale';
 import { THEME_OPTIONS, useTheme } from '../../composables/use-theme';
 
@@ -29,6 +30,14 @@ const autoSave = ref(false);
 
 /** 输入格的演示值：给个真数字，才看得出「等宽数字」与「0 显示为空」两件事。 */
 const demoLevel = ref(130);
+
+/** 多档滑块的演示：三档够看出「等分 + 落格」，页签条那行验证加高后的点击区。 */
+const DEMO_PANES: { value: 'attrs' | 'skills' | 'assist'; label: string }[] = [
+    { value: 'attrs', label: '属性' },
+    { value: 'skills', label: '师门' },
+    { value: 'assist', label: '辅助' },
+];
+const demoPane = ref<'attrs' | 'skills' | 'assist'>('attrs');
 </script>
 
 <template>
@@ -51,6 +60,34 @@ const demoLevel = ref(130);
                     <FontSizeSlider v-model="scale" />
                 </div>
                 <p class="note">三档，不是连续值；滑块 240ms 回弹落格。凹轨道自带。</p>
+            </div>
+
+            <div class="kit-cell">
+                <span class="col-head">SteppedSlider · 多档滑块 / 页签条</span>
+                <!-- 两行差在 `--step-pad-y`：默认 3 → 格子 23、整条 29；6 → 格子 29、整条 35。
+                     行内嵌的开关用前者，卡内六格页签用后者（点得准）。 -->
+                <div class="kit-row">
+                    <SteppedSlider
+                        v-model="demoPane"
+                        :options="DEMO_PANES"
+                        label="演示：默认尺寸"
+                        class="kit-steps"
+                    />
+                </div>
+                <div class="kit-row">
+                    <SteppedSlider
+                        v-model="demoPane"
+                        :options="DEMO_PANES"
+                        as="tab"
+                        label="演示：页签条（加高一档）"
+                        class="kit-steps kit-steps-tall"
+                    />
+                </div>
+                <p class="note">
+                    档数由 <code>options</code> 决定，几何只有「N 格等分 + 印按格位移」两处。
+                    <code>as="tab"</code> 只换 ARIA，不换几何。高度走
+                    <code>--step-pad-y</code>，不认 prop。
+                </p>
             </div>
 
             <div class="kit-cell">
@@ -130,31 +167,27 @@ const demoLevel = ref(130);
 
             <div class="kit-cell">
                 <span class="col-head">MeterBar · 进度条</span>
+                <!-- 两行差在 `--meter-h`：默认 10 是行内嵌用，14 是「独占一行当读数」用。
+                     摆在同一张卡上，才看得出那 4px 在真实版式里意味着什么。
+                     这台卡原先复制成了两张一模一样的（2026-11-02 合并）。 -->
                 <div class="kit-row">
-                    <MeterBar :percent="72" label="演示：进度 72%" text="3,777.2万 / 4,200万" />
+                    <MeterBar
+                        :percent="72"
+                        label="演示：进度 72%（默认 10px）"
+                        text="3,777.2万 / 4,200万"
+                    />
                 </div>
-                <div class="kit-row">
+                <div class="kit-row kit-meter-lg">
                     <!-- 分母未知：轨道空着、不写 aria-valuenow。与「0%」是两件事。 -->
-                    <MeterBar :percent="null" label="演示：进度未知" text="3,777.2万" />
+                    <MeterBar
+                        :percent="null"
+                        label="演示：进度未知（加大 14px）"
+                        text="3,777.2万"
+                    />
                 </div>
                 <p class="note">
                     凹槽里灌一段朱色。它<b>不是滑块</b>——没有落点、不能拖；分母未知时轨道留空，
-                    不画成 0%。
-                </p>
-            </div>
-
-            <div class="kit-cell">
-                <span class="col-head">MeterBar · 进度条</span>
-                <div class="kit-row">
-                    <MeterBar :percent="72" label="演示：进度 72%" text="3,777.2万 / 4,200万" />
-                </div>
-                <div class="kit-row">
-                    <!-- 分母未知：轨道空着、不写 aria-valuenow。与「0%」是两件事。 -->
-                    <MeterBar :percent="null" label="演示：进度未知" text="3,777.2万" />
-                </div>
-                <p class="note">
-                    凹槽里灌一段朱色。它<b>不是滑块</b>——没有落点、不能拖；分母未知时轨道留空，
-                    不画成 0%。
+                    不画成 0%。高度走 <code>--meter-h</code>，角色卡的经验条给 14。
                 </p>
             </div>
 
@@ -257,6 +290,21 @@ const demoLevel = ref(130);
 }
 .kit-area {
     width: 100%;
+}
+
+/* 滑块演示给 300 宽：`inline-grid` 会收缩到内容宽，收缩态下「N 格等分 + 印按格位移」
+ * 看不出比例。加高那行只覆写纵向变量、宽度不动，差 8px 才对得出来。 */
+.kit-steps {
+    width: 300px;
+}
+.kit-steps-tall {
+    --step-pad-y: 6px;
+}
+
+/* 进度条的加大档：与角色卡经验条同值（14）。演示页摆的必须是线上那个数，
+ * 否则「演示里好看、业务页里不对劲」又要多查一轮。 */
+.kit-meter-lg {
+    --meter-h: 14px;
 }
 
 /* 三块并排，间隔比 `.kit-row` 的 7px 宽：7px 是给胶囊和小按钮的，

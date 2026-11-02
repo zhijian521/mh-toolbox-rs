@@ -27,7 +27,7 @@ import { normalizeCharacter } from './roster';
  * 所以这里不需要另写一套「收尾」逻辑。
  *
  * ---- 脚注不在这里改 ----
- * 六个分区底下那句说明（`attrFoot` 等）是**给读卡的人看的文案**，不是角色数据：
+ * 六个分区底下那句说明（`skillFoot` 等）是**给读卡的人看的文案**，不是角色数据：
  * 一个号的气血上限记不记当前值，不会因为它换了个号就变。新角色的这些字段为空，
  * 卡上就少一行说明——那正是它该有的样子，不补一句「请填写」。
  */
@@ -280,11 +280,21 @@ function readLines(event: Event): string[] {
 .editor {
     display: flex;
     flex-direction: column;
-    width: min(720px, 100%);
+    /* 656 = 622（内容区，与 720 时期一模一样）+ 2 × 16（四周留白）+ 2（左右边框）。
+     * 2026-11-02 第二版：先前是 720 宽的纸、内部左右各收 48，结果一笔账读出来是
+     * 「弹窗很宽、内容挤在中间」，四周的留白还不一样（左右 48、上下 14/16）。
+     * 现在把留白还给外框——**内容宽度一分没变**，只是纸窄了 64，四边统一 16。
+     * 改宽度时先反算这个等式：内容宽 = 宽 − 2（边框）− 2 × `--editor-pad-x`。 */
+    width: min(656px, 100%);
     height: min(760px, 100%);
     padding: 0;
     overflow: hidden;
     box-shadow: var(--shadow-lift);
+    /* 整张纸只有一个留白基准：页头、基本信息、页签条、内容区四段都引它，
+     * 所以「名字」的标签、页签条左缘、属性组头竖条、纸带左缘落在同一条竖线上，
+     * 四边的呼吸也一致。各处各写一个数必然有一处忘改——卡上 `--card-pad-x`
+     * 踩过同一个坑。 */
+    --editor-pad-x: 16px;
 }
 
 .editor-head {
@@ -292,7 +302,7 @@ function readLines(event: Event): string[] {
     align-items: flex-start;
     gap: 12px;
     flex: none;
-    padding: 14px 16px 10px;
+    padding: 16px var(--editor-pad-x) 10px;
 }
 .head-text {
     min-width: 0;
@@ -315,7 +325,7 @@ function readLines(event: Event): string[] {
  * 它把「这个号是谁」与「这个号有什么」分开。 */
 .editor-base {
     flex: none;
-    padding: 0 16px 12px;
+    padding: 0 var(--editor-pad-x) 12px;
     border-bottom: var(--w-hair) solid var(--rule-2);
 }
 .sub-row {
@@ -342,7 +352,10 @@ function readLines(event: Event): string[] {
 
 .editor-tabs {
     flex: none;
-    margin: 12px 16px 0;
+    margin: 12px var(--editor-pad-x) 0;
+    /* 与卡内页签同高（`--step-pad-y: 6px` → 格子 29、整条 35，实测）：同一枚控件在两处出现，
+     * 一薄一厚会读成两个不同年代的版本。横向不收紧——这里每格 102.7，够宽。 */
+    --step-pad-y: 6px;
 }
 
 /* 内容区是唯一滚动的一段。`scrollbar-gutter: stable` 与卡内正文同一条理由：
@@ -350,7 +363,14 @@ function readLines(event: Event): string[] {
 .editor-body {
     flex: 1;
     min-height: 0;
-    padding: 12px 16px 16px;
+    /* 左右这个基准与上面三段同一个变量：属性页的网格不再自己加留白，
+     * 六个页签的内容左缘因此对齐到同一条线。
+     *
+     * 右内边距要减掉一条滚动条轨道（`--scrollbar-w`，与 `::-webkit-scrollbar`
+     * 同源）：`scrollbar-gutter: stable` 把轨道算在内边距里，不减的话内容区
+     * 恒比页签条窄 10px，右端纸带的边会比页签条的边往里缩一截——左对齐做完，
+     * 右错位反而更显眼。base.css 的页面容器用的是同一手法。 */
+    padding: 12px max(0px, calc(var(--editor-pad-x) - var(--scrollbar-w))) 16px var(--editor-pad-x);
     overflow: auto;
     scrollbar-gutter: stable;
 }
