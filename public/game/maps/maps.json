@@ -7,7 +7,7 @@
             "aliases": [],
             "maxX": 223,
             "maxY": 151,
-            "img": "/maps/aolaiguo.webp"
+            "img": "aolaiguo.webp"
         },
         {
             "id": "baoxiangguo",
@@ -15,7 +15,7 @@
             "aliases": [],
             "maxX": 160,
             "maxY": 120,
-            "img": "/maps/baoxiangguo.webp"
+            "img": "baoxiangguo.webp"
         },
         {
             "id": "beijuluzhou",
@@ -23,7 +23,7 @@
             "aliases": [],
             "maxX": 228,
             "maxY": 170,
-            "img": "/maps/beijuluzhou.webp"
+            "img": "beijuluzhou.webp"
         },
         {
             "id": "boyuedong",
@@ -31,7 +31,7 @@
             "aliases": [],
             "maxX": 95,
             "maxY": 144,
-            "img": "/maps/boyuedong.webp"
+            "img": "boyuedong.webp"
         },
         {
             "id": "changshoucun",
@@ -39,7 +39,7 @@
             "aliases": [],
             "maxX": 160,
             "maxY": 210,
-            "img": "/maps/changshoucun.webp"
+            "img": "changshoucun.webp"
         },
         {
             "id": "datangjingwai",
@@ -47,7 +47,7 @@
             "aliases": [],
             "maxX": 640,
             "maxY": 120,
-            "img": "/maps/datangjingwai.webp"
+            "img": "datangjingwai.webp"
         },
         {
             "id": "diyumigong3",
@@ -55,7 +55,7 @@
             "aliases": [],
             "maxX": 120,
             "maxY": 90,
-            "img": "/maps/diyumigong3.webp"
+            "img": "diyumigong3.webp"
         },
         {
             "id": "haidimigong1",
@@ -63,7 +63,7 @@
             "aliases": [],
             "maxX": 64,
             "maxY": 48,
-            "img": "/maps/haidimigong1.webp",
+            "img": "haidimigong1.webp",
             "noCoord": true
         },
         {
@@ -72,7 +72,7 @@
             "aliases": [],
             "maxX": 160,
             "maxY": 120,
-            "img": "/maps/huaguoshan.webp"
+            "img": "huaguoshan.webp"
         },
         {
             "id": "jiangnanyewai",
@@ -80,7 +80,7 @@
             "aliases": [],
             "maxX": 160,
             "maxY": 120,
-            "img": "/maps/jiangnanyewai.webp"
+            "img": "jiangnanyewai.webp"
         },
         {
             "id": "jianyecheng",
@@ -88,7 +88,7 @@
             "aliases": ["建业城"],
             "maxX": 287,
             "maxY": 144,
-            "img": "/maps/jianyecheng.webp"
+            "img": "jianyecheng.webp"
         },
         {
             "id": "nvercun",
@@ -96,7 +96,7 @@
             "aliases": [],
             "maxX": 127,
             "maxY": 144,
-            "img": "/maps/nvercun.webp"
+            "img": "nvercun.webp"
         },
         {
             "id": "nvwashenji",
@@ -104,7 +104,7 @@
             "aliases": [],
             "maxX": 192,
             "maxY": 144,
-            "img": "/maps/nvwashenji.webp"
+            "img": "nvwashenji.webp"
         },
         {
             "id": "putuoshan",
@@ -112,7 +112,7 @@
             "aliases": [],
             "maxX": 96,
             "maxY": 72,
-            "img": "/maps/putuoshan.webp"
+            "img": "putuoshan.webp"
         },
         {
             "id": "qilinshan",
@@ -120,7 +120,7 @@
             "aliases": [],
             "maxX": 191,
             "maxY": 142,
-            "img": "/maps/qilinshan.webp"
+            "img": "qilinshan.webp"
         },
         {
             "id": "tiangong",
@@ -128,7 +128,7 @@
             "aliases": [],
             "maxX": 253,
             "maxY": 168,
-            "img": "/maps/tiangong.webp"
+            "img": "tiangong.webp"
         },
         {
             "id": "wanzishan",
@@ -136,7 +136,7 @@
             "aliases": [],
             "maxX": 95,
             "maxY": 192,
-            "img": "/maps/wanzishan.webp"
+            "img": "wanzishan.webp"
         },
         {
             "id": "wuzhuangguan",
@@ -144,7 +144,7 @@
             "aliases": [],
             "maxX": 100,
             "maxY": 75,
-            "img": "/maps/wuzhuangguan.webp"
+            "img": "wuzhuangguan.webp"
         },
         {
             "id": "xiliangnvgou",
@@ -152,7 +152,7 @@
             "aliases": [],
             "maxX": 164,
             "maxY": 124,
-            "img": "/maps/xiliangnvgou.webp"
+            "img": "xiliangnvgou.webp"
         },
         {
             "id": "zhuziguo",
@@ -160,7 +160,7 @@
             "aliases": [],
             "maxX": 192,
             "maxY": 120,
-            "img": "/maps/zhuziguo.webp"
+            "img": "zhuziguo.webp"
         }
     ]
 }

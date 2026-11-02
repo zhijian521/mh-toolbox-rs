@@ -73,6 +73,7 @@
 | 前端的纯规则     | `src/services/`（如 `ghost-parse.ts`、`ghost-model.ts`），不碰 IO                                   | 不要塞进 composable——那里一有 ref 就不好单测了             |
 | 开发期工具       | 页面内的放 `views/dev/` 旁边（如 `tokens.ts`）；跨页面的放 `scripts/`                               | 不要放进 `src/components/`                                 |
 | 图标源图         | `assets/icon/app-icon-1024.png` 是 `tauri icon` 的输入；生成脚本在 `scripts/icon/`（`out/` 已忽略） | 不要手改 `src-tauri/icons/` 里的产物                       |
+| 游戏资源         | `public/game/`（`maps/` 底图、`icons/` 图标、`data/` 数据表），规则见 `docs/GAME-ASSETS.md`         | 不要放 `src/`——会被改名加哈希，清单里的文件名就对不上了    |
 
 ## 5. 还没定的
 

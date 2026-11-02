@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import mapsFile from '../../public/maps/maps.json';
-import type { GhostMap } from './ghost-maps';
+import mapsFile from '../../public/game/maps/maps.json';
+import type { MapEntry } from './ghost-maps';
 import { computeRange, planFor } from './ghost-model';
 import type { ParsedTask } from './ghost-parse';
 
@@ -17,15 +17,15 @@ import type { ParsedTask } from './ghost-parse';
  *
  * 口径的外部出处与论证见 `docs/GHOST-HUNT.md` §6。
  */
-const maps: GhostMap[] = mapsFile.maps;
+const maps: MapEntry[] = mapsFile.maps;
 
-function map(name: string): GhostMap {
+function map(name: string): MapEntry {
     const found = maps.find((item) => item.name === name);
     if (!found) throw new Error(`测试用的底图不存在：${name}`);
     return found;
 }
 
-function task(over: Partial<ParsedTask> & { map: GhostMap | null }): ParsedTask {
+function task(over: Partial<ParsedTask> & { map: MapEntry | null }): ParsedTask {
     return {
         kind: 'small',
         index: 1,

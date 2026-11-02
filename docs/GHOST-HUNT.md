@@ -436,7 +436,7 @@ D 档原以为「多层叠在一张图上」，**实际截图否掉了这个担�
 | 绘制 | `src/components/ghost/MapCanvas.vue` | 底图 + 浅红/深红两层 + 朱点 + 坐标（开眼时无底板）    |
 | 页面 | `src/views/tools/GhostHuntView.vue`  | 工具详情页：一张卡片内按任务上下分栏                  |
 | 清单 | `src/tools.ts`                       | 工具目录，列表与路由共用                              |
-| 底图 | `public/maps/`                       | 20 张 webp + `maps.json`                              |
+| 底图 | `public/game/maps/`                  | 20 张 webp + `maps.json`                              |
 
 **两层红的画法：填充只表示「这一片」，范围的边界交给 2px 线。**
 

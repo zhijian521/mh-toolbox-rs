@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import mapsFile from '../../public/maps/maps.json';
-import type { GhostMap } from './ghost-maps';
+import mapsFile from '../../public/game/maps/maps.json';
+import type { MapEntry } from './ghost-maps';
 import { parseGhostTasks, type ParsedTask } from './ghost-parse';
 import {
     absorbFrame,
@@ -23,7 +23,7 @@ import {
  * 2. 更完整的一帧、换了图、开了天眼 —— 必须立刻生效，别让用户等；
  * 3. 真的换了任务 —— 三帧之内必须换过来（「保留」不等于「永不更新」）。
  */
-const maps: GhostMap[] = mapsFile.maps;
+const maps: MapEntry[] = mapsFile.maps;
 
 /** 一帧识别结果。只关心 `text`，其余字段照 `OcrLine` 的形状填。 */
 function frame(...texts: string[]): ParsedTask[] {

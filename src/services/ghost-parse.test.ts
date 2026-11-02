@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import mapsFile from '../../public/maps/maps.json';
+import mapsFile from '../../public/game/maps/maps.json';
 import type { OcrLine } from './ghost';
-import type { GhostMap } from './ghost-maps';
+import type { MapEntry } from './ghost-maps';
 import { parseGhostTasks, type ParsedTask } from './ghost-parse';
 
 /**
@@ -15,11 +15,11 @@ import { parseGhostTasks, type ParsedTask } from './ghost-parse';
  *    测不出「句首整段走样」「括号被读成书名号」这些错法。
  * 2. **单条规则**：每条容错为什么存在、边界在哪，一条对一个。
  *
- * 底图清单读**真实的** `public/maps/maps.json`，不用手搓的假 map：地名匹配
+ * 底图清单读**真实的** `public/game/maps/maps.json`，不用手搓的假 map：地名匹配
  * 依赖清单里的名字与值域，假数据会让「碗子山能不能认出来」这种问题测成空转。
  * 用 `import` 而不是 `node:fs`：渲染层没装 `@types/node`，也不该为了测试把它装上。
  */
-const maps: GhostMap[] = mapsFile.maps;
+const maps: MapEntry[] = mapsFile.maps;
 
 /** 按行序生成 y。间距不重要，只要求递增；`parseGhostTasks` 自己会按 y 排序。 */
 function rows(...texts: string[]): OcrLine[] {

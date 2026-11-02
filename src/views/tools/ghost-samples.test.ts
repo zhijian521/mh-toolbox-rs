@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import mapsFile from '../../../public/maps/maps.json';
-import type { GhostMap } from '../../services/ghost-maps';
+import mapsFile from '../../../public/game/maps/maps.json';
+import type { MapEntry } from '../../services/ghost-maps';
 import { planFor } from '../../services/ghost-model';
 import { linesFromText, parseGhostTasks } from '../../services/ghost-parse';
 import { GHOST_TEST_SAMPLES } from './ghost-samples';
@@ -15,10 +15,10 @@ import { GHOST_TEST_SAMPLES } from './ghost-samples';
  * 所以这里不测「能解析」，而是测**解析成哪个坐标**——只断言「有结果」，
  * 正则退化成乱配也能过。
  *
- * 底图清单读真实 `public/maps/maps.json`：地名匹配与值域切分（`119107` → `119,107`）
+ * 底图清单读真实 `public/game/maps/maps.json`：地名匹配与值域切分（`119107` → `119,107`）
  * 都依赖它，手搓假 map 会让最该被守住的那条规则测成空转。
  */
-const maps: GhostMap[] = mapsFile.maps;
+const maps: MapEntry[] = mapsFile.maps;
 
 function parse(sampleText: string) {
     return parseGhostTasks(linesFromText(sampleText), maps);

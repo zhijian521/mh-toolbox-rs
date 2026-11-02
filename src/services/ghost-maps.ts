@@ -1,15 +1,24 @@
 /**
  * 地图底图清单。
  *
- * 数据源是 `public/maps/maps.json`，与 `public/maps/*.webp` 一起由
- * 一次性的切图脚本产出（脚本在项目外，未入库；新增地图时重跑）。
+ * 数据源是 `public/game/maps/maps.json`，与同目录的 `*.webp` 一起由一次性的切图
+ * 脚本产出（脚本在项目外，未入库；新增地图时重跑）。**游戏资源集中在 `public/game/`**，
+ * 规则见 `docs/GAME-ASSETS.md`。
  *
  * 为什么不把这份清单写成 TS 常量：它和底图文件必须同步——加一条没有对应
  * webp 的记录，运行到那张图时才 404。放在同一个目录下，至少「改一份忘一份」
  * 的窗口期只有一次编辑动作。
  */
 
-export interface GhostMap {
+/** `public/game/` 下的地图目录。**换目录只改这一行**——清单里只写文件名。 */
+const MAP_DIR = `${import.meta.env.BASE_URL}game/maps/`;
+
+/**
+ * JSON 里的原始条目：`img` 是**文件名**（如 `aolaiguo.webp`），不带目录。
+ * 目录写在这里而不是在 20 条记录里各写一遍，否则换一次目录要改 21 处、
+ * 漏一处就是某张图 404。
+ */
+export interface MapEntry {
     id: string;
     /** 游戏内场景名。OCR 读到的就是它，匹配以此为准。 */
     name: string;
@@ -22,8 +31,14 @@ export interface GhostMap {
     noCoord?: boolean;
 }
 
+/** 加载后的地图：与 JSON 唯一的差别是 `img` 已被补成可直接使用的 URL。 */
+export interface GhostMap extends Omit<MapEntry, 'img'> {
+    /** 完整 URL（`MAP_DIR` + 文件名），可直接交给 `new Image().src`。 */
+    img: string;
+}
+
 interface MapFile {
-    maps: GhostMap[];
+    maps: MapEntry[];
 }
 
 let cache: Promise<GhostMap[]> | null = null;
@@ -37,12 +52,13 @@ let cache: Promise<GhostMap[]> | null = null;
  */
 export function loadGhostMaps(): Promise<GhostMap[]> {
     if (!cache) {
-        cache = fetch(`${import.meta.env.BASE_URL}maps/maps.json`)
+        cache = fetch(`${MAP_DIR}maps.json`)
             .then((response) => {
                 if (!response.ok) throw new Error(String(response.status));
                 return response.json() as Promise<MapFile>;
             })
-            .then((file) => file.maps)
+            /* 补目录：JSON 存文件名，URL 在加载这一处拼一次。 */
+            .then((file) => file.maps.map((entry) => ({ ...entry, img: `${MAP_DIR}${entry.img}` })))
             .catch((error: unknown) => {
                 console.error('地图清单加载失败', error);
                 cache = null;
