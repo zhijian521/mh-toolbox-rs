@@ -186,8 +186,14 @@ svg {
  * 做成**类**而不是把五个选择器分组：类名能 grep 到、能数出有几道槽，
  * `design/income.html` 也能直接套用，不必记住"哪几个类算凹槽"。
  */
-.well {
-    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 80%, transparent);
+.well,
+.field {
+    /* 输入格与槽按钮共用同一个「槽」：`.field` 不再自画边框、自铺底色，
+     * 直接把这一层拿过来（用户 2026-11-02：「参考槽按钮，只要外面的背景，当成输入框」）。
+     * 于是边框色读 `--lip-shade`，带 fallback——`.well` 的其余使用者（轨道、两格开关、
+     * 侧栏）不传这个变量，落回原来那条半透明的褐线，行为一点没变；
+     * 而 `.field` 只在悬停 / 焦点两态覆盖它，用来把整圈加深。 */
+    border: var(--w-hair) solid var(--lip-shade, color-mix(in srgb, var(--rule-2) 80%, transparent));
     background-color: var(--well);
     background-image: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
     box-shadow:
@@ -586,39 +592,21 @@ svg {
  * 焦点也不换边色（见下面 `.field:focus`），只把这道槽再压深一档。
  */
 .field {
-    /* **边框是「墨线」，不是「黑框」**。2026-11-02 五轮下来把这一格的粗细与深浅都试到了边界：
-     * 1.5px 被 Chromium 向下取整回 1px（`getComputedStyle` 量得 1px），等于白写；2px 在 26px
-     * 高的格子里上下各吃 2px，小格读作「加了相框」，判「太粗」；而为了在 1px 上「看得清」把
-     * 颜色压到 88 阶（掺墨 52%），又被判「黑色边框太丑」。
-     * 结论：**厚度固定 1px，颜色取褐不取黑**——`--rule-2`（暖褐 169 阶）掺 16% 墨到 155 阶。
-     * 这条线比纸(229)深 74 阶、比槽底(220)深 65 阶，1px 也读得清；而因为它仍是褐的、不是黑的，
-     * 落在米色纸上像一道笔线，不像围着格子的框。 */
-    --lip-shade: color-mix(in srgb, var(--rule-2) 84%, var(--ink-base));
-    /* 迎光侧只比背光侧亮一档，够分出光向，不会变成一条亮带。
-     * 暗色下要提得更亮一点：1px 的暗线压在极暗的槽底上会糊掉，提亮才看得见。 */
-    --lip-light: light-dark(
-        color-mix(in srgb, var(--rule-2) 92%, var(--ink-base)),
-        color-mix(in srgb, var(--rule-2) 92%, var(--paper-base))
-    );
+    /* 槽的**外观整份来自**上面 `.well`（边框 / 底色 / 顶壁渐变 / 底壁亮线）。
+     * 这里只留「一格」的几何与文字排布，不再重写那四件套——2026-11-02 用户指认
+     * 「参考槽按钮，只要外面的背景」，那就不该由输入格再自造一套近似的东西：
+     * 自造出来的和 SlotButton 放在同一张卡上，永远是两套深浅。
+     * 边框色由 `.well` 那条规则读 `--lip-shade`（带 fallback），本块只在两态里覆盖它。 */
 
     min-width: 0;
     height: calc(26px * var(--fs-scale));
     padding: 0 7px;
-    border: var(--w-hair) solid var(--lip-shade);
-    border-color: var(--lip-shade) var(--lip-light) var(--lip-light) var(--lip-shade);
     border-radius: var(--r-2);
-    /* 槽底直接用 `--well`（220 阶，比纸低 9 阶）。前三版在 205 / 213 / 223 / 227 之间
-     * 来回挪都被判过，根因不在这一个数上——是边没了，才显得「要么一块灰底、要么一片
-     * 白」。边修好之后回 `--well` 原值即可：一档之差负责「这不是纸面」，深浅的活儿
-     * 交给边与影。暗色仍往墨里压 32%：`--well` #171409 与纸 #1c1912 只差 3 阶。 */
-    background-color: light-dark(var(--well), color-mix(in srgb, var(--well) 68%, var(--ink-base)));
-    /* 顶壁：光从左上进来，槽顶那一段背光。带子只做 9px——`.well` 那条 62% 的斜面是
-     * 给 26px 高的整条轨道调的，压到单行输入框上会一路糊到文字基线。 */
-    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 9px);
-    box-shadow:
-        inset 0 1px 2px var(--bevel-lo),
-        /* 底壁那道**亮**线：凹与凸的分界就在这一笔，缺了它就只是「一块灰底」。 */ inset 0 -1px 0
-            var(--bevel-hi);
+    /* 顶壁渐变沿用 `.well` 那一条，只把长度从 62% 换成 14px。
+     * 62% 是按容器自身高度解析的：26px 的槽按钮上等于 16px，正好；但同一个输入格
+     * 多行时会撑到 100px 以上，62% 就是 60px 一大片灰。14px 落在 26px 上等价于 54%，
+     * 单行与多行看起来才是同一道槽。 */
+    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 14px);
     color: var(--ink);
     font-family: var(--font-ui);
     font-size: var(--fs-sm);
@@ -630,47 +618,36 @@ svg {
 .field::placeholder {
     color: var(--muted);
 }
-/* 悬停把整圈**再压深一档**，不是抹平分光：圈先立住，再在这条圈上加深，
- * 读起来是「这一格离你更近了」。三档（常态 / 悬停 / 焦点）在亮色下是
- * 84 / 76 / 66 的掺墨比例，暗色下是 84 / 74 / 64——**单调渐深**，
- * 改这组数之前先确认顺序没被写反。悬停只走 8 个点：常态已经是淡墨线，
- * 一档跨太大就成了「一悬停忽然换了个框」。 */
+/* 悬停 / 焦点只做一件事：**把这一道槽的边加深**，四边同色（和 `.well` 一样）。
+ * 不再分什么「背光侧 / 迎光侧」——那份分光属于凸块，槽按钮的槽本来就没有，
+ * 输入格跟着它走才不会在同一张卡上出现两种画法。
+ *
+ * 三档：常态是 `.well` 的 fallback（`rule-2 80%` 半透明，落在纸上约 181 阶）
+ * → 悬停 84% 掺墨（142 阶）→ 焦点 74%（约 128 阶）。暗色一侧反过来走：
+ * 常态已经压得很暗（底色极暗，不压就看不见），悬停 / 焦点是**提亮**才读得出「更近」。
+ *
+ * 选择器带 `:not(:disabled)` 是为了压过悬停那条（0-3-0）：点进来必然同时悬停，
+ * 写成 0-2-0 会被静默吃掉。禁用元素无法聚焦，这个 `:not` 不改语义，只对齐特异性。 */
 .field:hover:not(:disabled) {
     --lip-shade: light-dark(
-        color-mix(in srgb, var(--rule-2) 76%, var(--ink-base)),
-        color-mix(in srgb, var(--rule-2) 74%, var(--ink-base))
-    );
-    --lip-light: light-dark(
         color-mix(in srgb, var(--rule-2) 84%, var(--ink-base)),
-        color-mix(in srgb, var(--rule-2) 82%, var(--paper-base))
+        color-mix(in srgb, var(--rule-2) 74%, var(--ink-base))
     );
 }
 /* 焦点**不换色**。朱红留给印、注记与按钮的焦点环；一圈朱边贴在槽沿上，会把
  * 「纸被挖开一格」读成「表单里被高亮的那一栏」。
  *
- * 同一套语汇再进一层：整圈再压一档（95 / 115），顶壁影由 2px 加厚到 3px，
- * 读作「这一格刚被按住」。
- * **槽底不跟着沉**：底色一深就整块发闷（用户 2026-11-02 判「背景太深」），
- * 深度交给边与那层顶壁影，底只是「比纸低一档」。
+ * 同一套语汇再进一层：边再深一档、顶壁影由 2px 加厚到 3px，读作「这一格刚被按住」。
+ * **槽底不跟着沉**：底色一深就整块发闷（2026-11-02 判「背景太深」），深度交给边与那层顶壁影。
  * 光标给朱色——长笔画里那一点红足够说明「现在写在这里」，比框住整格轻得多。
  *
- * 用 `:focus` 而不是 `:focus-visible`：焦点这一态在此处的意思是「这一格被按住了」，
- * 鼠标点进来也该有回应。以前是红色边框，鼠标点进来必须看见，所以原样挂在
- * `:focus-visible` 上时只有键盘走到才亮——换成「深度」之后就该两种输入一视同仁。
- *
- * 选择器为什么带 `:not(:disabled)`：悬停那条是 `.field:hover:not(:disabled)`（0-3-0），
- * 而「鼠标点进来」几乎必然同时处于悬停，只写 `.field:focus`（0-2-0）压不住，
- * 焦点会静默退回悬停那一档。禁用元素无法聚焦，这个 `:not` 不改语义，只为对齐特异性。
- */
+ * 用 `:focus` 而不是 `:focus-visible`：焦点在这一态的意思是「这一格被按住了」，
+ * 鼠标点进来也该有回应。 */
 .field:focus:not(:disabled) {
     outline: none;
     --lip-shade: light-dark(
-        color-mix(in srgb, var(--rule-2) 66%, var(--ink-base)),
+        color-mix(in srgb, var(--rule-2) 74%, var(--ink-base)),
         color-mix(in srgb, var(--rule-2) 64%, var(--ink-base))
-    );
-    --lip-light: light-dark(
-        color-mix(in srgb, var(--rule-2) 76%, var(--ink-base)),
-        color-mix(in srgb, var(--rule-2) 72%, var(--paper-base))
     );
     box-shadow:
         inset 0 1px 3px var(--bevel-lo),

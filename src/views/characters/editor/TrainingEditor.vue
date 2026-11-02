@@ -95,11 +95,12 @@ function addRow(group: TrainingGroup) {
 .group-title:hover {
     border-color: var(--rule-2);
 }
-/* 聚焦时才真的长成一格。全局 `.field:focus:not(:disabled)` 会给它补上槽的
- * 顶壁影与底壁亮线，这里把边和底也补齐——否则一道内影浮在透明框里，像标题下方
- * 蹭了一块脏。只有这一处要补：`.field` 的其余变体本来就带着边与底。 */
+/* 聚焦时才真的长成一格。全局 `.field:focus:not(:disabled)` 会给出槽的边框色、
+ * 顶壁影与底壁亮线，这里把边和底也补齐（常态它们是 transparent / none）——
+ * 否则一道内影浮在透明框里，像标题下方蹭了一块脏。只有这一处要补：
+ * `.field` 的其余变体本来就带着边与底。 */
 .group-title:focus {
-    border-color: var(--lip-shade) var(--lip-light) var(--lip-light) var(--lip-shade);
+    border-color: var(--lip-shade, color-mix(in srgb, var(--rule-2) 80%, transparent));
     background: var(--well);
 }
 /* 名字给固定宽，**不 flex: 1**：一撑满，`0 / 20` 就被推到行尾，
