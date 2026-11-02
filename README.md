@@ -33,7 +33,7 @@
 
 ```
 ├── src/                  Vue 前端
-│   ├── components/       控件与外壳件：AppRail / AppIcon / PressTile / SlotButton /
+│   ├── components/       控件与外壳件：AppRail / AppIcon / PressTile / PressButton / SlotButton /
 │   │                     SegmentedPills / CostSwitch / SteppedSlider / VerticalSlider /
 │   │                     FontSizeSlider / PageHeader / PageShell / TitleBar / LedgerSection
 │   │                     ghost/MapCanvas（底图与范围绘制）；icons.ts 只维护名字到 tabler 映射

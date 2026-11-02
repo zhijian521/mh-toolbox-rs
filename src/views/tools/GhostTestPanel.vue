@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
-import SlotButton from '../../components/SlotButton.vue';
+import PressButton from '../../components/PressButton.vue';
 import { GHOST_TEST_SAMPLES, type GhostTestSample } from './ghost-samples';
 
 /**
@@ -50,7 +50,7 @@ function run() {
             <span class="test-tag" :class="{ on: props.testing }">
                 {{ props.testing ? `已套用 ${props.count} 条` : '未使用' }}
             </span>
-            <SlotButton
+            <PressButton
                 :icon="open ? 'chevron-down' : 'chevron-right'"
                 :label="open ? '收起测试输入' : '展开测试输入'"
                 @click="open = !open"
@@ -70,7 +70,7 @@ function run() {
                 placeholder="把任务栏原文粘进来，一行一句；折行照原样保留。"
             />
             <div class="test-actions">
-                <SlotButton
+                <PressButton
                     icon="check"
                     text="套用"
                     label="套用这段文字"
@@ -78,7 +78,7 @@ function run() {
                     :disabled="!draft.trim()"
                     @click="run"
                 />
-                <SlotButton
+                <PressButton
                     icon="close"
                     text="退出"
                     label="退出测试模式"

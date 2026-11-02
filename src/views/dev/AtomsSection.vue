@@ -4,6 +4,7 @@ import AppIcon from '../../components/AppIcon.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import FontSizeSlider from '../../components/FontSizeSlider.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
+import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SlotButton from '../../components/SlotButton.vue';
@@ -11,7 +12,7 @@ import { useFontScale } from '../../composables/use-font-scale';
 import { THEME_OPTIONS, useTheme } from '../../composables/use-theme';
 
 /**
- * 原子组件：五个抽出来复用的小件。
+ * 原子组件：六个抽出来复用的小件。
  *
  * 这张卡不是演示页，是**验收面**——新控件先进这里，再进业务页面。
  * 它和「外观」共用同一份状态（单例 composable），所以在上面切主题、拖字号，
@@ -26,7 +27,7 @@ const autoSave = ref(false);
 </script>
 
 <template>
-    <LedgerSection title="原子组件" hint="抽出来复用的五件，业务页直接拿去用">
+    <LedgerSection title="原子组件" hint="抽出来复用的六件，业务页直接拿去用">
         <div class="kit atoms-kit">
             <div class="kit-cell">
                 <span class="col-head">SegmentedPills · 分段胶囊</span>
@@ -93,7 +94,7 @@ const autoSave = ref(false);
             </div>
 
             <div class="kit-cell">
-                <span class="col-head">PressTile · 压印块</span>
+                <span class="col-head">PressTile · 压印块 / PressButton · 压印按钮</span>
                 <div class="kit-row">
                     <div class="kit-tiles">
                         <PressTile class="kit-tile"><AppIcon name="tools" /></PressTile>
@@ -103,12 +104,31 @@ const autoSave = ref(false);
                         </PressTile>
                     </div>
                 </div>
+                <!-- 下面一排是 `PressButton`——同一块纸当按钮用，三形态与 `SlotButton`
+                     一个思路：只给 text / icon+text / 只给 icon（正方形）。 -->
+                <div class="kit-row">
+                    <PressButton text="归档" label="归档：纯文字按钮" />
+                    <PressButton icon="download" text="导出" label="导出：图标 + 文字" />
+                </div>
+                <div class="kit-row">
+                    <PressButton icon="play" text="开始" label="开始：主操作（块面灌朱）" seal />
+                    <PressButton icon="pin" label="纯图标按钮" />
+                    <PressButton text="sm" label="小一号 24px" size="sm" />
+                    <PressButton text="lg" label="大一号 31px" size="lg" />
+                </div>
                 <p class="note">
                     一块光从左上方来的压印纸：块面、左上偏光、四条不对称的棱（上左受光、下 2px 右
                     1px 背光）、落地影。工具页的图标格与左栏牌记都是它——悬停亮一档、按下凹回
                     纸里，试试。几何走
                     <code>--tile-w</code> / <code>--tile-h</code> / <code>--tile-r</code> /
                     <code>--tile-drop</code>，图标尺寸仍归 <code>--icon-size</code>。
+                </p>
+                <p class="note">
+                    <b>下面两排是压印块做成的按钮</b>（<code>PressButton</code>）：块凸着、字压在
+                    块上，按下去被压回纸里。三档尺寸与 <code>SlotButton</code> 逐像素同值，
+                    两种按钮并排时基线齐；<code>seal</code> 把块面灌成朱红，用于主操作，
+                    一屏只该有一枚。<b>它和槽按钮是两种材质，别在同一行混用</b>——
+                    一凹一凸并排，读起来是两种器件。
                 </p>
             </div>
         </div>
@@ -193,8 +213,13 @@ const autoSave = ref(false);
     --tile-drop: 0.85;
     --icon-size: calc(15px * var(--fs-scale));
 }
+/* 演示用的替身字：线上牌记摆的是一张 192px 的图（行楷「梦」），笔画很细——
+ * 实测最深处虽然是 #231f1b，但不透明像素只有约 1200 个，绝大部分是抗锯齿的边。
+ * 一只 17px 的实心楷体字压上去比它重得多，所以这里用次级墨，让演示看着接近那块图；
+ * 真要改线上那块，改的是 `assets/mark-ink.png`，不是这一行。 */
 .kit-tile-word {
     font-size: calc(17px * var(--fs-scale));
     line-height: 1;
+    color: var(--ink-2);
 }
 </style>

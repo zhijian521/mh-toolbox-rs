@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import PageShell from '../components/PageShell.vue';
-import SlotButton from '../components/SlotButton.vue';
+import PressButton from '../components/PressButton.vue';
 import CharacterCard from './characters/CharacterCard.vue';
 import { CHARACTERS } from './characters/mock';
 
@@ -16,25 +16,24 @@ import { CHARACTERS } from './characters/mock';
  * 1280 窗口下三张正好排满（360 × 3 + 16 × 2 ＝ 1112，内容区约 1121），
  * 1024 下排两张、第三张换行，页面纵向滚动。
  *
- * 页头两枚按钮走 `SlotButton`（与捉鬼页同一个控件）：全站只有一套按钮语言。
- * 早先这里是全局 `.btn`——「1px 描边 + 纸底」的平面按钮，与捉鬼页的「凹槽 + 印面」
- * 并排放着就是两种器件。`.btn` 那套已随这次迁移删掉。
+ * 页头两枚按钮走 `PressButton`（压印块）：凸起的纸块、按下去被压回纸里。
+ * 主操作（新角色）用 `seal` 变体——块面灌朱。
  */
 </script>
 
 <template>
     <PageShell title="角色" desc="演示数据 · 先定版式，功能随后">
         <template #actions>
-            <!-- 两枚都还是占位：`title` 说清「为什么点不动」，否则读屏只念一句「不可用」。
+            <!-- 两枚都还是占位：`label` 说清「为什么点不动」，否则读屏只念一句「不可用」。
                  文案与 `label` 拆开：按钮上要短，读屏要完整。 -->
-            <SlotButton
+            <PressButton
                 icon="search"
                 text="识别游戏窗口"
                 label="识别游戏窗口（还没接上）"
                 size="lg"
                 disabled
             />
-            <SlotButton
+            <PressButton
                 icon="add"
                 text="新角色"
                 label="新建角色（还没接上）"

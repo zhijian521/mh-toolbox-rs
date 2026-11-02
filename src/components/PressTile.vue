@@ -38,6 +38,14 @@
  *   - `--tile-face` 块面颜色，默认纸色。**只有放在纸色底上的地方才需要改**：
  *                 工具页的底是 `--bg`，比纸暗一档，块自己就浮起来了；左栏底色就是
  *                 `--paper`，块面与底同色时，暗色下整块会消失得只剩内容。
+ *   - `--tile-fg`  内容颜色，默认正墨 `--ink`。**只有 12px 以下的文字需要改**：
+ *                 楷体满墨压在亮纸上，字会糊成一团黑（实测 `#292520` 落在 `#f8f3e6`
+ *                 上是 14:1，比旁边的说明字重一大截）。文字按钮用 `--ink-2`，
+ *                 与 `.btn` / `SlotButton` 的字色同一档。
+ *   - `--tile-face-hover` / `--tile-face-active`
+ *                 悬停与按下时的块面色。默认值是「纸色变实」与「转向凹槽的灰」——
+ *                 那是纸块的说法。**灌了色的块必须自己给**：`--tile-face: var(--seal)`
+ *                 的朱红按钮若沿用默认值，指上去会闪成一张白纸、按下去闪成一块灰。
  * 圆角与棱厚都**不乘** `--fs-scale`：曲率是绝对的，字放大时圆角一起变大会读成另一种控件。
  *
  * ## 交互态
@@ -89,9 +97,11 @@
         0 calc(3px * var(--tile-drop, 1)) 0 var(--shadow),
         0 calc(8px * var(--tile-drop, 1)) calc(12px * var(--tile-drop, 1))
             calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
-    /* 内容用正墨（`--ink`）而不是次级墨（`--ink-2`）：牌记那只字是满墨的，
-     * 一枚淡一号的图标放在凸起的块面上，读作「占位图」而不是「这格是什么」。 */
-    color: var(--ink);
+    /* 内容默认用正墨（`--ink`）而不是次级墨（`--ink-2`）：牌记那只字是满墨的，
+     * 一枚淡一号的图标放在凸起的块面上，读作「占位图」而不是「这格是什么」。
+     * 但**文字按钮要能改**：12px 楷体满墨压在亮纸上会糊成一块黑，比邻近的说明字重得多。
+     * 所以留一个 `--tile-fg`，默认值不变（牌记、工具页图标格都是默认值）。 */
+    color: var(--tile-fg, var(--ink));
     transition:
         background-color var(--t-quick) var(--ease-soft),
         box-shadow var(--t-quick) var(--ease-soft),
@@ -121,7 +131,7 @@
  * 只改颜色而不动影子，两档纸色的差在一张米黄底上根本读不出来。
  * 文字随 `color` 一起转朱红，图标继承这个值，不用另配一条规则。 */
 .press-tile:hover {
-    background-color: var(--paper);
+    background-color: var(--tile-face-hover, var(--paper));
     box-shadow:
         inset 0 1px 0 var(--bevel-hi),
         inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
@@ -139,7 +149,7 @@
  * 内影带 3px 模糊（常态的凸起是 1px 硬线）：凹的东西边缘是渐进去的，硬线会读成描边。
  * 位移 2px 把「抬起来的厚度」还回去，四条棱也必须一起收，否则只剩垫子还在原地。 */
 .press-tile:active {
-    background-color: color-mix(in srgb, var(--well) 82%, transparent);
+    background-color: var(--tile-face-active, color-mix(in srgb, var(--well) 82%, transparent));
     background-image: linear-gradient(
         325deg,
         color-mix(in srgb, var(--bevel-hi) 42%, transparent),
@@ -201,7 +211,7 @@
  * 按压要重写渐变——否则会被那条暗色基础规则三段渐变顶回去，按下去仍然「亮着」。
  */
 :root.dark .press-tile:hover {
-    background-color: color-mix(in srgb, var(--paper) 88%, var(--ink));
+    background-color: var(--tile-face-hover, color-mix(in srgb, var(--paper) 88%, var(--ink)));
     box-shadow:
         inset 0 1px 0 var(--bevel-hi),
         inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 70%, transparent),
@@ -212,7 +222,7 @@
             calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
 }
 :root.dark .press-tile:active {
-    background-color: color-mix(in srgb, var(--well) 86%, transparent);
+    background-color: var(--tile-face-active, color-mix(in srgb, var(--well) 86%, transparent));
     background-image: linear-gradient(
         325deg,
         color-mix(in srgb, var(--bevel-hi) 26%, transparent),

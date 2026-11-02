@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import AppIcon from '../../components/AppIcon.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import PageShell from '../../components/PageShell.vue';
-import SlotButton from '../../components/SlotButton.vue';
+import PressButton from '../../components/PressButton.vue';
 import MapCanvas from '../../components/ghost/MapCanvas.vue';
 import { useGhostWatch } from '../../composables/use-ghost-watch';
 import type { GhostPlan } from '../../services/ghost-model';
@@ -80,20 +80,20 @@ onMounted(async () => {
 <template>
     <PageShell title="捉鬼助手" desc="任务栏 → 该往哪找">
         <template #actions>
-            <!-- 页头两个动作走 `SlotButton`：槽 + 印，全站唯一的按钮语言。
-                 主操作（开始/停止）用 `seal` 变体——印已落定，一眼能看出这页在跑什么。
+            <!-- 页头两个动作走 `PressButton`：内容落在一块凸起的纸上，按下去被压回纸里。
+                 主操作（开始/停止）用 `seal` 变体——块面灌朱，一眼能看出这页在跑什么。
                  用 `size="lg"`（31px）：默认 26px 在 22px 的页标题旁边显小，
                  31 是页头这一行的规格，页头也不会因为按钮矮而显得发飘。
                  文案只留动词（返回 / 开始 / 停止）：四个字会把按钮拉成一条，
                  动作方向先由图标读出——字是补充，不是主角。完整语义留在 label 里给读屏与悬停。 -->
-            <SlotButton
+            <PressButton
                 icon="back"
                 text="返回"
                 label="返回工具列表"
                 size="lg"
                 @click="router.push('/tools')"
             />
-            <SlotButton
+            <PressButton
                 :icon="running ? 'stop' : 'play'"
                 :text="running ? '停止' : '开始'"
                 :label="running ? '停止识别（回到未开始）' : '开始识别任务栏'"
