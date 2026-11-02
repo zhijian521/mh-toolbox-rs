@@ -18,6 +18,16 @@ import { useRovingFocus } from '../composables/use-roving-focus';
  *
  * **宽度不给**，由调用方定：`inline-grid` 收缩到内容宽，外面写 `width: 100%`
  * （父级 scoped 样式挂在这个根元素上即可）就撑满可用宽度。
+ *
+ * ---- 两种语义，一套几何 ----
+ * `as="tab"` 把它当**页签条**用（角色卡内六个分区就是它）：几何、落格、回弹一字不改，
+ * 换的只有 ARIA——`tablist` / `tab` + `aria-selected` + 每格的 `id` 与 `aria-controls`。
+ * 之所以不另写一个 `SteppedTabs`：那等于把「N 格等分 + 印按格位移」抄第二遍，
+ * 而这条位移的百分比基准（见 `thumbWidth`）正是分头写才漏出过 2px 误差的地方。
+ *
+ * 语义不能含糊成 `radiogroup`：读屏会把「切到修炼页」念成「单选项，二之一，已选中」，
+ * 而它实际改变的是**下面哪一块内容可见**，那是页签的事。反过来页签语义也不能给
+ * 字号滑块——那个不控制任何面板，`aria-controls` 无处可指。
  */
 const props = withDefaults(
     defineProps<{
@@ -26,11 +36,28 @@ const props = withDefaults(
         /** 读屏念的组名。缺省时 `radiogroup` 没有名字，读屏只会念「单选组」。 */
         label?: string;
         disabled?: boolean;
+        /** 单选组（默认）还是页签条。只差 ARIA，几何完全相同。 */
+        as?: 'radio' | 'tab';
+        /**
+         * 仅 `as="tab"` 用：id 前缀。格取 `${prefix}-tab-${值}`，面板取 `${prefix}-pane-${值}`
+         * ——两条命名是全站页签的约定（`CharacterCard` 的分区面板就是按它挂的），
+         * 所以传前缀而不是传两个回调。
+         */
+        prefix?: string;
     }>(),
-    { label: '', disabled: false },
+    { label: '', disabled: false, as: 'radio', prefix: '' },
 );
 
 const emit = defineEmits<{ 'update:modelValue': [value: T] }>();
+
+/** `as="tab"` 时给每格的 id 与 `aria-controls`；单选组返回空对象，一个属性都不渲染。 */
+function tabIds(value: T) {
+    if (props.as !== 'tab' || !props.prefix) return {};
+    return {
+        id: `${props.prefix}-tab-${value}`,
+        'aria-controls': `${props.prefix}-pane-${value}`,
+    };
+}
 
 function choose(value: T) {
     if (props.disabled || value === props.modelValue) return;
@@ -59,7 +86,7 @@ const { cells, indexOf, tabIndexFor, onKeydown } = useRovingFocus<T>({
 <template>
     <span
         class="stepped well"
-        role="radiogroup"
+        :role="as === 'tab' ? 'tablist' : 'radiogroup'"
         :aria-label="label || undefined"
         :style="{ gridTemplateColumns: tracks }"
         @keydown="onKeydown"
@@ -75,8 +102,10 @@ const { cells, indexOf, tabIndexFor, onKeydown } = useRovingFocus<T>({
             ref="cells"
             type="button"
             class="step-opt track-opt"
-            role="radio"
-            :aria-checked="modelValue === option.value"
+            :role="as === 'tab' ? 'tab' : 'radio'"
+            v-bind="tabIds(option.value)"
+            :aria-checked="as === 'radio' ? modelValue === option.value : undefined"
+            :aria-selected="as === 'tab' ? modelValue === option.value : undefined"
             :tabindex="tabIndexFor(i)"
             :disabled="disabled"
             @click="choose(option.value)"

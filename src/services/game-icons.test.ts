@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GEAR_ACTIVES } from '../views/characters/character';
 import { LIFE_SKILLS, STORY_SKILLS } from '../views/characters/skills';
+import { assistIcon, lifeSkillIcon, storySkillIcon } from './game-icons';
 
 /**
  * 图标文件与清单的一致性。
@@ -68,5 +69,25 @@ describe('游戏图标清单', () => {
         expect(manifest.groups.skill.map((entry) => entry.name)).toEqual([...LIFE_SKILLS]);
         expect(manifest.groups.story.map((entry) => entry.name)).toEqual([...STORY_SKILLS]);
         expect(manifest.groups.active.map((entry) => entry.name)).toEqual([...GEAR_ACTIVES]);
+    });
+});
+
+describe('名字 → 图标路径', () => {
+    const base = import.meta.env.BASE_URL;
+
+    it('按名字表的下标拼文件名', () => {
+        // 名字表第 1 项就是 skill-01，两边靠顺序对齐（上面那条断言盯着同一件事）。
+        expect(lifeSkillIcon('强身术')).toBe(`${base}game/icons/skill-01.webp`);
+        expect(lifeSkillIcon('雪之感应')).toBe(`${base}game/icons/skill-21.webp`);
+        expect(storySkillIcon('调息')).toBe(`${base}game/icons/story-01.webp`);
+        expect(storySkillIcon('火眼金睛')).toBe(`${base}game/icons/story-11.webp`);
+    });
+
+    it('不在表里的名字不给路径（用户手敲的、游戏新加的）', () => {
+        expect(lifeSkillIcon('不存在的技能')).toBeUndefined();
+        expect(storySkillIcon('强身术')).toBeUndefined();
+        // 两类各查各的表：生活技能名去剧情表里查不到。
+        expect(assistIcon('强身术', 'story')).toBeUndefined();
+        expect(assistIcon('调息', 'life')).toBeUndefined();
     });
 });

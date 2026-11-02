@@ -45,10 +45,14 @@
 - **契约只有一处真源（计划）**：现在 `AppInfo` 在 Rust 与 TS 各写一份，靠
   `#[serde(rename_all = "camelCase")]` 对齐。命令到 5 个以上之前必须上
   `tauri-specta` 由 Rust 类型生成 TS，否则「两边字段名对得上」会退化成记忆力问题。
-- **前端状态**：目前 4 个（主题、字号、应用信息、路由）。**不引 Pinia**——
+- **前端状态**：目前 5 个（主题、字号、应用信息、路由、角色名册）。**不引 Pinia**——
   触发条件是「出现跨三个以上组件的共享业务状态」，届时再上，并在此处记录决定。
+  角色名册（`views/characters/roster.ts`）已经跨三个组件（名册页、卡片、编辑器），
+  但它用的是与主题、字号同一套「模块级 `ref` + `useXxx()` 导出」，没有引入第二套状态机制。
 - **写盘时机（计划）**：领域层的写操作一律「先写内存模型，再落 SQLite，再写 JSON 镜像」，
   三步由 `mh-store` 一个函数包住，调用方不需要知道顺序。
+  在那之前，**角色名册落在 `localStorage`（`mh-roster`）**：它是这一页唯一的真数据，
+  而 `mh-store` 还没起来。这一层被刻意压成「读 / 写各一个函数」，换存储只改那两处。
 
 ## 3. 磁盘与兼容红线
 
@@ -71,6 +75,7 @@
 | 新系统能力       | `src/services/<能力>.ts` 一个函数 + Rust 一个 `#[tauri::command]`                                   | 不要在组件里 `invoke`；也不要全塞进 `desktop.ts`           |
 | 业务逻辑（计划） | `crates/mh-domain`，纯函数、无 IO                                                                   | 不要塞进 `src-tauri/src/`——塞进去就再也拆不出来            |
 | 前端的纯规则     | `src/services/`（如 `ghost-parse.ts`、`ghost-model.ts`），不碰 IO                                   | 不要塞进 composable——那里一有 ref 就不好单测了             |
+| 页面自己的数据层 | `src/views/<页>/<名字>.ts`（如 `characters/roster.ts`）：单例状态 + 纯函数 + 单测                   | 不要塞进 `services/`——那不是系统能力；也不要写进 `.vue`    |
 | 开发期工具       | 页面内的放 `views/dev/` 旁边（如 `tokens.ts`）；跨页面的放 `scripts/`                               | 不要放进 `src/components/`                                 |
 | 图标源图         | `assets/icon/app-icon-1024.png` 是 `tauri icon` 的输入；生成脚本在 `scripts/icon/`（`out/` 已忽略） | 不要手改 `src-tauri/icons/` 里的产物                       |
 | 游戏资源         | `public/game/`（`maps/` 底图、`icons/` 图标、`data/` 数据表），规则见 `docs/GAME-ASSETS.md`         | 不要放 `src/`——会被改名加哈希，清单里的文件名就对不上了    |

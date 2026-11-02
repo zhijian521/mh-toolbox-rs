@@ -17,12 +17,17 @@ const life = new Set<string>(LIFE_SKILLS);
 const story = new Set<string>(STORY_SKILLS);
 
 describe('技能名字表', () => {
-    it('辅助技能里的每一项都是生活技能', () => {
+    /* 辅助技能现在分两类（`kind`），所以按类查表：生活技能进生活表、剧情技能进剧情表。
+     * 不能只查一张——2026-11-02 给归ω岚加了「调息」「打坐」「变化之术」三条剧情技能，
+     * 这条断言当场就红了，它盯的正是「名字得是游戏里真有的」这件事。 */
+    it('辅助技能按类落在对应的名字表里', () => {
         for (const character of CHARACTERS) {
             for (const row of character.assists) {
+                const table = row.kind === 'story' ? story : life;
+                const label = row.kind === 'story' ? '剧情技能' : '生活技能';
                 expect(
-                    life.has(row.name),
-                    `${character.name} 的辅助技能「${row.name}」不在生活技能表里`,
+                    table.has(row.name),
+                    `${character.name} 的${label}「${row.name}」不在对应的名字表里`,
                 ).toBe(true);
             }
         }

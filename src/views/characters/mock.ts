@@ -29,66 +29,66 @@ export const CHARACTERS: CharacterData[] = [
         subs: ['陕西区 · 大雁塔', '帮派 大唐芙蓉园', '今天 14:48'],
         /* 两列四组。组名是**我们**的（游戏里不分组，就是一张两列的表）：
          * 资源 / 加点 / 战斗 / 名望——账面要能分类，否则 21 行数下来找不到重点。 */
-        attrColumns: [
-            [
-                {
-                    title: '资源',
-                    rows: [
-                        { label: '气血', value: '3916', strong: true },
-                        { label: '魔法', value: '1440' },
-                        { label: '愤怒', value: '150' },
-                        { label: '活力', value: '860' },
-                        { label: '体力', value: '900' },
-                        { label: '经验', value: '3,777.2', sub: '万' },
-                    ],
-                },
-                {
-                    title: '加点',
-                    rows: [
-                        { label: '体质', value: '229' },
-                        { label: '魔力', value: '145' },
-                        { label: '力量', value: '721' },
-                        { label: '耐力', value: '153' },
-                        { label: '敏捷', value: '332' },
-                        { label: '潜力', value: '0' },
-                    ],
-                },
-            ],
-            [
-                {
-                    title: '战斗',
-                    rows: [
-                        { label: '命中', value: '1915' },
-                        { label: '伤害', value: '1591', strong: true },
-                        { label: '防御', value: '826' },
-                        { label: '速度', value: '455' },
-                        { label: '法伤', value: '845' },
-                        { label: '法防', value: '758' },
-                    ],
-                },
-                {
-                    title: '名望',
-                    rows: [
-                        { label: '人气', value: '755' },
-                        { label: '帮贡', value: '266' },
-                        { label: '门贡', value: '323' },
-                    ],
-                },
-            ],
+        /* 四组，**顺序即网格顺序**（两行两列，行优先）：资源 / 名望、战斗 / 加点。
+         * 经验不在这里——它单独一行带进度条（见 `experience`）。 */
+        attrGroups: [
+            {
+                title: '资源',
+                rows: [
+                    { label: '气血', value: '3916', strong: true },
+                    { label: '魔法', value: '1440' },
+                    { label: '愤怒', value: '150' },
+                    { label: '活力', value: '860' },
+                    { label: '体力', value: '900' },
+                ],
+            },
+            {
+                title: '名望',
+                rows: [
+                    { label: '人气', value: '755' },
+                    { label: '帮贡', value: '266' },
+                    { label: '门贡', value: '323' },
+                ],
+            },
+            {
+                title: '战斗',
+                rows: [
+                    { label: '命中', value: '1915' },
+                    { label: '伤害', value: '1591', strong: true },
+                    { label: '防御', value: '826' },
+                    { label: '速度', value: '455' },
+                    { label: '法伤', value: '845' },
+                    { label: '法防', value: '758' },
+                ],
+            },
+            {
+                title: '加点',
+                rows: [
+                    { label: '体质', value: '229' },
+                    { label: '魔力', value: '145' },
+                    { label: '力量', value: '721' },
+                    { label: '耐力', value: '153' },
+                    { label: '敏捷', value: '332' },
+                    { label: '潜力', value: '0' },
+                ],
+            },
         ],
+        /* `need` 是占位：截图里只拍到了当前经验，没拍升级所需。
+         * 填一个相近的数，是为了让进度条有个看得见的样子；真实值由用户录。 */
+        experience: { value: '3,777.2万', need: '4,200万' },
         attrFoot: '只记上限，不记当前值',
         /* 五庄观七项。截图里「周易学」是朱色，但同一张图上「修仙术」也是 120 却是白色，
          * 所以朱色**不是**满级标记（否则两项都该红）。上限规则还没确认，`cap` 一律不填。 */
         skills: [
-            { name: '周易学', level: 120 },
-            { name: '潇湘仙雨', level: 115 },
-            { name: '乾坤袖', level: 60 },
-            { name: '修仙术', level: 120 },
-            { name: '混元道果', level: 90 },
-            { name: '明性修身', level: 90 },
-            { name: '七星遁', level: 60 },
+            { name: '周易学', level: 120, cap: 180 },
+            { name: '潇湘仙雨', level: 115, cap: 180 },
+            { name: '乾坤袖', level: 60, cap: 180 },
+            { name: '修仙术', level: 120, cap: 180 },
+            { name: '混元道果', level: 90, cap: 180 },
+            { name: '明性修身', level: 90, cap: 180 },
+            { name: '七星遁', level: 60, cap: 180 },
         ],
-        skillFoot: '7 项，最高 120；乾坤袖、七星遁在补',
+        skillFoot: '7 项，最高 120',
         /* 等级来自「辅助技能」面板的八个格子，名字来自「生活技能」目录的两页截图。
          *
          * 名字与图标的对应是**按图案认的**，认对五个：
@@ -99,16 +99,22 @@ export const CHARACTERS: CharacterData[] = [
          *
          * 排序按等级降序，不按游戏网格：一列读下来先看到主修的几项。 */
         assists: [
-            { name: '强身术', level: 100 },
-            { name: '打造技巧', level: 56 },
-            { name: '冥想', level: 50 },
-            { name: '养生之道', level: 40 },
-            { name: '烹饪技巧', level: 32 },
-            { name: '健身术', level: 2 },
-            { name: '灵石技巧', level: 1 },
-            { name: '熔炼技巧', level: 1 },
+            { name: '强身术', level: 100, kind: 'life' },
+            { name: '打造技巧', level: 56, kind: 'life' },
+            { name: '冥想', level: 50, kind: 'life' },
+            { name: '养生之道', level: 40, kind: 'life' },
+            { name: '烹饪技巧', level: 32, kind: 'life' },
+            { name: '健身术', level: 2, kind: 'life' },
+            { name: '灵石技巧', level: 1, kind: 'life' },
+            { name: '熔炼技巧', level: 1, kind: 'life' },
+            /* 剧情技能：按「技能点」学、最高 5 级（游戏说明：调息每级耗 3 点）。
+             * 这两条是**占位**——用户还没给这个号的剧情技能截图，填进来是为了让
+             * 「生活 + 剧情」合到一页之后格子有东西可看。 */
+            { name: '调息', level: 5, cap: 5, kind: 'story' },
+            { name: '打坐', level: 4, cap: 5, kind: 'story' },
+            { name: '变化之术', level: 3, cap: 5, kind: 'story' },
         ],
-        assistFoot: '8 项，按等级排序',
+        assistFoot: '生活 8 项 · 剧情 3 项（剧情为占位）',
         /* 两组共 10 项，育兽术上限 35（其余 20）。 */
         trainings: [
             {
@@ -498,73 +504,69 @@ export const CHARACTERS: CharacterData[] = [
         level: 109,
         school: '化生寺',
         subs: ['陕西区 · 大雁塔', '帮派 大唐芙蓉园', '3 天前更新'],
-        attrColumns: [
-            [
-                {
-                    title: '资源',
-                    rows: [
-                        { label: '气血', value: '5600', strong: true },
-                        { label: '魔法', value: '1200' },
-                        { label: '愤怒', value: '150' },
-                        { label: '活力', value: '640' },
-                        { label: '体力', value: '720' },
-                        { label: '经验', value: '786.4', sub: '万' },
-                    ],
-                },
-                {
-                    title: '加点',
-                    rows: [
-                        { label: '体质', value: '210' },
-                        { label: '魔力', value: '96' },
-                        { label: '力量', value: '88' },
-                        { label: '耐力', value: '246' },
-                        { label: '敏捷', value: '132' },
-                        { label: '潜力', value: '0' },
-                    ],
-                },
-            ],
-            [
-                {
-                    title: '战斗',
-                    rows: [
-                        { label: '命中', value: '468' },
-                        { label: '伤害', value: '512' },
-                        { label: '防御', value: '604', strong: true },
-                        { label: '速度', value: '262' },
-                        { label: '法伤', value: '402' },
-                        { label: '法防', value: '588' },
-                    ],
-                },
-                {
-                    title: '名望',
-                    rows: [
-                        { label: '人气', value: '512' },
-                        { label: '帮贡', value: '980' },
-                        { label: '门贡', value: '64' },
-                    ],
-                },
-            ],
+        attrGroups: [
+            {
+                title: '资源',
+                rows: [
+                    { label: '气血', value: '5600', strong: true },
+                    { label: '魔法', value: '1200' },
+                    { label: '愤怒', value: '150' },
+                    { label: '活力', value: '640' },
+                    { label: '体力', value: '720' },
+                ],
+            },
+            {
+                title: '名望',
+                rows: [
+                    { label: '人气', value: '512' },
+                    { label: '帮贡', value: '980' },
+                    { label: '门贡', value: '64' },
+                ],
+            },
+            {
+                title: '战斗',
+                rows: [
+                    { label: '命中', value: '468' },
+                    { label: '伤害', value: '512' },
+                    { label: '防御', value: '604', strong: true },
+                    { label: '速度', value: '262' },
+                    { label: '法伤', value: '402' },
+                    { label: '法防', value: '588' },
+                ],
+            },
+            {
+                title: '加点',
+                rows: [
+                    { label: '体质', value: '210' },
+                    { label: '魔力', value: '96' },
+                    { label: '力量', value: '88' },
+                    { label: '耐力', value: '246' },
+                    { label: '敏捷', value: '132' },
+                    { label: '潜力', value: '0' },
+                ],
+            },
         ],
+        experience: { value: '786.4万', need: '' },
         attrFoot: '只记上限，不记当前值',
         skills: [
-            { name: '推气过宫', level: 100 },
-            { name: '香飘飘', level: 100 },
-            { name: '大慈大悲', level: 100 },
-            { name: '渡世步', level: 95 },
-            { name: '舍身取义', level: 90 },
-            { name: '韦陀护法', level: 85 },
-            { name: '佛法无边', level: 80 },
+            { name: '推气过宫', level: 100, cap: 180 },
+            { name: '香飘飘', level: 100, cap: 180 },
+            { name: '大慈大悲', level: 100, cap: 180 },
+            { name: '渡世步', level: 95, cap: 180 },
+            { name: '舍身取义', level: 90, cap: 180 },
+            { name: '韦陀护法', level: 85, cap: 180 },
+            { name: '佛法无边', level: 80, cap: 180 },
         ],
         skillFoot: '7 项，最高 100',
         assists: [
-            { name: '强身术', level: 120 },
-            { name: '裁缝技巧', level: 100 },
-            { name: '冥想', level: 90 },
-            { name: '烹饪技巧', level: 80 },
-            { name: '炼金术', level: 70 },
-            { name: '中药医理', level: 60 },
+            { name: '强身术', level: 120, kind: 'life' },
+            { name: '裁缝技巧', level: 100, kind: 'life' },
+            { name: '冥想', level: 90, kind: 'life' },
+            { name: '烹饪技巧', level: 80, kind: 'life' },
+            { name: '炼金术', level: 70, kind: 'life' },
+            { name: '中药医理', level: 60, kind: 'life' },
         ],
-        assistFoot: '6 项，按等级排序',
+        assistFoot: '生活 6 项',
         trainings: [
             {
                 title: '角色自身修炼',

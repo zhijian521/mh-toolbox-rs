@@ -345,8 +345,12 @@ svg {
 /* 选中只换字色，**不加粗、不描边、不加字距**（CONVENTIONS §2.4-9）：
  * 文楷本地只有 Regular，600 与 `-webkit-text-stroke` 都是浏览器合成，
  * 会把撇捺糊成块——竖版滑块曾用 0.25px 描边，眼睛读到的就是「这格加粗了」。
- * 「选中了」由那枚朱印交代，字不必再喊一遍。 */
-.track-opt[aria-checked='true'] {
+ * 「选中了」由那枚朱印交代，字不必再喊一遍。
+ *
+ * 两个状态属性都认：滑块与开关是 `aria-checked`，角色卡内那六个页签是
+ * `aria-selected`（同一枚控件换了语义，见 `SteppedSlider`）。只写前者的话，
+ * 页签的选中格会停在 `--muted`，一枚朱印上压着一行灰字。 */
+.track-opt:is([aria-checked='true'], [aria-selected='true']) {
     color: var(--opt-fg, var(--on-seal));
 }
 
@@ -450,6 +454,68 @@ svg {
     align-items: center;
     flex-wrap: wrap;
     gap: 10px;
+}
+
+/* ---------- 输入格 ----------
+ * 纸上挖出来的一格：底比纸深一档、内侧上沿压一道影、一圈细账线。与 `.well` 同一个光向，
+ * 但**不直接复用 `.well`**：那个的 `background-image` 是给「一整条 26px 高以上的轨道」
+ * 调的斜面（上暗 → 62% 处消隐），压在单行输入框上只剩一团脏影。
+ *
+ * 高度与 `PressButton` 的 `md` 同一条算式（`calc(26px * var(--fs-scale))`）：
+ * 表单里输入框和按钮经常并排（加一行、删一行），高差 2px 整行就歪了。
+ *
+ * 焦点态**不用** `outline`：`outline` 是方的，而输入格是 `--r-2` 圆角，两者在四角打架。
+ * 改换边色——焦点在这里的意思是「这一格在等着你写」，与按钮的焦点环
+ * （「键盘现在停在这枚按钮上」）是两种事，不必长得一样。
+ */
+.field {
+    min-width: 0;
+    height: calc(26px * var(--fs-scale));
+    padding: 0 7px;
+    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 80%, transparent);
+    border-radius: var(--r-2);
+    /* 底取槽色（`--well`）而不是纸色：与面板同色的输入框只能靠一圈细边认出来，
+     * 读作「贴在纸上的白方块」。槽色 + 一道内侧上影，才是「纸被挖开一格」。 */
+    background: var(--well);
+    box-shadow: inset 0 1px 2px var(--bevel-lo);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: var(--fs-sm);
+    line-height: calc(24px * var(--fs-scale));
+    transition: border-color var(--t-quick) var(--ease-soft);
+}
+.field::placeholder {
+    color: var(--muted);
+}
+.field:hover:not(:disabled) {
+    border-color: var(--rule-2);
+}
+.field:focus-visible {
+    outline: none;
+    border-color: var(--cinnabar);
+}
+.field:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+/* 多行输入：高度交给 `rows`，内边距改成四边——单行那套 `0 7px` + `line-height: 24px`
+ * 用在 textarea 上会让第一行贴着上边框。 */
+.field.area {
+    height: auto;
+    padding: 5px 7px;
+    line-height: 1.6;
+    resize: vertical;
+}
+
+/* 编辑器里的一行：一行数据 = 几个格子 + 一枚删。行距 5 是「同一组内的行」，
+ * 组与组之间由容器给 12——两种间距在这个界面上是两件事，不能压成一个数。 */
+.erow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.erow + .erow {
+    margin-top: 5px;
 }
 /* 数字一律用等宽数字（tabular-nums）：霞鹜的数字宽度不一，列一对齐就散。 */
 .num {

@@ -42,7 +42,9 @@
     align-items: flex-start;
     gap: 8px;
     flex: none;
-    padding: 11px 14px 9px;
+    /* 卡宽 450 之后头部要跟着松一档：11/9 是按 360 的卡定的，
+     * 放大到 450 时同样的内边距会让名字贴住上沿。左右仍是 14，与正文同一条竖线。 */
+    padding: 13px 14px 10px;
 }
 .who-block {
     min-width: 0;
@@ -72,41 +74,60 @@
  * 台账里没有对应菜单，它只是一个看起来能点的装饰。2026-11-02 删掉：
  * **点了没反应的控件比没有这个控件更糟**，用户会以为自己点错了。
  * 真要加「更多操作」时，按钮和菜单一起加，别只加按钮。 */
-/* 颜色与字号来自全局 `.meta`；这里只剩排布（三点分隔）与它离上面那行的距离。 */
+/* 颜色与字号来自全局 `.meta`；这里只剩排布（三点分隔）与它离上面那行的距离。
+ *
+ * `nowrap` + 裁切**必须有**：这行副题由三四段拼成（服务器 · 帮派 · 时间），
+ * 卡头右侧又要放改 / 删两枚按钮。允许折行时，那两个按钮一变宽（删除确认态就是），
+ * 副题就从一行折成四行，整个卡头往下长一截——卡高是写死的 540（`--char-h`），
+ * 折行会把它顶到溢出。宁可在窄的一瞬间把末段裁掉：它是**当前值的补充说明**，
+ * 不是这一格的核心信息，裁掉不影响读数。 */
 .char-sub {
     display: flex;
     align-items: baseline;
     gap: 6px;
     margin-top: 3px;
+    overflow: hidden;
+    white-space: nowrap;
     letter-spacing: 0.04em;
+}
+.char-sub > span {
+    flex: none;
+    white-space: nowrap;
 }
 .char-sub .dot {
     opacity: 0.5;
 }
 
 /* ---------- 卡内页签 ----------
- * 外壳用全局 `.pill-group`（`--paper-2` 承载面 + 3px 内边距），只管排布：
- * 覆盖成等宽五列。`.pill-group` 原本是 `inline-flex`（按内容宽），
- * 而卡内要的是「五个格子均分整条」——那个差异属于调用方的排版，写在这里。
+ * 就是把 `SteppedSlider` 按 `as="tab"` 用：一条凹槽、一枚会落格的朱印、六个落点。
+ * 这里只留**这一处**的排版——宽度撑满（两边各让 12px）、不参与纵向压缩。
+ * 早先那套是六个 `.bevel-pill` 铺在 `.pill-group` 板上；六个胶囊并排读作
+ * 「六个独立开关」，而它们是同一条轨道上的六个停靠点，换掉的是这个说法，不是配色。
  */
 .tabs {
     position: relative;
     z-index: 1;
-    display: grid;
-    /* 列数跟着 `PANES` 走：等分 + 按序铺列，加减一个页签不用回来改这一行。
-     * 六个页签各 56px（336 / 6），最长的「召唤兽」三个字约 43px（1.1 字号档 46），
-     * 放得下但不宽松——56px 是余量底线，第七个页签就得改文案了。 */
-    grid-auto-flow: column;
-    grid-auto-columns: 1fr;
     flex: none;
-    margin: 0 12px;
+    /* 14 与 `.char-body` 的左右内边距同值：页签条比正文更靠外 2px 时，
+     * 卡内的竖线就出现两条基准。卡宽 450 时每格 (450 − 28 − 4) / 6 = 69.7，
+     * 「召唤兽」在 1.1 档占 46，比 360 宽那版宽松得多。 */
+    margin: 0 14px;
 }
-/* 胶囊默认 `min-height: 23px` 是按「一行字」定的；卡内页签要更矮一点，
- * 免得页签条从正文里抢走一整行数据的高度。 */
-.tabs :deep(.bevel-pill) {
+/* 格内文案比滑块默认规格再收一档：六格各 69.7px，最长的「召唤兽」三个字在
+ * 1.1 字号档约 46px——按 `--fs-sm` 排会显得挤，`--fs-xs` 留得下余量。 */
+.tabs :deep(.step-opt) {
     padding: 2px 4px;
     font-size: var(--fs-xs);
     letter-spacing: 0.04em;
+}
+
+/* 卡头右侧的改 / 删：`margin-left: auto` 把它们推到卡头右缘，与名字那一块分开。
+ * 间距 5 与 `PressButton` 内部的图标—文字间距同值，两枚并排时读作一组。 */
+.head-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
 }
 
 .char-body {
@@ -114,7 +135,7 @@
     z-index: 1;
     flex: 1;
     min-height: 0;
-    padding: 10px 14px 12px;
+    padding: 11px 14px 14px;
     overflow: auto;
     /* 滚动条始终占位：六个分区的宽度必须一致，否则切页签时整列文字会左右跳。 */
     scrollbar-gutter: stable;
@@ -134,17 +155,31 @@
 /* ======================================================================
  * 属性
  * ==================================================================== */
-.attr-cols {
+/* 两行两列，行优先：上排资源 / 名望、下排战斗 / 加点。
+ * 用 grid 而不是两个 flex 列：名望只有 3 行、资源 5 行，按列排时下排的「战斗」
+ * 会被右列「加点」的起点拖着错位；按行排，两排各自顶对齐，四组的位置只由顺序定。
+ * 行距 14、列距 18：竖向要留出「两排」的呼吸，横向只隔两列。 */
+.attr-layout {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    flex: 1;
-    gap: 0 18px;
+    gap: 14px 18px;
 }
-/* 两组靠上排、不上下摊开：摊开会在卡中间挖出一个 90px 的洞，比底部留白更难看。 */
-.attr-col {
+/* 经验那一行：短竖条 + 标题 + 条。`margin-top: auto` 不要——它要跟着四组走，
+ * 卡底那段留白留给注脚（`.pane .foot` 的 `margin-top: auto`）。 */
+.exp-row {
     display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: 10px;
+    margin-top: 14px;
+}
+.exp-row .group-head {
+    flex: none;
+    margin-bottom: 0;
+}
+/* 条吃掉剩下的整行：不给 `flex: 1` 时它按内容宽收缩，只剩数值旁边一小截，
+ * 读起来是「一个胶囊」而不是「还剩多少」。 */
+.exp-row .meter {
+    flex: 1;
 }
 .group-head {
     display: flex;
@@ -162,12 +197,15 @@
 .ledger {
     display: grid;
 }
+/* 行距 4（不是 3）：卡宽从 360 长到 450 之后，行横向变宽、纵向不变，
+ * 21 行读起来是「一叠扁条」。加 1px 上下留白，行高从 16.7 到 18.7——
+ * 属性页正好把这 540 高的卡填满，注脚之前不再空出一截。 */
 .ledger > div {
     display: flex;
     align-items: baseline;
     gap: 5px;
     min-width: 0;
-    padding: 3px 0;
+    padding: 4px 0;
     font-size: var(--fs-sm);
 }
 /* 点线放在 dt 内部而不是 dt 与 dd 之间：`<dl><div><dt/><span/><dd/></div></dl>`
@@ -185,7 +223,7 @@
  * 浓度还抄漂了——62% 与 55%，同一件事两种深浅。合并成一段，取 62%（属性行是主用法，
  * 另两行的行距也撑得住）。 */
 .ledger .leader,
-.skill-row .leader,
+.school-row .leader,
 .pet-row .leader {
     flex: 1;
     min-width: 8px;
@@ -205,48 +243,136 @@
 .ledger dd.strong {
     color: var(--cinnabar);
 }
+/* 空值那一格：淡到像铅笔打的草稿，但比纯空白多一个「这里该有数」的记号。
+ * 放在 `.strong` 之后是有意的——一个标朱的行没填数时也该是淡的。 */
+.ledger dd.blank {
+    color: var(--muted);
+}
 
 /* ======================================================================
- * 师门 / 辅助
+ * 师门
  * ==================================================================== */
-.skill-list {
+/* 与辅助那一页分开写：师门是「名称 + 等级」两行一列（照游戏面板），
+ * 辅助是一张格子图（下一步改）。两页长得不一样，就不该共用一个类。 */
+.school-list {
     display: grid;
     flex: 1;
-    /* 卡高固定，行数少的分区把行距摊开，而不是在底下留一截空白。 */
+    /* 行数少（七项）时把行距摊开，而不是在底下留一截空白。 */
     align-content: space-between;
 }
-.skill-row {
+.school-row {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 7px;
-    padding: 8px 0 7px;
+    padding: 7px 0;
     border-bottom: var(--w-hair) solid var(--rule);
-    font-size: var(--fs-sm);
 }
-.skill-row .name {
+.school-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    /* 不 `flex: 1`：撑满会把右侧的签顶到卡边，中间那段空白就靠点线连起来
+     * （`.school-row .leader`）。名字最长「混元道果」四个字，本来也不需要撑满。 */
+    flex: none;
+    min-width: 0;
+}
+.school-text .name {
     color: var(--ink);
+    font-size: var(--fs-sm);
+    line-height: 1.35;
 }
-.skill-row .lv {
+/* 等级比名称小一档、低一档墨：它是名称的注脚，不是第二个标题。 */
+.school-text .lv {
     color: var(--ink-2);
+    font-size: var(--fs-mini);
+    line-height: 1.3;
 }
-.skill-row .lv.max {
+.school-text .lv.max {
     color: var(--cinnabar);
 }
-/* 技能签的框是全局 `.chip`；这里只留两件事：别被行内文字挤压、满级要跳出来。 */
-.skill-row .tag {
+.school-row.off .school-text .name {
+    color: var(--muted);
+}
+.school-row .tag {
     flex: none;
 }
-/* 只有知道上限（`cap`）时才挂这个签，所以「满」一定可信。
- * 现在演示数据里一个 `cap` 都没填：截图里「周易学 120」是朱色而「修仙术 120」是白色，
- * 说明朱色不是满级标记，上限规则（130 级人物最高 120 还是 130）还没确认。
- * 宁可少一个提示，也不猜一个错的。 */
-.skill-row .tag.on {
+.school-row .tag.on {
     border-color: var(--seal-edge);
+    color: var(--seal);
+}
+
+/* ======================================================================
+ * 辅助
+ * ==================================================================== */
+/* 一格 = 图标 + 等级 + 名字。四列，与游戏那张面板一致（它一屏 4 × 3 = 12 格）。
+ *
+ * 名字是**我们加的**：游戏里图标即名字（玩家认得），可这张表是拿来核对的——
+ * 「哪个技能 100 级」靠图形认太慢，一行小字更直接。它排在等级下面，
+ * 字号比等级还小一档，所以不会抢走「等级才是要读的那个数」。 */
+.assist-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.assist-group .group-head {
+    margin-bottom: 6px;
+}
+.assist-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px 6px;
+}
+.assist-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+}
+/* 图标底板：96 × 96 的原图里图标本体占 86–88，缩到 56 显示时四周那一圈透明边
+ * 正好当留白。底板本身不上色——图标自带深色底，再加一块会读成「贴了张卡」。 */
+.assist-icon {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    /* 没有图标的技能（用户手敲的新名字）留一块淡槽，不塌成零宽。 */
+    border-radius: var(--r-2);
+    /* `overflow` 与底板同圆角：图标是 96px 的方图，不裁就是四个直角压在圆角凹槽上，
+     * 读作「贴了一张方形贴纸」。 */
+    overflow: hidden;
+    background: color-mix(in srgb, var(--well) 55%, transparent);
+}
+.assist-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.assist-lv {
+    color: var(--ink-2);
+    font-size: var(--fs-sm);
+    line-height: 1.2;
+}
+.assist-lv.max {
     color: var(--cinnabar);
 }
-.skill-row.off .name,
-.skill-row.off .lv {
+.assist-name {
+    max-width: 100%;
+    overflow: hidden;
     color: var(--muted);
+    font-size: var(--fs-mini);
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* 未学：整格压一档，但仍占位（少一格会让人以为漏记了）。 */
+.assist-cell.off .assist-icon {
+    opacity: 0.45;
+}
+.assist-cell.off .assist-name,
+.assist-cell.off .assist-lv {
+    color: var(--muted);
+    opacity: 0.7;
 }
 
 /* ======================================================================
@@ -319,14 +445,20 @@
 /* ======================================================================
  * 装备
  * ==================================================================== */
+/* 四行均分卡里的剩余高度（`grid-auto-rows: 1fr` + `flex: 1`），不再是写死的 66。
+ * 卡从 480 长到 540 之后，12 个 66 高的格子只铺满上半截，底下空出 115px——
+ * 与属性行同一个问题：格子得跟着卡一起长，留白才不会堆在底下。
+ * 四行等高仍是 3 × 4 的排布，只是每格从 66 变成 91（1024 × 780 / 1.1 档实测）。 */
 .gear-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
+    flex: 1;
     gap: 7px;
 }
 .gear-cell {
     display: block;
-    height: 66px;
+    height: 100%;
     padding: 0;
     border: 0;
     border-radius: var(--r-2);
@@ -338,7 +470,8 @@
 .gear-tile {
     /* 底是 `--paper`，沿用 PressTile 默认的半透明纸色会与卡面同色，只剩棱、读不出「凸」。 */
     --tile-w: 100%;
-    --tile-h: 66px;
+    /* 高度跟着格子走（格子由 grid 的 `1fr` 定），66 那个定值已删。 */
+    --tile-h: 100%;
     --tile-r: var(--r-2);
     --tile-face: var(--paper-2);
     --tile-drop: 1;
@@ -421,13 +554,21 @@
  * ==================================================================== */
 /* 纵向列表而不是网格：一只兽要回答的东西（六项资质 + 成长 + 五行 + 寿命）
  * 是一件装备的两倍，塞进 100px 宽的格子里只写得下名字。
- * 一屏能看四五只，正好对得上「携带 4 / 7」这个量级。 */
+ * 一屏能看四五只，正好对得上「携带 4 / 7」这个量级。
+ *
+ * 行高均分（`1fr`）而不是 `space-between` 摊开：4 行摊进 400px 会变成行距 90 的
+ * 四条孤线，读起来是「四行漂在纸上」；等高行配行内居中，下边线才一条接一条，
+ * 与「携带 4 / 7」那张脚注一起收在卡底。 */
 .pet-list {
     display: grid;
+    grid-auto-rows: 1fr;
+    flex: 1;
 }
 .pet-row {
     display: flex;
-    align-items: baseline;
+    /* 交叉轴居中而不是基线对齐：行高被拉起来之后，基线对齐会把整行内容压在行顶，
+     * 下面空出半行。名字、等级、签同为一行小字，居中的 1px 差看不出来。 */
+    align-items: center;
     gap: 7px;
     padding: 9px 0;
     border: 0;

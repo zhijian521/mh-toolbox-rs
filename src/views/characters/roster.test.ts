@@ -1,0 +1,231 @@
+import { describe, expect, it } from 'vitest';
+import { GEAR_SLOTS } from './character';
+import { CHARACTERS } from './mock';
+import { expPercent } from './character';
+import { emptyCharacter, normalizeCharacter, parseRoster, serializeRoster } from './roster';
+
+/**
+ * 名册的解析与兜底。
+ *
+ * 这一层的失败方式很特别：它**只在重启后才出错**。写进去的是干净对象，
+ * 读回来的是上一版字段、手工改坏的 JSON、或 OCR 导入的半成品——那时页面已经
+ * 挂载完了，一行 `undefined is not iterable` 就是整页白屏。
+ * 所以断言全在「坏输入进来会怎样」，而不是「好数据能不能过」。
+ */
+describe('名册解析', () => {
+    it('没存过 / 不是 JSON / 不是数组，一律交还 null', () => {
+        expect(parseRoster(null)).toBeNull();
+        expect(parseRoster('')).toBeNull();
+        expect(parseRoster('{ 这不是 JSON')).toBeNull();
+        expect(parseRoster('{"id":"a"}')).toBeNull();
+        expect(parseRoster('null')).toBeNull();
+    });
+
+    it('单条坏掉不牵连整份名册', () => {
+        const parsed = parseRoster(
+            JSON.stringify([null, '字符串', { id: 'a', name: '甲' }, { name: '乙' }]),
+        );
+        expect(parsed?.map((item) => item.name)).toEqual(['甲', '乙']);
+    });
+
+    it('缺字段的记录补成可渲染的形状，不抛错', () => {
+        const character = normalizeCharacter({ name: '只有名字' });
+        expect(character.name).toBe('只有名字');
+        expect(character.level).toBe(0);
+        // 属性与修炼是游戏面板里的固定行，缺了要补回骨架，否则那两个页签是空白。
+        // 顺序 = 网格顺序（两行两列，行优先）：上排资源 / 名望，下排战斗 / 加点。
+        expect(character.attrGroups.map((group) => group.title)).toEqual([
+            '资源',
+            '名望',
+            '战斗',
+            '加点',
+        ]);
+        expect(character.experience).toEqual({ value: '', need: '' });
+        expect(character.trainings.flatMap((group) => group.rows)).toHaveLength(10);
+        expect(character.gear).toHaveLength(GEAR_SLOTS.length);
+        expect(character.pets).toEqual([]);
+    });
+
+    it('id 丢了要补一个新的——重复 id 会让两张卡的页签互相串', () => {
+        const first = normalizeCharacter({ name: '甲' });
+        const second = normalizeCharacter({ name: '乙' });
+        expect(first.id).toBeTruthy();
+        expect(first.id).not.toBe(second.id);
+    });
+});
+
+describe('装备格对齐', () => {
+    it('乱序、缺格都还原成十二格的标准顺序', () => {
+        const character = normalizeCharacter({
+            gear: [
+                { slot: '武器', caption: '飞龙在天' },
+                { slot: '头', caption: '黑魔冠' },
+                { slot: '不存在的部位', caption: '假的' },
+            ],
+        });
+        expect(character.gear.map((slot) => slot.slot)).toEqual([...GEAR_SLOTS]);
+        expect(character.gear[0].caption).toBe('黑魔冠');
+        expect(character.gear[2].caption).toBe('飞龙在天');
+        // 没填的那十格要占位：空位与「没这一格」是两件事。
+        expect(character.gear[1]).toEqual({ slot: '项链', caption: undefined });
+    });
+
+    it('名称与类型都空的详情不留空壳', () => {
+        const character = normalizeCharacter({
+            gear: [
+                {
+                    slot: '头',
+                    caption: '黑魔冠',
+                    detail: { stats: [{ label: '防御', value: '+1' }] },
+                },
+            ],
+        });
+        // 空壳会让浮片浮出一张空白纸，比什么都不弹更像坏了。
+        expect(character.gear[0].detail).toBeUndefined();
+        expect(character.gear[0].caption).toBe('黑魔冠');
+    });
+
+    it('装备名只填了 detail.name 时，格内短名跟着它走', () => {
+        const character = normalizeCharacter({
+            gear: [{ slot: '头', detail: { name: '黑魔冠', kind: '帽子' } }],
+        });
+        expect(character.gear[0].caption).toBe('黑魔冠');
+        expect(character.gear[0].detail?.kind).toBe('帽子');
+    });
+});
+
+describe('技能与修炼', () => {
+    it('没有名字的行丢掉，不画空白分隔线', () => {
+        const character = normalizeCharacter({
+            skills: [{ name: '周易学', level: 120 }, { level: 60 }, null],
+        });
+        expect(character.skills).toHaveLength(1);
+        expect(character.skills[0].name).toBe('周易学');
+    });
+
+    it('上限缺席与上限为 0 都读作「不知道」', () => {
+        const [absent, zero] = normalizeCharacter({
+            skills: [
+                { name: '周易学', level: 120 },
+                { name: '潇湘仙雨', level: 0, cap: 0 },
+            ],
+        }).skills;
+        /* 上限是正整数，0 只可能是「这一格空着」。留着 0 会让卡上画出 `0/0`
+         * 并盖一枚「满」的签——那是把「没填」读成了「练满了」。 */
+        expect(absent.cap).toBeUndefined();
+        expect(zero.cap).toBeUndefined();
+    });
+
+    it('修炼的上限缺了按名字补回固定值，不落成 0', () => {
+        /* 修炼上限是游戏给的（20，育兽术 35），不是用户填的。落成 0 的后果比技能更重：
+         * 卡上是 `row.level >= row.cap` 判「练满」，进度条还算 `level / cap`——
+         * 十项修炼会全部标成已完成，宽度是 NaN%。 */
+        const [own, beast] = normalizeCharacter({
+            trainings: [
+                { title: '角色自身修炼', rows: [{ name: '攻击修炼', level: 11 }] },
+                {
+                    title: '召唤兽控制修炼',
+                    rows: [
+                        { name: '育兽术', level: 0 },
+                        { name: '自造的项', level: 3 },
+                    ],
+                },
+            ],
+        }).trainings;
+        expect(own.rows[0].cap).toBe(20);
+        expect(beast.rows[0].cap).toBe(35);
+        // 认不出的项落到 20——宁可给一个常见值，也不要给 0。
+        expect(beast.rows[1].cap).toBe(20);
+    });
+});
+
+describe('属性四组归位', () => {
+    it('顺序乱的四组按「资源 / 名望 / 战斗 / 加点」排回来', () => {
+        const character = normalizeCharacter({
+            attrGroups: [
+                { title: '加点', rows: [{ label: '体质', value: '1' }] },
+                { title: '战斗', rows: [{ label: '命中', value: '2' }] },
+                { title: '名望', rows: [{ label: '人气', value: '3' }] },
+                { title: '资源', rows: [{ label: '气血', value: '4' }] },
+            ],
+        });
+        expect(character.attrGroups.map((group) => group.title)).toEqual([
+            '资源',
+            '名望',
+            '战斗',
+            '加点',
+        ]);
+    });
+
+    it('上一版的两列结构（[[组,组],[组,组]]）还能读回来', () => {
+        /* 用户可能已经在 localStorage 里存过两列结构。展开成一维再归位，
+         * 改版式不该让已录的号变成一张空表。 */
+        const character = normalizeCharacter({
+            attrColumns: [
+                [
+                    { title: '资源', rows: [{ label: '气血', value: '3916' }] },
+                    { title: '加点', rows: [{ label: '体质', value: '229' }] },
+                ],
+                [
+                    { title: '战斗', rows: [{ label: '伤害', value: '1591' }] },
+                    { title: '名望', rows: [{ label: '人气', value: '755' }] },
+                ],
+            ],
+        });
+        expect(character.attrGroups.map((group) => group.title)).toEqual([
+            '资源',
+            '名望',
+            '战斗',
+            '加点',
+        ]);
+        // 值也要跟着走，不能只搬标题。
+        expect(character.attrGroups[0].rows[0].value).toBe('3916');
+        expect(character.attrGroups[2].rows[0].value).toBe('1591');
+    });
+});
+
+describe('经验百分比', () => {
+    it('千分位与「万 / 亿」都认', () => {
+        expect(expPercent('3,777.2万', '4,200万')).toBeCloseTo(89.93, 1);
+        expect(expPercent('1.2亿', '2亿')).toBe(60);
+        // 没写单位按「万」算——属性页历来只记「万」。
+        expect(expPercent('3777.2', '4200')).toBeCloseTo(89.93, 1);
+    });
+
+    it('算不出来就返回 null，而不是 0', () => {
+        // 「不知道」与本就是 0% 是两件事：前者该画出空轨道，后者是真的一格都没走。
+        expect(expPercent('3,777.2万', '')).toBeNull();
+        expect(expPercent('', '4,200万')).toBeNull();
+        expect(expPercent('满', '4,200万')).toBeNull();
+        expect(expPercent('100', '0')).toBeNull();
+    });
+
+    it('超过所需按 100 封顶，不溢出轨道', () => {
+        expect(expPercent('5,000万', '4,200万')).toBe(100);
+    });
+});
+
+describe('空白角色', () => {
+    it('该有的格子都在，该空的都空着', () => {
+        const character = emptyCharacter();
+        expect(character.name).toBe('');
+        expect(character.skills).toEqual([]);
+        expect(character.pets).toEqual([]);
+        expect(character.gear).toHaveLength(GEAR_SLOTS.length);
+        expect(character.gear.every((slot) => slot.caption === undefined)).toBe(true);
+        const trainings = character.trainings.flatMap((group) => group.rows);
+        expect(trainings).toHaveLength(10);
+        expect(trainings.find((row) => row.name === '育兽术')?.cap).toBe(35);
+    });
+});
+
+describe('往返', () => {
+    it('存下去再读回来，结构与 id 都不变', () => {
+        const parsed = parseRoster(serializeRoster(CHARACTERS));
+        expect(parsed).toHaveLength(CHARACTERS.length);
+        expect(parsed?.map((item) => item.id)).toEqual(CHARACTERS.map((item) => item.id));
+        // 演示数据里的装备详情要完整活过一轮序列化。
+        expect(parsed?.[0].gear[0].detail?.lines?.[0].value).toBe('起死回生');
+        expect(parsed?.[0].pets[0].quality.attack).toBe(CHARACTERS[0].pets[0].quality.attack);
+    });
+});

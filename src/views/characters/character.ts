@@ -52,6 +52,52 @@ export interface AttrGroup {
     rows: AttrRow[];
 }
 
+/**
+ * 经验：单独一行，带一条进度条。
+ *
+ * 为什么从「资源」组里拎出来：它是唯一**有分母**的数——气血上限、伤害、帮贡都是一个
+ * 静态的数，而经验的意义在于「离下一级还有多远」。混在六行资源里，它只是第六个数字；
+ * 单独摆成一条，才读得出「这个号还要练多久」。
+ *
+ * 两个字段都是**原样文本**（`3,777.2万` / `4,200万`），不是数字：
+ * 游戏里它带千分位与「万 / 亿」两种量纲，转数字要在录入时就决定单位，
+ * 而用户可能这个号记「万」、那个号记「亿」。百分比在渲染时现算（`expPercent`）。
+ */
+export interface ExpRow {
+    /** 当前经验。 */
+    value: string;
+    /** 升到下一级所需。留空表示不知道，那时不画进度。 */
+    need: string;
+}
+
+/**
+ * 把「3,777.2万」这类文本换算成以「万」为单位的数。认不出来（空、乱写）返回 `null`
+ * ——宁可不算，也不要拿一个猜出来的数去画进度条。
+ *
+ * 单位只有「万」与「亿」两种：游戏里经验就这么写。没写单位按「万」算，
+ * 与属性页历来只记「万」一致（`3,777.2` + `万` 后缀）。
+ */
+function toWan(text: string): number | null {
+    const compact = text.replace(/[,\s]/g, '');
+    const matched = /^(\d+(?:\.\d+)?)(万|亿)?$/.exec(compact);
+    if (!matched) return null;
+    const amount = Number(matched[1]);
+    if (!Number.isFinite(amount)) return null;
+    const unit = matched[2] === '亿' ? 10000 : 1;
+    return amount * unit;
+}
+
+/**
+ * 经验百分比（0–100）。任一值认不出、或所需为 0，返回 `null`——调用方据此把进度条
+ * 画成空的，而不是画到 0%（「0%」与「不知道」在视觉上差别很大）。
+ */
+export function expPercent(value: string, need: string): number | null {
+    const current = toWan(value);
+    const required = toWan(need);
+    if (current === null || required === null || required <= 0) return null;
+    return Math.min(100, Math.max(0, (current / required) * 100));
+}
+
 /* ======================================================================
  * 师门 / 辅助
  * ==================================================================== */
@@ -59,10 +105,10 @@ export interface AttrGroup {
 /**
  * 技能一行。
  *
- * 只有 `level` 是必填：游戏里技能表只显示名字和数字，**没有「满」这个字**——
- * 满不满取决于「人物等级对应的上限」，而那个上限我们还没确认（130 级的人
- * 最高技能是 120 还是 130，截图里两种都出现过）。所以 `cap` 缺席时就不标红，
- * 宁可少一个提示，也不猜一个错的。
+ * 只有 `level` 是必填。`cap` 缺席就不标满级——宁可少一个提示，也不猜一个错的。
+ *
+ * **师门技能的上限是 180**（用户 2026-11-02 明确）。此前一直没填 `cap`，
+ * 是因为截图里同一等级有朱有白、看不出规则；现在按 180 记，`level >= 180` 才标「满」。
  */
 export interface SkillRow {
     name: string;
@@ -71,6 +117,22 @@ export interface SkillRow {
     cap?: number;
     /** 未学：灰一档，但**仍占一行**，否则「少一条」会被当成读漏。 */
     off?: boolean;
+}
+
+/**
+ * 辅助技能分两类，**必须分开记**（用户 2026-11-02 要求合在一起显示，但语义不同）：
+ *
+ * - **生活技能**按等级练，可以到 100 以上（截图里强身术 100、打造 56），上限按等级段走。
+ * - **剧情技能**按「技能点」学：调息的说明写着「每级消耗 3 点技能点，最高 5 级」，
+ *   总数受人物等级限制，一个号通常只学两三样。
+ *
+ * 两者合在一页展示，是因为游戏里就是「辅助技能」一个入口、一屏格子；但数据上要分，
+ * 否则「100 级」和「5 级」混在一列里会被当成同一种刻度。
+ */
+export type AssistKind = 'life' | 'story';
+
+export interface AssistSkill extends SkillRow {
+    kind: AssistKind;
 }
 
 /* ======================================================================
@@ -364,12 +426,22 @@ export interface CharacterData {
     school: string;
     /** 名字下面那行小字：服务器、称谓、更新时间。 */
     subs: string[];
-    /** 两列四组，外层是「哪一列」——列顺序由版式决定，不由数据顺序决定。 */
-    attrColumns: [AttrGroup[], AttrGroup[]];
+    /**
+     * 属性四组，**顺序即网格顺序**（两行两列，行优先）：
+     * 上排 `资源 / 名望`，下排 `战斗 / 加点`（用户 2026-11-02 定）。
+     *
+     * 不是「两列、每列两组」：名望只有 3 行而资源有 6 行，按列排时下排两组会被
+     * 上一组的短拖着错位——左列「战斗」比右列「加点」高出一截。按行排，上下两排
+     * 各自顶对齐，四组的位置只由顺序决定，返回去看的是同一张表。
+     */
+    attrGroups: AttrGroup[];
+    /** 经验单独一行（带进度条），不占 `attrGroups` 的位置。 */
+    experience: ExpRow;
     attrFoot: string;
     skills: SkillRow[];
     skillFoot: string;
-    assists: SkillRow[];
+    /** 辅助技能：生活 + 剧情，两类合在一页格子里。 */
+    assists: AssistSkill[];
     assistFoot: string;
     /** 两组：角色自身修炼、召唤兽控制修炼。 */
     trainings: TrainingGroup[];

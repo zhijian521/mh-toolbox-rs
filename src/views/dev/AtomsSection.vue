@@ -4,6 +4,8 @@ import AppIcon from '../../components/AppIcon.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import FontSizeSlider from '../../components/FontSizeSlider.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
+import MeterBar from '../../components/MeterBar.vue';
+import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
@@ -12,7 +14,7 @@ import { useFontScale } from '../../composables/use-font-scale';
 import { THEME_OPTIONS, useTheme } from '../../composables/use-theme';
 
 /**
- * 原子组件：六个抽出来复用的小件。
+ * 原子组件：八个抽出来复用的小件。
  *
  * 这张卡不是演示页，是**验收面**——新控件先进这里，再进业务页面。
  * 它和「外观」共用同一份状态（单例 composable），所以在上面切主题、拖字号，
@@ -24,10 +26,13 @@ const { scale } = useFontScale();
 /** 两格开关的演示状态。它是二选一，没有第三态，所以用两个 ref 而不是数组。 */
 const recorded = ref(true);
 const autoSave = ref(false);
+
+/** 输入格的演示值：给个真数字，才看得出「等宽数字」与「0 显示为空」两件事。 */
+const demoLevel = ref(130);
 </script>
 
 <template>
-    <LedgerSection title="原子组件" hint="抽出来复用的六件，业务页直接拿去用">
+    <LedgerSection title="原子组件" hint="抽出来复用的八件，业务页直接拿去用">
         <div class="kit atoms-kit">
             <div class="kit-cell">
                 <span class="col-head">SegmentedPills · 分段胶囊</span>
@@ -90,6 +95,66 @@ const autoSave = ref(false);
                 <p class="note">
                     两格文案由 <code>off-label</code> / <code>on-label</code> 给；滑块 240ms
                     回弹，关闭态灭灯不是变灰。
+                </p>
+            </div>
+
+            <div class="kit-cell">
+                <span class="col-head">Field · 输入格 / NumberField · 数字格</span>
+                <div class="kit-row">
+                    <input class="field kit-field" placeholder="角色名" aria-label="演示：角色名" />
+                    <NumberField
+                        :model-value="demoLevel"
+                        label="演示：等级"
+                        class="kit-field-num"
+                        @update:model-value="demoLevel = $event"
+                    />
+                    <input
+                        class="field kit-field-num"
+                        placeholder="上限"
+                        aria-label="演示：留空的上限"
+                    />
+                </div>
+                <div class="kit-row">
+                    <textarea
+                        class="field area kit-area"
+                        rows="2"
+                        placeholder="多行：每行一条"
+                        aria-label="演示：多行输入"
+                    />
+                </div>
+                <p class="note">
+                    凹槽里挖的一格，高与 <code>PressButton</code> 的 <code>md</code> 同值。
+                    焦点换边色、不画外框——方框压在圆角上会露四个角。
+                </p>
+            </div>
+
+            <div class="kit-cell">
+                <span class="col-head">MeterBar · 进度条</span>
+                <div class="kit-row">
+                    <MeterBar :percent="72" label="演示：进度 72%" text="3,777.2万 / 4,200万" />
+                </div>
+                <div class="kit-row">
+                    <!-- 分母未知：轨道空着、不写 aria-valuenow。与「0%」是两件事。 -->
+                    <MeterBar :percent="null" label="演示：进度未知" text="3,777.2万" />
+                </div>
+                <p class="note">
+                    凹槽里灌一段朱色。它<b>不是滑块</b>——没有落点、不能拖；分母未知时轨道留空，
+                    不画成 0%。
+                </p>
+            </div>
+
+            <div class="kit-cell">
+                <span class="col-head">MeterBar · 进度条</span>
+                <div class="kit-row">
+                    <MeterBar :percent="72" label="演示：进度 72%" text="3,777.2万 / 4,200万" />
+                </div>
+                <div class="kit-row">
+                    <!-- 分母未知：轨道空着、不写 aria-valuenow。与「0%」是两件事。 -->
+                    <MeterBar :percent="null" label="演示：进度未知" text="3,777.2万" />
+                </div>
+                <p class="note">
+                    凹槽里灌一段朱色。它<b>不是滑块</b>——没有落点、不能拖；分母未知时轨道留空，
+                    不画成 0%。
                 </p>
             </div>
 
@@ -180,6 +245,18 @@ const autoSave = ref(false);
  */
 .atoms-kit {
     grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+}
+
+/* 演示用的三条宽度：输入格里最长的一条是「角色名」，数字格按真实表单里的 72px 给，
+ * 多行那条铺满整格——都按业务页里真身的尺寸摆，不另调一套。 */
+.kit-field {
+    width: 130px;
+}
+.kit-field-num {
+    width: 72px;
+}
+.kit-area {
+    width: 100%;
 }
 
 /* 三块并排，间隔比 `.kit-row` 的 7px 宽：7px 是给胶囊和小按钮的，
