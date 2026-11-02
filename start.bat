@@ -253,11 +253,13 @@ echo.
 echo   启动失败，退出码 %CODE%
 echo.
 echo   按这几条依次排查：
-echo     1. 出现 beforeDevCommand terminated 说明 5173 又被别人抢了
-echo        （多半是另一个会话在跑 npm run dev，先停掉它）
-echo     2. 出现 rustc 的 error 说明 Rust 侧编译没过，看上面第一个 error
-echo     3. 出现 拒绝访问 / Access denied 说明另一个窗口实例还占着
-echo        target 目录，用 tasklist 找 mh-toolbox-rs.exe 结束掉
+echo     1. 报 EBUSY / watch 某个 .o 文件 —— Vite 监视到了构建产物。
+echo        看 vite.config.ts 的 server.watch.ignored 有没有把那个目录排掉。
+echo     2. 报 EADDRINUSE / Port 5173 is already in use —— 端口被抢，
+echo        停掉另一个会话的 npm run dev 再重试。
+echo     3. 出现 rustc 的 error —— Rust 侧编译没过，看上面第一个 error。
+echo     4. 出现 拒绝访问 / Access denied —— 另一个实例还占着 target 目录，
+echo        用 tasklist 找 mh-toolbox-rs.exe 结束掉。
 echo.
 pause
 endlocal

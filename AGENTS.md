@@ -60,8 +60,18 @@ start.bat --force    遇到占用直接处理，不询问
 - **`start.bat` 必须存成 GBK(936) + CRLF。** 存 UTF-8 时 cmd 按双字节切行，中文注释被拆成
   命令，报一串「xxx 不是内部或外部命令」，且报错行号与真实问题完全无关。
   `.gitattributes` 与 `.editorconfig` 已声明 `*.bat` 为 CRLF 双保险。
-- **启动失败的头号原因是 5173 被占**，而 tauri 只会说
-  `Error The "beforeDevCommand" terminated with a non-zero status code.`——一个字不提端口。
+- **启动失败时 tauri 只会说 `Error The "beforeDevCommand" terminated with a non-zero status code.`**
+  ——一个字不提真正原因。已知两种，别一看到这句就认定是端口：
+  1. **5173 被占**（多半是另一个会话在跑 `npm run dev`）。`strictPort` 开着，Vite 不换端口、
+     直接退出；
+  2. **Vite 监视器撞上构建产物** → `EBUSY`，见下一条。
+- **`EBUSY: resource busy or locked, watch '…\*.o'`**（2026-11-02 实际崩过）：
+  Vite 默认只忽略 `node_modules` 与 `.git`，于是会去 watch `.runtime/target-lab` 这类
+  独立 cargo target 目录（1.4GB，含 `.o` 中间产物）。rustc 正锁着某个 `.o` 时就抛 EBUSY，
+  dev server 当场死，外壳只报上面那句。`vite.config.ts` 的 `server.watch.ignored` 已排掉
+  `.runtime/`、`src-tauri/target/`、`dist/`、`map/` 等。
+  **注意它是整体覆盖默认列表而非追加**：加新项时 `node_modules` 与 `.git` 必须自己写回去，
+  否则依赖也会被 watch。以后任何「在仓库里放第二个 target 目录」的实验，都要同步加进名单。
 - **WebView2 `HRESULT(0x8007139F)`「组或资源状态不正确」**：上一次实例留下的
   `msedgewebview2.exe --type=crashpad-handler`（`--user-data-dir=…\com.zhijian.mhtoolbox.rs\EBWebView`）
   还占着用户数据目录。杀掉那个 crashpad 即可。**不要**动 SearchHost 的 webview2，那是系统搜索。

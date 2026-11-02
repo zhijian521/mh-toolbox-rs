@@ -25,6 +25,28 @@ export default defineConfig({
          * 而用浏览器打开却是好的——两边解析顺序不同，这类问题只能靠钉地址消掉。
          * `devUrl` 同步写成 `http://127.0.0.1:5173`，不再依赖任何解析结果。 */
         host: '127.0.0.1',
+        /* 监视器必须只盯「源码」，否则会去 watch 构建产物。
+         *
+         * 2026-11-02 实际崩过一次：`.runtime/target-lab` 是 OCR 实验用的独立 cargo
+         * target 目录（1.4GB、含 .o 中间产物），Vite 默认只忽略 node_modules 与 .git，
+         * 于是它去 watch 一个正被 rustc 锁住的 `.o`，抛 EBUSY 直接把 dev server 弄死，
+         * 外壳只报一句 `The "beforeDevCommand" terminated with a non-zero status code`。
+         *
+         * 注意这是**整体覆盖**默认忽略列表，不是追加——`node_modules` 与 `.git` 必须
+         * 自己写回来，否则会把依赖也一起 watch。
+         */
+        watch: {
+            ignored: [
+                '**/.git/**',
+                '**/node_modules/**',
+                '**/dist/**',
+                '**/.runtime/**',
+                '**/src-tauri/target/**',
+                '**/src-tauri/gen/**',
+                '**/.workbuddy/**',
+                '**/map/**',
+            ],
+        },
     },
     build: {
         // Tauri 用系统 WebView2，不需要为老浏览器降级。
