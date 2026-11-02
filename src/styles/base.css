@@ -139,14 +139,6 @@ svg {
     pointer-events: none;
 }
 
-/* 表头：小字 + 字距，像印刷体的栏目名。 */
-.col-head {
-    font-family: var(--font-ui);
-    font-size: var(--fs-mini);
-    letter-spacing: 0.18em;
-    color: var(--muted);
-}
-
 /* ---------- 区块标 ----------
  * 标题左侧那道凸起的短竖条：只交代「一块从这里开始」，不参与叙事。
  *
@@ -178,53 +170,6 @@ svg {
         inset 1px 0 0 var(--bevel-hi),
         inset -1px 0 0 var(--bevel-lo),
         0 1px 1px color-mix(in srgb, var(--cinnabar) 40%, transparent);
-}
-
-/* ---------- 按钮 ----------
- * 图标尺寸走 `--icon-size`（见 `AppIcon.vue`）：按钮这一档是 13，
- * 紧凑档压到 12——26px 高的按钮里 13px 图标会顶到上下边框。
- */
-.btn {
-    --icon-size: calc(13px * var(--fs-scale));
-
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-height: 31px;
-    padding: 5px 13px;
-    border: var(--w-hair) solid var(--rule-2);
-    border-radius: var(--r-2);
-    background: var(--paper);
-    color: var(--ink-2);
-    font-size: var(--fs-sm);
-    white-space: nowrap;
-    transition:
-        border-color var(--t-quick) var(--ease-soft),
-        background-color var(--t-quick) var(--ease-soft),
-        color var(--t-quick) var(--ease-soft);
-}
-.btn:hover:not(:disabled) {
-    border-color: var(--cinnabar);
-    color: var(--ink);
-}
-.btn.primary {
-    background: var(--seal);
-    border-color: var(--seal-edge);
-    color: var(--on-seal);
-}
-/* 悬停/按下都往 `--ink` 混：`--ink` 在亮色是墨、在暗色是纸白，
- * 同一条式子于是自动变成「亮色压深一档、暗色提亮一档」，两边都看得出反馈。 */
-.btn.primary:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--seal) 86%, var(--ink));
-    color: var(--on-seal);
-}
-.btn.compact {
-    --icon-size: calc(12px * var(--fs-scale));
-
-    min-height: 26px;
-    padding: 3px 9px;
-    font-size: var(--fs-xs);
 }
 
 /* ---------- 凹槽：四件套 ----------
@@ -458,6 +403,17 @@ svg {
 .hint {
     color: var(--muted);
     font-size: var(--fs-sm);
+}
+/* 一行里的标签（「主题」「字号」「监听窗口」「高概率区域」）。
+ * 全站只有一种读法：次级墨、一档小字、字距放宽——它只交代「这一格是什么」，
+ * 不该比内容更响。设置页（`.row-label`）与捉鬼页（`.field-label`）原先各写了一份
+ * **逐字相同**的规则，收在这里只留一份。
+ * `flex: none` 是两处共同的前提：标签永不参与挤压，宽窄让给右边的内容。 */
+.field-label {
+    flex: none;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.14em;
 }
 .error {
     color: var(--cinnabar);

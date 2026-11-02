@@ -1,8 +1,8 @@
 /*
  * 组合块：由多个基础元素拼出来的展示区块，跨组件复用。
  *
- * 与 `base.css` 的分工：base 管**元素级**基座（按钮、区块标、胶囊、开关、勾选、线），
- * blocks 管**组合级**排版（说明文字、组件展示网格）。
+ * 与 `base.css` 的分工：base 管**元素级**基座（线、槽、印面、胶囊、开关、轨道格、文本），
+ * blocks 管**组合级**排版（一叠卡、说明文字、组件展示网格）。
  *
  * 这些类原先写在 `SettingsView.vue` 的 scoped 样式里。设置页拆成八个 section 组件后，
  * 每个组件各写一份 `.note` 就变成八份重复，而且改一处要改八处——提到这里只留一份。
@@ -58,28 +58,4 @@
 .note b {
     color: var(--ink-2);
     font-weight: 400;
-}
-
-/* ---------- 组件展示网格 ---------- */
-.kit {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
-    gap: 14px;
-}
-.kit-cell {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    padding: 10px 11px 11px;
-    border: var(--w-hair) solid var(--rule);
-    background: var(--bg);
-}
-.kit-row {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    flex-wrap: wrap;
-}
-.kit-cell .note {
-    margin-top: 0;
 }

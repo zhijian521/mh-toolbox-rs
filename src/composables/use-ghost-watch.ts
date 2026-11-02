@@ -361,8 +361,10 @@ export function useGhostWatch() {
     });
 
     // 只导出页面真的会用到的。`maps` / `stop` / `refreshWindows` 在内部被
-    // `start` / `toggle` / 句柄自愈用着，但页面一次都没解构过——摆在这里等于
-    // 多三个「看起来可以调」的入口，谁哪天拿去用就会在不该停的时候停表。
+    // `start` / `toggle` / 句柄自愈用着；`error` / `engine` / `dpi` / `settling`
+    // 已经各自被 `statusText` / `engineLabel` / `scalePercent` 消化掉，页面拿到的
+    // 是**结论**而不是原料。摆在这里等于多四个「看起来可以调」的入口，
+    // 谁哪天拿去拼一句自己的状态话，判定的口径就分裂成两份。
     return {
         running,
         starting,
@@ -370,11 +372,7 @@ export function useGhostWatch() {
         selectedHwnd,
         report,
         plans,
-        error,
         stats,
-        engine,
-        dpi,
-        settling,
         ages,
         hot,
         testing,

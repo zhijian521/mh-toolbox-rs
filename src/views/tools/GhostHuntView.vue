@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import AppIcon from '../../components/AppIcon.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
@@ -8,7 +8,7 @@ import SlotButton from '../../components/SlotButton.vue';
 import MapCanvas from '../../components/ghost/MapCanvas.vue';
 import { useGhostWatch } from '../../composables/use-ghost-watch';
 import type { GhostPlan } from '../../services/ghost-model';
-import { GHOST_TEST_SAMPLES, type GhostTestSample } from './ghost-samples';
+import GhostTestPanel from './GhostTestPanel.vue';
 
 /**
  * 捉鬼助手。
@@ -23,6 +23,9 @@ import { GHOST_TEST_SAMPLES, type GhostTestSample } from './ghost-samples';
  * 「小鬼往哪走、大鬼往哪走」。做成切换是把「看两个」变成「看一个再点一下」，
  * 而实际动作恰恰是两边来回跑。只有一条任务时就是单张吃满——
  * 分栏是内容的结果，不是布局的默认。
+ *
+ * 右下角那块「测试文字」不在这一页里（`GhostTestPanel`）：它是没有游戏时的临时替身，
+ * 寿命比这一页短——真机能测之后删一个文件就干净了，这里一行都不用改。
  */
 
 const router = useRouter();
@@ -51,26 +54,7 @@ const {
     clearTest,
 } = useGhostWatch();
 
-/**
- * 测试输入框的草稿。
- *
- * 由页面持有而不是 composable：它是一段正在编辑的文本，不是判定结果。
- * 放进去会让「什么时候算生效」变得含糊——草稿每次按键都变，判定只在点「套用」时变。
- */
-const draft = ref('');
-/** 面板默认展开：没有游戏的这段时间，它是这一页唯一能让图动起来的入口。 */
-const testOpen = ref(true);
-
-/** 点样例 = 填进去并立刻套用。要两下才看到结果的话，人会以为样例坏了。 */
-function useSample(sample: GhostTestSample) {
-    draft.value = sample.text;
-    void applyTest(sample.text);
-}
-
-function runTest() {
-    void applyTest(draft.value);
-}
-
+/** 纠错对（`甲→乙`）按空格连成一句话，挂在「识别原文」的标题上。 */
 const corrections = computed(() => {
     const list = report.value?.corrections ?? [];
     return list.map((item) => `${item.from}→${item.to}`).join(' ');
@@ -96,10 +80,10 @@ onMounted(async () => {
 <template>
     <PageShell title="捉鬼助手" desc="任务栏 → 该往哪找">
         <template #actions>
-            <!-- 页头两个动作走 `SlotButton`：槽 + 印，与侧栏、工具页是同一套控件。
+            <!-- 页头两个动作走 `SlotButton`：槽 + 印，全站唯一的按钮语言。
                  主操作（开始/停止）用 `seal` 变体——印已落定，一眼能看出这页在跑什么。
                  用 `size="lg"`（31px）：默认 26px 在 22px 的页标题旁边显小，
-                 31 正好与全局 `.btn` 的 min-height 齐平，页头也不会因为按钮矮而显得发飘。
+                 31 是页头这一行的规格，页头也不会因为按钮矮而显得发飘。
                  文案只留动词（返回 / 开始 / 停止）：四个字会把按钮拉成一条，
                  动作方向先由图标读出——字是补充，不是主角。完整语义留在 label 里给读屏与悬停。 -->
             <SlotButton
@@ -218,63 +202,12 @@ onMounted(async () => {
              固定在右下角而不是塞进右栏——它不是这一页的功能，是「临时替身」。
              摆进栏里会与「监听窗口」「高概率区域」并排，读起来像第五个设置项；
              而且它要的是「随时能开、不占版面」，折叠后只留一条标题栏。 -->
-        <section class="test-panel frame" aria-label="测试文字">
-            <header class="test-head">
-                <AppIcon name="flask" class="test-icon" />
-                <span class="test-title">测试文字</span>
-                <span class="test-tag" :class="{ on: testing }">
-                    {{ testing ? `已套用 ${plans.length} 条` : '未使用' }}
-                </span>
-                <SlotButton
-                    :icon="testOpen ? 'chevron-down' : 'chevron-right'"
-                    :label="testOpen ? '收起测试输入' : '展开测试输入'"
-                    @click="testOpen = !testOpen"
-                />
-            </header>
-
-            <template v-if="testOpen">
-                <!-- 保留折行：真机的「括号被切开」「地名被截断」正是靠折行复现的。
-                     4 行而不是 3 行：一条大鬼句在 288px 里正好折成两行，两条任务
-                     就是四行——3 行会把第二句拦腰切掉，粘完看不见自己粘了什么。 -->
-                <textarea
-                    v-model="draft"
-                    class="test-input well"
-                    rows="4"
-                    spellcheck="false"
-                    aria-label="任务栏原文"
-                    placeholder="把任务栏原文粘进来，一行一句；折行照原样保留。"
-                />
-                <div class="test-actions">
-                    <SlotButton
-                        icon="check"
-                        text="套用"
-                        label="套用这段文字"
-                        seal
-                        :disabled="!draft.trim()"
-                        @click="runTest"
-                    />
-                    <SlotButton
-                        icon="close"
-                        text="退出"
-                        label="退出测试模式"
-                        :disabled="!testing"
-                        @click="clearTest"
-                    />
-                </div>
-                <div class="test-samples">
-                    <button
-                        v-for="sample in GHOST_TEST_SAMPLES"
-                        :key="sample.label"
-                        type="button"
-                        class="test-sample"
-                        :title="sample.note"
-                        @click="useSample(sample)"
-                    >
-                        {{ sample.label }}
-                    </button>
-                </div>
-            </template>
-        </section>
+        <GhostTestPanel
+            :testing="testing"
+            :count="plans.length"
+            @apply="applyTest"
+            @exit="clearTest"
+        />
     </PageShell>
 </template>
 
@@ -408,12 +341,8 @@ onMounted(async () => {
     gap: 9px;
     margin-top: 13px;
 }
-.field-label {
-    flex: none;
-    color: var(--muted);
-    font-size: var(--fs-xs);
-    letter-spacing: 0.14em;
-}
+/* `.field-label` 是全局的（`base.css`）：设置页的「主题 / 字号」与这里的
+ * 「监听窗口 / 高概率区域」是同一种标签，原先两处各写一份逐字相同的规则。 */
 /* 原生 select 只做最小化的外观修正：全套自绘下拉要处理键盘、滚动、边缘翻转，
  * 为两个选项引一整套不划算。这里只让它读起来属于这张纸。 */
 .field-select {
@@ -522,102 +451,7 @@ onMounted(async () => {
     line-height: 1.6;
 }
 
-/* ---------- 测试文字 ----------
- * 浮在右下角：`position: fixed` 相对视口，内容区滚到哪它都在同一处。
- * 宽度跟着字号缩放（与左栏同一条规矩）：字大一档而盒子不变，chip 会多折一行、
- * 文本域每行少几个字，看起来像「这个面板没跟上设置」。
- */
-.test-panel {
-    position: fixed;
-    /* 与页面留白同一枚：它浮在内容之上，但落位要跟纸张边框一致，
-     * 否则右下角那块比卡片更贴边，读起来是「掉在纸外面」。 */
-    right: var(--page-pad);
-    bottom: var(--page-pad);
-    z-index: 4;
-    width: calc(288px * var(--fs-scale));
-    /* 视口再矮也不许长出去：它是浮层，顶到窗口外就等于把「套用」按钮藏了。
-     * 内部自己滚，面板位置不动。 */
-    max-height: calc(100vh - 2 * var(--page-pad));
-    overflow: auto;
-    padding: 9px 11px 11px;
-    /* 它是盖在内容上的一层：没有投影会读成「右下角又多了一个区块」，而不是浮着的一块。 */
-    box-shadow: 0 8px 22px color-mix(in srgb, var(--ink) 14%, transparent);
-}
-.test-head {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--muted);
-}
-.test-icon {
-    color: var(--muted);
-}
-.test-title {
-    font-size: var(--fs-xs);
-    letter-spacing: 0.1em;
-}
-/* 状态标签吃掉中间的弹性空间：标题在左、开关在右，中间那段留白归它。 */
-.test-tag {
-    margin-left: auto;
-    color: var(--muted);
-    font-size: var(--fs-mini);
-    letter-spacing: 0.04em;
-}
-/* 已套用才染赭色：它提醒「现在看的是假数据」，未使用时不该也亮着。 */
-.test-tag.on {
-    color: var(--ochre);
-}
-.test-input {
-    display: block;
-    box-sizing: border-box;
-    width: 100%;
-    margin-top: 8px;
-    padding: 6px 7px;
-    border-radius: var(--r-2);
-    color: var(--ink);
-    font-family: var(--font-ui);
-    font-size: var(--fs-xs);
-    line-height: 1.7;
-    /* 只允许竖着拉：横向拉会把面板撑出屏幕，而长行本来就该自己折。 */
-    resize: vertical;
-}
-.test-actions {
-    display: flex;
-    gap: 6px;
-    margin-top: 8px;
-}
-.test-samples {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 9px;
-    padding-top: 8px;
-    border-top: var(--w-hair) solid var(--rule);
-}
-/* 样例是一枚「小签」，不是按钮：有边框、无底色、无内影。
- * 点它只是换一份输入，不执行动作——做成按钮会与上面两枚槽按钮抢层级。 */
-.test-sample {
-    padding: 2px 6px;
-    border: var(--w-hair) solid var(--rule-2);
-    border-radius: var(--r-1);
-    background: none;
-    color: var(--ink-2);
-    font-family: var(--font-ui);
-    font-size: var(--fs-mini);
-    line-height: 1.6;
-    cursor: pointer;
-    transition:
-        border-color var(--t-quick) var(--ease-soft),
-        background-color var(--t-quick) var(--ease-soft),
-        color var(--t-quick) var(--ease-soft);
-}
-.test-sample:hover {
-    border-color: color-mix(in srgb, var(--seal-edge) 55%, var(--rule-2));
-    background-color: color-mix(in srgb, var(--seal) 8%, transparent);
-    color: var(--ink);
-}
-.test-sample:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--seal) 45%, transparent);
-    outline-offset: 1px;
-}
+/* 测试文字面板的样式跟着组件走了（`GhostTestPanel.vue`）。
+ * 它浮在这一页之上，但那份几何（宽度随字号、`max-height`、右下角落位）
+ * 属于面板自己——留在这里会让「删掉测试功能」变成要在两个文件里各删一段。 */
 </style>

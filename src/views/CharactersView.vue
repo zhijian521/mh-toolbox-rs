@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PageShell from '../components/PageShell.vue';
+import SlotButton from '../components/SlotButton.vue';
 import CharacterCard from './characters/CharacterCard.vue';
 import { CHARACTERS } from './characters/mock';
 
@@ -14,14 +15,33 @@ import { CHARACTERS } from './characters/mock';
  * 又回到「一条横贯屏幕的长卡」——游戏里的人物面板从来不是那个比例。
  * 1280 窗口下三张正好排满（360 × 3 + 16 × 2 ＝ 1112，内容区约 1121），
  * 1024 下排两张、第三张换行，页面纵向滚动。
+ *
+ * 页头两枚按钮走 `SlotButton`（与捉鬼页同一个控件）：全站只有一套按钮语言。
+ * 早先这里是全局 `.btn`——「1px 描边 + 纸底」的平面按钮，与捉鬼页的「凹槽 + 印面」
+ * 并排放着就是两种器件。`.btn` 那套已随这次迁移删掉。
  */
 </script>
 
 <template>
     <PageShell title="角色" desc="演示数据 · 先定版式，功能随后">
         <template #actions>
-            <button class="btn" type="button" disabled>识别游戏窗口</button>
-            <button class="btn primary" type="button" disabled>＋ 新角色</button>
+            <!-- 两枚都还是占位：`title` 说清「为什么点不动」，否则读屏只念一句「不可用」。
+                 文案与 `label` 拆开：按钮上要短，读屏要完整。 -->
+            <SlotButton
+                icon="search"
+                text="识别游戏窗口"
+                label="识别游戏窗口（还没接上）"
+                size="lg"
+                disabled
+            />
+            <SlotButton
+                icon="add"
+                text="新角色"
+                label="新建角色（还没接上）"
+                size="lg"
+                seal
+                disabled
+            />
         </template>
 
         <div class="roster">
@@ -41,7 +61,13 @@ import { CHARACTERS } from './characters/mock';
 </template>
 
 <style scoped>
+/* 卡片的尺寸在这里定一次，真卡与空位卡都读它（`character-card.css` 读 `--char-w`）。
+ * 360 × 480 与游戏「人物属性」面板同为竖版；写在这个父级上是因为
+ * 「同一行的卡片必须一样大」是**名册**的事，不是单张卡的属性。 */
 .roster {
+    --char-w: 360px;
+    --char-h: 480px;
+
     display: flex;
     flex-wrap: wrap;
     align-content: flex-start;
@@ -57,8 +83,8 @@ import { CHARACTERS } from './characters/mock';
     align-content: center;
     gap: 8px;
     flex: none;
-    width: 360px;
-    height: 480px;
+    width: var(--char-w);
+    height: var(--char-h);
     border: var(--w-hair) dashed var(--rule-2);
     background: none;
     color: var(--muted);

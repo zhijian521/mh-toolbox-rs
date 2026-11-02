@@ -14,7 +14,7 @@
  *
  * ---- 为什么只有一张表 ----
  * 原先这里是四张平行的表：图标映射、中文名、分组、名字联合类型。四张表意味着加一个图标要
- * 改四处，少改一处不会报错——中文名漏了界面上就是空白，分组漏了设置页就少一格，
+ * 改四处，少改一处不会报错——中文名漏了界面上就是空白，分组漏了开发页目录就少一格，
  * 全是「跑起来才发现」的错。现在只有 `ICON_META` 一张，其余全部派生：
  * `IconName` 从 key 推、`ICONS` / `ICON_LABELS` / `ICON_GROUPS` 从值推。
  * 加图标 = 表里加一行，漏字段 = 类型报错。
@@ -59,10 +59,11 @@ import {
     IconX,
 } from '@tabler/icons-vue';
 
-/** 分组只影响设置页的排布：导航、动作、外壳、窗口四种用途不该混在一张清单里。 */
+/** 分组只影响开发页图标目录（`views/dev/IconsSection.vue`）的排布：
+ * 导航、动作、外壳、窗口四种用途不该混在一张清单里。 */
 type IconGroup = 'nav' | 'action' | 'shell' | 'window';
 
-/** 分组标题与显示顺序。表的顺序就是设置页里出现的顺序。 */
+/** 分组标题与显示顺序。表的顺序就是开发页目录里出现的顺序。 */
 const GROUP_META: { id: IconGroup; label: string; note: string }[] = [
     { id: 'nav', label: '导航', note: '左栏八个入口' },
     { id: 'action', label: '动作', note: '按钮与行操作' },
@@ -73,7 +74,7 @@ const GROUP_META: { id: IconGroup; label: string; note: string }[] = [
 interface IconEntry {
     /** 库里的图标组件，原样引用，不改几何。 */
     glyph: Component;
-    /** 中文名只给设置页的清单用；业务页面自己写文案，不从这里取。 */
+    /** 中文名只给开发页的图标目录用；业务页面自己写文案，不从这里取。 */
     label: string;
     group: IconGroup;
 }

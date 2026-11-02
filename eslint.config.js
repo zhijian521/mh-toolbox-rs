@@ -18,8 +18,9 @@ export default tseslint.config(
             'dist/**',
             'node_modules/**',
             'src-tauri/**',
-            // 生成物与设计产物：不是手写代码，检查它们只会产生噪音。
-            'design/**',
+            // 生成物：不是手写代码，检查它们只会产生噪音。
+            // （`design/` 那条已随目录一起删掉——2026-11-02 图标源搬去 `assets/icon`
+            //  与 `scripts/icon`，白名单留着只会让人以为那个目录还在。）
             'src-tauri/icons/**',
             '.runtime/**',
             '.workbuddy/**',

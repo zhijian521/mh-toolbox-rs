@@ -20,14 +20,14 @@ const { scale } = useFontScale();
 <template>
     <LedgerSection title="外观">
         <div class="row">
-            <span class="row-label">主题</span>
+            <span class="field-label">主题</span>
             <SegmentedPills v-model="mode" :options="THEME_OPTIONS" label="主题" />
             <span class="hint"
                 >当前：{{ THEME_OPTIONS.find((item) => item.value === mode)?.label }}</span
             >
         </div>
         <div class="row row-gap">
-            <span class="row-label">字号</span>
+            <span class="field-label">字号</span>
             <FontSizeSlider v-model="scale" />
             <span class="hint">全站文字一起缩放</span>
         </div>
@@ -44,10 +44,7 @@ const { scale } = useFontScale();
 .row-gap {
     margin-top: 12px;
 }
-.row-label {
-    color: var(--muted);
-    font-family: var(--font-ui);
-    font-size: var(--fs-xs);
-    letter-spacing: 0.14em;
-}
+/* 标签的样式在全局 `.field-label`（`base.css`）：与捉鬼页的「监听窗口」「高概率区域」
+ * 是同一种东西——次级墨、一档小字、字距放宽。原先这里叫 `.row-label`，
+ * 与那边逐字相同地写了一份。 */
 </style>

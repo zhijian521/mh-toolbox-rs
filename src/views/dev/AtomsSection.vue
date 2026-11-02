@@ -116,6 +116,41 @@ const autoSave = ref(false);
 </template>
 
 <style scoped>
+/* ---------- 展示网格与格标题 ----------
+ * 原先在 `blocks.css` / `base.css`（全局）。按 §2.4-14 的判据「会不会被第二个组件用」，
+ * 它们只有这一页用——收进 scoped 之后，全局表里不再有「看起来别处也在用」的类。
+ * `.note` 仍是全局的：四张开发卡都用它。
+ */
+.kit {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+    gap: 14px;
+}
+.kit-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 10px 11px 11px;
+    border: var(--w-hair) solid var(--rule);
+    background: var(--bg);
+}
+.kit-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+.kit-cell .note {
+    margin-top: 0;
+}
+/* 每格顶上那行小标题：次级墨、更宽的字距——读作「这一格的条目名」，不是内容。 */
+.col-head {
+    font-family: var(--font-ui);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.18em;
+    color: var(--muted);
+}
+
 /* 五件排成 2 + 2 + 1。断点由卡片**内容宽度**算，不写 `@media`——与 `.stack-pair` 同一条
  * （CONVENTIONS §2.4-20）。这里原先用 `@media (max-width: 1080px)` 退回一列，
  * 于是同一套「最少多宽才放得下」的判断，一处在 CSS 里量、一处按视口猜。

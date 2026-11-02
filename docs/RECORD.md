@@ -1198,3 +1198,82 @@ job，其中 `cargo fmt --check` 与 `cargo test` 都**不在** `npm run check` 
 - `python scripts/icon/make-logo-pair.py` → 覆盖 `assets/mark-ink.png` / `mark-paper.png`，
   产物 **sha256 与仓库里原有的完全一致**，说明 ROOT 由「三层回退」改成「两层」之后算对了。
 - `npm run check` 六项全绿。
+
+---
+
+### 第 27 小批：整理复审（2026-11-02）— **✅ 已完成**
+
+对象是 `design/` 拆空之后的整个前端：一次「还有没有可简化 / 规范是否还成立 / 组件边界对不对」
+的复审。结论不是「再删一个目录」，而是**两套按钮语言并存**这一处硬伤，外加一批
+「文档说 A、代码是 B」。
+
+#### 一、组件：测试面板搬出捉鬼页
+
+- `views/tools/GhostTestPanel.vue`（新）：模板 61 行 + 样式 93 行 + `draft` / `open` 两个状态，
+  全部搬进它自己。页面只剩 `<GhostTestPanel :testing :count @apply @exit />`。
+- 为什么值得单独一个组件：它不是这一页的功能，是**没有游戏时的临时替身**——
+  寿命比页面短，真机能测之后删一个文件就干净。判据仍是 §2.3-3「一个文件只回答一个问题」：
+  页面答「把状态画出来并接上按钮」，面板答「怎么喂一段文字」。
+- 搬完 `GhostHuntView.vue` 从 623 行降到 **457 行**（脚本 79 / 模板 134 / 样式 244），
+  面板自己 204 行。顺带更新了页头那句「与侧栏、工具页是同一套控件」——
+  `.btn` 删掉之后它是**唯一**一套。
+
+#### 二、按钮：`.btn` 整段删除，全站只剩 `SlotButton`
+
+- 删 `base.css` 的 `.btn` / `.btn:disabled` / `.btn:hover` / `.btn.primary` /
+  `.btn.primary:hover` / `.btn.compact`，共 46 行。
+- 三处调用改走 `SlotButton`：`CharactersView` 页头两枚（`icon="search"` / `icon="add"`，
+  `size="lg"`，仍 disabled）、`PlaceholderView` 的「回到设置」（`icon="back"`）。
+- 证据是两张 3× 放大的页头截图：角色页是「1px 描边 + 纸底」，捉鬼页是「凹槽 + 金边 + 印面」。
+  同一应用里并排放着，读起来像两种器件。`.btn.compact` 早已零引用。
+  先例是第 8 批删 `.icon-button`（19 行，被 `SlotButton` 取代）与 `.btn.danger`。
+- 连带：两枚占位按钮补了 `label`（「识别游戏窗口（还没接上）」），此前读屏只念「不可用」，
+  不解释为什么；`SlotButton` 的 `lg=31px` 不再拿 `.btn` 的 `min-height` 当依据，
+  改成「页头这一行的规格」。
+
+#### 三、简化
+
+- **360×480 提成变量**：`.roster { --char-w / --char-h }`，真卡（`character-card.css`）与
+  空位卡（`CharactersView`）各读它。两处原来各写一次，改一处忘一处空位卡就露馅。
+  卡片单独渲染时仍回落到 360×480。
+- **`.row-label` 与 `.field-label` 合并**：两处逐字相同（muted + `--fs-xs` + 0.14em），
+  收成全局 `.field-label`，设置页与捉鬼页共用。实测两页都是 11px / 1.54px / `rgb(135,123,98)`。
+- **`.kit*` 与 `.col-head` 收进 `AtomsSection`**：全仓只有开发页用，按 §2.4-14 自己的判据
+  该进 scoped。`blocks.css` 于是只剩 `.stack`（2 个组件）、`.stack-pair`、`.note`（4 个）。
+  实测开发页仍是两列 573px、`.col-head` 10px / 0.18em 未变。
+- `eslint.config.js` 去掉 `design/**` 白名单（目录已不存在）。
+- `use-ghost-watch.ts` 的返回值去掉 `error` / `engine` / `dpi` / `settling` 四个页面从未解构的量。
+  注释原本就写着「只导出页面真的会用到的」，代码却多导了四个——它们各自已被
+  `statusText` / `engineLabel` / `scalePercent` 消化成**结论**，页面再拿到原料只会分裂口径。
+
+#### 四、规范漂移
+
+- `icons.ts` 四处「设置页」改成「开发页图标目录」：图标清单 2026-10-31 就搬去 `#/dev` 了。
+- `use-font-scale.ts` 的注释：设置页拆出来的是「外观」，原子组件在开发页，两处都调这个单例。
+- `blocks.css` 头注释仍把「按钮、勾选」列为 base 的基座——`.btn` 与 `.check` 都已不存在。
+- `CONVENTIONS` §2.3-2 补一句「全站按钮只有 `SlotButton` 一个实现」，§2.4-4 的 `.btn` 例子
+  标注为已删，§2.4-14 的 scoped 例子补上 `.kit*` / `.col-head`。
+- `PlaceholderView` 用户可见文案「当前阶段只做设置页」是错的（角色 / 工具 / 捉鬼都通了），
+  改成恒真的「工具与角色已经通了，这一页排在后面」；页头那句重复的提示直接删掉
+  （`desc` 已经说了「这一页还没开始」）。
+
+#### 五、明确不改
+
+- **`.error` / `.positive` 保留**（`base.css`，6 行，零调用方）。复审时本列为「死码」，
+  读到条款旁的注释才发现是**有意保留**的文本级词汇：判死码看「有没有第二种写法」，
+  不看「今天有几个调用方」。删掉它只是把 6 行搬到下次的添加记录里，不算收益。
+- **`.cost-*` 三兄弟仍在全局**：`CostSwitch` 独用，但迁移要连同类名一起改，收益 40 行，
+  风险是判据之外的返工——按 §2.4-14 的「已知的例外」处理。
+- **`CostSwitch` 与 `SteppedSlider` 不合并**：结构同源，但「关 = 灭灯」是布尔语义独有的
+  视觉，合并要么给枚举加一个假的 `off` 档、要么把布尔压成 N=2，两边都是为一个控件发明第二个概念。
+- **字体原件 10.3 MB 留着**：`tools/font/subset-font.py` 以它为输入，脚本头写着「删了就再也造不回来」。
+- **`stable` 滚动条 + 6px 内边距不是 bug**：6 + 10 轨道 = 16，实测卡片右缘与页头内容右缘同为 1264。
+
+#### 六、验证
+
+- `npm run check` 六项全绿、68 条测试。
+- 六个路由逐页扫：`scrollWidth - clientWidth` 全为 0；卡片右缘 = `.page-actions` 右缘（1264 / 1280 窗口）。
+- 捉鬼页：六条样例仍在，点「已开眼」→ 1 个 `.map-head` + 标签「已套用 1 条」+ 识别原文展开；
+  点「退出」→ 全部清空、状态回到「未开始」。
+- 角色页：两枚按钮 31px 高、带图标、`title` 为「…（还没接上）」；卡片与空位卡同为 360×480。
+- 开发页：仍是两列 573px，`.col-head` 与 `.note` 的样式没变。
