@@ -25,7 +25,7 @@ import {
  * 为什么不是「侧边竖排按钮 + 一张长卡」：卡宽只有 450，侧栏一挤就变成第三列；
  * 而且名册一行要放两张，切换控件只能收进卡内。
  *
- * 为什么卡高写死 580（`--char-h`）：同一行的卡必须**齐头齐脚**，否则第二行会被最高那张顶歪。
+ * 为什么卡高写死 620（`--char-h`）：同一行的卡必须**齐头齐脚**，否则第二行会被最高那张顶歪。
  * 代价是内容少的分区（召唤兽）底下会空一块——那里就只是留白，不再压一句页脚说明
  * （2026-11-03 用户要求删掉卡片上所有手抄的注脚）。
  *
@@ -99,8 +99,6 @@ function closeAll() {
 const gearTip = computed(() => (tip.value?.kind === 'gear' ? tip.value.detail : null));
 const petTip = computed(() => (tip.value?.kind === 'pet' ? tip.value.pet : null));
 
-const filled = computed(() => props.character.gear.filter((slot) => slot.detail).length);
-
 /* 经验条的两个值：百分比在 `character.ts` 里算（纯函数、有单测），这里只负责文案。
  * 两者都没填就不显示文字——一根空轨道配一个空字符串会把这一行压成一条灰线。 */
 const expPercentValue = computed(() =>
@@ -118,9 +116,6 @@ function rowPercent(level: number, cap: number): number {
     if (!cap) return 0;
     return Math.max(0, Math.min(100, Math.round((level / cap) * 100)));
 }
-
-/* 七项里练成几项：写在组头右端，比让读卡的人自己数七根条子快。 */
-const schoolMaxed = computed(() => props.character.skills.filter(isMaxed).length);
 
 /* 生活与剧情分两段，各自一张格子图。空的那一类不出现——
  * 一个只有生活技能的角色，不该看到一行「剧情技能」然后底下什么都没有。 */
@@ -219,8 +214,14 @@ const expText = computed(() => {
                             <div v-for="row in group.rows" :key="row.label" class="paper-row">
                                 <dt>{{ row.label }}<span class="leader"></span></dt>
                                 <!-- 空值画一个淡「—」，不画一片空白：一行里只有引导线和
-                                     一个空档时，「没填」读起来像「值恰好很短」。 -->
-                                <dd class="num" :class="{ strong: row.strong, blank: !row.value }">
+                                     一个空档时，「没填」读起来像「值恰好很短」。
+                                     读数外面那层淡槽与编辑页的数字格同一份材质
+                                     （`base.css` 的 `.num-slot`）：卡与弹窗用的是同一张表，
+                                     一边有格一边裸字，对照着改数时会找不到位置。 -->
+                                <dd
+                                    class="num num-slot"
+                                    :class="{ strong: row.strong, blank: !row.value }"
+                                >
                                     {{ row.value || '—' }}
                                 </dd>
                             </div>
@@ -262,9 +263,6 @@ const expText = computed(() => {
                      上限缺席（老数据）时那一排刻度与分母一起不画：没有分母的百分比是编出来的。 -->
                 <div v-if="character.skills.length" class="group-head school-head">
                     <span class="section-mark"></span>门派技能
-                    <span class="group-sum num"
-                        >已满 {{ schoolMaxed }}/{{ character.skills.length }}</span
-                    >
                 </div>
                 <div v-if="character.skills.length" class="school-list paper-rows">
                     <!-- 一行是 `SkillRow`：字印 / 名称 + 九格刻度 / 等级签。
@@ -404,7 +402,6 @@ const expText = computed(() => {
                         ><span class="k">套装</span
                         ><span class="v ochre">{{ character.gearMeta.suit || '—' }}</span></span
                     >
-                    <span class="push num">{{ filled }}/{{ character.gear.length }}</span>
                 </div>
             </section>
 
@@ -433,7 +430,11 @@ const expText = computed(() => {
                         <span class="pet-name">{{ pet.name }}</span>
                         <span class="leader"></span>
                         <span class="lv num">{{ pet.level }} 级</span>
-                        <span class="chip pet-join">参战 {{ pet.joinLevel }}</span>
+                        <!-- 只把「65」加粗，不整枚签：「参战」是个词，不是「级」那样的单位。
+                             整枚加粗会让这行出现两个同重的块（等级 + 签），且把词也带重了。 -->
+                        <span class="chip pet-join"
+                            >参战 <span class="num">{{ pet.joinLevel }}</span></span
+                        >
                     </button>
                 </div>
                 <p v-else class="empty-note">还没有记录召唤兽</p>

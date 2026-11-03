@@ -9,7 +9,7 @@
  *
  * ## 它知道两件外面不该重复算的事
  *
- * ① **满级**：`isMaxed` 在这里判，槽的描边由这里转朱。原先卡上是
+ * ① **满级**：`isMaxed` 在这里判，填充与槽的描边都由这里转朱。原先卡上是
  *    `.school-row.full .school-ticks i`、弹窗是 `.school-erow.full .tick`——
  *    同一个状态被父级的选择器各写一次，父级的类名一改（`school-row` → `school-erow`）
  *    就静默失效。
@@ -77,7 +77,6 @@ function pick(index: number) {
             v-for="(fill, index) in fills"
             :key="index"
             class="tick"
-            :class="{ preview: interactive && hover !== null && index <= hover }"
             :type="interactive ? 'button' : undefined"
             :tabindex="interactive ? -1 : undefined"
             :style="{ '--fill': `${fillOf(index, fill)}%` }"
@@ -93,17 +92,17 @@ function pick(index: number) {
     display: flex;
     gap: 3px;
 }
-/* 一格 = **凹槽 + 嵌在槽里的一截红条**。
+/* 一格 = **凹槽 + 嵌在槽里的一截实心**。
  *
  * 为什么分两层（元素当槽、`::before` 当填充）：一条横向渐变只画得出「填了多少」，
  * 画不出「嵌进去的那一截有厚度」。槽自己带顶影（光从左上来，凹槽的上沿背光）与底沿
- * 一道亮线；红条再有上亮下暗的纵向渐变——一格才读作「槽里有东西」，而不是一根红棍。
+ * 一道亮线；填充再有上亮下暗的纵向渐变——一格才读作「槽里有东西」，而不是一根色棍。
  *
  * 圆角 2px：7px 高的格子配 1px 是「切边」，2px 才读作一小截胶囊，再大就成药丸。
  * **高度不能涨**：卡上七行已经铺满 478，每行多 1px 就溢出（第 61 批量过）。
  *
  * 槽的边界不能省：`--well` 在暗色只比 `--paper` 暗一档，7px 高的空格在深底上等于隐形，
- * 练到 30% 与 60% 只能靠红条的位置猜。描边浓度与 `.training-row .track` 同一条（48%）——
+ * 练到 30% 与 60% 只能靠填充的位置猜。描边浓度与 `.training-row .track` 同一条（48%）——
  * 修炼那条 4px 高、这条 7px，同一个「小槽」的尺寸档，边界该一样重。
  *
  * 不套全局 `.well`，只借它槽内那道上暗下亮的渐变（不加它 1px 的边框）：7px 高套整套
@@ -126,7 +125,19 @@ function pick(index: number) {
     appearance: none;
 }
 /* 填充：宽度就是这一格的 `--fill`（`skillTicks` 给的 0–100）。右端也给 2px 圆角——
- * 半格时读作「一截短红条」，比切齐的断口更像真的嵌了一条进去。 */
+ * 半格时读作「一截短条」，比切齐的断口更像真的嵌了一条进去。
+ *
+ * ## 平时是墨，不是朱（2026-11-03 用户：「颜色有点太扎眼」，选了「退墨 · 满级才朱」）
+ *
+ * 原先不管练到几级都是朱。可一格只有 7px、九格连成一条、卡上一屏七行——朱在小面积上的
+ * 高饱和被放大成「一排红棍」，一页 63 个红块，朱的「强调」被均摊得一点不剩。
+ *
+ * 现在：**墨色掺纸**（`--ink-2` 62% 混 `--paper-2`），读作「铅笔填的格」，不参与配色；
+ * **练满那一行才转朱**（见下一条）。于是朱在这一页只剩一处——达成，与全站的
+ * 「朱只给印、选中、达成」重新对上。
+ *
+ * 混的是 `--paper-2` 而不是 `--paper-base`：后者是不翻面的纸白，暗色下会把它掺成
+ * 一块浅灰砖。`--paper-2` 跟着主题翻，两个主题的填充都是「比纸带深一点的墨」。 */
 .tick::before {
     content: '';
     position: absolute;
@@ -137,6 +148,23 @@ function pick(index: number) {
     border-radius: 2px;
     background-image: linear-gradient(
         180deg,
+        color-mix(in srgb, var(--ink-2) 48%, var(--paper-2)) 0%,
+        color-mix(in srgb, var(--ink-2) 62%, var(--paper-2)) 45%,
+        color-mix(in srgb, var(--ink-2) 74%, var(--paper-2)) 100%
+    );
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink-2) 22%, var(--paper-base));
+}
+
+/* ---------- 满级：这一行才转朱 ----------
+ * 三处同一个意思，都只发生在这一行：填充转朱（这里）、槽的描边转朱（下一条）、
+ * 数转朱与印翻朱面（父级 `SkillRow` 管）。
+ *
+ * 为什么填充要换色而不是只描边：练到 180 与练到 170 的差别是「一格填满 / 差一格」，
+ * 那条线本来就看得出来；这里要标的是**状态**——所以整条由墨转朱，七行里一眼就能点出
+ * 哪几行满了。反过来，若平时也填朱（旧做法），满级只靠描边与数字转朱，几乎读不出来。 */
+.ticks.full .tick::before {
+    background-image: linear-gradient(
+        180deg,
         color-mix(in srgb, var(--seal) 74%, var(--paper-base)) 0%,
         var(--seal) 42%,
         color-mix(in srgb, var(--seal) 82%, var(--ink-base)) 100%
@@ -145,8 +173,6 @@ function pick(index: number) {
         inset 0 1px 0 color-mix(in srgb, var(--seal) 42%, var(--paper-base)),
         inset 0 -1px 0 color-mix(in srgb, var(--seal) 72%, var(--ink-base));
 }
-/* 满级：填充本来就是朱了，这一行靠**槽的描边转朱**收尾（数转朱、字印翻朱面由父级管）。
- * 不换填充色——那样「满」与「练到 170」就分不出了。 */
 .ticks.full .tick {
     box-shadow:
         inset 0 1px 2px var(--bevel-lo),
@@ -154,7 +180,12 @@ function pick(index: number) {
         0 0 0 1px color-mix(in srgb, var(--seal-edge) 55%, transparent);
 }
 
-/* ---------- 只有可点的那一份才有的三件事 ---------- */
+/* ---------- 只有可点的那一份才有的三件事：光标、热区、预览 ----------
+ * 预览是**所见即所得**：指着第 N 格时，前 N 格真的填满（见脚本里的 `fillOf`），
+ * 指针停的那一格描朱边。上一版是「前 N 格填淡朱」——在填充也是朱时读得出来，
+ * 改成平时填墨之后会骗人（指着第 6 格预览是红的，点下去变墨）；刷成 60% 不透明
+ * 又太淡，7px 的小格上，一档透明的差别基本看不出（2026-11-03 实测）。
+ * 所见即所得，也就不需要第三个状态。 */
 .ticks.interactive {
     cursor: pointer;
 }
@@ -172,12 +203,5 @@ function pick(index: number) {
         inset 0 1px 2px var(--bevel-lo),
         inset 0 -1px 0 color-mix(in srgb, var(--bevel-hi) 55%, transparent),
         0 0 0 1px color-mix(in srgb, var(--cinnabar) 55%, transparent);
-}
-/* 预览：点下去会填到这里。用**淡朱**而不是正朱——正朱是「已经填了」，预览还没落账。
- * 指针停住时整条已经按结果重画（哪几格亮才是信息），淡一档不影响读。 */
-.ticks .tick.preview::before {
-    background-image: none;
-    background-color: color-mix(in srgb, var(--seal) 42%, transparent);
-    box-shadow: none;
 }
 </style>

@@ -6,12 +6,7 @@ import PressButton from '../../../components/PressButton.vue';
 import SegmentedPills from '../../../components/SegmentedPills.vue';
 import SelectField from '../../../components/SelectField.vue';
 import SkillRow from '../SkillRow.vue';
-import {
-    isMaxed,
-    type AssistKind,
-    type AssistSkill,
-    type SkillRow as SkillRowData,
-} from '../character';
+import { type AssistKind, type AssistSkill, type SkillRow as SkillRowData } from '../character';
 import { lifeSkills, schoolSkillCap, storySkills } from '../../../services/game-data';
 
 /**
@@ -92,9 +87,6 @@ const visible = computed(() =>
     props.group ? rows.value.filter((row) => kindOf(row) === props.group) : rows.value,
 );
 
-/* 师门那一页要读的第二个数：七项里练成几项。 */
-const maxedCount = computed(() => rows.value.filter(isMaxed).length);
-
 /* 上限只有一个来源：行上存着就用行上的（老数据可能是别的值），否则读表级常量。
  * 写成函数而不是在模板里 `row.cap ?? schoolSkillCap()` 两遍——两处各写一次，
  * 将来「上限从哪来」一改，就会只剩一半跟着改。 */
@@ -156,10 +148,7 @@ function optionsFor(row: SkillRowData): { value: string; label: string }[] {
                 {{ props.school ? `${props.school} 没有查到门派技能` : '先选择门派' }}
             </p>
             <template v-else>
-                <div class="group-head skill-head">
-                    <span class="section-mark"></span>门派技能
-                    <span class="group-sum num">已满 {{ maxedCount }}/{{ rows.length }}</span>
-                </div>
+                <div class="group-head skill-head"><span class="section-mark"></span>门派技能</div>
                 <div class="paper-rows skill-rows">
                     <!-- 一行是 `SkillRow`（与卡上同一个组件）：`editable` 把等级换成
                          输入格、刻度换成可点的。名字由门派带入，不在这里增删。

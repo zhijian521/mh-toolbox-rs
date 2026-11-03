@@ -62,13 +62,7 @@
     line-height: 1.35;
     white-space: nowrap;
 }
-/* 悬停**不加深**：`.num-slot` 那条 68% 是给输入格的（「这里能填」的承诺），
- * 而这枚签是 `<span>`——永远点不进去，悬停加深就是一句空承诺。
- *
- * 选择器抬到 0-4-0 压过 `.num-slot:hover:not(:disabled)`（0-3-0）：同特异性下
- * 谁赢取决于样式注入顺序，而「base.css 与 scoped 样式谁在后」不该被依赖。
- * 45% 与 `.num-slot` 的静息态同值，别改成 `transparent`——那会把底色一起抹掉。 */
-.num-tag.num-slot:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--well) 45%, transparent);
-}
+/* 悬停**不加深**——不需要在这里写：`.num-slot` 只给静息材质，加深与聚焦挂在
+ * `.field.num-slot` 上（见 `base.css`）。这枚签是 `<span>`，本来就不该有「能填」的反馈。
+ * 上一版曾用 `.num-tag.num-slot:hover` 抬高特异性压掉它，那个补丁已随分层面删掉。 */
 </style>

@@ -67,7 +67,7 @@ const experience = defineModel<ExpRow>('experience', { required: true });
                         <span class="row-label">当前<span class="leader"></span></span>
                         <input
                             v-model="experience.value"
-                            class="field num value-field num-slot"
+                            class="field num value-field num-slot exp-field"
                             aria-label="当前经验"
                             placeholder="如 3,777.2万"
                         />
@@ -76,7 +76,7 @@ const experience = defineModel<ExpRow>('experience', { required: true });
                         <span class="row-label">升级所需<span class="leader"></span></span>
                         <input
                             v-model="experience.need"
-                            class="field num value-field num-slot"
+                            class="field num value-field num-slot exp-field"
                             aria-label="升级所需经验"
                             placeholder="如 4,200万"
                         />
@@ -139,22 +139,25 @@ const experience = defineModel<ExpRow>('experience', { required: true });
  * 「输入框直接就显示现在 hover 上的样式」）。原先常态透明、悬停才浮出色块，
  * 可这一页是要一格一格填的——全隐起来像在纸上凌空写字，填之前还得先「找到」格子。
  *
- * 三态：常态 45% 槽色 → 悬停 68%（「这里能点」）→ 聚焦实槽 + 一圈朱线（「正在写」）。
- * 底色比纸带深一档，正好读成「凸起纸带上挖出的一小格」，与 `.field` 同一个光向。
+ * 材质在 `base.css` 的 `.num-slot`（只给静息态）+ `.field.num-slot`（悬停 68%、
+ * 聚焦实槽），与卡上那枚只读的等级签、师门技能那一列、属性读数用的是同一份。
+ * 这里只剩**几何与排版**。
  *
- * 高度不能沿用 `.field` 的 26：那是表单里的标准格，套进 5px 内边距的纸带行里，
- * 整行会从 26 长到 36，几组一拍就散。这里改 `auto` + `line-height: 1.35`，
- * 行高与卡上同为 26。 */
-/* 材质（45% 槽色 → 悬停 68% → 聚焦实槽 + 顶壁影）在 `base.css` 的 `.num-slot`，
- * 与卡上那枚只读的等级签、师门技能那一列用的是同一份。这里只剩**几何与排版**：
- * 104 宽、右对齐、行高压到 1.35。
+ * ## 宽 60，不是 104（2026-11-03 用户：「数字下面的背景太长了，缩短一点」）
+ *
+ * 属性值是 3–4 位数，5 位封顶。楷体一个字宽约 8px，五位 40.5，
+ * 加左右内边距 12 是 52.5——104 有一半是空的，读起来像「还没填满的输入框」。
+ * 60 给 5 位留了 7px 余量，也还容得下「气血值」三个字的占位提示。
+ *
+ * **经验那两格不跟着收**：它存的是 `3,777.2万` 这种带单位的长串（实测 63.5px），
+ * 60 会把它截掉。所以那一对单独挂 `.exp-field` 走 104。
  *
  * 高度不能沿用 `.field` 的 26：那是表单里的标准格，套进 5px 内边距的纸带行里，
  * 整行会从 26 长到 36，几组一拍就散。这里改 `auto` + `line-height: 1.35`，
  * 行高与卡上同为 26。 */
 .value-field {
     flex: none;
-    width: 104px;
+    width: calc(60px * var(--fs-scale));
     height: auto;
     padding: 0 6px;
     color: var(--ink);
@@ -163,6 +166,10 @@ const experience = defineModel<ExpRow>('experience', { required: true });
      * 文本行高同为 16。 */
     line-height: 1.35;
     text-align: right;
+}
+/* 经验那两格：`3,777.2万` 这类长串要放得下，沿用原来的 104。 */
+.exp-field {
+    width: calc(104px * var(--fs-scale));
 }
 /* 空格的提示字比常规 placeholder 再淡一档：纸带上的「气血值」只是标位，
  * 浓了会被当成填进去的内容。 */
