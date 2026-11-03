@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import CostSwitch from '../../../components/CostSwitch.vue';
 import NumberField from '../../../components/NumberField.vue';
 import PressButton from '../../../components/PressButton.vue';
-import SegmentedPills from '../../../components/SegmentedPills.vue';
 import SelectField from '../../../components/SelectField.vue';
+import AssistIcon from '../AssistIcon.vue';
 import SkillRow from '../SkillRow.vue';
 import { type AssistKind, type AssistSkill, type SkillRow as SkillRowData } from '../character';
 import { lifeSkills, schoolSkillCap, storySkills } from '../../../services/game-data';
@@ -51,8 +50,9 @@ const rows = defineModel<SkillRowData[]>({ required: true });
 
 /* 师门技能上限一直 180（用户 2026-11-02 确认；数值在 `game/data/schools.json` 的 `cap`，
  * 由 `schoolSkillCap()` 读），新增时就带上——否则每加一项都要手填一次。
- * 辅助不预设上限：生活技能按等级段走、剧情技能 5 级，两类不同，名录里也没存这个数，
- * 留空由用户填（留空 = 不知道，见 `SkillRow.cap`）。
+ * 辅助不预设上限：名录（`game/data/skills.json`）里只有名字，两类尺子又不同
+ * （生活按等级段、剧情 5 级），编不出来。**新增的辅助行因此没有 `cap`**，
+ * 卡上那格也就不会判满级（`isMaxed` 缺分母时不猜），旧数据里已有的 `cap` 照旧生效。
  * 名字也从空开始：**不能替他选一个**——「加了一行」不等于「这个号学了第一项」。 */
 function addRow() {
     if (props.kind === 'assist') {
@@ -70,17 +70,12 @@ function removeRow(row: SkillRowData) {
 }
 
 /* 辅助技能要把「生活 / 剧情」带上：两类在同一张表里，没有这个字段就分不出
- * 「强身术 100」与「调息 5」是同一把尺子还是两把。 */
-const TYPE_OPTIONS: { value: AssistKind; label: string }[] = [
-    { value: 'life', label: '生活' },
-    { value: 'story', label: '剧情' },
-];
-
+ * 「强身术 100」与「调息 5」是同一把尺子还是两把。
+ *
+ * 2026-11-03 之后这一页没有「类别」这个控件了（用户：「去掉上限和已学未学」那一批
+ * 顺手收的）：两个 `SkillEditor` 各自绑一类（`group`），类别由**在哪一块**决定，
+ * 不再由行上的开关决定。`kind` 字段仍是数据的一部分，`addRow` 照旧写它。 */
 const kindOf = (row: SkillRowData): AssistKind => (row as AssistSkill).kind ?? 'life';
-
-function setKind(row: SkillRowData, kind: AssistKind) {
-    (row as AssistSkill).kind = kind;
-}
 
 /* 分组模式只看本类；不分组时就是整个数组（师门技能那条路一点没变）。 */
 const visible = computed(() =>
@@ -171,55 +166,47 @@ function optionsFor(row: SkillRowData): { value: string; label: string }[] {
             </template>
         </template>
 
-        <!-- ---------- 辅助技能：自由列表（名字从名录里选，可增删） ---------- -->
+        <!-- ---------- 辅助技能：自由列表（名字从名录里选，可增删） ----------
+             一格四样：**图标 / 名字 / 等级 / 删**（2026-11-03 从「纸带 / 目录表 /
+             网格横排 / 小票卡」四个方案里选了小票卡，于是这一页也跟着变成了票）。
+             砍掉的两样不是「不好用」，是这一页根本不需要：
+               - **上限**：卡上早就不写 `/180` 了（§37），辅助技能的上限本来就随技能表来，
+                 让人手填一个只有刻度用得上的数，等于让他抄一遍表；
+               - **已学 / 未学**：那一枚是给「这个号没学这一项」用的，可编辑页是**逐个录**
+                 已学的技能——录进来的就是学了，没学的行直接删掉更干脆。
+             两样都从数据里留着（老存档里可能有），只是这一版不再给入口，见 `SkillRow.cap`
+             与 `.assist-slip.off`：卡上遇到旧数据仍然按原样退灰。 -->
         <template v-else>
-            <div
-                v-for="row in visible"
-                :key="rows.indexOf(row)"
-                class="erow"
-                :class="{ off: row.off }"
-            >
-                <!-- 辅助技能的名字是一份查表来的名录（`game/data/skills.json`），
-                     所以同样是**选**而不是写：见脚本里 `optionsFor` 上面那段。 -->
-                <SelectField
-                    v-model="row.name"
-                    class="name-select"
-                    label="技能名"
-                    placeholder="选择技能"
-                    :options="optionsFor(row)"
-                />
-                <SegmentedPills
-                    v-if="props.kind === 'assist' && !props.group"
-                    :model-value="kindOf(row)"
-                    :options="TYPE_OPTIONS"
-                    radius="sm"
-                    label="技能类别"
-                    @update:model-value="setKind(row, $event)"
-                />
-                <NumberField
-                    :model-value="row.level"
-                    label="等级"
-                    class="lv-field num-slot"
-                    @update:model-value="row.level = $event"
-                />
-                <!-- 自由列表（辅助）上限留空 = 不知道。存 0 会把「不知道」变成
-                     「不可能是满级」，所以这里写回的是 `undefined`（见 `SkillRow.cap`）。 -->
-                <NumberField
-                    :model-value="row.cap ?? 0"
-                    zero-as-empty
-                    label="上限"
-                    placeholder="上限"
-                    class="cap-field num-slot"
-                    @update:model-value="row.cap = $event || undefined"
-                />
-                <CostSwitch
-                    v-if="props.kind === 'assist'"
-                    :model-value="row.off === true"
-                    off-label="已学"
-                    on-label="未学"
-                    @update:model-value="row.off = $event || undefined"
-                />
-                <PressButton icon="trash" label="删掉这一项" @click="removeRow(row)" />
+            <div class="assist-slips">
+                <!-- 一项一张小票：图标 ｜ 名字 ｜ 等级 ｜ 删。票面（`.assist-slip`）与卡上
+                     那一张是同一份材质（在 `base.css`），只是这里矮 4px——里面要塞
+                     26 高的表单控件。 -->
+                <div
+                    v-for="row in visible"
+                    :key="rows.indexOf(row)"
+                    class="assist-slip"
+                    :class="{ off: row.off }"
+                >
+                    <!-- 图标跟着名字走：名字还没选时是一块空块，不留破图。
+                         与卡上同一个组件（`AssistIcon`），换名字时它自己重查。 -->
+                    <AssistIcon :name="row.name" :kind="kindOf(row)" />
+                    <!-- 辅助技能的名字是一份查表来的名录（`game/data/skills.json`），
+                         所以同样是**选**而不是写：见脚本里 `optionsFor` 上面那段。 -->
+                    <SelectField
+                        v-model="row.name"
+                        class="name-select"
+                        label="技能名"
+                        placeholder="选择技能"
+                        :options="optionsFor(row)"
+                    />
+                    <NumberField
+                        :model-value="row.level"
+                        label="等级"
+                        class="lv-field num-slot"
+                        @update:model-value="row.level = $event"
+                    />
+                    <PressButton icon="trash" label="删掉这一项" @click="removeRow(row)" />
+                </div>
             </div>
 
             <div class="skill-foot">
@@ -243,20 +230,38 @@ function optionsFor(row: SkillRowData): { value: string; label: string }[] {
 /* ======================================================================
  * 辅助技能那一页（自由列表）
  * ==================================================================== */
-/* 与修炼那一列同宽：两个页签的行如果宽度不同，来回切换时整列会左右跳。
- * 固定宽而不是 flex: 1——撑满会把等级推进行尾，中间空一片。
+/* 一行两格（2026-11-03 用户：「一行现在只展示一个辅助技能，调整为一行两个」，
+ * 之后又说「中间多加点边距」，最后从四个方案里选了「小票卡两列」）。
  *
- * 选择器带上 `.erow`（而不是只写 `.name-select`）：`SelectField` 的根自己带着
+ * 编辑区 622 宽：两列各 299（gap 12）。生活 11 项从 11 行落到 6 行，剧情的 6 项 3 行——
+ * 这一页原本是弹窗里最长的一页，改成两列之后不用滚到底才看到「加一项」。
+ *
+ * **列距从 24 收到 12**：加了票面之后，两张票之间已经有一道「面 vs 纸」的边界，
+ * 24 的空白会让 299 的票缩到 287，两组反而离得比卡上还远。票负责分隔，gap 只管呼吸。
+ *
+ * 每一格塞四样（图标 / 名字 / 等级 / 删）：名字必须**吃满剩下的宽度**，
+ * `min-width: 0` 是让它能被压缩——flex 项的默认 `min-width: auto` 之下，
+ * 长名字会把等级格挤出格子。
+ *
+ * 高度 38 覆盖 `base.css` 里票的默认几何（那里不给高度，只给材质）：这一层要塞
+ * 26 高的下拉与数字格，上下各留 6。 */
+.assist-slips {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 12px;
+}
+.assist-slips .assist-slip {
+    height: 38px;
+}
+/* 选择器带上 `.assist-slip`（而不是只写 `.name-select`）：`SelectField` 的根自己带着
  * `flex: 1`，两条规则特异性相同时谁生效取决于样式注入顺序——不押这个。 */
-.erow .name-select {
-    flex: none;
-    width: 200px;
+.assist-slip .name-select {
+    flex: 1;
+    min-width: 0;
 }
 .lv-field {
-    width: 66px;
-}
-.cap-field {
-    width: 66px;
+    flex: none;
+    width: 44px;
 }
 /* 未学那一行整行降一档：与卡内那张表同一个说法（`.school-row.off`），
  * 编辑时也要一眼看出「这行是没学的」，否则录完回头核对得逐条读。
@@ -269,9 +274,6 @@ function optionsFor(row: SkillRowData): { value: string; label: string }[] {
     align-items: center;
     gap: 10px;
     margin-top: 10px;
-}
-.erow :deep(.cost-opt) {
-    padding: 3px 6px;
 }
 
 /* ======================================================================
@@ -332,9 +334,9 @@ function optionsFor(row: SkillRowData): { value: string; label: string }[] {
  * 顶壁渐变留了下来——同一个数在卡上与弹窗里深浅不同，就是从这儿开始的。
  *
  * 师门那一行的等级格不归这里：它在 `SkillRow` 里（56 × 30、居中），尺寸与卡上
- * 那枚数值签同源。这两条只给辅助行——66 宽、26 高（`.field` 给的）、右对齐。 */
-.lv-field,
-.cap-field {
+ * 那枚数值签同源。这两条只给辅助行——44 宽、26 高（`.field` 给的）、右对齐。
+ * 44 而不是 66：票里还要塞图标（28）与下拉，三位数（`100`）在 44 里放得下。 */
+.lv-field {
     padding: 0 6px;
     text-align: right;
 }

@@ -759,6 +759,90 @@ svg {
     caret-color: var(--cinnabar);
 }
 
+/* ======================================================================
+ * 小票
+ * ==================================================================== */
+/* 辅助技能的**一项**：一张比纸深一档的小块，上/左一道亮棱、下/右一道暗棱、
+ * 4px 圆角、一层落影。卡上与编辑页两处用，所以材质收在这里，几何（高度）由使用方给
+ * ——卡上 42（一行一项，装得下 6 行）、编辑页 38（里面要塞 26 高的表单控件）。
+ *
+ * ## 为什么起一块面
+ *
+ * 这十七项原先排成六列网格：没有底、没有边，靠 `gap` 分开。那在一片 48 的图标上还行，
+ * 换成「一行一项」之后，一列名字一列数字紧挨着排九行，读起来是一条连续的表格线，
+ * 找不到「这是两个技能」的断点。票面把每一项从纸上择出来。
+ *
+ * 面用 `--well` 掺 `--paper-2`（34%）而不是纯 `--paper-2`：与纸同色的话只剩四道棱，
+ * 读作「这一格画得比较淡」；深一档才读作「纸上压着一张东西」。
+ *
+ * ## 两个棱色为什么自己定
+ *
+ * `.paper-rows` 上那对 `--hi-ridge` / `--lo-ridge` 借不到（那个类只挂在纸带列表上），
+ * 而 `--bevel-hi` 在暗色只有 18% 白——压在深纸上读不出，只剩「下暗」，凸起会反过来
+ * 读成嵌进纸里的黑框。取值与 `.paper-rows` 逐字一致，理由也一样。
+ */
+.assist-slip {
+    --slip-hi: light-dark(var(--bevel-hi), #ffffff52);
+    --slip-lo: light-dark(var(--bevel-lo), #0000006b);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    padding: 0 8px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--well) 34%, var(--paper-2));
+    box-shadow:
+        inset 1px 1px 0 var(--slip-hi),
+        inset -1px -1px 0 var(--slip-lo),
+        0 2px 4px -1px var(--shadow-lg);
+}
+/* 票里的三样：名字（吃满中间）、数值签（贴右端）、以及「未学」那一档退灰。
+ *
+ * 名字 12px、色 `--ink-2`：名目比读数淡、比读数小一档，与属性页那一行同一个层级关系。
+ * 12px 而不是之前的 10px——那时它挂在图标下面、只有 30 宽；现在它有 100 宽，
+ * 四字名（「丹元济会」47）不必再截。
+ *
+ * 签 40 × 24，与师门那枚（56 × 30）同族但窄一号：那边放三位数加一个「满」字，
+ * 这里只放两三位数。颜色写在 slot 的 `.lv` 上、不写在签的根上——`NumTag` 的根把字色
+ * 定成墨（那是它作为通用器件的默认），根上的色还管着「满」那个字。
+ */
+.assist-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ink-2);
+    font-size: calc(12px * var(--fs-scale));
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.assist-val {
+    --tag-w: calc(40px * var(--fs-scale));
+    --tag-h: calc(24px * var(--fs-scale));
+}
+.assist-val .lv {
+    color: var(--num);
+    font-size: calc(var(--fs-sm) + 1px);
+    line-height: 1.2;
+}
+.assist-val.max .lv {
+    color: var(--cinnabar);
+}
+/* 未学：整票压一档，但仍占位（少一项会让人以为漏记了）。压块与字，不换票面颜色——
+ * 换色会让「未学」与「另一种技能」混起来。 */
+.assist-slip.off .assist-icon {
+    opacity: 0.45;
+}
+.assist-slip.off .assist-name,
+.assist-slip.off .assist-val .lv {
+    color: var(--muted);
+    opacity: 0.7;
+}
+/* 签的材质与棱是固定的，只压字色盖不住——整枚一起淡，才读作「这一枚还没落账」。 */
+.assist-slip.off .assist-val {
+    opacity: 0.55;
+}
+
 /* 编辑器里的一行：一行数据 = 几个格子 + 一枚删。行距 5 是「同一组内的行」，
  * 组与组之间由容器给 12——两种间距在这个界面上是两件事，不能压成一个数。 */
 .erow {

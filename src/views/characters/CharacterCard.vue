@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue';
 import MeterBar from '../../components/MeterBar.vue';
+import NumTag from '../../components/NumTag.vue';
 import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
+import AssistIcon from './AssistIcon.vue';
 import GearTip from './GearTip.vue';
 import PetTip from './PetTip.vue';
 import SkillRow from './SkillRow.vue';
-import { assistIcon } from '../../services/game-icons';
 import {
     PANES,
     expPercent,
     isMaxed,
     type CharacterData,
-    type AssistSkill,
     type GearDetail,
     type PaneKey,
     type Pet,
@@ -125,13 +125,6 @@ const assistGroups = computed(() =>
         { title: '剧情技能', rows: props.character.assists.filter((row) => row.kind === 'story') },
     ].filter((group) => group.rows.length > 0),
 );
-
-/* 图标按「名字 + 类」查（`services/game-icons.ts`）。两张名录里的名字并不重合，
- * 但**仍要带 kind**：图标按各自表里的下标编号（`skill-01` / `story-01`），
- * 只给名字的话就得先猜它属于哪一类。 */
-function iconOf(row: AssistSkill): string | undefined {
-    return assistIcon(row.name, row.kind);
-}
 
 const expText = computed(() => {
     const { value, need } = props.character.experience;
@@ -293,33 +286,25 @@ const expText = computed(() => {
                         <div class="group-head">
                             <span class="section-mark"></span>{{ group.title }}
                         </div>
-                        <div class="assist-grid">
+                        <div class="assist-slips">
+                            <!-- 一项一张小票：图标 ｜ 名字 ｜ 数值签，一行读完。
+                                 票面材质在 `base.css` 的 `.assist-slip` 一族（卡与编辑页共用），
+                                 这一页只给两列网格与票高（42）；图标的块与蒙版在
+                                 `AssistIcon.vue`（编辑页用的是同一件）。 -->
                             <div
                                 v-for="row in group.rows"
                                 :key="`${row.kind}-${row.name}`"
-                                class="assist-cell"
+                                class="assist-slip"
                                 :class="{ off: row.off }"
                                 :title="`${row.name} ${row.level}${row.cap ? `/${row.cap}` : ''}`"
                             >
-                                <!-- 图标压在一块**压印块**上（与装备格同一个器件）：
-                                     裸图标摆在纸上像贴纸，块把四周的纸顶起来，
-                                     图标才有「嵌在卡片里」的落点。`still` 关掉悬停与按下——
-                                     这一格点不动，别给「按我」的暗示。
-                                     `assist-shot` 那层壳只用来盖纸色蒙版（`<img>` 长不出伪元素）。 -->
-                                <PressTile still class="assist-tile">
-                                    <span v-if="iconOf(row)" class="assist-shot">
-                                        <img class="assist-img" :src="iconOf(row)" alt="" />
-                                    </span>
-                                </PressTile>
-                                <span
-                                    class="assist-lv num"
-                                    :class="{
-                                        max: isMaxed(row),
-                                    }"
-                                >
-                                    {{ row.level }}
-                                </span>
+                                <AssistIcon :name="row.name" :kind="row.kind" />
                                 <span class="assist-name">{{ row.name }}</span>
+                                <!-- 等级包进一枚**数值签**（`NumTag`，与师门那一列同一个器件）：
+                                     名目在左、读数在右，与师门那一行同一个读法。 -->
+                                <NumTag class="assist-val" :class="{ max: isMaxed(row) }">
+                                    <span class="lv">{{ row.level }}</span>
+                                </NumTag>
                             </div>
                         </div>
                     </section>

@@ -3,6 +3,7 @@ import PageShell from '../../components/PageShell.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import { useDevMode } from '../../composables/use-dev-mode';
+import AssistSlipSection from './AssistSlipSection.vue';
 import AtomsSection from './AtomsSection.vue';
 import IconsSection from './IconsSection.vue';
 import PaletteSection from './PaletteSection.vue';
@@ -24,8 +25,8 @@ import TypeScaleSection from './TypeScaleSection.vue';
  * 与 `SettingsView` 同一个写法，因为它们本来是同一种页面（一叠 `.frame` 卡）。
  *
  * 演示卡**按「原子 → 组合」的顺序**排：`AtomsSection` 收全局小件，`SkillRowSection`
- * 收由它们拼成、带业务语义的行。新件先归到其中一张，再加一张卡得先问清楚
- * 「它是原子还是组合」——不然半年后没人说得清哪个该去哪儿。
+ * 与 `AssistSlipSection` 收由它们拼成、带业务语义的行。新件先归到其中一张，
+ * 再加一张卡得先问清楚「它是原子还是组合」——不然半年后没人说得清哪个该去哪儿。
  */
 
 const { devMode } = useDevMode();
@@ -65,6 +66,7 @@ const { devMode } = useDevMode();
 
             <AtomsSection />
             <SkillRowSection />
+            <AssistSlipSection />
             <PaletteSection />
             <TypeScaleSection />
             <IconsSection />
