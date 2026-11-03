@@ -11,7 +11,7 @@ import PetEditor from './editor/PetEditor.vue';
 import SkillEditor from './editor/SkillEditor.vue';
 import TrainingEditor from './editor/TrainingEditor.vue';
 import { schoolNames } from '../../services/game-data';
-import { normalizeCharacter } from './roster';
+import { normalizeCharacter, defaultSchool } from './roster';
 import { schoolSkillNames, schoolSkills } from './schools';
 
 /**
@@ -62,10 +62,16 @@ function onSchool(school: string) {
     draft.value.skills = schoolSkills(school, draft.value.skills);
 }
 
-/* 选项表：「未选」+ 二十一门派。表外的门派（手输留下的老数据）先占一项，
- * 不补的话那一项显示成「未选」，看起来像门派被改没了。 */
+/* 选项表：二十一门派，**没有「未选」**（2026-11-03 用户要求）。
+ *
+ * 门派对这一页不是可选装饰：它决定下面那七项技能，留一个空值就是一个选不回来的状态
+ * ——下拉里选不回去，卡上也读不出「这个人没门派」。默认值由 `emptyCharacter()` 给，
+ * 这里只负责把老数据里的空门派补上（见下面那两行）。
+ *
+ * 表外的门派（手输留下的老数据）先占一项：不补的话那一项显示成「选择门派」，
+ * 看起来像门派被改没了。 */
 const schoolOptions = computed(() => {
-    const options = [{ value: '', label: '未选' }];
+    const options: { value: string; label: string }[] = [];
     const current = draft.value.school;
     if (current && !schoolSkillNames(current)) {
         options.push({ value: current, label: `${current}（不在表里）` });
@@ -73,6 +79,15 @@ const schoolOptions = computed(() => {
     for (const name of schoolNames()) options.push({ value: name, label: name });
     return options;
 });
+
+/* 打开一张**空门派、空技能**的纸（老存档，或游戏表没加载上）：落默认门派。
+ * 与「新角色」同一条默认值——下拉里已经没有「未选」，空着就是一个选不回来的状态。
+ *
+ * 有技能却没门派的老号**不补**：它的七项可能是上一版手输的，硬安一个门派等于替它
+ * 认了个错的门派。那种号让用户自己在第一屏选一次，选中即重算。 */
+if (!draft.value.school && !draft.value.skills.length) {
+    draft.value.school = defaultSchool();
+}
 
 /* 打开一个「有门派、但技能是空的」旧号时补一次：不是覆盖，是把它本来就该有的
  * 七项补上。已经有技能的号一律不动——那可能是用户自己录的。 */
@@ -210,6 +225,7 @@ onBeforeUnmount(() => {
                             :model-value="draft.school"
                             :options="schoolOptions"
                             label="门派"
+                            placeholder="选择门派"
                             @update:model-value="onSchool"
                         />
                     </label>

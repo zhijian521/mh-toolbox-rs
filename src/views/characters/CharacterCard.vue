@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue';
 import MeterBar from '../../components/MeterBar.vue';
+import NumTag from '../../components/NumTag.vue';
 import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
@@ -10,12 +11,13 @@ import { assistIcon } from '../../services/game-icons';
 import {
     PANES,
     expPercent,
+    isMaxed,
+    skillTicks,
     type CharacterData,
     type AssistSkill,
     type GearDetail,
     type PaneKey,
     type Pet,
-    type SkillRow,
 } from './character';
 
 /**
@@ -106,13 +108,9 @@ const expPercentValue = computed(() =>
     expPercent(props.character.experience.value, props.character.experience.need),
 );
 
-/* 门派技能的两种读法：**到顶了没有**、**离顶还有多远**。
- *
- * 上限可能缺席（老数据、以及编辑弹窗里自由加的行），那时这两样都不给：
- * 没有分母的百分比是编出来的，画一根永远不满的条比不画更糟。 */
-function isMaxed(row: SkillRow): boolean {
-    return row.cap !== undefined && row.level >= row.cap;
-}
+/* 门派技能的两件事：**到顶了没有**（组头数几项）、**离顶还有多远**（行底那条刻度）。
+ * 两者都是 `character.ts` 里的纯函数，编辑弹窗画刻度时用的是同一份——
+ * 同一个 120 在卡上与在弹窗里必须都是六格，各算一次迟早会出现「存完短了一截」。 */
 
 /* 百分比一律钳在 0–100：等级是手填的，写超上限（25/20）时条会伸到格子外面
  * （实测 125% → 340px，压过 272px 的槽）。数字照原样显示 25/20——那是事实，
@@ -122,9 +120,14 @@ function rowPercent(level: number, cap: number): number {
     return Math.max(0, Math.min(100, Math.round((level / cap) * 100)));
 }
 
-function skillPercent(row: SkillRow): number | null {
-    if (!row.cap) return null;
-    return rowPercent(row.level, row.cap);
+/* 字印：技能名的第一个字。它不是缩写，是**一枚印**——七行左侧各压一枚方印，
+ * 一行才有落点，纸带才不会空成「一行字 + 一条线」。
+ *
+ * 取首字而不是图标，是因为门派技能图标还没给；将来给了，把这一格换成 `<img>`
+ * 即可，34 的方框、行距、刻度位置一分不动。用 `[...name][0]` 而不是 `name[0]`：
+ * 遇上表情符号或生僻字（代理对）时，后者会切出半个字符。 */
+function sealOf(name: string): string {
+    return [...name][0] ?? '';
 }
 
 /* 七项里练成几项：写在组头右端，比让读卡的人自己数七根条子快。 */
@@ -252,47 +255,79 @@ const expText = computed(() => {
                 role="tabpanel"
                 :aria-labelledby="`${character.id}-tab-skills`"
             >
-                <!-- 与属性页同一种器件：`.paper-row`（凸起的纸带，行距 8 由 `row-gap` 给，
-                     不是属性表那 2px 的「纸叠厚度」）。
-                     一条带子里两段：左边「名称 + 到顶还有多远」，右边「等级 + 上限」。
-                     等级用大一号的字面、右对齐——这一页要读的就是它，原先和名称一样大
-                     （`--fs-mini`）时，七行读下来像七行同权重的注记。
-                     进度条是**这条带子的第二种读法**：120 与 180 差多少不必心算；
-                     到顶那几项条满、字转朱、分母换成「满」，一眼数得出练成了几项。
-                     上限缺席（老数据）时不画条也不猜分母——见 `skillPercent`。 -->
+                <!-- 七项门派技能，一条带子一项（`.paper-rows` / `.paper-row` 来自 `base.css`，
+                     与属性页、召唤兽页同一种器件）。行里只有三样东西：
+                     **字印（首字）+ 名称 + 大号等级**，进度交给名称底下的那排刻度。
+
+                     ---- 为什么是刻度而不是一条连续的条 ----
+                     这一页要回答的是「练到哪了」。连续条的答案是个长度差，得心算；
+                     九格（180 ÷ 20）的答案是「数格子」——120 就是六格满，一眼就数完，
+                     不用在 120 与 180 之间做减法。非整十的等级最后一格按比例填，
+                     所以 115 也读得出来是「五格多一点」。
+
+                     ---- 三道状态各管一件事，不互相抢 ----
+                     一半：格子灌朱，空格留着槽的边界；满级：槽的描边也转朱、数字与「满」转朱、
+                     字印翻成实心朱；0 级：字印与字一起退灰（`--muted`）——「还没开始」
+                     不该和「练了一半」一样亮。三处同色同义，不另立记号。
+
+                     上限缺席（老数据）时那一排刻度与分母一起不画：没有分母的百分比是编出来的。 -->
                 <div v-if="character.skills.length" class="group-head school-head">
                     <span class="section-mark"></span>门派技能
                     <span class="school-sum num"
                         >已满 {{ schoolMaxed }}/{{ character.skills.length }}</span
                     >
                 </div>
-                <dl v-if="character.skills.length" class="school-list paper-rows">
+                <div v-if="character.skills.length" class="school-list paper-rows">
                     <div
                         v-for="row in character.skills"
                         :key="row.name"
                         class="paper-row school-row"
-                        :class="{ off: row.off, full: isMaxed(row) }"
+                        :class="{ off: row.off, full: isMaxed(row), idle: row.level === 0 }"
                     >
-                        <dt class="school-text">
+                        <!-- 字印是装饰，读屏不必念那一个字。
+                             块用 `PressTile`（`still`：它点不动，不该有「按我」的反馈）：
+                             与页头的压印按钮、左栏的牌记同一块材质——面、四棱、落地影都有出处，
+                             而不是一个带 1px 边框的浅色方块（上一版就是那样，34px 见方读作贴纸）。
+                             满级时换成朱面（`tone="seal"`），与纸面的棱配方不同，见 `PressTile`。 -->
+                        <PressTile
+                            class="school-seal"
+                            still
+                            :tone="isMaxed(row) ? 'seal' : 'paper'"
+                            aria-hidden="true"
+                        >
+                            <span class="seal-text">{{ sealOf(row.name) }}</span>
+                        </PressTile>
+                        <!-- 名称与刻度是**同一列的两行**，所以包成一层：三列（印 / 名称+刻度 /
+                             数值）都用 flex 的 `align-items: center` 对齐到同一条中线。 -->
+                        <span class="school-main">
                             <span class="name">{{ row.name }}</span>
                             <span
-                                v-if="skillPercent(row) !== null"
-                                class="school-track"
+                                v-if="row.cap !== undefined"
+                                class="school-ticks"
                                 aria-hidden="true"
                             >
-                                <i :style="{ width: `${skillPercent(row)}%` }"></i>
+                                <i
+                                    v-for="(fill, index) in skillTicks(row.level, row.cap)"
+                                    :key="index"
+                                    :style="{ '--fill': `${fill}%` }"
+                                ></i>
                             </span>
-                        </dt>
-                        <dd class="school-val num">
+                        </span>
+                        <!-- 等级包在一枚「数值签」里（`NumTag`）：与属性编辑页那排数字格
+                             同一个材质——纸带上挖出的一小格、数居中。原先三段字直接
+                             悬在纸带尾上，与左端凸起的字印不是一套语言。 -->
+                        <NumTag class="school-val">
+                            <!-- 上限不写了（2026-11-03 用户：「180 大家默认都知道」）。
+                                 留下的「满」是**状态**，不是上限——它与刻度灌朱、数字转朱、
+                                 字印翻朱面一起说「这一项练到头了」。
+                                 「满」排在数字**前面**：读法是「状态 → 读数」，
+                                 与卡头「130 级」同一种语序；跟在数字后面会读成
+                                 「180 满」，像在给这个数加注。 -->
+                            <span v-if="isMaxed(row)" class="full-note">满</span>
                             <span class="lv">{{ row.level }}</span>
-                            <!-- 分母只在知道上限时才写：`cap` 缺席时这一格留空，
-                                 猜一个数比不写更糟。 -->
-                            <span v-if="row.cap !== undefined" class="cap">
-                                {{ isMaxed(row) ? '满' : `/${row.cap}` }}
-                            </span>
-                        </dd>
+                        </NumTag>
                     </div>
-                </dl>
+                </div>
                 <p v-else class="empty-note">还没有记录门派技能</p>
             </section>
 

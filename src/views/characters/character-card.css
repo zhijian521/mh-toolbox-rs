@@ -79,7 +79,8 @@
     font-size: calc(var(--fs-sm) + 1px);
 }
 /* 门派的框是全局 `.chip`（`base.css`），这里只有一处不同：字用赭色。
- * 赭在这套语言里就管「门派 / 类目」，与苔（达成）、朱（支出）各占一件事。 */
+ * 赭在这套语言里只管「门派 / 类目」；强调与达成是朱，苔只灌修炼那条进度
+ * 与装备浮片的增益字（2026-11-03 刻度改朱之后，技能进度不再用苔）。 */
 .school {
     color: var(--ochre);
 }
@@ -276,41 +277,36 @@
 /* 七项门派技能铺成七条纸带（`.paper-rows` / `.paper-row` 来自 `base.css`，
  * 与属性页、召唤兽页同一种器件）。行高 `1fr` 均分：七项正好占满一页，
  * 于是「放大」不是把字号改大，而是让每条带子比属性行更厚——属性行 20 行才够
- * 一页，这里 7 行，同样的高度分到每条上就是两倍多。行距见 `.school-list` 的 `row-gap`
- * （2026-11-03 起是 8，不是属性表那 2px 的「纸叠厚度」）。
+ * 一页，这里 7 行，同样的高度分到每条上就是两倍多。行距见下面的 `row-gap`（8），
+ * 不是属性表那 2px 的「纸叠厚度」。
  *
  * 不在这里重写色带与四道棱：那四笔全在 `.paper-row::before` 里，卡与弹窗共用。
  * 这条页里任何一处自己上色，暗色主题就会是另一块颜色。
  *
- * ---- 一条带子里为什么有两段 ----
- * 原先只有「名称一行 + 小小的等级」和右端一枚 `/180` 的签：七行同权重，读起来像
- * 七条注记（2026-11-03 用户：「有点太简单了」）。现在左边名称底下压一根**进度条**，
- * 右边等级用大一号的字、与「/上限」并排——一行里同时有「叫什么」「练到哪」「还差多少」，
- * 三件事各占一个位置，不必心算 120 与 180 差多少。
- *
- * 为什么进度条 4px、与修炼那条同款粗细：它是一根刻度，不是装饰。再粗就把带子切成两半，
- * 再细在暗色下等于一条隐形线（`--well` 只比纸暗一档，所以要借 `--bevel-lo` 的内影
- * 与 `--rule-2` 的描边定边界）。 */
+ * ---- 一行里的三样东西 ----
+ * 字印（首字）｜名称 + 行底刻度｜大号等级。2026-11-03 之前只有「名称 + 一根连续的条 +
+ * 右端一枚 /180」，七行同权重，读起来像七条注记（用户：「有点太简单了」）。这一版把
+ * 「练到哪了」从**长度**换成**格数**（180 ÷ 20 = 9 格）：120 就是六格满，一眼数得完，
+ * 不必在 120 与 180 之间做减法。非整十的等级最后一格按比例填，115 也读得出「五格多」。 */
 .school-list {
     display: grid;
-    grid-auto-rows: 1fr;
+    /* `minmax(0, 1fr)` 而不是 `1fr`：后者的下限是 min-content，七行加起来比这一页高时
+     * 轨道不肯缩，整块溢出 11px（实测 433 / 422）。 */
+    grid-auto-rows: minmax(0, 1fr);
     /* 行间 2 → 8（2026-11-03 用户：「门派技能列表上下的间距稍微大一些」）。
-     *
      * 这一页七行挤满一卡，2px 的缝在纸上几乎看不见——七条纸带连成一整片，
-     * 「一行一项」得靠进度条和数字去切。缝拉到 8 之后每条带子各自成行，
-     * 行高从 61 收到 54.6（仍比属性行的 26 厚一倍多），内容的单行 19 两端各有
-     * 八九像素的余量，不挤。
+     * 「一行一项」得靠刻度去切。
      *
      * 缝走 `row-gap` 而不是让 `.paper-row + .paper-row` 的 `margin-top` 管：
-     * 那条 2px 是给属性表「一叠纸」的厚度，这里要的是「行距」——两个意思不该共用一个值，
-     * 共用了就变成「改厚度顺手改了行距」。下面的归零是配套的，不归零缝会叠成 10。 */
+     * 那条 2px 是给属性表「一叠纸」的厚度，这里要的是「行距」——两个意思不该共用一个值。
+     * 下面的归零是配套的，不归零缝会叠成 10。 */
     row-gap: 8px;
     flex: 1;
 }
 .school-list .paper-row + .paper-row {
     margin-top: 0;
 }
-/* 组头多一行「几项练满」：七根条子并排时，用眼睛数「哪几根满」比读一个 2/7 慢。
+/* 组头多一行「几项练满」：七行刻度并排时，用眼睛数「哪几行满了」比读一个 2/7 慢。
  *
  * 这一行的标题叫「门派技能」而不是「师门」：页签名已经是「师门」，重复一次只是把
  * 同一个词写两遍；而这一页真正在列的是**门派给的那七项**，与旁边那张
@@ -324,26 +320,79 @@
     font-size: var(--fs-mini);
     letter-spacing: 0.08em;
 }
-/* 左边一列吃满剩余宽度：进度条要跟到等级前面停住，`flex: none` 时它会缩成一小截，
- * 读作「这一项只有这么点」而不是「这一项练到了这儿」。 */
+/* 三列 flex：印 / 名称 + 刻度 / 等级。
+ *
+ * 2026-11-03 从 grid 改成 flex，同时把名称与刻度包进 `.school-main`——三件事一起要：
+ *
+ * ① **字印撑开**（用户：「图标可以撑开，除了卡片的内边距撑到最大」）。grid 的两行轨道
+ *    加起来只有 34px（名称 18 + 缝 9 + 刻度 7），`align-self: stretch` 最多撑到 34，
+ *    够不着「行高减内边距」的 47。flex 的行高是容器给的，才拿得到整块；`aspect-ratio: 1`
+ *    再由高算宽，七行同高、同宽。
+ * ② **等级列定宽**（用户：「等级宽度固定，不然中间的进度条宽度不一致」）。原来 `auto`
+ *    由「满 180」那一行撑开，没写「满」的行数字窄、刻度就长一截，七行刻度左端对不齐。
+ *    宽度见下面 `.school-val`（56 × 字号档），理由是「师门最多 180」。
+ * ③ **三列同一条中线**（用户：「左边图标、右边数字、中间进度条加名称，都居中」）。
+ *    `align-items: center` 换掉原来的 `baseline`：数字与名称不再同基线，但三列的中线
+ *    一致，行读起来是「一条平整的带子」而不是「各自找位置的字」。
+ *
+ * 两列的旧写法（名称 + 条 / 等级）为什么不成立：两列各自按整体居中时，数字正好落在
+ * 名称与刻度之间那道缝里，读起来像「120 是那条刻度的标签」（实测差 7px）。 */
 .school-row {
+    display: flex;
     align-items: center;
-    gap: 14px;
-    /* 底下那 14px 是留给进度条的**外置**位置：条是绝对定位、铺满整条带子，
-     * 不参与这一行的对齐计算。放进行内的话，「名称」与「等级」会各自按
-     * 「字 + 条」这个整体去居中，数字于是落在字与条之间的缝里，
-     * 读起来像「120 是那根条的标签」。
+    gap: 10px;
+    padding: 4px 10px;
+}
+/* 字印 = 一枚 `PressTile`（凸起的纸块），这里只给几何与字。
+ *
+ * **撑到「行内容高再让一圈」**（2026-11-03 用户：先要「撑到卡片内边距」，紧接着
+ * 「太大了，周围边距太小」）：`--tile-h` 取 `calc(100% - 8px * var(--fs-scale))`，
+ * 拿到行内容高（55 − 上下 4 = 47）再各自让 4——块离纸带上下缘 8、离左缘 10，
+ * 三边接近，块才读作「压在带子上」而不是「塞满带子的一格」。
+ * 不写死尺寸：`aspect-ratio: 1` 由高算宽，七行同高同宽，字号档一变（行高 55→54）
+ * 它自己跟着。内缩量乘 `--fs-scale`，否则 1.1 档会让那圈呼吸又缩回去。
+ *
+ * 落地影仍取 0.85：影的尺度是按块的大小调的，39 的块与 34 的牌记差得不多，同一档够用；
+ * 缩到 0.6 时影子只剩 1px 宽的一条，块读作一张平的浅色方块（牌记那边实测）。
+ *
+ * 圆角取 `--r-2`（3px），与纸带的转角同一条曲线；曲率不乘 `--fs-scale`。
+ * 原先这里写的是「1px 边框 + 四个 inset 棱」，34px 见方读作一张贴纸——
+ * 边框把它框住了，而棱的方向被那条平均的线盖掉（2026-11-03 用户：「3D 效果不太好」）。 */
+.school-seal {
+    align-self: center;
+    aspect-ratio: 1;
+    --tile-w: auto;
+    --tile-h: calc(100% - 8px * var(--fs-scale));
+    --tile-r: var(--r-2);
+    --tile-drop: 0.85;
+    /* 块面用**不透明的纸**，不是 `PressTile` 默认的 92% 半透明：纸带的底是 `--paper-2`，
+     * 半透明叠上去只比带子亮一丁点，亮色下凸起几乎全靠影。
      *
-     * 条铺满整行（含数字底下）而不是只铺名称那一段：只铺一段时它的右端会随手停住，
-     * 像一条被截断的线；铺满才读得出「这一行练到了百分之几」。 */
-    padding: 4px 10px 14px;
+     * 暗色要**再提一档**：`--paper`(#1c1912) 比纸带的 `--paper-2`(#231f16) 更暗，直接用它，
+     * 块就读成凹进去的一块（2026-11-03 实测）。掺 16% 的 `--ink`（暗色里它是纸白）
+     * 得到 #3a3529，才比带子亮——与左栏牌记同一条道理。 */
+    --tile-face: light-dark(var(--paper), color-mix(in srgb, var(--paper) 84%, var(--ink)));
+    /* 满级时这一条会被 `PressTile` 的 `.tone-seal` 盖掉（那边两个类，特异性更高）。 */
 }
-.school-text {
-    display: block;
+/* 字色写在内层，不写在块上：`PressTile` 给块设了 `--ink-2`，满级还要换成纸白，
+ * 两处都在内层声明。子元素的直接声明永远赢过祖先继承来的 `color`，不必比特异性。 */
+.seal-text {
+    color: var(--cinnabar);
+    font-size: calc(var(--fs-md) + 2px);
+    line-height: 1;
+}
+/* 名称 + 刻度：同一列的两行，整块在行内居中。
+ * `min-width: 0` 是给省略号用的——flex 子项的下限是内容宽，不给它，长名字会把
+ * 这一列顶宽、`.school-val` 被挤出去。 */
+.school-main {
+    display: flex;
     flex: 1;
+    flex-direction: column;
+    gap: 9px;
     min-width: 0;
+    justify-content: center;
 }
-.school-text .name {
+.school-row .name {
     overflow: hidden;
     color: var(--ink);
     font-size: var(--fs-sm);
@@ -351,46 +400,89 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-/* 槽要有边界：`--well` 在暗色只比 `--paper` 暗一档，4px 高的条在深底上等于一条
- * 隐形线，练到 30% 与 60% 只能靠条端的位置猜。做法与 `.training-row .track` 同一套
- * （不套全局 `.well`——那套带渐变和 1px 边框，压到 4px 高会读成一枚胶囊）。 */
-.school-track {
-    position: absolute;
-    right: 10px;
-    bottom: 8px;
-    left: 10px;
-    height: 4px;
+/* 刻度铺在名称底下、到等级前一格停住（不钻到数字下面）：钻过去会让「120」看着像浮在
+ * 条上，也说不清这条是这一项的还是整行的。 */
+.school-ticks {
+    display: flex;
+    gap: 3px;
+}
+/* 一格 = **凹槽 + 嵌在槽里的一截红条**（2026-11-03 用户：「3D 效果也不好」「颜色改红」，
+ * 再「每个刻度加点小小圆角」）。
+ *
+ * 为什么分两层（元素当槽、`::before` 当填充）：一条横向渐变只画得出「填了多少」，
+ * 画不出「嵌进去的那一截有厚度」。槽自己带顶影（光从左上来，凹槽的上沿背光）与底沿
+ * 一道亮线；红条再有上亮下暗的纵向渐变——一格才读作「槽里有东西」，而不是一根红棍。
+ *
+ * 圆角 2px：7px 高的格子配 1px 是「切边」，2px 才读作一小截胶囊，再大就成药丸。
+ * **高度不能涨**：卡上七行已经铺满 478，每行多 1px 就溢出（第 61 批量过）。
+ *
+ * 槽的边界不能省：`--well` 在暗色只比 `--paper` 暗一档，7px 高的空格在深底上等于隐形，
+ * 练到 30% 与 60% 只能靠红条的位置猜。描边浓度与 `.training-row .track` 同一条（48%）——
+ * 修炼那条 4px 高、这条 7px，同一个「小槽」的尺寸档，边界该一样重。
+ *
+ * 不套全局 `.well`，只借它槽内那道上暗下亮的渐变（不加它 1px 的边框）：7px 高套整套
+ * 会读成一枚胶囊，而这里要的是「槽」，不是「另一个控件」。光靠四道 inset 影，
+ * 7px 里「凹进去」读不出来——空槽只是一个浅色小方块。 */
+.school-ticks i {
+    position: relative;
+    flex: 1;
+    height: 7px;
     border-radius: 2px;
     background-color: var(--well);
+    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 72%);
     box-shadow:
         inset 0 1px 2px var(--bevel-lo),
-        0 0 0 1px color-mix(in srgb, var(--rule-2) 45%, transparent);
-    overflow: hidden;
+        inset 0 -1px 0 color-mix(in srgb, var(--bevel-hi) 55%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--rule-2) 48%, transparent);
 }
-/* 用 `--moss` 而不是蓝：这套语言的辅助色只有赭与苔（与修炼那条同一个理由）。
- * 高光是独立的 box-shadow，不写进 background 简写——简写里只要有一个值解析失败，
- * 整条声明都会被丢掉，条会静默变成透明。 */
-.school-track i {
-    display: block;
-    height: 100%;
+/* 填充：宽度就是这一格的 `--fill`（`skillTicks` 给的 0–100）。右端也给 2px 圆角——
+ * 半格时读作「一截短红条」，比切齐的断口更像真的嵌了一条进去。 */
+.school-ticks i::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--fill, 0%);
     border-radius: 2px;
-    background: var(--moss);
-    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--moss) 55%, var(--paper-base));
+    background-image: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--seal) 74%, var(--paper-base)) 0%,
+        var(--seal) 42%,
+        color-mix(in srgb, var(--seal) 82%, var(--ink-base)) 100%
+    );
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--seal) 42%, var(--paper-base)),
+        inset 0 -1px 0 color-mix(in srgb, var(--seal) 72%, var(--ink-base));
 }
-/* 练满那一项的条改灌朱印色（填充引 `--seal`，`--cinnabar` 只用于字与线）。
- * 满条与「满」字同色，是同一个意思的两种写法，不另立一套记号。 */
-.school-row.full .school-track i {
-    background: var(--seal);
-    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--seal) 55%, var(--paper-base));
-}
-/* 右边一列：等级大一号、与「/上限」同基线。等级是这一页要读的那个数，
- * 原先它与名称一样大（`--fs-mini`），七行读下来分不出「名字」与「数值」。 */
+/* 右边一列：等级包在一枚 `NumTag`（纸带上挖出的一小格，见组件里的注释）。
+ * 等级是这一页要读的那个数，所以字号比名称大两档（`--fs-md + 3`）。
+ *
+ * **这一列定宽**。原来是 `auto`——列宽由最宽的那行撑开（「满 180」比「120」宽一个字），
+ * 于是没写「满」的行数字窄、刻度就长一截，七行刻度左端参差（2026-11-03 用户：
+ * 「中间的进度条宽度不一致」）。
+ *
+ * 宽度取 **56**（2026-11-03 用户：「师门最多 180，不用这么宽，稍微减小一点」）：
+ * 最宽那行「满 180」实测 45（32 + 缝 3 + 「满」10），加左右内边距 8 得 53，留 3px 余量。
+ * 上一版 66 是按右对齐算的——那时数字贴着右边、左边空出一大截，看着像一个没填满的输入框；
+ * 现在数字居中，留白两边均匀，56 就够。列宽仍要与「数量」无关：
+ * 它是七行刻度左端对齐的基准。
+ *
+ * 几何走 `--tag-w` / `--tag-h` 而不是 `width` / `height`：`NumTag` 自己也有一条
+ * `width: var(--tag-w)`，同特异性下谁生效取决于样式注入顺序——不给它留这条歧义。
+ *
+ * 高 **30**（乘字号档）：2026-11-03 从「行内容高 − 8」（39）分两档收到这里，用户两次
+ * 说「再小一点」。39 与字印等高时，右边那块读作「与字印对称的第二个方块」；
+ * 34 仍嫌厚；30 才回到「一条读数被框住」的比例（字 18.5，上下各 5.75）。
+ * 行内由 `.school-row` 的 `align-items: center` 居中，上下各留 12.5（行内容 47），
+ * 不撑行高。再往下收字就贴边了——要更扁得先收字号。
+ *
+ * 列内的「满」与数字由 `NumTag` 的 `align-items: center` 居中（不是基线：
+ * 30 的格子里两段字号差两档，按基线排会一段顶天一段贴地）。 */
 .school-val {
-    display: flex;
-    align-items: baseline;
-    gap: 2px;
     flex: none;
-    margin: 0;
+    --tag-w: calc(56px * var(--fs-scale));
+    --tag-h: calc(30px * var(--fs-scale));
 }
 .school-val .lv {
     color: var(--num);
@@ -399,23 +491,47 @@
     font-size: calc(var(--fs-md) + 3px);
     line-height: 1;
 }
-.school-val .cap {
+/* 「满」是状态，不是上限：上限 180 不再写出来（2026-11-03 用户：「大家默认都知道」）。
+ * 字号仍比等级小一档——它是一句注，不是第二个读数。 */
+.school-val .full-note {
     color: var(--muted);
     font-size: var(--fs-mini);
 }
-/* 满级那一项：数、分母一起转朱。不另挂一枚「满」的签——分母那一格本来就写「满」，
- * 再加一个框只是把同一句话说两遍。 */
+/* 满级那一项：刻度灌朱（填充引 `--seal`，`--cinnabar` 只用于字与线）、数字转朱、
+ * 字印翻成实心——三处同一个意思，但都只发生在这一行。不另挂一枚「满」的签：
+ * 数字旁边那个「满」已经写着，再加一个框是把同一句话说两遍。 */
+.school-row.full .seal-text {
+    color: var(--on-seal);
+}
+/* 满级：填充本来就是朱了，这一行靠**槽的描边转朱**收尾（另有数转朱、「满」转朱、
+ * 字印翻朱面）。不换填充色——那样「满」与「练到 170」就分不出了。 */
+.school-row.full .school-ticks i {
+    box-shadow:
+        inset 0 1px 2px var(--bevel-lo),
+        inset 0 -1px 0 color-mix(in srgb, var(--bevel-hi) 55%, transparent),
+        0 0 0 1px color-mix(in srgb, var(--seal-edge) 55%, transparent);
+}
 .school-row.full .school-val .lv,
-.school-row.full .school-val .cap {
+.school-row.full .school-val .full-note {
     color: var(--cinnabar);
 }
-.school-row.off .school-text .name {
+/* 未学（`off`）与 0 级（`idle`）是两件事：前者是「这个号没学这一项」，后者是
+ * 「学了但一级没练」。视觉上都要退后，退的程度也一样——不能让「练了一半」和它们混。 */
+.school-row.off .name,
+.school-row.idle .name {
     color: var(--muted);
 }
-/* 未学：条也淡一档，但仍然写着百分比——「没学」与「学了 0 级」在这一页是同一件事。 */
-.school-row.off .school-track i {
-    background: color-mix(in srgb, var(--moss) 45%, var(--paper-2));
-    box-shadow: none;
+/* 0 级：印与字一起退灰，挡住「练了一半」与「还没开始」的区别。
+ * 块面也退回半透明那一档（`PressTile` 的默认）：一整块纸白的方块摆在 0 级的行首，
+ * 比「乾坤袖 60」那块还亮，读起来像「这一项已经记上了」。 */
+.school-row.idle .school-seal {
+    --tile-face: color-mix(in srgb, var(--paper) 92%, transparent);
+}
+.school-row.idle .seal-text {
+    color: var(--muted);
+}
+.school-row.idle .school-val .lv {
+    color: var(--muted);
 }
 
 /* ======================================================================

@@ -53,12 +53,28 @@
  * **不可点的地方传 `still`**（角色卡的辅助技能图标格就是）：那两条反馈是「按我」
  * 的承诺，长在点不动的块上等于骗人去点，而「点了没反应」比没有这个块更糟。
  * 只关状态、不关材质——凸起的棱、落地影、块面一律照旧，因为它仍然是纸上的一块东西。
+ *
+ * ## `tone`：纸面还是朱面
+ *
+ * 块默认是纸；`tone="seal"` 换成朱红面（主操作按钮、满级的门派字印）。
+ *
+ * **朱面的棱必须自己一套，不能借纸的那套**：纸的顶线是 `--bevel-hi`（不透明的奶白），
+ * 压在 `#a8322b` 上是一条纯白塑料高光；底棱是 `--rule-2`（暖黄棕），对纸是「暗一档」，
+ * 对朱红却是「亮一档」。同一条面膜在两个面上做出相反的明暗，两块就不是同一个光源下的东西。
+ * 所以这一档把亮线换成朱色的受光面、暗线换成朱色的背光面，强度与纸块同量级。
+ *
+ * 三样东西连带换：块面三个（常态 / 悬停 / 按下）、棱、内容色（`--on-seal`）。
+ * `PressButton` 的 `seal` 变体就是这一档，它自己不再写任何一条 box-shadow——
+ * 两边各写一份配方，改一处忘一处就变成「按钮的朱和字印的朱不是一个朱」。
  */
-withDefaults(defineProps<{ still?: boolean }>(), { still: false });
+withDefaults(defineProps<{ still?: boolean; tone?: 'paper' | 'seal' }>(), {
+    still: false,
+    tone: 'paper',
+});
 </script>
 
 <template>
-    <span class="press-tile" :class="{ still }">
+    <span class="press-tile" :class="[{ still }, { 'tone-seal': tone === 'seal' }]">
         <span class="press-content"><slot /></span>
     </span>
 </template>
@@ -243,5 +259,80 @@ withDefaults(defineProps<{ still?: boolean }>(), { still: false });
         inset 1px 1px 3px var(--bevel-lo),
         inset -1px 0 0 color-mix(in srgb, var(--bevel-hi) 55%, transparent),
         inset 0 -1px 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent);
+}
+/* ======================================================================
+ * 朱面（`tone="seal"`）
+ * ==================================================================== */
+/* 三个块面一起给。只给 `--tile-face` 的话，指上去闪白纸、按下去闪灰块——
+ * 那两个默认值是按纸调的。 */
+.press-tile.tone-seal {
+    /* 背光不能直接取 `--seal-edge`：它在亮色比块面深（#8a2620）、在暗色却比块面**浅**
+     * （#c88471），照用会让暗色的底棱变成一条发光的线。压 30% 纯黑两个主题都成立——
+     * 用的是不翻面的 `--ink-base`，`--ink` 在暗色是纸白，混出来反而会把底棱提亮。 */
+    --seal-lt: color-mix(in srgb, var(--seal) 62%, var(--paper-base));
+    --seal-dp: color-mix(in srgb, var(--seal) 70%, var(--ink-base));
+    --tile-face: var(--seal);
+    --tile-face-hover: color-mix(in srgb, var(--seal) 88%, var(--ink));
+    --tile-face-active: color-mix(in srgb, var(--seal) 74%, var(--ink));
+
+    color: var(--on-seal);
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--seal-lt) 62%, transparent),
+        inset 1px 0 0 color-mix(in srgb, var(--seal-lt) 30%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--seal-dp) 38%, transparent),
+        inset 0 -2px 0 color-mix(in srgb, var(--seal-dp) 72%, transparent),
+        0 calc(3px * var(--tile-drop, 1)) 0 var(--shadow),
+        0 calc(8px * var(--tile-drop, 1)) calc(12px * var(--tile-drop, 1))
+            calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
+}
+
+/* 暗色那条基础规则（`:root.dark .press-tile`）比这一条多一个 `:root.dark`，
+ * 不补这一条就会被它顶回纸的棱。块面不用重设——`--tile-face` 仍是朱；
+ * 背景渐变也不重设：亮色下那三条本来就是无效的整条丢弃，暗色下它们会把朱面提亮一档，
+ * 与 `PressButton` 改版前完全一样（那套偏光对两个面都是「加白」，方向没错）。 */
+:root.dark .press-tile.tone-seal {
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--seal-lt) 62%, transparent),
+        inset 1px 0 0 color-mix(in srgb, var(--seal-lt) 30%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--seal-dp) 38%, transparent),
+        inset 0 -2px 0 color-mix(in srgb, var(--seal-dp) 72%, transparent),
+        0 calc(3px * var(--tile-drop, 1)) 0 var(--shadow-lg),
+        0 calc(8px * var(--tile-drop, 1)) calc(13px * var(--tile-drop, 1))
+            calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
+}
+
+/* 朱面上的内容落影要用**不翻面**的深色。`.press-content` 默认那条取 `--ink`，
+ * 暗色下它是纸白——纸白的字自带一圈白光，在朱面上就是「字浮着发光」。 */
+.press-tile.tone-seal .press-content {
+    filter: drop-shadow(0.5px 0.6px 0.4px color-mix(in srgb, var(--ink-base) 42%, transparent));
+}
+
+/* 悬停与按下：两条主题同值，所以一条规则挂两个选择器写一次（暗色那条基础规则把
+ * 不带 `:root.dark` 的状态压住了，必须各写一个够高的）。 */
+.press-tile.tone-seal:not(.still):hover,
+:root.dark .press-tile.tone-seal:not(.still):hover {
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--seal-lt) 76%, transparent),
+        inset 1px 0 0 color-mix(in srgb, var(--seal-lt) 42%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--seal-dp) 46%, transparent),
+        inset 0 -2px 0 color-mix(in srgb, var(--seal-dp) 78%, transparent),
+        0 calc(4px * var(--tile-drop, 1)) 0 var(--shadow),
+        0 calc(10px * var(--tile-drop, 1)) calc(16px * var(--tile-drop, 1))
+            calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
+}
+
+/* 按下：渐变换成朱色高光（纸色那条会让块面闪白），内凹的亮线从右下起——
+ * 光还是从左上来，只是这一次照到对面那条棱。 */
+.press-tile.tone-seal:not(.still):active,
+:root.dark .press-tile.tone-seal:not(.still):active {
+    background-image: linear-gradient(
+        325deg,
+        color-mix(in srgb, var(--seal-lt) 30%, transparent),
+        transparent 60%
+    );
+    box-shadow:
+        inset 1px 1px 4px var(--seal-dp),
+        inset -1px 0 0 color-mix(in srgb, var(--seal-lt) 45%, transparent),
+        inset 0 -1px 0 color-mix(in srgb, var(--seal-lt) 52%, transparent);
 }
 </style>

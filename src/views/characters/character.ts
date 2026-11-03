@@ -166,6 +166,58 @@ export interface SkillRow {
     off?: boolean;
 }
 
+/** 练满了没有。`cap` 缺席 = 不知道上限，永远算不出「满」——猜一个数比不标更糟。 */
+export function isMaxed(row: Pick<SkillRow, 'level' | 'cap'>): boolean {
+    return row.cap !== undefined && row.level >= row.cap;
+}
+
+/** 一格代表多少级。门派技能上限 180，就是九格；属性面板上也是「二十级一档」的说法。 */
+const TICK_STEP = 20;
+
+/**
+ * 这条刻度有几格。上限 180 → 九格；上限 100 → 五格。
+ *
+ * 格数按上限除，而不是固定九格：上限除了门派技能的 180，还有老数据的 120、
+ * 辅助技能手填的 100/35。固定九格时 100 级的上限每格代表 11.1 级，读不出
+ * 「一格二十级」这件事，也就没法数格子。
+ *
+ * `cap` 缺席（不知道上限）返回 0——调用方据此不画条：没有分母的百分比是编出来的。
+ */
+export function tickCount(cap?: number): number {
+    if (!cap || cap <= 0) return 0;
+    return Math.max(1, Math.round(cap / TICK_STEP));
+}
+
+/**
+ * 第 `index` 格（0 起）对应的等级：点第 N 格就是「前 N 格全满」。
+ *
+ * 与 `skillTicks` 共用同一个格数，两边才不会错位。写的不是 `(index + 1) * 20`
+ * 而是「按格数反算」：上限 120 时一格 30 级，点第三格是 90 而不是 60——
+ * 刻度上画出的格与点下去得到的值必须是同一套算术。
+ */
+export function tickLevel(index: number, cap?: number): number {
+    const cells = tickCount(cap);
+    if (!cells || !cap) return 0;
+    return Math.round(((index + 1) * cap) / cells);
+}
+
+/**
+ * 把「练到几级」摊成一条刻度，返回**每格自己的填充百分比**（0–100）。
+ *
+ * 卡上与编辑弹窗共用它：同一个 120，在卡上是六格满，在弹窗里也必须是六格满——
+ * 两处各算一次，迟早会出现「存完回卡上短了一截」而这种差异没人查得出来。
+ *
+ * `cap` 缺席（不知道上限）返回空数组——调用方据此不画条。
+ */
+export function skillTicks(level: number, cap?: number): number[] {
+    const cells = tickCount(cap);
+    if (!cells || !cap) return [];
+    const step = cap / cells;
+    return Array.from({ length: cells }, (_, index) =>
+        Math.max(0, Math.min(100, ((level - index * step) / step) * 100)),
+    );
+}
+
 /**
  * 辅助技能分两类，**必须分开记**（用户 2026-11-02 要求合在一起显示，但语义不同）：
  *

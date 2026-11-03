@@ -37,6 +37,8 @@ import {
     type TrainingGroup,
 } from './character';
 import { CHARACTERS } from './mock';
+import { schoolSkills } from './schools';
+import { schoolNames } from '../../services/game-data';
 
 const STORAGE_KEY = 'mh-roster';
 
@@ -100,18 +102,34 @@ function makeId(): string {
         : `char-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-/** 新角色的骨架：该有的格子都在（12 个装备位、10 项修炼），该空的都空着。 */
+/**
+ * 新角色的默认门派：**表里的第一家**。
+ *
+ * 为什么要有默认值而不是「未选」：门派决定那七项技能，而「未选」这个名字本身
+ * 也是用户 2026-11-03 明确要删掉的选项（下拉里不再出现）。留一个空门派，用户
+ * 新建完进去看到的是「先选择门派」和一张空表——多一步，还容易被当成没加载上。
+ * 默认值不是替他做决定：门派在弹窗第一屏，改一下就是七项重算（`schoolSkills`）。
+ *
+ * 表没加载上时返回空串（`loadGameData` 失败那条路），此时行为退回旧样：
+ * 卡上没有门派、编辑页提示先选择门派。
+ */
+export function defaultSchool(): string {
+    return schoolNames()[0] ?? '';
+}
+
+/** 新角色的骨架：该有的格子都在（12 个装备位、10 项修炼、七项门派技能），该空的都空着。 */
 export function emptyCharacter(): CharacterData {
+    const school = defaultSchool();
     return {
         id: makeId(),
         name: '',
         level: 0,
-        school: '',
+        school,
         server: '',
         guild: '',
         attrGroups: blankAttrGroups(),
         experience: { value: '', need: '' },
-        skills: [],
+        skills: schoolSkills(school),
         assists: [],
         trainings: blankTrainings(),
         gear: GEAR_SLOTS.map((slot) => ({ slot })),

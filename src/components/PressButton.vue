@@ -26,10 +26,10 @@ import type { IconName } from './icons';
  *
  * ---- 印记变体 ----
  * `seal` 把块面灌成朱红、字翻成纸白，用于**主操作**（一屏只该有一枚）。
- * 换色要连带两件事：一是三个块面（常态 / 悬停 / 按下）——`PressTile` 的默认是
- * 「纸色变实」「转灰」，沿用会闪成白纸、按下去闪成灰块；二是**光本身**——
- * 那套高光是按纸调的，压在朱红上会过曝（亮色下左上角白度实测 82%）。
- * 两处都在下面 `.seal` 段里，`PressTile` 一行不动。
+ *
+ * 朱面的块、棱、三个状态都在 `PressTile` 的 `tone="seal"` 里（2026-11-03 收进去）：
+ * 同一块朱红，角色卡上满级的门派字印与页头这枚按钮必须是同一个朱、同一道光。
+ * 本组件只留一件**它自己该管**的事——内层字色（见 `.press-btn-inner` 那段）。
  */
 withDefaults(
     defineProps<{
@@ -56,7 +56,7 @@ withDefaults(
         :aria-label="label"
         :disabled="disabled"
     >
-        <PressTile class="press-btn-tile">
+        <PressTile class="press-btn-tile" :tone="seal ? 'seal' : 'paper'">
             <span class="press-btn-inner">
                 <AppIcon v-if="icon" :name="icon" />
                 <span v-if="text">{{ text }}</span>
@@ -129,88 +129,15 @@ withDefaults(
     color: var(--on-seal);
 }
 
-/* 印记：三个面一起给。只给 `--tile-face` 的话，指上去闪白纸、按下去闪灰块。 */
-.press-btn.seal {
-    --tile-face: var(--seal);
-    --tile-face-hover: color-mix(in srgb, var(--seal) 88%, var(--ink));
-    --tile-face-active: color-mix(in srgb, var(--seal) 74%, var(--ink));
-
-    /* 朱红块的受光面与背光面：都从块面自己派生，不借用纸的那套。
-     * 背光不能直接取 `--seal-edge`：它在亮色比块面深（#8a2620）、在暗色却比块面**浅**
-     * （#c88471），照用会让暗色的底棱变成一条发光的线。压 30% 纯黑两个主题都成立——
-     * 用的是不翻面的 `--ink-base`，`--ink` 在暗色是纸白，混出来反而会把底棱提亮。 */
-    --seal-lt: color-mix(in srgb, var(--seal) 62%, var(--paper-base));
-    --seal-dp: color-mix(in srgb, var(--seal) 70%, var(--ink-base));
-}
-
-/* ---------- 朱红块单独一套棱 ----------
+/* 朱面的块、棱、三态全在 `PressTile` 的 `tone="seal"` 里（2026-11-03 从本文件收过去的）：
+ * 角色卡上满级的门派字印、页头这枚主操作按钮，是同一块朱红。
  *
- * 为什么不能跟纸共用：`PressTile` 的棱是按**纸**调的。
- * 亮色的顶线是 `--bevel-hi`（82% 不透明的奶白）——压在 `#f8f3e6` 的纸上等于没画，
- * 压在 `#a8322b` 的朱红上就是把块顶成一条纯白，读作塑料高光；
- * 底棱用 `--rule-2`（暖黄棕），对纸是「暗一档」，对朱红却是「亮一档」的土黄。
- * 同一条面膜在两个面上做出相反的明暗，于是纸块读作「平 + 底厚 + 弱影」、
- * 红块读作「白顶 + 黄边」，不是同一个光源下的两块纸。
- *
- * 暗色为什么本来是对的：那里的 `--bevel-hi` 只有 18% 白，提亮量在两块上是同一量级。
- * 所以这一套不是「再调一遍材质」，只是**把亮色失真的那部分收窄**：亮线改成朱色的
- * 受光面、暗线改成朱色的背光面，强度与纸块同量级。
- *
- * 几何、圆角、过渡、内容影、三个块面色全在 `PressTile` 里，这里只碰 box-shadow。
- * 这是**有意的例外**，不是新开一套材质：将来出现第三种块面色，得再给它一份配方——
- * 那时才该考虑把棱色提成变量（现在提，等于为一种颜色改六条规则，不划算）。
- *
- * 选择器为什么带两个类：`PressTile` 的 `:root.dark .press-tile` 是 0,4,0，
- * 单靠 `.press-btn.seal .press-btn-tile` 也是 0,4,0——打平就交给样式注入顺序，
- * 而那个顺序由打包器决定。多写一个 `.press-tile` 抬到 0,5,0，不赌。
+ * 本文件从此不碰 box-shadow，也不碰 background-image。留一个已知的坑在这里：
+ * `PressTile` 那条三层渐变在亮色下是**整条失效**的（第三条 `color-mix(… 170%)`
+ * 的百分比超 100%，浏览器判为无效值，连带整条丢掉），暗色才生效——所以亮色下块的
+ * 「上亮下暗」全靠 inset 棱。哪天修掉那个 170%，`tone-seal` 要补一层朱色偏光，
+ * 否则朱块会比纸块少一层（纸块也会多出来一层，那时两边一起重看）。
  */
-.press-btn.seal .press-btn-tile.press-tile {
-    box-shadow:
-        inset 0 1px 0 color-mix(in srgb, var(--seal-lt) 62%, transparent),
-        inset 1px 0 0 color-mix(in srgb, var(--seal-lt) 30%, transparent),
-        inset -1px 0 0 color-mix(in srgb, var(--seal-dp) 38%, transparent),
-        inset 0 -2px 0 color-mix(in srgb, var(--seal-dp) 72%, transparent),
-        0 3px 0 var(--shadow),
-        0 8px 12px -5px var(--shadow-lg);
-}
-
-/* 常态与悬停**不重写 `background-image`**，这是有意的，不是漏了。
- *
- * 亮色下 `PressTile` 那条三层渐变是**整条失效**的：第三条
- * `color-mix(in srgb, var(--bevel-lo) 170%, transparent)` 的百分比超过 100%，
- * 浏览器判为无效值，连带整条 `background-image` 一起丢掉（计算值 `none`）；
- * 暗色那套写的是 100%，生效。所以在亮色里，纸块的「上亮下暗」其实全靠这几条
- * inset 棱，一层渐变都没画。
- *
- * 跟着它走：这里不写，就等于自动与本主题的纸块同源——亮色两块都没有那层偏光，
- * 暗色两块都有。若哪天修掉那个 170%，这一段要补一层朱色偏光，否则红块会比纸块少一层。
- */
-
-/* 悬停只抬影子，不重画光——块面变深由 `--tile-face-hover` 负责，与纸块同一条逻辑。 */
-.press-btn.seal:hover:not(:disabled) .press-btn-tile.press-tile {
-    box-shadow:
-        inset 0 1px 0 color-mix(in srgb, var(--seal-lt) 76%, transparent),
-        inset 1px 0 0 color-mix(in srgb, var(--seal-lt) 42%, transparent),
-        inset -1px 0 0 color-mix(in srgb, var(--seal-dp) 46%, transparent),
-        inset 0 -2px 0 color-mix(in srgb, var(--seal-dp) 78%, transparent),
-        0 4px 0 var(--shadow),
-        0 10px 16px -5px var(--shadow-lg);
-}
-
-/* 按下：`PressTile` 会把渐变换成一条纸色高光（那是「压回纸里」的说法），
- * 在朱红块上必须是朱色的，否则按下去块面闪白。内凹的亮线仍从右下起——
- * 光还是从左上来，只是这一次照到对面那条棱。 */
-.press-btn.seal:active:not(:disabled) .press-btn-tile.press-tile {
-    background-image: linear-gradient(
-        325deg,
-        color-mix(in srgb, var(--seal-lt) 30%, transparent),
-        transparent 60%
-    );
-    box-shadow:
-        inset 1px 1px 4px var(--seal-dp),
-        inset -1px 0 0 color-mix(in srgb, var(--seal-lt) 45%, transparent),
-        inset 0 -1px 0 color-mix(in srgb, var(--seal-lt) 52%, transparent);
-}
 
 /* 禁用：半透明就够——禁用态的信息是「点不动」，不是「另一种状态」。
  * `pointer-events: none` 是为了让块收不到 `:hover`：不然鼠标停在上面，
