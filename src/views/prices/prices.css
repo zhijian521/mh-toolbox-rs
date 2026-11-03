@@ -1,0 +1,122 @@
+/*
+ * 物价页的版式：一条筛选栏 + 一片卡片网格。
+ *
+ * 独立成文件而不是写在 `.vue` 的 `<style scoped>` 里：模板本身就有一百多行，
+ * 样式再叠上去，「这一页长什么样」与「这一页做什么」就混在一屏里读。
+ * `character-card.css` 是同一个先例（CONVENTIONS §2.2「先拆样子与纯计算」那条）。`<style scoped src>`
+ * 同样会被加上 scope id，效果与写在组件里逐条等价。
+ *
+ * 这份文件只回答一件事：**栏怎么摆、网格怎么排**。卡片的质感在 `PriceCard.vue`
+ * 自己的 scoped 里（它只属于那张卡），弹窗的质感在 `ModalShell.vue` 里。
+ */
+
+/* ---------- 筛选栏 ----------
+ * 一行：关键字（吃剩余）+ 一级 + 二级 + 排序 +（筛过之后才出现的）清除。
+ *
+ * **没有外框**：用户明确要求「不要最外层的卡片」。这一栏就是四个控件并排，
+ * 靠间距与页头那道账线分隔，不套文武线也不套纸卡。
+ */
+.price-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin-bottom: 12px;
+}
+
+/* 关键字格**不抢剩余宽度**。
+ *
+ * 原来写的是 `flex: 1 1 220px`：宽窗口下它会一路涨到 600 以上，一个只用来打两三个字的
+ * 输入框横跨半页，整条工具栏的视觉重心全压在它身上，而右边三个下拉被挤成一小撮。
+ * 给 260 的上限（约 13 个汉字，最长的物品名也够看），窄窗口时按 `min-width` 缩到 160。
+ * 剩下的留白放在这一行右端——四个控件左对齐成一组，读起来才像一条工具栏。 */
+.toolbar-key {
+    flex: 0 1 260px;
+    min-width: 160px;
+}
+
+/* 两个分类下拉同宽：它们是一对，宽度不一致会读成「一个是主、一个是附」。
+ * 132 是「全部 / 装备灵饰 / 高级兽决」这几档最长一个不截断的宽度。 */
+.toolbar-cell {
+    flex: none;
+    width: 132px;
+}
+
+/* 排序最长的选项是「价格从高到低」（六字）。112 在默认字号档刚好不截断，
+ * 但**必须乘 `--fs-scale`**：1.1 档文字宽 10%，不乘的话 `.select-text` 的省略号
+ * 会把它截成「价格从高…」。§2.3-15：跟字号一起缩放的东西就走变量。 */
+.toolbar-sort {
+    width: calc(112px * var(--fs-scale));
+}
+
+/* 「清除筛选」不在这里定样式：它是一枚 `SlotButton`（纯图标，26 见方），
+ * 凹槽与印面全在组件里。早先这里是文字入口，用户要求改成图标按钮——
+ * 这一行已经有三个下拉+一个输入，"清除筛选"四个字压在最右端会把视觉重心挪到「重置」上。 */
+
+/* ---------- 卡片网格 ----------
+ * `auto-fill` + `minmax(200px, 260px)`：**卡片有宽度上限，不撑满整行**。
+ *
+ * `1fr` 会让列吃掉所有剩余宽度——窗口一宽，卡片就变成 300 多的横条，价签的比例没了。
+ * 上限 260 是「名称 + 分类小签 + 价格 + 涨幅 + 走势线」还排得开的最大宽度；
+ * 下限 200 是「六字物品名 + 一个分类小签」还放得下的最小宽度。
+ *
+ * `justify-content: start` 把多出来的空间留在**右端一整块**，而不是摊进每一列。
+ * 用 `space-between` 之类会把它拆成列间的大缝，一行卡片读起来像被拉开了。
+ *
+ * 长度不够一行时右侧留白——这是「不撑满」的代价，也是它的意思。 */
+.price-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 260px));
+    justify-content: start;
+    gap: 12px;
+    align-items: stretch;
+}
+
+/* ---------- 空状态 ----------
+ * 一件物品都没记过：图标 + 一句话 + 一枚按钮。三样都在，读者才知道
+ * 「这里本来该有什么」以及「从哪开始」。
+ * 直接摆在内容区里——不再躲进某个区块的框里（那个框已经拆掉了）。 */
+.price-void {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 46px 0 40px;
+    text-align: center;
+}
+.void-icon {
+    /* 空态图标比正文里的图标大两档。仍走 `--icon-size` 而不是写死 px：
+     * 写死会顶掉默认值，也不跟 `--fs-scale` 一起缩放（CONVENTIONS §2.3-15）。 */
+    --icon-size: calc(34px * var(--fs-scale));
+
+    color: var(--rule-2);
+}
+.price-void h3 {
+    margin: 0;
+    color: var(--ink);
+}
+.price-void .note {
+    max-width: 380px;
+    margin: 0;
+}
+
+/* 有物品但被筛掉了：一行字，不留空框。空框读起来像「渲染失败」，
+ * 而事实是「这个条件下确实没有」。 */
+.price-blank {
+    margin: 0;
+    padding: 40px 0;
+    text-align: center;
+}
+
+/* ---------- 写入失败的那一句 ----------
+ * **排版在这里，字档在基座**：字号与朱色来自 `.note.error`（`base.css`），
+ * 这里只管那道左竖线与外边距。一个类同时管排版又管字档的话，
+ * 第二次出现就会长出第二份「看起来差不多」的规则。 */
+.price-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+    padding-left: 9px;
+    border-left: 2px solid var(--cinnabar);
+}
