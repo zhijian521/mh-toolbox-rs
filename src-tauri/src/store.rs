@@ -557,6 +557,56 @@ pub fn characters_mark_legacy_imported(app: AppHandle) -> Result<(), String> {
 }
 
 /* ======================================================================
+ * 清空：给「设置 → 数据 → 清除」用，也给导入前那一手用（导入 = 整体替换）
+ * ==================================================================== */
+
+/// 清空角色与物价，返回 (角色数, 物品数) 供界面提示。
+///
+/// **不动 `meta`**：`charactersLegacyImported` / `pricesLegacyImported` 这类迁移标记
+/// 一旦清掉，下次启动 `roster.ts` / `prices-store.ts` 会把旧 `localStorage` 里的数据
+/// **再搬一遍**——用户刚清干净，重启又回来一批，那是这个功能最不该有的样子。
+/// `schemaVersion` 也在同一张表里，删它没有好处。
+///
+/// 三条 `DELETE` 显式写出来，不依赖 `ON DELETE CASCADE`：级联只在
+/// `PRAGMA foreign_keys = ON` 时成立，而这个 pragma **是按连接设的**
+/// （`open_at` 里为了别的场景打开过它，但那是「每次开到新连接都要记得再设一遍」的约定）。
+/// 依赖它的后果不对称：漏删 `price_points` 不会报任何错，只会在库里攒一堆指向
+/// 不存在物品的价格行，而下一次 `prices_save` 也是先清后写，**这些孤儿永远没人收拾**。
+/// 显式三条把这个隐患从执行路径上摘掉，代价只是多写两行。
+pub(crate) fn clear_all(app: &AppHandle) -> Result<(i64, i64), String> {
+    let mut conn = open(app)?;
+    clear_records(&mut conn)
+}
+
+/// `clear_all` 的本体。与 `load_items` / `save_items` 同一个理由拆出来：
+/// **能对着临时目录跑的那一半**留在这里，`AppHandle` 只留在薄薄的外壳上。
+/// 于是「清空之后 `meta` 还在」这条设计可以写成测试，而不是只写在注释里。
+fn clear_records(conn: &mut Connection) -> Result<(i64, i64), String> {
+    let tx = conn
+        .transaction()
+        .map_err(|error| format!("开事务失败：{error}"))?;
+
+    /* 顺序是 price_points → price_items → characters：子表先走。
+     * 反过来虽然在本机的连接上（外键开着）也能过——级联会把子行带走——
+     * 但那样就又把结果挂回 pragma 上了，正是上一条注释要避免的。 */
+    tx.execute("DELETE FROM price_points", [])
+        .map_err(|error| format!("清空价格失败：{error}"))?;
+    let items = tx
+        .execute("DELETE FROM price_items", [])
+        .map_err(|error| format!("清空物品失败：{error}"))?;
+    let characters = tx
+        .execute("DELETE FROM characters", [])
+        .map_err(|error| format!("清空名册失败：{error}"))?;
+
+    /* 这里**故意没有** `DELETE FROM meta`。删了它两次「清空」之间只差一行代码，
+     * 而后果是下次启动整份老数据复活（见 `clear_all` 的注释）。`meta` 里只有三类东西：
+     * `schemaVersion`（删了 `init` 会补回来，但补的是「当前版本」这句话本身没有意义）、
+     * 两个 `*LegacyImported` 标记（删了就重新搬）、以及将来的迁移标记（同理）。 */
+    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
+    Ok((characters as i64, items as i64))
+}
+
+/* ======================================================================
  * 测试
  *
  * 全部直接对着一个临时目录里的 `Connection` 跑，**不构造 `AppHandle`**——
@@ -863,6 +913,81 @@ mod tests {
         assert_eq!(list.len(), 2, "坏的那一行应被跳过，其余照常返回");
         assert_eq!(list[0]["id"], "c1");
         assert_eq!(list[1]["id"], "c3");
+    }
+
+    /* ---------- 清空：只清账本，不碰 meta ---------- */
+
+    /// 清空之后三张表都空，而 `meta` 三条**一条都不能少**。
+    ///
+    /// 这条钉的是一个**设计选择**，不是实现细节：`charactersLegacyImported` /
+    /// `pricesLegacyImported` 一旦被清掉，下次启动 `roster.ts` / `prices-store.ts`
+    /// 会认为「老数据还没搬过」，于是把旧 `localStorage` 里那份**再搬一遍**——
+    /// 用户刚清干净、重启又回来一批，那正是这个功能最不该有的样子。
+    /// 也正因为它是选择而不是细节，用注释说明不够：得有一条会红的测试。
+    ///
+    /// 变异测试很容易证明它的价值：在 `clear_records` 里补一句 `DELETE FROM meta`，
+    /// 这条必须红（`schemaVersion` 那条断言也会红，因为 `init` 只在开库时写）。
+    #[test]
+    fn clear_records_keeps_meta_but_drops_ledger() {
+        let dir = TempDir::new(13);
+        let mut conn = open_at(dir.base()).expect("打开数据库");
+
+        /* 三张表各放一条：只清两张、把价格留给级联，正是实现里明确不做的事。 */
+        save_items(
+            &mut conn,
+            &[item(
+                "item-1",
+                "黑宝石",
+                vec![point("p-1", "2026-03-05", 18.5, 1_700_000_000_000)],
+            )],
+        )
+        .expect("写一件带历史的物品");
+        conn.execute(
+            "INSERT INTO characters (id, data, sort_order) VALUES ('c1', '{\"id\":\"c1\"}', 0)",
+            [],
+        )
+        .expect("写一条角色");
+        write_meta(&conn, "charactersLegacyImported", "1").expect("写名册迁移标记");
+        write_meta(&conn, "pricesLegacyImported", "1").expect("写物价迁移标记");
+
+        let (characters, items) = clear_records(&mut conn).expect("清空");
+        assert_eq!(
+            (characters, items),
+            (1, 1),
+            "返回的两个数要报出清掉了多少，界面那两句提示靠它"
+        );
+
+        let count = |table: &str| -> i64 {
+            conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap_or_else(|error| panic!("查 {table} 失败：{error}"))
+        };
+        assert_eq!(
+            (
+                count("characters"),
+                count("price_items"),
+                count("price_points")
+            ),
+            (0, 0, 0),
+            "角色、物品、价格三张表都该清空"
+        );
+
+        assert_eq!(
+            read_meta(&conn, "charactersLegacyImported").expect("读名册迁移标记"),
+            Some("1".to_string()),
+            "名册的迁移标记必须留着，否则下次启动会把旧 localStorage 再搬一遍"
+        );
+        assert_eq!(
+            read_meta(&conn, "pricesLegacyImported").expect("读物价迁移标记"),
+            Some("1".to_string()),
+            "物价的标记同理"
+        );
+        assert_eq!(
+            read_meta(&conn, "schemaVersion").expect("读 schemaVersion"),
+            Some(SCHEMA_VERSION.to_string()),
+            "schemaVersion 也在 meta 里，同样不许动"
+        );
     }
 
     /// 目标里残留上一轮的 `-wal` / `-shm`（主库没赶上）时，重试必须能覆盖它们。

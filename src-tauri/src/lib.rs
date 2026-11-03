@@ -13,6 +13,10 @@ mod ocr_paddle;
 mod screen;
 /* 数据层不分平台：SQLite 在哪儿都能跑，不像截屏 / OCR 只认 Win32。 */
 mod store;
+/* 数据的备份信封与三个命令（导出 / 导入 / 清除）。同样不分平台：读写文件、
+ * 序列化、SQLite 都不认 Win32，唯一带平台味的对话框整个交给 `tauri-plugin-dialog`。
+ * 所以这里没有 `#[cfg(windows)]`——别因为相邻几行都有就顺手加上。 */
+mod backup;
 
 /// 前端「关于」要的那点信息。
 ///
@@ -209,16 +213,26 @@ fn create_main_window(app: &mut tauri::App) -> tauri::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default();
+    /* 对话框插件在这里注册一次。**注册不等于给前端开口子**：它同时带来 JS 命令，
+     * 而 `capabilities/default.json` 里没有任何 `dialog:` 权限，所以前端那侧调不动；
+     * 本仓只用 Rust 侧的 `app.dialog()`（见 `backup.rs`）。 */
+    let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
 
     // 命令表按平台分两份而不是用 `#[cfg]` 逐个包：`generate_handler!` 里出现
     // 一个未定义的符号就整表编不过，条件编译写在宏里反而看不出是哪一条。
+    //
+    // **加命令必须两份都加。** 只在 Windows 那份里加，本机编得过、跑得起来，
+    // 另一份静默少一条——非 Windows 平台上那条命令只表现为「前端调用时报
+    // command not found」，而这个仓的开发机全是 Windows，所以那个缺口永远看不见。
     #[cfg(windows)]
     let builder = builder.invoke_handler(tauri::generate_handler![
         app_info,
         open_external,
         ghost::ghost_windows,
         ghost::ghost_probe,
+        backup::data_export,
+        backup::data_import,
+        backup::data_clear,
         store::prices_load,
         store::prices_save,
         store::prices_legacy_imported,
@@ -232,6 +246,9 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         app_info,
         open_external,
+        backup::data_export,
+        backup::data_import,
+        backup::data_clear,
         store::prices_load,
         store::prices_save,
         store::prices_legacy_imported,

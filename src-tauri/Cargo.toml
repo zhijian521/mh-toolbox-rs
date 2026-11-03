@@ -18,6 +18,19 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
+
+# 导入导出要系统「另存为 / 打开」对话框。**只在 Rust 侧用 `app.dialog()`**，
+# 不引 npm 包、不开 capability：前端仍然只经 `invoke` 说话，`services/` 边界不动。
+# （capability 管的是「前端能不能直接调插件的 JS 命令」，本仓前端一行都不调。）
+#
+# 代价不止这一个 crate：它会带进 `tauri-plugin-fs`（硬依赖，`FilePath` 就来自那里）、
+# `rfd 0.17`（真正弹窗的那个）、以及 `notify`（`Cargo.lock` 里原先一条都没有）。
+# **首次全量编译约 +1 分钟**，之后增量不受影响——别把这段时间当成「哪里配错了」去找。
+#
+# `rfd 0.17` 与 `tauri-plugin-fs` 的源码已经用了 let-chain，**要 rustc ≥ 1.88**；
+# 文件头的 `rust-version = "1.90"` 正好够。这是「别把 MSRV 调低」的又一条具体理由，
+# 比那边「第三方 crate 报语法错」更直接：调低了，报错会出现在这两个依赖的内部文件里。
+tauri-plugin-dialog = "2"
 # 没有直接依赖 serde_json：IPC 的序列化由 tauri 自己做，Rust 侧从不手写 JSON。
 # 需要读 `public/maps/maps.json` 的是前端（`ghost-maps.ts` 走 fetch），不是这里。
 

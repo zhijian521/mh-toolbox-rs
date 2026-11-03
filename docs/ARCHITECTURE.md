@@ -4,7 +4,8 @@
 > 视觉与规范不在这里（见 [`CONVENTIONS.md`](CONVENTIONS.md)），本机环境不在这里（见 [`AGENTS.md`](../AGENTS.md)）。
 >
 > **现状说明**：前端已成型，SQLite 数据层已落地（`src-tauri/src/store.rs`：物价与角色名册
-> 共用 `%APPDATA%\mh-tool-v2\mh-toolbox.db`）；差分 harness 与 SQLite → JSON 反向镜像还没开始。
+> 共用 `%APPDATA%\mh-tool-v2\mh-toolbox.db`），账本的进出落地在 `src-tauri/src/backup.rs`
+> （导出 / 导入 / 清除，见 §2）；差分 harness 与 SQLite → JSON 反向镜像还没开始。
 > 下面带「计划」字样的段落是动手前就定好的边界，不是对现状的描述——
 > 它们写在这里的意义是：第一次写领域代码的人不用自己发明一套。
 
@@ -43,11 +44,22 @@
   └────────────────── 返回值（camelCase）◀──────────────────┘
 ```
 
-- **契约只有一处真源（计划）**：现在 `AppInfo` / `PriceItem` / `PricePoint` 在 Rust 与 TS
-  各写一份，靠 `#[serde(rename_all = "camelCase")]` 对齐。命令**已经 12 个**
-  （`lib.rs` 的 `generate_handler!`：`app_info`、`open_external`、`ghost_*` 两个、`store::` 八个），
+- **契约只有一处真源（计划）**：现在 `AppInfo` / `PriceItem` / `PricePoint` / `ImportSummary` /
+  `ClearSummary` 在 Rust 与 TS 各写一份，靠 `#[serde(rename_all = "camelCase")]` 对齐。命令**已经 15 个**
+  （`lib.rs` 的 `generate_handler!`：`app_info`、`open_external`、`ghost_*` 两个、`backup::` 三个、
+  `store::` 八个），
   早已越过当初定的「5 个以上就必须上 `tauri-specta`」那条阈值，**而 `tauri-specta` 还没接**——
   这不再是「以后再说」，是当前最大的一处欠账：「两边字段名对得上」现在真的靠记忆力。
+  注意 `generate_handler!` 那份表**按平台写了两份**（`#[cfg(windows)]` / `#[cfg(not(windows))]`）：
+  加命令必须两份都加，漏掉非 Windows 那份在本机完全看不出来。
+- **数据进出走 `src-tauri/src/backup.rs`**：三个命令 `data_export` / `data_import` / `data_clear`
+  管的是「离开这台机器的那个文件」——`format` + `app` + `exportedAt` 的信封、`backups/` 下的自动备份、
+  导入前那几条校验。**它不碰 SQL**：读写库一律回落到 `store.rs` 的普通函数，不在那里再写第二份查询。
+  两条语义要记住：**导入 = 整体替换**（动手前把当前数据导一份到 `<数据目录>\backups\`，
+  路径随回执显示给用户）；**清除 = 只清角色与物价**，`meta` 一个字不动——迁移标记清掉了，
+  下次启动会从旧 `localStorage` 又搬一遍，等于把用户刚清掉的再搬回来。
+  旧版 Electron 的 `data.json`（`schemaVersion: 10`，角色结构完全不同）**不在这个入口的范围内**：
+  它会另做一个一次性转换入口，这里的导入只认自己的信封，不认识就拒绝、不猜。
 - **前端状态**：目前 6 个（主题、字号、应用信息、路由、角色名册、物价表）。**不引 Pinia**——
   触发条件是「出现跨三个以上组件的共享业务状态」，届时再上，并在此处记录决定。
   角色名册（`views/characters/roster.ts`）与物价表（`views/prices/prices-store.ts`）都已经

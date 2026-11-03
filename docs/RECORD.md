@@ -4255,3 +4255,57 @@ grid-template-rows: minmax(calc(26px * var(--fs-scale)), auto) auto;
 
 **没做**：剧情技能的图标是深蓝底，`sepia(.42)` 之后仍偏冷（暗色下尤其），要处理得给那一组
 单独配 `filter`。这一批只换了尺寸，色相问题照旧。
+
+### 第 87 批：账本的导出 / 导入 / 清除
+
+用户：「设置页加数据导入导出，方便换机器和备份」。三条操作落一张新卡
+`views/settings/DataSection.vue`，后端新增 `src-tauri/src/backup.rs`，命令表 12 → 15 条。
+
+- **为什么是 JSON 而不是复制 `.db`**：WAL 下最近几笔事务可能还在 `-wal` 里，
+  只复制主库就丢它们（`store::migrate_between` 已经为这件事付过一次代价）；
+  库文件与表结构版本绑死；而这是一份给**人**的备份，两百 KB 的二进制没法贴进聊天窗口求援。
+- **信封五样**：`format` / `app` / `exportedAt` / `characters` / `prices`。没有主题、字号、
+  窗口位置——那些在 `localStorage`，换台机器本来就该不一样。`exportedAt` 用毫秒而不是
+  格式化日期串：不引 `chrono`，且与库里 `created_at` / `updated_at` 同口径。
+- **导入 = 整体替换**，不做合并。「同一个 id 算谁的」没有正确答案，猜错了是悄悄改掉用户的数。
+  替换**之前**先自动写一份 `<数据目录>\backups\账本-before-import-<毫秒>.json`，路径随回执
+  显示在界面上——那是用户唯一能退回去的地方；顺序反过来（替换成功再补备份）在替换半途
+  失败时恰好没有备份。
+- **清除只清角色与物价，`meta` 一个字不动**。`charactersLegacyImported` / `pricesLegacyImported`
+  清掉了，下次启动 `roster.ts` / `prices-store.ts` 会认为「老数据还没搬过」，把旧
+  `localStorage` 再搬一遍——用户刚清干净、重启又回来一批。这条钉成了测试
+  `clear_records_keeps_meta_but_drops_ledger`，不是只写在注释里。
+- 三条 `DELETE` 显式写出（`price_points` → `price_items` → `characters`），不依赖
+  `ON DELETE CASCADE`：外键 pragma 是按连接设的，漏删不报错，只会在库里攒孤儿行。
+- **对话框只走 Rust 侧 `app.dialog()`**，不引 npm 包、不开 capability：前端仍只经 `invoke`
+  说话，`services/` 边界不动。代价是链式带进 `tauri-plugin-fs` / `rfd 0.17` / `notify`，
+  首次全量编译约 +1 分钟；`rfd` 用了 let-chain，要 rustc ≥ 1.88（`rust-version = "1.90"` 够）。
+- `blocking_pick_file` / `blocking_save_file` **不能直调**：`run_on_main_thread` 在主线程
+  自身调用时就地内联，卡住的是 `rx.recv()`，整个窗口假死（macOS / Linux 上是真死锁）。
+  命令虽已是 `async fn`，仍统一丢进 `spawn_blocking`，免得钉住一条 tokio worker。
+- 对话框**必须 `set_parent` 主窗口**：不设时 Windows 上 rfd 走 `Show(None)`，既不属于主窗口
+  也不模态——本仓主窗口 `decorations(false)` + `center()`，点完「导出」看起来像什么都没发生，
+  用户会再点一次；而且它开着时页面按钮照样能点，紧挨着就是「导入」和「清除」。
+- 前端三态（做成 / 取消 / 失败）不复用上面那两组的 `null` / `false`：压成布尔之后「取消」
+  只能读成「失败」，会在界面上留一句红字。取消时**清掉**上一句提示，否则用户以为上一次
+  又发生了一遍。
+- 导入与清除成功后 **`location.reload()`**：`roster` / `prices-store` 都是模块级单例、
+  只在启动时读一次库，库整份换掉了内存里还是旧数组。重载前把提示存 `sessionStorage`
+  （刷新不清、关窗口就没），`onMounted` 取到即删，于是那句「备份在 …」只活一轮。
+- 清除用**就地确认**（按钮改成「确认清除」并灌朱，4 秒无下文退回），不弹对话框：
+  页面上没有对话框这种器件，为一处清空造一个等于把系统弹窗的观感搬进账簿。
+- 排版：数据卡**不通栏**。试过 `.wide`，通栏后宽 1198px 而内容最远只到卡左 408px，
+  右侧空出约 790px（66%），比「说明折一行」更难看。否掉之后落在 `.stack-pair` 第二行左列，
+  右边那格空着是有意的。
+- 顺带补两条全局样式：`.note.positive` 取 `--moss`（成功提示与正收益是同一件事，
+  不为它新开一个色；仍挂在 `.note` 上做复合选择器，不复活当年那个同特异性的 `.positive`）；
+  `.hint b`（文楷没有真粗体，默认 `font-weight: bold` 会合成描边，把「整体替换」糊成一团）。
+
+实测：`npm run check` 全绿（228 条 / 15 文件）、`cargo fmt --check` 干净、
+`cargo test --lib` 通过（含 `clear_records_keeps_meta_but_drops_ledger` 与 `backup.rs` 三条）。
+
+**没做**：① 旧版 Electron 的 `data.json`（`schemaVersion: 10`，角色结构完全不同）
+不在这个入口的范围内，另做一个一次性转换入口；② 导入不是单事务——`clear_all` /
+`characters_save` / `prices_save` 各自提交，中途失败时库是半新半旧，只能靠那份自动备份
+手动退回（要真原子得让 `store` 暴露一个「清空 + 写入」的合并事务）；③ 回执里的条数是
+文件里的条数，重复 `id` 会被 `INSERT OR REPLACE` 吃掉，实际落库可能少一条。
