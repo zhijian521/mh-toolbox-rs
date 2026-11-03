@@ -3,35 +3,69 @@
 「这个游戏里有什么」的表：门派、师门技能、辅助技能、装备、特技、宝石、道具。
 判断标准很简单：**游戏更新时这批数据会变，而我们的代码不该跟着改**。
 
-现在这里只有 `icons.json`（图标清单）。角色页上的门派与技能还住在
-`src/views/characters/mock.ts`——那是一份**演示数据**（为了把版式立起来的一个假角色），
-不是游戏事实表；接真实数据时按下面的约定搬进来。
+现在有三份：
 
-## icons.json 是例外，它不是「一类实体」
+| 文件           | 内容                                      | 谁在维护                                     |
+| -------------- | ----------------------------------------- | -------------------------------------------- |
+| `icons.json`   | 图标清单（文件序号 → 中文名）             | `tools/game-icons/slice.py` 生成，**不手改** |
+| `schools.json` | 21 个门派 + 每家的七项门派技能 + 等级上限 | 手改（游戏加门派 / 改名时）                  |
+| `skills.json`  | 生活技能 21 项、剧情技能 11 项            | 手改（游戏加技能时）                         |
+
+角色页上的**角色数据**（`src/views/characters/mock.ts`）不在这里：那是一份演示数据
+（为了把版式立起来的一个假角色），不是游戏事实表。
+
+## schools.json
+
+```json
+{
+    "cap": 180,
+    "schools": [
+        { "id": "datang", "name": "大唐官府", "skills": ["为官之道", "无双一击", "…共 7 项"] }
+    ]
+}
+```
+
+- `cap` 是**表级**的一个数，不是每项一份：门派技能上限全部一样，分开放就要改 147 处。
+- `skills` 的顺序就是游戏面板的顺序——卡片与编辑器都按它排，别重排。
+- `id` 用拼音小写（`[a-z0-9-]`），稳定不变；`name` 是显示名，游戏改译名时只改它。
+
+## skills.json
+
+```json
+{ "life": ["强身术", "暗器技巧", "…21 项"], "story": ["调息", "打坐", "…11 项"] }
+```
+
+**为什么不是「一条技能一个对象」**：这两张表在我们这里只当**有序名录**用——
+卡片与编辑器按名字查，图标按**下标**拼文件名（`skill-01` = 生活表第 1 项）。
+每条再包一层 `id` 只会多一层要维护的对应关系，而没有任何消费方需要它。
+
+**顺序不能动**：图标文件名是序号，插一项进中间会让后面整体错位
+（`src/services/game-icons.test.ts` 会红，但它红在「名字对不上」而不是「顺序错了」——
+看到它红先想想是不是插行插在中间了）。
+
+## icons.json 是清单，不是实体表
 
 它记的是**资源清单**：哪个图标文件对应哪个名字，由 `tools/game-icons/slice.py` 生成，
 不要手改（重跑脚本会覆盖）。结构：
 
 ```json
 {
-  "generated-by": "tools/game-icons/slice.py",
-  "groups": {
-    "skill": [{ "id": "skill-01", "name": "强身术" }],
-    "story": [...],
-    "active": [...]
-  }
+    "generated-by": "tools/game-icons/slice.py",
+    "groups": {
+        "skill": [{ "id": "skill-01", "name": "强身术" }],
+        "story": [],
+        "active": []
+    }
 }
 ```
 
 它之所以必须存在：图标文件名是序号，序号本身不自解释。清单把「第几个文件是谁」固定下来，
-`src/services/game-icons.test.ts` 再拿它与 `skills.ts` / `character.ts` 的名字表逐项比对——
+`src/services/game-icons.test.ts` 再拿它与 `skills.json` / `character.ts` 的名字表逐项比对——
 错位会直接红，而不是等界面上发现「强身术配了冥想的图」。
 
-## 一个文件一类实体
+## 以后加一类实体
 
 ```
-schools.json   门派：id、名称、师徒关系、可用角色性别
-skills.json    技能：id、名称、所属门派、等级上限、类型（师门/辅助/修炼）
 gear.json      装备：id、名称、部位、等级段、特技、套装
 items.json     道具
 ```
@@ -49,28 +83,18 @@ items.json     道具
 4. **不确定的字段宁可不写**。游戏里没验证过的数值（坐标域、等级上限）写进去就是一个
    日后没人敢删的假事实；等真的量过再补。
 
-## 配套的 TS 接口必须写
+## 配套的 TS：一个加载器，不是一类一个
 
-JSON 没有类型。每加一张表，同时写一份 interface 与加载函数，放 `src/services/game-<类目>.ts`：
+`src/services/game-data.ts` 一个文件管全部数据表（类型、校验、加载、缓存）。加一类新实体
+就往它里面加一个 `parse*` 与一个读法，**不要**新建 `game-gear.ts` 各写一套
+`fetch` / 缓存 / 降级——三件事抄第二遍必有第二种写法。
 
-```ts
-export interface School {
-    id: string;
-    name: string; /* … */
-}
+**不要在组件里直接 fetch**，也不要给每个消费方加 `v-if="表还没回来"`：
 
-let cache: Promise<School[]> | null = null;
+- 加载只发生一次：`src/main.ts` 里 `await loadGameData()` 之后才 `mount`；
+- 之后全站用**同步**的 `gameData()` / `schoolNames()` / `lifeSkills()` 读缓存；
+- 取不回来就退回空表（下拉少几项、图标查不到），应用照常起来。
 
-export function loadSchools(): Promise<School[]> {
-    // fetch(`${import.meta.env.BASE_URL}game/data/schools.json`)
-    // 失败返回 []，不把 reject 过的 promise 留在缓存里（理由同 ghost-maps.ts）
-}
-```
-
-**不要在组件里直接 fetch**：加载、缓存、失败降级三件事各写一遍，迟早各有各的写法。
-
-## 一个必须提前想清的问题
-
-表是**异步加载**的。现在 `mock.ts` 是同步 import，页面组件拿到数据就能渲染；
-换成 JSON 之后首帧必然是空的。落地的做法是「加载完之前显示上一次的数据 / 骨架」，
-而不是给每个消费方加一个 `v-if` —— 后者会让「接真实数据」变成一次全页面改造。
+也就是「表是异步的，但异步只留在边界」——组件里因此没有加载态，`schoolSkills()`、
+图标查表这些还能是同步纯函数，单测也不必改成 async。测试怎么拿到数据：
+`src/services/game-data.fixture.ts` 直接导入这两份 JSON 装进缓存（一行副作用导入）。

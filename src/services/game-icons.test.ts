@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GEAR_ACTIVES } from '../views/characters/character';
-import { LIFE_SKILLS, STORY_SKILLS } from '../views/characters/skills';
+import { lifeSkills, storySkills } from './game-data';
+import './game-data.fixture';
 import { assistIcon, lifeSkillIcon, storySkillIcon } from './game-icons';
 
 /**
@@ -59,15 +60,15 @@ describe('游戏图标清单', () => {
     });
 
     it('三组数量与名字表一致', () => {
-        expect(manifest.groups.skill?.length, '生活技能图标数').toBe(LIFE_SKILLS.length);
-        expect(manifest.groups.story?.length, '剧情技能图标数').toBe(STORY_SKILLS.length);
+        expect(manifest.groups.skill?.length, '生活技能图标数').toBe(lifeSkills().length);
+        expect(manifest.groups.story?.length, '剧情技能图标数').toBe(storySkills().length);
         expect(manifest.groups.active?.length, '装备特技图标数').toBe(GEAR_ACTIVES.length);
     });
 
     it('第 n 个图标的名字就是名字表的第 n 项', () => {
         // 这条是本文件的核心：序号是图标与业务数据之间唯一的连接，错位不会报任何错。
-        expect(manifest.groups.skill.map((entry) => entry.name)).toEqual([...LIFE_SKILLS]);
-        expect(manifest.groups.story.map((entry) => entry.name)).toEqual([...STORY_SKILLS]);
+        expect(manifest.groups.skill.map((entry) => entry.name)).toEqual([...lifeSkills()]);
+        expect(manifest.groups.story.map((entry) => entry.name)).toEqual([...storySkills()]);
         expect(manifest.groups.active.map((entry) => entry.name)).toEqual([...GEAR_ACTIVES]);
     });
 });

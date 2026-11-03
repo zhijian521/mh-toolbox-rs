@@ -71,9 +71,12 @@
     line-height: 1.2;
     white-space: nowrap;
 }
+/* 数字一律用数值墨、比名目大一档（2026-11-03 用户：「数字都不是黑色了，
+ * 稍微放大一点，用一些其他颜色表示」）。`.lv` 在卡上只剩两处：卡头的「130 级」
+ * 与召唤兽的「136 级」——都是读数，不是说明。 */
 .lv {
-    color: var(--ink-2);
-    font-size: var(--fs-sm);
+    color: var(--num);
+    font-size: calc(var(--fs-sm) + 1px);
 }
 /* 门派的框是全局 `.chip`（`base.css`），这里只有一处不同：字用赭色。
  * 赭在这套语言里就管「门派 / 类目」，与苔（达成）、朱（支出）各占一件事。 */
@@ -86,11 +89,11 @@
  * 真要加「更多操作」时，按钮和菜单一起加，别只加按钮。 */
 /* 颜色与字号来自全局 `.meta`；这里只剩排布（三点分隔）与它离上面那行的距离。
  *
- * `nowrap` + 裁切**必须有**：这行副题由三四段拼成（服务器 · 帮派 · 时间），
- * 卡头右侧又要放改 / 删两枚按钮。允许折行时，那两个按钮一变宽（删除确认态就是），
- * 副题就从一行折成四行，整个卡头往下长一截——卡高是写死的 540（`--char-h`），
- * 折行会把它顶到溢出。宁可在窄的一瞬间把末段裁掉：它是**当前值的补充说明**，
- * 不是这一格的核心信息，裁掉不影响读数。 */
+ * `nowrap` + 裁切**必须有**：这行是「区服 · 帮派」两段（2026-11-03 之前是三段，
+ * 还带一句手抄的更新时间），卡头右侧又要放改 / 删两枚按钮。允许折行时，
+ * 那两个按钮一变宽（删除确认态就是），这行就从一行折成四行，整个卡头往下长一截——
+ * 卡高是写死的 580（`--char-h`），折行会把它顶到溢出。宁可在窄的一瞬间把末段裁掉：
+ * 它是**当前值的补充说明**，不是这一格的核心信息，裁掉不影响读数。 */
 .char-sub {
     display: flex;
     align-items: baseline;
@@ -129,10 +132,13 @@
      * 「召唤兽」在 1.1 档占 46，仍有余量（余 13，容得下 1.2 档）。 */
     margin: 0 var(--card-pad-x);
 }
-/* 格内文案比滑块默认规格再收一档：六格各 67.3px，最长的「召唤兽」三个字在
- * 1.1 字号档约 46px——按 `--fs-sm` 排会显得挤，`--fs-xs` 留得下余量。 */
+/* 格内文案回到**滑块默认规格** `--fs-sm`（2026-11-03 用户：「字体偏小，增大一号」）。
+ * 此前为省横向余量收到 `--fs-xs`（11），六格各 67.3 宽时确实放得下，但页签条是卡内
+ * 唯一一排「导航」，11px 的字压在 29px 高的凹槽里，字只占了三分之一，读起来像注脚。
+ * 12px 重新算一遍：六格各 67.3，减 `--step-pad-x` 两侧 8 得 59.3；最长的「召唤兽」
+ * 在 1.1 字号档 3 × 13.2 + 字距 ≈ 41，仍余 18——**六格封顶**这条不变。 */
 .tabs :deep(.step-opt) {
-    font-size: var(--fs-xs);
+    font-size: var(--fs-sm);
     letter-spacing: 0.04em;
 }
 
@@ -145,26 +151,35 @@
     margin-left: auto;
 }
 
+/* 右内边距要**减掉一条滚动条轨道**（`--scrollbar-w`，与 `::-webkit-scrollbar` 同源）。
+ * `scrollbar-gutter: stable` 把轨道常驻在 padding 之外，于是内容盒的右缘被它顶进
+ * 10px——左边 20、右边实际 30，卡里就出现两条基准：页签条（左右各 20）的右端与
+ * 正文右端错开一格（2026-11-03 用户截图：「右边下面的内容没和切换组件对齐」）。
+ * 减掉之后内容盒右缘回到 20，页签条、卡头、正文三者同一条竖线。
+ * 与 `CharacterEditor` 的 `.editor-body`、`base.css` 的 `.page-body` 是同一条做法。 */
 .char-body {
     position: relative;
     z-index: 1;
     flex: 1;
     min-height: 0;
-    padding: 11px var(--card-pad-x) 14px;
+    padding: 11px max(0px, calc(var(--card-pad-x) - var(--scrollbar-w))) 14px var(--card-pad-x);
     overflow: auto;
     /* 滚动条始终占位：六个分区的宽度必须一致，否则切页签时整列文字会左右跳。 */
     scrollbar-gutter: stable;
 }
 
-/* 卡高固定，内容少的分区把注脚压到卡底，空白就成了「间距」而不是「没画完」。 */
+/* 卡高固定，内容少的分区底下会空出一截纸。
+ *
+ * 2026-11-03 之前那里压着一句页脚说明（「生活 8 项 · 剧情 3 项」「携带 4 / 7」这类），
+ * 用户要求**全部删掉**——它们是手抄的注脚，编辑弹窗里没有任何入口能改，
+ * 而且每句都在替读者总结一眼就能数出来的东西。现在空白就只是留白。
+ *
+ * `min-height: 100%` 留着：让分区撑满卡高，列表类的 `flex: 1` 才能把行铺到底
+ * （属性页最后一行落不到卡底，那是对的——它本来就只有二十来行）。 */
 .pane {
     display: flex;
     flex-direction: column;
     min-height: 100%;
-}
-.pane .foot {
-    margin-top: auto;
-    padding-top: 10px;
 }
 
 /* ======================================================================
@@ -187,8 +202,7 @@
 /* 通栏组（潜能：乾元丹 / 潜能果）的规则在 `base.css` 的 `.attr-group.wide`——
  * 卡与编辑弹窗共用一份，这里只给 `--pair-gap`（本表的列距 26）。 */
 /* 经验那一行：短竖条 + 标题 + 条。`margin-top: auto` 不要——它要跟着上面几组走。
- * 属性区**不带注脚**（2026-11-02 用户要求删掉「只记上限」那句），卡底留白就空着；
- * 别的分区那句说明由 `.pane .foot` 压到卡底。 */
+ * 属性区**不带注脚**（2026-11-02 删掉「只记上限」那句），卡底留白就空着。 */
 .exp-row {
     display: flex;
     align-items: center;
@@ -242,7 +256,10 @@
 .ledger dd {
     flex: none;
     margin: 0;
-    color: var(--ink);
+    /* 数比名目大 1px、换数值墨：一行里「气血」与「3916」原先同色同号，
+     * 二十行读下来是一整片匀质的字。 */
+    color: var(--num);
+    font-size: calc(var(--fs-sm) + 1px);
 }
 .ledger dd.strong {
     color: var(--cinnabar);
@@ -256,83 +273,184 @@
 /* ======================================================================
  * 师门
  * ==================================================================== */
-/* 与辅助那一页分开写：师门是「名称 + 等级」两行一列（照游戏面板），
- * 辅助是一张格子图（下一步改）。两页长得不一样，就不该共用一个类。 */
+/* 七项门派技能铺成七条纸带（`.paper-rows` / `.paper-row` 来自 `base.css`，
+ * 与属性页、召唤兽页同一种器件）。行高 `1fr` 均分：七项正好占满一页，
+ * 于是「放大」不是把字号改大，而是让每条带子比属性行更厚——属性行 20 行才够
+ * 一页，这里 7 行，同样的高度分到每条上就是两倍多。行距见 `.school-list` 的 `row-gap`
+ * （2026-11-03 起是 8，不是属性表那 2px 的「纸叠厚度」）。
+ *
+ * 不在这里重写色带与四道棱：那四笔全在 `.paper-row::before` 里，卡与弹窗共用。
+ * 这条页里任何一处自己上色，暗色主题就会是另一块颜色。
+ *
+ * ---- 一条带子里为什么有两段 ----
+ * 原先只有「名称一行 + 小小的等级」和右端一枚 `/180` 的签：七行同权重，读起来像
+ * 七条注记（2026-11-03 用户：「有点太简单了」）。现在左边名称底下压一根**进度条**，
+ * 右边等级用大一号的字、与「/上限」并排——一行里同时有「叫什么」「练到哪」「还差多少」，
+ * 三件事各占一个位置，不必心算 120 与 180 差多少。
+ *
+ * 为什么进度条 4px、与修炼那条同款粗细：它是一根刻度，不是装饰。再粗就把带子切成两半，
+ * 再细在暗色下等于一条隐形线（`--well` 只比纸暗一档，所以要借 `--bevel-lo` 的内影
+ * 与 `--rule-2` 的描边定边界）。 */
 .school-list {
     display: grid;
+    grid-auto-rows: 1fr;
+    /* 行间 2 → 8（2026-11-03 用户：「门派技能列表上下的间距稍微大一些」）。
+     *
+     * 这一页七行挤满一卡，2px 的缝在纸上几乎看不见——七条纸带连成一整片，
+     * 「一行一项」得靠进度条和数字去切。缝拉到 8 之后每条带子各自成行，
+     * 行高从 61 收到 54.6（仍比属性行的 26 厚一倍多），内容的单行 19 两端各有
+     * 八九像素的余量，不挤。
+     *
+     * 缝走 `row-gap` 而不是让 `.paper-row + .paper-row` 的 `margin-top` 管：
+     * 那条 2px 是给属性表「一叠纸」的厚度，这里要的是「行距」——两个意思不该共用一个值，
+     * 共用了就变成「改厚度顺手改了行距」。下面的归零是配套的，不归零缝会叠成 10。 */
+    row-gap: 8px;
     flex: 1;
-    /* 行数少（七项）时把行距摊开，而不是在底下留一截空白。 */
-    align-content: space-between;
 }
+.school-list .paper-row + .paper-row {
+    margin-top: 0;
+}
+/* 组头多一行「几项练满」：七根条子并排时，用眼睛数「哪几根满」比读一个 2/7 慢。
+ *
+ * 这一行的标题叫「门派技能」而不是「师门」：页签名已经是「师门」，重复一次只是把
+ * 同一个词写两遍；而这一页真正在列的是**门派给的那七项**，与旁边那张
+ * 生活 / 剧情技能的格子表正好分开。 */
+.school-head {
+    margin-bottom: 8px;
+}
+.school-sum {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.08em;
+}
+/* 左边一列吃满剩余宽度：进度条要跟到等级前面停住，`flex: none` 时它会缩成一小截，
+ * 读作「这一项只有这么点」而不是「这一项练到了这儿」。 */
 .school-row {
-    display: flex;
     align-items: center;
-    gap: 7px;
-    padding: 7px 0;
-    border-bottom: var(--w-hair) solid var(--rule);
-}
-/* 引线在这一行要单独对位。`.leader` 默认那条 `translateY(-2px)` 是照属性行
- * （`align-items: baseline`、一行文字）调的；师门行是「名称 16 + 1 + 等级 14」的
- * 竖排，行盒 45 且 `align-items: center`，4px 的点带被居中到 18，点中心落在 20——
- * 比名称的 x-height 中线（16.6）低 3.5，视觉上挂在名字下面、快贴着等级了。
- * 名字才是这条线的起点，所以再抬 3：点落在 17，与名称齐腰。
- * 换行高、换字号这一档要跟着重算（12px 字 + 1.35 行高 → x-height 6、基线 19.6）。 */
-.school-row .leader {
-    transform: translateY(-5px);
+    gap: 14px;
+    /* 底下那 14px 是留给进度条的**外置**位置：条是绝对定位、铺满整条带子，
+     * 不参与这一行的对齐计算。放进行内的话，「名称」与「等级」会各自按
+     * 「字 + 条」这个整体去居中，数字于是落在字与条之间的缝里，
+     * 读起来像「120 是那根条的标签」。
+     *
+     * 条铺满整行（含数字底下）而不是只铺名称那一段：只铺一段时它的右端会随手停住，
+     * 像一条被截断的线；铺满才读得出「这一行练到了百分之几」。 */
+    padding: 4px 10px 14px;
 }
 .school-text {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    /* 不 `flex: 1`：撑满会把右侧的签顶到卡边，中间那段空白就靠点线连起来
-     * （`.school-row .leader`）。名字最长「混元道果」四个字，本来也不需要撑满。 */
-    flex: none;
+    display: block;
+    flex: 1;
     min-width: 0;
 }
 .school-text .name {
+    overflow: hidden;
     color: var(--ink);
     font-size: var(--fs-sm);
-    line-height: 1.35;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
-/* 等级比名称小一档、低一档墨：它是名称的注脚，不是第二个标题。 */
-.school-text .lv {
-    color: var(--ink-2);
+/* 槽要有边界：`--well` 在暗色只比 `--paper` 暗一档，4px 高的条在深底上等于一条
+ * 隐形线，练到 30% 与 60% 只能靠条端的位置猜。做法与 `.training-row .track` 同一套
+ * （不套全局 `.well`——那套带渐变和 1px 边框，压到 4px 高会读成一枚胶囊）。 */
+.school-track {
+    position: absolute;
+    right: 10px;
+    bottom: 8px;
+    left: 10px;
+    height: 4px;
+    border-radius: 2px;
+    background-color: var(--well);
+    box-shadow:
+        inset 0 1px 2px var(--bevel-lo),
+        0 0 0 1px color-mix(in srgb, var(--rule-2) 45%, transparent);
+    overflow: hidden;
+}
+/* 用 `--moss` 而不是蓝：这套语言的辅助色只有赭与苔（与修炼那条同一个理由）。
+ * 高光是独立的 box-shadow，不写进 background 简写——简写里只要有一个值解析失败，
+ * 整条声明都会被丢掉，条会静默变成透明。 */
+.school-track i {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--moss);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--moss) 55%, var(--paper-base));
+}
+/* 练满那一项的条改灌朱印色（填充引 `--seal`，`--cinnabar` 只用于字与线）。
+ * 满条与「满」字同色，是同一个意思的两种写法，不另立一套记号。 */
+.school-row.full .school-track i {
+    background: var(--seal);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--seal) 55%, var(--paper-base));
+}
+/* 右边一列：等级大一号、与「/上限」同基线。等级是这一页要读的那个数，
+ * 原先它与名称一样大（`--fs-mini`），七行读下来分不出「名字」与「数值」。 */
+.school-val {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+    flex: none;
+    margin: 0;
+}
+.school-val .lv {
+    color: var(--num);
+    /* 15.5 → 17.5：这一页的等级是「一眼要读的数」，小一号时字号与块面一样高，
+     * 远看只是行尾一撮字。 */
+    font-size: calc(var(--fs-md) + 3px);
+    line-height: 1;
+}
+.school-val .cap {
+    color: var(--muted);
     font-size: var(--fs-mini);
-    line-height: 1.3;
 }
-.school-text .lv.max {
+/* 满级那一项：数、分母一起转朱。不另挂一枚「满」的签——分母那一格本来就写「满」，
+ * 再加一个框只是把同一句话说两遍。 */
+.school-row.full .school-val .lv,
+.school-row.full .school-val .cap {
     color: var(--cinnabar);
 }
 .school-row.off .school-text .name {
     color: var(--muted);
 }
-.school-row .tag {
-    flex: none;
-}
-.school-row .tag.on {
-    border-color: var(--seal-edge);
-    color: var(--seal);
+/* 未学：条也淡一档，但仍然写着百分比——「没学」与「学了 0 级」在这一页是同一件事。 */
+.school-row.off .school-track i {
+    background: color-mix(in srgb, var(--moss) 45%, var(--paper-2));
+    box-shadow: none;
 }
 
 /* ======================================================================
  * 辅助
  * ==================================================================== */
-/* 一格 = 图标 + 等级 + 名字。四列，与游戏那张面板一致（它一屏 4 × 3 = 12 格）。
+/* 一格 = 图标 + 等级 + 名字。**五列**（2026-11-03 用户：「一行四个有点松散，改成五个」）。
+ *
+ * 游戏那张面板是四列，但它是满屏铺开的；我们只有一张 450 宽的卡，四列时每格 97，
+ * 48 的块居中后左右各空 24——11 个图标读成"散落的邮票"。五列每格 76.8，块两侧留 14，
+ * 图标之间净距从 55 降到 35，一格一格才连成表。
  *
  * 名字是**我们加的**：游戏里图标即名字（玩家认得），可这张表是拿来核对的——
  * 「哪个技能 100 级」靠图形认太慢，一行小字更直接。它排在等级下面，
- * 字号比等级还小一档，所以不会抢走「等级才是要读的那个数」。 */
+ * 字号比等级还小一档，所以不会抢走「等级才是要读的那个数」。
+ *
+ * 生活与剧情是**两块**，中间一道账线隔开（2026-11-03 用户：「辅助和剧情分开，
+ * 上面辅助下面剧情」）：两组合在一处时，11 个格子连成一片，读起来像「这一页有 11 项」，
+ * 而实际是两把不同的尺子——生活技能能练到 100+，剧情技能最高 5 级。
+ * 线而不是留白：留白在网格里只读成「换行了」，一条 1px 账线才说得清「另一类」。
+ */
 .assist-groups {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
+}
+.assist-group + .assist-group {
+    padding-top: 13px;
+    border-top: var(--w-hair) solid var(--rule);
 }
 .assist-group .group-head {
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 .assist-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 14px 6px;
 }
 .assist-cell {
@@ -342,28 +460,67 @@
     gap: 3px;
     min-width: 0;
 }
-/* 图标底板：96 × 96 的原图里图标本体占 86–88，缩到 56 显示时四周那一圈透明边
- * 正好当留白。底板本身不上色——图标自带深色底，再加一块会读成「贴了张卡」。 */
-.assist-icon {
-    display: grid;
-    place-items: center;
-    width: 56px;
-    height: 56px;
-    /* 没有图标的技能（用户手敲的新名字）留一块淡槽，不塌成零宽。 */
-    border-radius: var(--r-2);
-    /* `overflow` 与底板同圆角：图标是 96px 的方图，不裁就是四个直角压在圆角凹槽上，
-     * 读作「贴了一张方形贴纸」。 */
-    overflow: hidden;
-    background: color-mix(in srgb, var(--well) 55%, transparent);
+/* 图标底板：一块**压印块**（`PressTile`，与装备格同一个器件）。
+ * 图标从 56 缩到 40（2026-11-03 用户：「图标有点大」）：卡里并排时 56 的方图
+ * 几乎顶到列宽，格子之间只剩一条缝，11 个图标读成一整片深色。
+ *
+ * 块面用 `--paper-2`：卡底就是 `--paper`，与它同色的块只剩四道棱，
+ * 读作「这格画得比较淡」而不是「纸上压着一块东西」（装备格是同一个理由）。
+ * `--tile-drop: 0.75`：48px 的块落 8px 软影会变成「飘着的卡片」。 */
+.assist-tile {
+    --tile-w: 48px;
+    --tile-h: 48px;
+    --tile-r: var(--r-2);
+    --tile-face: var(--paper-2);
+    --tile-drop: 0.75;
 }
-.assist-icon img {
+/* 图标外面这一层只为一件事：**蒙版**（`::after`）——`<img>` 是替换元素，
+ * 自己长不出伪元素，只能套一层壳。
+ *
+ * 为什么蒙：游戏图标是深底金纹（剧情那几项还是深蓝底）的方图，直接贴在这张宣纸上，
+ * 一块块全是"贴纸"，色相也不在这套墨 / 朱 / 赭里（2026-11-03 用户：「原本游戏图标
+ * 不很好看，加点蒙版遮挡一下，同步主题风格」）。两件事一起做，缺一不可：
+ *   1. 壳上盖一层**纸色的纱**（`--assist-veil`），把深底往纸色提，同时压掉对比；
+ *   2. 图自身 `sepia` 暖化、降饱和（见 `.assist-img` 的 `filter`）——只盖纱的话，
+ *      图标仍是"冷色调蒙了层灰"，纱只降存在感，不改色相；而蓝色在这套暖色纸里
+ *      永远跳，必须靠 sepia 把它拉进褐调。
+ * 38% 是量出来的临界：34% 时深蓝底还看得出是蓝的，44% 起图案边缘开始发糊、
+ * 形状认不准（图标仍要能认，它不是纯装饰）。
+ * 暗色只给 18%：深色纸本身就把图标压住了，同一层纱会把图案糊成一团墨。 */
+.assist-shot {
+    --assist-veil: 38%;
+    position: relative;
+    display: block;
+    width: 40px;
+    height: 40px;
+    /* 圆角比块小一档：同值会让图标的直角顶在块的圆角内侧，两圈弧线差半个像素，
+     * 看着像没对齐。`overflow` 与它同值，图标才裁得进这圈弧线里。 */
+    border-radius: calc(var(--r-2) - 3px);
+    overflow: hidden;
+}
+.assist-shot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: color-mix(in srgb, var(--paper) var(--assist-veil), transparent);
+    pointer-events: none;
+}
+:root.dark .assist-shot {
+    --assist-veil: 18%;
+}
+.assist-img {
+    display: block;
     width: 100%;
     height: 100%;
     object-fit: contain;
+    /* `sepia 0.42` 是"拉进褐调"的主力：四成转褐之后，深蓝也会读作旧墨；
+     * `saturate 0.72` 收掉卡通色的艳；`contrast 0.95` 只压一点点——压多了图案
+     * 边缘就糊，11 个图标会变成 11 块色斑。 */
+    filter: sepia(0.42) saturate(0.72) contrast(0.95) brightness(1.05);
 }
 .assist-lv {
-    color: var(--ink-2);
-    font-size: var(--fs-sm);
+    color: var(--num);
+    font-size: calc(var(--fs-sm) + 1px);
     line-height: 1.2;
 }
 .assist-lv.max {
@@ -378,8 +535,9 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-/* 未学：整格压一档，但仍占位（少一格会让人以为漏记了）。 */
-.assist-cell.off .assist-icon {
+/* 未学：整格压一档，但仍占位（少一格会让人以为漏记了）。压的是块与字，
+ * 不换块面颜色——换色会让「未学」与「另一种技能」混起来。 */
+.assist-cell.off .assist-tile {
     opacity: 0.45;
 }
 .assist-cell.off .assist-name,
@@ -405,15 +563,27 @@
      * 11px 能在 365px 里放下（实测 310），读起来才是一行一项而不是一段文字。 */
     gap: 11px;
 }
+/* 三列：项名 / 条 / 读数。
+ *
+ * 名称列从 62 收到 **78**：62 是按「攻击修炼」四字（48）定的，而「宠物修炼」这组
+ * 有五字项（攻击控制力、防御控制力…），1.1 档下 5 × 13.2 ≈ 66 撑破 62 → 折成两行，
+ * 那一行就成了双倍高、条与数字跟着错位（2026-11-03 用户：「攻击控制力等等换行了，
+ * 不让其换行」）。78 按最长项 + 字距留余量，两组上下仍同一列。
+ *
+ * `nowrap` 与 `ellipsis` 是兜底：将来游戏加了更长的项名，宁可截断也不能折行——
+ * 折行会把这一行的三件东西（名、条、数）一起挤歪。 */
 .training-row {
     display: grid;
-    grid-template-columns: 62px 1fr 42px;
+    grid-template-columns: 78px 1fr 42px;
     align-items: center;
     gap: 8px;
     font-size: var(--fs-sm);
 }
 .training-row .name {
+    overflow: hidden;
     color: var(--ink);
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .training-row .track {
     position: relative;
@@ -442,8 +612,8 @@
     box-shadow: inset 0 1px 0 color-mix(in srgb, var(--moss) 55%, var(--paper-base));
 }
 .training-row .lv {
-    color: var(--muted);
-    font-size: var(--fs-xs);
+    color: var(--num);
+    font-size: calc(var(--fs-sm) + 1px);
     text-align: right;
 }
 .training-row.done .lv {
@@ -452,6 +622,11 @@
 /* 0 级的那几项整行淡下去：它们不是「数据」，是「还没开始」。
  * 十行里有六行是 0，不淡下来会让人以为这一页练了很多。 */
 .training-row.idle .name {
+    color: var(--muted);
+}
+/* 0 级那一行连数也退一档：`0/20` 用数值墨会与「练了一半的 11/20」同样醒目，
+ * 而它想说的是「还没开始」。压回次级墨，名字与数一起淡下去。 */
+.training-row.idle .lv {
     color: var(--muted);
 }
 
@@ -562,7 +737,8 @@
 }
 .gear-meta .push {
     margin-left: auto;
-    color: var(--muted);
+    color: var(--num);
+    font-size: calc(var(--fs-sm) + 1px);
 }
 
 /* ======================================================================
@@ -615,9 +791,6 @@
     color: var(--ink);
     transition: color var(--t-quick) var(--ease-soft);
 }
-.pet-row .lv {
-    color: var(--ink-2);
-}
 /* 参战等级的框是全局 `.chip`；这里只留「别被长名字挤没」。 */
 .pet-join {
     flex: none;
@@ -630,11 +803,4 @@
     color: var(--muted);
     font-size: var(--fs-sm);
     text-align: center;
-}
-/* 行数少（这个号 4 只）时列表撑不满卡高。让合计**紧跟列表**，不跟着
- * `margin-top: auto` 落到卡底——那样列表与合计之间会隔出一百多像素，
- * 读起来像「还有内容没加载出来」。空白留在合计下面，与装备页
- * 「格子排完、底下留白」是同一种读法。 */
-.pane-pets .foot {
-    margin-top: 10px;
 }

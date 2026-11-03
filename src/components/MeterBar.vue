@@ -78,8 +78,10 @@ withDefaults(
 }
 .meter-text {
     flex: none;
-    color: var(--ink-2);
-    font-size: var(--fs-sm);
+    /* 与卡片上其他读数同一支笔（`--num`）：这条是「离下一级还有多远」，
+     * 是这一行唯一的数。比正文大 1px——它得从旁边的标题里读出来。 */
+    color: var(--num);
+    font-size: calc(var(--fs-sm) + 1px);
     white-space: nowrap;
 }
 </style>

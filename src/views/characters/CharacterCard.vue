@@ -15,6 +15,7 @@ import {
     type GearDetail,
     type PaneKey,
     type Pet,
+    type SkillRow,
 } from './character';
 
 /**
@@ -23,9 +24,9 @@ import {
  * 为什么不是「侧边竖排按钮 + 一张长卡」：卡宽只有 450，侧栏一挤就变成第三列；
  * 而且名册一行要放两张，切换控件只能收进卡内。
  *
- * 为什么卡高写死 540：同一行的卡必须**齐头齐脚**，否则第二行会被最高那张顶歪。
- * 代价是内容少的分区（召唤兽）底下会空一块，所以那几页把注脚用 `margin-top: auto`
- * 压到卡底——空出来的部分读作页脚留白，而不是「没画完」。
+ * 为什么卡高写死 580（`--char-h`）：同一行的卡必须**齐头齐脚**，否则第二行会被最高那张顶歪。
+ * 代价是内容少的分区（召唤兽）底下会空一块——那里就只是留白，不再压一句页脚说明
+ * （2026-11-03 用户要求删掉卡片上所有手抄的注脚）。
  *
  * 六个页签均分卡宽：`(450 − 28 − 4) / 6 ≈ 69.7` 一格，最长的「召唤兽」三个字
  * 在 1.1 字号档约 46px，余量 23。卡宽一改就要重算这个数，**仍是六格封顶**——
@@ -105,6 +106,30 @@ const expPercentValue = computed(() =>
     expPercent(props.character.experience.value, props.character.experience.need),
 );
 
+/* 门派技能的两种读法：**到顶了没有**、**离顶还有多远**。
+ *
+ * 上限可能缺席（老数据、以及编辑弹窗里自由加的行），那时这两样都不给：
+ * 没有分母的百分比是编出来的，画一根永远不满的条比不画更糟。 */
+function isMaxed(row: SkillRow): boolean {
+    return row.cap !== undefined && row.level >= row.cap;
+}
+
+/* 百分比一律钳在 0–100：等级是手填的，写超上限（25/20）时条会伸到格子外面
+ * （实测 125% → 340px，压过 272px 的槽）。数字照原样显示 25/20——那是事实，
+ * 只是条不该跟着溢出。 */
+function rowPercent(level: number, cap: number): number {
+    if (!cap) return 0;
+    return Math.max(0, Math.min(100, Math.round((level / cap) * 100)));
+}
+
+function skillPercent(row: SkillRow): number | null {
+    if (!row.cap) return null;
+    return rowPercent(row.level, row.cap);
+}
+
+/* 七项里练成几项：写在组头右端，比让读卡的人自己数七根条子快。 */
+const schoolMaxed = computed(() => props.character.skills.filter(isMaxed).length);
+
 /* 生活与剧情分两段，各自一张格子图。空的那一类不出现——
  * 一个只有生活技能的角色，不该看到一行「剧情技能」然后底下什么都没有。 */
 const assistGroups = computed(() =>
@@ -114,8 +139,9 @@ const assistGroups = computed(() =>
     ].filter((group) => group.rows.length > 0),
 );
 
-/* 图标按「名字 + 类」查（`services/game-icons.ts`）：生活技能与剧情技能是两套文件名，
- * 名字在两张表里都可能出现（比如「冥想」只在生活表里），所以必须带 kind 一起查。 */
+/* 图标按「名字 + 类」查（`services/game-icons.ts`）。两张名录里的名字并不重合，
+ * 但**仍要带 kind**：图标按各自表里的下标编号（`skill-01` / `story-01`），
+ * 只给名字的话就得先猜它属于哪一类。 */
 function iconOf(row: AssistSkill): string | undefined {
     return assistIcon(row.name, row.kind);
 }
@@ -138,11 +164,12 @@ const expText = computed(() => {
                          比不画更像「这里坏了」。 -->
                     <span v-if="character.school" class="chip school">{{ character.school }}</span>
                 </div>
-                <p v-if="character.subs.length" class="meta char-sub">
-                    <template v-for="(sub, i) in character.subs" :key="sub">
-                        <span v-if="i > 0" class="dot">·</span>
-                        <span>{{ sub }}</span>
-                    </template>
+                <!-- 名字下面那行小字：区服 · 帮派。两项各自 `v-if`，
+                     只填了一项时不是「A · 」，也不会留下一个空的点。 -->
+                <p v-if="character.server || character.guild" class="meta char-sub">
+                    <span v-if="character.server">{{ character.server }}</span>
+                    <span v-if="character.server && character.guild" class="dot">·</span>
+                    <span v-if="character.guild">{{ character.guild }}</span>
                 </p>
             </div>
             <!-- 卡头右侧：改与删。两枚都是纯图标 26px，与左栏、工具页同一种压印块。
@@ -225,40 +252,48 @@ const expText = computed(() => {
                 role="tabpanel"
                 :aria-labelledby="`${character.id}-tab-skills`"
             >
-                <!-- 名称在上、等级在下，照游戏「师门技能」面板那一列：
-                     每一行是一行半（名称 + 等级小字），比「名称 …… 等级」的账页
-                     更贴近屏幕上看到的样子，也给将来的技能图标留出左侧的位。 -->
-                <div class="school-list">
+                <!-- 与属性页同一种器件：`.paper-row`（凸起的纸带，行距 8 由 `row-gap` 给，
+                     不是属性表那 2px 的「纸叠厚度」）。
+                     一条带子里两段：左边「名称 + 到顶还有多远」，右边「等级 + 上限」。
+                     等级用大一号的字面、右对齐——这一页要读的就是它，原先和名称一样大
+                     （`--fs-mini`）时，七行读下来像七行同权重的注记。
+                     进度条是**这条带子的第二种读法**：120 与 180 差多少不必心算；
+                     到顶那几项条满、字转朱、分母换成「满」，一眼数得出练成了几项。
+                     上限缺席（老数据）时不画条也不猜分母——见 `skillPercent`。 -->
+                <div v-if="character.skills.length" class="group-head school-head">
+                    <span class="section-mark"></span>门派技能
+                    <span class="school-sum num"
+                        >已满 {{ schoolMaxed }}/{{ character.skills.length }}</span
+                    >
+                </div>
+                <dl v-if="character.skills.length" class="school-list paper-rows">
                     <div
                         v-for="row in character.skills"
                         :key="row.name"
-                        class="school-row"
-                        :class="{ off: row.off }"
+                        class="paper-row school-row"
+                        :class="{ off: row.off, full: isMaxed(row) }"
                     >
-                        <span class="school-text">
+                        <dt class="school-text">
                             <span class="name">{{ row.name }}</span>
                             <span
-                                class="lv num"
-                                :class="{ max: row.cap !== undefined && row.level >= row.cap }"
+                                v-if="skillPercent(row) !== null"
+                                class="school-track"
+                                aria-hidden="true"
                             >
-                                {{ row.level }}
+                                <i :style="{ width: `${skillPercent(row)}%` }"></i>
                             </span>
-                        </span>
-                        <!-- 点线把「名字 + 等级」与右侧的签连起来。没有它，中间那片空白
-                             读作「两列」，而这一页跟属性、召唤兽一样是一条一条的账。 -->
-                        <span class="leader"></span>
-                        <!-- 师门上限 180（用户 2026-11-02 确认）。知道上限才挂签，
-                             不知道就不猜——`cap` 缺席时这一列留空。 -->
-                        <span
-                            v-if="row.cap !== undefined"
-                            class="chip tag"
-                            :class="{ on: row.level >= row.cap }"
-                        >
-                            {{ row.level >= row.cap ? '满' : `/${row.cap}` }}
-                        </span>
+                        </dt>
+                        <dd class="school-val num">
+                            <span class="lv">{{ row.level }}</span>
+                            <!-- 分母只在知道上限时才写：`cap` 缺席时这一格留空，
+                                 猜一个数比不写更糟。 -->
+                            <span v-if="row.cap !== undefined" class="cap">
+                                {{ isMaxed(row) ? '满' : `/${row.cap}` }}
+                            </span>
+                        </dd>
                     </div>
-                </div>
-                <p v-if="character.skillFoot" class="hint foot">{{ character.skillFoot }}</p>
+                </dl>
+                <p v-else class="empty-note">还没有记录门派技能</p>
             </section>
 
             <!-- ---------- 辅助 ---------- -->
@@ -269,7 +304,8 @@ const expText = computed(() => {
                 role="tabpanel"
                 :aria-labelledby="`${character.id}-tab-assist`"
             >
-                <!-- 格子，照游戏「辅助技能」面板：一行四个，图标在上、等级在下。
+                <!-- 格子，照游戏「辅助技能」面板：一行五个（卡只有 450 宽，四列时每格
+                     左右各空 24，读作散落的邮票），图标在上、等级在下。
                      生活技能与剧情技能合在同一张图里（游戏里就是同一个入口），
                      但等级下面那行小字把名字补上——图标是我们从截图切的，
                      用户认得图标，可这张表是拿来核对的，名字比图形可靠。 -->
@@ -288,9 +324,16 @@ const expText = computed(() => {
                                 :class="{ off: row.off }"
                                 :title="`${row.name} ${row.level}${row.cap ? `/${row.cap}` : ''}`"
                             >
-                                <span class="assist-icon">
-                                    <img v-if="iconOf(row)" :src="iconOf(row)" alt="" />
-                                </span>
+                                <!-- 图标压在一块**压印块**上（与装备格同一个器件）：
+                                     裸图标摆在纸上像贴纸，块把四周的纸顶起来，
+                                     图标才有「嵌在卡片里」的落点。`still` 关掉悬停与按下——
+                                     这一格点不动，别给「按我」的暗示。
+                                     `assist-shot` 那层壳只用来盖纸色蒙版（`<img>` 长不出伪元素）。 -->
+                                <PressTile still class="assist-tile">
+                                    <span v-if="iconOf(row)" class="assist-shot">
+                                        <img class="assist-img" :src="iconOf(row)" alt="" />
+                                    </span>
+                                </PressTile>
                                 <span
                                     class="assist-lv num"
                                     :class="{
@@ -304,7 +347,9 @@ const expText = computed(() => {
                         </div>
                     </section>
                 </div>
-                <p v-if="character.assistFoot" class="hint foot">{{ character.assistFoot }}</p>
+                <!-- 两项都没有时给一句话，与师门、召唤兽两页同一句式：
+                     空白的纸页读作「没画完」，一句话才说明「这里本来就还没记」。 -->
+                <p v-if="!assistGroups.length" class="empty-note">还没有记录辅助技能</p>
             </section>
 
             <!-- ---------- 修炼：两组，组是游戏自己划的 ---------- -->
@@ -329,14 +374,13 @@ const expText = computed(() => {
                             >
                                 <span class="name">{{ row.name }}</span>
                                 <span class="track"
-                                    ><i :style="{ width: `${(row.level / row.cap) * 100}%` }"></i
+                                    ><i :style="{ width: `${rowPercent(row.level, row.cap)}%` }"></i
                                 ></span>
                                 <span class="lv num">{{ row.level }}/{{ row.cap }}</span>
                             </div>
                         </div>
                     </div>
                 </div>
-                <p v-if="character.trainingFoot" class="hint foot">{{ character.trainingFoot }}</p>
             </section>
 
             <!-- ---------- 装备：3 列 × 4 行，悬停看详情 ---------- -->
@@ -414,7 +458,6 @@ const expText = computed(() => {
                     </button>
                 </div>
                 <p v-else class="empty-note">还没有记录召唤兽</p>
-                <p v-if="character.petFoot" class="hint foot">{{ character.petFoot }}</p>
             </section>
         </div>
 

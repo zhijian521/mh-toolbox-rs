@@ -122,26 +122,62 @@ describe('技能与修炼', () => {
         expect(zero.cap).toBeUndefined();
     });
 
-    it('修炼的上限缺了按名字补回固定值，不落成 0', () => {
-        /* 修炼上限是游戏给的（20，育兽术 35），不是用户填的。落成 0 的后果比技能更重：
-         * 卡上是 `row.level >= row.cap` 判「练满」，进度条还算 `level / cap`——
-         * 十项修炼会全部标成已完成，宽度是 NaN%。 */
+    it('修炼按固定清单重建：组名归位、清单外的项丢掉、等级按项名对回去', () => {
+        /* 上一版的编辑器能改组名、能加行、能调上限（2026-11-03 用户要求「不可编辑」）。
+         * 现在结构由 `TRAINING_GROUPS` 定，数据只留等级——老存档里那些改动要归位，
+         * 但**已练的等级不能跟着组名一起被抹掉**，所以按项名对回去。
+         *
+         * 上限若被落成 0 后果比技能更重：卡上是 `row.level >= row.cap` 判「练满」，
+         * 进度条还算 `level / cap`——十项会全部标成已完成，宽度是 NaN%。 */
         const [own, beast] = normalizeCharacter({
             trainings: [
                 { title: '角色自身修炼', rows: [{ name: '攻击修炼', level: 11 }] },
                 {
                     title: '召唤兽控制修炼',
                     rows: [
-                        { name: '育兽术', level: 0 },
+                        { name: '育兽术', level: 7 },
                         { name: '自造的项', level: 3 },
                     ],
                 },
             ],
         }).trainings;
-        expect(own.rows[0].cap).toBe(20);
-        expect(beast.rows[0].cap).toBe(35);
-        // 认不出的项落到 20——宁可给一个常见值，也不要给 0。
-        expect(beast.rows[1].cap).toBe(20);
+
+        expect(own.title).toBe('任务修炼');
+        expect(beast.title).toBe('宠物修炼');
+        // 清单十项一项不少，且清单外的「自造的项」不出现。
+        expect(own.rows).toHaveLength(5);
+        expect(beast.rows.map((row) => row.name)).toEqual([
+            '攻击控制力',
+            '防御控制力',
+            '法术控制力',
+            '抗法控制力',
+            '育兽术',
+        ]);
+        // 等级按名字对回去；上限一律照常量（育兽术 35，其余 20）。
+        expect(own.rows.find((row) => row.name === '攻击修炼')?.level).toBe(11);
+        expect(beast.rows.find((row) => row.name === '育兽术')).toMatchObject({
+            level: 7,
+            cap: 35,
+        });
+        expect(beast.rows.every((row) => row.cap === (row.name === '育兽术' ? 35 : 20))).toBe(true);
+    });
+
+    it('同类同名的辅助技能只留第一条——卡片的 key 靠「类 + 名字」', () => {
+        /* 名字现在从名录里选，重复很容易发生（选了一遍又加一行再选同一个）。
+         * 重复的后果不是「多一格」这么轻：卡内 `v-for` 用 `kind + name` 当 key，
+         * 重复 key 会让 Vue 复用错元素，改一行另一行跟着变（2026-11-03 实测过）。
+         * 不同类的同名要留着——那本来就是两个技能。 */
+        const character = normalizeCharacter({
+            assists: [
+                { name: '强身术', level: 100, kind: 'life' },
+                { name: '强身术', level: 33, kind: 'life' },
+                { name: '强身术', level: 5, kind: 'story' },
+            ],
+        });
+        expect(character.assists.map((row) => `${row.kind}-${row.name}-${row.level}`)).toEqual([
+            'life-强身术-100',
+            'story-强身术-5',
+        ]);
     });
 });
 

@@ -9,13 +9,14 @@ import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
+import SelectField from '../../components/SelectField.vue';
 import SlotButton from '../../components/SlotButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import { useFontScale } from '../../composables/use-font-scale';
 import { THEME_OPTIONS, useTheme } from '../../composables/use-theme';
 
 /**
- * 原子组件：八个抽出来复用的小件。
+ * 原子组件：九个抽出来复用的小件。
  *
  * 这张卡不是演示页，是**验收面**——新控件先进这里，再进业务页面。
  * 它和「外观」共用同一份状态（单例 composable），所以在上面切主题、拖字号，
@@ -38,10 +39,16 @@ const DEMO_PANES: { value: 'attrs' | 'skills' | 'assist'; label: string }[] = [
     { value: 'assist', label: '辅助' },
 ];
 const demoPane = ref<'attrs' | 'skills' | 'assist'>('attrs');
+
+/** 下拉的演示：选项要够多（能滚）也要有长短差（能看出省略号）。 */
+const DEMO_SCHOOLS = ['未选', '大唐官府', '方寸山', '化生寺', '阴曹地府', '五庄观', '东海渊'].map(
+    (name) => ({ value: name === '未选' ? '' : name, label: name }),
+);
+const demoSchool = ref('五庄观');
 </script>
 
 <template>
-    <LedgerSection title="原子组件" hint="抽出来复用的八件，业务页直接拿去用">
+    <LedgerSection title="原子组件" hint="抽出来复用的九件，业务页直接拿去用">
         <div class="kit atoms-kit">
             <div class="kit-cell">
                 <span class="col-head">SegmentedPills · 分段胶囊</span>
@@ -188,6 +195,24 @@ const demoPane = ref<'attrs' | 'skills' | 'assist'>('attrs');
                 <p class="note">
                     凹槽里灌一段朱色。它<b>不是滑块</b>——没有落点、不能拖；分母未知时轨道留空，
                     不画成 0%。高度走 <code>--meter-h</code>，角色卡的经验条给 14。
+                </p>
+            </div>
+
+            <div class="kit-cell">
+                <span class="col-head">SelectField · 下拉</span>
+                <div class="kit-row">
+                    <SelectField
+                        v-model="demoSchool"
+                        class="demo-select"
+                        :options="DEMO_SCHOOLS"
+                        label="演示：门派"
+                        placeholder="未选"
+                    />
+                </div>
+                <p class="note">
+                    凹槽是 <code>.field</code> 那一份，纸片与浮片同一条影子。当前项用朱字 +
+                    朱色短竖条；<b>焦点不离开触发条</b>（<code>aria-activedescendant</code>），
+                    <code>Esc</code> 只收列表、会吞掉事件——它常长在弹窗里，弹窗也听 Esc。
                 </p>
             </div>
 
@@ -341,5 +366,11 @@ const demoPane = ref<'attrs' | 'skills' | 'assist'>('attrs');
 .kit-tile-word {
     font-size: calc(17px * var(--fs-scale));
     line-height: 1;
+}
+/* 下拉按真实用法给宽（门派那一格约 168）：`.kit-row` 是整行宽，撑满时它读作
+ * 一条通栏控件，而它实际是个窄的。 */
+.demo-select {
+    flex: none;
+    width: calc(168px * var(--fs-scale));
 }
 </style>

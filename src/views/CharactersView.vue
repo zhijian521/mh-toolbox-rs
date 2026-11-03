@@ -22,6 +22,12 @@ import { emptyCharacter, useRoster } from './characters/roster';
  * 页头两枚按钮走 `PressButton`（压印块）。主操作（新角色）用 `seal` 变体——块面灌朱，
  * 一屏一枚。「识别游戏窗口」还没接上（OCR 是下一步），所以仍然禁用：
  * 一枚点了没反应的按钮比没有更糟。
+ *
+ * **两枚都用默认档 `md`（26px），不写 `size="lg"`**（2026-11-03 改）。页头高度是
+ * `--page-head-h` = 19 + 字号 × 1.15 + 1（1.1 档实测 47.8）；`lg` 是 31，加上下
+ * padding 19 就到 50，页头被这两枚按钮顶高一截，与本页内容区、左栏牌记、其余无按钮的
+ * 页面全部对不上。`md` 三档字号下都低于页头自然高度（42.9 / 45 / 47.6 < 43.3 / 45.3 / 47.8），
+ * 页头高度才重新由令牌说了算。
  */
 const { roster, add, update, remove } = useRoster();
 
@@ -61,17 +67,9 @@ const desc = computed(() =>
                 icon="search"
                 text="识别游戏窗口"
                 label="识别游戏窗口（还没接上）"
-                size="lg"
                 disabled
             />
-            <PressButton
-                icon="add"
-                text="新角色"
-                label="新建角色"
-                size="lg"
-                seal
-                @click="startNew"
-            />
+            <PressButton icon="add" text="新角色" label="新建角色" seal @click="startNew" />
         </template>
 
         <div class="roster">

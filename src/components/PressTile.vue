@@ -49,11 +49,16 @@
  * 悬停提亮、按下凹回纸里，两条都在组件里——这两个状态与「一块可点的凸起」绑死，
  * 不是使用方的语义差异。差别只在悬停的**范围**：图标格里整格可点，但块只在自己
  * 被指到时变亮，名称那边由父级另给反馈，不靠块去替它表态。
+ *
+ * **不可点的地方传 `still`**（角色卡的辅助技能图标格就是）：那两条反馈是「按我」
+ * 的承诺，长在点不动的块上等于骗人去点，而「点了没反应」比没有这个块更糟。
+ * 只关状态、不关材质——凸起的棱、落地影、块面一律照旧，因为它仍然是纸上的一块东西。
  */
+withDefaults(defineProps<{ still?: boolean }>(), { still: false });
 </script>
 
 <template>
-    <span class="press-tile">
+    <span class="press-tile" :class="{ still }">
         <span class="press-content"><slot /></span>
     </span>
 </template>
@@ -136,7 +141,7 @@
  * 块面从 92% 半透明变成实色（不再透出底下的纸），以及影子从 3/8px 抬到 4/10px。
  * 只改颜色而不动影子，两档纸色的差在一张米黄底上根本读不出来。
  * 文字随 `color` 一起转朱红，图标继承这个值，不用另配一条规则。 */
-.press-tile:hover {
+.press-tile:not(.still):hover {
     background-color: var(--tile-face-hover, var(--paper));
     box-shadow:
         inset 0 1px 0 var(--bevel-hi),
@@ -154,7 +159,7 @@
  * 只是这一次照到的是对面的那条棱），所以亮线从左上换到右下。
  * 内影带 3px 模糊（常态的凸起是 1px 硬线）：凹的东西边缘是渐进去的，硬线会读成描边。
  * 位移 2px 把「抬起来的厚度」还回去，四条棱也必须一起收，否则只剩垫子还在原地。 */
-.press-tile:active {
+.press-tile:not(.still):active {
     background-color: var(--tile-face-active, color-mix(in srgb, var(--well) 82%, transparent));
     background-image: linear-gradient(
         325deg,
@@ -216,7 +221,7 @@
  * 不重写的话影子仍是常态那一道，块面亮了而高度没变，读作「换了块色板」。
  * 按压要重写渐变——否则会被那条暗色基础规则三段渐变顶回去，按下去仍然「亮着」。
  */
-:root.dark .press-tile:hover {
+:root.dark .press-tile:not(.still):hover {
     background-color: var(--tile-face-hover, color-mix(in srgb, var(--paper) 88%, var(--ink)));
     box-shadow:
         inset 0 1px 0 var(--bevel-hi),
@@ -227,7 +232,7 @@
         0 calc(10px * var(--tile-drop, 1)) calc(16px * var(--tile-drop, 1))
             calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
 }
-:root.dark .press-tile:active {
+:root.dark .press-tile:not(.still):active {
     background-color: var(--tile-face-active, color-mix(in srgb, var(--well) 86%, transparent));
     background-image: linear-gradient(
         325deg,

@@ -23,6 +23,7 @@ import { ref } from 'vue';
 import {
     ATTR_GROUPS,
     GEAR_SLOTS,
+    TRAINING_GROUPS,
     type AssistSkill,
     type AttrGroup,
     type AttrRow,
@@ -83,27 +84,12 @@ function blankAttrGroups(): AttrGroup[] {
     }));
 }
 
-/** 修炼两组十项，上限照游戏：育兽术 35，其余 20。 */
+/** 修炼两组十项，结构整份来自 `TRAINING_GROUPS`（组名、项名、上限都是游戏固定的）。 */
 function blankTrainings(): TrainingGroup[] {
-    const group = (title: string, names: string[], cap: number): TrainingGroup => ({
-        title,
-        rows: names.map((name) => ({ name, level: 0, cap })),
-    });
-    return [
-        group('角色自身修炼', ['攻击修炼', '防御修炼', '法术修炼', '抗法修炼', '猎术修炼'], 20),
-        /* 育兽术与四控制力同组（游戏面板就是这么排的），只有它上限 35。
-         * 这一组直接写全，不经 `group()`——生成完再 map 着改 cap，反而要多读一遍。 */
-        {
-            title: '召唤兽控制修炼',
-            rows: [
-                { name: '攻击控制力', level: 0, cap: 20 },
-                { name: '防御控制力', level: 0, cap: 20 },
-                { name: '法术控制力', level: 0, cap: 20 },
-                { name: '抗法控制力', level: 0, cap: 20 },
-                { name: '育兽术', level: 0, cap: 35 },
-            ],
-        },
-    ];
+    return TRAINING_GROUPS.map((group) => ({
+        title: group.title,
+        rows: group.rows.map((row) => ({ name: row.name, level: 0, cap: row.cap })),
+    }));
 }
 
 function makeId(): string {
@@ -121,19 +107,16 @@ export function emptyCharacter(): CharacterData {
         name: '',
         level: 0,
         school: '',
-        subs: [],
+        server: '',
+        guild: '',
         attrGroups: blankAttrGroups(),
         experience: { value: '', need: '' },
         skills: [],
-        skillFoot: '',
         assists: [],
-        assistFoot: '',
         trainings: blankTrainings(),
-        trainingFoot: '',
         gear: GEAR_SLOTS.map((slot) => ({ slot })),
         gearMeta: { special: '', suit: '' },
         pets: [],
-        petFoot: '',
     };
 }
 
@@ -166,12 +149,22 @@ function normalizeSkills(raw: unknown): SkillRow[] {
 }
 
 /** 辅助技能：同一套字段再加一个 `kind`。缺省按「生活技能」——
- * 上一版没有这个字段，那些数据全是生活技能。 */
+ * 上一版没有这个字段，那些数据全是生活技能。
+ *
+ * **同类同名只留第一条**：同一个技能记两遍没有意义，卡片上会出两个一模一样的格子
+ * （连图标都一样），而且卡内 `v-for` 拿 `kind + name` 当 key——重复 key 会让 Vue
+ * 复用错元素，改一行另一行跟着变。名字现在是从名录里选的，重复很容易发生
+ * （2026-11-03 实测：手改数据塞两条「强身术」确实渲染成两格）。
+ */
 function normalizeAssists(raw: unknown): AssistSkill[] {
+    const seen = new Set<string>();
     return rows(raw).flatMap((item) => {
         const base = normalizeSkill(item);
         if (!base) return [];
         const kind = isObject(item) && item.kind === 'story' ? 'story' : 'life';
+        const key = `${kind}-${base.name}`;
+        if (seen.has(key)) return [];
+        seen.add(key);
         return [{ ...base, kind }];
     });
 }
@@ -326,35 +319,46 @@ function normalizePet(raw: unknown): Pet | null {
     };
 }
 
-/** 修炼上限按项查骨架：游戏里是固定值（20，育兽术 35），不是用户填的。
- *  数据里缺了（旧版本、手工改过）就按名字回查，查不到才落到 20。 */
-const TRAINING_CAPS = new Map(
-    blankTrainings().flatMap((group) => group.rows.map((row) => [row.name, row.cap] as const)),
-);
-
-/** 缺省上限。**不能拿 0 兜底**：卡上以 `row.level >= row.cap` 判「练满」，
- *  `cap: 0` 会让十项修炼全部标成已完成，进度条还会算出 `NaN%`。 */
-const trainingCap = (name: string, raw: unknown): number => {
-    const cap = optionalInt(raw);
-    return cap && cap > 0 ? cap : (TRAINING_CAPS.get(name) ?? 20);
-};
-
+/**
+ * 修炼：**按固定清单重建**，只从存下来的数据里取等级（与属性表同一条哲学）。
+ *
+ * 老存档里可能有过改过的组名、加过的项、调过的上限（上一版编辑器三样都能改）。
+ * 现在这些都归位：组名与项名照 `TRAINING_GROUPS`，上限照常量，清单外的项丢掉，
+ * 缺的补空；**已练的等级按项名对回去**——改个组名不该把十个数抹掉。
+ */
 function normalizeTrainings(raw: unknown): TrainingGroup[] {
-    const groups = rows(raw).flatMap((group) => {
-        if (!isObject(group)) return [];
-        return [
-            {
-                title: text(group.title),
-                rows: rows(group.rows).flatMap((row) => {
-                    if (!isObject(row)) return [];
-                    const name = text(row.name);
-                    if (!name) return [];
-                    return [{ name, level: int(row.level), cap: trainingCap(name, row.cap) }];
-                }),
-            },
-        ];
-    });
-    return groups.length ? groups : blankTrainings();
+    const saved = new Map<string, number>();
+    for (const group of rows(raw)) {
+        if (!isObject(group)) continue;
+        for (const row of rows(group.rows)) {
+            if (!isObject(row)) continue;
+            const name = text(row.name);
+            // 同名取第一条：清单里每项只出现一次，重复说明这份数据被改过。
+            if (name && !saved.has(name)) saved.set(name, int(row.level));
+        }
+    }
+
+    return TRAINING_GROUPS.map((group) => ({
+        title: group.title,
+        rows: group.rows.map((row) => ({
+            name: row.name,
+            level: saved.get(row.name) ?? 0,
+            cap: row.cap,
+        })),
+    }));
+}
+
+/**
+ * 区服 / 帮派的取值：先读具名字段，读不到再回到上一版的 `subs` 数组按行取。
+ *
+ * 上一版表单是一个自由多行的「副题」，一行为一条：`['陕西区 · 大雁塔', '帮派 大唐芙蓉园',
+ * '今天 14:48']`。老数据还在 `localStorage` 里，直接不看它会让人以为「改版把区服弄丢了」。
+ * 第三行（更新时间）没有对应字段，也不要——它是手抄的，现在连入口都没有。
+ */
+function legacyLines(character: Record<string, unknown>, key: string, index: number): string {
+    const own = text(character[key]);
+    if (own) return own;
+    return rows(character.subs).map(text).filter(Boolean)[index] ?? '';
 }
 
 /**
@@ -374,24 +378,21 @@ export function normalizeCharacter(raw: unknown): CharacterData {
         name: text(character.name),
         level: int(character.level),
         school: text(character.school),
-        subs: rows(character.subs).map(text).filter(Boolean),
+        server: legacyLines(character, 'server', 0),
+        guild: legacyLines(character, 'guild', 1).replace(/^帮派\s*[·:：]?\s*/, ''),
         attrGroups: normalizeAttrGroups(character),
         experience: {
             value: text(isObject(character.experience) ? character.experience.value : ''),
             need: text(isObject(character.experience) ? character.experience.need : ''),
         },
         skills: normalizeSkills(character.skills),
-        skillFoot: text(character.skillFoot),
         assists: normalizeAssists(character.assists),
-        assistFoot: text(character.assistFoot),
         trainings: normalizeTrainings(character.trainings),
-        trainingFoot: text(character.trainingFoot),
         gear: normalizeGear(character.gear),
         gearMeta: { special: text(gearMeta.special), suit: text(gearMeta.suit) },
         pets: rows(character.pets)
             .map(normalizePet)
             .filter((pet): pet is Pet => pet !== null),
-        petFoot: text(character.petFoot),
     };
 }
 

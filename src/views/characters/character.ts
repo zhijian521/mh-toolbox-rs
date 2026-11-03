@@ -188,8 +188,8 @@ export interface AssistSkill extends SkillRow {
 
 /**
  * 修炼按游戏原样分两组，**不是一组六项**：
- * `角色自身修炼`（攻/防/法/抗法/猎术，上限 20）与
- * `召唤兽控制修炼`（攻/防/法/抗法控制力 + 育兽术，其中育兽术上限 35）。
+ * `任务修炼`（攻/防/法/抗法/猎术，上限 20）与
+ * `宠物修炼`（攻/防/法/抗法控制力 + 育兽术，其中育兽术上限 35）。
  *
  * 分成两组不是排版偏好——育兽术的上限跟另外四个都不一样，混成一组就必须给
  * 每一行单独存 `cap`，那又退回到「一行一个对象」。组是游戏自己划的，照抄最省事。
@@ -204,6 +204,41 @@ export interface TrainingGroup {
     title: string;
     rows: TrainingRow[];
 }
+
+/**
+ * 修炼两组的**固定清单**（用户 2026-11-03 定）。
+ *
+ * 与 `ATTR_GROUPS` 同一条理由：这一页也是「照着游戏面板抄数字」，组名、项名、上限
+ * 三样都不该由录入的人改——`角色自身修炼` 与 `召唤兽控制修炼` 是游戏面板上的原话，
+ * 但这两个名字在我们的界面里既长又不准（前者练的是任务、后者练的是宠物），
+ * 用户把它们改成了 `任务修炼` / `宠物修炼` 并明确「不可编辑」。
+ *
+ * 于是结构写死在这里，数据里只留**等级**：`normalizeTrainings` 按清单重建，
+ * 老存档里改过的组名、加过的项、调过的上限一并归位，已练的等级按项名对回去。
+ */
+export const TRAINING_GROUPS = [
+    {
+        title: '任务修炼',
+        rows: [
+            { name: '攻击修炼', cap: 20 },
+            { name: '防御修炼', cap: 20 },
+            { name: '法术修炼', cap: 20 },
+            { name: '抗法修炼', cap: 20 },
+            { name: '猎术修炼', cap: 20 },
+        ],
+    },
+    /* 育兽术与四控制力同组（游戏面板就是这么排的），只有它上限 35。 */
+    {
+        title: '宠物修炼',
+        rows: [
+            { name: '攻击控制力', cap: 20 },
+            { name: '防御控制力', cap: 20 },
+            { name: '法术控制力', cap: 20 },
+            { name: '抗法控制力', cap: 20 },
+            { name: '育兽术', cap: 35 },
+        ],
+    },
+] as const satisfies readonly { title: string; rows: readonly { name: string; cap: number }[] }[];
 
 /* ======================================================================
  * 装备
@@ -471,8 +506,16 @@ export interface CharacterData {
     name: string;
     level: number;
     school: string;
-    /** 名字下面那行小字：服务器、称谓、更新时间。 */
-    subs: string[];
+    /**
+     * 区服与帮派：名字下面那行小字的两个**具名字段**。
+     *
+     * 上一版是一个自由的多行「副题」（`subs: string[]`，一行一条：区服 / 帮派 / 更新时间）。
+     * 用户 2026-11-03 要求表单只收「区服 + 帮派」，于是把位置固化成两个字段——
+     * 数组的玩法是「想记几条记几条」，而这两格是**游戏里就有的两项**，位置固定（§2.4-29
+     * 的判据：数据是不是游戏给的）。更新时间没有入口了，随之删掉。
+     */
+    server: string;
+    guild: string;
     /**
      * 属性五组，**顺序即网格顺序**（两行两列，行优先）：
      * 上排 `资源 / 名望`，下排 `战斗 / 加点`，最后是通栏的 `潜能`（用户 2026-11-02 定）。
@@ -486,15 +529,11 @@ export interface CharacterData {
     /** 经验单独一行（带进度条），不占 `attrGroups` 的位置。 */
     experience: ExpRow;
     skills: SkillRow[];
-    skillFoot: string;
     /** 辅助技能：生活 + 剧情，两类合在一页格子里。 */
     assists: AssistSkill[];
-    assistFoot: string;
-    /** 两组：角色自身修炼、召唤兽控制修炼。 */
+    /** 两组，结构固定（`TRAINING_GROUPS`）：任务修炼、宠物修炼。 */
     trainings: TrainingGroup[];
-    trainingFoot: string;
     gear: GearSlot[];
     gearMeta: { special: string; suit: string };
     pets: Pet[];
-    petFoot: string;
 }

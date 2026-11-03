@@ -275,9 +275,12 @@ def slice_page(path, expect, spacing_hint=(280, 134)):
 def read_names(ts_path, const_name):
     """从 TS 名字表里读出字符串数组。
 
-    不在这里再抄一份名字：`src/views/characters` 里的表是**唯一真源**，角色的下拉、
-    OCR 纠错都读它。抄一份到这里，游戏改版时必然只改一边——而这类不一致没有任何
-    测试会红，只会表现为「图标和名字对不上，但看不出是哪边错」。
+    不在这里再抄一份名字：仓库里的表是**唯一真源**，角色的下拉、OCR 纠错都读它。
+    抄一份到这里，游戏改版时必然只改一边——而这类不一致没有任何测试会红，
+    只会表现为「图标和名字对不上，但看不出是哪边错」。
+
+    现在只剩 `GEAR_ACTIVES`（装备特技）还住在 `character.ts`；生活 / 剧情技能
+    已经搬去 `public/game/data/skills.json`，见 `read_skill_table`。
     """
     text = Path(ts_path).read_text(encoding='utf-8')
     m = re.search(rf'{const_name}\s*=\s*\[(.*?)\]\s*as const', text, re.S)
@@ -290,12 +293,29 @@ def read_names(ts_path, const_name):
     return names
 
 
+def read_skill_table():
+    """从 `public/game/data/skills.json` 读生活 / 剧情技能名。
+
+    读 JSON 而不是解析 TS：那张表已经是**数据文件**（游戏事实，换版本只换文件），
+    脚本要是还去 TS 里找，等于把「唯一真源」又说回到了代码里。
+    """
+    path = ROOT / 'public/game/data/skills.json'
+    if not path.exists():
+        raise SystemExit(f'{path}: 找不到技能名录')
+    table = json.loads(path.read_text(encoding='utf-8'))
+    for key in ('life', 'story'):
+        if not table.get(key):
+            raise SystemExit(f'{path}: 缺少 {key}')
+    return table
+
+
 def main():
     out_dir = Path(sys.argv[1] if len(sys.argv) > 1 else 'public/game/icons')
     out_dir.mkdir(parents=True, exist_ok=True)
+    skills = read_skill_table()
     names = {
-        'skill': read_names(ROOT / 'src/views/characters/skills.ts', 'LIFE_SKILLS'),
-        'story': read_names(ROOT / 'src/views/characters/skills.ts', 'STORY_SKILLS'),
+        'skill': skills['life'],
+        'story': skills['story'],
         'active': read_names(ROOT / 'src/views/characters/character.ts', 'GEAR_ACTIVES'),
     }
     manifest = {'generated-by': 'tools/game-icons/slice.py', 'groups': {}}

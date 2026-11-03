@@ -6,6 +6,7 @@ import App from './App.vue';
 import { useFontScale } from './composables/use-font-scale';
 import { useTheme } from './composables/use-theme';
 import { router } from './router';
+import { loadGameData } from './services/game-data';
 
 /**
  * 持久化偏好在挂载前就先落地：字号是根元素上的一个变量，主题是根元素上的一个类。
@@ -16,4 +17,14 @@ import { router } from './router';
 useFontScale();
 useTheme();
 
-createApp(App).use(router).mount('#app');
+/**
+ * 游戏数据表（门派 / 技能）在**挂载前**加载一次，之后全站同步读缓存。
+ *
+ * 这是「异步只发生在边界」那条：组件里没有加载态、没有 `v-if="表还没回来"`，
+ * `schoolSkills()` 与图标查表因此都是同步纯函数（见 `services/game-data.ts` 的说明）。
+ * `loadGameData()` 失败也会 resolve（退回空表），所以这里不必写 try——
+ * 数据缺了就是下拉少几项，应用不该因此起不来。
+ */
+void loadGameData().then(() => {
+    createApp(App).use(router).mount('#app');
+});

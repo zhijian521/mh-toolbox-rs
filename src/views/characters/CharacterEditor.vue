@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
+import SelectField from '../../components/SelectField.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import { PANES, type CharacterData, type PaneKey } from './character';
 import AttrEditor from './editor/AttrEditor.vue';
@@ -9,7 +10,9 @@ import GearEditor from './editor/GearEditor.vue';
 import PetEditor from './editor/PetEditor.vue';
 import SkillEditor from './editor/SkillEditor.vue';
 import TrainingEditor from './editor/TrainingEditor.vue';
+import { schoolNames } from '../../services/game-data';
 import { normalizeCharacter } from './roster';
+import { schoolSkillNames, schoolSkills } from './schools';
 
 /**
  * 新增 / 修改角色的**一张纸**。
@@ -17,7 +20,7 @@ import { normalizeCharacter } from './roster';
  * 为什么是浮层而不是独立路由：名册是「三到五张卡并排」的一页，改的是其中一张，
  * 改完眼睛要能落回原来的位置；跳到另一个路由再跳回来，滚动位置、已展开的页签全丢了。
  *
- * 为什么不是卡内直接编辑：卡是 450 × 540 的固定格（同一行必须齐头齐脚），
+ * 为什么不是卡内直接编辑：卡是 450 × 580 的固定格（同一行必须齐头齐脚），
  * 装不下 12 格装备 + 十来项技能；把卡临时拉宽，这一行的对齐就散了。
  *
  * ---- 草稿 ----
@@ -26,10 +29,10 @@ import { normalizeCharacter } from './roster';
  * 空行、空装备壳、空召唤兽都在那一步被清掉（见 `roster.ts` 的说明），
  * 所以这里不需要另写一套「收尾」逻辑。
  *
- * ---- 脚注不在这里改 ----
- * 六个分区底下那句说明（`skillFoot` 等）是**给读卡的人看的文案**，不是角色数据：
- * 一个号的气血上限记不记当前值，不会因为它换了个号就变。新角色的这些字段为空，
- * 卡上就少一行说明——那正是它该有的样子，不补一句「请填写」。
+ * ---- 卡上没有页脚 ----
+ * 六个分区底下原先各有一句说明（`assistFoot` / `trainingFoot` / `petFoot`），
+ * 2026-11-03 用户要求全部删掉：它们是手抄的注脚，这里从来就没有入口能改。
+ * 所以草稿里也不再有任何「说明」类字段——表单只收游戏面板上真有的东西。
  */
 const props = defineProps<{ character: CharacterData; isNew: boolean }>();
 const emit = defineEmits<{ save: [character: CharacterData]; cancel: [] }>();
@@ -42,6 +45,40 @@ const PANE_OPTIONS = PANES.map((item) => ({ value: item.key, label: item.label }
 const title = computed(() =>
     props.isNew ? '新角色' : `编辑 · ${props.character.name || '未命名'}`,
 );
+
+/* ---------- 门派决定门派技能 ----------
+ * 选门派就把七项技能名带进来（表在 `game/data/schools.json`，规则在 `schools.ts`），
+ * 用户只需要填等级。
+ *
+ * 为什么不是「选完再手动加七行」：那七项是**游戏按门派给你的**，不是自选题。
+ * 让用户照着面板一个字一个字敲，既慢又必然敲错同音字（「潇湘仙雨」这类），
+ * 而名字错一项，卡上就少一项、图标也查不到。
+ *
+ * 换门派时**按名字保留已录的等级**（`schoolSkills` 的第二个参数）：转门派之后
+ * 练过的等级大多跟着走；即使用户只是先选错再选对，清掉他刚填的数字也是最难受的意外。
+ */
+function onSchool(school: string) {
+    draft.value.school = school;
+    draft.value.skills = schoolSkills(school, draft.value.skills);
+}
+
+/* 选项表：「未选」+ 二十一门派。表外的门派（手输留下的老数据）先占一项，
+ * 不补的话那一项显示成「未选」，看起来像门派被改没了。 */
+const schoolOptions = computed(() => {
+    const options = [{ value: '', label: '未选' }];
+    const current = draft.value.school;
+    if (current && !schoolSkillNames(current)) {
+        options.push({ value: current, label: `${current}（不在表里）` });
+    }
+    for (const name of schoolNames()) options.push({ value: name, label: name });
+    return options;
+});
+
+/* 打开一个「有门派、但技能是空的」旧号时补一次：不是覆盖，是把它本来就该有的
+ * 七项补上。已经有技能的号一律不动——那可能是用户自己录的。 */
+if (!draft.value.skills.length && draft.value.school) {
+    draft.value.skills = schoolSkills(draft.value.school);
+}
 
 /* 名字是唯一的必填项：卡片、页签、浮片全拿它当标识，空名字的卡在名册里
  * 就是一张读不出是谁的白纸。其余字段一律可以先空着，慢慢补。 */
@@ -108,15 +145,6 @@ onBeforeUnmount(() => {
     document.removeEventListener('keydown', onKeydown);
     document.body.style.overflow = previousOverflow;
 });
-
-/* 副标题（服务器 · 帮派 · 更新时间）在卡上是三点分隔的一行小字，
- * 在表单里按「每行一条」编辑：换行比逗号更像一个列表，也不会与地名里的顿号打架。 */
-function readLines(event: Event): string[] {
-    return (event.target as HTMLTextAreaElement).value
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean);
-}
 </script>
 
 <template>
@@ -148,41 +176,61 @@ function readLines(event: Event): string[] {
                 </div>
             </header>
 
+            <!-- 基本信息两排：上排「名字 : 等级 : 门派 = 2 : 1 : 1」，下排「区服 : 帮派 = 1 : 1」。
+                 用一枚 grid 而不是两条 `.form-row`：比例说的是**列宽**，而 flex 里
+                 「名字 flex: 1 + 两个定宽」只在某一档窗口宽度下碰巧对，窄一档就散；
+                 两排各写一次列宽，加起来也未必等于整条的等分。
+                 **四等份列**：上排 2 + 1 + 1，下排 2 + 2，全部落在同一组四等份上。 -->
             <div class="editor-base">
-                <div class="form-row">
-                    <span class="field-label">名字</span>
-                    <input
-                        ref="nameInput"
-                        v-model="draft.name"
-                        class="field name-input"
-                        aria-label="角色名"
-                        placeholder="游戏里的角色名"
-                    />
-                    <span class="field-label">等级</span>
-                    <NumberField
-                        :model-value="draft.level"
-                        label="等级"
-                        class="level-input"
-                        @update:model-value="draft.level = $event"
-                    />
-                    <span class="field-label">门派</span>
-                    <input
-                        v-model="draft.school"
-                        class="field school-input"
-                        aria-label="门派"
-                        placeholder="五庄观"
-                    />
-                </div>
-                <div class="form-row sub-row">
-                    <span class="field-label">副题</span>
-                    <textarea
-                        class="field area sub-input"
-                        rows="2"
-                        aria-label="副题，每行一条"
-                        placeholder="陕西区 · 大雁塔&#10;帮派 大唐芙蓉园&#10;今天 14:48"
-                        :value="draft.subs.join('\n')"
-                        @change="draft.subs = readLines($event)"
-                    />
+                <div class="base-grid">
+                    <label class="base-cell span-2">
+                        <span class="field-label">名字</span>
+                        <input
+                            ref="nameInput"
+                            v-model="draft.name"
+                            class="field"
+                            aria-label="角色名"
+                            placeholder="游戏里的角色名"
+                        />
+                    </label>
+                    <label class="base-cell">
+                        <span class="field-label">等级</span>
+                        <NumberField
+                            :model-value="draft.level"
+                            label="等级"
+                            @update:model-value="draft.level = $event"
+                        />
+                    </label>
+                    <label class="base-cell">
+                        <span class="field-label">门派</span>
+                        <!-- 下拉而不是手输：门派是二十一个固定值，手输的「五庄观」
+                             只要有一个字不一样，就带不出门派技能（也就白选了）。
+                             选中即重算技能表——见 `onSchool`。 -->
+                        <SelectField
+                            :model-value="draft.school"
+                            :options="schoolOptions"
+                            label="门派"
+                            @update:model-value="onSchool"
+                        />
+                    </label>
+                    <label class="base-cell span-2">
+                        <span class="field-label">区服</span>
+                        <input
+                            v-model="draft.server"
+                            class="field"
+                            aria-label="区服"
+                            placeholder="陕西区 · 大雁塔"
+                        />
+                    </label>
+                    <label class="base-cell span-2">
+                        <span class="field-label">帮派</span>
+                        <input
+                            v-model="draft.guild"
+                            class="field"
+                            aria-label="帮派"
+                            placeholder="大唐芙蓉园"
+                        />
+                    </label>
                 </div>
             </div>
 
@@ -212,16 +260,27 @@ function readLines(event: Event): string[] {
                     role="tabpanel"
                     aria-labelledby="editor-tab-skills"
                 >
-                    <SkillEditor v-model="draft.skills" />
+                    <SkillEditor v-model="draft.skills" fixed-names :school="draft.school" />
                 </section>
 
+                <!-- 辅助技能与剧情技能**上下两块**，与卡片那一页同一读法（2026-11-03 用户：
+                     「编辑页面也同步修改为上下两部分」）。两个 `SkillEditor` 绑的是**同一个**
+                     `draft.assists`，各自只显示自己那一类——分成两个数组要改存档结构，
+                     而存档里「一类」本来就是每行的一个字段。 -->
                 <section
                     v-show="pane === 'assist'"
                     id="editor-pane-assist"
                     role="tabpanel"
                     aria-labelledby="editor-tab-assist"
                 >
-                    <SkillEditor v-model="draft.assists" kind="assist" />
+                    <div class="assist-block">
+                        <div class="group-head"><span class="section-mark"></span>生活技能</div>
+                        <SkillEditor v-model="draft.assists" kind="assist" group="life" />
+                    </div>
+                    <div class="assist-block">
+                        <div class="group-head"><span class="section-mark"></span>剧情技能</div>
+                        <SkillEditor v-model="draft.assists" kind="assist" group="story" />
+                    </div>
                 </section>
 
                 <section
@@ -328,26 +387,32 @@ function readLines(event: Event): string[] {
     padding: 0 var(--editor-pad-x) 12px;
     border-bottom: var(--w-hair) solid var(--rule-2);
 }
-.sub-row {
-    align-items: flex-start;
-    margin-top: 8px;
+/* **四等份列**：上排「名字 2 份 + 等级 1 份 + 门派 1 份」，下排「区服 2 份 + 帮派 2 份」。
+ *
+ * 写 `repeat(4, 1fr)` 而不是 `2fr 1fr 1fr`（2026-11-03 修）：后者只是**三**条轨道，
+ * 跨两格的「名字」拿到的是「2fr + 1fr」= 整条的 3/4，等级只剩 1/4；门派占第 3 条轨道、
+ * 区服跨不到第 4 条，于是被挤到下一行——弹出来是三排（名字 + 等级 / 门派 + 区服 / 帮派）。
+ * 四等份之后，2 + 1 + 1 与 2 + 2 都正好铺满一整条。 */
+.base-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px 12px;
 }
-.sub-row .field-label {
-    padding-top: 5px;
-}
-.name-input {
-    flex: 1;
-    min-width: 120px;
-}
-.level-input {
-    width: 66px;
-}
-.school-input {
-    width: 120px;
-}
-.sub-input {
-    flex: 1;
+/* 一格 = 标签 + 输入格，标签在左、与全站其它表单行同一个姿势（§2.4 的 `.form-row`）。
+ * 用 `<label>` 包住：点标签就等于点输入格，四格的点击面积都比一格输入框大。 */
+.base-cell {
+    display: flex;
+    align-items: center;
+    gap: 7px;
     min-width: 0;
+}
+.base-cell.span-2 {
+    grid-column: span 2;
+}
+/* 输入格吃掉本格剩下的宽度：不给它就按 `size` 属性的默认宽度走，
+ * 2:1:1 的列宽关系立刻作废（`.field` 的 `min-width: 0` 已在全站给过）。 */
+.base-cell .field {
+    flex: 1;
 }
 
 .editor-tabs {
@@ -373,5 +438,29 @@ function readLines(event: Event): string[] {
     padding: 12px max(0px, calc(var(--editor-pad-x) - var(--scrollbar-w))) 16px var(--editor-pad-x);
     overflow: auto;
     scrollbar-gutter: stable;
+}
+
+/* 辅助 / 剧情两块之间用一条账线隔开，与卡上那一页同一个说法（那里也是
+ * `border-top` + 留白）。只靠留白的话，弹窗里两段自由列表读起来只是「隔得远了点」，
+ * 而它们是两类不同的尺子——生活技能练到 100+，剧情技能最高 5 级。 */
+.assist-block + .assist-block {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: var(--w-hair) solid var(--rule);
+}
+/* 组头与属性页那一组逐条一致（次级墨、一档小字、字距放宽、竖条 4 × 13）：
+ * 同一张纸里两处组头长得不一样，等于说它们不是一个层级。 */
+.assist-block .group-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.14em;
+}
+.assist-block .group-head .section-mark {
+    --mark-w: 4px;
+    --mark-h: 13px;
 }
 </style>

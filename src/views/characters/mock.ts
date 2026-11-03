@@ -26,7 +26,8 @@ export const CHARACTERS: CharacterData[] = [
         name: '归ω岚',
         level: 130,
         school: '五庄观',
-        subs: ['陕西区 · 大雁塔', '帮派 大唐芙蓉园', '今天 14:48'],
+        server: '陕西区 · 大雁塔',
+        guild: '大唐芙蓉园',
         /* 五组，**顺序即网格顺序**（前四组两行两列、行优先，末组「潜能」通栏）：
          * 资源 / 名望、战斗 / 加点、潜能。
          * 组名与行由 `ATTR_GROUPS` 定死（用户 2026-11-02），这里只填数值
@@ -93,7 +94,6 @@ export const CHARACTERS: CharacterData[] = [
             { name: '明性修身', level: 90, cap: 180 },
             { name: '七星遁', level: 60, cap: 180 },
         ],
-        skillFoot: '7 项，最高 120',
         /* 等级来自「辅助技能」面板的八个格子，名字来自「生活技能」目录的两页截图。
          *
          * 名字与图标的对应是**按图案认的**，认对五个：
@@ -119,11 +119,10 @@ export const CHARACTERS: CharacterData[] = [
             { name: '打坐', level: 4, cap: 5, kind: 'story' },
             { name: '变化之术', level: 3, cap: 5, kind: 'story' },
         ],
-        assistFoot: '生活 8 项 · 剧情 3 项（剧情为占位）',
         /* 两组共 10 项，育兽术上限 35（其余 20）。 */
         trainings: [
             {
-                title: '角色自身修炼',
+                title: '任务修炼',
                 rows: [
                     { name: '攻击修炼', level: 11, cap: 20 },
                     { name: '防御修炼', level: 5, cap: 20 },
@@ -133,7 +132,7 @@ export const CHARACTERS: CharacterData[] = [
                 ],
             },
             {
-                title: '召唤兽控制修炼',
+                title: '宠物修炼',
                 rows: [
                     { name: '攻击控制力', level: 0, cap: 20 },
                     { name: '防御控制力', level: 0, cap: 20 },
@@ -143,7 +142,6 @@ export const CHARACTERS: CharacterData[] = [
                 ],
             },
         ],
-        trainingFoot: '攻击修炼 11/20，其余待练',
         /* 12 格铺满：前 6 件人物装备、接着 4 件灵饰、最后 2 件玉魄。 */
         gear: [
             {
@@ -501,14 +499,14 @@ export const CHARACTERS: CharacterData[] = [
                 innerPills: [],
             },
         ],
-        petFoot: '携带 4 / 7',
     },
     {
         id: 'yun-zhong-he',
         name: '云中鹤',
         level: 109,
         school: '化生寺',
-        subs: ['陕西区 · 大雁塔', '帮派 大唐芙蓉园', '3 天前更新'],
+        server: '陕西区 · 大雁塔',
+        guild: '大唐芙蓉园',
         attrGroups: [
             {
                 title: '资源',
@@ -557,16 +555,19 @@ export const CHARACTERS: CharacterData[] = [
             },
         ],
         experience: { value: '786.4万', need: '' },
+        /* 化生寺的七项，名字照 `game/data/schools.json` 那张表（2026-11-03 换过一轮）：
+         * 原先填的「推气过宫」「香飘飘」「韦陀护法」这些是照印象写的，
+         * 只有「大慈大悲」「渡世步」两项与真表对得上——而门派技能现在**由门派带入**，
+         * 种子里留一套假名字，等于第一眼看到的就是错的。 */
         skills: [
-            { name: '推气过宫', level: 100, cap: 180 },
-            { name: '香飘飘', level: 100, cap: 180 },
-            { name: '大慈大悲', level: 100, cap: 180 },
-            { name: '渡世步', level: 95, cap: 180 },
-            { name: '舍身取义', level: 90, cap: 180 },
-            { name: '韦陀护法', level: 85, cap: 180 },
-            { name: '佛法无边', level: 80, cap: 180 },
+            { name: '小乘佛法', level: 100, cap: 180 },
+            { name: '金刚伏魔', level: 100, cap: 180 },
+            { name: '诵经', level: 100, cap: 180 },
+            { name: '佛光普照', level: 95, cap: 180 },
+            { name: '大慈大悲', level: 90, cap: 180 },
+            { name: '歧黄之术', level: 85, cap: 180 },
+            { name: '渡世步', level: 80, cap: 180 },
         ],
-        skillFoot: '7 项，最高 100',
         assists: [
             { name: '强身术', level: 120, kind: 'life' },
             { name: '裁缝技巧', level: 100, kind: 'life' },
@@ -575,10 +576,9 @@ export const CHARACTERS: CharacterData[] = [
             { name: '炼金术', level: 70, kind: 'life' },
             { name: '中药医理', level: 60, kind: 'life' },
         ],
-        assistFoot: '生活 6 项',
         trainings: [
             {
-                title: '角色自身修炼',
+                title: '任务修炼',
                 rows: [
                     { name: '攻击修炼', level: 4, cap: 17 },
                     { name: '防御修炼', level: 14, cap: 17 },
@@ -588,7 +588,7 @@ export const CHARACTERS: CharacterData[] = [
                 ],
             },
             {
-                title: '召唤兽控制修炼',
+                title: '宠物修炼',
                 rows: [
                     { name: '攻击控制力', level: 0, cap: 17 },
                     { name: '防御控制力', level: 0, cap: 17 },
@@ -598,7 +598,6 @@ export const CHARACTERS: CharacterData[] = [
                 ],
             },
         ],
-        trainingFoot: '防御、抗法已满 17',
         gear: [
             {
                 slot: '头',
@@ -786,6 +785,5 @@ export const CHARACTERS: CharacterData[] = [
                 innerPills: [],
             },
         ],
-        petFoot: '携带 2 / 7',
     },
 ];

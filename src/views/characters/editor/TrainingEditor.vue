@@ -1,22 +1,20 @@
 <script setup lang="ts">
 import NumberField from '../../../components/NumberField.vue';
-import PressButton from '../../../components/PressButton.vue';
 import type { TrainingGroup } from '../character';
 
 /**
- * 修炼：两组，组名可改，行可增删。
+ * 修炼：两组，**只填等级**。
  *
- * 组是游戏自己划的（角色自身 / 召唤兽控制），所以这里**不给「跨组拖动」也不给合并**
- * ——那是数据层的事，而数据显示成两组正是因为它本来就是两组。
- * 上限按行存（育兽术 35、其余 20），不是按组存一个数。
+ * 组名（任务修炼 / 宠物修炼）、项名（攻击修炼…育兽术）、上限（20 / 育兽术 35）
+ * 三样全是游戏固定的，清单在 `TRAINING_GROUPS`（2026-11-03 用户：「不可编辑」）。
+ * 上一版这里三样都能改——组名是输入框、行可增删、上限可填；那等于允许把
+ * 「任务修炼」改成别的、把育兽术的上限改成 20，而卡片是按这套固定结构去核对的。
+ *
+ * 所以此刻这一页只剩一件事：十个数。没有「加一项」、没有删行、没有可编的分组名。
+ * 与 `SkillEditor` 的 `fixedNames` 是同一种做法：值由别处决定的字段只显示、不给输入格
+ * （CONVENTIONS §2.4-33）。
  */
 const groups = defineModel<TrainingGroup[]>({ required: true });
-
-function addRow(group: TrainingGroup) {
-    // 新行的上限跟同组最后一行走：一组里通常同一个上限，省掉每次重填。
-    const cap = group.rows[group.rows.length - 1]?.cap ?? 20;
-    group.rows.push({ name: '', level: 0, cap });
-}
 </script>
 
 <template>
@@ -24,21 +22,13 @@ function addRow(group: TrainingGroup) {
         <section v-for="(group, gi) in groups" :key="gi" class="training-group">
             <div class="group-head">
                 <span class="section-mark"></span>
-                <input
-                    v-model="group.title"
-                    class="field group-title"
-                    aria-label="分组名"
-                    placeholder="分组名"
-                />
+                <span class="group-title">{{ group.title }}</span>
             </div>
 
             <div v-for="(row, ri) in group.rows" :key="ri" class="erow">
-                <input
-                    v-model="row.name"
-                    class="field name-field"
-                    aria-label="修炼项"
-                    placeholder="修炼项"
-                />
+                <!-- 名字与上限都来自清单：不上凹槽——**凹槽的意思是「这里可以写」**，
+                     写不了却画成可以写，比少一个格子更糟。 -->
+                <span class="name-text">{{ row.name }}</span>
                 <NumberField
                     :model-value="row.level"
                     label="当前等级"
@@ -46,22 +36,7 @@ function addRow(group: TrainingGroup) {
                     @update:model-value="row.level = $event"
                 />
                 <span class="slash">/</span>
-                <NumberField
-                    :model-value="row.cap"
-                    label="上限"
-                    class="cap-field"
-                    @update:model-value="row.cap = $event"
-                />
-                <PressButton icon="trash" label="删掉这一项" @click="group.rows.splice(ri, 1)" />
-            </div>
-
-            <div class="group-foot">
-                <PressButton
-                    icon="add"
-                    text="加一项"
-                    label="给这一组加一项"
-                    @click="addRow(group)"
-                />
+                <span class="cap-text num">{{ row.cap }}</span>
             </div>
         </section>
     </div>
@@ -79,49 +54,38 @@ function addRow(group: TrainingGroup) {
     gap: 7px;
     margin-bottom: 6px;
 }
-/* 与属性那组同一个说法：不聚焦时读作标题，聚焦才浮出输入格。 */
+/* 组名是固定字符串，不是可编辑标题：不上输入框、也不给聚焦态（`.field` 那套一整套
+ * 槽料都不需要）。字号与字距照旧，读起来仍是这一组的标题。 */
 .group-title {
-    flex: 1;
-    height: 24px;
-    padding: 0 4px;
-    border-color: transparent;
-    background: none;
-    /* 三道槽料各自关掉：边框透明、底色清空之后，若不连阴影一起关，
-     * 标题下方会剩一道 1px 的亮线（`.field` 的底壁高光）——标题不是格子。 */
-    box-shadow: none;
     font-size: var(--fs-sm);
     letter-spacing: 0.06em;
 }
-.group-title:hover {
-    border-color: var(--rule-2);
-}
-/* 聚焦时才真的长成一格。全局 `.field:focus:not(:disabled)` 会给出槽的边框色、
- * 顶壁影与底壁亮线，这里把边和底也补齐（常态它们是 transparent / none）——
- * 否则一道内影浮在透明框里，像标题下方蹭了一块脏。只有这一处要补：
- * `.field` 的其余变体本来就带着边与底。 */
-.group-title:focus {
-    border-color: var(--lip-shade, color-mix(in srgb, var(--rule-2) 80%, transparent));
-    background: var(--well);
-}
-/* 名字给固定宽，**不 flex: 1**：一撑满，`0 / 20` 就被推到行尾，
- * 中间空出大半行——读起来是「一列空白」而不是「一个修炼项配一个进度」。
- * 200 够写「召唤兽控制修炼」这类长名（六字 72px + 余量），也让两组上下对齐。 */
-.name-field {
-    width: 200px;
+/* 名字吃掉剩下的宽度，等级与上限就贴到右缘、十行成列——与卡片上
+ * 「名目在左、数值在右」是同一个读法。 */
+.name-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ink);
+    font-size: var(--fs-sm);
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .lv-field {
     width: 66px;
 }
-.cap-field {
+/* 上限的只读写法：与 `SkillEditor` 的 `/180` 同一个位置。宽度对齐输入格，
+ * 两组上下才不会一列宽一列窄。 */
+.cap-text {
     width: 66px;
+    color: var(--ink-2);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.04em;
 }
 /* 「/」不是装饰：它把两个数字读成 `11 / 20`，与卡内那条进度条同一个说法。
- * 用 11px 的次级墨——它是一道分隔，不该和数字一样重。 */
+ * 用次级墨——它是一道分隔，不该和数字一样重。 */
 .slash {
     color: var(--muted);
     font-size: var(--fs-sm);
-}
-.group-foot {
-    margin-top: 8px;
 }
 </style>
