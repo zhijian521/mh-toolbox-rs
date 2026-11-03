@@ -175,10 +175,29 @@ const stamp = (value: unknown): number =>
 
 const rows = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
-/** 只接受 `YYYY-MM-DD`；认不出退回空串，绝不抛错。 */
+/**
+ * 只接受存在的那一天：`YYYY-MM-DD` 且日历上真有这一格；认不出退回空串，绝不抛错。
+ *
+ * 光看形状不够——`2026-13-01`、`2026-02-31` 都能通过 `^\d{4}-\d{2}-\d{2}$`，
+ * 于是它们会被原样存进历史，列表里出现一行「13-01」，排序还把它排到最前面
+ * （字符串比较里 `13` 比 `11` 大）。`Date.parse` 也靠不住：它会把 2 月 31 日
+ * 自动进位成 3 月 3 日，照样不报错。所以构造回来比一遍三个分量——
+ * 差一天就说明这个日期是编的。
+ */
 const dateText = (value: unknown): string => {
     const candidate = text(value);
-    return /^\d{4}-\d{2}-\d{2}$/.test(candidate) ? candidate : '';
+    const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(candidate);
+    if (!matched) return '';
+    const year = Number(matched[1]);
+    const month = Number(matched[2]);
+    const day = Number(matched[3]);
+    /* 用 UTC 构造：本地时区的夏令时会让某些日子偏移一小时，跨过午夜就变成前一天。 */
+    const date = new Date(Date.UTC(year, month - 1, day));
+    const real =
+        date.getUTCFullYear() === year &&
+        date.getUTCMonth() === month - 1 &&
+        date.getUTCDate() === day;
+    return real ? candidate : '';
 };
 
 /**
@@ -328,7 +347,6 @@ export function pointDelta(sorted: PricePoint[], index: number): number | null {
     return Math.round((sorted[index].price - previous.price) * 100) / 100;
 }
 
-/** 撤掉多余的小数尾巴：1.50 → 1.5，2.00 → 2。 */
 /**
  * 显示用：最多四位小数，尾随的零去掉。
  *
@@ -412,11 +430,15 @@ export function percentText(ratio: number): string {
  * 句式还不一样（一处带百分比、一处不带）。口径只该有一个，两处都引这里。
  */
 export function changeSentence(change: PriceChange): string {
-    const since = change.sameDay ? '同日上一条' : shortDate(change.since);
-    if (change.delta === 0) return `与 ${since} 同价`;
+    /* 「同日上一条」五个字夹在 `较 … 涨` 中间会被空格切碎：「较 同日上一条 涨 2000」。
+     * 换成「上一次」这五个字就顺了；日期那一支仍保留两侧空格（「较 11-01 涨 2000」），
+     * 中文和数字之间隔一格才不挤。 */
+    const since = change.sameDay ? '上一次' : shortDate(change.since);
+    const spaced = change.sameDay ? since : ` ${since} `;
+    if (change.delta === 0) return change.sameDay ? `与${since}同价` : `与 ${since} 同价`;
     const direction = change.delta > 0 ? '涨' : '跌';
     const ratio = change.ratio === null ? '' : `（${percentText(change.ratio)}）`;
-    return `较 ${since} ${direction} ${moneyText(change.delta)}${ratio}`;
+    return `较${spaced}${direction} ${moneyText(change.delta)}${ratio}`;
 }
 
 /** 卡片上那枚涨跌徽章要的三样东西。 */
