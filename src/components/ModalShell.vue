@@ -27,7 +27,7 @@ const props = withDefaults(
     defineProps<{
         /** 标题栏文字。留空则不渲染标题栏——删除确认那种一句话弹窗不需要标题栏。 */
         title?: string;
-        /** 面板宽度。按内容给：物品表单 520、记价 380、删除确认 420、历史 620。 */
+        /** 面板宽度。按内容给：物品表单 520、记价 380、确认窗 252、历史 620。 */
         width?: number;
         /** 初始焦点：`first` 第一个可聚焦元素，`cancel` 带 `data-modal-cancel` 的那个。 */
         initialFocus?: 'first' | 'cancel';

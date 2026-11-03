@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
-import ConfirmDialog from '../../components/ConfirmDialog.vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SelectField from '../../components/SelectField.vue';
 import SlotButton from '../../components/SlotButton.vue';
+import { askConfirm } from '../../composables/use-confirm';
+import { notify } from '../../composables/use-notify';
 import PriceCard from './PriceCard.vue';
 import PriceHistoryDialog from './PriceHistoryDialog.vue';
 import PriceItemDialog from './PriceItemDialog.vue';
@@ -32,7 +33,7 @@ import { usePrices } from './prices-store';
  *
  * ---- 写操作全部走弹窗 ----
  * 新建 / 编辑 / 记价 / 删物品 / 删一条记录 / 看历史，六件事四个弹窗
- * （物品表单新建与编辑共用一个，删物品与删记录共用 `ConfirmDialog`）。
+ * （物品表单新建与编辑共用一个，两个删除共用全站那一枚确认窗 `askConfirm()`）。
  * 原先的行内表单已经删掉：卡片铺满之后，行内表单会插在网格中间把一排卡顶下去，
  * 每次都导致整页重排。
  *
@@ -130,8 +131,6 @@ const editingPoint = ref<PricePoint | null>(null);
 const pointDialogOpen = ref(false);
 /** 记完一笔要重置草稿（日期回今天、价格清空），靠这个自增号掺进 `:key`。 */
 const pointVersion = ref(0);
-/** 删除确认：有 `pointId` 是删一条记录，没有是删整件物品。 */
-const confirming = ref<{ itemId: string; pointId: string } | null>(null);
 
 /* 写入失败的原因分两条路显示：物品弹窗里的失败留在弹窗内（关掉窗再报错，用户得重新填一遍），
  * 页面级那条留给「记价撞上限」这类弹窗已经关掉之后才发生的事。
@@ -178,6 +177,7 @@ function onSaveItem(draft: PriceItemDraft, initialPrice: number) {
         return;
     }
     closeItemDialog();
+    notify.success(target ? '已保存' : '已新增');
 }
 
 /* ---------- 记价 ----------
@@ -221,19 +221,43 @@ function closePointDialog() {
 function onSavePoint(draft: PricePointDraft) {
     const item = pointItem.value;
     if (!item) return;
-    const result = editingPoint.value
-        ? savePoint(item.id, editingPoint.value.id, draft)
-        : addPoint(item.id, draft);
+    const editing = editingPoint.value;
+    const result = editing ? savePoint(item.id, editing.id, draft) : addPoint(item.id, draft);
     if (!result.ok) {
         pointError.value = result.error;
         return;
     }
     closePointDialog();
+    notify.success(editing ? '已改这一笔' : '已记一笔');
 }
 
-/* ---------- 删除 ---------- */
-function askRemoveItem(item: PriceItem) {
-    confirming.value = { itemId: item.id, pointId: '' };
+/* ---------- 删除 ----------
+ * 问句在动作函数里，不再另存一份 `confirming` 状态再去算标题：以前那套是
+ * 「点按钮 → 记下目标 → computed 拼两句文案 → 模板渲染窗 → 回调里再读一遍目标」，
+ * 一条链走下来，只为回答「删的是哪一件」。
+ */
+async function askRemoveItem(item: PriceItem) {
+    const count = item.points.length;
+    const ok = await askConfirm({
+        title: `删掉「${item.name}」这张卡？`,
+        note: count
+            ? `它下面的 ${count} 条价格记录会一并删掉，删了没法撤回。`
+            : '这张卡下面还没有价格记录，删了没法撤回。',
+        confirmText: '删除',
+    });
+    if (!ok) return;
+
+    const result = removeItem(item.id);
+    if (!result.ok) {
+        /* 失败用浮层说，不再挤进页头那条 `pointError`：那句话是「记价没写进去」的位置，
+         * 而这里是卡片已经不在眼前了，用户的视点还在网格上。 */
+        notify.error(result.error);
+        return;
+    }
+    /* 删的是物品 → 历史窗也没内容了，一起关掉。 */
+    historyId.value = '';
+    if (pointItemId.value === item.id) pointItemId.value = '';
+    notify.success('已删除');
 }
 
 /**
@@ -243,62 +267,25 @@ function askRemoveItem(item: PriceItem) {
  * 早先写的是 `pointItem.value ?? historyItem.value`：`pointItem` 是「上一次开过记价窗的
  * 那件」，与此刻打开的历史窗不是同一件。于是在 A 上记过价、再去 B 的历史里删一条，
  * 会拿 A 的 id 去删 B 的记录，得到「这条记录已经不在了」。
+ *
+ * 确认之后历史窗**留着**（与删整张卡不同）：用户多半还要接着看走势。
  */
-function askRemovePoint(point: PricePoint) {
+async function askRemovePoint(point: PricePoint) {
     const item = historyItem.value;
     if (!item) return;
-    confirming.value = { itemId: item.id, pointId: point.id };
-}
+    const ok = await askConfirm({
+        title: `删掉 ${shortDate(point.date)} 的价格记录？`,
+        note: '只删这一条，物品本身还留着。删了没法撤回。',
+        confirmText: '删除',
+    });
+    if (!ok) return;
 
-/**
- * 正在确认删除的那件物品。
- *
- * 标题与后果两句都要它，原先各 `items.find` 一次、再加一个 `baseName()` 又是一次——
- * 同一件事查三遍。提出来之后三处共用，也顺带让「物品已经不在列表里」只有一种表达。
- */
-const confirmTarget = computed<PriceItem | null>(() => {
-    const target = confirming.value;
-    if (!target) return null;
-    return items.value.find((one) => one.id === target.itemId) ?? null;
-});
-
-const confirmTitle = computed(() => {
-    const target = confirming.value;
-    if (!target) return '';
-    if (target.pointId) {
-        const point = confirmTarget.value?.points.find((one) => one.id === target.pointId);
-        return `删掉 ${point ? shortDate(point.date) : '这一条'} 的价格记录？`;
-    }
-    return `删掉「${confirmTarget.value?.name ?? '这件物品'}」这张卡？`;
-});
-
-const confirmNote = computed(() => {
-    const target = confirming.value;
-    if (!target) return '';
-    if (target.pointId) return '只删这一条，物品本身还留着。删了没法撤回。';
-    const count = confirmTarget.value?.points.length ?? 0;
-    return count
-        ? `它下面的 ${count} 条价格记录会一并删掉，删了没法撤回。`
-        : '这张卡下面还没有价格记录，删了没法撤回。';
-});
-
-function onConfirmRemove() {
-    const target = confirming.value;
-    if (!target) return;
-    const result = target.pointId
-        ? removePoint(target.itemId, target.pointId)
-        : removeItem(target.itemId);
-    confirming.value = null;
+    const result = removePoint(item.id, point.id);
     if (!result.ok) {
-        pointError.value = result.error;
+        notify.error(result.error);
         return;
     }
-    /* 删的是物品 → 历史窗也没内容了，一起关掉。删的是单条 → 历史窗留着，
-     * 用户多半还要接着看走势。 */
-    if (!target.pointId) {
-        historyId.value = '';
-        if (pointItemId.value === target.itemId) pointItemId.value = '';
-    }
+    notify.success('已删除');
 }
 
 function openHistory(item: PriceItem) {
@@ -418,14 +405,6 @@ function openHistory(item: PriceItem) {
             @remove-item="askRemoveItem(historyItem)"
             @edit-point="startEditPoint"
             @remove-point="askRemovePoint"
-        />
-
-        <ConfirmDialog
-            v-if="confirming"
-            :title="confirmTitle"
-            :note="confirmNote"
-            @confirm="onConfirmRemove"
-            @cancel="confirming = null"
         />
     </PageShell>
 </template>

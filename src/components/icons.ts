@@ -34,6 +34,7 @@ import {
     IconDownload,
     IconFlag,
     IconFlask,
+    IconInfoCircle,
     IconLayoutDashboard,
     IconMapPin,
     IconMinus,
@@ -48,6 +49,7 @@ import {
     IconTag,
     IconTool,
     IconTrash,
+    IconUpload,
     IconUsers,
     IconWallet,
     IconX,
@@ -108,9 +110,16 @@ const ICON_META = {
     trash: { glyph: IconTrash, label: '删除', group: 'action' },
     search: { glyph: IconSearch, label: '搜索', group: 'action' },
     archive: { glyph: IconArchive, label: '归档', group: 'action' },
-    download: { glyph: IconDownload, label: '下载', group: 'action' },
+    // 方向按**文件**走，不按「数据流」走：导出是把账写成一份文件拿走（箭头朝下落到纸面），
+    // 导入是把一份文件读回来（箭头朝上离开纸面）。两枚并排时方向相反才读得出是一进一出，
+    // 用同一个盒子图标会读成两个一样的动作。
+    download: { glyph: IconDownload, label: '导出', group: 'action' },
+    upload: { glyph: IconUpload, label: '导入', group: 'action' },
     pin: { glyph: IconMapPin, label: '定位', group: 'action' },
     check: { glyph: IconCheck, label: '勾选', group: 'action' },
+    // 圆圈里的 i 是通用符号，不用「感叹号」是因为它读起来像错误。
+    // 注意 `NotifyHost` **不用**它：那道凹槽只留一根 3px 竖条，两个彩色记号会互相抵消。
+    info: { glyph: IconInfoCircle, label: '提示', group: 'action' },
     'chevron-down': { glyph: IconChevronDown, label: '下拉', group: 'action' },
     'chevron-right': { glyph: IconChevronRight, label: '右折', group: 'action' },
 

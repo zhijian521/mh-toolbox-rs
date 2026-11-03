@@ -15,10 +15,11 @@ import SelectField from '../../components/SelectField.vue';
 import SlotButton from '../../components/SlotButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import { useFontScale } from '../../composables/use-font-scale';
+import { notify } from '../../composables/use-notify';
 import { THEME_OPTIONS, useTheme } from '../../composables/use-theme';
 
 /**
- * 原子组件：抽出来复用的十一件（十一条 `kit-cell`，一条里可能并排两个同族件——
+ * 原子组件：抽出来复用的十二件（十二条 `kit-cell`，一条里可能并排两个同族件——
  * 比如 `Field` / `NumberField`、`PressTile` / `PressButton`）。
  *
  * 加一件请连上面那个数一起改：篇首原先写死「九件」，加了两件之后就成了假信息。
@@ -57,7 +58,7 @@ const demoSchool = ref('五庄观');
 </script>
 
 <template>
-    <LedgerSection title="原子组件" hint="抽出来复用的十一件，业务页直接拿去用">
+    <LedgerSection title="原子组件" hint="抽出来复用的十二件，业务页直接拿去用">
         <div class="kit atoms-kit">
             <div class="kit-cell">
                 <span class="col-head">SegmentedPills · 分段胶囊</span>
@@ -132,10 +133,17 @@ const demoSchool = ref('五庄观');
                     <SlotButton label="默认 26px" text="md" />
                     <SlotButton label="大一号 31px" text="lg" size="lg" />
                 </div>
+                <!-- 破坏性动作单独一行：它吃的是 `seal`（印面常驻），与上面那行同一种变体，
+                     分开放是为了看清「常驻印面」在 `trash` 图标 + 两字文案下的比例。 -->
+                <div class="kit-row">
+                    <SlotButton label="不可撤销 · 清空数据" icon="trash" text="清除" seal />
+                    <SlotButton label="不可撤销 · 停用" icon="trash" text="清除" seal disabled />
+                </div>
                 <p class="note">
                     形态由 props 定：只给 <code>icon</code> 是纯图标，<code>icon</code> +
                     <code>text</code> 带字，只给 <code>text</code> 是纯文字。<code>seal</code>
-                    是变体，主操作用，一屏一枚；尺寸 <code>md</code> 26 / <code>lg</code> 31。
+                    是变体，印面常驻，给一屏里那枚要立刻看见的动作（主操作与不可撤销的清除都吃
+                    这一档）；尺寸 <code>md</code> 26 / <code>lg</code> 31。
                 </p>
             </div>
 
@@ -148,6 +156,36 @@ const demoSchool = ref('五庄观');
                 <p class="note">
                     两格文案由 <code>off-label</code> / <code>on-label</code> 给；滑块 240ms
                     回弹，关闭态灭灯不是变灰。
+                </p>
+            </div>
+
+            <div class="kit-cell">
+                <span class="col-head">Notify · 消息提示</span>
+                <div class="kit-row">
+                    <PressButton
+                        icon="check"
+                        text="成功"
+                        label="演示：成功提示"
+                        @click="notify.success('已保存')"
+                    />
+                    <PressButton
+                        icon="close"
+                        text="失败"
+                        label="演示：失败提示"
+                        @click="notify.error('保存失败：这条记录已经不在了')"
+                    />
+                    <PressButton
+                        icon="info"
+                        text="中性"
+                        label="演示：中性提示"
+                        @click="notify.info('已取消')"
+                    />
+                </div>
+                <p class="note">
+                    做完一件事说一句，三秒自收；<b>悬停停表、点一下收走</b>。宿主
+                    <code>NotifyHost</code> 全站一个，页面只写
+                    <code>notify.success('已删除')</code>。
+                    这一格是唯一能看到它的地方——业务页只在操作之后才出现。
                 </p>
             </div>
 

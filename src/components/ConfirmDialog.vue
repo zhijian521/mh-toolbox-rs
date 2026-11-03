@@ -3,7 +3,11 @@ import ModalShell from './ModalShell.vue';
 import PressButton from './PressButton.vue';
 
 /**
- * 删除确认：一句问句 + 一句后果 + 两枚按钮。
+ * 确认窗的形态：一句问句 + 一句后果 + 两枚按钮。
+ *
+ * **不直接被页面用**——页面只说 `await askConfirm({...})`（`composables/use-confirm.ts`），
+ * 这个组件由 `ConfirmHost` 渲染，全站只有一个。留在这里的只有「长什么样」，
+ * 「什么时候开、开哪一句、答完往哪走」都在那个函数背后。
  *
  * 不渲染标题栏（`ModalShell` 的 `title` 留空）：确认窗只有一件事要说，
  * 再顶一行「删除确认」等于把同一句话说两遍，还白占 40px。
@@ -24,14 +28,26 @@ withDefaults(
         title: string;
         /** 后果。写清会连带删掉什么、能不能撤回。可以没有。 */
         note?: string;
-        /** 确认按钮上的字。删除物品与删除单条记录都可以叫「删除」。 */
+        /** 确认按钮上的字。删除物品与删除单条记录都可以叫「删除」；
+         *  设置页那两个动作用「替换」与「清除」——同一个窗，动词不同。 */
         confirmText?: string;
-        width?: number;
     }>(),
-    { note: '', confirmText: '删除', width: 420 },
+    { note: '', confirmText: '删除' },
 );
 
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
+
+/**
+ * 窗宽，唯一一处。
+ *
+ * 原先 420，用户看图后说「宽度有点大了，缩小五分之二」，于是 420 × 3/5 = 252。
+ * 不再做成 prop：全站确认窗共用一个宽度是这次收拢的目的之一，
+ * 留一个旋钮就等于留一个「这处窄一点」的入口。
+ *
+ * 252 减去左右各 16 的内边距，正文可用 220px，13px 正文一行约 16 个字——
+ * 「清空所有角色与物价？」这类问句刚好一行，长一点的后果句折两到三行。
+ */
+const WIDTH = 252;
 
 /**
  * 问句的 id，交给 `ModalShell` 的 `labelledby`。
@@ -44,7 +60,7 @@ const titleId = `confirm-title-${Math.random().toString(36).slice(2, 9)}`;
 </script>
 
 <template>
-    <ModalShell :width="width" :labelledby="titleId" initial-focus="cancel" @close="emit('cancel')">
+    <ModalShell :width="WIDTH" :labelledby="titleId" initial-focus="cancel" @close="emit('cancel')">
         <p :id="titleId" class="confirm-title">{{ title }}</p>
         <p v-if="note" class="confirm-note meta">{{ note }}</p>
 
@@ -55,7 +71,15 @@ const titleId = `confirm-title-${Math.random().toString(36).slice(2, 9)}`;
                 label="取消这次删除"
                 @click="emit('cancel')"
             />
-            <PressButton text="删除" label="确认删除" seal @click="emit('confirm')" />
+            <!-- 按钮上的字跟着 `confirmText` 走。这里曾写死「删除」二字，于是
+                 `confirmText` 是个谁也没读的 prop——物价页刚好三个动作都叫删除，
+                 这个洞一直没露出来；设置页的「替换 / 清除」一加就露了。 -->
+            <PressButton
+                :text="confirmText"
+                :label="`确认${confirmText}`"
+                seal
+                @click="emit('confirm')"
+            />
         </template>
     </ModalShell>
 </template>
