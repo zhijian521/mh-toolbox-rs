@@ -5,6 +5,7 @@ import CostSwitch from '../../components/CostSwitch.vue';
 import FontSizeSlider from '../../components/FontSizeSlider.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import MeterBar from '../../components/MeterBar.vue';
+import NumTag from '../../components/NumTag.vue';
 import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
@@ -16,7 +17,11 @@ import { useFontScale } from '../../composables/use-font-scale';
 import { THEME_OPTIONS, useTheme } from '../../composables/use-theme';
 
 /**
- * 原子组件：九个抽出来复用的小件。
+ * 原子组件：抽出来复用的十件（十条 `kit-cell`，一条里可能并排两个同族件——
+ * 比如 `Field` / `NumberField`、`PressTile` / `PressButton`）。
+ *
+ * 加一件请连上面那个数一起改：篇首原先写死「九件」，加了两件之后就成了假信息。
+ * 组合件不进这张卡（它由原子拼成、还带业务语义），见 `SkillRowSection`。
  *
  * 这张卡不是演示页，是**验收面**——新控件先进这里，再进业务页面。
  * 它和「外观」共用同一份状态（单例 composable），所以在上面切主题、拖字号，
@@ -48,7 +53,7 @@ const demoSchool = ref('五庄观');
 </script>
 
 <template>
-    <LedgerSection title="原子组件" hint="抽出来复用的九件，业务页直接拿去用">
+    <LedgerSection title="原子组件" hint="抽出来复用的十件，业务页直接拿去用">
         <div class="kit atoms-kit">
             <div class="kit-cell">
                 <span class="col-head">SegmentedPills · 分段胶囊</span>
@@ -169,6 +174,25 @@ const demoSchool = ref('五庄观');
                 <p class="note">
                     凹槽里挖的一格，高与 <code>PressButton</code> 的 <code>md</code> 同值。
                     焦点换边色、不画外框——方框压在圆角上会露四个角。
+                </p>
+            </div>
+
+            <div class="kit-cell">
+                <span class="col-head">NumTag · 数值签</span>
+                <div class="kit-row">
+                    <NumTag class="kit-tag">
+                        <span class="kit-tag-note">满</span>
+                        <span>180</span>
+                    </NumTag>
+                    <NumTag class="kit-tag">140</NumTag>
+                    <!-- 不给 `--tag-*` 时宽高由内容定：这枚只装一个短数，摆在行内当读数。 -->
+                    <NumTag>26</NumTag>
+                </div>
+                <p class="note">
+                    纸带上挖出的一小格，<b>只装一个数</b>——它是读数，不是输入框，悬停不加深。
+                    材质走全局 <code>.num-slot</code>，与属性页那排数字格、师门等级格同一份；
+                    宽高由使用方经 <code>--tag-w</code> / <code>--tag-h</code> 给（卡上
+                    <b>56 × 30</b>），<b>数居中</b>——居中的留白两边均匀，读作「一枚签」。
                 </p>
             </div>
 
@@ -315,6 +339,18 @@ const demoSchool = ref('五庄观');
 }
 .kit-area {
     width: 100%;
+}
+
+/* 数值签按卡上那枚摆：56 × 30（乘字号档）、字与「满」的字号也照抄
+ * ——`--fs-md + 3` 是「读数比名目大三个像素」那条规矩，演示里不能另给一个小号。 */
+.kit-tag {
+    --tag-w: calc(56px * var(--fs-scale));
+    --tag-h: calc(30px * var(--fs-scale));
+    font-size: calc(var(--fs-md) + 3px);
+}
+.kit-tag-note {
+    color: var(--muted);
+    font-size: var(--fs-mini);
 }
 
 /* 滑块演示给 300 宽：`inline-grid` 会收缩到内容宽，收缩态下「N 格等分 + 印按格位移」

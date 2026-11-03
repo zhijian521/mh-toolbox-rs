@@ -1,18 +1,16 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import CostSwitch from '../../../components/CostSwitch.vue';
 import NumberField from '../../../components/NumberField.vue';
 import PressButton from '../../../components/PressButton.vue';
-import PressTile from '../../../components/PressTile.vue';
 import SegmentedPills from '../../../components/SegmentedPills.vue';
 import SelectField from '../../../components/SelectField.vue';
+import SkillRow from '../SkillRow.vue';
 import {
     isMaxed,
-    skillTicks,
-    tickLevel,
     type AssistKind,
     type AssistSkill,
-    type SkillRow,
+    type SkillRow as SkillRowData,
 } from '../character';
 import { lifeSkills, schoolSkillCap, storySkills } from '../../../services/game-data';
 
@@ -54,7 +52,7 @@ const props = withDefaults(
 
 /* 行数组走 `v-model`：增删要写回数组本身，只读 prop 过不了 `vue/no-mutating-props`。
  * 传进来的仍是草稿里那一个数组（同一个引用），没有第二份副本。 */
-const rows = defineModel<SkillRow[]>({ required: true });
+const rows = defineModel<SkillRowData[]>({ required: true });
 
 /* 师门技能上限一直 180（用户 2026-11-02 确认；数值在 `game/data/schools.json` 的 `cap`，
  * 由 `schoolSkillCap()` 读），新增时就带上——否则每加一项都要手填一次。
@@ -71,7 +69,7 @@ function addRow() {
 
 /* 删的是**原数组里那一个对象**：分组模式下 `visible` 是过滤出来的新数组，
  * 用它的下标去 splice 会删错行（两类的下标本来就不连续）。 */
-function removeRow(row: SkillRow) {
+function removeRow(row: SkillRowData) {
     const index = rows.value.indexOf(row);
     if (index >= 0) rows.value.splice(index, 1);
 }
@@ -83,9 +81,9 @@ const TYPE_OPTIONS: { value: AssistKind; label: string }[] = [
     { value: 'story', label: '剧情' },
 ];
 
-const kindOf = (row: SkillRow): AssistKind => (row as AssistSkill).kind ?? 'life';
+const kindOf = (row: SkillRowData): AssistKind => (row as AssistSkill).kind ?? 'life';
 
-function setKind(row: SkillRow, kind: AssistKind) {
+function setKind(row: SkillRowData, kind: AssistKind) {
     (row as AssistSkill).kind = kind;
 }
 
@@ -100,45 +98,31 @@ const maxedCount = computed(() => rows.value.filter(isMaxed).length);
 /* 上限只有一个来源：行上存着就用行上的（老数据可能是别的值），否则读表级常量。
  * 写成函数而不是在模板里 `row.cap ?? schoolSkillCap()` 两遍——两处各写一次，
  * 将来「上限从哪来」一改，就会只剩一半跟着改。 */
-function capOf(row: SkillRow): number {
+function capOf(row: SkillRowData): number {
     return row.cap ?? schoolSkillCap();
+}
+
+/* 名字与等级格的关联：`<label for>` + 输入格的 `id`。
+ *
+ * 为什么不给整行包 `<label>`：一行里现在有三类可标记元素的前身（<button> 刻度、
+ * <input> 等级），而 label 只认第一个，点名字会把焦点送给第一格刻度。
+ * 按**行下标**编号而不是按名字：名字理论上唯一，但用下标就不必依赖这个前提
+ * （同一门派重复一项时也不会撞 id）。
+ *
+ * `id` 能落到 `<input>` 上靠的是 `NumberField` 的属性透传——它单根、没关 inheritAttrs，
+ * 所以这里不必为它加一个 prop。」 */
+function levelId(index: number): string {
+    return `school-skill-lv-${index}`;
 }
 
 /* ---------- 点刻度直接设档（2026-11-03 用户要求） ----------
  * 七行都是「二十级一档」，而填数要先把光标点进格子、全选、敲数字、再确认——
  * 只想把某一项从 0 拉到 120 时，点第六格是一步。
  *
- * 点第 N 格 = 前 N 格全满（`tickLevel` 与 `skillTicks` 共用同一个格数，不会错位）。
- * 只有鼠标能点：`tabindex="-1"`、`aria-hidden`，键盘走旁边那个等级格——
- * 七行 × 九格 = 六十三个 Tab 停靠点会把这张表变成一个走不出去的地方。
- *
- * 指针停在刻度上时**整条先演示一遍点下去的样子**（前 N 格亮、其余空）：
- * 一格只有七像素高，没有这层预览，那一下点的是第几档全靠猜。 */
-const hoverTick = ref<{ name: string; index: number } | null>(null);
-
-function setLevel(row: SkillRow, index: number) {
-    row.level = tickLevel(index, capOf(row));
-}
-
-function prefilled(row: SkillRow, index: number): boolean {
-    const hover = hoverTick.value;
-    return hover?.name === row.name && index <= hover.index;
-}
-
-function tickStyle(row: SkillRow, index: number, fill: number) {
-    /* 正在预览这一行时按「点下去的结果」重画：前 N 格满、后面全空——
-     * 已经填到六格的行，指着第四格也要能看出「点了会降到 80」。 */
-    const hovering = hoverTick.value?.name === row.name;
-    const value = hovering ? (prefilled(row, index) ? 100 : 0) : fill;
-    return { '--fill': `${value}%` };
-}
-
-/* 字印：技能名首字（与卡上同一枚）。见 `CharacterCard.vue` 的 `sealOf`——
- * 两处都得有，但不合到一个模块里：一处是「卡片怎么画」，一处是「编辑器怎么画」，
- * 谁先变都不该把另一处拖着改。 */
-function sealOf(name: string): string {
-    return [...name][0] ?? '';
-}
+ * 交互本身（哪一格、预览、键盘不该进）全在 `SkillTicks` 里：它抛出的是**等级**，
+ * 这里只负责写回草稿。原先这段判断（`hoverTick` / `prefilled` / `tickStyle`）
+ * 长在本文件，本质是「刻度怎么显示」，跟着刻度走才对——卡上没有这份逻辑，
+ * 却要共用同一套视觉，写在两处迟早对不上。 */
 
 /* ---------- 名字改成下拉（2026-11-03 用户要求） ----------
  * 辅助技能的名字本来在 `game/data/skills.json` 里就是一份**固定名录**（生活 21、剧情 11），
@@ -152,7 +136,7 @@ function sealOf(name: string): string {
 const lifeOptions = computed(() => lifeSkills().map((name) => ({ value: name, label: name })));
 const storyOptions = computed(() => storySkills().map((name) => ({ value: name, label: name })));
 
-function optionsFor(row: SkillRow): { value: string; label: string }[] {
+function optionsFor(row: SkillRowData): { value: string; label: string }[] {
     const base = (props.group ?? kindOf(row)) === 'story' ? storyOptions.value : lifeOptions.value;
     const current = row.name;
     return current && !base.some((option) => option.value === current)
@@ -172,59 +156,25 @@ function optionsFor(row: SkillRow): { value: string; label: string }[] {
                 {{ props.school ? `${props.school} 没有查到门派技能` : '先选择门派' }}
             </p>
             <template v-else>
-                <div class="skill-head">
+                <div class="group-head skill-head">
                     <span class="section-mark"></span>门派技能
-                    <span class="skill-sum num">已满 {{ maxedCount }}/{{ rows.length }}</span>
+                    <span class="group-sum num">已满 {{ maxedCount }}/{{ rows.length }}</span>
                 </div>
                 <div class="paper-rows skill-rows">
-                    <!-- 整行是 `<label>`：点名字也能落进等级格，比只点那一小格宽得多
-                         （与属性页那几行同一个做法）。 -->
-                    <label
-                        v-for="row in rows"
+                    <!-- 一行是 `SkillRow`（与卡上同一个组件）：`editable` 把等级换成
+                         输入格、刻度换成可点的。名字由门派带入，不在这里增删。
+                         `input-id` 给名字的 `<label for>` 用——行里现在有九个刻度按钮，
+                         整行包 `<label>` 会让焦点落到第一个按钮上，而不是等级格。 -->
+                    <SkillRow
+                        v-for="(row, index) in rows"
                         :key="row.name"
-                        class="paper-row school-erow"
-                        :class="{ full: isMaxed(row), idle: row.level === 0 }"
-                    >
-                        <PressTile
-                            class="seal"
-                            still
-                            :tone="isMaxed(row) ? 'seal' : 'paper'"
-                            aria-hidden="true"
-                        >
-                            <span class="seal-text">{{ sealOf(row.name) }}</span>
-                        </PressTile>
-                        <!-- 名称与刻度包成一层（`.school-main`），与卡上同一个结构：
-                             三列各按中线对齐，中间那列自己两行。 -->
-                        <span class="school-main">
-                            <span class="name-text">{{ row.name }}</span>
-                            <!-- 刻度与卡上是同一套算法（`character.ts` 的 `skillTicks`）：
-                                 填完一个数，这里立刻是回卡上会看到的那几格。
-                                 每格都能点，点第 N 格就是这一档（见脚本里 `setLevel`）。 -->
-                            <span class="ticks" aria-hidden="true" @pointerleave="hoverTick = null">
-                                <button
-                                    v-for="(fill, index) in skillTicks(row.level, capOf(row))"
-                                    :key="index"
-                                    type="button"
-                                    class="tick"
-                                    tabindex="-1"
-                                    :class="{ preview: prefilled(row, index) }"
-                                    :style="tickStyle(row, index, fill)"
-                                    :title="`${tickLevel(index, capOf(row))} 级`"
-                                    @click.stop.prevent="setLevel(row, index)"
-                                    @pointerenter="hoverTick = { name: row.name, index }"
-                                ></button>
-                            </span>
-                        </span>
-                        <!-- 上限不写出来（2026-11-03 用户：「180 大家默认都知道」）。
-                             `cap` 仍在数据里：刻度按它分格、点刻度按它算档位，
-                             只是不再占一列。 -->
-                        <NumberField
-                            :model-value="row.level"
-                            label="等级"
-                            class="lv-field"
-                            @update:model-value="row.level = $event"
-                        />
-                    </label>
+                        class="school-erow"
+                        :row="row"
+                        editable
+                        :cap="capOf(row)"
+                        :input-id="levelId(index)"
+                        @update:level="row.level = $event"
+                    />
                 </div>
                 <p class="hint skill-hint">
                     名字由门派带入；点刻度直接设档，换门派会按名字保留已填的等级
@@ -260,7 +210,7 @@ function optionsFor(row: SkillRow): { value: string; label: string }[] {
                 <NumberField
                     :model-value="row.level"
                     label="等级"
-                    class="lv-field"
+                    class="lv-field num-slot"
                     @update:model-value="row.level = $event"
                 />
                 <!-- 自由列表（辅助）上限留空 = 不知道。存 0 会把「不知道」变成
@@ -270,7 +220,7 @@ function optionsFor(row: SkillRow): { value: string; label: string }[] {
                     zero-as-empty
                     label="上限"
                     placeholder="上限"
-                    class="cap-field"
+                    class="cap-field num-slot"
                     @update:model-value="row.cap = $event || undefined"
                 />
                 <CostSwitch
@@ -338,26 +288,13 @@ function optionsFor(row: SkillRow): { value: string; label: string }[] {
 /* ======================================================================
  * 门派技能那一页（七行纸带，只有等级能填）
  * ==================================================================== */
-/* 组头与卡上同一句：`section-mark` + 标题 + 右端小计。弹窗里也要有一处说明
- * 「这七项是谁给的」，否则一列只有名字、数字、刻度，看着像一张无主的表。 */
+/* 组头与卡上同一句：`section-mark` + 标题 + 右端小计（样式在 `base.css` 的
+ * `.group-head`）。这一页只在它下面多留 8px：弹窗里的组头接的是一整叠纸带，
+ * 不像卡上那样紧贴着页签条。 */
 .skill-head {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 8px;
-    color: var(--muted);
-    font-size: var(--fs-xs);
-    letter-spacing: 0.14em;
+    --gh-mb: 8px;
 }
-.skill-head .section-mark {
-    --mark-w: 4px;
-    --mark-h: 13px;
-}
-.skill-sum {
-    margin-left: auto;
-    color: var(--num);
-    letter-spacing: 0;
-}
+
 /* 没有门派时那一句。与卡上的 `.empty-note` 同一个读法：一条纸带都没有时，
  * 空着会读成「没画完」，一句话才说得清缺的是门派。 */
 .skill-empty {
@@ -384,224 +321,35 @@ function optionsFor(row: SkillRow): { value: string; label: string }[] {
 /* 三列 flex：印 / 名称 + 刻度 / 等级——**与卡上同一个结构、同一套尺寸**
  * （2026-11-03 用户：「同步一下师门技能编辑页的技能列表样式和角色卡片保持一致」）。
  *
- * 上一版是两行 grid（26 的输入格 + 6 的缝 + 7 的刻度），行高 51、字印 28、数字格 26：
- * 单看没问题，但把卡和弹窗并排，同一项技能在两处的行高、印的大小、数字格的厚薄
- * 全不一样，填完回卡上核对时眼睛要重新找位置。现在两边都走「印 39 / 名称 + 刻度 /
- * 数字格 34」，行高 55（`min-height`，内容撑不到时按卡上的高度铺）。
- *
- * 为什么还是 flex 不是 grid：卡上那枚字印要按行内容高居中撑着，grid 两行轨道的总高
- * 只有 32（名称 16 + 缝 9 + 刻度 7），39 的块会顶破轨道。flex 的行高由容器给，
- * `align-items: center` 让三列落在同一条中线上——与卡上逐条对应。 */
+ * 那一行的解剖（三列、内边距、印与数字格的尺寸）在 `SkillRow.vue`，与卡共用一份。
+ * 这里只剩**这一页的行高**：卡上那七行是容器均分出来的（1.0 档 55、1.1 档 54），
+ * 弹窗得自己钉住。 */
 .school-erow {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    /* 55 与卡上的行高同一个数；`min-height` 而不是 `height`：字号档更大或内容更高时
-     * 允许长高，不把内容挤扁。
+    /* 55 与卡上的行高同一个数。
      *
-     * **不乘 `--fs-scale`**：卡上那七行是容器均分出来的（1.0 档 55、1.1 档 54，字放大
-     * 反而更矮），跟着字号一起放大到 60.5 会让七行多出 44px——1.1 档实测溢出 6px，
+     * `height` 而不是 `min-height`：印的 `--tile-h: calc(100% - …)` 要求行高**确定**，
+     * 不定的高度会让百分比解析成 `auto`，印直接缩成内容大小。名字有 `nowrap` + 省略号，
+     * 不会换行，所以也不存在「内容比 55 高」的情况。
+     *
+     * **不乘 `--fs-scale`**：跟着字号放大到 60.5 会让七行多出 44px——1.1 档实测溢出 6px，
      * 编辑区多出一条滚动条。字印与数字格自己乘档位，行高只认「卡上那个数」。 */
-    min-height: 55px;
-    padding: 4px 10px;
+    height: 55px;
 }
-/* 名称 + 刻度：同一列的两行，整块在行内居中。与卡上 `.school-main` 逐条同值
- * （列内间距 9、`min-width: 0` 给省略号留位置）。 */
-.school-main {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    justify-content: center;
-    gap: 9px;
-    min-width: 0;
-}
-/* 字印：与卡上同一枚、同一尺寸（39 × 字号档，卡上是「行内容高 − 8」算出来的同一个数）。
- * 落地影也回到 0.85——上一版 28 的块用 0.7，放大到 39 之后按比例仍是这一档
- * （牌记 34 同用 0.85）。 */
-.seal {
-    flex: none;
-    --tile-w: calc(39px * var(--fs-scale));
-    --tile-h: calc(39px * var(--fs-scale));
-    --tile-r: var(--r-2);
-    --tile-drop: 0.85;
-    /* 块面给不透明的纸：与卡上同一条理由（纸带底是 `--paper-2`，92% 半透明叠上去
-     * 亮色下几乎与带子同色）。暗色再提一档——`--paper` 在那里比纸带还暗，直接用会读成凹。
-     * 满级时被 `PressTile` 的 `.tone-seal` 盖掉。 */
-    --tile-face: light-dark(var(--paper), color-mix(in srgb, var(--paper) 84%, var(--ink)));
-}
-/* 字色在内层：块的 `color` 由 `PressTile` 统一给（纸面 `--ink-2` / 朱面 `--on-seal`），
- * 这一枚要的是朱字，满级时再翻纸白。字号与卡上同一个算式（`--fs-md + 2`）：
- * 印从 28 长到 39，字还停在 14 就变成「一个大框里一个小字」。 */
-.seal-text {
-    color: var(--cinnabar);
-    font-size: calc(var(--fs-md) + 2px);
-    line-height: 1;
-}
-.name-text {
-    overflow: hidden;
-    color: var(--ink);
-    font-size: var(--fs-sm);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-/* 等级格：与卡上那枚数值签同尺寸（56 × 34 × 字号档），字号也同一个算式。
+/* ---------- 等级格 / 上限格（辅助那一行） ----------
  *
- * 上一版是「跨两行、26 高」——为了在 grid 里居中，还得给 row 1 钉一条 `minmax`。
- * 改成 flex 之后三列都按中线对齐，不需要任何居中补丁：`align-items: center` 直接对齐。
+ * 材质来自 `base.css` 的 `.num-slot`（45% 槽色、两道棱、悬停 68%、聚焦实槽），
+ * 也就是卡上那枚只读的 `NumTag` 与属性页那排数字格用的同一份。三处各写一遍时，
+ * 这处用 `background-color` 长写、属性页用 `background` 简写，前者把 `.field` 的
+ * 顶壁渐变留了下来——同一个数在卡上与弹窗里深浅不同，就是从这儿开始的。
  *
- * 字号取 `--fs-md + 3`、颜色取 `--num`：与卡上一致——同一个数在两处不该一个大一个小、
- * 一个赭一个墨。满级转朱，与卡上同一条。 */
-.school-erow .lv-field {
-    flex: none;
-    width: calc(56px * var(--fs-scale));
-    /* 30 与卡上那枚数值签同高（2026-11-03 用户两次说「再小一点」）：39 → 34 → 30。
-     * 34 时仍厚；30 才读作「一条读数被框住」（字 18.5，上下各 5.75）。
-     * 行高由 `.school-erow` 的 `min-height: 55px` 定，格子不撑行；再收就得先收字号。 */
-    height: calc(30px * var(--fs-scale));
-    padding: 0 4px;
-    color: var(--num);
-    font-size: calc(var(--fs-md) + 3px);
-    line-height: 1;
-    /* 数字居中，与卡上那枚数值签同一条（2026-11-03 用户：「数字居中展示」）。
-     * 宽度也从 66 收到 56——这一列只有三位数，右边空一截看着像没填完。 */
-    text-align: center;
-}
-/* ---------- 等级格：纸带上挖出的一小格 ----------
- *
- * 与属性页那排数字格同一副材质（`AttrEditor` 的 `.value-field`），也就是卡上那枚
- * 只读的 `NumTag`：淡槽底、无边框、数右对齐（2026-11-03 用户：「技能等级数字用个
- * 类似修改属性数字里的样式包裹一下」）。
- *
- * 为什么要盖掉 `.field` 那套：`.field` 是**表单里的标准格**——1px 边、整道 `.well` 底、
- * 26px 高。摆在纸带行里，它与左边凸起的字印不是一套语言（一个是被挖开的输入框，
- * 一个是压在纸上的印）。这一格要读作「纸带上挖出来的小格子」，所以只借 `.well` 的
- * 45% 槽色，不借它的边与顶壁渐变。
- *
- * 高度不写在通用那条里：等级格由 `.school-erow .lv-field` 定到 34（与卡上的数值签同高），
- * 上限格仍在辅助行里、保持 `.field` 的 26——那一行没有纸带，也不需要与字印对齐。
- *
- * 上限格（`.cap-field`）一起进来：辅助那一行里两个数字格并排，只改一个会在同一行里
- * 出现两种材质（一个淡格、一个实槽）。 */
+ * 师门那一行的等级格不归这里：它在 `SkillRow` 里（56 × 30、居中），尺寸与卡上
+ * 那枚数值签同源。这两条只给辅助行——66 宽、26 高（`.field` 给的）、右对齐。 */
 .lv-field,
 .cap-field {
-    border-width: 0;
     padding: 0 6px;
-    background-color: color-mix(in srgb, var(--well) 45%, transparent);
     text-align: right;
-    transition: background-color var(--t-quick) var(--ease-soft);
 }
-/* 悬停只加深底色：这一页的格子都可以填，加深是「这里能写」的提示。
- * 不改边框——边框已经归零，改的是被盖掉的那条 `--lip-shade`，看不见。 */
-.lv-field:hover:not(:disabled),
-.cap-field:hover:not(:disabled) {
-    background-color: color-mix(in srgb, var(--well) 68%, transparent);
-}
-/* 聚焦：实槽 + 一道加厚的顶壁影，**不描朱边**（与 `.field` 的焦点同一套读数：
- * 焦点是「这一格被按住了」，不是「这一格被涂红」）。特异性 0,4,0，
- * 压得过 `.field:focus:not(:disabled)` 的 0,3,0，否则焦点时底色停在 45%。 */
-.lv-field:focus:not(:disabled),
-.cap-field:focus:not(:disabled) {
-    background-color: var(--well);
-    box-shadow:
-        inset 0 1px 3px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
-    caret-color: var(--cinnabar);
-}
-/* 刻度：与卡上同一个算法（`skillTicks`），也是同一副材质：**凹槽里嵌一截红条**。
- *
- * 一格刻度同时是一个按钮：外观仍是那根 7px 的条，热区靠 `::after` 上下各撑 5px
- * ——条本身只有七像素高，直接点它容易落空；撑出去的部分仍在纸带的上内边距里，
- * 不会盖到上一行 / 下一行的刻度上。
- *
- * 填充走 `::before` 而不是一条横向渐变：横向渐变只答得出「填了多少」，
- * 答不出「嵌进去的那一截有厚度」。槽影、红条的纵向渐变与内棱见 `character-card.css`
- * 同名那段（两处必须同源，卡上填完、弹窗里看到的要是同一条）。 */
-.ticks {
-    display: flex;
-    gap: 3px;
-}
-.tick {
-    position: relative;
-    flex: 1;
-    height: 7px;
-    padding: 0;
-    border: 0;
-    border-radius: 2px;
-    background-color: var(--well);
-    /* 与卡上同一道槽：借全局 `.well` 的上暗下亮渐变，不加它的 1px 边框。 */
-    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 72%);
-    box-shadow:
-        inset 0 1px 2px var(--bevel-lo),
-        inset 0 -1px 0 color-mix(in srgb, var(--bevel-hi) 55%, transparent),
-        0 0 0 1px color-mix(in srgb, var(--rule-2) 48%, transparent);
-    appearance: none;
-    cursor: pointer;
-}
-/* 填充条：宽度 = 这一格的 `--fill`；右端同样 2px 圆角（半格读作「一截短红条」）。 */
-.tick::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: var(--fill, 0%);
-    border-radius: 2px;
-    background-image: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--seal) 74%, var(--paper-base)) 0%,
-        var(--seal) 42%,
-        color-mix(in srgb, var(--seal) 82%, var(--ink-base)) 100%
-    );
-    box-shadow:
-        inset 0 1px 0 color-mix(in srgb, var(--seal) 42%, var(--paper-base)),
-        inset 0 -1px 0 color-mix(in srgb, var(--seal) 72%, var(--ink-base));
-}
-/* 热区：条只有 7px 高，上下各撑 5px 才点得准。 */
-.tick::after {
-    content: '';
-    position: absolute;
-    inset: -5px -1px;
-}
-/* 指针停在这一档：槽的描边转朱，说明「这一格可以按」。不放在 `:hover` 之外——
- * 触屏上那一下就走了，用不到悬停态。 */
-.tick:hover {
-    box-shadow:
-        inset 0 1px 2px var(--bevel-lo),
-        inset 0 -1px 0 color-mix(in srgb, var(--bevel-hi) 55%, transparent),
-        0 0 0 1px color-mix(in srgb, var(--cinnabar) 55%, transparent);
-}
-/* 满级：印翻朱面、字转纸白——与卡上同一套。 */
-.school-erow.full .seal-text {
-    color: var(--on-seal);
-}
-/* 满级那一行的数字也转朱（2026-11-03 与卡同步）：这一行里字印、九格、槽描边全是朱，
- * 只有数值还是赭的，读起来像「这一行练满了，但这一项还没」。
- *
- * 与卡上唯一的差别是没有「满」字：卡上是读数，用「满」把状态写出来；这里数字还在
- * 输入格里，朱色只表示「到头了」，不表示「不能改」——格子照旧能填。 */
-.school-erow.full .lv-field {
-    color: var(--cinnabar);
-}
-/* 满级：填充本来就是朱，靠**槽的描边转朱**收尾（另有数转朱、字印翻朱面）。 */
-.school-erow.full .tick {
-    box-shadow:
-        inset 0 1px 2px var(--bevel-lo),
-        inset 0 -1px 0 color-mix(in srgb, var(--bevel-hi) 55%, transparent),
-        0 0 0 1px color-mix(in srgb, var(--seal-edge) 55%, transparent);
-}
-/* 预览：点下去会填到这里。用**淡朱**而不是正朱——正朱是「已经填了」，预览还没落账。
- * 指针停住时整条已经按结果重画（哪几格亮才是信息），淡一档不影响读。 */
-.school-erow .tick.preview::before {
-    background-image: none;
-    background-color: color-mix(in srgb, var(--seal) 42%, transparent);
-    box-shadow: none;
-}
-/* 0 级：字与名字一起退灰，挡住「练了一半」与「还没开始」的区别。
- * 块面不跟着退——凸起是「这一项存在」，与练到几级无关。 */
-.school-erow.idle .seal-text {
-    color: var(--muted);
-}
-.school-erow.idle .name-text {
-    color: var(--muted);
-}
+/* 满级与 0 级的着色（印、数、名字）也在 `SkillRow` 里：三个状态由那个组件自己判，
+ * 父级只传 `editable`——父级的类名一改（`.school-erow` / `.school-row`）不该让
+ * 子组件的状态静默失效。 */
 </style>

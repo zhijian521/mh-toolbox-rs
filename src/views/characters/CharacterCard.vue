@@ -1,18 +1,17 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue';
 import MeterBar from '../../components/MeterBar.vue';
-import NumTag from '../../components/NumTag.vue';
 import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import GearTip from './GearTip.vue';
 import PetTip from './PetTip.vue';
+import SkillRow from './SkillRow.vue';
 import { assistIcon } from '../../services/game-icons';
 import {
     PANES,
     expPercent,
     isMaxed,
-    skillTicks,
     type CharacterData,
     type AssistSkill,
     type GearDetail,
@@ -118,16 +117,6 @@ const expPercentValue = computed(() =>
 function rowPercent(level: number, cap: number): number {
     if (!cap) return 0;
     return Math.max(0, Math.min(100, Math.round((level / cap) * 100)));
-}
-
-/* 字印：技能名的第一个字。它不是缩写，是**一枚印**——七行左侧各压一枚方印，
- * 一行才有落点，纸带才不会空成「一行字 + 一条线」。
- *
- * 取首字而不是图标，是因为门派技能图标还没给；将来给了，把这一格换成 `<img>`
- * 即可，34 的方框、行距、刻度位置一分不动。用 `[...name][0]` 而不是 `name[0]`：
- * 遇上表情符号或生僻字（代理对）时，后者会切出半个字符。 */
-function sealOf(name: string): string {
-    return [...name][0] ?? '';
 }
 
 /* 七项里练成几项：写在组头右端，比让读卡的人自己数七根条子快。 */
@@ -273,60 +262,15 @@ const expText = computed(() => {
                      上限缺席（老数据）时那一排刻度与分母一起不画：没有分母的百分比是编出来的。 -->
                 <div v-if="character.skills.length" class="group-head school-head">
                     <span class="section-mark"></span>门派技能
-                    <span class="school-sum num"
+                    <span class="group-sum num"
                         >已满 {{ schoolMaxed }}/{{ character.skills.length }}</span
                     >
                 </div>
                 <div v-if="character.skills.length" class="school-list paper-rows">
-                    <div
-                        v-for="row in character.skills"
-                        :key="row.name"
-                        class="paper-row school-row"
-                        :class="{ off: row.off, full: isMaxed(row), idle: row.level === 0 }"
-                    >
-                        <!-- 字印是装饰，读屏不必念那一个字。
-                             块用 `PressTile`（`still`：它点不动，不该有「按我」的反馈）：
-                             与页头的压印按钮、左栏的牌记同一块材质——面、四棱、落地影都有出处，
-                             而不是一个带 1px 边框的浅色方块（上一版就是那样，34px 见方读作贴纸）。
-                             满级时换成朱面（`tone="seal"`），与纸面的棱配方不同，见 `PressTile`。 -->
-                        <PressTile
-                            class="school-seal"
-                            still
-                            :tone="isMaxed(row) ? 'seal' : 'paper'"
-                            aria-hidden="true"
-                        >
-                            <span class="seal-text">{{ sealOf(row.name) }}</span>
-                        </PressTile>
-                        <!-- 名称与刻度是**同一列的两行**，所以包成一层：三列（印 / 名称+刻度 /
-                             数值）都用 flex 的 `align-items: center` 对齐到同一条中线。 -->
-                        <span class="school-main">
-                            <span class="name">{{ row.name }}</span>
-                            <span
-                                v-if="row.cap !== undefined"
-                                class="school-ticks"
-                                aria-hidden="true"
-                            >
-                                <i
-                                    v-for="(fill, index) in skillTicks(row.level, row.cap)"
-                                    :key="index"
-                                    :style="{ '--fill': `${fill}%` }"
-                                ></i>
-                            </span>
-                        </span>
-                        <!-- 等级包在一枚「数值签」里（`NumTag`）：与属性编辑页那排数字格
-                             同一个材质——纸带上挖出的一小格、数居中。原先三段字直接
-                             悬在纸带尾上，与左端凸起的字印不是一套语言。 -->
-                        <NumTag class="school-val">
-                            <!-- 上限不写了（2026-11-03 用户：「180 大家默认都知道」）。
-                                 留下的「满」是**状态**，不是上限——它与刻度灌朱、数字转朱、
-                                 字印翻朱面一起说「这一项练到头了」。
-                                 「满」排在数字**前面**：读法是「状态 → 读数」，
-                                 与卡头「130 级」同一种语序；跟在数字后面会读成
-                                 「180 满」，像在给这个数加注。 -->
-                            <span v-if="isMaxed(row)" class="full-note">满</span>
-                            <span class="lv">{{ row.level }}</span>
-                        </NumTag>
-                    </div>
+                    <!-- 一行是 `SkillRow`：字印 / 名称 + 九格刻度 / 等级签。
+                         卡上只读、弹窗里可编辑，两处共用同一份解剖与同一组尺寸
+                         （行内边距、印的大小、数字格的厚薄都在那个组件里量过一次）。 -->
+                    <SkillRow v-for="row in character.skills" :key="row.name" :row="row" />
                 </div>
                 <p v-else class="empty-note">还没有记录门派技能</p>
             </section>
@@ -372,7 +316,7 @@ const expText = computed(() => {
                                 <span
                                     class="assist-lv num"
                                     :class="{
-                                        max: row.cap !== undefined && row.level >= row.cap,
+                                        max: isMaxed(row),
                                     }"
                                 >
                                     {{ row.level }}
@@ -405,7 +349,7 @@ const expText = computed(() => {
                                 v-for="row in group.rows"
                                 :key="row.name"
                                 class="training-row"
-                                :class="{ done: row.level >= row.cap, idle: row.level === 0 }"
+                                :class="{ done: isMaxed(row), idle: row.level === 0 }"
                             >
                                 <span class="name">{{ row.name }}</span>
                                 <span class="track"

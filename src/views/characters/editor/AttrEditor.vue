@@ -47,7 +47,7 @@ const experience = defineModel<ExpRow>('experience', { required: true });
                     <span class="row-label">{{ row.label }}<span class="leader"></span></span>
                     <input
                         v-model="row.value"
-                        class="field num value-field"
+                        class="field num value-field num-slot"
                         :aria-label="row.label"
                         :placeholder="`${row.label}值`"
                     />
@@ -67,7 +67,7 @@ const experience = defineModel<ExpRow>('experience', { required: true });
                         <span class="row-label">当前<span class="leader"></span></span>
                         <input
                             v-model="experience.value"
-                            class="field num value-field"
+                            class="field num value-field num-slot"
                             aria-label="当前经验"
                             placeholder="如 3,777.2万"
                         />
@@ -76,7 +76,7 @@ const experience = defineModel<ExpRow>('experience', { required: true });
                         <span class="row-label">升级所需<span class="leader"></span></span>
                         <input
                             v-model="experience.need"
-                            class="field num value-field"
+                            class="field num value-field num-slot"
                             aria-label="升级所需经验"
                             placeholder="如 4,200万"
                         />
@@ -108,18 +108,8 @@ const experience = defineModel<ExpRow>('experience', { required: true });
 .exp-group {
     grid-column: 1 / -1;
 }
-/* 组头与卡上同一个读法：次级墨、一档小字、字距放宽。它只交代「这一栏叫什么」，
- * 不该比组里的数字更响。原先这里 gap 7 / 间距 5，与卡上的 6 / 2 各写一份，
- * 两处并排翻就是同一页的两个版本。 */
-.group-head {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 2px;
-    color: var(--muted);
-    font-size: var(--fs-xs);
-    letter-spacing: 0.14em;
-}
+/* 组头（短竖条 + 分栏名）在 `base.css` 的 `.group-head`，与卡上同一份。
+ * 它只交代「这一栏叫什么」，不该比组里的数字更响。 */
 /* 标签吃掉剩余宽度，点线在其中撑开——与卡上 `.ledger dt` 逐条对应，
  * 所以弹窗里「气血 …… 3916」的断点位置与卡上一样。 */
 .row-label {
@@ -155,42 +145,24 @@ const experience = defineModel<ExpRow>('experience', { required: true });
  * 高度不能沿用 `.field` 的 26：那是表单里的标准格，套进 5px 内边距的纸带行里，
  * 整行会从 26 长到 36，几组一拍就散。这里改 `auto` + `line-height: 1.35`，
  * 行高与卡上同为 26。 */
+/* 材质（45% 槽色 → 悬停 68% → 聚焦实槽 + 顶壁影）在 `base.css` 的 `.num-slot`，
+ * 与卡上那枚只读的等级签、师门技能那一列用的是同一份。这里只剩**几何与排版**：
+ * 104 宽、右对齐、行高压到 1.35。
+ *
+ * 高度不能沿用 `.field` 的 26：那是表单里的标准格，套进 5px 内边距的纸带行里，
+ * 整行会从 26 长到 36，几组一拍就散。这里改 `auto` + `line-height: 1.35`，
+ * 行高与卡上同为 26。 */
 .value-field {
     flex: none;
     width: 104px;
     height: auto;
     padding: 0 6px;
-    /* 边框宽度归零，而不是只把颜色改透明：`.field` 那 1px 边框上下各占一行的高度，
-     * 留着会让整行 26 → 28，与卡上的行距对不齐。焦点圈改用 `box-shadow` 画，
-     * 视觉效果一样、不参与盒模型。 */
-    border-width: 0;
-    background: color-mix(in srgb, var(--well) 45%, transparent);
     color: var(--ink);
     /* 行高按 1.35 压：`normal` 在 input 上算出 18px，再叠 2px 边框，整行就从 26
      * 长到 28——弹窗与卡并排时这点差看得出（行距不齐）。1.35 让内容高与卡上的
      * 文本行高同为 16。 */
     line-height: 1.35;
     text-align: right;
-    transition:
-        background-color var(--t-quick) var(--ease-soft),
-        box-shadow var(--t-quick) var(--ease-soft);
-}
-/* 悬停只加深底色，不加边：这是「可点」的提示，不是焦点。 */
-.value-field:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--well) 68%, transparent);
-}
-/* 聚焦：实槽 + 一道加厚的顶壁影，**不描朱边**。与 `.field` 的焦点同一套读数——
- * 焦点在这里是「这一格被按住了」，不是「这一格被涂红」。这一格只有 16px 高，
- * 一圈 1px 红边占掉它四分之一，读起来像警示框而不是光标停在这儿。
- * 用 `:focus` 而不是 `:focus-visible`——鼠标点进来也要立刻有回应，两种输入没区别。
- * 带 `:not(:disabled)` 是为了压过上面那条悬停（0-3-0）：点进去时必然同时在悬停，
- * 写成 0-2-0 的话底色会停在悬停那档，聚焦看不出变化。 */
-.value-field:focus:not(:disabled) {
-    background: var(--well);
-    box-shadow:
-        inset 0 1px 3px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
-    caret-color: var(--cinnabar);
 }
 /* 空格的提示字比常规 placeholder 再淡一档：纸带上的「气血值」只是标位，
  * 浓了会被当成填进去的内容。 */

@@ -175,6 +175,51 @@ svg {
         0 1px 1px color-mix(in srgb, var(--cinnabar) 40%, transparent);
 }
 
+/* ---------- 组头：短竖条 + 分栏名（+ 右端一个小计） ----------
+ * 卡内的「资源 / 名望 / 战斗 / 加点」，属性页与辅助页的同名各组，师门页的「门派技能」，
+ * 都是这一个器件：一条 4 × 13 的朱色短竖条、一档小字、字距放宽。
+ *
+ * 2026-11-03 之前这份样式在四个组件里各写了一遍（`character-card.css`、`AttrEditor`、
+ * `CharacterEditor` 的 `.assist-block .group-head`、`SkillEditor` 的 `.skill-head`），
+ * 四份的 `gap` 有 6 与 7、`margin-bottom` 有 2 / 6 / 8——**间距不同是有意的**
+ * （页签名与表内分栏名不该一个呼吸），但字色、字号、字距那五行必须只有一份，
+ * 否则同一张纸上会出现两种「分栏名」。
+ *
+ * 所以这里只收**不变的那五行**，两处间距留成变量：
+ *   - `--gh-gap` 竖条与标题之间（默认 6）
+ *   - `--gh-mb`  与下面内容的距离（默认 2；带小计的那几处给 8）
+ *
+ * 右端小计不进这个类：它只是被 `margin-left: auto` 推过去的一段数，
+ * 而且「已满 2/7」与「3/12 件」的着色不一样（前者赭、后者次墨）。
+ *
+ * 修炼编辑页的组头**故意不在这里**：那一处是 13px 正墨的组名（`--fs-sm` + `--ink`），
+ * 不是 11px 次级墨的分栏名——它是那一段唯一的标题，压小了就没有层级了。
+ */
+.group-head {
+    display: flex;
+    align-items: center;
+    gap: var(--gh-gap, 6px);
+    margin-bottom: var(--gh-mb, 2px);
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.14em;
+}
+/* 竖条比单独的 `.section-mark`（4 × 18）矮一档：组头只有 11px 高，
+ * 18 的条会顶出上下边、把这一行撑开。 */
+.group-head .section-mark {
+    --mark-w: 4px;
+    --mark-h: 13px;
+}
+/* 组头右端的小计（「已满 2/7」「3/12」）：被 `margin-left: auto` 推到行尾，
+ * 走**数值墨**——它是读数，不是又一个分栏名。字距归零：组头本体放 0.14em 是为了
+ * 中文标题读起来不挤，数字跟着放宽就成了「1 / 7」两组。 */
+.group-head .group-sum {
+    margin-left: auto;
+    color: var(--num);
+    font-size: var(--fs-mini);
+    letter-spacing: 0;
+}
+
 /* ---------- 凹槽：四件套 ----------
  * 一道槽只有四个零件：金边 + `--well` 底 + 上暗下亮的渐变 + 上沿内影与下沿**亮**高光。
  * 少一样就读不出凹；下沿若也用暗阴影，凹会读成凸——这是唯一容易写反的一笔。
@@ -666,6 +711,49 @@ svg {
     padding: 5px 7px;
     line-height: 1.6;
     resize: vertical;
+}
+
+/* ---------- 淡槽格（`.num-slot`） ----------
+ * `.field` 是**表单里的标准格**：一圈边、整道 `.well` 底、26 高。有些地方不该是它——
+ * 属性编辑页的数字格、师门技能的等级格、卡上那枚只读的等级签：这三处都是
+ * 「凸起的纸带上挖出的一小格」，要的是**没有边、底更淡**的一格，不是又一个输入框。
+ *
+ * 2026-11-03 之前这份材质写了三遍（`AttrEditor` 的 `.value-field`、`SkillEditor` 的
+ * `.lv-field` / `.cap-field`、`NumTag`），而且已经写出了差异：前两处用 `background-color`
+ * 长写，于是 `.field` 那道 `linear-gradient(180deg, bevel-lo, …)` 顶壁渐变还留着；
+ * `NumTag` 是 `<span>`，从来没有过渐变。同一个数在卡上与弹窗里深浅不同，就是这么来的。
+ *
+ * 收在这里之后：**底色只用 45% 的槽色**（整道上在 26px 的小格里读成「又一个输入框」），
+ * 顶壁渐变一律不要（`background` 简写会把它清掉，别改成 `background-color`），
+ * 只留两笔棱——上沿压暗、下沿亮一线。三态：45% → 悬停 68%（「这里能点」）→
+ * 聚焦实槽 + 加厚顶壁影（「这一格被按住了」，**不描朱边**，与 `.field:focus` 同一套读数）。
+ *
+ * 只给材质，**不给几何**：宽高、对齐、字号由使用方定（卡上 56×30 居中的读数、
+ * 属性页 104 宽右对齐的输入格，不是同一件事）。
+ *
+ * `background` 用简写是刻意的：它同时清掉 `.field` 的 `background-image`，
+ * 换成 `background-color` 就等于把顶壁渐变又留了回来。 */
+.num-slot {
+    border-width: 0;
+    background: color-mix(in srgb, var(--well) 45%, transparent);
+    box-shadow:
+        inset 0 1px 2px var(--bevel-lo),
+        inset 0 -1px 0 var(--bevel-hi);
+    transition:
+        background-color var(--t-quick) var(--ease-soft),
+        box-shadow var(--t-quick) var(--ease-soft);
+}
+.num-slot:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--well) 68%, transparent);
+}
+/* 带 `:not(:disabled)` 是为了压过上面那条悬停（同为 0-3-0，写成 0-2-0 会被静默吃掉）：
+ * 点进来时必然同时在悬停，底色会停在 68% 那档，聚焦看不出变化。 */
+.num-slot:focus:not(:disabled) {
+    background: var(--well);
+    box-shadow:
+        inset 0 1px 3px var(--bevel-lo),
+        inset 0 -1px 0 var(--bevel-hi);
+    caret-color: var(--cinnabar);
 }
 
 /* 编辑器里的一行：一行数据 = 几个格子 + 一枚删。行距 5 是「同一组内的行」，

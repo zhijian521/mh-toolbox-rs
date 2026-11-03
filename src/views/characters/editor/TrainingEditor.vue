@@ -20,7 +20,7 @@ const groups = defineModel<TrainingGroup[]>({ required: true });
 <template>
     <div class="training-editor">
         <section v-for="(group, gi) in groups" :key="gi" class="training-group">
-            <div class="group-head">
+            <div class="train-head">
                 <span class="section-mark"></span>
                 <span class="group-title">{{ group.title }}</span>
             </div>
@@ -48,7 +48,7 @@ const groups = defineModel<TrainingGroup[]>({ required: true });
     flex-direction: column;
     gap: 16px;
 }
-.group-head {
+.train-head {
     display: flex;
     align-items: center;
     gap: 7px;
@@ -74,8 +74,9 @@ const groups = defineModel<TrainingGroup[]>({ required: true });
 .lv-field {
     width: 66px;
 }
-/* 上限的只读写法：与 `SkillEditor` 的 `/180` 同一个位置。宽度对齐输入格，
- * 两组上下才不会一列宽一列窄。 */
+/* 上限的只读写法：宽 66，与等级格对齐。`SkillEditor` 那边 2026-11-03 起不再写上限
+ * （师门技能一律 180），这一页仍要写——修炼每条的上限不同（20 / 25 / 35），
+ * 不写就不知道「11」离满还差多少。 */
 .cap-text {
     width: 66px;
     color: var(--ink-2);

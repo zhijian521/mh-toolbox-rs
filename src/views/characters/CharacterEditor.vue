@@ -464,19 +464,9 @@ onBeforeUnmount(() => {
     padding-top: 16px;
     border-top: var(--w-hair) solid var(--rule);
 }
-/* 组头与属性页那一组逐条一致（次级墨、一档小字、字距放宽、竖条 4 × 13）：
- * 同一张纸里两处组头长得不一样，等于说它们不是一个层级。 */
+/* 辅助那两块的组头与卡上同一个器件（`base.css` 的 `.group-head`）；
+ * 这一页只在它下面多留 8px——那一块接的是一列会增删的行，不是一叠纸带。 */
 .assist-block .group-head {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 8px;
-    color: var(--muted);
-    font-size: var(--fs-xs);
-    letter-spacing: 0.14em;
-}
-.assist-block .group-head .section-mark {
-    --mark-w: 4px;
-    --mark-h: 13px;
+    --gh-mb: 8px;
 }
 </style>

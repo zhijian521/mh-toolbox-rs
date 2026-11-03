@@ -28,18 +28,25 @@
  *
  * ## 为什么底色是 45% 而不是整道 `.well`
  *
- * 整道上（`border` + 顶壁渐变 + 上沿影）在 26px 高的小格里读成「又一个输入框」，
+ * 整道上（`border` + 顶壁渐变 + 上沿影）在 30px 高的小格里读成「又一个输入框」，
  * 而这一格在卡上是**静态的读数**，只需要「纸上凹下去一小块」。45% 的槽色刚好比
- * 纸带深一档、又不到输入框那种「挖开的洞」。这条数值与 `AttrEditor` 的常态一致——
- * 两处若各调各的，同一个数在卡上与弹窗里就是两个深浅。
+ * 纸带深一档、又不到输入框那种「挖开的洞」。
+ *
+ * 这条材质 2026-11-03 收进了 `base.css` 的 `.num-slot`：同一个 45% 原先在
+ * `AttrEditor` 的 `.value-field`、`SkillEditor` 的 `.lv-field` 与这里各写一遍，
+ * 前两处还因为用 `background-color` 长写而留着 `.field` 的顶壁渐变——
+ * 同一个数在卡上与弹窗里深浅不同就是这么来的。现在三处引同一份。
  */
 </script>
 
 <template>
-    <span class="num-tag num"><slot /></span>
+    <span class="num-tag num num-slot"><slot /></span>
 </template>
 
 <style scoped>
+/* 材质（45% 槽色、两道上沿 / 下沿棱、悬停与聚焦）在 `base.css` 的 `.num-slot`：
+ * 属性页的数字格与师门技能的等级格用的是同一份，三处各写一遍已经写出了深浅差异。
+ * 这里只剩「一枚签」的形状——尺寸由使用方经 `--tag-w` / `--tag-h` 给。 */
 .num-tag {
     display: inline-flex;
     align-items: center;
@@ -51,15 +58,17 @@
     height: var(--tag-h, auto);
     padding: 0 4px;
     border-radius: var(--r-2);
-    background: color-mix(in srgb, var(--well) 45%, transparent);
-    /* 四道棱只留凹的那两道（上沿压暗、下沿亮一线）：39px 的格子里若把边框与顶壁渐变
-     * 全画上，它会读成一枚输入框；但一道影都不给，淡底就只是一块浅色贴纸——
-     * 属性页那格读起来是「挖开的」，靠的正是这两笔（`.well` 的四件套里取两件）。 */
-    box-shadow:
-        inset 0 1px 2px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
     color: var(--ink);
     line-height: 1.35;
     white-space: nowrap;
+}
+/* 悬停**不加深**：`.num-slot` 那条 68% 是给输入格的（「这里能填」的承诺），
+ * 而这枚签是 `<span>`——永远点不进去，悬停加深就是一句空承诺。
+ *
+ * 选择器抬到 0-4-0 压过 `.num-slot:hover:not(:disabled)`（0-3-0）：同特异性下
+ * 谁赢取决于样式注入顺序，而「base.css 与 scoped 样式谁在后」不该被依赖。
+ * 45% 与 `.num-slot` 的静息态同值，别改成 `transparent`——那会把底色一起抹掉。 */
+.num-tag.num-slot:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--well) 45%, transparent);
 }
 </style>

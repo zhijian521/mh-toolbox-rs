@@ -6,6 +6,7 @@ import { useDevMode } from '../../composables/use-dev-mode';
 import AtomsSection from './AtomsSection.vue';
 import IconsSection from './IconsSection.vue';
 import PaletteSection from './PaletteSection.vue';
+import SkillRowSection from './SkillRowSection.vue';
 import TypeScaleSection from './TypeScaleSection.vue';
 
 /**
@@ -19,8 +20,12 @@ import TypeScaleSection from './TypeScaleSection.vue';
  * 不复用左栏入口，是因为那一条竖槽是这个应用的目录：八个入口都是用户真会点的页面。
  * 往里加第九个「开发者」，等于每时每刻都在提醒用户「这里还有一堆你不该动的东西」。
  *
- * 这一页本身也只做一件事：按顺序把六张卡排起来（说明 + 开关 + 四张演示卡）。加一张卡就是加一行——
+ * 这一页本身也只做一件事：按顺序把卡片排起来（说明 + 开关 + 演示卡）。加一张卡就是加一行——
  * 与 `SettingsView` 同一个写法，因为它们本来是同一种页面（一叠 `.frame` 卡）。
+ *
+ * 演示卡**按「原子 → 组合」的顺序**排：`AtomsSection` 收全局小件，`SkillRowSection`
+ * 收由它们拼成、带业务语义的行。新件先归到其中一张，再加一张卡得先问清楚
+ * 「它是原子还是组合」——不然半年后没人说得清哪个该去哪儿。
  */
 
 const { devMode } = useDevMode();
@@ -59,6 +64,7 @@ const { devMode } = useDevMode();
             </LedgerSection>
 
             <AtomsSection />
+            <SkillRowSection />
             <PaletteSection />
             <TypeScaleSection />
             <IconsSection />

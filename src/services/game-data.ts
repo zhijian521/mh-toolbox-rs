@@ -54,8 +54,8 @@ export interface GameData {
 }
 
 /* 空表的 `cap` 写 0 而不是 180：它是「表没加载上」的占位，不是游戏事实。
- * 真到了要显示上限的时候（`SkillEditor` 的只读 `/180`），行一定来自表，
- * 那时 `cap` 已经是文件里那个数。 */
+ * `cap` 现在不上屏（2026-11-03 用户：「180 大家默认都知道」），但刻度分几格、
+ * 点第几格算几级、怎么算满级都还读它，所以它不能是 0。 */
 const EMPTY: GameData = {
     schools: { cap: 0, schools: [] },
     skills: { life: [], story: [] },
