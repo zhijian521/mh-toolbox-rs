@@ -222,39 +222,39 @@ function onCardClick(event: MouseEvent) {
  */
 .price-card[data-cat='装备灵饰'] {
     --tint: light-dark(#eef0e9, #272e23); /* 青灰：金属，冷 */
-    --tint-deep: light-dark(#c9cfc0, #3f4a3a);
+    --tint-deep: light-dark(#dbe0d4, #313a2c);
 }
 .price-card[data-cat='召唤兽'] {
     --tint: light-dark(#f6efdf, #302922); /* 暖橙：活物 */
-    --tint-deep: light-dark(#e3cfa8, #4a3b28);
+    --tint-deep: light-dark(#ece0c9, #3b3126);
 }
 .price-card[data-cat='兽决内丹'] {
     --tint: light-dark(#f5eae2, #332825); /* 赭红：书卷，朱的近亲 */
-    --tint-deep: light-dark(#e5c4b5, #4a3229);
+    --tint-deep: light-dark(#eed9cf, #3d2c26);
 }
 .price-card[data-cat='宝石符石'] {
     --tint: light-dark(#eaf2ec, #202c26); /* 青绿：矿石 */
-    --tint-deep: light-dark(#bcd3c2, #2c4034);
+    --tint-deep: light-dark(#d5e6d9, #263429);
 }
 .price-card[data-cat='打造材料'] {
     --tint: light-dark(#f2ecdd, #302b21); /* 土黄：木料，最接近纸本色 */
-    --tint-deep: light-dark(#dcccaa, #443a26);
+    --tint-deep: light-dark(#e8dfc8, #383223);
 }
 .price-card[data-cat='消耗补给'] {
     --tint: light-dark(#edf3e7, #242c1f); /* 草绿：药草 */
-    --tint-deep: light-dark(#c6d8b8, #35452a);
+    --tint-deep: light-dark(#dbe8d1, #2b3525);
 }
 .price-card[data-cat='任务产出'] {
     --tint: light-dark(#ecf0f6, #222932); /* 靛青：藏宝，唯一偏冷的一类 */
-    --tint-deep: light-dark(#c2cfe3, #2b3749);
+    --tint-deep: light-dark(#d9e3f1, #262f3a);
 }
 .price-card[data-cat='通货账号'] {
     --tint: light-dark(#f7eed6, #322d20); /* 旧金：钱 */
-    --tint-deep: light-dark(#e8d29a, #4a3f22);
+    --tint-deep: light-dark(#f0e3bd, #3c3522);
 }
 .price-card[data-cat='其他'] {
     --tint: light-dark(#f2f0e9, #2c2a26); /* 中性兜底 */
-    --tint-deep: light-dark(#d8d4c8, #3a3730);
+    --tint-deep: light-dark(#e6e3da, #322f2a);
 }
 
 /* 染色交给 `--tile-face`：`PressTile` 取的是 `var(--tile-face, 纸色)`，
