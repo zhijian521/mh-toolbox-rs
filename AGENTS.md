@@ -3,17 +3,29 @@
 > 这些不是建议，是本机实测过的现象与对应的固定做法。**不要重新发现。**
 > 工程规范见 [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)，本文只讲「这台机器上怎么干活」。
 
-## 一、一条命令验证
+## 一、验证分三档，日常一档是「不跑」
 
-```bash
-npm run check     # format:check + lint + typecheck + test + check:version + lint:commits，人跑的和 CI 跑的是同一条
-```
+> 2026-11-03 用户定的规则。原话：「后面只有在我们 Review 以及提交的时候全量测试验证之类的，
+> 这样我们可以快速进行页面功能调整，我会自己点击测试，有问题也会直接告诉你。」
+>
+> **理由**：会话慢的主要原因是一次页面改动后面挂着一整串 check / build / 截图。
+> 页面改动的真值在用户的眼睛和手指上，不在测试套件里——他现在会自己点。
 
-Rust 侧需要单独跑（要先设 MSVC 环境，见 §三）：
+| 档                    | 什么时候                         | 跑什么                                                        |
+| --------------------- | -------------------------------- | ------------------------------------------------------------- |
+| **日常**（默认）      | 改页面、调样式、加字段、重构     | **什么都不跑**。改完直接交付，说明改了哪几个文件              |
+| **提交前**            | 用户说「提交」「Review 一下」    | `npm run check`（六项全绿才提交）+ 需要时 `npm run build`     |
+| **Review / 视觉验收** | 用户明确要看效果，或改动动了排版 | 上一档 + `npm run build` + `tools/probe/cdp.mjs` 截图与量几何 |
 
-```bash
-cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings
-```
+`npm run check` = format:check + lint + typecheck + test + check:version + lint:commits，
+人跑的和 CI 跑的是同一条。它只在上面第二、三档出现。
+
+**不要自作主张"顺手跑一下"**——包括只跑 test、只跑 typecheck、只 build 一次看看。
+这些正是耗时的地方，而且答案在提交前那一次就已经覆盖了。
+
+**唯一例外：动了 `src-tauri/`**。Rust 不编译，`start.bat` 起不来窗口，用户就没法点测——
+那不是"验证"，是"能不能启动"。此时按 §三 设好环境后 `cargo check` 一次即可，
+`cargo test` / `clippy` 仍留到提交前。
 
 `npm run build` 里已经包含 `vue-tsc --noEmit`，打包前不必再单独 typecheck。
 
