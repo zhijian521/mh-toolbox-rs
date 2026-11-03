@@ -1,6 +1,7 @@
 import type { Component } from 'vue';
 import type { IconName } from './components/icons';
 import CharactersView from './views/CharactersView.vue';
+import PricesView from './views/prices/PricesView.vue';
 import SettingsView from './views/SettingsView.vue';
 import ToolsView from './views/ToolsView.vue';
 
@@ -25,7 +26,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
     { key: 'overview', label: '总览', icon: 'overview', path: '/overview', view: null },
     { key: 'income', label: '收益', icon: 'income', path: '/income', view: null },
-    { key: 'prices', label: '物价', icon: 'prices', path: '/prices', view: null },
+    { key: 'prices', label: '物价', icon: 'prices', path: '/prices', view: PricesView },
     // 装备不再是独立一页，并进了角色：一个人穿什么、备哪些，本来就是「这个角色」的属性。
     // 旧地址 `/equipment` 在 `router.ts` 里重定向到这里，收藏夹不会落到设置页。
     {

@@ -11,6 +11,12 @@
  * 空值与非数字一律按 0 记：等级、上限、资质、寿命这几个字段上，「没填」与「0」
  * 是同一个意思（没练、没加），不需要第四种状态。负数也归 0——这些量没有负数。
  * 真正的「不知道」只出现在 `cap` 上，那里用一张空行表示，不是填 0。
+ *
+ * ---- Enter 也要 commit ----
+ * 光标还在格子里按 Enter 时，浏览器先跑 `keydown` 处理器、再执行「隐式提交表单」。
+ * 若只监听 `change`，值要等**失焦**才写回，于是表单拿到的仍是旧值：价格格里按 Enter，
+ * 提交逻辑看到的是 0，`canSave` 为假，界面一动不动——不是报错，是**毫无反应**。
+ * 所以 Enter 先 commit 一次，把值写回父级，随后的隐式提交才读到新数。
  */
 withDefaults(
     defineProps<{
@@ -46,6 +52,7 @@ function commit(event: Event) {
         :placeholder="placeholder"
         :value="zeroAsEmpty && !modelValue ? '' : modelValue"
         @change="commit"
+        @keydown.enter="commit"
     />
 </template>
 
