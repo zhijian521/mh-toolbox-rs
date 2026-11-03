@@ -341,8 +341,10 @@ def main():
         total += len(entries)
         print(f'{kind:7s} 合计 {len(items)} 个图标\n')
     (out_dir.parent / 'data').mkdir(parents=True, exist_ok=True)
+    # 缩进 4 空格是**对齐 Prettier 的配置**：`npm run check` 会 `prettier --check`
+    # 这份 json，脚本若写 2 空格，重跑一次就把格式检查弄红。
     (out_dir.parent / 'data' / 'icons.json').write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8'
+        json.dumps(manifest, ensure_ascii=False, indent=4) + '\n', encoding='utf-8'
     )
     print(f'写出 {total} 个图标 + data/icons.json')
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GEAR_ACTIVES } from '../views/characters/character';
-import { lifeSkills, storySkills } from './game-data';
+import { gameData, lifeSkills, storySkills } from './game-data';
 import './game-data.fixture';
 import { assistIcon, lifeSkillIcon, storySkillIcon } from './game-icons';
 
@@ -13,10 +13,18 @@ import { assistIcon, lifeSkillIcon, storySkillIcon } from './game-icons';
  * 而且看不出错：图标都是些纹样，谁也不会怀疑「举重的人形」不是强身术。
  *
  * 其余几条（存在、无孤儿、id 唯一）与地图那组同理：文件与清单必须一一对应。
+ *
+ * 门派技能走 `data/school-icons.json`（另一支脚本 `slice-school.py` 生成）。
+ * 两份清单都算进「目录里的图有没有人认领」——只算一份的话，另一批图会被当成孤儿，
+ * 而反过来（两批都写进同一份清单）又会被后跑的脚本互相清掉，所以清单分开、检查合并。
  */
 interface IconEntry {
     id: string;
     name: string;
+}
+
+interface SchoolIconEntry extends IconEntry {
+    school: string;
 }
 
 const ICON_DIR = '/public/game/icons/';
@@ -31,13 +39,26 @@ if (!jsonKey) {
     );
 }
 
+const schoolKey = Object.keys(DATA).find((key) => key === '/public/game/data/school-icons.json');
+if (!schoolKey) {
+    throw new Error(
+        'public/game/data/school-icons.json 不存在；跑一遍 python tools/game-icons/slice-school.py',
+    );
+}
+
 const manifest = (await DATA[jsonKey]()) as { groups: Record<string, IconEntry[]> };
+const schoolManifest = (await DATA[schoolKey]()) as { groups: Record<string, SchoolIconEntry[]> };
 
 const files = Object.keys(ICONS).map((key) => key.slice(ICON_DIR.length));
 
-const all = Object.entries(manifest.groups).flatMap(([kind, entries]) =>
-    entries.map((entry) => ({ ...entry, kind })),
-);
+const all = [
+    ...Object.entries(manifest.groups).flatMap(([kind, entries]) =>
+        entries.map((entry) => ({ ...entry, kind })),
+    ),
+    ...Object.entries(schoolManifest.groups).flatMap(([kind, entries]) =>
+        entries.map((entry) => ({ ...entry, kind })),
+    ),
+];
 
 describe('游戏图标清单', () => {
     it('每条记录都有对应的 webp', () => {
@@ -70,6 +91,40 @@ describe('游戏图标清单', () => {
         expect(manifest.groups.skill.map((entry) => entry.name)).toEqual([...lifeSkills()]);
         expect(manifest.groups.story.map((entry) => entry.name)).toEqual([...storySkills()]);
         expect(manifest.groups.active.map((entry) => entry.name)).toEqual([...GEAR_ACTIVES]);
+    });
+});
+
+describe('门派技能图标', () => {
+    const schools = gameData().schools.schools;
+
+    it('每家每一项技能都有图标，名字与该门派技能表一致', () => {
+        for (const school of schools) {
+            const entries = schoolManifest.groups.skill.filter(
+                (entry) => entry.school === school.id,
+            );
+            expect(entries.length, `${school.name} 的技能图标数`).toBe(school.skills.length);
+            // 按**集合**比：图标按面板顺序编号，schools.json 按重要度排，两份顺序本来就不同。
+            // 顺序差异不是错，名字对不上才是。
+            expect(new Set(entries.map((entry) => entry.name)), `${school.name} 的技能名`).toEqual(
+                new Set(school.skills),
+            );
+        }
+    });
+
+    it('每张图的 school 都在门派表里', () => {
+        const ids = new Set(schools.map((school) => school.id));
+        const stray = schoolManifest.groups.skill
+            .filter((entry) => !ids.has(entry.school))
+            .map((entry) => `${entry.id}（${entry.name}）`);
+        expect(stray, '门派 id 改了名、或者图还是旧的').toEqual([]);
+    });
+
+    it('文件名带 school-skill- 前缀，不与门派徽记混族', () => {
+        // 前缀是「这张图是什么」的唯一线索：`school-datang.webp` 是徽记，
+        // `school-datang-1.webp` 光看文件名分不清，所以技能必须带子类。
+        expect(schoolManifest.groups.skill.every((e) => e.id.startsWith('school-skill-'))).toBe(
+            true,
+        );
     });
 });
 
