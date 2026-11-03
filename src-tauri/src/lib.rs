@@ -218,7 +218,11 @@ pub fn run() {
         store::prices_load,
         store::prices_save,
         store::prices_legacy_imported,
-        store::prices_mark_legacy_imported
+        store::prices_mark_legacy_imported,
+        store::characters_load,
+        store::characters_save,
+        store::characters_legacy_imported,
+        store::characters_mark_legacy_imported
     ]);
     #[cfg(not(windows))]
     let builder = builder.invoke_handler(tauri::generate_handler![
@@ -227,7 +231,11 @@ pub fn run() {
         store::prices_load,
         store::prices_save,
         store::prices_legacy_imported,
-        store::prices_mark_legacy_imported
+        store::prices_mark_legacy_imported,
+        store::characters_load,
+        store::characters_save,
+        store::characters_legacy_imported,
+        store::characters_mark_legacy_imported
     ]);
 
     let started = builder

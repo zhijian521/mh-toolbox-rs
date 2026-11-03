@@ -116,7 +116,16 @@ fn init(conn: &Connection) -> Result<(), String> {
 
         /* 卡片按「最近更新」排，列表页每次都要 ORDER BY updated_at。 */
         CREATE INDEX IF NOT EXISTS idx_price_items_updated
-            ON price_items(updated_at DESC);",
+            ON price_items(updated_at DESC);
+
+        /* 角色名册：结构深且还在演进，一列 JSON 存整条记录。
+         * `sort_order` 保留数组顺序——名册是「用户排的顺序」，不是按 id 或名字排的。
+         * 没有按字段查询的需求，拆十几张表只会让每次加字段都变成一次 migration。 */
+        CREATE TABLE IF NOT EXISTS characters (
+            id         TEXT PRIMARY KEY,
+            data       TEXT NOT NULL,
+            sort_order INTEGER NOT NULL
+        );",
     )
     .map_err(|error| format!("建表失败：{error}"))?;
 
@@ -132,9 +141,11 @@ fn init(conn: &Connection) -> Result<(), String> {
 
 /// 读库里的 `meta` 值。没有就返回 `None`。
 fn read_meta(conn: &Connection, key: &str) -> Result<Option<String>, String> {
-    conn.query_row("SELECT value FROM meta WHERE key = ?1", params![key], |row| {
-        row.get::<_, String>(0)
-    })
+    conn.query_row(
+        "SELECT value FROM meta WHERE key = ?1",
+        params![key],
+        |row| row.get::<_, String>(0),
+    )
     .optional()
     .map_err(|error| format!("读 meta 失败：{error}"))
 }
@@ -255,7 +266,14 @@ pub fn prices_save(app: AppHandle, items: Vec<PriceItem>) -> Result<(), String> 
             tx.execute(
                 "INSERT INTO price_points (id, item_id, date, price, note, created_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![point.id, item.id, point.date, point.price, point.note, point.created_at],
+                params![
+                    point.id,
+                    item.id,
+                    point.date,
+                    point.price,
+                    point.note,
+                    point.created_at
+                ],
             )
             .map_err(|error| format!("写入价格「{}」失败：{error}", point.date))?;
         }
@@ -277,4 +295,76 @@ pub fn prices_legacy_imported(app: AppHandle) -> Result<bool, String> {
 pub fn prices_mark_legacy_imported(app: AppHandle) -> Result<(), String> {
     let conn = open(&app)?;
     write_meta(&conn, "pricesLegacyImported", "1")
+}
+
+/* ======================================================================
+ * 角色名册
+ *
+ * 与物价不同，这里用 `serde_json::Value` 透传整条记录：结构深、字段还在演进，
+ * 而唯一的操作就是「整份读 / 整份写」。Rust 侧不需要认识任何字段，
+ * 也就不会因为前端加了一个属性而漏写。真正把关的是前端 `normalizeCharacter`。
+ * ==================================================================== */
+
+/// 读整份名册，按 `sort_order` 还原顺序。
+#[tauri::command]
+pub fn characters_load(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
+    let conn = open(&app)?;
+    let mut stmt = conn
+        .prepare("SELECT data FROM characters ORDER BY sort_order")
+        .map_err(|error| format!("准备名册查询失败：{error}"))?;
+    let rows = stmt
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(|error| format!("读名册失败：{error}"))?;
+
+    let mut list = Vec::new();
+    for row in rows {
+        let raw = row.map_err(|error| format!("解析名册行失败：{error}"))?;
+        let value: serde_json::Value = serde_json::from_str(&raw)
+            .map_err(|error| format!("名册有一行不是合法 JSON：{error}"))?;
+        list.push(value);
+    }
+    Ok(list)
+}
+
+/// 整份写回。同样是一个事务；`OR REPLACE` 容忍前端传来重复 id（名册编辑时可能撞上）。
+#[tauri::command]
+pub fn characters_save(app: AppHandle, items: Vec<serde_json::Value>) -> Result<(), String> {
+    let mut conn = open(&app)?;
+    let tx = conn
+        .transaction()
+        .map_err(|error| format!("开事务失败：{error}"))?;
+    tx.execute("DELETE FROM characters", [])
+        .map_err(|error| format!("清空名册失败：{error}"))?;
+
+    for (index, item) in items.iter().enumerate() {
+        let id = item
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string)
+            .unwrap_or_else(|| format!("row-{index}"));
+        let data = serde_json::to_string(item)
+            .map_err(|error| format!("序列化第 {index} 个角色失败：{error}"))?;
+        tx.execute(
+            "INSERT OR REPLACE INTO characters (id, data, sort_order) VALUES (?1, ?2, ?3)",
+            params![id, data, index as i64],
+        )
+        .map_err(|error| format!("写入第 {index} 个角色失败：{error}"))?;
+    }
+
+    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
+    Ok(())
+}
+
+/// 名册的 `localStorage` 老数据搬过一次没有。
+#[tauri::command]
+pub fn characters_legacy_imported(app: AppHandle) -> Result<bool, String> {
+    let conn = open(&app)?;
+    Ok(read_meta(&conn, "charactersLegacyImported")?.is_some())
+}
+
+/// 标记「名册老数据已搬完」。
+#[tauri::command]
+pub fn characters_mark_legacy_imported(app: AppHandle) -> Result<(), String> {
+    let conn = open(&app)?;
+    write_meta(&conn, "charactersLegacyImported", "1")
 }

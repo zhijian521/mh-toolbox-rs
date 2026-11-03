@@ -73,6 +73,13 @@ windows = { version = "0.62", features = [
 # 代价是首次编译多约 20–30s（sqlite3 单文件约 25MB 源码），之后增量不受影响。
 rusqlite = { version = "0.32", features = ["bundled"] }
 
+# 原先不直接依赖 `serde_json`（IPC 的序列化由 tauri 自己做，Rust 侧从不手写 JSON）。
+# 角色名册落地后需要了：`CharacterData` 嵌套很深且结构还在演进，用一列 JSON 文本
+# 存整条记录比拆十几张表耐改。物价的 `price_items` / `price_points` 仍是规范化表，
+# 因为那里要按 `updated_at` 排序、按 `item_id` 查历史——**有没有按字段查询的需求**
+# 是这两种存法的分界，不是省事与否。
+serde_json = "1"
+
 # 发布版把前端产物**嵌进可执行文件**，开发版才去连 devUrl。
 #
 # 这一块不能省。Tauri 的机制是：`tauri dev` 带 `--no-default-features` 编译

@@ -7,6 +7,7 @@ import { useFontScale } from './composables/use-font-scale';
 import { useTheme } from './composables/use-theme';
 import { router } from './router';
 import { loadGameData } from './services/game-data';
+import { loadRoster } from './views/characters/roster';
 import { loadPrices } from './views/prices/prices-store';
 
 /**
@@ -26,9 +27,10 @@ useTheme();
  * `loadGameData()` 失败也会 resolve（退回空表），所以这里不必写 try——
  * 数据缺了就是下拉少几项，应用不该因此起不来。
  *
- * 物价表走同一条路：桌面版从 SQLite 读、浏览器从 `localStorage` 读，两条都在这里
- * 等到手再挂载。`loadPrices()` 同样不 reject（读不到就是空表），页面挂上去时数据已在。
+ * 物价表与角色名册走同一条路：桌面版从 SQLite 读、浏览器从 `localStorage` 读，
+ * 两条都在这里等到手再挂载。三个 `load*` 都不 reject（读不到就是空表 / 种子），
+ * 页面挂上去时数据已在。
  */
-Promise.all([loadGameData(), loadPrices()]).then(() => {
+Promise.all([loadGameData(), loadPrices(), loadRoster()]).then(() => {
     createApp(App).use(router).mount('#app');
 });

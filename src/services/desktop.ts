@@ -138,3 +138,46 @@ export async function pricesMarkLegacyImported(): Promise<void> {
         console.error('写迁移标记失败', error);
     }
 }
+
+/* ---------- 角色名册（同一套数据层，JSON 列存整条） ----------
+ * 四个函数与物价那组一一对应，理由见上面那一段。返回 `null` / `false` 一律是
+ * 「没有 Tauri 宿主」或「调用失败」，调用方据此退回 localStorage，不在这里抛错。
+ */
+export async function charactersLoad<T>(): Promise<T[] | null> {
+    if (!hasTauri) return null;
+    try {
+        return await invoke<T[]>('characters_load');
+    } catch (error) {
+        console.error('读取角色名册失败', error);
+        return null;
+    }
+}
+
+export async function charactersSave<T>(items: T[]): Promise<boolean> {
+    if (!hasTauri) return false;
+    try {
+        await invoke('characters_save', { items });
+        return true;
+    } catch (error) {
+        console.error('写入角色名册失败', error);
+        return false;
+    }
+}
+
+export async function charactersLegacyImported(): Promise<boolean> {
+    if (!hasTauri) return false;
+    try {
+        return await invoke<boolean>('characters_legacy_imported');
+    } catch {
+        return false;
+    }
+}
+
+export async function charactersMarkLegacyImported(): Promise<void> {
+    if (!hasTauri) return;
+    try {
+        await invoke('characters_mark_legacy_imported');
+    } catch (error) {
+        console.error('写名册迁移标记失败', error);
+    }
+}

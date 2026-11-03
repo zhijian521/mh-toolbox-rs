@@ -4,10 +4,14 @@
  * 这是角色页第一份**真数据层**。此前 `mock.ts` 只是字面量，页面直接 `v-for` 上去；
  * 现在名册要能改、能删、能加，还必须活过重启——所以有一处持久化、一层逐字段兜底。
  *
- * ---- 为什么存在 `localStorage` 而不是 SQLite ----
- * `mh-store`（Rust 侧的 SQLite）还没起来，而「能录入自己的号」这件事不该等它。
- * 这一层因此被刻意压成**两个函数**：`loadRoster()` / `saveRoster()`。
- * 将来换存储只换这两个函数体，`useRoster()` 与所有页面代码一行不动。
+ * ---- 存储：桌面版 SQLite / 浏览器 localStorage ----
+ * `mh-store`（Rust 侧的 SQLite）已经起来了，桌面版由它持有；探针和 `npm run dev`
+ * 没有 Tauri 宿主，仍退回 `localStorage`。两条路径的数据各自独立。
+ *
+ * 换存储这件事刻意压在**两个函数**里：读档 `loadRoster()`、落盘 `persist()`。
+ * `useRoster()` 与所有页面代码一行不动——2026-11-03 从 localStorage 换到 SQLite
+ * 时，改的确实只有这两个函数体。
+ * 读档现在必须在 `mount` 之前 `await`（见 `main.ts`），所以 `roster` 初值是空数组。
  *
  * ---- 为什么每个字段都要兜底 ----
  * 存进去的是结构化对象，读回来的是**别人写的** JSON：可能是上一版的字段、
@@ -20,6 +24,14 @@
  * 不是数组），由调用方决定用种子还是空名册；单条坏掉不牵连整份名册。
  */
 import { ref } from 'vue';
+import {
+    charactersLegacyImported,
+    charactersLoad,
+    charactersMarkLegacyImported,
+    charactersSave,
+    hasDesktop,
+} from '../../services/desktop';
+import { schoolNames } from '../../services/game-data';
 import {
     ATTR_GROUPS,
     GEAR_SLOTS,
@@ -38,7 +50,6 @@ import {
 } from './character';
 import { CHARACTERS } from './mock';
 import { schoolSkills } from './schools';
-import { schoolNames } from '../../services/game-data';
 
 const STORAGE_KEY = 'mh-roster';
 
@@ -470,10 +481,12 @@ function seed(): CharacterData[] {
  * ==================================================================== */
 
 /* 与 `use-font-scale.ts` / `use-dev-mode.ts` 同一条理由：状态放模块作用域，
- * 页面里 `v-for` 读它、编辑器保存时写它，各 new 一个就变成两份互不相干的名册。 */
-const roster = ref<CharacterData[]>(loadRoster());
+ * 页面里 `v-for` 读它、编辑器保存时写它，各 new 一个就变成两份互不相干的名册。
+ * **初值是空的**：真数据由 `loadRoster()` 在 mount 之前填（见 `main.ts`）。 */
+const roster = ref<CharacterData[]>([]);
 
-function loadRoster(): CharacterData[] {
+/** 浏览器路径：读 `localStorage`，没存过就给一份能改的种子。 */
+function loadFromLocal(): CharacterData[] {
     const parsed = parseRoster(readRaw());
     if (parsed) return parsed;
     const initial = seed();
@@ -481,8 +494,50 @@ function loadRoster(): CharacterData[] {
     return initial;
 }
 
-function persist() {
-    writeRaw(serializeRoster(roster.value));
+/**
+ * 读档。**只能调一次，且在 mount 之前**。
+ *
+ * 首次启动把 `localStorage` 那一版搬进 SQLite。**搬成功才动源数据**：
+ * 写失败就什么都不做，下次启动再试；改名留底而不是删除，库文件万一坏了还能捞。
+ */
+export async function loadRoster(): Promise<void> {
+    if (!hasDesktop()) {
+        roster.value = loadFromLocal();
+        return;
+    }
+
+    const firstRun = !(await charactersLegacyImported());
+    if (firstRun) {
+        const legacy = parseRoster(readRaw());
+        if (legacy && legacy.length) {
+            const saved = await charactersSave(legacy);
+            if (saved && typeof localStorage !== 'undefined') {
+                localStorage.setItem(`${STORAGE_KEY}.migrated`, JSON.stringify(legacy));
+                localStorage.removeItem(STORAGE_KEY);
+            }
+        }
+        await charactersMarkLegacyImported();
+    }
+
+    const stored = await charactersLoad<CharacterData>();
+    /* 「用户把角色删光了」是合法状态，不能因为空数组就重新塞种子。
+     * 只有首次启动、且库里确实一条都没有时才给种子。 */
+    if (stored === null || (stored.length === 0 && firstRun)) {
+        roster.value = seed();
+        await charactersSave(roster.value);
+    } else {
+        roster.value = stored.map(normalizeCharacter);
+    }
+}
+
+function persist(): void {
+    if (!hasDesktop()) {
+        writeRaw(serializeRoster(roster.value));
+        return;
+    }
+    /* 异步写、不等：调用方是同步函数，而每次写的都是当下全量，后发先至也不会坏。
+     * 失败由 `desktop.ts` 打到控制台——不能静默吞掉，否则用户以为存上了。 */
+    void charactersSave(roster.value);
 }
 
 export function useRoster() {
