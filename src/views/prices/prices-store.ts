@@ -20,6 +20,13 @@
  * 类型上也说得清「哪些情况会失败」。
  */
 import { ref } from 'vue';
+import {
+    hasDesktop,
+    pricesLegacyImported,
+    pricesLoad,
+    pricesMarkLegacyImported,
+    pricesSave,
+} from '../../services/desktop';
 import { DEFAULT_CATEGORY, isPriceCategory } from './prices-catalog';
 import {
     POINT_LIMIT,
@@ -27,6 +34,7 @@ import {
     makePriceId,
     makePriceItem,
     makePricePoint,
+    normalizePriceItem,
     parsePriceItems,
     readPriceItems,
     retuneSub,
@@ -44,18 +52,57 @@ import {
  */
 export type PriceWrite = { ok: true; id: string } | { ok: false; error: string };
 
-const items = ref<PriceItem[]>(readPriceItems());
+/**
+ * 本机物价表。**启动时是空的**——真数据由 `loadPrices()` 填，而它必须在 `mount` 之前
+ * `await` 完（见 `main.ts`）。桌面版读 SQLite，浏览器里（探针 / `npm run dev`）读
+ * `localStorage`，两条路径的数据各自独立。
+ */
+const items = ref<PriceItem[]>([]);
+
+/** 最近一次落盘失败的原因。写着「已保存」但其实是空的，比报错更糟。 */
+const writeError = ref('');
 
 /**
- * 多窗口同步。
+ * 读档。**只能调一次，且在 mount 之前**。
  *
- * 同一个应用开两个窗口时 `localStorage` 是共享的，但两个窗口各自在模块作用域里缓存了
- * 一份 `items`——A 窗记的价 B 窗不刷新就看不到；更糟的是两边都往同一份存储里写，
- * 后写的会整份覆盖先写的。
+ * 迁移只做一次：桌面版第一次启动时，把 `localStorage` 那一版搬进 SQLite，
+ * 然后往库里的 `meta` 表写一个标记。标记放库里而不是 localStorage——
+ * 用户清一次浏览器缓存不该让搬过的数据再冒出来一遍。
+ */
+export async function loadPrices(): Promise<void> {
+    if (!hasDesktop()) {
+        items.value = readPriceItems();
+        return;
+    }
+
+    if (!(await pricesLegacyImported())) {
+        const legacy = readPriceItems();
+        if (legacy.length) {
+            const saved = await pricesSave(legacy);
+            /* **搬成功才动源数据**。失败就什么都不做，下次启动再试——
+             * 反过来（先删后写）一旦写失败就是永久丢数据。 */
+            if (saved && typeof localStorage !== 'undefined') {
+                /* 改名而不是删除：库文件万一被误删 / 损坏，这里还留着一份可以捞。
+                 * 改名之后 `readPriceItems()` 再也读不到它，不会被重复搬。 */
+                localStorage.setItem(`${STORAGE_KEY}.migrated`, JSON.stringify(legacy));
+                localStorage.removeItem(STORAGE_KEY);
+            }
+        }
+        await pricesMarkLegacyImported();
+    }
+
+    const stored = await pricesLoad<PriceItem>();
+    /* 过一遍 `normalizePriceItem`：库是上一版应用写的、或有人手动改过文件时，
+     * 读出来的东西不一定合今天的形。它是幂等的，正常数据走一遍什么都不会变。 */
+    items.value = (stored ?? []).map(normalizePriceItem);
+}
+
+/**
+ * 多窗口同步（**只在浏览器那条路径上真正发生**）。
  *
- * `storage` 事件只在**别的窗口**改动时触发（当前窗口自己写不触发），正好是想要的语义。
- * 收到就把整份重读一遍，不做增量合并：两边各改一件物品时，「谁该赢」是个没人说得清的
- * 问题，而重读的代价只是解析一次 JSON。
+ * 桌面版两个窗口共享的是同一个 SQLite 文件，`localStorage` 的 `storage` 事件不会触发；
+ * 两窗同时写由 SQLite 自己串行化，最后写的那份是全量，覆盖掉前面的也无妨。
+ * 这里保留监听是为了探针和 `npm run dev`——那边仍是 `localStorage`。
  */
 function syncAcrossWindows(): void {
     if (typeof window === 'undefined') return;
@@ -68,8 +115,21 @@ function syncAcrossWindows(): void {
 
 syncAcrossWindows();
 
+/**
+ * 落盘。
+ *
+ * 桌面版是**异步写、不等**：`addPoint` 这类调用方是同步函数，等不起；而整份写意味着
+ * 后发先至也不会坏（每一次写的都是当下全量）。真失败了记在 `writeError` 里，
+ * 界面拿它显示一行红字——不能静默吞掉，否则用户以为存上了。
+ */
 function persist(): void {
-    writePriceItems(items.value);
+    if (!hasDesktop()) {
+        writePriceItems(items.value);
+        return;
+    }
+    void pricesSave(items.value).then((ok) => {
+        writeError.value = ok ? '' : '这一笔没写进数据库，检查一下磁盘空间';
+    });
 }
 
 /** 整条替换一件物品，然后落盘。列表每次都换新数组，`computed` 不必靠深度侦听。 */
@@ -214,5 +274,5 @@ export function usePrices() {
         return { ok: true, id: itemId };
     }
 
-    return { items, addItem, saveItem, removeItem, addPoint, savePoint, removePoint };
+    return { items, writeError, addItem, saveItem, removeItem, addPoint, savePoint, removePoint };
 }

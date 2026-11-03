@@ -64,6 +64,15 @@ windows = { version = "0.62", features = [
     "Win32_UI_WindowsAndMessaging",
 ] }
 
+# 本地数据层：物价、角色名册这些「用户自己攒出来的东西」落在 SQLite 一个文件里。
+#
+# **`bundled` 不能省**：它把 sqlite3 的 Amalgamation 一起编进可执行文件。
+# 不带的默认行为是去系统里找 `sqlite3.dll`——Windows 不自带，用户装完打不开，
+# 而这是个「双击就能用」的桌面小工具，不该让人先配 DLL。
+#
+# 代价是首次编译多约 20–30s（sqlite3 单文件约 25MB 源码），之后增量不受影响。
+rusqlite = { version = "0.32", features = ["bundled"] }
+
 # 发布版把前端产物**嵌进可执行文件**，开发版才去连 devUrl。
 #
 # 这一块不能省。Tauri 的机制是：`tauri dev` 带 `--no-default-features` 编译

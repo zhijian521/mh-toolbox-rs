@@ -85,3 +85,56 @@ export function toggleMaximizeWindow(): void {
 export function closeWindow(): void {
     if (hasTauri) void getCurrentWindow().close();
 }
+
+/* ---------- 本地数据（SQLite） ----------
+ * 数据存在 Rust 侧（`src-tauri/src/store.rs`），这里只做搬运。
+ *
+ * **为什么用泛型而不是引 `views/prices` 的 `PriceItem`**：`services/` 是系统边界，
+ * 反过来依赖某个页面的数据结构，那个页面一改字段这里就得跟着改，边界就白划了。
+ * 类型由调用方在那一侧断言——真正把关的是 `normalizePriceItem`。
+ *
+ * **浏览器里一律返回 null / false**，不是抛错：探针（`tools/probe/cdp.mjs`）和
+ * `npm run dev` 都没有 Tauri 宿主，调用方据此退回 `localStorage`。
+ * 两条路径的数据是**各自独立**的，这正合适——探针塞的种子数据不该污染真档案。
+ */
+export async function pricesLoad<T>(): Promise<T[] | null> {
+    if (!hasTauri) return null;
+    try {
+        return await invoke<T[]>('prices_load');
+    } catch (error) {
+        console.error('读取物价表失败', error);
+        return null;
+    }
+}
+
+/** 整份写回。返回 false 表示没写进去——调用方要能看见，不能静默吞掉。 */
+export async function pricesSave<T>(items: T[]): Promise<boolean> {
+    if (!hasTauri) return false;
+    try {
+        await invoke('prices_save', { items });
+        return true;
+    } catch (error) {
+        console.error('写入物价表失败', error);
+        return false;
+    }
+}
+
+/** 老数据（`localStorage` 那一版）搬过来没有。 */
+export async function pricesLegacyImported(): Promise<boolean> {
+    if (!hasTauri) return false;
+    try {
+        return await invoke<boolean>('prices_legacy_imported');
+    } catch {
+        return false;
+    }
+}
+
+/** 打上「已搬完」的标记。失败不致命：下次启动会再搬一遍，而搬的是同一份数据。 */
+export async function pricesMarkLegacyImported(): Promise<void> {
+    if (!hasTauri) return;
+    try {
+        await invoke('prices_mark_legacy_imported');
+    } catch (error) {
+        console.error('写迁移标记失败', error);
+    }
+}

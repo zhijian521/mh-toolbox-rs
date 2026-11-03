@@ -7,6 +7,7 @@ import { useFontScale } from './composables/use-font-scale';
 import { useTheme } from './composables/use-theme';
 import { router } from './router';
 import { loadGameData } from './services/game-data';
+import { loadPrices } from './views/prices/prices-store';
 
 /**
  * 持久化偏好在挂载前就先落地：字号是根元素上的一个变量，主题是根元素上的一个类。
@@ -24,7 +25,10 @@ useTheme();
  * `schoolSkills()` 与图标查表因此都是同步纯函数（见 `services/game-data.ts` 的说明）。
  * `loadGameData()` 失败也会 resolve（退回空表），所以这里不必写 try——
  * 数据缺了就是下拉少几项，应用不该因此起不来。
+ *
+ * 物价表走同一条路：桌面版从 SQLite 读、浏览器从 `localStorage` 读，两条都在这里
+ * 等到手再挂载。`loadPrices()` 同样不 reject（读不到就是空表），页面挂上去时数据已在。
  */
-void loadGameData().then(() => {
+Promise.all([loadGameData(), loadPrices()]).then(() => {
     createApp(App).use(router).mount('#app');
 });

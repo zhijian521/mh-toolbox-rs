@@ -11,6 +11,8 @@ mod ocr;
 mod ocr_paddle;
 #[cfg(windows)]
 mod screen;
+/* 数据层不分平台：SQLite 在哪儿都能跑，不像截屏 / OCR 只认 Win32。 */
+mod store;
 
 /// 前端「关于」要的那点信息。
 ///
@@ -212,10 +214,21 @@ pub fn run() {
         app_info,
         open_external,
         ghost::ghost_windows,
-        ghost::ghost_probe
+        ghost::ghost_probe,
+        store::prices_load,
+        store::prices_save,
+        store::prices_legacy_imported,
+        store::prices_mark_legacy_imported
     ]);
     #[cfg(not(windows))]
-    let builder = builder.invoke_handler(tauri::generate_handler![app_info, open_external]);
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        app_info,
+        open_external,
+        store::prices_load,
+        store::prices_save,
+        store::prices_legacy_imported,
+        store::prices_mark_legacy_imported
+    ]);
 
     let started = builder
         .setup(|app| {
