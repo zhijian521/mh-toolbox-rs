@@ -99,13 +99,17 @@ const stepWan = computed(() => stepSize(props.modelValue ?? 0) / 10000);
  * 输入框宽度跟着内容收放。
  *
  * 定死 7ch 时数字总会和「万」分家：右对齐的话数字贴着 input 右缘、靠近单位，
- * 但整组在槽里偏右（截图里就是这个样子）；改成居中，数字又停在 7ch 的正中、
- * 离单位老远。
+ * 但整组在槽里偏右；改成居中，数字又停在 7ch 的正中、离单位老远。
  *
- * 宽度随内容走之后，「数字 + 万」永远紧挨着，整组再由槽的 `justify-content: center`
- * 居中。最短 2ch——空值时得放得下 placeholder 那个 `0`。
+ * 宽度随内容走之后，「数字 + 万」永远紧挨着，整组再由槽的 `justify-content: center` 居中。
+ *
+ * **必须多给几个像素**：`ch` 是字体里 "0" 的宽度，而霞鹜文楷的数字实际渲染比它略宽，
+ * 宽度正好等于「字符数 × ch」时，末位会被裁掉半边（实测输 11223 时，最后那个 3 缺了一角）。
+ * 加 8px 既容下这点差值，也留出光标的位置。
  */
-const inputStyle = computed(() => ({ width: `${Math.max(2, text.value.length)}ch` }));
+const inputStyle = computed(() => ({
+    width: `calc(${Math.max(2, text.value.length)}ch + 8px)`,
+}));
 
 function nudge(direction: 1 | -1) {
     const base = props.modelValue ?? 0;
