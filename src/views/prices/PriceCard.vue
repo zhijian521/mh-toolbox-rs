@@ -107,7 +107,7 @@ function onCardClick(event: MouseEvent) {
 </script>
 
 <template>
-    <article class="price-card">
+    <article class="price-card" :data-cat="item.category">
         <!-- 压印块只当**背景层**：一块纸，不带内容。
              早先是把内容塞进 `PressTile` 的默认插槽，结果被它那句
              `place-items: center` 按住，内容永远是居中的一块，从父级用 `:deep`
@@ -197,6 +197,73 @@ function onCardClick(event: MouseEvent) {
     display: flex;
 }
 
+/* ---------- 分类浅染 ----------
+ * 九类各一组纸底，**只染纸面，字色一个都不动**（墨是名目、赭是价格、朱苔是涨跌）。
+ * 这是它和「被否掉那版九色分类」的根本区别：那一版拿颜色表态，这一版只让纸分批。
+ *
+ * 给的值是渐变的**深端**。`PressTile` 自己那三层光（左上 120% 偏光 + 145° 高光 +
+ * 315° 暗角）会把左上提亮，同一块纸于是自然读成「左上浅、右下深」——
+ * 不必再叠一层渐变去替它的光，也就不必去覆盖它的 `background-image`
+ * （那要跟组件内部规则比特异性，之前为「内容撑满」踩过一次，很脆）。
+ *
+ * `light-dark()` 一处管两版：暗色不是把浅色压暗，而是重新取一组低明度色，
+ * 色相对得上（青灰仍是青灰、旧金仍是旧金）。
+ *
+ * 「其他」是兜底类：中性值，不跟任何具体品类抢注意力。
+ * 分组来自 `prices-catalog.ts` 的 `PRICE_GROUPS`，九类一一对应。
+ *
+ * 每组两个值：`--tint` 是纸底（极淡），`--tint-deep` 是分类签的底（同色相、加深、提饱和）。
+ *
+ * **为什么不从 `--tint` 算出来**：CSS 拿不到一个颜色的色相，`color-mix` 只会往灰里稀释——
+ * 上一版就是 82% tint 掺墨，九个签全糊成同一种灰褐。
+ * `oklch(from … calc(l - 0.1) calc(c * 2) h)` 能算，但那是 CSS Color 5 的相对语法，
+ * WebView2 版本不稳，不值得为一行颜色押上整块背景。
+ * 显式写九个值是笨办法，但可读、可审、改哪一个都不会波及其它八个。
+ */
+.price-card[data-cat='装备灵饰'] {
+    --tint: light-dark(#eef0e9, #272e23); /* 青灰：金属，冷 */
+    --tint-deep: light-dark(#c9cfc0, #3f4a3a);
+}
+.price-card[data-cat='召唤兽'] {
+    --tint: light-dark(#f6efdf, #302922); /* 暖橙：活物 */
+    --tint-deep: light-dark(#e3cfa8, #4a3b28);
+}
+.price-card[data-cat='兽决内丹'] {
+    --tint: light-dark(#f5eae2, #332825); /* 赭红：书卷，朱的近亲 */
+    --tint-deep: light-dark(#e5c4b5, #4a3229);
+}
+.price-card[data-cat='宝石符石'] {
+    --tint: light-dark(#eaf2ec, #202c26); /* 青绿：矿石 */
+    --tint-deep: light-dark(#bcd3c2, #2c4034);
+}
+.price-card[data-cat='打造材料'] {
+    --tint: light-dark(#f2ecdd, #302b21); /* 土黄：木料，最接近纸本色 */
+    --tint-deep: light-dark(#dcccaa, #443a26);
+}
+.price-card[data-cat='消耗补给'] {
+    --tint: light-dark(#edf3e7, #242c1f); /* 草绿：药草 */
+    --tint-deep: light-dark(#c6d8b8, #35452a);
+}
+.price-card[data-cat='任务产出'] {
+    --tint: light-dark(#ecf0f6, #222932); /* 靛青：藏宝，唯一偏冷的一类 */
+    --tint-deep: light-dark(#c2cfe3, #2b3749);
+}
+.price-card[data-cat='通货账号'] {
+    --tint: light-dark(#f7eed6, #322d20); /* 旧金：钱 */
+    --tint-deep: light-dark(#e8d29a, #4a3f22);
+}
+.price-card[data-cat='其他'] {
+    --tint: light-dark(#f2f0e9, #2c2a26); /* 中性兜底 */
+    --tint-deep: light-dark(#d8d4c8, #3a3730);
+}
+
+/* 染色交给 `--tile-face`：`PressTile` 取的是 `var(--tile-face, 纸色)`，
+ * 它没有在根元素上声明过这个变量，所以这里赋值就是最终值，不存在特异性竞争。
+ * 没匹配到分类的（脏数据、改名后的旧值）回落到纸色，卡片照常凸起。 */
+.card-surface {
+    --tile-face: var(--tint, var(--paper));
+}
+
 /* 背景层：铺满整张卡，只给材质。
  *
  * 尺寸走 `--tile-w` / `--tile-h` 这两个变量，而**不直接写 `width` / `height`**：
@@ -271,6 +338,16 @@ function onCardClick(event: MouseEvent) {
 .card-tag {
     flex: none;
     font-size: var(--fs-mini);
+    /* 签的底用 `--tint-deep`：与卡同色相、更深、更饱和。
+     *
+     * 亮色下它比纸深一档（深底浅字），暗色下比纸**亮**一档（浅底深字）——
+     * 方向相反，但两边都是「让签从纸上浮出来」的同一个意思：暗色里没有更深的余地，
+     * 再往下压就是纯黑，色相会整块消失。
+     *
+     * 字仍以墨为主（`--ink` 在两主题下自动是深/浅），颜色该由底来说，不该让字承担。 */
+    background: var(--tint-deep, var(--rule-2));
+    border-color: color-mix(in srgb, var(--tint-deep, var(--rule-2)) 62%, var(--ink));
+    color: color-mix(in srgb, var(--ink) 92%, var(--tint-deep, var(--paper)));
 }
 .card-main:hover .card-name {
     color: var(--cinnabar);

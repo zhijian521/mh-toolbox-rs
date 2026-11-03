@@ -8,6 +8,7 @@ import MeterBar from '../../components/MeterBar.vue';
 import NumTag from '../../components/NumTag.vue';
 import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
+import PriceField from '../../components/PriceField.vue';
 import PressTile from '../../components/PressTile.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
@@ -36,6 +37,9 @@ const autoSave = ref(false);
 
 /** 输入格的演示值：给个真数字，才看得出「等宽数字」与「0 显示为空」两件事。 */
 const demoLevel = ref(130);
+/** 价格格的演示值：存的是**游戏币原值**，显示时才折成 320 万 / 860 万。 */
+const demoPrice = ref<number | null>(3200000);
+const demoPriceMd = ref<number | null>(8600000);
 
 /** 多档滑块的演示：三档够看出「等分 + 落格」，页签条那行验证加高后的点击区。 */
 const DEMO_PANES: { value: 'attrs' | 'skills' | 'assist'; label: string }[] = [
@@ -178,6 +182,33 @@ const demoSchool = ref('五庄观');
             </div>
 
             <div class="kit-cell">
+                <span class="col-head">PriceField · 价格格</span>
+                <div class="kit-row">
+                    <PriceField
+                        v-model="demoPrice"
+                        label="这一笔多少钱"
+                        class="kit-price"
+                        stepper
+                    />
+                </div>
+                <div class="kit-row">
+                    <PriceField
+                        v-model="demoPriceMd"
+                        label="md 档 · 无加减"
+                        class="kit-price"
+                        size="md"
+                    />
+                </div>
+                <p class="note">
+                    梦幻币的价格几乎都在万以上，所以这一格只收「万」、后缀写死；
+                    <b>值进出仍是游戏币原值</b>（这里 320 万在数据里是 3200000），
+                    换算关在组件里，调用方不必每处都记得乘一万。
+                    两侧加减按当前值的量级换步长：一千万以上 ±100 万、一百万以上 ±10 万、其余 ±1
+                    万。 槽宽定死、不铺满整行——铺满时一个数字悬在长槽里，读起来像「这条还没填完」。
+                </p>
+            </div>
+
+            <div class="kit-cell">
                 <span class="col-head">NumTag · 数值签</span>
                 <div class="kit-row">
                     <NumTag class="kit-tag">
@@ -299,6 +330,11 @@ const demoSchool = ref('五庄观');
     align-items: center;
     gap: 7px;
     flex-wrap: wrap;
+}
+/* 价格格在示例里撑满一行：它自己的看点是「数字 + 万 + 两侧加减」在这一整行里居中，
+ * 靠着左边界摆的话看不出居中，只能说「这里有个格子」。 */
+.kit-price {
+    width: 100%;
 }
 .kit-cell .note {
     margin-top: 0;

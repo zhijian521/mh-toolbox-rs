@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
-import NumberField from '../../components/NumberField.vue';
+import PriceField from '../../components/PriceField.vue';
 import PressButton from '../../components/PressButton.vue';
 import SelectField from '../../components/SelectField.vue';
 import { DEFAULT_CATEGORY, PRICE_CATEGORIES, subsOf } from './prices-catalog';
@@ -184,16 +184,12 @@ function onEnter(event: KeyboardEvent) {
                 <span v-if="showSubError" class="note error">{{ errors.sub }}</span>
             </label>
 
-            <label v-if="!item" class="cell">
-                <span class="field-label">初始价（可空）</span>
-                <NumberField
-                    :model-value="initialPrice"
-                    label="初始价格，游戏币原值"
-                    placeholder="不填就先建卡"
-                    zero-as-empty
-                    @update:model-value="initialPrice = $event"
-                />
-            </label>
+            <div v-if="!item" class="init-price">
+                <!-- 占位符只放 `0`（组件默认）。早先这里塞了「不填就先建卡」，
+                     六个中文字在 7ch 的数字格里被裁成「不填就先」，后面还跟着「万」，
+                     读起来像两个东西撞在一起。长句该进 label 或提示行，不该进数字格。 -->
+                <PriceField v-model="initialPrice" label="初始价（可空）" size="md" stepper />
+            </div>
 
             <label class="cell" :class="{ 'cell-wide': !!item }">
                 <span class="field-label">备注（可空）</span>
@@ -245,14 +241,15 @@ function onEnter(event: KeyboardEvent) {
 .cell-wide {
     grid-column: 1 / -1;
 }
-/* 输入格吃满自己的格子。`NumberField` 自带 72px 宽（三个数字以下会塌成一条线），
- * 从父级覆写掉——父级 scoped 能命中子组件根元素。 */
+/* 初始价占整行。**不用 `.cell` 包**：那条 `.cell input { width: 100% }` 会命中
+ * `PriceField` 内部的 input，把定死的 7ch 撑成整行，数字就不居中了。 */
+.init-price {
+    grid-column: 1 / -1;
+}
+/* 输入格吃满自己的格子。 */
 .cell input {
     width: 100%;
     min-width: 0;
-}
-.cell :deep(.number-field) {
-    width: 100%;
 }
 /* 提示行只调位置，不改字号与字色（那是 `.meta` 的档）。
  * 通栏放在最后一行的下面，不占某一列的格。 */

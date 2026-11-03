@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
-import NumberField from '../../components/NumberField.vue';
+import PriceField from '../../components/PriceField.vue';
 import PressButton from '../../components/PressButton.vue';
 import {
     pointDraftErrors,
@@ -69,6 +69,17 @@ function onEnter(event: KeyboardEvent) {
         @close="emit('close')"
     >
         <form class="dialog-form" @submit.prevent="submit" @keydown.enter="onEnter">
+            <!-- 价格放最上面、占整行、居中：这一窗唯一必须填对的就是它。
+                 日期有默认值（今天），备注可空，两者挤在两列里就够。 -->
+            <div class="point-price">
+                <PriceField
+                    v-model="draft.price"
+                    label="这一笔多少钱"
+                    stepper
+                    :error="showPriceError ? errors.price : ''"
+                />
+            </div>
+
             <label class="cell">
                 <span class="field-label">日期</span>
                 <input
@@ -82,18 +93,6 @@ function onEnter(event: KeyboardEvent) {
             </label>
 
             <label class="cell">
-                <span class="field-label">价格</span>
-                <NumberField
-                    :model-value="draft.price"
-                    label="价格，游戏币原值"
-                    placeholder="3200000"
-                    zero-as-empty
-                    @update:model-value="draft.price = $event"
-                />
-                <span v-if="showPriceError" class="note error">{{ errors.price }}</span>
-            </label>
-
-            <label class="cell">
                 <span class="field-label">备注（可空）</span>
                 <input
                     v-model="draft.note"
@@ -103,7 +102,7 @@ function onEnter(event: KeyboardEvent) {
                 />
             </label>
 
-            <p class="meta price-hint">填游戏币原值，显示时会自动折算成万 / 亿。</p>
+            <p class="meta price-hint">直接填「万」：320 就是 320 万。</p>
             <p v-if="error" class="note error dialog-error">{{ error }}</p>
         </form>
 
@@ -137,11 +136,10 @@ function onEnter(event: KeyboardEvent) {
     width: 100%;
     min-width: 0;
 }
-/* `NumberField` 自带 72px 宽，这里要它跟着格子走（父级 scoped 能命中子组件根）。 */
-.cell :deep(.number-field) {
-    width: 100%;
+/* 价格占整行。`.dialog-form` 是两列网格，跨两列之后由 `PriceField` 自己居中。 */
+.point-price {
+    grid-column: 1 / -1;
 }
-/* 提示行只调位置，字档走 `.meta`。 */
 /* 提示行只调位置，字档走 `.meta`。 */
 .price-hint {
     margin: 0;

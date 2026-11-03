@@ -101,6 +101,7 @@ const ICON_META = {
     // 测试文字入口：烧瓶＝「不进正式流程的试跑」，比齿轮/扳手更像实验而不是设置。
     flask: { glyph: IconFlask, label: '测试', group: 'action' },
     add: { glyph: IconPlus, label: '新增', group: 'action' },
+    subtract: { glyph: IconMinus, label: '减少', group: 'action' },
     // 编辑用铅笔画斜线：账号/角色这种东西「改一行」与「删掉重录」是两件事，
     // 卡头上两枚并排时，一支笔与一只桶一眼分得开；用「设置齿轮」会与左栏设置撞脸。
     edit: { glyph: IconPencil, label: '编辑', group: 'action' },
