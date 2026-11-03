@@ -329,8 +329,18 @@ export function pointDelta(sorted: PricePoint[], index: number): number | null {
 }
 
 /** 撤掉多余的小数尾巴：1.50 → 1.5，2.00 → 2。 */
+/**
+ * 显示用：最多四位小数，尾随的零去掉。
+ *
+ * 四位不是随手取的：`PriceField` 的输入精度就是「万的小数点后四位」
+ * （`Math.round(万 × 10000)`，正好 1 币）。显示只留两位的话，输入 1.2345 万存进去的
+ * 12345 币会显示成「1.23 万」，再打开编辑又变回 1.2345——用户会以为没存对。
+ * 两处同一个精度，同一件事才不会出现两种说法。
+ *
+ * 绝大多数价格是整万或一位小数，四位只在真的打到个位数时才出现，不会普遍变长。
+ */
 function trimZero(value: number): string {
-    const fixed = value.toFixed(2).replace(/\.?0+$/, '');
+    const fixed = value.toFixed(4).replace(/\.?0+$/, '');
     return fixed === '' ? '0' : fixed;
 }
 
@@ -350,6 +360,8 @@ export interface PriceLabel {
  * 不是报数，同一个单位比「短」更重要。
  *
  * 不足一万仍按原值：`0.03 万` 比 `333` 更难懂，而梦幻币低于一万的价本来就少。
+ * 这与输入侧不冲突：`PriceField` 收「万」（打 0.8），存的是原值 8000，显示回「8000」——
+ * 输入按万是为了少打零，显示按原值是为了好读，两个方向各取所长。
  *
  * 卡片、历史、走势图纵轴共用这一个函数——三处各写一套换算，迟早有一处把 1.5 亿写成
  * 1500 万。
@@ -748,6 +760,7 @@ export function filterItems(items: PriceItem[], filter: PriceFilter): PriceItem[
                 return a.price - b.price || byName(a.item, b.item);
             });
             break;
+        case 'delta':
         default:
             decorated.sort((a, b) => {
                 if (a.ratio === null || b.ratio === null) {

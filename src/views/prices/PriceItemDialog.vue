@@ -186,7 +186,7 @@ function onEnter(event: KeyboardEvent) {
 
             <div v-if="!item" class="init-price">
                 <!-- 占位符只放 `0`（组件默认）。早先这里塞了「不填就先建卡」，
-                     六个中文字在 7ch 的数字格里被裁成「不填就先」，后面还跟着「万」，
+                     六个中文字在数字格里被裁成「不填就先」，后面还跟着「万」，
                      读起来像两个东西撞在一起。长句该进 label 或提示行，不该进数字格。 -->
                 <PriceField v-model="initialPrice" label="初始价（可空）" size="md" stepper />
             </div>

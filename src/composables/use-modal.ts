@@ -174,9 +174,17 @@ export function useModal(options: UseModalOptions): UseModalResult {
         }
 
         /* 还焦点（见头注释 ②）。元素可能已经不在文档里（触发它的卡片被删了），
-         * `isConnected` 一查就知道——那种情况下不强还，落回文档开头是唯一诚实的落点。 */
-        if (restoreTo?.isConnected) restoreTo.focus();
+         * `isConnected` 一查就知道——那种情况下不强还，落回文档开头是唯一诚实的落点。
+         *
+         * **必须等一个 tick**。叠层时下面那层此刻还挂着 `inert`（它是上一刻的非栈顶），
+         * 而 Chromium 会忽略 inert 子树里的 `focus()`——同步调用等于白调，焦点掉回 body，
+         * 键盘用户要从文档开头重新 Tab。`topToken` 刚改过，下一帧 Vue 才摘掉 inert，
+         * 所以这里推迟到那一刻再还。 */
+        const target = restoreTo;
         restoreTo = null;
+        void nextTick(() => {
+            if (target?.isConnected) target.focus();
+        });
     });
 
     return { isTop };

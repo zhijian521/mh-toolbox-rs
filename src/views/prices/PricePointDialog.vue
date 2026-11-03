@@ -71,12 +71,13 @@ function onEnter(event: KeyboardEvent) {
         <form class="dialog-form" @submit.prevent="submit" @keydown.enter="onEnter">
             <!-- 价格放最上面、占整行、居中：这一窗唯一必须填对的就是它。
                  日期有默认值（今天），备注可空，两者挤在两列里就够。 -->
-            <div class="point-price">
+            <div>
                 <PriceField
                     v-model="draft.price"
                     label="这一笔多少钱"
                     stepper
                     :error="showPriceError ? errors.price : ''"
+                    @blur="touched.price = true"
                 />
             </div>
 
@@ -135,10 +136,6 @@ function onEnter(event: KeyboardEvent) {
 .cell input {
     width: 100%;
     min-width: 0;
-}
-/* 价格占整行。`.dialog-form` 是两列网格，跨两列之后由 `PriceField` 自己居中。 */
-.point-price {
-    grid-column: 1 / -1;
 }
 /* 提示行只调位置，字档走 `.meta`。 */
 .price-hint {

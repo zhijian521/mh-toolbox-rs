@@ -18,7 +18,7 @@ import { useFontScale } from '../../composables/use-font-scale';
 import { THEME_OPTIONS, useTheme } from '../../composables/use-theme';
 
 /**
- * 原子组件：抽出来复用的十件（十条 `kit-cell`，一条里可能并排两个同族件——
+ * 原子组件：抽出来复用的十一件（十一条 `kit-cell`，一条里可能并排两个同族件——
  * 比如 `Field` / `NumberField`、`PressTile` / `PressButton`）。
  *
  * 加一件请连上面那个数一起改：篇首原先写死「九件」，加了两件之后就成了假信息。
@@ -57,7 +57,7 @@ const demoSchool = ref('五庄观');
 </script>
 
 <template>
-    <LedgerSection title="原子组件" hint="抽出来复用的十件，业务页直接拿去用">
+    <LedgerSection title="原子组件" hint="抽出来复用的十一件，业务页直接拿去用">
         <div class="kit atoms-kit">
             <div class="kit-cell">
                 <span class="col-head">SegmentedPills · 分段胶囊</span>

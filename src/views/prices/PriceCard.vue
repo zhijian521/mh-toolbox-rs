@@ -74,7 +74,10 @@ const cardLabel = computed(() => {
         ? `${currentLabel.value.value} ${currentLabel.value.unit}`
         : currentLabel.value.value;
     const trend = badge.value?.title ?? '还没有涨跌';
-    return `${props.item.name}，${tag}，当前价 ${price}，${trend}；按回车记一笔价，点涨幅或走势线看历史`;
+    /* 只说到键盘真能做到的那一步。「点涨幅或走势线看历史」曾经挂在这里，
+     * 但那两个热区在 `<button>` 内部、键盘到不了（见 `onCardClick` 的已知代价），
+     * 念给读屏用户一句做不到的操作，不如不说。 */
+    return `${props.item.name}，${tag}，当前价 ${price}，${trend}；按回车记一笔价`;
 });
 
 /* 迷你线：坐标算法在 `price-chart-path.ts`，这里只给尺寸。
@@ -201,60 +204,52 @@ function onCardClick(event: MouseEvent) {
  * 九类各一组纸底，**只染纸面，字色一个都不动**（墨是名目、赭是价格、朱苔是涨跌）。
  * 这是它和「被否掉那版九色分类」的根本区别：那一版拿颜色表态，这一版只让纸分批。
  *
- * 给的值是渐变的**深端**。`PressTile` 自己那三层光（左上 120% 偏光 + 145° 高光 +
- * 315° 暗角）会把左上提亮，同一块纸于是自然读成「左上浅、右下深」——
- * 不必再叠一层渐变去替它的光，也就不必去覆盖它的 `background-image`
- * （那要跟组件内部规则比特异性，之前为「内容撑满」踩过一次，很脆）。
+ * **色号在 `tokens.css`**（`--tint-*` / `--tint-deep-*`），这里只做分类名到令牌的映射。
+ * 颜色不许裸写在组件里（§2.4-1）——18 个色号散在各处时，没人能一眼看全这套有几档。
  *
- * `light-dark()` 一处管两版：暗色不是把浅色压暗，而是重新取一组低明度色，
- * 色相对得上（青灰仍是青灰、旧金仍是旧金）。
+ * 给的值是纸的**深端**。`PressTile` 自己那三层光会把左上提亮，同一块纸于是自然读成
+ * 「左上浅、右下深」——不必再叠一层渐变去替它的光，也就不必去覆盖它的 `background-image`
+ * （那要跟组件内部规则比特异性，为「内容撑满」踩过一次，很脆）。
  *
  * 「其他」是兜底类：中性值，不跟任何具体品类抢注意力。
- * 分组来自 `prices-catalog.ts` 的 `PRICE_GROUPS`，九类一一对应。
- *
- * 每组两个值：`--tint` 是纸底（极淡），`--tint-deep` 是分类签的底（同色相、加深、提饱和）。
- *
- * **为什么不从 `--tint` 算出来**：CSS 拿不到一个颜色的色相，`color-mix` 只会往灰里稀释——
- * 上一版就是 82% tint 掺墨，九个签全糊成同一种灰褐。
- * `oklch(from … calc(l - 0.1) calc(c * 2) h)` 能算，但那是 CSS Color 5 的相对语法，
- * WebView2 版本不稳，不值得为一行颜色押上整块背景。
- * 显式写九个值是笨办法，但可读、可审、改哪一个都不会波及其它八个。
+ * 分组来自 `prices-catalog.ts` 的 `PRICE_GROUPS`，九类一一对应——**改名要两处一起改**，
+ * 对不上时浅染会静默失效（回落成纸色），不会报错。
  */
 .price-card[data-cat='装备灵饰'] {
-    --tint: light-dark(#eef0e9, #272e23); /* 青灰：金属，冷 */
-    --tint-deep: light-dark(#dbe0d4, #313a2c);
+    --tint: var(--tint-装备灵饰);
+    --tint-deep: var(--tint-deep-装备灵饰);
 }
 .price-card[data-cat='召唤兽'] {
-    --tint: light-dark(#f6efdf, #302922); /* 暖橙：活物 */
-    --tint-deep: light-dark(#ece0c9, #3b3126);
+    --tint: var(--tint-召唤兽);
+    --tint-deep: var(--tint-deep-召唤兽);
 }
 .price-card[data-cat='兽决内丹'] {
-    --tint: light-dark(#f5eae2, #332825); /* 赭红：书卷，朱的近亲 */
-    --tint-deep: light-dark(#eed9cf, #3d2c26);
+    --tint: var(--tint-兽决内丹);
+    --tint-deep: var(--tint-deep-兽决内丹);
 }
 .price-card[data-cat='宝石符石'] {
-    --tint: light-dark(#eaf2ec, #202c26); /* 青绿：矿石 */
-    --tint-deep: light-dark(#d5e6d9, #263429);
+    --tint: var(--tint-宝石符石);
+    --tint-deep: var(--tint-deep-宝石符石);
 }
 .price-card[data-cat='打造材料'] {
-    --tint: light-dark(#f2ecdd, #302b21); /* 土黄：木料，最接近纸本色 */
-    --tint-deep: light-dark(#e8dfc8, #383223);
+    --tint: var(--tint-打造材料);
+    --tint-deep: var(--tint-deep-打造材料);
 }
 .price-card[data-cat='消耗补给'] {
-    --tint: light-dark(#edf3e7, #242c1f); /* 草绿：药草 */
-    --tint-deep: light-dark(#dbe8d1, #2b3525);
+    --tint: var(--tint-消耗补给);
+    --tint-deep: var(--tint-deep-消耗补给);
 }
 .price-card[data-cat='任务产出'] {
-    --tint: light-dark(#ecf0f6, #222932); /* 靛青：藏宝，唯一偏冷的一类 */
-    --tint-deep: light-dark(#d9e3f1, #262f3a);
+    --tint: var(--tint-任务产出);
+    --tint-deep: var(--tint-deep-任务产出);
 }
 .price-card[data-cat='通货账号'] {
-    --tint: light-dark(#f7eed6, #322d20); /* 旧金：钱 */
-    --tint-deep: light-dark(#f0e3bd, #3c3522);
+    --tint: var(--tint-通货账号);
+    --tint-deep: var(--tint-deep-通货账号);
 }
 .price-card[data-cat='其他'] {
-    --tint: light-dark(#f2f0e9, #2c2a26); /* 中性兜底 */
-    --tint-deep: light-dark(#e6e3da, #322f2a);
+    --tint: var(--tint-其他);
+    --tint-deep: var(--tint-deep-其他);
 }
 
 /* 染色交给 `--tile-face`：`PressTile` 取的是 `var(--tile-face, 纸色)`，
@@ -370,7 +365,7 @@ function onCardClick(event: MouseEvent) {
 .card-value {
     flex: none;
     color: var(--num);
-    font-size: calc(var(--fs-base) * 1.4);
+    font-size: var(--fs-amount);
     font-weight: 400;
     line-height: 1.15;
     font-variant-numeric: tabular-nums;

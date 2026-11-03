@@ -42,7 +42,6 @@ const current = computed(() => currentPoint(props.item));
 const label = computed(() => priceLabel(current.value?.price ?? null));
 const change = computed(() => priceChange(props.item));
 
-/** 涨跌那一句：跟谁比、差多少。与卡片徽章同一套口径，不重算。 */
 /** 与卡片徽章的 `title` **同一句话**（`changeSentence`）：口径不能各拼一遍。 */
 const changeLine = computed(() => (change.value ? changeSentence(change.value) : ''));
 
@@ -157,9 +156,8 @@ const chart = computed(() => chartPrices(props.item));
  * 会让人怀疑它们是不是同一个数。 */
 .hist-price b {
     color: var(--num);
-    /* 与卡片的 `.card-value` **同一个算式**：同一个读数在两张屏上不该长得不一样。
-     * 原先这里写的是 `var(--fs-xl) * 0.95`（20.9），卡上是 `var(--fs-base) * 1.4`（18.9）。 */
-    font-size: calc(var(--fs-base) * 1.4);
+    /* 与卡片的 `.card-value` 同一个令牌：同一个读数在两张屏上不该长得不一样。 */
+    font-size: var(--fs-amount);
     font-weight: 400;
     line-height: 1.15;
     font-variant-numeric: tabular-nums;

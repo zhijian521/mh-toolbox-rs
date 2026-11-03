@@ -40,7 +40,17 @@ const props = withDefaults(
     { label: '', error: '', size: 'lg', placeholder: '0', stepper: false },
 );
 
-const emit = defineEmits<{ 'update:modelValue': [number | null] }>();
+const emit = defineEmits<{
+    'update:modelValue': [number | null];
+    /**
+     * 失焦。调用方用它标「已经碰过这一格」，好决定要不要露错误提示。
+     *
+     * 带上 `FocusEvent` 不是为了用它，而是类型必须与原生 `blur` 一致：
+     * 组件根元素是 `div`，`@blur` 会同时被当成组件事件与原生事件，
+     * 声明成无参函数时两边的类型对不上（`() => void` 与 `(e: FocusEvent) => void`）。
+     */
+    blur: [event: FocusEvent];
+}>();
 
 /** 原值 → 输入框里的「万」。最多留 4 位小数：12345 元 → 1.2345 万。 */
 function toWan(value: number | null): string {
@@ -73,10 +83,26 @@ function onInput(event: Event) {
     input.value = cleaned;
 
     const parsed = Number(cleaned);
+    /* 空就写 `0`，不写 `null`：`PricePointDraft.price` 与 `initialPrice` 都是 `number`，
+     * emit 一个 null 过去类型上不报、运行时靠 `amount()` 兜——这种「说得清但写不对」
+     * 的接口，迟早有人写成 `if (price === null)` 然后判错。两个「空」收成一个。
+     * `toWan(0)` 本来回空串，显示与写入仍然对得上。 */
     emit(
         'update:modelValue',
-        cleaned === '' || !Number.isFinite(parsed) ? null : Math.round(parsed * 10000),
+        cleaned === '' || !Number.isFinite(parsed) ? 0 : Math.round(parsed * 10000),
     );
+}
+
+/**
+ * 失焦收尾。
+ *
+ * 输入过程中允许中间态（`3.`、`1.`），否则小数点刚敲下去就被吃掉；
+ * 但离开这一格时要落成规范写法，不然框里会一直挂着那个点。
+ * 归一口径与 `watch` 一致——都按「回算成原值」再格式化一遍。
+ */
+function onBlur(event: FocusEvent) {
+    text.value = toWan(props.modelValue);
+    emit('blur', event);
 }
 
 /**
@@ -115,7 +141,7 @@ function nudge(direction: 1 | -1) {
     const base = props.modelValue ?? 0;
     const next = Math.max(0, base + direction * stepSize(base));
     text.value = toWan(next);
-    emit('update:modelValue', next > 0 ? next : null);
+    emit('update:modelValue', next);
 }
 </script>
 
@@ -123,13 +149,14 @@ function nudge(direction: 1 | -1) {
     <!-- 外层用 `div` 不用 `label`：里面有按钮，`label` 会把「点按钮」也当成「聚焦输入框」，
          而用户按加减时并不想焦点跳走。标签文字照留，输入框自己的 `aria-label` 负责念全。 -->
     <div class="price-field">
-        <span v-if="label" class="pf-label">{{ label }}</span>
+        <span v-if="label" class="field-label">{{ label }}</span>
         <div class="pf-row">
             <PressButton
                 v-if="stepper"
                 class="pf-step"
                 icon="subtract"
                 :label="`减 ${stepWan} 万`"
+                :disabled="!modelValue"
                 @click="nudge(-1)"
             />
             <span class="field pf-well" :class="[`pf-well--${size}`, { 'pf-bad': !!error }]">
@@ -144,6 +171,7 @@ function nudge(direction: 1 | -1) {
                     :placeholder="placeholder"
                     :aria-label="label ? `${label}，以万为单位` : '价格，以万为单位'"
                     @input="onInput"
+                    @blur="onBlur"
                 />
                 <span class="pf-unit" aria-hidden="true">万</span>
             </span>
@@ -165,12 +193,6 @@ function nudge(direction: 1 | -1) {
     flex-direction: column;
     align-items: center;
     gap: 7px;
-}
-
-.pf-label {
-    color: var(--ink-2);
-    font-size: var(--fs-sm);
-    letter-spacing: 0.08em;
 }
 
 .pf-row {
