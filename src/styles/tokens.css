@@ -186,6 +186,11 @@
     --fs-base: calc(13.5px * var(--fs-scale)); /* 正文、表单 */
     --fs-md: calc(14.5px * var(--fs-scale)); /* 分栏标题 */
     --fs-xl: calc(22px * var(--fs-scale)); /* 页面标题 */
+    /* 金额读数：卡面当前价、历史弹窗抬头那一档。
+     * 这两处本来就是同一个数在同一个人眼前出现两次，字号必须同源——
+     * 早先卡片写 `× 1.4`、历史窗写 `--fs-xl × 0.95`（20.9 对 18.9），同一个价格两个大小。
+     * 输入格那两档（1.8 / 1.3）不并进来：它们是「编辑焦点」的尺寸，不是读数。 */
+    --fs-amount: calc(var(--fs-base) * 1.4);
     --lh-base: 1.72;
 
     /* ---------- 间距 ----------
@@ -282,4 +287,41 @@
      * 再用它就分不出来了，所以往纸白方向提 30%，让边浮在面之上。 */
     --seal-edge: color-mix(in srgb, var(--cinnabar-ink) 70%, var(--ink));
     --on-seal: var(--ink);
+}
+
+/* ---------- 分类浅染 ----------
+ * 物价卡按一级分类给两层纸色：
+ * `--tint-*` 是卡底（极淡，只让纸分批），`--tint-deep-*` 是分类签的底
+ * （同色相、深一档，够看出边界就停）。
+ *
+ * 放在令牌层而不是组件里，是因为 `CONVENTIONS.md` §2.4-1 只允许颜色来自令牌。
+ * 这不是洁癖：九类 × 亮暗共 18 个色号，散在组件里就没人能一眼看全「这套到底有几档」，
+ * 改色相时也说不清还该动哪一处。放这里之后，`PriceCard` 只剩
+ * `--tint: var(--tint-召唤兽)` 这样的引用。
+ *
+ * 命名带分类中文名而不是编号：`.price-card[data-cat='召唤兽']` 与 `--tint-召唤兽`
+ * 一眼对得上，写错一个字立刻能看出来（编号则永远不会报错）。
+ *
+ * 两档都用 `light-dark()` 一处管两版：暗色不是把浅色压暗，而是重新取一组低明度色，
+ * 色相对得上（青灰仍是青灰、旧金仍是旧金）。
+ */
+:root {
+    --tint-装备灵饰: light-dark(#eef0e9, #272e23); /* 青灰：金属，冷 */
+    --tint-deep-装备灵饰: light-dark(#dbe0d4, #313a2c);
+    --tint-召唤兽: light-dark(#f6efdf, #302922); /* 暖橙：活物 */
+    --tint-deep-召唤兽: light-dark(#ece0c9, #3b3126);
+    --tint-兽决内丹: light-dark(#f5eae2, #332825); /* 赭红：书卷，朱的近亲 */
+    --tint-deep-兽决内丹: light-dark(#eed9cf, #3d2c26);
+    --tint-宝石符石: light-dark(#eaf2ec, #202c26); /* 青绿：矿石 */
+    --tint-deep-宝石符石: light-dark(#d5e6d9, #263429);
+    --tint-打造材料: light-dark(#f2ecdd, #302b21); /* 土黄：木料，最接近纸本色 */
+    --tint-deep-打造材料: light-dark(#e8dfc8, #383223);
+    --tint-消耗补给: light-dark(#edf3e7, #242c1f); /* 草绿：药草 */
+    --tint-deep-消耗补给: light-dark(#dbe8d1, #2b3525);
+    --tint-任务产出: light-dark(#ecf0f6, #222932); /* 靛青：藏宝，唯一偏冷的一类 */
+    --tint-deep-任务产出: light-dark(#d9e3f1, #262f3a);
+    --tint-通货账号: light-dark(#f7eed6, #322d20); /* 旧金：钱 */
+    --tint-deep-通货账号: light-dark(#f0e3bd, #3c3522);
+    --tint-其他: light-dark(#f2f0e9, #2c2a26); /* 中性兜底，不跟具体品类抢注意力 */
+    --tint-deep-其他: light-dark(#e6e3da, #322f2a);
 }
