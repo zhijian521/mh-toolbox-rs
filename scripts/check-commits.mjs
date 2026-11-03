@@ -8,7 +8,9 @@
  *   npm run lint:commits                                 最近 20 条
  *   git log --no-merges --format=%s origin/main..HEAD | node scripts/check-commits.mjs
  *
- * 只看摘要，不看正文：正文写的是「为什么」，不该受格式约束。
+ * 只看摘要，不校验有没有正文。约定是「提交信息只要一行」（CONVENTIONS §2.1），
+ * 但这条不设机器闸：一行装不下就说明该拆提交，不是该让 `check` 报红。
+ * 真正的开关在人手上——正文没人读，写它纯是开销。
  */
 
 const TYPES = [
