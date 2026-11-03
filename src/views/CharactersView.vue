@@ -29,7 +29,7 @@ import { emptyCharacter, useRoster } from './characters/roster';
  * 页面全部对不上。`md` 三档字号下都低于页头自然高度（42.9 / 45 / 47.6 < 43.3 / 45.3 / 47.8），
  * 页头高度才重新由令牌说了算。
  */
-const { roster, add, update, remove } = useRoster();
+const { roster, loadError, writeError, add, update, remove } = useRoster();
 
 /* 正在编辑的草稿，`null` = 浮层关着。**不另存一个 `isNew` 布尔**：
  * 「这是新角色还是改旧的」由「名册里有没有这个 id」现算，两个状态分开维护，
@@ -69,8 +69,23 @@ const desc = computed(() =>
                 label="识别游戏窗口（还没接上）"
                 disabled
             />
-            <PressButton icon="add" text="新角色" label="新建角色" seal @click="startNew" />
+            <!-- 读失败时底层拒绝一切写入（`persist()` 的闸），所以这枚按钮必须一起禁用：
+                 让它可点等于让用户一路填完再被静默丢掉，那比不能点更伤人。 -->
+            <PressButton
+                icon="add"
+                text="新角色"
+                label="新建角色"
+                seal
+                :disabled="!!loadError"
+                @click="startNew"
+            />
         </template>
+
+        <!-- 数据层的那一行红字：`loadError` 是「整份读不出」，`writeError` 是「刚那一笔没写进去」。
+             两者都必须显示——读失败时名册本来就是空的，用户看到的是一张空页，不说清楚就会以为
+             「角色都没了」然后重填一遍；而底层此刻拒绝写入，他重建的东西同样存不下去。
+             样式只用现成的 `.note.error`（`base.css` 的朱色状态），不新造类。 -->
+        <p v-if="loadError || writeError" class="note error">{{ loadError || writeError }}</p>
 
         <div class="roster">
             <CharacterCard
@@ -83,8 +98,16 @@ const desc = computed(() =>
 
             <!-- 空位卡与角色卡同高：名册的行高由最高那张决定，缺一角会让整行看着没排完。
                  它同时是「新角色」的第二个入口——名册空着的时候，页头那枚按钮之外
-                 这里还有一整格可点，不至于对着一片空白找不到开始的地方。 -->
-            <button class="char-blank" type="button" aria-label="新建角色" @click="startNew">
+                 这里还有一整格可点，不至于对着一片空白找不到开始的地方。
+                 **所以它也得跟页头那枚同进退**：读失败时名册被清成空，这一格恰好会露出来，
+                 不禁用就成了「页头点不动、这里能点进去」，用户填完一整份再被 `persist()` 的闸丢掉。 -->
+            <button
+                class="char-blank"
+                type="button"
+                aria-label="新建角色"
+                :disabled="!!loadError"
+                @click="startNew"
+            >
                 <span class="plus">＋</span>
                 <span class="blank-text">新角色</span>
             </button>
@@ -157,9 +180,19 @@ const desc = computed(() =>
     cursor: pointer;
     transition: color var(--t-quick) var(--ease-soft);
 }
-.char-blank:hover {
+/* 悬停规则必须带 `:not(:disabled)`：`.char-blank:hover` 与 `.char-blank:disabled`
+ * 同为 (0,2,0)，写成相邻两条时靠先后取胜，改一次顺序就反弹成「禁用却还会泛朱」。
+ * 显式排除比依赖顺序稳。 */
+.char-blank:hover:not(:disabled) {
     border-color: var(--cinnabar);
     color: var(--cinnabar);
+}
+/* 禁用态不靠 opacity：虚线本就淡，压透明度会糊成一片灰。
+ * 线退一档（`--rule-2` → `--rule`）+ 光标换成 not-allowed，说得清又不脏。 */
+.char-blank:disabled {
+    border-color: var(--rule);
+    color: var(--muted);
+    cursor: not-allowed;
 }
 .char-blank .plus {
     /* 那个「+」没有对应的字号档，但必须跟着 `--fs-scale` 走：

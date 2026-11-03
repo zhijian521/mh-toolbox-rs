@@ -32,6 +32,10 @@ import {
     hasDesktop,
 } from '../../services/desktop';
 import { schoolNames } from '../../services/game-data';
+/* 形状兜底全在 `services/shape.ts`（与物价页共用一份）。两个本地别名值得看清：
+ *   `text`  ← `rawText`：名册这边**不 trim**，卡面上的字是用户写什么就显示什么；
+ *   `int`   ← `stamp`  ：`Math.round` + 非有限数变 0，等级与时间戳共用同一条规则。 */
+import { isObject, makeId, rawText as text, rows, stamp as int } from '../../services/shape';
 import {
     ATTR_GROUPS,
     GEAR_SLOTS,
@@ -55,16 +59,11 @@ const STORAGE_KEY = 'mh-roster';
 
 /* ======================================================================
  * 兜底：未知值 → 契约里的形状
+ *
+ * `isObject` / `text`（原样文本）/ `int` / `rows` / `makeId` 2026-11-03 提到
+ * `services/shape.ts`——它们与 `prices.ts` 里那份逐字同义。这里只留**名册自己的**
+ * 字段语义：可空缺省值、门派枚举。`text` 不 trim 这件事，见文件顶部的 import 注释。
  * ==================================================================== */
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-    typeof value === 'object' && value !== null;
-
-const text = (value: unknown): string => (typeof value === 'string' ? value : '');
-
-/** 只认有限的数字：`NaN` / `Infinity` 存进 JSON 会变成 `null`，读回来再算就是另一个故事。 */
-const int = (value: unknown): number =>
-    typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : 0;
 
 /**
  * 可选的数字字段。与 `int` 的区别是**缺省值不是 0**——`cap` 缺席与 `cap: 0`
@@ -73,8 +72,6 @@ const int = (value: unknown): number =>
  */
 const optionalInt = (value: unknown): number | undefined =>
     typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : undefined;
-
-const rows = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
 /** 可选的字符串字段：空串一律还原成 `undefined`，否则 `v-if="row.extra"` 仍会画一个空 span。 */
 const optionalText = (value: unknown): string | undefined =>
@@ -105,13 +102,8 @@ function blankTrainings(): TrainingGroup[] {
     }));
 }
 
-function makeId(): string {
-    // `randomUUID` 在 WebView2 与 Node 19+ 都有；老环境回落到时间戳 + 随机后缀。
-    const uuid = globalThis.crypto?.randomUUID?.();
-    return uuid
-        ? `char-${uuid}`
-        : `char-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
+/* 新 id 用 `services/shape.ts` 的 `makeId('char')`——原先这里有个不带参数的 `makeId`，
+ * 与物价的 `makePriceId` 是同一套 randomUUID 回落算法，只有前缀不同。 */
 
 /**
  * 新角色的默认门派：**表里的第一家**。
@@ -132,7 +124,7 @@ export function defaultSchool(): string {
 export function emptyCharacter(): CharacterData {
     const school = defaultSchool();
     return {
-        id: makeId(),
+        id: makeId('char'),
         name: '',
         level: 0,
         school,
@@ -399,7 +391,7 @@ function legacyLines(character: Record<string, unknown>, key: string, index: num
  */
 export function normalizeCharacter(raw: unknown): CharacterData {
     const character = isObject(raw) ? raw : {};
-    const id = text(character.id) || makeId();
+    const id = text(character.id) || makeId('char');
     const gearMeta = isObject(character.gearMeta) ? character.gearMeta : {};
 
     return {
@@ -485,6 +477,25 @@ function seed(): CharacterData[] {
  * **初值是空的**：真数据由 `loadRoster()` 在 mount 之前填（见 `main.ts`）。 */
 const roster = ref<CharacterData[]>([]);
 
+/**
+ * 读档失败的原因。空串 = 读到了（含「库里本来就没有」）。
+ *
+ * 与 `prices-store.ts` 的 `loadError` 同一件事：`charactersLoad()` 返回 `null` 是
+ * 「没有 Tauri 宿主」**或**「调用失败」，两者在类型上分不开，但后果差得远。
+ * 早先把它和「首次启动」并成一个分支（`stored === null || (库空 && firstRun)`），
+ * 于是一行坏 JSON 就能让整份名册被种子覆盖并**立刻写回库**，原数据无法恢复。
+ * 现在读失败只挂这条错误位，界面照旧显示空名册但**拒绝任何写入**。
+ */
+const loadError = ref('');
+
+/**
+ * 最近一次落盘失败的原因。空串 = 上一次写成功了（或还没写过）。
+ *
+ * 与 `prices-store.ts` 的 `writeError` 同一条：`charactersSave` 把失败打在控制台，
+ * 而用户看不到控制台。写着「已保存」其实是空的，比报错更糟——所以这个值要能到界面上。
+ */
+const writeError = ref('');
+
 /** 浏览器路径：读 `localStorage`，没存过就给一份能改的种子。 */
 function loadFromLocal(): CharacterData[] {
     const parsed = parseRoster(readRaw());
@@ -520,9 +531,21 @@ export async function loadRoster(): Promise<void> {
     }
 
     const stored = await charactersLoad<CharacterData>();
+    /* 读失败（`null`）**不能**当「库里没有」：`charactersLoad` 的契约是
+     * 「`null` = 没有宿主或调用失败」。一行坏 JSON（`store.rs` 的 `characters_load`
+     * 遇到非法行整份返回 `Err`）就会走到这里，而那时如果塞种子并写回，
+     * 用户攒下来的名册就被两个演示角色顶掉了，且不可恢复。
+     * 所以这条分支只挂错误位、把名册留空，绝不调用 `charactersSave`。 */
+    if (stored === null) {
+        loadError.value = '读不出角色名册，已暂停写入以免覆盖原有数据';
+        roster.value = [];
+        return;
+    }
+    loadError.value = '';
+
     /* 「用户把角色删光了」是合法状态，不能因为空数组就重新塞种子。
      * 只有首次启动、且库里确实一条都没有时才给种子。 */
-    if (stored === null || (stored.length === 0 && firstRun)) {
+    if (stored.length === 0 && firstRun) {
         roster.value = seed();
         await charactersSave(roster.value);
     } else {
@@ -531,13 +554,22 @@ export async function loadRoster(): Promise<void> {
 }
 
 function persist(): void {
+    /* 最后一道闸：读失败时**任何**入口都不许写。界面上的错误提示是给人看的，
+     * 这条是给代码看的——即便将来多出一个写入口，也不会把空名册盖掉库里的数据。 */
+    if (loadError.value) {
+        console.error('名册处于读取失败状态，跳过本次写入', loadError.value);
+        return;
+    }
     if (!hasDesktop()) {
         writeRaw(serializeRoster(roster.value));
         return;
     }
     /* 异步写、不等：调用方是同步函数，而每次写的都是当下全量，后发先至也不会坏。
-     * 失败由 `desktop.ts` 打到控制台——不能静默吞掉，否则用户以为存上了。 */
-    void charactersSave(roster.value);
+     * 但**失败必须回到界面上**（`writeError`）：`desktop.ts` 只把它打到控制台，
+     * 而用户不看控制台——那等于静默吞掉，他会以为存上了。 */
+    void charactersSave(roster.value).then((ok) => {
+        writeError.value = ok ? '' : '这一笔没存进数据库，检查一下磁盘空间';
+    });
 }
 
 export function useRoster() {
@@ -559,5 +591,5 @@ export function useRoster() {
         persist();
     }
 
-    return { roster, add, update, remove };
+    return { roster, loadError, writeError, add, update, remove };
 }

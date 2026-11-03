@@ -23,8 +23,33 @@ const FACTOR: Record<FontScale, number> = {
     large: 1.1,
 };
 
-const stored = localStorage.getItem(STORAGE_KEY) as FontScale | null;
-const scale = ref<FontScale>(stored && stored in FACTOR ? stored : 'default');
+/**
+ * 读档：认不出 / 读不到就用 `'default'`（与「从没存过」同一个语义）。
+ *
+ * **为什么这里必须有 try/catch**：下一行是**模块求值时**执行的，`localStorage` 被策略
+ * 禁用时访问它会抛 `SecurityError`，整个模块 import 就炸——而这个模块被设置页、
+ * 开发页、以及所有读 `--fs-scale` 的入口一起引着，炸掉等于**整个应用白屏**。
+ * 同一个理由见 `use-theme.ts`、`use-dev-mode.ts`。
+ *
+ * **为什么是 `Object.hasOwn` 而不是 `in`**：`in` 会沿**原型链**判断，而 `FACTOR` 是对象
+ * 字面量——`'toString'` / `'constructor'` / `'valueOf'` / `'__proto__'` 在它身上全是
+ * `in` 为真。那样 `stored = 'toString'` 会被当成合法档位，`apply()` 把 `--fs-scale`
+ * 设成 `String(Function)`，于是每一处 `calc(Npx * var(--fs-scale))` 当场失效、
+ * 整站字号塌掉，而且不报错。这里要问的是「这是不是我定义的那几档」，
+ * 不是「这个属性存不存在」——`Object.hasOwn` 查的是自有属性，正好对应前者。
+ * （`tsconfig.json` 的 `lib` 含 `ES2022`，Node 22 与 WebView2 都支持，不用退回
+ * `Object.prototype.hasOwnProperty.call`。）
+ */
+function readStoredScale(): FontScale {
+    try {
+        const stored = globalThis.localStorage?.getItem(STORAGE_KEY);
+        return stored && Object.hasOwn(FACTOR, stored) ? (stored as FontScale) : 'default';
+    } catch {
+        return 'default';
+    }
+}
+
+const scale = ref<FontScale>(readStoredScale());
 
 function apply() {
     document.documentElement.style.setProperty('--fs-scale', String(FACTOR[scale.value]));

@@ -40,7 +40,17 @@ import { usePrices } from './prices-store';
  * 业务数据在 `usePrices()`（模块级单例），读写规则在 `prices.ts`。这里只有：
  * 四个筛选项、四层弹窗各自开着谁、以及两条「刚才为什么没写进去」。
  */
-const { items, addItem, saveItem, removeItem, addPoint, savePoint, removePoint } = usePrices();
+const {
+    items,
+    loadError,
+    writeError,
+    addItem,
+    saveItem,
+    removeItem,
+    addPoint,
+    savePoint,
+    removePoint,
+} = usePrices();
 
 /* ---------- 筛选 ----------
  * 一级、二级是两个独立下拉（用户定的）。二级的选项 = 目录里该一级的常见子类
@@ -124,7 +134,12 @@ const pointVersion = ref(0);
 const confirming = ref<{ itemId: string; pointId: string } | null>(null);
 
 /* 写入失败的原因分两条路显示：物品弹窗里的失败留在弹窗内（关掉窗再报错，用户得重新填一遍），
- * 页面级那条留给「记价撞上限」这类弹窗已经关掉之后才发生的事。 */
+ * 页面级那条留给「记价撞上限」这类弹窗已经关掉之后才发生的事。
+ *
+ * `loadError` / `writeError` 是**数据层**的两条状态，与上面两条不同：它们说的是
+ * 「整个物价表此刻读不出来 / 写不进去」，不是某一笔的内容问题，所以显示在页面顶部
+ * （见模板里那条横幅），而不是塞进某个弹窗。读失败时底层会拒绝一切写入，
+ * 用户必须看到那一行，否则会以为「记上了」而其实一笔都没存。 */
 const itemError = ref('');
 const pointError = ref('');
 
@@ -294,8 +309,23 @@ function openHistory(item: PriceItem) {
 <template>
     <PageShell title="物价" desc="物品行情 · 价格记录 · 仅存本机">
         <template #actions>
-            <PressButton icon="add" text="新增" label="新建一件物品" seal @click="startNew" />
+            <!-- 读失败时底层拒绝一切写入，让这枚按钮可点等于让用户白填一遍。 -->
+            <PressButton
+                icon="add"
+                text="新增"
+                label="新建一件物品"
+                seal
+                :disabled="!!loadError"
+                @click="startNew"
+            />
         </template>
+
+        <!-- 数据层的那一行红字：读不出 / 写不进，都是「整张表有问题」而不是「这一笔填错了」，
+             所以它在筛选栏之上、卡片区之外。`writeError` 从前只在 `prices-store.ts` 里被赋值
+             和返回，没有任何界面读它——注释里说的「界面拿它显示一行红字」是这次才接上的。 -->
+        <p v-if="loadError || writeError" class="note error price-error">
+            {{ loadError || writeError }}
+        </p>
 
         <div class="price-toolbar">
             <input

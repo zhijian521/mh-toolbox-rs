@@ -3,7 +3,8 @@
 > 这份文件回答「东西该放哪、数据怎么流、哪些边界不能破」。
 > 视觉与规范不在这里（见 [`CONVENTIONS.md`](CONVENTIONS.md)），本机环境不在这里（见 [`AGENTS.md`](../AGENTS.md)）。
 >
-> **现状说明**：前端已成型，领域层（SQLite / 差分 harness）**还没开始**。
+> **现状说明**：前端已成型，SQLite 数据层已落地（`src-tauri/src/store.rs`：物价与角色名册
+> 共用 `%APPDATA%\mh-tool-v2\mh-toolbox.db`）；差分 harness 与 SQLite → JSON 反向镜像还没开始。
 > 下面带「计划」字样的段落是动手前就定好的边界，不是对现状的描述——
 > 它们写在这里的意义是：第一次写领域代码的人不用自己发明一套。
 
@@ -42,17 +43,25 @@
   └────────────────── 返回值（camelCase）◀──────────────────┘
 ```
 
-- **契约只有一处真源（计划）**：现在 `AppInfo` 在 Rust 与 TS 各写一份，靠
-  `#[serde(rename_all = "camelCase")]` 对齐。命令到 5 个以上之前必须上
-  `tauri-specta` 由 Rust 类型生成 TS，否则「两边字段名对得上」会退化成记忆力问题。
-- **前端状态**：目前 5 个（主题、字号、应用信息、路由、角色名册）。**不引 Pinia**——
+- **契约只有一处真源（计划）**：现在 `AppInfo` / `PriceItem` / `PricePoint` 在 Rust 与 TS
+  各写一份，靠 `#[serde(rename_all = "camelCase")]` 对齐。命令**已经 12 个**
+  （`lib.rs` 的 `generate_handler!`：`app_info`、`open_external`、`ghost_*` 两个、`store::` 八个），
+  早已越过当初定的「5 个以上就必须上 `tauri-specta`」那条阈值，**而 `tauri-specta` 还没接**——
+  这不再是「以后再说」，是当前最大的一处欠账：「两边字段名对得上」现在真的靠记忆力。
+- **前端状态**：目前 6 个（主题、字号、应用信息、路由、角色名册、物价表）。**不引 Pinia**——
   触发条件是「出现跨三个以上组件的共享业务状态」，届时再上，并在此处记录决定。
-  角色名册（`views/characters/roster.ts`）已经跨三个组件（名册页、卡片、编辑器），
-  但它用的是与主题、字号同一套「模块级 `ref` + `useXxx()` 导出」，没有引入第二套状态机制。
-- **写盘时机（计划）**：领域层的写操作一律「先写内存模型，再落 SQLite，再写 JSON 镜像」，
-  三步由 `mh-store` 一个函数包住，调用方不需要知道顺序。
-  在那之前，**角色名册落在 `localStorage`（`mh-roster`）**：它是这一页唯一的真数据，
-  而 `mh-store` 还没起来。这一层被刻意压成「读 / 写各一个函数」，换存储只改那两处。
+  角色名册（`views/characters/roster.ts`）与物价表（`views/prices/prices-store.ts`）都已经
+  跨三个组件（页面、卡片、弹窗），但它们用的是与主题、字号同一套「模块级 `ref` + `useXxx()`
+  导出」，没有引入第二套状态机制。
+- **写盘时机（计划）**：目标口径是「先写内存模型，再落 SQLite，再写 JSON 镜像」，三步由一个
+  函数包住，调用方不需要知道顺序。**前两步在跑、第三步没做**：`store.rs` 的每个命令是
+  「打开连接 → 整份读 / 整份写（一个事务）」，而 SQLite → JSON 反向镜像（红线 6）仍是欠账——
+  在它落地之前，库文件是唯一副本。
+- **桌面版以 SQLite 为主，`localStorage` 退成两条窄用途**：物价（`mh-prices`）与角色名册
+  （`mh-roster`）都已搬进 SQLite，第一次启动时搬一次、搬成功才把老键改名为 `*.migrated` 留底，
+  并在库的 `meta` 表打标记。之后 `localStorage` 只在两处还活着：① 浏览器（`npm run dev`、
+  探针）——那里没有 Tauri 宿主，`hasDesktop()` 为假，`prices-store.ts` / `roster.ts` 直接走
+  `localStorage` 分支；② 迁移来源，「库坏了还能捞一把」的底。
 
 ## 3. 磁盘与兼容红线
 

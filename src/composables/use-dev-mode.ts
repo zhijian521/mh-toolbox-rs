@@ -23,8 +23,25 @@ const STORAGE_KEY = 'mh-dev-mode';
  * 各 new 一个的话，在开发页打开了，捉鬼页那份仍是 false。这个坑 `use-theme.ts`、
  * `use-font-scale.ts` 都踩过，注释里各留了一条。
  */
-/** 真实状态。用 `=== '1'` 而不是 `getItem(...) !== null`：键被写坏成别的值时，回落到关。 */
-const enabled = ref(localStorage.getItem(STORAGE_KEY) === '1');
+/**
+ * 读档：读不到就当「没开过」——默认关，与「从没存过」同一个语义。
+ *
+ * **为什么这里必须有 try/catch**：下一行是**模块求值时**执行的，`localStorage` 被策略
+ * 禁用时访问它会抛 `SecurityError`，整个模块 import 就炸——而这个模块被开发页与捉鬼页
+ * 一起引着，炸掉等于**整个应用白屏**。同一个理由见 `use-theme.ts`、`use-font-scale.ts`。
+ *
+ * 用 `=== '1'` 而不是 `getItem(...) !== null`：键被写坏成别的值时，回落到关。
+ */
+function readStoredDevMode(): boolean {
+    try {
+        return globalThis.localStorage?.getItem(STORAGE_KEY) === '1';
+    } catch {
+        return false;
+    }
+}
+
+/** 真实状态。 */
+const enabled = ref(readStoredDevMode());
 
 /** 对外的可写句柄：模板里 `v-model` 直接绑，切换时同时落存储。 */
 const devMode = computed({

@@ -31,7 +31,11 @@ pub struct AppInfo {
 
 /// 数据目录必须与旧版 Electron 指向同一个目录，否则朋友升级后数据「消失」。
 /// 旧版见 `mh-tool/src/main/profile.cjs:5`：`path.join(app.getPath('appData'), 'mh-tool-v2')`。
-fn data_dir_path() -> Option<std::path::PathBuf> {
+///
+/// `pub(crate)` 而不是私有：`store.rs` 是这条红线的**另一个出口**——它以前自己调
+/// `app_data_dir()`，库于是落进了 `%APPDATA%\com.zhijian.mhtoolbox.rs`。数据目录只能有
+/// 一个真源，别的模块要用就来这里取，不要各自再算一遍。
+pub(crate) fn data_dir_path() -> Option<std::path::PathBuf> {
     std::env::var("APPDATA")
         .ok()
         .map(|base| std::path::PathBuf::from(base).join("mh-tool-v2"))
@@ -255,6 +259,17 @@ pub fn run() {
                     }
                 });
             }
+            /* 老库迁移在这里跑一次，**在建窗之前**：这一刻窗口还没有、前端一行代码都没执行，
+             * 不可能有并发的数据命令。挪回 `store::open()` 会出事——前端启动时
+             * `loadPrices()` 与 `loadRoster()` 是 `Promise.all` 同时发出的，两个命令会
+             * 同时看到「目标不存在」、同时往同一目标复制，后一个把前一个正在写的文件截断，
+             * 最坏留下一个 SQLite 认作合法的空库，而 `target.exists()` 从此永久阻断重试：
+             * 用户看到空表且不报错。详见 `store::migrate_legacy_db` 的注释。
+             *
+             * 失败就让它中止启动（下面的 `?` 会把错误交给 `report_fatal` 写日志 + 弹窗）：
+             * 宁可起不来，也不要拿一个残缺的库起来。`migrate_between` 已经把本次复制回退掉了，
+             * 下次启动会重试。 */
+            store::migrate_legacy_db(app.handle(), &store::base_dir(app.handle())?)?;
             create_main_window(app)?;
             Ok(())
         })

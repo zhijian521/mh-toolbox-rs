@@ -122,8 +122,11 @@ start.bat --force    遇到占用直接处理，不询问
 
 ## 六、红线（改代码前必须知道）
 
-1. **数据目录固定 `%APPDATA%\mh-tool-v2`**（`src-tauri/src/lib.rs` 的 `data_dir()`），与旧版共用。
+1. **数据目录固定 `%APPDATA%\mh-tool-v2`**（`src-tauri/src/lib.rs` 的 `data_dir_path()` / `data_dir()`），与旧版共用。
    Tauri 默认写到 `%APPDATA%\<identifier>`，必须显式指回，否则朋友升级后数据「消失」。
+   `store.rs` 经 `data_dir_path()` 取目录（`open_at(base)` 只认目录），**不要再用 `app_data_dir()` 直连**——
+   2026-11-03 之前它就是这么写的，库文件落在 `%APPDATA%\com.zhijian.mhtoolbox.rs\mh-toolbox.db`，
+   修的时候带了一次性迁移（WAL 三件套一起复制，旧文件留底不删）。
 2. **identifier `com.zhijian.mhtoolbox.rs` 不能改**，且必须与旧版 appId 不同，否则 Windows
    会把两个安装包当成同一个应用互相覆盖。
 3. **渲染层只有 `src/services/` 能碰系统**。ESLint 已拦 `@tauri-apps/api/core` 出现在

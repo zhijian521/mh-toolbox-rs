@@ -141,7 +141,10 @@ export async function pricesMarkLegacyImported(): Promise<void> {
 
 /* ---------- 角色名册（同一套数据层，JSON 列存整条） ----------
  * 四个函数与物价那组一一对应，理由见上面那一段。返回 `null` / `false` 一律是
- * 「没有 Tauri 宿主」或「调用失败」，调用方据此退回 localStorage，不在这里抛错。
+ * 「没有 Tauri 宿主」或「调用失败」，不在这里抛错——**怎么处置由调用方定**：
+ * 可以退回 `localStorage`，也可以拒绝写入并把原因交给界面。
+ * `roster.ts` / `prices-store.ts` 取的是后者：读失败时立起 `loadError`、停掉一切写，
+ * 因为把「读失败」当「空库」会立刻覆盖掉用户原有的数据。
  */
 export async function charactersLoad<T>(): Promise<T[] | null> {
     if (!hasTauri) return null;

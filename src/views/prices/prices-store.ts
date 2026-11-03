@@ -27,11 +27,11 @@ import {
     pricesMarkLegacyImported,
     pricesSave,
 } from '../../services/desktop';
+import { makeId } from '../../services/shape';
 import { DEFAULT_CATEGORY, isPriceCategory } from './prices-catalog';
 import {
     POINT_LIMIT,
     STORAGE_KEY,
-    makePriceId,
     makePriceItem,
     makePricePoint,
     normalizePriceItem,
@@ -63,6 +63,16 @@ const items = ref<PriceItem[]>([]);
 const writeError = ref('');
 
 /**
+ * 读档失败的原因。空串 = 读到了（含「库里本来就没有」）。
+ *
+ * `pricesLoad()` 的契约是「`null` = 没有 Tauri 宿主或调用失败」，而这两件事在类型上
+ * 分不开、后果却差得远：早先这里写 `(stored ?? [])`，把「读失败」当「空库」处理——
+ * 界面是空表、没有任何红字，用户随手记一笔，`persist()` 就整份覆盖掉了原来的物价表。
+ * 现在读失败会把这条错误位立起来，并让 `persist()` 拒绝写入。
+ */
+const loadError = ref('');
+
+/**
  * 读档。**只能调一次，且在 mount 之前**。
  *
  * 迁移只做一次：桌面版第一次启动时，把 `localStorage` 那一版搬进 SQLite，
@@ -92,9 +102,17 @@ export async function loadPrices(): Promise<void> {
     }
 
     const stored = await pricesLoad<PriceItem>();
+    /* 读失败**不是空库**。先拿到原始结果再分支，是为了让「`null`」这个信号
+     * 能走到下面那条错误位——写成 `(stored ?? [])` 就把它抹掉了。 */
+    if (stored === null) {
+        loadError.value = '读不出物价表，已暂停写入以免覆盖原有数据';
+        items.value = [];
+        return;
+    }
+    loadError.value = '';
     /* 过一遍 `normalizePriceItem`：库是上一版应用写的、或有人手动改过文件时，
      * 读出来的东西不一定合今天的形。它是幂等的，正常数据走一遍什么都不会变。 */
-    items.value = (stored ?? []).map(normalizePriceItem);
+    items.value = stored.map(normalizePriceItem);
 }
 
 /**
@@ -123,6 +141,12 @@ syncAcrossWindows();
  * 界面拿它显示一行红字——不能静默吞掉，否则用户以为存上了。
  */
 function persist(): void {
+    /* 读失败时一律不写：这时 `items` 是空的，写下去就是整份覆盖。
+     * 界面有红字告知，这条是代码侧的闸——即便将来多出一个写入口也拦得住。 */
+    if (loadError.value) {
+        console.error('物价表处于读取失败状态，跳过本次写入', loadError.value);
+        return;
+    }
     if (!hasDesktop()) {
         writePriceItems(items.value);
         return;
@@ -171,7 +195,7 @@ export function usePrices() {
             return { ok: false, error: '已经有一件同名物品了，换一个名字，或直接改那一张卡' };
         }
         const now = Date.now();
-        const item = makePriceItem(draft, makePriceId('item'), now);
+        const item = makePriceItem(draft, makeId('item'), now);
         if (initialPrice > 0) {
             const point = makePricePoint({ date: todayText(), price: initialPrice, note: '' }, now);
             item.points = [point];
@@ -274,5 +298,15 @@ export function usePrices() {
         return { ok: true, id: itemId };
     }
 
-    return { items, writeError, addItem, saveItem, removeItem, addPoint, savePoint, removePoint };
+    return {
+        items,
+        loadError,
+        writeError,
+        addItem,
+        saveItem,
+        removeItem,
+        addPoint,
+        savePoint,
+        removePoint,
+    };
 }

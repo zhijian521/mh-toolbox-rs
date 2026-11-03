@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import '../../services/game-data.fixture';
 import { schoolNames, schoolSkillCap } from '../../services/game-data';
 import { GEAR_SLOTS } from './character';
@@ -391,5 +391,86 @@ describe('往返', () => {
         // 演示数据里的装备详情要完整活过一轮序列化。
         expect(parsed?.[0].gear[0].detail?.lines?.[0].value).toBe('起死回生');
         expect(parsed?.[0].pets[0].quality.attack).toBe(CHARACTERS[0].pets[0].quality.attack);
+    });
+});
+
+/**
+ * 读档失败时**一个字都不许写回**。
+ *
+ * 这一层测的不是「解析对不对」（上面 27 条已经包了），而是**解析之上那一层怎么处置
+ * 失败**：`charactersLoad()` 的契约是「`null` = 没有宿主或调用失败」，早先它和
+ * 「库里本来就是空的」共用一个分支，于是任何一次读失败（一行坏 JSON 就够）都会
+ * 走到 `seed()` 并立刻 `charactersSave()`——用户攒的名册被两个演示角色顶掉，
+ * 且已写进库，不可恢复。
+ *
+ * 为什么必须用 mock 而不能只读代码：这条修复的全部内容就是「某个分支里不调用某个函数」，
+ * 唯一的证据是「那个函数没被调用」。断言顺序也重要——先证明读档时没写，
+ * 再证明**之后任何一次增删改**也不会写（`persist()` 另外还有一道闸）。
+ *
+ * `vi.doMock` + `vi.resetModules()` 而不是顶层 `vi.mock`：这个文件另外 27 条用例
+ * 与 `desktop` 无关，不该被牵连；动态 import 还顺带保证每次拿到的是**全新**的
+ * 模块单例（`roster` / `loadError` 都是模块级的），用例之间不会互相污染。
+ */
+describe('读档失败：拒绝写入', () => {
+    /** 装配一份「桌面版、库读不出来」的宿主。`legacyImported` 给 true 跳过搬运分支。 */
+    async function loadFailingRoster() {
+        vi.resetModules();
+        const desktop = {
+            hasDesktop: () => true,
+            charactersLoad: vi.fn(async () => null),
+            charactersSave: vi.fn(async () => true),
+            charactersLegacyImported: vi.fn(async () => true),
+            charactersMarkLegacyImported: vi.fn(async () => undefined),
+        };
+        vi.doMock('../../services/desktop', () => desktop);
+        // `resetModules` 会连 `game-data` 一起重置，重新 import 一次把门派表填回去，
+        // 否则 `emptyCharacter()` 拿不到默认门派（不影响本用例，但会让断言看着可疑）。
+        await import('../../services/game-data.fixture');
+        const store = await import('./roster');
+        await store.loadRoster();
+        return { desktop, store };
+    }
+
+    it('charactersLoad 返回 null：不塞种子、不写库、错误位立起来', async () => {
+        const { desktop, store } = await loadFailingRoster();
+        const { roster, loadError } = store.useRoster();
+
+        /* 这三条是同一条链上的三个观测点。若修复退回去，`roster` 会变成
+         * `mock.ts` 那两个演示角色——`length === 0` 就是最直接的判别器。 */
+        expect(roster.value).toEqual([]);
+        expect(loadError.value).not.toBe('');
+        expect(desktop.charactersSave).not.toHaveBeenCalled();
+    });
+
+    it('读失败之后，新增角色也不会落库（persist 的闸真的生效）', async () => {
+        const { desktop, store } = await loadFailingRoster();
+        const { loadError, add } = store.useRoster();
+
+        const id = add(store.emptyCharacter());
+        expect(id).toBeTruthy();
+        /* 内存里加进去了（界面要能响应），但一个字节都没往库里写。
+         * `persist()` 是同步函数、`charactersSave` 是异步写，所以这里同步断言即可。 */
+        expect(desktop.charactersSave).not.toHaveBeenCalled();
+        expect(loadError.value).not.toBe('');
+    });
+
+    it('读成功（空库 + 首次启动）仍然给种子并写库——闸不能把正常路径也关掉', async () => {
+        vi.resetModules();
+        const desktop = {
+            hasDesktop: () => true,
+            charactersLoad: vi.fn(async () => []),
+            charactersSave: vi.fn(async () => true),
+            charactersLegacyImported: vi.fn(async () => false),
+            charactersMarkLegacyImported: vi.fn(async () => undefined),
+        };
+        vi.doMock('../../services/desktop', () => desktop);
+        await import('../../services/game-data.fixture');
+        const store = await import('./roster');
+
+        await store.loadRoster();
+        const { roster, loadError } = store.useRoster();
+        expect(loadError.value).toBe('');
+        expect(roster.value.length).toBeGreaterThan(0);
+        expect(desktop.charactersSave).toHaveBeenCalledTimes(1);
     });
 });

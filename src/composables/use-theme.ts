@@ -24,9 +24,39 @@ const STORAGE_KEY = 'mh-theme';
  * **状态放在模块作用域，不放在函数里**：设置页的三档胶囊和左栏的快捷切换按钮
  * 都调 `useTheme()`，各自 new 一个 ref 的话两边会互相看不见——点了侧栏，设置页那块不动。
  */
-const mode = ref<ThemeMode>((localStorage.getItem(STORAGE_KEY) as ThemeMode) || 'system');
-const media = window.matchMedia('(prefers-color-scheme: dark)');
-const systemDark = ref(media.matches);
+/**
+ * 读档：认不出 / 读不到就用 `'system'`（与「从没存过」同一个语义）。
+ *
+ * **为什么这里必须有 try/catch**：下面那两行是**模块求值时**执行的（不是某个组件的
+ * setup 里），`localStorage` 被策略禁用时（部分 WebView2 企业策略、隐私模式、
+ * 文件协议下的某些环境）访问它直接抛 `SecurityError`，于是整个模块 import 就炸。
+ * 而 `use-theme.ts` 是被 `App.vue` / 设置页 / 左栏一起引的，炸掉等于**整个应用白屏**，
+ * 报错还指向一个与主题无关的文件。同一个理由见 `use-font-scale.ts`、`use-dev-mode.ts`。
+ */
+function readStoredMode(): ThemeMode {
+    try {
+        const stored = globalThis.localStorage?.getItem(STORAGE_KEY);
+        /* 只认三档：存进去的值被改坏（手改、旧版本遗留）时按「从没存过」处理，
+         * 而不是把一个不认识的字符串塞进 `mode` 让 `isDark` 静默算错。 */
+        return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+    } catch {
+        return 'system';
+    }
+}
+
+/**
+ * 系统暗色的媒体查询。没有 `window`（Node 里跑单测）或没有 `matchMedia` 时返回 `null`，
+ * 「跟随系统」于是表现为**亮色**——与 `light-dark()` 的默认面一致，也与
+ * `systemDark = false` 的初值一致。守卫同样是为了不在 import 阶段抛错。
+ */
+function systemMedia(): MediaQueryList | null {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return null;
+    return window.matchMedia('(prefers-color-scheme: dark)');
+}
+
+const mode = ref<ThemeMode>(readStoredMode());
+const media = systemMedia();
+const systemDark = ref(media?.matches ?? false);
 
 const isDark = computed(
     () => mode.value === 'dark' || (mode.value === 'system' && systemDark.value),
@@ -40,7 +70,9 @@ const scope = effectScope(true);
 function wire() {
     if (wired) return;
     wired = true;
-    media.addEventListener('change', (event) => {
+    /* `media` 可能是 `null`（见 `systemMedia`）：那时没有系统主题可跟随，
+     * `systemDark` 恒为 false，切换三档仍然照常工作。 */
+    media?.addEventListener('change', (event) => {
         systemDark.value = event.matches;
     });
     // 与 `use-font-scale.ts` 同一个坑：`wire()` 是在某个组件的 setup 里被第一次调用的，

@@ -25,6 +25,7 @@
  * 把「1.5」和「万」拆开存，等于让每一处读取都得记得乘回去；一旦某天要换成「亿」，
  * 全部历史记录都要批量改。
  */
+import { amount, isObject, makeId, rows, stamp, text } from '../../services/shape';
 import { DEFAULT_CATEGORY, isPriceCategory, legacyPriceSlot, subsOf } from './prices-catalog';
 
 /** 名称上限，与表单的 `maxlength` 同一枚常量——两处各写一个数必然有一天不相等。 */
@@ -148,32 +149,11 @@ export interface PriceFilter {
 
 /* ======================================================================
  * 基础兜底：未知值 → 契约里的形状
- * ==================================================================== */
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-    typeof value === 'object' && value !== null;
-
-const text = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
-
-/**
- * 价格：有限正数，保留两位小数；认不出的按 0。
  *
- * 0 在整条链上都表示「没记价」，所以它不是一个合法的价格——`normalizePoint` 会因此
- * 把这条记录整条丢掉，而不是留一行「—」在历史里让人猜。
- */
-const amount = (value: unknown): number => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) / 100 : 0;
-};
-
-/**
- * 时间戳。`NaN` / `Infinity` 参与排序会让整列顺序变成 undefined 行为
- * （比较函数返回 `NaN` 时 V8 视作 0，看起来「偶尔乱序」，最难查）。
- */
-const stamp = (value: unknown): number =>
-    typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : 0;
-
-const rows = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+ * `isObject` / `text` / `amount` / `stamp` / `rows` / `makeId` 2026-11-03 提到
+ * `src/services/shape.ts`：名册那边有一份逐字相同的（第三个页面一开工就会变三份）。
+ * 这里只留**物价自己的**字段语义——日期校验与「0 表示没记价」的解释。
+ * ==================================================================== */
 
 /**
  * 只接受存在的那一天：`YYYY-MM-DD` 且日历上真有这一格；认不出退回空串，绝不抛错。
@@ -219,19 +199,8 @@ export function shortDate(date: string): string {
     return date.length === 10 ? date.slice(5) : date;
 }
 
-/**
- * 新 id。
- *
- * 前缀分开（`item-` / `pt-`）是为了看 localStorage 里那坨 JSON 时，
- * 一眼认得出哪个字符串是物品、哪个是价格记录。`randomUUID` 在 WebView2 与 Node 19+
- * 都有，老环境回落到时间戳 + 随机后缀（与 `roster.ts` 的 `makeId` 同一条）。
- */
-export function makePriceId(prefix: 'item' | 'pt'): string {
-    const uuid = globalThis.crypto?.randomUUID?.();
-    return uuid
-        ? `${prefix}-${uuid}`
-        : `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-}
+/* 新 id 用 `services/shape.ts` 的 `makeId(prefix)`——原先这里有个 `makePriceId`，
+ * 与名册的 `makeId` 是同一套 randomUUID 回落算法，只有前缀不同。 */
 
 /* ======================================================================
  * 读数：当前价、涨跌、显示口径
@@ -504,7 +473,7 @@ function normalizePoint(raw: unknown): PricePoint | null {
     const price = amount(raw.price);
     if (!date || !price) return null;
     return {
-        id: text(raw.id) || makePriceId('pt'),
+        id: text(raw.id) || makeId('pt'),
         date,
         price,
         note: text(raw.note),
@@ -546,7 +515,7 @@ export function normalizePriceItem(raw: unknown): PriceItem {
     const updatedAt = stamp(item.updatedAt) || points[0]?.createdAt || createdAt;
 
     return {
-        id: text(item.id) || makePriceId('item'),
+        id: text(item.id) || makeId('item'),
         name,
         category: slot.category,
         sub: slot.sub,
@@ -627,7 +596,7 @@ export function makePriceItem(draft: PriceItemDraft, id: string, now: number): P
 /** 价格草稿 → 数据。日期与价格由表单校验过，这里只做归一。 */
 export function makePricePoint(draft: PricePointDraft, createdAt: number): PricePoint {
     return {
-        id: makePriceId('pt'),
+        id: makeId('pt'),
         date: dateText(draft.date) || todayText(),
         price: amount(draft.price),
         note: draft.note.trim(),
