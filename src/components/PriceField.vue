@@ -236,9 +236,20 @@ function nudge(direction: 1 | -1) {
     letter-spacing: 0.04em;
 }
 
-/* 26px 的印块对着 47px 的槽，靠 `align-items: center` 落在中线。 */
-.pf-step {
+/* 加减印块放大到与价格槽成比例。
+ *
+ * 槽高 52，`PressButton` 的默认 26 只占一半、`lg` 的 31 也只占六成，
+ * 看着像两块贴纸浮在槽旁边。放到 38（约 0.73）：仍是「按一下」的块，
+ * 不会大到读成第二个价格格。
+ *
+ * 选择器写成 `.pf-row .pf-step` 而不是 `.pf-step`：`PressButton` 内部那条 `--tile-h`
+ * 挂在 `.press-btn` 上（scoped 后 (0,2,0)），与 `.pf-step[data-v]` 打平、只靠加载顺序分胜负；
+ * 多一层 `.pf-row` 才是稳赢。
+ */
+.pf-row .pf-step {
     flex: none;
+    --tile-h: calc(38px * var(--fs-scale));
+    --icon-size: calc(19px * var(--fs-scale));
 }
 
 .pf-bad {
