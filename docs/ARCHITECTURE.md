@@ -98,21 +98,21 @@
 
 ## 4. 目录归属速查
 
-| 要加的东西       | 放哪                                                                                                          | 不该放哪                                                                                              |
-| ---------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| 新页面           | `src/views/`，然后在 `src/navigation.ts` 加一项                                                               | 不要改 `router.ts` 的数组——它从 `NAV_ITEMS` 生成                                                      |
-| 工具的子页       | `src/views/tools/`，然后在 `src/tools.ts` 加一项                                                              | 不要进 `NAV_ITEMS`——工具越加越多，一件一格会把左栏撑成一列                                            |
-| 新控件           | `src/components/`，先加进 `views/dev/AtomsSection.vue` 验收                                                   | 不要为一次性用途新开组件                                                                              |
-| 新系统能力       | `src/services/<能力>.ts` 一个函数 + Rust 一个 `#[tauri::command]`                                             | 不要在组件里 `invoke`；也不要全塞进 `desktop.ts`                                                      |
-| 业务逻辑（计划） | `crates/mh-domain`，纯函数、无 IO                                                                             | 不要塞进 `src-tauri/src/`——塞进去就再也拆不出来                                                       |
-| 前端的纯规则     | `src/services/`（如 `ghost-parse.ts`、`ghost-model.ts`），不碰 IO                                             | 不要塞进 composable——那里一有 ref 就不好单测了                                                        |
-| 跨页的数据层骨架 | `src/services/persist.ts`：`createPersist` 管落盘、`migrateLegacy` 管搬一次                                   | 不要在每页的 store 里重抄一遍——抄到第四份必然漂移                                                     |
-| 跨页的呈现口径   | `src/services/format.ts`：金额折万 / 日期文本（`moneyText`、`todayText`、`fromWan`…）                         | 不要让一页去引另一页的模块；那是「记账口径」不是「物价」                                              |
-| 页面自己的数据层 | `src/views/<页>/<名字>.ts`（如 `characters/roster.ts`）：单例状态 + 纯函数 + 单测                             | 不要塞进 `services/`——那不是系统能力；也不要写进 `.vue`                                               |
-| 开发期工具       | 页面内的放 `views/dev/` 旁边（如 `tokens.ts`）；跨页面的放 `scripts/`                                         | 不要放进 `src/components/`                                                                            |
-| 真窗口烟测       | `tools/e2e/`：`cdp.mjs` 连窗口、`ui.mjs` 说人话的动作、`assert.mjs` 报告、`db.mjs` 库快照，用例在 `smoke.mjs` | 不要**再写一个 `probe-xxx.mjs`**；也不要把它并进 `tools/probe/`——那边每轮从零导航，这边要连着做几十步 |
-| 图标源图         | `assets/icon/app-icon-1024.png` 是 `tauri icon` 的输入；生成脚本在 `scripts/icon/`（`out/` 已忽略）           | 不要手改 `src-tauri/icons/` 里的产物                                                                  |
-| 游戏资源         | `public/game/`（`maps/` 底图、`icons/` 图标、`data/` 数据表），规则见 `docs/GAME-ASSETS.md`                   | 不要放 `src/`——会被改名加哈希，清单里的文件名就对不上了                                               |
+| 要加的东西       | 放哪                                                                                                          | 不该放哪                                                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 新页面           | `src/views/`，然后在 `src/navigation.ts` 加一项                                                               | 不要改 `router.ts` 的数组——它从 `NAV_ITEMS` 生成                                                                                                        |
+| 工具的子页       | `src/views/tools/`，然后在 `src/tools.ts` 加一项                                                              | 不要进 `NAV_ITEMS`——工具越加越多，一件一格会把左栏撑成一列                                                                                              |
+| 新控件           | `src/components/`，先加进 `views/dev/AtomsSection.vue` 验收                                                   | 不要为一次性用途新开组件                                                                                                                                |
+| 新系统能力       | `src/services/<能力>.ts` 一个函数 + Rust 一个 `#[tauri::command]`                                             | 不要在组件里 `invoke`；也不要全塞进 `desktop.ts`                                                                                                        |
+| 业务逻辑（计划） | `crates/mh-domain`，纯函数、无 IO                                                                             | 不要塞进 `src-tauri/src/`——塞进去就再也拆不出来                                                                                                         |
+| 前端的纯规则     | `src/services/`（如 `ghost-parse.ts`、`ghost-model.ts`），不碰 IO                                             | 不要塞进 composable——那里一有 ref 就不好单测了                                                                                                          |
+| 跨页的数据层骨架 | `src/services/persist.ts`：`createPersist` 管落盘、`migrateLegacy` 管搬一次                                   | 不要在每页的 store 里重抄一遍——抄到第四份必然漂移                                                                                                       |
+| 跨页的呈现口径   | `src/services/format.ts`：金额折万 / 日期文本（`moneyText`、`todayText`、`fromWan`…）                         | 不要让一页去引另一页的模块；那是「记账口径」不是「物价」                                                                                                |
+| 页面自己的数据层 | `src/views/<页>/<名字>.ts`（如 `characters/roster.ts`）：单例状态 + 纯函数 + 单测                             | 不要塞进 `services/`——那不是系统能力；也不要写进 `.vue`                                                                                                 |
+| 开发期工具       | 页面内的放 `views/dev/` 旁边（如 `tokens.ts`）；跨页面的放 `scripts/`                                         | 不要放进 `src/components/`                                                                                                                              |
+| 真窗口烟测       | `tools/e2e/`：`cdp.mjs` 连窗口、`ui.mjs` 说人话的动作、`assert.mjs` 报告、`db.mjs` 库快照，用例在 `smoke.mjs` | 不要**再写一个 `probe-xxx.mjs`**；也不要把它并进 `tools/probe/`——那边每轮从零导航，这边要连着做几十步。**新增功能的断言加到 `smoke.mjs`**，同一个提交里 |
+| 图标源图         | `assets/icon/app-icon-1024.png` 是 `tauri icon` 的输入；生成脚本在 `scripts/icon/`（`out/` 已忽略）           | 不要手改 `src-tauri/icons/` 里的产物                                                                                                                    |
+| 游戏资源         | `public/game/`（`maps/` 底图、`icons/` 图标、`data/` 数据表），规则见 `docs/GAME-ASSETS.md`                   | 不要放 `src/`——会被改名加哈希，清单里的文件名就对不上了                                                                                                 |
 
 ## 5. 还没定的
 

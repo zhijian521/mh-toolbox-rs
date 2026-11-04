@@ -77,6 +77,22 @@ npm run check          # 唯一质量门：format / lint / typecheck / test / �
 npm run e2e            # 真窗口烟测：先 start.bat --force debug，再跑这个
 ```
 
+**一个功能做完、提交前、Review 时，两件都跑**（`check` + `e2e`），只跑 `check` 不算全量——
+它验不到「点得动、写得进库、重载不丢」。日常小改仍然什么都不跑，分档口径见
+[`AGENTS.md` §一](AGENTS.md#一验证分档日常不跑功能完成--提交--审查一律全量)。
+
+三层测试各管一段（补哪层的清单在
+[`docs/CONVENTIONS.md` §2.1](docs/CONVENTIONS.md#21-工程基线)）：
+
+| 层   | 规模                             | 管什么                                       |
+| ---- | -------------------------------- | -------------------------------------------- |
+| 单元 | 23 文件 / 302 用例 + Rust 35 条  | 纯逻辑、composable、数据层、**IPC 名称对账** |
+| 集成 | Rust 真库 22 条 + 烟测「数据」节 | 真 SQLite、真信封落盘、真整份替换            |
+| e2e  | 81 条断言 / 8 节                 | 真窗口真鼠标：点得动、写得进库、重载不丢     |
+
+**新增功能要同时补断言**，功能与断言同一份提交；新加一条 IPC 命令时不用改测试——
+`ipc-contract.test.ts` 会自己把前端调用与 Rust 的两张注册表对上。
+
 直接跑 `npm run desktop` 要先按 [`AGENTS.md` §三](AGENTS.md#三windows-上编译必须先设环境本机实测)
 设好 MSVC 环境；`start.bat` 就是这一步的封装。
 
