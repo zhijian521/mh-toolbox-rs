@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useNotifyState } from '../composables/use-notify';
 
 /**
@@ -22,22 +23,42 @@ import { useNotifyState } from '../composables/use-notify';
  * 试过平纸条（细边 + 抬影）与凸起的纸片，都不如它：平纸条读作「一张便利贴」，
  * 凸起的读作「又一张卡片」——两者都在跟页面上的卡片抢同一件事。
  *
- * ---- 读成「凹」靠的是明度差，不是那四道笔画 ----
- * 四件套（槽底 + 上暗下亮渐变 + 顶部内影 + 下沿亮高光）缺一件就读不出凹；但**一件不缺、
- * 底色只比周围深一档**时同样读不出——第一版就是这么翻的车。所以这里的底色往
- * `--ink-base` 里压了 14%（暗色压 48%），比纸面上的其他凹槽深一档：它浮在页面底
- * （`--bg`）上，而不是压在卡片里，不深一点就没有参照。
+ * ---- 亮色的面为什么改浅了（2026-11-04）----
+ * 第一版把底色往 `--ink-base` 里压了 14%（暗色 48%），为的是「它浮在页面底上，
+ * 不深一点没有参照」。暗色那版是对的，亮色那版翻车：掺纯黑不只压暗，还**抽掉色相**
+ * ——算出来是 `#c6bda5`，一块偏灰的色，落在暖纸上读作「一块脏的暗片」，而它本来是
+ * 「纸被压下去一格」。用户原话：「3D 效果 亮色的看起来有点黑」。
  *
- * ---- 语气色只落在左端一道 3px 的竖条上，不配图标 ----
- * 凹槽里再放一枚描边图标，两个彩色记号挨在一起会互相抵消。而三类语气的文字本身
- * （「已删除」/「没删掉」/「已取消」）已经说清了是哪一类，竖条只服务余光。
- * 无障碍靠 `aria-live` 那一层：读屏念的是整句，不是颜色。
+ * 现在亮色的面只压一档、且是**暖压**（`--well` 掺 `--rule-2`，约 `#e0d4b7`），深度改由
+ * **沿口**承担：上沿一道 1px 硬边说明「这里被压住」，紧接着 5px 内的短影只压内壁，
+ * 下沿一道亮线把它抬回来。面浅了，边反而更用力——这是「不黑但仍有厚度」的唯一做法。
+ * 暗色整条不动（`:global(html.dark .notice)` 那一段），那里压到近黑才有层次。
+ *
+ * ---- 语气：一枚空心圆印 + 一道计时线 ----
+ * 语气色不落在整条边上（3px 竖条与文字挨得近、重心偏左），而落在一枚 15px 的空心圆印上：
+ * 它是「记号」，不是「一块背景」。槽底那条 2px 是**剩余时间**——三秒走完就没，
+ * 它回答「为什么它突然消失」，而这件事原先只能靠等。
+ *
+ * 计时线与 `hold` / `resume` 必须同拍：`hold` 清定时器（CSS 这一侧靠 `:hover` /
+ * `:focus-visible` 暂停动画），`resume` 给满新的三秒——所以那根条也要从满格重放。
+ * 重放靠换 `key`（`runs` 每次 resume 加一）：CSS 只能暂停，不能「重头开始」。
  *
  * ---- 位置 ----
  * 水平居中，落在页头下方 14px（`top` 由标题栏与 `--page-head-h` 算出来，见样式段）。
  * 多条向下堆叠，最新的在最下面——眼睛顺着刚发生的事往下读。
  */
 const { notices, hold, resume, dismiss } = useNotifyState();
+
+/**
+ * 每条被 `resume` 过几次。只服务计时线的「重头开始」：换 key 让 `<i>` 重建，
+ * 动画随之从 0 起跑——与 `resume` 重新给满三秒是同一件事。
+ */
+const runs = ref<Record<number, number>>({});
+
+function onResume(id: number) {
+    resume(id);
+    runs.value = { ...runs.value, [id]: (runs.value[id] ?? 0) + 1 };
+}
 </script>
 
 <template>
@@ -53,14 +74,17 @@ const { notices, hold, resume, dismiss } = useNotifyState();
                     :class="`is-${one.tone}`"
                     tabindex="0"
                     @mouseenter="hold(one.id)"
-                    @mouseleave="resume(one.id)"
+                    @mouseleave="onResume(one.id)"
                     @focusin="hold(one.id)"
-                    @focusout="resume(one.id)"
+                    @focusout="onResume(one.id)"
                     @click="dismiss(one.id)"
                     @keydown.enter.prevent="dismiss(one.id)"
                     @keydown.space.prevent="dismiss(one.id)"
                 >
-                    {{ one.text }}
+                    <!-- 空心的，不是一个色点：语气是「记号」，实心块会跟朱印抢同一种重量。 -->
+                    <span class="dot" aria-hidden="true"></span>
+                    <span class="text">{{ one.text }}</span>
+                    <i :key="runs[one.id] ?? 0" class="drain" aria-hidden="true"></i>
                 </div>
             </TransitionGroup>
         </div>
@@ -88,76 +112,85 @@ const { notices, hold, resume, dismiss } = useNotifyState();
 }
 
 /* ---------- 槽 ----------
- * 四件套，与 `SlotButton` / `.bevel-pill` 同一个规格，只有两处更重：
- *   底色比 `--well` 再压一档（它浮在页面底上，不在卡片里，没有参照）
- *   顶部内影从 1px 加到 3px（一行字的槽太浅，压不住）
- * 其余（上暗下亮、下沿亮高光）与别处一致。 */
+ * 亮色：面只压一档、且是暖压；深度全交给沿口（1px 硬边 → 5px 短影 → 下沿亮线 →
+ * 外沿一线纸白）。暗色另给一整段，见下面的 `:global(html.dark .notice)`。
+ *
+ * `overflow: hidden` 是给槽底那条计时线的：它贴着底边跑，不裁就被圆角切出两个方头。
+ * 焦点环画在 outline 上，不受影响。 */
 .notice {
     --notice-tone: var(--ink-2);
-    /* 竖条底端那一截：语气色往墨里压，让竖条自己有明暗，不是一块平色。 */
-    --notice-deep: color-mix(in srgb, var(--notice-tone) 62%, var(--ink-base));
 
     position: relative;
     display: flex;
     align-items: center;
+    gap: 10px;
     max-width: 380px;
-    padding: 9px 16px 9px 21px;
+    /* 单条 35（原 42，2026-11-04 用户：「消息的高度稍微小一点」）。三处一起收：
+     * 上 8 → 6、下 9 → 7（槽底 2px 计时线仍留得出余量）、行高 1.6 → 1.5。
+     * 只收内边距不够——一行字的槽里，那 1.6 的半个行距本身就占掉 8px。 */
+    padding: 6px 14px 7px 12px;
     color: var(--ink);
     font-size: var(--fs-base);
-    line-height: 1.6;
+    line-height: 1.5;
     /* 长路径 / 长错误信息不许把槽撑出屏幕，折行就折行。 */
+    overflow: hidden;
     overflow-wrap: anywhere;
     border-radius: var(--r-2);
-    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 86%, var(--ink-base));
+    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 58%, transparent);
     background: linear-gradient(
         180deg,
-        light-dark(
-                color-mix(in srgb, var(--well) 86%, var(--ink-base)),
-                color-mix(in srgb, var(--well) 52%, var(--ink-base))
-            )
-            0%,
-        var(--well) 34%,
-        light-dark(
-                color-mix(in srgb, var(--well) 96%, var(--paper)),
-                color-mix(in srgb, var(--well) 88%, var(--paper))
-            )
-            100%
+        color-mix(in srgb, var(--well) 86%, var(--rule-2)) 0%,
+        color-mix(in srgb, var(--well) 96%, var(--paper)) 32%,
+        color-mix(in srgb, var(--well) 92%, var(--paper)) 100%
     );
     box-shadow:
-        inset 0 3px 5px -1px
-            light-dark(
-                color-mix(in srgb, var(--ink-base) 26%, transparent),
-                color-mix(in srgb, var(--ink-base) 94%, transparent)
-            ),
+        inset 0 1px 0 color-mix(in srgb, var(--rule-2) 72%, transparent),
+        inset 0 5px 6px -5px color-mix(in srgb, var(--rule-2) 92%, transparent),
         inset 0 -1px 0 var(--bevel-hi),
-        0 1px 0 var(--bevel-hi);
+        0 1px 0 color-mix(in srgb, var(--paper) 55%, transparent);
     cursor: default;
     user-select: none;
     pointer-events: auto;
 }
 
+/* 暗色的面要压到近黑才有层次（`--well` 与 `--paper` 只差一档，浅压等于没压）。
+ * 这一整段是从亮色那条摘出来的：阴影层数也不同（暗色不要那两笔细边，只要一道厚内影），
+ * 而 `light-dark()` 只能换颜色、换不了层数，所以按主题各写一份。 */
+:global(html.dark .notice) {
+    border-color: color-mix(in srgb, var(--rule-2) 86%, var(--ink-base));
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--well) 52%, var(--ink-base)) 0%,
+        var(--well) 34%,
+        color-mix(in srgb, var(--well) 88%, var(--paper)) 100%
+    );
+    box-shadow:
+        inset 0 3px 5px -1px color-mix(in srgb, var(--ink-base) 94%, transparent),
+        inset 0 -1px 0 var(--bevel-hi),
+        0 1px 0 var(--bevel-hi);
+}
+
 /* 键盘停在这道槽上时的环。它可聚焦就必须看得见焦点——否则 Tab 一下屏幕毫无变化，
- * 用户不知道表已经停在哪一条上。环画在槽的外沿（`--ring-offset`），不压住那道竖条。 */
+ * 用户不知道表已经停在哪一条上。环画在槽的外沿（`--ring-offset`），不压住圆印。 */
 .notice:focus-visible {
     outline: var(--ring);
     outline-offset: var(--ring-offset);
 }
 
-/* 左端那道竖条。上下各内缩 5px 而不是顶到边：槽的四角是圆的，
- * 一条 3px 直条压上去会在左上角露出一个方角。 */
-.notice::before {
-    content: '';
-    position: absolute;
-    inset: 5px auto 5px 6px;
-    width: 3px;
-    border-radius: 1px;
-    background: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--notice-tone) 68%, var(--paper-base)) 0%,
-        var(--notice-tone) 48%,
-        var(--notice-deep) 100%
-    );
-    box-shadow: inset 0 1px 0 var(--bevel-hi);
+/* 正文吃掉剩下的宽度：不 `min-width: 0` 的话，一句长错误会把槽撑到 `max-width` 之外
+ * （flex 项默认 `min-width: auto` 按内容宽度算），`overflow-wrap` 也就没有发挥的余地。 */
+.text {
+    min-width: 0;
+}
+
+/* 语气圆印：15px 的环，内壁再描一圈同色 26%——一枚印该有的两道边，不是一块色块。 */
+.dot {
+    flex: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    border: 2px solid var(--notice-tone);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--notice-tone) 26%, transparent);
 }
 
 /* 三档只换颜色，不换结构、不换尺寸。多一套形态就等于多一个「这是哪一类消息」的
@@ -170,6 +203,46 @@ const { notices, hold, resume, dismiss } = useNotifyState();
 }
 .is-info {
     --notice-tone: var(--muted);
+}
+
+/* ---------- 计时线 ----------
+ * 贴着槽底、3 秒从满到零——与 `use-notify.ts` 的 `DURATION` 是同一个数，改一处要改两处。
+ * `forwards` 让它停在 0：定时器与动画若差半帧，宁可先走完，也不要「时间到了又跳回满格」。
+ *
+ * 悬停 / 聚焦暂停走 `:hover` / `:focus-visible`，与 `hold` 由同一批事件触发；移开时
+ * `resume` 给满三秒、`runs` 换 key 让这一条重建，动画从 0 重放——两边因此始终同拍。 */
+.drain {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(
+        90deg,
+        var(--notice-tone),
+        color-mix(in srgb, var(--notice-tone) 40%, transparent)
+    );
+    transform-origin: left center;
+    animation: notice-drain 3s linear forwards;
+}
+.notice:hover .drain,
+.notice:focus-visible .drain {
+    animation-play-state: paused;
+}
+@keyframes notice-drain {
+    from {
+        transform: scaleX(1);
+    }
+    to {
+        transform: scaleX(0);
+    }
+}
+/* 降动效时不画这条线：全局那条把动画压到 1ms，它会瞬间走到头，只剩一根空槽——
+ * 比没有更让人以为「是不是卡住了」。 */
+@media (prefers-reduced-motion: reduce) {
+    .drain {
+        display: none;
+    }
 }
 
 /* 进场从上方 8px 落下、淡入；收走反向。只动 opacity 与 transform，不动高度——
