@@ -241,8 +241,12 @@ function onEnter(event: KeyboardEvent) {
 .cell-wide {
     grid-column: 1 / -1;
 }
-/* 初始价占整行。**不用 `.cell` 包**：那条 `.cell input { width: 100% }` 会命中
- * `PriceField` 内部的 input，把定死的 7ch 撑成整行，数字就不居中了。 */
+/* 初始价占整行。**不用 `.cell` 包**：`.cell` 是「标签 + 输入」的 flex 列（竖排 + 4px 缝），
+ * 而 `PriceField` 自带 label、自带横排的槽，套进去只会多一层没用的列布局。
+ * 宽度也与下面那条 `.cell input { width: 100% }` 无关：本文件的样式是 scoped，
+ * 选择器只命中带本组件 `data-v` 的 input，够不着子组件内部的输入框；
+ * 那一个的宽度由 `PriceField` 按内容给的 inline style 定（`inputStyle`），
+ * 所以「数字 + 万」本来就紧挨着，不会被撑成整行。 */
 .init-price {
     grid-column: 1 / -1;
 }

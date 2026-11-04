@@ -1,5 +1,5 @@
 /**
- * 角色名册：本地存储 + 增删改。
+ * 角色名册：SQLite / localStorage 双路径 + 增删改。
  *
  * 这是角色页第一份**真数据层**。此前 `mock.ts` 只是字面量，页面直接 `v-for` 上去；
  * 现在名册要能改、能删、能加，还必须活过重启——所以有一处持久化、一层逐字段兜底。
@@ -510,6 +510,11 @@ function loadFromLocal(): CharacterData[] {
  *
  * 首次启动把 `localStorage` 那一版搬进 SQLite。**搬成功才动源数据**：
  * 写失败就什么都不做，下次启动再试；改名留底而不是删除，库文件万一坏了还能捞。
+ *
+ * 「要不要搬」这一步是**三态**（`charactersLegacyImported` 返回 `true` / `false` / `null`）：
+ * `null` = 问不出标记（没有宿主 / 调用失败），这时**不搬**。把「问不出来」当「没搬过」
+ * 会拿陈年的 `localStorage` 快照整份覆盖库，而且下面 `stored.length === 0 && firstRun`
+ * 那条还会趁机把两个演示角色种进一个被用户清空的名册——都是拿不准就动数据。
  */
 export async function loadRoster(): Promise<void> {
     if (!hasDesktop()) {
@@ -517,14 +522,21 @@ export async function loadRoster(): Promise<void> {
         return;
     }
 
-    const firstRun = !(await charactersLegacyImported());
+    const firstRun = (await charactersLegacyImported()) === false;
     if (firstRun) {
         const legacy = parseRoster(readRaw());
         if (legacy && legacy.length) {
             const saved = await charactersSave(legacy);
             if (saved && typeof localStorage !== 'undefined') {
-                localStorage.setItem(`${STORAGE_KEY}.migrated`, JSON.stringify(legacy));
-                localStorage.removeItem(STORAGE_KEY);
+                /* 留底这一段**必须兜住**：配额满（写第二份副本，用量翻倍）或
+                 * localStorage 被策略禁用时 `setItem` 会抛，而这个函数在 `main.ts` 的
+                 * `Promise.all` 里——一抛就是启动白屏。留底是尽力而为，数据已经在库里了。 */
+                try {
+                    localStorage.setItem(`${STORAGE_KEY}.migrated`, JSON.stringify(legacy));
+                    localStorage.removeItem(STORAGE_KEY);
+                } catch (error) {
+                    console.error('旧名册留底失败（数据已入库，不影响使用）', error);
+                }
             }
         }
         await charactersMarkLegacyImported();

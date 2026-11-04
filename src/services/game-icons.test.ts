@@ -1,8 +1,93 @@
 import { describe, expect, it } from 'vitest';
-import { GEAR_ACTIVES } from '../views/characters/character';
 import { gameData, lifeSkills, storySkills } from './game-data';
 import './game-data.fixture';
 import { assistIcon, lifeSkillIcon, storySkillIcon } from './game-icons';
+
+/**
+ * 装备特技（`icons.json` 的 `active` 组，69 项）的名字表。
+ *
+ * 正本是 `views/characters/character.ts` 的 `GEAR_ACTIVES`。这里之所以是一份**副本**：
+ * `services/` 不许 import `views/`——那一层装的是系统能力与跨页纯规则
+ * （`docs/ARCHITECTURE.md` §1 的分层、§4 的归类表），反过来依赖某个页面的数据，
+ * 依赖方向就倒了：那个页面一改名 / 一拆文件，这里就得跟着改。而这条比对又不能不做：图标按**序号**命名（`active-01`
+ * 就是名字表第 1 项），序号和名字对不上时不会有任何报错，只是界面上的特技配了别人的图。
+ *
+ * 代价是「改 `GEAR_ACTIVES` 时要记得也改这里」。忘了的话，重跑
+ * `tools/game-icons/slice.py` 之后这条测试会红在「名字对不上」，方向是安全的；
+ * 等 `docs/GAME-ASSETS.md` 规划的 `public/game/data/gear.json` 落地，正本与这份副本
+ * 一起改成读那张表，这段就该删掉。
+ */
+const ACTIVES = [
+    '气疗术',
+    '心疗术',
+    '命疗术',
+    '凝气诀',
+    '凝神诀',
+    '气归术',
+    '命归术',
+    '四海升平',
+    '回魂咒',
+    '起死回生',
+    '水清诀',
+    '冰清诀',
+    '玉清诀',
+    '晶清诀',
+    '诅咒之伤',
+    '诅咒之亡',
+    '笑里藏刀',
+    '绝幻魔音',
+    '野兽之力',
+    '魔兽之印',
+    '光辉之甲',
+    '圣灵之甲',
+    '流云诀',
+    '啸风诀',
+    '太极护法',
+    '罗汉金钟',
+    '修罗咒',
+    '天衣无缝',
+    '放下屠刀',
+    '河东狮吼',
+    '破甲术',
+    '碎甲术',
+    '凝滞术',
+    '停陷术',
+    '破血狂攻',
+    '弱点击破',
+    '吸血',
+    '残月',
+    '冥王暴杀',
+    '乾坤斩',
+    '破碎无双',
+    '帝释无双',
+    '伽罗无双',
+    '虚空之刃',
+    '亡灵之刃',
+    '死亡之音',
+    '身似菩提',
+    '心如明镜',
+    '慈航普度',
+    '移形换影',
+    '凝心诀',
+    '聚精会神',
+    '先发制人',
+    '燃烧之光',
+    '毁灭之光',
+    '金刚不坏',
+    '菩提心佑',
+    '金刚怒目',
+    '琴音三叠',
+    '乾坤挪移',
+    '疾风荡魄',
+    '玄鸟之灵',
+    '神鸟之印',
+    '伯牙绝弦',
+    '焚琴煮鹤',
+    '攻心术',
+    '惊心术',
+    '妙法之护',
+    '神机之护',
+];
 
 /**
  * 图标文件与清单的一致性。
@@ -83,14 +168,14 @@ describe('游戏图标清单', () => {
     it('三组数量与名字表一致', () => {
         expect(manifest.groups.skill?.length, '生活技能图标数').toBe(lifeSkills().length);
         expect(manifest.groups.story?.length, '剧情技能图标数').toBe(storySkills().length);
-        expect(manifest.groups.active?.length, '装备特技图标数').toBe(GEAR_ACTIVES.length);
+        expect(manifest.groups.active?.length, '装备特技图标数').toBe(ACTIVES.length);
     });
 
     it('第 n 个图标的名字就是名字表的第 n 项', () => {
         // 这条是本文件的核心：序号是图标与业务数据之间唯一的连接，错位不会报任何错。
         expect(manifest.groups.skill.map((entry) => entry.name)).toEqual([...lifeSkills()]);
         expect(manifest.groups.story.map((entry) => entry.name)).toEqual([...storySkills()]);
-        expect(manifest.groups.active.map((entry) => entry.name)).toEqual([...GEAR_ACTIVES]);
+        expect(manifest.groups.active.map((entry) => entry.name)).toEqual([...ACTIVES]);
     });
 });
 

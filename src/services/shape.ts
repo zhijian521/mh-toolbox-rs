@@ -9,9 +9,15 @@
  * 「只服务一个页面的数据层」才归 `views/<页>/`（同 `prices-store.ts`、`roster.ts`）。
  *
  * ---- 这里装什么、不装什么 ----
- * 只装「两个以上地方会用到的、逐字相同的东西」。页面自己的字段语义（`optionalInt`、
- * `optionalText`、`asTone` 这类）留在各自的 `normalizeXxx` 旁边：它们读的是那一页的契约，
- * 搬过来只会让这一层变成第二个 `character.ts` / `prices.ts`。
+ * 装的是**跨页面重复、且与 IO 无关**的兜底：`isObject` / `stamp` / `rows` / `makeId`
+ * 现在两页都在用。`text` 与 `rawText` 眼下各只有一个消费方（物价 / 名册），留在这里
+ * 是因为它们是一对**必须并排选**的规则（trim 与不 trim），拆开就没人看得出「要不要
+ * 去空白」是个选择；它们同样与 IO 无关，第三个读数据的页面一开工就要用。
+ *
+ * 反过来，只属于某一页**字段语义**的东西留在那页的 `normalizeXxx` 旁边：
+ * `optionalInt` / `optionalText` / `asTone` 在 `roster.ts`，`dateText` / `amount`
+ * 在 `prices.ts`。「0 表示没记价」只有物价页认这个意思，`cap` 缺席不等于 0 也只有名册
+ * 认——搬过来只会让这一层变成第二个 `character.ts` / `prices.ts`。
  *
  * ---- 迁移块（`migrateOnce`）为什么没有一起收口 ----
  * `prices-store.ts` 与 `roster.ts` 里那两段「老 localStorage 搬进 SQLite」是同一个形状
@@ -42,17 +48,6 @@ export const text = (value: unknown): string => (typeof value === 'string' ? val
  * 两个函数并排放，是为了让「要不要 trim」成为一个必须显式选择的事。
  */
 export const rawText = (value: unknown): string => (typeof value === 'string' ? value : '');
-
-/**
- * 价格：有限正数，保留两位小数；认不出的按 0。
- *
- * 0 在整条链上都表示「没记价」，所以它不是一个合法的价格——`normalizePoint` 会因此
- * 把这条记录整条丢掉，而不是留一行「—」在历史里让人猜。
- */
-export const amount = (value: unknown): number => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) / 100 : 0;
-};
 
 /**
  * 整数：`NaN` / `Infinity` 一律变 0。

@@ -119,13 +119,21 @@ export async function pricesSave<T>(items: T[]): Promise<boolean> {
     }
 }
 
-/** 老数据（`localStorage` 那一版）搬过来没有。 */
-export async function pricesLegacyImported(): Promise<boolean> {
-    if (!hasTauri) return false;
+/**
+ * 老数据（`localStorage` 那一版）搬过来没有。
+ *
+ * **三态**：`true` = 搬过、`false` = 没搬过、`null` = 问不出来（没有宿主，或调用失败）。
+ * 为什么不能把后两种压成 `false`：调用方拿到 `false` 会去搬，而搬的方式是「先读
+ * `localStorage` 的旧快照、再整份写进库」——一次调用失败就会拿一份陈年快照覆盖掉
+ * 库里的真数据。`null` 的意思是「这一趟别动迁移」，调用方据此直接读库。
+ */
+export async function pricesLegacyImported(): Promise<boolean | null> {
+    if (!hasTauri) return null;
     try {
         return await invoke<boolean>('prices_legacy_imported');
-    } catch {
-        return false;
+    } catch (error) {
+        console.error('读取物价表迁移标记失败', error);
+        return null;
     }
 }
 
@@ -145,6 +153,10 @@ export async function pricesMarkLegacyImported(): Promise<void> {
  * 可以退回 `localStorage`，也可以拒绝写入并把原因交给界面。
  * `roster.ts` / `prices-store.ts` 取的是后者：读失败时立起 `loadError`、停掉一切写，
  * 因为把「读失败」当「空库」会立刻覆盖掉用户原有的数据。
+ *
+ * 两个 `*LegacyImported` 是**三态**（`true` / `false` / `null`），与另外几个的布尔不同：
+ * 「问不出标记」和「标记说没搬过」后果差得远，前者会去搬（拿旧快照覆盖库），
+ * 后者只该按「这趟不搬」处理。压成布尔就把这条区别抹掉了。
  */
 export async function charactersLoad<T>(): Promise<T[] | null> {
     if (!hasTauri) return null;
@@ -167,12 +179,14 @@ export async function charactersSave<T>(items: T[]): Promise<boolean> {
     }
 }
 
-export async function charactersLegacyImported(): Promise<boolean> {
-    if (!hasTauri) return false;
+/** 与 `pricesLegacyImported` 同一个三态口径，理由见那边。 */
+export async function charactersLegacyImported(): Promise<boolean | null> {
+    if (!hasTauri) return null;
     try {
         return await invoke<boolean>('characters_legacy_imported');
-    } catch {
-        return false;
+    } catch (error) {
+        console.error('读取名册迁移标记失败', error);
+        return null;
     }
 }
 
@@ -194,9 +208,20 @@ export async function charactersMarkLegacyImported(): Promise<void> {
  *
  * 文件位置、对话框、线程怎么处理全在 Rust 侧；这里只过 `invoke`，
  * 与「一个能力一个文件」那条不冲突——它同属「应用外壳」，和版本信息、窗口三键是同一层。
+ *
+ * ---- `truncation`：成功但有代价 ----
+ * 只有导入会给这两个数。Rust 侧不裁剪（它负责如实搬进来，并把「会丢多少」数出来），
+ * 裁剪是前端保存时的规矩（`prices.ts` 的 `POINT_LIMIT`）。于是导入一份 300 条点位的备份，
+ * 界面上先看到 300 条、下次一存只剩 200 条——不提前说就是一次无声的数据丢失。
+ *
+ * **这里只递数字，不递句子**：上限（200）是 `prices.ts` 的规矩，`services/` 反过来去引
+ * 一个页面模块就破了边界（`AGENTS.md` 红线 3）；在这边再写一遍 200 又成了第三份副本
+ * （`src-tauri/src/backup.rs` 已经镜像了一份）。所以句子由用它的页面拼，数字从这边拿。
  */
 export type DataOutcome =
-    { status: 'ok'; detail: string } | { status: 'canceled' } | { status: 'failed'; error: string };
+    | { status: 'ok'; detail: string; truncation?: { points: number; items: number } }
+    | { status: 'canceled' }
+    | { status: 'failed'; error: string };
 
 /** Rust 侧的 `Err(String)` 到这里就是一个字符串。`String(error)` 会把它裹成 `Error: …`，
  * 而那句话是要原样给用户看的（「第 3 条角色没有 id」之类），不能加前缀。 */
@@ -209,10 +234,18 @@ function failure(error: unknown): DataOutcome {
 /** 浏览器预览里没有数据层。三个函数共用这一句，免得三处各写一遍再各自漂移。 */
 const NO_HOST: DataOutcome = { status: 'failed', error: '浏览器预览里没有数据层' };
 
-/** `data_import` 的回执。`backupPath` 是**替换之前**那份自动备份的去处。 */
+/**
+ * `data_import` 的回执。字段名与 `backup.rs` 的 `ImportSummary` 一一对应
+ * （那边 `#[serde(rename_all = "camelCase")]`，`truncated_items` 过来就是 `truncatedItems`）。
+ *
+ * `backupPath` 是**替换之前**那份自动备份的去处；`truncated` 是会被裁掉的点位数
+ * （0 = 一条都不丢），`truncatedItems` 是受影响的物品件数。
+ */
 interface ImportSummary {
     characters: number;
     prices: number;
+    truncated: number;
+    truncatedItems: number;
     backupPath: string;
 }
 
@@ -233,7 +266,12 @@ export async function dataExport(): Promise<DataOutcome> {
     }
 }
 
-/** 整份替换现有数据。`detail` 必须带备份路径——那是用户唯一能退回去的地方。 */
+/**
+ * 整份替换现有数据。`detail` 必须带备份路径——那是用户唯一能退回去的地方。
+ *
+ * 截断数原样递出去（见 `DataOutcome` 的注释）：一条都不丢时 `points` 是 0，
+ * 调用方据此决定要不要多那一句。
+ */
 export async function dataImport(): Promise<DataOutcome> {
     if (!hasTauri) return NO_HOST;
     try {
@@ -244,6 +282,7 @@ export async function dataImport(): Promise<DataOutcome> {
             detail:
                 `已导入 ${summary.characters} 个角色、${summary.prices} 件物价。` +
                 `替换前的数据备份在 ${summary.backupPath}`,
+            truncation: { points: summary.truncated, items: summary.truncatedItems },
         };
     } catch (error) {
         return failure(error);

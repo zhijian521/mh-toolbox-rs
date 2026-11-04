@@ -25,14 +25,15 @@
  * 把「1.5」和「万」拆开存，等于让每一处读取都得记得乘回去；一旦某天要换成「亿」，
  * 全部历史记录都要批量改。
  */
-import { amount, isObject, makeId, rows, stamp, text } from '../../services/shape';
+import { isObject, makeId, rows, stamp, text } from '../../services/shape';
 import { DEFAULT_CATEGORY, isPriceCategory, legacyPriceSlot, subsOf } from './prices-catalog';
 
 /** 名称上限，与表单的 `maxlength` 同一枚常量——两处各写一个数必然有一天不相等。 */
 export const NAME_LIMIT = 40;
 /** 二级分类上限，与表单的 `maxlength` 同上。 */
 export const SUB_LIMIT = 12;
-/** 一件物品最多保留的价格记录数：够看长期走势，又不至于把一份 localStorage 撑爆。 */
+/** 一件物品最多保留的价格记录数：够看长期走势，又不至于让整份表大得写不动
+ *  （桌面版每次改动都是整份 JSON 写回 SQLite）。 */
 export const POINT_LIMIT = 200;
 /**
  * 走势面板最多画多少条。
@@ -150,10 +151,23 @@ export interface PriceFilter {
 /* ======================================================================
  * 基础兜底：未知值 → 契约里的形状
  *
- * `isObject` / `text` / `amount` / `stamp` / `rows` / `makeId` 2026-11-03 提到
+ * `isObject` / `text` / `stamp` / `rows` / `makeId` 2026-11-03 提到
  * `src/services/shape.ts`：名册那边有一份逐字相同的（第三个页面一开工就会变三份）。
- * 这里只留**物价自己的**字段语义——日期校验与「0 表示没记价」的解释。
+ * 这里只留**物价自己的**字段语义——日期校验与「0 表示没记价」的解释（`dateText` / `amount`）。
+ * `amount` 一度也搬去了那边，2026-11-04 挪了回来：它只有物价页一个消费方，而它编码的
+ * 是物价的语义（0 = 没记价），按 `shape.ts` 头注释的划法属于这一侧。
  * ==================================================================== */
+
+/**
+ * 价格：有限正数，保留两位小数；认不出的按 0。
+ *
+ * 0 在整条链上都表示「没记价」，所以它不是一个合法的价格——`normalizePoint` 会因此
+ * 把这条记录整条丢掉，而不是留一行「—」在历史里让人猜。
+ */
+const amount = (value: unknown): number => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) / 100 : 0;
+};
 
 /**
  * 只接受存在的那一天：`YYYY-MM-DD` 且日历上真有这一格；认不出退回空串，绝不抛错。
@@ -306,7 +320,8 @@ export function priceChange(item: PriceItem): PriceChange | null {
  * **与 `priceChange` 不是一个问题，两个答案都对**：徽章答「行情相对上一个交易日动了多少」，
  * 这一列答「这一笔比上一笔多了多少」。同一天记了两次时，首行可能写 `+10`，而徽章写
  * 「较 11-02 涨 25%」——不是矛盾，是「今天改过一次数」与「这个月涨了多少」。
- * 界面要给首行加 `title` 说明基准（见 `PricesView` 的 `rows`），否则读的人会以为算错了。
+ * 界面要给首行加 `title` 说明基准（见 `PriceHistoryDialog.vue` 的 `rows`），否则读的人
+ * 会以为算错了。
  *
  * 最早那一行没有更早的记录可比，返回 `null`（显示「起点」）。
  */
@@ -436,9 +451,10 @@ export function priceBadge(item: PriceItem): PriceBadge | null {
         return { text: '持平', tone: 'flat', title: changeSentence(change) };
     }
     const up = change.delta > 0;
-    const amount = change.ratio === null ? moneyText(change.delta) : percentText(change.ratio);
+    /* 这一格叫 `shown` 而不是 `amount`：后者现在是本文件的兜底函数，同名会互相遮蔽。 */
+    const shown = change.ratio === null ? moneyText(change.delta) : percentText(change.ratio);
     return {
-        text: `${up ? '▲' : '▼'} ${amount}`,
+        text: `${up ? '▲' : '▼'} ${shown}`,
         tone: up ? 'up' : 'down',
         title: changeSentence(change),
     };
@@ -549,9 +565,10 @@ export function serializePriceItems(list: PriceItem[]): string {
 }
 
 /**
- * `localStorage` 可能不存在（单测跑在 node 里）或被策略禁用，两种都按「读不到」处理：
- * 物价表是这一页的全部内容，为了一个存储异常把整页打成白屏不值得。
- * 换存储时只改这两个函数（`ARCHITECTURE.md` §2 的「写盘时机」）。
+ * **浏览器那条路**的读写：`localStorage` 可能不存在（单测跑在 node 里）或被策略禁用，
+ * 两种都按「读不到」处理——物价表是这一页的全部内容，为了一个存储异常把整页打成白屏
+ * 不值得。桌面版不走这里：那两条路径在 `prices-store.ts` 里分成 `pricesLoad` /
+ * `pricesSave`（经 `services/desktop.ts` 落到 SQLite），本文件只管数据长什么样。
  */
 export function readPriceItems(): PriceItem[] {
     // 不能给初始值 `null`：`try` 与 `catch` 两条路径都必然赋值，那个 `null` 永远用不上，

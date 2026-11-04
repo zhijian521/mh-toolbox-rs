@@ -4,6 +4,11 @@ import LedgerSection from '../../components/LedgerSection.vue';
 import SlotButton from '../../components/SlotButton.vue';
 import { askConfirm } from '../../composables/use-confirm';
 import { dataClear, dataExport, dataImport, type DataOutcome } from '../../services/desktop';
+/* 单件物品的价格点位上限，**不在这里再写一个 200**：`prices.ts` 是它的真源，
+ * `src-tauri/src/backup.rs` 里那份是镜像（那边不裁剪，只用它数「会丢多少」）。
+ * 设置页反过来引一个页面模块看着别扭，但它是纯数据契约、不碰 vue 也不碰 DOM；
+ * 在这里抄一个数反而会和真源悄悄分家——文案里的数字没人记得改。 */
+import { POINT_LIMIT } from '../prices/prices';
 
 /**
  * 数据：把整本账搬出去、搬回来，或者清空。
@@ -45,7 +50,25 @@ import { dataClear, dataExport, dataImport, type DataOutcome } from '../../servi
  */
 const busy = ref(false);
 const message = ref('');
+/** 导入成功但有代价时多出来的那一句（点位被截断）。没有代价时是空串。 */
+const warning = ref('');
 const messageKind = ref<'error' | 'positive'>('positive');
+
+/**
+ * 「这批备份里有多少条会被裁掉」那句话；`truncation` 缺席（导出 / 清除）或一条都不丢时返回空串。
+ *
+ * 说**后果**而不是只报数：用户要知道的是「下次一存会少东西」，不是「有 100 条超限」。
+ * 措辞与实际的时序对齐——Rust 侧如实搬进来（所以刚导入时看得到全部），
+ * 前端保存时才按 `POINT_LIMIT` 裁（`prices.ts` 的 `normalizePriceItem`）。
+ */
+function truncationNote(truncation: { points: number; items: number } | undefined): string {
+    if (!truncation || truncation.points <= 0) return '';
+    const { points, items } = truncation;
+    return (
+        `其中 ${points} 条价格超出单件 ${POINT_LIMIT} 条的上限（涉及 ${items} 件物品）：` +
+        `导入后会按每件最新的 ${POINT_LIMIT} 条保留，更早的那 ${points} 条会在下次保存时丢失。`
+    );
+}
 
 /**
  * 三条操作的共同外壳：置忙 → 跑 → 收起忙 → 把三种结局翻成界面上的一句话。
@@ -61,13 +84,18 @@ async function run(action: () => Promise<DataOutcome>): Promise<DataOutcome> {
         if (outcome.status === 'ok') {
             messageKind.value = 'positive';
             message.value = outcome.detail;
+            /* 两句话分开放：一句是「办成了」，一句是「不过有东西会丢」。拼成一串就只能
+             * 整段用一种颜色，而这两件事不该看起来一样重。 */
+            warning.value = truncationNote(outcome.truncation);
         } else if (outcome.status === 'failed') {
             messageKind.value = 'error';
             message.value = outcome.error;
+            warning.value = '';
         } else {
             /* 取消：**清掉**上一句，不留着。上一句可能是上一次的「已导出到 C:\…」，
              * 留着会让刚取消了这一次的人以为那一次又发生了一遍。 */
             message.value = '';
+            warning.value = '';
         }
         return outcome;
     } finally {
@@ -120,6 +148,10 @@ async function askClear() {
 function reloadWithNotice() {
     try {
         sessionStorage.setItem(NOTICE_KEY, message.value);
+        /* 截断那句话也必须跟着过河。**不能走 `notify`**：浮层三秒就收，而这个页面下一行
+         * 就 `location.reload()`，DOM 整个换掉——刚弹出来的提示会跟着没。
+         * 何况这条要停着读完（还得对上备份路径），本来就不属于「扫一眼」那一档。 */
+        sessionStorage.setItem(WARNING_KEY, warning.value);
     } catch {
         /* 存储被禁（极端隐私设置）时放弃这次交接：账已经换好了，少一句提示不算失败。 */
     }
@@ -128,31 +160,36 @@ function reloadWithNotice() {
 
 /** 提示在重载前后的交接键。带前缀是因为 `sessionStorage` 是整个 origin 共用的。 */
 const NOTICE_KEY = 'mh-data-notice';
+/** 同一轮交接里那句「有数据会被裁掉」，与 `NOTICE_KEY` 成对出现、成对取走。 */
+const WARNING_KEY = 'mh-data-warning';
 
 /**
- * 取出上一次重载前留下的那句话，**取到就删**——于是它只活一轮，
+ * 取出上一次重载前留下的那两句，**取到就删**——于是它们只活一轮，
  * 不会在下次打开设置页时冒充「刚刚发生过」。
  *
  * 单独一个函数而不是写进 `onMounted`：`try` 里赋值、`catch` 里返回的写法
  * 会让变量「可能没被赋值」（eslint 的 `no-useless-assignment` 和 TS 的确定赋值
  * 两头都不满意），而这里真正想说的是「读不到就是空字符串」，那就直说。
  */
-function takeNotice(): string {
+function takeNotice(): { text: string; warning: string } {
     try {
-        const saved = sessionStorage.getItem(NOTICE_KEY);
+        const text = sessionStorage.getItem(NOTICE_KEY) ?? '';
+        const savedWarning = sessionStorage.getItem(WARNING_KEY) ?? '';
         sessionStorage.removeItem(NOTICE_KEY);
-        return saved ?? '';
+        sessionStorage.removeItem(WARNING_KEY);
+        return { text, warning: savedWarning };
     } catch {
         /* 存储被禁时既没有交接也没有异常要报：这张卡照常可用，只是少一句提示。 */
-        return '';
+        return { text: '', warning: '' };
     }
 }
 
 onMounted(() => {
     const saved = takeNotice();
-    if (!saved) return;
+    if (!saved.text) return;
     messageKind.value = 'positive';
-    message.value = saved;
+    message.value = saved.text;
+    warning.value = saved.warning;
 });
 </script>
 
@@ -192,7 +229,16 @@ onMounted(() => {
             </div>
         </div>
 
-        <p v-if="message" class="note" :class="messageKind">{{ message }}</p>
+        <!-- 回执（含自动备份的路径）是**一次出现**的一句话：读屏只在「区域已存在、
+             内容变了」时才播报，`v-if` 直接挂在这一段上会让整条被略过。
+             所以常驻一个空的 `role="status"` 容器，句子从里面进出——与 `NotifyHost`
+             那层 `aria-live` 同一个做法。空容器高度为 0，没有留白。 -->
+        <div role="status">
+            <p v-if="message" class="note" :class="messageKind">{{ message }}</p>
+            <!-- 截断提示与回执同一个播报区域，排在它下面：先「办成了」，再「不过……」。
+                 用赭（`--ochre`）而不是朱红——导入本身是成功的，红字会被读成「导入失败」。 -->
+            <p v-if="warning" class="note warning">{{ warning }}</p>
+        </div>
     </LedgerSection>
 </template>
 
@@ -213,5 +259,14 @@ onMounted(() => {
     margin-top: 14px;
     padding-top: 14px;
     border-top: var(--w-hair) solid var(--rule-2);
+}
+
+/* 「有数据会被裁掉」那句：只换色，档位与 `.note` 一致（排版来自 `blocks.css`）。
+ *
+ * 取赭（`--ochre`）而不是朱（`--cinnabar`）：导入是**成功**的，朱红会被读成「导入失败」。
+ * 写成复合选择器与 `base.css` 里 `.note.error` / `.note.positive` 同一手法——
+ * 独立类与 `.note` 同特异性，谁赢取决于样式表加载顺序。 */
+.note.warning {
+    color: var(--ochre);
 }
 </style>

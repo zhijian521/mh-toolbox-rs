@@ -14,9 +14,11 @@
  * 这个文件只做四件事：读、改、写、把「改不成」的原因原样交回去。
  *
  * ---- 错误用返回值，不用 throw ----
- * 老系统这层是 `async` + `throw`（`savePriceLog` 超过上限就抛）。这里不需要异步：
- * 写的是 `localStorage`，没有等待。而 `throw` 在这条链上唯一的用处是被界面 catch 之后
- * 变成一行红字——那不如直接返回 `{ ok: false, error }`，调用方少一层 try，
+ * 老系统这层是 `async` + `throw`（`savePriceLog` 超过上限就抛）。这里不抛：写盘确实
+ * 是异步的（`persist()` 异步写 SQLite、失败落进 `writeError`），但异步不等于该用 `throw`
+ * ——失败是**常态**（磁盘满、库文件被别的进程占住），而调用方是同步的界面事件，
+ * 既等不起、也没有合适的 `catch` 位置。`throw` 在这条链上唯一的去处是被界面兜住
+ * 之后变成一行红字，那不如直接返回 `{ ok: false, error }`：调用方少一层 try，
  * 类型上也说得清「哪些情况会失败」。
  */
 import { ref } from 'vue';
@@ -85,7 +87,11 @@ export async function loadPrices(): Promise<void> {
         return;
     }
 
-    if (!(await pricesLegacyImported())) {
+    /* `null` = 问不出标记（没有宿主 / 调用失败）。这时**不进迁移分支**：把「问不出来」
+     * 当成「没搬过」，一旦 `localStorage` 里还留着一份旧快照就会整份覆盖库；
+     * 当成「搬过了」又可能漏搬。两边都是拿不准就动数据，所以干脆不搬——
+     * 直接读库，读不到就挂 `loadError`，绝不 seed、绝不覆盖。 */
+    if ((await pricesLegacyImported()) === false) {
         const legacy = readPriceItems();
         if (legacy.length) {
             const saved = await pricesSave(legacy);
@@ -93,9 +99,18 @@ export async function loadPrices(): Promise<void> {
              * 反过来（先删后写）一旦写失败就是永久丢数据。 */
             if (saved && typeof localStorage !== 'undefined') {
                 /* 改名而不是删除：库文件万一被误删 / 损坏，这里还留着一份可以捞。
-                 * 改名之后 `readPriceItems()` 再也读不到它，不会被重复搬。 */
-                localStorage.setItem(`${STORAGE_KEY}.migrated`, JSON.stringify(legacy));
-                localStorage.removeItem(STORAGE_KEY);
+                 * 改名之后 `readPriceItems()` 再也读不到它，不会被重复搬。
+                 *
+                 * 这一段**必须兜住**：配额满（这时等于写第二份副本，用量翻倍）或
+                 * localStorage 被策略禁用时 `setItem` 会抛，而这个函数在
+                 * `main.ts` 的 `Promise.all` 里——一抛就是启动白屏。留底只是尽力而为，
+                 * 数据已经在库里了，备份写不进去不该让应用起不来。 */
+                try {
+                    localStorage.setItem(`${STORAGE_KEY}.migrated`, JSON.stringify(legacy));
+                    localStorage.removeItem(STORAGE_KEY);
+                } catch (error) {
+                    console.error('旧物价表留底失败（数据已入库，不影响使用）', error);
+                }
             }
         }
         await pricesMarkLegacyImported();
@@ -127,7 +142,21 @@ function syncAcrossWindows(): void {
     window.addEventListener('storage', (event) => {
         /* `key === null` 是有人调了 `clear()`，同样要重读。 */
         if (event.key !== null && event.key !== STORAGE_KEY) return;
-        items.value = parsePriceItems(event.newValue) ?? [];
+        /* `newValue === null` = 那一份被删掉了（`removeItem` / `clear`），确实该空。
+         * 这跟「解析失败」是两件事，别混成一个分支。 */
+        if (event.newValue === null) {
+            items.value = [];
+            return;
+        }
+        const parsed = parsePriceItems(event.newValue);
+        /* 解析失败**不是空库**：把它当空表会清掉内存里的 `items`，而下一次任意写
+         * （加一条价、改个名字）就把这份空表整份写回去，用户的物价表就没了。
+         * 读不懂就保持现状——另一个窗口写坏了自己的存储，不该连累这一边。 */
+        if (parsed === null) {
+            console.error('storage 事件里的物价表解析失败，保留当前数据不动', event.newValue);
+            return;
+        }
+        items.value = parsed;
     });
 }
 

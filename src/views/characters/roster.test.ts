@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import '../../services/game-data.fixture';
 import { schoolNames, schoolSkillCap } from '../../services/game-data';
 import { GEAR_SLOTS } from './character';
@@ -472,5 +472,108 @@ describe('读档失败：拒绝写入', () => {
         expect(loadError.value).toBe('');
         expect(roster.value.length).toBeGreaterThan(0);
         expect(desktop.charactersSave).toHaveBeenCalledTimes(1);
+    });
+});
+
+/**
+ * `charactersLegacyImported()` 返回 `null`：**问不出来，不等于没搬过**。
+ *
+ * 名册这边比物价多一层后果：`firstRun` 除了决定「搬不搬」，还决定「库里空的时候要不要
+ * 塞种子」。把 `null` 读成 `firstRun = true`，一次调用失败就能让两个演示角色顶掉用户
+ * 攒了一年的名册，而且立刻写回库。所以两条都要盯：不搬、不 seed。
+ *
+ * 为了不让测试空转，这里在 node 里装一个最小的 `localStorage` 并塞一份旧名册——
+ * 只要迁移分支被走进去，`charactersSave` 就一定会被调到。
+ */
+describe('迁移标记问不出来（null）：不搬、不 seed', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    /* `STORAGE_KEY` 在 `roster.ts` 里是模块内的 `const`（未导出），这里按字面量写。
+     * 写错了会静默失效（桩里的旧名册读不到，迁移分支即便走进去也搬不出东西），
+     * 所以下面留了一条「标记为 false 时确实会搬」的反面对照用例来验证这个字面量。 */
+    const KEY = 'mh-roster';
+    const LEGACY = JSON.stringify([{ id: 'legacy-1', name: '老存档里的角色' }]);
+
+    /** 装一个够用的 localStorage，并塞进旧名册。返回底层 Map，供断言「没被改名 / 删掉」。 */
+    function stubLegacyStorage() {
+        const store = new Map<string, string>([[KEY, LEGACY]]);
+        vi.stubGlobal('localStorage', {
+            getItem: (key: string) => store.get(key) ?? null,
+            setItem: (key: string, value: string) => void store.set(key, value),
+            removeItem: (key: string) => void store.delete(key),
+        });
+        return store;
+    }
+
+    /**
+     * 另起一个装配函数而不是复用上面那个：那里的 `charactersLegacyImported` 固定返回布尔，
+     * 而这里要的正是三态里的第三种。`resetModules` 之后必须重新 import 一次
+     * `game-data.fixture`，否则 `normalizeCharacter` 拿不到门派表。
+     */
+    async function loadWithMarker(marker: boolean | null, load: () => Promise<unknown[] | null>) {
+        vi.resetModules();
+        const desktop = {
+            hasDesktop: () => true,
+            charactersLoad: vi.fn(load),
+            charactersSave: vi.fn(async (_list: unknown[]) => true),
+            charactersLegacyImported: vi.fn(async () => marker),
+            charactersMarkLegacyImported: vi.fn(async (): Promise<void> => undefined),
+        };
+        vi.doMock('../../services/desktop', () => desktop);
+        await import('../../services/game-data.fixture');
+        const store = await import('./roster');
+        await store.loadRoster();
+        return { desktop, store };
+    }
+
+    it('不搬旧名册、不打迁移标记，照常读库并按库里内容填 roster', async () => {
+        const local = stubLegacyStorage();
+        const { desktop, store } = await loadWithMarker(null, async () => [
+            { id: 'db-1', name: '库里的角色' },
+        ]);
+
+        /* 若实现退回 `!(await …)`，`null` 会被当成「没搬过」：这里会看到一次
+         * `charactersSave`，写进去的是 `老存档里的角色`。 */
+        expect(desktop.charactersLoad).toHaveBeenCalledTimes(1);
+        expect(desktop.charactersSave).not.toHaveBeenCalled();
+        expect(desktop.charactersMarkLegacyImported).not.toHaveBeenCalled();
+        expect(store.useRoster().roster.value.map((one) => one.name)).toEqual(['库里的角色']);
+        // 没搬就不该有搬家的痕迹：源数据还在，也没留下 `.migrated` 副本。
+        expect(local.has(KEY)).toBe(true);
+        expect(local.has(`${KEY}.migrated`)).toBe(false);
+    });
+
+    it('库也读不出来时不塞种子——`firstRun` 必须是 false', async () => {
+        stubLegacyStorage();
+        const { desktop, store } = await loadWithMarker(null, async () => null);
+        const { roster, loadError } = store.useRoster();
+
+        /* `roster` 为空而不是 `mock.ts` 那两个演示角色，是这条断言真正的意义：
+         * 空名册至少还能在修好之后重新读到，塞进去的种子会先一步写进库。 */
+        expect(roster.value).toEqual([]);
+        expect(loadError.value).not.toBe('');
+        expect(desktop.charactersLoad).toHaveBeenCalledTimes(1);
+        expect(desktop.charactersSave).not.toHaveBeenCalled();
+        expect(desktop.charactersMarkLegacyImported).not.toHaveBeenCalled();
+    });
+
+    it('反面对照：标记明确说「没搬过」（false）时确实会搬——桩没有让它空转', async () => {
+        /* 这条不是为了测迁移（那是 `false` 那条老路），而是为了证明上面那个
+         * `KEY` 字面量是对的：桩里的旧名册真的喂到了迁移分支。
+         * 少了它，`KEY` 写成 `mh-characters` 之类也会让前两条全绿。 */
+        const local = stubLegacyStorage();
+        const { desktop } = await loadWithMarker(false, async () => [
+            { id: 'db-1', name: '库里的角色' },
+        ]);
+
+        expect(desktop.charactersSave).toHaveBeenCalledTimes(1);
+        const saved = desktop.charactersSave.mock.calls[0][0] as { name: string }[];
+        expect(saved.map((one) => one.name)).toEqual(['老存档里的角色']);
+        expect(desktop.charactersMarkLegacyImported).toHaveBeenCalledTimes(1);
+        // 搬家成功后源数据改名留底（`removeItem` 原来的键、写入 `.migrated`）。
+        expect(local.has(KEY)).toBe(false);
+        expect(local.has(`${KEY}.migrated`)).toBe(true);
     });
 });

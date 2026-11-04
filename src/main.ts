@@ -28,8 +28,11 @@ useTheme();
  * 数据缺了就是下拉少几项，应用不该因此起不来。
  *
  * 物价表与角色名册走同一条路：桌面版从 SQLite 读、浏览器从 `localStorage` 读，
- * 两条都在这里等到手再挂载。三个 `load*` 都不 reject（读不到就是空表 / 种子），
- * 页面挂上去时数据已在。
+ * 两条都在这里等到手再挂载。三个 `load*` 都**不 reject**：读不到就是空表 / 种子 /
+ * 一条 `loadError`，写库失败记在各自的 `writeError` 里。这条约束不是白写的——
+ * `Promise.all` 只要有一个 reject，`.then(mount)` 就永不执行，用户看到的是一片白。
+ * 所以那两个 store 里凡是可能抛的 IO（尤其是迁移时给 `localStorage` 写留底）都就地
+ * 兜住：留底是尽力而为，不能因为备份写不进去让整个应用起不来。
  */
 Promise.all([loadGameData(), loadPrices(), loadRoster()]).then(() => {
     createApp(App).use(router).mount('#app');
