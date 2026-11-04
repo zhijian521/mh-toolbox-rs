@@ -27,7 +27,7 @@
 | 数据层   | `%APPDATA%\mh-tool-v2\mh-toolbox.db`（rusqlite `bundled` + WAL），物价、名册、收益共用           |
 
 未开始：`tauri-specta`（命令已 17 个，早越过当初定的 5 个阈值）、
-三个业务页（总览 / 账号 / 目标）、e2e。差分 harness 不做（2026-11-04 定，见 `docs/ARCHITECTURE.md` §5）。
+三个业务页（总览 / 账号 / 目标）。差分 harness 不做（2026-11-04 定，见 `docs/ARCHITECTURE.md` §5）。
 
 ## 目录
 
@@ -35,7 +35,7 @@
 
 ```
 src/
-  components/   有视觉语义的 UI 单元，不调 services
+  components/   有视觉语义的 UI 单元，不直接调 Tauri（系统能力走 services/）
   composables/  跨组件状态与副作用
   services/     系统能力的唯一出口，一个能力一个文件
   styles/       tokens / base / blocks 三张表，令牌唯一真源
@@ -45,6 +45,7 @@ public/game/    游戏资源：底图、图标、事实表（规则见 docs/GAME
 docs/           五份工程文档
 scripts/        质量门小工具（版本号 / 提交信息）+ 图标与字体生成脚本
 tools/probe/    CDP 探针：截图、量几何，内置静态服务
+tools/e2e/      真窗口烟测：真鼠标键盘走完整路径，自带库快照与还原
 assets/         字体（霞鹜文楷 GB2312 子集 + 全量原件，OFL 1.1）、牌记、应用图标源图
 ```
 
@@ -73,6 +74,7 @@ npm run desktop        # 起 Tauri 窗口（vite + cargo run）
 npm run build          # 类型检查 + 构建前端
 npm run desktop:build  # 打包
 npm run check          # 唯一质量门：format / lint / typecheck / test / 版本 / 提交信息
+npm run e2e            # 真窗口烟测：先 start.bat --force debug，再跑这个
 ```
 
 直接跑 `npm run desktop` 要先按 [`AGENTS.md` §三](AGENTS.md#三windows-上编译必须先设环境本机实测)
@@ -82,6 +84,8 @@ CI 另有 `rust`（`cargo fmt --check`）与 `rust-test`（`cargo test --lib`）
 **不在** `npm run check` 里——本机绿不等于能推。
 
 要连调试端口或截真窗口的图，看 `AGENTS.md` §五（CDP 探针与降动效的验法都在那里）。
+烟测会写真实数据，但自己收尾：开头快照一份库，结尾把还原命令打出来
+（`node tools/e2e/db.mjs restore <id> --yes`，应用要先关掉）。
 
 ## 开工前读
 
