@@ -5,7 +5,9 @@
 >
 > **现状说明**：前端已成型，SQLite 数据层已落地（`src-tauri/src/store.rs`：物价与角色名册
 > 共用 `%APPDATA%\mh-tool-v2\mh-toolbox.db`），账本的进出落地在 `src-tauri/src/backup.rs`
-> （导出 / 导入 / 清除，见 §2）；差分 harness 与 SQLite → JSON 反向镜像还没开始。
+> （导出 / 导入 / 清除，见 §2）；差分 harness 还没开始。
+> **不做 SQLite → JSON 反向镜像**（2026-11-04 用户定，见 `AGENTS.md` 红线 6）：升级单向，
+> 旧版 Electron 不再读新版的数据。
 > 下面带「计划」字样的段落是动手前就定好的边界，不是对现状的描述——
 > 它们写在这里的意义是：第一次写领域代码的人不用自己发明一套。
 
@@ -23,7 +25,7 @@
 │ src-tauri/    Tauri 壳：窗口、命令、能力配置       │
 │   └─ crates/  （计划）领域层，与壳解耦             │
 │        mh-domain   纯逻辑，无 IO，可被 #[test] 全覆盖 │
-│        mh-store    SQLite 读写、迁移、JSON 镜像     │
+│        mh-store    SQLite 读写与迁移（无 JSON 镜像，见红线 6） │
 └──────────────────────────────────────────────┘
 ```
 
@@ -65,10 +67,10 @@
   角色名册（`views/characters/roster.ts`）与物价表（`views/prices/prices-store.ts`）都已经
   跨三个组件（页面、卡片、弹窗），但它们用的是与主题、字号同一套「模块级 `ref` + `useXxx()`
   导出」，没有引入第二套状态机制。
-- **写盘时机（计划）**：目标口径是「先写内存模型，再落 SQLite，再写 JSON 镜像」，三步由一个
-  函数包住，调用方不需要知道顺序。**前两步在跑、第三步没做**：`store.rs` 的每个命令是
-  「打开连接 → 整份读 / 整份写（一个事务）」，而 SQLite → JSON 反向镜像（红线 6）仍是欠账——
-  在它落地之前，库文件是唯一副本。
+- **写盘时机**：口径是「先改内存模型，再整份写 SQLite」，两步都在这条命令里完成，
+  调用方不需要知道顺序。**JSON 反向镜像不做**（2026-11-04 用户定，见 `AGENTS.md` 红线 6）：
+  旧版 Electron 不再读新版的数据，库文件是唯一真源。要带走 / 恢复时用设置页的
+  「导出账本」（`backup.rs` 的 JSON 信封），那是**手动**的、面向人的，不是自动镜像。
 - **桌面版以 SQLite 为主，`localStorage` 退成两条窄用途**：物价（`mh-prices`）与角色名册
   （`mh-roster`）都已搬进 SQLite，第一次启动时搬一次、搬成功才把老键改名为 `*.migrated` 留底，
   并在库的 `meta` 表打标记。之后 `localStorage` 只在两处还活着：① 浏览器（`npm run dev`、
@@ -82,7 +84,7 @@
 | 数据目录   | `%APPDATA%\mh-tool-v2`（`lib.rs` 的 `data_dir()`）                     | 与旧版 Electron 共用；改成 Tauri 默认的 `%APPDATA%\<identifier>` 等于让朋友的数据「消失」                                                                   |
 | identifier | `com.zhijian.mhtoolbox.rs`                                             | 必须与旧版 appId 不同，否则 Windows 把两个安装包当一个应用互相覆盖                                                                                          |
 | 卸载       | `deleteAppDataOnUninstall: false`                                      | 卸载重装不该丢账                                                                                                                                            |
-| 镜像       | 数据层落地时必须做 SQLite → JSON 反向镜像                              | 一旦转换就退不回旧版；镜像是在旧版仍能打开同一份数据的唯一保证                                                                                              |
+| 镜像       | **不做** SQLite → JSON 反向镜像（2026-11-04 用户定）                   | 升级单向：旧版 Electron 打不开新版的账。换来「一份数据只有一个真源」，不必维护两代结构的双向转换；要带走数据用设置页的手动导出                              |
 | 本地开发   | `vite.config.ts` 的 `server.host` 与 `devUrl` **都必须写 `127.0.0.1`** | Node 把 `localhost` 解析成 `::1`，Vite 于是只监听 `[::1]:5173`；WebView2 走 IPv4，报 `net::ERR_CONNECTION_REFUSED` → 白屏，而浏览器打开却是好的             |
 | 打包       | `Cargo.toml` 的 `[features] custom-protocol` 不能删                    | `tauri dev` 用 `--no-default-features` 关掉它才连 devUrl；缺了它两种构建产物一模一样，`tauri build` 的包仍去连 devUrl，装到没起 dev server 的机器上就是白屏 |
 
