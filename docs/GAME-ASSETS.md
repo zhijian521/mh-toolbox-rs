@@ -240,9 +240,11 @@ const MAP_DIR = `${import.meta.env.BASE_URL}game/maps/`;
 | `GEAR_SLOTS` 等三张装备表   | ⏳ 还在 `character.ts`：下一批该搬的（见 §6 末行）                                                       |
 | `src-tauri/models/`         | 18MB OCR 模型，**不属于**游戏资源，不搬                                                                  |
 
-门派技能的图标已在 `icons/`，但**还没有代码消费它们**：
-`src/services/game-icons.ts` 目前只查生活 / 剧情 / 特技，`school-icons.json` 也还没有
-加载点。接的时候按「名字查」走（清单里每条带 `name`），不要用 `schools.json` 的下标推。
+门派技能的图标在 `icons/`，2026-11-04 起有代码消费：`src/services/game-icons.ts` 的
+`schoolSkillIcon(name)`，清单 `school-icons.json` 由 `game-data.ts` 装进缓存（第三份表）。
+**按名字查，不要用 `schools.json` 的下标推**——文件序号是切图时的面板顺序，与
+`schools.json` 的 `skills` 顺序不同（实测十方无敌是 `-1`、为官之道是 `-5`）；
+名字在 147 项里唯一，这条由 `game-icons.test.ts` 与加载时的校验各盯一次。
 
 装备特效那 18 项**没有图标**（游戏那一页是纯文字），所以 `icons/` 里没有 `special-`。
 

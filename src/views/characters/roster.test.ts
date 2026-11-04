@@ -3,7 +3,7 @@ import '../../services/game-data.fixture';
 import { schoolNames, schoolSkillCap } from '../../services/game-data';
 import { GEAR_SLOTS } from './character';
 import { CHARACTERS } from './mock';
-import { expPercent, isMaxed, skillTicks, tickLevel } from './character';
+import { expPercent, isMaxed } from './character';
 import { emptyCharacter, normalizeCharacter, parseRoster, serializeRoster } from './roster';
 import { schoolSkillNames } from './schools';
 
@@ -303,38 +303,6 @@ describe('经验百分比', () => {
     });
 });
 
-describe('门派技能刻度', () => {
-    /*
-     * 这一页是「数格子」而不是「看长度」：180 分九格、120 就是六格满。
-     * 卡与编辑弹窗**共用**这个函数，所以这里错一位，两处会一起错、且看不出来——
-     * 就是「存完回卡上短了一截」那类没人查得出的差异。
-     */
-    it('一格 20 级：180 九格、120 六格', () => {
-        expect(skillTicks(180, 180)).toHaveLength(9);
-        expect(skillTicks(120, 120)).toHaveLength(6);
-        expect(skillTicks(60, 180).every((fill) => fill === 0 || fill === 100)).toBe(true);
-    });
-
-    it('满格就是整格，半程的那格按比例填', () => {
-        // 120 / 180：前六格满、后三格空。
-        expect(skillTicks(120, 180)).toEqual([100, 100, 100, 100, 100, 100, 0, 0, 0]);
-        // 90 / 180：四格满 + 第五格一半。
-        expect(skillTicks(90, 180)).toEqual([100, 100, 100, 100, 50, 0, 0, 0, 0]);
-        // 115：五格满 + 第六格 75%——非整十的等级也读得出「五格多一点」。
-        expect(skillTicks(115, 180)[5]).toBe(75);
-    });
-
-    it('0 级是九格全空，不是九格全黑', () => {
-        expect(skillTicks(0, 180)).toEqual(new Array(9).fill(0));
-    });
-
-    it('没有上限就不画刻度', () => {
-        // 没有分母的百分比是编出来的：辅助技能的上限可以留空（见 `SkillRow.cap`）。
-        expect(skillTicks(60, undefined)).toEqual([]);
-        expect(skillTicks(60, 0)).toEqual([]);
-    });
-});
-
 describe('练满了没有', () => {
     it('要看得到上限才算得出来', () => {
         expect(isMaxed({ level: 180, cap: 180 })).toBe(true);
@@ -365,28 +333,6 @@ describe('空白角色', () => {
         expect(character.skills.map((row) => row.name)).toEqual(schoolSkillNames(character.school));
         expect(character.skills.every((row) => row.level === 0)).toBe(true);
         expect(character.skills.every((row) => row.cap === schoolSkillCap())).toBe(true);
-    });
-});
-
-describe('刻度的档位', () => {
-    it('点第 N 格得到的就是前 N 格全满的那个等级', () => {
-        // 上限 180 → 九格，每格 20：点第六格是 120。
-        expect(tickLevel(5, 180)).toBe(120);
-        expect(tickLevel(0, 180)).toBe(20);
-        // 最后一格正好是上限，不会因为取整差一级。
-        expect(tickLevel(8, 180)).toBe(180);
-        // 上限不是整 20 的倍数时按格数反算：90 → 五格，一格 18，点第三格是 54。
-        expect(tickLevel(2, 90)).toBe(54);
-        // 没有上限就没有档位可点。
-        expect(tickLevel(3, undefined)).toBe(0);
-    });
-
-    it('点完之后那几格正好是满的（与 skillTicks 同一套算术）', () => {
-        for (let index = 0; index < 9; index += 1) {
-            const level = tickLevel(index, 180);
-            const ticks = skillTicks(level, 180);
-            expect(ticks.filter((fill) => fill === 100)).toHaveLength(index + 1);
-        }
     });
 });
 

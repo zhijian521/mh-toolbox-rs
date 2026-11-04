@@ -51,7 +51,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    /* 内容之间的缝：卡上是「满」与三位数，3px 与 `.school-val` 原来那个 gap 同值。 */
+    /* 内容之间的缝：卡上是「满」与三位数，3px 与它原来那个 gap 同值。 */
     gap: 3px;
     box-sizing: border-box;
     width: var(--tag-w, auto);

@@ -16,7 +16,8 @@ import { trainingDefaultCap, type TrainingGroup } from '../character';
  * 所以这一页可编的是**十个数对的数**：每行「等级 / 上限」。仍然没有「加一项」、
  * 没有删行、没有可编的分组名——那些是结构，结构由清单定（CONVENTIONS §2.4-33）。
  *
- * 2026-11-04：**版式改成左右两列**（一组一列），行也换成纸带、与卡上同构。
+ * 2026-11-04：**版式改成左右两列**（一组一列），行也换成与卡上同一张票
+ * （`base.css` 的 `.slip-row`，四页共用一份）。
  */
 const groups = defineModel<TrainingGroup[]>({ required: true });
 </script>
@@ -29,13 +30,13 @@ const groups = defineModel<TrainingGroup[]>({ required: true });
                 <span class="group-title">{{ group.title }}</span>
             </div>
 
-            <!-- 一组一列、一行一条纸带：与卡上「十行纸带」同构（2026-11-04 用户：
-                 「编辑可以左右」）。十行摊成两列之后每组只剩五行，一屏看完不用滚。 -->
-            <div class="training-list paper-rows">
-                <div v-for="(row, ri) in group.rows" :key="ri" class="erow training-row paper-row">
+            <!-- 一组一列、一项一张票：与卡上同一个器件（2026-11-04 用户：「编辑可以
+                 左右」）。十行摊成两列之后每组只剩五行，一屏看完不用滚。 -->
+            <div class="slip-rows">
+                <div v-for="(row, ri) in group.rows" :key="ri" class="slip-row">
                     <!-- 项名来自清单：不上凹槽——**凹槽的意思是「这里可以写」**，
                          写不了却画成可以写，比少一个格子更糟。 -->
-                    <span class="name-text">{{ row.name }}</span>
+                    <span class="slip-name">{{ row.name }}</span>
                     <NumberField
                         :model-value="row.level"
                         :label="`${row.name} 等级`"
@@ -78,12 +79,8 @@ const groups = defineModel<TrainingGroup[]>({ required: true });
     gap: 16px;
     align-items: start;
 }
-/* 行距 8 由 grid 给。纸带自带 `+ 2px`（属性表「一叠纸」的厚度）、`.erow` 自带
- * `+ 5px`（竖排表单的缝）——两个都不是这里的行距，一起归零。 */
-.training-list {
-    display: grid;
-    row-gap: 8px;
-}
+/* 行距由 `.slip-rows` 给（6）；组头与第一张票之间 8px 比默认的 2px 松一档——
+ * 这一页是拿来填的，组与组的分界要看得出来。 */
 .train-head {
     display: flex;
     align-items: center;
@@ -96,42 +93,26 @@ const groups = defineModel<TrainingGroup[]>({ required: true });
     font-size: var(--fs-sm);
     letter-spacing: 0.06em;
 }
-/* 一行 40：里面塞的是 26 高的数字格，上下各留 7——比卡上那 34 松一档，
- * 因为这一页是拿来填的，点进去的格子周围要有点余地。
- *
- * 这几条挂在 `.training-list` 下（0-2-0）：`.paper-row` 带着 `align-items: baseline`、
- * `padding: 5px 10px`，`.erow` 带着 `gap: 6px`，同特异性下不押注入顺序。 */
-.training-list .training-row {
-    height: 40px;
-    padding: 0 9px;
-    align-items: center;
-    /* 两格同宽：一个变量管等级与上限两边（2026-11-04 用户：「上限和当前的数字背景框
-     * 宽度保持一致」）。一行里两格一样大，`11 / 20` 才读成「同一种格子里的两个数」。 */
-    --slot-w: 52px;
-}
-.training-list .training-row + .training-row {
-    margin-top: 0;
-}
-/* 名字吃掉剩下的宽度，等级与上限就贴到右缘、五行成列——与卡片上
- * 「名目在左、数值在右」是同一个读法。 */
-.name-text {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    color: var(--ink);
-    font-size: var(--fs-sm);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-/* **两格同宽**，宽度由行上的 `--slot-w` 给。同宽之后对齐只剩一个选择：**两格都居中**。
+/* **两格同宽**，交给两侧同值。同宽之后对齐只剩一个选择：**两格都居中**。
  * 原来等级右对齐、上限左对齐，是为了让两个数都贴住斜杠；宽度一样时再这么做，
  * 上限右边会空出半格没字的槽——那看起来像「这一格没填」。居中时空白对称地落在数字
- * 两侧，斜杠仍是那道分界。 */
+ * 两侧，斜杠仍是那道分界。
+ *
+ * 宽度原先由行上的 `--slot-w: 52px` 给（不乘字号档）；2026-11-04 四页统一时改成
+ * 直接写 52 × 字号档，与卡上那枚签同一个算法——同一个数在两处不该一处跟字号一处不跟。 */
 .lv-field,
 .cap-field {
     flex: none;
-    width: var(--slot-w);
+    /* 52 × 24：与卡上那枚 `11/20` 的签逐值相同。卡上一行 42 装 24 的签，
+     * 编辑页一行也是 42，两边填的时候手指落在同一个位置（26 → 24 是 2026-11-04
+     * 跟着签一起收的：签矮了格不跟着矮，核对时同一项在卡上与这里会差半毫米）。 */
+    width: calc(52px * var(--fs-scale));
+    height: calc(24px * var(--fs-scale));
     padding: 0 6px;
+    /* 字号也跟卡上那枚签走（15.5）：卡上 `11/20` 里 11 是 15.5、`/20` 是 10，
+     * 编辑页若还按 `.field` 的 12，填完核对时同一项在两处大小不同。
+     * 上限那一格下面单独压回 `--fs-xs`，与卡上「分母小一档」同一条。 */
+    font-size: calc(var(--fs-md) + 1px);
     text-align: center;
 }
 /* 上限字小一档、色退一档（`--ink-2`）：它是一道分母，而读数是左边那个。

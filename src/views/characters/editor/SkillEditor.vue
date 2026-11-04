@@ -91,8 +91,8 @@ function capOf(row: SkillRowData): number {
 
 /* 名字与等级格的关联：`<label for>` + 输入格的 `id`。
  *
- * 为什么不给整行包 `<label>`：一行里现在有三类可标记元素的前身（<button> 刻度、
- * <input> 等级），而 label 只认第一个，点名字会把焦点送给第一格刻度。
+ * 为什么不给整行包 `<label>`：一行里除了输入格还有框选区域，而 label 只认第一个
+ * 可标记元素；直接挂 `for` 就不必依赖「谁是第一个」这个前提。
  * 按**行下标**编号而不是按名字：名字理论上唯一，但用下标就不必依赖这个前提
  * （同一门派重复一项时也不会撞 id）。
  *
@@ -101,15 +101,6 @@ function capOf(row: SkillRowData): number {
 function levelId(index: number): string {
     return `school-skill-lv-${index}`;
 }
-
-/* ---------- 点刻度直接设档（2026-11-03 用户要求） ----------
- * 七行都是「二十级一档」，而填数要先把光标点进格子、全选、敲数字、再确认——
- * 只想把某一项从 0 拉到 120 时，点第六格是一步。
- *
- * 交互本身（哪一格、预览、键盘不该进）全在 `SkillTicks` 里：它抛出的是**等级**，
- * 这里只负责写回草稿。原先这段判断（`hoverTick` / `prefilled` / `tickStyle`）
- * 长在本文件，本质是「刻度怎么显示」，跟着刻度走才对——卡上没有这份逻辑，
- * 却要共用同一套视觉，写在两处迟早对不上。 */
 
 /* ---------- 名字改成下拉（2026-11-03 用户要求） ----------
  * 辅助技能的名字本来在 `game/data/skills.json` 里就是一份**固定名录**（生活 21、剧情 11），
@@ -144,11 +135,10 @@ function optionsFor(row: SkillRowData): { value: string; label: string }[] {
             </p>
             <template v-else>
                 <div class="group-head skill-head"><span class="section-mark"></span>门派技能</div>
-                <div class="paper-rows skill-rows">
+                <div class="slip-rows slip-cols">
                     <!-- 一行是 `SkillRow`（与卡上同一个组件）：`editable` 把等级换成
-                         输入格、刻度换成可点的。名字由门派带入，不在这里增删。
-                         `input-id` 给名字的 `<label for>` 用——行里现在有九个刻度按钮，
-                         整行包 `<label>` 会让焦点落到第一个按钮上，而不是等级格。 -->
+                         输入格、名字变成 `<label>`。名字由门派带入，不在这里增删。
+                         `input-id` 给名字的 `<label for>` 用。 -->
                     <SkillRow
                         v-for="(row, index) in rows"
                         :key="row.name"
@@ -160,9 +150,7 @@ function optionsFor(row: SkillRowData): { value: string; label: string }[] {
                         @update:level="row.level = $event"
                     />
                 </div>
-                <p class="hint skill-hint">
-                    名字由门派带入；点刻度直接设档，换门派会按名字保留已填的等级
-                </p>
+                <p class="hint skill-hint">名字由门派带入；换门派会按名字保留已填的等级</p>
             </template>
         </template>
 
@@ -175,16 +163,16 @@ function optionsFor(row: SkillRowData): { value: string; label: string }[] {
                - **已学 / 未学**：那一枚是给「这个号没学这一项」用的，可编辑页是**逐个录**
                  已学的技能——录进来的就是学了，没学的行直接删掉更干脆。
              两样都从数据里留着（老存档里可能有），只是这一版不再给入口，见 `SkillRow.cap`
-             与 `.assist-slip.off`：卡上遇到旧数据仍然按原样退灰。 -->
+             与 `.slip-row.off`：卡上遇到旧数据仍然按原样退灰。 -->
         <template v-else>
-            <div class="assist-slips">
-                <!-- 一项一张小票：图标 ｜ 名字 ｜ 等级 ｜ 删。票面（`.assist-slip`）与卡上
-                     那一张是同一份材质（在 `base.css`），只是这里矮 4px——里面要塞
-                     26 高的表单控件。 -->
+            <div class="slip-rows slip-cols">
+                <!-- 一项一张票：图标 ｜ 名字 ｜ 等级 ｜ 删。票面与卡上是同一份
+                     （`base.css` 的 `.slip-row`），行高也一样 42——26 高的下拉与数字格
+                     在里面上下各留 8。 -->
                 <div
                     v-for="row in visible"
                     :key="rows.indexOf(row)"
-                    class="assist-slip"
+                    class="slip-row"
                     :class="{ off: row.off }"
                 >
                     <!-- 图标跟着名字走：名字还没选时是一块空块，不留破图。
@@ -231,37 +219,39 @@ function optionsFor(row: SkillRowData): { value: string; label: string }[] {
  * 辅助技能那一页（自由列表）
  * ==================================================================== */
 /* 一行两格（2026-11-03 用户：「一行现在只展示一个辅助技能，调整为一行两个」，
- * 之后又说「中间多加点边距」，最后从四个方案里选了「小票卡两列」）。
+ * 之后又说「中间多加点边距」，最后从四个方案里选了「票面两列」）。
  *
  * 编辑区 622 宽：两列各 299（gap 12）。生活 11 项从 11 行落到 6 行，剧情的 6 项 3 行——
  * 这一页原本是弹窗里最长的一页，改成两列之后不用滚到底才看到「加一项」。
  *
- * **列距从 24 收到 12**：加了票面之后，两张票之间已经有一道「面 vs 纸」的边界，
- * 24 的空白会让 299 的票缩到 287，两组反而离得比卡上还远。票负责分隔，gap 只管呼吸。
+ * 2026-11-04 四页统一之后，两列与列距、票面与行高 42 全由 `.slip-rows.slip-cols` /
+ * `.slip-row` 给（卡上是同一套），这一页只剩「四样怎么摆」。原先这里写死的
+ * `.assist-slips`（两列 + 8/12）与 `height: 38px` 随统一删掉——那个 38 是「要塞 26 的
+ * 控件」，而 42 同样塞得下，还换来与卡上同一个行高。
  *
  * 每一格塞四样（图标 / 名字 / 等级 / 删）：名字必须**吃满剩下的宽度**，
  * `min-width: 0` 是让它能被压缩——flex 项的默认 `min-width: auto` 之下，
  * 长名字会把等级格挤出格子。
- *
- * 高度 38 覆盖 `base.css` 里票的默认几何（那里不给高度，只给材质）：这一层要塞
- * 26 高的下拉与数字格，上下各留 6。 */
-.assist-slips {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px 12px;
-}
-.assist-slips .assist-slip {
-    height: 38px;
-}
-/* 选择器带上 `.assist-slip`（而不是只写 `.name-select`）：`SelectField` 的根自己带着
+ */
+/* 选择器带上 `.slip-row`（而不是只写 `.name-select`）：`SelectField` 的根自己带着
  * `flex: 1`，两条规则特异性相同时谁生效取决于样式注入顺序——不押这个。 */
-.assist-slip .name-select {
+.slip-row .name-select {
     flex: 1;
     min-width: 0;
 }
 .lv-field {
     flex: none;
-    width: 44px;
+    /* 52 与另三页的签同值：辅助这一格原先 44，是「两列 299 里只剩这么宽」的结果；
+     * 四页统一之后同宽才对得上——同一个「等级」在四页不该两种宽度。 */
+    width: calc(52px * var(--fs-scale));
+    /* 高度原先由 `.field` 给 26，这里必须显式覆写：卡上那枚签已收到 24（2026-11-04），
+     * 而 `.field` 的 26 是「表单里与 md 按钮并排」的标准，不该为一个格子改小。
+     * 于是由这一格自己声明——同一条算式，两处来源不同。 */
+    height: calc(24px * var(--fs-scale));
+    /* 字号跟卡上那枚签走。**尺寸对了字号不对，等于没对齐**：填完抬眼核对时，
+     * 卡上 15.5、这里 12，同一行数看起来像两份记录。师门那一格在 `SkillRow` 里
+     * 已经是 15.5，这一条补的是辅助——它也走 `.slip-row`，本来就该同值。 */
+    font-size: calc(var(--fs-md) + 1px);
 }
 /* 未学那一行整行降一档：与卡内那张表同一个说法（`.school-row.off`），
  * 编辑时也要一眼看出「这行是没学的」，否则录完回头核对得逐条读。
@@ -295,36 +285,27 @@ function optionsFor(row: SkillRowData): { value: string; label: string }[] {
     font-size: var(--fs-sm);
     text-align: center;
 }
-/* 行与行之间 8px：**与卡上同一个数**（2026-11-03 同步）。上一版是 6，理由是「这里每行
- * 还多一条外框内边距」——但两页的行已经不靠外框对位，缝就该是同一个值。 */
-.skill-rows {
-    display: grid;
-    row-gap: 8px;
-}
-/* 说明与最后一条纸带之间让出 12px：纸带自己带 2px 的底影，再紧贴一行小字，
- * 读作「这张表还没结束」。 */
+/* 两列与行距都不在这一页了：`.slip-rows.slip-cols` 给两列与列距 12、`row-gap` 6，
+ * 卡上用的是同一个类。2026-11-04 之前这里有自己的 `.skill-rows`（两列 + 行距 8），
+ * 只因「弹窗里每行还多一条外框内边距」——而两页的行早就不靠外框对位了，那个 8
+ * 与卡上的 6 是同一件事的两种写法。
+ *
+ * 说明与最后一张票之间让出 12px：贴太近会读作「这张表还没结束」。 */
 .skill-hint {
     margin: 12px 0 0;
 }
-.skill-rows .paper-row + .paper-row {
-    margin-top: 0;
-}
-/* 三列 flex：印 / 名称 + 刻度 / 等级——**与卡上同一个结构、同一套尺寸**
+/* 三列 flex：图标 / 名称 / 等级格——**与卡上同一个结构、同一套尺寸**
  * （2026-11-03 用户：「同步一下师门技能编辑页的技能列表样式和角色卡片保持一致」）。
  *
- * 那一行的解剖（三列、内边距、印与数字格的尺寸）在 `SkillRow.vue`，与卡共用一份。
- * 这里只剩**这一页的行高**：卡上那七行是容器均分出来的（1.0 档 55、1.1 档 54），
- * 弹窗得自己钉住。 */
+ * 那一行的解剖在 `SkillRow.vue`，与卡共用一份。这里只剩**这一页的行高**：
+ * 两页都是 40（2026-11-04 起），弹窗要自己能确定，所以写死。 */
+/* 行高也不在这一页：`.slip-row` 的 42 与卡上同一个数（卡上不再由
+ * `grid-auto-rows` 单独给，四页都用同一个默认档）。
+ *
+ * 这里**不能再写 height**：写了就是「同一个数有两个源」，而 `.slip-row` 的 42 还带着
+ * 「块 28 + 上下各 7」那道算式，改一处忘一处会出现半截白边。 */
 .school-erow {
-    /* 55 与卡上的行高同一个数。
-     *
-     * `height` 而不是 `min-height`：印的 `--tile-h: calc(100% - …)` 要求行高**确定**，
-     * 不定的高度会让百分比解析成 `auto`，印直接缩成内容大小。名字有 `nowrap` + 省略号，
-     * 不会换行，所以也不存在「内容比 55 高」的情况。
-     *
-     * **不乘 `--fs-scale`**：跟着字号放大到 60.5 会让七行多出 44px——1.1 档实测溢出 6px，
-     * 编辑区多出一条滚动条。字印与数字格自己乘档位，行高只认「卡上那个数」。 */
-    height: 55px;
+    min-width: 0;
 }
 /* ---------- 等级格 / 上限格（辅助那一行） ----------
  *
@@ -333,9 +314,9 @@ function optionsFor(row: SkillRowData): { value: string; label: string }[] {
  * 这处用 `background-color` 长写、属性页用 `background` 简写，前者把 `.field` 的
  * 顶壁渐变留了下来——同一个数在卡上与弹窗里深浅不同，就是从这儿开始的。
  *
- * 师门那一行的等级格不归这里：它在 `SkillRow` 里（56 × 30、居中），尺寸与卡上
- * 那枚数值签同源。这两条只给辅助行——44 宽、26 高（`.field` 给的）、右对齐。
- * 44 而不是 66：票里还要塞图标（28）与下拉，三位数（`100`）在 44 里放得下。 */
+ * 师门那一行的等级格不归这里：它在 `SkillRow` 里（56 × 24、居中），尺寸与卡上
+ * 那枚数值签同源。这一条只给辅助行——52 宽 24 高（高度自己声明，`.field` 会给 26）、
+ * 右对齐。 */
 .lv-field {
     padding: 0 6px;
     text-align: right;

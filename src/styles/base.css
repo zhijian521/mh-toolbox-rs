@@ -528,102 +528,172 @@ svg {
     gap: 10px;
 }
 
-/* ---------- 纸带行：凸起的色带表格 ----------
- * 一条 `.paper-row` = 一条凸起的纸带：标签在左、数值在右，行间 2px 露纸。
- * 角色卡的属性/技能/召唤兽行与编辑弹窗的属性行是**同一种器件**，2026-11-02 从
- * `character-card.css` 的 `.ledger > div` 提上来——两处各写一份时，亮暗两档棱色、
- * 交替色、缝宽已经开始各自漂移，弹窗那张表因此读起来「像另一个界面」。
+/* ---------- 票面行：凹下去的一枚票 ----------
+ * 一条 `.slip-row` = 一张比纸深一档的票：左端可放一枚压印块、中间名目、右端读数签。
+ * 角色卡的属性 / 师门 / 辅助 / 修炼与三个编辑页共用这一种器件（2026-11-04 四页统一）。
  *
- * 厚度是**缝给的**，不是棱给的：两块都凸时上块的下暗棱朝下、下块的上亮棱朝上，
- * 贴住就是「暗棱压亮棱」，厚度互相抵消，整页退回一条平色带（做过无缝反例）。
- * 1px 也不够，两块会粘成「色带 + 一条暗线」；2px 是这套 26px 行高的下限。
+ * ## 为什么是「凹」，而且是跟着辅助走
  *
- * 色带画在 `::before` 上，行只负责排版，伪元素承担色带与四道棱，两件事互不牵连。
- * `inset: 0`：色带铺满整列，**不两端内收**——内收与「字在带内」不可兼得，文字
- * 没跟着收时右端数字的右缘会露在带外（2026-11-02 按截图实测超 7px）。留白交给
- * 行的左右内边距 10；10 不是凑的，组头是「竖条 4 + gap 6」，带内文字正好与组头
- * 文字落在同一条竖线上。
+ * 四页里只有辅助早就长成了一行一项（图 ｜ 名 ｜ 数），另三页是 2026-11-03 到 04
+ * 才把多余的东西撤掉的（师门撤九格刻度、修炼撤进度条、属性这次并进来）。要统一，
+ * 只有一条路：让另三页跟辅助那张票，而不是把票拆回纸带。票把每一项从纸上择出来——
+ * 九行并排时读得出「这是两个技能」的断点，凸纸带并排读起来是一条连续的表格线。
+ *
+ * ## 两档，差的不只是高度
+ *
+ * 默认（md）**42**：装一块 28 见方的压印块，块上下各留 7——票要托得住块才像票。
+ * `.sm` **28**：没有图标、一行只有一个数，票随内容一起收小。**落影也只留一层**：
+ * sm 的行距只有 4，4px 里放不下 4px 的软影（会被下一张票整块盖住，只剩一圈被裁的
+ * 灰边），浮起感交给四道棱。28 不是挑的，是「属性页 11 行装进 493 版心」算出来的
+ * （算式见 CONVENTIONS §2.4-43）。
+ *
+ * ## 尺寸与间距都跟着档走
+ *
+ * 读数签的 `--tag-w` / `--tag-h` 定在行上（`NumTag` 读这两个变量），四页不必各写一遍
+ * ——原先辅助 40×24、师门与修炼 56×26、属性 52 定宽，同一个「读数」四种尺寸。
+ * 行距由 `.slip-rows` 给（md 6、sm 4）：票有圆角，6px 才让相邻两张分得开；
+ * sm 那头是「一叠纸」的排法，要贴得比 md 紧，但 2px 太贴——实测属性页排完底下还空
+ * 58（1.0 档）/ 52（1.1 档），把缝放到 4 只吃掉 16（四行与六行那两组各多三道五道），
+ * 仍有余量（2026-11-04 用户：「属性下面还有点空白，间距可以稍微大一点」）。
+ *
+ * 面用 `--well` 掺 `--paper-2`（34%）而不是纯 `--paper-2`：与纸同色的话只剩四道棱，
+ * 读作「这一格画得比较淡」；深一档才读作「纸上压着一张东西」。
  */
-.paper-rows {
+.slip-rows {
     display: grid;
-    /* 棱色两个主题各一档：暗色下 `--bevel-hi` 只有 18% 白，压在深纸上读不出，
-     * 只剩「下暗」，凸起会反过来读成嵌进纸里的黑框。
+    row-gap: 6px;
+}
+.slip-rows.sm {
+    row-gap: 4px;
+}
+/* 两列平铺：师门七项、辅助每组。列数不写死在器件里——修炼与属性是「组间两列、
+ * 组内单列」，三种排法共用同一套行，各自的列数归各自的容器。 */
+.slip-cols {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 12px;
+}
+.slip-row {
+    /* 两个棱色自己定：`--bevel-hi` 在暗色只有 18% 白，压在深纸上读不出，只剩「下暗」，
+     * 凹会反过来读成一块深色贴片。
      *
-     * 暗色这两档原先写的是 `#ffffff52` / `#0000006b`——两个裸 hex，正是 §2.4-1 禁的那种
-     * 「把锚点抄了第二份」。改成从令牌派生：
-     *   亮面 = 32% 纯白 ≈ 34% 的 `--paper-base`。为什么不是 32%：`--paper-base` 是纸白
-     *          #f8f3e6，相对亮度只有纯白的 90%，同 alpha 下会暗半档（那道 1px 亮棱会从
-     *          「受光」掉成「没那么受光」）；补到 34% 之后两者**等亮度**
-     *          （压在同色的 `--paper-2` 上，相对亮度 0.1366 对 0.1362），只是略微偏暖
-     *          ——亮色档的 `--bevel-hi`（#fffaecd0）本来就是暖白，两档反而更一致了。
-     *   暗面 = `--ink-base` 42%：`--ink-base` 就是 #000000，与原来的 `#0000006b` 逐值相等。
-     * 两处都走 `color-mix(…, transparent)`：混透明得到的就是同一个色降 alpha，
-     * 不引入任何新色号。 */
-    --hi-ridge: light-dark(var(--bevel-hi), color-mix(in srgb, var(--paper-base) 34%, transparent));
-    --lo-ridge: light-dark(var(--bevel-lo), color-mix(in srgb, var(--ink-base) 42%, transparent));
-}
-.paper-row {
-    position: relative;
-    isolation: isolate;
+     * 34% 而不是 32%：`--paper-base` 的相对亮度只有纯白的 90%，同 alpha 下会暗半档，
+     * 补到 34% 才与亮色档的 `--bevel-hi` 等亮度（压在同色的 `--paper-2` 上，
+     * 相对亮度 0.1366 对 0.1362），只是略微偏暖。 */
+    --slip-hi: light-dark(var(--bevel-hi), color-mix(in srgb, var(--paper-base) 34%, transparent));
+    --slip-lo: light-dark(var(--bevel-lo), color-mix(in srgb, var(--ink-base) 42%, transparent));
+    --tag-w: calc(56px * var(--fs-scale));
+    /* 26 → 24（2026-11-04 用户：「数字下面的背景框现在高度有点大，都稍微减小一点」）。
+     * 票 42 没动：矮下来的 2px 全给了签上下的留白，读起来才像「票托着一枚签」而不是
+     * 「一枚签把票撑满了」。字号 15.5 在 24 里上下各余 4.25，仍居中。 */
+    --tag-h: calc(24px * var(--fs-scale));
+
     display: flex;
-    align-items: baseline;
-    gap: 5px;
+    align-items: center;
+    gap: 7px;
     min-width: 0;
-    padding: 5px 10px;
-    font-size: var(--fs-sm);
-    /* 字**不压浮雕**（2026-11-02 用户：「不要浮雕了，感觉有点眨眼」）。原先上下各一道：
-     * `0 -1px 0 #fff` 抬笔画上沿、`0 1px 1px #0000005c` 抹下沿，在 12px 楷体上等于
-     * 给每一笔描了一圈亮边 + 灰边——小字号里最刺眼的就是这个，而且纸带本身已经凸了，
-     * 字再浮一层是「两层立体打架」。现在只留一道 1px、不到一成黑的贴纸影：
-     * 墨压在纸上的一点交代，笔画本身不描边。暗色底深、影无意义，直接撤掉。 */
-    text-shadow: 0 1px 0
-        light-dark(color-mix(in srgb, var(--ink-base) 8%, transparent), transparent);
-}
-.paper-row + .paper-row {
-    margin-top: 2px;
-}
-/* 色带与四道棱：上/左 1px 亮，下 2px、右 1px 暗，底下 1px 影——光向恒左上。 */
-.paper-row::before {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    inset: 0;
-    background: var(--paper-2);
+    height: 42px;
+    padding: 0 8px;
+    border-radius: var(--r-3);
+    background: color-mix(in srgb, var(--well) 34%, var(--paper-2));
     box-shadow:
-        inset 1px 0 0 var(--hi-ridge),
-        inset 0 1px 0 var(--hi-ridge),
-        inset -1px 0 0 var(--lo-ridge),
-        inset 0 -2px 0 var(--lo-ridge),
+        inset 1px 1px 0 var(--slip-hi),
+        inset -1px -1px 0 var(--slip-lo),
+        0 2px 4px -1px var(--shadow-lg);
+}
+/* 小一号：属性页。高度、签、圆角、影一起收——票小一圈而影仍按原尺寸落，会显得脏。
+ * 签同步 20 → 18，理由同 md（票 28 不动，让出来的还是上下留白）：18 里放 12 号的数，
+ * 上下各余 3，与 md 那档「留白约字号的四分之一」是同一个比例。 */
+.slip-row.sm {
+    --tag-w: calc(52px * var(--fs-scale));
+    --tag-h: calc(18px * var(--fs-scale));
+    height: 28px;
+    border-radius: var(--r-2);
+    box-shadow:
+        inset 1px 1px 0 var(--slip-hi),
+        inset -1px -1px 0 var(--slip-lo),
         0 1px 2px var(--shadow);
 }
-/* 偶数行的带色**不能直接用 `--paper`**——那就是卡片本身的纸色，带子与卡底同色，
- * 只剩上下两道棱，读起来是「这行没有纸带」、字浮在外面（2026-11-02 用户截图）。
- * 往 `--paper-2` 里掺一半，两行都看得出带子、奇偶又还分得开，暗色下自动跟着翻。 */
-.paper-row:nth-child(even)::before {
-    background: color-mix(in srgb, var(--paper-2) 55%, var(--paper));
+/* 名目：吃满中间，12px、`--ink-2`。四页同一个层级——名目比读数淡、比读数小一档。
+ * 师门与修炼原先用正墨（`--ink`），这次一并退到 `--ink-2`：一行里「数」才是要读的，
+ * 而且四页并排翻的时候，同一种东西不该一处深一处浅。 */
+.slip-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ink-2);
+    font-size: calc(12px * var(--fs-scale));
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
-/* 通栏组：卡片与编辑弹窗都有这么一组——只有两项的「潜能」（乾元丹 / 潜能果）。
- * 它跨满两列、内部再切成两格并排，读作一笔小计；只占左半格时右边空出半行，
- * 会被读成「另一项漏填了」。
+/* 票里挖出来的那一格（读数签、编辑页的数字格）要比票**再深一档**。
  *
- * 两处的列距不同（卡 26 / 面板 20），所以由容器给 `--pair-gap`，这条只读它。 */
+ * 不能沿用纸面上那套 `.num-slot`（45% 的 `--well`）：票面自己就是
+ * `well 34% + paper-2`，那 45% 叠上去只差 2%——量过，`rgb(0.922…)` 对 `rgb(0.934…)`，
+ * 凹槽在凹票里读不出来，只剩一圈若有若无的影。掺 `--bevel-lo` 才两边都对：
+ * 它亮色是 12% 黑、暗色是 55% 黑，**两个主题都往更暗走**，不会在暗色里反过来变亮。
+ *
+ * 特异性 0-2-0：压得过 `.num-slot`（0-1-0），压不过 `.field.num-slot:focus`（0-3-0）
+ * ——聚焦时仍是实槽，那条不用改。 */
+.slip-row .num-slot {
+    background: color-mix(in srgb, var(--bevel-lo) 50%, var(--paper-2));
+}
+/* 读数：赭色。字色写在 `.lv` 上而不是签的根上——`NumTag` 的根把字色定成墨（那是它
+ * 作为通用器件的默认），而这一格要的是「读数赭」；根上的色只管「满」那个字。 */
+.slip-val .lv {
+    color: var(--num);
+    font-size: calc(var(--fs-md) + 1px);
+    line-height: 1;
+}
+.slip-row.sm .slip-val .lv {
+    font-size: var(--fs-sm);
+}
+/* 分母（修炼的 `/20`）：淡一档、小一档——它是这一项的上限，不是这一项的成绩。
+ * 同色同号会让「20/20」读成两个并列的数。 */
+.slip-val .lv i {
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    font-style: normal;
+}
+
+/* ---------- 三种状态，各管一件事 ----------
+ * `full` 满级、`idle` 0 级（学了但一级没练）、`off` 未学（只有旧数据会有）。
+ * `idle` 与 `off` 都要退后，退的程度也一样：不能让「练了一半」跟它们混在一起。
+ *
+ * 满级**只动字不动图**：深底金纹压在朱面上会变成一块脏斑（样张对照过），而「满了
+ * 没有」由朱色的数与那个「满」说清。 */
+.slip-row.full .slip-val .lv,
+.slip-row.full .slip-note {
+    color: var(--cinnabar);
+}
+.slip-row.idle .slip-name,
+.slip-row.off .slip-name,
+.slip-row.idle .slip-val .lv {
+    color: var(--muted);
+}
+/* 图不是字，压不了 `color`——整枚降不透明度。 */
+.slip-row.idle .icon-tile,
+.slip-row.off .icon-tile {
+    opacity: 0.55;
+}
+/* 未学那一档连签一起淡：签的材质与棱是固定的，只压字色盖不住，整枚淡才读作
+ * 「这一枚还没落账」。0 级**不淡签**——「0」是一个事实，不是缺失。 */
+.slip-row.off .slip-val {
+    opacity: 0.55;
+}
+
+/* 通栏组：属性「潜能」——只有两项，跨满两列、内部再切两格并排，读作一笔小计。
+ * 只占左半格时右边空出半行，会被读成「另一项漏填了」。
+ *
+ * 两处的列距不同（卡 26 / 面板 20），所以由容器给 `--pair-gap`，这条只读它；
+ * 行距归零——同一行的两格该齐头齐尾。 */
 .attr-group.wide {
     grid-column: 1 / -1;
 }
-.attr-group.wide .paper-rows {
+.attr-group.wide .slip-rows {
     grid-template-columns: 1fr 1fr;
     column-gap: var(--pair-gap, 26px);
-}
-/* 并排之后要拆掉两件「上下相邻」的约定：
- * 1. `.paper-row + .paper-row` 的 2px 上缝——同一行的第二格会被它往下推 2px，
- *    两块纸带的底棱错开，一眼就是「右边那个歪了」；
- * 2. 偶数行的浅色——同一行的两格该同色，第二格单独变浅读起来像「这格没填」。
- *    两格都回到 `--paper-2`（奇数行的颜色）。 */
-.attr-group.wide .paper-row + .paper-row {
-    margin-top: 0;
-}
-.attr-group.wide .paper-row:nth-child(even)::before {
-    background: var(--paper-2);
+    row-gap: 0;
 }
 /* 引线：把「名目」与「数值」连起来的那串点。属性行、技能行、召唤兽行共用一份。
  *
@@ -797,91 +867,6 @@ svg {
         inset 0 1px 3px var(--bevel-lo),
         inset 0 -1px 0 var(--bevel-hi);
     caret-color: var(--cinnabar);
-}
-
-/* ======================================================================
- * 小票
- * ==================================================================== */
-/* 辅助技能的**一项**：一张比纸深一档的小块，上/左一道亮棱、下/右一道暗棱、
- * 4px 圆角、一层落影。卡上与编辑页两处用，所以材质收在这里，几何（高度）由使用方给
- * ——卡上 42（一行一项，装得下 6 行）、编辑页 38（里面要塞 26 高的表单控件）。
- *
- * ## 为什么起一块面
- *
- * 这十七项原先排成六列网格：没有底、没有边，靠 `gap` 分开。那在一片 48 的图标上还行，
- * 换成「一行一项」之后，一列名字一列数字紧挨着排九行，读起来是一条连续的表格线，
- * 找不到「这是两个技能」的断点。票面把每一项从纸上择出来。
- *
- * 面用 `--well` 掺 `--paper-2`（34%）而不是纯 `--paper-2`：与纸同色的话只剩四道棱，
- * 读作「这一格画得比较淡」；深一档才读作「纸上压着一张东西」。
- *
- * ## 两个棱色为什么自己定
- *
- * `.paper-rows` 上那对 `--hi-ridge` / `--lo-ridge` 借不到（那个类只挂在纸带列表上），
- * 而 `--bevel-hi` 在暗色只有 18% 白——压在深纸上读不出，只剩「下暗」，凸起会反过来
- * 读成嵌进纸里的黑框。取值与 `.paper-rows` 逐字一致，理由也一样（含「34% 而不是 32%」
- * 那笔等亮度换算，见那边注释）。
- */
-.assist-slip {
-    --slip-hi: light-dark(var(--bevel-hi), color-mix(in srgb, var(--paper-base) 34%, transparent));
-    --slip-lo: light-dark(var(--bevel-lo), color-mix(in srgb, var(--ink-base) 42%, transparent));
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    min-width: 0;
-    padding: 0 8px;
-    border-radius: 4px;
-    background: color-mix(in srgb, var(--well) 34%, var(--paper-2));
-    box-shadow:
-        inset 1px 1px 0 var(--slip-hi),
-        inset -1px -1px 0 var(--slip-lo),
-        0 2px 4px -1px var(--shadow-lg);
-}
-/* 票里的三样：名字（吃满中间）、数值签（贴右端）、以及「未学」那一档退灰。
- *
- * 名字 12px、色 `--ink-2`：名目比读数淡、比读数小一档，与属性页那一行同一个层级关系。
- * 12px 而不是之前的 10px——那时它挂在图标下面、只有 30 宽；现在它有 100 宽，
- * 四字名（「丹元济会」47）不必再截。
- *
- * 签 40 × 24，与师门那枚（56 × 30）同族但窄一号：那边放三位数加一个「满」字，
- * 这里只放两三位数。颜色写在 slot 的 `.lv` 上、不写在签的根上——`NumTag` 的根把字色
- * 定成墨（那是它作为通用器件的默认），根上的色还管着「满」那个字。
- */
-.assist-name {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    color: var(--ink-2);
-    font-size: calc(12px * var(--fs-scale));
-    line-height: 1.2;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.assist-val {
-    --tag-w: calc(40px * var(--fs-scale));
-    --tag-h: calc(24px * var(--fs-scale));
-}
-.assist-val .lv {
-    color: var(--num);
-    font-size: calc(var(--fs-sm) + 1px);
-    line-height: 1.2;
-}
-.assist-val.max .lv {
-    color: var(--cinnabar);
-}
-/* 未学：整票压一档，但仍占位（少一项会让人以为漏记了）。压块与字，不换票面颜色——
- * 换色会让「未学」与「另一种技能」混起来。 */
-.assist-slip.off .assist-icon {
-    opacity: 0.45;
-}
-.assist-slip.off .assist-name,
-.assist-slip.off .assist-val .lv {
-    color: var(--muted);
-    opacity: 0.7;
-}
-/* 签的材质与棱是固定的，只压字色盖不住——整枚一起淡，才读作「这一枚还没落账」。 */
-.assist-slip.off .assist-val {
-    opacity: 0.55;
 }
 
 /* 编辑器里的一行：一行数据 = 几个格子 + 一枚删。行距 5 是「同一组内的行」，

@@ -6,10 +6,10 @@ import SlotButton from '../../components/SlotButton.vue';
 import { askConfirm } from '../../composables/use-confirm';
 import { notify } from '../../composables/use-notify';
 import { useDevMode } from '../../composables/use-dev-mode';
-import AssistSlipSection from './AssistSlipSection.vue';
 import AtomsSection from './AtomsSection.vue';
 import IconsSection from './IconsSection.vue';
 import PaletteSection from './PaletteSection.vue';
+import SlipRowSection from './SlipRowSection.vue';
 import TypeScaleSection from './TypeScaleSection.vue';
 import { DEMO_COUNTS, importDemoData } from './demo-data';
 
@@ -27,7 +27,7 @@ import { DEMO_COUNTS, importDemoData } from './demo-data';
  * 这一页本身也只做一件事：按顺序把卡片排起来（说明 + 开关 + 演示卡）。加一张卡就是加一行——
  * 与 `SettingsView` 同一个写法，因为它们本来是同一种页面（一叠 `.frame` 卡）。
  *
- * 演示卡**按「原子 → 组合」的顺序**排：`AtomsSection` 收全局小件，`AssistSlipSection`
+ * 演示卡**按「原子 → 组合」的顺序**排：`AtomsSection` 收全局小件，`SlipRowSection`
  * 收由它们拼成、带业务语义的行；色板、字号、图标各一张。新件先问清楚「它是原子、
  * 组合，还是资源清单」——不然半年后没人说得清哪个该去哪儿。
  *
@@ -111,7 +111,7 @@ async function importDemo() {
             </div>
 
             <AtomsSection />
-            <AssistSlipSection />
+            <SlipRowSection />
 
             <!-- 色板与字号也是矮卡。组件演示与图标那几张高度差得远，不并——
                  并排会把短的那张拉出大片空白。 -->

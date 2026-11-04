@@ -1,3 +1,4 @@
+import schoolIconsFile from '../../public/game/data/school-icons.json';
 import schoolsFile from '../../public/game/data/schools.json';
 import skillsFile from '../../public/game/data/skills.json';
 import { installGameData, type GameData } from './game-data';
@@ -14,16 +15,17 @@ import { installGameData, type GameData } from './game-data';
  * 换目录时按 IDE 的全局替换也许能改全，但**下一次换目录的人不会知道**有六处。
  * 这个文件被 import 的瞬间就把缓存填好，测试文件只需要一行副作用导入。
  *
- * 断言仍然读**真文件**：这些测试要证明的正是「仓库里那两张表对」，喂一份手搓的
+ * 断言仍然读**真文件**：这些测试要证明的正是「仓库里那几张表对」，喂一份手搓的
  * 假清单只能证明假的对。
  */
 const json = {
     schools: schoolsFile,
     skills: skillsFile,
+    schoolIcons: schoolIconsFile,
 };
 
 export function seedGameData(): GameData {
-    return installGameData(json.schools, json.skills);
+    return installGameData(json.schools, json.skills, json.schoolIcons);
 }
 
 /* 副作用：import 即就绪。刻意不放在 `beforeAll` 里——测试文件顶层的 `describe` 会

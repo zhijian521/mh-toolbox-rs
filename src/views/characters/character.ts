@@ -47,13 +47,6 @@ export type PaneKey = (typeof PANES)[number]['key'];
 export interface AttrRow {
     label: string;
     value: string;
-    /**
-     * 这个角色吃饭的那一项（物理系看伤害、辅助系看防御），用朱色标出来。
-     *
-     * 表单**不再编辑它**（2026-11-02 删掉了「标出」开关）：标朱是数据里的既定事实，
-     * 由种子或将来的导入给，不由录入时临时勾。
-     */
-    strong?: boolean;
 }
 
 export interface AttrGroup {
@@ -171,53 +164,6 @@ export function isMaxed(row: Pick<SkillRow, 'level' | 'cap'>): boolean {
     return row.cap !== undefined && row.level >= row.cap;
 }
 
-/** 一格代表多少级。门派技能上限 180，就是九格；属性面板上也是「二十级一档」的说法。 */
-const TICK_STEP = 20;
-
-/**
- * 这条刻度有几格。上限 180 → 九格；上限 100 → 五格。
- *
- * 格数按上限除，而不是固定九格：上限除了门派技能的 180，还有老数据的 120、
- * 辅助技能手填的 100/35。固定九格时 100 级的上限每格代表 11.1 级，读不出
- * 「一格二十级」这件事，也就没法数格子。
- *
- * `cap` 缺席（不知道上限）返回 0——调用方据此不画条：没有分母的百分比是编出来的。
- */
-export function tickCount(cap?: number): number {
-    if (!cap || cap <= 0) return 0;
-    return Math.max(1, Math.round(cap / TICK_STEP));
-}
-
-/**
- * 第 `index` 格（0 起）对应的等级：点第 N 格就是「前 N 格全满」。
- *
- * 与 `skillTicks` 共用同一个格数，两边才不会错位。写的不是 `(index + 1) * 20`
- * 而是「按格数反算」：上限 120 时一格 30 级，点第三格是 90 而不是 60——
- * 刻度上画出的格与点下去得到的值必须是同一套算术。
- */
-export function tickLevel(index: number, cap?: number): number {
-    const cells = tickCount(cap);
-    if (!cells || !cap) return 0;
-    return Math.round(((index + 1) * cap) / cells);
-}
-
-/**
- * 把「练到几级」摊成一条刻度，返回**每格自己的填充百分比**（0–100）。
- *
- * 卡上与编辑弹窗共用它：同一个 120，在卡上是六格满，在弹窗里也必须是六格满——
- * 两处各算一次，迟早会出现「存完回卡上短了一截」而这种差异没人查得出来。
- *
- * `cap` 缺席（不知道上限）返回空数组——调用方据此不画条。
- */
-export function skillTicks(level: number, cap?: number): number[] {
-    const cells = tickCount(cap);
-    if (!cells || !cap) return [];
-    const step = cap / cells;
-    return Array.from({ length: cells }, (_, index) =>
-        Math.max(0, Math.min(100, ((level - index * step) / step) * 100)),
-    );
-}
-
 /**
  * 辅助技能分两类，**必须分开记**（用户 2026-11-02 要求合在一起显示，但语义不同）：
  *
@@ -276,7 +222,7 @@ export interface TrainingGroup {
  * **上限不写死**（2026-11-04 用户：「修炼上限 也可以修改」）。游戏基线是 20（育兽术 35），
  * 但帮派与「修炼上限提升」会把它推高，同一个「攻击修炼」在这个号是 20、在那个号是 25。
  * 所以下面每个 `cap` 都只是**默认值**：存档里存了正数就按存档，没存过才落回这里。
- * 判满级（`isMaxed`）、画进度条（`rowPercent`）读的都是行上的 cap，不是这张常量表。
+ * 判满级（`isMaxed`）读的是行上的 cap，不是这张常量表。
  */
 export const TRAINING_GROUPS = [
     {

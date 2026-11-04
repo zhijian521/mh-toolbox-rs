@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gameData, lifeSkills, storySkills } from './game-data';
 import './game-data.fixture';
-import { assistIcon, lifeSkillIcon, storySkillIcon } from './game-icons';
+import { assistIcon, lifeSkillIcon, schoolSkillIcon, storySkillIcon } from './game-icons';
 
 /**
  * 装备特技（`icons.json` 的 `active` 组，69 项）的名字表。
@@ -230,5 +230,18 @@ describe('名字 → 图标路径', () => {
         // 两类各查各的表：生活技能名去剧情表里查不到。
         expect(assistIcon('强身术', 'story')).toBeUndefined();
         expect(assistIcon('调息', 'life')).toBeUndefined();
+    });
+
+    it('门派技能按名字查清单里的 id，不按下标推', () => {
+        // 这两个连序号都反着：为官之道是 `-5`、十方无敌是 `-1`（`schools.json` 里
+        // 为官之道排在第一位）。按下标推会得到另一项技能的图，而且不报错。
+        expect(schoolSkillIcon('为官之道')).toBe(`${base}game/icons/school-skill-datang-5.webp`);
+        expect(schoolSkillIcon('十方无敌')).toBe(`${base}game/icons/school-skill-datang-1.webp`);
+        expect(schoolSkillIcon('渡世步')).toBe(`${base}game/icons/school-skill-huashengsi-7.webp`);
+    });
+
+    it('门派技能查不到时也给 undefined（卡上那时退回字印）', () => {
+        expect(schoolSkillIcon('我瞎写的技能')).toBeUndefined();
+        expect(schoolSkillIcon('强身术')).toBeUndefined();
     });
 });

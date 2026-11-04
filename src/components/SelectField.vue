@@ -339,7 +339,8 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
 
 /* 纸片：与装备 / 召唤兽浮片同一枚影子、同一条账线。
  * `top: calc(100% + 4px)` 而不是贴住：贴住时触发条的下暗棱与纸片的上亮棱相撞，
- * 两层纸读成一块（纸带行间那 2px 缝要的是同一个道理，只是这里要留一条缝的距离）。 */
+ * 两层纸读成一块（相邻两张票之间那道缝要的是同一个道理——`sm` 4 / `md` 6，
+ * 上下两笔棱贴住会互相抵消，所以这里也留一条缝的距离）。 */
 .select-list {
     position: absolute;
     z-index: 20;

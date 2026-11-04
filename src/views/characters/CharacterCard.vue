@@ -90,14 +90,6 @@ const expPercentValue = computed(() =>
  * 两者都是 `character.ts` 里的纯函数，编辑弹窗画刻度时用的是同一份——
  * 同一个 120 在卡上与在弹窗里必须都是六格，各算一次迟早会出现「存完短了一截」。 */
 
-/* 百分比一律钳在 0–100：等级是手填的，写超上限（25/20）时条会伸到格子外面
- * （实测 125% → 340px，压过 272px 的槽）。数字照原样显示 25/20——那是事实，
- * 只是条不该跟着溢出。 */
-function rowPercent(level: number, cap: number): number {
-    if (!cap) return 0;
-    return Math.max(0, Math.min(100, Math.round((level / cap) * 100)));
-}
-
 /* 生活与剧情分两段，各自一张格子图。空的那一类不出现——
  * 一个只有生活技能的角色，不该看到一行「剧情技能」然后底下什么都没有。 */
 const assistGroups = computed(() =>
@@ -173,19 +165,26 @@ const expText = computed(() => {
                         <div class="group-head">
                             <span class="section-mark"></span>{{ group.title }}
                         </div>
-                        <dl class="ledger paper-rows">
-                            <div v-for="row in group.rows" :key="row.label" class="paper-row">
-                                <dt>{{ row.label }}<span class="leader"></span></dt>
-                                <!-- 空值画一个淡「—」，不画一片空白：一行里只有引导线和
-                                     一个空档时，「没填」读起来像「值恰好很短」。
-                                     读数外面那层淡槽与编辑页的数字格同一份材质
-                                     （`base.css` 的 `.num-slot`）：卡与弹窗用的是同一张表，
-                                     一边有格一边裸字，对照着改数时会找不到位置。 -->
-                                <dd
-                                    class="num num-slot"
-                                    :class="{ strong: row.strong, blank: !row.value }"
-                                >
-                                    {{ row.value || '—' }}
+                        <!-- 一行一张**小一号**的票：名目在左、读数在右，28 高。
+                             属性这一页要塞 20 项、排成 11 个视觉行（资源 4 / 名望 3 /
+                             战斗 6 / 加点 5 / 潜能通栏 1），只有 28 装得进 493 的版心
+                             ——42 的票会让这一页溢出 100 多（算式见 CONVENTIONS §2.4-43）。
+                             不再画引导点线：票里名目吃满中间、签贴右缘，两端本来就对齐，
+                             那串点只在这张 192 宽的列里剩十来颗。
+                             空值画一个淡「—」：一行里只有一个空档时，「没填」读起来像
+                             「值恰好很短」。 -->
+                        <dl class="slip-rows sm">
+                            <div
+                                v-for="row in group.rows"
+                                :key="row.label"
+                                class="slip-row sm"
+                                :class="{ blank: !row.value }"
+                            >
+                                <dt class="slip-name">{{ row.label }}</dt>
+                                <dd class="attr-val">
+                                    <NumTag class="slip-val">
+                                        <span class="lv">{{ row.value || '—' }}</span>
+                                    </NumTag>
                                 </dd>
                             </div>
                         </dl>
@@ -208,9 +207,8 @@ const expText = computed(() => {
                 role="tabpanel"
                 :aria-labelledby="`${character.id}-tab-skills`"
             >
-                <!-- 七项门派技能，一条带子一项（`.paper-rows` / `.paper-row` 来自 `base.css`，
-                     与属性页、召唤兽页同一种器件）。行里只有三样东西：
-                     **字印（首字）+ 名称 + 大号等级**，进度交给名称底下的那排刻度。
+                <!-- 七项门派技能，一项一张票（`.slip-row` 来自 `base.css`，四页同一件器件）。
+                     行里只有三样东西：**图标 + 名称 + 等级签**。
 
                      ---- 为什么是刻度而不是一条连续的条 ----
                      这一页要回答的是「练到哪了」。连续条的答案是个长度差，得心算；
@@ -227,7 +225,7 @@ const expText = computed(() => {
                 <div v-if="character.skills.length" class="group-head school-head">
                     <span class="section-mark"></span>门派技能
                 </div>
-                <div v-if="character.skills.length" class="school-list paper-rows">
+                <div v-if="character.skills.length" class="slip-rows slip-cols">
                     <!-- 一行是 `SkillRow`：字印 / 名称 + 九格刻度 / 等级签。
                          卡上只读、弹窗里可编辑，两处共用同一份解剖与同一组尺寸
                          （行内边距、印的大小、数字格的厚薄都在那个组件里量过一次）。 -->
@@ -256,23 +254,22 @@ const expText = computed(() => {
                         <div class="group-head">
                             <span class="section-mark"></span>{{ group.title }}
                         </div>
-                        <div class="assist-slips">
-                            <!-- 一项一张小票：图标 ｜ 名字 ｜ 数值签，一行读完。
-                                 票面材质在 `base.css` 的 `.assist-slip` 一族（卡与编辑页共用），
-                                 这一页只给两列网格与票高（42）；图标的块与蒙版在
-                                 `AssistIcon.vue`（编辑页用的是同一件）。 -->
+                        <div class="slip-rows slip-cols">
+                            <!-- 一项一张票：图标 ｜ 名字 ｜ 数值签，一行读完。
+                                 票面在 `base.css` 的 `.slip-row`（四页共用一份），这一页
+                                 只给两列网格；图标的块与蒙版在 `AssistIcon.vue`。 -->
                             <div
                                 v-for="row in group.rows"
                                 :key="`${row.kind}-${row.name}`"
-                                class="assist-slip"
-                                :class="{ off: row.off }"
+                                class="slip-row"
+                                :class="{ off: row.off, full: isMaxed(row) }"
                                 :title="`${row.name} ${row.level}${row.cap ? `/${row.cap}` : ''}`"
                             >
                                 <AssistIcon :name="row.name" :kind="row.kind" />
-                                <span class="assist-name">{{ row.name }}</span>
-                                <!-- 等级包进一枚**数值签**（`NumTag`，与师门那一列同一个器件）：
-                                     名目在左、读数在右，与师门那一行同一个读法。 -->
-                                <NumTag class="assist-val" :class="{ max: isMaxed(row) }">
+                                <span class="slip-name">{{ row.name }}</span>
+                                <!-- 等级包进一枚数值签（`NumTag`）：名目在左、读数在右，
+                                     与师门、修炼、属性三页同一个读法。 -->
+                                <NumTag class="slip-val">
                                     <span class="lv">{{ row.level }}</span>
                                 </NumTag>
                             </div>
@@ -293,26 +290,28 @@ const expText = computed(() => {
                 :aria-labelledby="`${character.id}-tab-training`"
             >
                 <div class="training-groups">
-                    <div v-for="group in character.trainings" :key="group.title">
+                    <div
+                        v-for="group in character.trainings"
+                        :key="group.title"
+                        class="training-col"
+                    >
                         <div class="group-head">
                             <span class="section-mark"></span>{{ group.title }}
                         </div>
-                        <!-- 十行纸带（`.paper-rows` 只给两道棱色，材质在全局 `.paper-row`）：
-                             名目 / 条 / 数值签，与属性、师门两页同一个读法。 -->
-                        <div class="training-list paper-rows">
+                        <!-- 一组一列、一项一张票：与编辑弹窗那一页同构（票面在全局
+                             `.slip-row`）。没有图标——修炼十项本来就没有图可给，行首那
+                             一格让给名目，名目从左内边距起排。 -->
+                        <div class="training-list slip-rows">
                             <div
                                 v-for="row in group.rows"
                                 :key="row.name"
-                                class="training-row paper-row"
-                                :class="{ done: isMaxed(row), idle: row.level === 0 }"
+                                class="slip-row"
+                                :class="{ full: isMaxed(row), idle: row.level === 0 }"
                             >
-                                <span class="name">{{ row.name }}</span>
-                                <span class="track"
-                                    ><i :style="{ width: `${rowPercent(row.level, row.cap)}%` }"></i
-                                ></span>
-                                <!-- 读数进数值签（与师门那一列同一枚）：上限写成 `/20` 的淡字，
-                                     只有等级是读数。满级时签里的字与条一起转朱。 -->
-                                <NumTag class="training-val">
+                                <span class="slip-name">{{ row.name }}</span>
+                                <!-- 读数进数值签（四页同一枚）：上限写成 `/20` 的淡字，
+                                     只有等级是读数。满级时签里的等级转朱。 -->
+                                <NumTag class="slip-val">
                                     <span class="lv"
                                         >{{ row.level }}<i>/{{ row.cap }}</i></span
                                     >

@@ -198,13 +198,7 @@ function normalizeAttrGroup(raw: unknown): AttrGroup {
             if (!isObject(row)) return [];
             const label = text(row.label);
             if (!label) return [];
-            return [
-                {
-                    label,
-                    value: text(row.value),
-                    strong: row.strong === true ? true : undefined,
-                },
-            ];
+            return [{ label, value: text(row.value) }];
         }),
     };
 }

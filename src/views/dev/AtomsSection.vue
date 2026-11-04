@@ -23,7 +23,7 @@ import { THEME_OPTIONS, useTheme } from '../../composables/use-theme';
  * 比如 `Field` / `NumberField`、`PressTile` / `PressButton`）。
  *
  * 加一件请连上面那个数一起改：篇首原先写死「九件」，加了两件之后就成了假信息。
- * 组合件不进这张卡（它由原子拼成、还带业务语义）——`AssistSlipSection` 是一例。
+ * 组合件不进这张卡（它由原子拼成、还带业务语义）——`SlipRowSection` 是一例。
  * 旧稿里还有一张《师门技能行》，随那一行重做而撤掉（2026-11-04），不要照着补回来。
  *
  * 这张卡不是演示页，是**验收面**——新控件先进这里，再进业务页面。
@@ -234,7 +234,7 @@ const demoSchool = ref('五庄观');
                 <p class="note">
                     只装一个数，<b>不是输入框</b>，悬停不加深。材质走全局
                     <code>.num-slot</code>；宽高由 <code>--tag-w</code> / <code>--tag-h</code>
-                    给（卡上 56 × 30），数居中。
+                    给（卡上 56 × 24），数居中。
                 </p>
             </div>
 
@@ -375,12 +375,13 @@ const demoSchool = ref('五庄观');
     width: 100%;
 }
 
-/* 数值签按卡上那枚摆：56 × 30（乘字号档）、字与「满」的字号也照抄
- * ——`--fs-md + 3` 是「读数比名目大三个像素」那条规矩，演示里不能另给一个小号。 */
+/* 数值签按卡上那枚摆：56 × 24（乘字号档）、字号也照抄 15.5。
+ * 30 与 17.5 是这条票面统一之前的值，早已对不上（§2.4-37 记着 24 的来由）——
+ * 演示页摆的必须是线上那个数，否则「演示里好看、业务页里不对劲」又要多查一轮。 */
 .kit-tag {
     --tag-w: calc(56px * var(--fs-scale));
-    --tag-h: calc(30px * var(--fs-scale));
-    font-size: calc(var(--fs-md) + 3px);
+    --tag-h: calc(24px * var(--fs-scale));
+    font-size: calc(var(--fs-md) + 1px);
 }
 .kit-tag-note {
     color: var(--muted);

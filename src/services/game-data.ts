@@ -1,7 +1,8 @@
 /**
- * 游戏事实表：**门派（含七项门派技能）** 与 **技能名录（生活 / 剧情）**。
+ * 游戏事实表：**门派（含七项门派技能）**、**技能名录（生活 / 剧情）**、
+ * **门派技能图标清单**。
  *
- * 数据和代码分开，就一件事：游戏改版时**换文件，不改代码**。所以两张表住在
+ * 数据和代码分开，就一件事：游戏改版时**换文件，不改代码**。所以几张表住在
  * `public/game/data/`（Vite 原样拷贝、文件名稳定），这里只负责「取回来、校验形状、
  * 存一份」。规则本身在 `docs/GAME-ASSETS.md`，判断某段东西该不该搬进去之前先读那一份。
  *
@@ -48,17 +49,34 @@ export interface SkillTable {
     story: string[];
 }
 
+/**
+ * 一张门派技能图标：`id` 就是文件名（`school-skill-datang-5`），`name` 是技能名，
+ * `school` 是门派 id。
+ *
+ * **为什么不和生活 / 剧情一样按下标拼文件名**：那两套图的序号就是名字表的序号，
+ * 而门派技能的文件序号是**切图时的面板顺序**，与 `schools.json` 里 `skills` 的顺序不同
+ * （2026-11-04 实测：十方无敌是 `-1`、为官之道是 `-5`）。序号推不出来，只能按名字查——
+ * 名字在 147 项里唯一，这条由 `game-icons.test.ts` 盯着。
+ */
+export interface SchoolIconEntry {
+    id: string;
+    name: string;
+    school: string;
+}
+
 export interface GameData {
     schools: SchoolTable;
     skills: SkillTable;
+    /** 门派技能图标清单（21 家 × 7）。表没加载上时是空数组。 */
+    schoolIcons: SchoolIconEntry[];
 }
 
 /* 空表的 `cap` 写 0 而不是 180：它是「表没加载上」的占位，不是游戏事实。
- * `cap` 现在不上屏（2026-11-03 用户：「180 大家默认都知道」），但刻度分几格、
- * 点第几格算几级、怎么算满级都还读它，所以它不能是 0。 */
+ * `cap` 现在不上屏（2026-11-03 用户：「180 大家默认都知道」），但怎么算满级还读它。 */
 const EMPTY: GameData = {
     schools: { cap: 0, schools: [] },
     skills: { life: [], story: [] },
+    schoolIcons: [],
 };
 
 let current: GameData = EMPTY;
@@ -115,9 +133,49 @@ export function parseSkillTable(raw: unknown): SkillTable {
     };
 }
 
-/** 把两份原始 JSON 装进缓存。启动时由 `loadGameData()` 调，测试里直接用文件内容调。 */
-export function installGameData(schoolsRaw: unknown, skillsRaw: unknown): GameData {
-    current = { schools: parseSchoolTable(schoolsRaw), skills: parseSkillTable(skillsRaw) };
+/**
+ * `school-icons.json` 的形状是 `{ "groups": { "skill": [...] } }`——与 `icons.json`
+ * 同一套外壳（切图脚本两个产物共用一个格式）。**只取 `skill` 组**：门派徽记
+ * （`school-datang.webp` 那一族）现在还没入库，将来有了是另一个组，读法一样。
+ *
+ * 名字重复会让「按名字查图标」查错门派，所以这里**当场拦下**，而不是留给测试。
+ * 校验器只在启动时跑一次，代价可以忽略；而一旦放进缓存，错的那张图会一直显示。
+ */
+export function parseSchoolIconTable(raw: unknown): SchoolIconEntry[] {
+    const groups = (raw as { groups?: Record<string, unknown> })?.groups;
+    const list = groups?.skill;
+    if (!Array.isArray(list)) {
+        throw new TypeError('school-icons.json：groups.skill 应为数组');
+    }
+
+    const seen = new Set<string>();
+    return list.map((item, index) => {
+        const entry = item as Partial<SchoolIconEntry>;
+        for (const field of ['id', 'name', 'school'] as const) {
+            if (typeof entry?.[field] !== 'string' || !entry[field]?.trim()) {
+                throw new TypeError(`school-icons.json：第 ${index + 1} 项缺 ${field}`);
+            }
+        }
+        const name = entry.name as string;
+        if (seen.has(name)) {
+            throw new TypeError(`school-icons.json：技能名重复（${name}），按名字查会查到别人家`);
+        }
+        seen.add(name);
+        return { id: entry.id as string, name, school: entry.school as string };
+    });
+}
+
+/** 把三份原始 JSON 装进缓存。启动时由 `loadGameData()` 调，测试里直接用文件内容调。 */
+export function installGameData(
+    schoolsRaw: unknown,
+    skillsRaw: unknown,
+    schoolIconsRaw: unknown,
+): GameData {
+    current = {
+        schools: parseSchoolTable(schoolsRaw),
+        skills: parseSkillTable(skillsRaw),
+        schoolIcons: parseSchoolIconTable(schoolIconsRaw),
+    };
     return current;
 }
 
@@ -130,7 +188,7 @@ async function fetchJson(file: string): Promise<unknown> {
 let pending: Promise<GameData> | null = null;
 
 /**
- * 启动时加载一次。两份表并行取，装进缓存后返回；失败退回空表并**清掉 promise**，
+ * 启动时加载一次。三份表并行取，装进缓存后返回；失败退回空表并**清掉 promise**，
  * 下一次调用会重试。
  *
  * 调用点是 `main.ts`：它 `await` 完这个才 `mount`，所以全站拿到的都是「加载完再渲染」，
@@ -138,8 +196,12 @@ let pending: Promise<GameData> | null = null;
  */
 export function loadGameData(): Promise<GameData> {
     if (!pending) {
-        pending = Promise.all([fetchJson('schools.json'), fetchJson('skills.json')])
-            .then(([schools, skills]) => installGameData(schools, skills))
+        pending = Promise.all([
+            fetchJson('schools.json'),
+            fetchJson('skills.json'),
+            fetchJson('school-icons.json'),
+        ])
+            .then(([schools, skills, schoolIcons]) => installGameData(schools, skills, schoolIcons))
             .catch((error: unknown) => {
                 console.error('游戏数据表加载失败', error);
                 pending = null;
@@ -167,4 +229,9 @@ export function lifeSkills(): string[] {
 
 export function storySkills(): string[] {
     return current.skills.story;
+}
+
+/** 门派技能图标清单。查图标请走 `services/game-icons.ts` 的 `schoolSkillIcon()`。 */
+export function schoolIcons(): SchoolIconEntry[] {
+    return current.schoolIcons;
 }

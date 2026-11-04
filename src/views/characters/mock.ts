@@ -37,7 +37,7 @@ export const CHARACTERS: CharacterData[] = [
             {
                 title: '资源',
                 rows: [
-                    { label: '气血', value: '3916', strong: true },
+                    { label: '气血', value: '3916' },
                     { label: '魔法', value: '1440' },
                     { label: '活力', value: '860' },
                     { label: '体力', value: '900' },
@@ -55,7 +55,7 @@ export const CHARACTERS: CharacterData[] = [
                 title: '战斗',
                 rows: [
                     { label: '命中', value: '1915' },
-                    { label: '伤害', value: '1591', strong: true },
+                    { label: '伤害', value: '1591' },
                     { label: '防御', value: '826' },
                     { label: '速度', value: '455' },
                     { label: '法伤', value: '845' },
@@ -511,7 +511,7 @@ export const CHARACTERS: CharacterData[] = [
             {
                 title: '资源',
                 rows: [
-                    { label: '气血', value: '5600', strong: true },
+                    { label: '气血', value: '5600' },
                     { label: '魔法', value: '1200' },
                     { label: '活力', value: '640' },
                     { label: '体力', value: '720' },
@@ -530,7 +530,7 @@ export const CHARACTERS: CharacterData[] = [
                 rows: [
                     { label: '命中', value: '468' },
                     { label: '伤害', value: '512' },
-                    { label: '防御', value: '604', strong: true },
+                    { label: '防御', value: '604' },
                     { label: '速度', value: '262' },
                     { label: '法伤', value: '402' },
                     { label: '法防', value: '588' },
