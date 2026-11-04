@@ -24,15 +24,9 @@
  * 不是数组），由调用方决定用种子还是空名册；单条坏掉不牵连整份名册。
  */
 import { ref } from 'vue';
-import {
-    charactersLegacyImported,
-    charactersLoad,
-    charactersMarkLegacyImported,
-    charactersSave,
-    hasDesktop,
-} from '../../services/desktop';
+import { charactersLoad, charactersSave, hasDesktop } from '../../services/desktop';
 import { schoolNames } from '../../services/game-data';
-import { createPersist, migrateLegacy } from '../../services/persist';
+import { createPersist } from '../../services/persist';
 /* 形状兜底全在 `services/shape.ts`（与物价页共用一份）。两个本地别名值得看清：
  *   `text`  ← `rawText`：名册这边**不 trim**，卡面上的字是用户写什么就显示什么；
  *   `int`   ← `stamp`  ：`Math.round` + 非有限数变 0，等级与时间戳共用同一条规则。 */
@@ -483,7 +477,7 @@ const roster = ref<CharacterData[]>([]);
  *
  * 与 `prices-store.ts` 的 `loadError` 同一件事：`charactersLoad()` 返回 `null` 是
  * 「没有 Tauri 宿主」**或**「调用失败」，两者在类型上分不开，但后果差得远。
- * 早先把它和「首次启动」并成一个分支（`stored === null || (库空 && firstRun)`），
+ * 早先把它和「库里没有」并成一个分支（`stored === null || stored.length === 0`），
  * 于是一行坏 JSON 就能让整份名册被种子覆盖并**立刻写回库**，原数据无法恢复。
  * 现在读失败只挂这条错误位，界面照旧显示空名册但**拒绝任何写入**。
  */
@@ -509,12 +503,14 @@ function loadFromLocal(): CharacterData[] {
 /**
  * 读档。**只能调一次，且在 mount 之前**。
  *
- * 首次启动把 `localStorage` 那一版搬进 SQLite，**搬成功才动源数据**。「要不要搬」是
- * **三态**（`null` = 问不出来，不等于「没搬过」），这两条判据与留底那一处的兜底都在
- * `services/persist.ts` 的 `migrateLegacy`——把「问不出来」当「没搬过」的后果，
- * 在这里会多出一层：下面的种子分支会趁机把两个演示角色种进一个被用户清空的名册。
+ * 桌面路径只有两步：读库 → 规范化。另外两件事都**故意不做**：
+ * - **不搬 `localStorage` 那一版**。老版本数据一概不接（见 `lib.rs` 的 `DATA_DIR_NAME`），
+ *   于是也不需要「搬过没有」的三态判断。
+ * - **不种演示角色**。以前靠 `legacyImported` 标记区分「首次启动」与「用户把角色删光了」，
+ *   标记随兼容一起删了；为三个假角色再加一条 meta 标记 + 两条命令不划算，而
+ *   「删光之后重启又被塞回来一批」是明确不该发生的事。空名册是合法状态，界面有空态。
  *
- * 这个函数只交代两件事：搬哪一份，以及**搬完之后**怎么定名册。
+ * 浏览器路径（纯 web 开发）照旧种种子——那里没有库、也没有「删光」之外的状态。
  */
 export async function loadRoster(): Promise<void> {
     if (!hasDesktop()) {
@@ -522,21 +518,11 @@ export async function loadRoster(): Promise<void> {
         return;
     }
 
-    const firstRun = await migrateLegacy<CharacterData>({
-        storageKey: STORAGE_KEY,
-        label: '旧名册',
-        imported: charactersLegacyImported,
-        readLegacy: () => parseRoster(readRaw()),
-        saveAll: charactersSave,
-        markImported: charactersMarkLegacyImported,
-    });
-
     const stored = await charactersLoad<CharacterData>();
     /* 读失败（`null`）**不能**当「库里没有」：`charactersLoad` 的契约是
      * 「`null` = 没有宿主或调用失败」。一行坏 JSON（`store.rs` 的 `characters_load`
-     * 遇到非法行整份返回 `Err`）就会走到这里，而那时如果塞种子并写回，
-     * 用户攒下来的名册就被两个演示角色顶掉了，且不可恢复。
-     * 所以这条分支只挂错误位、把名册留空，绝不调用 `charactersSave`。 */
+     * 遇到非法行整份返回 `Err`）就会走到这里，而那时如果写回，用户攒下来的名册就被
+     * 顶掉了，且不可恢复。所以这条分支只挂错误位、把名册留空，绝不调用 `charactersSave`。 */
     if (stored === null) {
         loadError.value = '读不出角色名册，已暂停写入以免覆盖原有数据';
         roster.value = [];
@@ -544,14 +530,7 @@ export async function loadRoster(): Promise<void> {
     }
     loadError.value = '';
 
-    /* 「用户把角色删光了」是合法状态，不能因为空数组就重新塞种子。
-     * 只有首次启动、且库里确实一条都没有时才给种子。 */
-    if (stored.length === 0 && firstRun) {
-        roster.value = seed();
-        await charactersSave(roster.value);
-    } else {
-        roster.value = stored.map(normalizeCharacter);
-    }
+    roster.value = stored.map(normalizeCharacter);
 }
 
 /**

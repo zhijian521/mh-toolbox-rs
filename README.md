@@ -23,9 +23,9 @@
 | 角色页   | 名册增删改 + 编辑器；卡 450×620，六分区读数                        |
 | 物价页   | 物品卡 + 历史价 + 走势图；两级筛选与五种排序；四个弹窗             |
 | 收益页   | 速记格 + 今日清单 + 历史表；一笔可记给多个号，按币平分、尾差可复现 |
-| 数据层   | `%APPDATA%\mh-tool-v2\mh-toolbox.db`（rusqlite `bundled` + WAL）   |
+| 数据层   | `%APPDATA%\mh-tool-rs\mh-toolbox.db`（rusqlite `bundled` + WAL）   |
 
-未开始：`tauri-specta`（命令已 17 个，早越过当初定的 5 个阈值）、总览 / 账号 / 目标三页。
+未开始：`tauri-specta`（命令已 13 个，早越过当初定的 5 个阈值）、总览 / 账号 / 目标三页。
 差分 harness 不做（2026-11-04 定，见 `docs/ARCHITECTURE.md` §5）。
 
 ## 目录
@@ -76,7 +76,7 @@ npm run e2e            # 真窗口烟测：先 start.bat --force debug，再跑�
 [`AGENTS.md` §一](AGENTS.md#一验证分档日常不跑功能完成--提交--审查一律全量)。
 
 三层测试各管一段（「动了什么补哪层」的清单在 [`docs/CONVENTIONS.md` §2.1](docs/CONVENTIONS.md#21-工程基线)）：
-单元 = 23 文件 / 302 用例 + Rust 35 条；集成 = Rust 真库 22 条 + 烟测「数据」节；
+单元 = 23 文件 / 287 用例 + Rust 30 条；集成 = Rust 真库 22 条 + 烟测「数据」节；
 e2e = 81 条断言 / 9 节。**新增功能要同时补断言**，功能与断言同一份提交；新加 IPC 命令不用改
 测试——`ipc-contract.test.ts` 会自己把前端调用与 Rust 的两张注册表对上。
 

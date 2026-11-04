@@ -1,13 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
-import { createPersist, migrateLegacy, type LegacyMigration } from './persist';
+import { createPersist } from './persist';
 
 /**
- * `services/persist.ts` 的**行为**：写的闸门、写的排队、搬家的一次性。
+ * `services/persist.ts` 的**行为**：写的闸门、写的排队。
  *
  * 这个文件是第 100 批从三份手抄里收拢出来的骨架，三个 store 的测试只覆盖了「读失败不写」，
  * 而它最微妙的那个性质——**连续写要排队**——一条用例都没有。这个性质失效的样子不是报错，
  * 是「连点两次只存下一条」，等用户发现时账已经少了。
+ *
+ * 早先还有一段「把 `localStorage` 那一版搬进库、只搬一次」的用例，随老版本兼容一起删了
+ * （2026-11-04：新应用不接老数据，见 `lib.rs` 的 `DATA_DIR_NAME`）。
  *
  * `hasDesktop` 走模块桩：这条分叉决定「写去哪儿」，与断言无关的部分不该被真实宿主干扰。
  */
@@ -17,17 +20,6 @@ vi.mock('./desktop', () => ({ hasDesktop: desktop.hasDesktop }));
 
 /** 让出一拍，等排队链真的跑到。用宏任务而不是 `Promise.resolve()`：链上多一层就等不到。 */
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
-
-/** 最小 `localStorage`：只实现骨架用到的三个动作，够验「改名留底」这件事。 */
-function stubStorage(initial: Record<string, string> = {}) {
-    const store = new Map(Object.entries(initial));
-    vi.stubGlobal('localStorage', {
-        getItem: (key: string) => store.get(key) ?? null,
-        setItem: (key: string, value: string) => void store.set(key, value),
-        removeItem: (key: string) => void store.delete(key),
-    });
-    return store;
-}
 
 beforeEach(() => {
     desktop.hasDesktop.mockReturnValue(true);
@@ -193,95 +185,5 @@ describe('createPersist：失败要回到界面', () => {
         persist();
         await tick();
         expect(writeError.value).toBe('');
-    });
-});
-
-describe('migrateLegacy：搬一次，且只有一次', () => {
-    type Item = { id: string };
-
-    function migration(overrides: Partial<LegacyMigration<Item>> = {}) {
-        const saveAll = vi.fn(async () => true);
-        const markImported = vi.fn(async () => undefined);
-        const readLegacy = vi.fn((): Item[] => [{ id: 'a' }]);
-        const options: LegacyMigration<Item> = {
-            storageKey: 'mh-prices',
-            label: '旧物价表',
-            imported: async () => false,
-            readLegacy,
-            saveAll,
-            markImported,
-            ...overrides,
-        };
-        return { options, saveAll, markImported, readLegacy };
-    }
-
-    it('标记问不出来（null）时不搬，也不打标记', async () => {
-        const { options, saveAll, markImported, readLegacy } = migration({
-            imported: async () => null,
-        });
-
-        expect(await migrateLegacy(options)).toBe(false);
-        /* 把「问不出来」当「没搬过」，一次调用失败就会拿陈年快照覆盖库。 */
-        expect(readLegacy).not.toHaveBeenCalled();
-        expect(saveAll).not.toHaveBeenCalled();
-        expect(markImported).not.toHaveBeenCalled();
-    });
-
-    it('标记说搬过了（true）时什么都不做', async () => {
-        const { options, saveAll, readLegacy } = migration({ imported: async () => true });
-
-        expect(await migrateLegacy(options)).toBe(false);
-        expect(readLegacy).not.toHaveBeenCalled();
-        expect(saveAll).not.toHaveBeenCalled();
-    });
-
-    it('首次启动搬成功：写库、老键改名留底、打标记', async () => {
-        const store = stubStorage({ 'mh-prices': '[{"id":"a"}]' });
-        const { options, saveAll, markImported } = migration();
-
-        expect(await migrateLegacy(options)).toBe(true);
-
-        expect(saveAll).toHaveBeenCalledTimes(1);
-        expect(markImported).toHaveBeenCalledTimes(1);
-        /* 留底用改名不用删除：库文件被误删 / 损坏时这里还能捞一把，
-         * 而原键已经不在，原读法再也不会重复搬。 */
-        expect(store.get('mh-prices.migrated')).toBe('[{"id":"a"}]');
-        expect(store.has('mh-prices')).toBe(false);
-    });
-
-    it('搬失败时**不动源数据**，下次启动还能再试', async () => {
-        const store = stubStorage({ 'mh-prices': '[{"id":"a"}]' });
-        const { options } = migration({ saveAll: async () => false });
-
-        await migrateLegacy(options);
-
-        /* 反过来（先改名再写）一旦写失败就是永久丢数据。 */
-        expect(store.get('mh-prices')).toBe('[{"id":"a"}]');
-        expect(store.has('mh-prices.migrated')).toBe(false);
-    });
-
-    it('留底写不进去（配额满 / 被禁用）也不抛：数据已经在库里了', async () => {
-        vi.stubGlobal('localStorage', {
-            getItem: () => null,
-            setItem: () => {
-                throw new Error('QuotaExceededError');
-            },
-            removeItem: () => {},
-        });
-        const { options, markImported } = migration();
-
-        /* 这个函数跑在 `main.ts` 的 `Promise.all` 里，一抛就是启动白屏。 */
-        await expect(migrateLegacy(options)).resolves.toBe(true);
-        expect(markImported).toHaveBeenCalledTimes(1);
-    });
-
-    it('旧快照是空的也照样打标记：留空也算问过一遍', async () => {
-        stubStorage();
-        const { options, markImported, saveAll } = migration({ readLegacy: () => [] });
-
-        expect(await migrateLegacy(options)).toBe(true);
-        expect(saveAll).not.toHaveBeenCalled();
-        /* 不打标记的话，每次启动都会再走一遍「读 localStorage → 试写库」。 */
-        expect(markImported).toHaveBeenCalledTimes(1);
     });
 });

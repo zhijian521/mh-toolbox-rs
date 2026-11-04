@@ -22,15 +22,9 @@
  * 类型上也说得清「哪些情况会失败」。
  */
 import { ref } from 'vue';
-import {
-    hasDesktop,
-    pricesLegacyImported,
-    pricesLoad,
-    pricesMarkLegacyImported,
-    pricesSave,
-} from '../../services/desktop';
+import { hasDesktop, pricesLoad, pricesSave } from '../../services/desktop';
 import { todayText } from '../../services/format';
-import { createPersist, migrateLegacy } from '../../services/persist';
+import { createPersist } from '../../services/persist';
 import { makeId } from '../../services/shape';
 import { DEFAULT_CATEGORY, isPriceCategory } from './prices-catalog';
 import {
@@ -78,28 +72,15 @@ const loadError = ref('');
 /**
  * 读档。**只能调一次，且在 mount 之前**。
  *
- * 迁移只做一次：桌面版第一次启动时，把 `localStorage` 那一版搬进 SQLite，
- * 然后往库里的 `meta` 表写一个标记。标记放库里而不是 localStorage——
- * 用户清一次浏览器缓存不该让搬过的数据再冒出来一遍。
+ * 桌面路径只有两步：读库 → 规范化。**不搬 `localStorage` 那一版**——老版本数据一概
+ * 不接（见 `lib.rs` 的 `DATA_DIR_NAME`），`migrateLegacy` 那套「三态判据 + 留底改名」
+ * 随老版本兼容一起删了。
  */
 export async function loadPrices(): Promise<void> {
     if (!hasDesktop()) {
         items.value = readPriceItems();
         return;
     }
-
-    /* 三态判据（`null` 不搬）、「搬成功才动源数据」、留底失败为什么不能抛，
-     * 全在 `services/persist.ts` 的 `migrateLegacy`——这里只交代「搬哪一份、搬去哪」。
-     * 返回值是「这次是不是首次启动」，物价表用不上它：库里空就该是空表，
-     * 不像名册要种两个演示角色。 */
-    await migrateLegacy<PriceItem>({
-        storageKey: STORAGE_KEY,
-        label: '旧物价表',
-        imported: pricesLegacyImported,
-        readLegacy: readPriceItems,
-        saveAll: pricesSave,
-        markImported: pricesMarkLegacyImported,
-    });
 
     const stored = await pricesLoad<PriceItem>();
     /* 读失败**不是空库**。先拿到原始结果再分支，是为了让「`null`」这个信号

@@ -13,9 +13,6 @@ mod ocr_paddle;
 mod screen;
 /* 数据层不分平台：SQLite 在哪儿都能跑，不像截屏 / OCR 只认 Win32。 */
 mod store;
-/* 老库搬家。只有文件语义（复制 / 改名 / 清理），碰不到 SQL，所以从 `store.rs`
- * 独立成一层——理由见 `migrate.rs` 的文件头。 */
-mod migrate;
 /* 数据的备份信封与三个命令（导出 / 导入 / 清除）。同样不分平台：读写文件、
  * 序列化、SQLite 都不认 Win32，唯一带平台味的对话框整个交给 `tauri-plugin-dialog`。
  * 所以这里没有 `#[cfg(windows)]`——别因为相邻几行都有就顺手加上。 */
@@ -25,7 +22,7 @@ mod backup;
 ///
 /// 现在只有一个命令，但它立住了两件事：① IPC 走 `invoke` + serde 结构体，
 /// 以后加 `tauri-specta` 就能从 Rust 类型直接生成 TS，不用再手抄契约；
-/// ② 数据目录从第一天就指向 `%APPDATA%\mh-tool-v2`，不跟随 identifier 漂移。
+/// ② 数据目录从第一天就固定成 `%APPDATA%\mh-tool-rs`，不跟随 identifier 漂移。
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppInfo {
@@ -42,21 +39,34 @@ pub struct AppInfo {
     debug: bool,
 }
 
-/// 数据目录必须与旧版 Electron 指向同一个目录，否则朋友升级后数据「消失」。
-/// 旧版见 `mh-tool/src/main/profile.cjs:5`：`path.join(app.getPath('appData'), 'mh-tool-v2')`。
+/// 数据目录：`%APPDATA%\mh-tool-rs`。全仓唯一真源。
 ///
 /// `pub(crate)` 而不是私有：`store.rs` 是这条红线的**另一个出口**——它以前自己调
 /// `app_data_dir()`，库于是落进了 `%APPDATA%\com.zhijian.mhtoolbox.rs`。数据目录只能有
 /// 一个真源，别的模块要用就来这里取，不要各自再算一遍。
 ///
+/// 2026-11-04 换成 `mh-tool-rs`：早先与旧版 Electron 共用 `mh-tool-v2`，两代应用的
+/// `data.json` / `.bak` / `logs` 与本应用的 `mh-toolbox.db` / `backups/` 混在一处，
+/// 谁都不知道哪些文件是自己的。
+///
+/// **不为老版本数据做兼容**（2026-11-04 用户定）：老目录里的东西一概不接，新目录从空库
+/// 开始；老版本只贡献「有哪些功能、长什么样」。所以这里没有搬家函数、没有一次性导入入口。
+const DATA_DIR_NAME: &str = "mh-tool-rs";
+
+/// `APPDATA` 下的子目录。
+///
 /// `.filter(|v| !v.is_empty())` 不是多余的：`std::env::var` 在变量**被设成空串**时返回
-/// `Ok("")`（不是 `Err`），于是 `PathBuf::from("").join("mh-tool-v2")` 是一个**相对路径**，
+/// `Ok("")`（不是 `Err`），于是 `PathBuf::from("").join("mh-tool-rs")` 是一个**相对路径**，
 /// 库会落到当前工作目录——装到 `Program Files` 时那里只读，用户看到的是「数据存不下来」。
-pub(crate) fn data_dir_path() -> Option<std::path::PathBuf> {
+fn appdata_sub(name: &str) -> Option<std::path::PathBuf> {
     std::env::var("APPDATA")
         .ok()
         .filter(|base| !base.is_empty())
-        .map(|base| std::path::PathBuf::from(base).join("mh-tool-v2"))
+        .map(|base| std::path::PathBuf::from(base).join(name))
+}
+
+pub(crate) fn data_dir_path() -> Option<std::path::PathBuf> {
+    appdata_sub(DATA_DIR_NAME)
 }
 
 /// 同一件事的两个出口：前端「关于」要的是字符串，`report_fatal` 要的是路径。
@@ -250,12 +260,8 @@ pub fn run() {
         backup::data_clear,
         store::prices_load,
         store::prices_save,
-        store::prices_legacy_imported,
-        store::prices_mark_legacy_imported,
         store::characters_load,
         store::characters_save,
-        store::characters_legacy_imported,
-        store::characters_mark_legacy_imported,
         store::income_load,
         store::income_save
     ]);
@@ -268,12 +274,8 @@ pub fn run() {
         backup::data_clear,
         store::prices_load,
         store::prices_save,
-        store::prices_legacy_imported,
-        store::prices_mark_legacy_imported,
         store::characters_load,
         store::characters_save,
-        store::characters_legacy_imported,
-        store::characters_mark_legacy_imported,
         store::income_load,
         store::income_save
     ]);
@@ -295,17 +297,9 @@ pub fn run() {
                     }
                 });
             }
-            /* 老库迁移在这里跑一次，**在建窗之前**：这一刻窗口还没有、前端一行代码都没执行，
-             * 不可能有并发的数据命令。挪回 `store::open()` 会出事——前端启动时
-             * `loadPrices()` 与 `loadRoster()` 是 `Promise.all` 同时发出的，两个命令会
-             * 同时看到「目标不存在」、同时往同一目标复制，后一个把前一个正在写的文件截断，
-             * 最坏留下一个 SQLite 认作合法的空库，而 `target.exists()` 从此永久阻断重试：
-             * 用户看到空表且不报错。详见 `store::migrate_legacy_db` 的注释。
-             *
-             * 失败就让它中止启动（下面的 `?` 会把错误交给 `report_fatal` 写日志 + 弹窗）：
-             * 宁可起不来，也不要拿一个残缺的库起来。`migrate_between` 已经把本次复制回退掉了，
-             * 下次启动会重试。 */
-            store::migrate_legacy_db(app.handle(), &store::base_dir(app.handle())?)?;
+            /* 启动路径上**没有**任何库搬运：老版本数据一概不接（见 `DATA_DIR_NAME` 的注释），
+             * 新目录从空库开始。这也顺手去掉了一整类并发坑——以前搬家要赶在建窗之前跑，
+             * 否则 `loadPrices()` 与 `loadRoster()` 会同时看到「目标不存在」、同时往同一处复制。 */
             create_main_window(app)?;
             Ok(())
         })

@@ -147,44 +147,12 @@ export async function incomeSave<T>(payload: T): Promise<boolean> {
     }
 }
 
-/**
- * 老数据（`localStorage` 那一版）搬过来没有。
- *
- * **三态**：`true` = 搬过、`false` = 没搬过、`null` = 问不出来（没有宿主，或调用失败）。
- * 为什么不能把后两种压成 `false`：调用方拿到 `false` 会去搬，而搬的方式是「先读
- * `localStorage` 的旧快照、再整份写进库」——一次调用失败就会拿一份陈年快照覆盖掉
- * 库里的真数据。`null` 的意思是「这一趟别动迁移」，调用方据此直接读库。
- */
-export async function pricesLegacyImported(): Promise<boolean | null> {
-    if (!hasTauri) return null;
-    try {
-        return await invoke<boolean>('prices_legacy_imported');
-    } catch (error) {
-        console.error('读取物价表迁移标记失败', error);
-        return null;
-    }
-}
-
-/** 打上「已搬完」的标记。失败不致命：下次启动会再搬一遍，而搬的是同一份数据。 */
-export async function pricesMarkLegacyImported(): Promise<void> {
-    if (!hasTauri) return;
-    try {
-        await invoke('prices_mark_legacy_imported');
-    } catch (error) {
-        console.error('写迁移标记失败', error);
-    }
-}
-
 /* ---------- 角色名册（同一套数据层，JSON 列存整条） ----------
  * 四个函数与物价那组一一对应，理由见上面那一段。返回 `null` / `false` 一律是
  * 「没有 Tauri 宿主」或「调用失败」，不在这里抛错——**怎么处置由调用方定**：
  * 可以退回 `localStorage`，也可以拒绝写入并把原因交给界面。
  * `roster.ts` / `prices-store.ts` 取的是后者：读失败时立起 `loadError`、停掉一切写，
  * 因为把「读失败」当「空库」会立刻覆盖掉用户原有的数据。
- *
- * 两个 `*LegacyImported` 是**三态**（`true` / `false` / `null`），与另外几个的布尔不同：
- * 「问不出标记」和「标记说没搬过」后果差得远，前者会去搬（拿旧快照覆盖库），
- * 后者只该按「这趟不搬」处理。压成布尔就把这条区别抹掉了。
  */
 export async function charactersLoad<T>(): Promise<T[] | null> {
     if (!hasTauri) return null;
@@ -204,26 +172,6 @@ export async function charactersSave<T>(items: T[]): Promise<boolean> {
     } catch (error) {
         console.error('写入角色名册失败', error);
         return false;
-    }
-}
-
-/** 与 `pricesLegacyImported` 同一个三态口径，理由见那边。 */
-export async function charactersLegacyImported(): Promise<boolean | null> {
-    if (!hasTauri) return null;
-    try {
-        return await invoke<boolean>('characters_legacy_imported');
-    } catch (error) {
-        console.error('读取名册迁移标记失败', error);
-        return null;
-    }
-}
-
-export async function charactersMarkLegacyImported(): Promise<void> {
-    if (!hasTauri) return;
-    try {
-        await invoke('characters_mark_legacy_imported');
-    } catch (error) {
-        console.error('写名册迁移标记失败', error);
     }
 }
 

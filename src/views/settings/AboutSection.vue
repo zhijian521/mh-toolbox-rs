@@ -28,7 +28,7 @@ const { info } = useAppInfo();
             </dd>
             <dt>数据目录</dt>
             <dd>
-                <code>{{ info?.dataDir ?? '%APPDATA%\\mh-tool-v2' }}</code>
+                <code>{{ info?.dataDir ?? '%APPDATA%\\mh-tool-rs' }}</code>
             </dd>
             <dt>运行环境</dt>
             <dd>{{ info?.webview ?? '系统 WebView2（Tauri 2）' }}</dd>

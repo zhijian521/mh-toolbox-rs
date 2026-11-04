@@ -61,21 +61,20 @@
   触发条件见 `AGENTS.md` §七。名册与物价表都已跨三个组件（页面、卡片、弹窗），但用的是与主题、
   字号同一套「模块级 `ref` + `useXxx()`」，没有第二套机制。
 - **写盘时机**：「先改内存模型，再整份写 SQLite」，两步都在这条命令里完成，调用方不用知道顺序。
-- **三份数据层的落盘与迁移是同一份实现**（`src/services/persist.ts`）：`createPersist` 管「读失败
-  拒绝写 / 浏览器写本地 / 桌面异步写库 / 连续写排队」，`migrateLegacy` 管「首次启动把
-  `localStorage` 搬进 SQLite」。第 100 批从三份手抄收拢成一份——此前只有收益账做了写队列，
-  物价与名册连点两次会丢后一笔。**归一、排序、种子数据、`storage` 事件仍归各页的 store**，
-  骨架只回答「怎么落地」。
-- **`localStorage` 退成两条窄用途**：① 浏览器（`npm run dev`、探针）——没有 Tauri 宿主，
-  `hasDesktop()` 为假，三个 store 直接走本地分支；② 迁移来源，「库坏了还能捞一把」的底。
-  物价（`mh-prices`）、名册（`mh-roster`）第一次启动搬一次，**搬成功才**把老键改名
-  `*.migrated` 留底并在 `meta` 打标记。收益账是第 97 批才有的，没有更早版本要搬，只走 ①。
+- **三份数据层的落盘是同一份实现**（`src/services/persist.ts`）：`createPersist` 管「读失败
+  拒绝写 / 浏览器写本地 / 桌面异步写库 / 连续写排队」。第 100 批从三份手抄收拢成一份——此前只有
+  收益账做了写队列，物价与名册连点两次会丢后一笔。**归一、排序、种子数据、`storage` 事件仍归
+  各页的 store**，骨架只回答「怎么落地」。
+- **`localStorage` 只剩一条窄用途**：浏览器（`npm run dev`、探针）——没有 Tauri 宿主，
+  `hasDesktop()` 为假，三个 store 直接走本地分支。早先它还是「旧版 Electron 数据的来源」
+  （`migrateLegacy` 搬一次、老键改名 `*.migrated` 留底）；2026-11-04 起不接老数据，
+  整套迁移连命令一起删了，见 §3 数据目录。
 
 ## 3. 磁盘与兼容红线
 
 | 项         | 事实                                                                   | 为什么不能改                                                                                                                                            |
 | ---------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 数据目录   | `%APPDATA%\mh-tool-v2`（`lib.rs` 的 `data_dir()`）                     | 与旧版 Electron 共用；改成 Tauri 默认的 `%APPDATA%\<identifier>` 等于让朋友的数据「消失」                                                               |
+| 数据目录   | `%APPDATA%\mh-tool-rs`（`lib.rs` 的 `data_dir_path()`）                | 全局唯一真源。2026-11-04 与旧版 Electron 分家（原共用 `mh-tool-v2`）；换名靠一次性迁移，不是直接指过去                                                  |
 | identifier | `com.zhijian.mhtoolbox.rs`                                             | 必须与旧版 appId 不同，否则 Windows 把两个安装包当一个应用互相覆盖                                                                                      |
 | 卸载       | `deleteAppDataOnUninstall: false`                                      | 卸载重装不该丢账                                                                                                                                        |
 | 镜像       | **不做** SQLite → JSON 反向镜像（2026-11-04 用户定）                   | 升级单向：旧版打不开新版的账。换来「一份数据只有一个真源」，不必维护双向转换；要带走数据用设置页的手动导出                                              |
@@ -92,7 +91,7 @@
 | 新系统能力       | `src/services/<能力>.ts` 一个函数 + Rust 一个 `#[tauri::command]`                         | 不要在组件里 `invoke`；也不要全塞进 `desktop.ts`                                                                  |
 | 业务逻辑（计划） | `crates/mh-domain`，纯函数、无 IO                                                         | 不要塞进 `src-tauri/src/`——塞进去就再也拆不出来                                                                   |
 | 前端的纯规则     | `src/services/`（如 `ghost-parse.ts`），不碰 IO                                           | 不要塞进 composable——那里一有 ref 就不好单测                                                                      |
-| 跨页的数据层骨架 | `src/services/persist.ts`：`createPersist` 管落盘、`migrateLegacy` 管搬一次               | 不要在每页的 store 里重抄——抄到第四份必然漂移                                                                     |
+| 跨页的数据层骨架 | `src/services/persist.ts`：`createPersist` 管落盘与排队                                   | 不要在每页的 store 里重抄——抄到第四份必然漂移                                                                     |
 | 跨页的呈现口径   | `src/services/format.ts`：金额折万 / 日期文本（`moneyText`、`todayText`、`fromWan`…）     | 不要让一页去引另一页的模块；那是「记账口径」不是「物价」                                                          |
 | 页面自己的数据层 | `src/views/<页>/<名字>.ts`（如 `characters/roster.ts`）：单例状态 + 纯函数 + 单测         | 不要塞进 `services/`——那不是系统能力；也不要写进 `.vue`                                                           |
 | 开发期工具       | 页面内的放 `views/dev/` 旁边（如 `tokens.ts`）；跨页面的放 `scripts/`                     | 不要放进 `src/components/`                                                                                        |

@@ -12,9 +12,9 @@
 //!
 //! ## 为什么加 `meta` 表
 //!
-//! 两件事：`schemaVersion` 让将来的表结构变更有个判断依据；`legacyImported`
-//! 记录「localStorage 的老数据已经搬过一次」，避免每次启动都重复导入、把用户
-//! 后来删掉的条目又搬回来。
+//! 只有一件事：`schemaVersion` 让将来的表结构变更有个判断依据。早先还有一个
+//! `legacyImported`（防「localStorage 老数据重复搬入」），随老版本兼容一起删了——
+//! 新应用不接老数据，也就不存在「搬过没有」这个问题。
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -23,8 +23,8 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-/// 数据库文件名。放在 `%APPDATA%\mh-tool-v2` 下——与旧版 Electron 共用同一个目录，
-/// 卸载也不清（`deleteAppDataOnUninstall: false`）。红线 1 见 `AGENTS.md` §六。
+/// 数据库文件名。放在 `%APPDATA%\mh-tool-rs` 下，卸载也不清
+/// （`deleteAppDataOnUninstall: false`）。红线 1 见 `AGENTS.md` §六。
 ///
 /// `pub(crate)`：`migrate.rs` 要按同一个文件名搬家，改名只能有一个真源。
 pub(crate) const DB_FILE: &str = "mh-toolbox.db";
@@ -129,16 +129,13 @@ pub struct IncomePayload {
  * `base_dir(app)` 只回答「目录在哪儿」，`open_at(base)` 只回答「怎么开」。
  * 拆开的理由不是好看：命令签名直接吃 `AppHandle` 时整个文件一条测试都写不了——
  * 构造 `AppHandle` 要起 Tauri 运行时。现在测试对着临时目录跑，跟命令走同一条代码。
- *
- * **迁移不在这里**，在 `lib.rs` 的 `setup()` 里调一次（见 `migrate_legacy_db` 的注释：
- * 留在这里会被两条并发的启动命令同时触发）。
  * ==================================================================== */
 
-/// 数据目录：红线 1 的 `%APPDATA%\mh-tool-v2`。
+/// 数据目录：红线 1 的 `%APPDATA%\mh-tool-rs`。
 ///
 /// `crate::data_dir_path()` 是这条红线的唯一真源；`None`（`APPDATA` 缺失：服务账户、
 /// 极端精简环境）时才退到 `app_data_dir()`。**这条兜底只为「能用」**，正常路径永远
-/// 不该走到它——走到就意味着数据落在 identifier 目录下，与旧版对不上。
+/// 不该走到它——走到就意味着数据落在 identifier 目录下，与打包的其余部分对不上。
 pub(crate) fn base_dir(app: &AppHandle) -> Result<PathBuf, String> {
     match crate::data_dir_path() {
         Some(dir) => Ok(dir),
@@ -178,34 +175,14 @@ pub(crate) fn open_at(base: &Path) -> Result<Connection, String> {
 /// 每次命令打开一次连接：SQLite 打开一个本地文件是微秒级，而把 `Connection`
 /// 塞进 `State<Mutex<..>>` 会让每个命令都变成「先抢锁」——数据量这个级别不值得。
 ///
-/// **这里只开库，不迁移**。迁移放在 `lib.rs` 的 `setup()` 里跑一次：留在这里的话，
-/// `main.ts` 的 `Promise.all([loadPrices(), loadRoster()])` 会让两个命令几乎同时进来，
-/// 两边都判断「目标不存在」、都去复制同一份源，后一个把前一个正在写的文件截断，
-/// 最坏留下一个 SQLite 认作合法的空库——那之后再也不会重试。详见 `migrate_legacy_db`。
+/// **这里只开库**：库就是 `%APPDATA%\mh-tool-rs\mh-toolbox.db` 这一份，不存在「从哪儿搬过来」
+/// 这回事——老版本（Electron）的数据一概不接，只参考它的功能与样式。启动路径上没有任何
+/// 文件复制，也就不存在「两个命令同时看到目标不存在、同时往同一处写」那个窗口。
 ///
 /// `pub(crate)`：`backup::data_import` 要在**一个连接**里完成整份替换（见 `replace_all`），
 /// 不能再走三次 `*_save` 命令各自开一次库。
 pub(crate) fn open(app: &AppHandle) -> Result<Connection, String> {
     open_at(&base_dir(app)?)
-}
-
-/// 把「老版本写在 identifier 目录下」的库搬进 `base`。
-///
-/// 只干一件事：问系统要旧目录。拿不到说明这台机器上不存在「旧位置」这回事，直接 `Ok`。
-/// 其余判断与复制全在 `crate::migrate::migrate_between`——那个函数不吃 `AppHandle`，
-/// 于是失败现场能用两个临时目录造出来，中间那条「复制一半」的回退路径才测得到。
-///
-/// **唯一调用点是 `lib.rs` 的 `setup()`，在建窗之前。** 不要挪回 `open()`：
-/// 每个 `#[tauri::command]` 都会调 `open()`，而前端启动时 `loadPrices()` 与
-/// `loadRoster()` 是 `Promise.all` 并发发出的，两个迁移会同时看到「目标不存在」，
-/// 同时 `std::fs::copy` 到同一个目标——后来的 `File::create` 截断前一个正在写的文件，
-/// 可能留下一个 SQLite 认作合法的空库；`target.exists()` 从此为真，重试路径永久关闭，
-/// 用户看到的是「空表 + 不报错」。那个窗口是我们加迁移逻辑才出现的，别把它放回去。
-pub(crate) fn migrate_legacy_db(app: &AppHandle, base: &Path) -> Result<(), String> {
-    let Ok(legacy_base) = app.path().app_data_dir() else {
-        return Ok(());
-    };
-    crate::migrate::migrate_between(&legacy_base, base)
 }
 
 /// 建表。全部 `IF NOT EXISTS`，可以反复执行。
@@ -286,7 +263,7 @@ fn init(conn: &Connection) -> Result<(), String> {
     /* S4 + S5：**先读，再决定写不写**。
      *
      * 早先是无条件 `INSERT ... ON CONFLICT DO UPDATE`，于是每条读命令
-     * （`prices_load` / `characters_load` / `*_legacy_imported`）都开一次写事务：
+     * （`prices_load` / `characters_load` / `income_load`）都开一次写事务：
      * WAL 下默认 `synchronous=FULL` 时那就是一次 fsync；并发时还要抢写锁，
      * `data_import`（async，跑在 worker 线程上）与主线程上的读命令撞在一起时，
      * 主线程会阻塞到 `busy_timeout`（rusqlite 默认 5 秒）——表现是窗口假死，
@@ -489,20 +466,6 @@ fn insert_item(conn: &Connection, item: &PriceItem) -> Result<(), String> {
     Ok(())
 }
 
-/// 老数据搬过一次没有。前端在启动时先问这一句，再决定要不要把 `localStorage` 搬过来。
-#[tauri::command]
-pub fn prices_legacy_imported(app: AppHandle) -> Result<bool, String> {
-    let conn = open(&app)?;
-    Ok(read_meta(&conn, "pricesLegacyImported")?.is_some())
-}
-
-/// 标记「老数据已搬完」。
-#[tauri::command]
-pub fn prices_mark_legacy_imported(app: AppHandle) -> Result<(), String> {
-    let conn = open(&app)?;
-    write_meta(&conn, "pricesLegacyImported", "1")
-}
-
 /* ======================================================================
  * 角色名册
  *
@@ -664,20 +627,6 @@ pub(crate) fn replace_all(
     Ok((written_characters, written_items, written_entries))
 }
 
-/// 名册的 `localStorage` 老数据搬过一次没有。
-#[tauri::command]
-pub fn characters_legacy_imported(app: AppHandle) -> Result<bool, String> {
-    let conn = open(&app)?;
-    Ok(read_meta(&conn, "charactersLegacyImported")?.is_some())
-}
-
-/// 标记「名册老数据已搬完」。
-#[tauri::command]
-pub fn characters_mark_legacy_imported(app: AppHandle) -> Result<(), String> {
-    let conn = open(&app)?;
-    write_meta(&conn, "charactersLegacyImported", "1")
-}
-
 /* ======================================================================
  * 收益：账与速记单价一起读写
  * ==================================================================== */
@@ -803,10 +752,9 @@ fn insert_quick_price(conn: &Connection, price: &QuickPrice) -> Result<(), Strin
 
 /// 清空角色、物价、收益，返回 (角色数, 物品数, 收益条数) 供界面提示。
 ///
-/// **不动 `meta`**：`charactersLegacyImported` / `pricesLegacyImported` 这类迁移标记
-/// 一旦清掉，下次启动 `roster.ts` / `prices-store.ts` 会把旧 `localStorage` 里的数据
-/// **再搬一遍**——用户刚清干净，重启又回来一批，那是这个功能最不该有的样子。
-/// `schemaVersion` 也在同一张表里，删它没有好处。
+/// **不动 `meta`**：它里面现在只有 `schemaVersion`，删了 `init` 会补回来，补的是「当前版本」
+/// 这句话本身没有意义。通用的理由是：这张表存的是**关于库的状态**，将来一旦有别的标记
+/// 落进来，删它就是把「这件事做过」抹成「没做过」——用户刚清干净、重启又变回去。
 ///
 /// 四条 `DELETE` 显式写出来，不依赖 `ON DELETE CASCADE`：级联只在
 /// `PRAGMA foreign_keys = ON` 时成立，而这个 pragma **是按连接设的**
@@ -848,10 +796,9 @@ fn clear_records(conn: &mut Connection) -> Result<(i64, i64, i64), String> {
     tx.execute("DELETE FROM quick_prices", [])
         .map_err(|error| format!("清空单价失败：{error}"))?;
 
-    /* 这里**故意没有** `DELETE FROM meta`。删了它两次「清空」之间只差一行代码，
-     * 而后果是下次启动整份老数据复活（见 `clear_all` 的注释）。`meta` 里只有三类东西：
-     * `schemaVersion`（删了 `init` 会补回来，但补的是「当前版本」这句话本身没有意义）、
-     * 两个 `*LegacyImported` 标记（删了就重新搬）、以及将来的迁移标记（同理）。 */
+    /* 这里**故意没有** `DELETE FROM meta`。`meta` 存的是关于库的状态而不是账本本身：
+     * `schemaVersion`（删了 `init` 会补回「当前版本」，没有意义），以及将来任何
+     * 「这件事做过没有」的标记（删了就等于让它重做一遍）。 */
     tx.commit().map_err(|error| format!("提交失败：{error}"))?;
     Ok((characters as i64, items as i64, entries as i64))
 }
@@ -1072,16 +1019,16 @@ mod tests {
 
     /* ---------- 清空：只清账本，不碰 meta ---------- */
 
-    /// 清空之后三张表都空，而 `meta` 三条**一条都不能少**。
+    /// 清空之后三张表都空，而 `meta` 一条都不能少。
     ///
-    /// 这条钉的是一个**设计选择**，不是实现细节：`charactersLegacyImported` /
-    /// `pricesLegacyImported` 一旦被清掉，下次启动 `roster.ts` / `prices-store.ts`
-    /// 会认为「老数据还没搬过」，于是把旧 `localStorage` 里那份**再搬一遍**——
-    /// 用户刚清干净、重启又回来一批，那正是这个功能最不该有的样子。
-    /// 也正因为它是选择而不是细节，用注释说明不够：得有一条会红的测试。
+    /// 这条钉的是一个**设计选择**，不是实现细节。`meta` 存的是「关于库的状态」而不是
+    /// 账本本身：删掉 `schemaVersion`，`init` 会补一个「当前版本」回来——看着没坏，
+    /// 但那是重新编造的状态；将来任何「这件事做过没有」的标记落进同名表，删了就等于
+    /// 让它重做一遍。也正因为它是选择而不是细节，用注释说明不够：得有一条会红的测试。
     ///
-    /// 变异测试很容易证明它的价值：在 `clear_records` 里补一句 `DELETE FROM meta`，
-    /// 这条必须红（`schemaVersion` 那条断言也会红，因为 `init` 只在开库时写）。
+    /// 探针键故意用一个与业务无关的名字：这条要挡的不是某一个具体标记，而是
+    /// 「清账本 ≠ 清状态」这条边界。变异测试很容易证明它的价值——在 `clear_records`
+    /// 里补一句 `DELETE FROM meta`，这条必须红。
     #[test]
     fn clear_records_keeps_meta_but_drops_ledger() {
         let dir = TempDir::new(13);
@@ -1102,8 +1049,7 @@ mod tests {
             [],
         )
         .expect("写一条角色");
-        write_meta(&conn, "charactersLegacyImported", "1").expect("写名册迁移标记");
-        write_meta(&conn, "pricesLegacyImported", "1").expect("写物价迁移标记");
+        write_meta(&conn, "probe", "keep-me").expect("写一条与账本无关的状态");
 
         let (characters, items, entries) = clear_records(&mut conn).expect("清空");
         assert_eq!(
@@ -1129,14 +1075,9 @@ mod tests {
         );
 
         assert_eq!(
-            read_meta(&conn, "charactersLegacyImported").expect("读名册迁移标记"),
-            Some("1".to_string()),
-            "名册的迁移标记必须留着，否则下次启动会把旧 localStorage 再搬一遍"
-        );
-        assert_eq!(
-            read_meta(&conn, "pricesLegacyImported").expect("读物价迁移标记"),
-            Some("1".to_string()),
-            "物价的标记同理"
+            read_meta(&conn, "probe").expect("读探针键"),
+            Some("keep-me".to_string()),
+            "meta 里与账本无关的键必须留着——删了等于让「做过的事」变回没做过"
         );
         assert_eq!(
             read_meta(&conn, "schemaVersion").expect("读 schemaVersion"),

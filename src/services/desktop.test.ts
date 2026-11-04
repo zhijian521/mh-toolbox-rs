@@ -1,16 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * `services/desktop.ts` 的**返回值口径**：三态、取消、错误原文。
+ * `services/desktop.ts` 的**返回值口径**：取消、错误原文。
  *
- * 这个文件是页面与 Rust 之间唯一的一层，它把四种完全不同的结局压成三种形状：
+ * 这个文件是页面与 Rust 之间唯一的一层，它把几种完全不同的结局压成几种形状：
  * 成功 / 用户取消 / 出错。压错一次的后果都写在注释里，但**没有一条测试**：
  *
- * - `*LegacyImported` 的三态压成布尔 → 「问不出标记」被当成「没搬过」→ 拿一份陈年
- *   localStorage 快照覆盖库里的真数据；
  * - `data_*` 的「取消」压成「失败」→ 用户点开另存为又关掉，界面上留一条红字指责他；
  * - `Err(String)` 被裹成 `Error: …` → 那句话是要原样给用户看的（「第 3 条角色没有 id」），
  *   多一个前缀就成了另一句话。
+ *
+ * 早先这里还有一条「`*LegacyImported` 三态压成布尔」的用例，随老版本兼容一起删了
+ * （2026-11-04）。
  *
  * 这层是 mock 出来的 `invoke`，验的是**映射**而不是 IPC 本身——后者由
  * `ipc-contract.test.ts`（名字对不对）与 `tools/e2e`（真窗口跑不跑得通）覆盖。
@@ -122,16 +123,6 @@ describe('读写失败不炸页面，但也不能假装成功', () => {
         expect(await pricesLoad()).toBeNull();
     });
 
-    it('迁移标记问不出来是 null，不是 false —— 后者会让调用方拿旧快照覆盖库', async () => {
-        const { charactersLegacyImported } = await load();
-        invokeMock.mockRejectedValue('boom');
-
-        const mark = await charactersLegacyImported();
-
-        expect(mark).toBeNull();
-        expect(mark).not.toBe(false);
-    });
-
     it('没有 Tauri 宿主时一律降级，不抛错（探针与浏览器预览走这条）', async () => {
         vi.resetModules();
         vi.stubGlobal('window', {});
@@ -142,7 +133,6 @@ describe('读写失败不炸页面，但也不能假装成功', () => {
         expect(desktop.hasDesktop()).toBe(false);
         expect(await desktop.pricesLoad()).toBeNull();
         expect(await desktop.pricesSave([])).toBe(false);
-        expect(await desktop.charactersLegacyImported()).toBeNull();
         expect((await desktop.dataClear()).status).toBe('failed');
         /* 浏览器里一次 invoke 都不该发生。 */
         expect(invokeMock).not.toHaveBeenCalled();

@@ -45,7 +45,7 @@ export function dataDir() {
     if (process.env.MH_E2E_DATA) return resolve(process.env.MH_E2E_DATA);
     const roaming = process.env.APPDATA;
     if (!roaming) throw new Error('没有 APPDATA，请用 MH_E2E_DATA 指定数据目录');
-    return join(roaming, 'mh-tool-v2');
+    return join(roaming, 'mh-tool-rs');
 }
 
 const stamp = () => {

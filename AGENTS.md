@@ -113,7 +113,7 @@ start.bat --force    遇到占用直接处理，不询问
 | 界面观感              | `npm run build` → `node tools/probe/cdp.mjs --root dist --hash '#/settings' --shot x.png`                                                                                                                                                                                                                  |
 | IPC / 外链 / 窗口操作 | **必须回 Tauri 真窗口**：`MH_CDP_PORT=9223 npm run desktop`，连 `127.0.0.1:9223/json/list`                                                                                                                                                                                                                 |
 | 整条交互路径          | `start.bat --force debug` → `npm run e2e`（八页导航 + 角色增改删 + 记价 + 速记连点 + 重载后仍在 + 弹窗 Esc + 字号主题 + 导出→导入整份替换，81 条断言）。**会写真实数据**：开头自己快照一份库，测试条目自己删，剩下的用 `node tools/e2e/db.mjs restore <id> --yes` 还原（应用先关）；`--only=物价` 只跑一节 |
-| IPC 契约              | `npm run test`（`src/services/ipc-contract.test.ts`）：前端 17 条 `invoke('…')` 与 Rust 两张 `generate_handler!` 对账，改名 / 只加一张表 / 注册了没人用，三种都红                                                                                                                                          |
+| IPC 契约              | `npm run test`（`src/services/ipc-contract.test.ts`）：前端 13 条 `invoke('…')` 与 Rust 两张 `generate_handler!` 对账，改名 / 只加一张表 / 注册了没人用，三种都红                                                                                                                                          |
 | CSP / 安全策略        | **`tauri dev` 走 `devCsp`，验不到生产的 `csp`**：出包 `npm run tauri build -- --debug --no-bundle`，再 `MH_CDP_PORT=9224 ./src-tauri/target/debug/mh-toolbox-rs.exe`。判据：设置页 3 个 section + 开发页 7 张卡在、字体 `loaded`、`appInfo` IPC 通、零 CSP 拦截                                            |
 | 降动效                | CDP `Emulation.setEmulatedMedia` 传 `prefers-reduced-motion: reduce`，读 `getComputedStyle(el).transitionDuration`，应为 `0.001s`                                                                                                                                                                          |
 | 几何是否对齐          | 读 `getBoundingClientRect()` 断言，不要靠眼看截图                                                                                                                                                                                                                                                          |
@@ -145,11 +145,13 @@ start.bat --force    遇到占用直接处理，不询问
 
 ## 六、红线（改代码前必须知道）
 
-1. **数据目录固定 `%APPDATA%\mh-tool-v2`**（`lib.rs` 的 `data_dir_path()` / `data_dir()`），与旧版
-   共用。Tauri 默认写 `%APPDATA%\<identifier>`，必须显式指回，否则朋友升级后数据「消失」。
-   `store.rs` 经 `data_dir_path()` 取目录（`open_at(base)` 只认目录），**不要再用 `app_data_dir()`
-   直连**——2026-11-03 之前它就这么写，库落在 `%APPDATA%\com.zhijian.mhtoolbox.rs\`，修的时候
-   带了一次性迁移（WAL 三件套一起复制，旧文件留底不删）。
+1. **数据目录固定 `%APPDATA%\mh-tool-rs`**（`lib.rs` 的 `data_dir_path()`），**不要落到 identifier 目录**。
+   Tauri 默认写 `%APPDATA%\<identifier>`，必须显式指定。2026-11-04 之前它与旧版 Electron 共用
+   `mh-tool-v2`，两代应用的 `data.json` / `.bak` / `logs` 与 `mh-toolbox.db` / `backups/` 混在一处；
+   换名时**没有**写搬迁逻辑——新应用不接老数据（老版本只贡献「有哪些功能、长什么样」），
+   新目录从空库开始。`store.rs` 经 `data_dir_path()` 取目录（`open_at(base)` 只认目录），
+   **不要再用 `app_data_dir()` 直连**——2026-11-03 之前它就这么写，库落在
+   `%APPDATA%\com.zhijian.mhtoolbox.rs\`。
 2. **identifier `com.zhijian.mhtoolbox.rs` 不能改**，且必须与旧版 appId 不同，否则 Windows 会把
    两个安装包当成同一个应用互相覆盖。
 3. **渲染层只有 `src/services/` 能碰系统**。ESLint 已拦 `@tauri-apps/api/core` 出现在
