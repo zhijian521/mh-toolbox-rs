@@ -12,9 +12,9 @@ import PriceHistoryDialog from './PriceHistoryDialog.vue';
 import PriceItemDialog from './PriceItemDialog.vue';
 import PricePointDialog from './PricePointDialog.vue';
 import { PRICE_CATEGORIES, subsOf } from './prices-catalog';
+import { shortDate } from '../../services/format';
 import {
     filterItems,
-    shortDate,
     type PriceFilter,
     type PriceItem,
     type PriceItemDraft,

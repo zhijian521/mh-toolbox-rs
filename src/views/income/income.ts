@@ -12,11 +12,8 @@
  * 方向由 `kind` 说，**不用负数**：支出存正数 + `kind: 'expense'`。
  * 负数与「支出」两套写法混用，汇总时漏掉一处就会把净额算反。
  */
+import { moneyText } from '../../services/format';
 import { makeId } from '../../services/shape';
-import { moneyText, todayText } from '../prices/prices';
-
-/** 一万。速记的输入框收「万」（打 `4.6`），落库是「原值」（`46000`）。 */
-export const WAN = 10_000;
 
 export type IncomeKind = 'income' | 'expense';
 
@@ -45,15 +42,8 @@ export interface QuickPrices {
     [itemId: number]: number;
 }
 
-/** 万 → 原值。**必须取整**：`4.6 * 10000` 在浮点里是 46000.00000000001。 */
-export function fromWan(wan: number): number {
-    return Math.round(wan * WAN);
-}
-
-/** 原值 → 万（不取整：界面上要显示 4.6，取整会变成 5）。 */
-export function toWan(amount: number): number {
-    return amount / WAN;
-}
+/* `WAN` / `fromWan` / `toWan` 在 `services/format.ts`：金额换算是全站口径，
+ * 不属于收益页。这里只留收益页自己的两件事——平分与回执。 */
 
 /**
  * 把一笔金额平分给 `count` 个人，**总额一分不差**。
@@ -319,44 +309,7 @@ export function groupByItem(entries: readonly IncomeEntry[]): ItemGroup[] {
     );
 }
 
-/**
- * 往前推 `offset` 天的日期文本（`offset = 0` 就是今天）。
- *
- * 放在这一层而不是页面里：它是「近七天」这个口径的一部分，与 `today()` 一样属于规则。
- * 原先写在 `IncomeView.vue` 里，一方面页面那层的分工写着「只留界面状态」，
- * 一方面这种函数**必须能单测**——`setMonth` 在跨月、跨年、夏令时上的表现没人记得住。
- *
- * **走本地时区、手动拼 `YYYY-MM-DD`**，不用 `toISOString()`：后者是 UTC，
- * 在东八区每天 08:00 之前会把日期退一天，于是「近七天」在早上少算一天。
- * `offset` 为负（往后推）也成立——`setDate` 自己会进位。
+/* `today` / `daysAgo` / `dayText` 已挪到 `services/format.ts`：物价页与收益页用的是
+ * 同一天口径（本地时区、`YYYY-MM-DD`），原先各写一份、各自解释一遍为什么不用 `toISOString()`。
+ * 现在全站只有 `todayText()` 一个「今天」，引用点直接用它，不再有第二个别名。
  */
-export function daysAgo(offset: number, from: Date = new Date()): string {
-    const at = new Date(from.getTime());
-    at.setDate(at.getDate() - offset);
-    const month = `${at.getMonth() + 1}`.padStart(2, '0');
-    const day = `${at.getDate()}`.padStart(2, '0');
-    return `${at.getFullYear()}-${month}-${day}`;
-}
-
-/** 今天。与物价页同一天口径（本地时区、`YYYY-MM-DD`），共用同一个函数。 */
-export function today(): string {
-    return todayText();
-}
-
-/**
- * 历史列表里那一天的写法：`今天` / `昨天` / `11月2日` / `2025年12月30日`。
- *
- * 近两天用人话，再往前给月日——「11月2日」比「2026-11-02」快读一档，而年份在
- * 一本只记了几个月的新账里是纯噪声（真跨年了才补，不然「12月30日」会让人以为是今年的）。
- *
- * `now` 可以注入：这个函数要能单测，而直接取 `today()` 的测试会在跨午夜时随机失败。
- * 「昨天」走 `daysAgo`，不自己减毫秒：跨月、跨年、夏令时都由它承担，那是它已经测过的部分。
- */
-export function dayText(date: string, now: string = today()): string {
-    if (date === now) return '今天';
-    if (date === daysAgo(1, new Date(`${now}T00:00:00`))) return '昨天';
-
-    const [year, month, day] = date.split('-');
-    const label = `${Number(month)}月${Number(day)}日`;
-    return year === now.slice(0, 4) ? label : `${year}年${label}`;
-}

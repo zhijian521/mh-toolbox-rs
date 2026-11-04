@@ -25,7 +25,8 @@
  * 代价是横轴不再暗示时间间隔，所以**每个点都标日期**（点少时全标，点多时标首末与中点），
  * 不让人误以为两条记录之间就是一天。
  */
-import { moneyText, shortDate, type PriceTone } from './prices';
+import { moneyText, shortDate } from '../../services/format';
+import type { PriceTone } from './prices';
 
 export interface ChartPointInput {
     /** `YYYY-MM-DD`。 */

@@ -95,7 +95,7 @@ export interface ProbeResult {
  * 跟着系统缩放走：125% 下宽 205，150% 下 246。Rust 侧每帧按显示器 DPI 换算并回传
  * `dpi`，所以这里不要自己做换算，也不要在前端缓存换算结果。
  */
-export const DEFAULT_ROI: Roi = {
+const DEFAULT_ROI: Roi = {
     rightPx: 6,
     widthPx: 215,
     topPx: 200,

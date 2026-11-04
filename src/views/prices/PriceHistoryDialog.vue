@@ -3,15 +3,13 @@ import { computed } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import PriceChart from './PriceChart.vue';
+import { changeText, priceLabel, shortDate } from '../../services/format';
 import {
     changeSentence,
-    changeText,
     chartPrices,
     currentPoint,
     pointDelta,
     priceChange,
-    priceLabel,
-    shortDate,
     sortedPoints,
     type PriceItem,
     type PricePoint,

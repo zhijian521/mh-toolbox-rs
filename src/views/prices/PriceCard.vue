@@ -3,14 +3,8 @@ import { computed } from 'vue';
 import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
 import { buildSparkline } from './price-chart-path';
-import {
-    currentPoint,
-    priceBadge,
-    priceLabel,
-    recentPrices,
-    updateSummary,
-    type PriceItem,
-} from './prices';
+import { priceLabel } from '../../services/format';
+import { currentPoint, priceBadge, recentPrices, updateSummary, type PriceItem } from './prices';
 
 /**
  * 一张物价卡。

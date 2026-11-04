@@ -4,7 +4,8 @@ import LedgerSection from '../../components/LedgerSection.vue';
 import NumTag from '../../components/NumTag.vue';
 import PressTile from '../../components/PressTile.vue';
 import { notify } from '../../composables/use-notify';
-import { amountText, compactAmount, entriesOn, groupByItem, today, totalsOf } from './income';
+import { todayText } from '../../services/format';
+import { amountText, compactAmount, entriesOn, groupByItem, totalsOf } from './income';
 import type { ItemGroup } from './income';
 import { useIncome } from './income-store';
 import { itemIconOf } from './item-icons';
@@ -41,7 +42,7 @@ const { entries, removeEntry } = useIncome();
 const { roster } = useRoster();
 
 /** 今天的记录（`groupByItem` 只要这一天的，日期在右栏是常量）。 */
-const todayEntries = computed(() => entriesOn(entries.value, today()));
+const todayEntries = computed(() => entriesOn(entries.value, todayText()));
 
 /** 一格一个「物品 + 单价」，按条数降序——一眼看到「今天点得最多的是什么」。 */
 const groups = computed(() => groupByItem(todayEntries.value));

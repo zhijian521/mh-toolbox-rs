@@ -25,6 +25,9 @@
  * 把「1.5」和「万」拆开存，等于让每一处读取都得记得乘回去；一旦某天要换成「亿」，
  * 全部历史记录都要批量改。
  */
+/* 金额与日期的写法全站只有一份，在 `services/format.ts`——收益页也要 `moneyText` /
+ * `todayText`，放在这一页会让另一页反向依赖物价模块。 */
+import { moneyText, shortDate, todayText } from '../../services/format';
 import { isObject, makeId, rows, stamp, text } from '../../services/shape';
 import { DEFAULT_CATEGORY, isPriceCategory, legacyPriceSlot, subsOf } from './prices-catalog';
 
@@ -194,24 +197,8 @@ const dateText = (value: unknown): string => {
     return real ? candidate : '';
 };
 
-/**
- * 今天，`YYYY-MM-DD`。
- *
- * **不能用 `toISOString().slice(0, 10)`**：那是 UTC 日期，东八区在凌晨 0–8 点之间会
- * 给出昨天——「今天记的价」在日期列上写着昨天，而且只有熬夜的人碰得上，
- * 报上来时根本复现不了。所以取本地日期分量自己拼。
- */
-export function todayText(): string {
-    const now = new Date();
-    const month = `${now.getMonth() + 1}`.padStart(2, '0');
-    const day = `${now.getDate()}`.padStart(2, '0');
-    return `${now.getFullYear()}-${month}-${day}`;
-}
-
-/** 日期去掉年份：卡片与历史列表里全是今年的记录，年份占位置不提供信息。 */
-export function shortDate(date: string): string {
-    return date.length === 10 ? date.slice(5) : date;
-}
+/* `todayText` / `shortDate` 已挪到 `services/format.ts`：收益页与设置页也要用，
+ * 留在这里会让它们反向依赖物价模块。 */
 
 /* 新 id 用 `services/shape.ts` 的 `makeId(prefix)`——原先这里有个 `makePriceId`，
  * 与名册的 `makeId` 是同一套 randomUUID 回落算法，只有前缀不同。 */
@@ -331,69 +318,8 @@ export function pointDelta(sorted: PricePoint[], index: number): number | null {
     return Math.round((sorted[index].price - previous.price) * 100) / 100;
 }
 
-/**
- * 显示用：最多四位小数，尾随的零去掉。
- *
- * 四位不是随手取的：`PriceField` 的输入精度就是「万的小数点后四位」
- * （`Math.round(万 × 10000)`，正好 1 币）。显示只留两位的话，输入 1.2345 万存进去的
- * 12345 币会显示成「1.23 万」，再打开编辑又变回 1.2345——用户会以为没存对。
- * 两处同一个精度，同一件事才不会出现两种说法。
- *
- * 绝大多数价格是整万或一位小数，四位只在真的打到个位数时才出现，不会普遍变长。
- */
-function trimZero(value: number): string {
-    const fixed = value.toFixed(4).replace(/\.?0+$/, '');
-    return fixed === '' ? '0' : fixed;
-}
-
-export interface PriceLabel {
-    value: string;
-    unit: string;
-}
-
-/**
- * 价格显示口径：**一律以「万」为单位**，不足一万的按原值。
- *
- * 梦幻币的量级就是几十万到几亿，摆摊也这么说（「这个 320 万」）。
- * 原先满亿会折成「1.5 亿」——于是同一列里「1.5 亿」和「860 万」两种单位并排，
- * 读的人得在心里换算一次才能比大小。全都落成万之后，一列数字可以直接比。
- *
- * 代价是上亿的数会变长（1.5 亿 → 15000 万）。这是用户明确要的：这一页看的是行情对比，
- * 不是报数，同一个单位比「短」更重要。
- *
- * 不足一万仍按原值：`0.03 万` 比 `333` 更难懂，而梦幻币低于一万的价本来就少。
- * 这与输入侧不冲突：`PriceField` 收「万」（打 0.8），存的是原值 8000，显示回「8000」——
- * 输入按万是为了少打零，显示按原值是为了好读，两个方向各取所长。
- *
- * 卡片、历史、走势图纵轴共用这一个函数——三处各写一套换算，迟早有一处把 1.5 亿写成
- * 1500 万。
- *
- * 传 `null` 或 0 时给「—」且单位为空：那是「未记录」，不是「零游戏币」。
- */
-export function priceLabel(value: number | null): PriceLabel {
-    const total = Number(value);
-    if (!Number.isFinite(total) || total <= 0) return { value: '—', unit: '' };
-    if (total >= 10000) return { value: trimZero(total / 10000), unit: '万' };
-    return { value: trimZero(total), unit: '' };
-}
-
-/** 金额一句话（带单位）。不到一万时单位为空，直接拼会留一个尾随空格。 */
-export function moneyText(value: number): string {
-    const label = priceLabel(Math.abs(value));
-    return label.unit ? `${label.value} ${label.unit}` : label.value;
-}
-
-/**
- * 带正负号的差额：「+1.5 万」「−80」「持平」。
- *
- * 减号用 U+2212（`−`）而不是 ASCII 连字符：与 `+` 等宽，一列差额上下对齐时不会左右晃。
- * 全站数字列都走 `tabular-nums`，就这一处会破功。
- */
-export function changeText(delta: number): string {
-    if (delta === 0) return '持平';
-    const sign = delta > 0 ? '+' : '−';
-    return sign + moneyText(delta);
-}
+/* `trimZero` / `PriceLabel` / `priceLabel` / `moneyText` / `changeText` 已挪到
+ * `services/format.ts`——它们是「金额怎么写给人看」，收益页与设置页也用同一套。 */
 
 /**
  * 涨跌幅：10% 以下保留一位小数，再往上取整。
@@ -704,7 +630,7 @@ const byName = (a: PriceItem, b: PriceItem) => a.name.localeCompare(b.name, 'zh-
  * 最近更新的排在前面；同一时间戳按名称排，避免刷新一次顺序就变。
  * 这是**基准顺序**，筛选之后的重新排序都以它为出发点（同值时仍稳定）。
  */
-export function orderedItems(items: PriceItem[]): PriceItem[] {
+function orderedItems(items: PriceItem[]): PriceItem[] {
     return items.slice().sort((a, b) => b.updatedAt - a.updatedAt || byName(a, b));
 }
 

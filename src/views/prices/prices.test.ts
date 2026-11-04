@@ -1,18 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { shortDate, todayText } from '../../services/format';
 import {
     CHART_LIMIT,
     NAME_LIMIT,
     POINT_LIMIT,
     SUB_LIMIT,
     changeSentence,
-    changeText,
     chartPrices,
     currentPoint,
     filterItems,
     itemDraftErrors,
     makePriceItem,
     makePricePoint,
-    moneyText,
     normalizePriceItem,
     parsePriceItems,
     percentText,
@@ -20,14 +19,11 @@ import {
     pointDraftErrors,
     priceBadge,
     priceChange,
-    priceLabel,
     readPriceItems,
     recentPrices,
     retuneSub,
     serializePriceItems,
-    shortDate,
     sortedPoints,
-    todayText,
     updateSummary,
     writePriceItems,
 } from './prices';
@@ -88,60 +84,8 @@ function day(index: number): string {
  * 显示口径
  * ==================================================================== */
 
-describe('价格显示口径（只折万，不再折亿）', () => {
-    it('满一万折成万；满一亿也还是万，不再出现「1.5 亿」', () => {
-        expect(priceLabel(3200000)).toEqual({ value: '320', unit: '万' });
-        /* 这一季改动的核心：1.5 亿 现在写成 15000 万。同一列里只剩一种单位，
-         * 读的人才不用在心里换算一次再比大小。 */
-        expect(priceLabel(150000000)).toEqual({ value: '15000', unit: '万' });
-        expect(priceLabel(10000)).toEqual({ value: '1', unit: '万' });
-    });
-
-    it('不足一万按原值，且不带单位', () => {
-        expect(priceLabel(9999)).toEqual({ value: '9999', unit: '' });
-        expect(priceLabel(1)).toEqual({ value: '1', unit: '' });
-        expect(priceLabel(8600)).toEqual({ value: '8600', unit: '' });
-    });
-
-    it('保留四位小数：与输入格的精度对齐，重开编辑不会「变了个数」', () => {
-        expect(priceLabel(12345)).toEqual({ value: '1.2345', unit: '万' });
-        expect(priceLabel(86000)).toEqual({ value: '8.6', unit: '万' });
-    });
-
-    it('尾随的零去掉，但不吃掉整数位上的零', () => {
-        expect(priceLabel(15000)).toEqual({ value: '1.5', unit: '万' });
-        // 1000 万 不能因为「去尾零」变成 1 万。
-        expect(priceLabel(10000000)).toEqual({ value: '1000', unit: '万' });
-        expect(priceLabel(10000)).toEqual({ value: '1', unit: '万' });
-    });
-
-    it('0 / null / NaN / 负数 / Infinity 都是「未记录」，不是「零游戏币」', () => {
-        const dash = { value: '—', unit: '' };
-        expect(priceLabel(0)).toEqual(dash);
-        expect(priceLabel(null)).toEqual(dash);
-        expect(priceLabel(Number.NaN)).toEqual(dash);
-        expect(priceLabel(-1)).toEqual(dash);
-        expect(priceLabel(Number.POSITIVE_INFINITY)).toEqual(dash);
-    });
-
-    it('moneyText 拼单位，且不留尾随空格', () => {
-        expect(moneyText(3200000)).toBe('320 万');
-        expect(moneyText(150000000)).toBe('15000 万');
-        // 不到一万时单位为空，直接 `${value} ${unit}` 会留下一个空格。
-        expect(moneyText(800)).toBe('800');
-        // 差额是负数进来的（`changeText` 走这条），符号由调用方加，这里取绝对值。
-        expect(moneyText(-800)).toBe('800');
-    });
-
-    it('changeText：零是「持平」，负号用 U+2212 而不是 ASCII 连字符', () => {
-        expect(changeText(0)).toBe('持平');
-        expect(changeText(15000)).toBe('+1.5 万');
-        // U+2212 与「+」等宽，一列差额上下才对得齐（见 changeText 的注释）。
-        expect(changeText(-800)).toBe('\u2212800');
-        expect(changeText(-800).includes('-')).toBe(false);
-    });
-
-    it('percentText：10% 以下留一位小数，之上取整', () => {
+describe('percentText：涨跌幅写法', () => {
+    it('10% 以下留一位小数，之上取整', () => {
         expect(percentText(0.052)).toBe('5.2%');
         expect(percentText(0.025)).toBe('2.5%');
         expect(percentText(0.071)).toBe('7.1%');

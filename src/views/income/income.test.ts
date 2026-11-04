@@ -1,19 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
-    WAN,
     amountText,
     dayGroupsOf,
-    dayText,
-    daysAgo,
     entriesOn,
-    fromWan,
     groupByItem,
     normalizeEntry,
     parseEntries,
     parsePrices,
     recordSummary,
     splitAmount,
-    toWan,
     totalsOf,
     type IncomeEntry,
 } from './income';
@@ -25,22 +20,7 @@ import {
  * 这些用例的共同点：**它们盯的都是「数悄悄错掉」**。金额、日期、排序错一位不会报错，
  * 只会让「今天赚了多少」变成一个看起来正常的错数。
  */
-describe('收益：金额换算', () => {
-    it('万转原值要取整，否则浮点尾巴会一路带进库', () => {
-        /* `4.6 * 10000` 在浮点里是 46000.00000000001。不取整的话，这条记录存进库、
-         * 再读出来显示成「4.6 万」看着没差，但那一天的总和在十几条之后就会多出
-         * 一串小尾数。 */
-        expect(fromWan(4.6)).toBe(46000);
-        expect(fromWan(4.6)).toBe(Math.round(4.6 * WAN));
-        expect(Number.isInteger(fromWan(12.9))).toBe(true);
-        expect(fromWan(0.06)).toBe(600);
-    });
-
-    it('原值转万不取整：4.6 万不能被显示成 5 万', () => {
-        expect(toWan(46000)).toBe(4.6);
-        expect(toWan(41200000)).toBe(4120);
-    });
-
+describe('收益：金额呈现', () => {
     it('金额一句话与物价页同一口径', () => {
         expect(amountText(41200000)).toBe('4120 万');
         expect(amountText(46000)).toBe('4.6 万');
@@ -212,26 +192,6 @@ describe('收益：记完的回执句', () => {
     });
 });
 
-describe('收益：往前推日期', () => {
-    /* 「近七天」靠这个函数划边界，而它错一天的表现是**账上少一天**——不报错、
-     * 不白屏，只是那个数比记忆里小。跨月与跨年是最容易写错的两种，各来一条。 */
-    it('同月内往前推，含跨月', () => {
-        expect(daysAgo(0, new Date(2026, 10, 4))).toBe('2026-11-04');
-        expect(daysAgo(6, new Date(2026, 10, 4))).toBe('2026-10-29');
-    });
-
-    it('跨年也成立（不是减月份）', () => {
-        expect(daysAgo(3, new Date(2026, 0, 2))).toBe('2025-12-30');
-    });
-
-    it('补零到两位，否则字符串比较会把「2026-11-4」排错', () => {
-        /* 按字符串比大小是这一页筛选的全部依据（`one.date <= now`）。
-         * `2026-11-4` 与 `2026-11-04` 不是同一个串，混进来会漏掉一天。 */
-        expect(daysAgo(3, new Date(2026, 10, 4))).toBe('2026-11-01');
-        expect(daysAgo(0, new Date(2026, 8, 9))).toBe('2026-09-09');
-    });
-});
-
 describe('收益：今日按物品聚合', () => {
     function one(part: Partial<IncomeEntry> & { id: string }): IncomeEntry {
         return {
@@ -334,22 +294,4 @@ describe('收益：今日按物品聚合', () => {
     });
 });
 
-describe('dayText', () => {
-    /* 历史收益的日期列。`now` 注入而不是取 `today()`：真取的话这些用例会在
-     * 跨午夜的那一秒随机失败，而那时最容易被当成「代码坏了」。 */
-    const now = '2026-11-04';
-
-    it('今天与昨天说人话', () => {
-        expect(dayText(now, now)).toBe('今天');
-        expect(dayText('2026-11-03', now)).toBe('昨天');
-    });
-
-    it('跨月也认得出「昨天」：不能靠「日期减一」在字符串上凑', () => {
-        expect(dayText('2026-10-31', '2026-11-01')).toBe('昨天');
-    });
-
-    it('更早给月日去掉前导零，跨年才补年份', () => {
-        expect(dayText('2026-11-02', now)).toBe('11月2日');
-        expect(dayText('2025-12-30', now)).toBe('2025年12月30日');
-    });
-});
+/* 日期与金额的用例搬去了 `services/format.test.ts`——那些函数不再属于收益页。 */

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import SelectField from '../../components/SelectField.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
+import { useModal } from '../../composables/use-modal';
 import { PANES, type CharacterData, type PaneKey } from './character';
 import AttrEditor from './editor/AttrEditor.vue';
 import GearEditor from './editor/GearEditor.vue';
@@ -106,59 +107,30 @@ function save() {
     emit('save', normalizeCharacter(draft.value));
 }
 
-/* ---------- 键盘：Esc 关，Tab 关在这张纸里 ----------
- * 这是一个 `aria-modal` 的浮层，底下的名册仍在 DOM 里。不做焦点环的话，
- * Tab 会走到被遮住的卡片上——看得见的焦点停在看不见的东西上，是键盘用户最容易迷路的一种。
+/* ---------- 键盘与焦点：交给 `use-modal` ----------
+ * 这张纸与 `ModalShell` 是同一个东西的两种样子——都是 `aria-modal` 浮层，底下那一页
+ * 仍在 DOM 里。Esc、焦点陷阱、锁滚动、叠层栈、关闭后还焦点，四条规则在
+ * `composables/use-modal.ts` 里只写一份（每一条都有实测过的理由）。
+ *
+ * 原先这里自己实现了那一套，代价不是多写四十行，是**少一个判断**：`keydown` 直接挂在
+ * `document` 上，不看栈顶。编辑器里一旦再叠一层（比如加个确认窗），按一次 Esc 会同时
+ * 关掉两层；滚动锁也是组件局部的，与 `ModalShell` 的模块级快照对不上。
+ *
+ * `initialFocus: 'none'`：面板里第一个可聚焦元素是页头的「取消」，而打开编辑器的第一件事
+ * 是填名字，不是放弃修改——所以焦点自己定位到名字格（见下）。
  */
 const panel = ref<HTMLElement | null>(null);
 const nameInput = ref<HTMLInputElement | null>(null);
 
-const FOCUSABLE =
-    'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])';
-
-function onKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
-        event.preventDefault();
-        emit('cancel');
-        return;
-    }
-    if (event.key !== 'Tab' || !panel.value) return;
-
-    /* 分区是 `v-show`：切走的那几块仍在 DOM 里，只是 `display: none`。
-     * 不过滤就会把焦点送进看不见的输入框——`offsetParent` 是判「此刻是否可见」最省事的依据。 */
-    const items = [...panel.value.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-        (item) => item.offsetParent !== null,
-    );
-    if (!items.length) return;
-
-    const first = items[0];
-    const last = items[items.length - 1];
-    const active = document.activeElement;
-
-    if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
-    } else if (event.shiftKey && active === first) {
-        event.preventDefault();
-        last.focus();
-    }
-}
-
-/* 浮层打开期间锁住底下的滚动：滚轮能滚到名册上，会让人以为浮层在跟着动。
- * 记下原值再恢复，不写死成 `''`——将来别处也锁滚动时，两层叠着不会互相把对方的值冲掉。 */
-let previousOverflow = '';
-
-onMounted(async () => {
-    document.addEventListener('keydown', onKeydown);
-    previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    await nextTick();
-    nameInput.value?.focus();
+const { isTop } = useModal({
+    panel,
+    initialFocus: 'none',
+    onClose: () => emit('cancel'),
 });
 
-onBeforeUnmount(() => {
-    document.removeEventListener('keydown', onKeydown);
-    document.body.style.overflow = previousOverflow;
+onMounted(async () => {
+    await nextTick();
+    nameInput.value?.focus();
 });
 </script>
 
@@ -168,7 +140,9 @@ onBeforeUnmount(() => {
             ref="panel"
             class="editor frame"
             role="dialog"
-            aria-modal="true"
+            :aria-modal="isTop ? 'true' : undefined"
+            :aria-hidden="isTop ? undefined : 'true'"
+            :inert="isTop ? undefined : true"
             :aria-label="title"
         >
             <header class="editor-head">

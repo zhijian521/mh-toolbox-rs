@@ -29,6 +29,7 @@ import {
     pricesMarkLegacyImported,
     pricesSave,
 } from '../../services/desktop';
+import { todayText } from '../../services/format';
 import { createPersist, migrateLegacy } from '../../services/persist';
 import { makeId } from '../../services/shape';
 import { DEFAULT_CATEGORY, isPriceCategory } from './prices-catalog';
@@ -41,7 +42,6 @@ import {
     parsePriceItems,
     readPriceItems,
     retuneSub,
-    todayText,
     writePriceItems,
     type PriceItem,
     type PriceItemDraft,

@@ -151,7 +151,7 @@ export function parseSchoolTable(raw: unknown): SchoolTable {
     return { cap: file.cap, schools };
 }
 
-export function parseSkillTable(raw: unknown): SkillTable {
+function parseSkillTable(raw: unknown): SkillTable {
     const file = raw as { life?: unknown; story?: unknown };
     return {
         life: parseStringArray(file?.life, 'skills.json：life'),
@@ -167,7 +167,7 @@ export function parseSkillTable(raw: unknown): SkillTable {
  * 名字重复会让「按名字查图标」查错门派，所以这里**当场拦下**，而不是留给测试。
  * 校验器只在启动时跑一次，代价可以忽略；而一旦放进缓存，错的那张图会一直显示。
  */
-export function parseSchoolIconTable(raw: unknown): SchoolIconEntry[] {
+function parseSchoolIconTable(raw: unknown): SchoolIconEntry[] {
     const groups = (raw as { groups?: Record<string, unknown> })?.groups;
     const list = groups?.skill;
     if (!Array.isArray(list)) {
@@ -198,7 +198,7 @@ export function parseSchoolIconTable(raw: unknown): SchoolIconEntry[] {
  * **id 不许重复**：单价表按 id 存，重复会让两件物品共用同一个单价，改一件另一件跟着变，
  * 而界面上两格都「看着对」。
  */
-export function parseQuickItemTable(raw: unknown): QuickItemTable {
+function parseQuickItemTable(raw: unknown): QuickItemTable {
     const file = raw as { fixed?: unknown; variable?: unknown };
     const seen = new Set<number>();
 

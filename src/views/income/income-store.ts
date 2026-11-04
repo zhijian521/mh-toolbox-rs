@@ -16,14 +16,13 @@
  */
 import { ref } from 'vue';
 import { hasDesktop, incomeLoad, incomeSave } from '../../services/desktop';
+import { fromWan, todayText } from '../../services/format';
 import { createPersist } from '../../services/persist';
 import { makeId } from '../../services/shape';
 import {
-    fromWan,
     parseEntries,
     parsePrices,
     splitAmount,
-    today,
     type IncomeEntry,
     type QuickPrices,
 } from './income';
@@ -209,7 +208,7 @@ export function recordEntry(input: {
     const createdAt = Date.now();
     const created: IncomeEntry[] = owners.map((characterId, index) => ({
         id: makeId('inc'),
-        date: today(),
+        date: todayText(),
         characterId,
         kind: input.kind ?? 'income',
         amount: parts[index],

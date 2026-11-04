@@ -5,7 +5,8 @@ import PressButton from '../../components/PressButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import { notify } from '../../composables/use-notify';
 import type { QuickItemEntry } from '../../services/game-data';
-import { amountText, daysAgo, entriesOn, recordSummary, today, toWan, totalsOf } from './income';
+import { daysAgo, toWan, todayText } from '../../services/format';
+import { amountText, entriesOn, recordSummary, totalsOf } from './income';
 import { useIncome } from './income-store';
 import IncomeHistoryDialog from './IncomeHistoryDialog.vue';
 import ItemPriceDialog from './ItemPriceDialog.vue';
@@ -51,7 +52,7 @@ const rangeWord = computed(() => RANGES.find((one) => one.value === range.value)
  */
 const scoped = computed(() => {
     const all = entries.value;
-    const now = today();
+    const now = todayText();
     if (range.value === 'day') return entriesOn(all, now);
     if (range.value === 'week') {
         const from = daysAgo(6);
@@ -141,8 +142,10 @@ function priceCleared() {
             />
         </template>
 
-        <p v-if="loadError" class="note error">{{ loadError }}</p>
-        <p v-if="writeError" class="note error">{{ writeError }}</p>
+        <!-- 数据层那两条红字合成一行：`loadError`（整份读不出）优先于 `writeError`
+             （刚那一笔没写进去）。两条同时成立时上下叠两行，与角色页、物价页的写法不同，
+             而且用户在同一屏里读到两句几乎同义的话只会更慌。 -->
+        <p v-if="loadError || writeError" class="note error">{{ loadError || writeError }}</p>
 
         <div class="income-stack">
             <div class="filters">

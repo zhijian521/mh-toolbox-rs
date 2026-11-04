@@ -51,8 +51,17 @@ let lockedOverflow = '';
 export interface UseModalOptions {
     /** 面板元素。焦点陷阱要它。 */
     panel: Ref<HTMLElement | null>;
-    /** 初始焦点：`first` 第一个可聚焦元素，`cancel` 带 `data-modal-cancel` 的那个。 */
-    initialFocus?: 'first' | 'cancel';
+    /**
+     * 初始焦点：`first` 第一个可聚焦元素，`cancel` 带 `data-modal-cancel` 的那个，
+     * `none` 交给调用方自己定位（见下）。
+     *
+     * **`none` 是给「第一件事不该是点按钮」的窗。** 角色编辑器打开始终是为了填名字，
+     * 而面板里第一个可聚焦元素是页头的「取消」——用 `first` 会把焦点落在「放弃修改」上，
+     * 键盘用户按一下回车就把刚填的东西丢了。传 `none` 之后，调用方在自己那一帧里
+     * 聚焦真正的第一个输入格；这里**不再兜底**，所以传了 `none` 就必须自己聚焦，
+     * 否则焦点留在遮罩下的页面上，读屏会念背景内容。
+     */
+    initialFocus?: 'first' | 'cancel' | 'none';
     /** 请求关闭。Esc 按下时调用，由组件决定发出哪个事件。 */
     onClose: () => void;
 }
@@ -82,6 +91,10 @@ export function useModal(options: UseModalOptions): UseModalResult {
     }
 
     function focusInitial() {
+        /* 调用方自己定位（见 `initialFocus` 的注释）：这里什么都不做，包括那个
+         * 「退而聚焦面板」的兜底——兜底会把 `none` 变成 `first`，等于没传。 */
+        if (options.initialFocus === 'none') return;
+
         const panel = options.panel.value;
         const list = focusables();
         if (options.initialFocus === 'cancel') {

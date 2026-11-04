@@ -123,7 +123,7 @@ function switchedMap(current: ParsedTask, incoming: ParsedTask): boolean {
  * 2 帧 ≈ 2.2 秒（`POLL_MS` 1100）。NPC 走过去把一行字糊掉通常一两秒就过去，
  * 凑不满两帧；而真开眼之后「附近」是**永久**不再出现，两帧之后必然满足。
  */
-export const REVEAL_SILENT_FRAMES = 2;
+const REVEAL_SILENT_FRAMES = 2;
 
 /**
  * 天眼推进：同一张图、同一个坐标，句尾从 `附近` 变成了别的。

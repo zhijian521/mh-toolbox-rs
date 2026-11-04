@@ -20,7 +20,7 @@ export interface Layout {
     height: number;
 }
 
-export function project(layout: Layout, map: { maxX: number; maxY: number }, x: number, y: number) {
+function project(layout: Layout, map: { maxX: number; maxY: number }, x: number, y: number) {
     return {
         px: layout.left + (x / map.maxX) * layout.width,
         // y 轴翻转：坐标系原点在左下角，画布原点在左上角。

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { moneyText } from '../../services/format';
 import { buildPriceChart } from './price-chart-path';
-import { moneyText } from './prices';
 
 /**
  * 一件物品的价格走势（内联 SVG，不引图表库）。

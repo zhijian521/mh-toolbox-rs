@@ -26,7 +26,7 @@ const json = {
     quickItems: quickItemsFile,
 };
 
-export function seedGameData(): GameData {
+function seedGameData(): GameData {
     return installGameData(json.schools, json.skills, json.schoolIcons, json.quickItems);
 }
 

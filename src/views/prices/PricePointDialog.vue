@@ -3,13 +3,8 @@ import { computed, reactive, ref } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PriceField from '../../components/PriceField.vue';
 import PressButton from '../../components/PressButton.vue';
-import {
-    pointDraftErrors,
-    toPointDraft,
-    todayText,
-    type PricePoint,
-    type PricePointDraft,
-} from './prices';
+import { todayText } from '../../services/format';
+import { pointDraftErrors, toPointDraft, type PricePoint, type PricePointDraft } from './prices';
 
 /**
  * 记一笔价 / 改一条旧价。

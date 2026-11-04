@@ -6,7 +6,8 @@ import SelectField from '../../components/SelectField.vue';
 import { notify } from '../../composables/use-notify';
 import { askConfirm } from '../../composables/use-confirm';
 import { useRoster } from '../characters/roster';
-import { amountText, dayText, today, totalsOf, type IncomeEntry } from './income';
+import { dayText, todayText } from '../../services/format';
+import { amountText, totalsOf, type IncomeEntry } from './income';
 import { useIncome } from './income-store';
 import { itemIconOf } from './item-icons';
 import EntryEditDialog from './EntryEditDialog.vue';
@@ -40,7 +41,7 @@ const { entries, removeEntry, updateEntry } = useIncome();
 const { roster } = useRoster();
 
 /** 正在看的那一天。默认今天——打开历史的人十次有九次是想核对今天。 */
-const picked = ref(today());
+const picked = ref(todayText());
 
 /** 正在改的那一条。`null` = 没开编辑窗。 */
 const editing = ref<IncomeEntry | null>(null);
@@ -52,7 +53,7 @@ const editing = ref<IncomeEntry | null>(null);
  * 而账本关心的是「哪几天有账」。
  */
 const dateOptions = computed(() => {
-    const now = today();
+    const now = todayText();
     const others = [...new Set(entries.value.map((one) => one.date))]
         .filter((date) => date !== now)
         .sort()
@@ -66,7 +67,8 @@ const dateOptions = computed(() => {
 /* 选中那天被删空之后，`SelectField` 在选项里找不到它，触发条会退回 placeholder
  * 「未选」——那读起来像控件坏了。这时回到最近的一天。 */
 watch(dateOptions, (list) => {
-    if (!list.some((one) => one.value === picked.value)) picked.value = list[0]?.value ?? today();
+    if (!list.some((one) => one.value === picked.value))
+        picked.value = list[0]?.value ?? todayText();
 });
 
 /** 当天的流水，新的在上（`createdAt` 倒序）。 */
@@ -154,10 +156,10 @@ async function remove(one: IncomeEntry) {
                 class="date-pick"
             />
             <PressButton
-                v-if="picked !== today()"
+                v-if="picked !== todayText()"
                 text="回到今天"
                 label="回到今天的账"
-                @click="picked = today()"
+                @click="picked = todayText()"
             />
             <span class="sum">
                 <span class="dim">{{ dayTotals.count }} 笔</span>
