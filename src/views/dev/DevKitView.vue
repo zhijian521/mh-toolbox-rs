@@ -2,12 +2,16 @@
 import PageShell from '../../components/PageShell.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
+import SlotButton from '../../components/SlotButton.vue';
+import { askConfirm } from '../../composables/use-confirm';
+import { notify } from '../../composables/use-notify';
 import { useDevMode } from '../../composables/use-dev-mode';
 import AssistSlipSection from './AssistSlipSection.vue';
 import AtomsSection from './AtomsSection.vue';
 import IconsSection from './IconsSection.vue';
 import PaletteSection from './PaletteSection.vue';
 import TypeScaleSection from './TypeScaleSection.vue';
+import { DEMO_COUNTS, importDemoData } from './demo-data';
 
 /**
  * 开发帮助：做界面时才要查的东西——组件、色板、字号阶梯、图标。
@@ -31,22 +35,48 @@ import TypeScaleSection from './TypeScaleSection.vue';
  */
 
 const { devMode } = useDevMode();
+
+/**
+ * 灌一份模拟数据进名册与物价表。
+ *
+ * **先问再动手**：它整份顶掉现有的角色与物价。问句里必须写出代价与退路（设置页能导出），
+ * 与设置页那两个确认窗同一条口径——同一个动作在不同页面换一种问法，用户就得重新判断
+ * 「这次是不是也会删」。
+ *
+ * 写的是两份真数据，所以**不需要刷新页面**：`add` / `remove` / `addItem` 这些方法
+ * 自己会更新内存里的那份 ref，页面上的卡片立刻换成新的。设置页的「导入备份」要
+ * `location.reload()`，是因为那里走的是 Rust 整份替换、内存不知道。
+ */
+async function importDemo() {
+    const ok = await askConfirm({
+        title: '用模拟数据替换现在的角色与物价？',
+        note: `${DEMO_COUNTS.characters} 个角色、${DEMO_COUNTS.prices} 件物价会整份顶掉现在的内容，撤不回来。想留一份就先到设置页「导出」。主题与字号不受影响。`,
+        confirmText: '导入',
+        cancelText: '保持现状',
+    });
+    if (!ok) return;
+
+    const result = importDemoData();
+    if (!result.ok) {
+        notify.error(result.error);
+        return;
+    }
+    notify.success(`已导入 ${result.characters} 个角色、${result.prices} 件物价`);
+}
 </script>
 
 <template>
-    <PageShell title="开发帮助" desc="组件 · 令牌 · 图标 · 线条">
+    <PageShell title="开发帮助" desc="组件 · 令牌 · 图标 · 模拟数据">
         <div class="stack">
             <!-- 两张说明卡都只有几行，并一排；竖排下来右边全是空纸。 -->
             <div class="stack-pair">
                 <LedgerSection title="入口与约定" hint="左栏里没有这一页">
                     <p class="note">
-                        <b>怎么进来</b>：三连击左栏顶部的标（朱印「梦」）；浏览器预览可补
-                        <code>#/dev</code>。导航槽里不放这一项。
+                        进来：三连击左栏顶部的标（朱印「梦」），或地址栏补 <code>#/dev</code>。
                     </p>
                     <p class="note">
-                        <b>两条机制</b>：主题只改根元素的 <code>color-scheme</code>，颜色全走
-                        <code>light-dark()</code>；字号只改 <code>--fs-scale</code>（0.92 / 1 /
-                        1.1）。
+                        主题只改 <code>color-scheme</code>，字号只改 <code>--fs-scale</code>
+                        （0.92 / 1 / 1.1）。
                     </p>
                 </LedgerSection>
 
@@ -55,14 +85,27 @@ const { devMode } = useDevMode();
                         <span class="field-label">测试工具</span>
                         <CostSwitch v-model="devMode" off-label="关" on-label="开" />
                         <span class="meta">{{
-                            devMode
-                                ? '捉鬼助手的「测试文字」已显示'
-                                : '捉鬼助手的「测试文字」已隐藏'
+                            devMode ? '捉鬼助手显示「测试文字」' : '捉鬼助手不生成「测试文字」'
                         }}</span>
                     </div>
+
+                    <!-- 模拟数据是「另一个页面有没有东西可看」的问题，与上面那个开关无关：
+                         开发页本身已经是隐藏入口，进得来的人就是来动这些的。 -->
+                    <div class="form-row demo-row">
+                        <span class="field-label">模拟数据</span>
+                        <SlotButton
+                            icon="flask"
+                            text="导入"
+                            label="导入模拟数据"
+                            @click="importDemo"
+                        />
+                        <span class="meta">
+                            {{ DEMO_COUNTS.characters }} 个角色 · {{ DEMO_COUNTS.prices }} 件物价
+                        </span>
+                    </div>
                     <p class="note">
-                        关着时那块「测试文字」<b>不生成</b>（不是隐藏）——它是没有游戏时的替身，
-                        不该被当成功能。以后的测试工具都挂这一个开关，不再各配一个。
+                        整份替换，撤不回来（想留底稿先到设置页「导出」）。角色一满一空，物价
+                        涨跌平、一件只记过一天、一件一条没记。
                     </p>
                 </LedgerSection>
             </div>
@@ -81,3 +124,11 @@ const { devMode } = useDevMode();
         </div>
     </PageShell>
 </template>
+
+<style scoped>
+/* `.form-row` 只给行内排布、不给纵向间距（那是使用方的现场决定）。
+ * 这一行接在上一段的说明文字后面，12px 才读得出「换了一件事」。 */
+.demo-row {
+    margin-top: 12px;
+}
+</style>
