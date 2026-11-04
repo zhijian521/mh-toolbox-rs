@@ -1,10 +1,22 @@
-import type { Component } from 'vue';
+import type { RouteComponent } from 'vue-router';
 import type { IconName } from './components/icons';
-import CharactersView from './views/CharactersView.vue';
-import IncomeView from './views/income/IncomeView.vue';
-import PricesView from './views/prices/PricesView.vue';
-import SettingsView from './views/SettingsView.vue';
-import ToolsView from './views/ToolsView.vue';
+
+/**
+ * 五个页面**一律懒加载**（与 `tools.ts` 的捉鬼页、`router.ts` 的 `/dev` 同一个写法）。
+ *
+ * 静态 import 会让五页连同它们专用的组件全压进第一屏包——角色页一套（卡、编辑器、
+ * 五个分区编辑器、演示数据）、物价页一套（卡、走势图、四个弹窗）、收益页一套。
+ * 左栏只读下面的 `label` / `icon` / `path`（见 `App.vue` 的模板），从不实例化 `view`，
+ * 所以「进哪页才下哪页」在这里没有代价。
+ *
+ * 显式取 `.default`：`RouteComponent` 的联合类型不认模块命名空间对象，少这一层就要在
+ * `component` 上加断言。
+ */
+const CharactersView = () => import('./views/CharactersView.vue').then((page) => page.default);
+const IncomeView = () => import('./views/income/IncomeView.vue').then((page) => page.default);
+const PricesView = () => import('./views/prices/PricesView.vue').then((page) => page.default);
+const SettingsView = () => import('./views/SettingsView.vue').then((page) => page.default);
+const ToolsView = () => import('./views/ToolsView.vue').then((page) => page.default);
 
 /**
  * 导航 + 路由的**单一真源**。
@@ -21,7 +33,8 @@ export interface NavItem {
     label: string;
     icon: IconName;
     path: string;
-    view: Component | null;
+    /** `null` = 这一页还没写。写成函数就是懒加载（见文件头）。 */
+    view: RouteComponent | (() => Promise<RouteComponent>) | null;
 }
 
 export const NAV_ITEMS: NavItem[] = [
