@@ -1,7 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
 import { DEFAULT_PATH, NAV_ITEMS } from './navigation';
 import { TOOLS } from './tools';
-import DevKitView from './views/dev/DevKitView.vue';
 import PlaceholderView from './views/PlaceholderView.vue';
 
 /**
@@ -45,7 +44,11 @@ export const router = createRouter({
         {
             path: '/dev',
             name: 'dev-kit',
-            component: DevKitView,
+            /* 懒加载：开发帮助是一整套验收页（原子 / 图标 / 调色 / 字号 / 牌记，约一千五百行），
+             * 用户平时不会进来。静态 import 会让它压在第一屏包里，而它连入口都是三连击。
+             * 显式取 `.default`：`RouteComponent` 联合类型不认模块命名空间对象，
+             * 少这一层就要在 `component` 上加断言。 */
+            component: () => import('./views/dev/DevKitView.vue').then((page) => page.default),
             meta: { title: '开发帮助', ready: true, hidden: true },
         },
         // 未知路径回默认页，不留白屏。

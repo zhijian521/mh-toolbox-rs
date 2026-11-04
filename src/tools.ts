@@ -1,6 +1,5 @@
-import type { Component } from 'vue';
+import type { RouteComponent } from 'vue-router';
 import type { IconName } from './components/icons';
-import GhostHuntView from './views/tools/GhostHuntView.vue';
 
 /**
  * 工具清单。
@@ -21,7 +20,12 @@ export interface ToolEntry {
     desc: string;
     path: string;
     icon: IconName;
-    view: Component;
+    /**
+     * 路由目标。写成函数就是**懒加载**：捉鬼那套（截屏、OCR、地图绘制、样张夹具）
+     * 约一千五百行，只有真进 `/tools/ghost` 时才需要，不该压在第一屏。
+     * 列表页只读上面的 `name` / `icon` / `desc`，不实例化 `view`，所以懒加载不影响渲染。
+     */
+    view: RouteComponent | (() => Promise<RouteComponent>);
     /** 还没做完的入口画成半透明、不可点，与左栏未实现页的处理一致。 */
     ready: boolean;
 }
@@ -33,7 +37,7 @@ export const TOOLS: ToolEntry[] = [
         desc: '读任务栏里的假坐标，在地图上画出该往哪找',
         path: '/tools/ghost',
         icon: 'pin',
-        view: GhostHuntView,
+        view: () => import('./views/tools/GhostHuntView.vue').then((page) => page.default),
         ready: true,
     },
 ];
