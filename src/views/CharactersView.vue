@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import PageShell from '../components/PageShell.vue';
 import PressButton from '../components/PressButton.vue';
+import { askConfirm } from '../composables/use-confirm';
 import CharacterCard from './characters/CharacterCard.vue';
 import CharacterEditor from './characters/CharacterEditor.vue';
 import type { CharacterData } from './characters/character';
@@ -51,6 +52,21 @@ function onSave(character: CharacterData) {
     editing.value = null;
 }
 
+/* 删角色要问一次：名册删掉就没有回收站。问句与后果在这里，卡上只负责把这枚按钮画出来
+ * ——二次确认全站只有一个入口（`askConfirm()`），卡上再自绘一套「按钮就地改名」，
+ * 就会出现第二种问法，时限、文案、误触保护各写一遍。 */
+async function askRemove(character: CharacterData) {
+    const name = character.name || '这个角色';
+    const ok = await askConfirm({
+        title: `删掉「${name}」？`,
+        note: '删了之后名册里就没有这个人了，没法撤回。',
+        confirmText: '删除',
+    });
+    if (!ok) return;
+
+    remove(character.id);
+}
+
 /* 页头的副标题读的是**名册自己**的状态：几个号、存在哪。
  * 原先写「演示数据 · 先定版式，功能随后」，那句话现在是假的。 */
 const desc = computed(() =>
@@ -93,7 +109,7 @@ const desc = computed(() =>
                 :key="character.id"
                 :character="character"
                 @edit="editing = character"
-                @remove="remove(character.id)"
+                @remove="askRemove(character)"
             />
 
             <!-- 空位卡与角色卡同高：名册的行高由最高那张决定，缺一角会让整行看着没排完。

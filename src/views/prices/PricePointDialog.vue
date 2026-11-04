@@ -18,8 +18,9 @@ import {
  * 原生日期控件在 WebView2 上是系统画的一套（月历弹层），与这里「纸与槽」的语言不兼容，
  * 和「不用原生 select」是同一条理由。
  *
- * 价格填游戏币**原值**（3200000），不是「320 万」：换算只在显示时做（`priceLabel`），
- * 存储与输入保持原值，否则四舍五入会一层层吃掉精度。
+ * 价格格让人填「万」（320 就是 320 万）：`PriceField` 内部 ×10000 之后再 emit，
+ * 所以这一层的 `draft.price` 仍是游戏币**原值**（3200000），与 `prices.ts` 的口径、
+ * 存储格式一致；换算只发生在那一格自己的输入框里。
  */
 const props = defineProps<{
     /** 物品名，只用于标题。 */
@@ -39,8 +40,9 @@ const draft = reactive<PricePointDraft>(
 const errors = computed(() => pointDraftErrors(draft));
 const canSave = computed(() => !errors.value.date && !errors.value.price);
 
-/* 「未填」不是「填错」：打开就挂「价格要大于 0」是在用户还没动手时先告状，
- * 而填完、失焦之前它又不消失（价格格的 `@change` 才写回）。 */
+/* 「未填」不是「填错」：打开就挂「价格要大于 0」是在用户还没动手时先告状。
+ * `PriceField` 每个 input 事件就写回 `draft.price`，所以值一直在变；提示的时机由
+ * `touched` 决定——`@blur` 只用来置这一位，与写值不是一件事。 */
 const submitted = ref(false);
 const touched = reactive({ date: false, price: false });
 const showDateError = computed(() => (submitted.value || touched.date) && !!errors.value.date);

@@ -132,8 +132,8 @@ const pointDialogOpen = ref(false);
 /** 记完一笔要重置草稿（日期回今天、价格清空），靠这个自增号掺进 `:key`。 */
 const pointVersion = ref(0);
 
-/* 写入失败的原因分两条路显示：物品弹窗里的失败留在弹窗内（关掉窗再报错，用户得重新填一遍），
- * 页面级那条留给「记价撞上限」这类弹窗已经关掉之后才发生的事。
+/* 单笔写入失败（`itemError` / `pointError`）留在各自的弹窗里：窗没关，用户改一下就能重试，
+ * 关掉再报就只剩「刚才那句红字不见了」。
  *
  * `loadError` / `writeError` 是**数据层**的两条状态，与上面两条不同：它们说的是
  * 「整个物价表此刻读不出来 / 写不进去」，不是某一笔的内容问题，所以显示在页面顶部
@@ -352,8 +352,6 @@ function openHistory(item: PriceItem) {
             <SlotButton v-if="filterDirty" icon="close" label="清除筛选" @click="resetFilters" />
         </div>
 
-        <p v-if="pointError && !pointDialogOpen" class="note error price-error">{{ pointError }}</p>
-
         <div v-if="visible.length" class="price-grid">
             <PriceCard
                 v-for="item in visible"
@@ -371,7 +369,14 @@ function openHistory(item: PriceItem) {
             <AppIcon name="prices" class="void-icon" />
             <h3>记下第一个价</h3>
             <p class="note">按物品建一张卡，之后每次看到新行情就记一笔，涨跌和走势会自己算出来。</p>
-            <PressButton icon="add" text="新增" label="新建第一件物品" seal @click="startNew" />
+            <PressButton
+                icon="add"
+                text="新增"
+                label="新建第一件物品"
+                seal
+                :disabled="!!loadError"
+                @click="startNew"
+            />
         </div>
 
         <!-- 有物品但被筛掉了：只说「换个条件」，不再给新建入口——那会让人重复建卡。 -->

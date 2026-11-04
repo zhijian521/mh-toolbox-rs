@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, ref } from 'vue';
 import MeterBar from '../../components/MeterBar.vue';
 import NumTag from '../../components/NumTag.vue';
 import PressButton from '../../components/PressButton.vue';
@@ -53,28 +53,9 @@ function choose(key: PaneKey) {
     closeAll();
 }
 
-/* ---------- 删除：先问一次，再动手 ----------
- * 角色是手工一条一条录进来的，删掉没有回收站（名册只存一份到 localStorage），
- * 所以「点一次就删」的代价太大。这里不弹确认框：页面上没有对话框这种器件，
- * 为一处删除造一个，等于把系统弹窗那套观感搬进账簿。
- * 做法是把那枚按钮**就地改成「确认」**——第二次点击的目标没变，误触也变不成误删。
- * 4 秒没有下文就退回原样：停在一个朱红的「确认」上，别人走过来会以为这一格本来就是删。
- */
-const pendingDelete = ref(false);
-let resetTimer: ReturnType<typeof setTimeout> | undefined;
-
-function askDelete() {
-    pendingDelete.value = true;
-    resetTimer = setTimeout(() => (pendingDelete.value = false), 4000);
-}
-
-function confirmDelete() {
-    clearTimeout(resetTimer);
-    pendingDelete.value = false;
-    emit('remove');
-}
-
-onBeforeUnmount(() => clearTimeout(resetTimer));
+/* 删除不在这里问第二遍：卡只管画，问句与后果在 `CharactersView` 里走全站那枚 `askConfirm()`。
+ * 卡上再自绘一套「按钮就地改名 → 4 秒退回」，就有两个入口、两套文案，
+ * 而且「4 秒」这种时限只有这一个地方有，谁也说不清为什么是 4 秒。 */
 
 /* ---------- 浮片：装备与召唤兽共用一份「指向哪个格子」的状态 ----------
  * 两个浮片内容不同，但「悬停/聚焦 → 量锚点 → 由浮片自己算落位」这套流程一样，
@@ -153,21 +134,10 @@ const expText = computed(() => {
                 </p>
             </div>
             <!-- 卡头右侧：改与删。两枚都是纯图标 26px，与左栏、工具页同一种压印块。
-                 删除的「确认」态把两枚换成一枚带字的朱面——那时它不是图标按钮，
-                 而是一次已经亮明后果的动作，字必须写出来。 -->
+                 删除只把事件抛出去，确认窗由名册页开——卡上不出现第二种「确认」的问法。 -->
             <div class="head-actions">
-                <PressButton
-                    v-if="pendingDelete"
-                    icon="trash"
-                    text="确认"
-                    label="确认删除这个角色，无法撤销"
-                    seal
-                    @click="confirmDelete"
-                />
-                <template v-else>
-                    <PressButton icon="edit" label="编辑这个角色" @click="emit('edit')" />
-                    <PressButton icon="trash" label="删除这个角色" @click="askDelete" />
-                </template>
+                <PressButton icon="edit" label="编辑这个角色" @click="emit('edit')" />
+                <PressButton icon="trash" label="删除这个角色" @click="emit('remove')" />
             </div>
         </header>
 
@@ -327,18 +297,26 @@ const expText = computed(() => {
                         <div class="group-head">
                             <span class="section-mark"></span>{{ group.title }}
                         </div>
-                        <div class="training-list">
+                        <!-- 十行纸带（`.paper-rows` 只给两道棱色，材质在全局 `.paper-row`）：
+                             名目 / 条 / 数值签，与属性、师门两页同一个读法。 -->
+                        <div class="training-list paper-rows">
                             <div
                                 v-for="row in group.rows"
                                 :key="row.name"
-                                class="training-row"
+                                class="training-row paper-row"
                                 :class="{ done: isMaxed(row), idle: row.level === 0 }"
                             >
                                 <span class="name">{{ row.name }}</span>
                                 <span class="track"
                                     ><i :style="{ width: `${rowPercent(row.level, row.cap)}%` }"></i
                                 ></span>
-                                <span class="lv num">{{ row.level }}/{{ row.cap }}</span>
+                                <!-- 读数进数值签（与师门那一列同一枚）：上限写成 `/20` 的淡字，
+                                     只有等级是读数。满级时签里的字与条一起转朱。 -->
+                                <NumTag class="training-val">
+                                    <span class="lv"
+                                        >{{ row.level }}<i>/{{ row.cap }}</i></span
+                                    >
+                                </NumTag>
                             </div>
                         </div>
                     </div>
