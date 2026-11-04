@@ -32,6 +32,7 @@ import {
     hasDesktop,
 } from '../../services/desktop';
 import { schoolNames } from '../../services/game-data';
+import { createPersist, migrateLegacy } from '../../services/persist';
 /* 形状兜底全在 `services/shape.ts`（与物价页共用一份）。两个本地别名值得看清：
  *   `text`  ← `rawText`：名册这边**不 trim**，卡面上的字是用户写什么就显示什么；
  *   `int`   ← `stamp`  ：`Math.round` + 非有限数变 0，等级与时间戳共用同一条规则。 */
@@ -508,13 +509,12 @@ function loadFromLocal(): CharacterData[] {
 /**
  * 读档。**只能调一次，且在 mount 之前**。
  *
- * 首次启动把 `localStorage` 那一版搬进 SQLite。**搬成功才动源数据**：
- * 写失败就什么都不做，下次启动再试；改名留底而不是删除，库文件万一坏了还能捞。
+ * 首次启动把 `localStorage` 那一版搬进 SQLite，**搬成功才动源数据**。「要不要搬」是
+ * **三态**（`null` = 问不出来，不等于「没搬过」），这两条判据与留底那一处的兜底都在
+ * `services/persist.ts` 的 `migrateLegacy`——把「问不出来」当「没搬过」的后果，
+ * 在这里会多出一层：下面的种子分支会趁机把两个演示角色种进一个被用户清空的名册。
  *
- * 「要不要搬」这一步是**三态**（`charactersLegacyImported` 返回 `true` / `false` / `null`）：
- * `null` = 问不出标记（没有宿主 / 调用失败），这时**不搬**。把「问不出来」当「没搬过」
- * 会拿陈年的 `localStorage` 快照整份覆盖库，而且下面 `stored.length === 0 && firstRun`
- * 那条还会趁机把两个演示角色种进一个被用户清空的名册——都是拿不准就动数据。
+ * 这个函数只交代两件事：搬哪一份，以及**搬完之后**怎么定名册。
  */
 export async function loadRoster(): Promise<void> {
     if (!hasDesktop()) {
@@ -522,25 +522,14 @@ export async function loadRoster(): Promise<void> {
         return;
     }
 
-    const firstRun = (await charactersLegacyImported()) === false;
-    if (firstRun) {
-        const legacy = parseRoster(readRaw());
-        if (legacy && legacy.length) {
-            const saved = await charactersSave(legacy);
-            if (saved && typeof localStorage !== 'undefined') {
-                /* 留底这一段**必须兜住**：配额满（写第二份副本，用量翻倍）或
-                 * localStorage 被策略禁用时 `setItem` 会抛，而这个函数在 `main.ts` 的
-                 * `Promise.all` 里——一抛就是启动白屏。留底是尽力而为，数据已经在库里了。 */
-                try {
-                    localStorage.setItem(`${STORAGE_KEY}.migrated`, JSON.stringify(legacy));
-                    localStorage.removeItem(STORAGE_KEY);
-                } catch (error) {
-                    console.error('旧名册留底失败（数据已入库，不影响使用）', error);
-                }
-            }
-        }
-        await charactersMarkLegacyImported();
-    }
+    const firstRun = await migrateLegacy<CharacterData>({
+        storageKey: STORAGE_KEY,
+        label: '旧名册',
+        imported: charactersLegacyImported,
+        readLegacy: () => parseRoster(readRaw()),
+        saveAll: charactersSave,
+        markImported: charactersMarkLegacyImported,
+    });
 
     const stored = await charactersLoad<CharacterData>();
     /* 读失败（`null`）**不能**当「库里没有」：`charactersLoad` 的契约是
@@ -565,24 +554,20 @@ export async function loadRoster(): Promise<void> {
     }
 }
 
-function persist(): void {
-    /* 最后一道闸：读失败时**任何**入口都不许写。界面上的错误提示是给人看的，
-     * 这条是给代码看的——即便将来多出一个写入口，也不会把空名册盖掉库里的数据。 */
-    if (loadError.value) {
-        console.error('名册处于读取失败状态，跳过本次写入', loadError.value);
-        return;
-    }
-    if (!hasDesktop()) {
-        writeRaw(serializeRoster(roster.value));
-        return;
-    }
-    /* 异步写、不等：调用方是同步函数，而每次写的都是当下全量，后发先至也不会坏。
-     * 但**失败必须回到界面上**（`writeError`）：`desktop.ts` 只把它打到控制台，
-     * 而用户不看控制台——那等于静默吞掉，他会以为存上了。 */
-    void charactersSave(roster.value).then((ok) => {
-        writeError.value = ok ? '' : '这一笔没存进数据库，检查一下磁盘空间';
-    });
-}
+/**
+ * 落盘。
+ *
+ * 「读失败拒绝写（最后一道闸）、浏览器写本地、桌面版异步写库、连续写排队」这一整套在
+ * `services/persist.ts` 的 `createPersist`——三份数据层共用一份。这里只说这份数据
+ * 怎么落：整份 `CharacterData[]` 交给 `characters_save`，浏览器里序列化进 `mh-roster`。
+ */
+const persist = createPersist({
+    label: '名册',
+    loadError,
+    writeError,
+    writeLocal: () => writeRaw(serializeRoster(roster.value)),
+    writeRemote: () => charactersSave(roster.value),
+});
 
 export function useRoster() {
     /** 新增。返回新角色的 id，调用方拿它决定要不要接着打开编辑器。 */

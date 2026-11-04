@@ -16,6 +16,7 @@
  */
 import { ref } from 'vue';
 import { hasDesktop, incomeLoad, incomeSave } from '../../services/desktop';
+import { createPersist } from '../../services/persist';
 import { makeId } from '../../services/shape';
 import {
     fromWan,
@@ -74,7 +75,8 @@ function readLocal(): StoredShape | null {
     }
 }
 
-function writeLocal(payload: StoredShape): void {
+/** 浏览器那条路径的落盘（`localStorage`）。名字与 `persist` 的参数区分开，避免看混。 */
+function saveLocal(payload: StoredShape): void {
     if (typeof localStorage === 'undefined') return;
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -96,41 +98,22 @@ function payloadOf(): { entries: IncomeEntry[]; prices: { itemId: number; price:
 }
 
 /**
- * 写盘排成一条链。
+ * 落盘。
  *
- * 每次速记都是「整份写回」，而 `incomeSave` 是**异步** IPC。连点两个物品时两次写会
- * 同时在路上——各自带着**发出那一刻**的全量快照，谁后到谁生效。先发的那次若后到，
- * 库里就只剩一条，而界面明明有两条。这不是理论风险：速记的全部用法就是连点
- * （回执只亮 1.6 秒，说明人一直在连着点）。
+ * 「读失败拒绝写、浏览器写本地、桌面版异步写库、连续写排队」这一整套在
+ * `services/persist.ts` 的 `createPersist`——三份数据层共用一份，理由写在那里。
  *
- * 两条出路——合并与排队：
- *   - **合并**（攒 50ms 只写最后一次）看起来更快，但它把「写完」与「点完」错开，
- *     用户点完就关窗口时最后那一笔会丢；
- *   - **排队**（这一条）让每一份都真的落下去，而快照在**执行时**取，所以排队中的
- *     多次写拿到的都是当下最新那份，重复写相同数据、但最后一次一定是对的。
- *
- * 一天几十条、整份几百 KB 的量级，排队多花的那点时间不值得用丢账去换。
+ * 这一页对那条队列的依赖最重：速记的全部用法就是连点（回执只亮 1.6 秒），
+ * 而每次写都是整份，不排队就会丢中间那几笔——第 97 批为它单独写过一版队列，
+ * 现在与物价、名册共用同一份。
  */
-let saving: Promise<void> = Promise.resolve();
-
-function persist(): void {
-    /* 读失败时一律不写：这时 `entries` 是空的，写下去就是整份覆盖。 */
-    if (loadError.value) {
-        console.error('收益账处于读取失败状态，跳过本次写入', loadError.value);
-        return;
-    }
-
-    if (!hasDesktop()) {
-        writeLocal(payloadOf());
-        return;
-    }
-
-    saving = saving.then(async () => {
-        /* 快照在这一刻取（不是排队那一刻）：前一份刚写完，内存里已经是最新的一份。 */
-        const ok = await incomeSave(payloadOf());
-        writeError.value = ok ? '' : '这一笔没写进数据库，检查一下磁盘空间';
-    });
-}
+const persist = createPersist({
+    label: '收益账',
+    loadError,
+    writeError,
+    writeLocal: () => saveLocal(payloadOf()),
+    writeRemote: () => incomeSave(payloadOf()),
+});
 
 /**
  * 读档。**只能调一次，且在 mount 之前**（与 `loadPrices()` 同一个位置）。

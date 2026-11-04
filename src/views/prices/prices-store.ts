@@ -29,6 +29,7 @@ import {
     pricesMarkLegacyImported,
     pricesSave,
 } from '../../services/desktop';
+import { createPersist, migrateLegacy } from '../../services/persist';
 import { makeId } from '../../services/shape';
 import { DEFAULT_CATEGORY, isPriceCategory } from './prices-catalog';
 import {
@@ -87,34 +88,18 @@ export async function loadPrices(): Promise<void> {
         return;
     }
 
-    /* `null` = 问不出标记（没有宿主 / 调用失败）。这时**不进迁移分支**：把「问不出来」
-     * 当成「没搬过」，一旦 `localStorage` 里还留着一份旧快照就会整份覆盖库；
-     * 当成「搬过了」又可能漏搬。两边都是拿不准就动数据，所以干脆不搬——
-     * 直接读库，读不到就挂 `loadError`，绝不 seed、绝不覆盖。 */
-    if ((await pricesLegacyImported()) === false) {
-        const legacy = readPriceItems();
-        if (legacy.length) {
-            const saved = await pricesSave(legacy);
-            /* **搬成功才动源数据**。失败就什么都不做，下次启动再试——
-             * 反过来（先删后写）一旦写失败就是永久丢数据。 */
-            if (saved && typeof localStorage !== 'undefined') {
-                /* 改名而不是删除：库文件万一被误删 / 损坏，这里还留着一份可以捞。
-                 * 改名之后 `readPriceItems()` 再也读不到它，不会被重复搬。
-                 *
-                 * 这一段**必须兜住**：配额满（这时等于写第二份副本，用量翻倍）或
-                 * localStorage 被策略禁用时 `setItem` 会抛，而这个函数在
-                 * `main.ts` 的 `Promise.all` 里——一抛就是启动白屏。留底只是尽力而为，
-                 * 数据已经在库里了，备份写不进去不该让应用起不来。 */
-                try {
-                    localStorage.setItem(`${STORAGE_KEY}.migrated`, JSON.stringify(legacy));
-                    localStorage.removeItem(STORAGE_KEY);
-                } catch (error) {
-                    console.error('旧物价表留底失败（数据已入库，不影响使用）', error);
-                }
-            }
-        }
-        await pricesMarkLegacyImported();
-    }
+    /* 三态判据（`null` 不搬）、「搬成功才动源数据」、留底失败为什么不能抛，
+     * 全在 `services/persist.ts` 的 `migrateLegacy`——这里只交代「搬哪一份、搬去哪」。
+     * 返回值是「这次是不是首次启动」，物价表用不上它：库里空就该是空表，
+     * 不像名册要种两个演示角色。 */
+    await migrateLegacy<PriceItem>({
+        storageKey: STORAGE_KEY,
+        label: '旧物价表',
+        imported: pricesLegacyImported,
+        readLegacy: readPriceItems,
+        saveAll: pricesSave,
+        markImported: pricesMarkLegacyImported,
+    });
 
     const stored = await pricesLoad<PriceItem>();
     /* 读失败**不是空库**。先拿到原始结果再分支，是为了让「`null`」这个信号
@@ -165,25 +150,17 @@ syncAcrossWindows();
 /**
  * 落盘。
  *
- * 桌面版是**异步写、不等**：`addPoint` 这类调用方是同步函数，等不起；而整份写意味着
- * 后发先至也不会坏（每一次写的都是当下全量）。真失败了记在 `writeError` 里，
- * 界面拿它显示一行红字——不能静默吞掉，否则用户以为存上了。
+ * 「读失败拒绝写、浏览器写本地、桌面版异步写库、连续写排队」这一整套在
+ * `services/persist.ts` 的 `createPersist`——三份数据层共用一份，理由写在那里。
+ * 这里只说这份数据怎么落：整份 `PriceItem[]` 交给 `prices_save`。
  */
-function persist(): void {
-    /* 读失败时一律不写：这时 `items` 是空的，写下去就是整份覆盖。
-     * 界面有红字告知，这条是代码侧的闸——即便将来多出一个写入口也拦得住。 */
-    if (loadError.value) {
-        console.error('物价表处于读取失败状态，跳过本次写入', loadError.value);
-        return;
-    }
-    if (!hasDesktop()) {
-        writePriceItems(items.value);
-        return;
-    }
-    void pricesSave(items.value).then((ok) => {
-        writeError.value = ok ? '' : '这一笔没写进数据库，检查一下磁盘空间';
-    });
-}
+const persist = createPersist({
+    label: '物价表',
+    loadError,
+    writeError,
+    writeLocal: () => writePriceItems(items.value),
+    writeRemote: () => pricesSave(items.value),
+});
 
 /** 整条替换一件物品，然后落盘。列表每次都换新数组，`computed` 不必靠深度侦听。 */
 function replaceItem(next: PriceItem): void {

@@ -75,6 +75,12 @@ describe('loadPrices：读失败不等于空库', () => {
 
         expect(loadError.value).toBe('');
         addItem(DRAFT, 1200);
+        /* 让出一个宏任务再断言。写入是**排队发起**的（`createPersist` 那条链），调用
+         * 落在微任务里，不再像第 97 批之前那样同步发生。这里不是「等它写完」——
+         * `pricesSave` 被调用的那一刻入参就已确定，不必等它 resolve。
+         * 用 `setTimeout` 而不是 `Promise.resolve()`：将来链上再加一层 `then`，
+         * 一个微任务就等不到了，而这条用例会从「闸焊死」假红成别的东西。 */
+        await new Promise((resolve) => setTimeout(resolve, 0));
         /* 这里与上一条正好相反：同一个 `addItem`，只因读档成功，就必须真的写。
          * 少了这条，一个「永远不写」的实现也能让上面两条全绿。 */
         expect(desktop.pricesSave).toHaveBeenCalledTimes(1);
