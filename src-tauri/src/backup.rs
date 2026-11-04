@@ -283,8 +283,50 @@ fn with_parent<R: tauri::Runtime>(
     }
 }
 
+/* ======================================================================
+ * 测试钩子：把系统对话框换成一个固定路径
+ * ==================================================================== */
+
+/// 钩子文件名，落在数据目录下（与库文件同级，`e2e` 脚本知道去哪儿写）。
+const OVERRIDE_FILE: &str = "e2e-dialog.json";
+
+/// **仅 debug 构建**：数据目录里出现 `e2e-dialog.json` 时，跳过系统对话框，直接用里面的路径。
+///
+/// ---- 为什么需要它 ----
+/// e2e 要验「导出 → 导入」这条真路径，而它的头一步是 rfd 的原生对话框：不在 WebView 里、
+/// CDP 点不到，真弹出来还会把模态窗挂在窗口前面等人点。于是那一节此前只验到「三枚按钮在、
+/// 按 Esc 能取消」，中间这段**从来没有被走过**——而它恰好是「用户的账到底有没有安全落盘」
+/// 的那一段。
+///
+/// ---- 为什么是文件，不是环境变量 ----
+/// e2e 连的是一个**已经跑起来**的窗口，环境变量在进程启动那一刻就定了；而一轮测试里要连着
+/// 做两次不同的选择（先「另存为」到 A，再「打开」A）。文件可以在两次之间换内容。
+///
+/// ---- 为什么读到就删、且只在 debug ----
+/// 读到就删：一份只该用一次，否则用户自己点「导出」时会被莫名其妙塞到测试目录里。
+/// 只在 debug：留着它等于给任何能写数据目录的程序一条「把账本悄悄导出到固定位置，或用
+/// 一个文件把账本整份顶掉」的路。`cfg!` 是编译期常量，release 里这段会被整个丢掉——
+/// 不是「运行时跳过」，是**发布版里根本没有这段代码**。
+///
+/// 文件形状：`{"save": "C:/…/x.json"}` 或 `{"open": "C:/…/x.json"}`。解析失败就是没有钩子，
+/// 照常弹对话框——测试写错了不该让功能不可用。
+fn dialog_override(app: &AppHandle, kind: &str) -> Option<PathBuf> {
+    if !cfg!(debug_assertions) {
+        return None;
+    }
+    let file = store::base_dir(app).ok()?.join(OVERRIDE_FILE);
+    let raw = std::fs::read_to_string(&file).ok()?;
+    /* 先删再解析：内容坏掉的那一份也算用过了，不然它会让后面每一次调用都失败一次。 */
+    let _ = std::fs::remove_file(&file);
+    let value: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    value.get(kind)?.as_str().map(PathBuf::from)
+}
+
 /// 弹「另存为」，返回用户选的位置。取消 → `Ok(None)`。
 async fn ask_save_path(app: &AppHandle, name: String) -> Result<Option<PathBuf>, String> {
+    if let Some(path) = dialog_override(app, "save") {
+        return Ok(Some(ensure_json_extension(path)));
+    }
     let app = app.clone();
     let picked = tauri::async_runtime::spawn_blocking(move || {
         let builder = app
@@ -340,6 +382,9 @@ fn ensure_json_extension(path: PathBuf) -> PathBuf {
 
 /// 弹「打开」，返回选中文件的路径。取消 → `Ok(None)`。
 async fn ask_open_path(app: &AppHandle) -> Result<Option<PathBuf>, String> {
+    if let Some(path) = dialog_override(app, "open") {
+        return Ok(Some(path));
+    }
     let app = app.clone();
     let picked = tauri::async_runtime::spawn_blocking(move || {
         let builder = app.dialog().file().add_filter("JSON", &["json"]);

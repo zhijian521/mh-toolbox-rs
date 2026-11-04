@@ -317,6 +317,34 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
         await sleep(250);
     };
 
+    /**
+     * 等**页面自己**触发的那次重载完成。
+     *
+     * `reload()` 是我们叫它重载；这一条是页面自己 `location.reload()`（导入 / 清除成功后
+     * 就是这么干的，见 `DataSection.vue` 的 `reloadWithNotice`）。区别在时序：脚本先点按钮，
+     * 再等文档换掉——而「点」和「换」之间还有一次异步 IPC，所以**必须在点之前**取
+     * `timeOrigin()`，事后再取就已经是新的了。
+     *
+     * 用法：
+     *   const before = await cdp.timeOrigin();
+     *   await ui.clickLabel('…');
+     *   await cdp.waitForReload(before);
+     */
+    const timeOrigin = () => evaluate('performance.timeOrigin');
+
+    const waitForReload = async (
+        before,
+        { waitFor: selector = '.rail-nav', timeout: ms = 25000 } = {},
+    ) => {
+        const done = await waitFor(
+            `performance.timeOrigin !== ${JSON.stringify(before)} &&
+             !!document.querySelector(${JSON.stringify(selector)})`,
+            { timeout: ms, interval: 200 },
+        );
+        if (!done) throw new Error(`等页面自己重载：${ms}ms 内没换文档（${selector}）`);
+        await sleep(250);
+    };
+
     const shot = async (file) => {
         const { data } = await send('Page.captureScreenshot', { format: 'png' });
         const { writeFileSync, mkdirSync } = await import('node:fs');
@@ -340,6 +368,8 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
         type,
         key,
         reload,
+        timeOrigin,
+        waitForReload,
         shot,
         appInfo,
         errors,

@@ -34,6 +34,12 @@ pub struct AppInfo {
     identifier: String,
     data_dir: String,
     webview: String,
+    /// 这是不是 debug 构建。
+    ///
+    /// 前端拿它只用一处：真窗口测试要知道「能不能用调试端口与测试钩子」。发布版里
+    /// 这两样都不存在，测试遇到它应当**明确跳过**，而不是去点「导出」——那一按会弹出
+    /// 系统对话框，把整轮测试挂在模态窗前面等人。
+    debug: bool,
 }
 
 /// 数据目录必须与旧版 Electron 指向同一个目录，否则朋友升级后数据「消失」。
@@ -114,6 +120,7 @@ fn app_info(app: tauri::AppHandle) -> AppInfo {
         identifier: config.identifier.clone(),
         data_dir: data_dir(),
         webview: tauri::webview_version().unwrap_or_else(|_| "未知".to_string()),
+        debug: cfg!(debug_assertions),
     }
 }
 

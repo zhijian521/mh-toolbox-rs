@@ -22,7 +22,7 @@ import { resolve } from 'node:path';
 const REPORT = '.runtime/e2e-report.json';
 const SHOTS = '.runtime/e2e-shots';
 
-export function createReporter({ cdp = null } = {}) {
+export function createReporter({ cdp = null, allowConsoleErrors = [] } = {}) {
     const rows = [];
     const sections = [];
     let current = null;
@@ -108,13 +108,28 @@ export function createReporter({ cdp = null } = {}) {
             const seconds = sections.reduce((sum, s) => sum + costOf(s), 0).toFixed(1);
 
             const pageErrors = cdp?.errors ?? [];
+            /* 页面报错**计入失败**，不再只是打印一行。
+             *
+             * 老版只打印：console.error 与未捕获异常都不改变退出码，于是「零报错」是一句
+             * 没人守着的漂亮话——懒加载的 chunk 404、Vue 渲染异常全都不让界面变红，
+             * 正好是这套测试最该抓的两类问题（第 103 批记过）。
+             *
+             * 但也不能一律算红：`allowConsoleErrors` 是几个**子串**，给已知的、与本次
+             * 结论无关的噪音留一条口子（比如某张图暂时没放）。它必须写在调用处，
+             * 让人看得见「这一条是被放过的」，而不是散在断言里。 */
+            const unique = [...new Set(pageErrors)];
+            const ignored = unique.filter((one) => allowConsoleErrors.some((p) => one.includes(p)));
+            const real = unique.filter((one) => !ignored.includes(one));
+            const code = fails.length || real.length ? 1 : 0;
             console.log(`\n${'='.repeat(60)}`);
             console.log(
                 `结果：${pass} 通过 / ${fails.length} 失败 / ${info} 提示 · 用时 ${seconds}s`,
             );
-            if (pageErrors.length) {
-                console.log(`\n页面控制台报错 ${pageErrors.length} 条：`);
-                for (const one of [...new Set(pageErrors)].slice(0, 15)) console.log(`  ! ${one}`);
+            if (real.length) {
+                console.log(`\n页面控制台报错 ${real.length} 条（计入失败）：`);
+                for (const one of real.slice(0, 15)) console.log(`  ! ${one}`);
+            } else if (ignored.length) {
+                console.log(`页面控制台：${ignored.length} 条已知噪音，已放过`);
             } else {
                 console.log('页面控制台：零报错');
             }
@@ -148,7 +163,7 @@ export function createReporter({ cdp = null } = {}) {
                                 detail: f.detail,
                                 shot: f.shot ?? null,
                             })),
-                            pageErrors: [...new Set(pageErrors)],
+                            consoleErrors: { real, ignored },
                         },
                         null,
                         2,
@@ -159,7 +174,7 @@ export function createReporter({ cdp = null } = {}) {
                 /* 报告写不下去不该改变测试结论。 */
             }
 
-            return fails.length ? 1 : 0;
+            return code;
         },
     };
 }

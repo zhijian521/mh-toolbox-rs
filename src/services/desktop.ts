@@ -27,6 +27,8 @@ export interface AppInfo {
     identifier: string;
     dataDir: string;
     webview: string;
+    /** debug 构建为 true。真窗口测试据此判断调试端口与测试钩子在不在。 */
+    debug: boolean;
 }
 
 /** 浏览器里跑（`npm run dev` 但没起 Tauri）时 invoke 会抛错，降级成 null 而不是炸掉页面。 */
