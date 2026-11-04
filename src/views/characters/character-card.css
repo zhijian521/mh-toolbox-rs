@@ -527,85 +527,170 @@
 /* ======================================================================
  * 装备
  * ==================================================================== */
-/* 四行均分卡里的剩余高度（`grid-auto-rows: 1fr` + `flex: 1`），不再是写死的 66。
- * 卡从 480 长到 540 之后，12 个 66 高的格子只铺满上半截，底下空出 115px——
- * 与属性行同一个问题：格子得跟着卡一起长，留白才不会堆在底下。
- * 四行等高仍是 3 × 4 的排布，只是每格从 66 变成 91（1024 × 780 / 1.1 档实测）。 */
-/* 横 10 / 纵 7：横向原与纵向同为 7，128 宽的块并排时四道竖缝把 12 个格子
- * 读成一张连起来的板；横向单给 10，块与块才分开（2026-11-02 用户要求）。
- * 纵向不加——格高是 `1fr`，再撑高会把 12 格顶出卡底。 */
-.gear-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-auto-rows: 1fr;
+/* 4 × 4 同位格。**位置表在 `character.ts` 的 `GEAR_LAYOUT`**，这里只画格子。
+ *
+ * ## 为什么从 3 × 4 改成 4 × 4（2026-11-04）
+ * 用户对着游戏「人物装备」面板指出真实位：顶行四灵饰、左右两列各三件、
+ * 底中两枚玉魄（阳在左）、中央是人物位。旧版 3 × 4 把十二格平铺，位置与游戏对不上，
+ * 玩家得重新学「头在哪」——而这张卡的用途正是「一眼对上游戏里的那个面板」。
+ *
+ * ## 尺寸怎么来的
+ * 版心 410 切四列、列距 8 → 96.5；行距 9、四行均分剩余高度 → 109。**不是正方**：
+ * 竖长的那 12 像素给了「部位名 + 图 + 装备名」三行字，96 的方块里塞不下。
+ * 卡宽或 `--card-pad-x` 一改，这两个数就要重算。
+ *
+ * ## 格子是凹的，槽里那件东西是凸的
+ * 旧版整格是 `PressTile`（凸起的一块纸），读作「已经拿出来摆着的一件东西」；
+ * 装备格是「往里放」的槽，凹才对。凹的四件套不在这里重写——用全局 `.well`
+ * 的边框 / 底色 / 顶壁渐变 / 下沿亮线，只把渐变长度从 62% 收到 46px
+ * （62% 按 109 高解析是 67px，一大片灰；`.field` 对同一个问题给的是 14px）。
+ *
+ * 但**图标本身仍要一块凸的**（`IconTile`，与师门、辅助同一件）：彩色方图直接躺在
+ * 槽里读作「贴了一张图」，包一层压印块才是「槽里放着一件」。两层不冲突——
+ * `.slip-row` 那张凹票里也是这么叠的。
+ */
+.gear-board {
     flex: 1;
-    gap: 7px 10px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(4, minmax(0, 1fr));
+    gap: 9px 8px;
+    min-height: 0;
 }
+/* 中央人物位：跨 2 × 2，**不画框**。四角四道括线说明「这块版心空着」；
+ * 画成虚线框会被读成「第十三格，还没填」。 */
+.gear-stage {
+    grid-column: 2 / 4;
+    grid-row: 2 / 4;
+    position: relative;
+}
+.gear-stage .corner {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border: 1px solid color-mix(in srgb, var(--rule-2) 80%, transparent);
+}
+.gear-stage .c1 {
+    top: 4px;
+    left: 4px;
+    border-right: 0;
+    border-bottom: 0;
+}
+.gear-stage .c2 {
+    top: 4px;
+    right: 4px;
+    border-left: 0;
+    border-bottom: 0;
+}
+.gear-stage .c3 {
+    bottom: 4px;
+    left: 4px;
+    border-right: 0;
+    border-top: 0;
+}
+.gear-stage .c4 {
+    bottom: 4px;
+    right: 4px;
+    border-left: 0;
+    border-top: 0;
+}
+
 .gear-cell {
-    display: block;
-    height: 100%;
-    padding: 0;
-    border: 0;
-    border-radius: var(--r-2);
-    background: none;
-    text-align: left;
-    font-family: var(--font-ui);
-    color: var(--ink);
-}
-.gear-tile {
-    /* 底是 `--paper`，沿用 PressTile 默认的半透明纸色会与卡面同色，只剩棱、读不出「凸」。 */
-    --tile-w: 100%;
-    /* 高度跟着格子走（格子由 grid 的 `1fr` 定），66 那个定值已删。 */
-    --tile-h: 100%;
-    --tile-r: var(--r-2);
-    --tile-face: var(--paper-2);
-    --tile-drop: 1;
-}
-/* PressTile 悬停会把块面提亮成 `--paper`，而卡底就是 `--paper`——
- * 在工具页（底是更暗的 `--bg`）那是「块面转实」，在卡片上等于把块面抹平。
- * 这里只把面上按回 `--paper-2`；影子仍随悬停拉长，「块底下抬起一点」照样读得出。 */
-.gear-grid .gear-cell:hover :deep(.press-tile) {
-    background-color: var(--paper-2);
-}
-.gear-inner {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 1px;
-    width: 100%;
-    padding: 0 8px;
-    box-sizing: border-box;
-}
-.gear-inner .slot {
-    color: var(--muted);
-    font-size: var(--fs-mini);
-    letter-spacing: 0.12em;
-    transition: color var(--t-quick) var(--ease-soft);
-}
-.gear-inner .gear-name {
-    width: 100%;
-    overflow: hidden;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+    padding: 7px 4px 6px;
+    border-radius: var(--r-2);
+    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 46px);
+    /* 边框 / 底色 / 下沿亮线来自 `.well`；**这里不能写 border 与 background-color**：
+     * scoped 之后 `.gear-cell[data-v-x]` 比 `.well` 高一档，写了就把那四件套顶掉了。 */
     color: var(--ink);
-    font-size: var(--fs-xs);
-    line-height: 1.3;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-family: var(--font-ui);
+    text-align: center;
+    /* 不写 `transition: border-color`：边色读的是 `--lip-shade` 变量，而自定义属性
+     * 不是可过渡的值，写了只会让人以为有渐变。`.field` 那处同样写着，但至少它的
+     * 两态还改了 `box-shadow`——这里连影子都不变，不如不写。 */
 }
-.gear-cell:hover .slot {
-    color: var(--cinnabar);
+/* 悬停只做一件事：把槽的边加深一档（与输入格同一手势），部位名转朱。
+ * 不换底色——凹槽的底色一浅，整块会从「槽」翻成「块」。 */
+.gear-cell:hover {
+    --lip-shade: light-dark(
+        color-mix(in srgb, var(--rule-2) 84%, var(--ink-base)),
+        color-mix(in srgb, var(--rule-2) 74%, var(--ink-base))
+    );
 }
 .gear-cell:focus-visible {
     outline: var(--ring);
     outline-offset: var(--ring-offset);
 }
-.gear-cell.empty {
-    display: grid;
-    place-items: center;
-    border: var(--w-hair) dashed var(--rule-2);
+.gear-part {
     color: var(--muted);
     font-size: var(--fs-mini);
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    transition: color var(--t-quick) var(--ease-soft);
+}
+.gear-cell:hover .gear-part {
+    color: var(--cinnabar);
+}
+/* 两种块**共用一套几何**：有图的 `IconTile` 与没图的首字块必须一样大一样厚，
+ * 否则十二格里会出现「三格看着小一圈」。
+ *
+ * 选择器带 `.gear-cell` 是为了压过 `IconTile` 自己那套默认值（28 / 23）——
+ * 两边都是单类 + 一个 `data-v`，只差父组件那句能多带一层。
+ *
+ * 54 的块、44 的图，四周各 5 的边，与 96 的格宽留出 8 的边走。 */
+.gear-cell .gear-pic,
+.gear-ph {
+    --tile-w: 54px;
+    --tile-h: 54px;
+    --tile-r: var(--r-3);
+    /* 落地影收一档：54 的块落满档（3 / 8px）在 109 的槽里会读成「浮着的卡片」。 */
+    --tile-drop: 0.8;
+    /* 块面用 `--paper-2`：槽底本身就是 `--well`，`IconTile` 默认那层（well 55% + paper-2）
+     * 压在这里只比槽底亮一点点，四道棱之外读不出「凸」。 */
+    --tile-face: var(--paper-2);
+}
+.gear-cell .gear-pic {
+    --shot: 44px;
+}
+/* 没有品类图的部位（武器、玉魄）：一块**首字印**，与 `SkillRow` 的 `.seal-tile` 同构
+ * （`IconTile` 与一块压印块二选一）。
+ *
+ * 字色故意与师门那枚不同：那边是朱字 + 纸白块，表示「这枚是替身」（数据缺了）；
+ * 这里是淡墨，表示「这类图还没切」（常态）。同一个动作，两种语义，不必同一个记号
+ * ——十二格里三格朱字会把「朱 = 强调」这条用光。 */
+.gear-ph-text {
+    color: color-mix(in srgb, var(--ink-2) 78%, transparent);
+    font-size: calc(18px * var(--fs-scale));
+    line-height: 1;
+}
+.gear-name {
+    width: 100%;
+    overflow: hidden;
+    color: var(--ink);
+    font-size: var(--fs-mini);
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* 空槽：虚线挖空 + 部位名 + 「未装备」。
+ * 不压 opacity——虚线本来就淡，压了会糊成一片灰；线退一档、光标 not-allowed 就够。 */
+.gear-cell.empty {
+    justify-content: center;
+    border: var(--w-hair) dashed var(--rule-2);
+    background: none;
+    box-shadow: none;
+    color: var(--muted);
     cursor: default;
+}
+.gear-empty {
+    color: color-mix(in srgb, var(--muted) 80%, transparent);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.1em;
 }
 .gear-meta {
     display: flex;

@@ -7,17 +7,23 @@ import PressTile from '../../components/PressTile.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import AssistIcon from './AssistIcon.vue';
 import GearTip from './GearTip.vue';
+import IconTile from './IconTile.vue';
 import PetTip from './PetTip.vue';
 import SkillRow from './SkillRow.vue';
 import {
+    GEAR_LAYOUT,
+    GEAR_SLOT_ICON,
     PANES,
     expPercent,
     isMaxed,
     type CharacterData,
     type GearDetail,
+    type GearSlot,
+    type GearSlotName,
     type PaneKey,
     type Pet,
 } from './character';
+import { gearSlotIcon } from '../../services/game-icons';
 
 /**
  * 一张角色卡：**一张纸上的六个分区**，用卡内页签切换。
@@ -37,7 +43,11 @@ import {
  * 六格等分、印按格位移、方向键换页签全在那边，本组件只给它 `options` 与 `prefix`。
  * 早先这里是六个 `.bevel-pill`（各自一枚按钮，选中即灌朱），换掉的理由不是好看：
  * 六个胶囊在同一块板上读作「六个独立开关」，而它们实际是**一条轨道上的六个落点**。
- * 装备格同理用 `PressTile`，材质与工具页的图标块是同一块。
+ *
+ * 装备**格子**不再是 `PressTile`（2026-11-04 随 4 × 4 重排改）：那块凸起的纸读作
+ * 「已经拿出来摆着的一件东西」，而格子是「往里放」的槽，凹才对。现在用全局 `.well`
+ * 的四件套，与页签那条轨道同一个光向。**格子里的图标仍是一块压印块**（`IconTile`，
+ * 与师门、辅助同款）：凹说的是「这是个位置」，凸说的是「位置上放着一件」。
  */
 const props = defineProps<{ character: CharacterData }>();
 const emit = defineEmits<{ edit: []; remove: [] }>();
@@ -104,6 +114,31 @@ const expText = computed(() => {
     if (value && need) return `${value} / ${need}`;
     return value || need;
 });
+
+/* ---------- 装备格 ----------
+ * 位置不在模板里写第几行第几列：`GEAR_LAYOUT` 是那张「游戏面板长什么样」的表
+ * （在 `character.ts` 里，与 `GEAR_SLOTS` 分开），这里只把坐标翻译成 CSS。
+ * 翻译放在函数里而不是模板的 `:style` 字面量里，是为了让「两处都写一遍行列」这件事
+ * 只发生在一个地方——十二行内联样式抄错一个数，界面上没有任何报错。
+ */
+function cellPos(slot: GearSlotName): { gridColumn: string; gridRow: string } {
+    const { col, row } = GEAR_LAYOUT[slot];
+    return { gridColumn: String(col), gridRow: String(row) };
+}
+
+/* 图标按**部位**取（表见 `character.ts` 的 `GEAR_SLOT_ICON`）：
+ * 图库是品类样图，玩家那件装备多半不在里面，所以不按装备名查。 */
+function slotIcon(slot: GearSlotName): string | undefined {
+    const file = GEAR_SLOT_ICON[slot];
+    return file ? gearSlotIcon(file) : undefined;
+}
+
+/* 没有图的那几格（武器、玉魄）画一枚**淡印 + 首字**：装备名首字，没名就用部位首字。
+ * 不画破图、也不留一块与「空槽」分不开的空白。 */
+function slotInitial(slot: GearSlot): string {
+    const name = slot.caption?.trim();
+    return (name ? name[0] : slot.slot[0]) ?? '';
+}
 </script>
 
 <template>
@@ -324,7 +359,18 @@ const expText = computed(() => {
                 </div>
             </section>
 
-            <!-- ---------- 装备：3 列 × 4 行，悬停看详情 ---------- -->
+            <!-- ---------- 装备：4 × 4 同位格，中央 2 × 2 留白 ----------
+                 位置照游戏「人物装备」面板（`GEAR_LAYOUT`），**不是数组顺序**：
+                 顶行四灵饰、左右两列各三件、底中两枚玉魄（阳在左）、中央空着。
+
+                 格子是**凹槽**（用全局 `.well` 的四件套，只把顶壁渐变改短）：
+                 装备是「往里放的东西」，凹才读作「空位 / 槽」。旧版这里是压印块
+                 （凸起的一块纸），读作「已经拿出来摆着的一件」，与「穿戴」这个动作
+                 方向相反——2026-11-04 用户对着游戏面板重排时一并改掉。
+
+                 三种状态：有装备有图（凹槽 + 图 + 名）、有装备没图（凹槽 + 淡印 + 首字）、
+                 没装备（虚线挖空 + 部位名 + 未装备）。第三种**不用 opacity 压**：
+                 虚线本来就淡，压了会糊成一片灰。 -->
             <section
                 v-show="active === 'gear'"
                 :id="`${character.id}-pane-gear`"
@@ -332,30 +378,51 @@ const expText = computed(() => {
                 role="tabpanel"
                 :aria-labelledby="`${character.id}-tab-gear`"
             >
-                <div class="gear-grid">
-                    <template v-for="(slot, i) in character.gear" :key="`${slot.slot}-${i}`">
+                <div class="gear-board">
+                    <template v-for="slot in character.gear" :key="slot.slot">
                         <button
                             v-if="slot.detail"
                             type="button"
-                            class="gear-cell"
+                            class="gear-cell well"
+                            :style="cellPos(slot.slot)"
                             @mouseenter="openTip($event, { kind: 'gear', detail: slot.detail })"
                             @mouseleave="closeAll"
                             @focus="openTip($event, { kind: 'gear', detail: slot.detail })"
                             @blur="closeAll"
                         >
-                            <PressTile class="gear-tile">
-                                <span class="gear-inner">
-                                    <span class="slot">{{ slot.slot }}</span>
-                                    <span class="gear-name">{{ slot.caption }}</span>
-                                </span>
+                            <span class="gear-part">{{ slot.slot }}</span>
+                            <!-- 有图走 `IconTile`（与师门、辅助同一枚压印块 + 纸化图）；
+                                 没图的部位（武器、玉魄）走一块首字印，与 `SkillRow` 那个
+                                 「查不到图标」的兜底同构。块面用 `--paper-2` 而不是师门那块的
+                                 纸白：那边是「这枚是替身」（朱色，告警），这里是「这类图还没切」
+                                 （淡墨，常态），同一个动作不必同一个记号。 -->
+                            <IconTile
+                                v-if="slotIcon(slot.slot)"
+                                class="gear-pic"
+                                :src="slotIcon(slot.slot)"
+                            />
+                            <PressTile v-else class="gear-ph" still aria-hidden="true">
+                                <span class="gear-ph-text">{{ slotInitial(slot) }}</span>
                             </PressTile>
+                            <span class="gear-name">{{ slot.caption }}</span>
                         </button>
-                        <!-- 空位是「挖掉的格」，不是「没画的格」：虚线方框躺在纸上，
-                             与压印块的凸形成对照，一眼数得出还差几件。 -->
-                        <div v-else class="gear-cell empty">
-                            <span>{{ slot.slot }}</span>
+                        <!-- 空位也是**挖掉的一格**，不是「没画的格」：虚线方框躺在纸上，
+                             一眼数得出还差几件。部位名必须留着，否则十二格里少一块，
+                             读作「这里坏了」而不是「这里没穿」。 -->
+                        <div v-else class="gear-cell empty" :style="cellPos(slot.slot)">
+                            <span class="gear-part">{{ slot.slot }}</span>
+                            <span class="gear-empty">未装备</span>
                         </div>
                     </template>
+
+                    <!-- 中央 2 × 2：人物位，暂时空白。四角四道括线，说明「这里是版心」
+                         而不是「这里漏了一块」。 -->
+                    <div class="gear-stage" aria-hidden="true">
+                        <div class="corner c1"></div>
+                        <div class="corner c2"></div>
+                        <div class="corner c3"></div>
+                        <div class="corner c4"></div>
+                    </div>
                 </div>
                 <div class="meta gear-meta">
                     <span

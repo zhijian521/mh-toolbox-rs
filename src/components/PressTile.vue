@@ -125,9 +125,11 @@ withDefaults(defineProps<{ still?: boolean; tone?: 'paper' | 'seal' }>(), {
      * 现在直接改默认值：**凸起的块自己就是受光的浅面，压在它上面的内容该比正文轻一档**，
      * 这是材质决定的，不是某个调用方的偏好，所以没有理由做成变量。
      *
-     * 不受影响的三处（各自有显式色，不继承这一条）：牌记是 `<img>`；角色页装备块的名字
-     * 走 `.gear-name { color: var(--ink) }`；朱红块上的字由 `PressButton` 的 `seal` 段给
-     * `--on-seal`。 */
+     * 不受影响的两处（各自有显式色，不继承这一条）：牌记是 `<img>`；朱红块上的字由
+     * `PressButton` 的 `seal` 段给 `--on-seal`。
+     *
+     * 角色页装备块原先靠 `.gear-name { color: var(--ink) }` 顶回正墨——2026-11-04 那一格
+     * 重排之后，名字挪到块外（进的是凹槽，不是块），块里只剩图，这条随之不成例。 */
     color: var(--ink-2);
     transition:
         background-color var(--t-quick) var(--ease-soft),
