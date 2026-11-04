@@ -48,9 +48,9 @@
 ```
 
 - **契约只有一处真源（计划）**：现在 `AppInfo` / `PriceItem` / `PricePoint` / `ImportSummary` /
-  `ClearSummary` 在 Rust 与 TS 各写一份，靠 `#[serde(rename_all = "camelCase")]` 对齐。命令**已经 15 个**
+  `ClearSummary` 在 Rust 与 TS 各写一份，靠 `#[serde(rename_all = "camelCase")]` 对齐。命令**已经 17 个**
   （`lib.rs` 的 `generate_handler!`：`app_info`、`open_external`、`ghost_*` 两个、`backup::` 三个、
-  `store::` 八个），
+  `store::` 十个），
   早已越过当初定的「5 个以上就必须上 `tauri-specta`」那条阈值，**而 `tauri-specta` 还没接**——
   这不再是「以后再说」，是当前最大的一处欠账：「两边字段名对得上」现在真的靠记忆力。
   注意 `generate_handler!` 那份表**按平台写了两份**（`#[cfg(windows)]` / `#[cfg(not(windows))]`）：
@@ -63,7 +63,7 @@
   下次启动会从旧 `localStorage` 又搬一遍，等于把用户刚清掉的再搬回来。
   旧版 Electron 的 `data.json`（`schemaVersion: 10`，角色结构完全不同）**不在这个入口的范围内**：
   它会另做一个一次性转换入口，这里的导入只认自己的信封，不认识就拒绝、不猜。
-- **前端状态**：7 个持久状态（主题、字号、应用信息、路由、开发者模式、角色名册、物价表），
+- **前端状态**：8 个持久状态（主题、字号、应用信息、路由、开发者模式、角色名册、物价表、收益账），
   另有两个瞬时 UI 单例（`use-confirm` / `use-notify`）写法相同但不落盘。**不引 Pinia**——
   触发条件是「出现跨三个以上组件的共享业务状态」，届时再上，并在此处记录决定。
   角色名册（`views/characters/roster.ts`）与物价表（`views/prices/prices-store.ts`）都已经
@@ -73,11 +73,17 @@
   调用方不需要知道顺序。**JSON 反向镜像不做**（2026-11-04 用户定，见 `AGENTS.md` 红线 6）：
   旧版 Electron 不再读新版的数据，库文件是唯一真源。要带走 / 恢复时用设置页的
   「导出账本」（`backup.rs` 的 JSON 信封），那是**手动**的、面向人的，不是自动镜像。
-- **桌面版以 SQLite 为主，`localStorage` 退成两条窄用途**：物价（`mh-prices`）与角色名册
-  （`mh-roster`）都已搬进 SQLite，第一次启动时搬一次、搬成功才把老键改名为 `*.migrated` 留底，
-  并在库的 `meta` 表打标记。之后 `localStorage` 只在两处还活着：① 浏览器（`npm run dev`、
-  探针）——那里没有 Tauri 宿主，`hasDesktop()` 为假，`prices-store.ts` / `roster.ts` 直接走
-  `localStorage` 分支；② 迁移来源，「库坏了还能捞一把」的底。
+- **三份数据层的落盘与迁移是同一份实现**（`src/services/persist.ts`）：`createPersist` 管
+  「读失败拒绝写 / 浏览器写本地 / 桌面异步写库 / 连续写排队」，`migrateLegacy` 管「首次启动
+  把 `localStorage` 搬进 SQLite」。第 100 批从三份手抄收拢成一份——此前只有收益账做了写队列，
+  物价与名册连点两次会把后一笔丢掉。**归一、排序、种子数据、`storage` 事件仍归各页自己的
+  store**，骨架只回答「怎么落地」。
+- **桌面版以 SQLite 为主，`localStorage` 退成两条窄用途**：物价（`mh-prices`）、角色名册
+  （`mh-roster`）与收益账（`mh-income`）都已搬进 SQLite；前两者第一次启动时搬一次、
+  搬成功才把老键改名为 `*.migrated` 留底，并在库的 `meta` 表打标记。之后 `localStorage`
+  只在两处还活着：① 浏览器（`npm run dev`、探针）——那里没有 Tauri 宿主，`hasDesktop()`
+  为假，三个 store 直接走 `localStorage` 分支；② 迁移来源，「库坏了还能捞一把」的底。
+  收益账是第 97 批才有的功能，没有更早的版本要搬，因此只走 ①。
 
 ## 3. 磁盘与兼容红线
 
@@ -100,6 +106,7 @@
 | 新系统能力       | `src/services/<能力>.ts` 一个函数 + Rust 一个 `#[tauri::command]`                                   | 不要在组件里 `invoke`；也不要全塞进 `desktop.ts`           |
 | 业务逻辑（计划） | `crates/mh-domain`，纯函数、无 IO                                                                   | 不要塞进 `src-tauri/src/`——塞进去就再也拆不出来            |
 | 前端的纯规则     | `src/services/`（如 `ghost-parse.ts`、`ghost-model.ts`），不碰 IO                                   | 不要塞进 composable——那里一有 ref 就不好单测了             |
+| 跨页的数据层骨架 | `src/services/persist.ts`：`createPersist` 管落盘、`migrateLegacy` 管搬一次                         | 不要在每页的 store 里重抄一遍——抄到第四份必然漂移          |
 | 页面自己的数据层 | `src/views/<页>/<名字>.ts`（如 `characters/roster.ts`）：单例状态 + 纯函数 + 单测                   | 不要塞进 `services/`——那不是系统能力；也不要写进 `.vue`    |
 | 开发期工具       | 页面内的放 `views/dev/` 旁边（如 `tokens.ts`）；跨页面的放 `scripts/`                               | 不要放进 `src/components/`                                 |
 | 图标源图         | `assets/icon/app-icon-1024.png` 是 `tauri icon` 的输入；生成脚本在 `scripts/icon/`（`out/` 已忽略） | 不要手改 `src-tauri/icons/` 里的产物                       |
