@@ -107,7 +107,9 @@ const expText = computed(() => {
 </script>
 
 <template>
-    <article class="char dual-rule">
+    <!-- `data-school` 给浅染用（`character-card.css` 里二十一条映射）。
+         空门派时属性为空串，不匹配任何一条 → 卡底回落纸色。 -->
+    <article class="char dual-rule" :data-school="character.school || ''">
         <header class="char-head">
             <div class="who-block">
                 <div class="who">

@@ -594,7 +594,10 @@ svg {
     height: 42px;
     padding: 0 8px;
     border-radius: var(--r-3);
-    background: color-mix(in srgb, var(--well) 34%, var(--paper-2));
+    /* 第二色走 `--slip-base`：编辑弹窗里没有这个变量，回落纸色（原本的行为）；
+     * 角色卡上它是 `--card-bg`（门派浅染后的卡底），票于是跟着卡走同一个色相。
+     * 不跟着走的话，卡一染色，一排票就成了「贴在一张彩纸上的白条」（2026-11-04）。 */
+    background: color-mix(in srgb, var(--well) 34%, var(--slip-base, var(--paper-2)));
     box-shadow:
         inset 1px 1px 0 var(--slip-hi),
         inset -1px -1px 0 var(--slip-lo),

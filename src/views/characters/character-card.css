@@ -30,13 +30,133 @@
      * 六页的内容都像顶在框上；20 留到 17，纸上才有「写在版心里」的余地。 */
     --card-pad-x: 20px;
 
+    /* 门派浅染（2026-11-04 用户：「参考物价卡片的浅色背景，根据门派来区分不同颜色」，
+     * 同日改：「做一个渐变会更好，从左上到右下」，再改：「浅色的时候左上浅，暗黑的时候左上深」）。
+     *
+     * 卡底 = `--tint`（门派色）按 `--wash-a` → `--wash-b` 掺进纸，135° 斜向。
+     * **方向随主题反转**：亮色左上淡、右下浓；暗色左上浓、右下淡。
+     * 这不是把同一条渐变换个说法——亮色下纸本身亮，左上再压浓会读成「左上脏了一块」，
+     * 从淡往浓走才像「色在右下积住」；暗色相反，左上不浓则整张卡看不出方向。
+     *
+     * `--tint` 由下面二十一条 `[data-school]` 给；**没填门派时不匹配任何一条，回落成
+     * 纸色**——一个新角色还没选门派时它必须还是纸，而不是某个「默认门派」的颜色。
+     *
+     * `--slip-base` 是给票面用的（`base.css` 的 `.slip-row` 读它）：票取**中点**色而不是
+     * 跟着渐变走——否则同一张卡上五张票各在不同位置、深浅不一，读起来像没对齐的纸片。 */
+    --wash-a: var(--wash-lo);
+    --wash-b: var(--wash-hi);
+    --card-tint: var(--tint, var(--paper));
+    --slip-base: color-mix(in srgb, var(--card-tint) var(--wash), var(--paper));
+    --card-bg: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--card-tint) var(--wash-a), var(--paper)) 0%,
+        color-mix(in srgb, var(--card-tint) var(--wash-b), var(--paper)) 100%
+    );
+
     width: var(--char-w, 360px);
     height: var(--char-h, 480px);
     border: var(--w-hair) solid var(--rule-2);
-    background: var(--paper);
+    background: var(--card-bg);
     /* 卡片是「纸片抬离桌面」的一种，与装备浮片、测试面板共用 `--shadow-lift`
      * （原先三处各写一套 22/-12、32/-16、8px 混墨）。 */
     box-shadow: var(--shadow-lift);
+}
+/* 暗色单独一档浓度、并且把方向反过来（左上浓、右下淡）：
+ * `--wash` 那组是为亮色定的，暗色的纸本身极深，同比例混出来几乎看不出
+ * （量过，龙宫那张只剩「还是黑的」）。 */
+.dark .char {
+    --wash-a: var(--wash-hi-dark);
+    --wash-b: var(--wash-lo-dark);
+}
+
+/* ---------- 门派 → 色号 ----------
+ * 名字与 `public/game/data/schools.json` 的 `name` **逐字相同**。改名要两处一起改；
+ * 对不上时这条选择器不匹配，浅染静默回落到纸色——不报错，也不会画错色。
+ * 七族的分法与「为什么不是二十一种色相」见 `CONVENTIONS.md` §2.4-44，色号在 `tokens.css`。
+ */
+.char[data-school='大唐官府'] {
+    --tint: var(--tint-大唐官府);
+    --tint-deep: var(--tint-deep-大唐官府);
+}
+.char[data-school='魔王寨'] {
+    --tint: var(--tint-魔王寨);
+    --tint-deep: var(--tint-deep-魔王寨);
+}
+.char[data-school='化生寺'] {
+    --tint: var(--tint-化生寺);
+    --tint-deep: var(--tint-deep-化生寺);
+}
+.char[data-school='天宫'] {
+    --tint: var(--tint-天宫);
+    --tint-deep: var(--tint-deep-天宫);
+}
+.char[data-school='弥勒山'] {
+    --tint: var(--tint-弥勒山);
+    --tint-deep: var(--tint-deep-弥勒山);
+}
+.char[data-school='九黎城'] {
+    --tint: var(--tint-九黎城);
+    --tint-deep: var(--tint-deep-九黎城);
+}
+.char[data-school='女儿村'] {
+    --tint: var(--tint-女儿村);
+    --tint-deep: var(--tint-deep-女儿村);
+}
+.char[data-school='普陀山'] {
+    --tint: var(--tint-普陀山);
+    --tint-deep: var(--tint-deep-普陀山);
+}
+.char[data-school='方寸山'] {
+    --tint: var(--tint-方寸山);
+    --tint-deep: var(--tint-deep-方寸山);
+}
+.char[data-school='龙宫'] {
+    --tint: var(--tint-龙宫);
+    --tint-deep: var(--tint-deep-龙宫);
+}
+.char[data-school='东海渊'] {
+    --tint: var(--tint-东海渊);
+    --tint-deep: var(--tint-deep-东海渊);
+}
+.char[data-school='凌波城'] {
+    --tint: var(--tint-凌波城);
+    --tint-deep: var(--tint-deep-凌波城);
+}
+.char[data-school='五庄观'] {
+    --tint: var(--tint-五庄观);
+    --tint-deep: var(--tint-deep-五庄观);
+}
+.char[data-school='神木林'] {
+    --tint: var(--tint-神木林);
+    --tint-deep: var(--tint-deep-神木林);
+}
+.char[data-school='花果山'] {
+    --tint: var(--tint-花果山);
+    --tint-deep: var(--tint-deep-花果山);
+}
+.char[data-school='阴曹地府'] {
+    --tint: var(--tint-阴曹地府);
+    --tint-deep: var(--tint-deep-阴曹地府);
+}
+.char[data-school='盘丝洞'] {
+    --tint: var(--tint-盘丝洞);
+    --tint-deep: var(--tint-deep-盘丝洞);
+}
+.char[data-school='女魃墓'] {
+    --tint: var(--tint-女魃墓);
+    --tint-deep: var(--tint-deep-女魃墓);
+}
+.char[data-school='狮驼岭'] {
+    --tint: var(--tint-狮驼岭);
+    --tint-deep: var(--tint-deep-狮驼岭);
+}
+.char[data-school='无底洞'] {
+    --tint: var(--tint-无底洞);
+    --tint-deep: var(--tint-deep-无底洞);
+}
+.char[data-school='天机城'] {
+    --tint: var(--tint-天机城);
+    --tint-deep: var(--tint-deep-天机城);
 }
 /* 文武线内衬走全局 `.dual-rule`（`base.css` 里与 `.frame` 同一份），这里只补一处特例：
  * 卡内的分区是绝对定位的，要明确压在内衬之上，所以给内衬一个 0 的层级。 */
@@ -86,10 +206,17 @@
     color: var(--num);
     font-size: calc(var(--fs-sm) + 1px);
 }
-/* 门派的框是全局 `.chip`（`base.css`），这里只有一处不同：字用赭色。
+/* 门派的框是全局 `.chip`（`base.css`），这里只有两处不同：字用赭色、底染门派色。
  * 赭在这套语言里只管「门派 / 类目」；强调与达成是朱。苔在卡上只剩装备浮片的增益字
- * （技能进度 2026-11-03 起走墨 / 满级朱，修炼那条绿条 2026-11-04 撤掉）。 */
+ * （技能进度 2026-11-03 起走墨 / 满级朱，修炼那条绿条 2026-11-04 撤掉）。
+ *
+ * **签也染**（2026-11-04）：底色只在卡的四个角上，而这枚签就在名字旁边，是日常认人的
+ * 地方。取同族的 `--tint-deep`——与物价卡的分类签同一条做法，颜色于是有了第二个落点。
+ * `var(--tint-deep, …)` 的兜底不是客套：编辑弹窗里若也有这枚签，它拿不到卡上的变量，
+ * 那时必须退回「一枚普通 chip」，而不是让整条声明失效。 */
 .school {
+    border-color: color-mix(in srgb, var(--tint-deep, var(--rule-2)) 60%, var(--rule-2));
+    background: color-mix(in srgb, var(--tint-deep, var(--paper-2)) 58%, transparent);
     color: var(--ochre);
 }
 /* 卡上的读数**一律加粗一档**（2026-11-03 用户：「角色卡片展示的数字全部加粗」）。

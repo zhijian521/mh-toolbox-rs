@@ -325,3 +325,84 @@
     --tint-其他: light-dark(#f2f0e9, #2c2a26); /* 中性兜底，不跟具体品类抢注意力 */
     --tint-deep-其他: light-dark(#e6e3da, #322f2a);
 }
+
+/* ---------- 门派浅染 ----------
+ * 角色卡按门派给一层卡底：二十一门派归七族，族间差色相、族内差明度。
+ *
+ * **为什么不是二十一种色相**：淡底的分辨力有限——21 个色相各差 17°，压到明度 92%
+ * 附近时相邻两个几乎同色，读起来像随机而不是分类。七族各差 60° 一眼分得开，
+ * 族内再差半个明度档，近看仍能区分。分族表与判据见 `CONVENTIONS.md` §2.4-44。
+ *
+ * 与物价卡那套**同名同义但不共用色号**（`--tint-*` / `--tint-deep-*`）：
+ * 那边九类是按货品材质取色，这边是按门派气质取色。两批混用会让「这张卡是召唤兽
+ * 还是龙宫」变成要记得「哪套色号」才答得上的问题。
+ *
+ * 色号按 100% 调，卡上实际只掺 `--wash`：**样本给足、用量另定**——想整体加重一档
+ * 只改一个数，不必重调 42 个色号。
+ */
+:root {
+    /* 卡底掺入门派色的比例。**浓端要收着、跨度要张开**，这两件事分开定：
+     * 浓一档（40% 平涂）蓝族就读作「浅蓝便签」，不像纸了；而两端靠太近（33/17）
+     * 整卡又读作平涂、看不出方向。现在取 **30 → 8**：浓端比第一版的 46 收回一档
+     * （2026-11-04 用户：「亮色的从 46% 修改为 30%」）。
+     * `--wash` 是中点（19%），票面基色用它——**两端改了中点要跟着改**，
+     * 否则票会比卡底自己的最浓处还深，一张卡上出现第三种纸色。 */
+    --wash: 19%;
+    --wash-hi: 30%;
+    --wash-lo: 8%;
+    /* 暗色的纸（#1c1912）本身就深，同一个比例混出来几乎看不出——量过：25% 在亮色
+     * 是「看得出偏蓝」，在暗色还是「黑的」。所以暗色单给一档，两个端点都是亮色的
+     * 两倍上下（76 / 30、16 / 8）。**这一组没跟着亮色收**：暗底上再收就退回「还是黑的」。 */
+    --wash-dark: 48%;
+    --wash-hi-dark: 76%;
+    --wash-lo-dark: 16%;
+
+    --tint-大唐官府: light-dark(#f2d2c6, #3a2a24);
+    --tint-deep-大唐官府: light-dark(#e8c4b6, #4b3730);
+    --tint-魔王寨: light-dark(#f3d1bb, #3c281f);
+    --tint-deep-魔王寨: light-dark(#ecc0aa, #4e3528);
+
+    --tint-化生寺: light-dark(#f3e5bd, #3a331c);
+    --tint-deep-化生寺: light-dark(#e8d49f, #4b4225);
+    --tint-天宫: light-dark(#f6e9c3, #3b341d);
+    --tint-deep-天宫: light-dark(#ebd8a2, #4c4326);
+    --tint-弥勒山: light-dark(#f1e1ac, #393116);
+    --tint-deep-弥勒山: light-dark(#e6d094, #493f1e);
+    --tint-九黎城: light-dark(#e7ddb6, #37301c);
+    --tint-deep-九黎城: light-dark(#dcc79f, #463d25);
+
+    --tint-女儿村: light-dark(#f7dcd5, #3b2825);
+    --tint-deep-女儿村: light-dark(#f0c3b9, #4c352f);
+    --tint-普陀山: light-dark(#efd0dd, #382732);
+    --tint-deep-普陀山: light-dark(#e2c3d0, #483341);
+
+    --tint-方寸山: light-dark(#cfe8d0, #21301f);
+    --tint-deep-方寸山: light-dark(#c3dcc5, #2b3e29);
+    --tint-龙宫: light-dark(#c7ddf2, #1c2937);
+    --tint-deep-龙宫: light-dark(#b9d3e8, #253546);
+    --tint-东海渊: light-dark(#b6e2ec, #193033);
+    --tint-deep-东海渊: light-dark(#b0d6dc, #224143);
+    --tint-凌波城: light-dark(#c8edde, #1d3229);
+    --tint-deep-凌波城: light-dark(#bce0d0, #254137);
+
+    --tint-五庄观: light-dark(#dbf0c2, #28351c);
+    --tint-deep-五庄观: light-dark(#cbe0b3, #344426);
+    --tint-神木林: light-dark(#cfeec0, #26341a);
+    --tint-deep-神木林: light-dark(#c5ddb0, #314323);
+    --tint-花果山: light-dark(#efeeb4, #33331a);
+    --tint-deep-花果山: light-dark(#e0e0a6, #424222);
+
+    --tint-阴曹地府: light-dark(#d8caec, #2c2438);
+    --tint-deep-阴曹地府: light-dark(#c9bcdd, #3a3049);
+    --tint-盘丝洞: light-dark(#edcae8, #352439);
+    --tint-deep-盘丝洞: light-dark(#dfbdda, #45304a);
+    --tint-女魃墓: light-dark(#d8ccd6, #2e2630);
+    --tint-deep-女魃墓: light-dark(#c9b8c6, #3c3240);
+
+    --tint-狮驼岭: light-dark(#ece0ba, #332a18);
+    --tint-deep-狮驼岭: light-dark(#dfd0a8, #423722);
+    --tint-无底洞: light-dark(#ebd6b4, #352917);
+    --tint-deep-无底洞: light-dark(#dbc3a2, #443520);
+    --tint-天机城: light-dark(#dedccb, #2c2b20);
+    --tint-deep-天机城: light-dark(#d0cdb8, #3a392b);
+}
