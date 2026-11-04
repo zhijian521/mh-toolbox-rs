@@ -5,11 +5,7 @@
 
 ## 一、验证分三档，日常一档是「不跑」
 
-> 2026-11-03 用户定的规则。原话：「后面只有在我们 Review 以及提交的时候全量测试验证之类的，
-> 这样我们可以快速进行页面功能调整，我会自己点击测试，有问题也会直接告诉你。」
->
-> **理由**：会话慢的主要原因是一次页面改动后面挂着一整串 check / build / 截图。
-> 页面改动的真值在用户的眼睛和手指上，不在测试套件里——他现在会自己点。
+页面改动的真值在用户的眼睛和手指上，不在测试套件里——他自己点测，有问题直接说。
 
 | 档                    | 什么时候                         | 跑什么                                                        |
 | --------------------- | -------------------------------- | ------------------------------------------------------------- |
@@ -18,23 +14,17 @@
 | **Review / 视觉验收** | 用户明确要看效果，或改动动了排版 | 上一档 + `npm run build` + `tools/probe/cdp.mjs` 截图与量几何 |
 
 `npm run check` = format:check + lint + typecheck + test + check:version + lint:commits，
-人跑的和 CI 跑的是同一条。它只在上面第二、三档出现。
+人跑的和 CI 的 `web` job 是同一条。它只在第二、三档出现。
 
-**不要自作主张"顺手跑一下"**——包括只跑 test、只跑 typecheck、只 build 一次看看。
-这些正是耗时的地方，而且答案在提交前那一次就已经覆盖了。
+**不要自作主张「顺手跑一下」**——包括只跑 test、只 typecheck、只 build 一次看看。
+这些正是耗时的地方，答案在提交前那一次就已经覆盖了。
 
-**唯一例外：动了 `src-tauri/`**。Rust 不编译，`start.bat` 起不来窗口，用户就没法点测——
-那不是"验证"，是"能不能启动"。此时按 §三 设好环境后 `cargo check` 一次即可，
-`cargo test` / `clippy` 仍留到提交前。
+**唯一例外：动了 `src-tauri/`**。Rust 不编译就起不来窗口，用户没法点测——那不是「验证」，
+是「能不能启动」。此时按 §三 设好环境后 `cargo check` 一次，`cargo test` / `clippy` 仍留到提交前。
 
-`npm run build` 里已经包含 `vue-tsc --noEmit`，打包前不必再单独 typecheck。
-
-**执行动作（防止规则变成摆设）**：收到「改页面 / 调样式 / 加字段 / 重构 / 修小 bug」这类需求时，
-回复第一行直接标档位，例如 `档位：日常 · 不跑验证`，然后**立刻改文件**，不要先去跑任何命令。
-改完交付只写「改了哪些文件、改了什么、你该点哪里看」。**没跑就别说「已验证」**，跑了才说跑了什么。
-
-**这条规则优先于本文件其余所有「怎么验证」的内容**——下面 §五 的表格是第二、三档才用的工具，
-不是日常动作清单。想跑之前先问自己：用户说过「提交」或「Review」吗？没有就别跑。
+**执行动作**：收到「改页面 / 调样式 / 加字段 / 重构 / 修小 bug」这类需求时，回复第一行直接标档位
+（如 `档位：日常 · 不跑验证`），然后**立刻改文件**，不要先去跑任何命令。交付只写「改了哪些文件、
+改了什么、你该点哪里看」。**没跑就别说「已验证」**。这条优先于本文其余「怎么验证」的内容。
 
 ## 二、沙箱与工具限制
 
@@ -48,9 +38,9 @@
 | `npx <工具> --write <新文件>` 可能 EPERM           | 同上                                                               | 先 `--check` 定位，再用 edit 工具按格式手改；或对所有文件统一跑一次                                      |
 | 后台任务被回收后 vite 的 node 子进程残留           | 占用 5173，下次 `npm run desktop` 报 `beforeDevCommand terminated` | `netstat -ano \| grep ":5173.*LISTENING"` 找 PID → `taskkill //F //PID <pid>`                            |
 
-**提交信息只要一行**（2026-11-03 用户定，细则在 `CONVENTIONS.md` §2.1）：`type:中文短语`，
-**不写正文**。别分段、别列条目、别论证「为什么」。想写为什么就写 `docs/RECORD.md` 那一小批，
-或当天的 memory 日志。一行装不下 = 这批改动该拆成两次提交。
+**提交信息只要一行**（细则在 `CONVENTIONS.md` §2.1）：`type:中文短语`，**不写正文**。
+别分段、别列条目、别论证「为什么」——想写为什么就写 `docs/RECORD.md` 那一批。
+一行装不下 = 这批改动该拆成两次提交。
 
 ## 三、Windows 上编译必须先设环境（本机实测）
 
@@ -69,6 +59,7 @@ export CARGO_BUILD_JOBS=4
 - **`~/.cargo/bin` 不在默认 PATH 里**，必须显式加，否则 `cargo` 命令不存在。
 - **并行度压到 4**：本机 rustc 高并发时崩过 `STATUS_ACCESS_VIOLATION`（0xc0000005）。
   这是编译器进程崩，不是代码错。`Cargo.toml` 的 `[profile.dev] debug = 0` 也是为此。
+- crates 走中科大镜像（`~/.cargo/config.toml` 的 source replace，直连与代理在本机均不通）。
 - 日常不用手敲这些——根目录 `start.bat` 全封装了（含端口与实例预检）。
 
 ## 四、启动与窗口
@@ -80,43 +71,55 @@ start.bat --check    只做环境自检
 start.bat --force    遇到占用直接处理，不询问
 ```
 
+`start.bat` 做四件事，每件对应一个真踩过的坑，改脚本时别删：
+
+1. **按目录探测 MSVC 与 Windows SDK 的最新版本**，不写死版本号——装了新 BuildTools 之后脚本不用改。
+2. **`System32` 显式提到 PATH 前段**：从 Git Bash 调用时 PATH 里混着 Git 的 `usr/bin`，
+   同名的 `timeout.exe` 会抢在 Windows 的 `timeout` 前面被调用。
+3. **独占资源预检：窗口实例 + 5173 端口**。`strictPort` 开着，5173 被占时 Vite 不换端口、
+   直接退出。脚本会打出占用者 PID 并询问是否结束，**只结束 `node.exe`**，结束之后还要
+   **轮询等端口真正释放**（最多 10 秒），避免 kill 完立刻 bind 的偶发失败。
+4. 启动失败时不再只丢一个退出码，而是列出三条排查方向（谁抢了 5173 / rustc 报错 /
+   target 目录被占用）。
+
 - **`start.bat` 必须存成 GBK(936) + CRLF。** 存 UTF-8 时 cmd 按双字节切行，中文注释被拆成
   命令，报一串「xxx 不是内部或外部命令」，且报错行号与真实问题完全无关。
   `.gitattributes` 与 `.editorconfig` 已声明 `*.bat` 为 CRLF 双保险。
+  在 Git Bash 里用 `cmd //c start.bat`；直接跑会显示乱码（不影响功能）。非交互终端下无法
+  弹询问，脚本会提示改用 `--force`。
 - **启动失败时 tauri 只会说 `Error The "beforeDevCommand" terminated with a non-zero status code.`**
   ——一个字不提真正原因。已知两种，别一看到这句就认定是端口：
-    1. **5173 被占**（多半是另一个会话在跑 `npm run dev`）。`strictPort` 开着，Vite 不换端口、
-       直接退出；
+    1. **5173 被占**（多半是另一个会话在跑 `npm run dev`）；
     2. **Vite 监视器撞上构建产物** → `EBUSY`，见下一条。
 - **`EBUSY: resource busy or locked, watch '…\*.o'`**（2026-11-02 实际崩过）：
   Vite 默认只忽略 `node_modules` 与 `.git`，于是会去 watch `.runtime/target-lab` 这类
-  独立 cargo target 目录（1.4GB，含 `.o` 中间产物）。rustc 正锁着某个 `.o` 时就抛 EBUSY，
-  dev server 当场死，外壳只报上面那句。`vite.config.ts` 的 `server.watch.ignored` 已排掉
-  `.runtime/`、`src-tauri/target/`、`dist/`、`map/` 等。
-  **注意它是整体覆盖默认列表而非追加**：加新项时 `node_modules` 与 `.git` 必须自己写回去，
-  否则依赖也会被 watch。以后任何「在仓库里放第二个 target 目录」的实验，都要同步加进名单。
+  独立 cargo target 目录（1.4GB，含 `.o` 中间产物）。rustc 正锁着某个 `.o` 时就抛 EBUSY。
+  `vite.config.ts` 的 `server.watch.ignored` 已排掉 `.runtime/`、`src-tauri/target/`、`dist/`、`map/` 等。
+  **注意它是整体覆盖默认列表而非追加**：加新项时 `node_modules` 与 `.git` 必须自己写回去。
 - **WebView2 `HRESULT(0x8007139F)`「组或资源状态不正确」**：上一次实例留下的
   `msedgewebview2.exe --type=crashpad-handler`（`--user-data-dir=…\com.zhijian.mhtoolbox.rs\EBWebView`）
   还占着用户数据目录。杀掉那个 crashpad 即可。**不要**动 SearchHost 的 webview2，那是系统搜索。
+- **调试端口必须由代码递进去**：Tauri 建 webview 时会用 `additional_browser_args` 盖掉
+  `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 环境变量，所以窗口建在 `lib.rs` 的
+  `create_main_window()` 里，只有 debug 构建才读 `MH_CDP_PORT`（发布版不含调试端口）。
 
-## 五、验证方式
+## 五、怎么验（第二、三档才用）
 
-| 要验什么              | 怎么做                                                                                                                                                                                                                                                                                                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 代码质量              | `npm run check`                                                                                                                                                                                                                                                                                                                                               |
-| 界面观感              | `npm run build` → `node tools/probe/cdp.mjs --root dist --hash '#/settings' --shot x.png`（自带静态服务与截图）                                                                                                                                                                                                                                               |
-| IPC / 外链 / 窗口操作 | **必须回 Tauri 真窗口**。`MH_CDP_PORT=9223 npm run desktop`，连 `http://127.0.0.1:9223/json/list`                                                                                                                                                                                                                                                             |
-| CSP / 安全策略        | **`tauri dev` 走的是 `devCsp`，验不到生产的 `csp`**。要验就出包：`npm run tauri build -- --debug --no-bundle`，再 `MH_CDP_PORT=9224 ./src-tauri/target/debug/mh-toolbox-rs.exe`（它从 `tauri.localhost` 加载内嵌产物，才是生产策略）。判据：设置页 2 个 section + 开发页（`#/dev`）5 张卡在、字体 `loaded`、`appInfo` IPC 通、`Log`/`Runtime` 事件零 CSP 拦截 |
-| 降动效                | CDP `Emulation.setEmulatedMedia` 传 `features: [{ name: 'prefers-reduced-motion', value: 'reduce' }]`，再读 `getComputedStyle(el).transitionDuration`，应为 `0.001s`                                                                                                                                                                                          |
-| 悬停、按下等伪类      | 探针加 `--hover <选择器>` / `--active <选择器>`：走 `CSS.forcePseudoState`，与 DevTools 的「强制元素状态」同一套，样式引擎**真的**当作悬停/按下。它只改样式、不派发 `mouseenter` / `pointerdown`，所以验「悬停时才开始预载」这类 **JS 行为**仍要 `Input.dispatchMouseEvent` 真移鼠标。**js 派发 DOM 事件不会激活 `:hover`**，拿那个截图是自欺                 |
-| 几何是否对齐          | 读 `getBoundingClientRect()` 断言，不要靠眼看截图                                                                                                                                                                                                                                                                                                             |
+| 要验什么              | 怎么做                                                                                                                                                                                                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 代码质量              | `npm run check`                                                                                                                                                                                                                                                           |
+| 界面观感              | `npm run build` → `node tools/probe/cdp.mjs --root dist --hash '#/settings' --shot x.png`（自带静态服务与截图）                                                                                                                                                           |
+| IPC / 外链 / 窗口操作 | **必须回 Tauri 真窗口**。`MH_CDP_PORT=9223 npm run desktop`，连 `http://127.0.0.1:9223/json/list`                                                                                                                                                                         |
+| CSP / 安全策略        | **`tauri dev` 走的是 `devCsp`，验不到生产的 `csp`**：要验就出包 `npm run tauri build -- --debug --no-bundle`，再 `MH_CDP_PORT=9224 ./src-tauri/target/debug/mh-toolbox-rs.exe`。判据：设置页 3 个 section + 开发页 5 张卡在、字体 `loaded`、`appInfo` IPC 通、零 CSP 拦截 |
+| 降动效                | CDP `Emulation.setEmulatedMedia` 传 `features: [{ name: 'prefers-reduced-motion', value: 'reduce' }]`，再读 `getComputedStyle(el).transitionDuration`，应为 `0.001s`                                                                                                      |
+| 几何是否对齐          | 读 `getBoundingClientRect()` 断言，不要靠眼看截图                                                                                                                                                                                                                         |
 
 **截图与量几何一律走 `tools/probe/cdp.mjs`。** 它把踩过的前提写死在代码里，别每轮现写一个
-`probe-xxx.mjs` 再删掉：关缓存、URL 带时间戳（只改 hash 不会重新加载文档）、注入
+`probe-xxx.mjs` 再删：关缓存、URL 带时间戳（只改 hash 不会重新加载文档）、注入
 `transition:none`（无焦点 headless 不推进动画，`getComputedStyle` 会返回上一拍的值）、
 `--fresh` 清 localStorage（否则上一轮存的 `mh-theme: dark` 会让 `--light` 失效）、
 `--inject` 在文档执行前补 IPC 桩（模块求值就定型的判断，事后补已经晚了）、
-`--hover` / `--active` 强推伪类（截图验悬停与按下态）。
+`--hover` / `--active` 强推伪类。
 
 剩下三件还得人记：
 
@@ -124,8 +127,8 @@ start.bat --force    遇到占用直接处理，不询问
    `C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe`，加 `--launch` 自己起。
 2. **伪类分两种验法**：只看样式用 `--hover` / `--active`（`CSS.forcePseudoState`，真挂在目标
    元素上）；要连带触发 JS 行为（`mouseenter` 预载、拖动）才用 `Input.dispatchMouseEvent` 真移
-   鼠标。js 派发 DOM 事件不会激活 `:hover`，拿那个截图是自欺。指针残留还会让上一枚按钮
-   一直保持 hover，截「常态」前先挪开。
+   鼠标。js 派发 DOM 事件不会激活 `:hover`，拿那个截图是自欺。指针残留会让上一枚按钮一直
+   保持 hover，截「常态」前先挪开。
 3. **Git Bash 会把 `#/dev` 吃掉**：MSYS 把 `/dev` 当路径转成 `C:/…/dev`，页面于是走兜底
    重定向落到设置页——**量出来的是另一页的数据**。用 `MSYS_NO_PATHCONV=1` 跑探针。
 
@@ -143,8 +146,7 @@ start.bat --force    遇到占用直接处理，不询问
 3. **渲染层只有 `src/services/` 能碰系统**。ESLint 已拦 `@tauri-apps/api/core` 出现在
    `components/`、`views/`、`composables/` 里。
 4. **令牌只有一份真源**：`src/styles/` 下的 `tokens.css` / `base.css` / `blocks.css`。
-   全仓**没有任何样式表副本**：2026-10-30 删掉 `design/` 下那两份，2026-11-02 又删掉最后一份
-   脱离应用的样张 `design/income.html`。以后要做设计稿也引同一份文件，不要复制。
+   全仓**没有任何样式表副本**——以后要做设计稿也引同一份文件，不要复制。
 5. **卸载不删数据**（`deleteAppDataOnUninstall` 保持 false）。
 6. **新版数据不回落旧版**（2026-11-04 用户定）。数据层在 SQLite，导出是 JSON 信封
    （`format: 1` + `app: mh-toolbox-rs`，见 `src-tauri/src/backup.rs`），**旧版 Electron
@@ -156,16 +158,16 @@ start.bat --force    遇到占用直接处理，不询问
 
 ## 七、明确不做的事
 
-写下来是为了不再每次重新讨论。
+写下来是为了不再每次重新讨论。**这是唯一一份**，`CONVENTIONS.md` §4 只留指针。
 
 | 事项                | 决定     | 理由                                                                                                                                 |
 | ------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | husky / lint-staged | 不装     | 沙箱对带管道的子进程不稳定，钩子容易误报。校验放 `npm run check`                                                                     |
 | ESLint 风格规则     | 不开     | 风格一律 Prettier。`eslint-plugin-vue` 用 `flat/essential` 而不是 `flat/recommended`——后者带 584 条格式化告警，与 4 空格缩进直接冲突 |
-| 组件单测全覆盖      | 不做     | 组件靠 CDP 截图 + 几何断言验；单测只覆盖纯逻辑与 composable                                                                          |
+| 组件单测全覆盖      | 不做     | 组件靠 CDP 截图 + 几何断言验；单测只覆盖纯逻辑、composable 与页面数据层                                                              |
 | CSS 框架            | 不引入   | 账簿语言是手写令牌体系，引入框架会带来第二套命名与优先级                                                                             |
-| 状态管理库（现在）  | 暂不引入 | 四个状态用 composable 够。**触发条件**：出现跨三个以上组件的共享业务状态时再上 Pinia，并把决定写进 `docs/ARCHITECTURE.md`            |
+| 状态管理库（现在）  | 暂不引入 | 六个状态用 composable 够。**触发条件**：出现跨三个以上组件的共享业务状态时再上 Pinia，并把决定写进 `docs/ARCHITECTURE.md`            |
 | 大改现有命名        | 不做     | 改名冲掉 git blame。用「新代码守新规」渐进收敛                                                                                       |
+| 间距刻度令牌        | 不做     | 2026-11-01 删掉 `--sp-1…10`（十档只用过 2 档）。间距就地写 px；旧代码里的裸值也不做全量令牌化，遇到再换                              |
 | 一次性的探针脚本    | 不做     | 每轮现写再删，那几条前提（关缓存 / 时间戳 / 禁动画 / 清存储）每次重踩；改用 `tools/probe/cdp.mjs`                                    |
-| 间距令牌刻度        | 不做     | 2026-11-01 删掉 `--sp-1…10`（十档只用过 2 档）。间距就地写 px，理由见 `docs/CONVENTIONS.md` §2.4-4                                   |
-| CHANGELOG           | 不维护   | 改动原因按小批记在 `docs/RECORD.md`，再养一份必然漂移                                                                                |
+| CHANGELOG           | 不维护   | 改动原因按批记在 `docs/RECORD.md`，再养一份必然漂移                                                                                  |
