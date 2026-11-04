@@ -322,7 +322,10 @@ mod tests {
             // 否则测试说「能截到」而线上说「全黑」，两者永远对不上。
             let lit = frame
                 .bgra
-                .chunks_exact(4)
+                /* 同 `screen::Frame::is_blank`：定长分块，下标不必做长度检查。 */
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .filter(|p| p[0] > 8 || p[1] > 8 || p[2] > 8)
                 .count();
             let ratio = lit as f64 / (frame.width * frame.height) as f64;

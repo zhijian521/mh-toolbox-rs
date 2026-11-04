@@ -13,6 +13,9 @@ mod ocr_paddle;
 mod screen;
 /* 数据层不分平台：SQLite 在哪儿都能跑，不像截屏 / OCR 只认 Win32。 */
 mod store;
+/* 老库搬家。只有文件语义（复制 / 改名 / 清理），碰不到 SQL，所以从 `store.rs`
+ * 独立成一层——理由见 `migrate.rs` 的文件头。 */
+mod migrate;
 /* 数据的备份信封与三个命令（导出 / 导入 / 清除）。同样不分平台：读写文件、
  * 序列化、SQLite 都不认 Win32，唯一带平台味的对话框整个交给 `tauri-plugin-dialog`。
  * 所以这里没有 `#[cfg(windows)]`——别因为相邻几行都有就顺手加上。 */
@@ -39,9 +42,14 @@ pub struct AppInfo {
 /// `pub(crate)` 而不是私有：`store.rs` 是这条红线的**另一个出口**——它以前自己调
 /// `app_data_dir()`，库于是落进了 `%APPDATA%\com.zhijian.mhtoolbox.rs`。数据目录只能有
 /// 一个真源，别的模块要用就来这里取，不要各自再算一遍。
+///
+/// `.filter(|v| !v.is_empty())` 不是多余的：`std::env::var` 在变量**被设成空串**时返回
+/// `Ok("")`（不是 `Err`），于是 `PathBuf::from("").join("mh-tool-v2")` 是一个**相对路径**，
+/// 库会落到当前工作目录——装到 `Program Files` 时那里只读，用户看到的是「数据存不下来」。
 pub(crate) fn data_dir_path() -> Option<std::path::PathBuf> {
     std::env::var("APPDATA")
         .ok()
+        .filter(|base| !base.is_empty())
         .map(|base| std::path::PathBuf::from(base).join("mh-tool-v2"))
 }
 

@@ -22,10 +22,19 @@ use tauri::{AppHandle, Manager};
 
 /// 数据库文件名。放在 `%APPDATA%\mh-tool-v2` 下——与旧版 Electron 共用同一个目录，
 /// 卸载也不清（`deleteAppDataOnUninstall: false`）。红线 1 见 `AGENTS.md` §六。
-const DB_FILE: &str = "mh-toolbox.db";
+///
+/// `pub(crate)`：`migrate.rs` 要按同一个文件名搬家，改名只能有一个真源。
+pub(crate) const DB_FILE: &str = "mh-toolbox.db";
 
-/// 表结构版本。**改表就要 +1**，并在 `open` 的建表语句里补上迁移分支。
-/// 第一期只有 v1，所以这里还没有按版本分支的逻辑。
+/// 表结构版本。
+///
+/// 规矩只有一条：**改表就要 +1**。加版本之后，`init` 会先读库里的值再决定怎么做：
+/// 比当前版本大 → 拒绝打开（那个库是更新版的应用写的，这里的 SQL 不认识它的列）；
+/// 相等 → 什么都不写；更小 → 以后在这里补迁移分支（现在只有 v1，分支是空的）。
+///
+/// 这个读-比较-拒绝的顺序是**必须的**：早先这里是无条件把当前版本覆写回去，
+/// 用户用旧 exe 打开过一次 v2 的库，版本号就被降成 1，升级回来后「小于才迁移」
+/// 的判断永远不成立——表缺列且无法自愈。
 const SCHEMA_VERSION: i64 = 1;
 
 /// 一条价格记录。字段名与前端 `PricePoint` 一一对应（`serde` 自动转 camelCase）。
@@ -95,6 +104,12 @@ pub(crate) fn open_at(base: &Path) -> Result<Connection, String> {
     /* WAL 为了崩溃恢复：断电时最多丢最后一次事务，而不是整个库。 */
     conn.pragma_update(None, "journal_mode", "WAL")
         .map_err(|error| format!("设置 WAL 模式失败：{error}"))?;
+    /* WAL 的标准搭配。默认的 `FULL` 在**每次提交**都 fsync 一次日志：一次读命令
+     * 只要某个写操作（早先 `init` 每次都写 `schemaVersion`）就变成一次磁盘同步。
+     * `NORMAL` 只在 checkpoint 时同步，断电最多丢最近一两个事务——而 WAL 本身的
+     * 崩溃一致性不受影响，库不会坏。桌面小工具的数据价值与这个取舍正好对上。 */
+    conn.pragma_update(None, "synchronous", "NORMAL")
+        .map_err(|error| format!("设置同步模式失败：{error}"))?;
     init(&conn)?;
     Ok(conn)
 }
@@ -108,15 +123,18 @@ pub(crate) fn open_at(base: &Path) -> Result<Connection, String> {
 /// `main.ts` 的 `Promise.all([loadPrices(), loadRoster()])` 会让两个命令几乎同时进来，
 /// 两边都判断「目标不存在」、都去复制同一份源，后一个把前一个正在写的文件截断，
 /// 最坏留下一个 SQLite 认作合法的空库——那之后再也不会重试。详见 `migrate_legacy_db`。
-fn open(app: &AppHandle) -> Result<Connection, String> {
+///
+/// `pub(crate)`：`backup::data_import` 要在**一个连接**里完成整份替换（见 `replace_all`），
+/// 不能再走三次 `*_save` 命令各自开一次库。
+pub(crate) fn open(app: &AppHandle) -> Result<Connection, String> {
     open_at(&base_dir(app)?)
 }
 
 /// 把「老版本写在 identifier 目录下」的库搬进 `base`。
 ///
 /// 只干一件事：问系统要旧目录。拿不到说明这台机器上不存在「旧位置」这回事，直接 `Ok`。
-/// 其余判断与复制全在 `migrate_between`——那个函数不吃 `AppHandle`，于是失败现场能用
-/// 两个临时目录造出来，中间那条「复制一半」的回退路径才测得到。
+/// 其余判断与复制全在 `crate::migrate::migrate_between`——那个函数不吃 `AppHandle`，
+/// 于是失败现场能用两个临时目录造出来，中间那条「复制一半」的回退路径才测得到。
 ///
 /// **唯一调用点是 `lib.rs` 的 `setup()`，在建窗之前。** 不要挪回 `open()`：
 /// 每个 `#[tauri::command]` 都会调 `open()`，而前端启动时 `loadPrices()` 与
@@ -128,113 +146,7 @@ pub(crate) fn migrate_legacy_db(app: &AppHandle, base: &Path) -> Result<(), Stri
     let Ok(legacy_base) = app.path().app_data_dir() else {
         return Ok(());
     };
-    migrate_between(&legacy_base, base)
-}
-
-/// 从 `legacy_base` 把库（连同 WAL 两件）搬到 `base`。
-///
-/// 来由：2026-11-03 之前的版本用 `app.path().app_data_dir()` 取目录，库文件实际落在
-/// `%APPDATA%\com.zhijian.mhtoolbox.rs\mh-toolbox.db`，而红线 1 要求的是
-/// `%APPDATA%\mh-tool-v2`。改路径本身是修 bug，但**不改就等于让用户已有的账本消失**，
-/// 所以第一次走到新路径时先搬过来。
-///
-/// 三条规矩：
-/// 1. **只在目标不存在时搬**。目标已经有库（哪怕只有一张空表）说明新路径已经在用了，
-///    这时再从旧位置覆盖一次，会把用户新记的东西冲掉。
-/// 2. **WAL 三件套一起搬**（`.db` / `.db-wal` / `.db-shm`）。WAL 模式下最近的事务
-///    可能还在 `-wal` 里没 checkpoint 进主库，只复制主库就是丢掉最后几笔录入。
-/// 3. **正式文件名在任何时刻要么不存在、要么是完整的**，不许拿一个空库继续启动。
-///
-/// 第 3 条是靠 **先复制到 `.tmp`、全部成功后再逐个 `rename`** 做到的，不是靠「失败时把
-/// 已经复制的那几个删掉」。后者必然漏一个：`std::fs::copy` 是「先 `File::create`
-/// 截断目标再往里写」，写阶段失败（ENOSPC / EIO）会在正式名下留一个**半截文件**，
-/// 而它并不在「已经复制成功」的集合里，删不到——下一次启动 `target.exists()` 为真就
-/// 早退当作「已迁移」，一次看得见的失败变成永久的数据缺失。`rename` 是原子替换，
-/// 于是那条缝隙从结构上就不存在。
-///
-/// 还有个第二半：**rename 的顺序是 shm → wal → db，主库最后出现**。三件套不是原子单位，
-/// 反序让主库本身变成「迁移完成」的唯一标记——中途断电只留下「主库不存在」，
-/// 下次启动照常重试；正序则可能留下「主库在、WAL 缺」，而那正是第 1 条会永久早退的状态。
-///
-/// 搬成功也不删旧文件：留底，与本仓 `roster.ts:500-501`「改名留底而不是删除」同一条理由。
-pub(crate) fn migrate_between(legacy_base: &Path, base: &Path) -> Result<(), String> {
-    let target = base.join(DB_FILE);
-    if target.exists() {
-        return Ok(());
-    }
-    let legacy = legacy_base.join(DB_FILE);
-    /* `APPDATA` 缺失时 `base` 本身就是 `app_data_dir()`（见 `base_dir` 的兜底），
-     * 两者同一路径，不能自己复制自己。 */
-    if !legacy.exists() || legacy == target {
-        return Ok(());
-    }
-
-    std::fs::create_dir_all(base).map_err(|error| format!("建不了数据目录：{error}"))?;
-
-    /* ---- 第一步：全部复制到 `.tmp`（正式名一个都不碰） ----
-     * 顺序仍必须是 db → wal → shm：主库先落地，后面两件才能被 SQLite 认作它的 WAL。 */
-    let mut staged: Vec<&str> = Vec::new();
-    for suffix in ["", "-wal", "-shm"] {
-        let from = legacy_base.join(format!("{DB_FILE}{suffix}"));
-        if !from.exists() {
-            continue;
-        }
-        let tmp = base.join(format!("{DB_FILE}{suffix}.tmp"));
-        if let Err(error) = std::fs::copy(&from, &tmp) {
-            /* 失败的那一件本身也可能留下半截 `.tmp`，一并删（它不在 `staged` 里）。
-             * 清理自身的错误用 `let _ =` 吞掉——现在要说的是**复制为什么失败**，
-             * 一条「删不掉临时文件」的错误盖上去只会让人查错方向。 */
-            for done in &staged {
-                let _ = std::fs::remove_file(base.join(format!("{DB_FILE}{done}.tmp")));
-            }
-            let _ = std::fs::remove_file(&tmp);
-            return Err(format!(
-                "把旧数据库 {} 搬到 {} 失败，已中止启动以免覆盖原有数据；\
-                 已清理本次不完整的复制，下次启动会重试：{error}",
-                from.display(),
-                tmp.display()
-            ));
-        }
-        staged.push(suffix);
-    }
-
-    /* ---- 第二步：全部成功后逐个改名成正式名，**反序：shm → wal → db** ----
-     *
-     * 为什么反序：三件套不是一个原子单位。若主库最先就位、紧接着断电，正式
-     * `mh-toolbox.db` 会在位而 `-wal` 还叫 `.tmp`——下一次启动开头那个
-     * `target.exists()` 直接早退，`-wal` 里那几笔没 checkpoint 的记录**永久丢失、
-     * 且永远不会重试**。反序之后主库是**最后一个**出现的文件，它本身就成了
-     * 「迁移完成」的唯一标记：中途断掉只会表现为「主库不存在」，下次启动照常重来。
-     *
-     * 重试时目标位置可能残留上一轮改名成功的 `-shm` / `-wal`（主库没赶上）。
-     * 那不会挡住 rename：`std::fs::rename` 在 Windows 走 `MoveFileExW` 带
-     * `MOVEFILE_REPLACE_EXISTING`、在 Unix 是 `rename(2)`，目标已存在一律覆盖。
-     *
-     * 改到一半失败（几乎只剩权限 / 目标被占这类可能）仍要回退：已经改成正式名的
-     * 必须删掉，否则主库已就位、下次启动又早退。 */
-    let mut renamed: Vec<&str> = Vec::new();
-    for suffix in staged.iter().rev() {
-        let tmp = base.join(format!("{DB_FILE}{suffix}.tmp"));
-        let to = base.join(format!("{DB_FILE}{suffix}"));
-        if let Err(error) = std::fs::rename(&tmp, &to) {
-            for done in &renamed {
-                let _ = std::fs::remove_file(base.join(format!("{DB_FILE}{done}")));
-            }
-            /* 剩下的 `.tmp` 全删。已改名的那几件已经没有 `.tmp` 了，`remove_file`
-             * 返回 NotFound 也无所谓——失败分支里不做区分，反正结果都是「不做」。 */
-            for left in &staged {
-                let _ = std::fs::remove_file(base.join(format!("{DB_FILE}{left}.tmp")));
-            }
-            return Err(format!(
-                "把旧数据库 {} 搬到 {} 失败，已中止启动以免覆盖原有数据；\
-                 已清理本次不完整的复制，下次启动会重试：{error}",
-                legacy.display(),
-                to.display()
-            ));
-        }
-        renamed.push(*suffix);
-    }
-    Ok(())
+    crate::migrate::migrate_between(&legacy_base, base)
 }
 
 /// 建表。全部 `IF NOT EXISTS`，可以反复执行。
@@ -285,12 +197,38 @@ fn init(conn: &Connection) -> Result<(), String> {
     )
     .map_err(|error| format!("建表失败：{error}"))?;
 
-    conn.execute(
-        "INSERT INTO meta (key, value) VALUES ('schemaVersion', ?1)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        params![SCHEMA_VERSION.to_string()],
-    )
-    .map_err(|error| format!("写 schema 版本失败：{error}"))?;
+    /* S4 + S5：**先读，再决定写不写**。
+     *
+     * 早先是无条件 `INSERT ... ON CONFLICT DO UPDATE`，于是每条读命令
+     * （`prices_load` / `characters_load` / `*_legacy_imported`）都开一次写事务：
+     * WAL 下默认 `synchronous=FULL` 时那就是一次 fsync；并发时还要抢写锁，
+     * `data_import`（async，跑在 worker 线程上）与主线程上的读命令撞在一起时，
+     * 主线程会阻塞到 `busy_timeout`（rusqlite 默认 5 秒）——表现是窗口假死，
+     * 或者直接拿到 `database is locked`。
+     *
+     * 四种情况：
+     * - 没有值（首次建库）→ 写一次；
+     * - 相等 → 什么都不做，这是常态；
+     * - 库里比当前版本大 → 拒绝打开。旧 exe 跑过一次新库会把版本号**降级**写回去，
+     *   之后「小于才迁移」永远不成立、表缺列也自愈不了；宁可在启动时说清
+     *   「请升级应用」，也不要拿一个自己看不懂的库继续跑。
+     * - 更小 → 将来的迁移分支。第一期只有 v1，所以这里是空的，但位置留着：
+     *   等真有 v2 时按版本升序一段段补，不要一把补到最新。 */
+    match read_meta(conn, "schemaVersion")? {
+        None => write_meta(conn, "schemaVersion", &SCHEMA_VERSION.to_string())?,
+        Some(stored) => {
+            let stored = stored
+                .parse::<i64>()
+                .map_err(|_| format!("库里的表结构版本不是数字（{stored}），不敢继续打开"))?;
+            if stored > SCHEMA_VERSION {
+                return Err(format!(
+                    "这个数据文件是更新版本的应用写的（表结构 v{stored}，本版本只认 v{SCHEMA_VERSION}），\
+                     请升级应用后再打开"
+                ));
+            }
+            /* TODO(schema v2)：`stored < SCHEMA_VERSION` 时在这里补迁移分支。 */
+        }
+    }
 
     Ok(())
 }
@@ -414,40 +352,54 @@ fn save_items(conn: &mut Connection, items: &[PriceItem]) -> Result<(), String> 
         .map_err(|error| format!("清空物品失败：{error}"))?;
 
     for item in items {
-        tx.execute(
-            "INSERT INTO price_items (id, name, category, sub, unit, note, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![
-                item.id,
-                item.name,
-                item.category,
-                item.sub,
-                item.unit,
-                item.note,
-                item.created_at,
-                item.updated_at
-            ],
-        )
-        .map_err(|error| format!("写入物品「{}」失败：{error}", item.name))?;
-
-        for point in &item.points {
-            tx.execute(
-                "INSERT INTO price_points (id, item_id, date, price, note, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![
-                    point.id,
-                    item.id,
-                    point.date,
-                    point.price,
-                    point.note,
-                    point.created_at
-                ],
-            )
-            .map_err(|error| format!("写入价格「{}」失败：{error}", point.date))?;
-        }
+        insert_item(&tx, item)?;
     }
 
     tx.commit().map_err(|error| format!("提交失败：{error}"))?;
+    Ok(())
+}
+
+/// 写一件物品连同它的全部历史。
+///
+/// 抽出来不是为了好看：`save_items`（整份覆盖）与 `replace_all`（导入，一个事务里连
+/// 名册一起换）必须写出**一模一样**的行。两份各写一遍之后，只要有一边加列漏改，
+/// 导入进来的数据就会与正常保存的不一致，而那种偏差在界面上看不出来。
+///
+/// 参数吃 `&Connection` 而不是 `&Transaction`：`Transaction` 实现了 `Deref<Target = Connection>`，
+/// 于是传 `&tx` 能自动退化，两个调用点不必各写一份。
+fn insert_item(conn: &Connection, item: &PriceItem) -> Result<(), String> {
+    conn.execute(
+        "INSERT INTO price_items (id, name, category, sub, unit, note, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            item.id,
+            item.name,
+            item.category,
+            item.sub,
+            item.unit,
+            item.note,
+            item.created_at,
+            item.updated_at
+        ],
+    )
+    .map_err(|error| format!("写入物品「{}」失败：{error}", item.name))?;
+
+    for point in &item.points {
+        conn.execute(
+            "INSERT INTO price_points (id, item_id, date, price, note, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                point.id,
+                item.id,
+                point.date,
+                point.price,
+                point.note,
+                point.created_at
+            ],
+        )
+        .map_err(|error| format!("写入价格「{}」失败：{error}", point.date))?;
+    }
+
     Ok(())
 }
 
@@ -517,6 +469,13 @@ fn load_characters(conn: &Connection) -> Result<Vec<serde_json::Value>, String> 
 #[tauri::command]
 pub fn characters_save(app: AppHandle, items: Vec<serde_json::Value>) -> Result<(), String> {
     let mut conn = open(&app)?;
+    save_characters(&mut conn, &items)
+}
+
+/// `characters_save` 的本体。与 `load_items` / `save_items` / `clear_records` 同一个理由
+/// 拆出来：**不吃 `AppHandle` 的那一半**才测得到。这条尤其值得测——`OR REPLACE` 在
+/// 重复 id 时到底是覆盖、报错还是留下两行，是个不该靠猜的行为。
+fn save_characters(conn: &mut Connection, items: &[serde_json::Value]) -> Result<(), String> {
     let tx = conn
         .transaction()
         .map_err(|error| format!("开事务失败：{error}"))?;
@@ -524,22 +483,85 @@ pub fn characters_save(app: AppHandle, items: Vec<serde_json::Value>) -> Result<
         .map_err(|error| format!("清空名册失败：{error}"))?;
 
     for (index, item) in items.iter().enumerate() {
-        let id = item
-            .get("id")
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_string)
-            .unwrap_or_else(|| format!("row-{index}"));
-        let data = serde_json::to_string(item)
-            .map_err(|error| format!("序列化第 {index} 个角色失败：{error}"))?;
-        tx.execute(
-            "INSERT OR REPLACE INTO characters (id, data, sort_order) VALUES (?1, ?2, ?3)",
-            params![id, data, index as i64],
-        )
-        .map_err(|error| format!("写入第 {index} 个角色失败：{error}"))?;
+        insert_character(&tx, index, item)?;
     }
 
     tx.commit().map_err(|error| format!("提交失败：{error}"))?;
     Ok(())
+}
+
+/// 写一条角色。`index` 既是错误文案里的「第几条」，也是 `sort_order`——
+/// 名册是「用户排的顺序」，不按 id 或名字排。
+///
+/// 没 id 的记录兜底成 `row-{index}`：这是 `characters_save` 的既有语义，目的是
+/// 「别因为一条坏记录丢掉整份名册」。导入那条路不吃这个兜底，它在 `backup::validate`
+/// 里就把没 id 的整份拒绝了（理由见那边的注释）。
+fn insert_character(
+    conn: &Connection,
+    index: usize,
+    item: &serde_json::Value,
+) -> Result<(), String> {
+    let id = item
+        .get("id")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("row-{index}"));
+    let data = serde_json::to_string(item)
+        .map_err(|error| format!("序列化第 {index} 个角色失败：{error}"))?;
+    conn.execute(
+        "INSERT OR REPLACE INTO characters (id, data, sort_order) VALUES (?1, ?2, ?3)",
+        params![id, data, index as i64],
+    )
+    .map_err(|error| format!("写入第 {index} 个角色失败：{error}"))?;
+    Ok(())
+}
+
+/// 导入用的整份替换：名册 + 物价，**一个事务**。
+///
+/// 为什么不能沿用 `clear_all` + `characters_save` + `prices_save`：那是三次 `open`、
+/// 三次提交。第一步一提交，旧数据就没了；之后任何一步失败（磁盘满、备份里有点位 id
+/// 撞主键）都会留下「旧账已删、新账只写了一半」的库，而用户手里那个 `Err` 里连备份
+/// 路径都没有。这里把三张表的 DELETE 与全部 INSERT 放进同一个事务：中途 `?` 返回时
+/// `Transaction` 被 drop → 回滚，库里仍是导入前那一份。
+///
+/// 返回**实际写入的条数**（角色数、物品数）给回执用。读者会问「为什么不是入参长度」：
+/// `characters` 用的是 `INSERT OR REPLACE`，重复 id 会覆盖而不是新增，所以入参长度
+/// 本来就不等于落库行数。查重已经在 `backup::validate` 里做了，这里仍然按
+/// 「写成功了几条」数，两边口径才对得上。
+///
+/// 顺序（先子表后父表）与 `clear_records` 一致：不依赖 `PRAGMA foreign_keys`
+/// 是不是在这个连接上开着。`open_at` 每次都会开，但依赖它就是要求每个未来的调用点
+/// 都记得这一点。 */
+pub(crate) fn replace_all(
+    conn: &mut Connection,
+    characters: &[serde_json::Value],
+    prices: &[PriceItem],
+) -> Result<(i64, i64), String> {
+    let tx = conn
+        .transaction()
+        .map_err(|error| format!("开事务失败：{error}"))?;
+
+    tx.execute("DELETE FROM price_points", [])
+        .map_err(|error| format!("清空价格失败：{error}"))?;
+    tx.execute("DELETE FROM price_items", [])
+        .map_err(|error| format!("清空物品失败：{error}"))?;
+    tx.execute("DELETE FROM characters", [])
+        .map_err(|error| format!("清空名册失败：{error}"))?;
+
+    let mut written_characters: i64 = 0;
+    for (index, character) in characters.iter().enumerate() {
+        insert_character(&tx, index, character)?;
+        written_characters += 1;
+    }
+
+    let mut written_items: i64 = 0;
+    for item in prices {
+        insert_item(&tx, item)?;
+        written_items += 1;
+    }
+
+    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
+    Ok((written_characters, written_items))
 }
 
 /// 名册的 `localStorage` 老数据搬过一次没有。
@@ -698,7 +720,8 @@ mod tests {
             (0, 0, 0),
             "新库里三张表都该是空的"
         );
-        /* `init` 每次都把 `schemaVersion` 覆写成当前版本，跑两遍不该报错也不该漂。 */
+        /* `init` 只在**缺失时**写 `schemaVersion`（见 `init` 里那段注释：无条件覆写会让
+         * 每条读命令都变成一次写事务），所以跑两遍既不该报错，也不该把值改掉。 */
         assert_eq!(
             read_meta(&second, "schemaVersion").expect("读 schemaVersion"),
             Some(SCHEMA_VERSION.to_string())
@@ -767,124 +790,6 @@ mod tests {
         assert_eq!(loaded.len(), 1, "整体回滚后只剩原来那一份");
         assert_eq!(loaded[0].id, "keep");
         assert_eq!(loaded[0].name, "老数据");
-    }
-
-    /* ---------- 迁移：三件套搬运 ----------
-     * 这三个用例吃的是 `migrate_between`（两个目录，不要 `AppHandle`），
-     * 所以「复制到一半失败」这种现场也能造：往一个同名**目录**上 copy 必失败。
-     */
-
-    /// 主库 + `-wal` + `-shm` 三件都要落地，且逐字节与源一致。
-    /// 只搬主库会丢掉还没 checkpoint 的那几笔，所以这里不是「多复制了两个文件」。
-    #[test]
-    fn migrate_between_copies_all_three_wal_files() {
-        let legacy = TempDir::new(4);
-        let base = TempDir::new(5);
-
-        /* 三个不同内容：一旦串了文件名，字节断言会立刻发现。 */
-        let sources: [(&str, &[u8]); 3] = [
-            ("", b"main-db-bytes"),
-            ("-wal", b"wal-bytes"),
-            ("-shm", b"shm-bytes"),
-        ];
-        for (suffix, bytes) in sources {
-            std::fs::write(legacy.base().join(format!("{DB_FILE}{suffix}")), bytes)
-                .expect("写旧库文件");
-        }
-
-        migrate_between(legacy.base(), base.base()).expect("三件套都该搬成功");
-
-        for (suffix, bytes) in sources {
-            let copied = std::fs::read(base.base().join(format!("{DB_FILE}{suffix}")))
-                .unwrap_or_else(|error| panic!("目标里没有 {suffix}：{error}"));
-            assert_eq!(copied, bytes.to_vec(), "{suffix} 的内容应与源逐字节相同");
-        }
-        /* 成功路径也不许留下 `.tmp`：那是给下一次启动制造困惑的东西。 */
-        let names: Vec<String> = std::fs::read_dir(base.base())
-            .expect("读目标目录")
-            .map(|entry| {
-                entry
-                    .expect("读目录项")
-                    .file_name()
-                    .to_string_lossy()
-                    .into_owned()
-            })
-            .collect();
-        assert_eq!(names.len(), 3, "目标目录里应只有三件套，实际：{names:?}");
-        assert!(
-            names.iter().all(|name| !name.ends_with(".tmp")),
-            "搬成功后不该留 .tmp，实际：{names:?}"
-        );
-    }
-
-    /// 复制阶段失败必须回退：正式名下一个文件都不许留，`.tmp` 也不许留，源文件一律不动。
-    ///
-    /// 制造失败的手法：把 `-wal` 的**源**做成一个目录——`std::fs::copy` 读目录必然失败。
-    /// 这时 `mh-toolbox.db.tmp` 已经是一个完整的临时文件，正好验证「本轮 staged 过的东西
-    /// 必须被清掉」这条。
-    ///
-    /// 说清一件事：真正的**写阶段**失败（ENOSPC / EIO 把 `.tmp` 写了一半）在测试里造不出来
-    /// ——那要靠磁盘满或坏块。但 tmp+rename 的意义正在于此：半截文件只可能出现在 `.tmp`
-    /// 名下，正式名要么不存在、要么完整，所以这条路径不需要用测试去证明。
-    ///
-    /// 早先这条测试是把同名的**目标**做成目录：那样 `copy` 在 open 阶段就返回，
-    /// 结构上连 `.tmp` 都产生不出来，测不到真正的洞（假阳性）。也顺带说明为什么
-    /// 不用只读文件：Windows 上只读属性挡的是「打开写」，`std::fs::copy` 仍可能成功。
-    #[test]
-    fn migrate_between_rolls_back_partial_copy() {
-        let legacy = TempDir::new(6);
-        let base = TempDir::new(7);
-
-        std::fs::write(legacy.base().join(DB_FILE), b"main-db-bytes").expect("写旧主库");
-        /* 源侧是个目录：复制它（或读它）一定失败。 */
-        std::fs::create_dir_all(legacy.base().join(format!("{DB_FILE}-wal"))).expect("旧 WAL 位");
-
-        let error = migrate_between(legacy.base(), base.base()).expect_err("复制目录必须失败");
-        assert!(
-            error.contains("已清理本次不完整的复制"),
-            "文案要交代「已回退、可重试」，实际是：{error}"
-        );
-
-        /* 最强的一条断言：失败后目标目录必须是**空**的。既没有正式名（主库若留下，
-         * 下次启动就会把它当成「已迁移」），也没有任何 `.tmp` 残留。 */
-        let leftovers: Vec<String> = std::fs::read_dir(base.base())
-            .expect("读目标目录")
-            .map(|entry| {
-                entry
-                    .expect("读目录项")
-                    .file_name()
-                    .to_string_lossy()
-                    .into_owned()
-            })
-            .collect();
-        assert!(
-            leftovers.is_empty(),
-            "失败后目标目录必须干净，实际留下：{leftovers:?}"
-        );
-        assert!(
-            legacy.base().join(DB_FILE).exists(),
-            "旧主库不许删：那是用户唯一的一份数据"
-        );
-        assert!(
-            legacy.base().join(format!("{DB_FILE}-wal")).exists(),
-            "旧 WAL 不许删"
-        );
-    }
-
-    /// 新路径已经有库就不再搬。这一步挡的是「用旧库覆盖用户这两天新记的账」。
-    #[test]
-    fn migrate_between_never_overwrites_existing_target() {
-        let legacy = TempDir::new(8);
-        let base = TempDir::new(9);
-
-        std::fs::write(legacy.base().join(DB_FILE), b"legacy").expect("写旧库");
-        std::fs::write(base.base().join(DB_FILE), b"existing").expect("写新库");
-
-        /* 目标已存在是**正常**情况（第二次启动就是这样），不该报错。 */
-        migrate_between(legacy.base(), base.base()).expect("目标已存在应视为已完成");
-
-        let kept = std::fs::read(base.base().join(DB_FILE)).expect("读新库");
-        assert_eq!(kept, b"existing".to_vec(), "新路径已有的库不许被旧的覆盖");
     }
 
     /// 名册里混进一行坏 JSON 时只跳过它，不许整份返回 `Err`。
@@ -990,64 +895,120 @@ mod tests {
         );
     }
 
-    /// 目标里残留上一轮的 `-wal` / `-shm`（主库没赶上）时，重试必须能覆盖它们。
+    /* ---------- schemaVersion：只读，不降级 ---------- */
+
+    /// 库里的版本比当前高就拒绝打开。
     ///
-    /// 这条模拟的正是「rename 反序」引入的那个中间态：正式 `-wal` / `-shm` 已改名成功、
-    /// 主库还叫 `.tmp` 时就断电了。下次启动重来，目标位置于是有 `-wal` / `-shm` 而无主库
-    /// ——`target.exists()` 为假，迁移会真的再跑一遍。
-    ///
-    /// 它同时钉住两件事：① 残留文件**不会让 `rename` 报错**（`MoveFileExW` 带
-    /// `MOVEFILE_REPLACE_EXISTING` / `rename(2)` 都覆盖已存在的目标）；② 残留的**内容**
-    /// 会被 legacy 那份覆盖。哪个平台的 rename 没有覆盖语义，这条就会红——那正是需要
-    /// 提前知道的事。
+    /// 这条挡的是「用户装回旧版本」：旧代码不认识新库的列，若无条件把版本号覆写成
+    /// 自己的数字，升级回来之后「小于才迁移」永远不成立——表缺列且无法自愈。
+    /// 现在宁可起不来，让用户看到一句「请升级应用」。
     #[test]
-    fn migrate_between_overwrites_leftover_wal_from_interrupted_run() {
-        let legacy = TempDir::new(11);
-        let base = TempDir::new(12);
+    fn open_at_refuses_database_written_by_newer_version() {
+        let dir = TempDir::new(15);
+        {
+            let conn = open_at(dir.base()).expect("先建一个正常库");
+            write_meta(&conn, "schemaVersion", &(SCHEMA_VERSION + 1).to_string())
+                .expect("把版本改高，模拟更新的应用写过这个库");
+        }
 
-        std::fs::write(legacy.base().join(DB_FILE), b"legacy-db").expect("写旧主库");
-        std::fs::write(legacy.base().join(format!("{DB_FILE}-wal")), b"legacy-wal")
-            .expect("写旧 WAL");
-        std::fs::write(legacy.base().join(format!("{DB_FILE}-shm")), b"legacy-shm")
-            .expect("写旧 SHM");
-
-        /* 上一轮只改成了这两件的名，主库没赶上——所以这里**不放** `mh-toolbox.db`。 */
-        std::fs::write(base.base().join(format!("{DB_FILE}-wal")), b"stale-wal")
-            .expect("写残留 WAL");
-        std::fs::write(base.base().join(format!("{DB_FILE}-shm")), b"stale-shm")
-            .expect("写残留 SHM");
-
-        migrate_between(legacy.base(), base.base()).expect("残留的 WAL / SHM 不该挡住重试");
-
-        /* 主库最后就位，它是「迁移完成」的标记。 */
-        assert_eq!(
-            std::fs::read(base.base().join(DB_FILE)).expect("主库该出现"),
-            b"legacy-db".to_vec(),
-            "主库内容应是 legacy 那份"
+        let error = open_at(dir.base()).expect_err("更高版本的库必须拒绝打开");
+        assert!(
+            error.contains("更新版本") && error.contains("请升级应用"),
+            "文案要告诉用户去升级，而不是只报一句看不懂的错误，实际是：{error}"
         );
+    }
+
+    /* ---------- 名册整份写回：OR REPLACE 的实际行为 ---------- */
+
+    /// 重复 id 在 `save_characters` 里是**覆盖**，不是报错、也不是留下两行。
+    ///
+    /// 这条不是在「验证实现细节」，而是在钉前端可以依赖的行为：名册编辑时前端可能
+    /// 短暂出现两个同 id 的对象，若这里报错，用户会看到整份名册存不下去。
+    #[test]
+    fn save_characters_replaces_duplicate_ids() {
+        let dir = TempDir::new(16);
+        let mut conn = open_at(dir.base()).expect("打开数据库");
+
+        let items = vec![
+            serde_json::json!({ "id": "c1", "name": "甲" }),
+            serde_json::json!({ "id": "c1", "name": "乙" }),
+            serde_json::json!({ "id": "c2", "name": "丙" }),
+        ];
+        save_characters(&mut conn, &items).expect("重复 id 不该报错");
+
+        let list = load_characters(&conn).expect("读回名册");
+        assert_eq!(list.len(), 2, "两个 c1 只该留一行");
         assert_eq!(
-            std::fs::read(base.base().join(format!("{DB_FILE}-wal"))).expect("读 WAL"),
-            b"legacy-wal".to_vec(),
-            "残留的 WAL 必须被 legacy 那份覆盖，不能留着 stale-wal"
+            list[0]["name"], "乙",
+            "后写的那条赢，这是 OR REPLACE 的语义"
         );
-        assert_eq!(
-            std::fs::read(base.base().join(format!("{DB_FILE}-shm"))).expect("读 SHM"),
-            b"legacy-shm".to_vec(),
-            "残留的 SHM 必须被 legacy 那份覆盖，不能留着 stale-shm"
+        assert_eq!(list[1]["name"], "丙");
+    }
+
+    /* ---------- 导入：整份替换必须原子 ---------- */
+
+    /// `replace_all` 中途撞主键时必须整体回滚：角色、物品、价格**三张表**都还是导入前
+    /// 那一份。
+    ///
+    /// 这条是 M1 的全部依据。早先导入是 `clear_all` → `characters_save` → `prices_save`
+    /// 三次提交：`clear_all` 一提交旧数据就没了，之后任一步失败都会留下「旧账已删、
+    /// 新账只写了一半」的库，回执里还没有备份路径。
+    #[test]
+    fn replace_all_rolls_back_and_keeps_previous_ledger() {
+        let dir = TempDir::new(17);
+        let mut conn = open_at(dir.base()).expect("打开数据库");
+
+        save_items(
+            &mut conn,
+            &[item(
+                "keep",
+                "老物品",
+                vec![point("keep-p", "2026-01-01", 1.0, 1)],
+            )],
+        )
+        .expect("先落一份能用的物价");
+        save_characters(
+            &mut conn,
+            &[serde_json::json!({ "id": "keep-c", "name": "老角色" })],
+        )
+        .expect("先落一份能用的名册");
+
+        /* 两条同一个物品 id：第二次 INSERT 撞主键。模拟「校验漏了重复 id」的兜底。 */
+        let duplicated = vec![item("dup", "重复甲", vec![]), item("dup", "重复乙", vec![])];
+        let error = replace_all(&mut conn, &[], &duplicated).expect_err("重复 id 必须失败");
+        assert!(
+            error.contains("写入物品"),
+            "错误要说清是哪一步失败的，实际是：{error}"
         );
 
-        /* 成功路径不该留下 `.tmp`。 */
-        let leftovers: Vec<String> = std::fs::read_dir(base.base())
-            .expect("读目标目录")
-            .map(|entry| {
-                entry
-                    .expect("读目录项")
-                    .file_name()
-                    .to_string_lossy()
-                    .into_owned()
-            })
-            .filter(|name| name.ends_with(".tmp"))
-            .collect();
-        assert!(leftovers.is_empty(), "不该留 .tmp，实际：{leftovers:?}");
+        let items = load_items(&conn).expect("读回物价");
+        assert_eq!(items.len(), 1, "整份替换失败后物价必须还是原来那一份");
+        assert_eq!(items[0].id, "keep");
+        assert_eq!(items[0].points.len(), 1, "历史也一并回滚");
+
+        let characters = load_characters(&conn).expect("读回名册");
+        assert_eq!(characters.len(), 1, "名册也必须回滚，不许被清空");
+        assert_eq!(characters[0]["id"], "keep-c");
+    }
+
+    /// 成功路径的返回数是**实际写入条数**，回执直接用它。
+    #[test]
+    fn replace_all_reports_written_counts() {
+        let dir = TempDir::new(18);
+        let mut conn = open_at(dir.base()).expect("打开数据库");
+
+        let (characters, prices) = replace_all(
+            &mut conn,
+            &[
+                serde_json::json!({ "id": "c1" }),
+                serde_json::json!({ "id": "c2" }),
+            ],
+            &[item("i1", "黑宝石", vec![]), item("i2", "月亮石", vec![])],
+        )
+        .expect("导入");
+
+        assert_eq!((characters, prices), (2, 2));
+        assert_eq!(load_items(&conn).expect("读物价").len(), 2);
+        assert_eq!(load_characters(&conn).expect("读名册").len(), 2);
     }
 }

@@ -119,7 +119,13 @@ impl Frame {
         }
         let lit = self
             .bgra
-            .chunks_exact(4)
+            /* `as_chunks::<4>()` 而不是 `chunks_exact(4)`：前者返回定长数组 `[u8; 4]`，
+             * 下标访问不用做长度检查（rustc 1.99 的 `chunks_exact_to_as_chunks` 就是
+             * 在提醒这一点）。`.1` 是被 4 整除剩下的尾巴，BGRA 帧不会有不整除的情况，
+             * 有也不会影响「亮像素占比」这个判断。 */
+            .as_chunks::<4>()
+            .0
+            .iter()
             .filter(|p| p[0] > 8 || p[1] > 8 || p[2] > 8)
             .count();
         // 0.2% 以下算全黑。用乘法比较，避免引入浮点。
