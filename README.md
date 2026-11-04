@@ -1,52 +1,47 @@
 # 梦幻养老助手 · Rust 版
 
 > **这是 Rust 重写版，稳定版在 [`zhijian521/mh-toolbox`](https://github.com/zhijian521/mh-toolbox)。**
-> 那个仓库冻结保留，继续给朋友用；它是本项目的差分测试基准与数据兼容基准。
+> 那个仓库冻结保留，继续给朋友用；它是参考读物与数据兼容基准，不是兼容目标。
 
-梦幻西游端游的养成记账工具。技术栈 Rust + Tauri 2 + Vue 3 + SQLite，
-界面走「账簿」方向：宣纸底、墨字、朱红作记、结构靠线不靠阴影。
-全站唯一字体是霞鹜文楷（GB2312 子集），六档字号全部乘 `--fs-scale`，设置页的三档滑块只改这一个变量。
+梦幻西游端游的养成记账工具。Rust + Tauri 2 + Vue 3 + SQLite，界面走「账簿」方向：宣纸底、墨字、
+朱红作记、结构靠线不靠阴影。全站唯一字体是霞鹜文楷（GB2312 子集），六档字号都乘 `--fs-scale`，
+设置页那三档滑块只改这一个变量。
 
 ## 当前状态（2026-11-04）
 
-八个导航页都有路由，**设置 / 工具 / 角色 / 物价 / 收益**五页有内容，其余三页是占位；
-工具页下挂捉鬼助手（`/tools/ghost`）。另有一张不进导航的开发页 `#/dev`，
-入口是三连击左栏顶部的牌记。
+八个导航页都有路由，**设置 / 工具 / 角色 / 物价 / 收益**五页有内容，其余三页占位；工具页下挂
+捉鬼助手（`/tools/ghost`）。另有一张不进导航的开发页 `#/dev`，入口是三连击左栏顶部的牌记。
 
-| 已完成   | 说明                                                                                             |
-| -------- | ------------------------------------------------------------------------------------------------ |
-| 窗口     | 1280×820，最小 1024×780，居中；productName `梦幻养老助手`，identifier `com.zhijian.mhtoolbox.rs` |
-| IPC      | 17 个 `#[tauri::command]`；前端只经 `src/services/` 调用，命令表按平台分两份                     |
-| 路由     | hash 模式；`src/navigation.ts` 是真源，路由与左栏都从它派生；`/equipment` 重定向到 `/characters` |
-| 设置页   | 外观 / 数据（导入导出清除）/ 关于，三张卡，够宽时两列排                                          |
-| 工具页   | 桌面图标式启动器：92px 格子、56px 压印图标块，没有副标题                                         |
-| 捉鬼助手 | 截屏 + 本地 OCR（PP-OCRv4，缺模型退回系统 OCR）读任务栏的假坐标，在底图上画该往哪找              |
-| 角色页   | 名册增删改 + 编辑器；卡 450×620，六分区属性读数                                                  |
-| 物价页   | 物品卡 + 历史价 + 走势图；一级 / 二级筛选与五种排序；四个弹窗                                    |
-| 收益页   | 速记格 + 今日清单 + 历史表；一笔可记给多个号，按币平分、尾差可复现                               |
-| 数据层   | `%APPDATA%\mh-tool-v2\mh-toolbox.db`（rusqlite `bundled` + WAL），物价、名册、收益共用           |
+| 已完成   | 说明                                                               |
+| -------- | ------------------------------------------------------------------ |
+| 窗口     | 1280×820，最小 1024×780；identifier `com.zhijian.mhtoolbox.rs`     |
+| IPC      | 17 个命令；前端只经 `src/services/` 调用，命令表按平台分两份       |
+| 路由     | hash 模式，`src/navigation.ts` 是真源，左栏与路由都从它派生        |
+| 设置页   | 外观 / 数据（导入导出清除）/ 关于，三张卡                          |
+| 工具页   | 桌面图标式启动器：92px 格、56px 压印块，没有副标题                 |
+| 捉鬼助手 | 截屏 + PP-OCRv4 读任务栏的假坐标，画在底图上告诉你往哪找           |
+| 角色页   | 名册增删改 + 编辑器；卡 450×620，六分区读数                        |
+| 物价页   | 物品卡 + 历史价 + 走势图；两级筛选与五种排序；四个弹窗             |
+| 收益页   | 速记格 + 今日清单 + 历史表；一笔可记给多个号，按币平分、尾差可复现 |
+| 数据层   | `%APPDATA%\mh-tool-v2\mh-toolbox.db`（rusqlite `bundled` + WAL）   |
 
-未开始：`tauri-specta`（命令已 17 个，早越过当初定的 5 个阈值）、
-三个业务页（总览 / 账号 / 目标）。差分 harness 不做（2026-11-04 定，见 `docs/ARCHITECTURE.md` §5）。
+未开始：`tauri-specta`（命令已 17 个，早越过当初定的 5 个阈值）、总览 / 账号 / 目标三页。
+差分 harness 不做（2026-11-04 定，见 `docs/ARCHITECTURE.md` §5）。
 
 ## 目录
 
 只列一级、不列文件名——逐个抄清单必然漂，各目录的职责写在文件头。
 
 ```
-src/
-  components/   有视觉语义的 UI 单元，不直接调 Tauri（系统能力走 services/）
-  composables/  跨组件状态与副作用
-  services/     系统能力的唯一出口，一个能力一个文件
-  styles/       tokens / base / blocks 三张表，令牌唯一真源
-  views/        路由目标，每页一个目录，页面自己的数据层也在里面
-src-tauri/      Rust 壳：窗口、命令、截屏、OCR、SQLite
-public/game/    游戏资源：底图、图标、事实表（规则见 docs/GAME-ASSETS.md）
-docs/           五份工程文档
-scripts/        质量门小工具（版本号 / 提交信息）+ 图标与字体生成脚本
-tools/probe/    CDP 探针：截图、量几何，内置静态服务
-tools/e2e/      真窗口烟测：真鼠标键盘走完整路径，自带库快照与还原
-assets/         字体（霞鹜文楷 GB2312 子集 + 全量原件，OFL 1.1）、牌记、应用图标源图
+src/           components（不调 Tauri）/ composables / services（系统能力唯一出口）
+               styles（tokens base blocks）/ views（路由目标，页面数据层也在里面）
+src-tauri/     Rust 壳：窗口、命令、截屏、OCR、SQLite
+public/game/   游戏资源：底图、图标、事实表（规则见 docs/GAME-ASSETS.md）
+docs/          五份工程文档
+scripts/       质量门小工具（版本号 / 提交信息）+ 图标与字体生成脚本
+tools/probe/   CDP 探针：截图、量几何，内置静态服务
+tools/e2e/     真窗口烟测：真鼠标键盘走完整路径，自带库快照与还原
+assets/        字体（文楷 GB2312 子集 + 全量原件，OFL 1.1）、牌记、图标源图
 ```
 
 ## 启动
@@ -60,16 +55,15 @@ start.bat --check    只做环境自检，不启动
 start.bat --force    遇到占用或残留实例时直接处理，不询问
 ```
 
-**这个文件必须存成 GBK(936) + CRLF**（存 UTF-8 时 cmd 按双字节切行，报错与真实问题毫无关系）；
-在 Git Bash 里要用 `cmd //c start.bat`；启动失败时 tauri 只会说
-`beforeDevCommand terminated`，已知原因有三条。这些都记在
-[`AGENTS.md` §四](AGENTS.md#四启动与窗口)，不在这里复述。
+这个文件必须存成 **GBK(936) + CRLF**，Git Bash 里要 `cmd //c start.bat`；启动失败的四种已知
+原因（5173 被占 / `EBUSY` / WebView2 残留 / 环境没设）都在
+[`AGENTS.md` §四](AGENTS.md#四启动与窗口)，这里不复述。
 
 ## 开发
 
 ```bash
 npm install
-npm run dev            # 只跑前端（浏览器里可看 UI，但没有 Rust 侧）
+npm run dev            # 只跑前端（浏览器里可看 UI，没有 Rust 侧）
 npm run desktop        # 起 Tauri 窗口（vite + cargo run）
 npm run build          # 类型检查 + 构建前端
 npm run desktop:build  # 打包
@@ -77,30 +71,20 @@ npm run check          # 唯一质量门：format / lint / typecheck / test / �
 npm run e2e            # 真窗口烟测：先 start.bat --force debug，再跑这个
 ```
 
-**一个功能做完、提交前、Review 时，两件都跑**（`check` + `e2e`），只跑 `check` 不算全量——
+**一个功能做完、提交前、Review 时，两件都跑**（`check` + `e2e`）。只跑 `check` 不算全量——
 它验不到「点得动、写得进库、重载不丢」。日常小改仍然什么都不跑，分档口径见
 [`AGENTS.md` §一](AGENTS.md#一验证分档日常不跑功能完成--提交--审查一律全量)。
 
-三层测试各管一段（补哪层的清单在
-[`docs/CONVENTIONS.md` §2.1](docs/CONVENTIONS.md#21-工程基线)）：
-
-| 层   | 规模                             | 管什么                                       |
-| ---- | -------------------------------- | -------------------------------------------- |
-| 单元 | 23 文件 / 302 用例 + Rust 35 条  | 纯逻辑、composable、数据层、**IPC 名称对账** |
-| 集成 | Rust 真库 22 条 + 烟测「数据」节 | 真 SQLite、真信封落盘、真整份替换            |
-| e2e  | 81 条断言 / 8 节                 | 真窗口真鼠标：点得动、写得进库、重载不丢     |
-
-**新增功能要同时补断言**，功能与断言同一份提交；新加一条 IPC 命令时不用改测试——
-`ipc-contract.test.ts` 会自己把前端调用与 Rust 的两张注册表对上。
+三层测试各管一段（「动了什么补哪层」的清单在 [`docs/CONVENTIONS.md` §2.1](docs/CONVENTIONS.md#21-工程基线)）：
+单元 = 23 文件 / 302 用例 + Rust 35 条；集成 = Rust 真库 22 条 + 烟测「数据」节；
+e2e = 81 条断言 / 9 节。**新增功能要同时补断言**，功能与断言同一份提交；新加 IPC 命令不用改
+测试——`ipc-contract.test.ts` 会自己把前端调用与 Rust 的两张注册表对上。
 
 直接跑 `npm run desktop` 要先按 [`AGENTS.md` §三](AGENTS.md#三windows-上编译必须先设环境本机实测)
-设好 MSVC 环境；`start.bat` 就是这一步的封装。
+设好 MSVC 环境；`start.bat` 就是这一步的封装。CI 另有 `rust`（`cargo fmt --check`）与
+`rust-test`（`cargo test --lib`）两个 job，**不在** `npm run check` 里——本机绿不等于能推。
 
-CI 另有 `rust`（`cargo fmt --check`）与 `rust-test`（`cargo test --lib`）两个 job，
-**不在** `npm run check` 里——本机绿不等于能推。
-
-要连调试端口或截真窗口的图，看 `AGENTS.md` §五（CDP 探针与降动效的验法都在那里）。
-烟测会写真实数据，但自己收尾：开头快照一份库，结尾把还原命令打出来
+烟测会写真实数据但自己收尾：开头快照一份库，结尾把还原命令打出来
 （`node tools/e2e/db.mjs restore <id> --yes`，应用要先关掉）。
 
 ## 开工前读
@@ -108,7 +92,7 @@ CI 另有 `rust`（`cargo fmt --check`）与 `rust-test`（`cargo test --lib`）
 | 文件                                           | 回答什么                                                     |
 | ---------------------------------------------- | ------------------------------------------------------------ |
 | [`AGENTS.md`](AGENTS.md)                       | 这台机器上怎么干活：验证分档、沙箱限制、编译环境、启动、红线 |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 分层、数据流、IPC 边界、目录归属                             |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 分层、数据流、磁盘红线、目录归属                             |
 | [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)   | 现在该怎么写：命名、分层、样式语言、控件契约                 |
 | [`docs/RECORD.md`](docs/RECORD.md)             | 每个阶段改了什么、否掉了什么（查「当初为什么」）             |
 | [`docs/GAME-ASSETS.md`](docs/GAME-ASSETS.md)   | 游戏资源放哪、怎么命名、怎么替换                             |
