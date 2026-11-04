@@ -125,16 +125,19 @@ describe('技能与修炼', () => {
         expect(zero.cap).toBeUndefined();
     });
 
-    it('修炼按固定清单重建：组名归位、清单外的项丢掉、等级按项名对回去', () => {
-        /* 上一版的编辑器能改组名、能加行、能调上限（2026-11-03 用户要求「不可编辑」）。
-         * 现在结构由 `TRAINING_GROUPS` 定，数据只留等级——老存档里那些改动要归位，
+    it('修炼按固定清单重建：组名归位、清单外的项丢掉、等级与上限按项名对回去', () => {
+        /* 上一版的编辑器能改组名、能加行（2026-11-03 用户要求「不可编辑」）。
+         * 现在**结构**由 `TRAINING_GROUPS` 定——老存档里改过的组名、加过的项要归位，
          * 但**已练的等级不能跟着组名一起被抹掉**，所以按项名对回去。
          *
-         * 上限若被落成 0 后果比技能更重：卡上是 `row.level >= row.cap` 判「练满」，
-         * 进度条还算 `level / cap`——十项会全部标成已完成，宽度是 NaN%。 */
+         * 上限反过来是**每行自己的数**（2026-11-04 用户：「修炼上限 也可以修改」）：
+         * 帮派与「修炼上限提升」会把它推高，两个号的同一项可以一个 20、一个 25。
+         * 存档里有正数就留着，没存过 / 存成 0 才落回清单默认——上限若被落成 0 后果比
+         * 技能更重：卡上是 `row.level >= row.cap` 判「练满」，进度条还算 `level / cap`，
+         * 十项会全部标成已完成，宽度是 NaN%。 */
         const [own, beast] = normalizeCharacter({
             trainings: [
-                { title: '角色自身修炼', rows: [{ name: '攻击修炼', level: 11 }] },
+                { title: '角色自身修炼', rows: [{ name: '攻击修炼', level: 11, cap: 25 }] },
                 {
                     title: '召唤兽控制修炼',
                     rows: [
@@ -156,8 +159,12 @@ describe('技能与修炼', () => {
             '抗法控制力',
             '育兽术',
         ]);
-        // 等级按名字对回去；上限一律照常量（育兽术 35，其余 20）。
-        expect(own.rows.find((row) => row.name === '攻击修炼')?.level).toBe(11);
+        // 等级按名字对回去；上限存过的留 25，没存过的落清单默认（20 / 育兽术 35）。
+        expect(own.rows.find((row) => row.name === '攻击修炼')).toMatchObject({
+            level: 11,
+            cap: 25,
+        });
+        expect(own.rows.find((row) => row.name === '防御修炼')?.cap).toBe(20);
         expect(beast.rows.find((row) => row.name === '育兽术')).toMatchObject({
             level: 7,
             cap: 35,

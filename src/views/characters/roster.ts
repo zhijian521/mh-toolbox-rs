@@ -94,7 +94,7 @@ function blankAttrGroups(): AttrGroup[] {
     }));
 }
 
-/** 修炼两组十项，结构整份来自 `TRAINING_GROUPS`（组名、项名、上限都是游戏固定的）。 */
+/** 修炼两组十项，结构整份来自 `TRAINING_GROUPS`（组名与项名固定，上限取清单默认）。 */
 function blankTrainings(): TrainingGroup[] {
     return TRAINING_GROUPS.map((group) => ({
         title: group.title,
@@ -341,31 +341,37 @@ function normalizePet(raw: unknown): Pet | null {
 }
 
 /**
- * 修炼：**按固定清单重建**，只从存下来的数据里取等级（与属性表同一条哲学）。
+ * 修炼：**结构按清单重建，等级与上限按项名对回去**（与属性表同一条哲学）。
  *
- * 老存档里可能有过改过的组名、加过的项、调过的上限（上一版编辑器三样都能改）。
- * 现在这些都归位：组名与项名照 `TRAINING_GROUPS`，上限照常量，清单外的项丢掉，
- * 缺的补空；**已练的等级按项名对回去**——改个组名不该把十个数抹掉。
+ * 老存档里可能有过改过的组名、加过的项（上一版编辑器三样都能改）。现在这些归位：
+ * 组名与项名照 `TRAINING_GROUPS`，清单外的项丢掉，缺的补空。
+ *
+ * **上限认存档**（2026-11-04）：它跟号走——帮派与「修炼上限提升」会把它推高，
+ * 两个号的「攻击修炼」可以一个 20、一个 25，所以不能再按常量覆盖回去。
+ * 清单里那个数只负责「没填过时是什么」。留空（0）也归到这一档：上限必须是正数，
+ * 写成 0 会让卡上画出 `11/0` 与 NaN% 的条，比不显示更糟。
  */
 function normalizeTrainings(raw: unknown): TrainingGroup[] {
-    const saved = new Map<string, number>();
+    const saved = new Map<string, { level: number; cap?: number }>();
     for (const group of rows(raw)) {
         if (!isObject(group)) continue;
         for (const row of rows(group.rows)) {
             if (!isObject(row)) continue;
             const name = text(row.name);
             // 同名取第一条：清单里每项只出现一次，重复说明这份数据被改过。
-            if (name && !saved.has(name)) saved.set(name, int(row.level));
+            if (name && !saved.has(name)) {
+                saved.set(name, { level: int(row.level), cap: optionalInt(row.cap) });
+            }
         }
     }
 
     return TRAINING_GROUPS.map((group) => ({
         title: group.title,
-        rows: group.rows.map((row) => ({
-            name: row.name,
-            level: saved.get(row.name) ?? 0,
-            cap: row.cap,
-        })),
+        rows: group.rows.map((row) => {
+            const kept = saved.get(row.name);
+            const cap = kept?.cap && kept.cap > 0 ? kept.cap : row.cap;
+            return { name: row.name, level: kept?.level ?? 0, cap };
+        }),
     }));
 }
 

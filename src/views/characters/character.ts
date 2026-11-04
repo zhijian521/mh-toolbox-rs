@@ -249,6 +249,13 @@ export interface AssistSkill extends SkillRow {
 export interface TrainingRow {
     name: string;
     level: number;
+    /**
+     * 这一项练到多少算满。
+     *
+     * **跟号走，不跟清单走**（2026-11-04）：游戏里的基线是 20（育兽术 35），
+     * 但帮派与「修炼上限提升」会把它推高，同一个「攻击修炼」在 A 号是 20、在 B 号是 25。
+     * 所以它是每行自己的数，可以在编辑页改；`TRAINING_GROUPS` 里的 cap 只是**默认值**。
+     */
     cap: number;
 }
 
@@ -258,15 +265,18 @@ export interface TrainingGroup {
 }
 
 /**
- * 修炼两组的**固定清单**（用户 2026-11-03 定）。
+ * 修炼两组的**清单**（用户 2026-11-03 定，2026-11-04 放宽了上限）。
  *
- * 与 `ATTR_GROUPS` 同一条理由：这一页也是「照着游戏面板抄数字」，组名、项名、上限
- * 三样都不该由录入的人改——`角色自身修炼` 与 `召唤兽控制修炼` 是游戏面板上的原话，
- * 但这两个名字在我们的界面里既长又不准（前者练的是任务、后者练的是宠物），
- * 用户把它们改成了 `任务修炼` / `宠物修炼` 并明确「不可编辑」。
+ * **组名与项名固定**，与 `ATTR_GROUPS` 同一条理由：这一页也是「照着游戏面板抄数字」，
+ * `角色自身修炼` / `召唤兽控制修炼` 是游戏面板上的原话，但这两个名字在我们的界面里
+ * 既长又不准（前者练的是任务、后者练的是宠物），用户把它们改成了 `任务修炼` /
+ * `宠物修炼` 并明确「不可编辑」。于是结构写死在这里，`normalizeTrainings` 按清单重建，
+ * 老存档里改过的组名、加过的项一并归位，**已练的等级按项名对回去**。
  *
- * 于是结构写死在这里，数据里只留**等级**：`normalizeTrainings` 按清单重建，
- * 老存档里改过的组名、加过的项、调过的上限一并归位，已练的等级按项名对回去。
+ * **上限不写死**（2026-11-04 用户：「修炼上限 也可以修改」）。游戏基线是 20（育兽术 35），
+ * 但帮派与「修炼上限提升」会把它推高，同一个「攻击修炼」在这个号是 20、在那个号是 25。
+ * 所以下面每个 `cap` 都只是**默认值**：存档里存了正数就按存档，没存过才落回这里。
+ * 判满级（`isMaxed`）、画进度条（`rowPercent`）读的都是行上的 cap，不是这张常量表。
  */
 export const TRAINING_GROUPS = [
     {
@@ -291,6 +301,21 @@ export const TRAINING_GROUPS = [
         ],
     },
 ] as const satisfies readonly { title: string; rows: readonly { name: string; cap: number }[] }[];
+
+/** 项名 → 清单里的默认上限。按名字查而不是按下标：两列排版里下标会错位，项名不会。 */
+const TRAINING_DEFAULT_CAP = new Map<string, number>(
+    TRAINING_GROUPS.flatMap((group) => group.rows.map((row) => [row.name, row.cap] as const)),
+);
+
+/**
+ * 这一项的默认上限（20，育兽术 35）。编辑页拿它当上限格的占位字：
+ * 那一格留空时，屏幕上那个淡字就是「存下去会变成的数」。
+ *
+ * 返回 `undefined` 表示项名不在清单里——那时不编一个默认值出来。
+ */
+export function trainingDefaultCap(name: string): number | undefined {
+    return TRAINING_DEFAULT_CAP.get(name);
+}
 
 /* ======================================================================
  * 装备
@@ -583,7 +608,7 @@ export interface CharacterData {
     skills: SkillRow[];
     /** 辅助技能：生活 + 剧情，两类合在一页格子里。 */
     assists: AssistSkill[];
-    /** 两组，结构固定（`TRAINING_GROUPS`）：任务修炼、宠物修炼。 */
+    /** 两组，结构固定（`TRAINING_GROUPS`）：任务修炼、宠物修炼。上限每行自带、可改。 */
     trainings: TrainingGroup[];
     gear: GearSlot[];
     gearMeta: { special: string; suit: string };
