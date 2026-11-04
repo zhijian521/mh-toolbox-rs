@@ -50,17 +50,12 @@ const DEMO = [
         </div>
 
         <p class="note">
-            票面（面、四道棱、圆角、落影）与票内三列都在 <code>base.css</code> 的
-            <code>.assist-slip</code> 一族里，卡与编辑页共用一份；高度由使用方给（卡 42、弹窗 38）。
+            票面与三列在 <code>base.css</code> 的 <code>.assist-slip</code> 一族，卡与编辑页共用；
+            高度由使用方给（卡 42 / 弹窗 38）。
         </p>
         <p class="note">
-            <b>未学</b
-            >（第四张）只压块与字、仍占位——少一项会让人以为漏记了。最后一张的名字不在名录里：
-            那时不画图，留一块空块，不挂破图。
-        </p>
-        <p class="note">
-            图标在 <code>AssistIcon.vue</code>：28 的压印块 + 23 的图，图上盖一层 <b>暗纱</b>（亮
-            22% 墨、暗 18% 纸），再 <code>sepia</code> 拉进褐调。纱不能换回纸色——纸白压深底会提亮。
+            <b>未学</b>（第四张）只压块与字、仍占位——少一项会让人以为漏记了。最后一张名字不在
+            名录里：不画图，留一块空块，不挂破图。
         </p>
     </LedgerSection>
 </template>

@@ -31,9 +31,8 @@ import { ICON_GROUPS, ICON_LABELS } from '../../components/icons';
         </div>
 
         <p class="note">
-            图标来自 tabler 成套库，只维护「业务名 → 图标」的映射。尺寸只有一个入口
-            <code>--icon-size</code>（默认 <code>calc(14px * var(--fs-scale))</code>），
-            由父级改，组件不认自己在哪个位置；清单里放大到 18 只为看清形状。
+            tabler 成套库，只维护「业务名 → 图标」的映射。尺寸只有一个入口
+            <code>--icon-size</code>，由父级改，组件不认自己在哪；清单放大到 18 只为看清形状。
         </p>
     </LedgerSection>
 </template>

@@ -7,7 +7,6 @@ import AssistSlipSection from './AssistSlipSection.vue';
 import AtomsSection from './AtomsSection.vue';
 import IconsSection from './IconsSection.vue';
 import PaletteSection from './PaletteSection.vue';
-import SkillRowSection from './SkillRowSection.vue';
 import TypeScaleSection from './TypeScaleSection.vue';
 
 /**
@@ -24,9 +23,11 @@ import TypeScaleSection from './TypeScaleSection.vue';
  * 这一页本身也只做一件事：按顺序把卡片排起来（说明 + 开关 + 演示卡）。加一张卡就是加一行——
  * 与 `SettingsView` 同一个写法，因为它们本来是同一种页面（一叠 `.frame` 卡）。
  *
- * 演示卡**按「原子 → 组合」的顺序**排：`AtomsSection` 收全局小件，`SkillRowSection`
- * 与 `AssistSlipSection` 收由它们拼成、带业务语义的行。新件先归到其中一张，
- * 再加一张卡得先问清楚「它是原子还是组合」——不然半年后没人说得清哪个该去哪儿。
+ * 演示卡**按「原子 → 组合」的顺序**排：`AtomsSection` 收全局小件，`AssistSlipSection`
+ * 收由它们拼成、带业务语义的行；色板、字号、图标各一张。新件先问清楚「它是原子、
+ * 组合，还是资源清单」——不然半年后没人说得清哪个该去哪儿。
+ *
+ * 卡片的并排与说明字数都按「够用就好」处理：一张卡回答一个问题，文字只留改的时候会踩的。
  */
 
 const { devMode } = useDevMode();
@@ -35,40 +36,47 @@ const { devMode } = useDevMode();
 <template>
     <PageShell title="开发帮助" desc="组件 · 令牌 · 图标 · 线条">
         <div class="stack">
-            <LedgerSection title="入口与约定" hint="左栏里没有这一页">
-                <p class="note">
-                    <b>怎么进来</b>：三连击左栏顶部的标（朱印「梦」）；浏览器预览可补
-                    <code>#/dev</code>。导航槽里不放这一项。
-                </p>
-                <p class="note">
-                    <b>边界</b>：设置页只留用户要动的「外观」与「关于」；组件演示、色板、
-                    字号、图标全在这一页。
-                </p>
-                <p class="note">
-                    <b>两条机制</b>：主题只改根元素的 <code>color-scheme</code>，颜色全走
-                    <code>light-dark()</code>；字号只改 <code>--fs-scale</code>（0.92 / 1 / 1.1）。
-                </p>
-            </LedgerSection>
+            <!-- 两张说明卡都只有几行，并一排；竖排下来右边全是空纸。 -->
+            <div class="stack-pair">
+                <LedgerSection title="入口与约定" hint="左栏里没有这一页">
+                    <p class="note">
+                        <b>怎么进来</b>：三连击左栏顶部的标（朱印「梦」）；浏览器预览可补
+                        <code>#/dev</code>。导航槽里不放这一项。
+                    </p>
+                    <p class="note">
+                        <b>两条机制</b>：主题只改根元素的 <code>color-scheme</code>，颜色全走
+                        <code>light-dark()</code>；字号只改 <code>--fs-scale</code>（0.92 / 1 /
+                        1.1）。
+                    </p>
+                </LedgerSection>
 
-            <LedgerSection title="开发者模式" hint="测试入口的总开关">
-                <div class="form-row">
-                    <span class="field-label">测试工具</span>
-                    <CostSwitch v-model="devMode" off-label="关" on-label="开" />
-                    <span class="meta">{{
-                        devMode ? '捉鬼助手的「测试文字」已显示' : '捉鬼助手的「测试文字」已隐藏'
-                    }}</span>
-                </div>
-                <p class="note">
-                    关着的时候，捉鬼页右下角那块「测试文字」<b>不生成</b>——它是没有游戏时的
-                    临时替身，不该被当成功能。以后的测试工具都挂这一个开关，不再各配一个。
-                </p>
-            </LedgerSection>
+                <LedgerSection title="开发者模式" hint="测试入口的总开关">
+                    <div class="form-row">
+                        <span class="field-label">测试工具</span>
+                        <CostSwitch v-model="devMode" off-label="关" on-label="开" />
+                        <span class="meta">{{
+                            devMode
+                                ? '捉鬼助手的「测试文字」已显示'
+                                : '捉鬼助手的「测试文字」已隐藏'
+                        }}</span>
+                    </div>
+                    <p class="note">
+                        关着时那块「测试文字」<b>不生成</b>（不是隐藏）——它是没有游戏时的替身，
+                        不该被当成功能。以后的测试工具都挂这一个开关，不再各配一个。
+                    </p>
+                </LedgerSection>
+            </div>
 
             <AtomsSection />
-            <SkillRowSection />
             <AssistSlipSection />
-            <PaletteSection />
-            <TypeScaleSection />
+
+            <!-- 色板与字号也是矮卡。组件演示与图标那几张高度差得远，不并——
+                 并排会把短的那张拉出大片空白。 -->
+            <div class="stack-pair">
+                <PaletteSection />
+                <TypeScaleSection />
+            </div>
+
             <IconsSection />
         </div>
     </PageShell>

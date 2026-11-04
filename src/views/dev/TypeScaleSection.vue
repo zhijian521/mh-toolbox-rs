@@ -70,7 +70,7 @@ watch(scale, () => requestAnimationFrame(measure));
 .type-row {
     display: flex;
     align-items: baseline;
-    gap: 14px;
+    gap: 12px;
     padding-bottom: 7px;
     border-bottom: 1px dashed var(--rule);
 }
@@ -78,9 +78,13 @@ watch(scale, () => requestAnimationFrame(measure));
     padding-bottom: 0;
     border-bottom: 0;
 }
+/* 三列宽度是按「与色板并排」那一档留的余量：并排时每张 456 宽、内容区 426，
+ * 两列定宽加两处 gap 占 142，样例还剩 284——而最长那行（`--fs-xl` 的
+ * 「梦幻养老助手 328.6 万」）实测约 265，不会吃省略号。
+ * 再窄就截字了：`.type-sample` 是 `nowrap` + ellipsis，截了不报错，只是看不全。 */
 .type-token {
     flex: none;
-    width: 96px;
+    width: 84px;
     color: var(--muted);
     font-family: var(--font-ui);
     font-size: var(--fs-xs);
@@ -88,7 +92,7 @@ watch(scale, () => requestAnimationFrame(measure));
 }
 .type-px {
     flex: none;
-    width: 52px;
+    width: 46px;
     color: var(--muted);
     font-family: var(--font-ui);
     font-size: var(--fs-xs);

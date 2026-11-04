@@ -23,7 +23,8 @@ import { THEME_OPTIONS, useTheme } from '../../composables/use-theme';
  * 比如 `Field` / `NumberField`、`PressTile` / `PressButton`）。
  *
  * 加一件请连上面那个数一起改：篇首原先写死「九件」，加了两件之后就成了假信息。
- * 组合件不进这张卡（它由原子拼成、还带业务语义），见 `SkillRowSection`。
+ * 组合件不进这张卡（它由原子拼成、还带业务语义）——`AssistSlipSection` 是一例。
+ * 旧稿里还有一张《师门技能行》，随那一行重做而撤掉（2026-11-04），不要照着补回来。
  *
  * 这张卡不是演示页，是**验收面**——新控件先进这里，再进业务页面。
  * 它和「外观」共用同一份状态（单例 composable），所以在上面切主题、拖字号，
@@ -65,10 +66,7 @@ const demoSchool = ref('五庄观');
                 <div class="kit-row">
                     <SegmentedPills v-model="mode" :options="THEME_OPTIONS" label="主题" />
                 </div>
-                <p class="note">
-                    一组选一个，整组只占一个 Tab 停靠点。单格质感用全局
-                    <code>.bevel-pill</code>，组件内不另写。
-                </p>
+                <p class="note">整组一个 Tab 停靠点；单格质感走全局 <code>.bevel-pill</code>。</p>
             </div>
 
             <div class="kit-cell">
@@ -76,7 +74,7 @@ const demoSchool = ref('五庄观');
                 <div class="kit-row">
                     <FontSizeSlider v-model="scale" />
                 </div>
-                <p class="note">三档，不是连续值；滑块 240ms 回弹落格。凹轨道自带。</p>
+                <p class="note">三档，不是连续值；240ms 回弹落格。</p>
             </div>
 
             <div class="kit-cell">
@@ -101,49 +99,33 @@ const demoSchool = ref('五庄观');
                     />
                 </div>
                 <p class="note">
-                    档数由 <code>options</code> 决定，几何只有「N 格等分 + 印按格位移」两处。
-                    <code>as="tab"</code> 只换 ARIA，不换几何。高度走
-                    <code>--step-pad-y</code>，不认 prop。
+                    <code>as="tab"</code> 只换 ARIA 不换几何；高度走 <code>--step-pad-y</code>，不认
+                    prop。
                 </p>
             </div>
 
             <div class="kit-cell">
                 <span class="col-head">SlotButton · 槽按钮</span>
+                <!-- 一行看四种形态，下面两行看尺寸：`seal`（印在不在）与 `size`（槽多大）
+                     不是同一种分类，混排会让人以为它们是四个档位。 -->
                 <div class="kit-row">
-                    <SlotButton label="归档" icon="archive" />
-                    <SlotButton label="导出账目" icon="download" text="导出" />
-                    <SlotButton label="刷新" text="刷新" />
-                    <SlotButton label="停用" icon="trash" disabled />
-                </div>
-                <!-- 变体与尺寸各占一行：`seal` 是「印在不在」，`size` 是「槽多大」，
-                     混在同一行会让人以为它们是同一种分类。
-                     主操作那行给 md / lg 两枚、都用两字文案「开始」，是为了在**一行内**
-                     看出尺寸差；业务页里仍然一屏只该有一枚。 -->
-                <div class="kit-row">
-                    <SlotButton label="主操作 · 默认 26px" icon="play" text="开始" seal />
-                    <SlotButton
-                        label="主操作 · 大一号 31px"
-                        icon="play"
-                        text="开始"
-                        size="lg"
-                        seal
-                    />
+                    <SlotButton label="纯图标" icon="archive" />
+                    <SlotButton label="图标加文字" icon="download" text="导出" />
+                    <SlotButton label="纯文字" text="刷新" />
+                    <SlotButton label="禁用" icon="trash" text="清除" disabled />
                 </div>
                 <div class="kit-row">
-                    <SlotButton label="默认 26px" text="md" />
-                    <SlotButton label="大一号 31px" text="lg" size="lg" />
+                    <SlotButton label="主操作 26px" icon="play" text="开始" seal />
+                    <SlotButton label="主操作 31px" icon="play" text="开始" size="lg" seal />
                 </div>
-                <!-- 破坏性动作单独一行：它吃的是 `seal`（印面常驻），与上面那行同一种变体，
-                     分开放是为了看清「常驻印面」在 `trash` 图标 + 两字文案下的比例。 -->
                 <div class="kit-row">
-                    <SlotButton label="不可撤销 · 清空数据" icon="trash" text="清除" seal />
-                    <SlotButton label="不可撤销 · 停用" icon="trash" text="清除" seal disabled />
+                    <SlotButton label="md 26px" text="md" />
+                    <SlotButton label="lg 31px" text="lg" size="lg" />
                 </div>
                 <p class="note">
-                    形态由 props 定：只给 <code>icon</code> 是纯图标，<code>icon</code> +
-                    <code>text</code> 带字，只给 <code>text</code> 是纯文字。<code>seal</code>
-                    是变体，印面常驻，给一屏里那枚要立刻看见的动作（主操作与不可撤销的清除都吃
-                    这一档）；尺寸 <code>md</code> 26 / <code>lg</code> 31。
+                    形态由 props 定（只 <code>icon</code> / <code>icon</code> + <code>text</code> /
+                    只 <code>text</code>）。<code>seal</code> 是变体，印面常驻， 一屏一枚；尺寸
+                    <code>md</code> 26 / <code>lg</code> 31。
                 </p>
             </div>
 
@@ -154,8 +136,7 @@ const demoSchool = ref('五庄观');
                     <CostSwitch v-model="autoSave" off-label="手动" on-label="自动" />
                 </div>
                 <p class="note">
-                    两格文案由 <code>off-label</code> / <code>on-label</code> 给；滑块 240ms
-                    回弹，关闭态灭灯不是变灰。
+                    文案走 <code>off-label</code> / <code>on-label</code>；关闭是灭灯，不是变灰。
                 </p>
             </div>
 
@@ -182,10 +163,7 @@ const demoSchool = ref('五庄观');
                     />
                 </div>
                 <p class="note">
-                    做完一件事说一句，三秒自收；<b>悬停停表、点一下收走</b>。宿主
-                    <code>NotifyHost</code> 全站一个，页面只写
-                    <code>notify.success('已删除')</code>。
-                    这一格是唯一能看到它的地方——业务页只在操作之后才出现。
+                    三秒自收、悬停停表、点一下收走。业务页只在操作后才出现——这里是唯一能看到它的地方。
                 </p>
             </div>
 
@@ -214,8 +192,8 @@ const demoSchool = ref('五庄观');
                     />
                 </div>
                 <p class="note">
-                    凹槽里挖的一格，高与 <code>PressButton</code> 的 <code>md</code> 同值。
-                    焦点换边色、不画外框——方框压在圆角上会露四个角。
+                    高与 <code>PressButton</code> 的 <code>md</code> 同值；焦点换边色、不画外框
+                    ——方框压在圆角上会露四个角。
                 </p>
             </div>
 
@@ -238,11 +216,8 @@ const demoSchool = ref('五庄观');
                     />
                 </div>
                 <p class="note">
-                    梦幻币的价格几乎都在万以上，所以这一格只收「万」、后缀写死；
-                    <b>值进出仍是游戏币原值</b>（这里 320 万在数据里是 3200000），
-                    换算关在组件里，调用方不必每处都记得乘一万。
-                    两侧加减按当前值的量级换步长：一千万以上 ±100 万、一百万以上 ±10 万、其余 ±1
-                    万。 槽宽定死、不铺满整行——铺满时一个数字悬在长槽里，读起来像「这条还没填完」。
+                    只收「万」，<b>值进出仍是游戏币原值</b>（这里 320 万 = 3200000）；
+                    两侧步长按量级换（一千万以上 ±100 万）。
                 </p>
             </div>
 
@@ -253,15 +228,13 @@ const demoSchool = ref('五庄观');
                         <span class="kit-tag-note">满</span>
                         <span>180</span>
                     </NumTag>
-                    <NumTag class="kit-tag">140</NumTag>
                     <!-- 不给 `--tag-*` 时宽高由内容定：这枚只装一个短数，摆在行内当读数。 -->
                     <NumTag>26</NumTag>
                 </div>
                 <p class="note">
-                    纸带上挖出的一小格，<b>只装一个数</b>——它是读数，不是输入框，悬停不加深。
-                    材质走全局 <code>.num-slot</code>，与属性页那排数字格、师门等级格同一份；
-                    宽高由使用方经 <code>--tag-w</code> / <code>--tag-h</code> 给（卡上
-                    <b>56 × 30</b>），<b>数居中</b>——居中的留白两边均匀，读作「一枚签」。
+                    只装一个数，<b>不是输入框</b>，悬停不加深。材质走全局
+                    <code>.num-slot</code>；宽高由 <code>--tag-w</code> / <code>--tag-h</code>
+                    给（卡上 56 × 30），数居中。
                 </p>
             </div>
 
@@ -286,8 +259,8 @@ const demoSchool = ref('五庄观');
                     />
                 </div>
                 <p class="note">
-                    凹槽里灌一段朱色。它<b>不是滑块</b>——没有落点、不能拖；分母未知时轨道留空，
-                    不画成 0%。高度走 <code>--meter-h</code>，角色卡的经验条给 14。
+                    它<b>不是滑块</b>：没有落点、不能拖。分母未知时轨道留空，不画成 0%。 高度走
+                    <code>--meter-h</code>（经验条给 14）。
                 </p>
             </div>
 
@@ -303,9 +276,8 @@ const demoSchool = ref('五庄观');
                     />
                 </div>
                 <p class="note">
-                    凹槽是 <code>.field</code> 那一份，纸片与浮片同一条影子。当前项用朱字 +
-                    朱色短竖条；<b>焦点不离开触发条</b>（<code>aria-activedescendant</code>），
-                    <code>Esc</code> 只收列表、会吞掉事件——它常长在弹窗里，弹窗也听 Esc。
+                    <b>焦点不离开触发条</b>（<code>aria-activedescendant</code>）；
+                    <code>Esc</code> 只收列表并吞掉事件——它常长在弹窗里，弹窗也听 Esc。
                 </p>
             </div>
 
@@ -315,9 +287,6 @@ const demoSchool = ref('五庄观');
                     <div class="kit-tiles">
                         <PressTile class="kit-tile"><AppIcon name="tools" /></PressTile>
                         <PressTile class="kit-tile kit-tile-sm"><AppIcon name="pin" /></PressTile>
-                        <PressTile class="kit-tile kit-tile-sm">
-                            <span class="kit-tile-word">梦</span>
-                        </PressTile>
                     </div>
                 </div>
                 <!-- 第一行压印块，第二行四种内容（纯文字 / 图标带字 / 纯图标 / 灌朱），
@@ -333,10 +302,8 @@ const demoSchool = ref('五庄观');
                     <PressButton text="lg" label="大一号 31px" size="lg" />
                 </div>
                 <p class="note">
-                    <b>上排是压印块</b>：一块光从左上方来的纸，左上偏光、四棱受力不均、落地影。
-                    工具页图标格与左栏牌记都是它，悬停亮一档、按下凹回纸里。
-                    <b>下面两排是压印按钮</b>：同一块纸当按钮用，<code>seal</code> 把块面灌朱，
-                    用于主操作，一屏一枚。尺寸与槽按钮逐像素同值——
+                    上排是<b>块</b>（工具页图标格、左栏牌记），下面两排是<b>按钮</b>：同一块纸，
+                    <code>seal</code> 把块面灌朱，一屏一枚。尺寸与槽按钮逐像素同值——
                     <b>但一凹一凸是两种材质，别混在同一行</b>。
                 </p>
             </div>
@@ -385,22 +352,15 @@ const demoSchool = ref('五庄观');
     color: var(--muted);
 }
 
-/* 五件排成 2 + 2 + 1。断点由卡片**内容宽度**算，不写 `@media`——与 `.stack-pair` 同一条
- * （CONVENTIONS §2.4-20）。这里原先用 `@media (max-width: 1080px)` 退回一列，
- * 于是同一套「最少多宽才放得下」的判断，一处在 CSS 里量、一处按视口猜。
+/* 十二件按内容宽度自己排：够宽两列，不够一列。断点不写 `@media`
+ * （CONVENTIONS §2.4-20），420 与 `.stack-pair` 同值——1024（正文 927）就能排两列。
  *
- * `.kit` 默认 `minmax(330px, 1fr)` 在正文宽度下会算成三列，第四件独占一行、右边留个空洞，
- * 所以要覆写。480 不是抄 `.stack-pair` 的 420，是量出来的：420 时窗口 1024 会排两列、
- * 各 442 宽，槽按钮的 `md` / `lg` 两枚折成上下两行（2026-11-02 在 432 宽实测即折）——
- * 那两枚是要在**同一行**看出尺寸差的，折了就白摆了。480 让它到 1024 仍是一列（878），
- * 1280（两列各 570）两行两列。
- *
- * 五件之后最后一行只剩 `PressTile` 一格，右边空着——**不再为它调列宽**。
- * 那格的内容是三块并排的方块，本来就不满宽；把一个满宽的第四件硬拉成三列，
- * 会让前四格的说明文字全部重排，为了一格的空白去动四格的断行，不划算。
- */
+ * 每一格内部的演示行都按「两列时也放得下」摆：420 的格内容区约 432，
+ * 最挤的是输入格那排（130 + 72 + 72 + 两处 gap = 288）与槽按钮（两枚一行约 190）。
+ * 原先槽按钮是四枚一行，432 会折——折了就看不出「图标带字 / 纯文字」的形态差，
+ * 所以拆成两行两枚，而不是给这一格吃满整行（`1 / -1` 会在奇数格处留下半行空洞）。 */
 .atoms-kit {
-    grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
 }
 
 /* 演示用的三条宽度：输入格里最长的一条是「角色名」，数字格按真实表单里的 72px 给，
@@ -466,16 +426,6 @@ const demoSchool = ref('五庄观');
      * `--paper` 栏底就成了「一张平的浅色方块」。 */
     --tile-drop: 0.85;
     --icon-size: calc(15px * var(--fs-scale));
-}
-/* 演示用的替身字：线上牌记摆的是一张 192px 的图（行楷「梦」），笔画很细——
- * 实测最深处虽然是 #231f1b，但不透明像素只有约 1200 个，绝大部分是抗锯齿的边。
- * 一只 17px 的实心楷体字压上去比它重得多，所以它靠 `PressTile` 的默认字色
- * （`--ink-2`）就够了，**不在这里另设 color**：上一版是「图标满墨、这字降一档」，
- * 2026-11-02 把默认值统一下来之后，两者本来就同色了。
- * 真要改线上那块，改的是 `assets/mark-ink.png`，不是这一行。 */
-.kit-tile-word {
-    font-size: calc(17px * var(--fs-scale));
-    line-height: 1;
 }
 /* 下拉按真实用法给宽（门派那一格约 168）：`.kit-row` 是整行宽，撑满时它读作
  * 一条通栏控件，而它实际是个窄的。 */
