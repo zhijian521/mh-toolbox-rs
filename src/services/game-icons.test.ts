@@ -112,8 +112,26 @@ interface SchoolIconEntry extends IconEntry {
     school: string;
 }
 
-const ICON_DIR = '/public/game/icons/';
-const ICONS = import.meta.glob('/public/game/icons/*.webp');
+/**
+ * 图标住在 `icons/<类目>/` 下，一个类目一个目录（2026-11-04 分家）。
+ *
+ * 这里只 glob 本文件**管得着**的两个目录（技能 / 门派技能）；`gear/`、`weapon/`、
+ * `item/`、`lingshi/` 各有自己的清单或没有清单，混进来会被当成孤儿图。
+ * 「目录结构本身对不对」由下面那组断言管，它才 glob 整棵树。
+ */
+const ICON_ROOT = '/public/game/icons/';
+const ICONS = {
+    ...import.meta.glob('/public/game/icons/skill/*.webp'),
+    ...import.meta.glob('/public/game/icons/story/*.webp'),
+    ...import.meta.glob('/public/game/icons/active/*.webp'),
+    ...import.meta.glob('/public/game/icons/school/*.webp'),
+};
+/** 整棵图标树（含 png / gif），只给「目录结构」那组断言用。 */
+const TREE = {
+    ...import.meta.glob('/public/game/icons/**/*.webp'),
+    ...import.meta.glob('/public/game/icons/**/*.png'),
+    ...import.meta.glob('/public/game/icons/**/*.gif'),
+};
 const DATA = import.meta.glob('/public/game/data/*.json');
 
 const jsonKey = Object.keys(DATA).find((key) => key === '/public/game/data/icons.json');
@@ -134,7 +152,7 @@ if (!schoolKey) {
 const manifest = (await DATA[jsonKey]()) as { groups: Record<string, IconEntry[]> };
 const schoolManifest = (await DATA[schoolKey]()) as { groups: Record<string, SchoolIconEntry[]> };
 
-const files = Object.keys(ICONS).map((key) => key.slice(ICON_DIR.length));
+const files = Object.keys(ICONS).map((key) => key.split('/').pop() as string);
 
 const all = [
     ...Object.entries(manifest.groups).flatMap(([kind, entries]) =>
@@ -218,10 +236,10 @@ describe('名字 → 图标路径', () => {
 
     it('按名字表的下标拼文件名', () => {
         // 名字表第 1 项就是 skill-01，两边靠顺序对齐（上面那条断言盯着同一件事）。
-        expect(lifeSkillIcon('强身术')).toBe(`${base}game/icons/skill-01.webp`);
-        expect(lifeSkillIcon('雪之感应')).toBe(`${base}game/icons/skill-21.webp`);
-        expect(storySkillIcon('调息')).toBe(`${base}game/icons/story-01.webp`);
-        expect(storySkillIcon('火眼金睛')).toBe(`${base}game/icons/story-11.webp`);
+        expect(lifeSkillIcon('强身术')).toBe(`${base}game/icons/skill/skill-01.webp`);
+        expect(lifeSkillIcon('雪之感应')).toBe(`${base}game/icons/skill/skill-21.webp`);
+        expect(storySkillIcon('调息')).toBe(`${base}game/icons/story/story-01.webp`);
+        expect(storySkillIcon('火眼金睛')).toBe(`${base}game/icons/story/story-11.webp`);
     });
 
     it('不在表里的名字不给路径（用户手敲的、游戏新加的）', () => {
@@ -235,13 +253,69 @@ describe('名字 → 图标路径', () => {
     it('门派技能按名字查清单里的 id，不按下标推', () => {
         // 这两个连序号都反着：为官之道是 `-5`、十方无敌是 `-1`（`schools.json` 里
         // 为官之道排在第一位）。按下标推会得到另一项技能的图，而且不报错。
-        expect(schoolSkillIcon('为官之道')).toBe(`${base}game/icons/school-skill-datang-5.webp`);
-        expect(schoolSkillIcon('十方无敌')).toBe(`${base}game/icons/school-skill-datang-1.webp`);
-        expect(schoolSkillIcon('渡世步')).toBe(`${base}game/icons/school-skill-huashengsi-7.webp`);
+        expect(schoolSkillIcon('为官之道')).toBe(
+            `${base}game/icons/school/school-skill-datang-5.webp`,
+        );
+        expect(schoolSkillIcon('十方无敌')).toBe(
+            `${base}game/icons/school/school-skill-datang-1.webp`,
+        );
+        expect(schoolSkillIcon('渡世步')).toBe(
+            `${base}game/icons/school/school-skill-huashengsi-7.webp`,
+        );
     });
 
     it('门派技能查不到时也给 undefined（卡上那时退回字印）', () => {
         expect(schoolSkillIcon('我瞎写的技能')).toBeUndefined();
         expect(schoolSkillIcon('强身术')).toBeUndefined();
+    });
+});
+
+/**
+ * 目录结构本身。
+ *
+ * 这批文件会一直长（59 → 165 → 以后还有召唤兽、宝石、任务图），而**平铺是最省事的
+ * 写法**：往 `icons/` 里丢一个新 png，谁都不会觉得有问题，直到根目录有 800 个文件、
+ * 只能靠前缀猜。规则写在 `docs/GAME-ASSETS.md` §2/§4，没有断言撑着它就只是愿望
+ * （§9 最后一段的原话）。所以这两条不是「顺手加的检查」，它们是这次分家的**目的**。
+ */
+describe('图标目录结构', () => {
+    const rel = (key: string) => key.slice(ICON_ROOT.length);
+
+    it('根目录下没有散图', () => {
+        const stray = Object.keys(TREE)
+            .map(rel)
+            .filter((path) => !path.includes('/'));
+        expect(
+            stray,
+            '这几张图丢在了 icons/ 根下——应当放进对应类目的子目录（skill/ story/ active/ ' +
+                'school/ gear/ weapon/ item/ lingshi/），新类目就新建一个同名目录',
+        ).toEqual([]);
+    });
+
+    it('一个目录只装一个类目：文件名以目录名开头', () => {
+        /* 判据是「目录名以文件名前缀开头」而不是严格相等：`school/` 里装的是
+         * `school-skill-*`（一级类目 + 二级类目），`lingshi/` 里是 `ling-*`
+         * （历史前缀，代码已按此引用）。严格相等会把这两个正常情况判红。
+         *
+         * 真正要防的是**串门**：`skill/gear-toukui-01.webp` 这种，一个目录里住了两个
+         * 类目，以后按目录批量换图时一定漏。 */
+        const bad = Object.keys(TREE)
+            .map(rel)
+            .filter((path) => {
+                const [dir, name] = path.split('/');
+                const prefix = name.split('-')[0];
+                return prefix.length < 3 || !dir.startsWith(prefix);
+            });
+        expect(bad, '这些图的文件名与所在目录不是同一个类目：').toEqual([]);
+    });
+
+    it('文档里列出的类目目录都已经有图', () => {
+        /* 空目录在 git 里根本存不下来，所以「目录存在」这件事只能由「里面有图」证明。
+         * 反过来：`docs/GAME-ASSETS.md` 的目录表里写了一个目录，它就该有东西——
+         * 写着却没有，读文档的人会以为是没提交。 */
+        const dirs = new Set(Object.keys(TREE).map((key) => rel(key).split('/')[0]));
+        expect([...dirs].sort()).toEqual(
+            expect.arrayContaining(['active', 'gear', 'item', 'school', 'skill', 'story']),
+        );
     });
 });

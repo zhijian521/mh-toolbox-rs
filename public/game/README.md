@@ -6,8 +6,8 @@
 ```
 public/game/
 ├── maps/   地图底图 + 清单（20 张 webp + maps.json）
-├── icons/  游戏内图标（技能 21、剧情 11、特技 69、门派技能 147）
-└── data/   游戏事实数据（门派、技能、装备、道具的 JSON）
+├── icons/  游戏内图标，**一个类目一个子目录**（skill/ story/ active/ school/ gear/ item/ …）
+└── data/   游戏事实数据（门派、技能、装备、道具的 JSON + 各批图标的清单）
 ```
 
 ## 为什么是 `public/`

@@ -77,7 +77,7 @@ export interface GameData {
  * 速记里的一件物品。
  *
  * `id` 是**旧系统沿用的稳定编号**（1–40 / 99–200），用户的单价表按它存 —— 所以改了
- * 编号等于把所有人的单价清空，别动。`file` 是 `public/game/icons/items/` 下的文件名。
+ * 编号等于把所有人的单价清空，别动。`file` 是 `public/game/icons/item/` 下的文件名。
  */
 export interface QuickItemEntry {
     id: number;

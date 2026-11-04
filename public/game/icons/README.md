@@ -5,34 +5,64 @@
 与 `src/components/icons.ts`（tabler 那套界面图标）不是一回事：那是**界面语言的图标**，
 这里是**游戏内的图**，两者不混用、不互相替换。
 
-## 现在有什么
+## 结构：一个类目一个文件夹
 
-| 前缀            | 内容     | 数量 | 来源                                                                     |
-| --------------- | -------- | ---- | ------------------------------------------------------------------------ |
-| `skill-`        | 生活技能 | 21   | 「生活技能」目录两页（第一页 12、第二页 9）                              |
-| `story-`        | 剧情技能 | 11   | 「剧情技能」目录一页                                                     |
-| `active-`       | 装备特技 | 69   | 「特技特效」面板六页（12×5 + 9）                                         |
-| `school-skill-` | 门派技能 | 147  | 「师门技能」面板，21 家门派 × 7 项                                       |
-| `items/item-`   | 速记物品 | 59   | 摆摊掉落物（38 件有牌价 + 21 件随行就市），见 `../data/quick-items.json` |
-| `gear/gear-`    | 装备图标 | 83   | 百科典藏「装备」页 60 级以上，7 个部位，见 `../data/gear-icons.json`     |
+```
+icons/
+├── README.md
+├── skill/     skill-01..21.webp           生活技能 21
+├── story/     story-01..11.webp           剧情技能 11
+├── active/    active-01..69.webp          装备特技 69
+├── school/    school-skill-<门派>-<n>.webp 门派技能 147
+├── gear/      gear-<部位>-<nn>.webp        装备 83
+├── item/      item-<id>.png|gif            速记物品 59
+└── lingshi/   灵饰——图还没切，见本节末
+```
 
-`items/` 与 `gear/` 是仅有的两个子目录：它们各有自己的前缀与清单，混在技能图里按序号找不着。
-`items/` 文件名里的数字是 `quick-items.json` 的 **id**（不是序号），因为 id 才是单价表的键；
+两条规则，只说两句话：
+
+1. **根目录不许放图**。一个类目一个子目录，将来加召唤兽、宝石、任务图，就新建一个同名目录。
+2. **文件名以目录名开头**：`skill/skill-01.webp`、`school/school-skill-datang-1.webp`、
+   `gear/gear-toukui-01.webp`。目录名是**一级类目**，文件名 = 一级类目 [+ 二级类目] + 序号。
+
+两条都由 `src/services/game-icons.test.ts` 的「图标目录结构」那组断言盯着：一张图丢在
+`icons/` 根下、或一个目录里住了两个类目，`npm run check` 当场红。
+
+**为什么值得为这件事写测试**：这批文件会一直长（2026-11-04 一天从 268 涨到 390），而
+「往 `icons/` 里丢一个新 png」是最省事的写法，谁都不会觉得有问题——直到根目录有 800 个
+文件，只能靠前缀猜「这张是谁的」。规范没有断言撑着就只是愿望（`docs/GAME-ASSETS.md` §9）。
+
+| 目录      | 内容     | 数量 | 来源                                                                     |
+| --------- | -------- | ---- | ------------------------------------------------------------------------ |
+| `skill/`  | 生活技能 | 21   | 「生活技能」目录两页（第一页 12、第二页 9）                              |
+| `story/`  | 剧情技能 | 11   | 「剧情技能」目录一页                                                     |
+| `active/` | 装备特技 | 69   | 「特技特效」面板六页（12×5 + 9）                                         |
+| `school/` | 门派技能 | 147  | 「师门技能」面板，21 家门派 × 7 项                                       |
+| `gear/`   | 装备图标 | 83   | 百科典藏「装备」页 60 级以上，7 个部位，见 `../data/gear-icons.json`     |
+| `item/`   | 速记物品 | 59   | 摆摊掉落物（38 件有牌价 + 21 件随行就市），见 `../data/quick-items.json` |
+
+`item/` 文件名里的数字是 `quick-items.json` 的 **id**（不是序号），因为 id 才是单价表的键；
 `gear/` 那批是**序号**，序号本身即等级升序（第 1 个 = 60 级），单件名称在清单的 `name` 里。
 
-装备特效（18 项）**没有图标**：游戏那一页只有名字，没有图形，所以这里没有 `special-`。
+装备特效（18 项）**没有图标**：游戏那一页只有名字，没有图形，所以 `active/` 里只有特技。
 
 师门法术（面板中间那一列，墨绿，45 个）**不收**：使用方只要门派技能。
 面板里那 7 个格子之外的图，在 `../data/schools.json` 里也没有对应字段。
 
-两批图标的清单位置不同，别混：
+清单与目录一一对应，别混：
 
-- `skill-` / `story-` / `active-` → `../data/icons.json`（`slice.py` 生成）
-- `school-skill-` → `../data/school-icons.json`（`slice-school.py` 生成）
-- `gear/gear-` → `../data/gear-icons.json`（`slice-gear.py` 生成）
+- `skill/` `story/` `active/` → `../data/icons.json`（`slice.py` 生成）
+- `school/` → `../data/school-icons.json`（`slice-school.py` 生成）
+- `gear/` → `../data/gear-icons.json`（`slice-gear.py` 生成）
+- `item/` → `../data/quick-items.json` 的 `file` 字段（旧系统带过来的图，不是切图产出）
 
-分三份是因为三个脚本的裁切逻辑完全不同（4×3 卡片网格 / 竖排 7 行面板 / 3×4 方格且
+清单分开写是因为每个脚本的裁切逻辑完全不同（4×3 卡片网格 / 竖排 7 行面板 / 3×4 方格且
 可滚动），写同一份清单时谁后跑谁把对方的分组覆盖掉——那种丢失不会有任何报错。
+
+**`lingshi/` 现在是空的，而代码已经在用它**：`views/characters/character.ts` 的
+`GEAR_SLOT_ICON` 里写着 `lingshi/ling-01.png` / `-06` / `-12` / `-17` 四张（戒指、耳饰、
+配饰、手镯），图却一直没落进仓库——卡上那四格现在是**破图**。补图时放进 `lingshi/`，
+文件名保持 `ling-<nn>.png`（代码按这个名字引用），别另起一套前缀。
 
 文件名是**序号**，不是技能名：`skill-01` 就是 `skills.ts` 里 `LIFE_SKILLS[0]`（强身术）。
 序号与名字表的对应关系写在清单里，并由 `src/services/game-icons.test.ts` 用断言盯着——
@@ -51,10 +81,13 @@
 游戏改版、或者补了新一页目录，重新跑：
 
 ```bash
-python tools/game-icons/slice.py         # 生活 / 剧情 / 特技 → icons.json
-python tools/game-icons/slice-school.py  # 门派技能 → school-icons.json
-python tools/game-icons/slice-gear.py    # 装备 → gear-icons.json
+python tools/game-icons/slice.py         # 生活 / 剧情 / 特技 → skill/ story/ active/ + icons.json
+python tools/game-icons/slice-school.py  # 门派技能 → school/ + school-icons.json
+python tools/game-icons/slice-gear.py    # 装备 → gear/ + gear-icons.json
 ```
+
+`slice.py` 一次写三个目录（`skill/` `story/` `active/`），因为那三批来自同一个 4×3 卡片
+面板、共用一份清单；它收的参数是**图标的根**（`public/game/icons`），不是某一类的目录。
 
 `slice.py` 从截图里按 4 列 × 3 行的网格切出图标，`slice-school.py` 按竖排 7 行的固定
 坐标切。两者都统一成 96×96、**图标本体铺满画布、不垫任何背景**，并重写各自的清单。
@@ -77,11 +110,14 @@ python tools/game-icons/slice-gear.py    # 装备 → gear-icons.json
 ## 命名（新增图标时）
 
 ```
-<类目>-<id>.webp
-<类目>-<子类>-<id>-<序号>.webp    # 一个实体有多个图标时
+<目录>/<类目>-<id>.webp
+<目录>/<类目>-<子类>-<id>-<序号>.webp    # 一个实体有多个图标时
 ```
 
-- 类目：`school`（门派）/ `task`（任务）/ `npc` / `monster` / `item` / `skill` / `story` / `active`
+- **目录 = 一级类目**：`skill` / `story` / `active` / `school` / `gear` / `item` /
+  `lingshi`。以后的任务图、NPC、怪物各开一个同名目录（`task/`、`npc/`、`monster/`）
+- **文件名必须以目录名开头**：`school/` 里放 `school-skill-…`，`gear/` 里放 `gear-…`。
+  测试会拒绝「一个目录里住两个类目」
 - id：与 `data/` 里对应记录的 `id` 一致，小写拼音或英文短词（`school-datang.webp`）
 - 中间用**半角连字符**，不用空格、不用中文——文件名要进 URL
 - 门派技能必须带子类：`school-skill-datang-1.webp`，**不要写成 `school-datang-1`**——
@@ -123,8 +159,13 @@ python tools/game-icons/slice-gear.py    # 装备 → gear-icons.json
 和地图一样走运行时路径，不 `import`：
 
 ```ts
-const url = `${import.meta.env.BASE_URL}game/icons/skill-01.webp`;
+const url = `${import.meta.env.BASE_URL}game/icons/skill/skill-01.webp`;
 ```
 
-图标与数据表一一对应时，把文件名写进对应的 `data/*.json`（只写文件名，目录在代码里拼
-一次），别在组件里硬拼字符串——那样换一次目录要改十几处。
+**目录在代码里只写一次**：`src/services/game-icons.ts` 顶部每个类目一条常量
+（`SKILL_DIR` / `STORY_DIR` / `SCHOOL_DIR` / `ITEM_DIR`），`gearSlotIcon` 那族由调用方
+自带子目录（`gear/…`、`lingshi/…`）。组件里不许拼路径——那样换一次目录要改十几处，
+而漏掉的那一处只在运行到那张图时才 404，页面上什么都不报。
+
+图标与数据表一一对应时，把文件名写进对应的 `data/*.json`（只写文件名），目录由上面那些
+常量拼。

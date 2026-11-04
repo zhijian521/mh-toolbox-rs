@@ -1,5 +1,15 @@
 /**
- * 技能图标：名字 → `public/game/icons/` 里的文件。
+ * 游戏图标：名字 → `public/game/icons/<类目>/` 里的文件。
+ *
+ * ---- 目录按**类目**分，一个类目一个文件夹 ----
+ *
+ * `skill/` 生活、`story/` 剧情、`active/` 装备特技、`school/` 门派技能、`gear/` 装备、
+ * `weapon/` 武器、`item/` 速记物品。规则与理由写在 `docs/GAME-ASSETS.md` §2、§4，
+ * 这里只记一条**代码侧**的后果：**每个类目一条目录常量，谁也不许拼字符串**。
+ *
+ * 早先图标全平铺在 `icons/` 根下（249 个），加一批就要在根目录里数前缀。分目录之后
+ * 「这张图是什么」由路径回答，而不再靠文件名猜；`game-icons.test.ts` 有一条断言盯着
+ * 「根目录不许有图、一个目录只装一个类目」——它可以红，规范才算数。
  *
  * **生活 / 剧情不读 `icons.json`**：那张清单是给测试与脚本用的（切图时生成），运行时
  * 再 fetch 一次只为查一个文件名，不划算。文件名按**顺序**编号（`skill-01` 就是生活技能
@@ -16,10 +26,13 @@
  */
 import { lifeSkills, schoolIcons, storySkills } from './game-data';
 
-const ICON_DIR = `${import.meta.env.BASE_URL}game/icons/`;
+/** 图标的根。只有 `gearSlotIcon` 用它——那一族调用方自带子目录（见该函数）。 */
+const ICON_ROOT = `${import.meta.env.BASE_URL}game/icons/`;
 
-/** 速记物品图标的目录。与 `icons/` 下的技能图标分开一层：物品 59 张，混在一起按序号找不着。 */
-const ITEM_DIR = `${ICON_DIR}items/`;
+const SKILL_DIR = `${ICON_ROOT}skill/`;
+const STORY_DIR = `${ICON_ROOT}story/`;
+const SCHOOL_DIR = `${ICON_ROOT}school/`;
+const ITEM_DIR = `${ICON_ROOT}item/`;
 
 /**
  * 速记物品图标：文件名写在 `game/data/quick-items.json` 里，这里只拼目录。
@@ -32,20 +45,20 @@ export function quickItemIcon(file: string): string {
 }
 
 /** 文件名两位序号，与切图脚本的命名一致（`skill-01` … `skill-21`）。 */
-function iconUrl(prefix: 'skill' | 'story', index: number): string {
-    return `${ICON_DIR}${prefix}-${String(index + 1).padStart(2, '0')}.webp`;
+function iconUrl(dir: string, prefix: 'skill' | 'story', index: number): string {
+    return `${dir}${prefix}-${String(index + 1).padStart(2, '0')}.webp`;
 }
 
 /** 生活技能图标。名字不在表里（用户自己敲的、或游戏新加的）返回 `undefined`——那时不画图，不留空槽。 */
 export function lifeSkillIcon(name: string): string | undefined {
     const index = lifeSkills().indexOf(name);
-    return index < 0 ? undefined : iconUrl('skill', index);
+    return index < 0 ? undefined : iconUrl(SKILL_DIR, 'skill', index);
 }
 
 /** 剧情技能图标。*/
 export function storySkillIcon(name: string): string | undefined {
     const index = storySkills().indexOf(name);
-    return index < 0 ? undefined : iconUrl('story', index);
+    return index < 0 ? undefined : iconUrl(STORY_DIR, 'story', index);
 }
 
 /** 按类取图标。卡片与编辑器都走这一个入口，免得两边各写一次三元。 */
@@ -62,7 +75,7 @@ export function assistIcon(name: string, kind: 'life' | 'story'): string | undef
 export function schoolSkillIcon(name: string): string | undefined {
     const entry = schoolIcons().find((item) => item.name === name);
     if (!entry) return undefined;
-    return `${ICON_DIR}${entry.id}.webp`;
+    return `${SCHOOL_DIR}${entry.id}.webp`;
 }
 
 /**
@@ -72,10 +85,14 @@ export function schoolSkillIcon(name: string): string | undefined {
  * （`gear/…` 或 `lingshi/…`），根目录只在这里拼——与三套技能图标同一条约定：
  * 图片放在哪由 services 说了算，哪一格配哪张图是业务，住在 views 里。
  *
+ * **这一族调用方自带子目录**（`gear/`、`weapon/`、`lingshi/` 各一组），与上面几个
+ * 「函数里定死一个目录」的不同：那一格配的是哪一类图，本身就是业务选择（头上戴的
+ * 是装备、手上拿的是武器），不该让 services 再维护一张「部位 → 类目」的表。
+ *
  * 与技能图标不同，这里**不做「查不到返回 undefined」**：调用方传的就是写死的表，
  * 查不到只可能是表里写了不存在的文件，那种错该在界面上露出来（破图），
  * 而不是静默退回空块——退回空块会让人以为「这件装备没有图」。
  */
 export function gearSlotIcon(file: string): string {
-    return `${ICON_DIR}${file}`;
+    return `${ICON_ROOT}${file}`;
 }

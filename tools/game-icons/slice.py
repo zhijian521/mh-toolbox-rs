@@ -310,8 +310,12 @@ def read_skill_table():
 
 
 def main():
-    out_dir = Path(sys.argv[1] if len(sys.argv) > 1 else 'public/game/icons')
-    out_dir.mkdir(parents=True, exist_ok=True)
+    # 参数是**图标的根**（`public/game/icons`），不是某一类的目录：这个脚本一次写三类，
+    # 各自落到与自己同名的子目录（`skill/` `story/` `active/`）。一个类目一个文件夹，
+    # 与 `slice-school.py` → `school/`、`slice-gear.py` → `gear/` 是同一条规矩：
+    # 目录名就是文件名前缀，新人往哪个目录放图不用猜。
+    out_root = Path(sys.argv[1] if len(sys.argv) > 1 else 'public/game/icons')
+    out_root.mkdir(parents=True, exist_ok=True)
     skills = read_skill_table()
     names = {
         'skill': skills['life'],
@@ -321,6 +325,8 @@ def main():
     manifest = {'generated-by': 'tools/game-icons/slice.py', 'groups': {}}
     total = 0
     for kind, pages in PAGES.items():
+        kind_dir = out_root / kind
+        kind_dir.mkdir(parents=True, exist_ok=True)
         items = []
         for name, expect in pages:
             page = slice_page(SRC / name, expect)
@@ -335,15 +341,15 @@ def main():
             fid = f'{kind}-{i:02d}'
             # 有损 92 而不是无损：这 101 个图标无损要 957KB，q92 只要约 350KB，而图标
             # 最大只按 48px 显示，两者肉眼无差。method=6 是体积与耗时的折中（101 个约 3 秒）。
-            img.save(out_dir / f'{fid}.webp', 'WEBP', quality=92, method=6)
+            img.save(kind_dir / f'{fid}.webp', 'WEBP', quality=92, method=6)
             entries.append({'id': fid, 'name': names[kind][i - 1]})
         manifest['groups'][kind] = entries
         total += len(entries)
-        print(f'{kind:7s} 合计 {len(items)} 个图标\n')
-    (out_dir.parent / 'data').mkdir(parents=True, exist_ok=True)
+        print(f'{kind:7s} 合计 {len(items)} 个图标 → {kind_dir}/  \n')
+    (out_root.parent / 'data').mkdir(parents=True, exist_ok=True)
     # 缩进 4 空格是**对齐 Prettier 的配置**：`npm run check` 会 `prettier --check`
     # 这份 json，脚本若写 2 空格，重跑一次就把格式检查弄红。
-    (out_dir.parent / 'data' / 'icons.json').write_text(
+    (out_root.parent / 'data' / 'icons.json').write_text(
         json.dumps(manifest, ensure_ascii=False, indent=4) + '\n', encoding='utf-8'
     )
     print(f'写出 {total} 个图标 + data/icons.json')

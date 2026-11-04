@@ -31,7 +31,7 @@
   把兽决塞进 `fixed` 会让用户每次先改价，比多点一次更烦。
 - **`id` 是稳定编号**（1–40 / 99–200，中间有缺号），用户的单价表按它存。改了 id 等于把
   所有人的单价清空，**别动**；加物品就用没出现过的号（旧系统的习惯是往后接 118、200）。
-- `file` 只写文件名，目录由 `services/game-icons.ts` 拼（`game/icons/items/`）。
+- `file` 只写文件名，目录由 `services/game-icons.ts` 拼（`game/icons/item/`）。
 - 「金币」（id 99）是特殊的一项：它记的是金额本身，不乘单价。
 
 ## gear-icons.json：装备的图标清单
@@ -143,6 +143,9 @@ items.json     道具
 
 1. **只写数据，不写路径前缀**。要引用图片就写文件名（`"icon": "school-datang.webp"`），
    目录由代码里的常量拼——与 `maps.json` 的 `img` 同一条规则。
+   **一份清单配一个图标目录**：`school-icons.json` ↔ `icons/school/`、
+   `gear-icons.json` ↔ `icons/gear/`。
+   理由和「清单分开写」是同一条——谁后跑谁覆盖谁，而且覆盖时不报错。
 2. **id 稳定且唯一**。它是代码里引用这条记录的唯一键；显示名可以改，id 不要改。
 3. **不要把界面文案写进来**。`tag`、`note` 这类是人写的说明（见 `ghost-samples.ts`），
    属于测试夹具或 UI 常量，不属于游戏数据。

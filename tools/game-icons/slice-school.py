@@ -50,7 +50,7 @@ X0, X1 = 214, 272
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = Path(r"C:\Users\wenbo\.workbuddy\clipboard-images")
-OUT_ICON = ROOT / 'public/game/icons'
+OUT_ICON = ROOT / 'public/game/icons/school'
 OUT_MANIFEST = ROOT / 'public/game/data/school-icons.json'
 
 # 截图 → 门派。顺序 = 交付顺序（用户截图时就按门派从上往下排的），

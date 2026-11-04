@@ -26,10 +26,14 @@ public/game/
 ├── maps/            地图底图 + 清单
 │   ├── maps.json
 │   └── *.webp
-├── icons/           游戏内图标（技能 21、剧情 11、特技 69、门派技能 147）+ README
-│   ├── *.webp
-│   ├── items/       速记物品 59 张（`item-<id>.png`，id 即单价表的键）
-│   └── gear/        装备 83 张（`gear-<部位>-<序号>.webp`，7 个部位，60 级以上）
+├── icons/           游戏内图标，**一个类目一个子目录**（+ README）
+│   ├── skill/       skill-01..21.webp           生活技能 21
+│   ├── story/       story-01..11.webp           剧情技能 11
+│   ├── active/      active-01..69.webp          装备特技 69
+│   ├── school/      school-skill-<门派>-<n>.webp 门派技能 147
+│   ├── gear/        gear-<部位>-<nn>.webp       装备 83 张（7 个部位，60 级以上）
+│   ├── item/        item-<id>.png|gif           速记物品 59 张（id 即单价表的键）
+│   └── lingshi/     灵饰（图待补，代码已引用 —— 见 `icons/README.md` 末节）
 └── data/            游戏事实数据 + 资源清单
     ├── icons.json   图标「文件 → 名字」清单（生活/剧情/特技，`slice.py` 生成，不手改）
     ├── school-icons.json 图标清单（门派技能，`slice-school.py` 生成，不手改）
@@ -37,8 +41,15 @@ public/game/
     ├── schools.json 门派 21 家 + 每家的七项门派技能 + 上限（`cap`）
     ├── skills.json  生活技能 21 项、剧情技能 11 项（有序名录，下标即图标序号）
     ├── quick-items.json 速记物品 59 件（固定价 38 / 浮动价 21）+ 图标文件名
-    └── *.json       以后：装备、道具
+    └── *.json       以后：装备属性、道具
 ```
+
+**`icons/` 下面只允许有子目录，根下不许放图**（2026-11-04 分家，见 §4.1）。一个类目一个
+目录、目录名就是文件名前缀；加新类目（任务图、NPC、怪物、宝石）就新建一个同名目录。
+这两条由 `src/services/game-icons.test.ts` 的「图标目录结构」断言盯着，不是口头约定。
+
+目录与清单是一一对应的（`skill/` `story/` `active/` 三份共用一个 `icons.json`，因为
+它们来自同一个 4×3 卡片面板、同一个脚本）。
 
 三个子目录各有一份 README 写「放什么、怎么命名」。这份文档写**规则本身**。
 
@@ -95,17 +106,41 @@ const MAP_DIR = `${import.meta.env.BASE_URL}game/maps/`;
 
 ## 4. 命名
 
-| 对象     | 规则                                               | 例                                                 |
-| -------- | -------------------------------------------------- | -------------------------------------------------- |
-| 图片文件 | `<id>.webp`，id 用拼音小写，与清单一致             | `xiliangnvgou.webp`                                |
-| 图标文件 | `<类目>-<id>.webp`；一个实体多个图标时带子类与序号 | `school-datang.webp`、`school-skill-datang-1.webp` |
-| 数据表   | `<实体复数>.json`                                  | `schools.json`                                     |
-| 记录 id  | 稳定唯一；**显示名可以改，id 不要改**              | `datang`                                           |
+| 对象     | 规则                                                      | 例                                  |
+| -------- | --------------------------------------------------------- | ----------------------------------- |
+| 图片文件 | `<id>.webp`，id 用拼音小写，与清单一致                    | `xiliangnvgou.webp`                 |
+| 图标文件 | `<类目>/<类目>-<id>.webp`；一个实体多个图标时带子类与序号 | `school/school-skill-datang-1.webp` |
+| 数据表   | `<实体复数>.json`                                         | `schools.json`                      |
+| 记录 id  | 稳定唯一；**显示名可以改，id 不要改**                     | `datang`                            |
 
 文件名会进 URL，所以只用 `[a-z0-9-]`。中文名放清单的 `name` 字段——游戏改译名时
 只改 JSON，不动文件。
 
-### 4.1 图标：从游戏截图切，不另找素材
+### 4.1 图标：一个类目一个目录
+
+`icons/` 根下**只有子目录**，一张图都不许放。目录名 = 一级类目 = 文件名前缀
+（`skill/` 装 `skill-*`、`school/` 装 `school-skill-*`、`gear/` 装 `gear-*`）。
+
+为什么不是「全平铺、靠前缀区分」（2026-11-04 之前的做法，249 个文件挤在一层）：
+
+- **前缀是给人猜的，目录是给工具用的**。平铺时「这批图有几个、齐不齐」只能 `ls | grep`
+  数；分目录之后 `ls icons/school | wc -l` 就是答案，切图脚本也能整目录重写。
+- **一个目录 = 一次改动**。换一批装备图只动 `gear/`，不会在 249 个文件的列表里翻。
+- **加类目不需要决策**：新建 `task/` 就完了，不必先想前缀有没有和谁撞。
+
+判据与 §3.3「文件与清单同目录」同源，都是**按「改动时一起改」分组**，不是按文件类型分。
+
+这一条由测试撑着，不靠自觉（`src/services/game-icons.test.ts` 的「图标目录结构」）：
+
+| 断言                       | 拦住什么                                          |
+| -------------------------- | ------------------------------------------------- |
+| 根目录下没有散图           | 「往 icons/ 里丢一个 png」这种最省事的做法        |
+| 文件名以目录名开头         | `skill/` 里混进一张 `gear-*.webp`（两个类目混住） |
+| 文档里列的类目目录都已有图 | 文档写了 `lingshi/` 而仓库里根本没有这个目录      |
+
+三条都读真实目录（`import.meta.glob`），不是手搓的假树。
+
+### 4.2 图标：从游戏截图切，不另找素材
 
 技能图标、特技图标这类**游戏内已有的图**，一律从游戏截图切出来，不手画、不找第三方素材包：
 
@@ -218,10 +253,17 @@ const MAP_DIR = `${import.meta.env.BASE_URL}game/maps/`;
 2. 把图放进 `tools/game-icons/slice.py` 的 `PAGES` 列表（门派面板放进 `slice-school.py`
    的 `PANELS`），写清每页应有几项；
 3. `python tools/game-icons/slice.py`（门派面板用 `slice-school.py --check` 先校名字，
-   再跑不带参数的那条写文件）——数量对不上会直接报错退出；
+   再跑不带参数的那条写文件）——数量对不上会直接报错退出。图会落进**与类目同名的子目录**
+   （`skill/` `story/` `active/`；门派进 `school/`），脚本自己建目录，不用手建；
 4. 看一眼 `data/icons.json` / `data/school-icons.json` 里新加的名字对不对（脚本从
    `data/skills.json` / `data/schools.json` / `character.ts` 读名字，读不到会报错，不会静默写空）；
 5. `npm run check`。
+
+**加一个全新的类目**（比如任务类型图）：新建目录 `icons/task/` + 一条 `slice-*.py`
+
+- 一份 `data/task-icons.json`，再在 `src/services/game-icons.ts` 加**一条目录常量**和一个
+  取值函数。三处缺一处都会表现成「图在但查不到」或「查得到但 404」，所以测试里那组
+  「图标目录结构」断言就是给这一步兜底的。
 
 ### 游戏大版本更新时（检查清单）
 
@@ -235,37 +277,48 @@ const MAP_DIR = `${import.meta.env.BASE_URL}game/maps/`;
 - [ ] `ghost.rs:138` 的 `TITLE_HINTS`：客户端标题写法有没有变
 - [ ] `CONFUSABLE`：换版本后有没有新的稳定误读
 
-## 8. 现在的状态（2026-11-03）
+## 8. 现在的状态（2026-11-04）
 
-| 目录 / 常量                 | 状态                                                                                                                         |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `game/maps/`                | ✅ 已归位：20 张 webp + `maps.json`（原来在 `public/maps/`）                                                                 |
-| `game/icons/`               | ✅ 248 个：生活 21、剧情 11、装备特技 69、门派技能 147（约 0.78MB）                                                          |
-| `game/icons/gear/`          | ✅ 83 张：7 个部位（头盔 11 / 发钗 11 / 铠甲 11 / 女衣 11 / 鞋子 11 / 项链 14 / 腰带 14），均为 60 级以上，约 314KB          |
-| `game/data/`                | ✅ `icons.json` + `school-icons.json` + `gear-icons.json` + `schools.json`（21 家 × 7 项 + `cap`）+ `skills.json`（21 / 11） |
-| `src/services/game-data.ts` | ✅ 唯一加载器：形状校验、启动时加载一次、失败退空表                                                                          |
-| `views/characters/mock.ts`  | 仍是演示数据，未搬（理由见 §6）                                                                                              |
-| `GEAR_SLOTS` 等三张装备表   | ⏳ 还在 `character.ts`：下一批该搬的（见 §6 末行）                                                                           |
-| `src-tauri/models/`         | 18MB OCR 模型，**不属于**游戏资源，不搬                                                                                      |
+| 目录 / 常量                  | 状态                                                                                                                                                                                         |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `game/maps/`                 | ✅ 已归位：20 张 webp + `maps.json`（原来在 `public/maps/`）                                                                                                                                 |
+| `game/icons/`                | ✅ 一个类目一个目录（2026-11-04 分家，原来 249 个全平铺在根下）；根目录现在只有 `README.md`                                                                                                  |
+| `game/icons/skill/`          | ✅ 21 张生活技能（`skill-01..21.webp`）                                                                                                                                                      |
+| `game/icons/story/`          | ✅ 11 张剧情技能（`story-01..11.webp`）                                                                                                                                                      |
+| `game/icons/active/`         | ✅ 69 张装备特技（`active-01..69.webp`）                                                                                                                                                     |
+| `game/icons/school/`         | ✅ 147 张门派技能：21 家 × 7 项（`school-skill-<门派>-<n>.webp`）                                                                                                                            |
+| `game/icons/gear/`           | ✅ 83 张：7 个部位（头盔 11 / 发钗 11 / 铠甲 11 / 女衣 11 / 鞋子 11 / 项链 14 / 腰带 14），均为 60 级以上，约 314KB                                                                          |
+| `game/icons/item/`           | ✅ 59 张速记物品（`item-<id>.png` / `.gif`；原来是 `icons/items/`，2026-11-04 改名对齐前缀）                                                                                                 |
+| `game/icons/lingshi/`        | ⏳ **空的**：`GEAR_SLOT_ICON` 已引用 `lingshi/ling-01/06/12/17.png` 四张，图一直没落进仓库——戒指 / 耳饰 / 配饰 / 手镯四格现在是破图                                                          |
+| `game/data/`                 | ✅ `icons.json` + `school-icons.json` + `gear-icons.json` + `schools.json`（21 家 × 7 项 + `cap`）+ `skills.json`（21 / 11）                                           |
+| `src/services/game-data.ts`  | ✅ 唯一加载器：形状校验、启动时加载一次、失败退空表                                                                                                                                          |
+| `src/services/game-icons.ts` | ✅ 每个类目一条目录常量（`SKILL_DIR` / `STORY_DIR` / `SCHOOL_DIR` / `ITEM_DIR`），`gearSlotIcon` 由调用方自带子目录                                                                          |
+| `views/characters/mock.ts`   | 仍是演示数据，未搬（理由见 §6）                                                                                                                                                              |
+| `GEAR_SLOTS` 等三张装备表    | ⏳ 还在 `character.ts`：下一批该搬的（见 §6 末行）                                                                                                                                           |
+| `src-tauri/models/`          | 18MB OCR 模型，**不属于**游戏资源，不搬                                                                                                                                                      |
 
-门派技能的图标在 `icons/`，2026-11-04 起有代码消费：`src/services/game-icons.ts` 的
+门派技能的图标在 `icons/school/`，2026-11-04 起有代码消费：`src/services/game-icons.ts` 的
 `schoolSkillIcon(name)`，清单 `school-icons.json` 由 `game-data.ts` 装进缓存（第三份表）。
 **按名字查，不要用 `schools.json` 的下标推**——文件序号是切图时的面板顺序，与
 `schools.json` 的 `skills` 顺序不同（实测十方无敌是 `-1`、为官之道是 `-5`）；
 名字在 147 项里唯一，这条由 `game-icons.test.ts` 与加载时的校验各盯一次。
 
-装备特效那 18 项**没有图标**（游戏那一页是纯文字），所以 `icons/` 里没有 `special-`。
+装备特效那 18 项**没有图标**（游戏那一页是纯文字），所以 `active/` 里只有特技那 69 张。
 
 ## 9. 怎么验证没违反本规范
 
 ```bash
-# 1. 运行时有没有把目录写死在代码里（应只剩 MAP_DIR 一条，外加 4 个测试的 import 字面量）
+# 1. 运行时有没有把目录写死在代码里（应只剩 MAP_DIR 与 icons 那几条 DIR 常量，
+#    外加 4 个测试的 import 字面量）
 grep -rn "game/" src --include="*.ts" --include="*.vue"
 
-# 2. 清单与文件是否一一对应（缺图 / 孤儿图 / img 带目录 / id 重复）
+# 2. 清单与文件是否一一对应（缺图 / 孤儿图 / 目录串门 / id 重复）
 npx vitest run src/services/ghost-maps.test.ts src/services/game-icons.test.ts
 
-# 3. 全量质量门（上面那条也在里面）
+# 3. 目录结构（根下有没有散图、一个目录有没有装两个类目）——上面那条已经含了
+ls public/game/icons
+
+# 4. 全量质量门（上面两条也在里面）
 npm run check
 ```
 
