@@ -394,33 +394,49 @@
  * 修炼
  * ==================================================================== */
 /* 游戏里修炼分两组（角色自身 / 召唤兽控制），组是它自己划的，照抄。
- * 两组共 10 行，原来那套 `flex: 1 + align-content: space-between` 的摊开法
- * 在这里会把行距拉到 30px 以上，一页读成两张不相干的表。改成定值行距 + 组间留白。 */
+ *
+ * ## 一行一条纸带（2026-11-04）
+ *
+ * 改之前这一页是裸行：行 18、条 4px、数字裸着，十行只占 **318 / 493**——底下空 180，
+ * 读作「还没做完的表」。用户从四个方案里选了「纸带行」，于是它和属性、师门同一形：
+ * 纸带托着，名目在左、读数在右，一行一项。
+ *
+ * 行 34 × 行距 8：每组 = 组头 23 + 五行 170 + 四道缝 32 = 225，两组加组间 16 = 466，
+ * 493 里余 27——不空也不挤（1.1 档文字变大而行高不变，仍不出滚动）。 */
 .training-groups {
     display: flex;
     flex-direction: column;
     gap: 16px;
 }
+/* 组头与第一条纸带之间 8px：默认的 2px 会让组头贴住第一行（与师门那一页同一条）。 */
+.training-groups .group-head {
+    --gh-mb: 8px;
+}
+/* 行距 8 由 grid 给。纸带自带 `+ 2px` 的间距，那是属性表「一叠纸」的厚度，
+ * 这里要的是行距——两个意思不共用一个值，所以把它归零。 */
 .training-list {
     display: grid;
-    /* 十行都在一页里，7px 时行与行粘成一片，组标题也顶在上一组末行上；
-     * 11px 能在 365px 里放下（实测 310），读起来才是一行一项而不是一段文字。 */
-    gap: 11px;
+    row-gap: 8px;
 }
-/* 三列：项名 / 条 / 读数。
+.training-list .training-row + .training-row {
+    margin-top: 0;
+}
+/* 三列：项名 78 / 条 / 数值签 56。
  *
- * 名称列从 62 收到 **78**：62 是按「攻击修炼」四字（48）定的，而「宠物修炼」这组
- * 有五字项（攻击控制力、防御控制力…），1.1 档下 5 × 13.2 ≈ 66 撑破 62 → 折成两行，
- * 那一行就成了双倍高、条与数字跟着错位（2026-11-03 用户：「攻击控制力等等换行了，
- * 不让其换行」）。78 按最长项 + 字距留余量，两组上下仍同一列。
+ * 名称列 78：62 是按「攻击修炼」四字定的，而「宠物修炼」这组有五字项
+ * （攻击控制力、防御控制力…），1.1 档下 5 × 13.2 ≈ 66 撑破 62 → 折成两行，
+ * 那一行就成了双倍高、条与数字跟着错位（2026-11-03 用户：「攻击控制力等等换行了」）。
+ * `nowrap` + `ellipsis` 是兜底：将来游戏加了更长的项名，宁可截断也不能折行。
  *
- * `nowrap` 与 `ellipsis` 是兜底：将来游戏加了更长的项名，宁可截断也不能折行——
- * 折行会把这一行的三件东西（名、条、数）一起挤歪。 */
-.training-row {
+ * 这几条都挂在 `.training-list` 下（0-2-0）：`.paper-row` 自己带着 `display: flex`、
+ * `align-items: baseline`、`padding: 5px 10px`，同特异性下谁赢取决于注入顺序，不押这个。 */
+.training-list .training-row {
     display: grid;
-    grid-template-columns: 78px 1fr 42px;
+    grid-template-columns: 78px 1fr 56px;
     align-items: center;
     gap: 8px;
+    height: 34px;
+    padding: 0 9px;
     font-size: var(--fs-sm);
 }
 .training-row .name {
@@ -429,20 +445,22 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+/* 条 5px（原 4px）：这条涨到 5 之后，空槽在暗色下才有一条自己的边界。
+ *
+ * 槽的描边不能省：`--well` 在暗色只比 `--paper` 暗一档（#171409 对 #1c1912），
+ * 细条在深底上等于一条隐形线，5/20 与 11/20 只能靠条端的位置猜。
+ * 不套全局 `.well`——那套带渐变和 1px 边框，压到 5px 高会读成一枚胶囊；
+ * 只借它的描边一层，浓度降到 45%。 */
 .training-row .track {
     position: relative;
-    height: 4px;
+    height: 5px;
     border-radius: 2px;
     background-color: var(--well);
-    /* 槽要有边界：`--well` 在暗色只比 `--paper` 暗一档（#171409 对 #1c1912），
-     * 4px 高的条在深底上等于一条隐形线，5/20 与 11/20 只能靠条端的位置猜。
-     * 不套全局 `.well`——那套带渐变和 1px 边框，压到 4px 高会读成一枚胶囊；
-     * 只借它的描边一层，浓度降到 45%。 */
     box-shadow:
         inset 0 1px 2px var(--bevel-lo),
         0 0 0 1px color-mix(in srgb, var(--rule-2) 45%, transparent);
 }
-/* 用 `--moss` 而不是蓝：这套语言的辅助色只有赭与苔，绿条 + 朱色数字正好分开
+/* 用 `--moss` 而不是蓝：这套语言的辅助色只有赭与苔，绿条 + 赭数正好分开
  * 「在练」与「已满」两种状态。
  * 高光是独立的 box-shadow，不写进 background 简写——简写里只要有一个值解析失败
  * （比如引了不存在的令牌），整条声明都会被丢掉，条会静默变成透明。
@@ -455,10 +473,30 @@
     background: var(--moss);
     box-shadow: inset 0 1px 0 color-mix(in srgb, var(--moss) 55%, var(--paper-base));
 }
+/* 满级那一行**整条转朱**，与师门刻度、签里的数同一个意思，一处都不落。
+ * 先试过「苔掺朱」——混出来是一根墨绿的条，读作「这条坏了」而不是「这一项满了」。 */
+.training-row.done .track i {
+    background: var(--seal);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--seal) 55%, var(--paper-base));
+}
+/* 读数签：56 × 22，装「11」加一个淡的「/20」。师门那枚是 56 × 30（要放三位数加「满」），
+ * 这里只放两位数，22 高才塞得进 34 的行。
+ *
+ * 字色写在签里的 `.lv` 上、不写签的根：根上的 `--ink` 是这枚器件作为通用件的默认，
+ * 而这一格要的是「读数赭」——父级改口只能改内容。 */
+.training-val {
+    --tag-w: 56px;
+    --tag-h: 22px;
+}
 .training-row .lv {
     color: var(--num);
     font-size: calc(var(--fs-sm) + 1px);
-    text-align: right;
+}
+/* 上限写成 `/20` 的淡字：它是分母，不是这一项的成绩；与数值同号会让「20/20」读成两个数。 */
+.training-row .lv i {
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    font-style: normal;
 }
 .training-row.done .lv {
     color: var(--cinnabar);
@@ -468,10 +506,13 @@
 .training-row.idle .name {
     color: var(--muted);
 }
-/* 0 级那一行连数也退一档：`0/20` 用数值墨会与「练了一半的 11/20」同样醒目，
- * 而它想说的是「还没开始」。压回次级墨，名字与数一起淡下去。 */
+/* 0 级那一行连数与签也退一档：`0/20` 用数值墨会与「练了一半的 11/20」同样醒目，
+ * 而它想说的是「还没开始」。签的材质是固定的，光压字色盖不住——整枚一起淡。 */
 .training-row.idle .lv {
     color: var(--muted);
+}
+.training-row.idle .training-val {
+    opacity: 0.72;
 }
 
 /* ======================================================================
