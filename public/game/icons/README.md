@@ -15,6 +15,7 @@ icons/
 ├── active/    active-01..69.webp          装备特技 69
 ├── school/    school-skill-<门派>-<n>.webp 门派技能 147
 ├── gear/      gear-<部位>-<nn>.webp        装备 83
+├── weapon/    weapon-<种类>-<等级>.webp    武器 165
 ├── item/      item-<id>.png|gif            速记物品 59
 └── lingshi/   灵饰——图还没切，见本节末
 ```
@@ -39,10 +40,13 @@ icons/
 | `active/` | 装备特技 | 69   | 「特技特效」面板六页（12×5 + 9）                                         |
 | `school/` | 门派技能 | 147  | 「师门技能」面板，21 家门派 × 7 项                                       |
 | `gear/`   | 装备图标 | 83   | 百科典藏「装备」页 60 级以上，7 个部位，见 `../data/gear-icons.json`     |
+| `weapon/` | 武器图标 | 165  | 百科典藏「武器」页 60 级以上，15 种，见 `../data/weapon-icons.json`      |
 | `item/`   | 速记物品 | 59   | 摆摊掉落物（38 件有牌价 + 21 件随行就市），见 `../data/quick-items.json` |
 
 `item/` 文件名里的数字是 `quick-items.json` 的 **id**（不是序号），因为 id 才是单价表的键；
 `gear/` 那批是**序号**，序号本身即等级升序（第 1 个 = 60 级），单件名称在清单的 `name` 里。
+`weapon/` 的文件名**直接带等级**（`weapon-jian-060`），因为武器种类多、光靠序号找不着；
+90 级起的几款一件覆盖 90-150，同区间多款用 `b`/`c` 后缀（`weapon-jian-090b` 是「倚天」）。
 
 装备特效（18 项）**没有图标**：游戏那一页只有名字，没有图形，所以 `active/` 里只有特技。
 
@@ -54,6 +58,7 @@ icons/
 - `skill/` `story/` `active/` → `../data/icons.json`（`slice.py` 生成）
 - `school/` → `../data/school-icons.json`（`slice-school.py` 生成）
 - `gear/` → `../data/gear-icons.json`（`slice-gear.py` 生成）
+- `weapon/` → `../data/weapon-icons.json`（`slice-weapon.py` 生成）
 - `item/` → `../data/quick-items.json` 的 `file` 字段（旧系统带过来的图，不是切图产出）
 
 清单分开写是因为每个脚本的裁切逻辑完全不同（4×3 卡片网格 / 竖排 7 行面板 / 3×4 方格且
@@ -84,6 +89,7 @@ icons/
 python tools/game-icons/slice.py         # 生活 / 剧情 / 特技 → skill/ story/ active/ + icons.json
 python tools/game-icons/slice-school.py  # 门派技能 → school/ + school-icons.json
 python tools/game-icons/slice-gear.py    # 装备 → gear/ + gear-icons.json
+python tools/game-icons/slice-weapon.py  # 武器 → weapon/ + weapon-icons.json
 ```
 
 `slice.py` 一次写三个目录（`skill/` `story/` `active/`），因为那三批来自同一个 4×3 卡片
@@ -114,7 +120,7 @@ python tools/game-icons/slice-gear.py    # 装备 → gear/ + gear-icons.json
 <目录>/<类目>-<子类>-<id>-<序号>.webp    # 一个实体有多个图标时
 ```
 
-- **目录 = 一级类目**：`skill` / `story` / `active` / `school` / `gear` / `item` /
+- **目录 = 一级类目**：`skill` / `story` / `active` / `school` / `gear` / `weapon` / `item` /
   `lingshi`。以后的任务图、NPC、怪物各开一个同名目录（`task/`、`npc/`、`monster/`）
 - **文件名必须以目录名开头**：`school/` 里放 `school-skill-…`，`gear/` 里放 `gear-…`。
   测试会拒绝「一个目录里住两个类目」
@@ -134,10 +140,10 @@ python tools/game-icons/slice-gear.py    # 装备 → gear/ + gear-icons.json
   看着正好像图标被截断。直接用 96×96 缩放，1.7% 的各向异性看不出来
 - **同一类目的图标必须同尺寸**：一排图标里混着 88 和 96，基线就对不齐
 
-## 装备图标（`gear/`）为什么带卡片底
+## 装备与武器图标（`gear/` `weapon/`）为什么带卡片底
 
 `skill-` / `story-` / `active-` / `school-skill-` 那四批是**抠掉底色**的（图形铺满画布），
-`gear/` 这一批不是——它每一张都是一块米黄小方片。
+`gear/` 与 `weapon/` 这两批不是——它们每一张都是一块米黄小方片。
 
 不是偷懒，是抠不了：装备图标本身就画在游戏卡片上，图形与卡片底**同色系**。
 实测白衣 `(240,240,235)` 与卡片底 `(243,222,192)` 的曼哈顿色差只有 64，
@@ -145,8 +151,12 @@ python tools/game-icons/slice-gear.py    # 装备 → gear/ + gear-icons.json
 加腐蚀去堵轮廓缺口，结果是女衣、项链那几页必定出现米色大洞（白色装备被当成背景挖掉），
 比带底更难看。
 
-所以这批**只做矩形裁切**：格子坐标固定，每边内缩 2px 去掉深褐色格子边框，缩到 96×96。
-用的时候把它当「一张方形小图」，底色由游戏原图决定，不要指望它能透出我们的纸面。
+所以这两批**只做裁切、不抠底**，但取景方式不同：
+`gear/` 格子坐标固定、每边内缩 2px 去掉深褐色格子边框，直接缩到 96×96；
+`weapon/` 的武器是长条、横向几乎顶满格子，按固定格子裁会把剑尖和刀柄各切掉一截
+（实测前 12 张里 4 张缺角），所以改成**先在格子里取内容包围盒、再内缩一次避开边框、
+等比放进 96×96 的米黄画布**——宁可大小不一，也不切断。
+用的时候把它们当「一张方形小图」，底色由游戏原图决定，不要指望能透出我们的纸面。
 
 如果哪天确实要透明版：**换素材来源**（游戏资源包里的图标原图），不要在这批截图上继续抠。
 

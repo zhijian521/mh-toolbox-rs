@@ -32,12 +32,14 @@ public/game/
 │   ├── active/      active-01..69.webp          装备特技 69
 │   ├── school/      school-skill-<门派>-<n>.webp 门派技能 147
 │   ├── gear/        gear-<部位>-<nn>.webp       装备 83 张（7 个部位，60 级以上）
+│   ├── weapon/      weapon-<种类>-<等级>.webp   武器 165 张（15 种 × 11 档，60 级以上）
 │   ├── item/        item-<id>.png|gif           速记物品 59 张（id 即单价表的键）
 │   └── lingshi/     灵饰（图待补，代码已引用 —— 见 `icons/README.md` 末节）
 └── data/            游戏事实数据 + 资源清单
     ├── icons.json   图标「文件 → 名字」清单（生活/剧情/特技，`slice.py` 生成，不手改）
     ├── school-icons.json 图标清单（门派技能，`slice-school.py` 生成，不手改）
     ├── gear-icons.json   图标清单（装备，`slice-gear.py` 生成，不手改）
+    ├── weapon-icons.json 图标清单（武器，`slice-weapon.py` 生成，不手改）
     ├── schools.json 门派 21 家 + 每家的七项门派技能 + 上限（`cap`）
     ├── skills.json  生活技能 21 项、剧情技能 11 项（有序名录，下标即图标序号）
     ├── quick-items.json 速记物品 59 件（固定价 38 / 浮动价 21）+ 图标文件名
@@ -147,7 +149,7 @@ const MAP_DIR = `${import.meta.env.BASE_URL}game/maps/`;
 - 手画的图在游戏改版后必然对不上，而**截图就是当前版本的真值**；
 - 第三方素材包的图标集与本客户端的版本未必一致，混进去没人分得清哪个是哪个。
 
-切图脚本三个，按面板形态分：
+切图脚本四个，按面板形态分：
 
 - `tools/game-icons/slice.py`——4 列 × 3 行的卡片网格（生活 / 剧情 / 特技），靠检测找格子；
 - `tools/game-icons/slice-school.py`——竖排 7 行的门派面板（**只取左边那一列师门技能**，
@@ -155,11 +157,15 @@ const MAP_DIR = `${import.meta.env.BASE_URL}game/maps/`;
   做集合比对；
 - `tools/game-icons/slice-gear.py`——百科典藏「装备」页，3 列 × 4 行、**列表可滚动**：
   列固定、行靠投影检测，滚动露出的半行（高 < 70）丢掉，重叠行按 `rows` 声明只取一次。
+- `tools/game-icons/slice-weapon.py`——百科典藏「武器」页，同为 3 列可滚动，但**按位置定档**：
+  官网 20 种 × 17 行（0 级到 160 级）的顺序与游戏列表一致，先把每页整体对齐到这 340 行、
+  得到该页偏移，再取 `level >= 60`。**不要按用户画的红线筛**（红线只标在每组开头，
+  且红色图标本身会被红色判据误命中），原因写在脚本头部注释里。
 
-前两者统一成 96×96、**图标铺满画布不垫背景**；装备那批**保留游戏卡片底**（图形与卡片底
-同色系，抠底会把白衣挖空，详见 `public/game/icons/README.md`）。三者各写自己的清单
-（`icons.json` / `school-icons.json` / `gear-icons.json`）——分开写是因为两份清单若共用一个
-文件，后跑的脚本会把对方的分组整段覆盖，且不报错。
+前两者统一成 96×96、**图标铺满画布不垫背景**；装备与武器两批**保留游戏卡片底**（图形与
+卡片底同色系，抠底会把白衣挖空，详见 `public/game/icons/README.md`）。四者各写自己的清单
+（`icons.json` / `school-icons.json` / `gear-icons.json` / `weapon-icons.json`）——分开写是因为
+两份清单若共用一个文件，后跑的脚本会把对方的分组整段覆盖，且不报错。
 
 **别给图标「补成正方形」**：门派技能本体是 60×57~59，补那几像素若填黑色，就成了上下各
 一条黑边，看着正像图标被截断（踩过一次）。直接按 96×96 缩放，各向异性 1~3% 看不出来。
@@ -288,9 +294,10 @@ const MAP_DIR = `${import.meta.env.BASE_URL}game/maps/`;
 | `game/icons/active/`         | ✅ 69 张装备特技（`active-01..69.webp`）                                                                                                                                                     |
 | `game/icons/school/`         | ✅ 147 张门派技能：21 家 × 7 项（`school-skill-<门派>-<n>.webp`）                                                                                                                            |
 | `game/icons/gear/`           | ✅ 83 张：7 个部位（头盔 11 / 发钗 11 / 铠甲 11 / 女衣 11 / 鞋子 11 / 项链 14 / 腰带 14），均为 60 级以上，约 314KB                                                                          |
+| `game/icons/weapon/`         | ✅ 165 张：15 种 × 11 档（枪矛 / 斧钺 / 剑 / 双短剑 / 飘带 / 爪刺 / 扇 / 魔棒 / 锤 / 鞭 / 环圈 / 刀 / 法杖 / 宝珠 / 弓弩），约 436KB。**缺伞、灯笼、巨剑、双巨斧、棍五种**：截图里没有那几页 |
 | `game/icons/item/`           | ✅ 59 张速记物品（`item-<id>.png` / `.gif`；原来是 `icons/items/`，2026-11-04 改名对齐前缀）                                                                                                 |
 | `game/icons/lingshi/`        | ⏳ **空的**：`GEAR_SLOT_ICON` 已引用 `lingshi/ling-01/06/12/17.png` 四张，图一直没落进仓库——戒指 / 耳饰 / 配饰 / 手镯四格现在是破图                                                          |
-| `game/data/`                 | ✅ `icons.json` + `school-icons.json` + `gear-icons.json` + `schools.json`（21 家 × 7 项 + `cap`）+ `skills.json`（21 / 11）                                           |
+| `game/data/`                 | ✅ `icons.json` + `school-icons.json` + `gear-icons.json` + `weapon-icons.json` + `schools.json`（21 家 × 7 项 + `cap`）+ `skills.json`（21 / 11）                                           |
 | `src/services/game-data.ts`  | ✅ 唯一加载器：形状校验、启动时加载一次、失败退空表                                                                                                                                          |
 | `src/services/game-icons.ts` | ✅ 每个类目一条目录常量（`SKILL_DIR` / `STORY_DIR` / `SCHOOL_DIR` / `ITEM_DIR`），`gearSlotIcon` 由调用方自带子目录                                                                          |
 | `views/characters/mock.ts`   | 仍是演示数据，未搬（理由见 §6）                                                                                                                                                              |
