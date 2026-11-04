@@ -119,6 +119,32 @@ export async function pricesSave<T>(items: T[]): Promise<boolean> {
     }
 }
 
+/* ---------- 收益账（第 97 批） ----------
+ * 收益记录与速记单价**一起**读写：收益页总要同时用（速记格显示单价、今日清单显示记录），
+ * 分两条命令会让首屏闪一下——先画出记录、单价后到，格子里的数会跳一档。
+ */
+export async function incomeLoad<T>(): Promise<T | null> {
+    if (!hasTauri) return null;
+    try {
+        return await invoke<T>('income_load');
+    } catch (error) {
+        console.error('读取收益账失败', error);
+        return null;
+    }
+}
+
+/** 整份写回。返回 false 表示没写进去——速记的每一次点击都走这里，不能静默吞掉。 */
+export async function incomeSave<T>(payload: T): Promise<boolean> {
+    if (!hasTauri) return false;
+    try {
+        await invoke('income_save', { payload });
+        return true;
+    } catch (error) {
+        console.error('写入收益账失败', error);
+        return false;
+    }
+}
+
 /**
  * 老数据（`localStorage` 那一版）搬过来没有。
  *

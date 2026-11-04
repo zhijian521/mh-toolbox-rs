@@ -1,6 +1,6 @@
 /**
  * 游戏事实表：**门派（含七项门派技能）**、**技能名录（生活 / 剧情）**、
- * **门派技能图标清单**。
+ * **门派技能图标清单**、**速记物品清单**。
  *
  * 数据和代码分开，就一件事：游戏改版时**换文件，不改代码**。所以几张表住在
  * `public/game/data/`（Vite 原样拷贝、文件名稳定），这里只负责「取回来、校验形状、
@@ -69,6 +69,31 @@ export interface GameData {
     skills: SkillTable;
     /** 门派技能图标清单（21 家 × 7）。表没加载上时是空数组。 */
     schoolIcons: SchoolIconEntry[];
+    /** 速记物品清单（固定价 38 + 浮动价 21）。表没加载上时两组都是空数组。 */
+    quickItems: QuickItemTable;
+}
+
+/**
+ * 速记里的一件物品。
+ *
+ * `id` 是**旧系统沿用的稳定编号**（1–40 / 99–200），用户的单价表按它存 —— 所以改了
+ * 编号等于把所有人的单价清空，别动。`file` 是 `public/game/icons/items/` 下的文件名。
+ */
+export interface QuickItemEntry {
+    id: number;
+    name: string;
+    file: string;
+}
+
+/**
+ * 两组物品：**固定价**记一条就按参考单价入账；**浮动价**每条现填一次单价。
+ *
+ * 分组是游戏里的实际差别（宝石有牌价，兽决随行就市），不是我们的排版决定：
+ * 把兽决塞进固定价组，用户每次都得先进去改价，那比多一次点击更烦。
+ */
+export interface QuickItemTable {
+    fixed: QuickItemEntry[];
+    variable: QuickItemEntry[];
 }
 
 /* 空表的 `cap` 写 0 而不是 180：它是「表没加载上」的占位，不是游戏事实。
@@ -77,6 +102,7 @@ const EMPTY: GameData = {
     schools: { cap: 0, schools: [] },
     skills: { life: [], story: [] },
     schoolIcons: [],
+    quickItems: { fixed: [], variable: [] },
 };
 
 let current: GameData = EMPTY;
@@ -165,16 +191,55 @@ export function parseSchoolIconTable(raw: unknown): SchoolIconEntry[] {
     });
 }
 
-/** 把三份原始 JSON 装进缓存。启动时由 `loadGameData()` 调，测试里直接用文件内容调。 */
+/**
+ * `quick-items.json`：两组速记物品。只校验形状，不校验「固定价 38 项」这种业务数量——
+ * 游戏加了掉落物，改 JSON 就该生效，不该先改代码。
+ *
+ * **id 不许重复**：单价表按 id 存，重复会让两件物品共用同一个单价，改一件另一件跟着变，
+ * 而界面上两格都「看着对」。
+ */
+export function parseQuickItemTable(raw: unknown): QuickItemTable {
+    const file = raw as { fixed?: unknown; variable?: unknown };
+    const seen = new Set<number>();
+
+    const read = (list: unknown, where: string): QuickItemEntry[] => {
+        if (!Array.isArray(list)) throw new TypeError(`quick-items.json：${where} 应为数组`);
+        return list.map((item, index) => {
+            const entry = item as Partial<QuickItemEntry>;
+            if (typeof entry?.id !== 'number' || !Number.isInteger(entry.id) || entry.id <= 0) {
+                throw new TypeError(`quick-items.json：${where} 第 ${index + 1} 项 id 应为正整数`);
+            }
+            if (typeof entry.name !== 'string' || !entry.name.trim()) {
+                throw new TypeError(`quick-items.json：${where} 第 ${index + 1} 项缺 name`);
+            }
+            if (typeof entry.file !== 'string' || !entry.file.trim()) {
+                throw new TypeError(`quick-items.json：${where} 第 ${index + 1} 项缺 file`);
+            }
+            if (seen.has(entry.id)) {
+                throw new TypeError(
+                    `quick-items.json：id 重复（${entry.id}），两件物品会共用同一个单价`,
+                );
+            }
+            seen.add(entry.id);
+            return { id: entry.id, name: entry.name, file: entry.file };
+        });
+    };
+
+    return { fixed: read(file?.fixed, 'fixed'), variable: read(file?.variable, 'variable') };
+}
+
+/** 把四份原始 JSON 装进缓存。启动时由 `loadGameData()` 调，测试里直接用文件内容调。 */
 export function installGameData(
     schoolsRaw: unknown,
     skillsRaw: unknown,
     schoolIconsRaw: unknown,
+    quickItemsRaw: unknown,
 ): GameData {
     current = {
         schools: parseSchoolTable(schoolsRaw),
         skills: parseSkillTable(skillsRaw),
         schoolIcons: parseSchoolIconTable(schoolIconsRaw),
+        quickItems: parseQuickItemTable(quickItemsRaw),
     };
     return current;
 }
@@ -188,7 +253,7 @@ async function fetchJson(file: string): Promise<unknown> {
 let pending: Promise<GameData> | null = null;
 
 /**
- * 启动时加载一次。三份表并行取，装进缓存后返回；失败退回空表并**清掉 promise**，
+ * 启动时加载一次。四份表并行取，装进缓存后返回；失败退回空表并**清掉 promise**，
  * 下一次调用会重试。
  *
  * 调用点是 `main.ts`：它 `await` 完这个才 `mount`，所以全站拿到的都是「加载完再渲染」，
@@ -200,8 +265,11 @@ export function loadGameData(): Promise<GameData> {
             fetchJson('schools.json'),
             fetchJson('skills.json'),
             fetchJson('school-icons.json'),
+            fetchJson('quick-items.json'),
         ])
-            .then(([schools, skills, schoolIcons]) => installGameData(schools, skills, schoolIcons))
+            .then(([schools, skills, schoolIcons, quickItems]) =>
+                installGameData(schools, skills, schoolIcons, quickItems),
+            )
             .catch((error: unknown) => {
                 console.error('游戏数据表加载失败', error);
                 pending = null;
@@ -234,4 +302,9 @@ export function storySkills(): string[] {
 /** 门派技能图标清单。查图标请走 `services/game-icons.ts` 的 `schoolSkillIcon()`。 */
 export function schoolIcons(): SchoolIconEntry[] {
     return current.schoolIcons;
+}
+
+/** 速记物品的两组清单。两组都返回空数组表示「表没加载上」，界面那时退成空态。 */
+export function quickItems(): QuickItemTable {
+    return current.quickItems;
 }

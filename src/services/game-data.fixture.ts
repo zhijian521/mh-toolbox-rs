@@ -1,3 +1,4 @@
+import quickItemsFile from '../../public/game/data/quick-items.json';
 import schoolIconsFile from '../../public/game/data/school-icons.json';
 import schoolsFile from '../../public/game/data/schools.json';
 import skillsFile from '../../public/game/data/skills.json';
@@ -22,10 +23,11 @@ const json = {
     schools: schoolsFile,
     skills: skillsFile,
     schoolIcons: schoolIconsFile,
+    quickItems: quickItemsFile,
 };
 
 export function seedGameData(): GameData {
-    return installGameData(json.schools, json.skills, json.schoolIcons);
+    return installGameData(json.schools, json.skills, json.schoolIcons, json.quickItems);
 }
 
 /* 副作用：import 即就绪。刻意不放在 `beforeAll` 里——测试文件顶层的 `describe` 会

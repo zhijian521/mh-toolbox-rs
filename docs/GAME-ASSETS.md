@@ -28,6 +28,7 @@ public/game/
 │   └── *.webp
 ├── icons/           游戏内图标（技能 21、剧情 11、特技 69、门派技能 147）+ README
 │   ├── *.webp
+│   ├── items/       速记物品 59 张（`item-<id>.png`，id 即单价表的键）
 │   └── gear/        装备 83 张（`gear-<部位>-<序号>.webp`，7 个部位，60 级以上）
 └── data/            游戏事实数据 + 资源清单
     ├── icons.json   图标「文件 → 名字」清单（生活/剧情/特技，`slice.py` 生成，不手改）
@@ -35,6 +36,7 @@ public/game/
     ├── gear-icons.json   图标清单（装备，`slice-gear.py` 生成，不手改）
     ├── schools.json 门派 21 家 + 每家的七项门派技能 + 上限（`cap`）
     ├── skills.json  生活技能 21 项、剧情技能 11 项（有序名录，下标即图标序号）
+    ├── quick-items.json 速记物品 59 件（固定价 38 / 浮动价 21）+ 图标文件名
     └── *.json       以后：装备、道具
 ```
 

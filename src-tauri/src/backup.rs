@@ -41,7 +41,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::store::{self, PriceItem};
+use crate::store::{self, IncomeEntry, IncomePayload, PriceItem, QuickPrice};
 
 /// 信封格式版本。**改字段含义才 +1**，加一个可选字段不用动它。
 ///
@@ -95,6 +95,15 @@ struct BackupFile {
     /// 物价用 `PriceItem` 而不是 `Value`：这一侧的结构是规范化表、字段稳定，
     /// 且点位本来就已经内嵌在 `points` 里，没必要为了「透传」再拆一遍。
     prices: Vec<PriceItem>,
+    /// 收益账与速记单价（第 97 批起）。
+    ///
+    /// **`default` 不能省**：97 批之前导出的备份里没有这两个字段，读的时候会因缺字段
+    /// 整份失败——用户的旧备份就此打不开，而它可能是唯一一份。空数组表示「那份备份里
+    /// 本来就没有收益」，导入时照实清空，与「格式不对」区分开。
+    #[serde(default)]
+    income: Vec<IncomeEntry>,
+    #[serde(default)]
+    quick_prices: Vec<QuickPrice>,
 }
 
 /// 导入成功后的回执。
@@ -103,6 +112,9 @@ struct BackupFile {
 pub struct ImportSummary {
     characters: i64,
     prices: i64,
+    /// 导进来的收益条数。不看这个数，用户会以为「导入成功了、收益也回来了」，
+    /// 而那份备份可能是一份只有角色与物价的旧备份。
+    entries: i64,
     /// 会被前端裁掉的点位数（每件物品只存 `POINT_LIMIT` 条）。0 表示一条都不丢。
     ///
     /// 必须报出来：导入是「如实搬进来」，而前端**下次保存**时会按上限裁。用户导入了一份
@@ -122,6 +134,7 @@ pub struct ImportSummary {
 pub struct ClearSummary {
     characters: i64,
     prices: i64,
+    entries: i64,
 }
 
 /* ======================================================================
@@ -195,12 +208,18 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
     let backup_path = saved.display().to_string();
     let mut conn = store::open(&app)
         .map_err(|error| format!("{error}；替换前的数据已备份到 {backup_path}"))?;
-    let (characters, prices) = store::replace_all(&mut conn, &file.characters, &file.prices)
-        .map_err(|error| format!("{error}；替换前的数据已备份到 {backup_path}"))?;
+    let income = IncomePayload {
+        entries: file.income,
+        prices: file.quick_prices,
+    };
+    let (characters, prices, entries) =
+        store::replace_all(&mut conn, &file.characters, &file.prices, &income)
+            .map_err(|error| format!("{error}；替换前的数据已备份到 {backup_path}"))?;
 
     Ok(Some(ImportSummary {
         characters,
         prices,
+        entries,
         truncated: truncation.points_dropped,
         truncated_items: truncation.items_over_limit,
         backup_path,
@@ -214,8 +233,12 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
 /// 但三个命令摆在一起时，签名不一致会让人以为「这个大概不能在等待里调」。
 #[tauri::command]
 pub async fn data_clear(app: AppHandle) -> Result<ClearSummary, String> {
-    let (characters, prices) = store::clear_all(&app)?;
-    Ok(ClearSummary { characters, prices })
+    let (characters, prices, entries) = store::clear_all(&app)?;
+    Ok(ClearSummary {
+        characters,
+        prices,
+        entries,
+    })
 }
 
 /* ======================================================================
@@ -344,12 +367,17 @@ async fn ask_open_path(app: &AppHandle) -> Result<Option<PathBuf>, String> {
 /// `pub fn`，在这里再写一遍 `open` / 查询只会多出一份会和 `store.rs` 漂移的副本。
 /// 命令在 Rust 侧就是一个函数，调用它不需要 IPC。
 fn build(app: &AppHandle) -> Result<BackupFile, String> {
+    /* 收益与单价一次读回（`income_load` 本来就是两份一起），再拆进信封的两栏：
+     * 备份文件里「记录」与「单价」是两件事，读者不该为了拿单价去翻一堆记录。 */
+    let income = store::income_load(app.clone())?;
     Ok(BackupFile {
         format: FORMAT,
         app: APP_TAG.to_string(),
         exported_at: now_ms(),
         characters: store::characters_load(app.clone())?,
         prices: store::prices_load(app.clone())?,
+        income: income.entries,
+        quick_prices: income.prices,
     })
 }
 
@@ -591,6 +619,22 @@ mod tests {
             exported_at: 1_700_000_000_000,
             characters: vec![serde_json::json!({ "id": "c1", "name": "大唐" })],
             prices: vec![sample_item()],
+            /* 收益与单价各给一条：往返测试要证明它们**也在信封里**，
+             * 空数组会让「漏序列化」和「本来就没有」看起来一样。 */
+            income: vec![IncomeEntry {
+                id: "e1".to_string(),
+                date: "2026-11-04".to_string(),
+                character_id: "c1".to_string(),
+                kind: "income".to_string(),
+                amount: 4133.8,
+                item: "定魂珠".to_string(),
+                note: String::new(),
+                created_at: 1,
+            }],
+            quick_prices: vec![QuickPrice {
+                item_id: 9,
+                price: 4.6,
+            }],
         }
     }
 

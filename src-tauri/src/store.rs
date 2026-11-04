@@ -1,4 +1,4 @@
-//! 本地数据层：物价与（将来的）角色名册落在同一个 SQLite 文件里。
+//! 本地数据层：物价、角色名册、收益账与速记单价落在同一个 SQLite 文件里。
 //!
 //! ## 为什么是「整份读写」而不是增量
 //!
@@ -6,6 +6,9 @@
 //! 写库、一次 `load` 读全量。几十件物品、几百条价格，整份也就几十 KB，
 //! 而增量（upsert / delete / 排序游标）会立刻引出「谁删了这一条」「并发写怎么合」
 //! 这类问题——等到数据量真的撑不住再改，那时才有真实的性能数据可用。
+//!
+//! **收益那张表也是整份**：一天十几条、一年几千条，几千行写一次也就几百 KB，
+//! 而速记的整套体验依赖「点一下立刻落账」——增量写的每一步都要考虑半途失败。
 //!
 //! ## 为什么加 `meta` 表
 //!
@@ -35,7 +38,11 @@ pub(crate) const DB_FILE: &str = "mh-toolbox.db";
 /// 这个读-比较-拒绝的顺序是**必须的**：早先这里是无条件把当前版本覆写回去，
 /// 用户用旧 exe 打开过一次 v2 的库，版本号就被降成 1，升级回来后「小于才迁移」
 /// 的判断永远不成立——表缺列且无法自愈。
-const SCHEMA_VERSION: i64 = 1;
+///
+/// **v2（2026-11-04，第 97 批）**：加 `income_entries` 与 `quick_prices` 两张表。
+/// 只加不改，旧版的 SQL 不认识它们、也不会碰；但版本号仍要 +1——这是「改表就要 +1」
+/// 的规矩，代价是回退到旧 exe 时它会拒绝打开（`AGENTS.md` 里写明升级是单向的）。
+const SCHEMA_VERSION: i64 = 2;
 
 /// 一条价格记录。字段名与前端 `PricePoint` 一一对应（`serde` 自动转 camelCase）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,6 +69,58 @@ pub struct PriceItem {
     pub points: Vec<PricePoint>,
     pub created_at: i64,
     pub updated_at: i64,
+}
+
+/* ======================================================================
+ * 收益账与速记单价（第 97 批）
+ *
+ * 分成两件事是因为它们的寿命不同：**记录**是流水，越攒越多、按日期查；
+ * **单价**是配置，一件物品一个数、随行就市地改。混在一张表里会让「改价」
+ * 变成「重写所有引用它的记录」——而旧记录必须留着当时的价。
+ * ==================================================================== */
+
+/// 一条收益记录。
+///
+/// `amount` 存**原值**（`15000` 表示 1.5 万），与物价同一个口径：显示时才折万。
+/// 前端已保证 `amount > 0`，方向由 `kind` 表达——负数与「支出」两套写法混用，
+/// 汇总时漏掉一处就会把净额算反。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IncomeEntry {
+    pub id: String,
+    /// `YYYY-MM-DD`。
+    pub date: String,
+    /// 关联的角色 id；空串表示「未指定角色」（整号摆摊、代练收入）。
+    pub character_id: String,
+    /// `income` / `expense`。
+    pub kind: String,
+    pub amount: f64,
+    /// 物品名（速记时带上，手记时可空）。
+    pub item: String,
+    pub note: String,
+    pub created_at: i64,
+}
+
+/// 一件速记物品的单价。
+///
+/// `item_id` 是 `game/data/quick-items.json` 里的稳定编号；单价存**原值**。
+/// 没有行 = 这件物品还没设过价，界面显示「未设价」。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuickPrice {
+    pub item_id: i64,
+    pub price: f64,
+}
+
+/// 收益页一次读回来的全部东西。
+///
+/// 两份一起读写，因为页面总是同时需要它们：速记格要显示单价，清单要显示今天的记录。
+/// 分两条命令会让首屏闪一下（先有记录、后补单价）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IncomePayload {
+    pub entries: Vec<IncomeEntry>,
+    pub prices: Vec<QuickPrice>,
 }
 
 /* ======================================================================
@@ -193,6 +252,33 @@ fn init(conn: &Connection) -> Result<(), String> {
             id         TEXT PRIMARY KEY,
             data       TEXT NOT NULL,
             sort_order INTEGER NOT NULL
+        );
+
+        /* 收益账：一行一笔。规范化列而不是一列 JSON，因为**按日期查与按角色汇总**
+         * 是这一页的日常操作（今日清单、本周合计），而角色只要 id 不需要整份档案。
+         * 角色改名/删号时这张表**不做级联**：记录里的 characterId 找不到人时，
+         * 界面显示「未指定角色」，比把历史一并删掉安全——账不能因为改了个名字就少一笔。 */
+        CREATE TABLE IF NOT EXISTS income_entries (
+            id           TEXT PRIMARY KEY,
+            date         TEXT NOT NULL,
+            character_id TEXT NOT NULL,
+            kind         TEXT NOT NULL,
+            amount       REAL NOT NULL,
+            item_name    TEXT NOT NULL,
+            note         TEXT NOT NULL,
+            created_at   INTEGER NOT NULL
+        );
+
+        /* 页面上每一次读都是「某几天 + 倒序」，复合索引让这条查询走覆盖索引。 */
+        CREATE INDEX IF NOT EXISTS idx_income_entries_date
+            ON income_entries(date DESC, created_at DESC);
+
+        /* 速记单价：`item_id` 就是物品清单里的稳定编号，一件一行。
+         * 没设过价的物品**没有行**（而不是 0），0 是「这件东西一文不值」，
+         * 与「还没定价」在界面上要显示成两种东西。 */
+        CREATE TABLE IF NOT EXISTS quick_prices (
+            item_id INTEGER PRIMARY KEY,
+            price   REAL NOT NULL
         );",
     )
     .map_err(|error| format!("建表失败：{error}"))?;
@@ -536,7 +622,8 @@ pub(crate) fn replace_all(
     conn: &mut Connection,
     characters: &[serde_json::Value],
     prices: &[PriceItem],
-) -> Result<(i64, i64), String> {
+    income: &IncomePayload,
+) -> Result<(i64, i64, i64), String> {
     let tx = conn
         .transaction()
         .map_err(|error| format!("开事务失败：{error}"))?;
@@ -547,6 +634,10 @@ pub(crate) fn replace_all(
         .map_err(|error| format!("清空物品失败：{error}"))?;
     tx.execute("DELETE FROM characters", [])
         .map_err(|error| format!("清空名册失败：{error}"))?;
+    tx.execute("DELETE FROM income_entries", [])
+        .map_err(|error| format!("清空收益失败：{error}"))?;
+    tx.execute("DELETE FROM quick_prices", [])
+        .map_err(|error| format!("清空单价失败：{error}"))?;
 
     let mut written_characters: i64 = 0;
     for (index, character) in characters.iter().enumerate() {
@@ -560,8 +651,17 @@ pub(crate) fn replace_all(
         written_items += 1;
     }
 
+    let mut written_entries: i64 = 0;
+    for entry in &income.entries {
+        insert_income_entry(&tx, entry)?;
+        written_entries += 1;
+    }
+    for price in &income.prices {
+        insert_quick_price(&tx, price)?;
+    }
+
     tx.commit().map_err(|error| format!("提交失败：{error}"))?;
-    Ok((written_characters, written_items))
+    Ok((written_characters, written_items, written_entries))
 }
 
 /// 名册的 `localStorage` 老数据搬过一次没有。
@@ -579,31 +679,154 @@ pub fn characters_mark_legacy_imported(app: AppHandle) -> Result<(), String> {
 }
 
 /* ======================================================================
+ * 收益：账与速记单价一起读写
+ * ==================================================================== */
+
+/// 读回全部收益记录与速记单价。
+///
+/// 两份一次取回，因为收益页总要同时用：速记格显示单价、今日清单显示记录。
+/// 分两条命令会让首屏闪一下（先有记录、后补单价），而这两块在同一屏内。
+#[tauri::command]
+pub fn income_load(app: AppHandle) -> Result<IncomePayload, String> {
+    let conn = open(&app)?;
+    load_income(&conn)
+}
+
+/// `income_load` 的本体。与 `load_items` 同一个理由拆出来：测试能对着临时目录跑。
+fn load_income(conn: &Connection) -> Result<IncomePayload, String> {
+    let mut entry_stmt = conn
+        .prepare(
+            "SELECT id, date, character_id, kind, amount, item_name, note, created_at
+             FROM income_entries ORDER BY date DESC, created_at DESC",
+        )
+        .map_err(|error| format!("准备收益查询失败：{error}"))?;
+    let entries = entry_stmt
+        .query_map([], |row| {
+            Ok(IncomeEntry {
+                id: row.get(0)?,
+                date: row.get(1)?,
+                character_id: row.get(2)?,
+                kind: row.get(3)?,
+                amount: row.get(4)?,
+                item: row.get(5)?,
+                note: row.get(6)?,
+                created_at: row.get(7)?,
+            })
+        })
+        .map_err(|error| format!("读收益失败：{error}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("读收益失败：{error}"))?;
+
+    let mut price_stmt = conn
+        .prepare("SELECT item_id, price FROM quick_prices ORDER BY item_id")
+        .map_err(|error| format!("准备单价查询失败：{error}"))?;
+    let prices = price_stmt
+        .query_map([], |row| {
+            Ok(QuickPrice {
+                item_id: row.get(0)?,
+                price: row.get(1)?,
+            })
+        })
+        .map_err(|error| format!("读单价失败：{error}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("读单价失败：{error}"))?;
+
+    Ok(IncomePayload { entries, prices })
+}
+
+/// 整份写回收益账与速记单价。
+///
+/// **两张表同一个事务**：速记一次点击会同时产生「一条记录」与「可能改了单价」，
+/// 分两次提交时若第二次失败，就会出现「账记上了、价没改」——下一次点同一件物品
+/// 仍然按旧价入账，而用户以为自己刚刚改过。
+#[tauri::command]
+pub fn income_save(app: AppHandle, payload: IncomePayload) -> Result<(), String> {
+    let mut conn = open(&app)?;
+    save_income(&mut conn, &payload)
+}
+
+fn save_income(conn: &mut Connection, payload: &IncomePayload) -> Result<(), String> {
+    let tx = conn
+        .transaction()
+        .map_err(|error| format!("开事务失败：{error}"))?;
+
+    tx.execute("DELETE FROM income_entries", [])
+        .map_err(|error| format!("清空收益失败：{error}"))?;
+    tx.execute("DELETE FROM quick_prices", [])
+        .map_err(|error| format!("清空单价失败：{error}"))?;
+
+    for entry in &payload.entries {
+        insert_income_entry(&tx, entry)?;
+    }
+    for price in &payload.prices {
+        insert_quick_price(&tx, price)?;
+    }
+
+    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
+    Ok(())
+}
+
+/// 写一条收益。`INSERT OR REPLACE`：同一 id 再写一次是覆盖（与名册同一个语义）。
+fn insert_income_entry(conn: &Connection, entry: &IncomeEntry) -> Result<(), String> {
+    conn.execute(
+        "INSERT OR REPLACE INTO income_entries
+            (id, date, character_id, kind, amount, item_name, note, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            entry.id,
+            entry.date,
+            entry.character_id,
+            entry.kind,
+            entry.amount,
+            entry.item,
+            entry.note,
+            entry.created_at,
+        ],
+    )
+    .map_err(|error| format!("写收益失败：{error}"))?;
+    Ok(())
+}
+
+/// 写一件物品的单价。一件一行，主键是物品 id。
+fn insert_quick_price(conn: &Connection, price: &QuickPrice) -> Result<(), String> {
+    conn.execute(
+        "INSERT OR REPLACE INTO quick_prices (item_id, price) VALUES (?1, ?2)",
+        params![price.item_id, price.price],
+    )
+    .map_err(|error| format!("写单价失败：{error}"))?;
+    Ok(())
+}
+
+/* ======================================================================
  * 清空：给「设置 → 数据 → 清除」用，也给导入前那一手用（导入 = 整体替换）
  * ==================================================================== */
 
-/// 清空角色与物价，返回 (角色数, 物品数) 供界面提示。
+/// 清空角色、物价、收益，返回 (角色数, 物品数, 收益条数) 供界面提示。
 ///
 /// **不动 `meta`**：`charactersLegacyImported` / `pricesLegacyImported` 这类迁移标记
 /// 一旦清掉，下次启动 `roster.ts` / `prices-store.ts` 会把旧 `localStorage` 里的数据
 /// **再搬一遍**——用户刚清干净，重启又回来一批，那是这个功能最不该有的样子。
 /// `schemaVersion` 也在同一张表里，删它没有好处。
 ///
-/// 三条 `DELETE` 显式写出来，不依赖 `ON DELETE CASCADE`：级联只在
+/// 四条 `DELETE` 显式写出来，不依赖 `ON DELETE CASCADE`：级联只在
 /// `PRAGMA foreign_keys = ON` 时成立，而这个 pragma **是按连接设的**
 /// （`open_at` 里为了别的场景打开过它，但那是「每次开到新连接都要记得再设一遍」的约定）。
 /// 依赖它的后果不对称：漏删 `price_points` 不会报任何错，只会在库里攒一堆指向
 /// 不存在物品的价格行，而下一次 `prices_save` 也是先清后写，**这些孤儿永远没人收拾**。
-/// 显式三条把这个隐患从执行路径上摘掉，代价只是多写两行。
-pub(crate) fn clear_all(app: &AppHandle) -> Result<(i64, i64), String> {
+/// 显式四条把这个隐患从执行路径上摘掉，代价只是多写两行。
+///
+/// **收益与单价一起清**：用户点「清除全部数据」时想的是「回到刚装好那样」，
+/// 留下收益账比留下物价更糟——那些记录还指着已经被清掉的角色。
+pub(crate) fn clear_all(app: &AppHandle) -> Result<(i64, i64, i64), String> {
     let mut conn = open(app)?;
     clear_records(&mut conn)
 }
 
 /// `clear_all` 的本体。与 `load_items` / `save_items` 同一个理由拆出来：
 /// **能对着临时目录跑的那一半**留在这里，`AppHandle` 只留在薄薄的外壳上。
+///
 /// 于是「清空之后 `meta` 还在」这条设计可以写成测试，而不是只写在注释里。
-fn clear_records(conn: &mut Connection) -> Result<(i64, i64), String> {
+fn clear_records(conn: &mut Connection) -> Result<(i64, i64, i64), String> {
     let tx = conn
         .transaction()
         .map_err(|error| format!("开事务失败：{error}"))?;
@@ -619,13 +842,18 @@ fn clear_records(conn: &mut Connection) -> Result<(i64, i64), String> {
     let characters = tx
         .execute("DELETE FROM characters", [])
         .map_err(|error| format!("清空名册失败：{error}"))?;
+    let entries = tx
+        .execute("DELETE FROM income_entries", [])
+        .map_err(|error| format!("清空收益失败：{error}"))?;
+    tx.execute("DELETE FROM quick_prices", [])
+        .map_err(|error| format!("清空单价失败：{error}"))?;
 
     /* 这里**故意没有** `DELETE FROM meta`。删了它两次「清空」之间只差一行代码，
      * 而后果是下次启动整份老数据复活（见 `clear_all` 的注释）。`meta` 里只有三类东西：
      * `schemaVersion`（删了 `init` 会补回来，但补的是「当前版本」这句话本身没有意义）、
      * 两个 `*LegacyImported` 标记（删了就重新搬）、以及将来的迁移标记（同理）。 */
     tx.commit().map_err(|error| format!("提交失败：{error}"))?;
-    Ok((characters as i64, items as i64))
+    Ok((characters as i64, items as i64, entries as i64))
 }
 
 /* ======================================================================
@@ -670,6 +898,28 @@ mod tests {
     impl Drop for TempDir {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+
+    /// 空收益：`replace_all` / `clear_records` 的用例大多不关心收益，
+    /// 但签名要求给一份——写一个具名 helper，比在每处写 `&IncomePayload { .. }` 短。
+    fn no_income() -> IncomePayload {
+        IncomePayload {
+            entries: Vec::new(),
+            prices: Vec::new(),
+        }
+    }
+
+    fn entry(id: &str, date: &str, kind: &str, amount: f64, item: &str) -> IncomeEntry {
+        IncomeEntry {
+            id: id.to_string(),
+            date: date.to_string(),
+            character_id: "c1".to_string(),
+            kind: kind.to_string(),
+            amount,
+            item: item.to_string(),
+            note: String::new(),
+            created_at: 1,
         }
     }
 
@@ -855,11 +1105,11 @@ mod tests {
         write_meta(&conn, "charactersLegacyImported", "1").expect("写名册迁移标记");
         write_meta(&conn, "pricesLegacyImported", "1").expect("写物价迁移标记");
 
-        let (characters, items) = clear_records(&mut conn).expect("清空");
+        let (characters, items, entries) = clear_records(&mut conn).expect("清空");
         assert_eq!(
-            (characters, items),
-            (1, 1),
-            "返回的两个数要报出清掉了多少，界面那两句提示靠它"
+            (characters, items, entries),
+            (1, 1, 0),
+            "返回的三个数要报出清掉了多少，界面那几句提示靠它"
         );
 
         let count = |table: &str| -> i64 {
@@ -975,7 +1225,8 @@ mod tests {
 
         /* 两条同一个物品 id：第二次 INSERT 撞主键。模拟「校验漏了重复 id」的兜底。 */
         let duplicated = vec![item("dup", "重复甲", vec![]), item("dup", "重复乙", vec![])];
-        let error = replace_all(&mut conn, &[], &duplicated).expect_err("重复 id 必须失败");
+        let error =
+            replace_all(&mut conn, &[], &duplicated, &no_income()).expect_err("重复 id 必须失败");
         assert!(
             error.contains("写入物品"),
             "错误要说清是哪一步失败的，实际是：{error}"
@@ -997,18 +1248,78 @@ mod tests {
         let dir = TempDir::new(18);
         let mut conn = open_at(dir.base()).expect("打开数据库");
 
-        let (characters, prices) = replace_all(
+        let income = IncomePayload {
+            entries: vec![entry("e1", "2026-11-04", "income", 4133.8, "定魂珠")],
+            prices: vec![QuickPrice {
+                item_id: 9,
+                price: 4.6,
+            }],
+        };
+        let (characters, prices, entries) = replace_all(
             &mut conn,
             &[
                 serde_json::json!({ "id": "c1" }),
                 serde_json::json!({ "id": "c2" }),
             ],
             &[item("i1", "黑宝石", vec![]), item("i2", "月亮石", vec![])],
+            &income,
         )
         .expect("导入");
 
-        assert_eq!((characters, prices), (2, 2));
+        assert_eq!((characters, prices, entries), (2, 2, 1));
         assert_eq!(load_items(&conn).expect("读物价").len(), 2);
         assert_eq!(load_characters(&conn).expect("读名册").len(), 2);
+        let back = load_income(&conn).expect("读收益");
+        assert_eq!(back.entries.len(), 1);
+        assert_eq!(back.prices.len(), 1, "单价也要跟着备份一起进来");
+    }
+
+    /// 收益与单价整份写回：两份一起进、一起出，读回来按日期倒排。
+    ///
+    /// 这条盯的是**整份语义**：速记的每次点击都是「拿内存里那份改一改再整份写回」，
+    /// 若哪天改成增量却漏了「先清」，删掉的记录会悄悄留在库里，而界面永远看不到它。
+    #[test]
+    fn income_round_trip_keeps_entries_and_prices() {
+        let dir = TempDir::new(19);
+        let mut conn = open_at(dir.base()).expect("打开数据库");
+
+        save_income(
+            &mut conn,
+            &IncomePayload {
+                entries: vec![
+                    entry("e1", "2026-11-03", "income", 25.8, "舍利子 ×2"),
+                    entry("e2", "2026-11-04", "expense", 15.0, "金香玉"),
+                ],
+                prices: vec![
+                    QuickPrice {
+                        item_id: 20,
+                        price: 8.5,
+                    },
+                    QuickPrice {
+                        item_id: 9,
+                        price: 4.6,
+                    },
+                ],
+            },
+        )
+        .expect("写收益");
+
+        let back = load_income(&conn).expect("读收益");
+        assert_eq!(back.entries.len(), 2);
+        assert_eq!(back.entries[0].id, "e2", "按日期倒排：今天那条在前");
+        assert_eq!(back.prices[0].item_id, 9, "单价按 item_id 升序");
+
+        save_income(
+            &mut conn,
+            &IncomePayload {
+                entries: vec![entry("e3", "2026-11-04", "income", 1.0, "")],
+                prices: Vec::new(),
+            },
+        )
+        .expect("再写一份");
+
+        let back = load_income(&conn).expect("读收益");
+        assert_eq!(back.entries.len(), 1, "整份替换：旧的两条不该留着");
+        assert!(back.prices.is_empty(), "单价也是整份替换");
     }
 }

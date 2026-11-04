@@ -34,6 +34,7 @@ import {
     IconDownload,
     IconFlag,
     IconFlask,
+    IconHistory,
     IconInfoCircle,
     IconLayoutDashboard,
     IconMapPin,
@@ -104,6 +105,9 @@ const ICON_META = {
     flask: { glyph: IconFlask, label: '测试', group: 'action' },
     add: { glyph: IconPlus, label: '新增', group: 'action' },
     subtract: { glyph: IconMinus, label: '减少', group: 'action' },
+    // 时钟带一圈逆时针箭头：历史是「往回看」。用铅笔/本子会与「记一笔」撞脸，
+    // 而这两个动作在收益页上恰好一前一后并排（历史收益 / 物品速记）。
+    history: { glyph: IconHistory, label: '历史', group: 'action' },
     // 编辑用铅笔画斜线：账号/角色这种东西「改一行」与「删掉重录」是两件事，
     // 卡头上两枚并排时，一支笔与一只桶一眼分得开；用「设置齿轮」会与左栏设置撞脸。
     edit: { glyph: IconPencil, label: '编辑', group: 'action' },

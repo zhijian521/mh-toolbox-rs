@@ -1,0 +1,301 @@
+{
+    "fixed": [
+        {
+            "id": 1,
+            "name": "60武器",
+            "file": "item-1.png"
+        },
+        {
+            "id": 2,
+            "name": "70武器",
+            "file": "item-2.png"
+        },
+        {
+            "id": 3,
+            "name": "80武器",
+            "file": "item-3.png"
+        },
+        {
+            "id": 4,
+            "name": "60装备",
+            "file": "item-4.png"
+        },
+        {
+            "id": 5,
+            "name": "70装备",
+            "file": "item-5.png"
+        },
+        {
+            "id": 6,
+            "name": "80装备",
+            "file": "item-6.png"
+        },
+        {
+            "id": 7,
+            "name": "特赦令牌",
+            "file": "item-7.png"
+        },
+        {
+            "id": 8,
+            "name": "金刚石",
+            "file": "item-8.png"
+        },
+        {
+            "id": 9,
+            "name": "定魂珠",
+            "file": "item-9.png"
+        },
+        {
+            "id": 10,
+            "name": "夜明珠",
+            "file": "item-10.png"
+        },
+        {
+            "id": 11,
+            "name": "龙鳞",
+            "file": "item-11.png"
+        },
+        {
+            "id": 12,
+            "name": "避水珠",
+            "file": "item-12.png"
+        },
+        {
+            "id": 13,
+            "name": "金柳露",
+            "file": "item-13.png"
+        },
+        {
+            "id": 14,
+            "name": "超级金柳露",
+            "file": "item-14.png"
+        },
+        {
+            "id": 15,
+            "name": "净瓶玉露",
+            "file": "item-15.png"
+        },
+        {
+            "id": 16,
+            "name": "超级净瓶玉露",
+            "file": "item-16.png"
+        },
+        {
+            "id": 36,
+            "name": "月华露",
+            "file": "item-36.png"
+        },
+        {
+            "id": 20,
+            "name": "修炼果",
+            "file": "item-20.png"
+        },
+        {
+            "id": 22,
+            "name": "黑宝石",
+            "file": "item-22.png"
+        },
+        {
+            "id": 23,
+            "name": "红玛瑙",
+            "file": "item-23.png"
+        },
+        {
+            "id": 24,
+            "name": "太阳石",
+            "file": "item-24.png"
+        },
+        {
+            "id": 25,
+            "name": "月亮石",
+            "file": "item-25.png"
+        },
+        {
+            "id": 26,
+            "name": "舍利子",
+            "file": "item-26.png"
+        },
+        {
+            "id": 27,
+            "name": "光芒石",
+            "file": "item-27.png"
+        },
+        {
+            "id": 29,
+            "name": "星辉石",
+            "file": "item-29.png"
+        },
+        {
+            "id": 31,
+            "name": "精魄灵石",
+            "file": "item-31.png"
+        },
+        {
+            "id": 30,
+            "name": "五色灵尘",
+            "file": "item-30.gif"
+        },
+        {
+            "id": 17,
+            "name": "强化石",
+            "file": "item-17.png"
+        },
+        {
+            "id": 34,
+            "name": "符石",
+            "file": "item-34.png"
+        },
+        {
+            "id": 35,
+            "name": "符石卷轴",
+            "file": "item-35.png"
+        },
+        {
+            "id": 19,
+            "name": "海马",
+            "file": "item-19.png"
+        },
+        {
+            "id": 18,
+            "name": "摇钱树苗",
+            "file": "item-18.png"
+        },
+        {
+            "id": 21,
+            "name": "彩果",
+            "file": "item-21.png"
+        },
+        {
+            "id": 40,
+            "name": "种子",
+            "file": "item-40.png"
+        },
+        {
+            "id": 32,
+            "name": "乐器",
+            "file": "item-32.png"
+        },
+        {
+            "id": 33,
+            "name": "玫瑰",
+            "file": "item-33.png"
+        },
+        {
+            "id": 38,
+            "name": "金银锦盒",
+            "file": "item-38.png"
+        },
+        {
+            "id": 39,
+            "name": "法宝任务书",
+            "file": "item-39.png"
+        }
+    ],
+    "variable": [
+        {
+            "id": 99,
+            "name": "金币",
+            "file": "item-99.png"
+        },
+        {
+            "id": 100,
+            "name": "兽决",
+            "file": "item-100.png"
+        },
+        {
+            "id": 101,
+            "name": "高级兽决",
+            "file": "item-101.gif"
+        },
+        {
+            "id": 102,
+            "name": "内丹",
+            "file": "item-102.png"
+        },
+        {
+            "id": 103,
+            "name": "高内丹",
+            "file": "item-103.png"
+        },
+        {
+            "id": 104,
+            "name": "珍珠",
+            "file": "item-104.png"
+        },
+        {
+            "id": 105,
+            "name": "附魔",
+            "file": "item-105.png"
+        },
+        {
+            "id": 106,
+            "name": "书",
+            "file": "item-106.png"
+        },
+        {
+            "id": 107,
+            "name": "铁",
+            "file": "item-107.png"
+        },
+        {
+            "id": 108,
+            "name": "晶石",
+            "file": "item-108.png"
+        },
+        {
+            "id": 109,
+            "name": "灵饰书",
+            "file": "item-109.png"
+        },
+        {
+            "id": 110,
+            "name": "炼妖石",
+            "file": "item-110.png"
+        },
+        {
+            "id": 111,
+            "name": "图册",
+            "file": "item-111.png"
+        },
+        {
+            "id": 112,
+            "name": "金丹",
+            "file": "item-112.png"
+        },
+        {
+            "id": 113,
+            "name": "如意丹",
+            "file": "item-113.png"
+        },
+        {
+            "id": 114,
+            "name": "卡",
+            "file": "item-114.png"
+        },
+        {
+            "id": 115,
+            "name": "钟灵石",
+            "file": "item-115.gif"
+        },
+        {
+            "id": 116,
+            "name": "法宝",
+            "file": "item-116.png"
+        },
+        {
+            "id": 117,
+            "name": "鬼谷子",
+            "file": "item-117.png"
+        },
+        {
+            "id": 118,
+            "name": "瓶子",
+            "file": "item-118.png"
+        },
+        {
+            "id": 200,
+            "name": "其他",
+            "file": "item-200.png"
+        }
+    ]
+}

@@ -14,12 +14,13 @@ import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
 import SlotButton from '../../components/SlotButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
+import TogglePills from '../../components/TogglePills.vue';
 import { useFontScale } from '../../composables/use-font-scale';
 import { notify } from '../../composables/use-notify';
 import { THEME_OPTIONS, useTheme } from '../../composables/use-theme';
 
 /**
- * 原子组件：抽出来复用的十二件（十二条 `kit-cell`，一条里可能并排两个同族件——
+ * 原子组件：抽出来复用的十三件（十三条 `kit-cell`，一条里可能并排两个同族件——
  * 比如 `Field` / `NumberField`、`PressTile` / `PressButton`）。
  *
  * 加一件请连上面那个数一起改：篇首原先写死「九件」，加了两件之后就成了假信息。
@@ -56,10 +57,18 @@ const DEMO_SCHOOLS = ['未选', '大唐官府', '方寸山', '化生寺', '阴�
     (name) => ({ value: name === '未选' ? '' : name, label: name }),
 );
 const demoSchool = ref('五庄观');
+
+/** 多选胶囊：初值给一项，才好看出「按下的那几枚是朱的」与「其余仍是空槽」。 */
+const DEMO_TOGGLES = [
+    { value: 'task', label: '任务' },
+    { value: 'school', label: '师门' },
+    { value: 'guild', label: '帮派' },
+];
+const demoToggles = ref<string[]>(['task']);
 </script>
 
 <template>
-    <LedgerSection title="原子组件" hint="抽出来复用的十二件，业务页直接拿去用">
+    <LedgerSection title="原子组件" hint="抽出来复用的十三件，业务页直接拿去用">
         <div class="kit atoms-kit">
             <div class="kit-cell">
                 <span class="col-head">SegmentedPills · 分段胶囊</span>
@@ -67,6 +76,17 @@ const demoSchool = ref('五庄观');
                     <SegmentedPills v-model="mode" :options="THEME_OPTIONS" label="主题" />
                 </div>
                 <p class="note">整组一个 Tab 停靠点；单格质感走全局 <code>.bevel-pill</code>。</p>
+            </div>
+
+            <div class="kit-cell">
+                <span class="col-head">TogglePills · 多选胶囊</span>
+                <div class="kit-row">
+                    <TogglePills v-model="demoToggles" :options="DEMO_TOGGLES" label="演示：多选" />
+                </div>
+                <p class="note">
+                    与分段胶囊同一套材质，语义是一组<b>开关</b>：左右键只移焦点、空格切换，
+                    按下第二枚不会弹起第一枚。
+                </p>
             </div>
 
             <div class="kit-cell">

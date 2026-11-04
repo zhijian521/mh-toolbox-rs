@@ -18,6 +18,19 @@ import { lifeSkills, schoolIcons, storySkills } from './game-data';
 
 const ICON_DIR = `${import.meta.env.BASE_URL}game/icons/`;
 
+/** 速记物品图标的目录。与 `icons/` 下的技能图标分开一层：物品 59 张，混在一起按序号找不着。 */
+const ITEM_DIR = `${ICON_DIR}items/`;
+
+/**
+ * 速记物品图标：文件名写在 `game/data/quick-items.json` 里，这里只拼目录。
+ *
+ * 不像技能图标那样按下标拼——物品的 id 是旧系统沿用的稳定编号（1–40 / 99–200），
+ * 中间有缺号，拿它推文件名会在缺号处错位。文件名跟着清单走，加物品只改 JSON 与图。
+ */
+export function quickItemIcon(file: string): string {
+    return `${ITEM_DIR}${file}`;
+}
+
 /** 文件名两位序号，与切图脚本的命名一致（`skill-01` … `skill-21`）。 */
 function iconUrl(prefix: 'skill' | 'story', index: number): string {
     return `${ICON_DIR}${prefix}-${String(index + 1).padStart(2, '0')}.webp`;
@@ -50,4 +63,19 @@ export function schoolSkillIcon(name: string): string | undefined {
     const entry = schoolIcons().find((item) => item.name === name);
     if (!entry) return undefined;
     return `${ICON_DIR}${entry.id}.webp`;
+}
+
+/**
+ * 装备格的示意图。
+ *
+ * `file` 是 `views/characters/character.ts` 的 `GEAR_SLOT_ICON` 里那条相对路径
+ * （`gear/…` 或 `lingshi/…`），根目录只在这里拼——与三套技能图标同一条约定：
+ * 图片放在哪由 services 说了算，哪一格配哪张图是业务，住在 views 里。
+ *
+ * 与技能图标不同，这里**不做「查不到返回 undefined」**：调用方传的就是写死的表，
+ * 查不到只可能是表里写了不存在的文件，那种错该在界面上露出来（破图），
+ * 而不是静默退回空块——退回空块会让人以为「这件装备没有图」。
+ */
+export function gearSlotIcon(file: string): string {
+    return `${ICON_DIR}${file}`;
 }
