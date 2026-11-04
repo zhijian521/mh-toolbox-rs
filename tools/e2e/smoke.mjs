@@ -84,6 +84,47 @@ try {
     t.info('账本快照失败', `${error.message}（跑完可能要手动收拾测试数据）`);
 }
 
+/*
+ * 对账：页面上的条数必须等于库里的行数。
+ *
+ * 对不上说明这一版界面**没读到数据**——热更新把 store 模块重算了一遍（模块级单例
+ * 回到空数组，而 `loadRoster` 只在启动时跑）、读库失败、或者库刚被别的进程改过。
+ * 这时任何一次保存都是「拿空表覆盖库」。2026-11-04 真栽过一次：一次
+ * `characters_save([新角色])` 把 4 个角色顶掉了。
+ *
+ * 所以写第一个字之前先对账；对不上就停，连测试数据都不写。
+ */
+const dbCount = (command) =>
+    cdp.evaluate(
+        `window.__TAURI_INTERNALS__.invoke(${JSON.stringify(command)})
+            .then((v) => (Array.isArray(v) ? v.length : -1), () => -1)`,
+    );
+
+await ui.goto('角色');
+const charsOnPage = await ui.count('.roster .char');
+const charsInDb = await dbCount('characters_load');
+t.check(
+    '对账：名册页面条数 = 库里行数',
+    charsOnPage === charsInDb,
+    `页面 ${charsOnPage} / 库 ${charsInDb}`,
+);
+
+await ui.goto('物价');
+const pricesOnPage = await ui.count('article.price-card');
+const pricesInDb = await dbCount('prices_load');
+t.check(
+    '对账：物价页面条数 = 库里行数',
+    pricesOnPage === pricesInDb,
+    `页面 ${pricesOnPage} / 库 ${pricesInDb}`,
+);
+
+if (charsOnPage !== charsInDb || pricesOnPage !== pricesInDb) {
+    t.info('已中止', '页面和库对不上：先在窗口里 Ctrl+R 重载一次再跑，别拿空表去覆盖库');
+    await t.summary();
+    cdp.close();
+    process.exit(5);
+}
+
 /* ============================ 1. 导航 ============================ */
 
 const NAV = [
@@ -131,7 +172,7 @@ if (want('角色')) {
         let purged = 0;
         for (let i = 0; i < 8; i += 1) {
             try {
-                await ui.clickIn('.roster > *', 'E2E', { label: '删除这个角色' });
+                await ui.clickIn('.roster .char', 'E2E', { label: '删除这个角色' });
             } catch {
                 break;
             }
@@ -143,7 +184,7 @@ if (want('角色')) {
         t.info('清理结果', `清掉 ${purged} 个遗留角色`);
     });
 
-    baseline.chars = await ui.count('.roster > *');
+    baseline.chars = await ui.count('.roster .char');
     t.info('名册现有角色', `${baseline.chars} 个`);
 
     await t.step('新建：点「新角色」并填字段', async () => {
@@ -177,7 +218,7 @@ if (want('角色')) {
         await sleep(600);
         t.check('保存后编辑器收起', !(await ui.exists('.editor')));
 
-        const after = await ui.count('.roster > *');
+        const after = await ui.count('.roster .char');
         t.check('名册多出一格', after === baseline.chars + 1, `${baseline.chars} → ${after}`);
         t.check('新角色画在页面上', (await ui.text()).includes('E2E测试角色'));
     });
@@ -191,7 +232,7 @@ if (want('角色')) {
     });
 
     await t.step('编辑：改个名字再存', async () => {
-        await ui.clickIn('.roster > *', 'E2E测试角色', { label: '编辑这个角色' });
+        await ui.clickIn('.roster .char', 'E2E测试角色', { label: '编辑这个角色' });
         if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
             throw new Error('编辑态没打开');
         }
@@ -212,7 +253,7 @@ if (want('角色')) {
     });
 
     await t.step('删除：先 Esc 取消，再确认删掉', async () => {
-        await ui.clickIn('.roster > *', 'E2E改名后', { label: '删除这个角色' });
+        await ui.clickIn('.roster .char', 'E2E改名后', { label: '删除这个角色' });
         await sleep(400);
         t.check('删除前弹确认窗', await ui.exists('[role="dialog"]'));
 
@@ -220,11 +261,11 @@ if (want('角色')) {
         await sleep(300);
         t.check('Esc 取消，角色还在', (await ui.text()).includes('E2E改名后'));
 
-        await ui.clickIn('.roster > *', 'E2E改名后', { label: '删除这个角色' });
+        await ui.clickIn('.roster .char', 'E2E改名后', { label: '删除这个角色' });
         await sleep(350);
         await ui.clickText(CONFIRM_DELETE, '删除', { exact: true });
         await sleep(700);
-        const back = await ui.count('.roster > *');
+        const back = await ui.count('.roster .char');
         t.check(
             '确认后角色被删掉',
             back === baseline.chars,
@@ -643,7 +684,7 @@ if (want('收尾') || want('角色') || want('物价')) {
     if (baseline.chars !== null) {
         await t.step('角色名册回到测试前的数量', async () => {
             await ui.goto('角色');
-            const now = await ui.count('.roster > *');
+            const now = await ui.count('.roster .char');
             t.check('角色数量一致', now === baseline.chars, `期望 ${baseline.chars}，实际 ${now}`);
         });
     }
