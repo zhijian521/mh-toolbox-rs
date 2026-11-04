@@ -144,7 +144,11 @@ export function useModal(options: UseModalOptions): UseModalResult {
         modalStack.push(token);
         topToken.value = token;
 
-        /* 只在栈深 0→1 时锁（见头注释 ④）。 */
+        /* 只在栈深 0→1 时锁（见头注释 ④）。
+         *
+         * 锁的是 `.page-content`——这个应用里真正滚动的就是它（`.app` 是固定高度的一屏，
+         * `body` 从头到尾不滚）。找不到它时退回 `.app` 而不是 body：`.app` 是这一屏的
+         * 容器，把它的 `overflow` 关住才有意义；body 本来就不滚，锁它等于什么都没做。 */
         if (modalStack.length === 1) {
             lockedEl =
                 document.querySelector<HTMLElement>('.page-content') ??

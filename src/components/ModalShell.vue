@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useModal } from '../composables/use-modal';
 
 /**
@@ -18,17 +18,26 @@ import { useModal } from '../composables/use-modal';
  *
  * 这里只回答「它长什么样」——`CONVENTIONS.md` §2.3-3。
  *
- * ---- 为什么锁的是 `.page-content` 而不是 body ----
- * 这个应用里滚动的不是 body，是 `.page-content`（`.app` 是固定高度的一屏）。锁 body 不会
- * 让背景停下，滚轮照样把下面的卡片推走。找不到 `.page-content` 时（比如将来的浮层页面）
- * 才退回 body。
+ * ---- 为什么锁的是 `.page-content`，兜底才是 `.app`，而不是 body ----
+ * 这个应用里滚动的不是 body，是 `.page-content`（`.app` 是固定高度的一屏，`body` 不滚）。
+ * 锁 body 不会让背景停下，滚轮照样把下面的卡片推走。
+ * 找不到 `.page-content` 时（比如将来的浮层页面，或者弹窗开在页面内容之外）退回它的
+ * 祖先 `.app`：那是**这一屏**的容器，也是这套布局里唯一保证存在、且高度锁死的那一块；
+ * 退到 body 没有意义——body 本来就不滚，锁它等于什么都没做，而 `.app` 至少把
+ * `overflow` 也关住，滚轮不会从它内部再传出去。
  */
 const props = withDefaults(
     defineProps<{
         /** 标题栏文字。留空则不渲染标题栏——删除确认那种一句话弹窗不需要标题栏。 */
         title?: string;
-        /** 面板宽度。按内容给：物品表单 520、记价 380、确认窗 252、历史 620。 */
-        width?: number;
+        /**
+         * 面板宽度。按内容给：物品表单 520、记价 380、确认窗 252、历史 620。
+         *
+         * 数字按 px 处理；要跟着字号缩放就传整段 CSS 值（确认窗传的是
+         * `calc(252px * var(--fs-scale))`），不要在这里乘一次——这里不知道
+         * 调用方那个数是不是本来就该跟着字走。
+         */
+        width?: number | string;
         /** 初始焦点：`first` 第一个可聚焦元素，`cancel` 带 `data-modal-cancel` 的那个。 */
         initialFocus?: 'first' | 'cancel';
         /**
@@ -85,6 +94,14 @@ const { isTop } = useModal({
 function onMaskClick(event: MouseEvent) {
     if (event.target === event.currentTarget) emit('close');
 }
+
+/**
+ * 宽度落到 `--modal-w`。数字补 `px`，字符串原样交出去——
+ * 确认窗给的是 `calc(252px * var(--fs-scale))`，所以不能在这里无条件加 `px`。
+ */
+const panelStyle = computed(() => ({
+    '--modal-w': typeof props.width === 'number' ? `${props.width}px` : props.width,
+}));
 </script>
 
 <template>
@@ -106,7 +123,7 @@ function onMaskClick(event: MouseEvent) {
                 :aria-labelledby="labelledby || (title ? titleId : undefined)"
                 :aria-label="title || labelledby ? undefined : '确认'"
                 tabindex="-1"
-                :style="{ '--modal-w': `${width}px` }"
+                :style="panelStyle"
             >
                 <header v-if="title" class="modal-head">
                     <h2 :id="titleId">{{ title }}</h2>

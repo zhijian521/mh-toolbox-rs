@@ -31,8 +31,18 @@ withDefaults(
         /** 确认按钮上的字。删除物品与删除单条记录都可以叫「删除」；
          *  设置页那两个动作用「替换」与「清除」——同一个窗，动词不同。 */
         confirmText?: string;
+        /**
+         * 取消按钮上的字，同时是它的 `aria-label` 与 `title`（`PressButton` 把
+         * `label` 同时用在这两处）。
+         *
+         * 默认就一个「取消」：这个词本身没有歧义，不需要替它编一句解释。
+         * 这里曾写死「取消这次删除」——物价页三个动作都叫删除，看着没问题；
+         * 设置页的「替换 / 清除」一接进来，那两个窗的取消键悬停就浮出
+         * 「取消这次删除」，读屏也照念同一句，把用户说到了另一个动作上。
+         */
+        cancelText?: string;
     }>(),
-    { note: '', confirmText: '删除' },
+    { note: '', confirmText: '删除', cancelText: '取消' },
 );
 
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
@@ -46,8 +56,13 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>();
  *
  * 252 减去左右各 16 的内边距，正文可用 220px，13px 正文一行约 16 个字——
  * 「清空所有角色与物价？」这类问句刚好一行，长一点的后果句折两到三行。
+ *
+ * **乘 `--fs-scale`**：行宽和字号是一件事的两面。不乘的话「较大」档下字大 10%、
+ * 行宽不变，一行只装得下 14 个字，「清空所有角色与物价？」当场折行——
+ * 而它与旁边那行 `.note` 的折行位置是由同一个宽度决定的。
+ * 判据见 `CONVENTIONS.md` §2.3-15：跟着字号缩放的尺寸就该乘。
  */
-const WIDTH = 252;
+const WIDTH = 'calc(252px * var(--fs-scale))';
 
 /**
  * 问句的 id，交给 `ModalShell` 的 `labelledby`。
@@ -62,13 +77,17 @@ const titleId = `confirm-title-${Math.random().toString(36).slice(2, 9)}`;
 <template>
     <ModalShell :width="WIDTH" :labelledby="titleId" initial-focus="cancel" @close="emit('cancel')">
         <p :id="titleId" class="confirm-title">{{ title }}</p>
-        <p v-if="note" class="confirm-note meta">{{ note }}</p>
+        <p v-if="note" class="confirm-note note">{{ note }}</p>
 
         <template #footer>
+            <!-- `data-modal-cancel` 不能删：`initial-focus="cancel"` 靠它找这枚按钮
+                 （`use-modal.ts` 的 `querySelector('[data-modal-cancel]')`）。
+                 删掉之后焦点会落回「第一个可聚焦元素」——也就是它自己没错，
+                 但这只是巧合；哪天按钮顺序调换，一次误触回车就执行了删除。 -->
             <PressButton
                 data-modal-cancel
-                text="取消"
-                label="取消这次删除"
+                :text="cancelText"
+                :label="cancelText"
                 @click="emit('cancel')"
             />
             <!-- 按钮上的字跟着 `confirmText` 走。这里曾写死「删除」二字，于是
@@ -91,10 +110,19 @@ const titleId = `confirm-title-${Math.random().toString(36).slice(2, 9)}`;
     font-size: var(--fs-base);
     line-height: 1.6;
 }
-/* 后果那一句用 `.meta` 的字档（字号 / 次级墨 / 行高都来自基座），
- * 这里只管它与问句之间的那 5px。
- * 早先这里还写了一遍 `line-height: 1.6`——那正是 `.meta` 的值，两处各写一份，
- * 改基座时这里不会跟着动。 */
+/* 后果那一句的字档是 `.note`（`--fs-xs` + 1.72 行高）。
+ *
+ * 这里曾经挂的是 `.meta`——「元信息，找的时候才看」那一档（`--fs-mini` + 1.6）。
+ * 但这一句写的正是「会连带删掉什么、能不能撤回」，是这扇窗里**除问句之外唯一必须读的
+ * 一句话**（`CONVENTIONS.md` §2.3-8：`note` 写后果）。用最小一档字号把它压成脚注，
+ * 等于把「撤不回来」四个字藏在最不显眼的地方。
+ *
+ * 代价是「清空所有角色与物价？」下面那段后果在 252 宽里多折一行——那是一句真话的
+ * 正常长度，不是排版问题。
+ *
+ * 与问句之间的 5px 仍写在这里：`.note` 的 8px 是「接在前一段正文后面」的间距，
+ * 这扇窗的两行是一组问答，挨得比正文段落更紧。scoped 选择器带 `[data-v-…]`，
+ * 特异性高于全局 `.note`，不靠样式表顺序取胜。 */
 .confirm-note {
     margin: 5px 0 0;
 }

@@ -26,6 +26,7 @@ const { pending, settle } = useConfirmState();
         :title="pending.title"
         :note="pending.note"
         :confirm-text="pending.confirmText"
+        :cancel-text="pending.cancelText"
         @confirm="settle(true)"
         @cancel="settle(false)"
     />

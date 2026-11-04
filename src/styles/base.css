@@ -547,9 +547,20 @@ svg {
 .paper-rows {
     display: grid;
     /* 棱色两个主题各一档：暗色下 `--bevel-hi` 只有 18% 白，压在深纸上读不出，
-     * 只剩「下暗」，凸起会反过来读成嵌进纸里的黑框。 */
-    --hi-ridge: light-dark(var(--bevel-hi), #ffffff52);
-    --lo-ridge: light-dark(var(--bevel-lo), #0000006b);
+     * 只剩「下暗」，凸起会反过来读成嵌进纸里的黑框。
+     *
+     * 暗色这两档原先写的是 `#ffffff52` / `#0000006b`——两个裸 hex，正是 §2.4-1 禁的那种
+     * 「把锚点抄了第二份」。改成从令牌派生：
+     *   亮面 = 32% 纯白 ≈ 34% 的 `--paper-base`。为什么不是 32%：`--paper-base` 是纸白
+     *          #f8f3e6，相对亮度只有纯白的 90%，同 alpha 下会暗半档（那道 1px 亮棱会从
+     *          「受光」掉成「没那么受光」）；补到 34% 之后两者**等亮度**
+     *          （压在同色的 `--paper-2` 上，相对亮度 0.1366 对 0.1362），只是略微偏暖
+     *          ——亮色档的 `--bevel-hi`（#fffaecd0）本来就是暖白，两档反而更一致了。
+     *   暗面 = `--ink-base` 42%：`--ink-base` 就是 #000000，与原来的 `#0000006b` 逐值相等。
+     * 两处都走 `color-mix(…, transparent)`：混透明得到的就是同一个色降 alpha，
+     * 不引入任何新色号。 */
+    --hi-ridge: light-dark(var(--bevel-hi), color-mix(in srgb, var(--paper-base) 34%, transparent));
+    --lo-ridge: light-dark(var(--bevel-lo), color-mix(in srgb, var(--ink-base) 42%, transparent));
 }
 .paper-row {
     position: relative;
@@ -565,7 +576,8 @@ svg {
      * 给每一笔描了一圈亮边 + 灰边——小字号里最刺眼的就是这个，而且纸带本身已经凸了，
      * 字再浮一层是「两层立体打架」。现在只留一道 1px、不到一成黑的贴纸影：
      * 墨压在纸上的一点交代，笔画本身不描边。暗色底深、影无意义，直接撤掉。 */
-    text-shadow: 0 1px 0 light-dark(#00000014, #00000000);
+    text-shadow: 0 1px 0
+        light-dark(color-mix(in srgb, var(--ink-base) 8%, transparent), transparent);
 }
 .paper-row + .paper-row {
     margin-top: 2px;
@@ -807,11 +819,12 @@ svg {
  *
  * `.paper-rows` 上那对 `--hi-ridge` / `--lo-ridge` 借不到（那个类只挂在纸带列表上），
  * 而 `--bevel-hi` 在暗色只有 18% 白——压在深纸上读不出，只剩「下暗」，凸起会反过来
- * 读成嵌进纸里的黑框。取值与 `.paper-rows` 逐字一致，理由也一样。
+ * 读成嵌进纸里的黑框。取值与 `.paper-rows` 逐字一致，理由也一样（含「34% 而不是 32%」
+ * 那笔等亮度换算，见那边注释）。
  */
 .assist-slip {
-    --slip-hi: light-dark(var(--bevel-hi), #ffffff52);
-    --slip-lo: light-dark(var(--bevel-lo), #0000006b);
+    --slip-hi: light-dark(var(--bevel-hi), color-mix(in srgb, var(--paper-base) 34%, transparent));
+    --slip-lo: light-dark(var(--bevel-lo), color-mix(in srgb, var(--ink-base) 42%, transparent));
     display: flex;
     align-items: center;
     gap: 7px;

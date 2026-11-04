@@ -6,6 +6,13 @@ import { useNotifyState } from '../composables/use-notify';
  *
  * 形态：屏幕上方居中一道**压进纸里的槽**，几秒后自己收走；鼠标停上去就停表，点一下立刻收。
  *
+ * ---- 键盘用户也要能停表 ----
+ * 三秒自动收走是一个**限时**的信息（WCAG 2.2.1）：只有鼠标能停表，等于键盘用户读不完
+ * 一句长错误。所以每道槽是 `tabindex="0"`：Tab 过去就 `hold`（焦点离开再 `resume`，
+ * 重新计满三秒），Enter / Space 与点击同义，直接收走。
+ * 这一层不做成 `role="button"`——它首先是一句话，其次才是「点掉」；给它按钮语义，
+ * 读屏会先念「按钮」再念正文，而正文才是这条提示的全部内容。
+ *
  * ---- 为什么是凹槽，不是「浮起来的纸条」 ----
  * 提示是临时的：它不该像卡片那样「放」在纸面上，那会让人以为页面上多了一块东西，
  * 过两秒又凭空消失。凹槽正好相反——纸被压出一格、话写在格子里，说完就抚平。
@@ -44,9 +51,14 @@ const { notices, hold, resume, dismiss } = useNotifyState();
                     :key="one.id"
                     class="notice"
                     :class="`is-${one.tone}`"
+                    tabindex="0"
                     @mouseenter="hold(one.id)"
                     @mouseleave="resume(one.id)"
+                    @focusin="hold(one.id)"
+                    @focusout="resume(one.id)"
                     @click="dismiss(one.id)"
+                    @keydown.enter.prevent="dismiss(one.id)"
+                    @keydown.space.prevent="dismiss(one.id)"
                 >
                     {{ one.text }}
                 </div>
@@ -122,6 +134,13 @@ const { notices, hold, resume, dismiss } = useNotifyState();
     cursor: default;
     user-select: none;
     pointer-events: auto;
+}
+
+/* 键盘停在这道槽上时的环。它可聚焦就必须看得见焦点——否则 Tab 一下屏幕毫无变化，
+ * 用户不知道表已经停在哪一条上。环画在槽的外沿（`--ring-offset`），不压住那道竖条。 */
+.notice:focus-visible {
+    outline: var(--ring);
+    outline-offset: var(--ring-offset);
 }
 
 /* 左端那道竖条。上下各内缩 5px 而不是顶到边：槽的四角是圆的，

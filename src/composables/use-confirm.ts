@@ -34,6 +34,16 @@ export interface ConfirmOptions {
      * 导入是「替换」、清空是「清除」——同一个窗，动词跟着动作走。
      */
     confirmText?: string;
+    /**
+     * 取消键上的字，默认「取消」。它同时是那枚按钮的 `aria-label` 与悬停提示
+     * （`PressButton` 把 `label` 用在两处），所以**必须与确认键是同一个动作的反面**：
+     * 曾经写死「取消这次删除」，于是设置页的「替换 / 清除」两个窗，悬停取消键
+     * 浮出的是「取消这次删除」，读屏也照念同一句。
+     *
+     * 默认值够用就不必传；要传的场景是「取消」两个字读起来不像这个动作的反面
+     * （比如「不导入了」「保持现有数据」）。
+     */
+    cancelText?: string;
 }
 
 interface PendingConfirm extends ConfirmOptions {
@@ -56,7 +66,7 @@ export function askConfirm(options: ConfirmOptions): Promise<boolean> {
         /* 上一个还挂着就先放走（当作取消）。不这么做，那个 `await` 永远不返回，
          * 它背后的 `finally` 也就永远不跑——按钮从此停在禁用态。 */
         pending.value?.resolve(false);
-        pending.value = { note: '', confirmText: '删除', ...options, resolve };
+        pending.value = { note: '', confirmText: '删除', cancelText: '取消', ...options, resolve };
     });
 }
 
