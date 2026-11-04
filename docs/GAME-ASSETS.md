@@ -27,10 +27,12 @@ public/game/
 │   ├── maps.json
 │   └── *.webp
 ├── icons/           游戏内图标（技能 21、剧情 11、特技 69、门派技能 147）+ README
-│   └── *.webp
+│   ├── *.webp
+│   └── gear/        装备 83 张（`gear-<部位>-<序号>.webp`，7 个部位，60 级以上）
 └── data/            游戏事实数据 + 资源清单
     ├── icons.json   图标「文件 → 名字」清单（生活/剧情/特技，`slice.py` 生成，不手改）
     ├── school-icons.json 图标清单（门派技能，`slice-school.py` 生成，不手改）
+    ├── gear-icons.json   图标清单（装备，`slice-gear.py` 生成，不手改）
     ├── schools.json 门派 21 家 + 每家的七项门派技能 + 上限（`cap`）
     ├── skills.json  生活技能 21 项、剧情技能 11 项（有序名录，下标即图标序号）
     └── *.json       以后：装备、道具
@@ -108,16 +110,19 @@ const MAP_DIR = `${import.meta.env.BASE_URL}game/maps/`;
 - 手画的图在游戏改版后必然对不上，而**截图就是当前版本的真值**；
 - 第三方素材包的图标集与本客户端的版本未必一致，混进去没人分得清哪个是哪个。
 
-切图脚本两个，按面板形态分：
+切图脚本三个，按面板形态分：
 
 - `tools/game-icons/slice.py`——4 列 × 3 行的卡片网格（生活 / 剧情 / 特技），靠检测找格子；
 - `tools/game-icons/slice-school.py`——竖排 7 行的门派面板（**只取左边那一列师门技能**，
   中间那一列的师门法术不收），横向固定坐标、**纵向每格量底边**，名字与 `schools.json`
-  做集合比对。
+  做集合比对；
+- `tools/game-icons/slice-gear.py`——百科典藏「装备」页，3 列 × 4 行、**列表可滚动**：
+  列固定、行靠投影检测，滚动露出的半行（高 < 70）丢掉，重叠行按 `rows` 声明只取一次。
 
-两者都统一成 96×96、**图标铺满画布不垫背景**，各自重写自己的清单
-（`icons.json` / `school-icons.json`）——分开写是因为两份清单若共用一个文件，
-后跑的脚本会把对方的分组整段覆盖，且不报错。
+前两者统一成 96×96、**图标铺满画布不垫背景**；装备那批**保留游戏卡片底**（图形与卡片底
+同色系，抠底会把白衣挖空，详见 `public/game/icons/README.md`）。三者各写自己的清单
+（`icons.json` / `school-icons.json` / `gear-icons.json`）——分开写是因为两份清单若共用一个
+文件，后跑的脚本会把对方的分组整段覆盖，且不报错。
 
 **别给图标「补成正方形」**：门派技能本体是 60×57~59，补那几像素若填黑色，就成了上下各
 一条黑边，看着正像图标被截断（踩过一次）。直接按 96×96 缩放，各向异性 1~3% 看不出来。
@@ -230,15 +235,16 @@ const MAP_DIR = `${import.meta.env.BASE_URL}game/maps/`;
 
 ## 8. 现在的状态（2026-11-03）
 
-| 目录 / 常量                 | 状态                                                                                                     |
-| --------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `game/maps/`                | ✅ 已归位：20 张 webp + `maps.json`（原来在 `public/maps/`）                                             |
-| `game/icons/`               | ✅ 248 个：生活 21、剧情 11、装备特技 69、门派技能 147（约 0.78MB）                                      |
-| `game/data/`                | ✅ `icons.json` + `school-icons.json` + `schools.json`（21 家 × 7 项 + `cap`）+ `skills.json`（21 / 11） |
-| `src/services/game-data.ts` | ✅ 唯一加载器：形状校验、启动时加载一次、失败退空表                                                      |
-| `views/characters/mock.ts`  | 仍是演示数据，未搬（理由见 §6）                                                                          |
-| `GEAR_SLOTS` 等三张装备表   | ⏳ 还在 `character.ts`：下一批该搬的（见 §6 末行）                                                       |
-| `src-tauri/models/`         | 18MB OCR 模型，**不属于**游戏资源，不搬                                                                  |
+| 目录 / 常量                 | 状态                                                                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `game/maps/`                | ✅ 已归位：20 张 webp + `maps.json`（原来在 `public/maps/`）                                                                 |
+| `game/icons/`               | ✅ 248 个：生活 21、剧情 11、装备特技 69、门派技能 147（约 0.78MB）                                                          |
+| `game/icons/gear/`          | ✅ 83 张：7 个部位（头盔 11 / 发钗 11 / 铠甲 11 / 女衣 11 / 鞋子 11 / 项链 14 / 腰带 14），均为 60 级以上，约 314KB          |
+| `game/data/`                | ✅ `icons.json` + `school-icons.json` + `gear-icons.json` + `schools.json`（21 家 × 7 项 + `cap`）+ `skills.json`（21 / 11） |
+| `src/services/game-data.ts` | ✅ 唯一加载器：形状校验、启动时加载一次、失败退空表                                                                          |
+| `views/characters/mock.ts`  | 仍是演示数据，未搬（理由见 §6）                                                                                              |
+| `GEAR_SLOTS` 等三张装备表   | ⏳ 还在 `character.ts`：下一批该搬的（见 §6 末行）                                                                           |
+| `src-tauri/models/`         | 18MB OCR 模型，**不属于**游戏资源，不搬                                                                                      |
 
 门派技能的图标在 `icons/`，2026-11-04 起有代码消费：`src/services/game-icons.ts` 的
 `schoolSkillIcon(name)`，清单 `school-icons.json` 由 `game-data.ts` 装进缓存（第三份表）。
