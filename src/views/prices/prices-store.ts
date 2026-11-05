@@ -70,6 +70,9 @@ const writeError = ref('');
  */
 const loadError = ref('');
 
+/** 读过一轮没有。`persist` 靠它挡住「还没读库就整份覆盖」（见 `services/persist.ts`）。 */
+const loaded = ref(false);
+
 /**
  * 读档。**只能调一次，且在 mount 之前**。
  *
@@ -80,10 +83,11 @@ const loadError = ref('');
 export async function loadPrices(): Promise<void> {
     if (!hasDesktop()) {
         items.value = readPriceItems();
+        loaded.value = true;
         return;
     }
 
-    const stored = await pricesLoad<PriceItem>();
+    const stored = await pricesLoad();
     /* 读失败**不是空库**。先拿到原始结果再分支，是为了让「`null`」这个信号
      * 能走到下面那条错误位——写成 `(stored ?? [])` 就把它抹掉了。 */
     if (stored === null) {
@@ -92,6 +96,7 @@ export async function loadPrices(): Promise<void> {
         return;
     }
     loadError.value = '';
+    loaded.value = true;
     /* 过一遍 `normalizePriceItem`：库是上一版应用写的、或有人手动改过文件时，
      * 读出来的东西不一定合今天的形。它是幂等的，正常数据走一遍什么都不会变。 */
     items.value = stored.map(normalizePriceItem);
@@ -131,6 +136,7 @@ onStorageSync(STORAGE_KEY, (raw) => {
 const persist = createPersist({
     label: '物价表',
     loadError,
+    loaded,
     writeError,
     writeLocal: () => writePriceItems(items.value),
     writeRemote: () => pricesSave(items.value),

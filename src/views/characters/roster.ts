@@ -499,6 +499,13 @@ const roster = ref<CharacterData[]>([]);
 const loadError = ref('');
 
 /**
+ * 读过一轮没有。`persist` 靠它挡住「还没读库就整份覆盖」——dev 里改一个文件，
+ * 模块被重算、单例回到空数组，而 `loadRoster()` 只在启动时跑过，那种状态下任何一次
+ * `add()` 都是 `characters_save([新角色])`。2026-11-04 实测因此丢了 4 个角色。
+ */
+const loaded = ref(false);
+
+/**
  * 最近一次落盘失败的原因。空串 = 上一次写成功了（或还没写过）。
  *
  * 与 `prices-store.ts` 的 `writeError` 同一条：`charactersSave` 把失败打在控制台，
@@ -530,10 +537,11 @@ function loadFromLocal(): CharacterData[] {
 export async function loadRoster(): Promise<void> {
     if (!hasDesktop()) {
         roster.value = loadFromLocal();
+        loaded.value = true;
         return;
     }
 
-    const stored = await charactersLoad<CharacterData>();
+    const stored = await charactersLoad();
     /* 读失败（`null`）**不能**当「库里没有」：`charactersLoad` 的契约是
      * 「`null` = 没有宿主或调用失败」。一行坏 JSON（`store.rs` 的 `characters_load`
      * 遇到非法行整份返回 `Err`）就会走到这里，而那时如果写回，用户攒下来的名册就被
@@ -545,6 +553,7 @@ export async function loadRoster(): Promise<void> {
     }
     loadError.value = '';
 
+    loaded.value = true;
     roster.value = stored.map(normalizeCharacter);
 }
 
@@ -558,6 +567,7 @@ export async function loadRoster(): Promise<void> {
 const persist = createPersist({
     label: '名册',
     loadError,
+    loaded,
     writeError,
     writeLocal: () => writeRaw(serializeRoster(roster.value)),
     writeRemote: () => charactersSave(roster.value),

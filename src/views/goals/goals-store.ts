@@ -34,9 +34,13 @@ const writeError = ref('');
 /** 读档失败的原因。空串 = 读到了（含「库里本来就没有」）。 */
 const loadError = ref('');
 
+/** 读过一轮没有。`persist` 靠它挡住「还没读库就整份覆盖」（见 `services/persist.ts`）。 */
+const loaded = ref(false);
+
 const persist = createPersist({
     label: '目标',
     loadError,
+    loaded,
     writeError,
     writeLocal: () => {
         if (typeof localStorage === 'undefined') return;
@@ -58,6 +62,8 @@ const persist = createPersist({
 export async function loadGoals(): Promise<void> {
     if (!hasDesktop()) {
         if (typeof localStorage === 'undefined') return;
+        /* 「没存过」是空表，是结论而不是失败——照样算读过。 */
+        loaded.value = true;
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return;
         try {
@@ -68,7 +74,7 @@ export async function loadGoals(): Promise<void> {
         return;
     }
 
-    const stored = await goalLoad<unknown>();
+    const stored = await goalLoad();
     /* 读失败**不是空表**。先拿原始结果再分支，就是为了让 `null` 这个信号走到错误位；
      * 写成 `stored ?? []` 就把它抹掉了，后果是「用户随手改一个目标，其余全被清空」。 */
     if (stored === null) {
@@ -77,6 +83,7 @@ export async function loadGoals(): Promise<void> {
         return;
     }
     loadError.value = '';
+    loaded.value = true;
     goals.value = parseGoals(stored);
 }
 

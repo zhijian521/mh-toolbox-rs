@@ -55,6 +55,9 @@ const writeError = ref('');
 /** 读档失败的原因。空串 = 读到了（含「库里本来就没有」）。 */
 const loadError = ref('');
 
+/** 读过一轮没有。`persist` 靠它挡住「还没读库就整份覆盖」（见 `services/persist.ts`）。 */
+const loaded = ref(false);
+
 /** 一次写入的结果。速记要据此弹一句话（或红字）。 */
 export type IncomeWrite = { ok: true; entries: IncomeEntry[] } | { ok: false; error: string };
 
@@ -110,6 +113,7 @@ function payloadOf(): { entries: IncomeEntry[]; prices: { itemId: number; price:
 const persist = createPersist({
     label: '收益账',
     loadError,
+    loaded,
     writeError,
     writeLocal: () => saveLocal(payloadOf()),
     writeRemote: () => incomeSave(payloadOf()),
@@ -125,10 +129,11 @@ export async function loadIncome(): Promise<void> {
         const stored = readLocal();
         entries.value = parseEntries(stored?.entries);
         prices.value = parsePrices(stored?.prices);
+        loaded.value = true;
         return;
     }
 
-    const stored = await incomeLoad<StoredShape>();
+    const stored = await incomeLoad();
     /* 读失败**不是空账**。先拿原始结果再分支，就是为了让 `null` 这个信号走到错误位；
      * 写成 `stored ?? {}` 就把它抹掉了，而后果是「用户一点速记，旧账被清空」。 */
     if (stored === null) {
@@ -138,6 +143,7 @@ export async function loadIncome(): Promise<void> {
         return;
     }
     loadError.value = '';
+    loaded.value = true;
     entries.value = parseEntries(stored.entries);
     prices.value = parsePrices(stored.prices);
 }

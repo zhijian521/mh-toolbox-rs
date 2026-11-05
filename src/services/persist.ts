@@ -25,6 +25,16 @@ export interface PersistOptions {
     label: string;
     loadError: Ref<string>;
     writeError: Ref<string>;
+    /**
+     * 这份数据**至少读过一轮**。
+     *
+     * 与 `loadError` 是两件事：那条说「读了但失败了」，这条说「读这件事发生过没有」。
+     * 少了它挡不住最坏的一种——模块被 HMR 重算（`npm run dev` 里改一个文件就会），
+     * 模块级单例回到空数组，而 `loadXxx()` 只在启动时跑过：这时 `loadError` 是空串，
+     * 内存里却是空表，任何一次保存都会把库整份顶掉。2026-11-04 因此丢过 4 个角色，
+     * 靠库快照救回；烟测侧当时补了「开头对账」，应用侧一直敞着。
+     */
+    loaded: Ref<boolean>;
     /** 浏览器路径（`npm run dev` / 探针）。错误由它自己兜住，这里不看返回值。 */
     writeLocal: () => void;
     /** 桌面路径。`false` = 没写进去，会变成界面上的红字。 */
@@ -58,6 +68,14 @@ export function createPersist(options: PersistOptions): () => void {
                 `${options.label}处于读取失败状态，跳过本次写入`,
                 options.loadError.value,
             );
+            return;
+        }
+
+        /* 还没读过库就写 = 拿空表覆盖。两件事分开报：这一条不是「磁盘有问题」，
+         * 是「这一版代码还没看过库」，用户能做的只有刷新一次。 */
+        if (!options.loaded.value) {
+            console.error(`${options.label}还没读过库，跳过本次写入（这个页面刷新过吗？）`);
+            options.writeError.value = '这一页还没读到数据，刷新一次再记';
             return;
         }
 

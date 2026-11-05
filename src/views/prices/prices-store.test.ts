@@ -88,3 +88,49 @@ describe('loadPrices：读失败不等于空库', () => {
         expect(items.value).toHaveLength(1);
     });
 });
+
+/**
+ * 第二条缝：**读档根本没发生**。
+ *
+ * 与上面那组不是一回事。那一组是「读了，返回 null」，这一组是「一次都没读」——
+ * `npm run dev` 里改一个文件，store 模块被 HMR 重算，`items` 回到 `[]`，而
+ * `loadPrices()` 只在 `main.ts` 启动时跑过一次。这时 `loadError` 是空串，
+ * 界面上也没有任何红字，用户点「记价」写下去的就是「整份空表 + 这一件」。
+ * 2026-11-04 在名册上实测丢了 4 个角色，靠库快照救回；烟测侧当时补了「开头对账」，
+ * 应用侧一直到第 119 批才补上闸（`persist` 的 `loaded` 判据）。
+ */
+describe('还没读过库就写：不许拿空表覆盖', () => {
+    /** 只 import、不 `loadPrices()`——模拟「模块被重算过，读档还没跑」那一刻。 */
+    async function openWithoutLoad(desktop: ReturnType<typeof host>) {
+        vi.resetModules();
+        vi.doMock('../../services/desktop', () => desktop);
+        return import('./prices-store');
+    }
+
+    it('addItem 只改内存，一个字节都不落盘，提示指向「刷新」', async () => {
+        const desktop = host(async () => [
+            {
+                id: 'keep',
+                name: '黑宝石',
+                category: '宝石符石',
+                sub: '宝石',
+                unit: '颗',
+                note: '',
+                points: [],
+                createdAt: 1,
+                updatedAt: 1,
+            },
+        ]);
+        const store = await openWithoutLoad(desktop);
+        const { items, addItem, writeError } = store.usePrices();
+
+        addItem(DRAFT, 1200);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        /* 内存里照样加：界面那一刻必须响应，拦的是「落盘」这一步。 */
+        expect(items.value).toHaveLength(1);
+        expect(desktop.pricesSave).not.toHaveBeenCalled();
+        /* 文案要指得着用户能做的事。这里说「磁盘空间」会把人引到完全无关的地方。 */
+        expect(writeError.value).toContain('刷新');
+    });
+});

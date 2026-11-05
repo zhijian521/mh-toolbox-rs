@@ -28,6 +28,9 @@ const writeError = ref('');
 /** 读档失败的原因。空串 = 读到了（含「库里本来就没有」）。 */
 const loadError = ref('');
 
+/** 读过一轮没有。`persist` 靠它挡住「还没读库就整份覆盖」（见 `services/persist.ts`）。 */
+const loaded = ref(false);
+
 /**
  * 一次写入的结果。
  *
@@ -41,6 +44,7 @@ export type AccountWrite = { ok: true; entry: AccountEntry } | { ok: false; erro
 const persist = createPersist({
     label: '账号账本',
     loadError,
+    loaded,
     writeError,
     writeLocal: () => {
         if (typeof localStorage === 'undefined') return;
@@ -62,6 +66,8 @@ const persist = createPersist({
 export async function loadAccounts(): Promise<void> {
     if (!hasDesktop()) {
         if (typeof localStorage === 'undefined') return;
+        /* 「没存过」是空账，是结论而不是失败——照样算读过。 */
+        loaded.value = true;
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return;
         try {
@@ -72,7 +78,7 @@ export async function loadAccounts(): Promise<void> {
         return;
     }
 
-    const stored = await accountLoad<unknown>();
+    const stored = await accountLoad();
     /* 读失败**不是空账**。先拿原始结果再分支，就是为了让 `null` 这个信号走到错误位；
      * 写成 `stored ?? []` 就把它抹掉了，而后果是「用户随手记一笔，旧账被清空」。 */
     if (stored === null) {
@@ -81,6 +87,7 @@ export async function loadAccounts(): Promise<void> {
         return;
     }
     loadError.value = '';
+    loaded.value = true;
     entries.value = parseAccounts(stored);
 }
 

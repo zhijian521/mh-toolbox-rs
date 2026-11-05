@@ -38,6 +38,7 @@ describe('createPersist：什么时候不写', () => {
             label: '物价表',
             loadError: ref('读不出物价表，已暂停写入以免覆盖原有数据'),
             writeError: ref(''),
+            loaded: ref(true),
             writeLocal,
             writeRemote,
         });
@@ -56,6 +57,7 @@ describe('createPersist：什么时候不写', () => {
             label: '物价表',
             loadError: ref(''),
             writeError: ref(''),
+            loaded: ref(true),
             writeLocal,
             writeRemote,
         });
@@ -64,6 +66,52 @@ describe('createPersist：什么时候不写', () => {
 
         expect(writeLocal).toHaveBeenCalledTimes(1);
         expect(writeRemote).not.toHaveBeenCalled();
+    });
+
+    /**
+     * 第 103 批记下、第 119 批才补上的那条缝：`loadError` 只说「读了但失败了」，
+     * 说不出「读这件事根本没发生」。dev 里改一个文件，store 模块被 HMR 重算、单例回到
+     * 空数组，而 `loadXxx()` 只在启动时跑过一次——这时 `loadError` 是空串，
+     * 任何一次保存都是「拿空表整份覆盖」。2026-11-04 实测丢了 4 个角色。
+     */
+    it('还没读过库时一个字节都不写，提示也指向「刷新」而不是磁盘', () => {
+        const writeLocal = vi.fn();
+        const writeRemote = vi.fn(async () => true);
+        const writeError = ref('');
+        const persist = createPersist({
+            label: '名册',
+            loadError: ref(''),
+            writeError,
+            loaded: ref(false),
+            writeLocal,
+            writeRemote,
+        });
+
+        persist();
+
+        expect(writeLocal).not.toHaveBeenCalled();
+        expect(writeRemote).not.toHaveBeenCalled();
+        /* 文案要指得着用户真能做的事。这一版代码还没看过库，刷新就好了；
+         * 说「检查磁盘空间」会把人引到完全无关的地方去。 */
+        expect(writeError.value).toContain('刷新');
+        expect(writeError.value).not.toContain('磁盘');
+    });
+
+    it('读过之后照常写：这条闸只管「读过没有」，不插手正常路径', async () => {
+        const writeRemote = vi.fn(async () => true);
+        const persist = createPersist({
+            label: '名册',
+            loadError: ref(''),
+            writeError: ref(''),
+            loaded: ref(true),
+            writeLocal: () => {},
+            writeRemote,
+        });
+
+        persist();
+        await tick();
+
+        expect(writeRemote).toHaveBeenCalledTimes(1);
     });
 });
 
@@ -79,6 +127,7 @@ describe('createPersist：写入排队', () => {
             label: '物价表',
             loadError: ref(''),
             writeError: ref(''),
+            loaded: ref(true),
             writeLocal: () => {},
             writeRemote: async () => {
                 snapshots.push(state);
@@ -113,6 +162,7 @@ describe('createPersist：写入排队', () => {
             label: '收益账',
             loadError: ref(''),
             writeError: ref(''),
+            loaded: ref(true),
             writeLocal: () => {},
             writeRemote: async () => {
                 round += 1;
@@ -144,6 +194,7 @@ describe('createPersist：写入排队', () => {
             label: '名册',
             loadError: ref(''),
             writeError,
+            loaded: ref(true),
             writeLocal: () => {},
             writeRemote: async () => {
                 round += 1;
@@ -173,6 +224,7 @@ describe('createPersist：失败要回到界面', () => {
             label: '物价表',
             loadError: ref(''),
             writeError,
+            loaded: ref(true),
             writeLocal: () => {},
             writeRemote: async () => ok,
         });
