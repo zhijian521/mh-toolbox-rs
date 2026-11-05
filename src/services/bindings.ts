@@ -61,6 +61,20 @@ export const commands = {
 	 */
 	dataClear: () => __TAURI_INVOKE<ClearSummary>("data_clear"),
 	/**
+	 *  导出速记单价：系统「另存为」对话框选位置，写一份只含单价的 JSON。
+	 * 
+	 *  没有单价时**直接报错、不开对话框**：让用户先在「另存为」里挑个位置、
+	 *  再告诉他「没有可导出的东西」，那一步白走。
+	 */
+	quickPricesExport: (prices: QuickPrice[]) => __TAURI_INVOKE<string | null>("quick_prices_export", { prices }),
+	/**
+	 *  导入速记单价：选文件 → 大小 / 信封 / 每条校验 → 把单价交回前端合并。
+	 * 
+	 *  **不在这里写库**：理由见本段开头。于是「导入」在这条路上永远不会留下半份数据，
+	 *  唯一写盘的那一次是前端合并后的整份 `income_save`（同一个事务）。
+	 */
+	quickPricesImport: () => __TAURI_INVOKE<QuickPrice[] | null>("quick_prices_import"),
+	/**
 	 *  读全部物品（含各自的历史）。
 	 * 
 	 *  两次查询而不是一次 join：一件物品的历史条数不定，join 出来要在 Rust 侧

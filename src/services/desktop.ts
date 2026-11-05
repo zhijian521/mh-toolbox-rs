@@ -5,6 +5,7 @@ import {
     type AppInfo,
     type IncomePayload,
     type PriceItem,
+    type QuickPrice,
     type Value as JsonValue,
 } from './bindings';
 
@@ -265,15 +266,21 @@ export type DataOutcome =
     | { status: 'failed'; error: string };
 
 /** Rust 侧的 `Err(String)` 到这里就是一个字符串。`String(error)` 会把它裹成 `Error: …`，
- * 而那句话是要原样给用户看的（「第 3 条角色没有 id」之类），不能加前缀。 */
-function failure(error: unknown): DataOutcome {
+ * 而那句话是要原样给用户看的（「第 3 条角色没有 id」之类），不能加前缀。
+ *
+ * 返回**失败分支本身**而不是 `DataOutcome`：账本与单价文件两套结局集共用这一种形状，
+ * 收窄成具体分支后两边都能直接 `return`，不必各写一次 `as`（写了就没人再检查）。 */
+function failure(error: unknown): { status: 'failed'; error: string } {
     const text =
         typeof error === 'string' ? error : error instanceof Error ? error.message : String(error);
     return { status: 'failed', error: text };
 }
 
 /** 浏览器预览里没有数据层。三个函数共用这一句，免得三处各写一遍再各自漂移。 */
-const NO_HOST: DataOutcome = { status: 'failed', error: '浏览器预览里没有数据层' };
+const NO_HOST: { status: 'failed'; error: string } = {
+    status: 'failed',
+    error: '浏览器预览里没有数据层',
+};
 
 /** 导出到用户自己选的位置。`detail` 带上落盘路径，用户要去那个目录拿文件。 */
 export async function dataExport(): Promise<DataOutcome> {
@@ -319,6 +326,51 @@ export async function dataClear(): Promise<DataOutcome> {
             status: 'ok',
             detail: `已清空 ${summary.characters} 个角色、${summary.prices} 件物价、${summary.goals} 个目标`,
         };
+    } catch (error) {
+        return failure(error);
+    }
+}
+
+/* ---------- 速记单价的导入 / 导出（第 123 批） ----------
+ * 与上面那三个「整本账」的命令不是一回事：那是换机器、整份恢复，这是单独把速记格里的
+ * 价目表搬出去/搬回来。文件信封同名（`format` / `app` / `exportedAt` / `quickPrices`），
+ * 所以它同时是账本备份的**子集**——一份整本备份也能当单价文件导。
+ *
+ * 分工与账本那组一致：Rust 只做对话框与文件，合并与写盘在前端（`income-store` 的
+ * `mergePrices`）。于是「导入」这条路上没有「库里改了、内存没改」的中间态。
+ *
+ * 结局仍是三态（成功 / 用户取消 / 出错），理由与 `DataOutcome` 完全相同。
+ */
+export type PriceExportOutcome =
+    { status: 'ok'; path: string } | { status: 'canceled' } | { status: 'failed'; error: string };
+
+export type PriceImportOutcome =
+    | { status: 'ok'; prices: QuickPrice[] }
+    | { status: 'canceled' }
+    | { status: 'failed'; error: string };
+
+/**
+ * 把当前单价写成一份文件。`prices` 由调用方从内存里递进来——那里就是当下的真值
+ * （每次改价都已整份落盘），再读一次库只会给「导出到的是哪一版」多开一种解释。
+ */
+export async function priceFileExport(prices: QuickPrice[]): Promise<PriceExportOutcome> {
+    if (!hasTauri) return NO_HOST;
+    try {
+        const path = await commands.quickPricesExport(prices);
+        if (path === null) return { status: 'canceled' };
+        return { status: 'ok', path };
+    } catch (error) {
+        return failure(error);
+    }
+}
+
+/** 选一份文件、把里面的单价交回来。合并与落盘由 `income-store.mergePrices` 做。 */
+export async function priceFileImport(): Promise<PriceImportOutcome> {
+    if (!hasTauri) return NO_HOST;
+    try {
+        const prices = await commands.quickPricesImport();
+        if (prices === null) return { status: 'canceled' };
+        return { status: 'ok', prices };
     } catch (error) {
         return failure(error);
     }

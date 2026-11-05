@@ -273,6 +273,125 @@ pub async fn data_clear(app: AppHandle) -> Result<ClearSummary, String> {
 }
 
 /* ======================================================================
+ * 速记单价的导入 / 导出
+ *
+ * 与上面那三个「整本账」的命令分开：那是换机器、整份恢复，这是把「59 个格子的单价」
+ * 单独拿出去（发给朋友、贴进群里问行情、换台机器先带上价目）。整本账里也带单价，
+ * 但为了改一个价去导一份带角色与几千条流水的备份，不是这个功能想干的事。
+ *
+ * ---- 为什么信封与账本备份长得一样 ----
+ * `format` / `app` / `exportedAt` / `quickPrices` 四个字段与 `BackupFile` 的那几栏同名，
+ * 意义也相同。好处是这份文件是账本备份的**子集**：导入时用同一个反序列化结构，多出来的
+ * 字段（`characters` 之类）自然被忽略，于是「拿一份整本备份当单价文件导」也能用。
+ * 反过来不成立——单价文件缺了那几栏，不能当备份导，`data_import` 会因缺字段拒绝。
+ *
+ * ---- 为什么导出要前端把单价递进来 ----
+ * 前端内存里那一份就是当下的真值（每次改价都已整份落盘，写队列在 `persist.ts`），
+ * 在这里再读一次库等于给「导出到的是哪一版」多开一种解释。递进来的东西只做序列化，
+ * Rust 侧不碰数据库。
+ *
+ * ---- 为什么导入只把单价交回前端 ----
+ * 合并（同物品覆盖、其余保留）的规则与写盘队列都在 `income-store.ts`：前端是唯一
+ * 持有「当前全部单价」的地方，让它合并、让它整份写，才不会出现「库里改了、内存没改」
+ * 的半截状态。命令只负责「弹窗 → 读文件 → 认信封 → 校验 → 交回去」。
+ * ==================================================================== */
+
+/// 单价文件的大小上限。真实的一份只有几 KB（59 件物品），4 MB 是它的几百倍；
+/// 会碰到这个上限的是「选错了文件」（视频、日志、整本账的备份）。
+const MAX_PRICE_BYTES: u64 = 4 * 1024 * 1024;
+
+/// 一份单价文件的全部内容。字段名与 `BackupFile` 对齐（见上面那段）。
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PriceFile {
+    format: u32,
+    app: String,
+    exported_at: i64,
+    /// 空数组在**导出**那一侧就被拒了（没有可写的东西），导入再拒一次是因为文件可能被
+    /// 手改成空的：「导入一份空文件」只会让人以为成功了、实际什么都没变。
+    quick_prices: Vec<QuickPrice>,
+}
+
+/// 导出速记单价：系统「另存为」对话框选位置，写一份只含单价的 JSON。
+///
+/// 没有单价时**直接报错、不开对话框**：让用户先在「另存为」里挑个位置、
+/// 再告诉他「没有可导出的东西」，那一步白走。
+#[tauri::command]
+#[specta::specta]
+pub async fn quick_prices_export(
+    app: AppHandle,
+    prices: Vec<QuickPrice>,
+) -> Result<Option<String>, String> {
+    if prices.is_empty() {
+        return Err("还没有设过单价，没有可导出的东西".to_string());
+    }
+    let name = format!("梦幻养老助手-物品单价-{}.json", now_ms());
+    let Some(path) = ask_save_path(&app, name).await? else {
+        return Ok(None);
+    };
+
+    let file = PriceFile {
+        format: FORMAT,
+        app: APP_TAG.to_string(),
+        exported_at: now_ms(),
+        quick_prices: prices,
+    };
+    write_to(&path, &file)?;
+    Ok(Some(path.display().to_string()))
+}
+
+/// 导入速记单价：选文件 → 大小 / 信封 / 每条校验 → 把单价交回前端合并。
+///
+/// **不在这里写库**：理由见本段开头。于是「导入」在这条路上永远不会留下半份数据，
+/// 唯一写盘的那一次是前端合并后的整份 `income_save`（同一个事务）。
+#[tauri::command]
+#[specta::specta]
+pub async fn quick_prices_import(app: AppHandle) -> Result<Option<Vec<QuickPrice>>, String> {
+    let Some(path) = ask_open_path(&app).await? else {
+        return Ok(None);
+    };
+
+    /* 先问大小、再反序列化：这份文件来自硬盘上任意一个位置，拿几百 MB 的视频去试
+     * `serde_json::from_slice`，最轻的后果是界面卡住几秒、最后报一句「不是 JSON」。 */
+    let size = std::fs::metadata(&path)
+        .map_err(|error| format!("读不了 {}：{error}", path.display()))?
+        .len();
+    if size > MAX_PRICE_BYTES {
+        return Err("这个文件太大，可能不是单价文件".to_string());
+    }
+
+    let raw =
+        std::fs::read(&path).map_err(|error| format!("读不了 {}：{error}", path.display()))?;
+    let file: PriceFile = serde_json::from_slice(&raw)
+        .map_err(|error| format!("{} 不是一份能读的单价文件：{error}", path.display()))?;
+
+    check_tag(file.format, &file.app, "单价文件")?;
+    validate_prices(&file.quick_prices)?;
+    Ok(Some(file.quick_prices))
+}
+
+/// 每一条都要说得清「是哪件物品、多少钱」。
+///
+/// 宁可在替换/合并之前整份拒绝，也不跳过坏条目：跳过之后用户看到的是
+/// 「导入成功」，而少的那几条没人会去数——下一轮行情就全按旧价记了。
+fn validate_prices(prices: &[QuickPrice]) -> Result<(), String> {
+    if prices.is_empty() {
+        return Err("这份文件里没有单价".to_string());
+    }
+    for (index, one) in prices.iter().enumerate() {
+        if one.item_id <= 0 {
+            return Err(format!("第 {} 条单价没有物品编号", index + 1));
+        }
+        /* `is_finite` 单独判：JSON 里写不出 NaN / Infinity，但 `1e400` 会被解析成 `inf`，
+         * 而 `inf` 落进库里就是「这件物品的价永远算不对」。 */
+        if !one.price.is_finite() || one.price <= 0.0 {
+            return Err(format!("第 {} 条单价的数不是正数", index + 1));
+        }
+    }
+    Ok(())
+}
+
+/* ======================================================================
  * 对话框
  *
  * **`blocking_pick_file` / `blocking_save_file` 不能在主线程调用。**
@@ -459,7 +578,7 @@ fn build(app: &AppHandle) -> Result<BackupFile, String> {
     })
 }
 
-/// 写一份信封到 `path`。
+/// 写一份 JSON 到 `path`。`BackupFile` 与 `PriceFile` 共用这一份。
 ///
 /// 末尾补一个换行：仓库里其它 JSON（清单、种子数据、探针导出）都是这么存的，
 /// 不补的话 `git diff` 会在最后一行挂一条「\ No newline at end of file」。
@@ -470,9 +589,8 @@ fn build(app: &AppHandle) -> Result<BackupFile, String> {
 /// 正式名下留一个半截 JSON——而自动备份的文件名正是「导入前的数据」，用户最需要它的
 /// 时候它恰好是坏的。改名是原子替换，于是正式名要么不存在、要么完整。临时名带 pid：
 /// 两个实例同时导出时互不截断。
-fn write_to(path: &Path, file: &BackupFile) -> Result<(), String> {
-    let mut bytes =
-        serde_json::to_vec_pretty(file).map_err(|error| format!("序列化备份失败：{error}"))?;
+fn write_to<T: Serialize>(path: &Path, file: &T) -> Result<(), String> {
+    let mut bytes = serde_json::to_vec_pretty(file).map_err(|error| format!("序列化失败：{error}"))?;
     bytes.push(b'\n');
 
     let tmp = path.with_extension(format!("{}.tmp", std::process::id()));
@@ -560,17 +678,27 @@ fn now_ms() -> i64 {
 ///
 /// 拒绝就是拒绝：不尝试「按 v1 的字段名猜一猜」。理由见模块注释里旧版 `data.json` 那一段。
 fn check_envelope(file: &BackupFile) -> Result<(), String> {
-    if file.format != FORMAT {
+    check_tag(file.format, &file.app, "备份")
+}
+
+/// `format` 与 `app` 两个字段都得对得上。`what` 是这份文件在人话里的名字
+/// （「备份」/「单价文件」），两种文件的规矩一样，只是报错时该说的名词不同。
+///
+/// 两个分开查，因为失配的理由不一样、该给的话也不一样：`format` 不对多半是
+/// 「更新版本写的」（用户该升级应用），`app` 不对则是「这压根不是本应用的文件」
+/// （用户拖进来的是别的 JSON）。合成一句「无法识别的文件」就把这条线索丢了。
+///
+/// 拒绝就是拒绝：不尝试「按 v1 的字段名猜一猜」。理由见模块注释里旧版 `data.json` 那一段。
+fn check_tag(format: u32, app: &str, what: &str) -> Result<(), String> {
+    if format != FORMAT {
         return Err(format!(
-            "不认识的备份格式（format={}，本版本是 {FORMAT}）：这不是本版本导出的备份，\
-             可能是更新版本写的",
-            file.format
+            "不认识的{what}格式（format={format}，本版本是 {FORMAT}）：这不是本版本导出的{what}，\
+             可能是更新版本写的"
         ));
     }
-    if file.app != APP_TAG {
+    if app != APP_TAG {
         return Err(format!(
-            "这不是本版本导出的备份（app={}，本版本是 {APP_TAG}）",
-            file.app
+            "这不是本版本导出的{what}（app={app}，本版本是 {APP_TAG}）"
         ));
     }
     Ok(())
@@ -933,6 +1061,76 @@ mod tests {
             },
             "恰好 200 条的不算超限，超出多少就报多少"
         );
+    }
+
+    /// 单价文件：写得出去、读得回来；坏数据一律拒绝；整本备份也能当单价文件导。
+    ///
+    /// 最后那条是**刻意保留**的能力，不是巧合：单价文件的信封字段与 `BackupFile` 同名，
+    /// 于是 serde 忽略多出来的 `characters` / `prices` 等栏，只取 `quickPrices`。
+    /// 谁哪天把 `PriceFile` 改成 `deny_unknown_fields`，这条会红——那是要知道的。
+    #[test]
+    fn price_file_round_trips_and_rejects_bad_rows() {
+        let dir = std::env::temp_dir().join(format!("mh-toolbox-price-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("建临时目录");
+        let path = dir.join("prices.json");
+
+        let file = PriceFile {
+            format: FORMAT,
+            app: APP_TAG.to_string(),
+            exported_at: 1_700_000_000_000,
+            quick_prices: vec![QuickPrice {
+                item_id: 9,
+                price: 46_000.0,
+            }],
+        };
+        write_to(&path, &file).expect("写单价文件");
+        let text = std::fs::read_to_string(&path).expect("读单价文件");
+        assert!(
+            text.contains("\"quickPrices\""),
+            "字段名应与账本备份同名，实际内容：{text}"
+        );
+
+        let parsed: PriceFile = serde_json::from_str(&text).expect("读回单价文件");
+        check_tag(parsed.format, &parsed.app, "单价文件").expect("自己写的那份必须过");
+        validate_prices(&parsed.quick_prices).expect("自己写的那份必须过");
+        assert_eq!(parsed.quick_prices[0].item_id, 9);
+
+        /* 空文件：导出可以是空的（一件都没设价），导入不能。 */
+        assert!(
+            validate_prices(&[]).expect_err("空单价必须拒绝").contains("没有单价"),
+            "空文件的说法要直白"
+        );
+        let bad_id = [QuickPrice {
+            item_id: 0,
+            price: 1.0,
+        }];
+        assert!(validate_prices(&bad_id).is_err(), "没有物品编号必须拒绝");
+        for price in [-1.0, 0.0, f64::INFINITY, f64::NAN] {
+            let bad_price = [QuickPrice {
+                item_id: 3,
+                price,
+            }];
+            assert!(
+                validate_prices(&bad_price).is_err(),
+                "单价 {price} 必须拒绝"
+            );
+        }
+
+        /* 信封不对：报错里的名词要跟着走（「单价文件」而不是「备份」）。 */
+        let error = check_tag(FORMAT + 1, APP_TAG, "单价文件").expect_err("版本不对必须拒绝");
+        assert!(
+            error.contains("单价文件") && error.contains(&format!("format={}", FORMAT + 1)),
+            "文案要带上名词与看不懂的版本号，实际是：{error}"
+        );
+
+        /* 整本备份当单价文件导：多出来的栏被忽略，`quickPrices` 照取。 */
+        let backup = serde_json::to_string(&sample()).expect("序列化样张");
+        let lifted: PriceFile = serde_json::from_str(&backup).expect("备份也是合法的单价文件");
+        check_tag(lifted.format, &lifted.app, "单价文件").expect("备份的信封同样合格");
+        assert_eq!(lifted.quick_prices.len(), 1);
+        assert_eq!(lifted.quick_prices[0].item_id, 9);
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// 「另存为」里删掉后缀时要补回 `.json`，已有的（含大写）不动。

@@ -2,9 +2,12 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import NumTag from '../../components/NumTag.vue';
+import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
 import TogglePills from '../../components/TogglePills.vue';
+import { askConfirm } from '../../composables/use-confirm';
 import { notify } from '../../composables/use-notify';
+import { priceFileExport, priceFileImport } from '../../services/desktop';
 import { quickItems, type QuickItemEntry } from '../../services/game-data';
 import { quickItemIcon } from '../../services/game-icons';
 import { compactAmount, recordSummary } from './income';
@@ -34,7 +37,7 @@ const emit = defineEmits<{
     'need-price': [item: QuickItemEntry, mode: 'fixed' | 'variable', thenAdd: boolean];
 }>();
 
-const { prices, target, recordEntry, setTarget } = useIncome();
+const { prices, target, recordEntry, setTarget, mergePrices } = useIncome();
 const { roster } = useRoster();
 
 /* 清单在启动时已装好（`main.ts` 等 `loadGameData()` 完成才挂载），这里取一次就够。
@@ -151,6 +154,89 @@ function priceLabelOf(item: QuickItemEntry): string {
     /* 「4.6 万」→「4.6万」：窄签里那个空格白占半个字，见 `compactAmount` 的注释。 */
     return price > 0 ? compactAmount(price) : '未设价';
 }
+
+/* ---------- 价目表的导入 / 导出 ----------
+ *
+ * 为什么要有这两枚：单价是这一页**唯一需要配置**的东西，59 个格子逐件右键改价
+ * 是唯一的手段。换台机器、发给朋友对价、把行情贴进群里问，都得整份拿出去再整份拿回来。
+ *
+ * 为什么长在「固定价格」那行右端：它管的就是这一组的价——文件里只有单价，
+ * 不固定价格那组「每条现填 · 不入单价表」，所以它不属于整张卡，只属于这一行。放在行尾
+ * 还有个版式上的好处：这一行右端本来就空着，按钮借这段空白落地，卡片底边就能收回最后
+ * 一排格子。
+ *
+ * 2026-11-05 之前它俩在卡片最下面单独占一行、靠右对齐。用户「位置有点不是很好看」——
+ * 一条横排只有两枚小方按钮，左边全是空的，读起来像卡片长出一条尾巴；而它们与上面那排
+ * 格子既不同网格、又不同材质，孤零零挂在底下，既不像配置、也不像内容。
+ *
+ * ---- 导入是合并，不是替换 ----
+ * 同一件物品以文件为准，文件里没有的保持现状（理由写在 `mergePrices`）。所以这里的
+ * 确认窗只需说清「会覆盖同一件物品的旧价」，不必像整本账那样强调「整份替换」。
+ *
+ * ---- 回执不带路径 ----
+ * 文件位置是用户自己在系统对话框里选的，不必再念一遍；而浮层三秒就收，一条
+ * `C:\Users\…\Documents\梦幻养老助手-物品单价-1730…json` 只会被截成两行乱码。
+ * 真正需要停着读的路径回执在设置页那张「数据」卡上（那里用行内 `.note`）。
+ */
+const busy = ref(false);
+
+/** 有没有设过价。没有时导出按钮是禁用的——点了也只会得到一句「没有可导出的东西」。 */
+const hasPrices = computed(() => Object.keys(prices.value).length > 0);
+
+/** 内存里的价目 → 文件里的一行。`itemId` 是 `quick-items.json` 的稳定编号。 */
+function rowsOfPrices(): { itemId: number; price: number }[] {
+    return Object.entries(prices.value).map(([id, price]) => ({ itemId: Number(id), price }));
+}
+
+async function exportPrices() {
+    if (busy.value) return;
+    const rows = rowsOfPrices();
+    if (!rows.length) {
+        notify.error('还没有设过单价，没有可导出的东西');
+        return;
+    }
+    busy.value = true;
+    try {
+        const outcome = await priceFileExport(rows);
+        if (outcome.status === 'ok') notify.success(`已导出 ${rows.length} 件物品的单价`);
+        else if (outcome.status === 'failed') notify.error(outcome.error);
+        /* 取消：什么都不说。用户自己关掉了「另存为」，不该被提示一次。 */
+    } finally {
+        /* `finally`：`invoke` 之外的异常（IPC 断了）也要让按钮能再按下去。 */
+        busy.value = false;
+    }
+}
+
+async function importPrices() {
+    if (busy.value) return;
+    const ok = await askConfirm({
+        title: '用这份文件里的单价覆盖现有单价？',
+        note: '同一件物品以文件里的价为准；文件里没有的物品保持现在的价。',
+        confirmText: '导入',
+    });
+    if (!ok) return;
+
+    busy.value = true;
+    try {
+        const outcome = await priceFileImport();
+        if (outcome.status === 'canceled') return;
+        if (outcome.status === 'failed') {
+            notify.error(outcome.error);
+            return;
+        }
+        const merged = mergePrices(outcome.prices);
+        if (!merged.ok) {
+            notify.error(merged.error);
+            return;
+        }
+        notify.success(
+            `已导入 ${merged.added + merged.updated} 件单价` +
+                `（新增 ${merged.added} · 覆盖 ${merged.updated}）`,
+        );
+    } finally {
+        busy.value = false;
+    }
+}
 </script>
 
 <template>
@@ -170,7 +256,30 @@ function priceLabelOf(item: QuickItemEntry): string {
             </div>
         </template>
 
-        <div class="group-label"><b>固定价格</b>· 按单价入账 · 右键改价</div>
+        <!-- 这一行是「这一组的价格从哪来」的说明，右端顺手放价目表的进出：
+             两枚 `sm` 档的「图标 + 导出 / 导入」（理由见 script 里「为什么长在固定价格那行右端」）。
+             顺序与全站一致——导出在前、导入在后（设置页那张「数据」卡同样这两枚）。 -->
+        <div class="group-label">
+            <b>固定价格</b>· 按单价入账 · 右键改价
+            <span class="prices-io">
+                <PressButton
+                    icon="download"
+                    text="导出"
+                    size="sm"
+                    label="把物品单价导出成文件"
+                    :disabled="busy || !hasPrices"
+                    @click="exportPrices"
+                />
+                <PressButton
+                    icon="upload"
+                    text="导入"
+                    size="sm"
+                    label="从文件导入物品单价"
+                    :disabled="busy"
+                    @click="importPrices"
+                />
+            </span>
+        </div>
         <div class="grid">
             <button
                 v-for="item in groups.fixed"
@@ -215,6 +324,9 @@ function priceLabelOf(item: QuickItemEntry): string {
                 </PressTile>
             </button>
         </div>
+
+        <!-- 2026-11-05 起这里不再有单独一行按钮：两枚图标搬到了「固定价格」那一行的
+             右端（见上）。原先的 `.foot` 只在卡片底部占一条横向空白，读作「尾巴」。 -->
     </LedgerSection>
 </template>
 
@@ -256,6 +368,28 @@ function priceLabelOf(item: QuickItemEntry): string {
     flex: none;
 }
 
+/* ---------- 价目表的两枚按钮 ----------
+ * 长在「固定价格」那行的右端（`margin-left: auto` 推到行尾）。
+ *
+ * 尺寸走 `PressButton` 的 `sm` 档（20 见方、字号 `--fs-mini`、内距 6）：这一行是 11px 的
+ * 说明文字，默认的 `md`（26）会把行高从 13 撑到 26，上下两排格子各被推下去六七个像素
+ * ——一条注脚不该顶开版式。
+ *
+ * 2026-11-05 先是在这里就地覆写 `--tile-h` / `--icon-size`，用户随后让把它收成组件里的
+ * 正式档位：同一个「20 见方的小块」以后还会有第二处、第三处，散在业务页里各覆写一遍，
+ * 迟早出现 20 / 21 / 19 三个值。现在这一块**只留布局**，尺寸归 `PressButton`。
+ *
+ * 不换行（`flex: none`）：这组按钮是「这一行的收尾」，宽度不够时该让文字自己换行，
+ * 而不是把两枚图标挤成一条缝。
+ */
+.prices-io {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
 /* ---------- 两组格子 ---------- */
 /* 分组标题：**上下同距**（2026-11-04 用户：「上下边距保持一致」）。
  *
@@ -267,7 +401,10 @@ function priceLabelOf(item: QuickItemEntry): string {
  * `margin-bottom: 12px`，再叠 9 就是 21，卡片会从顶上裂开一条缝。 */
 .group-label {
     display: flex;
-    align-items: baseline;
+    /* `center` 而不是 `baseline`：这一行右端多了两枚 20 见方的按钮，`baseline` 会让
+     * 它们按内部图标的基线落位，比文字低一截，读作「按钮掉下去了」。文字与 `<b>`
+     * 同字号，居中与对齐基线在这里看不出差别，按钮却差得很明显。 */
+    align-items: center;
     /* `gap: 0` 而不是 8：这一行现在是一整句（三小段用同一个 `·` 隔开）。留 8 的话，
      * `<b>` 与后面文本之间那道缝会比句内空格宽一倍，读起来像「固定价格」是个标题、
      * 后面另起一句。段与段统一靠 `b` 的 `margin-right` 与句内空格对齐。 */

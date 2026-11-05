@@ -52,9 +52,6 @@ const RANGES: { value: Range; label: string }[] = [
     { value: 'month', label: '本月' },
 ];
 
-/** 当前范围的说法。从 `RANGES` 里取，不另写一份表——两张表迟早会有一张忘了改。 */
-const rangeWord = computed(() => RANGES.find((one) => one.value === range.value)?.label ?? '今天');
-
 const today = computed(() => todayText());
 
 /**
@@ -173,6 +170,9 @@ function priceCleared() {
         <p v-if="loadError || writeError" class="note error">{{ loadError || writeError }}</p>
 
         <div class="income-stack">
+            <!-- 这一行只剩范围滑块。原先滑块右边还有一句「今天 · 0 笔」——2026-11-05
+                 用户让删掉：范围的名字已经写在滑块上（当前那格就是亮的），条数在下面
+                 四格统计里也有（第一格的「N 笔 · 均 X」），这句话只是把同一件事说了第三遍。 -->
             <div class="filters">
                 <SteppedSlider
                     v-model="range"
@@ -180,7 +180,6 @@ function priceCleared() {
                     label="统计范围"
                     class="range-slider"
                 />
-                <span class="meta">{{ rangeWord }} · {{ totals.count }} 笔</span>
             </div>
 
             <StatStrip :items="statItems" />

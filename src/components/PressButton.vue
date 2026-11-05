@@ -19,10 +19,19 @@ import type { IconName } from './icons';
  * 判定写在类名上而不是另设 `variant`：`icon && !text` 是现成的、不会骗人的依据。
  *
  * ---- 尺寸 ----
- * `md` 26 / `lg` 31，与 `SlotButton` 逐像素同值——两种按钮并排
+ * `sm` 20 / `md` 26 / `lg` 31。`md` 与 `SlotButton` 的 `md` 逐像素同值——两种按钮并排
  * （比如页头左边一枚压印块、右边一枚槽按钮）基线才对得齐。尺寸仍走 `--tile-h`，
- * 父级要精确值就覆写变量。`sm`（24px）2026-11-02 与 `SlotButton` 那档一起删掉：
- * 与 `md` 只差 2px，并排读不出区别，业务页也没用过。
+ * 父级要精确值就覆写变量。
+ *
+ * `sm`（2026-11-05 加）是**注脚级**：给「附在说明文字右端」「塞在读数格边上」这种
+ * 位置用，第一处是收益页速记卡那一行的导出 / 导入。20 比 26 矮 6、字号降一档
+ * （`--fs-mini`）、左右内距从 11 收到 6——一眼看得出它与 `md` 是两种份量，不会
+ * 被当成「同一枚按钮小了一点点」。
+ *
+ * 它**不是** 2026-11-02 删掉的那档 24 回来了：24 只比 md 小 2px，并排放着读不出区别，
+ * 业务页一次没用过，是「看起来能调小」的假入口；20 差 6px 且带字号与内距变化，
+ * 有明确用途。`SlotButton` 暂时没有这一档——槽按钮长在工具条与页头，没出现过注脚级
+ * 的用法，真要用时按同值补上，md/lg 同值那条约定不变。
  *
  * ---- 印记变体 ----
  * `seal` 把块面灌成朱红、字翻成纸白，用于**主操作**（一屏只该有一枚）。
@@ -41,7 +50,12 @@ withDefaults(
         disabled?: boolean;
         /** 块面灌朱：主操作，一屏一屏只该有一枚。 */
         seal?: boolean;
-        size?: 'md' | 'lg';
+        /**
+         * 尺寸。`sm` 20 / `md` 26 / `lg` 31。
+         *
+         * `sm` 是注脚级（塞在说明行、读数格边上），字号与内距一并收窄，见文件头。
+         */
+        size?: 'sm' | 'md' | 'lg';
     }>(),
     { text: '', disabled: false, seal: false, size: 'md' },
 );
@@ -86,6 +100,22 @@ withDefaults(
     --icon-size: calc(17px * var(--fs-scale));
 
     font-size: var(--fs-base);
+}
+/* 注脚级（2026-11-05）：20 高、字降一档，内距与图标一起收。缘由见文件头「尺寸」那段——
+ * 它不是「小一号的 md」，是另一种份量：塞在说明文字右端、读数格边上，不抢主线。 */
+.press-btn.size-sm {
+    --tile-h: calc(20px * var(--fs-scale));
+    --icon-size: calc(12px * var(--fs-scale));
+
+    font-size: var(--fs-mini);
+}
+/* 内距 11 / 图标—字距 5 是 md 的比例；20 高的块里照抄会把两个字挤到贴边、把图标顶到拐角。
+ * 两条都写在按钮这一层，压在下面 `.press-btn-tile` / `.press-btn-inner` 的默认值之上。 */
+.press-btn.size-sm .press-btn-tile {
+    padding: 0 calc(6px * var(--fs-scale));
+}
+.press-btn.size-sm .press-btn-inner {
+    gap: 4px;
 }
 
 /* 内边距写在块上：块是 `box-sizing: border-box` + 固定高，padding 直接用；
