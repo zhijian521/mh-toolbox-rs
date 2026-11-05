@@ -1,15 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
     amountText,
+    countDeltaText,
     dayGroupsOf,
+    entriesIn,
     entriesOn,
+    factsOf,
     groupByItem,
     normalizeEntry,
     parseEntries,
     parsePrices,
+    previousWindowOf,
+    ratioText,
     recordSummary,
     splitAmount,
+    statRowsOf,
     totalsOf,
+    windowOf,
     type IncomeEntry,
 } from './income';
 
@@ -112,10 +119,21 @@ describe('收益：合计与分组', () => {
             expense: 230000,
             net: 41108000,
             count: 4,
+            /* 笔数要拆开：统计条的「31 笔 · 均 14.9 万」用的是**收入**笔数，
+             * 拿总笔数去除收入合计，算出来是「每笔的平均」而不是「每笔收入」。 */
+            incomeCount: 2,
+            expenseCount: 2,
         });
 
         expect(totalsOf([entry({ id: 'x', kind: 'expense', amount: 50000 })]).net).toBe(-50000);
-        expect(totalsOf([])).toEqual({ income: 0, expense: 0, net: 0, count: 0 });
+        expect(totalsOf([])).toEqual({
+            income: 0,
+            expense: 0,
+            net: 0,
+            count: 0,
+            incomeCount: 0,
+            expenseCount: 0,
+        });
     });
 
     it('按日期分组：新的在前，组内按记录时间倒排', () => {
@@ -295,3 +313,196 @@ describe('收益：今日按物品聚合', () => {
 });
 
 /* 日期与金额的用例搬去了 `services/format.test.ts`——那些函数不再属于收益页。 */
+
+/* ============================ 统计条：范围窗口与四格 ============================
+ * 2026-11-05 统计条改版（四枚压印签 + 每格副文 + 较上一档）。这里盯三类错：
+ *   1. **窗口边界**——「近七天」含不含今天、「本月同期」是不是上月整月，差一天就同比错位；
+ *   2. **算不出的情形**——上一档为 0、跨零、没有记录，必须落成「—」而不是一个假百分比；
+ *   3. **副文口径**——笔均与占比用错分母（总笔数 vs 收入笔数）不会报错，只会让数看着像对的。
+ */
+describe('收益：范围窗口', () => {
+    it('今天 / 近七天 / 本月各自的窗口', () => {
+        const today = '2026-11-05';
+        expect(windowOf('day', today)).toEqual({ from: '2026-11-05', to: '2026-11-05' });
+        // 近七天 = 含今天的七天（10-30 到 11-05），不是「周一到今天」
+        expect(windowOf('week', today)).toEqual({ from: '2026-10-30', to: '2026-11-05' });
+        expect(windowOf('month', today)).toEqual({ from: '2026-11-01', to: '2026-11-05' });
+    });
+
+    it('上一档是同样长度、紧邻的一段', () => {
+        const today = '2026-11-05';
+        expect(previousWindowOf('day', today)).toEqual({ from: '2026-11-04', to: '2026-11-04' });
+        // 最近七天之前的那七天：10-23 到 10-29，与当前窗口不重叠
+        expect(previousWindowOf('week', today)).toEqual({ from: '2026-10-23', to: '2026-10-29' });
+        // 本月只过到 5 号，就只比上月 1–5 号，不拿 5 天去比 30 天
+        expect(previousWindowOf('month', today)).toEqual({ from: '2026-10-01', to: '2026-10-05' });
+    });
+
+    it('上月没有那一天时截到月末；跨年时退到去年 12 月', () => {
+        // 3 月 31 日：2 月只有 28 天
+        expect(previousWindowOf('month', '2026-03-31')).toEqual({
+            from: '2026-02-01',
+            to: '2026-02-28',
+        });
+        expect(previousWindowOf('month', '2026-01-15')).toEqual({
+            from: '2025-12-01',
+            to: '2025-12-15',
+        });
+    });
+
+    it('按窗口筛记录，两端都含', () => {
+        const one = (id: string, date: string): IncomeEntry => ({
+            id,
+            date,
+            characterId: '',
+            kind: 'income',
+            amount: 10000,
+            item: '',
+            note: '',
+            createdAt: 1,
+        });
+        const list = [
+            one('a', '2026-10-22'),
+            one('b', '2026-10-23'),
+            one('c', '2026-10-29'),
+            one('d', '2026-10-30'),
+        ];
+        expect(entriesIn(list, { from: '2026-10-23', to: '2026-10-29' }).map((x) => x.id)).toEqual([
+            'b',
+            'c',
+        ]);
+    });
+});
+
+describe('收益：较上一档的写法', () => {
+    it('金额给百分比，一位小数，减号是 U+2212', () => {
+        expect(ratioText(450, 400)).toBe('+12.5%');
+        expect(ratioText(12, 100)).toBe('−88%');
+        expect(ratioText(100, 100)).toBe('±0%');
+    });
+
+    it('上一档是 0 时给「—」，不编一个 +100%', () => {
+        expect(ratioText(450, 0)).toBe('—');
+        expect(ratioText(0, 0)).toBe('—');
+    });
+
+    it('跨零给「—」：净额由亏转盈，百分比没有意义', () => {
+        expect(ratioText(6, -12)).toBe('—');
+        // 亏损收窄：两侧同号，分母取绝对值，符号说「朝正方向走」
+        expect(ratioText(-6, -12)).toBe('+50%');
+    });
+
+    it('笔数用差，不用百分比', () => {
+        expect(countDeltaText(37, 31)).toBe('+6 笔');
+        expect(countDeltaText(3, 5)).toBe('−2 笔');
+        expect(countDeltaText(5, 5)).toBe('±0 笔');
+    });
+});
+
+describe('收益：统计条四格', () => {
+    const totals = {
+        income: 4_625_000,
+        expense: 123_000,
+        net: 4_502_000,
+        count: 37,
+        incomeCount: 31,
+        expenseCount: 6,
+    };
+    const prev = {
+        income: 4_000_000,
+        expense: 100_000,
+        net: 3_900_000,
+        count: 31,
+        incomeCount: 26,
+        expenseCount: 5,
+    };
+
+    it('副文用「收入笔数」当分母，笔均圆到千币', () => {
+        const rows = statRowsOf(totals, prev, { names: 4, unassigned: 2 });
+        expect(rows.map((one) => one.cap)).toEqual(['收入', '支出', '净额', '笔数']);
+        expect(rows[0].value).toBe('462.5 万');
+        expect(rows[0].sub).toBe('31 笔 · 均 14.9 万');
+        expect(rows[0].delta).toBe('+15.6%');
+        expect(rows[1].sub).toBe('6 笔 · 占收入 2.7%');
+        expect(rows[1].delta).toBe('+23%');
+        expect(rows[2].sub).toBe('结余率 97.3%');
+        expect(rows[3].sub).toBe('4 个号 · 2 条未指定');
+        expect(rows[3].delta).toBe('+6 笔');
+    });
+
+    it('一条都没归号时，笔数副文只说条数，不写「0 个号」', () => {
+        const rows = statRowsOf(
+            {
+                income: 100_000,
+                expense: 0,
+                net: 100_000,
+                count: 3,
+                incomeCount: 3,
+                expenseCount: 0,
+            },
+            null,
+            { names: 0, unassigned: 3 },
+        );
+        expect(rows[3].sub).toBe('3 条未指定');
+    });
+
+    it('支出为 0 时读数是「—」，副文也是「—」', () => {
+        const rows = statRowsOf(
+            {
+                income: 100_000,
+                expense: 0,
+                net: 100_000,
+                count: 2,
+                incomeCount: 2,
+                expenseCount: 0,
+            },
+            {
+                income: 100_000,
+                expense: 0,
+                net: 100_000,
+                count: 2,
+                incomeCount: 2,
+                expenseCount: 0,
+            },
+            { names: 1, unassigned: 0 },
+        );
+        expect(rows[1].value).toBe('—');
+        expect(rows[1].sub).toBe('—');
+        expect(rows[1].delta).toBe('—');
+    });
+
+    it('整段没有记录时四格的副文与对比全是「—」，净额仍带符号', () => {
+        const rows = statRowsOf(
+            { income: 0, expense: 50_000, net: -50_000, count: 1, incomeCount: 0, expenseCount: 1 },
+            null,
+            { names: 0, unassigned: 1 },
+        );
+        expect(rows[0].value).toBe('—');
+        expect(rows[0].sub).toBe('—');
+        expect(rows[0].delta).toBe('—');
+        // 净额没有收入可比，结余率给「—」；读数仍必须有负号
+        expect(rows[2].value).toBe('−5 万');
+        expect(rows[2].sub).toBe('—');
+        expect(rows[2].tone).toBe('loss');
+    });
+});
+
+describe('收益：这一组账涉及几个号', () => {
+    it('去重后数角色，没指定角色的单独计条数', () => {
+        const one = (id: string, characterId: string): IncomeEntry => ({
+            id,
+            date: '2026-11-05',
+            characterId,
+            kind: 'income',
+            amount: 10000,
+            item: '',
+            note: '',
+            createdAt: 1,
+        });
+        expect(factsOf([one('a', 'c1'), one('b', 'c1'), one('c', 'c2'), one('d', '')])).toEqual({
+            names: 2,
+            unassigned: 1,
+        });
+        expect(factsOf([])).toEqual({ names: 0, unassigned: 0 });
+    });
+});

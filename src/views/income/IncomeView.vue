@@ -6,8 +6,18 @@ import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import { notify } from '../../composables/use-notify';
 import type { QuickItemEntry } from '../../services/game-data';
-import { daysAgo, toWan, todayText } from '../../services/format';
-import { amountText, entriesOn, recordSummary, totalsOf } from './income';
+import { toWan, todayText } from '../../services/format';
+import {
+    amountText,
+    entriesIn,
+    factsOf,
+    previousWindowOf,
+    recordSummary,
+    statRowsOf,
+    totalsOf,
+    windowOf,
+    type IncomeRange,
+} from './income';
 import { useIncome } from './income-store';
 import IncomeHistoryDialog from './IncomeHistoryDialog.vue';
 import ItemPriceDialog from './ItemPriceDialog.vue';
@@ -32,7 +42,7 @@ import TodayDump from './TodayDump.vue';
  */
 const { entries, loadError, writeError, recordEntry, setPrice, clearPrice, prices } = useIncome();
 
-type Range = 'day' | 'week' | 'month';
+type Range = IncomeRange;
 const range = ref<Range>('day');
 /* 显式标成可变数组：`SegmentedPills` 的 `options` 是可变类型，`as const` 出来的
  * readonly 元组赋不过去（它只读、但接收方声明的是可写）。 */
@@ -45,51 +55,39 @@ const RANGES: { value: Range; label: string }[] = [
 /** 当前范围的说法。从 `RANGES` 里取，不另写一份表——两张表迟早会有一张忘了改。 */
 const rangeWord = computed(() => RANGES.find((one) => one.value === range.value)?.label ?? '今天');
 
+const today = computed(() => todayText());
+
 /**
  * 选中范围内的记录。
  *
- * 「本周」取**近七天**而不是「周一到今天」：这一页记的是「这几天赚了多少」，
- * 周一切换会把周日那天从账上抹掉，读起来像丢了一笔。
+ * 窗口定义搬到了 `income.ts`（`windowOf`）：统计条要显示「较上一档」，而上一档是同范围
+ * 往前推一段——两处各写一次边界，「近七天」到底含不含今天就会有两种答案。
  */
-const scoped = computed(() => {
-    const all = entries.value;
-    const now = todayText();
-    if (range.value === 'day') return entriesOn(all, now);
-    if (range.value === 'week') {
-        const from = daysAgo(6);
-        return all.filter((one) => one.date >= from && one.date <= now);
-    }
-    const month = now.slice(0, 7);
-    return all.filter((one) => one.date.startsWith(month));
-});
+const scoped = computed(() => entriesIn(entries.value, windowOf(range.value, today.value)));
+
+/**
+ * 上一档的合计，只用来算 `delta`。
+ *
+ * 窗口里一条记录都没有时 `totalsOf` 给全 0，`ratioText` 会把它落成「—」——
+ * 那是「没有基数」，不是「上次是 0，这次暴涨」。
+ */
+const previousTotals = computed(() =>
+    totalsOf(entriesIn(entries.value, previousWindowOf(range.value, today.value))),
+);
 
 const totals = computed(() => totalsOf(scoped.value));
 
 /**
  * 统计条的四格。
  *
- * 2026-11-05 抽成 `StatStrip` 组件（总览页要用同一组数）：口径仍在这里，
- * 组件只负责摆——两页给出的数必须一模一样，所以连格式化函数都不能各写一份。
+ * 2026-11-05 抽成 `StatStrip` 组件（总览页要用同一组数）：口径仍在这里与 `income.ts`，
+ * 组件只负责摆——两页给出的数必须一模一样，所以连副文的写法都不能各写一份。
+ * 2026-11-05 二次改版：四格改成压印签，每格多一行副文（构成 + 较上一档），
+ * 拼装逻辑收进 `income.ts` 的 `statRowsOf`，这一层只调它。
  */
-const statItems = computed<StatItem[]>(() => [
-    { cap: '收入', value: amountText(totals.value.income) },
-    {
-        cap: '支出',
-        value: totals.value.expense ? `−${amountText(totals.value.expense)}` : '—',
-        tone: totals.value.expense ? 'loss' : 'num',
-    },
-    {
-        cap: '净额',
-        /* 负数必须带符号：左边「支出」有 `−`，净额只在颜色上转朱时，
-         * 一个「15 万」会被读成「今天赚了 15 万」——正是这一栏最不能错的地方。 */
-        value:
-            totals.value.net < 0
-                ? `−${amountText(-totals.value.net)}`
-                : amountText(totals.value.net),
-        tone: totals.value.net < 0 ? 'loss' : 'num',
-    },
-    { cap: '笔数', value: `${totals.value.count}` },
-]);
+const statItems = computed<StatItem[]>(() =>
+    statRowsOf(totals.value, previousTotals.value, factsOf(scoped.value)),
+);
 
 /* ---------- 单价窗 ---------- */
 interface PriceAsk {

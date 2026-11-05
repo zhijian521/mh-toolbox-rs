@@ -181,11 +181,17 @@ if (want('导航')) {
         await ui.gotoReady('总览');
         const shape = await cdp.evaluate(`(() => ({
             stats: document.querySelectorAll('.stats .stat').length,
+            subs: document.querySelectorAll('.stats .stat .sub').length,
+            deltas: document.querySelectorAll('.stats .stat .delta').length,
             slots: document.querySelectorAll('.bars .slot').length,
             chars: document.querySelectorAll('.chars .char').length,
         }))()`);
 
         t.check('今天那一排是四格', shape.stats === 4, `实际 ${shape.stats}`);
+        /* 每格都要有副文与「较昨日」——空账时它们落成「—」，但两层都得在，
+         * 少一层就是改版漏了一半。 */
+        t.check('四格都有副文', shape.subs === 4, `实际 ${shape.subs}`);
+        t.check('四格都有较昨日', shape.deltas === 4, `实际 ${shape.deltas}`);
         /* 七格是「七天」的骨架：没记账的那天也占一格，否则横轴对不上日期。 */
         t.check('近七天有七格（空的也占位）', shape.slots === 7, `实际 ${shape.slots}`);
         t.check(
@@ -437,6 +443,21 @@ if (want('物价')) {
 /* ============================ 4. 收益 ============================ */
 
 /**
+ * 统计条四格的文本（名目 / 读数 / 副文 / 较上一档）。
+ *
+ * 2026-11-05 改版后每格多了两层，这两层是**算出来的**（笔均、占比、结余率、上一档），
+ * 而算错不会报错——只会显示一个看着正常的错数。所以这里读的是文本本身，
+ * 不是「元素存在」：格式对不对（「31 笔 · 均 14.9 万」「+6 笔」）一并盯住。
+ */
+const statCells = async () =>
+    cdp.evaluate(`(() => [...document.querySelectorAll('.stats .stat')].map((el) => ({
+        cap: el.querySelector('.cap')?.textContent?.trim() ?? '',
+        value: el.querySelector('.v')?.textContent?.trim() ?? '',
+        sub: el.querySelector('.sub')?.textContent?.trim() ?? '',
+        delta: el.querySelector('.delta')?.textContent?.trim() ?? '',
+    })))()`);
+
+/**
  * 今日笔数：从「历史收益」窗里读。
  *
  * 不从页面上的「统计范围 · N 笔」读：那个 N 跟着用户选的区间走，
@@ -535,6 +556,32 @@ if (want('收益')) {
         const after = await todayCount();
         t.check('记一笔后今日笔数 +1', after === before + 1, `${before} → ${after}`);
         baseline.quickPricedByTest = !hadPrice;
+    });
+
+    /* 2026-11-05 统计条改版：四格从「名目 + 读数」变成「名目 + 读数 + 副文 + 较上一档」。
+     * 副文是算出来的（笔均、占比、结余率），算错不会报错，只会显示一个看着正常的数——
+     * 所以这里读文本本身，连格式一起盯住。 */
+    await t.step('统计条：四格都有副文与「较上一档」', async () => {
+        await ui.goto('收益');
+        const cells = await statCells();
+        t.check('四格齐', cells.length === 4, `实际 ${cells.length}`);
+        const caps = cells.map((one) => one.cap).join('/');
+        t.check('名目顺序没变', caps === '收入/支出/净额/笔数', caps);
+        t.check(
+            '每格都有副文',
+            cells.every((one) => one.sub.length > 0),
+            JSON.stringify(cells.map((one) => one.sub)),
+        );
+        t.check(
+            '每格都有较上一档',
+            cells.every((one) => one.delta.length > 0),
+            JSON.stringify(cells.map((one) => one.delta)),
+        );
+        /* 刚记过一笔，收入格必然是「N 笔 · 均 X」；净额格的结余率只有在有收入时才算得出。 */
+        t.check('收入副文是「N 笔 · 均 X」', /^\d+ 笔 · 均/.test(cells[0].sub), cells[0].sub);
+        t.check('净额副文是结余率', cells[2].sub.startsWith('结余率'), cells[2].sub);
+        /* 笔数用差不用百分比：`±0 笔` 也要能读出来。 */
+        t.check('笔数对比是「±N 笔」', /^[+−±]\d+ 笔$/.test(cells[3].delta), cells[3].delta);
     });
 
     await t.step('连点两次：两笔都要落到库里（写队列）', async () => {

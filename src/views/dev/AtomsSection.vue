@@ -66,10 +66,10 @@ const demoDate = ref(todayText());
 
 /** 统计条的演示：四格各给一种真实会出现的形态——有数、没有（`—`）、负数转朱、笔数。 */
 const DEMO_STATS: StatItem[] = [
-    { cap: '收入', value: '462.5 万' },
-    { cap: '支出', value: '—', tone: 'num' },
-    { cap: '净额', value: '−12 万', tone: 'loss' },
-    { cap: '笔数', value: '18' },
+    { cap: '收入', value: '462.5 万', sub: '31 笔 · 均 14.9 万', delta: '+12.4%' },
+    { cap: '支出', value: '−12.3 万', tone: 'loss', sub: '6 笔 · 占收入 2.7%', delta: '+3.1%' },
+    { cap: '净额', value: '450.2 万', sub: '结余率 97.3%', delta: '+13.2%' },
+    { cap: '笔数', value: '37', sub: '4 个号 · 2 条未指定', delta: '+6 笔' },
 ];
 
 /** 多选胶囊：初值给一项，才好看出「按下的那几枚是朱的」与「其余仍是空槽」。 */
@@ -280,8 +280,10 @@ const demoToggles = ref<string[]>(['task']);
                     <StatStrip :items="DEMO_STATS" class="demo-stats" />
                 </div>
                 <p class="note">
-                    读作<b>一行账</b>，不是四张卡：没有底色、没有圆角，只有每格之间一条 1px
-                    账线。列数由 <code>items.length</code> 决定。
+                    四枚<b>压印签</b>，材质与物价卡同一块（<code>PressTile</code> 的
+                    <code>wide</code> 档：大块要把左上那颗偏光收小）。每格三层——名目、读数、
+                    副文；副文<b>左端说构成、右端说较上一档</b>，且不上色（四格的「好」方向不同，
+                    方向交给 +/−）。列数由 <code>items.length</code> 决定。
                 </p>
             </div>
 

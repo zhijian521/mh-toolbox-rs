@@ -4,9 +4,9 @@ import LedgerSection from '../../components/LedgerSection.vue';
 import MeterBar from '../../components/MeterBar.vue';
 import PageShell from '../../components/PageShell.vue';
 import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
-import { todayText } from '../../services/format';
+import { daysAgo, todayText } from '../../services/format';
 import { useRoster } from '../characters/roster';
-import { amountText, entriesOn, totalsOf } from '../income/income';
+import { amountText, entriesOn, factsOf, statRowsOf, totalsOf } from '../income/income';
 import { useIncome } from '../income/income-store';
 import { charBrief, trainingPercent, weekSeries } from './overview';
 
@@ -38,26 +38,26 @@ const { entries } = useIncome();
 const { roster } = useRoster();
 
 const today = computed(() => todayText());
-const todayTotals = computed(() => totalsOf(entriesOn(entries.value, today.value)));
+const todayEntries = computed(() => entriesOn(entries.value, today.value));
+const todayTotals = computed(() => totalsOf(todayEntries.value));
 
-const statItems = computed<StatItem[]>(() => {
-    const totals = todayTotals.value;
-    return [
-        { cap: '收入', value: amountText(totals.income) },
-        {
-            cap: '支出',
-            value: totals.expense ? `−${amountText(totals.expense)}` : '—',
-            tone: totals.expense ? 'loss' : 'num',
-        },
-        {
-            cap: '净额',
-            /* 负数必须带符号：只在颜色上转朱时，「15 万」会被读成「今天赚了 15 万」。 */
-            value: totals.net < 0 ? `−${amountText(-totals.net)}` : amountText(totals.net),
-            tone: totals.net < 0 ? 'loss' : 'num',
-        },
-        { cap: '笔数', value: `${totals.count}` },
-    ];
-});
+/**
+ * 昨天，只用来给统计条算「较昨日」。
+ *
+ * 从 `today` 推而不是直接取 `daysAgo(1)`：这个 computed 在跨午夜时会跟着 `today` 一起变，
+ * 而两次各取一次「现在」，可能出现「今天的数配昨天的前一天」。
+ */
+const yesterdayTotals = computed(() =>
+    totalsOf(entriesOn(entries.value, daysAgo(1, new Date(`${today.value}T00:00:00`)))),
+);
+
+/**
+ * 与收益页**同一份拼装**（`statRowsOf`）：同一组数在两页上长得不一样，会让人怀疑
+ * 有一页算错了。副文与「较昨日」也一并搬过去，两页只有范围不同（这一页恒为今天）。
+ */
+const statItems = computed<StatItem[]>(() =>
+    statRowsOf(todayTotals.value, yesterdayTotals.value, factsOf(todayEntries.value)),
+);
 
 /**
  * 近七天的柱子。

@@ -12,7 +12,7 @@
  * 方向由 `kind` 说，**不用负数**：支出存正数 + `kind: 'expense'`。
  * 负数与「支出」两套写法混用，汇总时漏掉一处就会把净额算反。
  */
-import { moneyText } from '../../services/format';
+import { dateText, daysAgo, moneyText } from '../../services/format';
 import { makeId } from '../../services/shape';
 
 export type IncomeKind = 'income' | 'expense';
@@ -174,19 +174,247 @@ export interface Totals {
     expense: number;
     /** 净额 = 收入 − 支出；**可为负**。 */
     net: number;
-    /** 笔数。 */
+    /** 笔数（收 + 支）。 */
     count: number;
+    /**
+     * 收入 / 支出的笔数。
+     *
+     * 统计条的副文要写「31 笔 · 均 14.9 万」，那个 31 必须是**收入**笔数而不是总笔数——
+     * 用总数去除收入合计，算出来的是「每笔的平均」，两者差着一个量级。
+     * 放在 `totalsOf` 里一次数完，比在页面里再 filter 一遍省事，也不会两处口径不同。
+     */
+    incomeCount: number;
+    expenseCount: number;
 }
 
 /** 一组记录的合计。空数组返回全 0（不是 null）——界面直接显示「0 万」比「—」好读。 */
 export function totalsOf(entries: readonly IncomeEntry[]): Totals {
     let income = 0;
     let expense = 0;
+    let incomeCount = 0;
+    let expenseCount = 0;
     for (const one of entries) {
-        if (one.kind === 'expense') expense += one.amount;
-        else income += one.amount;
+        if (one.kind === 'expense') {
+            expense += one.amount;
+            expenseCount += 1;
+        } else {
+            income += one.amount;
+            incomeCount += 1;
+        }
     }
-    return { income, expense, net: income - expense, count: entries.length };
+    return {
+        income,
+        expense,
+        net: income - expense,
+        count: entries.length,
+        incomeCount,
+        expenseCount,
+    };
+}
+
+/* ---------- 范围窗口 ----------
+ * 「今天 / 近七天 / 本月」原先写在 `IncomeView` 的 `scoped` 里，是三个内联 `filter`。
+ * 2026-11-05 统计条要显示「较上一档」，于是需要**同一个范围的前一档**——把窗口定义
+ * 留在页面里，第二处（上一档）就得照抄一遍边界，而「近七天」是不是含今天、
+ * 「本月」从 1 号还是从今天算，抄的人各有各的理解。
+ * 现在窗口只有这一份，页面只选名字。
+ */
+
+export type IncomeRange = 'day' | 'week' | 'month';
+
+/** 闭区间。`YYYY-MM-DD` 天生可比较，所以直接比字符串。 */
+export interface DateWindow {
+    from: string;
+    to: string;
+}
+
+/** 范围对应的窗口。 */
+export function windowOf(range: IncomeRange, today: string): DateWindow {
+    const at = new Date(`${today}T00:00:00`);
+    if (range === 'day') return { from: today, to: today };
+    /* 近七天 = 含今天的七天，不是「周一到今天」：周一切换会把周日那天从账上抹掉。 */
+    if (range === 'week') return { from: daysAgo(6, at), to: today };
+    return { from: `${today.slice(0, 7)}-01`, to: today };
+}
+
+/**
+ * 紧邻的上一档，用来算「较上一档」。
+ *
+ * 三档各自与**同样长度、紧邻**的一段比：
+ *   今天 → 昨天；近七天 → 再往前七天；本月 → 上月同期（1 号到上月同一天）。
+ *
+ * 「上月同期」不是「上月整月」：本月才过到 5 号，拿 5 天去比 30 天，百分比会永远是负的。
+ * 上月没有那一天（3 月 31 日对 2 月）就截到月末，由 `new Date(y, m, 0)` 给出天数。
+ */
+export function previousWindowOf(range: IncomeRange, today: string): DateWindow {
+    const at = new Date(`${today}T00:00:00`);
+    if (range === 'day') {
+        const yesterday = daysAgo(1, at);
+        return { from: yesterday, to: yesterday };
+    }
+    if (range === 'week') return { from: daysAgo(13, at), to: daysAgo(7, at) };
+
+    const endOfPrev = new Date(at.getFullYear(), at.getMonth(), 0).getDate();
+    const day = Math.min(at.getDate(), endOfPrev);
+    return {
+        from: dateText(new Date(at.getFullYear(), at.getMonth() - 1, 1)),
+        to: dateText(new Date(at.getFullYear(), at.getMonth() - 1, day)),
+    };
+}
+
+/** 窗口内的记录。 */
+export function entriesIn(entries: readonly IncomeEntry[], window: DateWindow): IncomeEntry[] {
+    return entries.filter((one) => one.date >= window.from && one.date <= window.to);
+}
+
+/* ---------- 统计条的四格 ----------
+ * 口径住在这里而不是页面里：收益页与总览页共用同一块（`StatStrip`），
+ * 两页给出的数必须一模一样，所以连副文的写法都只能有一份。
+ */
+
+/**
+ * 「较上一档」的变化率：`+12.4%` / `−3.1%` / `±0%` / `—`。
+ *
+ * 三种情况给「—」，都不是故障而是**算不出**：
+ *   1. 上一档是 0——没有基数。写成 `+100%` 是假的（0 → 1 也是 +100%）。
+ *   2. 两侧异号（净额由亏转盈）——跨零的百分比没有意义，写出来会被读成「涨了 300%」。
+ *   3. 上一档没有记录，与 0 同一条路（`totalsOf` 空数组给 0）。
+ *
+ * 分母取绝对值：净额从 −12 万变成 −6 万，算的是「亏损收窄 50%」，
+ * 符号说方向（+ 表示朝正方向走），不表示「现在是正数」。
+ */
+export function ratioText(current: number, previous: number): string {
+    if (previous === 0) return '—';
+    if (Math.sign(current) !== Math.sign(previous)) return '—';
+    const ratio = Math.round(((current - previous) / Math.abs(previous)) * 1000) / 10;
+    if (ratio === 0) return '±0%';
+    return `${ratio > 0 ? '+' : '−'}${Math.abs(ratio)}%`;
+}
+
+/** 笔数的变化：`+6 笔` / `−3 笔` / `±0 笔`。笔数本来就是整数，用差比用百分比好读。 */
+export function countDeltaText(current: number, previous: number): string {
+    const diff = current - previous;
+    if (diff === 0) return '±0 笔';
+    return `${diff > 0 ? '+' : '−'}${Math.abs(diff)} 笔`;
+}
+
+/** 这一组账涉及几个号、几条没归号。 */
+export interface EntryFacts {
+    /** 去重后的角色数（`characterId` 为空的那些不算）。 */
+    names: number;
+    /** 没指定角色的条数。 */
+    unassigned: number;
+}
+
+export function factsOf(entries: readonly IncomeEntry[]): EntryFacts {
+    const names = new Set<string>();
+    let unassigned = 0;
+    for (const one of entries) {
+        if (one.characterId) names.add(one.characterId);
+        else unassigned += 1;
+    }
+    return { names: names.size, unassigned };
+}
+
+/**
+ * 统计条的一格。
+ *
+ * 与 `components/StatStrip.vue` 的 `StatItem` 结构相同，但**不引它的类型**：
+ * 这一层是纯函数（要能单测），不该依赖一个 `.vue`；结构类型在这里天然兼容。
+ */
+export interface StatRow {
+    cap: string;
+    value: string;
+    tone: 'num' | 'loss';
+    /** 左下：这一格由什么组成（几笔、笔均、占比、结余率、几个号）。 */
+    sub: string;
+    /** 右下：较上一档的增减，已带符号；算不出时是「—」。 */
+    delta: string;
+}
+
+/**
+ * 笔均：圆到千币（0.1 万）。
+ *
+ * 不圆的话 `462.5 万 ÷ 31` 会显示成「14.9193 万」——`moneyText` 保留四位小数是为了
+ * 与输入精度对齐（那是价格的事），而笔均是**估计值**，多出来的位数只会挤占那行小字。
+ */
+function averageText(total: number, count: number): string {
+    if (!count) return '—';
+    return moneyText(Math.round(total / count / 1000) * 1000);
+}
+
+/** 「占收入 2.7%」/「结余率 97.3%」。分母为 0 时给「—」，不编一个 0%。 */
+function percentText(part: number, whole: number): string {
+    if (!whole) return '—';
+    return `${Math.round((part / whole) * 1000) / 10}%`;
+}
+
+/**
+ * 四格的读数、副文与对比。
+ *
+ * `previous` 传 null 表示「上一档没有可比的一段」（窗口里一条记录都没有）——
+ * 与传一份全 0 的合计等价，都落成「—」。做成可空是为了让调用方不必自己拼空对象。
+ */
+export function statRowsOf(current: Totals, previous: Totals | null, facts: EntryFacts): StatRow[] {
+    const prev: Totals = previous ?? {
+        income: 0,
+        expense: 0,
+        net: 0,
+        count: 0,
+        incomeCount: 0,
+        expenseCount: 0,
+    };
+
+    const incomeSub = current.incomeCount
+        ? `${current.incomeCount} 笔 · 均 ${averageText(current.income, current.incomeCount)}`
+        : '—';
+    const expenseSub = current.expenseCount
+        ? current.income
+            ? `${current.expenseCount} 笔 · 占收入 ${percentText(current.expense, current.income)}`
+            : `${current.expenseCount} 笔`
+        : '—';
+    const netSub = current.income ? `结余率 ${percentText(current.net, current.income)}` : '—';
+    /* 「几个号」在没有归号时不该写成「0 个号 · 3 条未指定」——那句话读起来像
+     * 「一个号都没有，还漏了三条」，而事实是「这三条本来就没归号」。没号就只说条数。 */
+    const countSub = current.count
+        ? facts.names
+            ? `${facts.names} 个号${facts.unassigned ? ` · ${facts.unassigned} 条未指定` : ''}`
+            : `${facts.unassigned} 条未指定`
+        : '—';
+
+    return [
+        {
+            cap: '收入',
+            value: amountText(current.income),
+            tone: 'num',
+            sub: incomeSub,
+            delta: ratioText(current.income, prev.income),
+        },
+        {
+            /* 支出为 0 时读数给「—」而不是「0 万」：这一天没花钱，与「花了 0 块」不是一回事
+             * （后者不存在）。这条沿用 `StatStrip` 抽取前的写法。 */
+            cap: '支出',
+            value: current.expense ? `−${amountText(current.expense)}` : '—',
+            tone: current.expense ? 'loss' : 'num',
+            sub: expenseSub,
+            delta: ratioText(current.expense, prev.expense),
+        },
+        {
+            /* 负数必须带符号：只在颜色上转朱时，「15 万」会被读成「今天赚了 15 万」。 */
+            cap: '净额',
+            value: current.net < 0 ? `−${amountText(-current.net)}` : amountText(current.net),
+            tone: current.net < 0 ? 'loss' : 'num',
+            sub: netSub,
+            delta: ratioText(current.net, prev.net),
+        },
+        {
+            cap: '笔数',
+            value: `${current.count}`,
+            tone: 'num',
+            sub: countSub,
+            delta: countDeltaText(current.count, prev.count),
+        },
+    ];
 }
 
 export interface DayGroup {

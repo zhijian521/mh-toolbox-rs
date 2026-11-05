@@ -44,6 +44,17 @@
  *                 的朱红按钮若沿用默认值，指上去会闪成一张白纸、按下去闪成一块灰。
  * 圆角与棱厚都**不乘** `--fs-scale`：曲率是绝对的，字放大时圆角一起变大会读成另一种控件。
  *
+ * ## `wide`：大块要收光
+ *
+ * 那颗左上角的偏光是**按百分比**给椭圆尺寸的（`120% × 96%`），而它是照 56px 的图标格
+ * 调的：在那个尺寸上只是「左上角一点」。同一组百分比摊到 265 × 72 的统计签、乃至
+ * 1100 宽的长条上，光会铺掉半张纸——暗色下直接读成一条横向渐变，不像一块纸。
+ *
+ * `wide` 把偏光换成**固定像素**（190 × 122 起步、暗色再压一档强度）：无论块多宽，
+ * 光都只是左上那一小块。体积大于「一个图标格」的块都该传它（统计签、物价卡这类
+ * 200px 以上的面）。不传就还是图标格那一套，别为了统一全站都给 `wide`——
+ * 小方块用固定像素的偏光会显得光斑偏小、块面发死。
+ *
  * ## 交互态
  *
  * 悬停提亮、按下凹回纸里，两条都在组件里——这两个状态与「一块可点的凸起」绑死，
@@ -67,14 +78,15 @@
  * `PressButton` 的 `seal` 变体就是这一档，它自己不再写任何一条 box-shadow——
  * 两边各写一份配方，改一处忘一处就变成「按钮的朱和字印的朱不是一个朱」。
  */
-withDefaults(defineProps<{ still?: boolean; tone?: 'paper' | 'seal' }>(), {
+withDefaults(defineProps<{ still?: boolean; tone?: 'paper' | 'seal'; wide?: boolean }>(), {
     still: false,
     tone: 'paper',
+    wide: false,
 });
 </script>
 
 <template>
-    <span class="press-tile" :class="[{ still }, { 'tone-seal': tone === 'seal' }]">
+    <span class="press-tile" :class="[{ still }, { 'tone-seal': tone === 'seal' }, { wide }]">
         <span class="press-content"><slot /></span>
     </span>
 </template>
@@ -336,5 +348,53 @@ withDefaults(defineProps<{ still?: boolean; tone?: 'paper' | 'seal' }>(), {
         inset 1px 1px 4px var(--seal-dp),
         inset -1px 0 0 color-mix(in srgb, var(--seal-lt) 45%, transparent),
         inset 0 -1px 0 color-mix(in srgb, var(--seal-lt) 52%, transparent);
+}
+
+/* ======================================================================
+ * `wide`：大块收光
+ * ====================================================================
+ * 只换背景那三层渐变，棱、影、块面一个都不动——这是一块**同样材质、光斑更小**的纸，
+ * 不是另一种块。写在这里（文件末尾）而不是前面：`hover` / `active` / `tone-seal`
+ * 都不改 `background-image`（只有 `active` 改），所以顺序上不会互相顶掉。
+ *
+ * 暗色那一条必须带 `:root.dark`：基础规则 `:root.dark .press-tile` 是 (0,3,0)，
+ * 光写 `.press-tile.wide`（0,2,0）会被它整个盖掉，而亮色却正常——这种「只有暗色不对」
+ * 的样式最难查，原因就在这里。
+ */
+.press-tile.wide {
+    background-image:
+        radial-gradient(
+            190px 122px at 26px 6px,
+            color-mix(in srgb, var(--bevel-hi) 58%, transparent),
+            transparent 72%
+        ),
+        linear-gradient(
+            145deg,
+            color-mix(in srgb, var(--bevel-hi) 52%, transparent),
+            transparent 46%
+        ),
+        linear-gradient(
+            315deg,
+            color-mix(in srgb, var(--bevel-lo) 100%, transparent),
+            transparent 70%
+        );
+}
+:root.dark .press-tile.wide {
+    background-image:
+        radial-gradient(
+            150px 100px at 22px 4px,
+            color-mix(in srgb, var(--bevel-hi) 50%, transparent),
+            transparent 70%
+        ),
+        linear-gradient(
+            160deg,
+            color-mix(in srgb, var(--bevel-hi) 34%, transparent),
+            transparent 44%
+        ),
+        linear-gradient(
+            315deg,
+            color-mix(in srgb, var(--bevel-lo) 100%, transparent),
+            transparent 70%
+        );
 }
 </style>

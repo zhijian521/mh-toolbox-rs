@@ -30,12 +30,23 @@ export function toWan(amount: number): number {
     return amount / WAN;
 }
 
+/**
+ * 把一个 `Date` 写成 `YYYY-MM-DD`（本地分量，不碰 UTC）。
+ *
+ * 这是全站**唯一**的「日期怎么落成字符串」，`todayText` 与 `daysAgo` 都走它。
+ * 2026-11-05 抽出来，是因为收益页要算「本月 / 上月同期」两个窗口：那需要先构造
+ * `Date`（跨月由 `setMonth` / `new Date(y, m, 0)` 承担）再落成文本，而落文本的
+ * 那一行不能再抄一遍——口径②（本地分量、不用 `toISOString()`）抄第二遍就会漂。
+ */
+export function dateText(at: Date): string {
+    const month = `${at.getMonth() + 1}`.padStart(2, '0');
+    const day = `${at.getDate()}`.padStart(2, '0');
+    return `${at.getFullYear()}-${month}-${day}`;
+}
+
 /** 今天，`YYYY-MM-DD`。**不能用 `toISOString().slice(0, 10)`**（理由见文件头口径②）。 */
 export function todayText(): string {
-    const now = new Date();
-    const month = `${now.getMonth() + 1}`.padStart(2, '0');
-    const day = `${now.getDate()}`.padStart(2, '0');
-    return `${now.getFullYear()}-${month}-${day}`;
+    return dateText(new Date());
 }
 
 /** 日期去掉年份：卡片与历史列表里全是今年的记录，年份占位置不提供信息。 */
@@ -52,9 +63,7 @@ export function shortDate(date: string): string {
 export function daysAgo(offset: number, from: Date = new Date()): string {
     const at = new Date(from.getTime());
     at.setDate(at.getDate() - offset);
-    const month = `${at.getMonth() + 1}`.padStart(2, '0');
-    const day = `${at.getDate()}`.padStart(2, '0');
-    return `${at.getFullYear()}-${month}-${day}`;
+    return dateText(at);
 }
 
 /**
