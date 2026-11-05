@@ -89,19 +89,9 @@ export const commands = {
 	 *  逐条比对反而要额外记住上一次的快照。
 	 */
 	pricesSave: (items: PriceItem[]) => __TAURI_INVOKE<null>("prices_save", { items }),
-	/**
-	 *  读整份名册，按 `sort_order` 还原顺序。
-	 * 
-	 *  **一行坏 JSON 不拖垮整份**：跳过它、`eprintln!` 留一条带 `sort_order` 的痕迹，其余照常
-	 *  返回。早先这里是「任一行解析失败就整份 `Err`」，后果比坏掉那一行严重得多——
-	 *  前端 `charactersLoad` 拿到 `null` 后立起 `loadError`、名册空白、写入口全禁，
-	 *  而界面没有任何「修掉这一行」的入口，等于**永久打不开**。宁可少显示一个角色。
-	 * 
-	 *  返回类型仍是 `Vec<serde_json::Value>`，前端契约不变；坏行留在库里没被删，
-	 *  下次 `characters_save` 整份覆盖时会自然消失。
-	 */
+	/**  读整份名册，按 `sort_order` 还原顺序。 */
 	charactersLoad: () => __TAURI_INVOKE<Value[]>("characters_load"),
-	/**  整份写回。同样是一个事务；`OR REPLACE` 容忍前端传来重复 id（名册编辑时可能撞上）。 */
+	/**  整份写回名册。 */
 	charactersSave: (items: Value[]) => __TAURI_INVOKE<null>("characters_save", { items }),
 	/**
 	 *  读回全部收益记录与速记单价。
