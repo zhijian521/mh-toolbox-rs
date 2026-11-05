@@ -17,6 +17,13 @@
 官网把 90 级起的几款写成 `90-150`（一件覆盖整个等级段，不是每 10 级一件），
 所以清单里保留 `level` / `level_hi` 两个值；`60/70/80/150/160` 这类 level_hi == level。
 
+## 后五种（巨剑 / 灯笼 / 伞 / 双巨斧 / 棍）为什么不走上面那套
+
+客户端的排列顺序与官网不同（弓弩之后是 巨剑 → 灯笼 → 伞 → 双巨斧 → 棍），双巨斧还
+拆成「乾」「坤」两件（各 16 档，**九黎城没做 160 造型**），而且这批截图是乱序截的。
+所以这五种按 `LATE_PAGES` 里写死的「哪一页的第几格 = 哪组的第几档」切，
+起始档靠红圈 / 选中详情 / 页间零差异重叠三样互校，理由写在 `LATE_PAGES` 上方。
+
 ## 重跑
 
     python tools/game-icons/slice-weapon.py          # 切图 + 写清单
@@ -103,7 +110,7 @@ ROWS = {
     '伞': [('油纸伞', 0, 0), ('红罗伞', 10, 10), ('紫竹伞', 20, 20), ('锦绣帷', 30, 30), ('幽兰帐', 40, 40), ('琳琅盖', 50, 50), ('孔雀羽', 60, 60), ('金刚伞', 70, 70), ('落梅伞', 80, 80), ('鬼骨', 90, 150), ('云梦', 90, 150), ('枕霞', 90, 150), ('碧火琉璃', 120, 140), ('雪羽穿云', 120, 140), ('月影星痕', 120, 140), ('浮生归梦', 150, 150), ('晴雪', 160, 160)],
     '灯笼': [('素纸灯', 0, 0), ('竹骨灯', 10, 10), ('红灯笼', 20, 20), ('鲤鱼灯', 30, 30), ('芙蓉花灯', 40, 40), ('如意宫灯', 50, 50), ('玲珑盏', 60, 60), ('玉兔盏', 70, 70), ('冰心盏', 80, 80), ('蟠龙', 90, 150), ('云鹤', 90, 150), ('风荷', 90, 150), ('金风玉露', 120, 140), ('凰火燎原', 120, 140), ('风露清愁', 120, 140), ('夭桃秾李', 150, 150), ('荒尘', 160, 160)],
     '巨剑': [('钝铁重剑', 0, 0), ('桃印铁刃', 10, 10), ('赭石巨剑', 20, 20), ('璧玉长铗', 30, 30), ('青铜古剑', 40, 40), ('金错巨刃', 50, 50), ('惊涛雪', 60, 60), ('醉浮生', 70, 70), ('沉戟天戉', 80, 80), ('昆吾', 90, 150), ('弦歌', 90, 150), ('鸦九', 90, 150), ('秋水澄流', 120, 140), ('腾蛇郁刃', 120, 140), ('墨骨枯麟', 120, 140), ('百辟镇魂', 150, 150), ('长息', 160, 160)],
-    '双巨斧': [('顽石双斧（乾坤）', 0, 0), ('镔铁双斧（乾坤）', 10, 10), ('黑曜双斧（乾坤）', 20, 20), ('枭首双斧（乾坤）', 30, 30), ('破军双斧（乾坤）', 40, 40), ('隳城双戚（乾坤）', 50, 50), ('飞头蛮（乾坤）', 60, 60), ('竹叶青（乾坤）', 70, 70), ('鲛煞（乾坤）', 80, 80), ('啖月（乾坤）', 90, 90), ('义战（乾坤）', 90, 90), ('恶来（乾坤）', 90, 90), ('烬世野火（乾坤）', 120, 120), ('九州海沸（乾坤）', 120, 120), ('八狱末劫（乾坤）', 120, 120), ('罗喉计都（乾坤）', 150, 150), ('非天（乾坤）', 160, 160)],
+    '双巨斧': [('顽石双斧（乾坤）', 0, 0), ('镔铁双斧（乾坤）', 10, 10), ('黑曜双斧（乾坤）', 20, 20), ('枭首双斧（乾坤）', 30, 30), ('破军双斧（乾坤）', 40, 40), ('骠城双戚（乾坤）', 50, 50), ('飞头蛮（乾坤）', 60, 60), ('竹叶青（乾坤）', 70, 70), ('鲛煞（乾坤）', 80, 80), ('啖月（乾坤）', 90, 90), ('义战（乾坤）', 90, 90), ('恶来（乾坤）', 90, 90), ('烬世野火（乾坤）', 120, 120), ('九州海沸（乾坤）', 120, 120), ('八狱末劫（乾坤）', 120, 120), ('罗喉计都（乾坤）', 150, 150), ('非天（乾坤）', 160, 160)],
     '棍': [('桃木枝', 0, 0), ('柳木棍', 10, 10), ('蒺藜棍', 20, 20), ('罗汉棍', 30, 30), ('熟铜棍', 40, 40), ('乌金棍', 50, 50), ('破浪须', 60, 60), ('雷公木', 70, 70), ('渡魂篙', 80, 80), ('斩海', 90, 150), ('惊魇', 90, 150), ('燎天', 90, 150), ('架海金梁', 120, 150), ('擎天玉柱', 120, 150), ('随心铁杆', 120, 150), ('水火囚龙', 150, 150), ('定海', 160, 160)],
 }
 
@@ -115,6 +122,66 @@ KEY = {
     '法杖': 'fazhang', '宝珠': 'baozhu', '弓弩': 'gongnu',
     '伞': 'san', '灯笼': 'denglong', '巨剑': 'jujian', '双巨斧': 'shuangjufu', '棍': 'gun',
 }
+
+# ---------------------------------------------------------------- 后五种（另一次补拍）
+#
+# 巨剑 / 灯笼 / 伞 / 双巨斧 / 棍 不走 OFFSETS 那套，原因有三条：
+#
+# 1. **客户端的排列顺序与官网表不同**。官网写着「伞 → 灯笼 → 巨剑 → 双巨斧 → 棍」，
+#    客户端里却是「巨剑 → 灯笼 → 伞 → 双巨斧 → 棍」。OFFSETS 的前提是
+#    「全局行号 = 官网顺序」，这条在弓弩之后就断了。
+# 2. **双巨斧在客户端拆成「乾」「坤」两件**（`隳城双戚（乾）/（坤）`），每件 16 档；
+#    官网那页把它们写成一件 17 档、名字带「（乾坤）」。九黎城没有 160 级造型，
+#    所以两边各到 150 就结束。
+# 3. 这批截图是**乱序**截的（页序与列表顺序无关），只能按「页 + 组 + 起始档」定位。
+#
+# `start` 是这一页第一格对应的**组内档号（1 基，1 = 0 级）**。它由三样互相独立的
+# 证据定下来：① 用户画的红圈——他圈的是 60 级以下那几格，红圈后一格就是 60 级；
+# ② 选中框 + 右侧详情（`骠城双戚（乾）等级50` → 这一格是第 6 档）；③ 同组两页的
+# 3 格重叠（像素差必须是 0.0 才算重叠，同一张图在两页上裁出来是一样的）。
+LATE_SHOTS = [
+    'clipboard-2026-11-05T02-37-24-424Z-e427a973.png',   # 1 棍
+    'clipboard-2026-11-05T02-37-24-427Z-50b6b1d2.png',   # 2 灯笼
+    'clipboard-2026-11-05T02-37-24-430Z-762ac656.png',   # 3 双巨斧·乾
+    'clipboard-2026-11-05T02-37-24-433Z-6e7fd9db.png',   # 4 双巨斧·乾（补最底一行）
+    'clipboard-2026-11-05T02-37-24-436Z-ad1d6aab.png',   # 5 双巨斧·坤
+    'clipboard-2026-11-05T02-37-24-439Z-8b83c1c2.png',   # 6 双巨斧·坤（上一步的位置）
+]
+
+# (来源, 组, start, top_min, top_max)。来源 ('S', n) = SCREENSHOTS 第 n 张，
+# ('N', n) = LATE_SHOTS 第 n 张。上下界按页给：p29 的顶格在 478（比 TOP_MIN 高 10），
+# pN4 的最后一行在 888（比 TOP_MAX 低 72，切出来会被面板底吃掉）。
+LATE_PAGES = [
+    ((28, 'S'), '巨剑', 5, 488, 960),
+    ((29, 'S'), '巨剑', 8, 470, 960),
+    ((31, 'S'), '伞', 7, 488, 960),
+    ((32, 'S'), '伞', 7, 488, 960),
+    ((3, 'N'), '双巨斧·乾', 5, 488, 960),
+    ((4, 'N'), '双巨斧·乾', 8, 520, 1010),
+    ((5, 'N'), '双巨斧·坤', 7, 488, 960),
+    ((36, 'S'), '双巨斧·坤', 8, 488, 960),
+    ((30, 'S'), '灯笼', 6, 488, 960),
+    ((37, 'S'), '棍', 6, 488, 960),
+]
+
+
+def late_items(group):
+    """该组的名字表。双巨斧按乾/坤拆开，且砍掉 160（客户端没有那个造型）。"""
+    if group.startswith('双巨斧'):
+        side = '乾' if group.endswith('乾') else '坤'
+        base = ROWS['双巨斧'][:-1]
+        return [(n.replace('（乾坤）', '（%s）' % side), lv, hi) for n, lv, hi in base]
+    return ROWS[group]
+
+
+def late_fid(group, lv, dup=''):
+    """文件名。双巨斧两组共用 `shuangjufu`，用 `qian`/`kun` 段区分乾、坤——
+    不能再借 `a`/`b` 后缀，因为 90 级与 120 级各有三款，那一段后缀已经用掉了。"""
+    if group.startswith('双巨斧'):
+        side = 'qian' if group.endswith('乾') else 'kun'
+        return 'weapon-shuangjufu-{}-{:03d}{}'.format(side, lv, dup)
+    return 'weapon-{}-{:03d}{}'.format(KEY[group], lv, dup)
+
 
 GROUP = 17          # 每种武器的档数
 CARD = np.array([240, 212, 176])   # 格子底（比防具页的米黄略暗）
@@ -209,6 +276,19 @@ def cut(a, im, y0, ci):
     return None
 
 
+def page_cells(path, top_min, top_max):
+    """按本页自己的上下界切出全部格子（不判 60 级，顺序是行优先、三列）。"""
+    global TOP_MIN, TOP_MAX
+    old = TOP_MIN, TOP_MAX
+    TOP_MIN, TOP_MAX = top_min, top_max
+    try:
+        im = Image.open(path).convert('RGB')
+        a = np.asarray(im).astype(int)
+        return [cut(a, im, y0, ci) for y0 in grid_tops(a) for ci in range(len(COLS))]
+    finally:
+        TOP_MIN, TOP_MAX = old
+
+
 def main() -> int:
     check = '--check' in sys.argv
     flat = rows_with_names()
@@ -244,6 +324,26 @@ def main() -> int:
                 taken.add(seq)
                 groups.setdefault(kind, []).append((seq, name, lv, hi, img))
 
+    # ---- 后五种（巨剑 / 灯笼 / 伞 / 双巨斧乾·坤 / 棍）
+    # 这批截图是乱序的，不能靠「第几页 = 列表第几段」推，只能按 LATE_PAGES 里
+    # 写死的「页 + 起始档」切。切图本身与上面完全同规格（同一个 cut()）。
+    late = OrderedDict()
+    for slot, group, start, tmin, tmax in LATE_PAGES:
+        page, src = slot
+        fname = SCREENSHOTS[page - 1] if src == 'S' else LATE_SHOTS[page - 1]
+        path = SRC / fname
+        if not path.exists():
+            raise SystemExit('找不到截图：{}'.format(path))
+        items = late_items(group)
+        bucket = late.setdefault(group, OrderedDict())
+        for j, img in enumerate(page_cells(path, tmin, tmax)):
+            idx = start + j
+            if img is None or not (1 <= idx <= len(items)) or idx in bucket:
+                continue
+            name, lv, hi = items[idx - 1]
+            if lv >= 60:                          # 同一档只取先遇到的那张
+                bucket[idx] = (name, lv, hi, img)
+
     out_dir = ROOT / 'public/game/icons/weapon'
     manifest = {'generated-by': 'tools/game-icons/slice-weapon.py', 'groups': {}}
     total = 0
@@ -272,6 +372,36 @@ def main() -> int:
         manifest['groups'][kind] = entries
         total += len(entries)
         print('{:4s} {:2d} 件'.format(kind, len(entries)))
+
+    # 后五种的落盘与清单（命名规则不同：双巨斧靠 a/b 区分乾、坤）
+    for group, bucket in late.items():
+        entries = []
+        used = {}
+        for idx, (name, lv, hi, img) in sorted(bucket.items()):
+            n = used.get(lv, 0)
+            used[lv] = n + 1
+            dup = '' if n == 0 else chr(ord('a') + n)    # 90/120 级的三款：b、c
+            fid = late_fid(group, lv, dup)
+            if not check:
+                img.save(out_dir / (fid + '.webp'), 'WEBP', quality=92, method=6)
+            entries.append({'id': fid, 'img': fid + '.webp',
+                            'name': name, 'level': lv, 'level_hi': hi})
+        manifest['groups'][group] = entries
+        total += len(entries)
+        print('{:4s} {:2d} 件（后补）'.format(group, len(entries)))
+
+    # 清单按官网的种类顺序排，双巨斧拆成乾、坤两组插在原位置
+    ordered = OrderedDict()
+    for kind in ROWS:
+        if kind == '双巨斧':
+            for g in ('双巨斧·乾', '双巨斧·坤'):
+                if g in manifest['groups']:
+                    ordered[g] = manifest['groups'][g]
+        elif kind in manifest['groups']:
+            ordered[kind] = manifest['groups'][kind]
+    for g, v in manifest['groups'].items():
+        ordered.setdefault(g, v)
+    manifest['groups'] = ordered
 
     if not check:
         with open(ROOT / 'public/game/data/weapon-icons.json', 'w', encoding='utf-8', newline='\n') as fh:

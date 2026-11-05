@@ -1,318 +1,81 @@
 {
     "generated-by": "tools/game-icons/slice-weapon.py",
     "groups": {
-        "剑": [
+        "枪矛": [
             {
-                "id": "weapon-jian-060",
-                "img": "weapon-jian-060.webp",
-                "name": "游龙剑",
+                "id": "weapon-qiangmao-060",
+                "img": "weapon-qiangmao-060.webp",
+                "name": "玄铁矛",
                 "level": 60,
                 "level_hi": 60
             },
             {
-                "id": "weapon-jian-070",
-                "img": "weapon-jian-070.webp",
-                "name": "北斗七星剑",
+                "id": "weapon-qiangmao-070",
+                "img": "weapon-qiangmao-070.webp",
+                "name": "金蛇信",
                 "level": 70,
                 "level_hi": 70
             },
             {
-                "id": "weapon-jian-080",
-                "img": "weapon-jian-080.webp",
-                "name": "碧玉剑",
+                "id": "weapon-qiangmao-080",
+                "img": "weapon-qiangmao-080.webp",
+                "name": "丈八点钢矛",
                 "level": 80,
                 "level_hi": 80
             },
             {
-                "id": "weapon-jian-090",
-                "img": "weapon-jian-090.webp",
-                "name": "鱼肠",
+                "id": "weapon-qiangmao-090",
+                "img": "weapon-qiangmao-090.webp",
+                "name": "暗夜",
                 "level": 90,
                 "level_hi": 150
             },
             {
-                "id": "weapon-jian-090b",
-                "img": "weapon-jian-090b.webp",
-                "name": "倚天",
+                "id": "weapon-qiangmao-090b",
+                "img": "weapon-qiangmao-090b.webp",
+                "name": "梨花",
                 "level": 90,
                 "level_hi": 150
             },
             {
-                "id": "weapon-jian-090c",
-                "img": "weapon-jian-090c.webp",
-                "name": "湛卢",
+                "id": "weapon-qiangmao-090c",
+                "img": "weapon-qiangmao-090c.webp",
+                "name": "霹雳",
                 "level": 90,
                 "level_hi": 150
             },
             {
-                "id": "weapon-jian-120",
-                "img": "weapon-jian-120.webp",
-                "name": "魏武青虹",
+                "id": "weapon-qiangmao-120",
+                "img": "weapon-qiangmao-120.webp",
+                "name": "刑天之逆",
                 "level": 120,
                 "level_hi": 150
             },
             {
-                "id": "weapon-jian-120b",
-                "img": "weapon-jian-120b.webp",
-                "name": "灵犀神剑",
+                "id": "weapon-qiangmao-120b",
+                "img": "weapon-qiangmao-120b.webp",
+                "name": "五虎断魂",
                 "level": 120,
                 "level_hi": 150
             },
             {
-                "id": "weapon-jian-120c",
-                "img": "weapon-jian-120c.webp",
-                "name": "四法青云",
+                "id": "weapon-qiangmao-120c",
+                "img": "weapon-qiangmao-120c.webp",
+                "name": "飞龙在天",
                 "level": 120,
                 "level_hi": 150
             },
             {
-                "id": "weapon-jian-150",
-                "img": "weapon-jian-150.webp",
-                "name": "霜冷九州",
+                "id": "weapon-qiangmao-150",
+                "img": "weapon-qiangmao-150.webp",
+                "name": "天龙破城",
                 "level": 150,
                 "level_hi": 150
             },
             {
-                "id": "weapon-jian-160",
-                "img": "weapon-jian-160.webp",
-                "name": "擒龙",
-                "level": 160,
-                "level_hi": 160
-            }
-        ],
-        "刀": [
-            {
-                "id": "weapon-dao-060",
-                "img": "weapon-dao-060.webp",
-                "name": "狼牙刀",
-                "level": 60,
-                "level_hi": 60
-            },
-            {
-                "id": "weapon-dao-070",
-                "img": "weapon-dao-070.webp",
-                "name": "龙鳞宝刀",
-                "level": 70,
-                "level_hi": 70
-            },
-            {
-                "id": "weapon-dao-080",
-                "img": "weapon-dao-080.webp",
-                "name": "黑炎魔刀",
-                "level": 80,
-                "level_hi": 80
-            },
-            {
-                "id": "weapon-dao-090",
-                "img": "weapon-dao-090.webp",
-                "name": "冷月",
-                "level": 90,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-dao-090b",
-                "img": "weapon-dao-090b.webp",
-                "name": "屠龙",
-                "level": 90,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-dao-090c",
-                "img": "weapon-dao-090c.webp",
-                "name": "血刃",
-                "level": 90,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-dao-120",
-                "img": "weapon-dao-120.webp",
-                "name": "偃月青龙",
-                "level": 120,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-dao-120b",
-                "img": "weapon-dao-120b.webp",
-                "name": "晓风残月",
-                "level": 120,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-dao-120c",
-                "img": "weapon-dao-120c.webp",
-                "name": "斩妖泣血",
-                "level": 120,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-dao-150",
-                "img": "weapon-dao-150.webp",
-                "name": "业火三灾",
-                "level": 150,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-dao-160",
-                "img": "weapon-dao-160.webp",
-                "name": "鸣鸿",
-                "level": 160,
-                "level_hi": 160
-            }
-        ],
-        "锤": [
-            {
-                "id": "weapon-chui-060",
-                "img": "weapon-chui-060.webp",
-                "name": "震天锤",
-                "level": 60,
-                "level_hi": 60
-            },
-            {
-                "id": "weapon-chui-070",
-                "img": "weapon-chui-070.webp",
-                "name": "巨灵神锤",
-                "level": 70,
-                "level_hi": 70
-            },
-            {
-                "id": "weapon-chui-080",
-                "img": "weapon-chui-080.webp",
-                "name": "天崩地裂",
-                "level": 80,
-                "level_hi": 80
-            },
-            {
-                "id": "weapon-chui-090",
-                "img": "weapon-chui-090.webp",
-                "name": "八卦",
-                "level": 90,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-chui-090b",
-                "img": "weapon-chui-090b.webp",
-                "name": "鬼牙",
-                "level": 90,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-chui-090c",
-                "img": "weapon-chui-090c.webp",
-                "name": "雷神",
-                "level": 90,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-chui-120",
-                "img": "weapon-chui-120.webp",
-                "name": "混元金锤",
-                "level": 120,
-                "level_hi": 140
-            },
-            {
-                "id": "weapon-chui-120b",
-                "img": "weapon-chui-120b.webp",
-                "name": "九瓣莲花",
-                "level": 120,
-                "level_hi": 140
-            },
-            {
-                "id": "weapon-chui-120c",
-                "img": "weapon-chui-120c.webp",
-                "name": "鬼王蚀日",
-                "level": 120,
-                "level_hi": 140
-            },
-            {
-                "id": "weapon-chui-150",
-                "img": "weapon-chui-150.webp",
-                "name": "狂澜碎岳",
-                "level": 150,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-chui-160",
-                "img": "weapon-chui-160.webp",
-                "name": "碎寂",
-                "level": 160,
-                "level_hi": 160
-            }
-        ],
-        "爪刺": [
-            {
-                "id": "weapon-zhuaci-060",
-                "img": "weapon-zhuaci-060.webp",
-                "name": "青刚刺",
-                "level": 60,
-                "level_hi": 60
-            },
-            {
-                "id": "weapon-zhuaci-070",
-                "img": "weapon-zhuaci-070.webp",
-                "name": "华光刺",
-                "level": 70,
-                "level_hi": 70
-            },
-            {
-                "id": "weapon-zhuaci-080",
-                "img": "weapon-zhuaci-080.webp",
-                "name": "龙鳞刺",
-                "level": 80,
-                "level_hi": 80
-            },
-            {
-                "id": "weapon-zhuaci-090",
-                "img": "weapon-zhuaci-090.webp",
-                "name": "撕天",
-                "level": 90,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-zhuaci-090b",
-                "img": "weapon-zhuaci-090b.webp",
-                "name": "毒牙",
-                "level": 90,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-zhuaci-090c",
-                "img": "weapon-zhuaci-090c.webp",
-                "name": "胭脂",
-                "level": 90,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-zhuaci-120",
-                "img": "weapon-zhuaci-120.webp",
-                "name": "九阴勾魂",
-                "level": 120,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-zhuaci-120b",
-                "img": "weapon-zhuaci-120b.webp",
-                "name": "雪蚕之刺",
-                "level": 120,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-zhuaci-120c",
-                "img": "weapon-zhuaci-120c.webp",
-                "name": "贵霜之牙",
-                "level": 120,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-zhuaci-150",
-                "img": "weapon-zhuaci-150.webp",
-                "name": "忘川三途",
-                "level": 150,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-zhuaci-160",
-                "img": "weapon-zhuaci-160.webp",
-                "name": "离钩",
+                "id": "weapon-qiangmao-160",
+                "img": "weapon-qiangmao-160.webp",
+                "name": "弑皇",
                 "level": 160,
                 "level_hi": 160
             }
@@ -396,318 +159,160 @@
                 "level_hi": 160
             }
         ],
-        "扇": [
+        "剑": [
             {
-                "id": "weapon-shan-060",
-                "img": "weapon-shan-060.webp",
-                "name": "神火扇",
+                "id": "weapon-jian-060",
+                "img": "weapon-jian-060.webp",
+                "name": "游龙剑",
                 "level": 60,
                 "level_hi": 60
             },
             {
-                "id": "weapon-shan-070",
-                "img": "weapon-shan-070.webp",
-                "name": "阴风扇",
+                "id": "weapon-jian-070",
+                "img": "weapon-jian-070.webp",
+                "name": "北斗七星剑",
                 "level": 70,
                 "level_hi": 70
             },
             {
-                "id": "weapon-shan-080",
-                "img": "weapon-shan-080.webp",
-                "name": "风云雷电",
+                "id": "weapon-jian-080",
+                "img": "weapon-jian-080.webp",
+                "name": "碧玉剑",
                 "level": 80,
                 "level_hi": 80
             },
             {
-                "id": "weapon-shan-090",
-                "img": "weapon-shan-090.webp",
-                "name": "太极",
+                "id": "weapon-jian-090",
+                "img": "weapon-jian-090.webp",
+                "name": "鱼肠",
                 "level": 90,
                 "level_hi": 150
             },
             {
-                "id": "weapon-shan-090b",
-                "img": "weapon-shan-090b.webp",
-                "name": "玉龙",
+                "id": "weapon-jian-090b",
+                "img": "weapon-jian-090b.webp",
+                "name": "倚天",
                 "level": 90,
                 "level_hi": 150
             },
             {
-                "id": "weapon-shan-090c",
-                "img": "weapon-shan-090c.webp",
-                "name": "秋风",
+                "id": "weapon-jian-090c",
+                "img": "weapon-jian-090c.webp",
+                "name": "湛卢",
                 "level": 90,
                 "level_hi": 150
             },
             {
-                "id": "weapon-shan-120",
-                "img": "weapon-shan-120.webp",
-                "name": "画龙点睛",
+                "id": "weapon-jian-120",
+                "img": "weapon-jian-120.webp",
+                "name": "魏武青虹",
                 "level": 120,
                 "level_hi": 150
             },
             {
-                "id": "weapon-shan-120b",
-                "img": "weapon-shan-120b.webp",
-                "name": "秋水人家",
+                "id": "weapon-jian-120b",
+                "img": "weapon-jian-120b.webp",
+                "name": "灵犀神剑",
                 "level": 120,
                 "level_hi": 150
             },
             {
-                "id": "weapon-shan-120c",
-                "img": "weapon-shan-120c.webp",
-                "name": "逍遥江湖",
+                "id": "weapon-jian-120c",
+                "img": "weapon-jian-120c.webp",
+                "name": "四法青云",
                 "level": 120,
                 "level_hi": 150
             },
             {
-                "id": "weapon-shan-150",
-                "img": "weapon-shan-150.webp",
-                "name": "浩气长舒",
+                "id": "weapon-jian-150",
+                "img": "weapon-jian-150.webp",
+                "name": "霜冷九州",
                 "level": 150,
                 "level_hi": 150
             },
             {
-                "id": "weapon-shan-160",
-                "img": "weapon-shan-160.webp",
-                "name": "星瀚",
+                "id": "weapon-jian-160",
+                "img": "weapon-jian-160.webp",
+                "name": "擒龙",
                 "level": 160,
                 "level_hi": 160
             }
         ],
-        "枪矛": [
+        "双短剑": [
             {
-                "id": "weapon-qiangmao-060",
-                "img": "weapon-qiangmao-060.webp",
-                "name": "玄铁矛",
+                "id": "weapon-duanjian-060",
+                "img": "weapon-duanjian-060.webp",
+                "name": "赤焰双剑",
                 "level": 60,
                 "level_hi": 60
             },
             {
-                "id": "weapon-qiangmao-070",
-                "img": "weapon-qiangmao-070.webp",
-                "name": "金蛇信",
+                "id": "weapon-duanjian-070",
+                "img": "weapon-duanjian-070.webp",
+                "name": "墨玉双剑",
                 "level": 70,
                 "level_hi": 70
             },
             {
-                "id": "weapon-qiangmao-080",
-                "img": "weapon-qiangmao-080.webp",
-                "name": "丈八点钢矛",
+                "id": "weapon-duanjian-080",
+                "img": "weapon-duanjian-080.webp",
+                "name": "梅花双剑",
                 "level": 80,
                 "level_hi": 80
             },
             {
-                "id": "weapon-qiangmao-090",
-                "img": "weapon-qiangmao-090.webp",
-                "name": "暗夜",
+                "id": "weapon-duanjian-090",
+                "img": "weapon-duanjian-090.webp",
+                "name": "阴阳",
                 "level": 90,
                 "level_hi": 150
             },
             {
-                "id": "weapon-qiangmao-090b",
-                "img": "weapon-qiangmao-090b.webp",
-                "name": "梨花",
+                "id": "weapon-duanjian-090b",
+                "img": "weapon-duanjian-090b.webp",
+                "name": "月光",
                 "level": 90,
                 "level_hi": 150
             },
             {
-                "id": "weapon-qiangmao-090c",
-                "img": "weapon-qiangmao-090c.webp",
-                "name": "霹雳",
+                "id": "weapon-duanjian-090c",
+                "img": "weapon-duanjian-090c.webp",
+                "name": "灵蛇",
                 "level": 90,
                 "level_hi": 150
             },
             {
-                "id": "weapon-qiangmao-120",
-                "img": "weapon-qiangmao-120.webp",
-                "name": "刑天之逆",
+                "id": "weapon-duanjian-120",
+                "img": "weapon-duanjian-120.webp",
+                "name": "金龙双剪",
                 "level": 120,
                 "level_hi": 150
             },
             {
-                "id": "weapon-qiangmao-120b",
-                "img": "weapon-qiangmao-120b.webp",
-                "name": "五虎断魂",
+                "id": "weapon-duanjian-120b",
+                "img": "weapon-duanjian-120b.webp",
+                "name": "连理双树",
                 "level": 120,
                 "level_hi": 150
             },
             {
-                "id": "weapon-qiangmao-120c",
-                "img": "weapon-qiangmao-120c.webp",
-                "name": "飞龙在天",
+                "id": "weapon-duanjian-120c",
+                "img": "weapon-duanjian-120c.webp",
+                "name": "祖龙对剑",
                 "level": 120,
                 "level_hi": 150
             },
             {
-                "id": "weapon-qiangmao-150",
-                "img": "weapon-qiangmao-150.webp",
-                "name": "天龙破城",
+                "id": "weapon-duanjian-150",
+                "img": "weapon-duanjian-150.webp",
+                "name": "紫电青霜",
                 "level": 150,
                 "level_hi": 150
             },
             {
-                "id": "weapon-qiangmao-160",
-                "img": "weapon-qiangmao-160.webp",
-                "name": "弑皇",
-                "level": 160,
-                "level_hi": 160
-            }
-        ],
-        "鞭": [
-            {
-                "id": "weapon-bian-060",
-                "img": "weapon-bian-060.webp",
-                "name": "青藤柳叶鞭",
-                "level": 60,
-                "level_hi": 60
-            },
-            {
-                "id": "weapon-bian-070",
-                "img": "weapon-bian-070.webp",
-                "name": "雷鸣嗜血鞭",
-                "level": 70,
-                "level_hi": 70
-            },
-            {
-                "id": "weapon-bian-080",
-                "img": "weapon-bian-080.webp",
-                "name": "混元金钩",
-                "level": 80,
-                "level_hi": 80
-            },
-            {
-                "id": "weapon-bian-090",
-                "img": "weapon-bian-090.webp",
-                "name": "龙筋",
-                "level": 90,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-bian-090b",
-                "img": "weapon-bian-090b.webp",
-                "name": "百花",
-                "level": 90,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-bian-090c",
-                "img": "weapon-bian-090c.webp",
-                "name": "吹雪",
-                "level": 90,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-bian-120",
-                "img": "weapon-bian-120.webp",
-                "name": "游龙惊鸿",
-                "level": 120,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-bian-120b",
-                "img": "weapon-bian-120b.webp",
-                "name": "仙人指路",
-                "level": 120,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-bian-120c",
-                "img": "weapon-bian-120c.webp",
-                "name": "血之刺藤",
-                "level": 120,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-bian-150",
-                "img": "weapon-bian-150.webp",
-                "name": "牧云清歌",
-                "level": 150,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-bian-160",
-                "img": "weapon-bian-160.webp",
-                "name": "霜陨",
-                "level": 160,
-                "level_hi": 160
-            }
-        ],
-        "魔棒": [
-            {
-                "id": "weapon-mobang-060",
-                "img": "weapon-mobang-060.webp",
-                "name": "满天星",
-                "level": 60,
-                "level_hi": 60
-            },
-            {
-                "id": "weapon-mobang-070",
-                "img": "weapon-mobang-070.webp",
-                "name": "水晶棒",
-                "level": 70,
-                "level_hi": 70
-            },
-            {
-                "id": "weapon-mobang-080",
-                "img": "weapon-mobang-080.webp",
-                "name": "日月光华",
-                "level": 80,
-                "level_hi": 80
-            },
-            {
-                "id": "weapon-mobang-090",
-                "img": "weapon-mobang-090.webp",
-                "name": "沧海",
-                "level": 90,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-mobang-090b",
-                "img": "weapon-mobang-090b.webp",
-                "name": "红莲",
-                "level": 90,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-mobang-090c",
-                "img": "weapon-mobang-090c.webp",
-                "name": "盘龙",
-                "level": 90,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-mobang-120",
-                "img": "weapon-mobang-120.webp",
-                "name": "降魔玉杵",
-                "level": 120,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-mobang-120b",
-                "img": "weapon-mobang-120b.webp",
-                "name": "青藤玉树",
-                "level": 120,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-mobang-120c",
-                "img": "weapon-mobang-120c.webp",
-                "name": "墨玉骷髅",
-                "level": 120,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-mobang-150",
-                "img": "weapon-mobang-150.webp",
-                "name": "丝萝乔木",
-                "level": 150,
-                "level_hi": 150
-            },
-            {
-                "id": "weapon-mobang-160",
-                "img": "weapon-mobang-160.webp",
-                "name": "醍醐",
+                "id": "weapon-duanjian-160",
+                "img": "weapon-duanjian-160.webp",
+                "name": "浮犀",
                 "level": 160,
                 "level_hi": 160
             }
@@ -791,6 +396,401 @@
                 "level_hi": 160
             }
         ],
+        "爪刺": [
+            {
+                "id": "weapon-zhuaci-060",
+                "img": "weapon-zhuaci-060.webp",
+                "name": "青刚刺",
+                "level": 60,
+                "level_hi": 60
+            },
+            {
+                "id": "weapon-zhuaci-070",
+                "img": "weapon-zhuaci-070.webp",
+                "name": "华光刺",
+                "level": 70,
+                "level_hi": 70
+            },
+            {
+                "id": "weapon-zhuaci-080",
+                "img": "weapon-zhuaci-080.webp",
+                "name": "龙鳞刺",
+                "level": 80,
+                "level_hi": 80
+            },
+            {
+                "id": "weapon-zhuaci-090",
+                "img": "weapon-zhuaci-090.webp",
+                "name": "撕天",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-zhuaci-090b",
+                "img": "weapon-zhuaci-090b.webp",
+                "name": "毒牙",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-zhuaci-090c",
+                "img": "weapon-zhuaci-090c.webp",
+                "name": "胭脂",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-zhuaci-120",
+                "img": "weapon-zhuaci-120.webp",
+                "name": "九阴勾魂",
+                "level": 120,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-zhuaci-120b",
+                "img": "weapon-zhuaci-120b.webp",
+                "name": "雪蚕之刺",
+                "level": 120,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-zhuaci-120c",
+                "img": "weapon-zhuaci-120c.webp",
+                "name": "贵霜之牙",
+                "level": 120,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-zhuaci-150",
+                "img": "weapon-zhuaci-150.webp",
+                "name": "忘川三途",
+                "level": 150,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-zhuaci-160",
+                "img": "weapon-zhuaci-160.webp",
+                "name": "离钩",
+                "level": 160,
+                "level_hi": 160
+            }
+        ],
+        "扇": [
+            {
+                "id": "weapon-shan-060",
+                "img": "weapon-shan-060.webp",
+                "name": "神火扇",
+                "level": 60,
+                "level_hi": 60
+            },
+            {
+                "id": "weapon-shan-070",
+                "img": "weapon-shan-070.webp",
+                "name": "阴风扇",
+                "level": 70,
+                "level_hi": 70
+            },
+            {
+                "id": "weapon-shan-080",
+                "img": "weapon-shan-080.webp",
+                "name": "风云雷电",
+                "level": 80,
+                "level_hi": 80
+            },
+            {
+                "id": "weapon-shan-090",
+                "img": "weapon-shan-090.webp",
+                "name": "太极",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-shan-090b",
+                "img": "weapon-shan-090b.webp",
+                "name": "玉龙",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-shan-090c",
+                "img": "weapon-shan-090c.webp",
+                "name": "秋风",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-shan-120",
+                "img": "weapon-shan-120.webp",
+                "name": "画龙点睛",
+                "level": 120,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-shan-120b",
+                "img": "weapon-shan-120b.webp",
+                "name": "秋水人家",
+                "level": 120,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-shan-120c",
+                "img": "weapon-shan-120c.webp",
+                "name": "逍遥江湖",
+                "level": 120,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-shan-150",
+                "img": "weapon-shan-150.webp",
+                "name": "浩气长舒",
+                "level": 150,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-shan-160",
+                "img": "weapon-shan-160.webp",
+                "name": "星瀚",
+                "level": 160,
+                "level_hi": 160
+            }
+        ],
+        "魔棒": [
+            {
+                "id": "weapon-mobang-060",
+                "img": "weapon-mobang-060.webp",
+                "name": "满天星",
+                "level": 60,
+                "level_hi": 60
+            },
+            {
+                "id": "weapon-mobang-070",
+                "img": "weapon-mobang-070.webp",
+                "name": "水晶棒",
+                "level": 70,
+                "level_hi": 70
+            },
+            {
+                "id": "weapon-mobang-080",
+                "img": "weapon-mobang-080.webp",
+                "name": "日月光华",
+                "level": 80,
+                "level_hi": 80
+            },
+            {
+                "id": "weapon-mobang-090",
+                "img": "weapon-mobang-090.webp",
+                "name": "沧海",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-mobang-090b",
+                "img": "weapon-mobang-090b.webp",
+                "name": "红莲",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-mobang-090c",
+                "img": "weapon-mobang-090c.webp",
+                "name": "盘龙",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-mobang-120",
+                "img": "weapon-mobang-120.webp",
+                "name": "降魔玉杵",
+                "level": 120,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-mobang-120b",
+                "img": "weapon-mobang-120b.webp",
+                "name": "青藤玉树",
+                "level": 120,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-mobang-120c",
+                "img": "weapon-mobang-120c.webp",
+                "name": "墨玉骷髅",
+                "level": 120,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-mobang-150",
+                "img": "weapon-mobang-150.webp",
+                "name": "丝萝乔木",
+                "level": 150,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-mobang-160",
+                "img": "weapon-mobang-160.webp",
+                "name": "醍醐",
+                "level": 160,
+                "level_hi": 160
+            }
+        ],
+        "锤": [
+            {
+                "id": "weapon-chui-060",
+                "img": "weapon-chui-060.webp",
+                "name": "震天锤",
+                "level": 60,
+                "level_hi": 60
+            },
+            {
+                "id": "weapon-chui-070",
+                "img": "weapon-chui-070.webp",
+                "name": "巨灵神锤",
+                "level": 70,
+                "level_hi": 70
+            },
+            {
+                "id": "weapon-chui-080",
+                "img": "weapon-chui-080.webp",
+                "name": "天崩地裂",
+                "level": 80,
+                "level_hi": 80
+            },
+            {
+                "id": "weapon-chui-090",
+                "img": "weapon-chui-090.webp",
+                "name": "八卦",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-chui-090b",
+                "img": "weapon-chui-090b.webp",
+                "name": "鬼牙",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-chui-090c",
+                "img": "weapon-chui-090c.webp",
+                "name": "雷神",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-chui-120",
+                "img": "weapon-chui-120.webp",
+                "name": "混元金锤",
+                "level": 120,
+                "level_hi": 140
+            },
+            {
+                "id": "weapon-chui-120b",
+                "img": "weapon-chui-120b.webp",
+                "name": "九瓣莲花",
+                "level": 120,
+                "level_hi": 140
+            },
+            {
+                "id": "weapon-chui-120c",
+                "img": "weapon-chui-120c.webp",
+                "name": "鬼王蚀日",
+                "level": 120,
+                "level_hi": 140
+            },
+            {
+                "id": "weapon-chui-150",
+                "img": "weapon-chui-150.webp",
+                "name": "狂澜碎岳",
+                "level": 150,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-chui-160",
+                "img": "weapon-chui-160.webp",
+                "name": "碎寂",
+                "level": 160,
+                "level_hi": 160
+            }
+        ],
+        "鞭": [
+            {
+                "id": "weapon-bian-060",
+                "img": "weapon-bian-060.webp",
+                "name": "青藤柳叶鞭",
+                "level": 60,
+                "level_hi": 60
+            },
+            {
+                "id": "weapon-bian-070",
+                "img": "weapon-bian-070.webp",
+                "name": "雷鸣嗜血鞭",
+                "level": 70,
+                "level_hi": 70
+            },
+            {
+                "id": "weapon-bian-080",
+                "img": "weapon-bian-080.webp",
+                "name": "混元金钩",
+                "level": 80,
+                "level_hi": 80
+            },
+            {
+                "id": "weapon-bian-090",
+                "img": "weapon-bian-090.webp",
+                "name": "龙筋",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-bian-090b",
+                "img": "weapon-bian-090b.webp",
+                "name": "百花",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-bian-090c",
+                "img": "weapon-bian-090c.webp",
+                "name": "吹雪",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-bian-120",
+                "img": "weapon-bian-120.webp",
+                "name": "游龙惊鸿",
+                "level": 120,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-bian-120b",
+                "img": "weapon-bian-120b.webp",
+                "name": "仙人指路",
+                "level": 120,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-bian-120c",
+                "img": "weapon-bian-120c.webp",
+                "name": "血之刺藤",
+                "level": 120,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-bian-150",
+                "img": "weapon-bian-150.webp",
+                "name": "牧云清歌",
+                "level": 150,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-bian-160",
+                "img": "weapon-bian-160.webp",
+                "name": "霜陨",
+                "level": 160,
+                "level_hi": 160
+            }
+        ],
         "环圈": [
             {
                 "id": "weapon-huanquan-060",
@@ -870,81 +870,81 @@
                 "level_hi": 160
             }
         ],
-        "双短剑": [
+        "刀": [
             {
-                "id": "weapon-duanjian-060",
-                "img": "weapon-duanjian-060.webp",
-                "name": "赤焰双剑",
+                "id": "weapon-dao-060",
+                "img": "weapon-dao-060.webp",
+                "name": "狼牙刀",
                 "level": 60,
                 "level_hi": 60
             },
             {
-                "id": "weapon-duanjian-070",
-                "img": "weapon-duanjian-070.webp",
-                "name": "墨玉双剑",
+                "id": "weapon-dao-070",
+                "img": "weapon-dao-070.webp",
+                "name": "龙鳞宝刀",
                 "level": 70,
                 "level_hi": 70
             },
             {
-                "id": "weapon-duanjian-080",
-                "img": "weapon-duanjian-080.webp",
-                "name": "梅花双剑",
+                "id": "weapon-dao-080",
+                "img": "weapon-dao-080.webp",
+                "name": "黑炎魔刀",
                 "level": 80,
                 "level_hi": 80
             },
             {
-                "id": "weapon-duanjian-090",
-                "img": "weapon-duanjian-090.webp",
-                "name": "阴阳",
+                "id": "weapon-dao-090",
+                "img": "weapon-dao-090.webp",
+                "name": "冷月",
                 "level": 90,
                 "level_hi": 150
             },
             {
-                "id": "weapon-duanjian-090b",
-                "img": "weapon-duanjian-090b.webp",
-                "name": "月光",
+                "id": "weapon-dao-090b",
+                "img": "weapon-dao-090b.webp",
+                "name": "屠龙",
                 "level": 90,
                 "level_hi": 150
             },
             {
-                "id": "weapon-duanjian-090c",
-                "img": "weapon-duanjian-090c.webp",
-                "name": "灵蛇",
+                "id": "weapon-dao-090c",
+                "img": "weapon-dao-090c.webp",
+                "name": "血刃",
                 "level": 90,
                 "level_hi": 150
             },
             {
-                "id": "weapon-duanjian-120",
-                "img": "weapon-duanjian-120.webp",
-                "name": "金龙双剪",
+                "id": "weapon-dao-120",
+                "img": "weapon-dao-120.webp",
+                "name": "偃月青龙",
                 "level": 120,
                 "level_hi": 150
             },
             {
-                "id": "weapon-duanjian-120b",
-                "img": "weapon-duanjian-120b.webp",
-                "name": "连理双树",
+                "id": "weapon-dao-120b",
+                "img": "weapon-dao-120b.webp",
+                "name": "晓风残月",
                 "level": 120,
                 "level_hi": 150
             },
             {
-                "id": "weapon-duanjian-120c",
-                "img": "weapon-duanjian-120c.webp",
-                "name": "祖龙对剑",
+                "id": "weapon-dao-120c",
+                "img": "weapon-dao-120c.webp",
+                "name": "斩妖泣血",
                 "level": 120,
                 "level_hi": 150
             },
             {
-                "id": "weapon-duanjian-150",
-                "img": "weapon-duanjian-150.webp",
-                "name": "紫电青霜",
+                "id": "weapon-dao-150",
+                "img": "weapon-dao-150.webp",
+                "name": "业火三灾",
                 "level": 150,
                 "level_hi": 150
             },
             {
-                "id": "weapon-duanjian-160",
-                "img": "weapon-duanjian-160.webp",
-                "name": "浮犀",
+                "id": "weapon-dao-160",
+                "img": "weapon-dao-160.webp",
+                "name": "鸣鸿",
                 "level": 160,
                 "level_hi": 160
             }
@@ -1182,6 +1182,466 @@
                 "id": "weapon-gongnu-160",
                 "img": "weapon-gongnu-160.webp",
                 "name": "若木",
+                "level": 160,
+                "level_hi": 160
+            }
+        ],
+        "伞": [
+            {
+                "id": "weapon-san-060",
+                "img": "weapon-san-060.webp",
+                "name": "孔雀羽",
+                "level": 60,
+                "level_hi": 60
+            },
+            {
+                "id": "weapon-san-070",
+                "img": "weapon-san-070.webp",
+                "name": "金刚伞",
+                "level": 70,
+                "level_hi": 70
+            },
+            {
+                "id": "weapon-san-080",
+                "img": "weapon-san-080.webp",
+                "name": "落梅伞",
+                "level": 80,
+                "level_hi": 80
+            },
+            {
+                "id": "weapon-san-090",
+                "img": "weapon-san-090.webp",
+                "name": "鬼骨",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-san-090b",
+                "img": "weapon-san-090b.webp",
+                "name": "云梦",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-san-090c",
+                "img": "weapon-san-090c.webp",
+                "name": "枕霞",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-san-120",
+                "img": "weapon-san-120.webp",
+                "name": "碧火琉璃",
+                "level": 120,
+                "level_hi": 140
+            },
+            {
+                "id": "weapon-san-120b",
+                "img": "weapon-san-120b.webp",
+                "name": "雪羽穿云",
+                "level": 120,
+                "level_hi": 140
+            },
+            {
+                "id": "weapon-san-120c",
+                "img": "weapon-san-120c.webp",
+                "name": "月影星痕",
+                "level": 120,
+                "level_hi": 140
+            },
+            {
+                "id": "weapon-san-150",
+                "img": "weapon-san-150.webp",
+                "name": "浮生归梦",
+                "level": 150,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-san-160",
+                "img": "weapon-san-160.webp",
+                "name": "晴雪",
+                "level": 160,
+                "level_hi": 160
+            }
+        ],
+        "灯笼": [
+            {
+                "id": "weapon-denglong-060",
+                "img": "weapon-denglong-060.webp",
+                "name": "玲珑盏",
+                "level": 60,
+                "level_hi": 60
+            },
+            {
+                "id": "weapon-denglong-070",
+                "img": "weapon-denglong-070.webp",
+                "name": "玉兔盏",
+                "level": 70,
+                "level_hi": 70
+            },
+            {
+                "id": "weapon-denglong-080",
+                "img": "weapon-denglong-080.webp",
+                "name": "冰心盏",
+                "level": 80,
+                "level_hi": 80
+            },
+            {
+                "id": "weapon-denglong-090",
+                "img": "weapon-denglong-090.webp",
+                "name": "蟠龙",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-denglong-090b",
+                "img": "weapon-denglong-090b.webp",
+                "name": "云鹤",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-denglong-090c",
+                "img": "weapon-denglong-090c.webp",
+                "name": "风荷",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-denglong-120",
+                "img": "weapon-denglong-120.webp",
+                "name": "金风玉露",
+                "level": 120,
+                "level_hi": 140
+            },
+            {
+                "id": "weapon-denglong-120b",
+                "img": "weapon-denglong-120b.webp",
+                "name": "凰火燎原",
+                "level": 120,
+                "level_hi": 140
+            },
+            {
+                "id": "weapon-denglong-120c",
+                "img": "weapon-denglong-120c.webp",
+                "name": "风露清愁",
+                "level": 120,
+                "level_hi": 140
+            },
+            {
+                "id": "weapon-denglong-150",
+                "img": "weapon-denglong-150.webp",
+                "name": "夭桃秾李",
+                "level": 150,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-denglong-160",
+                "img": "weapon-denglong-160.webp",
+                "name": "荒尘",
+                "level": 160,
+                "level_hi": 160
+            }
+        ],
+        "巨剑": [
+            {
+                "id": "weapon-jujian-060",
+                "img": "weapon-jujian-060.webp",
+                "name": "惊涛雪",
+                "level": 60,
+                "level_hi": 60
+            },
+            {
+                "id": "weapon-jujian-070",
+                "img": "weapon-jujian-070.webp",
+                "name": "醉浮生",
+                "level": 70,
+                "level_hi": 70
+            },
+            {
+                "id": "weapon-jujian-080",
+                "img": "weapon-jujian-080.webp",
+                "name": "沉戟天戉",
+                "level": 80,
+                "level_hi": 80
+            },
+            {
+                "id": "weapon-jujian-090",
+                "img": "weapon-jujian-090.webp",
+                "name": "昆吾",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-jujian-090b",
+                "img": "weapon-jujian-090b.webp",
+                "name": "弦歌",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-jujian-090c",
+                "img": "weapon-jujian-090c.webp",
+                "name": "鸦九",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-jujian-120",
+                "img": "weapon-jujian-120.webp",
+                "name": "秋水澄流",
+                "level": 120,
+                "level_hi": 140
+            },
+            {
+                "id": "weapon-jujian-120b",
+                "img": "weapon-jujian-120b.webp",
+                "name": "腾蛇郁刃",
+                "level": 120,
+                "level_hi": 140
+            },
+            {
+                "id": "weapon-jujian-120c",
+                "img": "weapon-jujian-120c.webp",
+                "name": "墨骨枯麟",
+                "level": 120,
+                "level_hi": 140
+            },
+            {
+                "id": "weapon-jujian-150",
+                "img": "weapon-jujian-150.webp",
+                "name": "百辟镇魂",
+                "level": 150,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-jujian-160",
+                "img": "weapon-jujian-160.webp",
+                "name": "长息",
+                "level": 160,
+                "level_hi": 160
+            }
+        ],
+        "双巨斧·乾": [
+            {
+                "id": "weapon-shuangjufu-qian-060",
+                "img": "weapon-shuangjufu-qian-060.webp",
+                "name": "飞头蛮（乾）",
+                "level": 60,
+                "level_hi": 60
+            },
+            {
+                "id": "weapon-shuangjufu-qian-070",
+                "img": "weapon-shuangjufu-qian-070.webp",
+                "name": "竹叶青（乾）",
+                "level": 70,
+                "level_hi": 70
+            },
+            {
+                "id": "weapon-shuangjufu-qian-080",
+                "img": "weapon-shuangjufu-qian-080.webp",
+                "name": "鲛煞（乾）",
+                "level": 80,
+                "level_hi": 80
+            },
+            {
+                "id": "weapon-shuangjufu-qian-090",
+                "img": "weapon-shuangjufu-qian-090.webp",
+                "name": "啖月（乾）",
+                "level": 90,
+                "level_hi": 90
+            },
+            {
+                "id": "weapon-shuangjufu-qian-090b",
+                "img": "weapon-shuangjufu-qian-090b.webp",
+                "name": "义战（乾）",
+                "level": 90,
+                "level_hi": 90
+            },
+            {
+                "id": "weapon-shuangjufu-qian-090c",
+                "img": "weapon-shuangjufu-qian-090c.webp",
+                "name": "恶来（乾）",
+                "level": 90,
+                "level_hi": 90
+            },
+            {
+                "id": "weapon-shuangjufu-qian-120",
+                "img": "weapon-shuangjufu-qian-120.webp",
+                "name": "烬世野火（乾）",
+                "level": 120,
+                "level_hi": 120
+            },
+            {
+                "id": "weapon-shuangjufu-qian-120b",
+                "img": "weapon-shuangjufu-qian-120b.webp",
+                "name": "九州海沸（乾）",
+                "level": 120,
+                "level_hi": 120
+            },
+            {
+                "id": "weapon-shuangjufu-qian-120c",
+                "img": "weapon-shuangjufu-qian-120c.webp",
+                "name": "八狱末劫（乾）",
+                "level": 120,
+                "level_hi": 120
+            },
+            {
+                "id": "weapon-shuangjufu-qian-150",
+                "img": "weapon-shuangjufu-qian-150.webp",
+                "name": "罗喉计都（乾）",
+                "level": 150,
+                "level_hi": 150
+            }
+        ],
+        "双巨斧·坤": [
+            {
+                "id": "weapon-shuangjufu-kun-060",
+                "img": "weapon-shuangjufu-kun-060.webp",
+                "name": "飞头蛮（坤）",
+                "level": 60,
+                "level_hi": 60
+            },
+            {
+                "id": "weapon-shuangjufu-kun-070",
+                "img": "weapon-shuangjufu-kun-070.webp",
+                "name": "竹叶青（坤）",
+                "level": 70,
+                "level_hi": 70
+            },
+            {
+                "id": "weapon-shuangjufu-kun-080",
+                "img": "weapon-shuangjufu-kun-080.webp",
+                "name": "鲛煞（坤）",
+                "level": 80,
+                "level_hi": 80
+            },
+            {
+                "id": "weapon-shuangjufu-kun-090",
+                "img": "weapon-shuangjufu-kun-090.webp",
+                "name": "啖月（坤）",
+                "level": 90,
+                "level_hi": 90
+            },
+            {
+                "id": "weapon-shuangjufu-kun-090b",
+                "img": "weapon-shuangjufu-kun-090b.webp",
+                "name": "义战（坤）",
+                "level": 90,
+                "level_hi": 90
+            },
+            {
+                "id": "weapon-shuangjufu-kun-090c",
+                "img": "weapon-shuangjufu-kun-090c.webp",
+                "name": "恶来（坤）",
+                "level": 90,
+                "level_hi": 90
+            },
+            {
+                "id": "weapon-shuangjufu-kun-120",
+                "img": "weapon-shuangjufu-kun-120.webp",
+                "name": "烬世野火（坤）",
+                "level": 120,
+                "level_hi": 120
+            },
+            {
+                "id": "weapon-shuangjufu-kun-120b",
+                "img": "weapon-shuangjufu-kun-120b.webp",
+                "name": "九州海沸（坤）",
+                "level": 120,
+                "level_hi": 120
+            },
+            {
+                "id": "weapon-shuangjufu-kun-120c",
+                "img": "weapon-shuangjufu-kun-120c.webp",
+                "name": "八狱末劫（坤）",
+                "level": 120,
+                "level_hi": 120
+            },
+            {
+                "id": "weapon-shuangjufu-kun-150",
+                "img": "weapon-shuangjufu-kun-150.webp",
+                "name": "罗喉计都（坤）",
+                "level": 150,
+                "level_hi": 150
+            }
+        ],
+        "棍": [
+            {
+                "id": "weapon-gun-060",
+                "img": "weapon-gun-060.webp",
+                "name": "破浪须",
+                "level": 60,
+                "level_hi": 60
+            },
+            {
+                "id": "weapon-gun-070",
+                "img": "weapon-gun-070.webp",
+                "name": "雷公木",
+                "level": 70,
+                "level_hi": 70
+            },
+            {
+                "id": "weapon-gun-080",
+                "img": "weapon-gun-080.webp",
+                "name": "渡魂篙",
+                "level": 80,
+                "level_hi": 80
+            },
+            {
+                "id": "weapon-gun-090",
+                "img": "weapon-gun-090.webp",
+                "name": "斩海",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-gun-090b",
+                "img": "weapon-gun-090b.webp",
+                "name": "惊魇",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-gun-090c",
+                "img": "weapon-gun-090c.webp",
+                "name": "燎天",
+                "level": 90,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-gun-120",
+                "img": "weapon-gun-120.webp",
+                "name": "架海金梁",
+                "level": 120,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-gun-120b",
+                "img": "weapon-gun-120b.webp",
+                "name": "擎天玉柱",
+                "level": 120,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-gun-120c",
+                "img": "weapon-gun-120c.webp",
+                "name": "随心铁杆",
+                "level": 120,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-gun-150",
+                "img": "weapon-gun-150.webp",
+                "name": "水火囚龙",
+                "level": 150,
+                "level_hi": 150
+            },
+            {
+                "id": "weapon-gun-160",
+                "img": "weapon-gun-160.webp",
+                "name": "定海",
                 "level": 160,
                 "level_hi": 160
             }
