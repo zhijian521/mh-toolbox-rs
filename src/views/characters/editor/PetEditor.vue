@@ -1,31 +1,65 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import NumberField from '../../../components/NumberField.vue';
 import PressButton from '../../../components/PressButton.vue';
-import { PET_QUALITY_FIELDS, type Pet } from '../character';
+import { PET_PILL_SLOTS, PET_QUALITY_FIELDS, PET_SKILL_SLOTS, type Pet } from '../character';
 
 /**
- * 召唤兽：一只一行，展开填细节。
+ * 召唤兽：**左栏常驻全部兽名，右侧只编选中的那一只**（2026-11-05 改，方案 P3）。
  *
- * 与装备同一个折叠逻辑（一次只开一只），但**理由不同**：装备是十二件全展开太长，
- * 召唤兽是「一屏四五只、只有一两只值得细填」——五开五个号，每个号的召唤兽
- * 往往只有主力的那一只能看，其余的能记住名字与等级就够。
+ * 旧版是「一只一行、展开填细节」：一次只能开一只，展开第二只时第一只收起，
+ * 下面整块内容移走几百像素。装备页刚因为同一个理由换成了左栏（方案 E2），
+ * 这两页是同一个弹窗里的两个分区，**形状该是一套**，否则每次切页签都要重认版面。
  *
- * 资质六项写死标签、只给数值格子：这六项是游戏面板的固定行，让用户自己敲
- * 「攻击资质」四个字，等于每次录入都重抄一遍面板。
+ * 召唤兽比装备更适合左栏：一只兽的全部字段（身份七项 + 六项资质 + 属性 + 技能）
+ * 一屏放得下，而装备那一件要分六段。于是右栏在这里是**一整张表**，不是目录里的
+ * 一页；左栏仍然只做一件事——「现在在编哪一只」。
+ *
+ * 顺带解决两件事：
+ *   · 每行一枚五行章（22，与装备左栏那枚 22 的小白盘同尺寸、同一套压印）；
+ *   · 行尾一个点，加顶端「N 只」，哪几只还是空壳一眼数得出。
+ *
+ * 左栏 `sticky`：右侧比左栏高，滚到底部（技能、内丹）时「我在改哪一只」还看得见。
  */
 const pets = defineModel<Pet[]>({ required: true });
 
-const openIndex = ref<number | null>(null);
+/** 当前编辑的**下标**。用下标而不是对象引用：`defineModel` 拿到的数组可能整份被替换
+ *  （名册读档、撤销），对象引用会静默失效；下标越界由 `current` 兜成 `null`。 */
+const selected = ref(0);
 
-function toggle(index: number) {
-    openIndex.value = openIndex.value === index ? null : index;
+const current = computed<Pet | null>(() => pets.value[selected.value] ?? null);
+
+/**
+ * 「这一只填了没有」——任何一处有内容就算。
+ *
+ * 不用「名字非空」这一条：先录等级、后补名字是常态，那时点应该是实的；
+ * 也不看 `quality` 的默认 0（新建的兽六项都是 0，那是「没填」不是「填了 0」）。
+ */
+function filled(pet: Pet): boolean {
+    return Boolean(
+        pet.name?.trim() ||
+        pet.level ||
+        pet.joinLevel ||
+        pet.life ||
+        pet.growth?.trim() ||
+        pet.element?.trim() ||
+        pet.spirit !== undefined ||
+        pet.attrs.length ||
+        pet.skills.length ||
+        pet.innerPills.length ||
+        Object.values(pet.quality).some(Boolean),
+    );
 }
 
-/* 资质六格与详情页的六行共用 `PET_QUALITY_FIELDS` 一份（2026-11-05）。
- * 原先这里自己抄了一份，标签写「气血 / 魔法 / 闪避」，而详情页写「体力 / 法力 / 躲闪」
- * ——同一组数据两个名字，用户对不上哪一格填的是哪一项。游戏里这三项叫「资质」，
- * 与同名的战斗属性不是一回事，所以以资质那一套为准。 */
+/** 左栏一行显示的名字：留空时给「未命名」，否则五行章旁边是一片空白，读不出这是一只兽。 */
+function petName(pet: Pet): string {
+    return pet.name?.trim() || '未命名';
+}
+
+/** 五行章里的字。没填时给破折号而不是留空——空格子读作「这里坏了」。 */
+function petMark(pet: Pet): string {
+    return pet.element?.trim()?.[0] ?? '—';
+}
 
 function addPet() {
     pets.value.push({
@@ -40,14 +74,19 @@ function addPet() {
         skills: [],
         innerPills: [],
     });
-    openIndex.value = pets.value.length - 1;
+    selected.value = pets.value.length - 1;
 }
 
-function removePet(index: number) {
-    pets.value.splice(index, 1);
-    // 删掉的是展开的那只（或它前面的一只）时，收起——否则展开的是「上一只」，
-    // 谁都没点它却开着，看起来像删错了。
-    if (openIndex.value !== null && openIndex.value >= index) openIndex.value = null;
+/**
+ * 删掉当前这一只。删完选**同一位置的下一只**（它顶上来的是同一个行序），
+ * 没有下一只就退到上一只；一只都不剩时 `current` 变 `null`，右侧显示空态。
+ */
+function removeCurrent() {
+    if (!current.value) return;
+    pets.value.splice(selected.value, 1);
+    if (selected.value >= pets.value.length) {
+        selected.value = Math.max(0, pets.value.length - 1);
+    }
 }
 
 /* 技能与内丹都是「一串名字」。用 textarea + `@change`（失焦才解析）而不是 `v-model`：
@@ -65,94 +104,129 @@ const nameList = (list: string[]) => list.join('、');
 
 <template>
     <div class="pet-editor">
-        <div v-for="(pet, index) in pets" :key="index" class="pet-block">
-            <div class="erow pet-head">
-                <input
-                    v-model="pet.name"
-                    class="field name-field"
-                    aria-label="召唤兽名称"
-                    placeholder="召唤兽名称"
-                />
-                <!-- 两个数字框必须带**看得见的**标签：卡上那只列表读的是「136 级 · 参战 65」，
-                     而两个 0 并排放着，光靠 aria-label 只有读屏知道谁是谁。 -->
-                <span class="field-label">等级</span>
-                <NumberField
-                    :model-value="pet.level"
-                    label="等级"
-                    class="narrow-field"
-                    @update:model-value="pet.level = $event"
-                />
-                <span class="field-label">参战</span>
-                <NumberField
-                    :model-value="pet.joinLevel"
-                    label="参战等级"
-                    class="narrow-field"
-                    @update:model-value="pet.joinLevel = $event"
-                />
-                <PressButton
-                    :icon="openIndex === index ? 'chevron-down' : 'chevron-right'"
-                    :label="`${openIndex === index ? '收起' : '展开'} ${pet.name || '这只召唤兽'} 的详情`"
-                    @click="toggle(index)"
-                />
-                <PressButton
-                    icon="trash"
-                    :label="`删掉 ${pet.name || '这只召唤兽'}`"
-                    @click="removePet(index)"
-                />
+        <!-- 左栏是这张表单的目录：从上到下就是列表里的顺序，高度不变，
+             所以「我在改哪一只」由位置回答，不用读标题。 -->
+        <aside class="rail">
+            <div class="rail-head">
+                召唤兽 <b>{{ pets.length }}</b> 只
             </div>
+            <button
+                v-for="(pet, index) in pets"
+                :key="index"
+                type="button"
+                class="rail-item"
+                :class="{ on: index === selected }"
+                :aria-pressed="index === selected"
+                :aria-label="`编辑第 ${index + 1} 只召唤兽：${petName(pet)}`"
+                @click="selected = index"
+            >
+                <span class="rail-mark" aria-hidden="true">{{ petMark(pet) }}</span>
+                <span class="rail-name">{{ petName(pet) }}</span>
+                <span class="rail-dot" :class="{ on: filled(pet) }" aria-hidden="true"></span>
+            </button>
+            <button type="button" class="rail-add" aria-label="加一只召唤兽" @click="addPet">
+                ＋ 加一只
+            </button>
+        </aside>
 
-            <div v-if="openIndex === index" class="detail">
-                <div class="erow">
-                    <span class="field-label">寿命</span>
-                    <NumberField
-                        :model-value="pet.life"
-                        label="寿命"
-                        class="narrow-field"
-                        @update:model-value="pet.life = $event"
-                    />
-                    <span class="field-label">成长</span>
+        <!-- `pet-block` 这个名字留着：烟测按 `.pet-block` 定位这一只的输入格，
+             而新结构里同时只有一只在页面上，正好是它。 -->
+        <div v-if="current" class="pet-block">
+            <!-- 身份七格：名字占两格，其余各一格。标签在上、值在下——
+                 这一页的列宽只有 99，标签放左边会把输入格压到 60 以下。 -->
+            <div class="id7">
+                <label class="id-cell span-2">
+                    <span class="id-k">名字</span>
                     <input
-                        v-model="pet.growth"
-                        class="field growth-field"
+                        v-model="current.name"
+                        class="field"
+                        aria-label="召唤兽名称"
+                        placeholder="召唤兽名称"
+                    />
+                </label>
+                <label class="id-cell">
+                    <span class="id-k">等级</span>
+                    <NumberField
+                        :model-value="current.level"
+                        label="等级"
+                        @update:model-value="current.level = $event"
+                    />
+                </label>
+                <label class="id-cell">
+                    <span class="id-k">参战等级</span>
+                    <NumberField
+                        :model-value="current.joinLevel"
+                        label="参战等级"
+                        @update:model-value="current.joinLevel = $event"
+                    />
+                </label>
+                <label class="id-cell">
+                    <span class="id-k">成长</span>
+                    <input
+                        v-model="current.growth"
+                        class="field"
                         aria-label="成长"
                         placeholder="1.202"
                     />
-                    <span class="field-label">五行</span>
+                </label>
+                <label class="id-cell">
+                    <span class="id-k">五行</span>
                     <input
-                        v-model="pet.element"
-                        class="field element-field"
+                        v-model="current.element"
+                        class="field"
                         aria-label="五行"
                         placeholder="火"
                     />
-                    <span class="field-label">灵性</span>
+                </label>
+                <label class="id-cell">
+                    <span class="id-k">寿命</span>
                     <NumberField
-                        :model-value="pet.spirit ?? 0"
+                        :model-value="current.life"
+                        label="寿命"
+                        @update:model-value="current.life = $event"
+                    />
+                </label>
+                <label class="id-cell">
+                    <span class="id-k">灵性</span>
+                    <NumberField
+                        :model-value="current.spirit ?? 0"
                         zero-as-empty
                         label="进阶灵性"
                         placeholder="未进阶"
-                        class="narrow-field"
-                        @update:model-value="pet.spirit = $event || undefined"
+                        @update:model-value="current.spirit = $event || undefined"
                     />
-                </div>
+                </label>
+            </div>
 
-                <div class="sub-head"><span class="section-mark"></span>资质</div>
-                <div class="quality-grid">
-                    <div v-for="field in PET_QUALITY_FIELDS" :key="field.key" class="erow">
-                        <span class="field-label quality-label">{{ field.label }}</span>
-                        <NumberField
-                            :model-value="pet.quality[field.key]"
-                            :label="`${field.label}资质`"
-                            class="narrow-field"
-                            @update:model-value="pet.quality[field.key] = $event"
-                        />
-                    </div>
-                </div>
+            <!-- 六项资质写死标签、只给数值：这六项是游戏面板的固定行，
+                 让用户自己敲「攻击资质」四个字，等于每次录入都重抄一遍面板。
+                 一行六格，从左到右就是面板那六行。 -->
+            <div class="sec-head"><span class="section-mark"></span>资质</div>
+            <div class="q6">
+                <label v-for="field in PET_QUALITY_FIELDS" :key="field.key" class="q-cell">
+                    <span class="id-k">{{ field.label }}</span>
+                    <NumberField
+                        :model-value="current.quality[field.key]"
+                        :label="`${field.label}资质`"
+                        @update:model-value="current.quality[field.key] = $event"
+                    />
+                </label>
+            </div>
 
-                <div class="sub-head">
-                    <span class="section-mark"></span>战斗属性
-                    <span class="meta">只记上限</span>
-                </div>
-                <div v-for="(attr, ai) in pet.attrs" :key="ai" class="erow">
+            <!-- 战斗属性两列：只记上限，条目数不定，所以「加一条」跟着小标题走。 -->
+            <div class="sec-head">
+                <span class="section-mark"></span>战斗属性
+                <span class="meta">只记上限</span>
+                <PressButton
+                    class="sec-act"
+                    icon="add"
+                    text="加一条"
+                    label="加一条战斗属性"
+                    @click="current.attrs.push({ label: '', value: '' })"
+                />
+            </div>
+            <div class="attrs">
+                <div v-for="(attr, ai) in current.attrs" :key="ai" class="attr">
                     <input
                         v-model="attr.label"
                         class="field attr-label"
@@ -168,121 +242,303 @@ const nameList = (list: string[]) => list.join('、');
                     <PressButton
                         icon="trash"
                         label="删掉这条属性"
-                        @click="pet.attrs.splice(ai, 1)"
+                        @click="current.attrs.splice(ai, 1)"
                     />
                 </div>
-                <div class="sub-foot">
-                    <PressButton
-                        icon="add"
-                        text="加一条"
-                        label="加一条战斗属性"
-                        @click="pet.attrs.push({ label: '', value: '' })"
-                    />
-                </div>
+            </div>
+            <p v-if="!current.attrs.length" class="hint">还没有战斗属性，点上面的「加一条」</p>
 
-                <div class="erow lists">
-                    <label class="list-block">
-                        <span class="field-label">技能</span>
-                        <textarea
-                            class="field area"
-                            rows="2"
-                            aria-label="已学技能，顿号或逗号分隔"
-                            placeholder="连击、必杀、吸血"
-                            :value="nameList(pet.skills)"
-                            @change="pet.skills = readNames($event)"
-                        />
-                    </label>
-                    <label class="list-block">
-                        <span class="field-label">内丹</span>
-                        <textarea
-                            class="field area"
-                            rows="2"
-                            aria-label="内丹名，顿号或逗号分隔"
-                            placeholder="狂怒、坚甲"
-                            :value="nameList(pet.innerPills)"
-                            @change="pet.innerPills = readNames($event)"
-                        />
-                    </label>
-                </div>
+            <div class="lists">
+                <label class="list-block">
+                    <span class="list-k">
+                        技能
+                        <i class="cnt num">{{ current.skills.length }} / {{ PET_SKILL_SLOTS }}</i>
+                    </span>
+                    <textarea
+                        class="field area"
+                        rows="2"
+                        aria-label="已学技能，顿号或逗号分隔"
+                        placeholder="连击、必杀、吸血"
+                        :value="nameList(current.skills)"
+                        @change="current.skills = readNames($event)"
+                    />
+                    <!-- 一排小格：满没满不用数顿号。超出上限时前 N 格全实、计数仍说真话
+                         （`13 / 12`）——这种数据不该被 `Math.min` 悄悄藏起来。 -->
+                    <span class="dots" aria-hidden="true">
+                        <i
+                            v-for="n in PET_SKILL_SLOTS"
+                            :key="n"
+                            :class="{ on: n <= current.skills.length }"
+                        ></i>
+                    </span>
+                </label>
+                <label class="list-block">
+                    <span class="list-k">
+                        内丹
+                        <i class="cnt num"
+                            >{{ current.innerPills.length }} / {{ PET_PILL_SLOTS }}</i
+                        >
+                    </span>
+                    <textarea
+                        class="field area"
+                        rows="2"
+                        aria-label="内丹名，顿号或逗号分隔"
+                        placeholder="狂怒、坚甲"
+                        :value="nameList(current.innerPills)"
+                        @change="current.innerPills = readNames($event)"
+                    />
+                    <span class="dots" aria-hidden="true">
+                        <i
+                            v-for="n in PET_PILL_SLOTS"
+                            :key="n"
+                            :class="{ on: n <= current.innerPills.length }"
+                        ></i>
+                    </span>
+                </label>
+            </div>
+
+            <div class="pet-foot">
+                <span class="hint">名字留空的保存时会被丢掉</span>
+                <PressButton
+                    icon="trash"
+                    text="删掉这一只"
+                    :label="`删掉 ${petName(current)}`"
+                    @click="removeCurrent"
+                />
             </div>
         </div>
 
-        <div class="pet-foot">
-            <PressButton icon="add" text="加一只" label="加一只召唤兽" @click="addPet" />
-            <span class="hint">名字留空的保存时会被丢掉</span>
-        </div>
+        <p v-else class="empty-note">还没有召唤兽，点左栏下面的「加一只」</p>
     </div>
 </template>
 
 <style scoped>
+/* 左右两栏：左栏 152 与装备页同一个数——两页是同一个弹窗里的两个分区，
+ * 切页签时目录不该忽宽忽窄。名字最长「天狗（人形）」六个字，152 放得下。 */
 .pet-editor {
+    display: grid;
+    grid-template-columns: 152px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+}
+
+/* 左栏 sticky：右侧比左栏高，滚到底部时「我在改哪一只」还得看得见。
+ * `align-items: start` 是 sticky 的前提——stretch 会先把它拉满整列。 */
+.rail {
+    position: sticky;
+    top: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 3px;
 }
-.pet-block {
+.rail-head {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    padding-bottom: 5px;
+    margin-bottom: 2px;
+    border-bottom: var(--w-hair) solid var(--rule-2);
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.14em;
+}
+.rail-head b {
+    color: var(--ink);
+    font-size: var(--fs-sm);
+    font-weight: 400;
+}
+/* 一行 = 22 的五行章 + 名字 + 一个点。38 高：比装备那行（30）松一档——
+ * 那边十二行要挤进一屏，这里只有五六行，行距可以还给手指。 */
+.rail-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 7px;
     border: var(--w-hair) solid transparent;
+    border-radius: var(--r-2);
+    background: none;
+    color: var(--ink-2);
+    font-family: var(--font-ui);
+    font-size: var(--fs-sm);
+    text-align: left;
+    cursor: pointer;
 }
-.pet-block:has(.detail) {
-    padding-bottom: 10px;
-    border-color: var(--rule);
-    background: var(--bg);
+.rail-item:hover {
+    background: color-mix(in srgb, var(--well) 45%, transparent);
 }
-/* 与技能、修炼那两列同宽（200）：名册里四个分区来回切，第一列如果忽宽忽窄，
- * 眼睛每次都要重新找起点。召唤兽名最长是「天狗（人形）」六个字，200 放得下。 */
-.name-field {
-    width: 200px;
+/* 选中：底色一档 + 左侧 2px 朱线。**不用整块朱**——那会把左栏变成一排按钮，
+ * 而它是一张目录：只要标出「当前这一行」。
+ * `inset 2px 0 0` 画在内侧，不占宽度：换行时文字不会左右跳 2px。 */
+.rail-item.on {
+    border-color: color-mix(in srgb, var(--rule-2) 55%, transparent);
+    background: color-mix(in srgb, var(--well) 55%, transparent);
+    color: var(--ink);
+    box-shadow: inset 2px 0 0 var(--cinnabar);
 }
-.narrow-field {
-    width: 66px;
+.rail-item:focus-visible {
+    outline: var(--ring);
+    outline-offset: var(--ring-offset);
 }
-.growth-field {
-    width: 72px;
+/* 五行章：与详情窗抬头那枚（34）同一套压印，缩到 22——左栏是索引，
+ * 认的是「哪只」，不是读五行。 */
+.rail-mark {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--r-1);
+    background: color-mix(in srgb, var(--well) 34%, var(--paper-2));
+    box-shadow:
+        inset 1px 1px 0 var(--bevel-hi),
+        inset -1px -1px 0 var(--bevel-lo),
+        0 1px 2px var(--shadow);
+    color: var(--num);
+    font-size: calc(var(--fs-sm) + 2px);
+    line-height: 1;
 }
-.element-field {
-    width: 46px;
+.rail-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
-.detail {
+/* 点：实心＝填过，空心＝还是空壳。绿与「这件有了」同一枚（装备左栏那个点）。 */
+.rail-dot {
+    flex: none;
+    margin-left: auto;
+    width: 5px;
+    height: 5px;
+    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 90%, transparent);
+    border-radius: 50%;
+}
+.rail-dot.on {
+    border-color: var(--moss);
+    background: var(--moss);
+}
+/* 「加一只」是往目录里添一行，所以长得像一行虚线，不是一个按钮：
+ * 它跟着那几行走，位置只由「现在几只」决定。 */
+.rail-add {
+    height: 30px;
+    margin-top: 5px;
+    border: var(--w-hair) dashed color-mix(in srgb, var(--rule-2) 82%, transparent);
+    border-radius: var(--r-2);
+    background: none;
+    color: var(--muted);
+    font-family: var(--font-ui);
+    font-size: var(--fs-sm);
+    letter-spacing: 0.04em;
+    cursor: pointer;
+}
+.rail-add:hover {
+    border-color: var(--cinnabar);
+    color: var(--cinnabar);
+}
+.rail-add:focus-visible {
+    outline: var(--ring);
+    outline-offset: var(--ring-offset);
+}
+
+/* 右侧：一条竖线与左栏分开。用 `--rule`（比 `rule-2` 深一档）——这是版面分区，
+ * 不是表格线，太淡会看成左栏的右边框。 */
+.pet-block {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 10px 10px 2px;
+    gap: 7px;
+    min-width: 0;
+    padding-left: 14px;
+    border-left: var(--w-hair) solid var(--rule);
 }
-.sub-head {
+
+/* ---------- 身份七格 ---------- */
+.id7 {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px 14px;
+}
+.id-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+.id-cell.span-2 {
+    grid-column: span 2;
+}
+.id-k {
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.06em;
+    line-height: 1;
+}
+/* 输入格吃掉整格宽：`NumberField` 自己兜的是 72，在 99 的列里会留一段空白；
+ * 选择器要带 `.id-cell` / `.q6` 一层——`NumberField` 的 scoped 规则与这里同特异性，
+ * 谁赢取决于注入顺序，多一层父选择器才稳（GearEditor 那条同一个坑）。 */
+.id-cell .field,
+.id-cell :deep(.number-field) {
+    width: 100%;
+}
+
+/* ---------- 资质六格 ---------- */
+.sec-head {
     display: flex;
     align-items: baseline;
     gap: 7px;
     margin-top: 4px;
 }
-.sub-head .section-mark {
+.sec-head .section-mark {
     align-self: center;
 }
-/* 六项资质排三列：一项一行要占六行，而每行只有一个标签加一个数字，
- * 三列正好一屏放下，也顺带让数值成列对齐（比较两只兽时就是横着扫这几列）。
- *
- * 列宽写死 170 而不是 `1fr`：撑满时每列 210+，标签与数字之间空出一大片，
- * 六项读起来像六块互不相干的空地；170 = 标签 32 + 数字 66 + 两段间距还有余量。 */
-.quality-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 170px);
-    gap: 5px 14px;
+/* 「加一条」推到右端：它属于这一段，但不像标题那样需要被读。 */
+.sec-act {
+    margin-left: auto;
 }
-.quality-label {
-    width: 32px;
+.q6 {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+}
+.q-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+.q-cell :deep(.number-field) {
+    width: 100%;
+    text-align: right;
+}
+
+/* ---------- 战斗属性两列 ---------- */
+.attrs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px 18px;
+}
+.attr {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
 }
 .attr-label {
-    width: 96px;
+    flex: none;
+    width: 84px;
 }
+/* 数值右对齐：两列一左一右摆着时，扫的是同一列数字，不是同一列文字。 */
 .attr-value {
-    width: 96px;
+    flex: 1;
+    min-width: 0;
+    text-align: right;
 }
-.sub-foot {
-    padding-left: 2px;
-}
+
+/* ---------- 技能 / 内丹 ---------- */
 .lists {
+    display: flex;
     align-items: flex-start;
     gap: 10px;
-    margin-top: 4px;
+    margin-top: 3px;
 }
 .list-block {
     display: flex;
@@ -291,13 +547,62 @@ const nameList = (list: string[]) => list.join('、');
     gap: 4px;
     min-width: 0;
 }
+.list-k {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    color: var(--ink-2);
+    font-size: var(--fs-sm);
+    letter-spacing: 0.04em;
+}
+.cnt {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    font-style: normal;
+    letter-spacing: 0.04em;
+}
 .list-block .area {
     width: 100%;
 }
+/* 一排小格。4px 高、圆角 1：再高就成进度条（那是另一个说法），
+ * 再矮在暗色下会散成一条虚线。 */
+.dots {
+    display: flex;
+    gap: 4px;
+}
+.dots i {
+    flex: 1;
+    height: 4px;
+    border-radius: 1px;
+    background: color-mix(in srgb, var(--well) 62%, transparent);
+}
+.dots i.on {
+    background: var(--num);
+}
+
+/* ---------- 页脚 ---------- */
 .pet-foot {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-top: 10px;
+    margin-top: 4px;
+    padding-top: 9px;
+    border-top: var(--w-hair) solid var(--rule);
+}
+.pet-foot .hint {
+    margin: 0;
+}
+.pet-foot > :last-child {
+    margin-left: auto;
+}
+
+/* 空态：一只都没有时右边不留一片白，也不画一张空表。 */
+.empty-note {
+    margin: 0;
+    padding: 40px 0;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    text-align: center;
 }
 </style>

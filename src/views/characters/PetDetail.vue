@@ -102,18 +102,9 @@ const lifeWarn = computed(() => lifeLow(props.pet.life));
             </span>
         </div>
 
-        <!-- 两列：左资质（逐项核对，一枚一枚的票）/ 右战斗属性（读数，一行一条账线） -->
+        <!-- 两列：左战斗属性（读数，一行一条账线）/ 右资质（逐项核对，一枚一枚的票）。
+             2026-11-05 用户要求两边对调：先看的是「这只现在多能打」，资质是往回查的账。 -->
         <div class="pet-cols">
-            <section>
-                <div class="group-head"><span class="section-mark"></span>资质</div>
-                <div class="q-rows">
-                    <div v-for="row in qualityRows" :key="row.label" class="q-row">
-                        <span class="k">{{ row.label }}资质</span>
-                        <span class="v num">{{ row.value }}</span>
-                    </div>
-                </div>
-            </section>
-
             <section>
                 <div class="group-head"><span class="section-mark"></span>战斗属性</div>
                 <div v-if="pet.attrs.length" class="a-rows">
@@ -123,6 +114,16 @@ const lifeWarn = computed(() => lifeLow(props.pet.life));
                     </div>
                 </div>
                 <p v-else class="empty-note">还没有记录战斗属性</p>
+            </section>
+
+            <section>
+                <div class="group-head"><span class="section-mark"></span>资质</div>
+                <div class="q-rows">
+                    <div v-for="row in qualityRows" :key="row.label" class="q-row">
+                        <span class="k">{{ row.label }}资质</span>
+                        <span class="v num">{{ row.value }}</span>
+                    </div>
+                </div>
             </section>
         </div>
 
@@ -271,8 +272,9 @@ h3 .lv.idle {
 }
 
 /* 资质用票：六项是「逐项核对」的东西，一枚一枚地读。
- * 高 34 而不是 28：与右列八行（30 × 8）凑成齐平的底边——两列底边差一截时，
- * 短的这一列会被读成「这里还没填完」。 */
+ * 高 34 而不是 28：与左列八行（30 × 8 = 240）配成同一段高度——六票 34 × 6 + 5 × 5 = 229，
+ * 差 11（2026-11-05 两列对调后，短的那一列由左变右）。这一档差从第一版就在，
+ * 量过眼睛，两列底边**不至于读成「还没填完」**；真要抹平得把票加到 35.4，不值当。 */
 .q-rows {
     display: grid;
     gap: 5px;
@@ -301,7 +303,8 @@ h3 .lv.idle {
 }
 
 /* 战斗属性用行：八项是读数，不是八件东西，所以不套票面，只用账线分条。
- * 八行 × 30 = 240，与左列六票（34 × 6 + 5 × 5 = 229）差 11，视觉齐平。 */
+ * 八行 × 30 = 240，比右列六票（34 × 6 + 5 × 5 = 229）高 11——两列不再完全齐平，
+ * 但对调是按「先看能打多少」排的，左列长一点反而把这块推成主区。 */
 .a-rows {
     display: grid;
 }
