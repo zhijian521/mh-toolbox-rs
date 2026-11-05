@@ -78,7 +78,7 @@ npm run e2e            # 真窗口烟测：先 start.bat --force debug，再跑�
 [`AGENTS.md` §一](AGENTS.md#一验证分档日常不跑功能完成--提交--审查一律全量)。
 
 三层测试各管一段（「动了什么补哪层」的清单在 [`docs/CONVENTIONS.md` §2.1](docs/CONVENTIONS.md#21-工程基线)）：
-单元 = 27 文件 / 386 用例 + Rust 31 条；集成 = Rust 真库 + 烟测「数据」节；e2e = 169 条断言 / 11 节。
+单元 = 32 文件 / 416 用例 + Rust 31 条；集成 = Rust 真库 + 烟测「数据」节；e2e = 168 条断言 / 11 节。
 **这些数字跟着功能长，以 `npm run test` 与 `npm run e2e` 末尾的汇总为准。**
 **新增功能要同时补断言**，功能与断言同一份提交；新加 IPC 命令不用改注册表测试——
 `ipc-contract.test.ts` 会自己把前端调用与 Rust 的两张表对上，字段名也一并对账。
