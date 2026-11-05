@@ -173,6 +173,31 @@ export async function accountSave<T>(entries: T[]): Promise<boolean> {
     }
 }
 
+/* ---------- 目标（第 115 批） ----------
+ * 与名册同一条路子：整条 JSON 透传，结构全由前端 `goals.ts` 把关。
+ * 目标页只有「整份读 / 整份写」两种动作——进度是现算的，没有按字段查询的需求。
+ */
+export async function goalLoad<T>(): Promise<T[] | null> {
+    if (!hasTauri) return null;
+    try {
+        return await invoke<T[]>('goals_load');
+    } catch (error) {
+        console.error('读取目标失败', error);
+        return null;
+    }
+}
+
+export async function goalSave<T>(goals: T[]): Promise<boolean> {
+    if (!hasTauri) return false;
+    try {
+        await invoke('goals_save', { goals });
+        return true;
+    } catch (error) {
+        console.error('写入目标失败', error);
+        return false;
+    }
+}
+
 /* ---------- 角色名册（同一套数据层，JSON 列存整条） ----------
  * 四个函数与物价那组一一对应，理由见上面那一段。返回 `null` / `false` 一律是
  * 「没有 Tauri 宿主」或「调用失败」，不在这里抛错——**怎么处置由调用方定**：
@@ -246,6 +271,11 @@ const NO_HOST: DataOutcome = { status: 'failed', error: '浏览器预览里没�
 interface ImportSummary {
     characters: number;
     prices: number;
+    /** 收益与账号的条数（Rust 侧早就在报，这里只是补上类型）。 */
+    entries: number;
+    accounts: number;
+    /** 目标条数（第 115 批）。并进上面任何一栏都不对：它们是三样东西。 */
+    goals: number;
     truncated: number;
     truncatedItems: number;
     backupPath: string;
@@ -254,6 +284,9 @@ interface ImportSummary {
 interface ClearSummary {
     characters: number;
     prices: number;
+    entries: number;
+    accounts: number;
+    goals: number;
 }
 
 /** 导出到用户自己选的位置。`detail` 带上落盘路径，用户要去那个目录拿文件。 */
@@ -282,8 +315,8 @@ export async function dataImport(): Promise<DataOutcome> {
         return {
             status: 'ok',
             detail:
-                `已导入 ${summary.characters} 个角色、${summary.prices} 件物价。` +
-                `替换前的数据备份在 ${summary.backupPath}`,
+                `已导入 ${summary.characters} 个角色、${summary.prices} 件物价、` +
+                `${summary.goals} 个目标。替换前的数据备份在 ${summary.backupPath}`,
             truncation: { points: summary.truncated, items: summary.truncatedItems },
         };
     } catch (error) {
@@ -298,7 +331,7 @@ export async function dataClear(): Promise<DataOutcome> {
         const summary = await invoke<ClearSummary>('data_clear');
         return {
             status: 'ok',
-            detail: `已清空 ${summary.characters} 个角色、${summary.prices} 件物价`,
+            detail: `已清空 ${summary.characters} 个角色、${summary.prices} 件物价、${summary.goals} 个目标`,
         };
     } catch (error) {
         return failure(error);

@@ -109,6 +109,12 @@ struct BackupFile {
     /// 打不开。空数组表示「那份备份里本来就没有账号记录」，导入时照实清空。
     #[serde(default)]
     accounts: Vec<AccountEntry>,
+    /// 目标（第 115 批起）。同样是 `Value` 透传，理由与 `characters` 完全一样：
+    /// 前端加一个字段（追踪项、快照成员）时，备份不该跟着改一次。
+    ///
+    /// **`default` 不能省**：115 批之前的备份没有这一栏，缺了它整份备份会打不开。
+    #[serde(default)]
+    goals: Vec<serde_json::Value>,
 }
 
 /// 导入成功后的回执。
@@ -123,6 +129,8 @@ pub struct ImportSummary {
     /// 导进来的账号记录条数。与 `entries` 分列：两张表是两本账，
     /// 合成一个「记录 N 条」会让「收益回来了、账号没回来」这件事看不见。
     accounts: i64,
+    /// 导进来的目标条数。与上面同理：目标是第三样东西，不能并进任何一栏。
+    goals: i64,
     /// 会被前端裁掉的点位数（每件物品只存 `POINT_LIMIT` 条）。0 表示一条都不丢。
     ///
     /// 必须报出来：导入是「如实搬进来」，而前端**下次保存**时会按上限裁。用户导入了一份
@@ -144,6 +152,7 @@ pub struct ClearSummary {
     prices: i64,
     entries: i64,
     accounts: i64,
+    goals: i64,
 }
 
 /* ======================================================================
@@ -221,20 +230,22 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
         entries: file.income,
         prices: file.quick_prices,
     };
-    let (characters, prices, entries, accounts) = store::replace_all(
+    let counts = store::replace_all(
         &mut conn,
         &file.characters,
         &file.prices,
         &income,
         &file.accounts,
+        &file.goals,
     )
     .map_err(|error| format!("{error}；替换前的数据已备份到 {backup_path}"))?;
 
     Ok(Some(ImportSummary {
-        characters,
-        prices,
-        entries,
-        accounts,
+        characters: counts.characters,
+        prices: counts.prices,
+        entries: counts.entries,
+        accounts: counts.accounts,
+        goals: counts.goals,
         truncated: truncation.points_dropped,
         truncated_items: truncation.items_over_limit,
         backup_path,
@@ -248,12 +259,13 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
 /// 但三个命令摆在一起时，签名不一致会让人以为「这个大概不能在等待里调」。
 #[tauri::command]
 pub async fn data_clear(app: AppHandle) -> Result<ClearSummary, String> {
-    let (characters, prices, entries, accounts) = store::clear_all(&app)?;
+    let counts = store::clear_all(&app)?;
     Ok(ClearSummary {
-        characters,
-        prices,
-        entries,
-        accounts,
+        characters: counts.characters,
+        prices: counts.prices,
+        entries: counts.entries,
+        accounts: counts.accounts,
+        goals: counts.goals,
     })
 }
 
@@ -440,6 +452,7 @@ fn build(app: &AppHandle) -> Result<BackupFile, String> {
         income: income.entries,
         quick_prices: income.prices,
         accounts: store::account_load(app.clone())?,
+        goals: store::goals_load(app.clone())?,
     })
 }
 

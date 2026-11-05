@@ -41,9 +41,10 @@ pub(crate) const DB_FILE: &str = "mh-toolbox.db";
 ///
 /// **v2（2026-11-04，第 97 批）**：加 `income_entries` 与 `quick_prices` 两张表。
 /// **v3（2026-11-05，第 112 批）**：加 `account_entries` 一张表。
+/// **v4（2026-11-05，第 115 批）**：加 `goals` 一张表。
 /// 只加不改，旧版的 SQL 不认识它们、也不会碰；但版本号仍要 +1——这是「改表就要 +1」
 /// 的规矩，代价是回退到旧 exe 时它会拒绝打开（`AGENTS.md` 里写明升级是单向的）。
-const SCHEMA_VERSION: i64 = 3;
+const SCHEMA_VERSION: i64 = 4;
 
 /// 一条价格记录。字段名与前端 `PricePoint` 一一对应（`serde` 自动转 camelCase）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -306,7 +307,20 @@ fn init(conn: &Connection) -> Result<(), String> {
         );
 
         CREATE INDEX IF NOT EXISTS idx_account_entries_date
-            ON account_entries(date DESC, created_at DESC);",
+            ON account_entries(date DESC, created_at DESC);
+
+        /* 目标（第 115 批）。与名册同一条路子：整条 JSON 透传，Rust 侧不认识任何字段。
+         *
+         * 为什么不像账号账本那样摊成列：目标没有「按日期查」「按角色汇总」这类库内操作——
+         * 进度是现算的，排序是前端算的，读写只有「整份读 / 整份写」一种。摊成列只会让
+         * 每次加一个字段（分类、期限、流水）都要改三处：建表、insert、select。
+         *
+         * 流水（`logs`）也不单开表：一条目标一年也就几十笔，整份写在同一个事务里，
+         * 换来的是「改一笔 = 重算一次累计」，不会有「流水改了、累计没跟上」的中间态。 */
+        CREATE TABLE IF NOT EXISTS goals (
+            id   TEXT PRIMARY KEY,
+            data TEXT NOT NULL
+        );",
     )
     .map_err(|error| format!("建表失败：{error}"))?;
 
@@ -631,13 +645,28 @@ fn insert_character(
 /// 顺序（先子表后父表）与 `clear_records` 一致：不依赖 `PRAGMA foreign_keys`
 /// 是不是在这个连接上开着。`open_at` 每次都会开，但依赖它就是要求每个未来的调用点
 /// 都记得这一点。 */
+/// 一次「整份替换 / 整份清空」实际动了几张表的几条。
+///
+/// 早先是个四元组，账号页（第 112 批）加进来之后叫 `(i64, i64, i64, i64)`——读调用点
+/// 得先数到第四位才明白那是账号条数。目标页是第五张表，再往下加就该数不过来了：
+/// 名字写在这里，调用点写 `counts.goals`，加表不再动签名。
+#[derive(Debug, Default, Clone, Copy)]
+pub(crate) struct Counts {
+    pub characters: i64,
+    pub prices: i64,
+    pub entries: i64,
+    pub accounts: i64,
+    pub goals: i64,
+}
+
 pub(crate) fn replace_all(
     conn: &mut Connection,
     characters: &[serde_json::Value],
     prices: &[PriceItem],
     income: &IncomePayload,
     accounts: &[AccountEntry],
-) -> Result<(i64, i64, i64, i64), String> {
+    goals: &[serde_json::Value],
+) -> Result<Counts, String> {
     let tx = conn
         .transaction()
         .map_err(|error| format!("开事务失败：{error}"))?;
@@ -654,6 +683,8 @@ pub(crate) fn replace_all(
         .map_err(|error| format!("清空单价失败：{error}"))?;
     tx.execute("DELETE FROM account_entries", [])
         .map_err(|error| format!("清空账号账本失败：{error}"))?;
+    tx.execute("DELETE FROM goals", [])
+        .map_err(|error| format!("清空目标失败：{error}"))?;
 
     let mut written_characters: i64 = 0;
     for (index, character) in characters.iter().enumerate() {
@@ -682,13 +713,20 @@ pub(crate) fn replace_all(
         written_accounts += 1;
     }
 
+    let mut written_goals: i64 = 0;
+    for (index, goal) in goals.iter().enumerate() {
+        insert_goal(&tx, index, goal)?;
+        written_goals += 1;
+    }
+
     tx.commit().map_err(|error| format!("提交失败：{error}"))?;
-    Ok((
-        written_characters,
-        written_items,
-        written_entries,
-        written_accounts,
-    ))
+    Ok(Counts {
+        characters: written_characters,
+        prices: written_items,
+        entries: written_entries,
+        accounts: written_accounts,
+        goals: written_goals,
+    })
 }
 
 /* ======================================================================
@@ -900,6 +938,79 @@ fn insert_account_entry(conn: &Connection, entry: &AccountEntry) -> Result<(), S
 }
 
 /* ======================================================================
+ * 目标（第 115 批）
+ *
+ * 与名册同一套：`serde_json::Value` 整条透传，Rust 不认识任何字段（理由见建表那段）。
+ * 一行坏 JSON 同样只跳过那一行、`eprintln!` 留痕——目标页拿不到整份时会停写，
+ * 而界面上没有修库的入口，那等于永久打不开。
+ * ==================================================================== */
+
+#[tauri::command]
+pub fn goals_load(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
+    let conn = open(&app)?;
+    load_goals(&conn)
+}
+
+/// `goals_load` 的本体。与 `load_characters` 同一个理由拆出来：能对着临时目录测。
+fn load_goals(conn: &Connection) -> Result<Vec<serde_json::Value>, String> {
+    let mut stmt = conn
+        .prepare("SELECT id, data FROM goals")
+        .map_err(|error| format!("准备目标查询失败：{error}"))?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|error| format!("读目标失败：{error}"))?;
+
+    let mut list = Vec::new();
+    for row in rows {
+        let (id, raw) = row.map_err(|error| format!("解析目标行失败：{error}"))?;
+        match serde_json::from_str::<serde_json::Value>(&raw) {
+            Ok(value) => list.push(value),
+            Err(error) => eprintln!("目标表有一行不是合法 JSON（id={id}），已跳过：{error}"),
+        }
+    }
+    Ok(list)
+}
+
+/// 整份写回。目标页的每一次改动（记一笔、改一条、删一个）都走这里。
+#[tauri::command]
+pub fn goals_save(app: AppHandle, goals: Vec<serde_json::Value>) -> Result<(), String> {
+    let mut conn = open(&app)?;
+    save_goals(&mut conn, &goals)
+}
+
+fn save_goals(conn: &mut Connection, goals: &[serde_json::Value]) -> Result<(), String> {
+    let tx = conn
+        .transaction()
+        .map_err(|error| format!("开事务失败：{error}"))?;
+    tx.execute("DELETE FROM goals", [])
+        .map_err(|error| format!("清空目标失败：{error}"))?;
+    for (index, goal) in goals.iter().enumerate() {
+        insert_goal(&tx, index, goal)?;
+    }
+    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
+    Ok(())
+}
+
+/// 写一条目标。没 id 的记录兜底成 `goal-{index}`，与名册同一条语义。
+fn insert_goal(conn: &Connection, index: usize, item: &serde_json::Value) -> Result<(), String> {
+    let id = item
+        .get("id")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("goal-{index}"));
+    let data =
+        serde_json::to_string(item).map_err(|error| format!("序列化第 {index} 个目标失败：{error}"))?;
+    conn.execute(
+        "INSERT OR REPLACE INTO goals (id, data) VALUES (?1, ?2)",
+        params![id, data],
+    )
+    .map_err(|error| format!("写入第 {index} 个目标失败：{error}"))?;
+    Ok(())
+}
+
+/* ======================================================================
  * 清空：给「设置 → 数据 → 清除」用，也给导入前那一手用（导入 = 整体替换）
  * ==================================================================== */
 
@@ -918,7 +1029,10 @@ fn insert_account_entry(conn: &Connection, entry: &AccountEntry) -> Result<(), S
 ///
 /// **收益与单价一起清**：用户点「清除全部数据」时想的是「回到刚装好那样」，
 /// 留下收益账比留下物价更糟——那些记录还指着已经被清掉的角色。
-pub(crate) fn clear_all(app: &AppHandle) -> Result<(i64, i64, i64, i64), String> {
+///
+/// **目标也一起清**：它不像账本那样自成一册，它的成员与指标都指向角色档案；角色没了、
+/// 目标还在，那些卡片会显示成一排「已删除」，比没有更难看。
+pub(crate) fn clear_all(app: &AppHandle) -> Result<Counts, String> {
     let mut conn = open(app)?;
     clear_records(&mut conn)
 }
@@ -927,7 +1041,7 @@ pub(crate) fn clear_all(app: &AppHandle) -> Result<(i64, i64, i64, i64), String>
 /// **能对着临时目录跑的那一半**留在这里，`AppHandle` 只留在薄薄的外壳上。
 ///
 /// 于是「清空之后 `meta` 还在」这条设计可以写成测试，而不是只写在注释里。
-fn clear_records(conn: &mut Connection) -> Result<(i64, i64, i64, i64), String> {
+fn clear_records(conn: &mut Connection) -> Result<Counts, String> {
     let tx = conn
         .transaction()
         .map_err(|error| format!("开事务失败：{error}"))?;
@@ -951,17 +1065,21 @@ fn clear_records(conn: &mut Connection) -> Result<(i64, i64, i64, i64), String> 
     let accounts = tx
         .execute("DELETE FROM account_entries", [])
         .map_err(|error| format!("清空账号账本失败：{error}"))?;
+    let goals = tx
+        .execute("DELETE FROM goals", [])
+        .map_err(|error| format!("清空目标失败：{error}"))?;
 
     /* 这里**故意没有** `DELETE FROM meta`。`meta` 存的是关于库的状态而不是账本本身：
      * `schemaVersion`（删了 `init` 会补回「当前版本」，没有意义），以及将来任何
      * 「这件事做过没有」的标记（删了就等于让它重做一遍）。 */
     tx.commit().map_err(|error| format!("提交失败：{error}"))?;
-    Ok((
-        characters as i64,
-        items as i64,
-        entries as i64,
-        accounts as i64,
-    ))
+    Ok(Counts {
+        characters: characters as i64,
+        prices: items as i64,
+        entries: entries as i64,
+        accounts: accounts as i64,
+        goals: goals as i64,
+    })
 }
 
 /* ======================================================================
@@ -1212,11 +1330,11 @@ mod tests {
         .expect("写一条角色");
         write_meta(&conn, "probe", "keep-me").expect("写一条与账本无关的状态");
 
-        let (characters, items, entries) = clear_records(&mut conn).expect("清空");
+        let counts = clear_records(&mut conn).expect("清空");
         assert_eq!(
-            (characters, items, entries),
-            (1, 1, 0),
-            "返回的三个数要报出清掉了多少，界面那几句提示靠它"
+            (counts.characters, counts.prices, counts.entries, counts.accounts, counts.goals),
+            (1, 1, 0, 0, 0),
+            "返回的五个数要报出清掉了多少，界面那几句提示靠它"
         );
 
         let count = |table: &str| -> i64 {
@@ -1357,7 +1475,7 @@ mod tests {
                 price: 4.6,
             }],
         };
-        let (characters, prices, entries) = replace_all(
+        let counts = replace_all(
             &mut conn,
             &[
                 serde_json::json!({ "id": "c1" }),
@@ -1365,10 +1483,21 @@ mod tests {
             ],
             &[item("i1", "黑宝石", vec![]), item("i2", "月亮石", vec![])],
             &income,
+            &[],
+            &[serde_json::json!({ "id": "g1" })],
         )
         .expect("导入");
 
-        assert_eq!((characters, prices, entries), (2, 2, 1));
+        assert_eq!(
+            (
+                counts.characters,
+                counts.prices,
+                counts.entries,
+                counts.accounts,
+                counts.goals
+            ),
+            (2, 2, 1, 0, 1)
+        );
         assert_eq!(load_items(&conn).expect("读物价").len(), 2);
         assert_eq!(load_characters(&conn).expect("读名册").len(), 2);
         let back = load_income(&conn).expect("读收益");

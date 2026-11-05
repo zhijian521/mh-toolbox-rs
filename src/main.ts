@@ -8,6 +8,7 @@ import { useTheme } from './composables/use-theme';
 import { router } from './router';
 import { loadGameData } from './services/game-data';
 import { loadAccounts } from './views/accounts/accounts-store';
+import { loadGoals } from './views/goals/goals-store';
 import { loadRoster } from './views/characters/roster';
 import { loadIncome } from './views/income/income-store';
 import { loadPrices } from './views/prices/prices-store';
@@ -36,6 +37,13 @@ useTheme();
  * 所以那两个 store 里凡是可能抛的 IO（尤其是迁移时给 `localStorage` 写留底）都就地
  * 兜住：留底是尽力而为，不能因为备份写不进去让整个应用起不来。
  */
-Promise.all([loadGameData(), loadPrices(), loadRoster(), loadIncome(), loadAccounts()]).then(() => {
+Promise.all([
+    loadGameData(),
+    loadPrices(),
+    loadRoster(),
+    loadIncome(),
+    loadAccounts(),
+    loadGoals(),
+]).then(() => {
     createApp(App).use(router).mount('#app');
 });

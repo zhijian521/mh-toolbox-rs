@@ -71,6 +71,8 @@ describe('账本备份：三种结局不能互相冒充', () => {
             characters: 4,
             prices: 6,
             entries: 1,
+            accounts: 0,
+            goals: 2,
             truncated: 12,
             truncatedItems: 2,
             backupPath: 'D:/备份/账本-before-import-1.json',
@@ -80,7 +82,9 @@ describe('账本备份：三种结局不能互相冒充', () => {
 
         expect(outcome.status).toBe('ok');
         expect(outcome).toMatchObject({
-            detail: '已导入 4 个角色、6 件物价。替换前的数据备份在 D:/备份/账本-before-import-1.json',
+            detail:
+                '已导入 4 个角色、6 件物价、2 个目标。' +
+                '替换前的数据备份在 D:/备份/账本-before-import-1.json',
             truncation: { points: 12, items: 2 },
         });
     });
@@ -102,9 +106,19 @@ describe('账本备份：三种结局不能互相冒充', () => {
 
     it('清除：报出清掉的条数，用户才分得清「清了一份账」和「本来就是空的」', async () => {
         const { dataClear } = await load();
-        invokeMock.mockResolvedValue({ characters: 2, prices: 0, entries: 3 });
+        invokeMock.mockResolvedValue({
+            characters: 2,
+            prices: 0,
+            entries: 3,
+            accounts: 1,
+            goals: 4,
+        });
 
-        expect(await dataClear()).toEqual({ status: 'ok', detail: '已清空 2 个角色、0 件物价' });
+        /* 目标也报出来：清空会把它们一起删掉，不说一声用户会以为只是清了两样。 */
+        expect(await dataClear()).toEqual({
+            status: 'ok',
+            detail: '已清空 2 个角色、0 件物价、4 个目标',
+        });
     });
 });
 

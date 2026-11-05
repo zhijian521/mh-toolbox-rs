@@ -7,6 +7,7 @@ import CharacterCard from './characters/CharacterCard.vue';
 import CharacterEditor from './characters/CharacterEditor.vue';
 import type { CharacterData } from './characters/character';
 import { emptyCharacter, useRoster } from './characters/roster';
+import { goalsOfCharacter } from './goals/goals-store';
 
 /**
  * 角色页 —— 名册。
@@ -54,12 +55,24 @@ function onSave(character: CharacterData) {
 
 /* 删角色要问一次：名册删掉就没有回收站。问句与后果在这里，卡上只负责把这枚按钮画出来
  * ——二次确认全站只有一个入口（`askConfirm()`），卡上再自绘一套「按钮就地改名」，
- * 就会出现第二种问法，时限、文案、误触保护各写一遍。 */
+ * 就会出现第二种问法、时限、文案、误触保护各写一遍。
+ *
+ * **有目标引用他时必须说出来**（用户 2026-11-05 定）：目标的成员是建目标那一刻的快照，
+ * 人删了之后卡片上那一行会变成「已删除」并不再计入分母——不说的话，用户是在回到目标页
+ * 时才发现「5 个角色达标」变成了「4 个角色达标」。 */
 async function askRemove(character: CharacterData) {
     const name = character.name || '这个角色';
+    const related = goalsOfCharacter(character.id);
+    const titles = related
+        .slice(0, 3)
+        .map((goal) => `「${goal.title}」`)
+        .join('、');
     const ok = await askConfirm({
         title: `删掉「${name}」？`,
-        note: '删了之后名册里就没有这个人了，没法撤回。',
+        note: related.length
+            ? `删了之后名册里就没有这个人了，没法撤回。他还在 ${related.length} 个目标里` +
+              `（${titles}${related.length > 3 ? ' 等' : ''}）——删掉后那些目标不再计入他。`
+            : '删了之后名册里就没有这个人了，没法撤回。',
         confirmText: '删除',
     });
     if (!ok) return;
