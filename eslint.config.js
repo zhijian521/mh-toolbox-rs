@@ -22,6 +22,8 @@ export default tseslint.config(
             // （`design/` 那条已随目录一起删掉——2026-11-02 图标源搬去 `assets/icon`
             //  与 `scripts/icon`，白名单留着只会让人以为那个目录还在。）
             'src-tauri/icons/**',
+            // tauri-specta 生成的命令绑定，不是手写代码（与 .prettierignore 同一条）
+            'src/services/bindings.ts',
             '.runtime/**',
             '.workbuddy/**',
         ],

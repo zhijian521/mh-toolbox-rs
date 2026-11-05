@@ -1539,3 +1539,56 @@ Rust）、以及**注释里提到但仓库里已经不存在的文件名**——
 
 **验证**：`npm run check` **27 文件 / 385 用例全过**；`npm run e2e` **150 通过 / 0 失败**。
 
+### 第 122 批：接上 `tauri-specta`，命令名与类型从 Rust 生成（2026-11-05）
+
+用户：「先处理 AB」的 B。
+
+**欠账的原文**：ARCHITECTURE 里写着「契约还没收成一处真源：命令**已经 17 个**，早越过当初定的
+「5 个以上就上 `tauri-specta`」那条阈值，**而它还没接**」。前端在 `desktop.ts` / `ghost.ts`
+里写字面量命令名，Rust 在 `lib.rs` 的两张 `generate_handler!` 里再列一遍；唯一的守卫是
+`ipc-contract.test.ts` 的正则对账——它能抓「名字写错」，抓不到「参数类型写错」。
+
+**版本**：`tauri-specta` 只有 rc（最新 `2.0.0-rc.26`），且 crate 文档要求 specta 系**全部用 `=`
+钉死**，否则下一次 rc 一发就编译不过。所以 Cargo.toml 里三条都带 `=`：
+`tauri-specta =2.0.0-rc.26` / `specta =2.0.0-rc.26` / `specta-typescript =0.0.13`。
+
+**接法**：`lib.rs` 的 `command_table()` 用 `collect_commands!` 返回一个 `Builder`，
+`.export(Typescript::default(), "../src/services/bindings.ts")` 只在 debug 构建里跑，
+`.invoke_handler(bindings.invoke_handler())` 替掉原来的 `generate_handler!`。两条平台表照旧
+（`#[cfg(windows)]` / `#[cfg(not(windows))]`）——`ghost::*` 整模块在非 Windows 上是编掉的，
+`collect_commands!` 里出现一个未定义符号就整表编不过。
+
+**三个必须显式改的默认值**（都写在 `command_table()` 的注释里）：
+
+| 默认值                               | 为什么不行                                                           | 改成                                                                |
+| ------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| i64 一律拒收（怕 JS 精度丢失）       | 时间戳 / 句柄全是 i64，不放开整个导出直接报错                        | `dangerously_cast_bigints_to_number`                                |
+| 错误模式 `Result`（返回 `{status}`） | 前端每个调用点都要读 `status`，等于重写一遍                          | `ErrorHandlingMode::Throw`（Err 即 reject，与原来的 `invoke` 一致） |
+| —                                    | `serde_json::Value` 的 `Type` 实现挂在 specta 的 `serde_json` 特性上 | 开特性                                                              |
+
+**改到的文件**：17 条命令加 `#[specta::specta]`；`AppInfo` / `PriceItem` / `PricePoint` /
+`IncomeEntry` / `QuickPrice` / `IncomePayload` / `AccountEntry` / `ImportSummary` / `ClearSummary` /
+`WindowInfo` / `Roi` / `ProbeResult` / `TextLine` 加 `specta::Type`；前端 `desktop.ts` 删掉五个
+`<T>` 泛型（类型改由契约给），`ghost.ts` 一并换成 `commands.*`。
+
+**生成物入库，但不参与格式与 lint**：`src/services/bindings.ts` 21 KB，每次 debug 启动重写。
+`.prettierignore` 与 `eslint.config.js` 各加一条——生成器用 tab 与不带引号的键，交给 prettier
+只会每跑一次窗口就产生一份无意义的 diff。
+
+**契约测试重写成三层对账**（6 → 7 条）：Rust `collect_commands!` → `bindings.ts` 里的
+`__TAURI_INVOKE("名字")` → 前端 `commands.xxx(`。新增两条正是原来抓不到的那两种：
+**生成物落后**（改了 Rust 没起过窗口，类型看着对、调下去 command not found）与
+**前端又写回裸 `invoke`**。后者判之前要先去注释——`desktop.ts` 的注释里就写着
+「原先这里逐个手写 `invoke<T>('prices_load')`」，那是解释不是调用，第一版就这么假红了。
+
+**一处差点写错的结论**：`TextLine.score` 生成的类型是 `number | null`，我先以为是
+`#[serde(default)]` 造成的、删掉它就好了——删完再生成，还是 `number | null`。真正的原因是
+**specta-typescript 对所有浮点数的规矩**：JSON 装不下 `NaN` / `Infinity`，serde 会把它们写成
+`null`，所以浮点一律渲染成可空。删 `default` 另有理由（这个结构没有 `Deserialize`，`default`
+只影响读；留着它反而让生成物多出一对 `_Serialize` / `_Deserialize`），但**与可空无关**，
+注释里把两件事分开写清了。收窄放在 `ghost.ts` 的边界上（`score: line.score ?? 0`），
+不让一个理论上存在的 `null` 渗进整条渲染链。
+
+**验证**：`cargo test --lib` **28 通过 / 2 忽略**；`npm run check` **27 文件 / 386 用例全过**；
+`npm run e2e` **150 通过 / 0 失败 / 15 提示**，控制台零报错——这一条最要紧：17 条命令全部
+走的是新链路。

@@ -59,9 +59,12 @@
 「数据」节（靠 `e2e-dialog.json` 跳过系统对话框）；只改排版 → 探针截图 + 几何断言（一次性，不入库）。
 **新增 IPC 命令**不用改测试：前端 service 加调用即可，`ipc-contract.test.ts` 自动对账。
 
-**新增一条 IPC 命令的顺序**：Rust 写 `#[tauri::command]` → **两张** `generate_handler!` 都加
-（`lib.rs` 按平台分了两份，漏一份只有非 Windows 才炸）→ 前端 service 里 `invoke('名字')` →
-`npm run test`。命令名写错、少注册、注册了没人用，三种都会在提交前红。
+**新增一条 IPC 命令的顺序**：Rust 写 `#[tauri::command]` **再加** `#[specta::specta]`（返回或接收的
+结构体要 `#[derive(specta::Type)]`）→ **两张** `collect_commands!` 都加（`lib.rs` 按平台分了两份，
+漏一份只有非 Windows 才炸）→ **起一次 debug 窗口**生成 `src/services/bindings.ts` → 前端调
+`commands.xxx()`（**不要写 `invoke('名字')`**，`ipc-contract.test.ts` 会红）→ `npm run test`。
+生成物落后、命令名写错、少注册、注册了没人用，四种都会在提交前红。
+`bindings.ts` 是生成物，不要手改，也别把它加进 `prettier` / `eslint` 的检查范围。
 
 烟测断言的硬要求（都是踩过的坑，理由见 `RECORD.md` 第 103/105 批）：**按 `aria-label` 或稳定类名
 定位，不按文本**（文本是内容，改个价就点不到；也别写「列表第一个子元素」，空态会占位）；**点击用

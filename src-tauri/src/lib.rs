@@ -23,7 +23,7 @@ mod backup;
 /// 现在只有一个命令，但它立住了两件事：① IPC 走 `invoke` + serde 结构体，
 /// 以后加 `tauri-specta` 就能从 Rust 类型直接生成 TS，不用再手抄契约；
 /// ② 数据目录从第一天就固定成 `%APPDATA%\mh-tool-rs`，不跟随 identifier 漂移。
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AppInfo {
     product_name: String,
@@ -119,6 +119,7 @@ fn report_fatal(message: &str) {
 }
 
 #[tauri::command]
+#[specta::specta]
 fn app_info(app: tauri::AppHandle) -> AppInfo {
     let config = app.config();
     AppInfo {
@@ -143,6 +144,7 @@ fn app_info(app: tauri::AppHandle) -> AppInfo {
 /// 只放行 http(s)：否则前端一旦被注入，就能把 `file:` / `ms-settings:` 这类
 /// 协议递给系统，那是任意本地程序调用的口子。
 #[tauri::command]
+#[specta::specta]
 fn open_external(url: String) -> Result<(), String> {
     if !(url.starts_with("https://") || url.starts_with("http://")) {
         return Err("只允许打开 http(s) 链接".to_string());
@@ -236,57 +238,92 @@ fn create_main_window(app: &mut tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
+/// 命令表：一次注册，同时喂给 Tauri 与 TS 绑定生成。
+///
+/// **为什么要按平台分两份**：`ghost::*` 整模块按 `cfg(windows)` 编掉了，非 Windows 上
+/// `collect_commands!` 里出现一个未定义的符号就整表编不过。所以两份表看着重复，
+/// 但重复的是「平台差异」这件事本身，不是手抄。
+///
+/// **加命令必须两份都加**。只在 Windows 那份里加，本机编得过、跑得起来，另一份静默
+/// 少一条——非 Windows 平台上那条命令只表现为「前端调用时报 command not found」，
+/// 而这个仓的开发机全是 Windows，那个缺口永远看不见。
+///
+/// `dangerously_cast_bigints_to_number`：i64（时间戳、窗口句柄）默认被 specta 拒收
+/// （它怕 JS 精度丢失）。这里的所有 i64 都在 2^53 以内（毫秒时间戳 ~1.7e12、
+/// 句柄是个 32/64 位指针值但只作标识），而 `serde_json::Value` 透传的字段里也会
+/// 出现整数——不放开这一条，整个导出直接报错。
+#[cfg(windows)]
+fn command_table() -> tauri_specta::Builder<tauri::Wry> {
+    tauri_specta::Builder::<tauri::Wry>::new()
+        .dangerously_cast_bigints_to_number()
+        .error_handling(tauri_specta::ErrorHandlingMode::Throw)
+        .commands(tauri_specta::collect_commands![
+            app_info,
+            open_external,
+            ghost::ghost_windows,
+            ghost::ghost_probe,
+            backup::data_export,
+            backup::data_import,
+            backup::data_clear,
+            store::prices_load,
+            store::prices_save,
+            store::characters_load,
+            store::characters_save,
+            store::income_load,
+            store::income_save,
+            store::account_load,
+            store::account_save,
+            store::goals_load,
+            store::goals_save
+        ])
+}
+
+/// 非 Windows：没有 `ghost` 那两条，其余同一份。
+#[cfg(not(windows))]
+fn command_table() -> tauri_specta::Builder<tauri::Wry> {
+    tauri_specta::Builder::<tauri::Wry>::new()
+        .dangerously_cast_bigints_to_number()
+        .error_handling(tauri_specta::ErrorHandlingMode::Throw)
+        .commands(tauri_specta::collect_commands![
+            app_info,
+            open_external,
+            backup::data_export,
+            backup::data_import,
+            backup::data_clear,
+            store::prices_load,
+            store::prices_save,
+            store::characters_load,
+            store::characters_save,
+            store::income_load,
+            store::income_save,
+            store::account_load,
+            store::account_save,
+            store::goals_load,
+            store::goals_save
+        ])
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let bindings = command_table();
+
+    /* 只在 debug 里生成：发布版没有前端源码目录，也不该在用户的机器上写文件。
+     * 路径相对 `src-tauri/`（cargo 的工作目录），落到前端唯一的调用入口旁边。
+     * 生成时机是**每次启动**——改了命令却忘了重新生成，`npm run dev` 第一下就补回来。 */
+    #[cfg(debug_assertions)]
+    bindings
+        .export(
+            specta_typescript::Typescript::default(),
+            "../src/services/bindings.ts",
+        )
+        .expect("生成 TS 绑定失败");
+
     /* 对话框插件在这里注册一次。**注册不等于给前端开口子**：它同时带来 JS 命令，
      * 而 `capabilities/default.json` 里没有任何 `dialog:` 权限，所以前端那侧调不动；
      * 本仓只用 Rust 侧的 `app.dialog()`（见 `backup.rs`）。 */
-    let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
-
-    // 命令表按平台分两份而不是用 `#[cfg]` 逐个包：`generate_handler!` 里出现
-    // 一个未定义的符号就整表编不过，条件编译写在宏里反而看不出是哪一条。
-    //
-    // **加命令必须两份都加。** 只在 Windows 那份里加，本机编得过、跑得起来，
-    // 另一份静默少一条——非 Windows 平台上那条命令只表现为「前端调用时报
-    // command not found」，而这个仓的开发机全是 Windows，所以那个缺口永远看不见。
-    #[cfg(windows)]
-    let builder = builder.invoke_handler(tauri::generate_handler![
-        app_info,
-        open_external,
-        ghost::ghost_windows,
-        ghost::ghost_probe,
-        backup::data_export,
-        backup::data_import,
-        backup::data_clear,
-        store::prices_load,
-        store::prices_save,
-        store::characters_load,
-        store::characters_save,
-        store::income_load,
-        store::income_save,
-        store::account_load,
-        store::account_save,
-        store::goals_load,
-        store::goals_save
-    ]);
-    #[cfg(not(windows))]
-    let builder = builder.invoke_handler(tauri::generate_handler![
-        app_info,
-        open_external,
-        backup::data_export,
-        backup::data_import,
-        backup::data_clear,
-        store::prices_load,
-        store::prices_save,
-        store::characters_load,
-        store::characters_save,
-        store::income_load,
-        store::income_save,
-        store::account_load,
-        store::account_save,
-        store::goals_load,
-        store::goals_save
-    ]);
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .invoke_handler(bindings.invoke_handler());
 
     let started = builder
         .setup(|app| {

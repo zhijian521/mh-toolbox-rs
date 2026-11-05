@@ -21,7 +21,7 @@ use crate::screen;
 ///
 /// 距离从**客户区右缘**量起（面板贴右边），而不是从左缘：右侧是固定锚点，
 /// 窗口怎么拉宽，面板都跟着右边走。
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, specta::Type)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Roi {
     /// ROI 右边界距客户区右缘的像素。面板右边还有几像素留白，别把它截掉。
@@ -97,7 +97,7 @@ impl Default for Roi {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProbeResult {
     /// 实际读的窗口。前端拿它做「正在监听谁」的显示。
@@ -149,6 +149,7 @@ fn is_game_title(title: &str) -> bool {
 /// 排序保持 Rust 侧的「面积从大到小」：客户端窗口通常是屏幕上前几名的大窗，
 /// 前端不需要再排一次。
 #[tauri::command(async)]
+#[specta::specta]
 pub fn ghost_windows() -> Vec<screen::WindowInfo> {
     screen::list_windows()
 }
@@ -158,6 +159,7 @@ pub fn ghost_windows() -> Vec<screen::WindowInfo> {
 /// `hwnd` 为空时自动挑一个标题像梦幻的窗口；挑不到返回错误而不是静默成功——
 /// 静默成功会让前端显示「监听中」却一直读到空文本，比直接报错难查得多。
 #[tauri::command(async)]
+#[specta::specta]
 pub fn ghost_probe(hwnd: Option<i64>, roi: Option<Roi>) -> Result<ProbeResult, String> {
     let roi = roi.unwrap_or_default();
 

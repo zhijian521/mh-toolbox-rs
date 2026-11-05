@@ -54,13 +54,13 @@
   └────────────────── 返回值（camelCase）◀──────────────────┘
 ```
 
-- **契约还没收成一处真源（欠账）**：`AppInfo` / `PriceItem` / `PricePoint` / `ImportSummary` /
-  `ClearSummary` 在 Rust 与 TS 各写一份，靠 `#[serde(rename_all = "camelCase")]` 对齐。命令**已经
-  17 个**（`lib.rs` 的 `generate_handler!`：`app_info`、`open_external`、`ghost_*` 两个、`backup::`
-  三个、`store::` 十个），早越过当初定的「5 个以上就上 `tauri-specta`」那条阈值，**而它还没接**
-  ——「两边字段名对得上」现在靠记忆力，靠 `ipc-contract.test.ts` 兜住命令名这一层。
-  `generate_handler!` **按平台写了两份**（`#[cfg(windows)]` / `#[cfg(not(windows))]`）：加命令
-  必须两份都加，漏掉非 Windows 那份在本机完全看不出来。
+- **契约是一处真源：`tauri-specta` 生成的 `src/services/bindings.ts`**（第 122 批）。命令 17 个
+  （`lib.rs` 的 `collect_commands!`：`app_info`、`open_external`、`ghost_*` 两个、`backup::` 三个、
+  `store::` 十个），字段名、参数与返回类型都由 Rust 的 `specta::Type` 派生**生成**到 TS，
+  不再两边手抄、也不再靠 `#[serde(rename_all = "camelCase")]` 加上记忆力对齐。
+  `bindings.ts` 是**生成物**：每次 debug 启动重写，别手改；`prettier` 与 `eslint` 都把它排除在外。
+  `collect_commands!` **按平台写了两份**（`#[cfg(windows)]` / `#[cfg(not(windows))]`）：加命令
+  必须两份都加，漏掉非 Windows 那份在本机完全看不出来——`ipc-contract.test.ts` 会红。
 - **数据进出走 `backup.rs`**：`data_export` / `data_import` / `data_clear` 管的是「离开这台机器
   的那个文件」——`format` + `app` + `exportedAt` 的信封、`backups/` 下的自动备份、导入前校验。
   **它不碰 SQL**：读写库一律回落 `store.rs` 的普通函数，不在那里写第二份查询。两条语义：

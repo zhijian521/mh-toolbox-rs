@@ -84,7 +84,7 @@ pub fn monitor_dpi(hwnd: HWND) -> u32 {
 ///
 /// `hwnd` 用 `i64` 而非 `isize`：Windows 句柄是 64 位，`i64` 在 IPC 上是普通数字，
 /// JS 的 `number` 能精确表示到 2^53，足够装下一个指针值。
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct WindowInfo {
     pub hwnd: i64,

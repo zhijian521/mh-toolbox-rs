@@ -1,5 +1,12 @@
-import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import {
+    commands,
+    type AccountEntry,
+    type AppInfo,
+    type IncomePayload,
+    type PriceItem,
+    type Value as JsonValue,
+} from './bindings';
 
 /**
  * 渲染层唯一允许直接碰系统的地方。
@@ -12,6 +19,13 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
  * 出现在 `components/`、`views/`、`composables/` 里。原先只拦了
  * `@tauri-apps/api/core`，`TitleBar.vue` 便直接引了 `@tauri-apps/api/window` 管窗口按钮
  * ——规矩写着「只有 services 能碰系统」，检查却只管一个入口。窗口那一族现在也在本文件。
+ *
+ * ---- 命令名与参数类型从哪来 ----
+ *
+ * `bindings.ts` 是 `tauri-specta` 从 Rust 命令签名**生成**的，本文件只调不管。
+ * 第 121 批之前这里逐个手写 `invoke<T>('prices_load')`，名字对不上只有运行时才炸；
+ * 现在改名会让 `npm run typecheck` 直接红，而生成物每次 debug 启动都会重写一遍。
+ * **不要手改 `bindings.ts`**——它头顶那行就是这句。
  */
 
 /** 有没有 Tauri 宿主。浏览器里跑（`npm run dev` 但没有窗口）时为 false。 */
@@ -21,20 +35,14 @@ export function hasDesktop(): boolean {
     return hasTauri;
 }
 
-export interface AppInfo {
-    productName: string;
-    version: string;
-    identifier: string;
-    dataDir: string;
-    webview: string;
-    /** debug 构建为 true。真窗口测试据此判断调试端口与测试钩子在不在。 */
-    debug: boolean;
-}
+/* `AppInfo` 的定义在生成物里（字段与 `lib.rs` 的 struct 一一对应），这里转出去，
+ * 免得调用方两个地方各引一次。 */
+export type { AppInfo };
 
 /** 浏览器里跑（`npm run dev` 但没起 Tauri）时 invoke 会抛错，降级成 null 而不是炸掉页面。 */
 export async function appInfo(): Promise<AppInfo | null> {
     try {
-        return await invoke<AppInfo>('app_info');
+        return await commands.appInfo();
     } catch {
         return null;
     }
@@ -49,7 +57,7 @@ export async function appInfo(): Promise<AppInfo | null> {
  */
 export async function openExternal(url: string): Promise<boolean> {
     try {
-        await invoke('open_external', { url });
+        await commands.openExternal(url);
         return true;
     } catch {
         if (typeof window !== 'undefined') {
@@ -91,18 +99,24 @@ export function closeWindow(): void {
 /* ---------- 本地数据（SQLite） ----------
  * 数据存在 Rust 侧（`src-tauri/src/store.rs`），这里只做搬运。
  *
- * **为什么用泛型而不是引 `views/prices` 的 `PriceItem`**：`services/` 是系统边界，
- * 反过来依赖某个页面的数据结构，那个页面一改字段这里就得跟着改，边界就白划了。
- * 类型由调用方在那一侧断言——真正把关的是 `normalizePriceItem`。
+ * **类型来自生成物，不来自页面**：`bindings.ts` 是从 Rust 命令签名生成的，所以这里引的是
+ * 契约（`PriceItem` / `IncomePayload` / `AccountEntry`），不是 `views/prices` 的某个结构
+ * ——`services/` 反过来依赖页面就又破了边界。页面那边各有一份同形声明，
+ * **真正把关的仍然是 `normalizePriceItem` 那几个归一函数**：库可能是上一版应用写的、
+ * 也可能被人手改过，类型在那两种情形下帮不上忙。
+ *
+ * `characters_*` / `goals_*` 是整条 JSON 透传，生成出来是 `Value[]`
+ * （对应 Rust 的 `serde_json::Value`），前端只看它「是个数组」，结构由
+ * `roster.ts` / `goals.ts` 自己解析。
  *
  * **浏览器里一律返回 null / false**，不是抛错：探针（`tools/probe/cdp.mjs`）和
  * `npm run dev` 都没有 Tauri 宿主，调用方据此退回 `localStorage`。
  * 两条路径的数据是**各自独立**的，这正合适——探针塞的种子数据不该污染真档案。
  */
-export async function pricesLoad<T>(): Promise<T[] | null> {
+export async function pricesLoad(): Promise<PriceItem[] | null> {
     if (!hasTauri) return null;
     try {
-        return await invoke<T[]>('prices_load');
+        return await commands.pricesLoad();
     } catch (error) {
         console.error('读取物价表失败', error);
         return null;
@@ -110,10 +124,10 @@ export async function pricesLoad<T>(): Promise<T[] | null> {
 }
 
 /** 整份写回。返回 false 表示没写进去——调用方要能看见，不能静默吞掉。 */
-export async function pricesSave<T>(items: T[]): Promise<boolean> {
+export async function pricesSave(items: PriceItem[]): Promise<boolean> {
     if (!hasTauri) return false;
     try {
-        await invoke('prices_save', { items });
+        await commands.pricesSave(items);
         return true;
     } catch (error) {
         console.error('写入物价表失败', error);
@@ -125,10 +139,10 @@ export async function pricesSave<T>(items: T[]): Promise<boolean> {
  * 收益记录与速记单价**一起**读写：收益页总要同时用（速记格显示单价、今日清单显示记录），
  * 分两条命令会让首屏闪一下——先画出记录、单价后到，格子里的数会跳一档。
  */
-export async function incomeLoad<T>(): Promise<T | null> {
+export async function incomeLoad(): Promise<IncomePayload | null> {
     if (!hasTauri) return null;
     try {
-        return await invoke<T>('income_load');
+        return await commands.incomeLoad();
     } catch (error) {
         console.error('读取收益账失败', error);
         return null;
@@ -136,10 +150,10 @@ export async function incomeLoad<T>(): Promise<T | null> {
 }
 
 /** 整份写回。返回 false 表示没写进去——速记的每一次点击都走这里，不能静默吞掉。 */
-export async function incomeSave<T>(payload: T): Promise<boolean> {
+export async function incomeSave(payload: IncomePayload): Promise<boolean> {
     if (!hasTauri) return false;
     try {
-        await invoke('income_save', { payload });
+        await commands.incomeSave(payload);
         return true;
     } catch (error) {
         console.error('写入收益账失败', error);
@@ -151,10 +165,10 @@ export async function incomeSave<T>(payload: T): Promise<boolean> {
  * 与收益账不同，这里只有一份数据：账号页没有「配套小表」，筛选与汇总全在前端算。
  * 所以载荷就是一个数组，不必再包一层信封——多一层只会让「读到 null」有第二种解释。
  */
-export async function accountLoad<T>(): Promise<T[] | null> {
+export async function accountLoad(): Promise<AccountEntry[] | null> {
     if (!hasTauri) return null;
     try {
-        return await invoke<T[]>('account_load');
+        return await commands.accountLoad();
     } catch (error) {
         console.error('读取账号账本失败', error);
         return null;
@@ -162,10 +176,10 @@ export async function accountLoad<T>(): Promise<T[] | null> {
 }
 
 /** 整份写回。返回 false 表示没写进去——记一笔的每一次提交都走这里。 */
-export async function accountSave<T>(entries: T[]): Promise<boolean> {
+export async function accountSave(entries: AccountEntry[]): Promise<boolean> {
     if (!hasTauri) return false;
     try {
-        await invoke('account_save', { entries });
+        await commands.accountSave(entries);
         return true;
     } catch (error) {
         console.error('写入账号账本失败', error);
@@ -177,20 +191,20 @@ export async function accountSave<T>(entries: T[]): Promise<boolean> {
  * 与名册同一条路子：整条 JSON 透传，结构全由前端 `goals.ts` 把关。
  * 目标页只有「整份读 / 整份写」两种动作——进度是现算的，没有按字段查询的需求。
  */
-export async function goalLoad<T>(): Promise<T[] | null> {
+export async function goalLoad(): Promise<JsonValue[] | null> {
     if (!hasTauri) return null;
     try {
-        return await invoke<T[]>('goals_load');
+        return await commands.goalsLoad();
     } catch (error) {
         console.error('读取目标失败', error);
         return null;
     }
 }
 
-export async function goalSave<T>(goals: T[]): Promise<boolean> {
+export async function goalSave(goals: JsonValue[]): Promise<boolean> {
     if (!hasTauri) return false;
     try {
-        await invoke('goals_save', { goals });
+        await commands.goalsSave(goals);
         return true;
     } catch (error) {
         console.error('写入目标失败', error);
@@ -205,20 +219,20 @@ export async function goalSave<T>(goals: T[]): Promise<boolean> {
  * `roster.ts` / `prices-store.ts` 取的是后者：读失败时立起 `loadError`、停掉一切写，
  * 因为把「读失败」当「空库」会立刻覆盖掉用户原有的数据。
  */
-export async function charactersLoad<T>(): Promise<T[] | null> {
+export async function charactersLoad(): Promise<JsonValue[] | null> {
     if (!hasTauri) return null;
     try {
-        return await invoke<T[]>('characters_load');
+        return await commands.charactersLoad();
     } catch (error) {
         console.error('读取角色名册失败', error);
         return null;
     }
 }
 
-export async function charactersSave<T>(items: T[]): Promise<boolean> {
+export async function charactersSave(items: JsonValue[]): Promise<boolean> {
     if (!hasTauri) return false;
     try {
-        await invoke('characters_save', { items });
+        await commands.charactersSave(items);
         return true;
     } catch (error) {
         console.error('写入角色名册失败', error);
@@ -261,39 +275,11 @@ function failure(error: unknown): DataOutcome {
 /** 浏览器预览里没有数据层。三个函数共用这一句，免得三处各写一遍再各自漂移。 */
 const NO_HOST: DataOutcome = { status: 'failed', error: '浏览器预览里没有数据层' };
 
-/**
- * `data_import` 的回执。字段名与 `backup.rs` 的 `ImportSummary` 一一对应
- * （那边 `#[serde(rename_all = "camelCase")]`，`truncated_items` 过来就是 `truncatedItems`）。
- *
- * `backupPath` 是**替换之前**那份自动备份的去处；`truncated` 是会被裁掉的点位数
- * （0 = 一条都不丢），`truncatedItems` 是受影响的物品件数。
- */
-interface ImportSummary {
-    characters: number;
-    prices: number;
-    /** 收益与账号的条数（Rust 侧早就在报，这里只是补上类型）。 */
-    entries: number;
-    accounts: number;
-    /** 目标条数（第 115 批）。并进上面任何一栏都不对：它们是三样东西。 */
-    goals: number;
-    truncated: number;
-    truncatedItems: number;
-    backupPath: string;
-}
-
-interface ClearSummary {
-    characters: number;
-    prices: number;
-    entries: number;
-    accounts: number;
-    goals: number;
-}
-
 /** 导出到用户自己选的位置。`detail` 带上落盘路径，用户要去那个目录拿文件。 */
 export async function dataExport(): Promise<DataOutcome> {
     if (!hasTauri) return NO_HOST;
     try {
-        const path = await invoke<string | null>('data_export');
+        const path = await commands.dataExport();
         if (path === null) return { status: 'canceled' };
         return { status: 'ok', detail: `已导出到 ${path}` };
     } catch (error) {
@@ -310,7 +296,7 @@ export async function dataExport(): Promise<DataOutcome> {
 export async function dataImport(): Promise<DataOutcome> {
     if (!hasTauri) return NO_HOST;
     try {
-        const summary = await invoke<ImportSummary | null>('data_import');
+        const summary = await commands.dataImport();
         if (summary === null) return { status: 'canceled' };
         return {
             status: 'ok',
@@ -328,7 +314,7 @@ export async function dataImport(): Promise<DataOutcome> {
 export async function dataClear(): Promise<DataOutcome> {
     if (!hasTauri) return NO_HOST;
     try {
-        const summary = await invoke<ClearSummary>('data_clear');
+        const summary = await commands.dataClear();
         return {
             status: 'ok',
             detail: `已清空 ${summary.characters} 个角色、${summary.prices} 件物价、${summary.goals} 个目标`,

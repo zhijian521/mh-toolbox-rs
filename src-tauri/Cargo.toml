@@ -54,6 +54,9 @@ ort = "=2.0.0-rc.10"
 
 # `RgbImage` 只在构造 OCR 输入时用，编码器一个都不需要。
 image = { version = "0.25", default-features = false }
+tauri-specta = { version = "=2.0.0-rc.26", features = ["derive", "typescript"] }
+specta = { version = "=2.0.0-rc.26", features = ["derive", "serde_json"] }
+specta-typescript = "=0.0.13"
 
 # 截屏 + 离线 OCR。只用系统自带能力，不引入 onnxruntime / 模型文件。
 #

@@ -6,6 +6,8 @@ src-tauri/target/
 # 生成物：每次编译/生成都会重建，格式没有意义
 src-tauri/gen/
 src-tauri/icons/
+# tauri-specta 生成的命令绑定：每次 debug 启动都会重写，缩进与引号由生成器定
+src/services/bindings.ts
 package-lock.json
 src-tauri/Cargo.lock
 

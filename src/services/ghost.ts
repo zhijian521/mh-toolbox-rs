@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from './bindings';
 
 /**
  * 捉鬼任务栏的读取通道。
@@ -106,7 +106,7 @@ const DEFAULT_ROI: Roi = {
 /** 列出可见窗口。没起 Tauri（浏览器预览）时返回空数组，让界面走「不可用」分支。 */
 export async function listGhostWindows(): Promise<GhostWindow[]> {
     try {
-        return await invoke<GhostWindow[]>('ghost_windows');
+        return await commands.ghostWindows();
     } catch {
         return [];
     }
@@ -123,5 +123,13 @@ export async function probeGhostTask(
     hwnd: number | null,
     roi: Roi = DEFAULT_ROI,
 ): Promise<ProbeResult> {
-    return invoke<ProbeResult>('ghost_probe', { hwnd, roi });
+    const result = await commands.ghostProbe(hwnd, roi);
+    /* 生成物把 `score` 标成 `number | null`：浮点在 JSON 里可能是 null
+     * （`NaN` / `Infinity` 装不下，serde 会写成 null，见 `ocr.rs` 那段）。
+     * 这个字段实际上只会是 OCR 给出的有限数，缺省时是 0——在这里收窄一次，
+     * 别让一个理论上存在的 `null` 渗进整条渲染链。 */
+    return {
+        ...result,
+        lines: result.lines.map((line) => ({ ...line, score: line.score ?? 0 })),
+    };
 }

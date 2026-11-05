@@ -127,7 +127,21 @@ describe('读写失败不炸页面，但也不能假装成功', () => {
         const { pricesSave } = await load();
         invokeMock.mockRejectedValue('database is locked');
 
-        expect(await pricesSave([{ id: 'a' }])).toBe(false);
+        expect(
+            await pricesSave([
+                {
+                    id: 'a',
+                    name: '黑宝石',
+                    category: '宝石符石',
+                    sub: '宝石',
+                    unit: '颗',
+                    note: '',
+                    points: [],
+                    createdAt: 1,
+                    updatedAt: 1,
+                },
+            ]),
+        ).toBe(false);
     });
 
     it('读物价失败返回 null（调用方据此立 loadError 并停写）', async () => {

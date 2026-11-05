@@ -23,7 +23,7 @@ use windows::Win32::System::WinRT::{RoInitialize, RO_INIT_MULTITHREADED};
 /// `ocr_paddle::recognize` 同样返回 ROI 坐标。所以经 `read_lines` 出来的行，
 /// 三种引擎口径一致。
 /// 行序本身的先后比绝对坐标更重要——任务块拼接靠的是「同属一块的行挨在一起」。
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct TextLine {
     pub text: String,
@@ -34,7 +34,13 @@ pub struct TextLine {
     /// 识别置信度 0~1。**Windows 引擎永远给 0**（它不返回这个值），
     /// PaddleOCR 给真实分数。前端不靠它做判断，只在「识别原文」里显示，
     /// 用来分辨「读错了」和「根本没框到」这两种完全不同的失败。
-    #[serde(default)]
+    ///
+    /// 没有 `#[serde(default)]`：这个结构**只出不进**（没有 `Deserialize`），
+    /// `default` 只影响读，用不上；留着它反而让 specta 生成一对
+    /// `TextLine_Serialize` / `TextLine_Deserialize`，其实只有一个方向存在。
+    ///
+    /// 生成的 TS 里这个字段仍是 `number | null`——**那是 specta 对所有浮点的规矩**：
+    /// JSON 装不下 `NaN` / `Infinity`，serde 会把它们写成 `null`。与上面那句无关。
     pub score: f32,
 }
 

@@ -52,7 +52,7 @@ const DB_FILE: &str = "mh-toolbox.db";
 const SCHEMA_VERSION: i64 = 4;
 
 /// 一条价格记录。字段名与前端 `PricePoint` 一一对应（`serde` 自动转 camelCase）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct PricePoint {
     pub id: String,
@@ -64,7 +64,7 @@ pub struct PricePoint {
 }
 
 /// 一件物品。`points` 是它的全部历史，读出来时按日期倒序。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct PriceItem {
     pub id: String,
@@ -91,7 +91,7 @@ pub struct PriceItem {
 /// `amount` 存**原值**（`15000` 表示 1.5 万），与物价同一个口径：显示时才折万。
 /// 前端已保证 `amount > 0`，方向由 `kind` 表达——负数与「支出」两套写法混用，
 /// 汇总时漏掉一处就会把净额算反。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct IncomeEntry {
     pub id: String,
@@ -112,7 +112,7 @@ pub struct IncomeEntry {
 ///
 /// `item_id` 是 `game/data/quick-items.json` 里的稳定编号；单价存**原值**。
 /// 没有行 = 这件物品还没设过价，界面显示「未设价」。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct QuickPrice {
     pub item_id: i64,
@@ -123,7 +123,7 @@ pub struct QuickPrice {
 ///
 /// 两份一起读写，因为页面总是同时需要它们：速记格要显示单价，清单要显示今天的记录。
 /// 分两条命令会让首屏闪一下（先有记录、后补单价）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct IncomePayload {
     pub entries: Vec<IncomeEntry>,
@@ -139,7 +139,7 @@ pub struct IncomePayload {
 /// `amount` 的单位**跟着 `currency` 走**：`rmb` 按元、`cash` 按万（原值，与收益页同口径：
 /// 存 46000 而不是 4.6）。两本账从不相加，所以不需要统一成一种单位；
 /// 真要统一，反而会出现「1 元 = 1 万」这种离谱的中间态。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountEntry {
     pub id: String,
@@ -394,6 +394,7 @@ fn write_meta(conn: &Connection, key: &str, value: &str) -> Result<(), String> {
 /// 两次查询而不是一次 join：一件物品的历史条数不定，join 出来要在 Rust 侧
 /// 去重合并，反而更绕。数据量在千条以内，两次顺序查询快得看不出差别。
 #[tauri::command]
+#[specta::specta]
 pub fn prices_load(app: AppHandle) -> Result<Vec<PriceItem>, String> {
     let conn = open(&app)?;
     load_items(&conn)
@@ -468,6 +469,7 @@ fn load_items(conn: &Connection) -> Result<Vec<PriceItem>, String> {
 /// 的半截状态。整份替换而不是逐条 upsert，是因为前端每次保存都持有完整列表，
 /// 逐条比对反而要额外记住上一次的快照。
 #[tauri::command]
+#[specta::specta]
 pub fn prices_save(app: AppHandle, items: Vec<PriceItem>) -> Result<(), String> {
     let mut conn = open(&app)?;
     save_items(&mut conn, &items)
@@ -555,6 +557,7 @@ fn insert_item(conn: &Connection, item: &PriceItem) -> Result<(), String> {
 /// 返回类型仍是 `Vec<serde_json::Value>`，前端契约不变；坏行留在库里没被删，
 /// 下次 `characters_save` 整份覆盖时会自然消失。
 #[tauri::command]
+#[specta::specta]
 pub fn characters_load(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
     let conn = open(&app)?;
     load_characters(&conn)
@@ -587,6 +590,7 @@ fn load_characters(conn: &Connection) -> Result<Vec<serde_json::Value>, String> 
 
 /// 整份写回。同样是一个事务；`OR REPLACE` 容忍前端传来重复 id（名册编辑时可能撞上）。
 #[tauri::command]
+#[specta::specta]
 pub fn characters_save(app: AppHandle, items: Vec<serde_json::Value>) -> Result<(), String> {
     let mut conn = open(&app)?;
     save_characters(&mut conn, &items)
@@ -745,6 +749,7 @@ pub(crate) fn replace_all(
 /// 两份一次取回，因为收益页总要同时用：速记格显示单价、今日清单显示记录。
 /// 分两条命令会让首屏闪一下（先有记录、后补单价），而这两块在同一屏内。
 #[tauri::command]
+#[specta::specta]
 pub fn income_load(app: AppHandle) -> Result<IncomePayload, String> {
     let conn = open(&app)?;
     load_income(&conn)
@@ -798,6 +803,7 @@ fn load_income(conn: &Connection) -> Result<IncomePayload, String> {
 /// 分两次提交时若第二次失败，就会出现「账记上了、价没改」——下一次点同一件物品
 /// 仍然按旧价入账，而用户以为自己刚刚改过。
 #[tauri::command]
+#[specta::specta]
 pub fn income_save(app: AppHandle, payload: IncomePayload) -> Result<(), String> {
     let mut conn = open(&app)?;
     save_income(&mut conn, &payload)
@@ -864,6 +870,7 @@ fn insert_quick_price(conn: &Connection, price: &QuickPrice) -> Result<(), Strin
  * ==================================================================== */
 
 #[tauri::command]
+#[specta::specta]
 pub fn account_load(app: AppHandle) -> Result<Vec<AccountEntry>, String> {
     let conn = open(&app)?;
     load_accounts(&conn)
@@ -899,6 +906,7 @@ fn load_accounts(conn: &Connection) -> Result<Vec<AccountEntry>, String> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn account_save(app: AppHandle, entries: Vec<AccountEntry>) -> Result<(), String> {
     let mut conn = open(&app)?;
     save_accounts(&mut conn, &entries)
@@ -953,6 +961,7 @@ fn insert_account_entry(conn: &Connection, entry: &AccountEntry) -> Result<(), S
  * ==================================================================== */
 
 #[tauri::command]
+#[specta::specta]
 pub fn goals_load(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
     let conn = open(&app)?;
     load_goals(&conn)
@@ -982,6 +991,7 @@ fn load_goals(conn: &Connection) -> Result<Vec<serde_json::Value>, String> {
 
 /// 整份写回。目标页的每一次改动（记一笔、改一条、删一个）都走这里。
 #[tauri::command]
+#[specta::specta]
 pub fn goals_save(app: AppHandle, goals: Vec<serde_json::Value>) -> Result<(), String> {
     let mut conn = open(&app)?;
     save_goals(&mut conn, &goals)

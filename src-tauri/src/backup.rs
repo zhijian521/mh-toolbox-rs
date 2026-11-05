@@ -118,7 +118,7 @@ struct BackupFile {
 }
 
 /// 导入成功后的回执。
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportSummary {
     characters: i64,
@@ -145,7 +145,7 @@ pub struct ImportSummary {
 
 /// 清除成功后的回执。两个数都要报出来——
 /// 界面上「已清除」不带数量的话，用户没法区分「清掉了一份账」和「本来就是空的」。
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ClearSummary {
     characters: i64,
@@ -164,6 +164,7 @@ pub struct ClearSummary {
 /// 先弹对话框、再读数据库：用户很可能只是点开看看位置就取消，
 /// 那一刻没有任何理由去读一遍库（还得开一次 SQLite 连接）。
 #[tauri::command]
+#[specta::specta]
 pub async fn data_export(app: AppHandle) -> Result<Option<String>, String> {
     let name = format!("梦幻养老助手-账本-{}.json", now_ms());
     let Some(path) = ask_save_path(&app, name).await? else {
@@ -189,6 +190,7 @@ pub async fn data_export(app: AppHandle) -> Result<Option<String>, String> {
 /// 从备份写完那一刻起，**每条 `Err` 都带上备份路径**：那是用户唯一能退回去的地方，
 /// 而「导入失败」这件事本身不足以让他知道旧数据还在不在。
 #[tauri::command]
+#[specta::specta]
 pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String> {
     let Some(path) = ask_open_path(&app).await? else {
         return Ok(None);
@@ -258,6 +260,7 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
 /// （同步命令跑在主线程上，弹窗会卡住消息循环）；这一条没有对话框，
 /// 但三个命令摆在一起时，签名不一致会让人以为「这个大概不能在等待里调」。
 #[tauri::command]
+#[specta::specta]
 pub async fn data_clear(app: AppHandle) -> Result<ClearSummary, String> {
     let counts = store::clear_all(&app)?;
     Ok(ClearSummary {
