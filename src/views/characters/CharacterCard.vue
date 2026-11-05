@@ -84,7 +84,11 @@ function choose(key: PaneKey) {
 const tip = ref<GearDetail | null>(null);
 const tipAnchor = ref<DOMRect | null>(null);
 
-function openTip(event: Event, detail: GearDetail) {
+/* `detail` 可以缺席：一格只填了「装备名」、什么都没展开时，卡上照样要显示这个名字
+ * （名字就是用户填的全部信息），只是没有浮片可弹——`normalizeGearDetail` 会把
+ * 「名称与类型都空」的壳丢掉，所以这种格子永远没有 detail。 */
+function openTip(event: Event, detail?: GearDetail) {
+    if (!detail) return;
     tipAnchor.value = (event.currentTarget as HTMLElement).getBoundingClientRect();
     tip.value = detail;
 }
@@ -389,17 +393,21 @@ function slotInitial(slot: GearSlot): string {
                  位置照游戏「人物装备」面板（`GEAR_LAYOUT`），**不是数组顺序**：
                  顶行四灵饰、左右两列各三件、底中两枚玉魄（阳在左）、中央空着。
 
-                 格子是**凹槽**（自己给四层：孔上沿纸厚 / 顶壁投影 / 底壁受光 / 内衬暗环）：
-                 装备是「往里放的东西」，凹才读作「空位 / 槽」。旧版这里是压印块
-                 （凸起的一块纸），读作「已经拿出来摆着的一件」，与「穿戴」这个动作
-                 方向相反——2026-11-04 用户对着游戏面板重排时一并改掉。
-                 **槽里那件东西仍是凸的**（`IconTile`），凹槽套凸块在这套语言里是常规
-                 （`.slip-row` 那张凹票里也是这么叠的）：凹说的是「这一格是个位置」，
-                 凸说的是「位置上放着一件」。
+                 格子是**一道印上去的框**（1px 淡褐线 + 内侧 1px 白线），不是凹槽：
+                 2026-11-05 用户反馈「格子不好看、图也偏小」，方案 B 把那层 `--well`
+                 底与四层影整个撤掉，格子退成表格线，省下的面积全给了里面的白盘
+                 （56 → 64、图 40 → 52）。代价是「往里放」这层意思没了——十二格现在
+                 读作「一张表里的十二个格」，部位名在左上角（表单标签的位置）说明是什么。
 
-                 三种状态：有装备有图（凹槽 + 压印块上的图 + 名）、有装备没图（凹槽 + 首字印）、
-                 没装备（虚线挖空 + 部位名 + 未装备）。第三种**不用 opacity 压**：
-                 虚线本来就淡，压了会糊成一片灰。 -->
+                 三种状态：有装备有图（框 + 白盘上的图 + 名）、有装备没图（框 + 首字印）、
+                 没装备（同一个框、线退一档 + 部位名 + 未装备）。第三种**不用 opacity 压**：
+                 线本来就淡，压了会糊成一片灰；也不再画虚线——全场都是实线框之后，
+                 虚线那格会被读成「坏了」。
+
+                 **判据是「`detail` 或 `caption` 有一个非空」**，不是「有 `detail`」：
+                 编辑器里「装备名」那一栏就是卡上显示的名字，填了它就该算穿了。
+                 只认 `detail` 的话，一个只写了简称的装备会存着名字却在卡上显示「未装备」
+                 ——数据有值、界面说没有，这种不一致最难解释。 -->
             <section
                 v-show="active === 'gear'"
                 :id="`${character.id}-pane-gear`"
@@ -410,7 +418,7 @@ function slotInitial(slot: GearSlot): string {
                 <div class="gear-board">
                     <template v-for="slot in character.gear" :key="slot.slot">
                         <button
-                            v-if="slot.detail"
+                            v-if="slot.detail || slot.caption?.trim()"
                             type="button"
                             class="gear-cell"
                             :style="cellPos(slot.slot)"
@@ -422,9 +430,9 @@ function slotInitial(slot: GearSlot): string {
                             <span class="gear-part">{{ slot.slot }}</span>
                             <!-- 有图走 `IconTile`（与师门、辅助同一枚压印块 + 纸化图）；
                                  没图的部位（武器、玉魄）走一块首字印，与 `SkillRow` 那个
-                                 「查不到图标」的兜底同构。块面用 `--paper-2` 而不是师门那块的
-                                 纸白：那边是「这枚是替身」（朱色，告警），这里是「这类图还没切」
-                                 （淡墨，常态），同一个动作不必同一个记号。 -->
+                                 「查不到图标」的兜底同构。首字用淡墨而不是师门那枚的朱：
+                                 那边是「这枚是替身」（数据缺了，告警），这里是「这类图还没切」
+                                 （常态），同一个动作不必同一个记号。 -->
                             <IconTile
                                 v-if="slotIcon(slot.slot)"
                                 class="gear-pic"
@@ -435,9 +443,8 @@ function slotInitial(slot: GearSlot): string {
                             </PressTile>
                             <span class="gear-name">{{ slot.caption }}</span>
                         </button>
-                        <!-- 空位也是**挖掉的一格**，不是「没画的格」：虚线方框躺在纸上，
-                             一眼数得出还差几件。部位名必须留着，否则十二格里少一块，
-                             读作「这里坏了」而不是「这里没穿」。 -->
+                        <!-- 空位是**同一个框、线退一档**，不是「没画的格」：一眼数得出还差几件。
+                             部位名必须留着，否则十二格里少一块，读作「这里坏了」而不是「这里没穿」。 -->
                         <div v-else class="gear-cell empty" :style="cellPos(slot.slot)">
                             <span class="gear-part">{{ slot.slot }}</span>
                             <span class="gear-empty">未装备</span>

@@ -556,15 +556,21 @@
  * 竖长的那 12 像素给了「部位名 + 图 + 装备名」三行字，96 的方块里塞不下。
  * 卡宽或 `--card-pad-x` 一改，这两个数就要重算。
  *
- * ## 格子是凹的，槽里那件东西是凸的
- * 旧版整格是 `PressTile`（凸起的一块纸），读作「已经拿出来摆着的一件东西」；
- * 装备格是「往里放」的槽，凹才对。凹的四件套不在这里重写——用全局 `.well`
- * 的边框 / 底色 / 顶壁渐变 / 下沿亮线，只把渐变长度从 62% 收到 46px
- * （62% 按 109 高解析是 67px，一大片灰；`.field` 对同一个问题给的是 14px）。
+ * ## 格子是一道印上去的框，不是挖下去的槽（2026-11-05 改，方案 B）
+ * 旧版整格是凹的：`--well` 底 + 四层影（上沿纸厚、顶壁投影、底壁受光、内衬暗环），
+ * 靠「凹」说明「这里是个位置，往这里放」。用户看完说格子本身不好看、图也偏小。
  *
- * 但**图标本身仍要一块凸的**（`IconTile`，与师门、辅助同一件）：彩色方图直接躺在
- * 槽里读作「贴了一张图」，包一层压印块才是「槽里放着一件」。两层不冲突——
- * `.slip-row` 那张凹票里也是这么叠的。
+ * 凹槽的问题不在画法，在**占地方**：要读出「挖下去」，至少得占一圈内衬加四层影；
+ * 99 × 108 的格子里，图最后只落到 40px（整格 37%）。而这十二格的真实用途是
+ * 「这件穿在哪」的索引——要看的是里面那张图，不是那个坑。
+ *
+ * 现在整格退成**一道框**：1px 淡褐线 + 内侧 1px 白线（印上去的那种框，与 `.board`
+ * 上那些表格线同一个强度），底色撤空，省下的整块面积给了里面的白盘。
+ *
+ * 代价说清：**「往里放」读不出来了**。现在的读法是「一张表里的十二个格」，
+ * 靠部位名（左上角，与全站表单标签同位）和装备名（底边）说明这格是什么。
+ * 敢换是因为这张卡的用途是「一眼对上游戏里的面板」，而游戏面板本身也是
+ * 十二个有边的方格，不是十二个坑。
  */
 .gear-board {
     flex: 1;
@@ -612,43 +618,38 @@
     border-top: 0;
 }
 
+/* 整格：一块**没有底的框**。
+ *
+ * 底色撤空之后，格子的边界只剩两条线——
+ *   ① 外圈 1px `rule-2` 40%：印在纸上的一圈边；
+ *   ② 内圈 1px `bevel-hi` 34%：紧贴外圈的一线受光，让边看着是「压进纸里」而不是
+ *      拿铅笔描的。这两条与 `.field` 的「边色 + 顶壁影」同一个原理（细线靠对比度
+ *      不靠线宽），所以粗细固定 1px，两个主题都不换值。
+ *
+ * 里面那三样（部位名、白盘、装备名）全部绝对定位：框的大小由网格给，内容不参与
+ * 撑开——否则装备名长一点，那一格的框就比邻居高一线。 */
 .gear-cell {
+    position: relative;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 5px;
     min-width: 0;
-    padding: 6px 4px 5px;
+    padding: 0;
+    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 40%, transparent);
     border-radius: var(--r-2);
-    /* 格子自己给材质，**不再挂 `.well`**：`.well` 的顶壁是一段 62% 的渐变，
-     * 按 112 高的格子解析是 69px 的一大片灰，而这里的顶壁只是一条 4px 的投影。
-     *
-     * 四层全部围绕「挖下去」：
-     *   ① 孔的上沿外侧一线纸厚（`0 -1px 0`，只在上方——光从上来，孔的近边投影、远边受光）
-     *   ② 顶壁投影（`inset 0 2px 4px -1px`，近口深、往下散）
-     *   ③ 底壁受光（`inset 0 -1px 0`，光照到孔的对面那条内壁）
-     *   ④ 内衬暗环（`inset 0 0 0 1px`，刻进去的那圈边）
-     * 边框退到 `rule-2` 的 46%：再深就成「一个深色方块」，而不是「一个孔」。 */
-    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 46%, transparent);
-    background-color: var(--well);
-    box-shadow:
-        0 -1px 0 color-mix(in srgb, var(--bevel-hi) 32%, transparent),
-        inset 0 2px 4px -1px var(--bevel-lo),
-        inset 0 -1px 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
-        inset 0 0 0 1px color-mix(in srgb, var(--bevel-lo) 30%, transparent);
+    background: none;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bevel-hi) 34%, transparent);
     color: var(--ink);
     font-family: var(--font-ui);
     text-align: center;
-    /* 这条过渡此前是写不了的：边色读 `.well` 的 `--lip-shade`，而自定义属性不是
-     * 可过渡的值，写了只会让人以为有渐变。现在边色是自己算的 `color-mix`，
-     * 过渡落在真实的 `border-color` 上，能动了。 */
+    /* 边色是自己算的 `color-mix`，过渡落在真实的 `border-color` 上（自定义属性
+     * 不可过渡，早先读 `.well` 的 `--lip-shade` 时这条是空转的）。 */
     transition: border-color var(--t-quick) var(--ease-soft);
 }
-/* 悬停只做一件事：把槽的边加深（亮色）/ 提亮（暗色），部位名转朱。
+/* 悬停只做一件事：把框的边加深（亮色）/ 提亮（暗色），部位名转朱。
  * 用 `--ink` 去混边色，两个主题自动对向：亮色里墨是深的，边变深；暗色里墨是纸白，
  * 边变亮——**「更明显」在两个主题里不是同一个方向**，写死一个就会有一边看不见。
- * 不换底色——凹槽的底色一浅，整块会从「槽」翻成「块」。 */
+ * 不换底色：框里一有底就又变回「块」，而这十二格是「表」。 */
 .gear-cell:hover {
     border-color: color-mix(in srgb, var(--rule-2) 78%, var(--ink));
 }
@@ -656,10 +657,20 @@
     outline: var(--ring);
     outline-offset: var(--ring-offset);
 }
+/* 部位名挪到左上角（2026-11-05，方案 B）：这与全站表单标签（`.field-label` 在输入格
+ * 左边）同一个位置语言——先读「这格是什么」，再读内容。原来它挂在块上方居中，
+ * 三行字（部位 / 图 / 装备名）竖着排，99 × 108 里图只能占 40px。
+ * 挪到角上之后，中间整块让给白盘，三个名字互不挤。
+ *
+ * `letter-spacing` 放开到 0.16em：10px 的两个字（「头」「项链」）在这个尺寸上
+ * 已经是「一枚小签」，字距再紧会读成一个词块。 */
 .gear-part {
+    position: absolute;
+    top: 5px;
+    left: 7px;
     color: var(--muted);
     font-size: var(--fs-mini);
-    letter-spacing: 0.12em;
+    letter-spacing: 0.16em;
     line-height: 1;
     transition: color var(--t-quick) var(--ease-soft);
 }
@@ -672,29 +683,29 @@
  * 选择器带 `.gear-cell` 是为了压过 `IconTile` 自己那套默认值（28 / 23）——
  * 两边都是单类 + 一个 `data-v`，只差父组件那句能多带一层。
  *
- * ## 56 的块、40 的图（2026-11-05 定）
- * 上一版是 54 / 44 —— 图占了块面的 81%，块只剩 5px 的边，加上块面与图标自带的米底
- * 几乎同色，读出来是「一张图」，不是「一块压着图的纸」。现在边留到 8px（71%），
- * 四道棱之外还能看见一圈面，块才立得起来。
+ * ## 64 的块、52 的图（2026-11-05 改，方案 B）
+ * 上一版 56 / 40 是给「槽」配的：块要留 8px 的边，槽才不显得被一块大图填满。
+ * 槽撤掉之后这个比例反而成了浪费——格子里只剩「图 + 两个名字」三样东西，
+ * 边留着也没人看。现在边收到 6px（81%），图从占整格 37% 涨到 48%。
  *
- * `--tile-drop: 0.85`：落满档（3 / 8px）在 112 高的槽里会读成「浮着的卡片」；
- * 再往下调又只剩四道棱——块与槽底之间需要一条能看见的缝，那才是「放上去」。 */
+ * `--tile-drop: 0.6`：没有槽之后，十二块白盘是卡面上**唯一**凸起的东西，
+ * 落满档（3 / 8px）会让它们十二张一起浮着；再往下调又只剩四道棱。 */
 .gear-cell .gear-pic,
 .gear-ph {
-    --tile-w: 56px;
-    --tile-h: 56px;
+    --tile-w: 64px;
+    --tile-h: 64px;
     --tile-r: var(--r-3);
-    --tile-drop: 0.85;
+    --tile-drop: 0.6;
     /* 块面**两个主题走两个方向**，不能同值：
      *   · 亮色要「白」——纸白（`--paper`）比图标自带的米底亮一档，图才像贴在一块白纸上；
-     *   · 暗色要「亮」——它躺的不是卡面而是**槽**（`--well` #171409），`--paper-2` 只
-     *     比槽亮一阶，四道棱之外读不出「一块纸」，得掺一成墨把它提到 #3a352a 附近。
-     * 上一版糊的原因不是颜色，是图占了块面 81%：边只剩 5px，同色系两个方形叠在
-     * 一起就是「一张图」。现在边留到 8px，这一档明度差才被看见。 */
+     *   · 暗色要「亮」——它躺的是卡面 `--paper`（#1c1912），`--paper-2` 只比它亮一阶，
+     *     四道棱之外读不出「一块纸」，得掺一成纸白把它提到 #3a352a 附近。
+     * 亮色下白盘与卡面同色（都是 `--paper`），凸起全靠四棱与落地影——
+     * 这没问题：纸上最亮的就是纸，再往上只能发灰。 */
     --tile-face: light-dark(var(--paper), color-mix(in srgb, var(--paper-2) 84%, var(--ink)));
 }
 .gear-cell .gear-pic {
-    --shot: 40px;
+    --shot: 52px;
 }
 /* 没有品类图的部位（武器、玉魄）：一块**首字印**，与 `SkillRow` 的 `.seal-tile` 同构
  * （`IconTile` 与一块压印块二选一）。
@@ -707,8 +718,14 @@
     font-size: calc(20px * var(--fs-scale));
     line-height: 1;
 }
+/* 装备名压在框的底边上，走满一行。左右各留 4px 给框线：
+ * 名字贴着框线时，最后那个字的右边缘会和竖线粘成一条。 */
 .gear-name {
-    width: 100%;
+    position: absolute;
+    bottom: 5px;
+    left: 0;
+    right: 0;
+    padding: 0 4px;
     overflow: hidden;
     color: var(--ink);
     font-size: var(--fs-mini);
@@ -716,13 +733,13 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-/* 空槽：虚线挖空 + 部位名 + 「未装备」。
- * 不压 opacity——虚线本来就淡，压了会糊成一片灰；线退一档、光标 not-allowed 就够。 */
+/* 空格：与有物的那格**同一个框**，只是线退一档（40% → 28%）、里面没有白盘。
+ * 旧版是虚线 + 无底，读起来像「网页上的占位区」；方案 B 之后全场都是实线框，
+ * 空位再画虚线会变成「这一格坏了」。部位名照旧在左上角，「未装备」居中——
+ * 一眼扫过去数得出还差几件，而不必逐格看。
+ * 不压 opacity：线本来就淡，压了会糊成一片灰。 */
 .gear-cell.empty {
-    justify-content: center;
-    border: var(--w-hair) dashed var(--rule-2);
-    background: none;
-    box-shadow: none;
+    border-color: color-mix(in srgb, var(--rule-2) 28%, transparent);
     color: var(--muted);
     cursor: default;
 }

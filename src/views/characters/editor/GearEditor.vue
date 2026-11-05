@@ -2,56 +2,120 @@
 import { computed, ref } from 'vue';
 import CostSwitch from '../../../components/CostSwitch.vue';
 import PressButton from '../../../components/PressButton.vue';
+import PressTile from '../../../components/PressTile.vue';
 import SegmentedPills from '../../../components/SegmentedPills.vue';
-import type { GearDetail, GearSlot, GearTone } from '../character';
+import IconTile from '../IconTile.vue';
+import {
+    GEAR_SLOT_ICON,
+    type GearDetail,
+    type GearSlot,
+    type GearSlotName,
+    type GearTone,
+} from '../character';
+import { gearSlotIcon } from '../../../services/game-icons';
 
 /**
- * 装备：十二个部位固定成十二行，**点开哪一行才铺开哪一件的详情**。
+ * 装备：**左栏常驻十二个部位，右侧只编选中的那一件**（2026-11-05 改，方案 E2）。
  *
- * 为什么不是「左边列表右边表单」：卡内那格只有 112px 见方，能写下的只有装备名，
- * 而详情有六段（类型、条件、白字、状态、特殊、制造者）。一屏十二件全展开是
- * 十二张六段表，滚动条会拉到看不见顶；折叠成「一行一件」之后，先扫一遍
- * 「哪些部位空着」，再逐个展开——这才是录入时的真实顺序。
+ * 旧版是十二行折叠：一行一件，点箭头展开这一件的六段详情。
+ * 换掉它的理由只有一个，但很硬——**换一件要看的东西会重新排一次版**。
+ * 折叠列表里，展开第二件时第一件收起，下面所有内容整体上移几百像素，
+ * 视线得重新找「类型在哪一行」；录入十二件就是重找十二次。
  *
- * 空位（`caption` 与 `detail` 都没有）在这里不是「删掉这一行」，而是**留空**：
- * 十二个部位是游戏里固定的十二格，少一格就读成「这个号只有十一件」。
+ * 现在左栏十二行是**固定的**（高度不变、顺序不变），右侧只换内容。
+ * 顺带解决了三件事：
+ *   · 一行一个「已填/没穿」的点，加上顶端「9 / 12」，空着哪几件一眼数得出；
+ *   · 每行一枚 22 的小白盘（与卡上同一枚的缩小版），部位不必读字就认得出；
+ *   · 顶部把「部位 + 装备名」提成标题行——卡上显示的就是装备名，它该是主字段。
+ *
+ * 左栏 `sticky`：右侧六段比左栏高，滚到底部时「我在改哪个部位」仍然看得见。
  */
 const gear = defineModel<GearSlot[]>({ required: true });
 
-/** 当前展开的部位名。一次只开一件：两件并排展开时，视线要来回跳两屏。 */
-const openSlot = ref<string | null>(null);
-
-const openDetail = computed<GearDetail | undefined>(
-    () => gear.value.find((slot) => slot.slot === openSlot.value)?.detail,
+/** 当前编辑的部位。默认落在**第一个填了的**部位上——打开就看见内容，而不是空表。 */
+const selected = ref<string>(
+    gear.value.find((slot) => filled(slot))?.slot ?? gear.value[0]?.slot ?? '',
 );
 
-function toggle(slot: GearSlot) {
-    if (openSlot.value === slot.slot) {
-        openSlot.value = null;
-        return;
-    }
-    openSlot.value = slot.slot;
-    /* 展开即建壳。**壳是临时的**：`normalizeCharacter` 在保存时会把
-     * 「名称与类型都空」的详情整段丢掉（见 `roster.ts`），所以点开又收起
-     * 不会在数据里留下一个空对象——浮片不会浮出一张白纸。 */
+const active = computed(() => gear.value.find((slot) => slot.slot === selected.value) ?? null);
+const detail = computed<GearDetail | undefined>(() => active.value?.detail);
+
+/**
+ * 「这件填了没有」——**不看 `detail` 在不在**，看它有没有内容。
+ *
+ * 选中部位时会先建一个空壳（见 `select`），于是「点过一圈」会留下十二个空壳：
+ * 壳在，但一个字都没填。若按「壳存在」判断，右上角会显示 12 / 12、十二个点全实心，
+ * 而卡上一件都不会显示——同一个数据两种说法。
+ */
+function filled(slot: GearSlot): boolean {
+    const d = slot.detail;
+    if (!d) return false;
+    return Boolean(
+        slot.caption?.trim() ||
+        d.name?.trim() ||
+        d.kind?.trim() ||
+        d.stats.length ||
+        d.cond?.length ||
+        d.lines?.length ||
+        d.flavor?.trim() ||
+        d.foot?.trim(),
+    );
+}
+
+const filledCount = computed(() => gear.value.filter((slot) => filled(slot)).length);
+
+/**
+ * 换部位。离开之前把上一件的**空壳**删掉（`normalizeCharacter` 保存时本来也会丢，
+ * 但编辑期间它会让点与计数失灵）。空壳的判据与 `filled` 同一条：
+ * 有一个字就不算空壳，正在填的那件不会被误删。
+ */
+function select(slot: GearSlot) {
+    if (selected.value === slot.slot) return;
+    const previous = gear.value.find((row) => row.slot === selected.value);
+    if (previous?.detail && !filled(previous)) delete previous.detail;
+    selected.value = slot.slot;
+    ensureDetail(slot);
+}
+
+/* 壳是临时的：`name` 预填装备名（卡上那个简称），这样「全名」不必再敲一遍；
+ * 没有就留空。`stats` 建空数组（下面要 `v-for`），`cond` / `lines` 保持缺席——
+ * 一件装备可能没有状态也没有套装，先建两个空数组等于给每件都塞两个空键。 */
+function ensureDetail(slot: GearSlot): GearDetail {
     slot.detail ??= {
         name: slot.caption ?? '',
         kind: '',
         stats: [],
-        cond: [],
     };
+    return slot.detail;
 }
+
+// 初始选中那件也要有壳，否则右侧的类型、属性没有地方可绑。
+if (active.value) ensureDetail(active.value);
 
 /* 装备条件在游戏里是一串独立的小签（等级 130 · 女 · 五行 木），
  * 输入时用逗号连着写最省事，于是读回来要按**中英文两种逗号**切——
  * 中文输入法下敲出来的几乎总是「，」。 */
-function setRequires(detail: GearDetail, event: Event) {
+function setRequires(target: GearDetail, event: Event) {
     const raw = (event.target as HTMLInputElement).value;
     const parts = raw
         .split(/[,，]/)
         .map((part) => part.trim())
         .filter(Boolean);
-    detail.requires = parts.length ? parts : undefined;
+    target.requires = parts.length ? parts : undefined;
+}
+
+/* 图标按**部位**取（表见 `character.ts` 的 `GEAR_SLOT_ICON`），与卡上同一枚。
+ * 图库是品类样图，玩家那件装备多半不在里面，所以不按装备名查。 */
+function slotIcon(slot: GearSlotName): string | undefined {
+    const file = GEAR_SLOT_ICON[slot];
+    return file ? gearSlotIcon(file) : undefined;
+}
+
+/* 没图的部位（武器、玉魄）画一枚**淡墨首字**，与卡上同构：装备名首字，
+ * 没名就用部位首字。左栏这么小，认的是「这格有没有东西」，不是认字。 */
+function slotInitial(slot: GearSlot): string {
+    const name = slot.caption?.trim();
+    return (name ? name[0] : slot.slot[0]) ?? '';
 }
 
 const TONE_OPTIONS: { value: GearTone; label: string }[] = [
@@ -67,49 +131,80 @@ function setGain(stat: { gain?: boolean }, value: boolean) {
 
 /* 「状态」与「特殊」两段在契约里是可选的（一件装备可能没有套装效果），
  * 加第一条时才建数组——先建空数组再判空，等于给每件装备都塞两个空键。 */
-function addCond(detail: GearDetail) {
-    detail.cond ??= [];
-    detail.cond.push({ label: '', value: '' });
+function addCond(target: GearDetail) {
+    target.cond ??= [];
+    target.cond.push({ label: '', value: '' });
 }
 
-function addLine(detail: GearDetail) {
-    detail.lines ??= [];
-    detail.lines.push({ label: '', value: '', tone: 'seal' });
+function addLine(target: GearDetail) {
+    target.lines ??= [];
+    target.lines.push({ label: '', value: '', tone: 'seal' });
 }
 </script>
 
 <template>
     <div class="gear-editor">
-        <!-- 一句话交代两件事：留空是什么意思、箭头点开是什么。十二行都写进 placeholder
-             会把「装备名（留空 = 这个部位没穿）」重复十二遍，读起来像十二条规定。 -->
-        <p class="hint gear-hint">留空的部位就是没穿；点右侧箭头展开这一件的详情。</p>
+        <!-- 十二个部位**常驻**左栏。它是这张表单的目录：从上到下就是游戏面板的顺序，
+             高度不变，所以「我在改哪一件」由位置回答，不用读标题。 -->
+        <aside class="rail">
+            <div class="rail-head">
+                装备 <b>{{ filledCount }}</b> / {{ gear.length }}
+            </div>
+            <button
+                v-for="slot in gear"
+                :key="slot.slot"
+                type="button"
+                class="rail-item"
+                :class="{ on: slot.slot === selected }"
+                :aria-pressed="slot.slot === selected"
+                :aria-label="`编辑${slot.slot}的装备`"
+                @click="select(slot)"
+            >
+                <IconTile v-if="slotIcon(slot.slot)" class="rail-pic" :src="slotIcon(slot.slot)" />
+                <PressTile v-else class="rail-pic" still aria-hidden="true">
+                    <span class="rail-ini">{{ slotInitial(slot) }}</span>
+                </PressTile>
+                <span class="rail-name">{{ slot.slot }}</span>
+                <span class="rail-dot" :class="{ on: filled(slot) }" aria-hidden="true"></span>
+            </button>
+        </aside>
 
-        <div v-for="slot in gear" :key="slot.slot" class="slot-block">
-            <div class="erow slot-head">
-                <span class="chip slot-tag">{{ slot.slot }}</span>
-                <input
-                    v-model="slot.caption"
-                    class="field caption-field"
-                    :aria-label="`${slot.slot} 的装备名`"
-                    placeholder="装备名"
+        <div v-if="active" class="pane-detail">
+            <!-- 标题行：部位 + 装备名。卡上显示的就是这个简称，所以它是主字段；
+                 全名、类型、条件退到下面一行——主次分开，不必在六个框里找「哪个是名字」。 -->
+            <div class="det-top">
+                <IconTile
+                    v-if="slotIcon(active.slot)"
+                    class="det-pic"
+                    :src="slotIcon(active.slot)"
                 />
-                <PressButton
-                    :icon="openSlot === slot.slot ? 'chevron-down' : 'chevron-right'"
-                    :label="`${openSlot === slot.slot ? '收起' : '展开'} ${slot.slot} 的详情`"
-                    @click="toggle(slot)"
-                />
+                <PressTile v-else class="det-pic" still aria-hidden="true">
+                    <span class="det-ini">{{ slotInitial(active) }}</span>
+                </PressTile>
+                <div class="det-head">
+                    <div class="det-title">
+                        <b>{{ active.slot }}</b
+                        >装备名 · 填了就会显示在卡上
+                    </div>
+                    <input
+                        v-model="active.caption"
+                        class="field det-name"
+                        :aria-label="`${active.slot} 的装备名`"
+                        placeholder="装备名（留空 = 这个部位没穿）"
+                    />
+                </div>
             </div>
 
-            <div v-if="openSlot === slot.slot && openDetail" class="detail">
+            <template v-if="detail">
                 <div class="erow">
-                    <span class="field-label">名称</span>
-                    <input v-model="openDetail.name" class="field grow" aria-label="装备全名" />
+                    <span class="field-label">全名</span>
+                    <input v-model="detail.name" class="field grow" aria-label="装备全名" />
                     <span class="field-label">类型</span>
                     <input
-                        v-model="openDetail.kind"
+                        v-model="detail.kind"
                         class="field grow"
                         aria-label="装备类型"
-                        placeholder="帽子 / 灵饰 · 戒指"
+                        placeholder="头盔 / 灵饰 · 戒指"
                     />
                 </div>
 
@@ -119,17 +214,25 @@ function addLine(detail: GearDetail) {
                         class="field grow"
                         aria-label="装备条件，逗号分隔"
                         placeholder="等级 130，女，五行 木"
-                        :value="(openDetail.requires ?? []).join('，')"
-                        @change="setRequires(openDetail, $event)"
+                        :value="(detail.requires ?? []).join('，')"
+                        @change="setRequires(detail, $event)"
                     />
                 </div>
 
-                <!-- ---------- 白字与绿字 ---------- -->
-                <div class="sub-head">
+                <!-- ---------- 白字与绿字 ----------
+                     表头是这一版加的：原来四列全靠 placeholder 说明，
+                     填上值之后就没人知道第三格是「精炼上限」、开关是「白/绿」。 -->
+                <div class="sec-head">
                     <span class="section-mark"></span>属性
                     <span class="meta">绿字＝打造或镶嵌附加</span>
                 </div>
-                <div v-for="(stat, si) in openDetail.stats" :key="si" class="erow">
+                <div class="thead" aria-hidden="true">
+                    <span class="stat-label">属性名</span>
+                    <span class="stat-value">数值</span>
+                    <span class="stat-extra">精炼</span>
+                    <span class="stat-switch">白 · 绿</span>
+                </div>
+                <div v-for="(stat, si) in detail.stats" :key="si" class="erow">
                     <input
                         v-model="stat.label"
                         class="field stat-label"
@@ -157,7 +260,7 @@ function addLine(detail: GearDetail) {
                     <PressButton
                         icon="trash"
                         label="删掉这条属性"
-                        @click="openDetail.stats.splice(si, 1)"
+                        @click="detail.stats.splice(si, 1)"
                     />
                 </div>
                 <div class="sub-foot">
@@ -165,16 +268,16 @@ function addLine(detail: GearDetail) {
                         icon="add"
                         text="加一条"
                         label="加一条属性"
-                        @click="openDetail.stats.push({ label: '', value: '' })"
+                        @click="detail.stats.push({ label: '', value: '' })"
                     />
                 </div>
 
                 <!-- ---------- 耐久 / 锻炼 / 宝石 ---------- -->
-                <div class="sub-head">
+                <div class="sec-head">
                     <span class="section-mark"></span>状态
                     <span class="meta">耐久、锻炼 / 精炼 / 灵尘等级、镶嵌</span>
                 </div>
-                <div v-for="(item, ci) in openDetail.cond" :key="ci" class="erow">
+                <div v-for="(item, ci) in detail.cond" :key="ci" class="erow">
                     <input
                         v-model="item.label"
                         class="field cond-label"
@@ -190,7 +293,7 @@ function addLine(detail: GearDetail) {
                     <PressButton
                         icon="trash"
                         label="删掉这一条状态"
-                        @click="openDetail.cond!.splice(ci, 1)"
+                        @click="detail.cond!.splice(ci, 1)"
                     />
                 </div>
                 <div class="sub-foot">
@@ -198,16 +301,16 @@ function addLine(detail: GearDetail) {
                         icon="add"
                         text="加一条"
                         label="加一条状态"
-                        @click="addCond(openDetail)"
+                        @click="addCond(detail)"
                     />
                 </div>
 
                 <!-- ---------- 特技 / 特效 / 套装 ---------- -->
-                <div class="sub-head">
+                <div class="sec-head">
                     <span class="section-mark"></span>特殊
                     <span class="meta">朱＝特技，赭＝套装，苔＝打造附加</span>
                 </div>
-                <div v-for="(line, li) in openDetail.lines" :key="li" class="erow">
+                <div v-for="(line, li) in detail.lines" :key="li" class="erow">
                     <input
                         v-model="line.label"
                         class="field line-label"
@@ -230,7 +333,7 @@ function addLine(detail: GearDetail) {
                     <PressButton
                         icon="trash"
                         label="删掉这一条"
-                        @click="openDetail.lines!.splice(li, 1)"
+                        @click="detail.lines!.splice(li, 1)"
                     />
                 </div>
                 <div class="sub-foot">
@@ -238,85 +341,231 @@ function addLine(detail: GearDetail) {
                         icon="add"
                         text="加一条"
                         label="加一条特殊效果"
-                        @click="addLine(openDetail)"
+                        @click="addLine(detail)"
                     />
                 </div>
 
                 <!-- ---------- 风味文本与制造者 ---------- -->
                 <textarea
-                    v-model="openDetail.flavor"
+                    v-model="detail.flavor"
                     class="field area"
                     rows="2"
                     aria-label="风味描述"
                     placeholder="风味描述（可留空）"
                 />
                 <input
-                    v-model="openDetail.foot"
+                    v-model="detail.foot"
                     class="field foot-field"
                     aria-label="制造者"
                     placeholder="制造者：……（可留空）"
                 />
-            </div>
+            </template>
         </div>
     </div>
 </template>
 
 <style scoped>
+/* 左右两栏：左栏 152 是量出来的——最长的部位名「玉魄 · 阴」在 12px 下 56 宽，
+ * 加一枚 22 的盘、7 的间距、右侧的点与两边留白，正好在这个数上收口。
+ * 再窄，「玉魄 · 阴」就要换行；再宽，右侧四列属性行会被挤到放不下精炼上限。 */
 .gear-editor {
+    display: grid;
+    grid-template-columns: 152px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+}
+
+/* 左栏 sticky：右侧六段展开后比左栏高，滚到下面时「我在改哪个部位」还得看得见。
+ * `align-items: start` 是 sticky 的前提——stretch 会让它先被拉满整列。 */
+.rail {
+    position: sticky;
+    top: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 3px;
 }
-.gear-hint {
+.rail-head {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    padding-bottom: 5px;
     margin-bottom: 2px;
+    border-bottom: var(--w-hair) solid var(--rule-2);
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.14em;
 }
-/* 一件 = 一行头 +（展开时）一张详情纸。详情纸用比卡底再淡一档的纸色包起来，
- * 否则十二行展开之后分不清哪几段属于哪一件。 */
-.slot-block {
+.rail-head b {
+    color: var(--ink);
+    font-size: var(--fs-sm);
+    font-weight: 400;
+}
+/* 一行 = 22 的盘 + 部位名 + 一个点。30 高是「十二行放得下、又够点」的交叉点。 */
+.rail-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    height: 30px;
+    padding: 0 7px 0 6px;
     border: var(--w-hair) solid transparent;
+    border-radius: var(--r-2);
+    background: none;
+    color: var(--ink-2);
+    font-family: var(--font-ui);
+    font-size: var(--fs-sm);
+    text-align: left;
+    cursor: pointer;
 }
-.slot-block:has(.detail) {
-    padding-bottom: 10px;
-    border-color: var(--rule);
-    background: var(--bg);
+.rail-item:hover {
+    background: color-mix(in srgb, var(--well) 45%, transparent);
 }
-.slot-head {
-    padding: 0;
+/* 选中：底色一档 + 左侧 2px 朱线。**不用整块朱**——那会把左栏变成十二个按钮，
+ * 而它是一张目录：只要标出「当前这一行」。
+ *
+ * `inset 2px 0 0` 画在内侧，不占宽度：十二行的左缘因此始终对齐，
+ * 换行时文字不会左右跳 2px。 */
+.rail-item.on {
+    border-color: color-mix(in srgb, var(--rule-2) 55%, transparent);
+    background: color-mix(in srgb, var(--well) 55%, transparent);
+    color: var(--ink);
+    box-shadow: inset 2px 0 0 var(--cinnabar);
 }
-/* 部位的签固定 48px：十二个部位名字数不同（头 / 项链 / 玉魄·阴），
- * 给固定宽之后每行的输入框从同一条竖线起。 */
-.slot-tag {
+.rail-item:focus-visible {
+    outline: var(--ring);
+    outline-offset: var(--ring-offset);
+}
+/* 22 的小白盘。选择器带 `.rail-item` 是为了压过 `IconTile` 自己那套 28 / 23 的默认值
+ * ——两边都是单类 + 一个 `data-v`，只差父组件这句能多带一层。 */
+.rail-item .rail-pic {
+    --tile-w: 22px;
+    --tile-h: 22px;
+    --tile-r: var(--r-1);
+    --shot: 18px;
+    --tile-drop: 0.35;
+    --tile-face: light-dark(var(--paper), color-mix(in srgb, var(--paper-2) 84%, var(--ink)));
+}
+.rail-ini {
+    color: color-mix(in srgb, var(--ink-2) 78%, transparent);
+    font-size: calc(12px * var(--fs-scale));
+    line-height: 1;
+}
+.rail-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* 点：实心＝填了，空心＝没穿。`--moss` 与「成功＝正收益」同一枚绿，
+ * 这里表示「这件有了」——不新开一个色。 */
+.rail-dot {
     flex: none;
-    justify-content: center;
-    width: 48px;
+    margin-left: auto;
+    width: 5px;
+    height: 5px;
+    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 90%, transparent);
+    border-radius: 50%;
 }
-.caption-field {
+.rail-dot.on {
+    border-color: var(--moss);
+    background: var(--moss);
+}
+
+/* 右侧：一条竖线与左栏分开。用 `--rule`（比 `rule-2` 深一档）——这是版面分区，
+ * 不是表格线，太淡会看成左栏的右边框。 */
+.pane-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+    padding-left: 14px;
+    border-left: var(--w-hair) solid var(--rule);
+}
+.det-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 8px;
+    border-bottom: var(--w-hair) solid var(--rule-2);
+}
+/* 右侧那枚 38 的盘。选择器写成 `.det-top .det-pic` 而不是单个 `.det-pic`：
+ * `IconTile` 内部 `.icon-tile` 也声明了这几个变量，两边同特异性时谁赢取决于
+ * 样式注入顺序——多带一层父选择器才稳（与上面 `.rail-item .rail-pic` 同一条）。 */
+.det-top .det-pic {
+    --tile-w: 38px;
+    --tile-h: 38px;
+    --tile-r: var(--r-2);
+    --shot: 30px;
+    --tile-drop: 0.55;
+    --tile-face: light-dark(var(--paper), color-mix(in srgb, var(--paper-2) 84%, var(--ink)));
+}
+.det-ini {
+    color: color-mix(in srgb, var(--ink-2) 78%, transparent);
+    font-size: calc(18px * var(--fs-scale));
+    line-height: 1;
+}
+.det-head {
     flex: 1;
     min-width: 0;
 }
-.detail {
+.det-title {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 10px 10px 2px;
+    align-items: baseline;
+    gap: 7px;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.14em;
 }
+.det-title b {
+    color: var(--ink);
+    font-size: var(--fs-md);
+    font-weight: 400;
+    letter-spacing: 0.06em;
+}
+/* 装备名是主字段：比常规输入格高一档（30 对 26），字大一档。
+ * 选择器同样多带一层 `.det-head`：`.field` 也声明 height / line-height，
+ * 单类压不过「谁后注入」（`.field` 在 base.css，通常在前，但这条不该靠顺序）。 */
+.det-head .det-name {
+    width: 100%;
+    height: calc(30px * var(--fs-scale));
+    margin-top: 4px;
+    font-size: var(--fs-base);
+    line-height: calc(28px * var(--fs-scale));
+}
+
 .grow {
     flex: 1;
     min-width: 0;
 }
 /* 三组小标题：与卡内 `.group-head` 同一个说法（短竖条 + 标题），
  * 后面跟一句 `.meta` 说清这一组都填什么。 */
-.sub-head {
+.sec-head {
     display: flex;
     align-items: baseline;
     gap: 7px;
     margin-top: 4px;
 }
-.sub-head .section-mark {
+.sec-head .section-mark {
     align-self: center;
 }
 .sub-foot {
     padding-left: 2px;
+}
+
+/* 属性段的冷表头：与下面四列**同一套宽度类**，只在字距与颜色上退一档。
+ * 左内距 8px 是为了对上 `.field` 里文字的位置——输入格有 7px 内距 + 1px 边框，
+ * 表头贴着 0 起会看上去整体左移了半个字。 */
+.thead {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 0 1px 8px;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.1em;
+    line-height: 1;
+}
+.thead span {
+    flex: none;
 }
 .stat-label {
     width: 118px;
@@ -326,6 +575,12 @@ function addLine(detail: GearDetail) {
 }
 .stat-extra {
     width: 66px;
+}
+/* 表头的「白 · 绿」要压住开关那两格的总宽（`.cost-opt` 每格 12px 内距 + 两个字的
+ * `--fs-sm`，外框再 2px）——这一列对不齐最容易被看出来。字号档会改变两格的宽度，
+ * 所以跟着 `--fs-scale` 走。 */
+.stat-switch {
+    width: calc(52px + 48px * var(--fs-scale));
 }
 .cond-label {
     width: 96px;
