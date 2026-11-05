@@ -131,9 +131,14 @@
             "file": "item-31.png"
         },
         {
+            "id": 28,
+            "name": "仙露小丸子",
+            "file": "item-28.png"
+        },
+        {
             "id": 30,
             "name": "五色灵尘",
-            "file": "item-30.gif"
+            "file": "item-30.png"
         },
         {
             "id": 17,
@@ -199,22 +204,22 @@
         },
         {
             "id": 100,
-            "name": "兽决",
+            "name": "魔兽要诀",
             "file": "item-100.png"
         },
         {
             "id": 101,
-            "name": "高级兽决",
-            "file": "item-101.gif"
+            "name": "高级魔兽要诀",
+            "file": "item-101.png"
         },
         {
             "id": 102,
-            "name": "内丹",
+            "name": "低级召唤兽内丹",
             "file": "item-102.png"
         },
         {
             "id": 103,
-            "name": "高内丹",
+            "name": "高级召唤兽内丹",
             "file": "item-103.png"
         },
         {
@@ -224,27 +229,27 @@
         },
         {
             "id": 105,
-            "name": "附魔",
+            "name": "附魔宝珠",
             "file": "item-105.png"
         },
         {
             "id": 106,
-            "name": "书",
+            "name": "制造指南书",
             "file": "item-106.png"
         },
         {
             "id": 107,
-            "name": "铁",
+            "name": "百炼精铁",
             "file": "item-107.png"
         },
         {
             "id": 108,
-            "name": "晶石",
+            "name": "元灵晶石",
             "file": "item-108.png"
         },
         {
             "id": 109,
-            "name": "灵饰书",
+            "name": "灵饰指南书",
             "file": "item-109.png"
         },
         {
@@ -254,12 +259,12 @@
         },
         {
             "id": 111,
-            "name": "图册",
+            "name": "上古锻造图册",
             "file": "item-111.png"
         },
         {
             "id": 112,
-            "name": "金丹",
+            "name": "九转金丹",
             "file": "item-112.png"
         },
         {
@@ -269,13 +274,13 @@
         },
         {
             "id": 114,
-            "name": "卡",
+            "name": "变身卡片",
             "file": "item-114.png"
         },
         {
             "id": 115,
             "name": "钟灵石",
-            "file": "item-115.gif"
+            "file": "item-115.png"
         },
         {
             "id": 116,
@@ -289,12 +294,32 @@
         },
         {
             "id": 118,
-            "name": "瓶子",
+            "name": "凝玉瓶",
             "file": "item-118.png"
         },
         {
+            "id": 119,
+            "name": "宝石盒子",
+            "file": "item-119.png"
+        },
+        {
+            "id": 120,
+            "name": "归墟之证",
+            "file": "item-120.png"
+        },
+        {
+            "id": 121,
+            "name": "美味元宵",
+            "file": "item-121.png"
+        },
+        {
+            "id": 122,
+            "name": "五宝盒子",
+            "file": "item-122.png"
+        },
+        {
             "id": 200,
-            "name": "其他",
+            "name": "其他物品",
             "file": "item-200.png"
         }
     ]
