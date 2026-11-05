@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import libSource from '../../src-tauri/src/lib.rs?raw';
+import storeSource from '../../src-tauri/src/store.rs?raw';
 import bindingsSource from './bindings.ts?raw';
 
 /**
@@ -181,6 +182,90 @@ describe('IPC 契约：Rust 注册 → 生成物 → 前端调用', () => {
             expect(code, `${file} 里还在直接调 invoke，改为 commands.xxx()`).not.toMatch(
                 /\binvoke\s*[<(]/,
             );
+        }
+    });
+});
+
+/* ======================================================================
+ * 字段名对账：Rust 结构体 ↔ 生成的 bindings.ts ↔ 页面自己那份类型
+ *
+ * 命令名这一层第 122 批收成了「一处真源」，**字段名没有**。页面层至今手写着自己的
+ * `PriceItem` / `AccountEntry` 等类型，理由是它们要的比 Rust 严格（Rust 的 `f64`
+ * 经 specta 生成出来一律是 `number | null`，见 `bindings.ts` 里 `TextLine.score`
+ * 上方那段；而页面里 `price` 恒大于 0，写成可空会让下游每次取值都多一个分支）。
+ *
+ * 于是「类型写了两份」这件事是**有意的**，但两份必须说的是同一批字段。改一个字段名
+ * 而漏改另一处时，`vue-tsc` 抓不到：生成物那份没人读、页面那份更宽或更窄都仍然自洽，
+ * 真正炸的是**库里读回来的旧 JSON**——字段名对不上就是 `undefined`，界面显示 0 或空。
+ *
+ * 所以这里只对账**字段名集合**，不比类型：类型差异是刻意的，字段差异一定是笔误。
+ * ==================================================================== */
+
+/** 从 Rust 源码里取 `pub struct X { … }` 的字段名，按 `rename_all = "camelCase"` 转换。 */
+function rustFields(source: string, name: string): string[] {
+    const head = `pub struct ${name} {`;
+    const at = source.indexOf(head);
+    if (at < 0) return [];
+    const body = source.slice(at + head.length, source.indexOf('\n}', at));
+    return [...body.matchAll(/^\s*(?:pub )?([a-z0-9_]+):/gm)].map((one) =>
+        one[1].replace(/_([a-z0-9])/g, (_, char: string) => char.toUpperCase()),
+    );
+}
+
+/** 从 TS 里取 `export type X = { … }` 或 `export interface X { … }` 的字段名。 */
+function tsFields(source: string, name: string): string[] {
+    const heads = [`export type ${name} = {`, `export interface ${name} {`];
+    const at = heads.map((head) => source.indexOf(head)).find((index) => index >= 0);
+    if (at === undefined) return [];
+    const body = source
+        .slice(at, source.indexOf('\n}', at))
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/[^\n]*/g, '');
+    return [...body.matchAll(/^\s*([a-zA-Z_]\w*)\??:/gm)].map((one) => one[1]);
+}
+
+/**
+ * 四处双写类型：`bindings.ts` 是生成物，另一个是页面层手写的。
+ *
+ * 加一对只要在这里补一行——**判据是「页面层有没有自己重新声明过这个名字」**，
+ * 直接从生成物 re-export 的不算（那种不会漂）。
+ */
+const DOUBLE_WRITTEN = [
+    { type: 'PriceItem', file: 'views/prices/prices.ts' },
+    { type: 'PricePoint', file: 'views/prices/prices.ts' },
+    { type: 'AccountEntry', file: 'views/accounts/accounts.ts' },
+    { type: 'IncomeEntry', file: 'views/income/income.ts' },
+] as const;
+
+/** `sources()` 的键是 `../views/prices/prices.ts` 这种相对路径，按尾巴取。 */
+function sourceOf(suffix: string): string {
+    const hit = Object.entries(sources()).find(([file]) => file.endsWith(`/${suffix}`));
+    return hit?.[1] ?? '';
+}
+
+describe('IPC 契约：字段名三方对账', () => {
+    it('Rust 的字段都进了 bindings.ts（生成物没落后）', () => {
+        for (const { type } of DOUBLE_WRITTEN) {
+            const rust = rustFields(storeSource, type).sort();
+            const generated = tsFields(bindingsSource, type).sort();
+            expect(rust, `${type}：Rust 里没解析到字段，结构可能改了名`).not.toEqual([]);
+            expect(
+                generated,
+                `${type}：bindings.ts 与 Rust 的字段对不上（起一次 debug 窗口会重新生成）`,
+            ).toEqual(rust);
+        }
+    });
+
+    it('页面层手写的类型与生成物是同一批字段', () => {
+        for (const { type, file } of DOUBLE_WRITTEN) {
+            const written = tsFields(sourceOf(file), type).sort();
+            expect(written, `${type}：${file} 里没解析到字段，可能改了名或挪了文件`).not.toEqual(
+                [],
+            );
+            expect(
+                written,
+                `${type}：${file} 与 bindings.ts 的字段对不上——改字段名时两处要一起改`,
+            ).toEqual(tsFields(bindingsSource, type).sort());
         }
     });
 });
