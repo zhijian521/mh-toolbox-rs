@@ -142,6 +142,117 @@ svg {
     pointer-events: none;
 }
 
+/* ---------- 账簿语法 2：台面上的纸片（`.board`） ----------
+ * 2026-11-05 起，**内容区的卡片一律用这一种**；`.frame` 留给浮层（角色编辑器、捉鬼测试面板）。
+ *
+ * ## 为什么不给 `.frame` 加阴影了事
+ *
+ * 用户的原话是「上面卡片是 3D，下面的卡片是平面，不搭」。四格统计签之所以立体，是因为它们
+ * 小（88 高），靠四条棱与落地影就够；340 宽的大卡画在**同一张纸**上，影加得再厚也读作
+ * 「一块色块」——`PressTile` 的注释早写着「上面已经没有比纸更亮的纸」。把板面调深一档又会
+ * 读成**凹**，与凸起的签方向相反。真正的解法是让卡片躺在一层比它深的东西上：
+ * `PageShell` 的 `surface` 把内容区铺成台面色，`.board` 就是台面上那张纸。
+ *
+ * ## 三段影的分工（光从左上来，与 `.well` / `.press-tile` 同一套）
+ *
+ *   ① 上沿、左沿 1px 亮线   —— 受光面；
+ *   ② 下沿 3px `--rule-2`    —— **纸的断面**，不是阴影。2px 在大卡上只读成描边，3px 才读得出
+ *      厚度；用它而不是半透明黑，因为「纸被切开露出的那一层」本来就是这个颜色；
+ *   ③ 3px 硬影 + 10px 软影   —— 离台面的距离。硬影贴地、软影散开，缺一个就变成「飘着」
+ *      或「画了个边框」。
+ *
+ * ## 圆角 6px 是这一族唯一的例外
+ *
+ * 全站方角是因为**结构靠线**——线框的角只能是直角。纸片是实体，四角自然是圆的。
+ * 写死、不乘 `--fs-scale`：曲率是绝对的，字放大时圆角一起变大会读成另一种控件
+ * （与 `PressTile` 的 `--tile-r` 同一条）。
+ *
+ * ## `--board-face`
+ *
+ * 默认纸色。有自己底色的卡（角色卡按门派浅染、物价卡取纸的另一档）传这个变量，
+ * 不必再抄一遍影——抄第二遍时就会漂，`PressTile` 与装备浮片都吃过这个亏。
+ */
+.board {
+    position: relative;
+    padding: 20px;
+    border-radius: 6px;
+    /* 卡面的纸色：亮色取 `--paper-2`（#f2ead6），比纯纸白 `--paper`（#f8f3e6）深一档。
+     * 用户 2026-11-05：「亮色取不那么白的」——纯纸白压在台面（`--well` #e7dcc0）上太白，
+     * 一张张读作「打了灯的板子」而不是纸。`--paper-2` 正好是「纸 → 台面」之间的中间档，
+     * 纸的温度还在，又不刺眼。**不新造色号**：它就是「比纸深一档的纸」，本来就有。
+     *
+     * 底下那个变量才是「卡面默认纸色」的唯一来源：底色与渐变两端都引它，
+     * 于是换纸色只改这一行，渐变自动跟着重算。 */
+    --board-paper: var(--paper-2);
+    /* 底色与渐变分两条写：`--board-face` 只换底色（角色卡的门派浅染走这条），
+     * 没填的时候落到 `--board-paper`。 */
+    background-color: var(--board-face, var(--board-paper));
+    /* 两层叠出「一张被顶起来的纸」：
+     *   ① 左上角一团偏光（radial）—— 与 `PressTile` 同一个手法，光从左上打过来，
+     *      纸被顶起时正对光的那个角先亮起来。没有它，斜向渐变只是一条灰带子；
+     *   ② 135° 斜向渐变 —— 左上淡、右下浓。一张纯色的纸在台面上是「一块色块」，
+     *      带上这道斜差之后左右两半的明度不同，眼睛才读得出它是**斜着受光的平面**。
+     *      方向固定 135°（与角色卡的门派浅染同向），全站的纸于是朝同一个光源。 */
+    background-image:
+        radial-gradient(
+            140% 100% at 16% -6%,
+            color-mix(in srgb, var(--bevel-hi) 58%, transparent),
+            transparent 58%
+        ),
+        /* 斜差两端：**亮端 3%、暗端 9%**。三轮调下来的数（4/8 → 4/12 → 3/9）：
+         * 用户第一轮说「亮色下渐变不明显」，加到 12 之后又说「差距过大」，这次两头都收。
+         * 亮端只掉 1 个点——它本来只是个暗示；暗端 12 → 9，一端亮一端暗仍在，
+         * 但不再像「一半打了光、一半没打」。 */
+        linear-gradient(
+                135deg,
+                color-mix(in srgb, var(--board-face, var(--board-paper)) 97%, var(--paper-base)) 0%,
+                transparent 48%,
+                color-mix(in srgb, var(--board-face, var(--board-paper)) 91%, var(--ink-base)) 100%
+            );
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--rule-2) 46%, transparent),
+        inset 0 -3px 0 color-mix(in srgb, var(--rule-2) 84%, transparent),
+        0 3px 0 var(--shadow),
+        0 10px 16px -6px var(--shadow-lg);
+}
+
+/* 暗色必须重算三处：
+ * 1. `--rule-2` 在暗色是 #544a33，比板面**亮**，拿它做下沿会成一条发光的线（光向反了），
+ *    断面与右沿换成「板面混不翻面的深色」；
+ * 2. 硬影提一档到 `--shadow-lg`——暗底上的第一层 35% 黑几乎看不见；
+ * 3. 渐变的方向不变、幅度变大：暗色的纸本来就深，同样 8% 的差在 #1c1912 上只剩两三阶，
+ *    所以左上那端改成「混 `--ink`（暗色是纸白）」、偏光也拉到满强度。 */
+:root.dark .board {
+    /* 暗色换回 `--paper`：`--paper-2` 在暗色是 #231f16，会给卡面提亮一档，
+     * 与「台面压深、卡片才浮得起来」的方向相反。 */
+    --board-paper: var(--paper);
+    background-image:
+        radial-gradient(
+            140% 100% at 16% -6%,
+            color-mix(in srgb, var(--bevel-hi) 54%, transparent),
+            transparent 56%
+        ),
+        /* 暗色第三轮：14/12 → 7/6 → **4/4**。用户连说两次「对比太大」，这次两端拉平。
+         * 暗底上的纸本来就深，4% 是「看得出方向、又说不出哪里不一样」的那条线；
+         * 再收就只剩偏光在撑，卡片会退回一块纯色。偏光 100% → 62% → 54%，
+         * 现在只负责把左上角提亮半档。 */
+        linear-gradient(
+                135deg,
+                color-mix(in srgb, var(--board-face, var(--board-paper)) 96%, var(--ink)) 0%,
+                transparent 48%,
+                color-mix(in srgb, var(--board-face, var(--board-paper)) 96%, var(--ink-base)) 100%
+            );
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 70%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--paper) 62%, var(--ink-base)),
+        inset 0 -3px 0 color-mix(in srgb, var(--paper) 45%, var(--ink-base)),
+        0 3px 0 var(--shadow-lg),
+        0 12px 20px -7px var(--shadow-lg);
+}
+
 /* ---------- 区块标 ----------
  * 标题左侧那道凸起的短竖条：只交代「一块从这里开始」，不参与叙事。
  *

@@ -21,7 +21,8 @@
 .stack {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    /* 16：卡片抬起来之后，落影会探出卡外一圈，14 时下一张卡的顶边压在影子里。 */
+    gap: 16px;
     max-width: 1240px;
 }
 
@@ -43,7 +44,7 @@
 .stack-pair {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-    gap: 14px;
+    gap: 16px;
 }
 
 /* ---------- 说明文字 ---------- */

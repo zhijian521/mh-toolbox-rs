@@ -188,7 +188,7 @@ const desc = computed(() =>
     /* 14 与 `.stack` / `.hunt` 同一档：卡与卡之间的距离在全站只有一个数。
      * 原先是 16，与设置页、捉鬼页的 14 差 2px——单独看没感觉，切页时会觉得
      * 角色页的几张卡「更松一点」，却说不出为什么。 */
-    gap: 14px;
+    gap: 16px;
     width: 100%;
 }
 
@@ -202,7 +202,10 @@ const desc = computed(() =>
     flex: none;
     width: var(--char-w);
     height: var(--char-h);
+    /* 圆角与 `.board`（`PaperCard`）同曲率：旁边那几张是真纸片，这一格是
+     * 「还空着、可以再放一张」的位置。方角会读作「那一圈的纸没铺完」。 */
     border: var(--w-hair) dashed var(--rule-2);
+    border-radius: 6px;
     background: none;
     color: var(--muted);
     font-family: var(--font-ui);

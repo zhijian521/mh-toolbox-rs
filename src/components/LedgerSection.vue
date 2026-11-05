@@ -1,10 +1,18 @@
 <script setup lang="ts">
+import PaperCard from './PaperCard.vue';
 /**
- * 账簿语境里的「一块」：文武线外框 + 区块标 + 标题 + 右侧提示/操作。
+ * 账簿语境里的「一块」：一张抬起的纸片 + 区块标 + 标题 + 右侧提示/操作。
  *
- * 结构靠线不靠阴影，所以没有任何圆角与投影。标题左侧那道凸起短竖条（`.section-mark`）
- * 是唯一例外：它是个**记号**，得有点厚度才读得出「一块从这里开始」，
- * 材质与凹槽、印面同一套 `--bevel-*`（定义在 `base.css`）。
+ * 外壳是全局 `.board`（2026-11-05 起全站统一，材质与缘由写在 `base.css` 那一节）：
+ * 圆角、上亮下暗的棱、下沿 3px 纸的断面、两层落影。它躺在 `PageShell` 的台面上，
+ * 与统计签、物价卡、角色卡同一个物理关系——这一页里不再有「线框」和「凸块」两套材质。
+ *
+ * **这里一份材质都不重写**：改厚度只要改 `.board`，全站跟着变；组件这边只管内容怎么摆。
+ * 原先 `.frame` 那套文武线留给浮层（角色编辑器、捉鬼测试面板），它们是「盖在纸上的东西」，
+ * 不是「摆在台面上的纸」。
+ *
+ * 标题左侧那道凸起短竖条（`.section-mark`）是块内唯一的立体记号：它得有点厚度才读得出
+ * 「一块从这里开始」，材质与凹槽、印面同一套 `--bevel-*`。
  *
  * 不再收 `seal` 那样的单字：八个区块各带一枚朱印，块与块之间就被红点压闷了；
  * 印章该留给「已入账 / 已达成」这类状态。标记是恒定的一竖，不需要每块编一个字。
@@ -13,7 +21,7 @@ withDefaults(defineProps<{ title: string; hint?: string }>(), { hint: '' });
 </script>
 
 <template>
-    <section class="frame ledger-section">
+    <PaperCard class="ledger-section">
         <header class="section-head">
             <h2>
                 <span class="section-mark" aria-hidden="true" />
@@ -25,13 +33,14 @@ withDefaults(defineProps<{ title: string; hint?: string }>(), { hint: '' });
             </div>
         </header>
         <slot />
-    </section>
+    </PaperCard>
 </template>
 
 <style scoped>
 .ledger-section {
     padding: var(--block-pad);
 }
+
 .section-head {
     display: flex;
     /* 不用 baseline：`h2` 自己也是个 flex 容器，它第一个 item 是那枚空标记，

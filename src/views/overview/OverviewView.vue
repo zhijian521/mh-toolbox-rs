@@ -190,7 +190,7 @@ function trainingText(one: { trainingLevel: number; trainingCap: number }): stri
 .overview {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
 }
 
 /* ---------- 近七天 ---------- */

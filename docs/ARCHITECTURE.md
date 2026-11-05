@@ -13,6 +13,10 @@
 > 加一列：共表就要在每一行上猜「这行是万还是元、有没有渠道」，猜错一次汇总就错。
 > 目标页（2026-11-05，第 115 批）是**第三种读法**：它不存进度，只存「许了什么」——手动目标
 > 的进度来自自己的流水，养成目标的进度**现算**自身角色档案。所以它是账本的读者，不是第四本账。
+> **全站卡片只有一种材质**（2026-11-05，第 116 批）：内容区的卡一律是 `components/PaperCard.vue`
+> → `base.css` 的 `.board`（台面上的一张纸），页面由 `PageShell` 的 `surface` 铺台面托住。
+> `.frame` 那套文武线收窄成**浮层专用**（角色编辑器、捉鬼测试面板）。这不是纯样式约定：
+> 「卡片」从此是一个组件而不是一段 class，新页要一块内容区时不该自己拼 `border + background`。
 > 带「计划」字样的段落是动手前定好的边界，不是对现状的描述——写在这里的意义是第一次写
 > 领域代码的人不用自己发明一套。
 
@@ -96,6 +100,7 @@
 | 新页面           | `src/views/`，然后在 `src/navigation.ts` 加一项                                           | 不要改 `router.ts` 的数组——它从 `NAV_ITEMS` 生成                                                                  |
 | 工具的子页       | `src/views/tools/`，然后在 `src/tools.ts` 加一项                                          | 不要进 `NAV_ITEMS`——工具越加越多，一件一格会把左栏撑成一列                                                        |
 | 新控件           | `src/components/`，先加进 `views/dev/AtomsSection.vue` 验收                               | 不要为一次性用途新开组件                                                                                          |
+| 承载内容的卡片   | `components/PaperCard.vue`（`as` 定标签、`face` 定纸色），材质只在 `.board` 一份          | 不要自己写 `border + background + box-shadow` 拼一张卡：抄到第四份必然与 `.board` 漂移，厚度改一处也不跟着变      |
 | 新系统能力       | `src/services/<能力>.ts` 一个函数 + Rust 一个 `#[tauri::command]`                         | 不要在组件里 `invoke`；也不要全塞进 `desktop.ts`                                                                  |
 | 业务逻辑（计划） | `crates/mh-domain`，纯函数、无 IO                                                         | 不要塞进 `src-tauri/src/`——塞进去就再也拆不出来                                                                   |
 | 前端的纯规则     | `src/services/`（如 `ghost-parse.ts`），不碰 IO                                           | 不要塞进 composable——那里一有 ref 就不好单测                                                                      |

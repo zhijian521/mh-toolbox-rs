@@ -21,6 +21,12 @@
     display: flex;
     flex: none;
     flex-direction: column;
+    /* 卡片根是 `PaperCard`，`.board` 带着 20px 的内边距。角色卡不能吃它：
+     * 卡头、页签条、正文三处各自留白（横向都引 `--card-pad-x`），整张卡再收 20
+     * 会把 480 高撑爆——去掉 `border: 1px` 之后内高只多 2px，而 40px 的纵向内边距
+     * 直接让卡片出现滚动条（实测：每张卡右侧多一条竖条，经验行被切掉）。 */
+    padding: 0;
+
     /* 卡内左右留白**只有一个源**：卡头、页签条、正文三处都引它。
      * 各写一次 14 时改一处忘一处，卡头与正文的竖线就差 2px——卡里出现两条基准，
      * 说不上哪条对。
@@ -45,21 +51,30 @@
      * 跟着渐变走——否则同一张卡上五张票各在不同位置、深浅不一，读起来像没对齐的纸片。 */
     --wash-a: var(--wash-lo);
     --wash-b: var(--wash-hi);
-    --card-tint: var(--tint, var(--paper));
-    --slip-base: color-mix(in srgb, var(--card-tint) var(--wash), var(--paper));
+    /* 混色锚点是 `--board-paper`（亮色 = `--paper-2`、暗色 = `--paper`），不是 `--paper`：
+     * 2026-11-05 全站卡面下沉一档之后，用纯纸白混门派色会让角色卡比同页其它卡**白一档**，
+     * 一眼看出它不是同一张纸。锚点交给 `PaperCard` 那层，换纸色只改一处。
+     * 不填门派时同样落到它——一个还没选门派的新角色应该读作「一张普通的纸」。 */
+    --card-tint: var(--tint, var(--board-paper));
+    --slip-base: color-mix(in srgb, var(--card-tint) var(--wash), var(--board-paper));
     --card-bg: linear-gradient(
         135deg,
-        color-mix(in srgb, var(--card-tint) var(--wash-a), var(--paper)) 0%,
-        color-mix(in srgb, var(--card-tint) var(--wash-b), var(--paper)) 100%
+        color-mix(in srgb, var(--card-tint) var(--wash-a), var(--board-paper)) 0%,
+        color-mix(in srgb, var(--card-tint) var(--wash-b), var(--board-paper)) 100%
     );
 
     width: var(--char-w, 360px);
     height: var(--char-h, 480px);
-    border: var(--w-hair) solid var(--rule-2);
+    /* 圆角、上亮下暗的棱、下沿断面、两层落影**一条都不在这里**：角色卡的根已经是
+     * `PaperCard`（全局 `.board`），厚度由那一份材质给。
+     *
+     * 这里只覆盖**底色**：`background` 简写会把 `.board` 的纸渐变与偏光一起清掉，
+     * 换成门派浅染（同样是 135°，所以光向一致）。这是这一族里唯一「有自己的纸」的卡，
+     * 也是 `.board` 把底色留成 `--board-face` 的原因。
+     *
+     * 原先这里写的是 `border: 1px` + `--shadow-lift`——一张被边框圈住的纸，与物价卡、
+     * 收益页的压印块互不相认；2026-11-05 全站统一之后，它就是台面上的一张纸。 */
     background: var(--card-bg);
-    /* 卡片是「纸片抬离桌面」的一种，与装备浮片、测试面板共用 `--shadow-lift`
-     * （原先三处各写一套 22/-12、32/-16、8px 混墨）。 */
-    box-shadow: var(--shadow-lift);
 }
 /* 暗色单独一档浓度、并且把方向反过来（左上浓、右下淡）：
  * `--wash` 那组是为亮色定的，暗色的纸本身极深，同比例混出来几乎看不出

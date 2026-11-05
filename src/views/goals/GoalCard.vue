@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import PaperCard from '../../components/PaperCard.vue';
 import AppIcon from '../../components/AppIcon.vue';
 import MeterBar from '../../components/MeterBar.vue';
 import PressButton from '../../components/PressButton.vue';
@@ -60,7 +61,7 @@ const readout = computed(() => {
 </script>
 
 <template>
-    <article class="frame goal" :class="{ done: summary.done }" :data-goal-id="goal.id">
+    <PaperCard as="article" class="goal" :class="{ done: summary.done }" :data-goal-id="goal.id">
         <header class="goal-head">
             <h2 :title="goal.title">{{ goal.title }}</h2>
             <div class="goal-tools">
@@ -184,7 +185,7 @@ const readout = computed(() => {
             <span class="spacer" />
             <span v-if="summary.done" class="mark">达成</span>
         </div>
-    </article>
+    </PaperCard>
 </template>
 
 <style scoped>

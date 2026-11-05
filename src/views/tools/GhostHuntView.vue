@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PaperCard from '../../components/PaperCard.vue';
 import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import AppIcon from '../../components/AppIcon.vue';
@@ -107,7 +108,7 @@ onMounted(async () => {
         </template>
 
         <div class="hunt">
-            <section class="frame map-card">
+            <PaperCard class="map-card">
                 <!-- 两条任务共用一张卡、卡内上下分栏：分两张卡等于给同一件事
                      加了道边框和一段额外间距，读的时候还多一层「这是两个物件」的错觉。 -->
                 <div v-for="plan in plans" :key="plan.task.kind" class="map-item">
@@ -129,10 +130,10 @@ onMounted(async () => {
                 <div v-if="!plans.length" class="map-item">
                     <MapCanvas :plan="null" />
                 </div>
-            </section>
+            </PaperCard>
 
             <aside class="hunt-side">
-                <section class="frame side-block">
+                <PaperCard class="side-block">
                     <div class="status" :class="statusKind">
                         <span class="status-dot" aria-hidden="true" />
                         <span class="status-text">{{ statusText }}</span>
@@ -179,9 +180,9 @@ onMounted(async () => {
                             <i class="legend-swatch legend-hot" aria-hidden="true" />高概率区域
                         </span>
                     </div>
-                </section>
+                </PaperCard>
 
-                <details v-if="report" class="frame detail-block">
+                <PaperCard v-if="report" as="details" class="detail-block">
                     <summary class="detail-head">
                         <AppIcon name="chevron-right" class="detail-arrow" />
                         识别原文
@@ -198,7 +199,7 @@ onMounted(async () => {
                     <p v-for="issue in report.issues" :key="issue" class="meta detail-issue">
                         {{ issue }}
                     </p>
-                </details>
+                </PaperCard>
             </aside>
 
             <!-- 测试文字：不开游戏也能把整条链跑起来。它受「开发者模式」管（`useDevMode`），
@@ -241,7 +242,7 @@ onMounted(async () => {
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--side-col);
     grid-template-rows: minmax(0, 1fr);
-    gap: 14px;
+    gap: 16px;
     height: 100%;
 }
 /* 一张卡片装下全部地图：卡内按任务竖着等分，两条各占一半、一条吃满。
@@ -295,7 +296,7 @@ onMounted(async () => {
 .hunt-side {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
     min-width: 0;
 }
 .side-block {

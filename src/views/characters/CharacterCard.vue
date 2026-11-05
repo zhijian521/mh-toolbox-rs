@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PaperCard from '../../components/PaperCard.vue';
 import { computed, ref } from 'vue';
 import MeterBar from '../../components/MeterBar.vue';
 import NumTag from '../../components/NumTag.vue';
@@ -169,7 +170,7 @@ function slotInitial(slot: GearSlot): string {
 <template>
     <!-- `data-school` 给浅染用（`character-card.css` 里二十一条映射）。
          空门派时属性为空串，不匹配任何一条 → 卡底回落纸色。 -->
-    <article class="char dual-rule" :data-school="character.school || ''">
+    <PaperCard as="article" class="char dual-rule" :data-school="character.school || ''">
         <header class="char-head">
             <div class="who-block">
                 <div class="who">
@@ -547,7 +548,7 @@ function slotInitial(slot: GearSlot): string {
             :char-level="character.level"
             @close="detailPet = null"
         />
-    </article>
+    </PaperCard>
 </template>
 
 <style scoped src="./character-card.css"></style>

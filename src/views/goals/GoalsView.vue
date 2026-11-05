@@ -387,7 +387,7 @@ function onProgress(goal: Goal) {
     display: grid;
     /* 两列：卡上要摆成员行，400 以下「曲阜 22 / 25 还差 3」会挤成一坨。 */
     grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-    gap: 12px;
+    gap: 16px;
     align-items: stretch;
 }
 .empty {

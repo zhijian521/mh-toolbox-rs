@@ -223,7 +223,10 @@ function priceCleared() {
 .income-stack {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    /* 16 而不是 12：两张卡现在是**抬起来**的，下沿 3px 断面 + 3px 硬影 + 10px 软影会探出
+     * 卡外一圈。间距留在 12 时，下面那张卡的顶边就压在上一张的影子里，读作「两张粘在一起」。
+     * 统计签与速记之间的那一段同理——签也有自己的落影。 */
+    gap: 16px;
 }
 
 .filters {
@@ -249,7 +252,7 @@ function priceCleared() {
 .split {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 300px;
-    gap: 12px;
+    gap: 16px;
     align-items: stretch;
 }
 </style>

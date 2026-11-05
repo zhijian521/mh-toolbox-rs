@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
+import PaperCard from '../../components/PaperCard.vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
@@ -127,18 +128,18 @@ function save(input: EntryInput) {
         <p v-if="writeError" class="note error">{{ writeError }}</p>
 
         <!-- 筛选条：时间三档 + 角色。两者同时作用于下面每一个数。 -->
-        <section class="frame filters">
+        <PaperCard class="filters">
             <SegmentedPills v-model="preset" :options="RANGE_PRESETS" label="账目时间范围" />
             <SelectField v-model="who" :options="whoOptions" label="按角色筛选" class="who-pick" />
             <span class="range-text">
                 {{ range.from ? `${range.from} 至 ${range.to}` : '全部时间' }}
             </span>
-        </section>
+        </PaperCard>
 
         <!-- 两本账各一张卡。两张卡的底边必须齐平——并排看时一高一矮会读成
              「其中一本没记完」。 -->
         <div class="books">
-            <article v-for="book in books" :key="book.currency" class="frame book">
+            <PaperCard v-for="book in books" :key="book.currency" as="article" class="book">
                 <header class="book-head">
                     <h2>{{ book.meta.label }}</h2>
                     <span class="book-note">按{{ book.meta.unit }}记</span>
@@ -165,7 +166,7 @@ function save(input: EntryInput) {
                         </b>
                     </div>
                 </div>
-            </article>
+            </PaperCard>
         </div>
 
         <!-- 快捷记账：点一下把方向 / 币种 / 分类 / 渠道填好，只差金额。 -->
@@ -196,7 +197,7 @@ function save(input: EntryInput) {
         </LedgerSection>
 
         <!-- 最近记录：点一行打开编辑。完整浏览在「全部记录」里。 -->
-        <LedgerSection title="最近记录" :hint="`共 ${scoped.length} 笔`">
+        <LedgerSection title="最近记录" :hint="`共 ${scoped.length} 笔`" class="records">
             <p v-if="!recent.length" class="note blank">
                 这个范围还没有记录。点上面的快捷入口，或右上角「记一笔」。
             </p>
@@ -267,7 +268,7 @@ function save(input: EntryInput) {
     align-items: center;
     gap: 10px;
     padding: 10px 16px;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
 }
 .who-pick {
     flex: none;
@@ -282,11 +283,20 @@ function save(input: EntryInput) {
 }
 
 /* ---------- 两本账 ---------- */
+/* 两块区块卡之间必须有 16：账号页的块是用 margin 堆的，不是 `gap` 容器，
+ * 「快捷记账」下面原本直接贴着「最近记录」。卡抬起来之后，下面那张的顶边会压在
+ * 上一张的落影里（实测：两条卡边几乎相接，读作一整块）。 */
+.records {
+    margin-top: 16px;
+}
+
 .books {
+    /* 16 而不是 12：卡片现在是抬起来的，下沿 3px 断面 + 3px 硬影 + 10px 软影会探出卡外，
+     * 12 时右边那张的落影压在左边那张的边上，两张卡读作「粘在一起」。 */
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 16px;
+    margin-bottom: 16px;
 }
 .book {
     padding: 12px 14px;
