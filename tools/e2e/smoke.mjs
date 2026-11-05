@@ -300,6 +300,60 @@ if (want('角色')) {
         t.check('改名生效', (await ui.text()).includes('E2E改名后'));
     });
 
+    /* ---- 装备编辑：十二个部位常驻左栏（2026-11-05，方案 E2） ----
+     * 这一节以前是空的：装备整条路径一条断言都没有。改版之后交互全换了
+     * （十二行折叠 → 左栏目录 + 右侧详情），所以钉住三件事：十二格在不在、
+     * 点一格右侧是否跟着换、填进去的名字保存后是否落到卡上。
+     *
+     * **只填「装备名」、不填全名**——这是最常见的一种录法，也是判据最容易写错的一处：
+     * 卡上「有没有这件」认的是 `detail` 或 `caption`，任一边漏了，名字就会存着却看不见。 */
+    await t.step('装备：左栏十二格，选中即编，保存后上卡', async () => {
+        await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
+        if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
+            throw new Error('编辑态没打开');
+        }
+        await ui.clickText('.editor-tabs button', '装备');
+        await sleep(300);
+
+        const rails = await ui.count('.editor .rail-item');
+        t.check('左栏十二个部位', rails === 12, `实际 ${rails}`);
+
+        // 空白折叠在两个空格之间可能变成一个换行，比之前先压平。
+        const head = async () => (await ui.text('.editor .rail-head')).replace(/\s+/g, ' ').trim();
+        t.check('顶端计数从 0 起', (await head()).includes('0 / 12'), await head());
+
+        /* 换部位**不改变页面高度**（这是 E2 与折叠列表最大的差别），所以判据只能读右侧
+         * 标题，不能像以前那样靠「内容变长了」。 */
+        await ui.clickText('.editor .rail-item', '武器');
+        await sleep(250);
+        const heading = await cdp.evaluate(
+            `document.querySelector('.editor .det-title b')?.textContent?.trim() ?? ''`,
+        );
+        t.check('右侧切到武器', heading === '武器', `标题是「${heading}」`);
+
+        await ui.fillSel('.editor input[aria-label="武器 的装备名"]', 'E2E刀');
+        await sleep(200);
+        t.check('填完计数变 1', (await head()).includes('1 / 12'), await head());
+
+        await ui.clickLabel('保存这个角色');
+        await sleep(700);
+        t.check('保存后编辑器收起', !(await ui.exists('.editor')));
+
+        // 卡上那格：名字要真的画出来（这一条会抓住「有 caption 无 detail」的口径漏洞）。
+        await ui.clickIn('.roster .char', 'E2E改名后', { text: '装备' });
+        await sleep(320);
+        const names = await cdp.evaluate(`(() => {
+            const card = [...document.querySelectorAll('.roster .char')]
+                .find((c) => (c.textContent || '').includes('E2E改名后'));
+            return [...(card?.querySelectorAll('.gear-name') ?? [])].map((e) => e.textContent.trim());
+        })()`);
+        t.check(
+            '卡上武器那格显示 E2E刀',
+            Array.isArray(names) && names.includes('E2E刀'),
+            JSON.stringify(names),
+        );
+    });
+
     /* ---- 召唤兽：概览牌 + 详情档案（2026-11-05） ----
      * 这一节以前一条断言都没有：卡上只画「名字 · 等级 · 参战」，而这三个数在名册里
      * 从来没被验过——练到哪一步、资质多少，全都只在编辑弹窗里能看见。
@@ -317,6 +371,14 @@ if (want('角色')) {
         await sleep(300);
         await ui.clickLabel('加一只召唤兽');
         await sleep(250);
+
+        /* 编辑页 2026-11-05 改成左栏目录（方案 P3）：加一只之后左栏应有一行，
+         * 而右侧只渲染**选中那一只**的表单——旧版是一只一行、一次展开一只。
+         * 两条一起验，才能区分「结构换了」与「只是换了个样式」。 */
+        const railItems = await ui.count('.pet-editor .rail-item');
+        t.check('编辑页左栏列出全部召唤兽', railItems === 1, `实际 ${railItems} 行`);
+        const nameInputs = await ui.count('.pet-block input[aria-label="召唤兽名称"]');
+        t.check('右侧只渲染选中那一只', nameInputs === 1, `实际 ${nameInputs} 个名字框`);
 
         /* 选择器必须带 `.pet-block`：`等级` 这个 aria-label 在编辑器里不止一处
          * （角色自己也有一格），`ui.fill()` 只取文档里第一个匹配。 */
@@ -382,6 +444,18 @@ if (want('角色')) {
 
         const filled = await ui.count('[role="dialog"] .slot:not(.off)');
         t.check('其中 2 格是学了的技能', filled === 2, `实际 ${filled} 格`);
+
+        /* 两列的先后是用户定的（2026-11-05）：左战斗属性、右资质。
+         * 读 DOM 里两个分栏名的顺序，不读样式——「换个位置」换的就是这个顺序。 */
+        const colHeads = await cdp.evaluate(
+            `[...document.querySelectorAll('[role="dialog"] .pet-cols .group-head')]
+                .map((e) => e.textContent.trim())`,
+        );
+        t.check(
+            '详情两列：左战斗属性、右资质',
+            colHeads[0] === '战斗属性' && colHeads[1] === '资质',
+            `实际：${colHeads.join(' / ')}`,
+        );
 
         // Esc 只关这一层（`use-modal` 的冒泡口径），卡片本身不动。
         await cdp.key('Escape');
@@ -718,6 +792,105 @@ if (want('收益')) {
         t.check('重载后笔数没回落', still === before + 3, `期望 ${before + 3}，实际 ${still}`);
     });
 
+    /* ---------------- 速记单价的进出（2026-11-05） ----------------
+     *
+     * 这一节走的是**真文件**：钩子把系统对话框换成固定路径，于是「另存为 / 打开」那两段
+     * 也能被走过（同第 9 节的做法，那里有完整的缘由）。
+     *
+     * 判据是「导出的就是库里那一份 + 导回来之后库里没变」：这里**故意不改文件里的价**。
+     * 改一个价再导回来看着更有说服力，但代价是动到用户自己的价目表，而这一页没有「撤销
+     * 导入」，跑完只能靠快照还原。原样往返同样能证明这条链是通的——文件、信封、校验、
+     * 合并、写库、重载后还在，每一环错一处都会红。
+     */
+    let priceCount = null;
+
+    await t.step('单价：导出成文件，再把同一份导回来', async () => {
+        const dir = dataDir();
+        const hookFile = join(dir, 'e2e-dialog.json');
+        const outDir = resolve('.runtime/e2e-export');
+        mkdirSync(outDir, { recursive: true });
+        const priceFile = join(outDir, `prices-${Date.now()}.json`);
+
+        priceCount = await dbCount('income_load', 'prices');
+        if (priceCount < 1) throw new Error('库里一条单价都没有，这一节没有意义');
+
+        writeFileSync(hookFile, JSON.stringify({ save: priceFile }), 'utf8');
+        await ui.goto('收益');
+        await ui.clickLabel('把物品单价导出成文件');
+        /* 回执是**浮层**（`NotifyHost` `Teleport` 到 body），不在 `.page-content` 里，
+         * 所以 `ui.waitText` 看不到它，只能按纸条查。三秒就收，读到就取文本。 */
+        const said = await cdp.waitFor(
+            `[...document.querySelectorAll('.notice .text')]
+                .some((e) => (e.textContent || '').includes('已导出'))`,
+            { timeout: 8000 },
+        );
+        if (!said) throw new Error(`没等到导出回执：${(await ui.text()).slice(0, 120)}`);
+        t.check('导出文件落在磁盘上', existsSync(priceFile), priceFile);
+
+        const file = JSON.parse(readFileSync(priceFile, 'utf8'));
+        t.check(
+            '信封格式与应用标识对',
+            file.format === 1 && file.app === 'mh-toolbox-rs',
+            `format=${file.format} app=${file.app}`,
+        );
+        t.check(
+            '只带单价，不带角色与流水',
+            Array.isArray(file.quickPrices) && !('characters' in file) && !('income' in file),
+            `键：${Object.keys(file).join(', ')}`,
+        );
+        t.check(
+            '单价条数与库一致',
+            file.quickPrices?.length === priceCount,
+            `文件 ${file.quickPrices?.length} / 库 ${priceCount}`,
+        );
+        t.check(
+            '每条都是 {itemId, price} 且价为正',
+            (file.quickPrices ?? []).every(
+                (one) => Number.isInteger(one.itemId) && one.itemId > 0 && one.price > 0,
+            ),
+            JSON.stringify(file.quickPrices?.slice(0, 2) ?? []),
+        );
+
+        writeFileSync(hookFile, JSON.stringify({ open: priceFile }), 'utf8');
+        await ui.clickLabel('从文件导入物品单价');
+        const asked = await cdp.waitFor(`!!document.querySelector('[role="dialog"]')`, {
+            timeout: 4000,
+        });
+        if (!asked) throw new Error('导入单价没有二次确认（会直接弹出系统文件窗）');
+        /* **必须限定在对话框里**：速记卡上那枚导入按钮的文字也是「导入」，
+         * 而它排在 DOM 前面。不限定的话 `clickText('button', '导入')` 命中的是
+         * 背景里被遮住的那一枚，报错长得像「按钮被遮罩挡住」——像是界面坏了，
+         * 实际是选择器抓错了人（2026-11-05 在这里红过四次）。 */
+        await ui.clickText('[role="dialog"] button', '导入', { exact: true });
+
+        const merged = await cdp.waitFor(
+            `[...document.querySelectorAll('.notice .text')]
+                .some((e) => (e.textContent || '').includes('已导入'))`,
+            { timeout: 8000 },
+        );
+        if (!merged) throw new Error(`没等到导入回执：${(await ui.text()).slice(0, 160)}`);
+        const receipt = await cdp.evaluate(
+            `[...document.querySelectorAll('.notice .text')].map((e) => e.textContent || '').join(' | ')`,
+        );
+        t.check(
+            '回执带「新增 / 覆盖」两个数',
+            /已导入 \d+ 件单价（新增 \d+ · 覆盖 \d+）/.test(receipt),
+            receipt,
+        );
+
+        if (existsSync(hookFile)) rmSync(hookFile);
+        t.check('钩子文件已被消费掉', !existsSync(hookFile));
+    });
+
+    await t.step('单价：导入后条数不变，重载后仍在', async () => {
+        const now = await dbCount('income_load', 'prices');
+        t.check('库里单价条数与导出前一致', now === priceCount, `期望 ${priceCount}，实际 ${now}`);
+
+        await ui.reload();
+        const after = await dbCount('income_load', 'prices');
+        t.check('重载后单价还在（写回的是库，不是内存）', after === priceCount, `实际 ${after}`);
+    });
+
     await t.step('把测试临时设的单价清掉', async () => {
         if (!baseline.quickPricedByTest) {
             t.info('无需清理', '单价是用户自己的');
@@ -802,11 +975,20 @@ if (want('收益')) {
             layout !== null && layout.h >= 500,
             `实际 ${layout?.h}`,
         );
+        /* 正文的 `overflow` 与数据无关，两条都判；表格那一半要看**这一天有没有记录**：
+         * `.log-scroll` 只在有行时渲染（空态是一句「这一天还没有记录」），没有行时它不存在，
+         * 把它当成失败就是一条**随数据变红**的断言——2026-11-05 在这份库上真红过一次：
+         * 当天三条测试流水刚被删干净，表格没渲染。 */
         t.check(
-            '滚动交给表格，正文自己不滚',
-            layout?.bodyOverflow === 'hidden' && layout?.boxOverflow === 'auto',
-            `正文 ${layout?.bodyOverflow} / 表格 ${layout?.boxOverflow}`,
+            '正文自己不滚（滚动只可能发生在表格里）',
+            layout?.bodyOverflow === 'hidden',
+            `正文 ${layout?.bodyOverflow}`,
         );
+        if (layout?.boxOverflow === 'none') {
+            t.info('表格滚动', '这一天没有记录，表格未渲染（有记录时才判 overflow）');
+        } else {
+            t.check('滚动交给表格', layout?.boxOverflow === 'auto', `表格 ${layout?.boxOverflow}`);
+        }
 
         await cdp.click('[role="dialog"] .date-trigger');
         /* 纸片 `Teleport` 到 body（逃开弹窗正文的 `overflow-y: auto`），所以这里不带

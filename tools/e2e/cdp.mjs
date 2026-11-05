@@ -202,10 +202,39 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
             }
             const hit = document.elementFromPoint(cx, cy);
             const covered = !(hit && (hit === el || el.contains(hit)));
-            return { x: cx, y: cy, covered, by: hit?.className?.toString?.().slice(0, 40) };
+            /* 被挡时把「挡的人」也带出来：只报一个 modal-mask 等于只知道有人挡，
+             * 不知道是哪个弹窗（确认窗 / 编辑器 / 单价框都有同一个遮罩类），
+             * 定位得再去猜一遍。遮罩是 ModalShell 的根，面板在它里面，
+             * 所以取它自己的 outerHTML——标题与一行正文足够认出是谁。
+             * 注意：这段是注入到页面的源码字符串，注释里不能出现反引号与模板符号。 */
+            const host = covered ? hit : null;
+            const panel = host?.querySelector?.('.modal-panel');
+            return {
+                x: cx,
+                y: cy,
+                covered,
+                by: hit?.className?.toString?.().slice(0, 40),
+                hash: location.hash,
+                /* 遮罩里那层面板的标题与一行正文：这是「谁挡的」最快的判据
+                 * （只取 outerHTML 会被源码注释占满）。 */
+                hostLabel: host
+                    ? [
+                          panel?.getAttribute('aria-label') ??
+                              panel?.querySelector('h2')?.textContent,
+                          (panel?.innerText ?? '').replace(/\\s+/g, ' ').slice(0, 100),
+                      ]
+                          .filter(Boolean)
+                          .join(' | ')
+                    : null,
+            };
         })()`);
         if (info.why) throw new Error(`点不到：${selector}（${info.why}）`);
-        if (info.covered) throw new Error(`被遮挡：${selector}（命中 ${info.by}）`);
+        if (info.covered) {
+            throw new Error(
+                `被遮挡：${selector}（命中 ${info.by} @ ${info.hash}）` +
+                    (info.hostLabel ? `\n挡住它的是：${info.hostLabel}` : ''),
+            );
+        }
         return info;
     };
 
