@@ -189,14 +189,28 @@ def main() -> int:
                                 'kind': kind, 'group': group, 'level': entry.get('level'),
                                 'itemId': item_id})
 
-    # 兜底：清单按等级排，编号也该递增。不递增说明映射错位，宁可停下。
+    # 兜底断言，两条：
+    # ① 不同等级段之间编号必须递增（base 求错时最先破的就是它）；
+    # ② 组内不许两条清单项落到同一个 itemId（段内重名筛错时是这种形态）。
+    # **段内允许倒序**：伞组 120 那三款在客户端里是 31362/61/60，而清单顺序是
+    # 碧火琉璃 / 雪羽穿云 / 月影星痕——名字与编号各自都对，只是两者顺序相反。
+    # 一开始写成「沿清单严格递增」，在这里误报过一次。
     for kind, manifest in plans.items():
         for group in manifest['groups']:
-            ids = [t['itemId'] for t in targets
-                   if t['kind'] == kind and t['group'] == group]
-            if ids != sorted(ids):
-                raise SystemExit('{} / {} 的编号不递增（{}）——映射错位，停下核对'
-                                 .format(kind, group, ids))
+            picked = [t for t in targets if t['kind'] == kind and t['group'] == group]
+            if len({t['itemId'] for t in picked}) != len(picked):
+                raise SystemExit('{} / {} 有两条落到同一个 itemId——段内重名筛错了'
+                                 .format(kind, group))
+            by_level: dict[int, list[int]] = {}
+            for t in picked:
+                by_level.setdefault(t['level'] or 0, []).append(t['itemId'])
+            levels = sorted(by_level)
+            for low, high in zip(levels, levels[1:]):
+                if max(by_level[low]) >= min(by_level[high]):
+                    raise SystemExit('{} / {} 的 {} 级段编号不小于 {} 级段（{} vs {}）——'
+                                     '映射错位，停下核对'
+                                     .format(kind, group, low, high,
+                                             by_level[low], by_level[high]))
 
     total = sum(len(v) for m in plans.values() for v in m['groups'].values())
     print('{}/{} 件有 item120'.format(len(targets), total))
