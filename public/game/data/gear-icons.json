@@ -1,72 +1,83 @@
 {
-    "generated-by": "tools/game-icons/slice-gear.py",
+    "generated-by": "tools/game-icons/import-slot-icons.py",
     "groups": {
         "toukui": [
             {
                 "id": "gear-toukui-01",
                 "img": "gear-toukui-01.webp",
                 "name": "水晶帽",
-                "level": 60
+                "level": 60,
+                "source": "item120"
             },
             {
                 "id": "gear-toukui-02",
                 "img": "gear-toukui-02.webp",
                 "name": "乾坤帽",
-                "level": 70
+                "level": 70,
+                "source": "item120"
             },
             {
                 "id": "gear-toukui-03",
                 "img": "gear-toukui-03.webp",
                 "name": "黑魔冠",
-                "level": 80
+                "level": 80,
+                "source": "item120"
             },
             {
                 "id": "gear-toukui-04",
                 "img": "gear-toukui-04.webp",
                 "name": "白玉龙冠",
-                "level": 90
+                "level": 90,
+                "source": "item120"
             },
             {
                 "id": "gear-toukui-05",
                 "img": "gear-toukui-05.webp",
                 "name": "水晶夔帽",
-                "level": 100
+                "level": 100,
+                "source": "item120"
             },
             {
                 "id": "gear-toukui-06",
                 "img": "gear-toukui-06.webp",
                 "name": "翡翠曜冠",
-                "level": 110
+                "level": 110,
+                "source": "item120"
             },
             {
                 "id": "gear-toukui-07",
                 "img": "gear-toukui-07.webp",
                 "name": "金丝黑玉冠",
-                "level": 120
+                "level": 120,
+                "source": "item120"
             },
             {
                 "id": "gear-toukui-08",
                 "img": "gear-toukui-08.webp",
                 "name": "白玉琉璃冠",
-                "level": 130
+                "level": 130,
+                "source": "item120"
             },
             {
                 "id": "gear-toukui-09",
                 "img": "gear-toukui-09.webp",
                 "name": "兽鬼珐琅面",
-                "level": 140
+                "level": 140,
+                "source": "item120"
             },
             {
                 "id": "gear-toukui-10",
                 "img": "gear-toukui-10.webp",
                 "name": "紫金磐龙冠",
-                "level": 150
+                "level": 150,
+                "source": "item120"
             },
             {
                 "id": "gear-toukui-11",
                 "img": "gear-toukui-11.webp",
                 "name": "浑天玄火盔",
-                "level": 160
+                "level": 160,
+                "source": "item120"
             }
         ],
         "fachai": [
@@ -74,67 +85,78 @@
                 "id": "gear-fachai-01",
                 "img": "gear-fachai-01.webp",
                 "name": "玉女发冠",
-                "level": 60
+                "level": 60,
+                "source": "item120"
             },
             {
                 "id": "gear-fachai-02",
                 "img": "gear-fachai-02.webp",
                 "name": "魔女发冠",
-                "level": 70
+                "level": 70,
+                "source": "item120"
             },
             {
                 "id": "gear-fachai-03",
                 "img": "gear-fachai-03.webp",
                 "name": "七彩花环",
-                "level": 80
+                "level": 80,
+                "source": "item120"
             },
             {
                 "id": "gear-fachai-04",
                 "img": "gear-fachai-04.webp",
                 "name": "凤翅金翎",
-                "level": 90
+                "level": 90,
+                "source": "item120"
             },
             {
                 "id": "gear-fachai-05",
                 "img": "gear-fachai-05.webp",
                 "name": "寒雉霜蚕",
-                "level": 100
+                "level": 100,
+                "source": "item120"
             },
             {
                 "id": "gear-fachai-06",
                 "img": "gear-fachai-06.webp",
                 "name": "曜月嵌星",
-                "level": 110
+                "level": 110,
+                "source": "item120"
             },
             {
                 "id": "gear-fachai-07",
                 "img": "gear-fachai-07.webp",
                 "name": "郁金流苏簪",
-                "level": 120
+                "level": 120,
+                "source": "item120"
             },
             {
                 "id": "gear-fachai-08",
                 "img": "gear-fachai-08.webp",
                 "name": "玉翼附蝉翎",
-                "level": 130
+                "level": 130,
+                "source": "item120"
             },
             {
                 "id": "gear-fachai-09",
                 "img": "gear-fachai-09.webp",
                 "name": "鸾羽九凤冠",
-                "level": 140
+                "level": 140,
+                "source": "item120"
             },
             {
                 "id": "gear-fachai-10",
                 "img": "gear-fachai-10.webp",
                 "name": "金珰紫焰冠",
-                "level": 150
+                "level": 150,
+                "source": "item120"
             },
             {
                 "id": "gear-fachai-11",
                 "img": "gear-fachai-11.webp",
                 "name": "乾元鸣凤冕",
-                "level": 160
+                "level": 160,
+                "source": "item120"
             }
         ],
         "kaijia": [
@@ -142,67 +164,78 @@
                 "id": "gear-kaijia-01",
                 "img": "gear-kaijia-01.webp",
                 "name": "夜魔披风",
-                "level": 60
+                "level": 60,
+                "source": "item120"
             },
             {
                 "id": "gear-kaijia-02",
                 "img": "gear-kaijia-02.webp",
                 "name": "龙骨甲",
-                "level": 70
+                "level": 70,
+                "source": "item120"
             },
             {
                 "id": "gear-kaijia-03",
                 "img": "gear-kaijia-03.webp",
                 "name": "死亡斗篷",
-                "level": 80
+                "level": 80,
+                "source": "item120"
             },
             {
                 "id": "gear-kaijia-04",
                 "img": "gear-kaijia-04.webp",
                 "name": "神谕披风",
-                "level": 90
+                "level": 90,
+                "source": "item120"
             },
             {
                 "id": "gear-kaijia-05",
                 "img": "gear-kaijia-05.webp",
                 "name": "珊瑚玉衣",
-                "level": 100
+                "level": 100,
+                "source": "item120"
             },
             {
                 "id": "gear-kaijia-06",
                 "img": "gear-kaijia-06.webp",
                 "name": "金蚕披风",
-                "level": 110
+                "level": 110,
+                "source": "item120"
             },
             {
                 "id": "gear-kaijia-07",
                 "img": "gear-kaijia-07.webp",
                 "name": "乾坤护心甲",
-                "level": 120
+                "level": 120,
+                "source": "item120"
             },
             {
                 "id": "gear-kaijia-08",
                 "img": "gear-kaijia-08.webp",
                 "name": "蝉翼金丝甲",
-                "level": 130
+                "level": 130,
+                "source": "item120"
             },
             {
                 "id": "gear-kaijia-09",
                 "img": "gear-kaijia-09.webp",
                 "name": "金丝鱼鳞甲",
-                "level": 140
+                "level": 140,
+                "source": "item120"
             },
             {
                 "id": "gear-kaijia-10",
                 "img": "gear-kaijia-10.webp",
                 "name": "紫金磐龙甲",
-                "level": 150
+                "level": 150,
+                "source": "item120"
             },
             {
                 "id": "gear-kaijia-11",
                 "img": "gear-kaijia-11.webp",
                 "name": "混元一气甲",
-                "level": 160
+                "level": 160,
+                "source": "item120"
             }
         ],
         "nvyi": [
@@ -210,67 +243,78 @@
                 "id": "gear-nvyi-01",
                 "img": "gear-nvyi-01.webp",
                 "name": "霓裳羽衣",
-                "level": 60
+                "level": 60,
+                "source": "item120"
             },
             {
                 "id": "gear-nvyi-02",
                 "img": "gear-nvyi-02.webp",
                 "name": "流云素裙",
-                "level": 70
+                "level": 70,
+                "source": "item120"
             },
             {
                 "id": "gear-nvyi-03",
                 "img": "gear-nvyi-03.webp",
                 "name": "七宝天衣",
-                "level": 80
+                "level": 80,
+                "source": "item120"
             },
             {
                 "id": "gear-nvyi-04",
                 "img": "gear-nvyi-04.webp",
                 "name": "飞天羽衣",
-                "level": 90
+                "level": 90,
+                "source": "item120"
             },
             {
                 "id": "gear-nvyi-05",
                 "img": "gear-nvyi-05.webp",
                 "name": "穰花翠裙",
-                "level": 100
+                "level": 100,
+                "source": "item120"
             },
             {
                 "id": "gear-nvyi-06",
                 "img": "gear-nvyi-06.webp",
                 "name": "金蚕丝裙",
-                "level": 110
+                "level": 110,
+                "source": "item120"
             },
             {
                 "id": "gear-nvyi-07",
                 "img": "gear-nvyi-07.webp",
                 "name": "紫香金乌裙",
-                "level": 120
+                "level": 120,
+                "source": "item120"
             },
             {
                 "id": "gear-nvyi-08",
                 "img": "gear-nvyi-08.webp",
                 "name": "碧霞彩云衣",
-                "level": 130
+                "level": 130,
+                "source": "item120"
             },
             {
                 "id": "gear-nvyi-09",
                 "img": "gear-nvyi-09.webp",
                 "name": "金丝蝉翼衫",
-                "level": 140
+                "level": 140,
+                "source": "item120"
             },
             {
                 "id": "gear-nvyi-10",
                 "img": "gear-nvyi-10.webp",
                 "name": "五彩凤翅衣",
-                "level": 150
+                "level": 150,
+                "source": "item120"
             },
             {
                 "id": "gear-nvyi-11",
                 "img": "gear-nvyi-11.webp",
                 "name": "鎏金浣月衣",
-                "level": 160
+                "level": 160,
+                "source": "item120"
             }
         ],
         "xiezi": [
@@ -278,67 +322,78 @@
                 "id": "gear-xiezi-01",
                 "img": "gear-xiezi-01.webp",
                 "name": "追星踏月",
-                "level": 60
+                "level": 60,
+                "source": "item120"
             },
             {
                 "id": "gear-xiezi-02",
                 "img": "gear-xiezi-02.webp",
                 "name": "九州履",
-                "level": 70
+                "level": 70,
+                "source": "item120"
             },
             {
                 "id": "gear-xiezi-03",
                 "img": "gear-xiezi-03.webp",
                 "name": "万里追云履",
-                "level": 80
+                "level": 80,
+                "source": "item120"
             },
             {
                 "id": "gear-xiezi-04",
                 "img": "gear-xiezi-04.webp",
                 "name": "踏雪无痕",
-                "level": 90
+                "level": 90,
+                "source": "item120"
             },
             {
                 "id": "gear-xiezi-05",
                 "img": "gear-xiezi-05.webp",
                 "name": "平步青云",
-                "level": 100
+                "level": 100,
+                "source": "item120"
             },
             {
                 "id": "gear-xiezi-06",
                 "img": "gear-xiezi-06.webp",
                 "name": "追云逐电",
-                "level": 110
+                "level": 110,
+                "source": "item120"
             },
             {
                 "id": "gear-xiezi-07",
                 "img": "gear-xiezi-07.webp",
                 "name": "乾坤天罡履",
-                "level": 120
+                "level": 120,
+                "source": "item120"
             },
             {
                 "id": "gear-xiezi-08",
                 "img": "gear-xiezi-08.webp",
                 "name": "七星逐月靴",
-                "level": 130
+                "level": 130,
+                "source": "item120"
             },
             {
                 "id": "gear-xiezi-09",
                 "img": "gear-xiezi-09.webp",
                 "name": "碧霞流云履",
-                "level": 140
+                "level": 140,
+                "source": "item120"
             },
             {
                 "id": "gear-xiezi-10",
                 "img": "gear-xiezi-10.webp",
                 "name": "金丝逐日履",
-                "level": 150
+                "level": 150,
+                "source": "item120"
             },
             {
                 "id": "gear-xiezi-11",
                 "img": "gear-xiezi-11.webp",
                 "name": "辟尘分光履",
-                "level": 160
+                "level": 160,
+                "source": "item120"
             }
         ],
         "xianglian": [
@@ -346,85 +401,99 @@
                 "id": "gear-xianglian-01",
                 "img": "gear-xianglian-01.webp",
                 "name": "风月宝链",
-                "level": 60
+                "level": 60,
+                "source": "item120"
             },
             {
                 "id": "gear-xianglian-02",
                 "img": "gear-xianglian-02.webp",
                 "name": "八卦坠",
-                "level": 60
+                "level": 60,
+                "source": "item120"
             },
             {
                 "id": "gear-xianglian-03",
                 "img": "gear-xianglian-03.webp",
                 "name": "碧水青龙",
-                "level": 70
+                "level": 70,
+                "source": "item120"
             },
             {
                 "id": "gear-xianglian-04",
                 "img": "gear-xianglian-04.webp",
                 "name": "鬼牙攫魂",
-                "level": 70
+                "level": 70,
+                "source": "item120"
             },
             {
                 "id": "gear-xianglian-05",
                 "img": "gear-xianglian-05.webp",
                 "name": "万里卷云",
-                "level": 80
+                "level": 80,
+                "source": "item120"
             },
             {
                 "id": "gear-xianglian-06",
                 "img": "gear-xianglian-06.webp",
                 "name": "疾风之铃",
-                "level": 80
+                "level": 80,
+                "source": "item120"
             },
             {
                 "id": "gear-xianglian-07",
                 "img": "gear-xianglian-07.webp",
                 "name": "七彩玲珑",
-                "level": 90
+                "level": 90,
+                "source": "item120"
             },
             {
                 "id": "gear-xianglian-08",
                 "img": "gear-xianglian-08.webp",
                 "name": "黄玉琉佩",
-                "level": 100
+                "level": 100,
+                "source": "item120"
             },
             {
                 "id": "gear-xianglian-09",
                 "img": "gear-xianglian-09.webp",
                 "name": "鸾飞凤舞",
-                "level": 110
+                "level": 110,
+                "source": "item120"
             },
             {
                 "id": "gear-xianglian-10",
                 "img": "gear-xianglian-10.webp",
                 "name": "衔珠金凤佩",
-                "level": 120
+                "level": 120,
+                "source": "item120"
             },
             {
                 "id": "gear-xianglian-11",
                 "img": "gear-xianglian-11.webp",
                 "name": "七璜珠玉佩",
-                "level": 130
+                "level": 130,
+                "source": "item120"
             },
             {
                 "id": "gear-xianglian-12",
                 "img": "gear-xianglian-12.webp",
                 "name": "鎏金点翠佩",
-                "level": 140
+                "level": 140,
+                "source": "item120"
             },
             {
                 "id": "gear-xianglian-13",
                 "img": "gear-xianglian-13.webp",
                 "name": "紫金碧玺佩",
-                "level": 150
+                "level": 150,
+                "source": "item120"
             },
             {
                 "id": "gear-xianglian-14",
                 "img": "gear-xianglian-14.webp",
                 "name": "落霞陨星坠",
-                "level": 160
+                "level": 160,
+                "source": "item120"
             }
         ],
         "yaodai": [
@@ -432,85 +501,99 @@
                 "id": "gear-yaodai-01",
                 "img": "gear-yaodai-01.webp",
                 "name": "攫魂铃",
-                "level": 60
+                "level": 60,
+                "source": "item120"
             },
             {
                 "id": "gear-yaodai-02",
                 "img": "gear-yaodai-02.webp",
                 "name": "双魂引",
-                "level": 60
+                "level": 60,
+                "source": "item120"
             },
             {
                 "id": "gear-yaodai-03",
                 "img": "gear-yaodai-03.webp",
                 "name": "兽王腰带",
-                "level": 70
+                "level": 70,
+                "source": "item120"
             },
             {
                 "id": "gear-yaodai-04",
                 "img": "gear-yaodai-04.webp",
                 "name": "百窜云",
-                "level": 70
+                "level": 70,
+                "source": "item120"
             },
             {
                 "id": "gear-yaodai-05",
                 "img": "gear-yaodai-05.webp",
                 "name": "八卦锻带",
-                "level": 80
+                "level": 80,
+                "source": "item120"
             },
             {
                 "id": "gear-yaodai-06",
                 "img": "gear-yaodai-06.webp",
                 "name": "圣王坠",
-                "level": 80
+                "level": 80,
+                "source": "item120"
             },
             {
                 "id": "gear-yaodai-07",
                 "img": "gear-yaodai-07.webp",
                 "name": "幻彩玉带",
-                "level": 90
+                "level": 90,
+                "source": "item120"
             },
             {
                 "id": "gear-yaodai-08",
                 "img": "gear-yaodai-08.webp",
                 "name": "珠翠玉环",
-                "level": 100
+                "level": 100,
+                "source": "item120"
             },
             {
                 "id": "gear-yaodai-09",
                 "img": "gear-yaodai-09.webp",
                 "name": "金蟾含珠",
-                "level": 110
+                "level": 110,
+                "source": "item120"
             },
             {
                 "id": "gear-yaodai-10",
                 "img": "gear-yaodai-10.webp",
                 "name": "乾坤紫玉带",
-                "level": 120
+                "level": 120,
+                "source": "item120"
             },
             {
                 "id": "gear-yaodai-11",
                 "img": "gear-yaodai-11.webp",
                 "name": "琉璃寒玉带",
-                "level": 130
+                "level": 130,
+                "source": "item120"
             },
             {
                 "id": "gear-yaodai-12",
                 "img": "gear-yaodai-12.webp",
                 "name": "蝉翼鱼佩带",
-                "level": 140
+                "level": 140,
+                "source": "item120"
             },
             {
                 "id": "gear-yaodai-13",
                 "img": "gear-yaodai-13.webp",
                 "name": "磐龙凤翔带",
-                "level": 150
+                "level": 150,
+                "source": "item120"
             },
             {
                 "id": "gear-yaodai-14",
                 "img": "gear-yaodai-14.webp",
                 "name": "紫霄云芒带",
-                "level": 160
+                "level": 160,
+                "source": "item120"
             }
         ]
     }

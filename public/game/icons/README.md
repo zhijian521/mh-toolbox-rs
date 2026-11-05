@@ -40,7 +40,7 @@ icons/
 | `story/`   | 剧情技能 | 11   | 「剧情技能」目录一页                                                                 |
 | `active/`  | 装备特技 | 69   | 「特技特效」面板六页（12×5 + 9）                                                     |
 | `school/`  | 门派技能 | 147  | 「师门技能」面板，21 家门派 × 7 项                                                   |
-| `gear/`    | 装备图标 | 83   | 百科典藏「装备」页 60 级以上，7 个部位，见 `../data/gear-icons.json`                 |
+| `gear/`    | 装备图标 | 83   | **客户端 `item120` 大图**，7 部位 × 60~160，见 `../data/gear-icons.json`             |
 | `weapon/`  | 武器图标 | 229  | 百科典藏「武器」页 60 级以上，21 组（双巨斧拆乾/坤），见 `../data/weapon-icons.json` |
 | `lingshi/` | 灵饰图标 | 20   | **客户端 `item120` 大图**，4 部位 × 60~140，见 `../data/lingshi-icons.json`          |
 | `item/`    | 速记物品 | 59   | 摆摊掉落物（38 件有牌价 + 21 件随行就市），见 `../data/quick-items.json`             |
@@ -68,7 +68,7 @@ icons/
 
 - `skill/` `story/` `active/` → `../data/icons.json`（`slice.py` 生成）
 - `school/` → `../data/school-icons.json`（`slice-school.py` 生成）
-- `gear/` → `../data/gear-icons.json`（`slice-gear.py` 生成）
+- `gear/` → `../data/gear-icons.json`（`import-slot-icons.py` 写图与 `source`，名字表仍是 `slice-gear.py` 的）
 - `weapon/` → `../data/weapon-icons.json`（`slice-weapon.py` 生成）
 - `lingshi/` → `../data/lingshi-icons.json`（`import-client-icons.py` 生成）
 - `item/` → `../data/quick-items.json` 的 `file` 字段（旧系统带过来的图，不是切图产出）
@@ -114,15 +114,27 @@ icons/
 ```bash
 python tools/game-icons/slice.py             # 生活 / 剧情 / 特技 → skill/ story/ active/ + icons.json
 python tools/game-icons/slice-school.py      # 门派技能 → school/ + school-icons.json
-python tools/game-icons/slice-gear.py        # 装备 → gear/ + gear-icons.json
+python tools/game-icons/slice-gear.py        # 装备（名字与顺序的基准）→ gear-icons.json
 python tools/game-icons/slice-weapon.py      # 武器 → weapon/ + weapon-icons.json
 python tools/game-icons/import-client-icons.py # 灵饰 + 玉魄（客户端大图）→ lingshi/ yupo/
+python tools/game-icons/import-slot-icons.py   # 装备 + 武器（客户端大图）→ gear/ weapon/ + source
 ```
 
-前四条从截图切，最后一条**不从截图来**：它读提取工程的 `output/names.csv`，按物品名的
-`item120`（大图）那一档取 PNG，裁掉透明边、最长边缩到 108、居中放进 120×120 画布再存 webp。
-`--src` 换提取目录，`--only yupo` 只跑玉魄，`--check` 只报告不写盘（会告诉你哪几件缺大图、
-退到了 `item50`）。
+前四条从截图切，后两条**不从截图来**。
+
+`import-client-icons.py` 读提取工程的 `output/names.csv`，按物品名取 `item120`（大图）那一档
+的 PNG；`--src` 换提取目录，`--only yupo` 只跑玉魄，`--check` 只报告不写盘（会告诉你哪几件
+缺大图、退到了 `item50`）。
+
+`import-slot-icons.py` 处理**装备 83 件 + 武器 229 件**，它**不按名字取图**——同名物品在客户端
+里不止一个（`如意` 同时是环圈、法宝、道具），按名字会静默抓到别的道具。改为按**物品编号段**
+定位：武器每组用「候选 id − 偏移」投票求起始编号（票数不过半直接退出），装备限定在
+`2000–2999` 段内再用相邻锚点收敛；最后还有一道「解析出的编号必须沿清单递增」的断言。
+它只覆写图片与清单里的 `source`，**不改 id / 名称 / 等级 / 顺序**——那些是 `slice-gear.py`
+与 `slice-weapon.py` 的产物。`--only gear|weapon` 分组跑，`--check` 只报覆盖率。
+
+**顺序是先 `slice-*` 再 `import-slot-icons`**：`slice-gear.py` 会整份重写清单（删掉 `source`、
+把 `generated-by` 改回自己），单独跑它等于把图和清单一起打回截图那版。
 
 `slice.py` 一次写三个目录（`skill/` `story/` `active/`），因为那三批来自同一个 4×3 卡片
 面板、共用一份清单；它收的参数是**图标的根**（`public/game/icons`），不是某一类的目录。
@@ -166,10 +178,10 @@ python tools/game-icons/import-client-icons.py # 灵饰 + 玉魄（客户端大�
 - `.webp`，有损 `quality=92`（101 个图标合计 406KB；无损要 957KB，而图标最大只按
   48px 显示，肉眼无差。门派技能那 147 个纹样更密，合计 395KB）
 - 边长 **96**：界面按 48px 显示也够 2 倍屏，再大只是浪费体积
-- **`lingshi/` 是 120×120 的例外**（2026-11-05）：那 20 张是客户端大图的原尺寸归一到
-  120（最长边 108、居中），缩到 96 等于把大图又丢一档，而 40px 的槽位在 2 倍屏要 80px，
-  120 留了一次放大余量；20 张合计约 176KB，不值得为 40KB 再缩。
-  **同一类目内部仍然同尺寸**，这条例没破
+- **`gear/` `lingshi/` `yupo/` 是 120×120 的例外**（`gear/` 2026-11-05 第 120 批起）：这三批是
+  客户端大图的原尺寸归一到 120（最长边 108、居中），缩到 96 等于把大图又丢一档，而 40px 的
+  槽位在 2 倍屏要 80px，120 留了一次放大余量；装备 83 张合计约 538KB、灵饰 20 张约 176KB，
+  不值得为省几十 KB 再缩。**同一类目内部仍然同尺寸**，这条例没破
 - **图标本体铺满画布，不垫背景色**：早先垫了一圈游戏卡片底的米黄（`(230,196,155)`），
   看着像「画在游戏卡片上」，实际用起来就是图标外面套了一圈黄边——底色该由用它的地方决定
 - **也不要「补成正方形」**：门派技能本体是 60×59，补那 1px 若填黑，就成了上下各一条黑边，
@@ -177,24 +189,27 @@ python tools/game-icons/import-client-icons.py # 灵饰 + 玉魄（客户端大�
   （`lingshi/` 例外：那批是**透明**画布上居中，补出来的边是透明的，不会读成截断）
 - **同一类目的图标必须同尺寸**：一排图标里混着 88 和 96，基线就对不齐
 
-## 装备 / 武器图标（`gear/` `weapon/`）为什么带卡片底
+## 武器图标（`weapon/`）为什么还带卡片底
 
-`skill-` / `story-` / `active-` / `school-skill-` 那四批是**抠掉底色**的（图形铺满画布），
-`gear/` `weapon/` 这两批不是——它们每一张都是一块米黄小方片。
+`skill-` / `story-` / `active-` / `school-skill-` / `gear-` / `ling-` / `yupo-` 这几批都是
+**透明底**，`weapon/` 还是老样子——每一张都是一块米黄小方片。
 
-不是偷懒，是抠不了：装备图标本身就画在游戏卡片上，图形与卡片底**同色系**。
+`weapon/` 停在截图上不是因为抠图没抠成，是**客户端那边还没下全**：229 件里 199 件有 `item120`
+大图，剩下 30 件（各组 90 级的第 2/3 款、部分 150 级、双巨斧 60/70）本地资源里没有。
+同目录里一半透明一半带底，比整批带底更难看，所以等齐了再整批换——`import-slot-icons.py`
+已经支持 `--only weapon`，缺的条目会记成 `source: shot`。
+
+至于**为什么不能在这批截图上抠**：装备/武器图标本来就画在游戏卡片上，图形与卡片底**同色系**。
 实测白衣 `(240,240,235)` 与卡片底 `(243,222,192)` 的曼哈顿色差只有 64，
 而卡片底自身在格子里的渐变跨度就有 44——两者分不开。试过 flood fill（从四边连通填充）
 加腐蚀去堵轮廓缺口，结果是女衣、项链那几页必定出现米色大洞（白色装备被当成背景挖掉），
 比带底更难看。
 
-所以这两批**只做裁切、不抠底**，取景都按「格子边内缩 2px → 裁 90×90 → 缩到 96×96」，
-**两批用完全相同的规格**。留白多少由游戏原图决定，不替它决定。
+所以这一批**只做裁切、不抠底**，取景按「格子边内缩 2px → 裁 90×90 → 缩到 96×96」。
+留白多少由游戏原图决定，不替它决定。
 
-`lingshi/` 曾经也是这一套，2026-11-05 起**已经整批换成客户端大图、透明底**（第 116 批）——
-它不是「抠图抠成功了」，而是换了一个本来就没有卡片底的来源。**`gear/` `weapon/` 同理还能换**：
-客户端里这两类也有 `item120`，写个同构的导入脚本即可（`import-client-icons.py` 是模板），
-**不要再回到截图上抠**。
+`lingshi/` 曾经也是这一套，2026-11-05 整批换成客户端大图（第 116 批）；`gear/` 同一批
+83 件全齐，第 120 批换完。两次都不是「抠图抠成功了」，而是换了一个本来就没有卡片底的来源。
 
 ### 裁得对不对，看四个格子的交汇处
 
@@ -216,7 +231,7 @@ python tools/game-icons/import-client-icons.py # 灵饰 + 玉魄（客户端大�
 （间隙位置与图标无关），取景改成固定内缩，两处都不再依赖图标长什么样。
 
 要透明版就**换素材来源**（游戏资源包里的图标原图），不要在这批截图上继续抠——`lingshi/`
-已经这么换过一回了，`gear/` `weapon/` 还停在截图上。
+与 `gear/` 都已经这么换过两回了，只剩 `weapon/` 停在截图上，等客户端补完那 30 张。
 
 `gear-icons.json` 目前**没有任何测试盯着**（另两份清单有 `game-icons.test.ts` 比对名字）。
 数量与顺序的保障眼下靠脚本自己：`slice-gear.py` 里 `NAMES` 与裁出的张数不一致会直接报错退出。

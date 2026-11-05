@@ -9,7 +9,7 @@
 | -------------------- | --------------------------------------------------- | ---------------------------------------------------------- |
 | `icons.json`         | 图标清单（生活 / 剧情 / 特技，文件序号 → 中文名）   | `tools/game-icons/slice.py` 生成，**不手改**               |
 | `school-icons.json`  | 图标清单（门派技能 147，按门派分组）                | `tools/game-icons/slice-school.py` 生成，**不手改**        |
-| `gear-icons.json`    | 图标清单（装备 7 个部位共 83 张，按部位分组）       | `tools/game-icons/slice-gear.py` 生成，**不手改**          |
+| `gear-icons.json`    | 图标清单（装备 7 个部位共 83 张，按部位分组）       | `tools/game-icons/import-slot-icons.py` 生成，**不手改**   |
 | `weapon-icons.json`  | 图标清单（武器 21 组共 229 张，按种类分组）         | `tools/game-icons/slice-weapon.py` 生成，**不手改**        |
 | `lingshi-icons.json` | 图标清单（灵饰 4 部位共 20 张，按部位分组）         | `tools/game-icons/import-client-icons.py` 生成，**不手改** |
 | `schools.json`       | 21 个门派 + 每家的七项门派技能 + 等级上限           | 手改（游戏加门派 / 改名时）                                |
@@ -40,10 +40,16 @@
 
 ```json
 {
-    "generated-by": "tools/game-icons/slice-gear.py",
+    "generated-by": "tools/game-icons/import-slot-icons.py",
     "groups": {
         "toukui": [
-            { "id": "gear-toukui-01", "img": "gear-toukui-01.webp", "name": "水晶帽", "level": 60 }
+            {
+                "id": "gear-toukui-01",
+                "img": "gear-toukui-01.webp",
+                "name": "水晶帽",
+                "level": 60,
+                "source": "item120"
+            }
         ]
     }
 }
@@ -59,7 +65,12 @@
 - 名称抄自官网防具五页（`xyq.163.com/introduce/dj005.html` 及 `dj005_2~5`），只收 60 级以上。
   顺序用图像比对验证过：把 83 张截图与官网 131 张图标逐格比，头盔第 1~10 个连续命中
   60/70/80/90/100/110/120/130/140/150，首尾两端（60 水晶帽、160 浑天玄火盔）另做了目视复核。
-- 图标**自带游戏卡片底**（米黄），不做透明抠图——原因见 `../icons/README.md`。
+- **`generated-by` 记的是「图片是谁写的」**（第 120 批起换成客户端 `item120` 大图，
+  120×120 透明底）。**id、名称、等级与顺序仍由 `slice-gear.py` 的 `NAMES` 决定**——
+  `import-slot-icons.py` 只覆写图片文件与 `source` 字段，不动前三者，也不重排分组。
+- **`source` 是混用状态的开关**：`item120` = 客户端大图；`shot` = 客户端还没下载下来，
+  保留原来的 96×96 截图（带米黄卡片底）。现在 83 条**全是** `item120`；哪天客户端资源被
+  覆盖丢了图，重跑会退成 `shot`，而不是留一张旧图却写着 `item120`。
 
 ## weapon-icons.json：武器的图标清单
 
