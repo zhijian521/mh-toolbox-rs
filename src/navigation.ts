@@ -2,18 +2,20 @@ import type { RouteComponent } from 'vue-router';
 import type { IconName } from './components/icons';
 
 /**
- * 六个页面**一律懒加载**（与 `tools.ts` 的捉鬼页、`router.ts` 的 `/dev` 同一个写法）。
+ * 七个页面**一律懒加载**（与 `tools.ts` 的捉鬼页、`router.ts` 的 `/dev` 同一个写法）。
  *
- * 静态 import 会让六页连同它们专用的组件全压进第一屏包——总览页一套（统计条、七
+ * 静态 import 会让这七页连同它们专用的组件全压进第一屏包——总览页一套（统计条、七
  * 日柱状图、各号卡）、角色页一套（卡、编辑器、五个分区编辑器、演示数据）、物价页一套
- * （卡、走势图、四个弹窗）、收益页一套。左栏只读下面的 `label` / `icon` / `path`
- * （见 `App.vue` 的模板），从不实例化 `view`，所以「进哪页才下哪页」在这里没有代价。
+ * （卡、走势图、四个弹窗）、收益页一套、账号页一套（两本账、快捷入口、记录表）。
+ * 左栏只读下面的 `label` / `icon` / `path`（见 `App.vue` 的模板），从不实例化 `view`，
+ * 所以「进哪页才下哪页」在这里没有代价。
  *
  * 显式取 `.default`：`RouteComponent` 的联合类型不认模块命名空间对象，少这一层就要在
  * `component` 上加断言。
  */
 const CharactersView = () => import('./views/CharactersView.vue').then((page) => page.default);
 const IncomeView = () => import('./views/income/IncomeView.vue').then((page) => page.default);
+const AccountsView = () => import('./views/accounts/AccountsView.vue').then((page) => page.default);
 const OverviewView = () => import('./views/overview/OverviewView.vue').then((page) => page.default);
 const PricesView = () => import('./views/prices/PricesView.vue').then((page) => page.default);
 const SettingsView = () => import('./views/SettingsView.vue').then((page) => page.default);
@@ -51,7 +53,7 @@ export const NAV_ITEMS: NavItem[] = [
         path: '/characters',
         view: CharactersView,
     },
-    { key: 'accounts', label: '账号', icon: 'accounts', path: '/accounts', view: null },
+    { key: 'accounts', label: '账号', icon: 'accounts', path: '/accounts', view: AccountsView },
     { key: 'goals', label: '目标', icon: 'goals', path: '/goals', view: null },
     // 工具排在「目标」与「设置」之间：它是干活的入口，不是资料页；设置永远压在末尾。
     // 左栏到这里为止：具体某件工具（如捉鬼）是 `/tools` 的子页，不进导航——

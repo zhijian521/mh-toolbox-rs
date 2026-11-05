@@ -147,6 +147,32 @@ export async function incomeSave<T>(payload: T): Promise<boolean> {
     }
 }
 
+/* ---------- 账号账本（第 112 批） ----------
+ * 与收益账不同，这里只有一份数据：账号页没有「配套小表」，筛选与汇总全在前端算。
+ * 所以载荷就是一个数组，不必再包一层信封——多一层只会让「读到 null」有第二种解释。
+ */
+export async function accountLoad<T>(): Promise<T[] | null> {
+    if (!hasTauri) return null;
+    try {
+        return await invoke<T[]>('account_load');
+    } catch (error) {
+        console.error('读取账号账本失败', error);
+        return null;
+    }
+}
+
+/** 整份写回。返回 false 表示没写进去——记一笔的每一次提交都走这里。 */
+export async function accountSave<T>(entries: T[]): Promise<boolean> {
+    if (!hasTauri) return false;
+    try {
+        await invoke('account_save', { entries });
+        return true;
+    } catch (error) {
+        console.error('写入账号账本失败', error);
+        return false;
+    }
+}
+
 /* ---------- 角色名册（同一套数据层，JSON 列存整条） ----------
  * 四个函数与物价那组一一对应，理由见上面那一段。返回 `null` / `false` 一律是
  * 「没有 Tauri 宿主」或「调用失败」，不在这里抛错——**怎么处置由调用方定**：

@@ -263,7 +263,9 @@ pub fn run() {
         store::characters_load,
         store::characters_save,
         store::income_load,
-        store::income_save
+        store::income_save,
+        store::account_load,
+        store::account_save
     ]);
     #[cfg(not(windows))]
     let builder = builder.invoke_handler(tauri::generate_handler![
@@ -277,7 +279,9 @@ pub fn run() {
         store::characters_load,
         store::characters_save,
         store::income_load,
-        store::income_save
+        store::income_save,
+        store::account_load,
+        store::account_save
     ]);
 
     let started = builder

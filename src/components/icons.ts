@@ -25,12 +25,16 @@ import {
     IconAdjustmentsHorizontal,
     IconArchive,
     IconArrowLeft,
+    IconBolt,
+    IconBook,
     IconBrandGithubFilled,
     IconCash,
     IconCheck,
     IconChevronDown,
     IconChevronRight,
+    IconCoins,
     IconCopy,
+    IconCreditCard,
     IconDownload,
     IconFlag,
     IconFlask,
@@ -40,6 +44,7 @@ import {
     IconMapPin,
     IconMinus,
     IconMoon,
+    IconPaw,
     IconPencil,
     IconPlayerPlay,
     IconPlayerStop,
@@ -47,9 +52,11 @@ import {
     IconSearch,
     IconSquare,
     IconSun,
+    IconSword,
     IconTag,
     IconTool,
     IconTrash,
+    IconTrendingUp,
     IconUpload,
     IconUsers,
     IconWallet,
@@ -126,6 +133,24 @@ const ICON_META = {
     info: { glyph: IconInfoCircle, label: '提示', group: 'action' },
     'chevron-down': { glyph: IconChevronDown, label: '下拉', group: 'action' },
     'chevron-right': { glyph: IconChevronRight, label: '右折', group: 'action' },
+
+    /* ---------- 账目分类（账号页的快捷入口） ----------
+     *
+     * 这七枚不是「动作」而是**东西**：账号页的快捷记账是「我买了什么」，
+     * 一眼认出是装备还是召唤兽，比认出「新增」更重要。
+     *
+     * 都选轮廓清楚、笔画少的：14px 下 `sword` 的斜刃与 `paw` 的四个趾垫仍分得开，
+     * 换成 `shield`（内部分层多）或 `cat`（胡须是细线）就糊了。 */
+    sword: { glyph: IconSword, label: '装备', group: 'action' },
+    paw: { glyph: IconPaw, label: '召唤兽', group: 'action' },
+    card: { glyph: IconCreditCard, label: '点卡', group: 'action' },
+    coins: { glyph: IconCoins, label: '游戏币', group: 'action' },
+    growth: { glyph: IconTrendingUp, label: '养成', group: 'action' },
+    // 闪电＝「日常产出」，与收益页的「打金」同义；用钱袋会与 `coins` 撞。
+    bolt: { glyph: IconBolt, label: '产出', group: 'action' },
+    // 账本：兜底的「其他收支」。这一枚与左栏「收益」用的 `IconCash` 不同——
+    // 那一个是钱，这一个是一本记着钱的册子。
+    ledger: { glyph: IconBook, label: '其他', group: 'action' },
 
     /* ---------- 外壳 ---------- */
     // 太阳/月亮只表示「点了会变成什么」，不表示当前状态——按钮说的是下一步。

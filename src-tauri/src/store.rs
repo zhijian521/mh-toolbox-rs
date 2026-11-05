@@ -40,9 +40,10 @@ pub(crate) const DB_FILE: &str = "mh-toolbox.db";
 /// 的判断永远不成立——表缺列且无法自愈。
 ///
 /// **v2（2026-11-04，第 97 批）**：加 `income_entries` 与 `quick_prices` 两张表。
+/// **v3（2026-11-05，第 112 批）**：加 `account_entries` 一张表。
 /// 只加不改，旧版的 SQL 不认识它们、也不会碰；但版本号仍要 +1——这是「改表就要 +1」
 /// 的规矩，代价是回退到旧 exe 时它会拒绝打开（`AGENTS.md` 里写明升级是单向的）。
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 
 /// 一条价格记录。字段名与前端 `PricePoint` 一一对应（`serde` 自动转 camelCase）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,6 +122,36 @@ pub struct QuickPrice {
 pub struct IncomePayload {
     pub entries: Vec<IncomeEntry>,
     pub prices: Vec<QuickPrice>,
+}
+
+/// 一条账号账本记录（第 112 批）。
+///
+/// 与 `IncomeEntry` 是**两张表而不是加列**：收益页记的是「打金产出」（梦幻币、按物品），
+/// 账号页记的是「钱包进出」（人民币与梦幻币、按分类与渠道）。共表就要在每一行上猜
+/// 「这行的 amount 是万还是元、有没有渠道」，而这两个判断漏一次就会把汇总算错。
+///
+/// `amount` 的单位**跟着 `currency` 走**：`rmb` 按元、`cash` 按万（原值，与收益页同口径：
+/// 存 46000 而不是 4.6）。两本账从不相加，所以不需要统一成一种单位；
+/// 真要统一，反而会出现「1 元 = 1 万」这种离谱的中间态。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountEntry {
+    pub id: String,
+    /// `YYYY-MM-DD`。
+    pub date: String,
+    /// 关联的角色 id；空串表示「未指定角色」。
+    pub character_id: String,
+    /// `income` / `expense`。
+    pub kind: String,
+    /// `rmb`（人民币 · 元）/ `cash`（梦幻币 · 万）。
+    pub currency: String,
+    /// 分类，取值见前端 `accounts.ts` 的 `ACCOUNT_CATEGORIES`。
+    pub category: String,
+    /// 交易渠道，取值见前端 `CHANNELS`。
+    pub channel: String,
+    pub amount: f64,
+    pub note: String,
+    pub created_at: i64,
 }
 
 /* ======================================================================
@@ -256,7 +287,26 @@ fn init(conn: &Connection) -> Result<(), String> {
         CREATE TABLE IF NOT EXISTS quick_prices (
             item_id INTEGER PRIMARY KEY,
             price   REAL NOT NULL
-        );",
+        );
+
+        /* 账号账本：一行一笔，与 `income_entries` 分开（理由见 `AccountEntry` 的注释）。
+         * `currency` 与 `category` / `channel` 都是低位数的枚举串，直接存字面量——
+         * 存数字代号就要在两边各维护一张映射表，而对账时人是拿 sqlite 直接看库的。 */
+        CREATE TABLE IF NOT EXISTS account_entries (
+            id           TEXT PRIMARY KEY,
+            date         TEXT NOT NULL,
+            character_id TEXT NOT NULL,
+            kind         TEXT NOT NULL,
+            currency     TEXT NOT NULL,
+            category     TEXT NOT NULL,
+            channel      TEXT NOT NULL,
+            amount       REAL NOT NULL,
+            note         TEXT NOT NULL,
+            created_at   INTEGER NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_account_entries_date
+            ON account_entries(date DESC, created_at DESC);",
     )
     .map_err(|error| format!("建表失败：{error}"))?;
 
@@ -586,7 +636,8 @@ pub(crate) fn replace_all(
     characters: &[serde_json::Value],
     prices: &[PriceItem],
     income: &IncomePayload,
-) -> Result<(i64, i64, i64), String> {
+    accounts: &[AccountEntry],
+) -> Result<(i64, i64, i64, i64), String> {
     let tx = conn
         .transaction()
         .map_err(|error| format!("开事务失败：{error}"))?;
@@ -601,6 +652,8 @@ pub(crate) fn replace_all(
         .map_err(|error| format!("清空收益失败：{error}"))?;
     tx.execute("DELETE FROM quick_prices", [])
         .map_err(|error| format!("清空单价失败：{error}"))?;
+    tx.execute("DELETE FROM account_entries", [])
+        .map_err(|error| format!("清空账号账本失败：{error}"))?;
 
     let mut written_characters: i64 = 0;
     for (index, character) in characters.iter().enumerate() {
@@ -623,8 +676,19 @@ pub(crate) fn replace_all(
         insert_quick_price(&tx, price)?;
     }
 
+    let mut written_accounts: i64 = 0;
+    for entry in accounts {
+        insert_account_entry(&tx, entry)?;
+        written_accounts += 1;
+    }
+
     tx.commit().map_err(|error| format!("提交失败：{error}"))?;
-    Ok((written_characters, written_items, written_entries))
+    Ok((
+        written_characters,
+        written_items,
+        written_entries,
+        written_accounts,
+    ))
 }
 
 /* ======================================================================
@@ -747,6 +811,95 @@ fn insert_quick_price(conn: &Connection, price: &QuickPrice) -> Result<(), Strin
 }
 
 /* ======================================================================
+ * 账号账本（第 112 批）
+ *
+ * 只有一对命令、没有配套的小表：账号页的筛选与汇总全在前端算（记录量级是每年几百条），
+ * 库里只负责「原样存、原样取」。这与收益页不同——那边要 `quick_prices` 一起读，
+ * 因为速记格要显示单价；这里没有第二个东西，多一条命令只会多一处可能忘了注册。
+ * ==================================================================== */
+
+#[tauri::command]
+pub fn account_load(app: AppHandle) -> Result<Vec<AccountEntry>, String> {
+    let conn = open(&app)?;
+    load_accounts(&conn)
+}
+
+/// `account_load` 的本体。与 `load_income` 同一个理由拆出来：测试能对着临时目录跑。
+fn load_accounts(conn: &Connection) -> Result<Vec<AccountEntry>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, date, character_id, kind, currency, category, channel, amount, note, \
+             created_at FROM account_entries ORDER BY date DESC, created_at DESC",
+        )
+        .map_err(|error| format!("准备账号查询失败：{error}"))?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(AccountEntry {
+                id: row.get(0)?,
+                date: row.get(1)?,
+                character_id: row.get(2)?,
+                kind: row.get(3)?,
+                currency: row.get(4)?,
+                category: row.get(5)?,
+                channel: row.get(6)?,
+                amount: row.get(7)?,
+                note: row.get(8)?,
+                created_at: row.get(9)?,
+            })
+        })
+        .map_err(|error| format!("读账号账本失败：{error}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("读账号账本失败：{error}"))?;
+    Ok(rows)
+}
+
+#[tauri::command]
+pub fn account_save(app: AppHandle, entries: Vec<AccountEntry>) -> Result<(), String> {
+    let mut conn = open(&app)?;
+    save_accounts(&mut conn, &entries)
+}
+
+/// 整份写回：清空 + 逐条插入，**一个事务**。
+///
+/// 与 `save_income` 同一套：整份写的代价是每次几毫秒，换来的是「不会出现界面有、库里没有」。
+/// 账号页一次记一笔、一天记几十笔的量级，这点开销不值得用丢账去换。
+fn save_accounts(conn: &mut Connection, entries: &[AccountEntry]) -> Result<(), String> {
+    let tx = conn
+        .transaction()
+        .map_err(|error| format!("开事务失败：{error}"))?;
+    tx.execute("DELETE FROM account_entries", [])
+        .map_err(|error| format!("清空账号账本失败：{error}"))?;
+    for entry in entries {
+        insert_account_entry(&tx, entry)?;
+    }
+    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
+    Ok(())
+}
+
+/// 写一条账号记录。`INSERT OR REPLACE`：同一 id 再写一次是覆盖（与收益、名册同语义）。
+fn insert_account_entry(conn: &Connection, entry: &AccountEntry) -> Result<(), String> {
+    conn.execute(
+        "INSERT OR REPLACE INTO account_entries
+            (id, date, character_id, kind, currency, category, channel, amount, note, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![
+            entry.id,
+            entry.date,
+            entry.character_id,
+            entry.kind,
+            entry.currency,
+            entry.category,
+            entry.channel,
+            entry.amount,
+            entry.note,
+            entry.created_at,
+        ],
+    )
+    .map_err(|error| format!("写账号记录失败：{error}"))?;
+    Ok(())
+}
+
+/* ======================================================================
  * 清空：给「设置 → 数据 → 清除」用，也给导入前那一手用（导入 = 整体替换）
  * ==================================================================== */
 
@@ -765,7 +918,7 @@ fn insert_quick_price(conn: &Connection, price: &QuickPrice) -> Result<(), Strin
 ///
 /// **收益与单价一起清**：用户点「清除全部数据」时想的是「回到刚装好那样」，
 /// 留下收益账比留下物价更糟——那些记录还指着已经被清掉的角色。
-pub(crate) fn clear_all(app: &AppHandle) -> Result<(i64, i64, i64), String> {
+pub(crate) fn clear_all(app: &AppHandle) -> Result<(i64, i64, i64, i64), String> {
     let mut conn = open(app)?;
     clear_records(&mut conn)
 }
@@ -774,7 +927,7 @@ pub(crate) fn clear_all(app: &AppHandle) -> Result<(i64, i64, i64), String> {
 /// **能对着临时目录跑的那一半**留在这里，`AppHandle` 只留在薄薄的外壳上。
 ///
 /// 于是「清空之后 `meta` 还在」这条设计可以写成测试，而不是只写在注释里。
-fn clear_records(conn: &mut Connection) -> Result<(i64, i64, i64), String> {
+fn clear_records(conn: &mut Connection) -> Result<(i64, i64, i64, i64), String> {
     let tx = conn
         .transaction()
         .map_err(|error| format!("开事务失败：{error}"))?;
@@ -795,12 +948,20 @@ fn clear_records(conn: &mut Connection) -> Result<(i64, i64, i64), String> {
         .map_err(|error| format!("清空收益失败：{error}"))?;
     tx.execute("DELETE FROM quick_prices", [])
         .map_err(|error| format!("清空单价失败：{error}"))?;
+    let accounts = tx
+        .execute("DELETE FROM account_entries", [])
+        .map_err(|error| format!("清空账号账本失败：{error}"))?;
 
     /* 这里**故意没有** `DELETE FROM meta`。`meta` 存的是关于库的状态而不是账本本身：
      * `schemaVersion`（删了 `init` 会补回「当前版本」，没有意义），以及将来任何
      * 「这件事做过没有」的标记（删了就等于让它重做一遍）。 */
     tx.commit().map_err(|error| format!("提交失败：{error}"))?;
-    Ok((characters as i64, items as i64, entries as i64))
+    Ok((
+        characters as i64,
+        items as i64,
+        entries as i64,
+        accounts as i64,
+    ))
 }
 
 /* ======================================================================

@@ -40,7 +40,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::store::{self, IncomeEntry, IncomePayload, PriceItem, QuickPrice};
+use crate::store::{self, AccountEntry, IncomeEntry, IncomePayload, PriceItem, QuickPrice};
 
 /// 信封格式版本。**改字段含义才 +1**，加一个可选字段不用动它。
 ///
@@ -103,6 +103,12 @@ struct BackupFile {
     income: Vec<IncomeEntry>,
     #[serde(default)]
     quick_prices: Vec<QuickPrice>,
+    /// 账号账本（第 112 批起）。
+    ///
+    /// **`default` 同样不能省**：112 批之前导出的备份里没有这一栏，缺了它整份备份会
+    /// 打不开。空数组表示「那份备份里本来就没有账号记录」，导入时照实清空。
+    #[serde(default)]
+    accounts: Vec<AccountEntry>,
 }
 
 /// 导入成功后的回执。
@@ -114,6 +120,9 @@ pub struct ImportSummary {
     /// 导进来的收益条数。不看这个数，用户会以为「导入成功了、收益也回来了」，
     /// 而那份备份可能是一份只有角色与物价的旧备份。
     entries: i64,
+    /// 导进来的账号记录条数。与 `entries` 分列：两张表是两本账，
+    /// 合成一个「记录 N 条」会让「收益回来了、账号没回来」这件事看不见。
+    accounts: i64,
     /// 会被前端裁掉的点位数（每件物品只存 `POINT_LIMIT` 条）。0 表示一条都不丢。
     ///
     /// 必须报出来：导入是「如实搬进来」，而前端**下次保存**时会按上限裁。用户导入了一份
@@ -134,6 +143,7 @@ pub struct ClearSummary {
     characters: i64,
     prices: i64,
     entries: i64,
+    accounts: i64,
 }
 
 /* ======================================================================
@@ -211,14 +221,20 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
         entries: file.income,
         prices: file.quick_prices,
     };
-    let (characters, prices, entries) =
-        store::replace_all(&mut conn, &file.characters, &file.prices, &income)
-            .map_err(|error| format!("{error}；替换前的数据已备份到 {backup_path}"))?;
+    let (characters, prices, entries, accounts) = store::replace_all(
+        &mut conn,
+        &file.characters,
+        &file.prices,
+        &income,
+        &file.accounts,
+    )
+    .map_err(|error| format!("{error}；替换前的数据已备份到 {backup_path}"))?;
 
     Ok(Some(ImportSummary {
         characters,
         prices,
         entries,
+        accounts,
         truncated: truncation.points_dropped,
         truncated_items: truncation.items_over_limit,
         backup_path,
@@ -232,11 +248,12 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
 /// 但三个命令摆在一起时，签名不一致会让人以为「这个大概不能在等待里调」。
 #[tauri::command]
 pub async fn data_clear(app: AppHandle) -> Result<ClearSummary, String> {
-    let (characters, prices, entries) = store::clear_all(&app)?;
+    let (characters, prices, entries, accounts) = store::clear_all(&app)?;
     Ok(ClearSummary {
         characters,
         prices,
         entries,
+        accounts,
     })
 }
 
@@ -422,6 +439,7 @@ fn build(app: &AppHandle) -> Result<BackupFile, String> {
         prices: store::prices_load(app.clone())?,
         income: income.entries,
         quick_prices: income.prices,
+        accounts: store::account_load(app.clone())?,
     })
 }
 
@@ -679,6 +697,34 @@ mod tests {
                 item_id: 9,
                 price: 4.6,
             }],
+            /* 账号记录给一条人民币、一条梦幻币：往返测试要证明 `currency`
+             * 原样过了一遍信封——两本账的单位不同，读回来混了就是一条算错的净额。 */
+            accounts: vec![
+                AccountEntry {
+                    id: "a1".to_string(),
+                    date: "2026-11-05".to_string(),
+                    character_id: "c1".to_string(),
+                    kind: "expense".to_string(),
+                    currency: "rmb".to_string(),
+                    category: "点卡充值".to_string(),
+                    channel: "官方充值".to_string(),
+                    amount: 30.0,
+                    note: "月卡".to_string(),
+                    created_at: 2,
+                },
+                AccountEntry {
+                    id: "a2".to_string(),
+                    date: "2026-11-05".to_string(),
+                    character_id: String::new(),
+                    kind: "income".to_string(),
+                    currency: "cash".to_string(),
+                    category: "游戏币卖出".to_string(),
+                    channel: "游戏内".to_string(),
+                    amount: 4_600_000.0,
+                    note: String::new(),
+                    created_at: 3,
+                },
+            ],
         }
     }
 
