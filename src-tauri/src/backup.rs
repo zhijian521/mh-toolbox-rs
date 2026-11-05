@@ -211,7 +211,7 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
         .map_err(|error| format!("{} 不是一份能读的备份：{error}", path.display()))?;
 
     check_envelope(&file)?;
-    /* 校验放在替换之前，而且宁可整份拒绝：`save_characters` 对没 id 的记录会兜底成
+    /* 校验放在替换之前，而且宁可整份拒绝：`save_records` 对没 id 的记录会兜底成
      * `row-0` 这种假 id（那是为了「别因为一条坏记录丢掉整份名册」），可在这里，
      * 兜底意味着用户换回来的账目里混进了几个点不开也删不掉的空壳。
      * 与其猜，不如说清「第几条坏了」。 */

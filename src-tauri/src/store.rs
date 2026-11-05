@@ -540,48 +540,110 @@ fn insert_item(conn: &Connection, item: &PriceItem) -> Result<(), String> {
 }
 
 /* ======================================================================
- * 角色名册
+ * 「整条 JSON 透传」的两张表：角色名册与目标
  *
- * 与物价不同，这里用 `serde_json::Value` 透传整条记录：结构深、字段还在演进，
+ * 与物价不同，这两张表用 `serde_json::Value` 透传整条记录：结构深、字段还在演进，
  * 而唯一的操作就是「整份读 / 整份写」。Rust 侧不需要认识任何字段，
- * 也就不会因为前端加了一个属性而漏写。真正把关的是前端 `normalizeCharacter`。
+ * 也就不会因为前端加了一个属性而漏写。真正把关的是前端的 `normalizeCharacter` / `normalizeGoal`。
+ *
+ * 两张表的结构与行为一模一样，差的只有表名、有没有 `sort_order`、以及错误文案里的中文名，
+ * 所以读写各只有一份（2026-11-05 合并；此前是两对几乎逐字相同的函数）。
+ *
+ * **判据不是「长得像」**：哪天某张表要按字段查询、或者 Rust 要认识它的字段了，
+ * 它就该从这张表里退出去单独写。别在这份泛化上加 `if 是某某表` 的分支。
  * ==================================================================== */
 
-/// 读整份名册，按 `sort_order` 还原顺序。
+/// 一张「整份读 / 整份写」的表长什么样。
+struct RecordTable {
+    /// 表名。只拼进 SQL，取值全是下面的常量，不接受外来输入。
+    table: &'static str,
+    /// 文案里的中文名（`角色` / `目标`），拼进「写入第 3 个角色失败」。
+    label: &'static str,
+    /// 日志导语（`名册有一行不是合法 JSON`）——两张表的说法不一样，各给一句。
+    what: &'static str,
+    /// 日志里标出是哪一行的那一列（`sort_order` / `id`）。
+    key: &'static str,
+    /// 有 `sort_order` 列的按它读回（名册是「用户排的顺序」，不按 id 或名字排）；
+    /// 没有的按 `rowid`，也就是写入顺序——目标页自己排，库不管。
+    ordered: bool,
+    /// 没 id 的记录兜底成 `{id_prefix}-{index}`。
+    id_prefix: &'static str,
+}
+
+const CHARACTERS: RecordTable = RecordTable {
+    table: "characters",
+    label: "角色",
+    what: "名册",
+    key: "sort_order",
+    ordered: true,
+    id_prefix: "row",
+};
+
+const GOALS: RecordTable = RecordTable {
+    table: "goals",
+    label: "目标",
+    what: "目标表",
+    key: "id",
+    ordered: false,
+    id_prefix: "goal",
+};
+
+impl RecordTable {
+    /// `key` 那一列只进日志，所以一律 `CAST(... AS TEXT)`：名册那边是 INTEGER、
+    /// 目标那边是 TEXT，取成一个类型才写得出同一句 `format!`。
+    fn select_sql(&self) -> String {
+        let order = if self.ordered { "sort_order" } else { "rowid" };
+        format!(
+            "SELECT CAST({key} AS TEXT), data FROM {table} ORDER BY {order}",
+            key = self.key,
+            table = self.table
+        )
+    }
+
+    fn insert_sql(&self) -> String {
+        if self.ordered {
+            format!(
+                "INSERT OR REPLACE INTO {table} (id, data, sort_order) VALUES (?1, ?2, ?3)",
+                table = self.table
+            )
+        } else {
+            format!(
+                "INSERT OR REPLACE INTO {table} (id, data) VALUES (?1, ?2)",
+                table = self.table
+            )
+        }
+    }
+}
+
+/// 读整份表。
 ///
-/// **一行坏 JSON 不拖垮整份**：跳过它、`eprintln!` 留一条带 `sort_order` 的痕迹，其余照常
-/// 返回。早先这里是「任一行解析失败就整份 `Err`」，后果比坏掉那一行严重得多——
+/// **一行坏 JSON 不拖垮整份**：跳过它、`eprintln!` 留一条带行标的痕迹，其余照常返回。
+/// 早先这里是「任一行解析失败就整份 `Err`」，后果比坏掉那一行严重得多——
 /// 前端 `charactersLoad` 拿到 `null` 后立起 `loadError`、名册空白、写入口全禁，
 /// 而界面没有任何「修掉这一行」的入口，等于**永久打不开**。宁可少显示一个角色。
 ///
 /// 返回类型仍是 `Vec<serde_json::Value>`，前端契约不变；坏行留在库里没被删，
-/// 下次 `characters_save` 整份覆盖时会自然消失。
-#[tauri::command]
-#[specta::specta]
-pub fn characters_load(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
-    let conn = open(&app)?;
-    load_characters(&conn)
-}
-
-/// `characters_load` 的本体。与 `load_items` 同一个理由拆出来：能对着临时目录测。
-fn load_characters(conn: &Connection) -> Result<Vec<serde_json::Value>, String> {
+/// 下次 `*_save` 整份覆盖时会自然消失。
+fn load_records(conn: &Connection, table: &RecordTable) -> Result<Vec<serde_json::Value>, String> {
+    let what = table.what;
     let mut stmt = conn
-        .prepare("SELECT sort_order, data FROM characters ORDER BY sort_order")
-        .map_err(|error| format!("准备名册查询失败：{error}"))?;
+        .prepare(&table.select_sql())
+        .map_err(|error| format!("准备{what}查询失败：{error}"))?;
     let rows = stmt
         .query_map([], |row| {
-            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         })
-        .map_err(|error| format!("读名册失败：{error}"))?;
+        .map_err(|error| format!("读{what}失败：{error}"))?;
 
     let mut list = Vec::new();
     for row in rows {
         /* 连「取这一行」都失败才算致命：那是游标坏了，不是某一条数据坏了。 */
-        let (sort_order, raw) = row.map_err(|error| format!("解析名册行失败：{error}"))?;
+        let (key, raw) = row.map_err(|error| format!("解析{what}行失败：{error}"))?;
         match serde_json::from_str::<serde_json::Value>(&raw) {
             Ok(value) => list.push(value),
             Err(error) => {
-                eprintln!("角色名册有一行不是合法 JSON（sort_order={sort_order}），已跳过：{error}")
+                let key_name = table.key;
+                eprintln!("{what}有一行不是合法 JSON（{key_name}={key}），已跳过：{error}")
             }
         }
     }
@@ -589,55 +651,70 @@ fn load_characters(conn: &Connection) -> Result<Vec<serde_json::Value>, String> 
 }
 
 /// 整份写回。同样是一个事务；`OR REPLACE` 容忍前端传来重复 id（名册编辑时可能撞上）。
-#[tauri::command]
-#[specta::specta]
-pub fn characters_save(app: AppHandle, items: Vec<serde_json::Value>) -> Result<(), String> {
-    let mut conn = open(&app)?;
-    save_characters(&mut conn, &items)
-}
-
-/// `characters_save` 的本体。与 `load_items` / `save_items` / `clear_records` 同一个理由
-/// 拆出来：**不吃 `AppHandle` 的那一半**才测得到。这条尤其值得测——`OR REPLACE` 在
-/// 重复 id 时到底是覆盖、报错还是留下两行，是个不该靠猜的行为。
-fn save_characters(conn: &mut Connection, items: &[serde_json::Value]) -> Result<(), String> {
+fn save_records(
+    conn: &mut Connection,
+    table: &RecordTable,
+    items: &[serde_json::Value],
+) -> Result<(), String> {
+    let label = table.label;
     let tx = conn
         .transaction()
         .map_err(|error| format!("开事务失败：{error}"))?;
-    tx.execute("DELETE FROM characters", [])
-        .map_err(|error| format!("清空名册失败：{error}"))?;
+    tx.execute(&format!("DELETE FROM {}", table.table), [])
+        .map_err(|error| format!("清空{label}失败：{error}"))?;
 
     for (index, item) in items.iter().enumerate() {
-        insert_character(&tx, index, item)?;
+        insert_record(&tx, table, index, item)?;
     }
 
     tx.commit().map_err(|error| format!("提交失败：{error}"))?;
     Ok(())
 }
 
-/// 写一条角色。`index` 既是错误文案里的「第几条」，也是 `sort_order`——
+/// 写一条记录。`index` 既是错误文案里的「第几条」，也是 `sort_order`（有这一列的表）——
 /// 名册是「用户排的顺序」，不按 id 或名字排。
 ///
-/// 没 id 的记录兜底成 `row-{index}`：这是 `characters_save` 的既有语义，目的是
-/// 「别因为一条坏记录丢掉整份名册」。导入那条路不吃这个兜底，它在 `backup::validate`
-/// 里就把没 id 的整份拒绝了（理由见那边的注释）。
-fn insert_character(
+/// 没 id 的记录兜底成 `{id_prefix}-{index}`：这是既有语义，目的是「别因为一条坏记录
+/// 丢掉整份」。导入那条路不吃这个兜底，它在 `backup::validate` 里就把没 id 的整份
+/// 拒绝了（理由见那边的注释）。
+fn insert_record(
     conn: &Connection,
+    table: &RecordTable,
     index: usize,
     item: &serde_json::Value,
 ) -> Result<(), String> {
+    let label = table.label;
     let id = item
         .get("id")
         .and_then(serde_json::Value::as_str)
         .map(str::to_string)
-        .unwrap_or_else(|| format!("row-{index}"));
+        .unwrap_or_else(|| format!("{}-{index}", table.id_prefix));
     let data = serde_json::to_string(item)
-        .map_err(|error| format!("序列化第 {index} 个角色失败：{error}"))?;
-    conn.execute(
-        "INSERT OR REPLACE INTO characters (id, data, sort_order) VALUES (?1, ?2, ?3)",
-        params![id, data, index as i64],
-    )
-    .map_err(|error| format!("写入第 {index} 个角色失败：{error}"))?;
+        .map_err(|error| format!("序列化第 {index} 个{label}失败：{error}"))?;
+    let sql = table.insert_sql();
+    let written = if table.ordered {
+        conn.execute(&sql, params![id, data, index as i64])
+    } else {
+        conn.execute(&sql, params![id, data])
+    };
+    written.map_err(|error| format!("写入第 {index} 个{label}失败：{error}"))?;
     Ok(())
+}
+
+/// 读整份名册，按 `sort_order` 还原顺序。
+#[tauri::command]
+#[specta::specta]
+pub fn characters_load(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
+    let conn = open(&app)?;
+    load_records(&conn, &CHARACTERS)
+}
+
+/// 整份写回名册。
+#[tauri::command]
+#[specta::specta]
+pub fn characters_save(app: AppHandle, items: Vec<serde_json::Value>) -> Result<(), String> {
+    let mut conn = open(&app)?;
+    save_records(&mut conn, &CHARACTERS, &items)
 }
 
 /// 导入用的整份替换：名册 + 物价，**一个事务**。
@@ -699,7 +776,7 @@ pub(crate) fn replace_all(
 
     let mut written_characters: i64 = 0;
     for (index, character) in characters.iter().enumerate() {
-        insert_character(&tx, index, character)?;
+        insert_record(&tx, &CHARACTERS, index, character)?;
         written_characters += 1;
     }
 
@@ -726,7 +803,7 @@ pub(crate) fn replace_all(
 
     let mut written_goals: i64 = 0;
     for (index, goal) in goals.iter().enumerate() {
-        insert_goal(&tx, index, goal)?;
+        insert_record(&tx, &GOALS, index, goal)?;
         written_goals += 1;
     }
 
@@ -955,38 +1032,17 @@ fn insert_account_entry(conn: &Connection, entry: &AccountEntry) -> Result<(), S
 /* ======================================================================
  * 目标（第 115 批）
  *
- * 与名册同一套：`serde_json::Value` 整条透传，Rust 不认识任何字段（理由见建表那段）。
- * 一行坏 JSON 同样只跳过那一行、`eprintln!` 留痕——目标页拿不到整份时会停写，
- * 而界面上没有修库的入口，那等于永久打不开。
+ * 与名册同一套：`serde_json::Value` 整条透传，Rust 不认识任何字段（理由见建表那段），
+ * 读写共用上面那对 `load_records` / `save_records`。一行坏 JSON 同样只跳过那一行、
+ * `eprintln!` 留痕——目标页拿不到整份时会停写，而界面上没有修库的入口，
+ * 那等于永久打不开。
  * ==================================================================== */
 
 #[tauri::command]
 #[specta::specta]
 pub fn goals_load(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
     let conn = open(&app)?;
-    load_goals(&conn)
-}
-
-/// `goals_load` 的本体。与 `load_characters` 同一个理由拆出来：能对着临时目录测。
-fn load_goals(conn: &Connection) -> Result<Vec<serde_json::Value>, String> {
-    let mut stmt = conn
-        .prepare("SELECT id, data FROM goals")
-        .map_err(|error| format!("准备目标查询失败：{error}"))?;
-    let rows = stmt
-        .query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })
-        .map_err(|error| format!("读目标失败：{error}"))?;
-
-    let mut list = Vec::new();
-    for row in rows {
-        let (id, raw) = row.map_err(|error| format!("解析目标行失败：{error}"))?;
-        match serde_json::from_str::<serde_json::Value>(&raw) {
-            Ok(value) => list.push(value),
-            Err(error) => eprintln!("目标表有一行不是合法 JSON（id={id}），已跳过：{error}"),
-        }
-    }
-    Ok(list)
+    load_records(&conn, &GOALS)
 }
 
 /// 整份写回。目标页的每一次改动（记一笔、改一条、删一个）都走这里。
@@ -994,37 +1050,7 @@ fn load_goals(conn: &Connection) -> Result<Vec<serde_json::Value>, String> {
 #[specta::specta]
 pub fn goals_save(app: AppHandle, goals: Vec<serde_json::Value>) -> Result<(), String> {
     let mut conn = open(&app)?;
-    save_goals(&mut conn, &goals)
-}
-
-fn save_goals(conn: &mut Connection, goals: &[serde_json::Value]) -> Result<(), String> {
-    let tx = conn
-        .transaction()
-        .map_err(|error| format!("开事务失败：{error}"))?;
-    tx.execute("DELETE FROM goals", [])
-        .map_err(|error| format!("清空目标失败：{error}"))?;
-    for (index, goal) in goals.iter().enumerate() {
-        insert_goal(&tx, index, goal)?;
-    }
-    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
-    Ok(())
-}
-
-/// 写一条目标。没 id 的记录兜底成 `goal-{index}`，与名册同一条语义。
-fn insert_goal(conn: &Connection, index: usize, item: &serde_json::Value) -> Result<(), String> {
-    let id = item
-        .get("id")
-        .and_then(serde_json::Value::as_str)
-        .map(str::to_string)
-        .unwrap_or_else(|| format!("goal-{index}"));
-    let data =
-        serde_json::to_string(item).map_err(|error| format!("序列化第 {index} 个目标失败：{error}"))?;
-    conn.execute(
-        "INSERT OR REPLACE INTO goals (id, data) VALUES (?1, ?2)",
-        params![id, data],
-    )
-    .map_err(|error| format!("写入第 {index} 个目标失败：{error}"))?;
-    Ok(())
+    save_records(&mut conn, &GOALS, &goals)
 }
 
 /* ======================================================================
@@ -1307,7 +1333,7 @@ mod tests {
             .expect("写名册行");
         }
 
-        let list = load_characters(&conn).expect("一行坏 JSON 不该拖垮整份名册");
+        let list = load_records(&conn, &CHARACTERS).expect("一行坏 JSON 不该拖垮整份名册");
         assert_eq!(list.len(), 2, "坏的那一行应被跳过，其余照常返回");
         assert_eq!(list[0]["id"], "c1");
         assert_eq!(list[1]["id"], "c3");
@@ -1407,12 +1433,12 @@ mod tests {
 
     /* ---------- 名册整份写回：OR REPLACE 的实际行为 ---------- */
 
-    /// 重复 id 在 `save_characters` 里是**覆盖**，不是报错、也不是留下两行。
+    /// 重复 id 在 `save_records` 里是**覆盖**，不是报错、也不是留下两行。
     ///
     /// 这条不是在「验证实现细节」，而是在钉前端可以依赖的行为：名册编辑时前端可能
     /// 短暂出现两个同 id 的对象，若这里报错，用户会看到整份名册存不下去。
     #[test]
-    fn save_characters_replaces_duplicate_ids() {
+    fn save_records_replaces_duplicate_ids() {
         let dir = TempDir::new(16);
         let mut conn = open_at(dir.base()).expect("打开数据库");
 
@@ -1421,9 +1447,9 @@ mod tests {
             serde_json::json!({ "id": "c1", "name": "乙" }),
             serde_json::json!({ "id": "c2", "name": "丙" }),
         ];
-        save_characters(&mut conn, &items).expect("重复 id 不该报错");
+        save_records(&mut conn, &CHARACTERS, &items).expect("重复 id 不该报错");
 
-        let list = load_characters(&conn).expect("读回名册");
+        let list = load_records(&conn, &CHARACTERS).expect("读回名册");
         assert_eq!(list.len(), 2, "两个 c1 只该留一行");
         assert_eq!(
             list[0]["name"], "乙",
@@ -1454,8 +1480,9 @@ mod tests {
             )],
         )
         .expect("先落一份能用的物价");
-        save_characters(
+        save_records(
             &mut conn,
+            &CHARACTERS,
             &[serde_json::json!({ "id": "keep-c", "name": "老角色" })],
         )
         .expect("先落一份能用的名册");
@@ -1474,7 +1501,7 @@ mod tests {
         assert_eq!(items[0].id, "keep");
         assert_eq!(items[0].points.len(), 1, "历史也一并回滚");
 
-        let characters = load_characters(&conn).expect("读回名册");
+        let characters = load_records(&conn, &CHARACTERS).expect("读回名册");
         assert_eq!(characters.len(), 1, "名册也必须回滚，不许被清空");
         assert_eq!(characters[0]["id"], "keep-c");
     }
@@ -1516,7 +1543,7 @@ mod tests {
             (2, 2, 1, 0, 1)
         );
         assert_eq!(load_items(&conn).expect("读物价").len(), 2);
-        assert_eq!(load_characters(&conn).expect("读名册").len(), 2);
+        assert_eq!(load_records(&conn, &CHARACTERS).expect("读名册").len(), 2);
         let back = load_income(&conn).expect("读收益");
         assert_eq!(back.entries.len(), 1);
         assert_eq!(back.prices.len(), 1, "单价也要跟着备份一起进来");
