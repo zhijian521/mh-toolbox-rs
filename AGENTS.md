@@ -28,7 +28,9 @@
 只 typecheck、只 build 一次看看，正是耗时的地方，答案在功能完成那一次已覆盖。
 
 **唯一例外：动了 `src-tauri/`**。Rust 不编译就起不来窗口，用户没法点测——那不叫验证，叫
-「能不能启动」。按 §三 设好环境 `cargo check` 一次，`cargo test` / `clippy` 留到提交前。
+「能不能启动」。按 §三 设好环境跑 **`cargo test --lib`** 一次：`cargo check` **不算**，它不编译
+`#[cfg(test)]`——112 / 115 两批加表都没跑 Rust 测试，测试代码就这样留在编译不过的状态里，
+而 `check` 与 `e2e` 都不碰它。`clippy` 仍留到提交前。
 
 **执行动作**：收到「改页面 / 调样式 / 加字段 / 重构 / 修小 bug」这类需求，回复第一行标档位
 （`档位：日常 · 不跑验证`），然后**立刻改文件**，不要先跑命令。交付只写「改了哪些文件、
@@ -107,16 +109,16 @@ start.bat --force    遇到占用直接处理，不询问
 
 ## 五、怎么验（第二、三档才用）
 
-| 要验什么              | 怎么做                                                                                                                                                                                                                                                                                                     |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 代码质量              | `npm run check`                                                                                                                                                                                                                                                                                            |
-| 界面观感              | `npm run build` → `node tools/probe/cdp.mjs --root dist --hash '#/settings' --shot x.png`                                                                                                                                                                                                                  |
-| IPC / 外链 / 窗口操作 | **必须回 Tauri 真窗口**：`MH_CDP_PORT=9223 npm run desktop`，连 `127.0.0.1:9223/json/list`                                                                                                                                                                                                                 |
-| 整条交互路径          | `start.bat --force debug` → `npm run e2e`（八页导航 + 角色增改删 + 记价 + 速记连点 + 重载后仍在 + 弹窗 Esc + 字号主题 + 导出→导入整份替换，81 条断言）。**会写真实数据**：开头自己快照一份库，测试条目自己删，剩下的用 `node tools/e2e/db.mjs restore <id> --yes` 还原（应用先关）；`--only=物价` 只跑一节 |
-| IPC 契约              | `npm run test`（`src/services/ipc-contract.test.ts`）：前端 13 条 `invoke('…')` 与 Rust 两张 `generate_handler!` 对账，改名 / 只加一张表 / 注册了没人用，三种都红                                                                                                                                          |
-| CSP / 安全策略        | **`tauri dev` 走 `devCsp`，验不到生产的 `csp`**：出包 `npm run tauri build -- --debug --no-bundle`，再 `MH_CDP_PORT=9224 ./src-tauri/target/debug/mh-toolbox-rs.exe`。判据：设置页 3 个 section + 开发页 7 张卡在、字体 `loaded`、`appInfo` IPC 通、零 CSP 拦截                                            |
-| 降动效                | CDP `Emulation.setEmulatedMedia` 传 `prefers-reduced-motion: reduce`，读 `getComputedStyle(el).transitionDuration`，应为 `0.001s`                                                                                                                                                                          |
-| 几何是否对齐          | 读 `getBoundingClientRect()` 断言，不要靠眼看截图                                                                                                                                                                                                                                                          |
+| 要验什么              | 怎么做                                                                                                                                                                                                                                                                                                                            |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 代码质量              | `npm run check`                                                                                                                                                                                                                                                                                                                   |
+| 界面观感              | `npm run build` → `node tools/probe/cdp.mjs --root dist --hash '#/settings' --shot x.png`                                                                                                                                                                                                                                         |
+| IPC / 外链 / 窗口操作 | **必须回 Tauri 真窗口**：`MH_CDP_PORT=9223 npm run desktop`，连 `127.0.0.1:9223/json/list`                                                                                                                                                                                                                                        |
+| 整条交互路径          | `start.bat --force debug` → `npm run e2e`（八页导航 + 角色增改删 + 记价 + 速记连点 + 重载后仍在 + 弹窗 Esc + 字号主题 + 导出→导入整份替换；断言条数不写死，看运行末尾的汇总）。**会写真实数据**：开头自己快照一份库，测试条目自己删，剩下的用 `node tools/e2e/db.mjs restore <id> --yes` 还原（应用先关）；`--only=物价` 只跑一节 |
+| IPC 契约              | `npm run test`（`src/services/ipc-contract.test.ts`）：前端 13 条 `invoke('…')` 与 Rust 两张 `generate_handler!` 对账，改名 / 只加一张表 / 注册了没人用，三种都红                                                                                                                                                                 |
+| CSP / 安全策略        | **`tauri dev` 走 `devCsp`，验不到生产的 `csp`**：出包 `npm run tauri build -- --debug --no-bundle`，再 `MH_CDP_PORT=9224 ./src-tauri/target/debug/mh-toolbox-rs.exe`。判据：设置页 3 个 section + 开发页 7 张卡在、字体 `loaded`、`appInfo` IPC 通、零 CSP 拦截                                                                   |
+| 降动效                | CDP `Emulation.setEmulatedMedia` 传 `prefers-reduced-motion: reduce`，读 `getComputedStyle(el).transitionDuration`，应为 `0.001s`                                                                                                                                                                                                 |
+| 几何是否对齐          | 读 `getBoundingClientRect()` 断言，不要靠眼看截图                                                                                                                                                                                                                                                                                 |
 
 **测「导出 / 导入」不用人点系统对话框**：数据目录下的 `e2e-dialog.json`（`{"save":"…"}` 或
 `{"open":"…"}`）会被 `backup.rs` 的 `dialog_override` 读走，**读到就删、只生效一次**。这段代码

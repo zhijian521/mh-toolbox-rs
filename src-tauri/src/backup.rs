@@ -463,10 +463,10 @@ fn build(app: &AppHandle) -> Result<BackupFile, String> {
 /// 备份文件大概率不进 git，但这份习惯值得一致——用户在编辑器里打开时也不会看到
 /// 最后一行和光标贴在一起。
 ///
-/// **先写 `.tmp` 再改名**，与 `migrate.rs` 的搬迁同一个模式：`std::fs::write` 是
-/// 「截断 + 写」，写到一半断电 / 磁盘满会在正式名下留一个半截 JSON——而自动备份的
-/// 文件名正是「导入前的数据」，用户最需要它的时候它恰好是坏的。改名是原子替换，
-/// 于是正式名要么不存在、要么完整。临时名带 pid：两个实例同时导出时互不截断。
+/// **先写 `.tmp` 再改名**：`std::fs::write` 是「截断 + 写」，写到一半断电 / 磁盘满会在
+/// 正式名下留一个半截 JSON——而自动备份的文件名正是「导入前的数据」，用户最需要它的
+/// 时候它恰好是坏的。改名是原子替换，于是正式名要么不存在、要么完整。临时名带 pid：
+/// 两个实例同时导出时互不截断。
 fn write_to(path: &Path, file: &BackupFile) -> Result<(), String> {
     let mut bytes =
         serde_json::to_vec_pretty(file).map_err(|error| format!("序列化备份失败：{error}"))?;
@@ -738,6 +738,15 @@ mod tests {
                     created_at: 3,
                 },
             ],
+            /* 目标也给一条：它同样是 `Value` 透传，「漏序列化」与「本来就没有」
+             * 在空数组上长得一模一样，往返测试就抓不到。 */
+            goals: vec![serde_json::json!({
+                "id": "g1",
+                "kind": "manual",
+                "title": "攒一把无级别",
+                "members": [{ "id": "c1", "name": "大唐" }],
+                "target": 100_000_000,
+            })],
         }
     }
 
@@ -779,6 +788,16 @@ mod tests {
         assert_eq!(parsed.characters[0]["id"], "c1");
         assert_eq!(parsed.prices.len(), 1);
         assert_eq!(parsed.prices[0].id, "item-1");
+        /* 样张给过的四栏都要读回来：只断言角色与物价时，后加的四栏序列化漏了也测不出来
+         * ——空数组与被吃掉长得一样，只有条数才是判据。 */
+        assert_eq!(parsed.income.len(), 1);
+        assert_eq!(parsed.income[0].item, "定魂珠");
+        assert_eq!(parsed.quick_prices.len(), 1);
+        assert_eq!(parsed.quick_prices[0].item_id, 9);
+        assert_eq!(parsed.accounts.len(), 2);
+        assert_eq!(parsed.accounts[1].currency, "cash");
+        assert_eq!(parsed.goals.len(), 1);
+        assert_eq!(parsed.goals[0]["title"], "攒一把无级别");
 
         let _ = std::fs::remove_dir_all(&dir);
     }

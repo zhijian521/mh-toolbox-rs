@@ -26,14 +26,15 @@ use tauri::{AppHandle, Manager};
 /// 数据库文件名。放在 `%APPDATA%\mh-tool-rs` 下，卸载也不清
 /// （`deleteAppDataOnUninstall: false`）。红线 1 见 `AGENTS.md` §六。
 ///
-/// `pub(crate)`：`migrate.rs` 要按同一个文件名搬家，改名只能有一个真源。
-pub(crate) const DB_FILE: &str = "mh-toolbox.db";
+/// 私有：拼路径的只有本文件的 `open_in`。早先 `pub(crate)` 是给 `migrate.rs` 搬家用的，
+/// 那个模块随「不接老数据」一起删了（第 107 批），可见性也没必要再放宽。
+const DB_FILE: &str = "mh-toolbox.db";
 
 /// 表结构版本。
 ///
 /// 规矩只有一条：**改表就要 +1**。加版本之后，`init` 会先读库里的值再决定怎么做：
 /// 比当前版本大 → 拒绝打开（那个库是更新版的应用写的，这里的 SQL 不认识它的列）；
-/// 相等 → 什么都不写；更小 → 以后在这里补迁移分支（现在只有 v1，分支是空的）。
+/// 相等 → 什么都不写；更小 → 也什么都不写（见最后一段）。
 ///
 /// 这个读-比较-拒绝的顺序是**必须的**：早先这里是无条件把当前版本覆写回去，
 /// 用户用旧 exe 打开过一次 v2 的库，版本号就被降成 1，升级回来后「小于才迁移」
@@ -44,6 +45,10 @@ pub(crate) const DB_FILE: &str = "mh-toolbox.db";
 /// **v4（2026-11-05，第 115 批）**：加 `goals` 一张表。
 /// 只加不改，旧版的 SQL 不认识它们、也不会碰；但版本号仍要 +1——这是「改表就要 +1」
 /// 的规矩，代价是回退到旧 exe 时它会拒绝打开（`AGENTS.md` 里写明升级是单向的）。
+///
+/// 三次升版全是「只加表」，而建表一律 `IF NOT EXISTS`，所以「更小」这一支**故意是空的**：
+/// 旧库打开时缺的表已经被同一次 `execute_batch` 建出来了，没有第二步可做。哪天真要
+/// 改列 / 改语义，再按版本升序补分支——那时第一步是把库里的版本号先对齐。
 const SCHEMA_VERSION: i64 = 4;
 
 /// 一条价格记录。字段名与前端 `PricePoint` 一一对应（`serde` 自动转 camelCase）。
@@ -339,8 +344,11 @@ fn init(conn: &Connection) -> Result<(), String> {
      * - 库里比当前版本大 → 拒绝打开。旧 exe 跑过一次新库会把版本号**降级**写回去，
      *   之后「小于才迁移」永远不成立、表缺列也自愈不了；宁可在启动时说清
      *   「请升级应用」，也不要拿一个自己看不懂的库继续跑。
-     * - 更小 → 将来的迁移分支。第一期只有 v1，所以这里是空的，但位置留着：
-     *   等真有 v2 时按版本升序一段段补，不要一把补到最新。 */
+     * - 更小 → 什么都不做。三次升版都只是加表，而建表全是 `IF NOT EXISTS`，缺的表
+     *   已经在上面那条 `execute_batch` 里建好了，没有第二步可做。版本号**也不回写**：
+     *   它现在唯一的读者是「拒绝更新版」那道门，回写只让 `meta` 好看，代价是每次
+     *   拿旧库启动都多一次 fsync。真出现「改列 / 改语义」时，在这里按版本升序补分支，
+     *   第一步才是把库里的版本号对齐。 */
     match read_meta(conn, "schemaVersion")? {
         None => write_meta(conn, "schemaVersion", &SCHEMA_VERSION.to_string())?,
         Some(stored) => {
@@ -353,7 +361,6 @@ fn init(conn: &Connection) -> Result<(), String> {
                      请升级应用后再打开"
                 ));
             }
-            /* TODO(schema v2)：`stored < SCHEMA_VERSION` 时在这里补迁移分支。 */
         }
     }
 
@@ -1445,8 +1452,8 @@ mod tests {
 
         /* 两条同一个物品 id：第二次 INSERT 撞主键。模拟「校验漏了重复 id」的兜底。 */
         let duplicated = vec![item("dup", "重复甲", vec![]), item("dup", "重复乙", vec![])];
-        let error =
-            replace_all(&mut conn, &[], &duplicated, &no_income()).expect_err("重复 id 必须失败");
+        let error = replace_all(&mut conn, &[], &duplicated, &no_income(), &[], &[])
+            .expect_err("重复 id 必须失败");
         assert!(
             error.contains("写入物品"),
             "错误要说清是哪一步失败的，实际是：{error}"

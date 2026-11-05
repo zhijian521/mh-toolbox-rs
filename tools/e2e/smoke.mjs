@@ -107,11 +107,17 @@ try {
  * `characters_save([新角色])` 把 4 个角色顶掉了。
  *
  * 所以写第一个字之前先对账；对不上就停，连测试数据都不写。
+ *
+ * `key`：命令返回信封而不是数组时，指定行数组在哪一格（收益页那两个是一起读回来的
+ * `{ entries, prices }`）。读失败一律 -1，与「空表 0」分开——对账时 0 是合法状态。
  */
-const dbCount = (command) =>
+const dbCount = (command, key = '') =>
     cdp.evaluate(
         `window.__TAURI_INTERNALS__.invoke(${JSON.stringify(command)})
-            .then((v) => (Array.isArray(v) ? v.length : -1), () => -1)`,
+            .then((v) => {
+                const rows = ${key ? `v?.[${JSON.stringify(key)}]` : 'v'};
+                return Array.isArray(rows) ? rows.length : -1;
+            }, () => -1)`,
     );
 
 await ui.goto('角色');
@@ -1343,7 +1349,7 @@ if (want('设置')) {
     });
 }
 
-/* ============================ 6. 工具 ============================ */
+/* ============================ 8. 工具 ============================ */
 
 if (want('工具')) {
     t.section('8 工具 · 捉鬼助手进出、开发页懒加载');
@@ -1379,7 +1385,7 @@ if (want('工具')) {
     });
 }
 
-/* ============================ 7. 数据（集成） ============================ */
+/* ============================ 9. 数据（集成） ============================ */
 
 /**
  * 导出 → 导入整条路的**真往返**：真文件、真信封、真整份替换、真重载。
@@ -1409,16 +1415,10 @@ if (want('数据') && !info?.debug) {
     const exportFile = join(exportDir, `ledger-${Date.now()}.json`);
     const writeHook = (payload) => writeFileSync(hookFile, JSON.stringify(payload), 'utf8');
 
-    const incomeCount = () =>
-        cdp.evaluate(
-            `window.__TAURI_INTERNALS__.invoke('income_load')
-                .then((v) => (v?.entries ?? []).length, () => -1)`,
-        );
-
     const counts = async () => ({
         chars: await dbCount('characters_load'),
         prices: await dbCount('prices_load'),
-        entries: await incomeCount(),
+        entries: await dbCount('income_load', 'entries'),
     });
 
     let before = null;
@@ -1541,10 +1541,10 @@ if (want('数据') && !info?.debug) {
     });
 }
 
-/* ============================ 8. 收尾 ============================ */
+/* ============================ 10. 收尾 ============================ */
 
 if (want('收尾') || want('角色') || want('物价')) {
-    t.section('9 收尾 · 数量核对');
+    t.section('10 收尾 · 数量核对');
 
     if (baseline.chars !== null) {
         await t.step('角色名册回到测试前的数量', async () => {
