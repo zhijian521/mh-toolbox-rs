@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppRail from './components/AppRail.vue';
 import ConfirmHost from './components/ConfirmHost.vue';
+import HoverTip from './components/HoverTip.vue';
 import NotifyHost from './components/NotifyHost.vue';
 import TitleBar from './components/TitleBar.vue';
 import { NAV_BY_KEY, NAV_ITEMS } from './navigation';
@@ -13,9 +14,10 @@ import { NAV_BY_KEY, NAV_ITEMS } from './navigation';
  * 这一层只管三件事：导航数据给谁、当前是哪一页、点击后往哪跳。
  * 页面本身由 `RouterView` 决定——加页面不再需要改这里的模板。
  *
- * 另外挂两个全站唯一的宿主：`ConfirmHost`（问一句，等回答）与 `NotifyHost`（说一句，不等）。
- * 两者都渲染在 `Teleport` 到 body 的浮层里，与页面布局无关；放这一层是因为**它们必须只有一个**
- * ——放进页面就会各页一个，迟早各自变形。页面拿到的只有 `askConfirm()` 与 `notify`。
+ * 另外挂三个全站唯一的宿主：`ConfirmHost`（问一句，等回答）、`NotifyHost`（说一句，不等）、
+ * `HoverTip`（悬停说明）。三者都渲染在 `Teleport` 到 body 的浮层里，与页面布局无关；
+ * 放这一层是因为**它们必须只有一个**——放进页面就会各页一个，迟早各自变形。
+ * 页面拿到的只有 `askConfirm()`、`notify` 与普通的 `title` 属性。
  *
  * `AppRail` 仍然是纯组件（收 props、发事件），路由这一层留在外壳里：
  * 组件一旦自己 `useRoute()`，就没法在别的上下文里复用，也没法单独渲染做视觉验收。
@@ -62,10 +64,12 @@ function openDevKit() {
             </main>
         </div>
 
-        <!-- 全站唯一的两个浮层宿主。它们在 `Teleport` 里，放在外壳哪一层都行；
+        <!-- 全站唯一的三个浮层宿主。它们在 `Teleport` 里，放在外壳哪一层都行；
              写在这里是为了让「只有一个」这件事在代码里看得见。 -->
         <ConfirmHost />
         <NotifyHost />
+        <!-- 悬停说明：接管全站 `title`，换成纸片（原生那枚系统白框 CSS 碰不到）。 -->
+        <HoverTip />
     </div>
 </template>
 
