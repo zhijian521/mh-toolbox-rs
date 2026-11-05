@@ -101,24 +101,15 @@ withDefaults(defineProps<{ still?: boolean; tone?: 'paper' | 'seal'; wide?: bool
     height: var(--tile-h, var(--tile-w, auto));
     border-radius: var(--tile-r, 9px);
     background-color: var(--tile-face, color-mix(in srgb, var(--paper) 92%, transparent));
-    background-image:
-        /* 左上角那一点偏光：像纸被顶起来时正对着光的那个角先亮起来。
-         * 没有它，块面只是一整片均匀的浅色，「光从哪来」要靠四条棱去猜。 */
-        radial-gradient(
-            120% 96% at 20% 6%,
-            color-mix(in srgb, var(--bevel-hi) 62%, transparent),
-            transparent 52%
-        ),
-        linear-gradient(
-            145deg,
-            color-mix(in srgb, var(--bevel-hi) 78%, transparent),
-            transparent 58%
-        ),
-        linear-gradient(
-            315deg,
-            color-mix(in srgb, var(--bevel-lo) 170%, transparent),
-            transparent 62%
-        );
+    /* 亮色的**小块**不叠背景渐变：纸已经是最亮的，「光从哪来」由四条棱说完，
+     * 块面留一整片干净的纸色（同 `.board` 与 `tokens.css` 那条「纸上没有比纸更亮的纸」）。
+     * 亮色唯一叠渐变的是 `wide`——那是另一回事，见文件末 `.press-tile.wide` 那段。
+     *
+     * 原先这里写着三层渐变，其中第三条是 `color-mix(… 170%)`——百分比超过 100% 是
+     * 非法值，浏览器会把**整条 `background-image` 一起丢掉**，所以这三层从来没有生效过，
+     * 实际只有暗色那一组覆盖版在跑。那种「靠一个非法值让整条失效」的写法，
+     * 读的人以为亮色有渐变、改的人以为修 170% 只是修个笔误，2026-11-05 直接删掉：
+     * 小块要渐变就只有暗色有，写在下面 `:root.dark .press-tile` 那一段。 */
     box-shadow:
         inset 0 1px 0 var(--bevel-hi),
         inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
@@ -233,26 +224,40 @@ withDefaults(defineProps<{ still?: boolean; tone?: 'paper' | 'seal'; wide?: bool
  *    再用半透明混一下就彻底没了；
  * 2. 右下两条棱改回 `--bevel-lo`。`--rule-2` 在暗色下是 #544a33，比块面**亮**，
  *    画在底边会成一条发光的线，光向反了；
- * 3. 高光渐变提到全强度：18% 白在暗底上要拉满才够一个角；
+ * 3. **三层渐变的强度是暗色专有的，而且必须收着走**（见下）；
  * 4. 落地影用 `--shadow-lg` 两档叠加：暗底上的第一层硬边几乎看不见。
- * 上沿与左沿不用改：`--bevel-hi` 一路都是「加白」，两个主题同向。 */
+ * 上沿与左沿不用改：`--bevel-hi` 一路都是「加白」，两个主题同向。
+ *
+ * ## 三层渐变的强度（2026-11-05 用户：「暗色下斜对角差距太大」）
+ *
+ * 三个颜色各自不翻面：`--bevel-hi` 暗色是 #ffffff2e（18% 白）、`--bevel-lo` 是
+ * #0000008c（55% 黑）。两边都拉到 100% 时，块面左上角合成到约 +18% 白、右下角
+ * 压到 −55% 黑——在 #1c1912 上量出来是 97 阶对 12 阶的差，一块纸读作「一半打了光、
+ * 一半在阴影里」。
+ *
+ * 现在收成 46 / 32 / 26（截图取样实测：对角差 85 → 23 → 16 阶，两轮才够）。
+ * 方向还在、块还是凸的，但不再是一道黑白坡。
+ * 停点也一起前移（52/58/62 → 46/50/55）：光斑只占角落，不往中间铺。
+ *
+ * 教训与 `.board` 那条一样——**暗底上把「加白 / 压黑」拉满，得到的是两块纸，
+ * 不是一块纸的两个角**。改这三个数之前先把上面这段读完。 */
 :root.dark .press-tile {
     background-color: var(--tile-face, var(--paper));
     background-image:
         radial-gradient(
             120% 96% at 20% 6%,
-            color-mix(in srgb, var(--bevel-hi) 100%, transparent),
-            transparent 52%
+            color-mix(in srgb, var(--bevel-hi) 46%, transparent),
+            transparent 46%
         ),
         linear-gradient(
             145deg,
-            color-mix(in srgb, var(--bevel-hi) 100%, transparent),
-            transparent 58%
+            color-mix(in srgb, var(--bevel-hi) 32%, transparent),
+            transparent 50%
         ),
         linear-gradient(
             315deg,
-            color-mix(in srgb, var(--bevel-lo) 100%, transparent),
-            transparent 62%
+            color-mix(in srgb, var(--bevel-lo) 26%, transparent),
+            transparent 55%
         );
     box-shadow:
         inset 0 1px 0 var(--bevel-hi),
@@ -327,8 +332,9 @@ withDefaults(defineProps<{ still?: boolean; tone?: 'paper' | 'seal'; wide?: bool
 
 /* 暗色那条基础规则（`:root.dark .press-tile`）比这一条多一个 `:root.dark`，
  * 不补这一条就会被它顶回纸的棱。块面不用重设——`--tile-face` 仍是朱；
- * 背景渐变也不重设：亮色下那三条本来就是无效的整条丢弃，暗色下它们会把朱面提亮一档，
- * 与 `PressButton` 改版前完全一样（那套偏光对两个面都是「加白」，方向没错）。 */
+ * 背景渐变也不重设：亮色本来就不叠（见 `.press-tile` 基础规则那段），暗色那三条对朱面
+ * 是「左上加白、右下压黑」，方向与纸面一致。2026-11-05 收窄到 46/32/26 之后，朱面上
+ * 也只是一点偏光，不会把 #a8322b 冲成浅红。 */
 :root.dark .press-tile.tone-seal {
     box-shadow:
         inset 0 1px 0 color-mix(in srgb, var(--seal-lt) 62%, transparent),
@@ -404,21 +410,30 @@ withDefaults(defineProps<{ still?: boolean; tone?: 'paper' | 'seal'; wide?: bool
             transparent 70%
         );
 }
+/* `wide` 的亮色仍写着 100% 的 315deg，与暗色不同——**这不是漏改**：亮色的
+ * `--bevel-lo` 只有 12% 黑，100% 摊在 70% 的长度上量出来不到 3 阶，收它没有意义；
+ * 暗色的 `--bevel-lo` 是 55% 黑，100% 就是「右下角整块压黑」。同一个百分比在两个
+ * 主题下的绝对值差四倍，所以两档必须分开看，不能拿一个数套两个主题。
+ *
+ * `wide` 的暗色：同样收一档。这条的 315deg 原先是 100%（55% 黑铺到 70%），
+ * 一张 265 × 72 的签上就是「右下角整块压黑」——统计签在暗色下最明显的问题。
+ * 现在 26%，与小块同一个量级；偏光与高光同时降到 28 / 16（固定像素的椭圆在宽面上
+ * 本来就更显眼，265 宽的签上会读成一团光斑）。 */
 :root.dark .press-tile.wide {
     background-image:
         radial-gradient(
             150px 100px at 22px 4px,
-            color-mix(in srgb, var(--bevel-hi) 50%, transparent),
+            color-mix(in srgb, var(--bevel-hi) 28%, transparent),
             transparent 70%
         ),
         linear-gradient(
             160deg,
-            color-mix(in srgb, var(--bevel-hi) 34%, transparent),
+            color-mix(in srgb, var(--bevel-hi) 16%, transparent),
             transparent 44%
         ),
         linear-gradient(
             315deg,
-            color-mix(in srgb, var(--bevel-lo) 100%, transparent),
+            color-mix(in srgb, var(--bevel-lo) 26%, transparent),
             transparent 70%
         );
 }
