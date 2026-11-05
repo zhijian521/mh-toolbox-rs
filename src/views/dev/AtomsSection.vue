@@ -14,6 +14,7 @@ import PressTile from '../../components/PressTile.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
 import SlotButton from '../../components/SlotButton.vue';
+import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import TogglePills from '../../components/TogglePills.vue';
 import { useFontScale } from '../../composables/use-font-scale';
@@ -22,7 +23,7 @@ import { THEME_OPTIONS, useTheme } from '../../composables/use-theme';
 import { todayText } from '../../services/format';
 
 /**
- * 原子组件：抽出来复用的十四件（十四条 `kit-cell`，一条里可能并排两个同族件——
+ * 原子组件：抽出来复用的十五件（十五条 `kit-cell`，一条里可能并排两个同族件——
  * 比如 `Field` / `NumberField`、`PressTile` / `PressButton`）。
  *
  * 加一件请连上面那个数一起改：篇首原先写死「九件」，加了两件之后就成了假信息。
@@ -62,6 +63,14 @@ const demoSchool = ref('五庄观');
 
 /** 日期格的演示值取今天：才看得出「今天那枚朱点」与「选中的朱面」是两件事。 */
 const demoDate = ref(todayText());
+
+/** 统计条的演示：四格各给一种真实会出现的形态——有数、没有（`—`）、负数转朱、笔数。 */
+const DEMO_STATS: StatItem[] = [
+    { cap: '收入', value: '462.5 万' },
+    { cap: '支出', value: '—', tone: 'num' },
+    { cap: '净额', value: '−12 万', tone: 'loss' },
+    { cap: '笔数', value: '18' },
+];
 
 /** 多选胶囊：初值给一项，才好看出「按下的那几枚是朱的」与「其余仍是空槽」。 */
 const DEMO_TOGGLES = [
@@ -264,6 +273,19 @@ const demoToggles = ref<string[]>(['task']);
             </div>
 
             <div class="kit-cell">
+                <span class="col-head">StatStrip · 统计条</span>
+                <!-- 四格是收益页与总览页的实际用法，这里也让它撑满整行（见 `.demo-stats`）：
+                     四格等分要靠整行宽度才看得出来，缩在一半里会读成一张卡。 -->
+                <div class="kit-row">
+                    <StatStrip :items="DEMO_STATS" class="demo-stats" />
+                </div>
+                <p class="note">
+                    读作<b>一行账</b>，不是四张卡：没有底色、没有圆角，只有每格之间一条 1px
+                    账线。列数由 <code>items.length</code> 决定。
+                </p>
+            </div>
+
+            <div class="kit-cell">
                 <span class="col-head">MeterBar · 进度条</span>
                 <!-- 两行差在 `--meter-h`：默认 10 是行内嵌用，14 是「独占一行当读数」用。
                      摆在同一张卡上，才看得出那 4px 在真实版式里意味着什么。
@@ -372,6 +394,12 @@ const demoToggles = ref<string[]>(['task']);
     align-items: center;
     gap: 7px;
     flex-wrap: wrap;
+}
+/* 统计条在真实页面里是通栏的一条（收益页、总览页都是），这里也让它撑满：
+ * 四格等分要靠整行宽度才看得出，缩在一半里会像一张卡。 */
+.demo-stats {
+    flex: 1;
+    min-width: 0;
 }
 /* 价格格在示例里撑满一行：它自己的看点是「数字 + 万 + 两侧加减」在这一整行里居中，
  * 靠着左边界摆的话看不出居中，只能说「这里有个格子」。 */

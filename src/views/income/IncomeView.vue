@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
+import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import { notify } from '../../composables/use-notify';
 import type { QuickItemEntry } from '../../services/game-data';
@@ -63,6 +64,32 @@ const scoped = computed(() => {
 });
 
 const totals = computed(() => totalsOf(scoped.value));
+
+/**
+ * 统计条的四格。
+ *
+ * 2026-11-05 抽成 `StatStrip` 组件（总览页要用同一组数）：口径仍在这里，
+ * 组件只负责摆——两页给出的数必须一模一样，所以连格式化函数都不能各写一份。
+ */
+const statItems = computed<StatItem[]>(() => [
+    { cap: '收入', value: amountText(totals.value.income) },
+    {
+        cap: '支出',
+        value: totals.value.expense ? `−${amountText(totals.value.expense)}` : '—',
+        tone: totals.value.expense ? 'loss' : 'num',
+    },
+    {
+        cap: '净额',
+        /* 负数必须带符号：左边「支出」有 `−`，净额只在颜色上转朱时，
+         * 一个「15 万」会被读成「今天赚了 15 万」——正是这一栏最不能错的地方。 */
+        value:
+            totals.value.net < 0
+                ? `−${amountText(-totals.value.net)}`
+                : amountText(totals.value.net),
+        tone: totals.value.net < 0 ? 'loss' : 'num',
+    },
+    { cap: '笔数', value: `${totals.value.count}` },
+]);
 
 /* ---------- 单价窗 ---------- */
 interface PriceAsk {
@@ -158,36 +185,7 @@ function priceCleared() {
                 <span class="meta">{{ rangeWord }} · {{ totals.count }} 笔</span>
             </div>
 
-            <section class="frame stats-card">
-                <div class="stats">
-                    <div>
-                        <div class="cap">收入</div>
-                        <div class="v num">{{ amountText(totals.income) }}</div>
-                    </div>
-                    <div>
-                        <div class="cap">支出</div>
-                        <div class="v" :class="totals.expense ? 'loss' : 'num'">
-                            {{ totals.expense ? `−${amountText(totals.expense)}` : '—' }}
-                        </div>
-                    </div>
-                    <div>
-                        <div class="cap">净额</div>
-                        <!-- 负数必须带符号：左边「支出」有 `−`，净额只在颜色上转朱时，
-                             一个「15 万」会被读成「今天赚了 15 万」——正是这一栏最不能错的地方。 -->
-                        <div class="v" :class="totals.net < 0 ? 'loss' : 'num'">
-                            {{
-                                totals.net < 0
-                                    ? `−${amountText(-totals.net)}`
-                                    : amountText(totals.net)
-                            }}
-                        </div>
-                    </div>
-                    <div>
-                        <div class="cap">笔数</div>
-                        <div class="v num">{{ totals.count }}</div>
-                    </div>
-                </div>
-            </section>
+            <StatStrip :items="statItems" />
 
             <div class="split">
                 <QuickPanel @need-price="askPrice" />
@@ -243,42 +241,10 @@ function priceCleared() {
     width: 216px;
 }
 
-/* 统计条：四格一条线分开，读作一行账，不是四张卡。 */
-.stats-card {
-    padding: 12px 18px;
-}
-.stats {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-.stats > div {
-    min-width: 0;
-    padding-right: 16px;
-}
-.stats > div + div {
-    padding-left: 16px;
-    border-left: var(--w-hair) solid var(--rule);
-}
-.cap {
-    color: var(--muted);
-    font-size: var(--fs-xs);
-    letter-spacing: 0.08em;
-}
-.v {
-    margin-top: 1px;
-    overflow: hidden;
-    font-size: var(--fs-amount);
-    line-height: 1.3;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-.num {
-    color: var(--num);
-}
-/* 支出与净额为负时转朱：与卡上的三层（墨名目 / 赭读数 / 朱强调）同一条。 */
-.loss {
-    color: var(--cinnabar);
-}
+/* 统计条已抽成 `components/StatStrip.vue`（总览页共用同一块）。
+ * 原来这里的 `.stats-card` / `.stats` / `.cap` / `.v` / `.num` / `.loss` 一并搬走——
+ * 留在 scoped 里就是一份没人用的死样式，而且它们会与组件内的同名类**合并生效**
+ * （scoped 只加属性选择器，拦不住同名规则，§2.4-45），改一处、另一处不动就会对不上。 */
 
 /* 两栏：左边速记吃满剩余，右边清单定宽。`stretch` 让两张卡的底边齐平——
  * 用 `start` 时右下会空出一块，读作「右边那张没画完」。 */

@@ -2,18 +2,19 @@ import type { RouteComponent } from 'vue-router';
 import type { IconName } from './components/icons';
 
 /**
- * 五个页面**一律懒加载**（与 `tools.ts` 的捉鬼页、`router.ts` 的 `/dev` 同一个写法）。
+ * 六个页面**一律懒加载**（与 `tools.ts` 的捉鬼页、`router.ts` 的 `/dev` 同一个写法）。
  *
- * 静态 import 会让五页连同它们专用的组件全压进第一屏包——角色页一套（卡、编辑器、
- * 五个分区编辑器、演示数据）、物价页一套（卡、走势图、四个弹窗）、收益页一套。
- * 左栏只读下面的 `label` / `icon` / `path`（见 `App.vue` 的模板），从不实例化 `view`，
- * 所以「进哪页才下哪页」在这里没有代价。
+ * 静态 import 会让六页连同它们专用的组件全压进第一屏包——总览页一套（统计条、七
+ * 日柱状图、各号卡）、角色页一套（卡、编辑器、五个分区编辑器、演示数据）、物价页一套
+ * （卡、走势图、四个弹窗）、收益页一套。左栏只读下面的 `label` / `icon` / `path`
+ * （见 `App.vue` 的模板），从不实例化 `view`，所以「进哪页才下哪页」在这里没有代价。
  *
  * 显式取 `.default`：`RouteComponent` 的联合类型不认模块命名空间对象，少这一层就要在
  * `component` 上加断言。
  */
 const CharactersView = () => import('./views/CharactersView.vue').then((page) => page.default);
 const IncomeView = () => import('./views/income/IncomeView.vue').then((page) => page.default);
+const OverviewView = () => import('./views/overview/OverviewView.vue').then((page) => page.default);
 const PricesView = () => import('./views/prices/PricesView.vue').then((page) => page.default);
 const SettingsView = () => import('./views/SettingsView.vue').then((page) => page.default);
 const ToolsView = () => import('./views/ToolsView.vue').then((page) => page.default);
@@ -38,7 +39,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-    { key: 'overview', label: '总览', icon: 'overview', path: '/overview', view: null },
+    { key: 'overview', label: '总览', icon: 'overview', path: '/overview', view: OverviewView },
     { key: 'income', label: '收益', icon: 'income', path: '/income', view: IncomeView },
     { key: 'prices', label: '物价', icon: 'prices', path: '/prices', view: PricesView },
     // 装备不再是独立一页，并进了角色：一个人穿什么、备哪些，本来就是「这个角色」的属性。
@@ -59,7 +60,14 @@ export const NAV_ITEMS: NavItem[] = [
     { key: 'settings', label: '设置', icon: 'settings', path: '/settings', view: SettingsView },
 ];
 
-/** 默认落在哪一页。设置页永远是最稳的落点：它不依赖任何数据，也就不会开局就空着。 */
-export const DEFAULT_PATH = '/settings';
+/**
+ * 默认落在哪一页。
+ *
+ * 2026-11-05 从 `/settings` 改成总览。此前那句注释写的是「设置页永远是最稳的落点：它不
+ * 依赖任何数据，也就不会开局就空着」——前半年成立，因为当时只有设置页是完整的；现在
+ * 三个数据页都有了，打开记账工具先落在「主题与字号」上就很别扭。总览页对空数据的处理
+ * 是写一句话（「名册里还没有角色」），并不比设置页难看，而它回答的是「这几天怎么样」。
+ */
+export const DEFAULT_PATH = '/overview';
 
 export const NAV_BY_KEY = new Map(NAV_ITEMS.map((item) => [item.key, item]));
