@@ -1,0 +1,133 @@
+{
+    "generated-by": "tools/game-icons/slice-lingshi.py",
+    "groups": {
+        "jiezhi": [
+            {
+                "id": "ling-jiezhi-060",
+                "img": "ling-jiezhi-060.webp",
+                "name": "枫华戒",
+                "level": 60
+            },
+            {
+                "id": "ling-jiezhi-080",
+                "img": "ling-jiezhi-080.webp",
+                "name": "芙蓉戒",
+                "level": 80
+            },
+            {
+                "id": "ling-jiezhi-100",
+                "img": "ling-jiezhi-100.webp",
+                "name": "金麟绕",
+                "level": 100
+            },
+            {
+                "id": "ling-jiezhi-120",
+                "img": "ling-jiezhi-120.webp",
+                "name": "悦碧水",
+                "level": 120
+            },
+            {
+                "id": "ling-jiezhi-140",
+                "img": "ling-jiezhi-140.webp",
+                "name": "九曜光华",
+                "level": 140
+            }
+        ],
+        "ershi": [
+            {
+                "id": "ling-ershi-060",
+                "img": "ling-ershi-060.webp",
+                "name": "翠叶环",
+                "level": 60
+            },
+            {
+                "id": "ling-ershi-080",
+                "img": "ling-ershi-080.webp",
+                "name": "明月珰",
+                "level": 80
+            },
+            {
+                "id": "ling-ershi-100",
+                "img": "ling-ershi-100.webp",
+                "name": "玉蝶翩",
+                "level": 100
+            },
+            {
+                "id": "ling-ershi-120",
+                "img": "ling-ershi-120.webp",
+                "name": "点星芒",
+                "level": 120
+            },
+            {
+                "id": "ling-ershi-140",
+                "img": "ling-ershi-140.webp",
+                "name": "凤羽流苏",
+                "level": 140
+            }
+        ],
+        "shouzhuo": [
+            {
+                "id": "ling-shouzhuo-060",
+                "img": "ling-shouzhuo-060.webp",
+                "name": "香木镯",
+                "level": 60
+            },
+            {
+                "id": "ling-shouzhuo-080",
+                "img": "ling-shouzhuo-080.webp",
+                "name": "翡玉镯",
+                "level": 80
+            },
+            {
+                "id": "ling-shouzhuo-100",
+                "img": "ling-shouzhuo-100.webp",
+                "name": "墨影扣",
+                "level": 100
+            },
+            {
+                "id": "ling-shouzhuo-120",
+                "img": "ling-shouzhuo-120.webp",
+                "name": "花映月",
+                "level": 120
+            },
+            {
+                "id": "ling-shouzhuo-140",
+                "img": "ling-shouzhuo-140.webp",
+                "name": "金水菩提",
+                "level": 140
+            }
+        ],
+        "peishi": [
+            {
+                "id": "ling-peishi-060",
+                "img": "ling-peishi-060.webp",
+                "name": "芝兰佩",
+                "level": 60
+            },
+            {
+                "id": "ling-peishi-080",
+                "img": "ling-peishi-080.webp",
+                "name": "逸云佩",
+                "level": 80
+            },
+            {
+                "id": "ling-peishi-100",
+                "img": "ling-peishi-100.webp",
+                "name": "莲音玦",
+                "level": 100
+            },
+            {
+                "id": "ling-peishi-120",
+                "img": "ling-peishi-120.webp",
+                "name": "相思染",
+                "level": 120
+            },
+            {
+                "id": "ling-peishi-140",
+                "img": "ling-peishi-140.webp",
+                "name": "玄龙苍珀",
+                "level": 140
+            }
+        ]
+    }
+}

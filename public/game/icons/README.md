@@ -17,7 +17,7 @@ icons/
 ├── gear/      gear-<部位>-<nn>.webp        装备 83
 ├── weapon/    weapon-<种类>-<等级>.webp    武器 165
 ├── item/      item-<id>.png|gif            速记物品 59
-└── lingshi/   灵饰——图还没切，见本节末
+└── lingshi/   ling-<部位>-<等级>.webp   灵饰 20
 ```
 
 两条规则，只说两句话：
@@ -33,20 +33,22 @@ icons/
 「往 `icons/` 里丢一个新 png」是最省事的写法，谁都不会觉得有问题——直到根目录有 800 个
 文件，只能靠前缀猜「这张是谁的」。规范没有断言撑着就只是愿望（`docs/GAME-ASSETS.md` §9）。
 
-| 目录      | 内容     | 数量 | 来源                                                                     |
-| --------- | -------- | ---- | ------------------------------------------------------------------------ |
-| `skill/`  | 生活技能 | 21   | 「生活技能」目录两页（第一页 12、第二页 9）                              |
-| `story/`  | 剧情技能 | 11   | 「剧情技能」目录一页                                                     |
-| `active/` | 装备特技 | 69   | 「特技特效」面板六页（12×5 + 9）                                         |
-| `school/` | 门派技能 | 147  | 「师门技能」面板，21 家门派 × 7 项                                       |
-| `gear/`   | 装备图标 | 83   | 百科典藏「装备」页 60 级以上，7 个部位，见 `../data/gear-icons.json`     |
-| `weapon/` | 武器图标 | 165  | 百科典藏「武器」页 60 级以上，15 种，见 `../data/weapon-icons.json`      |
-| `item/`   | 速记物品 | 59   | 摆摊掉落物（38 件有牌价 + 21 件随行就市），见 `../data/quick-items.json` |
+| 目录       | 内容     | 数量 | 来源                                                                     |
+| ---------- | -------- | ---- | ------------------------------------------------------------------------ |
+| `skill/`   | 生活技能 | 21   | 「生活技能」目录两页（第一页 12、第二页 9）                              |
+| `story/`   | 剧情技能 | 11   | 「剧情技能」目录一页                                                     |
+| `active/`  | 装备特技 | 69   | 「特技特效」面板六页（12×5 + 9）                                         |
+| `school/`  | 门派技能 | 147  | 「师门技能」面板，21 家门派 × 7 项                                       |
+| `gear/`    | 装备图标 | 83   | 百科典藏「装备」页 60 级以上，7 个部位，见 `../data/gear-icons.json`     |
+| `weapon/`  | 武器图标 | 165  | 百科典藏「武器」页 60 级以上，15 种，见 `../data/weapon-icons.json`      |
+| `lingshi/` | 灵饰图标 | 20   | 百科典藏「灵饰」页，4 部位 × 60~140，见 `../data/lingshi-icons.json`     |
+| `item/`    | 速记物品 | 59   | 摆摊掉落物（38 件有牌价 + 21 件随行就市），见 `../data/quick-items.json` |
 
 `item/` 文件名里的数字是 `quick-items.json` 的 **id**（不是序号），因为 id 才是单价表的键；
 `gear/` 那批是**序号**，序号本身即等级升序（第 1 个 = 60 级），单件名称在清单的 `name` 里。
 `weapon/` 的文件名**直接带等级**（`weapon-jian-060`），因为武器种类多、光靠序号找不着；
 90 级起的几款一件覆盖 90-150，同区间多款用 `b`/`c` 后缀（`weapon-jian-090b` 是「倚天」）。
+`lingshi/` 同样**带等级**（`ling-jiezhi-060`）——一个部位只有 5 件，序号反而更难找。
 
 装备特效（18 项）**没有图标**：游戏那一页只有名字，没有图形，所以 `active/` 里只有特技。
 
@@ -59,15 +61,19 @@ icons/
 - `school/` → `../data/school-icons.json`（`slice-school.py` 生成）
 - `gear/` → `../data/gear-icons.json`（`slice-gear.py` 生成）
 - `weapon/` → `../data/weapon-icons.json`（`slice-weapon.py` 生成）
+- `lingshi/` → `../data/lingshi-icons.json`（`slice-lingshi.py` 生成）
 - `item/` → `../data/quick-items.json` 的 `file` 字段（旧系统带过来的图，不是切图产出）
 
 清单分开写是因为每个脚本的裁切逻辑完全不同（4×3 卡片网格 / 竖排 7 行面板 / 3×4 方格且
 可滚动），写同一份清单时谁后跑谁把对方的分组覆盖掉——那种丢失不会有任何报错。
 
-**`lingshi/` 现在是空的，而代码已经在用它**：`views/characters/character.ts` 的
-`GEAR_SLOT_ICON` 里写着 `lingshi/ling-01.png` / `-06` / `-12` / `-17` 四张（戒指、耳饰、
-配饰、手镯），图却一直没落进仓库——卡上那四格现在是**破图**。补图时放进 `lingshi/`，
-文件名保持 `ling-<nn>.png`（代码按这个名字引用），别另起一套前缀。
+**`lingshi/` 这批只有 20 件，不是 24**：面板按「种类 → 等级」排，四个部位 × 60/80/100/120/140，
+到 140 就结束了（第二张截图最后一行第三格是空的）。官网介绍页另列了 160 级那四件
+（太虚渺云 / 焰云霞珠 / 浮雪幻音 / 碧海青天），**这个客户端里没有**，别照着官网表补齐——
+补出来的图只能是自己画的。
+
+拿到图之后 `views/characters/character.ts` 的 `GEAR_SLOT_ICON` 已从 `ling-01.png` 这类
+占位名改成 `lingshi/ling-<部位>-060.webp`（60 级那件当部位示意图），卡上那四格不再是破图。
 
 文件名是**序号**，不是技能名：`skill-01` 就是 `skills.ts` 里 `LIFE_SKILLS[0]`（强身术）。
 序号与名字表的对应关系写在清单里，并由 `src/services/game-icons.test.ts` 用断言盯着——
@@ -90,6 +96,7 @@ python tools/game-icons/slice.py         # 生活 / 剧情 / 特技 → skill/ s
 python tools/game-icons/slice-school.py  # 门派技能 → school/ + school-icons.json
 python tools/game-icons/slice-gear.py    # 装备 → gear/ + gear-icons.json
 python tools/game-icons/slice-weapon.py  # 武器 → weapon/ + weapon-icons.json
+python tools/game-icons/slice-lingshi.py # 灵饰 → lingshi/ + lingshi-icons.json
 ```
 
 `slice.py` 一次写三个目录（`skill/` `story/` `active/`），因为那三批来自同一个 4×3 卡片
@@ -140,10 +147,10 @@ python tools/game-icons/slice-weapon.py  # 武器 → weapon/ + weapon-icons.jso
   看着正好像图标被截断。直接用 96×96 缩放，1.7% 的各向异性看不出来
 - **同一类目的图标必须同尺寸**：一排图标里混着 88 和 96，基线就对不齐
 
-## 装备与武器图标（`gear/` `weapon/`）为什么带卡片底
+## 装备 / 武器 / 灵饰图标（`gear/` `weapon/` `lingshi/`）为什么带卡片底
 
 `skill-` / `story-` / `active-` / `school-skill-` 那四批是**抠掉底色**的（图形铺满画布），
-`gear/` 与 `weapon/` 这两批不是——它们每一张都是一块米黄小方片。
+`gear/` `weapon/` `lingshi/` 这三批不是——它们每一张都是一块米黄小方片。
 
 不是偷懒，是抠不了：装备图标本身就画在游戏卡片上，图形与卡片底**同色系**。
 实测白衣 `(240,240,235)` 与卡片底 `(243,222,192)` 的曼哈顿色差只有 64，
@@ -151,8 +158,8 @@ python tools/game-icons/slice-weapon.py  # 武器 → weapon/ + weapon-icons.jso
 加腐蚀去堵轮廓缺口，结果是女衣、项链那几页必定出现米色大洞（白色装备被当成背景挖掉），
 比带底更难看。
 
-所以这两批**只做裁切、不抠底**，取景都按「格子边内缩 2px → 裁 90×90 → 缩到 96×96」，
-**两批用完全相同的规格**。留白多少由游戏原图决定，不替它决定。
+所以这三批**只做裁切、不抠底**，取景都按「格子边内缩 2px → 裁 90×90 → 缩到 96×96」，
+**三批用完全相同的规格**。留白多少由游戏原图决定，不替它决定。
 
 ### 裁得对不对，看四个格子的交汇处
 

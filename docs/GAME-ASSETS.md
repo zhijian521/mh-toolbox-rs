@@ -28,9 +28,9 @@ public/game/
 │   ├── gear/        gear-<部位>-<nn>    装备 83（7 部位，60 级以上）
 │   ├── weapon/      weapon-<种类>-<等级> 武器 165（15 种 × 11 档）
 │   ├── item/        item-<id>.png|gif   速记物品 59（id 即单价表的键）
-│   └── lingshi/     灵饰（图待补，代码已引用，见 `icons/README.md` 末节）
+│   └── lingshi/     ling-<部位>-<等级>  灵饰 20（4 部位 × 60~140）
 └── data/            游戏事实数据 + 资源清单
-    ├── icons.json / school-icons.json / gear-icons.json / weapon-icons.json   图标清单，脚本生成不手改
+    ├── icons.json / school-icons.json / gear-icons.json / weapon-icons.json / lingshi-icons.json   图标清单，脚本生成不手改
     ├── schools.json  门派 21 家 + 每家七项门派技能 + 上限（cap）
     ├── skills.json   生活 21 / 剧情 11（有序名录，下标即图标序号）
     └── quick-items.json  速记物品 59（固定价 38 / 浮动价 21）+ 图标文件名
@@ -99,7 +99,7 @@ const MAP_DIR = `${import.meta.env.BASE_URL}game/maps/`;
 
 三条断言撑着（`game-icons.test.ts`，读真实目录、`import.meta.glob`）：**根目录下没有散图**（拦「往
 icons/ 丢一个 png」这种最省事的做法）、**文件名以目录名开头**（拦 `skill/` 里混进 `gear-*`）、
-**文档里列的类目目录都已有图**（文档写了 `lingshi/` 而仓库里没有这个目录）。
+**文档里列的类目目录都已有图**（这条是 2026-11-05 补的：当时本文档写了 `lingshi/`，仓库里却没这个目录，卡上四格一直是破图）。
 
 ### 4.2 图标：从游戏截图切，不另找素材
 
@@ -119,6 +119,9 @@ icons/ 丢一个 png」这种最省事的做法）、**文件名以目录名开�
   不用内容投影：图标贴不贴格子顶因图而异，投影法会让每页偏 2~8px（返工过一次，见 `icons/README.md`）。
   取景与 `slice-gear.py` **完全同规格**（内缩 2 → 90×90 → 96×96）：卡片四角的卷云暗纹要靠四个格子
   拼成完整图案，内缩多一点就会缺一瓣；底边兜到面板边界的格子由 `has_band()` 拒收。
+- `slice-lingshi.py`——百科典藏「灵饰」页，同为 3 列可滚动，但只两页、20 件，**不跑整页对齐**：
+  按「种类 → 等级」直接对，再用官方图标逐件并排核对。**格顶要按页给**——两页的滚动位置差 8px，
+  套同一个值会让第二页的图顶部带一条格子缝。
 
 前两者统一 96×96、**图标铺满画布不垫背景**；装备与武器**保留游戏卡片底**（图形与卡片底同色系，抠底
 会把白衣挖空，见 `public/game/icons/README.md`）。四者各写自己的清单——共用一份的话，后跑的脚本会把
@@ -198,24 +201,24 @@ icons/ 丢一个 png」这种最省事的做法）、**文件名以目录名开�
   `icons/`（名字增删，改了要重切，序号会整体错位）｜`DEFAULT_ROI`（用探针截一帧量，别目测）｜
   `ghost-parse.ts` 的句式（尤其「去」「的」「附近」）｜`TITLE_HINTS`｜`CONFUSABLE`。
 
-## 8. 现在的状态（2026-11-04）
+## 8. 现在的状态（2026-11-05）
 
-| 目录 / 常量                 | 状态                                                                                                                        |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `game/maps/`                | ✅ 20 张 webp + `maps.json`（原在 `public/maps/`）                                                                          |
-| `game/icons/`               | ✅ 一类目一目录（原 249 个全平铺）；根下只剩 `README.md`                                                                    |
-| `skill/` `story/` `active/` | ✅ 21 / 11 / 69 张                                                                                                          |
-| `school/`                   | ✅ 147 张：21 家 × 7 项                                                                                                     |
-| `gear/`                     | ✅ 83 张：7 部位（头盔 11 / 发钗 11 / 铠甲 11 / 女衣 11 / 鞋子 11 / 项链 14 / 腰带 14），60 级以上，约 314KB                |
-| `weapon/`                   | ✅ 165 张：15 种 × 11 档，约 436KB。**缺伞、灯笼、巨剑、双巨斧、棍五种**——截图里没有那几页                                  |
-| `item/`                     | ✅ 59 张（`item-<id>.png` / `.gif`；原 `icons/items/`，改名对齐前缀）                                                       |
-| `lingshi/`                  | ⏳ **空的**：`GEAR_SLOT_ICON` 已引用 `ling-01/06/12/17.png` 四张，图一直没落进仓库——戒指 / 耳饰 / 配饰 / 手镯四格现在是破图 |
-| `game/data/`                | ✅ 四份图标清单 + `schools.json`（21 家 × 7 项 + cap）+ `skills.json`（21 / 11）                                            |
-| `services/game-data.ts`     | ✅ 唯一加载器：形状校验、启动加载一次、失败退空表                                                                           |
-| `services/game-icons.ts`    | ✅ 每个类目一条目录常量，`gearSlotIcon` 由调用方自带子目录                                                                  |
-| `views/characters/mock.ts`  | 仍是演示数据，未搬（理由见 §6）                                                                                             |
-| `GEAR_SLOTS` 等三张装备表   | ⏳ 还在 `character.ts`，下一批该搬                                                                                          |
-| `src-tauri/models/`         | 18MB OCR 模型，**不属于**游戏资源，不搬                                                                                     |
+| 目录 / 常量                 | 状态                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `game/maps/`                | ✅ 20 张 webp + `maps.json`（原在 `public/maps/`）                                                            |
+| `game/icons/`               | ✅ 一类目一目录（原 249 个全平铺）；根下只剩 `README.md`                                                      |
+| `skill/` `story/` `active/` | ✅ 21 / 11 / 69 张                                                                                            |
+| `school/`                   | ✅ 147 张：21 家 × 7 项                                                                                       |
+| `gear/`                     | ✅ 83 张：7 部位（头盔 11 / 发钗 11 / 铠甲 11 / 女衣 11 / 鞋子 11 / 项链 14 / 腰带 14），60 级以上，约 314KB  |
+| `weapon/`                   | ✅ 165 张：15 种 × 11 档，约 436KB。**缺伞、灯笼、巨剑、双巨斧、棍五种**——截图里没有那几页                    |
+| `item/`                     | ✅ 59 张（`item-<id>.png` / `.gif`；原 `icons/items/`，改名对齐前缀）                                         |
+| `lingshi/`                  | ✅ 20 张：4 部位 × 5 级（60~140），约 76KB。`GEAR_SLOT_ICON` 已改用这批的 60 级那件当部位示意图，四格破图已修 |
+| `game/data/`                | ✅ 四份图标清单 + `schools.json`（21 家 × 7 项 + cap）+ `skills.json`（21 / 11）                              |
+| `services/game-data.ts`     | ✅ 唯一加载器：形状校验、启动加载一次、失败退空表                                                             |
+| `services/game-icons.ts`    | ✅ 每个类目一条目录常量，`gearSlotIcon` 由调用方自带子目录                                                    |
+| `views/characters/mock.ts`  | 仍是演示数据，未搬（理由见 §6）                                                                               |
+| `GEAR_SLOTS` 等三张装备表   | ⏳ 还在 `character.ts`，下一批该搬                                                                            |
+| `src-tauri/models/`         | 18MB OCR 模型，**不属于**游戏资源，不搬                                                                       |
 
 门派的图标在 `icons/school/`，`schoolSkillIcon(name)` 消费，清单由 `game-data.ts` 装进缓存。
 **按名字查，不要用 `schools.json` 的下标推**——文件序号是切图时的面板顺序，与 `skills` 顺序不同

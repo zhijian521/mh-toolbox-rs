@@ -333,14 +333,14 @@ export const GEAR_LAYOUT: Record<GearSlotName, { col: number; row: number }> = {
  * 每格里的**示意图**（`public/game/icons/` 下的相对路径）。`null` = 没有图，画淡印。
  *
  * 图库是「品类样图」：七个品类各 11 件（60–160 级，`game/data/gear-icons.json`
- * 有 83 个真实装备名），灵饰另有 `lingshi/ling-NN` 一组。玩家那件装备的名字大多
- * 不在这 83 个名字里，所以这里**按部位取一张代表图**，不按装备名查：
- * 按名查会让同一格在不同号上时有时无，而这一格要回答的是「这里穿的是什么」，
- * 图只是让格子立起来。
+ * 有 83 个真实装备名），灵饰 4 部位 × 5 级（60–140，
+ * `game/data/lingshi-icons.json`）。玩家那件装备的名字大多不在这 83 个名字里，
+ * 所以这里**按部位取一张代表图**，不按装备名查：按名查会让同一格在不同号上
+ * 时有时无，而这一格要回答的是「这里穿的是什么」，图只是让格子立起来。
  *
- * 武器与玉魄在图库里没有对应品类（剑枪扇的图还没切），所以是 `null`——
- * 卡上那时画一枚淡印 + 首字，不留破图。等 `tools/game-icons/slice-gear.py`
- * 切了武器，把这里的两条换成文件名即可，**不用动组件**。
+ * 武器与玉魄仍是 `null`。武器 165 张已经入库（`game/data/weapon-icons.json`，
+ * 20 类 × 等级），但没有「武器」这一格的代表图；玉魄本就没有图。这两格画一枚
+ * 淡印 + 首字，不留破图；要填只改这里，**不用动组件**。
  */
 export const GEAR_SLOT_ICON: Record<GearSlotName, string | null> = {
     头: 'gear/gear-toukui-03.webp',
@@ -349,10 +349,10 @@ export const GEAR_SLOT_ICON: Record<GearSlotName, string | null> = {
     衣服: 'gear/gear-nvyi-05.webp',
     腰带: 'gear/gear-yaodai-05.webp',
     鞋子: 'gear/gear-xiezi-05.webp',
-    戒指: 'lingshi/ling-01.png',
-    耳饰: 'lingshi/ling-06.png',
-    配饰: 'lingshi/ling-12.png',
-    手镯: 'lingshi/ling-17.png',
+    戒指: 'lingshi/ling-jiezhi-060.webp',
+    耳饰: 'lingshi/ling-ershi-060.webp',
+    配饰: 'lingshi/ling-peishi-060.webp',
+    手镯: 'lingshi/ling-shouzhuo-060.webp',
     '玉魄·阴': null,
     '玉魄·阳': null,
 };
