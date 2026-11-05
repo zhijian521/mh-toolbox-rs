@@ -29,6 +29,7 @@ SCREENSHOTS 与 OFFSETS（偏移由官网图标比对得到，页面布局变了
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 from collections import OrderedDict
 from pathlib import Path
@@ -80,7 +81,7 @@ SCREENSHOTS = [
 ]
 
 # 每页截图第一个格子对应的全局行号（0 = 枪矛 0 级）。由官网 340 张图标比对得到。
-OFFSETS = {1: 40, 2: 40, 3: 191, 4: 194, 5: 141, 6: 144, 7: 91, 8: 91, 9: 21, 10: 24, 11: 107, 12: 107, 13: 6, 14: 157, 15: 163, 16: 124, 17: 74, 18: 74, 19: 174, 20: 177, 21: 56, 22: 210, 23: 210, 24: 225, 25: 228, 26: 243, 27: 243, 28: 40, 29: 92, 30: 106, 31: 107, 32: 105, 33: 107, 34: 106, 35: 109, 36: 109, 37: 209}
+OFFSETS = {1: 40, 2: 40, 3: 191, 4: 197, 5: 141, 6: 144, 7: 91, 8: 94, 9: 21, 10: 24, 11: 107, 12: 107, 13: 6, 14: 157, 15: 163, 16: 124, 17: 74, 18: 74, 19: 174, 20: 177, 21: 56, 22: 210, 23: 210, 24: 225, 25: 228, 26: 243, 27: 243, 28: 40, 29: 95, 30: 106, 31: 105, 32: 105, 33: 106, 34: 109, 35: 224, 36: 109, 37: 209}
 
 # 官网 dj004 系列的 20 种武器 × 17 行（0 级到 160 级），顺序即游戏列表顺序。
 ROWS = {
@@ -117,9 +118,10 @@ KEY = {
 
 GROUP = 17          # 每种武器的档数
 CARD = np.array([240, 212, 176])   # 格子底（比防具页的米黄略暗）
-COLS = [(154, 248), (278, 372), (402, 496)]   # 三列格子的 x 范围
-CELL, STEP, PAD = 94, 110, 2       # 格子高、行距、取景内缩
-MIN_TOP = 494                      # 小于它的行被顶部下拉框压住
+COLS = [(154, 247), (278, 371), (402, 495)]   # 三列格子（各 94 宽，由竖向间隙量出）
+CELL, STEP = 94, 110               # 格子高、行距
+INSET = 2                          # 格边内缩：与装备一致（裁 90 → 96）
+TOP_MIN, TOP_MAX = 488, 960        # 下拉框底 / 面板底，越界的行不完整
 
 
 def rows_with_names():
@@ -131,58 +133,80 @@ def rows_with_names():
     return out
 
 
-def row_bands(a):
-    """内容投影找行带，再按 STEP 拆成 CELL 高的格子顶。"""
-    content = np.abs(a - CARD).sum(axis=2) > 45
-    proj = content[440:975, COLS[0][0]:COLS[-1][1] + 1].sum(axis=1)
-    raw, start = [], None
-    for i, v in enumerate(proj):
-        if v >= 25 and start is None:
-            start = i
-        elif v < 25 and start is not None:
-            raw.append([start, i - 1]); start = None
-    if start is not None:
-        raw.append([start, len(proj) - 1])
-    merged = []
-    for b in raw:
-        if merged and b[0] - merged[-1][1] <= 5:
-            merged[-1][1] = b[1]
-        else:
-            merged.append(b)
-    tops = []
-    for y0, y1 in [(b[0] + 440, b[1] + 440) for b in merged if b[1] - b[0] + 1 >= 60]:
-        for k in range(max(1, round((y1 - y0 + 1) / STEP))):
-            tops.append(y0 - PAD + k * STEP)
-    return sorted(tops)
+def gap_segments(a):
+    """找「整行三格都是淡色差」的间隙段：格子之间是 16px 的浅色缝。"""
+    d = np.abs(a - CARD).sum(axis=2)
+    faint = (d > 8) & (d < 55)
+    ratio = np.array([faint[y, COLS[0][0]:COLS[-1][1] + 1].mean() for y in range(430, 1000)])
+    segs = []
+    for y in range(430, 1000):
+        if ratio[y - 430] > 0.85:
+            if segs and y - segs[-1][1] <= 1:
+                segs[-1][1] = y
+            else:
+                segs.append([y, y])
+    return [(s, e) for s, e in segs]
+
+
+def grid_tops(a):
+    """用间隙段求本页的行相位，再按 STEP 生成格子顶。
+
+    为什么不用「内容投影」：图标贴格子顶时内容起点就是格子顶，再减 2px 会跑到格子外，
+    裁进来的是上一格的下边框；图标不贴顶时又会少 8px。两种错法混在一起，就是
+    「有的上面多一条边、有的被切掉一截」。间隙的位置与图标无关，稳得多。
+    """
+    votes = {}
+    for y0, y1 in gap_segments(a):
+        if 10 <= y1 - y0 + 1 <= 24:      # 完整间隙才投票，被面板截断的不算
+            t = (y1 + 1) % STEP
+            votes[t] = votes.get(t, 0) + 1
+    if not votes:
+        return []
+    ph = max(votes.items(), key=lambda kv: kv[1])[0]
+    return [y for y in range(430, 1000)
+            if y % STEP == ph and TOP_MIN <= y and y + CELL <= TOP_MAX]
+
+
+def has_band(im):
+    """裁出来的图，顶边或底边是不是一条「格子之间的缝」。
+
+    为什么必须挡：列表最底那一行被面板下边缘切掉，底边兜到的是面板边界，
+    拼图时会在四格交汇处横着拉出一条亮带（用户实测指出）。这种格子宁可不要，
+    让合并流程去别的页取同一行完整的那一份。
+    """
+    d = np.abs(np.asarray(im.convert('RGB')).astype(int) - CARD).sum(axis=2)
+    for seg in (d[0], d[1], d[-2], d[-1]):
+        if ((seg >= 8) & (seg <= 55)).mean() > 0.85 and float(seg.std()) < 26:
+            return True
+    return False
 
 
 def cut(a, im, y0, ci):
-    """切一格。返回 RGBA 图（等比放进 96×96 米黄画布）或 None（空格）。"""
+    """切一格并缩放到 96×96；空格返回 None。
+
+    **固定取景**：按格子边内缩 INSET，不追图标包围盒。追包围盒有两个后遗症，
+    都被人眼抓到过：图标被拉到贴边（看着像被裁），以及贴顶的图标把框顶推到格子外、
+    带进一条更亮的间隙。留白多少由游戏原图决定，别替它决定。
+    """
     x0, x1 = COLS[ci]
-    y1 = min(974, y0 + CELL - 1)
-    if y1 - y0 < 70:
-        return None
-    blk = a[y0:y1 + 1, x0:x1 + 1]
+    blk = a[y0:y0 + CELL, x0:x1 + 1]
     if (np.abs(blk - CARD).sum(axis=2) <= 45).mean() > 0.9:   # 空格
         return None
-    m = np.abs(blk - CARD).sum(axis=2) > 45
-    ys, xs = np.nonzero(m)
-    if len(xs) < 60:
-        return None
-    fx0, fy0, fx1, fy1 = xs.min(), ys.min(), xs.max(), ys.max()
-    # 再找一次内层包围盒：第一次框到的是格子边框，直接裁会把四角边框带进来
-    inner = m[fy0 + 2:fy1 - 1, fx0 + 2:fx1 - 1]
-    iy, ix = np.nonzero(inner)
-    if len(ix) >= 60:
-        box = (fx0 + 2 + ix.min(), fy0 + 2 + iy.min(), fx0 + 2 + ix.max() + 1, fy0 + 2 + iy.max() + 1)
-    else:
-        box = (fx0, fy0, fx1 + 1, fy1 + 1)
-    body = im.crop((x0 + box[0], y0 + box[1], x0 + box[2], y0 + box[3]))
-    w, h = body.size
-    side = max(w, h)
-    canvas = Image.new('RGB', (side, side), tuple(int(v) for v in CARD))
-    canvas.paste(body, ((side - w) // 2, (side - h) // 2))
-    return canvas.resize((96, 96), Image.LANCZOS)
+    # 内缩 2 → 90×90 → 96×96：与 slice-gear.py 完全同规格。
+    # 内缩不能更大：卡片四角的卷云纹是「四格拼成完整图案」的那四分之一，
+    # 内缩 4 就会把云纹的角切掉，拼在一起时缺一瓣（用户实测反馈）。
+    # 先按标准位置取；若底边兜到了面板边界（列表最底那一行会这样），
+    # 就整体上移再取——卡片 94 高只取 90，有 4~6px 余量。个别件因此比其他图上移
+    # 几个像素，但总比缺件或带一条亮边强。
+    for k in (0, 2, 4, 6, 8):
+        top = y0 + INSET - k
+        bot = y0 + CELL - INSET - k
+        if top < 0:
+            break
+        img = im.crop((x0 + INSET, top, x1 - INSET + 1, bot)).resize((96, 96), Image.LANCZOS)
+        if not has_band(img):
+            return img
+    return None
 
 
 def main() -> int:
@@ -203,9 +227,7 @@ def main() -> int:
         if offset is None:
             continue
         j = 0
-        for y0 in row_bands(a):
-            if y0 < MIN_TOP:
-                continue
+        for y0 in grid_tops(a):
             for ci in range(len(COLS)):
                 seq = offset + j
                 j += 1
@@ -220,19 +242,26 @@ def main() -> int:
                 if img is None:
                     continue
                 taken.add(seq)
-                groups.setdefault(kind, []).append((name, lv, hi, img))
+                groups.setdefault(kind, []).append((seq, name, lv, hi, img))
 
     out_dir = ROOT / 'public/game/icons/weapon'
     manifest = {'generated-by': 'tools/game-icons/slice-weapon.py', 'groups': {}}
     total = 0
     if not check:
+        # 整目录改名备份再重建：逐文件 unlink 在本机被 safe-delete 拦，会中途断掉，
+        # 只剩一半文件（实测只写出 113/165）。
+        if out_dir.is_dir():
+            bak = ROOT / '.runtime' / 'weapon-bak'
+            if bak.is_dir():
+                shutil.rmtree(bak, ignore_errors=True)
+            out_dir.rename(bak)
         out_dir.mkdir(parents=True, exist_ok=True)
-        for old in out_dir.glob('*.webp'):
-            old.unlink()
     for kind, items in groups.items():
         seen = {}
         entries = []
-        for name, lv, hi, img in items:
+        # 按全局序号排：同一等级可能有多款（b/c 后缀就按这个顺序发），
+        # 按收集顺序发会因「某页格子被拒收、改从别页取」而把 b/c 对调。
+        for seq, name, lv, hi, img in sorted(items, key=lambda t: t[0]):
             n = seen.get(lv, 0)
             seen[lv] = n + 1
             fid = 'weapon-{}-{:03d}{}'.format(KEY[kind], lv, '' if n == 0 else chr(ord('a') + n))
