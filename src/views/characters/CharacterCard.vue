@@ -8,7 +8,7 @@ import SteppedSlider from '../../components/SteppedSlider.vue';
 import AssistIcon from './AssistIcon.vue';
 import GearTip from './GearTip.vue';
 import IconTile from './IconTile.vue';
-import PetTip from './PetTip.vue';
+import PetDetail from './PetDetail.vue';
 import SkillRow from './SkillRow.vue';
 import {
     GEAR_LAYOUT,
@@ -16,6 +16,10 @@ import {
     PANES,
     expPercent,
     isMaxed,
+    joinShort,
+    lifeLow,
+    previewSkills,
+    previewStats,
     type CharacterData,
     type GearDetail,
     type GearSlot,
@@ -67,19 +71,21 @@ function choose(key: PaneKey) {
  * 卡上再自绘一套「按钮就地改名 → 4 秒退回」，就有两个入口、两套文案，
  * 而且「4 秒」这种时限只有这一个地方有，谁也说不清为什么是 4 秒。 */
 
-/* ---------- 浮片：装备与召唤兽共用一份「指向哪个格子」的状态 ----------
- * 两个浮片内容不同，但「悬停/聚焦 → 量锚点 → 由浮片自己算落位」这套流程一样，
- * 所以状态只留一份。锚点存 rect 而不是元素：滚动或重建之后 rect 就过期了，
- * 存元素会让浮片停在旧位置。
+/* ---------- 浮片：只剩装备一份 ----------
+ * 悬停/聚焦 → 量锚点 → 由浮片自己算落位。锚点存 rect 而不是元素：滚动或重建之后
+ * rect 就过期了，存元素会让浮片停在旧位置。
+ *
+ * 召唤兽的那一份（`PetTip`）2026-11-05 退役：它给的是「资质 + 八项属性 + 技能名 +
+ * 内丹名」，与详情档案整块重合。同一份内容两个出口，改了一处另一处就静默过期
+ * （`GearTip` 的注释里写着同一件事：两处各写一遍，抄到第二遍时就已经漂了）。
+ * 现在兽是**点开看详情**，悬停不再停 90ms 才出东西——那一页本来就要点。
  */
-type TipPayload = { kind: 'gear'; detail: GearDetail } | { kind: 'pet'; pet: Pet };
-
-const tip = ref<TipPayload | null>(null);
+const tip = ref<GearDetail | null>(null);
 const tipAnchor = ref<DOMRect | null>(null);
 
-function openTip(event: Event, payload: TipPayload) {
+function openTip(event: Event, detail: GearDetail) {
     tipAnchor.value = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    tip.value = payload;
+    tip.value = detail;
 }
 
 function closeAll() {
@@ -87,8 +93,27 @@ function closeAll() {
     tipAnchor.value = null;
 }
 
-const gearTip = computed(() => (tip.value?.kind === 'gear' ? tip.value.detail : null));
-const petTip = computed(() => (tip.value?.kind === 'pet' ? tip.value.pet : null));
+/* ---------- 召唤兽：概览牌的取数 ----------
+ * 五格属性、前四个技能名、参战差额、寿命告警**一次算完**，模板只负责画。
+ * 放在 computed 里而不是模板里调函数：模板里 `v-for` 里再调三次 `previewSkills`
+ * 会每帧新建三个数组，而这个列表重渲染的频率（切页签、悬停）比想象的高。
+ */
+const detailPet = ref<Pet | null>(null);
+
+const petViews = computed(() =>
+    props.character.pets.map((pet) => ({
+        pet,
+        short: joinShort(pet, props.character.level),
+        stats: previewStats(pet),
+        skills: previewSkills(pet),
+        lowLife: lifeLow(pet.life),
+    })),
+);
+
+function openDetail(pet: Pet) {
+    closeAll();
+    detailPet.value = pet;
+}
 
 /* 经验条的两个值：百分比在 `character.ts` 里算（纯函数、有单测），这里只负责文案。
  * 两者都没填就不显示文字——一根空轨道配一个空字符串会把这一行压成一条灰线。 */
@@ -388,9 +413,9 @@ function slotInitial(slot: GearSlot): string {
                             type="button"
                             class="gear-cell"
                             :style="cellPos(slot.slot)"
-                            @mouseenter="openTip($event, { kind: 'gear', detail: slot.detail })"
+                            @mouseenter="openTip($event, slot.detail)"
                             @mouseleave="closeAll"
-                            @focus="openTip($event, { kind: 'gear', detail: slot.detail })"
+                            @focus="openTip($event, slot.detail)"
                             @blur="closeAll"
                         >
                             <span class="gear-part">{{ slot.slot }}</span>
@@ -439,44 +464,89 @@ function slotInitial(slot: GearSlot): string {
                 </div>
             </section>
 
-            <!-- ---------- 召唤兽：纵向列表，悬停看资质 ----------
-                 不做网格：一只兽的核心信息（六项资质 + 成长 + 五行 + 寿命）比一件装备多，
-                 塞进 100px 宽的格子里只写得下名字。列表一屏能看四五只，
-                 正好对得上「携带 4 / 7」这个量级。 -->
+            <!-- ---------- 召唤兽：竖向列表，一张兽一张牌 ----------
+                 不做网格：一只兽要回答的东西（五格战斗属性 + 技能名）比一件装备多，
+                 塞进 100px 宽的格子里只写得下名字。一牌一屏能看四只，
+                 正好对得上「携带 4 / 7」这个量级。
+
+                 ---- 牌上放什么，是 2026-11-05 定的 ----
+                 只放**现在什么成色**：五格战斗属性（气血 / 攻击 / 防御 / 速度 / 法伤）
+                 加一行技能名。六项资质、八项战斗属性全量、技能格、内丹格都进详情
+                 （`PetDetail.vue`）——资质是「练的时候」才对照的东西，摆在概览上
+                 等于把两张表叠在一处。
+
+                 ---- 为什么整块是按钮，而不是「行 + 一个箭头」 ----
+                 这一块点开的动作是「看这一只」，与卡片上其它可点区域一样：整个面都是命中区，
+                 不另画一个 16px 的箭头让人去瞄。等价键（Enter / Space）由原生 button 给。 -->
             <section
                 v-show="active === 'pets'"
                 :id="`${character.id}-pane-pets`"
-                class="pane pane-pets"
+                class="pane"
                 role="tabpanel"
                 :aria-labelledby="`${character.id}-tab-pets`"
             >
-                <div v-if="character.pets.length" class="pet-list">
+                <div v-if="petViews.length" class="pet-list">
                     <button
-                        v-for="pet in character.pets"
-                        :key="pet.name"
+                        v-for="view in petViews"
+                        :key="view.pet.name"
                         type="button"
-                        class="pet-row"
-                        @mouseenter="openTip($event, { kind: 'pet', pet })"
-                        @mouseleave="closeAll"
-                        @focus="openTip($event, { kind: 'pet', pet })"
-                        @blur="closeAll"
+                        class="plate"
+                        :aria-label="`查看 ${view.pet.name || '这只召唤兽'} 的详情`"
+                        @click="openDetail(view.pet)"
                     >
-                        <span class="pet-name">{{ pet.name }}</span>
-                        <span class="leader"></span>
-                        <span class="lv num">{{ pet.level }} 级</span>
-                        <!-- 只把「65」加粗，不整枚签：「参战」是个词，不是「级」那样的单位。
-                             整枚加粗会让这行出现两个同重的块（等级 + 签），且把词也带重了。 -->
-                        <span class="chip pet-join"
-                            >参战 <span class="num">{{ pet.joinLevel }}</span></span
-                        >
+                        <span class="beast-head">
+                            <span class="elem">{{ view.pet.element || '—' }}</span>
+                            <span class="beast-name">{{ view.pet.name || '未命名' }}</span>
+                            <!-- 0 级退灰（`idle`）：与票行的 `.idle` 同一条，
+                                 「还没开始」不该和「练到 136」一样亮。 -->
+                            <span class="lv num" :class="{ idle: !view.pet.level }"
+                                >{{ view.pet.level }} 级</span
+                            >
+                            <!-- 参战签：带得动是普通签，带不动转朱并报差额。
+                                 旧版只摆「参战 65」，从不跟人物等级比。 -->
+                            <span class="chip join" :class="{ short: view.short > 0 }">
+                                参战 {{ view.pet.joinLevel
+                                }}<b v-if="view.short > 0">差 {{ view.short }}</b>
+                            </span>
+                        </span>
+
+                        <!-- 五格固定顺序，缺项画淡「—」而**不省略那一格**：
+                             省一格会让后面四项各往前挪一位，「速度」那一栏里其实是法伤。 -->
+                        <span class="stats">
+                            <span v-for="row in view.stats" :key="row.label" class="s">
+                                <span class="k">{{ row.label }}</span>
+                                <span class="v" :class="{ blank: !row.value }">{{
+                                    row.value || '—'
+                                }}</span>
+                            </span>
+                        </span>
+
+                        <span class="skill-line" :class="{ none: !view.pet.skills.length }">
+                            <span class="k">技能</span>
+                            <span class="names">{{
+                                view.pet.skills.length ? view.skills.names.join(' · ') : '无'
+                            }}</span>
+                            <span v-if="view.skills.rest" class="more num">{{
+                                view.skills.rest
+                            }}</span>
+                        </span>
                     </button>
                 </div>
+                <!-- 一只都没有时给一句话，与师门、辅助两页同一句式：
+                     空白的纸页读作「没画完」，一句话才说明「这里本来就还没记」。 -->
                 <p v-else class="empty-note">还没有记录召唤兽</p>
             </section>
         </div>
 
-        <GearTip :anchor="tipAnchor" :detail="gearTip" />
-        <PetTip :anchor="tipAnchor" :pet="petTip" />
+        <GearTip :anchor="tipAnchor" :detail="tip" />
+
+        <!-- 详情档案 `Teleport` 到 body，所以挂在这里只是逻辑位置。 -->
+        <PetDetail
+            v-if="detailPet"
+            :pet="detailPet"
+            :char-level="character.level"
+            @close="detailPet = null"
+        />
     </article>
 </template>
 

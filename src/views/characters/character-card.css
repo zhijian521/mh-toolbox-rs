@@ -202,7 +202,7 @@
  * `data-v`，仍是 15.5px。同一张卡上「门派 15.5 / 辅助 13」就是这么来的。
  * 现在只认卡头与召唤兽，票里的字**只有 base.css 一个来源**。 */
 .char-head .lv,
-.pet-row .lv {
+.plate .lv {
     color: var(--num);
     font-size: calc(var(--fs-sm) + 1px);
 }
@@ -225,8 +225,10 @@
  * 所以那格定宽 52 的淡槽不会被顶出去（实测五位仍 41.2，格子不必换宽）。
  *
  * **不改全局 `.num`**：卡与编辑页各写一条（编辑页那条在 `CharacterEditor.vue` 的
- * `.editor :deep(.num)`），浮片（`GearTip` / `PetTip`）仍是常规——它们 `Teleport` 到
- * `body`，两条 scoped 规则都够不着；且浮片随指针出现，粗起来会抢正文。
+ * `.editor :deep(.num)`），浮片 `GearTip` 仍是常规——它 `Teleport` 到 `body`，
+ * 两条 scoped 规则都够不着；且浮片随指针出现，粗起来会抢正文。
+ * 详情档案（`PetDetail.vue`）不在这里管：它 `Teleport` 到 `body`，够不着卡的作用域，
+ * 加粗写在它自己的 scoped 里（资质票与属性行各一条）。
  *
  * `SkillRow` 与 `MeterBar` 都是子组件，它们的读数字要经 `:deep()` 才够得着——
  * 师门那一列的等级签、属性页底下经验条旁边那串「3,777.2万 / 4,200万」。
@@ -730,59 +732,205 @@
 }
 
 /* ======================================================================
- * 召唤兽
+ * 召唤兽 —— 概览牌
  * ==================================================================== */
-/* 纵向列表而不是网格：一只兽要回答的东西（六项资质 + 成长 + 五行 + 寿命）
- * 是一件装备的两倍，塞进 100px 宽的格子里只写得下名字。
- * 一屏能看四五只，正好对得上「携带 4 / 7」这个量级。
+/* 一行一只 → **一只一牌**（2026-11-05）。
  *
- * 行高均分（`1fr`）而不是 `space-between` 摊开：4 行摊进 400px 会变成行距 90 的
- * 四条孤线，读起来是「四行漂在纸上」；等高行配行内居中，下边线才一条接一条，
- * 与「携带 4 / 7」那张脚注一起收在卡底。 */
+ * 换掉的是「行」这个形状，不只是配色。旧版每行只有名字 + 等级 + 参战签，
+ * 而 `grid-auto-rows: 1fr` 把这四行均分到 93px —— 一行九成是空纸，
+ * 中间那串点线撑着一条谁也不读的引线；判断一只兽值不值得留的三件事
+ * （战斗属性、技能、参战够不够）一件都不在面上。
+ *
+ * 现在一块牌三段：头行（五行章 + 名 + 等级 + 参战签）/ 五格战斗属性 / 技能名一行。
+ * 牌高 108.75、间距 10，四张 465 装进 523 的版心，第五张起滚动。
+ *
+ * 材质与师门、辅助、修炼那三张票同源（`base.css` 的 `.slip-row` 四件套）：
+ * 底取 `well 34%` 混 `--slip-base`，一亮一暗两道棱、落地一层软影。
+ * 差别只在形状——那一张是 42 高的一行，这一张是三段的一块。 */
 .pet-list {
-    display: grid;
-    grid-auto-rows: 1fr;
-    flex: 1;
-}
-.pet-row {
     display: flex;
-    /* 交叉轴居中而不是基线对齐：行高被拉起来之后，基线对齐会把整行内容压在行顶，
-     * 下面空出半行。名字、等级、签同为一行小字，居中的 1px 差看不出来。 */
-    align-items: center;
-    gap: 7px;
-    padding: 9px 0;
+    flex-direction: column;
+    gap: 10px;
+}
+.plate {
+    /* 棱光自己定一份，与 `.slip-row` 同值：`--bevel-hi` 在暗色只有 18% 白，
+     * 压在深票面上读不出，只剩「下暗」——凹凸会反过来读成一块深色贴片。 */
+    --plate-hi: light-dark(var(--bevel-hi), color-mix(in srgb, var(--paper-base) 34%, transparent));
+    --plate-lo: light-dark(var(--bevel-lo), color-mix(in srgb, var(--ink-base) 42%, transparent));
+
+    display: block;
+    width: 100%;
+    padding: 8px 10px 7px;
     border: 0;
-    border-bottom: var(--w-hair) solid var(--rule);
-    background: none;
+    border-radius: var(--r-3);
+    background: color-mix(in srgb, var(--well) 34%, var(--slip-base));
+    box-shadow:
+        inset 1px 1px 0 var(--plate-hi),
+        inset -1px -1px 0 var(--plate-lo),
+        0 2px 4px -1px var(--shadow-lg);
     color: var(--ink);
     font-family: var(--font-ui);
-    font-size: var(--fs-sm);
     text-align: left;
     cursor: pointer;
+    transition: background-color var(--t-quick) var(--ease-soft);
 }
-/* 悬停时名字转朱，与装备格的「部位转朱」同一条手势：这一行可以看详情。
- * 两侧都不加底色——底色会把那串点线截断。 */
-.pet-row:hover .pet-name {
+/* 悬停只做两件事：票面提一档（well 从 34% 收 18%）、名字转朱。
+ * 与装备格的「部位转朱」同一条手势：这一块可以按下看详情。
+ * 不加位移、不加描边——票是平放在纸上的，动它会让整列跟着晃。 */
+.plate:hover {
+    background: color-mix(in srgb, var(--well) 18%, var(--slip-base));
+}
+.plate:hover .beast-name {
     color: var(--cinnabar);
 }
-.pet-row:focus-visible {
+.plate:focus-visible {
     outline: var(--ring);
     outline-offset: var(--ring-offset);
 }
-/* 召唤兽行与师门行相反——行盒 93 而名字在 38，居中后点落在 44，比名字的
- * x-height 中线（47.6）**高** 3.6，得往下推 4（默认那条是 -2，这里给 +2）。
- * 这一行的名字、等级、签全是单行小字，点线的参照就是名字这一行。 */
-.pet-row .leader {
-    transform: translateY(2px);
+
+.beast-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
-.pet-name {
+/* 五行章：一枚压印块（凸），不是槽。它读作「印在牌上的记号」，
+ * 与页签那枚朱印同一个方向；槽只留给「往里放」的装备格。
+ *
+ * 底色用纯 `--paper-2`（比票面亮一档）：原先写 `well 46% + paper-2`，
+ * 与票面几乎同色，26px 的方块只剩一圈若有若无的棱，看着像「这里漏了一块」。 */
+.elem {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--r-2);
+    background: var(--paper-2);
+    box-shadow:
+        inset 1px 1px 0 var(--bevel-hi),
+        inset -1px -1px 0 var(--bevel-lo),
+        0 1px 3px var(--shadow-lg);
+    color: var(--num);
+    font-size: calc(var(--fs-sm) + 3px);
+    line-height: 1;
+}
+.beast-name {
+    overflow: hidden;
     color: var(--ink);
+    font-size: var(--fs-md);
+    letter-spacing: 0.04em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     transition: color var(--t-quick) var(--ease-soft);
 }
-/* 参战等级的框是全局 `.chip`；这里只留「别被长名字挤没」。 */
-.pet-join {
+.beast-head .lv {
     flex: none;
+    color: var(--num);
+    font-size: calc(var(--fs-sm) + 1px);
+    font-weight: 700;
 }
+/* 0 级退灰：与 `.slip-row.idle` 同一条——「还没开始」不该和「练到 136」一样亮。 */
+.beast-head .lv.idle {
+    color: var(--muted);
+}
+.join {
+    flex: none;
+    margin-left: auto;
+}
+/* 参战不足：签转朱并报差额。朱在这套语言里管「强调」与「未达成」，
+ * 而它是整块牌上唯一的告警面，不会与别的朱抢。 */
+.join.short {
+    border-color: color-mix(in srgb, var(--cinnabar) 46%, var(--rule-2));
+    background: color-mix(in srgb, var(--cinnabar) 7%, transparent);
+    color: var(--cinnabar);
+}
+.join.short b {
+    font-weight: 400;
+    opacity: 0.78;
+}
+.join.short b::before {
+    content: '·';
+    margin: 0 3px 0 1px;
+    opacity: 0.55;
+}
+
+/* 五格战斗属性：名目在上、读数在下，五等分。
+ *
+ * 为什么竖排成带而不是横写五组「气血 1773」：横写时五组长度不一，数落在不同的 x 上，
+ * 比不了；竖排之后五个数落在同一条基线上，一眼扫过去就是那串「1773 / 2044 / 724」。
+ * 为什么是这五项而不是六项资质：资质是**练的时候**才对照的东西，而这块牌要回答的是
+ * 「这只现在打起来什么成色」。 */
+.stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin-top: 7px;
+}
+.s {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+}
+.s .k {
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.1em;
+    line-height: 1.3;
+}
+.s .v {
+    color: var(--num);
+    font-size: calc(var(--fs-sm) + 1px);
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    line-height: 1.25;
+}
+/* 没填的那一格画一枚淡「—」：一行里只有一个空档时，「没填」看起来像「值恰好很短」。 */
+.s .v.blank {
+    color: var(--muted);
+}
+
+/* 技能行：只列名字，不画格。格留到详情——一屏四只时，十二个格会把牌读成表格。
+ * 名字最多四个，其余收成 `+N`（`character.ts` 的 `previewSkills`）。 */
+.skill-line {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-top: 7px;
+    padding-top: 6px;
+    border-top: var(--w-hair) solid var(--rule);
+    font-size: var(--fs-sm);
+    line-height: 1.35;
+}
+.skill-line .k {
+    flex: none;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.1em;
+}
+.skill-line .names {
+    overflow: hidden;
+    color: var(--ink-2);
+    letter-spacing: 0.02em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.skill-line .more {
+    flex: none;
+    margin-left: auto;
+    padding-left: 6px;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+}
+.skill-line .more::before {
+    content: '+';
+    margin-right: 1px;
+    opacity: 0.7;
+}
+/* 一只技能都没有：名字写「无」并退灰——空着会读成「这一栏没画出来」。 */
+.skill-line.none .names {
+    color: var(--muted);
+}
+
 /* 一只都没有时：不留一片空白，也不画一行空槽——说清「还没有记录」。
  * 与 `.char-blank` 同一条：空态不能装成「正在加载」，也不能装成「坏了」。 */
 .empty-note {

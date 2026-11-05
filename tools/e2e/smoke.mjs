@@ -294,6 +294,118 @@ if (want('角色')) {
         t.check('改名生效', (await ui.text()).includes('E2E改名后'));
     });
 
+    /* ---- 召唤兽：概览牌 + 详情档案（2026-11-05） ----
+     * 这一节以前一条断言都没有：卡上只画「名字 · 等级 · 参战」，而这三个数在名册里
+     * 从来没被验过——练到哪一步、资质多少，全都只在编辑弹窗里能看见。
+     * 现在卡上是一块**兽牌**（五格战斗属性 + 技能名），点开是一张 600 宽的**详情档案**
+     * （资质六票 / 属性八行 / 技能 12 格 / 内丹 8 格）。两条路径都进断言。
+     *
+     * 只填 4 个字段（名 / 等级 / 参战 / 技能）就够验完整条链：五格属性靠的是
+     * `attrs` 数组，它空着时该画五枚淡「—」，那也是一种要被验的状态。 */
+    await t.step('召唤兽：加一只 → 概览牌 → 详情窗 → Esc', async () => {
+        await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
+        if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
+            throw new Error('编辑态没打开');
+        }
+        await ui.clickText('.editor-tabs button', '召唤兽');
+        await sleep(300);
+        await ui.clickLabel('加一只召唤兽');
+        await sleep(250);
+
+        /* 选择器必须带 `.pet-block`：`等级` 这个 aria-label 在编辑器里不止一处
+         * （角色自己也有一格），`ui.fill()` 只取文档里第一个匹配。 */
+        await ui.fillSel('.pet-block input[aria-label="召唤兽名称"]', 'E2E兽');
+        await ui.fillSel('.pet-block input[aria-label="等级"]', '120');
+        await ui.fillSel('.pet-block input[aria-label="参战等级"]', '145');
+        // 技能是 textarea + `@change`（失焦才解析），所以下面那一记点击同时起「失焦」作用。
+        await ui.fillSel(
+            '.pet-block textarea[aria-label="已学技能，顿号或逗号分隔"]',
+            '连击、必杀',
+        );
+
+        await ui.clickLabel('保存这个角色');
+        await sleep(600);
+        t.check('保存后编辑器收起', !(await ui.exists('.editor')));
+
+        /* 切页签必须**指到这张卡**：名册里并排两三张卡，每张都有自己的六个页签，
+         * `ui.clickText('.char .step-opt', '召唤兽')` 会点中第一张卡的那个，
+         * 而剩下的卡还停在「属性」——它的兽牌在 DOM 里但 `display:none`，
+         * 于是「尺寸为 0，点不到」。（第一次跑就是这么红的。） */
+        await ui.clickIn('.roster .char', 'E2E改名后', { text: '召唤兽' });
+        await sleep(320);
+
+        /* 同理，所有计数都限定在**这张卡**里：`v-show` 让隐藏页签的内容仍然在 DOM 里，
+         * 文档级 `.char .plate` 会把别人的兽也算进来（实测 8 块 / 40 格）。 */
+        const inCard = (expr) =>
+            cdp.evaluate(`(() => {
+                const card = [...document.querySelectorAll('.roster .char')]
+                    .find((c) => (c.textContent || '').includes('E2E改名后'));
+                return card ? ${expr} : null;
+            })()`);
+
+        const plates = await inCard(`card.querySelectorAll('.plate').length`);
+        t.check('卡上画出兽牌', plates === 1, `实际 ${plates} 块`);
+
+        const visible = await inCard(
+            `[...card.querySelectorAll('.plate')].filter((p) => p.offsetParent !== null).length`,
+        );
+        t.check('兽牌在可见的页签里', visible === 1, `实际 ${visible} 块可见`);
+
+        const stats = await inCard(`card.querySelectorAll('.plate .s').length`);
+        t.check('一块牌五格战斗属性', stats === 5, `实际 ${stats} 格`);
+
+        const names = await inCard(
+            `(card.querySelector('.plate .skill-line .names')?.textContent || '')`,
+        );
+        t.check(
+            '技能行列出已学的名字',
+            names.includes('连击') && names.includes('必杀'),
+            `实际：${names}`,
+        );
+
+        // 参战 145 对一个人物等级很低的角色：签要转朱并报差额。
+        const short = await inCard(`!!card.querySelector('.plate .join.short')`);
+        t.check('参战不够时签转朱', short);
+
+        await ui.clickIn('.roster .char', 'E2E兽', { label: '查看 E2E兽 的详情' });
+        if (!(await ui.waitFor(`!!document.querySelector('[role="dialog"]')`, { timeout: 3000 }))) {
+            throw new Error('详情窗没打开');
+        }
+        const slots = await ui.count('[role="dialog"] .slot');
+        t.check('详情窗画出 20 格（技能 12 + 内丹 8）', slots === 20, `实际 ${slots} 格`);
+
+        const filled = await ui.count('[role="dialog"] .slot:not(.off)');
+        t.check('其中 2 格是学了的技能', filled === 2, `实际 ${filled} 格`);
+
+        // Esc 只关这一层（`use-modal` 的冒泡口径），卡片本身不动。
+        await cdp.key('Escape');
+        await sleep(300);
+        t.check('Esc 关掉详情窗', !(await ui.exists('[role="dialog"]')));
+        t.check(
+            '卡仍停在召唤兽页',
+            (await inCard(
+                `[...card.querySelectorAll('.plate')].filter((p) => p.offsetParent !== null).length`,
+            )) === 1,
+        );
+    });
+
+    await t.step('重载后召唤兽还在（详情走的是库里的数据）', async () => {
+        await ui.reload();
+        await ui.waitText('E2E改名后', { timeout: 8000 });
+        await ui.clickIn('.roster .char', 'E2E改名后', { text: '召唤兽' });
+        await sleep(320);
+        const plates = await cdp.evaluate(
+            `(() => {
+                const card = [...document.querySelectorAll('.roster .char')]
+                    .find((c) => (c.textContent || '').includes('E2E改名后'));
+                if (!card) return 0;
+                return [...card.querySelectorAll('.plate')].filter((p) => p.offsetParent !== null)
+                    .length;
+            })()`,
+        );
+        t.check('重载后兽牌仍在', plates === 1, `实际 ${plates} 块可见`);
+    });
+
     await t.step('Esc 只关编辑器，不穿透到别的层', async () => {
         await ui.clickLabel('新建角色');
         await sleep(350);

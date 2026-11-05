@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import NumberField from '../../../components/NumberField.vue';
 import PressButton from '../../../components/PressButton.vue';
-import type { Pet } from '../character';
+import { PET_QUALITY_FIELDS, type Pet } from '../character';
 
 /**
  * 召唤兽：一只一行，展开填细节。
@@ -22,15 +22,10 @@ function toggle(index: number) {
     openIndex.value = openIndex.value === index ? null : index;
 }
 
-/* 标签照游戏面板的顺序：攻 / 防 / 血 / 法 / 速 / 闪。 */
-const QUALITY_FIELDS = [
-    { key: 'attack', label: '攻击' },
-    { key: 'defense', label: '防御' },
-    { key: 'hp', label: '气血' },
-    { key: 'mp', label: '魔法' },
-    { key: 'speed', label: '速度' },
-    { key: 'dodge', label: '闪避' },
-] as const;
+/* 资质六格与详情页的六行共用 `PET_QUALITY_FIELDS` 一份（2026-11-05）。
+ * 原先这里自己抄了一份，标签写「气血 / 魔法 / 闪避」，而详情页写「体力 / 法力 / 躲闪」
+ * ——同一组数据两个名字，用户对不上哪一格填的是哪一项。游戏里这三项叫「资质」，
+ * 与同名的战斗属性不是一回事，所以以资质那一套为准。 */
 
 function addPet() {
     pets.value.push({
@@ -142,7 +137,7 @@ const nameList = (list: string[]) => list.join('、');
 
                 <div class="sub-head"><span class="section-mark"></span>资质</div>
                 <div class="quality-grid">
-                    <div v-for="field in QUALITY_FIELDS" :key="field.key" class="erow">
+                    <div v-for="field in PET_QUALITY_FIELDS" :key="field.key" class="erow">
                         <span class="field-label quality-label">{{ field.label }}</span>
                         <NumberField
                             :model-value="pet.quality[field.key]"
