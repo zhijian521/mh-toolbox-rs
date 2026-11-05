@@ -5,6 +5,8 @@ import PressButton from '../../../components/PressButton.vue';
 import PressTile from '../../../components/PressTile.vue';
 import SegmentedPills from '../../../components/SegmentedPills.vue';
 import IconTile from '../IconTile.vue';
+import EditorRail from './EditorRail.vue';
+import type { RailItem } from './rail';
 import {
     GEAR_SLOT_ICON,
     type GearDetail,
@@ -77,6 +79,13 @@ function select(slot: GearSlot) {
     ensureDetail(slot);
 }
 
+/** 左栏抛上来的是 `key`（部位名），这里翻回那一行。找不到就什么都不做——
+ *  十二行与 `GEAR_SLOTS` 同源，理论上不会缺，但静默比崩掉好。 */
+function selectByKey(key: string) {
+    const slot = gear.value.find((row) => row.slot === key);
+    if (slot) select(slot);
+}
+
 /* 壳是临时的：`name` 预填装备名（卡上那个简称），这样「全名」不必再敲一遍；
  * 没有就留空。`stats` 建空数组（下面要 `v-for`），`cond` / `lines` 保持缺席——
  * 一件装备可能没有状态也没有套装，先建两个空数组等于给每件都塞两个空键。 */
@@ -118,6 +127,28 @@ function slotInitial(slot: GearSlot): string {
     return (name ? name[0] : slot.slot[0]) ?? '';
 }
 
+/**
+ * 左栏的行数据。`EditorRail` 只管画，这里负责把「十二个部位 + 填没填」翻译过去。
+ *
+ * 两处细节都在这一层解决，控件那边不认部位这回事：
+ *   · 有图的部位给 `icon`，没图的给 `mark` 且 `tile: true`（换成压印块上的首字）；
+ *   · `label` 是给读屏的整句话——只念「武器」，听不出这一行是干什么的。
+ */
+const railItems = computed<RailItem[]>(() =>
+    gear.value.map((slot) => {
+        const icon = slotIcon(slot.slot);
+        return {
+            key: slot.slot,
+            name: slot.slot,
+            label: `编辑${slot.slot}的装备`,
+            filled: filled(slot),
+            icon,
+            mark: icon ? undefined : slotInitial(slot),
+            tile: !icon,
+        };
+    }),
+);
+
 const TONE_OPTIONS: { value: GearTone; label: string }[] = [
     { value: 'seal', label: '朱' },
     { value: 'ochre', label: '赭' },
@@ -145,29 +176,17 @@ function addLine(target: GearDetail) {
 <template>
     <div class="gear-editor">
         <!-- 十二个部位**常驻**左栏。它是这张表单的目录：从上到下就是游戏面板的顺序，
-             高度不变，所以「我在改哪一件」由位置回答，不用读标题。 -->
-        <aside class="rail">
-            <div class="rail-head">
-                装备 <b>{{ filledCount }}</b> / {{ gear.length }}
-            </div>
-            <button
-                v-for="slot in gear"
-                :key="slot.slot"
-                type="button"
-                class="rail-item"
-                :class="{ on: slot.slot === selected }"
-                :aria-pressed="slot.slot === selected"
-                :aria-label="`编辑${slot.slot}的装备`"
-                @click="select(slot)"
-            >
-                <IconTile v-if="slotIcon(slot.slot)" class="rail-pic" :src="slotIcon(slot.slot)" />
-                <PressTile v-else class="rail-pic" still aria-hidden="true">
-                    <span class="rail-ini">{{ slotInitial(slot) }}</span>
-                </PressTile>
-                <span class="rail-name">{{ slot.slot }}</span>
-                <span class="rail-dot" :class="{ on: filled(slot) }" aria-hidden="true"></span>
-            </button>
-        </aside>
+             高度不变，所以「我在改哪一件」由位置回答，不用读标题。
+             行高 30：十二行要挤进一屏（召唤兽那边只有五六行，给到 38）。 -->
+        <EditorRail
+            label="装备"
+            :count="filledCount"
+            :suffix="` / ${gear.length}`"
+            :items="railItems"
+            :selected="selected"
+            :row-height="30"
+            @pick="selectByKey"
+        />
 
         <div v-if="active" class="pane-detail">
             <!-- 标题行：部位 + 装备名。卡上显示的就是这个简称，所以它是主字段；
@@ -183,8 +202,8 @@ function addLine(target: GearDetail) {
                 </PressTile>
                 <div class="det-head">
                     <div class="det-title">
-                        <b>{{ active.slot }}</b
-                        >装备名 · 填了就会显示在卡上
+                        <b>{{ active.slot }}</b>
+                        <span>装备名 · 填了就会显示在卡上</span>
                     </div>
                     <input
                         v-model="active.caption"
@@ -366,108 +385,14 @@ function addLine(target: GearDetail) {
 
 <style scoped>
 /* 左右两栏：左栏 152 是量出来的——最长的部位名「玉魄 · 阴」在 12px 下 56 宽，
- * 加一枚 22 的盘、7 的间距、右侧的点与两边留白，正好在这个数上收口。
- * 再窄，「玉魄 · 阴」就要换行；再宽，右侧四列属性行会被挤到放不下精炼上限。 */
+ * 加一枚 22 的盘、8 的间距、右侧的点与两边留白，正好在这个数上收口。
+ * 再窄，「玉魄 · 阴」就要换行；再宽，右侧四列属性行会被挤到放不下精炼上限。
+ * 左栏本体在 `EditorRail.vue`（与召唤兽共用一套），这里只放两栏的栅格。 */
 .gear-editor {
     display: grid;
     grid-template-columns: 152px minmax(0, 1fr);
     gap: 14px;
     align-items: start;
-}
-
-/* 左栏 sticky：右侧六段展开后比左栏高，滚到下面时「我在改哪个部位」还得看得见。
- * `align-items: start` 是 sticky 的前提——stretch 会让它先被拉满整列。 */
-.rail {
-    position: sticky;
-    top: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-.rail-head {
-    display: flex;
-    align-items: baseline;
-    gap: 4px;
-    padding-bottom: 5px;
-    margin-bottom: 2px;
-    border-bottom: var(--w-hair) solid var(--rule-2);
-    color: var(--muted);
-    font-size: var(--fs-mini);
-    letter-spacing: 0.14em;
-}
-.rail-head b {
-    color: var(--ink);
-    font-size: var(--fs-sm);
-    font-weight: 400;
-}
-/* 一行 = 22 的盘 + 部位名 + 一个点。30 高是「十二行放得下、又够点」的交叉点。 */
-.rail-item {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    height: 30px;
-    padding: 0 7px 0 6px;
-    border: var(--w-hair) solid transparent;
-    border-radius: var(--r-2);
-    background: none;
-    color: var(--ink-2);
-    font-family: var(--font-ui);
-    font-size: var(--fs-sm);
-    text-align: left;
-    cursor: pointer;
-}
-.rail-item:hover {
-    background: color-mix(in srgb, var(--well) 45%, transparent);
-}
-/* 选中：底色一档 + 左侧 2px 朱线。**不用整块朱**——那会把左栏变成十二个按钮，
- * 而它是一张目录：只要标出「当前这一行」。
- *
- * `inset 2px 0 0` 画在内侧，不占宽度：十二行的左缘因此始终对齐，
- * 换行时文字不会左右跳 2px。 */
-.rail-item.on {
-    border-color: color-mix(in srgb, var(--rule-2) 55%, transparent);
-    background: color-mix(in srgb, var(--well) 55%, transparent);
-    color: var(--ink);
-    box-shadow: inset 2px 0 0 var(--cinnabar);
-}
-.rail-item:focus-visible {
-    outline: var(--ring);
-    outline-offset: var(--ring-offset);
-}
-/* 22 的小白盘。选择器带 `.rail-item` 是为了压过 `IconTile` 自己那套 28 / 23 的默认值
- * ——两边都是单类 + 一个 `data-v`，只差父组件这句能多带一层。 */
-.rail-item .rail-pic {
-    --tile-w: 22px;
-    --tile-h: 22px;
-    --tile-r: var(--r-1);
-    --shot: 18px;
-    --tile-drop: 0.35;
-    --tile-face: light-dark(var(--paper), color-mix(in srgb, var(--paper-2) 84%, var(--ink)));
-}
-.rail-ini {
-    color: color-mix(in srgb, var(--ink-2) 78%, transparent);
-    font-size: calc(12px * var(--fs-scale));
-    line-height: 1;
-}
-.rail-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-/* 点：实心＝填了，空心＝没穿。`--moss` 与「成功＝正收益」同一枚绿，
- * 这里表示「这件有了」——不新开一个色。 */
-.rail-dot {
-    flex: none;
-    margin-left: auto;
-    width: 5px;
-    height: 5px;
-    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 90%, transparent);
-    border-radius: 50%;
-}
-.rail-dot.on {
-    border-color: var(--moss);
-    background: var(--moss);
 }
 
 /* 右侧：一条竖线与左栏分开。用 `--rule`（比 `rule-2` 深一档）——这是版面分区，
@@ -489,7 +414,8 @@ function addLine(target: GearDetail) {
 }
 /* 右侧那枚 38 的盘。选择器写成 `.det-top .det-pic` 而不是单个 `.det-pic`：
  * `IconTile` 内部 `.icon-tile` 也声明了这几个变量，两边同特异性时谁赢取决于
- * 样式注入顺序——多带一层父选择器才稳（与上面 `.rail-item .rail-pic` 同一条）。 */
+ * 样式注入顺序——多带一层父选择器才稳（左栏那枚 22 的盘同一条，写在
+ * `EditorRail.vue` 的 `.rail-item .rail-pic` 里）。 */
 .det-top .det-pic {
     --tile-w: 38px;
     --tile-h: 38px;

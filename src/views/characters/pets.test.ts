@@ -9,7 +9,7 @@ import {
     previewSkills,
     previewStats,
     type Pet,
-} from './character';
+} from './pets';
 import { CHARACTERS } from './mock';
 
 /**

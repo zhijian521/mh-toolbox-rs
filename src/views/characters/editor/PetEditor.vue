@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue';
 import NumberField from '../../../components/NumberField.vue';
 import PressButton from '../../../components/PressButton.vue';
+import EditorRail from './EditorRail.vue';
+import type { RailItem } from './rail';
 import { PET_PILL_SLOTS, PET_QUALITY_FIELDS, PET_SKILL_SLOTS, type Pet } from '../character';
 
 /**
@@ -61,6 +63,25 @@ function petMark(pet: Pet): string {
     return pet.element?.trim()?.[0] ?? '—';
 }
 
+/**
+ * 左栏的行数据。`key` 用**下标**而不是名字：名字可以重复、可以空着，
+ * 而且改名时按名字定位会瞬间丢选中。下标与 `selected` 本来就是同一个坐标系。
+ */
+const railItems = computed<RailItem[]>(() =>
+    pets.value.map((pet, index) => ({
+        key: String(index),
+        name: petName(pet),
+        label: `编辑第 ${index + 1} 只召唤兽：${petName(pet)}`,
+        filled: filled(pet),
+        mark: petMark(pet),
+    })),
+);
+
+/** 左栏抛上来的是下标字符串。越界由 `current` 兜成 `null`，这里不额外判。 */
+function selectAt(key: string) {
+    selected.value = Number(key);
+}
+
 function addPet() {
     pets.value.push({
         name: '',
@@ -105,29 +126,23 @@ const nameList = (list: string[]) => list.join('、');
 <template>
     <div class="pet-editor">
         <!-- 左栏是这张表单的目录：从上到下就是列表里的顺序，高度不变，
-             所以「我在改哪一只」由位置回答，不用读标题。 -->
-        <aside class="rail">
-            <div class="rail-head">
-                召唤兽 <b>{{ pets.length }}</b> 只
-            </div>
-            <button
-                v-for="(pet, index) in pets"
-                :key="index"
-                type="button"
-                class="rail-item"
-                :class="{ on: index === selected }"
-                :aria-pressed="index === selected"
-                :aria-label="`编辑第 ${index + 1} 只召唤兽：${petName(pet)}`"
-                @click="selected = index"
-            >
-                <span class="rail-mark" aria-hidden="true">{{ petMark(pet) }}</span>
-                <span class="rail-name">{{ petName(pet) }}</span>
-                <span class="rail-dot" :class="{ on: filled(pet) }" aria-hidden="true"></span>
-            </button>
-            <button type="button" class="rail-add" aria-label="加一只召唤兽" @click="addPet">
-                ＋ 加一只
-            </button>
-        </aside>
+             所以「我在改哪一只」由位置回答，不用读标题。
+             行高 38：只有五六行，行距可以还给手指（装备那十二行要挤进一屏，给 30）。 -->
+        <EditorRail
+            label="召唤兽"
+            :count="pets.length"
+            suffix=" 只"
+            :items="railItems"
+            :selected="String(selected)"
+            :row-height="38"
+            @pick="selectAt"
+        >
+            <template #footer>
+                <button type="button" class="rail-add" aria-label="加一只召唤兽" @click="addPet">
+                    ＋ 加一只
+                </button>
+            </template>
+        </EditorRail>
 
         <!-- `pet-block` 这个名字留着：烟测按 `.pet-block` 定位这一只的输入格，
              而新结构里同时只有一只在页面上，正好是它。 -->
@@ -322,101 +337,6 @@ const nameList = (list: string[]) => list.join('、');
     align-items: start;
 }
 
-/* 左栏 sticky：右侧比左栏高，滚到底部时「我在改哪一只」还得看得见。
- * `align-items: start` 是 sticky 的前提——stretch 会先把它拉满整列。 */
-.rail {
-    position: sticky;
-    top: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-.rail-head {
-    display: flex;
-    align-items: baseline;
-    gap: 4px;
-    padding-bottom: 5px;
-    margin-bottom: 2px;
-    border-bottom: var(--w-hair) solid var(--rule-2);
-    color: var(--muted);
-    font-size: var(--fs-mini);
-    letter-spacing: 0.14em;
-}
-.rail-head b {
-    color: var(--ink);
-    font-size: var(--fs-sm);
-    font-weight: 400;
-}
-/* 一行 = 22 的五行章 + 名字 + 一个点。38 高：比装备那行（30）松一档——
- * 那边十二行要挤进一屏，这里只有五六行，行距可以还给手指。 */
-.rail-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    height: 38px;
-    padding: 0 7px;
-    border: var(--w-hair) solid transparent;
-    border-radius: var(--r-2);
-    background: none;
-    color: var(--ink-2);
-    font-family: var(--font-ui);
-    font-size: var(--fs-sm);
-    text-align: left;
-    cursor: pointer;
-}
-.rail-item:hover {
-    background: color-mix(in srgb, var(--well) 45%, transparent);
-}
-/* 选中：底色一档 + 左侧 2px 朱线。**不用整块朱**——那会把左栏变成一排按钮，
- * 而它是一张目录：只要标出「当前这一行」。
- * `inset 2px 0 0` 画在内侧，不占宽度：换行时文字不会左右跳 2px。 */
-.rail-item.on {
-    border-color: color-mix(in srgb, var(--rule-2) 55%, transparent);
-    background: color-mix(in srgb, var(--well) 55%, transparent);
-    color: var(--ink);
-    box-shadow: inset 2px 0 0 var(--cinnabar);
-}
-.rail-item:focus-visible {
-    outline: var(--ring);
-    outline-offset: var(--ring-offset);
-}
-/* 五行章：与详情窗抬头那枚（34）同一套压印，缩到 22——左栏是索引，
- * 认的是「哪只」，不是读五行。 */
-.rail-mark {
-    display: grid;
-    flex: none;
-    place-items: center;
-    width: 22px;
-    height: 22px;
-    border-radius: var(--r-1);
-    background: color-mix(in srgb, var(--well) 34%, var(--paper-2));
-    box-shadow:
-        inset 1px 1px 0 var(--bevel-hi),
-        inset -1px -1px 0 var(--bevel-lo),
-        0 1px 2px var(--shadow);
-    color: var(--num);
-    font-size: calc(var(--fs-sm) + 2px);
-    line-height: 1;
-}
-.rail-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-/* 点：实心＝填过，空心＝还是空壳。绿与「这件有了」同一枚（装备左栏那个点）。 */
-.rail-dot {
-    flex: none;
-    margin-left: auto;
-    width: 5px;
-    height: 5px;
-    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 90%, transparent);
-    border-radius: 50%;
-}
-.rail-dot.on {
-    border-color: var(--moss);
-    background: var(--moss);
-}
 /* 「加一只」是往目录里添一行，所以长得像一行虚线，不是一个按钮：
  * 它跟着那几行走，位置只由「现在几只」决定。 */
 .rail-add {

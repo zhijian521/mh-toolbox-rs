@@ -1,0 +1,212 @@
+/* ======================================================================
+ * 召唤兽 —— 概览牌
+ * ==================================================================== */
+/* 一行一只 → **一只一牌**（2026-11-05）。
+ *
+ * 换掉的是「行」这个形状，不只是配色。旧版每行只有名字 + 等级 + 参战签，
+ * 而 `grid-auto-rows: 1fr` 把这四行均分到 93px —— 一行九成是空纸，
+ * 中间那串点线撑着一条谁也不读的引线；判断一只兽值不值得留的三件事
+ * （战斗属性、技能、参战够不够）一件都不在面上。
+ *
+ * 现在一块牌三段：头行（五行章 + 名 + 等级 + 参战签）/ 五格战斗属性 / 技能名一行。
+ * 牌高 108.75、间距 10，四张 465 装进 523 的版心，第五张起滚动。
+ *
+ * 材质与师门、辅助、修炼那三张票同源（`base.css` 的 `.slip-row` 四件套）：
+ * 底取 `well 34%` 混 `--slip-base`，一亮一暗两道棱、落地一层软影。
+ * 差别只在形状——那一张是 42 高的一行，这一张是三段的一块。 */
+.pet-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.plate {
+    /* 棱光自己定一份，与 `.slip-row` 同值：`--bevel-hi` 在暗色只有 18% 白，
+     * 压在深票面上读不出，只剩「下暗」——凹凸会反过来读成一块深色贴片。 */
+    --plate-hi: light-dark(var(--bevel-hi), color-mix(in srgb, var(--paper-base) 34%, transparent));
+    --plate-lo: light-dark(var(--bevel-lo), color-mix(in srgb, var(--ink-base) 42%, transparent));
+
+    display: block;
+    width: 100%;
+    padding: 8px 10px 7px;
+    border: 0;
+    border-radius: var(--r-3);
+    background: color-mix(in srgb, var(--well) 34%, var(--slip-base));
+    box-shadow:
+        inset 1px 1px 0 var(--plate-hi),
+        inset -1px -1px 0 var(--plate-lo),
+        0 2px 4px -1px var(--shadow-lg);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--t-quick) var(--ease-soft);
+}
+/* 悬停只做两件事：票面提一档（well 从 34% 收 18%）、名字转朱。
+ * 与装备格的「部位转朱」同一条手势：这一块可以按下看详情。
+ * 不加位移、不加描边——票是平放在纸上的，动它会让整列跟着晃。 */
+.plate:hover {
+    background: color-mix(in srgb, var(--well) 18%, var(--slip-base));
+}
+.plate:hover .beast-name {
+    color: var(--cinnabar);
+}
+.plate:focus-visible {
+    outline: var(--ring);
+    outline-offset: var(--ring-offset);
+}
+
+.beast-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+/* 五行章：一枚压印块（凸），不是槽。它读作「印在牌上的记号」，
+ * 与页签那枚朱印同一个方向；槽只留给「往里放」的装备格。
+ *
+ * 底色用纯 `--paper-2`（比票面亮一档）：原先写 `well 46% + paper-2`，
+ * 与票面几乎同色，26px 的方块只剩一圈若有若无的棱，看着像「这里漏了一块」。 */
+.elem {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--r-2);
+    background: var(--paper-2);
+    box-shadow:
+        inset 1px 1px 0 var(--bevel-hi),
+        inset -1px -1px 0 var(--bevel-lo),
+        0 1px 3px var(--shadow-lg);
+    color: var(--num);
+    font-size: calc(var(--fs-sm) + 3px);
+    line-height: 1;
+}
+.beast-name {
+    overflow: hidden;
+    color: var(--ink);
+    font-size: var(--fs-md);
+    letter-spacing: 0.04em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color var(--t-quick) var(--ease-soft);
+}
+.beast-head .lv {
+    flex: none;
+    color: var(--num);
+    font-size: calc(var(--fs-sm) + 1px);
+    font-weight: 700;
+}
+/* 0 级退灰：与 `.slip-row.idle` 同一条——「还没开始」不该和「练到 136」一样亮。 */
+.beast-head .lv.idle {
+    color: var(--muted);
+}
+.join {
+    flex: none;
+    margin-left: auto;
+}
+/* 参战不足：签转朱并报差额。朱在这套语言里管「强调」与「未达成」，
+ * 而它是整块牌上唯一的告警面，不会与别的朱抢。 */
+.join.short {
+    border-color: color-mix(in srgb, var(--cinnabar) 46%, var(--rule-2));
+    background: color-mix(in srgb, var(--cinnabar) 7%, transparent);
+    color: var(--cinnabar);
+}
+.join.short b {
+    font-weight: 400;
+    opacity: 0.78;
+}
+.join.short b::before {
+    content: '·';
+    margin: 0 3px 0 1px;
+    opacity: 0.55;
+}
+
+/* 五格战斗属性：名目在上、读数在下，五等分。
+ *
+ * 为什么竖排成带而不是横写五组「气血 1773」：横写时五组长度不一，数落在不同的 x 上，
+ * 比不了；竖排之后五个数落在同一条基线上，一眼扫过去就是那串「1773 / 2044 / 724」。
+ * 为什么是这五项而不是六项资质：资质是**练的时候**才对照的东西，而这块牌要回答的是
+ * 「这只现在打起来什么成色」。 */
+.stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin-top: 7px;
+}
+.s {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+}
+.s .k {
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.1em;
+    line-height: 1.3;
+}
+.s .v {
+    color: var(--num);
+    font-size: calc(var(--fs-sm) + 1px);
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    line-height: 1.25;
+}
+/* 没填的那一格画一枚淡「—」：一行里只有一个空档时，「没填」看起来像「值恰好很短」。 */
+.s .v.blank {
+    color: var(--muted);
+}
+
+/* 技能行：只列名字，不画格。格留到详情——一屏四只时，十二个格会把牌读成表格。
+ * 名字最多四个，其余收成 `+N`（`character.ts` 的 `previewSkills`）。 */
+.skill-line {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-top: 7px;
+    padding-top: 6px;
+    border-top: var(--w-hair) solid var(--rule);
+    font-size: var(--fs-sm);
+    line-height: 1.35;
+}
+.skill-line .k {
+    flex: none;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.1em;
+}
+.skill-line .names {
+    overflow: hidden;
+    color: var(--ink-2);
+    letter-spacing: 0.02em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.skill-line .more {
+    flex: none;
+    margin-left: auto;
+    padding-left: 6px;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    /* 卡上「读数一律加粗」那条（`character-card.css` 的 `.num`）是卡片作用域的，
+     * 够不进这个组件——`+3` 也是读数，在这里补一档，别让它比别处的数字轻。 */
+    font-weight: 700;
+}
+.skill-line .more::before {
+    content: '+';
+    margin-right: 1px;
+    opacity: 0.7;
+}
+/* 一只技能都没有：名字写「无」并退灰——空着会读成「这一栏没画出来」。 */
+.skill-line.none .names {
+    color: var(--muted);
+}
+
+/* 一只都没有时：不留一片空白，也不画一行空槽——说清「还没有记录」。
+ * 与 `.char-blank` 同一条：空态不能装成「正在加载」，也不能装成「坏了」。 */
+.empty-note {
+    margin: 0;
+    padding: 26px 0;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    text-align: center;
+}

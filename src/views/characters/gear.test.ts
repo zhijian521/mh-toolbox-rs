@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GEAR_ACTIVES, GEAR_SPECIALS } from './character';
+import { GEAR_ACTIVES, GEAR_SPECIALS } from './gear';
 import { CHARACTERS } from './mock';
 
 /**
