@@ -4,8 +4,9 @@
  * 六类：凹槽 `.well` 与印面 `.stamp`（同一件事的正反面）、按钮与区块标、
  * 凹槽胶囊与承载面、两格开关与轨道选项格、文本级词汇（`.hint` / `.meta` /
  * `.num` / `.field-label` / `.chip`）、表单行 `.form-row`；
- * 另加「账簿语法」`.frame`（文武线外框）与页面骨架 `.page-content`。
- * 组合级的排版类（`.note`、`.kit`）在 `blocks.css`。
+ * 另加「账簿语法」的两层：内容卡的 `.board`（台面上的一张纸，2026-11-05 起全站统一）
+ * 与浮层的 `.frame`（文武线外框，只给角色编辑器 / 捉鬼测试面板这类「压在纸上」的东西），
+ * 以及页面骨架 `.page-content`。组合级的排版类（`.note`、`.kit`）在 `blocks.css`。
  */
 
 *,
@@ -809,39 +810,6 @@ svg {
     column-gap: var(--pair-gap, 26px);
     row-gap: 0;
 }
-/* 引线：把「名目」与「数值」连起来的那串点。属性行、技能行、召唤兽行共用一份。
- *
- * **不画 `border-bottom: dotted`**（2026-11-02 用户：「中间的省略号感觉不是很好看」）。
- * 1px dotted 在屏幕上被渲染成 1×1 的**方**点、间隔只有 1px，左端紧贴名目、右端顶着
- * 数值——整行读下来是一串被拉长的省略号，底下还留着下划线的错觉，一屏并排就是十来条。
- *
- * 改成用 `radial-gradient` 铺**圆点**：直径约 1px、每 5px 一颗、两端各让 6px。节奏一疏、
- * 形状一圆，「引线」才成立；两端让出去的那 6px 是关键——点不贴着字，视线才不会被
- * 拽回标签上。浓度 60% 与原来的 62% 基本持平：圆点比同尺寸的方点看着轻，不必再压。
- *
- * 高度必须给 4px：`height: 0` 上画不出背景（原来的写法靠 border 画在盒外，才不用高度）。
- * `translateY(-5px)` 把点抬到基线上方约 3px，正好是 x-height 的中线，不压字脚也不飘到字腰。
- * 行是 `align-items: baseline`，这 4px 不参与行高，撑不动 26。
- */
-.leader {
-    flex: 1;
-    min-width: 8px;
-    height: 4px;
-    margin: 0 6px;
-    background-image: radial-gradient(
-        circle at 50% 50%,
-        color-mix(in srgb, var(--rule-2) 60%, transparent) 0.5px,
-        transparent 0.6px
-    );
-    background-size: 5px 4px;
-    background-position: 0 50%;
-    background-repeat: repeat-x;
-    /* 只抬 2px。这 4px 的盒在 dt 里是 baseline 对齐的，不位移时点中心落在 11——
-     * 贴着 x-height 下沿，像一道没画完的下划线；抬 2 之后在 9，正落在 x-height 中线，
-     * 才是「从字腰引出去的一条线」。（写成 -5 会顶到 x-height 上沿，比字高半头。） */
-    transform: translateY(-2px);
-}
-
 /* ---------- 输入格 ----------
  * 纸上挖出来的一格：底比纸深一档、内侧上沿压一道影、一圈细账线。与 `.well` 同一个光向，
  * 但**不直接复用 `.well`**：那个的 `background-image` 是给「一整条 26px 高以上的轨道」

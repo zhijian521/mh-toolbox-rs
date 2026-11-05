@@ -117,7 +117,7 @@ export interface ExpRow {
  * 单位只有「万」与「亿」两种：游戏里经验就这么写。没写单位按「万」算，
  * 与属性页历来只记「万」一致（`3,777.2` + `万` 后缀）。
  */
-function toWan(text: string): number | null {
+function parseWan(text: string): number | null {
     const compact = text.replace(/[,\s]/g, '');
     const matched = /^(\d+(?:\.\d+)?)(万|亿)?$/.exec(compact);
     if (!matched) return null;
@@ -132,8 +132,8 @@ function toWan(text: string): number | null {
  * 画成空的，而不是画到 0%（「0%」与「不知道」在视觉上差别很大）。
  */
 export function expPercent(value: string, need: string): number | null {
-    const current = toWan(value);
-    const required = toWan(need);
+    const current = parseWan(value);
+    const required = parseWan(need);
     if (current === null || required === null || required <= 0) return null;
     return Math.min(100, Math.max(0, (current / required) * 100));
 }
@@ -616,7 +616,7 @@ export const PET_PREVIEW_SKILLS = 4;
  * 0 在这份数据里读作「还没填」，不是「寿命耗尽」——后者在游戏里根本放不出来，
  * 不靠这枚颜色提醒也看得见。
  */
-export const PET_LIFE_LOW = 50;
+const PET_LIFE_LOW = 50;
 
 /**
  * 概览的五格：气血 / 攻击 / 防御 / 速度 / 法伤，**按这个顺序取**。

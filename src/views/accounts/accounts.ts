@@ -13,7 +13,7 @@
  * 与收益页同口径）。统一成一种单位反而会出现「1 元 = 1 万」这种中间态。
  */
 import type { IconName } from '../../components/icons';
-import { daysAgo, moneyText, todayText } from '../../services/format';
+import { daysAgo, moneyText, parseDay, todayText } from '../../services/format';
 import { makeId } from '../../services/shape';
 
 /** 币种。`rmb` 按元、`cash` 按万；这是**两本独立的账**，不是同一本账的两种记法。 */
@@ -86,14 +86,6 @@ export interface AccountStats {
 }
 
 /* ---------- 读数 ---------- */
-
-export function currencyText(currency: Currency): string {
-    return CURRENCY_META[currency].label;
-}
-
-export function unitText(currency: Currency): string {
-    return CURRENCY_META[currency].unit;
-}
 
 /**
  * 人民币读数：`¥1,234.5`。
@@ -255,11 +247,6 @@ export const RANGE_PRESETS: { value: RangePreset; label: string }[] = [
     { value: 'all', label: '全部' },
 ];
 
-function dayOf(value: string): Date {
-    const [year, month, day] = value.split('-').map(Number);
-    return new Date(year, (month || 1) - 1, day || 1);
-}
-
 /**
  * 把档位换算成日期区间。`today` 可注入，否则测试会在跨午夜时随机失败。
  *
@@ -268,7 +255,7 @@ function dayOf(value: string): Date {
  */
 export function rangeOf(preset: RangePreset, today = todayText()): { from: string; to: string } {
     if (preset === 'all') return { from: '', to: '' };
-    if (preset === 'week') return { from: daysAgo(6, dayOf(today)), to: today };
+    if (preset === 'week') return { from: daysAgo(6, parseDay(today)), to: today };
     const [year, month] = today.split('-').map(Number);
     return { from: `${year}-${String(month).padStart(2, '0')}-01`, to: today };
 }

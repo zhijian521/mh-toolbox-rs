@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId } from 'vue';
 import type { CSSProperties } from 'vue';
 import AppIcon from './AppIcon.vue';
-import { todayText } from '../services/format';
+import { parseDay, todayText } from '../services/format';
 
 /**
  * 日期选择：一条**槽** + 一张**纸片上的月历**。
@@ -98,14 +98,9 @@ function monthOf(value: string): { year: number; month: number } {
     return { year: year || new Date().getFullYear(), month: (month || 1) - 1 };
 }
 
-function dayOf(value: string): Date {
-    const [year, month, day] = value.split('-').map(Number);
-    return new Date(year, (month || 1) - 1, day || 1);
-}
-
 /** 触发条上那串字：`2026年11月5日`。年月日在同一行，比 `2026-11-05` 好读。 */
 const triggerText = computed(() => {
-    const one = dayOf(props.modelValue || today);
+    const one = parseDay(props.modelValue || today);
     return `${one.getFullYear()}年${one.getMonth() + 1}月${one.getDate()}日`;
 });
 
@@ -261,7 +256,7 @@ function shiftMonth(step: number, focus = false) {
     const moved = new Date(year, month + step, 1);
     view.value = { year: moved.getFullYear(), month: moved.getMonth() };
 
-    const base = dayOf(cursor.value || props.modelValue || today);
+    const base = parseDay(cursor.value || props.modelValue || today);
     const last = new Date(view.value.year, view.value.month + 1, 0).getDate();
     cursor.value = textOf(
         new Date(view.value.year, view.value.month, Math.min(base.getDate(), last)),
@@ -274,7 +269,7 @@ function shiftMonth(step: number, focus = false) {
  * 用 `setDate(d + step)` 而不是「毫秒加减 86400000」：后者在有夏令时的时区会把某一天
  * 挪成 23 或 25 小时，落点算出来差一天。东八区没有夏令时，但这条口径换台机器也该成立。 */
 function moveCursor(step: number) {
-    const base = dayOf(cursor.value || props.modelValue || today);
+    const base = parseDay(cursor.value || props.modelValue || today);
     const next = textOf(new Date(base.getFullYear(), base.getMonth(), base.getDate() + step));
     cursor.value = next;
     const { year, month } = monthOf(next);

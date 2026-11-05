@@ -5,7 +5,7 @@ import PressButton from '../../components/PressButton.vue';
 import DateField from '../../components/DateField.vue';
 import { notify } from '../../composables/use-notify';
 import { askConfirm } from '../../composables/use-confirm';
-import { useRoster } from '../characters/roster';
+import { characterName, useRoster } from '../characters/roster';
 import { todayText } from '../../services/format';
 import { amountText, totalsOf, type IncomeEntry } from './income';
 import { useIncome } from './income-store';
@@ -75,7 +75,7 @@ const dayWho = computed<WhoSum[]>(() => {
     const map = new Map<string, WhoSum>();
     for (const one of rows.value) {
         const id = one.characterId || '';
-        const hit = map.get(id) ?? { id, name: whoOf(id), count: 0, net: 0 };
+        const hit = map.get(id) ?? { id, name: characterName(roster.value, id), count: 0, net: 0 };
         hit.count += 1;
         hit.net += one.kind === 'expense' ? -one.amount : one.amount;
         map.set(id, hit);
@@ -84,11 +84,6 @@ const dayWho = computed<WhoSum[]>(() => {
 });
 
 /** 记给谁。空串 = 未指定账户，要显式写出来——空一格会读成「数据缺失」。 */
-function whoOf(id: string): string {
-    if (!id) return '未指定';
-    return roster.value.find((one) => one.id === id)?.name ?? '已删角色';
-}
-
 /** `HH:mm`。账本里的时间是「哪一笔」的定位符，不需要秒。 */
 function timeOf(at: number): string {
     const one = new Date(at);
@@ -196,7 +191,7 @@ async function remove(one: IncomeEntry) {
                             </span>
                         </td>
                         <td class="c-who" :class="{ idle: !one.characterId }">
-                            {{ whoOf(one.characterId) }}
+                            {{ characterName(roster, one.characterId) }}
                         </td>
                         <td class="c-num" :class="{ out: one.kind === 'expense' }">
                             {{

@@ -52,13 +52,20 @@ const emit = defineEmits<{
     blur: [event: FocusEvent];
 }>();
 
-/** 原值 → 输入框里的「万」。最多留 4 位小数：12345 元 → 1.2345 万。 */
-function toWan(value: number | null): string {
+/**
+ * 原值 → 输入框里的「万」，最多 4 位小数（12345 元 → 1.2345 万）。
+ *
+ * **不叫 `toWan`**：`services/format.ts` 里那个 `toWan` 是「原值 → 万的数」，
+ * `character.ts` 里那个是「万/亿 的文本 → 数」。三个同名不同义，改一个查半天。
+ * 这里返回的是**给输入框的字符串**（空值给空串、不做四舍五入到两位），
+ * 名字里点明「input」才分得清。
+ */
+function wanInput(value: number | null): string {
     if (value === null || !Number.isFinite(value) || value <= 0) return '';
     return String(Number((value / 10000).toFixed(4)));
 }
 
-const text = ref(toWan(props.modelValue));
+const text = ref(wanInput(props.modelValue));
 
 watch(
     () => props.modelValue,
@@ -69,7 +76,7 @@ watch(
          * 上游已经把 30000 写回来了；字符串 `3.` 与 `3` 不等，但它们是同一个值。
          * 直接按字符串覆盖会把刚敲的小数点吃掉——于是永远输不进 3.5 万。 */
         const current = Math.round(Number(text.value) * 10000);
-        if (current !== (value ?? 0)) text.value = toWan(value);
+        if (current !== (value ?? 0)) text.value = wanInput(value);
     },
 );
 
@@ -86,7 +93,7 @@ function onInput(event: Event) {
     /* 空就写 `0`，不写 `null`：`PricePointDraft.price` 与 `initialPrice` 都是 `number`，
      * emit 一个 null 过去类型上不报、运行时靠 `amount()` 兜——这种「说得清但写不对」
      * 的接口，迟早有人写成 `if (price === null)` 然后判错。两个「空」收成一个。
-     * `toWan(0)` 本来回空串，显示与写入仍然对得上。 */
+     * `wanInput(0)` 本来回空串，显示与写入仍然对得上。 */
     emit(
         'update:modelValue',
         cleaned === '' || !Number.isFinite(parsed) ? 0 : Math.round(parsed * 10000),
@@ -101,7 +108,7 @@ function onInput(event: Event) {
  * 归一口径与 `watch` 一致——都按「回算成原值」再格式化一遍。
  */
 function onBlur(event: FocusEvent) {
-    text.value = toWan(props.modelValue);
+    text.value = wanInput(props.modelValue);
     emit('blur', event);
 }
 
@@ -140,7 +147,7 @@ const inputStyle = computed(() => ({
 function nudge(direction: 1 | -1) {
     const base = props.modelValue ?? 0;
     const next = Math.max(0, base + direction * stepSize(base));
-    text.value = toWan(next);
+    text.value = wanInput(next);
     emit('update:modelValue', next);
 }
 </script>

@@ -18,6 +18,7 @@ import { ref } from 'vue';
 import { hasDesktop, incomeLoad, incomeSave } from '../../services/desktop';
 import { fromWan, todayText } from '../../services/format';
 import { createPersist } from '../../services/persist';
+import { onStorageSync } from '../../services/storage-sync';
 import { makeId } from '../../services/shape';
 import {
     parseEntries,
@@ -141,28 +142,23 @@ export async function loadIncome(): Promise<void> {
     prices.value = parsePrices(stored.prices);
 }
 
-/** 多窗口同步只在浏览器那条路径上发生（桌面版两窗共享同一个库，见 `prices-store` 同一段）。 */
-function syncAcrossWindows(): void {
-    if (typeof window === 'undefined') return;
-    window.addEventListener('storage', (event) => {
-        if (event.key !== null && event.key !== STORAGE_KEY) return;
-        if (event.newValue === null) {
-            entries.value = [];
-            prices.value = {};
-            return;
-        }
-        try {
-            const parsed = JSON.parse(event.newValue) as StoredShape;
-            entries.value = parseEntries(parsed.entries);
-            prices.value = parsePrices(parsed.prices);
-        } catch {
-            /* 读不懂就保持现状：另一个窗口写坏了自己的存储，不该连累这一边。 */
-            console.error('storage 事件里的收益账解析失败，保留当前数据不动');
-        }
-    });
-}
-
-syncAcrossWindows();
+/* 多窗口同步：事件的边界在 `services/storage-sync.ts`，这里只说「读到之后怎么应用」。
+ * 桌面版两窗共享同一个库，这条只在浏览器路径（`npm run dev` / 探针）上真的会发生。 */
+onStorageSync(STORAGE_KEY, (raw) => {
+    if (raw === null) {
+        entries.value = [];
+        prices.value = {};
+        return;
+    }
+    try {
+        const parsed = JSON.parse(raw) as StoredShape;
+        entries.value = parseEntries(parsed.entries);
+        prices.value = parsePrices(parsed.prices);
+    } catch {
+        /* 读不懂就保持现状：另一个窗口写坏了自己的存储，不该连累这一边。 */
+        console.error('storage 事件里的收益账解析失败，保留当前数据不动');
+    }
+});
 
 /* ---------- 改 ---------- */
 

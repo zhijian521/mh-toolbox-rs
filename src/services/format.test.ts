@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { WAN, changeText, dayText, daysAgo, fromWan, moneyText, priceLabel, toWan } from './format';
+import {
+    WAN,
+    changeText,
+    dateText,
+    dayText,
+    daysAgo,
+    fromWan,
+    moneyText,
+    parseDay,
+    priceLabel,
+    toWan,
+} from './format';
 
 /**
  * `services/format.ts` 的**口径**：金额怎么折万、日期怎么写。
@@ -117,5 +128,28 @@ describe('dayText：历史列表里的那一天怎么写', () => {
     it('更早给月日去掉前导零，跨年才补年份', () => {
         expect(dayText('2026-11-02', now)).toBe('11月2日');
         expect(dayText('2025-12-30', now)).toBe('2025年12月30日');
+    });
+});
+
+describe('parseDay：日期文本读回 Date', () => {
+    /* 这条函数原先在三个地方各写一份（日期选择器、账号页的档位区间、总览的近七天），
+     * 逐字相同。收进 `format.ts` 之后至少要钉住两件事：它读的是**本地零点**，
+     * 以及缺月/日时不产出 `NaN`（那会让整条时间轴静默变空）。 */
+    it('按本地分量读，不碰 UTC', () => {
+        const at = parseDay('2026-11-05');
+        expect(at.getFullYear()).toBe(2026);
+        expect(at.getMonth()).toBe(10);
+        expect(at.getDate()).toBe(5);
+        expect(at.getHours()).toBe(0);
+    });
+
+    it('与 dateText 往返一致', () => {
+        expect(dateText(parseDay('2026-03-01'))).toBe('2026-03-01');
+        expect(dateText(parseDay('2026-12-31'))).toBe('2026-12-31');
+    });
+
+    it('缺月/日兜底成 1 号，不产出 Invalid Date', () => {
+        expect(dateText(parseDay('2026'))).toBe('2026-01-01');
+        expect(Number.isNaN(parseDay('2026').getTime())).toBe(false);
     });
 });

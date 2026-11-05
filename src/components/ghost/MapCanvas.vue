@@ -157,7 +157,8 @@ onBeforeUnmount(() => {
     width: 100%;
     height: 100%;
     min-height: 240px;
-    /* 不画边框：外层 `.frame` 自带文武线，这里再描一圈就成了双线。
+    /* 不画边框：外层是 `PaperCard`（`.board`），它自己就是一张有厚度的纸，
+     * 这里再描一圈就成了双线。
      * 也不垫底色：地图本身是彩色图，再套一圈深色就成了「相框里的照片」，
      * 而这里要读成「印在这张纸上」。 */
     background: transparent;

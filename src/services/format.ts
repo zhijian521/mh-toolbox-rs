@@ -44,6 +44,22 @@ export function dateText(at: Date): string {
     return `${at.getFullYear()}-${month}-${day}`;
 }
 
+/**
+ * `YYYY-MM-DD` 反过来读成 `Date`（本地零点）。
+ *
+ * 与 `dateText` 是一对：那边把日期写出去，这边读回来。**三处各写过一份**（日期选择器、
+ * 账号页的档位区间、总览的近七天），逐字相同——2026-11-05 收到这里。抄三份的风险不是
+ * 体积，而是有人只改了其中一处（比如给月、日补默认值时忘了另一处），于是同一个字符串在
+ * 两页里算出的日期差一天。
+ *
+ * 缺月/日时按 `1` 兜底，不返回 `NaN`：`new Date(2026, NaN, ...)` 会让整条时间轴静默变成
+ * 空白，而「某个月的 1 号」至少还能画出来。调用方要判「日期是否合法」应该在归一那一层做。
+ */
+export function parseDay(value: string): Date {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, (month || 1) - 1, day || 1);
+}
+
 /** 今天，`YYYY-MM-DD`。**不能用 `toISOString().slice(0, 10)`**（理由见文件头口径②）。 */
 export function todayText(): string {
     return dateText(new Date());

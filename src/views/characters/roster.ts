@@ -115,6 +115,21 @@ export function defaultSchool(): string {
     return schoolNames()[0] ?? '';
 }
 
+/**
+ * 角色 id → 名字。给账本那几行用（记录表、最近一笔、收益历史）。
+ *
+ * 2026-11-05 前**三处各写一份**、逐字相同：空 id 给「未指定」（那笔账本来就不挂角色，
+ * 与「挂了但人没了」是两件事，不能都写「未知」），查不到给「已删角色」——后者必须
+ * 明说，否则用户会以为那笔账记给了别人。
+ *
+ * 放这里而不是 `services/format.ts`：它要读名册，而名册是角色这一支的数据，
+ * 呈现层不该知道「角色」是什么。
+ */
+export function characterName(list: readonly CharacterData[], id: string): string {
+    if (!id) return '未指定';
+    return list.find((one) => one.id === id)?.name ?? '已删角色';
+}
+
 /** 新角色的骨架：该有的格子都在（12 个装备位、10 项修炼、七项门派技能），该空的都空着。 */
 export function emptyCharacter(): CharacterData {
     const school = defaultSchool();

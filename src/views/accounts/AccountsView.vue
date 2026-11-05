@@ -10,7 +10,7 @@ import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
 import { notify } from '../../composables/use-notify';
 import { shortDate, todayText } from '../../services/format';
-import { useRoster } from '../characters/roster';
+import { characterName, useRoster } from '../characters/roster';
 import AccountEditor from './AccountEditor.vue';
 import AccountRecords from './AccountRecords.vue';
 import {
@@ -81,11 +81,6 @@ const books = computed(() =>
 
 /** 最近八条。页面只露一小段，完整浏览在「全部记录」里。 */
 const recent = computed(() => newestFirst(scoped.value).slice(0, 8));
-
-function whoOf(id: string): string {
-    if (!id) return '未指定';
-    return roster.value.find((one) => one.id === id)?.name ?? '已删角色';
-}
 
 /* ---------- 记账 ---------- */
 const editing = ref<{ entry?: AccountEntry; seed?: Partial<EntryInput> } | null>(null);
@@ -229,7 +224,7 @@ function save(input: EntryInput) {
                         <td>{{ one.category }}</td>
                         <td class="c-note" :title="one.note">{{ one.note }}</td>
                         <td class="c-who" :class="{ idle: !one.characterId }">
-                            {{ whoOf(one.characterId) }}
+                            {{ characterName(roster, one.characterId) }}
                         </td>
                         <td class="c-channel">{{ one.channel }}</td>
                         <td

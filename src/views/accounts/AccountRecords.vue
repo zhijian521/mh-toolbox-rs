@@ -6,7 +6,7 @@ import SelectField from '../../components/SelectField.vue';
 import { askConfirm } from '../../composables/use-confirm';
 import { notify } from '../../composables/use-notify';
 import { shortDate } from '../../services/format';
-import { useRoster } from '../characters/roster';
+import { characterName, useRoster } from '../characters/roster';
 import {
     ACCOUNT_CATEGORIES,
     CHANNELS,
@@ -87,7 +87,7 @@ const filtered = computed(() => {
         /* 空串是「未指定」这个目标，不是「不限」——所以与 `ANY` 分开判。 */
         if (who.value !== ANY && one.characterId !== who.value) return false;
         if (!word) return true;
-        return [one.category, one.note, one.channel, whoOf(one.characterId)]
+        return [one.category, one.note, one.channel, characterName(roster.value, one.characterId)]
             .join(' ')
             .toLocaleLowerCase()
             .includes(word);
@@ -128,11 +128,6 @@ watch([currency, kind, category, channel, who, keyword], () => {
 watch(pages, (value) => {
     if (page.value > value) page.value = value;
 });
-
-function whoOf(id: string): string {
-    if (!id) return '未指定';
-    return roster.value.find((one) => one.id === id)?.name ?? '已删角色';
-}
 
 function reset() {
     currency.value = ANY;
@@ -238,7 +233,7 @@ async function remove(one: AccountEntry) {
                         <td class="c-cat">{{ one.category }}</td>
                         <td class="c-note" :title="one.note">{{ one.note }}</td>
                         <td class="c-who" :class="{ idle: !one.characterId }">
-                            {{ whoOf(one.characterId) }}
+                            {{ characterName(roster, one.characterId) }}
                         </td>
                         <td class="c-channel">{{ one.channel }}</td>
                         <td

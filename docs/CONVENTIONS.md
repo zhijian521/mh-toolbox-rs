@@ -368,11 +368,18 @@ types/          全局声明与模块增强（`router-meta.d.ts`、`vue-augment.
    引用）：① 页面留白 `--page-pad`（16px），页头左右 = 内容区四边，`.page-head`、`.page-content`、
    捉鬼页浮动面板都引它；② 区块内边距 `--block-pad`（15/18/18）与 `--block-pad-tight`
    （11/14/12）。四处分写四套差 1–2px，读者感受不到，维护时多四个数。
-5. **结构靠线，不靠阴影**。分区用文武线 `.frame`；行分隔用
-   `border-bottom: var(--w-hair) solid var(--rule)`。阴影只用于「凸起」的一次性投影。**内衬那道细线
-   只有一份定义**：`.frame` 自带，别处要同样的内衬就加 `dual-rule` 类（`.char`、`.gear-tip` 这么用），
-   小尺寸容器只覆写 `--dual-inset`。全局 `.ledger-lines` 已删：真要用「格子纸」，那是**某个列表**的
-   私有样式，写在该组件 scoped 里。
+5. **结构靠层级，不靠描边**（2026-11-05 改写）。区分的两套语法按「它在哪一层」分：
+    - **内容区的区块**是 `.board`（`PaperCard`）——台面上的一张纸，圆角 + 棱 + 3px 断面 + 落影，
+      见 §2.4-47。同一页里不要再用文武线框，两套放一起互不相认。
+    - **浮层**（角色编辑器、捉鬼测试面板）仍是 `.frame` 文武线：它们盖在纸上，是「压着的一张
+      线稿」，不该有厚度。
+    - 行分隔用 `border-bottom: var(--w-hair) solid var(--rule)`。
+
+    **阴影只有一个用途：说明「这块东西比纸高」**。不叠第二层光晕、不做内发光、不拿它当装饰。
+    **内衬那道细线只有一份定义**：`.frame` 自带，别处要同样的内衬就加 `dual-rule` 类（`.char`、
+    `.gear-tip` 这么用），小尺寸容器只覆写 `--dual-inset`。全局 `.ledger-lines` 已删：真要用
+    「格子纸」，那是**某个列表**的私有样式，写在该组件 scoped 里。
+
 6. **动效必须走 `--t-*` + `--ease-*`**，位移类统一带 `--ease-snap`（回弹）。时长按**距离**分七档，
    不按控件分：`--t-quick` 120（颜色、边框）、`--t-mid` 180（淡入淡出）、`--t-press` 200（印面内缩）、
    `--t-shape` 220（宽高形变）、`--t-thumb` 240（滑块走一格）、`--t-slide` 300（竖槽整格跳动）、
@@ -404,7 +411,7 @@ types/          全局声明与模块增强（`router-meta.d.ts`、`vue-augment.
     上让浏览器算（判断颜色用「套成 `background-color` 读回来」，不是 `CSS.supports`——后者只要值里含
     `var()` 就返回 true，会把 `--fs-*` 误判成颜色）。**任何「文档页」都不要抄代码里的数字。**
 14. **一个控件的「皮」放哪里，只看一条：会不会被第二个组件用**。材质与厚度——`.well`、`.stamp`、
-    `.bevel-pill`、`.frame`、`.section-mark`、`.track-opt`、`.dual-rule`、`.field-label`、
+    `.bevel-pill`、`.board`、`.frame`、`.section-mark`、`.track-opt`、`.dual-rule`、`.field-label`、
     `.form-row`、`.chip`、`.meta`——留在全局表；只被一个组件用的写 scoped（`.slot-btn` 在
     `SlotButton`，`.map-stage` 在 `MapCanvas`，`.kit*` 在 `AtomsSection`）。判据不是「通用不通用」：
     再通用的东西，只要只有一个组件用，就该进 scoped。**已知例外**：`.cost-opt` / `.cost-thumb` /

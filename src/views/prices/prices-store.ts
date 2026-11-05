@@ -25,6 +25,7 @@ import { ref } from 'vue';
 import { hasDesktop, pricesLoad, pricesSave } from '../../services/desktop';
 import { todayText } from '../../services/format';
 import { createPersist } from '../../services/persist';
+import { onStorageSync } from '../../services/storage-sync';
 import { makeId } from '../../services/shape';
 import { DEFAULT_CATEGORY, isPriceCategory } from './prices-catalog';
 import {
@@ -102,31 +103,23 @@ export async function loadPrices(): Promise<void> {
  * 桌面版两个窗口共享的是同一个 SQLite 文件，`localStorage` 的 `storage` 事件不会触发；
  * 两窗同时写由 SQLite 自己串行化，最后写的那份是全量，覆盖掉前面的也无妨。
  * 这里保留监听是为了探针和 `npm run dev`——那边仍是 `localStorage`。
+ * 事件本身的过滤（`key === null` 的 `clear()`、只认自己的键）在 `services/storage-sync.ts`。
  */
-function syncAcrossWindows(): void {
-    if (typeof window === 'undefined') return;
-    window.addEventListener('storage', (event) => {
-        /* `key === null` 是有人调了 `clear()`，同样要重读。 */
-        if (event.key !== null && event.key !== STORAGE_KEY) return;
-        /* `newValue === null` = 那一份被删掉了（`removeItem` / `clear`），确实该空。
-         * 这跟「解析失败」是两件事，别混成一个分支。 */
-        if (event.newValue === null) {
-            items.value = [];
-            return;
-        }
-        const parsed = parsePriceItems(event.newValue);
-        /* 解析失败**不是空库**：把它当空表会清掉内存里的 `items`，而下一次任意写
-         * （加一条价、改个名字）就把这份空表整份写回去，用户的物价表就没了。
-         * 读不懂就保持现状——另一个窗口写坏了自己的存储，不该连累这一边。 */
-        if (parsed === null) {
-            console.error('storage 事件里的物价表解析失败，保留当前数据不动', event.newValue);
-            return;
-        }
-        items.value = parsed;
-    });
-}
-
-syncAcrossWindows();
+onStorageSync(STORAGE_KEY, (raw) => {
+    /* 那一份被删掉了（`removeItem` / `clear`），确实该空——这与「解析失败」是两件事。 */
+    if (raw === null) {
+        items.value = [];
+        return;
+    }
+    const parsed = parsePriceItems(raw);
+    /* 解析失败**不是空库**：把它当空表会清掉内存里的 `items`，而下一次任意写
+     * （加一条价、改个名字）就把这份空表整份写回去，用户的物价表就没了。 */
+    if (parsed === null) {
+        console.error('storage 事件里的物价表解析失败，保留当前数据不动', raw);
+        return;
+    }
+    items.value = parsed;
+});
 
 /**
  * 落盘。

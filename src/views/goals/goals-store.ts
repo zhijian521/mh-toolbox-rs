@@ -16,7 +16,6 @@ import { createPersist } from '../../services/persist';
 import { makeId } from '../../services/shape';
 import {
     goalTitle,
-    kindMeta,
     parseGoals,
     type Goal,
     type GoalKind,
@@ -263,7 +262,3 @@ export function goalsOfCharacter(id: string): Goal[] {
 
 /** 单位候选。装备固定「件」，养成跟项目走，只有存钱要用户挑（元 / 万）。 */
 export const MONEY_UNITS = ['万', '元'];
-
-export function defaultUnit(kind: GoalKind): string {
-    return kindMeta(kind).unit;
-}

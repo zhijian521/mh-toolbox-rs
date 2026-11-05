@@ -105,6 +105,7 @@
 | 业务逻辑（计划） | `crates/mh-domain`，纯函数、无 IO                                                         | 不要塞进 `src-tauri/src/`——塞进去就再也拆不出来                                                                   |
 | 前端的纯规则     | `src/services/`（如 `ghost-parse.ts`），不碰 IO                                           | 不要塞进 composable——那里一有 ref 就不好单测                                                                      |
 | 跨页的数据层骨架 | `src/services/persist.ts`：`createPersist` 管落盘与排队                                   | 不要在每页的 store 里重抄——抄到第四份必然漂移                                                                     |
+| 跨窗口同步       | `src/services/storage-sync.ts`：`onStorageSync` 只收「什么时候该重读」                    | 不要把 `event.key === null` 那套判断抄回 store——收益与物价各抄过一遍，边界迟早漏一处                              |
 | 跨页的呈现口径   | `src/services/format.ts`：金额折万 / 日期文本（`moneyText`、`todayText`、`fromWan`…）     | 不要让一页去引另一页的模块；那是「记账口径」不是「物价」                                                          |
 | 页面自己的数据层 | `src/views/<页>/<名字>.ts`（如 `characters/roster.ts`）：单例状态 + 纯函数 + 单测         | 不要塞进 `services/`——那不是系统能力；也不要写进 `.vue`                                                           |
 | 开发期工具       | 页面内的放 `views/dev/` 旁边（如 `tokens.ts`）；跨页面的放 `scripts/`                     | 不要放进 `src/components/`                                                                                        |

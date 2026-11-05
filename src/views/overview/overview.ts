@@ -1,4 +1,4 @@
-import { daysAgo } from '../../services/format';
+import { daysAgo, parseDay } from '../../services/format';
 import { expPercent, type CharacterData } from '../characters/character';
 import type { IncomeEntry } from '../income/income';
 
@@ -12,11 +12,6 @@ import type { IncomeEntry } from '../income/income';
  * **这里不新增任何存储**：三个数全从既有的 `income_entries` / `characters` 现算。
  * 总览是「读一眼」，不是「另一份账」——同一件事存两处，迟早有一处忘了更新。
  */
-
-function dayOf(value: string): Date {
-    const [year, month, day] = value.split('-').map(Number);
-    return new Date(year, (month || 1) - 1, day || 1);
-}
 
 export interface DayNet {
     /** `YYYY-MM-DD`。 */
@@ -38,7 +33,7 @@ export interface DayNet {
 export function weekSeries(entries: readonly IncomeEntry[], today: string, days = 7): DayNet[] {
     const buckets = new Map<string, DayNet>();
     for (let back = days - 1; back >= 0; back -= 1) {
-        const date = daysAgo(back, dayOf(today));
+        const date = daysAgo(back, parseDay(today));
         buckets.set(date, { date, net: 0, count: 0 });
     }
 
