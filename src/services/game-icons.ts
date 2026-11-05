@@ -82,10 +82,10 @@ export function schoolSkillIcon(name: string): string | undefined {
  * 装备格的示意图。
  *
  * `file` 是 `views/characters/character.ts` 的 `GEAR_SLOT_ICON` 里那条相对路径
- * （`gear/…` 或 `lingshi/…`），根目录只在这里拼——与三套技能图标同一条约定：
+ * （`gear/…`、`lingshi/…`、`yupo/…`），根目录只在这里拼——与三套技能图标同一条约定：
  * 图片放在哪由 services 说了算，哪一格配哪张图是业务，住在 views 里。
  *
- * **这一族调用方自带子目录**（`gear/`、`weapon/`、`lingshi/` 各一组），与上面几个
+ * **这一族调用方自带子目录**（`gear/`、`weapon/`、`lingshi/`、`yupo/` 各一组），与上面几个
  * 「函数里定死一个目录」的不同：那一格配的是哪一类图，本身就是业务选择（头上戴的
  * 是装备、手上拿的是武器），不该让 services 再维护一张「部位 → 类目」的表。
  *

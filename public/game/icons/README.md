@@ -17,7 +17,8 @@ icons/
 ├── gear/      gear-<部位>-<nn>.webp        装备 83
 ├── weapon/    weapon-<种类>-<等级>.webp    武器 229
 ├── item/      item-<id>.png|gif            速记物品 59
-└── lingshi/   ling-<部位>-<等级>.webp   灵饰 20
+├── lingshi/   ling-<部位>-<等级>.webp      灵饰 20
+└── yupo/      yupo-<yin|yang>.webp         玉魄 2
 ```
 
 两条规则，只说两句话：
@@ -41,8 +42,9 @@ icons/
 | `school/`  | 门派技能 | 147  | 「师门技能」面板，21 家门派 × 7 项                                                   |
 | `gear/`    | 装备图标 | 83   | 百科典藏「装备」页 60 级以上，7 个部位，见 `../data/gear-icons.json`                 |
 | `weapon/`  | 武器图标 | 229  | 百科典藏「武器」页 60 级以上，21 组（双巨斧拆乾/坤），见 `../data/weapon-icons.json` |
-| `lingshi/` | 灵饰图标 | 20   | 百科典藏「灵饰」页，4 部位 × 60~140，见 `../data/lingshi-icons.json`                 |
+| `lingshi/` | 灵饰图标 | 20   | **客户端 `item120` 大图**，4 部位 × 60~140，见 `../data/lingshi-icons.json`          |
 | `item/`    | 速记物品 | 59   | 摆摊掉落物（38 件有牌价 + 21 件随行就市），见 `../data/quick-items.json`             |
+| `yupo/`    | 玉魄图标 | 2    | **客户端 `item120` 大图**，上古玉魄·阴 / ·阳；不分级，无清单，见下文                 |
 
 `item/` 文件名里的数字是 `quick-items.json` 的 **id**（不是序号），因为 id 才是单价表的键；
 `gear/` 那批是**序号**，序号本身即等级升序（第 1 个 = 60 级），单件名称在清单的 `name` 里。
@@ -51,6 +53,11 @@ icons/
 **双巨斧例外**：它在客户端是乾、坤两件，多一段 `-qian` / `-kun`，后缀仍用 `b`/`c`
 （`weapon-shuangjufu-qian-090b`）。两组各到 150 就结束——九黎城没有 160 造型。
 `lingshi/` 同样**带等级**（`ling-jiezhi-060`）——一个部位只有 5 件，序号反而更难找。
+
+`yupo/` 只有两件，按「阴 / 阳」命名（`yupo-yin.webp` / `yupo-yang.webp`）。这一族有**三个不同的
+名字**，改的时候别照着格子名拼路径：客户端叫「上古玉魄·阴」、装备格的 key 是「玉魄·阴」、
+文件名是 `yupo-yin`。两者之间只靠 `character.ts` 的 `GEAR_SLOT_ICON` 那两行对上。
+**这两件不写清单**：总共两条固定记录，清单只会变成第二份真源，而它没有第二个消费方。
 
 装备特效（18 项）**没有图标**：游戏那一页只有名字，没有图形，所以 `active/` 里只有特技。
 
@@ -63,8 +70,9 @@ icons/
 - `school/` → `../data/school-icons.json`（`slice-school.py` 生成）
 - `gear/` → `../data/gear-icons.json`（`slice-gear.py` 生成）
 - `weapon/` → `../data/weapon-icons.json`（`slice-weapon.py` 生成）
-- `lingshi/` → `../data/lingshi-icons.json`（`slice-lingshi.py` 生成）
+- `lingshi/` → `../data/lingshi-icons.json`（`import-client-icons.py` 生成）
 - `item/` → `../data/quick-items.json` 的 `file` 字段（旧系统带过来的图，不是切图产出）
+- `yupo/` → **没有清单**（两件固定记录，路径直接写在 `GEAR_SLOT_ICON` 里）
 
 清单分开写是因为每个脚本的裁切逻辑完全不同（4×3 卡片网格 / 竖排 7 行面板 / 3×4 方格且
 可滚动），写同一份清单时谁后跑谁把对方的分组覆盖掉——那种丢失不会有任何报错。
@@ -73,6 +81,16 @@ icons/
 到 140 就结束了（第二张截图最后一行第三格是空的）。官网介绍页另列了 160 级那四件
 （太虚渺云 / 焰云霞珠 / 浮雪幻音 / 碧海青天），**这个客户端里没有**，别照着官网表补齐——
 补出来的图只能是自己画的。
+
+2026-11-05 起这 20 张**不再来自百科典藏的列表截图**，改成直接导入客户端资源里的 `item120`
+（大图，透明底）。截图那条路的问题不在裁得准不准，而在一格只有 94×94 且**自带游戏卡片底**：
+放到 40px 就是一块米黄方片，四角还带着卷云暗纹。换来源之后四个灵饰格与其它品类一样是透明图，
+底色交给 `IconTile` 的块面。旧脚本 `slice-lingshi.py` 已删，取舍写在 `docs/RECORD.md` 第 116 批。
+
+**`玄龙苍珀`（佩饰 140）是唯一没有大图的一件**：它的 `item120` 资源在本地客户端里缺失
+（提取工程的 `missing-images.csv` 记着 21129 个本地找不到的图资源），只能用 `item50`
+放大。清单里该条 `source` 写的是 `item50`，其余 19 条是 `item120`——**能不能换掉看有没有新客户端**，
+不要拿官网小图凑。
 
 拿到图之后 `views/characters/character.ts` 的 `GEAR_SLOT_ICON` 已从 `ling-01.png` 这类
 占位名改成 `lingshi/ling-<部位>-060.webp`（60 级那件当部位示意图），卡上那四格不再是破图。
@@ -94,12 +112,17 @@ icons/
 游戏改版、或者补了新一页目录，重新跑：
 
 ```bash
-python tools/game-icons/slice.py         # 生活 / 剧情 / 特技 → skill/ story/ active/ + icons.json
-python tools/game-icons/slice-school.py  # 门派技能 → school/ + school-icons.json
-python tools/game-icons/slice-gear.py    # 装备 → gear/ + gear-icons.json
-python tools/game-icons/slice-weapon.py  # 武器 → weapon/ + weapon-icons.json
-python tools/game-icons/slice-lingshi.py # 灵饰 → lingshi/ + lingshi-icons.json
+python tools/game-icons/slice.py             # 生活 / 剧情 / 特技 → skill/ story/ active/ + icons.json
+python tools/game-icons/slice-school.py      # 门派技能 → school/ + school-icons.json
+python tools/game-icons/slice-gear.py        # 装备 → gear/ + gear-icons.json
+python tools/game-icons/slice-weapon.py      # 武器 → weapon/ + weapon-icons.json
+python tools/game-icons/import-client-icons.py # 灵饰 + 玉魄（客户端大图）→ lingshi/ yupo/
 ```
+
+前四条从截图切，最后一条**不从截图来**：它读提取工程的 `output/names.csv`，按物品名的
+`item120`（大图）那一档取 PNG，裁掉透明边、最长边缩到 108、居中放进 120×120 画布再存 webp。
+`--src` 换提取目录，`--only yupo` 只跑玉魄，`--check` 只报告不写盘（会告诉你哪几件缺大图、
+退到了 `item50`）。
 
 `slice.py` 一次写三个目录（`skill/` `story/` `active/`），因为那三批来自同一个 4×3 卡片
 面板、共用一份清单；它收的参数是**图标的根**（`public/game/icons`），不是某一类的目录。
@@ -143,16 +166,21 @@ python tools/game-icons/slice-lingshi.py # 灵饰 → lingshi/ + lingshi-icons.j
 - `.webp`，有损 `quality=92`（101 个图标合计 406KB；无损要 957KB，而图标最大只按
   48px 显示，肉眼无差。门派技能那 147 个纹样更密，合计 395KB）
 - 边长 **96**：界面按 48px 显示也够 2 倍屏，再大只是浪费体积
+- **`lingshi/` 是 120×120 的例外**（2026-11-05）：那 20 张是客户端大图的原尺寸归一到
+  120（最长边 108、居中），缩到 96 等于把大图又丢一档，而 40px 的槽位在 2 倍屏要 80px，
+  120 留了一次放大余量；20 张合计约 176KB，不值得为 40KB 再缩。
+  **同一类目内部仍然同尺寸**，这条例没破
 - **图标本体铺满画布，不垫背景色**：早先垫了一圈游戏卡片底的米黄（`(230,196,155)`），
   看着像「画在游戏卡片上」，实际用起来就是图标外面套了一圈黄边——底色该由用它的地方决定
 - **也不要「补成正方形」**：门派技能本体是 60×59，补那 1px 若填黑，就成了上下各一条黑边，
   看着正好像图标被截断。直接用 96×96 缩放，1.7% 的各向异性看不出来
+  （`lingshi/` 例外：那批是**透明**画布上居中，补出来的边是透明的，不会读成截断）
 - **同一类目的图标必须同尺寸**：一排图标里混着 88 和 96，基线就对不齐
 
-## 装备 / 武器 / 灵饰图标（`gear/` `weapon/` `lingshi/`）为什么带卡片底
+## 装备 / 武器图标（`gear/` `weapon/`）为什么带卡片底
 
 `skill-` / `story-` / `active-` / `school-skill-` 那四批是**抠掉底色**的（图形铺满画布），
-`gear/` `weapon/` `lingshi/` 这三批不是——它们每一张都是一块米黄小方片。
+`gear/` `weapon/` 这两批不是——它们每一张都是一块米黄小方片。
 
 不是偷懒，是抠不了：装备图标本身就画在游戏卡片上，图形与卡片底**同色系**。
 实测白衣 `(240,240,235)` 与卡片底 `(243,222,192)` 的曼哈顿色差只有 64，
@@ -160,8 +188,13 @@ python tools/game-icons/slice-lingshi.py # 灵饰 → lingshi/ + lingshi-icons.j
 加腐蚀去堵轮廓缺口，结果是女衣、项链那几页必定出现米色大洞（白色装备被当成背景挖掉），
 比带底更难看。
 
-所以这三批**只做裁切、不抠底**，取景都按「格子边内缩 2px → 裁 90×90 → 缩到 96×96」，
-**三批用完全相同的规格**。留白多少由游戏原图决定，不替它决定。
+所以这两批**只做裁切、不抠底**，取景都按「格子边内缩 2px → 裁 90×90 → 缩到 96×96」，
+**两批用完全相同的规格**。留白多少由游戏原图决定，不替它决定。
+
+`lingshi/` 曾经也是这一套，2026-11-05 起**已经整批换成客户端大图、透明底**（第 116 批）——
+它不是「抠图抠成功了」，而是换了一个本来就没有卡片底的来源。**`gear/` `weapon/` 同理还能换**：
+客户端里这两类也有 `item120`，写个同构的导入脚本即可（`import-client-icons.py` 是模板），
+**不要再回到截图上抠**。
 
 ### 裁得对不对，看四个格子的交汇处
 
@@ -182,7 +215,8 @@ python tools/game-icons/slice-lingshi.py # 灵饰 → lingshi/ + lingshi-icons.j
 表现就是「有的上面多一条边、有的少一截」。现在行定位改成**用格子间隙求相位**
 （间隙位置与图标无关），取景改成固定内缩，两处都不再依赖图标长什么样。
 
-如果哪天确实要透明版：**换素材来源**（游戏资源包里的图标原图），不要在这批截图上继续抠。
+要透明版就**换素材来源**（游戏资源包里的图标原图），不要在这批截图上继续抠——`lingshi/`
+已经这么换过一回了，`gear/` `weapon/` 还停在截图上。
 
 `gear-icons.json` 目前**没有任何测试盯着**（另两份清单有 `game-icons.test.ts` 比对名字）。
 数量与顺序的保障眼下靠脚本自己：`slice-gear.py` 里 `NAMES` 与裁出的张数不一致会直接报错退出。

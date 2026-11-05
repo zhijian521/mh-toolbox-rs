@@ -338,9 +338,13 @@ export const GEAR_LAYOUT: Record<GearSlotName, { col: number; row: number }> = {
  * 所以这里**按部位取一张代表图**，不按装备名查：按名查会让同一格在不同号上
  * 时有时无，而这一格要回答的是「这里穿的是什么」，图只是让格子立起来。
  *
- * 武器与玉魄仍是 `null`。武器 165 张已经入库（`game/data/weapon-icons.json`，
- * 20 类 × 等级），但没有「武器」这一格的代表图；玉魄本就没有图。这两格画一枚
- * 淡印 + 首字，不留破图；要填只改这里，**不用动组件**。
+ * 武器仍是 `null`。武器 165 张已经入库（`game/data/weapon-icons.json`，
+ * 20 类 × 等级），但没有「武器」这一格的代表图；这一格画一枚淡印 + 首字，不留破图；
+ * 要填只改这里，**不用动组件**。
+ *
+ * 玉魄那两格 2026-11-05 起有图了（第 116 批）：客户端里「上古玉魄·阴 / ·阳」各有一张
+ * 120 大图，导进 `icons/yupo/`。**这张表存的是客户端名 `yupo-yin`，格子的 key 是装备名
+ * `玉魄·阴`**——两者差一个「上古」前缀，别照着 key 拼文件名。
  */
 export const GEAR_SLOT_ICON: Record<GearSlotName, string | null> = {
     头: 'gear/gear-toukui-03.webp',
@@ -353,8 +357,8 @@ export const GEAR_SLOT_ICON: Record<GearSlotName, string | null> = {
     耳饰: 'lingshi/ling-ershi-060.webp',
     配饰: 'lingshi/ling-peishi-060.webp',
     手镯: 'lingshi/ling-shouzhuo-060.webp',
-    '玉魄·阴': null,
-    '玉魄·阳': null,
+    '玉魄·阴': 'yupo/yupo-yin.webp',
+    '玉魄·阳': 'yupo/yupo-yang.webp',
 };
 
 /**
