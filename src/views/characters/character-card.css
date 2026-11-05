@@ -600,27 +600,38 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
+    gap: 5px;
     min-width: 0;
-    padding: 7px 4px 6px;
+    padding: 6px 4px 5px;
     border-radius: var(--r-2);
-    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 46px);
-    /* 边框 / 底色 / 下沿亮线来自 `.well`；**这里不能写 border 与 background-color**：
-     * scoped 之后 `.gear-cell[data-v-x]` 比 `.well` 高一档，写了就把那四件套顶掉了。 */
+    /* 格子自己给材质，**不再挂 `.well`**：`.well` 的顶壁是一段 62% 的渐变，
+     * 按 112 高的格子解析是 69px 的一大片灰，而这里的顶壁只是一条 4px 的投影。
+     *
+     * 四层全部围绕「挖下去」：
+     *   ① 孔的上沿外侧一线纸厚（`0 -1px 0`，只在上方——光从上来，孔的近边投影、远边受光）
+     *   ② 顶壁投影（`inset 0 2px 4px -1px`，近口深、往下散）
+     *   ③ 底壁受光（`inset 0 -1px 0`，光照到孔的对面那条内壁）
+     *   ④ 内衬暗环（`inset 0 0 0 1px`，刻进去的那圈边）
+     * 边框退到 `rule-2` 的 46%：再深就成「一个深色方块」，而不是「一个孔」。 */
+    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 46%, transparent);
+    background-color: var(--well);
+    box-shadow:
+        0 -1px 0 color-mix(in srgb, var(--bevel-hi) 32%, transparent),
+        inset 0 2px 4px -1px var(--bevel-lo),
+        inset 0 -1px 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
+        inset 0 0 0 1px color-mix(in srgb, var(--bevel-lo) 30%, transparent);
     color: var(--ink);
     font-family: var(--font-ui);
     text-align: center;
-    /* 不写 `transition: border-color`：边色读的是 `--lip-shade` 变量，而自定义属性
-     * 不是可过渡的值，写了只会让人以为有渐变。`.field` 那处同样写着，但至少它的
-     * 两态还改了 `box-shadow`——这里连影子都不变，不如不写。 */
+    /* 这条过渡此前是写不了的：边色读 `.well` 的 `--lip-shade`，而自定义属性不是
+     * 可过渡的值，写了只会让人以为有渐变。现在边色是自己算的 `color-mix`，
+     * 过渡落在真实的 `border-color` 上，能动了。 */
+    transition: border-color var(--t-quick) var(--ease-soft);
 }
 /* 悬停只做一件事：把槽的边加深一档（与输入格同一手势），部位名转朱。
  * 不换底色——凹槽的底色一浅，整块会从「槽」翻成「块」。 */
 .gear-cell:hover {
-    --lip-shade: light-dark(
-        color-mix(in srgb, var(--rule-2) 84%, var(--ink-base)),
-        color-mix(in srgb, var(--rule-2) 74%, var(--ink-base))
-    );
+    border-color: color-mix(in srgb, var(--rule-2) 78%, var(--ink));
 }
 .gear-cell:focus-visible {
     outline: var(--ring);
@@ -645,17 +656,20 @@
  * 54 的块、44 的图，四周各 5 的边，与 96 的格宽留出 8 的边走。 */
 .gear-cell .gear-pic,
 .gear-ph {
-    --tile-w: 54px;
-    --tile-h: 54px;
+    --tile-w: 56px;
+    --tile-h: 56px;
     --tile-r: var(--r-3);
-    /* 落地影收一档：54 的块落满档（3 / 8px）在 109 的槽里会读成「浮着的卡片」。 */
-    --tile-drop: 0.8;
-    /* 块面用 `--paper-2`：槽底本身就是 `--well`，`IconTile` 默认那层（well 55% + paper-2）
-     * 压在这里只比槽底亮一点点，四道棱之外读不出「凸」。 */
-    --tile-face: var(--paper-2);
+    --tile-drop: 0.85;
+    /* 块面**两个主题走两个方向**，不能同值：
+     *   · 亮色要「白」——纸白（`--paper`）比图标自带的米底亮一档，图才像贴在一块白纸上；
+     *   · 暗色要「亮」——它躺的不是卡面而是**槽**（`--well` #171409），`--paper-2` 只
+     *     比槽亮一阶，四道棱之外读不出「一块纸」，得掺一成墨把它提到 #3a352a 附近。
+     * 上一版糊的原因不是颜色，是图占了块面 81%：边只剩 5px，同色系两个方形叠在
+     * 一起就是「一张图」。现在边留到 8px，这一档明度差才被看见。 */
+    --tile-face: light-dark(var(--paper), color-mix(in srgb, var(--paper-2) 84%, var(--ink)));
 }
 .gear-cell .gear-pic {
-    --shot: 44px;
+    --shot: 40px;
 }
 /* 没有品类图的部位（武器、玉魄）：一块**首字印**，与 `SkillRow` 的 `.seal-tile` 同构
  * （`IconTile` 与一块压印块二选一）。
@@ -665,7 +679,7 @@
  * ——十二格里三格朱字会把「朱 = 强调」这条用光。 */
 .gear-ph-text {
     color: color-mix(in srgb, var(--ink-2) 78%, transparent);
-    font-size: calc(18px * var(--fs-scale));
+    font-size: calc(20px * var(--fs-scale));
     line-height: 1;
 }
 .gear-name {

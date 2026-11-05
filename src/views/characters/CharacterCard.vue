@@ -363,12 +363,15 @@ function slotInitial(slot: GearSlot): string {
                  位置照游戏「人物装备」面板（`GEAR_LAYOUT`），**不是数组顺序**：
                  顶行四灵饰、左右两列各三件、底中两枚玉魄（阳在左）、中央空着。
 
-                 格子是**凹槽**（用全局 `.well` 的四件套，只把顶壁渐变改短）：
+                 格子是**凹槽**（自己给四层：孔上沿纸厚 / 顶壁投影 / 底壁受光 / 内衬暗环）：
                  装备是「往里放的东西」，凹才读作「空位 / 槽」。旧版这里是压印块
                  （凸起的一块纸），读作「已经拿出来摆着的一件」，与「穿戴」这个动作
                  方向相反——2026-11-04 用户对着游戏面板重排时一并改掉。
+                 **槽里那件东西仍是凸的**（`IconTile`），凹槽套凸块在这套语言里是常规
+                 （`.slip-row` 那张凹票里也是这么叠的）：凹说的是「这一格是个位置」，
+                 凸说的是「位置上放着一件」。
 
-                 三种状态：有装备有图（凹槽 + 图 + 名）、有装备没图（凹槽 + 淡印 + 首字）、
+                 三种状态：有装备有图（凹槽 + 压印块上的图 + 名）、有装备没图（凹槽 + 首字印）、
                  没装备（虚线挖空 + 部位名 + 未装备）。第三种**不用 opacity 压**：
                  虚线本来就淡，压了会糊成一片灰。 -->
             <section
@@ -383,7 +386,7 @@ function slotInitial(slot: GearSlot): string {
                         <button
                             v-if="slot.detail"
                             type="button"
-                            class="gear-cell well"
+                            class="gear-cell"
                             :style="cellPos(slot.slot)"
                             @mouseenter="openTip($event, { kind: 'gear', detail: slot.detail })"
                             @mouseleave="closeAll"
