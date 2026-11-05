@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
-import SelectField from '../../components/SelectField.vue';
+import DateField from '../../components/DateField.vue';
 import { notify } from '../../composables/use-notify';
 import { askConfirm } from '../../composables/use-confirm';
 import { useRoster } from '../characters/roster';
-import { dayText, todayText } from '../../services/format';
+import { todayText } from '../../services/format';
 import { amountText, totalsOf, type IncomeEntry } from './income';
 import { useIncome } from './income-store';
 import { itemIconOf } from './item-icons';
@@ -22,8 +22,16 @@ import EntryEditDialog from './EntryEditDialog.vue';
  * 第三版「一天一行、行内挂角色」：还是不够——用户要的不只是**看**，而是「记错了能改回来」。
  *
  * 现在这一版把两件事分开：
- *   - **筛选在上**：一个日期下拉（含「今天」）+ 一个「回到今天」。选哪天看哪天，不靠滚动找；
+ *   - **筛选在上**：一个**日期选择器**（月历纸片）+ 一个「回到今天」。选哪天看哪天，
+ *     不靠滚动找；
  *   - **表格在下**：当天的每一条占一行，时间 / 物品 / 角色 / 金额 / 两枚操作。
+ *
+ * ---- 日期为什么从「下拉」换成「月历」----
+ *
+ * 上一版是一枚下拉，只列**有账的日子**，理由是「账本关心的是哪几天有账」。2026-11-05
+ * 用户要「日期选择器」——那正好补上了旧写法丢掉的一半：想核对「某天是不是漏记了」时，
+ * 没有记录的那天根本选不到，而「选不到」与「真的没有」在界面上长得一样。
+ * 现在任意一天都能选进来，空的那天显示「这一天还没有记录」。
  *
  * ---- 为什么换回「流水」而不是「一天一行」 ----
  *
@@ -45,31 +53,6 @@ const picked = ref(todayText());
 
 /** 正在改的那一条。`null` = 没开编辑窗。 */
 const editing = ref<IncomeEntry | null>(null);
-
-/**
- * 日期下拉的选项：今天置顶，其余是**有记录的日子**（倒序）。
- *
- * 只列有记录的日子，不铺一个完整日历：空日期选进去只有一句「这一天没有记录」，
- * 而账本关心的是「哪几天有账」。
- */
-const dateOptions = computed(() => {
-    const now = todayText();
-    const others = [...new Set(entries.value.map((one) => one.date))]
-        .filter((date) => date !== now)
-        .sort()
-        .reverse();
-    return [
-        { value: now, label: '今天' },
-        ...others.map((date) => ({ value: date, label: dayText(date, now) })),
-    ];
-});
-
-/* 选中那天被删空之后，`SelectField` 在选项里找不到它，触发条会退回 placeholder
- * 「未选」——那读起来像控件坏了。这时回到最近的一天。 */
-watch(dateOptions, (list) => {
-    if (!list.some((one) => one.value === picked.value))
-        picked.value = list[0]?.value ?? todayText();
-});
 
 /** 当天的流水，新的在上（`createdAt` 倒序）。 */
 const rows = computed(() =>
@@ -146,21 +129,22 @@ async function remove(one: IncomeEntry) {
 </script>
 
 <template>
-    <ModalShell title="历史收益" :width="720" @close="emit('close')">
-        <!-- 筛选在上：选哪天看哪天，不用滚动找。 -->
+    <!-- `min-height` + `fill`：给一个下限（520，窗口矮时跟着缩），筛选条与汇总钉在顶上，
+         只有下面的表格滚。
+         **下限而不是定高**：两条记录时不该缩成一小块（用户原话「高度太低不好看」），
+         但也不该反过来留出半屏空白——定高 620 就是这样，比矮更难看。记录多了它自己长，
+         长到 `max-height` 之后表格内部再滚。 -->
+    <ModalShell
+        title="历史收益"
+        :width="720"
+        min-height="min(520px, calc(100vh - 48px))"
+        fill
+        @close="emit('close')"
+    >
+        <!-- 筛选在上：选哪天看哪天，不用滚动找。顶部只留这一个控件——「回到今天」
+             长在纸片自己的页脚里（`DateField` 的能力，不只服务这一页），这里不再挂第二枚。 -->
         <div class="filters">
-            <SelectField
-                v-model="picked"
-                :options="dateOptions"
-                label="看哪一天的账"
-                class="date-pick"
-            />
-            <PressButton
-                v-if="picked !== todayText()"
-                text="回到今天"
-                label="回到今天的账"
-                @click="picked = todayText()"
-            />
+            <DateField v-model="picked" label="看哪一天的账" class="date-pick" />
             <span class="sum">
                 <span class="dim">{{ dayTotals.count }} 笔</span>
                 <span class="net" :class="{ loss: dayTotals.net < 0 }">{{
@@ -182,61 +166,65 @@ async function remove(one: IncomeEntry) {
 
         <p v-if="!rows.length" class="note blank">这一天还没有记录。</p>
 
-        <table v-else class="log">
-            <thead>
-                <tr>
-                    <th class="c-time">时间</th>
-                    <th>物品</th>
-                    <th class="c-who">角色</th>
-                    <th class="c-num">金额</th>
-                    <th class="c-ops">操作</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr v-for="one in rows" :key="one.id">
-                    <td class="c-time">{{ timeOf(one.createdAt) }}</td>
-                    <td>
-                        <!-- flex 包在 td 里的 span 上，不挂在 td 上：td 一旦不是
-                             table-cell，整张表的列宽计算会跟着乱。 -->
-                        <span class="item-cell">
-                            <img
-                                v-if="itemIconOf(one.item)"
-                                :src="itemIconOf(one.item)"
-                                alt=""
-                                loading="lazy"
-                            />
-                            <span class="item-name">{{ one.item || '未记物品' }}</span>
-                        </span>
-                    </td>
-                    <td class="c-who" :class="{ idle: !one.characterId }">
-                        {{ whoOf(one.characterId) }}
-                    </td>
-                    <td class="c-num" :class="{ out: one.kind === 'expense' }">
-                        {{
-                            one.kind === 'expense'
-                                ? `−${amountText(one.amount)}`
-                                : amountText(one.amount)
-                        }}
-                    </td>
-                    <td class="c-ops">
-                        <span class="ops">
-                            <PressButton
-                                icon="edit"
-                                label="改这一条"
-                                size="md"
-                                @click="editing = one"
-                            />
-                            <PressButton
-                                icon="trash"
-                                label="删这一条"
-                                size="md"
-                                @click="remove(one)"
-                            />
-                        </span>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+        <!-- 只有表格滚（`fill` 让正文成为纵向 flex 容器，这里吃掉剩下的全部高度）。
+             表头 `sticky` 钉在容器顶上：往下翻十几行之后仍知道哪列是哪列。 -->
+        <div v-else class="log-scroll">
+            <table class="log">
+                <thead>
+                    <tr>
+                        <th class="c-time">时间</th>
+                        <th>物品</th>
+                        <th class="c-who">角色</th>
+                        <th class="c-num">金额</th>
+                        <th class="c-ops">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="one in rows" :key="one.id">
+                        <td class="c-time">{{ timeOf(one.createdAt) }}</td>
+                        <td>
+                            <!-- flex 包在 td 里的 span 上，不挂在 td 上：td 一旦不是
+                                 table-cell，整张表的列宽计算会跟着乱。 -->
+                            <span class="item-cell">
+                                <img
+                                    v-if="itemIconOf(one.item)"
+                                    :src="itemIconOf(one.item)"
+                                    alt=""
+                                    loading="lazy"
+                                />
+                                <span class="item-name">{{ one.item || '未记物品' }}</span>
+                            </span>
+                        </td>
+                        <td class="c-who" :class="{ idle: !one.characterId }">
+                            {{ whoOf(one.characterId) }}
+                        </td>
+                        <td class="c-num" :class="{ out: one.kind === 'expense' }">
+                            {{
+                                one.kind === 'expense'
+                                    ? `−${amountText(one.amount)}`
+                                    : amountText(one.amount)
+                            }}
+                        </td>
+                        <td class="c-ops">
+                            <span class="ops">
+                                <PressButton
+                                    icon="edit"
+                                    label="改这一条"
+                                    size="md"
+                                    @click="editing = one"
+                                />
+                                <PressButton
+                                    icon="trash"
+                                    label="删这一条"
+                                    size="md"
+                                    @click="remove(one)"
+                                />
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
         <template #footer>
             <span class="foot-sum"
@@ -253,14 +241,19 @@ async function remove(one: IncomeEntry) {
 <style scoped>
 .filters {
     display: flex;
+    flex: none;
     align-items: center;
     gap: 10px;
     margin-bottom: 8px;
 }
-/* 日期条定宽 150：`SelectField` 按内容撑，「今天」与「11月2日」长度不同，
- * 每换一天它会跳一次宽度，右边那行汇总也跟着左右晃。 */
+/* 日期条定宽 176：换月、换日时触发条上的字长度会变（「2026年11月5日」与
+ * 「2026年12月15日」差一个字），不定宽的话右边那行汇总会跟着左右晃。
+ *
+ * **必须乘 `--fs-scale`**：字号档从 0.92 到 1.1，「2026年12月15日」在 1.1 档下比 176 宽，
+ * 不乘就会截成「2026年12月1…」。开发页那条 `.demo-date` 也是同一个值（同一个尺度），
+ * 两处一起改才不会一边松一边紧。 */
 .date-pick {
-    width: 150px;
+    width: calc(176px * var(--fs-scale));
 }
 .sum {
     display: flex;
@@ -281,9 +274,11 @@ async function remove(one: IncomeEntry) {
     color: var(--cinnabar);
 }
 
-/* 当天各号小计：一行文字，不与表格抢。 */
+/* 当天各号小计：一行文字，不与表格抢。`flex: none` —— 它是钉在顶上的一行，
+ * 不许被下面的表格挤扁（`flex-shrink` 默认 1，内容长时它会先被压）。 */
 .who-bar {
     display: flex;
+    flex: none;
     flex-wrap: wrap;
     gap: 2px 14px;
     margin: 0 0 6px;
@@ -307,14 +302,37 @@ async function remove(one: IncomeEntry) {
 }
 
 /* ---------- 流水表 ---------- */
+/* 只有这一块滚：`flex: 1` 吃掉正文剩下的全部高度，`min-height: 0` 是它**必须**的——
+ * flex 子项的默认 `min-height: auto` 会被内容顶开，写多少高度都拦不住它把弹窗撑长。
+ *
+ * `scrollbar-gutter: stable`：轨道常驻。记录从 1 条变到 20 条时表格不会横向跳一下，
+ * 而且它与 `.modal-body-fill` 让出的那 10px 正好相抵——表格右缘与页脚对齐。
+ * 不留负外边距：那会把轨道一起推出内衬，反而错开。 */
+.log-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
 .log {
     width: 100%;
     border-collapse: collapse;
     font-size: var(--fs-sm);
 }
+/* 表头钉在容器顶上：往下翻十几行之后仍知道哪列是哪列。
+ *
+ * 底边那道线用 `box-shadow` 画而不是 `border-bottom`——`sticky` 元素滚动时边框会跟着
+ * 内容一起走，读起来像一条悬在两行之间的线。
+ *
+ * 背景必须是**不透明的纸色**：半透明时下面的行会从表头里透出来。 */
 .log thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
     padding: 5px 6px;
-    border-bottom: var(--w-hair) solid var(--rule-2);
+    background: var(--paper);
+    box-shadow: inset 0 -1px 0 var(--rule-2);
     color: var(--muted);
     font-size: var(--fs-mini);
     font-weight: 400;
@@ -322,8 +340,11 @@ async function remove(one: IncomeEntry) {
     text-align: left;
     white-space: nowrap;
 }
+/* 行高 7：**这一步是被用户点出来的**（2026-11-05「高度太低不好看」）。
+ * 4 的时候两枚 26 高的操作按钮把行撑得比字高出一截，四边留白又不匀，整张表读作
+ * 「一条条挤在一起」；7 之后行高约 34，与票面行 sm 档的呼吸一致，一屏仍放得下 12 行。 */
 .log tbody td {
-    padding: 4px 6px;
+    padding: 7px 6px;
     border-bottom: var(--w-hair) solid var(--rule);
 }
 .log tbody tr:last-child td {
@@ -393,8 +414,10 @@ async function remove(one: IncomeEntry) {
     gap: 4px;
 }
 
+/* 空态：定高之后这一句要在整块正文里居中。`margin: auto` 在纵向 flex 容器里就是
+ * 「上下都吃掉剩余空间」——写 `margin: 26px 0` 会贴在顶部，下面一大片空白看着像没加载完。 */
 .blank {
-    margin: 26px 0;
+    margin: auto;
     text-align: center;
 }
 .foot-sum {

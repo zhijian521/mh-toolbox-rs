@@ -53,6 +53,27 @@ const props = withDefaults(
          */
         scroll?: boolean;
         /**
+         * 面板**最小**高度。不传则「跟着内容长」（上限仍是 `100vh − 48px`）。
+         *
+         * 给表格类窗用：**记录只有两条时它不该缩成一小块**——一张 400 高的窗摆在屏幕
+         * 中间，读起来像「这里只有这么多东西」，而实际是「今天只有两笔」。
+         *
+         * 是下限而不是定高：记录多的时候它跟着长，到 `max-height` 之后正文内部再滚。
+         * 定高会反着来——两条记录也留出半屏空白，那比原来的「矮」更难看。
+         *
+         * 数字按 px 处理；要跟着视口走就传整段 CSS 值（历史窗传的是
+         * `min(520px, calc(100vh - 48px))`）。
+         */
+        minHeight?: number | string;
+        /**
+         * 正文**自己填满、自己滚**，而不是整块一起滚。
+         *
+         * 表格类窗要这个：筛选条和汇总行固定在顶上，只有表格滚——一天三十笔时，翻到
+         * 底想换个日期，不必先滚回顶部。传 `true` 时正文变成纵向 flex 容器
+         * （`overflow: hidden`），调用方用 `flex: 1` + `min-height: 0` 给滚动区。
+         */
+        fill?: boolean;
+        /**
          * 外部给的「这个名字念什么」（元素 id）。
          *
          * `title` 同时管两件事：**画不画标题栏**、**读屏念什么**。删除确认两件都不想要标题栏
@@ -62,7 +83,7 @@ const props = withDefaults(
          */
         labelledby?: string;
     }>(),
-    { title: '', width: 460, initialFocus: 'first', scroll: true, labelledby: '' },
+    { title: '', width: 460, initialFocus: 'first', scroll: true, labelledby: '', fill: false },
 );
 
 const emit = defineEmits<{ close: [] }>();
@@ -96,12 +117,20 @@ function onMaskClick(event: MouseEvent) {
 }
 
 /**
- * 宽度落到 `--modal-w`。数字补 `px`，字符串原样交出去——
- * 确认窗给的是 `calc(252px * var(--fs-scale))`，所以不能在这里无条件加 `px`。
+ * 宽度落到 `--modal-w`、最小高度落到 `--modal-min-h`。数字补 `px`，字符串原样交出去——
+ * 确认窗给的是 `calc(252px * var(--fs-scale))`、历史窗给的是
+ * `min(520px, calc(100vh - 48px))`，所以不能在这里无条件加 `px`。
  */
-const panelStyle = computed(() => ({
-    '--modal-w': typeof props.width === 'number' ? `${props.width}px` : props.width,
-}));
+const panelStyle = computed(() => {
+    const style: Record<string, string> = {
+        '--modal-w': typeof props.width === 'number' ? `${props.width}px` : props.width,
+    };
+    if (props.minHeight !== undefined) {
+        style['--modal-min-h'] =
+            typeof props.minHeight === 'number' ? `${props.minHeight}px` : props.minHeight;
+    }
+    return style;
+});
 </script>
 
 <template>
@@ -129,7 +158,10 @@ const panelStyle = computed(() => ({
                     <h2 :id="titleId">{{ title }}</h2>
                 </header>
 
-                <div class="modal-body" :class="{ 'modal-body-static': !scroll }">
+                <div
+                    class="modal-body"
+                    :class="{ 'modal-body-static': !scroll, 'modal-body-fill': fill }"
+                >
                     <slot />
                 </div>
 
@@ -161,6 +193,8 @@ const panelStyle = computed(() => ({
     flex-direction: column;
     width: var(--modal-w);
     max-width: 100%;
+    /* 传了 `minHeight` 就有个下限（表格类窗），没传就纯跟着内容长。 */
+    min-height: var(--modal-min-h, auto);
     max-height: calc(100vh - 48px);
     background: var(--paper);
     border: var(--w-hair) solid var(--rule-2);
@@ -205,6 +239,21 @@ const panelStyle = computed(() => ({
 .modal-body-static {
     padding-right: 16px;
     overflow-y: visible;
+}
+
+/* 正文自己填满、自己滚（表格类窗）。
+ *
+ * `overflow: hidden` 把滚动的责任交给调用方内部那个容器：筛选条与汇总行要钉在顶上，
+ * 一天三十笔时翻到底想换个日期，不必先滚回顶部。
+ *
+ * 右内边距仍扣掉一条轨道：滚动条此刻长在内部容器上，但那条轨道占了什么位置，读者
+ * 看到的是「这张表比页脚短一截」。调用方那边配 `scrollbar-gutter: stable` 让轨道常驻，
+ * 于是这里让出的 10px 正好被它吃掉，表格右缘与页脚对齐。 */
+.modal-body-fill {
+    display: flex;
+    flex-direction: column;
+    padding-right: max(0px, calc(16px - var(--scrollbar-w)));
+    overflow: hidden;
 }
 
 .modal-foot {

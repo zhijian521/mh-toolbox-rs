@@ -136,7 +136,7 @@ function priceCleared() {
         <template #actions>
             <PressButton
                 icon="history"
-                text="历史收益"
+                text="历史"
                 label="查看历史收益，按角色与按天"
                 @click="historyOpen = true"
             />

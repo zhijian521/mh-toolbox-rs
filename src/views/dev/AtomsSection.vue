@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
+import DateField from '../../components/DateField.vue';
 import FontSizeSlider from '../../components/FontSizeSlider.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import MeterBar from '../../components/MeterBar.vue';
@@ -18,9 +19,10 @@ import TogglePills from '../../components/TogglePills.vue';
 import { useFontScale } from '../../composables/use-font-scale';
 import { notify } from '../../composables/use-notify';
 import { THEME_OPTIONS, useTheme } from '../../composables/use-theme';
+import { todayText } from '../../services/format';
 
 /**
- * 原子组件：抽出来复用的十三件（十三条 `kit-cell`，一条里可能并排两个同族件——
+ * 原子组件：抽出来复用的十四件（十四条 `kit-cell`，一条里可能并排两个同族件——
  * 比如 `Field` / `NumberField`、`PressTile` / `PressButton`）。
  *
  * 加一件请连上面那个数一起改：篇首原先写死「九件」，加了两件之后就成了假信息。
@@ -57,6 +59,9 @@ const DEMO_SCHOOLS = ['未选', '大唐官府', '方寸山', '化生寺', '阴�
     (name) => ({ value: name === '未选' ? '' : name, label: name }),
 );
 const demoSchool = ref('五庄观');
+
+/** 日期格的演示值取今天：才看得出「今天那枚朱点」与「选中的朱面」是两件事。 */
+const demoDate = ref(todayText());
 
 /** 多选胶囊：初值给一项，才好看出「按下的那几枚是朱的」与「其余仍是空槽」。 */
 const DEMO_TOGGLES = [
@@ -302,6 +307,18 @@ const demoToggles = ref<string[]>(['task']);
             </div>
 
             <div class="kit-cell">
+                <span class="col-head">DateField · 日期选择</span>
+                <div class="kit-row">
+                    <DateField v-model="demoDate" class="demo-date" label="演示：选日期" />
+                </div>
+                <p class="note">
+                    槽 + 一张月历纸片，<b>不用原生 <code>&lt;input type="date"&gt;</code></b>
+                    （系统月历与这套材质不兼容）。整张月历一个 Tab 停靠点，方向键换日、
+                    <code>PgUp/PgDn</code> 换月。
+                </p>
+            </div>
+
+            <div class="kit-cell">
                 <span class="col-head">PressTile · 压印块 / PressButton · 压印按钮</span>
                 <div class="kit-row">
                     <div class="kit-tiles">
@@ -453,5 +470,11 @@ const demoToggles = ref<string[]>(['task']);
 .demo-select {
     flex: none;
     width: calc(168px * var(--fs-scale));
+}
+/* 日期条与它同宽（176 是「2026年12月15日」加箭头与内衬的实测宽度），
+ * 业务页（收益历史）也取这个值，两处并排时才是同一个尺度。 */
+.demo-date {
+    flex: none;
+    width: calc(176px * var(--fs-scale));
 }
 </style>

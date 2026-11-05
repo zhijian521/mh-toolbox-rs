@@ -556,6 +556,116 @@ if (want('收益')) {
         const now = await todayCount();
         t.check('今日笔数回到测试前', now === before, `期望 ${before}，实际 ${now}`);
     });
+
+    /* 日期选择器（2026-11-05）：顶部从「只列有账的日子」的下拉换成月历纸片。
+     * 放在最末——它会翻到别的日子，不参与上面那串「笔数 +1」的核对。 */
+    await t.step('历史窗的日期选择器：默认今天、能翻前一天、能跳回今天', async () => {
+        const label = (dt) => `${dt.getFullYear()}年${dt.getMonth() + 1}月${dt.getDate()}日`;
+        const now = new Date();
+        const todayLabel = label(now);
+        const prev = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        const prevLabel = label(prev);
+
+        await ui.goto('收益');
+        await ui.clickLabel('查看历史收益，按角色与按天');
+        const hasTrigger = await cdp.waitFor(
+            `!!document.querySelector('[role="dialog"] .date-trigger')`,
+            { timeout: 4000 },
+        );
+        if (!hasTrigger) throw new Error('历史窗顶部没有日期选择器');
+
+        const triggerText = async () =>
+            (
+                await cdp.evaluate(
+                    `document.querySelector('[role="dialog"] .date-trigger')?.innerText ?? ''`,
+                )
+            ).trim();
+
+        const first = await triggerText();
+        t.check('日期选择器默认是今天', first.includes(todayLabel), `实际「${first}」`);
+
+        /* 高度下限 + 正文自己滚（2026-11-05 用户：「高度太低不好看」「列表太多了可以滚动」）。
+         *
+         * 两条都量**结构**，不造假数据：一条盯「窗不至于缩成一小块」，一条盯「滚的是
+         * 表格而不是整块正文」——后者才是 `fill` 的契约（筛选条与汇总行钉在顶上，
+         * 翻到底想换日期不必先滚回顶部）。记录多时的真实滚动由 `overflow: auto` +
+         * 表头 `sticky` 保证，20 行以上人人都会遇到，不必在这里克隆 DOM 去模拟。 */
+        const layout = await cdp.evaluate(`(() => {
+            const panel = document.querySelector('.modal-panel');
+            const body = panel?.querySelector('.modal-body');
+            if (!panel || !body) return null;
+            const box = panel.querySelector('.log-scroll');
+            return {
+                h: Math.round(panel.getBoundingClientRect().height),
+                bodyOverflow: getComputedStyle(body).overflowY,
+                boxOverflow: box ? getComputedStyle(box).overflowY : 'none',
+            };
+        })()`);
+        t.check(
+            '历史窗有最小高度（两条记录也不缩成一小块）',
+            layout !== null && layout.h >= 500,
+            `实际 ${layout?.h}`,
+        );
+        t.check(
+            '滚动交给表格，正文自己不滚',
+            layout?.bodyOverflow === 'hidden' && layout?.boxOverflow === 'auto',
+            `正文 ${layout?.bodyOverflow} / 表格 ${layout?.boxOverflow}`,
+        );
+
+        await cdp.click('[role="dialog"] .date-trigger');
+        /* 纸片 `Teleport` 到 body（逃开弹窗正文的 `overflow-y: auto`），所以这里不带
+         * `[role="dialog"]` 前缀查——它已经不在那张窗的子树里。 */
+        const opened = await cdp.waitFor(`!!document.querySelector('.date-panel')`, {
+            timeout: 2000,
+        });
+        t.check('点开是一张月历纸片', opened);
+
+        /* 这次的核心判据：纸片是否**完整落在视口里**。
+         *
+         * 被裁剪时它照样查得到、照样有尺寸——只有拿 rect 和视口比才看得出来。
+         * 2026-11-05 用户报「日期选择被切割了，没展示完全」：正文高约 260、月历约 300，
+         * 下三行与「回到今天」被 `overflow: auto` 齐刀切掉，而界面看上去只是「月历很短」。 */
+        const fits = await cdp.evaluate(`(() => {
+            const p = document.querySelector('.date-panel');
+            if (!p) return null;
+            const r = p.getBoundingClientRect();
+            return r.top >= 0 && r.left >= 0 &&
+                r.bottom <= document.documentElement.clientHeight &&
+                r.right <= document.documentElement.clientWidth;
+        })()`);
+        t.check('整张月历都在视口里（没被弹窗裁掉）', fits === true, `实际 ${fits}`);
+
+        /* 今天是 1 号时，昨天落在上个月——先翻一页再找那一格。 */
+        const hasPrev = await cdp.evaluate(
+            `!!document.querySelector(${JSON.stringify(`[aria-label="${prevLabel}"]`)})`,
+        );
+        if (!hasPrev) {
+            await ui.clickLabel('上一个月');
+            await sleep(150);
+        }
+        await ui.clickLabel(prevLabel);
+        await sleep(300);
+
+        const afterPick = await triggerText();
+        t.check('选前一天后触发条跟着换', afterPick.includes(prevLabel), `实际「${afterPick}」`);
+        t.check(
+            '列表换成了那一天（有记录就列行，没有就说一句）',
+            await cdp.evaluate(`(() => {
+                const d = document.querySelector('[role="dialog"]');
+                return !!d.querySelector('.log tbody tr') || !!d.querySelector('.blank');
+            })()`),
+        );
+
+        await cdp.click('[role="dialog"] .date-trigger');
+        await sleep(200);
+        await ui.clickText('button', '回到今天', { exact: true });
+        await sleep(300);
+        const back = await triggerText();
+        t.check('纸片里的「回到今天」跳得回来', back.includes(todayLabel), `实际「${back}」`);
+
+        await cdp.key('Escape');
+        await sleep(250);
+    });
 }
 
 /* ============================ 5. 设置 ============================ */
