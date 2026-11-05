@@ -24,8 +24,9 @@
  * 试过三种：叠一层亮线一层暗线（1px）、SVG 光照浮雕（`feSpecularLighting`）、
  * 单侧暗影。前两种在 26px 的线图标上都是「笔画外面多一圈边」，3 倍放大看像描粗了
  * 一遍，1:1 看是发虚；第三种能读，但省下的那点厚度不值当把线图标的清晰度押上去。
- * 线图标要的是**落在纸上**，不是自己凸起来，所以内容只留一层 0.5px 的接吻影
- * （`.press-content`），让它贴着块面而不是浮在上面。
+ * 线图标要的是**落在纸上**，不是自己凸起来，所以图形只留一层 0.5px 的接吻影
+ * （见下方 `.press-content` 段），让它贴着块面而不是浮在上面；**文字一层都不留**——
+ * 同一个道理对文字的伤害更大（2026-11-05，用户报「亮色下按钮上的字糊」）。
  *
  * ## 几何走变量，不写死
  *
@@ -150,18 +151,42 @@ withDefaults(defineProps<{ still?: boolean; tone?: 'paper' | 'seal'; wide?: bool
         color var(--t-quick) var(--ease-soft);
 }
 
-/* 内容落影：0.5px 偏移、0.4px 模糊，跟着块面的光走。
- * 不是为了「凸」，是为了让笔画与块面之间有一点点接触阴影——没有它，图标像贴在
- * 图片上的浮层；有了它，才是印在这块纸上。数值刻意小到看不出是阴影。 */
+/* ---------- 内容落影：只给图形，不给文字 ----------
+ *
+ * 落影是「让图形贴在块面上」：0.5px 偏移、0.4px 模糊，数值刻意小到看不出是影。
+ *
+ * 2026-11-05 之前它挂在 `.press-content` 上，于是图标**和文字**一起吃这道影。
+ * 亮色下用户报「按钮上的字糊糊的、眼睛不舒服」，放大五倍拍下来，是两个因叠在一起：
+ *
+ *   1. `filter` 会把内容提进合成层，Chromium 在带 filter 的层里**关掉 LCD 次像素
+ *      抗锯齿**，只留灰度阶。证据在 `.runtime/shots/press-cmp.png`：同一枚「记一笔」，
+ *      摘影前是纯灰边、摘影后回到橙蓝彩边的次像素渲染。深墨压浅纸最依赖次像素，
+ *      掉了它笔画就细一号、发灰。
+ *   2. 0.4px 模糊的墨影正好摊在笔画的抗锯齿带上。12px 楷体的横画只有 1px 宽，
+ *      这一圈 34% 的灰等于给每根笔画糊了三分之一个像素。
+ *
+ * 暗色没被发现是必然的：浅字压深底，灰度抗锯齿本来就干净；那条影又换成了
+ * `--bevel-lo`（近黑），压在深块上几乎不可见。同一份代码，两个结果。
+ *
+ * 所以落影只留图形。文字不需要它——「字印在纸上」由墨与块面的明度差建立，不靠影子；
+ * 图形需要它，因为线图标画的是一块有面积的东西，没有接触影就像贴纸浮在图片上。
+ * 这与上面「内容不做字口」是同一件事的两面：**文字清晰度优先于材质细腻**。
+ *
+ * `:deep()` 是必须的：slot 内容由父组件渲染，不带 PressTile 的 scope 属性。
+ * 选 `:is(svg, img)` 而不是 `.press-content > *`：图形常裹在父组件的 wrapper 里
+ * （`PressButton` 的 `.press-btn-inner`、`IconTile` 的 `.shot`），后代选择器才捞得到。
+ */
 .press-content {
     display: grid;
     place-items: center;
+}
+.press-content :deep(:is(svg, img)) {
     filter: drop-shadow(0.5px 0.6px 0.4px color-mix(in srgb, var(--ink) 34%, transparent));
 }
 
-/* 暗色下必须换成黑色落影。`--ink` 在暗色里是**浅色**，照着用等于给内容描一圈光——
+/* 暗色下必须换成黑色落影。`--ink` 在暗色里是**浅色**，照着用等于给图形描一圈光——
  * 它会从块面上浮起来发光，与「印上去」正好相反。 */
-:root.dark .press-content {
+:root.dark .press-content :deep(:is(svg, img)) {
     filter: drop-shadow(0.5px 0.6px 0.5px var(--bevel-lo));
 }
 
@@ -315,9 +340,9 @@ withDefaults(defineProps<{ still?: boolean; tone?: 'paper' | 'seal'; wide?: bool
             calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
 }
 
-/* 朱面上的内容落影要用**不翻面**的深色。`.press-content` 默认那条取 `--ink`，
- * 暗色下它是纸白——纸白的字自带一圈白光，在朱面上就是「字浮着发光」。 */
-.press-tile.tone-seal .press-content {
+/* 朱面上的内容落影要用**不翻面**的深色。上面那条取 `--ink`，暗色下它是纸白——
+ * 纸白的影自带一圈白光，在朱面上就是「字浮着发光」。同样只给图形。 */
+.press-tile.tone-seal .press-content :deep(:is(svg, img)) {
     filter: drop-shadow(0.5px 0.6px 0.4px color-mix(in srgb, var(--ink-base) 42%, transparent));
 }
 
