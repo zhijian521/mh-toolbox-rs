@@ -47,7 +47,6 @@ import {
     type SkillRow,
     type TrainingGroup,
 } from './character';
-import { CHARACTERS } from './mock';
 import { schoolSkills } from './schools';
 
 const STORAGE_KEY = 'mh-roster';
@@ -473,8 +472,13 @@ function writeRaw(raw: string) {
     }
 }
 
-/** 首次启动的种子：`mock.ts` 里那两个角色。宁可给一份能改的样例，也不要一张空页。 */
-function seed(): CharacterData[] {
+/** 首次启动的种子：`mock.ts` 里那两个角色。宁可给一份能改的样例，也不要一张空页。
+ *
+ * **动态 `import()`**（2026-11-05）：`mock.ts` 是 34KB 的演示数据，而桌面版这一句永远
+ * 走不到——零兼容之后不种演示角色（理由见 `loadRoster` 的注释），只有纯 web 开发那条
+ * 路径会用。静态 import 会把它打进首包，等真要用时再取更划算。 */
+async function seed(): Promise<CharacterData[]> {
+    const { CHARACTERS } = await import('./mock');
     return CHARACTERS.map((character) => normalizeCharacter(character));
 }
 
@@ -514,10 +518,10 @@ const loaded = ref(false);
 const writeError = ref('');
 
 /** 浏览器路径：读 `localStorage`，没存过就给一份能改的种子。 */
-function loadFromLocal(): CharacterData[] {
+async function loadFromLocal(): Promise<CharacterData[]> {
     const parsed = parseRoster(readRaw());
     if (parsed) return parsed;
-    const initial = seed();
+    const initial = await seed();
     writeRaw(serializeRoster(initial));
     return initial;
 }
@@ -536,7 +540,7 @@ function loadFromLocal(): CharacterData[] {
  */
 export async function loadRoster(): Promise<void> {
     if (!hasDesktop()) {
-        roster.value = loadFromLocal();
+        roster.value = await loadFromLocal();
         loaded.value = true;
         return;
     }
