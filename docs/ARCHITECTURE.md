@@ -54,31 +54,32 @@
   └────────────────── 返回值（camelCase）◀──────────────────┘
 ```
 
-- **契约是一处真源：`tauri-specta` 生成的 `src/services/bindings.ts`**（第 122 批）。命令 17 个
-  （`lib.rs` 的 `collect_commands!`：`app_info`、`open_external`、`ghost_*` 两个、`backup::` 三个、
+- **契约是一处真源：`tauri-specta` 生成的 `src/services/bindings.ts`**（第 122 批）。命令 19 个
+  （`lib.rs` 的 `collect_commands!`：`app_info`、`open_external`、`ghost_*` 两个、`backup::` 五个、
   `store::` 十个），字段名、参数与返回类型都由 Rust 的 `specta::Type` 派生**生成**到 TS，
   不再两边手抄、也不再靠 `#[serde(rename_all = "camelCase")]` 加上记忆力对齐。
   `bindings.ts` 是**生成物**：每次 debug 启动重写，别手改；`prettier` 与 `eslint` 都把它排除在外。
   `collect_commands!` **按平台写了两份**（`#[cfg(windows)]` / `#[cfg(not(windows))]`）：加命令
   必须两份都加，漏掉非 Windows 那份在本机完全看不出来——`ipc-contract.test.ts` 会红。
 - **数据进出走 `backup.rs`**：`data_export` / `data_import` / `data_clear` 管的是「离开这台机器
-  的那个文件」——`format` + `app` + `exportedAt` 的信封、`backups/` 下的自动备份、导入前校验。
+  的那个文件」——`format` + `app` + `exportedAt` 的信封、`backups/` 下的自动备份、导入前校验；
+  `quick_prices_export` / `quick_prices_import` 是同一套信封的窄口径，只装速记单价。
   **它不碰 SQL**：读写库一律回落 `store.rs` 的普通函数，不在那里写第二份查询。两条语义：
   **导入 = 整体替换**（动手前把当前数据导一份到 `<数据目录>\backups\`，路径随回执给用户）；
-  **清除 = 只清角色与物价**，`meta` 一个字不动——迁移标记清掉了，下次启动会从旧 `localStorage`
-  又搬一遍，等于把用户刚清掉的再搬回来。旧版 `data.json`（`schemaVersion: 10`，角色结构完全
-  不同）**不在这个入口范围内**：另做一次性转换入口，这里只认自己的信封，不认识就拒绝、不猜。
-- **前端状态**：8 个持久状态（主题、字号、应用信息、路由、开发者模式、角色名册、物价表、收益
-  账），另有两个瞬时 UI 单例（`use-confirm` / `use-notify`）写法相同但不落盘。**不引 Pinia**——
-  触发条件见 `AGENTS.md` §七。名册与物价表都已跨三个组件（页面、卡片、弹窗），但用的是与主题、
-  字号同一套「模块级 `ref` + `useXxx()`」，没有第二套机制。
+  **清除 = 清掉七张业务表**，`meta` 一个字不动（`schemaVersion` 在那儿）。旧版 `data.json`
+  （`schemaVersion: 10`，角色结构完全不同）**不在这个入口范围内**：另做一次性转换入口，
+  这里只认自己的信封，不认识就拒绝、不猜。
+- **前端状态**：10 个持久状态（主题、字号、应用信息、路由、开发者模式、角色名册、物价表、收益
+  账、账号账、目标），另有两个瞬时 UI 单例（`use-confirm` / `use-notify`）写法相同但不落盘。
+  **不引 Pinia**——触发条件见 `AGENTS.md` §七。名册与物价表都已跨三个组件（页面、卡片、弹窗），
+  但用的是与主题、字号同一套「模块级 `ref` + `useXxx()`」，没有第二套机制。
 - **写盘时机**：「先改内存模型，再整份写 SQLite」，两步都在这条命令里完成，调用方不用知道顺序。
-- **三份数据层的落盘是同一份实现**（`src/services/persist.ts`）：`createPersist` 管「读失败
-  拒绝写 / 浏览器写本地 / 桌面异步写库 / 连续写排队」。第 100 批从三份手抄收拢成一份——此前只有
-  收益账做了写队列，物价与名册连点两次会丢后一笔。**归一、排序、种子数据、`storage` 事件仍归
-  各页的 store**，骨架只回答「怎么落地」。
+- **五份数据层的落盘是同一份实现**（`src/services/persist.ts`）：`createPersist` 管「读失败
+  拒绝写 / 浏览器写本地 / 桌面异步写库 / 连续写排队」。第 100 批从三份手抄收拢成一份，第 112、
+  115 批新增的账号账与目标直接照用——此前只有收益账做了写队列，物价与名册连点两次会丢后一笔。
+  **归一、排序、种子数据、`storage` 事件仍归各页的 store**，骨架只回答「怎么落地」。
 - **`localStorage` 只剩一条窄用途**：浏览器（`npm run dev`、探针）——没有 Tauri 宿主，
-  `hasDesktop()` 为假，三个 store 直接走本地分支。早先它还是「旧版 Electron 数据的来源」
+  `hasDesktop()` 为假，五个 store 直接走本地分支。早先它还是「旧版 Electron 数据的来源」
   （`migrateLegacy` 搬一次、老键改名 `*.migrated` 留底）；2026-11-04 起不接老数据，
   整套迁移连命令一起删了，见 §3 数据目录。
 
