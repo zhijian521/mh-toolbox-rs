@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
+import type { IconName } from '../../components/icons';
 import CostSwitch from '../../components/CostSwitch.vue';
 import DateField from '../../components/DateField.vue';
 import FontSizeSlider from '../../components/FontSizeSlider.vue';
@@ -26,13 +27,13 @@ import { todayText } from '../../services/format';
  * 原子组件：抽出来复用的十五件（十五条 `kit-cell`，一条里可能并排两个同族件——
  * 比如 `Field` / `NumberField`、`PressTile` / `PressButton`）。
  *
- * 加一件要动两处，且**必须一起动**：`KIT_GROUPS` 那一组的 `items` 里加个名字
- * （目录的小字），模板里加一个 `v-if` 块（示例）。`v-if` 写的是**组 id**
+ * 加一件要动两处，且**必须一起动**：`KIT_GROUPS` 那一组的 `items` 里加一项
+ * （组名后面那个件数从它算），模板里加一个 `v-if` 块（示例）。`v-if` 写的是**组 id**
  * （`'read'`），不是件 id——同一组的几块共用同一个条件，别给单件另起一个：
  * 那样切到该组只剩那一件，其余几件全被条件挡掉。
  * 篇首的件数不用管——`hint` 从 `KIT_COUNT` 算，原先写死的「九件」「十三件」都成了假信息。
- * 组内的**行序**也要与 `KIT_GROUPS` 里名字的顺序一致：两边不同时，目录写着
- * 「两格开关、三档滑块」，右边却是「三档滑块…两格开关」，查一件要先扫两遍。
+ * 组内的**行序**也要与 `KIT_GROUPS` 里名字的顺序一致：两边不同时，读者按目录上的顺序
+ * 在右栏找不到对应的一块，查一件要先扫两遍。
  * 组合件不进这张卡（它由原子拼成、还带业务语义）——`SlipRowSection` 是一例。
  * 旧稿里还有一张《师门技能行》，随那一行重做而撤掉（2026-11-04），不要照着补回来。
  *
@@ -42,7 +43,12 @@ import { todayText } from '../../services/format';
  *
  * **左目录 + 右整组**（2026-11-05）：十五件铺成网格时这张卡有两千多像素，
  * 从上往下找一件要滚三屏。改成「左边五组、右边只画当前这一组」之后，
- * 卡的篇幅与总件数脱钩——加第十六件只多一条目录里的小字，不再多一格。
+ * 卡的篇幅与总件数脱钩——加第十六件只让一个数变大，不再多一格。
+ *
+ * **高度写死、两栏各滚**（2026-11-06，用户提的）：只在卡片上封顶时，不同的组把卡撑得
+ * 高矮不一，下面的卡跟着上下跳；写死之后切组纹丝不动。于是「万一比卡还长」这条退路
+ * 交给两栏各自滚，谁也不会把谁带走。
+ * 左栏其实滚不起来（五行 190，字号 1.1 时 209），设上是为了以后组变多时不出横条。
  *
  * 按**组**切而不是按件切：一组通常两三行，同族的差一眼能比完（分段胶囊与多选胶囊
  * 差在语义、槽按钮与压印块差在一凹一凸）。一件一屏时右栏只剩一行控件，
@@ -59,13 +65,20 @@ const { scale } = useFontScale();
  * 选一个值、填一个值、按一下、读一个数、说一句话。技术分类（控件 / 容器 / 反馈）
  * 对写界面的人没有帮助——他要找的是「能让我选一个的那个东西」。
  *
- * `items` 只喂目录里那行小字（切组之前就看得见这组有什么）；右侧的顺序由模板里
+ * `items` 现在是**登记册**：件数从它算（组名后面那个数），成员名不再画进目录
+ * （2026-11-06 去掉，那行小字让五行参差、又把「切哪一组」淹掉）。右侧的顺序由模板里
  * 那几块 `v-if` 决定，与本表无关。
  */
-const KIT_GROUPS: { id: string; name: string; items: [id: string, name: string][] }[] = [
+const KIT_GROUPS: {
+    id: string;
+    name: string;
+    icon: IconName;
+    items: [id: string, name: string][];
+}[] = [
     {
         id: 'choose',
         name: '选择',
+        icon: 'check',
         items: [
             ['segmented', '分段胶囊'],
             ['toggle', '多选胶囊'],
@@ -78,6 +91,7 @@ const KIT_GROUPS: { id: string; name: string; items: [id: string, name: string][
     {
         id: 'input',
         name: '输入',
+        icon: 'edit',
         items: [
             ['field', '输入格'],
             ['price', '价格格'],
@@ -87,6 +101,7 @@ const KIT_GROUPS: { id: string; name: string; items: [id: string, name: string][
     {
         id: 'action',
         name: '操作',
+        icon: 'play',
         items: [
             ['slot', '槽按钮'],
             ['press', '压印块与按钮'],
@@ -95,6 +110,7 @@ const KIT_GROUPS: { id: string; name: string; items: [id: string, name: string][
     {
         id: 'read',
         name: '读数',
+        icon: 'growth',
         items: [
             ['numtag', '数值签'],
             ['meter', '进度条'],
@@ -104,21 +120,37 @@ const KIT_GROUPS: { id: string; name: string; items: [id: string, name: string][
     {
         id: 'tip',
         name: '提示',
+        icon: 'info',
         items: [['notify', '消息提示']],
     },
 ];
 
-/** 目录行：补两位组号，成员摊成纯名字（模板里不必读元组下标）。 */
-const KIT_NAV = KIT_GROUPS.map((group, i) => ({
+/** 目录行：图标 + 组名 + 件数。成员名与组号都不再画（2026-11-06），
+ * 前者让五行参差，后者只是「目录的目录」——五组一眼数得完，主侧栏也没有编号。 */
+const KIT_NAV = KIT_GROUPS.map((group) => ({
     id: group.id,
-    no: String(i + 1).padStart(2, '0'),
     name: group.name,
-    items: group.items.map(([, name]) => name),
+    icon: group.icon,
+    count: group.items.length,
 }));
 
 const KIT_COUNT = KIT_GROUPS.reduce((n, group) => n + group.items.length, 0);
 
 const current = ref(KIT_NAV[0].id);
+/**
+ * 朱印的落点。与 `VerticalSlider` 同一套：位移写在 `style` 上而不是注入 `--i`，
+ * 因为 `translateY` 是**唯一**需要序号的属性，多一个自定义属性只会多一层
+ * 「类型上不认、运行时才对」的隐患。
+ *
+ * 印是独立一层、不是每一格自己的底色。这样一来「选中的是这一格」只有一处真源
+ * （印在哪），格本身永远透明——也不会再撞上 scoped 特异性压掉全局 `.stamp` 的坑。
+ */
+const thumbStyle = computed(() => {
+    const i = KIT_NAV.findIndex((group) => group.id === current.value);
+    return {
+        transform: `translateY(calc(${Math.max(i, 0)} * (var(--nav-cell) + var(--nav-gap))))`,
+    };
+});
 /** 目录容器本身：键盘换组之后要把焦点挪到新的那一项上，否则焦点留在已隐藏的那组。 */
 const navEl = ref<HTMLElement | null>(null);
 
@@ -197,11 +229,32 @@ const demoToggles = ref<string[]>(['task']);
 </script>
 
 <template>
-    <LedgerSection title="原子组件" :hint="`抽出来复用的 ${KIT_COUNT} 件，业务页直接拿去用`">
+    <LedgerSection
+        title="原子组件"
+        :hint="`抽出来复用的 ${KIT_COUNT} 件，业务页直接拿去用`"
+        height="60vh"
+    >
         <div class="atoms-split">
-            <!-- 目录只列中文短名：英文名（`SegmentedPills`）在这里装不下，
-                 截断后每条读成两截；全名留在右栏标题里，认得的凭它找，认不得的凭样子找。 -->
-            <nav ref="navEl" class="atoms-nav" aria-label="原子组件分组" @keydown="onNavKey">
+            <!-- 目录只列「图标 + 组名 + 件数」，成员名不再铺在下面（2026-11-06 去掉）：
+                 那行小字让五行的高度各不相同（「选择」六个名字会折成两行、「提示」只有
+                 一个），目录因此参差；而它们要回答的问题——「这组里有什么」——切过去就
+                 看见了，写两遍反而把「切哪一组」这件正事淹掉。
+                 英文名（`SegmentedPills`）也在这里装不下，截断后每条读成两截；
+                 全名留在右栏标题里，认得的凭它找，认不得的凭样子找。
+
+                 排法照主侧栏（`AppRail` 的 `VerticalSlider`），只把格内从「竖排两字」
+                 改成横排：图标在左、组名在中、件数靠右。槽与印都走全局那两套
+                 （`.well upright` / `.stamp`），深度只能由 `base.css` 那一处说了算。 -->
+            <nav
+                ref="navEl"
+                class="atoms-nav well upright"
+                aria-label="原子组件分组"
+                @keydown="onNavKey"
+            >
+                <!-- 朱印是一层独立的拇指（照主侧栏 `AppRail` / `VerticalSlider` 的做法），
+                     不是每格自己的底色：格永远透明，悬停也只是一层淡纸。
+                     这样「当前是哪一组」只有一处真源——印在哪。 -->
+                <span class="nav-thumb stamp" aria-hidden="true" :style="thumbStyle" />
                 <button
                     v-for="group in KIT_NAV"
                     :key="group.id"
@@ -213,16 +266,10 @@ const demoToggles = ref<string[]>(['task']);
                     :tabindex="current === group.id ? 0 : -1"
                     @click="pick(group.id)"
                 >
-                    <span class="nav-top">
-                        <span class="nav-no">{{ group.no }}</span>
-                        <span class="nav-name">{{ group.name }}</span>
-                        <span class="nav-count">{{ group.items.length }}</span>
-                    </span>
-                    <span class="nav-more">
-                        <span v-for="(name, i) in group.items" :key="name" class="nav-tag"
-                            >{{ name }}{{ i < group.items.length - 1 ? '、' : '' }}</span
-                        >
-                    </span>
+                    <AppIcon :name="group.icon" />
+                    <span class="nav-name">{{ group.name }}</span>
+                    <!-- 件数靠右（`margin-left: auto`）：这一栏里没有账线撑开它了。 -->
+                    <span class="nav-count">{{ group.count }}</span>
                 </button>
             </nav>
 
@@ -288,23 +335,23 @@ const demoToggles = ref<string[]>(['task']);
                         <span class="kit-name">多档滑块 / 页签条</span>
                         <span class="kit-en">SteppedSlider</span>
                     </span>
-                    <!-- 两行差在 `--step-pad-y`：默认 3 → 格子 23、整条 29；6 → 格子 29、整条 35。
-                     行内嵌的开关用前者，卡内六格页签用后者（点得准）。 -->
+                    <!-- 两条并排（2026-11-06 从上下两行改成一行）：差在 `--step-pad-y`——默认 3 →
+                     格子 23、整条 29；6 → 格子 29、整条 35。行内嵌的开关用前者，卡内六格页签用
+                     后者（点得准）。并排比上下更能看出那 6px：两条的格顶在同一条线上，
+                     一眼就是「同一件东西的两个高度」，上下两行则要先在脑子里叠一次。 -->
                     <div class="kit-row">
                         <SteppedSlider
                             v-model="demoPane"
                             :options="DEMO_PANES"
                             label="演示：默认尺寸"
-                            class="kit-steps"
+                            class="kit-steps kit-steps-half"
                         />
-                    </div>
-                    <div class="kit-row">
                         <SteppedSlider
                             v-model="demoPane"
                             :options="DEMO_PANES"
                             as="tab"
                             label="演示：页签条（加高一档）"
-                            class="kit-steps kit-steps-tall"
+                            class="kit-steps kit-steps-half kit-steps-tall"
                         />
                     </div>
                     <p class="note">
@@ -337,8 +384,9 @@ const demoToggles = ref<string[]>(['task']);
                         <span class="kit-name">槽按钮</span>
                         <span class="kit-en">SlotButton</span>
                     </span>
-                    <!-- 一行看四种形态，下面两行看尺寸：`seal`（印在不在）与 `size`（槽多大）
-                     不是同一种分类，混排会让人以为它们是四个档位。 -->
+                    <!-- 一行看四种形态；下一行是 `seal` 与两档尺寸。
+                     **不再另起一行演示 `md` / `lg` 的纯文字按钮**（2026-11-06 删）：
+                     尺寸只由高度决定，与里面装的是字还是图标无关，下面那行已经把它说完了。 -->
                     <div class="kit-row">
                         <SlotButton label="纯图标" icon="archive" />
                         <SlotButton label="图标加文字" icon="download" text="导出" />
@@ -348,10 +396,6 @@ const demoToggles = ref<string[]>(['task']);
                     <div class="kit-row">
                         <SlotButton label="主操作 26px" icon="play" text="开始" seal />
                         <SlotButton label="主操作 31px" icon="play" text="开始" size="lg" seal />
-                    </div>
-                    <div class="kit-row">
-                        <SlotButton label="md 26px" text="md" />
-                        <SlotButton label="lg 31px" text="lg" size="lg" />
                     </div>
                     <p class="note">
                         形态由 props 定（只 <code>icon</code> / <code>icon</code> +
@@ -432,19 +476,19 @@ const demoToggles = ref<string[]>(['task']);
                         <span class="kit-name">价格格</span>
                         <span class="kit-en">PriceField</span>
                     </span>
+                    <!-- 两档并排（2026-11-06 从上下两行改成一行）：lg 带加减、md 不带，
+                     差的是字与内衬，槽还是同一道槽。并排才看得出「同一道槽」。 -->
                     <div class="kit-row">
                         <PriceField
                             v-model="demoPrice"
                             label="这一笔多少钱"
-                            class="kit-price"
+                            class="kit-price kit-price-half"
                             stepper
                         />
-                    </div>
-                    <div class="kit-row">
                         <PriceField
                             v-model="demoPriceMd"
                             label="md 档 · 无加减"
-                            class="kit-price"
+                            class="kit-price kit-price-half"
                             size="md"
                         />
                     </div>
@@ -564,30 +608,16 @@ const demoToggles = ref<string[]>(['task']);
                         />
                     </div>
                     <!-- 三档按小到大排：并排才看得出 `sm` 是**注脚级**、不是「小一号的 md」
-                     ——差 6px，且字号与内距一起降。 -->
+                     ——差 6px，且字号与内距一起降。
+                     第四行原先还放了「sm 档的导出 / 导入」（收益页那个真身），2026-11-06 删：
+                     它与这一行的 `sm` 是同一个东西，只是在演示同一个档位的用途。 -->
                     <div class="kit-row">
                         <PressButton text="sm" size="sm" label="注脚级 20px" />
                         <PressButton text="md" label="默认 26px" />
                         <PressButton text="lg" label="大一号 31px" size="lg" />
                     </div>
-                    <!-- `sm` 的第一处真实用法（收益页速记卡那行的导出 / 导入）：长在说明文字
-                     右端时它就是「这一行的收尾」，不是主角。 -->
-                    <div class="kit-row">
-                        <PressButton
-                            icon="download"
-                            text="导出"
-                            size="sm"
-                            label="演示：sm 档图标 + 文字（收益页导出单价）"
-                        />
-                        <PressButton
-                            icon="upload"
-                            text="导入"
-                            size="sm"
-                            label="演示：sm 档图标 + 文字（收益页导入单价）"
-                        />
-                    </div>
                     <p class="note">
-                        上排是<b>块</b>（工具页图标格、左栏牌记），下面三排是<b>按钮</b>：同一块纸，
+                        上排是<b>块</b>（工具页图标格、左栏牌记），下面两排是<b>按钮</b>：同一块纸，
                         <code>seal</code> 把块面灌朱，一屏一枚。尺寸 <code>sm</code> 20 /
                         <code>md</code> 26 / <code>lg</code> 31——
                         <code>md</code> 与槽按钮逐像素同值，<code>sm</code>
@@ -602,93 +632,143 @@ const demoToggles = ref<string[]>(['task']);
 
 <style scoped>
 /* ---------- 目录 + 整组 ----------
- * 左 176 一条目录（五组），右余下整块画当前这一组。
+ * 左 132 一条目录（五行装在一道凹槽里），右余下整块画当前这一组。卡高由
+ * `LedgerSection` 的 `height` 写死，两栏各滚各的——切换组时页面纹丝不动。
  *
- * 176 跟着字号走（与 `.demo-select` 的 168 同一种写法）：目录每行除组名还有一行
- * 成员小字，字大了而列不变，「选择」那六个名字会折成四行。
- *
- * 卡高由两边里高的那边定：切到只有一件的「提示」组时是目录把卡撑住，
- * 否则卡片会缩到目录底下，页面跟着跳一截。
+ * 132 跟着字号走（与 `.demo-select` 的 168 同一种写法）：一行里装的是「图标 + 组名
+ * （两个字）+ 件数」，列宽不跟着长的话，字号一放「较大」组名就被挤成竖排。
  */
 .atoms-split {
     display: grid;
-    grid-template-columns: calc(176px * var(--fs-scale)) minmax(0, 1fr);
+    grid-template-columns: calc(132px * var(--fs-scale)) minmax(0, 1fr);
     gap: 18px;
-    align-items: stretch;
+    height: 100%;
+    min-height: 0;
 }
 
-/* 目录与展示区之间是一道账线，不是一张卡的边：右边本来就是这张 `.board` 里的纸，
- * 再套一圈框，读起来是「卡里还卡着一张卡」。 */
+/* 目录 = 一道竖槽 + 一枚会滑下去的朱印。
+ *
+ * **照主侧栏 `AppRail` / `VerticalSlider` 的做法**（2026-11-06 用户：「你直接复制，
+ * 我们现在项目整体的左侧菜单栏吧，只不过要把菜单项从竖的改成横的」）：
+ * 那边格内是「图标在上、两字竖排」（窄条只有 34 宽），这里改成横排——
+ * 这一栏是 132 宽的目录，不是 34 宽的窄条，横排才放得下图标 + 组名 + 件数。
+ *
+ * 三样东西与主侧栏一一对应：
+ *   槽  = 全局 `.well upright`（金边 / `--well` 底 / 左壁暗 / 顶影 / 下沿亮边）；
+ *   印  = 全局 `.stamp`（朱底 / 9px 受光带 / 上沿高光 / 落地线 / 朱色投影）；
+ *   拇指 = 一枚独立定位的 `.stamp`，用 `translateY` 滑到当前那一格。
+ *
+ * **为什么印要单独一层、而不是让选中格自己灌朱**：上一版正是后者，于是得靠
+ * `.nav-item:not(.on) { background: none }` 绕开 scoped 特异性压掉全局 `.stamp` 的坑；
+ * 更要紧的是「选中的是哪一格」变成了「哪一格挂了 stamp 类」——切换瞬间没有位移、
+ * 只有一次闪断。独立拇指把这件事收回成一处：印在哪，选中的就是哪。
+ *
+ * 深度一行都不写在这里：字号滑块、两格开关、槽按钮、主侧栏、这一栏是
+ * **同一道槽切成五种形状**，厚度只能由 `base.css` 那一处说了算。
+ * （132 批之前手写过一版，只有上亮线与一道软影，用户看完说「3D 效果不明显」。）
+ *
+ * **槽铺满整列**：`align-self: stretch`，左栏是一列凹进去的侧栏，五行排在顶部，
+ * 底下那截空槽是「这一栏的底」。分区靠的是 `.well` 的金边与 `.upright` 的左壁暗——
+ * 光有底色差不够，一大片平色只会读成「一块浅色板」。
+ *
+ * 格高 34（主侧栏 62，那是竖排两字的高度）、格间 3、槽内衬 4：
+ * 五行合计 8 + 170 + 12 = 190，字号 1.1 时 209，仍在 404 里。
+ */
 .atoms-nav {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding-right: 12px;
-    border-right: var(--w-hair) solid var(--rule);
+    /* 这一栏的规格。只有三处引用：格高、格间、拇指位移的那个算式。 */
+    --nav-cell: calc(34px * var(--fs-scale));
+    --nav-gap: calc(3px * var(--fs-scale));
+
+    position: relative;
+    display: grid;
+    grid-auto-rows: var(--nav-cell);
+    align-content: start;
+    row-gap: var(--nav-gap);
+    align-self: stretch;
+    max-height: 100%;
+    padding: 4px;
+    border-radius: var(--r-2);
+    /* 组变多时的退路：现在 190 远不到 404，真加到十组它自己会滚，不会顶出卡片。 */
+    overflow: auto;
 }
-/* 一条目录 = 组号 + 组名 + 件数，下面一行成员名。
- * 成员不拆成可点的子项：拆开就又回到十五条、又变回一张长表。 */
+
+/* 拇指：一枚落在槽里的朱印。几何与 `VerticalSlider` 的 `.vs-thumb` 同构——
+ * `inset` 与槽内衬对齐（4px），于是印面比格宽出两侧的槽壁厚度，读作「印落在槽口上」
+ * 而不是「槽里填了块红」。 */
+.nav-thumb {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    left: 4px;
+    height: var(--nav-cell);
+    border-radius: var(--r-2);
+    transition: transform var(--t-slide) var(--ease-snap);
+    /* 印面不吃指针：否则点在印上时事件目标是它，`data-id` 拿不到，点击会落空。 */
+    pointer-events: none;
+}
+
+/* 一格 = 图标 + 组名 + 件数，横排、定高 34。
+ *
+ * **格永远透明**：底色由拇指那层给。所以这里可以放心写 `background: none`，
+ * 不用担心压掉 `.stamp`——上一版正是压掉了，朱底整条消失，只剩一层渐变浮在槽上。
+ *
+ * 图标 15 与格高都乘 `--fs-scale`：主侧栏的 `.vs-ico` 也是 15，两处的图标必须同大。 */
 .nav-item {
+    --icon-size: calc(15px * var(--fs-scale));
+
+    position: relative;
+    z-index: 1;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 7px 9px 8px;
+    align-items: center;
+    gap: calc(9px * var(--fs-scale));
+    padding: 0 11px 0 12px;
     border: 0;
-    border-radius: var(--r-3);
+    border-radius: var(--r-2);
     background: none;
     color: var(--ink-2);
     font: inherit;
     text-align: left;
     cursor: pointer;
+    transition: color var(--t-mid) var(--ease-soft);
 }
-.nav-item:hover,
-.nav-item.on {
-    background: var(--bg);
+/* 悬停只提字色 + 一层极淡的纸色：槽里的格不该在悬停时「浮起来」，那是凸的语言，
+ * 与凹槽正相反。与 `VerticalSlider` 的 42% 同一个值。 */
+.nav-item:hover {
+    color: var(--ink);
+    background-color: color-mix(in srgb, var(--paper) 42%, transparent);
 }
-/* 暗色下 `--bg` 与 `--paper` 只差一点，光靠底色看不出选中的是哪一栏；
- * 补一道左边缘的朱线——与区块标题那枚短竖条同一种记号，不引入新材质。 */
-.nav-item.on {
-    box-shadow: inset 2px 0 0 var(--seal);
+/* 选中那格只换字色（`--on-seal`，与印面成对翻），**不加粗、不加描边、不加字距**。
+ * 文楷只有 Regular，描边与合成加粗都会把撇捺糊成块；「当前在哪一组」由那枚朱印说完。
+ * 悬停时要清底：否则划过选中项时那层淡纸会盖住朱印。 */
+.nav-item.on,
+.nav-item.on:hover {
+    color: var(--on-seal);
+    background: none;
 }
-.nav-top {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-}
-.nav-no {
-    font-family: var(--font-ui);
-    font-size: var(--fs-mini);
-    font-variant-numeric: tabular-nums;
-    color: var(--muted);
-}
-.nav-item.on .nav-no {
-    color: var(--seal);
+/* 聚焦环不能用朱红：选中时底就是朱红，红环会消失（`--ring-inv`，与
+ * `SegmentedPills` 的选中格、主侧栏的格同一条规矩）。负 offset 收进印面里，
+ * 免得在槽上向外撑出一圈。 */
+.nav-item:focus-visible {
+    outline: var(--ring-inv);
+    outline-offset: -2px;
 }
 .nav-name {
-    font-size: var(--fs-base);
-    color: var(--ink-2);
+    flex: none;
+    font-size: var(--fs-sm);
+    letter-spacing: 0.02em;
 }
-.nav-item.on .nav-name {
-    color: var(--ink);
-}
-/* 件数靠右、与组号同一种小字：它说的是「这栏画出来是几格」。 */
+/* 件数靠右：这一栏没有账线撑开它了，靠 `margin-left: auto`。
+ * 朱底上退一档（72%）：与格名同重会让「几件」读成第二个名字。 */
 .nav-count {
+    flex: none;
     margin-left: auto;
     font-family: var(--font-ui);
     font-size: var(--fs-mini);
     font-variant-numeric: tabular-nums;
     color: var(--muted);
 }
-.nav-more {
-    font-size: var(--fs-mini);
-    line-height: 1.6;
-    color: var(--muted);
-}
-/* 每个名字连同它后面那个顿号是一个整体：`inline-block` 之后，折行只发生在名字之间。
- * 不这样写时「两格开关」会被拆成「两格开」＋下一行的「关、」——中文没有词边界，
- * 浏览器不认识这是一个词。 */
-.nav-tag {
-    display: inline-block;
+.nav-item.on .nav-count {
+    color: color-mix(in srgb, var(--on-seal) 72%, transparent);
 }
 
 /* 一组一件一行，像账本上的一笔：左边名目，右边样子与说明。
@@ -701,6 +781,13 @@ const demoToggles = ref<string[]>(['task']);
 .kit {
     display: flex;
     flex-direction: column;
+    /* 右栏自己滚（2026-11-06）：卡高写死之后，「这一组比卡还长」的退路就在这儿。
+     * 让位用轨道真宽（`--scrollbar-w`）再用等量负外边距补回：滚动条压进卡的内边距里，
+     * 内容宽度不因「有没有滚动条」而变化——`.kit-row` 里那些并排控件的宽度会跟着跳，
+     * 组与组之间切换时看起来像整块抖一下。 */
+    overflow: auto;
+    margin-right: calc(-1 * var(--scrollbar-w));
+    padding-right: var(--scrollbar-w);
 }
 .kit-cell {
     display: grid;
@@ -749,6 +836,12 @@ const demoToggles = ref<string[]>(['task']);
 .kit-price {
     width: 100%;
     max-width: calc(430px * var(--fs-scale));
+}
+/* 两档并排时把 430 的上限撤掉：半栏放不下 430，`max-width` 会让第二枚被挤到下一行。 */
+.kit-price-half {
+    flex: 1 1 0;
+    max-width: none;
+    min-width: 0;
 }
 .kit-cell .note {
     margin-top: 0;
@@ -803,6 +896,17 @@ const demoToggles = ref<string[]>(['task']);
  * 看不出比例。加高那行只覆写纵向变量、宽度不动，差 8px 才对得出来。 */
 .kit-steps {
     width: 300px;
+}
+/* 并排时各占一半，但**留着 300 的上限**：300 是这条控件本来该有的宽（三格 × 100），
+ * 开发页的卡是通栏 1198、右栏 1022，纯 `flex: 1 1 0` 会把两条拉到各 400+，
+ * 三格里的两个字被摊在 140 的格子里，读起来像两块横幅而不是控件。
+ * `width: auto` 是必须的——不写它，`.kit-steps` 的 300 会顶住 flex-basis，
+ * 两条就并不到一行。 */
+.kit-steps-half {
+    flex: 1 1 0;
+    width: auto;
+    max-width: calc(300px * var(--fs-scale));
+    min-width: 0;
 }
 .kit-steps-tall {
     --step-pad-y: 6px;

@@ -48,7 +48,7 @@ watch(scale, () => requestAnimationFrame(measure));
 </script>
 
 <template>
-    <LedgerSection title="字号阶梯" hint="霞鹜文楷 · 六档 · 受上方滑块控制">
+    <LedgerSection title="字号阶梯" hint="霞鹜文楷 · 六档 · 受上方滑块控制" max-height="60vh">
         <div class="type-scale">
             <div v-for="item in rows" :key="item.token" class="type-row">
                 <code class="type-token">{{ item.token }}</code>

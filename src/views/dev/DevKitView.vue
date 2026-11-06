@@ -113,8 +113,12 @@ async function importDemo() {
             <AtomsSection />
             <SlipRowSection />
 
-            <!-- 色板与字号也是矮卡。组件演示与图标那几张高度差得远，不并——
-                 并排会把短的那张拉出大片空白。 -->
+            <!-- 五张卡里四张传 `max-height="60vh"`（色板 97 枚、图标 41 枚、字号六档、票面行），
+                 卡头钉住、内容自己滚，一张卡不会再长到两屏。原子组件那张传的是 `height`
+                 而不是 `max-height`：它切组时内容高矮不同，只封顶的话卡片会跟着缩，
+                 它上下那些卡全在动。
+                 色板与字号仍并排：字号那一列内容只有 400 出头，被色板的 60vh 拉着等高，
+                 多出来的是卡内空白，不是页面空白——与设置页四张卡的处理同一条。 -->
             <div class="stack-pair">
                 <PaletteSection />
                 <TypeScaleSection />

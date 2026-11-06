@@ -44,7 +44,7 @@ const SMALL = [
 </script>
 
 <template>
-    <LedgerSection title="票面行" hint="四页共用：图标（可省）｜ 名字 ｜ 读数签">
+    <LedgerSection title="票面行" hint="四页共用：图标（可省）｜ 名字 ｜ 读数签" max-height="60vh">
         <!-- md 档、带图标：师门与辅助就是这一态 -->
         <div class="slip-kit">
             <div

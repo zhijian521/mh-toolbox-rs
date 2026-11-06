@@ -16,12 +16,39 @@ import PaperCard from './PaperCard.vue';
  *
  * 不再收 `seal` 那样的单字：八个区块各带一枚朱印，块与块之间就被红点压闷了；
  * 印章该留给「已入账 / 已达成」这类状态。标记是恒定的一竖，不需要每块编一个字。
+ *
+ * ---- `max-height` / `height`：给「长清单」用的 ----
+ * 开发帮助页的色板、图标目录是清单，条目数会跟着令牌与图标一起长；一张卡长到两屏之后，
+ * 往下翻的人就分不清自己是在这张卡里还是在下一张卡里。传 `max-height` 之后**卡头不动、
+ * 内容自己滚**：`.ledger-section` 变成一列 flex，`.section-body` 拿走剩下的高度并 `overflow`。
+ * 只给这一处用，业务页不传——那里的卡片高度由内容决定，读者本来就要一眼看全。
+ * 传的是 CSS 长度原样（`62vh`），组件不解释它：视口高度只有页面知道。
+ *
+ * **`height` 是 `max-height` 的「写死」版**（2026-11-06）：上限只管「长了不超出」，
+ * 内容少的那一屏卡片会缩回去，于是它下面那些卡跟着上下跳。原子组件那张要的是反过来
+ * ——高度恒定，组与组之间切换时页面纹丝不动。两者互斥，`height` 优先。
+ * 写死之后 **`section-body` 自己不滚**（不然卡片里会有一圈滚动条、里面再套两圈）：
+ * 它的子内容自己决定怎么滚（那张卡是左右两栏各自滚）。
  */
-withDefaults(defineProps<{ title: string; hint?: string }>(), { hint: '' });
+withDefaults(defineProps<{ title: string; hint?: string; maxHeight?: string; height?: string }>(), {
+    hint: '',
+    maxHeight: '',
+    height: '',
+});
 </script>
 
 <template>
-    <PaperCard class="ledger-section">
+    <PaperCard
+        class="ledger-section"
+        :class="{ capped: maxHeight || height, fixed: height }"
+        :style="
+            height
+                ? { '--section-h': height }
+                : maxHeight
+                  ? { '--section-max': maxHeight }
+                  : undefined
+        "
+    >
         <header class="section-head">
             <h2>
                 <span class="section-mark" aria-hidden="true" />
@@ -32,13 +59,56 @@ withDefaults(defineProps<{ title: string; hint?: string }>(), { hint: '' });
                 <slot name="actions" />
             </div>
         </header>
-        <slot />
+        <!-- 恒定包一层：`capped` 时要让滚动区与卡头分开，不包就没法只滚内容。
+             默认态它只是个普通块盒，对现有卡片零影响（四张卡与八个页面都已复核）。
+             `tabindex` 只在 `max-height` 时给：**可滚动的区域必须能用键盘滚**（PgUp/PgDn、方向键），
+             否则鼠标滚轮是唯一入口。它同时会进 Tab 序列，并拿到全局那圈焦点环——
+             那正是「这里还能往下」最直白的说法。`height` 时这一层不滚，所以不给。 -->
+        <div class="section-body" :tabindex="maxHeight && !height ? 0 : undefined">
+            <slot />
+        </div>
     </PaperCard>
 </template>
 
 <style scoped>
 .ledger-section {
     padding: var(--block-pad);
+}
+
+/* 有上限时：卡头固定、内容滚动。`min-height: 0` 是必须的——flex 子项的默认
+ * `min-height: auto` 会让它撑到内容高度，`overflow` 永远不触发。 */
+.ledger-section.capped {
+    display: flex;
+    flex-direction: column;
+}
+/* 只有 `max-height` 才是「上限」：给 `height` 时不设这道闸，否则两者一起传会互相打架。 */
+.capped:not(.fixed) {
+    max-height: var(--section-max);
+}
+/* 写死高度：卡高恒定，翻组、换内容都不动。 */
+.fixed {
+    height: var(--section-h);
+}
+.capped .section-head {
+    flex: none;
+}
+.capped .section-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    /* 滚动条压进卡的内边距里，不占内容的地：让位的宽度必须是**轨道真宽**
+     * （`--scrollbar-w`，与 `::-webkit-scrollbar` 同一枚），再用等量负外边距补回来。
+     * 先前写的是 4px——轨道 10px，于是内容仍被挤掉 6px，「有没有滚动条」会让
+     * 右栏的控件左右跳。 */
+    margin-right: calc(-1 * var(--scrollbar-w));
+    padding-right: var(--scrollbar-w);
+}
+/* 写死高度时这一层退回纯容器：它自己滚的话，卡片里会有一圈滚动条、内容里再套几圈。
+ * 上面那两道「让位」也一并收回——这里不再有滚动条要躲，留着反而让内容缩窄一档。 */
+.fixed .section-body {
+    overflow: hidden;
+    margin-right: 0;
+    padding-right: 0;
 }
 
 .section-head {
