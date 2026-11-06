@@ -396,16 +396,17 @@ const demoToggles = ref<string[]>(['task']);
                             <span class="kit-name">槽按钮</span>
                             <span class="kit-en">SlotButton</span>
                         </span>
-                        <!-- 一行看四种形态；下一行是 `seal` 与两档尺寸。
-                     **不再另起一行演示 `md` / `lg` 的纯文字按钮**（2026-11-06 删）：
-                     尺寸只由高度决定，与里面装的是字还是图标无关，下面那行已经把它说完了。 -->
+                        <!-- 六枚**一行**（2026-11-06 用户：「空间够可以一行展示」）：前四枚是形态
+                     （纯图标 / 图标带字 / 纯文字 / 禁用），后两枚是 `seal` 与两档尺寸。
+                     原先分成两行，第二行只剩两枚，右半边空着一大片——这一行量下来 838 宽，
+                     六枚只占 338。`kit-row` 本身是 `flex-wrap: wrap`，窄了会自己折。
+                     **不再另起一行演示 `md` / `lg` 的纯文字按钮**：尺寸只由高度决定，
+                     与里面装的是字还是图标无关，最后两枚已经把它说完了。 -->
                         <div class="kit-row">
                             <SlotButton label="纯图标" icon="archive" />
                             <SlotButton label="图标加文字" icon="download" text="导出" />
                             <SlotButton label="纯文字" text="刷新" />
                             <SlotButton label="禁用" icon="trash" text="清除" disabled />
-                        </div>
-                        <div class="kit-row">
                             <SlotButton label="主操作 26px" icon="play" text="开始" seal />
                             <SlotButton
                                 label="主操作 31px"
@@ -543,19 +544,20 @@ const demoToggles = ref<string[]>(['task']);
                             <span class="kit-name">进度条</span>
                             <span class="kit-en">MeterBar</span>
                         </span>
-                        <!-- 两行差在 `--meter-h`：默认 10 是行内嵌用，14 是「独占一行当读数」用。
-                     摆在同一张卡上，才看得出那 4px 在真实版式里意味着什么。
-                     这台卡原先复制成了两张一模一样的（2026-11-02 合并）。 -->
+                        <!-- **两条并排**（2026-11-06 用户：「一起改下」）：默认 10 与加大 14 差在
+                     `--meter-h`，并排时两条的格顶在同一条线上，那 4px 一眼可见；上下排反而
+                     要读者在脑子里叠一次。两条各 `flex: 1`（419 一条），够放下「3,777.2万 /
+                     4,200万」这种读数。这台卡原先复制成了两张一模一样的（2026-11-02 合并）。 -->
                         <div class="kit-row">
                             <MeterBar
+                                class="kit-meter"
                                 :percent="72"
                                 label="演示：进度 72%（默认 10px）"
                                 text="3,777.2万 / 4,200万"
                             />
-                        </div>
-                        <div class="kit-row kit-meter-lg">
                             <!-- 分母未知：轨道空着、不写 aria-valuenow。与「0%」是两件事。 -->
                             <MeterBar
+                                class="kit-meter kit-meter-lg"
                                 :percent="null"
                                 label="演示：进度未知（加大 14px）"
                                 text="3,777.2万"
@@ -608,17 +610,21 @@ const demoToggles = ref<string[]>(['task']);
                             <span class="kit-name">压印块 / 按钮</span>
                             <span class="kit-en">PressTile / PressButton</span>
                         </span>
-                        <div class="kit-row">
+                        <!-- **一整排**（2026-11-06 用户：「空间够可以一行展示」）：块两枚（56 / 34）
+                     ＋ 按钮的四种内容（纯文字 / 图标带字 / 纯图标 / 灌朱）＋ 三个尺寸
+                     （`sm` / `md` / `lg`）。合计约 420，行宽 838，装得下——原先拆成三行，
+                     每行都只占左边一小截，右边全是空白。
+                     底对齐（`kit-row-tiles`）：块与按钮落在同一条地面上，「同一块纸的两种
+                     厚度」才读得出；三枚尺寸也跟着站同一条线，20 / 26 / 31 的差一眼可见。
+                     尺寸**排在后面**：它们是同一件的三档，跟在四枚内容之后读作「还有三个
+                     尺寸」；放到前面就会先被当成三种新按钮。 -->
+                        <div class="kit-row kit-row-tiles">
                             <div class="kit-tiles">
                                 <PressTile class="kit-tile"><AppIcon name="tools" /></PressTile>
                                 <PressTile class="kit-tile kit-tile-sm"
                                     ><AppIcon name="pin"
                                 /></PressTile>
                             </div>
-                        </div>
-                        <!-- 第一行压印块，第二行四种内容（纯文字 / 图标带字 / 纯图标 / 灌朱），
-                     第三行尺寸：内容和「槽多大」不是一种分类，混在一行读起来像四个尺寸。 -->
-                        <div class="kit-row">
                             <PressButton text="归档" label="归档：纯文字按钮" />
                             <PressButton icon="download" text="导出" label="导出：图标 + 文字" />
                             <PressButton icon="pin" label="纯图标按钮" />
@@ -628,20 +634,14 @@ const demoToggles = ref<string[]>(['task']);
                                 label="开始：主操作（块面灌朱）"
                                 seal
                             />
-                        </div>
-                        <!-- 三档按小到大排：并排才看得出 `sm` 是**注脚级**、不是「小一号的 md」
-                     ——差 6px，且字号与内距一起降。
-                     第四行原先还放了「sm 档的导出 / 导入」（收益页那个真身），2026-11-06 删：
-                     它与这一行的 `sm` 是同一个东西，只是在演示同一个档位的用途。 -->
-                        <div class="kit-row">
                             <PressButton text="sm" size="sm" label="注脚级 20px" />
                             <PressButton text="md" label="默认 26px" />
                             <PressButton text="lg" label="大一号 31px" size="lg" />
                         </div>
                         <p class="note">
-                            上排是<b>块</b>（工具页图标格、左栏牌记），下面两排是<b>按钮</b>：同一块纸，
-                            <code>seal</code> 把块面灌朱，一屏一枚。尺寸 <code>sm</code> 20 /
-                            <code>md</code> 26 / <code>lg</code> 31——
+                            左边两枚是<b>块</b>（工具页图标格、左栏牌记），右边依次是<b>按钮</b>的四种
+                            内容与三档尺寸：同一块纸，<code>seal</code> 把块面灌朱，一屏一枚。尺寸
+                            <code>sm</code> 20 / <code>md</code> 26 / <code>lg</code> 31——
                             <code>md</code> 与槽按钮逐像素同值，<code>sm</code>
                             是注脚级（塞在说明行右端、读数格边上，字号与内距一并收窄）。
                             <b>但一凹一凸是两种材质，别混在同一行</b>。
@@ -959,6 +959,12 @@ const demoToggles = ref<string[]>(['task']);
 .kit-row-sw {
     gap: 18px;
 }
+/* 块、按钮、尺寸三者同排时**底对齐**：块是 56 / 34 高、按钮 20–31，居中会让每一样
+ * 上下都错开半格，读起来像随手摆的；底对齐之后它们落在同一条地面上，
+ * 「同一块纸的两种厚度」与「三档尺寸差几px」才同时读得出。 */
+.kit-row-tiles {
+    align-items: flex-end;
+}
 /* 统计条在真实页面里是通栏的一条（收益页、总览页都是），这里也让它撑满：
  * 四格等分要靠整行宽度才看得出，缩在一半里会像一张卡。 */
 .demo-stats {
@@ -1010,7 +1016,11 @@ const demoToggles = ref<string[]>(['task']);
     width: 72px;
 }
 .kit-area {
-    width: 100%;
+    /* **不再撑满整行**（2026-11-06 用户：「文本框的输入设置个宽度，现在撑满了」）：
+     * 它是个描述框，真身在角色编辑器（装备描述、召唤兽技能），那里宽度由表单列决定，
+     * 最宽也就四五百，从不横贯一屏。演示给 280：放得下一行七个字 + 换行箭头，
+     * 读者一眼看出这是个窄件。 */
+    width: calc(280px * var(--fs-scale));
 }
 
 /* 数值签按卡上那枚摆：56 × 24（乘字号档）、字号也照抄 15.5。
@@ -1048,12 +1058,21 @@ const demoToggles = ref<string[]>(['task']);
 
 /* 进度条的加大档：与角色卡经验条同值（14）。演示页摆的必须是线上那个数，
  * 否则「演示里好看、业务页里不对劲」又要多查一轮。 */
+/* 两条进度条并排时各占一半（2026-11-06）：MeterBar 自己的 `.meter` 虽然是 `flex: 1`，
+ * 但那是在**组件内部**分配；组件根放在 `.kit-row` 里默认 `flex: 0 1 auto`，
+ * 不伸展的话两条会缩成「文本 + 40 的轨道」那么点宽。`min-width: 0` 让它们在窄窗口
+ * 下肯让位，而不是把行撑出滚动条。 */
+.kit-meter {
+    flex: 1 1 0;
+    min-width: 0;
+}
+/* 加大那档只改高度：`--meter-h` 从 10 到 14，与业务页「独占一行当读数」那个用法同值。 */
 .kit-meter-lg {
     --meter-h: 14px;
 }
 
-/* 三块并排，间隔比 `.kit-row` 的 7px 宽：7px 是给胶囊和小按钮的，
- * 56px 的块挨这么紧，读作「一块被切成了三片」。底部对齐，34 那两枚自然坐在同一条线上。 */
+/* 两块并排（56 与 34），间隔 14 —— 比 `.kit-row` 的 10 宽：10 是给胶囊与小按钮的，
+ * 56 的块挨这么紧会读作「一块被切成了两片」。底部对齐，34 那枚自然坐同一条线。 */
 .kit-tiles {
     display: flex;
     align-items: flex-end;
