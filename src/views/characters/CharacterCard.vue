@@ -23,9 +23,10 @@ import { PANES, type CharacterData, type GearDetail, type PaneKey, type Pet } fr
  * 代价是内容少的分区（召唤兽）底下会空一块——那里就只是留白，不再压一句页脚说明
  * （2026-11-03 用户要求删掉卡片上所有手抄的注脚）。
  *
- * 六个页签均分卡宽：`(450 − 28 − 4) / 6 ≈ 69.7` 一格，最长的「召唤兽」三个字
- * 在 1.1 字号档约 46px，余量 23。卡宽一改就要重算这个数，**仍是六格封顶**——
- * 再加第七个得改文案或改成两行。
+ * 六个页签均分卡宽：`(450 − 40 − 4) / 6 ≈ 67.3` 一格，扣掉格内两侧 8 的留白得
+ * 59.3；最长的「召唤兽」三个字在 1.1 字号档约 46（`--fs-base` 13.5 × 1.1 × 3 +
+ * 字距），余 13。卡宽一改就要重算这个数，**仍是六格封顶**——再加第七个得改文案
+ * 或改成两行。
  *
  * 页签里的「凹槽 + 选中灌朱」不在这里重写：它是 `SteppedSlider` 的 `as="tab"`——
  * 六格等分、印按格位移、方向键换页签全在那边，本组件只给它 `options` 与 `prefix`。
@@ -103,8 +104,10 @@ function openDetail(pet: Pet) {
 
 <template>
     <!-- `data-school` 给浅染用（`character-card.css` 里二十一条映射）。
-         空门派时属性为空串，不匹配任何一条 → 卡底回落纸色。 -->
-    <PaperCard as="article" class="char dual-rule" :data-school="character.school || ''">
+         空门派时属性为空串，不匹配任何一条 → 卡底回落纸色。
+         原先还挂着 `dual-rule`（离卡缘 3px 的一圈 1px 内衬线），2026-11-06
+         用户要求「最外面的一圈细边框去掉」——卡边只剩纸自己的棱与落影。 -->
+    <PaperCard as="article" class="char" :data-school="character.school || ''">
         <header class="char-head">
             <div class="who-block">
                 <div class="who">

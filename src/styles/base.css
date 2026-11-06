@@ -124,7 +124,8 @@ svg {
  * 比「圆角卡片 + 投影」便宜也更像纸。任何主区块都用它代替 .card。
  *
  * 内衬那一道**只有这一份定义**：`.frame` 自带，别的区块要同样的内衬就给元素加
- * `dual-rule` 类（`.char`、`.gear-tip` 这么用）。曾经三处各抄一遍，抄第二遍时
+ * `dual-rule` 类（现在只有 `.gear-tip` 这么用；角色卡 2026-11-06 去掉了那圈线，
+ * 见 `character-card.css` 里 `.char` 那段）。曾经三处各抄一遍，抄第二遍时
  * 就已经漂了——装备浮片的注释写着「与卡片同一套」，实际是 2px 而不是 3px。
  * 小尺寸容器真要收紧，覆写 `--dual-inset` 一个变量，别把整条规则搬过去。
  */
@@ -699,7 +700,8 @@ svg {
  *   `.hint`  行内提示——扫一眼（`--fs-sm`）
  *   `.meta`  元信息——找的时候才看（`--fs-mini`）
  * 2026-11-02 之前第三档散在十个地方各写一份（`.field-note` / `.status-meta` /
- * `.detail-tag` / `.head-age` / `.tip-kind` / `.gear-meta` / `.char-sub` …），
+ * `.detail-tag` / `.head-age` / `.tip-kind` / `.gear-meta`〔已删，摘要进了版心〕 /
+ * `.char-sub` …），
  * 字号都是 `--fs-mini`、颜色都是 `--muted`，只有 margin 和行高在 5px/6px、
  * 1.6/1.7 之间游走——那不是「就地决定」，是抄第二遍时的手抖。
  *
