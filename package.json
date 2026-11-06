@@ -4,6 +4,7 @@
     "version": "0.1.0",
     "type": "module",
     "description": "梦幻养老助手 · Rust + Tauri 版界面",
+    "license": "PolyForm-Noncommercial-1.0.0",
     "scripts": {
         "dev": "vite",
         "build": "vue-tsc --noEmit && vite build",

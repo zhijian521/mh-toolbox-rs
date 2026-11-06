@@ -36,6 +36,7 @@ import {
     IconCopy,
     IconCreditCard,
     IconDownload,
+    IconFileText,
     IconFlag,
     IconFlask,
     IconHistory,
@@ -131,6 +132,9 @@ const ICON_META = {
     // 圆圈里的 i 是通用符号，不用「感叹号」是因为它读起来像错误。
     // 注意 `NotifyHost` **不用**它：那道凹槽只留一根 3px 竖条，两个彩色记号会互相抵消。
     info: { glyph: IconInfoCircle, label: '提示', group: 'action' },
+    /* 「一份可读的条款」：关于卡的「许可证全文」用。选文件而不是印章或天平——
+     * 这枚要说的是「点开有一整篇文字」，不是「这里具有法律效力」。 */
+    doc: { glyph: IconFileText, label: '条款', group: 'action' },
     'chevron-down': { glyph: IconChevronDown, label: '下拉', group: 'action' },
     'chevron-right': { glyph: IconChevronRight, label: '右折', group: 'action' },
 

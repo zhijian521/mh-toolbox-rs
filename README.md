@@ -106,4 +106,6 @@ npm run e2e            # 真窗口烟测：先 start.bat --force debug，再跑�
 
 ## 许可
 
-PolyForm Noncommercial 1.0.0（沿用旧版）。字体为 SIL OFL 1.1，`assets/fonts/OFL.txt` 随字体保留。
+[PolyForm Noncommercial 1.0.0](LICENSE)（沿用旧版）——免费使用，可自行运行、修改与再发布，
+**不得用于任何以营利为目的的用途**。设置页「许可」卡上是同一套口径。
+字体为 SIL OFL 1.1，`assets/fonts/OFL.txt` 随字体保留。
