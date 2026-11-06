@@ -6,27 +6,37 @@ export default async function run(ctx) {
     if (want('设置')) {
         t.section('7 设置 · 主题、字号、导入与清除的确认窗');
 
-        await t.step('主题切浅色再切回深色', async () => {
+        /*
+         * 主题：三档都能切，**切完要还原成跑之前那一档**。
+         *
+         * 读的是 `localStorage.mh-theme` 而不是根元素的 `dark` 类：类只能分出亮/暗，
+         * 「跟随系统」与「浅色」都算亮，还原时会把用户的「跟随系统」改成「浅色」。
+         * 这一条是实测吃出来的——早先只切「浅色 → 深色」就收工，每跑一次烟测，
+         * 用户的主题就被永久改成深色（2026-11-06 用户报「默认怎么变成深色了」）。
+         * `null` 表示从没存过，语义上等于「跟随系统」。
+         */
+        await t.step('主题三档都能切，并还原成测试前那一档', async () => {
             await ui.goto('设置');
-            const original = await cdp.evaluate(
-                `document.documentElement.classList.contains('dark') ? 'dark' : 'light'`,
-            );
+            const readMode = () => cdp.evaluate(`localStorage.getItem('mh-theme') || 'system'`);
+            const original = await readMode();
+            const isDark = () =>
+                cdp.evaluate(
+                    `document.documentElement.classList.contains('dark') ? 'dark' : 'light'`,
+                );
+
             await ui.clickText('button.bevel-pill', '浅色');
             await sleep(400);
-            t.check(
-                '切到浅色',
-                (await cdp.evaluate(
-                    `document.documentElement.classList.contains('dark') ? 'dark' : 'light'`,
-                )) === 'light',
-            );
+            t.check('切到浅色', (await isDark()) === 'light');
+
             await ui.clickText('button.bevel-pill', '深色');
             await sleep(400);
-            t.check(
-                '切回深色',
-                (await cdp.evaluate(
-                    `document.documentElement.classList.contains('dark') ? 'dark' : 'light'`,
-                )) === 'dark',
-            );
+            t.check('切到深色', (await isDark()) === 'dark');
+
+            const label =
+                { system: '跟随系统', light: '浅色', dark: '深色' }[original] ?? '跟随系统';
+            await ui.clickText('button.bevel-pill', label);
+            await sleep(400);
+            t.check('主题还原', (await readMode()) === original, `还原到「${label}」`);
             t.info('测试前主题', original);
         });
 
