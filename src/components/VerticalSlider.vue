@@ -182,9 +182,11 @@ function onPointerCancel(event: PointerEvent) {
  */
 .vs-track {
     /* 侧栏规格。父级要换尺寸就覆写这五个变量，组件不认「侧栏」这个概念。
-     * 格高 62 是「图标 15 + 间距 7 + 两字竖排 32.2 + 字距 3.4 = 57.6」再留 4px：
-     * 原来 66 有 8px 全成了空白，而它是窗口最小高度里最贵的一项——8 格乘出来 32px
-     * （再乘 1.1 档的字号系数就是 35px）。 */
+     * 格高 62 = 内容 50.2（图标 15 + 间距 3 + 两字 30.8 + 字距 1.7）+ 留白 11.8。
+     * 留白分两笔：印在格内上下各让 1，**印内还剩 4.9**——2026-11-06 把纵向外边距
+     * 从 7 收到 6（与左右齐平）之后多出来的，正好补上「印内上下边距」那点气。
+     * 原先把留白压到 4px 是为了窗口最小高度（8 格乘出来 32px，1.1 档就是 35px），
+     * 这 11.8 收不回去。 */
     --vs-w: calc(34px * var(--fs-scale));
     --vs-cell: calc(62px * var(--fs-scale));
     --vs-gap: calc(5px * var(--fs-scale));
@@ -196,7 +198,10 @@ function onPointerCancel(event: PointerEvent) {
     grid-auto-rows: var(--vs-cell);
     row-gap: var(--vs-gap);
     width: var(--vs-w);
-    padding: 2px;
+    /* 内衬**只加上下**：2 → 4（2026-11-06 用户：「组件整体的上下内边距稍微加一点」），
+     * 左右留在 2。左右一加，内容区就窄 4，朱印跟着窄 4——那正是他上一轮刚说「可以了」
+     * 的宽度。上下多出来的 4px 让槽顶与第一格之间不再是 2 的一条缝。 */
+    padding: 4px 2px;
     border-radius: var(--r-2);
     touch-action: none;
     cursor: pointer;
@@ -208,15 +213,33 @@ function onPointerCancel(event: PointerEvent) {
  * 印面（底色 / 受光 / 上沿高光 / 落地线与朱色投影）来自全局 `.stamp`，
  * 与横版滑块、两格开关、胶囊选中、槽按钮悬停共用同一份，这里只有几何与位移。
  *
- * `inset` 与轨道 padding 对齐（2px），于是印面比格宽出两侧的槽壁厚度，
- * 读作「印落在槽口上」而不是「槽里填了块红」。
+ * **四边到槽外壁都是 6px**（2026-11-06 用户：「确认一下按钮上下左右的外边距是否一致」）。
+ * 算式拆开是两截，横向走内衬 + 格的外边距，纵向走内衬 + 印让出的一条：
+ *
+ *   横 = 边框 1 + 内衬 2 + 格 `margin: 0 3px` = **6**
+ *   纵 = 边框 1 + 内衬 4 + 印上下各让 1      = **6**
+ *
+ * 早先纵向是「内衬 4 + 让 2」= 7，比横向多 1——单看每条轴都对称，两个轴之间差一格，
+ * 放大之后一眼看得出来。改法是**把纵向收到 6**（不动槽宽、不动按钮宽）：印高从
+ * `cell - 4` 放到 `cell - 2`，上下各只让 1。
+ *
+ * **这几个数一律不乘 `--fs-scale`**：边框、内衬、格的外边距本来就是像素，三档字号下
+ * 量出来都是同一个 6。乘上系数会变成 5.52 / 6 / 6.6，反倒「换档就不一致」了。
+ * 顺带的好处：印内上下留白从 2.9 涨到 4.9，图标不再贴着印边。
  */
 .vs-thumb {
+    /* 印按进槽里：一抹 2px 的实底边（`.stamp` 的 `--stamp-depth`），
+     * 于是它比格面高出一点，而不是「一块红色贴在槽壁上」。 */
+    --stamp-depth: 2px;
+
     position: absolute;
-    top: 2px;
-    right: 2px;
-    left: 2px;
-    height: var(--vs-cell);
+    /* 上内衬 4 + 让出的 1 → 连边框一起是 6，与左右同宽 */
+    top: 5px;
+    /* 左右内衬 2 + 格让出的 3 → 连边框一起 6；与 `--vs-cell` 的 `margin: 0 3px`
+     * 落在同一条线上，印与格同宽 */
+    right: 5px;
+    left: 5px;
+    height: calc(var(--vs-cell) - 2px);
     border-radius: var(--r-2);
     transition:
         transform var(--t-slide) var(--ease-snap),
@@ -234,9 +257,25 @@ function onPointerCancel(event: PointerEvent) {
     opacity: 0;
 }
 
-/* ---------- 格 ---------- */
+/* ---------- 格 ----------
+ *
+ * 未选中是一枚**浅纸键**（2026-11-06 用户：「给未选中的菜单项也加个浅色的按钮效果」）。
+ * 早先格是透明的，整条槽只有一枚朱印有形，其余七格只是档位；现在每格都有一块比槽底
+ * 亮一档的浅纸，读作「槽里嵌着一排键」。
+ *
+ * **材质直接照 `PressTile` 与 `.board` 的配方抄**（用户：「参考下压印块 / 按钮的 3D 效果
+ * 以及卡片背景的渐变效果」）：块面 + 左上一点偏光（radial）+ 135° 斜差 + 四棱不对称
+ * + 一道很薄的落地。没有那两层渐变，36×62 的浅块在槽里只读作一块色卡；没有不对称的四棱，
+ * 光就不分方向。厚度收到 1–2px：这是 36 宽的格，不是 56 的图标格，按满档画会变成一排邮票。
+ *
+ * 底色走 `--well-key`（定义在 `base.css` 的 `.well.upright` 里，两处侧栏共用一枚）。
+ */
 .vs-cell {
     --icon-size: var(--vs-ico);
+    /* 两条背光棱。**两档不能共用一个值**：`--rule-2` 在暗色比块面亮，照用会在底边
+     * 画出一条发光的线，光向就反了。 */
+    --vs-rim-lo: light-dark(color-mix(in srgb, var(--rule-2) 46%, transparent), var(--bevel-lo));
+    --vs-rim-base: light-dark(color-mix(in srgb, var(--rule-2) 78%, transparent), var(--bevel-lo));
 
     position: relative;
     z-index: 1;
@@ -244,21 +283,70 @@ function onPointerCancel(event: PointerEvent) {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: calc(7px * var(--fs-scale));
+    /* 图标与两字之间 3（原 7）。这一笔是 2026-11-06 挪给「印内上下边距」的：
+     * 先把 7 收到 3、行高 1.15 收到 1.1，印内上下才从 1.2 长到 3；后来纵向外边距
+     * 从 7 收到 6（印高 58 → 60），印内再涨到 4.9，不再需要从别处借。 */
+    gap: calc(3px * var(--fs-scale));
     border: 0;
-    /* 格与外框同圆角：悬停那层淡纸是一条「槽内的段」。 */
+    /* 格与外框同圆角：格是「槽内的一段」。 */
     border-radius: var(--r-2);
+    /* **与朱印同宽**（2026-11-06 用户：「未选中状态按钮也和现在选中的保持一样宽度」）：
+     * 朱印左右各让 3，浅纸格就跟着让 3——两者叠在同一列上时轮廓才咬得住，
+     * 否则选中那一格比上下两格宽一圈，「同一颗按钮的两种状态」就成了两种控件。
+     * 只让水平：格高由 grid 定，上下留白只会把内容压扁。 */
+    margin: 0 3px;
     /* 按钮本体的重置在 `base.css`（`button { font: inherit }`），这里不再重复。 */
-    background: none;
+    background-color: var(--well-key);
+    /* 与 `.board` 同一套「被顶起来的一张纸」：左上偏光 + 135° 斜差。
+     * 两端都用**半透明**的叠加（纸白 9% / 墨黑 9%），不是不透明的实体色——
+     * 只有这样悬停换 `background-color` 时底下的浅纸才透得上来，否则渐变把底色全盖住，
+     * 悬停只有四条棱在动。暗色两端各收一档（4% / 4%），理由同 `.board`：
+     * 暗底上的 9% 就是「半张纸打了光、半张没打」。 */
+    background-image:
+        radial-gradient(
+            120% 92% at 16% -8%,
+            color-mix(in srgb, var(--bevel-hi) 62%, transparent),
+            transparent 54%
+        ),
+        linear-gradient(
+            135deg,
+            light-dark(
+                    color-mix(in srgb, var(--paper-base) 9%, transparent),
+                    color-mix(in srgb, var(--ink) 4%, transparent)
+                )
+                0,
+            transparent 48%,
+            color-mix(in srgb, var(--ink-base) 9%, transparent) 100%
+        );
+    /* 四棱不对称 + 一层很薄的落地：上、左受光（1px），下 2px、右 1px 背光，
+     * 落地只有 1px 硬影 + 3px 软影——格与格之间只有 5px 缝，影再长就糊到下一格上。 */
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
+        inset -1px 0 0 var(--vs-rim-lo),
+        inset 0 -2px 0 var(--vs-rim-base),
+        0 1px 0 var(--shadow),
+        0 3px 5px -3px var(--shadow-lg);
     color: var(--ink-2);
     cursor: pointer;
-    transition: color var(--t-mid) var(--ease-soft);
+    transition:
+        color var(--t-mid) var(--ease-soft),
+        background-color var(--t-quick) var(--ease-soft),
+        box-shadow var(--t-quick) var(--ease-soft);
 }
-/* 悬停只提字色 + 一层极淡的纸色：槽里的格不该在悬停时「浮起来」，
- * 那是凸的语言，与凹槽正相反。 */
+/* 悬停把这块浅纸压实一档（不再只是「提一点色」）：既然常态已经有形，悬停就该更实。
+ * 四条棱要**整套重写**——只写两条的话，右、下那两条背光棱会被这一条规则清掉，
+ * 悬停时块反而变成没有厚度的色块。落地也跟着抬一档，与 `PressTile` 的悬停同一个意思。 */
 .vs-cell:hover {
     color: var(--ink);
-    background-color: color-mix(in srgb, var(--paper) 42%, transparent);
+    background-color: var(--well-key-hover);
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 78%, transparent),
+        inset -1px 0 0 var(--vs-rim-lo),
+        inset 0 -2px 0 var(--vs-rim-base),
+        0 2px 0 var(--shadow),
+        0 4px 7px -4px var(--shadow-lg);
 }
 .vs-cell.muted {
     color: var(--muted);
@@ -266,17 +354,21 @@ function onPointerCancel(event: PointerEvent) {
 .vs-cell.muted:hover {
     color: var(--ink-2);
 }
-/* 选中那格：只换字色（`--vs-seal-fg`，与印面成对翻），**不加粗、不加描边、不加字距**。
- * 早先给 `.vs-label` 加过 0.25px `-webkit-text-stroke`，本意是让 14px 楷体压得住朱红，
- * 但眼睛读到的就是「这格加粗了」；而文楷本地只有 Regular，描边与合成加粗都会把撇捺糊成块。
+/* 选中那格：把浅纸**整块撤掉**（背景与两条内线一起），露出下面那枚朱印。
+ * 只清 `background` 不够——上沿那条受光线会留在朱印边上，成一道白边。
+ *
+ * 字色只换 `--on-seal`，**不加粗、不加描边、不加字距**。早先给 `.vs-label` 加过
+ * 0.25px `-webkit-text-stroke`，本意是让 14px 楷体压得住朱红，但眼睛读到的就是
+ * 「这格加粗了」；而文楷本地只有 Regular，描边与合成加粗都会把撇捺糊成块。
  * 「当前在哪一页」由那枚朱印本身交代——位置、颜色、投影三样都说过，不必让字再喊一遍。 */
 .vs-cell[aria-current='page'],
 .vs-cell[aria-current='page']:hover {
     color: var(--on-seal);
     background: none;
+    box-shadow: none;
 }
 /* 聚焦环不能用朱红：选中时底就是朱红，红环会消失。负 offset 收进印面里，
- * 免得在 34px 宽的槽上向外撑出一圈——这一处是**唯一**的负值，不是另一种默认。 */
+ * 免得在 48px 宽的槽上向外撑出一圈——这一处是**唯一**的负值，不是另一种默认。 */
 .vs-cell:focus-visible {
     outline: var(--ring-inv);
     outline-offset: -2px;
@@ -286,12 +378,15 @@ function onPointerCancel(event: PointerEvent) {
  * `upright` 让汉字正着躺下而不是整体旋转 90°。14px 是下限：13px 竖起来
  * 细成一条线，压不住 15px 的图标；字距 0.12em 刚好把两个字断开成一列，
  * 再大就成了两段互不相干的字。
+ *
+ * 行高 1.15 → 1.1（2026-11-06）：朱印内的上下边距要从 1.2 加到 3，只能从行高与图标间距里
+ * 各借一点。1.1 时两字之间仍有 1.4 + 字距 1.7 ≈ 3.1 的空隙，文楷的撇捺不会再咬住。
  */
 .vs-label {
     writing-mode: vertical-rl;
     text-orientation: upright;
     font-size: var(--vs-label);
     letter-spacing: 0.12em;
-    line-height: 1.15;
+    line-height: 1.1;
 }
 </style>

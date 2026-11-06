@@ -693,14 +693,17 @@ const demoToggles = ref<string[]>(['task']);
 }
 
 /* 拇指：一枚落在槽里的朱印。几何与 `VerticalSlider` 的 `.vs-thumb` 同构——
- * `inset` 与槽内衬对齐（4px），于是印面比格宽出两侧的槽壁厚度，读作「印落在槽口上」
- * 而不是「槽里填了块红」。 */
+ * **比格四周各缩 2px**（槽内衬 4 + 让出的 2 = 6）：这里格高只有 34，缩 3 会把印压到 28，
+ * 与图标 15 只剩 6 的上下留白，反而更挤。 */
 .nav-thumb {
+    /* 同 `VerticalSlider` 的拇指：2px 实底边，印比格面高一点。 */
+    --stamp-depth: 2px;
+
     position: absolute;
-    top: 4px;
-    right: 4px;
-    left: 4px;
-    height: var(--nav-cell);
+    top: 6px;
+    right: 6px;
+    left: 6px;
+    height: calc(var(--nav-cell) - 4px);
     border-radius: var(--r-2);
     transition: transform var(--t-slide) var(--ease-snap);
     /* 印面不吃指针：否则点在印上时事件目标是它，`data-id` 拿不到，点击会落空。 */
@@ -709,12 +712,19 @@ const demoToggles = ref<string[]>(['task']);
 
 /* 一格 = 图标 + 组名 + 件数，横排、定高 34。
  *
- * **格永远透明**：底色由拇指那层给。所以这里可以放心写 `background: none`，
- * 不用担心压掉 `.stamp`——上一版正是压掉了，朱底整条消失，只剩一层渐变浮在槽上。
+ * 未选中是一枚**浅纸键**（与主侧栏同一轮改动，底色同取 `--well-key`）：材质照 `PressTile`
+ * 抄——左上偏光 + 135° 斜差 + 四棱不对称 + 一层很薄的落地。这一列是 118×34 的宽扁块，
+ * 偏光用百分比（120% 92%）就够，不必像 `wide` 那样换成固定像素。
+ *
+ * 选中那格要把这块浅纸**整块撤掉**（背景与四条棱一起），露出下面那枚朱印；
+ * 只清 `background` 不够，上沿那条受光线会留在朱印边上成一道白边。
  *
  * 图标 15 与格高都乘 `--fs-scale`：主侧栏的 `.vs-ico` 也是 15，两处的图标必须同大。 */
 .nav-item {
     --icon-size: calc(15px * var(--fs-scale));
+    /* 两条背光棱。两档不能共用一个值：`--rule-2` 在暗色比块面亮，照用会在底边发光。 */
+    --nav-rim-lo: light-dark(color-mix(in srgb, var(--rule-2) 46%, transparent), var(--bevel-lo));
+    --nav-rim-base: light-dark(color-mix(in srgb, var(--rule-2) 78%, transparent), var(--bevel-lo));
 
     position: relative;
     z-index: 1;
@@ -724,26 +734,65 @@ const demoToggles = ref<string[]>(['task']);
     padding: 0 11px 0 12px;
     border: 0;
     border-radius: var(--r-2);
-    background: none;
+    /* 与朱印**同宽**（2026-11-06，同主侧栏）：印左右各让 2（`left/right: 6`，槽内衬 4），
+     * 格就跟着让 2，两者边界才落在同一条线上——未选中与选中是一颗按钮的两种状态，
+     * 不是两种宽度。 */
+    margin: 0 2px;
+    background-color: var(--well-key);
+    /* 两端半透明叠加，悬停换底色时底下的浅纸才透得上来（理由见 `VerticalSlider`）。 */
+    background-image:
+        radial-gradient(
+            120% 92% at 16% -8%,
+            color-mix(in srgb, var(--bevel-hi) 62%, transparent),
+            transparent 54%
+        ),
+        linear-gradient(
+            135deg,
+            light-dark(
+                    color-mix(in srgb, var(--paper-base) 9%, transparent),
+                    color-mix(in srgb, var(--ink) 4%, transparent)
+                )
+                0,
+            transparent 48%,
+            color-mix(in srgb, var(--ink-base) 9%, transparent) 100%
+        );
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
+        inset -1px 0 0 var(--nav-rim-lo),
+        inset 0 -2px 0 var(--nav-rim-base),
+        0 1px 0 var(--shadow),
+        0 3px 5px -3px var(--shadow-lg);
     color: var(--ink-2);
     font: inherit;
     text-align: left;
     cursor: pointer;
-    transition: color var(--t-mid) var(--ease-soft);
+    transition:
+        color var(--t-mid) var(--ease-soft),
+        background-color var(--t-quick) var(--ease-soft),
+        box-shadow var(--t-quick) var(--ease-soft);
 }
-/* 悬停只提字色 + 一层极淡的纸色：槽里的格不该在悬停时「浮起来」，那是凸的语言，
- * 与凹槽正相反。与 `VerticalSlider` 的 42% 同一个值。 */
+/* 悬停把这块浅纸压实一档（与主侧栏同一条）：四条棱要整套重写，
+ * 只写两条会把右、下那两条背光棱清掉，悬停时块反而没有厚度。 */
 .nav-item:hover {
     color: var(--ink);
-    background-color: color-mix(in srgb, var(--paper) 42%, transparent);
+    background-color: var(--well-key-hover);
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 78%, transparent),
+        inset -1px 0 0 var(--nav-rim-lo),
+        inset 0 -2px 0 var(--nav-rim-base),
+        0 2px 0 var(--shadow),
+        0 4px 7px -4px var(--shadow-lg);
 }
 /* 选中那格只换字色（`--on-seal`，与印面成对翻），**不加粗、不加描边、不加字距**。
  * 文楷只有 Regular，描边与合成加粗都会把撇捺糊成块；「当前在哪一组」由那枚朱印说完。
- * 悬停时要清底：否则划过选中项时那层淡纸会盖住朱印。 */
+ * 悬停时要清底：否则划过选中项时那层浅纸会盖住朱印。 */
 .nav-item.on,
 .nav-item.on:hover {
     color: var(--on-seal);
     background: none;
+    box-shadow: none;
 }
 /* 聚焦环不能用朱红：选中时底就是朱红，红环会消失（`--ring-inv`，与
  * `SegmentedPills` 的选中格、主侧栏的格同一条规矩）。负 offset 收进印面里，
