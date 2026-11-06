@@ -137,6 +137,70 @@ export default async function run(ctx) {
                 Array.isArray(names) && names.includes('E2E刀'),
                 JSON.stringify(names),
             );
+
+            /* 版心那七行摘要（2026-11-06）：它**全从十二件装备的 detail 现算**，不另存。
+             * 这一只角色只填了「武器」的装备名、没有详情的状态行，所以七行该全是淡「—」
+             * ——这正是最容易写错的一处：没数据时要么整块不画，要么把「空」当成值。 */
+            const brief = await cdp.evaluate(`(() => {
+                const card = [...document.querySelectorAll('.roster .char')]
+                    .find((c) => (c.textContent || '').includes('E2E改名后'));
+                const rows = [...(card?.querySelectorAll('.gear-stage .brief-row') ?? [])];
+                return rows.map((row) => ({
+                    k: row.querySelector('dt')?.textContent.trim() ?? '',
+                    v: row.querySelector('dd')?.textContent.trim() ?? '',
+                }));
+            })()`);
+            t.check('版心画出七行摘要', brief.length === 7, `实际 ${brief.length} 行`);
+            t.check(
+                '七行是效果 / 段数 / 奇袭三组',
+                brief.map((row) => row.k).join('/') === '特技/套装/宝石/灵饰/钟灵石/玉魄/奇袭',
+                `实际：${brief.map((row) => row.k).join('/')}`,
+            );
+            t.check(
+                '没录的项落成淡「—」',
+                brief.every((row) => row.v === '—'),
+                JSON.stringify(brief.map((row) => row.v)),
+            );
+        });
+
+        /* ---- 左栏那枚 ×（2026-11-06）----
+         * 两页同一个位置、同一个符号，**动作不是一回事**：装备是「清空这一件」
+         * （十二个部位是游戏定的，行不能少），召唤兽才是「真的删掉这一只」。
+         * 所以这里先验清空：行数一点不变、计数归零、× 自己消失。 */
+        await t.step('装备：左栏 × 只清空这一件，十二格一行不少', async () => {
+            await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
+            if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
+                throw new Error('编辑态没打开');
+            }
+            await ui.clickText('.editor-tabs button', '装备');
+            await sleep(300);
+
+            /* × 只在**填了的部位**上出现：十二行里只有武器有内容。 */
+            const kills = await ui.count('.editor .rail-kill');
+            t.check('只有填了的那一件有 ×', kills === 1, `实际 ${kills} 枚`);
+
+            await ui.clickLabelPrefix('清空武器');
+            await sleep(350);
+
+            const rows = await ui.count('.editor .rail-item');
+            t.check('清空后十二行一行不少', rows === 12, `实际 ${rows} 行`);
+            const head = (await ui.text('.editor .rail-head')).replace(/\s+/g, ' ').trim();
+            t.check('清空后计数归零', head.includes('0 / 12'), head);
+            t.check(
+                '清空后 × 自己消失',
+                (await ui.count('.editor .rail-kill')) === 0,
+                `还剩 ${await ui.count('.editor .rail-kill')} 枚`,
+            );
+
+            await ui.clickLabel('保存这个角色');
+            await sleep(700);
+            const stillThere = await cdp.evaluate(`(() => {
+                const card = [...document.querySelectorAll('.roster .char')]
+                    .find((c) => (c.textContent || '').includes('E2E改名后'));
+                return [...(card?.querySelectorAll('.gear-name') ?? [])]
+                    .some((e) => e.textContent.includes('E2E刀'));
+            })()`);
+            t.check('清空落到库里：卡上不再有 E2E刀', !stillThere);
         });
 
         /* ---- 召唤兽：概览牌 + 详情档案（2026-11-05） ----
@@ -275,6 +339,44 @@ export default async function run(ctx) {
             t.check('重载后兽牌仍在', plates === 1, `实际 ${plates} 块可见`);
         });
 
+        /* 召唤兽的 × 与装备那枚**不是同一个动作**：这里是真的把这一只移出列表
+         * （装备那边只是清空内容，行还在）。所以判据是「行没了」，不是「行空了」。 */
+        await t.step('召唤兽：左栏 × 真的删掉这一只', async () => {
+            await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
+            if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
+                throw new Error('编辑态没打开');
+            }
+            await ui.clickText('.editor-tabs button', '召唤兽');
+            await sleep(300);
+            t.check(
+                '删之前左栏有一只',
+                (await ui.count('.pet-editor .rail-item')) === 1,
+                `实际 ${await ui.count('.pet-editor .rail-item')} 行`,
+            );
+
+            await ui.clickLabelPrefix('删除第 1 只');
+            await sleep(350);
+            t.check(
+                '删之后左栏空了',
+                (await ui.count('.pet-editor .rail-item')) === 0,
+                `实际 ${await ui.count('.pet-editor .rail-item')} 行`,
+            );
+            /* 一只都不剩时右侧不该还留着一张绑不上数据的表单——那是「删了但没删干净」。 */
+            t.check('右侧回到空态', !(await ui.exists('.pet-block')));
+
+            await ui.clickLabel('保存这个角色');
+            await sleep(700);
+            const plates = await cdp.evaluate(
+                `(() => {
+                    const card = [...document.querySelectorAll('.roster .char')]
+                        .find((c) => (c.textContent || '').includes('E2E改名后'));
+                    if (!card) return -1;
+                    return card.querySelectorAll('.plate').length;
+                })()`,
+            );
+            t.check('删掉的那只没有留在卡上', plates === 0, `实际 ${plates} 块兽牌`);
+        });
+
         await t.step('Esc 只关编辑器，不穿透到别的层', async () => {
             await ui.clickLabel('新建角色');
             await sleep(350);
@@ -294,9 +396,22 @@ export default async function run(ctx) {
             t.check('Esc 取消，角色还在', (await ui.text()).includes('E2E改名后'));
 
             await ui.clickIn('.roster .char', 'E2E改名后', { label: '删除这个角色' });
-            await sleep(350);
+            /* 等弹窗**真的挂上**再点确认。这里原来是一记固定的 `sleep(350)`：单跑这一节
+             * 一直绿，全量跑到这里却红过一次（「找不到含「删除」的 button」）——
+             * 上一记 Esc 的退场与这一记的入场抢同一段 300ms，典型的时间差。 */
+            if (
+                !(await ui.waitFor(`!!document.querySelector('[role="dialog"]')`, {
+                    timeout: 3000,
+                }))
+            ) {
+                throw new Error('确认窗没打开');
+            }
             await ui.clickText(CONFIRM_DELETE, '删除', { exact: true });
-            await sleep(700);
+            /* 删完等名册自己少一格，别再固定等 700：库写完 → 页面重画这一段长度不固定。 */
+            await ui.waitFor(
+                `document.querySelectorAll('.roster .char').length === ${baseline.chars}`,
+                { timeout: 5000 },
+            );
             const back = await ui.count('.roster .char');
             t.check(
                 '确认后角色被删掉',
