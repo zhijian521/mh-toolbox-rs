@@ -9,25 +9,26 @@
  * 玩家得重新学「头在哪」——而这张卡的用途正是「一眼对上游戏里的那个面板」。
  *
  * ## 尺寸怎么来的
- * 版心 410 切四列、列距 8 → 96.5；行距 9、四行均分剩余高度 → 109。**不是正方**：
- * 竖长的那 12 像素给了「部位名 + 图 + 装备名」三行字，96 的方块里塞不下。
+ * 版心 410 切四列、列距 8 → 96.5；行距 9、四行均分剩余高度 → **117**。**不是正方**：
+ * 竖长的那十几像素给了「部位名 + 图 + 装备名」三行字，96 的方块里塞不下。
  * 卡宽或 `--card-pad-x` 一改，这两个数就要重算。
  *
- * ## 格子是一道印上去的框，不是挖下去的槽（2026-11-05 改，方案 B）
- * 旧版整格是凹的：`--well` 底 + 四层影（上沿纸厚、顶壁投影、底壁受光、内衬暗环），
- * 靠「凹」说明「这里是个位置，往这里放」。用户看完说格子本身不好看、图也偏小。
+ * （行高 109 → 117 是 2026-11-06 删掉卡底那行摘要换来的：那一行占 9 外边距 + 7 上衬
+ * + 17 字，约 33px，摊到四行每行多 8。）
  *
- * 凹槽的问题不在画法，在**占地方**：要读出「挖下去」，至少得占一圈内衬加四层影；
- * 99 × 108 的格子里，图最后只落到 40px（整格 37%）。而这十二格的真实用途是
- * 「这件穿在哪」的索引——要看的是里面那张图，不是那个坑。
+ * ## 格子的底：三个版本（2026-11-06 定稿）
  *
- * 现在整格退成**一道框**：1px 淡褐线 + 内侧 1px 白线（印上去的那种框，与 `.board`
- * 上那些表格线同一个强度），底色撤空，省下的整块面积给了里面的白盘。
+ *   ① **凹槽** —— `--well` 底 + 四层影（上沿纸厚、顶壁投影、底壁受光、内衬暗环）。
+ *      要读出「挖下去」就得占一圈内衬加四层影，99 × 108 的格子里图最后只剩 40px；
+ *      用户看完说「格子本身不好看、图也偏小」。
+ *   ② **一道框** —— 1px 淡褐线 + 内侧 1px 白线，底色撤空，图涨到 64。读作「一张表里
+ *      的十二个格」，与游戏面板对得上，但那两条线让整页偏「表格」。
+ *   ③ **数值签的底** —— 现在这一版：45% 槽色 + 上沿 1px 内影 + 下沿 1px 亮线，
+ *      **没有边框**。材质与师门 / 辅助页那几枚读数格同一套；借的是「纸上凹下去
+ *      一小块」这个说法，不是 ① 那个「往这里放东西的坑」，所以两条影就够。
  *
- * 代价说清：**「往里放」读不出来了**。现在的读法是「一张表里的十二个格」，
- * 靠部位名（左上角，与全站表单标签同位）和装备名（底边）说明这格是什么。
- * 敢换是因为这张卡的用途是「一眼对上游戏里的面板」，而游戏面板本身也是
- * 十二个有边的方格，不是十二个坑。
+ * ③ 与 ① 的差别只在占不占地方：① 靠四层影加内衬交代深度，③ 零内衬、两条影，
+ * 图仍旧是 64。**要再往下走别再回到 ①**——图的尺寸是这条链上最贵的东西。
  */
 .gear-board {
     flex: 1;
@@ -37,12 +38,29 @@
     gap: 9px 8px;
     min-height: 0;
 }
-/* 中央人物位：跨 2 × 2，**不画框**。四角四道括线说明「这块版心空着」；
- * 画成虚线框会被读成「第十三格，还没填」。 */
+/* 中央人物位：跨 2 × 2，**不画框**。四角四道括线说明「这块是版心」；
+ * 里面装的是这一身装备的**摘要**（特技 / 套装 / 段数）。
+ *
+ * 2026-11-06 之前摘要在卡底单独一行 `.gear-meta`（一道账线 + 一行字），用户要求
+ * 「删掉，摘要展示在装备卡片最中间位置」。提进来之后卡上少一条横线，版心也终于装了
+ * 东西——原来它是块只有四个角的空地。
+ *
+ * 括线单独包一层 `.stage-frame`（`pointer-events: none`，只做装饰）：
+ * 摘要现在是真内容，不能再让整块 `aria-hidden`，否则读屏读不到特技叫什么。 */
 .gear-stage {
+    position: relative;
     grid-column: 2 / 4;
     grid-row: 2 / 4;
-    position: relative;
+    display: grid;
+    place-items: center;
+    /* 上下 12、左右 10：四角括线各占 18、贴在 4px 处，摘要不能压到那四条短线上。
+     * 七行摘要实测一百六十出头，242 的高度放得下，这圈内衬就是留着的那点气。 */
+    padding: 12px 10px;
+}
+.stage-frame {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
 }
 .gear-stage .corner {
     position: absolute;
@@ -92,23 +110,30 @@
     justify-content: center;
     min-width: 0;
     padding: 0;
-    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 40%, transparent);
+    /* 数值签的底（2026-11-06 用户：「装备格子外面的背景改成数值签这样的」）。
+     * 材质与 `base.css` 的 `.num-slot` 同源：45% 槽色 + 上沿 1px 内影 + 下沿 1px 亮线。
+     *
+     * **边框整套撤掉**：数值签没有边，靠底色深浅分界；十二格之间还有 8 / 9 的间距，
+     * 分得开。留着原来那两条线（1px 边 + 内侧 1px 白线），读作「有边的框里刷了层淡底」，
+     * 与师门页那几枚读数格就不是一种东西了。 */
+    border: 0;
     border-radius: var(--r-2);
-    background: none;
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bevel-hi) 34%, transparent);
+    background: color-mix(in srgb, var(--well) 45%, transparent);
+    box-shadow:
+        inset 0 1px 2px var(--bevel-lo),
+        inset 0 -1px 0 var(--bevel-hi);
     color: var(--ink);
     font-family: var(--font-ui);
     text-align: center;
-    /* 边色是自己算的 `color-mix`，过渡落在真实的 `border-color` 上（自定义属性
-     * 不可过渡，早先读 `.well` 的 `--lip-shade` 时这条是空转的）。 */
-    transition: border-color var(--t-quick) var(--ease-soft);
+    /* 底色是算出来的 `color-mix`，过渡只能落在 `background-color` 上
+     * （自定义属性不可过渡，早先读 `.well` 的 `--lip-shade` 时这条是空转的）。 */
+    transition: background-color var(--t-quick) var(--ease-soft);
 }
-/* 悬停只做一件事：把框的边加深（亮色）/ 提亮（暗色），部位名转朱。
- * 用 `--ink` 去混边色，两个主题自动对向：亮色里墨是深的，边变深；暗色里墨是纸白，
- * 边变亮——**「更明显」在两个主题里不是同一个方向**，写死一个就会有一边看不见。
- * 不换底色：框里一有底就又变回「块」，而这十二格是「表」。 */
+/* 悬停只做一件事：把这一格的底**加深一档**，部位名转朱。
+ * 原来改的是 `border-color`，边撤掉之后反馈得落在底色上——
+ * 一格一格的间距本来就窄，没有反馈的话「指到哪一格」全靠猜。 */
 .gear-cell:hover {
-    border-color: color-mix(in srgb, var(--rule-2) 78%, var(--ink));
+    background-color: color-mix(in srgb, var(--well) 68%, transparent);
 }
 .gear-cell:focus-visible {
     outline: var(--ring);
@@ -145,8 +170,11 @@
  * 槽撤掉之后这个比例反而成了浪费——格子里只剩「图 + 两个名字」三样东西，
  * 边留着也没人看。现在边收到 6px（81%），图从占整格 37% 涨到 48%。
  *
- * `--tile-drop: 0.6`：没有槽之后，十二块白盘是卡面上**唯一**凸起的东西，
- * 落满档（3 / 8px）会让它们十二张一起浮着；再往下调又只剩四道棱。 */
+ * `--tile-drop: 0.6`：十二块白盘是卡面上**唯一**凸起的东西，落满档（3 / 8px）
+ * 会让它们十二张一起浮着；再往下调又只剩四道棱。
+ *
+ * **这块盘 2026-11-06 试过改成数值签的底，随即撤回**：用户要的是「格子」的底，
+ * 不是盘。盘继续是凸的白纸——凹格里的凸盘，两层才不会糊成一块。 */
 .gear-cell .gear-pic,
 .gear-ph {
     --tile-w: 64px;
@@ -190,13 +218,16 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-/* 空格：与有物的那格**同一个框**，只是线退一档（40% → 28%）、里面没有白盘。
- * 旧版是虚线 + 无底，读起来像「网页上的占位区」；方案 B 之后全场都是实线框，
- * 空位再画虚线会变成「这一格坏了」。部位名照旧在左上角，「未装备」居中——
- * 一眼扫过去数得出还差几件，而不必逐格看。
- * 不压 opacity：线本来就淡，压了会糊成一片灰。 */
+/* 空格：与有物的那格**同一种底**，只是退一档（45% → 22%）、里面没有白盘。
+ * 旧版是虚线 + 无底，读起来像「网页上的占位区」；有了统一的底之后，空位靠
+ * 「更淡」区分，不靠换一种线型——一眼扫过去数得出还差几件，而不必逐格看。
+ * 不压 opacity：底本来就淡，压了会糊成一片。
+ *
+ * 空位的 hover 不加深（`cursor: default` 也说明了它点不动）：`background` 后写，
+ * 与 `.gear-cell:hover` 同特异性，靠顺序压住。 */
 .gear-cell.empty {
-    border-color: color-mix(in srgb, var(--rule-2) 28%, transparent);
+    background: color-mix(in srgb, var(--well) 22%, transparent);
+    box-shadow: inset 0 1px 2px color-mix(in srgb, var(--bevel-lo) 55%, transparent);
     color: var(--muted);
     cursor: default;
 }
@@ -205,25 +236,90 @@
     font-size: var(--fs-mini);
     letter-spacing: 0.1em;
 }
-.gear-meta {
+/* ---------- 版心里的摘要（三组七行） ----------
+ * 2026-11-06 用户：「中间展示的信息太少了，可以分几个区块展示，各个装备、灵饰、
+ * 段数之类的重要信息」——于是从「特技 / 套装」两行扩成七行，按「效果 / 段数 /
+ * 奇袭」分三组。三组之间一条极淡的线，是这块唯一的装饰：七行平铺读作一张长表，
+ * 分组之后才知道自己在看哪一类。
+ *
+ * 版心只有 201 × 242，行距压到 3：12px 的字、18 的行盒，七行加两组分隔线一共
+ * 一百六十出头，四周还留得住括线的位置（summary 的上下内衬 12）。
+ *
+ * 标签右对齐：值从同一条竖线开始，七行读下来像一张参数铭牌；左对齐时
+ * 「钟灵石」三个字会把后面所有值推歪一档。
+ */
+.stage-brief {
     display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+    margin: 0;
+}
+.brief-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.brief-group + .brief-group {
+    padding-top: 5px;
+    border-top: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 46%, transparent);
+}
+.brief-row {
+    display: grid;
+    /* 标签 34：「钟灵石」三个字在 10px 下 30 出头，34 刚好；再宽就是从值那里抢，
+     * 而值这一列本来就只够放两行。 */
+    grid-template-columns: 34px minmax(0, 1fr);
     align-items: baseline;
-    gap: 10px;
-    margin-top: 9px;
-    padding-top: 7px;
-    border-top: var(--w-hair) solid var(--rule-2);
+    gap: 7px;
 }
-.gear-meta .k {
-    margin-right: 4px;
+.brief-row dt {
+    color: var(--muted);
+    font-size: var(--fs-mini);
     letter-spacing: 0.1em;
+    line-height: 1.5;
+    text-align: right;
 }
-/* 值比键深一档：`.meta` 给的是 `--muted`（键那一档），值要读得出来。 */
-.gear-meta .v {
+/* 值最多两行（`-webkit-line-clamp`，`GearTip` 的风味文本也是这么收的）。
+ *
+ * 一行放不下就省略是最省事的，但这里的值是「四件宝石各几段」这种**枚举**——
+ * 截掉后半截等于告诉你「还有几件，但我不说」。两行刚好装下四件的量
+ * （实测「太阳石 5 段 · 红玛瑙 4 段 · 月亮石 6 段」一行强塞不下），
+ * 再长的（比如套装效果整句）才在第二行尾巴上省略。 */
+.brief-row dd {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    min-width: 0;
+    overflow: hidden;
+    margin: 0;
     color: var(--ink-2);
+    font-size: var(--fs-sm);
+    line-height: 1.4;
+    /* 中文默认任意字都能断，于是「红玛瑙」会被切成「红玛」+「瑙」（实测过）。
+     * `keep-all` 之后只在空格处断——而值里的空格只有「 · 」（两件装备之间）
+     * 和「精炼 4/3/3/2」那种被 nbsp 绑住的，断点刚好都落在该断的地方。 */
+    word-break: keep-all;
+    overflow-wrap: break-word;
 }
-.gear-meta .v.seal {
+/* 特技朱、套装赭——沿用卡底那一行的两条语义色。其余四行走墨（`--ink-2`），
+ * 它们的值本身由数字带着赭色，不必再整行上色。 */
+.brief-row dd.special {
     color: var(--cinnabar);
 }
-.gear-meta .v.ochre {
+.brief-row dd.suit {
     color: var(--ochre);
+}
+/* 值里的数字：赭色 + 加粗。文楷只装 400，700 由浏览器合成，**字宽不变**，
+ * 所以 34 + 7 + 值 的栅格不会因为加粗而被顶出去（实测五位仍同宽）。 */
+.brief-row dd b {
+    color: var(--num);
+    font-weight: 700;
+}
+.brief-row dd.suit b {
+    color: var(--ochre);
+}
+/* 这一项整套装备里没有：写一个淡「—」，比留白更清楚（留白读作「漏了一行」）。
+ * 放在最后，压住 `.special` / `.suit` 的语义色——空值不该还带着朱或赭。 */
+.brief-row dd.blank {
+    color: var(--muted);
 }

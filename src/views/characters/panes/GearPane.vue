@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import IconTile from '../IconTile.vue';
 import PressTile from '../../../components/PressTile.vue';
 import {
     GEAR_LAYOUT,
     GEAR_SLOT_ICON,
+    gearBrief,
     type GearDetail,
     type GearSlot,
     type GearSlotName,
@@ -11,7 +13,7 @@ import {
 import { gearSlotIcon } from '../../../services/game-icons';
 
 /** 卡内「装备」页。拆法与理由见 `AttrPane.vue` 顶部。 */
-defineProps<{
+const props = defineProps<{
     gear: GearSlot[];
     meta: { special: string; suit: string };
 }>();
@@ -25,6 +27,19 @@ const emit = defineEmits<{
     'open-tip': [{ anchor: DOMRect; detail: GearDetail }];
     'close-tip': [];
 }>();
+
+/* 版心那七行摘要：**全部从 `gear` 现算**，一个字都不另存（规则见 `gear.ts` 的
+ * `gearBrief`）。所以录入那边改了宝石段数，版心跟着变，不存在两份数据要同步。 */
+const brief = computed(() => gearBrief(props.gear, props.meta));
+
+/* 值里的数字要单独上色加粗（全站规矩：墨 / 赭 / 朱三层，数字是赭），
+ * 所以先把一串文字切成「文字 / 数字」两种段——`5/5`、`4 / 3` 这种整段留住不拆。 */
+function numParts(value: string): { text: string; num: boolean }[] {
+    return value
+        .split(/(\d+(?:\s*\/\s*\d+)?(?:\.\d+)?)/g)
+        .filter((one) => one !== '')
+        .map((text) => ({ text, num: /^\d/.test(text) }));
+}
 
 /* `detail` 可以缺席：一格只填了「装备名」、什么都没展开时，卡上照样要显示这个名字
  * （名字就是用户填的全部信息），只是没有浮片可弹——`normalizeGearDetail` 会把
@@ -101,24 +116,36 @@ function slotInitial(slot: GearSlot): string {
                 </div>
             </template>
 
-            <!-- 中央 2 × 2：人物位，暂时空白。四角四道括线，说明「这里是版心」
-                 而不是「这里漏了一块」。 -->
-            <div class="gear-stage" aria-hidden="true">
-                <div class="corner c1"></div>
-                <div class="corner c2"></div>
-                <div class="corner c3"></div>
-                <div class="corner c4"></div>
+            <!-- 中央 2 × 2：人物位。四角四道括线说明「这里是版心」，
+                 而不是「这里漏了一块」。括线只是装饰（`aria-hidden`）；
+                 括线里面是这一身装备的**摘要**——三组七行，见 `gear.ts` 的 `gearBrief`。
+                 2026-11-06 之前它是卡底的一行（`.gear-meta`），后来提进版心、又扩成
+                 三组：用户说「中间展示的信息太少了，各个装备、灵饰、段数之类的重要信息」。 -->
+            <div class="gear-stage">
+                <div class="stage-frame" aria-hidden="true">
+                    <div class="corner c1"></div>
+                    <div class="corner c2"></div>
+                    <div class="corner c3"></div>
+                    <div class="corner c4"></div>
+                </div>
+
+                <dl class="stage-brief">
+                    <div v-for="group in brief" :key="group.key" class="brief-group">
+                        <div v-for="row in group.rows" :key="row.key" class="brief-row">
+                            <dt>{{ row.label }}</dt>
+                            <dd
+                                :class="[row.key, { blank: !row.value }]"
+                                :title="row.value || undefined"
+                            >
+                                <template v-for="(part, i) in numParts(row.value || '—')" :key="i">
+                                    <b v-if="part.num">{{ part.text }}</b>
+                                    <template v-else>{{ part.text }}</template>
+                                </template>
+                            </dd>
+                        </div>
+                    </div>
+                </dl>
             </div>
-        </div>
-        <div class="meta gear-meta">
-            <span
-                ><span class="k">特技</span
-                ><span class="v seal">{{ meta.special || '—' }}</span></span
-            >
-            <span
-                ><span class="k">套装</span
-                ><span class="v ochre">{{ meta.suit || '—' }}</span></span
-            >
         </div>
     </section>
 </template>
