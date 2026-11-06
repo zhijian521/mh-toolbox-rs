@@ -286,6 +286,7 @@ onMounted(async () => {
                 <section
                     v-show="pane === 'gear'"
                     id="editor-pane-gear"
+                    class="editor-fill"
                     role="tabpanel"
                     aria-labelledby="editor-tab-gear"
                 >
@@ -295,6 +296,7 @@ onMounted(async () => {
                 <section
                     v-show="pane === 'pets'"
                     id="editor-pane-pets"
+                    class="editor-fill"
                     role="tabpanel"
                     aria-labelledby="editor-tab-pets"
                 >
@@ -442,6 +444,20 @@ onMounted(async () => {
     padding: 12px max(0px, calc(var(--editor-pad-x) - var(--scrollbar-w))) 16px var(--editor-pad-x);
     overflow: auto;
     scrollbar-gutter: stable;
+}
+
+/* 装备 / 召唤兽这两页要**铺满可视高度**，因为它们是「左右两栏各自滚」
+ * （2026-11-06 用户：「左右部分滚动不联动」）。
+ *
+ * `height: 100%` 在这里成立：`.editor-body` 是 `flex: 1; min-height: 0`，
+ * 高度由窗口算出来，是个确定值。百分比一拿到它就等于内容区可视高度，
+ * 两栏的 `overflow: auto` 才有东西可滚——否则两栏被内容撑开，滚动又回到
+ * `.editor-body` 那一条上，左右就一起动了。
+ *
+ * 其它四页不加这个类：属性页那 20 行、师门那一列本来就该整页一起滚。 */
+.editor-fill {
+    height: 100%;
+    min-height: 0;
 }
 
 /* 辅助 / 剧情两块之间用一条账线隔开，与卡上那一页同一个说法（那里也是

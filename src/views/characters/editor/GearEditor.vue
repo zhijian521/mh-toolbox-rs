@@ -30,7 +30,13 @@ import { gearSlotIcon } from '../../../services/game-icons';
  *   · 每行一枚 22 的小白盘（与卡上同一枚的缩小版），部位不必读字就认得出；
  *   · 顶部把「部位 + 装备名」提成标题行——卡上显示的就是装备名，它该是主字段。
  *
- * 左栏 `sticky`：右侧六段比左栏高，滚到底部时「我在改哪个部位」仍然看得见。
+ * **两栏各自滚**（2026-11-06 用户：「左右部分滚动不联动」）：右栏比左栏长得多，
+ * 原来两栏跟着外层一起走，滚到底部时左栏早不知去哪了。现在整页铺满可视高度
+ * （`CharacterEditor` 的 `.editor-fill`），右栏自己滚、左栏几乎不动。
+ * 左栏的 `sticky` 因此在同一天删掉——它当初就是为了这件事。
+ *
+ * 行尾那枚 × 是「清空这一件」，只在填了的部位上出现（见 `clearByKey`）：
+ * 十二个部位是游戏定的、卡上一格一个，所以这里没有「新增」，只有「清空重填」。
  */
 const gear = defineModel<GearSlot[]>({ required: true });
 
@@ -43,17 +49,23 @@ const active = computed(() => gear.value.find((slot) => slot.slot === selected.v
 const detail = computed<GearDetail | undefined>(() => active.value?.detail);
 
 /**
- * 「这件填了没有」——**不看 `detail` 在不在**，看它有没有内容。
+ * 「这件填了没有」——**不只看 `detail` 在不在**，看它有没有内容。
  *
  * 选中部位时会先建一个空壳（见 `select`），于是「点过一圈」会留下十二个空壳：
  * 壳在，但一个字都没填。若按「壳存在」判断，右上角会显示 12 / 12、十二个点全实心，
  * 而卡上一件都不会显示——同一个数据两种说法。
+ *
+ * **装备名要先单独看一眼**（2026-11-06 烟测抓到）：它 v-model 在 `slot.caption` 上，
+ * 不在 `detail` 里；而保存时 `normalizeCharacter` 会把「只有简称、没有详情」的壳丢掉。
+ * 原先这里头一句是 `if (!d) return false`，于是重载之后**只填了装备名的那一件**
+ * 在卡上看得见、在左栏里却既不亮也不计数（`0 / 12`），连那枚 × 都拿不到——
+ * 想清空都没地方点。
  */
 function filled(slot: GearSlot): boolean {
+    if (slot.caption?.trim()) return true;
     const d = slot.detail;
     if (!d) return false;
     return Boolean(
-        slot.caption?.trim() ||
         d.name?.trim() ||
         d.kind?.trim() ||
         d.stats.length ||
@@ -84,6 +96,25 @@ function select(slot: GearSlot) {
 function selectByKey(key: string) {
     const slot = gear.value.find((row) => row.slot === key);
     if (slot) select(slot);
+}
+
+/**
+ * 清空一件：左栏行尾那枚 × 的动作（2026-11-06 用户：「都可以删除新增」，
+ * 装备这一侧的答案是「在对应位置上清空重新输入」）。
+ *
+ * 「清空」= 回到「这个部位没穿」——装备名清掉、详情整份删掉。**不是删掉这一行**：
+ * 十二个部位是游戏定的、卡上 4×4 一格一个，行不能少，只能空。
+ *
+ * 正在编辑的那一件要留一个**空壳**（`ensureDetail`）：右侧的装备名、类型、属性
+ * 都绑在 `detail` 上，删干净之后表单就没了绑定对象，清空之后反而没法重新输入。
+ * 不在这页的那几件直接删壳，少留一份垃圾（`normalizeCharacter` 保存时本来也会丢，
+ * 但编辑期间它会让点与计数失灵——见 `select` 里同一条）。 */
+function clearByKey(key: string) {
+    const slot = gear.value.find((row) => row.slot === key);
+    if (!slot) return;
+    slot.caption = '';
+    delete slot.detail;
+    if (slot.slot === selected.value) ensureDetail(slot);
 }
 
 /* 壳是临时的：`name` 预填装备名（卡上那个简称），这样「全名」不必再敲一遍；
@@ -137,14 +168,20 @@ function slotInitial(slot: GearSlot): string {
 const railItems = computed<RailItem[]>(() =>
     gear.value.map((slot) => {
         const icon = slotIcon(slot.slot);
+        const has = filled(slot);
         return {
             key: slot.slot,
             name: slot.slot,
             label: `编辑${slot.slot}的装备`,
-            filled: filled(slot),
+            filled: has,
             icon,
             mark: icon ? undefined : slotInitial(slot),
             tile: !icon,
+            /* × 只在**填了的部位**上出现：空行没什么可清，点了只会白写一次库。
+             * 装备部位是游戏固定的（卡上 4×4 一格一个、行不能少），所以这里没有
+             * 「新增」，只有「在原来的位置上清空重填」——这也是用户那一轮
+             * 「都可以删除新增」在装备这侧唯一说得通的落法（召唤兽那边才是真删）。 */
+            kill: has ? `清空${slot.slot}这一件` : undefined,
         };
     }),
 );
@@ -177,18 +214,19 @@ function addLine(target: GearDetail) {
     <div class="gear-editor">
         <!-- 十二个部位**常驻**左栏。它是这张表单的目录：从上到下就是游戏面板的顺序，
              高度不变，所以「我在改哪一件」由位置回答，不用读标题。
-             行高 30：十二行要挤进一屏（召唤兽那边只有五六行，给到 38）。 -->
+             行高 34 由 `EditorRail` 的默认值给（2026-11-06 两页统一），十二行 = 476，
+             一屏放得下；行尾那个 × 是「清空这一件」。 -->
         <EditorRail
             label="装备"
             :count="filledCount"
             :suffix="` / ${gear.length}`"
             :items="railItems"
             :selected="selected"
-            :row-height="30"
             @pick="selectByKey"
+            @kill="clearByKey"
         />
 
-        <div v-if="active" class="pane-detail">
+        <div v-if="active" class="pane-detail well upright">
             <!-- 标题行：部位 + 装备名。卡上显示的就是这个简称，所以它是主字段；
                  全名、类型、条件退到下面一行——主次分开，不必在六个框里找「哪个是名字」。 -->
             <div class="det-top">
@@ -387,23 +425,47 @@ function addLine(target: GearDetail) {
 /* 左右两栏：左栏 152 是量出来的——最长的部位名「玉魄 · 阴」在 12px 下 56 宽，
  * 加一枚 22 的盘、8 的间距、右侧的点与两边留白，正好在这个数上收口。
  * 再窄，「玉魄 · 阴」就要换行；再宽，右侧四列属性行会被挤到放不下精炼上限。
- * 左栏本体在 `EditorRail.vue`（与召唤兽共用一套），这里只放两栏的栅格。 */
+ * 左栏本体在 `EditorRail.vue`（与召唤兽共用一套），这里只放两栏的栅格。
+ *
+ * **两栏各是一道竖槽**（2026-11-06 用户：「参考开发帮助原子组件左右结构布局样式……
+ * 左右两边的背景样式保持一致」）。原先是「左栏裸着 + 右栏一条 `border-left`」，
+ * 左边一片纸、右边一片纸，只在中间划一道线——读起来是「一张表单被划开了」；
+ * 两边各自凹进去之后，才是**同一层架子上的两列**，与开发页那一对完全同构。
+ *
+ * 间距 14 → 12（与开发页同值）：两块槽之间只隔一道气口，宽了就成了三块东西。 */
 .gear-editor {
     display: grid;
+    /* 两栏等高（`stretch`，默认值）：槽是「一列」，不该一高一矮。右栏比目录长
+     * （装备详情约 690），多出来的那截是**空槽**——那是这一栏的底，不是没排完。 */
     grid-template-columns: 152px minmax(0, 1fr);
-    gap: 14px;
-    align-items: start;
+    gap: 12px;
+    /* 铺满内容区的可视高度，**两栏各自滚**（2026-11-06 用户：「左右部分滚动不联动」）。
+     * 原来这里是 `align-items: start` + 外层 `.editor-body` 一起滚，右栏滚到底时
+     * 左栏早不知滚到哪去了。高度 100% 由 `CharacterEditor` 的 `.editor-fill` 撑起来
+     * （那一段 section 有确定高度，百分比才有意义）。 */
+    height: 100%;
+    min-height: 0;
 }
 
-/* 右侧：一条竖线与左栏分开。用 `--rule`（比 `rule-2` 深一档）——这是版面分区，
- * 不是表格线，太淡会看成左栏的右边框。 */
+/* 右侧详情：**与左栏同一道竖槽**（模板上的 `well upright`），只给内衬与圆角。
+ * 深度（`--well` 底、左壁暗、顶口影、右沿与下沿的亮线、一圈褐边）由 `base.css`
+ * 那一处说了算，这里一行都不抄。
+ *
+ * 那条 `border-left` 已删：两块槽之间的界线由槽自己的边交代，
+ * 再画一道就成了「槽里还套着一条线」。
+ *
+ * 滚动条让位用 `scrollbar-gutter: stable`：装备详情一直比可视区高，轨道常驻，
+ * 切到召唤兽（不需要滚）时内容宽度也不跳——否则两页来回切会看见整块抖一下。 */
 .pane-detail {
     display: flex;
     flex-direction: column;
     gap: 7px;
     min-width: 0;
-    padding-left: 14px;
-    border-left: var(--w-hair) solid var(--rule);
+    min-height: 0;
+    padding: 10px 12px 8px;
+    border-radius: var(--r-2);
+    overflow: auto;
+    scrollbar-gutter: stable;
 }
 .det-top {
     display: flex;
