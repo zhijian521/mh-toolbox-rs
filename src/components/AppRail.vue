@@ -24,13 +24,11 @@
  */
 import { computed } from 'vue';
 import VerticalSlider from './VerticalSlider.vue';
-import SlotButton from './SlotButton.vue';
 import PressTile from './PressTile.vue';
 import markInk from '../../assets/mark-ink.png';
 import markPaper from '../../assets/mark-paper.png';
 import type { NavItem } from '../navigation';
 import { useTheme } from '../composables/use-theme';
-import { openExternal } from '../services/desktop';
 
 const props = defineProps<{ items: NavItem[]; current: string }>();
 /* 事件一律写成「名字 → 参数元组」。另一种写法 `{ (event: 'x', v: T): void }` 也能用，
@@ -42,10 +40,9 @@ const emit = defineEmits<{
     'request-dev': [];
 }>();
 
-/** 项目地址。一个仓库、没有多环境之分，写死在这里比读配置省事。 */
-const REPO_URL = 'https://github.com/zhijian521/mh-toolbox-rs';
-
-const { isDark, toggle: toggleTheme } = useTheme();
+/* 只取 `isDark`：牌记的两版图要随主题翻面。栏底原先那枚日夜切换已经删了
+ * （2026-11-06 用户：「主题切换和 github 按钮删除」），主题仍可从设置页换。 */
+const { isDark } = useTheme();
 
 /* `view: null` 的入口还没实现（见 `navigation.ts`）：字降一档色，仍可点（挂占位页）。
  * 判断留在这里而不是塞进 `VerticalSlider`——组件不该知道「有没有实现页面」这回事。 */
@@ -84,20 +81,6 @@ function onBrandClick(event: MouseEvent) {
             :options="options"
             @update:model-value="emit('update:current', $event)"
         />
-
-        <div class="rail-foot">
-            <SlotButton
-                :label="isDark ? '切到日间' : '切到夜间'"
-                :icon="isDark ? 'sun' : 'moon'"
-                @click="toggleTheme"
-            />
-
-            <SlotButton
-                label="在浏览器里打开项目仓库"
-                icon="github"
-                @click="openExternal(REPO_URL)"
-            />
-        </div>
     </aside>
 </template>
 
@@ -156,9 +139,15 @@ function onBrandClick(event: MouseEvent) {
     /* 不滚动：槽一定要整条可见，「第几档」靠的是整条槽的比例。
      * 允许滚动的代价是拇指会跑到视口外，位置感失效；而 8 档的高度是定死的，
      * 所以高度交给窗口兜底——`src-tauri/src/lib.rs` 的 `min_inner_size` 取「较大」字号
-     * （fs = 1.1）时的实测需求（侧栏 765 + 栏外那 40 的标题条 = 805，给到 812），
-     * 见那里的注释与实测表。
-     * 这里用 hidden 而不是 auto：既然保证放得下，就不要再留一条可能出现的滚动条。 */
+     * （fs = 1.1）时的实测需求，见那里的注释与实测表。
+     * 这里用 hidden 而不是 auto：既然保证放得下，就不要再留一条可能出现的滚动条。
+     *
+     * **这一笔已经花掉了。** 栏底两枚 30px 按钮（主题、仓库）删掉，沿线加内衬一起让出
+     * 约 73（1.1 档 79）；同一轮把格高从 62 加到 69（见 `VerticalSlider` 的 `--vs-cell`），
+     * 8 格吃掉 52（1.1 档 57）——那时还余二十来像素，`MIN_HEIGHT` 812 没动。
+     * 随后格高又按用户要求加到 75（1.1 档 82.5），8 格再吃 53，812 撑不住，
+     * `MIN_HEIGHT` 因此抬到 **848**、默认窗口 820 → **860**（账在 `lib.rs`）。
+     * 再想加格高、或把工具条请回来，都要回去重新量。 */
     overflow: hidden;
 }
 
@@ -235,43 +224,23 @@ function onBrandClick(event: MouseEvent) {
     height: auto;
 }
 
-/* 槽不参与 flex 分配：让它在栏顶按自身高度摆着，底部的工具条才不会被推下去。
+/* 槽不参与 flex 分配：让它在栏顶按自身高度摆着。
  * **槽顶与页头的下边框同高、不留间距**：牌记区高度与 `PageHeader` 等值，页头底线
  * 就是牌记的底边，槽从这里起排，那条账线才在视觉上「拐个弯继续走」。留 6px 的话，
- * 槽顶比右侧横线低半格，接缝处永远差一个台阶。 */
+ * 槽顶比右侧横线低半格，接缝处永远差一个台阶。
+ *
+ * **栏底原先竖排着两枚 `SlotButton`**（切日夜、开仓库，30px 见方、间距 6、上衬 6、
+ * 顶上一道账线）。2026-11-06 按用户要求整块删掉，栏里只剩「牌记 + 目录」，
+ * 槽下面那段是留白，不再是第二个功能区。
+ *
+ * 省下来的高度没有还给窗口，而是换成了格高：用户当天连着两次要求菜单格更松
+ * （内边距 5.9 → 9 → 12，见 `VerticalSlider` 的 `--vs-pad`），格高从 62 长到 75
+ * （1.1 档 82.5）。73 / 79 只够填第一档，第二次不够，`MIN_HEIGHT` 因此从 812 抬到
+ * **848**、默认窗口 820 → **860**（账在 `lib.rs` 那段注释里）。
+ * 想把工具条请回来之前先算一笔：那 73 / 79 已经花掉了。 */
 .rail-nav {
     /* 槽宽由栏给，组件自己那份 34 只在「无父级」时兜底。 */
     --vs-w: var(--rail-slot-w);
     flex: none;
-}
-
-/* ---------- 底部 ----------
- * 一枚主题、一枚仓库，竖排居中，与轨道同一条中轴。
- *
- * `margin-top: auto` 把它压到栏底：目录贴顶、工具沉底，中间那段空白是「留白」
- * 而不是「没排完」。不用 `justify-content: space-between`——那会让槽自己也被推到
- * 中部，八档的位置就随窗口高度漂了。
- *
- * 尺寸 30px 是量出来的：一开始轨道只有 34，30 与槽几乎同宽，读作「槽的延续」；
- * 槽一路加宽到 48 之后它显得细，但**没跟着放大**——两枚各加 4px 就是 8px 栏高，
- * 而这 8px 只能从最小窗口高度里出。保持正方形：`SlotButton` 的印面语义要求宽高同值，
- * 拉长一枚就成了色块。
- *
- * **间距 8 → 6、上衬 8 → 6**（2026-11-06）：槽加了上下内衬、牌记加了下方留白之后，
- * 「较大」字号档只剩 2.4px 的缝——再矮一点菜单就压到这两枚按钮上。这 4px 是从这里
- * 还回去的。后来牌记区又因为「四边留白同值」涨到 72，那 16px 这里还不动，只能抬
- * `MIN_HEIGHT`（796 → 812，见 `lib.rs` 的实测表）。
- */
-.rail-foot {
-    display: flex;
-    flex: none;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    margin-top: auto;
-    padding-top: 6px;
-    border-top: var(--w-hair) solid var(--rule);
-    --slot-h: calc(30px * var(--fs-scale));
-    --slot-w: calc(30px * var(--fs-scale));
 }
 </style>
