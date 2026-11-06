@@ -137,6 +137,8 @@ const KIT_NAV = KIT_GROUPS.map((group) => ({
 const KIT_COUNT = KIT_GROUPS.reduce((n, group) => n + group.items.length, 0);
 
 const current = ref(KIT_NAV[0].id);
+/** 当前这一组的名字与件数：右栏顶部那一行组头用它，与左栏选中的那一格同一份数据。 */
+const currentGroup = computed(() => KIT_NAV.find((group) => group.id === current.value));
 /**
  * 朱印的落点。与 `VerticalSlider` 同一套：位移写在 `style` 上而不是注入 `--i`，
  * 因为 `translateY` 是**唯一**需要序号的属性，多一个自定义属性只会多一层
@@ -273,357 +275,378 @@ const demoToggles = ref<string[]>(['task']);
                 </button>
             </nav>
 
-            <div class="kit">
-                <div v-if="current === 'choose'" class="kit-cell">
-                    <span class="col-head">
-                        <span class="kit-name">分段胶囊</span>
-                        <span class="kit-en">SegmentedPills</span>
-                    </span>
-                    <div class="kit-row">
-                        <SegmentedPills v-model="mode" :options="THEME_OPTIONS" label="主题" />
+            <div class="kit-pane well upright">
+                <div class="kit">
+                    <!-- 组头：右栏第一行写「哪一组、几件」，左边目录选中哪一行这里就回执哪一行。
+                     没有它时右栏直接从「分段胶囊」开始，读者只能靠左栏那枚朱印的位置猜上下文，
+                     两块挨得再近也读成两件事（2026-11-06 用户：「左菜单和右组件分得很开」）。
+                     图标与左栏那一格同一枚：字形是「同一个东西」的第二重证据，比文字快。 -->
+                    <div v-if="currentGroup" class="kit-head">
+                        <AppIcon :name="currentGroup.icon" />
+                        <span class="kit-group">{{ currentGroup.name }}</span>
+                        <span class="kit-group-count">{{ currentGroup.count }} 件</span>
                     </div>
-                    <p class="note">
-                        整组一个 Tab 停靠点；单格质感走全局 <code>.bevel-pill</code>。
-                    </p>
-                </div>
+                    <div v-if="current === 'choose'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">分段胶囊</span>
+                            <span class="kit-en">SegmentedPills</span>
+                        </span>
+                        <div class="kit-row">
+                            <SegmentedPills v-model="mode" :options="THEME_OPTIONS" label="主题" />
+                        </div>
+                        <p class="note">
+                            整组一个 Tab 停靠点；单格质感走全局 <code>.bevel-pill</code>。
+                        </p>
+                    </div>
 
-                <div v-if="current === 'choose'" class="kit-cell">
-                    <span class="col-head">
-                        <span class="kit-name">多选胶囊</span>
-                        <span class="kit-en">TogglePills</span>
-                    </span>
-                    <div class="kit-row">
-                        <TogglePills
-                            v-model="demoToggles"
-                            :options="DEMO_TOGGLES"
-                            label="演示：多选"
-                        />
+                    <div v-if="current === 'choose'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">多选胶囊</span>
+                            <span class="kit-en">TogglePills</span>
+                        </span>
+                        <div class="kit-row">
+                            <TogglePills
+                                v-model="demoToggles"
+                                :options="DEMO_TOGGLES"
+                                label="演示：多选"
+                            />
+                        </div>
+                        <p class="note">
+                            与分段胶囊同一套材质，语义是一组<b>开关</b>：左右键只移焦点、空格切换，
+                            按下第二枚不会弹起第一枚。
+                        </p>
                     </div>
-                    <p class="note">
-                        与分段胶囊同一套材质，语义是一组<b>开关</b>：左右键只移焦点、空格切换，
-                        按下第二枚不会弹起第一枚。
-                    </p>
-                </div>
 
-                <div v-if="current === 'choose'" class="kit-cell">
-                    <span class="col-head">
-                        <span class="kit-name">两格开关</span>
-                        <span class="kit-en">CostSwitch</span>
-                    </span>
-                    <div class="kit-row kit-row-sw">
-                        <CostSwitch v-model="recorded" off-label="否" on-label="是" />
-                        <CostSwitch v-model="autoSave" off-label="手动" on-label="自动" />
+                    <div v-if="current === 'choose'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">两格开关</span>
+                            <span class="kit-en">CostSwitch</span>
+                        </span>
+                        <div class="kit-row kit-row-sw">
+                            <CostSwitch v-model="recorded" off-label="否" on-label="是" />
+                            <CostSwitch v-model="autoSave" off-label="手动" on-label="自动" />
+                        </div>
+                        <p class="note">
+                            文案走 <code>off-label</code> /
+                            <code>on-label</code>；关闭是灭灯，不是变灰。
+                        </p>
                     </div>
-                    <p class="note">
-                        文案走 <code>off-label</code> /
-                        <code>on-label</code>；关闭是灭灯，不是变灰。
-                    </p>
-                </div>
-                <div v-if="current === 'choose'" class="kit-cell">
-                    <span class="col-head">
-                        <span class="kit-name">三档滑块</span>
-                        <span class="kit-en">FontSizeSlider</span>
-                    </span>
-                    <div class="kit-row">
-                        <FontSizeSlider v-model="scale" />
+                    <div v-if="current === 'choose'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">三档滑块</span>
+                            <span class="kit-en">FontSizeSlider</span>
+                        </span>
+                        <div class="kit-row">
+                            <FontSizeSlider v-model="scale" />
+                        </div>
+                        <p class="note">三档，不是连续值；240ms 回弹落格。</p>
                     </div>
-                    <p class="note">三档，不是连续值；240ms 回弹落格。</p>
-                </div>
 
-                <div v-if="current === 'choose'" class="kit-cell">
-                    <span class="col-head">
-                        <span class="kit-name">多档滑块 / 页签条</span>
-                        <span class="kit-en">SteppedSlider</span>
-                    </span>
-                    <!-- 两条并排（2026-11-06 从上下两行改成一行）：差在 `--step-pad-y`——默认 3 →
+                    <div v-if="current === 'choose'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">多档滑块 / 页签条</span>
+                            <span class="kit-en">SteppedSlider</span>
+                        </span>
+                        <!-- 两条并排（2026-11-06 从上下两行改成一行）：差在 `--step-pad-y`——默认 3 →
                      格子 23、整条 29；6 → 格子 29、整条 35。行内嵌的开关用前者，卡内六格页签用
                      后者（点得准）。并排比上下更能看出那 6px：两条的格顶在同一条线上，
                      一眼就是「同一件东西的两个高度」，上下两行则要先在脑子里叠一次。 -->
-                    <div class="kit-row">
-                        <SteppedSlider
-                            v-model="demoPane"
-                            :options="DEMO_PANES"
-                            label="演示：默认尺寸"
-                            class="kit-steps kit-steps-half"
-                        />
-                        <SteppedSlider
-                            v-model="demoPane"
-                            :options="DEMO_PANES"
-                            as="tab"
-                            label="演示：页签条（加高一档）"
-                            class="kit-steps kit-steps-half kit-steps-tall"
-                        />
+                        <div class="kit-row">
+                            <SteppedSlider
+                                v-model="demoPane"
+                                :options="DEMO_PANES"
+                                label="演示：默认尺寸"
+                                class="kit-steps kit-steps-half"
+                            />
+                            <SteppedSlider
+                                v-model="demoPane"
+                                :options="DEMO_PANES"
+                                as="tab"
+                                label="演示：页签条（加高一档）"
+                                class="kit-steps kit-steps-half kit-steps-tall"
+                            />
+                        </div>
+                        <p class="note">
+                            <code>as="tab"</code> 只换 ARIA 不换几何；高度走
+                            <code>--step-pad-y</code>，不认 prop。
+                        </p>
                     </div>
-                    <p class="note">
-                        <code>as="tab"</code> 只换 ARIA 不换几何；高度走
-                        <code>--step-pad-y</code>，不认 prop。
-                    </p>
-                </div>
-                <div v-if="current === 'choose'" class="kit-cell">
-                    <span class="col-head">
-                        <span class="kit-name">下拉</span>
-                        <span class="kit-en">SelectField</span>
-                    </span>
-                    <div class="kit-row">
-                        <SelectField
-                            v-model="demoSchool"
-                            class="demo-select"
-                            :options="DEMO_SCHOOLS"
-                            label="演示：门派"
-                            placeholder="未选"
-                        />
+                    <div v-if="current === 'choose'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">下拉</span>
+                            <span class="kit-en">SelectField</span>
+                        </span>
+                        <div class="kit-row">
+                            <SelectField
+                                v-model="demoSchool"
+                                class="demo-select"
+                                :options="DEMO_SCHOOLS"
+                                label="演示：门派"
+                                placeholder="未选"
+                            />
+                        </div>
+                        <p class="note">
+                            <b>焦点不离开触发条</b>（<code>aria-activedescendant</code>）；
+                            <code>Esc</code> 只收列表并吞掉事件——它常长在弹窗里，弹窗也听 Esc。
+                        </p>
                     </div>
-                    <p class="note">
-                        <b>焦点不离开触发条</b>（<code>aria-activedescendant</code>）；
-                        <code>Esc</code> 只收列表并吞掉事件——它常长在弹窗里，弹窗也听 Esc。
-                    </p>
-                </div>
 
-                <div v-if="current === 'action'" class="kit-cell">
-                    <span class="col-head">
-                        <span class="kit-name">槽按钮</span>
-                        <span class="kit-en">SlotButton</span>
-                    </span>
-                    <!-- 一行看四种形态；下一行是 `seal` 与两档尺寸。
+                    <div v-if="current === 'action'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">槽按钮</span>
+                            <span class="kit-en">SlotButton</span>
+                        </span>
+                        <!-- 一行看四种形态；下一行是 `seal` 与两档尺寸。
                      **不再另起一行演示 `md` / `lg` 的纯文字按钮**（2026-11-06 删）：
                      尺寸只由高度决定，与里面装的是字还是图标无关，下面那行已经把它说完了。 -->
-                    <div class="kit-row">
-                        <SlotButton label="纯图标" icon="archive" />
-                        <SlotButton label="图标加文字" icon="download" text="导出" />
-                        <SlotButton label="纯文字" text="刷新" />
-                        <SlotButton label="禁用" icon="trash" text="清除" disabled />
+                        <div class="kit-row">
+                            <SlotButton label="纯图标" icon="archive" />
+                            <SlotButton label="图标加文字" icon="download" text="导出" />
+                            <SlotButton label="纯文字" text="刷新" />
+                            <SlotButton label="禁用" icon="trash" text="清除" disabled />
+                        </div>
+                        <div class="kit-row">
+                            <SlotButton label="主操作 26px" icon="play" text="开始" seal />
+                            <SlotButton
+                                label="主操作 31px"
+                                icon="play"
+                                text="开始"
+                                size="lg"
+                                seal
+                            />
+                        </div>
+                        <p class="note">
+                            形态由 props 定（只 <code>icon</code> / <code>icon</code> +
+                            <code>text</code> / 只 <code>text</code>）。<code>seal</code>
+                            是变体，印面常驻， 一屏一枚；尺寸 <code>md</code> 26 /
+                            <code>lg</code> 31。
+                        </p>
                     </div>
-                    <div class="kit-row">
-                        <SlotButton label="主操作 26px" icon="play" text="开始" seal />
-                        <SlotButton label="主操作 31px" icon="play" text="开始" size="lg" seal />
-                    </div>
-                    <p class="note">
-                        形态由 props 定（只 <code>icon</code> / <code>icon</code> +
-                        <code>text</code> / 只 <code>text</code>）。<code>seal</code>
-                        是变体，印面常驻， 一屏一枚；尺寸 <code>md</code> 26 / <code>lg</code> 31。
-                    </p>
-                </div>
 
-                <div v-if="current === 'tip'" class="kit-cell">
-                    <span class="col-head">
-                        <span class="kit-name">消息提示</span>
-                        <span class="kit-en">Notify</span>
-                    </span>
-                    <div class="kit-row">
-                        <PressButton
-                            icon="check"
-                            text="成功"
-                            label="演示：成功提示"
-                            @click="notify.success('已保存')"
-                        />
-                        <PressButton
-                            icon="close"
-                            text="失败"
-                            label="演示：失败提示"
-                            @click="notify.error('保存失败：这条记录已经不在了')"
-                        />
-                        <PressButton
-                            icon="info"
-                            text="中性"
-                            label="演示：中性提示"
-                            @click="notify.info('已取消')"
-                        />
+                    <div v-if="current === 'tip'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">消息提示</span>
+                            <span class="kit-en">Notify</span>
+                        </span>
+                        <div class="kit-row">
+                            <PressButton
+                                icon="check"
+                                text="成功"
+                                label="演示：成功提示"
+                                @click="notify.success('已保存')"
+                            />
+                            <PressButton
+                                icon="close"
+                                text="失败"
+                                label="演示：失败提示"
+                                @click="notify.error('保存失败：这条记录已经不在了')"
+                            />
+                            <PressButton
+                                icon="info"
+                                text="中性"
+                                label="演示：中性提示"
+                                @click="notify.info('已取消')"
+                            />
+                        </div>
+                        <p class="note">
+                            三秒自收、悬停停表、点一下收走。业务页只在操作后才出现——这里是唯一能看到它的地方。
+                        </p>
                     </div>
-                    <p class="note">
-                        三秒自收、悬停停表、点一下收走。业务页只在操作后才出现——这里是唯一能看到它的地方。
-                    </p>
-                </div>
 
-                <div v-if="current === 'input'" class="kit-cell">
-                    <span class="col-head">
-                        <span class="kit-name">输入格 / 数字格</span>
-                        <span class="kit-en">Field / NumberField</span>
-                    </span>
-                    <div class="kit-row">
-                        <input
-                            class="field kit-field"
-                            placeholder="角色名"
-                            aria-label="演示：角色名"
-                        />
-                        <NumberField
-                            :model-value="demoLevel"
-                            label="演示：等级"
-                            class="kit-field-num"
-                            @update:model-value="demoLevel = $event"
-                        />
-                        <input
-                            class="field kit-field-num"
-                            placeholder="上限"
-                            aria-label="演示：留空的上限"
-                        />
+                    <div v-if="current === 'input'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">输入格 / 数字格</span>
+                            <span class="kit-en">Field / NumberField</span>
+                        </span>
+                        <div class="kit-row">
+                            <input
+                                class="field kit-field"
+                                placeholder="角色名"
+                                aria-label="演示：角色名"
+                            />
+                            <NumberField
+                                :model-value="demoLevel"
+                                label="演示：等级"
+                                class="kit-field-num"
+                                @update:model-value="demoLevel = $event"
+                            />
+                            <input
+                                class="field kit-field-num"
+                                placeholder="上限"
+                                aria-label="演示：留空的上限"
+                            />
+                        </div>
+                        <div class="kit-row">
+                            <textarea
+                                class="field area kit-area"
+                                rows="2"
+                                placeholder="多行：每行一条"
+                                aria-label="演示：多行输入"
+                            />
+                        </div>
+                        <p class="note">
+                            高与 <code>PressButton</code> 的
+                            <code>md</code> 同值；焦点换边色、不画外框 ——方框压在圆角上会露四个角。
+                        </p>
                     </div>
-                    <div class="kit-row">
-                        <textarea
-                            class="field area kit-area"
-                            rows="2"
-                            placeholder="多行：每行一条"
-                            aria-label="演示：多行输入"
-                        />
-                    </div>
-                    <p class="note">
-                        高与 <code>PressButton</code> 的 <code>md</code> 同值；焦点换边色、不画外框
-                        ——方框压在圆角上会露四个角。
-                    </p>
-                </div>
 
-                <div v-if="current === 'input'" class="kit-cell">
-                    <span class="col-head">
-                        <span class="kit-name">价格格</span>
-                        <span class="kit-en">PriceField</span>
-                    </span>
-                    <!-- 两档并排（2026-11-06 从上下两行改成一行）：lg 带加减、md 不带，
+                    <div v-if="current === 'input'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">价格格</span>
+                            <span class="kit-en">PriceField</span>
+                        </span>
+                        <!-- 两档并排（2026-11-06 从上下两行改成一行）：lg 带加减、md 不带，
                      差的是字与内衬，槽还是同一道槽。并排才看得出「同一道槽」。 -->
-                    <div class="kit-row">
-                        <PriceField
-                            v-model="demoPrice"
-                            label="这一笔多少钱"
-                            class="kit-price kit-price-half"
-                            stepper
-                        />
-                        <PriceField
-                            v-model="demoPriceMd"
-                            label="md 档 · 无加减"
-                            class="kit-price kit-price-half"
-                            size="md"
-                        />
+                        <div class="kit-row">
+                            <PriceField
+                                v-model="demoPrice"
+                                label="这一笔多少钱"
+                                class="kit-price kit-price-half"
+                                stepper
+                            />
+                            <PriceField
+                                v-model="demoPriceMd"
+                                label="md 档 · 无加减"
+                                class="kit-price kit-price-half"
+                                size="md"
+                            />
+                        </div>
+                        <p class="note">
+                            只收「万」，<b>值进出仍是游戏币原值</b>（这里 320 万 = 3200000）；
+                            两侧步长按量级换（一千万以上 ±100 万）。
+                        </p>
                     </div>
-                    <p class="note">
-                        只收「万」，<b>值进出仍是游戏币原值</b>（这里 320 万 = 3200000）；
-                        两侧步长按量级换（一千万以上 ±100 万）。
-                    </p>
-                </div>
 
-                <div v-if="current === 'read'" class="kit-cell">
-                    <span class="col-head">
-                        <span class="kit-name">数值签</span>
-                        <span class="kit-en">NumTag</span>
-                    </span>
-                    <div class="kit-row">
-                        <NumTag class="kit-tag">
-                            <span class="kit-tag-note">满</span>
-                            <span>180</span>
-                        </NumTag>
-                        <!-- 不给 `--tag-*` 时宽高由内容定：这枚只装一个短数，摆在行内当读数。 -->
-                        <NumTag>26</NumTag>
+                    <div v-if="current === 'read'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">数值签</span>
+                            <span class="kit-en">NumTag</span>
+                        </span>
+                        <div class="kit-row">
+                            <NumTag class="kit-tag">
+                                <span class="kit-tag-note">满</span>
+                                <span>180</span>
+                            </NumTag>
+                            <!-- 不给 `--tag-*` 时宽高由内容定：这枚只装一个短数，摆在行内当读数。 -->
+                            <NumTag>26</NumTag>
+                        </div>
+                        <p class="note">
+                            只装一个数，<b>不是输入框</b>，悬停不加深。材质走全局
+                            <code>.num-slot</code>；宽高由 <code>--tag-w</code> /
+                            <code>--tag-h</code>
+                            给（卡上 56 × 24），数居中。
+                        </p>
                     </div>
-                    <p class="note">
-                        只装一个数，<b>不是输入框</b>，悬停不加深。材质走全局
-                        <code>.num-slot</code>；宽高由 <code>--tag-w</code> /
-                        <code>--tag-h</code>
-                        给（卡上 56 × 24），数居中。
-                    </p>
-                </div>
 
-                <div v-if="current === 'read'" class="kit-cell">
-                    <span class="col-head">
-                        <span class="kit-name">进度条</span>
-                        <span class="kit-en">MeterBar</span>
-                    </span>
-                    <!-- 两行差在 `--meter-h`：默认 10 是行内嵌用，14 是「独占一行当读数」用。
+                    <div v-if="current === 'read'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">进度条</span>
+                            <span class="kit-en">MeterBar</span>
+                        </span>
+                        <!-- 两行差在 `--meter-h`：默认 10 是行内嵌用，14 是「独占一行当读数」用。
                      摆在同一张卡上，才看得出那 4px 在真实版式里意味着什么。
                      这台卡原先复制成了两张一模一样的（2026-11-02 合并）。 -->
-                    <div class="kit-row">
-                        <MeterBar
-                            :percent="72"
-                            label="演示：进度 72%（默认 10px）"
-                            text="3,777.2万 / 4,200万"
-                        />
-                    </div>
-                    <div class="kit-row kit-meter-lg">
-                        <!-- 分母未知：轨道空着、不写 aria-valuenow。与「0%」是两件事。 -->
-                        <MeterBar
-                            :percent="null"
-                            label="演示：进度未知（加大 14px）"
-                            text="3,777.2万"
-                        />
-                    </div>
-                    <p class="note">
-                        它<b>不是滑块</b>：没有落点、不能拖。分母未知时轨道留空，不画成 0%。 高度走
-                        <code>--meter-h</code>（经验条给 14）。
-                    </p>
-                </div>
-
-                <div v-if="current === 'read'" class="kit-cell">
-                    <span class="col-head">
-                        <span class="kit-name">统计条</span>
-                        <span class="kit-en">StatStrip</span>
-                    </span>
-                    <!-- 四格是收益页与总览页的实际用法，这里也让它撑满整行（见 `.demo-stats`）：
-                     四格等分要靠整行宽度才看得出来，缩在一半里会读成一张卡。 -->
-                    <div class="kit-row">
-                        <StatStrip :items="DEMO_STATS" class="demo-stats" />
-                    </div>
-                    <p class="note">
-                        四枚<b>压印签</b>，材质与物价卡同一块（<code>PressTile</code> 的
-                        <code>wide</code> 档：大块要把左上那颗偏光收小）。每格三层——名目、读数、
-                        副文；副文<b>左端说构成、右端说较上一档</b>，且不上色（四格的「好」方向不同，
-                        方向交给 +/−）。列数由 <code>items.length</code> 决定。
-                    </p>
-                </div>
-
-                <div v-if="current === 'input'" class="kit-cell">
-                    <span class="col-head">
-                        <span class="kit-name">日期选择</span>
-                        <span class="kit-en">DateField</span>
-                    </span>
-                    <div class="kit-row">
-                        <DateField v-model="demoDate" class="demo-date" label="演示：选日期" />
-                    </div>
-                    <p class="note">
-                        槽 + 一张月历纸片，<b>不用原生 <code>&lt;input type="date"&gt;</code></b>
-                        （系统月历与这套材质不兼容）。整张月历一个 Tab 停靠点，方向键换日、
-                        <code>PgUp/PgDn</code> 换月。
-                    </p>
-                </div>
-
-                <div v-if="current === 'action'" class="kit-cell">
-                    <span class="col-head">
-                        <span class="kit-name">压印块 / 按钮</span>
-                        <span class="kit-en">PressTile / PressButton</span>
-                    </span>
-                    <div class="kit-row">
-                        <div class="kit-tiles">
-                            <PressTile class="kit-tile"><AppIcon name="tools" /></PressTile>
-                            <PressTile class="kit-tile kit-tile-sm"
-                                ><AppIcon name="pin"
-                            /></PressTile>
+                        <div class="kit-row">
+                            <MeterBar
+                                :percent="72"
+                                label="演示：进度 72%（默认 10px）"
+                                text="3,777.2万 / 4,200万"
+                            />
                         </div>
+                        <div class="kit-row kit-meter-lg">
+                            <!-- 分母未知：轨道空着、不写 aria-valuenow。与「0%」是两件事。 -->
+                            <MeterBar
+                                :percent="null"
+                                label="演示：进度未知（加大 14px）"
+                                text="3,777.2万"
+                            />
+                        </div>
+                        <p class="note">
+                            它<b>不是滑块</b>：没有落点、不能拖。分母未知时轨道留空，不画成 0%。
+                            高度走
+                            <code>--meter-h</code>（经验条给 14）。
+                        </p>
                     </div>
-                    <!-- 第一行压印块，第二行四种内容（纯文字 / 图标带字 / 纯图标 / 灌朱），
+
+                    <div v-if="current === 'read'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">统计条</span>
+                            <span class="kit-en">StatStrip</span>
+                        </span>
+                        <!-- 四格是收益页与总览页的实际用法，这里也让它撑满整行（见 `.demo-stats`）：
+                     四格等分要靠整行宽度才看得出来，缩在一半里会读成一张卡。 -->
+                        <div class="kit-row">
+                            <StatStrip :items="DEMO_STATS" class="demo-stats" />
+                        </div>
+                        <p class="note">
+                            四枚<b>压印签</b>，材质与物价卡同一块（<code>PressTile</code> 的
+                            <code>wide</code> 档：大块要把左上那颗偏光收小）。每格三层——名目、读数、
+                            副文；副文<b>左端说构成、右端说较上一档</b>，且不上色（四格的「好」方向不同，
+                            方向交给 +/−）。列数由 <code>items.length</code> 决定。
+                        </p>
+                    </div>
+
+                    <div v-if="current === 'input'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">日期选择</span>
+                            <span class="kit-en">DateField</span>
+                        </span>
+                        <div class="kit-row">
+                            <DateField v-model="demoDate" class="demo-date" label="演示：选日期" />
+                        </div>
+                        <p class="note">
+                            槽 + 一张月历纸片，<b
+                                >不用原生 <code>&lt;input type="date"&gt;</code></b
+                            >
+                            （系统月历与这套材质不兼容）。整张月历一个 Tab 停靠点，方向键换日、
+                            <code>PgUp/PgDn</code> 换月。
+                        </p>
+                    </div>
+
+                    <div v-if="current === 'action'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">压印块 / 按钮</span>
+                            <span class="kit-en">PressTile / PressButton</span>
+                        </span>
+                        <div class="kit-row">
+                            <div class="kit-tiles">
+                                <PressTile class="kit-tile"><AppIcon name="tools" /></PressTile>
+                                <PressTile class="kit-tile kit-tile-sm"
+                                    ><AppIcon name="pin"
+                                /></PressTile>
+                            </div>
+                        </div>
+                        <!-- 第一行压印块，第二行四种内容（纯文字 / 图标带字 / 纯图标 / 灌朱），
                      第三行尺寸：内容和「槽多大」不是一种分类，混在一行读起来像四个尺寸。 -->
-                    <div class="kit-row">
-                        <PressButton text="归档" label="归档：纯文字按钮" />
-                        <PressButton icon="download" text="导出" label="导出：图标 + 文字" />
-                        <PressButton icon="pin" label="纯图标按钮" />
-                        <PressButton
-                            icon="play"
-                            text="开始"
-                            label="开始：主操作（块面灌朱）"
-                            seal
-                        />
-                    </div>
-                    <!-- 三档按小到大排：并排才看得出 `sm` 是**注脚级**、不是「小一号的 md」
+                        <div class="kit-row">
+                            <PressButton text="归档" label="归档：纯文字按钮" />
+                            <PressButton icon="download" text="导出" label="导出：图标 + 文字" />
+                            <PressButton icon="pin" label="纯图标按钮" />
+                            <PressButton
+                                icon="play"
+                                text="开始"
+                                label="开始：主操作（块面灌朱）"
+                                seal
+                            />
+                        </div>
+                        <!-- 三档按小到大排：并排才看得出 `sm` 是**注脚级**、不是「小一号的 md」
                      ——差 6px，且字号与内距一起降。
                      第四行原先还放了「sm 档的导出 / 导入」（收益页那个真身），2026-11-06 删：
                      它与这一行的 `sm` 是同一个东西，只是在演示同一个档位的用途。 -->
-                    <div class="kit-row">
-                        <PressButton text="sm" size="sm" label="注脚级 20px" />
-                        <PressButton text="md" label="默认 26px" />
-                        <PressButton text="lg" label="大一号 31px" size="lg" />
+                        <div class="kit-row">
+                            <PressButton text="sm" size="sm" label="注脚级 20px" />
+                            <PressButton text="md" label="默认 26px" />
+                            <PressButton text="lg" label="大一号 31px" size="lg" />
+                        </div>
+                        <p class="note">
+                            上排是<b>块</b>（工具页图标格、左栏牌记），下面两排是<b>按钮</b>：同一块纸，
+                            <code>seal</code> 把块面灌朱，一屏一枚。尺寸 <code>sm</code> 20 /
+                            <code>md</code> 26 / <code>lg</code> 31——
+                            <code>md</code> 与槽按钮逐像素同值，<code>sm</code>
+                            是注脚级（塞在说明行右端、读数格边上，字号与内距一并收窄）。
+                            <b>但一凹一凸是两种材质，别混在同一行</b>。
+                        </p>
                     </div>
-                    <p class="note">
-                        上排是<b>块</b>（工具页图标格、左栏牌记），下面两排是<b>按钮</b>：同一块纸，
-                        <code>seal</code> 把块面灌朱，一屏一枚。尺寸 <code>sm</code> 20 /
-                        <code>md</code> 26 / <code>lg</code> 31——
-                        <code>md</code> 与槽按钮逐像素同值，<code>sm</code>
-                        是注脚级（塞在说明行右端、读数格边上，字号与内距一并收窄）。
-                        <b>但一凹一凸是两种材质，别混在同一行</b>。
-                    </p>
                 </div>
             </div>
         </div>
@@ -641,7 +664,9 @@ const demoToggles = ref<string[]>(['task']);
 .atoms-split {
     display: grid;
     grid-template-columns: calc(132px * var(--fs-scale)) minmax(0, 1fr);
-    gap: 18px;
+    /* 18 → 12：目录与正文之间只隔一道气口。宽到 18 时（再加上右栏自己的 132 名目列）
+     * 从左栏的边到第一件控件要走 170 多像素，两栏读起来是两块东西。 */
+    gap: 12px;
     height: 100%;
     min-height: 0;
 }
@@ -684,6 +709,9 @@ const demoToggles = ref<string[]>(['task']);
     grid-auto-rows: var(--nav-cell);
     align-content: start;
     row-gap: var(--nav-gap);
+    /* **铺满整列**（2026-11-06 用户先试过收成内容高，随即改回）：「左侧菜单背景还是撑满」。
+     * 右边有了自己的一块底色之后，两栏高度不一会把卡切成两块高矮不齐的板；
+     * 撑满之后它们是同一层架子上的两道竖列。 */
     align-self: stretch;
     max-height: 100%;
     padding: 4px;
@@ -820,6 +848,31 @@ const demoToggles = ref<string[]>(['task']);
     color: color-mix(in srgb, var(--on-seal) 72%, transparent);
 }
 
+/* 正文区托在一块纸上（2026-11-06 用户：「给右边也加个区块啥的背景，或者凹陷的背景」）。
+ *
+ * 左栏那道槽是「目录」，右边这一块是「正文」——两栏各自有底色，才读作同一层架子上
+ * 的两列；原来右栏直接落在卡面的白纸上，左边一块槽、右边一片空，读成两件事。
+ *
+ * **深度直接借 `.well upright`**（模板上的两个类，与左栏那道目录槽同一套）：
+ * 底色 `--well`、左壁暗、顶口暗、右沿与下沿受光亮线、一圈褐线，全由 `base.css` 那一处
+ * 说了算，组件里只给内衬与圆角。
+ *
+ * 原先是光秃秃的 `.well`（只压 180° 的顶影），方向与左栏不一致——左边那道是「竖槽，
+ * 左壁暗、右壁亮」，右边却「顶边暗、底边亮」，两块并排时读者得当作两种东西看
+ * （2026-11-06 用户：「右侧样式也直接使用左侧菜单背景的样式好了」）。换 `upright`
+ * 之后两栏的光向一致，左壁暗带都用 10px 的固定宽度，窄槽与大面板读作同一种语言。
+ *
+ * **不加落地影**：它是「卡上的一块凹面」，不是卡里再套一张卡——开发页早先六宫格
+ * 那版正是这个毛病。凹面越宽越不能靠影，只能靠壁与边的明暗。
+ */
+.kit-pane {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    padding: calc(10px * var(--fs-scale)) calc(14px * var(--fs-scale)) calc(6px * var(--fs-scale));
+    border-radius: var(--r-2);
+}
+
 /* 一组一件一行，像账本上的一笔：左边名目，右边样子与说明。
  *
  * 原先是两列六宫格：六块等大的带框小卡嵌在这张 `.board` 里，读作「卡里还套着卡」；
@@ -829,6 +882,9 @@ const demoToggles = ref<string[]>(['task']);
  */
 .kit {
     display: flex;
+    /* 撑满 `.kit-pane` 的内容盒：底色归 pane，滚动归这里。 */
+    flex: 1;
+    min-width: 0;
     flex-direction: column;
     /* 右栏自己滚（2026-11-06）：卡高写死之后，「这一组比卡还长」的退路就在这儿。
      * 让位用轨道真宽（`--scrollbar-w`）再用等量负外边距补回：滚动条压进卡的内边距里，
@@ -840,17 +896,46 @@ const demoToggles = ref<string[]>(['task']);
 }
 .kit-cell {
     display: grid;
-    grid-template-columns: calc(132px * var(--fs-scale)) minmax(0, 1fr);
+    /* 名目列 132 → 108（2026-11-06）：它与左栏目录同宽时，两条 132 的竖列并排，
+     * 眼睛先读出「两个一样的列」再读内容，反而把左右推远；收窄一档之后它是
+     * 「每条的名字」，不再跟目录抢同一条轴线。五位组件名 87.5，108 仍留 20 的余量。 */
+    grid-template-columns: calc(108px * var(--fs-scale)) minmax(0, 1fr);
     /* 行距 9：一行里有三排演示时（槽按钮的形态 / 尺寸），3px 会把它们糊成一片，
      * 分不出是「一组三种形态」还是「三组各一枚」。 */
     gap: 9px 20px;
     padding: 13px 0;
     border-top: var(--w-hair) solid var(--rule);
 }
-/* 第一件不画线：上面是这张卡的标题栏，再画一道就成了两条。 */
+/* 第一件不画线：上面是这张卡的标题栏，再画一道就成了两条。
+ * 有了组头之后，这条规则轮不到第一件（它是 `:nth-child(2)`），那道线正好落在
+ * 「组头 / 第一件」之间，读作表头下的分界——要的就是它。 */
 .kit-cell:first-child {
     padding-top: 2px;
     border-top: 0;
+}
+/* 组头：哪一组、几件。图标与左栏那一格同一枚，字形对上之后不用读字也知道是同一处。
+ * 字重照全站规矩（不加粗），靠 `--ink` 与 `--muted` 的墨色差分层。 */
+.kit-head {
+    --icon-size: calc(15px * var(--fs-scale));
+
+    display: flex;
+    align-items: center;
+    gap: calc(8px * var(--fs-scale));
+    padding: 2px 0 calc(7px * var(--fs-scale));
+}
+.kit-group {
+    font-family: var(--font-ui);
+    font-size: var(--fs-base);
+    line-height: 1.3;
+    color: var(--ink);
+}
+.kit-group-count {
+    /* 紧跟在组名后面，不推到行尾：卡片通栏一千多像素，`margin-left: auto` 会把
+     * 「6 件」甩到最右边，与组名隔八百像素，读成两个不相干的数。 */
+    font-size: var(--fs-mini);
+    line-height: 1.35;
+    letter-spacing: 0.05em;
+    color: var(--muted);
 }
 /* 名目列在左，演示行与说明一律进右列；列写死之后行数由内容自己长。 */
 .kit-cell > * {
