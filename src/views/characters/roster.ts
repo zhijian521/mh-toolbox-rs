@@ -24,7 +24,8 @@
  * 不是数组），由调用方决定用种子还是空名册；单条坏掉不牵连整份名册。
  */
 import { ref } from 'vue';
-import { charactersLoad, charactersSave, hasDesktop } from '../../services/desktop';
+import { hasDesktop } from '../../services/desktop';
+import { charactersLoad, charactersSave } from '../../services/storage';
 import { schoolNames } from '../../services/game-data';
 import { createPersist } from '../../services/persist';
 /* 形状兜底全在 `services/shape.ts`（与物价页共用一份）。两个本地别名值得看清：
@@ -39,14 +40,12 @@ import {
     type AttrGroup,
     type AttrRow,
     type CharacterData,
-    type GearDetail,
     type GearSlot,
-    type GearStat,
-    type GearTone,
     type Pet,
     type SkillRow,
     type TrainingGroup,
 } from './character';
+import { normalizeGearDetail, normalizePet } from './details';
 import { schoolSkills } from './schools';
 
 const STORAGE_KEY = 'mh-roster';
@@ -66,13 +65,6 @@ const STORAGE_KEY = 'mh-roster';
  */
 const optionalInt = (value: unknown): number | undefined =>
     typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : undefined;
-
-/** 可选的字符串字段：空串一律还原成 `undefined`，否则 `v-if="row.extra"` 仍会画一个空 span。 */
-const optionalText = (value: unknown): string | undefined =>
-    typeof value === 'string' && value ? value : undefined;
-
-const GEAR_TONES: GearTone[] = ['seal', 'ochre', 'moss'];
-const asTone = (value: unknown): GearTone | undefined => GEAR_TONES.find((tone) => tone === value);
 
 /* ======================================================================
  * 空白角色的骨架
@@ -241,53 +233,6 @@ function normalizeAttrGroups(source: Record<string, unknown>): AttrGroup[] {
     }));
 }
 
-function normalizeGearStat(raw: unknown): GearStat | null {
-    if (!isObject(raw)) return null;
-    const label = text(raw.label);
-    if (!label) return null;
-    return {
-        label,
-        value: text(raw.value),
-        extra: optionalText(raw.extra),
-        gain: raw.gain === true ? true : undefined,
-    };
-}
-
-function normalizeGearStats(raw: unknown): GearStat[] {
-    return rows(raw).flatMap((stat) => {
-        const normalized = normalizeGearStat(stat);
-        return normalized ? [normalized] : [];
-    });
-}
-
-function normalizeGearDetail(raw: unknown): GearDetail | undefined {
-    if (!isObject(raw)) return undefined;
-    const name = text(raw.name);
-    const kind = text(raw.kind);
-    /* 名称与类型都没填 = 这件还没录，不是「一件没有名字的装备」。
-     * 造一个空壳会让浮片浮出一张白纸——比什么都不弹更让人以为坏了。 */
-    if (!name && !kind) return undefined;
-
-    const requires = rows(raw.requires).map(text).filter(Boolean);
-    const lines = rows(raw.lines).flatMap((line) => {
-        if (!isObject(line)) return [];
-        const label = text(line.label);
-        if (!label) return [];
-        return [{ label, value: text(line.value), tone: asTone(line.tone) }];
-    });
-
-    return {
-        name: name || kind,
-        flavor: optionalText(raw.flavor),
-        kind,
-        requires: requires.length ? requires : undefined,
-        stats: normalizeGearStats(raw.stats),
-        cond: normalizeGearStats(raw.cond),
-        lines: lines.length ? lines : undefined,
-        foot: optionalText(raw.foot),
-    };
-}
-
 /**
  * 十二格。**按部位对齐**而不是按数组下标：存进去的顺序可能被改过、也可能少一格，
  * 而网格的行列是由 `GEAR_SLOTS` 的次序定的。缺的补空位——空位要占格，
@@ -308,39 +253,6 @@ function normalizeGear(raw: unknown): GearSlot[] {
         const caption = text(item.caption) || detail?.name;
         return detail ? { slot, caption, detail } : { slot, caption };
     });
-}
-
-function normalizePet(raw: unknown): Pet | null {
-    if (!isObject(raw)) return null;
-    const name = text(raw.name);
-    if (!name) return null;
-    const quality = isObject(raw.quality) ? raw.quality : {};
-    const spirit = optionalInt(raw.spirit);
-
-    return {
-        name,
-        level: int(raw.level),
-        joinLevel: int(raw.joinLevel),
-        quality: {
-            attack: int(quality.attack),
-            defense: int(quality.defense),
-            hp: int(quality.hp),
-            mp: int(quality.mp),
-            speed: int(quality.speed),
-            dodge: int(quality.dodge),
-        },
-        life: int(raw.life),
-        growth: text(raw.growth),
-        element: text(raw.element),
-        attrs: rows(raw.attrs).flatMap((attr) => {
-            if (!isObject(attr)) return [];
-            const label = text(attr.label);
-            return label ? [{ label, value: text(attr.value) }] : [];
-        }),
-        skills: rows(raw.skills).map(text).filter(Boolean),
-        innerPills: rows(raw.innerPills).map(text).filter(Boolean),
-        spirit,
-    };
 }
 
 /**
@@ -468,7 +380,7 @@ function writeRaw(raw: string) {
     try {
         globalThis.localStorage?.setItem(STORAGE_KEY, raw);
     } catch {
-        // 写不进去（配额满、隐私模式）时界面照常工作，只是这次改动活不过重启。
+        writeError.value = '这一笔没存下来，检查一下浏览器存储空间';
     }
 }
 
@@ -580,6 +492,7 @@ const persist = createPersist({
 export function useRoster() {
     /** 新增。返回新角色的 id，调用方拿它决定要不要接着打开编辑器。 */
     function add(character: CharacterData) {
+        if (!persist.canWrite()) return character.id;
         roster.value = [...roster.value, character];
         persist();
         return character.id;
@@ -587,14 +500,26 @@ export function useRoster() {
 
     /** 修改：按 id 整条替换。编辑器改的是一份草稿副本，走到这里才算落账。 */
     function update(character: CharacterData) {
+        if (!persist.canWrite()) return;
         roster.value = roster.value.map((item) => (item.id === character.id ? character : item));
         persist();
     }
 
     function remove(id: string) {
+        if (!persist.canWrite()) return;
         roster.value = roster.value.filter((item) => item.id !== id);
         persist();
     }
 
-    return { roster, loadError, writeError, add, update, remove };
+    return {
+        roster,
+        loadError,
+        writeError,
+        pending: persist.pending,
+        flush: persist.flush,
+        retry: persist,
+        add,
+        update,
+        remove,
+    };
 }

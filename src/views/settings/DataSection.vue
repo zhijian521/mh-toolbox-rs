@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import SlotButton from '../../components/SlotButton.vue';
 import { askConfirm } from '../../composables/use-confirm';
-import { dataClear, dataExport, dataImport, type DataOutcome } from '../../services/desktop';
+import { dataClear, dataExport, dataImport, type DataOutcome } from '../../services/data-files';
 /* 单件物品的价格点位上限，**不在这里再写一个 200**：`prices.ts` 是它的真源，
  * `src-tauri/src/backup.rs` 里那份是镜像（那边不裁剪，只用它数「会丢多少」）。
  * 设置页反过来引一个页面模块看着别扭，但它是纯数据契约、不碰 vue 也不碰 DOM；
@@ -45,7 +45,7 @@ import { POINT_LIMIT } from '../prices/prices';
  * 因为只有它按下去收不回来。把红只落在字上（试过一版 `danger`）在 13px 楷体里读起来
  * 是「一个偏红的普通按钮」，不如下半格朱印来得直接。
  *
- * 只动账本（角色 + 物价）。主题与字号存在 `localStorage`，换台机器本来就该不一样，
+ * 只动全部账本数据。主题与字号存在 `localStorage`，换台机器本来就该不一样，
  * 混进备份里会让「账本」读起来像应用设置。这一句也写在清除那条 hint 上。
  */
 const busy = ref(false);
@@ -114,7 +114,7 @@ async function exportLedger() {
 async function askImport() {
     const ok = await askConfirm({
         title: '用选中的备份替换现在的账本？',
-        note: '现有的角色与物价会被整份替换。动手前会自动备份一份，完成后的回执里写着它的位置。',
+        note: '全部账本数据（角色、物价、收益流水、速记单价、账号记录与目标）会被整份替换。动手前会自动备份一份，回执里写着它的位置。',
         confirmText: '替换',
     });
     if (!ok) return;
@@ -129,8 +129,8 @@ async function askImport() {
  */
 async function askClear() {
     const ok = await askConfirm({
-        title: '清空所有角色与物价？',
-        note: '清除前不会自动备份，清掉之后找不回来。想留一份就先「导出」。主题与字号不受影响。',
+        title: '清空全部账本数据？',
+        note: '角色、物价、收益流水、速记单价、账号记录与目标都会清空。清除前不会自动备份，想留一份就先「导出」。主题与字号不受影响。',
         confirmText: '清除',
     });
     if (!ok) return;
@@ -220,7 +220,7 @@ onMounted(() => {
                 <SlotButton
                     seal
                     icon="trash"
-                    label="清空所有角色与物价"
+                    label="清空全部账本数据"
                     text="清除"
                     :disabled="busy"
                     @click="askClear"

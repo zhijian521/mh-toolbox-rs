@@ -5,6 +5,9 @@ import './styles/blocks.css';
 import App from './App.vue';
 import { useFontScale } from './composables/use-font-scale';
 import { useTheme } from './composables/use-theme';
+import { askConfirm } from './composables/use-confirm';
+import { guardWindowClose } from './services/desktop';
+import { flushPendingWrites } from './services/persist';
 import { router } from './router';
 import { loadGameData } from './services/game-data';
 import { loadAccounts } from './views/accounts/accounts-store';
@@ -46,4 +49,12 @@ Promise.all([
     loadGoals(),
 ]).then(() => {
     createApp(App).use(router).mount('#app');
+    void guardWindowClose(async () => {
+        if (await flushPendingWrites()) return true;
+        return askConfirm({
+            title: '仍有改动未保存，退出吗？',
+            note: '退出会丢失未保存的改动。取消后可在页面重试保存，或检查磁盘空间。',
+            confirmText: '退出',
+        });
+    });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CharacterData, GearDetail, GearSlotName, Pet } from '../character';
 import { gearBrief } from '../gear';
-import { emptyCharacter } from '../roster';
+import { emptyCharacter, normalizeCharacter } from '../roster';
 import { applyGear, applyPet, applyQuick, quickPanel } from './quick-target';
 
 /* `emptyCharacter()` 会调 `schoolSkills()` 填七项门派技能，而那个函数读的是
@@ -384,4 +384,33 @@ describe('召唤兽：整份进出', () => {
         expect(next.pets[0].skills).toEqual(['高级必杀']);
         expect(next.pets[0].innerPills).toEqual(['狂怒']);
     });
+});
+
+it('快捷编辑后的装备与召唤兽经过序列化和读取，形状与内容不再变化', () => {
+    const character = base();
+    const geared = applyGear(character, '头', {
+        caption: '  测试头盔  ',
+        detail: {
+            name: '',
+            kind: '',
+            stats: [
+                { label: ' 防御 ', value: ' 80 ' },
+                { label: ' ', value: '1' },
+            ],
+            cond: [],
+        },
+    });
+    const saved = applyPet(geared, 0, {
+        ...character.pets[0],
+        name: ' 天狗 ',
+        attrs: [{ label: ' 气血 ', value: ' 3906 ' }],
+        skills: [' 高级必杀 ', ' '],
+    });
+    const reloaded = normalizeCharacter(JSON.parse(JSON.stringify(saved)));
+    expect(JSON.parse(JSON.stringify(reloaded.gear))).toEqual(
+        JSON.parse(JSON.stringify(saved.gear)),
+    );
+    expect(JSON.parse(JSON.stringify(reloaded.pets))).toEqual(
+        JSON.parse(JSON.stringify(saved.pets)),
+    );
 });

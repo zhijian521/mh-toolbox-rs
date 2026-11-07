@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import SaveNotice from '../../components/SaveNotice.vue';
+import { useToday } from '../../composables/use-today';
 import { computed, ref } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
@@ -8,8 +10,9 @@ import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
+import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
-import { shortDate, todayText } from '../../services/format';
+import { shortDate } from '../../services/format';
 import { characterName, useRoster } from '../characters/roster';
 import AccountEditor from './AccountEditor.vue';
 import AccountRecords from './AccountRecords.vue';
@@ -41,7 +44,8 @@ import { useAccounts, type EntryInput } from './accounts-store';
  * 块，点一下就把四个字段填好，剩下的只是金额（与收益页的物品速记同一种思路：
  * 高频动作不该穿过一张表单）。
  */
-const { entries, loadError, writeError, addEntry, updateEntry } = useAccounts();
+const { entries, loadError, writeError, addEntry, updateEntry, pending, flush, retry } =
+    useAccounts();
 const { roster } = useRoster();
 
 /* ---------- 筛选 ---------- */
@@ -61,7 +65,8 @@ const whoOptions = computed(() => [
     ...roster.value.map((one) => ({ value: one.id, label: one.name })),
 ]);
 
-const range = computed(() => rangeOf(preset.value, todayText()));
+const today = useToday();
+const range = computed(() => rangeOf(preset.value, today.value));
 
 /**
  * 当前范围 + 当前角色筛出来的那些条。页面上的**每一个数**都从这一份出发——
@@ -95,13 +100,17 @@ function openEntry(entry: AccountEntry) {
 }
 
 /** 新建与「改一条」共用同一个窗，区别只在 `entry` 有没有。 */
-function save(input: EntryInput) {
+async function save(input: EntryInput) {
+    if (pending.value > 0) return;
     const target = editing.value?.entry;
     const result = target ? updateEntry(target.id, input) : addEntry(input);
     if (!result.ok) {
         notify.error(result.error);
         return;
     }
+    editing.value = { entry: result.entry };
+    const source = editing.value;
+    if (!(await saved(flush))) return;
     /* 回执用**落库那条**的金额：输入框里是「万」，换算成原值的那一步在 store 里，
      * 这里再乘一次 10000 就是把这个换算写两遍。 */
     notify.success(
@@ -109,7 +118,7 @@ function save(input: EntryInput) {
             ? `已改 ${result.entry.category} ${amountText(result.entry.amount, result.entry.currency)}`
             : `已记 ${result.entry.category} ${amountText(result.entry.amount, result.entry.currency)}`,
     );
-    editing.value = null;
+    if (editing.value === source) editing.value = null;
 }
 </script>
 
@@ -120,7 +129,7 @@ function save(input: EntryInput) {
         </template>
 
         <p v-if="loadError" class="note error">{{ loadError }}</p>
-        <p v-if="writeError" class="note error">{{ writeError }}</p>
+        <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
 
         <!-- 筛选条：时间三档 + 角色。两者同时作用于下面每一个数。 -->
         <PaperCard class="filters">

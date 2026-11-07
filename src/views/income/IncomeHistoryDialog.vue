@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import DateField from '../../components/DateField.vue';
+import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
 import { askConfirm } from '../../composables/use-confirm';
 import { characterName, useRoster } from '../characters/roster';
@@ -45,7 +46,7 @@ import EntryEditDialog from './EntryEditDialog.vue';
  */
 const emit = defineEmits<{ close: [] }>();
 
-const { entries, removeEntry, updateEntry } = useIncome();
+const { entries, removeEntry, updateEntry, pending, flush } = useIncome();
 const { roster } = useRoster();
 
 /** 正在看的那一天。默认今天——打开历史的人十次有九次是想核对今天。 */
@@ -96,16 +97,17 @@ function signedOf(value: number): string {
 }
 
 /** 改：不进确认，改错了还能再改。 */
-function save(patch: { amount: number; item: string; characterId: string }) {
+async function save(patch: { amount: number; item: string; characterId: string }) {
     const target = editing.value;
-    editing.value = null;
-    if (!target) return;
+    if (!target || pending.value > 0) return;
 
     const result = updateEntry(target.id, patch);
     if (!result.ok) {
         notify.error(result.error);
         return;
     }
+    if (!(await saved(flush))) return;
+    if (editing.value === target) editing.value = null;
     notify.success(`已改好 · ${signedOf(patch.amount)}`);
 }
 
@@ -119,7 +121,7 @@ async function remove(one: IncomeEntry) {
     if (!ok) return;
 
     removeEntry(one.id);
-    notify.success('已删掉一条');
+    if (await saved(flush)) notify.success('已删掉一条');
 }
 </script>
 

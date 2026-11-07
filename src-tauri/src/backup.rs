@@ -75,7 +75,7 @@ const AUTO_BACKUP_KEEP: usize = 10;
 
 /// 一份备份的完整内容。
 ///
-/// 只有这五样：没有主题、没有字号、没有窗口位置。界面偏好存在 `localStorage`，
+/// 只包含账本数据：没有主题、没有字号、没有窗口位置。界面偏好存在 `localStorage`，
 /// 换台机器本来就会不一样，把它们塞进「账本」会让这份文件读起来像应用配置的垃圾桶。
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -215,7 +215,7 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
      * `row-0` 这种假 id（那是为了「别因为一条坏记录丢掉整份名册」），可在这里，
      * 兜底意味着用户换回来的账目里混进了几个点不开也删不掉的空壳。
      * 与其猜，不如说清「第几条坏了」。 */
-    let truncation = validate(&file.characters, &file.prices)?;
+    let truncation = validate_backup(&file)?;
 
     let current = build(&app)?;
     let dir = backup_dir(&app)?;
@@ -254,7 +254,7 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
     }))
 }
 
-/// 清除：清空角色与物价，保留 `meta`（理由见 `store::clear_all` 的注释）。
+/// 清除：清空全部账本数据，保留 `meta`（理由见 `store::clear_all` 的注释）。
 ///
 /// `async` 只是与旁边两个命令同一个形状：它们都要弹对话框，所以必须 `async`
 /// （同步命令跑在主线程上，弹窗会卡住消息循环）；这一条没有对话框，
@@ -590,7 +590,8 @@ fn build(app: &AppHandle) -> Result<BackupFile, String> {
 /// 时候它恰好是坏的。改名是原子替换，于是正式名要么不存在、要么完整。临时名带 pid：
 /// 两个实例同时导出时互不截断。
 fn write_to<T: Serialize>(path: &Path, file: &T) -> Result<(), String> {
-    let mut bytes = serde_json::to_vec_pretty(file).map_err(|error| format!("序列化失败：{error}"))?;
+    let mut bytes =
+        serde_json::to_vec_pretty(file).map_err(|error| format!("序列化失败：{error}"))?;
     bytes.push(b'\n');
 
     let tmp = path.with_extension(format!("{}.tmp", std::process::id()));
@@ -729,6 +730,52 @@ struct Truncation {
 ///
 /// 返回的那份 `Truncation` 只在**校验通过**之后有意义：导入照做，只是界面该提一句
 /// 「有 3 件物品共 100 条点位会在下次保存时被裁掉」。
+/// 所有业务集合先检查身份，再进入备份与替换事务，避免 OR REPLACE 静默吞行。
+fn validate_backup(file: &BackupFile) -> Result<Truncation, String> {
+    let truncation = validate(&file.characters, &file.prices)?;
+    validate_ids(file.income.iter().map(|one| one.id.as_str()), "收益流水")?;
+    validate_ids(file.accounts.iter().map(|one| one.id.as_str()), "账号记录")?;
+    validate_ids(file.goals.iter().map(record_id), "目标")?;
+    let mut seen_prices = HashSet::new();
+    for (index, price) in file.quick_prices.iter().enumerate() {
+        if price.item_id <= 0 || !seen_prices.insert(price.item_id) {
+            return Err(format!("第 {} 条速记单价的物品编号无效或重复", index + 1));
+        }
+    }
+    for (index, goal) in file.goals.iter().enumerate() {
+        if let Some(logs) = goal.get("logs") {
+            let logs = logs
+                .as_array()
+                .ok_or_else(|| format!("第 {} 个目标的流水不是数组", index + 1))?;
+            validate_ids(
+                logs.iter().map(record_id),
+                &format!("目标 {} 的流水", index + 1),
+            )?;
+        }
+    }
+    Ok(truncation)
+}
+
+fn record_id(record: &serde_json::Value) -> &str {
+    record
+        .get("id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+}
+
+fn validate_ids<'a>(ids: impl Iterator<Item = &'a str>, label: &str) -> Result<(), String> {
+    let mut seen = HashSet::new();
+    for (index, id) in ids.enumerate() {
+        if id.trim().is_empty() {
+            return Err(format!("第 {} 条{label}没有 id", index + 1));
+        }
+        if !seen.insert(id) {
+            return Err(format!("第 {} 条{label}的 id「{id}」与前面重复", index + 1));
+        }
+    }
+    Ok(())
+}
+
 fn validate(characters: &[serde_json::Value], prices: &[PriceItem]) -> Result<Truncation, String> {
     let mut seen_characters: HashSet<&str> = HashSet::new();
     for (index, character) in characters.iter().enumerate() {
@@ -982,6 +1029,40 @@ mod tests {
         assert_eq!(error, "第 1 件物价没有 id");
     }
 
+    #[test]
+    fn validate_all_collections_before_replacing() {
+        validate_backup(&sample()).expect("完整备份可导入");
+        for field in ["income", "accounts", "goals"] {
+            for duplicate in [false, true] {
+                let mut value = serde_json::to_value(sample()).unwrap();
+                let records = value[field].as_array_mut().unwrap();
+                if duplicate {
+                    records.push(records[0].clone());
+                } else {
+                    records[0]["id"] = serde_json::json!(" ");
+                }
+                let file = serde_json::from_value(value).unwrap();
+                let error = validate_backup(&file).expect_err("缺失或重复身份必须拒绝");
+                assert!(error.contains(if duplicate { "重复" } else { "没有 id" }));
+            }
+        }
+        let mut file = sample();
+        file.quick_prices.push(QuickPrice {
+            item_id: 9,
+            price: 3.0,
+        });
+        assert!(validate_backup(&file).unwrap_err().contains("速记单价"));
+        file.quick_prices.clear();
+        file.goals[0]["logs"] = serde_json::json!([{ "id": "l1" }, { "id": "l1" }]);
+        assert!(validate_backup(&file)
+            .unwrap_err()
+            .contains("目标 1 的流水"));
+        file.goals[0]["logs"] = serde_json::json!([{}]);
+        assert!(validate_backup(&file).unwrap_err().contains("没有 id"));
+        file.goals[0]["logs"] = serde_json::json!([{ "id": "l1" }]);
+        validate_backup(&file).expect("空单价与有身份的流水合法");
+    }
+
     fn point(id: &str) -> store::PricePoint {
         store::PricePoint {
             id: id.to_string(),
@@ -1097,7 +1178,9 @@ mod tests {
 
         /* 空文件：导出可以是空的（一件都没设价），导入不能。 */
         assert!(
-            validate_prices(&[]).expect_err("空单价必须拒绝").contains("没有单价"),
+            validate_prices(&[])
+                .expect_err("空单价必须拒绝")
+                .contains("没有单价"),
             "空文件的说法要直白"
         );
         let bad_id = [QuickPrice {
@@ -1106,10 +1189,7 @@ mod tests {
         }];
         assert!(validate_prices(&bad_id).is_err(), "没有物品编号必须拒绝");
         for price in [-1.0, 0.0, f64::INFINITY, f64::NAN] {
-            let bad_price = [QuickPrice {
-                item_id: 3,
-                price,
-            }];
+            let bad_price = [QuickPrice { item_id: 3, price }];
             assert!(
                 validate_prices(&bad_price).is_err(),
                 "单价 {price} 必须拒绝"

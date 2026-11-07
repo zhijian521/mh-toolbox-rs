@@ -31,7 +31,12 @@ async function load() {
             onResized: async () => () => {},
         }),
     }));
-    return import('./desktop');
+    return {
+        ...(await import('./desktop')),
+        ...(await import('./storage')),
+        ...(await import('./data-files')),
+        ...(await import('./ocr')),
+    };
 }
 
 beforeEach(() => {
@@ -83,7 +88,7 @@ describe('账本备份：三种结局不能互相冒充', () => {
         expect(outcome.status).toBe('ok');
         expect(outcome).toMatchObject({
             detail:
-                '已导入 4 个角色、6 件物价、2 个目标。' +
+                '已导入 4 个角色、6 件物价、1 笔收益流水、0 笔账号记录、2 个目标。速记单价已一并替换。' +
                 '替换前的数据备份在 D:/备份/账本-before-import-1.json',
             truncation: { points: 12, items: 2 },
         });
@@ -117,7 +122,7 @@ describe('账本备份：三种结局不能互相冒充', () => {
         /* 目标也报出来：清空会把它们一起删掉，不说一声用户会以为只是清了两样。 */
         expect(await dataClear()).toEqual({
             status: 'ok',
-            detail: '已清空 2 个角色、0 件物价、4 个目标',
+            detail: '已清空 2 个角色、0 件物价、3 笔收益流水、1 笔账号记录、4 个目标，速记单价已清空',
         });
     });
 });
@@ -156,7 +161,11 @@ describe('读写失败不炸页面，但也不能假装成功', () => {
         vi.stubGlobal('window', {});
         vi.doMock('@tauri-apps/api/core', () => ({ invoke: invokeMock }));
         vi.doMock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => ({}) }));
-        const desktop = await import('./desktop');
+        const desktop = {
+            ...(await import('./desktop')),
+            ...(await import('./storage')),
+            ...(await import('./data-files')),
+        };
 
         expect(desktop.hasDesktop()).toBe(false);
         expect(await desktop.pricesLoad()).toBeNull();

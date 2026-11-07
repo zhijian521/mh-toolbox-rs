@@ -508,11 +508,12 @@ export function readPriceItems(): PriceItem[] {
     return parsePriceItems(raw) ?? [];
 }
 
-export function writePriceItems(list: PriceItem[]): void {
+export function writePriceItems(list: PriceItem[]): boolean {
     try {
         globalThis.localStorage?.setItem(STORAGE_KEY, serializePriceItems(list));
+        return true;
     } catch {
-        // 写不进去（配额满、隐私模式）时界面照常工作，只是这次改动活不过重启。
+        return false;
     }
 }
 

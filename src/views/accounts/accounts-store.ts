@@ -12,7 +12,8 @@
  * 而那套补偿本身就是新的 bug 来源。
  */
 import { ref } from 'vue';
-import { hasDesktop, accountLoad, accountSave } from '../../services/desktop';
+import { hasDesktop } from '../../services/desktop';
+import { accountLoad, accountSave } from '../../services/storage';
 import { createPersist } from '../../services/persist';
 import { makeId } from '../../services/shape';
 import { parseAccounts, type AccountEntry, type AccountKind, type Currency } from './accounts';
@@ -154,7 +155,7 @@ function compose(input: EntryInput, amount: number, id: string, createdAt: numbe
 
 /** 记一笔（新建）。 */
 export function addEntry(input: EntryInput): AccountWrite {
-    if (loadError.value) return { ok: false, error: '账号账本读取失败，先修好再来记' };
+    if (!persist.canWrite()) return { ok: false, error: '账号账本读取失败，先修好再来记' };
     const checked = check(input);
     if (!checked.ok) return checked;
     const entry = compose(input, checked.amount, makeId('acc'), Date.now());
@@ -170,7 +171,7 @@ export function addEntry(input: EntryInput): AccountWrite {
  * 换掉它会让同一天的两条记录在「新的在上」里重新排队，用户会以为记录跳了位置。
  */
 export function updateEntry(id: string, input: EntryInput): AccountWrite {
-    if (loadError.value) return { ok: false, error: '账号账本读取失败，先修好再来改' };
+    if (!persist.canWrite()) return { ok: false, error: '账号账本读取失败，先修好再来改' };
     const before = entries.value.find((one) => one.id === id);
     if (!before) return { ok: false, error: '这条记录已经不在了' };
     const checked = check(input);
@@ -185,7 +186,7 @@ export function updateEntry(id: string, input: EntryInput): AccountWrite {
 
 /** 删一条。撤回是**真删**——账本里没有「隐藏」。 */
 export function removeEntry(id: string): void {
-    if (loadError.value) return;
+    if (!persist.canWrite()) return;
     const before = entries.value.length;
     entries.value = entries.value.filter((one) => one.id !== id);
     if (entries.value.length !== before) persist();
@@ -195,6 +196,9 @@ export function removeEntry(id: string): void {
 
 export function useAccounts() {
     return {
+        pending: persist.pending,
+        flush: persist.flush,
+        retry: persist,
         entries,
         loadError,
         writeError,

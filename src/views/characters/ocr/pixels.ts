@@ -103,9 +103,19 @@ function drawTo(image: ImageBitmap | HTMLImageElement) {
 
 /** 把一张已经解码好的位图画进画布，取像素、换通道、编 base64。 */
 export function frameOf(image: ImageBitmap | HTMLImageElement): Frame {
-    const { context, width, height } = drawTo(image);
-    const rgba = context.getImageData(0, 0, width, height).data;
-    return { pixels: base64Of(swapToBgra(rgba)), width, height };
+    return prepareFrame(image).frame;
+}
+
+/** 一次绘制和读回，同时产出 OCR 与图标匹配输入。 */
+export function prepareFrame(image: ImageBitmap | HTMLImageElement): {
+    frame: Frame;
+    image: ImageData;
+} {
+    const data = imageDataOf(image);
+    return {
+        frame: { pixels: base64Of(swapToBgra(data.data)), width: data.width, height: data.height },
+        image: data,
+    };
 }
 
 /**

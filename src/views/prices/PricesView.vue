@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import SaveNotice from '../../components/SaveNotice.vue';
 import { computed, ref } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SelectField from '../../components/SelectField.vue';
 import SlotButton from '../../components/SlotButton.vue';
+import { saved } from '../../composables/save-feedback';
 import { askConfirm } from '../../composables/use-confirm';
 import { notify } from '../../composables/use-notify';
 import PriceCard from './PriceCard.vue';
@@ -45,6 +47,9 @@ const {
     items,
     loadError,
     writeError,
+    pending,
+    flush,
+    retry,
     addItem,
     saveItem,
     removeItem,
@@ -125,6 +130,7 @@ const historyId = ref('');
 /** 正在编辑的物品；`null` = 新建。 */
 const editingItem = ref<PriceItem | null>(null);
 const itemDialogOpen = ref(false);
+let itemDialogVersion = 0;
 /** 记价针对哪一件物品。 */
 const pointItemId = ref('');
 const editingPoint = ref<PricePoint | null>(null);
@@ -151,12 +157,14 @@ const pointItem = computed<PriceItem | null>(
 
 /* ---------- 物品 ---------- */
 function startNew() {
+    itemDialogVersion += 1;
     itemError.value = '';
     editingItem.value = null;
     itemDialogOpen.value = true;
 }
 
 function startEdit(item: PriceItem) {
+    itemDialogVersion += 1;
     itemError.value = '';
     editingItem.value = item;
     itemDialogOpen.value = true;
@@ -164,19 +172,24 @@ function startEdit(item: PriceItem) {
 }
 
 function closeItemDialog() {
+    itemDialogVersion += 1;
     itemDialogOpen.value = false;
     editingItem.value = null;
     itemError.value = '';
 }
 
-function onSaveItem(draft: PriceItemDraft, initialPrice: number) {
+async function onSaveItem(draft: PriceItemDraft, initialPrice: number) {
+    if (pending.value > 0) return;
+    const version = itemDialogVersion;
     const target = editingItem.value;
     const result = target ? saveItem(target.id, draft) : addItem(draft, initialPrice);
     if (!result.ok) {
         itemError.value = result.error;
         return;
     }
-    closeItemDialog();
+    editingItem.value = items.value.find((one) => one.id === result.id) ?? null;
+    if (!(await saved(flush))) return;
+    if (version === itemDialogVersion) closeItemDialog();
     notify.success(target ? '已保存' : '已新增');
 }
 
@@ -218,16 +231,24 @@ function closePointDialog() {
     pointError.value = '';
 }
 
-function onSavePoint(draft: PricePointDraft) {
+async function onSavePoint(draft: PricePointDraft) {
+    if (pending.value > 0) return;
     const item = pointItem.value;
     if (!item) return;
+    const version = pointVersion.value;
     const editing = editingPoint.value;
+    const previousIds = new Set(item.points.map((one) => one.id));
     const result = editing ? savePoint(item.id, editing.id, draft) : addPoint(item.id, draft);
     if (!result.ok) {
         pointError.value = result.error;
         return;
     }
-    closePointDialog();
+    editingPoint.value =
+        pointItem.value?.points.find((one) =>
+            editing ? one.id === editing.id : !previousIds.has(one.id),
+        ) ?? null;
+    if (!(await saved(flush))) return;
+    if (version === pointVersion.value) closePointDialog();
     notify.success(editing ? '已改这一笔' : '已记一笔');
 }
 
@@ -254,6 +275,7 @@ async function askRemoveItem(item: PriceItem) {
         notify.error(result.error);
         return;
     }
+    if (!(await saved(flush))) return;
     /* 删的是物品 → 历史窗也没内容了，一起关掉。 */
     historyId.value = '';
     if (pointItemId.value === item.id) pointItemId.value = '';
@@ -285,7 +307,7 @@ async function askRemovePoint(point: PricePoint) {
         notify.error(result.error);
         return;
     }
-    notify.success('已删除');
+    if (await saved(flush)) notify.success('已删除');
 }
 
 function openHistory(item: PriceItem) {
@@ -310,9 +332,8 @@ function openHistory(item: PriceItem) {
         <!-- 数据层的那一行红字：读不出 / 写不进，都是「整张表有问题」而不是「这一笔填错了」，
              所以它在筛选栏之上、卡片区之外。`writeError` 从前只在 `prices-store.ts` 里被赋值
              和返回，没有任何界面读它——注释里说的「界面拿它显示一行红字」是这次才接上的。 -->
-        <p v-if="loadError || writeError" class="note error price-error">
-            {{ loadError || writeError }}
-        </p>
+        <p v-if="loadError" class="note error price-error">{{ loadError }}</p>
+        <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
 
         <div class="price-toolbar">
             <input

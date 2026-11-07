@@ -239,3 +239,54 @@ describe('createPersist：失败要回到界面', () => {
         expect(writeError.value).toBe('');
     });
 });
+
+describe('保存完成边界', () => {
+    it('flush 等待慢写以及等待途中新增的最后一笔，失败结果可以重试', async () => {
+        let release!: (ok: boolean) => void;
+        const gate = new Promise<boolean>((resolve) => {
+            release = resolve;
+        });
+        const writeError = ref('');
+        const remote = vi.fn().mockReturnValueOnce(gate).mockResolvedValue(true);
+        const persist = createPersist({
+            label: '边界账',
+            loadError: ref(''),
+            loaded: ref(true),
+            writeError,
+            writeLocal: () => {},
+            writeRemote: remote,
+        });
+        const first = persist();
+        expect(persist.pending.value).toBe(1);
+        let done = false;
+        const flush = persist.flush().then((ok) => {
+            done = true;
+            return ok;
+        });
+        await tick();
+        expect(done).toBe(false);
+        const last = persist();
+        release(false);
+        expect(await first).toBe(false);
+        expect(await last).toBe(true);
+        expect(await flush).toBe(true);
+        expect(writeError.value).toBe('');
+        expect(persist.pending.value).toBe(0);
+        expect(remote).toHaveBeenCalledTimes(2);
+    });
+    it('失败不会被 flush 冒充成功，下一次保存可恢复', async () => {
+        const remote = vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true);
+        const persist = createPersist({
+            label: '重试账',
+            loadError: ref(''),
+            loaded: ref(true),
+            writeError: ref(''),
+            writeLocal: () => {},
+            writeRemote: remote,
+        });
+        expect(await persist()).toBe(false);
+        expect(await persist.flush()).toBe(false);
+        expect(await persist()).toBe(true);
+        expect(await persist.flush()).toBe(true);
+    });
+});

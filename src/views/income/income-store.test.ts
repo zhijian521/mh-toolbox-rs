@@ -31,6 +31,7 @@ function host(load: () => Promise<unknown>) {
 async function loadStore(desktop: ReturnType<typeof host>) {
     vi.resetModules();
     vi.doMock('../../services/desktop', () => desktop);
+    vi.doMock('../../services/storage', () => desktop);
     const store = await import('./income-store');
     await store.loadIncome();
     return store;

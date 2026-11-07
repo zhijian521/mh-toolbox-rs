@@ -374,6 +374,7 @@ describe('读档失败：拒绝写入', () => {
             charactersSave: vi.fn(async () => true),
         };
         vi.doMock('../../services/desktop', () => desktop);
+        vi.doMock('../../services/storage', () => desktop);
         // `resetModules` 会连 `game-data` 一起重置，重新 import 一次把门派表填回去，
         // 否则 `emptyCharacter()` 拿不到默认门派（不影响本用例，但会让断言看着可疑）。
         await import('../../services/game-data.fixture');
@@ -420,6 +421,7 @@ describe('空库：不塞种子、不写库', () => {
             charactersSave: vi.fn(async () => true),
         };
         vi.doMock('../../services/desktop', () => desktop);
+        vi.doMock('../../services/storage', () => desktop);
         await import('../../services/game-data.fixture');
         const store = await import('./roster');
 

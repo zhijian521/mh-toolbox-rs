@@ -31,8 +31,6 @@ serde = { version = "1", features = ["derive"] }
 # 文件头的 `rust-version = "1.90"` 正好够。这是「别把 MSRV 调低」的又一条具体理由，
 # 比那边「第三方 crate 报语法错」更直接：调低了，报错会出现在这两个依赖的内部文件里。
 tauri-plugin-dialog = "2"
-# 没有直接依赖 serde_json：IPC 的序列化由 tauri 自己做，Rust 侧从不手写 JSON。
-# 需要读 `public/maps/maps.json` 的是前端（`ghost-maps.ts` 走 fetch），不是这里。
 
 # PaddleOCR（PP-OCRv4）离线识别：检测 + 方向分类 + 识别三个 ONNX 模型。
 #
@@ -64,7 +62,7 @@ tauri-specta = { version = "=2.0.0-rc.26", features = ["derive", "typescript"] }
 specta = { version = "=2.0.0-rc.26", features = ["derive", "serde_json"] }
 specta-typescript = "=0.0.13"
 
-# 截屏 + 离线 OCR。只用系统自带能力，不引入 onnxruntime / 模型文件。
+# Win32 截屏与 Windows OCR 入口；PP-OCRv4 的模型与运行时依赖见上方。
 #
 # 为什么不用 `windows-sys`：WinRT 那一族（`Windows.Media.Ocr`）在 `windows-sys` 里
 # 只有裸 vtable，调一次要手写百来行；`windows` 已经把 `OcrEngine` 包成方法。
@@ -95,8 +93,7 @@ windows = { version = "0.62", features = [
 # 代价是首次编译多约 20–30s（sqlite3 单文件约 25MB 源码），之后增量不受影响。
 rusqlite = { version = "0.32", features = ["bundled"] }
 
-# 原先不直接依赖 `serde_json`（IPC 的序列化由 tauri 自己做，Rust 侧从不手写 JSON）。
-# 角色名册落地后需要了：`CharacterData` 嵌套很深且结构还在演进，用一列 JSON 文本
+# 角色与目标整条存为 JSON，备份信封也使用 serde_json：`CharacterData` 嵌套很深且结构还在演进，用一列 JSON 文本
 # 存整条记录比拆十几张表耐改。物价的 `price_items` / `price_points` 仍是规范化表，
 # 因为那里要按 `updated_at` 排序、按 `item_id` 查历史——**有没有按字段查询的需求**
 # 是这两种存法的分界，不是省事与否。

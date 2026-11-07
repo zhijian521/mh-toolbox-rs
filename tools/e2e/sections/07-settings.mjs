@@ -71,14 +71,14 @@ export default async function run(ctx) {
             const labels = await cdp.evaluate(
                 `[...document.querySelectorAll('[aria-label]')].map((e) => e.getAttribute('aria-label'))`,
             );
-            for (const need of ['导出账本到文件', '从备份文件导入账本', '清空所有角色与物价']) {
+            for (const need of ['导出账本到文件', '从备份文件导入账本', '清空全部账本数据']) {
                 t.check(`按钮「${need}」在`, labels.includes(need));
             }
         });
 
         /* 清除：只验证「先问一句」这一层，取消掉不动真数据。 */
         await t.step('清除先弹确认窗，Esc 能取消', async () => {
-            await ui.clickLabel('清空所有角色与物价');
+            await ui.clickLabel('清空全部账本数据');
             const asked = await cdp.waitFor(`!!document.querySelector('[role="dialog"]')`, {
                 timeout: 3000,
             });

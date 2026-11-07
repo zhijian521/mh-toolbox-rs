@@ -67,7 +67,7 @@ export const commands = {
 	 */
 	dataImport: () => __TAURI_INVOKE<ImportSummary | null>("data_import"),
 	/**
-	 *  清除：清空角色与物价，保留 `meta`（理由见 `store::clear_all` 的注释）。
+	 *  清除：清空全部账本数据，保留 `meta`（理由见 `store::clear_all` 的注释）。
 	 * 
 	 *  `async` 只是与旁边两个命令同一个形状：它们都要弹对话框，所以必须 `async`
 	 *  （同步命令跑在主线程上，弹窗会卡住消息循环）；这一条没有对话框，

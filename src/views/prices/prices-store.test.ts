@@ -37,6 +37,7 @@ function host(load: () => Promise<unknown[] | null>) {
 async function loadStore(desktop: ReturnType<typeof host>) {
     vi.resetModules();
     vi.doMock('../../services/desktop', () => desktop);
+    vi.doMock('../../services/storage', () => desktop);
     const store = await import('./prices-store');
     await store.loadPrices();
     return store;
@@ -59,10 +60,9 @@ describe('loadPrices：读失败不等于空库', () => {
         const { items, addItem, loadError } = store.usePrices();
 
         const result = addItem(DRAFT, 1200);
-        /* 返回 `ok: true` 是有意的：内存里确实加进去了，界面要能响应；
-         * 但底层拒绝写——所以界面上那条 `loadError` 红字是用户唯一的凭据。 */
-        expect(result.ok).toBe(true);
-        expect(items.value).toHaveLength(1);
+        /* 读失败时在业务入口就拒绝，界面不能把内存中的假成功当成已保存。 */
+        expect(result.ok).toBe(false);
+        expect(items.value).toHaveLength(0);
         expect(desktop.pricesSave).not.toHaveBeenCalled();
         expect(loadError.value).not.toBe('');
     });
@@ -104,10 +104,11 @@ describe('还没读过库就写：不许拿空表覆盖', () => {
     async function openWithoutLoad(desktop: ReturnType<typeof host>) {
         vi.resetModules();
         vi.doMock('../../services/desktop', () => desktop);
+        vi.doMock('../../services/storage', () => desktop);
         return import('./prices-store');
     }
 
-    it('addItem 只改内存，一个字节都不落盘，提示指向「刷新」', async () => {
+    it('addItem 拒绝修改内存与数据库，提示指向「刷新」', async () => {
         const desktop = host(async () => [
             {
                 id: 'keep',
@@ -127,8 +128,8 @@ describe('还没读过库就写：不许拿空表覆盖', () => {
         addItem(DRAFT, 1200);
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        /* 内存里照样加：界面那一刻必须响应，拦的是「落盘」这一步。 */
-        expect(items.value).toHaveLength(1);
+        /* 尚未加载时连内存也不修改，避免页面误显示新增成功。 */
+        expect(items.value).toHaveLength(0);
         expect(desktop.pricesSave).not.toHaveBeenCalled();
         /* 文案要指得着用户能做的事。这里说「磁盘空间」会把人引到完全无关的地方。 */
         expect(writeError.value).toContain('刷新');

@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import SaveNotice from '../components/SaveNotice.vue';
 import { computed, ref } from 'vue';
 import PageShell from '../components/PageShell.vue';
 import PressButton from '../components/PressButton.vue';
+import { saved } from '../composables/save-feedback';
 import { askConfirm } from '../composables/use-confirm';
 import CharacterCard from './characters/CharacterCard.vue';
 import CharacterEditor from './characters/CharacterEditor.vue';
@@ -34,7 +36,7 @@ import { goalsOfCharacter } from './goals/goals-store';
  * 页面全部对不上。`md` 三档字号下都低于页头自然高度（42.9 / 45 / 47.6 < 43.3 / 45.3 / 47.8），
  * 页头高度才重新由令牌说了算。
  */
-const { roster, loadError, writeError, add, update, remove } = useRoster();
+const { roster, loadError, writeError, pending, flush, retry, add, update, remove } = useRoster();
 
 /* 正在编辑的草稿，`null` = 浮层关着。**不另存一个 `isNew` 布尔**：
  * 「这是新角色还是改旧的」由「名册里有没有这个 id」现算，两个状态分开维护，
@@ -64,9 +66,11 @@ function openQuick(character: CharacterData, target: QuickTarget) {
 
 /* 快速修改的保存：与编辑器、截图识别共用 `update()`，写入路径只有这一条。
  * `applyQuick` 已经返回**完整的一份**（只替换那一项），所以这里不必再合并。 */
-function onQuickSave(next: CharacterData) {
+async function onQuickSave(next: CharacterData) {
+    if (pending.value > 0) return;
+    const source = quicking.value;
     update(next);
-    quicking.value = null;
+    if ((await saved(flush)) && quicking.value === source) quicking.value = null;
 }
 
 const isNew = computed(() => {
@@ -78,10 +82,12 @@ function startNew() {
     editing.value = emptyCharacter();
 }
 
-function onSave(character: CharacterData) {
+async function onSave(character: CharacterData) {
+    if (pending.value > 0) return;
+    const source = editing.value;
     if (isNew.value) add(character);
     else update(character);
-    editing.value = null;
+    if ((await saved(flush)) && editing.value === source) editing.value = null;
 }
 
 /* 截图识别：认完、人点了「应用到这张卡」之后才走到这里。
@@ -91,9 +97,11 @@ function onSave(character: CharacterData) {
  *
  * `update` 是整条替换（按 id 找到那一格），所以传进去的是**合并后的整份**角色卡
  * ——`applyAttrPanel` 保证除了认出来的那几项，其余一个字都没动。 */
-function onScanApply(character: CharacterData) {
+async function onScanApply(character: CharacterData) {
+    if (pending.value > 0) return;
+    const source = scanning.value;
     update(character);
-    scanning.value = null;
+    if ((await saved(flush)) && scanning.value === source) scanning.value = null;
 }
 
 /* 删角色要问一次：名册删掉就没有回收站。问句与后果在这里，卡上只负责把这枚按钮画出来
@@ -156,7 +164,8 @@ const desc = computed(() =>
              两者都必须显示——读失败时名册本来就是空的，用户看到的是一张空页，不说清楚就会以为
              「角色都没了」然后重填一遍；而底层此刻拒绝写入，他重建的东西同样存不下去。
              样式只用现成的 `.note.error`（`base.css` 的朱色状态），不新造类。 -->
-        <p v-if="loadError || writeError" class="note error">{{ loadError || writeError }}</p>
+        <p v-if="loadError" class="note error">{{ loadError }}</p>
+        <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
 
         <div class="roster">
             <!-- `quick`：点卡上的行 / 格就开「快速修改」。开关状态在**页面**这一层

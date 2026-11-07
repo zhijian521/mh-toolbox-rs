@@ -48,6 +48,7 @@ import { createUi } from './ui.mjs';
 import { createReporter } from './assert.mjs';
 import accounts from './sections/05-accounts.mjs';
 import characters from './sections/02-characters.mjs';
+import dates from './sections/08-dates.mjs';
 import data from './sections/09-data.mjs';
 import finish from './sections/10-finish.mjs';
 import goals from './sections/06-goals.mjs';
@@ -109,6 +110,7 @@ await accounts(ctx);
 await goals(ctx);
 await settings(ctx);
 await tools(ctx);
+await dates(ctx);
 await data(ctx);
 await finish(ctx);
 

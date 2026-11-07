@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import { useToday } from '../../composables/use-today';
 import { computed } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import MeterBar from '../../components/MeterBar.vue';
 import PageShell from '../../components/PageShell.vue';
 import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
-import { daysAgo, todayText } from '../../services/format';
+import { daysAgo } from '../../services/format';
 import { useRoster } from '../characters/roster';
 import { amountText, entriesOn, factsOf, statRowsOf, totalsOf } from '../income/income';
 import { useIncome } from '../income/income-store';
@@ -37,7 +38,7 @@ import { charBrief, trainingPercent, weekSeries } from './overview';
 const { entries } = useIncome();
 const { roster } = useRoster();
 
-const today = computed(() => todayText());
+const today = useToday();
 const todayEntries = computed(() => entriesOn(entries.value, today.value));
 const todayTotals = computed(() => totalsOf(todayEntries.value));
 

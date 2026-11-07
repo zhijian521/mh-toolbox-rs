@@ -1,3 +1,4 @@
+import { normalizeGearDetail, normalizePet } from '../details';
 /**
  * 快速修改：**一次只改一项**。
  *
@@ -44,7 +45,6 @@ import {
     type GearDetail,
     type GearSlot,
     type GearSlotName,
-    type GearStat,
     type Pet,
 } from '../character';
 
@@ -286,54 +286,14 @@ function num(raw: string | undefined): number {
     return Math.max(0, Math.round(parsed));
 }
 
-/**
- * 装备的一行：属性 / 状态 / 特殊都按这条清——`label` 空的行整行丢掉。
- *
- * 与 `normalizeGearDetail`（`roster.ts`）同一条判据，两边必须一致：那边重载时会丢，
- * 这边保存时若不丢，就会出现「刚保存时浮片上多两行空白、重载后它们又不见了」——
- * 这种差异用户只会读成「保存丢东西」。
- */
-function tidyStat(stat: GearStat): GearStat[] {
-    const label = stat.label.trim();
-    if (!label) return [];
-    const extra = stat.extra?.trim();
-    return [
-        {
-            label,
-            value: stat.value.trim(),
-            extra: extra || undefined,
-            gain: stat.gain || undefined,
-        },
-    ];
-}
-
-/** 整份装备的收尾（空行、兜底名、整份判空）。三件事的来由见 `applyGear`。 */
-function tidyDetail(raw: GearDetail, fallbackName: string): GearDetail | undefined {
-    /* 全名空着时用**卡上那个短名**兜底：用户在一格空装备上只写了「装备名」、
-     * 又加了两条状态，此时 `detail.name` 是空的——按「名称与类型都空 = 没录」
-     * 判下去，那两条状态会被整份丢掉，而他明明填过东西。
-     * 两处填的是同一件事（这件叫什么），谁先填都算数。 */
-    const name = raw.name.trim() || fallbackName.trim();
-    const kind = raw.kind.trim();
-    if (!name && !kind) return undefined;
-
-    const requires = (raw.requires ?? []).map((one) => one.trim()).filter(Boolean);
-    const cond = (raw.cond ?? []).flatMap(tidyStat);
-    const lines = (raw.lines ?? []).flatMap((line) => {
-        const label = line.label.trim();
-        return label ? [{ label, value: line.value.trim(), tone: line.tone }] : [];
-    });
-
-    return {
-        name: name || kind,
-        flavor: raw.flavor?.trim() || undefined,
-        kind,
-        requires: requires.length ? requires : undefined,
-        stats: raw.stats.flatMap(tidyStat),
-        cond: cond.length ? cond : undefined,
-        lines: lines.length ? lines : undefined,
-        foot: raw.foot?.trim() || undefined,
-    };
+/** 编辑草稿先 trim，读取边界则保留用户原文；两者共用详情形状和判空规则。 */
+function trimText(value: unknown): unknown {
+    if (typeof value === 'string') return value.trim();
+    if (Array.isArray(value)) return value.map(trimText);
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.entries(value).map(([key, one]) => [key, trimText(one)]));
+    }
+    return value;
 }
 
 /**
@@ -453,7 +413,11 @@ export function applyGear(
     next: { caption?: string; detail?: GearDetail },
 ): CharacterData {
     const caption = (next.caption ?? '').trim();
-    const detail = next.detail ? tidyDetail(next.detail, caption) : undefined;
+    const detail = next.detail
+        ? normalizeGearDetail(
+              trimText({ ...next.detail, name: next.detail.name.trim() || caption }),
+          )
+        : undefined;
 
     /* 空位也**占一格**：十二个部位是游戏定的、卡上 4×4 一格一个，
      * 清空只能把它变空，不能让它从数组里消失。 */
@@ -480,21 +444,9 @@ export function applyGear(
  */
 export function applyPet(character: CharacterData, index: number, next: Pet): CharacterData {
     if (!character.pets[index]) return character;
-    const name = next.name.trim();
-    if (!name) return character;
-
+    const pet = normalizePet(trimText(next));
+    if (!pet) return character;
     const pets = [...character.pets];
-    pets[index] = {
-        ...next,
-        name,
-        growth: next.growth.trim(),
-        element: next.element.trim(),
-        attrs: next.attrs.flatMap((attr) => {
-            const label = attr.label.trim();
-            return label ? [{ label, value: attr.value.trim() }] : [];
-        }),
-        skills: next.skills.map((one) => one.trim()).filter(Boolean),
-        innerPills: next.innerPills.map((one) => one.trim()).filter(Boolean),
-    };
+    pets[index] = pet;
     return { ...character, pets };
 }

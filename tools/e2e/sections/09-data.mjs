@@ -47,9 +47,29 @@ export default async function run(ctx) {
             chars: await dbCount('characters_load'),
             prices: await dbCount('prices_load'),
             entries: await dbCount('income_load', 'entries'),
+            accounts: await dbCount('account_load'),
+            goals: await dbCount('goals_load'),
+            quickPrices: await dbCount('income_load', 'prices'),
         });
 
         let before = null;
+        let original;
+        await t.step('准备非空账号、目标流水、收益与单价夹具', async () => {
+            original = await cdp.evaluate(`(async () => {
+                const { commands } = await import('/src/services/bindings.ts');
+                const income = await commands.incomeLoad();
+                const accounts = await commands.accountLoad();
+                const goals = await commands.goalsLoad();
+                const today = (await import('/src/services/format.ts')).todayText();
+                const entry = { id: 'e2e-backup-income', date: today, characterId: '', kind: 'income', amount: 12345, item: 'E2E备份收益', note: '', createdAt: Date.now() };
+                await commands.incomeSave({ entries: [...income.entries, entry], prices: [{ itemId: 9, price: 46000 }, ...income.prices.filter((one) => one.itemId !== 9)] });
+                await commands.accountSave([...accounts, { id: 'e2e-backup-account', date: today, characterId: '', kind: 'expense', currency: 'rmb', category: '点卡充值', channel: '官方充值', amount: 30, note: 'E2E备份账号', createdAt: Date.now() }]);
+                await commands.goalsSave([...goals, { id: 'e2e-backup-goal', kind: 'money', title: 'E2E备份目标', members: [{ id: 'e2e-member', name: 'E2E成员' }], target: 10, unit: '万', tracking: null, deadline: '', note: '备份往返', logs: [{ id: 'e2e-backup-log', date: today, delta: 2, note: 'E2E目标流水', createdAt: Date.now() }], createdAt: Date.now() }]);
+                return { income, accounts, goals };
+            })()`);
+            await ui.reload();
+            t.pass('非空夹具已通过真实 IPC 写库并重载');
+        });
 
         await t.step('记录导出前的条数', async () => {
             before = await counts();
@@ -104,7 +124,56 @@ export default async function run(ctx) {
                 file.income?.length === before.entries,
                 `文件 ${file.income?.length} / 库 ${before.entries}`,
             );
+            t.check(
+                '账号与目标为非空且条数一致',
+                file.accounts.length === before.accounts &&
+                    file.accounts.length > 0 &&
+                    file.goals.length === before.goals &&
+                    file.goals.length > 0,
+            );
+            t.check(
+                '目标流水内容随信封导出',
+                file.goals.find((one) => one.id === 'e2e-backup-goal')?.logs[0]?.note ===
+                    'E2E目标流水',
+            );
             t.info('导出体积', `${(statSync(exportFile).size / 1024).toFixed(1)} KB`);
+        });
+
+        await t.step('重复账号 id 的备份被拒绝，原账本保持不变', async () => {
+            const badFile = join(exportDir, 'invalid-duplicate.json');
+            const bad = JSON.parse(readFileSync(exportFile, 'utf8'));
+            bad.accounts.push(bad.accounts[0]);
+            writeFileSync(badFile, JSON.stringify(bad), 'utf8');
+            writeHook({ open: badFile });
+            await ui.clickLabel('从备份文件导入账本');
+            await ui.clickText('button', '替换', { exact: true });
+            t.check('错误说清账号记录 id 重复', await ui.waitText('账号记录的 id'));
+            t.check(
+                '拒绝后所有条数原样保留',
+                JSON.stringify(await counts()) === JSON.stringify(before),
+            );
+        });
+
+        await t.step('清除确认说明全部范围，清除后所有账本集合均为空', async () => {
+            await ui.clickLabel('清空全部账本数据');
+            const note = await ui.text('[role="dialog"]');
+            t.check(
+                '清除问句覆盖六类数据',
+                ['角色', '物价', '收益流水', '速记单价', '账号记录', '目标'].every((one) =>
+                    note.includes(one),
+                ),
+            );
+            const origin = await cdp.timeOrigin();
+            await ui.clickText('[role="dialog"] button', '清除', { exact: true });
+            await cdp.waitForReload(origin);
+            t.check(
+                '清除回执覆盖收益与账号',
+                (await ui.waitText('已清空')) && (await ui.text()).includes('笔账号记录'),
+            );
+            t.check(
+                '七张业务表均已清空',
+                Object.values(await counts()).every((count) => count === 0),
+            );
         });
 
         await t.step('导入：确认 → 整份替换 → 页面自己重载', async () => {
@@ -114,6 +183,13 @@ export default async function run(ctx) {
                 timeout: 4000,
             });
             if (!asked) throw new Error('导入没有二次确认');
+            const scope = await ui.text('[role="dialog"]');
+            t.check(
+                '导入确认说明全部账本范围',
+                ['角色', '物价', '收益流水', '速记单价', '账号记录', '目标'].every((one) =>
+                    scope.includes(one),
+                ),
+            );
             /* 必须在点之前取：点下去之后 `location.reload()` 随时可能把文档换掉。 */
             const beforeReload = await cdp.timeOrigin();
             await ui.clickText('button', '替换', { exact: true });
@@ -145,6 +221,34 @@ export default async function run(ctx) {
                 `期望 ${before.entries}，实际 ${after.entries}`,
             );
 
+            t.check(
+                '账号、目标与单价数量一致',
+                after.accounts === before.accounts &&
+                    after.goals === before.goals &&
+                    after.quickPrices === before.quickPrices,
+            );
+            const content = await cdp.evaluate(`(async () => {
+                const { commands } = await import('/src/services/bindings.ts');
+                const account = (await commands.accountLoad()).find((one) => one.id === 'e2e-backup-account');
+                const goal = (await commands.goalsLoad()).find((one) => one.id === 'e2e-backup-goal');
+                return { account, goal };
+            })()`);
+            t.check(
+                '重载后账号金额、币种、备注未丢',
+                content.account?.amount === 30 &&
+                    content.account.currency === 'rmb' &&
+                    content.account.note === 'E2E备份账号',
+            );
+            t.check(
+                '重载后目标及流水未丢',
+                content.goal?.title === 'E2E备份目标' &&
+                    content.goal.logs[0]?.delta === 2 &&
+                    content.goal.logs[0]?.note === 'E2E目标流水',
+            );
+            await ui.goto('账号');
+            t.check('导入后的账号记录出现在页面', (await ui.text()).includes('E2E备份账号'));
+            await ui.goto('目标');
+            t.check('导入后的目标出现在页面', (await ui.text()).includes('E2E备份目标'));
             await ui.goto('角色');
             t.check(
                 '名册页面也画出来了（不是只有库对）',
@@ -162,6 +266,19 @@ export default async function run(ctx) {
                       .filter((ms) => Date.now() - ms < 5 * 60 * 1000)
                 : [];
             t.check('backups/ 里有刚生成的 before-import', fresh.length > 0, `${fresh.length} 份`);
+        });
+
+        await t.step('移除本节夹具，恢复原收益、账号与目标', async () => {
+            if (!original) throw new Error('没有取得夹具前的数据');
+            await cdp.evaluate(`(async () => {
+                const { commands } = await import('/src/services/bindings.ts');
+                const original = ${JSON.stringify(original)};
+                await commands.incomeSave(original.income);
+                await commands.accountSave(original.accounts);
+                await commands.goalsSave(original.goals);
+            })()`);
+            await ui.reload();
+            t.pass('本节夹具已移除');
         });
 
         /* 钩子文件正常已被消费掉；失败路径上会留一份，留着它会让**下一次**导出自动跳到

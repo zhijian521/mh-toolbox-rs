@@ -1,12 +1,15 @@
 <script setup lang="ts">
+import SaveNotice from '../../components/SaveNotice.vue';
+import { useToday } from '../../composables/use-today';
 import { computed, ref } from 'vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
+import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
 import type { QuickItemEntry } from '../../services/game-data';
-import { toWan, todayText } from '../../services/format';
+import { toWan } from '../../services/format';
 import {
     amountText,
     entriesIn,
@@ -40,7 +43,18 @@ import TodayDump from './TodayDump.vue';
  * 统计范围、单价窗开着谁、窗里要预填的现值（`prices`），以及「刚才为什么没写进去」
  * （那两条来自 store）。换算、筛选、合计全在 `income.ts`——那些函数要能单测。
  */
-const { entries, loadError, writeError, recordEntry, setPrice, clearPrice, prices } = useIncome();
+const {
+    entries,
+    loadError,
+    writeError,
+    recordEntry,
+    setPrice,
+    clearPrice,
+    prices,
+    pending,
+    flush,
+    retry,
+} = useIncome();
 
 type Range = IncomeRange;
 const range = ref<Range>('day');
@@ -52,7 +66,7 @@ const RANGES: { value: Range; label: string }[] = [
     { value: 'month', label: '本月' },
 ];
 
-const today = computed(() => todayText());
+const today = useToday();
 
 /**
  * 选中范围内的记录。
@@ -112,7 +126,7 @@ function askPrice(item: QuickItemEntry, mode: 'fixed' | 'variable', thenAdd: boo
  * `mode === 'fixed'` 才写回单价表：浮动价每条的价都不同，写回去等于让下一条默认用
  * 昨天的价——那比空着更容易记错。
  */
-function priceSaved(amount: number) {
+async function priceSaved(amount: number) {
     const ask = priceAsk.value;
     priceAsk.value = null;
     if (!ask) return;
@@ -120,7 +134,8 @@ function priceSaved(amount: number) {
     if (ask.mode === 'fixed') {
         setPrice(ask.item.id, toWan(amount));
         if (!ask.thenAdd) {
-            notify.success(`「${ask.item.name}」的单价已记为 ${amountText(amount)}`);
+            if (await saved(flush))
+                notify.success(`「${ask.item.name}」的单价已记为 ${amountText(amount)}`);
             return;
         }
     }
@@ -131,7 +146,7 @@ function priceSaved(amount: number) {
         notify.error(result.error);
         return;
     }
-    notify.success(recordSummary(ask.item.name, result.entries));
+    if (await saved(flush)) notify.success(recordSummary(ask.item.name, result.entries));
 }
 
 /**
@@ -141,12 +156,12 @@ function priceSaved(amount: number) {
  * 的价入账，而这种错在账面上看不出来——它只是「这次卖少了」。清成「未设价」之后，
  * 再点会先让你定价，代价是一次弹窗，换来的是不会默默记错。
  */
-function priceCleared() {
+async function priceCleared() {
     const ask = priceAsk.value;
     priceAsk.value = null;
     if (!ask) return;
     clearPrice(ask.item.id);
-    notify.success(`「${ask.item.name}」的单价已清除，下次点它要先定价`);
+    if (await saved(flush)) notify.success(`「${ask.item.name}」的单价已清除，下次点它要先定价`);
 }
 </script>
 
@@ -167,7 +182,8 @@ function priceCleared() {
         <!-- 数据层那两条红字合成一行：`loadError`（整份读不出）优先于 `writeError`
              （刚那一笔没写进去）。两条同时成立时上下叠两行，与角色页、物价页的写法不同，
              而且用户在同一屏里读到两句几乎同义的话只会更慌。 -->
-        <p v-if="loadError || writeError" class="note error">{{ loadError || writeError }}</p>
+        <p v-if="loadError" class="note error">{{ loadError }}</p>
+        <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
 
         <div class="income-stack">
             <!-- 这一行只剩范围滑块。原先滑块右边还有一句「今天 · 0 笔」——2026-11-05

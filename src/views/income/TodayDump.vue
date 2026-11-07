@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { useToday } from '../../composables/use-today';
 import { computed } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import NumTag from '../../components/NumTag.vue';
 import PressTile from '../../components/PressTile.vue';
+import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
-import { todayText } from '../../services/format';
+
 import { amountText, compactAmount, entriesOn, groupByItem, totalsOf } from './income';
 import type { ItemGroup } from './income';
 import { useIncome } from './income-store';
@@ -38,11 +40,12 @@ import { useRoster } from '../characters/roster';
  * 这里带 `×N`、块小一号（36 对 44）、`×N` 挂在整格右侧（左栏没有这一列）。
  * 撤错的代价本来就低（再点一下原物品就记回来），这是可以接受的交换。
  */
-const { entries, removeEntry } = useIncome();
+const { entries, removeEntry, flush } = useIncome();
 const { roster } = useRoster();
 
 /** 今天的记录（`groupByItem` 只要这一天的，日期在右栏是常量）。 */
-const todayEntries = computed(() => entriesOn(entries.value, todayText()));
+const today = useToday();
+const todayEntries = computed(() => entriesOn(entries.value, today.value));
 
 /** 一格一个「物品 + 单价」，按条数降序——一眼看到「今天点得最多的是什么」。 */
 const groups = computed(() => groupByItem(todayEntries.value));
@@ -71,17 +74,18 @@ function whoText(ids: readonly string[]): string {
  * 而后者的真实做法是「一开始就别点」。撤一条、再撤一条，`×20 → ×19 → ×18`
  * 自己数得清；一把清空之后，用户要先想起来「刚才那一格原来有几个」。
  */
-function undo(group: ItemGroup) {
+async function undo(group: ItemGroup) {
     removeEntry(group.lastId);
     const left = group.count - 1;
     /* 带上单价：按价分开之后，同一个名字可能有好几格，只说「已撤掉 定魂珠 一条」
      * 分不清撤的是 4.6 万那格还是 5.2 万那格。 */
     const what = `${group.name} ${compactAmount(group.amount)}`;
-    notify.success(
-        left > 0
-            ? `已撤掉 ${what} 一条 · 还剩 ${left} 条`
-            : `已撤掉 ${what}${group.kind === 'expense' ? ' 的支出' : ''}`,
-    );
+    if (await saved(flush))
+        notify.success(
+            left > 0
+                ? `已撤掉 ${what} 一条 · 还剩 ${left} 条`
+                : `已撤掉 ${what}${group.kind === 'expense' ? ' 的支出' : ''}`,
+        );
 }
 </script>
 

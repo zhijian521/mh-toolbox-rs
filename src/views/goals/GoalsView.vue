@@ -1,13 +1,16 @@
 <script setup lang="ts">
+import SaveNotice from '../../components/SaveNotice.vue';
+import { useToday } from '../../composables/use-today';
 import { computed, ref } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
+import { saved } from '../../composables/save-feedback';
 import { askConfirm } from '../../composables/use-confirm';
 import { notify } from '../../composables/use-notify';
-import { todayText } from '../../services/format';
+
 import { useRoster } from '../characters/roster';
 import GoalCard from './GoalCard.vue';
 import GoalEditor from './GoalEditor.vue';
@@ -42,10 +45,10 @@ import {
  * 排序不给人拖：进行中在前、有期限的按近的在前。旧仓的拖拽 + 方向键换来一条看不见的
  * `sortOrder` 与一整块拖放代码，而目标的自然读法是「快要到期的、还差得多的先看」。
  */
-const { goals, loadError, writeError } = useGoals();
-const { roster, update: updateCharacter } = useRoster();
+const { goals, loadError, writeError, pending, flush, retry } = useGoals();
+const { roster, update: updateCharacter, flush: flushRoster } = useRoster();
 
-const today = todayText();
+const today = useToday();
 
 /* ---------- 汇总 ---------- */
 const entries = computed(() =>
@@ -65,7 +68,7 @@ const doneEntries = computed(() => entries.value.filter((entry) => entry.summary
 const nearest = computed(() => {
     let best: { title: string; days: number } | null = null;
     for (const { goal } of active.value) {
-        const days = daysLeft(goal.deadline, today);
+        const days = daysLeft(goal.deadline, today.value);
         if (days === null || days < 0) continue;
         if (!best || days < best.days) best = { title: goal.title, days };
     }
@@ -74,7 +77,7 @@ const nearest = computed(() => {
 const overdue = computed(
     () =>
         active.value.filter(({ goal }) => {
-            const days = daysLeft(goal.deadline, today);
+            const days = daysLeft(goal.deadline, today.value);
             return days !== null && days < 0;
         }).length,
 );
@@ -124,6 +127,7 @@ const editing = ref<{ goal?: Goal } | null>(null);
  * 存整条对象的话，写回后外面那个对象就是旧的——流水窗里刚记的一笔不会出现在
  * 「当前 0 / 100 万」里，卡片却已经变了（第一次走查就是这么发现的）。 */
 const growthId = ref('');
+let growthVersion = 0;
 const logsId = ref('');
 const growth = computed(() => goals.value.find((one) => one.id === growthId.value) ?? null);
 const logs = computed(() => goals.value.find((one) => one.id === logsId.value) ?? null);
@@ -146,7 +150,8 @@ function announce(before: GoalSummary | null, id: string) {
     if (status.value === 'active') status.value = 'all';
 }
 
-function save(input: GoalInput) {
+async function save(input: GoalInput) {
+    if (pending.value > 0) return;
     const target = editing.value?.goal;
     const before = target ? summaryOf(target.id) : null;
     const result = target ? updateGoal(target.id, input) : addGoal(input);
@@ -154,8 +159,11 @@ function save(input: GoalInput) {
         notify.error(result.error);
         return;
     }
+    editing.value = { goal: result.goal };
+    const source = editing.value;
+    if (!(await saved(flush))) return;
     notify.success(target ? '已保存' : `已建「${result.goal.title}」`);
-    editing.value = null;
+    if (editing.value === source) editing.value = null;
     announce(before, result.goal.id);
 }
 
@@ -169,10 +177,10 @@ async function askRemove(goal: Goal) {
     });
     if (!ok) return;
     removeGoal(goal.id);
-    notify.success('目标已删除');
+    if (await saved(flush)) notify.success('目标已删除');
 }
 
-function record(log: { date: string; delta: number; note: string }) {
+async function record(log: { date: string; delta: number; note: string }) {
     const goal = logs.value;
     if (!goal) return;
     const before = summaryOf(goal.id);
@@ -181,17 +189,18 @@ function record(log: { date: string; delta: number; note: string }) {
         notify.error(result.error);
         return;
     }
-    announce(before, goal.id);
+    if (await saved(flush)) announce(before, goal.id);
 }
 
 /** 装备目标的「买了一件」：不弹窗，直接记 +1——买完就完成，那一下不该穿过一张表单。 */
-function bought(goal: Goal) {
+async function bought(goal: Goal) {
     const before = summaryOf(goal.id);
-    const result = addLog(goal.id, { date: today, delta: 1, note: '买了一件' });
+    const result = addLog(goal.id, { date: today.value, delta: 1, note: '买了一件' });
     if (!result.ok) {
         notify.error(result.error);
         return;
     }
+    if (!(await saved(flush))) return;
     const after = summaryOf(goal.id);
     /* 中间那几下不弹回执：卡片上的读数就在点的那一下变，再弹三条「已记一件」
      * 只会盖住页头。只有「这一下把它记完了」值得说一句（`announce` 只管这一件事，
@@ -201,7 +210,8 @@ function bought(goal: Goal) {
 }
 
 /** 批量写回角色档案。一次一个 `update`，每个都会落盘——量级是个位数，不必合批。 */
-function applyGrowth(values: { id: string; value: number }[]) {
+async function applyGrowth(values: { id: string; value: number }[]) {
+    const version = growthVersion;
     const goal = growth.value;
     if (!goal?.tracking) return;
     const before = summaryOf(goal.id);
@@ -210,7 +220,8 @@ function applyGrowth(values: { id: string; value: number }[]) {
         if (!character) continue;
         updateCharacter(applyMetric(character, goal.tracking, item.value));
     }
-    growthId.value = '';
+    if (!(await saved(flushRoster))) return;
+    if (version === growthVersion && growthId.value === goal.id) growthId.value = '';
     announce(before, goal.id);
     notify.success(`已更新 ${values.length} 个角色`);
 }
@@ -222,8 +233,10 @@ function dropLog(logId: string) {
 }
 
 function onProgress(goal: Goal) {
-    if (goal.tracking) growthId.value = goal.id;
-    else logsId.value = goal.id;
+    if (goal.tracking) {
+        growthVersion += 1;
+        growthId.value = goal.id;
+    } else logsId.value = goal.id;
 }
 </script>
 
@@ -263,7 +276,7 @@ function onProgress(goal: Goal) {
         </LedgerSection>
 
         <p v-if="loadError" class="note error" role="alert">{{ loadError }}</p>
-        <p v-if="writeError" class="note error" role="alert">{{ writeError }}</p>
+        <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
 
         <div class="filters">
             <SegmentedPills v-model="status" :options="statusOptions" label="目标状态" />

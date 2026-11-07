@@ -2,7 +2,8 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId } from 'vue';
 import type { CSSProperties } from 'vue';
 import AppIcon from './AppIcon.vue';
-import { parseDay, todayText } from '../services/format';
+import { useToday } from '../composables/use-today';
+import { parseDay } from '../services/format';
 
 /**
  * 日期选择：一条**槽** + 一张**纸片上的月历**。
@@ -73,14 +74,14 @@ const trigger = ref<HTMLButtonElement | null>(null);
 const panel = ref<HTMLElement | null>(null);
 const open = ref(false);
 
-const today = todayText();
+const today = useToday();
 
 /* 当前翻到的月份。打开时跟到已选那天，关着的时候谁也不会看见它。 */
-const view = ref(monthOf(props.modelValue || today));
+const view = ref(monthOf(props.modelValue || today.value));
 
 /* 键盘落点（`YYYY-MM-DD`）。与「已选的值」是两件事：方向键只是移动焦点，
  * 回车才落定——混成一个变量，路过某天就把值改掉了（`SelectField` 的 `cursor` 同理）。 */
-const cursor = ref(props.modelValue || today);
+const cursor = ref(props.modelValue || today.value);
 
 const panelId = `date-${useId()}`;
 
@@ -100,7 +101,7 @@ function monthOf(value: string): { year: number; month: number } {
 
 /** 触发条上那串字：`2026年11月5日`。年月日在同一行，比 `2026-11-05` 好读。 */
 const triggerText = computed(() => {
-    const one = parseDay(props.modelValue || today);
+    const one = parseDay(props.modelValue || today.value);
     return `${one.getFullYear()}年${one.getMonth() + 1}月${one.getDate()}日`;
 });
 
@@ -214,7 +215,7 @@ function onViewportChange() {
  * 之后要按十几次方向键才能走到想选的日子。 */
 function openPanel() {
     if (open.value) return;
-    const seed = props.modelValue || today;
+    const seed = props.modelValue || today.value;
     cursor.value = seed;
     view.value = monthOf(seed);
     /* 先藏住再量：`v-if` 重建了纸片，沿用上一次的 left/top 会先画在旧位置一帧。 */
@@ -256,7 +257,7 @@ function shiftMonth(step: number, focus = false) {
     const moved = new Date(year, month + step, 1);
     view.value = { year: moved.getFullYear(), month: moved.getMonth() };
 
-    const base = parseDay(cursor.value || props.modelValue || today);
+    const base = parseDay(cursor.value || props.modelValue || today.value);
     const last = new Date(view.value.year, view.value.month + 1, 0).getDate();
     cursor.value = textOf(
         new Date(view.value.year, view.value.month, Math.min(base.getDate(), last)),
@@ -269,7 +270,7 @@ function shiftMonth(step: number, focus = false) {
  * 用 `setDate(d + step)` 而不是「毫秒加减 86400000」：后者在有夏令时的时区会把某一天
  * 挪成 23 或 25 小时，落点算出来差一天。东八区没有夏令时，但这条口径换台机器也该成立。 */
 function moveCursor(step: number) {
-    const base = parseDay(cursor.value || props.modelValue || today);
+    const base = parseDay(cursor.value || props.modelValue || today.value);
     const next = textOf(new Date(base.getFullYear(), base.getMonth(), base.getDate() + step));
     cursor.value = next;
     const { year, month } = monthOf(next);
@@ -284,7 +285,7 @@ function choose(value: string) {
 }
 
 function jumpToday() {
-    const value = todayText();
+    const value = today.value;
     cursor.value = value;
     view.value = monthOf(value);
     choose(value);
@@ -318,8 +319,8 @@ function onDayKeydown(event: KeyboardEvent) {
             break;
         case 'Home':
             event.preventDefault();
-            cursor.value = todayText();
-            view.value = monthOf(todayText());
+            cursor.value = today.value;
+            view.value = monthOf(today.value);
             void nextTick(() => focusCursor());
             break;
         case 'Enter':

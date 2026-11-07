@@ -17,7 +17,7 @@
  * 归一、排序、金额口径、种子数据、`storage` 事件监听，全部留在各自的 store 里。
  * 这个文件只回答两个问题：**这份数据怎么安全地写下去**、**老数据怎么搬一次**。
  */
-import type { Ref } from 'vue';
+import { readonly, ref, type DeepReadonly, type Ref } from 'vue';
 import { hasDesktop } from './desktop';
 
 export interface PersistOptions {
@@ -57,44 +57,78 @@ export interface PersistOptions {
  * 收益账从第 97 批起就有这条队列，物价与名册没有（同一套写法，三份里只有一份想到了）。
  * 抽到这里之后三处一致。
  */
-export function createPersist(options: PersistOptions): () => void {
-    let chain: Promise<void> = Promise.resolve();
+export interface Persist {
+    (): Promise<boolean>;
+    pending: DeepReadonly<Ref<number>>;
+    flush: () => Promise<boolean>;
+    canWrite: () => boolean;
+}
 
-    return function persist(): void {
-        /* 读失败时一律不写：这时内存里是空表，写下去就是整份覆盖。
-         * 界面有红字告知，这条是代码侧的闸——即便将来多出一个写入口也拦得住。 */
+const writers = new Map<string, Persist>();
+
+/** 导出、替换和关闭窗口前等待所有队列，失败时由调用方保留窗口并告知用户。 */
+export async function flushPendingWrites(): Promise<boolean> {
+    let results: boolean[];
+    do {
+        results = await Promise.all([...writers.values()].map((writer) => writer.flush()));
+    } while ([...writers.values()].some((writer) => writer.pending.value > 0));
+    return results.every(Boolean);
+}
+
+export function createPersist(options: PersistOptions): Persist {
+    let chain: Promise<boolean> = Promise.resolve(true);
+    const pending = ref(0);
+    const canWrite = () => {
         if (options.loadError.value) {
-            console.error(
-                `${options.label}处于读取失败状态，跳过本次写入`,
-                options.loadError.value,
-            );
-            return;
+            options.writeError.value = options.loadError.value;
+            return false;
         }
-
-        /* 还没读过库就写 = 拿空表覆盖。两件事分开报：这一条不是「磁盘有问题」，
-         * 是「这一版代码还没看过库」，用户能做的只有刷新一次。 */
         if (!options.loaded.value) {
-            console.error(`${options.label}还没读过库，跳过本次写入（这个页面刷新过吗？）`);
             options.writeError.value = '这一页还没读到数据，刷新一次再记';
-            return;
+            return false;
         }
-
+        return true;
+    };
+    function persist(): Promise<boolean> {
+        if (!canWrite()) return Promise.resolve(false);
         if (!hasDesktop()) {
-            options.writeLocal();
-            return;
+            options.writeError.value = '';
+            try {
+                options.writeLocal();
+            } catch (error) {
+                console.error(options.label + '写入失败', error);
+                options.writeError.value = '这一笔没存下来，检查一下浏览器存储空间';
+            }
+            return Promise.resolve(!options.writeError.value);
         }
-
-        chain = chain
-            .then(async () => {
-                /* 快照在这一刻取（不是排队那一刻）：前一份刚写完，内存里已经是最新的一份。 */
+        pending.value += 1;
+        chain = chain.then(async () => {
+            try {
                 const ok = await options.writeRemote();
                 options.writeError.value = ok ? '' : '这一笔没写进数据库，检查一下磁盘空间';
-            })
-            /* `desktop.ts` 每个命令都自己兜住了异常，这条只是保底：链上一旦漏出一个
-             * reject，后面的 `.then` 全部不会执行，写入从此静默停摆。 */
-            .catch((error: unknown) => {
-                console.error(`${options.label}写入排队时出错`, error);
+                return ok;
+            } catch (error) {
+                console.error(options.label + '写入排队时出错', error);
                 options.writeError.value = '这一笔没写进数据库，检查一下磁盘空间';
-            });
-    };
+                return false;
+            } finally {
+                pending.value -= 1;
+            }
+        });
+        return chain;
+    }
+    const writer = Object.assign(persist, {
+        pending: readonly(pending),
+        canWrite,
+        async flush() {
+            let current;
+            do {
+                current = chain;
+                await current;
+            } while (current !== chain);
+            return !options.writeError.value;
+        },
+    });
+    writers.set(options.label, writer);
+    return writer;
 }

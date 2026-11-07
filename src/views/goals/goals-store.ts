@@ -11,7 +11,8 @@
  * 就是新的 bug 来源。
  */
 import { ref } from 'vue';
-import { goalLoad, goalSave, hasDesktop } from '../../services/desktop';
+import { hasDesktop } from '../../services/desktop';
+import { goalLoad, goalSave } from '../../services/storage';
 import { createPersist } from '../../services/persist';
 import { makeId } from '../../services/shape';
 import {
@@ -147,7 +148,7 @@ function compose(
 }
 
 export function addGoal(input: GoalInput): GoalWrite {
-    if (loadError.value) return { ok: false, error: '目标读取失败，先修好再来建' };
+    if (!persist.canWrite()) return { ok: false, error: '目标读取失败，先修好再来建' };
     const checked = check(input);
     if (!checked.ok) return checked;
     const goal = compose(input, checked.unit, makeId('goal'), Date.now(), []);
@@ -163,7 +164,7 @@ export function addGoal(input: GoalInput): GoalWrite {
  * 攒下的进度一起抹了——用户只想去改个标题。
  */
 export function updateGoal(id: string, input: GoalInput): GoalWrite {
-    if (loadError.value) return { ok: false, error: '目标读取失败，先修好再来改' };
+    if (!persist.canWrite()) return { ok: false, error: '目标读取失败，先修好再来改' };
     const before = goals.value.find((one) => one.id === id);
     if (!before) return { ok: false, error: '这个目标已经不在了' };
     const checked = check(input);
@@ -175,7 +176,7 @@ export function updateGoal(id: string, input: GoalInput): GoalWrite {
 }
 
 export function removeGoal(id: string): void {
-    if (loadError.value) return;
+    if (!persist.canWrite()) return;
     const before = goals.value.length;
     goals.value = goals.value.filter((one) => one.id !== id);
     if (goals.value.length !== before) persist();
@@ -198,7 +199,7 @@ export type LogWrite = { ok: true; goal: Goal } | { ok: false; error: string };
  * 保留 createdAt → 重算」的路径，而那条路径正是最容易出现「改完累计没跟上」的地方。
  */
 export function addLog(id: string, input: LogInput): LogWrite {
-    if (loadError.value) return { ok: false, error: '目标读取失败，先修好再来记' };
+    if (!persist.canWrite()) return { ok: false, error: '目标读取失败，先修好再来记' };
     const goal = goals.value.find((one) => one.id === id);
     if (!goal) return { ok: false, error: '这个目标已经不在了' };
     if (goal.tracking) return { ok: false, error: '养成目标跟着角色档案走，去「更新养成」里改' };
@@ -230,7 +231,7 @@ export function addLog(id: string, input: LogInput): LogWrite {
 }
 
 export function removeLog(id: string, logId: string): void {
-    if (loadError.value) return;
+    if (!persist.canWrite()) return;
     const goal = goals.value.find((one) => one.id === id);
     if (!goal) return;
     const next: Goal = { ...goal, logs: goal.logs.filter((log) => log.id !== logId) };
@@ -251,6 +252,9 @@ export function snapshotMembers(
 
 export function useGoals() {
     return {
+        pending: persist.pending,
+        flush: persist.flush,
+        retry: persist,
         goals,
         loadError,
         writeError,

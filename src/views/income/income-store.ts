@@ -15,7 +15,8 @@
  * 就整份覆盖掉原来的记录。所以读失败会把 `loadError` 立起来，并让写入直接返回。
  */
 import { ref } from 'vue';
-import { hasDesktop, incomeLoad, incomeSave } from '../../services/desktop';
+import { hasDesktop } from '../../services/desktop';
+import { incomeLoad, incomeSave } from '../../services/storage';
 import { fromWan, todayText } from '../../services/format';
 import { createPersist } from '../../services/persist';
 import { onStorageSync } from '../../services/storage-sync';
@@ -191,7 +192,7 @@ export function recordEntry(input: {
     characterIds?: string[];
     note?: string;
 }): IncomeWrite {
-    if (loadError.value) return { ok: false, error: '收益账读取失败，先修好再来记' };
+    if (!persist.canWrite()) return { ok: false, error: '收益账读取失败，先修好再来记' };
 
     /* **先取整，再判正**。反过来会让 `0.4` 过关、落成 `0`，而 `0` 在 `normalizeEntry`
      * 里是「丢掉」——用户点了、提示说记上了、重启后那条不见了。
@@ -228,7 +229,7 @@ export function recordEntry(input: {
 
 /** 删一条（今日清单上的 ×）。撤回是**真删**——账本里没有「隐藏」。 */
 export function removeEntry(id: string): void {
-    if (loadError.value) return;
+    if (!persist.canWrite()) return;
     const before = entries.value.length;
     entries.value = entries.value.filter((one) => one.id !== id);
     if (entries.value.length !== before) persist();
@@ -249,7 +250,7 @@ export function updateEntry(
     id: string,
     patch: { amount?: number; item?: string; characterId?: string },
 ): IncomeWrite {
-    if (loadError.value) return { ok: false, error: '收益账读取失败，先修好再来改' };
+    if (!persist.canWrite()) return { ok: false, error: '收益账读取失败，先修好再来改' };
 
     const index = entries.value.findIndex((one) => one.id === id);
     if (index < 0) return { ok: false, error: '这一条已经不在了' };
@@ -274,7 +275,7 @@ export function updateEntry(
 
 /** 改一件物品的单价（右键改价）。`wan` 是「万」，转原值后落盘。 */
 export function setPrice(itemId: number, wan: number): boolean {
-    if (loadError.value) return false;
+    if (!persist.canWrite()) return false;
     const amount = fromWan(wan);
     if (!Number.isFinite(amount) || amount <= 0) return false;
     prices.value = { ...prices.value, [itemId]: amount };
@@ -284,7 +285,7 @@ export function setPrice(itemId: number, wan: number): boolean {
 
 /** 清掉一件物品的单价（改价窗里的「清除」）。清掉之后格子显示「未设价」。 */
 export function clearPrice(itemId: number): void {
-    if (loadError.value) return;
+    if (!persist.canWrite()) return;
     if (!(itemId in prices.value)) return;
     const next = { ...prices.value };
     delete next[itemId];
@@ -314,7 +315,7 @@ export type PriceMerge =
 export function mergePrices(
     incoming: readonly { itemId: number; price: number | null }[],
 ): PriceMerge {
-    if (loadError.value) return { ok: false, error: '收益账读取失败，先修好再导入单价' };
+    if (!persist.canWrite()) return { ok: false, error: '收益账读取失败，先修好再导入单价' };
 
     const next = { ...prices.value };
     let added = 0;
@@ -346,6 +347,9 @@ export function setTarget(characterIds: string[]): void {
 /** 页面拿这一份。 */
 export function useIncome() {
     return {
+        pending: persist.pending,
+        flush: persist.flush,
+        retry: persist,
         entries,
         prices,
         target,

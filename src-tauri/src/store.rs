@@ -1375,7 +1375,13 @@ mod tests {
 
         let counts = clear_records(&mut conn).expect("清空");
         assert_eq!(
-            (counts.characters, counts.prices, counts.entries, counts.accounts, counts.goals),
+            (
+                counts.characters,
+                counts.prices,
+                counts.entries,
+                counts.accounts,
+                counts.goals
+            ),
             (1, 1, 0, 0, 0),
             "返回的五个数要报出清掉了多少，界面那几句提示靠它"
         );
@@ -1519,6 +1525,21 @@ mod tests {
                 price: 4.6,
             }],
         };
+        let accounts = vec![AccountEntry {
+            id: "a1".into(),
+            date: "2026-11-07".into(),
+            character_id: "c1".into(),
+            kind: "expense".into(),
+            currency: "rmb".into(),
+            category: "点卡充值".into(),
+            channel: "官方充值".into(),
+            amount: 30.0,
+            note: "月卡".into(),
+            created_at: 2,
+        }];
+        let goals = vec![
+            serde_json::json!({ "id": "g1", "title": "测试目标", "logs": [{ "id": "l1", "delta": 2 }] }),
+        ];
         let counts = replace_all(
             &mut conn,
             &[
@@ -1527,8 +1548,8 @@ mod tests {
             ],
             &[item("i1", "黑宝石", vec![]), item("i2", "月亮石", vec![])],
             &income,
-            &[],
-            &[serde_json::json!({ "id": "g1" })],
+            &accounts,
+            &goals,
         )
         .expect("导入");
 
@@ -1540,11 +1561,16 @@ mod tests {
                 counts.accounts,
                 counts.goals
             ),
-            (2, 2, 1, 0, 1)
+            (2, 2, 1, 1, 1)
         );
         assert_eq!(load_items(&conn).expect("读物价").len(), 2);
         assert_eq!(load_records(&conn, &CHARACTERS).expect("读名册").len(), 2);
         let back = load_income(&conn).expect("读收益");
+        let saved_accounts = load_accounts(&conn).expect("读账号");
+        assert_eq!(saved_accounts.len(), 1);
+        assert_eq!(saved_accounts[0].note, "月卡");
+        assert_eq!(saved_accounts[0].currency, "rmb");
+        assert_eq!(load_records(&conn, &GOALS).expect("读目标"), goals);
         assert_eq!(back.entries.len(), 1);
         assert_eq!(back.prices.len(), 1, "单价也要跟着备份一起进来");
     }

@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import { useToday } from '../../composables/use-today';
 import { computed, ref } from 'vue';
 import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import { askConfirm } from '../../composables/use-confirm';
-import { todayText } from '../../services/format';
+
 import { signedText, type Goal, type GoalSummary } from './goals';
 import type { LogInput } from './goals-store';
 
@@ -22,8 +23,8 @@ import type { LogInput } from './goals-store';
 const props = defineProps<{ goal: Goal; summary: GoalSummary }>();
 const emit = defineEmits<{ add: [input: LogInput]; remove: [logId: string]; close: [] }>();
 
-const today = todayText();
-const date = ref(today);
+const today = useToday();
+const date = ref(today.value);
 const delta = ref(0);
 const note = ref('');
 const error = ref('');

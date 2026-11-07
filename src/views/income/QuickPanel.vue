@@ -6,8 +6,9 @@ import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
 import TogglePills from '../../components/TogglePills.vue';
 import { askConfirm } from '../../composables/use-confirm';
+import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
-import { priceFileExport, priceFileImport } from '../../services/desktop';
+import { priceFileExport, priceFileImport } from '../../services/data-files';
 import { quickItems, type QuickItemEntry } from '../../services/game-data';
 import { quickItemIcon } from '../../services/game-icons';
 import { compactAmount, recordSummary } from './income';
@@ -37,7 +38,7 @@ const emit = defineEmits<{
     'need-price': [item: QuickItemEntry, mode: 'fixed' | 'variable', thenAdd: boolean];
 }>();
 
-const { prices, target, recordEntry, setTarget, mergePrices } = useIncome();
+const { prices, target, recordEntry, setTarget, mergePrices, flush } = useIncome();
 const { roster } = useRoster();
 
 /* 清单在启动时已装好（`main.ts` 等 `loadGameData()` 完成才挂载），这里取一次就够。
@@ -123,7 +124,7 @@ function flash(itemId: number) {
  * 但留着就是一个「已卸载的组件还在排队改状态」的尾巴。 */
 onBeforeUnmount(() => window.clearTimeout(hitTimer));
 
-function pick(item: QuickItemEntry, mode: 'fixed' | 'variable') {
+async function pick(item: QuickItemEntry, mode: 'fixed' | 'variable') {
     if (mode === 'variable') {
         emit('need-price', item, 'variable', true);
         return;
@@ -141,7 +142,7 @@ function pick(item: QuickItemEntry, mode: 'fixed' | 'variable') {
         return;
     }
     flash(item.id);
-    notify.success(recordSummary(item.name, result.entries));
+    if (await saved(flush)) notify.success(recordSummary(item.name, result.entries));
 }
 
 /** 右键：只改价，不记账。 */
@@ -229,10 +230,11 @@ async function importPrices() {
             notify.error(merged.error);
             return;
         }
-        notify.success(
-            `已导入 ${merged.added + merged.updated} 件单价` +
-                `（新增 ${merged.added} · 覆盖 ${merged.updated}）`,
-        );
+        if (await saved(flush))
+            notify.success(
+                `已导入 ${merged.added + merged.updated} 件单价` +
+                    `（新增 ${merged.added} · 覆盖 ${merged.updated}）`,
+            );
     } finally {
         busy.value = false;
     }

@@ -4,6 +4,7 @@ import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SelectField from '../../components/SelectField.vue';
 import { askConfirm } from '../../composables/use-confirm';
+import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
 import { shortDate } from '../../services/format';
 import { characterName, useRoster } from '../characters/roster';
@@ -35,7 +36,7 @@ import { useAccounts } from './accounts-store';
  */
 const emit = defineEmits<{ close: []; edit: [entry: AccountEntry] }>();
 
-const { entries, removeEntry } = useAccounts();
+const { entries, removeEntry, flush } = useAccounts();
 const { roster } = useRoster();
 
 const PER_PAGE = 20;
@@ -146,7 +147,7 @@ async function remove(one: AccountEntry) {
     });
     if (!ok) return;
     removeEntry(one.id);
-    notify.success('已删掉一条');
+    if (await saved(flush)) notify.success('已删掉一条');
 }
 </script>
 

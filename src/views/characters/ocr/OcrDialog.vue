@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import ModalShell from '../../../components/ModalShell.vue';
 import PressButton from '../../../components/PressButton.vue';
 import SteppedSlider from '../../../components/SteppedSlider.vue';
 import CharacterCard from '../CharacterCard.vue';
 import type { CharacterData } from '../character';
 import { schoolSkillNames } from '../schools';
-import { ocrFrame } from '../../../services/desktop';
 import { schoolSkillIcon } from '../../../services/game-icons';
 import { applyAttrPanel, parseAttrPanel, type AttrPanelResult, type OcrLine } from './attr-panel';
 import { matchIcons } from './matcher';
-import { frameOf, imageDataOf } from './pixels';
+import { useOcrImage } from './use-ocr-image';
 import { applySkillPanel, parseSkillPanel, type SkillPanelResult } from './skill-panel';
 
 /**
@@ -61,30 +60,14 @@ const PANES: { value: PaneMode; label: string }[] = [
     { value: 'skills', label: '师门' },
 ];
 
-/* `shallowRef`：`ImageBitmap` 是个几十兆的句柄，它内部没有需要响应式的字段，
- * 深层代理一遍纯属浪费——而且 `close()` 之后代理还拽着它不放。 */
-const bitmap = shallowRef<ImageBitmap | null>(null);
-const shotUrl = ref('');
-
-const attrResult = ref<AttrPanelResult | null>(null);
-const skillResult = ref<SkillPanelResult | null>(null);
-const rawLines = ref<OcrLine[]>([]);
-const busy = ref(false);
-const error = ref('');
-
-/**
- * 识别用的那块像素（RGBA，与送进 OCR 的是同一张画布）。
- *
- * 留着它是为了**切分区时不用重跑 OCR**：图标比对吃的是 `ImageData`，而 OCR 吃的是
- * base64——两者都从 `pixels.ts` 的同一个 `drawTo` 出来，坐标在同一个空间里。
- */
-const shot = shallowRef<ImageData | null>(null);
+type PanelResult =
+    { pane: 'attrs'; value: AttrPanelResult } | { pane: 'skills'; value: SkillPanelResult | null };
+const { result, shotUrl, rawLines, busy, error, takeFile, classify } =
+    useOcrImage<PanelResult>(parse);
+const attrResult = computed(() => (result.value?.pane === 'attrs' ? result.value.value : null));
+const skillResult = computed(() => (result.value?.pane === 'skills' ? result.value.value : null));
 
 const picker = ref<HTMLInputElement | null>(null);
-/* 原文那块 `<details>`。只在「一行都没框到」时由程序展开一次（见 `recognize`），
- * 其余时候归用户点——所以不用 `:open` 绑一个 ref，那会让用户手开的又被打回去。 */
-const rawBox = ref<HTMLDetailsElement | null>(null);
-
 /** 认出来的项数。**现算**而不是读 `result.hit`：用户在卡上改了一格之后那个数就旧了。 */
 const hitCount = computed(() => {
     if (pane.value === 'attrs') {
@@ -135,23 +118,9 @@ const preview = computed(() => {
     return { ...base, id: `${base.id}-preview` };
 });
 
-const canApply = computed(() => Boolean(merged.value) && hitCount.value > 0);
+const canApply = computed(() => !busy.value && Boolean(merged.value) && hitCount.value > 0);
 
 /* ---------- 拿图 ---------- */
-
-async function takeFile(file: File) {
-    error.value = '';
-    try {
-        const decoded = await createImageBitmap(file);
-        bitmap.value?.close();
-        bitmap.value = decoded;
-        if (shotUrl.value) URL.revokeObjectURL(shotUrl.value);
-        shotUrl.value = URL.createObjectURL(file);
-        await recognize();
-    } catch (err) {
-        error.value = `这张图读不出来：${err instanceof Error ? err.message : String(err)}`;
-    }
-}
 
 /**
  * 只认「剪贴板里有图」的那一次粘贴。
@@ -186,107 +155,41 @@ function onPick(event: Event) {
     (event.target as HTMLInputElement).value = '';
 }
 
-/* ---------- 识别 ---------- */
-
-/**
- * 跑一次 OCR，然后按当前分区解析。
- *
- * **OCR 只跑一遍**：切分区不重认（`watch(pane)` 只重跑 `classify`）。换图才重认。
- */
-async function recognize() {
-    const image = bitmap.value;
-    if (!image || busy.value) return;
-    busy.value = true;
-    error.value = '';
-    try {
-        const frame = frameOf(image);
-        const outcome = await ocrFrame(frame.pixels, frame.width, frame.height);
-        if (outcome.status === 'failed') {
-            attrResult.value = null;
-            skillResult.value = null;
-            rawLines.value = [];
-            shot.value = null;
-            error.value = outcome.error;
-            return;
-        }
-        rawLines.value = outcome.lines;
-        shot.value = imageDataOf(image);
-        if (!outcome.lines.length) {
-            error.value = '这张图里一行字都没框到——多半太小，或者不是面板截图。';
-            /* 一行都没有时要**直接把原文摊开**：那时候「为什么没认到」只能靠看
-             * 到底框到了什么，而不是逐项去猜（多半是图太小、或者选错了面板）。
-             * 得等这一帧渲染完，那块 `<details>` 才存在。 */
-            await nextTick();
-            if (rawBox.value) rawBox.value.open = true;
-            return;
-        }
-        await classify();
-    } catch (err) {
-        error.value = `识别失败：${err instanceof Error ? err.message : String(err)}`;
-    } finally {
-        busy.value = false;
-    }
-}
-
-/**
- * 把已经拿到的行按当前分区解析。
- *
- * 与 `recognize` 分开是为了**切分区不重认**：OCR 一次 3~7 秒，而同一张图的文字
- * 早就到手了，换的只是「拿它当哪种面板读」。切回切去都只花几毫秒。
- */
-async function classify() {
-    error.value = '';
+/* 切分区只重解析，不重复调用 OCR。异步图标比对的返回同样受版本保护。 */
+async function parse(lines: OcrLine[], image: ImageData) {
     if (pane.value === 'attrs') {
-        skillResult.value = null;
-        attrResult.value = parseAttrPanel(rawLines.value);
-        if (attrResult.value.hit === 0) {
-            error.value = '没认出属性字段。这张图是「师门」面板的话，切到上面那格再试。';
-        }
-        return;
+        const value = parseAttrPanel(lines);
+        return {
+            result: { pane: 'attrs' as const, value },
+            error: value.hit ? '' : '没认出属性字段。这张图是「师门」面板的话，切到上面那格再试。',
+        };
     }
-
-    attrResult.value = null;
     const names = schoolSkillNames(props.character.school);
     if (!names?.length) {
-        skillResult.value = null;
-        /* 两张师门面板都**不写门派**——认不出该是哪七项，就没有「名字可比」的基准。
-         * 这时候连图标都比不了（比对的是该门派那七张）。所以这条不是提醒，是前提。 */
-        error.value =
-            '这张卡还没选门派。师门面板上不写门派，光看图推不出该是哪七项——先在编辑器里选好门派再来。';
-        return;
+        return {
+            result: { pane: 'skills' as const, value: null },
+            error: '这张卡还没选门派。师门面板上不写门派，先在编辑器里选好门派再来。',
+        };
     }
-
-    skillResult.value = parseSkillPanel(rawLines.value, names, await iconHits(names));
-    if (skillResult.value.hit === 0) {
-        error.value = '没认出师门技能。这张图是「师门技能」那一页吗？';
-    }
-}
-
-/**
- * 图标比对。**只在该门派那七张里找**，且失败时返回空数组。
- *
- * 它是加分项而不是必需项：深蓝那版有技能名，一条图标都没比出来也照样能认。
- * 所以模板图加载失败（图没打进包里、路径变了）不该把整次识别拖下水——吞掉异常、
- * 让名字那条路自己走。
- */
-async function iconHits(names: readonly string[]) {
-    const image = shot.value;
-    if (!image) return [];
     const candidates = names
         .map((name) => ({ name, url: schoolSkillIcon(name) }))
         .filter((one): one is { name: string; url: string } => Boolean(one.url));
-    if (!candidates.length) return [];
-    try {
-        return await matchIcons(image, candidates);
-    } catch {
-        return [];
-    }
+    // 图标是补充证据；模板缺失时仍可按技能名解析。
+    const hits = await matchIcons(image, candidates).catch(() => []);
+    const value = parseSkillPanel(lines, names, hits);
+    return {
+        result: { pane: 'skills' as const, value },
+        error: value.hit ? '' : '没认出师门技能。这张图是「师门技能」那一页吗？',
+    };
 }
 
-/* 切分区：有图就地重解析。没有图时什么都不做——那时 `classify` 只会凭空报一句错。 */
-watch(pane, () => {
-    if (rawLines.value.length) void classify();
-});
+watch(
+    pane,
+    () => {
+        void classify();
+    },
+    { flush: 'sync' },
+);
 
 /* ---------- 改与交 ---------- */
 
@@ -340,15 +243,13 @@ function onLevel(name: string, level: number) {
 }
 
 function apply() {
-    if (merged.value) emit('apply', merged.value);
+    if (canApply.value && merged.value) emit('apply', merged.value);
 }
 
 onMounted(() => document.addEventListener('paste', onPaste));
 
 onBeforeUnmount(() => {
     document.removeEventListener('paste', onPaste);
-    bitmap.value?.close();
-    if (shotUrl.value) URL.revokeObjectURL(shotUrl.value);
 });
 </script>
 
@@ -415,7 +316,7 @@ onBeforeUnmount(() => {
 
                 <!-- 识别原文：折叠着。它回答的是「为什么这一项没认到」，
                      不是日常要看的东西；二十几行摊开会把原图挤掉一半。 -->
-                <details v-if="rawLines.length" ref="rawBox" class="ocr-raw-box">
+                <details v-if="rawLines.length" class="ocr-raw-box">
                     <summary>识别原文 · {{ rawLines.length }} 行</summary>
                     <!-- 分数低于 0.6 的整行标出来：它们正是「错得最离谱」的那几行。 -->
                     <ul class="ocr-raw">
