@@ -203,6 +203,245 @@ export default async function run(ctx) {
             t.check('清空落到库里：卡上不再有 E2E刀', !stillThere);
         });
 
+        /* ---- 截图识别（2026-11-07）----
+         * 真跑一遍：点卡头那枚 → 粘一张**现画的**面板 → 认出字段 → 应用到这张卡 →
+         * 卡上变了 → 重载后还在。
+         *
+         * 图是 `canvas` 现画的，不往仓库里塞游戏截图：那既是用户的数据，也会因为
+         * 换分辨率而让断言时红时绿。画布上的字是微软雅黑 22px，PP-OCRv4 读得出来
+         * （实测 10/10 行全对），于是这条链的每一段都被真的走过一遍——
+         * 粘贴事件、canvas 取像素、IPC 传 1MB 裸像素、模型推理、解析、写库。
+         *
+         * 画的字段刻意**不含名称**：名称是后面几步用来定位这张卡的（`clickIn` 按文字找），
+         * 改名会把后面的断言全打断。等级画 69 而不是 175——下面召唤兽那条要验
+         * 「参战 145 等级不够、签转朱」，等级填高了那条就永远不成立。 */
+        await t.step('截图识别：粘一张合成面板 → 认出字段 → 写进卡', async () => {
+            await ui.clickIn('.roster .char', 'E2E改名后', { label: '截图识别这个角色' });
+            if (!(await ui.waitFor(`!!document.querySelector('.ocr')`, { timeout: 3000 }))) {
+                throw new Error('识别弹窗没打开');
+            }
+
+            /* 分区切换是卡上那条滑轨（`SteppedSlider`），不是分段胶囊：
+             * ARIA 仍是单选组（这里没有对应的面板元素可让 `aria-controls` 指）。 */
+            const rail = await cdp.evaluate(`(() => {
+                const one = document.querySelector('.ocr .stepped');
+                const opts = [...document.querySelectorAll('.ocr-bar .step-opt')];
+                return {
+                    labels: opts.map((b) => b.textContent.trim()),
+                    role: one?.getAttribute('role') ?? '',
+                    thumb: document.querySelectorAll('.ocr-bar .step-thumb').length,
+                    locked: opts.find((b) => b.textContent.trim() === '师门')?.disabled ?? false,
+                };
+            })()`);
+            t.check(
+                '分区是属性 / 师门两格',
+                rail.labels.join('/') === '属性/师门',
+                JSON.stringify(rail.labels),
+            );
+            t.check(
+                '切换器是卡上那条滑轨（一枚朱印 + 单选组）',
+                rail.role === 'radiogroup' && rail.thumb === 1,
+                JSON.stringify(rail),
+            );
+            t.check('师门那格是禁用的（还没做）', rail.locked === true);
+
+            /* 右边的卡是**预览**：不长那条六页签的轨道，其余五页也不挂载。 */
+            t.check('预览卡不画页签条', (await ui.count('.ocr-card .tabs')) === 0);
+            const panes = await ui.count('.ocr-card .pane');
+            t.check('预览卡只挂属性这一页', panes === 1, `实际 ${panes} 页`);
+
+            const empty = await ui.text('.ocr-shot');
+            t.check('空态说清了怎么粘', empty.includes('Ctrl + V'), empty);
+
+            /* 页脚只有两枚按钮。原先那里还压着一句「只写认出来的项…乾元丹 / 潜能果
+             * 不参与」，2026-11-07 用户要求删——别再顺手加回去。 */
+            const foot = await cdp.evaluate(`(() => {
+                const one = document.querySelector('.modal-foot');
+                return {
+                    text: (one?.innerText ?? '').replace(/\\s+/g, ' ').trim(),
+                    buttons: one?.querySelectorAll('button').length ?? -1,
+                };
+            })()`);
+            t.check(
+                '页脚只剩两枚按钮，没有注脚',
+                foot.buttons === 2 && foot.text === '取消 应用到这张卡',
+                JSON.stringify(foot),
+            );
+
+            /* 派发一次真正的 paste（带一个 PNG File），与用户按 Ctrl+V 走同一条路：
+             * 组件监听的是 `document` 的 paste，从 `clipboardData.items` 里取图。 */
+            await cdp.evaluate(`(async () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 360;
+                canvas.height = 300;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#1c1a12';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#f3ead6';
+                ctx.font = '600 22px "Microsoft YaHei", sans-serif';
+                ctx.textBaseline = 'top';
+                /* 七行：前五行验常规项，末两行验**经验的单位**（面板给八位数，
+                 * 卡上要变成「万」）。分成两行写，是因为一行塞「39686092/14142174」
+                 * 在 360 宽里会被画布右缘吃掉一截。 */
+                const rows = [
+                    ['等级', '69'],
+                    ['门派', '五庄观'],
+                    ['气血', '3916/3916'],
+                    ['人气', '757'],
+                    ['命中', '1000'],
+                    ['经验', '39686092'],
+                    ['升级经验', '14142174'],
+                ];
+                rows.forEach((row, index) => {
+                    ctx.fillText(row[0], 20, 20 + index * 40);
+                    ctx.fillText(row[1], 140, 20 + index * 40);
+                });
+                const blob = await new Promise((done) => canvas.toBlob(done, 'image/png'));
+                const transfer = new DataTransfer();
+                transfer.items.add(new File([blob], 'panel.png', { type: 'image/png' }));
+                document.dispatchEvent(
+                    new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true }),
+                );
+                return true;
+            })()`);
+
+            /* 等的是**认完**这件事。不能等 `.attr-field` 出现：那二十格在识别还没开始
+             * 就已经画好了（它们是卡片结构，不是识别结果），一粘就满足，断言会全打在
+             * 空值上——第一次跑就是这么红的。`.ocr-count`（认出 N 项）只在解析出结果后渲染。 */
+            const ready = await ui.waitFor(
+                `!!document.querySelector('.ocr-count') && !document.querySelector('.shot-busy')`,
+                { timeout: 40000 },
+            );
+            t.check('粘完就开始认，认完报出认出几项', ready);
+            const complaint = await cdp.evaluate(
+                `document.querySelector('.ocr .note.error')?.textContent.trim() ?? ''`,
+            );
+            t.check('识别没报错', complaint === '', complaint);
+
+            const cells = await ui.count('.ocr-card .attr-field');
+            t.check('卡上二十格都成了可改的格', cells === 20, `实际 ${cells} 格`);
+            t.check('左栏不再排输入格', (await ui.count('.ocr-fields')) === 0);
+
+            /* 「识别中…」那层蒙版必须跟着撤掉。它单看起来只是块半透明纸，
+             * 但真停在那儿，用户会以为还在算、于是一直等。 */
+            t.check('识别完就撤掉「识别中」', (await ui.count('.shot-busy')) === 0);
+
+            const shot = await cdp.evaluate(`(() => {
+                const card = document.querySelector('.ocr-card');
+                const dialog = card.closest('[role="dialog"]');
+                const values = {};
+                for (const input of card.querySelectorAll('.attr-field')) {
+                    values[input.getAttribute('aria-label')] = input.value;
+                }
+                return {
+                    values,
+                    level: card.querySelector('.char-head .lv')?.textContent.trim() ?? '',
+                    school: card.querySelector('.char-head .chip')?.textContent.trim() ?? '',
+                    rawOpen: dialog?.querySelector('.ocr-raw-box')?.open ?? null,
+                    rawHead: dialog?.querySelector('.ocr-raw-box summary')?.textContent.trim() ?? '',
+                };
+            })()`);
+            t.check('卡头等级认出 69', shot.level === '69 级', shot.level);
+            t.check('卡头门派认出五庄观', shot.school === '五庄观', shot.school);
+            t.check(
+                '气血取了上限 3916',
+                shot.values['气血'] === '3916',
+                `实际「${shot.values['气血']}」`,
+            );
+            t.check(
+                '命中认出 1000',
+                shot.values['命中'] === '1000',
+                `实际「${shot.values['命中']}」`,
+            );
+            t.check(
+                '图上没画的那项是空格',
+                shot.values['魔法'] === '',
+                `实际「${shot.values['魔法']}」`,
+            );
+
+            /* 经验那两格不在 `.attr-field` 里（它在 `.exp-edit` 那一对），单独读：
+             * 面板给八位数，交到卡上的必须是「万」——同一个号在面板上是 `39686092`、
+             * 在卡上是 `3,968.6万`，核对时不必心算除一万。 */
+            const exp = await cdp.evaluate(
+                `[...document.querySelector('.ocr-card').querySelectorAll('.exp-field')].map((i) => i.value)`,
+            );
+            t.check('经验换成万：39686092 → 3968.6万', exp[0] === '3968.6万', JSON.stringify(exp));
+            t.check(
+                '升级经验也换成万：14142174 → 1414.2万',
+                exp[1] === '1414.2万',
+                JSON.stringify(exp),
+            );
+            /* 原文默认折叠：二十几行摊开会把原图挤掉一半，而它是「出问题才来看」的。 */
+            t.check('识别原文默认是折叠的', shot.rawOpen === false, `open=${shot.rawOpen}`);
+            t.check('折叠的抬头写着行数', /识别原文 · \d+ 行/.test(shot.rawHead), shot.rawHead);
+
+            /* 在卡上直接改两个数：`ok` 的那项改成 1250，`miss` 的那项填成 2170。
+             * 第二条才是这个布局的**真正考点**——`miss` 的原值被 `applyAttrPanel`
+             * 整项跳过，不翻成 `ok` 的话，用户填完点应用会发现「改了没用」。 */
+            await ui.fillSel('.ocr-card input[aria-label="命中"]', '1250');
+            await cdp.key('Enter');
+            await ui.fillSel('.ocr-card input[aria-label="魔法"]', '2170');
+            await cdp.key('Enter');
+            await sleep(200);
+            const typed = await cdp.evaluate(`(() => {
+                const card = document.querySelector('.ocr-card');
+                return {
+                    hit: card.querySelector('input[aria-label="命中"]').value,
+                    magic: card.querySelector('input[aria-label="魔法"]').value,
+                };
+            })()`);
+            t.check(
+                '卡上改完那两格还是刚填的数',
+                typed.hit === '1250' && typed.magic === '2170',
+                JSON.stringify(typed),
+            );
+
+            await ui.clickText('[role="dialog"] button', '应用到这张卡');
+            await ui.waitFor(`!document.querySelector('.ocr')`, { timeout: 3000 });
+            await sleep(600);
+
+            const readCard = `(() => {
+                const one = [...document.querySelectorAll('.roster .char')]
+                    .find((c) => (c.textContent || '').includes('E2E改名后'));
+                const read = (label) =>
+                    [...(one?.querySelectorAll('.slip-row') ?? [])]
+                        .find((r) => (r.textContent || '').trim().startsWith(label))
+                        ?.querySelector('.lv')?.textContent.trim() ?? '';
+                return {
+                    level: (one?.textContent || '').match(/(\\d+) 级/)?.[1] ?? '',
+                    hp: read('气血'),
+                    magic: read('魔法'),
+                    hit: read('命中'),
+                    exp: one?.querySelector('.meter-text')?.textContent.trim() ?? '',
+                };
+            })()`;
+            const card = await cdp.evaluate(readCard);
+            t.check('卡头等级变成 69', card.level === '69', JSON.stringify(card));
+            t.check('属性页气血变成 3916', card.hp === '3916', JSON.stringify(card));
+            t.check(
+                '卡上填的魔法写进去了（miss 也生效）',
+                card.magic === '2170',
+                JSON.stringify(card),
+            );
+            t.check('卡上改的命中写进去了', card.hit === '1250', JSON.stringify(card));
+            t.check(
+                '经验落到卡上也是万',
+                card.exp === '3968.6万 / 1414.2万',
+                JSON.stringify(card.exp),
+            );
+
+            await ui.reload();
+            await ui.waitText('E2E改名后', { timeout: 8000 });
+            const after = await cdp.evaluate(readCard);
+            t.check('重载后还是 3916（真的落库了）', after.hp === '3916', JSON.stringify(after));
+            t.check('重载后 2170 还在', after.magic === '2170', JSON.stringify(after));
+            t.check(
+                '重载后经验还是万（落库的是文本，不是换算前的数）',
+                after.exp === '3968.6万 / 1414.2万',
+                JSON.stringify(after.exp),
+            );
+        });
+
         /* ---- 召唤兽：概览牌 + 详情档案（2026-11-05） ----
          * 这一节以前一条断言都没有：卡上只画「名字 · 等级 · 参战」，而这三个数在名册里
          * 从来没被验过——练到哪一步、资质多少，全都只在编辑弹窗里能看见。
