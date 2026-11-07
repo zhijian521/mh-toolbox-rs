@@ -30,3 +30,8 @@ Thumbs.db
 
 # 图标脚本的中间产物（4 方案 × 8 档，可随时重跑）
 scripts/icon/out/
+
+# Python 编译缓存：`tools/game-icons/` 下那几个独立脚本跑一次 `py_compile` 就留一份，
+# 与仓库内容无关，留在 `git status` 里只会干扰「这次到底改了什么」的判读。
+__pycache__/
+*.pyc
