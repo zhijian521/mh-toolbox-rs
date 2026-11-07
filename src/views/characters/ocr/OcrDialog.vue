@@ -4,130 +4,82 @@ import ModalShell from '../../../components/ModalShell.vue';
 import PressButton from '../../../components/PressButton.vue';
 import SteppedSlider from '../../../components/SteppedSlider.vue';
 import CharacterCard from '../CharacterCard.vue';
-import type { CharacterData } from '../character';
+import type { AssistKind, CharacterData, PaneKey } from '../character';
 import { schoolSkillNames } from '../schools';
-import { schoolSkillIcon } from '../../../services/game-icons';
+import { lifeSkills, storySkills } from '../../../services/game-data';
+import { assistIcon } from '../../../services/game-icons';
 import { applyAttrPanel, parseAttrPanel, type AttrPanelResult, type OcrLine } from './attr-panel';
+import { applyAssistPanel, parseAssistPanel, type AssistPanelResult } from './assist-panel';
+import { readAssistLevels } from './assist-image';
 import { matchIcons } from './matcher';
 import { useOcrImage } from './use-ocr-image';
 import { applySkillPanel, parseSkillPanel, type SkillPanelResult } from './skill-panel';
+import { applyTrainingPanel, parseTrainingPanel, type TrainingPanelResult } from './training-panel';
 
-/**
- * 截图识别：粘一张游戏面板的图，认出来，右边立刻显示这张卡认完的样子。
- *
- * ---- 为什么是「弹窗 + 右侧卡片」而不是「直接改编辑器里的表单」 ----
- * 识别一定会错几个字（尤其数字与生僻的帮派名）。错的后果要**当场看得见**：
- * 右侧那张卡就是用户平时看的那一张，认错「力量 721 → 72」在这里一眼就能发现，
- * 而在一张有二十四个输入格的表单里，漏看一个数字是常态。
- *
- * 所以这一层的形状是：**左边证据，右边结论**。左边是原图（认错了能对照），
- * 原文折叠在下面（为什么没认到）；右边是这张卡认完之后的样子。
- *
- * ---- 为什么左栏没有输入格（2026-11-07 用户要求）----
- * 一开始左栏排了二十四行「标签 + 值」，右边再画一张卡。同一批数在屏幕上出现两遍，
- * 改哪一边都得先想「另一边会不会覆盖我」——而且左栏那二十四个格子的排法、字号、
- * 材质与卡上那张表都不一样，改完还得抬头对一遍。
- *
- * 现在只有一份：**卡上那枚读数签自己变成输入格**（`AttrPane` 的 `editable`），
- * 改完立刻在卡上看见，条也在动。左栏于是只剩两件事——原图、原文。
- *
- * ---- 为什么识别完不直接写库 ----
- * 面板是「当前状态」，卡片是「我记下来的状态」。一次误识别把 `帮贡 334` 写成 `33`
- * 之后，用户不会想到是这张图的问题——他会以为自己的号少了三百帮贡。
- * 所以必须由人点一下「应用到这张卡」，而那一下是**可撤销以外的最后一道闸**。
- *
- * ---- 师门从「灰着的那一格」变成真选项（2026-11-07）----
- * 第一版只做属性，师门那格是禁用占位。现在两种面板都认：属性走 `attr-panel.ts`，
- * 师门走 `skill-panel.ts`——后者两种情况都吃（米黄格子只有图标 + 等级，靠
- * `matcher.ts` 认图标；深蓝列表有技能名，直接比对名字）。
- * 切分区**不重跑 OCR**，只重解析（见 `classify`）。
- */
-const props = defineProps<{ character: CharacterData }>();
+/** 识别只改草稿，确认应用后仍走名册的统一保存入口。 */
+const props = withDefaults(defineProps<{ character: CharacterData; pane?: PaneKey }>(), {
+    pane: 'attrs',
+});
 const emit = defineEmits<{ apply: [character: CharacterData]; close: [] }>();
 
-/**
- * 分区。两项都是真选项（2026-11-07 补上师门）：**粘哪种面板就切到哪一格**，
- * 切了之后若已有图会就地重解析，不重跑 OCR（见 `watch`）。
- *
- * 两个面板长得完全不同（见 `skill-panel.ts` 的文件头）：属性那张有标签，
- * 师门那张要么只有图标 + 等级（米黄格子），要么是「图标 名字」列表（深蓝）。
- * 所以解析是两条路，入口只有这一处。
- */
-type PaneMode = 'attrs' | 'skills';
-const pane = ref<PaneMode>('attrs');
+type PaneMode = 'attrs' | 'skills' | 'assist' | 'training';
+const pane = ref<PaneMode>(
+    props.pane === 'skills' || props.pane === 'assist' || props.pane === 'training'
+        ? props.pane
+        : 'attrs',
+);
 const PANES: { value: PaneMode; label: string }[] = [
     { value: 'attrs', label: '属性' },
     { value: 'skills', label: '师门' },
+    { value: 'assist', label: '辅助' },
+    { value: 'training', label: '修炼' },
 ];
 
 type PanelResult =
-    { pane: 'attrs'; value: AttrPanelResult } | { pane: 'skills'; value: SkillPanelResult | null };
+    | { pane: 'attrs'; value: AttrPanelResult }
+    | { pane: 'skills'; value: SkillPanelResult | null }
+    | { pane: 'assist'; value: AssistPanelResult }
+    | { pane: 'training'; value: TrainingPanelResult };
 const { result, shotUrl, rawLines, busy, error, takeFile, classify } =
     useOcrImage<PanelResult>(parse);
 const attrResult = computed(() => (result.value?.pane === 'attrs' ? result.value.value : null));
 const skillResult = computed(() => (result.value?.pane === 'skills' ? result.value.value : null));
+const assistResult = computed(() => (result.value?.pane === 'assist' ? result.value.value : null));
+const trainingResult = computed(() =>
+    result.value?.pane === 'training' ? result.value.value : null,
+);
 
 const picker = ref<HTMLInputElement | null>(null);
-/** 认出来的项数。**现算**而不是读 `result.hit`：用户在卡上改了一格之后那个数就旧了。 */
 const hitCount = computed(() => {
-    if (pane.value === 'attrs') {
-        return (
-            attrResult.value?.fields.filter(
-                (field) => field.state === 'ok' || field.state === 'guess',
-            ).length ?? 0
-        );
-    }
-    return (
-        skillResult.value?.rows.filter((row) => row.state === 'ok' || row.state === 'guess')
-            .length ?? 0
-    );
+    const current = result.value;
+    if (!current?.value) return 0;
+    const rows = current.pane === 'attrs' ? current.value.fields : current.value.rows;
+    return rows.filter((row) => row.state === 'ok' || row.state === 'guess').length;
 });
+const totalCount = computed(() => result.value?.value?.total ?? 0);
 
-/** 这一分区一共多少项：属性 24、师门 7。 */
-const totalCount = computed(() =>
-    pane.value === 'attrs' ? (attrResult.value?.total ?? 0) : (skillResult.value?.total ?? 0),
-);
-
-/** 落库之后的样子（还没有预览用的 id）。 */
 const merged = computed(() => {
-    if (pane.value === 'attrs') {
-        return attrResult.value ? applyAttrPanel(props.character, attrResult.value.fields) : null;
+    const current = result.value;
+    if (!current?.value) return null;
+    switch (current.pane) {
+        case 'attrs':
+            return applyAttrPanel(props.character, current.value.fields);
+        case 'skills':
+            return applySkillPanel(props.character, current.value.rows);
+        case 'assist':
+            return applyAssistPanel(props.character, current.value.rows);
+        case 'training':
+            return applyTrainingPanel(props.character, current.value.rows);
     }
-    return skillResult.value ? applySkillPanel(props.character, skillResult.value.rows) : null;
+    return null;
 });
-
-/**
- * 卡上的数字能不能改：**要等这一类真的有结果**。
- *
- * 没有结果时那些格子无处可写（`onValue` / `onLevel` 找不到对应项），
- * 画成能填却填不进去，是在胡说。
- */
-const editableNow = computed(() =>
-    pane.value === 'attrs' ? Boolean(attrResult.value) : Boolean(skillResult.value),
-);
-
-/**
- * 预览用的那张卡。
- *
- * **`id` 必须换掉**：页签条与六个分区的 `id` 都是从 `character.id` 推的
- * （`${id}-tab-attrs` 那一套），而名册里那张真卡此刻还在 DOM 里。
- * 两个同 id 的节点会让 `aria-labelledby` 指到错的那一个，烟测按 id 定位时也会拿错。
- */
+const editableNow = computed(() => Boolean(result.value?.value));
 const preview = computed(() => {
     const base = merged.value ?? props.character;
     return { ...base, id: `${base.id}-preview` };
 });
-
 const canApply = computed(() => !busy.value && Boolean(merged.value) && hitCount.value > 0);
 
-/* ---------- 拿图 ---------- */
-
-/**
- * 只认「剪贴板里有图」的那一次粘贴。
- *
- * 剪贴板里是文字时**什么都不做**：卡上那些格子是可以粘文字的，
- * 抢过来当图片处理会让「把帮贡粘进格子里」这件事直接失效。
- */
 function onPaste(event: ClipboardEvent) {
     const items = event.clipboardData?.items;
     if (!items) return;
@@ -149,92 +101,76 @@ function onDrop(event: DragEvent) {
 }
 
 function onPick(event: Event) {
-    const file = (event.target as HTMLInputElement).files?.[0];
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
     if (file) void takeFile(file);
-    /* 清掉 value：同一个文件再选一次也要触发 `change`（用户第一次认错了图，想再跑一遍）。 */
-    (event.target as HTMLInputElement).value = '';
+    input.value = '';
 }
 
-/* 切分区只重解析，不重复调用 OCR。异步图标比对的返回同样受版本保护。 */
 async function parse(lines: OcrLine[], image: ImageData) {
     if (pane.value === 'attrs') {
         const value = parseAttrPanel(lines);
         return {
             result: { pane: 'attrs' as const, value },
-            error: value.hit ? '' : '没认出属性字段。这张图是「师门」面板的话，切到上面那格再试。',
+            error: value.hit ? '' : '没认出属性字段',
+        };
+    }
+    if (pane.value === 'assist') {
+        // 两个页签始终同时出现在截图里，类别由实际匹配到的技能图标决定。
+        const candidates = [
+            ...lifeSkills().map((name) => ({ name, url: assistIcon(name, 'life') })),
+            ...storySkills().map((name) => ({ name, url: assistIcon(name, 'story') })),
+        ].filter((one): one is { name: string; url: string } => Boolean(one.url));
+        const hits = await matchIcons(image, candidates);
+        let value = parseAssistPanel(lines, hits);
+        const missing = hits.filter((icon) =>
+            value.rows.some((row) => row.name === icon.name && row.state === 'miss'),
+        );
+        if (missing.length) {
+            const levels = await readAssistLevels(image, missing);
+            value = parseAssistPanel([...lines, ...levels], hits);
+        }
+        return {
+            result: { pane: 'assist' as const, value },
+            error: value.hit ? '' : '没认出辅助技能',
+        };
+    }
+    if (pane.value === 'training') {
+        const value = parseTrainingPanel(lines);
+        return {
+            result: { pane: 'training' as const, value },
+            error: value.hit ? '' : '没认出修炼等级',
         };
     }
     const names = schoolSkillNames(props.character.school);
     if (!names?.length) {
         return {
             result: { pane: 'skills' as const, value: null },
-            error: '这张卡还没选门派。师门面板上不写门派，先在编辑器里选好门派再来。',
+            error: '请先为角色选择门派',
         };
     }
-    const candidates = names
-        .map((name) => ({ name, url: schoolSkillIcon(name) }))
-        .filter((one): one is { name: string; url: string } => Boolean(one.url));
-    // 图标是补充证据；模板缺失时仍可按技能名解析。
-    const hits = await matchIcons(image, candidates).catch(() => []);
-    const value = parseSkillPanel(lines, names, hits);
+    const value = parseSkillPanel(lines, names);
     return {
         result: { pane: 'skills' as const, value },
-        error: value.hit ? '' : '没认出师门技能。这张图是「师门技能」那一页吗？',
+        error: value.hit ? '' : '没认出师门技能',
     };
 }
 
-watch(
-    pane,
-    () => {
-        void classify();
-    },
-    { flush: 'sync' },
-);
+// 切分区重解析当前图；辅助缺等级时只补认等级格。
+watch(pane, () => void classify(), { flush: 'sync' });
 
-/* ---------- 改与交 ---------- */
-
-/**
- * 卡上抛上来的键 → 识别结果里的键。
- *
- * 属性行两边同名（行名就是面板上的标签），只有经验那两个不是：卡上那两格说的是
- * 「这一页的哪个位置」（`experience.value` / `experience.need`），识别层说的是
- * 「面板上哪个标签」（`expValue` / `expNeed`）。翻译放在这一层，卡就不必认识
- * `expValue` 这种词。
- */
 const OCR_KEY: Record<string, string> = {
     'experience.value': 'expValue',
     'experience.need': 'expNeed',
 };
 
-/**
- * 用户在卡上改了一格。
- *
- * 两件必须做的事：
- *   ① 写进 `field.value`——`merged` 是 `applyAttrPanel` 现算的，改这里卡才会跟着变；
- *   ② **`miss` / `bad` 要翻成 `ok`**——那两态的原值被 `applyAttrPanel` 整项跳过，
- *      不翻状态的话，用户亲手在卡上填的数一个也写不进去，看着像「改了没用」。
- *
- * 空串不翻状态，也不清原值以外的任何东西：`applyAttrPanel` 本来就跳过空值，
- * 这一格于是回到卡上原来的数（清空 = 这一项不动，不是「把它记成空」）。
- */
 function onValue(key: string, value: string) {
     const field = attrResult.value?.fields.find((one) => one.key === (OCR_KEY[key] ?? key));
     if (!field) return;
     field.value = value;
-    if (!value) return;
-    if (field.state === 'miss' || field.state === 'bad') field.state = 'ok';
+    if (value && (field.state === 'miss' || field.state === 'bad')) field.state = 'ok';
 }
 
-/**
- * 用户在卡上改了某一项技能的等级。
- *
- * 与 `onValue` 同一条规矩：写进识别结果（`merged` 现算，改这里卡才跟着变），
- * 并把 `miss` 翻成 `ok`——否则 `applySkillPanel` 按状态过滤，用户手填的等级
- * 写不进去，看着像「改了没用」。
- *
- * **0 也算有效值**（0 级 = 没练过，是游戏里真实存在的状态），所以这里不判空，
- * 与属性那边「空串 = 这一项不动」不同。
- */
 function onLevel(name: string, level: number) {
     const row = skillResult.value?.rows.find((one) => one.name === name);
     if (!row) return;
@@ -242,15 +178,32 @@ function onLevel(name: string, level: number) {
     if (row.state === 'miss' || row.state === 'bad') row.state = 'ok';
 }
 
+function onAssistLevel(name: string, kind: AssistKind, level: number) {
+    const current = assistResult.value;
+    if (!current) return;
+    const row = current.rows.find((one) => one.name === name && one.kind === kind);
+    if (row) {
+        row.level = level;
+        row.state = 'ok';
+    } else {
+        current.rows.push({ name, kind, level, state: 'ok', score: 1 });
+        current.total = current.rows.length;
+    }
+}
+
+function onTrainingLevel(name: string, level: number) {
+    const row = trainingResult.value?.rows.find((one) => one.name === name);
+    if (!row) return;
+    row.level = level;
+    row.state = 'ok';
+}
+
 function apply() {
     if (canApply.value && merged.value) emit('apply', merged.value);
 }
 
 onMounted(() => document.addEventListener('paste', onPaste));
-
-onBeforeUnmount(() => {
-    document.removeEventListener('paste', onPaste);
-});
+onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
 </script>
 
 <template>
@@ -347,6 +300,8 @@ onBeforeUnmount(() => {
                         :editable="editableNow"
                         @edit-value="onValue"
                         @edit-level="onLevel"
+                        @edit-assist="onAssistLevel"
+                        @edit-training="onTrainingLevel"
                     />
                 </div>
             </aside>

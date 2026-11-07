@@ -50,6 +50,17 @@ afterEach(() => {
 });
 
 describe('OCR 图像请求生命周期', () => {
+    it('整图没有文字时仍交给面板解析，让辅助图标和等级裁切可以接管', async () => {
+        vi.mocked(ocrFrame).mockResolvedValue({ status: 'ok', lines: [] });
+        const parse = vi.fn(async () => ({ result: 'assist' }));
+        const image = session(parse);
+        await image.takeFile(file());
+        expect(parse).toHaveBeenCalledWith([], expect.objectContaining({ width: 1 }));
+        expect(image.result.value).toBe('assist');
+        expect(image.error.value).toBe('');
+        expect(image.busy.value).toBe(false);
+    });
+
     it('新图立即清旧结果，旧 OCR 后到也不能覆盖最新图，句柄各释放一次', async () => {
         vi.mocked(ocrFrame).mockResolvedValueOnce({ status: 'ok', lines: lines('old') });
         const image = session();

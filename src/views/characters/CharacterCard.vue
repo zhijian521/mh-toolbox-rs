@@ -11,7 +11,14 @@ import GearPane from './panes/GearPane.vue';
 import PetPane from './panes/PetPane.vue';
 import SkillPane from './panes/SkillPane.vue';
 import TrainingPane from './panes/TrainingPane.vue';
-import { PANES, type CharacterData, type GearDetail, type PaneKey, type Pet } from './character';
+import {
+    PANES,
+    type AssistKind,
+    type CharacterData,
+    type GearDetail,
+    type PaneKey,
+    type Pet,
+} from './character';
 import type { QuickTarget } from './quick/quick-target';
 
 /**
@@ -102,9 +109,11 @@ const props = withDefaults(
 const emit = defineEmits<{
     edit: [];
     remove: [];
-    scan: [];
+    scan: [pane: PaneKey];
     'edit-value': [key: string, value: string];
     'edit-level': [name: string, level: number];
+    'edit-assist': [name: string, kind: AssistKind, level: number];
+    'edit-training': [name: string, level: number];
     quick: [target: QuickTarget];
 }>();
 
@@ -117,6 +126,13 @@ watch(
 );
 
 const withTabs = computed(() => props.tabs);
+const canScan = computed(
+    () =>
+        active.value === 'attrs' ||
+        active.value === 'skills' ||
+        active.value === 'assist' ||
+        active.value === 'training',
+);
 
 /* 页签的值与文案一次算好：滑块要的是 `{ value, label }[]`，而 `PANES` 是只读元组，
  * 直接在模板里 `map` 会每次渲染新建一个数组，`useRovingFocus` 的 `values()` 也随之变。 */
@@ -212,7 +228,12 @@ function quickPet() {
                 <PressButton icon="edit" label="编辑这个角色" @click="emit('edit')" />
                 <!-- 截图识别排在修改后面：它是「改这张卡」的第二种入口，也是唯一一个
                      不需要打开编辑器的入口。删除永远在最后，中间不夹破坏性动作。 -->
-                <PressButton icon="scan" label="截图识别这个角色" @click="emit('scan')" />
+                <PressButton
+                    icon="scan"
+                    :label="canScan ? '截图识别这个角色' : '当前分区暂不支持截图识别'"
+                    :disabled="!canScan"
+                    @click="emit('scan', active)"
+                />
                 <PressButton icon="trash" label="删除这个角色" @click="emit('remove')" />
             </div>
         </header>
@@ -239,9 +260,7 @@ function quickPet() {
                  没有页签条时（`tabs: false`）这一层的三条约定一起失效：没有 `-tab-xxx`
                  可指、没有「切回来」这回事、`tabpanel` 也不该出现。所以当前那一页改挂
                  `aria-label` 并把 `tabbed` 关掉，其余页**不渲染**。
-                 「当前那一页」由 `pane` 定：属性与师门两页按 `v-if="withTabs || active === …"`
-                 挂载——预览卡只看这两页（截图识别只认这两类面板），另外四页仍然只在
-                 有页签条时才存在。 -->
+                 属性、师门、辅助、修炼按 `pane` 挂载预览，其余页只在名册页签里出现。 -->
             <template v-if="withTabs || active === 'attrs'">
                 <AttrPane
                     v-show="active === 'attrs'"
@@ -273,25 +292,37 @@ function quickPet() {
                 />
             </template>
 
-            <template v-if="withTabs">
+            <template v-if="withTabs || active === 'assist'">
                 <AssistPane
                     v-show="active === 'assist'"
                     :id="`${character.id}-pane-assist`"
-                    :aria-labelledby="`${character.id}-tab-assist`"
+                    :aria-labelledby="withTabs ? `${character.id}-tab-assist` : undefined"
+                    :aria-label="withTabs ? undefined : '辅助'"
+                    :tabbed="withTabs"
                     :assists="character.assists"
+                    :editable="editable"
                     :quick="quick"
+                    @edit-level="(name, kind, level) => emit('edit-assist', name, kind, level)"
                     @quick="(target) => emit('quick', target)"
                 />
+            </template>
 
+            <template v-if="withTabs || active === 'training'">
                 <TrainingPane
                     v-show="active === 'training'"
                     :id="`${character.id}-pane-training`"
-                    :aria-labelledby="`${character.id}-tab-training`"
+                    :aria-labelledby="withTabs ? `${character.id}-tab-training` : undefined"
+                    :aria-label="withTabs ? undefined : '修炼'"
+                    :tabbed="withTabs"
                     :groups="character.trainings"
+                    :editable="editable"
                     :quick="quick"
+                    @edit-level="(name, level) => emit('edit-training', name, level)"
                     @quick="(target) => emit('quick', target)"
                 />
+            </template>
 
+            <template v-if="withTabs">
                 <GearPane
                     v-show="active === 'gear'"
                     :id="`${character.id}-pane-gear`"

@@ -7,20 +7,15 @@ import { schoolNames } from '../../../services/game-data';
  * 把「属性面板」的一次 OCR 结果解析成角色字段。
  *
  * 这一层是**纯函数**：吃的是一串带坐标的文本行，吐的是「哪一项读到了什么」。
- * 它不碰 DOM、不碰 IPC、不碰库——所以能单测，而且将来加「师门」面板时，
- * 只是再加一个 `parseXxxPanel`，`OcrDialog` 那半边一行不用改。
+ * 它不碰 DOM、不碰 IPC、不碰库；截图解析与应用数据可以分别维护。
  *
  * ---- 为什么靠坐标而不是靠正则拼一串 ----
  * 面板是**两列甚至四列**的格子（「命中 1915 体质 229」在同一行）。把所有行拼成
  * 一串再跑正则，会出现「命中读到 1915 和 229 两个数，取哪个」这种无法回答的问题；
  * 先按 y 聚成行、再按 x 排序，标签右边那一格是谁就没有歧义了。
  *
- * ---- 为什么不写死位置 ----
- * 同一套面板至少有**两种版式**（2026-11-07 用户给了两张图）：
- * 深蓝那张是「名称 归岚 等级 130」，棕色那张是「级别 130 名称 归岚」，
- * 下半部分的顺序也不一样（前者「气血 / 魔法 / 愤怒」竖排，后者「气血」单独一行）。
- * 行内格子的**位置**会变，但「标签在自己右边那一格」这条不变——所以只认标签，
- * 不认坐标区间。
+ * 只维护深蓝「人物属性」面板。仍按标签配对，避免截图裁边、缩放与 OCR 分框
+ * 让固定像素坐标失效；棕色「人物状态」面板的标签别名不再兼容。
  */
 
 /**
@@ -90,26 +85,17 @@ export interface AttrPanelResult {
 /**
  * 面板上的标签 → 取值键。
  *
- * **必须按长度倒序匹配**：「升级经验」与「经验」、『级别』与『级』，长的先试，
- * 否则「升级经验 14142174」会被读成「经验 = 升级经验14142174」。
- *
- * `key: null` 的那几个是**边界标记**：它们不是我们要的值，但必须占住一格，
- * 否则后面那一格会被当成前一个标签的值。棕色版式底部的「升级」「技能」两枚按钮
- * 就是活例子——不挡住的话，「升级经验」那一格会拼成「14142174升级技能」。
+ * 长标签先匹配。`key: null` 是边界标记，防止按钮文字被拼到前一格的数值里。
  */
 const LABELS: { text: string; key: string | null }[] = [
-    { text: '升级经验', key: 'expNeed' },
-    { text: '获得经验', key: 'expValue' },
     { text: '经验', key: 'expValue' },
     { text: '名称', key: 'name' },
     { text: '等级', key: 'level' },
-    { text: '级别', key: 'level' },
     { text: '门派', key: 'school' },
     { text: '帮派', key: 'guild' },
     { text: '人气', key: '人气' },
     { text: '帮贡', key: '帮贡' },
     { text: '门贡', key: '门贡' },
-    { text: '贡献', key: '门贡' },
     { text: '气血', key: '气血' },
     { text: '魔法', key: '魔法' },
     { text: '活力', key: '活力' },
@@ -133,7 +119,6 @@ const LABELS: { text: string; key: string | null }[] = [
     { text: '更多属性', key: null },
     { text: '战前检查', key: null },
     { text: '人物属性', key: null },
-    { text: '人物状态', key: null },
     { text: '升级', key: null },
     { text: '技能', key: null },
 ];
@@ -275,7 +260,7 @@ function matchLabel(text: string): { key: string | null; label: string; rest: st
     return null;
 }
 
-/** 原样的前缀匹配。长的先试（`LABELS` 已按长度倒序），`升级经验` 不会被认成 `经验`。 */
+/** 原样的前缀匹配，长标签先试。 */
 function findLabel(compact: string): { key: string | null; label: string; rest: string } | null {
     for (const item of LABELS) {
         if (compact.startsWith(item.text)) {
@@ -320,8 +305,7 @@ function collect(rows: readonly Cell[][]): Map<string, { raw: string; score: num
             }
             raw = tidy(raw);
 
-            /* 同一个键出现两次（比如面板上「经验」和「获得经验」都在）时，**先到的算数**：
-             * 版式是从上往下读的，第一条就是那一项的主位置。 */
+            /* 同一标签重复出现时保留第一处，避免后续说明覆盖面板上的主值。 */
             if (current.hit.key && !found.has(current.hit.key) && raw !== '') {
                 found.set(current.hit.key, { raw, score });
             }
@@ -521,8 +505,7 @@ export function parseAttrPanel(
     const found = collect(rowsOf(lines));
 
     /* 「经验 39686092/14142174」这种一行两个数的，拆成当前/所需两项。
-     * 拆的依据是**顺序**：深蓝面板那条经验条上「获得经验 / 升级经验」左前右后，
-     * 棕色面板则把两者分成两行，前者的第一个数就是获得的那一个。
+     * 当前经验在左、升级所需在右，与面板底部经验条的顺序一致。
      *
      * **带量纲的不拆**：`4,281.1万` 里小数点后那个「1」也会被 `numbersOf` 当成第二个数，
      * 一拆就把 4281.1万 拆成 4281 + 1。面板目前给的是原始数，这条是防着将来改成
@@ -532,9 +515,7 @@ export function parseAttrPanel(
         const numbers = numbersOf(exp.raw);
         if (numbers.length >= 2 && !/[万亿]/.test(exp.raw)) {
             found.set('expValue', { raw: String(numbers[0]), score: exp.score });
-            if (!found.has('expNeed')) {
-                found.set('expNeed', { raw: String(numbers[1]), score: exp.score });
-            }
+            found.set('expNeed', { raw: String(numbers[1]), score: exp.score });
         }
     }
 

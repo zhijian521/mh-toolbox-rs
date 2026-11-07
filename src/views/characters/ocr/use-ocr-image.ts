@@ -24,7 +24,7 @@ export function useOcrImage<T>(parse: (lines: OcrLine[], shot: ImageData) => Pro
 
     async function classify() {
         const image = shot.value;
-        if (!image || !rawLines.value.length) return;
+        if (!image) return;
         const version = ++parseVersion;
         const source = imageVersion;
         const current = () => !disposed && source === imageVersion && version === parseVersion;
@@ -76,10 +76,6 @@ export function useOcrImage<T>(parse: (lines: OcrLine[], shot: ImageData) => Pro
             }
             rawLines.value = outcome.lines;
             shot.value = image;
-            if (!outcome.lines.length) {
-                error.value = '这张图里一行字都没框到——多半太小，或者不是面板截图。';
-                return;
-            }
             reading.value = false;
             await classify();
         } catch (err) {

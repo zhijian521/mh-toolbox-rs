@@ -92,9 +92,20 @@ export async function quick(ctx) {
         t.check('技能行点得动', skillClicked === true);
         await ui.waitFor(`!!document.querySelector('.modal-panel')`, { timeout: 3000 });
         t.check(
-            '小窗标题带着技能名',
-            (await dialogTitle()) === `快速修改 · ${skillName}`,
+            '技能小窗标题统一为快速修改',
+            (await dialogTitle()) === '快速修改',
             await dialogTitle(),
+        );
+        const dialogSkillName = await cdp.evaluate(
+            `document.querySelector('.modal-panel .quick-skill-name')?.textContent.trim() ?? ''`,
+        );
+        t.check('技能名显示在小窗正文', dialogSkillName === skillName, dialogSkillName);
+        t.check(
+            '师门小窗显示对应图标',
+            await cdp.evaluate(`(() => {
+                const image = document.querySelector('.modal-panel .quick-icon img');
+                return Boolean(image?.complete && image.naturalWidth > 0);
+            })()`),
         );
         /* 门派技能的上限恒为 180，那一格**不该出现**：摆出来只会问出
          * 「180 还是 160」的假问题。 */
@@ -110,6 +121,38 @@ export async function quick(ctx) {
             (await readRow(skillName)) === '42',
             await readRow(skillName),
         );
+
+        // ---- 辅助技能 ----
+        await ui.clickIn('.roster .char', 'E2E改名后', { text: '辅助' });
+        t.check('辅助行点得动', (await clickRow('强身术')) === true);
+        await ui.waitFor(`!!document.querySelector('.modal-panel')`, { timeout: 3000 });
+        t.check('辅助小窗标题统一为快速修改', (await dialogTitle()) === '快速修改');
+        t.check(
+            '辅助小窗正文显示名字和图标',
+            await cdp.evaluate(`(() => {
+                const name = document.querySelector('.modal-panel .quick-skill-name');
+                const image = document.querySelector('.modal-panel .quick-icon img');
+                return name?.textContent.trim() === '强身术' &&
+                    Boolean(image?.complete && image.naturalWidth > 0);
+            })()`),
+        );
+        t.check(
+            '辅助小窗只编辑等级',
+            await cdp.evaluate(`(() => {
+                const fields = document.querySelectorAll('.modal-panel .quick-field');
+                return fields.length === 1 &&
+                    fields[0].querySelector('.field-label')?.textContent.trim() === '等级';
+            })()`),
+        );
+        await fillField('等级', '100');
+        t.check('辅助等级存下去了', await saveDialog());
+        t.check('卡上强身术变成 100', (await readRow('强身术')) === '100');
+        const assist = await cdp.evaluate(`(async () => {
+            const { useRoster } = await import('/src/views/characters/roster.ts');
+            const one = useRoster().roster.value.find((row) => row.name === 'E2E改名后');
+            return { ...one.assists.find((row) => row.kind === 'life' && row.name === '强身术') };
+        })()`);
+        t.check('辅助快捷修改保留已有上限', assist.level === 100 && assist.cap === 140);
 
         // ---- ③ 装备格 ----
         await ui.clickIn('.roster .char', 'E2E改名后', { text: '装备' });

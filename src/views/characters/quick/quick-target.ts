@@ -117,8 +117,6 @@ export interface QuickField {
 export interface QuickPanel {
     title: string;
     fields: QuickField[];
-    /** 一句话前提，空串不画。只在「这里有讲究」时才写，不写「改完点保存」这种废话。 */
-    note?: string;
 }
 
 /* ======================================================================
@@ -171,9 +169,6 @@ export function quickPanel(character: CharacterData, target: QuickScalarTarget):
                         step: 'auto',
                     },
                 ],
-                /* 属性只记上限这件事在页面上看不出来（游戏面板写「当前/上限」），
-                 * 而它正是这一页最容易记错的地方，所以这一句留着。 */
-                note: '属性只记上限，不记当前值。',
             };
         }
 
@@ -211,7 +206,6 @@ export function quickPanel(character: CharacterData, target: QuickScalarTarget):
                         placeholder: '如 1414.2',
                     },
                 ],
-                note: '单位一律记「万」；亿会先折成万。',
             };
         }
 
@@ -225,7 +219,6 @@ export function quickPanel(character: CharacterData, target: QuickScalarTarget):
                  * 「180 还是 160」的假问题，还得替每条数据记一个其实恒等的数。
                  * 数据里的 `cap` 一个字都不动——卡上判「满」读的仍是它。 */
                 fields: [{ key: 'level', label: '等级', value: String(row.level), numeric: true }],
-                note: '上限一律 180，不用填。',
             };
         }
 
@@ -245,7 +238,6 @@ export function quickPanel(character: CharacterData, target: QuickScalarTarget):
                  * 就会错，且错得看不出来（`isMaxed` 只比大小）。
                  * 数据里的 `cap` 一个字都不动。 */
                 fields: [{ key: 'level', label: '等级', value: String(row.level), numeric: true }],
-                note: '上限不动，只改等级。',
             };
         }
 
@@ -269,7 +261,6 @@ export function quickPanel(character: CharacterData, target: QuickScalarTarget):
                         placeholder: fallback === undefined ? '' : String(fallback),
                     },
                 ],
-                note: '上限跟号走：帮派与「修炼上限提升」会把它推高。',
             };
         }
     }

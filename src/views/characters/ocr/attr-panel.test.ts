@@ -16,9 +16,7 @@ const SCHOOLS = ['五庄观', '化生寺', '龙宫'];
 /**
  * 属性面板的解析。
  *
- * 这里喂的是**手写的行**，形状照两张真截图（深蓝「人物属性」/ 棕色「人物状态」）。
- * 不喂真实 OCR 输出：那种测试一旦换个模型、换个字号就全红，而它要守的是
- * 「同一套规则对两种版式都成立」。真实识别率由 `npm run e2e` 那条链去盯。
+ * 手写坐标按深蓝「人物属性」面板组织，覆盖分框、缩放、漏字与局部写回规则。
  */
 
 /** 造一行。默认宽高按 14px 字估，分数 0.95（正常识别）。 */
@@ -43,7 +41,7 @@ function fieldOf(fields: readonly OcrField[], key: string): OcrField {
     return found;
 }
 
-describe('属性面板：两种版式', () => {
+describe('属性面板：深蓝人物属性', () => {
     /* 深蓝版式（2026-11-07 第一张图）：名称在前、等级在后；下半部是
      * 「气血」一整行、「魔法 / 活力」并排，一直到最后一行「经验 当前/所需」。 */
     const dark = rowsOfCells([
@@ -63,7 +61,7 @@ describe('属性面板：两种版式', () => {
         ['经验', '39686092/14142174'],
     ]);
 
-    it('认出全部二十项，值一个不错', () => {
+    it('认出全部字段，值一个不错', () => {
         const { fields, hit } = parseAttrPanel(dark, { schools: SCHOOLS });
         expect(hit).toBe(24);
         expect(fieldOf(fields, 'name').value).toBe('归岚');
@@ -96,44 +94,6 @@ describe('属性面板：两种版式', () => {
         /* 原文留着八位数：「为什么是这个值」要能对回面板上那一格
          * （一行两个数在拆分时已各自成 raw，斜杠不留）。 */
         expect(fieldOf(fields, 'expValue').raw).toBe('39686092');
-    });
-
-    /* 棕色版式（第二张图）：级别在前、名称在后；「贡献」就是门贡；
-     * 底部两个按钮「升级」「技能」必须被当成边界，否则经验那两格会拼成一串。 */
-    const brown = rowsOfCells([
-        ['级别', '130', '名称', '归岚'],
-        ['称谓', '', '人气', '757'],
-        ['帮派', '芙蓉园', '帮贡', '334'],
-        ['门派', '五庄观', '贡献', '324'],
-        ['气血', '3916/3916/3916'],
-        ['魔法', '1440/1440'],
-        ['愤怒', '99/150'],
-        ['活力', '602/860'],
-        ['体力', '313/900'],
-        ['命中', '1915', '体质', '229'],
-        ['伤害', '1591', '魔力', '145'],
-        ['防御', '826', '力量', '721'],
-        ['速度', '455', '耐力', '153'],
-        ['法伤', '810', '敏捷', '332'],
-        ['法防', '723', '潜力', '0'],
-        ['升级经验', '14142174', '升级'],
-        ['获得经验', '39686092', '技能'],
-    ]);
-
-    it('换一种版式也认得出：级别 / 贡献 / 分开的两条经验', () => {
-        const { fields, hit } = parseAttrPanel(brown, { schools: SCHOOLS });
-        expect(hit).toBe(24);
-        expect(fieldOf(fields, 'level').value).toBe('130');
-        expect(fieldOf(fields, 'name').value).toBe('归岚');
-        expect(fieldOf(fields, '门贡').value).toBe('324');
-        expect(fieldOf(fields, 'expValue').value).toBe('3968.6万');
-        expect(fieldOf(fields, 'expNeed').value).toBe('1414.2万');
-    });
-
-    it('「升级」「技能」两枚按钮不会拼进经验值', () => {
-        const { fields } = parseAttrPanel(brown, { schools: SCHOOLS });
-        expect(fieldOf(fields, 'expNeed').value).toBe('1414.2万');
-        expect(fieldOf(fields, 'expValue').value).toBe('3968.6万');
     });
 });
 

@@ -10,7 +10,7 @@ import CharacterEditor from './characters/CharacterEditor.vue';
 import OcrDialog from './characters/ocr/OcrDialog.vue';
 import QuickEdit from './characters/quick/QuickEdit.vue';
 import type { QuickTarget } from './characters/quick/quick-target';
-import type { CharacterData } from './characters/character';
+import type { CharacterData, PaneKey } from './characters/character';
 import { emptyCharacter, useRoster } from './characters/roster';
 import { goalsOfCharacter } from './goals/goals-store';
 
@@ -46,7 +46,7 @@ const editing = ref<CharacterData | null>(null);
 /* 正在做截图识别的那张卡，`null` = 弹窗关着。
  * 与 `editing` 分开：两个弹窗装的是同一张卡，但一个是「改」，一个是「认」，
  * 合用一个变量会让「关掉识别」顺手把编辑器也关掉。 */
-const scanning = ref<CharacterData | null>(null);
+const scanning = ref<{ character: CharacterData; pane: PaneKey } | null>(null);
 
 /**
  * 正在「快速修改」的那一项，`null` = 关着。
@@ -177,7 +177,7 @@ const desc = computed(() =>
                 :character="character"
                 quick
                 @edit="editing = character"
-                @scan="scanning = character"
+                @scan="(pane) => (scanning = { character, pane })"
                 @remove="askRemove(character)"
                 @quick="(target) => openQuick(character, target)"
             />
@@ -209,7 +209,8 @@ const desc = computed(() =>
 
         <OcrDialog
             v-if="scanning"
-            :character="scanning"
+            :character="scanning.character"
+            :pane="scanning.pane"
             @apply="onScanApply"
             @close="scanning = null"
         />

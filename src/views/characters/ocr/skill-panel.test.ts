@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CharacterData } from '../character';
 import type { OcrLine } from './attr-panel';
-import { applySkillPanel, parseSkillPanel, type IconHit } from './skill-panel';
+import { applySkillPanel, parseSkillPanel } from './skill-panel';
 
 /* 门派七项与上限都来自 `fetch` 回来的真表（`public/game/data/schools.json`），
  * vitest 里没有启动流程，读到的是空表——「换门派就换技能表」那条路会直接短路成
@@ -29,7 +29,7 @@ vi.mock('../schools', () => ({
 vi.mock('../../../services/game-data', () => ({ schoolSkillCap: () => 180 }));
 
 /**
- * 数据全部来自**真实的两次 OCR**（2026-11-07 用户给的两张五庄观面板截图），
+ * 数据全部来自**深蓝列表的一次 OCR**（用户提供的五庄观面板截图），
  * 坐标是 `ocr_frame` 吐出来的原值。用真数据而不是编的：
  * 「数字在锚点下方」这条判据的容差、以及「七星遁被读成七星适」这种错法，
  * 都是照着实际输出定的，编一个整齐的网格测不出真问题。
@@ -75,38 +75,6 @@ const DEEP: OcrLine[] = [
     line('经脉流派', 183, 356, 56, 14),
 ];
 
-/** 米黄版式：菱形七格，屏幕上只有图标与等级，一个技能名都没有。 */
-const TAN: OcrLine[] = [
-    line('主技能', 219, 20, 54, 14),
-    line('师门技能', 55, 49, 56, 15),
-    line('辅助技能', 137, 49, 55, 13),
-    line('剧情技能', 219, 49, 55, 13),
-    line('修炼技能', 301, 49, 55, 13),
-    line('经脉流派', 383, 49, 55, 13),
-    line('60', 135, 125, 18, 14),
-    line('251252', 416, 138, 11, 69),
-    line('120', 75, 158, 25, 14),
-    line('120', 196, 159, 24, 14),
-    line('115', 136, 193, 24, 14),
-    line('90', 194, 227, 19, 15),
-    line('90', 74, 228, 18, 14),
-    line('60', 135, 263, 18, 13),
-    line('特效', 47, 264, 30, 16),
-    line('烹饪', 45, 451, 31, 17),
-    line('使用', 406, 452, 28, 15),
-];
-
-/** 米黄版式的七格：坐标是 `matcher.ts` 实际检出的方块，分数是实际匹配值。 */
-const TAN_ICONS: IconHit[] = [
-    { name: '乾坤袖', score: 0.759, box: { x: 126, y: 76, width: 41, height: 39 } },
-    { name: '修仙术', score: 0.646, box: { x: 66, y: 109, width: 41, height: 40 } },
-    { name: '周易学', score: 0.726, box: { x: 186, y: 109, width: 41, height: 39 } },
-    { name: '潇湘仙雨', score: 0.574, box: { x: 126, y: 145, width: 41, height: 39 } },
-    { name: '混元道果', score: 0.641, box: { x: 66, y: 178, width: 41, height: 39 } },
-    { name: '明性修身', score: 0.612, box: { x: 186, y: 178, width: 41, height: 39 } },
-    { name: '七星遁', score: 0.596, box: { x: 126, y: 213, width: 41, height: 39 } },
-];
-
 const levelsOf = (rows: { name: string; level: number }[]) =>
     Object.fromEntries(rows.map((row) => [row.name, row.level]));
 
@@ -132,7 +100,7 @@ describe('师门面板：深蓝列表（有技能名）', () => {
         expect(row?.state).toBe('guess');
     });
 
-    it('没有名字的版式下，缺一项就是缺一项（不乱配）', () => {
+    it('缺一项技能名时，不把相邻等级配给它', () => {
         /* 把「混元道果」那一行抽掉：它的等级 90 不能被邻居认领。 */
         const lines = DEEP.filter((one) => one.text !== '混元道果');
         const rows = parseSkillPanel(lines, NAMES).rows;
@@ -141,56 +109,11 @@ describe('师门面板：深蓝列表（有技能名）', () => {
     });
 });
 
-describe('师门面板：米黄格子（只有图标）', () => {
-    it('靠图标认名字，等级取图标下方那个数', () => {
-        const { rows, hit } = parseSkillPanel(TAN, NAMES, TAN_ICONS);
-        expect(hit).toBe(7);
-        expect(levelsOf(rows)).toEqual({
-            周易学: 120,
-            潇湘仙雨: 115,
-            乾坤袖: 60,
-            修仙术: 120,
-            混元道果: 90,
-            明性修身: 90,
-            七星遁: 60,
-        });
-    });
-
-    it('完全没有图标时，七项全部是「没认到」', () => {
-        const { rows, hit } = parseSkillPanel(TAN, NAMES);
-        /* 图上的数字还在，但没有锚点就无从配对——**宁可不给**，也不要按位置硬塞
-         * （实测两张图的格子顺序与技能表顺序本来就不一样）。 */
-        expect(hit).toBe(0);
-        expect(rows.every((row) => row.state === 'miss')).toBe(true);
-    });
-
-    it('图标分低于门槛的不参与（0.5 以下一律不信）', () => {
-        const weak: IconHit[] = TAN_ICONS.map((one) => ({ ...one, score: 0.4 }));
-        expect(parseSkillPanel(TAN, NAMES, weak).hit).toBe(0);
-    });
-
-    it('页签与按钮上的字不会被当成等级', () => {
-        /* 米黄那张底部有「60」以外的数吗？没有——但顶上的页签、底部的「烹饪」都在
-         * 同一个 y 区间之外，验证的是「配对只认锚点下方」。这里用「特效」那一行
-         * 手工造一个纯数字，确认它不会被配给任何一格。 */
-        const lines = [...TAN, line('99', 47, 264, 18, 14)];
-        const rows = parseSkillPanel(lines, NAMES, TAN_ICONS).rows;
-        expect(rows.some((row) => row.level === 99)).toBe(false);
-    });
-});
-
-describe('师门面板：两条线索打架时', () => {
-    it('名字优先于图标（名字是字，图标是猜）', () => {
-        /* 名字说「周易学 120」，图标说那一格是「七星遁」——同一项技能两条线索
-         * 指向不同名字时，按名字落，等级取名字下面那个数。图标那条线索就此作废，
-         * 于是「七星遁」这次没认到，而不是被硬塞一个别人的等级。 */
-        const lines = [line('周易学', 80, 80, 42, 15), line('120', 80, 97, 20, 11)];
-        const icons: IconHit[] = [
-            { name: '七星遁', score: 0.8, box: { x: 30, y: 78, width: 40, height: 40 } },
-        ];
-        const rows = parseSkillPanel(lines, NAMES, icons).rows;
-        expect(rows.find((one) => one.name === '周易学')?.level).toBe(120);
-        expect(rows.find((one) => one.name === '七星遁')?.state).toBe('miss');
+describe('师门面板：只有名字才能配对', () => {
+    it('只有数字的旧版格子图不再按位置推断技能', () => {
+        const result = parseSkillPanel([line('120', 80, 97, 20, 11)], NAMES);
+        expect(result.hit).toBe(0);
+        expect(result.rows.every((row) => row.state === 'miss')).toBe(true);
     });
 });
 

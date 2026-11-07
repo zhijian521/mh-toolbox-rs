@@ -4,8 +4,8 @@ import { correlation, findTiles } from './matcher';
 /**
  * 图标比对里**与 DOM 无关**的那一半。
  *
- * `findTiles` / `matchIcons` 都要 `ImageData` 与 canvas，vitest 的 node 环境里没有，
- * 所以它们由烟测覆盖（真窗口、真图）。这里守的是相关系数本身——它算错不会报错，
+ * 方块定位用纯像素数据覆盖；模板解码与完整比对由真窗口烟测覆盖。
+ * 相关系数算错不会报错，
  * 只会让「哪一格是哪个技能」整体偏掉，而那在界面上看起来只是「认错了」。
  */
 
@@ -41,7 +41,7 @@ describe('相关系数', () => {
 });
 
 describe('方块检测的形状判据', () => {
-    /* 尺寸按图宽筛（3%~20%），与截图分辨率无关——只验两个极端：
+    /* 尺寸按截图短边筛，与截图分辨率无关——只验两个极端：
      * 太小的一律不理（文字笔画），太大的一律不理（整块面板背景）。 */
     it('全红的一张图找不到「方块」（整屏都是红的，没有边界）', () => {
         const width = 64;
@@ -53,7 +53,7 @@ describe('方块检测的形状判据', () => {
             data[i + 2] = 30;
             data[i + 3] = 255;
         }
-        /* 64 宽的图里，整屏是一个 64×64 的连通块 > 20% 的宽度上限，被尺寸筛掉。 */
+        /* 64 宽的图里，整屏是一个 64×64 的连通块 > 短边 25% 的上限，被尺寸筛掉。 */
         expect(findTiles({ width, height, data } as ImageData)).toEqual([]);
     });
 
@@ -62,5 +62,44 @@ describe('方块检测的形状判据', () => {
         const height = 32;
         const data = new Uint8ClampedArray(width * height * 4).fill(200);
         expect(findTiles({ width, height, data } as ImageData)).toEqual([]);
+    });
+});
+
+describe('辅助图标的颜色定位', () => {
+    it.each([36, 37])('彩色部分只有 40×%i 时补齐暗色底边，不拉伸图标', (coloredHeight) => {
+        const width = 200;
+        const height = 200;
+        const data = new Uint8ClampedArray(width * height * 4);
+        for (let y = 40; y < 40 + coloredHeight; y += 1) {
+            for (let x = 60; x < 100; x += 1) {
+                data.set([210, 160, 45, 255], (y * width + x) * 4);
+            }
+        }
+        expect(findTiles({ width, height, data } as ImageData)).toEqual([
+            { x: 60, y: 40, width: 40, height: 40 },
+        ]);
+    });
+
+    it.each([
+        ['金色', [210, 160, 45]],
+        ['蓝色', [45, 160, 210]],
+        ['粉红', [220, 80, 75]],
+    ] as const)('%s边框图标能定位', (_name, rgb) => {
+        const width = 200;
+        const height = 200;
+        const data = new Uint8ClampedArray(width * height * 4);
+        for (let y = 40; y < 80; y += 1) {
+            for (let x = 60; x < 100; x += 1) {
+                if (x >= 63 && x < 97 && y >= 43 && y < 77) continue;
+                const at = (y * width + x) * 4;
+                data.set([...rgb, 255], at);
+            }
+        }
+        expect(findTiles({ width, height, data } as ImageData)).toContainEqual({
+            x: 60,
+            y: 40,
+            width: 40,
+            height: 40,
+        });
     });
 });

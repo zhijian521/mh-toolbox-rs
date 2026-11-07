@@ -3,6 +3,8 @@ import { computed, nextTick, onMounted, ref } from 'vue';
 import ModalShell from '../../../components/ModalShell.vue';
 import CounterField from '../../../components/CounterField.vue';
 import PressButton from '../../../components/PressButton.vue';
+import { assistIcon, schoolSkillIcon } from '../../../services/game-icons';
+import IconTile from '../IconTile.vue';
 import GearQuick from './GearQuick.vue';
 import PetQuick from './PetQuick.vue';
 import { applyQuick, isScalarTarget, quickPanel, type QuickTarget } from './quick-target';
@@ -36,6 +38,16 @@ const emit = defineEmits<{ save: [character: CharacterData]; close: [] }>();
  * 装备与召唤兽在这里恒为 `null`：它们不画字段表，走下面模板里的两个整份表单。 */
 const scalar = computed(() => (isScalarTarget(props.target) ? props.target : null));
 const panel = computed(() => (scalar.value ? quickPanel(props.character, scalar.value) : null));
+const skillName = computed(() => {
+    const target = props.target;
+    return target.kind === 'skill' || target.kind === 'assist' ? target.name : '';
+});
+const skillIcon = computed(() => {
+    const target = props.target;
+    if (target.kind === 'skill') return schoolSkillIcon(target.name);
+    if (target.kind === 'assist') return assistIcon(target.name, target.assist);
+    return undefined;
+});
 
 /* 装备与召唤兽各自要的那一个参数。写成 computed 而不是在模板里直接 `target.slot`：
  * 判别联合在模板里的收窄不可靠（`target` 是 `QuickTarget`，`v-if` 收窄跨属性时
@@ -101,12 +113,16 @@ onMounted(async () => {
     />
     <ModalShell
         v-else
-        :title="panel?.title ?? '快速修改'"
+        :title="skillName ? '快速修改' : (panel?.title ?? '快速修改')"
         :width="340"
         initial-focus="none"
         @close="emit('close')"
     >
         <div v-if="panel" ref="form" class="quick-form">
+            <div v-if="skillName" class="quick-skill">
+                <IconTile v-if="skillIcon" class="quick-icon" :src="skillIcon" aria-hidden="true" />
+                <span class="quick-skill-name">{{ skillName }}</span>
+            </div>
             <!-- 一项 = 一小段：**名字在上、控件在下占满一行并居中**，照记价窗那一枚
                  （`PriceField` 的排法）。先前是「标签在左、格在右」的表单行，那样
                  数字只有一条窄缝，加减印块挤在两端，读起来是「表格里的一格」；
@@ -135,8 +151,6 @@ onMounted(async () => {
                     autocomplete="off"
                 />
             </div>
-
-            <p v-if="panel.note" class="note">{{ panel.note }}</p>
         </div>
 
         <template #footer>
@@ -165,6 +179,22 @@ onMounted(async () => {
     display: grid;
     gap: 14px;
 }
+.quick-skill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+.quick-form .quick-icon {
+    --tile-w: calc(48px * var(--fs-scale));
+    --tile-h: calc(48px * var(--fs-scale));
+    --shot: calc(40px * var(--fs-scale));
+    flex-shrink: 0;
+}
+.quick-skill-name {
+    font-size: calc(var(--fs-base) + 2px);
+    font-weight: 600;
+}
 .quick-field {
     display: flex;
     flex-direction: column;
@@ -185,11 +215,6 @@ onMounted(async () => {
     padding: 0 12px;
     border-radius: var(--r-3);
     font-size: calc(var(--fs-base) + 1px);
-    text-align: center;
-}
-/* 说明与最后一格之间多留一点：它是这一屏唯一的正文（其余都是标签）。 */
-.quick-form .note {
-    margin-top: 2px;
     text-align: center;
 }
 </style>
