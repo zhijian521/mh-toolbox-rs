@@ -58,10 +58,6 @@ const groups = defineModel<TrainingGroup[]>({ required: true });
                 </div>
             </div>
         </section>
-
-        <!-- 上限这一格跟别的格子不一样：它一整页十行都长得差不多，可只有它是「按号填」的。
-             一句话放两列底下（通栏），不占任何一行的宽度。 -->
-        <p class="hint training-hint">上限跟号走：修炼上限提升过就改大，留空按默认记。</p>
     </div>
 </template>
 
@@ -121,10 +117,6 @@ const groups = defineModel<TrainingGroup[]>({ required: true });
     color: var(--ink-2);
     font-size: var(--fs-xs);
     line-height: 1.35;
-}
-/* 上限的说明放两列底下（通栏）：它说的是整页十行的同一件事，不属于哪一列。 */
-.training-hint {
-    grid-column: 1 / -1;
 }
 /* 「/」不是装饰：它把两个数字读成 `11 / 20`，与卡内那条进度条同一个说法。
  * 用次级墨——它是一道分隔，不该和数字一样重。 */

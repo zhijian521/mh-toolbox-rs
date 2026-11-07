@@ -101,10 +101,6 @@
     margin: 0;
     color: var(--ink);
 }
-.price-void .note {
-    max-width: 380px;
-    margin: 0;
-}
 
 /* 有物品但被筛掉了：一行字，不留空框。空框读起来像「渲染失败」，
  * 而事实是「这个条件下确实没有」。 */

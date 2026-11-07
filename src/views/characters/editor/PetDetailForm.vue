@@ -133,7 +133,7 @@ const nameList = (list: string[]) => list.join('、');
                 <PressButton icon="trash" label="删掉这条属性" @click="pet.attrs.splice(ai, 1)" />
             </div>
         </div>
-        <p v-if="!pet.attrs.length" class="hint">还没有战斗属性，点上面的「加一条」</p>
+        <p v-if="!pet.attrs.length" class="hint">还没有记录战斗属性</p>
 
         <div class="lists">
             <label class="list-block">

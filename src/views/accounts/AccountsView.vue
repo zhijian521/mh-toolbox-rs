@@ -174,7 +174,7 @@ async function save(input: EntryInput) {
         </div>
 
         <!-- 快捷记账：点一下把方向 / 币种 / 分类 / 渠道填好，只差金额。 -->
-        <LedgerSection title="快捷记账" hint="点一下填好方向与币种，只差金额">
+        <LedgerSection title="快捷记账">
             <div class="shortcuts">
                 <button
                     v-for="one in SHORTCUTS"
@@ -202,9 +202,7 @@ async function save(input: EntryInput) {
 
         <!-- 最近记录：点一行打开编辑。完整浏览在「全部记录」里。 -->
         <LedgerSection title="最近记录" :hint="`共 ${scoped.length} 笔`" class="records">
-            <p v-if="!recent.length" class="note blank">
-                这个范围还没有记录。点上面的快捷入口，或右上角「记一笔」。
-            </p>
+            <p v-if="!recent.length" class="note blank">这个范围还没有记录</p>
 
             <table v-else class="recent-table">
                 <thead>
@@ -249,7 +247,6 @@ async function save(input: EntryInput) {
             </table>
 
             <footer v-if="recent.length" class="log-foot">
-                <span class="note">点一行改它；删除在「全部记录」里。</span>
                 <PressButton text="全部记录" label="打开全部账号记录" @click="recordsOpen = true" />
             </footer>
         </LedgerSection>
@@ -526,7 +523,7 @@ async function save(input: EntryInput) {
 .log-foot {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 10px;
     margin-top: 10px;
     padding-top: 10px;

@@ -253,7 +253,7 @@ function onProgress(goal: Goal) {
             <PressButton icon="add" text="新建目标" label="新建目标" seal @click="editing = {}" />
         </template>
 
-        <LedgerSection title="概览" hint="还差多少">
+        <LedgerSection title="概览">
             <div class="strip">
                 <div>
                     <span class="cap">进行中</span>
@@ -293,20 +293,13 @@ function onProgress(goal: Goal) {
 
         <div v-if="!goals.length" class="empty">
             <p class="empty-title">定一个小目标</p>
-            <p class="empty-text">养成目标跟着角色档案自动算；存钱与装备记流水，攒够就是达成。</p>
             <PressButton icon="add" text="新建第一个目标" label="新建目标" @click="editing = {}" />
         </div>
         <div v-else-if="!visible.length" class="empty">
             <p class="empty-title">
                 {{ filtered ? '没有符合条件的目标' : '进行中的都做完了' }}
             </p>
-            <p class="empty-text">
-                {{
-                    filtered
-                        ? '换个筛选，或者把关键词清掉。'
-                        : `已完成 ${doneEntries.length} 个，切到「已达成」可以回看。`
-                }}
-            </p>
+            <p v-if="!filtered" class="empty-text">已完成 {{ doneEntries.length }} 个目标</p>
             <PressButton
                 v-if="!filtered"
                 text="看已达成"

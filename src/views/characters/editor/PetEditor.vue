@@ -167,7 +167,7 @@ function removeCurrent() {
             </div>
         </div>
 
-        <p v-else class="empty-note">还没有召唤兽，点左栏下面的「加一只」</p>
+        <p v-else class="empty-note">还没有记录召唤兽</p>
     </div>
 </template>
 

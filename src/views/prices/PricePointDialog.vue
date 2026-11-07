@@ -100,7 +100,6 @@ function onEnter(event: KeyboardEvent) {
                 />
             </label>
 
-            <p class="meta price-hint">直接填「万」：320 就是 320 万。</p>
             <p v-if="error" class="note error dialog-error">{{ error }}</p>
         </form>
 
@@ -134,12 +133,6 @@ function onEnter(event: KeyboardEvent) {
     width: 100%;
     min-width: 0;
 }
-/* 提示行只调位置，字档走 `.meta`。 */
-.price-hint {
-    margin: 0;
-}
-/* 写盘失败那一句。与提示行分两个类：同一行 `.price-hint` 一开两用，
- * 改颜色或改间距时谁也说不清影响的是哪一句。 */
 .dialog-error {
     margin: 0;
 }

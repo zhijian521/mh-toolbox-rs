@@ -242,9 +242,6 @@ function submit() {
                         />
                     </div>
                 </div>
-                <p class="form-note">
-                    进度读的是每个角色档案里的当前值，不另存一份——在角色页改了，这里立刻跟着变。
-                </p>
             </template>
 
             <div class="pair">
@@ -264,17 +261,14 @@ function submit() {
                 <div v-else class="form-row">
                     <span class="field-label">单位</span>
                     <!-- 不画成输入框：它跟着项目走，改不了。画成框会让人去点它。 -->
-                    <p class="unit-fixed">{{ unit }} · 跟项目走</p>
+                    <p class="unit-fixed">{{ unit }}</p>
                 </div>
             </div>
 
             <div class="form-row">
                 <span class="field-label">适用角色</span>
                 <SelectField v-model="who" :options="whoOptions" label="目标适用哪些角色" />
-                <p class="form-note">
-                    保存时会把当时这几个人记下来（快照）。之后名册里加人，这个目标不跟着变——
-                    它许的是「这几个人练到多少」。
-                </p>
+                <p class="form-note">后续新增角色不加入此目标。</p>
             </div>
 
             <div class="form-row">

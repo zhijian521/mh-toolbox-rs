@@ -22,14 +22,10 @@ const { scale } = useFontScale();
         <div class="form-row">
             <span class="field-label">主题</span>
             <SegmentedPills v-model="mode" :options="THEME_OPTIONS" label="主题" />
-            <span class="hint"
-                >当前：{{ THEME_OPTIONS.find((item) => item.value === mode)?.label }}</span
-            >
         </div>
         <div class="form-row">
             <span class="field-label">字号</span>
             <FontSizeSlider v-model="scale" />
-            <span class="hint">全站文字一起缩放</span>
         </div>
     </LedgerSection>
 </template>

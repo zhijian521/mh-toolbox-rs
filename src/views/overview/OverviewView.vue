@@ -153,9 +153,7 @@ function trainingText(one: { trainingLevel: number; trainingCap: number }): stri
             </LedgerSection>
 
             <LedgerSection title="各号近况" :hint="`${briefs.length} 个号`">
-                <p v-if="!briefs.length" class="note blank">
-                    名册里还没有角色。去「角色」加一个，这里就有内容了。
-                </p>
+                <p v-if="!briefs.length" class="note blank">还没有角色</p>
 
                 <div v-else class="chars">
                     <article v-for="one in briefs" :key="one.id" class="char">

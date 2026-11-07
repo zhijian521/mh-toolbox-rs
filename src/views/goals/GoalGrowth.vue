@@ -69,10 +69,7 @@ function submit() {
 
 <template>
     <ModalShell title="更新养成" :width="420" :scroll="false" @close="emit('close')">
-        <p class="hint">
-            更新「{{ tracking.key }}」：填每个角色的当前值，一次写回角色档案。0 显示成空格，
-            表示还没录——没改过的行不会被写回去。
-        </p>
+        <p class="hint">「{{ tracking.key }}」当前值，保存后同步到角色档案。</p>
         <!-- 与记一笔同一个理由：`PressButton` 是 `type="button"`，回车没有隐式提交，
              这里显式接住。填一串数、按回车，是这张表最自然的用法。 -->
         <form class="growth" @submit.prevent="submit" @keydown.enter.prevent="submit">

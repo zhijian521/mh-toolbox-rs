@@ -32,7 +32,7 @@ function open(tool: ToolEntry) {
 </script>
 
 <template>
-    <PageShell title="工具" desc="日常要用的几件">
+    <PageShell title="工具">
         <ul class="tool-grid">
             <li v-for="tool in TOOLS" :key="tool.key">
                 <button

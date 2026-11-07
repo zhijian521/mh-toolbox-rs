@@ -14,8 +14,7 @@ import { amountText } from './income';
  * 3. **浮动价（或金币）** —— 每条现填一次，**不写回单价表**（兽决每天一个价，
  *    写回去等于让下一条默认用昨天的价，那比空着更容易记错）。
  *
- * 三者的区别只有文案与「保存后是否回写」，所以不拆三个组件——拆开之后三处各有
- * 一句自己的提示，改口径要改三遍。
+ * 三种流程共用输入与校验，由调用方决定保存后是否记账或回写单价表。
  */
 const props = defineProps<{
     item: QuickItemEntry;
@@ -92,18 +91,6 @@ function onEnter(event: KeyboardEvent) {
                 :error="showError ? error : ''"
                 @blur="touched = true"
             />
-            <p class="note">
-                {{ isMoney ? '填「万」：320 就是 320 万。' : '填「万」：4.6 就是 4.6 万。' }}
-            </p>
-            <p class="note">
-                <template v-if="mode === 'variable'">
-                    只用于这一条，<b>不写回单价表</b>——这类物品每天一个价。
-                </template>
-                <template v-else-if="thenAdd">
-                    这个价会存进单价表，下次点「{{ item.name }}」直接按它记账。
-                </template>
-                <template v-else> 只改单价表，不会记一条账。 </template>
-            </p>
             <p v-if="willAdd && amount > 0" class="meta">将记为 {{ amountText(amount) }}</p>
         </form>
 
@@ -136,13 +123,6 @@ function onEnter(event: KeyboardEvent) {
     display: flex;
     flex-direction: column;
     gap: 9px;
-}
-.dialog-form .note {
-    margin: 0;
-}
-.dialog-form b {
-    font-weight: 400;
-    color: var(--ink-2);
 }
 /* 弹窗底栏是 `justify-content: flex-end`（两个动作贴右），所以「清除」靠
  * `margin-right: auto` 自己站到左端，不用再塞一个占位元素。 */

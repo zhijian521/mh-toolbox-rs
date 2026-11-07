@@ -97,11 +97,6 @@ async function remove(logId: string) {
                     @click="submit"
                 />
             </div>
-            <p class="hint">
-                正数往上加、负数往下减；累计最低到 0。{{
-                    goal.kind === 'gear' ? '买了一件就记 +1。' : ''
-                }}
-            </p>
             <p v-if="error" class="form-error" role="alert">{{ error }}</p>
         </form>
 
@@ -115,7 +110,7 @@ async function remove(logId: string) {
                 <button class="remove" aria-label="删掉这一笔" @click="remove(log.id)">删</button>
             </li>
         </ul>
-        <p v-else class="hint empty">还没有流水。上面填一笔，进度就是它们的和。</p>
+        <p v-else class="hint empty">还没有流水</p>
     </ModalShell>
 </template>
 

@@ -150,7 +150,6 @@ function optionsFor(row: SkillRowData): { value: string; label: string }[] {
                         @update:level="row.level = $event"
                     />
                 </div>
-                <p class="hint skill-hint">名字由门派带入；换门派会按名字保留已填的等级</p>
             </template>
         </template>
 
@@ -284,15 +283,6 @@ function optionsFor(row: SkillRowData): { value: string; label: string }[] {
     color: var(--muted);
     font-size: var(--fs-sm);
     text-align: center;
-}
-/* 两列与行距都不在这一页了：`.slip-rows.slip-cols` 给两列与列距 12、`row-gap` 6，
- * 卡上用的是同一个类。2026-11-04 之前这里有自己的 `.skill-rows`（两列 + 行距 8），
- * 只因「弹窗里每行还多一条外框内边距」——而两页的行早就不靠外框对位了，那个 8
- * 与卡上的 6 是同一件事的两种写法。
- *
- * 说明与最后一张票之间让出 12px：贴太近会读作「这张表还没结束」。 */
-.skill-hint {
-    margin: 12px 0 0;
 }
 /* 三列 flex：图标 / 名称 / 等级格——**与卡上同一个结构、同一套尺寸**
  * （2026-11-03 用户：「同步一下师门技能编辑页的技能列表样式和角色卡片保持一致」）。

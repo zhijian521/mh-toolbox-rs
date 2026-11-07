@@ -124,7 +124,7 @@ const chart = computed(() => chartPrices(props.item));
                 </span>
             </li>
         </ol>
-        <p v-if="!rows.length" class="note hist-blank">这件物品还没有价格记录，在下面记第一笔。</p>
+        <p v-if="!rows.length" class="note hist-blank">还没有价格记录</p>
 
         <template #footer>
             <PressButton text="改物品" label="编辑这件物品的名称与分类" @click="emit('editItem')" />

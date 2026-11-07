@@ -51,8 +51,6 @@ onMounted(async () => {
     >
         <div v-if="pet" ref="form" class="pet-quick">
             <PetDetailForm v-model="pet" />
-
-            <p class="note">名字空着的保存时会被丢掉，所以留着才能保存。</p>
         </div>
         <p v-else class="note">这只召唤兽已经不在了。</p>
 

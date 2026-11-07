@@ -385,11 +385,9 @@ function openHistory(item: PriceItem) {
             />
         </div>
 
-        <!-- 一件都没记过：给图标、给做法、给一键入口。 -->
         <div v-else-if="!items.length" class="price-void">
             <AppIcon name="prices" class="void-icon" />
             <h3>记下第一个价</h3>
-            <p class="note">按物品建一张卡，之后每次看到新行情就记一笔，涨跌和走势会自己算出来。</p>
             <PressButton
                 icon="add"
                 text="新增"
@@ -400,8 +398,8 @@ function openHistory(item: PriceItem) {
             />
         </div>
 
-        <!-- 有物品但被筛掉了：只说「换个条件」，不再给新建入口——那会让人重复建卡。 -->
-        <p v-else class="note price-blank">没有符合条件的物品，换个关键字或筛选再试。</p>
+        <!-- 筛选空态不放新增入口，避免重复建卡。 -->
+        <p v-else class="note price-blank">没有符合条件的物品</p>
 
         <PriceItemDialog
             v-if="itemDialogOpen"
