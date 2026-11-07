@@ -147,16 +147,19 @@ describe('IPC 契约：Rust 注册 → 生成物 → 前端调用', () => {
         ).toEqual([]);
     });
 
-    it('两张平台表只差 ghost 两条', () => {
+    it('两张平台表只差 Windows 专属那三条', () => {
         /* 这条是「加命令必须两份都加」的机器守卫。少加一条时本机完全看不出来
-         * ——开发机全是 Windows，非 Windows 那份只有真到那个平台上才炸。 */
+         * ——开发机全是 Windows，非 Windows 那份只有真到那个平台上才炸。
+         *
+         * 例外只有「离了 Win32 就没有实现」的那几条：捉鬼两条（截屏 + OCR）、
+         * 截图识别一条（`ocr_frame`，同样吃 Win32 与本机 ONNX 模型）。 */
         const gap = (windows?.commands ?? []).filter(
             (name) => !(other?.commands ?? []).includes(name),
         );
-        expect(gap.sort(), '两张表多出来的只该是 Windows 专属的捉鬼命令').toEqual([
-            'ghost_probe',
-            'ghost_windows',
-        ]);
+        expect(
+            gap.sort(),
+            '两张表多出来的只该是 Windows 专属的命令（捉鬼两条 + 截图识别一条）',
+        ).toEqual(['ghost_probe', 'ghost_windows', 'ocr_frame']);
     });
 
     it('同一张表里没有重复注册', () => {

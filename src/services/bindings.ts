@@ -31,6 +31,20 @@ export const commands = {
 	 */
 	ghostProbe: (hwnd: number | null, roi: Roi_Deserialize | null) => __TAURI_INVOKE<ProbeResult>("ghost_probe", { hwnd, roi }),
 	/**
+	 *  识别一张图。
+	 * 
+	 *  `pixels` 是 **BGRA 裸像素的 base64**（长度必须是 `width × height × 4`）；
+	 *  坐标原点是图片左上角，单位是**原图像素**（放大倍数已经除回去了）。
+	 * 
+	 *  命令是 `async` 的：一次识别是**秒级**的（1~2M 像素的面板实测 3~7 秒，见上面
+	 *  那张表），同步命令会占住 UI 线程，窗口在这段时间里拖不动、按钮点不动，看起来
+	 *  就是「点了没反应」。真正干活的那一段又丢进 `spawn_blocking`——它是 CPU 密集的，
+	 *  不该占着 tokio 的 worker。
+	 *  命令写成 `async fn`（而不是 `#[tauri::command(async)]` + 同步函数）：这里要 `.await`
+	 *  那个 `spawn_blocking`，同步函数里根本写不出 `await`。
+	 */
+	ocrFrame: (pixels: string, width: number, height: number) => __TAURI_INVOKE<TextLine[]>("ocr_frame", { pixels, width, height }),
+	/**
 	 *  导出：系统「另存为」对话框选位置，写一份 JSON。
 	 * 
 	 *  先弹对话框、再读数据库：用户很可能只是点开看看位置就取消，

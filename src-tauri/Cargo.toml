@@ -54,6 +54,12 @@ ort = "=2.0.0-rc.10"
 
 # `RgbImage` 只在构造 OCR 输入时用，编码器一个都不需要。
 image = { version = "0.25", default-features = false }
+# 截图识别把像素从 IPC 带进来，base64 是唯一不引新下载的选择：
+# `paddle-ocr-rs` 的依赖树里已经有 0.21 与 0.23 两份（`Cargo.lock` 里现成的），
+# 钉 0.21 与其中一份同源，`cargo build` 不会因为这条多拉任何东西。
+# **写成直接依赖而不是自己手撸解码**：base64 的填充与换行有三种口径，
+# 手写版本在「前端多带了一个换行」时会静默解错长度，最后报成「位图长度不符」。
+base64 = "0.21"
 tauri-specta = { version = "=2.0.0-rc.26", features = ["derive", "typescript"] }
 specta = { version = "=2.0.0-rc.26", features = ["derive", "serde_json"] }
 specta-typescript = "=0.0.13"

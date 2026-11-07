@@ -48,6 +48,9 @@ const MIN_SCORE: f32 = 0.5;
 /// 4 是实测上限：×4 起开始丢行，×5 以上只是更慢。
 pub const MAX_SCALE: u32 = 4;
 
+/// 截图识别那条链的上限。为什么它能到 6 而捉鬼那条不能：见 `recognize_image`。
+pub const MAX_IMAGE_SCALE: u32 = 6;
+
 /// 模型目录由 `lib.rs` 在启动时注入（开发时是 `<manifest>/models`，
 /// 打包后是资源目录）。放 `OnceLock` 而不是配置项：目录在进程生命周期里不会变。
 static MODELS_DIR: OnceLock<PathBuf> = OnceLock::new();
@@ -79,13 +82,20 @@ fn engine() -> Result<&'static Mutex<OcrLite>, String> {
         }
         let dict = prepared_dict(dir)?;
         let mut ocr = OcrLite::new();
-        // 两个线程：识别一帧约 200~400ms，再多线程反而和截屏轮询抢核。
+        /* 线程数。捉鬼那条链（215 × 400 的 ROI、约 0.25M 像素）两线程就够，
+         * 识别一帧 200~400ms，多开反而和截屏轮询抢核。
+         *
+         * **2026-11-07 提到 4**：截图识别要处理 1~2M 像素的面板图，两线程下一张
+         * 321 × 426 的面板要 7.8s，四线程 7.0s。省得不多（约一成）——慢的主因是
+         * **每次调用都有一个两秒左右的固定开销**，再往下是像素（空白图 1284 × 1704
+         * 单检测就要 5~6s），不是线程。留着 4 是因为它没坏处，而「点一次等七秒」
+         * 里能省一点是一点；真要在小机器上跑，改回 2 也行。 */
         ocr.init_models_with_dict(
             &dir.join(DET).to_string_lossy(),
             &dir.join(CLS).to_string_lossy(),
             &dir.join(REC).to_string_lossy(),
             &dict.to_string_lossy(),
-            2,
+            4,
         )
         .map_err(|err| format!("加载 OCR 模型失败：{err}"))?;
         Ok(Mutex::new(ocr))
@@ -153,6 +163,35 @@ pub fn recognize(
     height: u32,
     scale: u32,
 ) -> Result<Vec<TextLine>, String> {
+    run(bgra, width, height, scale, MAX_SCALE)
+}
+
+/// 截图识别的入口：**允许放到 6 倍**（`ghost` 那条链仍封顶在 4）。
+///
+/// 为什么两条链不一样：捉鬼一次拿 215 × 400 的 ROI，字高 15px，×3 已经到 45px，
+/// 再往上只是白烧 CPU；而截图识别收到的图**尺寸不受控**——一张 155 × 273 的低分辨率
+/// 面板（用户从聊天窗口里截的）字高只有 6~7px，×4 之后检测分支仍然框不稳，
+/// 实测标签会认成「气电 / 活店 / 收害」这种，而 ×6 之后「气血 / 活力 / 伤害」全对。
+///
+/// 代价是像素多了一半、耗时从约 3.2s 涨到 4.4s——但那是用户主动点的一次识别，
+/// 认错一个字要手动改一行，比多等一秒贵得多。
+pub fn recognize_image(
+    bgra: &[u8],
+    width: u32,
+    height: u32,
+    scale: u32,
+) -> Result<Vec<TextLine>, String> {
+    run(bgra, width, height, scale, MAX_IMAGE_SCALE)
+}
+
+/// 两条链共用的一段：放大 → 检测 → 逐框识别 → 坐标除回。
+fn run(
+    bgra: &[u8],
+    width: u32,
+    height: u32,
+    scale: u32,
+    max_scale: u32,
+) -> Result<Vec<TextLine>, String> {
     let expected = width as usize * height as usize * 4;
     if bgra.len() != expected {
         return Err(format!(
@@ -162,7 +201,7 @@ pub fn recognize(
     }
     let ocr = engine()?;
 
-    let scale = scale.clamp(1, MAX_SCALE);
+    let scale = scale.clamp(1, max_scale);
     let (rgb, rw, rh) = upscale_rgb(bgra, width, height, scale);
 
     // max_side_len 给得比放大后的长边大，等于「不做任何缩放」：

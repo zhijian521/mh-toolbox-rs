@@ -2305,6 +2305,7 @@ dependencies = [
 name = "mh-toolbox-rs"
 version = "0.1.0"
 dependencies = [
+ "base64 0.21.7",
  "image",
  "ort",
  "paddle-ocr-rs",

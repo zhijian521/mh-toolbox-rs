@@ -7,6 +7,10 @@ use serde::Serialize;
 mod ghost;
 #[cfg(windows)]
 mod ocr;
+/* 截图识别：把一张图（剪贴板粘的、文件选的）送进 OCR。与 `ghost` 一样只认 Win32 那一套
+ * 模型与引擎，所以一并门控——非 Windows 平台没有替身实现。 */
+#[cfg(windows)]
+mod ocr_image;
 #[cfg(windows)]
 mod ocr_paddle;
 #[cfg(windows)]
@@ -278,6 +282,7 @@ fn command_table() -> tauri_specta::Builder<tauri::Wry> {
             open_external,
             ghost::ghost_windows,
             ghost::ghost_probe,
+            ocr_image::ocr_frame,
             backup::data_export,
             backup::data_import,
             backup::data_clear,
@@ -296,7 +301,8 @@ fn command_table() -> tauri_specta::Builder<tauri::Wry> {
         ])
 }
 
-/// 非 Windows：没有 `ghost` 那两条，其余同一份。
+/// 非 Windows：没有 `ghost` 那两条与截图识别（`ocr_frame`），其余同一份。
+/// 这三条都依赖 Win32 / 本机 ONNX 模型，非 Windows 上没有替身实现。
 #[cfg(not(windows))]
 fn command_table() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new()
