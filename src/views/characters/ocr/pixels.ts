@@ -75,8 +75,14 @@ export function fitSize(width: number, height: number): { width: number; height:
     };
 }
 
-/** 把一张已经解码好的位图画进画布，取像素、换通道、编 base64。 */
-export function frameOf(image: ImageBitmap | HTMLImageElement): Frame {
+/**
+ * 把位图画进画布，返回这块画布的上下文与尺寸。
+ *
+ * 抽出来是因为现在有**两个**消费者：`frameOf` 要 base64 送去 OCR，`imageDataOf` 要
+ * 原始像素给图标比对。两边必须是**同一张图、同一个尺寸**——尺寸不一致时，图标框的
+ * 坐标就与 OCR 的坐标不在一个空间里，配对会静默错位（数字配到隔壁图标上）。
+ */
+function drawTo(image: ImageBitmap | HTMLImageElement) {
     const natural = {
         width: 'naturalWidth' in image ? image.naturalWidth : image.width,
         height: 'naturalHeight' in image ? image.naturalHeight : image.height,
@@ -92,7 +98,23 @@ export function frameOf(image: ImageBitmap | HTMLImageElement): Frame {
     if (!context) throw new Error('画不出画布，取不到像素');
     context.imageSmoothingQuality = 'high';
     context.drawImage(image, 0, 0, size.width, size.height);
+    return { context, ...size };
+}
 
-    const rgba = context.getImageData(0, 0, size.width, size.height).data;
-    return { pixels: base64Of(swapToBgra(rgba)), ...size };
+/** 把一张已经解码好的位图画进画布，取像素、换通道、编 base64。 */
+export function frameOf(image: ImageBitmap | HTMLImageElement): Frame {
+    const { context, width, height } = drawTo(image);
+    const rgba = context.getImageData(0, 0, width, height).data;
+    return { pixels: base64Of(swapToBgra(rgba)), width, height };
+}
+
+/**
+ * 同一张画布上的原始像素（RGBA），给图标比对用。
+ *
+ * 与 `frameOf` 走同一个 `drawTo`，所以两者的坐标是**同一个空间**。
+ * 不在这上面换通道：比对只吃灰度，通道顺序无所谓，转一次反而多一次全图遍历。
+ */
+export function imageDataOf(image: ImageBitmap | HTMLImageElement): ImageData {
+    const { context, width, height } = drawTo(image);
+    return context.getImageData(0, 0, width, height);
 }

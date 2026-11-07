@@ -1,13 +1,33 @@
 <script setup lang="ts">
+import { useId } from 'vue';
 import SkillRowView from '../SkillRow.vue';
 import type { SkillRow } from '../character';
 
-/** 卡内「师门」页。拆法与理由见 `AttrPane.vue` 顶部。 */
-defineProps<{ rows: SkillRow[] }>();
+/**
+ * 卡内「师门」页。拆法与理由见 `AttrPane.vue` 顶部。
+ *
+ * `editable` / `tabbed` / `edit-level` 三样与属性页对齐（那边写在 `AttrPane.vue`
+ * 的文件头里，这里只记差异）：截图识别认完师门面板之后，**这一页的等级也要能在卡上
+ * 直接改**——认错一个数在那儿改最直观。抛上去的是技能名，不是行号：
+ * 名字才是识别层认识的东西，行号一改门派就全错位了。
+ *
+ * `tabbed` 只影响 ARIA：预览卡不画页签条时，这一页从 `tabpanel` 降级成 `region`。
+ */
+withDefaults(defineProps<{ rows: SkillRow[]; editable?: boolean; tabbed?: boolean }>(), {
+    editable: false,
+    tabbed: true,
+});
+
+const emit = defineEmits<{ 'edit-level': [name: string, level: number] }>();
+
+/* 等级格的 id。用 `useId()` 而不是拼 `attrs.id`：这一页在同一个 DOM 里会出现
+ * 两份（名册那张卡 + 识别预览那张），`attrs.id` 已经在前面加了 `-preview` 后缀，
+ * 再拼一层容易两处撞车；`useId()` 每次实例化都给一个新前缀。 */
+const uid = useId();
 </script>
 
 <template>
-    <section class="pane" role="tabpanel">
+    <section class="pane" :role="tabbed ? 'tabpanel' : 'region'">
         <!-- 七项门派技能，一项一张票（`.slip-row` 来自 `base.css`，四页同一件器件）。
              行里只有三样东西：**图标 + 名称 + 等级签**。
 
@@ -27,10 +47,17 @@ defineProps<{ rows: SkillRow[] }>();
             <span class="section-mark"></span>门派技能
         </div>
         <div v-if="rows.length" class="slip-rows slip-cols">
-            <!-- 一行是 `SkillRow`：字印 / 名称 + 九格刻度 / 等级签。
-                 卡上只读、弹窗里可编辑，两处共用同一份解剖与同一组尺寸
-                 （行内边距、印的大小、数字格的厚薄都在那个组件里量过一次）。 -->
-            <SkillRowView v-for="row in rows" :key="row.name" :row="row" />
+            <!-- 一行是 `SkillRow`：图标 / 名称 + 等级签。卡上只读、弹窗里可编辑，
+                 两处共用同一份解剖与同一组尺寸（行内边距、印的大小、数字格的厚薄
+                 都在那个组件里量过一次）。 -->
+            <SkillRowView
+                v-for="(row, index) in rows"
+                :key="row.name"
+                :row="row"
+                :editable="editable"
+                :input-id="editable ? `${uid}-lv-${index}` : undefined"
+                @update:level="emit('edit-level', row.name, $event)"
+            />
         </div>
         <p v-else class="empty-note">还没有记录门派技能</p>
     </section>

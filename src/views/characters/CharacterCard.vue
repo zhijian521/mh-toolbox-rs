@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import PaperCard from '../../components/PaperCard.vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import PressButton from '../../components/PressButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import GearTip from './GearTip.vue';
@@ -66,6 +66,11 @@ import { PANES, type CharacterData, type GearDetail, type PaneKey, type Pet } fr
  * **不渲染**（不是隐藏）——`v-show` 留着它们的前提是「切回来不丢滚动位置」，
  * 没有页签可切，那个前提不成立。`AttrPane` 同时从 `tabpanel` 降级成 `region`，
  * 见那边的 `tabbed`。
+ *
+ * ---- `pane`：外面指定看哪一页 ----
+ * 截图识别认的是哪一类面板，右边就该显示哪一页（认师门技能却停在属性页，
+ * 用户得自己点过去找刚认出来的数）。**只是初值与跟随**：页签还能点，
+ * 内部 `active` 变了不会被父级弹回去——父级只在它自己换值时下发。
  */
 const props = withDefaults(
     defineProps<{
@@ -73,21 +78,30 @@ const props = withDefaults(
         preview?: boolean;
         editable?: boolean;
         tabs?: boolean;
+        /** 要显示哪一页。缺省是属性页；父级改值时跟随。 */
+        pane?: PaneKey;
     }>(),
     /* `tabs` 的缺省值**必须显式写 `true`**：Vue 对布尔 prop 的缺省是 `false` 而不是
      * `undefined`（Boolean casting），所以模板里写 `props.tabs !== false` 不管用——
      * 不传时它已经是 `false` 了，整张名册的页签条会被一起省掉（这一条当场红过）。
      * `preview` / `editable` 用不到反直觉的缺省，不写。 */
-    { tabs: true },
+    { tabs: true, pane: 'attrs' },
 );
 const emit = defineEmits<{
     edit: [];
     remove: [];
     scan: [];
     'edit-value': [key: string, value: string];
+    'edit-level': [name: string, level: number];
 }>();
 
-const active = ref<PaneKey>('attrs');
+const active = ref<PaneKey>(props.pane);
+watch(
+    () => props.pane,
+    (next) => {
+        active.value = next;
+    },
+);
 
 const withTabs = computed(() => props.tabs);
 
@@ -194,28 +208,39 @@ function openDetail(pet: Pet) {
                  由组件自己带。
 
                  没有页签条时（`tabs: false`）这一层的三条约定一起失效：没有 `-tab-xxx`
-                 可指、没有「切回来」这回事、`tabpanel` 也不该出现。所以属性页改挂
-                 `aria-label` 并把 `tabbed` 关掉，其余五页**不渲染**。 -->
-            <AttrPane
-                v-show="active === 'attrs'"
-                :id="`${character.id}-pane-attrs`"
-                :aria-labelledby="withTabs ? `${character.id}-tab-attrs` : undefined"
-                :aria-label="withTabs ? undefined : '属性'"
-                :tabbed="withTabs"
-                :groups="character.attrGroups"
-                :experience="character.experience"
-                :editable="editable"
-                @edit-value="(key, value) => emit('edit-value', key, value)"
-            />
+                 可指、没有「切回来」这回事、`tabpanel` 也不该出现。所以当前那一页改挂
+                 `aria-label` 并把 `tabbed` 关掉，其余页**不渲染**。
+                 「当前那一页」由 `pane` 定：属性与师门两页按 `v-if="withTabs || active === …"`
+                 挂载——预览卡只看这两页（截图识别只认这两类面板），另外四页仍然只在
+                 有页签条时才存在。 -->
+            <template v-if="withTabs || active === 'attrs'">
+                <AttrPane
+                    v-show="active === 'attrs'"
+                    :id="`${character.id}-pane-attrs`"
+                    :aria-labelledby="withTabs ? `${character.id}-tab-attrs` : undefined"
+                    :aria-label="withTabs ? undefined : '属性'"
+                    :tabbed="withTabs"
+                    :groups="character.attrGroups"
+                    :experience="character.experience"
+                    :editable="editable"
+                    @edit-value="(key, value) => emit('edit-value', key, value)"
+                />
+            </template>
 
-            <template v-if="withTabs">
+            <template v-if="withTabs || active === 'skills'">
                 <SkillPane
                     v-show="active === 'skills'"
                     :id="`${character.id}-pane-skills`"
-                    :aria-labelledby="`${character.id}-tab-skills`"
+                    :aria-labelledby="withTabs ? `${character.id}-tab-skills` : undefined"
+                    :aria-label="withTabs ? undefined : '师门'"
                     :rows="character.skills"
+                    :editable="editable"
+                    :tabbed="withTabs"
+                    @edit-level="(name, level) => emit('edit-level', name, level)"
                 />
+            </template>
 
+            <template v-if="withTabs">
                 <AssistPane
                     v-show="active === 'assist'"
                     :id="`${character.id}-pane-assist`"
