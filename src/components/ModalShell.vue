@@ -38,8 +38,15 @@ const props = withDefaults(
          * 调用方那个数是不是本来就该跟着字走。
          */
         width?: number | string;
-        /** 初始焦点：`first` 第一个可聚焦元素，`cancel` 带 `data-modal-cancel` 的那个。 */
-        initialFocus?: 'first' | 'cancel';
+        /**
+         * 初始焦点：`first` 第一个可聚焦元素，`cancel` 带 `data-modal-cancel` 的那个，
+         * `none` 由调用方自己定位。
+         *
+         * `none` 是给「第一个可聚焦元素不是该动手的地方」的窗：记价、快速修改这类
+         * 窗里，第一个 Tab 位置往往是输入框两侧那枚减号——默认落在它上面，屏幕上
+         * 会先亮起一圈焦点环，读起来像「减号被选中了」。那种窗自己聚焦输入框。
+         */
+        initialFocus?: 'first' | 'cancel' | 'none';
         /**
          * 正文是否自己滚动。**内容矮的窗必须传 `false`**。
          *
