@@ -1,741 +1,888 @@
 {
-    "generated-by": "tools/game-icons/slice-school.py",
+    "generated-by": "tools/game-icons/import-school-icons.py",
     "groups": {
         "skill": [
             {
                 "id": "school-skill-datang-1",
                 "name": "十方无敌",
-                "school": "datang"
+                "school": "datang",
+                "source": "client30"
             },
             {
                 "id": "school-skill-datang-2",
                 "name": "无双一击",
-                "school": "datang"
+                "school": "datang",
+                "source": "client40"
             },
             {
                 "id": "school-skill-datang-3",
                 "name": "神兵鉴赏",
-                "school": "datang"
+                "school": "datang",
+                "source": "client40"
             },
             {
                 "id": "school-skill-datang-4",
                 "name": "文韬武略",
-                "school": "datang"
+                "school": "datang",
+                "source": "client40"
             },
             {
                 "id": "school-skill-datang-5",
                 "name": "为官之道",
-                "school": "datang"
+                "school": "datang",
+                "source": "client40"
             },
             {
                 "id": "school-skill-datang-6",
                 "name": "紫薇之术",
-                "school": "datang"
+                "school": "datang",
+                "source": "client40"
             },
             {
                 "id": "school-skill-datang-7",
                 "name": "疾风步",
-                "school": "datang"
+                "school": "datang",
+                "source": "client40"
             },
             {
                 "id": "school-skill-huashengsi-1",
                 "name": "金刚伏魔",
-                "school": "huashengsi"
+                "school": "huashengsi",
+                "source": "client40"
             },
             {
                 "id": "school-skill-huashengsi-2",
                 "name": "小乘佛法",
-                "school": "huashengsi"
+                "school": "huashengsi",
+                "source": "client40"
             },
             {
                 "id": "school-skill-huashengsi-3",
                 "name": "诵经",
-                "school": "huashengsi"
+                "school": "huashengsi",
+                "source": "client40"
             },
             {
                 "id": "school-skill-huashengsi-4",
                 "name": "佛光普照",
-                "school": "huashengsi"
+                "school": "huashengsi",
+                "source": "client40"
             },
             {
                 "id": "school-skill-huashengsi-5",
                 "name": "大慈大悲",
-                "school": "huashengsi"
+                "school": "huashengsi",
+                "source": "client40"
             },
             {
                 "id": "school-skill-huashengsi-6",
                 "name": "歧黄之术",
-                "school": "huashengsi"
+                "school": "huashengsi",
+                "source": "client40"
             },
             {
                 "id": "school-skill-huashengsi-7",
                 "name": "渡世步",
-                "school": "huashengsi"
+                "school": "huashengsi",
+                "source": "client40"
             },
             {
                 "id": "school-skill-nvercun-1",
                 "name": "毒经",
-                "school": "nvercun"
+                "school": "nvercun",
+                "source": "client40"
             },
             {
                 "id": "school-skill-nvercun-2",
                 "name": "倾国倾城",
-                "school": "nvercun"
+                "school": "nvercun",
+                "source": "client40"
             },
             {
                 "id": "school-skill-nvercun-3",
                 "name": "沉鱼落雁",
-                "school": "nvercun"
+                "school": "nvercun",
+                "source": "client40"
             },
             {
                 "id": "school-skill-nvercun-4",
                 "name": "闭月羞花",
-                "school": "nvercun"
+                "school": "nvercun",
+                "source": "client40"
             },
             {
                 "id": "school-skill-nvercun-5",
                 "name": "香飘兰麝",
-                "school": "nvercun"
+                "school": "nvercun",
+                "source": "client40"
             },
             {
                 "id": "school-skill-nvercun-6",
                 "name": "玉质冰肌",
-                "school": "nvercun"
+                "school": "nvercun",
+                "source": "client40"
             },
             {
                 "id": "school-skill-nvercun-7",
                 "name": "清歌妙舞",
-                "school": "nvercun"
+                "school": "nvercun",
+                "source": "client40"
             },
             {
                 "id": "school-skill-fangcunshan-1",
                 "name": "磬龙灭法",
-                "school": "fangcunshan"
+                "school": "fangcunshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-fangcunshan-2",
                 "name": "黄庭经",
-                "school": "fangcunshan"
+                "school": "fangcunshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-fangcunshan-3",
                 "name": "霹雳咒",
-                "school": "fangcunshan"
+                "school": "fangcunshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-fangcunshan-4",
                 "name": "符之术",
-                "school": "fangcunshan"
+                "school": "fangcunshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-fangcunshan-5",
                 "name": "归元心法",
-                "school": "fangcunshan"
+                "school": "fangcunshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-fangcunshan-6",
                 "name": "神道无念",
-                "school": "fangcunshan"
+                "school": "fangcunshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-fangcunshan-7",
                 "name": "斜月步",
-                "school": "fangcunshan"
+                "school": "fangcunshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-tiangong-1",
                 "name": "傲世诀",
-                "school": "tiangong"
+                "school": "tiangong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-tiangong-2",
                 "name": "天罡气",
-                "school": "tiangong"
+                "school": "tiangong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-tiangong-3",
                 "name": "清明自在",
-                "school": "tiangong"
+                "school": "tiangong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-tiangong-4",
                 "name": "宁气诀",
-                "school": "tiangong"
+                "school": "tiangong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-tiangong-5",
                 "name": "乾坤塔",
-                "school": "tiangong"
+                "school": "tiangong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-tiangong-6",
                 "name": "混天术",
-                "school": "tiangong"
+                "school": "tiangong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-tiangong-7",
                 "name": "云霄步",
-                "school": "tiangong"
+                "school": "tiangong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-putuoshan-1",
                 "name": "护法金刚",
-                "school": "putuoshan"
+                "school": "putuoshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-putuoshan-2",
                 "name": "金刚经",
-                "school": "putuoshan"
+                "school": "putuoshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-putuoshan-3",
                 "name": "观音咒",
-                "school": "putuoshan"
+                "school": "putuoshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-putuoshan-4",
                 "name": "灵性",
-                "school": "putuoshan"
+                "school": "putuoshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-putuoshan-5",
                 "name": "五行学说",
-                "school": "putuoshan"
+                "school": "putuoshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-putuoshan-6",
                 "name": "五行扭转",
-                "school": "putuoshan"
+                "school": "putuoshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-putuoshan-7",
                 "name": "莲花宝座",
-                "school": "putuoshan"
+                "school": "putuoshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-longgong-1",
                 "name": "破浪诀",
-                "school": "longgong"
+                "school": "longgong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-longgong-2",
                 "name": "九龙诀",
-                "school": "longgong"
+                "school": "longgong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-longgong-3",
                 "name": "呼风唤雨",
-                "school": "longgong"
+                "school": "longgong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-longgong-4",
                 "name": "龙腾",
-                "school": "longgong"
+                "school": "longgong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-longgong-5",
                 "name": "逆鳞",
-                "school": "longgong"
+                "school": "longgong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-longgong-6",
                 "name": "游龙术",
-                "school": "longgong"
+                "school": "longgong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-longgong-7",
                 "name": "龙附",
-                "school": "longgong"
+                "school": "longgong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-wuzhuangguan-1",
                 "name": "潇湘仙雨",
-                "school": "wuzhuangguan"
+                "school": "wuzhuangguan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-wuzhuangguan-2",
                 "name": "乾坤袖",
-                "school": "wuzhuangguan"
+                "school": "wuzhuangguan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-wuzhuangguan-3",
                 "name": "修仙术",
-                "school": "wuzhuangguan"
+                "school": "wuzhuangguan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-wuzhuangguan-4",
                 "name": "周易学",
-                "school": "wuzhuangguan"
+                "school": "wuzhuangguan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-wuzhuangguan-5",
                 "name": "混元道果",
-                "school": "wuzhuangguan"
+                "school": "wuzhuangguan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-wuzhuangguan-6",
                 "name": "明性修身",
-                "school": "wuzhuangguan"
+                "school": "wuzhuangguan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-wuzhuangguan-7",
                 "name": "七星遁",
-                "school": "wuzhuangguan"
+                "school": "wuzhuangguan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-shituoling-1",
                 "name": "生死搏",
-                "school": "shituoling"
+                "school": "shituoling",
+                "source": "client40"
             },
             {
                 "id": "school-skill-shituoling-2",
                 "name": "训兽诀",
-                "school": "shituoling"
+                "school": "shituoling",
+                "source": "client40"
             },
             {
                 "id": "school-skill-shituoling-3",
                 "name": "魔兽神功",
-                "school": "shituoling"
+                "school": "shituoling",
+                "source": "client40"
             },
             {
                 "id": "school-skill-shituoling-4",
                 "name": "阴阳二气诀",
-                "school": "shituoling"
+                "school": "shituoling",
+                "source": "client40"
             },
             {
                 "id": "school-skill-shituoling-5",
                 "name": "狂兽诀",
-                "school": "shituoling"
+                "school": "shituoling",
+                "source": "client40"
             },
             {
                 "id": "school-skill-shituoling-6",
                 "name": "大鹏展翅",
-                "school": "shituoling"
+                "school": "shituoling",
+                "source": "client40"
             },
             {
                 "id": "school-skill-shituoling-7",
                 "name": "魔兽反噬",
-                "school": "shituoling"
+                "school": "shituoling",
+                "source": "client40"
             },
             {
                 "id": "school-skill-mowangzhai-1",
                 "name": "震天诀",
-                "school": "mowangzhai"
+                "school": "mowangzhai",
+                "source": "client40"
             },
             {
                 "id": "school-skill-mowangzhai-2",
                 "name": "牛逼神功",
-                "school": "mowangzhai"
+                "school": "mowangzhai",
+                "source": "client40"
             },
             {
                 "id": "school-skill-mowangzhai-3",
                 "name": "火云术",
-                "school": "mowangzhai"
+                "school": "mowangzhai",
+                "source": "client40"
             },
             {
                 "id": "school-skill-mowangzhai-4",
                 "name": "火牛阵",
-                "school": "mowangzhai"
+                "school": "mowangzhai",
+                "source": "client40"
             },
             {
                 "id": "school-skill-mowangzhai-5",
                 "name": "牛虱阵",
-                "school": "mowangzhai"
+                "school": "mowangzhai",
+                "source": "client40"
             },
             {
                 "id": "school-skill-mowangzhai-6",
                 "name": "回身击",
-                "school": "mowangzhai"
+                "school": "mowangzhai",
+                "source": "client40"
             },
             {
                 "id": "school-skill-mowangzhai-7",
                 "name": "裂石步",
-                "school": "mowangzhai"
+                "school": "mowangzhai",
+                "source": "client40"
             },
             {
                 "id": "school-skill-yincaodifu-1",
                 "name": "六道轮回",
-                "school": "yincaodifu"
+                "school": "yincaodifu",
+                "source": "client40"
             },
             {
                 "id": "school-skill-yincaodifu-2",
                 "name": "幽冥术",
-                "school": "yincaodifu"
+                "school": "yincaodifu",
+                "source": "client40"
             },
             {
                 "id": "school-skill-yincaodifu-3",
                 "name": "拘魂诀",
-                "school": "yincaodifu"
+                "school": "yincaodifu",
+                "source": "client40"
             },
             {
                 "id": "school-skill-yincaodifu-4",
                 "name": "灵通术",
-                "school": "yincaodifu"
+                "school": "yincaodifu",
+                "source": "client40"
             },
             {
                 "id": "school-skill-yincaodifu-5",
                 "name": "九幽阴魂",
-                "school": "yincaodifu"
+                "school": "yincaodifu",
+                "source": "client40"
             },
             {
                 "id": "school-skill-yincaodifu-6",
                 "name": "尸腐恶",
-                "school": "yincaodifu"
+                "school": "yincaodifu",
+                "source": "client40"
             },
             {
                 "id": "school-skill-yincaodifu-7",
                 "name": "无常步",
-                "school": "yincaodifu"
+                "school": "yincaodifu",
+                "source": "client40"
             },
             {
                 "id": "school-skill-pansidong-1",
                 "name": "秋波暗送",
-                "school": "pansidong"
+                "school": "pansidong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-pansidong-2",
                 "name": "天外魔音",
-                "school": "pansidong"
+                "school": "pansidong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-pansidong-3",
                 "name": "蛛丝阵法",
-                "school": "pansidong"
+                "school": "pansidong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-pansidong-4",
                 "name": "迷情大法",
-                "school": "pansidong"
+                "school": "pansidong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-pansidong-5",
                 "name": "盘丝大法",
-                "school": "pansidong"
+                "school": "pansidong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-pansidong-6",
                 "name": "移形换影",
-                "school": "pansidong"
+                "school": "pansidong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-pansidong-7",
                 "name": "姊妹相随",
-                "school": "pansidong"
+                "school": "pansidong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-shenmulin-1",
                 "name": "瞬息万变",
-                "school": "shenmulin"
+                "school": "shenmulin",
+                "source": "client40"
             },
             {
                 "id": "school-skill-shenmulin-2",
                 "name": "万灵诸念",
-                "school": "shenmulin"
+                "school": "shenmulin",
+                "source": "client40"
             },
             {
                 "id": "school-skill-shenmulin-3",
                 "name": "巫咒",
-                "school": "shenmulin"
+                "school": "shenmulin",
+                "source": "client40"
             },
             {
                 "id": "school-skill-shenmulin-4",
                 "name": "万物轮转",
-                "school": "shenmulin"
+                "school": "shenmulin",
+                "source": "client40"
             },
             {
                 "id": "school-skill-shenmulin-5",
                 "name": "天人庇护",
-                "school": "shenmulin"
+                "school": "shenmulin",
+                "source": "client40"
             },
             {
                 "id": "school-skill-shenmulin-6",
                 "name": "神木恩泽",
-                "school": "shenmulin"
+                "school": "shenmulin",
+                "source": "client40"
             },
             {
                 "id": "school-skill-shenmulin-7",
                 "name": "驭灵咒",
-                "school": "shenmulin"
+                "school": "shenmulin",
+                "source": "client40"
             },
             {
                 "id": "school-skill-lingbocheng-1",
                 "name": "天地无极",
-                "school": "lingbocheng"
+                "school": "lingbocheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-lingbocheng-2",
                 "name": "九转玄功",
-                "school": "lingbocheng"
+                "school": "lingbocheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-lingbocheng-3",
                 "name": "武神显圣",
-                "school": "lingbocheng"
+                "school": "lingbocheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-lingbocheng-4",
                 "name": "啸傲",
-                "school": "lingbocheng"
+                "school": "lingbocheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-lingbocheng-5",
                 "name": "气吞山河",
-                "school": "lingbocheng"
+                "school": "lingbocheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-lingbocheng-6",
                 "name": "诛魔",
-                "school": "lingbocheng"
+                "school": "lingbocheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-lingbocheng-7",
                 "name": "法天象地",
-                "school": "lingbocheng"
+                "school": "lingbocheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-wudidong-1",
                 "name": "枯骨心法",
-                "school": "wudidong"
+                "school": "wudidong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-wudidong-2",
                 "name": "阴风绝章",
-                "school": "wudidong"
+                "school": "wudidong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-wudidong-3",
                 "name": "鬼蛊灵蕴",
-                "school": "wudidong"
+                "school": "wudidong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-wudidong-4",
                 "name": "燃灯灵宝",
-                "school": "wudidong"
+                "school": "wudidong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-wudidong-5",
                 "name": "地冥妙法",
-                "school": "wudidong"
+                "school": "wudidong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-wudidong-6",
                 "name": "混元神功",
-                "school": "wudidong"
+                "school": "wudidong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-wudidong-7",
                 "name": "秘影迷踪",
-                "school": "wudidong"
+                "school": "wudidong",
+                "source": "client40"
             },
             {
                 "id": "school-skill-nvbamu-1",
                 "name": "天火献誓",
-                "school": "nvbamu"
+                "school": "nvbamu",
+                "source": "client40"
             },
             {
                 "id": "school-skill-nvbamu-2",
                 "name": "天罚之焰",
-                "school": "nvbamu"
+                "school": "nvbamu",
+                "source": "client40"
             },
             {
                 "id": "school-skill-nvbamu-3",
                 "name": "煌火无明",
-                "school": "nvbamu"
+                "school": "nvbamu",
+                "source": "client40"
             },
             {
                 "id": "school-skill-nvbamu-4",
                 "name": "化神以灵",
-                "school": "nvbamu"
+                "school": "nvbamu",
+                "source": "client40"
             },
             {
                 "id": "school-skill-nvbamu-5",
                 "name": "弹指成烬",
-                "school": "nvbamu"
+                "school": "nvbamu",
+                "source": "client40"
             },
             {
                 "id": "school-skill-nvbamu-6",
                 "name": "藻光灵狱",
-                "school": "nvbamu"
+                "school": "nvbamu",
+                "source": "client40"
             },
             {
                 "id": "school-skill-nvbamu-7",
                 "name": "离魂",
-                "school": "nvbamu"
+                "school": "nvbamu",
+                "source": "client40"
             },
             {
                 "id": "school-skill-tianjicheng-1",
                 "name": "神工无形",
-                "school": "tianjicheng"
+                "school": "tianjicheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-tianjicheng-2",
                 "name": "攻玉以石",
-                "school": "tianjicheng"
+                "school": "tianjicheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-tianjicheng-3",
                 "name": "擎天之械",
-                "school": "tianjicheng"
+                "school": "tianjicheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-tianjicheng-4",
                 "name": "千机奇巧",
-                "school": "tianjicheng"
+                "school": "tianjicheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-tianjicheng-5",
                 "name": "匠心不移",
-                "school": "tianjicheng"
+                "school": "tianjicheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-tianjicheng-6",
                 "name": "运思如电",
-                "school": "tianjicheng"
+                "school": "tianjicheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-tianjicheng-7",
                 "name": "探奥索隐",
-                "school": "tianjicheng"
+                "school": "tianjicheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-huaguoshan-1",
                 "name": "神通广大",
-                "school": "huaguoshan"
+                "school": "huaguoshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-huaguoshan-2",
                 "name": "如意金箍",
-                "school": "huaguoshan"
+                "school": "huaguoshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-huaguoshan-3",
                 "name": "齐天逞胜",
-                "school": "huaguoshan"
+                "school": "huaguoshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-huaguoshan-4",
                 "name": "金刚之躯",
-                "school": "huaguoshan"
+                "school": "huaguoshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-huaguoshan-5",
                 "name": "灵猴九窍",
-                "school": "huaguoshan"
+                "school": "huaguoshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-huaguoshan-6",
                 "name": "七十二变",
-                "school": "huaguoshan"
+                "school": "huaguoshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-huaguoshan-7",
                 "name": "腾云驾雾",
-                "school": "huaguoshan"
+                "school": "huaguoshan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-donghaiyuan-1",
                 "name": "深海呓语",
-                "school": "donghaiyuan"
+                "school": "donghaiyuan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-donghaiyuan-2",
                 "name": "远古之境",
-                "school": "donghaiyuan"
+                "school": "donghaiyuan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-donghaiyuan-3",
                 "name": "混沌之谜",
-                "school": "donghaiyuan"
+                "school": "donghaiyuan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-donghaiyuan-4",
                 "name": "长生之祀",
-                "school": "donghaiyuan"
+                "school": "donghaiyuan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-donghaiyuan-5",
                 "name": "潮汐之咒",
-                "school": "donghaiyuan"
+                "school": "donghaiyuan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-donghaiyuan-6",
                 "name": "澄心之浪",
-                "school": "donghaiyuan"
+                "school": "donghaiyuan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-donghaiyuan-7",
                 "name": "遨游",
-                "school": "donghaiyuan"
+                "school": "donghaiyuan",
+                "source": "client40"
             },
             {
                 "id": "school-skill-jiulicheng-1",
                 "name": "九黎战歌",
-                "school": "jiulicheng"
+                "school": "jiulicheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-jiulicheng-2",
                 "name": "魂枫战舞",
-                "school": "jiulicheng"
+                "school": "jiulicheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-jiulicheng-3",
                 "name": "兵铸乾坤",
-                "school": "jiulicheng"
+                "school": "jiulicheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-jiulicheng-4",
                 "name": "燃铁飞花",
-                "school": "jiulicheng"
+                "school": "jiulicheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-jiulicheng-5",
                 "name": "战火雄魂",
-                "school": "jiulicheng"
+                "school": "jiulicheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-jiulicheng-6",
                 "name": "魔神降世",
-                "school": "jiulicheng"
+                "school": "jiulicheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-jiulicheng-7",
                 "name": "风行九黎",
-                "school": "jiulicheng"
+                "school": "jiulicheng",
+                "source": "client40"
             },
             {
                 "id": "school-skill-mileshan-1",
                 "name": "缘起法随",
-                "school": "mileshan"
+                "school": "mileshan",
+                "source": "client30"
             },
             {
                 "id": "school-skill-mileshan-2",
                 "name": "善果圆成",
-                "school": "mileshan"
+                "school": "mileshan",
+                "source": "client30"
             },
             {
                 "id": "school-skill-mileshan-3",
                 "name": "慈悲为怀",
-                "school": "mileshan"
+                "school": "mileshan",
+                "source": "client30"
             },
             {
                 "id": "school-skill-mileshan-4",
                 "name": "福慧无量",
-                "school": "mileshan"
+                "school": "mileshan",
+                "source": "client30"
             },
             {
                 "id": "school-skill-mileshan-5",
                 "name": "欢喜自在",
-                "school": "mileshan"
+                "school": "mileshan",
+                "source": "client30"
             },
             {
                 "id": "school-skill-mileshan-6",
                 "name": "光明净土",
-                "school": "mileshan"
+                "school": "mileshan",
+                "source": "client30"
             },
             {
                 "id": "school-skill-mileshan-7",
                 "name": "来去自如",
-                "school": "mileshan"
+                "school": "mileshan",
+                "source": "client30"
             }
         ]
     }

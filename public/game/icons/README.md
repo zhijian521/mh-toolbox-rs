@@ -39,7 +39,7 @@ icons/
 | `skill/`   | 生活技能 | 21   | 「生活技能」目录两页（第一页 12、第二页 9）                                                 |
 | `story/`   | 剧情技能 | 11   | 「剧情技能」目录一页                                                                        |
 | `active/`  | 装备特技 | 69   | 「特技特效」面板六页（12×5 + 9）                                                            |
-| `school/`  | 门派技能 | 147  | 「师门技能」面板，21 家门派 × 7 项                                                          |
+| `school/`  | 门派技能 | 147  | **客户端资源包原生 PNG**，21 家门派 × 7 项，见 `../data/school-icons.json` 的 `source`      |
 | `gear/`    | 装备图标 | 83   | **客户端 `item120` 大图**，7 部位 × 60~160，见 `../data/gear-icons.json`                    |
 | `weapon/`  | 武器图标 | 231  | **客户端 `item120` 大图**，21 组（双巨斧拆乾/坤，各 11 张），见 `../data/weapon-icons.json` |
 | `lingshi/` | 灵饰图标 | 20   | **客户端 `item120` 大图**，4 部位 × 60~140，见 `../data/lingshi-icons.json`                 |
@@ -67,7 +67,7 @@ icons/
 清单与目录一一对应，别混：
 
 - `skill/` `story/` `active/` → `../data/icons.json`（`slice.py` 生成）
-- `school/` → `../data/school-icons.json`（`slice-school.py` 生成）
+- `school/` → `../data/school-icons.json`（名字与顺序是 `slice-school.py` 的产物，**图与 `source` 由 `import-school-icons.py` 覆写**）
 - `gear/` → `../data/gear-icons.json`（`import-slot-icons.py` 写图与 `source`，名字表仍是 `slice-gear.py` 的）
 - `weapon/` → `../data/weapon-icons.json`（`import-slot-icons.py` 写图与 `source`，名字表仍是 `slice-weapon.py` 的）
 - `lingshi/` → `../data/lingshi-icons.json`（`import-client-icons.py` 生成）
@@ -113,14 +113,19 @@ icons/
 
 ```bash
 python tools/game-icons/slice.py             # 生活 / 剧情 / 特技 → skill/ story/ active/ + icons.json
-python tools/game-icons/slice-school.py      # 门派技能 → school/ + school-icons.json
+python tools/game-icons/slice-school.py      # 门派技能的名字与顺序 → school-icons.json（图随后被下一条覆写）
 python tools/game-icons/slice-gear.py        # 装备（名字与顺序的基准）→ gear-icons.json
 python tools/game-icons/slice-weapon.py      # 武器 → weapon/ + weapon-icons.json
 python tools/game-icons/import-client-icons.py # 灵饰 + 玉魄（客户端大图）→ lingshi/ yupo/
 python tools/game-icons/import-slot-icons.py   # 装备 + 武器（客户端大图）→ gear/ weapon/ + source
+python tools/game-icons/import-school-icons.py # 门派技能（客户端原图）→ school/ + source
 ```
 
-前四条从截图切，后两条**不从截图来**。
+`skill/` `story/` `active/` 三批从截图切，其余**都不从截图来**。
+
+**门派技能要连着跑两条**（`slice-school.py` → `import-school-icons.py`）：前者会整份重写清单、
+把图和 `source` 一起打回截图那版，所以它只负责名字与顺序，图由后者覆写。这与装备 / 武器
+「先 `slice-gear`/`slice-weapon` 再 `import-slot-icons`」是同一条约定。
 
 `import-client-icons.py` 读提取工程的 `output/names.csv`，按物品名取 `item120`（大图）那一档
 的 PNG；`--src` 换提取目录，`--only yupo` 只跑玉魄，`--check` 只报告不写盘（会告诉你哪几件
@@ -139,10 +144,13 @@ python tools/game-icons/import-slot-icons.py   # 装备 + 武器（客户端大�
 `slice.py` 一次写三个目录（`skill/` `story/` `active/`），因为那三批来自同一个 4×3 卡片
 面板、共用一份清单；它收的参数是**图标的根**（`public/game/icons`），不是某一类的目录。
 
-`slice.py` 从截图里按 4 列 × 3 行的网格切出图标，`slice-school.py` 按竖排 7 行的固定
-坐标切。两者都统一成 96×96、**图标本体铺满画布、不垫任何背景**，并重写各自的清单。
-截图路径与每页的期望数量写在脚本顶部的 `PAGES` / `PANELS` 里——**数量对不上会直接报错退出**，
-不会切一半就写完。
+`slice.py` 从截图里按 4 列 × 3 行的网格切出图标，统一成 96×96、**图标本体铺满画布、不垫
+任何背景**，并重写自己的清单。截图路径与每页的期望数量写在脚本顶部的 `PAGES` 里——**数量
+对不上会直接报错退出**，不会切一半就写完。
+
+`slice-school.py` 的裁切逻辑现在**只服务名字与顺序**：它切出来的图会被
+`import-school-icons.py` 整批覆写（2026-11-07，第 139 批），所以 `PANELS` 与 `body_bottom()`
+那套仍然要能跑通，但画面质量不再由它决定。
 
 `slice-school.py` 还有两道校验，都在写盘之前：
 
@@ -156,6 +164,28 @@ python tools/game-icons/import-slot-icons.py   # 装备 + 武器（客户端大�
 
 **别想靠补整数像素解决底边**：先试过 `dy: -1` 手工补偿，没用——半透明行换成哪个整数位置都在。
 加 `--report` 可以只打印每家的本体高度、不写文件，换新截图时先跑它看一眼。
+
+### 门派技能为什么改从客户端导入（2026-11-07，第 139 批）
+
+上面那套裁切与底边判据全部是**截图那条路的补丁**，而截图这条路本身就拿不到清晰度：面板里
+一格图标本体只有 **60×59**，缩到 96 是**上采样**；那 60×59 又是游戏把 40×40 的源放大渲染进格子
+的结果，中间已经插值过一次；最后再过 webp q92 有损。三层叠起来就是「像素 96、信息 40×40」，
+在卡上与 `gear/` `weapon/`（客户端 120 大图）并排时明显软一档。
+
+现在直接取客户端资源包里的原生 PNG（40×40，8 张 30×30），LANCZOS 归一到 96×96。
+147 对按 48px 真实显示管线实测：
+
+| 指标                          | 截图切（旧） | 客户端原图（新） |
+| ----------------------------- | ------------ | ---------------- |
+| 48px 显示下的拉普拉斯方差中位 | 2416         | **4123（+71%）** |
+| 新图更锐的项数                | —            | **146 / 147**    |
+
+唯一变差的是「弥勒山 / 慈悲为怀」（源 30×30，48px 下 1282 → 1204，降 6%）。那 8 张 30×30 是提取侧刻意选的
+SP 版（十方无敌 + 弥勒山七项），理由是图案与面板更一致——代价就是像素基数小一档，清单里
+`source` 记成 `client30`，将来客户端若有 40 版就能一眼找回来。
+
+**底色问题反过来了**：这批图标自带红棕卡片底（游戏里就长这样），新旧都带，换来源不影响；
+而 `body_bottom()` 当年除掉的「末行黄边」在新图里不存在——源是 40×40 整图，没有半行可带。
 
 ## 命名（新增图标时）
 
@@ -176,7 +206,7 @@ python tools/game-icons/import-slot-icons.py   # 装备 + 武器（客户端大�
 ## 尺寸与格式
 
 - `.webp`，有损 `quality=92`（101 个图标合计 406KB；无损要 957KB，而图标最大只按
-  48px 显示，肉眼无差。门派技能那 147 个纹样更密，合计 395KB）
+  48px 显示，肉眼无差。门派技能那 147 个纹样更密、且换成客户端原图后细节更多，合计 474KB）
 - 边长 **96**：界面按 48px 显示也够 2 倍屏，再大只是浪费体积
 - **`gear/` `weapon/` `lingshi/` `yupo/` 是 120×120 的例外**（`gear/` 第 120 批、`weapon/` 第 121 批）：这四批是
   客户端大图的原尺寸归一到 120（最长边 108、居中），缩到 96 等于把大图又丢一档，而 40px 的
@@ -193,7 +223,12 @@ python tools/game-icons/import-slot-icons.py   # 装备 + 武器（客户端大�
 
 `weapon/` 一度是唯一还带卡片底的一批（每张一块米黄小方片）。2026-11-05 第 121 批也换完了：
 231 张全是客户端 `item120` 大图、120×120 透明底，`source` 一律 `item120`——
-**`icons/` 下现在没有任何一批带底。**
+**装备 / 武器 / 灵饰 / 玉魄 这四批现在都不带底。**
+
+**但「`icons/` 下一张带底的都没有」是句错话**（这句以前写在这里，2026-11-07 更正）：
+`school/` 那 147 张**一直带着红棕卡片底**，因为它是从师门面板截图切的，格子自带底。
+第 139 批换成客户端原图之后**照旧带底**——客户端里这枚图标本来就画在底板上，那是图案的一部分，
+不是可以剥掉的背景。所以准确的写法是：**透明底的是那四批 120×120 的装备族；`school/` 带底，且是刻意的。**
 
 当初为什么不抠：装备/武器图标本来就画在游戏卡片上，图形与卡片底**同色系**。
 实测白衣 `(240,240,235)` 与卡片底 `(243,222,192)` 的曼哈顿色差只有 64，
@@ -206,6 +241,10 @@ python tools/game-icons/import-slot-icons.py   # 装备 + 武器（客户端大�
 
 三次换来源都不是「抠图抠成功了」，而是换了一个本来就没有卡片底的来源：`lingshi/` 第 116 批、
 `gear/` 第 120 批、`weapon/` 第 121 批。**以后再遇到带底的图，同样换来源，不要在截图上抠。**
+
+第四次（`school/`，第 139 批）换的理由不一样：客户端原图**也带底**，换它是为了拿到**原生像素**
+而不是截图的二次放大。但两次的结论是同一条——**图不对就换来源，不要在图上修**。现在真正还
+从截图切的只剩 `skill/` `story/` `active/` 三批（21 + 11 + 69 = 101 张），它们与卡片底同色系，换不动。
 
 ### 裁得对不对，看四个格子的交汇处
 
