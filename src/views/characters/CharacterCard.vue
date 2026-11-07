@@ -12,6 +12,7 @@ import PetPane from './panes/PetPane.vue';
 import SkillPane from './panes/SkillPane.vue';
 import TrainingPane from './panes/TrainingPane.vue';
 import { PANES, type CharacterData, type GearDetail, type PaneKey, type Pet } from './character';
+import type { QuickTarget } from './quick/quick-target';
 
 /**
  * 一张角色卡：**一张纸上的六个分区**，用卡内页签切换。
@@ -71,6 +72,15 @@ import { PANES, type CharacterData, type GearDetail, type PaneKey, type Pet } fr
  * 截图识别认的是哪一类面板，右边就该显示哪一页（认师门技能却停在属性页，
  * 用户得自己点过去找刚认出来的数）。**只是初值与跟随**：页签还能点，
  * 内部 `active` 变了不会被父级弹回去——父级只在它自己换值时下发。
+ *
+ * ---- `quick`：点哪一项就改哪一项 ----
+ * 名册里那张卡上，属性行、技能行、修炼行、辅助行、装备格子都是「快速修改」的入口
+ * （`quick/QuickEdit.vue`）。卡片不自己开窗：它把「点了什么」抛上去（`quick` 事件），
+ * 由 `CharactersView` 找到对应角色开窗、保存时走 `update()`。理由与删除确认同一条——
+ * 弹窗的开关状态属于页面，卡是循环渲染的，存一份就变成「每张卡各有一个窗」。
+ *
+ * 预览卡（截图识别右边那份）与 `editable` 那份都不开：前者是只读样张，
+ * 后者每一格已经是输入框。所以这一条由调用方传 `quick`，默认关着。
  */
 const props = withDefaults(
     defineProps<{
@@ -80,12 +90,14 @@ const props = withDefaults(
         tabs?: boolean;
         /** 要显示哪一页。缺省是属性页；父级改值时跟随。 */
         pane?: PaneKey;
+        /** 点行 / 格开「快速修改」。 */
+        quick?: boolean;
     }>(),
     /* `tabs` 的缺省值**必须显式写 `true`**：Vue 对布尔 prop 的缺省是 `false` 而不是
      * `undefined`（Boolean casting），所以模板里写 `props.tabs !== false` 不管用——
      * 不传时它已经是 `false` 了，整张名册的页签条会被一起省掉（这一条当场红过）。
-     * `preview` / `editable` 用不到反直觉的缺省，不写。 */
-    { tabs: true, pane: 'attrs' },
+     * `preview` / `editable` / `quick` 用不到反直觉的缺省，不写。 */
+    { tabs: true, pane: 'attrs', quick: false },
 );
 const emit = defineEmits<{
     edit: [];
@@ -93,6 +105,7 @@ const emit = defineEmits<{
     scan: [];
     'edit-value': [key: string, value: string];
     'edit-level': [name: string, level: number];
+    quick: [target: QuickTarget];
 }>();
 
 const active = ref<PaneKey>(props.pane);
@@ -142,12 +155,28 @@ function closeAll() {
     tipAnchor.value = null;
 }
 
-/* 兽的详情档案：与装备浮片同一层的浮层，所以状态也留在这里。 */
+/* 兽的详情档案：与装备浮片同一层的浮层，所以状态也留在这里。
+ *
+ * 同时记下**下标**：档案页脚那枚「修改」要交给快速修改，而 `QuickTarget` 的兽就是按
+ * 下标定位的（`Pet` 没有 id，名字可能重）。不在那一刻反查 `indexOf`——`character.pets`
+ * 是每次 `update()` 之后整份换新的，反查拿到的是「现在」的位置，而档案里显示的是
+ * 「打开时」那只，两者可以不是同一个。 */
 const detailPet = ref<Pet | null>(null);
+const detailIndex = ref(-1);
 
-function openDetail(pet: Pet) {
+function openDetail(index: number) {
     closeAll();
-    detailPet.value = pet;
+    detailIndex.value = index;
+    detailPet.value = props.character.pets[index] ?? null;
+}
+
+/** 从档案进「快速修改」：先收掉这一层。两个窗叠着开的话，改完抬眼看到的还是旧值
+ * ——档案里的 `pet` 是打开时拿到的对象，不会跟着新数据刷新。 */
+function quickPet() {
+    const index = detailIndex.value;
+    detailPet.value = null;
+    detailIndex.value = -1;
+    if (index >= 0) emit('quick', { kind: 'pet', index });
 }
 
 /* 经验条的两个值、生活/剧情分组、十二格的坐标与图标、召唤兽牌的取数，
@@ -223,7 +252,9 @@ function openDetail(pet: Pet) {
                     :groups="character.attrGroups"
                     :experience="character.experience"
                     :editable="editable"
+                    :quick="quick"
                     @edit-value="(key, value) => emit('edit-value', key, value)"
+                    @quick="(target) => emit('quick', target)"
                 />
             </template>
 
@@ -236,7 +267,9 @@ function openDetail(pet: Pet) {
                     :rows="character.skills"
                     :editable="editable"
                     :tabbed="withTabs"
+                    :quick="quick"
                     @edit-level="(name, level) => emit('edit-level', name, level)"
+                    @quick="(target) => emit('quick', target)"
                 />
             </template>
 
@@ -246,6 +279,8 @@ function openDetail(pet: Pet) {
                     :id="`${character.id}-pane-assist`"
                     :aria-labelledby="`${character.id}-tab-assist`"
                     :assists="character.assists"
+                    :quick="quick"
+                    @quick="(target) => emit('quick', target)"
                 />
 
                 <TrainingPane
@@ -253,6 +288,8 @@ function openDetail(pet: Pet) {
                     :id="`${character.id}-pane-training`"
                     :aria-labelledby="`${character.id}-tab-training`"
                     :groups="character.trainings"
+                    :quick="quick"
+                    @quick="(target) => emit('quick', target)"
                 />
 
                 <GearPane
@@ -261,8 +298,10 @@ function openDetail(pet: Pet) {
                     :aria-labelledby="`${character.id}-tab-gear`"
                     :gear="character.gear"
                     :meta="character.gearMeta"
+                    :quick="quick"
                     @open-tip="showTip"
                     @close-tip="closeAll"
+                    @quick="(target) => emit('quick', target)"
                 />
 
                 <PetPane
@@ -278,11 +317,14 @@ function openDetail(pet: Pet) {
 
         <GearTip :anchor="tipAnchor" :detail="tip" />
 
-        <!-- 详情档案 `Teleport` 到 body，所以挂在这里只是逻辑位置。 -->
+        <!-- 详情档案 `Teleport` 到 body，所以挂在这里只是逻辑位置。
+             页脚那枚「修改」出门到快速修改（见 `quickPet`）：档案是浮层，
+             而快速修改的开关在名册页那一边。 -->
         <PetDetail
             v-if="detailPet"
             :pet="detailPet"
             :char-level="character.level"
+            @quick="quickPet"
             @close="detailPet = null"
         />
     </PaperCard>

@@ -6,6 +6,8 @@ import { askConfirm } from '../composables/use-confirm';
 import CharacterCard from './characters/CharacterCard.vue';
 import CharacterEditor from './characters/CharacterEditor.vue';
 import OcrDialog from './characters/ocr/OcrDialog.vue';
+import QuickEdit from './characters/quick/QuickEdit.vue';
+import type { QuickTarget } from './characters/quick/quick-target';
 import type { CharacterData } from './characters/character';
 import { emptyCharacter, useRoster } from './characters/roster';
 import { goalsOfCharacter } from './goals/goals-store';
@@ -43,6 +45,29 @@ const editing = ref<CharacterData | null>(null);
  * 与 `editing` 分开：两个弹窗装的是同一张卡，但一个是「改」，一个是「认」，
  * 合用一个变量会让「关掉识别」顺手把编辑器也关掉。 */
 const scanning = ref<CharacterData | null>(null);
+
+/**
+ * 正在「快速修改」的那一项，`null` = 关着。
+ *
+ * 三份状态各开一个而不是揉成一个 `{ 角色, 模式 }`：三个弹窗装的是同一张卡的不同面，
+ * 而它们的开合时机互不相干（识别开着的时候不该能点卡上的行——那张卡在弹窗里）。
+ * 分开之后，「关掉这个顺手关掉那个」这类串台从结构上就不可能发生。
+ *
+ * 带上 `character` 而不是只带 id：快速修改要读现值来填那几格，`roster` 里那一份
+ * 就是点开那一刻的，不另存快照——保存时算出来的新整份会按 id 整条替换。
+ */
+const quicking = ref<{ character: CharacterData; target: QuickTarget } | null>(null);
+
+function openQuick(character: CharacterData, target: QuickTarget) {
+    quicking.value = { character, target };
+}
+
+/* 快速修改的保存：与编辑器、截图识别共用 `update()`，写入路径只有这一条。
+ * `applyQuick` 已经返回**完整的一份**（只替换那一项），所以这里不必再合并。 */
+function onQuickSave(next: CharacterData) {
+    update(next);
+    quicking.value = null;
+}
 
 const isNew = computed(() => {
     const draft = editing.value;
@@ -134,13 +159,18 @@ const desc = computed(() =>
         <p v-if="loadError || writeError" class="note error">{{ loadError || writeError }}</p>
 
         <div class="roster">
+            <!-- `quick`：点卡上的行 / 格就开「快速修改」。开关状态在**页面**这一层
+                 （`quicking`），卡片只把「点了什么」抛上来——卡是循环渲染的，
+                 每张卡各存一个弹窗状态就等于开了 N 个窗。 -->
             <CharacterCard
                 v-for="character in roster"
                 :key="character.id"
                 :character="character"
+                quick
                 @edit="editing = character"
                 @scan="scanning = character"
                 @remove="askRemove(character)"
+                @quick="(target) => openQuick(character, target)"
             />
 
             <!-- 空位卡与角色卡同高：名册的行高由最高那张决定，缺一角会让整行看着没排完。
@@ -173,6 +203,14 @@ const desc = computed(() =>
             :character="scanning"
             @apply="onScanApply"
             @close="scanning = null"
+        />
+
+        <QuickEdit
+            v-if="quicking"
+            :character="quicking.character"
+            :target="quicking.target"
+            @save="onQuickSave"
+            @close="quicking = null"
         />
     </PageShell>
 </template>

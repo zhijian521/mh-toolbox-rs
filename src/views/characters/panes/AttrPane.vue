@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import MeterBar from '../../../components/MeterBar.vue';
 import NumTag from '../../../components/NumTag.vue';
 import { expPercent, type AttrGroup, type ExpRow } from '../character';
+import type { QuickTarget } from '../quick/quick-target';
 
 /**
  * 卡内「属性」页。2026-11-05 从 `CharacterCard.vue` 拆出来：那张卡一个文件装六个分区，
@@ -36,11 +37,35 @@ const props = withDefaults(
         experience: ExpRow;
         editable?: boolean;
         tabbed?: boolean;
+        /**
+         * 点一行就开「快速修改」（`quick/QuickEdit.vue`）。
+         *
+         * 与 `editable` **互斥**：那一态里每一格已经是输入框，再叠一层「点了弹窗」
+         * 就成了「点输入框弹出另一个输入框」。所以下面用 `quickable` 一处判断，
+         * 而不是两处各写一遍条件（写两遍迟早有一处忘了改）。
+         */
+        quick?: boolean;
     }>(),
-    { editable: false, tabbed: true },
+    { editable: false, tabbed: true, quick: false },
 );
 
-const emit = defineEmits<{ 'edit-value': [key: string, value: string] }>();
+const emit = defineEmits<{
+    'edit-value': [key: string, value: string];
+    quick: [target: QuickTarget];
+}>();
+
+/* 卡上（只读、非预览）才可点。截图识别那张预览卡两边都不满足。 */
+const quickable = computed(() => props.quick && !props.editable);
+
+function openAttr(label: string) {
+    if (!quickable.value) return;
+    emit('quick', { kind: 'attr', label });
+}
+
+function openExp() {
+    if (!quickable.value) return;
+    emit('quick', { kind: 'exp' });
+}
 
 /**
  * 失焦（`change`）与 Enter 才写回，不在每次按键时写。
@@ -87,11 +112,21 @@ const expText = computed(() => {
                      空值画一个淡「—」：一行里只有一个空档时，「没填」读起来像
                      「值恰好很短」。 -->
                 <dl class="slip-rows sm">
+                    <!-- 只读时这一行整条是可点的「快速修改」入口：票面就是落点，
+                         不必再加一枚按钮——一枚 28 高的票里再塞图标，名目就没地方了。
+                         `role` / `tabindex` 只在可点时给：不可点的行自称按钮，
+                         读屏会把二十行都念成「按钮」，Tab 也会在每个上面停一下。 -->
                     <div
                         v-for="row in group.rows"
                         :key="row.label"
                         class="slip-row sm"
-                        :class="{ blank: !row.value }"
+                        :class="{ blank: !row.value, quickable }"
+                        :role="quickable ? 'button' : undefined"
+                        :tabindex="quickable ? 0 : undefined"
+                        :aria-label="quickable ? `快速修改 ${row.label}` : undefined"
+                        @click="openAttr(row.label)"
+                        @keydown.enter.prevent="openAttr(row.label)"
+                        @keydown.space.prevent="openAttr(row.label)"
                     >
                         <dt class="slip-name">{{ row.label }}</dt>
                         <dd class="attr-val">
@@ -117,8 +152,19 @@ const expText = computed(() => {
         </div>
 
         <!-- 经验单独一行：它是这一屏唯一有分母的数（离下一级还有多远），
-             混在资源那五行里只是第六个数字。 -->
-        <div class="exp-row">
+             混在资源那五行里只是第六个数字。
+             可点时整条（连同进度条）都是落点：经验条是这一行最大的目标，
+             让它单独不可点会读成「条只是装饰」。 -->
+        <div
+            class="exp-row"
+            :class="{ quickable }"
+            :role="quickable ? 'button' : undefined"
+            :tabindex="quickable ? 0 : undefined"
+            :aria-label="quickable ? '快速修改经验' : undefined"
+            @click="openExp"
+            @keydown.enter.prevent="openExp"
+            @keydown.space.prevent="openExp"
+        >
             <span class="group-head"><span class="section-mark"></span>经验</span>
             <!-- 可改时文字让位给两格输入，**条留着**：数一改，条当场动一下，
                  比任何「已保存」的提示都直接。 -->

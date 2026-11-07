@@ -6,8 +6,12 @@ import { joinShort, lifeLow, previewSkills, previewStats, type Pet } from '../pe
 const props = defineProps<{ pets: Pet[]; charLevel: number }>();
 
 /* 详情档案（`PetDetail`）`Teleport` 到 body，与装备浮片一样挂在卡片上——
- * 这一页只负责列牌与抛「要看哪一只」。 */
-const emit = defineEmits<{ open: [pet: Pet] }>();
+ * 这一页只负责列牌与抛「要看哪一只」。
+ *
+ * 抛的是**下标**不是对象：详情页的「修改」要交给快速修改，而 `QuickTarget` 里
+ * 召唤兽的定位键也是下标（`Pet` 没有 id，名字可能重）。两处用同一个键，
+ * 卡片就不必再 `indexOf` 反查一次——那种反查在数组被替换之后会失效。 */
+const emit = defineEmits<{ open: [index: number] }>();
 
 /* ---------- 概览牌的取数 ----------
  * 五格属性、前四个技能名、参战差额、寿命告警**一次算完**，模板只负责画。
@@ -29,12 +33,12 @@ const views = computed(() =>
     <section class="pane" role="tabpanel">
         <div v-if="views.length" class="pet-list">
             <button
-                v-for="view in views"
+                v-for="(view, index) in views"
                 :key="view.pet.name"
                 type="button"
                 class="plate"
                 :aria-label="`查看 ${view.pet.name || '这只召唤兽'} 的详情`"
-                @click="emit('open', view.pet)"
+                @click="emit('open', index)"
             >
                 <span class="beast-head">
                     <span class="elem">{{ view.pet.element || '—' }}</span>

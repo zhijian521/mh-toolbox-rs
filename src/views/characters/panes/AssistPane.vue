@@ -3,9 +3,20 @@ import { computed } from 'vue';
 import NumTag from '../../../components/NumTag.vue';
 import AssistIcon from '../AssistIcon.vue';
 import { isMaxed, type AssistSkill } from '../character';
+import type { QuickTarget } from '../quick/quick-target';
 
 /** 卡内「辅助」页。拆法与理由见 `AttrPane.vue` 顶部。 */
-const props = defineProps<{ assists: AssistSkill[] }>();
+const props = withDefaults(defineProps<{ assists: AssistSkill[]; quick?: boolean }>(), {
+    quick: false,
+});
+
+const emit = defineEmits<{ quick: [target: QuickTarget] }>();
+
+/* 定位键带上 `kind`：生活与剧情各是一套名字，`normalizeAssists` 的查重键就是
+ * `kind + name`，这里跟着它走，同一件事只认一个键。 */
+function open(row: AssistSkill) {
+    emit('quick', { kind: 'assist', name: row.name, assist: row.kind });
+}
 
 /* 生活与剧情分两段，各自一张格子图。空的那一类不出现——
  * 一个只有生活技能的角色，不该看到一行「剧情技能」然后底下什么都没有。 */
@@ -37,8 +48,14 @@ const assistGroups = computed(() =>
                         v-for="row in group.rows"
                         :key="`${row.kind}-${row.name}`"
                         class="slip-row"
-                        :class="{ off: row.off, full: isMaxed(row) }"
+                        :class="{ off: row.off, full: isMaxed(row), quickable: quick }"
                         :title="`${row.name} ${row.level}${row.cap ? `/${row.cap}` : ''}`"
+                        :role="quick ? 'button' : undefined"
+                        :tabindex="quick ? 0 : undefined"
+                        :aria-label="quick ? `快速修改 ${row.name}` : undefined"
+                        @click="open(row)"
+                        @keydown.enter.prevent="open(row)"
+                        @keydown.space.prevent="open(row)"
                     >
                         <AssistIcon :name="row.name" :kind="row.kind" />
                         <span class="slip-name">{{ row.name }}</span>

@@ -57,11 +57,25 @@ const props = withDefaults(
          * 进来——否则打开老号连「满」都判不出来。
          */
         cap?: number;
+        /**
+         * 点一行开「快速修改」。
+         *
+         * 与 `editable` 互斥（那一态里等级已经是输入格）；`quickable` 一处判断，
+         * 免得两个条件在模板里各写一遍。
+         */
+        quick?: boolean;
     }>(),
-    { editable: false, inputId: undefined, cap: undefined },
+    { editable: false, inputId: undefined, cap: undefined, quick: false },
 );
 
-const emit = defineEmits<{ 'update:level': [level: number] }>();
+const emit = defineEmits<{ 'update:level': [level: number]; quick: [] }>();
+
+const quickable = computed(() => props.quick && !props.editable);
+
+function open() {
+    if (!quickable.value) return;
+    emit('quick');
+}
 
 /* 上限：调用方给的兜底值优先，否则用行上存着的。两处都为 undefined 时判不出满级。 */
 const capOf = computed(() => props.cap ?? props.row.cap);
@@ -77,7 +91,16 @@ const seal = computed(() => [...props.row.name][0] ?? '');
 </script>
 
 <template>
-    <div class="slip-row school-row" :class="{ full, idle, off: props.row.off }">
+    <div
+        class="slip-row school-row"
+        :class="{ full, idle, off: props.row.off, quickable }"
+        :role="quickable ? 'button' : undefined"
+        :tabindex="quickable ? 0 : undefined"
+        :aria-label="quickable ? `快速修改 ${row.name}` : undefined"
+        @click="open"
+        @keydown.enter.prevent="open"
+        @keydown.space.prevent="open"
+    >
         <!-- 有图走 `IconTile`（与辅助同一枚块）；没图退回压印块 + 首字。 -->
         <IconTile v-if="icon" :src="icon" />
         <PressTile v-else class="seal-tile" still aria-hidden="true">

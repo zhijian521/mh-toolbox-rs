@@ -27,13 +27,18 @@ import {
  * 原先这些藏在悬停浮片里（`PetTip.vue`），随本次一并退役——同一份内容两个出口，
  * 迟早一处改了另一处没改。
  *
- * ---- 只读 ----
- * 页脚只有「关闭」，没有「编辑」：编辑器是整张角色卡的表单，从这一只兽点进去
+ * ---- 只读，但不再「无处可改」 ----
+ * 2026-11-05 那一版的页脚只有「关闭」：编辑器是整张角色卡的表单，从这一只兽点进去
  * 会落在「属性」那一页而不是「召唤兽」，等于给了一个到不了目的地的入口。
- * 真要就地改，等编辑器支持「直接开到第 N 只兽」再说。
+ *
+ * 2026-11-07 有了「快速修改」（`quick/QuickEdit.vue`），那个理由不再成立：
+ * 现在弹出的就是这一只的六格，与在卡片上点别的项走同一条路。于是页脚多一枚「修改」。
+ *
+ * 点它先关掉这一层（`emit('quick')` 由卡片负责收档）：两个弹窗叠着开，用户改完
+ * 抬眼看到的还是旧值的档案——那份 `pet` 是打开时拿到的对象，改完不会自己刷新。
  */
 const props = defineProps<{ pet: Pet; charLevel: number }>();
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; quick: [] }>();
 
 /* 三个文字字段走这里取值：类型上它们是 `string`，但数据是从本机 JSON 读回来的
  * （`roster.ts` 只做一次 `JSON.parse`），早期存下来的那一份可能缺这几项。
@@ -75,7 +80,9 @@ const lifeWarn = computed(() => lifeLow(props.pet.life));
 </script>
 
 <template>
-    <ModalShell :title="title" :width="600" @close="emit('close')">
+    <!-- `initial-focus="cancel"`：第一个可聚焦元素现在是「修改」，默认落在第一个上时
+         按一次回车就进了下一层弹窗——而打开档案是为了**看**，不是要改。 -->
+    <ModalShell :title="title" :width="600" initial-focus="cancel" @close="emit('close')">
         <!-- 抬头：身份 + 三件硬指标 + 参战。五行不在这里重复，左边那枚章就是它。 -->
         <div class="pet-id">
             <span class="elem">{{ text(pet.element) || '—' }}</span>
@@ -161,6 +168,7 @@ const lifeWarn = computed(() => lifeLow(props.pet.life));
         </section>
 
         <template #footer>
+            <PressButton icon="edit" text="修改" label="快速修改这一只" @click="emit('quick')" />
             <PressButton
                 data-modal-cancel
                 text="关闭"

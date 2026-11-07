@@ -1,9 +1,18 @@
 <script setup lang="ts">
 import NumTag from '../../../components/NumTag.vue';
-import { isMaxed, type TrainingGroup } from '../character';
+import { isMaxed, type TrainingGroup, type TrainingRow } from '../character';
+import type { QuickTarget } from '../quick/quick-target';
 
 /** 卡内「修炼」页。拆法与理由见 `AttrPane.vue` 顶部。 */
-defineProps<{ groups: TrainingGroup[] }>();
+withDefaults(defineProps<{ groups: TrainingGroup[]; quick?: boolean }>(), { quick: false });
+
+const emit = defineEmits<{ quick: [target: QuickTarget] }>();
+
+/* 十项的名字在本表里唯一（两组没有重名），所以名字就够定位；
+ * 上限跟行走，由弹窗自己读那一行，不需要另外传。 */
+function open(row: TrainingRow) {
+    emit('quick', { kind: 'training', name: row.name });
+}
 </script>
 
 <template>
@@ -19,7 +28,13 @@ defineProps<{ groups: TrainingGroup[] }>();
                         v-for="row in group.rows"
                         :key="row.name"
                         class="slip-row"
-                        :class="{ full: isMaxed(row), idle: row.level === 0 }"
+                        :class="{ full: isMaxed(row), idle: row.level === 0, quickable: quick }"
+                        :role="quick ? 'button' : undefined"
+                        :tabindex="quick ? 0 : undefined"
+                        :aria-label="quick ? `快速修改 ${row.name}` : undefined"
+                        @click="open(row)"
+                        @keydown.enter.prevent="open(row)"
+                        @keydown.space.prevent="open(row)"
                     >
                         <span class="slip-name">{{ row.name }}</span>
                         <!-- 读数进数值签（四页同一枚）：上限写成 `/20` 的淡字，

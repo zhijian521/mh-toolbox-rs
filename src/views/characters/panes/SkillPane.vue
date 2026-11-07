@@ -2,6 +2,7 @@
 import { useId } from 'vue';
 import SkillRowView from '../SkillRow.vue';
 import type { SkillRow } from '../character';
+import type { QuickTarget } from '../quick/quick-target';
 
 /**
  * 卡内「师门」页。拆法与理由见 `AttrPane.vue` 顶部。
@@ -13,12 +14,21 @@ import type { SkillRow } from '../character';
  *
  * `tabbed` 只影响 ARIA：预览卡不画页签条时，这一页从 `tabpanel` 降级成 `region`。
  */
-withDefaults(defineProps<{ rows: SkillRow[]; editable?: boolean; tabbed?: boolean }>(), {
-    editable: false,
-    tabbed: true,
-});
+withDefaults(
+    defineProps<{ rows: SkillRow[]; editable?: boolean; tabbed?: boolean; quick?: boolean }>(),
+    { editable: false, tabbed: true, quick: false },
+);
 
-const emit = defineEmits<{ 'edit-level': [name: string, level: number] }>();
+const emit = defineEmits<{
+    'edit-level': [name: string, level: number];
+    quick: [target: QuickTarget];
+}>();
+
+/* 可点时点一行就开「快速修改」——名字由这一层给（行只知道自己是第几项，
+ * 而上层要的是名字，见 `SkillPane` 顶部关于「名字才是身份」的说明）。 */
+function open(row: SkillRow) {
+    emit('quick', { kind: 'skill', name: row.name });
+}
 
 /* 等级格的 id。用 `useId()` 而不是拼 `attrs.id`：这一页在同一个 DOM 里会出现
  * 两份（名册那张卡 + 识别预览那张），`attrs.id` 已经在前面加了 `-preview` 后缀，
@@ -55,8 +65,10 @@ const uid = useId();
                 :key="row.name"
                 :row="row"
                 :editable="editable"
+                :quick="quick"
                 :input-id="editable ? `${uid}-lv-${index}` : undefined"
                 @update:level="emit('edit-level', row.name, $event)"
+                @quick="open(row)"
             />
         </div>
         <p v-else class="empty-note">还没有记录门派技能</p>

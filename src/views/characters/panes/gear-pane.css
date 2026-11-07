@@ -231,6 +231,11 @@
     color: var(--muted);
     cursor: default;
 }
+/* 能点的时候光标要改回来：空位在名册卡上是「快速修改」的入口，
+ * 而在截图识别的预览卡上仍然只是一块留白（那一份不可点）。 */
+.gear-cell.empty.quickable {
+    cursor: pointer;
+}
 .gear-empty {
     color: color-mix(in srgb, var(--muted) 80%, transparent);
     font-size: var(--fs-mini);
