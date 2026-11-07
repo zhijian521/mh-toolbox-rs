@@ -111,329 +111,411 @@
         "story": [
             {
                 "id": "story-01",
-                "name": "调息"
+                "name": "调息",
+                "source": "client40"
             },
             {
                 "id": "story-02",
-                "name": "打坐"
+                "name": "打坐",
+                "source": "client40"
             },
             {
                 "id": "story-03",
-                "name": "丹元济会"
+                "name": "丹元济会",
+                "source": "client40"
             },
             {
                 "id": "story-04",
-                "name": "妙手空空"
+                "name": "妙手空空",
+                "source": "client40"
             },
             {
                 "id": "story-05",
-                "name": "宝石工艺"
+                "name": "宝石工艺",
+                "source": "client40"
             },
             {
                 "id": "story-06",
-                "name": "奇门遁甲"
+                "name": "奇门遁甲",
+                "source": "client40"
             },
             {
                 "id": "story-07",
-                "name": "古董评估"
+                "name": "古董评估",
+                "source": "client40"
             },
             {
                 "id": "story-08",
-                "name": "仙灵店铺"
+                "name": "仙灵店铺",
+                "source": "client40"
             },
             {
                 "id": "story-09",
-                "name": "建筑之术"
+                "name": "建筑之术",
+                "source": "client40"
             },
             {
                 "id": "story-10",
-                "name": "变化之术"
+                "name": "变化之术",
+                "source": "client40"
             },
             {
                 "id": "story-11",
-                "name": "火眼金睛"
+                "name": "火眼金睛",
+                "source": "client40"
             }
         ],
         "active": [
             {
                 "id": "active-01",
-                "name": "气疗术"
+                "name": "气疗术",
+                "source": "client40"
             },
             {
                 "id": "active-02",
-                "name": "心疗术"
+                "name": "心疗术",
+                "source": "client40"
             },
             {
                 "id": "active-03",
-                "name": "命疗术"
+                "name": "命疗术",
+                "source": "client40"
             },
             {
                 "id": "active-04",
-                "name": "凝气诀"
+                "name": "凝气诀",
+                "source": "client40"
             },
             {
                 "id": "active-05",
-                "name": "凝神诀"
+                "name": "凝神诀",
+                "source": "client40"
             },
             {
                 "id": "active-06",
-                "name": "气归术"
+                "name": "气归术",
+                "source": "client40"
             },
             {
                 "id": "active-07",
-                "name": "命归术"
+                "name": "命归术",
+                "source": "client40"
             },
             {
                 "id": "active-08",
-                "name": "四海升平"
+                "name": "四海升平",
+                "source": "client40"
             },
             {
                 "id": "active-09",
-                "name": "回魂咒"
+                "name": "回魂咒",
+                "source": "client40"
             },
             {
                 "id": "active-10",
-                "name": "起死回生"
+                "name": "起死回生",
+                "source": "client40"
             },
             {
                 "id": "active-11",
-                "name": "水清诀"
+                "name": "水清诀",
+                "source": "client40"
             },
             {
                 "id": "active-12",
-                "name": "冰清诀"
+                "name": "冰清诀",
+                "source": "client40"
             },
             {
                 "id": "active-13",
-                "name": "玉清诀"
+                "name": "玉清诀",
+                "source": "client40"
             },
             {
                 "id": "active-14",
-                "name": "晶清诀"
+                "name": "晶清诀",
+                "source": "client40"
             },
             {
                 "id": "active-15",
-                "name": "诅咒之伤"
+                "name": "诅咒之伤",
+                "source": "client40"
             },
             {
                 "id": "active-16",
-                "name": "诅咒之亡"
+                "name": "诅咒之亡",
+                "source": "client40"
             },
             {
                 "id": "active-17",
-                "name": "笑里藏刀"
+                "name": "笑里藏刀",
+                "source": "client40"
             },
             {
                 "id": "active-18",
-                "name": "绝幻魔音"
+                "name": "绝幻魔音",
+                "source": "client40"
             },
             {
                 "id": "active-19",
-                "name": "野兽之力"
+                "name": "野兽之力",
+                "source": "client40"
             },
             {
                 "id": "active-20",
-                "name": "魔兽之印"
+                "name": "魔兽之印",
+                "source": "client40"
             },
             {
                 "id": "active-21",
-                "name": "光辉之甲"
+                "name": "光辉之甲",
+                "source": "client40"
             },
             {
                 "id": "active-22",
-                "name": "圣灵之甲"
+                "name": "圣灵之甲",
+                "source": "client40"
             },
             {
                 "id": "active-23",
-                "name": "流云诀"
+                "name": "流云诀",
+                "source": "client40"
             },
             {
                 "id": "active-24",
-                "name": "啸风诀"
+                "name": "啸风诀",
+                "source": "client40"
             },
             {
                 "id": "active-25",
-                "name": "太极护法"
+                "name": "太极护法",
+                "source": "client40"
             },
             {
                 "id": "active-26",
-                "name": "罗汉金钟"
+                "name": "罗汉金钟",
+                "source": "client40"
             },
             {
                 "id": "active-27",
-                "name": "修罗咒"
+                "name": "修罗咒",
+                "source": "client40"
             },
             {
                 "id": "active-28",
-                "name": "天衣无缝"
+                "name": "天衣无缝",
+                "source": "client40"
             },
             {
                 "id": "active-29",
-                "name": "放下屠刀"
+                "name": "放下屠刀",
+                "source": "client40"
             },
             {
                 "id": "active-30",
-                "name": "河东狮吼"
+                "name": "河东狮吼",
+                "source": "client40"
             },
             {
                 "id": "active-31",
-                "name": "破甲术"
+                "name": "破甲术",
+                "source": "client40"
             },
             {
                 "id": "active-32",
-                "name": "碎甲术"
+                "name": "碎甲术",
+                "source": "client40"
             },
             {
                 "id": "active-33",
-                "name": "凝滞术"
+                "name": "凝滞术",
+                "source": "client40"
             },
             {
                 "id": "active-34",
-                "name": "停陷术"
+                "name": "停陷术",
+                "source": "client40"
             },
             {
                 "id": "active-35",
-                "name": "破血狂攻"
+                "name": "破血狂攻",
+                "source": "client40"
             },
             {
                 "id": "active-36",
-                "name": "弱点击破"
+                "name": "弱点击破",
+                "source": "client40"
             },
             {
                 "id": "active-37",
-                "name": "吸血"
+                "name": "吸血",
+                "source": "client40"
             },
             {
                 "id": "active-38",
-                "name": "残月"
+                "name": "残月",
+                "source": "client40"
             },
             {
                 "id": "active-39",
-                "name": "冥王暴杀"
+                "name": "冥王暴杀",
+                "source": "client40"
             },
             {
                 "id": "active-40",
-                "name": "乾坤斩"
+                "name": "乾坤斩",
+                "source": "client40"
             },
             {
                 "id": "active-41",
-                "name": "破碎无双"
+                "name": "破碎无双",
+                "source": "client40"
             },
             {
                 "id": "active-42",
-                "name": "帝释无双"
+                "name": "帝释无双",
+                "source": "client40"
             },
             {
                 "id": "active-43",
-                "name": "伽罗无双"
+                "name": "伽罗无双",
+                "source": "client40"
             },
             {
                 "id": "active-44",
-                "name": "虚空之刃"
+                "name": "虚空之刃",
+                "source": "client40"
             },
             {
                 "id": "active-45",
-                "name": "亡灵之刃"
+                "name": "亡灵之刃",
+                "source": "client40"
             },
             {
                 "id": "active-46",
-                "name": "死亡之音"
+                "name": "死亡之音",
+                "source": "client40"
             },
             {
                 "id": "active-47",
-                "name": "身似菩提"
+                "name": "身似菩提",
+                "source": "client40"
             },
             {
                 "id": "active-48",
-                "name": "心如明镜"
+                "name": "心如明镜",
+                "source": "client40"
             },
             {
                 "id": "active-49",
-                "name": "慈航普度"
+                "name": "慈航普度",
+                "source": "client40"
             },
             {
                 "id": "active-50",
-                "name": "移形换影"
+                "name": "移形换影",
+                "source": "client40"
             },
             {
                 "id": "active-51",
-                "name": "凝心诀"
+                "name": "凝心诀",
+                "source": "client40"
             },
             {
                 "id": "active-52",
-                "name": "聚精会神"
+                "name": "聚精会神",
+                "source": "client40"
             },
             {
                 "id": "active-53",
-                "name": "先发制人"
+                "name": "先发制人",
+                "source": "client40"
             },
             {
                 "id": "active-54",
-                "name": "燃烧之光"
+                "name": "燃烧之光",
+                "source": "client40"
             },
             {
                 "id": "active-55",
-                "name": "毁灭之光"
+                "name": "毁灭之光",
+                "source": "client40"
             },
             {
                 "id": "active-56",
-                "name": "金刚不坏"
+                "name": "金刚不坏",
+                "source": "client40"
             },
             {
                 "id": "active-57",
-                "name": "菩提心佑"
+                "name": "菩提心佑",
+                "source": "client40"
             },
             {
                 "id": "active-58",
-                "name": "金刚怒目"
+                "name": "金刚怒目",
+                "source": "client40"
             },
             {
                 "id": "active-59",
-                "name": "琴音三叠"
+                "name": "琴音三叠",
+                "source": "client40"
             },
             {
                 "id": "active-60",
-                "name": "乾坤挪移"
+                "name": "乾坤挪移",
+                "source": "client40"
             },
             {
                 "id": "active-61",
-                "name": "疾风荡魄"
+                "name": "疾风荡魄",
+                "source": "client40"
             },
             {
                 "id": "active-62",
-                "name": "玄鸟之灵"
+                "name": "玄鸟之灵",
+                "source": "client40"
             },
             {
                 "id": "active-63",
-                "name": "神鸟之印"
+                "name": "神鸟之印",
+                "source": "client40"
             },
             {
                 "id": "active-64",
-                "name": "伯牙绝弦"
+                "name": "伯牙绝弦",
+                "source": "client40"
             },
             {
                 "id": "active-65",
-                "name": "焚琴煮鹤"
+                "name": "焚琴煮鹤",
+                "source": "client40"
             },
             {
                 "id": "active-66",
-                "name": "攻心术"
+                "name": "攻心术",
+                "source": "client40"
             },
             {
                 "id": "active-67",
-                "name": "惊心术"
+                "name": "惊心术",
+                "source": "client40"
             },
             {
                 "id": "active-68",
-                "name": "妙法之护"
+                "name": "妙法之护",
+                "source": "client40"
             },
             {
                 "id": "active-69",
-                "name": "神机之护"
+                "name": "神机之护",
+                "source": "client40"
             }
         ]
     },
     "imports": {
-        "skill": "tools/game-icons/import-skill-icons.py"
+        "skill": "tools/game-icons/import-skill-icons.py",
+        "story": "tools/game-icons/import-story-active-icons.py",
+        "active": "tools/game-icons/import-story-active-icons.py"
     }
 }

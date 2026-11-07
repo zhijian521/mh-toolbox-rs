@@ -37,8 +37,8 @@ icons/
 | 目录       | 内容     | 数量 | 来源                                                                                        |
 | ---------- | -------- | ---- | ------------------------------------------------------------------------------------------- |
 | `skill/`   | 生活技能 | 21   | **客户端资源包原生 PNG**，21 项，见 `../data/icons.json` 的 `source` 与 `imports.skill`     |
-| `story/`   | 剧情技能 | 11   | 「剧情技能」目录一页                                                                        |
-| `active/`  | 装备特技 | 69   | 「特技特效」面板六页（12×5 + 9）                                                            |
+| `story/`   | 剧情技能 | 11   | **客户端资源包原生 PNG**，11 项，见 `../data/icons.json` 的 `source` 与 `imports.story`     |
+| `active/`  | 装备特技 | 69   | **客户端资源包原生 PNG**，69 项，见 `../data/icons.json` 的 `source` 与 `imports.active`    |
 | `school/`  | 门派技能 | 147  | **客户端资源包原生 PNG**，21 家门派 × 7 项，见 `../data/school-icons.json` 的 `source`      |
 | `gear/`    | 装备图标 | 83   | **客户端 `item120` 大图**，7 部位 × 60~160，见 `../data/gear-icons.json`                    |
 | `weapon/`  | 武器图标 | 231  | **客户端 `item120` 大图**，21 组（双巨斧拆乾/坤，各 11 张），见 `../data/weapon-icons.json` |
@@ -112,7 +112,7 @@ icons/
 游戏改版、或者补了新一页目录，重新跑：
 
 ```bash
-python tools/game-icons/slice.py             # 生活 / 剧情 / 特技 → skill/ story/ active/ + icons.json
+python tools/game-icons/slice.py             # 生活 / 剧情 / 特技的**名字与顺序** → icons.json
 python tools/game-icons/slice-school.py      # 门派技能的名字与顺序 → school-icons.json（图随后被下一条覆写）
 python tools/game-icons/slice-gear.py        # 装备（名字与顺序的基准）→ gear-icons.json
 python tools/game-icons/slice-weapon.py      # 武器 → weapon/ + weapon-icons.json
@@ -120,17 +120,24 @@ python tools/game-icons/import-client-icons.py # 灵饰 + 玉魄（客户端大�
 python tools/game-icons/import-slot-icons.py   # 装备 + 武器（客户端大图）→ gear/ weapon/ + source
 python tools/game-icons/import-school-icons.py # 门派技能（客户端原图）→ school/ + source
 python tools/game-icons/import-skill-icons.py  # 生活技能（客户端原图）→ skill/ + source
+python tools/game-icons/import-story-active-icons.py # 剧情 + 特技（客户端原图）→ story/ active/ + source
 ```
 
-`story/` `active/` 两批从截图切，其余**都不从截图来**。
+九类图标里**只剩 `item/` 是旧系统带过来的图**；其余八类全部来自客户端资源包。
+截图脚本仍要跑，但它们现在只产出**名字与顺序**，图片随后被 `import-*-icons.py` 整批覆写。
 
-**生活技能与门派技能一样要连着跑两条**（`slice.py` → `import-skill-icons.py`）：`slice.py`
-整份重写 `icons.json`（会把 `source` 删掉、图和清单一起打回截图那版），`import-skill-icons.py`
-只覆写 `skill/` 那 21 张图与每条记录的 `source`。
+**三组技能图标都要连着跑两条**（`slice.py` → 对应的 `import-*-icons.py`）：`slice.py`
+整份重写 `icons.json`（会把 `source` 删掉、图和清单一起打回截图那版），导入脚本只覆写
+自己那组的图与每条记录的 `source`。三个导入脚本各写各的 `imports` 键，互不覆盖。
 
 `import-skill-icons.py` 读 `<src>/index.csv` 的 `skill` 列，**按名字**连到 `icons.json`
 的 `groups.skill[].name`（两边顺序恰好一样，但序号是「图标编号」、CSV 是「整理顺序」，
 将来任一边插一项就会静默错位）。`--src` 换素材目录，`--check` 只报告不写盘。
+
+`import-story-active-icons.py` 读 `<src>/index.csv` 的 `group` / `name` 两列，同样**按名字**
+连到 `groups.story` 与 `groups.active`；两组名字集合双向比对，少一条直接退出。
+源是 `C:/games/MHXY-icons/ready/` 里按中文名归档的 40×40 客户端原生 PNG（由
+`prepare-future-icons.py` 从 42,664 张解码素材里匹配而来）。`--src` 换素材目录，`--check` 干跑。
 
 **门派技能要连着跑两条**（`slice-school.py` → `import-school-icons.py`）：前者会整份重写清单、
 把图和 `source` 一起打回截图那版，所以它只负责名字与顺序，图由后者覆写。这与装备 / 武器
@@ -157,9 +164,9 @@ python tools/game-icons/import-skill-icons.py  # 生活技能（客户端原图�
 任何背景**，并重写自己的清单。截图路径与每页的期望数量写在脚本顶部的 `PAGES` 里——**数量
 对不上会直接报错退出**，不会切一半就写完。
 
-`slice.py` 现在对 `skill/` 也只服务**名字与顺序**：那 21 张图已被 `import-skill-icons.py`
-整批覆写（2026-11-07，第 142 批），画面质量不再由它决定，但 `PAGES` 里那两张截图仍然要能
-切出 12 + 9 项——它是名字表的真源。
+`slice.py` 现在对 `skill/` `story/` `active/` 三组都只服务**名字与顺序**：那 101 张图已被
+`import-skill-icons.py` 与 `import-story-active-icons.py` 整批覆写（2026-11-07，第 142 / 144 批），
+画面质量不再由它决定，但 `PAGES` 里那几张截图仍然要能切出应有项数——它是名字表的真源。
 
 `slice-school.py` 的裁切逻辑现在**只服务名字与顺序**：它切出来的图会被
 `import-school-icons.py` 整批覆写（2026-11-07，第 139 批），所以 `PANELS` 与 `body_bottom()`
@@ -218,7 +225,7 @@ SP 版（十方无敌 + 弥勒山七项），理由是图案与面板更一致�
 
 ## 尺寸与格式
 
-- `.webp`，有损 `quality=92`（`skill/` + `story/` + `active/` 共 101 个合计 394KB；无损要 957KB，而图标最大只按
+- `.webp`，有损 `quality=92`（`skill/` + `story/` + `active/` 共 101 个合计 333KB；无损要 957KB，而图标最大只按
   48px 显示，肉眼无差。门派技能那 147 个纹样更密、且换成客户端原图后细节更多，合计 474KB）
 - 边长 **96**：界面按 48px 显示也够 2 倍屏，再大只是浪费体积
 - **`gear/` `weapon/` `lingshi/` `yupo/` 是 120×120 的例外**（`gear/` 第 120 批、`weapon/` 第 121 批）：这四批是
@@ -259,8 +266,13 @@ SP 版（十方无敌 + 弥勒山七项），理由是图案与面板更一致�
 而不是截图的二次放大。但两次的结论是同一条——**图不对就换来源，不要在图上修**。
 
 第五次（`skill/`，第 142 批）与门派那批同一个理由：生活技能面板里一格图标本体也是 40×40 的源
-被放大渲染出来的，切下来再缩到 96 是二道手。换完之后真正还从截图切的只剩 `story/` `active/`
-两批（11 + 69 = 80 张）——它们与卡片底同色系，而客户端里暂时没有对应的原图集合。
+被放大渲染出来的，切下来再缩到 96 是二道手。
+
+第六次（`story/` `active/`，第 144 批）把最后 80 张截图产物也换掉了。这两批原先被认为
+「与卡片底同色系、客户端里没有对应原图集合」，实际是**没有按名字找过**：用项目里已命名的
+截图图标作参考，对客户端解码出的 42,664 张 PNG 做 40×40 中心区 MSE 匹配，11 + 69 项
+全部命中（剧情 MSE 69–113、特技 78–2700，逐格复核 80/80 图案一致）。
+至此 `icons/` 下**九类里八类来自客户端**，只剩 `item/` 是旧系统带过来的图。
 
 ### 生活技能为什么也换（2026-11-07，第 142 批）
 
