@@ -18,7 +18,11 @@ icons/
 ├── weapon/    weapon-<种类>-<等级>.webp    武器 231
 ├── item/      item-<id>.png|gif            速记物品 59
 ├── lingshi/   ling-<部位>-<等级>.webp      灵饰 20
-└── yupo/      yupo-<yin|yang>.webp         玉魄 2
+├── yupo/      yupo-<yin|yang>.webp         玉魄 2
+├── pet-basic/    pet-basic-<ID>.png       召唤兽低级技能 68
+├── pet-advanced/ pet-advanced-<ID>.png    召唤兽高级技能 52
+├── pet-super/    pet-super-<ID>.png       召唤兽超级技能 48
+└── pet-special/  pet-special-<ID>.png     召唤兽特殊技能 185（含升星扩展 89）
 ```
 
 两条规则，只说两句话：
@@ -73,6 +77,7 @@ icons/
 - `lingshi/` → `../data/lingshi-icons.json`（`import-client-icons.py` 生成）
 - `item/` → `../data/quick-items.json` 的 `file` 字段（旧系统带过来的图，不是切图产出）
 - `yupo/` → **没有清单**（两件固定记录，路径直接写在 `GEAR_SLOT_ICON` 里）
+- `pet-basic/`、`pet-advanced/`、`pet-super/`、`pet-special/` → `../data/pet-skills.json`，按官网技能 ID 对应名称；`import-pet-skill-icons.py` 导入，保留原 PNG，不按名字推断分类。
 
 清单分开写是因为每个脚本的裁切逻辑完全不同（4×3 卡片网格 / 竖排 7 行面板 / 3×4 方格且
 可滚动），写同一份清单时谁后跑谁把对方的分组覆盖掉——那种丢失不会有任何报错。
@@ -222,6 +227,12 @@ SP 版（十方无敌 + 弥勒山七项），理由是图案与面板更一致�
 - 中间用**半角连字符**，不用空格、不用中文——文件名要进 URL
 - 门派技能必须带子类：`school-skill-datang-1.webp`，**不要写成 `school-datang-1`**——
   那样与「门派徽记 `school-datang.webp`」挤在同一族里，看文件名分不清是徽记还是第 n 项技能
+
+## 召唤兽技能原图归档（2026-11-07）
+
+四个 `pet-*` 目录保存后续功能要用的原图，尚未接入页面。353 张 PNG 保留原始 30/40/50px 尺寸与颜色，不缩放、不转有损格式；这批原图归档不套用下文界面切图的统一尺寸约定。后续显示由组件设定尺寸，不能通过改写原图来统一大小。
+
+名称、显示名、分类、子类、文件尺寸、来源与 SHA-256 统一记录在 `../data/pet-skills.json`。低级反击、冥思为蓝色，高级反击、高级冥思为红色，已经修正原来的对调；两项神兽升星缺图仅在清单保留名称与 `img: null`。来源及重建方法见 `../data/README.md` 的召唤兽技能一节。
 
 ## 尺寸与格式
 

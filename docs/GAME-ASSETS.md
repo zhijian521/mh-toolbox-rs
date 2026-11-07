@@ -29,11 +29,16 @@ public/game/
 │   ├── weapon/      weapon-<种类>-<等级> 武器 231（21 组，60 级以上）
 │   ├── item/        item-<id>.png|gif   速记物品 59（id 即单价表的键）
 │   ├── lingshi/     ling-<部位>-<等级>  灵饰 20（4 部位 × 60~140）
-│   └── yupo/        yupo-<yin|yang>     玉魄 2（不分级）
+│   ├── yupo/        yupo-<yin|yang>     玉魄 2（不分级）
+│   ├── pet-basic/   pet-basic-<ID>.png  召唤兽低级技能 68
+│   ├── pet-advanced/ pet-advanced-<ID>.png  召唤兽高级技能 52
+│   ├── pet-super/   pet-super-<ID>.png  召唤兽超级技能 48
+│   └── pet-special/ pet-special-<ID>.png  召唤兽特殊技能 185（含升星扩展）
 └── data/            游戏事实数据 + 资源清单
     ├── icons.json / school-icons.json / gear-icons.json / weapon-icons.json / lingshi-icons.json   图标清单，脚本生成不手改
     ├── schools.json  门派 21 家 + 每家七项门派技能 + 上限（cap）
     ├── skills.json   生活 21 / 剧情 11（有序名录，下标即图标序号）
+    ├── pet-skills.json  召唤兽技能名称、分类、原图映射与缺图项
     └── quick-items.json  速记物品 59（固定价 38 / 浮动价 21）+ 图标文件名
 ```
 
@@ -213,6 +218,14 @@ icons/ 丢一个 png」这种最省事的做法）、**文件名以目录名开�
 
 序号命名（`skill-01`）与名字表的对应由 `game-icons.test.ts` 盯着：**第 n 个图标的名字必须等于名字表
 第 n 项**。错位不会让任何东西变红，只会表现为「强身术配了冥想的图」——图标都是纹样，没人能一眼看出。
+
+### 4.3 召唤兽技能原图归档
+
+`pet-*` 四目录与 `data/pet-skills.json` 是后续功能的素材归档，尚未接入运行时加载或页面。清单由 `tools/game-icons/import-pet-skill-icons.py` 从已具名、已校正的独立素材包生成，中文名只在清单维护，文件按官网技能 ID 命名。
+
+本批按用户要求保留原 PNG，尺寸有 30/40/50px，不放大、不改为有损 WebP。来源包括客户端原图和官网具名 GIF 转 PNG，清单逐项标记来源；这批已确认的官网补图不会冒充客户端资源。低级/高级反击与冥思已纠正，导入时校验四张已核对图片的摘要。详见 `public/game/data/README.md`。
+
+`categories[].iconDir` 指向对应分类目录，`icons[].img` 只含文件名；`id` 为稳定字符串，`displayName` 区分同名技能的版本。缺图名称在 `missing` 保留，图片字段为 `null`。后续接入页面时，再通过 service 加载本清单并按分类目录解析图片，不能在组件中复制名字表。
 
 ## 5. 不放在这里
 
