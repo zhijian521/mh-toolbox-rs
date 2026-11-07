@@ -243,7 +243,10 @@ export default async function run(ctx) {
                 rail.role === 'radiogroup' && rail.thumb === 1,
                 JSON.stringify(rail),
             );
-            t.check('师门那格是禁用的（还没做）', rail.locked === true);
+            /* 2026-11-07 第二批：师门从「灰着的占位」变成真选项。这条以前验的是
+             * `disabled === true`，现在反过来——**别把它删了**，它守的是「分区切换器
+             * 别退化成只有一个可用格」。 */
+            t.check('师门那格能点（不再是占位）', rail.locked === false, JSON.stringify(rail));
 
             /* 右边的卡是**预览**：不长那条六页签的轨道，其余五页也不挂载。 */
             t.check('预览卡不画页签条', (await ui.count('.ocr-card .tabs')) === 0);
@@ -439,6 +442,195 @@ export default async function run(ctx) {
                 '重载后经验还是万（落库的是文本，不是换算前的数）',
                 after.exp === '3968.6万 / 1414.2万',
                 JSON.stringify(after.exp),
+            );
+        });
+
+        /* ---- 截图识别：师门技能（2026-11-07 第二批）----
+         * 师门面板有两种皮肤，识别走两条路：深蓝那张**有技能名**（按名字认），
+         * 米黄那张**只有图标 + 等级**（按图案认，`matcher.ts`）。
+         *
+         * 这一步专门走难的那条：合成图里**一个技能名都不画**，只画七枚真图标与
+         * 七个等级数字，逼它去做图案比对。图的顺序还特意打乱——实测两张真截图的
+         * 格子顺序与技能表顺序本来就不一样，按位置套会全错且不报错。
+         *
+         * 图标直接从 `game-icons` 取（就是卡上渲染的那几张），所以这一步同时守着
+         * 「图标库 → 比对 → 写回」这条链的完整性；真图能不能认，由两张实际截图
+         * 手工验过（记录在 `docs/RECORD.md` 第 140 批）。
+         */
+        await t.step('截图识别：师门面板按图标认七项 → 写进卡 → 重载还在', async () => {
+            await ui.clickIn('.roster .char', 'E2E改名后', { label: '截图识别这个角色' });
+            if (!(await ui.waitFor(`!!document.querySelector('.ocr')`, { timeout: 3000 }))) {
+                throw new Error('识别弹窗没打开');
+            }
+
+            const opts = await cdp.evaluate(
+                `[...document.querySelectorAll('.ocr-tabs .step-opt')]
+                    .map((b) => ({ t: b.textContent.trim(), d: b.disabled }))`,
+            );
+            t.check(
+                '分区两格都能点（师门不再是占位）',
+                Array.isArray(opts) &&
+                    opts.map((one) => one.t).join('/') === '属性/师门' &&
+                    opts.every((one) => !one.d),
+                JSON.stringify(opts),
+            );
+
+            await cdp.evaluate(
+                `[...document.querySelectorAll('.ocr-tabs .step-opt')]
+                    .find((b) => b.textContent.trim() === '师门').click()`,
+            );
+            await sleep(300);
+            t.check(
+                '预览卡跟着翻到师门页',
+                (await ui.text('.ocr-card')).includes('门派技能'),
+                await ui.text('.ocr-card'),
+            );
+
+            /* 七项名字与它们的图标：名字按门派表取，图标路径走 `schoolSkillIcon`
+             * （**不按下标拼**——图标序号是面板顺序，与技能表顺序不同）。 */
+            const seven = await cdp.evaluate(`(async () => {
+                const gi = await import('/src/services/game-icons.ts');
+                const sc = await import('/src/views/characters/schools.ts');
+                return sc.schoolSkillNames('五庄观').map((name) => ({
+                    name,
+                    url: gi.schoolSkillIcon(name),
+                }));
+            })()`);
+            t.check(
+                '五庄观七项都查得到图标',
+                Array.isArray(seven) && seven.length === 7 && seven.every((one) => one.url),
+                JSON.stringify(seven.map((one) => one.name)),
+            );
+
+            /* 打乱的顺序 + 逐格不同的等级：位置与名字脱钩，靠位置推必错。 */
+            const ORDER = [2, 0, 4, 1, 6, 3, 5];
+            const LEVELS = [120, 115, 60, 120, 90, 90, 60];
+
+            await cdp.evaluate(`(async () => {
+                const items = ${JSON.stringify(seven)};
+                const order = ${JSON.stringify(ORDER)};
+                const levels = ${JSON.stringify(LEVELS)};
+                const CELL = 104;
+                const COLS = 3;
+                const canvas = document.createElement('canvas');
+                canvas.width = CELL * COLS;
+                canvas.height = CELL * COLS;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#1c1a12';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                const images = await Promise.all(items.map((one) => new Promise((done) => {
+                    const img = new Image();
+                    img.onload = () => done(img);
+                    img.onerror = () => done(null);
+                    img.src = one.url;
+                })));
+
+                ctx.fillStyle = '#f3ead6';
+                ctx.font = '600 22px "Microsoft YaHei", sans-serif';
+                ctx.textBaseline = 'top';
+                order.forEach((pick, index) => {
+                    const x = (index % COLS) * CELL;
+                    const y = Math.floor(index / COLS) * CELL;
+                    const img = images[pick];
+                    if (img) ctx.drawImage(img, x + 24, y + 10, 56, 56);
+                    /* 等级画在图标**正下方**：两张真截图都长这样（深蓝那版是
+                     * 「名字 / 等级」两行，米黄那版是「图标 / 等级」）。 */
+                    ctx.fillText(String(levels[index]), x + 26, y + 72);
+                });
+
+                const blob = await new Promise((done) => canvas.toBlob(done, 'image/png'));
+                const transfer = new DataTransfer();
+                transfer.items.add(new File([blob], 'skills.png', { type: 'image/png' }));
+                document.dispatchEvent(
+                    new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true }),
+                );
+                return true;
+            })()`);
+
+            const ready = await ui.waitFor(
+                `!!document.querySelector('.ocr-count') &&
+                 document.querySelectorAll('.ocr-card .school-row').length === 7`,
+                { timeout: 60000 },
+            );
+            t.check('粘完就认，师门七行都列出来', ready);
+            t.check(
+                '七项全认到（认出 7 / 7）',
+                (await ui.text('.ocr-count')).replace(/\s+/g, '') === '认出7/7',
+                await ui.text('.ocr-count'),
+            );
+
+            /* 卡上的值 = 那一格图标对应的技能。名字与值的对应关系从页面里取，
+             * 不在这里重抄一遍七项技能名。 */
+            const placed = await cdp.evaluate(`(() => {
+                const rows = [...document.querySelectorAll('.ocr-card .school-row')];
+                return rows.map((row) => ({
+                    name: row.querySelector('.slip-name')?.textContent.trim() ?? '',
+                    value: row.querySelector('input')?.value ?? '',
+                }));
+            })()`);
+            const expectLevels = Object.fromEntries(
+                ORDER.map((pick, index) => [seven[pick].name, String(LEVELS[index])]),
+            );
+            const wrong = placed.filter((row) => expectLevels[row.name] !== row.value);
+            t.check(
+                '图案认出来的名字与等级都对（顺序打乱也不串）',
+                wrong.length === 0 && placed.length === 7,
+                JSON.stringify(wrong),
+            );
+
+            /* 认错一个数就在卡上改——师门页的数字也是输入格。 */
+            const first = placed[0]?.name;
+            await ui.fillSel('.ocr-card .school-row input', '150');
+            await cdp.key('Enter');
+            await sleep(200);
+            t.check(
+                '卡上改完还是刚填的 150',
+                (await cdp.evaluate(
+                    `document.querySelector('.ocr-card .school-row input')?.value ?? ''`,
+                )) === '150',
+            );
+
+            await ui.clickText('[role="dialog"] button', '应用到这张卡');
+            await ui.waitFor(`!document.querySelector('.ocr')`, { timeout: 3000 });
+            await sleep(600);
+
+            const readSkills = `(() => {
+                const one = [...document.querySelectorAll('.roster .char')]
+                    .find((c) => (c.textContent || '').includes('E2E改名后'));
+                return [...(one?.querySelectorAll('.school-row') ?? [])].map((row) => ({
+                    name: row.querySelector('.slip-name')?.textContent.trim() ?? '',
+                    value: row.querySelector('.lv')?.textContent.trim() ?? '',
+                }));
+            })()`;
+            await cdp.evaluate(
+                `[...(document.querySelector('.roster .char')?.querySelectorAll('.tabs .step-opt') ?? [])]
+                    .find((b) => b.textContent.trim() === '师门')?.click()`,
+            );
+            await sleep(300);
+            const onCard = await cdp.evaluate(readSkills);
+            t.check('卡上师门页有七行', onCard.length === 7, JSON.stringify(onCard));
+            t.check(
+                '七项等级写进卡（含卡上改过的 150）',
+                onCard.find((row) => row.name === first)?.value === '150' &&
+                    onCard.filter((row) => row.value && row.value !== '150').length === 6,
+                JSON.stringify(onCard),
+            );
+
+            await ui.reload();
+            await ui.waitText('E2E改名后', { timeout: 8000 });
+            await cdp.evaluate(
+                `[...(document.querySelector('.roster .char')?.querySelectorAll('.tabs .step-opt') ?? [])]
+                    .find((b) => b.textContent.trim() === '师门')?.click()`,
+            );
+            await sleep(400);
+            const kept = await cdp.evaluate(readSkills);
+            t.check(
+                '重载后七项还在（真的落库了）',
+                kept.length === 7 &&
+                    kept.find((row) => row.name === first)?.value === '150' &&
+                    kept.filter((row) => row.value && row.value !== '150').length === 6,
+                JSON.stringify(kept),
             );
         });
 
