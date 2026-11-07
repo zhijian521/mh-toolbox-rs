@@ -38,7 +38,12 @@ import { useRovingFocus } from '../composables/use-roving-focus';
 const props = withDefaults(
     defineProps<{
         modelValue: T;
-        options: { value: T; label: string }[];
+        /**
+         * 档位。**单格可以禁用**（除了整组禁用）：位置与滑轨的 N 等分都不变，
+         * 只是点不动、方向键跨过去——与 `SegmentedPills` 同一个口径。
+         * 截图识别那两格（属性 / 师门）就是靠这个把「还没做」的那一格留在原处。
+         */
+        options: { value: T; label: string; disabled?: boolean }[];
         /** 读屏念的组名。缺省时 `radiogroup` 没有名字，读屏只会念「单选组」。 */
         label?: string;
         disabled?: boolean;
@@ -55,6 +60,8 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{ 'update:modelValue': [value: T] }>();
+
+const isDisabled = (index: number) => Boolean(props.options[index]?.disabled);
 
 /** `as="tab"` 时给每格的 id 与 `aria-controls`；单选组返回空对象，一个属性都不渲染。 */
 function tabIds(value: T) {
@@ -86,6 +93,7 @@ const { cells, indexOf, tabIndexFor, onKeydown } = useRovingFocus<T>({
     pick: (index) => choose(props.options[index].value),
     axis: 'horizontal',
     enabled: () => !props.disabled,
+    isDisabled,
 });
 </script>
 
@@ -113,7 +121,7 @@ const { cells, indexOf, tabIndexFor, onKeydown } = useRovingFocus<T>({
             :aria-checked="as === 'radio' ? modelValue === option.value : undefined"
             :aria-selected="as === 'tab' ? modelValue === option.value : undefined"
             :tabindex="tabIndexFor(i)"
-            :disabled="disabled"
+            :disabled="disabled || option.disabled"
             @click="choose(option.value)"
         >
             {{ option.label }}

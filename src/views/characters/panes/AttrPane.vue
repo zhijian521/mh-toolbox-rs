@@ -11,8 +11,48 @@ import { expPercent, type AttrGroup, type ExpRow } from '../character';
  * 拆的**界线是分区**：这个文件连同它自己的 `<style scoped>` 只认「五组属性 + 经验条」，
  * 卡头、页签、滚动容器仍留在 `CharacterCard.vue`。样式跟着模板走是关键——
  * 父组件的 `scoped` 样式够不到子组件的内部元素，所以搬模板必须连样式一起搬。
+ *
+ * ---- `editable`：同一页，读数变成可改的格（2026-11-07）----
+ * 截图识别的弹窗右边要的是「认完之后的样子」，而认错的那几个数**必须当场能改**。
+ * 原先的做法是在弹窗左栏另排二十四个输入格——同一批数在屏幕上出现两遍，
+ * 改哪一边都得先想「另一边会不会覆盖我」。现在只有一份：卡上那枚签自己变成格子，
+ * 材质沿用编辑页同一套（`.field.num-slot`，52 × 18），所以「能改」这件事不用再解释。
+ *
+ * 只开**数字**这几格：名称、等级、门派、帮派是卡头的事，不在这页上，也就不在这页改。
+ *
+ * 抛上去的键是**这一页自己的叫法**（属性行就是行名），经验那两个叫
+ * `experience.value` / `experience.need`——不叫 `expValue` / `expNeed`，那是识别层的词，
+ * 卡不该认识它。怎么翻译由弹窗那一层管。
+ *
+ * ---- `tabbed`：这一页是不是「某个页签下面的面板」----
+ * 只影响 ARIA。卡上有六个页签时它是 `tabpanel`，`aria-labelledby` 指着那枚页签；
+ * 截图识别的预览卡**不画页签条**（只展示属性这一页），这时它既没有页签可指、也不该
+ * 自称 tabpanel——`tabpanel` 必须在一个 `tablist` 里，否则读屏会念一个不存在的页签组。
+ * 所以那时降级成 `region`，名字由 `aria-label` 给。
  */
-const props = defineProps<{ groups: AttrGroup[]; experience: ExpRow }>();
+const props = withDefaults(
+    defineProps<{
+        groups: AttrGroup[];
+        experience: ExpRow;
+        editable?: boolean;
+        tabbed?: boolean;
+    }>(),
+    { editable: false, tabbed: true },
+);
+
+const emit = defineEmits<{ 'edit-value': [key: string, value: string] }>();
+
+/**
+ * 失焦（`change`）与 Enter 才写回，不在每次按键时写。
+ *
+ * 与 `NumberField` 同一条理由：值是**父级现算出来的**（`applyAttrPanel` → 卡片），
+ * 每敲一个字符就往回写，父级会把它规整一遍再渲染回来，光标就跳到末尾。
+ * 这里连 `v-model` 都不能用——绑的是 prop 里的字符串，不是本组件的状态。
+ */
+function commit(key: string, event: Event) {
+    const input = event.target as HTMLInputElement;
+    emit('edit-value', key, input.value.trim());
+}
 
 /* 经验条的两个值：百分比在 `character.ts` 里算（纯函数、有单测），这里只负责文案。
  * 两者都没填就不显示文字——一根空轨道配一个空字符串会把这一行压成一条灰线。 */
@@ -26,7 +66,7 @@ const expText = computed(() => {
 </script>
 
 <template>
-    <section class="pane" role="tabpanel">
+    <section class="pane" :role="tabbed ? 'tabpanel' : 'region'">
         <!-- 两行两列：上排资源 / 名望，下排战斗 / 加点。顺序来自数据
              （`attrGroups`），这里只给网格——按列排会让下排两组被上一组的
              长短拖着错位，按行排才能「上下两排各自顶对齐」。 -->
@@ -55,7 +95,19 @@ const expText = computed(() => {
                     >
                         <dt class="slip-name">{{ row.label }}</dt>
                         <dd class="attr-val">
-                            <NumTag class="slip-val">
+                            <!-- 可改的那一态：签的落点上换成一枚**同一尺寸**的格
+                                 （材质与编辑页的数值格是同一份 `.field.num-slot`），
+                                 所以「这枚签能点」不用再加提示字。 -->
+                            <input
+                                v-if="editable"
+                                class="field num num-slot attr-field"
+                                :value="row.value"
+                                :aria-label="row.label"
+                                placeholder="—"
+                                @change="commit(row.label, $event)"
+                                @keydown.enter="commit(row.label, $event)"
+                            />
+                            <NumTag v-else class="slip-val">
                                 <span class="lv">{{ row.value || '—' }}</span>
                             </NumTag>
                         </dd>
@@ -68,7 +120,28 @@ const expText = computed(() => {
              混在资源那五行里只是第六个数字。 -->
         <div class="exp-row">
             <span class="group-head"><span class="section-mark"></span>经验</span>
-            <MeterBar :percent="expPercentValue" label="经验进度" :text="expText" />
+            <!-- 可改时文字让位给两格输入，**条留着**：数一改，条当场动一下，
+                 比任何「已保存」的提示都直接。 -->
+            <MeterBar :percent="expPercentValue" label="经验进度" :text="editable ? '' : expText" />
+            <span v-if="editable" class="exp-edit">
+                <input
+                    class="field num num-slot exp-field"
+                    :value="experience.value"
+                    aria-label="当前经验"
+                    placeholder="当前"
+                    @change="commit('experience.value', $event)"
+                    @keydown.enter="commit('experience.value', $event)"
+                />
+                <span class="exp-slash">/</span>
+                <input
+                    class="field num num-slot exp-field"
+                    :value="experience.need"
+                    aria-label="升级所需经验"
+                    placeholder="所需"
+                    @change="commit('experience.need', $event)"
+                    @keydown.enter="commit('experience.need', $event)"
+                />
+            </span>
         </div>
     </section>
 </template>

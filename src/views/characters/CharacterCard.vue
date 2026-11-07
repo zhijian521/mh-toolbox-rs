@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import PaperCard from '../../components/PaperCard.vue';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import PressButton from '../../components/PressButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import GearTip from './GearTip.vue';
@@ -47,11 +47,49 @@ import { PANES, type CharacterData, type GearDetail, type PaneKey, type Pet } fr
  * （装备浮片 `GearTip` 与兽的详情档案 `PetDetail`）。浮层留在这里不是偷懒：
  * 它们必须挂在滚动容器**之外**，而「滚动就收浮片」这个监听也是这一层的。
  * 每一页只把「要看哪一件 / 哪一只」抛上来，自己不画浮层。
+ *
+ * ---- `preview`：同一张卡，没有动作区 ----
+ * 截图识别的弹窗右边要展示「识别之后的样子」，用的就是这张卡。那一份不能有
+ * 「修改 / 截图识别 / 删除」——它是一张预览，点它会去动一张还没落库的草稿。
+ * 单独加一个布尔而不是在父级用 CSS 藏：`v-if` 才是「这里不该有按钮」，
+ * `display: none` 会留下 3 个 Tab 焦点在空处。
+ *
+ * ---- `editable`：同一张卡，读数变成格子 ----
+ * 预览那份还要**能改**：认错的数就摆在卡上，让人在看得见后果的地方改，而不是
+ * 在左栏另一套输入格里改完再回头看卡。开的是属性页的数字，键由 `AttrPane` 抛上来
+ * （属性行是行名，经验是 `experience.value` / `experience.need`），本组件只往下递、
+ * 往上转，不认识具体哪一项——第三种用法要加别的页时，`AttrPane` 自己开就行。
+ *
+ * ---- `tabs`：连页签条一起省掉 ----
+ * 「只展示这一页」的用法（截图识别弹窗右边）不该长出一条六个页签的轨道：那是一句
+ * 「你可以去别的页」的邀请，而那张卡是预览，别处看了也没意义。关掉之后其余五个分区
+ * **不渲染**（不是隐藏）——`v-show` 留着它们的前提是「切回来不丢滚动位置」，
+ * 没有页签可切，那个前提不成立。`AttrPane` 同时从 `tabpanel` 降级成 `region`，
+ * 见那边的 `tabbed`。
  */
-defineProps<{ character: CharacterData }>();
-const emit = defineEmits<{ edit: []; remove: [] }>();
+const props = withDefaults(
+    defineProps<{
+        character: CharacterData;
+        preview?: boolean;
+        editable?: boolean;
+        tabs?: boolean;
+    }>(),
+    /* `tabs` 的缺省值**必须显式写 `true`**：Vue 对布尔 prop 的缺省是 `false` 而不是
+     * `undefined`（Boolean casting），所以模板里写 `props.tabs !== false` 不管用——
+     * 不传时它已经是 `false` 了，整张名册的页签条会被一起省掉（这一条当场红过）。
+     * `preview` / `editable` 用不到反直觉的缺省，不写。 */
+    { tabs: true },
+);
+const emit = defineEmits<{
+    edit: [];
+    remove: [];
+    scan: [];
+    'edit-value': [key: string, value: string];
+}>();
 
 const active = ref<PaneKey>('attrs');
+
+const withTabs = computed(() => props.tabs);
 
 /* 页签的值与文案一次算好：滑块要的是 `{ value, label }[]`，而 `PANES` 是只读元组，
  * 直接在模板里 `map` 会每次渲染新建一个数组，`useRovingFocus` 的 `values()` 也随之变。 */
@@ -127,13 +165,17 @@ function openDetail(pet: Pet) {
             </div>
             <!-- 卡头右侧：改与删。两枚都是纯图标 26px，与左栏、工具页同一种压印块。
                  删除只把事件抛出去，确认窗由名册页开——卡上不出现第二种「确认」的问法。 -->
-            <div class="head-actions">
+            <div v-if="!preview" class="head-actions">
                 <PressButton icon="edit" label="编辑这个角色" @click="emit('edit')" />
+                <!-- 截图识别排在修改后面：它是「改这张卡」的第二种入口，也是唯一一个
+                     不需要打开编辑器的入口。删除永远在最后，中间不夹破坏性动作。 -->
+                <PressButton icon="scan" label="截图识别这个角色" @click="emit('scan')" />
                 <PressButton icon="trash" label="删除这个角色" @click="emit('remove')" />
             </div>
         </header>
 
         <SteppedSlider
+            v-if="withTabs"
             class="tabs"
             :model-value="active"
             :options="PANE_OPTIONS"
@@ -149,54 +191,64 @@ function openDetail(pet: Pet) {
                  （`SteppedSlider` 的 `prefix`）。`v-show` 也挂在这一层——
                  六个分区要一直挂载着，切回来才不会丢掉滚动位置。
                  分区根元素是 `<section class="pane">`，它的 `role="tabpanel"`
-                 由组件自己带。 -->
+                 由组件自己带。
+
+                 没有页签条时（`tabs: false`）这一层的三条约定一起失效：没有 `-tab-xxx`
+                 可指、没有「切回来」这回事、`tabpanel` 也不该出现。所以属性页改挂
+                 `aria-label` 并把 `tabbed` 关掉，其余五页**不渲染**。 -->
             <AttrPane
                 v-show="active === 'attrs'"
                 :id="`${character.id}-pane-attrs`"
-                :aria-labelledby="`${character.id}-tab-attrs`"
+                :aria-labelledby="withTabs ? `${character.id}-tab-attrs` : undefined"
+                :aria-label="withTabs ? undefined : '属性'"
+                :tabbed="withTabs"
                 :groups="character.attrGroups"
                 :experience="character.experience"
+                :editable="editable"
+                @edit-value="(key, value) => emit('edit-value', key, value)"
             />
 
-            <SkillPane
-                v-show="active === 'skills'"
-                :id="`${character.id}-pane-skills`"
-                :aria-labelledby="`${character.id}-tab-skills`"
-                :rows="character.skills"
-            />
+            <template v-if="withTabs">
+                <SkillPane
+                    v-show="active === 'skills'"
+                    :id="`${character.id}-pane-skills`"
+                    :aria-labelledby="`${character.id}-tab-skills`"
+                    :rows="character.skills"
+                />
 
-            <AssistPane
-                v-show="active === 'assist'"
-                :id="`${character.id}-pane-assist`"
-                :aria-labelledby="`${character.id}-tab-assist`"
-                :assists="character.assists"
-            />
+                <AssistPane
+                    v-show="active === 'assist'"
+                    :id="`${character.id}-pane-assist`"
+                    :aria-labelledby="`${character.id}-tab-assist`"
+                    :assists="character.assists"
+                />
 
-            <TrainingPane
-                v-show="active === 'training'"
-                :id="`${character.id}-pane-training`"
-                :aria-labelledby="`${character.id}-tab-training`"
-                :groups="character.trainings"
-            />
+                <TrainingPane
+                    v-show="active === 'training'"
+                    :id="`${character.id}-pane-training`"
+                    :aria-labelledby="`${character.id}-tab-training`"
+                    :groups="character.trainings"
+                />
 
-            <GearPane
-                v-show="active === 'gear'"
-                :id="`${character.id}-pane-gear`"
-                :aria-labelledby="`${character.id}-tab-gear`"
-                :gear="character.gear"
-                :meta="character.gearMeta"
-                @open-tip="showTip"
-                @close-tip="closeAll"
-            />
+                <GearPane
+                    v-show="active === 'gear'"
+                    :id="`${character.id}-pane-gear`"
+                    :aria-labelledby="`${character.id}-tab-gear`"
+                    :gear="character.gear"
+                    :meta="character.gearMeta"
+                    @open-tip="showTip"
+                    @close-tip="closeAll"
+                />
 
-            <PetPane
-                v-show="active === 'pets'"
-                :id="`${character.id}-pane-pets`"
-                :aria-labelledby="`${character.id}-tab-pets`"
-                :pets="character.pets"
-                :char-level="character.level"
-                @open="openDetail"
-            />
+                <PetPane
+                    v-show="active === 'pets'"
+                    :id="`${character.id}-pane-pets`"
+                    :aria-labelledby="`${character.id}-tab-pets`"
+                    :pets="character.pets"
+                    :char-level="character.level"
+                    @open="openDetail"
+                />
+            </template>
         </div>
 
         <GearTip :anchor="tipAnchor" :detail="tip" />

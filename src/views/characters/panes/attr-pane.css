@@ -81,3 +81,56 @@
 .attr-layout .slip-row.blank .slip-val .lv {
     color: var(--muted);
 }
+
+/* ---------- 读数变成一格（`editable`） ----------
+ * 几何**读行上的变量**，不写 52 / 18：`.slip-row.sm` 已经把签的宽高定成 `--tag-w` /
+ * `--tag-h`，这枚格就落在签的同一个位置上。编辑页那份（`AttrEditor` 的 `.value-field`）
+ * 只能写死 52 / 18——它在行外，读者看不到变量的来处；这里就在行里，抄一遍数字等于
+ * 又多一个「改签宽忘了改格宽」的地方。
+ *
+ * 材质走 `base.css` 的 `.field.num-slot`（静息淡槽、悬停加深、聚焦实槽），
+ * 与编辑页、师门等级格是同一份，所以「这枚签现在能点」不用另加提示。
+ *
+ * 字色赭、居中、行高 1：三条都跟着卡上那枚签。`.field` 自己给的 `--fs-sm` 与
+ * `line-height: 24` 是 26 高表单格的算法，塞进 18 的格里会顶出去。 */
+.attr-field {
+    flex: none;
+    width: var(--tag-w);
+    height: var(--tag-h);
+    padding: 0 6px;
+    color: var(--num);
+    line-height: 1;
+    text-align: center;
+}
+/* 空格里那一道「—」：与只读时那枚淡「—」同一个意思，只是这次它比常规 placeholder 淡。 */
+.attr-field::placeholder {
+    color: color-mix(in srgb, var(--muted) 72%, transparent);
+}
+
+/* ---------- 经验那两个格 ---------- */
+/* 两格排在条后面，条不许缩没：`min-width` 由 `MeterBar` 自己守着 40。 */
+.exp-edit {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 4px;
+}
+/* 104 是编辑页实测的值：这一格装的是 `39686092` 或 `3,777.2万`，
+ * 卡上属性那五十二格只装四五位数，两处不是同一个量级。 */
+.exp-field {
+    flex: none;
+    width: calc(104px * var(--fs-scale));
+    height: calc(18px * var(--fs-scale));
+    padding: 0 6px;
+    color: var(--num);
+    line-height: 1;
+    text-align: center;
+}
+.exp-field::placeholder {
+    color: color-mix(in srgb, var(--muted) 72%, transparent);
+}
+/* 两个数之间的斜杠：与 `meter-text` 里那个「 / 」同一档淡，它是分隔不是内容。 */
+.exp-slash {
+    color: var(--muted);
+    font-size: var(--fs-mini);
+}

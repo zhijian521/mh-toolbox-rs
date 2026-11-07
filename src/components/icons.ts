@@ -50,6 +50,7 @@ import {
     IconPlayerPlay,
     IconPlayerStop,
     IconPlus,
+    IconScan,
     IconSearch,
     IconSquare,
     IconSun,
@@ -119,6 +120,9 @@ const ICON_META = {
     // 编辑用铅笔画斜线：账号/角色这种东西「改一行」与「删掉重录」是两件事，
     // 卡头上两枚并排时，一支笔与一只桶一眼分得开；用「设置齿轮」会与左栏设置撞脸。
     edit: { glyph: IconPencil, label: '编辑', group: 'action' },
+    /* 四角括线里一条横线：OCR / 取景的通用符号。**不用相机**——相机说的是「现在拍一张」，
+     * 而这个入口吃的是已经从游戏里截好的图（粘进来或选文件）。 */
+    scan: { glyph: IconScan, label: '识别', group: 'action' },
     trash: { glyph: IconTrash, label: '删除', group: 'action' },
     search: { glyph: IconSearch, label: '搜索', group: 'action' },
     archive: { glyph: IconArchive, label: '归档', group: 'action' },
