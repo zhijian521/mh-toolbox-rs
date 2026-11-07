@@ -4,87 +4,108 @@
         "skill": [
             {
                 "id": "skill-01",
-                "name": "强身术"
+                "name": "强身术",
+                "source": "client40"
             },
             {
                 "id": "skill-02",
-                "name": "暗器技巧"
+                "name": "暗器技巧",
+                "source": "client40"
             },
             {
                 "id": "skill-03",
-                "name": "打造技巧"
+                "name": "打造技巧",
+                "source": "client40"
             },
             {
                 "id": "skill-04",
-                "name": "裁缝技巧"
+                "name": "裁缝技巧",
+                "source": "client40"
             },
             {
                 "id": "skill-05",
-                "name": "逃离技巧"
+                "name": "逃离技巧",
+                "source": "client40"
             },
             {
                 "id": "skill-06",
-                "name": "炼金术"
+                "name": "炼金术",
+                "source": "client40"
             },
             {
                 "id": "skill-07",
-                "name": "冥想"
+                "name": "冥想",
+                "source": "client40"
             },
             {
                 "id": "skill-08",
-                "name": "中药医理"
+                "name": "中药医理",
+                "source": "client40"
             },
             {
                 "id": "skill-09",
-                "name": "烹饪技巧"
+                "name": "烹饪技巧",
+                "source": "client40"
             },
             {
                 "id": "skill-10",
-                "name": "追捕技巧"
+                "name": "追捕技巧",
+                "source": "client40"
             },
             {
                 "id": "skill-11",
-                "name": "养生之道"
+                "name": "养生之道",
+                "source": "client40"
             },
             {
                 "id": "skill-12",
-                "name": "健身术"
+                "name": "健身术",
+                "source": "client40"
             },
             {
                 "id": "skill-13",
-                "name": "巧匠之术"
+                "name": "巧匠之术",
+                "source": "client40"
             },
             {
                 "id": "skill-14",
-                "name": "熔炼技巧"
+                "name": "熔炼技巧",
+                "source": "client40"
             },
             {
                 "id": "skill-15",
-                "name": "灵石技巧"
+                "name": "灵石技巧",
+                "source": "client40"
             },
             {
                 "id": "skill-16",
-                "name": "强壮"
+                "name": "强壮",
+                "source": "client40"
             },
             {
                 "id": "skill-17",
-                "name": "淬灵之术"
+                "name": "淬灵之术",
+                "source": "client40"
             },
             {
                 "id": "skill-18",
-                "name": "神速"
+                "name": "神速",
+                "source": "client40"
             },
             {
                 "id": "skill-19",
-                "name": "风之感应"
+                "name": "风之感应",
+                "source": "client40"
             },
             {
                 "id": "skill-20",
-                "name": "雨之感应"
+                "name": "雨之感应",
+                "source": "client40"
             },
             {
                 "id": "skill-21",
-                "name": "雪之感应"
+                "name": "雪之感应",
+                "source": "client40"
             }
         ],
         "story": [
@@ -411,5 +432,8 @@
                 "name": "神机之护"
             }
         ]
+    },
+    "imports": {
+        "skill": "tools/game-icons/import-skill-icons.py"
     }
 }
