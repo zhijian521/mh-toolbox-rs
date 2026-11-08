@@ -58,4 +58,13 @@ export const TOOLS: ToolEntry[] = [
         view: () => import('./views/tools/AssetView.vue').then((page) => page.default),
         ready: true,
     },
+    {
+        key: 'activities',
+        name: '活动日历',
+        desc: '今天有什么、这周哪天忙 · 点一张卡就能加提醒',
+        path: '/tools/activities',
+        icon: 'calendar',
+        view: () => import('./views/tools/ActivityView.vue').then((page) => page.default),
+        ready: true,
+    },
 ];

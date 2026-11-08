@@ -195,5 +195,78 @@ export default async function run(ctx) {
             })()`);
             t.check('换分类后只剩那一类', switched === '门派技能', switched);
         });
+
+        /* ---------- 活动日历：点一张卡能把提醒加进闹钟 ----------
+         *
+         * 验的是**全链路**：卡片 → 弹窗 → 换算 → 闹钟落盘 → 重载后卡上还盖着「已提醒」。
+         * 挑「科举大赛」是因为它走的是最特别的一支换算（每月轮换只能退成「仅一次」），
+         * 那一支错的话，别的分支看着都好。
+         */
+        await t.step('活动日历：点一张卡能加提醒', async () => {
+            /* 这一节会往 `mh-alarms` 里写一条。先记原值，跑完写回——烟测跑在真实数据
+             * 目录上，留一条测试闹钟在用户的闹钟列表里是实打实的副作用。 */
+            const before = await cdp.evaluate(`localStorage.getItem('mh-alarms')`);
+
+            await cdp.evaluate(`location.hash = '#/tools'`);
+            await cdp.waitFor(
+                `document.querySelector('.page-title')?.textContent?.trim() === '工具'`,
+                { timeout: 4000 },
+            );
+            await ui.clickText('button, a', '活动日历');
+            const entered = await cdp.waitFor(`location.hash.includes('activities')`, {
+                timeout: 5000,
+            });
+            if (!entered) throw new Error(`点了活动日历，地址还是 ${await ui.hash()}`);
+
+            const loaded = await cdp.waitFor(`document.querySelectorAll('.card').length >= 10`, {
+                timeout: 8000,
+            });
+            if (!loaded) throw new Error('活动卡片没出来');
+
+            const groups = await ui.count('.group');
+            t.check('活动按时间分了组', groups >= 4, `${groups} 组`);
+
+            const added = await cdp.evaluate(`(async () => {
+                const card = [...document.querySelectorAll('.card')].find(
+                    (one) => one.querySelector('.name')?.textContent?.trim() === '科举大赛',
+                );
+                if (!card) return '没有科举大赛这张卡';
+                card.click();
+                await new Promise((resolve) => setTimeout(resolve, 350));
+                const button = [...document.querySelectorAll('.modal-foot .press-btn')].find(
+                    (one) => one.textContent.includes('加提醒'),
+                );
+                if (!button) return '弹窗里没有加提醒按钮';
+                button.click();
+                await new Promise((resolve) => setTimeout(resolve, 450));
+                const after = [...document.querySelectorAll('.card')].find(
+                    (one) => one.querySelector('.name')?.textContent?.trim() === '科举大赛',
+                );
+                return after?.querySelector('.tag')?.textContent?.trim() ?? '';
+            })()`);
+            t.check('加完提醒，卡上盖了「已提醒」', added === '已提醒', String(added));
+
+            /* 落盘：闹钟存在 localStorage，重载后还在才算真加上了。
+             * 只查内存的话，「点完变了个色」也能过，而什么都没存下来。 */
+            await ui.reload({ wait: 1300 });
+            const kept = await cdp.waitFor(
+                `[...document.querySelectorAll('.card')].some(
+                    (one) => one.querySelector('.name')?.textContent?.trim() === '科举大赛'
+                        && one.querySelector('.tag')?.textContent?.trim() === '已提醒',
+                )`,
+                { timeout: 6000 },
+            );
+            t.check('重载后仍在', kept, kept ? '已提醒' : '没了');
+
+            /* 写回原值，不给用户留一条测试闹钟。 */
+            const restore = `(() => {
+                const v = ${before === null ? 'null' : JSON.stringify(before)};
+                if (v) localStorage.setItem('mh-alarms', v);
+                else localStorage.removeItem('mh-alarms');
+                return 'ok';
+            })()`;
+            await cdp.evaluate(restore);
+            await ui.reload({ wait: 1000 });
+        });
     }
 }

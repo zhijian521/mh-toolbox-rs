@@ -29,6 +29,7 @@ import {
     IconBolt,
     IconBook,
     IconBrandGithubFilled,
+    IconCalendar,
     IconCash,
     IconCheck,
     IconChevronDown,
@@ -126,6 +127,9 @@ const ICON_META = {
     /* 资源是一面**网格**：一格一张图。用「文件夹」会读成「打开一个目录」，
      * 用「图片」只有一张；九宫格正好是这一页的样子。 */
     grid: { glyph: IconLayoutGrid, label: '资源', group: 'action' },
+    /* 日历：一个带日期的方框，与上面那枚闹钟（圆钟 + 两只铃）在形状上分得很开——
+     * 「等到某点」与「这周哪天」是两件事，图标也不该长得像一对。 */
+    calendar: { glyph: IconCalendar, label: '活动日历', group: 'action' },
     // 编辑用铅笔画斜线：账号/角色这种东西「改一行」与「删掉重录」是两件事，
     // 卡头上两枚并排时，一支笔与一只桶一眼分得开；用「设置齿轮」会与左栏设置撞脸。
     edit: { glyph: IconPencil, label: '编辑', group: 'action' },
