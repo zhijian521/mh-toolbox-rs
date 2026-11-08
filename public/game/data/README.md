@@ -5,17 +5,17 @@
 
 现有数据与清单：
 
-| 文件                 | 内容                                                | 谁在维护                                                   |
-| -------------------- | --------------------------------------------------- | ---------------------------------------------------------- |
-| `icons.json`         | 图标清单（生活 / 剧情 / 特技，文件序号 → 中文名）   | `tools/game-icons/slice.py` 生成，**不手改**               |
-| `school-icons.json`  | 图标清单（门派技能 147，按门派分组）                | `tools/game-icons/slice-school.py` 生成，**不手改**        |
-| `gear-icons.json`    | 图标清单（装备 7 个部位共 83 张，按部位分组）       | `tools/game-icons/import-slot-icons.py` 生成，**不手改**   |
-| `weapon-icons.json`  | 图标清单（武器 21 组共 231 张，按种类分组）         | `tools/game-icons/import-slot-icons.py` 生成，**不手改**   |
-| `lingshi-icons.json` | 图标清单（灵饰 4 部位共 20 张，按部位分组）         | `tools/game-icons/import-client-icons.py` 生成，**不手改** |
-| `schools.json`       | 21 个门派 + 每家的七项门派技能 + 等级上限           | 手改（游戏加门派 / 改名时）                                |
-| `skills.json`        | 生活技能 21 项、剧情技能 11 项                      | 手改（游戏加技能时）                                       |
-| `quick-items.json`   | 速记物品 59 件（固定价 38 / 浮动价 21）+ 图标文件名 | 手改（游戏加掉落物时）；id 一旦发布不能改                  |
-| `pet-skills.json`    | 召唤兽技能名称、ID、分类、353 张 PNG 映射及缺图项    | `tools/game-icons/import-pet-skill-icons.py` 生成，**不手改** |
+| 文件                 | 内容                                                | 谁在维护                                                      |
+| -------------------- | --------------------------------------------------- | ------------------------------------------------------------- |
+| `icons.json`         | 图标清单（生活 / 剧情 / 特技，文件序号 → 中文名）   | `tools/game-icons/slice.py` 生成，**不手改**                  |
+| `school-icons.json`  | 图标清单（门派技能 147，按门派分组）                | `tools/game-icons/slice-school.py` 生成，**不手改**           |
+| `gear-icons.json`    | 图标清单（装备 7 个部位共 83 张，按部位分组）       | `tools/game-icons/import-slot-icons.py` 生成，**不手改**      |
+| `weapon-icons.json`  | 图标清单（武器 21 组共 231 张，按种类分组）         | `tools/game-icons/import-slot-icons.py` 生成，**不手改**      |
+| `lingshi-icons.json` | 图标清单（灵饰 4 部位共 20 张，按部位分组）         | `tools/game-icons/import-client-icons.py` 生成，**不手改**    |
+| `schools.json`       | 21 个门派 + 每家的七项门派技能 + 等级上限           | 手改（游戏加门派 / 改名时）                                   |
+| `skills.json`        | 生活技能 21 项、剧情技能 11 项                      | 手改（游戏加技能时）                                          |
+| `quick-items.json`   | 速记物品 59 件（固定价 38 / 浮动价 21）+ 图标文件名 | 手改（游戏加掉落物时）；id 一旦发布不能改                     |
+| `pet-skills.json`    | 召唤兽技能名称、ID、分类、353 张 PNG 映射及缺图项   | `tools/game-icons/import-pet-skill-icons.py` 生成，**不手改** |
 
 角色页上的**角色数据**（`src/views/characters/mock.ts`）不在这里：那是一份演示数据
 （为了把版式立起来的一个假角色），不是游戏事实表。

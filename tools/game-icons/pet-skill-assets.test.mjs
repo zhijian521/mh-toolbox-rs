@@ -84,10 +84,12 @@ describe('召唤兽技能素材清单', () => {
     });
 
     it('缺图项保留名称与 null，神兽专属技能保持特殊分类', () => {
-        expect(catalogue.missing.map(({ id, displayName, img }) => [id, displayName, img])).toEqual([
-            ['56150', '触类旁通', null],
-            ['56196', '触类旁通（强化）', null],
-        ]);
+        expect(catalogue.missing.map(({ id, displayName, img }) => [id, displayName, img])).toEqual(
+            [
+                ['56150', '触类旁通', null],
+                ['56196', '触类旁通（强化）', null],
+            ],
+        );
         for (const skill of catalogue.missing) {
             expect(catalogue.icons.some(({ id }) => id === skill.id)).toBe(false);
             expect(skill.scope).toBe('god-evolution');
