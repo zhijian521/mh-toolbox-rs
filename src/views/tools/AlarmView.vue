@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import AlarmCard from './AlarmCard.vue';
 import AlarmDialog from './AlarmDialog.vue';
 import AppIcon from '../../components/AppIcon.vue';
@@ -29,6 +30,11 @@ import { useAlarms } from './alarm-store';
  * 又不至于让一个后台页面每秒醒一次。
  */
 const { alarms, error, add, update, remove, setEnabled } = useAlarms();
+
+/* 返回工具目录。用 `push('/tools')` 而不是 `router.back()`：这一页可能由地址直接进
+ * （刷新、收藏），此时「上一页」是空的或者别的站外页面；工具子页的上一级永远只有
+ * 目录一个，写死它才符合「返回」在这张纸上唯一的意思。 */
+const router = useRouter();
 
 /* 当前时刻。卡片拿它算「还有多久」。 */
 const now = ref(new Date());
@@ -130,6 +136,14 @@ async function askRemove(alarm: AlarmLike) {
 <template>
     <PageShell title="闹钟" desc="到点前一分钟提醒 · 不在这一页也会提示 · 仅存本机">
         <template #actions>
+            <!-- 与捉鬼页同一枚：图标先读动作方向，字只写动词，完整语义在 `label` 里。
+                 排在最左——页头的右端留给主操作（这里是「新增」）。 -->
+            <PressButton
+                icon="back"
+                text="返回"
+                label="返回工具列表"
+                @click="router.push('/tools')"
+            />
             <!-- 到上限时按钮不置灰：置灰说不出「为什么点不动」。点下去由 `openNew` 说一句。 -->
             <PressButton icon="add" text="新增" label="新增一个闹钟" seal @click="openNew" />
         </template>
