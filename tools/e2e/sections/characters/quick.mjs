@@ -166,25 +166,43 @@ export async function quick(ctx) {
         t.check('空装备格也点得动', gearClicked === true);
         await ui.waitFor(`!!document.querySelector('.modal-panel')`, { timeout: 3000 });
         t.check('小窗标题写着部位', (await dialogTitle()) === '快速修改 · 头', await dialogTitle());
-        /* 这一版是**整份表单**，不是四格：属性 / 状态 / 特殊三段都要在。
-         * 上一版只有「装备名 / 类型 / 段数 / 宝石」，用户的评价是「太简单了」。 */
+        /* 快捷添加按部位提供，直接选择目标分类，不再先选分类下拉。 */
         const gearSections = await cdp.evaluate(
-            `[...document.querySelectorAll('.modal-panel .sec-head')]
-                    .map((s) => s.textContent.replace(/\\s+/g, ' ').trim())`,
+            `[...document.querySelectorAll('.gear-quick .gear-add > button')]
+                    .map((s) => s.getAttribute('aria-label'))`,
         );
         t.check(
-            '装备窗里是整份表单（属性 / 状态 / 特殊三段都在）',
-            gearSections.length === 3 &&
-                gearSections[0].startsWith('属性') &&
-                gearSections[1].startsWith('状态') &&
-                gearSections[2].startsWith('特殊'),
+            '头部直接提供宝石、熔炼、特技、特效、套装与状态行',
+            gearSections.join('/') ===
+                '添加宝石行/添加熔炼行/添加特技行/添加特效行/添加套装行/添加状态行',
             JSON.stringify(gearSections),
         );
         /* 加一条状态再填——验的是「整份表单能加行」，这是四个格子给不了的。 */
-        await ui.clickLabel('加一条状态');
+        const headBasics = await cdp.evaluate(
+            `[...document.querySelectorAll('.gear-quick [data-group="base"] .stat-fixed')].map((one) => one.textContent.trim())`,
+        );
+        t.check('手动录入头部自动显示防御和魔法', headBasics.join('/') === '防御/魔法');
+        await fillField('防御属性值', '+45');
+        t.check(
+            '基础分组带类别签',
+            await ui.exists('.gear-quick [data-group="base"] .property-label.tag'),
+        );
+        await ui.clickLabel('添加状态行');
         await sleep(160);
-        await fillField('状态名', '锻炼等级');
-        await fillField('状态值', '5');
+        await ui.clickLabel('状态名');
+        await ui.clickText('.gear-quick .select-opt', '锻炼等级', { exact: true });
+        await fillField('锻炼等级', '5');
+        t.check(
+            '状态名和状态值按2比1分格，行尾删除可见',
+            await cdp.evaluate(`(() => {
+                const row = document.querySelector('.gear-quick .condition-row');
+                const name = row.querySelector('.row-name').getBoundingClientRect();
+                const value = row.querySelector('.value-field').getBoundingClientRect();
+                return Math.abs(name.width - value.width * 2) < 1 &&
+                    Math.abs(name.height - value.height) < 1 &&
+                    getComputedStyle(row.querySelector('.row-delete')).opacity === '1';
+            })()`),
+        );
         await fillField('头 的装备名', 'E2E头');
         t.check('装备名与状态都存下去了', await saveDialog());
         const gearName = await inCard(`(() => {

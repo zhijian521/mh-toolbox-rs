@@ -229,6 +229,11 @@ icons/ 丢一个 png」这种最省事的做法）、**文件名以目录名开�
 
 ## 5. 不放在这里
 
+装备图标和截图识别通过 `services/game-data.ts` 的 `loadEquipmentNames()` 按需读取现有
+`gear-icons.json`、`weapon-icons.json`、`lingshi-icons.json` 的名称、分类、等级与图片文件，不复制名录。
+`views/characters/gear-icons.ts` 按装备名匹配；未收录的低等级装备回退到对应类别的 60 级图，武器同名时按类别区分。
+识别规则与浮片文字预处理位于 `views/characters/ocr/gear-panel.ts`、`gear-image.ts`，不属于资源表。
+
 | 东西                    | 正确的家                   | 为什么                                          |
 | ----------------------- | -------------------------- | ----------------------------------------------- |
 | OCR 模型与字典（16MB）  | `src-tauri/models/`        | PP-OCRv4 通用模型，与游戏版本无关；走 Rust 打包 |
@@ -247,7 +252,7 @@ icons/ 丢一个 png」这种最省事的做法）、**文件名以目录名开�
 | `TITLE_HINTS`                                   | `src-tauri/src/ghost.rs:138`        | 窗口标题匹配串 `["梦幻西游", "mhtab"]`                        | 在 Rust 侧参与窗口枚举，跨语言读 JSON 要加一次文件 IO 与解析；改它必须重跑冒烟测试                | 客户端改名、五开工具换代             |
 | `CONFUSABLE`                                    | `src/services/ghost-maps.ts:81`     | 形近误读组 `['碗腕', '子孑']`                                 | 每条都来自真机实测，是**纠错规则**不是数据；新增一条必须配一条断言                                | 出现新的稳定误读、换 OCR 模型        |
 | 任务句式正则                                    | `src/services/ghost-parse.ts`       | 小鬼/大鬼的两种句式与全半角逗号                               | 句式知识已编码成正则，拆成数据只能得到一张「正则表」，不如现在可读                                | 任务栏文案改版                       |
-| 角色页演示数据                                  | `src/views/characters/mock.ts`      | 一个假角色的属性、技能、装备                                  | 它是**版式填充物**，不是游戏事实表；里面没有一行逻辑                                              | 接真实识别结果时，属性组搬进 `data/` |
+| 角色页演示数据                                  | `src/views/characters/mock.ts`      | 演示角色的属性、技能；装备仅保留空部位                        | 它是**版式填充物**，不是游戏事实表；旧装备值已清空，部位选项见 `gear-properties.ts`               | 接真实识别结果时，属性组搬进 `data/` |
 | `GEAR_SLOTS` / `GEAR_SPECIALS` / `GEAR_ACTIVES` | `src/views/characters/character.ts` | 装备 12 个部位、69 个特技、18 个特效                          | **下一批该搬的表**：与门派表同类；眼下还留在代码里是因为 `gear.test.ts` 与图标清单都按数组下标对  | 加 `data/gear.json` 时一起搬         |
 
 **分界线**：数据「会整体替换」→ 进 `game/`；「偶尔改一个数、且改完必须跑测试」→ 留代码。

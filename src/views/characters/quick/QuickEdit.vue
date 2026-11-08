@@ -135,7 +135,6 @@ onMounted(async () => {
                     v-if="field.numeric"
                     :model-value="draft[field.key] ?? ''"
                     :label="field.label"
-                    :placeholder="field.placeholder"
                     :precision="field.precision"
                     :step="field.step"
                     :unit="field.unit"
@@ -146,7 +145,6 @@ onMounted(async () => {
                     v-model="draft[field.key]"
                     class="field"
                     :aria-label="field.label"
-                    :placeholder="field.placeholder"
                     :required="field.required"
                     autocomplete="off"
                 />

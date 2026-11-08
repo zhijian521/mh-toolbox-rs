@@ -81,7 +81,7 @@ export function schoolSkillIcon(name: string): string | undefined {
 /**
  * 装备格的示意图。
  *
- * `file` 是 `views/characters/character.ts` 的 `GEAR_SLOT_ICON` 里那条相对路径
+ * `file` 是装备名录或 `views/characters/gear.ts` 的 `GEAR_SLOT_ICON` 给出的相对路径
  * （`gear/…`、`lingshi/…`、`yupo/…`），根目录只在这里拼——与三套技能图标同一条约定：
  * 图片放在哪由 services 说了算，哪一格配哪张图是业务，住在 views 里。
  *
@@ -90,7 +90,7 @@ export function schoolSkillIcon(name: string): string | undefined {
  * 是装备、手上拿的是武器），不该让 services 再维护一张「部位 → 类目」的表。
  *
  * 与技能图标不同，这里**不做「查不到返回 undefined」**：调用方传的就是写死的表，
- * 查不到只可能是表里写了不存在的文件，那种错该在界面上露出来（破图），
+ * 查不到只可能是名录或默认表里写了不存在的文件，那种错该在界面上露出来（破图），
  * 而不是静默退回空块——退回空块会让人以为「这件装备没有图」。
  */
 export function gearSlotIcon(file: string): string {

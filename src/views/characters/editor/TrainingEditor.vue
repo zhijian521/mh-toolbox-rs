@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import NumberField from '../../../components/NumberField.vue';
-import { trainingDefaultCap, type TrainingGroup } from '../character';
+import type { TrainingGroup } from '../character';
 
 /**
  * 修炼：两组，**填等级与上限**。
@@ -50,7 +50,6 @@ const groups = defineModel<TrainingGroup[]>({ required: true });
                     <NumberField
                         :model-value="row.cap"
                         :label="`${row.name} 上限`"
-                        :placeholder="String(trainingDefaultCap(row.name) ?? '')"
                         zero-as-empty
                         class="cap-field num-slot"
                         @update:model-value="row.cap = $event"

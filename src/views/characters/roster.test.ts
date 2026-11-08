@@ -64,6 +64,33 @@ describe('名册解析', () => {
 });
 
 describe('装备格对齐', () => {
+    it('十二部位分别保存备注，多行内容经过序列化和读档仍保留', () => {
+        const character = normalizeCharacter({
+            gear: GEAR_SLOTS.map((slot) => ({
+                slot,
+                detail: {
+                    name: slot + '装备',
+                    kind: slot,
+                    stats: [],
+                    note: slot + '备注\n暂不更换',
+                },
+            })),
+        });
+        const restored = parseRoster(serializeRoster([character]))?.[0];
+        expect(restored?.gear.map((slot) => slot.detail?.note)).toEqual(
+            GEAR_SLOTS.map((slot) => slot + '备注\n暂不更换'),
+        );
+    });
+    it('空备注和非文本备注不作为内容保存', () => {
+        const character = normalizeCharacter({
+            gear: [
+                { slot: '头', detail: { name: '水晶帽', note: '  \n ' } },
+                { slot: '武器', detail: { name: '刀', note: 123 } },
+            ],
+        });
+        expect(character.gear[0].detail?.note).toBeUndefined();
+        expect(character.gear[2].detail?.note).toBeUndefined();
+    });
     it('乱序、缺格都还原成十二格的标准顺序', () => {
         const character = normalizeCharacter({
             gear: [
@@ -79,19 +106,36 @@ describe('装备格对齐', () => {
         expect(character.gear[1]).toEqual({ slot: '项链', caption: undefined });
     });
 
-    it('名称与类型都空的详情不留空壳', () => {
+    it('预置输入框与空白备注不留空壳', () => {
         const character = normalizeCharacter({
             gear: [
                 {
                     slot: '头',
                     caption: '黑魔冠',
-                    detail: { stats: [{ label: '防御', value: '+1' }] },
+                    detail: {
+                        stats: [{ label: '防御', value: '', group: 'base' }],
+                        lines: [{ label: '特技', value: '' }],
+                        note: '  \n ',
+                    },
                 },
             ],
         });
         // 空壳会让浮片浮出一张空白纸，比什么都不弹更像坏了。
         expect(character.gear[0].detail).toBeUndefined();
         expect(character.gear[0].caption).toBe('黑魔冠');
+    });
+
+    it.each([
+        { note: '待换任务装' },
+        { stats: [{ label: '防御', value: '0', group: 'base' }] },
+        { cond: [{ label: '锻炼等级', value: '6' }] },
+        { lines: [{ label: '套装', value: '碎星诀' }] },
+        { requires: ['等级 60'] },
+    ])('未填装备名时已录入内容仍可保存并重载：%j', (detail) => {
+        const character = normalizeCharacter({ gear: [{ slot: '头', detail }] });
+        expect(character.gear[0].detail).toMatchObject(detail);
+        const restored = parseRoster(serializeRoster([character]))?.[0];
+        expect(restored?.gear[0].detail).toEqual(character.gear[0].detail);
     });
 
     it('装备名只填了 detail.name 时，格内短名跟着它走', () => {
@@ -341,8 +385,8 @@ describe('往返', () => {
         const parsed = parseRoster(serializeRoster(CHARACTERS));
         expect(parsed).toHaveLength(CHARACTERS.length);
         expect(parsed?.map((item) => item.id)).toEqual(CHARACTERS.map((item) => item.id));
-        // 演示数据里的装备详情要完整活过一轮序列化。
-        expect(parsed?.[0].gear[0].detail?.lines?.[0].value).toBe('起死回生');
+        // 演示装备清空后，往返不能重新生成旧的详情值。
+        expect(parsed?.[0].gear.every((one) => !one.detail && !one.caption)).toBe(true);
         expect(parsed?.[0].pets[0].quality.attack).toBe(CHARACTERS[0].pets[0].quality.attack);
     });
 });

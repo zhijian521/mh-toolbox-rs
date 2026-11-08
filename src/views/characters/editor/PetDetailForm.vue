@@ -63,7 +63,7 @@ const nameList = (list: string[]) => list.join('、');
             </label>
             <label class="id-cell">
                 <span class="id-k">成长</span>
-                <input v-model="pet.growth" class="field" aria-label="成长" placeholder="1.202" />
+                <input v-model="pet.growth" class="field" aria-label="成长" />
             </label>
             <label class="id-cell">
                 <span class="id-k">五行</span>
@@ -83,7 +83,6 @@ const nameList = (list: string[]) => list.join('、');
                     :model-value="pet.spirit ?? 0"
                     zero-as-empty
                     label="进阶灵性"
-                    placeholder="未进阶"
                     @update:model-value="pet.spirit = $event || undefined"
                 />
             </label>
@@ -124,12 +123,7 @@ const nameList = (list: string[]) => list.join('、');
                     aria-label="属性名"
                     placeholder="气血"
                 />
-                <input
-                    v-model="attr.value"
-                    class="field attr-value"
-                    aria-label="属性值"
-                    placeholder="1773"
-                />
+                <input v-model="attr.value" class="field attr-value" aria-label="属性值" />
                 <PressButton icon="trash" label="删掉这条属性" @click="pet.attrs.splice(ai, 1)" />
             </div>
         </div>

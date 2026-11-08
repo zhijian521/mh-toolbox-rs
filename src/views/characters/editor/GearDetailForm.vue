@@ -1,281 +1,478 @@
 <script setup lang="ts">
-import CostSwitch from '../../../components/CostSwitch.vue';
+import { computed, watch } from 'vue';
+import SelectField from '../../../components/SelectField.vue';
+import GearProperties from '../GearProperties.vue';
+import {
+    fixedGearBaseLabels,
+    gearConditionOptions,
+    gearEffectOptions,
+    gearGroupOptions,
+    gearStatGroup,
+    gearStatOptions,
+    withGearBaseStats,
+} from '../gear-properties';
 import PressButton from '../../../components/PressButton.vue';
-import SegmentedPills from '../../../components/SegmentedPills.vue';
-import type { GearDetail, GearTone } from '../character';
+import IconTile from '../IconTile.vue';
+import { useGearIcon } from '../use-gear-icon';
+import {
+    GEAR_ACTIVES,
+    GEAR_SPECIALS,
+    type GearDetail,
+    type GearSlotName,
+    type GearStat,
+    type GearStatGroup,
+} from '../gear';
 
-/**
- * 一件装备的**全部字段**：全名 / 类型 / 条件 / 属性 / 状态 / 特殊 / 风味 / 制造者。
- *
- * ---- 为什么单独成组件 ----
- * 这份表单原先长在 `GearEditor` 的右栏里，只有「编辑整张角色卡」那一条路用它。
- * 2026-11-07 用户要求快速修改也能改整件装备（「装备和宝宝比较复杂，直接展示某个装备
- * 和宝宝的所有内容进行修改」），于是同一份表单要在两个尺寸下出现：编辑器的右栏（窄、
- * 与左栏目录并排）和快速修改的弹窗（宽、独占一屏）。
- *
- * 复制一份是最省事的做法，也是最贵的：装备的字段不是固定的——上古玉魄的奇袭三项
- * 还在等 `GearDetail` 扩字段，扩的那天一定会有一个地方漏掉，而那种漏不报错，只是
- * 「在编辑器里填了、在快捷窗里看不见」。所以两处共用这一个组件，宽度由外层给。
- *
- * ---- 它不管的那些 ----
- * ① **卡上那个短名**（`GearSlot.caption`）：它是「格子里显示什么」，不是装备本身
- *    的字段，两处的外壳各自画（编辑器在带图标的标题行里，快速修改在第一行）。
- * ② **部位**：它回答的是「这是哪一格」，属于外壳。
- * ③ 这里改的是**传进来的那一份对象**（`v-model`），不做拷贝——拷贝与保存的时机由
- *    外壳决定：编辑器边改边写进草稿，快速修改在点「保存」时才落到角色上。
- */
+/** 分类、名称和数值分格对齐，各入口只编辑自己的装备草稿。 */
+const props = defineProps<{ slotName: GearSlotName }>();
 const detail = defineModel<GearDetail>({ required: true });
-
-/* 装备条件在游戏里是一串独立的小签（等级 130 · 女 · 五行 木），
- * 输入时用逗号连着写最省事，于是读回来要按**中英文两种逗号**切——
- * 中文输入法下敲出来的几乎总是「，」。
- *
- * 用 `@change`（失焦才解析）而不是 `v-model`：边敲边 split 再 join，会把用户正在
- * 输入的那一格重排，光标跳到行首。 */
-function setRequires(target: GearDetail, event: Event) {
-    const raw = (event.target as HTMLInputElement).value;
-    const parts = raw
-        .split(/[,，]/)
+const caption = defineModel<string | undefined>('caption');
+const statShortcuts = computed(() =>
+    gearGroupOptions(props.slotName).filter(
+        (group) => group.value !== 'base' || !fixedGearBaseLabels(props.slotName).length,
+    ),
+);
+const effectShortcuts = computed(() => gearEffectOptions(props.slotName));
+function optionsWithCurrent(options: { value: string; label: string }[], current: string) {
+    return current && !options.some((item) => item.value === current)
+        ? [{ value: current, label: current }, ...options]
+        : options;
+}
+function effectValues(label: string, current: string) {
+    const names = label === '特技' ? GEAR_ACTIVES : label === '特效' ? GEAR_SPECIALS : [];
+    return optionsWithCurrent(
+        names.map((value) => ({ value, label: value })),
+        current,
+    );
+}
+function statOptions(stat: GearStat) {
+    const options = gearStatOptions(props.slotName, gearStatGroup(stat, props.slotName));
+    return stat.label && !options.some((item) => item.value === stat.label)
+        ? [{ value: stat.label, label: stat.label }, ...options]
+        : options;
+}
+function fixedBase(stat: GearStat) {
+    return (
+        gearStatGroup(stat, props.slotName) === 'base' &&
+        fixedGearBaseLabels(props.slotName).includes(stat.label)
+    );
+}
+function hasExtra(stat: GearStat) {
+    return (
+        stat.extra !== undefined ||
+        (gearStatGroup(stat, props.slotName) === 'extra' &&
+            (props.slotName.startsWith('玉魄') ||
+                ['戒指', '耳饰', '配饰', '手镯'].includes(props.slotName)))
+    );
+}
+function addStat(group: GearStatGroup) {
+    const label = gearStatOptions(props.slotName, group)[0]?.value;
+    if (!label) return;
+    detail.value.stats.push({
+        label,
+        value: '',
+        group,
+        gain: group === 'base' ? undefined : true,
+    });
+}
+watch(
+    () => detail.value,
+    (value) => {
+        const prepared = withGearBaseStats(value, props.slotName);
+        if (prepared !== value) detail.value = prepared;
+    },
+    { immediate: true },
+);
+const gearIcon = useGearIcon();
+const icon = computed(() =>
+    gearIcon({ slot: props.slotName, caption: caption.value, detail: detail.value }),
+);
+function setName(event: Event) {
+    const value = (event.target as HTMLInputElement).value;
+    detail.value.name = value;
+    caption.value = value;
+}
+function setRequires(event: Event) {
+    const parts = (event.target as HTMLInputElement).value
+        .split(/[,，·]/)
         .map((part) => part.trim())
         .filter(Boolean);
-    target.requires = parts.length ? parts : undefined;
+    detail.value.requires = parts.length ? parts : undefined;
 }
-
-const TONE_OPTIONS: { value: GearTone; label: string }[] = [
-    { value: 'seal', label: '朱' },
-    { value: 'ochre', label: '赭' },
-    { value: 'moss', label: '苔' },
-];
-
-/** 与属性那边同一条：开关给不了 `undefined`，而契约里「没有这个键」与 `false` 不同。 */
-function setGain(stat: { gain?: boolean }, value: boolean) {
-    stat.gain = value || undefined;
+function addCond() {
+    detail.value.cond ??= [];
+    detail.value.cond.push({ label: '耐久度', value: '' });
 }
-
-/* 「状态」与「特殊」两段在契约里是可选的（一件装备可能没有套装效果），
- * 加第一条时才建数组——先建空数组再判空，等于给每件装备都塞两个空键。 */
-function addCond(target: GearDetail) {
-    target.cond ??= [];
-    target.cond.push({ label: '', value: '' });
-}
-
-function addLine(target: GearDetail) {
-    target.lines ??= [];
-    target.lines.push({ label: '', value: '', tone: 'seal' });
+function addLine(label: string) {
+    detail.value.lines ??= [];
+    detail.value.lines.push({ label, value: '', tone: label === '特技' ? 'seal' : 'ochre' });
 }
 </script>
 
 <template>
-    <div class="gear-form">
-        <div class="erow">
-            <span class="field-label">全名</span>
-            <input v-model="detail.name" class="field grow" aria-label="装备全名" />
-            <span class="field-label">类型</span>
-            <input
-                v-model="detail.kind"
-                class="field grow"
-                aria-label="装备类型"
-                placeholder="头盔 / 灵饰 · 戒指"
-            />
-        </div>
+    <div class="gear-form dual-rule">
+        <div class="gear-content">
+            <div class="gear-identity">
+                <IconTile v-if="icon" class="gear-form-icon" :src="icon" />
+                <span v-else class="gear-form-mark" aria-hidden="true">{{ slotName[0] }}</span>
+                <label class="gear-name">
+                    <span class="field-label">{{ slotName }}</span>
+                    <input
+                        class="field inline-field name-field"
+                        :value="detail.name || caption"
+                        :aria-label="slotName + ' 的装备名'"
+                        placeholder="装备名"
+                        @input="setName"
+                    />
+                </label>
+            </div>
+            <div class="gear-kind">
+                <input
+                    v-model="detail.kind"
+                    class="field inline-field"
+                    aria-label="装备类型"
+                    placeholder="类型"
+                />
+                <input
+                    class="field inline-field"
+                    aria-label="装备条件，逗号分隔"
+                    placeholder="等级 / 条件"
+                    :value="(detail.requires ?? []).join('，')"
+                    @change="setRequires"
+                />
+            </div>
 
-        <div class="erow">
-            <span class="field-label">条件</span>
-            <input
-                class="field grow"
-                aria-label="装备条件，逗号分隔"
-                placeholder="等级 130，女，五行 木"
-                :value="(detail.requires ?? []).join('，')"
-                @change="setRequires(detail, $event)"
-            />
-        </div>
+            <GearProperties :detail="detail" :slot-name="slotName" editable>
+                <template #label="{ group }">
+                    <SelectField
+                        v-if="group.items[0].source === 'lines'"
+                        v-model="group.items[0].row.label"
+                        :options="
+                            optionsWithCurrent(
+                                gearEffectOptions(slotName),
+                                group.items[0].row.label,
+                            )
+                        "
+                        class="effect-label"
+                        label="特殊行名"
+                    />
+                    <template v-else>{{ group.label }}</template>
+                </template>
+                <template #stats="{ item }">
+                    <div class="detail-row stat-row" :class="{ 'fixed-base': fixedBase(item.row) }">
+                        <span v-if="fixedBase(item.row)" class="stat-fixed row-name slip-row sm">{{
+                            item.row.label
+                        }}</span>
+                        <SelectField
+                            v-else
+                            :model-value="item.row.label"
+                            :options="statOptions(item.row)"
+                            class="stat-select row-name slip-row sm"
+                            label="属性名"
+                            @update:model-value="item.row.label = $event"
+                        />
+                        <div class="stat-number">
+                            <input
+                                v-model="item.row.value"
+                                class="field num-slot value-field"
+                                :aria-label="item.row.label + '属性值'"
+                            />
+                            <span v-if="hasExtra(item.row)" class="stat-extra">
+                                [<input
+                                    v-model="item.row.extra"
+                                    class="field num-slot value-field"
+                                    aria-label="括号值"
+                                />]
+                            </span>
+                        </div>
+                        <PressButton
+                            v-if="!fixedBase(item.row)"
+                            class="row-delete"
+                            icon="trash"
+                            :label="'删除' + item.row.label + '属性'"
+                            @click="detail.stats.splice(item.index, 1)"
+                        />
+                    </div>
+                </template>
+                <template #cond="{ item }">
+                    <div class="detail-row condition-row">
+                        <SelectField
+                            v-model="item.row.label"
+                            :options="
+                                optionsWithCurrent(gearConditionOptions(slotName), item.row.label)
+                            "
+                            class="condition-select row-name slip-row sm"
+                            label="状态名"
+                        />
+                        <input
+                            v-model="item.row.value"
+                            class="field num-slot value-field"
+                            :aria-label="item.row.label"
+                        />
+                        <PressButton
+                            class="row-delete"
+                            icon="trash"
+                            label="删掉这一条状态"
+                            @click="detail.cond!.splice(item.index, 1)"
+                        />
+                    </div>
+                </template>
+                <template #lines="{ item }">
+                    <div class="detail-row effect-row">
+                        <SelectField
+                            v-if="['特技', '特效'].includes(item.row.label)"
+                            v-model="item.row.value"
+                            :options="effectValues(item.row.label, item.row.value)"
+                            label="特殊内容"
+                            placeholder="未选"
+                            class="effect-select row-name slip-row sm"
+                        />
+                        <input
+                            v-else
+                            v-model="item.row.value"
+                            class="field num-slot effect-value"
+                            aria-label="特殊内容"
+                        />
+                        <PressButton
+                            class="row-delete"
+                            icon="trash"
+                            label="删掉这一条效果"
+                            @click="detail.lines!.splice(item.index, 1)"
+                        />
+                    </div>
+                </template>
+            </GearProperties>
 
-        <!-- ---------- 白字与绿字 ----------
-             表头是这一版加的：原来四列全靠 placeholder 说明，
-             填上值之后就没人知道第三格是「精炼上限」、开关是「白/绿」。 -->
-        <div class="sec-head">
-            <span class="section-mark"></span>属性
-            <span class="meta">绿字＝打造或镶嵌附加</span>
+            <label class="gear-note">
+                <span class="field-label">备注</span>
+                <textarea v-model="detail.note" class="field area" rows="3" aria-label="装备备注" />
+            </label>
         </div>
-        <div class="thead" aria-hidden="true">
-            <span class="stat-label">属性名</span>
-            <span class="stat-value">数值</span>
-            <span class="stat-extra">精炼</span>
-            <span class="stat-switch">白 · 绿</span>
-        </div>
-        <div v-for="(stat, si) in detail.stats" :key="si" class="erow">
-            <input
-                v-model="stat.label"
-                class="field stat-label"
-                aria-label="属性名"
-                placeholder="防御"
-            />
-            <input
-                v-model="stat.value"
-                class="field stat-value"
-                aria-label="属性值"
-                placeholder="+45"
-            />
-            <input
-                v-model="stat.extra"
-                class="field stat-extra"
-                aria-label="精炼上限"
-                placeholder="[+16]"
-            />
-            <CostSwitch
-                :model-value="stat.gain === true"
-                off-label="白字"
-                on-label="绿字"
-                @update:model-value="setGain(stat, $event)"
-            />
-            <PressButton icon="trash" label="删掉这条属性" @click="detail.stats.splice(si, 1)" />
-        </div>
-        <div class="sub-foot">
+        <div class="gear-add">
             <PressButton
+                v-for="group in statShortcuts"
+                :key="group.value"
                 icon="add"
-                text="加一条"
-                label="加一条属性"
-                @click="detail.stats.push({ label: '', value: '' })"
+                :text="group.label + '行'"
+                :label="'添加' + group.label + '行'"
+                @click="addStat(group.value)"
             />
-        </div>
-
-        <!-- ---------- 耐久 / 锻炼 / 宝石 ---------- -->
-        <div class="sec-head">
-            <span class="section-mark"></span>状态
-            <span class="meta">耐久、锻炼 / 精炼 / 灵尘等级、镶嵌</span>
-        </div>
-        <div v-for="(item, ci) in detail.cond" :key="ci" class="erow">
-            <input
-                v-model="item.label"
-                class="field cond-label"
-                aria-label="状态名"
-                placeholder="耐久度"
+            <PressButton
+                v-for="effect in effectShortcuts"
+                :key="effect.value"
+                icon="add"
+                :text="effect.label + '行'"
+                :label="'添加' + effect.label + '行'"
+                @click="addLine(effect.value)"
             />
-            <input v-model="item.value" class="field grow" aria-label="状态值" placeholder="941" />
-            <PressButton icon="trash" label="删掉这一条状态" @click="detail.cond!.splice(ci, 1)" />
+            <PressButton icon="add" text="状态行" label="添加状态行" @click="addCond" />
         </div>
-        <div class="sub-foot">
-            <PressButton icon="add" text="加一条" label="加一条状态" @click="addCond(detail)" />
-        </div>
-
-        <!-- ---------- 特技 / 特效 / 套装 ---------- -->
-        <div class="sec-head">
-            <span class="section-mark"></span>特殊
-            <span class="meta">朱＝特技，赭＝套装，苔＝打造附加</span>
-        </div>
-        <div v-for="(line, li) in detail.lines" :key="li" class="erow">
-            <input
-                v-model="line.label"
-                class="field line-label"
-                aria-label="特殊行名"
-                placeholder="特技"
-            />
-            <input
-                v-model="line.value"
-                class="field grow"
-                aria-label="特殊内容"
-                placeholder="起死回生"
-            />
-            <SegmentedPills
-                :model-value="line.tone ?? 'seal'"
-                :options="TONE_OPTIONS"
-                radius="sm"
-                label="行色"
-                @update:model-value="line.tone = $event"
-            />
-            <PressButton icon="trash" label="删掉这一条" @click="detail.lines!.splice(li, 1)" />
-        </div>
-        <div class="sub-foot">
-            <PressButton icon="add" text="加一条" label="加一条特殊效果" @click="addLine(detail)" />
-        </div>
-
-        <!-- ---------- 风味文本与制造者 ---------- -->
-        <textarea
-            v-model="detail.flavor"
-            class="field area"
-            rows="2"
-            aria-label="风味描述"
-            placeholder="风味描述（可留空）"
-        />
-        <input
-            v-model="detail.foot"
-            class="field foot-field"
-            aria-label="制造者"
-            placeholder="制造者：……（可留空）"
-        />
     </div>
 </template>
 
 <style scoped>
-/* 一列字段，段距 7：这是编辑器右栏一直用的那个数（原来写在 `.pane-detail` 上）。
- * 表单本身不设宽度与内衬——那是外壳的事（编辑器是那道竖槽，快速修改是弹窗正文）。 */
 .gear-form {
     display: flex;
+    flex: 1;
     flex-direction: column;
-    gap: 7px;
     min-width: 0;
+    min-height: 0;
+    height: 100%;
+    border: var(--w-hair) solid var(--rule-2);
+    background: var(--paper);
+    --dual-inset: 2px;
 }
-
-.grow {
+.gear-content {
+    flex: 1;
+    min-height: 0;
+    padding: 14px max(0px, calc(14px - var(--scrollbar-w))) 14px 14px;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+.gear-identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+.gear-identity .gear-form-icon {
+    --tile-w: 36px;
+    --tile-h: 36px;
+    --shot: 30px;
+    --tile-r: var(--r-2);
+}
+.gear-form-mark {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    color: var(--ochre);
+    font-size: var(--fs-md);
+}
+.gear-name {
     flex: 1;
     min-width: 0;
 }
-/* 三组小标题：与卡内 `.group-head` 同一个说法（短竖条 + 标题），
- * 后面跟一句 `.meta` 说清这一组都填什么。 */
-.sec-head {
-    display: flex;
-    align-items: baseline;
-    gap: 7px;
-    margin-top: 4px;
+.gear-name .field-label {
+    padding-left: 4px;
+    font-size: var(--fs-mini);
 }
-.sec-head .section-mark {
-    align-self: center;
+.inline-field {
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    padding: 2px 3px;
+    border-color: transparent;
+    border-radius: var(--r-1);
+    background: transparent;
+    box-shadow: none;
+    color: inherit;
+    font: inherit;
+    line-height: 1.5;
 }
-.sub-foot {
-    padding-left: 2px;
+.inline-field:hover,
+.inline-field:focus {
+    border-color: var(--rule-2);
+    background: var(--paper-2);
 }
-
-/* 属性段的冷表头：与下面四列**同一套宽度类**，只在字距与颜色上退一档。
- * 左内距 8px 是为了对上 `.field` 里文字的位置——输入格有 7px 内距 + 1px 边框，
- * 表头贴着 0 起会看上去整体左移了半个字。 */
-.thead {
-    display: flex;
-    align-items: center;
+.gear-name .name-field {
+    color: var(--ink);
+    font-size: var(--fs-md);
+}
+.gear-kind {
+    display: grid;
+    grid-template-columns: minmax(70px, 0.8fr) minmax(0, 1.2fr);
     gap: 6px;
-    padding: 0 0 1px 8px;
     color: var(--muted);
     font-size: var(--fs-mini);
-    letter-spacing: 0.1em;
-    line-height: 1;
 }
-.thead span {
-    flex: none;
+.detail-row {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) calc(26px * var(--fs-scale));
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    font-size: var(--fs-sm);
 }
-.stat-label {
-    width: 118px;
+.stat-row.fixed-base {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
 }
-.stat-value {
-    width: 82px;
+.stat-number {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    font-variant-numeric: tabular-nums;
+}
+.row-name,
+.value-field,
+.effect-value {
+    width: 100%;
+    min-width: 0;
+    height: var(--gear-row-h);
+    color: inherit;
+    font: inherit;
+}
+.row-name.slip-row {
+    gap: 0;
+    height: var(--gear-row-h);
+    padding: 0;
+}
+.value-field {
+    padding: 0 6px;
+    text-align: right;
+    font-weight: 700;
+}
+.stat-number > .value-field,
+.stat-extra .value-field {
+    flex: 1;
+    width: 0;
 }
 .stat-extra {
-    width: 66px;
+    display: flex;
+    flex: 1;
+    align-items: center;
+    min-width: 0;
+    font-size: var(--fs-mini);
 }
-/* 表头的「白 · 绿」要压住开关那两格的总宽（`.cost-opt` 每格 12px 内距 + 两个字的
- * `--fs-sm`，外框再 2px）——这一列对不齐最容易被看出来。字号档会改变两格的宽度，
- * 所以跟着 `--fs-scale` 走。 */
-.stat-switch {
-    width: calc(52px + 48px * var(--fs-scale));
+.stat-extra .value-field {
+    padding: 0 2px;
 }
-.cond-label {
-    width: 96px;
+.effect-row {
+    grid-template-columns: minmax(0, 1fr) calc(26px * var(--fs-scale));
 }
-.line-label {
-    width: 78px;
+.effect-value {
+    padding: 0 7px;
 }
-.foot-field {
+.effect-label {
+    width: 100%;
+    min-width: 0;
+    color: inherit;
+    font-size: inherit;
+}
+.stat-fixed.slip-row {
+    padding: 0 7px;
+    white-space: nowrap;
+}
+.row-name :deep(.select-trigger),
+.effect-label :deep(.select-trigger) {
+    height: var(--gear-row-h);
+    padding: 0 7px;
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+    color: inherit;
+    font: inherit;
+}
+.row-name :deep(.select-trigger:hover),
+.row-name :deep(.select-trigger:focus),
+.effect-label :deep(.select-trigger:hover),
+.effect-label :deep(.select-trigger:focus) {
+    border-color: var(--rule-2);
+    background: color-mix(in srgb, var(--property-ink) 6%, transparent);
+}
+.row-name :deep(.select-trigger) {
+    gap: 4px;
+}
+.effect-label :deep(.select-trigger) {
+    position: relative;
+    padding-inline: 14px;
+    text-align: center;
+}
+.effect-label :deep(.select-text) {
+    text-align: center;
+}
+.effect-label :deep(.select-arrow) {
+    position: absolute;
+    right: 4px;
+    width: calc(10px * var(--fs-scale));
+    height: calc(10px * var(--fs-scale));
+}
+.row-delete {
+    justify-self: end;
+    color: var(--muted);
+}
+.row-delete:hover {
+    color: var(--cinnabar);
+}
+.gear-note {
+    display: grid;
+    gap: 6px;
+    margin-top: 16px;
+}
+.gear-note textarea {
     width: 100%;
 }
-.erow :deep(.cost-opt) {
-    padding: 3px 6px;
+.gear-add {
+    display: grid;
+    flex: none;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 8px;
+    padding: 12px 14px 14px;
+    border-top: var(--w-hair) solid var(--rule-2);
+}
+.gear-add .press-btn {
+    --tile-h: calc(30px * var(--fs-scale));
+    --tile-w: 100%;
 }
 </style>

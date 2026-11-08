@@ -50,6 +50,22 @@ afterEach(() => {
 });
 
 describe('OCR 图像请求生命周期', () => {
+    it('装备预处理只替换送给 OCR 的像素，解析与原图预览仍使用原坐标', async () => {
+        vi.mocked(ocrFrame).mockResolvedValue({ status: 'ok', lines: lines('装备') });
+        const parse = vi.fn(async () => ({ result: 'gear' }));
+        scope = effectScope();
+        const image = scope.run(() =>
+            useOcrImage(parse, () => ({
+                pixels: 'filtered',
+                width: 1,
+                height: 1,
+            })),
+        )!;
+        await image.takeFile(file());
+        expect(ocrFrame).toHaveBeenCalledWith('filtered', 1, 1);
+        expect(parse).toHaveBeenCalledWith(lines('装备'), expect.objectContaining({ width: 1 }));
+        expect(image.shotUrl.value).toBe('blob:panel');
+    });
     it('整图没有文字时仍交给面板解析，让辅助图标和等级裁切可以接管', async () => {
         vi.mocked(ocrFrame).mockResolvedValue({ status: 'ok', lines: [] });
         const parse = vi.fn(async () => ({ result: 'assist' }));

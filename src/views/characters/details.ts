@@ -1,5 +1,7 @@
 import { isObject, rawText, rows, stamp as int } from '../../services/shape';
 import type { GearDetail, GearStat, GearTone, Pet } from './character';
+import { hasGearDetail } from './gear';
+import { GEAR_STAT_GROUPS } from './gear-properties';
 
 const optionalInt = (value: unknown): number | undefined =>
     typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : undefined;
@@ -12,9 +14,11 @@ function normalizeGearStat(raw: unknown): GearStat | null {
     if (!isObject(raw)) return null;
     const label = text(raw.label);
     if (!label) return null;
+    if (raw.group === 'base' && !text(raw.value).trim() && !text(raw.extra).trim()) return null;
     return {
         label,
         value: text(raw.value),
+        group: GEAR_STAT_GROUPS.find((group) => group.value === raw.group)?.value,
         extra: optionalText(raw.extra),
         gain: raw.gain === true ? true : undefined,
     };
@@ -31,10 +35,6 @@ export function normalizeGearDetail(raw: unknown): GearDetail | undefined {
     if (!isObject(raw)) return undefined;
     const name = text(raw.name);
     const kind = text(raw.kind);
-    /* 名称与类型都没填 = 这件还没录，不是「一件没有名字的装备」。
-     * 造一个空壳会让浮片浮出一张白纸——比什么都不弹更让人以为坏了。 */
-    if (!name && !kind) return undefined;
-
     const requires = rows(raw.requires).map(text).filter(Boolean);
     const lines = rows(raw.lines).flatMap((line) => {
         if (!isObject(line)) return [];
@@ -43,7 +43,7 @@ export function normalizeGearDetail(raw: unknown): GearDetail | undefined {
         return [{ label, value: text(line.value), tone: asTone(line.tone) }];
     });
 
-    return {
+    const detail: GearDetail = {
         name: name || kind,
         flavor: optionalText(raw.flavor),
         kind,
@@ -52,7 +52,9 @@ export function normalizeGearDetail(raw: unknown): GearDetail | undefined {
         cond: normalizeGearStats(raw.cond),
         lines: lines.length ? lines : undefined,
         foot: optionalText(raw.foot),
+        note: text(raw.note).trim() || undefined,
     };
+    return hasGearDetail(detail) ? detail : undefined;
 }
 
 export function normalizePet(raw: unknown): Pet | null {

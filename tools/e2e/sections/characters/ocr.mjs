@@ -57,8 +57,8 @@ export async function ocr(ctx) {
                 };
             })()`);
         t.check(
-            '分区是属性 / 师门 / 辅助 / 修炼四格',
-            rail.labels.join('/') === '属性/师门/辅助/修炼',
+            '分区是属性 / 师门 / 辅助 / 修炼 / 装备五格',
+            rail.labels.join('/') === '属性/师门/辅助/修炼/装备',
             JSON.stringify(rail.labels),
         );
         t.check(
@@ -264,8 +264,8 @@ export async function ocr(ctx) {
                     .map((b) => ({ t: b.textContent.trim(), d: b.disabled }))`,
         );
         t.check(
-            '属性、师门、辅助、修炼四格都能点',
-            opts.map((one) => one.t).join('/') === '属性/师门/辅助/修炼' &&
+            '属性、师门、辅助、修炼、装备五格都能点',
+            opts.map((one) => one.t).join('/') === '属性/师门/辅助/修炼/装备' &&
                 opts.every((one) => !one.d),
             JSON.stringify(opts),
         );

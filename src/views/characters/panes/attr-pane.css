@@ -102,11 +102,6 @@
     line-height: 1;
     text-align: center;
 }
-/* 空格里那一道「—」：与只读时那枚淡「—」同一个意思，只是这次它比常规 placeholder 淡。 */
-.attr-field::placeholder {
-    color: color-mix(in srgb, var(--muted) 72%, transparent);
-}
-
 /* ---------- 经验那两个格 ---------- */
 /* 两格排在条后面，条不许缩没：`min-width` 由 `MeterBar` 自己守着 40。 */
 .exp-edit {
@@ -125,9 +120,6 @@
     color: var(--num);
     line-height: 1;
     text-align: center;
-}
-.exp-field::placeholder {
-    color: color-mix(in srgb, var(--muted) 72%, transparent);
 }
 /* 两个数之间的斜杠：与 `meter-text` 里那个「 / 」同一档淡，它是分隔不是内容。 */
 .exp-slash {

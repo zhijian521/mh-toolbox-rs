@@ -1,7 +1,7 @@
 import { computed, onScopeDispose, ref, shallowRef } from 'vue';
 import { ocrFrame } from '../../../services/ocr';
 import type { OcrLine } from './attr-panel';
-import { prepareFrame } from './pixels';
+import { prepareFrame, type Frame } from './pixels';
 
 interface Parsed<T> {
     result: T;
@@ -9,7 +9,10 @@ interface Parsed<T> {
 }
 
 /** 换图和切分区分别递增版本；只有当前图、当前解析能写回预览。 */
-export function useOcrImage<T>(parse: (lines: OcrLine[], shot: ImageData) => Promise<Parsed<T>>) {
+export function useOcrImage<T>(
+    parse: (lines: OcrLine[], shot: ImageData) => Promise<Parsed<T>>,
+    frameFor?: (image: ImageData) => Frame | undefined,
+) {
     const result = ref<T | null>(null);
     const rawLines = shallowRef<OcrLine[]>([]);
     const shot = shallowRef<ImageData | null>(null);
@@ -67,7 +70,8 @@ export function useOcrImage<T>(parse: (lines: OcrLine[], shot: ImageData) => Pro
             }
             if (!current()) return;
             shotUrl.value = URL.createObjectURL(file);
-            const { frame, image } = prepared;
+            const { image } = prepared;
+            const frame = frameFor?.(image) ?? prepared.frame;
             const outcome = await ocrFrame(frame.pixels, frame.width, frame.height);
             if (!current()) return;
             if (outcome.status === 'failed') {

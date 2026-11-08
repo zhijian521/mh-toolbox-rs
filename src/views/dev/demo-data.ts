@@ -130,9 +130,6 @@ function maxedCharacter(): CharacterData {
         { name: '调息', level: 5, cap: 5, kind: 'story' },
         { name: '打坐', level: 5, cap: 5, kind: 'story' },
     ];
-    /* 装备只给前三格一个名字：**空位要占格**这件事，正是这一页要验的其中一条。 */
-    const gearNames = ['霜冷九州', '罗汉金钟·冠', '无量净瓶'];
-
     return {
         ...base,
         id: 'demo-max',
@@ -154,9 +151,6 @@ function maxedCharacter(): CharacterData {
             ...group,
             rows: group.rows.map((row) => ({ ...row, level: row.cap })),
         })),
-        gear: base.gear.map((slot, index) =>
-            index < gearNames.length ? { ...slot, caption: gearNames[index] } : slot,
-        ),
         pets: [MAXED_PET],
     };
 }

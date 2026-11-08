@@ -234,9 +234,10 @@ describe('装备：整份进出', () => {
         ],
         lines: [{ label: '特技', value: '起死回生', tone: 'seal' }],
         foot: '制造者：欧冶子',
+        note: '任务用，暂不更换',
     };
 
-    it('八段一起贴回去，一段都不丢', () => {
+    it('整份装备字段与备注一起保存，不影响其他部位', () => {
         const character = withGear(base(), '头', '霜冷九州', detail);
         const next = applyGear(character, '头', { caption: '霜冷九州', detail });
         const slot = next.gear.find((one) => one.slot === '头');
@@ -265,6 +266,21 @@ describe('装备：整份进出', () => {
         expect(gem?.value.replace(/\u00A0/g, ' ')).toBe('太阳石 8 段');
     });
 
+    it('修改和清空装备备注只影响目标草稿，保存时去掉首尾空白', () => {
+        const character = withGear(base(), '头', '霜冷九州', detail);
+        const edited = applyGear(character, '头', {
+            caption: '霜冷九州',
+            detail: { ...detail, note: '  自用\n下次换装  ' },
+        });
+        expect(edited.gear.find((one) => one.slot === '头')?.detail?.note).toBe('自用\n下次换装');
+        const cleared = applyGear(edited, '头', {
+            caption: '霜冷九州',
+            detail: { ...detail, note: '' },
+        });
+        expect(cleared.gear.find((one) => one.slot === '头')?.detail?.note).toBeUndefined();
+        expect(character.gear.find((one) => one.slot === '头')?.detail?.note).toBe(detail.note);
+    });
+
     /* 空行判据必须与 `normalizeGearDetail` 一致：那边重载时会丢，这边保存时若不丢，
      * 就会出现「刚保存时浮片上多两行空白、重载后它们又不见了」。 */
     it('标签空的行清掉（属性 / 状态 / 特殊三处）', () => {
@@ -284,7 +300,7 @@ describe('装备：整份进出', () => {
         expect(slot?.detail?.lines).toHaveLength(1);
     });
 
-    it('名称与类型都空 → 这一格回到空位', () => {
+    it('详情全空 → 这一格回到空位', () => {
         const character = withGear(base(), '头', '霜冷九州', detail);
         const next = applyGear(character, '头', {
             caption: '',

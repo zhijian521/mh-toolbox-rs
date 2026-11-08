@@ -250,6 +250,54 @@ async function fetchJson(file: string): Promise<unknown> {
     return response.json();
 }
 
+export interface EquipmentName {
+    name: string;
+    group: string;
+    family: 'gear' | 'weapon' | 'lingshi';
+}
+
+export interface EquipmentEntry extends EquipmentName {
+    img: string;
+    level: number;
+}
+
+let equipmentNames: Promise<EquipmentEntry[]> | null = null;
+
+/** 角色页图标与装备识别共用名录，按需加载，不给启动增加请求；失败后可重试。 */
+export function loadEquipmentNames(): Promise<EquipmentEntry[]> {
+    equipmentNames ??= Promise.all(
+        (['gear', 'weapon', 'lingshi'] as const).map(async (family) => {
+            const raw = await fetchJson(`${family}-icons.json`);
+            const groups = (raw as { groups?: Record<string, unknown> })?.groups;
+            if (!groups || typeof groups !== 'object') {
+                throw new TypeError(`${family}-icons.json：缺少 groups`);
+            }
+            return Object.entries(groups).flatMap(([group, entries]) => {
+                if (!Array.isArray(entries)) throw new TypeError(`${family}-icons.json：无效分组`);
+                return entries.map((entry: unknown) => {
+                    const { name, img, level } = (entry ?? {}) as Partial<EquipmentEntry>;
+                    if (typeof name !== 'string' || !name.trim()) {
+                        throw new TypeError(`${family}-icons.json：缺少装备名`);
+                    }
+                    if (typeof img !== 'string' || !/^[\w-]+\.webp$/.test(img)) {
+                        throw new TypeError(`${family}-icons.json：无效图标文件名`);
+                    }
+                    if (typeof level !== 'number' || !Number.isFinite(level) || level < 0) {
+                        throw new TypeError(`${family}-icons.json：无效装备等级`);
+                    }
+                    return { name, group, family, img, level };
+                });
+            });
+        }),
+    )
+        .then((groups) => groups.flat())
+        .catch((error: unknown) => {
+            equipmentNames = null;
+            throw error;
+        });
+    return equipmentNames;
+}
+
 let pending: Promise<GameData> | null = null;
 
 /**

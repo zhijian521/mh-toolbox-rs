@@ -91,7 +91,6 @@ export interface QuickField {
     key: string;
     label: string;
     value: string;
-    placeholder?: string;
     /** 数字格（`CounterField`：大号数字 + 两侧加减）。 */
     numeric?: boolean;
     /** 数字格的小数位。0（缺省）= 整数，输入时就把小数点清掉。 */
@@ -162,7 +161,6 @@ export function quickPanel(character: CharacterData, target: QuickScalarTarget):
                         key: 'value',
                         label: target.label,
                         value,
-                        placeholder: '留空 = 还没记',
                         /* 四位数（气血 3916、寿命 4200）用 `'auto'`：一次 ±100 才顺手，
                          * 固定 1 那种加减等于让人点四百次。百位数落到 ±10，一位数 ±1。 */
                         numeric: true,
@@ -193,7 +191,6 @@ export function quickPanel(character: CharacterData, target: QuickScalarTarget):
                         precision: 1,
                         /* 四千多万的读数，一次 ±1 万要点四千下；按量级走，一次 ±100 万。 */
                         step: 'auto',
-                        placeholder: '如 3968.6',
                     },
                     {
                         key: 'need',
@@ -203,7 +200,6 @@ export function quickPanel(character: CharacterData, target: QuickScalarTarget):
                         unit: need === null ? '' : '万',
                         precision: 1,
                         step: 'auto',
-                        placeholder: '如 1414.2',
                     },
                 ],
             };
@@ -246,9 +242,6 @@ export function quickPanel(character: CharacterData, target: QuickScalarTarget):
                 .flatMap((group) => group.rows)
                 .find((one) => one.name === target.name);
             if (!row) return null;
-            /* 上限的占位字用**清单默认值**（20，育兽术 35）：那一格留空时，
-             * 屏幕上那个淡字就是「存下去会变成的数」，与编辑页同一手法。 */
-            const fallback = trainingDefaultCap(row.name);
             return {
                 title: `快速修改 · ${target.name}`,
                 fields: [
@@ -258,7 +251,6 @@ export function quickPanel(character: CharacterData, target: QuickScalarTarget):
                         label: '上限',
                         value: String(row.cap),
                         numeric: true,
-                        placeholder: fallback === undefined ? '' : String(fallback),
                     },
                 ],
             };
@@ -385,18 +377,8 @@ export function applyQuick(
 /**
  * 装备：把**整份**贴回某一格。
  *
- * 与上面五类的分别不是「字段多几个」，是**取舍不在几个字符串里**：一件装备有八段
- * （名称 / 类型 / 条件 / 属性 / 状态 / 特殊 / 风味 / 制造者），「哪些算填了」「空行怎么清」
- * 「名称与类型都空意味着什么」这些判断都属于这一件，不属于某一个输入框。所以调用方
- * 交一整份 `GearDetail` 过来，收尾在这里一次做完：
- *
- *   ① **空行清掉**（`label` 为空的属性 / 状态 / 特殊）——判据与 `normalizeGearDetail` 一致，
- *      否则「刚保存时多两行空白、重载后消失」；
- *   ② `name` 兜底成 `kind`（同上，那边也是 `name || kind`）；
- *   ③ 名称与类型都空 = 这一格没穿：`detail` 整份丢掉，连 `caption` 一起。
- *
- * `caption` 是**卡上显示的那个短名**，它是独立一格：只填了它、详情全空也算「穿了」，
- * 这正是老数据里那批「只有简称」的形状（`normalizeCharacter` 会保留它）。
+ * 空行与空详情统一交给 `normalizeGearDetail` 清理，与角色读档使用同一口径。
+ * `caption` 为旧记录的独立短名，也可为详情全名兜底；仅填属性或备注的详情仍保留。
  */
 export function applyGear(
     character: CharacterData,

@@ -154,14 +154,14 @@ export async function setup(ctx) {
         t.check('慢写也确实落库，重载后仍在', await ui.waitText('E2E慢写区'));
     });
 
-    /* ---- 装备编辑：十二个部位常驻左栏（2026-11-05，方案 E2） ----
+    /* ---- 装备编辑：十二个部位图标常驻（2026-11-08） ----
      * 这一节以前是空的：装备整条路径一条断言都没有。改版之后交互全换了
-     * （十二行折叠 → 左栏目录 + 右侧详情），所以钉住三件事：十二格在不在、
+     * （部位图标 + 原图和详情），所以钉住三件事：十二格在不在、
      * 点一格右侧是否跟着换、填进去的名字保存后是否落到卡上。
      *
      * **只填「装备名」、不填全名**——这是最常见的一种录法，也是判据最容易写错的一处：
      * 卡上「有没有这件」认的是 `detail` 或 `caption`，任一边漏了，名字就会存着却看不见。 */
-    await t.step('装备：左栏十二格，选中即编，保存后上卡', async () => {
+    await t.step('装备：十二部位图标，选中即编，保存后上卡', async () => {
         await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
             throw new Error('编辑态没打开');
@@ -169,19 +169,19 @@ export async function setup(ctx) {
         await ui.clickText('.editor-tabs button', '装备');
         await sleep(300);
 
-        const rails = await ui.count('.editor .rail-item');
-        t.check('左栏十二个部位', rails === 12, `实际 ${rails}`);
+        const rails = await ui.count('.gear-editor .gear-slot');
+        t.check('十二个部位图标', rails === 12, `实际 ${rails}`);
 
         // 空白折叠在两个空格之间可能变成一个换行，比之前先压平。
-        const head = async () => (await ui.text('.editor .rail-head')).replace(/\s+/g, ' ').trim();
+        const head = async () =>
+            (await ui.text('.gear-editor .gear-count')).replace(/\s+/g, ' ').trim();
         t.check('顶端计数从 0 起', (await head()).includes('0 / 12'), await head());
 
-        /* 换部位**不改变页面高度**（这是 E2 与折叠列表最大的差别），所以判据只能读右侧
-         * 标题，不能像以前那样靠「内容变长了」。 */
-        await ui.clickText('.editor .rail-item', '武器');
+        /* 换部位后，详情纸片和选中图标同时更新。 */
+        await ui.clickText('.gear-editor .gear-slot', '武器');
         await sleep(250);
         const heading = await cdp.evaluate(
-            `document.querySelector('.editor .det-title b')?.textContent?.trim() ?? ''`,
+            `document.querySelector('.editor .gear-name .field-label')?.textContent?.trim() ?? ''`,
         );
         t.check('右侧切到武器', heading === '武器', `标题是「${heading}」`);
 
@@ -232,11 +232,8 @@ export async function setup(ctx) {
         );
     });
 
-    /* ---- 左栏那枚 ×（2026-11-06）----
-     * 两页同一个位置、同一个符号，**动作不是一回事**：装备是「清空这一件」
-     * （十二个部位是游戏定的，行不能少），召唤兽才是「真的删掉这一只」。
-     * 所以这里先验清空：行数一点不变、计数归零、× 自己消失。 */
-    await t.step('装备：左栏 × 只清空这一件，十二格一行不少', async () => {
+    /* 装备清空只影响当前这一件，十二个部位图标保留。召唤兽仍用原有左栏删除。 */
+    await t.step('装备：清空当前件，十二部位保留', async () => {
         await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
             throw new Error('编辑态没打开');
@@ -244,21 +241,21 @@ export async function setup(ctx) {
         await ui.clickText('.editor-tabs button', '装备');
         await sleep(300);
 
-        /* × 只在**填了的部位**上出现：十二行里只有武器有内容。 */
-        const kills = await ui.count('.editor .rail-kill');
-        t.check('只有填了的那一件有 ×', kills === 1, `实际 ${kills} 枚`);
+        /* 清空只在当前部位有内容时出现。 */
+        const kills = await ui.count('.gear-editor button[aria-label^="清空"]');
+        t.check('当前有内容的武器显示清空', kills === 1, `实际 ${kills} 枚`);
 
         await ui.clickLabelPrefix('清空武器');
         await sleep(350);
 
-        const rows = await ui.count('.editor .rail-item');
-        t.check('清空后十二行一行不少', rows === 12, `实际 ${rows} 行`);
-        const head = (await ui.text('.editor .rail-head')).replace(/\s+/g, ' ').trim();
+        const rows = await ui.count('.gear-editor .gear-slot');
+        t.check('清空后十二部位保留', rows === 12, `实际 ${rows} 行`);
+        const head = (await ui.text('.gear-editor .gear-count')).replace(/\s+/g, ' ').trim();
         t.check('清空后计数归零', head.includes('0 / 12'), head);
         t.check(
-            '清空后 × 自己消失',
-            (await ui.count('.editor .rail-kill')) === 0,
-            `还剩 ${await ui.count('.editor .rail-kill')} 枚`,
+            '清空后清空按钮消失',
+            (await ui.count('.gear-editor button[aria-label^="清空"]')) === 0,
+            `还剩 ${await ui.count('.gear-editor button[aria-label^="清空"]')} 枚`,
         );
 
         await ui.clickLabel('保存这个角色');

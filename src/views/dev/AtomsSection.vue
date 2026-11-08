@@ -471,11 +471,7 @@ const demoToggles = ref<string[]>(['task']);
                                 class="kit-field-num"
                                 @update:model-value="demoLevel = $event"
                             />
-                            <input
-                                class="field kit-field-num"
-                                placeholder="上限"
-                                aria-label="演示：留空的上限"
-                            />
+                            <input class="field kit-field-num" aria-label="演示：留空的上限" />
                         </div>
                         <div class="kit-row">
                             <textarea

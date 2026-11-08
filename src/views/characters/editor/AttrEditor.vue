@@ -49,7 +49,6 @@ const experience = defineModel<ExpRow>('experience', { required: true });
                         v-model="row.value"
                         class="field num value-field num-slot"
                         :aria-label="row.label"
-                        :placeholder="`${row.label}值`"
                     />
                 </label>
             </div>
@@ -69,7 +68,6 @@ const experience = defineModel<ExpRow>('experience', { required: true });
                             v-model="experience.value"
                             class="field num value-field num-slot exp-field"
                             aria-label="当前经验"
-                            placeholder="如 3,777.2万"
                         />
                     </span>
                     <span class="exp-cell">
@@ -78,7 +76,6 @@ const experience = defineModel<ExpRow>('experience', { required: true });
                             v-model="experience.need"
                             class="field num value-field num-slot exp-field"
                             aria-label="升级所需经验"
-                            placeholder="如 4,200万"
                         />
                     </span>
                 </div>
@@ -172,10 +169,5 @@ const experience = defineModel<ExpRow>('experience', { required: true });
 /* 经验那两格：`3,777.2万` 这类长串要放得下，沿用原来的 104。 */
 .exp-field {
     width: calc(104px * var(--fs-scale));
-}
-/* 空格的提示字比常规 placeholder 再淡一档：纸带上的「气血值」只是标位，
- * 浓了会被当成填进去的内容。 */
-.value-field::placeholder {
-    color: color-mix(in srgb, var(--muted) 72%, transparent);
 }
 </style>

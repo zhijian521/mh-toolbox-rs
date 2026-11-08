@@ -2,84 +2,24 @@ import { describe, expect, it } from 'vitest';
 import { GEAR_ACTIVES, GEAR_SPECIALS, gearBrief, type BriefGroup, type GearSlot } from './gear';
 import { CHARACTERS } from './mock';
 
-/**
- * 装备「特效」与「特技」必须是真实存在的词。
- *
- * 起因：`mock.ts` 里一度写着「特效：变化之术」与「特效：回春之术（4 级）」。
- * 前者是**剧情技能**（不是装备特效，也不是特技），后者这个游戏里根本没有。
- * 两处都照常渲染，看起来还挺像——这类错误的失败方式就是这样：编出来的名字
- * 往往比真名更"合理"，越合理越难被发现。
- *
- * **特效与特技不是一类**：特效是被动属性（神佑、愤怒、简易），
- * 特技是消耗愤怒值主动放的技能（起死回生、慈航普度、破血狂攻）。
- * 所以分两张表、两条断言，不合并成一张「装备词表」——合并之后
- * 「把特技填进特效栏」就不再是错误了，而这恰恰是最容易犯的错。
- */
-const specials = new Set<string>(GEAR_SPECIALS);
-const actives = new Set<string>(GEAR_ACTIVES);
-
-/** 「神农（4 级）」→「神农」。游戏会在特效后面缀等级，表里只存名字。 */
-function bareName(value: string): string {
-    return value.replace(/（.*?）$/, '').trim();
-}
-
-describe('装备特效', () => {
-    it('每个「特效」行都是真实特效名', () => {
-        for (const character of CHARACTERS) {
-            for (const slot of character.gear) {
-                for (const line of slot.detail?.lines ?? []) {
-                    if (line.label !== '特效') continue;
-                    expect(
-                        specials.has(bareName(line.value)),
-                        `${character.name} 的${slot.slot}写着「特效：${line.value}」——特效表里没有这个词`,
-                    ).toBe(true);
-                }
-            }
-        }
+describe('装备词表与空白演示数据', () => {
+    it('特技和特效各自去重，主动与被动不混用', () => {
+        expect(new Set(GEAR_SPECIALS).size).toBe(GEAR_SPECIALS.length);
+        expect(new Set(GEAR_ACTIVES).size).toBe(GEAR_ACTIVES.length);
+        expect(GEAR_SPECIALS).toContain('神佑');
+        expect(GEAR_SPECIALS).not.toContain('起死回生');
+        expect(GEAR_ACTIVES).toContain('起死回生');
+        expect(GEAR_ACTIVES).not.toContain('神佑');
     });
-
-    it('特效表内部没有重复项', () => {
-        expect(new Set(GEAR_SPECIALS).size, '特效表有重复').toBe(GEAR_SPECIALS.length);
+    it('演示角色保留十二个空部位，不再生成旧装备与摘要值', () => {
+        for (const character of CHARACTERS) {
+            expect(character.gear).toHaveLength(12);
+            expect(character.gear.every((one) => !one.caption && !one.detail)).toBe(true);
+            expect(character.gearMeta).toEqual({ special: '', suit: '' });
+        }
     });
 });
 
-describe('装备特技', () => {
-    it('每个「特技」行都是真实特技名', () => {
-        for (const character of CHARACTERS) {
-            for (const slot of character.gear) {
-                for (const line of slot.detail?.lines ?? []) {
-                    if (line.label !== '特技') continue;
-                    expect(
-                        actives.has(bareName(line.value)),
-                        `${character.name} 的${slot.slot}写着「特技：${line.value}」——特技表里没有这个词`,
-                    ).toBe(true);
-                }
-            }
-        }
-    });
-
-    it('卡片底部的特技摘要也是真实特技名', () => {
-        for (const character of CHARACTERS) {
-            expect(
-                actives.has(character.gearMeta.special),
-                `${character.name} 的特技摘要写着「${character.gearMeta.special}」——特技表里没有这个词`,
-            ).toBe(true);
-        }
-    });
-
-    it('特技表内部没有重复项', () => {
-        expect(new Set(GEAR_ACTIVES).size, '特技表有重复').toBe(GEAR_ACTIVES.length);
-    });
-});
-
-/**
- * 版心摘要（卡上装备页中央那块）。
- *
- * 它**一个字都不另存**，全部从十二件装备的 `detail` 现算——所以这里测的不是
- * 「渲染对不对」，是**取数口径**：哪一行从哪一条字段来、重复的要不要去掉、
- * 「空」怎么处理、`detail` 全没有时回落到哪里。这些错了界面上不会报错，
- * 只会显示一串在游戏里不成立的话（比如把「空」当成一个特技）。
- */
 describe('版心摘要', () => {
     /** 摘要里的不换行空格换成普通空格再比，测试读起来才不会被 `\u00A0` 淹掉。 */
     const plain = (value: string) => value.replace(/\u00A0/g, ' ');
@@ -110,24 +50,61 @@ describe('版心摘要', () => {
         ]);
     });
 
-    it('从 mock 那套真实截图数据里读得出全部七项', () => {
-        const hero = CHARACTERS[0];
-        const rows = rowsOf(gearBrief(hero.gear, hero.gearMeta));
+    it('按独立的装备记录汇总全部七项，不依赖页面演示数据', () => {
+        const gear = [
+            slot('头', {
+                stats: [],
+                cond: [
+                    { label: '镶嵌宝石', value: '太阳石' },
+                    { label: '锻炼等级', value: '5' },
+                ],
+                lines: [
+                    { label: '特技', value: '起死回生' },
+                    { label: '套装', value: '天罡 5 / 5' },
+                ],
+            }),
+            slot('武器', {
+                stats: [],
+                cond: [
+                    { label: '镶嵌宝石', value: '红玛瑙' },
+                    { label: '锻炼等级', value: '4' },
+                ],
+            }),
+            ...(['戒指', '耳饰', '配饰', '手镯'] as const).map((name, index) =>
+                slot(name, {
+                    stats: [],
+                    cond: [
+                        { label: '精炼等级', value: ['4', '3', '3', '2'][index] },
+                        ...(index === 1 ? [{ label: '钟灵石', value: '3 段' }] : []),
+                    ],
+                }),
+            ),
+            slot('玉魄·阴', {
+                stats: [],
+                cond: [{ label: '灵尘等级', value: '3' }],
+                lines: [{ label: '奇袭道具', value: '空' }],
+            }),
+            slot('玉魄·阳', {
+                stats: [],
+                cond: [{ label: '灵尘等级', value: '2' }],
+                lines: [{ label: '奇袭特技', value: '空' }],
+            }),
+        ];
+        const rows = rowsOf(gearBrief(gear, { special: '', suit: '' }));
         expect(rows['特技']).toBe('起死回生');
-        expect(rows['套装']).toBe('天罡 5 / 5 · 治疗能力 +24（已生效）');
+        expect(rows['套装']).toBe('天罡 5 / 5');
         expect(rows['宝石']).toBe('太阳石 5 段 · 红玛瑙 4 段');
         expect(rows['灵饰']).toBe('精炼 4 / 3 / 3 / 2');
         expect(rows['钟灵石']).toBe('3 段');
         expect(rows['玉魄']).toBe('灵尘 3 / 2');
-        // 两枚玉魄的奇袭栏都写着「空」——摘要里跳过，落成空串（卡上画淡「—」）。
         expect(rows['奇袭']).toBe('');
     });
 
     it('同一套效果写在两件上只算一次', () => {
-        /* 第二个角色把「慈悲 3/5」写在了两件装备上（照截图原样）。不去重的话
-         * 卡上会读成「凑了两套」，而它其实是同一套。 */
-        const other = CHARACTERS[1];
-        const rows = rowsOf(gearBrief(other.gear, other.gearMeta));
+        const gear = ['头', '衣服'].map((name) =>
+            slot(name, { stats: [], lines: [{ label: '套装', value: '慈悲 3/5' }] }),
+        );
+        const rows = rowsOf(gearBrief(gear, { special: '', suit: '' }));
         expect(rows['套装']).toBe('慈悲 3 / 5');
     });
 

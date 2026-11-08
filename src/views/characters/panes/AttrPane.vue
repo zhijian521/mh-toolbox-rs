@@ -138,7 +138,6 @@ const expText = computed(() => {
                                 class="field num num-slot attr-field"
                                 :value="row.value"
                                 :aria-label="row.label"
-                                placeholder="—"
                                 @change="commit(row.label, $event)"
                                 @keydown.enter="commit(row.label, $event)"
                             />
@@ -174,7 +173,6 @@ const expText = computed(() => {
                     class="field num num-slot exp-field"
                     :value="experience.value"
                     aria-label="当前经验"
-                    placeholder="当前"
                     @change="commit('experience.value', $event)"
                     @keydown.enter="commit('experience.value', $event)"
                 />
@@ -183,7 +181,6 @@ const expText = computed(() => {
                     class="field num num-slot exp-field"
                     :value="experience.need"
                     aria-label="升级所需经验"
-                    placeholder="所需"
                     @change="commit('experience.need', $event)"
                     @keydown.enter="commit('experience.need', $event)"
                 />

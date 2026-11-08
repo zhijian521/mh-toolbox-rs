@@ -39,6 +39,7 @@ const props = defineProps<{ character: CharacterData; isNew: boolean }>();
 const emit = defineEmits<{ save: [character: CharacterData]; cancel: [] }>();
 
 const draft = ref<CharacterData>(normalizeCharacter(props.character));
+const gearReading = ref(false);
 const pane = ref<PaneKey>('attrs');
 
 const PANE_OPTIONS = PANES.map((item) => ({ value: item.key, label: item.label }));
@@ -99,7 +100,7 @@ if (!draft.value.skills.length && draft.value.school) {
 /* 名字是唯一的必填项：卡片、页签、浮片全拿它当标识，空名字的卡在名册里
  * 就是一张读不出是谁的白纸。其余字段一律可以先空着，慢慢补。 */
 const trimmedName = computed(() => draft.value.name.trim());
-const canSave = computed(() => trimmedName.value.length > 0);
+const canSave = computed(() => trimmedName.value.length > 0 && !gearReading.value);
 
 function save() {
     if (!canSave.value) return;
@@ -139,6 +140,7 @@ onMounted(async () => {
         <section
             ref="panel"
             class="editor frame"
+            :class="{ 'gear-wide': pane === 'gear' }"
             role="dialog"
             :aria-modal="isTop ? 'true' : undefined"
             :aria-hidden="isTop ? undefined : 'true'"
@@ -226,6 +228,7 @@ onMounted(async () => {
             </div>
 
             <SteppedSlider
+                v-if="pane !== 'gear'"
                 class="editor-tabs"
                 :model-value="pane"
                 :options="PANE_OPTIONS"
@@ -290,7 +293,20 @@ onMounted(async () => {
                     role="tabpanel"
                     aria-labelledby="editor-tab-gear"
                 >
-                    <GearEditor v-model="draft.gear" />
+                    <GearEditor v-model="draft.gear" @busy="gearReading = $event">
+                        <template #tabs>
+                            <SteppedSlider
+                                v-if="pane === 'gear'"
+                                class="editor-tabs editor-gear-tabs"
+                                :model-value="pane"
+                                :options="PANE_OPTIONS"
+                                as="tab"
+                                prefix="editor"
+                                label="编辑分区"
+                                @update:model-value="pane = $event"
+                            />
+                        </template>
+                    </GearEditor>
                 </section>
 
                 <section
@@ -361,6 +377,9 @@ onMounted(async () => {
      * 踩过同一个坑。 */
     --editor-pad-x: 16px;
 }
+.editor.gear-wide {
+    width: min(940px, 100%);
+}
 
 .editor-head {
     display: flex;
@@ -427,6 +446,11 @@ onMounted(async () => {
     /* 与卡内页签同高（`--step-pad-y: 6px` → 格子 29、整条 35，实测）：同一枚控件在两处出现，
      * 一薄一厚会读成两个不同年代的版本。横向不收紧——这里每格 102.7，够宽。 */
     --step-pad-y: 6px;
+}
+.editor-gear-tabs {
+    margin: 0;
+    --step-pad-y: 6px;
+    --step-pad-x: 10px;
 }
 
 /* 内容区是唯一滚动的一段。`scrollbar-gutter: stable` 与卡内正文同一条理由：

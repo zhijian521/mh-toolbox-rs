@@ -76,29 +76,16 @@ export const GEAR_LAYOUT: Record<GearSlotName, { col: number; row: number }> = {
 };
 
 /**
- * 每格里的**示意图**（`public/game/icons/` 下的相对路径）。`null` = 没有图，画淡印。
- *
- * 图库是「品类样图」：七个品类各 11 件（60–160 级，`game/data/gear-icons.json`
- * 有 83 个真实装备名），灵饰 4 部位 × 5 级（60–140，
- * `game/data/lingshi-icons.json`）。玩家那件装备的名字大多不在这 83 个名字里，
- * 所以这里**按部位取一张代表图**，不按装备名查：按名查会让同一格在不同号上
- * 时有时无，而这一格要回答的是「这里穿的是什么」，图只是让格子立起来。
- *
- * 武器仍是 `null`。武器 231 张已经入库（`game/data/weapon-icons.json`，
- * 21 组 × 等级，双巨斧拆乾/坤），但没有「武器」这一格的代表图；这一格画一枚淡印 + 首字，
- * 不留破图；要填只改这里，**不用动组件**。
- *
- * 玉魄那两格 2026-11-05 起有图了（第 116 批）：客户端里「上古玉魄·阴 / ·阳」各有一张
- * 120 大图，导进 `icons/yupo/`。**这张表存的是客户端名 `yupo-yin`，格子的 key 是装备名
- * `玉魄·阴`**——两者差一个「上古」前缀，别照着 key 拼文件名。
+ * 默认图（`public/game/icons/` 相对路径）：常规装备使用 60 级图，玉魄按阴阳固定。
+ * 实际名称、性别和武器类别的匹配统一由 `gear-icons.ts` 处理。
  */
 export const GEAR_SLOT_ICON: Record<GearSlotName, string | null> = {
-    头: 'gear/gear-toukui-03.webp',
-    项链: 'gear/gear-xianglian-05.webp',
-    武器: null,
-    衣服: 'gear/gear-nvyi-05.webp',
-    腰带: 'gear/gear-yaodai-05.webp',
-    鞋子: 'gear/gear-xiezi-05.webp',
+    头: 'gear/gear-toukui-01.webp',
+    项链: 'gear/gear-xianglian-01.webp',
+    武器: 'weapon/weapon-jian-060.webp',
+    衣服: 'gear/gear-kaijia-01.webp',
+    腰带: 'gear/gear-yaodai-01.webp',
+    鞋子: 'gear/gear-xiezi-01.webp',
     戒指: 'lingshi/ling-jiezhi-060.webp',
     耳饰: 'lingshi/ling-ershi-060.webp',
     配饰: 'lingshi/ling-peishi-060.webp',
@@ -241,10 +228,14 @@ export const GEAR_ACTIVES = [
 /** 配色的三个语义档：朱（特技）、赭（套装）、苔（打造附加）。 */
 export type GearTone = 'seal' | 'ochre' | 'moss';
 
+export type GearStatGroup = 'base' | 'extra' | 'gem' | 'melt';
+
 /** 装备的一条属性。 */
 export interface GearStat {
     label: string;
     value: string;
+    /** 手工录入的属性分类；截图未给分类时由部位与词条判断。 */
+    group?: GearStatGroup;
     /**
      * 方括号里的那个数，如 `物理暴击等级 +8 [+16]` 的 `+16`。
      * 游戏里它是「精炼/灵尘能推到多少」，与前面的值差一档颜色。
@@ -278,6 +269,8 @@ export interface GearDetail {
     lines?: { label: string; value: string; tone?: GearTone }[];
     /** 制造者之类。 */
     foot?: string;
+    /** 自用备注，与截图识别出的装备属性分开保存。 */
+    note?: string;
 }
 
 /** 一格。`detail` 缺席即空位——**空位要占格**，否则「少一件」与「没这一格」分不开。 */
@@ -286,6 +279,20 @@ export interface GearSlot {
     /** 格内显示的短名，通常是装备名；太长会省略号截断。 */
     caption?: string;
     detail?: GearDetail;
+}
+
+/** 只填属性或备注也算内容；预置的空输入行不算一件装备。 */
+export function hasGearDetail(detail: GearDetail | undefined): boolean {
+    if (!detail) return false;
+    return Boolean(
+        [detail.name, detail.kind, detail.flavor, detail.foot, detail.note].some((value) =>
+            value?.trim(),
+        ) ||
+        detail.requires?.some((value) => value.trim()) ||
+        [...detail.stats, ...(detail.cond ?? []), ...(detail.lines ?? [])].some(
+            (row) => row.value.trim() || ('extra' in row && row.extra?.trim()),
+        ),
+    );
 }
 
 /* ======================================================================

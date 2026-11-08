@@ -15,16 +15,32 @@ import { matchIcons } from './matcher';
 import { useOcrImage } from './use-ocr-image';
 import { applySkillPanel, parseSkillPanel, type SkillPanelResult } from './skill-panel';
 import { applyTrainingPanel, parseTrainingPanel, type TrainingPanelResult } from './training-panel';
+import GearEditor from '../editor/GearEditor.vue';
+import type { GearSlot } from '../gear';
+import { normalizeCharacter } from '../roster';
 
 /** 识别只改草稿，确认应用后仍走名册的统一保存入口。 */
 const props = withDefaults(defineProps<{ character: CharacterData; pane?: PaneKey }>(), {
     pane: 'attrs',
 });
 const emit = defineEmits<{ apply: [character: CharacterData]; close: [] }>();
+const gearDraft = ref<GearSlot[]>(JSON.parse(JSON.stringify(props.character.gear)));
+const gearReading = ref(false);
+const gearCharacter = computed(() =>
+    normalizeCharacter({ ...props.character, gear: gearDraft.value }),
+);
+const gearChanged = computed(
+    () =>
+        JSON.stringify(gearCharacter.value.gear) !==
+        JSON.stringify(normalizeCharacter(props.character).gear),
+);
 
-type PaneMode = 'attrs' | 'skills' | 'assist' | 'training';
+type PaneMode = 'attrs' | 'skills' | 'assist' | 'training' | 'gear';
 const pane = ref<PaneMode>(
-    props.pane === 'skills' || props.pane === 'assist' || props.pane === 'training'
+    props.pane === 'skills' ||
+        props.pane === 'assist' ||
+        props.pane === 'training' ||
+        props.pane === 'gear'
         ? props.pane
         : 'attrs',
 );
@@ -33,6 +49,7 @@ const PANES: { value: PaneMode; label: string }[] = [
     { value: 'skills', label: '师门' },
     { value: 'assist', label: '辅助' },
     { value: 'training', label: '修炼' },
+    { value: 'gear', label: '装备' },
 ];
 
 type PanelResult =
@@ -41,7 +58,7 @@ type PanelResult =
     | { pane: 'assist'; value: AssistPanelResult }
     | { pane: 'training'; value: TrainingPanelResult };
 const { result, shotUrl, rawLines, busy, error, takeFile, classify } =
-    useOcrImage<PanelResult>(parse);
+    useOcrImage<PanelResult | null>(parse);
 const attrResult = computed(() => (result.value?.pane === 'attrs' ? result.value.value : null));
 const skillResult = computed(() => (result.value?.pane === 'skills' ? result.value.value : null));
 const assistResult = computed(() => (result.value?.pane === 'assist' ? result.value.value : null));
@@ -59,6 +76,7 @@ const hitCount = computed(() => {
 const totalCount = computed(() => result.value?.value?.total ?? 0);
 
 const merged = computed(() => {
+    if (pane.value === 'gear') return gearCharacter.value;
     const current = result.value;
     if (!current?.value) return null;
     switch (current.pane) {
@@ -73,14 +91,19 @@ const merged = computed(() => {
     }
     return null;
 });
-const editableNow = computed(() => Boolean(result.value?.value));
+const editableNow = computed(() => pane.value !== 'gear' && Boolean(result.value?.value));
 const preview = computed(() => {
     const base = merged.value ?? props.character;
     return { ...base, id: `${base.id}-preview` };
 });
-const canApply = computed(() => !busy.value && Boolean(merged.value) && hitCount.value > 0);
+const canApply = computed(() =>
+    pane.value === 'gear'
+        ? !gearReading.value && gearChanged.value
+        : !busy.value && Boolean(merged.value) && hitCount.value > 0,
+);
 
 function onPaste(event: ClipboardEvent) {
+    if (pane.value === 'gear') return;
     const items = event.clipboardData?.items;
     if (!items) return;
     for (const item of items) {
@@ -108,6 +131,9 @@ function onPick(event: Event) {
 }
 
 async function parse(lines: OcrLine[], image: ImageData) {
+    if (pane.value === 'gear') {
+        return { result: null };
+    }
     if (pane.value === 'attrs') {
         const value = parseAttrPanel(lines);
         return {
@@ -156,8 +182,14 @@ async function parse(lines: OcrLine[], image: ImageData) {
     };
 }
 
-// 切分区重解析当前图；辅助缺等级时只补认等级格。
-watch(pane, () => void classify(), { flush: 'sync' });
+// 装备有独立的多图草稿，其他分区共用原图和 OCR 原文。
+watch(
+    pane,
+    (value) => {
+        if (value !== 'gear') void classify();
+    },
+    { flush: 'sync' },
+);
 
 const OCR_KEY: Record<string, string> = {
     'experience.value': 'expValue',
@@ -210,16 +242,30 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
     <ModalShell
         :title="`截图识别 · ${character.name || '未命名'}`"
         :width="940"
+        :min-height="'min(740px, calc(100vh - 48px))'"
         fill
         @close="emit('close')"
     >
-        <div class="ocr">
-            <section class="ocr-left">
+        <div class="ocr" :class="{ 'ocr-gear': pane === 'gear' }">
+            <GearEditor v-show="pane === 'gear'" v-model="gearDraft" @busy="gearReading = $event">
+                <template #tabs>
+                    <SteppedSlider
+                        v-if="pane === 'gear'"
+                        class="ocr-tabs"
+                        :model-value="pane"
+                        :options="PANES"
+                        label="识别分区"
+                        @update:model-value="pane = $event"
+                    />
+                </template>
+            </GearEditor>
+            <section v-show="pane !== 'gear'" class="ocr-left">
                 <div class="ocr-bar">
                     <!-- 与卡上那六个页签**同一条控件**（凹槽 + 会落格的朱印），
                          不传 `as="tab"`：这里没有「对应的面板元素」可指，
                          `aria-controls` 会指向一个不存在的 id。视觉相同，语义留给单选组。 -->
                     <SteppedSlider
+                        v-if="pane !== 'gear'"
                         v-model="pane"
                         class="ocr-tabs"
                         :options="PANES"
@@ -290,7 +336,7 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
                  `pane` 跟着分区走：认的是师门面板就翻到师门页，认完不用自己点过去。
                  `tabs: false`：这张卡是预览，不长那条六页签的轨道——那张条是一句
                  「你可以去别的页」的邀请，而这里只显示刚认的那一页。 -->
-            <aside class="ocr-right">
+            <aside v-show="pane !== 'gear'" class="ocr-right">
                 <div class="ocr-card">
                     <CharacterCard
                         :character="preview"
@@ -342,6 +388,9 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
     gap: 16px;
     min-height: 0;
 }
+.ocr.ocr-gear {
+    grid-template-columns: minmax(0, 1fr);
+}
 
 .ocr-left {
     display: flex;
@@ -356,14 +405,12 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
     flex: none;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
 }
-/* 分区切换**与卡内那条页签条是同一个控件**（`SteppedSlider`：凹槽 + 一枚会落格的朱印），
- * 只把尺寸收到「两格一行」：`--step-pad-y` 仍取 6（与页签条同高 35，字一样大），
- * `--step-pad-x` 从卡上的 4 放回 14——卡上收到 4 是因为六格要塞进 450，这里只有两格。
- * 不写 `width: 100%`：`inline-grid` 收缩到内容宽，两格不该被拉成一整条。 */
+/* 与卡内页签共用滑轨，五个分区按内容收宽，计数不足一行时移到下一行。 */
 .ocr-tabs {
     --step-pad-y: 6px;
-    --step-pad-x: 14px;
+    --step-pad-x: 10px;
 }
 /* 认出几项：贴右。它是这一屏唯一一个「进度」读数，字号与页签条同一档，
  * 靠 `margin-left: auto` 自己走到边上去——左栏没有别的右对齐内容去挤它。 */

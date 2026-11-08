@@ -4,7 +4,7 @@
  * **字段是真的，值只对了一半**：结构、分组、部位、修炼项全部照 2026-11-02 拍的
  * 13 张游戏截图定；但只有 `归ω岚` 一个角色的数据是逐项从截图上读下来的，
  * `云中鹤` 用同一套字段编的——为了验证版式在「数据多少不一」时不塌（五开五个号，
- * 每个号的技能条数、装备件数都不一样）。
+ * 每个号的技能条数、属性值都不一样）。
  *
  * 两处**明确是占位**，等补：
  * 1. 辅助技能的**名字**已按图标对上五个（见 `assists` 上方注释），
@@ -12,13 +12,16 @@
  *    等级 `100/56/50/40/32/2/1/1` 是截图上的真值。
  * 2. 召唤兽的**技能名**。截图里技能图标能看清形状、看不清字。
  *
+ * 装备旧样例已清空（2026-11-08）：十二部位留空，按部位规则录入真实数据。
+ *
  * 换成真实数据时**只换数据源，不动模板**——`CharacterCard` 的入参就是
  * `character.ts` 里的 `CharacterData`。
  *
  * 不放进 `services/`：`ghost-*.ts` 那一套有解析、有兜底、有单测，是业务逻辑；
- * 这里没有一行逻辑，只有字面量，放在页面旁边才不会让人以为它算半个数据层。
+ * 这里只放演示值与空部位骨架，放在页面旁边才不会让人以为它算半个数据层。
  */
 import type { CharacterData } from './character';
+import { GEAR_SLOTS } from './gear';
 
 export const CHARACTERS: CharacterData[] = [
     {
@@ -143,249 +146,8 @@ export const CHARACTERS: CharacterData[] = [
             },
         ],
         /* 12 格铺满：前 6 件人物装备、接着 4 件灵饰、最后 2 件玉魄。 */
-        gear: [
-            {
-                slot: '头',
-                caption: '黑魔冠',
-                detail: {
-                    name: '黑魔冠',
-                    flavor: '魔王妖王常戴的冠帽，有相当的防御力。',
-                    kind: '帽子',
-                    requires: ['等级 80', '男'],
-                    stats: [
-                        { label: '防御', value: '+45' },
-                        { label: '魔法', value: '+80' },
-                        { label: '伤害', value: '+40', gain: true },
-                    ],
-                    cond: [
-                        { label: '耐久度', value: '941' },
-                        { label: '锻炼等级', value: '5' },
-                        { label: '镶嵌宝石', value: '太阳石' },
-                    ],
-                    lines: [{ label: '特技', value: '起死回生', tone: 'seal' }],
-                },
-            },
-            {
-                slot: '项链',
-                caption: '碧玉瓒',
-                detail: {
-                    name: '碧玉瓒',
-                    kind: '项链',
-                    requires: ['等级 120', '女'],
-                    stats: [
-                        { label: '灵力', value: '+186' },
-                        { label: '法力上限', value: '+240' },
-                    ],
-                    cond: [
-                        { label: '耐久度', value: '620' },
-                        { label: '锻炼等级', value: '3' },
-                    ],
-                },
-            },
-            {
-                slot: '武器',
-                caption: '飞龙在天',
-                detail: {
-                    name: '飞龙在天',
-                    flavor: '曾为文殊菩萨降妖密宝，如今幻化为一杆金龙宝枪。此枪掷出可化为飞龙，从万丈高空俯冲而下，撕碎敌人。',
-                    kind: '长枪 · 女',
-                    requires: ['等级 130', '五行 木'],
-                    stats: [
-                        { label: '伤害', value: '+466' },
-                        { label: '命中', value: '+660' },
-                        { label: '体质', value: '+37', gain: true },
-                    ],
-                    cond: [
-                        { label: '耐久度', value: '191' },
-                        { label: '修理失败', value: '1 次' },
-                        { label: '锻炼等级', value: '4' },
-                        { label: '镶嵌宝石', value: '红玛瑙' },
-                    ],
-                    foot: '制造者：神兵的制作师强化打造',
-                },
-            },
-            {
-                slot: '衣服',
-                caption: '流云素纱',
-                detail: {
-                    name: '流云素纱',
-                    kind: '女衣',
-                    requires: ['等级 130', '女'],
-                    stats: [
-                        { label: '防御', value: '+312' },
-                        { label: '气血上限', value: '+480' },
-                        { label: '耐力', value: '+24', gain: true },
-                    ],
-                    cond: [
-                        { label: '耐久度', value: '540' },
-                        { label: '锻炼等级', value: '4' },
-                    ],
-                    lines: [{ label: '套装', value: '天罡 5 / 5', tone: 'ochre' }],
-                },
-            },
-            {
-                slot: '腰带',
-                caption: '乾坤带',
-                detail: {
-                    name: '乾坤带',
-                    kind: '腰带',
-                    requires: ['等级 120'],
-                    stats: [
-                        { label: '防御', value: '+58' },
-                        { label: '速度', value: '+34' },
-                        { label: '体质', value: '+16', gain: true },
-                    ],
-                    cond: [
-                        { label: '耐久度', value: '480' },
-                        { label: '锻炼等级', value: '3' },
-                    ],
-                    lines: [{ label: '特效', value: '愤怒', tone: 'seal' }],
-                },
-            },
-            {
-                slot: '鞋子',
-                caption: '踏云履',
-                detail: {
-                    name: '踏云履',
-                    kind: '鞋子',
-                    requires: ['等级 120'],
-                    stats: [
-                        { label: '防御', value: '+74' },
-                        { label: '速度', value: '+42' },
-                        { label: '敏捷', value: '+18', gain: true },
-                    ],
-                    cond: [
-                        { label: '耐久度', value: '500' },
-                        { label: '锻炼等级', value: '3' },
-                    ],
-                },
-            },
-            /* ---------- 灵饰 4 件：多「精炼等级」，戒指的套装效果照截图原样 ---------- */
-            {
-                slot: '戒指',
-                caption: '芙蓉戒',
-                detail: {
-                    name: '芙蓉戒',
-                    flavor: '涉江采芙蓉，饰于白玉之上，是为芙蓉戒。',
-                    kind: '灵饰 · 戒指',
-                    requires: ['等级 80'],
-                    stats: [
-                        { label: '伤害', value: '+24' },
-                        { label: '物理暴击等级', value: '+8', extra: '+16', gain: true },
-                        { label: '治疗能力', value: '+8', extra: '+12', gain: true },
-                        { label: '治疗能力', value: '+7', extra: '+12', gain: true },
-                        { label: '治疗能力', value: '+4', gain: true },
-                    ],
-                    cond: [
-                        { label: '耐久度', value: '401' },
-                        { label: '精炼等级', value: '4' },
-                    ],
-                    lines: [
-                        /* 「回春之术」不存在——原先这里填的是它，而特效全集里没有这个词。
-                         * 灵饰的治疗向特效是「再生」。见 `character.ts` 的 `GEAR_SPECIALS`。 */
-                        { label: '特效', value: '再生', tone: 'seal' },
-                        { label: '套装', value: '治疗能力 +24（已生效）', tone: 'ochre' },
-                    ],
-                    foot: '制造者：Jsut`画晚强化打造',
-                },
-            },
-            {
-                slot: '耳饰',
-                caption: '碎星坠',
-                detail: {
-                    name: '碎星坠',
-                    kind: '灵饰 · 耳饰',
-                    requires: ['等级 120'],
-                    stats: [
-                        { label: '法术伤害', value: '+32' },
-                        { label: '法术暴击等级', value: '+6', extra: '+12', gain: true },
-                    ],
-                    cond: [
-                        { label: '耐久度', value: '420' },
-                        { label: '精炼等级', value: '3' },
-                        /* 钟灵石：截图里这一件没露出这一行（被悬浮框挡住了），
-                         * 值按游戏面板的写法补一个示例，只为让卡上版心的
-                         * 「钟灵石」那一行有内容可看——正式数据以录入的为准。 */
-                        { label: '钟灵石', value: '3 段' },
-                    ],
-                },
-            },
-            {
-                slot: '配饰',
-                caption: '青玉环',
-                detail: {
-                    name: '青玉环',
-                    kind: '灵饰 · 配饰',
-                    requires: ['等级 120'],
-                    stats: [
-                        { label: '防御', value: '+46' },
-                        { label: '气血上限', value: '+180', gain: true },
-                    ],
-                    cond: [
-                        { label: '耐久度', value: '400' },
-                        { label: '精炼等级', value: '3' },
-                    ],
-                },
-            },
-            {
-                slot: '手镯',
-                caption: '缠丝镯',
-                detail: {
-                    name: '缠丝镯',
-                    kind: '灵饰 · 手镯',
-                    requires: ['等级 120'],
-                    stats: [
-                        { label: '封印命中等级', value: '+14' },
-                        { label: '抗封印命中等级', value: '+12', gain: true },
-                    ],
-                    cond: [
-                        { label: '耐久度', value: '440' },
-                        { label: '精炼等级', value: '2' },
-                    ],
-                },
-            },
-            /* ---------- 玉魄 2 件：照「双列对比」那张截图，各记自己那一列 ---------- */
-            {
-                slot: '玉魄·阴',
-                caption: '上古玉魄·阴',
-                detail: {
-                    name: '上古玉魄·阴',
-                    kind: '上古玉魄 · 阴',
-                    stats: [
-                        { label: '格挡值', value: '+18' },
-                        { label: '奇袭法术', value: '+0.5%' },
-                        { label: '气血', value: '+36', extra: '+126', gain: true },
-                        { label: '气血回复效果', value: '+7', extra: '+18', gain: true },
-                    ],
-                    cond: [
-                        { label: '耐久度', value: '201' },
-                        { label: '灵尘等级', value: '3' },
-                    ],
-                    lines: [{ label: '奇袭道具', value: '空', tone: 'ochre' }],
-                },
-            },
-            {
-                slot: '玉魄·阳',
-                caption: '上古玉魄·阳',
-                detail: {
-                    name: '上古玉魄·阳',
-                    flavor: '神天兵的命魂之玉，蕴藏着方正克己的天命之力。气血回复效果 +6',
-                    kind: '上古玉魄 · 阳',
-                    stats: [
-                        { label: '物理暴击等级', value: '+10' },
-                        { label: '奇袭法术', value: '+0.5%' },
-                        { label: '伤害', value: '+5', extra: '+12', gain: true },
-                        { label: '治疗能力', value: '+4', extra: '+9', gain: true },
-                    ],
-                    cond: [
-                        { label: '耐久度', value: '200' },
-                        { label: '灵尘等级', value: '2' },
-                    ],
-                    lines: [{ label: '奇袭特技', value: '空', tone: 'ochre' }],
-                },
-            },
-        ],
-        gearMeta: { special: '起死回生', suit: '天罡 5/5' },
+        gear: GEAR_SLOTS.map((slot) => ({ slot })),
+        gearMeta: { special: '', suit: '' },
         /* 4 只，携带上限 7（截图上的 4/7）。只有第一只的数据是逐项读的。 */
         pets: [
             {
@@ -602,135 +364,8 @@ export const CHARACTERS: CharacterData[] = [
                 ],
             },
         ],
-        gear: [
-            {
-                slot: '头',
-                caption: '慈航冠',
-                detail: {
-                    name: '慈航冠',
-                    kind: '帽子',
-                    requires: ['等级 110', '男'],
-                    stats: [
-                        { label: '防御', value: '+68' },
-                        { label: '魔法', value: '+120' },
-                    ],
-                    cond: [
-                        { label: '耐久度', value: '380' },
-                        { label: '锻炼等级', value: '2' },
-                    ],
-                    lines: [{ label: '套装', value: '慈悲 3 / 5', tone: 'ochre' }],
-                },
-            },
-            {
-                slot: '项链',
-                caption: '琉璃光',
-                detail: {
-                    name: '琉璃光',
-                    kind: '项链',
-                    requires: ['等级 110', '男'],
-                    stats: [
-                        { label: '灵力', value: '+142' },
-                        { label: '法术伤害', value: '+28' },
-                    ],
-                    cond: [{ label: '耐久度', value: '400' }],
-                },
-            },
-            {
-                slot: '武器',
-                caption: '降魔杵',
-                detail: {
-                    name: '降魔杵',
-                    flavor: '佛门法器，杵身缠着降魔真言。',
-                    kind: '法杖 · 男',
-                    requires: ['等级 110', '五行 金'],
-                    stats: [
-                        { label: '伤害', value: '+318' },
-                        { label: '命中', value: '+420' },
-                        { label: '魔力', value: '+22', gain: true },
-                    ],
-                    cond: [
-                        { label: '耐久度', value: '340' },
-                        { label: '锻炼等级', value: '2' },
-                    ],
-                    lines: [{ label: '特技', value: '慈航普度', tone: 'seal' }],
-                },
-            },
-            {
-                slot: '衣服',
-                caption: '袈裟',
-                detail: {
-                    name: '袈裟',
-                    kind: '男衣',
-                    requires: ['等级 110', '男'],
-                    stats: [
-                        { label: '防御', value: '+238' },
-                        { label: '气血上限', value: '+360' },
-                        { label: '体质', value: '+18', gain: true },
-                    ],
-                    cond: [{ label: '耐久度', value: '360' }],
-                    lines: [{ label: '套装', value: '慈悲 3 / 5', tone: 'ochre' }],
-                },
-            },
-            {
-                slot: '腰带',
-                caption: '缠丝带',
-                detail: {
-                    name: '缠丝带',
-                    kind: '腰带',
-                    requires: ['等级 100'],
-                    stats: [
-                        { label: '防御', value: '+52' },
-                        { label: '速度', value: '+28' },
-                    ],
-                    cond: [{ label: '耐久度', value: '300' }],
-                },
-            },
-            /* 这只号鞋子空着——正好验「空位是挖掉的格」这条。 */
-            { slot: '鞋子' },
-            {
-                slot: '戒指',
-                caption: '舍利戒',
-                detail: {
-                    name: '舍利戒',
-                    kind: '灵饰 · 戒指',
-                    requires: ['等级 100'],
-                    stats: [
-                        { label: '伤害', value: '+18' },
-                        { label: '治疗能力', value: '+6', extra: '+9', gain: true },
-                    ],
-                    cond: [
-                        { label: '耐久度', value: '320' },
-                        { label: '精炼等级', value: '2' },
-                    ],
-                },
-            },
-            {
-                slot: '耳饰',
-                caption: '菩提坠',
-                detail: {
-                    name: '菩提坠',
-                    kind: '灵饰 · 耳饰',
-                    requires: ['等级 100'],
-                    stats: [{ label: '法术防御', value: '+24' }],
-                    cond: [{ label: '精炼等级', value: '1' }],
-                },
-            },
-            { slot: '配饰' },
-            {
-                slot: '手镯',
-                caption: '念珠镯',
-                detail: {
-                    name: '念珠镯',
-                    kind: '灵饰 · 手镯',
-                    requires: ['等级 100'],
-                    stats: [{ label: '抗封印命中等级', value: '+8' }],
-                    cond: [{ label: '精炼等级', value: '1' }],
-                },
-            },
-            { slot: '玉魄·阴' },
-            { slot: '玉魄·阳' },
-        ],
-        gearMeta: { special: '慈航普度', suit: '慈悲 3/5' },
+        gear: GEAR_SLOTS.map((slot) => ({ slot })),
+        gearMeta: { special: '', suit: '' },
         pets: [
             {
                 name: '小雷',

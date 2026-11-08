@@ -20,6 +20,7 @@ import {
     type Pet,
 } from './character';
 import type { QuickTarget } from './quick/quick-target';
+import type { GearSlotName } from './gear';
 
 /**
  * 一张角色卡：**一张纸上的六个分区**，用卡内页签切换。
@@ -126,13 +127,7 @@ watch(
 );
 
 const withTabs = computed(() => props.tabs);
-const canScan = computed(
-    () =>
-        active.value === 'attrs' ||
-        active.value === 'skills' ||
-        active.value === 'assist' ||
-        active.value === 'training',
-);
+const canScan = computed(() => active.value !== 'pets');
 
 /* 页签的值与文案一次算好：滑块要的是 `{ value, label }[]`，而 `PANES` 是只读元组，
  * 直接在模板里 `map` 会每次渲染新建一个数组，`useRovingFocus` 的 `values()` 也随之变。 */
@@ -158,12 +153,14 @@ function choose(key: PaneKey) {
  */
 const tip = ref<GearDetail | null>(null);
 const tipAnchor = ref<DOMRect | null>(null);
+const tipSlot = ref<GearSlotName>();
 
 /* 装备页抛上来的是**量好的 rect**，不是事件：`getBoundingClientRect()` 得在事件
  * 当时同一帧取，隔着一次 emit 再去读 `event.currentTarget` 可能已经是空的。 */
-function showTip(payload: { anchor: DOMRect; detail: GearDetail }) {
+function showTip(payload: { anchor: DOMRect; detail: GearDetail; slotName: GearSlotName }) {
     tipAnchor.value = payload.anchor;
     tip.value = payload.detail;
+    tipSlot.value = payload.slotName;
 }
 
 function closeAll() {
@@ -346,7 +343,7 @@ function quickPet() {
             </template>
         </div>
 
-        <GearTip :anchor="tipAnchor" :detail="tip" />
+        <GearTip :anchor="tipAnchor" :detail="tip" :slot-name="tipSlot" />
 
         <!-- 详情档案 `Teleport` 到 body，所以挂在这里只是逻辑位置。
              页脚那枚「修改」出门到快速修改（见 `quickPet`）：档案是浮层，

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue';
 import { useAnchoredTip } from '../../composables/use-anchored-tip';
-import type { GearDetail } from './character';
+import type { GearDetail, GearSlotName } from './gear';
+import GearProperties from './GearProperties.vue';
 
 /**
  * 装备详情浮片：鼠标停在格子上时浮出来的一张纸。
@@ -16,14 +17,13 @@ import type { GearDetail } from './character';
  * 常驻 DOM、只切 `on` 类（不用 `v-if`）：一旦卸载，尺寸就量不到，
  * 每次都要「先显示再量再定位」，第一帧会闪一下原位。
  *
- * 分段从原来的四段改成六段，是对着四张真实悬浮图数出来的：一件装备至少有
- * 「风味 / 类型+条件 / 白字 / 状态 / 特殊 / 制造者」六层。原先只留白字与绿字两段，
- * 「耐久 191 · 修理失败 1 次」这种必须显示的状态没地方放。
+ * 属性与编辑器共用分类签布局，浮层外壳、锚点与装备格保持原样。
  */
 const props = defineProps<{
     /** 锚点：触发浮片的那个格子。`null` 表示没有指向任何格子。 */
     anchor: DOMRect | null;
     detail: GearDetail | null;
+    slotName?: GearSlotName;
 }>();
 
 const { el, pos, place } = useAnchoredTip();
@@ -53,7 +53,7 @@ const requires = computed(() => props.detail?.requires?.join(' · ') ?? '');
             :aria-hidden="detail === null"
         >
             <template v-if="detail">
-                <div class="tip-name">{{ detail.name }}</div>
+                <div class="tip-name">{{ detail.name || slotName }}</div>
                 <div class="meta tip-kind">
                     {{ detail.kind }}<template v-if="requires"> · {{ requires }}</template>
                 </div>
@@ -61,36 +61,12 @@ const requires = computed(() => props.detail?.requires?.join(' · ') ?? '');
                      排在属性之前是为了先给个由头，但绝不能让它把属性挤出屏幕。 -->
                 <p v-if="detail.flavor" class="flavor">{{ detail.flavor }}</p>
 
-                <div class="rule"></div>
-                <dl>
-                    <div
-                        v-for="stat in detail.stats"
-                        :key="`${stat.label}-${stat.value}`"
-                        :class="{ gain: stat.gain }"
-                    >
-                        <dt>{{ stat.label }}</dt>
-                        <dd>
-                            {{ stat.value
-                            }}<span v-if="stat.extra" class="extra">[{{ stat.extra }}]</span>
-                        </dd>
-                    </div>
-                </dl>
-
-                <div v-if="detail.cond?.length" class="cond">
-                    <span v-for="(item, i) in detail.cond" :key="item.label">
-                        <em v-if="i > 0">·</em>{{ item.label }} {{ item.value }}
-                    </span>
-                </div>
-
-                <template v-if="detail.lines?.length">
-                    <div class="rule"></div>
-                    <div v-for="line in detail.lines" :key="line.label" class="line">
-                        <span class="k">{{ line.label }}</span>
-                        <span class="v" :class="line.tone">{{ line.value }}</span>
-                    </div>
-                </template>
+                <GearProperties :detail="detail" :slot-name="slotName" />
 
                 <div v-if="detail.foot" class="meta tip-foot">{{ detail.foot }}</div>
+                <div v-if="detail.note" class="meta tip-note">
+                    <span>备注</span>{{ detail.note }}
+                </div>
             </template>
         </div>
     </Teleport>
@@ -156,88 +132,21 @@ const requires = computed(() => props.detail?.requires?.join(' · ') ?? '');
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
 }
-.rule {
-    height: var(--w-hair);
-    margin: 6px 0 5px;
-    background: var(--rule-2);
-    opacity: 0.7;
-}
-dl {
-    display: grid;
-}
-dl > div {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    padding: 1px 0;
-    font-size: var(--fs-sm);
-}
-dt {
-    flex: none;
-    color: var(--ink-2);
-}
-dd {
-    /* 值靠右：属性名长短不一（「伤害」两字 vs 「抗封印命中等级」七字），
-     * 不靠右时每行的数值起点都不一样，扫一眼抓不到数。 */
-    margin: 0 0 0 auto;
-    color: var(--ink);
-    white-space: nowrap;
-}
-/* 方括号里那个数是「还能推到多少」，比当前值轻一档，但仍要读得见。 */
-.extra {
-    margin-left: 2px;
-    color: var(--muted);
-    font-size: var(--fs-mini);
-}
-/* 打造或镶嵌附加的绿字：这是这件装备「比同款多什么」的地方。 */
-.gain dd {
-    color: var(--moss);
-}
-/* 耐久 / 锻炼 / 宝石：一行小字，不占属性表的行。 */
-.cond {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 5px;
-    margin-top: 4px;
-    color: var(--muted);
-    font-size: var(--fs-mini);
-    line-height: 1.6;
-}
-.cond em {
-    margin-right: 5px;
-    font-style: normal;
-    opacity: 0.5;
-}
-.line {
-    display: flex;
-    align-items: baseline;
-    gap: 7px;
-    padding: 1px 0;
-    font-size: var(--fs-sm);
-}
-.line .k {
-    flex: none;
-    min-width: 30px;
-    color: var(--muted);
-    font-size: var(--fs-mini);
-    letter-spacing: 0.08em;
-}
-.line .v {
-    color: var(--ink-2);
-}
-.line .v.seal {
-    color: var(--cinnabar);
-}
-.line .v.ochre {
-    color: var(--ochre);
-}
-.line .v.moss {
-    color: var(--moss);
-}
 .tip-foot {
     margin-top: 6px;
     padding-top: 5px;
     border-top: var(--w-hair) dotted var(--rule-2);
     letter-spacing: 0.04em;
+}
+.tip-note {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: var(--w-hair) solid var(--rule-2);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.tip-note span {
+    margin-right: 6px;
+    color: var(--ink-2);
 }
 </style>

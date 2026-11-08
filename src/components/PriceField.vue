@@ -37,7 +37,7 @@ const props = withDefaults(
         /** 两侧的加减印块。开了之后输入格自己收窄，让出两边。 */
         stepper?: boolean;
     }>(),
-    { label: '', error: '', size: 'lg', placeholder: '0', stepper: false },
+    { label: '', error: '', size: 'lg', placeholder: '', stepper: false },
 );
 
 const emit = defineEmits<{
