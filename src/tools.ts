@@ -40,4 +40,13 @@ export const TOOLS: ToolEntry[] = [
         view: () => import('./views/tools/GhostHuntView.vue').then((page) => page.default),
         ready: true,
     },
+    {
+        key: 'alarm',
+        name: '闹钟',
+        desc: '到点前一分钟提醒，不在这一页也会弹出来',
+        path: '/tools/alarm',
+        icon: 'alarm',
+        view: () => import('./views/tools/AlarmView.vue').then((page) => page.default),
+        ready: true,
+    },
 ];

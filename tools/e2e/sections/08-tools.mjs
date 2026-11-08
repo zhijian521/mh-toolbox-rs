@@ -35,5 +35,81 @@ export default async function run(ctx) {
             const cards = await ui.count('.ledger-section');
             t.check('开发页的卡片都在', cards >= 7, `${cards} 张`);
         });
+
+        /* ---------- 闹钟：建一个、重载后还在、再删掉 ----------
+         *
+         * 判据用「重载后还在」而不是「保存后出现」：这一批的数据不在 SQLite 里，
+         * 而是 `localStorage`，最容易出错的正是「存了但读不回来」。
+         *
+         * 测试建的那一条备注带 `E2E`，删的时候按**那张卡的下标**定位，
+         * 不用 `clickText`——页面上可能摆着用户自己的闹钟，点第一个匹配会删错人。
+         */
+        await t.step('闹钟：建一个、重载后还在、再删掉', async () => {
+            await ui.goto('工具');
+            await ui.clickText('button, a', '闹钟');
+            const entered = await cdp.waitFor(`location.hash.includes('alarm')`, { timeout: 5000 });
+            if (!entered) throw new Error(`点了闹钟，地址还是 ${await ui.hash()}`);
+            t.pass('进入闹钟页', await ui.hash());
+
+            await ui.clickLabel('新增一个闹钟');
+            const opened = await cdp.waitFor(`!!document.querySelector('#alarm-form')`, {
+                timeout: 4000,
+            });
+            if (!opened) throw new Error('点了新增，弹窗没出来');
+            t.pass('新增弹窗打开了');
+
+            /* 填两格：时刻与备注。`input` 事件要冒泡，Vue 的 `v-model` 才收得到。 */
+            await cdp.evaluate(`(() => {
+                const set = (selector, value) => {
+                    const el = document.querySelector(selector);
+                    const setter = Object.getOwnPropertyDescriptor(
+                        HTMLInputElement.prototype,
+                        'value',
+                    ).set;
+                    setter.call(el, value);
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                };
+                set('#alarm-form .time-input', '06:15');
+                set('#alarm-form input[aria-label="备注"]', 'E2E 闹钟');
+                return true;
+            })()`);
+
+            await ui.clickText('[role="dialog"] button', '保存');
+            const created = await cdp.waitFor(
+                `[...document.querySelectorAll('.alarm-card')].some((el) => el.innerText.includes('06:15'))`,
+                { timeout: 4000 },
+            );
+            t.check('卡上出现 06:15', created, created ? '' : '弹窗关了吗？卡片没出现');
+
+            await ui.reload();
+            const survived = await cdp.waitFor(
+                `[...document.querySelectorAll('.alarm-card')].some((el) => el.innerText.includes('06:15'))`,
+                { timeout: 6000 },
+            );
+            t.check('重载后闹钟还在', survived, 'localStorage 没存住，或读档把坏记录丢了');
+
+            /* 精确删那一张：先按下标找到它，再点它自己的「删」。 */
+            const removed = await cdp.evaluate(`(() => {
+                const cards = [...document.querySelectorAll('.alarm-card')];
+                const index = cards.findIndex((el) => el.innerText.includes('06:15'));
+                if (index < 0) return false;
+                const button = [...cards[index].querySelectorAll('.alarm-act')].find(
+                    (el) => el.textContent.trim() === '删',
+                );
+                if (!button) return false;
+                button.click();
+                return true;
+            })()`);
+            if (!removed) throw new Error('没找到 06:15 那张卡上的「删」');
+
+            /* 确认窗的主按钮；**必须带 `[role="dialog"]` 作用域**——页面上还有别的「删除」字样
+             * （卡片底行那枚「删」也是按钮），第一个匹配不一定是确认窗里的。 */
+            await ui.clickText('[role="dialog"] button', '删除');
+            const gone = await cdp.waitFor(
+                `![...document.querySelectorAll('.alarm-card')].some((el) => el.innerText.includes('06:15'))`,
+                { timeout: 4000 },
+            );
+            t.check('删掉之后卡片消失', gone);
+        });
     }
 }

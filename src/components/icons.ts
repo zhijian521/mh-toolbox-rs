@@ -23,6 +23,7 @@ import type { Component } from 'vue';
 
 import {
     IconAdjustmentsHorizontal,
+    IconAlarm,
     IconArchive,
     IconArrowLeft,
     IconBolt,
@@ -117,6 +118,10 @@ const ICON_META = {
     // 时钟带一圈逆时针箭头：历史是「往回看」。用铅笔/本子会与「记一笔」撞脸，
     // 而这两个动作在收益页上恰好一前一后并排（历史收益 / 物品速记）。
     history: { glyph: IconHistory, label: '历史', group: 'action' },
+    /* 闹钟：带两只铃的钟。与上面那枚「历史」都是钟，但形状分得开——历史是一圈
+     * 逆时针箭头、没有铃；这一枚没有箭头、顶上两只耳朵。两者在图标目录里相邻，
+     * 正是要通过「有没有铃」一眼区分「回看过去」与「等到某点」。 */
+    alarm: { glyph: IconAlarm, label: '闹钟', group: 'action' },
     // 编辑用铅笔画斜线：账号/角色这种东西「改一行」与「删掉重录」是两件事，
     // 卡头上两枚并排时，一支笔与一只桶一眼分得开；用「设置齿轮」会与左栏设置撞脸。
     edit: { glyph: IconPencil, label: '编辑', group: 'action' },
