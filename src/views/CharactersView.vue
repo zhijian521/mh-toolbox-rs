@@ -7,7 +7,6 @@ import { saved } from '../composables/save-feedback';
 import { askConfirm } from '../composables/use-confirm';
 import CharacterCard from './characters/CharacterCard.vue';
 import CharacterEditor from './characters/CharacterEditor.vue';
-import OcrDialog from './characters/ocr/OcrDialog.vue';
 import QuickEdit from './characters/quick/QuickEdit.vue';
 import type { QuickTarget } from './characters/quick/quick-target';
 import type { CharacterData, PaneKey } from './characters/character';
@@ -27,8 +26,7 @@ import { goalsOfCharacter } from './goals/goals-store';
  * 1280 与 1024 下都是一行两张。
  *
  * 页头只剩一枚按钮（新角色），走 `PressButton` 的 `seal` 变体——块面灌朱、一屏一枚。
- * 原先那枚禁用的「识别游戏窗口」2026-11-07 删了：识别现在真的能用，
- * 入口在每张卡头上（截图识别），见 `ocr/OcrDialog.vue`。
+ * 卡头的修改入口与新建共用 `CharacterEditor`，手工录入与截图识别在同一份草稿里完成。
  *
  * **这枚用默认档 `md`（26px），不写 `size="lg"`**（2026-11-03 改）。页头高度是
  * `--page-head-h` = 19 + 字号 × 1.15 + 1（1.1 档实测 47.8）；`lg` 是 31，加上下
@@ -41,19 +39,12 @@ const { roster, loadError, writeError, pending, flush, retry, add, update, remov
 /* 正在编辑的草稿，`null` = 浮层关着。**不另存一个 `isNew` 布尔**：
  * 「这是新角色还是改旧的」由「名册里有没有这个 id」现算，两个状态分开维护，
  * 总有一次会不同步（保存完忘了清、取消时先清了一个）。 */
-const editing = ref<CharacterData | null>(null);
-
-/* 正在做截图识别的那张卡，`null` = 弹窗关着。
- * 与 `editing` 分开：两个弹窗装的是同一张卡，但一个是「改」，一个是「认」，
- * 合用一个变量会让「关掉识别」顺手把编辑器也关掉。 */
-const scanning = ref<{ character: CharacterData; pane: PaneKey } | null>(null);
+const editing = ref<{ character: CharacterData; pane: PaneKey } | null>(null);
 
 /**
  * 正在「快速修改」的那一项，`null` = 关着。
  *
- * 三份状态各开一个而不是揉成一个 `{ 角色, 模式 }`：三个弹窗装的是同一张卡的不同面，
- * 而它们的开合时机互不相干（识别开着的时候不该能点卡上的行——那张卡在弹窗里）。
- * 分开之后，「关掉这个顺手关掉那个」这类串台从结构上就不可能发生。
+ * 与整份角色编辑分开保存状态，旧窗口的异步保存不能关闭后来打开的窗口。
  *
  * 带上 `character` 而不是只带 id：快速修改要读现值来填那几格，`roster` 里那一份
  * 就是点开那一刻的，不另存快照——保存时算出来的新整份会按 id 整条替换。
@@ -64,7 +55,7 @@ function openQuick(character: CharacterData, target: QuickTarget) {
     quicking.value = { character, target };
 }
 
-/* 快速修改的保存：与编辑器、截图识别共用 `update()`，写入路径只有这一条。
+/* 快速修改的保存：与编辑器共用 `update()`，写入路径只有这一条。
  * `applyQuick` 已经返回**完整的一份**（只替换那一项），所以这里不必再合并。 */
 async function onQuickSave(next: CharacterData) {
     if (pending.value > 0) return;
@@ -74,12 +65,12 @@ async function onQuickSave(next: CharacterData) {
 }
 
 const isNew = computed(() => {
-    const draft = editing.value;
-    return draft !== null && !roster.value.some((item) => item.id === draft.id);
+    const draft = editing.value?.character;
+    return Boolean(draft && !roster.value.some((item) => item.id === draft.id));
 });
 
 function startNew() {
-    editing.value = emptyCharacter();
+    editing.value = { character: emptyCharacter(), pane: 'attrs' };
 }
 
 async function onSave(character: CharacterData) {
@@ -88,20 +79,6 @@ async function onSave(character: CharacterData) {
     if (isNew.value) add(character);
     else update(character);
     if ((await saved(flush)) && editing.value === source) editing.value = null;
-}
-
-/* 截图识别：认完、人点了「应用到这张卡」之后才走到这里。
- *
- * **与编辑弹窗共用 `update`，不另开一条写库路径**：那次写入要过 `persist()` 的
- * 全部闸门（读失败不写、排队写），走别的路等于把那些闸门绕过去。
- *
- * `update` 是整条替换（按 id 找到那一格），所以传进去的是**合并后的整份**角色卡
- * ——`applyAttrPanel` 保证除了认出来的那几项，其余一个字都没动。 */
-async function onScanApply(character: CharacterData) {
-    if (pending.value > 0) return;
-    const source = scanning.value;
-    update(character);
-    if ((await saved(flush)) && scanning.value === source) scanning.value = null;
 }
 
 /* 删角色要问一次：名册删掉就没有回收站。问句与后果在这里，卡上只负责把这枚按钮画出来
@@ -176,8 +153,7 @@ const desc = computed(() =>
                 :key="character.id"
                 :character="character"
                 quick
-                @edit="editing = character"
-                @scan="(pane) => (scanning = { character, pane })"
+                @edit="(pane) => (editing = { character, pane })"
                 @remove="askRemove(character)"
                 @quick="(target) => openQuick(character, target)"
             />
@@ -201,18 +177,13 @@ const desc = computed(() =>
 
         <CharacterEditor
             v-if="editing"
-            :character="editing"
+            :key="editing.character.id"
+            :character="editing.character"
+            :pane="editing.pane"
             :is-new="isNew"
+            :saving="pending > 0"
             @save="onSave"
             @cancel="editing = null"
-        />
-
-        <OcrDialog
-            v-if="scanning"
-            :character="scanning.character"
-            :pane="scanning.pane"
-            @apply="onScanApply"
-            @close="scanning = null"
         />
 
         <QuickEdit

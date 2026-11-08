@@ -63,6 +63,25 @@ describe('辅助面板：按图标配对等级', () => {
         ]);
     });
 
+    it('按截图从上到下、同排从左到右排序，不受得分和检测顺序影响', () => {
+        const result = parseAssistPanel(
+            [line('98', 65, 140), line('40', 130, 140), line('39', 65, 215), line('38', 130, 215)],
+            [
+                icon('养生之道', 55, 167, 0.99),
+                icon('冥想', 120, 90, 0.98),
+                icon('健身术', 120, 165, 0.88),
+                icon('强身术', 55, 92, 0.72),
+                icon('强身术', 180, 240, 0.65),
+            ],
+        );
+        expect(result.rows.map(({ name, level }) => ({ name, level }))).toEqual([
+            { name: '强身术', level: 98 },
+            { name: '冥想', level: 40 },
+            { name: '养生之道', level: 39 },
+            { name: '健身术', level: 38 },
+        ]);
+    });
+
     it('等级漏识别、图标不可靠、名录外图案均不会当成已识别', () => {
         const result = parseAssistPanel(
             [line('40', 130, 140)],
@@ -100,7 +119,7 @@ describe('辅助面板：按图标配对等级', () => {
     });
 });
 
-describe('辅助面板：局部写回', () => {
+describe('辅助面板：按截图覆盖对应组', () => {
     const card = () =>
         ({
             id: 'assist',
@@ -112,7 +131,7 @@ describe('辅助面板：局部写回', () => {
             ],
         }) as CharacterData;
 
-    it('只更新识别等级，漏项、另一类、上限及其他角色字段不动', () => {
+    it('替换生活组，另一类、同名上限及其他角色字段不动', () => {
         const before = card();
         const result = parseAssistPanel(
             [line('98', 65, 140)],
@@ -121,20 +140,47 @@ describe('辅助面板：局部写回', () => {
         const after = applyAssistPanel(before, result.rows);
         expect(after.assists).toEqual([
             { name: '强身术', kind: 'life', level: 98, cap: 140, off: true },
-            before.assists[1],
             before.assists[2],
         ]);
         expect(after.skills).toBe(before.skills);
         expect(before.assists[0].level).toBe(80);
     });
 
-    it('先后应用生活与剧情两张图都保留，识别到的新技能追加', () => {
+    it('生活与剧情各自覆盖旧组，不残留截图中没有的旧技能', () => {
         const life = parseAssistPanel([line('39', 65, 140)], [icon('炼金术', 55, 90)]);
         const story = parseAssistPanel([line('5', 65, 140)], [icon('奇门遁甲', 55, 90)]);
         const after = applyAssistPanel(applyAssistPanel(card(), life.rows), story.rows);
-        expect(after.assists).toHaveLength(5);
-        expect(after.assists).toContainEqual({ name: '炼金术', kind: 'life', level: 39 });
-        expect(after.assists).toContainEqual({ name: '奇门遁甲', kind: 'story', level: 5 });
-        expect(after.assists[2].level).toBe(3);
+        expect(after.assists).toEqual([
+            { name: '炼金术', kind: 'life', level: 39 },
+            { name: '奇门遁甲', kind: 'story', level: 5 },
+        ]);
+    });
+
+    it('覆盖后的技能按截图顺序排列，漏识别项不新增', () => {
+        const before = card();
+        const result = parseAssistPanel(
+            [line('39', 65, 140), line('41', 130, 140), line('10', 65, 215), line('20', 130, 215)],
+            [
+                icon('健身术', 120, 165, 0.99),
+                icon('淬灵之术', 55, 167, 0.98),
+                icon('养生之道', 55, 240, 0.95),
+                icon('冥想', 120, 90, 0.9),
+                icon('炼金术', 55, 92, 0.8),
+            ],
+        );
+        expect(applyAssistPanel(before, result.rows).assists).toEqual([
+            { name: '炼金术', kind: 'life', level: 39 },
+            { ...before.assists[1], level: 41 },
+            { name: '淬灵之术', kind: 'life', level: 10 },
+            { name: '健身术', kind: 'life', level: 20 },
+            before.assists[2],
+        ]);
+    });
+
+    it('没有成功识别的等级时不清空任何组', () => {
+        const before = card();
+        const result = parseAssistPanel([], [icon('强身术', 55, 90)]);
+        expect(applyAssistPanel(before, result.rows).assists).toEqual(before.assists);
+        expect(applyAssistPanel(before, []).assists).toEqual(before.assists);
     });
 });

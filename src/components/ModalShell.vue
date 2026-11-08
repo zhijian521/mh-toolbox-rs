@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue';
 import { useModal } from '../composables/use-modal';
 
+defineOptions({ inheritAttrs: false });
+
 /**
  * 弹窗外壳：遮罩 + 纸面浮层 + 标题栏 + 页脚插槽。
  *
@@ -38,6 +40,8 @@ const props = withDefaults(
          * 调用方那个数是不是本来就该跟着字走。
          */
         width?: number | string;
+        /** 固定高度，用于切换内容时保持尺寸的窗；数字按 px，字符串按 CSS 值处理。 */
+        height?: number | string;
         /**
          * 初始焦点：`first` 第一个可聚焦元素，`cancel` 带 `data-modal-cancel` 的那个，
          * `none` 由调用方自己定位。
@@ -124,7 +128,7 @@ function onMaskClick(event: MouseEvent) {
 }
 
 /**
- * 宽度落到 `--modal-w`、最小高度落到 `--modal-min-h`。数字补 `px`，字符串原样交出去——
+ * 宽高落到对应 CSS 变量。数字补 `px`，字符串原样交出去——
  * 确认窗给的是 `calc(252px * var(--fs-scale))`、历史窗给的是
  * `min(520px, calc(100vh - 48px))`，所以不能在这里无条件加 `px`。
  */
@@ -132,6 +136,9 @@ const panelStyle = computed(() => {
     const style: Record<string, string> = {
         '--modal-w': typeof props.width === 'number' ? `${props.width}px` : props.width,
     };
+    if (props.height !== undefined) {
+        style['--modal-h'] = typeof props.height === 'number' ? `${props.height}px` : props.height;
+    }
     if (props.minHeight !== undefined) {
         style['--modal-min-h'] =
             typeof props.minHeight === 'number' ? `${props.minHeight}px` : props.minHeight;
@@ -151,6 +158,7 @@ const panelStyle = computed(() => {
                  那张窗的按钮上，而它在视觉上已经被盖住了。`undefined` 会移除属性。 -->
             <div
                 ref="panel"
+                v-bind="$attrs"
                 class="modal-panel"
                 role="dialog"
                 :aria-modal="isTop ? 'true' : undefined"
@@ -200,6 +208,7 @@ const panelStyle = computed(() => {
     flex-direction: column;
     width: var(--modal-w);
     max-width: 100%;
+    height: var(--modal-h, auto);
     /* 传了 `minHeight` 就有个下限（表格类窗），没传就纯跟着内容长。 */
     min-height: var(--modal-min-h, auto);
     max-height: calc(100vh - 48px);

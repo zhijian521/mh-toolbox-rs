@@ -2,6 +2,9 @@
 import { computed, useId } from 'vue';
 import NumberField from '../../../components/NumberField.vue';
 import NumTag from '../../../components/NumTag.vue';
+import SelectField from '../../../components/SelectField.vue';
+import PressButton from '../../../components/PressButton.vue';
+import { lifeSkills, storySkills } from '../../../services/game-data';
 import AssistIcon from '../AssistIcon.vue';
 import { isMaxed, type AssistKind, type AssistSkill } from '../character';
 import type { QuickTarget } from '../quick/quick-target';
@@ -19,7 +22,9 @@ const props = withDefaults(
 
 const emit = defineEmits<{
     quick: [target: QuickTarget];
-    'edit-level': [name: string, kind: AssistKind, level: number];
+    'edit-row': [index: number, patch: Partial<AssistSkill>];
+    'add-row': [kind: AssistKind];
+    'remove-row': [index: number];
 }>();
 const uid = useId();
 const quickable = computed(() => props.quick && !props.editable);
@@ -31,30 +36,46 @@ function open(row: AssistSkill) {
     emit('quick', { kind: 'assist', name: row.name, assist: row.kind });
 }
 
-/* 生活与剧情分两段，各自一张格子图。空的那一类不出现——
- * 一个只有生活技能的角色，不该看到一行「剧情技能」然后底下什么都没有。 */
+/* 生活与剧情分组；只读时隐藏空组，编辑时保留新增入口。 */
 const assistGroups = computed(() =>
     [
-        { title: '生活技能', rows: props.assists.filter((row) => row.kind === 'life') },
-        { title: '剧情技能', rows: props.assists.filter((row) => row.kind === 'story') },
-    ].filter((group) => group.rows.length > 0),
+        {
+            title: '生活技能',
+            kind: 'life' as const,
+            rows: props.assists.filter((row) => row.kind === 'life'),
+        },
+        {
+            title: '剧情技能',
+            kind: 'story' as const,
+            rows: props.assists.filter((row) => row.kind === 'story'),
+        },
+    ].filter((group) => props.editable || group.rows.length > 0),
 );
+function optionsFor(row: AssistSkill) {
+    const names = row.kind === 'life' ? lifeSkills() : storySkills();
+    const options = names.filter(
+        (name) =>
+            !props.assists.some(
+                (other) => other !== row && other.kind === row.kind && other.name === name,
+            ),
+    );
+    if (row.name && !options.includes(row.name)) options.unshift(row.name);
+    return options.map((name) => ({ value: name, label: name }));
+}
 </script>
 
 <template>
-    <section class="pane" :role="tabbed ? 'tabpanel' : 'region'">
-        <!-- 生活与剧情分组显示；预览可改等级，普通卡片仍用只读签。 -->
+    <section class="pane" :class="{ editing: editable }" :role="tabbed ? 'tabpanel' : 'region'">
+        <!-- 编辑时可选名称、改等级及增删行；名册卡片保留只读签。 -->
         <div class="assist-groups">
             <section v-for="group in assistGroups" :key="group.title" class="assist-group">
                 <!-- 分组名同时区分游戏中的两个截图页签。 -->
                 <div class="group-head"><span class="section-mark"></span>{{ group.title }}</div>
                 <div class="slip-rows slip-cols">
-                    <!-- 一项一张票：图标 ｜ 名字 ｜ 数值签，一行读完。
-                         票面在 `base.css` 的 `.slip-row`（四页共用一份），这一页
-                         只给两列网格；图标的块与蒙版在 `AssistIcon.vue`。 -->
+                    <!-- 只读与编辑均一行两个，编辑控件在票内紧凑排列。 -->
                     <div
                         v-for="(row, index) in group.rows"
-                        :key="`${row.kind}-${row.name}`"
+                        :key="`${row.kind}-${index}`"
                         class="slip-row"
                         :class="{ off: row.off, full: isMaxed(row), quickable }"
                         :title="`${row.name} ${row.level}${row.cap ? `/${row.cap}` : ''}`"
@@ -62,17 +83,21 @@ const assistGroups = computed(() =>
                         :tabindex="quickable ? 0 : undefined"
                         :aria-label="quickable ? `快速修改 ${row.name}` : undefined"
                         @click="open(row)"
-                        @keydown.enter.prevent="open(row)"
-                        @keydown.space.prevent="open(row)"
+                        @keydown.enter.self.prevent="open(row)"
+                        @keydown.space.self.prevent="open(row)"
                     >
                         <AssistIcon :name="row.name" :kind="row.kind" />
-                        <label
+                        <SelectField
                             v-if="editable"
-                            class="slip-name"
-                            :for="`${uid}-${row.kind}-${index}`"
-                        >
-                            {{ row.name }}
-                        </label>
+                            class="assist-select"
+                            :model-value="row.name"
+                            :options="optionsFor(row)"
+                            :label="group.title + '名称'"
+                            placeholder="选择技能"
+                            @update:model-value="
+                                emit('edit-row', assists.indexOf(row), { name: $event })
+                            "
+                        />
                         <span v-else class="slip-name">{{ row.name }}</span>
                         <!-- 等级包进一枚数值签（`NumTag`）：名目在左、读数在右，
                              与师门、修炼、属性三页同一个读法。 -->
@@ -83,12 +108,29 @@ const assistGroups = computed(() =>
                             v-else
                             :id="`${uid}-${row.kind}-${index}`"
                             :model-value="row.level"
-                            :label="`${row.name} 等级`"
+                            :label="`${row.name || group.title} 等级`"
                             class="lv-field num-slot"
-                            @update:model-value="emit('edit-level', row.name, row.kind, $event)"
+                            @update:model-value="
+                                emit('edit-row', assists.indexOf(row), { level: $event })
+                            "
+                        />
+                        <PressButton
+                            v-if="editable"
+                            class="assist-remove"
+                            icon="trash"
+                            :label="'删除' + (row.name || group.title)"
+                            @click="emit('remove-row', assists.indexOf(row))"
                         />
                     </div>
                 </div>
+                <PressButton
+                    v-if="editable"
+                    class="assist-add"
+                    icon="add"
+                    text="新增"
+                    :label="'新增' + group.title"
+                    @click="emit('add-row', group.kind)"
+                />
             </section>
         </div>
         <!-- 两项都没有时给一句话，与师门、召唤兽两页同一句式：

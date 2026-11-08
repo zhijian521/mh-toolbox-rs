@@ -23,6 +23,17 @@ const DEFAULT_PORT = Number(process.env.MH_E2E_PORT || 9222);
 
 export const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
+/** Vite 的时间戳属于模块身份；读取当前页面已加载的 URL，避免创建第二份 store 或命令表。 */
+export function importLoaded(path) {
+    return `import((() => {
+        const path = ${JSON.stringify(path)};
+        const loaded = performance.getEntriesByType('resource')
+            .findLast((entry) => new URL(entry.name).pathname === path);
+        if (!loaded) throw new Error('页面尚未加载模块：' + path);
+        return loaded.name;
+    })())`;
+}
+
 /**
  * 环境问题（端口不通、没有窗口）与断言失败要分开：
  * 前者该退出码 2 并给一句「先启动」的提示，后者才是「应用有毛病」。
@@ -317,11 +328,12 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
         if (!vk) throw new Error(`没登记的按键：${name}`);
         for (const type of ['rawKeyDown', 'keyUp']) {
             await send('Input.dispatchKeyEvent', {
-                type,
+                type: name === 'Enter' && type === 'rawKeyDown' ? 'keyDown' : type,
                 key: name,
                 windowsVirtualKeyCode: vk,
                 nativeVirtualKeyCode: vk,
                 code: name,
+                ...(name === 'Enter' && type === 'rawKeyDown' ? { text: '\r' } : {}),
             });
         }
         await sleep(150);

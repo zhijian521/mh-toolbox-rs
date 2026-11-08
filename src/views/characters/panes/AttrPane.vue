@@ -125,8 +125,8 @@ const expText = computed(() => {
                         :tabindex="quickable ? 0 : undefined"
                         :aria-label="quickable ? `快速修改 ${row.label}` : undefined"
                         @click="openAttr(row.label)"
-                        @keydown.enter.prevent="openAttr(row.label)"
-                        @keydown.space.prevent="openAttr(row.label)"
+                        @keydown.enter.self.prevent="openAttr(row.label)"
+                        @keydown.space.self.prevent="openAttr(row.label)"
                     >
                         <dt class="slip-name">{{ row.label }}</dt>
                         <dd class="attr-val">
@@ -161,8 +161,8 @@ const expText = computed(() => {
             :tabindex="quickable ? 0 : undefined"
             :aria-label="quickable ? '快速修改经验' : undefined"
             @click="openExp"
-            @keydown.enter.prevent="openExp"
-            @keydown.space.prevent="openExp"
+            @keydown.enter.self.prevent="openExp"
+            @keydown.space.self.prevent="openExp"
         >
             <span class="group-head"><span class="section-mark"></span>经验</span>
             <!-- 可改时文字让位给两格输入，**条留着**：数一改，条当场动一下，

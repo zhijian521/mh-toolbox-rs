@@ -98,8 +98,8 @@ const seal = computed(() => [...props.row.name][0] ?? '');
         :tabindex="quickable ? 0 : undefined"
         :aria-label="quickable ? `快速修改 ${row.name}` : undefined"
         @click="open"
-        @keydown.enter.prevent="open"
-        @keydown.space.prevent="open"
+        @keydown.enter.self.prevent="open"
+        @keydown.space.self.prevent="open"
     >
         <!-- 有图走 `IconTile`（与辅助同一枚块）；没图退回压印块 + 首字。 -->
         <IconTile v-if="icon" :src="icon" />

@@ -300,7 +300,7 @@ describe('套装效果写入', () => {
     });
 });
 
-describe('局部装备写回', () => {
+describe('装备按部位覆盖', () => {
     const seed: GearSlot = {
         slot: '戒指',
         caption: '自用戒指',
@@ -319,26 +319,26 @@ describe('局部装备写回', () => {
             lines: [{ label: '特效', value: '移形换影', tone: 'ochre' }],
         },
     };
-    it('局部上传不清空漏项，多条同名属性按出现顺序更新，重复导入不增加行', () => {
+    it('整件覆盖旧属性和效果，仅保留自用备注，重复识别不增加行', () => {
         const patch = parseGearPanel(
             lines(['[灵饰类型]戒指', '精炼等级2', '伤害+11', '伤害+12']),
             names,
         );
         const merged = mergeGearPanel(seed, patch);
         expect(merged.detail?.stats).toEqual([
-            { label: '伤害', value: '+20' },
-            { label: '伤害', value: '+11', extra: '+8', gain: true },
-            { label: '伤害', value: '+12', extra: '+8', gain: true },
+            { label: '伤害', value: '+11', gain: true },
+            { label: '伤害', value: '+12', gain: true },
         ]);
-        expect(merged.caption).toBe('自用戒指');
-        expect(merged.detail?.cond).toContainEqual(seed.detail!.cond![0]);
-        expect(merged.detail?.flavor).toBe('保留描述');
+        expect(merged.caption).toBe('');
+        expect(merged.detail?.cond).toEqual([{ label: '精炼等级', value: '2' }]);
+        expect(merged.detail?.flavor).toBeUndefined();
         expect(merged.detail?.note).toBe(seed.detail?.note);
-        expect(merged.detail?.lines).toEqual(seed.detail?.lines);
+        expect(merged.detail?.lines).toBeUndefined();
+        expect(merged.detail?.requires).toBeUndefined();
         expect(mergeGearPanel(merged, patch)).toEqual(merged);
         expect(seed.detail?.stats[1].value).toBe('+8');
     });
-    it('手工分类与截图词条合并时保留分类，不重复添加基础和宝石行', () => {
+    it('新截图不继承旧名称和手工分类，不残留旧词条', () => {
         const original: GearSlot = {
             slot: '头',
             detail: {
@@ -353,13 +353,16 @@ describe('局部装备写回', () => {
         const patch = parseGearPanel(lines(['防御+46', '伤害+48']), names, '头');
         expect(patch.detail.kind).toBeUndefined();
         const merged = mergeGearPanel(original, patch);
-        expect(merged.detail?.kind).toBe('头盔');
+        expect(merged.detail?.kind).toBe('');
+        expect(merged.detail?.name).toBe('');
         expect(merged.detail?.stats).toEqual([
-            { label: '防御', value: '+46', group: 'base' },
-            { label: '伤害', value: '+48', group: 'gem' },
+            { label: '防御', value: '+46' },
+            { label: '伤害', value: '+48' },
         ]);
         expect(mergeGearPanel(merged, patch)).toEqual(merged);
         expect(original.detail?.stats[0].value).toBe('+45');
+        merged.detail!.stats[0].value = '+99';
+        expect(patch.detail.stats?.[0].value).toBe('+46');
     });
     it('部位不符及空识别不修改当前装备', () => {
         expect(mergeGearPanel(seed, parseGearPanel(lines(samples[0].rows), names))).toBe(seed);

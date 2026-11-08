@@ -47,6 +47,8 @@ onMounted(async () => {
 
 <template>
     <ModalShell
+        class="character-theme"
+        :data-school="character.school || ''"
         :title="'快速修改 · ' + props.slotName"
         :width="940"
         :min-height="'min(740px, calc(100vh - 48px))'"

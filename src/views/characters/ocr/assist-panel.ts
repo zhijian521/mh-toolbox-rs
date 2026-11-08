@@ -15,6 +15,23 @@ export interface AssistPanelResult {
     total: number;
 }
 
+function screenshotOrder(icons: readonly IconHit[]): IconHit[] {
+    const bands: IconHit[][] = [];
+    for (const icon of [...icons].sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x)) {
+        const band = bands[bands.length - 1];
+        // 同排边框的检测位置可能略有高低，先归到一排再按横坐标排序。
+        if (
+            band &&
+            icon.box.y - band[0].box.y < Math.min(icon.box.height, band[0].box.height) / 2
+        ) {
+            band.push(icon);
+        } else {
+            bands.push([icon]);
+        }
+    }
+    return bands.flatMap((band) => band.sort((a, b) => a.box.x - b.box.x));
+}
+
 export function parseAssistPanel(
     lines: readonly OcrLine[],
     icons: readonly IconHit[],
@@ -24,11 +41,17 @@ export function parseAssistPanel(
         ...storySkills().map((name): [string, AssistKind] => [name, 'story']),
     ]);
     const seen = new Set<string>();
+    const matched = [...icons]
+        .sort((a, b) => b.score - a.score)
+        .filter((icon) => {
+            if (!names.has(icon.name) || icon.score < 0.6 || seen.has(icon.name)) return false;
+            seen.add(icon.name);
+            return true;
+        });
     const rows: AssistHit[] = [];
-    for (const icon of [...icons].sort((a, b) => b.score - a.score)) {
+    for (const icon of screenshotOrder(matched)) {
         const kind = names.get(icon.name);
-        if (!kind || icon.score < 0.6 || seen.has(icon.name)) continue;
-        seen.add(icon.name);
+        if (!kind) continue;
         const level = levelBelow(
             icon.box,
             lines.filter((line) => line.width <= icon.box.width * 1.2),
@@ -48,7 +71,7 @@ export function parseAssistPanel(
     };
 }
 
-/** 生活与剧情分别按类目和名字合并，截图外的技能、上限与状态保持原样。 */
+/** 覆盖本次识别到的生活或剧情组，另一组保持原样；同名技能保留已有上限与状态。 */
 export function applyAssistPanel(
     character: CharacterData,
     rows: readonly AssistHit[],
@@ -64,14 +87,20 @@ export function applyAssistPanel(
             )
             .map((row) => [`${row.kind}-${row.name}`, row]),
     );
-    const assists = character.assists.map((row): AssistSkill => {
-        const key = `${row.kind}-${row.name}`;
-        const hit = found.get(key);
-        found.delete(key);
-        return hit ? { ...row, level: hit.level } : row;
-    });
+    const previous = new Map(character.assists.map((row) => [`${row.kind}-${row.name}`, row]));
+    const groups = new Map<AssistKind, AssistSkill[]>();
     for (const row of found.values()) {
-        assists.push({ name: row.name, kind: row.kind, level: row.level });
+        const group = groups.get(row.kind) ?? [];
+        group.push({
+            ...previous.get(`${row.kind}-${row.name}`),
+            name: row.name,
+            kind: row.kind,
+            level: row.level,
+        });
+        groups.set(row.kind, group);
     }
+    const assists = (['life', 'story'] as const).flatMap(
+        (kind) => groups.get(kind) ?? character.assists.filter((row) => row.kind === kind),
+    );
     return { ...character, assists };
 }

@@ -49,8 +49,8 @@ function open(row: TrainingRow) {
                         :tabindex="quickable ? 0 : undefined"
                         :aria-label="quickable ? `快速修改 ${row.name}` : undefined"
                         @click="open(row)"
-                        @keydown.enter.prevent="open(row)"
-                        @keydown.space.prevent="open(row)"
+                        @keydown.enter.self.prevent="open(row)"
+                        @keydown.space.self.prevent="open(row)"
                     >
                         <label v-if="editable" class="slip-name" :for="`${uid}-${row.name}`">
                             {{ row.name }}

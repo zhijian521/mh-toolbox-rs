@@ -1,5 +1,25 @@
+import { importLoaded } from '../../cdp.mjs';
+import { checkButtonTheme } from './theme.mjs';
+
 export async function ocr(ctx) {
     const { cdp, ui, t, sleep } = ctx;
+    const checkCardFits = async (pane) => {
+        const sizes = await cdp.evaluate(`['.ocr-right', '.ocr-card .char', '.ocr-card .char-body']
+            .map((selector) => {
+                const one = document.querySelector(selector);
+                return {
+                    selector, width: one.clientWidth, height: one.clientHeight,
+                    scrollWidth: one.scrollWidth, scrollHeight: one.scrollHeight,
+                };
+            })`);
+        t.check(
+            `${pane}预览完整展示，没有多余的横向或纵向滚动`,
+            sizes.every(
+                (one) => one.scrollWidth <= one.width + 1 && one.scrollHeight <= one.height + 1,
+            ),
+            JSON.stringify(sizes),
+        );
+    };
     const pasteFixture = (name, omitTrainingLevel = false) =>
         cdp.evaluate(`(async () => {
             const response = await fetch('/tools/e2e/fixtures/' + ${JSON.stringify(name)});
@@ -26,7 +46,7 @@ export async function ocr(ctx) {
             );
         })()`);
     /* ---- 截图识别（2026-11-07）----
-     * 真跑一遍：点卡头那枚 → 粘一张**现画的**面板 → 认出字段 → 应用到这张卡 →
+     * 真跑一遍：点卡头那枚 → 粘一张**现画的**面板 → 认出字段 → 保存 →
      * 卡上变了 → 重载后还在。
      *
      * 属性用 `canvas` 现画，辅助与修炼用不含角色身份的固定原图。画布上的字是微软雅黑
@@ -39,7 +59,7 @@ export async function ocr(ctx) {
      * 「参战 145 等级不够、签转朱」，等级填高了那条就永远不成立。 */
     await t.step('截图识别：粘一张合成面板 → 认出字段 → 写进卡', async () => {
         await ui.clickIn('.roster .char', 'E2E改名后', { text: '属性' });
-        await ui.clickIn('.roster .char', 'E2E改名后', { label: '截图识别这个角色' });
+        await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         if (!(await ui.waitFor(`!!document.querySelector('.ocr')`, { timeout: 3000 }))) {
             throw new Error('识别弹窗没打开');
         }
@@ -57,8 +77,8 @@ export async function ocr(ctx) {
                 };
             })()`);
         t.check(
-            '分区是属性 / 师门 / 辅助 / 修炼 / 装备五格',
-            rail.labels.join('/') === '属性/师门/辅助/修炼/装备',
+            '分区是属性 / 师门 / 辅助 / 修炼 / 装备 / 召唤兽六格',
+            rail.labels.join('/') === '属性/师门/辅助/修炼/装备/召唤兽',
             JSON.stringify(rail.labels),
         );
         t.check(
@@ -75,6 +95,7 @@ export async function ocr(ctx) {
         t.check('预览卡不画页签条', (await ui.count('.ocr-card .tabs')) === 0);
         const panes = await ui.count('.ocr-card .pane');
         t.check('预览卡只挂属性这一页', panes === 1, `实际 ${panes} 页`);
+        await checkButtonTheme(ctx, '.modal-panel');
 
         const empty = await ui.text('.ocr-shot');
         t.check('空态说清了怎么粘', empty.includes('Ctrl + V'), empty);
@@ -90,7 +111,7 @@ export async function ocr(ctx) {
             })()`);
         t.check(
             '页脚只剩两枚按钮，没有注脚',
-            foot.buttons === 2 && foot.text === '取消 应用到这张卡',
+            foot.buttons === 2 && foot.text === '取消 保存',
             JSON.stringify(foot),
         );
 
@@ -157,13 +178,13 @@ export async function ocr(ctx) {
                 }
                 return {
                     values,
-                    level: card.querySelector('.char-head .lv')?.textContent.trim() ?? '',
-                    school: card.querySelector('.char-head .chip')?.textContent.trim() ?? '',
+                    level: card.querySelector('input[aria-label="角色等级"]')?.value ?? '',
+                    school: card.querySelector('.identity-school .select-text')?.textContent.trim() ?? '',
                     rawOpen: dialog?.querySelector('.ocr-raw-box')?.open ?? null,
                     rawHead: dialog?.querySelector('.ocr-raw-box summary')?.textContent.trim() ?? '',
                 };
             })()`);
-        t.check('卡头等级认出 69', shot.level === '69 级', shot.level);
+        t.check('卡头等级认出 69', shot.level === '69', shot.level);
         t.check('卡头门派认出五庄观', shot.school === '五庄观', shot.school);
         t.check(
             '气血取了上限 3916',
@@ -193,9 +214,7 @@ export async function ocr(ctx) {
         t.check('识别原文默认是折叠的', shot.rawOpen === false, `open=${shot.rawOpen}`);
         t.check('折叠的抬头写着行数', /识别原文 · \d+ 行/.test(shot.rawHead), shot.rawHead);
 
-        /* 在卡上直接改两个数：`ok` 的那项改成 1250，`miss` 的那项填成 2170。
-         * 第二条才是这个布局的**真正考点**——`miss` 的原值被 `applyAttrPanel`
-         * 整项跳过，不翻成 `ok` 的话，用户填完点应用会发现「改了没用」。 */
+        // 命中项可修正，漏项直接补录，保存不再受 OCR 行状态限制。
         await ui.fillSel('.ocr-card input[aria-label="命中"]', '1250');
         await cdp.key('Enter');
         await ui.fillSel('.ocr-card input[aria-label="魔法"]', '2170');
@@ -214,7 +233,7 @@ export async function ocr(ctx) {
             JSON.stringify(typed),
         );
 
-        await ui.clickText('[role="dialog"] button', '应用到这张卡');
+        await ui.clickText('[role="dialog"] button', '保存');
         await ui.waitFor(`!document.querySelector('.ocr')`, { timeout: 3000 });
         await sleep(600);
 
@@ -254,7 +273,7 @@ export async function ocr(ctx) {
 
     await t.step('截图识别：师门列表按名字读等级 → 写进卡 → 重载还在', async () => {
         await ui.clickIn('.roster .char', 'E2E改名后', { text: '师门' });
-        await ui.clickIn('.roster .char', 'E2E改名后', { label: '截图识别这个角色' });
+        await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         if (!(await ui.waitFor(`!!document.querySelector('.ocr')`, { timeout: 3000 }))) {
             throw new Error('识别弹窗没打开');
         }
@@ -264,8 +283,8 @@ export async function ocr(ctx) {
                     .map((b) => ({ t: b.textContent.trim(), d: b.disabled }))`,
         );
         t.check(
-            '属性、师门、辅助、修炼、装备五格都能点',
-            opts.map((one) => one.t).join('/') === '属性/师门/辅助/修炼/装备' &&
+            '属性、师门、辅助、修炼、装备、召唤兽六格都能点',
+            opts.map((one) => one.t).join('/') === '属性/师门/辅助/修炼/装备/召唤兽' &&
                 opts.every((one) => !one.d),
             JSON.stringify(opts),
         );
@@ -283,7 +302,7 @@ export async function ocr(ctx) {
         );
 
         const seven = await cdp.evaluate(`(async () => {
-                const sc = await import('/src/views/characters/schools.ts');
+                const sc = await ${importLoaded('/src/views/characters/schools.ts')};
                 return sc.schoolSkillNames('五庄观');
             })()`);
 
@@ -361,7 +380,7 @@ export async function ocr(ctx) {
             )) === '150',
         );
 
-        await ui.clickText('[role="dialog"] button', '应用到这张卡');
+        await ui.clickText('[role="dialog"] button', '保存');
         await ui.waitFor(`!document.querySelector('.ocr')`, { timeout: 3000 });
         await sleep(600);
 
@@ -398,9 +417,9 @@ export async function ocr(ctx) {
         );
     });
 
-    await t.step('辅助截图：生活与剧情分别识别，漏项不动，重载后保留', async () => {
+    await t.step('辅助截图：按截图顺序替换对应组，另一组保留，重载后仍在', async () => {
         await cdp.evaluate(`(async () => {
-            const { useRoster } = await import('/src/views/characters/roster.ts');
+            const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
             const roster = useRoster();
             const one = roster.roster.value.find((row) => row.name === 'E2E改名后');
             roster.update({
@@ -415,9 +434,9 @@ export async function ocr(ctx) {
         })()`);
         const readAssists = () =>
             cdp.evaluate(`(async () => {
-            const { useRoster } = await import('/src/views/characters/roster.ts');
+            const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
             return useRoster().roster.value.find((row) => row.name === 'E2E改名后')
-                .assists.map((row) => ({ ...row }));
+                .assists.map(({ name, kind, level, cap, off }) => ({ name, kind, level, cap, off }));
         })()`);
         const life = [
             { name: '强身术', kind: 'life', level: 98 },
@@ -430,8 +449,9 @@ export async function ocr(ctx) {
             { name: '打坐', kind: 'story', level: 5 },
         ];
         for (const [index, items] of [life, story].entries()) {
+            const before = await readAssists();
             await ui.clickIn('.roster .char', 'E2E改名后', { text: '辅助' });
-            await ui.clickIn('.roster .char', 'E2E改名后', { label: '截图识别这个角色' });
+            await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
             await ui.waitFor(`!!document.querySelector('.ocr')`);
             t.check(
                 '从辅助卡打开时自动选中辅助',
@@ -445,14 +465,12 @@ export async function ocr(ctx) {
                     document.querySelector('.ocr-card .pane').getAttribute('role') === 'region'`),
             );
             await cdp.evaluate(`(async () => {
-                const { commands } = await import('/src/services/bindings.ts');
+                const { commands } = await ${importLoaded('/src/services/bindings.ts')};
                 window.__e2eAssistOcr = commands.ocrFrame;
-                window.__e2eAssistCalls = 0;
+                window.__e2eAssistFrames = [];
                 commands.ocrFrame = (...args) => {
-                    window.__e2eAssistCalls += 1;
-                    return window.__e2eAssistCalls === 1
-                        ? Promise.resolve([])
-                        : window.__e2eAssistOcr(...args);
+                    window.__e2eAssistFrames.push({ width: args[1], height: args[2] });
+                    return window.__e2eAssistOcr(...args);
                 };
             })()`);
             let ready;
@@ -465,15 +483,20 @@ export async function ocr(ctx) {
                     { timeout: 60000 },
                 );
             } finally {
-                const calls = await cdp.evaluate(`(async () => {
-                    const { commands } = await import('/src/services/bindings.ts');
+                const frames = await cdp.evaluate(`(async () => {
+                    const { commands } = await ${importLoaded('/src/services/bindings.ts')};
                     commands.ocrFrame = window.__e2eAssistOcr;
-                    const calls = window.__e2eAssistCalls;
+                    const frames = window.__e2eAssistFrames;
                     delete window.__e2eAssistOcr;
-                    delete window.__e2eAssistCalls;
-                    return calls;
+                    delete window.__e2eAssistFrames;
+                    return frames;
                 })()`);
-                t.check('整图没读到文字时，仍用等级裁切继续识别', calls === 2, String(calls));
+                t.check('辅助只对等级区域做一次 OCR', frames.length === 1, JSON.stringify(frames));
+                t.check(
+                    '辅助不再发送整张截图像素',
+                    frames.every((frame) => frame.width < 100 && frame.height < 300),
+                    JSON.stringify(frames),
+                );
             }
             t.check(index === 0 ? '生活截图识别完成' : '剧情截图识别完成', ready);
             t.check(
@@ -495,16 +518,25 @@ export async function ocr(ctx) {
                 await cdp.key('Enter');
                 await sleep(120);
             }
-            await ui.clickText('.modal-panel button', '应用到这张卡');
+            await ui.clickText('.modal-panel button', '保存');
             t.check(
                 '辅助识别结果保存后收起弹窗',
                 await ui.waitFor(`!document.querySelector('.ocr')`),
             );
             const kept = await readAssists();
+            const kind = items[0].kind;
             t.check(
-                '截图外的生活与剧情技能保持原值',
-                kept.find((row) => row.name === '烹饪技巧')?.level === 77 &&
-                    kept.find((row) => row.name === '奇门遁甲')?.level === 2,
+                '当前组按截图顺序整组替换，不残留旧技能',
+                kept
+                    .filter((row) => row.kind === kind)
+                    .map((row) => row.name)
+                    .join('/') === items.map((row) => row.name).join('/'),
+                JSON.stringify(kept),
+            );
+            t.check(
+                '另一组的技能、等级和顺序保持不变',
+                JSON.stringify(kept.filter((row) => row.kind !== kind)) ===
+                    JSON.stringify(before.filter((row) => row.kind !== kind)),
                 JSON.stringify(kept),
             );
             t.check(
@@ -513,9 +545,14 @@ export async function ocr(ctx) {
                     kept.find((row) => row.name === '强身术')?.cap === 140,
             );
         }
+        const order = (await readAssists()).map((row) => `${row.kind}-${row.name}`).join('/');
         await ui.reload();
         await ui.waitText('E2E改名后', { timeout: 8000 });
         const kept = await readAssists();
+        t.check(
+            '辅助技能顺序重载后保留',
+            kept.map((row) => `${row.kind}-${row.name}`).join('/') === order,
+        );
         t.check(
             '生活、剧情两张图的结果重载后都保留',
             [...life, ...story].every((item) =>
@@ -544,7 +581,7 @@ export async function ocr(ctx) {
             育兽术: 0,
         };
         const beforeExp = await cdp.evaluate(`(async () => {
-            const { useRoster } = await import('/src/views/characters/roster.ts');
+            const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
             const roster = useRoster();
             const one = roster.roster.value.find((row) => row.name === 'E2E改名后');
             roster.update({
@@ -560,7 +597,7 @@ export async function ocr(ctx) {
             return { ...one.experience };
         })()`);
         await ui.clickIn('.roster .char', 'E2E改名后', { text: '修炼' });
-        await ui.clickIn('.roster .char', 'E2E改名后', { label: '截图识别这个角色' });
+        await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         await ui.waitFor(`!!document.querySelector('.ocr')`);
         t.check(
             '从修炼卡打开时自动选中修炼',
@@ -584,6 +621,8 @@ export async function ocr(ctx) {
             (await ui.text('.ocr-count')).replace(/\s+/g, '') === '认出10/10',
             await ui.text('.ocr-count'),
         );
+        await ui.fillSel('.ocr-card input[aria-label="猎术修炼 等级"]', '7');
+        await cdp.key('Enter');
         await pasteFixture('training.png', true);
         t.check(
             '修炼截图识别完成',
@@ -614,12 +653,12 @@ export async function ocr(ctx) {
         await cdp.key('Enter');
         expected.攻击修炼 = 12;
         expected.猎术修炼 = 8;
-        await ui.clickText('.modal-panel button', '应用到这张卡');
+        await ui.clickText('.modal-panel button', '保存');
         await ui.waitFor(`!document.querySelector('.ocr')`);
         await ui.reload();
         await ui.waitText('E2E改名后', { timeout: 8000 });
         const kept = await cdp.evaluate(`(async () => {
-            const { useRoster } = await import('/src/views/characters/roster.ts');
+            const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
             const one = useRoster().roster.value.find((row) => row.name === 'E2E改名后');
             return {
                 rows: one.trainings.flatMap((group) => group.rows.map((row) => ({ ...row }))),
@@ -638,9 +677,165 @@ export async function ocr(ctx) {
         t.check('修炼经验不写入角色经验', JSON.stringify(kept.exp) === JSON.stringify(beforeExp));
     });
 
+    await t.step('截图草稿：无图补录、清空和辅助增删，切页保留、取消不落库', async () => {
+        const readCharacter = () =>
+            cdp.evaluate(`(async () => {
+            const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
+            return JSON.parse(JSON.stringify(useRoster().roster.value
+                .find((row) => row.name === 'E2E改名后')));
+        })()`);
+        const before = await readCharacter();
+        await ui.clickIn('.roster .char', 'E2E改名后', { text: '属性' });
+        await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
+        await ui.waitFor(`!!document.querySelector('.ocr')`);
+        await ui.fillSel('.ocr-card input[aria-label="角色名"]', 'E2E截图草稿');
+        await cdp.key('Enter');
+        await ui.fillSel('.ocr-card input[aria-label="角色帮派"]', '草稿帮派');
+        await cdp.key('Enter');
+        await ui.fillSel('.ocr-card input[aria-label="乾元丹"]', '3');
+        await cdp.key('Enter');
+        await ui.fillSel('.ocr-card input[aria-label="气血"]', '');
+        await cdp.key('Enter');
+        t.check(
+            '固定属性不提供删除按钮，分组仍为两列',
+            (await ui.count('.ocr-card .pane button')) === 0 &&
+                (await cdp.evaluate(`(() => {
+                    const groups = [...document.querySelectorAll('.ocr-card .attr-group')];
+                    const first = groups[0].getBoundingClientRect();
+                    const second = groups[1].getBoundingClientRect();
+                    return Math.abs(first.top - second.top) < 1 && second.left > first.left;
+                })()`)),
+        );
+        await checkCardFits('属性');
+        await ui.clickText('.ocr-tabs .step-opt', '师门', { exact: true });
+        await ui.fillSel('.ocr-card .school-row input', '120');
+        await cdp.key('Enter');
+        await ui.fillSel('.ocr-card .school-row input', '0');
+        await cdp.key('Enter');
+        t.check(
+            '师门固定七项可改等级，不提供删除按钮，仍一行两个',
+            (await ui.count('.ocr-card .school-row')) === 7 &&
+                (await ui.count('.ocr-card .school-row button')) === 0 &&
+                (await cdp.evaluate(`(() => {
+                    const rows = [...document.querySelectorAll('.ocr-card .school-row')];
+                    const first = rows[0].getBoundingClientRect();
+                    const second = rows[1].getBoundingClientRect();
+                    return Math.abs(first.top - second.top) < 1 && second.left > first.left;
+                })()`)) &&
+                (await cdp.evaluate(
+                    `document.querySelector('.ocr-card .school-row input').value`,
+                )) === '0',
+        );
+        await checkCardFits('师门');
+        await ui.clickText('.ocr-tabs .step-opt', '修炼', { exact: true });
+        await ui.fillSel('.ocr-card input[aria-label="攻击修炼 等级"]', '19');
+        await cdp.key('Enter');
+        await ui.fillSel('.ocr-card input[aria-label="攻击修炼 等级"]', '0');
+        await cdp.key('Enter');
+        t.check(
+            '修炼固定十项只修改等级，不提供删除按钮，两组并排',
+            (await ui.count('.ocr-card .training-list input')) === 10 &&
+                (await ui.count('.ocr-card .pane button')) === 0 &&
+                (await cdp.evaluate(`(() => {
+                    const groups = [...document.querySelectorAll('.ocr-card .training-col')];
+                    const first = groups[0].getBoundingClientRect();
+                    const second = groups[1].getBoundingClientRect();
+                    return Math.abs(first.top - second.top) < 1 && second.left > first.left;
+                })()`)),
+        );
+        await checkCardFits('修炼');
+        t.check(
+            '修炼可直接把等级改为 0',
+            (await cdp.evaluate(
+                `document.querySelector('.ocr-card input[aria-label="攻击修炼 等级"]').value`,
+            )) === '0',
+        );
+        await ui.clickText('.ocr-tabs .step-opt', '辅助', { exact: true });
+        await checkCardFits('辅助');
+        t.check(
+            '辅助两组的添加按钮统一为新增并保留图标',
+            await cdp.evaluate(`(() => {
+                const buttons = [...document.querySelectorAll('.ocr-card .assist-add')];
+                return buttons.length === 2 && buttons.every((button) =>
+                    button.textContent.trim() === '新增' && button.querySelector('svg'));
+            })()`),
+        );
+        const rowCount = await ui.count('.ocr-card .assist-group .slip-row');
+        await ui.clickLabel('新增生活技能');
+        t.check(
+            '新增辅助技能默认等级为 0，编辑态仍一行两个',
+            await cdp.evaluate(`(() => {
+                const rows = [...document.querySelectorAll('.ocr-card .assist-group:first-child .slip-row')];
+                const first = rows[0].getBoundingClientRect();
+                const second = rows[1].getBoundingClientRect();
+                return rows.at(-1).querySelector('input').value === '0' &&
+                    Math.abs(first.top - second.top) < 1 && second.left > first.left;
+            })()`),
+        );
+        await cdp.click(
+            '.ocr-card .assist-group:first-child .slip-row:last-child [role="combobox"]',
+        );
+        await cdp.key('Enter');
+        const added = await ui.text(
+            '.ocr-card .assist-group:first-child .slip-row:last-child .select-text',
+        );
+        await ui.fillSel('.ocr-card .assist-group:first-child .slip-row:last-child input', '33');
+        await cdp.key('Enter');
+        t.check(
+            '辅助可新增技能并直接改等级',
+            added.length > 0 &&
+                (await ui.count('.ocr-card .assist-group .slip-row')) === rowCount + 1 &&
+                (await cdp.evaluate(
+                    `document.querySelector('.ocr-card .assist-group:first-child .slip-row:last-child input').value`,
+                )) === '33',
+        );
+        await cdp.key('Tab');
+        await cdp.key('Enter');
+        t.check(
+            '辅助新增行可用键盘删除',
+            (await ui.count('.ocr-card .assist-group .slip-row')) === rowCount,
+        );
+        await ui.clickText('.ocr-tabs .step-opt', '属性', { exact: true });
+        t.check(
+            '跨分区切回仍保留卡头补录、潜能与属性清空',
+            await cdp.evaluate(`document.querySelector('.ocr-card input[aria-label="角色名"]').value === 'E2E截图草稿' &&
+                document.querySelector('.ocr-card input[aria-label="角色帮派"]').value === '草稿帮派' &&
+                document.querySelector('.ocr-card input[aria-label="乾元丹"]').value === '3' &&
+                document.querySelector('.ocr-card input[aria-label="气血"]').value === ''`),
+        );
+        await ui.clickText('.modal-panel button', '取消', { exact: true });
+        await ui.waitFor(`!document.querySelector('.ocr')`);
+        t.check(
+            '取消不修改真实角色',
+            JSON.stringify(await readCharacter()) === JSON.stringify(before),
+        );
+
+        // 只有删除也能应用，持久化后再恢复本节前置数据。
+        await ui.clickIn('.roster .char', 'E2E改名后', { text: '辅助' });
+        await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
+        await ui.waitFor(`!!document.querySelector('.ocr')`);
+        await ui.clickLabel('删除强身术');
+        await ui.clickText('.modal-panel button', '保存');
+        await ui.waitFor(`!document.querySelector('.ocr')`);
+        await ui.reload();
+        await ui.waitText('E2E改名后');
+        const kept = await readCharacter();
+        t.check(
+            '无截图、仅删除技能也可保存，重载后删除生效',
+            !kept.assists.some((row) => row.name === '强身术') &&
+                kept.assists.length === before.assists.length - 1,
+        );
+        await cdp.evaluate(`(async () => {
+            const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
+            const roster = useRoster();
+            roster.update(${JSON.stringify(before)});
+            if (!(await roster.flush())) throw new Error('截图草稿烟测恢复失败');
+        })()`);
+    });
+
     await t.step('连续换图：停用旧结果，最新图先返回也不被旧请求覆盖', async () => {
         await ui.clickIn('.roster .char', 'E2E改名后', { text: '属性' });
-        await ui.clickIn('.roster .char', 'E2E改名后', { label: '截图识别这个角色' });
+        await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         const paste = () =>
             cdp.evaluate(`(async () => {
             const canvas = document.createElement('canvas');
@@ -657,7 +852,7 @@ export async function ocr(ctx) {
             { text: '${hp}', x: 60, y: 0, width: 60, height: 20, score: 1 }
         ])`);
         await cdp.evaluate(`(async () => {
-            const { commands } = await import('/src/services/bindings.ts');
+            const { commands } = await ${importLoaded('/src/services/bindings.ts')};
             window.__e2eOcr = commands.ocrFrame;
             window.__e2eOcrRequests = [];
             commands.ocrFrame = () => new Promise((resolve) => window.__e2eOcrRequests.push(resolve));
@@ -672,7 +867,7 @@ export async function ocr(ctx) {
             t.check(
                 '换图识别时应用按钮禁用',
                 await cdp.evaluate(
-                    `[...document.querySelectorAll('.modal-panel button')].find((one) => one.textContent.includes('应用到这张卡'))?.disabled === true`,
+                    `[...document.querySelectorAll('.modal-panel button')].find((one) => one.textContent.includes('保存'))?.disabled === true`,
                 ),
             );
             await paste();
@@ -688,11 +883,11 @@ export async function ocr(ctx) {
                         `[...document.querySelectorAll('.ocr-card input')].some((one) => one.value === '7003')`,
                     )),
             );
-            await ui.clickText('.modal-panel button', '应用到这张卡');
+            await ui.clickText('.modal-panel button', '保存');
             await ui.waitFor(`!document.querySelector('.ocr')`);
         } finally {
             await cdp.evaluate(`(async () => {
-                const { commands } = await import('/src/services/bindings.ts');
+                const { commands } = await ${importLoaded('/src/services/bindings.ts')};
                 commands.ocrFrame = window.__e2eOcr;
                 delete window.__e2eOcr; delete window.__e2eOcrRequests;
             })()`);

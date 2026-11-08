@@ -1,9 +1,12 @@
+import { importLoaded } from '../../cdp.mjs';
+import { checkButtonTheme } from './theme.mjs';
+
 /** 合成浮片走真实 OCR；断言覆盖三个入口、草稿取消、批量定位与重载持久化。 */
 export async function equipment(ctx) {
     const { cdp, ui, t } = ctx;
     const readGear = () =>
         cdp.evaluate(`(async () => {
-        const { useRoster } = await import('/src/views/characters/roster.ts');
+        const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
         return JSON.parse(JSON.stringify(useRoster().roster.value.find((one) => one.name === 'E2E改名后').gear));
     })()`);
     const upload = (selector, samples) =>
@@ -46,7 +49,7 @@ export async function equipment(ctx) {
     await t.step('装备页截图入口：跟随装备分区，只更新截图部位', async () => {
         const before = await readGear();
         await ui.clickIn('.roster .char', 'E2E改名后', { text: '装备' });
-        await ui.clickIn('.roster .char', 'E2E改名后', { label: '截图识别这个角色' });
+        await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         await ui.waitFor(`!!document.querySelector('.ocr')`);
         t.check(
             '截图弹窗自动切到装备',
@@ -60,9 +63,55 @@ export async function equipment(ctx) {
                 !!document.querySelector('.ocr .upload-detail .gear-form') &&
                 document.querySelector('.ocr .upload-navigation .ocr-tabs').nextElementSibling.classList.contains('gear-parts-head')`),
         );
+        const dialogSize = () =>
+            cdp.evaluate(`(() => {
+                const rect = document.querySelector('.modal-panel').getBoundingClientRect();
+                return { width: rect.width, height: rect.height };
+            })()`);
+        await ui.clickText('.ocr-tabs button', '属性', { exact: true });
+        const standardSize = await dialogSize();
+        const sizes = [];
+        for (const pane of ['师门', '辅助', '修炼', '召唤兽']) {
+            await ui.clickText('.ocr-tabs button', pane, { exact: true });
+            sizes.push(await dialogSize());
+        }
+        await ui.clickText('.ocr-tabs button', '装备', { exact: true });
+        const parts = await cdp.evaluate(
+            `[...document.querySelectorAll('.ocr .gear-slot .slot-label')].map((one) => one.textContent.trim())`,
+        );
+        for (const part of parts) {
+            await ui.clickLabel('编辑' + part + '的装备');
+            sizes.push(await dialogSize());
+        }
+        t.check(
+            '统一窗口在六个分区和十二装备之间切换时宽高一致',
+            sizes.every(
+                (size) =>
+                    Math.abs(size.width - standardSize.width) < 1 &&
+                    Math.abs(size.height - standardSize.height) < 1,
+            ),
+        );
+        await ui.clickLabel('编辑头的装备');
+        for (let index = 0; index < 12; index++) await ui.clickLabel('添加宝石行');
+        t.check(
+            '装备长详情在右侧滚动，弹窗保持统一高度',
+            await cdp.evaluate(`(() => {
+                const content = document.querySelector('.ocr .gear-content');
+                const footer = document.querySelector('.ocr .gear-add');
+                const panel = document.querySelector('.modal-panel').getBoundingClientRect();
+                const top = footer.getBoundingClientRect().top;
+                content.scrollTop = content.scrollHeight;
+                return content.scrollTop > 0 &&
+                    Math.abs(panel.height - ${standardSize.height}) < 1 &&
+                    Math.abs(footer.getBoundingClientRect().top - top) < 1 &&
+                    content.getBoundingClientRect().bottom <= footer.getBoundingClientRect().top + 1;
+            })()`),
+        );
+        for (let index = 0; index < 12; index++)
+            await cdp.click('.ocr [data-group="gem"] .row-delete');
         await upload('.ocr .upload-file', [head(26)]);
         t.check('装备截图真实 OCR 完成', await waitUpload());
-        await ui.clickText('.modal-panel button', '应用到这张卡');
+        await ui.clickText('.modal-panel button', '保存');
         await ui.waitFor(`!document.querySelector('.ocr')`);
         const after = await readGear();
         t.check(
@@ -102,6 +151,7 @@ export async function equipment(ctx) {
     await t.step('快速修改上传：部位拦错、取消不写入、保存才生效', async () => {
         await openHead();
         await ui.waitFor(`!!document.querySelector('.gear-quick')`);
+        await checkButtonTheme(ctx, '.modal-panel');
         t.check(
             '无图时左侧保留截图入口，右侧详情只有一个名称',
             await cdp.evaluate(
@@ -136,6 +186,17 @@ export async function equipment(ctx) {
             return getComputedStyle(label).textAlign === 'center' &&
                 [...document.querySelectorAll('.gear-quick .value-field')].every((field) => !field.placeholder);
         })()`),
+        );
+        t.check(
+            '快捷添加按钮按分类着色，套装按钮与详情同色',
+            await cdp.evaluate(`(() => {
+                const footer = document.querySelector('.gear-quick .gear-add');
+                const tiles = [...footer.querySelectorAll('.press-btn-tile')];
+                const suit = footer.querySelector('[aria-label="添加套装行"] .press-btn-inner');
+                const detail = document.querySelector('.gear-quick .kind-suit .property-items');
+                return new Set(tiles.map((tile) => getComputedStyle(tile).backgroundColor)).size === tiles.length &&
+                    getComputedStyle(suit).color === getComputedStyle(detail).color;
+            })()`),
         );
         const preview = await cdp.evaluate(`(() => {
             const image = document.querySelector('.gear-quick .upload-preview');
@@ -199,7 +260,7 @@ export async function equipment(ctx) {
         );
         for (let index = 0; index < 12; index++) await ui.clickLabel('添加宝石行');
         t.check(
-            '长详情独立滚动，放大的快捷添加按钮固定在卡片底部',
+            '长详情独立滚动，紧凑的快捷添加按钮固定在卡片底部',
             await cdp.evaluate(`(() => {
             const content = document.querySelector('.gear-quick .gear-content');
             const footer = document.querySelector('.gear-quick .gear-add');
@@ -209,7 +270,10 @@ export async function equipment(ctx) {
             return content.scrollTop > 0 &&
                 Math.abs(footer.getBoundingClientRect().top - top) < 1 &&
                 content.getBoundingClientRect().bottom <= footer.getBoundingClientRect().top + 1 &&
-                footer.querySelector('.press-btn-tile').getBoundingClientRect().height >= 30 * scale - 1;
+                [...footer.querySelectorAll('.press-btn-tile')].every((tile) =>
+                    tile.getBoundingClientRect().height >= 30 * scale - 1 &&
+                    tile.getBoundingClientRect().width <=
+                        tile.querySelector('.press-btn-inner').getBoundingClientRect().width + 24 * scale);
         })()`),
         );
         await ui.fillSel('.gear-quick textarea[aria-label="装备备注"]', '取消的备注');
@@ -233,8 +297,17 @@ export async function equipment(ctx) {
             await ui.exists('.gear-quick .upload-preview.empty'),
         );
         await ui.fillSel('.gear-quick textarea[aria-label="装备备注"]', '任务用\n暂不更换');
+        await ui.clickLabel('添加特技行');
+        await ui.clickLabel('添加宝石行');
+        await ui.fillSel('.gear-quick input[aria-label="伤害属性值"]', '123');
+        await cdp.key('Enter');
         await upload('.gear-quick .upload-file', [head(30)]);
         await waitUpload();
+        t.check(
+            '重新识别按部位整件覆盖，不保留旧特技和宝石行',
+            !(await ui.exists('.gear-quick .kind-active')) &&
+                !(await ui.exists('.gear-quick [data-group="gem"]')),
+        );
         t.check(
             '重新识别保留自用备注',
             await cdp.evaluate(
@@ -248,7 +321,7 @@ export async function equipment(ctx) {
     await t.step('全部修改批量上传：灵饰与玉魄自动定位，保存后重载仍在', async () => {
         await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         await ui.waitFor(`!!document.querySelector('.editor')`);
-        await ui.clickText('.editor-tabs button', '装备');
+        await ui.clickText('.ocr-tabs button', '装备');
         t.check(
             '全部修改允许多选截图',
             await cdp.evaluate(`document.querySelector('.gear-editor .upload-file').multiple`),
@@ -292,7 +365,7 @@ export async function equipment(ctx) {
             '切到未上传的部位时显示截图空位，保持两栏',
             await cdp.evaluate(
                 `!!document.querySelector('.gear-editor .upload-preview.empty') &&
-                document.querySelector('.editor').classList.contains('gear-wide')`,
+                document.querySelector('.ocr').classList.contains('ocr-wide')`,
             ),
         );
         await ui.clickLabel('编辑耳饰的装备');
@@ -301,7 +374,7 @@ export async function equipment(ctx) {
             await cdp.evaluate(
                 `document.querySelector('.gear-editor .upload-preview img').alt.includes('明月珰') &&
                 document.querySelector('.gear-editor .gear-name input').value === '明月珰' &&
-                document.querySelector('.editor').classList.contains('gear-wide')`,
+                document.querySelector('.ocr').classList.contains('ocr-wide')`,
             ),
         );
         t.check(
@@ -320,6 +393,23 @@ export async function equipment(ctx) {
                     !document.querySelector('.gear-editor button[aria-label="添加宝石行"]') &&
                     !!row.querySelector('input[aria-label="括号值"]') &&
                     Math.abs(name.width - value.width * 2) < 1;
+            })()`),
+        );
+        t.check(
+            '灵饰强化值与普通数值输入框等宽等高，字体和内距一致',
+            await cdp.evaluate(`(() => {
+                const rows = [...document.querySelectorAll('.gear-editor .stat-number:has(.stat-extra)')];
+                return rows.length > 0 && rows.every((row) => {
+                    const normal = row.querySelector(':scope > .value-field');
+                    const enhanced = row.querySelector('.stat-extra .value-field');
+                    const a = normal.getBoundingClientRect();
+                    const b = enhanced.getBoundingClientRect();
+                    const first = getComputedStyle(normal);
+                    const second = getComputedStyle(enhanced);
+                    return Math.abs(a.width - b.width) < 1 && Math.abs(a.height - b.height) < 1 &&
+                        ['fontSize', 'fontFamily', 'fontWeight', 'paddingLeft', 'paddingRight'].every(
+                            (key) => first[key] === second[key]);
+                });
             })()`),
         );
         await ui.clickLabel('编辑玉魄·阳的装备');

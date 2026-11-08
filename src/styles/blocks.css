@@ -47,6 +47,132 @@
     gap: 16px;
 }
 
+/* 角色卡、修改和识别浮层共用门派色；嵌套预览独立解析门派，空值回落纸色。 */
+.character-theme {
+    --tint: initial;
+    --tint-deep: initial;
+    --character-paper: var(--board-paper, light-dark(var(--paper-2), var(--paper)));
+    --card-tint: var(--tint, var(--character-paper));
+    --slip-base: color-mix(in srgb, var(--card-tint) var(--wash), var(--character-paper));
+    --tile-face: var(--slip-base);
+    --tile-face-hover: color-mix(in srgb, var(--slip-base) 82%, var(--card-tint));
+    --tile-face-active: color-mix(in srgb, var(--slip-base) 76%, var(--well));
+}
+.character-theme[data-school='大唐官府'] {
+    --tint: var(--tint-大唐官府);
+    --tint-deep: var(--tint-deep-大唐官府);
+}
+.character-theme[data-school='魔王寨'] {
+    --tint: var(--tint-魔王寨);
+    --tint-deep: var(--tint-deep-魔王寨);
+}
+.character-theme[data-school='化生寺'] {
+    --tint: var(--tint-化生寺);
+    --tint-deep: var(--tint-deep-化生寺);
+}
+.character-theme[data-school='天宫'] {
+    --tint: var(--tint-天宫);
+    --tint-deep: var(--tint-deep-天宫);
+}
+.character-theme[data-school='弥勒山'] {
+    --tint: var(--tint-弥勒山);
+    --tint-deep: var(--tint-deep-弥勒山);
+}
+.character-theme[data-school='九黎城'] {
+    --tint: var(--tint-九黎城);
+    --tint-deep: var(--tint-deep-九黎城);
+}
+.character-theme[data-school='女儿村'] {
+    --tint: var(--tint-女儿村);
+    --tint-deep: var(--tint-deep-女儿村);
+}
+.character-theme[data-school='普陀山'] {
+    --tint: var(--tint-普陀山);
+    --tint-deep: var(--tint-deep-普陀山);
+}
+.character-theme[data-school='方寸山'] {
+    --tint: var(--tint-方寸山);
+    --tint-deep: var(--tint-deep-方寸山);
+}
+.character-theme[data-school='龙宫'] {
+    --tint: var(--tint-龙宫);
+    --tint-deep: var(--tint-deep-龙宫);
+}
+.character-theme[data-school='东海渊'] {
+    --tint: var(--tint-东海渊);
+    --tint-deep: var(--tint-deep-东海渊);
+}
+.character-theme[data-school='凌波城'] {
+    --tint: var(--tint-凌波城);
+    --tint-deep: var(--tint-deep-凌波城);
+}
+.character-theme[data-school='五庄观'] {
+    --tint: var(--tint-五庄观);
+    --tint-deep: var(--tint-deep-五庄观);
+}
+.character-theme[data-school='神木林'] {
+    --tint: var(--tint-神木林);
+    --tint-deep: var(--tint-deep-神木林);
+}
+.character-theme[data-school='花果山'] {
+    --tint: var(--tint-花果山);
+    --tint-deep: var(--tint-deep-花果山);
+}
+.character-theme[data-school='阴曹地府'] {
+    --tint: var(--tint-阴曹地府);
+    --tint-deep: var(--tint-deep-阴曹地府);
+}
+.character-theme[data-school='盘丝洞'] {
+    --tint: var(--tint-盘丝洞);
+    --tint-deep: var(--tint-deep-盘丝洞);
+}
+.character-theme[data-school='女魃墓'] {
+    --tint: var(--tint-女魃墓);
+    --tint-deep: var(--tint-deep-女魃墓);
+}
+.character-theme[data-school='狮驼岭'] {
+    --tint: var(--tint-狮驼岭);
+    --tint-deep: var(--tint-deep-狮驼岭);
+}
+.character-theme[data-school='无底洞'] {
+    --tint: var(--tint-无底洞);
+    --tint-deep: var(--tint-deep-无底洞);
+}
+.character-theme[data-school='天机城'] {
+    --tint: var(--tint-天机城);
+    --tint-deep: var(--tint-deep-天机城);
+}
+
+/* 装备分类配色共用于详情标签与快捷添加，布局仍由各组件负责。 */
+.gear-color {
+    --property-ink: var(--ink);
+}
+.gear-color-extra {
+    --property-ink: var(--moss);
+}
+.gear-color-gem {
+    --property-ink: var(--ochre);
+}
+.gear-color-melt {
+    --property-ink: color-mix(in srgb, var(--ochre) 60%, var(--cinnabar));
+}
+.gear-color-active {
+    --property-ink: var(--cinnabar);
+}
+.gear-color-suit {
+    --property-ink: var(--indigo-ink);
+}
+.gear-color-effect,
+.gear-color-ambush {
+    --property-ink: color-mix(in srgb, var(--cinnabar) 55%, var(--indigo-ink));
+}
+.gear-color-upgrade {
+    --property-ink: color-mix(in srgb, var(--moss) 65%, var(--indigo-ink));
+}
+.gear-color-status {
+    --property-ink: var(--muted);
+}
+
 /* ---------- 说明文字 ---------- */
 .note {
     margin-top: 8px;

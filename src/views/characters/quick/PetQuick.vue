@@ -44,6 +44,8 @@ onMounted(async () => {
 
 <template>
     <ModalShell
+        class="character-theme"
+        :data-school="character.school || ''"
         :title="`快速修改 · 召唤兽 ${pet?.name.trim() || '未命名'}`"
         :width="620"
         initial-focus="none"

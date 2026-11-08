@@ -113,6 +113,8 @@ onMounted(async () => {
     />
     <ModalShell
         v-else
+        class="character-theme"
+        :data-school="character.school || ''"
         :title="skillName ? '快速修改' : (panel?.title ?? '快速修改')"
         :width="340"
         initial-focus="none"

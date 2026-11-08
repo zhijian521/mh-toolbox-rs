@@ -3,13 +3,17 @@ import { effectScope, type EffectScope } from 'vue';
 import { ocrFrame, type OcrOutcome } from '../../../services/ocr';
 import type { OcrLine } from './attr-panel';
 import { useOcrImage } from './use-ocr-image';
+import { base64Of } from './pixels';
 
 vi.mock('../../../services/ocr', () => ({ ocrFrame: vi.fn() }));
 vi.mock('./pixels', () => ({
-    prepareFrame: (bitmap: ImageBitmap) => ({
-        frame: { pixels: String(bitmap.width), width: bitmap.width, height: 1 },
-        image: { width: bitmap.width } as ImageData,
+    imageDataOf: (bitmap: ImageBitmap) => ({
+        width: bitmap.width,
+        height: 1,
+        data: Uint8ClampedArray.of(bitmap.width, 0, 0, 255),
     }),
+    swapToBgra: (data: Uint8ClampedArray) => data,
+    base64Of: vi.fn((bytes: Uint8Array) => String(bytes[0])),
 }));
 function gate<T>() {
     let release!: (value: T) => void;
@@ -42,6 +46,7 @@ beforeEach(() => {
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:panel');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     vi.mocked(ocrFrame).mockReset();
+    vi.mocked(base64Of).mockClear();
 });
 afterEach(() => {
     scope?.stop();
@@ -75,6 +80,61 @@ describe('OCR 图像请求生命周期', () => {
         expect(image.result.value).toBe('assist');
         expect(image.error.value).toBe('');
         expect(image.busy.value).toBe(false);
+    });
+
+    it('辅助路径不编码或识别整图，切到文字分区后按需识别一次并复用', async () => {
+        let whole = false;
+        const parse = vi.fn(async (rows: OcrLine[]) => ({ result: rows[0]?.text ?? 'assist' }));
+        vi.mocked(ocrFrame).mockResolvedValue({ status: 'ok', lines: lines('whole') });
+        scope = effectScope();
+        const image = scope.run(() => useOcrImage(parse, undefined, () => whole))!;
+        await image.takeFile(file());
+        expect(ocrFrame).not.toHaveBeenCalled();
+        expect(base64Of).not.toHaveBeenCalled();
+        expect(image.result.value).toBe('assist');
+        expect(image.busy.value).toBe(false);
+
+        whole = true;
+        await image.classify();
+        await image.classify();
+        expect(image.result.value).toBe('whole');
+        expect(ocrFrame).toHaveBeenCalledTimes(1);
+        expect(base64Of).toHaveBeenCalledTimes(1);
+
+        whole = false;
+        await image.classify();
+        expect(image.result.value).toBe('assist');
+        expect(image.rawLines.value).toEqual([]);
+        expect(ocrFrame).toHaveBeenCalledTimes(1);
+    });
+
+    it('整图识别尚未结束时切分区，复用在途请求，只解析最后一页', async () => {
+        const pending = gate<OcrOutcome>();
+        vi.mocked(ocrFrame).mockReturnValue(pending.promise);
+        const parse = vi.fn(async () => ({ result: 'latest' }));
+        const image = session(parse);
+        const first = image.takeFile(file());
+        await tick();
+        const second = image.classify();
+        expect(ocrFrame).toHaveBeenCalledTimes(1);
+        pending.release({ status: 'ok', lines: lines('whole') });
+        await Promise.all([first, second]);
+        expect(parse).toHaveBeenCalledTimes(1);
+        expect(image.result.value).toBe('latest');
+        expect(image.busy.value).toBe(false);
+    });
+
+    it('整图识别失败后可重试，不把失败结果留作缓存', async () => {
+        vi.mocked(ocrFrame)
+            .mockResolvedValueOnce({ status: 'failed', error: '模型忙' })
+            .mockResolvedValueOnce({ status: 'ok', lines: lines('retry') });
+        const image = session();
+        await image.takeFile(file());
+        expect(image.error.value).toBe('模型忙');
+        await image.classify();
+        expect(image.result.value).toBe('retry');
+        expect(image.error.value).toBe('');
+        expect(ocrFrame).toHaveBeenCalledTimes(2);
     });
 
     it('新图立即清旧结果，旧 OCR 后到也不能覆盖最新图，句柄各释放一次', async () => {

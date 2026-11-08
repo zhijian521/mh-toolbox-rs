@@ -178,11 +178,11 @@ function addLine(label: string) {
                                 :aria-label="item.row.label + '属性值'"
                             />
                             <span v-if="hasExtra(item.row)" class="stat-extra">
-                                [<input
+                                <input
                                     v-model="item.row.extra"
                                     class="field num-slot value-field"
                                     aria-label="括号值"
-                                />]
+                                />
                             </span>
                         </div>
                         <PressButton
@@ -252,6 +252,8 @@ function addLine(label: string) {
             <PressButton
                 v-for="group in statShortcuts"
                 :key="group.value"
+                class="gear-color"
+                :class="'gear-color-' + group.value"
                 icon="add"
                 :text="group.label + '行'"
                 :label="'添加' + group.label + '行'"
@@ -260,12 +262,20 @@ function addLine(label: string) {
             <PressButton
                 v-for="effect in effectShortcuts"
                 :key="effect.value"
+                class="gear-color"
+                :class="'gear-color-' + effect.kind"
                 icon="add"
                 :text="effect.label + '行'"
                 :label="'添加' + effect.label + '行'"
                 @click="addLine(effect.value)"
             />
-            <PressButton icon="add" text="状态行" label="添加状态行" @click="addCond" />
+            <PressButton
+                class="gear-color gear-color-status"
+                icon="add"
+                text="状态行"
+                label="添加状态行"
+                @click="addCond"
+            />
         </div>
     </div>
 </template>
@@ -358,11 +368,15 @@ function addLine(label: string) {
     grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
 }
 .stat-number {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     align-items: center;
-    gap: 4px;
+    gap: calc(10px * var(--fs-scale));
     min-width: 0;
     font-variant-numeric: tabular-nums;
+}
+.stat-number:has(.stat-extra) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .row-name,
 .value-field,
@@ -383,20 +397,24 @@ function addLine(label: string) {
     text-align: right;
     font-weight: 700;
 }
-.stat-number > .value-field,
-.stat-extra .value-field {
-    flex: 1;
-    width: 0;
-}
 .stat-extra {
+    position: relative;
     display: flex;
-    flex: 1;
     align-items: center;
     min-width: 0;
-    font-size: var(--fs-mini);
 }
-.stat-extra .value-field {
-    padding: 0 2px;
+.stat-extra::before,
+.stat-extra::after {
+    position: absolute;
+    pointer-events: none;
+}
+.stat-extra::before {
+    left: calc(-5px * var(--fs-scale));
+    content: '[';
+}
+.stat-extra::after {
+    right: calc(-5px * var(--fs-scale));
+    content: ']';
 }
 .effect-row {
     grid-template-columns: minmax(0, 1fr) calc(26px * var(--fs-scale));
@@ -464,15 +482,20 @@ function addLine(label: string) {
     width: 100%;
 }
 .gear-add {
-    display: grid;
+    display: flex;
     flex: none;
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    flex-wrap: wrap;
     gap: 8px;
     padding: 12px 14px 14px;
     border-top: var(--w-hair) solid var(--rule-2);
 }
 .gear-add .press-btn {
     --tile-h: calc(30px * var(--fs-scale));
-    --tile-w: 100%;
+    --tile-face: color-mix(in srgb, var(--property-ink) 12%, var(--paper-2));
+    --tile-face-hover: color-mix(in srgb, var(--property-ink) 20%, var(--paper-2));
+    --tile-face-active: color-mix(in srgb, var(--property-ink) 26%, var(--well));
+}
+.gear-add :deep(.press-btn-inner) {
+    color: var(--property-ink);
 }
 </style>

@@ -1,10 +1,9 @@
 import type { EquipmentName } from '../../../services/game-data';
 import type { CharacterData } from '../character';
 import type { GearDetail, GearSlot, GearSlotName, GearStat } from '../gear';
-import { gearStatGroup } from '../gear-properties';
 import type { OcrLine } from './attr-panel';
 
-/** 一次只识别一件；缺失字段保持缺席，不能把漏识别当成清空。 */
+/** 一次识别一件，缺失字段不猜值；应用时按部位整件替换。 */
 export interface GearPanelResult {
     slot: GearSlotName | null;
     detail: Partial<GearDetail>;
@@ -229,54 +228,22 @@ export function parseGearPanel(
     return { slot, detail, hit, total: hit };
 }
 
-function mergeRows<T extends { label: string }>(
-    original: readonly T[],
-    incoming: readonly T[],
-    key: (row: T) => string = (row) => row.label,
-): T[] {
-    const result = original.map((row) => ({ ...row }));
-    const used = new Set<number>();
-    for (const row of incoming) {
-        const index = result.findIndex((old, i) => !used.has(i) && key(old) === key(row));
-        if (index < 0) {
-            used.add(result.length);
-            result.push({ ...row });
-        } else {
-            used.add(index);
-            result[index] = { ...result[index], ...row };
-        }
-    }
-    return result;
-}
-
-/** 按字段与同名行的出现顺序合并，灵饰的多条同名伤害不能被 Map 合成一条。 */
+/** 同部位整件覆盖，仅保留自用备注；多条同名属性仍按截图原样记录。 */
 export function mergeGearPanel(original: GearSlot, result: GearPanelResult): GearSlot {
     if (!result.slot || result.slot !== original.slot || !result.hit) return original;
     const patch = result.detail;
-    const old = original.detail;
     const detail: GearDetail = {
-        name: original.caption ?? '',
+        name: '',
         kind: '',
         stats: [],
-        ...old,
         ...patch,
     };
-    detail.stats = mergeRows(
-        old?.stats ?? [],
-        patch.stats ?? [],
-        (row) => `${row.label}:${gearStatGroup(row, original.slot)}`,
-    );
-    if (patch.cond) detail.cond = mergeRows(old?.cond ?? [], patch.cond);
-    if (patch.lines) detail.lines = mergeRows(old?.lines ?? [], patch.lines);
-    if (patch.requires) {
-        const keys = (value: string) =>
-            value.startsWith('等级') ? '等级' : value.startsWith('五行') ? '五行' : '角色';
-        detail.requires = (old?.requires ?? []).filter(
-            (value) => !patch.requires?.some((one) => keys(one) === keys(value)),
-        );
-        detail.requires.push(...patch.requires);
-    }
-    return { ...original, caption: patch.name || original.caption, detail };
+    detail.stats = (patch.stats ?? []).map((row) => ({ ...row }));
+    if (patch.cond) detail.cond = patch.cond.map((row) => ({ ...row }));
+    if (patch.lines) detail.lines = patch.lines.map((row) => ({ ...row }));
+    if (patch.requires) detail.requires = [...patch.requires];
+    if (original.detail?.note !== undefined) detail.note = original.detail.note;
+    return { ...original, caption: detail.name, detail };
 }
 
 export function applyGearPanel(character: CharacterData, result: GearPanelResult): CharacterData {

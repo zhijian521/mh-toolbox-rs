@@ -2,6 +2,9 @@
 import PaperCard from '../../components/PaperCard.vue';
 import { computed, ref, watch } from 'vue';
 import PressButton from '../../components/PressButton.vue';
+import NumberField from '../../components/NumberField.vue';
+import SelectField from '../../components/SelectField.vue';
+import { schoolNames } from '../../services/game-data';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import GearTip from './GearTip.vue';
 import PetDetail from './PetDetail.vue';
@@ -14,6 +17,7 @@ import TrainingPane from './panes/TrainingPane.vue';
 import {
     PANES,
     type AssistKind,
+    type AssistSkill,
     type CharacterData,
     type GearDetail,
     type PaneKey,
@@ -59,15 +63,14 @@ import type { GearSlotName } from './gear';
  *
  * ---- `preview`：同一张卡，没有动作区 ----
  * 截图识别的弹窗右边要展示「识别之后的样子」，用的就是这张卡。那一份不能有
- * 「修改 / 截图识别 / 删除」——它是一张预览，点它会去动一张还没落库的草稿。
+ * 「修改 / 删除」——它是一张预览，点它会去动一张还没落库的草稿。
  * 单独加一个布尔而不是在父级用 CSS 藏：`v-if` 才是「这里不该有按钮」，
- * `display: none` 会留下 3 个 Tab 焦点在空处。
+ * 隐藏动作区也不该保留可聚焦的控件。
  *
  * ---- `editable`：同一张卡，读数变成格子 ----
  * 预览那份还要**能改**：认错的数就摆在卡上，让人在看得见后果的地方改，而不是
- * 在左栏另一套输入格里改完再回头看卡。开的是属性页的数字，键由 `AttrPane` 抛上来
- * （属性行是行名，经验是 `experience.value` / `experience.need`），本组件只往下递、
- * 往上转，不认识具体哪一项——第三种用法要加别的页时，`AttrPane` 自己开就行。
+ * 在左栏另一套输入格里改完再回头看卡。属性、师门、辅助与修炼都可直接编辑，
+ * 固定项目清空数值，辅助可增删行；各分区抛出修改，本组件转给外层草稿。
  *
  * ---- `tabs`：连页签条一起省掉 ----
  * 「只展示这一页」的用法（截图识别弹窗右边）不该长出一条六个页签的轨道：那是一句
@@ -87,8 +90,7 @@ import type { GearSlotName } from './gear';
  * 由 `CharactersView` 找到对应角色开窗、保存时走 `update()`。理由与删除确认同一条——
  * 弹窗的开关状态属于页面，卡是循环渲染的，存一份就变成「每张卡各有一个窗」。
  *
- * 预览卡（截图识别右边那份）与 `editable` 那份都不开：前者是只读样张，
- * 后者每一格已经是输入框。所以这一条由调用方传 `quick`，默认关着。
+ * 截图识别右侧的卡直接编辑草稿，不开快速修改窗；`quick` 由名册传入，默认关闭。
  */
 const props = withDefaults(
     defineProps<{
@@ -108,12 +110,13 @@ const props = withDefaults(
     { tabs: true, pane: 'attrs', quick: false },
 );
 const emit = defineEmits<{
-    edit: [];
+    edit: [pane: PaneKey];
     remove: [];
-    scan: [pane: PaneKey];
     'edit-value': [key: string, value: string];
     'edit-level': [name: string, level: number];
-    'edit-assist': [name: string, kind: AssistKind, level: number];
+    'edit-assist': [index: number, patch: Partial<AssistSkill>];
+    'add-assist': [kind: AssistKind];
+    'remove-assist': [index: number];
     'edit-training': [name: string, level: number];
     quick: [target: QuickTarget];
 }>();
@@ -127,7 +130,17 @@ watch(
 );
 
 const withTabs = computed(() => props.tabs);
-const canScan = computed(() => active.value !== 'pets');
+const schoolOptions = computed(() => {
+    const names = schoolNames();
+    const current = props.character.school;
+    return (current && !names.includes(current) ? [current, ...names] : names).map((name) => ({
+        value: name,
+        label: name,
+    }));
+});
+function editIdentity(key: string, event: Event) {
+    emit('edit-value', key, (event.target as HTMLInputElement).value);
+}
 
 /* 页签的值与文案一次算好：滑块要的是 `{ value, label }[]`，而 `PANES` 是只读元组，
  * 直接在模板里 `map` 会每次渲染新建一个数组，`useRovingFocus` 的 `values()` 也随之变。 */
@@ -197,14 +210,38 @@ function quickPet() {
 </script>
 
 <template>
-    <!-- `data-school` 给浅染用（`character-card.css` 里二十一条映射）。
+    <!-- `data-school` 给浅染用（`blocks.css` 的共用门派映射）。
          空门派时属性为空串，不匹配任何一条 → 卡底回落纸色。
          原先还挂着 `dual-rule`（离卡缘 3px 的一圈 1px 内衬线），2026-11-06
          用户要求「最外面的一圈细边框去掉」——卡边只剩纸自己的棱与落影。 -->
-    <PaperCard as="article" class="char" :data-school="character.school || ''">
+    <PaperCard as="article" class="char character-theme" :data-school="character.school || ''">
         <header class="char-head">
-            <div class="who-block">
-                <div class="who">
+            <div class="who-block" :class="{ 'identity-edit': editable && active === 'attrs' }">
+                <div v-if="editable && active === 'attrs'" class="who who-edit">
+                    <input
+                        class="field identity-name"
+                        :value="character.name"
+                        aria-label="角色名"
+                        placeholder="名称"
+                        @input="editIdentity('name', $event)"
+                    />
+                    <NumberField
+                        class="identity-level num-slot"
+                        :model-value="character.level"
+                        label="角色等级"
+                        zero-as-empty
+                        @update:model-value="emit('edit-value', 'level', String($event))"
+                    />
+                    <SelectField
+                        class="identity-school"
+                        :model-value="character.school"
+                        :options="schoolOptions"
+                        label="角色门派"
+                        placeholder="门派"
+                        @update:model-value="emit('edit-value', 'school', $event)"
+                    />
+                </div>
+                <div v-else class="who">
                     <h2>{{ character.name }}</h2>
                     <span class="lv num">{{ character.level }} 级</span>
                     <!-- 门派空着就不挂签：一个新角色还没填门派，画一个空胶囊
@@ -213,7 +250,23 @@ function quickPet() {
                 </div>
                 <!-- 名字下面那行小字：区服 · 帮派。两项各自 `v-if`，
                      只填了一项时不是「A · 」，也不会留下一个空的点。 -->
-                <p v-if="character.server || character.guild" class="meta char-sub">
+                <div v-if="editable && active === 'attrs'" class="identity-sub">
+                    <input
+                        class="field"
+                        :value="character.server"
+                        aria-label="区服"
+                        placeholder="区服"
+                        @input="editIdentity('server', $event)"
+                    />
+                    <input
+                        class="field"
+                        :value="character.guild"
+                        aria-label="角色帮派"
+                        placeholder="帮派"
+                        @input="editIdentity('guild', $event)"
+                    />
+                </div>
+                <p v-else-if="character.server || character.guild" class="meta char-sub">
                     <span v-if="character.server">{{ character.server }}</span>
                     <span v-if="character.server && character.guild" class="dot">·</span>
                     <span v-if="character.guild">{{ character.guild }}</span>
@@ -222,15 +275,7 @@ function quickPet() {
             <!-- 卡头右侧：改与删。两枚都是纯图标 26px，与左栏、工具页同一种压印块。
                  删除只把事件抛出去，确认窗由名册页开——卡上不出现第二种「确认」的问法。 -->
             <div v-if="!preview" class="head-actions">
-                <PressButton icon="edit" label="编辑这个角色" @click="emit('edit')" />
-                <!-- 截图识别排在修改后面：它是「改这张卡」的第二种入口，也是唯一一个
-                     不需要打开编辑器的入口。删除永远在最后，中间不夹破坏性动作。 -->
-                <PressButton
-                    icon="scan"
-                    :label="canScan ? '截图识别这个角色' : '当前分区暂不支持截图识别'"
-                    :disabled="!canScan"
-                    @click="emit('scan', active)"
-                />
+                <PressButton icon="edit" label="编辑这个角色" @click="emit('edit', active)" />
                 <PressButton icon="trash" label="删除这个角色" @click="emit('remove')" />
             </div>
         </header>
@@ -299,7 +344,9 @@ function quickPet() {
                     :assists="character.assists"
                     :editable="editable"
                     :quick="quick"
-                    @edit-level="(name, kind, level) => emit('edit-assist', name, kind, level)"
+                    @edit-row="(index, patch) => emit('edit-assist', index, patch)"
+                    @add-row="(kind) => emit('add-assist', kind)"
+                    @remove-row="(index) => emit('remove-assist', index)"
                     @quick="(target) => emit('quick', target)"
                 />
             </template>

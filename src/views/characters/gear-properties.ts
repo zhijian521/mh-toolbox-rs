@@ -126,7 +126,13 @@ export function gearEffectOptions(slot: GearSlotName) {
         : ['戒指', '耳饰', '配饰', '手镯'].includes(slot)
           ? ['特效', '套装']
           : ['特技', '特效', '套装'];
-    return labels.map((value) => ({ value, label: value }));
+    return labels.map((value) => ({ value, label: value, kind: gearEffectKind(value) }));
+}
+
+function gearEffectKind(label: string): string {
+    if (label === '特技') return 'active';
+    if (label === '套装' || label === '套装效果') return 'suit';
+    return label.startsWith('奇袭') ? 'ambush' : 'effect';
 }
 
 export function gearStatGroup(stat: GearStat, slot?: GearSlotName): GearStatGroup {
@@ -204,14 +210,7 @@ export function gearPropertyGroups(
         );
     });
     detail.lines?.forEach((row, index) => {
-        const kind =
-            row.label === '特技'
-                ? 'active'
-                : row.label === '套装' || row.label === '套装效果'
-                  ? 'suit'
-                  : row.label.startsWith('奇袭')
-                    ? 'ambush'
-                    : 'effect';
+        const kind = gearEffectKind(row.label);
         add(
             { key: `line-${index}`, label: row.label, kind, tag: true, inline: false },
             { source: 'lines', index, row, name: '', value: row.value },

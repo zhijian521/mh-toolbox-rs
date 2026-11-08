@@ -50,6 +50,27 @@
     line-height: 1;
     text-align: center;
 }
-label.slip-name {
-    cursor: text;
+.editing .slip-row {
+    gap: 4px;
+    padding: 0 6px;
+}
+.slip-row .assist-select {
+    flex: 1;
+    min-width: 0;
+}
+.assist-select :deep(.select-trigger) {
+    --icon-size: calc(10px * var(--fs-scale));
+    gap: 2px;
+    padding: 0 4px;
+}
+.editing .lv-field {
+    width: calc(36px * var(--fs-scale));
+    padding: 0 3px;
+}
+.assist-remove {
+    --tile-w: calc(22px * var(--fs-scale));
+    --tile-h: calc(22px * var(--fs-scale));
+}
+.assist-add {
+    margin-top: 10px;
 }

@@ -1,4 +1,6 @@
+import { importLoaded } from '../../cdp.mjs';
 import { CONFIRM_DELETE } from '../shared.mjs';
+import { checkButtonTheme } from './theme.mjs';
 
 export async function setup(ctx) {
     const { cdp, ui, t, sleep, baseline } = ctx;
@@ -30,6 +32,11 @@ export async function setup(ctx) {
             throw new Error('编辑器没打开');
         }
         t.pass('点「新建角色」打开编辑器');
+        t.check(
+            '新建共用带截图入口的修改窗口，名称为空不能保存',
+            await cdp.evaluate(`!!document.querySelector('.editor .ocr-shot') &&
+                document.querySelector('button[aria-label="保存这个角色"]').disabled`),
+        );
 
         const focused = await cdp.evaluate(
             `document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName`,
@@ -43,10 +50,10 @@ export async function setup(ctx) {
         );
         t.check('名字格收到了文字', typed === 'E2E测试角色', `实际：${typed}`);
 
-        await ui.clickText('.editor-tabs button', '师门');
+        await ui.clickText('.ocr-tabs button', '师门');
         await sleep(300);
         const paneShown = await cdp.evaluate(`(() => {
-                const pane = document.querySelector('#editor-pane-skills');
+                const pane = document.querySelector('.ocr-card .pane[aria-label="师门"]');
                 return !!pane && pane.offsetParent !== null;
             })()`);
         t.check('切到「师门」分区', paneShown);
@@ -58,6 +65,57 @@ export async function setup(ctx) {
         const after = await ui.count('.roster .char');
         t.check('名册多出一格', after === baseline.chars + 1, `${baseline.chars} → ${after}`);
         t.check('新角色画在页面上', (await ui.text()).includes('E2E测试角色'));
+    });
+
+    await t.step('角色卡按钮底色跟随门派和亮暗主题', async () => {
+        const palettes = await cdp.evaluate(`(() => {
+            const card = [...document.querySelectorAll('.roster .char')]
+                .find((el) => el.textContent.includes('E2E测试角色'));
+            const root = document.documentElement;
+            const originalSchool = card.getAttribute('data-school');
+            const originalDark = root.classList.contains('dark');
+            const style = document.createElement('style');
+            style.textContent = '.roster .char .press-tile { transition: none !important; }';
+            document.head.append(style);
+            try {
+                return [false, true].map((dark) => {
+                    root.classList.toggle('dark', dark);
+                    return ['', '大唐官府', '龙宫'].map((school) => {
+                        card.setAttribute('data-school', school);
+                        return [...card.querySelectorAll('.head-actions .press-btn-tile')]
+                            .map((tile) => getComputedStyle(tile).backgroundColor);
+                    });
+                });
+            } finally {
+                if (originalSchool === null) card.removeAttribute('data-school');
+                else card.setAttribute('data-school', originalSchool);
+                root.classList.toggle('dark', originalDark);
+                style.remove();
+            }
+        })()`);
+        t.check(
+            '编辑和删除按钮同色，空门派与不同门派底色有区分',
+            palettes.every(
+                (schools) =>
+                    schools.every((colors) => colors.length === 2 && new Set(colors).size === 1) &&
+                    new Set(schools.map((colors) => colors[0])).size === 3,
+            ),
+            JSON.stringify(palettes),
+        );
+        t.check(
+            '按钮底色随亮暗主题切换',
+            palettes[0].every((colors, index) => colors[0] !== palettes[1][index][0]),
+        );
+        t.check(
+            '卡头只保留修改和删除两个入口',
+            await cdp.evaluate(`(() => {
+                const card = [...document.querySelectorAll('.roster .char')]
+                    .find((one) => one.textContent.includes('E2E测试角色'));
+                return [...card.querySelectorAll('.head-actions button')]
+                    .map((button) => button.getAttribute('aria-label')).join('/') ===
+                    '编辑这个角色/删除这个角色';
+            })()`),
+        );
     });
 
     /* 重载：这一条是整个测试最要紧的——前面的绿都可能是内存里的绿。 */
@@ -74,6 +132,17 @@ export async function setup(ctx) {
             throw new Error('编辑态没打开');
         }
         t.pass('编辑态打开');
+        await ui.clickText('.ocr-tabs button', '辅助', { exact: true });
+        t.check(
+            '修改页辅助按钮统一为新增并保留图标',
+            await cdp.evaluate(`(() => {
+                const buttons = [...document.querySelectorAll('.ocr-card .assist-add')];
+                return buttons.length === 2 && buttons.every((button) =>
+                    button.textContent.trim() === '新增' && button.querySelector('svg'));
+            })()`),
+        );
+        await checkButtonTheme(ctx, '.editor', 'E2E测试角色');
+        await ui.clickText('.ocr-tabs button', '属性', { exact: true });
         await ui.fill('角色名', 'E2E改名后');
         await ui.clickLabel('保存这个角色');
         await sleep(600);
@@ -84,7 +153,7 @@ export async function setup(ctx) {
         await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         await ui.fill('区服', 'E2E重试区');
         await cdp.evaluate(`(async () => {
-                const { commands } = await import('/src/services/bindings.ts');
+                const { commands } = await ${importLoaded('/src/services/bindings.ts')};
                 window.__e2eCharacterSave = commands.charactersSave;
                 commands.charactersSave = async () => { throw new Error('E2E 模拟写盘失败'); };
             })()`);
@@ -105,7 +174,7 @@ export async function setup(ctx) {
             if (expected >= 0) cdp.errors.splice(expected, 1);
         } finally {
             await cdp.evaluate(`(async () => {
-                    const { commands } = await import('/src/services/bindings.ts');
+                    const { commands } = await ${importLoaded('/src/services/bindings.ts')};
                     commands.charactersSave = window.__e2eCharacterSave;
                     delete window.__e2eCharacterSave;
                 })()`);
@@ -121,7 +190,7 @@ export async function setup(ctx) {
         await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         await ui.fill('区服', 'E2E慢写区');
         await cdp.evaluate(`(async () => {
-            const { commands } = await import('/src/services/bindings.ts');
+            const { commands } = await ${importLoaded('/src/services/bindings.ts')};
             window.__e2eSave = commands.charactersSave;
             commands.charactersSave = (...args) => new Promise((resolve, reject) => {
                 let released = false;
@@ -143,7 +212,7 @@ export async function setup(ctx) {
             t.check('旧写入完成后新表单仍然打开', await ui.exists('.editor'));
         } finally {
             await cdp.evaluate(`(async () => {
-                const { commands } = await import('/src/services/bindings.ts');
+                const { commands } = await ${importLoaded('/src/services/bindings.ts')};
                 await window.__e2eReleaseSave?.();
                 commands.charactersSave = window.__e2eSave;
                 delete window.__e2eSave; delete window.__e2eReleaseSave;
@@ -166,7 +235,7 @@ export async function setup(ctx) {
         if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
             throw new Error('编辑态没打开');
         }
-        await ui.clickText('.editor-tabs button', '装备');
+        await ui.clickText('.ocr-tabs button', '装备');
         await sleep(300);
 
         const rails = await ui.count('.gear-editor .gear-slot');
@@ -238,7 +307,7 @@ export async function setup(ctx) {
         if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
             throw new Error('编辑态没打开');
         }
-        await ui.clickText('.editor-tabs button', '装备');
+        await ui.clickText('.ocr-tabs button', '装备');
         await sleep(300);
 
         /* 清空只在当前部位有内容时出现。 */
@@ -271,6 +340,56 @@ export async function setup(ctx) {
 }
 export async function pets(ctx) {
     const { cdp, ui, t, sleep } = ctx;
+    await t.step('召唤兽修改跟随当前分区，多只切换、删除与取消保留正确草稿', async () => {
+        await ui.clickIn('.roster .char', 'E2E改名后', { text: '召唤兽' });
+        await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
+        await ui.waitFor(`!!document.querySelector('.editor')`);
+        t.check(
+            '修改直接进入召唤兽分区',
+            await cdp.evaluate(
+                `document.querySelector('.ocr-tabs [aria-checked="true"]')?.textContent.trim() === '召唤兽'`,
+            ),
+        );
+        await ui.clickLabel('新增召唤兽');
+        await ui.fillSel('.pet-block input[aria-label="召唤兽名称"]', '临时甲');
+        await ui.clickLabel('新增召唤兽');
+        await ui.fillSel('.pet-block input[aria-label="召唤兽名称"]', '临时乙');
+        await ui.fillSel('.pet-block input[aria-label="等级"]', '22');
+        await ui.clickLabel('编辑第 1 只召唤兽：临时甲');
+        await ui.fillSel('.pet-block input[aria-label="等级"]', '11');
+        await ui.clickLabel('编辑第 2 只召唤兽：临时乙');
+        t.check(
+            '切换召唤兽保留各自修改',
+            await cdp.evaluate(
+                `document.querySelector('.pet-block input[aria-label="等级"]').value === '22' &&
+                document.querySelectorAll('.pet-choice')[0].textContent.includes('11')`,
+            ),
+        );
+        await ui.clickLabel('删除第 1 只召唤兽：临时甲');
+        t.check(
+            '删除前项后仍选中原召唤兽',
+            await cdp.evaluate(
+                `document.querySelectorAll('.pet-choice').length === 1 &&
+                document.querySelector('.pet-block input[aria-label="召唤兽名称"]').value === '临时乙'`,
+            ),
+        );
+        await ui.clickText('.ocr-tabs button', '属性', { exact: true });
+        await ui.clickText('.ocr-tabs button', '召唤兽', { exact: true });
+        t.check(
+            '切分区保留召唤兽草稿',
+            await cdp.evaluate(
+                `document.querySelector('.pet-block input[aria-label="等级"]').value === '22'`,
+            ),
+        );
+        await ui.clickLabel('放弃这次修改');
+        await ui.waitFor(`!document.querySelector('.editor')`);
+        await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
+        await ui.waitFor(`!!document.querySelector('.editor')`);
+        t.check('取消不写入临时召唤兽', (await ui.count('.pet-choice')) === 0);
+        await cdp.key('Escape');
+        await ui.waitFor(`!document.querySelector('.editor')`);
+    });
+
     /* ---- 召唤兽：概览牌 + 详情档案（2026-11-05） ----
      * 这一节以前一条断言都没有：卡上只画「名字 · 等级 · 参战」，而这三个数在名册里
      * 从来没被验过——练到哪一步、资质多少，全都只在编辑弹窗里能看见。
@@ -284,15 +403,15 @@ export async function pets(ctx) {
         if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
             throw new Error('编辑态没打开');
         }
-        await ui.clickText('.editor-tabs button', '召唤兽');
+        await ui.clickText('.ocr-tabs button', '召唤兽');
         await sleep(300);
-        await ui.clickLabel('加一只召唤兽');
+        await ui.clickLabel('新增召唤兽');
         await sleep(250);
 
         /* 编辑页 2026-11-05 改成左栏目录（方案 P3）：加一只之后左栏应有一行，
          * 而右侧只渲染**选中那一只**的表单——旧版是一只一行、一次展开一只。
          * 两条一起验，才能区分「结构换了」与「只是换了个样式」。 */
-        const railItems = await ui.count('.pet-editor .rail-item');
+        const railItems = await ui.count('.pet-editor .pet-choice');
         t.check('编辑页左栏列出全部召唤兽', railItems === 1, `实际 ${railItems} 行`);
         const nameInputs = await ui.count('.pet-block input[aria-label="召唤兽名称"]');
         t.check('右侧只渲染选中那一只', nameInputs === 1, `实际 ${nameInputs} 个名字框`);
@@ -302,10 +421,22 @@ export async function pets(ctx) {
         await ui.fillSel('.pet-block input[aria-label="召唤兽名称"]', 'E2E兽');
         await ui.fillSel('.pet-block input[aria-label="等级"]', '120');
         await ui.fillSel('.pet-block input[aria-label="参战等级"]', '145');
+        await ui.fillSel('.pet-block input[aria-label="成长"]', '1.254');
         // 技能是 textarea + `@change`（失焦才解析），所以下面那一记点击同时起「失焦」作用。
         await ui.fillSel(
             '.pet-block textarea[aria-label="已学技能，顿号或逗号分隔"]',
             '连击、必杀',
+        );
+
+        await ui.clickText('.ocr-tabs button', '属性', { exact: true });
+        await ui.clickText('.ocr-tabs button', '召唤兽', { exact: true });
+        t.check(
+            '切页后姓名、成长和技能草稿仍在',
+            await cdp.evaluate(
+                `document.querySelector('.pet-block input[aria-label="召唤兽名称"]').value === 'E2E兽' &&
+                document.querySelector('.pet-block input[aria-label="成长"]').value === '1.254' &&
+                document.querySelector('.pet-block textarea[aria-label="已学技能，顿号或逗号分隔"]').value === '连击、必杀'`,
+            ),
         );
 
         await ui.clickLabel('保存这个角色');
@@ -405,6 +536,14 @@ export async function pets(ctx) {
                 })()`,
         );
         t.check('重载后兽牌仍在', plates === 1, `实际 ${plates} 块可见`);
+        t.check(
+            '分组表单的成长与技能确实落库',
+            await cdp.evaluate(`(async () => {
+                const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
+                const pet = useRoster().roster.value.find((one) => one.name === 'E2E改名后')?.pets[0];
+                return pet?.growth === '1.254' && pet.skills.join('/') === '连击/必杀';
+            })()`),
+        );
     });
 
     /* 快速修改：卡上点哪一项，就只改哪一项（2026-11-07）。
@@ -422,20 +561,20 @@ export async function cleanup(ctx) {
         if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
             throw new Error('编辑态没打开');
         }
-        await ui.clickText('.editor-tabs button', '召唤兽');
+        await ui.clickText('.ocr-tabs button', '召唤兽');
         await sleep(300);
         t.check(
             '删之前左栏有一只',
-            (await ui.count('.pet-editor .rail-item')) === 1,
-            `实际 ${await ui.count('.pet-editor .rail-item')} 行`,
+            (await ui.count('.pet-editor .pet-choice')) === 1,
+            `实际 ${await ui.count('.pet-editor .pet-choice')} 行`,
         );
 
         await ui.clickLabelPrefix('删除第 1 只');
         await sleep(350);
         t.check(
             '删之后左栏空了',
-            (await ui.count('.pet-editor .rail-item')) === 0,
-            `实际 ${await ui.count('.pet-editor .rail-item')} 行`,
+            (await ui.count('.pet-editor .pet-choice')) === 0,
+            `实际 ${await ui.count('.pet-editor .pet-choice')} 行`,
         );
         /* 一只都不剩时右侧不该还留着一张绑不上数据的表单——那是「删了但没删干净」。 */
         t.check('右侧回到空态', !(await ui.exists('.pet-block')));

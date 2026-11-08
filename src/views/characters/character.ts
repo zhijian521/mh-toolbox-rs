@@ -313,7 +313,7 @@ export interface CharacterData {
     skills: SkillRow[];
     /** 辅助技能：生活 + 剧情，两类合在一页格子里。 */
     assists: AssistSkill[];
-    /** 两组，结构固定（`TRAINING_GROUPS`）：任务修炼、宠物修炼。上限每行自带、可改。 */
+    /** 两组，结构固定（`TRAINING_GROUPS`）：任务修炼、宠物修炼。上限每行自带，界面只改等级。 */
     trainings: TrainingGroup[];
     gear: GearSlot[];
     gearMeta: { special: string; suit: string };

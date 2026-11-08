@@ -26,8 +26,8 @@ const groups = computed(() => gearPropertyGroups(props.detail, props.slotName, p
         <div
             v-for="group in groups"
             :key="group.key"
-            class="property-group"
-            :class="'kind-' + group.kind"
+            class="property-group gear-color"
+            :class="['kind-' + group.kind, 'gear-color-' + group.kind]"
             :data-group="group.key"
         >
             <dt class="property-label" :class="{ tag: group.tag }">
@@ -73,32 +73,6 @@ const groups = computed(() => gearPropertyGroups(props.detail, props.slotName, p
 }
 .property-group {
     display: contents;
-    --property-ink: var(--ink);
-}
-.kind-extra {
-    --property-ink: var(--moss);
-}
-.kind-gem {
-    --property-ink: var(--ochre);
-}
-.kind-melt {
-    --property-ink: color-mix(in srgb, var(--ochre) 60%, var(--cinnabar));
-}
-.kind-active {
-    --property-ink: var(--cinnabar);
-}
-.kind-suit {
-    --property-ink: var(--indigo-ink);
-}
-.kind-effect,
-.kind-ambush {
-    --property-ink: color-mix(in srgb, var(--cinnabar) 55%, var(--indigo-ink));
-}
-.kind-upgrade {
-    --property-ink: color-mix(in srgb, var(--moss) 65%, var(--indigo-ink));
-}
-.kind-status {
-    --property-ink: var(--muted);
 }
 .property-label {
     justify-self: start;

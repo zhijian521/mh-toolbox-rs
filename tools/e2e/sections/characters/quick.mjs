@@ -1,3 +1,6 @@
+import { importLoaded } from '../../cdp.mjs';
+import { checkButtonTheme } from './theme.mjs';
+
 export async function quick(ctx) {
     const { cdp, ui, t, sleep } = ctx;
     await t.step('快速修改：点一行 / 一格，只改这一项', async () => {
@@ -57,6 +60,7 @@ export async function quick(ctx) {
         });
         t.check('点属性行就开一个小窗', opened);
         t.check('小窗只写这一项', (await dialogTitle()) === '快速修改 · 气血', await dialogTitle());
+        await checkButtonTheme(ctx, '.modal-panel');
 
         /* 加减印块：气血是四位数，步长按量级走（±100）。
          * 用「相对差」而不是写死 4016——前面几条 step 改过这一格的值，
@@ -148,7 +152,7 @@ export async function quick(ctx) {
         t.check('辅助等级存下去了', await saveDialog());
         t.check('卡上强身术变成 100', (await readRow('强身术')) === '100');
         const assist = await cdp.evaluate(`(async () => {
-            const { useRoster } = await import('/src/views/characters/roster.ts');
+            const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
             const one = useRoster().roster.value.find((row) => row.name === 'E2E改名后');
             return { ...one.assists.find((row) => row.kind === 'life' && row.name === '强身术') };
         })()`);

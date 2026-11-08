@@ -97,5 +97,6 @@ export async function readAssistLevels(
     }
     const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
     const outcome = await ocrFrame(base64Of(swapToBgra(pixels.data)), canvas.width, canvas.height);
-    return outcome.status === 'ok' ? restoreAssistLevels(outcome.lines, regions) : [];
+    if (outcome.status === 'failed') throw new Error(outcome.error);
+    return restoreAssistLevels(outcome.lines, regions);
 }

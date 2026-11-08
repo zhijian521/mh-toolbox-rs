@@ -51,7 +51,7 @@
      * 这不是把同一条渐变换个说法——亮色下纸本身亮，左上再压浓会读成「左上脏了一块」，
      * 从淡往浓走才像「色在右下积住」；暗色相反，左上不浓则整张卡看不出方向。
      *
-     * `--tint` 由下面二十一条 `[data-school]` 给；**没填门派时不匹配任何一条，回落成
+     * `--tint` 由 `blocks.css` 的门派映射给；**没填门派时不匹配任何一条，回落成
      * 纸色**——一个新角色还没选门派时它必须还是纸，而不是某个「默认门派」的颜色。
      *
      * `--slip-base` 是给票面用的（`base.css` 的 `.slip-row` 读它）：票取**中点**色而不是
@@ -62,8 +62,6 @@
      * 2026-11-05 全站卡面下沉一档之后，用纯纸白混门派色会让角色卡比同页其它卡**白一档**，
      * 一眼看出它不是同一张纸。锚点交给 `PaperCard` 那层，换纸色只改一处。
      * 不填门派时同样落到它——一个还没选门派的新角色应该读作「一张普通的纸」。 */
-    --card-tint: var(--tint, var(--board-paper));
-    --slip-base: color-mix(in srgb, var(--card-tint) var(--wash), var(--board-paper));
     --card-bg: linear-gradient(
         135deg,
         color-mix(in srgb, var(--card-tint) var(--wash-a), var(--board-paper)) 0%,
@@ -91,95 +89,6 @@
     --wash-b: var(--wash-lo-dark);
 }
 
-/* ---------- 门派 → 色号 ----------
- * 名字与 `public/game/data/schools.json` 的 `name` **逐字相同**。改名要两处一起改；
- * 对不上时这条选择器不匹配，浅染静默回落到纸色——不报错，也不会画错色。
- * 七族的分法与「为什么不是二十一种色相」见 `CONVENTIONS.md` §2.4-44，色号在 `tokens.css`。
- */
-.char[data-school='大唐官府'] {
-    --tint: var(--tint-大唐官府);
-    --tint-deep: var(--tint-deep-大唐官府);
-}
-.char[data-school='魔王寨'] {
-    --tint: var(--tint-魔王寨);
-    --tint-deep: var(--tint-deep-魔王寨);
-}
-.char[data-school='化生寺'] {
-    --tint: var(--tint-化生寺);
-    --tint-deep: var(--tint-deep-化生寺);
-}
-.char[data-school='天宫'] {
-    --tint: var(--tint-天宫);
-    --tint-deep: var(--tint-deep-天宫);
-}
-.char[data-school='弥勒山'] {
-    --tint: var(--tint-弥勒山);
-    --tint-deep: var(--tint-deep-弥勒山);
-}
-.char[data-school='九黎城'] {
-    --tint: var(--tint-九黎城);
-    --tint-deep: var(--tint-deep-九黎城);
-}
-.char[data-school='女儿村'] {
-    --tint: var(--tint-女儿村);
-    --tint-deep: var(--tint-deep-女儿村);
-}
-.char[data-school='普陀山'] {
-    --tint: var(--tint-普陀山);
-    --tint-deep: var(--tint-deep-普陀山);
-}
-.char[data-school='方寸山'] {
-    --tint: var(--tint-方寸山);
-    --tint-deep: var(--tint-deep-方寸山);
-}
-.char[data-school='龙宫'] {
-    --tint: var(--tint-龙宫);
-    --tint-deep: var(--tint-deep-龙宫);
-}
-.char[data-school='东海渊'] {
-    --tint: var(--tint-东海渊);
-    --tint-deep: var(--tint-deep-东海渊);
-}
-.char[data-school='凌波城'] {
-    --tint: var(--tint-凌波城);
-    --tint-deep: var(--tint-deep-凌波城);
-}
-.char[data-school='五庄观'] {
-    --tint: var(--tint-五庄观);
-    --tint-deep: var(--tint-deep-五庄观);
-}
-.char[data-school='神木林'] {
-    --tint: var(--tint-神木林);
-    --tint-deep: var(--tint-deep-神木林);
-}
-.char[data-school='花果山'] {
-    --tint: var(--tint-花果山);
-    --tint-deep: var(--tint-deep-花果山);
-}
-.char[data-school='阴曹地府'] {
-    --tint: var(--tint-阴曹地府);
-    --tint-deep: var(--tint-deep-阴曹地府);
-}
-.char[data-school='盘丝洞'] {
-    --tint: var(--tint-盘丝洞);
-    --tint-deep: var(--tint-deep-盘丝洞);
-}
-.char[data-school='女魃墓'] {
-    --tint: var(--tint-女魃墓);
-    --tint-deep: var(--tint-deep-女魃墓);
-}
-.char[data-school='狮驼岭'] {
-    --tint: var(--tint-狮驼岭);
-    --tint-deep: var(--tint-deep-狮驼岭);
-}
-.char[data-school='无底洞'] {
-    --tint: var(--tint-无底洞);
-    --tint-deep: var(--tint-deep-无底洞);
-}
-.char[data-school='天机城'] {
-    --tint: var(--tint-天机城);
-    --tint-deep: var(--tint-deep-天机城);
-}
 /* 卡缘**只有纸自己的棱**（`.board` 的上沿/左沿亮线 + 下沿 3px 断面 + 两层落影），
  * 没有 `border`，也不再走 `.dual-rule` 那圈内衬线。
  *
@@ -205,6 +114,33 @@
 }
 .who-block {
     min-width: 0;
+}
+.identity-edit {
+    width: 100%;
+}
+.who.who-edit {
+    align-items: center;
+}
+.who-edit .identity-name,
+.who-edit .identity-school {
+    flex: 1;
+    min-width: 0;
+    width: 0;
+}
+.who-edit .identity-level {
+    flex: none;
+    width: calc(52px * var(--fs-scale));
+    text-align: center;
+}
+.identity-sub {
+    display: flex;
+    gap: 7px;
+    margin-top: 7px;
+}
+.identity-sub .field {
+    flex: 1;
+    min-width: 0;
+    width: 0;
 }
 .who {
     display: flex;
