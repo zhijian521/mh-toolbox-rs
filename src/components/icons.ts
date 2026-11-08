@@ -43,6 +43,7 @@ import {
     IconHistory,
     IconInfoCircle,
     IconLayoutDashboard,
+    IconLayoutGrid,
     IconMapPin,
     IconMinus,
     IconMoon,
@@ -122,6 +123,9 @@ const ICON_META = {
      * 逆时针箭头、没有铃；这一枚没有箭头、顶上两只耳朵。两者在图标目录里相邻，
      * 正是要通过「有没有铃」一眼区分「回看过去」与「等到某点」。 */
     alarm: { glyph: IconAlarm, label: '闹钟', group: 'action' },
+    /* 资源是一面**网格**：一格一张图。用「文件夹」会读成「打开一个目录」，
+     * 用「图片」只有一张；九宫格正好是这一页的样子。 */
+    grid: { glyph: IconLayoutGrid, label: '资源', group: 'action' },
     // 编辑用铅笔画斜线：账号/角色这种东西「改一行」与「删掉重录」是两件事，
     // 卡头上两枚并排时，一支笔与一只桶一眼分得开；用「设置齿轮」会与左栏设置撞脸。
     edit: { glyph: IconPencil, label: '编辑', group: 'action' },

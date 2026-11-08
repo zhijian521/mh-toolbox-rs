@@ -111,5 +111,89 @@ export default async function run(ctx) {
             );
             t.check('删掉之后卡片消失', gone);
         });
+
+        /* ---------- 游戏资源：一进来落在武器、搜索能收窄、能换类 ----------
+         *
+         * 判据用卡片标题而不是图数：图片是 `loading="lazy"`，屏外的那些还没请求，
+         * 按图数断言会在不同窗口高度下飘。
+         */
+        await t.step('游戏资源：清单出来了、搜得到', async () => {
+            /* 上一段停在闹钟页，而左栏「工具」那一格在 `/tools/alarm` 下本来就是高亮的——
+             * 点它等于点「当前这一项」，路由不动。所以这里直接改地址回列表。 */
+            await cdp.evaluate(`location.hash = '#/tools'`);
+            if (
+                !(await cdp.waitFor(
+                    `document.querySelector('.page-title')?.textContent?.trim() === '工具'`,
+                    { timeout: 4000 },
+                ))
+            ) {
+                throw new Error(`没回到工具列表：${await ui.hash()}`);
+            }
+
+            await ui.clickText('button, a', '游戏资源');
+            const entered = await cdp.waitFor(`location.hash.includes('assets')`, {
+                timeout: 5000,
+            });
+            if (!entered) throw new Error(`点了游戏资源，地址还是 ${await ui.hash()}`);
+            t.pass('进入游戏资源', await ui.hash());
+
+            const loaded = await cdp.waitFor(
+                `document.querySelector('.asset-title')?.textContent?.trim() === '武器'`,
+                { timeout: 8000 },
+            );
+            if (!loaded) throw new Error('资源页没有默认落在「武器」这一类');
+            const cards = await ui.count('.asset-section');
+            const total = await cdp.evaluate(
+                `document.querySelector('.asset-count')?.textContent?.trim() ?? ''`,
+            );
+            /* 只摆一类是有意的（十类一千多项一次性建 DOM 会卡），所以这里断言**恰好一张**：
+             * 多出来就说明「全部分类」又回来了。 */
+            t.check('默认只摆武器一类', cards === 1, `${cards} 张，${total}`);
+            t.check('计数是这一类的总数', /^共 \d+ 项$/.test(total), total);
+
+            /* 搜索：只在当前这一类里收窄。 */
+            const count = await cdp.evaluate(`(async () => {
+                const el = document.querySelector('.asset-search');
+                const setter = Object.getOwnPropertyDescriptor(
+                    HTMLInputElement.prototype,
+                    'value',
+                ).set;
+                setter.call(el, '剑');
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                await new Promise((resolve) => setTimeout(resolve, 500));
+                return document.querySelector('.asset-count')?.textContent?.trim() ?? '';
+            })()`);
+            t.check('搜「剑」能收窄', /^找到 \d+ 项$/.test(count), count);
+
+            const left = await cdp.evaluate(
+                `[...document.querySelectorAll('.asset-section')].map((el) => el.querySelector('.asset-title')?.textContent ?? '')`,
+            );
+            t.check(
+                '收窄后仍在武器这一类里',
+                Array.isArray(left) && left.length === 1 && left[0] === '武器',
+                JSON.stringify(left),
+            );
+
+            /* 换一类：点触发条开列表，再点「门派技能」那一项。
+             * 顺带把搜索词清掉——不清的话新一类会被一个不相关的词再筛一遍。 */
+            const switched = await cdp.evaluate(`(async () => {
+                const el = document.querySelector('.asset-search');
+                const setter = Object.getOwnPropertyDescriptor(
+                    HTMLInputElement.prototype,
+                    'value',
+                ).set;
+                setter.call(el, '');
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                document.querySelector('.asset-kind .select-trigger').click();
+                await new Promise((resolve) => setTimeout(resolve, 250));
+                const opt = [...document.querySelectorAll('.asset-kind .select-opt')].find(
+                    (one) => one.textContent.trim() === '门派技能',
+                );
+                opt?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+                await new Promise((resolve) => setTimeout(resolve, 450));
+                return document.querySelector('.asset-title')?.textContent?.trim() ?? '';
+            })()`);
+            t.check('换分类后只剩那一类', switched === '门派技能', switched);
+        });
     }
 }

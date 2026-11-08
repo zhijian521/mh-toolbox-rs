@@ -49,4 +49,13 @@ export const TOOLS: ToolEntry[] = [
         view: () => import('./views/tools/AlarmView.vue').then((page) => page.default),
         ready: true,
     },
+    {
+        key: 'assets',
+        name: '游戏资源',
+        desc: '装备、武器、技能与召唤兽的图标图鉴，能按名字搜',
+        path: '/tools/assets',
+        icon: 'grid',
+        view: () => import('./views/tools/AssetView.vue').then((page) => page.default),
+        ready: true,
+    },
 ];
