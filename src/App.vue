@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import AlarmHost from './components/AlarmHost.vue';
 import AppRail from './components/AppRail.vue';
 import ConfirmHost from './components/ConfirmHost.vue';
 import HoverTip from './components/HoverTip.vue';
@@ -14,9 +15,10 @@ import { NAV_BY_KEY, NAV_ITEMS } from './navigation';
  * 这一层只管三件事：导航数据给谁、当前是哪一页、点击后往哪跳。
  * 页面本身由 `RouterView` 决定——加页面不再需要改这里的模板。
  *
- * 另外挂三个全站唯一的宿主：`ConfirmHost`（问一句，等回答）、`NotifyHost`（说一句，不等）、
- * `HoverTip`（悬停说明）。三者都渲染在 `Teleport` 到 body 的浮层里，与页面布局无关；
- * 放这一层是因为**它们必须只有一个**——放进页面就会各页一个，迟早各自变形。
+ * 另外挂四个全站唯一的宿主：`ConfirmHost`（问一句，等回答）、`NotifyHost`（说一句，不等）、
+ * `HoverTip`（悬停说明）、`AlarmHost`（闹钟计时与提醒）。它们都渲染在 `Teleport` 到 body
+ * 的浮层里，与页面布局无关；放这一层是因为**它们必须只有一个**——放进页面就会各页一个，
+ * 迟早各自变形。闹钟还多一条理由：它要在每一页都跑，挂在自己的页面上，用户切走那一刻就没人计时了。
  * 页面拿到的只有 `askConfirm()`、`notify` 与普通的 `title` 属性。
  *
  * `AppRail` 仍然是纯组件（收 props、发事件），路由这一层留在外壳里：
@@ -68,6 +70,9 @@ function openDevKit() {
              写在这里是为了让「只有一个」这件事在代码里看得见。 -->
         <ConfirmHost />
         <NotifyHost />
+        <!-- 闹钟的计时与提醒。挂在这一层是因为它必须在**每一页**都跑：
+             闹钟挂在自己的页面上，用户切去收益页的那一分钟就没人计时了。 -->
+        <AlarmHost />
         <!-- 悬停说明：接管全站 `title`，换成纸片（原生那枚系统白框 CSS 碰不到）。 -->
         <HoverTip />
     </div>

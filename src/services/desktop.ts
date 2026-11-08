@@ -60,6 +60,25 @@ export async function openExternal(url: string): Promise<boolean> {
     }
 }
 
+/* ---------- 系统通知 ----------
+ *
+ * 闹钟是唯一的使用者，但它不是「闹钟的能力」而是「应用能否对系统说一句话」，
+ * 所以住在这一份里，与窗口那几个同级。
+ *
+ * 与窗口那几条同一个口径：浏览器预览里没有宿主，**静默返回 false**，不抛错、不降级成
+ * `new Notification()`。后者在 WebView2 里既没有权限入口、也没有托盘归属，试出来的效果
+ * 是一条来自 `msedge` 的通知，比没有更让人困惑。
+ */
+export async function notifySystem(title: string, body: string): Promise<boolean> {
+    if (!hasTauri) return false;
+    try {
+        await commands.notifyAlarm(title, body);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 /* ---------- 窗口 ----------
  * 自绘标题栏要的三件事：读最大化状态、跟着窗口变化同步、三个按钮。
  * 全部返回**无操作**而不是抛错：浏览器预览里没有窗口，标题栏仍要画得出来。

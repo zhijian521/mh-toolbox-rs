@@ -169,6 +169,61 @@ fn open_external(url: String) -> Result<(), String> {
     }
 }
 
+/// 发一条系统通知（Windows 上是右下角的 Toast）。
+///
+/// 与 `open_external` 同一条边界：页面经 `services/desktop.ts` 的 `notifySystem()`
+/// 说话。**没有用 `tauri-plugin-notification`**，理由见 `Cargo.toml` 那一段：它把
+/// Windows 的 AUMID 钉死在 `tauri.conf.json` 的 identifier 上，而没安装过的进程没有
+/// 那个 id，`show()` 返回成功、屏幕上什么都不出来。这里用它的底层 crate，自己挑 id。
+///
+/// ---- 为什么标题与正文都由前端给 ----
+///
+/// 「签到 07:30 还有一分钟」这句话的主语是那一条闹钟，只有调用方知道。Rust 这边不拼文案：
+/// 它一拼，同一个句子就有了两个出处，改一种说法要改两处。
+///
+/// 两端都截断：Windows Toast 的标题超过约 64 字、正文超过约 256 字会被系统自己裁，
+/// 裁在半个字上比我们主动截难看。这里按**字符**截而不是字节，中文才不会被切坏。
+#[tauri::command]
+#[specta::specta]
+fn notify_alarm(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
+    let cut = |text: &str, limit: usize| -> String {
+        text.chars().take(limit).collect::<String>()
+    };
+
+    #[cfg(windows)]
+    {
+        use tauri_winrt_notification::{Duration, Toast};
+
+        /* Windows 的 Toast 必须挂在一个**已注册的应用标识**（AUMID）下：打包版由安装
+         * 程序在开始菜单建快捷方式，系统才认得 `identifier`；`cargo run` / `tauri dev`
+         * 出来的进程一个 id 都没注册过，于是发送「成功」而屏幕空白——那一步最容易读成
+         * 「代码没通」。所以开发时借系统里那枚现成的 id（标题栏会写成 PowerShell 的
+         * 名字），发布版用自己的。 */
+        #[cfg(debug_assertions)]
+        let app_id = {
+            /* 开发模式不读 `app`，但参数必须留在签名里：specta 靠它标记「这是注入的
+             * 句柄」，删掉之后前端调用会少一个参数。这一行只为消掉未使用警告。 */
+            let _ = &app;
+            Toast::POWERSHELL_APP_ID.to_string()
+        };
+        #[cfg(not(debug_assertions))]
+        let app_id = app.config().identifier.clone();
+
+        Toast::new(&app_id)
+            .title(&cut(title.trim(), 60))
+            .text1(&cut(body.trim(), 200))
+            .duration(Duration::Short)
+            .show()
+            .map_err(|error| format!("发不了系统通知：{error}"))
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = (app, title, body);
+        Err("当前平台还没有系统通知".to_string())
+    }
+}
+
 /// WebView2 自带的默认开关。自己设 `additional_browser_args` 会**整串覆盖**它，
 /// 所以拼调试端口时必须把这一段原样带上，否则右键菜单、PDF 壳这些行为会跟着变。
 ///
@@ -280,6 +335,7 @@ fn command_table() -> tauri_specta::Builder<tauri::Wry> {
         .commands(tauri_specta::collect_commands![
             app_info,
             open_external,
+            notify_alarm,
             ghost::ghost_windows,
             ghost::ghost_probe,
             ocr_image::ocr_frame,
@@ -311,6 +367,7 @@ fn command_table() -> tauri_specta::Builder<tauri::Wry> {
         .commands(tauri_specta::collect_commands![
             app_info,
             open_external,
+            notify_alarm,
             backup::data_export,
             backup::data_import,
             backup::data_clear,
@@ -346,7 +403,9 @@ pub fn run() {
 
     /* 对话框插件在这里注册一次。**注册不等于给前端开口子**：它同时带来 JS 命令，
      * 而 `capabilities/default.json` 里没有任何 `dialog:` 权限，所以前端那侧调不动；
-     * 本仓只用 Rust 侧的 `app.dialog()`（见 `backup.rs`）。 */
+     * 本仓只用 Rust 侧的 `app.dialog()`（见 `backup.rs`）。
+     *
+     * 系统通知不走插件（见 `notify_alarm`），所以这里只有它一个。 */
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(bindings.invoke_handler());

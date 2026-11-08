@@ -17,6 +17,23 @@ export const commands = {
 	 */
 	openExternal: (url: string) => __TAURI_INVOKE<null>("open_external", { url }),
 	/**
+	 *  发一条系统通知（Windows 上是右下角的 Toast）。
+	 * 
+	 *  与 `open_external` 同一条边界：页面经 `services/desktop.ts` 的 `notifySystem()`
+	 *  说话。**没有用 `tauri-plugin-notification`**，理由见 `Cargo.toml` 那一段：它把
+	 *  Windows 的 AUMID 钉死在 `tauri.conf.json` 的 identifier 上，而没安装过的进程没有
+	 *  那个 id，`show()` 返回成功、屏幕上什么都不出来。这里用它的底层 crate，自己挑 id。
+	 * 
+	 *  ---- 为什么标题与正文都由前端给 ----
+	 * 
+	 *  「签到 07:30 还有一分钟」这句话的主语是那一条闹钟，只有调用方知道。Rust 这边不拼文案：
+	 *  它一拼，同一个句子就有了两个出处，改一种说法要改两处。
+	 * 
+	 *  两端都截断：Windows Toast 的标题超过约 64 字、正文超过约 256 字会被系统自己裁，
+	 *  裁在半个字上比我们主动截难看。这里按**字符**截而不是字节，中文才不会被切坏。
+	 */
+	notifyAlarm: (title: string, body: string) => __TAURI_INVOKE<null>("notify_alarm", { title, body }),
+	/**
 	 *  列出可见窗口，供前端选择要监听哪一个。
 	 * 
 	 *  排序保持 Rust 侧的「面积从大到小」：客户端窗口通常是屏幕上前几名的大窗，

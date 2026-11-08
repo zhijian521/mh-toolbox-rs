@@ -84,6 +84,13 @@ windows = { version = "0.62", features = [
     "Win32_UI_WindowsAndMessaging",
 ] }
 
+# 系统通知（右下角 Toast）。**没有引 `tauri-plugin-notification`**：那个插件把 AUMID
+# 钉死在 `tauri.conf.json` 的 identifier 上，而 `cargo run` / `tauri dev` 出来的进程
+# 从来没注册过那个 id——`show()` 返回成功，屏幕上什么都不出现（2026-11-08 实测）。
+# 这个 crate 是它的底层实现，允许显式传 app_id：开发时借系统里现成的那一枚，
+# 发布版用自己的 identifier。见 `notify_alarm`。
+tauri-winrt-notification = "0.8"
+
 # 本地数据层：物价、角色名册这些「用户自己攒出来的东西」落在 SQLite 一个文件里。
 #
 # **`bundled` 不能省**：它把 sqlite3 的 Amalgamation 一起编进可执行文件。
