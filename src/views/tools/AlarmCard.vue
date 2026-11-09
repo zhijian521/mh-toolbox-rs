@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import CostSwitch from '../../components/CostSwitch.vue';
 import PaperCard from '../../components/PaperCard.vue';
-import SegmentedPills from '../../components/SegmentedPills.vue';
 import { minuteText } from '../../services/clock';
 import { countdownText, nextReminder, repeatText, type AlarmLike } from './alarms';
 
@@ -17,11 +17,15 @@ import { countdownText, nextReminder, repeatText, type AlarmLike } from './alarm
  * 用 `tabular-nums`（等宽数字）：`07:30` 与 `11:45` 在竖排里宽度一致，六张卡的时刻
  * 不会一行长一行短；而后面的备注与状态都降到次级墨，不与它抢。
  *
- * ---- 开关为什么是「开 / 关」两格，不是一个圆形滑块 ----
+ * ---- 开关是站里那枚「两格位移开关」 ----
  *
- * 这套界面里没有滑块式的开关：能拨的东西都是**槽 + 印**（胶囊、滑块、按钮），
- * 一个自绘的圆形滑块会变成第三种语言，而且它在纸上画出来总像贴了一枚塑料件。
- * 两格胶囊是本站已经有的说法（设置页的主题三档就是它），一眼能读，键盘也是现成的。
+ * 2026-11-09 换成 `CostSwitch`（开发页、捉鬼页、收益页用的同一枚）：一枚朱印在两格里
+ * 滑过去，关的时候不是变灰而是**灭灯**。早先这里是 `SegmentedPills` 的两枚独立胶囊——
+ * 材质虽然同源，读法却差一层：胶囊说「两个各自能按的键」，位移开关说「一个东西在两端」，
+ * 而闹钟只有「开着 / 关掉」这一件事。全站能拨的地方都该是后者。
+ *
+ * 左关右开（`CostSwitch` 的固定顺序）。原先胶囊是左开右关，看着相反；统一到组件那一边，
+ * 因为「往右拨是开」与捉鬼页、开发页同一个方向。
  *
  * ---- 卡片本身不可点 ----
  *
@@ -69,15 +73,6 @@ const status = computed(() => {
     return '已过期';
 });
 
-const switchValue = computed(() => (props.alarm.enabled ? 'on' : 'off'));
-
-/* 明确写窄类型：`SegmentedPills` 是泛型的，值写成 `string[]` 会与 `modelValue` 的
- * `'on' | 'off'` 推断成两种 T，模板那边当场报类型不符。 */
-const SWITCH_OPTIONS: { value: 'on' | 'off'; label: string }[] = [
-    { value: 'on', label: '开' },
-    { value: 'off', label: '关' },
-];
-
 const nameText = computed(() => props.alarm.label || '未命名闹钟');
 
 /** 读屏念的一句：时刻、备注、重复、当前状态，最后是「按开关键停用」。 */
@@ -96,13 +91,13 @@ const cardLabel = computed(() => {
     >
         <header class="alarm-head">
             <time class="alarm-time" :datetime="alarm.time">{{ timeText }}</time>
-            <SegmentedPills
+            <CostSwitch
                 class="alarm-switch"
-                :model-value="switchValue"
-                :options="SWITCH_OPTIONS"
+                :model-value="alarm.enabled"
+                off-label="关"
+                on-label="开"
                 :label="`${cardLabel}；开或关`"
-                radius="sm"
-                @update:model-value="emit('toggle-enabled', $event === 'on')"
+                @update:model-value="emit('toggle-enabled', $event)"
             />
         </header>
 
@@ -157,15 +152,17 @@ const cardLabel = computed(() => {
     color: var(--cinnabar);
 }
 
-/* 开关收窄：两枚单字胶囊在 200 宽的卡上与时刻并排，留出的空隙只够 6px。 */
+/* 开关收窄：两枚单字格在 200 宽的卡上与时刻并排，留出的空隙只够 6px。
+ * **只收格子的内距与字号**：槽、印、位移、灭灯全来自 `base.css` 的 `.cost-switch`，
+ * 与捉鬼页「高概率区域」、开发页「开发者模式」是同一枚控件，不在卡里另写一套厚度。
+ * 20px 的行盒（18 + 上下各 1）与原先那两枚胶囊等高，卡头不会因此长一截。 */
 .alarm-switch {
     flex: none;
-    padding: 2px;
 }
-.alarm-switch :deep(.bevel-pill) {
-    min-height: 20px;
+.alarm-switch :deep(.cost-opt) {
     padding: 1px 7px;
     font-size: var(--fs-xs);
+    line-height: 18px;
 }
 
 /* 虚线：照物价卡那条，上半写名目、下半写读数。 */

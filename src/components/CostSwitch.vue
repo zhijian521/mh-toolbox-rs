@@ -16,9 +16,19 @@ const props = withDefaults(
         modelValue: boolean;
         offLabel?: string;
         onLabel?: string;
+        /**
+         * 读屏念的整组名称。
+         *
+         * 两格的字（「关 / 开」）只说得出状态，说不出「这是什么开关」——一页上有六个
+         * 闹钟、六个「关 / 开」并排时，读屏逐个念到它们等于没念。调用方把那件事的
+         * 主语传进来（闹钟卡传的是「07:30 签到，每天，还有 3 小时；开或关」）。
+         *
+         * 不传就不挂 `aria-label`：空串会让读屏念一个空名，比没有更怪。
+         */
+        label?: string;
         disabled?: boolean;
     }>(),
-    { offLabel: '不记', onLabel: '记', disabled: false },
+    { offLabel: '不记', onLabel: '记', label: '', disabled: false },
 );
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>();
 
@@ -48,6 +58,7 @@ const { cells, tabIndexFor, onKeydown } = useRovingFocus<boolean>({
         class="cost-switch well"
         :class="{ off: !modelValue }"
         role="radiogroup"
+        :aria-label="label || undefined"
         :aria-disabled="disabled"
         @keydown="onKeydown"
     >
