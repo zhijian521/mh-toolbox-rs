@@ -224,11 +224,27 @@ icons/ 丢一个 png」这种最省事的做法）、**文件名以目录名开�
 
 ### 4.3 召唤兽技能原图归档
 
-`pet-*` 四目录与 `data/pet-skills.json` 是后续功能的素材归档，尚未接入运行时加载或页面。清单由 `tools/game-icons/import-pet-skill-icons.py` 从已具名、已校正的独立素材包生成，中文名只在清单维护，文件按官网技能 ID 命名。
+`pet-*` 四个技能目录与 `data/pet-skills.json` 已接入召唤兽列表、详情、编辑与截图识别。清单由 `tools/game-icons/import-pet-skill-icons.py` 从已具名、已校正的独立素材包生成，中文名只在清单维护，文件按官网技能 ID 命名。
 
 本批按用户要求保留原 PNG，尺寸有 30/40/50px，不放大、不改为有损 WebP。来源包括客户端原图和官网具名 GIF 转 PNG，清单逐项标记来源；这批已确认的官网补图不会冒充客户端资源。低级/高级反击与冥思已纠正，导入时校验四张已核对图片的摘要。详见 `public/game/data/README.md`。
 
-`categories[].iconDir` 指向对应分类目录，`icons[].img` 只含文件名；`id` 为稳定字符串，`displayName` 区分同名技能的版本。缺图名称在 `missing` 保留，图片字段为 `null`。后续接入页面时，再通过 service 加载本清单并按分类目录解析图片，不能在组件中复制名字表。
+`categories[].iconDir` 指向对应分类目录，`icons[].img` 只含文件名；`id` 为稳定字符串，`displayName` 区分同名技能的版本。缺图名称在 `missing` 保留，图片字段为 `null`。`services/pet-assets.ts` 按需校验加载，组件不复制名字表。
+
+### 4.4 召唤兽头像与识别字段
+
+`icons/pet-portrait/` 和 `data/pet-portraits.json` 由 `tools/game-icons/import-pet-portraits.mjs` 再生。
+脚本只读客户端图鉴静态字典、THX 和 WPK，通过资源摘要确认原图；已具名的解包头像作为立绘补充，裁掉透明画布。
+每项记录稳定编号、物种、文件名及资源路径 / 摘要或解包来源。玩家自定义名字与头像编号独立，改名不换头像。
+流式客户端没有下载的头像，通过客户端 `cloud.json` 指定的官方资源端点补齐，解包后逐张核对 THX 的摘要。
+当前召唤兽图鉴已全部覆盖（孩子系统另计），共 548 张头像和立绘；未来未取到的资源仍由 `missing` 明确记录。
+导入使用 `node tools/game-icons/import-pet-portraits.mjs --download-missing`，默认只读本地包和
+`.runtime/pet-portrait-resources` 缓存；下载仅用于离线导入，应用运行时只读随包资源。
+
+`data/pet-panel.json` 维护七项属性、六项加点、资源上限字段、标签与别名，以及资质后续行顺序和五行名录；六项资质沿用
+`character-rules.json`。数值解析与技能区域定位在 `views/characters/ocr/pet-*`，成功识别整只覆盖当前草稿，
+未识别字段清空，不合并旧属性或旧技能；识别失败不改草稿。未读到名字时保留当前名字，不按自定义名字猜物种。
+新增召唤兽只由“新增”按钮触发。点兽牌直接打开与装备一致的左右分栏修改窗，截图和手改共用一份表单；
+属性、加点和资质沿用角色属性的票面行与数值槽。内丹和灵性仅兼容旧记录，不再提供界面。
 
 ## 5. 不放在这里
 

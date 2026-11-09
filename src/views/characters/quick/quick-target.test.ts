@@ -349,6 +349,8 @@ describe('装备：整份进出', () => {
 describe('召唤兽：整份进出', () => {
     const pet = (): Pet => ({
         name: '天狗',
+        portrait: '',
+        points: [],
         level: 136,
         joinLevel: 65,
         quality: { attack: 1800, defense: 1500, hp: 3200, mp: 2100, speed: 1450, dodge: 1200 },

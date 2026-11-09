@@ -54,7 +54,6 @@ export interface CharacterRules {
     };
     pets: {
         skillSlots: number;
-        pillSlots: number;
         qualityFields: { key: PetQualityKey; label: string }[];
     };
     attributePanel: {
@@ -82,7 +81,6 @@ export let GEAR_SUIT_ALIASES: Record<string, string> = {};
 export let STAR_GAINS: Record<string, number> = {};
 export let JADE_GAIN_FACTOR = 0;
 export let PET_SKILL_SLOTS = 0;
-export let PET_PILL_SLOTS = 0;
 export let PET_QUALITY_FIELDS: { key: PetQualityKey; label: string }[] = [];
 export let ATTR_LABELS: { text: string; key: string | null }[] = [];
 export let RESOURCE_KEYS: string[] = [];
@@ -206,7 +204,6 @@ export function parseCharacterRules(raw: unknown): CharacterRules {
         },
         pets: {
             skillSlots: integer(pets.skillSlots, 'skillSlots'),
-            pillSlots: integer(pets.pillSlots, 'pillSlots'),
             qualityFields: list(pets.qualityFields, 'qualityFields').map((raw) => {
                 const row = object(raw, 'quality');
                 const key = text(row.key, 'quality.key');
@@ -257,7 +254,6 @@ export function installCharacterRules(rules: CharacterRules): void {
     STAR_GAINS = rules.gear.starGains;
     JADE_GAIN_FACTOR = rules.gear.jadeGainFactor;
     PET_SKILL_SLOTS = rules.pets.skillSlots;
-    PET_PILL_SLOTS = rules.pets.pillSlots;
     PET_QUALITY_FIELDS = rules.pets.qualityFields;
     ATTR_LABELS = rules.attributePanel.labels;
     RESOURCE_KEYS = rules.attributePanel.resources;

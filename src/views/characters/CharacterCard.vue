@@ -7,7 +7,6 @@ import SelectField from '../../components/SelectField.vue';
 import { schoolNames } from '../../services/game-data';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import GearTip from './GearTip.vue';
-import PetDetail from './PetDetail.vue';
 import AssistPane from './panes/AssistPane.vue';
 import AttrPane from './panes/AttrPane.vue';
 import GearPane from './panes/GearPane.vue';
@@ -21,7 +20,6 @@ import {
     type CharacterData,
     type GearDetail,
     type PaneKey,
-    type Pet,
 } from './character';
 import type { QuickTarget } from './quick/quick-target';
 import type { GearSlotName } from './gear';
@@ -56,10 +54,8 @@ import type { GearSlotName } from './gear';
  * 现在 `panes/` 下六个文件各自带一份 `scoped` 样式，模板跟着样式一起搬——
  * 父组件的 `scoped` 够不到子组件的内部元素，所以两者必须同进同退。
  *
- * 留在本文件里的只有**卡的壳**：卡头、页签条、滚动容器，以及两层浮层
- * （装备浮片 `GearTip` 与兽的详情档案 `PetDetail`）。浮层留在这里不是偷懒：
- * 它们必须挂在滚动容器**之外**，而「滚动就收浮片」这个监听也是这一层的。
- * 每一页只把「要看哪一件 / 哪一只」抛上来，自己不画浮层。
+ * 留在本文件里的只有卡的壳与装备浮片。召唤兽与装备格共用页面的快速修改入口，
+ * 点开即在同一窗口里看详情、截图识别与修改。
  *
  * ---- `preview`：同一张卡，没有动作区 ----
  * 截图识别的弹窗右边要展示「识别之后的样子」，用的就是这张卡。那一份不能有
@@ -181,28 +177,9 @@ function closeAll() {
     tipAnchor.value = null;
 }
 
-/* 兽的详情档案：与装备浮片同一层的浮层，所以状态也留在这里。
- *
- * 同时记下**下标**：档案页脚那枚「修改」要交给快速修改，而 `QuickTarget` 的兽就是按
- * 下标定位的（`Pet` 没有 id，名字可能重）。不在那一刻反查 `indexOf`——`character.pets`
- * 是每次 `update()` 之后整份换新的，反查拿到的是「现在」的位置，而档案里显示的是
- * 「打开时」那只，两者可以不是同一个。 */
-const detailPet = ref<Pet | null>(null);
-const detailIndex = ref(-1);
-
 function openDetail(index: number) {
     closeAll();
-    detailIndex.value = index;
-    detailPet.value = props.character.pets[index] ?? null;
-}
-
-/** 从档案进「快速修改」：先收掉这一层。两个窗叠着开的话，改完抬眼看到的还是旧值
- * ——档案里的 `pet` 是打开时拿到的对象，不会跟着新数据刷新。 */
-function quickPet() {
-    const index = detailIndex.value;
-    detailPet.value = null;
-    detailIndex.value = -1;
-    if (index >= 0) emit('quick', { kind: 'pet', index });
+    if (props.quick && props.character.pets[index]) emit('quick', { kind: 'pet', index });
 }
 
 /* 经验条的两个值、生活/剧情分组、十二格的坐标与图标、召唤兽牌的取数，
@@ -384,24 +361,13 @@ function quickPet() {
                     :id="`${character.id}-pane-pets`"
                     :aria-labelledby="`${character.id}-tab-pets`"
                     :pets="character.pets"
-                    :char-level="character.level"
+                    :quick="quick"
                     @open="openDetail"
                 />
             </template>
         </div>
 
         <GearTip :anchor="tipAnchor" :detail="tip" :slot-name="tipSlot" />
-
-        <!-- 详情档案 `Teleport` 到 body，所以挂在这里只是逻辑位置。
-             页脚那枚「修改」出门到快速修改（见 `quickPet`）：档案是浮层，
-             而快速修改的开关在名册页那一边。 -->
-        <PetDetail
-            v-if="detailPet"
-            :pet="detailPet"
-            :char-level="character.level"
-            @quick="quickPet"
-            @close="detailPet = null"
-        />
     </PaperCard>
 </template>
 

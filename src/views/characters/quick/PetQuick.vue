@@ -3,20 +3,12 @@ import { computed, nextTick, onMounted, ref } from 'vue';
 import ModalShell from '../../../components/ModalShell.vue';
 import PressButton from '../../../components/PressButton.vue';
 import PetDetailForm from '../editor/PetDetailForm.vue';
+import PetScreenshot from '../ocr/PetScreenshot.vue';
+import { applyPetPanel } from '../ocr/pet-panel';
 import { applyPet } from './quick-target';
 import type { CharacterData, Pet } from '../character';
 
-/**
- * 一只召唤兽的整份表单（快速修改的宽窗）。
- *
- * 与 `GearQuick` 同一条来由：第一版只问名字 / 等级 / 参战等级 / 成长 / 寿命 / 五行六格，
- * 资质、技能、内丹这些「这只兽到底值不值」的东西全在「编辑」那份表单里——而用户
- * 点开一只兽，十次有八次就是想看/改那几项。
- *
- * ---- 名字必填 ----
- * `normalizePet` 会丢掉没有名字的兽，所以保存按钮在名字空着时是禁用的（`applyPet`
- * 里还有第二道）。这不是校验癖：允许存空等于「点一下保存，它就不见了」。
- */
+/** 快速修改与整份编辑共用截图入口和四组表单，取消不修改原记录。 */
 const props = defineProps<{ character: CharacterData; index: number }>();
 const emit = defineEmits<{ save: [character: CharacterData]; close: [] }>();
 
@@ -27,18 +19,23 @@ const pet = ref<Pet | null>(
     source.value ? (JSON.parse(JSON.stringify(source.value)) as Pet) : null,
 );
 
-const canSave = computed(() => (pet.value?.name ?? '').trim() !== '');
+const reading = ref(false);
+const canSave = computed(() => !reading.value && (pet.value?.name ?? '').trim() !== '');
 
 function save() {
     if (!pet.value || !canSave.value) return;
     emit('save', applyPet(props.character, props.index, pet.value));
 }
 
+function recognize(result: Parameters<typeof applyPetPanel>[1]) {
+    if (pet.value) pet.value = applyPetPanel(pet.value, result);
+}
+
 const form = ref<HTMLElement | null>(null);
 
 onMounted(async () => {
     await nextTick();
-    form.value?.querySelector<HTMLInputElement>('input')?.focus();
+    form.value?.querySelector<HTMLInputElement>('input[aria-label="召唤兽名称"]')?.focus();
 });
 </script>
 
@@ -47,12 +44,16 @@ onMounted(async () => {
         class="character-theme"
         :data-school="character.school || ''"
         :title="`快速修改 · 召唤兽 ${pet?.name.trim() || '未命名'}`"
-        :width="620"
+        :width="940"
+        :min-height="'min(740px, calc(100vh - 48px))'"
+        fill
         initial-focus="none"
         @close="emit('close')"
     >
         <div v-if="pet" ref="form" class="pet-quick">
-            <PetDetailForm v-model="pet" />
+            <PetScreenshot @recognize="recognize" @busy="reading = $event">
+                <PetDetailForm v-model="pet" />
+            </PetScreenshot>
         </div>
         <p v-else class="note">这只召唤兽已经不在了。</p>
 
@@ -78,9 +79,9 @@ onMounted(async () => {
 <style scoped>
 .pet-quick {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
+    flex: 1;
     min-width: 0;
+    min-height: 0;
 }
 .note {
     margin: 2px 0 0;

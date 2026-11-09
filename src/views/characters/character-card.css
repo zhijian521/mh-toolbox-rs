@@ -203,8 +203,7 @@
  * **不改全局 `.num`**：卡与编辑页各写一条（编辑页那条在 `CharacterEditor.vue` 的
  * `.editor :deep(.num)`），浮片 `GearTip` 仍是常规——它 `Teleport` 到 `body`，
  * 两条 scoped 规则都够不着；且浮片随指针出现，粗起来会抢正文。
- * 详情档案（`PetDetail.vue`）不在这里管：它 `Teleport` 到 `body`，够不着卡的作用域，
- * 加粗写在它自己的 scoped 里（资质票与属性行各一条）。
+ * 召唤兽修改窗的读数由共用表单 `PetDetailForm` 自己设置。
  *
  * `SkillRow` 与 `MeterBar` 都是子组件，它们的读数字要经 `:deep()` 才够得着——
  * 师门那一列的等级签、属性页底下经验条旁边那串「3,777.2万 / 4,200万」。

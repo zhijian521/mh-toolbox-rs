@@ -23,6 +23,7 @@ const props = withDefaults(
 );
 const emit = defineEmits<{ save: [character: CharacterData]; cancel: [] }>();
 const gearReading = ref(false);
+const petReading = ref(false);
 const {
     draft,
     changed,
@@ -60,6 +61,7 @@ const canSave = computed(
         Boolean(draft.value.name.trim()) &&
         !busy.value &&
         !gearReading.value &&
+        !petReading.value &&
         !props.saving &&
         (props.isNew || changed.value),
 );
@@ -176,7 +178,7 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
                     />
                 </template>
             </GearEditor>
-            <PetEditor v-show="pane === 'pets'" v-model="draft.pets">
+            <PetEditor v-show="pane === 'pets'" v-model="draft.pets" @busy="petReading = $event">
                 <template #tabs>
                     <SteppedSlider
                         v-if="pane === 'pets'"

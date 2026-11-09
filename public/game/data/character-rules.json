@@ -550,7 +550,6 @@
     },
     "pets": {
         "skillSlots": 12,
-        "pillSlots": 8,
         "qualityFields": [
             {
                 "key": "attack",

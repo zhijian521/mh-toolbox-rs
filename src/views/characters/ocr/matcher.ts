@@ -81,18 +81,46 @@ export function findTiles(image: ImageData): Tile[] {
     return tiles;
 }
 
-function patchGray(image: ImageData, tile: Tile, size: number): Float32Array {
-    const out = new Float32Array(size * size);
+interface Appearance {
+    color?: boolean;
+    inset?: number;
+    ignoreTopLeft?: number;
+}
+
+export function iconSignature(
+    image: ImageData,
+    tile: Tile,
+    size: number,
+    appearance: Appearance = {},
+): Float32Array {
+    const out = new Float32Array(size * size * (appearance.color ? 3 : 1));
+    let length = 0;
     const { width, data } = image;
+    const inset = Math.max(0, Math.min(0.25, appearance.inset ?? 0));
     for (let y = 0; y < size; y += 1) {
-        const sy = tile.y + Math.min(tile.height - 1, Math.floor((y * tile.height) / size));
+        const py = inset + (y / size) * (1 - inset * 2);
+        const sy = tile.y + Math.min(tile.height - 1, Math.floor(py * tile.height));
         for (let x = 0; x < size; x += 1) {
-            const sx = tile.x + Math.min(tile.width - 1, Math.floor((x * tile.width) / size));
+            const px = inset + (x / size) * (1 - inset * 2);
+            if (px < (appearance.ignoreTopLeft ?? 0) && py < (appearance.ignoreTopLeft ?? 0))
+                continue;
+            const sx = tile.x + Math.min(tile.width - 1, Math.floor(px * tile.width));
             const at = (sy * width + sx) * 4;
-            out[y * size + x] = data[at] * 0.299 + data[at + 1] * 0.587 + data[at + 2] * 0.114;
+            if (appearance.color) {
+                out[length++] = data[at];
+                out[length++] = data[at + 1];
+                out[length++] = data[at + 2];
+            } else out[length++] = data[at] * 0.299 + data[at + 1] * 0.587 + data[at + 2] * 0.114;
         }
     }
-    return out;
+    if (appearance.color && length) {
+        // 每个通道分别去掉底色，避免共同的金色背景压过蓝 / 红技能图案的差异。
+        const means = [0, 0, 0];
+        for (let i = 0; i < length; i++) means[i % 3] += out[i];
+        for (let channel = 0; channel < 3; channel++) means[channel] /= length / 3;
+        for (let i = 0; i < length; i++) out[i] -= means[i % 3];
+    }
+    return out.subarray(0, length);
 }
 
 export function correlation(a: Float32Array, b: Float32Array): number {
@@ -122,8 +150,8 @@ export function correlation(a: Float32Array, b: Float32Array): number {
 
 const templateCache = new Map<string, Promise<Float32Array>>();
 
-function loadTemplate(url: string, size: number): Promise<Float32Array> {
-    const key = `${url}@${size}`;
+function loadTemplate(url: string, size: number, appearance: Appearance): Promise<Float32Array> {
+    const key = `${url}@${size}:${JSON.stringify(appearance)}`;
     const cached = templateCache.get(key);
     if (cached) return cached;
     const pending = (async () => {
@@ -138,7 +166,7 @@ function loadTemplate(url: string, size: number): Promise<Float32Array> {
         context.imageSmoothingQuality = 'high';
         context.drawImage(image, 0, 0, size, size);
         const pixels = context.getImageData(0, 0, size, size);
-        return patchGray(pixels, { x: 0, y: 0, width: size, height: size }, size);
+        return iconSignature(pixels, { x: 0, y: 0, width: size, height: size }, size, appearance);
     })().catch((error) => {
         templateCache.delete(key);
         throw error;
@@ -150,21 +178,29 @@ function loadTemplate(url: string, size: number): Promise<Float32Array> {
 export async function matchIcons(
     image: ImageData,
     candidates: readonly { name: string; url: string }[],
+    options: {
+        tiles?: Tile[];
+        floor?: number;
+        margin?: number;
+        sampleSize?: number;
+        appearance?: Appearance;
+    } = {},
 ): Promise<IconHit[]> {
-    const tiles = findTiles(image);
+    const tiles = options.tiles ?? findTiles(image);
     if (!tiles.length || !candidates.length) return [];
     const hits: IconHit[] = [];
+    const appearance = options.appearance ?? {};
     for (const tile of tiles) {
-        const size = Math.min(tile.width, tile.height);
+        const size = Math.min(tile.width, tile.height, options.sampleSize ?? Infinity);
         const loaded = await Promise.allSettled(
             candidates.map(async (candidate) => ({
                 name: candidate.name,
-                gray: await loadTemplate(candidate.url, size),
+                gray: await loadTemplate(candidate.url, size, appearance),
             })),
         );
         const templates = loaded.flatMap((one) => (one.status === 'fulfilled' ? [one.value] : []));
         const scores = new Map<string, number>();
-        const center = patchGray(image, tile, size);
+        const center = iconSignature(image, tile, size, appearance);
         for (const template of templates) {
             scores.set(template.name, correlation(center, template.gray));
         }
@@ -176,7 +212,8 @@ export async function matchIcons(
                 if (moved.x < 0 || moved.y < 0) continue;
                 if (moved.x + moved.width > image.width) continue;
                 if (moved.y + moved.height > image.height) continue;
-                const patch = dx === 0 && dy === 0 ? center : patchGray(image, moved, size);
+                const patch =
+                    dx === 0 && dy === 0 ? center : iconSignature(image, moved, size, appearance);
                 for (const template of templates) {
                     const score = correlation(patch, template.gray);
                     scores.set(template.name, Math.max(scores.get(template.name) ?? 0, score));
@@ -185,9 +222,9 @@ export async function matchIcons(
         }
         const ranked = [...scores].sort((a, b) => b[1] - a[1]);
         const best = ranked[0];
-        if (!best || best[1] < MATCH_FLOOR) continue;
+        if (!best || best[1] < (options.floor ?? MATCH_FLOOR)) continue;
         // 两个图案过于接近时不猜，避免把一个技能的等级写给另一个技能。
-        if (ranked[1] && best[1] - ranked[1][1] < MATCH_MARGIN) continue;
+        if (ranked[1] && best[1] - ranked[1][1] < (options.margin ?? MATCH_MARGIN)) continue;
         hits.push({ name: best[0], score: best[1], box: tile });
     }
     const used = new Set<string>();

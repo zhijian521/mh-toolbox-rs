@@ -69,6 +69,12 @@ export function normalizePet(raw: unknown): Pet | null {
 
     return {
         name,
+        portrait: text(raw.portrait),
+        points: rows(raw.points).flatMap((point) => {
+            if (!isObject(point)) return [];
+            const label = text(point.label);
+            return label ? [{ label, value: text(point.value) }] : [];
+        }),
         level: int(raw.level),
         joinLevel: int(raw.joinLevel),
         quality: {

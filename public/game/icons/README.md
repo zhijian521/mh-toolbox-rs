@@ -22,7 +22,8 @@ icons/
 ├── pet-basic/    pet-basic-<ID>.png       召唤兽低级技能 68
 ├── pet-advanced/ pet-advanced-<ID>.png    召唤兽高级技能 52
 ├── pet-super/    pet-super-<ID>.png       召唤兽超级技能 48
-└── pet-special/  pet-special-<ID>.png     召唤兽特殊技能 185（含升星扩展 89）
+├── pet-special/  pet-special-<ID>.png     召唤兽特殊技能 185（含升星扩展 89）
+└── pet-portrait/ pet-<编号>.png / portrait-<摘要>.png  召唤兽头像与具名解包立绘
 ```
 
 两条规则，只说两句话：

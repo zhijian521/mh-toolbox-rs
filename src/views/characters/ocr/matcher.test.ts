@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { correlation, findTiles } from './matcher';
+import { correlation, findTiles, iconSignature } from './matcher';
 
 /**
  * 图标比对里**与 DOM 无关**的那一半。
@@ -10,6 +10,45 @@ import { correlation, findTiles } from './matcher';
  */
 
 const gray = (...values: number[]) => Float32Array.from(values);
+
+describe('同形异色技能', () => {
+    function icon(rgb: number[], badge = false): ImageData {
+        const width = 40;
+        const data = new Uint8ClampedArray(width * width * 4);
+        for (let y = 0; y < width; y++)
+            for (let x = 0; x < width; x++) {
+                const color = x > 12 && x < 27 && y > 8 && y < 34 ? rgb : [210, 190, 15];
+                data.set(
+                    [...(badge && x < 10 && y < 10 ? [160, 20, 220] : color), 255],
+                    (y * width + x) * 4,
+                );
+            }
+        return { width, height: width, data } as ImageData;
+    }
+    const box = { x: 0, y: 0, width: 40, height: 40 };
+    it('灰度下同形的红蓝图案，彩色比对可以区分', () => {
+        const blue = icon([5, 5, 160]);
+        const red = icon([160, 5, 5]);
+        expect(correlation(iconSignature(blue, box, 32), iconSignature(red, box, 32))).toBeCloseTo(
+            1,
+        );
+        expect(
+            correlation(
+                iconSignature(blue, box, 32, { color: true }),
+                iconSignature(red, box, 32, { color: true }),
+            ),
+        ).toBeLessThan(0.8);
+    });
+    it('忽略认证角标后仍与同一技能吻合', () => {
+        const appearance = { color: true, inset: 0.08, ignoreTopLeft: 0.26 };
+        expect(
+            correlation(
+                iconSignature(icon([5, 5, 160]), box, 32, appearance),
+                iconSignature(icon([5, 5, 160], true), box, 32, appearance),
+            ),
+        ).toBeCloseTo(1);
+    });
+});
 
 describe('相关系数', () => {
     it('同一份灰度是 1', () => {

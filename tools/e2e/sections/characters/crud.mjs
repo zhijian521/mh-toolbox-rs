@@ -1,6 +1,7 @@
 import { importLoaded } from '../../cdp.mjs';
 import { CONFIRM_DELETE } from '../shared.mjs';
 import { checkButtonTheme } from './theme.mjs';
+import petSamples from '../../fixtures/pet-panel-cases.json' with { type: 'json' };
 
 export async function setup(ctx) {
     const { cdp, ui, t, sleep, baseline } = ctx;
@@ -350,6 +351,12 @@ export async function pets(ctx) {
                 `document.querySelector('.ocr-tabs [aria-checked="true"]')?.textContent.trim() === '召唤兽'`,
             ),
         );
+        t.check(
+            '没有选中召唤兽时不能靠识别新增',
+            await cdp.evaluate(
+                `document.querySelector('.pet-editor input[aria-label="召唤兽截图文件"]')?.disabled === true`,
+            ),
+        );
         await ui.clickLabel('新增召唤兽');
         await ui.fillSel('.pet-block input[aria-label="召唤兽名称"]', '临时甲');
         await ui.clickLabel('新增召唤兽');
@@ -390,14 +397,7 @@ export async function pets(ctx) {
         await ui.waitFor(`!document.querySelector('.editor')`);
     });
 
-    /* ---- 召唤兽：概览牌 + 详情档案（2026-11-05） ----
-     * 这一节以前一条断言都没有：卡上只画「名字 · 等级 · 参战」，而这三个数在名册里
-     * 从来没被验过——练到哪一步、资质多少，全都只在编辑弹窗里能看见。
-     * 现在卡上是一块**兽牌**（五格战斗属性 + 技能名），点开是一张 600 宽的**详情档案**
-     * （资质六票 / 属性八行 / 技能 12 格 / 内丹 8 格）。两条路径都进断言。
-     *
-     * 只填 4 个字段（名 / 等级 / 参战 / 技能）就够验完整条链：五格属性靠的是
-     * `attrs` 数组，它空着时该画五枚淡「—」，那也是一种要被验的状态。 */
+    // 召唤兽：原图识别 → 手工修正 → 保存 → 卡片与详情 → 重载。
     await t.step('召唤兽：加一只 → 概览牌 → 详情窗 → Esc', async () => {
         await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
@@ -415,6 +415,70 @@ export async function pets(ctx) {
         t.check('编辑页左栏列出全部召唤兽', railItems === 1, `实际 ${railItems} 行`);
         const nameInputs = await ui.count('.pet-block input[aria-label="召唤兽名称"]');
         t.check('右侧只渲染选中那一只', nameInputs === 1, `实际 ${nameInputs} 个名字框`);
+
+        await cdp.evaluate(`(async () => {
+            const response = await fetch('/tools/e2e/fixtures/pet-panel.png');
+            if (!response.ok) throw new Error('召唤兽截图样本加载失败');
+            const transfer = new DataTransfer();
+            transfer.items.add(new File([await response.blob()], 'pet-panel.png', { type: 'image/png' }));
+            const input = document.querySelector('.pet-editor input[aria-label="召唤兽截图文件"]');
+            input.files = transfer.files;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        })()`);
+        const recognized = await ui.waitFor(
+            `document.querySelector('.pet-block input[aria-label="召唤兽攻击"]').value === '2016' && document.querySelector('.pet-screenshot')?.getAttribute('aria-busy') === 'false'`,
+            { timeout: 30000 },
+        );
+        t.check('召唤兽原图识别完成', recognized);
+        t.check(
+            '成长、寿命和全部普通技能填入草稿',
+            await cdp.evaluate(`
+                document.querySelector('.pet-block input[aria-label="成长"]').value === '1.264' &&
+                document.querySelector('.pet-block input[aria-label="寿命"]').value === '4385' &&
+                document.querySelector('.pet-block textarea[aria-label="已学技能，顿号或逗号分隔"]').value === '吸血、必杀、偷袭、夜战'
+            `),
+        );
+        t.check(
+            '上限、资质、加点分别填入，零潜能保留',
+            await cdp.evaluate(`
+            document.querySelector('.pet-block input[aria-label="召唤兽魔法"]').value === '931' &&
+            document.querySelector('.pet-block input[aria-label="召唤兽力量"]').value === '763' &&
+            document.querySelector('.pet-block input[aria-label="召唤兽潜能"]').value === '0' &&
+            document.querySelector('.pet-block input[aria-label="攻击资质"]').value === '1616'
+        `),
+        );
+        t.check(
+            '截图识别入口没有内丹表单',
+            !(await ui.exists('.pet-block textarea[aria-label="内丹名，顿号或逗号分隔"]')),
+        );
+
+        for (const sample of petSamples) {
+            const result = await cdp.evaluate(
+                `(async () => {
+                const response = await fetch('/tools/e2e/fixtures/' + ${JSON.stringify(sample.file)});
+                if (!response.ok) throw new Error('召唤兽样本加载失败');
+                const bitmap = await createImageBitmap(await response.blob());
+                const { imageDataOf, base64Of, swapToBgra } = await ${importLoaded('/src/views/characters/ocr/pixels.ts')};
+                const image = imageDataOf(bitmap);
+                bitmap.close();
+                const { ocrFrame } = await ${importLoaded('/src/services/ocr.ts')};
+                const outcome = await ocrFrame(base64Of(swapToBgra(image.data)), image.width, image.height);
+                if (outcome.status !== 'ok') throw new Error(outcome.error);
+                const { recognizePetPanel } = await ${importLoaded('/src/views/characters/ocr/pet-recognition.ts')};
+                return recognizePetPanel(outcome.lines, image);
+            })()`,
+                { timeout: 60000 },
+            );
+            t.check(
+                `${sample.name} 原图成长、寿命与全部技能`,
+                result.patch.life === sample.expected.life &&
+                    result.patch.growth === sample.expected.growth &&
+                    JSON.stringify(result.patch.skills) === JSON.stringify(sample.expected.skills),
+                JSON.stringify(result.patch),
+            );
+            if (sample.name === 'dog')
+                t.check('查看第二只时不取黄色参战兽的等级', result.patch.level === 123);
+        }
 
         /* 选择器必须带 `.pet-block`：`等级` 这个 aria-label 在编辑器里不止一处
          * （角色自己也有一格），`ui.fill()` 只取文档里第一个匹配。 */
@@ -468,20 +532,23 @@ export async function pets(ctx) {
         t.check('兽牌在可见的页签里', visible === 1, `实际 ${visible} 块可见`);
 
         const stats = await inCard(`card.querySelectorAll('.plate .s').length`);
-        t.check('一块牌五格战斗属性', stats === 5, `实际 ${stats} 格`);
+        t.check('一块牌展示全部七项战斗属性', stats === 7, `实际 ${stats} 格`);
 
         const names = await inCard(
-            `(card.querySelector('.plate .skill-line .names')?.textContent || '')`,
+            `[...card.querySelectorAll('.plate .skill-line .pet-image')].map((one) => one.title).join('/')`,
         );
         t.check(
-            '技能行列出已学的名字',
+            '技能图标保留完整技能名称',
             names.includes('连击') && names.includes('必杀'),
             `实际：${names}`,
         );
 
-        // 参战 145 对一个人物等级很低的角色：签要转朱并报差额。
-        const short = await inCard(`!!card.querySelector('.plate .join.short')`);
-        t.check('参战不够时签转朱', short);
+        t.check(
+            '兽牌有头像，列表不展示参战、资质和内丹',
+            await inCard(
+                `!!card.querySelector('.plate .portrait') && !card.querySelector('.plate .join, .plate .q-rows, .plate .pill')`,
+            ),
+        );
 
         await ui.clickIn('.roster .char', 'E2E兽', { label: '查看 E2E兽 的详情' });
         if (
@@ -492,27 +559,55 @@ export async function pets(ctx) {
             throw new Error('详情窗没打开');
         }
         const slots = await ui.count('[role="dialog"] .slot');
-        t.check('详情窗画出 20 格（技能 12 + 内丹 8）', slots === 20, `实际 ${slots} 格`);
+        t.check('详情窗只有技能格，不再画内丹格', slots === 12, `实际 ${slots} 格`);
 
         const filled = await ui.count('[role="dialog"] .slot:not(.off)');
         t.check('其中 2 格是学了的技能', filled === 2, `实际 ${filled} 格`);
 
-        /* 两列的先后是用户定的（2026-11-05）：左战斗属性、右资质。
-         * 读 DOM 里两个分栏名的顺序，不读样式——「换个位置」换的就是这个顺序。 */
         const colHeads = await cdp.evaluate(
-            `[...document.querySelectorAll('[role="dialog"] .pet-cols .group-head')]
+            `[...document.querySelectorAll('[role="dialog"] .pet-layout .group-head')]
                     .map((e) => e.textContent.trim())`,
         );
         t.check(
-            '详情两列：左战斗属性、右资质',
-            colHeads[0] === '战斗属性' && colHeads[1] === '资质',
+            '详情两列：属性与加点，资质独立成组',
+            colHeads[0] === '属性' &&
+                colHeads[1] === '加点' &&
+                (await ui.count('[role="dialog"] [data-pet-group="quality"] .q-cell')) === 6,
             `实际：${colHeads.join(' / ')}`,
         );
+        t.check(
+            '点兽牌直接展示截图与可编辑详情',
+            (await ui.exists('.pet-quick .pet-screenshot input[aria-label="召唤兽截图文件"]')) &&
+                (await ui.exists('.pet-quick input[aria-label="召唤兽攻击"]')),
+        );
+        t.check(
+            '属性与资质沿用角色属性的数值槽',
+            await cdp.evaluate(`(() => {
+            const rows = [...document.querySelectorAll('.pet-quick .pet-layout .slip-row')];
+            return rows.length >= 22 && rows.every((row) => {
+                const input = row.querySelector('input.field.num-slot');
+                if (!input) return false;
+                const scale = Number(getComputedStyle(row).getPropertyValue('--fs-scale'));
+                const rect = input.getBoundingClientRect();
+                const width = row.parentElement.classList.contains('pet-facts') ? 64 : 52;
+                return Math.abs(rect.height - 18 * scale) < 1 &&
+                    Math.abs(rect.width - width * scale) < 1;
+            });
+        })()`),
+        );
+        await ui.fillSel('.pet-quick input[aria-label="成长"]', '1.111');
 
         // Esc 只关这一层（`use-modal` 的冒泡口径），卡片本身不动。
         await cdp.key('Escape');
         await sleep(300);
         t.check('Esc 关掉详情窗', !(await ui.exists('[role="dialog"]')));
+        t.check(
+            '详情直接修改后取消，原记录保持不变',
+            await cdp.evaluate(`(async () => {
+            const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
+            return useRoster().roster.value.find((one) => one.name === 'E2E改名后')?.pets[0]?.growth === '1.254';
+        })()`),
+        );
         t.check(
             '卡仍停在召唤兽页',
             (await inCard(
@@ -541,18 +636,20 @@ export async function pets(ctx) {
             await cdp.evaluate(`(async () => {
                 const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
                 const pet = useRoster().roster.value.find((one) => one.name === 'E2E改名后')?.pets[0];
-                return pet?.growth === '1.254' && pet.skills.join('/') === '连击/必杀';
+                return pet?.growth === '1.254' && pet.skills.join('/') === '连击/必杀' &&
+                    pet.attrs.find((row) => row.label === '魔法')?.value === '931' &&
+                    pet.points.find((row) => row.label === '力量')?.value === '763';
             })()`),
         );
     });
 
     /* 快速修改：卡上点哪一项，就只改哪一项（2026-11-07）。
      *
-     * 四个入口各走一遍——属性行、师门行、装备格、召唤兽详情页脚。它们共用一个
+     * 四个入口各走一遍——属性行、师门行、装备格、召唤兽牌。它们共用一个
      * 小窗与同一条写入路径（`update()`），但入口分别长在四个分区里，任何一处
      * 忘了接 `@click`，这一节都会红。
      *
-     * 放在「删兽」之前：兽还在，才能验「详情 → 修改」那一步。 */
+     * 放在「删兽」之前：兽还在，才能验「兽牌 → 修改」。 */
 }
 export async function cleanup(ctx) {
     const { cdp, ui, t, sleep, baseline } = ctx;

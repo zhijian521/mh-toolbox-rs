@@ -216,30 +216,66 @@ export async function quick(ctx) {
             })()`);
         t.check('卡上那一格写上 E2E头', gearName === 'E2E头', gearName);
 
-        // ---- ④ 召唤兽：详情 → 修改 ----
+        // ---- ④ 召唤兽：兽牌直接进入截图修改 ----
         await ui.clickIn('.roster .char', 'E2E改名后', { text: '召唤兽' });
         await sleep(280);
         await ui.clickIn('.roster .char', 'E2E改名后', { label: '查看 E2E兽 的详情' });
         await ui.waitFor(`!!document.querySelector('.modal-panel')`, { timeout: 3000 });
         await sleep(200);
-        await ui.clickText('.modal-panel button', '修改');
         const toQuick = await ui.waitFor(
             `(document.querySelector('.modal-head h2')?.textContent || '').includes('快速修改')`,
             { timeout: 3000 },
         );
-        t.check('详情页脚那枚「修改」进到快速修改', toQuick, await dialogTitle());
-        /* 整份表单：身份七格 + 资质六格 + 技能与内丹两栏。上一版只有身份那六格，
-         * 资质 / 技能 / 内丹全在「编辑」那份表单里——用户点开一只兽想看的正是它们。 */
+        t.check('点兽牌直接进入快速修改', toQuick, await dialogTitle());
         const petLayout = await cdp.evaluate(`(() => ({
                 idCells: document.querySelectorAll('.modal-panel .id7 .id-cell').length,
                 quality: document.querySelectorAll('.modal-panel .q6 .q-cell').length,
                 lists: document.querySelectorAll('.modal-panel .list-block').length,
+                points: document.querySelectorAll('.modal-panel .points .id-cell').length,
+                screenshot: !!document.querySelector('.modal-panel .pet-screenshot'),
             }))()`);
         t.check(
-            '兽窗里有身份七格 / 资质六格 / 技能与内丹两栏',
-            petLayout.idCells === 7 && petLayout.quality === 6 && petLayout.lists === 2,
+            '兽窗共用截图入口与四组表单，不展示内丹',
+            petLayout.idCells === 3 &&
+                petLayout.quality === 6 &&
+                petLayout.lists === 1 &&
+                petLayout.points === 6 &&
+                petLayout.screenshot,
             JSON.stringify(petLayout),
         );
+        for (const [file, count, attack] of [
+            ['pet-panel-prince.png', 10, '3606'],
+            ['pet-panel-dog.png', 2, '601'],
+        ]) {
+            await cdp.evaluate(`(async () => {
+                const response = await fetch('/tools/e2e/fixtures/' + ${JSON.stringify(file)});
+                if (!response.ok) throw new Error('召唤兽截图加载失败');
+                const transfer = new DataTransfer();
+                transfer.items.add(new File([await response.blob()], ${JSON.stringify(file)}, { type: 'image/png' }));
+                const input = document.querySelector('.pet-quick input[aria-label="召唤兽截图文件"]');
+                input.files = transfer.files;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            })()`);
+            const filled = await ui.waitFor(
+                `document.querySelector('.pet-quick input[aria-label="召唤兽攻击"]').value === ${JSON.stringify(attack)} && document.querySelector('.pet-quick .pet-screenshot').getAttribute('aria-busy') === 'false'`,
+                { timeout: 60000 },
+            );
+            const skills = await cdp.evaluate(
+                `document.querySelector('.pet-quick textarea[aria-label="已学技能，顿号或逗号分隔"]').value`,
+            );
+            t.check(
+                `${file} 覆盖当前兽的属性和技能`,
+                filled && skills.split('、').filter(Boolean).length === count,
+                skills,
+            );
+        }
+        t.check(
+            '较少技能覆盖后不残留旧技能',
+            await cdp.evaluate(
+                `document.querySelector('.pet-quick textarea[aria-label="已学技能，顿号或逗号分隔"]').value === '泰山压顶、高级驱鬼'`,
+            ),
+        );
+        await fillField('召唤兽名称', 'E2E兽');
         await fillField('等级', '121');
         t.check('兽的等级存下去了', await saveDialog());
         const petLevel = await inCard(
@@ -267,6 +303,14 @@ export async function quick(ctx) {
             `(card.querySelector('.plate .lv')?.textContent || '').trim()`,
         );
         t.check('重载后兽的等级还是 121', petAfter.includes('121'), petAfter);
+        t.check(
+            '重载后召唤兽数量不增加，技能仍是最后一张图',
+            await cdp.evaluate(`(async () => {
+            const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
+            const pets = useRoster().roster.value.find((one) => one.name === 'E2E改名后').pets;
+            return pets.length === 1 && pets[0].skills.join('、') === '泰山压顶、高级驱鬼' && pets[0].life === 189;
+        })()`),
+        );
     });
 
     /* 召唤兽的 × 与装备那枚**不是同一个动作**：这里是真的把这一只移出列表

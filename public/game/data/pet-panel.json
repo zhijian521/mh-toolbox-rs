@@ -1,0 +1,20 @@
+{
+    "attributes": ["气血", "魔法", "攻击", "防御", "速度", "法伤", "法防"],
+    "points": ["体质", "魔力", "力量", "耐力", "敏捷", "潜能"],
+    "resources": ["气血", "魔法"],
+    "qualityTail": ["life", "growth", "element"],
+    "elements": ["金", "木", "水", "火", "土"],
+    "qualityTail": ["life", "growth", "element"],
+    "elements": ["金", "木", "水", "火", "土"],
+    "labels": {
+        "attributeTitle": "召唤兽属性",
+        "qualityTitle": "召唤兽资质",
+        "joinLevel": "参战等级",
+        "life": "寿命",
+        "growth": "成长",
+        "element": "五行",
+        "level": "级",
+        "rename": "改名"
+    },
+    "aliases": { "法术伤害": "法伤", "法术防御": "法防", "法力值": "魔法", "气血值": "气血" }
+}
