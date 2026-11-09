@@ -6,9 +6,9 @@ export default async function run(ctx) {
     const NAV = [
         ['总览', '#/overview', 'page'],
         ['收益', '#/income', 'page'],
-        ['物价', '#/prices', 'page'],
-        ['角色', '#/characters', 'page'],
         ['账号', '#/accounts', 'page'],
+        ['角色', '#/characters', 'page'],
+        ['物价', '#/prices', 'page'],
         ['目标', '#/goals', 'page'],
         ['工具', '#/tools', 'page'],
         ['设置', '#/settings', 'page'],

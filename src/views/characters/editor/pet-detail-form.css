@@ -3,15 +3,31 @@
     flex: 1;
     min-width: 0;
     min-height: 0;
-    padding: 0;
+    /* 底边留一圈纸，理由与名册卡 `.char` 同一条：这一层决定 `.pet-content` 的**裁剪线**。
+     * 内衬为 0 时裁剪线压在纸的底缘（实测 `gap = 0`），滚到中途的资质/技能行被切在
+     * 断面与圆角上。给 `.pet-content` 加 `padding-bottom` 治不了——那个内衬在裁剪线里面，
+     * 只让滚到底时末尾多一段空白。12 = 3px 断面 + 9px 纸。 */
+    padding: 0 0 12px;
     --slip-base: var(--paper);
 }
+/* 底部内衬 16 → 24 → **12**。三段是同一件事的三次调整，理由叠起来看：
+ *
+ * 16 时滚到底最后一行贴着页脚（用户：「召唤兽卡片和修改召唤兽都一样」），加到 24 解决
+ * 了「贴边」，但滚到**中途**的裁切线仍压在纸的下缘——那才是「透明地透出来」的真正原因
+ * （2026-11-09 用户第二次报，实测裁剪线到纸底 = 0）。于是把 24 拆成两段：
+ * **12 在裁剪线外面**（`.pet-form` 的 `padding-bottom`）、**12 在这里**。
+ *
+ * 不改成「外面 12 + 这里 24」：那会让滚到底时末尾离纸边 36，比名册卡的 24 多一档，
+ * 同一只召唤兽在两处看得见两个边距。总和不增，只换位置。
+ *
+ * `overscroll-behavior: contain`：滚轮到底那一下不该再传给弹窗外面的页面。 */
 .pet-content {
     flex: 1;
     min-width: 0;
     min-height: 0;
-    padding: 16px max(0px, calc(16px - var(--scrollbar-w))) 16px 16px;
+    padding: 16px max(0px, calc(16px - var(--scrollbar-w))) 12px 16px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     scrollbar-gutter: stable;
 }
 .pet-identity {

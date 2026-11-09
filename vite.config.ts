@@ -45,6 +45,15 @@ export default defineConfig({
                 '**/src-tauri/gen/**',
                 '**/.workbuddy/**',
                 '**/map/**',
+                /* 编辑工具写文件时的临时目录：`.character-card.css.<pid>.<uuid>.tmpdir/`
+                 * 就建在源文件旁边。2026-11-09 本机连崩两次 dev server——
+                 * `EBUSY: resource busy or locked, watch '…tmpdir/*.tmp'`，因为 Vite 去
+                 * watch 一个正被写入的临时文件，而外壳只报一句
+                 * `beforeDevCommand terminated with a non-zero status code`，
+                 * 看不出真原因（与 `.runtime/target-lab` 那次同一个坑）。
+                 * 临时目录用完即删，永远不该进监视器。 */
+                '**/.*.tmpdir/**',
+                '**/*.tmpdir/**',
             ],
         },
     },

@@ -45,7 +45,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
     { key: 'overview', label: '总览', icon: 'overview', path: '/overview', view: OverviewView },
     { key: 'income', label: '收益', icon: 'income', path: '/income', view: IncomeView },
-    { key: 'prices', label: '物价', icon: 'prices', path: '/prices', view: PricesView },
+    { key: 'accounts', label: '账号', icon: 'accounts', path: '/accounts', view: AccountsView },
     // 装备不再是独立一页，并进了角色：一个人穿什么、备哪些，本来就是「这个角色」的属性。
     // 旧地址 `/equipment` 在 `router.ts` 里重定向到这里，收藏夹不会落到设置页。
     {
@@ -55,7 +55,7 @@ export const NAV_ITEMS: NavItem[] = [
         path: '/characters',
         view: CharactersView,
     },
-    { key: 'accounts', label: '账号', icon: 'accounts', path: '/accounts', view: AccountsView },
+    { key: 'prices', label: '物价', icon: 'prices', path: '/prices', view: PricesView },
     { key: 'goals', label: '目标', icon: 'goals', path: '/goals', view: GoalsView },
     // 工具排在「目标」与「设置」之间：它是干活的入口，不是资料页；设置永远压在末尾。
     // 左栏到这里为止：具体某件工具（如捉鬼）是 `/tools` 的子页，不进导航——
