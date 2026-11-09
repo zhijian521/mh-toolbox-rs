@@ -24,6 +24,54 @@ export default async function run(ctx) {
             t.check('回到工具列表', back, await ui.hash());
         });
 
+        /* ---------- 维护公告：外链，点了不进路由 ----------
+         *
+         * 这一枚现在的落点是系统浏览器（`open_external`）。真点一下会在这台机器上
+         * 拉起一个浏览器窗口，之后还得人去关——测试不该留这种东西。所以先把
+         * `__TAURI_INTERNALS__.invoke` 里的 `open_external` 截成 no-op 再点。
+         *
+         * 要验的是「地址没变」：从前它是一条路由（`#/tools/notice`），现在不该再进任何
+         * 页面。`data-kind` 是那一层结构的读出口——`tools.ts` 里 `kind: 'link'` 的条目
+         * 不进 `router.ts`（那里按 `kind === 'page'` 过滤），两处一起看才闭环。
+         *
+         * **不验「浏览器真的起来了」**：那要等外部进程，还得收尾关掉，且与这一层
+         * 没有关系——`openExternal` 自己的实现只有一行 `rundll32`。
+         */
+        await t.step('维护公告：外链，点了不进路由', async () => {
+            await ui.goto('工具');
+
+            const kind = await cdp.evaluate(
+                `[...document.querySelectorAll('.tool-item')]
+                    .find((one) => one.textContent?.includes('维护公告'))?.dataset.kind ?? ''`,
+            );
+            t.check('维护公告标成外链', kind === 'link', kind || '没找到这一枚');
+
+            const stubbed = await cdp.evaluate(`(() => {
+                const internals = window.__TAURI_INTERNALS__;
+                if (!internals || typeof internals.invoke !== 'function') return false;
+                window.__e2eInvoke = internals.invoke;
+                internals.invoke = (cmd, ...rest) =>
+                    cmd === 'open_external'
+                        ? Promise.resolve(null)
+                        : window.__e2eInvoke.call(internals, cmd, ...rest);
+                return true;
+            })()`);
+            /* 拦不住就**不点**：宁可少一条断言，也不在用户机器上真开一个浏览器。 */
+            if (!stubbed) throw new Error('拦不住 open_external，放弃点击（会真开浏览器）');
+
+            const before = await ui.hash();
+            await ui.clickText('button', '维护公告');
+            /* 等一拍：要是它真跳了路由，这一段时间够 hash 变完。 */
+            await cdp.evaluate('new Promise((done) => setTimeout(done, 400))');
+            const after = await ui.hash();
+            t.check('点了还留在工具页', after === before, `${before} → ${after}`);
+
+            await cdp.evaluate(`(() => {
+                window.__TAURI_INTERNALS__.invoke = window.__e2eInvoke;
+                delete window.__e2eInvoke;
+            })()`);
+        });
+
         /* `/dev` 只能靠左栏牌记三连击进，这里直接改地址——要验的是**懒加载的 chunk 到不到**。 */
         await t.step('开发页（#/dev）懒加载能渲染', async () => {
             await cdp.evaluate(`location.hash = '#/dev'`);

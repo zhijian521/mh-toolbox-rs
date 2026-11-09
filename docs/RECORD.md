@@ -3638,3 +3638,27 @@ MSE 69–113、装备特技 69 项 78–2700，逐格复核 80/80 图案一致�
   Enter 使用带字符的按键事件以触发原生按钮；辅助保留组比较统一字段顺序，修炼漏项先设置明确的当前值再断言保留。
 - 测试后关闭应用，还原到本轮开始前快照 20261108-212158，并核对账本文件与快照一致。
   本轮为角色定向验证，未扩大为全套检查或 Rust 测试；数量以实际运行汇总为准。
+
+### 维护公告改为外链，撤掉独立页（2026-11-09）
+
+- 上一版给维护公告做了一整页：Rust 抓官网 GBK 列表页（`notice.rs`）+ 本机算每周二 8:00–9:30
+  的维护窗口（`notice-window.ts`），12 个文件。用户看完否掉：「不要单独页面了，点击直接跳转
+  维护公告页面更简单」。判据是那一页的最后一跳仍然是浏览器打开原文——中间那层只是官网前面
+  一份会过期的副本，而「这周有没有停机」官网自己已经说清楚。
+- `ToolEntry` 拆成 `ToolPage | ToolLink`（`kind: 'page' | 'link'`），不再用「空 `path`」表示外链：
+  空地址在类型上说得通，跑起来是静默不跳。`router.ts` 按 `kind === 'page'` 过滤，外链不进
+  路由表；工具页的 `open()` 只在这一处分叉，外链走 `openExternal`，失败提示一句（否则表现是
+  「点了没反应」）。格子加 `data-kind`，给烟测一个读出口。
+- 删除 5 个文件（`views/tools/NoticeView.vue`、`notice-window.ts` + 单测、
+  `services/notices.ts`、`src-tauri/src/notice.rs`）与两条依赖（`reqwest`、`encoding_rs`），
+  命令表回到 Windows 21 / 非 Windows 18。`bindings.ts` 由 debug 启动重新生成，与手工删改
+  逐字一致（说明生成物没有额外漂移）。
+- 烟测那条改成「外链，点了不进路由」：先把 `__TAURI_INTERNALS__.invoke` 的 `open_external`
+  截成 no-op 再点，否则这一条会在机器上真拉一个浏览器窗口、还得人去关。`data-kind` 与
+  「地址没变」两处一起看才闭环——`tools.ts` 说它是 link，`router.ts` 说它没进路由。
+- 本轮 `npm run typecheck`、`vitest`（56 文件 / 1055 用例）、`cargo check`、`npm run e2e`
+  都跑了。e2e 结果 **430 通过 / 11 失败 / 15 提示**，第 8 节「工具」21 / 0 全绿；11 条失败
+  全在 2 角色（3 条，装备行按钮缺失）与 4 收益（8 条，速记被「给「60武器」定价」的
+  modal-mask 挡住），两处都不在本批改动面内（本批没有碰 `views/characters` 与 `views/income`）。
+  `npm run check` 的 lint / format 两档同样红在并行会话未完成的 `characters/ocr/*`，
+  本批自己的 5 个文件 `prettier --check` 全绿。

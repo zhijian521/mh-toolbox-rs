@@ -5,6 +5,8 @@ import AppIcon from '../components/AppIcon.vue';
 import LedgerSection from '../components/LedgerSection.vue';
 import PageShell from '../components/PageShell.vue';
 import PressTile from '../components/PressTile.vue';
+import { notify } from '../composables/use-notify';
+import { openExternal } from '../services/desktop';
 import { TOOL_GROUP_LABEL, TOOL_GROUPS, TOOLS, type ToolEntry } from '../tools';
 
 /**
@@ -36,9 +38,31 @@ import { TOOL_GROUP_LABEL, TOOL_GROUPS, TOOLS, type ToolEntry } from '../tools';
  */
 const router = useRouter();
 
-function open(tool: ToolEntry) {
+/**
+ * 点一枚格子。
+ *
+ * 两种落地方式，分支只有这一处：站内页进路由，外链交给系统浏览器。
+ *
+ * 外链**不做应用内预览页**（维护公告曾经有过一版：Rust 抓列表 + 本机算维护窗口的独立页）。
+ * 那版的最后一步仍然是「点某一条 → 浏览器打开正文」，等于在官网前面加了一层会过期的副本。
+ * 用户看完直接否掉：「点击直接跳转维护公告页面更简单」。
+ *
+ * 打开失败要说一句：`openExternal` 在桌面里失败是静默 false（浏览器预览会退回 `window.open`），
+ * 不提示的话表现就是「点了没反应」——那比「打不开」更难查。
+ */
+async function open(tool: ToolEntry) {
     if (!tool.ready) return;
+    if (tool.kind === 'link') {
+        if (!(await openExternal(tool.href))) notify.error('没能打开浏览器，手动去官网看吧');
+        return;
+    }
     void router.push(tool.path);
+}
+
+/** 读屏要能听出「这一枚会离开应用」——视觉上没有箭头，只有这句在后面补上。 */
+function labelOf(tool: ToolEntry): string {
+    const out = tool.kind === 'link' ? '，在浏览器中打开' : '';
+    return `${tool.name}（${TOOL_GROUP_LABEL[tool.group]}）：${tool.desc}${out}`;
 }
 
 /**
@@ -70,8 +94,9 @@ const groups = computed(() =>
                             class="tool-item"
                             type="button"
                             :data-group="tool.group"
+                            :data-kind="tool.kind"
                             :disabled="!tool.ready"
-                            :aria-label="`${tool.name}（${TOOL_GROUP_LABEL[tool.group]}）：${tool.desc}`"
+                            :aria-label="labelOf(tool)"
                             @click="open(tool)"
                         >
                             <PressTile class="tool-tile">

@@ -53,8 +53,10 @@ import {
     IconPlayerPlay,
     IconPlayerStop,
     IconPlus,
+    IconRefresh,
     IconScan,
     IconSearch,
+    IconSpeakerphone,
     IconSquare,
     IconSun,
     IconSword,
@@ -152,6 +154,13 @@ const ICON_META = {
     /* 「一份可读的条款」：关于卡的「许可证全文」用。选文件而不是印章或天平——
      * 这枚要说的是「点开有一整篇文字」，不是「这里具有法律效力」。 */
     doc: { glyph: IconFileText, label: '条款', group: 'action' },
+    /* 喇叭＝面向所有人的告知，维护公告用。与上面那枚 `doc` 分开：`doc` 说的是
+     * 「有一份文件」，`notice` 说的是「官方在喊话」——用户点这一枚想知道的是
+     * 「这周有什么动静」，不是「去读一篇文档」。 */
+    notice: { glyph: IconSpeakerphone, label: '公告', group: 'action' },
+    /* 一个闭环箭头。只用于「重新取一次」，不用于「重试失败的操作」——
+     * 后者在这套界面里一直靠再点一次原按钮，加一枚通用重试图标等于给了两条路。 */
+    refresh: { glyph: IconRefresh, label: '刷新', group: 'action' },
     'chevron-down': { glyph: IconChevronDown, label: '下拉', group: 'action' },
     'chevron-right': { glyph: IconChevronRight, label: '右折', group: 'action' },
 

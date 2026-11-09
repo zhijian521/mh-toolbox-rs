@@ -1,6 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
 import { DEFAULT_PATH, NAV_ITEMS } from './navigation';
-import { TOOLS } from './tools';
+import { TOOLS, type ToolPage } from './tools';
 import PlaceholderView from './views/PlaceholderView.vue';
 
 /**
@@ -35,7 +35,10 @@ export const router = createRouter({
             component: item.view ?? PlaceholderView,
             meta: { title: item.label, ready: item.view !== null },
         })),
-        ...TOOLS.map((tool) => ({
+        /* 只取站内页：`kind: 'link'` 的工具（维护公告）没有地址也没有组件，
+         * 点下去是系统浏览器。**不能**用 `tool.path!` 硬塞——那会生成一条
+         * `component: undefined` 的路由，跑起来是白屏。 */
+        ...TOOLS.filter((tool): tool is ToolPage => tool.kind === 'page').map((tool) => ({
             path: tool.path,
             name: `tool-${tool.key}`,
             component: tool.view,
