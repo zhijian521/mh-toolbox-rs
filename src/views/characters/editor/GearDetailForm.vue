@@ -8,6 +8,7 @@ import {
     gearEffectOptions,
     gearGroupOptions,
     gearStatGroup,
+    gearStatHasExtra,
     gearStatOptions,
     withGearBaseStats,
 } from '../gear-properties';
@@ -58,12 +59,7 @@ function fixedBase(stat: GearStat) {
     );
 }
 function hasExtra(stat: GearStat) {
-    return (
-        stat.extra !== undefined ||
-        (gearStatGroup(stat, props.slotName) === 'extra' &&
-            (props.slotName.startsWith('玉魄') ||
-                ['戒指', '耳饰', '配饰', '手镯'].includes(props.slotName)))
-    );
+    return gearStatHasExtra(stat, props.slotName);
 }
 function addStat(group: GearStatGroup) {
     const label = gearStatOptions(props.slotName, group)[0]?.value;
@@ -72,7 +68,7 @@ function addStat(group: GearStatGroup) {
         label,
         value: '',
         group,
-        gain: group === 'base' ? undefined : true,
+        gain: group === 'base' || group === 'trait' ? undefined : true,
     });
 }
 watch(

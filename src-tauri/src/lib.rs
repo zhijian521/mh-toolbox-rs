@@ -186,9 +186,7 @@ fn open_external(url: String) -> Result<(), String> {
 #[tauri::command]
 #[specta::specta]
 fn notify_alarm(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
-    let cut = |text: &str, limit: usize| -> String {
-        text.chars().take(limit).collect::<String>()
-    };
+    let cut = |text: &str, limit: usize| -> String { text.chars().take(limit).collect::<String>() };
 
     #[cfg(windows)]
     {

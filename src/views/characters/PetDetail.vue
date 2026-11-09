@@ -10,6 +10,7 @@ import {
     lifeLow,
     type Pet,
 } from './character';
+import { petDetailSlots } from './pets';
 
 /**
  * 召唤兽详情档案。
@@ -60,21 +61,8 @@ const qualityRows = computed(() =>
     })),
 );
 
-/**
- * 十二格技能：前 N 格是学了的，其余留空。
- *
- * 超过 12 个时**只画前 12 格**，但抬头仍写真实的分子（`13 / 12`）——这种数据在游戏里
- * 不可能出现，出现了就该一眼看见不对劲，而不是被 `Math.min` 悄悄藏起来。
- */
-const skillSlots = computed(() => {
-    const filled = props.pet.skills.slice(0, PET_SKILL_SLOTS);
-    return Array.from({ length: PET_SKILL_SLOTS }, (_, i) => filled[i] ?? '');
-});
-
-const pillSlots = computed(() => {
-    const filled = props.pet.innerPills.slice(0, PET_PILL_SLOTS);
-    return Array.from({ length: PET_PILL_SLOTS }, (_, i) => filled[i] ?? '');
-});
+const skillSlots = computed(() => petDetailSlots(props.pet.skills, PET_SKILL_SLOTS));
+const pillSlots = computed(() => petDetailSlots(props.pet.innerPills, PET_PILL_SLOTS));
 
 const lifeWarn = computed(() => lifeLow(props.pet.life));
 </script>
@@ -134,11 +122,11 @@ const lifeWarn = computed(() => lifeLow(props.pet.life));
             </section>
         </div>
 
-        <!-- 技能 12 格、内丹 8 格：格数固定，空格用虚线——「还差几格」一眼数得出 -->
+        <!-- 默认格数只作留白，已录入的技能与内丹全部展示。 -->
         <section class="slot-sec">
             <div class="group-head wide">
                 <span class="section-mark"></span>技能
-                <span class="count num">{{ pet.skills.length }} / {{ PET_SKILL_SLOTS }}</span>
+                <span class="count num">{{ pet.skills.length }} 项</span>
             </div>
             <div class="slot-grid slots-12">
                 <span
@@ -154,7 +142,7 @@ const lifeWarn = computed(() => lifeLow(props.pet.life));
         <section class="slot-sec">
             <div class="group-head wide">
                 <span class="section-mark"></span>内丹
-                <span class="count num">{{ pet.innerPills.length }} / {{ PET_PILL_SLOTS }}</span>
+                <span class="count num">{{ pet.innerPills.length }} 项</span>
             </div>
             <div class="slot-grid slots-8">
                 <span

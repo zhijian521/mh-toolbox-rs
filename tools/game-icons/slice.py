@@ -272,24 +272,12 @@ def slice_page(path, expect, spacing_hint=(280, 134)):
     return out
 
 
-def read_names(ts_path, const_name):
-    """从 TS 名字表里读出字符串数组。
-
-    不在这里再抄一份名字：仓库里的表是**唯一真源**，角色的下拉、OCR 纠错都读它。
-    抄一份到这里，游戏改版时必然只改一边——而这类不一致没有任何测试会红，
-    只会表现为「图标和名字对不上，但看不出是哪边错」。
-
-    现在只剩 `GEAR_ACTIVES`（装备特技）还住在 `character.ts`；生活 / 剧情技能
-    已经搬去 `public/game/data/skills.json`，见 `read_skill_table`。
-    """
-    text = Path(ts_path).read_text(encoding='utf-8')
-    m = re.search(rf'{const_name}\s*=\s*\[(.*?)\]\s*as const', text, re.S)
-    if not m:
-        raise SystemExit(f'{ts_path}: 找不到 {const_name}')
-    body = re.sub(r'/\*.*?\*/', '', m.group(1), flags=re.S)
-    names = re.findall(r"'([^']+)'", body)
-    if not names:
-        raise SystemExit(f'{ts_path}: {const_name} 解析不出名字')
+def read_active_names():
+    """装备特技名与前端同读 character-rules.json，不再解析 TS 或复制名字表。"""
+    path = ROOT / 'public/game/data/character-rules.json'
+    names = json.loads(path.read_text(encoding='utf-8'))['gear']['actives']
+    if not names or not all(isinstance(name, str) and name for name in names):
+        raise SystemExit(f'{path}: 装备特技名录无效')
     return names
 
 
@@ -320,7 +308,7 @@ def main():
     names = {
         'skill': skills['life'],
         'story': skills['story'],
-        'active': read_names(ROOT / 'src/views/characters/character.ts', 'GEAR_ACTIVES'),
+        'active': read_active_names(),
     }
     manifest = {'generated-by': 'tools/game-icons/slice.py', 'groups': {}}
     total = 0

@@ -1,5 +1,6 @@
 import type { GhostMap } from './ghost-maps';
 import type { ParsedTask } from './ghost-parse';
+import { GHOST_RULES } from './gameplay';
 
 /**
  * 从「假坐标」推到「该在哪找」。
@@ -10,20 +11,7 @@ import type { ParsedTask } from './ghost-parse';
  * 见 `docs/GHOST-HUNT.md` §2。
  */
 
-/** 官方口径的容差。攻略原文：任务栏提示坐标 ±50 范围内。 */
-const TOLERANCE = 50;
-
-/**
- * 社区经验的两条线：假坐标 ≤50 时真坐标一定更小，≥150 时一定更大。
- *
- * 这是**绝对阈值，不按地图归一化**。曾经有过一档「按比例 25%/75%」，它其实是把
- * 这两条线除以「假设坐标域宽 200」的结果——坐标域不是 200 时两者就开始分歧。
- * 实测 20 张图里只有 3 张接近 200 宽，而攻略原文给的是绝对值，所以只留绝对口径。
- * 代价是 51~149 的中间带一条线索都不给，但那正是社区原话：「没有规律只能硬找」。
- * 论证与外部出处见 `docs/GHOST-HUNT.md` §6。
- */
-const EDGE_LOW = 50;
-const EDGE_HIGH = 150;
+// 容差与经验边界见 public/game/data/gameplay.json；来源见 docs/GHOST-HUNT.md §6。
 
 /** 某轴假坐标偏向哪一侧。`none` = 居中，两个方向都可能。 */
 export type Side = 'low' | 'high' | 'none';
@@ -105,8 +93,8 @@ function sideOf(value: number, max: number): Side {
     // 越界的不窄。范围本来就已经顶到那条边了，`value ± 50` 再被裁一次只会剩
     // 一根 0 宽的线；而「鬼在比 100 更靠右的地方」对一张 96 格宽的图没有意义。
     if (value < 0 || value > max) return 'none';
-    if (value <= EDGE_LOW) return 'low';
-    if (value >= EDGE_HIGH) return 'high';
+    if (GHOST_RULES && value <= GHOST_RULES.edgeLow) return 'low';
+    if (GHOST_RULES && value >= GHOST_RULES.edgeHigh) return 'high';
     return 'none';
 }
 
@@ -117,8 +105,9 @@ function clamp(value: number, max: number): number {
 
 /** 单轴的范围，含边界裁剪。`value` 必须已夹进 `[0, max]`。 */
 function axisBox(value: number, max: number, side: Side): { lo: number; hi: number } {
-    const lo = Math.max(0, value - TOLERANCE);
-    const hi = Math.min(max, value + TOLERANCE);
+    if (!GHOST_RULES) throw new Error('抓鬼范围规则未加载');
+    const lo = Math.max(0, value - GHOST_RULES.tolerance);
+    const hi = Math.min(max, value + GHOST_RULES.tolerance);
     if (side === 'low') return { lo, hi: Math.min(hi, value) };
     if (side === 'high') return { lo: Math.max(lo, value), hi };
     return { lo, hi };
@@ -202,5 +191,7 @@ export function planFor(task: ParsedTask, hot: boolean): GhostPlan {
         };
     }
 
+    if (!GHOST_RULES)
+        return { mode: 'invalid', map, reason: '抓鬼范围规则未加载，请重新打开应用', task };
     return { mode: 'range', map, range: computeRange(map, task.x, task.y, hot), task };
 }

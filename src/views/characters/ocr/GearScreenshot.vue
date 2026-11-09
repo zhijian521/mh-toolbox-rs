@@ -3,7 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import PressButton from '../../../components/PressButton.vue';
 import { loadEquipmentNames } from '../../../services/game-data';
 import type { GearSlotName } from '../gear';
-import { parseGearPanel, type GearPanelResult } from './gear-panel';
+import type { GearPanelResult } from './gear-panel';
+import { recognizeGearPanel } from './gear-recognition';
 import { gearFrame } from './gear-image';
 import { useOcrImage } from './use-ocr-image';
 
@@ -27,8 +28,13 @@ const currentShot = computed(() => {
     const slot = props.slotName ?? props.activeSlot;
     return slot ? shots.value[slot] : undefined;
 });
-const { result, busy, error, takeFile } = useOcrImage<GearPanelResult>(async (lines) => {
-    const value = parseGearPanel(lines, await loadEquipmentNames(), props.slotName);
+const { result, busy, error, takeFile } = useOcrImage<GearPanelResult>(async (lines, image) => {
+    const value = await recognizeGearPanel(
+        lines,
+        image,
+        await loadEquipmentNames(),
+        props.slotName,
+    );
     const mismatch = props.slotName && value.slot && props.slotName !== value.slot;
     return {
         result: value,

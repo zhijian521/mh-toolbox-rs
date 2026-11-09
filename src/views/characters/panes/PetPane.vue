@@ -34,7 +34,7 @@ const views = computed(() =>
         <div v-if="views.length" class="pet-list">
             <button
                 v-for="(view, index) in views"
-                :key="view.pet.name"
+                :key="index"
                 type="button"
                 class="plate"
                 :aria-label="`查看 ${view.pet.name || '这只召唤兽'} 的详情`"

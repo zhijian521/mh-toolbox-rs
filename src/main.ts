@@ -26,7 +26,7 @@ useFontScale();
 useTheme();
 
 /**
- * 游戏数据表（门派 / 技能）在**挂载前**加载一次，之后全站同步读缓存。
+ * 游戏数据在**挂载前**加载一次，先安装规则，再读取名册与物价，避免空模板改写存档。
  *
  * 这是「异步只发生在边界」那条：组件里没有加载态、没有 `v-if="表还没回来"`，
  * `schoolSkills()` 与图标查表因此都是同步纯函数（见 `services/game-data.ts` 的说明）。
@@ -41,9 +41,7 @@ useTheme();
  * 兜住：留底是尽力而为，不能因为备份写不进去让整个应用起不来。
  */
 Promise.all([
-    loadGameData(),
-    loadPrices(),
-    loadRoster(),
+    loadGameData().then(() => Promise.all([loadRoster(), loadPrices()])),
     loadIncome(),
     loadAccounts(),
     loadGoals(),

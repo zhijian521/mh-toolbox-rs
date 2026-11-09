@@ -8,8 +8,6 @@ export interface TrainingPanelResult {
     total: number;
 }
 
-const NAMES = TRAINING_GROUPS.flatMap((group) => group.rows.map((row) => row.name));
-
 function compact(text: string): string {
     return text.normalize('NFKC').replace(/\s/g, '');
 }
@@ -31,6 +29,7 @@ function readLevel(text: string): number | undefined {
 }
 
 export function parseTrainingPanel(lines: readonly OcrLine[]): TrainingPanelResult {
+    const NAMES = TRAINING_GROUPS.flatMap((group) => group.rows.map((row) => row.name));
     const rows = NAMES.map((name): SkillHit => {
         let best: SkillHit = { name, level: 0, state: 'miss', score: 0 };
         for (const anchor of lines) {

@@ -6,10 +6,11 @@ import {
     gearGroupOptions,
     gearPropertyGroups,
     gearStatGroup,
+    gearStatHasExtra,
     gearStatOptions,
     withGearBaseStats,
 } from './gear-properties';
-import type { GearDetail } from './gear';
+import { GEAR_JADE_EFFECTS, GEAR_TRAITS, type GearDetail } from './gear';
 
 describe('按部位选择装备属性', () => {
     const values = (rows: { value: string }[]) => rows.map((row) => row.value);
@@ -31,6 +32,29 @@ describe('按部位选择装备属性', () => {
         expect(values(gearConditionOptions('玉魄·阳'))).toEqual(['耐久度', '灵尘等级']);
         expect(values(gearEffectOptions('玉魄·阴'))).toEqual(['奇袭道具']);
         expect(values(gearEffectOptions('玉魄·阳'))).toEqual(['奇袭特技']);
+        expect(values(gearEffectOptions('武器'))).toContain('符石组合');
+        expect(values(gearEffectOptions('戒指'))).not.toContain('符石组合');
+        expect(values(gearConditionOptions('武器'))).not.toContain('符石');
+    });
+    it('普通装备提供160特性，玉魄提供自身六种特效，灵饰不混入这些选项', () => {
+        expect(values(gearStatOptions('衣服', 'trait'))).toEqual([...GEAR_TRAITS]);
+        expect(values(gearStatOptions('玉魄·阴', 'trait'))).toEqual([...GEAR_JADE_EFFECTS]);
+        expect(values(gearStatOptions('耳饰', 'trait'))).toEqual([]);
+        expect(gearGroupOptions('衣服')).toContainEqual({ value: 'trait', label: '160特性' });
+        expect(gearGroupOptions('玉魄·阳')).toContainEqual({ value: 'trait', label: '玉魄特效' });
+    });
+    it('奇袭法术与蓝字特效永远只有单值框，普通玉魄加成仍有强化框', () => {
+        for (const label of GEAR_JADE_EFFECTS) {
+            expect(
+                gearStatHasExtra({ label, value: '+3%', gain: true, extra: '' }, '玉魄·阴'),
+            ).toBe(false);
+        }
+        expect(
+            gearStatHasExtra({ label: '穿刺效果', value: '+0.88%', group: 'trait' }, '衣服'),
+        ).toBe(false);
+        expect(gearStatHasExtra({ label: '法术防御', value: '+14', gain: true }, '玉魄·阴')).toBe(
+            true,
+        );
     });
 });
 
@@ -76,9 +100,99 @@ describe('手动录入的基础属性', () => {
         ]);
         expect(detail.stats).toHaveLength(2);
     });
+    it('已有奇袭法术不因旧附加标记或特效分类再补一个空框', () => {
+        for (const stat of [
+            { label: '奇袭法术', value: '+3%', gain: true },
+            { label: '奇袭法术', value: '+3%', group: 'trait' as const },
+        ]) {
+            const prepared = withGearBaseStats(
+                { name: '上古玉魄·阴', kind: '玉魄', stats: [stat] },
+                '玉魄·阴',
+            );
+            expect(prepared.stats.filter((row) => row.label === '奇袭法术')).toEqual([stat]);
+        }
+    });
 });
 
 describe('装备属性分类展示', () => {
+    it('160特性和玉魄特效独立展示，保存重载保留百分比，不保留无效强化值', () => {
+        for (const [slot, label, groupLabel] of [
+            ['衣服', '穿刺效果', '160特性'],
+            ['玉魄·阴', '法伤化劲', '玉魄特效'],
+        ] as const) {
+            const detail = normalizeGearDetail({
+                name: '测试',
+                kind: slot,
+                stats: [{ label, value: '+2.1%', group: 'trait', extra: '+99' }],
+            })!;
+            const group = gearPropertyGroups(detail, slot, true).find(
+                (one) => one.key === 'trait',
+            )!;
+            expect(group.label).toBe(groupLabel);
+            expect(group.inline).toBe(false);
+            expect(group.items[0].row).toBe(detail.stats[0]);
+            expect(group.items[0].value).toBe('+2.1%');
+            expect(detail.stats[0].extra).toBeUndefined();
+            expect(normalizeGearDetail(JSON.parse(JSON.stringify(detail)))?.stats).toEqual(
+                detail.stats,
+            );
+        }
+        const ambush = normalizeGearDetail({
+            name: '上古玉魄·阴',
+            kind: '玉魄',
+            stats: [{ label: '奇袭法术', value: '+3%', extra: '+9', gain: true }],
+        })!;
+        expect(ambush.stats[0].extra).toBeUndefined();
+        expect(gearPropertyGroups(ambush, '玉魄·阴')[0].label).toBe('奇袭');
+        expect(gearStatGroup({ label: '法伤化劲', value: '+2.1%' }, '玉魄·阴')).toBe('trait');
+        expect(gearStatGroup({ label: '穿刺效果', value: '+0.88%' }, '衣服')).toBe('trait');
+        expect(gearStatGroup({ label: '物理暴击等级', value: '+8', gain: true }, '戒指')).toBe(
+            'extra',
+        );
+    });
+    it('熔炼单独展示并保留负数，不与同名基础或附加合并', () => {
+        const detail = normalizeGearDetail({
+            name: '紫金磐龙甲',
+            kind: '铠甲',
+            stats: [
+                { label: '防御', value: '+282', group: 'base' },
+                { label: '体质', value: '+34', gain: true },
+                { label: '体质', value: '-1', group: 'melt', gain: true },
+                { label: '防御', value: '+12', group: 'melt', gain: true },
+            ],
+        })!;
+        const groups = gearPropertyGroups(detail, '衣服', true);
+        const melt = groups.find((group) => group.key === 'melt')!;
+        expect(melt.label).toBe('熔炼');
+        expect(melt.items.map((item) => [item.row.label, item.value])).toEqual([
+            ['体质', '-1'],
+            ['防御', '+12'],
+        ]);
+        expect(groups.find((group) => group.key === 'base')?.items[0].value).toBe('+282');
+        expect(groups.find((group) => group.key === 'extra')?.items[0].value).toBe('+34');
+        expect(normalizeGearDetail(JSON.parse(JSON.stringify(detail)))?.stats).toEqual(
+            detail.stats,
+        );
+    });
+    it('符石组合独立成行并保留名称，编辑与展示引用同一项', () => {
+        const detail: GearDetail = {
+            name: '天龙破城',
+            kind: '枪矛',
+            stats: [{ label: '耐力', value: '+30', gain: true }],
+            lines: [{ label: '符石组合', value: '高山流水', tone: 'ochre' }],
+        };
+        const group = gearPropertyGroups(detail, '武器', true).find(
+            (one) => one.label === '符石组合',
+        )!;
+        expect(group.kind).toBe('upgrade');
+        expect(group.tag).toBe(true);
+        expect(group.items).toHaveLength(1);
+        expect(group.items[0].row).toBe(detail.lines![0]);
+        expect(group.items[0].value).toBe('高山流水');
+        expect(gearEffectOptions('武器').find((one) => one.value === '符石组合')?.kind).toBe(
+            group.kind,
+        );
+    });
     it('基础保留并排布局，套装、特技、特效各有分类和底色标签', () => {
         const detail: GearDetail = {
             name: '水晶帽',

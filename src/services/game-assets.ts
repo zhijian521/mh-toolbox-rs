@@ -27,6 +27,7 @@ import {
     type SchoolIconEntry,
     type SchoolTable,
 } from './game-data';
+import { GEAR_GROUP_KINDS, GEAR_RULES } from './game-rules';
 
 const DATA_DIR = `${import.meta.env.BASE_URL}game/data/`;
 const ICON_ROOT = `${import.meta.env.BASE_URL}game/icons/`;
@@ -75,35 +76,6 @@ export interface AssetSources {
     schoolIcons: SchoolIconEntry[];
     quickItems: QuickItemTable;
 }
-
-/**
- * 部位 / 灵饰的中文名。
- *
- * `gear-icons.json` 的组名是拼音键（`toukui`），`weapon-icons.json` 本来就是中文（`枪矛`）。
- * 键对不上时**原样显示那个键**——拼音难看，但比一片空白容易查。
- */
-const GEAR_SLOT: Record<string, string> = {
-    toukui: '头盔',
-    fachai: '发钗',
-    kaijia: '铠甲',
-    nvyi: '女衣',
-    xiezi: '鞋子',
-    xianglian: '项链',
-    yaodai: '腰带',
-};
-
-const LINGSHI_SLOT: Record<string, string> = {
-    jiezhi: '戒指',
-    ershi: '耳饰',
-    shouzhuo: '手镯',
-    peishi: '佩饰',
-};
-
-/** 玉魄两张图没有清单，只有 `gear.ts` 里那两条映射。 */
-const YUPO = [
-    { name: '玉魄·阴', img: 'yupo/yupo-yin.webp' },
-    { name: '玉魄·阳', img: 'yupo/yupo-yang.webp' },
-];
 
 /** 类别的顺序与标题。数组顺序就是页面上的顺序。 */
 const SECTION_TITLES: { kind: AssetKind; title: string }[] = [
@@ -209,8 +181,8 @@ export function buildAssets(sources: AssetSources): AssetSection[] {
         sources.equipment.filter((one) => one.family === family);
 
     const slotOf = (one: EquipmentEntry): string => {
-        if (one.family === 'gear') return GEAR_SLOT[one.group] ?? one.group;
-        if (one.family === 'lingshi') return LINGSHI_SLOT[one.group] ?? one.group;
+        if (one.family !== 'weapon')
+            return GEAR_GROUP_KINDS[one.group]?.replace(/^灵饰\s*·\s*/, '') ?? one.group;
         return one.group;
     };
 
@@ -232,14 +204,16 @@ export function buildAssets(sources: AssetSources): AssetSection[] {
         gear: equipmentItems('gear'),
         weapon: equipmentItems('weapon'),
         lingshi: equipmentItems('lingshi'),
-        yupo: YUPO.map((one) => ({
-            key: `yupo:${one.img}`,
-            name: one.name,
-            img: `${ICON_ROOT}${one.img}`,
-            subgroup: '',
-            note: '',
-            kind: 'yupo' as const,
-        })),
+        yupo: Object.values(GEAR_RULES)
+            .filter((one) => one.category === 'jade')
+            .map((one) => ({
+                key: `yupo:${one.icon}`,
+                name: one.name,
+                img: `${ICON_ROOT}${one.icon}`,
+                subgroup: '',
+                note: '',
+                kind: 'yupo' as const,
+            })),
         school: (sources.schoolIcons ?? []).map((one) => ({
             key: `school:${one.id}`,
             name: one.name,

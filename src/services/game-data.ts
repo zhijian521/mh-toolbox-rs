@@ -1,6 +1,6 @@
 /**
  * 游戏事实表：**门派（含七项门派技能）**、**技能名录（生活 / 剧情）**、
- * **门派技能图标清单**、**速记物品清单**。
+ * **门派技能图标清单**、**速记物品清单**、角色规则、活动和其他玩法参数。
  *
  * 数据和代码分开，就一件事：游戏改版时**换文件，不改代码**。所以几张表住在
  * `public/game/data/`（Vite 原样拷贝、文件名稳定），这里只负责「取回来、校验形状、
@@ -15,10 +15,14 @@
  * 而且每处都要处理失败。那才是把异步漏进 UI 的办法。
  *
  * ---- 失败不崩 ----
- * 取不回来就退回空表：门下拉没有选项、辅助技能查不到图标，但应用照常起来
+ * 首次取不回来就使用空表：门下拉没有选项、辅助技能查不到图标，但应用照常起来
  * （`GAME-ASSETS.md` §1 第 3 条）。空表不写进缓存，下一次调用还能重试——
- * 与 `ghost-maps.ts` 同一个理由：dev server 抖一下不该把「没有数据」钉死一整晚。
+ * 已有有效缓存则保留整套旧值；dev server 抖一下不该把「没有数据」钉死一整晚。
  */
+
+import { installCharacterRules, parseCharacterRules } from './game-rules';
+import { installActivities, parseActivities } from './game-activities';
+import { installGameplay, parseGameplay } from './gameplay';
 
 /** `public/game/data/` 下的目录。**换目录只改这一行**。 */
 const DATA_DIR = `${import.meta.env.BASE_URL}game/data/`;
@@ -228,19 +232,29 @@ function parseQuickItemTable(raw: unknown): QuickItemTable {
     return { fixed: read(file?.fixed, 'fixed'), variable: read(file?.variable, 'variable') };
 }
 
-/** 把四份原始 JSON 装进缓存。启动时由 `loadGameData()` 调，测试里直接用文件内容调。 */
-export function installGameData(
-    schoolsRaw: unknown,
-    skillsRaw: unknown,
-    schoolIconsRaw: unknown,
-    quickItemsRaw: unknown,
-): GameData {
-    current = {
-        schools: parseSchoolTable(schoolsRaw),
-        skills: parseSkillTable(skillsRaw),
-        schoolIcons: parseSchoolIconTable(schoolIconsRaw),
-        quickItems: parseQuickItemTable(quickItemsRaw),
+/** 所有资源先校验再统一安装，失败不改变上一份有效缓存。 */
+export function installGameData(raw: {
+    schools: unknown;
+    skills: unknown;
+    schoolIcons: unknown;
+    quickItems: unknown;
+    characterRules: unknown;
+    activities: unknown;
+    gameplay: unknown;
+}): GameData {
+    const next = {
+        schools: parseSchoolTable(raw.schools),
+        skills: parseSkillTable(raw.skills),
+        schoolIcons: parseSchoolIconTable(raw.schoolIcons),
+        quickItems: parseQuickItemTable(raw.quickItems),
     };
+    const rules = parseCharacterRules(raw.characterRules);
+    const activities = parseActivities(raw.activities);
+    const gameplay = parseGameplay(raw.gameplay);
+    installCharacterRules(rules);
+    installActivities(activities);
+    installGameplay(gameplay);
+    current = next;
     return current;
 }
 
@@ -301,7 +315,7 @@ export function loadEquipmentNames(): Promise<EquipmentEntry[]> {
 let pending: Promise<GameData> | null = null;
 
 /**
- * 启动时加载一次。四份表并行取，装进缓存后返回；失败退回空表并**清掉 promise**，
+ * 启动时加载一次。各表并行取，装进缓存后返回；失败保留有效缓存并**清掉 promise**，
  * 下一次调用会重试。
  *
  * 调用点是 `main.ts`：它 `await` 完这个才 `mount`，所以全站拿到的都是「加载完再渲染」，
@@ -314,14 +328,33 @@ export function loadGameData(): Promise<GameData> {
             fetchJson('skills.json'),
             fetchJson('school-icons.json'),
             fetchJson('quick-items.json'),
+            fetchJson('character-rules.json'),
+            fetchJson('activities.json'),
+            fetchJson('gameplay.json'),
         ])
-            .then(([schools, skills, schoolIcons, quickItems]) =>
-                installGameData(schools, skills, schoolIcons, quickItems),
+            .then(
+                ([
+                    schools,
+                    skills,
+                    schoolIcons,
+                    quickItems,
+                    characterRules,
+                    activities,
+                    gameplay,
+                ]) =>
+                    installGameData({
+                        schools,
+                        skills,
+                        schoolIcons,
+                        quickItems,
+                        characterRules,
+                        activities,
+                        gameplay,
+                    }),
             )
             .catch((error: unknown) => {
                 console.error('游戏数据表加载失败', error);
                 pending = null;
-                current = EMPTY;
                 return current;
             });
     }

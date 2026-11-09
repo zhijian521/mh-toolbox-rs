@@ -1,12 +1,12 @@
 /**
  * 召唤兽：一只兽的字段，以及概览 / 详情那两处共用的取数口径。
  *
- * 2026-11-05 从 `character.ts` 拆出来，界线同样是**域**：这里的常数（技能格 12、
- * 内丹 8、概览五格）只被召唤兽那几处读，放在角色契约里等于让每张卡的六个分区
- * 共用一个 700 行的文件。
+ * 字段、概览算法与展示策略留在这里；游戏名录与详情的最少格数来自 public/game/data。
  *
  * 对外仍然可以从 `character.ts` 拿（那边 re-export 了本文件）。
  */
+
+export { PET_SKILL_SLOTS, PET_PILL_SLOTS, PET_QUALITY_FIELDS } from '../../services/game-rules';
 
 /* ======================================================================
  * 召唤兽
@@ -51,21 +51,6 @@ export interface Pet {
     spirit?: number;
 }
 
-/* ======================================================================
- * 召唤兽：概览与详情的取数口径
- * ==================================================================== */
-
-/**
- * 游戏里召唤兽的**技能格上限**。详情页按它画满格子，「4 / 12」的分母就是它。
- *
- * 写成常量而不是在模板里写字面量：这个数被三处引用（概览的 `+N` 判断、详情的格数、
- * 空格的补齐），散着写迟早有一处还停在旧值，而界面上不会报错——只会少画两格。
- */
-export const PET_SKILL_SLOTS = 12;
-
-/** 内丹格上限。八格是游戏给的上限，与技能那 12 格同理。 */
-export const PET_PILL_SLOTS = 8;
-
 /**
  * 概览那一行最多列几个技能名，其余收成 `+N`。
  *
@@ -74,6 +59,11 @@ export const PET_PILL_SLOTS = 8;
  * 真要看全，点开详情有 12 个格子。
  */
 export const PET_PREVIEW_SKILLS = 4;
+
+/** 格数只控制留白，不限制实际记录数量，超过默认格数时完整展开。 */
+export function petDetailSlots(names: readonly string[], minimum: number): string[] {
+    return Array.from({ length: Math.max(minimum, names.length) }, (_, i) => names[i] ?? '');
+}
 
 /**
  * 寿命低于这个数要转朱。
@@ -91,22 +81,6 @@ const PET_LIFE_LOW = 50;
  * 顺序不保证。按 index 取会在「气血没填」时把魔法顶到第一格，而那一格永远是气血。
  */
 export const PET_PREVIEW_STATS = ['气血', '攻击', '防御', '速度', '法伤'] as const;
-
-/**
- * 资质六项的键与名，顺序即游戏面板顺序。
- *
- * 名字用 **体力 / 法力 / 躲闪** 而不是气血 / 魔法 / 闪避：这三项在游戏里叫「资质」，
- * 与同名的战斗属性不是一回事（体力资质 3030 说的是这只兽的上限，不是它的当前血量）。
- * 编辑器的六格与详情页的六行共用这一份，两处标签因此不会再一处叫体力、一处叫气血。
- */
-export const PET_QUALITY_FIELDS = [
-    { key: 'attack', label: '攻击' },
-    { key: 'defense', label: '防御' },
-    { key: 'hp', label: '体力' },
-    { key: 'mp', label: '法力' },
-    { key: 'speed', label: '速度' },
-    { key: 'dodge', label: '躲闪' },
-] as const;
 
 /**
  * 取概览那五格。缺项给空串（画面上变成一枚淡「—」），**不省略那一格**：

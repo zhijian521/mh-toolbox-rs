@@ -195,6 +195,7 @@ function normalizeAttrGroup(raw: unknown): AttrGroup {
     const group = isObject(raw) ? raw : {};
     return {
         title: text(group.title),
+        ...(group.wide === true ? { wide: true } : {}),
         rows: rows(group.rows).flatMap((row) => {
             if (!isObject(row)) return [];
             const label = text(row.label);
@@ -217,6 +218,7 @@ function normalizeAttrGroup(raw: unknown): AttrGroup {
 function normalizeAttrGroups(source: Record<string, unknown>): AttrGroup[] {
     const legacy = rows(source.attrColumns).flat();
     const flat = rows(source.attrGroups).length ? rows(source.attrGroups) : legacy;
+    if (!ATTR_GROUPS.length) return flat.map(normalizeAttrGroup);
 
     const saved = new Map<string, AttrRow>();
     for (const item of flat) {
@@ -246,7 +248,8 @@ function normalizeGear(raw: unknown): GearSlot[] {
         if (slot) bySlot.set(slot, item);
     }
 
-    return GEAR_SLOTS.map((slot) => {
+    const slots = GEAR_SLOTS.length ? GEAR_SLOTS : ([...bySlot.keys()] as GearSlot['slot'][]);
+    return slots.map((slot) => {
         const item = bySlot.get(slot);
         if (!item) return { slot };
         const detail = normalizeGearDetail(item.detail);
@@ -267,6 +270,21 @@ function normalizeGear(raw: unknown): GearSlot[] {
  * 写成 0 会让卡上画出 `11/0` 与 NaN% 的条，比不显示更糟。
  */
 function normalizeTrainings(raw: unknown): TrainingGroup[] {
+    if (!TRAINING_GROUPS.length) {
+        return rows(raw)
+            .filter(isObject)
+            .map((group) => ({
+                title: text(group.title),
+                rows: rows(group.rows)
+                    .filter(isObject)
+                    .map((row) => ({
+                        name: text(row.name),
+                        level: int(row.level),
+                        cap: int(row.cap),
+                    }))
+                    .filter((row) => row.name),
+            }));
+    }
     const saved = new Map<string, { level: number; cap?: number }>();
     for (const group of rows(raw)) {
         if (!isObject(group)) continue;

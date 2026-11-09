@@ -2,6 +2,9 @@ import quickItemsFile from '../../public/game/data/quick-items.json';
 import schoolIconsFile from '../../public/game/data/school-icons.json';
 import schoolsFile from '../../public/game/data/schools.json';
 import skillsFile from '../../public/game/data/skills.json';
+import rulesFile from '../../public/game/data/character-rules.json';
+import activitiesFile from '../../public/game/data/activities.json';
+import gameplayFile from '../../public/game/data/gameplay.json';
 import { installGameData, type GameData } from './game-data';
 
 /**
@@ -19,15 +22,18 @@ import { installGameData, type GameData } from './game-data';
  * 断言仍然读**真文件**：这些测试要证明的正是「仓库里那几张表对」，喂一份手搓的
  * 假清单只能证明假的对。
  */
-const json = {
+export const GAME_DATA_FILES = {
     schools: schoolsFile,
     skills: skillsFile,
     schoolIcons: schoolIconsFile,
     quickItems: quickItemsFile,
+    characterRules: rulesFile,
+    activities: activitiesFile,
+    gameplay: gameplayFile,
 };
 
 function seedGameData(): GameData {
-    return installGameData(json.schools, json.skills, json.schoolIcons, json.quickItems);
+    return installGameData(GAME_DATA_FILES);
 }
 
 /* 副作用：import 即就绪。刻意不放在 `beforeAll` 里——测试文件顶层的 `describe` 会

@@ -1,97 +1,61 @@
-import type { GearDetail, GearSlotName, GearStat, GearStatGroup, GearTone } from './gear';
+import {
+    GEAR_JADE_EFFECTS,
+    GEAR_TRAITS,
+    type GearDetail,
+    type GearSlotName,
+    type GearStat,
+    type GearStatGroup,
+    type GearTone,
+} from './gear';
+import { GEAR_RULES } from '../../services/game-rules';
 
 export const GEAR_STAT_GROUPS: { value: GearStatGroup; label: string }[] = [
     { value: 'base', label: '基础' },
     { value: 'extra', label: '附加' },
     { value: 'gem', label: '宝石' },
     { value: 'melt', label: '熔炼' },
+    { value: 'trait', label: '160特性' },
 ];
-const FIVE_STATS = ['体质', '魔力', '力量', '耐力', '敏捷'];
-const ATTACK_STATS = [
-    '伤害',
-    '速度',
-    '法术伤害',
-    '固定伤害',
-    '治疗能力',
-    '封印命中等级',
-    '物理暴击等级',
-    '法术暴击等级',
-    '狂暴等级',
-    '穿刺等级',
-];
-const DEFENSE_STATS = [
-    '气血',
-    '防御',
-    '法术防御',
-    '抵抗封印命中等级',
-    '格挡值',
-    '气血回复效果',
-    '抗物理暴击等级',
-    '抗法术暴击等级',
-];
-const JADE_ATTACK = ATTACK_STATS.filter(
-    (label) => !['速度', '狂暴等级', '穿刺等级'].includes(label),
-);
-
-interface GearRule {
-    base: string[];
-    extra: string[];
-    gem: string[];
-}
-/** 部位决定可选词条，数值只记录原值，不扣除或反算宝石。 */
-const GEAR_RULES: Record<GearSlotName, GearRule> = {
-    头: { base: ['防御', '魔法'], extra: [], gem: ['伤害', '命中', '防御'] },
-    项链: {
-        base: ['灵力'],
-        extra: [],
-        gem: ['灵力', '火属性吸收', '土属性吸收', '水属性吸收', '雷属性吸收'],
-    },
-    武器: { base: ['命中', '伤害'], extra: FIVE_STATS, gem: ['伤害', '命中', '躲避'] },
-    衣服: { base: ['防御'], extra: FIVE_STATS, gem: ['气血', '防御', '灵力', '法术防御'] },
-    腰带: { base: ['防御', '气血'], extra: [], gem: ['气血', '速度', '躲避'] },
-    鞋子: {
-        base: ['防御', '敏捷'],
-        extra: [],
-        gem: ['速度', '躲避', '火属性吸收', '土属性吸收', '水属性吸收', '雷属性吸收'],
-    },
-    戒指: { base: ['伤害', '防御'], extra: ATTACK_STATS, gem: [] },
-    耳饰: { base: ['法术伤害', '法术防御'], extra: ATTACK_STATS, gem: [] },
-    配饰: { base: ['速度'], extra: DEFENSE_STATS, gem: [] },
-    手镯: { base: ['封印命中等级', '抵抗封印命中等级'], extra: DEFENSE_STATS, gem: [] },
-    '玉魄·阴': { base: [...DEFENSE_STATS, '奇袭法术'], extra: DEFENSE_STATS, gem: [] },
-    '玉魄·阳': { base: [...JADE_ATTACK, '奇袭法术'], extra: [...JADE_ATTACK, '速度'], gem: [] },
-};
 
 export function gearStatOptions(slot: GearSlotName, group: GearStatGroup) {
     const rule = GEAR_RULES[slot];
-    if (
-        group === 'melt' &&
-        (slot.startsWith('玉魄') || ['戒指', '耳饰', '配饰', '手镯'].includes(slot))
-    )
-        return [];
+    if (!rule) return [];
+    if (group === 'trait') {
+        const labels =
+            rule.category === 'jade'
+                ? GEAR_JADE_EFFECTS
+                : rule.category === 'spirit'
+                  ? []
+                  : GEAR_TRAITS;
+        return labels.map((value) => ({ value, label: value }));
+    }
+    if (group === 'melt' && rule.category !== 'equipment') return [];
     const labels = group === 'melt' ? [...rule.base, ...rule.extra] : rule[group];
     return [...new Set(labels)].map((value) => ({ value, label: value }));
 }
 
 /** 常规装备的基础词条固定；灵饰和玉魄主属性存在备选，只预置一项。 */
 export function fixedGearBaseLabels(slot: GearSlotName): string[] {
-    return slot.startsWith('玉魄') || ['戒指', '耳饰', '配饰', '手镯'].includes(slot)
-        ? []
-        : GEAR_RULES[slot].base;
+    const rule = GEAR_RULES[slot];
+    return rule?.category === 'equipment' ? rule.base : [];
 }
 
 /** 编辑草稿补空输入框，不替已有数值，也不把未填写项当作识别结果。 */
 export function withGearBaseStats(detail: GearDetail, slot: GearSlotName): GearDetail {
     const fixed = fixedGearBaseLabels(slot);
-    const choices = GEAR_RULES[slot].base.filter((label) => label !== '奇袭法术');
+    const choices = (GEAR_RULES[slot]?.base ?? []).filter((label) => label !== '奇袭法术');
     const hasMain = detail.stats.some(
         (row) => gearStatGroup(row, slot) === 'base' && choices.includes(row.label),
     );
     const labels = fixed.length ? fixed : hasMain ? [] : choices.slice(0, 1);
-    const required = slot.startsWith('玉魄') ? [...labels, '奇袭法术'] : labels;
+    const required = GEAR_RULES[slot]?.category === 'jade' ? [...labels, '奇袭法术'] : labels;
     const missing = required.filter(
         (label) =>
-            !detail.stats.some((row) => row.label === label && gearStatGroup(row, slot) === 'base'),
+            !detail.stats.some(
+                (row) =>
+                    row.label === label &&
+                    (label === '奇袭法术' || gearStatGroup(row, slot) === 'base'),
+            ),
     );
     return missing.length
         ? {
@@ -105,50 +69,69 @@ export function withGearBaseStats(detail: GearDetail, slot: GearSlotName): GearD
 }
 
 export function gearGroupOptions(slot: GearSlotName) {
-    const jade = slot.startsWith('玉魄');
+    const jade = GEAR_RULES[slot]?.category === 'jade';
     return GEAR_STAT_GROUPS.filter((group) => gearStatOptions(slot, group.value).length).map(
-        (group) => ({ ...group, label: jade && group.value === 'extra' ? '加成' : group.label }),
+        (group) => ({
+            ...group,
+            label:
+                jade && group.value === 'extra'
+                    ? '加成'
+                    : jade && group.value === 'trait'
+                      ? '玉魄特效'
+                      : group.label,
+        }),
     );
 }
 
 export function gearConditionOptions(slot: GearSlotName) {
-    const labels = slot.startsWith('玉魄')
-        ? ['耐久度', '灵尘等级']
-        : ['戒指', '耳饰', '配饰', '手镯'].includes(slot)
-          ? ['耐久度', '修理失败', '精炼等级', '钟灵石']
-          : ['耐久度', '修理失败', '锻炼等级', '镶嵌宝石', '开运孔数', '符石'];
+    const labels = GEAR_RULES[slot]?.conditions ?? [];
     return labels.map((value) => ({ value, label: value }));
 }
 
 export function gearEffectOptions(slot: GearSlotName) {
-    const labels = slot.startsWith('玉魄')
-        ? [slot === '玉魄·阳' ? '奇袭特技' : '奇袭道具']
-        : ['戒指', '耳饰', '配饰', '手镯'].includes(slot)
-          ? ['特效', '套装']
-          : ['特技', '特效', '套装'];
+    const labels = GEAR_RULES[slot]?.effects ?? [];
     return labels.map((value) => ({ value, label: value, kind: gearEffectKind(value) }));
 }
 
 function gearEffectKind(label: string): string {
     if (label === '特技') return 'active';
     if (label === '套装' || label === '套装效果') return 'suit';
+    if (label === '符石组合') return 'upgrade';
     return label.startsWith('奇袭') ? 'ambush' : 'effect';
 }
 
 export function gearStatGroup(stat: GearStat, slot?: GearSlotName): GearStatGroup {
     if (stat.group) return stat.group;
-    if (slot && ['武器', '衣服'].includes(slot) && FIVE_STATS.includes(stat.label)) return 'extra';
+    const rule = slot ? GEAR_RULES[slot] : undefined;
     if (
-        slot &&
-        !GEAR_RULES[slot].base.includes(stat.label) &&
-        GEAR_RULES[slot].gem.includes(stat.label)
+        rule?.category === 'jade' &&
+        stat.label !== '奇袭法术' &&
+        GEAR_JADE_EFFECTS.some((label) => label === stat.label)
     )
-        return 'gem';
+        return 'trait';
+    if (rule?.category === 'equipment' && GEAR_TRAITS.some((label) => label === stat.label))
+        return 'trait';
+    if (rule?.category === 'equipment' && rule.extra.includes(stat.label)) return 'extra';
+    if (rule && !rule.base.includes(stat.label) && rule.gem.includes(stat.label)) return 'gem';
     if (!stat.gain && !stat.extra) return 'base';
-    if (!slot || slot.startsWith('玉魄') || ['戒指', '耳饰', '配饰', '手镯'].includes(slot)) {
+    if (rule?.category !== 'equipment') {
         return 'extra';
     }
-    return GEAR_RULES[slot].gem.includes(stat.label) ? 'gem' : 'extra';
+    return rule.gem.includes(stat.label) ? 'gem' : 'extra';
+}
+
+/** 奇袭法术与蓝字特效只记单值；灵饰 / 玉魄普通附加才展示强化输入。 */
+export function gearStatHasExtra(stat: GearStat, slot: GearSlotName): boolean {
+    if (
+        gearStatGroup(stat, slot) === 'trait' ||
+        GEAR_JADE_EFFECTS.some((label) => label === stat.label)
+    )
+        return false;
+    return (
+        stat.extra !== undefined ||
+        (gearStatGroup(stat, slot) === 'extra' &&
+            ['spirit', 'jade'].includes(GEAR_RULES[slot]?.category ?? ''))
+    );
 }
 
 export interface GearPropertyItem {
@@ -175,10 +158,8 @@ export function gearPropertyGroups(
     editable = false,
 ): GearPropertyGroup[] {
     const groups = new Map<string, GearPropertyGroup>();
-    const jade = slot?.startsWith('玉魄') || /玉魄/.test(detail.kind);
-    const spirit = slot
-        ? ['戒指', '耳饰', '配饰', '手镯'].includes(slot)
-        : /灵饰/.test(detail.kind);
+    const jade = slot ? GEAR_RULES[slot]?.category === 'jade' : /玉魄/.test(detail.kind);
+    const spirit = slot ? GEAR_RULES[slot]?.category === 'spirit' : /灵饰/.test(detail.kind);
     const add = (group: Omit<GearPropertyGroup, 'items'>, item: GearPropertyItem) => {
         if (!editable && !item.row.label.trim() && !item.row.value.trim()) return;
         const existing = groups.get(group.key);
@@ -195,10 +176,12 @@ export function gearPropertyGroups(
                     ? '奇袭'
                     : kind === 'extra' && jade
                       ? '加成'
-                      : GEAR_STAT_GROUPS.find((one) => one.value === kind)!.label,
+                      : kind === 'trait' && jade
+                        ? '玉魄特效'
+                        : GEAR_STAT_GROUPS.find((one) => one.value === kind)!.label,
                 kind,
                 tag: true,
-                inline: !spirit && !jade,
+                inline: !spirit && !jade && kind !== 'trait',
             },
             {
                 source: 'stats',
@@ -252,15 +235,15 @@ export function gearPropertyGroups(
         add({ key, label, kind, tag, inline: true }, { source: 'cond', index, row, name, value });
     });
     const order = (key: string) => {
-        if (['base', 'extra', 'gem', 'melt'].includes(key))
-            return ['base', 'extra', 'gem', 'melt'].indexOf(key);
+        if (['base', 'extra', 'trait', 'gem', 'melt'].includes(key))
+            return ['base', 'extra', 'trait', 'gem', 'melt'].indexOf(key);
         if (key === 'status') return 9;
         if (
             key === 'ambush' ||
             (key.startsWith('line-') && groups.get(key)?.label.startsWith('奇袭'))
         )
             return 8;
-        if (key.startsWith('line-')) return 4;
+        if (key.startsWith('line-')) return 5;
         return 6;
     };
     return [...groups.values()].sort((a, b) => order(a.key) - order(b.key));

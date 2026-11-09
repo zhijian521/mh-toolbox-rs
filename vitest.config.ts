@@ -19,6 +19,7 @@ export default mergeConfig(
     viteConfig,
     defineConfig({
         test: {
+            setupFiles: ['src/services/game-data.fixture.ts'],
             exclude: ['**/node_modules/**', '**/dist/**', '**/.runtime/**'],
         },
     }),

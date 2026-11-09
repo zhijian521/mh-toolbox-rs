@@ -1,6 +1,6 @@
 import { isObject, rawText, rows, stamp as int } from '../../services/shape';
 import type { GearDetail, GearStat, GearTone, Pet } from './character';
-import { hasGearDetail } from './gear';
+import { GEAR_JADE_EFFECTS, hasGearDetail } from './gear';
 import { GEAR_STAT_GROUPS } from './gear-properties';
 
 const optionalInt = (value: unknown): number | undefined =>
@@ -19,7 +19,10 @@ function normalizeGearStat(raw: unknown): GearStat | null {
         label,
         value: text(raw.value),
         group: GEAR_STAT_GROUPS.find((group) => group.value === raw.group)?.value,
-        extra: optionalText(raw.extra),
+        extra:
+            raw.group === 'trait' || GEAR_JADE_EFFECTS.some((one) => one === label)
+                ? undefined
+                : optionalText(raw.extra),
         gain: raw.gain === true ? true : undefined,
     };
 }

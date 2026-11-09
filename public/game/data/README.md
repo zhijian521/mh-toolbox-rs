@@ -243,17 +243,14 @@
 ```
 
 它之所以必须存在：图标文件名是序号，序号本身不自解释。清单把「第几个文件是谁」固定下来，
-`src/services/game-icons.test.ts` 再拿它与 `skills.json` / `character.ts` 的名字表逐项比对——
+`src/services/game-icons.test.ts` 再拿它与 `skills.json` / `character-rules.json` 的名字表逐项比对——
 错位会直接红，而不是等界面上发现「强身术配了冥想的图」。
 
 ## 以后加一类实体
 
-```
-gear.json      装备：id、名称、部位、等级段、特技、套装
-items.json     道具
-```
-
-文件名用复数的实体名。不要做成一个大 `game.json`——一类实体一张表，改动时才看得出
+先检查现有表是否已有对应实体。装备名录在 `gear-icons.json` / `weapon-icons.json` /
+`lingshi-icons.json`，部位与属性规则在 `character-rules.json`，不要再维护平行名单。
+新实体文件名用复数，例如 `items.json`。不要做成一个大 `game.json`——一类实体一张表，改动时才看得出
 「这次动的是哪一块」，diff 也不会和别的类目搅在一起。
 
 ## JSON 约定
@@ -271,16 +268,30 @@ items.json     道具
 
 ## 配套的 TS：一个加载器，不是一类一个
 
-`src/services/game-data.ts` 一个文件管全部数据表（类型、校验、加载、缓存）。加一类新实体
-就往它里面加一个 `parse*` 与一个读法，**不要**新建 `game-gear.ts` 各写一套
-`fetch` / 缓存 / 降级——三件事抄第二遍必有第二种写法。
+`src/services/game-data.ts` 统一加载与原子装配数据表。类型和校验可以按领域拆到
+`game-rules.ts`、`game-activities.ts`、`gameplay.ts`，消费方同步读已安装的数据。
+新增领域不要各写一套启动 `fetch` / 缓存 / 降级——三件事抄第二遍必有第二种写法。
 
 **不要在组件里直接 fetch**，也不要给每个消费方加 `v-if="表还没回来"`：
 
 - 加载只发生一次：`src/main.ts` 里 `await loadGameData()` 之后才 `mount`；
 - 之后全站用**同步**的 `gameData()` / `schoolNames()` / `lifeSkills()` 读缓存；
-- 取不回来就退回空表（下拉少几项、图标查不到），应用照常起来。
+- 首次取不回来使用空表，保留用户存档；已有有效缓存时保留整套旧值，下一次调用允许重试。
 
 也就是「表是异步的，但异步只留在边界」——组件里因此没有加载态，`schoolSkills()`、
 图标查表这些还能是同步纯函数，单测也不必改成 async。测试怎么拿到数据：
-`src/services/game-data.fixture.ts` 直接导入这两份 JSON 装进缓存（一行副作用导入）。
+`src/services/game-data.fixture.ts` 直接导入真实 JSON 统一装配，Vitest 在 setupFiles 中安装。
+
+## 角色与玩法规则
+
+- `character-rules.json`：属性、修炼、装备、资质、OCR 标签与强化系数的唯一数据源。
+  装备 `name` 是稳定存档键；`groups` 对接装备图标清单，不得重复。`base` / `extra` / `gem`
+  控制属性选项，`conditions` / `effects` 控制状态与效果选项。
+  `suitAliases` 只放原图已复现的完整套装误读映射；当前条目对应 `gear-trait-armor.png`，
+  拼接跨行后精确匹配，不对未知名称做模糊替换。
+- `activities.json`：活动周期和时段；时间为 `HH:mm`，同一段的结束时间必须晚于开始时间。
+- `gameplay.json`：物价分类、旧品类映射与名称线索，以及抓鬼容差和经验边界。
+  名称线索按数组优先级匹配，`contains` 表示包含，`prefixes` 表示开头，不存可执行正则。
+
+这些表由 `services/game-data.ts` 在启动时装配，不在组件中 fetch。缺失或非法资源不能改写旧数据。
+特技切图脚本和图标一致性测试直接读 `character-rules.json`，不用再维护 TS 名字表。

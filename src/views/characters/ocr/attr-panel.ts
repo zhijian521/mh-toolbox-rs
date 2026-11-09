@@ -2,6 +2,7 @@ import type { AttrGroup, CharacterData } from '../character';
 import { normalizeCharacter } from '../roster';
 import { schoolSkills } from '../schools';
 import { schoolNames } from '../../../services/game-data';
+import { ATTR_LABELS as LABELS, ATTR_ORDER, RESOURCE_KEYS } from '../../../services/game-rules';
 
 /**
  * 把「属性面板」的一次 OCR 结果解析成角色字段。
@@ -77,78 +78,6 @@ export interface AttrPanelResult {
     /** 一共多少项（当前是 24）。 */
     total: number;
 }
-
-/* ======================================================================
- * 标签表
- * ==================================================================== */
-
-/**
- * 面板上的标签 → 取值键。
- *
- * 长标签先匹配。`key: null` 是边界标记，防止按钮文字被拼到前一格的数值里。
- */
-const LABELS: { text: string; key: string | null }[] = [
-    { text: '经验', key: 'expValue' },
-    { text: '名称', key: 'name' },
-    { text: '等级', key: 'level' },
-    { text: '门派', key: 'school' },
-    { text: '帮派', key: 'guild' },
-    { text: '人气', key: '人气' },
-    { text: '帮贡', key: '帮贡' },
-    { text: '门贡', key: '门贡' },
-    { text: '气血', key: '气血' },
-    { text: '魔法', key: '魔法' },
-    { text: '活力', key: '活力' },
-    { text: '体力', key: '体力' },
-    { text: '命中', key: '命中' },
-    { text: '伤害', key: '伤害' },
-    { text: '防御', key: '防御' },
-    { text: '速度', key: '速度' },
-    { text: '法伤', key: '法伤' },
-    { text: '法防', key: '法防' },
-    { text: '体质', key: '体质' },
-    { text: '魔力', key: '魔力' },
-    { text: '力量', key: '力量' },
-    { text: '耐力', key: '耐力' },
-    { text: '敏捷', key: '敏捷' },
-    /* ---- 以下只做边界，不取值 ---- */
-    { text: '称谓', key: null },
-    { text: '潜力', key: null },
-    { text: '推荐', key: null },
-    { text: '确认加点', key: null },
-    { text: '更多属性', key: null },
-    { text: '战前检查', key: null },
-    { text: '人物属性', key: null },
-    { text: '升级', key: null },
-    { text: '技能', key: null },
-];
-
-LABELS.sort((one, two) => two.text.length - one.text.length);
-
-/** 资源四行取**最后一个**数（当前/上限的写法里，卡上要的是上限）。 */
-const RESOURCE_KEYS = ['气血', '魔法', '活力', '体力'];
-
-/** 面板上有、角色模型里也有的那些属性行，用来排出结果列表的顺序。 */
-const ATTR_ORDER = [
-    '气血',
-    '魔法',
-    '活力',
-    '体力',
-    '人气',
-    '帮贡',
-    '门贡',
-    '命中',
-    '伤害',
-    '防御',
-    '速度',
-    '法伤',
-    '法防',
-    '体质',
-    '魔力',
-    '力量',
-    '耐力',
-    '敏捷',
-];
 
 /* ======================================================================
  * 行与格
@@ -471,7 +400,7 @@ function withScore(field: OcrField, score: number): OcrField {
  * （属性行）与卡头（身份四项），识别层再存一份「名称 / 等级 / 经验」纯属重复
  * ——而且那几份文案已经从老左栏撤掉一次了（2026-11-07）。
  */
-const FIELD_ORDER: string[] = [
+const fieldOrder = (): string[] => [
     'name',
     'level',
     'school',
@@ -519,7 +448,7 @@ export function parseAttrPanel(
         }
     }
 
-    const fields = FIELD_ORDER.map((key): OcrField => {
+    const fields = fieldOrder().map((key): OcrField => {
         const hit = found.get(key);
         const base = { key, score: hit?.score ?? 0 };
         if (!hit) {

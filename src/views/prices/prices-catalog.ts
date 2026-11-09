@@ -1,137 +1,40 @@
-/**
- * 物价的两级分类目录。
- *
- * 一级按「玩家拿去摆摊时怎么想」分区，二级是具体品类。**一级固定、二级手填**：
- * 一级一旦放开自由填，同一个概念会被写成「材料 / 打造材料 / 材料类」三种，筛选就散了；
- * 二级留给新玩法产出的东西——名单里没有就自己写一个，不用等我们改版。
- *
- * ---- 为什么不搬进 `public/game/data/` ----
- * `docs/GAME-ASSETS.md` §1 的三条判据里，**第 2 条过不了：「内容来自游戏，不是我们编的」**。
- * 这九个一级分类是按「摆摊时怎么想」划出来的设计，不是游戏给的枚举——
- * 「通货账号」「其他」这两个名字在任何游戏面板上都找不到，是我们为了把
- * 梦幻币 / 点卡 / 账号 / 锦衣和一堆杂货收进来而造的抽屉。搬进 `game/` 就意味着
- * 「同一份文件里一半是游戏事实、一半是我们的设计」，下次谁想改抽屉的划法，
- * 会在一个标着「游戏数据」的目录里动手。
- *
- * 判据的另一半也指同一头：游戏改版要换的是**物品名录**（哪些东西存在、叫什么），
- * 那张表将来该进 `game/data/`；而「怎么分类」是这一页的看法，改一次只动这一段代码。
- *
- * **别把「同步 / 异步」当成理由**——`services/game-data.ts` 就是「启动时 await 一次、
- * 之后全站同步读缓存」，`schoolNames()` 是同步的，这里也一样能同步读。分类留代码
- * 纯粹是因为它不满足上面那条判据，与加载方式无关。
- *
- * ---- 这里只有品类名，没有价 ----
- * 价格由用户按自己所在服务器记，本文件不提供任何默认价：一份猜出来的行情比空表更坏，
- * 用户会照着它判断该不该出手。
- */
-
-export interface PriceGroup {
-    name: string;
-    subs: string[];
-}
-
-/** 顺序即展示顺序（筛选下拉、分类下拉都照它排）。最后一项是兜底。 */
-export const PRICE_GROUPS: PriceGroup[] = [
-    { name: '装备灵饰', subs: ['武器', '防具', '灵饰', '玉魄', '特技特效', '环装'] },
-    { name: '召唤兽', subs: ['成品召唤兽', '宝宝胚子', '变异召唤兽', '稀有召唤兽', '召唤兽装备'] },
-    { name: '兽决内丹', subs: ['高级兽决', '低级兽决', '高级内丹', '低级内丹'] },
-    { name: '宝石符石', subs: ['宝石', '星辉石', '符石'] },
-    { name: '打造材料', subs: ['装备书', '百炼精铁', '灵饰书铁', '珍珠', '强化石'] },
-    { name: '消耗补给', subs: ['三药', '烹饪', '变身卡', '召唤兽消耗'] },
-    { name: '任务产出', subs: ['藏宝图', '五宝', '特赦令牌', '归墟', '种子树苗', '采集杂货'] },
-    { name: '通货账号', subs: ['梦幻币', '点卡月卡', '角色账号', '锦衣祥瑞'] },
-    { name: '其他', subs: [] },
-];
-
-/** 一级名字，顺序与目录一致。表单下拉与数据兜底都读这一份。 */
-export const PRICE_CATEGORIES: string[] = PRICE_GROUPS.map((group) => group.name);
-
-/**
- * 落不进目录的一级兜到这一档。
- *
- * 一级的自由度会让同一个概念写成好几种叫法，筛选立刻失效；所以读取与保存都把
- * 「不在目录里」当成「其他」，而不是把那个名字原样存下来。
- */
-export const DEFAULT_CATEGORY = '其他';
+/** 分类目录与旧数据推断。游戏品类、名称线索见 public/game/data/gameplay.json。 */
+import {
+    DEFAULT_CATEGORY,
+    PRICE_CATEGORIES,
+    PRICE_GROUPS,
+    LEGACY_PRICE_GROUPS,
+    LEGACY_PRICE_NAMES,
+} from '../../services/gameplay';
+export { DEFAULT_CATEGORY, PRICE_CATEGORIES, PRICE_GROUPS } from '../../services/gameplay';
+export type { PriceGroup } from '../../services/gameplay';
 
 export function isPriceCategory(value: string): boolean {
-    return PRICE_CATEGORIES.includes(value);
+    // 资源缺失时保留用户原分类，不能把整份账改成兜底类别。
+    return PRICE_CATEGORIES.length ? PRICE_CATEGORIES.includes(value) : Boolean(value.trim());
 }
 
-/**
- * 某个一级下的二级候选。
- *
- * 只用来在表单里给一行提示（「这一类常见：武器 / 防具 / …」），**不限制填写**：
- * 表里的名字是「大多数人这么叫」，用户那只耳朵上卖的东西未必在其中。
- */
+/** 二级只是提示，允许用户填写新玩法产出的品类。 */
 export function subsOf(category: string): string[] {
     return PRICE_GROUPS.find((group) => group.name === category)?.subs ?? [];
 }
 
-/**
- * 旧版扁平分类名 → 一级。
- *
- * 第一版只有一层 `category`，里面混着一级和二级（「兽决」「内丹」「材料」都算一类），
- * 升级到两级后这些名字没法一一对应回新的二级，只能先落到一级、二级留给用户自己选。
- */
-const LEGACY_GROUPS: Record<string, string> = {
-    兽决: '兽决内丹',
-    内丹: '兽决内丹',
-    宝石: '宝石符石',
-    符石: '宝石符石',
-    五宝: '任务产出',
-    环装: '装备灵饰',
-    材料: '打造材料',
-    药品: '消耗补给',
-    召唤兽: '召唤兽',
-    其他: '其他',
-};
-
-/**
- * 按物品名能认出来的，直接给到二级；认不出再退回旧分类名。
- *
- * 顺序即优先级：「高级内丹」必须排在「内丹」前面，否则高级卡会被当成低级的。
- * 这些规则**只服务旧数据迁移**，界面上不参与任何判断——`normalizePriceItem` 只在
- * 读到一条既没有合法二级、一级又不在目录里的记录时才走这里，迁移过一次之后
- * 用户改成什么就是什么（与老系统 `price-catalog.js` 的 `legacyPriceSlot` 同一条）。
- */
-const NAME_RULES: [RegExp, string, string][] = [
-    [/高级内丹/, '兽决内丹', '高级内丹'],
-    [/内丹/, '兽决内丹', '低级内丹'],
-    [/高级兽决/, '兽决内丹', '高级兽决'],
-    [/兽决/, '兽决内丹', '低级兽决'],
-    [/变异/, '召唤兽', '变异召唤兽'],
-    [/稀有/, '召唤兽', '稀有召唤兽'],
-    [/^珍珠/, '打造材料', '珍珠'],
-    [/强化石/, '打造材料', '强化石'],
-    [/^归墟/, '任务产出', '归墟'],
-    [/种子|树苗/, '任务产出', '种子树苗'],
-    [/^碧藕|采集|药材/, '任务产出', '采集杂货'],
-    [/令牌/, '任务产出', '特赦令牌'],
-    [/五宝|金刚石|定魂珠|龙鳞|夜光珠|避水珠/, '任务产出', '五宝'],
-    [/藏宝图|宝图/, '任务产出', '藏宝图'],
-    [/星辉石/, '宝石符石', '星辉石'],
-    [/符石/, '宝石符石', '符石'],
-    [/宝石|玛瑙/, '宝石符石', '宝石'],
-    [/月华露|金柳露|元宵|如意丹/, '消耗补给', '召唤兽消耗'],
-    [/变身卡/, '消耗补给', '变身卡'],
-    [/金香玉|五龙丹|九转|定神香|蛇蝎|佛光/, '消耗补给', '三药'],
-];
-
-/**
- * 给一条旧记录（只有一层 `category`）推出两级分类。
- *
- * 认不出旧分类名时，把原名塞进**二级**而不是丢掉——那是用户自己写的字，
- * 哪怕一级兜到了「其他」，也不该凭空消失。
- */
+/** 只在旧记录缺少合法二级时推断一次，线索按数据表顺序匹配。 */
 export function legacyPriceSlot(name: string, category: string): { category: string; sub: string } {
-    const title = name.trim();
-    for (const [pattern, group, sub] of NAME_RULES) {
-        if (pattern.test(title)) return { category: group, sub };
-    }
     const legacy = category.trim();
+    if (!PRICE_CATEGORIES.length) return { category: legacy || DEFAULT_CATEGORY, sub: '' };
+    const title = name.trim();
+    for (const rule of LEGACY_PRICE_NAMES) {
+        if (
+            rule.contains.some((word) => title.includes(word)) ||
+            rule.prefixes.some((word) => title.startsWith(word))
+        ) {
+            return { category: rule.category, sub: rule.sub };
+        }
+    }
     if (!legacy) return { category: DEFAULT_CATEGORY, sub: '' };
-    if (LEGACY_GROUPS[legacy]) return { category: LEGACY_GROUPS[legacy], sub: '' };
+    if (Object.hasOwn(LEGACY_PRICE_GROUPS, legacy))
+        return { category: LEGACY_PRICE_GROUPS[legacy], sub: '' };
     if (isPriceCategory(legacy)) return { category: legacy, sub: '' };
     return { category: DEFAULT_CATEGORY, sub: legacy };
 }

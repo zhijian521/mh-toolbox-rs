@@ -41,7 +41,7 @@
 ## 清单
 
 灵饰写 `data/lingshi-icons.json`（20 条，按部位分组）。**玉魄不写清单**：只有两件、
-名字固定，清单只会变成第二份真源——它由 `character.ts` 的 `GEAR_SLOT_ICON` 直接引用。
+名字固定，清单只会变成第二份真源——它由 `character-rules.json` 的部位图标直接引用。
 
 ## 重跑
 

@@ -6,11 +6,11 @@ import {
     PET_SKILL_SLOTS,
     joinShort,
     lifeLow,
+    petDetailSlots,
     previewSkills,
     previewStats,
     type Pet,
 } from './pets';
-import { CHARACTERS } from './mock';
 
 /**
  * 召唤兽「概览牌 / 详情档案」的取数口径。
@@ -131,24 +131,18 @@ describe('寿命告警', () => {
     });
 });
 
-describe('格子上限', () => {
-    it('技能 12 格、内丹 8 格', () => {
+describe('详情格子', () => {
+    it('默认留白为技能 12 格、内丹 8 格', () => {
         expect(PET_SKILL_SLOTS).toBe(12);
         expect(PET_PILL_SLOTS).toBe(8);
     });
 
-    it('样例数据没有超过上限（超了详情页会写出 13 / 12）', () => {
-        for (const character of CHARACTERS) {
-            for (const item of character.pets) {
-                expect(
-                    item.skills.length,
-                    `${character.name} 的「${item.name}」有 ${item.skills.length} 个技能`,
-                ).toBeLessThanOrEqual(PET_SKILL_SLOTS);
-                expect(
-                    item.innerPills.length,
-                    `${character.name} 的「${item.name}」有 ${item.innerPills.length} 个内丹`,
-                ).toBeLessThanOrEqual(PET_PILL_SLOTS);
-            }
-        }
+    it('超过默认格数的技能与内丹不截断，缺少时补空格且不改原记录', () => {
+        const names = Array.from({ length: 16 }, (_, i) => `技能${i + 1}`);
+        expect(petDetailSlots(names, PET_SKILL_SLOTS)).toEqual(names);
+        expect(petDetailSlots(names, PET_PILL_SLOTS)).toEqual(names);
+        expect(petDetailSlots(['连击'], 3)).toEqual(['连击', '', '']);
+        expect(petDetailSlots(names, 0)).toHaveLength(16);
+        expect(names).toHaveLength(16);
     });
 });

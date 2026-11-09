@@ -156,6 +156,9 @@
 .gear-color-melt {
     --property-ink: color-mix(in srgb, var(--ochre) 60%, var(--cinnabar));
 }
+.gear-color-trait {
+    --property-ink: color-mix(in srgb, var(--indigo-ink) 75%, var(--moss));
+}
 .gear-color-active {
     --property-ink: var(--cinnabar);
 }

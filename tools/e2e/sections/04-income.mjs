@@ -109,13 +109,13 @@ export default async function run(ctx) {
             await ui.clickLabelPrefix(`${QUICK}，`);
 
             const asked = await cdp.waitFor(
-                `!!document.querySelector('input[aria-label="单价"]')`,
+                `!!document.querySelector('input[aria-label="单价，以万为单位"]')`,
                 {
                     timeout: 2500,
                 },
             );
             if (asked) {
-                await ui.fillSel('input[aria-label="单价"]', '5');
+                await ui.fill('单价，以万为单位', '5');
                 await ui.clickLabel('记下这一条');
                 await sleep(700);
                 t.pass('没定价时先问单价，填完直接记一条');

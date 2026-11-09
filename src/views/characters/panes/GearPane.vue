@@ -71,7 +71,7 @@ function openTip(event: Event, slot: GearSlot) {
  * 只发生在一个地方——十二行内联样式抄错一个数，界面上没有任何报错。
  */
 function cellPos(slot: GearSlotName): { gridColumn: string; gridRow: string } {
-    const { col, row } = GEAR_LAYOUT[slot];
+    const { col, row } = GEAR_LAYOUT[slot] ?? { col: 1, row: 1 };
     return { gridColumn: String(col), gridRow: String(row) };
 }
 
