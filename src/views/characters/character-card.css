@@ -100,9 +100,20 @@
  * 别把它和 `.gear-tip` 搞混：浮片仍在用 `.dual-rule`，那里是 2px、尺寸也小，
  * 一圈线在浮层里读作「装订」，不读作边框。 */
 
+/* 卡头**必须比正文高一档**（2，而正文是 1），否则编辑态的门派下拉会被属性行压住。
+ *
+ * 门派的纸片是 `SelectField` 里的 `.select-list`（`position: absolute; z-index: 20`），
+ * 但那 20 只在**最近的层叠上下文**里比大小。`position: relative` + `z-index: 1` 让卡头
+ * 自己成了一个上下文，于是纸片对外最响的名号就是「1」；正文 `.char-body` 同样是 1、
+ * 又排在 DOM 后面，整块压在卡头之上——展开的门派列表于是被「人气 / 帮贡 / 门贡」逐行盖住
+ * （2026-11-09 用户截图）。
+ *
+ * 不能靠抬高纸片自己的 z-index 修：它在上下文内部，抬到 999 也只等于 1。
+ * 也不能改正文：`.char-body` 的 1 是挡「滚动时正文压在页签条上」的，撤掉会串味。
+ * 卡头与正文本来就不重叠（flex 两段），高的这一档只在**浮出物**上产生区别。 */
 .char-head {
     position: relative;
-    z-index: 1;
+    z-index: 2;
     display: flex;
     align-items: flex-start;
     gap: 8px;
