@@ -31,7 +31,14 @@ import { createPersist } from '../../services/persist';
 /* 形状兜底全在 `services/shape.ts`（与物价页共用一份）。两个本地别名值得看清：
  *   `text`  ← `rawText`：名册这边**不 trim**，卡面上的字是用户写什么就显示什么；
  *   `int`   ← `stamp`  ：`Math.round` + 非有限数变 0，等级与时间戳共用同一条规则。 */
-import { isObject, makeId, rawText as text, rows, stamp as int } from '../../services/shape';
+import {
+    isObject,
+    makeId,
+    optionalInt,
+    rawText as text,
+    rows,
+    stamp as int,
+} from '../../services/shape';
 import {
     ATTR_GROUPS,
     GEAR_SLOTS,
@@ -57,14 +64,6 @@ const STORAGE_KEY = 'mh-roster';
  * `services/shape.ts`——它们与 `prices.ts` 里那份逐字同义。这里只留**名册自己的**
  * 字段语义：可空缺省值、门派枚举。`text` 不 trim 这件事，见文件顶部的 import 注释。
  * ==================================================================== */
-
-/**
- * 可选的数字字段。与 `int` 的区别是**缺省值不是 0**——`cap` 缺席与 `cap: 0`
- * 在这里是两件事：前者是「不知道上限」所以不标满级，后者是「上限就是 0」。
- * 用 0 兜底会把「不知道」悄悄变成「不可能满」。
- */
-const optionalInt = (value: unknown): number | undefined =>
-    typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : undefined;
 
 /* ======================================================================
  * 空白角色的骨架
@@ -152,6 +151,7 @@ function normalizeSkill(raw: unknown): SkillRow | null {
     // 没有名字的行留着只会画出一条空白分隔线，不如丢掉。
     if (!name) return null;
     const level = int(raw.level);
+    // 缺失上限不补成 0，避免把「未记录」误当作一个实际数值。
     /* 上限是**正整数**：0 与负数都不可能是技能上限，它们只表示「这一格空着」。
      * 表单里那一格留空就是写 0（`NumberField` 只有一个数值），所以这里必须把 0 还原成
      * 「不知道」——否则卡上会画出 `0/0` 并盖一枚「满」的签，读起来是这个技能练满了。 */

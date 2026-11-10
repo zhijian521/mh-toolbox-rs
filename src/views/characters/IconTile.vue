@@ -34,17 +34,28 @@
  * 是**业务语义**（师门用朱，标记「这枚是替身」；装备格用淡墨，标记「这类图还没切」），
  * 而 `IconTile` 只管材质。
  */
+import { ref, watch } from 'vue';
 import PressTile from '../../components/PressTile.vue';
 
-defineProps<{
+const props = defineProps<{
     /** 图地址。没有就只画一块空块——老存档里手敲的名字、游戏新加的技能都会走到这里。 */
     src?: string;
 }>();
+const failed = ref(false);
+watch(
+    () => props.src,
+    () => {
+        failed.value = false;
+    },
+    { flush: 'sync' },
+);
 </script>
 
 <template>
     <PressTile still class="icon-tile">
-        <span v-if="src" class="shot"><img class="img" :src="src" alt="" /></span>
+        <span v-if="src && !failed" class="shot">
+            <img class="img" :src="src" alt="" loading="lazy" @error="failed = true" />
+        </span>
     </PressTile>
 </template>
 

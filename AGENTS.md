@@ -146,6 +146,10 @@ start.bat --force    遇到占用直接处理，不询问
 - **WebView2 `HRESULT(0x8007139F)`「组或资源状态不正确」**：上次实例留下的
   `msedgewebview2.exe --type=crashpad-handler`（`--user-data-dir=…\EBWebView`）还占着用户数据
   目录。杀掉那个 crashpad 即可，**不要**动 SearchHost 的 webview2（那是系统搜索）。
+- **WebView2 `HRESULT(0x800700AA)` 同时 OCR 字典写入拒绝访问**（2026-11-10）：
+  没有残留实例时，先用 `icacls` 检查项目与 exe 的完整性标签。本机曾出现项目目录及产物继承
+  `Low Mandatory Level`，应用因此以低完整性运行，无法写正常用户缓存目录。确认同因后备份标签，
+  将本仓目录及继承产物恢复为 `Medium Mandatory Level`；只修完整性标签，不改 DACL，不清缓存或账本。
 - **调试端口必须由代码递进去**：Tauri 建 webview 时用 `additional_browser_args` 盖掉
   `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`，所以窗口建在 `lib.rs` 的 `create_main_window()` 里，
   只有 debug 构建才读 `MH_CDP_PORT`（发布版不含调试端口）。

@@ -234,7 +234,7 @@ export async function quick(ctx) {
                 quality: document.querySelectorAll('.modal-panel .q6 .q-cell').length,
                 lists: document.querySelectorAll('.modal-panel .list-block').length,
                 points: document.querySelectorAll('.modal-panel .points .id-cell').length,
-                screenshot: !!document.querySelector('.modal-panel .pet-screenshot'),
+                screenshot: !!document.querySelector('.modal-panel .pet-screenshot.screenshot-upload'),
             }))()`);
         t.check(
             '兽窗共用截图入口与四组表单，不展示内丹',

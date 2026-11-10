@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import PressButton from '../../../components/PressButton.vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import ScreenshotUpload from './ScreenshotUpload.vue';
 import { loadEquipmentNames } from '../../../services/game-data';
 import type { GearSlotName } from '../gear';
 import type { GearPanelResult } from './gear-panel';
@@ -18,8 +18,6 @@ const emit = defineEmits<{
     recognize: [result: GearPanelResult];
     busy: [value: boolean];
 }>();
-const picker = ref<HTMLInputElement | null>(null);
-const host = ref<HTMLElement | null>(null);
 const message = ref('');
 const batchError = ref('');
 const queued = ref(false);
@@ -64,8 +62,7 @@ function clearShot(slot: GearSlotName) {
 }
 defineExpose({ clearShot });
 
-async function takeFiles(files: File[]) {
-    const images = files.filter((file) => file.type.startsWith('image/'));
+async function takeFiles(images: File[]) {
     if (!images.length) return;
     const current = ++generation;
     queued.value = true;
@@ -94,33 +91,9 @@ async function takeFiles(files: File[]) {
     queued.value = false;
 }
 
-function onPick(event: Event) {
-    const input = event.target as HTMLInputElement;
-    void takeFiles([...(input.files ?? [])]);
-    input.value = '';
-}
-function onDrop(event: DragEvent) {
-    void takeFiles([...(event.dataTransfer?.files ?? [])]);
-}
-function onPaste(event: ClipboardEvent) {
-    // 仅最上层且当前可见的编辑窗接收图片，不能让背景编辑器同时导入。
-    if (!host.value?.getClientRects().length) return;
-    const modal = host.value?.closest('[role="dialog"]');
-    const dialogs = [...document.querySelectorAll('[role="dialog"][aria-modal="true"]')];
-    if (!modal || dialogs.at(-1) !== modal) return;
-    const files = [...(event.clipboardData?.items ?? [])]
-        .filter((item) => item.type.startsWith('image/'))
-        .map((item) => item.getAsFile())
-        .filter((file): file is File => file !== null);
-    if (!files.length) return;
-    event.preventDefault();
-    void takeFiles(files);
-}
-onMounted(() => document.addEventListener('paste', onPaste));
 onBeforeUnmount(() => {
     disposed = true;
     ++generation;
-    document.removeEventListener('paste', onPaste);
     for (const shot of Object.values(shots.value)) {
         if (shot) URL.revokeObjectURL(shot.url);
     }
@@ -129,172 +102,20 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div
-        ref="host"
+    <ScreenshotUpload
         class="gear-upload"
-        :aria-busy="pending"
-        @dragover.prevent
-        @drop.prevent="onDrop"
+        label="装备"
+        :src="currentShot?.url"
+        :alt="currentShot ? '装备原始截图：' + currentShot.name : undefined"
+        :multiple="multiple"
+        :busy="pending"
+        :status="message"
+        :error="batchError || error"
+        @files="takeFiles"
     >
-        <input
-            ref="picker"
-            class="upload-file"
-            type="file"
-            accept="image/*"
-            :multiple="multiple"
-            aria-label="装备截图文件"
-            @change="onPick"
-        />
-        <section class="upload-left" aria-label="装备截图识别">
-            <div v-if="$slots.navigation" class="upload-navigation">
-                <slot name="navigation" :shots="shots" />
-            </div>
-            <figure class="upload-preview" :class="{ empty: !currentShot }">
-                <img
-                    v-if="currentShot"
-                    :src="currentShot.url"
-                    :alt="'装备原始截图：' + currentShot.name"
-                />
-                <div v-else class="upload-empty">
-                    <p>Ctrl + V 粘贴截图</p>
-                    <PressButton
-                        icon="upload"
-                        text="选择截图"
-                        label="上传装备截图"
-                        :disabled="pending"
-                        @click="picker?.click()"
-                    />
-                </div>
-                <span v-if="pending" class="upload-busy">识别中…</span>
-            </figure>
-            <div class="upload-bar">
-                <PressButton
-                    v-if="currentShot"
-                    icon="upload"
-                    text="更换截图"
-                    label="上传装备截图"
-                    size="sm"
-                    :disabled="pending"
-                    @click="picker?.click()"
-                />
-                <span class="upload-status" role="status">{{ pending ? '识别中…' : message }}</span>
-            </div>
-            <p v-if="(batchError || error) && !pending" class="upload-error" role="alert">
-                {{ batchError || error }}
-            </p>
-        </section>
-        <div class="upload-detail"><slot /></div>
-    </div>
+        <template v-if="$slots.navigation" #navigation>
+            <slot name="navigation" :shots="shots" />
+        </template>
+        <slot />
+    </ScreenshotUpload>
 </template>
-
-<style scoped>
-/* 左栏钉 400、右栏吃剩下（2026-11-10 用户定：截图区 400、详情 420）。
- * 窗宽 860 时正文可用 836 = 400 + gap 16 + 420，所以右栏不用再写死数——
- * 写死两列各 1fr 会让 400/420 的意图丢掉，改窗宽时两栏一起漂。 */
-.gear-upload {
-    display: grid;
-    grid-template-columns: 400px minmax(0, 1fr);
-    flex: 1;
-    gap: 16px;
-    min-width: 0;
-    min-height: 0;
-}
-.upload-left {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-width: 0;
-    min-height: 0;
-    overflow-y: auto;
-}
-.upload-navigation {
-    display: grid;
-    flex: none;
-    gap: 10px;
-}
-.upload-bar {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-.upload-status {
-    flex: 1;
-    color: var(--muted);
-    font-size: var(--fs-mini);
-}
-.upload-file {
-    display: none;
-}
-.upload-error {
-    margin: 0;
-    color: var(--cinnabar);
-    font-size: var(--fs-sm);
-}
-.upload-preview {
-    position: relative;
-    display: flex;
-    flex: 1;
-    align-items: center;
-    justify-content: center;
-    min-width: 0;
-    min-height: 220px;
-    margin: 0;
-    overflow: hidden;
-    border: var(--w-hair) solid var(--rule-2);
-    border-radius: var(--r-2);
-    background: var(--well);
-}
-.upload-preview.empty {
-    border-style: dashed;
-    background: transparent;
-}
-.upload-preview img {
-    position: absolute;
-    inset: 0;
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-.upload-empty {
-    display: grid;
-    justify-items: center;
-    gap: 12px;
-    padding: 16px;
-    color: var(--ink-2);
-    font-size: var(--fs-sm);
-}
-.upload-busy {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    background: color-mix(in srgb, var(--paper) 70%, transparent);
-    color: var(--ink);
-    font-size: var(--fs-sm);
-}
-.upload-detail {
-    display: flex;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-}
-@media (max-width: 640px) {
-    .gear-upload {
-        grid-template-columns: minmax(0, 1fr);
-        overflow: auto;
-    }
-    .upload-preview {
-        min-height: 180px;
-        height: 220px;
-    }
-    .upload-preview img {
-        max-height: 210px;
-        object-fit: contain;
-    }
-    .upload-detail {
-        min-height: 360px;
-    }
-}
-</style>

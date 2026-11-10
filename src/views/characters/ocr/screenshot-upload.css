@@ -1,0 +1,126 @@
+/* 六分区共用窗宽：左截图 400，右详情吃剩余宽度。 */
+.screenshot-upload {
+    display: grid;
+    grid-template-columns: 400px minmax(0, 1fr);
+    flex: 1;
+    gap: 16px;
+    min-width: 0;
+    min-height: 0;
+}
+.upload-left {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+}
+.upload-navigation {
+    display: grid;
+    flex: none;
+    gap: 10px;
+}
+.upload-file {
+    display: none;
+}
+.upload-preview {
+    position: relative;
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 220px;
+    margin: 0;
+    overflow: hidden;
+    border: var(--w-hair) solid var(--rule-2);
+    border-radius: var(--r-2);
+    background: var(--well);
+}
+.upload-preview.empty {
+    border-style: dashed;
+    background: transparent;
+}
+.upload-preview img {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.upload-empty {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+    padding: 16px;
+    color: var(--ink-2);
+    font-size: var(--fs-sm);
+    text-align: center;
+}
+.upload-empty p {
+    margin: 0;
+}
+.upload-busy {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: color-mix(in srgb, var(--paper) 70%, transparent);
+    color: var(--ink);
+    font-size: var(--fs-sm);
+}
+.upload-bar {
+    display: flex;
+    flex: none;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.upload-status {
+    flex: 1;
+}
+.upload-status,
+.upload-empty small,
+.upload-raw {
+    color: var(--muted);
+    font-size: var(--fs-mini);
+}
+.upload-error {
+    margin: 0;
+    color: var(--cinnabar);
+    font-size: var(--fs-sm);
+}
+.upload-raw {
+    flex: none;
+    max-height: 120px;
+    overflow-y: auto;
+}
+.upload-raw summary {
+    cursor: pointer;
+}
+.upload-raw p {
+    margin: 3px 0;
+}
+.upload-detail {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+@media (max-width: 640px) {
+    .screenshot-upload {
+        grid-template-columns: minmax(0, 1fr);
+        overflow-y: auto;
+    }
+    .upload-left {
+        overflow: visible;
+    }
+    .upload-preview {
+        flex: none;
+        height: 220px;
+    }
+    .upload-detail {
+        min-height: 400px;
+    }
+}

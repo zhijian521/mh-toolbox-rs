@@ -15,9 +15,9 @@
  * 去空白」是个选择；它们同样与 IO 无关，第三个读数据的页面一开工就要用。
  *
  * 反过来，只属于某一页**字段语义**的东西留在那页的 `normalizeXxx` 旁边：
- * `optionalInt` / `optionalText` / `asTone` 在 `roster.ts`，`dateText` / `amount`
+ * `optionalText` / `asTone` 在角色归一化模块，`dateText` / `amount`
  * 在 `prices.ts`。「0 表示没记价」只有物价页认这个意思，`cap` 缺席不等于 0 也只有名册
- * 认——搬过来只会让这一层变成第二个 `character.ts` / `prices.ts`。
+ * 认。可选整数只负责保留缺失值，具体字段怎样解释缺失值仍由业务模块决定。
  *
  * ---- 迁移块（`migrateOnce`）为什么没有一起收口 ----
  * `prices-store.ts` 与 `roster.ts` 里那两段「老 localStorage 搬进 SQLite」是同一个形状
@@ -60,6 +60,10 @@ export const rawText = (value: unknown): string => (typeof value === 'string' ? 
  */
 export const stamp = (value: unknown): number =>
     typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : 0;
+
+/** 可选整数：保留实际的 0，缺失或非有限数返回 undefined。 */
+export const optionalInt = (value: unknown): number | undefined =>
+    typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : undefined;
 
 /** 数组：认不出就是空数组。名字取「行」是因为两个调用方读的都是「一串记录」。 */
 export const rows = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);

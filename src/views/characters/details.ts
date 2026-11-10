@@ -1,10 +1,8 @@
-import { isObject, rawText, rows, stamp as int } from '../../services/shape';
+import { isObject, optionalInt, rawText, rows, stamp as int } from '../../services/shape';
 import type { GearDetail, GearStat, GearTone, Pet } from './character';
 import { GEAR_JADE_EFFECTS, hasGearDetail } from './gear';
 import { GEAR_STAT_GROUPS } from './gear-properties';
 
-const optionalInt = (value: unknown): number | undefined =>
-    typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : undefined;
 const GEAR_TONES: GearTone[] = ['seal', 'ochre', 'moss'];
 const asTone = (value: unknown): GearTone | undefined => GEAR_TONES.find((tone) => tone === value);
 const text = rawText;

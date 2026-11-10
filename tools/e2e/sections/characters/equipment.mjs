@@ -4,6 +4,38 @@ import { checkButtonTheme } from './theme.mjs';
 /** 原图与合成浮片走真实 OCR；覆盖三个入口、草稿取消、批量定位与重载持久化。 */
 export async function equipment(ctx) {
     const { cdp, ui, t } = ctx;
+    await t.step('图标：加载失败保留压印块，换图后恢复', async () => {
+        const state = await cdp.evaluate(`(async () => {
+            const { createApp, h, nextTick, ref } = await ${importLoaded('/node_modules/.vite/deps/vue.js')};
+            const { default: IconTile } = await ${importLoaded('/src/views/characters/IconTile.vue')};
+            const host = document.createElement('div');
+            host.hidden = true;
+            document.body.append(host);
+            const image = (color) => 'data:image/svg+xml,' + encodeURIComponent(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><path fill="' + color + '" d="M0 0h2v2H0z"/></svg>');
+            const source = ref(image('red'));
+            const app = createApp({ render: () => h(IconTile, { src: source.value }) });
+            try {
+                app.mount(host);
+                const lazy = host.querySelector('img').loading === 'lazy';
+                host.querySelector('img').dispatchEvent(new Event('error'));
+                await nextTick();
+                const fallback = !host.querySelector('img') && !!host.querySelector('.icon-tile');
+                source.value = image('blue');
+                await nextTick();
+                const restored = host.querySelector('img');
+                return { lazy, fallback, restored: restored?.getAttribute('src') === source.value };
+            } finally {
+                app.unmount();
+                host.remove();
+            }
+        })()`);
+        t.check(
+            '图标延迟加载，失败不显示裂图，换图后可重新加载',
+            state.lazy && state.fallback && state.restored,
+            JSON.stringify(state),
+        );
+    });
     const readGear = () =>
         cdp.evaluate(`(async () => {
         const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { isObject, makeId, rawText, rows, stamp, text } from './shape';
+import { isObject, makeId, optionalInt, rawText, rows, stamp, text } from './shape';
 
 /**
  * 形状兜底是**所有读档路径的最后一米**：坏数据在这几个函数里变成可渲染的形状，
@@ -46,6 +46,15 @@ describe('形状兜底', () => {
         /* 毫秒时间戳约 1.7e12，超过 2^31。用 `| 0` 取整会溢出成负数，
          * 所以实现必须是 `Math.round`——这条断言就是在钉这件事。 */
         expect(stamp(1_763_000_000_000)).toBe(1_763_000_000_000);
+    });
+
+    it('optionalInt 保留 0 与大整数，缺失值不补成 0，也不强转数字字符串', () => {
+        expect(optionalInt(0)).toBe(0);
+        expect(optionalInt(12.6)).toBe(13);
+        expect(optionalInt(1_763_000_000_000)).toBe(1_763_000_000_000);
+        for (const value of [undefined, null, '', '12', false, NaN, Infinity, -Infinity]) {
+            expect(optionalInt(value)).toBeUndefined();
+        }
     });
 
     it('rows 认不出就是空数组，认出就原样返回', () => {
