@@ -303,12 +303,8 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
 </template>
 
 <style scoped>
-/* 右栏沿用角色卡宽，左栏容纳原图；两侧共用弹窗的实际可用高度。
- *
- * 窗宽 860 是**从两栏反推的**（2026-11-10 用户定：右 420、左 400）：
- * 正文可用宽 = 860 − 2×1 描边 − 16 左内边距 − 6 右内边距（扣掉滚动条轨道）= 836，
- * 减去 gap 16 与右栏 420，左栏正好 400。改任何一头都要重算这一串，
- * 所以窗宽不写独立的「看起来差不多」的数。 */
+/* 窗宽 900、正文可用 876：右栏 460 + gap 16，剩余 400 分给截图。
+ * 六个分区和快速修改共用 --char-editor-w，两侧共用弹窗的实际可用高度。 */
 .ocr {
     display: grid;
     flex: 1;
@@ -489,7 +485,7 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
 .ocr-right {
     display: flex;
     flex-direction: column;
-    width: var(--char-w);
+    width: var(--char-editor-w);
     min-width: 0;
     min-height: 0;
 }

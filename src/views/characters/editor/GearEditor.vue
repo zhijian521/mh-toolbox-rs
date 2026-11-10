@@ -16,7 +16,6 @@ const reading = ref(false);
 const selected = ref<string>(gear.value.find(filled)?.slot ?? gear.value[0]?.slot ?? '');
 const active = computed(() => gear.value.find((slot) => slot.slot === selected.value) ?? null);
 const filledCount = computed(() => gear.value.filter(filled).length);
-/* 清空按钮的形状不跟着「有没有内容」变，只有可见性变——见模板里那段注释。 */
 const clearable = computed(() => Boolean(active.value && filled(active.value)));
 function filled(slot: GearSlot): boolean {
     return Boolean(slot.caption?.trim()) || hasGearDetail(slot.detail);
@@ -70,19 +69,6 @@ const { icon: slotIcon } = useGearIcon();
                         >装备
                         <span class="gear-count">{{ filledCount }} / {{ gear.length }}</span></span
                     >
-                    <!-- 常驻、只在有内容时显形：这一行右侧若按 `v-if` 增删，20 高的按钮会把行
-                         高顶起来，十二格与预览图跟着上下挪（用户 2026-11-10 报「显示隐藏的时候
-                         页面高度会变」）。留着位置，显隐只走可见性。 -->
-                    <PressButton
-                        class="gear-clear"
-                        :class="{ 'is-on': clearable }"
-                        icon="trash"
-                        text="清空"
-                        size="sm"
-                        :label="active ? '清空' + active.slot + '这一件' : '清空这一件'"
-                        :disabled="reading || !clearable"
-                        @click="active && clearByKey(active.slot)"
-                    />
                 </div>
                 <nav class="gear-parts" aria-label="装备部位">
                     <button
@@ -108,7 +94,16 @@ const { icon: slotIcon } = useGearIcon();
                 v-model="active.detail"
                 v-model:caption="active.caption"
                 :slot-name="active.slot"
-            />
+            >
+                <template #name-extra>
+                    <PressButton
+                        icon="trash"
+                        :label="'删除' + active.slot + '这件装备'"
+                        :disabled="reading || !clearable"
+                        @click="clearByKey(active.slot)"
+                    />
+                </template>
+            </GearDetailForm>
         </GearScreenshot>
     </div>
 </template>
@@ -125,21 +120,10 @@ const { icon: slotIcon } = useGearIcon();
     display: flex;
     align-items: center;
     justify-content: space-between;
-    /* 高度钉死在 `PressButton` 的 `sm` 那一档（20 × 字号系数），不按内容取：这一行右侧
-     * 是常驻的清空按钮，行高若由内容决定，按钮一显一隐就带着整栏高度变，下面十二格与预览
-     * 图跟着跳（2026-11-10 用户报的就是这个）。 */
+    /* 部位计数固定行高，切换与删除装备时原图位置保持稳定。 */
     height: calc(20px * var(--fs-scale));
     color: var(--ink-2);
     font-size: var(--fs-sm);
-}
-/* 清空按钮：没内容时仍占位，只是看不见也点不动。用 `visibility` 而不是 `display`——
- * 后者一样把位置收走，等于换个地方重新跳一次。`opacity` 不用：它只让按钮变淡，
- * 仍会接住指针，十二格那一带就多了一个看不见的点击区。 */
-.gear-clear {
-    visibility: hidden;
-}
-.gear-clear.is-on {
-    visibility: visible;
 }
 .gear-count {
     margin-left: 6px;
@@ -170,9 +154,7 @@ const { icon: slotIcon } = useGearIcon();
     color: var(--muted);
     cursor: pointer;
 }
-/* 部位格只有一排图，块给到 48 / 图 42（2026-11-10 第二轮：用户「还可以放大一点」）。
- * 左半列 400 宽、六列 gap 4，每格约 63.3——48 的块两侧各留 7.6，整排还连着气口；
- * 2026-11-10 截图区从 446 收到 400 后又量过，48 仍放得下（再收就只剩 3 的气口）。 */
+/* 六列图标沿用块 48 / 图 42，适应收窄后的截图栏。 */
 .gear-slot .slot-icon {
     --tile-w: 48px;
     --tile-h: 48px;

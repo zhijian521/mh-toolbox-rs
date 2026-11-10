@@ -110,7 +110,15 @@ export async function equipment(ctx) {
         const dialogSize = () =>
             cdp.evaluate(`(() => {
                 const rect = document.querySelector('.modal-panel').getBoundingClientRect();
-                return { width: rect.width, height: rect.height };
+                const right = [...document.querySelectorAll('.ocr-right, .upload-detail')]
+                    .find((el) => el.getClientRects().length);
+                const left = [...document.querySelectorAll('.ocr-left, .upload-left')]
+                    .find((el) => el.getClientRects().length);
+                return {
+                    width: rect.width, height: rect.height,
+                    right: right.getBoundingClientRect().width,
+                    left: left.getBoundingClientRect().width,
+                };
             })()`);
         /* 页签条的宽度在六个分区里必须是同一个：装备 / 召唤兽两页它被塞进
          * `upload-navigation` 的栅格，那一层默认 stretch 会把它拉满整列。
@@ -149,6 +157,13 @@ export async function equipment(ctx) {
             await ui.clickLabel('编辑' + part + '的装备');
             sizes.push(await dialogSize());
         }
+        t.check(
+            '六个分区左侧保留 400，右侧卡片统一宽 460',
+            [standardSize, ...sizes].every(
+                (size) => Math.abs(size.left - 400) < 1 && Math.abs(size.right - 460) < 1,
+            ),
+            JSON.stringify([standardSize, ...sizes]),
+        );
         t.check(
             '统一窗口在六个分区和十二装备之间切换时宽高一致',
             sizes.every(
@@ -334,6 +349,8 @@ export async function equipment(ctx) {
                         const value = row.querySelector('.value-field');
                         const height = base.querySelector('.property-label').getBoundingClientRect().height;
                         return name.classList.contains('slip-row') &&
+                            value.getBoundingClientRect().width > name.getBoundingClientRect().width &&
+                            value.getBoundingClientRect().width >= 70 &&
                             Math.abs(name.getBoundingClientRect().height - height) < 1 &&
                             Math.abs(value.getBoundingClientRect().height - height) < 1;
                     }) &&
@@ -519,7 +536,8 @@ export async function equipment(ctx) {
                 return !!document.querySelector('.gear-editor button[aria-label="添加附加行"]') &&
                     !document.querySelector('.gear-editor button[aria-label="添加宝石行"]') &&
                     !!row.querySelector('input[aria-label="括号值"]') &&
-                    Math.abs(name.width - value.width * 2) < 1;
+                    Math.abs(value.width - name.width * 1.5) < 1 &&
+                    row.querySelector('.value-field').getBoundingClientRect().width >= 70;
             })()`),
         );
         t.check(

@@ -1,7 +1,7 @@
-/* 六分区共用窗宽：左截图 400，右详情吃剩余宽度。 */
+/* 六分区共用窗宽：右详情 460，左截图使用剩余宽度。 */
 .screenshot-upload {
     display: grid;
-    grid-template-columns: 400px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) var(--char-editor-w);
     flex: 1;
     gap: 16px;
     min-width: 0;

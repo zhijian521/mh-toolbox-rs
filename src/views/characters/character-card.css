@@ -314,12 +314,9 @@
      * **3px 溢出**、1.1 档 **9px**（同页 A/B 实测）。减到 12 之后各档溢回 0，
      * 与改动前逐档相同，而「最后一张牌离纸边 24」这个观感一分未减。
      *
-     * 只加内衬不够，还得**锁住滚动链**：`overscroll-behavior: contain` 挡住滚动惯性传给
-     * 页面（外层的 `.char-body` 与整页滚动条是两级，滚轮到底那一下会被页面接着吃掉，
-     * 视觉上像「内容滑出去了」）。 */
+     * 卡内无溢出或滚到边缘时，滚轮继续交给页面，避免指针停在卡上就无法滚动名册。 */
     padding: 11px var(--card-pad-x) 12px var(--card-pad-x);
     overflow: auto;
-    overscroll-behavior: contain;
     /* 藏滑块（见上一条注释）：两道写法一起给，旧引擎也跟得上。 */
     scrollbar-width: none;
 }

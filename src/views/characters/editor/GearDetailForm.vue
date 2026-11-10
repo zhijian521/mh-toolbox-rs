@@ -122,6 +122,7 @@ function addLine(label: string) {
                         @input="setName"
                     />
                 </label>
+                <slot name="name-extra" />
             </div>
             <div class="gear-kind">
                 <input
@@ -382,7 +383,10 @@ function addLine(label: string) {
     font-size: var(--fs-sm);
 }
 .stat-row.fixed-base {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+}
+.stat-row:has(.stat-extra) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) calc(26px * var(--fs-scale));
 }
 .stat-number {
     display: grid;

@@ -68,6 +68,53 @@ export async function setup(ctx) {
         t.check('新角色画在页面上', (await ui.text()).includes('E2E测试角色'));
     });
 
+    await t.step('卡内滚动到边缘后，滚轮继续滚动角色页面', async () => {
+        const state = await cdp.evaluate(`(() => {
+            const card = [...document.querySelectorAll('.roster .char')]
+                .find((el) => el.textContent.includes('E2E测试角色'));
+            const body = card.querySelector('.char-body');
+            const page = card.closest('.page-content');
+            const original = { page: page.scrollTop, body: body.scrollTop };
+            const spacer = document.createElement('div');
+            spacer.dataset.e2eScroll = '';
+            spacer.style.height = '100vh';
+            page.append(spacer);
+            card.scrollIntoView({ block: 'start' });
+            body.scrollTop = body.scrollHeight;
+            const rect = body.getBoundingClientRect();
+            return {
+                original, pageTop: page.scrollTop,
+                x: rect.left + rect.width / 2,
+                y: Math.min(rect.top + 40, page.getBoundingClientRect().bottom - 10),
+            };
+        })()`);
+        try {
+            await cdp.send('Input.dispatchMouseEvent', {
+                type: 'mouseWheel',
+                x: state.x,
+                y: state.y,
+                deltaX: 0,
+                deltaY: 120,
+            });
+            await sleep(350);
+            t.check(
+                '指针停在角色卡上，页面仍可继续向下滚动',
+                await cdp.evaluate(
+                    `document.querySelector('.page-content').scrollTop > ${state.pageTop}`,
+                ),
+            );
+        } finally {
+            await cdp.evaluate(`(() => {
+                document.querySelector('[data-e2e-scroll]')?.remove();
+                const page = document.querySelector('.page-content');
+                page.scrollTop = ${state.original.page};
+                const card = [...page.querySelectorAll('.roster .char')]
+                    .find((el) => el.textContent.includes('E2E测试角色'));
+                card.querySelector('.char-body').scrollTop = ${state.original.body};
+            })()`);
+        }
+    });
+
     await t.step('角色卡按钮底色跟随门派和亮暗主题', async () => {
         const palettes = await cdp.evaluate(`(() => {
             const card = [...document.querySelectorAll('.roster .char')]
@@ -328,8 +375,8 @@ export async function setup(ctx) {
         );
     });
 
-    /* 装备清空只影响当前这一件，十二个部位图标保留。召唤兽仍用原有左栏删除。 */
-    await t.step('装备：清空当前件，十二部位保留', async () => {
+    /* 装备和召唤兽都从右栏名称后删除，装备仍保留固定的十二部位。 */
+    await t.step('装备：名称后删除当前件，十二部位保留', async () => {
         await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
             throw new Error('编辑态没打开');
@@ -337,30 +384,32 @@ export async function setup(ctx) {
         await ui.clickText('.ocr-tabs button', '装备');
         await sleep(300);
 
-        /* 清空按钮常驻占位，只在当前部位有内容时显形（看不见也点不动）。两条都按
-         * 「可见性 + disabled」判，不按元素个数——按个数判的话，这条断言会逼着实现
-         * 回去用 v-if，而那正是「显隐一次页面高度变一次」的成因。 */
         const clearState = `(() => {
-            const btn = document.querySelector('.gear-editor button[aria-label^="清空"]');
+            const btn = document.querySelector('.gear-editor .gear-identity button[aria-label^="删除"]');
             if (!btn) return 'missing';
             const style = getComputedStyle(btn);
             return style.visibility + '/' + (btn.disabled ? 'off' : 'on');
         })()`;
         const headHeight = `document.querySelector('.gear-editor .gear-parts-head').getBoundingClientRect().height`;
         const heightBefore = await cdp.evaluate(headHeight);
-        t.check('当前有内容的武器显示清空', (await cdp.evaluate(clearState)) === 'visible/on');
+        t.check('当前有内容的武器可删除', (await cdp.evaluate(clearState)) === 'visible/on');
+        t.check(
+            '删除按钮位于右栏装备名称后，左侧没有删除按钮',
+            await cdp.evaluate(`document.querySelector('.gear-editor .gear-name').nextElementSibling
+                ?.getAttribute('aria-label') === '删除武器这件装备' &&
+                !document.querySelector('.gear-parts-head button')`),
+        );
 
-        await ui.clickLabelPrefix('清空武器');
+        await ui.clickLabel('删除武器这件装备');
         await sleep(350);
 
         const rows = await ui.count('.gear-editor .gear-slot');
         t.check('清空后十二部位保留', rows === 12, `实际 ${rows} 行`);
         const head = (await ui.text('.gear-editor .gear-count')).replace(/\s+/g, ' ').trim();
         t.check('清空后计数归零', head.includes('0 / 12'), head);
-        t.check('清空后清空按钮隐去且点不动', (await cdp.evaluate(clearState)) === 'hidden/off');
-        /* 用户 2026-11-10 报的就是这条：按钮显隐时整栏跟着长高 / 缩回。 */
+        t.check('空部位保留删除按钮且禁用', (await cdp.evaluate(clearState)) === 'visible/off');
         t.check(
-            '清空按钮显隐不改变那一行的高度',
+            '删除前后左栏计数高度不变',
             Math.abs((await cdp.evaluate(headHeight)) - heightBefore) < 1,
             `前 ${heightBefore} / 后 ${await cdp.evaluate(headHeight)}`,
         );
