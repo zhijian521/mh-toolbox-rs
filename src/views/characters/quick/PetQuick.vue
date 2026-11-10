@@ -5,6 +5,7 @@ import PressButton from '../../../components/PressButton.vue';
 import PetDetailForm from '../editor/PetDetailForm.vue';
 import PetScreenshot from '../ocr/PetScreenshot.vue';
 import { applyPetPanel } from '../ocr/pet-panel';
+import { cloneDraft } from './clone-draft';
 import { applyPet } from './quick-target';
 import { EDITOR_MIN_H, EDITOR_W } from '../editor-metrics';
 import type { CharacterData, Pet } from '../character';
@@ -15,10 +16,8 @@ const emit = defineEmits<{ save: [character: CharacterData]; close: [] }>();
 
 const source = computed(() => props.character.pets[props.index] ?? null);
 
-/* 深拷贝的理由见 `GearQuick`：Esc 该是「什么都没发生」。 */
-const pet = ref<Pet | null>(
-    source.value ? (JSON.parse(JSON.stringify(source.value)) as Pet) : null,
-);
+/* 深拷贝的理由与坑见 `clone-draft.ts`：Esc 该是「什么都没发生」。 */
+const pet = ref<Pet | null>(source.value ? cloneDraft(source.value) : null);
 
 const reading = ref(false);
 const canSave = computed(() => !reading.value && (pet.value?.name ?? '').trim() !== '');

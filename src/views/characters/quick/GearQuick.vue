@@ -5,6 +5,7 @@ import PressButton from '../../../components/PressButton.vue';
 import GearDetailForm from '../editor/GearDetailForm.vue';
 import GearScreenshot from '../ocr/GearScreenshot.vue';
 import { mergeGearPanel, type GearPanelResult } from '../ocr/gear-panel';
+import { cloneDraft } from './clone-draft';
 import { applyGear } from './quick-target';
 import { EDITOR_MIN_H, EDITOR_W } from '../editor-metrics';
 import type { CharacterData, GearDetail, GearSlotName } from '../character';
@@ -15,9 +16,7 @@ const emit = defineEmits<{ save: [character: CharacterData]; close: [] }>();
 const source = props.character.gear.find((one) => one.slot === props.slotName);
 const caption = ref<string | undefined>(source?.caption ?? '');
 const detail = ref<GearDetail>(
-    source?.detail
-        ? (JSON.parse(JSON.stringify(source.detail)) as GearDetail)
-        : { name: caption.value ?? '', kind: '', stats: [] },
+    source?.detail ? cloneDraft(source.detail) : { name: caption.value ?? '', kind: '', stats: [] },
 );
 const reading = ref(false);
 const form = ref<HTMLElement | null>(null);
