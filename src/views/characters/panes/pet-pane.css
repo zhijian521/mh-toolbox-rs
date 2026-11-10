@@ -85,14 +85,3 @@
 .skill-line :deep(.pet-image) {
     --pet-icon-size: 30px;
 }
-.empty-note {
-    grid-column: 1 / -1;
-    margin: 0;
-    padding: 5px 0;
-    color: var(--muted);
-    font-size: var(--fs-mini);
-}
-.pane > .empty-note {
-    padding: 26px 0;
-    text-align: center;
-}

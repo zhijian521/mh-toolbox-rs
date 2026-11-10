@@ -34,12 +34,12 @@ const emit = defineEmits<{ open: [index: number] }>();
                             }}</span></NumTag
                         ></span
                     >
-                    <span v-if="!pet.attrs.length" class="empty-note">尚未记录属性</span>
+                    <span v-if="!pet.attrs.length" class="empty-note inline">尚未记录属性</span>
                 </span>
                 <span class="skill-line" aria-label="已学技能"
                     ><PetImage v-for="(name, i) in pet.skills" :key="i" :name="name" /><span
                         v-if="!pet.skills.length"
-                        class="empty-note"
+                        class="empty-note inline"
                         >尚未记录技能</span
                     ></span
                 >

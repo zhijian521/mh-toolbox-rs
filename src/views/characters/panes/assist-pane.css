@@ -14,15 +14,6 @@
     padding-top: 13px;
     border-top: var(--w-hair) solid var(--rule);
 }
-/* 两项都没有时那句话，与师门、召唤兽两页同一份（`scoped` 够不到别的组件，各写一份）。 */
-.empty-note {
-    margin: 0;
-    padding: 26px 0;
-    color: var(--muted);
-    font-size: var(--fs-sm);
-    text-align: center;
-}
-
 .assist-group .group-head {
     margin-bottom: 8px;
 }
