@@ -1,5 +1,4 @@
 import type { EquipmentName } from '../../../services/game-data';
-import type { CharacterData } from '../character';
 import {
     GEAR_JADE_EFFECTS,
     GEAR_TRAITS,
@@ -349,8 +348,4 @@ export function mergeGearPanel(original: GearSlot, result: GearPanelResult): Gea
     if (patch.requires) detail.requires = [...patch.requires];
     if (original.detail?.note !== undefined) detail.note = original.detail.note;
     return { ...original, caption: detail.name, detail };
-}
-
-export function applyGearPanel(character: CharacterData, result: GearPanelResult): CharacterData {
-    return { ...character, gear: character.gear.map((slot) => mergeGearPanel(slot, result)) };
 }
