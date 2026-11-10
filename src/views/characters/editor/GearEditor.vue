@@ -47,7 +47,7 @@ function recognize(result: GearPanelResult) {
     selectByKey(gear.value[index].slot);
 }
 if (active.value) ensureDetail(active.value);
-const slotIcon = useGearIcon();
+const { icon: slotIcon } = useGearIcon();
 </script>
 
 <template>

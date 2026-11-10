@@ -80,7 +80,7 @@ watch(
     },
     { immediate: true },
 );
-const gearIcon = useGearIcon();
+const { icon: gearIcon } = useGearIcon();
 const icon = computed(() =>
     gearIcon({ slot: props.slotName, caption: caption.value, detail: detail.value }),
 );

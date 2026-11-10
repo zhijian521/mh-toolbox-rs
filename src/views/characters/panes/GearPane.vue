@@ -80,7 +80,10 @@ function cellPos(slot: GearSlotName): { gridColumn: string; gridRow: string } {
     return { gridColumn: String(col), gridRow: String(row) };
 }
 
-const slotIcon = useGearIcon();
+/* 图标一次取齐：模板里 `v-if` 与 `:src` 各查一次就是 24 次/卡，而且每次都遍历名录。
+ * 这里在 `computed` 里跑一遍，模板只查表（`gear` 变了才重算）。 */
+const { many } = useGearIcon();
+const icons = computed(() => many(props.gear));
 
 /** 缺图时回退到名称首字。 */
 function slotInitial(slot: GearSlot): string {
@@ -113,7 +116,11 @@ function quickLabel(slot: GearSlot): string {
                     @blur="emit('close-tip')"
                 >
                     <span class="gear-part">{{ slot.slot }}</span>
-                    <IconTile v-if="slotIcon(slot)" class="gear-pic" :src="slotIcon(slot)" />
+                    <IconTile
+                        v-if="icons.get(slot.slot)"
+                        class="gear-pic"
+                        :src="icons.get(slot.slot)"
+                    />
                     <PressTile v-else class="gear-ph" still aria-hidden="true">
                         <span class="gear-ph-text">{{ slotInitial(slot) }}</span>
                     </PressTile>
