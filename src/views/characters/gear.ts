@@ -166,7 +166,10 @@ function firstNumber(value: string): string {
  */
 export function slotMark(slot: string): string {
     const tail = slot.split('·').pop()?.trim() || slot;
-    return slot.includes('·') ? tail : tail.slice(0, 1);
+    if (slot.includes('·')) return tail;
+    /* 「腰带」取的是「带」不是「腰」：其余五件取的都是**那件东西**的字（头 / 项 / 武 /
+     * 衣 / 鞋），腰是部位、带才是东西；版心那行读成「衣 带 鞋」也对得上这一列。 */
+    return tail === '腰带' ? '带' : tail.slice(0, 1);
 }
 
 /** 十二个部位分成装备 / 灵饰 / 玉魄三档；表没装配好时按名字猜，摘要不会因此空白。 */

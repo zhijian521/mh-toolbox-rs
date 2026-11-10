@@ -220,7 +220,11 @@ describe('图标目录结构', () => {
             .filter((path) => {
                 const [dir, name] = path.split('/');
                 const prefix = name.split('-')[0];
-                return prefix.length < 3 || !dir.startsWith(prefix);
+                /* 目录名可以在类目前面再加一层限定：`pet-portrait/` 里装的是
+                 * `portrait-*`（548 张召唤兽头像由 `import-pet-portraits.mjs` 生成，
+                 * 见 `pet-assets.ts` 的引用）。所以「目录名以类目开头**或结尾**」都算
+                 * 同名类目——真正要防的串门（`skill/gear-toukui-01`）两头都不搭。 */
+                return prefix.length < 3 || !(dir.startsWith(prefix) || dir.endsWith(prefix));
             });
         expect(bad, '这些图的文件名与所在目录不是同一个类目：').toEqual([]);
     });
