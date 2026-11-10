@@ -947,12 +947,14 @@ svg {
     text-align: center;
 }
 /* 牌内/行内的空态。`grid-column: 1 / -1` 只在召唤兽属性那三列网格里起作用，
- * 落在 flex 的 `.skill-line` 里是无害的（flex 忽略它）。 */
+ * 落在 flex 的 `.skill-line` 里是无害的（flex 忽略它）。
+ *
+ * 这里**不写 `text-align`**：牌内那一行原先也没写，对齐跟着外层的 `.stats` /
+ * `.skill-line` 走。补一条 `start` 看着「更明确」，实际是把继承改成了硬写。 */
 .empty-note.inline {
     grid-column: 1 / -1;
     padding: 5px 0;
     font-size: var(--fs-mini);
-    text-align: start;
 }
 /* ---------- 输入格 ----------
  * 纸上挖出来的一格：底比纸深一档、内侧上沿压一道影、一圈细账线。与 `.well` 同一个光向，
