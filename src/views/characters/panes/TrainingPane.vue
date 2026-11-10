@@ -4,6 +4,7 @@ import NumberField from '../../../components/NumberField.vue';
 import NumTag from '../../../components/NumTag.vue';
 import { isMaxed, type TrainingGroup, type TrainingRow } from '../character';
 import type { QuickTarget } from '../quick/quick-target';
+import { quickRowBinds } from '../quick-row';
 
 /** 卡内「修炼」页。拆法与理由见 `AttrPane.vue` 顶部。 */
 const props = withDefaults(
@@ -45,12 +46,7 @@ function open(row: TrainingRow) {
                         :key="row.name"
                         class="slip-row"
                         :class="{ full: isMaxed(row), idle: row.level === 0, quickable }"
-                        :role="quickable ? 'button' : undefined"
-                        :tabindex="quickable ? 0 : undefined"
-                        :aria-label="quickable ? `快速修改 ${row.name}` : undefined"
-                        @click="open(row)"
-                        @keydown.enter.self.prevent="open(row)"
-                        @keydown.space.self.prevent="open(row)"
+                        v-bind="quickRowBinds(quickable, () => open(row), `快速修改 ${row.name}`)"
                     >
                         <label v-if="editable" class="slip-name" :for="`${uid}-${row.name}`">
                             {{ row.name }}

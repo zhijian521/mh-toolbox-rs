@@ -41,6 +41,7 @@ import PressTile from '../../components/PressTile.vue';
 import { schoolSkillIcon } from '../../services/game-icons';
 import IconTile from './IconTile.vue';
 import { isMaxed, type SkillRow as SkillRowData } from './character';
+import { quickRowBinds } from './quick-row';
 
 const props = withDefaults(
     defineProps<{
@@ -94,12 +95,7 @@ const seal = computed(() => [...props.row.name][0] ?? '');
     <div
         class="slip-row school-row"
         :class="{ full, idle, off: props.row.off, quickable }"
-        :role="quickable ? 'button' : undefined"
-        :tabindex="quickable ? 0 : undefined"
-        :aria-label="quickable ? `快速修改 ${row.name}` : undefined"
-        @click="open"
-        @keydown.enter.self.prevent="open"
-        @keydown.space.self.prevent="open"
+        v-bind="quickRowBinds(quickable, open, `快速修改 ${row.name}`)"
     >
         <!-- 有图走 `IconTile`（与辅助同一枚块）；没图退回压印块 + 首字。 -->
         <IconTile v-if="icon" :src="icon" />

@@ -4,6 +4,7 @@ import MeterBar from '../../../components/MeterBar.vue';
 import NumTag from '../../../components/NumTag.vue';
 import { expPercent, type AttrGroup, type ExpRow } from '../character';
 import type { QuickTarget } from '../quick/quick-target';
+import { quickRowBinds } from '../quick-row';
 
 /**
  * 卡内「属性」页。2026-11-05 从 `CharacterCard.vue` 拆出来：那张卡一个文件装六个分区，
@@ -121,12 +122,13 @@ const expText = computed(() => {
                         :key="row.label"
                         class="slip-row sm"
                         :class="{ blank: !row.value, quickable }"
-                        :role="quickable ? 'button' : undefined"
-                        :tabindex="quickable ? 0 : undefined"
-                        :aria-label="quickable ? `快速修改 ${row.label}` : undefined"
-                        @click="openAttr(row.label)"
-                        @keydown.enter.self.prevent="openAttr(row.label)"
-                        @keydown.space.self.prevent="openAttr(row.label)"
+                        v-bind="
+                            quickRowBinds(
+                                quickable,
+                                () => openAttr(row.label),
+                                `快速修改 ${row.label}`,
+                            )
+                        "
                     >
                         <dt class="slip-name">{{ row.label }}</dt>
                         <dd class="attr-val">
@@ -157,12 +159,7 @@ const expText = computed(() => {
         <div
             class="exp-row"
             :class="{ quickable }"
-            :role="quickable ? 'button' : undefined"
-            :tabindex="quickable ? 0 : undefined"
-            :aria-label="quickable ? '快速修改经验' : undefined"
-            @click="openExp"
-            @keydown.enter.self.prevent="openExp"
-            @keydown.space.self.prevent="openExp"
+            v-bind="quickRowBinds(quickable, openExp, '快速修改经验')"
         >
             <span class="group-head"><span class="section-mark"></span>经验</span>
             <!-- 可改时文字让位给两格输入，**条留着**：数一改，条当场动一下，

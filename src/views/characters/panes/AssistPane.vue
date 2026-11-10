@@ -8,6 +8,7 @@ import { lifeSkills, storySkills } from '../../../services/game-data';
 import AssistIcon from '../AssistIcon.vue';
 import { isMaxed, type AssistKind, type AssistSkill } from '../character';
 import type { QuickTarget } from '../quick/quick-target';
+import { quickRowBinds } from '../quick-row';
 
 /** 卡内「辅助」页。拆法与理由见 `AttrPane.vue` 顶部。 */
 const props = withDefaults(
@@ -79,12 +80,7 @@ function optionsFor(row: AssistSkill) {
                         class="slip-row"
                         :class="{ off: row.off, full: isMaxed(row), quickable }"
                         :title="`${row.name} ${row.level}${row.cap ? `/${row.cap}` : ''}`"
-                        :role="quickable ? 'button' : undefined"
-                        :tabindex="quickable ? 0 : undefined"
-                        :aria-label="quickable ? `快速修改 ${row.name}` : undefined"
-                        @click="open(row)"
-                        @keydown.enter.self.prevent="open(row)"
-                        @keydown.space.self.prevent="open(row)"
+                        v-bind="quickRowBinds(quickable, () => open(row), `快速修改 ${row.name}`)"
                     >
                         <AssistIcon :name="row.name" :kind="row.kind" />
                         <SelectField
