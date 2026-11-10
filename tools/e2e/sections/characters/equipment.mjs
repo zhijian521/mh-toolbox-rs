@@ -158,6 +158,23 @@ export async function equipment(ctx) {
                 `[...document.querySelectorAll('.roster .char')].find((card) => card.textContent.includes('E2E改名后'))?.querySelector('.gear-cell[aria-label="快速修改 头 · 水晶帽"] img')?.src.endsWith('/gear/gear-toukui-01.webp')`,
             ),
         );
+        /* 只有一件写了这套，件数写 *1 并退灰（不足三件不激活）——星号是数出来的，
+         * 不是抄面板上那个「/ 5」。 */
+        const suit = await cdp.evaluate(`(() => {
+                const item = [...document.querySelectorAll('.roster .char')]
+                    .find((card) => card.textContent.includes('E2E改名后'))
+                    ?.querySelector('.stage-brief .suit .brief-item');
+                return {
+                    name: item?.querySelector('.item-name')?.textContent.trim() ?? '',
+                    num: item?.querySelector('b')?.textContent.trim() ?? '',
+                    dim: item?.classList.contains('dim') ?? null,
+                };
+            })()`);
+        t.check(
+            '套装一件：写 *1 并退灰',
+            suit.name === '附加状态碎星诀' && suit.num === '*1' && suit.dim === true,
+            JSON.stringify(suit),
+        );
     });
 
     await t.step('快速修改上传：部位拦错、取消不写入、保存才生效', async () => {

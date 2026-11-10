@@ -1,5 +1,5 @@
 /** 装备字段契约与摘要算法。游戏名录、部位规则和图标映射见 public/game/data/character-rules.json。 */
-import type { GearSlotName } from '../../services/game-rules';
+import { GEAR_RULES, GEAR_SLOTS, type GearSlotName } from '../../services/game-rules';
 export {
     GEAR_SLOTS,
     GEAR_LAYOUT,
@@ -82,28 +82,64 @@ export function hasGearDetail(detail: GearDetail | undefined): boolean {
 }
 
 /* ======================================================================
- * 版心摘要（2026-11-06）
+ * 版心摘要（2026-11-06 建立；2026-11-10 改成「一件一格」，同日补「特效」行）
  *
- * 用户：「装备卡片中间展示的信息太少了，可以分几个区块展示，各个装备、灵饰、段数
- * 之类的重要信息——装备特技、镶嵌宝石段数、套装、灵饰的段数、钟灵石以及段数、
- * 玉魄的段数、奇袭道具、奇袭特技。」
+ * 用户 2026-11-10：「只展示特技、套装和装备强化数；套装后面 *n 表示几件，
+ * 三件以上激活、三件以下灰色；强化数分宝石 / 灵饰 / 玉魄 / 钟灵石，奇袭不要了；
+ * 0 段的也显示 0，按顺序排列，这样可以快速看到。」
+ * 后续追问确认：**强化只留 宝石 / 灵饰 / 玉魄 三行**，钟灵石与奇袭都不显示。
+ * 同日又补：「特效也加一行，放到特技下面」「宝石因为太长了，分两个，一行三个对齐」。
  *
- * 这些信息**本来就在十二件装备各自的 `detail` 里**，只是散着：特技与套装在 `lines`，
- * 宝石与各种段数在 `cond`。所以这里一个字都不新存，全部从 `gear` 现算——
- * 录入那边填什么，版心就显示什么，不存在「摘要忘了同步」这回事。
+ * 所以七行压成**两组六行**：效果三行（特技 / 特效 / 套装）+ 强化三行（宝石 /
+ * 灵饰 / 玉魄）。**钟灵石与奇袭都不要了**（用户 2026-11-10 明确）：钟灵石是灵饰上
+ * 那条自由文本（品名 + 等级），扫段数时读不成一列数；奇袭是「配了什么」，不是
+ * 「练到几段」。数据一个字没删——它们照旧在浮片与编辑器里，只是不进摘要。
  *
- * 两处**兜底**：特技与套装在 `gearMeta` 里另有一份手填的汇总（导入/OCR 那条路只
- * 给这两个字段）。detail 里读到时用 detail 的，读不到才退回 `gearMeta`。
+ * 强化三行不再串成一句话，而是**一件装备一格**：`头6 · 项5 · …`。部位首字就是
+ * 身份（十二格住址固定，见 `GEAR_LAYOUT`），一行里六件事各读各的，「哪一件还
+ * 没练」数得出来。写成一串「太阳石 6 段 · 红玛瑙 5 段」时，没练的那两件根本
+ * 不出现——这正是用户要改掉的地方。
  *
- * 分三组不是装饰：七行平铺是一条长表，分组之后读成「效果 / 段数 / 奇袭」三块，
- * 正好对应玩家看这套装备时的三个问题。
+ * 宝石那一行六格在 26 + 值这一列里挤成一行时，格与格之间的「·」把读数切得太碎，
+ * 一眼扫不出列（用户：「太长了」）。所以**六格拆成两行、每行三个**（`perRow` 3），
+ * 上下两行同宽同起点，读成三列两行的小表——`头 项 武` 与 `衣 带 鞋` 各就其位。
+ *
+ * 取数规则（对着 mock 与截图识别两条路各验一遍）：
+ *   · `lines` 里的 `特技` / `特效`：名字，去重（同一特效常写在两件上）；
+ *   · `lines` 里的 `套装` / `套装效果`：名字尾部那截「5 / 5」剥掉，**件数按实际
+ *     写了这套的装备数**——面板上的 5 是「凑满几件出效果」，不是「身上有几件」；
+ *   · `cond` 里 `锻炼等级`（身上六件）、`精炼等级`（灵饰四件）、`灵尘等级`（玉魄
+ *     两件）——三种段数各有各的名字与上限，混成一个「段数」就分不出是哪一件了；
+ *   · 读不到的段数写 `0` 并退灰：留白会读成「漏了一行」，0 才是「这一件还没练」。
+ *
+ * 两处**兜底**：特技与套装在 `gearMeta` 里另有一份手填的汇总（导入那条路只给
+ * 这两个字段）。detail 里读得到就用 detail 的，读不到才退回 `gearMeta`。特效没有
+ * 兜底来源——`gearMeta` 里本来就没有这一项，读不到就画淡「—」。
  * ==================================================================== */
 
-/** 摘要的一行。`value` 为空串 = 整套装备里没有这一项，渲染成淡「—」。 */
+/** 摘要里的一格：前半截是部位首字或名字，后半截是段数 / `*件数`（空串 = 只有名字）。 */
+export interface BriefItem {
+    name: string;
+    value: string;
+    /** 退灰：套装不足三件、段数为 0。 */
+    dim?: boolean;
+}
+
+/** 摘要的一行。`items` 为空 = 整套装备里没有这一项，渲染成淡「—」。 */
 export interface BriefRow {
     key: string;
     label: string;
-    value: string;
+    items: BriefItem[];
+    /** 每一格包进一枚数值签（`NumTag`）：只有段数三行，它们是**读数**。 */
+    tag?: boolean;
+    /**
+     * 排成几列（设了就进等宽栅格，不设就走一条流）。
+     *
+     * 它是**列数**不是「每行几件」：六件给 3 就是三列两行，四件给 4 是一行四列。
+     * 列宽不由这里定（CSS 的 `--brief-tag-w` 定死），否则每行各均分一次，
+     * 同一枚签在宝石行 47 宽、在灵饰行 28 宽。
+     */
+    perRow?: number;
 }
 
 /** 摘要的一组。`key` 只用来做 `v-for` 的键与样式钩子。 */
@@ -112,88 +148,123 @@ export interface BriefGroup {
     rows: BriefRow[];
 }
 
-/** 不换行空格。摘要的值只放得下两行，得把「5 / 5」「4 段」这种组合绑住，
- * 不然会断在数字与单位之间（实测「红玛瑙 4」换行后「段」单独掉到第二行）。 */
-const NBSP = '\u00A0';
+/** 一行压成一句，供 `title` 与测试读：`头6 · 项5`。 */
+export function briefText(row: BriefRow): string {
+    return row.items.map((item) => item.name + item.value).join(' · ');
+}
+
+/** 串里第一个数：`5` / `5 段` / `固若金汤(1级)` 分别给出 5 / 5 / 1。读不到给空串。 */
+function firstNumber(value: string): string {
+    return /(\d+(?:\.\d+)?)/.exec(value)?.[1] ?? '';
+}
 
 /**
- * 把十二件装备的明细汇总成七行摘要。
+ * 部位首字：`头` `项链`→`项` `武器`→`武`；玉魄取破折号后面那一个字（阴 / 阳）。
  *
- * 取数规则（每条都对着 mock 里那套真实截图转录的数据写过一遍）：
- *   · `lines` 里 `特技` / `套装`：直接取；
- *   · `cond` 里 `镶嵌宝石` + `锻炼等级`：拼成「太阳石 5 段」——宝石那一件几段，
- *     游戏面板上就是把这两个数并排读的；
- *   · `cond` 里 `精炼等级`：灵饰四件的段数；`灵尘等级`：玉魄两件的段数；
- *   · `cond` 里带「钟灵石」的那一条（品名与段数都是自由文本，原样取）；
- *   · `lines` 里 `奇袭道具` / `奇袭特技`。
- *
- * 值为「空」的项**跳过**（游戏里没配就是那个字），否则摘要上会出现四个「空」。
+ * 只取一个字是版心逼出来的：一行要塞六件，两个字的部位名（项链 / 戒指 / 耳饰）
+ * 写全就只放得下三件，剩下的换行到第二行反而更难数。
  */
+export function slotMark(slot: string): string {
+    const tail = slot.split('·').pop()?.trim() || slot;
+    return slot.includes('·') ? tail : tail.slice(0, 1);
+}
+
+/** 十二个部位分成装备 / 灵饰 / 玉魄三档；表没装配好时按名字猜，摘要不会因此空白。 */
+function slotCategory(slot: GearSlotName): 'equipment' | 'spirit' | 'jade' {
+    const rule = GEAR_RULES[slot];
+    if (rule) return rule.category;
+    if (slot.startsWith('玉魄')) return 'jade';
+    return ['戒指', '耳饰', '配饰', '手镯'].includes(slot) ? 'spirit' : 'equipment';
+}
+
+/**
+ * 套装名：剥掉游戏面板尾部那截件数（`天罡 5 / 5`、`慈悲(3/5)`、`天罡*5`）。
+ *
+ * 件数由这一层数出来，不抄面板上的数：面板写的是「凑满几件出效果」，而摘要要
+ * 回答的是「身上现在有几件」，两者只有凑巧相等的时候。
+ */
+function suitName(value: string): string {
+    return value
+        .replace(/[（(]\s*\d+\s*\/\s*\d+\s*[)）]\s*$/, '')
+        .replace(/\s*\d+\s*\/\s*\d+\s*$/, '')
+        .replace(/\s*\*\s*\d+\s*$/, '')
+        .trim();
+}
+
+/** 三件成套。少一件按游戏规则不激活，摘要里退灰——灰的那一串就是「还差几件」。 */
+const SUIT_ACTIVE = 3;
+
 export function gearBrief(gear: GearSlot[], meta: { special: string; suit: string }): BriefGroup[] {
-    const specials: string[] = [];
-    const suits: string[] = [];
-    const gems: string[] = [];
-    const refines: string[] = [];
-    const bells: string[] = [];
-    const souls: string[] = [];
-    const props: string[] = [];
-    const arts: string[] = [];
+    const bySlot = new Map<GearSlotName, GearSlot>();
+    for (const one of gear) bySlot.set(one.slot, one);
+    /* 顺序**不由传入数组决定**：名册每次读档都重建十二格，但截图预览、测试里传进来的
+     * 可能只有几件。按 `GEAR_SLOTS`（游戏面板的顺序）走，缺的那几件才算得出 0。 */
+    const order: GearSlotName[] = GEAR_SLOTS.length ? [...GEAR_SLOTS] : [...bySlot.keys()];
 
-    for (const slot of gear) {
-        const detail = slot.detail;
-        if (!detail) continue;
+    const at = (slot: GearSlotName, keyword: string) =>
+        (bySlot.get(slot)?.detail?.cond ?? [])
+            .find((row) => row.label.includes(keyword))
+            ?.value.trim() ?? '';
+    const effect = (slot: GearSlotName, labels: string[]) =>
+        (bySlot.get(slot)?.detail?.lines ?? [])
+            .find((row) => labels.includes(row.label))
+            ?.value.trim() ?? '';
 
-        for (const line of detail.lines ?? []) {
-            const value = line.value.trim();
-            if (!value || value === '空') continue;
-            if (line.label === '特技') specials.push(value);
-            else if (line.label === '套装') suits.push(value);
-            else if (line.label === '奇袭道具') props.push(value);
-            else if (line.label === '奇袭特技') arts.push(value);
+    /* 特技 / 特效：读得到就列名去重（同一件特效常写在两件上，比如两件都带「专注」）。
+     * 特技读不到才退回手填的汇总；特效没有兜底来源（`gearMeta` 里没这一项）。 */
+    const named = (labels: string[]): string[] => {
+        const names: string[] = [];
+        for (const slot of order) {
+            const value = effect(slot, labels);
+            if (value && value !== '空' && !names.includes(value)) names.push(value);
         }
+        return names;
+    };
+    const specials = named(['特技']);
+    if (!specials.length && meta.special.trim()) specials.push(meta.special.trim());
+    const traits = named(['特效']);
 
-        const cond = detail.cond ?? [];
-        /* 按**关键词**认，不按全名：状态那一段是自由行（编辑器里用户自己写标签），
-         * 同一行可能写成「镶嵌宝石」也可能写「宝石」。关键词之间不会互相误伤——
-         * 「精炼」与「灵尘」是两种段数，字面上没有交集。 */
-        const at = (keyword: string) =>
-            cond.find((one) => one.label.includes(keyword))?.value.trim() ?? '';
-
-        const gem = at('宝石');
-        if (gem) {
-            const level = at('锻炼');
-            /* 「太阳石 5 段」里的空格换成不换行空格：值只放得下两行，
-             * 让它断在「4」和「段」之间（实测就是这个位置）会孤零零掉一个字下来。
-             * 绑住之后唯一的断点在两件装备之间的「 · 」。 */
-            gems.push(level ? `${gem}${NBSP}${level}${NBSP}段` : gem);
-        }
-
-        const refine = at('精炼');
-        if (refine) refines.push(refine);
-
-        const bell = at('钟灵石');
-        if (bell) bells.push(bell);
-
-        const soul = at('灵尘');
-        if (soul) souls.push(soul);
+    /* 套装：按名字数件数，顺序跟着装备走（先出现的那件决定顺序）。 */
+    const suits = new Map<string, number>();
+    for (const slot of order) {
+        const value = effect(slot, ['套装', '套装效果']);
+        if (!value || value === '空') continue;
+        const name = suitName(value);
+        if (!name) continue;
+        suits.set(name, (suits.get(name) ?? 0) + 1);
+    }
+    if (!suits.size && meta.suit.trim()) {
+        /* 兜底那条路没有分件信息，只能读手填那句里的件数（`天罡 5/5`）。读不到就
+         * 只写名字、不画星号，也不判激活——不知道件数时装作知道是更坏的错。 */
+        const claim = firstNumber(meta.suit);
+        const count = Number(claim);
+        if (claim && count >= 1) suits.set(suitName(meta.suit) || meta.suit.trim(), count);
+        else suits.set(suitName(meta.suit) || meta.suit.trim(), 0);
     }
 
-    const ambush = [
-        props.length ? `道具 ${props.join(' · ')}` : '',
-        arts.length ? `特技 ${arts.join(' · ')}` : '',
-    ]
-        .filter(Boolean)
-        .join(' · ');
-
-    /* 特技与套装**去重**：同一套效果常写在两件上（mock 里戒指和衣服各记了一遍
-     * 「慈悲 3 / 5」），原样拼会读成「凑了两套」。宝石不去重——四件各镶各的，
-     * 同一种宝石分在两件上也是两笔。 */
-    const unique = (list: string[]) => [...new Set(list)];
-
-    /* 「5 / 5」「4 / 3 / 3 / 2」里的空格都换成不换行空格：这些是**一个数**被
-     * 斜杠串起来，断在中间等于看错段数。 */
-    const slash = (list: string[]) => list.join(`${NBSP}/${NBSP}`);
-    const pair = (value: string) => value.replace(/\s*\/\s*/g, `${NBSP}/${NBSP}`);
+    /** 强化数的一行：按部位固定顺序，一件一格，没练的写 0。 */
+    const levelRow = (
+        key: string,
+        label: string,
+        category: 'equipment' | 'spirit' | 'jade',
+        keyword: string,
+        perRow?: number,
+    ): BriefRow => ({
+        key,
+        label,
+        tag: true,
+        perRow,
+        items: order
+            .filter((slot) => slotCategory(slot) === category)
+            .map((slot) => {
+                const level = firstNumber(at(slot, keyword));
+                return {
+                    name: slotMark(slot),
+                    value: level || '0',
+                    dim: !level || Number(level) === 0,
+                };
+            }),
+    });
 
     return [
         {
@@ -202,37 +273,36 @@ export function gearBrief(gear: GearSlot[], meta: { special: string; suit: strin
                 {
                     key: 'special',
                     label: '特技',
-                    value: unique(specials).join(' · ') || meta.special,
+                    items: specials.map((name): BriefItem => ({ name, value: '' })),
+                },
+                {
+                    key: 'trait',
+                    label: '特效',
+                    items: traits.map((name): BriefItem => ({ name, value: '' })),
                 },
                 {
                     key: 'suit',
                     label: '套装',
-                    value: unique(suits).map(pair).join(' · ') || meta.suit,
+                    items: [...suits].map(([name, count]): BriefItem => ({
+                        name,
+                        value: count ? `*${count}` : '',
+                        dim: count > 0 && count < SUIT_ACTIVE,
+                    })),
                 },
             ],
         },
         {
             key: 'level',
             rows: [
-                { key: 'gem', label: '宝石', value: gems.join(' · ') },
-                // 「精炼」「灵尘」是这种段数在游戏里的名字。只留数字的话，
-                // 「灵饰 4 / 3 / 3 / 2」得先猜「4 是什么」才读得懂。
-                {
-                    key: 'refine',
-                    label: '灵饰',
-                    value: refines.length ? `精炼${NBSP}${slash(refines)}` : '',
-                },
-                { key: 'bell', label: '钟灵石', value: bells.join(' · ') },
-                {
-                    key: 'soul',
-                    label: '玉魄',
-                    value: souls.length ? `灵尘${NBSP}${slash(souls)}` : '',
-                },
+                /* 三行都给 `perRow`，列数按「值列放得下几枚签」定：签宽 32 + 列距 4，
+                 * 值列 151 里最多摆四列（140）。所以宝石六格排三列两行，灵饰四格一行，
+                 * 玉魄两格一行。**列宽是三行共用的同一个数**，不是各行均分——
+                 * 均分会让宝石一枚 47、灵饰一枚 28（2026-11-10 实测），
+                 * 同一种读数各长各的。 */
+                levelRow('gem', '宝石', 'equipment', '锻炼', 3),
+                levelRow('refine', '灵饰', 'spirit', '精炼', 4),
+                levelRow('soul', '玉魄', 'jade', '灵尘', 2),
             ],
-        },
-        {
-            key: 'ambush',
-            rows: [{ key: 'ambush', label: '奇袭', value: ambush }],
         },
     ];
 }

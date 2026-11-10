@@ -1,8 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import IconTile from '../IconTile.vue';
+import NumTag from '../../../components/NumTag.vue';
 import PressTile from '../../../components/PressTile.vue';
-import { GEAR_LAYOUT, gearBrief, type GearDetail, type GearSlot, type GearSlotName } from '../gear';
+import {
+    GEAR_LAYOUT,
+    briefText,
+    gearBrief,
+    type BriefRow,
+    type GearDetail,
+    type GearSlot,
+    type GearSlotName,
+} from '../gear';
 import { useGearIcon } from '../use-gear-icon';
 import type { QuickTarget } from '../quick/quick-target';
 
@@ -41,17 +50,13 @@ function quickGear(slot: GearSlotName) {
     emit('quick', { kind: 'gear', slot });
 }
 
-/* 版心那七行摘要：**全部从 `gear` 现算**，一个字都不另存（规则见 `gear.ts` 的
+/* 版心那几行摘要：**全部从 `gear` 现算**，一个字都不另存（规则见 `gear.ts` 的
  * `gearBrief`）。所以录入那边改了宝石段数，版心跟着变，不存在两份数据要同步。 */
 const brief = computed(() => gearBrief(props.gear, props.meta));
 
-/* 值里的数字要单独上色加粗（全站规矩：墨 / 赭 / 朱三层，数字是赭），
- * 所以先把一串文字切成「文字 / 数字」两种段——`5/5`、`4 / 3` 这种整段留住不拆。 */
-function numParts(value: string): { text: string; num: boolean }[] {
-    return value
-        .split(/(\d+(?:\s*\/\s*\d+)?(?:\.\d+)?)/g)
-        .filter((one) => one !== '')
-        .map((text) => ({ text, num: /^\d/.test(text) }));
+/** 一行的悬停说明：格子太小，值被裁时得有个地方看全。 */
+function rowTitle(row: BriefRow): string | undefined {
+    return row.items.length ? briefText(row) : undefined;
 }
 
 /* 仅有短名的旧记录仍能显示；完全空白的详情由读档归一化丢掉。 */
@@ -138,9 +143,15 @@ function quickLabel(slot: GearSlot): string {
 
             <!-- 中央 2 × 2：人物位。四角四道括线说明「这里是版心」，
                  而不是「这里漏了一块」。括线只是装饰（`aria-hidden`）；
-                 括线里面是这一身装备的**摘要**——三组七行，见 `gear.ts` 的 `gearBrief`。
-                 2026-11-06 之前它是卡底的一行（`.gear-meta`），后来提进版心、又扩成
-                 三组：用户说「中间展示的信息太少了，各个装备、灵饰、段数之类的重要信息」。 -->
+                 括线里面是这一身装备的**摘要**——两组六行（特技 / 特效 / 套装 ·
+                 宝石 / 灵饰 / 玉魄），见 `gear.ts` 的 `gearBrief`。
+                 2026-11-06 之前它是卡底的一行（`.gear-meta`），后来提进版心、扩成
+                 三组七行；2026-11-10 用户要「只展示特技、套装和装备强化数」，于是
+                 删掉钟灵石与奇袭，段数改成一件一格（`头6 · 项5`），0 段也写 0；
+                 同日又补了「特效」行。当天晚些时候按用户「整体还是不是很好看、样式
+                 布局重构一下（展示内容不变）」重排了一遍几何：读数三行共用同一个签宽
+                 （`--brief-tag-w`，不是各行均分）、效果块与读数块之间补一条账线、
+                 六行行高统一由签定。内容与取数规则一个字没动。 -->
             <div class="gear-stage">
                 <div class="stage-frame" aria-hidden="true">
                     <div class="corner c1"></div>
@@ -154,13 +165,53 @@ function quickLabel(slot: GearSlot): string {
                         <div v-for="row in group.rows" :key="row.key" class="brief-row">
                             <dt>{{ row.label }}</dt>
                             <dd
-                                :class="[row.key, { blank: !row.value }]"
-                                :title="row.value || undefined"
+                                :class="[
+                                    row.key,
+                                    {
+                                        blank: !row.items.length,
+                                        cols: row.perRow,
+                                    },
+                                ]"
+                                :style="row.perRow ? `--brief-cols:${row.perRow}` : undefined"
+                                :title="rowTitle(row)"
                             >
-                                <template v-for="(part, i) in numParts(row.value || '—')" :key="i">
-                                    <b v-if="part.num">{{ part.text }}</b>
-                                    <template v-else>{{ part.text }}</template>
+                                <template v-if="row.items.length">
+                                    <!-- 读数行（宝石 / 灵饰 / 玉魄）每一格包进一枚**数值签**
+                                          （`NumTag`，纸带上挖出的一小格）：这些格是一处读数，
+                                          与卡上师门 / 修炼那几行是同一种东西，材质该一样。
+                                          名字行（特技 / 特效 / 套装）不包——它们是词不是数，
+                                          套上凹格读起来像「这里能填」。
+
+                                          给了 `perRow` 的行是等宽栅格，列宽由 CSS 的
+                                          `--brief-tag-w` 定死（不是均分）：宝石 3 列两行、
+                                          灵饰 4 列、玉魄 2 列，三行的列左缘落在同一条刻度上，
+                                          竖着扫才是一栏。栅格里不画「·」，分隔靠列距。 -->
+                                    <template v-if="row.tag">
+                                        <NumTag
+                                            v-for="(item, i) in row.items"
+                                            :key="i"
+                                            class="brief-item brief-tag"
+                                            :class="{ dim: item.dim }"
+                                        >
+                                            <span class="item-name">{{ item.name }}</span>
+                                            <b v-if="item.value">{{ item.value }}</b>
+                                        </NumTag>
+                                    </template>
+                                    <!-- 名字行：一格两段。纯空白的文本节点不成 flex 项，
+                                         所以两段紧挨着写，靠 `.brief-item` 的 flex 排。 -->
+                                    <template v-else>
+                                        <span
+                                            v-for="(item, i) in row.items"
+                                            :key="i"
+                                            class="brief-item"
+                                            :class="{ dim: item.dim }"
+                                        >
+                                            <span class="item-name">{{ item.name }}</span>
+                                            <b v-if="item.value">{{ item.value }}</b>
+                                        </span>
+                                    </template>
                                 </template>
+                                <template v-else>—</template>
                             </dd>
                         </div>
                     </div>

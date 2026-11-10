@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { CharacterData, GearDetail, GearSlotName, Pet } from '../character';
-import { gearBrief } from '../gear';
+import { briefText, gearBrief } from '../gear';
 import { emptyCharacter, normalizeCharacter } from '../roster';
 import { applyGear, applyPet, applyQuick, quickPanel } from './quick-target';
 
@@ -262,8 +262,9 @@ describe('装备：整份进出', () => {
         const gem = gearBrief(next.gear, { special: '', suit: '' })
             .flatMap((group) => group.rows)
             .find((row) => row.key === 'gem');
-        /* 摘要按「宝石 + 锻炼」两个关键词拼，写死一处不认另一处就会「摘要与格子各说一套」。 */
-        expect(gem?.value.replace(/\u00A0/g, ' ')).toBe('太阳石 8 段');
+        /* 摘要按「锻炼等级」这个词读段数（宝石那一行的值），写死一处不认另一处就会
+         * 「摘要与格子各说一套」。头那一格从 0 变成 8。 */
+        expect(briefText(gem!)).toBe('头8 · 项0 · 武0 · 衣0 · 带0 · 鞋0');
     });
 
     it('修改和清空装备备注只影响目标草稿，保存时去掉首尾空白', () => {

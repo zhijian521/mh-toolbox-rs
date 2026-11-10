@@ -277,9 +277,11 @@ export async function setup(ctx) {
             JSON.stringify(names),
         );
 
-        /* 版心那七行摘要（2026-11-06）：它**全从十二件装备的 detail 现算**，不另存。
-         * 这一只角色只填了「武器」的装备名、没有详情的状态行，所以七行该全是淡「—」
-         * ——这正是最容易写错的一处：没数据时要么整块不画，要么把「空」当成值。 */
+        /* 版心那六行摘要（2026-11-10 从七行压到五行，同日补回「特效」）：它**全从十二
+         * 件装备的 detail 现算**，不另存。这一只角色只填了「武器」的装备名、没有详情
+         * 的状态行，于是特技 / 特效 / 套装该是淡「—」，而三行段数**照样六个 / 四个 /
+         * 两个格全画出来、全是 0**——「没录」与「还没练」在段数这一档是同一件事，
+         * 写 0 才数得出缺几件。宝石那行六个格排三列两行（用户要的「一行三个对齐」）。 */
         const brief = await cdp.evaluate(`(() => {
                 const card = [...document.querySelectorAll('.roster .char')]
                     .find((c) => (c.textContent || '').includes('E2E改名后'));
@@ -287,18 +289,41 @@ export async function setup(ctx) {
                 return rows.map((row) => ({
                     k: row.querySelector('dt')?.textContent.trim() ?? '',
                     v: row.querySelector('dd')?.textContent.trim() ?? '',
+                    n: row.querySelectorAll('.brief-item').length,
+                    tags: row.querySelectorAll('dd .brief-tag').length,
+                    cols: row.querySelector('dd')?.style.getPropertyValue('--brief-cols') ?? '',
                 }));
             })()`);
-        t.check('版心画出七行摘要', brief.length === 7, `实际 ${brief.length} 行`);
+        t.check('版心画出六行摘要', brief.length === 6, `实际 ${brief.length} 行`);
         t.check(
-            '七行是效果 / 段数 / 奇袭三组',
-            brief.map((row) => row.k).join('/') === '特技/套装/宝石/灵饰/钟灵石/玉魄/奇袭',
+            '六行是特技 / 特效 / 套装 / 宝石 / 灵饰 / 玉魄',
+            brief.map((row) => row.k).join('/') === '特技/特效/套装/宝石/灵饰/玉魄',
             `实际：${brief.map((row) => row.k).join('/')}`,
         );
         t.check(
-            '没录的项落成淡「—」',
-            brief.every((row) => row.v === '—'),
-            JSON.stringify(brief.map((row) => row.v)),
+            '没录的特技 / 特效 / 套装落成淡「—」',
+            brief.slice(0, 3).every((row) => row.v === '—'),
+            JSON.stringify(brief.slice(0, 3).map((row) => row.v)),
+        );
+        t.check(
+            '段数三行一件一格：六 / 四 / 二，全是 0',
+            brief
+                .slice(3)
+                .map((row) => row.n)
+                .join('/') === '6/4/2' && brief.slice(3).every((row) => !/[1-9]/.test(row.v)),
+            JSON.stringify(brief.slice(3).map((row) => `${row.n}:${row.v}`)),
+        );
+        t.check(
+            '读数三行都进等宽栅格，列数是三 / 四 / 二',
+            brief[3]?.cols === '3' && brief[4]?.cols === '4' && brief[5]?.cols === '2',
+            JSON.stringify(brief.slice(3).map((row) => row.cols)),
+        );
+        /* 段数三行每一格都包进数值签（`NumTag` 渲成 `.num-tag`），名字三行不包。 */
+        t.check(
+            '段数三行每格一枚数值签，效果三行不包',
+            brief.slice(3).every((row) => row.tags === row.n) &&
+                brief.slice(0, 3).every((row) => row.tags === 0),
+            JSON.stringify(brief.map((row) => `${row.k}:${row.tags}/${row.n}`)),
         );
     });
 
