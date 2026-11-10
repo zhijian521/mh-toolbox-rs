@@ -44,7 +44,7 @@ onMounted(async () => {
         class="character-theme"
         :data-school="character.school || ''"
         :title="`快速修改 · 召唤兽 ${pet?.name.trim() || '未命名'}`"
-        :width="940"
+        :width="860"
         :min-height="'min(740px, calc(100vh - 48px))'"
         fill
         initial-focus="none"

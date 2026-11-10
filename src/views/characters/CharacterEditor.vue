@@ -159,7 +159,7 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
         class="editor character-theme"
         :data-school="draft.school || ''"
         :title="isNew ? '新角色' : `修改角色 · ${character.name || '未命名'}`"
-        :width="940"
+        :width="860"
         :height="'min(740px, calc(100vh - 48px))'"
         fill
         :initial-focus="pane === 'attrs' ? 'none' : 'first'"
@@ -302,7 +302,12 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
 </template>
 
 <style scoped>
-/* 右栏沿用角色卡宽，左栏容纳原图；两侧共用弹窗的实际可用高度。 */
+/* 右栏沿用角色卡宽，左栏容纳原图；两侧共用弹窗的实际可用高度。
+ *
+ * 窗宽 860 是**从两栏反推的**（2026-11-10 用户定：右 420、左 400）：
+ * 正文可用宽 = 860 − 2×1 描边 − 16 左内边距 − 6 右内边距（扣掉滚动条轨道）= 836，
+ * 减去 gap 16 与右栏 420，左栏正好 400。改任何一头都要重算这一串，
+ * 所以窗宽不写独立的「看起来差不多」的数。 */
 .ocr {
     display: grid;
     flex: 1;
@@ -334,8 +339,19 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
     gap: 10px;
     flex-wrap: wrap;
 }
-/* 六个分区共用卡内滑轨，识别计数不足一行时移到下一行。 */
+/* 六个分区共用卡内滑轨，识别计数不足一行时移到下一行。
+ *
+ * 宽度钉成内容宽（`max-content`）：窄页这枚控件是 `.ocr-bar` 里的 flex 项，本来就按内容
+ * 收；装备 / 召唤兽两页把它塞进 `upload-navigation` 那个栅格，栅格默认 `justify-items:
+ * stretch` 会把它拉到整列宽——同一条页签条在六个分区里两种宽度（用户 2026-11-10 实报）。
+ * `max-width: 100%` 兜住「万一左栏比内容还窄」，否则它会顶出去而不是收。
+ *
+ * 为什么不在栅格那边写 `justify-items: start`：那会让页签下面那两行（`.gear-parts-head`
+ * 与十二部位、`.pet-list-head` 与召唤兽列表）一起变成收缩宽度，每个子项都得再补一次
+ * `width: 100%`——把一条几何约束拆成四五处，改一处忘一处就又错位。 */
 .ocr-tabs {
+    width: max-content;
+    max-width: 100%;
     --step-pad-y: 6px;
     --step-pad-x: 10px;
 }

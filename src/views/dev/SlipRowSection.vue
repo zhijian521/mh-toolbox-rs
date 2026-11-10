@@ -22,8 +22,8 @@ import AssistIcon from '../characters/AssistIcon.vue';
  *
  * ## 尺寸照真身
  *
- * md 宽 198 是卡上的实际值：卡 450 − 左右各 20（`--card-pad-x`）− 滚动条占位 2
- * = 408，两列 gap 12 → 每列 198。sm 宽 192 是属性页两列的实际值（410 − 26 列距再
+ * md 宽 183 是卡上的实际值：卡 420 − 左右各 20（`--card-pad-x`）− 滚动条占位 2
+ * = 378，两列 gap 12 → 每列 183。sm 宽 177 是属性页两列的实际值（380 − 26 列距再
  * 除以 2）。开发页按真身给，否则「这里好看、卡上截断」又要多查一轮。
  */
 const WITH_ICON = [
@@ -101,17 +101,17 @@ const SMALL = [
 </template>
 
 <style scoped>
-/* 按真身给宽：md 198（卡上两列），sm 192（属性页两列）。高度不在这里定——
+/* 按真身给宽：md 183（卡上两列），sm 177（属性页两列）。高度不在这里定——
  * 材质与两档尺寸都在 `base.css` 的 `.slip-row`，这里只给「演示怎么排」。 */
 .slip-kit {
     display: grid;
-    grid-template-columns: repeat(2, 198px);
+    grid-template-columns: repeat(2, 183px);
     max-width: 100%;
     gap: 6px 12px;
     margin-bottom: 6px;
 }
 .slip-kit.sm {
-    grid-template-columns: repeat(2, 192px);
+    grid-template-columns: repeat(2, 177px);
     gap: 2px 26px;
 }
 </style>
