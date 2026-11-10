@@ -6,6 +6,7 @@ import PetDetailForm from '../editor/PetDetailForm.vue';
 import PetScreenshot from '../ocr/PetScreenshot.vue';
 import { applyPetPanel } from '../ocr/pet-panel';
 import { applyPet } from './quick-target';
+import { EDITOR_MIN_H, EDITOR_W } from '../editor-metrics';
 import type { CharacterData, Pet } from '../character';
 
 /** 快速修改与整份编辑共用截图入口和四组表单，取消不修改原记录。 */
@@ -44,8 +45,8 @@ onMounted(async () => {
         class="character-theme"
         :data-school="character.school || ''"
         :title="`快速修改 · 召唤兽 ${pet?.name.trim() || '未命名'}`"
-        :width="860"
-        :min-height="'min(740px, calc(100vh - 48px))'"
+        :width="EDITOR_W"
+        :min-height="EDITOR_MIN_H"
         fill
         initial-focus="none"
         @close="emit('close')"

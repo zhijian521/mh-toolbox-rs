@@ -15,6 +15,7 @@ import { useOcrDraft, type PanelResult } from './ocr/use-ocr-draft';
 import GearEditor from './editor/GearEditor.vue';
 import PetEditor from './editor/PetEditor.vue';
 import { normalizeCharacter } from './roster';
+import { EDITOR_MIN_H, EDITOR_W } from './editor-metrics';
 
 /** 新建、手工修改和截图识别共用独立草稿，保存后由名册统一落库。 */
 const props = withDefaults(
@@ -159,8 +160,8 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
         class="editor character-theme"
         :data-school="draft.school || ''"
         :title="isNew ? '新角色' : `修改角色 · ${character.name || '未命名'}`"
-        :width="860"
-        :height="'min(740px, calc(100vh - 48px))'"
+        :width="EDITOR_W"
+        :height="EDITOR_MIN_H"
         fill
         :initial-focus="pane === 'attrs' ? 'none' : 'first'"
         @close="emit('cancel')"

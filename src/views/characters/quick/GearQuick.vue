@@ -6,6 +6,7 @@ import GearDetailForm from '../editor/GearDetailForm.vue';
 import GearScreenshot from '../ocr/GearScreenshot.vue';
 import { mergeGearPanel, type GearPanelResult } from '../ocr/gear-panel';
 import { applyGear } from './quick-target';
+import { EDITOR_MIN_H, EDITOR_W } from '../editor-metrics';
 import type { CharacterData, GearDetail, GearSlotName } from '../character';
 
 /** 手改与识别都只动深拷贝，保存前不会触及角色，取消即丢弃。 */
@@ -50,8 +51,8 @@ onMounted(async () => {
         class="character-theme"
         :data-school="character.school || ''"
         :title="'快速修改 · ' + props.slotName"
-        :width="860"
-        :min-height="'min(740px, calc(100vh - 48px))'"
+        :width="EDITOR_W"
+        :min-height="EDITOR_MIN_H"
         fill
         initial-focus="none"
         @close="emit('close')"
