@@ -64,7 +64,7 @@ function open(row: TrainingRow) {
                             :id="`${uid}-${row.name}`"
                             :model-value="row.level"
                             :label="`${row.name} 等级`"
-                            class="lv-field num-slot"
+                            class="lv-field num-slot slip-input"
                             @update:model-value="emit('edit-level', row.name, $event)"
                         />
                     </div>

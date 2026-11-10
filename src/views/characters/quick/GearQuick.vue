@@ -11,7 +11,10 @@ import { EDITOR_MIN_H, EDITOR_W } from '../editor-metrics';
 import type { CharacterData, GearDetail, GearSlotName } from '../character';
 
 /** 手改与识别都只动深拷贝，保存前不会触及角色，取消即丢弃。 */
-const props = defineProps<{ character: CharacterData; slotName: GearSlotName }>();
+const props = withDefaults(
+    defineProps<{ character: CharacterData; slotName: GearSlotName; saving?: boolean }>(),
+    { saving: false },
+);
 const emit = defineEmits<{ save: [character: CharacterData]; close: [] }>();
 const source = props.character.gear.find((one) => one.slot === props.slotName);
 const caption = ref<string | undefined>(source?.caption ?? '');
@@ -30,7 +33,7 @@ function recognize(result: GearPanelResult) {
     if (merged.detail) detail.value = merged.detail;
 }
 function save() {
-    if (reading.value) return;
+    if (reading.value || props.saving) return;
     emit(
         'save',
         applyGear(props.character, props.slotName, {
@@ -73,7 +76,7 @@ onMounted(async () => {
                 text="保存"
                 label="保存这件装备"
                 seal
-                :disabled="reading"
+                :disabled="reading || saving"
                 @click="save"
             />
         </template>

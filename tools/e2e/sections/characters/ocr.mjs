@@ -4,7 +4,7 @@ import { checkButtonTheme } from './theme.mjs';
 export async function ocr(ctx) {
     const { cdp, ui, t, sleep } = ctx;
     const checkCardFits = async (pane) => {
-        const sizes = await cdp.evaluate(`['.ocr-right', '.ocr-card .char', '.ocr-card .char-body']
+        const sizes = await cdp.evaluate(`['.ocr-standard .upload-detail', '.ocr-card .char', '.ocr-card .char-body']
             .map((selector) => {
                 const one = document.querySelector(selector);
                 return {
@@ -97,7 +97,7 @@ export async function ocr(ctx) {
         t.check('预览卡只挂属性这一页', panes === 1, `实际 ${panes} 页`);
         await checkButtonTheme(ctx, '.modal-panel');
 
-        const empty = await ui.text('.ocr-shot');
+        const empty = await ui.text('.ocr-standard .upload-preview');
         t.check('空态说清了怎么粘', empty.includes('Ctrl + V'), empty);
 
         /* 页脚只有两枚按钮。原先那里还压着一句「只写认出来的项…乾元丹 / 潜能果
@@ -152,12 +152,12 @@ export async function ocr(ctx) {
          * 就已经画好了（它们是卡片结构，不是识别结果），一粘就满足，断言会全打在
          * 空值上——第一次跑就是这么红的。`.ocr-count`（认出 N 项）只在解析出结果后渲染。 */
         const ready = await ui.waitFor(
-            `!!document.querySelector('.ocr-count') && !document.querySelector('.shot-busy')`,
+            `!!document.querySelector('.ocr-count') && !document.querySelector('.ocr-standard .upload-busy')`,
             { timeout: 40000 },
         );
         t.check('粘完就开始认，认完报出认出几项', ready);
         const complaint = await cdp.evaluate(
-            `document.querySelector('.ocr .note.error')?.textContent.trim() ?? ''`,
+            `document.querySelector('.ocr-standard .upload-error')?.textContent.trim() ?? ''`,
         );
         t.check('识别没报错', complaint === '', complaint);
 
@@ -167,7 +167,7 @@ export async function ocr(ctx) {
 
         /* 「识别中…」那层蒙版必须跟着撤掉。它单看起来只是块半透明纸，
          * 但真停在那儿，用户会以为还在算、于是一直等。 */
-        t.check('识别完就撤掉「识别中」', (await ui.count('.shot-busy')) === 0);
+        t.check('识别完就撤掉「识别中」', (await ui.count('.ocr-standard .upload-busy')) === 0);
 
         const shot = await cdp.evaluate(`(() => {
                 const card = document.querySelector('.ocr-card');
@@ -180,8 +180,8 @@ export async function ocr(ctx) {
                     values,
                     level: card.querySelector('input[aria-label="角色等级"]')?.value ?? '',
                     school: card.querySelector('.identity-school .select-text')?.textContent.trim() ?? '',
-                    rawOpen: dialog?.querySelector('.ocr-raw-box')?.open ?? null,
-                    rawHead: dialog?.querySelector('.ocr-raw-box summary')?.textContent.trim() ?? '',
+                    rawOpen: dialog?.querySelector('.ocr-standard .upload-raw')?.open ?? null,
+                    rawHead: dialog?.querySelector('.ocr-standard .upload-raw summary')?.textContent.trim() ?? '',
                 };
             })()`);
         t.check('卡头等级认出 69', shot.level === '69', shot.level);
@@ -477,7 +477,7 @@ export async function ocr(ctx) {
             try {
                 await pasteFixture(index === 0 ? 'assist-life.png' : 'assist-story.png');
                 ready = await ui.waitFor(
-                    `!document.querySelector('.shot-busy') &&
+                    `!document.querySelector('.ocr-standard .upload-busy') &&
                         !!document.querySelector('.ocr-count') &&
                         document.querySelectorAll('.ocr-card .assist-group input').length > 0`,
                     { timeout: 60000 },
@@ -613,7 +613,7 @@ export async function ocr(ctx) {
         );
         await pasteFixture('training.png');
         await ui.waitFor(
-            `!document.querySelector('.shot-busy') && !!document.querySelector('.ocr-count')`,
+            `!document.querySelector('.ocr-standard .upload-busy') && !!document.querySelector('.ocr-count')`,
             { timeout: 60000 },
         );
         t.check(
@@ -627,7 +627,7 @@ export async function ocr(ctx) {
         t.check(
             '修炼截图识别完成',
             await ui.waitFor(
-                `!document.querySelector('.shot-busy') &&
+                `!document.querySelector('.ocr-standard .upload-busy') &&
                     !!document.querySelector('.ocr-count') &&
                     document.querySelectorAll('.ocr-card .training-list input').length === 10`,
                 { timeout: 60000 },
@@ -861,7 +861,7 @@ export async function ocr(ctx) {
             await paste();
             await ui.waitFor('window.__e2eOcrRequests.length === 1');
             await resolveImage(0, 7001);
-            await ui.waitFor(`!document.querySelector('.shot-busy')`);
+            await ui.waitFor(`!document.querySelector('.ocr-standard .upload-busy')`);
             await paste();
             await ui.waitFor('window.__e2eOcrRequests.length === 2');
             t.check(
@@ -873,7 +873,7 @@ export async function ocr(ctx) {
             await paste();
             await ui.waitFor('window.__e2eOcrRequests.length === 3');
             await resolveImage(2, 7003);
-            await ui.waitFor(`!document.querySelector('.shot-busy')`);
+            await ui.waitFor(`!document.querySelector('.ocr-standard .upload-busy')`);
             await resolveImage(1, 7002);
             await sleep(100);
             t.check(

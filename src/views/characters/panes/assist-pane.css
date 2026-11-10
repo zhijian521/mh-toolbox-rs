@@ -29,18 +29,8 @@
  * （`.slip-rows.slip-cols`）搬进 `base.css`，属性、师门、辅助、修炼四页共用一份
  * ——原先辅助 42、师门 40、修炼 40、属性 30，同一个「一行」四个高度，
  * 签还有 40×24 / 56×26 / 52 三种宽度，正是这一轮要收掉的东西。
- * 这里只维护分组排版及可编辑预览的数字格。 */
+ * 这里只维护分组排版和行内控件，数字格由全局 `.slip-input` 提供。 */
 
-/* 预览里的等级格与只读签同宽同高，改数后仍能沿同一行核对。 */
-.assist-group .lv-field {
-    flex: none;
-    width: calc(56px * var(--fs-scale));
-    height: calc(24px * var(--fs-scale));
-    color: var(--num);
-    font-size: calc(var(--fs-md) + 1px);
-    line-height: 1;
-    text-align: center;
-}
 .editing .slip-row {
     gap: 4px;
     padding: 0 6px;
@@ -53,10 +43,6 @@
     --icon-size: calc(10px * var(--fs-scale));
     gap: 2px;
     padding: 0 4px;
-}
-.editing .lv-field {
-    width: calc(36px * var(--fs-scale));
-    padding: 0 3px;
 }
 .assist-remove {
     --tile-w: calc(22px * var(--fs-scale));

@@ -100,7 +100,16 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
             <p v-if="error && !busy" class="upload-error" role="alert">{{ error }}</p>
             <details v-if="rawLines?.length" class="upload-raw">
                 <summary>识别原文 · {{ rawLines.length }} 行</summary>
-                <p v-for="(line, index) in rawLines" :key="index">{{ line.text }}</p>
+                <ul class="upload-raw-list">
+                    <li
+                        v-for="(line, index) in rawLines"
+                        :key="index"
+                        :class="{ low: (line.score ?? 0) < 0.6 }"
+                    >
+                        <span class="raw-text">{{ line.text }}</span>
+                        <span class="raw-score">{{ (line.score ?? 0).toFixed(2) }}</span>
+                    </li>
+                </ul>
             </details>
         </section>
         <div class="upload-detail"><slot /></div>

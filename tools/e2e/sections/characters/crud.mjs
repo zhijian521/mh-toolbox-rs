@@ -35,7 +35,7 @@ export async function setup(ctx) {
         t.pass('点「新建角色」打开编辑器');
         t.check(
             '新建共用带截图入口的修改窗口，名称为空不能保存',
-            await cdp.evaluate(`!!document.querySelector('.editor .ocr-shot') &&
+            await cdp.evaluate(`!!document.querySelector('.editor .ocr-standard .upload-preview') &&
                 document.querySelector('button[aria-label="保存这个角色"]').disabled`),
         );
 
@@ -444,7 +444,21 @@ export async function pets(ctx) {
             ),
         );
         await ui.clickLabel('新增召唤兽');
+        t.check(
+            '整体修改新增无名召唤兽时禁止保存',
+            await cdp.evaluate(`document.querySelector('button[aria-label="保存这个角色"]').disabled`),
+        );
+        await ui.fillSel('.pet-block input[aria-label="召唤兽名称"]', '   ');
+        t.check(
+            '空白名称也不能保存，草稿仍保留',
+            await cdp.evaluate(`document.querySelector('button[aria-label="保存这个角色"]').disabled &&
+                document.querySelectorAll('.pet-choice').length === 1`),
+        );
         await ui.fillSel('.pet-block input[aria-label="召唤兽名称"]', '临时甲');
+        t.check(
+            '命名后恢复保存',
+            await cdp.evaluate(`!document.querySelector('button[aria-label="保存这个角色"]').disabled`),
+        );
         await ui.clickLabel('新增召唤兽');
         await ui.fillSel('.pet-block input[aria-label="召唤兽名称"]', '临时乙');
         await ui.fillSel('.pet-block input[aria-label="等级"]', '22');

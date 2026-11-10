@@ -28,6 +28,11 @@ export interface Pet {
     spirit?: number;
 }
 
+/** 无名召唤兽不能保存，整体修改和单只修改共用同一规则。 */
+export function hasPetName(pet: Pick<Pet, 'name'>): boolean {
+    return Boolean(pet.name.trim());
+}
+
 /** 默认格数只控制留白，已学技能全部展示。 */
 export function petDetailSlots(names: readonly string[], minimum: number): string[] {
     return Array.from({ length: Math.max(minimum, names.length) }, (_, i) => names[i] ?? '');

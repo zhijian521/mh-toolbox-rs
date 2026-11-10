@@ -40,16 +40,6 @@
     --gh-mb: 8px;
 }
 
-/* 识别预览只编辑等级，输入格沿用原数值签的位置与尺寸。 */
-.training-list .lv-field {
-    flex: none;
-    width: var(--tag-w);
-    height: var(--tag-h);
-    color: var(--num);
-    font-size: calc(var(--fs-md) + 1px);
-    line-height: 1;
-    text-align: center;
-}
 label.slip-name {
     cursor: text;
 }

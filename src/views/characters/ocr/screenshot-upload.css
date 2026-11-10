@@ -93,14 +93,37 @@
 }
 .upload-raw {
     flex: none;
-    max-height: 120px;
-    overflow-y: auto;
 }
 .upload-raw summary {
     cursor: pointer;
 }
-.upload-raw p {
-    margin: 3px 0;
+.upload-raw-list {
+    max-height: 190px;
+    margin: 4px 0 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+.upload-raw-list li {
+    display: flex;
+    gap: 8px;
+    padding: 2px 0;
+    border-bottom: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 30%, transparent);
+}
+.raw-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ink-2);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.raw-score {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+}
+.upload-raw-list li.low .raw-score {
+    color: var(--cinnabar);
 }
 .upload-detail {
     display: flex;

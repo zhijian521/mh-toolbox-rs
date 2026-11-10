@@ -137,7 +137,7 @@ const expText = computed(() => {
                                  所以「这枚签能点」不用再加提示字。 -->
                             <input
                                 v-if="editable"
-                                class="field num num-slot attr-field"
+                                class="field num num-slot attr-field slip-input"
                                 :value="row.value"
                                 :aria-label="row.label"
                                 @change="commit(row.label, $event)"

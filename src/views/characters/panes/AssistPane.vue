@@ -105,7 +105,7 @@ function optionsFor(row: AssistSkill) {
                             :id="`${uid}-${row.kind}-${index}`"
                             :model-value="row.level"
                             :label="`${row.name || group.title} 等级`"
-                            class="lv-field num-slot"
+                            class="lv-field num-slot slip-input compact"
                             @update:model-value="
                                 emit('edit-row', assists.indexOf(row), { level: $event })
                             "

@@ -43,7 +43,38 @@ export async function quick(ctx) {
         };
 
         const saveDialog = async () => {
-            await ui.clickText('.modal-panel button', '保存');
+            await cdp.evaluate(`(async () => {
+                const { commands } = await ${importLoaded('/src/services/bindings.ts')};
+                window.__e2eQuickSave = commands.charactersSave;
+                commands.charactersSave = (...args) => new Promise((resolve, reject) => {
+                    let released = false;
+                    window.__e2eReleaseQuickSave = () => {
+                        if (released) return;
+                        released = true;
+                        return window.__e2eQuickSave(...args).then(resolve, reject);
+                    };
+                });
+            })()`);
+            try {
+                await ui.clickText('.modal-panel button', '保存');
+                await ui.waitFor('typeof window.__e2eReleaseQuickSave === "function"');
+                t.check(
+                    '快速修改写入期间禁用保存',
+                    await cdp.evaluate(`[...document.querySelectorAll('.modal-panel button')]
+                        .find((button) => button.textContent.trim() === '保存')?.disabled === true`),
+                );
+            } finally {
+                await cdp.evaluate(`(async () => {
+                    const { commands } = await ${importLoaded('/src/services/bindings.ts')};
+                    try {
+                        await window.__e2eReleaseQuickSave?.();
+                    } finally {
+                        commands.charactersSave = window.__e2eQuickSave;
+                        delete window.__e2eQuickSave;
+                        delete window.__e2eReleaseQuickSave;
+                    }
+                })()`);
+            }
             const closed = await ui.waitFor(`!document.querySelector('.modal-panel')`, {
                 timeout: 3000,
             });
@@ -157,6 +188,18 @@ export async function quick(ctx) {
             return { ...one.assists.find((row) => row.kind === 'life' && row.name === '强身术') };
         })()`);
         t.check('辅助快捷修改保留已有上限', assist.level === 100 && assist.cap === 140);
+
+        await ui.clickIn('.roster .char', 'E2E改名后', { text: '修炼' });
+        t.check('修炼行点得动', (await clickRow('攻击修炼')) === true);
+        await ui.waitFor(`!!document.querySelector('.modal-panel')`, { timeout: 3000 });
+        t.check(
+            '修炼快速修改只提供等级',
+            await cdp.evaluate(`document.querySelectorAll('.quick-field').length === 1 &&
+                document.querySelector('.quick-field .field-label')?.textContent.trim() === '等级'`),
+        );
+        await fillField('等级', '12');
+        t.check('修炼等级存下去了', await saveDialog());
+        t.check('修炼等级更新并保留默认上限', (await readRow('攻击修炼')) === '12/20');
 
         // ---- ③ 装备格 ----
         await ui.clickIn('.roster .char', 'E2E改名后', { text: '装备' });
@@ -280,6 +323,11 @@ export async function quick(ctx) {
                 `[...document.querySelectorAll('.pet-quick .skill-icons .skill-picker small')]
                     .map((e) => e.textContent.trim()).join('、') === '泰山压顶、高级驱鬼'`,
             ),
+        );
+        await fillField('召唤兽名称', '   ');
+        t.check(
+            '单只修改清空名称时禁止保存',
+            await cdp.evaluate(`document.querySelector('button[aria-label="保存这只召唤兽"]').disabled`),
         );
         await fillField('召唤兽名称', 'E2E兽');
         await fillField('等级', '121');

@@ -110,9 +110,9 @@ export async function equipment(ctx) {
         const dialogSize = () =>
             cdp.evaluate(`(() => {
                 const rect = document.querySelector('.modal-panel').getBoundingClientRect();
-                const right = [...document.querySelectorAll('.ocr-right, .upload-detail')]
+                const right = [...document.querySelectorAll('.upload-detail')]
                     .find((el) => el.getClientRects().length);
-                const left = [...document.querySelectorAll('.ocr-left, .upload-left')]
+                const left = [...document.querySelectorAll('.upload-left')]
                     .find((el) => el.getClientRects().length);
                 return {
                     width: rect.width, height: rect.height,
@@ -131,10 +131,14 @@ export async function equipment(ctx) {
         await ui.clickText('.ocr-tabs button', '属性', { exact: true });
         const standardTabs = await tabsWidth();
         const tabWidths = [];
+        const sharedUploads = [];
         for (const pane of ['师门', '辅助', '修炼', '召唤兽', '装备']) {
             await ui.clickText('.ocr-tabs button', pane, { exact: true });
             tabWidths.push([pane, await tabsWidth()]);
+            sharedUploads.push(await cdp.evaluate(`[...document.querySelectorAll('.ocr .screenshot-upload')]
+                .filter((el) => el.getClientRects().length).length === 1`));
         }
+        t.check('各分区只启用一份共用截图入口', sharedUploads.every(Boolean));
         t.check(
             '分区页签在六个分区里等宽',
             standardTabs > 0 && tabWidths.every(([, width]) => Math.abs(width - standardTabs) < 1),

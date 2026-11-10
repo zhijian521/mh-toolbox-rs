@@ -105,18 +105,6 @@
     color: var(--ink);
     font-size: var(--fs-md);
 }
-/* 与角色属性页的签同位同尺寸，材质由全局 .field.num-slot 提供。 */
-.value-field {
-    flex: none;
-    width: var(--tag-w);
-    height: var(--tag-h);
-    padding: 0 6px;
-    color: var(--num);
-    font-size: var(--fs-sm);
-    font-weight: 700;
-    line-height: 1;
-    text-align: center;
-}
 .pet-facts {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

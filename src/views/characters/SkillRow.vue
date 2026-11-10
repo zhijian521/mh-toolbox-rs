@@ -121,7 +121,7 @@ const seal = computed(() => [...props.row.name][0] ?? '');
             :id="inputId"
             :model-value="row.level"
             label="等级"
-            class="lv-field num-slot"
+            class="lv-field num-slot slip-input"
             @update:model-value="emit('update:level', $event)"
         />
     </div>
@@ -149,23 +149,6 @@ const seal = computed(() => [...props.row.name][0] ?? '');
     line-height: 1;
 }
 
-/* 可编辑时：同一个位置、同一个尺寸，把签换成能写的格子。
- *
- * 尺寸必须自己写：`NumTag` 的宽高走 `--tag-*`（`slip-row` 已经给了），而 `.field`
- * 不走这两个变量——它是表单控件，宽高由 `width` / `height` 定。两处数值相同即可，
- * 不必去统一变量名（那会让 `.field` 为这一个特例背两个别名）。
- *
- * 高度 24 跟着 `--tag-h` 一起收（2026-11-04）：同一行数在卡上（签 56 × 24）与
- * 弹窗里（格 56 × 24）必须同高，否则填完抬眼核对时两边差半毫米。 */
-.school-row .lv-field {
-    flex: none;
-    width: calc(56px * var(--fs-scale));
-    height: calc(24px * var(--fs-scale));
-    color: var(--num);
-    font-size: calc(var(--fs-md) + 1px);
-    line-height: 1;
-    text-align: center;
-}
 label.slip-name {
     cursor: text;
 }

@@ -10,26 +10,11 @@ import PetQuick from './PetQuick.vue';
 import { applyQuick, isScalarTarget, quickPanel, type QuickTarget } from './quick-target';
 import type { CharacterData } from '../character';
 
-/**
- * 快速修改：**点哪一项就改哪一项**。
- *
- * ---- 它是个分发器，不是唯一那张表单 ----
- * 五类单值项（属性 / 经验 / 技能 / 辅助 / 修炼）在这份文件里——窄窗、字段表驱动，
- * 一屏只有一两格。装备与召唤兽不行：一件装备八段、一只兽二十来格，压成几格之后
- * 用户的原话是「太简单了」。所以它们各有整份表单（`GearQuick` / `PetQuick`），
- * 这里只负责把「点了什么」转过去。
- *
- * ---- 为什么不就地改（像截图识别那样把签换成格） ----
- * 那一条的前提是「周围还有二十个同类读数要一起核对」，格与签同尺寸才不打断扫视。
- * 而日常修正只改一项，就地开格会把卡面变成一张表单，还挤掉 `--tag-w` 那个固定宽度。
- * 弹窗保留卡的原样，改完抬眼就能看见结果——和识别那条的取舍正好相反，因为目的不同。
- *
- * ---- 保存是一次整体替换 ----
- * 三条路都返回新的整份 `CharacterData`，交给 `CharactersView` 的 `update()`
- * （按 id 整条替换 + 落盘）。这里不碰存储：写库的闸门全在 `roster.ts`
- * 与 `persist.ts` 那一层，多一条写入路径就等于多绕一道闸。
- */
-const props = defineProps<{ character: CharacterData; target: QuickTarget }>();
+/** 单项修改分发器；装备和召唤兽使用完整表单，保存统一交给名册落库。 */
+const props = withDefaults(
+    defineProps<{ character: CharacterData; target: QuickTarget; saving?: boolean }>(),
+    { saving: false },
+);
 const emit = defineEmits<{ save: [character: CharacterData]; close: [] }>();
 
 /* 当前该画哪几格。点开之后数据被别处改掉、或者传错了定位键时是 `null`——
@@ -55,24 +40,11 @@ const skillIcon = computed(() => {
 const gearSlot = computed(() => (props.target.kind === 'gear' ? props.target.slot : null));
 const petIndex = computed(() => (props.target.kind === 'pet' ? props.target.index : null));
 
-/* 草稿：**一律字符串**。数字格也存字符串，因为 `NumberField` 的 `0` 与「空」在这个
- * 窗里是两件事（上限空 = 不知道），而 `NumberField` 自己已经把「空 → 0」处理过一轮，
- * 这里只需要在保存时把 0 当成「没填」。 */
+/** 字符串草稿保留空值，经验单位由字段配置提供。 */
 const draft = ref<Record<string, string>>({});
 for (const field of panel.value?.fields ?? []) draft.value[field.key] = field.value;
 
-/* 必填只有召唤兽的名字。`trim` 之后再判：全是空格的名字与空名字一样，
- * 存下去会被 `normalizePet` 丢掉。
- *
- * 另外：找不到那一项（`panel` 为 `null`）时保存必须点不动——否则按下去什么都不发生，
- * 读起来像「保存坏了」。 */
-const canSave = computed(() => {
-    const current = panel.value;
-    if (!current) return false;
-    return current.fields.every(
-        (field) => !field.required || (draft.value[field.key] ?? '').trim() !== '',
-    );
-});
+const canSave = computed(() => panel.value !== null && !props.saving);
 
 function save() {
     const current = panel.value;
@@ -101,6 +73,7 @@ onMounted(async () => {
         v-if="gearSlot"
         :character="props.character"
         :slot-name="gearSlot"
+        :saving="saving"
         @save="emit('save', $event)"
         @close="emit('close')"
     />
@@ -108,6 +81,7 @@ onMounted(async () => {
         v-else-if="petIndex !== null"
         :character="props.character"
         :index="petIndex"
+        :saving="saving"
         @save="emit('save', $event)"
         @close="emit('close')"
     />
@@ -147,7 +121,6 @@ onMounted(async () => {
                     v-model="draft[field.key]"
                     class="field"
                     :aria-label="field.label"
-                    :required="field.required"
                     autocomplete="off"
                 />
             </div>

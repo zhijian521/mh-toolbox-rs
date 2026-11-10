@@ -8,10 +8,13 @@ import { applyPetPanel } from '../ocr/pet-panel';
 import { cloneDraft } from './clone-draft';
 import { applyPet } from './quick-target';
 import { EDITOR_MIN_H, EDITOR_W } from '../editor-metrics';
-import type { CharacterData, Pet } from '../character';
+import { hasPetName, type CharacterData, type Pet } from '../character';
 
 /** 快速修改与整份编辑共用截图入口和四组表单，取消不修改原记录。 */
-const props = defineProps<{ character: CharacterData; index: number }>();
+const props = withDefaults(
+    defineProps<{ character: CharacterData; index: number; saving?: boolean }>(),
+    { saving: false },
+);
 const emit = defineEmits<{ save: [character: CharacterData]; close: [] }>();
 
 const source = computed(() => props.character.pets[props.index] ?? null);
@@ -20,7 +23,9 @@ const source = computed(() => props.character.pets[props.index] ?? null);
 const pet = ref<Pet | null>(source.value ? cloneDraft(source.value) : null);
 
 const reading = ref(false);
-const canSave = computed(() => !reading.value && (pet.value?.name ?? '').trim() !== '');
+const canSave = computed(
+    () => !reading.value && !props.saving && pet.value !== null && hasPetName(pet.value),
+);
 
 function save() {
     if (!pet.value || !canSave.value) return;

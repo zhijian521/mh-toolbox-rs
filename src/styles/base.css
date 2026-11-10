@@ -850,6 +850,25 @@ svg {
 .slip-row .num-slot {
     background: color-mix(in srgb, var(--bevel-lo) 50%, var(--paper-2));
 }
+/* 票面编辑格与读数签共用尺寸；辅助含删除按钮时使用紧凑宽度。 */
+.slip-row .field.slip-input {
+    flex: none;
+    width: var(--tag-w);
+    height: var(--tag-h);
+    padding: 0 6px;
+    color: var(--num);
+    font-size: calc(var(--fs-md) + 1px);
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+}
+.slip-row.sm .field.slip-input {
+    font-size: var(--fs-sm);
+}
+.slip-row .field.slip-input.compact {
+    width: calc(36px * var(--fs-scale));
+    padding: 0 3px;
+}
 /* 读数：赭色。字色写在 `.lv` 上而不是签的根上——`NumTag` 的根把字色定成墨（那是它
  * 作为通用器件的默认），而这一格要的是「读数赭」；根上的色只管「满」那个字。 */
 .slip-val .lv {

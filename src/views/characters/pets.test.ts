@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { PET_SKILL_SLOTS, petDetailSlots } from './pets';
+import { hasPetName, PET_SKILL_SLOTS, petDetailSlots } from './pets';
 import { normalizePet } from './details';
 
 describe('召唤兽详情与旧档案', () => {
+    it('整体和单只修改都拒绝空白名称，保存时去掉首尾空格', () => {
+        expect(hasPetName({ name: '' })).toBe(false);
+        expect(hasPetName({ name: ' \t ' })).toBe(false);
+        expect(hasPetName({ name: ' 天狗 ' })).toBe(true);
+        expect(normalizePet({ name: ' \t ' })).toBeNull();
+        expect(normalizePet({ name: ' 天狗 ' })?.name).toBe('天狗');
+    });
+
     it('超过默认格数的技能完整展示，不截断原记录', () => {
         const names = Array.from({ length: 16 }, (_, i) => `技能${i + 1}`);
         expect(petDetailSlots(names, PET_SKILL_SLOTS)).toEqual(names);

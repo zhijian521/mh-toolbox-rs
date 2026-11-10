@@ -82,26 +82,6 @@
     color: var(--muted);
 }
 
-/* ---------- 读数变成一格（`editable`） ----------
- * 几何**读行上的变量**，不写 52 / 18：`.slip-row.sm` 已经把签的宽高定成 `--tag-w` /
- * `--tag-h`，这枚格就落在签的同一个位置上。编辑页那份（`AttrEditor` 的 `.value-field`）
- * 只能写死 52 / 18——它在行外，读者看不到变量的来处；这里就在行里，抄一遍数字等于
- * 又多一个「改签宽忘了改格宽」的地方。
- *
- * 材质走 `base.css` 的 `.field.num-slot`（静息淡槽、悬停加深、聚焦实槽），
- * 与编辑页、师门等级格是同一份，所以「这枚签现在能点」不用另加提示。
- *
- * 字色赭、居中、行高 1：三条都跟着卡上那枚签。`.field` 自己给的 `--fs-sm` 与
- * `line-height: 24` 是 26 高表单格的算法，塞进 18 的格里会顶出去。 */
-.attr-field {
-    flex: none;
-    width: var(--tag-w);
-    height: var(--tag-h);
-    padding: 0 6px;
-    color: var(--num);
-    line-height: 1;
-    text-align: center;
-}
 /* ---------- 经验那两个格 ---------- */
 /* 两格排在条后面，条不许缩没：`min-width` 由 `MeterBar` 自己守着 40。 */
 .exp-edit {

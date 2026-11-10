@@ -190,6 +190,7 @@ const desc = computed(() =>
             v-if="quicking"
             :character="quicking.character"
             :target="quicking.target"
+            :saving="pending > 0"
             @save="onQuickSave"
             @close="quicking = null"
         />

@@ -60,7 +60,7 @@ export function normalizeGearDetail(raw: unknown): GearDetail | undefined {
 
 export function normalizePet(raw: unknown): Pet | null {
     if (!isObject(raw)) return null;
-    const name = text(raw.name);
+    const name = text(raw.name).trim();
     if (!name) return null;
     const quality = isObject(raw.quality) ? raw.quality : {};
     const spirit = optionalInt(raw.spirit);

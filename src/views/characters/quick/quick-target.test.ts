@@ -101,6 +101,11 @@ describe('快速修改：读现值', () => {
         expect(panel?.fields.map((field) => field.label)).toEqual(['等级']);
     });
 
+    it('修炼快速修改也只提供等级', () => {
+        const panel = quickPanel(base(), { kind: 'training', name: '攻击修炼' });
+        expect(panel?.fields.map((field) => field.key)).toEqual(['level']);
+    });
+
     /* 经验是这一屏**唯一带单位**的：两格都折成「万」，输入框里只留数字，
      * 「万」是槽里那枚固定后缀。亿先折成万——一个屏里两种单位没法加减。 */
     it('经验折成「万」的数字，单位单独给', () => {
@@ -186,32 +191,41 @@ describe('快速修改：写回', () => {
         expect(next.assists.find((one) => one.kind === 'life')?.level).toBe(100);
     });
 
-    it('修炼改等级与上限（上限跟号走，不取清单默认值）', () => {
+    it('修炼只改等级，忽略传入上限并保留已有上限', () => {
         const character = base();
+        const source = character.trainings
+            .flatMap((group) => group.rows)
+            .find((row) => row.name === '攻击修炼')!;
+        source.cap = 25;
         const next = applyQuick(
             character,
             { kind: 'training', name: '攻击修炼' },
-            { level: '25', cap: '25' },
+            { level: '23', cap: '20' },
         );
         const row = next.trainings
             .flatMap((group) => group.rows)
             .find((one) => one.name === '攻击修炼');
-        expect(row).toEqual({ name: '攻击修炼', level: 25, cap: 25 });
+        expect(row).toEqual({ name: '攻击修炼', level: 23, cap: 25 });
+        expect(source.level).toBe(0);
     });
 
-    /* 上限清空**不能**写成 0：`isMaxed` 会判 `level >= 0` 为真，卡上立刻画出 `5/0`
-     * 并盖一枚「满」的签，而重载之后 `normalizeTrainings` 又把 0 当「没填」落回默认
-     * ——存进去的和显示出来的成了两个数。所以清空就落回清单默认值。 */
-    it('修炼上限清空落回默认值（20 / 育兽术 35）', () => {
+    it('修炼缺失上限才回到游戏默认值（20 / 育兽术 35）', () => {
         const character = base();
-        const next = applyQuick(
-            character,
-            { kind: 'training', name: '攻击修炼' },
-            { level: '5', cap: '' },
-        );
-        const rows = next.trainings.flatMap((group) => group.rows);
-        expect(rows.find((one) => one.name === '攻击修炼')?.cap).toBe(20);
-        expect(rows.find((one) => one.name === '育兽术')?.cap).toBe(35);
+        const defaults = [
+            ['攻击修炼', 20],
+            ['育兽术', 35],
+        ] as const;
+        for (const [name, cap] of defaults) {
+            const source = character.trainings
+                .flatMap((group) => group.rows)
+                .find((row) => row.name === name)!;
+            source.cap = 0;
+            const next = applyQuick(character, { kind: 'training', name }, { level: '5' });
+            const row = next.trainings
+                .flatMap((group) => group.rows)
+                .find((one) => one.name === name);
+            expect(row).toMatchObject({ level: 5, cap });
+        }
     });
 });
 

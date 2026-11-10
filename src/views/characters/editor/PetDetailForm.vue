@@ -3,7 +3,7 @@ import { computed, onMounted } from 'vue';
 import AppIcon from '../../../components/AppIcon.vue';
 import PaperCard from '../../../components/PaperCard.vue';
 import NumberField from '../../../components/NumberField.vue';
-import { PET_QUALITY_FIELDS, type Pet } from '../character';
+import { hasPetName, PET_QUALITY_FIELDS, type Pet } from '../character';
 import { loadPetAssets, petAssets } from '../../../services/pet-assets';
 import PetPortraitPicker from './PetPortraitPicker.vue';
 import PetSkillPicker from './PetSkillPicker.vue';
@@ -69,6 +69,8 @@ function addSkill() {
                                 class="field"
                                 aria-label="召唤兽名称"
                                 placeholder="召唤兽名称"
+                                required
+                                :aria-invalid="!hasPetName(pet)"
                             />
                         </label>
                         <slot name="name-extra" />
@@ -77,7 +79,7 @@ function addSkill() {
                         <label class="slip-row sm">
                             <span class="slip-name">等级</span>
                             <NumberField
-                                class="num-slot value-field"
+                                class="num-slot value-field slip-input"
                                 :model-value="pet.level"
                                 label="等级"
                                 zero-as-empty
@@ -87,7 +89,7 @@ function addSkill() {
                         <label class="slip-row sm">
                             <span class="slip-name">参战等级</span>
                             <NumberField
-                                class="num-slot value-field"
+                                class="num-slot value-field slip-input"
                                 :model-value="pet.joinLevel"
                                 label="参战等级"
                                 zero-as-empty
@@ -116,7 +118,7 @@ function addSkill() {
                         >
                             <span class="slip-name">{{ label }}</span>
                             <input
-                                class="field num num-slot value-field"
+                                class="field num num-slot value-field slip-input"
                                 inputmode="numeric"
                                 :aria-label="'召唤兽' + label"
                                 :value="valueFor(group.key, label)"
@@ -135,7 +137,7 @@ function addSkill() {
                         >
                             <span class="slip-name">{{ field.label }}</span>
                             <NumberField
-                                class="num-slot value-field"
+                                class="num-slot value-field slip-input"
                                 :model-value="pet.quality[field.key]"
                                 :label="field.label + '资质'"
                                 zero-as-empty
@@ -148,14 +150,14 @@ function addSkill() {
                             ><span class="slip-name">成长</span
                             ><input
                                 v-model="pet.growth"
-                                class="field num num-slot value-field"
+                                class="field num num-slot value-field slip-input"
                                 inputmode="decimal"
                                 aria-label="成长"
                         /></label>
                         <label class="slip-row sm"
                             ><span class="slip-name">寿命</span
                             ><NumberField
-                                class="num-slot value-field"
+                                class="num-slot value-field slip-input"
                                 :model-value="pet.life"
                                 label="寿命"
                                 zero-as-empty
@@ -165,7 +167,7 @@ function addSkill() {
                             ><span class="slip-name">五行</span
                             ><input
                                 v-model="pet.element"
-                                class="field num-slot value-field"
+                                class="field num-slot value-field slip-input"
                                 aria-label="五行"
                         /></label>
                     </div>

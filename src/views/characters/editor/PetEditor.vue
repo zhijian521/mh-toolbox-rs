@@ -7,8 +7,6 @@ import PetImage from '../PetImage.vue';
 import { applyPetPanel, emptyPet, type PetPanelResult } from '../ocr/pet-panel';
 import type { Pet } from '../character';
 
-/* `vue/define-macros-order` 要求 `defineEmits` 排在 `defineModel` 之前（两者编译产物互不依赖，
- * 只是顺序约定）。这条告警在这次改动之前就在，`npm run lint` 一直红在这一行，顺手挪正。 */
 const emit = defineEmits<{ busy: [value: boolean] }>();
 
 /** 左侧目录与分区导航常驻，右侧只编辑选中的召唤兽，长详情独立滚动。 */

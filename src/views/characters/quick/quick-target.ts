@@ -1,42 +1,5 @@
 import { normalizeGearDetail, normalizePet } from '../details';
-/**
- * 快速修改：**一次只改一项**。
- *
- * ---- 为什么还要第三条入口 ----
- * 编辑弹窗（`CharacterEditor`）是「把这个号重新录一遍」的地方：六个分区、十二格装备、
- * 十几项技能，一屏装不下，进来就得先找页签。而日常真正发生的事是「换了双鞋」
- * 「这个技能又点了两级」「气血涨了」——为了一个数打开整张表单，再翻到对应页签，
- * 成本远大于那一下改动本身。
- *
- * 所以这里不是「简化版编辑器」，而是**卡上的就地修正**：点哪一项，弹窗里就只有那一项
- * 的几格，保存即落库。三个入口各管一件事，谁都不替代谁：
- *
- *   · 卡头「编辑」→ 整份重录；
- *   · 卡头「截图识别」→ 从面板截图一次认一片；
- *   · 点卡片上的行 / 格 → 改这一项（本文件）。
- *
- * ---- 但装备与召唤兽不适用「几格」 ----
- * 这两类不是「一个数」：一件装备有名称 / 类型 / 条件 / 属性 / 状态 / 特殊 / 风味 / 制造者
- * 八段，一只兽有身份、属性、加点、资质与技能。把它们压成
- * 「名称 / 类型 / 段数 / 宝石」四格（第一版就是这么干的），用户的原话是「太简单了」——
- * 一句话就把这件装备的其余五段挡在了门外。
- *
- * 所以本文件分两半：
- *   · **五类单值项**（属性 / 经验 / 技能 / 辅助 / 修炼）→ `quickPanel` + `applyQuick`，
- *     字段表驱动，窄窗（`QuickEdit.vue`）；
- *   · **装备与召唤兽** → 整份进、整份出（`applyGear` / `applyPet`），宽窗里是一张完整的
- *     表单（`GearQuick.vue` / `PetQuick.vue`）。
- *
- * ---- 为什么定位用「名字」而不是下标 ----
- * 属性、技能、修炼的顺序**由数据与清单决定**，改一处顺序所有下标就偏一位，
- * 而偏移之后界面不报错——只会把「防御」的新值写进「速度」。名字是这一项的身份，
- * 属性表与技能名都是唯一的（宠物同名罕见，所以那一类用下标，见 `QuickTarget`）。
- *
- * ---- 这里全是纯函数 ----
- * 取值 `quickPanel`、写值 `applyQuick` 都不碰 Vue、不碰存储：卡片把「点了哪一项」
- * 抛上来，视图层决定用哪个角色开窗，保存时把新的整份交给 `update()`（`roster.ts`）。
- * 于是「改完是什么样」可以单测，不用起窗口。
- */
+/** 快速修改按行名、装备部位或召唤兽下标定位，返回新角色，存储由名册处理。 */
 import {
     expWanValue,
     trainingDefaultCap,
@@ -98,7 +61,7 @@ export interface QuickField {
     /**
      * 加减一次的量；`'auto'` 按当前值的量级（1 / 10 / 100 / 1000）。
      *
-     * 缺省 1：等级、段数、修炼上限这类「一次一级」的字段不该被放大。
+     * 缺省 1：等级这类「一次一级」的字段不该被放大。
      * 气血、寿命这种四位数用 `'auto'`，否则点一次只动 1 点，等于没有加减。
      */
     step?: number | 'auto';
@@ -109,8 +72,6 @@ export interface QuickField {
      * 不上单位的读数；给它们加一个「万」，读起来就像价格。
      */
     unit?: string;
-    /** 必填。目前只有召唤兽的名字——没有名字的兽读回来会被丢掉。 */
-    required?: boolean;
 }
 
 export interface QuickPanel {
@@ -244,15 +205,7 @@ export function quickPanel(character: CharacterData, target: QuickScalarTarget):
             if (!row) return null;
             return {
                 title: `快速修改 · ${target.name}`,
-                fields: [
-                    { key: 'level', label: '等级', value: String(row.level), numeric: true },
-                    {
-                        key: 'cap',
-                        label: '上限',
-                        value: String(row.cap),
-                        numeric: true,
-                    },
-                ],
+                fields: [{ key: 'level', label: '等级', value: String(row.level), numeric: true }],
             };
         }
     }
@@ -357,11 +310,10 @@ export function applyQuick(
                             ? {
                                   ...row,
                                   level: num(values.level),
-                                  /* 上限是**必填**（不像技能那样可以「不知道」）：
-                                   * 清空就落回清单默认值 20（育兽术 35）。不这么做的话，
-                                   * 0 会直接写进去，卡上立刻画出 `5/0` 并盖一枚「满」的签
-                                   * ——那是 `normalizeTrainings` 明确要挡掉的状态。 */
-                                  cap: num(values.cap) || trainingDefaultCap(row.name) || row.cap,
+                                  cap:
+                                      row.cap > 0
+                                          ? row.cap
+                                          : (trainingDefaultCap(row.name) ?? row.cap),
                               }
                             : row,
                     ),
