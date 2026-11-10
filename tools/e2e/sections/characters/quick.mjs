@@ -227,8 +227,10 @@ export async function quick(ctx) {
             { timeout: 3000 },
         );
         t.check('点兽牌直接进入快速修改', toQuick, await dialogTitle());
+        /* 名 / 等级 / 参战等级三条都在头一段右侧那一列里（2026-11-10 起头像收成一枚，
+         * 三条挪到它右边，`.id7 .id-cell` 那套标记随结构一起撤了）。改数这一列里的输入格。 */
         const petLayout = await cdp.evaluate(`(() => ({
-                idCells: document.querySelectorAll('.modal-panel .id7 .id-cell').length,
+                idCells: document.querySelectorAll('.modal-panel .pet-identity .pet-id input').length,
                 quality: document.querySelectorAll('.modal-panel .q6 .q-cell').length,
                 lists: document.querySelectorAll('.modal-panel .list-block').length,
                 points: document.querySelectorAll('.modal-panel .points .id-cell').length,
@@ -260,8 +262,11 @@ export async function quick(ctx) {
                 `document.querySelector('.pet-quick input[aria-label="召唤兽攻击"]').value === ${JSON.stringify(attack)} && document.querySelector('.pet-quick .pet-screenshot').getAttribute('aria-busy') === 'false'`,
                 { timeout: 60000 },
             );
+            /* 技能自 2026-11-10 起是一格一枚图标（末尾还能加一格），不再有那种顿号分隔的
+             * 文本框：读每格下面那行名字，拼回同一种可读形状。 */
             const skills = await cdp.evaluate(
-                `document.querySelector('.pet-quick textarea[aria-label="已学技能，顿号或逗号分隔"]').value`,
+                `[...document.querySelectorAll('.pet-quick .skill-icons .skill-picker small')]
+                    .map((e) => e.textContent.trim()).join('、')`,
             );
             t.check(
                 `${file} 覆盖当前兽的属性和技能`,
@@ -272,7 +277,8 @@ export async function quick(ctx) {
         t.check(
             '较少技能覆盖后不残留旧技能',
             await cdp.evaluate(
-                `document.querySelector('.pet-quick textarea[aria-label="已学技能，顿号或逗号分隔"]').value === '泰山压顶、高级驱鬼'`,
+                `[...document.querySelectorAll('.pet-quick .skill-icons .skill-picker small')]
+                    .map((e) => e.textContent.trim()).join('、') === '泰山压顶、高级驱鬼'`,
             ),
         );
         await fillField('召唤兽名称', 'E2E兽');

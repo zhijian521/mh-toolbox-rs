@@ -111,10 +111,13 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* 左栏钉 400、右栏吃剩下（2026-11-10 用户定：截图区 400、详情 420）。
+ * 窗宽 860 时正文可用 836 = 400 + gap 16 + 420，所以右栏不用再写死数——
+ * 写死两列各 1fr 会让 400/420 的意图丢掉，改窗宽时两栏一起漂。 */
 .pet-screenshot {
     display: grid;
     flex: 1;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: 400px minmax(0, 1fr);
     gap: 16px;
     min-width: 0;
     min-height: 0;

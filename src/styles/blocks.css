@@ -53,6 +53,23 @@
     --tint-deep: initial;
     --character-paper: var(--board-paper, light-dark(var(--paper-2), var(--paper)));
     --card-tint: var(--tint, var(--character-paper));
+    /* 卡底 = 门派色掺进纸：135° 斜向，两端浓度随主题反转（亮 8→30、暗 76→16，
+     * 暗色那条在文件末尾 `.dark .character-theme`）。**角色卡、修改窗里装备 / 召唤兽
+     * 的详情纸共用这一条**（2026-11-10 用户：「装备和召唤兽右侧卡片背景，和属性师门
+     * 这些保持一致，走角色门派主题色」），所以它长在 `.character-theme` 而不是某一张卡上。
+     *
+     * 混色锚点是 `--character-paper`，不是纯纸白：`.board` 的默认纸是亮色 `--paper-2`、
+     * 暗色 `--paper`，拿 `--paper` 混门派色会让卡比同页其它卡**白一档**。两种挂法都对：
+     * 挂在角色卡上时它自己就是 `.board`（`--board-paper` 当场有值），挂在修改窗面板上时
+     * 没有 `--board-paper`，回落成同一个 `light-dark(--paper-2, --paper)`。
+     * 不填门派时 `--card-tint` 回落成它——新角色还没选门派时必须读作一张普通的纸。 */
+    --wash-a: var(--wash-lo);
+    --wash-b: var(--wash-hi);
+    --card-bg: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--card-tint) var(--wash-a), var(--character-paper)) 0%,
+        color-mix(in srgb, var(--card-tint) var(--wash-b), var(--character-paper)) 100%
+    );
     --slip-base: color-mix(in srgb, var(--card-tint) var(--wash), var(--character-paper));
     --tile-face: var(--slip-base);
     --tile-face-hover: color-mix(in srgb, var(--slip-base) 82%, var(--card-tint));
@@ -141,6 +158,14 @@
 .character-theme[data-school='天机城'] {
     --tint: var(--tint-天机城);
     --tint-deep: var(--tint-deep-天机城);
+}
+
+/* 暗色单独一档浓度、并且把方向反过来（左上浓、右下淡）：亮色那组是为浅纸定的，
+ * 暗纸本身极深，同比例混出来几乎看不出（量过，龙宫那张只剩「还是黑的」）。
+ * 挂在 `.character-theme` 上：角色卡与两张详情纸要走同一条，不各写一份。 */
+.dark .character-theme {
+    --wash-a: var(--wash-hi-dark);
+    --wash-b: var(--wash-lo-dark);
 }
 
 /* 装备分类配色共用于详情标签与快捷添加，布局仍由各组件负责。 */

@@ -8,7 +8,11 @@
      * 断面与圆角上。给 `.pet-content` 加 `padding-bottom` 治不了——那个内衬在裁剪线里面，
      * 只让滚到底时末尾多一段空白。12 = 3px 断面 + 9px 纸。 */
     padding: 0 0 12px;
-    --slip-base: var(--paper);
+    /* 纸色跟着角色门派主题色走，与装备详情、角色卡同一条 `--card-bg`
+     * （2026-11-10 用户：「装备和召唤兽右侧卡片背景，和属性师门这些保持一致」）。
+     * `--slip-base` 不再写死成 `--paper`：票面读中点色，纸染色时票跟着走。
+     * 回落链同 `GearDetailForm` 的 `.gear-form`：算不出来时退回这张纸自己的颜色。 */
+    background: var(--card-bg, var(--board-face, var(--board-paper)));
 }
 /* 底部内衬 16 → 24 → **12**。三段是同一件事的三次调整，理由叠起来看：
  *
@@ -30,12 +34,44 @@
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
 }
+/* 头一段从「头像一行、名称一行」改成**一行读完**（2026-11-10 用户：「选择召唤兽头像
+ * 占据了很大一行，只占据个头像就行，后面我们可以把名称 等级 参战等级提上去放到右边」）。
+ * 左边是那枚 64 的头像（`.portrait-picker` 自己给尺寸），右边两段竖排：名称一条、
+ * 等级与参战等级并排一条。这一行的顶边由两者中较高的那个定，头像不再独占一行。
+ *
+ * 用 flex 而不是两列 grid：左边固定 64、右边吃满剩余——grid 得给列宽写表达式，
+ * 而这里只是「一小块固定 + 一大块自适应」。 */
 .pet-identity {
-    display: grid;
-    gap: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
     padding-bottom: 14px;
     margin-bottom: 14px;
     border-bottom: var(--w-hair) solid var(--rule);
+}
+/* 右侧那一段：名称独占一条，等级 / 参战等级并排一条。
+ * `flex: 1` + `min-width: 0`：名字框跟着弹窗宽度走，长名字在里面横向滚动而不是撑破。 */
+.pet-id {
+    display: grid;
+    flex: 1;
+    gap: 4px;
+    min-width: 0;
+}
+/* 名称一条 = 名字框 + 右边一枚删除（2026-11-10 用户：左栏去掉删除按钮，「删除按钮添加在
+ * 右侧召唤兽详情的名字输入的后面，减少名字输入的宽度，放一个删除按钮」）。
+ * `align-items: center` 让 30 的框与 26 的按钮中线对齐；名字框 `flex: 1` 吃掉剩下的宽度。
+ * 快速修改窗不传这一格（`<slot>` 空着），名字框自然又回到整行宽。 */
+.pet-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+/* 两枚读数行等分：与下面属性 / 资质那几组同一排法。 */
+.id-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 26px;
 }
 .pet-fields,
 .pet-layout {
@@ -51,13 +87,16 @@
 .q-cell {
     min-width: 0;
 }
-.pet-group.wide,
-.span-2 {
+.pet-group.wide {
     grid-column: 1 / -1;
 }
 .group-head {
     --gh-mb: 8px;
     margin-top: 2px;
+}
+.pet-name-field {
+    flex: 1;
+    min-width: 0;
 }
 .pet-name-field .field {
     width: 100%;
@@ -104,26 +143,38 @@
     gap: 5px;
     min-width: 0;
 }
-.slot.off {
-    align-content: center;
-    min-height: 40px;
-    border: var(--w-hair) dashed var(--rule);
-    border-radius: var(--r-2);
-    opacity: 0.45;
-}
 .slot small {
     color: var(--ink-2);
     font-size: var(--fs-mini);
     text-align: center;
     overflow-wrap: anywhere;
 }
-.area {
-    width: 100%;
-    min-height: 56px;
-    margin-top: 10px;
-    padding: 7px;
-    line-height: 1.5;
-    resize: vertical;
+/* 末尾那一格「+」：与技能格同一个盒子（同一列宽、同一段 gap），只把材质换成虚线槽，
+ * 读作「这里还能加一格」而不是「这里有一招叫添加」。虚线、不下朱——朱留给「这一格
+ * 正在被改」（纸片展开时那圈账线，见 `PetSkillPicker`）。 */
+.skill-add {
+    align-content: center;
+    min-height: 40px;
+    gap: 4px;
+    padding: 4px 2px;
+    border: var(--w-hair) dashed var(--rule);
+    border-radius: var(--r-2);
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+    --icon-size: calc(14px * var(--fs-scale));
+}
+.skill-add:hover {
+    border-color: var(--rule-2);
+    /* 同 `GearDetailForm` 的 `.inline-field`：纸走门派浅染后，悬停提亮取中点色，
+     * 回落 `--paper-2` 会在彩纸上贴一块白。 */
+    background: var(--slip-base);
+    color: var(--ink-2);
+}
+.skill-add:focus-visible {
+    outline: var(--ring);
+    outline-offset: var(--ring-offset);
 }
 .note {
     margin: 12px 0 0;

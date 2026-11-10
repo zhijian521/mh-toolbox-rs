@@ -16,6 +16,8 @@ const reading = ref(false);
 const selected = ref<string>(gear.value.find(filled)?.slot ?? gear.value[0]?.slot ?? '');
 const active = computed(() => gear.value.find((slot) => slot.slot === selected.value) ?? null);
 const filledCount = computed(() => gear.value.filter(filled).length);
+/* 清空按钮的形状不跟着「有没有内容」变，只有可见性变——见模板里那段注释。 */
+const clearable = computed(() => Boolean(active.value && filled(active.value)));
 function filled(slot: GearSlot): boolean {
     return Boolean(slot.caption?.trim()) || hasGearDetail(slot.detail);
 }
@@ -68,14 +70,18 @@ const slotIcon = useGearIcon();
                         >装备
                         <span class="gear-count">{{ filledCount }} / {{ gear.length }}</span></span
                     >
+                    <!-- 常驻、只在有内容时显形：这一行右侧若按 `v-if` 增删，20 高的按钮会把行
+                         高顶起来，十二格与预览图跟着上下挪（用户 2026-11-10 报「显示隐藏的时候
+                         页面高度会变」）。留着位置，显隐只走可见性。 -->
                     <PressButton
-                        v-if="active && filled(active)"
+                        class="gear-clear"
+                        :class="{ 'is-on': clearable }"
                         icon="trash"
                         text="清空"
                         size="sm"
-                        :label="'清空' + active.slot + '这一件'"
-                        :disabled="reading"
-                        @click="clearByKey(active.slot)"
+                        :label="active ? '清空' + active.slot + '这一件' : '清空这一件'"
+                        :disabled="reading || !clearable"
+                        @click="active && clearByKey(active.slot)"
                     />
                 </div>
                 <nav class="gear-parts" aria-label="装备部位">
@@ -93,7 +99,6 @@ const slotIcon = useGearIcon();
                     >
                         <IconTile v-if="slotIcon(slot)" class="slot-icon" :src="slotIcon(slot)" />
                         <span v-else class="slot-mark" aria-hidden="true">{{ slot.slot[0] }}</span>
-                        <span class="slot-label">{{ slot.slot }}</span>
                     </button>
                 </nav>
             </template>
@@ -120,9 +125,21 @@ const slotIcon = useGearIcon();
     display: flex;
     align-items: center;
     justify-content: space-between;
-    min-height: 20px;
+    /* 高度钉死在 `PressButton` 的 `sm` 那一档（20 × 字号系数），不按内容取：这一行右侧
+     * 是常驻的清空按钮，行高若由内容决定，按钮一显一隐就带着整栏高度变，下面十二格与预览
+     * 图跟着跳（2026-11-10 用户报的就是这个）。 */
+    height: calc(20px * var(--fs-scale));
     color: var(--ink-2);
     font-size: var(--fs-sm);
+}
+/* 清空按钮：没内容时仍占位，只是看不见也点不动。用 `visibility` 而不是 `display`——
+ * 后者一样把位置收走，等于换个地方重新跳一次。`opacity` 不用：它只让按钮变淡，
+ * 仍会接住指针，十二格那一带就多了一个看不见的点击区。 */
+.gear-clear {
+    visibility: hidden;
+}
+.gear-clear.is-on {
+    visibility: visible;
 }
 .gear-count {
     margin-left: 6px;
@@ -142,56 +159,83 @@ const slotIcon = useGearIcon();
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 5px;
+    gap: 0;
     min-width: 0;
-    padding: 5px 1px;
+    /* 底下那 9px 是给「落格印」留的位置：它只在选中时出现，但位置一旦按选中态撑开，
+     * 切部位时整排图标会跟着上下跳 2px。留白固定，印在一处出现或消失。 */
+    padding: 6px 2px 9px;
     border: var(--w-hair) solid transparent;
     border-radius: var(--r-2);
     background: transparent;
     color: var(--muted);
     cursor: pointer;
 }
+/* 部位格只有一排图，块给到 48 / 图 42（2026-11-10 第二轮：用户「还可以放大一点」）。
+ * 左半列 400 宽、六列 gap 4，每格约 63.3——48 的块两侧各留 7.6，整排还连着气口；
+ * 2026-11-10 截图区从 446 收到 400 后又量过，48 仍放得下（再收就只剩 3 的气口）。 */
 .gear-slot .slot-icon {
-    --tile-w: 30px;
-    --tile-h: 30px;
-    --shot: 26px;
+    --tile-w: 48px;
+    --tile-h: 48px;
+    --shot: 42px;
 }
-.gear-slot:hover,
-.gear-slot[aria-pressed='true'] {
+/* 空着的部位（没填装备名、也没有详情）：图标收色、退淡一档。十二格全亮着时分不出哪几件
+ * 已经填过；压灰之后空格自己退到后排，填过的那几格站前面（用户 2026-11-10：「没有装备的
+ * 话，装备图标格子可以稍微灰色一点」）。 */
+.gear-slot:not(.filled) .slot-icon {
+    filter: grayscale(0.45);
+    opacity: 0.6;
+}
+/* 悬停：只把格子提成一张纸。**不给朱**——朱在这套语言里是「当前这一件」，
+ * 悬停与选中各自一个色，指针扫过去时才不会误读成「已经切过去了」。
+ * 空格悬停把颜色还回来：灰是「这里还空着」的状态，不是这一格的固定长相。 */
+.gear-slot:hover {
     border-color: var(--rule-2);
     background: var(--paper-2);
     color: var(--ink);
 }
-.gear-slot[aria-pressed='true'] {
-    border-color: var(--ochre);
+.gear-slot:hover .slot-icon {
+    filter: none;
+    opacity: 1;
 }
-.gear-slot.filled::after {
+/* 选中：**只在图下面留一道朱印**（2026-11-10 第二轮：用户「选中时候外面的红色边框和背景
+ * 不要了，可以保留图标按钮下面的红色下划线」）。原先那圈朱线 + 8% 朱底撤掉——一栏十二枚
+ * 图标本来就密，框和底把格子切成一堆小方块；一道短印贴着图脚，既不切格子，也仍然只说
+ * 一件事：当前是这一件。padding-bottom 那 9px 常年留着给这道印，印出现时整排不跳。 */
+.gear-slot[aria-pressed='true']::before {
+    position: absolute;
+    bottom: 3px;
+    left: 50%;
+    width: 22px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--cinnabar);
+    transform: translateX(-50%);
+    content: '';
+}
+.gear-slot:focus-visible {
+    outline: var(--ring);
+    outline-offset: var(--ring-offset);
+}
+/* 「这张图这次认过」= 右上角一粒靛点。原先旁边还有一粒苔绿的「这一件有内容」，
+ * 2026-11-10 按用户要求撤掉——填没填已由空格的灰淡说清了，不必再点一次。 */
+.gear-slot.has-shot::after {
     position: absolute;
     top: 3px;
     right: 3px;
-    width: 4px;
-    height: 4px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    background: var(--moss);
+    background: var(--indigo-ink);
     content: '';
 }
-.gear-slot.has-shot::after {
-    width: 6px;
-    height: 6px;
-    background: var(--indigo-ink);
-}
+/* 没有图标时的首字压印：淡墨，标记「这类图还没切」——它与 `IconTile` 二选一，
+ * 尺寸跟着块走（48），不跟字走。 */
 .slot-mark {
     display: grid;
     place-items: center;
-    width: 30px;
-    height: 30px;
+    width: 48px;
+    height: 48px;
+    color: var(--muted);
     font-size: var(--fs-md);
-}
-.slot-label {
-    max-width: 100%;
-    overflow: hidden;
-    font-size: var(--fs-mini);
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 </style>

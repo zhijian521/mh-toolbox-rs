@@ -80,6 +80,25 @@ export async function equipment(ctx) {
                 const rect = document.querySelector('.modal-panel').getBoundingClientRect();
                 return { width: rect.width, height: rect.height };
             })()`);
+        /* 页签条的宽度在六个分区里必须是同一个：装备 / 召唤兽两页它被塞进
+         * `upload-navigation` 的栅格，那一层默认 stretch 会把它拉满整列。
+         * 量的是控件自身，不是弹窗宽——弹窗宽高一致那条断言看不出这个。 */
+        const tabsWidth = () =>
+            cdp.evaluate(`(() => {
+                const tabs = document.querySelector('.ocr .ocr-tabs');
+                return tabs ? Math.round(tabs.getBoundingClientRect().width) : -1;
+            })()`);
+        await ui.clickText('.ocr-tabs button', '属性', { exact: true });
+        const standardTabs = await tabsWidth();
+        const tabWidths = [];
+        for (const pane of ['师门', '辅助', '修炼', '召唤兽', '装备']) {
+            await ui.clickText('.ocr-tabs button', pane, { exact: true });
+            tabWidths.push([pane, await tabsWidth()]);
+        }
+        t.check(
+            '分区页签在六个分区里等宽',
+            standardTabs > 0 && tabWidths.every(([, width]) => Math.abs(width - standardTabs) < 1),
+        );
         await ui.clickText('.ocr-tabs button', '属性', { exact: true });
         const standardSize = await dialogSize();
         const sizes = [];
@@ -88,8 +107,11 @@ export async function equipment(ctx) {
             sizes.push(await dialogSize());
         }
         await ui.clickText('.ocr-tabs button', '装备', { exact: true });
+        /* 格子里不再写部位名（2026-11-10 去掉），部位从 aria-label 取：
+         * 「编辑武器的装备」→「武器」。断言的仍是「十二个部位都能点到、弹窗不变尺寸」。 */
         const parts = await cdp.evaluate(
-            `[...document.querySelectorAll('.ocr .gear-slot .slot-label')].map((one) => one.textContent.trim())`,
+            `[...document.querySelectorAll('.ocr .gear-slot')]
+                .map((one) => one.getAttribute('aria-label').replace(/^编辑/, '').replace(/的装备$/, ''))`,
         );
         for (const part of parts) {
             await ui.clickLabel('编辑' + part + '的装备');
@@ -103,6 +125,38 @@ export async function equipment(ctx) {
                     Math.abs(size.height - standardSize.height) < 1,
             ),
         );
+        /* 装备 / 召唤兽两页右侧的详情纸走**角色门派主题色**（2026-11-10 用户：「右侧卡片
+         * 背景，和属性 师门 这些保持一致，走角色门派主题色」）。判据三条：纸上有渐变（不是
+         * 一块平底）、两页取到的是同一条、把 panel 上的 `data-school` 换成另一个门派纸色
+         * 会跟着变。最后一条是这条断言的关键——只比「有渐变」的话，回落成纯纸也会绿。 */
+        const paperTint = (selector) =>
+            cdp.evaluate(`(() => {
+                const paper = document.querySelector(${JSON.stringify(selector)});
+                const panel = paper?.closest('.modal-panel');
+                if (!paper || !panel) return null;
+                const before = getComputedStyle(paper).backgroundImage;
+                const original = panel.getAttribute('data-school');
+                /* 换一个**与当前不同**的门派再读一次。写死一个门派会在角色正好是它时
+                 * 假红（换完没变），也会在空门派时假绿不了——空门派回落成纯纸，本来就会变。 */
+                const probe = original === '龙宫' ? '大唐官府' : '龙宫';
+                panel.setAttribute('data-school', probe);
+                const switched = getComputedStyle(paper).backgroundImage;
+                if (original === null) panel.removeAttribute('data-school');
+                else panel.setAttribute('data-school', original);
+                return { painted: before !== 'none', follows: switched !== before };
+            })()`);
+        await ui.clickText('.ocr-tabs button', '装备', { exact: true });
+        const gearPaper = await paperTint('.ocr .gear-form');
+        await ui.clickText('.ocr-tabs button', '召唤兽', { exact: true });
+        const petPaper = await paperTint('.ocr .pet-form');
+        t.check(
+            '装备与召唤兽的详情纸跟随门派主题色',
+            Boolean(
+                gearPaper?.painted && gearPaper?.follows && petPaper?.painted && petPaper?.follows,
+            ),
+            JSON.stringify({ gearPaper, petPaper }),
+        );
+        await ui.clickText('.ocr-tabs button', '装备', { exact: true });
         await ui.clickLabel('编辑头的装备');
         for (let index = 0; index < 12; index++) await ui.clickLabel('添加宝石行');
         t.check(

@@ -247,8 +247,9 @@ export async function setup(ctx) {
             (await ui.text('.gear-editor .gear-count')).replace(/\s+/g, ' ').trim();
         t.check('顶端计数从 0 起', (await head()).includes('0 / 12'), await head());
 
-        /* 换部位后，详情纸片和选中图标同时更新。 */
-        await ui.clickText('.gear-editor .gear-slot', '武器');
+        /* 换部位后，详情纸片和选中图标同时更新。
+         * 按 aria-label 点：格子里不再写部位名（2026-11-10 去掉），只剩图标。 */
+        await ui.clickLabel('编辑武器的装备');
         await sleep(250);
         const heading = await cdp.evaluate(
             `document.querySelector('.editor .gear-name .field-label')?.textContent?.trim() ?? ''`,
@@ -336,9 +337,18 @@ export async function setup(ctx) {
         await ui.clickText('.ocr-tabs button', '装备');
         await sleep(300);
 
-        /* 清空只在当前部位有内容时出现。 */
-        const kills = await ui.count('.gear-editor button[aria-label^="清空"]');
-        t.check('当前有内容的武器显示清空', kills === 1, `实际 ${kills} 枚`);
+        /* 清空按钮常驻占位，只在当前部位有内容时显形（看不见也点不动）。两条都按
+         * 「可见性 + disabled」判，不按元素个数——按个数判的话，这条断言会逼着实现
+         * 回去用 v-if，而那正是「显隐一次页面高度变一次」的成因。 */
+        const clearState = `(() => {
+            const btn = document.querySelector('.gear-editor button[aria-label^="清空"]');
+            if (!btn) return 'missing';
+            const style = getComputedStyle(btn);
+            return style.visibility + '/' + (btn.disabled ? 'off' : 'on');
+        })()`;
+        const headHeight = `document.querySelector('.gear-editor .gear-parts-head').getBoundingClientRect().height`;
+        const heightBefore = await cdp.evaluate(headHeight);
+        t.check('当前有内容的武器显示清空', (await cdp.evaluate(clearState)) === 'visible/on');
 
         await ui.clickLabelPrefix('清空武器');
         await sleep(350);
@@ -347,10 +357,12 @@ export async function setup(ctx) {
         t.check('清空后十二部位保留', rows === 12, `实际 ${rows} 行`);
         const head = (await ui.text('.gear-editor .gear-count')).replace(/\s+/g, ' ').trim();
         t.check('清空后计数归零', head.includes('0 / 12'), head);
+        t.check('清空后清空按钮隐去且点不动', (await cdp.evaluate(clearState)) === 'hidden/off');
+        /* 用户 2026-11-10 报的就是这条：按钮显隐时整栏跟着长高 / 缩回。 */
         t.check(
-            '清空后清空按钮消失',
-            (await ui.count('.gear-editor button[aria-label^="清空"]')) === 0,
-            `还剩 ${await ui.count('.gear-editor button[aria-label^="清空"]')} 枚`,
+            '清空按钮显隐不改变那一行的高度',
+            Math.abs((await cdp.evaluate(headHeight)) - heightBefore) < 1,
+            `前 ${heightBefore} / 后 ${await cdp.evaluate(headHeight)}`,
         );
 
         await ui.clickLabel('保存这个角色');
@@ -390,12 +402,27 @@ export async function pets(ctx) {
         await ui.clickLabel('编辑第 1 只召唤兽：临时甲');
         await ui.fillSel('.pet-block input[aria-label="等级"]', '11');
         await ui.clickLabel('编辑第 2 只召唤兽：临时乙');
+        /* 左栏一格只剩**头像 / 朱印 / 名字**（2026-11-10 用户：去掉等级和删除按钮），
+         * 所以「另一只的等级 11」不再出现在格子里——改读格子上那只的名字，
+         * 等级仍按右侧表单里当前这只的输入值判。 */
         t.check(
             '切换召唤兽保留各自修改',
             await cdp.evaluate(
                 `document.querySelector('.pet-block input[aria-label="等级"]').value === '22' &&
-                document.querySelectorAll('.pet-choice')[0].textContent.includes('11')`,
+                document.querySelectorAll('.pet-choice').length === 2 &&
+                document.querySelectorAll('.pet-choice')[0].textContent.includes('临时甲')`,
             ),
+        );
+        /* 删除按钮挪到右侧名字输入后面，只服务**当前选中**那一只——要删第一只，
+         * 先点回第一只（2026-11-10 结构改动，不再是每格各留一枚）。点回去顺带补一条：
+         * 格子上不再写等级，那只的 11 只能从这里读，否则「各自修改」只验了一半。 */
+        await ui.clickLabel('编辑第 1 只召唤兽：临时甲');
+        await sleep(200);
+        t.check(
+            '切回第一只，它自己的等级仍在',
+            (await cdp.evaluate(
+                `document.querySelector('.pet-block input[aria-label="等级"]').value`,
+            )) === '11',
         );
         await ui.clickLabel('删除第 1 只召唤兽：临时甲');
         t.check(
@@ -460,7 +487,8 @@ export async function pets(ctx) {
             await cdp.evaluate(`
                 document.querySelector('.pet-block input[aria-label="成长"]').value === '1.264' &&
                 document.querySelector('.pet-block input[aria-label="寿命"]').value === '4385' &&
-                document.querySelector('.pet-block textarea[aria-label="已学技能，顿号或逗号分隔"]').value === '吸血、必杀、偷袭、夜战'
+                [...document.querySelectorAll('.pet-block .skill-icons .skill-picker small')]
+                    .map((e) => e.textContent.trim()).join('、') === '吸血、必杀、偷袭、夜战'
             `),
         );
         t.check(
@@ -511,10 +539,34 @@ export async function pets(ctx) {
         await ui.fillSel('.pet-block input[aria-label="等级"]', '120');
         await ui.fillSel('.pet-block input[aria-label="参战等级"]', '145');
         await ui.fillSel('.pet-block input[aria-label="成长"]', '1.254');
-        // 技能是 textarea + `@change`（失焦才解析），所以下面那一记点击同时起「失焦」作用。
-        await ui.fillSel(
-            '.pet-block textarea[aria-label="已学技能，顿号或逗号分隔"]',
-            '连击、必杀',
+        /* 技能自 2026-11-10 起是「一格一枚图标 + 末尾一枚 + 号」，没有裸文本框了：
+         * 先把截图识别填进来的四招逐个清掉，再点两次 + 各选一招。清掉而不是直接改，
+         * 是因为这一版没有「覆盖名单」的入口——一格只认自己那一招。 */
+        for (let guard = 0; guard < 20; guard += 1) {
+            if (!(await ui.exists('.pet-block .skill-picker'))) break;
+            await ui.clickLabelPrefix('第 1 个技能：');
+            await sleep(120);
+            await ui.clickLabel('清除第 1 个技能');
+            await sleep(120);
+        }
+        for (const name of ['连击', '必杀']) {
+            /* 「+」不是添一个空格子，而是直接落进清单里第一招还没学的（用户：「点击图标
+             * 添加默认技能」）——所以新那一格的标签是「第 N+1 个技能：某招」而不是「未选择」。
+             * 先数已有几格定 N，再按前缀点开它，搜名字换成想要的那一招。 */
+            const count = await ui.count('.pet-block .skill-picker');
+            await ui.clickLabel('添加一个技能格');
+            await sleep(120);
+            await ui.clickLabelPrefix(`第 ${count + 1} 个技能：`);
+            await ui.fillSel('.pet-block .skill-panel input[aria-label="搜索召唤兽技能"]', name);
+            await ui.clickLabel(`选择技能：${name}`);
+            await sleep(160);
+        }
+        t.check(
+            '技能格点开下拉选完就落进草稿',
+            (await cdp.evaluate(
+                `[...document.querySelectorAll('.pet-block .skill-icons .skill-picker small')]
+                    .map((e) => e.textContent.trim()).join('、')`,
+            )) === '连击、必杀',
         );
 
         await ui.clickText('.ocr-tabs button', '属性', { exact: true });
@@ -524,7 +576,8 @@ export async function pets(ctx) {
             await cdp.evaluate(
                 `document.querySelector('.pet-block input[aria-label="召唤兽名称"]').value === 'E2E兽' &&
                 document.querySelector('.pet-block input[aria-label="成长"]').value === '1.254' &&
-                document.querySelector('.pet-block textarea[aria-label="已学技能，顿号或逗号分隔"]').value === '连击、必杀'`,
+                [...document.querySelectorAll('.pet-block .skill-icons .skill-picker small')]
+                    .map((e) => e.textContent.trim()).join('、') === '连击、必杀'`,
             ),
         );
 
@@ -583,11 +636,15 @@ export async function pets(ctx) {
         ) {
             throw new Error('详情窗没打开');
         }
-        const slots = await ui.count('[role="dialog"] .slot');
-        t.check('详情窗只有技能格，不再画内丹格', slots === 12, `实际 ${slots} 格`);
-
-        const filled = await ui.count('[role="dialog"] .slot:not(.off)');
-        t.check('其中 2 格是学了的技能', filled === 2, `实际 ${filled} 格`);
+        /* 技能段改成一格一枚图标后，固定十二个虚线空格（`.slot.off`）一起撤了——
+         * 那些格子点不动，读不出是「还能学几招」还是「漏识别」。现在这里只剩
+         * 「学了的每一招一枚 + 末尾一枚 + 号」。 */
+        const slots = await ui.count('[role="dialog"] .skill-icons .skill-picker');
+        t.check('详情窗只画学了的技能，不再画内丹格', slots === 2, `实际 ${slots} 格`);
+        t.check(
+            '技能段末尾有一枚添加格',
+            (await ui.count('[role="dialog"] .skill-icons .skill-add')) === 1,
+        );
 
         const colHeads = await cdp.evaluate(
             `[...document.querySelectorAll('[role="dialog"] .pet-layout .group-head')]

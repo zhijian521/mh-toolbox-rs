@@ -12,6 +12,7 @@ import {
     gearStatOptions,
     withGearBaseStats,
 } from '../gear-properties';
+import PaperCard from '../../../components/PaperCard.vue';
 import PressButton from '../../../components/PressButton.vue';
 import IconTile from '../IconTile.vue';
 import { useGearIcon } from '../use-gear-icon';
@@ -106,7 +107,7 @@ function addLine(label: string) {
 </script>
 
 <template>
-    <div class="gear-form dual-rule">
+    <PaperCard class="gear-form">
         <div class="gear-content">
             <div class="gear-identity">
                 <IconTile v-if="icon" class="gear-form-icon" :src="icon" />
@@ -273,10 +274,23 @@ function addLine(label: string) {
                 @click="addCond"
             />
         </div>
-    </div>
+    </PaperCard>
 </template>
 
 <style scoped>
+/* 一层纸：根元素是 `PaperCard`（全局 `.board`），与属性 / 师门 / 召唤兽那几页同一个材质。
+ * 2026-11-10 用户：「右边装备详情部分，可以参考下属性、师门、召唤兽这些，也是用一个卡片
+ * 样式背景」。此前这里是一圈 1px 边框 + `--paper` 平底，同一扇窗里别的页是立体纸片，只有
+ * 这一页读作「一块表单」。纸自己带棱、断面与落影，这里不再画框，也不再走 `.dual-rule`
+ * 那圈内衬线（角色卡 2026-11-06 同样去掉了）。
+ *
+ * 纸色跟着**角色门派主题色**走（2026-11-10 用户：「装备和召唤兽右侧卡片背景，和属性师门
+ * 这些保持一致，走角色门派主题色」）：`.character-theme` 在 `blocks.css` 里给了 `--card-bg`
+ * （门派色按 135° 掺进纸，两端浓度随亮暗反转），这里只是 `background: var(--card-bg)`——
+ * 与角色卡 `CharacterCard` 用的是**同一条**，不另抄一份色号。
+ *
+ * `--slip-base` 也跟着回落（原先写死 `var(--paper)`）：票面读的中点色由 `.character-theme`
+ * 给，纸一染色票就一起走色相；留死白会变成「彩纸上的白条」。 */
 .gear-form {
     display: flex;
     flex: 1;
@@ -284,9 +298,14 @@ function addLine(label: string) {
     min-width: 0;
     min-height: 0;
     height: 100%;
-    border: var(--w-hair) solid var(--rule-2);
-    background: var(--paper);
-    --dual-inset: 2px;
+    /* 只撤掉 `.board` 那 20px 内边距：`.gear-content` 与 `.gear-add` 各自带 14，
+     * 叠上 20 就比召唤兽那一页缩进一档。也**不**补底边内衬——这里滚动容器的
+     * 裁剪线落在 `.gear-add` 的上沿（卡中间），不在纸的底缘，与 `.pet-form` 的情况
+     * 不同，那 12 留着只会让按钮下方多一圈空纸。 */
+    padding: 0;
+    /* 回落链是给「万一不在 `.character-theme` 里」留的：`--card-bg` 算不出来时整条
+     * `background` 会变成透明（substitution 失败不回落到 `.board` 那条），一张纸就没了。 */
+    background: var(--card-bg, var(--board-face, var(--board-paper)));
 }
 .gear-content {
     flex: 1;
@@ -339,7 +358,9 @@ function addLine(label: string) {
 .inline-field:hover,
 .inline-field:focus {
     border-color: var(--rule-2);
-    background: var(--paper-2);
+    /* 纸染了门派色之后，悬停提亮不能再回落到 `--paper-2`——那会在彩纸上贴一块白。
+     * `--slip-base` 是同一层纸的中点色（`.character-theme` 给），深浅跟着纸走。 */
+    background: var(--slip-base);
 }
 .gear-name .name-field {
     color: var(--ink);
@@ -485,11 +506,14 @@ function addLine(label: string) {
     padding: 12px 14px 14px;
     border-top: var(--w-hair) solid var(--rule-2);
 }
+/* 分类底也从纸里取（`--slip-base` = 这张纸的中点色），不走 `--paper-2`：
+ * 纸染了门派色之后，拿纯纸白混分类色，会在彩纸上摆出一排白底小签。
+ * 与 §44「普通按钮复用 `--slip-base` 的门派浅染」是同一条。 */
 .gear-add .press-btn {
     --tile-h: calc(30px * var(--fs-scale));
-    --tile-face: color-mix(in srgb, var(--property-ink) 12%, var(--paper-2));
-    --tile-face-hover: color-mix(in srgb, var(--property-ink) 20%, var(--paper-2));
-    --tile-face-active: color-mix(in srgb, var(--property-ink) 26%, var(--well));
+    --tile-face: color-mix(in srgb, var(--property-ink) 12%, var(--slip-base));
+    --tile-face-hover: color-mix(in srgb, var(--property-ink) 20%, var(--slip-base));
+    --tile-face-active: color-mix(in srgb, var(--property-ink) 26%, var(--slip-base));
 }
 .gear-add :deep(.press-btn-inner) {
     color: var(--property-ink);
