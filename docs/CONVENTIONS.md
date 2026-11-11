@@ -1145,7 +1145,10 @@ offsetHeight` 与 `scrollTop / clientHeight`，直接写 `scrollTop`）；⑤ **
 
 ---
 
-### 角色编辑的小共用函数
+### 2.7 小共用函数：一件事只写一份
+
+同一件小事在几个窗口里各写一遍，改一处另一处就静默落后。下面七条是已经收拢的那几件——
+新增同类逻辑前先 grep，已经有家的就去改那一家（§2.6 同一条口径）。
 
 - 下拉选项遇到名录之外的旧值，统一用 `src/components/select-options.ts` 的 `withCurrentOption` 保留当前值；不要在门派、装备属性等各写一份补选项逻辑。
 - 属性与修炼按行名查找，统一用 `character.ts` 的 `findAttrRow` / `findTrainingRow`；OCR 草稿和快速修改不各自展开分组。

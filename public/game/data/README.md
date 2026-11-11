@@ -1,299 +1,43 @@
 # public/game/data/ —— 游戏事实数据
 
-「这个游戏里有什么」的表：门派、师门技能、辅助技能、装备、特技、宝石、道具。
-判断标准很简单：**游戏更新时这批数据会变，而我们的代码不该跟着改**。
+**游戏更新时这批数据会变，代码不该跟着改**；表里写脚本名的由脚本生成、不手改。
 
-现有数据与清单：
+| 文件                   | 内容                  | 谁维护                      |
+| ---------------------- | --------------------- | --------------------------- |
+| `icons.json`           | 生活/剧情/特技清单    | `slice.py`                  |
+| `school-icons.json`    | 门派技能 147 张       | `slice-school.py`           |
+| `gear-icons.json`      | 装备 83 张            | `import-slot-icons.py`      |
+| `weapon-icons.json`    | 武器 231 张           | `import-slot-icons.py`      |
+| `lingshi-icons.json`   | 灵饰 20 张            | `import-client-icons.py`    |
+| `schools.json`         | 门派、技能、上限      | 手改                        |
+| `skills.json`          | 生活 21、剧情 11      | 手改                        |
+| `quick-items.json`     | 速记物品 59 件        | 手改；id 不改               |
+| `pet-skills.json`      | 技能 ID 与 353 张 PNG | `import-pet-skill-icons.py` |
+| `pet-portraits.json`   | 头像编号与物种        | `import-pet-portraits.mjs`  |
+| `pet-panel.json`       | 属性、加点、标签      | 手改                        |
+| `character-rules.json` | 属性、修炼、OCR 标签  | 手改（同改断言）            |
+| `activities.json`      | 活动周期与时段        | 手改                        |
+| `gameplay.json`        | 物价品类、抓鬼容差    | 手改                        |
 
-| 文件                 | 内容                                                | 谁在维护                                                      |
-| -------------------- | --------------------------------------------------- | ------------------------------------------------------------- |
-| `icons.json`         | 图标清单（生活 / 剧情 / 特技，文件序号 → 中文名）   | `tools/game-icons/slice.py` 生成，**不手改**                  |
-| `school-icons.json`  | 图标清单（门派技能 147，按门派分组）                | `tools/game-icons/slice-school.py` 生成，**不手改**           |
-| `gear-icons.json`    | 图标清单（装备 7 个部位共 83 张，按部位分组）       | `tools/game-icons/import-slot-icons.py` 生成，**不手改**      |
-| `weapon-icons.json`  | 图标清单（武器 21 组共 231 张，按种类分组）         | `tools/game-icons/import-slot-icons.py` 生成，**不手改**      |
-| `lingshi-icons.json` | 图标清单（灵饰 4 部位共 20 张，按部位分组）         | `tools/game-icons/import-client-icons.py` 生成，**不手改**    |
-| `schools.json`       | 21 个门派 + 每家的七项门派技能 + 等级上限           | 手改（游戏加门派 / 改名时）                                   |
-| `skills.json`        | 生活技能 21 项、剧情技能 11 项                      | 手改（游戏加技能时）                                          |
-| `quick-items.json`   | 速记物品 59 件（固定价 38 / 浮动价 21）+ 图标文件名 | 手改（游戏加掉落物时）；id 一旦发布不能改                     |
-| `pet-skills.json`    | 召唤兽技能名称、ID、分类、353 张 PNG 映射及缺图项   | `tools/game-icons/import-pet-skill-icons.py` 生成，**不手改** |
-| `pet-portraits.json` | 召唤兽头像编号、物种、原图来源与缺本地资源项        | `tools/game-icons/import-pet-portraits.mjs` 生成，**不手改**  |
-| `pet-panel.json`     | 召唤兽属性、加点、截图标签与别名                    | 手工维护，运行时按需校验加载                                  |
+五份 `*-icons.json` 同一套路：`slice-*.py` 定名字与顺序并出图，`import-*-icons.py` 只覆写 `img` 与 `source`（第 120 批起用客户端 `item120` 大图），**先切后导**；`img` 只写文件名（目录见 `../icons/README.md`），`id` 稳定。不能并成一份：谁后跑谁覆盖对方分组且不报错，`slice-weapon.py` 曾把「截图没覆盖最底那格」当成「没有 160 造型」，名字表各砍一条（第 121 批）——切到的档要覆盖名字表每一档，**少一档不报错，后面的档整体前移一格**。
 
-角色页上的**角色数据**（`src/views/characters/mock.ts`）不在这里：那是一份演示数据
-（为了把版式立起来的一个假角色），不是游戏事实表。
+## 逐表：字段与踩坑
 
-## pet-skills.json（2026-11-07）
+- **`gear-icons.json`**：`groups` 七部位拼音，每项 `{id, img, name, level, source}`；**序号 = 等级升序**（60→160），五部位各 11 件、腰带饰品各 14 件（60/70/80 各两款），只覆盖 60 级以上（2026-11-04 确认）。坑：83 张与官网防具五页（`dj005.html` 及 `dj005_2~5`）131 张逐格比对定死（头盔第 1~10 连续命中 60/70/…/150，60 水晶帽 / 160 浑天玄火盔另复核）；`source` 混用 `item120`（120×120 大图）与 `shot`（96×96 带米黄卡片底），现全 `item120`。
+- **`weapon-icons.json`**：分组键用中文种类名、文件名用英文 key、装备用拼音，**故意的**；21 组 = **231 件** = 19 种武器加双巨斧拆成的乾、坤两件（`骠城双戚（乾）/（坤）`，各 17 档 0~160、各 11 张、末档 160 是「非天」；官网写作一件「隳城双戚」，以客户端为准）；`level` 与 `level_hi` 在 60/70/80/150/160 相等，90 级起几款官网写 `90-150` 照实写，同区间多款用 `b`/`c` 后缀；名称等级抄 `dj004_2~19.html`。坑：前 15 种**靠位置不靠红线**（对齐 340 行序列求偏移，再取 `level >= 60`），后五种（巨剑 灯笼 伞 双巨斧 棍）写死 `LATE_PAGES`，起始档三样互校（红圈、选中框加详情、两页 3 格像素差为 0）；第 121 批全换 `item120`（231 条、120×120 透明），早先百科截图带卡片底、格子底更暗（`240,212,176` vs `248,228,184`）。
+- **`lingshi-icons.json`**：`jiezhi`/`ershi`/`shouzhuo`/`peishi` 各 5 级（60/80/100/120/140），共 **20 件不是 24**，面板到 140 结束（第二张末行第三格空），官网另列的 160 级四件（太虚渺云 焰云霞珠 浮雪幻音 碧海青天）**这个客户端里没有**，只能自己画。坑：2026-11-05（第 116 批）换透明底后 `item120` 19 条、`item50` 一条（`玄龙苍珀`，唯一本地缺 `item120` 的一件，`missing-images.csv` 记着 21129 个找不到的图资源）——**两套画稿，不是同一张的小大版**，`item50` 在 40px 能看但别再放大。
+- **`school-icons.json`**：只有 `groups.skill` 一组七项门派技能，面板中间那列**师门法术不收**（`schools.json` 无对应字段）；不并进 `icons.json`：两份由两个脚本生成（4×3 网格 vs 竖排 7 行固定坐标）。坑：**这是面板上下顺序**，与 `schools.json` 按重要度排的 `skills` 不同（大唐「十方无敌」面板第 1 位、表里第 5 位），查图标**按名字**。
+- **`icons.json`**：**资源清单**不是实体表，序号不自解释，`game-icons.test.ts` 与 `skills.json` / `character-rules.json` 名字表逐项比对，错位直接红；结构 `{"generated-by": "…", "groups": {"skill": [{"id", "name"}]}}`。
+- **`schools.json`**：`id` 拼音小写 `[a-z0-9-]` 稳定、`name` 是显示名。坑：`cap` 180 是**表级**一个数不是每项一份，分开放要改 147 处；`skills` 按重要度排。
+- **`skills.json`**：`life` 21、`story` 11，只是**有序名录**，按名字查、图标按**下标**拼文件名（`skill-01` = 生活表第 1 项）。坑：中间插一项后面整体错位（`game-icons.test.ts` 会红，但红在「名字对不上」而非「顺序错了」）。
+- **`quick-items.json`**：`fixed` `{id: 1, name: 60武器, file: item-1.png}` / `variable` `{id: 99, name: 金币, file: item-99.png}`。分开有游戏依据：`fixed` 有牌价（宝石、五宝）、点一下按参考单价入账，`variable` 随行就市（兽决 内丹 图册）、每条现填单价；「金币」（id 99）记金额本身、不乘单价。坑：`id` 稳定（1–40 / 99–200，中间有缺号），单价表按它存，改了等于清空所有人的单价；加物品用没出现过的号（旧习惯往后接 118、200）。
+- **`pet-skills.json`**：低级 68、高级 52、超级 48、特殊 185 张，含藏宝阁常规名录 264 个技能 ID 与神兽升星扩展 89 项，尚未接入页面；`categories` 四类各有 `id`、`name`、`iconDir`（`../icons/pet-basic/` 等四个），`icons` 每项 `id`、`name`、`displayName`、`categoryId`、`subgroup`、`scope`、`img` 与 SHA-256，`displayName` 区分物理 / 法术与强化版（同名按 ID 区分）。坑：`missing` 留触类旁通（56150）与强化版（56196，官网 404、`img: null`）。
+- **`pet-panel.json`** 记属性、加点、标签与别名；**`pet-portraits.json`** 记头像编号、物种、来源与缺项。图片见 `../icons/README.md`。
 
-已保存低级 68、高级 52、超级 48、特殊 185 张图标，包含网易藏宝阁常规名录 264 个技能 ID 与神兽升星扩展 89 项。名称及图标映射只在本清单维护，尚未接入页面或启动数据加载。
+## 约定与来源
 
-- `categories` 定义四类的 `id`、中文 `name` 与 `iconDir`，分别对应 `../icons/pet-basic/`、`pet-advanced/`、`pet-super/`、`pet-special/`。
-- `icons` 每项保留字符串 `id`、`name`、`displayName`、`categoryId`、`subgroup`、`scope`、`img`、尺寸、来源及文件 SHA-256。`img` 只写文件名，图片位于该项分类的 `iconDir` 内；`displayName` 区分物理/法术和强化版，同名技能按 ID 区分。
-- `scope: core` 为常规名录，`god-evolution` 为神兽升星扩展。「超级神柚复生」「超级三昧真火」是神兽专属，仍在特殊组。
-- `missing` 保留触类旁通（56150）与触类旁通（强化，56196），官网图标返回 404，`img: null`。常规名录没有缺图项。
+只写数据不写路径前缀（图片只写文件名、目录由常量拼，同 `maps.json` 的 `img`；一份清单配一个图标目录）；`id` 稳定唯一、显示名可改；不写界面文案（`tag`/`note` 属夹具或 UI 常量）；没量过的数值不写。新表用复数名（`items.json`），**不要做成一个大 `game.json`**。
 
-来源为 [网易藏宝阁技能配置](https://cbg-xyq.res.netease.com/js/game_auto_config.js) 的 2026-11-07 快照与 `C:/games/MHXY` 客户端只读提取结果。167 张采用客户端 PNG，186 张由官网具名 GIF 无损转 PNG，逐项以 `provenance` 区分；保留原尺寸、颜色和透明度，未统一放大到界面图标尺寸。完整上游来源记录在 `C:/games/MHXY-icons/召唤兽技能专用包/manifest.json`，应用使用本项目文件，不依赖上游目录。
+`pet-skills.json` 取自 2026-11-07 的[藏宝阁技能配置](https://cbg-xyq.res.netease.com/js/game_auto_config.js)快照与 `C:/games/MHXY` 客户端：167 张用客户端 PNG、186 张由官网具名 GIF 无损转 PNG，逐项记 `provenance` 与 SHA-256；同批修正低级 / 高级反击与冥思对调（反击 302、冥思 310 蓝，高级反击 402、高级冥思 410 红），脚本固定这四张已核对图、旧素材被拒，重导用 `python tools/game-icons/import-pet-skill-icons.py --src <素材包目录>`（分类从 `C:/games/MHXY-icons/召唤兽技能专用包/manifest.json` 读，不猜前缀）。
 
-本次修正了低级/高级反击和冥思图标对调：反击（302）、冥思（310）为蓝色，高级反击（402）、高级冥思（410）为红色。导入脚本固定了四张已核对图的摘要，旧错误素材会被拒绝。重新导入使用 `python tools/game-icons/import-pet-skill-icons.py --src <独立素材包目录>`；目录可更换，技能分类从来源清单读取，不按名称前缀猜测。
-
-对应断言在 `tools/game-icons/pet-skill-assets.test.mjs`；本轮按日常档仅补断言，未运行检查、测试或构建。
-
-## quick-items.json
-
-```json
-{
-    "fixed": [{ "id": 1, "name": "60武器", "file": "item-1.png" }],
-    "variable": [{ "id": 99, "name": "金币", "file": "item-99.png" }]
-}
-```
-
-- **两组分开是有游戏依据的**：`fixed` 是宝石、五宝这些有牌价的东西，点一下按参考单价直接
-  入账；`variable` 是兽决、内丹、图册这类随行就市的，每条都要现填一次单价。
-  把兽决塞进 `fixed` 会让用户每次先改价，比多点一次更烦。
-- **`id` 是稳定编号**（1–40 / 99–200，中间有缺号），用户的单价表按它存。改了 id 等于把
-  所有人的单价清空，**别动**；加物品就用没出现过的号（旧系统的习惯是往后接 118、200）。
-- `file` 只写文件名，目录由 `services/game-icons.ts` 拼（`game/icons/item/`）。
-- 「金币」（id 99）是特殊的一项：它记的是金额本身，不乘单价。
-
-## gear-icons.json：装备的图标清单
-
-```json
-{
-    "generated-by": "tools/game-icons/import-slot-icons.py",
-    "groups": {
-        "toukui": [
-            {
-                "id": "gear-toukui-01",
-                "img": "gear-toukui-01.webp",
-                "name": "水晶帽",
-                "level": 60,
-                "source": "item120"
-            }
-        ]
-    }
-}
-```
-
-- 七个部位：`toukui` 头盔 / `fachai` 发钗 / `kaijia` 铠甲 / `nvyi` 女衣 / `xiezi` 鞋子 /
-  `xianglian` 项链 / `yaodai` 腰带。
-- **序号 = 等级升序**，第 1 个是 60 级、最后一个是 160 级。头盔/发钗/铠甲/女衣/鞋子各 11 件
-  （60~160 每 10 级一件）；腰带与饰品各 14 件，因为 60/70/80 各有两款（比如 60 级饰品有
-  「风月宝链」和「八卦坠」）。
-- **这批截图只覆盖 60 级以上**（用户 2026-11-04 确认），所以数量与官网「60 级及以上」的条目数
-  一一吻合。`slice-gear.py` 里的 `NAMES` 就是按这个前提写的，**数量对不上会直接报错退出**。
-- 名称抄自官网防具五页（`xyq.163.com/introduce/dj005.html` 及 `dj005_2~5`），只收 60 级以上。
-  顺序用图像比对验证过：把 83 张截图与官网 131 张图标逐格比，头盔第 1~10 个连续命中
-  60/70/80/90/100/110/120/130/140/150，首尾两端（60 水晶帽、160 浑天玄火盔）另做了目视复核。
-- **`generated-by` 记的是「图片是谁写的」**（第 120 批起换成客户端 `item120` 大图，
-  120×120 透明底）。**id、名称、等级与顺序仍由 `slice-gear.py` 的 `NAMES` 决定**——
-  `import-slot-icons.py` 只覆写图片文件与 `source` 字段，不动前三者，也不重排分组。
-- **`source` 是混用状态的开关**：`item120` = 客户端大图；`shot` = 客户端还没下载下来，
-  保留原来的 96×96 截图（带米黄卡片底）。现在 83 条**全是** `item120`；哪天客户端资源被
-  覆盖丢了图，重跑会退成 `shot`，而不是留一张旧图却写着 `item120`。
-
-## weapon-icons.json：武器的图标清单
-
-```json
-{
-    "generated-by": "tools/game-icons/slice-weapon.py",
-    "groups": {
-        "剑": [
-            {
-                "id": "weapon-jian-060",
-                "img": "weapon-jian-060.webp",
-                "name": "游龙剑",
-                "level": 60,
-                "level_hi": 60
-            },
-            {
-                "id": "weapon-jian-090b",
-                "img": "weapon-jian-090b.webp",
-                "name": "倚天",
-                "level": 90,
-                "level_hi": 150
-            }
-        ]
-    }
-}
-```
-
-- 分组键是**中文种类名**（`剑` / `刀` / `锤` …），文件名里用英文 key（`jian` / `dao` / `chui` …）。
-  装备那份用拼音 key 是因为部位名不好直接当文件名；这里种类多，键用中文更省事，
-  两套命名不一致是**故意的**，别「统一」成一种。
-- 现有 21 组 = **231 件**：枪矛 / 斧钺 / 剑 / 双短剑 / 飘带 / 爪刺 / 扇 / 魔棒 / 锤 / 鞭 /
-  环圈 / 刀 / 法杖 / 宝珠 / 弓弩 / 巨剑 / 灯笼 / 伞 / 棍，再加**双巨斧拆开的乾、坤两件**。
-- **双巨斧在客户端是两件**：`骠城双戚（乾）` / `（坤）`，各 **17 档（0~160）**，所以那两组各
-  11 张、最后是 160 的「非天」。文件名多一段区分：
-  `weapon-shuangjufu-qian-090` / `weapon-shuangjufu-kun-090`。官网那页把它写成一件、
-  名字带「（乾坤）」，照抄会少一格。另外官网写「隳城双戚」，客户端显示「骠城双戚」，以客户端为准。
-- **160 那档曾经漏了**（2026-11-05 第 121 批修正）：`slice-weapon.py` 原先把「截图没覆盖到最底那
-  一格」误当成「客户端没有 160 造型」，于是两组的名字表都砍掉最后一条、清单各少一件，而客户端里
-  `非天（乾）/（坤）`（`itemId` 31480 / 31580）的 `item120` 其实早就下到本地了。用户从**藏宝阁**
-  截图核实（`非天（乾）`/`非天（坤）` 等级 160）才定位到。现在 `late_items()` 不再砍，
-  并加了一条「切到的档必须覆盖名字表里每一档」的校验，缺档直接报错——**少一档不会报错，只会让
-  后面的档整体前移一格**，那才是最难发现的错法。
-- **`level` 与 `level_hi` 两个值**：60/70/80/150/160 这些 `level == level_hi`；90 级起的几款
-  官网写成 `90-150`（一件覆盖整个等级段，不是每 10 级一件），照实写不硬推。
-  同一区间有多款，文件名加 `b` / `c` 后缀区分（`weapon-jian-090`、`-090b`、`-090c`）。
-- 名称与等级抄自官网武器页（`xyq.163.com/dj004_2~19.html`），20 种 × 17 行。前 15 种
-  **定档靠位置，不靠红线**：把每页截图整体对齐到这 340 行序列上求偏移，再取 `level >= 60`。
-  为什么不能用红线，见 `tools/game-icons/slice-weapon.py` 头部。
-- **后五种（巨剑 / 灯笼 / 伞 / 双巨斧 / 棍）不能走那条路**：客户端的排列顺序与官网不同
-  （弓弩之后是 巨剑 → 灯笼 → 伞 → 双巨斧 → 棍），而且这批截图是乱序截的。它们按
-  「哪一页的第几格 = 哪组的第几档」写死在 `LATE_PAGES`，起始档由三样证据互校：用户画的
-  红圈（圈的是 60 级以下那几格）、选中框 + 右侧详情、同组两页之间 3 格像素差为 0 的重叠。
-- **图片已换成客户端 `item120` 大图**（2026-11-05 第 121 批，231 条全部 `source: item120`，120×120 透明）。
-  名称与顺序仍是 `slice-weapon.py` 的 `ROWS` 产物，`import-slot-icons.py` 只覆写图片与 `source`——
-  与装备那份同一套分工，见上面 `gear-icons.json` 一节。
-- 早先这批是百科典藏截图切的，**带卡片底**（格子底比防具页略暗：`240,212,176` vs `248,228,184`）。
-  截图还在 `slice-weapon.py` 的 `SCREENSHOTS` / `LATE_SHOTS` 里，但已不再产生图片。
-
-## lingshi-icons.json：灵饰的图标清单
-
-```json
-{
-    "generated-by": "tools/game-icons/import-client-icons.py",
-    "groups": {
-        "jiezhi": [
-            {
-                "id": "ling-jiezhi-060",
-                "img": "ling-jiezhi-060.webp",
-                "name": "枫华戒",
-                "level": 60,
-                "source": "item120"
-            }
-        ]
-    }
-}
-```
-
-- 四个部位：`jiezhi` 戒指 / `ershi` 耳饰 / `shouzhuo` 手镯 / `peishi` 佩饰，各 5 级
-  （60 / 80 / 100 / 120 / 140），共 20 件。
-- **只有 20 件，不是 24**。面板按「种类 → 等级」排，到 140 级就结束了——第二张截图最后一行
-  第三格是空的，那就是列表末尾。官网介绍页另列了 160 级那四件（太虚渺云 / 焰云霞珠 /
-  浮雪幻音 / 碧海青天），**这个客户端里没有**。照着官网表补齐只能是自己画图，别补。
-- 名称与等级抄自官网灵饰介绍页（`xyq.163.com/introduce/2014/11/6/5015_474275.html`）。
-  当初是用百科典藏两页截图逐件并排核对的（20 对全部吻合，含两颗容易混的碧玉镯/翡翠件）。
-- 两张截图是**同一列表滚动前后**：页 2 的最后一行就是页 1 的第一行，所以只取其中一份。
-- 2026-11-05 起图标**改为客户端大图、透明底**（第 116 批）：`source` 字段记这一张取自哪一档，
-  `item120` = 大图（19 条），`item50` = 只有小图、放大来的（`玄龙苍珀` 一条）。
-  **这一档是两套画稿，不是同一张的小大版**；`item50` 那一条在 40px 下能看，但不要再放大。
-
-## schools.json
-
-```json
-{
-    "cap": 180,
-    "schools": [
-        { "id": "datang", "name": "大唐官府", "skills": ["为官之道", "无双一击", "…共 7 项"] }
-    ]
-}
-```
-
-- `cap` 是**表级**的一个数，不是每项一份：门派技能上限全部一样，分开放就要改 147 处。
-- `skills` 的顺序是**按重要度**排的历史顺序，**不是**面板顺序。要对齐面板（比如按面板
-  摆七格技能）就看 `school-icons.json` 里同门派那 7 条的先后，或者按名字查图标。
-- `id` 用拼音小写（`[a-z0-9-]`），稳定不变；`name` 是显示名，游戏改译名时只改它。
-
-## skills.json
-
-```json
-{ "life": ["强身术", "暗器技巧", "…21 项"], "story": ["调息", "打坐", "…11 项"] }
-```
-
-**为什么不是「一条技能一个对象」**：这两张表在我们这里只当**有序名录**用——
-卡片与编辑器按名字查，图标按**下标**拼文件名（`skill-01` = 生活表第 1 项）。
-每条再包一层 `id` 只会多一层要维护的对应关系，而没有任何消费方需要它。
-
-**顺序不能动**：图标文件名是序号，插一项进中间会让后面整体错位
-（`src/services/game-icons.test.ts` 会红，但它红在「名字对不上」而不是「顺序错了」——
-看到它红先想想是不是插行插在中间了）。
-
-## school-icons.json：门派技能的图标清单
-
-```json
-{
-    "generated-by": "tools/game-icons/slice-school.py",
-    "groups": {
-        "skill": [{ "id": "school-skill-datang-1", "name": "十方无敌", "school": "datang" }]
-    }
-}
-```
-
-- 只有 `groups.skill` 一组：那七项门派技能。面板中间那一列的**师门法术不收**（使用方
-  只要门派技能，`schools.json` 里也没有对应字段）。
-- **顺序就是面板里的上下顺序**，与 `schools.json` 的 `skills` 顺序不同。所以查图标按
-  `name` 查，别拿 `schools.json` 的下标去推——那样大唐的第 1 格会贴成「为官之道」的图。
-
-**为什么单独一份、不并进 `icons.json`**：两份清单由两个脚本生成，一个按 4×3 网格切、
-一个按竖排 7 行固定坐标切。写同一份清单时，谁后跑谁会把对方的分组整段覆盖掉——而那种丢失
-没有任何报错，只是图标一夜之间全变成「查不到」。
-
-## icons.json 是清单，不是实体表
-
-它记的是**资源清单**：哪个图标文件对应哪个名字，由 `tools/game-icons/slice.py` 生成，
-不要手改（重跑脚本会覆盖）。结构：
-
-```json
-{
-    "generated-by": "tools/game-icons/slice.py",
-    "groups": {
-        "skill": [{ "id": "skill-01", "name": "强身术" }],
-        "story": [],
-        "active": []
-    }
-}
-```
-
-它之所以必须存在：图标文件名是序号，序号本身不自解释。清单把「第几个文件是谁」固定下来，
-`src/services/game-icons.test.ts` 再拿它与 `skills.json` / `character-rules.json` 的名字表逐项比对——
-错位会直接红，而不是等界面上发现「强身术配了冥想的图」。
-
-## 以后加一类实体
-
-先检查现有表是否已有对应实体。装备名录在 `gear-icons.json` / `weapon-icons.json` /
-`lingshi-icons.json`，部位与属性规则在 `character-rules.json`，不要再维护平行名单。
-新实体文件名用复数，例如 `items.json`。不要做成一个大 `game.json`——一类实体一张表，改动时才看得出
-「这次动的是哪一块」，diff 也不会和别的类目搅在一起。
-
-## JSON 约定
-
-1. **只写数据，不写路径前缀**。要引用图片就写文件名（`"icon": "school-datang.webp"`），
-   目录由代码里的常量拼——与 `maps.json` 的 `img` 同一条规则。
-   **一份清单配一个图标目录**：`school-icons.json` ↔ `icons/school/`、
-   `gear-icons.json` ↔ `icons/gear/`。
-   理由和「清单分开写」是同一条——谁后跑谁覆盖谁，而且覆盖时不报错。
-2. **id 稳定且唯一**。它是代码里引用这条记录的唯一键；显示名可以改，id 不要改。
-3. **不要把界面文案写进来**。`tag`、`note` 这类是人写的说明（见 `ghost-samples.ts`），
-   属于测试夹具或 UI 常量，不属于游戏数据。
-4. **不确定的字段宁可不写**。游戏里没验证过的数值（坐标域、等级上限）写进去就是一个
-   日后没人敢删的假事实；等真的量过再补。
-
-## 配套的 TS：一个加载器，不是一类一个
-
-`src/services/game-data.ts` 统一加载与原子装配数据表。类型和校验可以按领域拆到
-`game-rules.ts`、`game-activities.ts`、`gameplay.ts`，消费方同步读已安装的数据。
-新增领域不要各写一套启动 `fetch` / 缓存 / 降级——三件事抄第二遍必有第二种写法。
-
-**不要在组件里直接 fetch**，也不要给每个消费方加 `v-if="表还没回来"`：
-
-- 加载只发生一次：`src/main.ts` 里 `await loadGameData()` 之后才 `mount`；
-- 之后全站用**同步**的 `gameData()` / `schoolNames()` / `lifeSkills()` 读缓存；
-- 首次取不回来使用空表，保留用户存档；已有有效缓存时保留整套旧值，下一次调用允许重试。
-
-也就是「表是异步的，但异步只留在边界」——组件里因此没有加载态，`schoolSkills()`、
-图标查表这些还能是同步纯函数，单测也不必改成 async。测试怎么拿到数据：
-`src/services/game-data.fixture.ts` 直接导入真实 JSON 统一装配，Vitest 在 setupFiles 中安装。
-
-## 角色与玩法规则
-
-- `character-rules.json`：属性、修炼、装备、资质、OCR 标签与强化系数的唯一数据源。
-  装备 `name` 是稳定存档键；`groups` 对接装备图标清单，不得重复。`base` / `extra` / `gem`
-  控制属性选项，`conditions` / `effects` 控制状态与效果选项。
-  `suitAliases` 只放原图已复现的完整套装误读映射；当前条目对应 `gear-trait-armor.png`，
-  拼接跨行后精确匹配，不对未知名称做模糊替换。
-- `activities.json`：活动周期和时段；时间为 `HH:mm`，同一段的结束时间必须晚于开始时间。
-- `gameplay.json`：物价分类、旧品类映射与名称线索，以及抓鬼容差和经验边界。
-  名称线索按数组优先级匹配，`contains` 表示包含，`prefixes` 表示开头，不存可执行正则。
-
-这些表由 `services/game-data.ts` 在启动时装配，不在组件中 fetch。缺失或非法资源不能改写旧数据。
-特技切图脚本和图标一致性测试直接读 `character-rules.json`，不用再维护 TS 名字表。
+加载只有一个（`services/game-data.ts`，`main.ts` 里 `await loadGameData()` 成功后才 `mount`），之后全站同步读缓存；组件不许 `fetch`、不加「表还没回来」的 `v-if`，失败保留上一份缓存。规则见 `docs/GAME-ASSETS.md` §6。
