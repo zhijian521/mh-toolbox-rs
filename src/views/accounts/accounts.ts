@@ -46,6 +46,14 @@ export const ACCOUNT_CATEGORIES = [
      * 这里是「这一段时间整体进账多少」的粗记。两者都记会让梦幻币收入出现两份，
      * 所以入口的 hint 里写明「一次性」——它是给懒得逐件速记的那天用的。 */
     '游戏产出',
+    /* 下面两个只由收益页**自动同步**写入。留在清单里是因为编辑窗的分类下拉取自这里：
+     * 删掉它，一条历史记录的分类就选中不了（显示成空白）。
+     * 「游戏收益」与上面的「游戏产出」差在来源——前者是每天按角色算出来的净额
+     * （见 views/accounts/daily-sync.ts），后者是用户自己填的一次性粗记。 */
+    '游戏收益',
+    /* 当天该角色分摊的点卡。与「点卡充值 / 点卡购买」不重复：那两条是**买卡**（进货），
+     * 这条是**用卡**（在线时长折算出来的消耗）。 */
+    '点卡消耗',
     '其他收支',
 ] as const;
 
@@ -75,6 +83,14 @@ export interface AccountEntry {
     amount: number;
     note: string;
     createdAt: number;
+    /**
+     * 哪儿来的：空串 = 手记，"auto" = 收益页按天自动同步的。
+     *
+     * **单独一栏而不是靠分类前缀猜**：自动同步每天每角色 upsert 一次，它必须准确认出
+     * 「这一条是我上次写的」，否则第二次同步会写出重复的一笔；认反了更糟——用户手记的
+     * 一条被当成自动的删掉，那是真丢账。
+     */
+    source: string;
 }
 
 /** 一本账的合计。两本账各算一份，`net` 可为负。 */
@@ -173,6 +189,9 @@ export function normalizeEntry(raw: unknown): AccountEntry | null {
         amount,
         note: text(one.note),
         createdAt: num(one.createdAt) || Date.now(),
+        /* 只认字面量 "auto"，其余一律当手记。旧库没有这一栏，读出来是空串 = 手记，
+         * 于是升级后已有记录一条都不会被自动同步覆盖或删掉。 */
+        source: one.source === 'auto' ? 'auto' : '',
     };
 }
 
@@ -356,7 +375,9 @@ export const SHORTCUTS: Shortcut[] = [
         id: 'game-income',
         title: '游戏产出',
         icon: 'bolt',
-        hint: '游戏内 · 梦幻币 · 一次性',
+        /* 「不自动」必须写出来：分类清单里还有一个「游戏收益」是**自动**同步的，
+         * 两个名字太近，不标一句用户会以为这条也会自己补上。 */
+        hint: '游戏内 · 梦幻币 · 一次性 · 不自动',
         preset: { kind: 'income', currency: 'cash', category: '游戏产出', channel: '游戏内' },
     },
     {

@@ -36,6 +36,9 @@ function entry(patch: Partial<AccountEntry> = {}): AccountEntry {
         amount: 30,
         note: '',
         createdAt: 1,
+        /* 空串 = 手记。夹具必须显式给：`source` 是必填字段，漏了就是类型错，
+         * 而这类错只会在 `vue-tsc` 里露头，跑测试时它是 `undefined`。 */
+        source: '',
         ...patch,
     };
 }

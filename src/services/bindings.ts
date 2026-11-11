@@ -144,6 +144,11 @@ export const commands = {
 	goalsLoad: () => __TAURI_INVOKE<Value[]>("goals_load"),
 	/**  整份写回。目标页的每一次改动（记一笔、改一条、删一个）都走这里。 */
 	goalsSave: (goals: Value[]) => __TAURI_INVOKE<null>("goals_save", { goals }),
+	onlineLoad: () => __TAURI_INVOKE<OnlinePayload>("online_load"),
+	/**
+	 *  整份写回：记录清空重插，口径原地 upsert，**一个事务**。
+	 */
+	onlineSave: (payload: OnlinePayload) => __TAURI_INVOKE<null>("online_save", { payload }),
 };
 
 /* Types */
@@ -175,6 +180,8 @@ export type AccountEntry = {
 	amount: number | null,
 	note: string,
 	createdAt: number,
+	/**  来源：空串 = 用户手记，`"auto"` = 收益页按天自动同步写的。 */
+	source: string,
 };
 
 /**
@@ -210,6 +217,7 @@ export type ClearSummary = {
 	entries: number,
 	accounts: number,
 	goals: number,
+	online: number,
 };
 
 /**  导入成功后的回执。 */
@@ -228,6 +236,8 @@ export type ImportSummary = {
 	accounts: number,
 	/**  导进来的目标条数。与上面同理：目标是第三样东西，不能并进任何一栏。 */
 	goals: number,
+	/**  导进来的上线记录条数。点卡口径是单行设定，不计数（见 `store::Counts`）。 */
+	online: number,
 	/**
 	 *  会被前端裁掉的点位数（每件物品只存 `POINT_LIMIT` 条）。0 表示一条都不丢。
 	 * 
@@ -273,6 +283,48 @@ export type IncomeEntry = {
 export type IncomePayload = {
 	entries: IncomeEntry[],
 	prices: QuickPrice[],
+};
+
+/**
+ *  收益页一次读回来的上线数据：记录 + 口径。
+ * 
+ *  两份一起读写，因为「今天扣了多少点卡」需要同时用到时长与单价；
+ *  分两条命令会让卡片先画时长、再补数，中间那一拍是错的。
+ */
+export type OnlinePayload = {
+	sessions: OnlineSession[],
+	settings: OnlineSettings,
+};
+
+/**
+ *  点卡口径。库里只有一行（`id = 1`），一行都没有就是默认值。
+ */
+export type OnlineSettings = {
+	/**  点卡单价，**原值**：`15000` 表示 1.5 万/点（与收益、物价同口径）。 */
+	cardPrice: number | null,
+	/**  是否把点卡折算成账号支出。关掉只是口径开关：已算好的成本照旧显示，历史流水也不删。 */
+	cardCost: boolean,
+};
+
+/**
+ *  一次上线（一段计时）。
+ */
+export type OnlineSession = {
+	id: string,
+	/**  开始那天的 `YYYY-MM-DD`。跨天的那一段由前端按天切开，这里只记起点落在哪天。 */
+	date: string,
+	/**  开始时刻（毫秒时间戳）。 */
+	startAt: number,
+	/**  结束时刻；`null` = 还在计时。 */
+	endAt: number | null,
+	/**  主体角色。多开时只是其中之一，完整名单在 `roster`。 */
+	characterId: string,
+	/**  多开的角色 id；空数组 = 单开（只有 `characterId`）。 */
+	roster: string[],
+	/**  这一刻的点卡单价快照（原值）。 */
+	cardPrice: number | null,
+	note: string,
+	createdAt: number,
 };
 
 /**  一件物品。`points` 是它的全部历史，读出来时按日期倒序。 */

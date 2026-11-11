@@ -40,7 +40,10 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::store::{self, AccountEntry, IncomeEntry, IncomePayload, PriceItem, QuickPrice};
+use crate::store::{
+    self, AccountEntry, IncomeEntry, IncomePayload, OnlinePayload, OnlineSession, OnlineSettings,
+    PriceItem, QuickPrice,
+};
 
 /// 信封格式版本。**改字段含义才 +1**，加一个可选字段不用动它。
 ///
@@ -115,6 +118,19 @@ struct BackupFile {
     /// **`default` 不能省**：115 批之前的备份没有这一栏，缺了它整份备份会打不开。
     #[serde(default)]
     goals: Vec<serde_json::Value>,
+    /// 上线记录（第 145 批起）。`default` 同上：145 批之前的备份没有这一栏。
+    ///
+    /// 与 `income` 同一种结构体而不是 `Value` 透传：这几列是页面排序与分摊的依据，
+    /// 字段稳定，而且导入时要能逐条校验 id。
+    #[serde(default)]
+    online: Vec<OnlineSession>,
+    /// 点卡口径（第 145 批起）。`default` 用 `OnlineSettings` 的默认实现
+    /// （1.5 万/点、计入成本）：旧备份没有这一栏时，导入之后是「默认口径」而不是报错。
+    ///
+    /// 为什么与记录分两栏：口径是**一份设定**而不是一堆记录，
+    /// 混在数组里要么空着、要么假装自己是一条记录。
+    #[serde(default)]
+    card_settings: OnlineSettings,
 }
 
 /// 导入成功后的回执。
@@ -131,6 +147,8 @@ pub struct ImportSummary {
     accounts: i64,
     /// 导进来的目标条数。与上面同理：目标是第三样东西，不能并进任何一栏。
     goals: i64,
+    /// 导进来的上线记录条数。点卡口径是单行设定，不计数（见 `store::Counts`）。
+    online: i64,
     /// 会被前端裁掉的点位数（每件物品只存 `POINT_LIMIT` 条）。0 表示一条都不丢。
     ///
     /// 必须报出来：导入是「如实搬进来」，而前端**下次保存**时会按上限裁。用户导入了一份
@@ -153,6 +171,7 @@ pub struct ClearSummary {
     entries: i64,
     accounts: i64,
     goals: i64,
+    online: i64,
 }
 
 /* ======================================================================
@@ -232,6 +251,10 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
         entries: file.income,
         prices: file.quick_prices,
     };
+    let online = OnlinePayload {
+        sessions: file.online,
+        settings: file.card_settings,
+    };
     let counts = store::replace_all(
         &mut conn,
         &file.characters,
@@ -239,6 +262,7 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
         &income,
         &file.accounts,
         &file.goals,
+        &online,
     )
     .map_err(|error| format!("{error}；替换前的数据已备份到 {backup_path}"))?;
 
@@ -248,6 +272,7 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
         entries: counts.entries,
         accounts: counts.accounts,
         goals: counts.goals,
+        online: counts.online,
         truncated: truncation.points_dropped,
         truncated_items: truncation.items_over_limit,
         backup_path,
@@ -269,6 +294,7 @@ pub async fn data_clear(app: AppHandle) -> Result<ClearSummary, String> {
         entries: counts.entries,
         accounts: counts.accounts,
         goals: counts.goals,
+        online: counts.online,
     })
 }
 
@@ -565,6 +591,8 @@ fn build(app: &AppHandle) -> Result<BackupFile, String> {
     /* 收益与单价一次读回（`income_load` 本来就是两份一起），再拆进信封的两栏：
      * 备份文件里「记录」与「单价」是两件事，读者不该为了拿单价去翻一堆记录。 */
     let income = store::income_load(app.clone())?;
+    /* 上线数据也是「两份一起」：记录进 `online`，口径进 `card_settings`。 */
+    let online = store::online_load(app.clone())?;
     Ok(BackupFile {
         format: FORMAT,
         app: APP_TAG.to_string(),
@@ -575,6 +603,8 @@ fn build(app: &AppHandle) -> Result<BackupFile, String> {
         quick_prices: income.prices,
         accounts: store::account_load(app.clone())?,
         goals: store::goals_load(app.clone())?,
+        online: online.sessions,
+        card_settings: online.settings,
     })
 }
 
@@ -736,6 +766,7 @@ fn validate_backup(file: &BackupFile) -> Result<Truncation, String> {
     validate_ids(file.income.iter().map(|one| one.id.as_str()), "收益流水")?;
     validate_ids(file.accounts.iter().map(|one| one.id.as_str()), "账号记录")?;
     validate_ids(file.goals.iter().map(record_id), "目标")?;
+    validate_ids(file.online.iter().map(|one| one.id.as_str()), "上线记录")?;
     let mut seen_prices = HashSet::new();
     for (index, price) in file.quick_prices.iter().enumerate() {
         if price.item_id <= 0 || !seen_prices.insert(price.item_id) {
@@ -902,6 +933,7 @@ mod tests {
                     amount: 30.0,
                     note: "月卡".to_string(),
                     created_at: 2,
+                    source: String::new(),
                 },
                 AccountEntry {
                     id: "a2".to_string(),
@@ -914,6 +946,9 @@ mod tests {
                     amount: 4_600_000.0,
                     note: String::new(),
                     created_at: 3,
+                    /* 一条手记、一条自动：往返测试要证明 `source` 原样过了一遍信封，
+                     * 否则「导入之后自动同步的记录变成手记」这种错查不出来。 */
+                    source: "auto".to_string(),
                 },
             ],
             /* 目标也给一条：它同样是 `Value` 透传，「漏序列化」与「本来就没有」
@@ -925,6 +960,23 @@ mod tests {
                 "members": [{ "id": "c1", "name": "大唐" }],
                 "target": 100_000_000,
             })],
+            /* 上线记录给一条**计时中**的：`endAt` 为 null 才是真跑着的那一段，
+             * 若序列化把它写成 0 或丢掉，往返之后会变成一条 1970 年结束的记录。 */
+            online: vec![OnlineSession {
+                id: "o1".to_string(),
+                date: "2026-11-08".to_string(),
+                start_at: 1_700_000_000_000,
+                end_at: None,
+                character_id: "c1".to_string(),
+                roster: vec!["c1".to_string(), "c2".to_string()],
+                card_price: 15_000.0,
+                note: String::new(),
+                created_at: 4,
+            }],
+            card_settings: OnlineSettings {
+                card_price: 16_500.0,
+                card_cost: false,
+            },
         }
     }
 
@@ -974,8 +1026,17 @@ mod tests {
         assert_eq!(parsed.quick_prices[0].item_id, 9);
         assert_eq!(parsed.accounts.len(), 2);
         assert_eq!(parsed.accounts[1].currency, "cash");
+        /* `source` 必须原样过信封：**导回来变成空串就等于把自动记录降级成手记**，
+         * 之后那次同步会另写一条，同一天出现两笔。 */
+        assert_eq!(parsed.accounts[1].source, "auto");
+        assert_eq!(parsed.accounts[0].source, "");
         assert_eq!(parsed.goals.len(), 1);
         assert_eq!(parsed.goals[0]["title"], "攒一把无级别");
+        assert_eq!(parsed.online.len(), 1);
+        assert_eq!(parsed.online[0].end_at, None, "计时中的记录往返后仍是 null");
+        assert_eq!(parsed.online[0].roster, vec!["c1", "c2"]);
+        assert_eq!(parsed.card_settings.card_price, 16_500.0);
+        assert!(!parsed.card_settings.card_cost);
 
         let _ = std::fs::remove_dir_all(&dir);
     }

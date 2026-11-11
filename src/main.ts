@@ -14,6 +14,8 @@ import { loadAccounts } from './views/accounts/accounts-store';
 import { loadGoals } from './views/goals/goals-store';
 import { loadRoster } from './views/characters/roster';
 import { loadIncome } from './views/income/income-store';
+import { loadOnline } from './views/income/online-store';
+import { startDailySync, syncRecent } from './views/accounts/daily-sync';
 import { loadPrices } from './views/prices/prices-store';
 
 /**
@@ -43,9 +45,17 @@ useTheme();
 Promise.all([
     loadGameData().then(() => Promise.all([loadRoster(), loadPrices()])),
     loadIncome(),
+    loadOnline(),
     loadAccounts(),
     loadGoals(),
 ]).then(() => {
+    /* 账号账本与收益、上线记录都到手之后才补算——自动同步要读三份数据，
+     * `Promise.all` 之后它们才算都读完了。放在 `mount` 之前：先把那几笔补上，
+     * 用户切到账号页时看到的就是补齐的账，而不是「进来一下才多出两行」。
+     *
+     * 失败不拦挂载：同步是副动作，读不出账号账本时它自己会拒绝写（`persist.canWrite`）。 */
+    syncRecent();
+    startDailySync();
     createApp(App).use(router).mount('#app');
     void guardWindowClose(async () => {
         if (await flushPendingWrites()) return true;

@@ -150,6 +150,9 @@ function compose(input: EntryInput, amount: number, id: string, createdAt: numbe
         amount,
         note: (input.note ?? '').trim(),
         createdAt,
+        /* 这个入口只写手记。自动同步的那批走 `applyAutoEntries`——它要额外认领
+         * 已有的 auto 行（保住 `createdAt`），从这里进不来。 */
+        source: '',
     };
 }
 
@@ -176,12 +179,109 @@ export function updateEntry(id: string, input: EntryInput): AccountWrite {
     if (!before) return { ok: false, error: '这条记录已经不在了' };
     const checked = check(input);
     if (!checked.ok) return checked;
-    const entry = compose(input, checked.amount, id, before.createdAt);
+    const composed = compose(input, checked.amount, id, before.createdAt);
+    /* **来源跟着原记录走**，不重置成手记：自动同步的那几条被改过之后如果降级成手记，
+     * 下一次同步就会另写一条同名的，账面上出现两笔一模一样的收益。 */
+    const entry: AccountEntry = { ...composed, source: before.source };
     /* 换整个数组而不是改对象字段：`entries` 是 `ref`，改内部字段不触发依赖，
      * 界面会「保存了但没动」。 */
     entries.value = entries.value.map((one) => (one.id === id ? entry : one));
     persist();
     return { ok: true, entry };
+}
+
+/**
+ * 一条**算出来的**账号记录（收益页按天同步过来的）。
+ *
+ * 传的是「内容」，不是 `AccountEntry`：`currency` 恒为梦幻币、`channel` 恒为游戏内、
+ * `source` 恒为 auto —— 这三样由这里填，调用方写错也没机会。
+ */
+export interface AutoInput {
+    /** 稳定 id（`dailyKey` 那种）——同一天同一个号同一种账必须每次拼出同一个值，
+     *  否则「更新」会变成「再来一笔」。 */
+    id: string;
+    date: string;
+    characterId: string;
+    category: string;
+    kind: AccountKind;
+    /** 原值（梦幻币整数）。≤ 0 的条目会被丢掉——与 `normalizeEntry` 同一条口径。 */
+    amount: number;
+    note?: string;
+}
+
+/** 两条自动记录的内容是否一致（只有内容变了才该落盘）。 */
+function sameAuto(left: AccountEntry, right: AccountEntry): boolean {
+    return (
+        left.date === right.date &&
+        left.characterId === right.characterId &&
+        left.kind === right.kind &&
+        left.category === right.category &&
+        left.amount === right.amount &&
+        left.note === right.note
+    );
+}
+
+/**
+ * **整批替换**自动同步的那几条记录，手记的一条不动。
+ *
+ * ---- 为什么必须是「整批替换」而不是逐条 upsert ----
+ * 自动记录是**算出来的**：某天某个号今天没有收益了（速记被撤回、时长为 0），
+ * 那一条就该消失。逐条 upsert 只会追加，账面上会留下一笔早已不存在的收益。
+ *
+ * ---- 为什么认 `source` 而不认分类 ----
+ * 分类可以由用户改（编辑窗里那个下拉），用它当判据会在改名之后认不出来，
+ * 于是每同步一次就多一笔。`source` 是这条记录的身份，改分类不影响它。
+ *
+ * 内容没变就不落盘（返回 `changed: false`）：这个函数会被「速记一变就同步」触发，
+ * 而连点速记时每一次都整份写库是没必要的。
+ */
+export function applyAutoEntries(
+    rows: readonly AutoInput[],
+): { ok: true; changed: boolean } | { ok: false; error: string } {
+    if (!persist.canWrite()) return { ok: false, error: '账号账本读取失败，先修好再来同步' };
+
+    const keep: AccountEntry[] = [];
+    const before = new Map<string, AccountEntry>();
+    for (const one of entries.value) {
+        if (one.source === 'auto') before.set(one.id, one);
+        else keep.push(one);
+    }
+
+    const now = Date.now();
+    const next: AccountEntry[] = [];
+    for (const row of rows) {
+        /* 币没有小数：与 `normalizeEntry` 同一个收口，免得浮点尾巴在汇总时差出一点。 */
+        const amount = Math.round(row.amount);
+        if (!Number.isFinite(amount) || amount <= 0) continue;
+        const previous = before.get(row.id);
+        next.push({
+            id: row.id,
+            date: row.date,
+            characterId: row.characterId,
+            kind: row.kind,
+            currency: 'cash',
+            category: row.category,
+            channel: '游戏内',
+            amount,
+            note: (row.note ?? '').trim(),
+            /* 认领旧记录的 `createdAt`：它是「这一条最初是哪一刻写下的」。
+             * 每次同步都刷新，同一天的两笔在列表里会来回换位置。 */
+            createdAt: previous?.createdAt ?? now,
+            source: 'auto',
+        });
+    }
+
+    const unchanged =
+        next.length === before.size &&
+        next.every((one) => {
+            const previous = before.get(one.id);
+            return previous !== undefined && sameAuto(previous, one);
+        });
+    if (unchanged) return { ok: true, changed: false };
+
+    entries.value = [...keep, ...next];
+    persist();
+    return { ok: true, changed: true };
 }
 
 /** 删一条。撤回是**真删**——账本里没有「隐藏」。 */
@@ -205,5 +305,6 @@ export function useAccounts() {
         addEntry,
         updateEntry,
         removeEntry,
+        applyAutoEntries,
     };
 }

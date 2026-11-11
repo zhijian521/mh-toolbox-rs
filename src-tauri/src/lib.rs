@@ -351,7 +351,9 @@ fn command_table() -> tauri_specta::Builder<tauri::Wry> {
             store::account_load,
             store::account_save,
             store::goals_load,
-            store::goals_save
+            store::goals_save,
+            store::online_load,
+            store::online_save
         ])
 }
 
@@ -380,7 +382,9 @@ fn command_table() -> tauri_specta::Builder<tauri::Wry> {
             store::account_load,
             store::account_save,
             store::goals_load,
-            store::goals_save
+            store::goals_save,
+            store::online_load,
+            store::online_save
         ])
 }
 

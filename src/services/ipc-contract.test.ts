@@ -238,6 +238,7 @@ const DOUBLE_WRITTEN = [
     { type: 'PricePoint', file: 'views/prices/prices.ts' },
     { type: 'AccountEntry', file: 'views/accounts/accounts.ts' },
     { type: 'IncomeEntry', file: 'views/income/income.ts' },
+    { type: 'OnlineSession', file: 'views/income/online.ts' },
 ] as const;
 
 /** `sources()` 的键是 `../views/prices/prices.ts` 这种相对路径，按尾巴取。 */

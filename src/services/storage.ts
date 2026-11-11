@@ -2,6 +2,7 @@ import {
     commands,
     type AccountEntry,
     type IncomePayload,
+    type OnlinePayload,
     type PriceItem,
     type Value as JsonValue,
 } from './bindings';
@@ -94,6 +95,33 @@ export async function accountSave(entries: AccountEntry[]): Promise<boolean> {
         return true;
     } catch (error) {
         console.error('写入账号账本失败', error);
+        return false;
+    }
+}
+
+/* ---------- 上线计时与点卡口径（第 145 批） ----------
+ * 记录与口径**一次读写**（`OnlinePayload` 两栏）：点卡成本要同时用到时长与单价，
+ * 分两条命令会让卡片先画时长、再补成本，中间那一拍是错的。
+ *
+ * 与收益那组的分工一致——Rust 只做存取，切天、折算、分摊全在 `views/income/online.ts`。
+ */
+export async function onlineLoad(): Promise<OnlinePayload | null> {
+    if (!hasDesktop()) return null;
+    try {
+        return await commands.onlineLoad();
+    } catch (error) {
+        console.error('读取上线记录失败', error);
+        return null;
+    }
+}
+
+export async function onlineSave(payload: OnlinePayload): Promise<boolean> {
+    if (!hasDesktop()) return false;
+    try {
+        await commands.onlineSave(payload);
+        return true;
+    } catch (error) {
+        console.error('写入上线记录失败', error);
         return false;
     }
 }

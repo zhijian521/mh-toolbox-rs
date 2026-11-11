@@ -43,13 +43,14 @@ const DB_FILE: &str = "mh-toolbox.db";
 /// **v2（2026-11-04，第 97 批）**：加 `income_entries` 与 `quick_prices` 两张表。
 /// **v3（2026-11-05，第 112 批）**：加 `account_entries` 一张表。
 /// **v4（2026-11-05，第 115 批）**：加 `goals` 一张表。
+/// **v5（2026-11-11，第 145 批）**：加 `online_sessions` 与 `online_settings` 两张表。
 /// 只加不改，旧版的 SQL 不认识它们、也不会碰；但版本号仍要 +1——这是「改表就要 +1」
 /// 的规矩，代价是回退到旧 exe 时它会拒绝打开（`AGENTS.md` 里写明升级是单向的）。
 ///
 /// 三次升版全是「只加表」，而建表一律 `IF NOT EXISTS`，所以「更小」这一支**故意是空的**：
 /// 旧库打开时缺的表已经被同一次 `execute_batch` 建出来了，没有第二步可做。哪天真要
 /// 改列 / 改语义，再按版本升序补分支——那时第一步是把库里的版本号先对齐。
-const SCHEMA_VERSION: i64 = 4;
+const SCHEMA_VERSION: i64 = 5;
 
 /// 一条价格记录。字段名与前端 `PricePoint` 一一对应（`serde` 自动转 camelCase）。
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -145,6 +146,12 @@ pub struct AccountEntry {
     pub id: String,
     /// `YYYY-MM-DD`。
     pub date: String,
+    /// 来源：空串 = 用户手记，`"auto"` = 收益页按天自动同步写的。
+    ///
+    /// **单独一栏，不靠分类前缀猜**：用户完全可以手记一条「游戏收益」，
+    /// 靠 `category` 反推来源的话，第二次同步就会写重复，认反了还会删掉他的手记。
+    #[serde(default)]
+    pub source: String,
     /// 关联的角色 id；空串表示「未指定角色」。
     pub character_id: String,
     /// `income` / `expense`。
@@ -158,6 +165,76 @@ pub struct AccountEntry {
     pub amount: f64,
     pub note: String,
     pub created_at: i64,
+}
+
+/* ======================================================================
+ * 上线计时与点卡（第 145 批）
+ *
+ * 一次上线 = 一行：`end_at` 有值就是「已结束」，为空就是「还在计时」。
+ * 不用「运行中」布尔列，也不用单独的「当前这次」表：计时中的那一段没有终点，
+ * 前端拿 `Date.now()` 补——于是「关掉应用再打开」不需要任何补偿逻辑，
+ * 钟表本来就是墙上的那个。
+ *
+ * `roster` 存 JSON 数组（多开时的角色 id）：列数固定，多加一个号不用改表；
+ * 而它只在这一行内被读、从不做查询条件，摊成子表只会多一张永远两三行的表。
+ *
+ * `card_price` 是**当时那一刻的单价快照**：单价改了之后回头重算历史成本，
+ * 每个月看到的账都不一样，而用户记得的是「昨天明明是那个数」。
+ * ==================================================================== */
+
+/// 点卡口径。库里只有一行（`id = 1`），一行都没有就是默认值。
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct OnlineSettings {
+    /// 点卡单价，**原值**：`15000` 表示 1.5 万/点（与收益、物价同口径）。
+    pub card_price: f64,
+    /// 是否把点卡折算成账号支出。关掉只是口径开关：已算好的成本照旧显示，历史流水也不删。
+    pub card_cost: bool,
+}
+
+/// 一行都没有时用的默认口径：1.5 万/点、计入成本。
+///
+/// 写成 `Default` 而不是在 `load_online` 里现拼：备份文件里的
+/// `cardSettings` 是 `#[serde(default)]`，旧备份打开时也走这里。
+impl Default for OnlineSettings {
+    fn default() -> Self {
+        Self {
+            card_price: 15_000.0,
+            card_cost: true,
+        }
+    }
+}
+
+/// 一次上线（一段计时）。
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct OnlineSession {
+    pub id: String,
+    /// 开始那天的 `YYYY-MM-DD`。跨天的那一段由前端按天切开，这里只记起点落在哪天。
+    pub date: String,
+    /// 开始时刻（毫秒时间戳）。
+    pub start_at: i64,
+    /// 结束时刻；`null` = 还在计时。
+    pub end_at: Option<i64>,
+    /// 主体角色。多开时只是其中之一，完整名单在 `roster`。
+    pub character_id: String,
+    /// 多开的角色 id；空数组 = 单开（只有 `character_id`）。
+    pub roster: Vec<String>,
+    /// 这一刻的点卡单价快照（原值）。
+    pub card_price: f64,
+    pub note: String,
+    pub created_at: i64,
+}
+
+/// 收益页一次读回来的上线数据：记录 + 口径。
+///
+/// 两份一起读写，因为「今天扣了多少点卡」需要同时用到时长与单价；
+/// 分两条命令会让卡片先画时长、再补数，中间那一拍是错的。
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct OnlinePayload {
+    pub sessions: Vec<OnlineSession>,
+    pub settings: OnlineSettings,
 }
 
 /* ======================================================================
@@ -308,7 +385,11 @@ fn init(conn: &Connection) -> Result<(), String> {
             channel      TEXT NOT NULL,
             amount       REAL NOT NULL,
             note         TEXT NOT NULL,
-            created_at   INTEGER NOT NULL
+            created_at   INTEGER NOT NULL,
+            /* 来源列（第 145 批）：`''` 用户手记，`'auto'` 收益页自动同步。
+             * 老库没有这一列，靠下面的 `add_column_if_missing` 补，见 S5 那段。
+             * 默认空串而不是 NULL：空串就是「手记」，语义直接，省掉每处取值时的判空。 */
+            source       TEXT NOT NULL DEFAULT ''
         );
 
         CREATE INDEX IF NOT EXISTS idx_account_entries_date
@@ -325,9 +406,54 @@ fn init(conn: &Connection) -> Result<(), String> {
         CREATE TABLE IF NOT EXISTS goals (
             id   TEXT PRIMARY KEY,
             data TEXT NOT NULL
+        );
+
+        /* 上线记录：一次计时一行。`end_at` 为 NULL 表示还在计时，
+         * 前端拿当前时间补终点——所以「应用被关掉」不会留下一条永远闭合不了的记录，
+         * 也不会在下次启动时编造一个假终点。
+         *
+         * 为什么摊成列而不是像目标那样整条 JSON：这几列正是页面要排序与筛选的依据
+         * （按日期取今天、按角色算分摊），塞进 JSON 之后每次读都要全表反序列化。
+         * 只有 `roster` 是 JSON——它是一个短数组，且从不参与查询。 */
+        CREATE TABLE IF NOT EXISTS online_sessions (
+            id           TEXT PRIMARY KEY,
+            date         TEXT NOT NULL,
+            start_at     INTEGER NOT NULL,
+            end_at       INTEGER,
+            character_id TEXT NOT NULL,
+            roster       TEXT NOT NULL,
+            card_price   REAL NOT NULL,
+            note         TEXT NOT NULL,
+            created_at   INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_online_sessions_date ON online_sessions (date);
+
+        /* 点卡口径：单行表（`CHECK (id = 1)` 把「只有一行」写进约束里）。
+         * 不塞进 `meta`：那张表存的是「关于库的状态」，删了 `init` 会补回来；
+         * 而单价是用户设定的业务数据，清除账本时该跟着一起清。 */
+        CREATE TABLE IF NOT EXISTS online_settings (
+            id         INTEGER PRIMARY KEY CHECK (id = 1),
+            card_price REAL NOT NULL,
+            card_cost  INTEGER NOT NULL
         );",
     )
     .map_err(|error| format!("建表失败：{error}"))?;
+
+    /* S5（第 145 批）：给已有的 `account_entries` 补 `source` 列。
+     *
+     * `CREATE TABLE IF NOT EXISTS` 对**已存在**的表一个字都不改，所以加列不能只改建表语句：
+     * 老库跑起来时那张表已经在了，新列不会凭空出现，之后所有账号读写都会报
+     * 「no such column: source」。`ALTER TABLE ... ADD COLUMN` 带上同样的默认值，
+     * 老行读出来就是「手记」——这正是它们本来的身份，不需要额外的数据迁移。
+     *
+     * 幂等：`PRAGMA table_info` 里已有这一列就跳过。SQLite 没有
+     * `ADD COLUMN IF NOT EXISTS`，所以只能先查一遍。 */
+    add_column_if_missing(
+        conn,
+        "account_entries",
+        "source",
+        "TEXT NOT NULL DEFAULT ''",
+    )?;
 
     /* S4 + S5：**先读，再决定写不写**。
      *
@@ -365,6 +491,42 @@ fn init(conn: &Connection) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// 给已有表补一列（第 145 批）。
+///
+/// `CREATE TABLE IF NOT EXISTS` 只管「表在不在」，**已经存在的表加列它一个字都不管**。
+/// 老库升级上来时那个新列不会自己出现，之后所有 SELECT/INSERT 都会报 `no such column`。
+///
+/// SQLite 没有 `ADD COLUMN IF NOT EXISTS`，只能先问 `PRAGMA table_info` 再决定。
+/// 返回是否真的加了——调用方目前不关心，但测试要断言「第二次调用是空操作」。
+fn add_column_if_missing(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    decl: &str,
+) -> Result<bool, String> {
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({table})"))
+        .map_err(|error| format!("读不了 {table} 的列信息：{error}"))?;
+    let exists = stmt
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|error| format!("读不了 {table} 的列信息：{error}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("读不了 {table} 的列信息：{error}"))?
+        .iter()
+        .any(|name| name == column);
+    drop(stmt);
+
+    if exists {
+        return Ok(false);
+    }
+    conn.execute(
+        &format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"),
+        [],
+    )
+    .map_err(|error| format!("给 {table} 补 {column} 列失败：{error}"))?;
+    Ok(true)
 }
 
 /// 读库里的 `meta` 值。没有就返回 `None`。
@@ -745,6 +907,7 @@ pub(crate) struct Counts {
     pub entries: i64,
     pub accounts: i64,
     pub goals: i64,
+    pub online: i64,
 }
 
 pub(crate) fn replace_all(
@@ -754,6 +917,7 @@ pub(crate) fn replace_all(
     income: &IncomePayload,
     accounts: &[AccountEntry],
     goals: &[serde_json::Value],
+    online: &OnlinePayload,
 ) -> Result<Counts, String> {
     let tx = conn
         .transaction()
@@ -773,6 +937,8 @@ pub(crate) fn replace_all(
         .map_err(|error| format!("清空账号账本失败：{error}"))?;
     tx.execute("DELETE FROM goals", [])
         .map_err(|error| format!("清空目标失败：{error}"))?;
+    tx.execute("DELETE FROM online_sessions", [])
+        .map_err(|error| format!("清空上线记录失败：{error}"))?;
 
     let mut written_characters: i64 = 0;
     for (index, character) in characters.iter().enumerate() {
@@ -807,6 +973,22 @@ pub(crate) fn replace_all(
         written_goals += 1;
     }
 
+    let mut written_online: i64 = 0;
+    for session in &online.sessions {
+        insert_online_session(&tx, session)?;
+        written_online += 1;
+    }
+    /* 口径是单行，不算进条数：回执里报「N 条上线记录」，
+     * 把那一行口径也算进去会让「导入了 1 条」这种说法出现。 */
+    tx.execute(
+        "INSERT OR REPLACE INTO online_settings (id, card_price, card_cost) VALUES (1, ?1, ?2)",
+        params![
+            online.settings.card_price,
+            if online.settings.card_cost { 1 } else { 0 },
+        ],
+    )
+    .map_err(|error| format!("写点卡口径失败：{error}"))?;
+
     tx.commit().map_err(|error| format!("提交失败：{error}"))?;
     Ok(Counts {
         characters: written_characters,
@@ -814,6 +996,7 @@ pub(crate) fn replace_all(
         entries: written_entries,
         accounts: written_accounts,
         goals: written_goals,
+        online: written_online,
     })
 }
 
@@ -958,7 +1141,7 @@ fn load_accounts(conn: &Connection) -> Result<Vec<AccountEntry>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, date, character_id, kind, currency, category, channel, amount, note, \
-             created_at FROM account_entries ORDER BY date DESC, created_at DESC",
+             created_at, source FROM account_entries ORDER BY date DESC, created_at DESC",
         )
         .map_err(|error| format!("准备账号查询失败：{error}"))?;
     let rows = stmt
@@ -974,6 +1157,7 @@ fn load_accounts(conn: &Connection) -> Result<Vec<AccountEntry>, String> {
                 amount: row.get(7)?,
                 note: row.get(8)?,
                 created_at: row.get(9)?,
+                source: row.get(10)?,
             })
         })
         .map_err(|error| format!("读账号账本失败：{error}"))?
@@ -1010,8 +1194,8 @@ fn save_accounts(conn: &mut Connection, entries: &[AccountEntry]) -> Result<(), 
 fn insert_account_entry(conn: &Connection, entry: &AccountEntry) -> Result<(), String> {
     conn.execute(
         "INSERT OR REPLACE INTO account_entries
-            (id, date, character_id, kind, currency, category, channel, amount, note, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            (id, date, character_id, kind, currency, category, channel, amount, note, created_at, source)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
             entry.id,
             entry.date,
@@ -1023,6 +1207,7 @@ fn insert_account_entry(conn: &Connection, entry: &AccountEntry) -> Result<(), S
             entry.amount,
             entry.note,
             entry.created_at,
+            entry.source,
         ],
     )
     .map_err(|error| format!("写账号记录失败：{error}"))?;
@@ -1051,6 +1236,127 @@ pub fn goals_load(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
 pub fn goals_save(app: AppHandle, goals: Vec<serde_json::Value>) -> Result<(), String> {
     let mut conn = open(&app)?;
     save_records(&mut conn, &GOALS, &goals)
+}
+
+/* ======================================================================
+ * 上线计时与点卡口径（第 145 批）
+ *
+ * 与收益那对命令同一个形状：两份一起读、一起写。分开会有中间态——
+ * 「时长已经变了、单价还是旧的」那一拍，卡片上的点卡消耗是错的。
+ * ==================================================================== */
+
+#[tauri::command]
+#[specta::specta]
+pub fn online_load(app: AppHandle) -> Result<OnlinePayload, String> {
+    let conn = open(&app)?;
+    load_online(&conn)
+}
+
+/// 整份写回：记录清空重插，口径原地 upsert，**一个事务**。
+#[tauri::command]
+#[specta::specta]
+pub fn online_save(app: AppHandle, payload: OnlinePayload) -> Result<(), String> {
+    let mut conn = open(&app)?;
+    save_online(&mut conn, &payload)
+}
+
+/// `online_load` 的本体。拆出来的理由与 `load_income` 一样：测试能对着临时目录跑。
+fn load_online(conn: &Connection) -> Result<OnlinePayload, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, date, start_at, end_at, character_id, roster, card_price, note, created_at \
+             FROM online_sessions ORDER BY start_at DESC",
+        )
+        .map_err(|error| format!("准备上线查询失败：{error}"))?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(OnlineSession {
+                id: row.get(0)?,
+                date: row.get(1)?,
+                start_at: row.get(2)?,
+                end_at: row.get(3)?,
+                character_id: row.get(4)?,
+                /* 一行坏 JSON 只让这一行的名单变空，不让整表读不出来：
+                 * 名单只影响「分摊给谁」，而记录本身还有时长与单价。 */
+                roster: serde_json::from_str(&row.get::<_, String>(5)?).unwrap_or_default(),
+                card_price: row.get(6)?,
+                note: row.get(7)?,
+                created_at: row.get(8)?,
+            })
+        })
+        .map_err(|error| format!("查上线记录失败：{error}"))?;
+    let mut sessions = Vec::new();
+    for row in rows {
+        sessions.push(row.map_err(|error| format!("读上线记录失败：{error}"))?);
+    }
+
+    let settings = conn
+        .query_row(
+            "SELECT card_price, card_cost FROM online_settings WHERE id = 1",
+            [],
+            |row| {
+                Ok(OnlineSettings {
+                    card_price: row.get(0)?,
+                    card_cost: row.get::<_, i64>(1)? != 0,
+                })
+            },
+        )
+        .optional()
+        .map_err(|error| format!("读点卡口径失败：{error}"))?
+        .unwrap_or_default();
+
+    Ok(OnlinePayload { sessions, settings })
+}
+
+fn save_online(conn: &mut Connection, payload: &OnlinePayload) -> Result<(), String> {
+    let tx = conn
+        .transaction()
+        .map_err(|error| format!("开事务失败：{error}"))?;
+
+    tx.execute("DELETE FROM online_sessions", [])
+        .map_err(|error| format!("清空上线记录失败：{error}"))?;
+    for session in &payload.sessions {
+        insert_online_session(&tx, session)?;
+    }
+
+    /* 口径是单行：`INSERT OR REPLACE` 靠 `id = 1` 这条约束盖掉旧值。
+     * 布尔存 0/1——SQLite 没有布尔类型，而 `INTEGER` 一列比多一张表省事得多。 */
+    tx.execute(
+        "INSERT OR REPLACE INTO online_settings (id, card_price, card_cost) VALUES (1, ?1, ?2)",
+        params![
+            payload.settings.card_price,
+            if payload.settings.card_cost { 1 } else { 0 },
+        ],
+    )
+    .map_err(|error| format!("写点卡口径失败：{error}"))?;
+
+    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
+    Ok(())
+}
+
+/// 写一行上线记录。`INSERT OR REPLACE`：同一 id 再写一次是覆盖（与其余各表同语义）。
+fn insert_online_session(conn: &Connection, session: &OnlineSession) -> Result<(), String> {
+    /* 名单序列化失败只可能是内有坏字符，这里退回空数组而不是让整次保存失败：
+     * 一条记录写不进去，用户丢掉的是这段时间；名单丢了只影响分摊，还能手动补。 */
+    let roster = serde_json::to_string(&session.roster).unwrap_or_else(|_| "[]".to_string());
+    conn.execute(
+        "INSERT OR REPLACE INTO online_sessions
+            (id, date, start_at, end_at, character_id, roster, card_price, note, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            session.id,
+            session.date,
+            session.start_at,
+            session.end_at,
+            session.character_id,
+            roster,
+            session.card_price,
+            session.note,
+            session.created_at,
+        ],
+    )
+    .map_err(|error| format!("写上线记录失败：{error}"))?;
+    Ok(())
 }
 
 /* ======================================================================
@@ -1111,6 +1417,13 @@ fn clear_records(conn: &mut Connection) -> Result<Counts, String> {
     let goals = tx
         .execute("DELETE FROM goals", [])
         .map_err(|error| format!("清空目标失败：{error}"))?;
+    let online = tx
+        .execute("DELETE FROM online_sessions", [])
+        .map_err(|error| format!("清空上线记录失败：{error}"))?;
+    /* 口径也清：单价是用户设定的业务数据，不是「关于库的状态」。留下的后果是
+     * 「清空了全部数据，下一次记上线仍按我上次填的价扣点卡」——那不是回到刚装好。 */
+    tx.execute("DELETE FROM online_settings", [])
+        .map_err(|error| format!("清空点卡口径失败：{error}"))?;
 
     /* 这里**故意没有** `DELETE FROM meta`。`meta` 存的是关于库的状态而不是账本本身：
      * `schemaVersion`（删了 `init` 会补回「当前版本」，没有意义），以及将来任何
@@ -1122,6 +1435,7 @@ fn clear_records(conn: &mut Connection) -> Result<Counts, String> {
         entries: entries as i64,
         accounts: accounts as i64,
         goals: goals as i64,
+        online: online as i64,
     })
 }
 
@@ -1176,6 +1490,14 @@ mod tests {
         IncomePayload {
             entries: Vec::new(),
             prices: Vec::new(),
+        }
+    }
+
+    /// 空上线数据：与 `no_income` 同一个理由——`replace_all` 的用例大多不关心它。
+    fn no_online() -> OnlinePayload {
+        OnlinePayload {
+            sessions: Vec::new(),
+            settings: OnlineSettings::default(),
         }
     }
 
@@ -1380,10 +1702,11 @@ mod tests {
                 counts.prices,
                 counts.entries,
                 counts.accounts,
-                counts.goals
+                counts.goals,
+                counts.online
             ),
-            (1, 1, 0, 0, 0),
-            "返回的五个数要报出清掉了多少，界面那几句提示靠它"
+            (1, 1, 0, 0, 0, 0),
+            "返回的六个数要报出清掉了多少，界面那几句提示靠它"
         );
 
         let count = |table: &str| -> i64 {
@@ -1495,8 +1818,16 @@ mod tests {
 
         /* 两条同一个物品 id：第二次 INSERT 撞主键。模拟「校验漏了重复 id」的兜底。 */
         let duplicated = vec![item("dup", "重复甲", vec![]), item("dup", "重复乙", vec![])];
-        let error = replace_all(&mut conn, &[], &duplicated, &no_income(), &[], &[])
-            .expect_err("重复 id 必须失败");
+        let error = replace_all(
+            &mut conn,
+            &[],
+            &duplicated,
+            &no_income(),
+            &[],
+            &[],
+            &no_online(),
+        )
+        .expect_err("重复 id 必须失败");
         assert!(
             error.contains("写入物品"),
             "错误要说清是哪一步失败的，实际是：{error}"
@@ -1536,10 +1867,28 @@ mod tests {
             amount: 30.0,
             note: "月卡".into(),
             created_at: 2,
+            source: String::new(),
         }];
         let goals = vec![
             serde_json::json!({ "id": "g1", "title": "测试目标", "logs": [{ "id": "l1", "delta": 2 }] }),
         ];
+        let online = OnlinePayload {
+            sessions: vec![OnlineSession {
+                id: "o1".into(),
+                date: "2026-11-07".into(),
+                start_at: 1_700_000_000_000,
+                end_at: Some(1_700_000_360_000),
+                character_id: "c1".into(),
+                roster: vec!["c1".into(), "c2".into()],
+                card_price: 15_000.0,
+                note: String::new(),
+                created_at: 3,
+            }],
+            settings: OnlineSettings {
+                card_price: 18_000.0,
+                card_cost: false,
+            },
+        };
         let counts = replace_all(
             &mut conn,
             &[
@@ -1550,6 +1899,7 @@ mod tests {
             &income,
             &accounts,
             &goals,
+            &online,
         )
         .expect("导入");
 
@@ -1559,9 +1909,10 @@ mod tests {
                 counts.prices,
                 counts.entries,
                 counts.accounts,
-                counts.goals
+                counts.goals,
+                counts.online
             ),
-            (2, 2, 1, 1, 1)
+            (2, 2, 1, 1, 1, 1)
         );
         assert_eq!(load_items(&conn).expect("读物价").len(), 2);
         assert_eq!(load_records(&conn, &CHARACTERS).expect("读名册").len(), 2);
@@ -1573,6 +1924,15 @@ mod tests {
         assert_eq!(load_records(&conn, &GOALS).expect("读目标"), goals);
         assert_eq!(back.entries.len(), 1);
         assert_eq!(back.prices.len(), 1, "单价也要跟着备份一起进来");
+
+        let online_back = load_online(&conn).expect("读上线");
+        assert_eq!(online_back.sessions.len(), 1);
+        assert_eq!(online_back.sessions[0].roster, vec!["c1", "c2"]);
+        assert_eq!(
+            online_back.settings.card_price, 18_000.0,
+            "口径是单行，整份替换要盖掉默认值"
+        );
+        assert!(!online_back.settings.card_cost, "开关也要跟着进来");
     }
 
     /// 收益与单价整份写回：两份一起进、一起出，读回来按日期倒排。
@@ -1622,5 +1982,84 @@ mod tests {
         let back = load_income(&conn).expect("读收益");
         assert_eq!(back.entries.len(), 1, "整份替换：旧的两条不该留着");
         assert!(back.prices.is_empty(), "单价也是整份替换");
+    }
+
+    /// 上线记录与点卡口径整份写回：记录按开始时刻倒排，`end_at` 的 `None` 原样往返。
+    ///
+    /// `end_at` 那条是重点：计时中的记录靠它为 `NULL` 表达「还没结束」。若哪次
+    /// 序列化把它写成 0，读回来就成了一条「1970 年结束」的记录——时长算出来是负数，
+    /// 而界面上表现为「今天在线 −20000 小时」，看着像数据坏了。
+    #[test]
+    fn online_round_trip_keeps_sessions_and_settings() {
+        let dir = TempDir::new(20);
+        let mut conn = open_at(dir.base()).expect("打开数据库");
+
+        let running = OnlineSession {
+            id: "o2".into(),
+            date: "2026-11-08".into(),
+            start_at: 1_700_000_500_000,
+            end_at: None,
+            character_id: "c1".into(),
+            roster: Vec::new(),
+            card_price: 15_000.0,
+            note: String::new(),
+            created_at: 2,
+        };
+        let done = OnlineSession {
+            id: "o1".into(),
+            date: "2026-11-07".into(),
+            start_at: 1_700_000_000_000,
+            end_at: Some(1_700_000_360_000),
+            character_id: "c1".into(),
+            roster: vec!["c1".into(), "c2".into()],
+            card_price: 15_000.0,
+            note: "双开".into(),
+            created_at: 1,
+        };
+
+        save_online(
+            &mut conn,
+            &OnlinePayload {
+                sessions: vec![done, running],
+                settings: OnlineSettings {
+                    card_price: 16_500.0,
+                    card_cost: true,
+                },
+            },
+        )
+        .expect("写上线");
+
+        let back = load_online(&conn).expect("读上线");
+        assert_eq!(back.sessions.len(), 2);
+        assert_eq!(back.sessions[0].id, "o2", "按开始时刻倒排：最近那段在前");
+        assert_eq!(back.sessions[0].end_at, None, "计时中的那一段必须还是 None");
+        assert_eq!(back.sessions[1].end_at, Some(1_700_000_360_000));
+        assert_eq!(back.sessions[1].roster, vec!["c1", "c2"]);
+        assert_eq!(back.settings.card_price, 16_500.0);
+        assert!(back.settings.card_cost);
+
+        /* 整份写回：旧的两条不该留着，口径也要被盖掉。 */
+        save_online(&mut conn, &no_online()).expect("写空");
+        let back = load_online(&conn).expect("再读上线");
+        assert!(back.sessions.is_empty());
+        assert_eq!(
+            back.settings.card_price, 15_000.0,
+            "清空之后回到默认口径，而不是留着上一次填的价"
+        );
+    }
+
+    /// 一行都没有时，口径必须是 1.5 万/点、计入成本。
+    ///
+    /// 这条挡的是「首次启动读到 0」：单价若是 0，记一天上线算出来的点卡消耗永远是 0，
+    /// 而卡片上它长得像「今天没扣点卡」——用户不会去怀疑单价没被读到。
+    #[test]
+    fn online_settings_default_to_15000_per_point() {
+        let dir = TempDir::new(21);
+        let conn = open_at(dir.base()).expect("打开数据库");
+
+        let back = load_online(&conn).expect("读空库");
+        assert!(back.sessions.is_empty());
+        assert_eq!(back.settings.card_price, 15_000.0, "默认 1.5 万/点");
+        assert!(back.settings.card_cost, "默认计入成本");
     }
 }
