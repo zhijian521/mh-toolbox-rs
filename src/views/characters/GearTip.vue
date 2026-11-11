@@ -37,8 +37,10 @@ watch(
     },
 );
 
-/* 条件合并成一行小字：`等级 130 · 五行 木 · 女`。
- * 游戏里它们分三行，那是为了塞进固定宽的框；浮片没这个限制，一行读完更省高度。 */
+/* 条件合并成一行小字：`130 级 · 五行 木 · 女`。
+ * 游戏里它们分三行，那是为了塞进固定宽的框；浮片没这个限制，一行读完更省高度。
+ * 等级自 2026-11-11 起是独立的一格（`detail.level`），条件只剩五行 / 装备角色。 */
+const level = computed(() => props.detail?.level ?? 0);
 const requires = computed(() => props.detail?.requires?.join(' · ') ?? '');
 </script>
 
@@ -55,7 +57,8 @@ const requires = computed(() => props.detail?.requires?.join(' · ') ?? '');
             <template v-if="detail">
                 <div class="tip-name">{{ detail.name || slotName }}</div>
                 <div class="meta tip-kind">
-                    {{ detail.kind }}<template v-if="requires"> · {{ requires }}</template>
+                    {{ detail.kind }}<template v-if="level"> · {{ level }} 级</template
+                    ><template v-if="requires"> · {{ requires }}</template>
                 </div>
                 <!-- 风味文本压到两行：它是「这件东西有来历」，不是要背下来的属性。
                      排在属性之前是为了先给个由头，但绝不能让它把属性挤出屏幕。 -->

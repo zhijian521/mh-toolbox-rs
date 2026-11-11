@@ -478,6 +478,15 @@ describe('装备浮片解析', () => {
             { label: '符石组合', value: '高山流水', tone: 'ochre' },
         ]);
     });
+    it('等级进自己的数字格，五行与装备角色仍留在条件里', () => {
+        const head = parseGearPanel(lines(samples[0].rows), names).detail;
+        expect(head.level).toBe(60);
+        expect(head.requires).toEqual(['男']);
+        const weapon = parseGearPanel(lines(samples[2].rows), names).detail;
+        expect(weapon.level).toBe(130);
+        /* `compact()` 会把全角逗号归一成半角（NFKC），这里按归一化后的文本断言。 */
+        expect(weapon.requires).toEqual(['神天兵,虎头怪', '五行 火']);
+    });
     it.each(samples)('$name 识别部位、名称和属性', ({ name, slot, rows, stat }) => {
         const result = parseGearPanel(lines(rows), names);
         expect(result.slot).toBe(slot);
@@ -636,7 +645,8 @@ describe('装备按部位覆盖', () => {
         detail: {
             name: '芙蓉戒',
             kind: '灵饰 · 戒指',
-            requires: ['等级 80', '五行 木'],
+            level: 80,
+            requires: ['五行 木'],
             flavor: '保留描述',
             note: '自用戒指\n以后换三伤害',
             stats: [
@@ -664,6 +674,7 @@ describe('装备按部位覆盖', () => {
         expect(merged.detail?.note).toBe(seed.detail?.note);
         expect(merged.detail?.lines).toBeUndefined();
         expect(merged.detail?.requires).toBeUndefined();
+        expect(merged.detail?.level).toBeUndefined();
         expect(mergeGearPanel(merged, patch)).toEqual(merged);
         expect(seed.detail?.stats[1].value).toBe('+8');
     });

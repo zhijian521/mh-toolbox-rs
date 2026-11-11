@@ -43,7 +43,10 @@ function save() {
         }),
     );
 }
-onMounted(() => focusInput(form, '.gear-name input'));
+/* `.gear-name input` 这条选择器一直没有匹配到东西（类名是 `gear-name-field` /
+ * `gear-name-input`，没有 `gear-name` 这个 token），于是快速修改窗从来不会把焦点
+ * 落到名字上。2026-11-11 顺手改成真实类名。 */
+onMounted(() => focusInput(form, '.gear-name-input'));
 </script>
 
 <template>

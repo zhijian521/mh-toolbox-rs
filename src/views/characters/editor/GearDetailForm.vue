@@ -14,6 +14,7 @@ import {
     withGearBaseStats,
 } from '../gear-properties';
 import PaperCard from '../../../components/PaperCard.vue';
+import NumberField from '../../../components/NumberField.vue';
 import PressButton from '../../../components/PressButton.vue';
 import IconTile from '../IconTile.vue';
 import { useGearIcon } from '../use-gear-icon';
@@ -83,13 +84,6 @@ function setName(event: Event) {
     detail.value.name = value;
     caption.value = value;
 }
-function setRequires(event: Event) {
-    const parts = (event.target as HTMLInputElement).value
-        .split(/[,，·]/)
-        .map((part) => part.trim())
-        .filter(Boolean);
-    detail.value.requires = parts.length ? parts : undefined;
-}
 function addCond() {
     detail.value.cond ??= [];
     detail.value.cond.push({ label: '耐久度', value: '' });
@@ -119,24 +113,30 @@ function addLine(label: string) {
                         </label>
                         <slot name="name-extra" />
                     </div>
+                    <!-- 类型与等级照召唤兽那两格（2026-11-11 用户：「装备修改页面的类型和
+                         等级条件样式参考召唤兽的等级和参战等级样式，现在的数字输入框样式不对」）：
+                         同样是 `label.slip-row.sm` + 票面里的凹槽，数值格用 `NumberField`。
+                         等级只记一个数（用户同日：「等级条件，修改为等级，我们只记录等级即可」）——
+                         旧档的「等级 80」在归一化时抽进 level，五行 / 装备角色仍留在 requires 里
+                         只给浮片读，界面不再编辑。 -->
                     <div class="id-pair gear-kind">
                         <label class="slip-row sm">
                             <span class="slip-name">类型</span>
                             <input
                                 v-model="detail.kind"
-                                class="field slip-input"
+                                class="field num-slot slip-input"
                                 aria-label="装备类型"
                                 placeholder="类型"
                             />
                         </label>
                         <label class="slip-row sm">
-                            <span class="slip-name">等级 / 条件</span>
-                            <input
-                                class="field slip-input"
-                                aria-label="装备条件，逗号分隔"
-                                placeholder="等级 / 条件"
-                                :value="(detail.requires ?? []).join('，')"
-                                @change="setRequires"
+                            <span class="slip-name">等级</span>
+                            <NumberField
+                                class="field num-slot slip-input"
+                                :model-value="detail.level ?? 0"
+                                label="装备等级"
+                                zero-as-empty
+                                @update:model-value="detail.level = $event || undefined"
                             />
                         </label>
                     </div>
@@ -374,6 +374,9 @@ function addLine(label: string) {
 .gear-kind .slip-input {
     min-width: 0;
 }
+/* 类型是文字、等级是数：两格都收进票面那枚凹槽。等级这格由 `NumberField` 自己的
+ * 72 宽收回到票宽——它那条是 0-1-0，压不过 `.slip-row .field.slip-input`（0-3-0），
+ * 所以不必再写一遍宽度。 */
 .inline-field {
     width: 100%;
     min-width: 0;

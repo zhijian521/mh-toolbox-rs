@@ -57,7 +57,7 @@ describe('装备名称与图标', () => {
             gearIconFile(
                 {
                     slot: '头',
-                    detail: { name: '青铜盔', kind: '头盔', stats: [], requires: ['等级 10'] },
+                    detail: { name: '青铜盔', kind: '头盔', stats: [], level: 10 },
                 },
                 entries,
             ),

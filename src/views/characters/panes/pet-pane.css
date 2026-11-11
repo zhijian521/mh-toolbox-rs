@@ -1,3 +1,10 @@
+/* 召唤兽牌：一枚头像块 + 名称与等级上下 + 右侧铺技能图标，下面两行读数。
+ *
+ * 2026-11-11 用户改版（三句话）：「召唤兽头像也优化我们刚刚修改的样式」「下面的属性去掉
+ * 魔法，从三行变成两行」「头像后面的名称和等级往前提上下展示，后面的剩下位置展示技能
+ * 图标，超出两行展示」。于是头顶这一行从「头像 / 名字 / 等级 / …」的横排改成
+ * 「块 · 竖排的名与级 · 剩下的地方全给技能」，属性由 3 + 3 + 1 收成 3 + 3。
+ */
 .pet-list {
     display: flex;
     flex-direction: column;
@@ -35,33 +42,75 @@
 .plate:disabled {
     cursor: default;
 }
+/* 头像块与 PetPortraitPicker 的选择位、装备详情左端的 IconTile 同一套（块 64 / 图 56）。
+ * 三个数各写一份而不抽公共类：那三处的容器语义不同（这里点不动、那里可点、另一处是
+ * 静态展示），共用一条类就得再开三个变量去中和，读的人反而要多跳三处。
+ *
+ * still 由组件属性关掉悬停与按下：整张牌才是按钮，块本身点不动，给它「按我」的反馈
+ * 等于骗人去点。材质（棱、落地影、块面）照旧——它仍然是纸上的一块东西。 */
+.beast-plate {
+    --tile-w: 64px;
+    --tile-h: 64px;
+    --tile-r: var(--r-3);
+    --tile-face: color-mix(in srgb, var(--well) 55%, var(--paper-2));
+    --tile-drop: 0.75;
+    flex: none;
+}
+.beast-plate :deep(.pet-image.portrait) {
+    /* 比块小 8：块的四道棱各占 1px、下沿还有 2px 的厚度，图贴满会把棱吃掉一圈。 */
+    --pet-icon-size: calc(64px - 8px);
+    background: transparent;
+}
+/* ---------- 头顶一行：头像块 + 右边一列两张属性票 ----------
+ *
+ * 用户 2026-11-11 第四轮把前三个版本的材质全部否掉（「都不行都不用，把名字 和 技能的样式
+ * 同步为 下面属性一样的 即可」）：名字（含等级）与技能各是一张 `.slip-row.sm`，与下面六项
+ * 属性**同一套**面（`--well` 34%）、四道棱、落影、28 高、圆角 `--r-2`、`--tag-w` 52。
+ * 这里因此**不写任何材质**，只写这一列怎么排——材质归 base.css 那张票。
+ *
+ * 两张票各 28、中间留 8，28 + 8 + 28 = 64，正好与头像块同高（用户第二轮：
+ * 「两个都和头像的高度保持一致」）。所以**技能票也只装一行**：属性行的票就是一行一项，
+ * 两行就得长到 44，头像旁边立刻凸出来一截。一行装得下 13 枚 18 的图标，
+ * 比召唤兽能学的招数还多，实际不会装不下。
+ */
 .beast-head {
     display: flex;
     align-items: center;
     gap: 10px;
 }
-.beast-name {
+.beast-id {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+/* 技能票：票自带 28 高与居中，这两条正是要的，只把内边距与图标收窄。
+ * 带 `.slip-row`（0-2-0）压过票自己的 0-1-0——只写 `.skill-line` 与它打平，
+ * 谁后注入谁赢。图标 18、内容盒封顶 18 高，第二排整排裁掉：与属性行「一项一行」同理。 */
+.slip-row.skill-line {
+    padding: 0 6px;
+}
+.skill-icons {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: center;
+    gap: 3px;
+    width: 100%;
+    max-height: 18px;
     overflow: hidden;
-    font-size: var(--fs-md);
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
-.beast-head > .lv {
-    flex: none;
-    margin-left: auto;
-    color: var(--num);
-    font-size: var(--fs-sm);
-    font-weight: 700;
+.skill-icons :deep(.pet-image) {
+    --pet-icon-size: 18px;
 }
-/* 七项属性按**三列**排（2026-11-09 用户：「召唤兽属性可以一排三个属性也可以放得下」）。
- *
- * 两列时第四行只剩「法防」一项、右边空半行，牌白白高一截；三列正好 3 + 3 + 1，
- * 末行也只空两格。列距从 26 收到 10：版心 360（420 卡 − 2×20 − 2×10），
- * 三列各 113.3，票面里「气血」+ 五位数读数合计约 90，剩下的 23 是名字与数字之间的气。
+/* 七项属性按三列排（2026-11-09 用户：「召唤兽属性可以一排三个属性也可以放得下」）。
+ * 2026-11-11 卡面去掉魔法后是 3 + 3，末行不再剩一个孤零零的「法防」。
+ * 列距从 26 收到 10：版心 360（420 卡 − 2×20 − 2×10），三列各 113.3，
+ * 票面里「气血」+ 五位数读数合计约 90，剩下的 23 是名字与数字之间的气。
  * 行距仍 4——票是四件套压出来的实体，纵向再松就读作「四张独立的票」。
  *
- * 字号档放大时（`--fs-scale`）挤的是名字与数值之间那段空白，票本身不会溢出：
- * `minmax(0, 1fr)` 允许列窄到内容以下，`.s` 的 `min-width: 0` 让票内的裁切生效。 */
+ * 字号档放大时（--fs-scale）挤的是名字与数值之间那段空白，票本身不会溢出：
+ * minmax(0, 1fr) 允许列窄到内容以下，.s 的 min-width: 0 让票内的裁切生效。 */
 .stats {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -73,15 +122,4 @@
 }
 .slip-val .lv.blank {
     color: var(--muted);
-}
-.skill-line {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    margin-top: 9px;
-    padding-top: 8px;
-    border-top: var(--w-hair) solid var(--rule);
-}
-.skill-line :deep(.pet-image) {
-    --pet-icon-size: 30px;
 }

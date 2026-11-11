@@ -130,7 +130,7 @@ describe('装备格对齐', () => {
         { stats: [{ label: '防御', value: '0', group: 'base' }] },
         { cond: [{ label: '锻炼等级', value: '6' }] },
         { lines: [{ label: '套装', value: '碎星诀' }] },
-        { requires: ['等级 60'] },
+        { level: 60 },
     ])('未填装备名时已录入内容仍可保存并重载：%j', (detail) => {
         const character = normalizeCharacter({ gear: [{ slot: '头', detail }] });
         expect(character.gear[0].detail).toMatchObject(detail);

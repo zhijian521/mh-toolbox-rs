@@ -675,8 +675,105 @@ export async function pets(ctx) {
         );
         t.check('兽牌在可见的页签里', visible === 1, `实际 ${visible} 块可见`);
 
-        const stats = await inCard(`card.querySelectorAll('.plate .s').length`);
-        t.check('一块牌展示全部七项战斗属性', stats === 7, `实际 ${stats} 格`);
+        /* 卡面去掉魔法（2026-11-11 用户：「下面的属性去掉魔法，从三行变成两行」）：
+         * 库里仍是七项，只是牌上不画那一格，所以 7 − 1 = 6，并且正好两行三列。 */
+        const stats = await inCard(`(() => {
+                const cells = [...card.querySelectorAll('.plate .s')];
+                const tops = [...new Set(cells.map((one) => Math.round(one.getBoundingClientRect().top)))];
+                return {
+                    count: cells.length,
+                    labels: cells.map((one) => (one.querySelector('.slip-name')?.textContent || '').trim()),
+                    rows: tops.length,
+                };
+            })()`);
+        t.check(
+            '兽牌展示六项属性、两行三列，不画魔法',
+            stats.count === 6 && stats.rows === 2 && !stats.labels.includes('魔法'),
+            JSON.stringify(stats),
+        );
+
+        /* 头顶一行（2026-11-11 用户第四轮：「都不行都不用，把名字 和 技能的样式 同步为
+         * 下面属性一样的 即可」）：名字（含等级）与技能各是一张 `.slip-row.sm`，
+         * 与下面六张属性票**同一套材质**（面、棱、影、28 高、圆角、签宽），
+         * 上下排在头像块右边，28 + 8 + 28 = 64 与块等高。 */
+        const head = await inCard(`(() => {
+                const plate = card.querySelector('.plate .beast-plate');
+                const id = card.querySelector('.plate .beast-id');
+                const nameRow = card.querySelector('.plate .name-row');
+                const skillRow = card.querySelector('.plate .skill-line');
+                const name = card.querySelector('.plate .beast-name');
+                const lv = card.querySelector('.plate .beast-id .lv');
+                const skills = card.querySelector('.plate .skill-icons');
+                const stat = card.querySelector('.plate .stats .slip-row');
+                if (!plate || !id || !nameRow || !skillRow || !name || !lv || !skills || !stat)
+                    return { found: false };
+                const box = (one) => one.getBoundingClientRect();
+                const p = box(plate);
+                const nr = box(nameRow);
+                const sr = box(skillRow);
+                const n = box(name);
+                const l = box(lv);
+                const s = box(skills);
+                const style = (one) => getComputedStyle(one);
+                const statStyle = style(stat);
+                const firstIcon = skills.querySelector('.pet-image');
+                return {
+                    found: true,
+                    plate: [Math.round(p.width), Math.round(p.height)],
+                    rows: [Math.round(nr.height), Math.round(sr.height)],
+                    /* 两张都是属性行那一档：带 slip-row 与 sm。 */
+                    tickets:
+                        nameRow.classList.contains('slip-row') &&
+                        nameRow.classList.contains('sm') &&
+                        skillRow.classList.contains('slip-row') &&
+                        skillRow.classList.contains('sm'),
+                    /* 材质与属性票逐项对比：面、圆角、影。 */
+                    sameFace: style(nameRow).backgroundColor === statStyle.backgroundColor,
+                    sameSkillFace: style(skillRow).backgroundColor === statStyle.backgroundColor,
+                    sameRadius: style(nameRow).borderRadius === statStyle.borderRadius,
+                    sameShadow: style(nameRow).boxShadow === statStyle.boxShadow,
+                    /* 名字在左、等级签在右，同一行；等级用属性票同款签宽。 */
+                    inline: Math.abs(n.top + n.height / 2 - (l.top + l.height / 2)) < 2,
+                    tagW: Math.round(l.parentElement.getBoundingClientRect().width),
+                    statTagW: Math.round(
+                        stat.querySelector('.num-tag').getBoundingClientRect().width,
+                    ),
+                    /* 两张票上下排在块右边，合起来与块等高。 */
+                    stacked: nr.top > p.top - 1 && sr.top > nr.bottom - 1,
+                    beside: nr.left > p.right - 1,
+                    totalHeight: Math.round(sr.bottom - nr.top),
+                    /* 技能只一排：图标 18、封顶 18 高，第二排整排裁掉。 */
+                    iconSize: firstIcon ? Math.round(box(firstIcon).width) : -1,
+                    skillHeight: Math.round(s.height),
+                    skillLines: new Set(
+                        [...skills.querySelectorAll('.pet-image')].map((one) =>
+                            Math.round(box(one).top),
+                        ),
+                    ).size,
+                };
+            })()`);
+        t.check(
+            '兽牌头像块 64，名字与技能是同款属性票，上下两张与块等高、技能只一排',
+            head.found &&
+                head.plate[0] === 64 &&
+                head.plate[1] === 64 &&
+                head.tickets &&
+                head.sameFace &&
+                head.sameSkillFace &&
+                head.sameRadius &&
+                head.sameShadow &&
+                head.rows[0] === 28 &&
+                head.rows[1] === 28 &&
+                head.inline &&
+                head.tagW === head.statTagW &&
+                head.stacked &&
+                head.beside &&
+                head.totalHeight === head.plate[1] &&
+                head.iconSize === 18 &&
+                head.skillHeight <= 18 &&
+                head.skillLines === 1,
+            JSON.stringify(head),
+        );
 
         const names = await inCard(
             `[...card.querySelectorAll('.plate .skill-line .pet-image')].map((one) => one.title).join('/')`,

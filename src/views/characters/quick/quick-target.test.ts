@@ -214,7 +214,8 @@ describe('装备：整份进出', () => {
         name: '霜冷九州',
         kind: '帽子',
         flavor: '雪线之上的一顶旧盔。',
-        requires: ['等级 130', '女'],
+        level: 130,
+        requires: ['女'],
         stats: [
             { label: '防御', value: '+45' },
             { label: '气血', value: '+200', gain: true },

@@ -99,8 +99,12 @@ export async function quick(ctx) {
         const beforeStep = Number(
             await cdp.evaluate(`document.querySelector('.modal-panel .cf-input').value`),
         );
-        const addLabel = await cdp.evaluate(`document.querySelector('.modal-panel .cf-step[aria-label^="加 "]')?.getAttribute('aria-label')`);
-        const subtractLabel = await cdp.evaluate(`document.querySelector('.modal-panel .cf-step[aria-label^="减 "]')?.getAttribute('aria-label')`);
+        const addLabel = await cdp.evaluate(
+            `document.querySelector('.modal-panel .cf-step[aria-label^="加 "]')?.getAttribute('aria-label')`,
+        );
+        const subtractLabel = await cdp.evaluate(
+            `document.querySelector('.modal-panel .cf-step[aria-label^="减 "]')?.getAttribute('aria-label')`,
+        );
         const step = Number(addLabel?.replace('加 ', ''));
         await ui.clickLabel(addLabel);
         await sleep(150);
@@ -112,7 +116,11 @@ export async function quick(ctx) {
         const afterSub = Number(
             await cdp.evaluate(`document.querySelector('.modal-panel .cf-input').value`),
         );
-        t.check('加号按一下走当前量级步长', afterAdd - beforeStep === step, `${beforeStep} → ${afterAdd}（步长 ${step}）`);
+        t.check(
+            '加号按一下走当前量级步长',
+            afterAdd - beforeStep === step,
+            `${beforeStep} → ${afterAdd}（步长 ${step}）`,
+        );
         t.check('减号按回来', afterSub === beforeStep, `${afterAdd} → ${afterSub}`);
 
         await fillField('气血', '4200');
@@ -282,6 +290,31 @@ export async function quick(ctx) {
                 points: document.querySelectorAll('.modal-panel .points .id-cell').length,
                 screenshot: !!document.querySelector('.modal-panel .pet-screenshot.screenshot-upload'),
             }))()`);
+        /* 头像位是一枚可点的凸起纸块（`PressTile`），与装备详情左端那枚图标同一套材质：
+         * 块 64、图 56，点开是挑图纸片（2026-11-11）。 */
+        const portrait = await cdp.evaluate(`(() => {
+            const picker = document.querySelector('.modal-panel .pet-identity .portrait-picker');
+            const plate = picker?.querySelector('summary .press-tile');
+            const shot = picker?.querySelector('summary .pet-image.portrait');
+            if (!plate || !shot) return { plate: false };
+            const box = plate.getBoundingClientRect();
+            return {
+                plate: true,
+                clickable: getComputedStyle(picker.querySelector('summary')).cursor === 'pointer',
+                w: Math.round(box.width),
+                h: Math.round(box.height),
+                shot: Math.round(shot.getBoundingClientRect().width),
+            };
+        })()`);
+        t.check(
+            '头像位是可点的凸起纸块，块 64 图 56',
+            portrait.plate &&
+                portrait.clickable &&
+                portrait.w === 64 &&
+                portrait.h === 64 &&
+                portrait.shot === 56,
+            JSON.stringify(portrait),
+        );
         t.check(
             '兽窗共用截图入口与四组表单，不展示内丹',
             petLayout.idCells === 3 &&

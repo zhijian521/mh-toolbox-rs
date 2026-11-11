@@ -36,7 +36,13 @@ export function normalizeGearDetail(raw: unknown): GearDetail | undefined {
     if (!isObject(raw)) return undefined;
     const name = text(raw.name);
     const kind = text(raw.kind);
+    /* 等级与条件分家（2026-11-11）：旧档把「等级 80」和「五行 木 / 男」一起记在
+     * `requires` 里通栏显示，界面也只有一个文本框。现在只编等级，于是把那条「等级 N」
+     * 抽到 `level`，其余条件留在 `requires` 里给浮片读——两条都不丢，界面只露第一条。 */
     const requires = rows(raw.requires).map(text).filter(Boolean);
+    const legacyLevel = requires.map((one) => /^等级\s*(\d{1,3})$/.exec(one)).find(Boolean);
+    const level = optionalInt(raw.level) ?? (legacyLevel ? Number(legacyLevel[1]) : undefined);
+    const conditions = requires.filter((one) => !/^等级\s*\d+$/.test(one));
     const lines = rows(raw.lines).flatMap((line) => {
         if (!isObject(line)) return [];
         const label = text(line.label);
@@ -48,7 +54,8 @@ export function normalizeGearDetail(raw: unknown): GearDetail | undefined {
         name: name || kind,
         flavor: optionalText(raw.flavor),
         kind,
-        requires: requires.length ? requires : undefined,
+        level,
+        requires: conditions.length ? conditions : undefined,
         stats: normalizeGearStats(raw.stats),
         cond: normalizeGearStats(raw.cond),
         lines: lines.length ? lines : undefined,

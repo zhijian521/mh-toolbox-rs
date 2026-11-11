@@ -45,7 +45,15 @@ export interface GearDetail {
     flavor?: string;
     /** 类型行：`帽子` / `双剑 · 女` / `灵饰 · 戒指` / `上古玉魄 · 阳`。 */
     kind: string;
-    /** 装备条件：`等级 80`、`男`、`五行 木`。合成一行显示。 */
+    /**
+     * 装备等级：只记一个数（用户 2026-11-11：「等级条件，修改为等级，我们只记录等级即可」）。
+     * 旧档把它记在 `requires` 的「等级 80」里，归一化时抽到这一格（见 `normalizeGearDetail`）。
+     */
+    level?: number;
+    /**
+     * 余下的装备条件原文：`五行 木`、`装备角色 男`。**界面不再编辑**（只编等级），
+     * 截图识别照旧写进来——浮片要读，换图也要靠它认女装（`gear-icons` 的 `女|发钗|发冠`）。
+     */
     requires?: string[];
     /** 白字与绿字属性。 */
     stats: GearStat[];
@@ -74,6 +82,7 @@ export function hasGearDetail(detail: GearDetail | undefined): boolean {
         [detail.name, detail.kind, detail.flavor, detail.foot, detail.note].some((value) =>
             value?.trim(),
         ) ||
+        (detail.level ?? 0) > 0 ||
         detail.requires?.some((value) => value.trim()) ||
         [...detail.stats, ...(detail.cond ?? []), ...(detail.lines ?? [])].some(
             (row) => row.value.trim() || ('extra' in row && row.extra?.trim()),

@@ -241,8 +241,10 @@ export function parseGearPanel(
             detail.foot = `制造者：${maker[1]}`;
             continue;
         }
+        // 等级进自己的数字格（用户 2026-11-11：「等级条件，修改为等级，我们只记录等级即可」）；
+        // 五行与装备角色不是等级，仍留在条件里，浮片照旧能读到。
         const level = /(?:^|\])等级:?(\d{1,3})/.exec(row);
-        if (level) requires.push(`等级 ${level[1]}`);
+        if (level) detail.level = Number(level[1]);
         const element = /五行:?([金木水火土])/.exec(row);
         if (element) requires.push(`五行 ${element[1]}`);
         const role = /装备角色\]?:?(.+)/.exec(row);
@@ -328,7 +330,12 @@ export function parseGearPanel(
         slot = '武器';
     if (!slot && stats.length) slot = fallbackSlot ?? null;
     const hit =
-        stats.length + cond.length + effects.length + requires.length + (detail.name ? 1 : 0);
+        stats.length +
+        cond.length +
+        effects.length +
+        requires.length +
+        (detail.level ? 1 : 0) +
+        (detail.name ? 1 : 0);
     return { slot, detail, hit, total: hit };
 }
 

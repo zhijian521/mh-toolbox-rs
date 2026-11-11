@@ -319,6 +319,29 @@ export async function equipment(ctx) {
         );
         await upload('.gear-quick .upload-file', [head(30)]);
         t.check('识别结果填进快捷表单', await waitUpload());
+        /* 类型与等级照召唤兽那两格：都是票面凹槽（`.slip-row.sm` + `.num-slot`），
+         * 等级是数字格且只记一个数（2026-11-11）。 */
+        const idPair = await cdp.evaluate(`(() => {
+            const pair = document.querySelector('.gear-quick .gear-kind');
+            const cells = [...pair.querySelectorAll('label.slip-row.sm')];
+            const level = pair.querySelector('input[aria-label="装备等级"]');
+            return {
+                cells: cells.length,
+                labels: cells.map((cell) => cell.querySelector('.slip-name')?.textContent.trim()),
+                slots: cells.every((cell) => !!cell.querySelector('.num-slot')),
+                level: level ? level.value : null,
+                kind: pair.querySelector('input[aria-label="装备类型"]')?.value || '',
+            };
+        })()`);
+        t.check(
+            '装备类型与等级两格走票面凹槽，等级只记一个数',
+            idPair.cells === 2 &&
+                idPair.labels.join('/') === '类型/等级' &&
+                idPair.slots &&
+                idPair.level === '60' &&
+                idPair.kind.length > 0,
+            JSON.stringify(idPair),
+        );
         t.check(
             '分类下拉文字居中，数值输入格不显示占位字',
             await cdp.evaluate(`(() => {

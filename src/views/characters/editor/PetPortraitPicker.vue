@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import PressButton from '../../../components/PressButton.vue';
+import PressTile from '../../../components/PressTile.vue';
 import { loadPetAssets, petAssets } from '../../../services/pet-assets';
 import PetImage from '../PetImage.vue';
 
@@ -65,8 +66,14 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
 
 <template>
     <details ref="picker" class="portrait-picker" @keydown.esc.stop.prevent="closePanel(true)">
+        <!-- 一枚 64 的凸起纸块 + 里面 56 的头像：与装备详情左端那枚 `IconTile` 同一套几何与
+             材质（2026-11-11 用户：「召唤兽右侧的召唤兽头像样式参考装备右侧的头像样式同步一下，
+             并且还需要做成可以点击选择头像的样式」）。块本身就是「按我」的承诺——`PressTile`
+             不传 `still`，指上去提亮、按下去凹回纸里，点开是那张挑图纸片。 -->
         <summary ref="summary" aria-label="选择召唤兽头像">
-            <PetImage :name="selected" kind="portrait" />
+            <PressTile class="portrait-plate">
+                <PetImage :name="selected" kind="portrait" />
+            </PressTile>
         </summary>
         <div class="portrait-panel">
             <div class="portrait-tools">
@@ -125,14 +132,27 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
 }
 summary {
     position: relative;
-    display: grid;
-    place-items: center;
+    display: block;
     width: var(--pick-size);
     height: var(--pick-size);
     list-style: none;
-    border-radius: var(--r-2);
     cursor: pointer;
-    transition: box-shadow var(--t-quick) var(--ease-soft);
+}
+/* 块就是那枚「按我」的承诺：`PressTile` 不给 `still`，悬停提亮、按下凹回纸里，
+ * 与装备详情左端那枚图标块、工具页格子同一套材质。64 的块里放 56 的图，与
+ * `IconTile` 那边「块 48 / 图 42」同一个比例。 */
+.portrait-plate {
+    --tile-w: var(--pick-size);
+    --tile-h: var(--pick-size);
+    --tile-r: var(--r-3);
+    /* 块面与落地影照抄 `IconTile`（装备详情左端那枚）：`well` 掺 `paper-2` 比纸深一档，
+     * 否则纸上压一块同色的块只剩四道棱，读作「这格画得淡」；`--tile-drop: 0.75`
+     * 是不让 64 的块落满档软影变成「飘着的卡片」。 */
+    --tile-face: color-mix(in srgb, var(--well) 55%, var(--paper-2));
+    --tile-drop: 0.75;
+    /* 可点的那一档自己给三个面：默认值是按「纯纸块」调的，指上去会闪成一张白纸。 */
+    --tile-face-hover: color-mix(in srgb, var(--well) 40%, var(--paper-2));
+    --tile-face-active: color-mix(in srgb, var(--well) 72%, var(--paper-2));
 }
 /* 去掉 <summary> 自带的三角。两个写法都要：Chromium 认前者，旧引擎认后者。 */
 summary::-webkit-details-marker {
@@ -141,14 +161,12 @@ summary::-webkit-details-marker {
 summary::marker {
     content: '';
 }
-/* 同 `pet-pane.css`：`PetImage` 的 `.portrait` 是 0-2-0，这里多带一个类抬到 0-3-0。 */
+/* 同 `pet-pane.css`：`PetImage` 的 `.portrait` 是 0-2-0，这里多带一个类抬到 0-3-0。
+ * 56 = 64 − 8，与 `IconTile` 那条「--shot 比块小 8」同一条气口；头像 PNG 自带 alpha，
+ * 所以图框的 `--well` 底也一起去掉，只让图落在纸块上。 */
 summary :deep(.pet-image.portrait) {
-    --pet-icon-size: var(--pick-size);
-}
-/* 悬停只把这一格**托起来**（一圈--rule-2 的细影），不发朱：朱在这套语言里专指
- * 「当前这一件 / 这一次」。 */
-summary:hover {
-    box-shadow: 0 0 0 1px var(--rule-2);
+    --pet-icon-size: calc(var(--pick-size) - 8px);
+    background: transparent;
 }
 /* 展开时在头像下面压一道朱印，与装备部位格、卡内页签同一个记号：
  * 「这块正在被我动」。 */
