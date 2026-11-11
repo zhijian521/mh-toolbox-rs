@@ -149,7 +149,10 @@ function maxedCharacter(): CharacterData {
         assists,
         trainings: base.trainings.map((group) => ({
             ...group,
-            rows: group.rows.map((row) => ({ ...row, level: row.cap })),
+            rows: group.rows.map((row) => ({
+                ...row,
+                level: row.name === '育兽术' ? 35 : 20,
+            })),
         })),
         pets: [MAXED_PET],
     };

@@ -79,7 +79,7 @@ describe('目标：指标取值', () => {
         trainings: [
             {
                 title: '任务修炼',
-                rows: [{ name: '攻击修炼', level: 21, cap: 25 }],
+                rows: [{ name: '攻击修炼', level: 21 }],
             },
         ],
         attrGroups: [
@@ -158,10 +158,10 @@ describe('目标：养成（跟随档案）', () => {
     const tracking = { category: 'training' as const, key: '攻击修炼' };
     const roster = [
         character('c1', '甲', {
-            trainings: [{ title: '任务修炼', rows: [{ name: '攻击修炼', level: 25, cap: 25 }] }],
+            trainings: [{ title: '任务修炼', rows: [{ name: '攻击修炼', level: 25 }] }],
         }),
         character('c2', '乙', {
-            trainings: [{ title: '任务修炼', rows: [{ name: '攻击修炼', level: 10, cap: 25 }] }],
+            trainings: [{ title: '任务修炼', rows: [{ name: '攻击修炼', level: 10 }] }],
         }),
         character('c3', '丙', { trainings: [] }),
     ];
@@ -190,9 +190,7 @@ describe('目标：养成（跟随档案）', () => {
     it('超额封顶：一个号练到 40 不能替另一个号的 10 抵账', () => {
         const boosted = [
             character('c1', '甲', {
-                trainings: [
-                    { title: '任务修炼', rows: [{ name: '攻击修炼', level: 40, cap: 40 }] },
-                ],
+                trainings: [{ title: '任务修炼', rows: [{ name: '攻击修炼', level: 40 }] }],
             }),
             roster[1],
         ];
@@ -205,14 +203,10 @@ describe('目标：养成（跟随档案）', () => {
         const big = goal({ ...one, target: 1000, members: one.members.slice(0, 2) });
         const near = [
             character('c1', '甲', {
-                trainings: [
-                    { title: '任务修炼', rows: [{ name: '攻击修炼', level: 1000, cap: 1000 }] },
-                ],
+                trainings: [{ title: '任务修炼', rows: [{ name: '攻击修炼', level: 1000 }] }],
             }),
             character('c2', '乙', {
-                trainings: [
-                    { title: '任务修炼', rows: [{ name: '攻击修炼', level: 999, cap: 1000 }] },
-                ],
+                trainings: [{ title: '任务修炼', rows: [{ name: '攻击修炼', level: 999 }] }],
             }),
         ];
         const summary = goalSummary(big, near);
@@ -232,14 +226,10 @@ describe('目标：养成（跟随档案）', () => {
         const full = goalSummary(one, [
             roster[0],
             character('c2', '乙', {
-                trainings: [
-                    { title: '任务修炼', rows: [{ name: '攻击修炼', level: 25, cap: 25 }] },
-                ],
+                trainings: [{ title: '任务修炼', rows: [{ name: '攻击修炼', level: 25 }] }],
             }),
             character('c3', '丙', {
-                trainings: [
-                    { title: '任务修炼', rows: [{ name: '攻击修炼', level: 25, cap: 25 }] },
-                ],
+                trainings: [{ title: '任务修炼', rows: [{ name: '攻击修炼', level: 25 }] }],
             }),
         ]);
         expect(full.done).toBe(true);

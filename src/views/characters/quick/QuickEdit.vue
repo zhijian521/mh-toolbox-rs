@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import ModalShell from '../../../components/ModalShell.vue';
 import CounterField from '../../../components/CounterField.vue';
 import PressButton from '../../../components/PressButton.vue';
@@ -9,6 +9,7 @@ import GearQuick from './GearQuick.vue';
 import PetQuick from './PetQuick.vue';
 import { applyQuick, isScalarTarget, quickPanel, type QuickTarget } from './quick-target';
 import type { CharacterData } from '../character';
+import { focusInput } from '../focus-input';
 
 /** 单项修改分发器；装备和召唤兽使用完整表单，保存统一交给名册落库。 */
 const props = withDefaults(
@@ -59,10 +60,7 @@ function save() {
  * 所以这里传 `none` 自己定位（`ModalShell` 那条 `none` 就是为这种窗留的）。 */
 const form = ref<HTMLElement | null>(null);
 
-onMounted(async () => {
-    await nextTick();
-    form.value?.querySelector<HTMLInputElement>('input')?.focus();
-});
+onMounted(() => focusInput(form, 'input'));
 </script>
 
 <template>

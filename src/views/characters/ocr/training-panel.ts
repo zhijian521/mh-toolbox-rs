@@ -53,7 +53,7 @@ export function parseTrainingPanel(lines: readonly OcrLine[]): TrainingPanelResu
     };
 }
 
-/** 按项名更新等级；截图之外的项、已有上限和其他角色字段保持原值。 */
+/** 按项名更新等级；截图之外的项和其他角色字段保持原值。 */
 export function applyTrainingPanel(
     character: CharacterData,
     rows: readonly SkillHit[],

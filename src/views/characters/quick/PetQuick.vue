@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import ModalShell from '../../../components/ModalShell.vue';
 import PressButton from '../../../components/PressButton.vue';
 import PetDetailForm from '../editor/PetDetailForm.vue';
@@ -8,6 +8,7 @@ import { applyPetPanel } from '../ocr/pet-panel';
 import { cloneDraft } from './clone-draft';
 import { applyPet } from './quick-target';
 import { EDITOR_MIN_H, EDITOR_W } from '../editor-metrics';
+import { focusInput } from '../focus-input';
 import { hasPetName, type CharacterData, type Pet } from '../character';
 
 /** 快速修改与整份编辑共用截图入口和四组表单，取消不修改原记录。 */
@@ -38,10 +39,7 @@ function recognize(result: Parameters<typeof applyPetPanel>[1]) {
 
 const form = ref<HTMLElement | null>(null);
 
-onMounted(async () => {
-    await nextTick();
-    form.value?.querySelector<HTMLInputElement>('input[aria-label="召唤兽名称"]')?.focus();
-});
+onMounted(() => focusInput(form, 'input[aria-label="召唤兽名称"]'));
 </script>
 
 <template>

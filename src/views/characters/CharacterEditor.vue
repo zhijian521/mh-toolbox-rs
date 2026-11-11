@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
@@ -17,6 +17,7 @@ import PetEditor from './editor/PetEditor.vue';
 import ScreenshotUpload from './ocr/ScreenshotUpload.vue';
 import { normalizeCharacter } from './roster';
 import { EDITOR_MIN_H, EDITOR_W } from './editor-metrics';
+import { focusInput } from './focus-input';
 
 /** 新建、手工修改和截图识别共用独立草稿，保存后由名册统一落库。 */
 const props = withDefaults(
@@ -125,10 +126,7 @@ function save() {
     if (canSave.value) emit('save', normalizeCharacter(draft.value));
 }
 
-onMounted(async () => {
-    await nextTick();
-    content.value?.querySelector<HTMLInputElement>('input[aria-label="角色名"]')?.focus();
-});
+onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
 </script>
 
 <template>

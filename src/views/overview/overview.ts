@@ -6,7 +6,7 @@ import type { IncomeEntry } from '../income/income';
  * 总览页的纯计算：近 7 天每天的净额、每个号的近况。
  *
  * 放在单独文件里而不是写进 `.vue`：这些函数要能单测——柱状图的最矮一根、经验未知时
- * 条子怎么画、修炼上限为 0 时会不会除出 `Infinity`，都不是靠点一下页面能看出来的。
+ * 条子怎么画、两组修炼如何合计，都不是靠点一下页面能看出来的。
  * 页面那一层只负责把值摆上去。
  *
  * **这里不新增任何存储**：三个数全从既有的 `income_entries` / `characters` 现算。
@@ -55,39 +55,18 @@ export interface CharBrief {
     school: string;
     /** 经验百分比（0–100）；分母没填时是 `null`——那时条子留空，不画成 0%。 */
     exp: number | null;
-    /** 修炼等级合计 / 上限合计（两组十几项一起算）。 */
+    /** 两组修炼的当前等级合计；角色不再记录修炼上限。 */
     trainingLevel: number;
-    trainingCap: number;
-    /** 已经练满的项数 / 总项数。 */
-    maxedRows: number;
-    totalRows: number;
 }
 
 /**
- * 一个号的近况。
- *
- * **修炼完成度按行上的 `cap` 算，不按 `TRAINING_GROUPS` 的常量**：上限是跟号走的
- * （帮派与「修炼上限提升」会把它推高），同一个「攻击修炼」在不同号上是 20 或 25。
- * 用常量表算，25 级上限的那个号会显示成「已经超了 125%」。
- *
- * `cap` 合计为 0（新号、什么都没填）时百分比交给调用方看 `trainingCap`——这里不返回
- * 百分比，免得除出 `Infinity` 或 `NaN`。
+ * 一个号的近况。修炼只汇总当前等级，不再推算完成百分比或满级项数。
  */
 export function charBrief(one: CharacterData): CharBrief {
-    let trainingLevel = 0;
-    let trainingCap = 0;
-    let maxedRows = 0;
-    let totalRows = 0;
-
-    for (const group of one.trainings) {
-        for (const row of group.rows) {
-            trainingLevel += row.level;
-            trainingCap += row.cap;
-            totalRows += 1;
-            /* `cap` 为 0 = 上限没填，永远算不出「满」——猜一个数比不标更糟。 */
-            if (row.cap > 0 && row.level >= row.cap) maxedRows += 1;
-        }
-    }
+    const trainingLevel = one.trainings.reduce(
+        (total, group) => total + group.rows.reduce((sum, row) => sum + row.level, 0),
+        0,
+    );
 
     return {
         id: one.id,
@@ -96,17 +75,5 @@ export function charBrief(one: CharacterData): CharBrief {
         school: one.school,
         exp: expPercent(one.experience.value, one.experience.need),
         trainingLevel,
-        trainingCap,
-        maxedRows,
-        totalRows,
     };
-}
-
-/**
- * 修炼完成度百分比（0–100）。上限合计为 0 时返回 `null`，与经验那条同一个口径：
- * 进度条留空，而不是画成 0%。
- */
-export function trainingPercent(brief: CharBrief): number | null {
-    if (brief.trainingCap <= 0) return null;
-    return Math.min(100, Math.max(0, (brief.trainingLevel / brief.trainingCap) * 100));
 }

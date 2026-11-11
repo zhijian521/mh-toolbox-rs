@@ -15,12 +15,11 @@ const attrs = (key: string, value: string): PanelResult => ({
 });
 
 describe('截图编辑草稿', () => {
-    it('修炼固定十项，未录入等级为 0，上限使用游戏默认值', () => {
+    it('修炼固定十项，未录入等级为 0，记录不含上限', () => {
         const editor = useOcrDraft(character());
         const rows = editor.draft.value.trainings.flatMap((group) => group.rows);
         expect(rows).toHaveLength(10);
-        expect(rows.every((row) => row.level === 0)).toBe(true);
-        expect(rows.every((row) => row.cap === (row.name === '育兽术' ? 35 : 20))).toBe(true);
+        expect(rows.every((row) => row.level === 0 && !('cap' in row))).toBe(true);
     });
 
     it('未上传或未识别的项目也可补录、修改与清空，原角色不变', () => {
@@ -184,9 +183,8 @@ describe('截图编辑草稿', () => {
         expect(before.assists).toHaveLength(1);
     });
 
-    it('师门和修炼可补录及清空等级，自定义修炼上限保留', () => {
+    it('师门和修炼可补录及清空等级', () => {
         const before = character();
-        before.trainings[0].rows[0].cap = 25;
         const editor = useOcrDraft(before);
         const skill = editor.draft.value.skills[0].name;
         const training = editor.draft.value.trainings[0].rows[0].name;
@@ -195,7 +193,7 @@ describe('截图编辑草稿', () => {
         editor.setSkill(skill, 0);
         editor.setTraining(training, 0);
         expect(editor.draft.value.skills[0].level).toBe(0);
-        expect(editor.draft.value.trainings[0].rows[0]).toMatchObject({ level: 0, cap: 25 });
+        expect(editor.draft.value.trainings[0].rows[0].level).toBe(0);
         editor.setValue('school', '大唐官府');
         expect(editor.draft.value.skills).toHaveLength(7);
         expect(editor.draft.value.skills.some((row) => row.name === skill)).toBe(false);

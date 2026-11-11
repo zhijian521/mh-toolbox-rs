@@ -169,16 +169,7 @@ describe('技能与修炼', () => {
         expect(zero.cap).toBeUndefined();
     });
 
-    it('修炼按固定清单重建：组名归位、清单外的项丢掉、等级与上限按项名对回去', () => {
-        /* 上一版的编辑器能改组名、能加行（2026-11-03 用户要求「不可编辑」）。
-         * 现在**结构**由 `TRAINING_GROUPS` 定——老存档里改过的组名、加过的项要归位，
-         * 但**已练的等级不能跟着组名一起被抹掉**，所以按项名对回去。
-         *
-         * 上限反过来是**每行自己的数**（2026-11-04 用户：「修炼上限 也可以修改」）：
-         * 帮派与「修炼上限提升」会把它推高，两个号的同一项可以一个 20、一个 25。
-         * 存档里有正数就留着，没存过 / 存成 0 才落回清单默认——上限若被落成 0 后果比
-         * 技能更重：卡上是 `row.level >= row.cap` 判「练满」，进度条还算 `level / cap`，
-         * 十项会全部标成已完成，宽度是 NaN%。 */
+    it('修炼按固定清单重建，只恢复等级并忽略旧上限', () => {
         const [own, beast] = normalizeCharacter({
             trainings: [
                 { title: '角色自身修炼', rows: [{ name: '攻击修炼', level: 11, cap: 25 }] },
@@ -194,7 +185,6 @@ describe('技能与修炼', () => {
 
         expect(own.title).toBe('任务修炼');
         expect(beast.title).toBe('宠物修炼');
-        // 清单十项一项不少，且清单外的「自造的项」不出现。
         expect(own.rows).toHaveLength(5);
         expect(beast.rows.map((row) => row.name)).toEqual([
             '攻击控制力',
@@ -203,17 +193,19 @@ describe('技能与修炼', () => {
             '抗法控制力',
             '育兽术',
         ]);
-        // 等级按名字对回去；上限存过的留 25，没存过的落清单默认（20 / 育兽术 35）。
-        expect(own.rows.find((row) => row.name === '攻击修炼')).toMatchObject({
+        expect(own.rows.find((row) => row.name === '攻击修炼')).toEqual({
+            name: '攻击修炼',
             level: 11,
-            cap: 25,
         });
-        expect(own.rows.find((row) => row.name === '防御修炼')?.cap).toBe(20);
-        expect(beast.rows.find((row) => row.name === '育兽术')).toMatchObject({
+        expect(own.rows.find((row) => row.name === '防御修炼')).toEqual({
+            name: '防御修炼',
+            level: 0,
+        });
+        expect(beast.rows.find((row) => row.name === '育兽术')).toEqual({
+            name: '育兽术',
             level: 7,
-            cap: 35,
         });
-        expect(beast.rows.every((row) => row.cap === (row.name === '育兽术' ? 35 : 20))).toBe(true);
+        expect([...own.rows, ...beast.rows].every((row) => !('cap' in row))).toBe(true);
     });
 
     it('同类同名的辅助技能只留第一条——卡片的 key 靠「类 + 名字」', () => {
@@ -366,7 +358,7 @@ describe('空白角色', () => {
         expect(character.gear.every((slot) => slot.caption === undefined)).toBe(true);
         const trainings = character.trainings.flatMap((group) => group.rows);
         expect(trainings).toHaveLength(10);
-        expect(trainings.find((row) => row.name === '育兽术')?.cap).toBe(35);
+        expect(trainings.every((row) => !('cap' in row))).toBe(true);
     });
 
     it('门派有默认值，七项技能跟着一起带进来', () => {

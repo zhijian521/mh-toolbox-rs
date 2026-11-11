@@ -20,7 +20,6 @@
 /* 字段契约按领域拆分，游戏名录与数值规则统一从 public/game/data 装配。 */
 import type { GearSlot } from './gear';
 import type { Pet } from './pets';
-import { TRAINING_GROUPS } from '../../services/game-rules';
 export { ATTR_GROUPS, TRAINING_GROUPS } from '../../services/game-rules';
 
 /** 卡内六个分区。顺序即页签顺序，也是键盘左右键的方向。 */
@@ -167,39 +166,25 @@ export interface AssistSkill extends SkillRow {
  * ==================================================================== */
 
 /**
- * 修炼按游戏原样分两组，**不是一组六项**：
- * `任务修炼`（攻/防/法/抗法/猎术，上限 20）与
- * `宠物修炼`（攻/防/法/抗法控制力 + 育兽术，其中育兽术上限 35）。
- *
- * 分成两组不是排版偏好——育兽术的上限跟另外四个都不一样，混成一组就必须给
- * 每一行单独存 `cap`，那又退回到「一行一个对象」。组是游戏自己划的，照抄最省事。
+ * 修炼按游戏原样分两组。角色记录只保存项名与当前等级，不保存上限：
+ * 修改入口只收等级，卡片也按同一个口径展示。
  */
 export interface TrainingRow {
     name: string;
     level: number;
-    /**
-     * 这一项练到多少算满。
-     *
-     * **跟号走，不跟清单走**（2026-11-04）：游戏里的基线是 20（育兽术 35），
-     * 但帮派与「修炼上限提升」会把它推高，同一个「攻击修炼」在 A 号是 20、在 B 号是 25。
-     * 所以它是每行自己的数，可以在编辑页改；`TRAINING_GROUPS` 里的 cap 只是**默认值**。
-     */
-    cap: number;
 }
 
 export interface TrainingGroup {
     title: string;
     rows: TrainingRow[];
 }
+/** 属性、修炼按游戏中的行名定位，手工编辑与快速修改共用同一查询口径。 */
+export function findAttrRow(character: CharacterData, label: string): AttrRow | undefined {
+    return character.attrGroups.flatMap((group) => group.rows).find((row) => row.label === label);
+}
 
-/**
- * 这一项的默认上限（20，育兽术 35）。编辑页拿它当上限格的占位字：
- * 那一格留空时，屏幕上那个淡字就是「存下去会变成的数」。
- *
- * 返回 `undefined` 表示项名不在清单里——那时不编一个默认值出来。
- */
-export function trainingDefaultCap(name: string): number | undefined {
-    return TRAINING_GROUPS.flatMap((group) => group.rows).find((row) => row.name === name)?.cap;
+export function findTrainingRow(character: CharacterData, name: string): TrainingRow | undefined {
+    return character.trainings.flatMap((group) => group.rows).find((row) => row.name === name);
 }
 /* ======================================================================
  * 一个角色

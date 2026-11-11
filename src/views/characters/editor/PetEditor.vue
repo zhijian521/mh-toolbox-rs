@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import AppIcon from '../../../components/AppIcon.vue';
 import PressButton from '../../../components/PressButton.vue';
 import PetDetailForm from './PetDetailForm.vue';
 import PetScreenshot from '../ocr/PetScreenshot.vue';
@@ -52,13 +53,6 @@ function removeAt(index: number) {
                     <span
                         >召唤兽 <span class="pet-count">{{ pets.length }}</span></span
                     >
-                    <PressButton
-                        icon="add"
-                        text="新增"
-                        label="新增召唤兽"
-                        :disabled="reading"
-                        @click="addPet"
-                    />
                 </div>
                 <nav class="pet-grid" aria-label="召唤兽列表">
                     <button
@@ -76,6 +70,20 @@ function removeAt(index: number) {
                         <PetImage :name="pet.portrait || ''" kind="portrait" />
                         <span class="pet-mark" aria-hidden="true"></span>
                         <span class="pet-name">{{ petName(pet) }}</span>
+                    </button>
+                    <button
+                        class="pet-add"
+                        type="button"
+                        aria-label="新增召唤兽"
+                        title="新增召唤兽"
+                        :disabled="reading"
+                        @click="addPet"
+                    >
+                        <span class="pet-add-icon" aria-hidden="true">
+                            <AppIcon name="add" />
+                        </span>
+                        <span class="pet-mark" aria-hidden="true"></span>
+                        <span class="pet-name">新增</span>
                     </button>
                 </nav>
             </template>
@@ -147,8 +155,9 @@ function removeAt(index: number) {
     min-height: 0;
     overflow-y: auto;
 }
-/* 一块格：材质与装备 `.gear-slot` 同一条（悬停才出现的一圈淡线，平时是一块空纸）。 */
-.pet-choice {
+/* 已有召唤兽与末尾新增格共用一套尺寸；新增格中间是加号，不伪装成召唤兽头像。 */
+.pet-choice,
+.pet-add {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -164,16 +173,34 @@ function removeAt(index: number) {
     cursor: pointer;
 }
 /* 悬停只把这一格提成一张纸，**不发朱**——朱专指「当前这一只」。 */
-.pet-choice:hover:not(:disabled) {
+.pet-choice:hover:not(:disabled),
+.pet-add:hover:not(:disabled) {
     border-color: var(--rule-2);
     background: var(--paper-2);
 }
-.pet-choice:focus-visible {
+.pet-choice:focus-visible,
+.pet-add:focus-visible {
     outline: var(--ring);
     outline-offset: var(--ring-offset);
 }
-.pet-choice:disabled {
+.pet-choice:disabled,
+.pet-add:disabled {
     cursor: wait;
+}
+/* 新增格的加号盒与头像同为 52×52，虚线只表达“这里可以加一只”。 */
+.pet-add-icon {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border: var(--w-hair) dashed var(--rule-2);
+    border-radius: var(--r-3);
+    color: var(--muted);
+    --icon-size: calc(22px * var(--fs-scale));
+}
+.pet-add:hover:not(:disabled) .pet-add-icon {
+    border-color: var(--ochre);
+    color: var(--ink);
 }
 /* 52 的头像给一块**凸起的纸**，与装备格里那块白盘同一套棱（那边由 `PressTile` 给，
  * 这里只有一张图，四条棱直接写在图块上；块面两个主题两个方向，理由同 `gear-pane.css`）。

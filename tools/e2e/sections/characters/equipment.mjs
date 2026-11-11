@@ -17,8 +17,12 @@ export async function equipment(ctx) {
             const app = createApp({ render: () => h(IconTile, { src: source.value }) });
             try {
                 app.mount(host);
-                const lazy = host.querySelector('img').loading === 'lazy';
-                host.querySelector('img').dispatchEvent(new Event('error'));
+                // 动态 import 的组件要等首拍渲染，不能在 mount() 后立即读异步组件的子节点。
+                for (let attempt = 0; attempt < 40 && !host.querySelector('img'); attempt++) {
+                    await new Promise((resolve) => setTimeout(resolve, 25));
+                }
+                const lazy = host.querySelector('img')?.loading === 'lazy';
+                host.querySelector('img')?.dispatchEvent(new Event('error'));
                 await nextTick();
                 const fallback = !host.querySelector('img') && !!host.querySelector('.icon-tile');
                 source.value = image('blue');
@@ -135,8 +139,10 @@ export async function equipment(ctx) {
         for (const pane of ['师门', '辅助', '修炼', '召唤兽', '装备']) {
             await ui.clickText('.ocr-tabs button', pane, { exact: true });
             tabWidths.push([pane, await tabsWidth()]);
-            sharedUploads.push(await cdp.evaluate(`[...document.querySelectorAll('.ocr .screenshot-upload')]
-                .filter((el) => el.getClientRects().length).length === 1`));
+            sharedUploads.push(
+                await cdp.evaluate(`[...document.querySelectorAll('.ocr .screenshot-upload')]
+                .filter((el) => el.getClientRects().length).length === 1`),
+            );
         }
         t.check('各分区只启用一份共用截图入口', sharedUploads.every(Boolean));
         t.check(
@@ -292,7 +298,7 @@ export async function equipment(ctx) {
                 `!!document.querySelector('.gear-quick .upload-preview.empty') &&
                 !document.querySelector('.gear-quick .gear-more, .gear-quick .flavor-field, .gear-quick .foot-field') &&
                 !!document.querySelector('.gear-quick textarea[aria-label="装备备注"]') &&
-                document.querySelectorAll('.gear-quick .gear-name input').length === 1`,
+                document.querySelectorAll('.gear-quick .gear-name-input').length === 1`,
             ),
         );
         await upload('.gear-quick .upload-file', [
@@ -308,7 +314,7 @@ export async function equipment(ctx) {
         t.check(
             '拦错后名字保持水晶帽',
             await cdp.evaluate(
-                `document.querySelector('.gear-quick .gear-name input').value === '水晶帽'`,
+                `document.querySelector('.gear-quick .gear-name-input').value === '水晶帽'`,
             ),
         );
         await upload('.gear-quick .upload-file', [head(30)]);
@@ -502,7 +508,7 @@ export async function equipment(ctx) {
         t.check(
             '自动选中最后识别的玉魄',
             await cdp.evaluate(
-                `document.querySelector('.editor .gear-name .field-label')?.textContent.trim() === '玉魄·阳'`,
+                `document.querySelector('.editor input[aria-label="玉魄·阳 的装备名"]')?.placeholder === '玉魄·阳装备名'`,
             ),
         );
         const yupoShot = await cdp.evaluate(
@@ -521,7 +527,7 @@ export async function equipment(ctx) {
             '切到耳饰同步显示耳饰原图和详情',
             await cdp.evaluate(
                 `document.querySelector('.gear-editor .upload-preview img').alt.includes('明月珰') &&
-                document.querySelector('.gear-editor .gear-name input').value === '明月珰' &&
+                document.querySelector('.gear-editor .gear-name-input').value === '明月珰' &&
                 document.querySelector('.ocr').classList.contains('ocr-wide')`,
             ),
         );

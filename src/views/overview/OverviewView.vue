@@ -9,7 +9,7 @@ import { daysAgo } from '../../services/format';
 import { useRoster } from '../characters/roster';
 import { amountText, entriesOn, factsOf, statRowsOf, totalsOf } from '../income/income';
 import { useIncome } from '../income/income-store';
-import { charBrief, trainingPercent, weekSeries } from './overview';
+import { charBrief, weekSeries } from './overview';
 
 /**
  * 总览：**今天 / 近七天 / 各号近况**三块。
@@ -28,8 +28,7 @@ import { charBrief, trainingPercent, weekSeries } from './overview';
  *   同一个（`StatStrip`）。两页给出的数必须一样，否则用户不知道该信哪个。
  * - **近七天**：`weekSeries` 按天聚合，**空的那些天也占一格**——跳掉它们，7 根柱子会变成
  *   5 根，横轴就对不上日期了。柱子在零线上下分向：净利向上、亏损向下，中线是那条虚线。
- * - **各号近况**：等级 / 经验进度 / 修炼完成度。修炼读的是**每行自己的上限**，
- *   不是常量表（上限跟号走，见 `charBrief`）。
+ * - **各号近况**：等级 / 经验进度 / 修炼等级合计。修炼只记当前等级，不再推算完成度。
  *
  * ---- 这一层只做编排 ----
  * 聚合、百分比、空值的含义全在 `overview.ts` 与 `income.ts`。这里不写判断，
@@ -95,11 +94,6 @@ function dayTag(index: number): string {
 }
 
 const briefs = computed(() => roster.value.map(charBrief));
-
-/** 修炼条的读数：`62/80`，有项练满时补一句。 */
-function trainingText(one: { trainingLevel: number; trainingCap: number }): string {
-    return `${one.trainingLevel}/${one.trainingCap}`;
-}
 </script>
 
 <template>
@@ -163,20 +157,13 @@ function trainingText(one: { trainingLevel: number; trainingCap: number }): stri
                         </header>
                         <p class="char-school">{{ one.school || '未填门派' }}</p>
 
-                        <!-- 两条读数各有分母：经验的分母是「升级所需」，修炼的分母是
-                             每个号自己的上限合计。两者都可能不知道，那时条子留空。 -->
+                        <!-- 只有经验有分母；修炼只记当前等级，因此只汇总等级。 -->
                         <MeterBar
                             :percent="one.exp"
                             label="经验"
                             :text="one.exp === null ? '—' : `${Math.round(one.exp)}%`"
                         />
-                        <MeterBar
-                            :percent="trainingPercent(one)"
-                            label="修炼"
-                            :text="trainingText(one)"
-                        />
-
-                        <p class="char-meta">修炼 {{ one.maxedRows }}/{{ one.totalRows }} 项满</p>
+                        <p class="char-meta">修炼等级合计 {{ one.trainingLevel }}</p>
                     </article>
                 </div>
             </LedgerSection>

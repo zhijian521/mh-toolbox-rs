@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import ModalShell from '../../../components/ModalShell.vue';
 import PressButton from '../../../components/PressButton.vue';
 import GearDetailForm from '../editor/GearDetailForm.vue';
@@ -8,6 +8,7 @@ import { mergeGearPanel, type GearPanelResult } from '../ocr/gear-panel';
 import { cloneDraft } from './clone-draft';
 import { applyGear } from './quick-target';
 import { EDITOR_MIN_H, EDITOR_W } from '../editor-metrics';
+import { focusInput } from '../focus-input';
 import type { CharacterData, GearDetail, GearSlotName } from '../character';
 
 /** 手改与识别都只动深拷贝，保存前不会触及角色，取消即丢弃。 */
@@ -42,10 +43,7 @@ function save() {
         }),
     );
 }
-onMounted(async () => {
-    await nextTick();
-    form.value?.querySelector<HTMLInputElement>('.gear-name input')?.focus();
-});
+onMounted(() => focusInput(form, '.gear-name input'));
 </script>
 
 <template>

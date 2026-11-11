@@ -115,7 +115,7 @@ describe('修炼面板：局部写回', () => {
             experience: { value: '100万', need: '200万' },
             trainings: TRAINING_GROUPS.map((group) => ({
                 title: group.title,
-                rows: group.rows.map((row) => ({ name: row.name, level: 7, cap: 40 })),
+                rows: group.rows.map((row) => ({ name: row.name, level: 7 })),
             })),
             assists: [{ name: '强身术', kind: 'life', level: 98 }],
         }) as CharacterData;
@@ -127,9 +127,9 @@ describe('修炼面板：局部写回', () => {
             line('育兽术 等级:0/35', 50, 384),
         ]);
         const after = applyTrainingPanel(before, result.rows);
-        expect(after.trainings[0].rows[0]).toEqual({ name: '攻击修炼', level: 11, cap: 40 });
+        expect(after.trainings[0].rows[0]).toEqual({ name: '攻击修炼', level: 11 });
         expect(after.trainings[0].rows[1]).toBe(before.trainings[0].rows[1]);
-        expect(after.trainings[1].rows[4]).toEqual({ name: '育兽术', level: 0, cap: 40 });
+        expect(after.trainings[1].rows[4]).toEqual({ name: '育兽术', level: 0 });
         expect(after.experience).toBe(before.experience);
         expect(after.assists).toBe(before.assists);
         expect(before.trainings[0].rows[0].level).toBe(7);

@@ -99,17 +99,20 @@ export async function quick(ctx) {
         const beforeStep = Number(
             await cdp.evaluate(`document.querySelector('.modal-panel .cf-input').value`),
         );
-        await ui.clickLabel('加 100');
+        const addLabel = await cdp.evaluate(`document.querySelector('.modal-panel .cf-step[aria-label^="加 "]')?.getAttribute('aria-label')`);
+        const subtractLabel = await cdp.evaluate(`document.querySelector('.modal-panel .cf-step[aria-label^="减 "]')?.getAttribute('aria-label')`);
+        const step = Number(addLabel?.replace('加 ', ''));
+        await ui.clickLabel(addLabel);
         await sleep(150);
         const afterAdd = Number(
             await cdp.evaluate(`document.querySelector('.modal-panel .cf-input').value`),
         );
-        await ui.clickLabel('减 100');
+        await ui.clickLabel(subtractLabel);
         await sleep(150);
         const afterSub = Number(
             await cdp.evaluate(`document.querySelector('.modal-panel .cf-input').value`),
         );
-        t.check('加号按一下动 100', afterAdd - beforeStep === 100, `${beforeStep} → ${afterAdd}`);
+        t.check('加号按一下走当前量级步长', afterAdd - beforeStep === step, `${beforeStep} → ${afterAdd}（步长 ${step}）`);
         t.check('减号按回来', afterSub === beforeStep, `${afterAdd} → ${afterSub}`);
 
         await fillField('气血', '4200');
@@ -199,7 +202,7 @@ export async function quick(ctx) {
         );
         await fillField('等级', '12');
         t.check('修炼等级存下去了', await saveDialog());
-        t.check('修炼等级更新并保留默认上限', (await readRow('攻击修炼')) === '12/20');
+        t.check('修炼卡片只显示更新后的等级', (await readRow('攻击修炼')) === '12');
 
         // ---- ③ 装备格 ----
         await ui.clickIn('.roster .char', 'E2E改名后', { text: '装备' });
@@ -327,7 +330,9 @@ export async function quick(ctx) {
         await fillField('召唤兽名称', '   ');
         t.check(
             '单只修改清空名称时禁止保存',
-            await cdp.evaluate(`document.querySelector('button[aria-label="保存这只召唤兽"]').disabled`),
+            await cdp.evaluate(
+                `document.querySelector('button[aria-label="保存这只召唤兽"]').disabled`,
+            ),
         );
         await fillField('召唤兽名称', 'E2E兽');
         await fillField('等级', '121');

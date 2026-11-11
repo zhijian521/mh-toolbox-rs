@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue';
 import SelectField from '../../../components/SelectField.vue';
+import { withCurrentOption } from '../../../components/select-options';
 import GearProperties from '../GearProperties.vue';
 import {
     fixedGearBaseLabels,
@@ -35,23 +36,16 @@ const statShortcuts = computed(() =>
     ),
 );
 const effectShortcuts = computed(() => gearEffectOptions(props.slotName));
-function optionsWithCurrent(options: { value: string; label: string }[], current: string) {
-    return current && !options.some((item) => item.value === current)
-        ? [{ value: current, label: current }, ...options]
-        : options;
-}
 function effectValues(label: string, current: string) {
     const names = label === '特技' ? GEAR_ACTIVES : label === '特效' ? GEAR_SPECIALS : [];
-    return optionsWithCurrent(
+    return withCurrentOption(
         names.map((value) => ({ value, label: value })),
         current,
     );
 }
 function statOptions(stat: GearStat) {
     const options = gearStatOptions(props.slotName, gearStatGroup(stat, props.slotName));
-    return stat.label && !options.some((item) => item.value === stat.label)
-        ? [{ value: stat.label, label: stat.label }, ...options]
-        : options;
+    return withCurrentOption(options, stat.label);
 }
 function fixedBase(stat: GearStat) {
     return (
@@ -109,36 +103,45 @@ function addLine(label: string) {
 <template>
     <PaperCard class="gear-form">
         <div class="gear-content">
-            <div class="gear-identity">
+            <header class="gear-identity">
                 <IconTile v-if="icon" class="gear-form-icon" :src="icon" />
                 <span v-else class="gear-form-mark" aria-hidden="true">{{ slotName[0] }}</span>
-                <label class="gear-name">
-                    <span class="field-label">{{ slotName }}</span>
-                    <input
-                        class="field inline-field name-field"
-                        :value="detail.name || caption"
-                        :aria-label="slotName + ' 的装备名'"
-                        placeholder="装备名"
-                        @input="setName"
-                    />
-                </label>
-                <slot name="name-extra" />
-            </div>
-            <div class="gear-kind">
-                <input
-                    v-model="detail.kind"
-                    class="field inline-field"
-                    aria-label="装备类型"
-                    placeholder="类型"
-                />
-                <input
-                    class="field inline-field"
-                    aria-label="装备条件，逗号分隔"
-                    placeholder="等级 / 条件"
-                    :value="(detail.requires ?? []).join('，')"
-                    @change="setRequires"
-                />
-            </div>
+                <div class="gear-id">
+                    <div class="gear-name-row">
+                        <label class="gear-name-field">
+                            <input
+                                class="field gear-name-input"
+                                :value="detail.name || caption"
+                                :aria-label="slotName + ' 的装备名'"
+                                :placeholder="slotName + '装备名'"
+                                @input="setName"
+                            />
+                        </label>
+                        <slot name="name-extra" />
+                    </div>
+                    <div class="id-pair gear-kind">
+                        <label class="slip-row sm">
+                            <span class="slip-name">类型</span>
+                            <input
+                                v-model="detail.kind"
+                                class="field slip-input"
+                                aria-label="装备类型"
+                                placeholder="类型"
+                            />
+                        </label>
+                        <label class="slip-row sm">
+                            <span class="slip-name">等级 / 条件</span>
+                            <input
+                                class="field slip-input"
+                                aria-label="装备条件，逗号分隔"
+                                placeholder="等级 / 条件"
+                                :value="(detail.requires ?? []).join('，')"
+                                @change="setRequires"
+                            />
+                        </label>
+                    </div>
+                </div>
+            </header>
 
             <GearProperties :detail="detail" :slot-name="slotName" editable>
                 <template #label="{ group }">
@@ -146,10 +149,7 @@ function addLine(label: string) {
                         v-if="group.items[0].source === 'lines'"
                         v-model="group.items[0].row.label"
                         :options="
-                            optionsWithCurrent(
-                                gearEffectOptions(slotName),
-                                group.items[0].row.label,
-                            )
+                            withCurrentOption(gearEffectOptions(slotName), group.items[0].row.label)
                         "
                         class="effect-label"
                         label="特殊行名"
@@ -197,7 +197,7 @@ function addLine(label: string) {
                         <SelectField
                             v-model="item.row.label"
                             :options="
-                                optionsWithCurrent(gearConditionOptions(slotName), item.row.label)
+                                withCurrentOption(gearConditionOptions(slotName), item.row.label)
                             "
                             class="condition-select row-name slip-row sm"
                             label="状态名"
@@ -317,31 +317,62 @@ function addLine(label: string) {
 }
 .gear-identity {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 4px;
+    align-items: flex-start;
+    gap: 12px;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: var(--w-hair) solid var(--rule);
 }
 .gear-identity .gear-form-icon {
-    --tile-w: 36px;
-    --tile-h: 36px;
-    --shot: 30px;
-    --tile-r: var(--r-2);
+    --tile-w: 64px;
+    --tile-h: 64px;
+    --shot: 56px;
+    --tile-r: var(--r-3);
 }
 .gear-form-mark {
     display: grid;
+    flex: none;
     place-items: center;
-    width: 36px;
-    height: 36px;
+    width: 64px;
+    height: 64px;
+    border-radius: var(--r-3);
+    background: var(--paper-2);
     color: var(--ochre);
-    font-size: var(--fs-md);
+    font-size: var(--fs-lg);
 }
-.gear-name {
+.gear-id {
+    display: grid;
+    flex: 1;
+    gap: 4px;
+    min-width: 0;
+}
+.gear-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.gear-name-field {
     flex: 1;
     min-width: 0;
 }
-.gear-name .field-label {
-    padding-left: 4px;
-    font-size: var(--fs-mini);
+.gear-name-input {
+    width: 100%;
+    height: calc(30px * var(--fs-scale));
+    padding: 0 6px;
+    color: var(--ink);
+    font-size: var(--fs-md);
+}
+.id-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 26px;
+}
+.gear-kind .slip-name {
+    white-space: nowrap;
+}
+.gear-kind .slip-input {
+    min-width: 0;
 }
 .inline-field {
     width: 100%;
@@ -359,21 +390,9 @@ function addLine(label: string) {
 .inline-field:hover,
 .inline-field:focus {
     border-color: var(--rule-2);
-    /* 纸染了门派色之后，悬停提亮不能再回落到 `--paper-2`——那会在彩纸上贴一块白。
-     * `--slip-base` 是同一层纸的中点色（`.character-theme` 给），深浅跟着纸走。 */
     background: var(--slip-base);
 }
-.gear-name .name-field {
-    color: var(--ink);
-    font-size: var(--fs-md);
-}
-.gear-kind {
-    display: grid;
-    grid-template-columns: minmax(70px, 0.8fr) minmax(0, 1.2fr);
-    gap: 6px;
-    color: var(--muted);
-    font-size: var(--fs-mini);
-}
+
 .detail-row {
     display: grid;
     grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) calc(26px * var(--fs-scale));

@@ -4,7 +4,8 @@ import { checkButtonTheme } from './theme.mjs';
 export async function ocr(ctx) {
     const { cdp, ui, t, sleep } = ctx;
     const checkCardFits = async (pane) => {
-        const sizes = await cdp.evaluate(`['.ocr-standard .upload-detail', '.ocr-card .char', '.ocr-card .char-body']
+        const sizes =
+            await cdp.evaluate(`['.ocr-standard .upload-detail', '.ocr-card .char', '.ocr-card .char-body']
             .map((selector) => {
                 const one = document.querySelector(selector);
                 return {
@@ -567,7 +568,7 @@ export async function ocr(ctx) {
         );
     });
 
-    await t.step('修炼截图：只记等级、漏项可修正、自定义上限不变、重载保留', async () => {
+    await t.step('修炼截图：只记等级、漏项可修正、重载保留', async () => {
         const expected = {
             攻击修炼: 11,
             防御修炼: 5,
@@ -589,7 +590,7 @@ export async function ocr(ctx) {
                 trainings: one.trainings.map((group) => ({
                     ...group,
                     rows: group.rows.map((row) => ({
-                        ...row, level: 7, cap: row.name === '育兽术' ? 40 : 25,
+                        ...row, level: 7,
                     })),
                 })),
             });
@@ -671,8 +672,8 @@ export async function ocr(ctx) {
             JSON.stringify(kept.rows),
         );
         t.check(
-            '截图分母不覆盖已有上限',
-            kept.rows.every((row) => row.cap === (row.name === '育兽术' ? 40 : 25)),
+            '保存后的修炼记录不含上限',
+            kept.rows.every((row) => !Object.hasOwn(row, 'cap')),
         );
         t.check('修炼经验不写入角色经验', JSON.stringify(kept.exp) === JSON.stringify(beforeExp));
     });

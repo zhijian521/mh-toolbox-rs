@@ -299,9 +299,9 @@ export async function setup(ctx) {
         await ui.clickLabel('编辑武器的装备');
         await sleep(250);
         const heading = await cdp.evaluate(
-            `document.querySelector('.editor .gear-name .field-label')?.textContent?.trim() ?? ''`,
+            `document.querySelector('.editor input[aria-label="武器 的装备名"]')?.placeholder ?? ''`,
         );
-        t.check('右侧切到武器', heading === '武器', `标题是「${heading}」`);
+        t.check('右侧切到武器', heading === '武器装备名', `占位是「${heading}」`);
 
         await ui.fillSel('.editor input[aria-label="武器 的装备名"]', 'E2E刀');
         await sleep(200);
@@ -395,8 +395,7 @@ export async function setup(ctx) {
         t.check('当前有内容的武器可删除', (await cdp.evaluate(clearState)) === 'visible/on');
         t.check(
             '删除按钮位于右栏装备名称后，左侧没有删除按钮',
-            await cdp.evaluate(`document.querySelector('.gear-editor .gear-name').nextElementSibling
-                ?.getAttribute('aria-label') === '删除武器这件装备' &&
+            await cdp.evaluate(`document.querySelector('.gear-editor .gear-name-row button[aria-label="删除武器这件装备"]') &&
                 !document.querySelector('.gear-parts-head button')`),
         );
 
@@ -446,7 +445,9 @@ export async function pets(ctx) {
         await ui.clickLabel('新增召唤兽');
         t.check(
             '整体修改新增无名召唤兽时禁止保存',
-            await cdp.evaluate(`document.querySelector('button[aria-label="保存这个角色"]').disabled`),
+            await cdp.evaluate(
+                `document.querySelector('button[aria-label="保存这个角色"]').disabled`,
+            ),
         );
         await ui.fillSel('.pet-block input[aria-label="召唤兽名称"]', '   ');
         t.check(
@@ -457,7 +458,9 @@ export async function pets(ctx) {
         await ui.fillSel('.pet-block input[aria-label="召唤兽名称"]', '临时甲');
         t.check(
             '命名后恢复保存',
-            await cdp.evaluate(`!document.querySelector('button[aria-label="保存这个角色"]').disabled`),
+            await cdp.evaluate(
+                `!document.querySelector('button[aria-label="保存这个角色"]').disabled`,
+            ),
         );
         await ui.clickLabel('新增召唤兽');
         await ui.fillSel('.pet-block input[aria-label="召唤兽名称"]', '临时乙');

@@ -191,12 +191,8 @@ describe('快速修改：写回', () => {
         expect(next.assists.find((one) => one.kind === 'life')?.level).toBe(100);
     });
 
-    it('修炼只改等级，忽略传入上限并保留已有上限', () => {
+    it('修炼只改等级，忽略上限输入且不保留旧上限', () => {
         const character = base();
-        const source = character.trainings
-            .flatMap((group) => group.rows)
-            .find((row) => row.name === '攻击修炼')!;
-        source.cap = 25;
         const next = applyQuick(
             character,
             { kind: 'training', name: '攻击修炼' },
@@ -205,27 +201,8 @@ describe('快速修改：写回', () => {
         const row = next.trainings
             .flatMap((group) => group.rows)
             .find((one) => one.name === '攻击修炼');
-        expect(row).toEqual({ name: '攻击修炼', level: 23, cap: 25 });
-        expect(source.level).toBe(0);
-    });
-
-    it('修炼缺失上限才回到游戏默认值（20 / 育兽术 35）', () => {
-        const character = base();
-        const defaults = [
-            ['攻击修炼', 20],
-            ['育兽术', 35],
-        ] as const;
-        for (const [name, cap] of defaults) {
-            const source = character.trainings
-                .flatMap((group) => group.rows)
-                .find((row) => row.name === name)!;
-            source.cap = 0;
-            const next = applyQuick(character, { kind: 'training', name }, { level: '5' });
-            const row = next.trainings
-                .flatMap((group) => group.rows)
-                .find((one) => one.name === name);
-            expect(row).toMatchObject({ level: 5, cap });
-        }
+        expect(row).toEqual({ name: '攻击修炼', level: 23 });
+        expect(character.trainings[0].rows[0].level).toBe(0);
     });
 });
 

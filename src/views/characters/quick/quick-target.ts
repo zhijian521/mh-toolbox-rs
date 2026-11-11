@@ -2,7 +2,8 @@ import { normalizeGearDetail, normalizePet } from '../details';
 /** 快速修改按行名、装备部位或召唤兽下标定位，返回新角色，存储由名册处理。 */
 import {
     expWanValue,
-    trainingDefaultCap,
+    findAttrRow,
+    findTrainingRow,
     type AssistKind,
     type CharacterData,
     type GearDetail,
@@ -84,8 +85,7 @@ export interface QuickPanel {
  * ==================================================================== */
 
 function attrValue(character: CharacterData, label: string): string | undefined {
-    return character.attrGroups.flatMap((group) => group.rows).find((row) => row.label === label)
-        ?.value;
+    return findAttrRow(character, label)?.value;
 }
 
 /**
@@ -199,9 +199,7 @@ export function quickPanel(character: CharacterData, target: QuickScalarTarget):
         }
 
         case 'training': {
-            const row = character.trainings
-                .flatMap((group) => group.rows)
-                .find((one) => one.name === target.name);
+            const row = findTrainingRow(character, target.name);
             if (!row) return null;
             return {
                 title: `快速修改 · ${target.name}`,
@@ -306,16 +304,7 @@ export function applyQuick(
                 trainings: character.trainings.map((group) => ({
                     ...group,
                     rows: group.rows.map((row) =>
-                        row.name === target.name
-                            ? {
-                                  ...row,
-                                  level: num(values.level),
-                                  cap:
-                                      row.cap > 0
-                                          ? row.cap
-                                          : (trainingDefaultCap(row.name) ?? row.cap),
-                              }
-                            : row,
+                        row.name === target.name ? { ...row, level: num(values.level) } : row,
                     ),
                 })),
             };

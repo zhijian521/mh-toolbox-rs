@@ -14,7 +14,6 @@ import { parseActivities } from './game-activities';
 import { parseGameplay } from './gameplay';
 import { emptyCharacter, normalizeCharacter } from '../views/characters/roster';
 import { parseGearPanel } from '../views/characters/ocr/gear-panel';
-import { trainingDefaultCap } from '../views/characters/character';
 
 afterEach(() => installGameData(GAME_DATA_FILES));
 
@@ -70,10 +69,8 @@ describe('外置角色规则', () => {
 
     it('新规则安装后修炼和 OCR 当次生效，属性名中的正则符号按字面匹配', () => {
         const files = structuredClone(GAME_DATA_FILES);
-        files.characterRules.trainings[0].rows[0].cap = 27;
         files.characterRules.gear.statLabels.push('临时(属性)');
         installGameData(files);
-        expect(trainingDefaultCap(files.characterRules.trainings[0].rows[0].name)).toBe(27);
         const result = parseGearPanel(
             [{ text: '临时(属性)+9', x: 0, y: 0, width: 100, height: 16, score: 1 }],
             [],
@@ -86,7 +83,7 @@ describe('外置角色规则', () => {
         const character = emptyCharacter();
         character.name = '保留记录';
         character.attrGroups[0].rows[0].value = '4567';
-        character.trainings[0].rows[0] = { ...character.trainings[0].rows[0], level: 18, cap: 25 };
+        character.trainings[0].rows[0] = { ...character.trainings[0].rows[0], level: 18 };
         character.gear[0].detail = {
             name: '已录装备',
             kind: '头盔',

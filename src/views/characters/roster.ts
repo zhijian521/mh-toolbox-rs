@@ -79,11 +79,11 @@ function blankAttrGroups(): AttrGroup[] {
     }));
 }
 
-/** 修炼两组十项，结构整份来自 `TRAINING_GROUPS`（组名与项名固定，上限取清单默认）。 */
+/** 修炼两组十项，结构来自 `TRAINING_GROUPS`，角色记录只填等级。 */
 function blankTrainings(): TrainingGroup[] {
     return TRAINING_GROUPS.map((group) => ({
         title: group.title,
-        rows: group.rows.map((row) => ({ name: row.name, level: 0, cap: row.cap })),
+        rows: group.rows.map((row) => ({ name: row.name, level: 0 })),
     }));
 }
 
@@ -259,15 +259,8 @@ function normalizeGear(raw: unknown): GearSlot[] {
 }
 
 /**
- * 修炼：**结构按清单重建，等级与上限按项名对回去**（与属性表同一条哲学）。
- *
- * 老存档里可能有过改过的组名、加过的项（上一版编辑器三样都能改）。现在这些归位：
- * 组名与项名照 `TRAINING_GROUPS`，清单外的项丢掉，缺的补空。
- *
- * **上限认存档**（2026-11-04）：它跟号走——帮派与「修炼上限提升」会把它推高，
- * 两个号的「攻击修炼」可以一个 20、一个 25，所以不能再按常量覆盖回去。
- * 清单里那个数只负责「没填过时是什么」。留空（0）也归到这一档：上限必须是正数，
- * 写成 0 会让卡上画出 `11/0` 与 NaN% 的条，比不显示更糟。
+ * 修炼：结构按清单重建，只按项名对回等级。清单外的项丢弃，缺的补 0；
+ * 旧存档里的 `cap` 不再进入角色记录。
  */
 function normalizeTrainings(raw: unknown): TrainingGroup[] {
     if (!TRAINING_GROUPS.length) {
@@ -280,12 +273,11 @@ function normalizeTrainings(raw: unknown): TrainingGroup[] {
                     .map((row) => ({
                         name: text(row.name),
                         level: int(row.level),
-                        cap: int(row.cap),
                     }))
                     .filter((row) => row.name),
             }));
     }
-    const saved = new Map<string, { level: number; cap?: number }>();
+    const saved = new Map<string, number>();
     for (const group of rows(raw)) {
         if (!isObject(group)) continue;
         for (const row of rows(group.rows)) {
@@ -293,18 +285,14 @@ function normalizeTrainings(raw: unknown): TrainingGroup[] {
             const name = text(row.name);
             // 同名取第一条：清单里每项只出现一次，重复说明这份数据被改过。
             if (name && !saved.has(name)) {
-                saved.set(name, { level: int(row.level), cap: optionalInt(row.cap) });
+                saved.set(name, int(row.level));
             }
         }
     }
 
     return TRAINING_GROUPS.map((group) => ({
         title: group.title,
-        rows: group.rows.map((row) => {
-            const kept = saved.get(row.name);
-            const cap = kept?.cap && kept.cap > 0 ? kept.cap : row.cap;
-            return { name: row.name, level: kept?.level ?? 0, cap };
-        }),
+        rows: group.rows.map((row) => ({ name: row.name, level: saved.get(row.name) ?? 0 })),
     }));
 }
 

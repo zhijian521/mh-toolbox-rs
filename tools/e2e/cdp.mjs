@@ -18,22 +18,21 @@
  *    `Execution context was destroyed`。`reload()` 用 `performance.timeOrigin`
  *    的变化判断「新文档真的起来了」，比睡固定毫秒稳。
  */
-
 const DEFAULT_PORT = Number(process.env.MH_E2E_PORT || 9222);
-
 export const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
-
 /** Vite 的时间戳属于模块身份；读取当前页面已加载的 URL，避免创建第二份 store 或命令表。 */
 export function importLoaded(path) {
     return `import((() => {
         const path = ${JSON.stringify(path)};
-        const loaded = performance.getEntriesByType('resource')
-            .findLast((entry) => new URL(entry.name).pathname === path);
-        if (!loaded) throw new Error('页面尚未加载模块：' + path);
-        return loaded.name;
+        const entry = performance.getEntriesByType('resource').findLast((candidate) => {
+            const url = new URL(candidate.name);
+            // Vue 的样式子模块也是 /Component.vue?...，但没有组件导出。
+            return url.pathname === path && url.searchParams.get('type') !== 'style';
+        });
+        if (!entry) throw new Error('页面尚未加载模块：' + path);
+        return entry.name;
     })())`;
 }
-
 /**
  * 环境问题（端口不通、没有窗口）与断言失败要分开：
  * 前者该退出码 2 并给一句「先启动」的提示，后者才是「应用有毛病」。
@@ -45,13 +44,11 @@ export class SetupError extends Error {
         this.hint = hint;
     }
 }
-
 /** 连上真窗口。连不上时抛 `SetupError`，调用方据此走「环境问题」那条路。 */
 export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
     const deadline = Date.now() + timeout;
     let page = null;
     let lastError = null;
-
     while (Date.now() < deadline) {
         try {
             const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
@@ -62,7 +59,6 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
         }
         await sleep(300);
     }
-
     if (!page) {
         throw new SetupError(
             `${port} 端口上没有可连的窗口${lastError ? `（${lastError.message}）` : ''}`,
@@ -70,12 +66,10 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
                 `（调试端口只有 debug 构建才有；端口可用 MH_E2E_PORT 改）`,
         );
     }
-
     const ws = new WebSocket(page.webSocketDebuggerUrl);
     let id = 0;
     let alive = true;
     const pending = new Map();
-
     /**
      * 页面侧的报错全收在这里。
      *
@@ -83,7 +77,6 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
      * 它们只进控制台。而这次测试的全部价值就在「用户看不出问题的地方有没有问题」。
      */
     const errors = [];
-
     ws.addEventListener('message', (event) => {
         const msg = JSON.parse(event.data);
         if (msg.id && pending.has(msg.id)) {
@@ -109,18 +102,15 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
             errors.push(`网络/浏览器：${msg.params.entry.text} ${msg.params.entry.url ?? ''}`);
         }
     });
-
     ws.addEventListener('close', () => {
         alive = false;
         for (const [, one] of pending) one.fail(new SetupError('连接断了（应用退出了？）'));
         pending.clear();
     });
-
     await new Promise((ok, fail) => {
         ws.addEventListener('open', () => ok());
         ws.addEventListener('error', () => fail(new SetupError('连不上 CDP', '窗口起来了吗？')));
     });
-
     const send = (method, params = {}, { timeout: ms = 20000 } = {}) =>
         new Promise((ok, fail) => {
             if (!alive) {
@@ -144,11 +134,9 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
             });
             ws.send(JSON.stringify({ id, method, params }));
         });
-
     await send('Page.enable');
     await send('Runtime.enable');
     await send('Log.enable');
-
     /** 求值并返回值本身（不是 RemoteObject 包装）。 */
     const evaluate = async (expression, options = {}) => {
         const res = await send(
@@ -163,7 +151,6 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
         }
         return res.result?.value;
     };
-
     /**
      * 轮询一句表达式，直到它为真或超时。**超时返回 `false` 而不是抛错**：
      * 调用方可能只想「尽力等一下」（等某一页画出来），真正的判据交给自己写。
@@ -181,7 +168,6 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
             await sleep(interval);
         }
     };
-
     /**
      * 取元素中心点（视口坐标），**并确认那一点真的能命中它**。
      *
@@ -200,7 +186,6 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
         })()`);
         if (!scrolled) throw new Error(`点不到：${selector}（元素不存在）`);
         await sleep(180);
-
         const info = await evaluate(`(() => {
             const el = document.querySelector(${JSON.stringify(selector)});
             if (!el) return { why: '消失' };
@@ -248,7 +233,6 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
         }
         return info;
     };
-
     /**
      * 真实鼠标点击：press + release，走完整事件流。
      *
@@ -287,7 +271,6 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
         }
         await sleep(gap);
     };
-
     /** 真实键盘输入：先聚焦并全选，再 insertText（会触发 input 事件，Vue 能收到）。 */
     const type = async (selector, value) => {
         await click(selector);
@@ -310,7 +293,6 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
         if (value) await send('Input.insertText', { text: value });
         await sleep(120);
     };
-
     /** 单键：只发 keyDown + keyUp，不带任何文本（用于 Esc / Tab / 方向键）。 */
     const key = async (name) => {
         const map = {
@@ -338,7 +320,6 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
         }
         await sleep(150);
     };
-
     /**
      * 重载页面并等新文档就绪。
      *
@@ -357,7 +338,6 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
         if (!done) throw new Error(`重载后 ${ms}ms 内没画出来（${selector}）`);
         await sleep(250);
     };
-
     /**
      * 等**页面自己**触发的那次重载完成。
      *
@@ -372,7 +352,6 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
      *   await cdp.waitForReload(before);
      */
     const timeOrigin = () => evaluate('performance.timeOrigin');
-
     const waitForReload = async (
         before,
         { waitFor: selector = '.rail-nav', timeout: ms = 25000 } = {},
@@ -385,7 +364,6 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
         if (!done) throw new Error(`等页面自己重载：${ms}ms 内没换文档（${selector}）`);
         await sleep(250);
     };
-
     const shot = async (file) => {
         const { data } = await send('Page.captureScreenshot', { format: 'png' });
         const { writeFileSync, mkdirSync } = await import('node:fs');
@@ -394,13 +372,11 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
         writeFileSync(resolve(file), Buffer.from(data, 'base64'));
         return resolve(file);
     };
-
     /** 应用与数据目录的信息（走真 IPC，顺带证明通道是通的）。 */
     const appInfo = () =>
         evaluate(
             `window.__TAURI_INTERNALS__?.invoke('app_info').then((v) => v, (e) => ({ error: String(e) })) ?? null`,
         );
-
     return {
         send,
         evaluate,

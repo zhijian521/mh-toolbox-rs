@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CharacterData, TrainingRow } from '../characters/character';
 import type { IncomeEntry } from '../income/income';
-import { charBrief, trainingPercent, weekSeries } from './overview';
+import { charBrief, weekSeries } from './overview';
 
 /**
  * 总览页的纯函数。
@@ -121,59 +121,33 @@ describe('charBrief', () => {
         expect(brief.exp).toBeNull();
     });
 
-    it('修炼合计读每行自己的上限，不按常量表', () => {
-        // 同一个「攻击修炼」，这个号的上限被帮派推到 25——按常量 20 算会得出 125%。
+    it('修炼只合计当前等级，不读取上限', () => {
         const brief = charBrief(
             character({
                 trainings: training([
-                    { name: '攻击修炼', level: 25, cap: 25 },
-                    { name: '防御修炼', level: 10, cap: 20 },
+                    { name: '攻击修炼', level: 25 },
+                    { name: '防御修炼', level: 10 },
                 ]),
             }),
         );
-
         expect(brief.trainingLevel).toBe(35);
-        expect(brief.trainingCap).toBe(45);
-        expect(trainingPercent(brief)).toBeCloseTo(77.78, 1);
     });
 
     it('两组一起算（任务修炼与宠物修炼不是两张表）', () => {
         const brief = charBrief(
             character({
                 trainings: [
-                    { title: '任务修炼', rows: [{ name: '攻击修炼', level: 20, cap: 20 }] },
-                    { title: '宠物修炼', rows: [{ name: '育兽术', level: 30, cap: 35 }] },
+                    { title: '任务修炼', rows: [{ name: '攻击修炼', level: 20 }] },
+                    { title: '宠物修炼', rows: [{ name: '育兽术', level: 30 }] },
                 ],
             }),
         );
-
         expect(brief.trainingLevel).toBe(50);
-        expect(brief.trainingCap).toBe(55);
-        expect(brief.totalRows).toBe(2);
     });
 
-    it('cap 为 0 的行不算满级，但仍算进总项数', () => {
-        // 上限没填时永远算不出「满」——猜一个数比不标更糟。
-        const brief = charBrief(
-            character({
-                trainings: training([
-                    { name: '攻击修炼', level: 5, cap: 0 },
-                    { name: '防御修炼', level: 20, cap: 20 },
-                ]),
-            }),
-        );
-
-        expect(brief.maxedRows).toBe(1);
-        expect(brief.totalRows).toBe(2);
-        expect(trainingPercent(brief)).toBe(100);
-    });
-
-    it('什么都没填的新号不会除出 NaN', () => {
+    it('什么都没填的新号，修炼等级合计为 0', () => {
         const brief = charBrief(character());
-
         expect(brief.exp).toBeNull();
-        expect(trainingPercent(brief)).toBeNull();
-        expect(brief.maxedRows).toBe(0);
-        expect(brief.totalRows).toBe(0);
+        expect(brief.trainingLevel).toBe(0);
     });
 });

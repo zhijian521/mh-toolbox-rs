@@ -1,5 +1,11 @@
 import { computed, ref } from 'vue';
-import type { AssistKind, AssistSkill, CharacterData } from '../character';
+import {
+    findAttrRow,
+    findTrainingRow,
+    type AssistKind,
+    type AssistSkill,
+    type CharacterData,
+} from '../character';
 import { normalizeCharacter } from '../roster';
 import { schoolSkills } from '../schools';
 import { applyAttrPanel, type AttrPanelResult } from './attr-panel';
@@ -68,9 +74,7 @@ export function useOcrDraft(character: CharacterData) {
         } else if (key === 'experience.value' || key === 'experience.need') {
             draft.value.experience[key === 'experience.value' ? 'value' : 'need'] = text;
         } else {
-            const row = draft.value.attrGroups
-                .flatMap((group) => group.rows)
-                .find((row) => row.label === key);
+            const row = findAttrRow(draft.value, key);
             if (row) row.value = text;
         }
     }
@@ -94,9 +98,7 @@ export function useOcrDraft(character: CharacterData) {
     }
 
     function setTraining(name: string, level: number) {
-        const row = draft.value.trainings
-            .flatMap((group) => group.rows)
-            .find((row) => row.name === name);
+        const row = findTrainingRow(draft.value, name);
         if (row) row.level = level;
     }
 

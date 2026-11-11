@@ -27,14 +27,15 @@ describe('开发页的模拟数据', () => {
         const maxedTrainings = maxed.trainings.flatMap((group) => group.rows);
         const blankTrainings = blank.trainings.flatMap((group) => group.rows);
 
-        /* 练满：门派技能与十项修炼都必须顶到各自的上限——卡上因此七条刻度全朱、
-         * 修炼十行整条转朱，这正是要验的那一屏。 */
+        /* 示例数据继续提供高等级修炼；卡片只展示等级，不再据此标满。 */
         expect(maxed.skills.length).toBeGreaterThan(0);
         expect(maxed.skills.every((row) => row.cap !== undefined && row.level === row.cap)).toBe(
             true,
         );
         expect(maxedTrainings).toHaveLength(10);
-        expect(maxedTrainings.every((row) => row.level === row.cap)).toBe(true);
+        expect(maxedTrainings.every((row) => row.level === (row.name === '育兽术' ? 35 : 20))).toBe(
+            true,
+        );
         expect(maxed.pets).toHaveLength(1);
 
         /* 空号：辅助、装备、召唤兽全空，修炼全 0——「还没记录」的那几屏靠它。 */

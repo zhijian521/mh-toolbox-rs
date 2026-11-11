@@ -2,7 +2,7 @@
 import { computed, useId } from 'vue';
 import NumberField from '../../../components/NumberField.vue';
 import NumTag from '../../../components/NumTag.vue';
-import { isMaxed, type TrainingGroup, type TrainingRow } from '../character';
+import type { TrainingGroup, TrainingRow } from '../character';
 import type { QuickTarget } from '../quick/quick-target';
 import { quickRowBinds } from '../quick-row';
 
@@ -24,8 +24,7 @@ const emit = defineEmits<{
 const uid = useId();
 const quickable = computed(() => props.quick && !props.editable);
 
-/* 十项的名字在本表里唯一（两组没有重名），所以名字就够定位；
- * 上限跟行走，由弹窗自己读那一行，不需要另外传。 */
+/* 十项的名字在本表里唯一（两组没有重名），所以名字就够定位。 */
 function open(row: TrainingRow) {
     if (!quickable.value) return;
     emit('quick', { kind: 'training', name: row.name });
@@ -45,19 +44,16 @@ function open(row: TrainingRow) {
                         v-for="row in group.rows"
                         :key="row.name"
                         class="slip-row"
-                        :class="{ full: isMaxed(row), idle: row.level === 0, quickable }"
+                        :class="{ idle: row.level === 0, quickable }"
                         v-bind="quickRowBinds(quickable, () => open(row), `快速修改 ${row.name}`)"
                     >
                         <label v-if="editable" class="slip-name" :for="`${uid}-${row.name}`">
                             {{ row.name }}
                         </label>
                         <span v-else class="slip-name">{{ row.name }}</span>
-                        <!-- 读数进数值签（四页同一枚）：上限写成 `/20` 的淡字，
-                             只有等级是读数。满级时签里的等级转朱。 -->
+                        <!-- 修炼只记等级，卡上与修改入口都不再显示上限。 -->
                         <NumTag v-if="!editable" class="slip-val">
-                            <span class="lv"
-                                >{{ row.level }}<i>/{{ row.cap }}</i></span
-                            >
+                            <span class="lv">{{ row.level }}</span>
                         </NumTag>
                         <NumberField
                             v-else

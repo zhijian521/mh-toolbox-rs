@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue';
 import PressButton from '../../components/PressButton.vue';
 import NumberField from '../../components/NumberField.vue';
 import SelectField from '../../components/SelectField.vue';
+import { withCurrentOption } from '../../components/select-options';
 import { schoolNames } from '../../services/game-data';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import GearTip from './GearTip.vue';
@@ -125,15 +126,12 @@ watch(
     },
 );
 
-const withTabs = computed(() => props.tabs);
-const schoolOptions = computed(() => {
-    const names = schoolNames();
-    const current = props.character.school;
-    return (current && !names.includes(current) ? [current, ...names] : names).map((name) => ({
-        value: name,
-        label: name,
-    }));
-});
+const schoolOptions = computed(() =>
+    withCurrentOption(
+        schoolNames().map((name) => ({ value: name, label: name })),
+        props.character.school,
+    ),
+);
 function editIdentity(key: string, event: Event) {
     emit('edit-value', key, (event.target as HTMLInputElement).value);
 }
@@ -258,7 +256,7 @@ function openDetail(index: number) {
         </header>
 
         <SteppedSlider
-            v-if="withTabs"
+            v-if="props.tabs"
             class="tabs"
             :model-value="active"
             :options="PANE_OPTIONS"
@@ -280,13 +278,13 @@ function openDetail(index: number) {
                  可指、没有「切回来」这回事、`tabpanel` 也不该出现。所以当前那一页改挂
                  `aria-label` 并把 `tabbed` 关掉，其余页**不渲染**。
                  属性、师门、辅助、修炼按 `pane` 挂载预览，其余页只在名册页签里出现。 -->
-            <template v-if="withTabs || active === 'attrs'">
+            <template v-if="props.tabs || active === 'attrs'">
                 <AttrPane
                     v-show="active === 'attrs'"
                     :id="`${character.id}-pane-attrs`"
-                    :aria-labelledby="withTabs ? `${character.id}-tab-attrs` : undefined"
-                    :aria-label="withTabs ? undefined : '属性'"
-                    :tabbed="withTabs"
+                    :aria-labelledby="props.tabs ? `${character.id}-tab-attrs` : undefined"
+                    :aria-label="props.tabs ? undefined : '属性'"
+                    :tabbed="props.tabs"
                     :groups="character.attrGroups"
                     :experience="character.experience"
                     :editable="editable"
@@ -296,28 +294,28 @@ function openDetail(index: number) {
                 />
             </template>
 
-            <template v-if="withTabs || active === 'skills'">
+            <template v-if="props.tabs || active === 'skills'">
                 <SkillPane
                     v-show="active === 'skills'"
                     :id="`${character.id}-pane-skills`"
-                    :aria-labelledby="withTabs ? `${character.id}-tab-skills` : undefined"
-                    :aria-label="withTabs ? undefined : '师门'"
+                    :aria-labelledby="props.tabs ? `${character.id}-tab-skills` : undefined"
+                    :aria-label="props.tabs ? undefined : '师门'"
                     :rows="character.skills"
                     :editable="editable"
-                    :tabbed="withTabs"
+                    :tabbed="props.tabs"
                     :quick="quick"
                     @edit-level="(name, level) => emit('edit-level', name, level)"
                     @quick="(target) => emit('quick', target)"
                 />
             </template>
 
-            <template v-if="withTabs || active === 'assist'">
+            <template v-if="props.tabs || active === 'assist'">
                 <AssistPane
                     v-show="active === 'assist'"
                     :id="`${character.id}-pane-assist`"
-                    :aria-labelledby="withTabs ? `${character.id}-tab-assist` : undefined"
-                    :aria-label="withTabs ? undefined : '辅助'"
-                    :tabbed="withTabs"
+                    :aria-labelledby="props.tabs ? `${character.id}-tab-assist` : undefined"
+                    :aria-label="props.tabs ? undefined : '辅助'"
+                    :tabbed="props.tabs"
                     :assists="character.assists"
                     :editable="editable"
                     :quick="quick"
@@ -328,13 +326,13 @@ function openDetail(index: number) {
                 />
             </template>
 
-            <template v-if="withTabs || active === 'training'">
+            <template v-if="props.tabs || active === 'training'">
                 <TrainingPane
                     v-show="active === 'training'"
                     :id="`${character.id}-pane-training`"
-                    :aria-labelledby="withTabs ? `${character.id}-tab-training` : undefined"
-                    :aria-label="withTabs ? undefined : '修炼'"
-                    :tabbed="withTabs"
+                    :aria-labelledby="props.tabs ? `${character.id}-tab-training` : undefined"
+                    :aria-label="props.tabs ? undefined : '修炼'"
+                    :tabbed="props.tabs"
                     :groups="character.trainings"
                     :editable="editable"
                     :quick="quick"
@@ -343,7 +341,7 @@ function openDetail(index: number) {
                 />
             </template>
 
-            <template v-if="withTabs">
+            <template v-if="props.tabs">
                 <GearPane
                     v-show="active === 'gear'"
                     :id="`${character.id}-pane-gear`"
