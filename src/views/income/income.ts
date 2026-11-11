@@ -12,7 +12,7 @@
  * 方向由 `kind` 说，**不用负数**：支出存正数 + `kind: 'expense'`。
  * 负数与「支出」两套写法混用，汇总时漏掉一处就会把净额算反。
  */
-import { dateText, daysAgo, moneyText } from '../../services/format';
+import { moneyText } from '../../services/format';
 import { makeId } from '../../services/shape';
 
 export type IncomeKind = 'income' | 'expense';
@@ -212,15 +212,15 @@ export function totalsOf(entries: readonly IncomeEntry[]): Totals {
     };
 }
 
-/* ---------- 范围窗口 ----------
- * 「今天 / 近七天 / 本月」原先写在 `IncomeView` 的 `scoped` 里，是三个内联 `filter`。
- * 2026-11-05 统计条要显示「较上一档」，于是需要**同一个范围的前一档**——把窗口定义
- * 留在页面里，第二处（上一档）就得照抄一遍边界，而「近七天」是不是含今天、
- * 「本月」从 1 号还是从今天算，抄的人各有各的理解。
- * 现在窗口只有这一份，页面只选名字。
+/* ---------- 区间 ----------
+ * 2026-11-11 起收益页只算**今天**：页顶的范围滑块删掉（用户：「今日 / 近七天 / 本月
+ * 删除，我们收益只记录本天的记录」）。于是 `windowOf` / `previousWindowOf` 这两个
+ * 「选一段」的函数一并删掉——它们唯一的调用方是那个滑块，留着就是没人调的死代码。
+ *
+ * 留下来的只有 `entriesIn`：**历史收益窗**要按用户选的两端筛（起止都含），
+ * 而「两端都含」这个边界正是两处各写一次就会漂的东西（一处写成开区间，同一个词就指
+ * 两段不同的日子）。口径仍住在这里，页面只传两个日期。
  */
-
-export type IncomeRange = 'day' | 'week' | 'month';
 
 /** 闭区间。`YYYY-MM-DD` 天生可比较，所以直接比字符串。 */
 export interface DateWindow {
@@ -228,41 +228,7 @@ export interface DateWindow {
     to: string;
 }
 
-/** 范围对应的窗口。 */
-export function windowOf(range: IncomeRange, today: string): DateWindow {
-    const at = new Date(`${today}T00:00:00`);
-    if (range === 'day') return { from: today, to: today };
-    /* 近七天 = 含今天的七天，不是「周一到今天」：周一切换会把周日那天从账上抹掉。 */
-    if (range === 'week') return { from: daysAgo(6, at), to: today };
-    return { from: `${today.slice(0, 7)}-01`, to: today };
-}
-
-/**
- * 紧邻的上一档，用来算「较上一档」。
- *
- * 三档各自与**同样长度、紧邻**的一段比：
- *   今天 → 昨天；近七天 → 再往前七天；本月 → 上月同期（1 号到上月同一天）。
- *
- * 「上月同期」不是「上月整月」：本月才过到 5 号，拿 5 天去比 30 天，百分比会永远是负的。
- * 上月没有那一天（3 月 31 日对 2 月）就截到月末，由 `new Date(y, m, 0)` 给出天数。
- */
-export function previousWindowOf(range: IncomeRange, today: string): DateWindow {
-    const at = new Date(`${today}T00:00:00`);
-    if (range === 'day') {
-        const yesterday = daysAgo(1, at);
-        return { from: yesterday, to: yesterday };
-    }
-    if (range === 'week') return { from: daysAgo(13, at), to: daysAgo(7, at) };
-
-    const endOfPrev = new Date(at.getFullYear(), at.getMonth(), 0).getDate();
-    const day = Math.min(at.getDate(), endOfPrev);
-    return {
-        from: dateText(new Date(at.getFullYear(), at.getMonth() - 1, 1)),
-        to: dateText(new Date(at.getFullYear(), at.getMonth() - 1, day)),
-    };
-}
-
-/** 窗口内的记录。 */
+/** 区间内的记录（两端都含）。 */
 export function entriesIn(entries: readonly IncomeEntry[], window: DateWindow): IncomeEntry[] {
     return entries.filter((one) => one.date >= window.from && one.date <= window.to);
 }

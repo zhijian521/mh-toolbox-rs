@@ -5,22 +5,11 @@ import { computed, ref } from 'vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
-import SteppedSlider from '../../components/SteppedSlider.vue';
 import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
 import type { QuickItemEntry } from '../../services/game-data';
-import { toWan } from '../../services/format';
-import {
-    amountText,
-    entriesIn,
-    factsOf,
-    previousWindowOf,
-    recordSummary,
-    statRowsOf,
-    totalsOf,
-    windowOf,
-    type IncomeRange,
-} from './income';
+import { daysAgo, parseDay, toWan } from '../../services/format';
+import { amountText, entriesOn, factsOf, recordSummary, statRowsOf, totalsOf } from './income';
 import { useIncome } from './income-store';
 import IncomeHistoryDialog from './IncomeHistoryDialog.vue';
 import ItemPriceDialog from './ItemPriceDialog.vue';
@@ -44,14 +33,21 @@ import { useOnline } from './online-store';
  * 上面四格是「这一段合了多少」（过去），下面两栏是「一条一条记」（刚发生），
  * 中间那条是可操作的现在——点卡记不记、哪些号还挂着、怎么停。
  *
- * ---- 为什么统计要能切范围 ----
- * 速记只看今天，但「今天赚了多少」这个数没有参照：切到本周/本月才知道这几天的节奏。
- * 切换只在前端筛（数据本来就全在内存里），不发请求、不改速记的日期口径。
+ * ---- 为什么统计只算今天 ----
+ * 2026-11-11 用户：「今日 / 近七天 / 本月 删除，我们收益只记录本天的记录」。
+ * 这条要求把整页的口径收成一天：速记本来就只写今天（`recordEntry` 的日期恒为
+ * `todayText()`），统计也就没有「别的一段」可选。范围滑块的另一层代价是**它与速记的
+ * 日期口径不一致**——上面写着「本月 1234 万」，下面点一下只进今天那条，两个数不在同一段时间里。
+ * 要看别天、别段，走页头「历史」（起止区间 + 角色筛选 + 可改可删的流水）。
+ *
+ * 于是「今天赚了多少」的参照退回到**昨天**：与总览页同一句话（`statRowsOf` 的第四列），
+ * 两页给出的说法一致，不必学第二套。
  *
  * ---- 这一层只留界面状态 ----
- * 记录与单价在 `useIncome()`（模块级单例），规则在 `income.ts`。这里只有四样：
- * 统计范围、单价窗开着谁、窗里要预填的现值（`prices`），以及「刚才为什么没写进去」
- * （那两条来自 store）。换算、筛选、合计全在 `income.ts`——那些函数要能单测。
+ * 记录与单价在 `useIncome()`（模块级单例），规则在 `income.ts`。收益这本账的界面状态只有三样：
+ * 单价窗开着谁、窗里要预填的现值（`prices`），以及「刚才为什么没写进去」（那两条来自 store）。
+ * 另外三样是别的区块自己的开合（历史窗、上线窗、记录窗），见下面各自那一段。
+ * 换算、筛选、合计全在 `income.ts`——那些函数要能单测。
  */
 const {
     entries,
@@ -66,34 +62,27 @@ const {
     retry,
 } = useIncome();
 
-type Range = IncomeRange;
-const range = ref<Range>('day');
-/* 显式标成可变数组：`SegmentedPills` 的 `options` 是可变类型，`as const` 出来的
- * readonly 元组赋不过去（它只读、但接收方声明的是可写）。 */
-const RANGES: { value: Range; label: string }[] = [
-    { value: 'day', label: '今天' },
-    { value: 'week', label: '近七天' },
-    { value: 'month', label: '本月' },
-];
-
 const today = useToday();
 
 /**
- * 选中范围内的记录。
+ * 今天的记录。
  *
- * 窗口定义搬到了 `income.ts`（`windowOf`）：统计条要显示「较上一档」，而上一档是同范围
- * 往前推一段——两处各写一次边界，「近七天」到底含不含今天就会有两种答案。
+ * 筛的是**日期**而不是 `createdAt`：账按日分，而「今天」是本地时区的一天
+ * （`todayText` 的口径）。跨午夜时 `useToday` 会自己推进一步，这一屏跟着换新的一天。
  */
-const scoped = computed(() => entriesIn(entries.value, windowOf(range.value, today.value)));
+const scoped = computed(() => entriesOn(entries.value, today.value));
 
 /**
- * 上一档的合计，只用来算 `delta`。
+ * 昨天的合计，只用来算 `delta`。
  *
- * 窗口里一条记录都没有时 `totalsOf` 给全 0，`ratioText` 会把它落成「—」——
+ * 昨天一条记录都没有时 `totalsOf` 给全 0，`ratioText` 会把它落成「—」——
  * 那是「没有基数」，不是「上次是 0，这次暴涨」。
+ *
+ * 从 `today` 推而不是直接 `daysAgo(1)`：两次各取一次「现在」，跨午夜时会出现
+ * 「今天的数配昨天的前一天」（总览页同一条写法）。
  */
 const previousTotals = computed(() =>
-    totalsOf(entriesIn(entries.value, previousWindowOf(range.value, today.value))),
+    totalsOf(entriesOn(entries.value, daysAgo(1, parseDay(today.value)))),
 );
 
 const totals = computed(() => totalsOf(scoped.value));
@@ -105,6 +94,7 @@ const totals = computed(() => totalsOf(scoped.value));
  * 组件只负责摆——两页给出的数必须一模一样，所以连副文的写法都不能各写一份。
  * 2026-11-05 二次改版：四格改成压印签，每格多一行副文（构成 + 较上一档），
  * 拼装逻辑收进 `income.ts` 的 `statRowsOf`，这一层只调它。
+ * 2026-11-11 起「上一档」恒为昨天：这一页只算今天，比较的对象只有昨天。
  */
 const statItems = computed<StatItem[]>(() =>
     statRowsOf(totals.value, previousTotals.value, factsOf(scoped.value)),
@@ -263,18 +253,10 @@ async function priceCleared() {
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
 
         <div class="income-stack">
-            <!-- 这一行只剩范围滑块。原先滑块右边还有一句「今天 · 0 笔」——2026-11-05
-                 用户让删掉：范围的名字已经写在滑块上（当前那格就是亮的），条数在下面
-                 四格统计里也有（第一格的「N 笔 · 均 X」），这句话只是把同一件事说了第三遍。 -->
-            <div class="filters">
-                <SteppedSlider
-                    v-model="range"
-                    :options="RANGES"
-                    label="统计范围"
-                    class="range-slider"
-                />
-            </div>
-
+            <!-- 范围滑块删掉之后这一块从统计条直起（2026-11-11 用户：「今日 / 近七天 /
+                 本月 删除，我们收益只记录本天的记录」）。四格上面的第一行就是「收入」，
+                 不再有一条只说「现在看的是哪天」的控件——它说的那件事由速记本身保证：
+                 点一下就进今天。 -->
             <StatStrip :items="statItems" />
 
             <!-- 「此刻」那条：点卡口径与在线的号。夹在统计条与速记之间，
@@ -317,12 +299,12 @@ async function priceCleared() {
 </template>
 
 <style scoped>
-/* 三块（筛选行 / 统计条 / 速记两栏）之间统一 12px。
+/* 四块（统计条 / 状态条 / 速记两栏 / 每日走势）之间统一 16px。
  *
- * 2026-11-04 用户：「统计卡片和下面物品速记中间没有间距」。此前只有 `.filters` 自己写了
+ * 2026-11-04 用户：「统计卡片和下面物品速记中间没有间距」。当时只有筛选行自己写了
  * `margin-bottom`，统计条与速记之间是 0——两张纸的边直接叠在一起，读起来像一张画歪的卡。
  * 改成外层一根 `gap` 之后，**间距不再由「每块记得给自己加下边距」保证**：以后再加一块，
- * 不写样式也是 12。
+ * 不写样式也有这一段。2026-11-11 那一行筛选（三档滑块）删掉之后，这一列从统计条起头。
  *
  * **不能叫 `.stack`**：`blocks.css` 里已经有一个全局 `.stack`（设置页与开发页那「一列卡」），
  * 它带 `max-width: 1240px`——那一条是给说明文字页写的，理由是「再宽只会让说明拖成一条长线」。
@@ -339,23 +321,10 @@ async function priceCleared() {
     gap: 16px;
 }
 
-.filters {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-/* 三档滑块自己只画到内容宽，宽度由调用方给：写死 264 让「近七天」三个字两侧留白相同
- * （`inline-grid` 等分三格，格宽一致，字短的那格不会被挤）。 */
-/* 三格各 72：最长的「近七天」在 13.5px 下约 41 宽，两侧各留 15 的余量。
- * 原先是 264（各 86），一条滑块比旁边的统计数还抢眼——它是过滤器，不是主角。 */
-.range-slider {
-    width: 216px;
-}
-
 /* ---------- 收益页的纸：这一页先不上渐变（2026-11-11 用户「收益页面的卡片的渐变背景去掉吧，
  * 我看下 去掉的效果如何」） ----------
  *
- * 只在这三块底下的卡上关掉 `background-image`（两张光：左上偏光 + 135° 斜差），
+ * 只在这一列的卡上关掉 `background-image`（两张光：左上偏光 + 135° 斜差），
  * **不动全局 `.board`**——那句话只针对收益页，别处（角色卡、物价卡）现在看着没问题，
  * 一起关掉是替用户做了他没要求的决定。若这一版留用，再把 `.board` 那两层渐变整段删掉，
  * 并同步 `base.css` 里"纸是斜着受光的平面"那段注释。

@@ -10,13 +10,11 @@ import {
     normalizeEntry,
     parseEntries,
     parsePrices,
-    previousWindowOf,
     ratioText,
     recordSummary,
     splitAmount,
     statRowsOf,
     totalsOf,
-    windowOf,
     type IncomeEntry,
 } from './income';
 
@@ -314,43 +312,17 @@ describe('收益：今日按物品聚合', () => {
 
 /* 日期与金额的用例搬去了 `services/format.test.ts`——那些函数不再属于收益页。 */
 
-/* ============================ 统计条：范围窗口与四格 ============================
+/* ============================ 统计条：区间与四格 ============================
  * 2026-11-05 统计条改版（四枚压印签 + 每格副文 + 较上一档）。这里盯三类错：
- *   1. **窗口边界**——「近七天」含不含今天、「本月同期」是不是上月整月，差一天就同比错位；
+ *   1. **区间边界**——历史窗按用户选的两端筛，「起止都含」差一天就漏一笔；
  *   2. **算不出的情形**——上一档为 0、跨零、没有记录，必须落成「—」而不是一个假百分比；
  *   3. **副文口径**——笔均与占比用错分母（总笔数 vs 收入笔数）不会报错，只会让数看着像对的。
+ *
+ * 2026-11-11 收益页收成「只记今天」，`windowOf` / `previousWindowOf` 连同那个三档滑块一起
+ * 删掉——这里不再有用例，因为不再有函数。留下的是 `entriesIn`：历史窗还在用它。
  */
-describe('收益：范围窗口', () => {
-    it('今天 / 近七天 / 本月各自的窗口', () => {
-        const today = '2026-11-05';
-        expect(windowOf('day', today)).toEqual({ from: '2026-11-05', to: '2026-11-05' });
-        // 近七天 = 含今天的七天（10-30 到 11-05），不是「周一到今天」
-        expect(windowOf('week', today)).toEqual({ from: '2026-10-30', to: '2026-11-05' });
-        expect(windowOf('month', today)).toEqual({ from: '2026-11-01', to: '2026-11-05' });
-    });
-
-    it('上一档是同样长度、紧邻的一段', () => {
-        const today = '2026-11-05';
-        expect(previousWindowOf('day', today)).toEqual({ from: '2026-11-04', to: '2026-11-04' });
-        // 最近七天之前的那七天：10-23 到 10-29，与当前窗口不重叠
-        expect(previousWindowOf('week', today)).toEqual({ from: '2026-10-23', to: '2026-10-29' });
-        // 本月只过到 5 号，就只比上月 1–5 号，不拿 5 天去比 30 天
-        expect(previousWindowOf('month', today)).toEqual({ from: '2026-10-01', to: '2026-10-05' });
-    });
-
-    it('上月没有那一天时截到月末；跨年时退到去年 12 月', () => {
-        // 3 月 31 日：2 月只有 28 天
-        expect(previousWindowOf('month', '2026-03-31')).toEqual({
-            from: '2026-02-01',
-            to: '2026-02-28',
-        });
-        expect(previousWindowOf('month', '2026-01-15')).toEqual({
-            from: '2025-12-01',
-            to: '2025-12-15',
-        });
-    });
-
-    it('按窗口筛记录，两端都含', () => {
+describe('收益：区间筛选', () => {
+    it('按区间筛记录，两端都含', () => {
         const one = (id: string, date: string): IncomeEntry => ({
             id,
             date,
