@@ -675,8 +675,33 @@ export async function pets(ctx) {
         );
         t.check('兽牌在可见的页签里', visible === 1, `实际 ${visible} 块可见`);
 
-        /* 卡面去掉魔法（2026-11-11 用户：「下面的属性去掉魔法，从三行变成两行」）：
-         * 库里仍是七项，只是牌上不画那一格，所以 7 − 1 = 6，并且正好两行三列。 */
+        /* 外面那一层不是纸（2026-11-11 用户：「召唤兽列表卡片外面那一层 class="plate"
+         * 这个可以去掉 不要这个样式了，直接透明展示里面的即可」）。
+         * 只量外层自己的计算样式：牌里那枚头像块与八张票都还带材质，不能拿子元素冒充。 */
+        const shell = await inCard(`(() => {
+                const one = card.querySelector('.plate');
+                if (!one) return { found: false };
+                const style = getComputedStyle(one);
+                return {
+                    found: true,
+                    background: style.backgroundColor,
+                    boxShadow: style.boxShadow,
+                    padding: style.paddingLeft,
+                    borderRadius: style.borderRadius,
+                };
+            })()`);
+        t.check(
+            '兽牌外框透明：没有底色、没有落影、没有内边距',
+            shell.found &&
+                /rgba\(0, 0, 0, 0\)|transparent/.test(shell.background) &&
+                (shell.boxShadow === 'none' || shell.boxShadow === '') &&
+                shell.padding === '0px',
+            JSON.stringify(shell),
+        );
+
+        /* 卡面固定六项、按用户定的顺序（2026-11-11：「召唤兽的展示属性 按照 气血 攻击 防御
+         * 法伤 速度 成长 来展示，原本的法防不要了」）：库里仍是全套属性，只是牌上按白名单挑
+         * 五项战斗属性 + 一项成长，正好两行三列。 */
         const stats = await inCard(`(() => {
                 const cells = [...card.querySelectorAll('.plate .s')];
                 const tops = [...new Set(cells.map((one) => Math.round(one.getBoundingClientRect().top)))];
@@ -687,8 +712,10 @@ export async function pets(ctx) {
                 };
             })()`);
         t.check(
-            '兽牌展示六项属性、两行三列，不画魔法',
-            stats.count === 6 && stats.rows === 2 && !stats.labels.includes('魔法'),
+            '兽牌固定六项：气血 / 攻击 / 防御 / 法伤 / 速度 / 成长，两行三列',
+            stats.count === 6 &&
+                stats.rows === 2 &&
+                stats.labels.join(',') === '气血,攻击,防御,法伤,速度,成长',
             JSON.stringify(stats),
         );
 
@@ -742,6 +769,11 @@ export async function pets(ctx) {
                     stacked: nr.top > p.top - 1 && sr.top > nr.bottom - 1,
                     beside: nr.left > p.right - 1,
                     totalHeight: Math.round(sr.bottom - nr.top),
+                    /* 名字那张只占右半列的一半（2026-11-11 用户：「名字和等级 现在一行撑满了，
+                     * 你优化下，占据一半空间即可」），技能那张仍是通栏。 */
+                    idWidth: Math.round(box(id).width),
+                    nameWidth: Math.round(nr.width),
+                    skillWidth: Math.round(sr.width),
                     /* 技能只一排：图标 18、封顶 18 高，第二排整排裁掉。 */
                     iconSize: firstIcon ? Math.round(box(firstIcon).width) : -1,
                     skillHeight: Math.round(s.height),
@@ -753,7 +785,7 @@ export async function pets(ctx) {
                 };
             })()`);
         t.check(
-            '兽牌头像块 64，名字与技能是同款属性票，上下两张与块等高、技能只一排',
+            '兽牌头像块 64，名字占半列、技能通栏，与块等高、技能只一排',
             head.found &&
                 head.plate[0] === 64 &&
                 head.plate[1] === 64 &&
@@ -769,6 +801,8 @@ export async function pets(ctx) {
                 head.stacked &&
                 head.beside &&
                 head.totalHeight === head.plate[1] &&
+                Math.abs(head.nameWidth - head.idWidth / 2) <= 2 &&
+                head.skillWidth === head.idWidth &&
                 head.iconSize === 18 &&
                 head.skillHeight <= 18 &&
                 head.skillLines === 1,

@@ -5,32 +5,35 @@
  * 图标，超出两行展示」。于是头顶这一行从「头像 / 名字 / 等级 / …」的横排改成
  * 「块 · 竖排的名与级 · 剩下的地方全给技能」，属性由 3 + 3 + 1 收成 3 + 3。
  */
+/* 一只兽一条，中间隔 18：外面那层不再有纸板，两条之间的距离就是这里给的。
+ * 原先每块自己带 10 的内边距，间距读作 10 + 10 + 10 = 30；透明之后内边距归零，
+ * 仍然用 10 的话两条会挤成一条。 */
 .pet-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 18px;
 }
+/* 外框**只是一条可点的横条，不是一张纸**（2026-11-11 用户：「召唤兽列表卡片外面那一层
+ * class="plate" 这个可以去掉 不要这个样式了，直接透明展示里面的即可」）。
+ *
+ * 所以这里只剩布局与可达性：撑满一行、左对齐、可点、键盘有环。原先那套材质（--well 34% 的
+ * 面、四道内棱、0 2px 4px 的落影、10 的内边距、r-3 圆角）整段删掉——牌里已经有一枚凸起的
+ * 头像块和八张属性票，外面再套一层同色的面，读起来是「纸里还有一张纸」。悬停也不再换底色
+ * （没有底色可换），只把名字提成朱色，作为「这条能点」的唯一反馈。
+ *
+ * 类名保留 `plate`：它现在只是 e2e 数只数的钩子（`card.querySelectorAll('.plate')`），
+ * 不再描述材质。 */
 .plate {
-    --plate-hi: light-dark(var(--bevel-hi), color-mix(in srgb, var(--paper-base) 34%, transparent));
-    --plate-lo: light-dark(var(--bevel-lo), color-mix(in srgb, var(--ink-base) 42%, transparent));
     display: block;
     width: 100%;
-    padding: 10px;
+    padding: 0;
     border: 0;
-    border-radius: var(--r-3);
-    background: color-mix(in srgb, var(--well) 34%, var(--slip-base));
-    box-shadow:
-        inset 1px 1px 0 var(--plate-hi),
-        inset -1px -1px 0 var(--plate-lo),
-        0 2px 4px -1px var(--shadow-lg);
+    background: transparent;
+    box-shadow: none;
     color: var(--ink);
     font-family: var(--font-ui);
     text-align: left;
     cursor: pointer;
-    transition: background-color var(--t-quick) var(--ease-soft);
-}
-.plate:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--well) 18%, var(--slip-base));
 }
 .plate:hover:not(:disabled) .beast-name {
     color: var(--cinnabar);
@@ -85,6 +88,15 @@
     gap: 8px;
     min-width: 0;
 }
+/* 名字那张只占一半（2026-11-11 用户：「名字和等级 现在一行撑满了，你优化下，占据一半空间即可」）。
+ * 名字是短标签、右边只有一枚两位数的等级签，撑满整列时右半截全是空面，读成「这项还没填完」。
+ * 收一半之后，下面技能那张仍是通栏：它要的是横向空间（一排能装 13 枚 18 的图标），
+ * 两张票宽度不同不是没对齐——上方是「一只兽的名字」，下方是「它学了什么」。 */
+.slip-row.name-row {
+    align-self: flex-start;
+    width: 50%;
+    min-width: 0;
+}
 /* 技能票：票自带 28 高与居中，这两条正是要的，只把内边距与图标收窄。
  * 带 `.slip-row`（0-2-0）压过票自己的 0-1-0——只写 `.skill-line` 与它打平，
  * 谁后注入谁赢。图标 18、内容盒封顶 18 高，第二排整排裁掉：与属性行「一项一行」同理。 */
@@ -103,10 +115,11 @@
 .skill-icons :deep(.pet-image) {
     --pet-icon-size: 18px;
 }
-/* 七项属性按三列排（2026-11-09 用户：「召唤兽属性可以一排三个属性也可以放得下」）。
- * 2026-11-11 卡面去掉魔法后是 3 + 3，末行不再剩一个孤零零的「法防」。
- * 列距从 26 收到 10：版心 360（420 卡 − 2×20 − 2×10），三列各 113.3，
- * 票面里「气血」+ 五位数读数合计约 90，剩下的 23 是名字与数字之间的气。
+/* 六项读数按三列排（2026-11-09 用户：「召唤兽属性可以一排三个属性也可以放得下」）。
+ * 2026-11-11 卡面改成固定六项（气血 / 攻击 / 防御 / 法伤 / 速度 / 成长），正好 3 + 3 两行，
+ * 末行不再剩一个孤零零的格子。
+ * 列距从 26 收到 10：外框透明之后版心就是卡的整幅 380（420 卡 − 2×20），三列各 120，
+ * 票面里「气血」+ 五位数读数合计约 90，剩下的 30 是名字与数字之间的气。
  * 行距仍 4——票是四件套压出来的实体，纵向再松就读作「四张独立的票」。
  *
  * 字号档放大时（--fs-scale）挤的是名字与数值之间那段空白，票本身不会溢出：

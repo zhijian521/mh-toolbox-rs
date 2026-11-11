@@ -7,15 +7,27 @@ import type { Pet } from '../pets';
 defineProps<{ pets: Pet[]; quick?: boolean }>();
 const emit = defineEmits<{ open: [index: number] }>();
 
-/** 卡上不写魔法（2026-11-11 用户：「下面的属性去掉魔法，从三行变成两行」）。
+/** 卡面**固定六项、按这个顺序**摆（2026-11-11 用户：「召唤兽的展示属性 按照 气血 攻击 防御
+ * 法伤 速度 成长 来展示，原本的法防不要了 价格 成长」——「价格」是「加个」的输入错，
+ * 即末尾再加一项成长）。
  *
- * 只在这一处过滤，**不动数据**：编辑窗与截图识别照旧有这一项，浮片与快速修改也照旧
- * 能改它——卡面是「一眼看战力」的地方，七个数字排到第三行只剩一个孤零零的法防，
- * 去掉魔法正好 3 + 3 两行。
+ * 是**白名单**不是黑名单：卡面只认这五项战斗属性和一项成长，其余（魔法、法防、忠诚……）
+ * 一律不画。用黑名单的话，库里再多一项就得回来改一次；用白名单，卡面的版式由这张清单
+ * 定死，永远是 3 + 3 两行。
+ *
+ * 只在这里挑着画，**数据一行不动**：编辑窗、截图识别、浮片与快速修改照旧读写全套属性。
+ * 「成长」来自 pet.growth 而不是 attrs（它一位小数三位），所以由这里补一行。
  */
-const HIDDEN_ATTR = '魔法';
-function cardAttrs(pet: Pet) {
-    return pet.attrs.filter((row) => row.label !== HIDDEN_ATTR);
+const CARD_ATTRS = ['气血', '攻击', '防御', '法伤', '速度'];
+const GROWTH_LABEL = '成长';
+function cardStats(pet: Pet): { label: string; value: string }[] {
+    /* 一项都没记的兽不摆六张空票（六行「—」读起来像坏了），交给空态那行说清楚。 */
+    if (!pet.attrs.length && !pet.growth) return [];
+    const rows = CARD_ATTRS.map((label) => ({
+        label,
+        value: pet.attrs.find((one) => one.label === label)?.value ?? '',
+    }));
+    return [...rows, { label: GROWTH_LABEL, value: pet.growth }];
 }
 </script>
 
@@ -61,8 +73,8 @@ function cardAttrs(pet: Pet) {
                         </span>
                     </span>
                 </span>
-                <span class="stats">
-                    <span v-for="(row, i) in cardAttrs(pet)" :key="i" class="s slip-row sm"
+                <span v-if="cardStats(pet).length" class="stats">
+                    <span v-for="(row, i) in cardStats(pet)" :key="i" class="s slip-row sm"
                         ><span class="slip-name">{{ row.label }}</span
                         ><NumTag class="slip-val"
                             ><span class="lv" :class="{ blank: !row.value }">{{
@@ -70,10 +82,8 @@ function cardAttrs(pet: Pet) {
                             }}</span></NumTag
                         ></span
                     >
-                    <span v-if="!cardAttrs(pet).length" class="empty-note inline"
-                        >尚未记录属性</span
-                    >
                 </span>
+                <p v-else class="empty-note inline">尚未记录属性</p>
             </button>
         </div>
         <p v-else class="empty-note">还没有记录召唤兽</p>
