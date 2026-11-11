@@ -24,15 +24,25 @@ import {
 import { useIncome } from './income-store';
 import IncomeHistoryDialog from './IncomeHistoryDialog.vue';
 import ItemPriceDialog from './ItemPriceDialog.vue';
+import OnlineBar from './OnlineBar.vue';
+import OnlineDialog from './OnlineDialog.vue';
+import OnlinePanel from './OnlinePanel.vue';
+import OnlineRecords from './OnlineRecords.vue';
 import QuickPanel from './QuickPanel.vue';
 import TodayDump from './TodayDump.vue';
+import { type OnlineSession } from './online';
+import { useOnline } from './online-store';
 
 /**
  * 收益页：**速记是入口**，不是「记一笔」按钮。
  *
  * 版面（第 97 批定的「速记台」）：
- *   统计四格 → 左「物品速记」/ 右「今日速记」。
+ *   统计四格 → 状态条 → 左「物品速记」/ 右「今日速记」→ 每日走势（两张折线）。
  * 左边点一下记一条，右边立刻多一行——那一列同时是回执与后悔药。
+ *
+ * 状态条（`OnlineBar`，2026-11-11 加）夹在统计与速记之间，是这一页唯一说「此刻」的地方：
+ * 上面四格是「这一段合了多少」（过去），下面两栏是「一条一条记」（刚发生），
+ * 中间那条是可操作的现在——点卡记不记、哪些号还挂着、怎么停。
  *
  * ---- 为什么统计要能切范围 ----
  * 速记只看今天，但「今天赚了多少」这个数没有参照：切到本周/本月才知道这几天的节奏。
@@ -116,6 +126,46 @@ const priceAsk = ref<PriceAsk | null>(null);
  */
 const historyOpen = ref(false);
 
+/* ---------- 上线计时 ---------- */
+
+/**
+ * 上线计时：入口、窗、以及「全停」。
+ *
+ * 「上线」**一直在**（可以随时再加号），「结束」只在有人计时时多露出来一枚。
+ * 曾经这两枚共用一个位置、互斥显示，于是「先开两个号、过一会儿再开两个」没法做——
+ * 一有人在计时，「上线」就消失，而那正是最常用的顺序。
+ */
+const { sessions, stopOnline, flush: flushOnline } = useOnline();
+
+const running = computed(() => sessions.value.filter((one) => one.endAt === null));
+
+const onlineDialog = ref<'start' | 'backfill' | 'edit' | null>(null);
+const editTarget = ref<OnlineSession | null>(null);
+const recordsOpen = ref(false);
+
+/* 从「记录」窗里点开某一段时先把那扇窗关掉：两扇 ModalShell 同时开着，
+ * 后开的那扇在焦点链与 Esc 上都压着前一扇，关掉上面这扇就会露出下面那扇的旧位置。 */
+function editOnline(one: OnlineSession) {
+    recordsOpen.value = false;
+    editTarget.value = one;
+    onlineDialog.value = 'edit';
+}
+
+function closeOnlineDialog() {
+    onlineDialog.value = null;
+    editTarget.value = null;
+}
+
+/** 结束计时。不足一分钟的段由 store 丢掉（误点两次不该留下 0 分钟记录）。 */
+async function finishOnline() {
+    const result = stopOnline();
+    if (!result.ok) {
+        notify.error(result.error);
+        return;
+    }
+    if (await saved(flushOnline)) notify.success('已结束计时');
+}
+
 function askPrice(item: QuickItemEntry, mode: 'fixed' | 'variable', thenAdd: boolean) {
     priceAsk.value = { item, mode, thenAdd };
 }
@@ -171,11 +221,38 @@ async function priceCleared() {
              与左栏速记、右栏今日清单都隔开一段。`md` 档（26）是页头的硬约束，
              见 `PageHeader.vue` 第 6 条——`lg` 会把页头顶高、底下那道通栏账线跟着错位。 -->
         <template #actions>
+            <!-- 2026-11-11 用户要求把「历史」与「上线」换位：翻历史偶尔才做一次，
+                 上线/结束每天要做好几次，高频的那个放在最右手（拇指最先够到的那侧）。
+                 翻历史不再占据最右，它退到左边一枚朴素按钮。 -->
             <PressButton
                 icon="history"
                 text="历史"
                 label="查看历史收益，按角色与按天"
                 @click="historyOpen = true"
+            />
+            <!-- 「结束」只在有人在计时时出现，而且**不再顶掉「上线」**。
+                 2026-11-11 用户报：先开两个号，想再开两个号，发现无从下手——
+                 原来这两枚是同一位置的互斥状态，一有人在计时，「上线」就消失了。
+                 而真实用法恰恰是「先上两个，过一会儿再上两个」，上线必须一直在。
+                 按钮上只写「结束」：它是全停，但「全部」和人数留着会把按钮撑宽、
+                 也和下面状态条里逐个结束的胶囊读起来像两件事。谁在线、有几个，
+                 状态条紧挨着下方，扫一眼就在。素色朴素按钮，别与朱印抢眼。
+                 读屏仍念全「结束全部计时（N 个号在线）」——看不见的那层要说清后果。 -->
+            <PressButton
+                v-if="running.length"
+                icon="stop"
+                text="结束"
+                :label="`结束全部计时（${running.length} 个号在线）`"
+                @click="finishOnline"
+            />
+            <!-- 朱印只给「上线」这一枚：它是这一屏每天点得最多的动作。
+                 换个号、加一个号都从这里进，选完号各自独立计时。 -->
+            <PressButton
+                icon="play"
+                text="上线"
+                label="开始计时（可以随时再加号）"
+                seal
+                @click="onlineDialog = 'start'"
             />
         </template>
 
@@ -200,10 +277,17 @@ async function priceCleared() {
 
             <StatStrip :items="statItems" />
 
+            <!-- 「此刻」那条：点卡口径与在线的号。夹在统计条与速记之间，
+                 因为「上线 / 下线」这件事发生在记账之前，读完上一段的合计、
+                 先看一眼谁还挂着，再去记这一条，顺序与真实的动作一致。 -->
+            <OnlineBar />
+
             <div class="split">
                 <QuickPanel @need-price="askPrice" />
                 <TodayDump />
             </div>
+
+            <OnlinePanel @records="recordsOpen = true" @backfill="onlineDialog = 'backfill'" />
         </div>
 
         <ItemPriceDialog
@@ -218,6 +302,17 @@ async function priceCleared() {
         />
 
         <IncomeHistoryDialog v-if="historyOpen" @close="historyOpen = false" />
+
+        <!-- 三模式共用一张表单：字段是同一组的子集，拆成三个窗就有三份校验，
+             而校验恰恰是必须只有一份的东西。 -->
+        <OnlineDialog
+            v-if="onlineDialog"
+            :mode="onlineDialog"
+            :session="editTarget ?? undefined"
+            @close="closeOnlineDialog"
+        />
+
+        <OnlineRecords v-if="recordsOpen" @close="recordsOpen = false" @edit="editOnline" />
     </PageShell>
 </template>
 

@@ -130,7 +130,7 @@ async function askImport() {
 async function askClear() {
     const ok = await askConfirm({
         title: '清空全部账本数据？',
-        note: '角色、物价、收益流水、速记单价、账号记录与目标都会清空。清除前不会自动备份，想留一份就先「导出」。主题与字号不受影响。',
+        note: '角色、物价、收益流水、速记单价、上线记录与点卡口径、账号记录与目标都会清空。清除前不会自动备份，想留一份就先「导出」。主题与字号不受影响。',
         confirmText: '清除',
     });
     if (!ok) return;
