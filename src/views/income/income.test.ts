@@ -430,6 +430,26 @@ describe('收益：统计条四格', () => {
         expect(rows[3].delta).toBe('+6 笔');
     });
 
+    it('进账上苔绿、出账上朱红、笔数留赭（2026-11-11 用户「收益为绿色，花费为红色」）', () => {
+        const rows = statRowsOf(totals, prev, { names: 4, unassigned: 2 });
+        expect(rows[0].tone).toBe('gain');
+        expect(rows[1].tone).toBe('loss');
+        expect(rows[2].tone).toBe('gain');
+        // 笔数数的是条数不是钱，不带方向：涨跌不改变它该是赭这件事
+        expect(rows[3].tone).toBe('num');
+    });
+
+    it('没有进账时收入不上色，净额恰好为 0 时也不上色', () => {
+        const rows = statRowsOf(
+            { income: 0, expense: 0, net: 0, count: 0, incomeCount: 0, expenseCount: 0 },
+            null,
+            { names: 0, unassigned: 0 },
+        );
+        // 「—」不是「赚了 0 万」，不给它方向色
+        expect(rows[0].tone).toBe('num');
+        expect(rows[2].tone).toBe('num');
+    });
+
     it('一条都没归号时，笔数副文只说条数，不写「0 个号」', () => {
         const rows = statRowsOf(
             {

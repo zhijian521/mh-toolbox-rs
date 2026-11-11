@@ -38,7 +38,24 @@ const amount = ref(
     props.mode === 'fixed' && !props.thenAdd && (props.current ?? 0) > 0 ? (props.current ?? 0) : 0,
 );
 const submitted = ref(false);
-const touched = ref(false);
+/**
+ * 用户**真的动过这一格**没有。
+ *
+ * 2026-11-11 用户实报：「点击一个物品，不输入价格，但是关闭弹窗时候还进行校验；
+ * 点第一下「取消」取消不掉」。两句话是同一个原因：
+ *
+ * 原先这一位由 `@blur` 点亮——**鼠标按下「取消」的那一刻输入格正好失焦**，于是
+ * 提示行插进来、窗变高、页脚在指针底下往下挪了半行，抬起时指针已经不在按钮上，
+ * 那一下点击就没发生（第二下才关得掉）。而「什么都没填」本来也不该算填错。
+ *
+ * 所以改由 `update:modelValue` 点亮：只有真正打过字（或按过加减）之后才判错，
+ * 打开窗直接关掉不会先被告一状，也就不会因为插一行提示而挪动页脚。
+ *
+ * 模板上同时挂着 `v-model` 与这条监听：Vue 会把同名的两个处理器合并成数组，
+ * 各跑一次（一个写值、一个置这一位），不冲突。加减按钮也走 `update:modelValue`，
+ * 所以按一下加减同样算「动过」。
+ */
+const typed = ref(false);
 
 const isMoney = computed(() => props.item.name === '金币');
 const title = computed(() => {
@@ -51,7 +68,7 @@ const error = computed(() => {
     return isMoney.value ? '金额要大于 0' : '单价要大于 0';
 });
 const canSave = computed(() => amount.value > 0);
-const showError = computed(() => (submitted.value || touched.value) && !!error.value);
+const showError = computed(() => (submitted.value || typed.value) && !!error.value);
 
 /**
  * 「清除」只在**单纯改价**时有意义：
@@ -89,7 +106,7 @@ function onEnter(event: KeyboardEvent) {
                 :label="isMoney ? '这笔多少钱' : '单价'"
                 stepper
                 :error="showError ? error : ''"
-                @blur="touched = true"
+                @update:model-value="typed = true"
             />
             <p v-if="willAdd && amount > 0" class="meta">将记为 {{ amountText(amount) }}</p>
         </form>

@@ -13,8 +13,16 @@ export interface StatItem {
      * 格式化不在这里做：单位和符号的口径属于业务（`amountText` / `signedOf`），组件只负责摆。
      */
     value: string;
-    /** 读数色：赭（金额）、朱（负值与支出）。默认赭——笔数这类不带方向的数也是赭。 */
-    tone?: 'num' | 'loss';
+    /**
+     * 读数色。三档各有方向：
+     *   - `gain` 苔绿：进账（收入、为正的净额）；
+     *   - `loss` 朱红：出账（支出、为负的净额）；
+     *   - `num` 赭：不带方向的数（笔数、支出为 0 时的「—」）。
+     *
+     * 2026-11-11 用户：「统计上的数字字体颜色优化一下，一般收益为绿色，花费为红色」。
+     * 用的是现有的 `--moss` / `--cinnabar`，不新造色号——它们本来就管「好」与「坏」。
+     */
+    tone?: 'num' | 'gain' | 'loss';
     /**
      * 副文左段：这一格由什么组成（「31 笔 · 均 14.9 万」「结余率 97.3%」「4 个号」）。
      *
@@ -29,21 +37,23 @@ export interface StatItem {
 </script>
 
 <script setup lang="ts">
-import PressTile from './PressTile.vue';
+import PaperCard from './PaperCard.vue';
 
 /**
- * 统计条：四枚压印签。
+ * 统计条：一排四张纸。
  *
- * ---- 为什么从「一行账」改成四张卡 ----
- * 2026-11-05 之前这里是一圈文武线里排四个数：结构与物价卡同源，但少了那层纸的厚度，
- * 四格数被压在纸面上，与下方两张速记卡是同一种线，读不出主次。
- * 用户的原话是「不好看，可以参考下物价卡片」，参考的正是物价卡那块**压印的纸**。
+ * ---- 材质为什么从「四枚压印签」换成「四张纸」 ----
+ * 2026-11-05 这里从「一行账」改成四枚 `PressTile` 压印签（用户当时说「参考下物价卡片」，
+ * 借的是那块凸起纸块的厚度）。2026-11-11 用户再看这一屏：「四个统计卡片和下面的卡片
+ * 样式保持一致吧，看起来整齐」——同一页里统计条是凸起的小块、下面两张是台面上的纸，
+ * 两种厚度并排，读起来像「上半页和下半页不是一套」。
  *
- * 改成四块之后，材质直接借 `PressTile`（三层光 + 四条不对称棱 + 硬影加软影），
- * 这里一份配方都不重写——物价卡与统计签是同一块纸的两种尺寸，抄第二遍就会走样。
- * 传 `wide`：那块 56px 图标格的偏光摊到 265 宽的签上会铺掉半张纸（见 `PressTile` 的注释）。
+ * 现在四格都用 `PaperCard`（`.board`），与 `LedgerSection` 包着的速记两栏**同一层材质**：
+ * 一张纸的圆角、上亮下暗的棱、下沿 3px 断面、硬影加软影，一处都不重写。间距也给到 16，
+ * 与 `.income-stack` / `.split` 同一个数——纸的软影会探出卡外，10 的时候邻卡的影子
+ * 压在下一张的边角上，读作「四张糊在一起」。
  *
- * ---- 为什么每格多了一行副文 ----
+ * ---- 为什么每格还留一行副文 ----
  * 只有「名目 + 读数」时，一格只回答「多少」，不回答「由什么组成」。用户嫌薄。
  * 现在副文那行是**两端**：左端说构成（几笔、笔均、占收入、结余率、几个号），
  * 右端说较上一档的增减。两者都是 10px 灰字，读数仍是唯一的主角。
@@ -59,62 +69,41 @@ withDefaults(defineProps<{ items: StatItem[] }>(), {});
 
 <template>
     <section class="stats" :style="{ '--stat-n': items.length }">
-        <div v-for="item in items" :key="item.cap" class="stat">
-            <!-- 材质在背景层，内容在它上面。
-                 早先把内容塞进 `PressTile` 的默认插槽，会被它那句 `place-items: center`
-                 按住——四格的内容必须各自顶对齐，不能被材质居中。 -->
-            <PressTile still wide class="stat-surface" aria-hidden="true" />
-            <div class="stat-body">
-                <div class="cap">{{ item.cap }}</div>
-                <!-- 品名与读数之间那道虚线，与物价卡同一个说法：上半写名目、下半写数目。 -->
-                <span class="dash" aria-hidden="true" />
-                <div class="v" :class="item.tone ?? 'num'">{{ item.value }}</div>
-                <div v-if="item.sub || item.delta" class="subrow">
-                    <span class="sub">{{ item.sub }}</span>
-                    <span class="delta">{{ item.delta }}</span>
-                </div>
+        <!-- 每格就是一张纸，不是「纸 + 内容层」两层：材质与下面两张速记卡完全同源，
+             内容直接排在这张纸的内边距里。 -->
+        <PaperCard v-for="item in items" :key="item.cap" as="div" class="stat">
+            <div class="cap">{{ item.cap }}</div>
+            <!-- 品名与读数之间那道虚线，与物价卡同一个说法：上半写名目、下半写数目。 -->
+            <span class="dash" aria-hidden="true" />
+            <div class="v" :class="item.tone ?? 'num'">{{ item.value }}</div>
+            <div v-if="item.sub || item.delta" class="subrow">
+                <span class="sub">{{ item.sub }}</span>
+                <span class="delta">{{ item.delta }}</span>
             </div>
-        </div>
+        </PaperCard>
     </section>
 </template>
 
 <style scoped>
-/* 四块之间 10：比正文行距紧一档，读作「一排」而不是「四张卡散着」。
- * 宽度上限交给调用方的栅格，这里只负责等分。 */
+/* 四块之间 16：与 `.income-stack` / `.split` 同一个数。纸有 10px 的软影探出卡外，
+ * 10 的间距会让邻卡的影压在这张的边角上，四张读作「糊在一起」。 */
 .stats {
     display: grid;
     grid-template-columns: repeat(var(--stat-n, 4), minmax(0, 1fr));
-    gap: 10px;
+    gap: 16px;
 }
 
-/* 卡片本体只是一个定位容器：材质在背景层，内容在上面。 */
+/* 每格是一张 `.board`（PaperCard 的根）。这里只覆盖内边距：`.board` 通用的 20 是给
+ * 整块内容页的，统计签只有四行小字，20 会把格子撑得又高又空。
+ *
+ * 选择器特异性与 `.board` 同为 0-1-0，靠注入顺序（组件 scoped 在全局 base.css 之后）
+ * 生效——`LedgerSection` 的 `--block-pad` 走的也是这条路。 */
 .stat {
-    position: relative;
     display: flex;
-    min-width: 0;
-}
-
-/* 铺满整块。尺寸走 `--tile-w` / `--tile-h` 而不是直接写 width / height：
- * `PressTile` 内部写着 `width: var(--tile-w, auto)`，与本类落在同一个元素上，
- * 两边特异性一样，直接写会回到「谁先注入谁赢」的坑（物价卡为此踩过一次）。 */
-.stat-surface {
-    position: absolute;
-    inset: 0;
-    --tile-w: 100%;
-    --tile-h: 100%;
-    /* 落地影收一档：默认是按 56px 图标格调的，同样 8px 的软影摊在 265 × 88 的签上会散开。 */
-    --tile-drop: 0.9;
-}
-
-/* 内容层。`min-height` 不是写死高度：字号有 1.0 / 1.1 两档，写死会把副文挤出卡外，
- * 而卡面边框与落影还停在原高度，看起来像贴纸被撕开。 */
-.stat-body {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    flex: 1 1 auto;
     flex-direction: column;
     min-width: 0;
+    /* 高度不写死：字号有 1.0 / 1.1 两档，写死会把副文挤到纸外面。88 只是下限，
+     * 让四张卡在「一格内容很少」时也与原来的高度一致，不会缩成四片薄条。 */
     min-height: 88px;
     padding: 9px 13px 10px;
 }
@@ -140,8 +129,13 @@ withDefaults(defineProps<{ items: StatItem[] }>(), {});
     white-space: nowrap;
     text-overflow: ellipsis;
 }
+/* 三档色（2026-11-11 用户「一般收益为绿色，花费为红色」）。
+ * 用现成的 `--moss` / `--cinnabar`，它们本来就在亮暗两套里各翻过一次面，不必新调色号。 */
 .num {
     color: var(--num);
+}
+.gain {
+    color: var(--moss);
 }
 /* 支出与净额为负时转朱：与卡上的三层（墨名目 / 赭读数 / 朱强调）同一条。 */
 .loss {
@@ -154,7 +148,8 @@ withDefaults(defineProps<{ items: StatItem[] }>(), {});
     display: flex;
     align-items: baseline;
     gap: 8px;
-    margin-top: 4px;
+    margin-top: auto;
+    padding-top: 4px;
 }
 .sub {
     flex: 1 1 auto;

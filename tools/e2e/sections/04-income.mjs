@@ -20,6 +20,7 @@ export default async function run(ctx) {
             value: el.querySelector('.v')?.textContent?.trim() ?? '',
             sub: el.querySelector('.sub')?.textContent?.trim() ?? '',
             delta: el.querySelector('.delta')?.textContent?.trim() ?? '',
+            color: getComputedStyle(el.querySelector('.v')).color,
         })))()`);
 
     /**
@@ -94,6 +95,49 @@ export default async function run(ctx) {
             t.info('今天已有', `${before} 笔`);
         });
 
+        /* 2026-11-11 用户实报：「点击一个物品，不输入价格，但是关闭弹窗时候还进行校验，
+         * 点第一下「取消」的时候取消不掉」。
+         *
+         * 两个症状同因：提示行由「输入格失焦」点亮，而按下「取消」正好让输入格失焦——
+         * 提示插进来、窗变高、页脚在指针底下往下挪半行，抬起时已经不在按钮上。
+         * 所以这里验证的是**没填过东西就不判错**：先把焦点放进价格格再移走（模拟
+         * 「点了一下格子又不想填」，鼠标点标题栏与点「取消」走的是同一条 blur），
+         * 断言窗里一句校验都没有；再点一次「取消」，窗必须关掉。 */
+        await t.step('单价窗：没填价就关掉，不先告状，也不吞第一下「取消」', async () => {
+            await ui.goto('收益');
+            await ui.clickLabelPrefix('魔兽要诀，');
+            const opened = await cdp.waitFor(
+                `!!document.querySelector('input[aria-label="单价，以万为单位"]')`,
+                { timeout: 2500 },
+            );
+            if (!opened) throw new Error('浮动价物品没弹出单价窗');
+
+            await cdp.evaluate(
+                `document.querySelector('input[aria-label="单价，以万为单位"]')?.focus()`,
+            );
+            await cdp.click('.modal-head h2');
+            await sleep(250);
+            const nag = await cdp.evaluate(`(() => {
+                const panel = document.querySelector('.modal-panel');
+                return {
+                    hint: !!panel?.querySelector('.pf-hint'),
+                    bad: !!panel?.querySelector('.pf-bad'),
+                    text: (panel?.innerText || '').includes('单价要大于 0'),
+                };
+            })()`);
+            t.check(
+                '什么都没填，失焦后不弹校验',
+                !nag.hint && !nag.bad && !nag.text,
+                JSON.stringify(nag),
+            );
+
+            await ui.clickLabel('不改了');
+            const closed = await cdp.waitFor('!document.querySelector("[role=dialog]")', {
+                timeout: 2000,
+            });
+            t.check('第一下点「取消」就关掉了', closed);
+        });
+
         await t.step(`点「${QUICK}」记一笔（没定价会先问单价）`, async () => {
             const label = await cdp.evaluate(`(() => {
                 const el = [...document.querySelectorAll('[aria-label]')]
@@ -156,6 +200,87 @@ export default async function run(ctx) {
             t.check('净额副文是结余率', cells[2].sub.startsWith('结余率'), cells[2].sub);
             /* 笔数用差不用百分比：`±0 笔` 也要能读出来。 */
             t.check('笔数对比是「±N 笔」', /^[+−±]\d+ 笔$/.test(cells[3].delta), cells[3].delta);
+        });
+
+        /* 2026-11-11 用户：「收益上面四个统计卡片和下面的卡片样式保持一致吧，看起来整齐，
+         * 并且统计上的数字字体颜色优化一下，一般收益为绿色，花费为红色」。
+         *
+         * 两件事都只有量出来才作数：①「同一套材质」要比 computedStyle（底色 / 落影 / 圆角），
+         * 比 class 名只能证明写了那几行；②颜色要跟令牌本身比——写死 #4a6b4a 在暗色主题下
+         * 是另一个值（--moss 在暗色翻成 #86ab86）。 */
+        await t.step('统计四格与速记卡是同一张纸，进账苔绿、出账朱红', async () => {
+            await ui.goto('收益');
+            const look = await cdp.evaluate(`(() => {
+                const cards = [...document.querySelectorAll('.income-stack .stats .stat')];
+                const ledger = document.querySelector('.income-stack .split .ledger-section');
+                if (!cards.length || !ledger) return null;
+                const csOf = (el) => getComputedStyle(el);
+                const inkOf = (name) => {
+                    const probe = document.createElement('span');
+                    probe.style.color = name;
+                    document.body.appendChild(probe);
+                    const value = getComputedStyle(probe).color;
+                    probe.remove();
+                    return value;
+                };
+                const values = cards.map((el) => el.querySelector('.v'));
+                const boxes = cards.map((el) => el.getBoundingClientRect());
+                return {
+                    count: cards.length,
+                    allBoard: cards.every((el) => el.classList.contains('board')),
+                    face: csOf(cards[0]).backgroundColor,
+                    ledgerFace: csOf(ledger).backgroundColor,
+                    shadow: csOf(cards[0]).boxShadow,
+                    ledgerShadow: csOf(ledger).boxShadow,
+                    radius: csOf(cards[0]).borderRadius,
+                    ledgerRadius: csOf(ledger).borderRadius,
+                    gap: boxes.length > 1 ? Math.round(boxes[1].left - boxes[0].right) : -1,
+                    colors: values.map((el) => (el ? csOf(el).color : '')),
+                    moss: inkOf('var(--moss)'),
+                    cinnabar: inkOf('var(--cinnabar)'),
+                    num: inkOf('var(--num)'),
+                };
+            })()`);
+            if (!look) throw new Error('收益页上没找到统计四格或速记卡');
+            t.check('四格都换成了纸卡', look.count === 4 && look.allBoard, look.count + ' 格');
+            t.check(
+                '统计卡纸色与速记卡相同',
+                look.face === look.ledgerFace,
+                look.face + ' / ' + look.ledgerFace,
+            );
+            t.check('统计卡落影与速记卡相同', look.shadow === look.ledgerShadow);
+            t.check(
+                '统计卡圆角与速记卡相同',
+                look.radius === look.ledgerRadius,
+                look.radius + ' / ' + look.ledgerRadius,
+            );
+            t.check(
+                '四格之间留了与别处一样的 16',
+                Math.abs(look.gap - 16) <= 1,
+                '实际 ' + look.gap + 'px',
+            );
+            t.check(
+                '收入读数是苔绿',
+                look.colors[0] === look.moss,
+                look.colors[0] + ' / 令牌 ' + look.moss,
+            );
+            t.check(
+                '支出读数是朱红',
+                look.colors[1] === look.cinnabar,
+                look.colors[1] + ' / 令牌 ' + look.cinnabar,
+            );
+            /* 净额随正负走：账本里刚记过一笔收入，此刻应为苔绿。不断言「永远绿」——
+             * 净额为负的那天它必须转朱，那才是这条规则的意思。 */
+            t.check(
+                '净额读数是苔绿（当天为正）',
+                look.colors[2] === look.moss,
+                look.colors[2] + ' / 令牌 ' + look.moss,
+            );
+            t.check(
+                '笔数仍是赭色（数的是条数，不是钱）',
+                look.colors[3] === look.num,
+                look.colors[3] + ' / 令牌 ' + look.num,
+            );
         });
 
         await t.step('连点两次：两笔都要落到库里（写队列）', async () => {
@@ -308,6 +433,255 @@ export default async function run(ctx) {
         });
 
         t.info('本次写入的流水', `3 笔「${QUICK}」，下面删掉`);
+        /* 历史窗的版式（2026-11-11）：用户要「表格斑马纹」「表格最外边加边框」「弹窗增大一点」。
+         * 放在这里：今天刚写了三条自己的流水，表格是渲染出来的，斑马纹与外框才有东西可量。 */
+        await t.step('历史窗放大到 900，表格有外框、隔行换底', async () => {
+            await ui.goto('收益');
+            await ui.clickLabel('查看历史收益，按角色与按天');
+            const opened = await cdp.waitFor(
+                `!!document.querySelector('[role="dialog"] .log tbody tr')`,
+                { timeout: 4000 },
+            );
+            if (!opened) throw new Error('历史窗里没有流水行');
+
+            /* 先把指针挪到角上再量颜色：鼠标还停在「查看历史收益」那一枚上时，它现在
+             * 已经压在某一行上了，而悬停会改底色——那样量到的「第一行不铺底」永远是假的。 */
+            await cdp.send('Input.dispatchMouseEvent', {
+                type: 'mouseMoved',
+                x: 2,
+                y: 2,
+                button: 'none',
+                buttons: 0,
+            });
+            await sleep(200);
+
+            /* 一次取全：视口、窗宽窗高、表格外框、前两行的底色。
+             * 分开量要多跑几轮 CDP，而这几项本来就在同一屏里。
+             *
+             * 底色读的是 td 的 computedStyle，不是 class 名：要证的是「真的换了底」，
+             * 读到 class 只能证明那段 CSS 存在。 */
+            const look = await cdp.evaluate(`(() => {
+                const panel = document.querySelector('.modal-panel');
+                const table = document.querySelector('[role="dialog"] table.log');
+                if (!panel || !table) return null;
+                const cs = getComputedStyle(table);
+                const rows = [...table.querySelectorAll('tbody tr')];
+                const bgOf = (row) => {
+                    const td = row && row.querySelector('td');
+                    return td ? getComputedStyle(td).backgroundColor : '';
+                };
+                /* 表头与数据行同高、筛选行与表格之间的气、物品图标的边长、
+                 * 顶上那排 tag——四件事都是「看上去对不对」，只有量得出来。 */
+                const head = table.querySelector('thead th');
+                const firstRow = rows[0];
+                const icon = table.querySelector('tbody img');
+                const bar = document.querySelector('.sum-bar');
+                const filters = document.querySelector('.filters');
+                const boxOf = (el) => (el ? el.getBoundingClientRect() : null);
+                const tags = [...document.querySelectorAll('.sum-bar .sum-tag')];
+                return {
+                    vw: innerWidth,
+                    vh: innerHeight,
+                    w: Math.round(panel.getBoundingClientRect().width),
+                    h: Math.round(panel.getBoundingClientRect().height),
+                    border: cs.borderTopWidth + ' ' + cs.borderTopStyle,
+                    radius: cs.borderRadius,
+                    rows: rows.length,
+                    first: bgOf(rows[0]),
+                    second: bgOf(rows[1]),
+                    wide: !!document.querySelector('[role="dialog"] .log thead .c-time.wide'),
+                    headH: head ? Math.round(boxOf(head).height) : -1,
+                    rowH: firstRow ? Math.round(boxOf(firstRow).height) : -1,
+                    iconW: icon ? Math.round(boxOf(icon).width) : -1,
+                    /* 两段气分别量：筛选行 → tag 排、tag 排 → 表框。合成一个总数会把
+                     * 「挤在一起的 20」也当成合格。 */
+                    gapTop: bar && filters ? Math.round(boxOf(bar).top - boxOf(filters).bottom) : -1,
+                    gapTable: bar ? Math.round(boxOf(table).top - boxOf(bar).bottom) : -1,
+                    tags: tags.length,
+                    totalFirst: tags[0]?.classList.contains('total') === true,
+                    totalText: (tags[0]?.textContent ?? '').replace(/\\s+/g, ''),
+                    roleTags: tags.filter((el) => !el.classList.contains('total')).length,
+                    /* 上面两个角：表格的圆角裁不掉方盒子的单元格（纸色会盖住那道弧），
+                     * 所以四角那四格自己也要跟着圆。这里量的是「角上的格子确实带圆」
+                     * 以及「内圆比外圆小一个边框宽」，两件事都对才没有切角。 */
+                    tableR: parseFloat(cs.borderTopLeftRadius) || 0,
+                    headCornerR: (() => {
+                        const th = table.querySelector('thead th:first-child');
+                        return th ? parseFloat(getComputedStyle(th).borderTopLeftRadius) || 0 : -1;
+                    })(),
+                    lastCornerR: (() => {
+                        const last = rows[rows.length - 1];
+                        const td = last && last.querySelector('td:first-child');
+                        return td ? parseFloat(getComputedStyle(td).borderBottomLeftRadius) || 0 : -1;
+                    })(),
+                    whoColNames: [...new Set(
+                        rows.map((r) => (r.querySelector('.c-who')?.innerText ?? '').trim()),
+                    )].length,
+                };
+            })()`);
+            if (!look) throw new Error('历史窗里没有表格');
+
+            /* 宽度不写死 900：窗户比它窄时 max-width 会把它收在视口里，
+             * 写死就成了「换个窗口尺寸必红」的断言。「有没有放大」与视口无关。 */
+            const expectW = Math.min(900, look.vw - 48);
+            t.check(
+                '弹窗宽度按 900 取（原先是 720）',
+                Math.abs(look.w - expectW) <= 2,
+                `实际 ${look.w}px / 期望 ${expectW}px（视口 ${look.vw}）`,
+            );
+            /* 高度是**下限**不是定值：记录多时窗户可以更长，所以只判「不低于」。 */
+            const expectH = Math.min(600, look.vh - 48);
+            t.check(
+                '窗高下限 600（原先是 520）',
+                look.h >= expectH - 2,
+                `实际 ${look.h}px / 期望 ${expectH}px（视口高 ${look.vh}）`,
+            );
+
+            /* 外框画在 table 上而不是滚动容器上：挂在容器上时行会从框底下滚过去。
+             * border-collapse: separate 只为一件事——collapse 下 border-radius 不生效。 */
+            t.check('表格最外边有一圈边框', look.border === '1px solid', `实际 ${look.border}`);
+            t.check('边框带圆角', look.radius !== '0px', `实际 ${look.radius}`);
+
+            t.check('至少两行可比（斑马纹要有第二行）', look.rows >= 2, `实际 ${look.rows} 行`);
+            /* 只比「两行颜色不同」不够稳：鼠标停在哪一行都会改颜色。所以奇数行必须是
+             * 透明的（自己没有底色），偶数行才是那层浅染。 */
+            t.check('第一行不铺底', look.first === 'rgba(0, 0, 0, 0)', `实际 ${look.first}`);
+            t.check(
+                '第二行铺了浅底（斑马纹）',
+                look.second !== look.first,
+                `奇数 ${look.first} / 偶数 ${look.second}`,
+            );
+            /* 圆角不能把边框切掉：角上的单元格自己也要带内圆，且比外沿小一个边框宽。 */
+            t.check(
+                '角上的格子跟着表格一起圆',
+                look.headCornerR > 0 && look.lastCornerR > 0,
+                `表头角 ${look.headCornerR}px / 末行角 ${look.lastCornerR}px`,
+            );
+            t.check(
+                '内圆比外圆小一个边框宽',
+                Math.abs(look.headCornerR - (look.tableR - 1)) <= 0.6,
+                `外 ${look.tableR}px / 内 ${look.headCornerR}px`,
+            );
+            t.check('单日时时间列只有时刻（不加宽）', look.wide === false);
+
+            /* 2026-11-11 用户四条：图标大一点、表头与列表同高、筛选与表格之间留气、
+             * 总计与各号小计排成一排 tag。四条都是观感，只有量几何能证。 */
+            t.check('物品图标放大到 20', look.iconW >= 20, `实际 ${look.iconW}px`);
+            t.check(
+                '表头与数据行同高',
+                Math.abs(look.headH - look.rowH) <= 1,
+                `表头 ${look.headH} / 行 ${look.rowH}`,
+            );
+            /* 两段气各自判：原来筛选行下沿到表框只有 8，读起来像表头的一部分。 */
+            t.check('筛选行与 tag 排之间留了气', look.gapTop >= 10, `实际 ${look.gapTop}px`);
+            t.check('tag 排与表格之间留了气', look.gapTable >= 6, `实际 ${look.gapTable}px`);
+
+            /* 一排 tag：总计排第一、每个人一枚。总数要与表里出现的角色数对得上
+             * （未指定的那枚也在——它同样是个"人"）。 */
+            t.check('总计 + 各号小计是一排 tag', look.tags >= 2, `实际 ${look.tags} 枚`);
+            t.check('总计排在第一位', look.totalFirst === true);
+            t.check('总计那枚写着「总计」和一个数', /^总计/.test(look.totalText), look.totalText);
+            t.check(
+                '每个角色一枚 tag',
+                look.roleTags === look.whoColNames,
+                `标签 ${look.roleTags} / 表里的角色 ${look.whoColNames}`,
+            );
+
+            await cdp.key('Escape');
+            await sleep(250);
+        });
+
+        /* 按角色筛选（2026-11-11）：历史窗里多了一个「按角色筛选」下拉。
+         * 判据不依赖数据——挑一个号，要求每一行都是他；再切回「全部角色」，笔数回到原样。
+         * 库里有没有这个人、他有没有账，都不影响这几条（0 行也放行，只要求口径自洽）。 */
+        await t.step('历史窗能按角色筛选，切回全部角色笔数还原', async () => {
+            const countOf = () =>
+                cdp.evaluate(`(() => {
+                    const d = document.querySelector('[role="dialog"]');
+                    const dim = d?.querySelector('.filters .sum .dim')?.innerText ?? '';
+                    return Number.parseInt(dim, 10);
+                })()`);
+
+            await ui.goto('收益');
+            await ui.clickLabel('查看历史收益，按角色与按天');
+            const opened = await cdp.waitFor(
+                `!!document.querySelector('[role="dialog"] .filters .sum .dim')`,
+                { timeout: 4000 },
+            );
+            if (!opened) throw new Error('历史收益窗没打开');
+
+            const total = await countOf();
+            t.check(
+                '默认是「全部角色」',
+                total === before + 3,
+                `期望 ${before + 3}，实际 ${total}`,
+            );
+
+            await ui.clickLabel('按角色筛选');
+            const listed = await cdp.waitFor(
+                `!!document.querySelector('.select-list .opt-label')`,
+                { timeout: 2000 },
+            );
+            if (!listed) throw new Error('按角色筛选没展开选项');
+            const names = await cdp.evaluate(
+                `[...document.querySelectorAll('.select-list .opt-label')].map((e) => e.textContent.trim())`,
+            );
+            /* 头两项固定是「全部角色」「未指定」，第三项起才是角色名。
+             * 没有角色时退到「未指定」——那一格可能一条账都没有，所以下面的判据容得下 0 行。 */
+            t.check(
+                '选项里有「全部角色」与「未指定」',
+                names[0] === '全部角色' && names[1] === '未指定',
+                JSON.stringify(names.slice(0, 4)),
+            );
+            const chosen = names[2] ?? names[1];
+            if (!chosen) throw new Error('按角色筛选里没有任何可选项');
+            await ui.clickText('.select-list .opt-label', chosen, { exact: true });
+            await sleep(300);
+
+            const seen = await cdp.evaluate(`(() => {
+                const d = document.querySelector('[role="dialog"]');
+                return {
+                    who: [...d.querySelectorAll('.log tbody tr')].map((r) =>
+                        (r.querySelector('.c-who')?.innerText ?? '').trim(),
+                    ),
+                    blank: (d.querySelector('.blank')?.innerText ?? '').trim(),
+                };
+            })()`);
+            const filtered = await countOf();
+            t.check(
+                '筛某个角色后每一行都是他',
+                seen.who.every((one) => one === chosen),
+                `挑的是「${chosen}」，行里是 ${JSON.stringify(seen.who.slice(0, 5))}`,
+            );
+            t.check(
+                '笔数跟着行数走',
+                filtered === seen.who.length,
+                `笔数 ${filtered} / 行 ${seen.who.length}`,
+            );
+            t.check(
+                '筛完要么有行、要么说一句没有',
+                seen.who.length > 0 || seen.blank.includes('没有记录'),
+                `行 ${seen.who.length} / 空态「${seen.blank}」`,
+            );
+            t.check('筛选不会筛出比全部还多', filtered <= total, `${filtered} > ${total}`);
+
+            /* 切回「全部角色」：笔数回到筛选前，证明它是过滤而不是改写。 */
+            await ui.clickLabel('按角色筛选');
+            await cdp.waitFor(`!!document.querySelector('.select-list .opt-label')`, {
+                timeout: 2000,
+            });
+            await ui.clickText('.select-list .opt-label', '全部角色', { exact: true });
+            await sleep(300);
+            const restored = await countOf();
+            t.check(
+                '切回全部角色，笔数回到原样',
+                restored === total,
+                `期望 ${total}，实际 ${restored}`,
+            );
+
+            await cdp.key('Escape');
+            await sleep(250);
+        });
 
         await t.step('把自己写进去的流水删干净', async () => {
             const removed = await dropNewest(QUICK, 3);
@@ -316,9 +690,9 @@ export default async function run(ctx) {
             t.check('今日笔数回到测试前', now === before, `期望 ${before}，实际 ${now}`);
         });
 
-        /* 日期选择器（2026-11-05）：顶部从「只列有账的日子」的下拉换成月历纸片。
+        /* 区间筛选（2026-11-11）：顶部从「一个日期」扩成「起 + 止 + 角色」。
          * 放在最末——它会翻到别的日子，不参与上面那串「笔数 +1」的核对。 */
-        await t.step('历史窗的日期选择器：默认今天、能翻前一天、能跳回今天', async () => {
+        await t.step('历史窗的日期区间：默认今天、能往前翻、能跳回今天', async () => {
             const label = (dt) => `${dt.getFullYear()}年${dt.getMonth() + 1}月${dt.getDate()}日`;
             const now = new Date();
             const todayLabel = label(now);
@@ -327,21 +701,24 @@ export default async function run(ctx) {
 
             await ui.goto('收益');
             await ui.clickLabel('查看历史收益，按角色与按天');
+            /* 两条触发条 = 区间（起、止）。只查「有一条」时，退回单日的改动静默通过。 */
             const hasTrigger = await cdp.waitFor(
-                `!!document.querySelector('[role="dialog"] .date-trigger')`,
+                `document.querySelectorAll('[role="dialog"] .date-trigger').length === 2`,
                 { timeout: 4000 },
             );
-            if (!hasTrigger) throw new Error('历史窗顶部没有日期选择器');
+            if (!hasTrigger) throw new Error('历史窗顶部不是「起 + 止」两条日期');
 
-            const triggerText = async () =>
-                (
-                    await cdp.evaluate(
-                        `document.querySelector('[role="dialog"] .date-trigger')?.innerText ?? ''`,
-                    )
-                ).trim();
+            /* 两条触发条的文本：[0] 是起点、[1] 是终点。 */
+            const triggerTexts = () =>
+                cdp.evaluate(
+                    `[...document.querySelectorAll('[role="dialog"] .date-trigger')]
+                        .map((el) => el.innerText.trim())`,
+                );
 
-            const first = await triggerText();
-            t.check('日期选择器默认是今天', first.includes(todayLabel), `实际「${first}」`);
+            const first = (await triggerTexts())[0] ?? '';
+            t.check('区间默认是今天（起点）', first.includes(todayLabel), `实际「${first}」`);
+            const second = (await triggerTexts())[1] ?? '';
+            t.check('区间默认是今天（终点）', second.includes(todayLabel), `实际「${second}」`);
 
             /* 高度下限 + 正文自己滚（2026-11-05 用户：「高度太低不好看」「列表太多了可以滚动」）。
              *
@@ -396,7 +773,8 @@ export default async function run(ctx) {
              *
              * 被裁剪时它照样查得到、照样有尺寸——只有拿 rect 和视口比才看得出来。
              * 2026-11-05 用户报「日期选择被切割了，没展示完全」：正文高约 260、月历约 300，
-             * 下三行与「回到今天」被 `overflow: auto` 齐刀切掉，而界面看上去只是「月历很短」。 */
+             * 下三行与「回到今天」被 `overflow: auto` 齐刀切掉，而界面看上去只是「月历很短」。
+             * 2026-11-11 窗从 720 放大到 900 之后这条仍然要盯：宽度换了，纸片的落点跟着换。 */
             const fits = await cdp.evaluate(`(() => {
                 const p = document.querySelector('.date-panel');
                 if (!p) return null;
@@ -418,25 +796,38 @@ export default async function run(ctx) {
             await ui.clickLabel(prevLabel);
             await sleep(300);
 
-            const afterPick = await triggerText();
+            const afterPick = (await triggerTexts())[0] ?? '';
             t.check(
-                '选前一天后触发条跟着换',
+                '起点换到前一天后触发条跟着换',
                 afterPick.includes(prevLabel),
                 `实际「${afterPick}」`,
             );
+            /* 起止不同天时**时间列要补上日期**：区间一跨天，「14:32」单独看分不出是哪一天。
+             * 判据不依赖数据——`wide` 类画在表头格上，这一天有没有流水都在。 */
+            const crossed = await cdp.evaluate(`(() => {
+                const d = document.querySelector('[role="dialog"]');
+                return {
+                    wide: !!d.querySelector('.log thead .c-time.wide'),
+                    blank: (d.querySelector('.blank')?.innerText ?? '').trim(),
+                    body: !!d.querySelector('.log tbody tr'),
+                };
+            })()`);
             t.check(
-                '列表换成了那一天（有记录就列行，没有就说一句）',
-                await cdp.evaluate(`(() => {
-                    const d = document.querySelector('[role="dialog"]');
-                    return !!d.querySelector('.log tbody tr') || !!d.querySelector('.blank');
-                })()`),
+                '跨天后时间列带日期（表头加宽）',
+                crossed.wide === true,
+                JSON.stringify(crossed),
+            );
+            t.check(
+                '区间里没有记录时说的是「这段时间」',
+                crossed.body || crossed.blank.includes('这段时间'),
+                `表头加宽 ${crossed.wide} · 空态「${crossed.blank}」`,
             );
 
             await cdp.click('[role="dialog"] .date-trigger');
             await sleep(200);
             await ui.clickText('button', '回到今天', { exact: true });
             await sleep(300);
-            const back = await triggerText();
+            const back = (await triggerTexts())[0] ?? '';
             t.check('纸片里的「回到今天」跳得回来', back.includes(todayLabel), `实际「${back}」`);
 
             await cdp.key('Escape');

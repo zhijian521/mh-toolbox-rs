@@ -257,6 +257,27 @@ async function priceCleared() {
     width: 216px;
 }
 
+/* ---------- 收益页的纸：这一页先不上渐变（2026-11-11 用户「收益页面的卡片的渐变背景去掉吧，
+ * 我看下 去掉的效果如何」） ----------
+ *
+ * 只在这三块底下的卡上关掉 `background-image`（两张光：左上偏光 + 135° 斜差），
+ * **不动全局 `.board`**——那句话只针对收益页，别处（角色卡、物价卡）现在看着没问题，
+ * 一起关掉是替用户做了他没要求的决定。若这一版留用，再把 `.board` 那两层渐变整段删掉，
+ * 并同步 `base.css` 里"纸是斜着受光的平面"那段注释。
+ *
+ * 底色、棱、3px 断面与两层落影都留着：它们才是"纸"的形，渐变只是"光"。关掉之后卡面是
+ * 一块匀色纸，与台面仍分得清。
+ *
+ * **类名写两遍**（`.income-stack.income-stack`）是为了抬特异性：`base.css` 里
+ * `:root.dark .board` 是 (0,3,0)，而 scoped 这条不带重复时只有 `.income-stack[data-v-…] .board`
+ * = (0,3,0)（一个属性选择器也算一级），打平后靠注入顺序——全局表先注入，暗色主题下渐变就回来了。
+ * 写两遍拼成 (0,4,0)，亮暗两边一次压住，不必再给暗色单写一条。
+ * （`:global(html.dark) …` 那条试过不通：SFC 编译器只保留括号里第一段，拼出来是
+ * `html.dark { background-image: none }`，会把**所有**元素的背景图清掉。） */
+.income-stack.income-stack :deep(.board) {
+    background-image: none;
+}
+
 /* 统计条已抽成 `components/StatStrip.vue`（总览页共用同一块）。
  * 原来这里的 `.stats-card` / `.stats` / `.cap` / `.v` / `.num` / `.loss` 一并搬走——
  * 留在 scoped 里就是一份没人用的死样式，而且它们会与组件内的同名类**合并生效**
