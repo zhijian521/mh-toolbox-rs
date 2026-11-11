@@ -13,6 +13,26 @@
 > 加一列：共表就要在每一行上猜「这行是万还是元、有没有渠道」，猜错一次汇总就错。
 > 目标页（2026-11-05，第 115 批）是**第三种读法**：它不存进度，只存「许了什么」——手动目标
 > 的进度来自自己的流水，养成目标的进度**现算**自身角色档案。所以它是账本的读者，不是第四本账。
+> 上线计时（2026-11-11，第 145 批）是**收益页的第二种输入**：它记「玩了多久」（`online_sessions`），
+> 与「卖了多少」（`income_entries`）分开两张表——时长要按天切、点卡按号数摊，塞进收益流水就得
+> 在每一行上猜「这行是货还是时间」。点卡口径（单价 + 是否计入）单独一行 `online_settings`，
+> 不塞 `meta`：`meta` 只放库状态，单价是业务数据，清除时要跟着清。
+> 两本账之间只有**一条单向的汇**：`views/accounts/daily-sync.ts` 每天把「速记净额」与「分摊点卡」
+> 写进账号账，`source: 'auto'` 标出来源、稳定 id 让重复同步不叠加。账号账不反推收益账。
+> **一段计时只属于一个号**（2026-11-11，第 146 批）：`startOnline` 给每个号各开一条，
+> `stopOnline([id])` 只停那一个。以前是「一组人共用一段」（`roster` 记全部在线的人），
+> 于是想加第三个号只能整组停掉重开——用户明确否掉了这个模型。`roster` 字段留着只为读老数据，
+> `ownersOf` 仍会把多人段摊开；点卡在多人段上按人数分摊，时长**不分摊**（每人都挂了这么久）。
+> **「此刻」与「趋势」是两个区块**（2026-11-11，第 147 批）：点上那行从左往右是
+> 「单价签 → 计入/不计入开关 → 今日在线 → 今日点卡」，全在 `views/income/OnlineBar.vue`
+> （夹在统计条与速记之间），下面跟一行可横滚的在线胶囊（一枚一个号、整枚可点即结束该号）；
+> `OnlinePanel.vue`（页尾，卡名「每日走势」）只剩走势范围与两张折线图；范围是两档滑块
+> （近一周 7 天 / 近一个月 30 天），不再是胶囊——它与页顶统计范围是同一枚控件，
+> 读者不必学第二种形状。单价不在界面上直接改：
+> 它是一枚可点的签，点开 `CardPriceDialog.vue` 改（与物品速记「右键改价」同一个做法），
+> 口径句（每小时几、折多少币、算不算进账号收支）也就近写在那扇窗里。
+> 分开的判据是时态，不是版面——一条卡只回答一个问题，否则看图要先滚过一排按钮；
+> 反过来把三格读数留在趋势卡里，用户就得上下滚着对读「开关 / 读数 / 单价」这同一句话。
 > **全站卡片只有一种材质**（2026-11-05，第 116 批）：内容区的卡一律是 `components/PaperCard.vue`
 > → `base.css` 的 `.board`（台面上的一张纸），页面由 `PageShell` 的 `surface` 铺台面托住。
 > `.frame` 那套文武线收窄成**浮层专用**（角色编辑器、捉鬼测试面板）。这不是纯样式约定：
@@ -96,23 +116,25 @@
 
 ## 4. 目录归属速查
 
-| 要加的东西       | 放哪                                                                                      | 不该放哪                                                                                                          |
-| ---------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| 新页面           | `src/views/`，然后在 `src/navigation.ts` 加一项                                           | 不要改 `router.ts` 的数组——它从 `NAV_ITEMS` 生成                                                                  |
-| 工具的子页       | `src/views/tools/`，然后在 `src/tools.ts` 加一项                                          | 不要进 `NAV_ITEMS`——工具越加越多，一件一格会把左栏撑成一列                                                        |
-| 新控件           | `src/components/`，先加进 `views/dev/AtomsSection.vue` 验收                               | 不要为一次性用途新开组件                                                                                          |
-| 承载内容的卡片   | `components/PaperCard.vue`（`as` 定标签、`face` 定纸色），材质只在 `.board` 一份          | 不要自己写 `border + background + box-shadow` 拼一张卡：抄到第四份必然与 `.board` 漂移，厚度改一处也不跟着变      |
-| 新系统能力       | `src/services/<能力>.ts` 一个函数 + Rust 一个 `#[tauri::command]`                         | 不要在组件里 `invoke`；也不要全塞进 `desktop.ts`                                                                  |
-| 业务逻辑（计划） | `crates/mh-domain`，纯函数、无 IO                                                         | 不要塞进 `src-tauri/src/`——塞进去就再也拆不出来                                                                   |
-| 前端的纯规则     | `src/services/`（如 `ghost-parse.ts`），不碰 IO                                           | 不要塞进 composable——那里一有 ref 就不好单测                                                                      |
-| 跨页的数据层骨架 | `src/services/persist.ts`：`createPersist` 管落盘与排队                                   | 不要在每页的 store 里重抄——抄到第四份必然漂移                                                                     |
-| 跨窗口同步       | `src/services/storage-sync.ts`：`onStorageSync` 只收「什么时候该重读」                    | 不要把 `event.key === null` 那套判断抄回 store——收益与物价各抄过一遍，边界迟早漏一处                              |
-| 跨页的呈现口径   | `src/services/format.ts`：金额折万 / 日期文本（`moneyText`、`todayText`、`fromWan`…）     | 不要让一页去引另一页的模块；那是「记账口径」不是「物价」                                                          |
-| 页面自己的数据层 | `src/views/<页>/<名字>.ts`（如 `characters/roster.ts`）：单例状态 + 纯函数 + 单测         | 不要塞进 `services/`——那不是系统能力；也不要写进 `.vue`                                                           |
-| 开发期工具       | 页面内的放 `views/dev/` 旁边（如 `tokens.ts`）；跨页面的放 `scripts/`                     | 不要放进 `src/components/`                                                                                        |
-| 真窗口烟测       | `tools/e2e/`：`cdp` 连窗口、`ui` 说人话的动作、`assert` 报告、`db` 库快照，用例在 `smoke` | 不要再写 `probe-xxx.mjs`；也别并进 `tools/probe/`——那边每轮从零导航。**新功能的断言加进 `smoke.mjs`，同一个提交** |
-| 图标源图         | `assets/icon/app-icon-1024.png` 是 `tauri icon` 的输入；生成脚本在 `scripts/icon/`        | 不要手改 `src-tauri/icons/` 里的产物                                                                              |
-| 游戏资源         | `public/game/`（`maps/` `icons/` `data/`），规则见 `docs/GAME-ASSETS.md`                  | 不要放 `src/`——会被改名加哈希，清单里的文件名就对不上                                                             |
+| 要加的东西       | 放哪                                                                                         | 不该放哪                                                                                                          |
+| ---------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 新页面           | `src/views/`，然后在 `src/navigation.ts` 加一项                                              | 不要改 `router.ts` 的数组——它从 `NAV_ITEMS` 生成                                                                  |
+| 工具的子页       | `src/views/tools/`，然后在 `src/tools.ts` 加一项                                             | 不要进 `NAV_ITEMS`——工具越加越多，一件一格会把左栏撑成一列                                                        |
+| 新控件           | `src/components/`，先加进 `views/dev/AtomsSection.vue` 验收                                  | 不要为一次性用途新开组件                                                                                          |
+| 承载内容的卡片   | `components/PaperCard.vue`（`as` 定标签、`face` 定纸色），材质只在 `.board` 一份             | 不要自己写 `border + background + box-shadow` 拼一张卡：抄到第四份必然与 `.board` 漂移，厚度改一处也不跟着变      |
+| 新系统能力       | `src/services/<能力>.ts` 一个函数 + Rust 一个 `#[tauri::command]`                            | 不要在组件里 `invoke`；也不要全塞进 `desktop.ts`                                                                  |
+| 业务逻辑（计划） | `crates/mh-domain`，纯函数、无 IO                                                            | 不要塞进 `src-tauri/src/`——塞进去就再也拆不出来                                                                   |
+| 前端的纯规则     | `src/services/`（如 `ghost-parse.ts`），不碰 IO                                              | 不要塞进 composable——那里一有 ref 就不好单测                                                                      |
+| 跨页的数据层骨架 | `src/services/persist.ts`：`createPersist` 管落盘与排队                                      | 不要在每页的 store 里重抄——抄到第四份必然漂移                                                                     |
+| 跨窗口同步       | `src/services/storage-sync.ts`：`onStorageSync` 只收「什么时候该重读」                       | 不要把 `event.key === null` 那套判断抄回 store——收益与物价各抄过一遍，边界迟早漏一处                              |
+| 跨页的呈现口径   | `src/services/format.ts`：金额折万 / 日期文本（`moneyText`、`todayText`、`fromWan`…）        | 不要让一页去引另一页的模块；那是「记账口径」不是「物价」                                                          |
+| 页面自己的数据层 | `src/views/<页>/<名字>.ts`（如 `characters/roster.ts`）：单例状态 + 纯函数 + 单测            | 不要塞进 `services/`——那不是系统能力；也不要写进 `.vue`                                                           |
+| 一页的两块规则   | 纯函数与被它服务的 store 同目录（`income/online.ts` + `online-store.ts` + `online.test.ts`） | 不要为了「都在收益页」把它们并进 `income.ts`——那一份已经有 551 行，两者的坏条目判据也不同                         |
+| 跨页的写入口     | `views/accounts/daily-sync.ts`：只写账号账，且只写 `source: 'auto'` 的那几条                 | 不要在收益页里直接 `addEntry`——手记与自动同步混在一起，第二次同步就会写重复或删掉用户手记                         |
+| 开发期工具       | 页面内的放 `views/dev/` 旁边（如 `tokens.ts`）；跨页面的放 `scripts/`                        | 不要放进 `src/components/`                                                                                        |
+| 真窗口烟测       | `tools/e2e/`：`cdp` 连窗口、`ui` 说人话的动作、`assert` 报告、`db` 库快照，用例在 `smoke`    | 不要再写 `probe-xxx.mjs`；也别并进 `tools/probe/`——那边每轮从零导航。**新功能的断言加进 `smoke.mjs`，同一个提交** |
+| 图标源图         | `assets/icon/app-icon-1024.png` 是 `tauri icon` 的输入；生成脚本在 `scripts/icon/`           | 不要手改 `src-tauri/icons/` 里的产物                                                                              |
+| 游戏资源         | `public/game/`（`maps/` `icons/` `data/`），规则见 `docs/GAME-ASSETS.md`                     | 不要放 `src/`——会被改名加哈希，清单里的文件名就对不上                                                             |
 
 ## 5. 还没定的
 
