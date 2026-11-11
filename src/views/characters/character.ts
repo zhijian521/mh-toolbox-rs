@@ -34,6 +34,14 @@ export const PANES = [
 
 export type PaneKey = (typeof PANES)[number]['key'];
 
+/* 页签条要的是 `{ value, label }[]`，而 `PANES` 是只读元组。在这里算一次：
+ * 卡片与编辑器两个入口原先各写一句同样的 `map`，模板里直接 `map` 又会每次渲染新建数组，
+ * 让 `useRovingFocus` 的 `values()` 跟着变。 */
+export const PANE_OPTIONS: { value: PaneKey; label: string }[] = PANES.map((pane) => ({
+    value: pane.key,
+    label: pane.label,
+}));
+
 /* ======================================================================
  * 属性
  * ==================================================================== */
@@ -226,8 +234,3 @@ export interface CharacterData {
     gearMeta: { special: string; suit: string };
     pets: Pet[];
 }
-
-/* 老调用点（`roster.ts`、卡片、编辑器、测试）一律从本文件拿，这里补齐两份。
- * 新代码请直接 import `./gear` / `./pets`——re-export 是过渡，不是第二个入口。 */
-export * from './gear';
-export * from './pets';

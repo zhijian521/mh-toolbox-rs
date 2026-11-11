@@ -4,7 +4,8 @@ import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import CharacterCard from './CharacterCard.vue';
-import { hasPetName, PANES, type CharacterData, type PaneKey } from './character';
+import { hasPetName } from './pets';
+import { PANE_OPTIONS, PANES, type CharacterData, type PaneKey } from './character';
 import { schoolSkillNames } from './schools';
 import { parseAttrPanel, type OcrLine } from './ocr/attr-panel';
 import { createAssistReader } from './ocr/assist-reader';
@@ -41,7 +42,6 @@ const {
 
 const pane = ref<PaneKey>(props.pane);
 const content = ref<HTMLElement | null>(null);
-const PANE_OPTIONS = PANES.map(({ key, label }) => ({ value: key, label }));
 const wide = computed(() => pane.value === 'gear' || pane.value === 'pets');
 const paneLabel = computed(() => PANES.find(({ key }) => key === pane.value)?.label ?? '角色');
 

@@ -39,16 +39,15 @@ import {
     rows,
     stamp as int,
 } from '../../services/shape';
+import { GEAR_SLOTS, type GearSlot } from './gear';
+import type { Pet } from './pets';
 import {
     ATTR_GROUPS,
-    GEAR_SLOTS,
     TRAINING_GROUPS,
     type AssistSkill,
     type AttrGroup,
     type AttrRow,
     type CharacterData,
-    type GearSlot,
-    type Pet,
     type SkillRow,
     type TrainingGroup,
 } from './character';
@@ -101,7 +100,7 @@ function blankTrainings(): TrainingGroup[] {
  * 表没加载上时返回空串（`loadGameData` 失败那条路），此时行为退回旧样：
  * 卡上没有门派、编辑页提示先选择门派。
  */
-export function defaultSchool(): string {
+function defaultSchool(): string {
     return schoolNames()[0] ?? '';
 }
 

@@ -234,6 +234,22 @@ export async function equipment(ctx) {
             await cdp.click('.ocr [data-group="gem"] .row-delete');
         await upload('.ocr .upload-file', [head(26)]);
         t.check('装备截图真实 OCR 完成', await waitUpload());
+        /* 认错的字要能对着截图核对：装备这一页与召唤兽那页一样，得带出「识别原文」。
+           原先只给召唤兽页传了 rawLines，装备页没有，于是这一块永远不出现。 */
+        const raw = await cdp.evaluate(
+            `(() => {
+                const box = document.querySelector('.ocr .upload-raw');
+                if (!box) return { found: false };
+                const summary = box.querySelector('summary')?.textContent ?? '';
+                const lines = box.querySelectorAll('li, .raw-line').length;
+                return { found: true, title: summary.trim(), lines };
+            })()`,
+        );
+        t.check(
+            '装备页也给出识别原文',
+            raw.found && raw.title.startsWith('识别原文 ·') && raw.lines > 0,
+            JSON.stringify(raw),
+        );
         await ui.clickText('.modal-panel button', '保存');
         await ui.waitFor(`!document.querySelector('.ocr')`);
         const after = await readGear();

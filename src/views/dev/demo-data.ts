@@ -36,7 +36,8 @@
  * 角色数值按同级号该有的量级给——练满那张卡是「175 级物理系」，不是把种子放大 1.35 倍。
  */
 import { schoolNames } from '../../services/game-data';
-import type { AssistSkill, CharacterData, Pet } from '../characters/character';
+import type { Pet } from '../characters/pets';
+import type { AssistSkill, CharacterData } from '../characters/character';
 import { CHARACTERS } from '../characters/mock';
 import { emptyCharacter, normalizeCharacter, useRoster } from '../characters/roster';
 import { schoolSkills } from '../characters/schools';

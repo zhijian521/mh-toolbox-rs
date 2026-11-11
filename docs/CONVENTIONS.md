@@ -734,6 +734,8 @@ types/          全局声明与模块增强（`router-meta.d.ts`、`vue-augment.
     修炼」「召唤兽控制修炼」，又长又不准），改完照样写进清单——写进数据就又要允许编辑。
     修炼界面只修改等级，上限取清单默认值，已有数据中的上限仍保留；不再提供上限输入框。
     快速修改遵循同一规则：忽略传入的上限，仅在已有上限缺失时补游戏默认值。
+    三类「只改一个等级」的快速修改（师门技能 / 辅助 / 修炼）窗里画的东西逐字相同，
+    由 `quickTarget.ts` 的 `levelPanel()` 一处生成，不要在 case 里各抄一份字段表。
 30. **票的「凹」由四道棱与圆角给，不靠缝**。`.slip-row` 的 `box-shadow` 四笔（上左亮、下右暗）加
     一层落影就是全部，面直接画在行自己身上，没有伪元素。**已经删掉的「凸纸带」是另一套，别照着
     复活**：两条色带都凸，厚度全靠行间 2px 缝——贴住时上块的下暗棱正好压住下块的上亮棱，两笔抵消、
@@ -822,6 +824,16 @@ offsetHeight` 与 `scrollTop / clientHeight`，直接写 `scrollTop`）；⑤ **
     混成同一个记号；28 高的 sm 票里也塞不下第三样东西。行是 `div`，可点时补
     `role="button"` + `tabindex="0"` + Enter / Space 三个键，**不可点时一个都不给**——
     否则读屏会把属性那二十行都念成「按钮」，Tab 也会在每个上面停一下。
+    那一句「能不能点」只有一处写法：`useQuickable(props)`（`quick-row.ts`），四个页面都调它，
+    `quick && !editable` 的互斥关系不在各页重写一遍。
+
+    **组头是一个组件 `components/GroupHead.vue`**（2026-11-11 收）：里面只有一条
+    `.section-mark` 与默认插槽，材质与间距一律仍在 `base.css` 的 `.group-head`。原先同一句
+    `<div class="group-head"><span class="section-mark"></span>标题</div>` 在属性、辅助、修炼、师门、
+    召唤兽详情五处手抄，漏一条竖条不报错、截图也不红——「组头长什么样」只该有一处能改。
+    **按容器改间距的规则照旧写在各页 css 里**（`.assist-group .group-head`、`.exp-row .group-head`、
+    `pet-detail-form.css` 的 `--gh-mb` 等）：组件根就是 `.group-head`，父级 scoped 选择器够得着，
+    那些差异是有意的，不要顺手统一。
 
     **组头与第一张票之间 8px、上面 2px**（`--gh-mb` + `margin-top`）：卡上四个列表页同一条呼吸。
     属性页原先用 `base.css` 的默认 2 / 0——那是给「一整页只有一组」定的；放到五行标题上，标题就读成
@@ -1069,6 +1081,9 @@ offsetHeight` 与 `scrollTop / clientHeight`，直接写 `scrollTop`）；⑤ **
 - 属性与修炼按行名查找，统一用 `character.ts` 的 `findAttrRow` / `findTrainingRow`；OCR 草稿和快速修改不各自展开分组。
 - 修改窗的初始输入聚焦统一用 `focus-input.ts`，保留各窗口自己的目标选择器。
 - 已退役的固定技能空格不再由 `petDetailSlots` 维护；技能数量以实际记录为准。
+- 字段契约只从**自己的模块**取：装备相关的类型与常量在 `gear.ts`、召唤兽在 `pets.ts`，`character.ts` **不再** `export *` 转出一份。同一个类型有两个入口时，改一处另一处静默落后，而类型是同一份所以编译也不报错。
+- 卡内六分区的页签选项只有一处：`character.ts` 的 `PANE_OPTIONS`。卡片与编辑器不要在组件里各自 `PANES.map(...)`——那还会在每次渲染新建数组，把滑块的 `values()` 一起换掉。
+- 装备部位格只有一个边长：`GearEditor.vue` 的 `--slot-block`（48px），图标与首字压印都读它。同一个 48 写两遍时，改大小只改一处会让没图的格子小一圈。
 
 ## 4. 明确不做的事
 

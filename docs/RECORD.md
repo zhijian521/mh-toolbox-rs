@@ -4243,3 +4243,44 @@ flip up"`，box x=424 / 右缘 784，整张伸出 `.pet-content` 的左裁剪线
   几何断言随最终版重写——块 64×64、名字与技能两张票都带 `slip-row sm` 且**逐项比对材质**
   （`backgroundColor` / `borderRadius` / `boxShadow` 与属性票全等）、两张各 28 高且上下相叠共 64、
   在块右侧、名字与等级同一行、等级签宽与属性票签宽相等、技能图标 18 且只有一排。
+
+## 角色页第一批整理：删死代码、组头收成组件、可点判断收成一处（2026-11-11）
+
+用户看完审查报告（十条清单）后回「按照你推荐的顺序优化吧」。这一批只做**零行为变化**的删除与统一，
+第二批（装备截图页补「识别原文」）、第三批（`character.ts` 的过渡 re-export、两份 `PANE_OPTIONS`、
+`GearEditor` 里同一个 48 写两遍）各自单独提交。
+
+- `ocr/pixels.ts`：删掉全仓零引用的 `frameOf` / `prepareFrame`。它们只在 2026-11-03 那次「同时产出 OCR
+  与图标比对输入」的重构里当过中间层，之后两条路各自走 `imageDataOf` + `base64Of(swapToBgra(...))`。
+  `drawTo` 与 `imageDataOf` 的注释一并改口径（原先写「有两个消费者」），但**「同一张画布、坐标同一空间」
+  这条理由留着**——它管的是图标框与 OCR 框配对，不是那两个函数。
+- `roster.ts` 的 `defaultSchool()` 去掉 `export`：只有同文件的 `emptyCharacter()` 调它。
+- 新增 `src/components/GroupHead.vue`，替掉属性、辅助、修炼、师门、召唤兽详情五处手抄的
+  `<div class="group-head"><span class="section-mark"></span>…</div>`。组件只搬结构，样式仍全在
+  `base.css`；各页「按容器改 `--gh-mb` / `margin-top`」的规则一条没动，那些差异是有意的。
+- `quick-row.ts` 新增 `useQuickable(props)`，四个页面（属性 / 辅助 / 修炼 / `SkillRow`）原先逐字相同的
+  `computed(() => props.quick && !props.editable)` 收成一句调用。`quickRowBinds` 仍是纯函数——它不持有
+  状态，这一条没变。
+- `quick-target.ts` 的 `skill` / `assist` / `training` 三个 case 合并成 `levelPanel(title, level)`。
+  三段「为什么窗里不给上限」的注释保留一处写在 helper 上：技能上限恒 180、辅助上限逐项不同但同样不该
+  在这扇窗里改，两处数据里的 `cap` 一字不动。
+- `SkillRow.vue` 删掉没人传的 `cap` prop（含默认值里的 `cap: undefined`）：数据层的 `schoolSkills` 与
+  `skill-panel` 都会补 `schoolSkillCap()`，兜底 prop 是 2026-11-05 之前的遗留。判满级直接读 `row.cap`。
+
+## 角色页第三批整理：字段契约只留一个入口、页签选项一处、部位格一个边长（2026-11-11）
+
+第三批是三批里最碎的一批，共同点是「同一件事有两个写下来的地方」，都没有行为变化。
+
+- `character.ts` 里的 `export * from './gear'` / `'./pets'` 删掉。那两行是过渡期留下的：
+  注释自称「不是第二个入口」，但实际有十几个调用点经它拿 `GearDetail` / `GEAR_SLOTS` /
+  `Pet` / `hasPetName`。类型是同一份，所以「只改了 gear.ts 的字段、另一条路径还在用旧形状」
+  这种错编译不报，只能靠人记。现在装备类型的调用点直接 import `./gear`，召唤兽的直接 import
+  `./pets`，`character.ts` 只留自己的契约（属性、技能、辅助、修炼、`CharacterData`、`PANES`）。
+  顺带修掉 `CharacterCard.vue` 里两处 `import type { GearSlotName } from './gear'`。
+- 卡内页签的选项收成 `character.ts` 的 `PANE_OPTIONS`。原先 `CharacterCard.vue` 与
+  `CharacterEditor.vue` 各写一句 `PANES.map(…)`，两处的写法还不一样（`(pane) => …` 与
+  `({ key, label }) => …`）。卡片那句旁边的注释已经写明「不能在模板里 map，否则每次渲染新建
+  数组、`useRovingFocus` 的 `values()` 跟着变」——同一条理由在两个文件里各写一遍，就是这条要收的原因。
+- `GearEditor.vue` 的 48px 收成 `--slot-block`：`.gear-slot .slot-icon` 的 `--tile-w`/`--tile-h`
+  与 `.slot-mark` 的 `width`/`height` 原先各写一遍。图标与首字压印是同一格里的二选一，
+  边长写两遍时改一处就会出现「有图的格子 52、没图的 48」这种一眼看不对、但截图断言不一定红的情况。

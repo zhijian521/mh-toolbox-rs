@@ -13,13 +13,30 @@
  * 它不持有任何状态，也不需要 `onMounted` / `watch`；行在 `v-for` 里，每行一份绑定，
  * 组件 setup 阶段根本没有「这一行」。所以在模板里就地调：`v-bind="quickRowBinds(...)"`。
  * `quickable` 是 computed，渲染时读到它，条件变化自然重算。
+ *
+ * `useQuickable` 是这条规矩的唯一例外，因为它必须拿到 `props` 才能响应式：四个页面原先
+ * 各写一句逐字相同的 `computed(() => props.quick && !props.editable)`。它同样不持有状态、
+ * 不挂生命周期，只是把那一句收成一处——`quick` 与 `editable` 的互斥关系（可编辑的那一态
+ * 里等级已经是输入格，再开窗就成了「点输入框弹出另一个输入框」）只该有一个表述。
  */
+import { computed, type ComputedRef } from 'vue';
+
 export interface QuickRowBinds {
     role: 'button' | undefined;
     tabindex: 0 | undefined;
     'aria-label': string | undefined;
     onClick: () => void;
     onKeydown: (event: KeyboardEvent) => void;
+}
+
+/**
+ * 这一行此刻能不能点：卡上（`quick`）且不是编辑态（`editable`）。
+ *
+ * 传 `props` 而不是两个布尔值：四个调用点都在组件 setup 里，直接 `useQuickable(props)`
+ * 就得到一枚跟着 props 走的 computed。
+ */
+export function useQuickable(props: { quick?: boolean; editable?: boolean }): ComputedRef<boolean> {
+    return computed(() => props.quick === true && props.editable !== true);
 }
 
 /**

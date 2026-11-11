@@ -15,15 +15,14 @@ import PetPane from './panes/PetPane.vue';
 import SkillPane from './panes/SkillPane.vue';
 import TrainingPane from './panes/TrainingPane.vue';
 import {
-    PANES,
+    PANE_OPTIONS,
     type AssistKind,
     type AssistSkill,
     type CharacterData,
-    type GearDetail,
     type PaneKey,
 } from './character';
+import type { GearDetail, GearSlotName } from './gear';
 import type { QuickTarget } from './quick/quick-target';
-import type { GearSlotName } from './gear';
 
 /**
  * 一张角色卡：**一张纸上的六个分区**，用卡内页签切换。
@@ -135,10 +134,6 @@ const schoolOptions = computed(() =>
 function editIdentity(key: string, event: Event) {
     emit('edit-value', key, (event.target as HTMLInputElement).value);
 }
-
-/* 页签的值与文案一次算好：滑块要的是 `{ value, label }[]`，而 `PANES` 是只读元组，
- * 直接在模板里 `map` 会每次渲染新建一个数组，`useRovingFocus` 的 `values()` 也随之变。 */
-const PANE_OPTIONS = PANES.map((pane) => ({ value: pane.key, label: pane.label }));
 
 function choose(key: PaneKey) {
     active.value = key;

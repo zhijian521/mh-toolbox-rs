@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, useId } from 'vue';
 import NumberField from '../../../components/NumberField.vue';
+import GroupHead from '../../../components/GroupHead.vue';
 import NumTag from '../../../components/NumTag.vue';
 import SelectField from '../../../components/SelectField.vue';
 import PressButton from '../../../components/PressButton.vue';
@@ -8,7 +9,7 @@ import { lifeSkills, storySkills } from '../../../services/game-data';
 import AssistIcon from '../AssistIcon.vue';
 import { isMaxed, type AssistKind, type AssistSkill } from '../character';
 import type { QuickTarget } from '../quick/quick-target';
-import { quickRowBinds } from '../quick-row';
+import { quickRowBinds, useQuickable } from '../quick-row';
 
 /** 卡内「辅助」页。拆法与理由见 `AttrPane.vue` 顶部。 */
 const props = withDefaults(
@@ -28,7 +29,7 @@ const emit = defineEmits<{
     'remove-row': [index: number];
 }>();
 const uid = useId();
-const quickable = computed(() => props.quick && !props.editable);
+const quickable = useQuickable(props);
 
 /* 定位键带上 `kind`：生活与剧情各是一套名字，`normalizeAssists` 的查重键就是
  * `kind + name`，这里跟着它走，同一件事只认一个键。 */
@@ -71,7 +72,7 @@ function optionsFor(row: AssistSkill) {
         <div class="assist-groups">
             <section v-for="group in assistGroups" :key="group.title" class="assist-group">
                 <!-- 分组名同时区分游戏中的两个截图页签。 -->
-                <div class="group-head"><span class="section-mark"></span>{{ group.title }}</div>
+                <GroupHead>{{ group.title }}</GroupHead>
                 <div class="slip-rows slip-cols">
                     <!-- 只读与编辑均一行两个，编辑控件在票内紧凑排列。 -->
                     <div

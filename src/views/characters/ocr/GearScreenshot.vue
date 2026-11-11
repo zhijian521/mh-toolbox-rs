@@ -26,23 +26,29 @@ const currentShot = computed(() => {
     const slot = props.slotName ?? props.activeSlot;
     return slot ? shots.value[slot] : undefined;
 });
-const { result, busy, error, takeFile } = useOcrImage<GearPanelResult>(async (lines, image) => {
-    const value = await recognizeGearPanel(
-        lines,
-        image,
-        await loadEquipmentNames(),
-        props.slotName,
-    );
-    const mismatch = props.slotName && value.slot && props.slotName !== value.slot;
-    return {
-        result: value,
-        error: mismatch
-            ? `这张是${value.slot}，请选择${props.slotName}截图`
-            : !value.slot || !value.hit
-              ? '没认出装备，请截取完整的装备详情'
-              : '',
-    };
-}, gearFrame);
+/* `rawLines` 要往下传：认错的时候「识别原文」是唯一能对着截图核对的东西，
+ * 而装备这一页的字比召唤兽那页更多（部位、类型、等级、五行、附加、熔炼、宝石），
+ * 少这一块就等于只报「没认出装备」却不给证据。 */
+const { result, busy, error, rawLines, takeFile } = useOcrImage<GearPanelResult>(
+    async (lines, image) => {
+        const value = await recognizeGearPanel(
+            lines,
+            image,
+            await loadEquipmentNames(),
+            props.slotName,
+        );
+        const mismatch = props.slotName && value.slot && props.slotName !== value.slot;
+        return {
+            result: value,
+            error: mismatch
+                ? `这张是${value.slot}，请选择${props.slotName}截图`
+                : !value.slot || !value.hit
+                  ? '没认出装备，请截取完整的装备详情'
+                  : '',
+        };
+    },
+    gearFrame,
+);
 const pending = computed(() => queued.value || busy.value);
 watch(pending, (value) => emit('busy', value), { flush: 'sync' });
 let generation = 0;
@@ -111,6 +117,7 @@ onBeforeUnmount(() => {
         :busy="pending"
         :status="message"
         :error="batchError || error"
+        :raw-lines="rawLines"
         @files="takeFiles"
     >
         <template v-if="$slots.navigation" #navigation>

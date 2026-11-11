@@ -1,6 +1,12 @@
 import { isObject, optionalInt, rawText, rows, stamp as int } from '../../services/shape';
-import type { GearDetail, GearStat, GearTone, Pet } from './character';
-import { GEAR_JADE_EFFECTS, hasGearDetail } from './gear';
+import {
+    GEAR_JADE_EFFECTS,
+    hasGearDetail,
+    type GearDetail,
+    type GearStat,
+    type GearTone,
+} from './gear';
+import type { Pet } from './pets';
 import { GEAR_STAT_GROUPS } from './gear-properties';
 
 const GEAR_TONES: GearTone[] = ['seal', 'ochre', 'moss'];

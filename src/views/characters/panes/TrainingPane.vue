@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue';
+import { useId } from 'vue';
 import NumberField from '../../../components/NumberField.vue';
+import GroupHead from '../../../components/GroupHead.vue';
 import NumTag from '../../../components/NumTag.vue';
 import type { TrainingGroup, TrainingRow } from '../character';
 import type { QuickTarget } from '../quick/quick-target';
-import { quickRowBinds } from '../quick-row';
+import { quickRowBinds, useQuickable } from '../quick-row';
 
 /** 卡内「修炼」页。拆法与理由见 `AttrPane.vue` 顶部。 */
 const props = withDefaults(
@@ -22,7 +23,7 @@ const emit = defineEmits<{
     'edit-level': [name: string, level: number];
 }>();
 const uid = useId();
-const quickable = computed(() => props.quick && !props.editable);
+const quickable = useQuickable(props);
 
 /* 十项的名字在本表里唯一（两组没有重名），所以名字就够定位。 */
 function open(row: TrainingRow) {
@@ -35,7 +36,7 @@ function open(row: TrainingRow) {
     <section class="pane" :role="tabbed ? 'tabpanel' : 'region'">
         <div class="training-groups">
             <div v-for="group in groups" :key="group.title" class="training-col">
-                <div class="group-head"><span class="section-mark"></span>{{ group.title }}</div>
+                <GroupHead>{{ group.title }}</GroupHead>
                 <!-- 一组一列、一项一张票：与编辑弹窗那一页同构（票面在全局
                      `.slip-row`）。没有图标——修炼十项本来就没有图可给，行首那
                      一格让给名目，名目从左内边距起排。 -->

@@ -9,7 +9,8 @@ import { cloneDraft } from './clone-draft';
 import { applyGear } from './quick-target';
 import { EDITOR_MIN_H, EDITOR_W } from '../editor-metrics';
 import { focusInput } from '../focus-input';
-import type { CharacterData, GearDetail, GearSlotName } from '../character';
+import type { GearDetail, GearSlotName } from '../gear';
+import type { CharacterData } from '../character';
 
 /** 手改与识别都只动深拷贝，保存前不会触及角色，取消即丢弃。 */
 const props = withDefaults(

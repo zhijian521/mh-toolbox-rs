@@ -140,6 +140,9 @@ const { icon: slotIcon } = useGearIcon();
 }
 .gear-slot {
     position: relative;
+    /* 块面 48 只有这一处：图标与首字压印共用同一个数。原先两处各写一遍 48px，
+     * 改大小时只改一处就会让没图的部位比有图的小一圈。 */
+    --slot-block: 48px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -154,10 +157,10 @@ const { icon: slotIcon } = useGearIcon();
     color: var(--muted);
     cursor: pointer;
 }
-/* 六列图标沿用块 48 / 图 42，适应收窄后的截图栏。 */
+/* 六列图标沿用块 48（`--slot-block`）/ 图 42，适应收窄后的截图栏。 */
 .gear-slot .slot-icon {
-    --tile-w: 48px;
-    --tile-h: 48px;
+    --tile-w: var(--slot-block);
+    --tile-h: var(--slot-block);
     --shot: 42px;
 }
 /* 空着的部位（没填装备名、也没有详情）：图标收色、退淡一档。十二格全亮着时分不出哪几件
@@ -211,12 +214,12 @@ const { icon: slotIcon } = useGearIcon();
     content: '';
 }
 /* 没有图标时的首字压印：淡墨，标记「这类图还没切」——它与 `IconTile` 二选一，
- * 尺寸跟着块走（48），不跟字走。 */
+ * 尺寸跟着块走（`--slot-block`），不跟字走。 */
 .slot-mark {
     display: grid;
     place-items: center;
-    width: 48px;
-    height: 48px;
+    width: var(--slot-block);
+    height: var(--slot-block);
     color: var(--muted);
     font-size: var(--fs-md);
 }

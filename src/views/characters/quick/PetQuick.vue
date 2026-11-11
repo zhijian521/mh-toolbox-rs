@@ -9,7 +9,8 @@ import { cloneDraft } from './clone-draft';
 import { applyPet } from './quick-target';
 import { EDITOR_MIN_H, EDITOR_W } from '../editor-metrics';
 import { focusInput } from '../focus-input';
-import { hasPetName, type CharacterData, type Pet } from '../character';
+import { hasPetName, type Pet } from '../pets';
+import type { CharacterData } from '../character';
 
 /** 快速修改与整份编辑共用截图入口和四组表单，取消不修改原记录。 */
 const props = withDefaults(

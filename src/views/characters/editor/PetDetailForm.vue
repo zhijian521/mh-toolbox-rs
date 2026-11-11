@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import AppIcon from '../../../components/AppIcon.vue';
+import GroupHead from '../../../components/GroupHead.vue';
 import PaperCard from '../../../components/PaperCard.vue';
 import NumberField from '../../../components/NumberField.vue';
-import { hasPetName, PET_QUALITY_FIELDS, type Pet } from '../character';
+import { hasPetName, PET_QUALITY_FIELDS, type Pet } from '../pets';
 import { loadPetAssets, petAssets } from '../../../services/pet-assets';
 import PetPortraitPicker from './PetPortraitPicker.vue';
 import PetSkillPicker from './PetSkillPicker.vue';
@@ -107,9 +108,7 @@ function addSkill() {
                     class="pet-group"
                     :data-pet-group="group.key"
                 >
-                    <div class="group-head">
-                        <span class="section-mark"></span>{{ group.title }}
-                    </div>
+                    <GroupHead>{{ group.title }}</GroupHead>
                     <div class="slip-rows sm" :class="group.key">
                         <label
                             v-for="label in group.labels"
@@ -128,7 +127,7 @@ function addSkill() {
                     </div>
                 </section>
                 <section class="pet-group wide" data-pet-group="quality">
-                    <div class="group-head"><span class="section-mark"></span>资质</div>
+                    <GroupHead>资质</GroupHead>
                     <div class="q6 pet-fields slip-rows sm">
                         <label
                             v-for="field in PET_QUALITY_FIELDS"
@@ -173,11 +172,9 @@ function addSkill() {
                     </div>
                 </section>
                 <section class="pet-group wide list-block" data-pet-group="skills">
-                    <div class="group-head">
-                        <span class="section-mark"></span>技能<span class="cnt num"
-                            >{{ pet.skills.length }} 项</span
-                        >
-                    </div>
+                    <GroupHead>
+                        技能<span class="cnt num">{{ pet.skills.length }} 项</span>
+                    </GroupHead>
                     <!-- 技能改成**一格一枚图标**：已学的一格一枚（点开下拉换），末尾一格「+」
                          添一格（2026-11-10 用户：「技能添加不使用输入框，可以在技能最后一个后面
                          通过 + 号图标添加，点击图标添加默认技能，然后点击技能图标可以下拉切换」）。

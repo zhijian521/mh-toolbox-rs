@@ -6,11 +6,9 @@ import {
     findTrainingRow,
     type AssistKind,
     type CharacterData,
-    type GearDetail,
-    type GearSlot,
-    type GearSlotName,
-    type Pet,
 } from '../character';
+import type { GearDetail, GearSlot, GearSlotName } from '../gear';
+import type { Pet } from '../pets';
 
 /**
  * 一次快速修改指向什么。
@@ -105,6 +103,23 @@ function expDigits(raw: string): string | null {
 }
 
 /**
+ * 「只改等级」那一格：技能、辅助、修炼三处除了找行以外，窗里画的东西逐字相同。
+ *
+ * **为什么不给「上限」这一格**（2026-11-07 用户）：
+ * 门派技能的上限一律 180，是游戏定的，没有逐项不同的可能，摆一格只会问出一堆
+ * 「180 还是 160」的假问题；辅助的上限**真的逐项不同**（强身术 140、调息 5），
+ * 但它同样不在这扇窗里改——日常发生的是「又点了两级」，而上限跟着帮派与研究走，
+ * 随手改掉一个其实不该动的数，卡上的「满」就会错，且错得看不出来（`isMaxed` 只比大小）。
+ * 两处数据里的 `cap` 一个字都不动——卡上判「满」读的仍是它。
+ */
+function levelPanel(title: string, level: number): QuickPanel {
+    return {
+        title,
+        fields: [{ key: 'level', label: '等级', value: String(level), numeric: true }],
+    };
+}
+
+/**
  * 弹窗要画什么。找不到对应的项（数据在开窗与点击之间被改了、或者传错了名字）
  * 返回 `null`，调用方据此不开窗——画一个空窗比不画更让人以为坏了。
  *
@@ -169,14 +184,7 @@ export function quickPanel(character: CharacterData, target: QuickScalarTarget):
         case 'skill': {
             const row = character.skills.find((one) => one.name === target.name);
             if (!row) return null;
-            return {
-                title: `快速修改 · ${target.name}`,
-                /* **不给「上限」这一格**（2026-11-07 用户）：门派技能的上限一律 180，
-                 * 是游戏定的，没有逐项不同的可能。摆一格让人填，只会问出一堆
-                 * 「180 还是 160」的假问题，还得替每条数据记一个其实恒等的数。
-                 * 数据里的 `cap` 一个字都不动——卡上判「满」读的仍是它。 */
-                fields: [{ key: 'level', label: '等级', value: String(row.level), numeric: true }],
-            };
+            return levelPanel(`快速修改 · ${target.name}`, row.level);
         }
 
         case 'assist': {
@@ -184,27 +192,13 @@ export function quickPanel(character: CharacterData, target: QuickScalarTarget):
                 (one) => one.name === target.name && one.kind === target.assist,
             );
             if (!row) return null;
-            return {
-                title: `快速修改 · ${target.name}`,
-                /* **不问上限**（2026-11-07 用户：「辅助技能的上限输入和相关逻辑删除」）。
-                 *
-                 * 与师门技能那一条同一个理由，只是它更绕一点：技能的上限恒为 180，
-                 * 摆一格只会问出假问题；辅助的上限**真的逐项不同**（强身术 140、
-                 * 调息 5），但它同样不在这扇窗里改——日常发生的事是「又点了两级」，
-                 * 而上限跟着帮派与研究走，随手改掉一个其实不该动的数，卡上的「满」
-                 * 就会错，且错得看不出来（`isMaxed` 只比大小）。
-                 * 数据里的 `cap` 一个字都不动。 */
-                fields: [{ key: 'level', label: '等级', value: String(row.level), numeric: true }],
-            };
+            return levelPanel(`快速修改 · ${target.name}`, row.level);
         }
 
         case 'training': {
             const row = findTrainingRow(character, target.name);
             if (!row) return null;
-            return {
-                title: `快速修改 · ${target.name}`,
-                fields: [{ key: 'level', label: '等级', value: String(row.level), numeric: true }],
-            };
+            return levelPanel(`快速修改 · ${target.name}`, row.level);
         }
     }
 }

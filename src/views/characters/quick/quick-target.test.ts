@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { CharacterData, GearDetail, GearSlotName, Pet } from '../character';
-import { briefText, gearBrief } from '../gear';
+import type { CharacterData } from '../character';
+import { briefText, gearBrief, type GearDetail, type GearSlotName } from '../gear';
+import type { Pet } from '../pets';
 import { emptyCharacter, normalizeCharacter } from '../roster';
 import { applyGear, applyPet, applyQuick, quickPanel } from './quick-target';
 

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import MeterBar from '../../../components/MeterBar.vue';
+import GroupHead from '../../../components/GroupHead.vue';
 import NumTag from '../../../components/NumTag.vue';
 import { expPercent, type AttrGroup, type ExpRow } from '../character';
 import type { QuickTarget } from '../quick/quick-target';
-import { quickRowBinds } from '../quick-row';
+import { quickRowBinds, useQuickable } from '../quick-row';
 
 /**
  * 卡内「属性」页。2026-11-05 从 `CharacterCard.vue` 拆出来：那张卡一个文件装六个分区，
@@ -56,7 +57,7 @@ const emit = defineEmits<{
 }>();
 
 /* 卡上（只读、非预览）才可点。截图识别那张预览卡两边都不满足。 */
-const quickable = computed(() => props.quick && !props.editable);
+const quickable = useQuickable(props);
 
 function openAttr(label: string) {
     if (!quickable.value) return;
@@ -103,7 +104,7 @@ const expText = computed(() => {
                 class="attr-group"
                 :class="{ wide: group.wide }"
             >
-                <div class="group-head"><span class="section-mark"></span>{{ group.title }}</div>
+                <GroupHead>{{ group.title }}</GroupHead>
                 <!-- 一行一张**小一号**的票：名目在左、读数在右，28 高。
                      属性这一页要塞 20 项、排成 11 个视觉行（资源 4 / 名望 3 /
                      战斗 6 / 加点 5 / 潜能通栏 1），只有 28 装得进 493 的版心
@@ -161,7 +162,7 @@ const expText = computed(() => {
             :class="{ quickable }"
             v-bind="quickRowBinds(quickable, openExp, '快速修改经验')"
         >
-            <span class="group-head"><span class="section-mark"></span>经验</span>
+            <GroupHead>经验</GroupHead>
             <!-- 可改时文字让位给两格输入，**条留着**：数一改，条当场动一下，
                  比任何「已保存」的提示都直接。 -->
             <MeterBar :percent="expPercentValue" label="经验进度" :text="editable ? '' : expText" />

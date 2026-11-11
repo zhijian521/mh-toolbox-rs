@@ -6,7 +6,7 @@ import PetDetailForm from './PetDetailForm.vue';
 import PetScreenshot from '../ocr/PetScreenshot.vue';
 import PetImage from '../PetImage.vue';
 import { applyPetPanel, emptyPet, type PetPanelResult } from '../ocr/pet-panel';
-import type { Pet } from '../character';
+import type { Pet } from '../pets';
 
 const emit = defineEmits<{ busy: [value: boolean] }>();
 

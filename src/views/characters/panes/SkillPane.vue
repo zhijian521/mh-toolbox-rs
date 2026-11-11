@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useId } from 'vue';
+import GroupHead from '../../../components/GroupHead.vue';
 import SkillRowView from '../SkillRow.vue';
 import type { SkillRow } from '../character';
 import type { QuickTarget } from '../quick/quick-target';
@@ -53,9 +54,7 @@ const uid = useId();
              不该和「练了一半」一样亮。三处同色同义，不另立记号。
 
              上限缺席（老数据）时那一排刻度与分母一起不画：没有分母的百分比是编出来的。 -->
-        <div v-if="rows.length" class="group-head school-head">
-            <span class="section-mark"></span>门派技能
-        </div>
+        <GroupHead v-if="rows.length" class="school-head">门派技能</GroupHead>
         <div v-if="rows.length" class="slip-rows slip-cols">
             <!-- 一行是 `SkillRow`：图标 / 名称 + 等级签。卡上只读、弹窗里可编辑，
                  两处共用同一份解剖与同一组尺寸（行内边距、印的大小、数字格的厚薄

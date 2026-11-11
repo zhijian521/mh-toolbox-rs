@@ -41,7 +41,7 @@ import PressTile from '../../components/PressTile.vue';
 import { schoolSkillIcon } from '../../services/game-icons';
 import IconTile from './IconTile.vue';
 import { isMaxed, type SkillRow as SkillRowData } from './character';
-import { quickRowBinds } from './quick-row';
+import { quickRowBinds, useQuickable } from './quick-row';
 
 const props = withDefaults(
     defineProps<{
@@ -51,14 +51,6 @@ const props = withDefaults(
         /** 等级格的 `id`，名字的 `for` 指向它。只在可编辑时有用。 */
         inputId?: string;
         /**
-         * 上限的**兜底值**：跨过 `row.cap` 用。
-         *
-         * 老存档里的门派技能可能只有等级、没有 `cap`。卡上按数据原样画，而编辑页知道
-         * 「这个号的门派技能上限一律 180」（`schoolSkillCap()`），所以那一页传一个兜底值
-         * 进来——否则打开老号连「满」都判不出来。
-         */
-        cap?: number;
-        /**
          * 点一行开「快速修改」。
          *
          * 与 `editable` 互斥（那一态里等级已经是输入格）；`quickable` 一处判断，
@@ -66,21 +58,21 @@ const props = withDefaults(
          */
         quick?: boolean;
     }>(),
-    { editable: false, inputId: undefined, cap: undefined, quick: false },
+    { editable: false, inputId: undefined, quick: false },
 );
 
 const emit = defineEmits<{ 'update:level': [level: number]; quick: [] }>();
 
-const quickable = computed(() => props.quick && !props.editable);
+const quickable = useQuickable(props);
 
 function open() {
     if (!quickable.value) return;
     emit('quick');
 }
 
-/* 上限：调用方给的兜底值优先，否则用行上存着的。两处都为 undefined 时判不出满级。 */
-const capOf = computed(() => props.cap ?? props.row.cap);
-const full = computed(() => isMaxed({ level: props.row.level, cap: capOf.value }));
+/* 上限读行上存着的；没存（老数据）时判不出满级。数据层的 `schoolSkills` /
+ * `skill-panel` 都会补上 `schoolSkillCap()`，所以这里不再接兜底 prop。 */
+const full = computed(() => isMaxed({ level: props.row.level, cap: props.row.cap }));
 const idle = computed(() => props.row.level === 0);
 
 /** 图标地址。查不到就退回首字印，见文件头最后一段。 */

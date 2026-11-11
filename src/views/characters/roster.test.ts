@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import '../../services/game-data.fixture';
 import { schoolNames, schoolSkillCap } from '../../services/game-data';
-import { GEAR_SLOTS } from './character';
+import { GEAR_SLOTS } from './gear';
 import { CHARACTERS } from './mock';
 import { expPercent, isMaxed } from './character';
 import { emptyCharacter, normalizeCharacter, parseRoster, serializeRoster } from './roster';
