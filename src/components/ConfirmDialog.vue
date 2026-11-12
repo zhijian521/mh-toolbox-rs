@@ -41,8 +41,9 @@ withDefaults(
          * 「取消这次删除」，读屏也照念同一句，把用户说到了另一个动作上。
          */
         cancelText?: string;
+        danger?: boolean;
     }>(),
-    { note: '', confirmText: '删除', cancelText: '取消' },
+    { note: '', confirmText: '删除', cancelText: '取消', danger: false },
 );
 
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
@@ -96,6 +97,7 @@ const titleId = `confirm-title-${Math.random().toString(36).slice(2, 9)}`;
             <PressButton
                 :text="confirmText"
                 :label="`确认${confirmText}`"
+                :danger="danger"
                 seal
                 @click="emit('confirm')"
             />

@@ -123,11 +123,10 @@ function onBrandClick(event: MouseEvent) {
     /* 顶边距交给牌记自己（它的区高里已经含了上内衬），栏不再自带 top padding——
      * 两处各留一点的话，那道账线就永远差几个像素对不齐。 */
     padding: 0 var(--rail-pad) var(--rail-pad);
-    background-color: var(--paper);
-    /* 顶部受光只铺到牌记底边。强度收在变量里、暗色再压一档（见下面 `html.dark`）：
+    background-color: var(--rail-background);
+    /* 顶部受光只铺到牌记底边。强度与明暗配方收在 `tokens.css`：
      * 满强度 `--bevel-hi` 在暗色是 8% 白叠在深纸上，足以把栏顶糊成一块浅色纸。 */
-    --rail-sheen: color-mix(in srgb, var(--bevel-hi) 45%, transparent);
-    background-image: linear-gradient(180deg, var(--rail-sheen), transparent var(--rail-brand-h));
+    background-image: var(--rail-texture);
     /* 右棱：一条受光的断面。**栏的右侧不压任何阴影**（2026-11-06 用户：「右边是不是有
      * 阴影设置，取消掉这个」）。原来有两条：栏内 5px 的暗带（`inset -4px 0 6px -5px`）
      * 与栏外 3px 纸断面 + 20px 散开。后者其实一直没画出来——`.app` 的背景把兄弟节点的
@@ -135,7 +134,7 @@ function onBrandClick(event: MouseEvent) {
      * 贴边压到 232，在通高的长边上读作「一道灰边」。栏与内容区本来就靠 `--paper` / `--bg`
      * 的色差分开，再加一道软暗只会显脏。注释写在这里而不是 `box-shadow` 里：prettier 会把
      * 行内注释与值挤成一行。 */
-    box-shadow: inset -1px 0 0 var(--bevel-hi);
+    box-shadow: var(--rail-shadow);
     /* 不滚动：槽一定要整条可见，「第几档」靠的是整条槽的比例。
      * 允许滚动的代价是拇指会跑到视口外，位置感失效；而 8 档的高度是定死的，
      * 所以高度交给窗口兜底——`src-tauri/src/lib.rs` 的 `min_inner_size` 取「较大」字号
@@ -151,11 +150,6 @@ function onBrandClick(event: MouseEvent) {
     overflow: hidden;
 }
 
-/* 暗色下这层受光几乎要消失：`--bevel-hi` 在暗色是 18% 白，乘 45% 之后仍有 8%，
- * 在深色纸上的视觉当量远高于亮色那 37%——所以按主题分档，压到 14%（≈2.5% 白）。 */
-:global(html.dark .rail) {
-    --rail-sheen: color-mix(in srgb, var(--bevel-hi) 14%, transparent);
-}
 
 /* ---------- 牌记 ----------
  * **牌记区是一个正方形：边长 = 栏宽**（2026-11-06 用户：「外面距上下左右保持一致」）。

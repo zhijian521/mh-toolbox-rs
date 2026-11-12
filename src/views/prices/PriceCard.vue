@@ -158,7 +158,9 @@ function onCardClick(event: MouseEvent) {
                 <span class="meta card-meta">{{ footText }}</span>
                 <span class="card-acts">
                     <button type="button" class="card-act" @click="emit('edit')">改</button>
-                    <button type="button" class="card-act" @click="emit('remove')">删</button>
+                    <button type="button" class="card-act danger-action" @click="emit('remove')">
+                        删
+                    </button>
                     <!-- 「记」是这一页用得最勤的动作（每次看到新行情就来一下），
                          所以它单独做成一枚图标按钮，而不是和「改/删」一样的 9px 文字：
                          那一行的字是「偶尔维护」，这一枚是「每天要用」。 -->
@@ -477,7 +479,7 @@ function onCardClick(event: MouseEvent) {
     transition: color var(--t-quick) var(--ease-soft);
 }
 .card-act:hover {
-    color: var(--accent);
+    color: var(--action-ink);
 }
 .card-act:focus-visible {
     outline: var(--ring);

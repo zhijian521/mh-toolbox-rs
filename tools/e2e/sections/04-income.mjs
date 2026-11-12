@@ -98,6 +98,26 @@ export default async function run(ctx) {
             t.info('今天已有', `${before} 笔`);
         });
 
+        await t.step('物品图标滤镜支持风格覆写，不影响整页', async () => {
+            await ui.goto('收益');
+            const result = await cdp.evaluate(`(() => {
+                const root = document.documentElement;
+                const icon = document.querySelector('.item img');
+                if (!icon) return false;
+                const value = root.style.getPropertyValue('--item-icon-filter');
+                const priority = root.style.getPropertyPriority('--item-icon-filter');
+                try {
+                    root.style.setProperty('--item-icon-filter', 'blur(1px)');
+                    return getComputedStyle(icon).filter === 'blur(1px)' &&
+                        getComputedStyle(root).filter === 'none';
+                } finally {
+                    if (value) root.style.setProperty('--item-icon-filter', value, priority);
+                    else root.style.removeProperty('--item-icon-filter');
+                }
+            })()`);
+            t.check('实际物品图标随滤镜令牌变化', result);
+        });
+
         /* 2026-11-11 用户实报：「点击一个物品，不输入价格，但是关闭弹窗时候还进行校验，
          * 点第一下「取消」的时候取消不掉」。
          *

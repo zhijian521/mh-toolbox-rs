@@ -141,6 +141,7 @@ function reset() {
 
 async function remove(one: AccountEntry) {
     const ok = await askConfirm({
+        danger: true,
         title: `删掉「${one.category}」这一条？`,
         note: `${one.date} · ${amountText(one.amount, one.currency)}。删了不能撤回。`,
         confirmText: '删除',
@@ -256,6 +257,7 @@ async function remove(one: AccountEntry) {
                                     @click="emit('edit', one)"
                                 />
                                 <PressButton
+                                    danger
                                     icon="trash"
                                     label="删这一条"
                                     size="md"

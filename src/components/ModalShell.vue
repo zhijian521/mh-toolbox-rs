@@ -199,7 +199,7 @@ const panelStyle = computed(() => {
     display: grid;
     place-items: center;
     padding: 24px;
-    background: color-mix(in srgb, var(--ink) 42%, transparent);
+    background: var(--modal-mask);
     animation: mask-in var(--t-mid) var(--ease-soft);
 }
 
@@ -212,12 +212,12 @@ const panelStyle = computed(() => {
     /* 传了 `minHeight` 就有个下限（表格类窗），没传就纯跟着内容长。 */
     min-height: var(--modal-min-h, auto);
     max-height: calc(100vh - 48px);
-    background: var(--paper);
-    border: var(--w-hair) solid var(--rule-2);
+    background: var(--modal-bg);
+    border: var(--w-hair) solid var(--modal-edge);
     border-radius: var(--r-3);
     /* 浮层的影子用 `--shadow-lift`，与悬停浮片同一条：弹窗是「临时抬起来的一张纸」，
      * 不是嵌在页面里的卡，所以比卡片的影子深一档。 */
-    box-shadow: var(--shadow-lift);
+    box-shadow: var(--modal-shadow);
     outline: none;
     animation: panel-in var(--t-mid) var(--ease-soft);
 }

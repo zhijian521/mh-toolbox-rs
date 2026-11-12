@@ -255,6 +255,7 @@ function openDetail(index: number) {
                     @click="emit('edit', active)"
                 />
                 <PressButton
+                    danger
                     icon="trash"
                     label="删除这个角色"
                     :disabled="disabled"

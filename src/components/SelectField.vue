@@ -360,10 +360,10 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
     padding: 3px;
     overflow: auto;
     list-style: none;
-    border: var(--w-hair) solid var(--rule-2);
+    border: var(--w-hair) solid var(--popover-edge);
     border-radius: var(--r-2);
-    background: var(--paper);
-    box-shadow: var(--shadow-lift);
+    background: var(--popover-bg);
+    box-shadow: var(--popover-shadow);
     /* **不要写 `scrollbar-width`**（这里原来写的是 `thin`）。
      *
      * 它和 `scrollbar-color` 是 CSS 的「标准」滚动条属性，Chromium 121 起一旦在某个
@@ -380,11 +380,6 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
 .select-list.up {
     top: auto;
     bottom: calc(100% + 4px);
-}
-/* 暗色下投影是黑压黑，等于没有浮起；把纸面往纸白提一档表达「在上面一层」。
- * 与 `GearTip` 同一条覆写（`--paper-base` 不随主题翻面）。 */
-:global(html.dark .select-list) {
-    background: color-mix(in srgb, var(--paper-2) 86%, var(--paper-base) 14%);
 }
 
 /* 纸片里的滑杆用**深一档**的那支（`--scrollbar-thumb-hover`），悬停再深一档。

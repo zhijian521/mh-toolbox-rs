@@ -90,6 +90,37 @@
     --warning: var(--ochre);
     --positive: var(--moss);
     --negative: var(--cinnabar);
+    --action-ink: var(--accent);
+    --danger-fill: light-dark(var(--danger), var(--danger-ink));
+    --danger-edge: light-dark(
+        var(--danger-ink),
+        color-mix(in srgb, var(--danger-ink) 70%, var(--ink))
+    );
+    --on-danger: light-dark(var(--on-cinnabar), var(--ink));
+
+    /* 浮层、弹窗、提示的用途与分类色分开。 */
+    --popover-bg: light-dark(
+        var(--paper),
+        color-mix(in srgb, var(--paper-2) 86%, var(--paper-base) 14%)
+    );
+    --popover-edge: var(--rule-2);
+    --popover-shadow: var(--shadow-lift);
+    --modal-bg: var(--paper);
+    --modal-edge: var(--rule-2);
+    --modal-shadow: var(--shadow-lift);
+    --modal-mask: color-mix(in srgb, var(--ink) 42%, transparent);
+    --tooltip-bg: var(--indigo);
+    --tooltip-ink: var(--indigo-ink);
+    --tooltip-shadow: 0 2px 4px var(--shadow), 0 10px 22px -10px var(--shadow-lg);
+    --page-surface: light-dark(
+        var(--well),
+        color-mix(in srgb, var(--well) 66%, var(--ink-base))
+    );
+
+    /* 物品与技能图标保留各自读图强度，由风格选择是否纸化。 */
+    --item-icon-filter: sepia(0.22) saturate(0.86) contrast(0.98);
+    --item-icon-opacity: 0.94;
+    --skill-icon-filter: sepia(0.42) saturate(0.72) contrast(0.95) brightness(1.05);
 
     /* ---------- 印面：一块灌了朱色的面 + 面上的字 ----------
      * 这三枚是**成套**的，不能拆开用。`--cinnabar` 在暗色翻成 #d0755f 的亮橙红，
@@ -334,6 +365,7 @@
 }
 
 :root.dark {
+    --item-icon-filter: sepia(0.18) saturate(0.8) brightness(0.86);
     color-scheme: dark;
 
     /* 印面整组重映射，理由见上面 `--seal` 那一段。
@@ -533,7 +565,7 @@
         0 calc(4px * var(--tile-drop, 1)) 0 var(--shadow),
         0 calc(10px * var(--tile-drop, 1)) calc(16px * var(--tile-drop, 1))
             calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
-    --press-ink: var(--accent);
+    --press-ink: var(--action-ink);
 }
 .press-tile:not(.still):active {
     --press-color: var(--tile-face-active, color-mix(in srgb, var(--well) 82%, transparent));
@@ -756,4 +788,158 @@
     --num-slot-background: var(--well);
     --num-slot-shadow: inset 0 1px 3px var(--bevel-lo),
         inset 0 -1px 0 var(--bevel-hi);
+}
+
+/* 通知、印面与导航材质在实际元素上求值，保留局部染色。 */
+.chart.well {
+    --chart-texture: linear-gradient(180deg, var(--bevel-lo), transparent 18px);
+}
+.notice {
+    --notice-background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--well) 86%, var(--rule-2)) 0%,
+        color-mix(in srgb, var(--well) 96%, var(--paper)) 32%,
+        color-mix(in srgb, var(--well) 92%, var(--paper)) 100%
+    );
+    --notice-shadow: inset 0 1px 0 color-mix(in srgb, var(--rule-2) 72%, transparent),
+        inset 0 5px 6px -5px color-mix(in srgb, var(--rule-2) 92%, transparent),
+        inset 0 -1px 0 var(--bevel-hi),
+        0 1px 0 color-mix(in srgb, var(--paper) 55%, transparent);
+    --notice-edge: color-mix(in srgb, var(--rule-2) 58%, transparent);
+}
+html.dark .notice {
+    --notice-background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--well) 52%, var(--ink-base)) 0%,
+        var(--well) 34%,
+        color-mix(in srgb, var(--well) 88%, var(--paper)) 100%
+    );
+    --notice-shadow: inset 0 3px 5px -1px color-mix(in srgb, var(--ink-base) 94%, transparent),
+        inset 0 -1px 0 var(--bevel-hi),
+        0 1px 0 var(--bevel-hi);
+    --notice-edge: color-mix(in srgb, var(--rule-2) 86%, var(--ink-base));
+}
+.well.upright {
+    --well-wall: light-dark(
+        color-mix(in srgb, var(--bevel-lo) 92%, var(--ink-base)),
+        color-mix(in srgb, var(--bevel-lo) 82%, transparent)
+    );
+    --well-key: light-dark(
+        color-mix(in srgb, var(--paper) 70%, var(--well)),
+        color-mix(in srgb, var(--paper) 94%, var(--ink))
+    );
+    --well-key-hover: light-dark(
+        color-mix(in srgb, var(--paper) 96%, var(--well)),
+        color-mix(in srgb, var(--paper) 84%, var(--ink))
+    );
+    --well-texture: linear-gradient(
+            90deg,
+            color-mix(in srgb, var(--well-wall) 88%, transparent) 0,
+            color-mix(in srgb, var(--well-wall) 88%, transparent) 1px,
+            color-mix(in srgb, var(--well-wall) 46%, transparent) 1px,
+            transparent var(--well-wall-w)
+        ),
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--well-wall) 46%, transparent),
+            transparent 9px
+        ),
+        linear-gradient(
+            270deg,
+            var(--bevel-hi) 0,
+            var(--bevel-hi) 1px,
+            color-mix(in srgb, var(--bevel-hi) 46%, transparent) 1px,
+            transparent 5px
+        ),
+        linear-gradient(
+            0deg,
+            var(--bevel-hi) 0,
+            var(--bevel-hi) 1px,
+            color-mix(in srgb, var(--bevel-hi) 42%, transparent) 1px,
+            transparent 5px
+        );
+    --well-shadow: inset 2px 0 5px -3px var(--well-wall),
+        inset 0 3px 4px -3px color-mix(in srgb, var(--well-wall) 58%, transparent),
+        inset -2px 0 0 color-mix(in srgb, var(--bevel-hi) 72%, transparent),
+        inset 0 -2px 0 color-mix(in srgb, var(--bevel-hi) 88%, transparent);
+}
+.stamp {
+    --stamp-color: var(--stamp-bg, var(--seal));
+    --stamp-texture: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--bevel-hi) 32%, transparent),
+        transparent 9px,
+        var(--bevel-lo)
+    );
+    --stamp-shadow: inset 0 1px 0 var(--bevel-hi),
+        0 var(--stamp-depth, 0px) 0
+            color-mix(in srgb, var(--stamp-bg, var(--seal)) 62%, var(--ink-base)),
+        0 1px 1px var(--bevel-lo),
+        0 3px 7px color-mix(in srgb, var(--stamp-bg, var(--seal)) 28%, transparent);
+}
+.slot-btn:active:not(:disabled) .slot-stamp {
+    --stamp-color: color-mix(in srgb, var(--seal) 78%, var(--ink));
+    --stamp-texture: linear-gradient(180deg, var(--bevel-lo), transparent 58%);
+    --stamp-shadow: inset 0 2px 4px var(--bevel-lo);
+}
+.slot-btn.seal:hover:not(:disabled) .slot-stamp {
+    --stamp-color: color-mix(in srgb, var(--seal) 88%, var(--ink));
+}
+.stepped:active .step-thumb {
+    --stamp-shadow: inset 0 2px 4px var(--bevel-lo);
+}
+.vs-cell,
+.atoms-nav .nav-item {
+    --vs-rim-lo: light-dark(color-mix(in srgb, var(--rule-2) 46%, transparent), var(--bevel-lo));
+    --vs-rim-base: light-dark(color-mix(in srgb, var(--rule-2) 78%, transparent), var(--bevel-lo));
+    --vs-cell-color: var(--well-key);
+    --vs-cell-texture: radial-gradient(
+            120% 92% at 16% -8%,
+            color-mix(in srgb, var(--bevel-hi) 62%, transparent),
+            transparent 54%
+        ),
+        linear-gradient(
+            135deg,
+            light-dark(
+                    color-mix(in srgb, var(--paper-base) 9%, transparent),
+                    color-mix(in srgb, var(--ink) 4%, transparent)
+                )
+                0,
+            transparent 48%,
+            color-mix(in srgb, var(--ink-base) 9%, transparent) 100%
+        );
+    --vs-cell-shadow: inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
+        inset -1px 0 0 var(--vs-rim-lo),
+        inset 0 -2px 0 var(--vs-rim-base),
+        0 1px 0 var(--shadow),
+        0 3px 5px -3px var(--shadow-lg);
+}
+.vs-cell:hover,
+.atoms-nav .nav-item:hover {
+    --vs-cell-color: var(--well-key-hover);
+    --vs-cell-shadow: inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 78%, transparent),
+        inset -1px 0 0 var(--vs-rim-lo),
+        inset 0 -2px 0 var(--vs-rim-base),
+        0 2px 0 var(--shadow),
+        0 4px 7px -4px var(--shadow-lg);
+}
+.rail {
+    --rail-background: var(--paper);
+    --rail-sheen: color-mix(in srgb, var(--bevel-hi) 45%, transparent);
+    --rail-texture: linear-gradient(180deg, var(--rail-sheen), transparent var(--rail-brand-h));
+    --rail-shadow: inset -1px 0 0 var(--bevel-hi);
+}
+html.dark .rail {
+    --rail-sheen: color-mix(in srgb, var(--bevel-hi) 14%, transparent);
+}
+
+/* danger 只换语义颜色，尺寸与交互仍由原按钮负责。 */
+.danger-action {
+    --seal: var(--danger-fill);
+    --seal-edge: var(--danger-edge);
+    --on-seal: var(--on-danger);
+    --action-ink: var(--danger);
+    --ring: 2px solid var(--danger);
 }

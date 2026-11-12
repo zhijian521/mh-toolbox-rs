@@ -116,6 +116,7 @@ const chart = computed(() => chartPrices(props.item));
                         @click="emit('editPoint', row.point)"
                     />
                     <PressButton
+                        danger
                         icon="trash"
                         label="删除这条价格"
                         size="md"
@@ -128,7 +129,7 @@ const chart = computed(() => chartPrices(props.item));
 
         <template #footer>
             <PressButton text="改物品" label="编辑这件物品的名称与分类" @click="emit('editItem')" />
-            <PressButton text="删除物品" label="删除这件物品" @click="emit('removeItem')" />
+            <PressButton danger text="删除物品" label="删除这件物品" @click="emit('removeItem')" />
             <span class="foot-gap" />
             <PressButton text="关闭" label="关闭历史" @click="emit('close')" />
             <PressButton icon="add" text="记价" label="记一笔价格" seal @click="emit('log')" />

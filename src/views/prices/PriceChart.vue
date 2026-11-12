@@ -176,7 +176,7 @@ const summary = computed(() => {
     /* `.well` 的顶壁渐变按元素高度的 62% 解析：180 高的图上那是 112px 的一大片灰，
      * 上半张图会被糊掉。压到 18px（与 `.field` 处理同一个问题的手法），
      * 凹的感觉留住、脏影去掉。 */
-    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 18px);
+    background-image: var(--chart-texture);
 }
 /* 涨红跌绿（国内读法，与欧美相反）：涨取朱砂，跌取墨苔。
  * 朱在这套语言里只当**线**用，不当填充——见 `.chart-dot` 的说明。 */

@@ -184,6 +184,7 @@ function addLine(label: string) {
                             </span>
                         </div>
                         <PressButton
+                            danger
                             v-if="!fixedBase(item.row)"
                             class="row-delete"
                             icon="trash"
@@ -208,6 +209,7 @@ function addLine(label: string) {
                             :aria-label="item.row.label"
                         />
                         <PressButton
+                            danger
                             class="row-delete"
                             icon="trash"
                             label="删掉这一条状态"
@@ -232,6 +234,7 @@ function addLine(label: string) {
                             aria-label="特殊内容"
                         />
                         <PressButton
+                            danger
                             class="row-delete"
                             icon="trash"
                             label="删掉这一条效果"

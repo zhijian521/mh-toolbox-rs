@@ -226,7 +226,7 @@ const emptyText = computed(() => `这几天的${props.label}还是空的`);
     border-radius: var(--r-2);
     /* 凹槽的顶壁渐变按元素高度的 62% 解析，168 高的图上那是一大片灰；
      * 压到 18px 与 `PriceChart` 处理同一个问题的手法一致。 */
-    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 18px);
+    background-image: var(--chart-texture);
 }
 
 .chart-svg {

@@ -112,7 +112,9 @@ const cardLabel = computed(() => {
         <footer class="alarm-foot">
             <span class="alarm-acts">
                 <button type="button" class="alarm-act" @click="emit('edit')">改</button>
-                <button type="button" class="alarm-act" @click="emit('remove')">删</button>
+                <button type="button" class="alarm-act danger-action" @click="emit('remove')">
+                    删
+                </button>
             </span>
         </footer>
     </PaperCard>
@@ -228,7 +230,7 @@ const cardLabel = computed(() => {
     transition: color var(--t-quick) var(--ease-soft);
 }
 .alarm-act:hover {
-    color: var(--accent);
+    color: var(--action-ink);
 }
 .alarm-act:focus-visible {
     outline: var(--ring);
@@ -266,13 +268,13 @@ const cardLabel = computed(() => {
 .alarm-card[data-repeat='once'] {
     --board-paper: color-mix(in srgb, var(--ochre) 12%, var(--paper-2));
 }
-:global(html.dark) .alarm-card[data-repeat='hourly'] {
+:global(html.dark .alarm-card[data-repeat='hourly']) {
     --board-paper: color-mix(in srgb, var(--moss) 16%, var(--paper-2));
 }
-:global(html.dark) .alarm-card[data-repeat='weekly'] {
+:global(html.dark .alarm-card[data-repeat='weekly']) {
     --board-paper: color-mix(in srgb, var(--indigo-ink) 16%, var(--paper-2));
 }
-:global(html.dark) .alarm-card[data-repeat='once'] {
+:global(html.dark .alarm-card[data-repeat='once']) {
     --board-paper: color-mix(in srgb, var(--ochre) 16%, var(--paper-2));
 }
 

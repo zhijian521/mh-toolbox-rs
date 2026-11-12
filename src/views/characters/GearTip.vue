@@ -83,10 +83,10 @@ const requires = computed(() => props.detail?.requires?.join(' · ') ?? '');
      * 216 宽时值与标签会挤成两行，读起来像两条属性。 */
     width: 240px;
     padding: var(--block-pad-tight);
-    border: var(--w-hair) solid var(--rule-2);
-    background: var(--paper);
+    border: var(--w-hair) solid var(--popover-edge);
+    background: var(--popover-bg);
     /* 与整张卡片、测试面板同一枚「纸片抬起」的影子。 */
-    box-shadow: var(--shadow-lift);
+    box-shadow: var(--popover-shadow);
     /* 藏起来时不能留 tab 停靠点，也不能被读屏念到（`aria-hidden` 兜住内容）。 */
     visibility: hidden;
     opacity: 0;
@@ -105,13 +105,6 @@ const requires = computed(() => props.detail?.requires?.join(' · ') ?? '');
     opacity: 1;
     transform: none;
     transition-delay: 0s;
-}
-/* 暗色下投影是黑压黑，等于没有浮起；靠把纸面往纸白提一档表达「在上面一层」。
- * 只提一档不够——格子本身也是 paper-2，浮片会和身后的格子糊成一片。
- * 往 `--paper-base`（不翻面）提，不是往 `--paper`（暗色下是 #1c1912）提。
- * 暗色覆写整条写进 `:global()`：与 `AppRail` 的写法一致（§2.4-1）。 */
-:global(html.dark .gear-tip) {
-    background: color-mix(in srgb, var(--paper-2) 86%, var(--paper-base) 14%);
 }
 
 .tip-name {

@@ -169,6 +169,7 @@ async function save(input: GoalInput) {
 
 async function askRemove(goal: Goal) {
     const ok = await askConfirm({
+        danger: true,
         title: `删掉「${goal.title}」？`,
         note: goal.tracking
             ? '只是不再跟踪这一项，角色档案与其中的数值不受影响。'

@@ -50,6 +50,8 @@ withDefaults(
         disabled?: boolean;
         /** 块面灌朱：主操作，一屏一屏只该有一枚。 */
         seal?: boolean;
+        /** 危险操作使用独立状态色，填色与否仍由 seal 决定。 */
+        danger?: boolean;
         /**
          * 尺寸。`sm` 20 / `md` 26 / `lg` 31。
          *
@@ -57,7 +59,7 @@ withDefaults(
          */
         size?: 'sm' | 'md' | 'lg';
     }>(),
-    { text: '', disabled: false, seal: false, size: 'md' },
+    { text: '', disabled: false, seal: false, danger: false, size: 'md' },
 );
 </script>
 
@@ -65,7 +67,7 @@ withDefaults(
     <button
         type="button"
         class="press-btn"
-        :class="[`size-${size}`, { 'icon-only': icon && !text, seal }]"
+        :class="[`size-${size}`, { 'icon-only': icon && !text, seal, 'danger-action': danger }]"
         :title="label"
         :aria-label="label"
         :disabled="disabled"

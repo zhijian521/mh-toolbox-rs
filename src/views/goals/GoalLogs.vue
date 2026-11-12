@@ -50,6 +50,7 @@ function submit() {
 
 async function remove(logId: string) {
     const ok = await askConfirm({
+        danger: true,
         title: '删掉这一笔？',
         note: '累计进度会跟着回退。删了没法撤回，只能重记一笔。',
         confirmText: '删除',

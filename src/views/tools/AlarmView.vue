@@ -118,6 +118,7 @@ function onToggle(alarm: AlarmLike, enabled: boolean) {
 /* ---------- 删除 ---------- */
 async function askRemove(alarm: AlarmLike) {
     const ok = await askConfirm({
+        danger: true,
         title: `删掉 ${alarm.time} 这个闹钟？`,
         note: alarm.label ? `「${alarm.label}」删了没法撤回。` : '删了没法撤回。',
         confirmText: '删除',

@@ -309,77 +309,11 @@ svg {
  * 混出来的「暗面」会把槽提亮成凸起。`--ink-base` 是恒定的黑，两个主题同向。
  */
 .well.upright {
-    /* 墙色：`--bevel-lo` 亮色只有 12% 黑，直接铺在 `--well` 上读不出高低差，
-     * 与恒黑混到约 19% 才是一条墙。
-     *
-     * **上限就在这里，别再往上压。** 2026-11-06 头一版压到 28%、又给槽底另配了一道
-     * 深 14% 的底色，两处叠起来整条侧栏「黑乎乎」（用户原话）；第二轮压到 24% 之后
-     * 用户的下一句是「上边和左边的内阴影现在有点黑」。暗的那两壁只负责「让槽陷下去」，
-     * 交代深度的另一半交给下沿与右沿的亮线——那一半偏弱才是真的不立体。 */
-    --well-wall: light-dark(
-        color-mix(in srgb, var(--bevel-lo) 92%, var(--ink-base)),
-        color-mix(in srgb, var(--bevel-lo) 82%, transparent)
-    );
+    /* 壁厚固定像素，材质配方在 tokens.css，宽槽不随自身宽度加深。 */
     --well-wall-w: 10px;
 
-    /* 槽里那枚**浅纸键**（未选中的菜单格）。两处侧栏都引这两枚，别在组件里再调一遍：
-     * 亮色是「纸往台面偏一点」的实色——给半透明的话，格面上那层斜差（下面 `.vs-cell`
-     * 的 135° 渐变）会算不准，因为它得跟一张**不透明**的面混；
-     * 暗色反倒要直接混出一档亮，理由同上（半透明叠在近黑的槽上量不出差）。
-     * 相对槽底高约 10 阶：再亮就变成「一排按钮」，这套语言里格不该比印还凸。 */
-    --well-key: light-dark(
-        color-mix(in srgb, var(--paper) 70%, var(--well)),
-        color-mix(in srgb, var(--paper) 94%, var(--ink))
-    );
-    --well-key-hover: light-dark(
-        color-mix(in srgb, var(--paper) 96%, var(--well)),
-        color-mix(in srgb, var(--paper) 84%, var(--ink))
-    );
-
-    /* 槽底**不另压深**：深度交给壁与边，面仍旧是 `--well`。
-     * 纸被压下去之后槽底还是纸（只是矮了一层），把面也调暗就变成「另一种材质」了。 */
-    background-image:
-        /* 贴边 1px 是墙的厚度（实暗），之后 9px 化开——四段 stop 而不是两点渐变：
-         * 纯两点渐变在窄槽上读作「一层雾」，有那 1px 的实边才读作「一块壁」。
-         * 实边从 2px 收到 1px 是「浅一点」的一半：暗带的总量少 1px 饱和。 */
-        linear-gradient(
-            90deg,
-            color-mix(in srgb, var(--well-wall) 88%, transparent) 0,
-            color-mix(in srgb, var(--well-wall) 88%, transparent) 1px,
-            color-mix(in srgb, var(--well-wall) 46%, transparent) 1px,
-            transparent var(--well-wall-w)
-        ),
-        linear-gradient(
-            180deg,
-            color-mix(in srgb, var(--well-wall) 46%, transparent),
-            transparent 9px
-        ),
-        /* 右壁与底壁是**受光面**，2026-11-06 用户：「下面和右边的浅色阴影不太明显」。
-         * 从 3px 的淡渐变加宽到 5px、强度提到满（`--bevel-hi` 本身就是半透明的奶白），
-         * 并在贴边留 1px 全强度——一条实亮线加一段化开，才读得出「对面的壁被照亮」。
-         * 这是凹槽唯一会亮的地方，省不得。 */
-        linear-gradient(
-                270deg,
-                var(--bevel-hi) 0,
-                var(--bevel-hi) 1px,
-                color-mix(in srgb, var(--bevel-hi) 46%, transparent) 1px,
-                transparent 5px
-            ),
-        linear-gradient(
-            0deg,
-            var(--bevel-hi) 0,
-            var(--bevel-hi) 1px,
-            color-mix(in srgb, var(--bevel-hi) 42%, transparent) 1px,
-            transparent 5px
-        );
-    box-shadow:
-        /* 左壁的厚度影：2px 位移 + 5px 模糊，比一道 1px 线更像墙 */
-        inset 2px 0 5px -3px var(--well-wall),
-        inset 0 3px 4px -3px color-mix(in srgb, var(--well-wall) 58%, transparent),
-        /* 右沿与下沿：2px 的实亮线（原来是 1px 的 72% / 82%），走 `--bevel-hi` 满值。
-         * 暗色下它是 18% 白，压在近黑的槽壁上正好是一道能看见的边。 */
-        inset -2px 0 0 color-mix(in srgb, var(--bevel-hi) 72%, transparent),
-        inset 0 -2px 0 color-mix(in srgb, var(--bevel-hi) 88%, transparent);
+    background-image: var(--well-texture);
+    box-shadow: var(--well-shadow);
 }
 
 /* ---------- 印面：一块灌了朱色的凸面 ----------
@@ -395,23 +329,9 @@ svg {
  * （底色压深 + 渐变倒置），两种反馈不同，由各自的父级选择器决定。
  */
 .stamp {
-    background-color: var(--stamp-bg, var(--seal));
-    background-image: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--bevel-hi) 32%, transparent),
-        transparent 9px,
-        var(--bevel-lo)
-    );
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        /* 厚度：默认 0（贴在纸上的胶囊不需要这一道）。**按进槽里的印**要它——
-         * 侧栏那两枚拇指在槽里，没有实底边就只有一道软影，读作「红色贴在槽上」。
-         * 断面取「朱压黑」而不是 `--bevel-lo`：后者亮色只有 12% 黑，压在朱红下等于没画。
-         * 与 `PressTile` 的 `--seal-dp` 同一个手法（朱 62% + 恒黑 38%）。 */
-        0 var(--stamp-depth, 0px) 0
-            color-mix(in srgb, var(--stamp-bg, var(--seal)) 62%, var(--ink-base)),
-        0 1px 1px var(--bevel-lo),
-        0 3px 7px color-mix(in srgb, var(--stamp-bg, var(--seal)) 28%, transparent);
+    background-color: var(--stamp-color);
+    background-image: var(--stamp-texture);
+    box-shadow: var(--stamp-shadow);
 }
 
 /* ---------- 承载面 ----------

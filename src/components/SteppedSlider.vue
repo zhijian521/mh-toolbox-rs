@@ -150,7 +150,7 @@ const { cells, indexOf, tabIndexFor, onKeydown } = useRovingFocus<T>({
 }
 /* 拖动中只压内影：滑块按下去是「正在拖」，不是「被按」——不换底色。 */
 .stepped:active .step-thumb {
-    box-shadow: inset 0 2px 4px var(--bevel-lo);
+    box-shadow: var(--stamp-shadow);
 }
 /* 单选格：格本身的样式（字色、行高、白空间、过渡）来自全局 `.track-opt`，
  * 这里只有内边距。三格比两格窄，字两侧的留白要收紧到 8px——

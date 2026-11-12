@@ -89,9 +89,12 @@ const LICENSE_URL = 'https://polyformproject.org/licenses/noncommercial/1.0.0';
 .note.license-notice {
     margin: 8px 0 11px;
     padding: 8px 11px;
-    border-left: 2px solid var(--accent);
+    border-left: 2px solid var(--danger);
     border-radius: var(--r-1);
-    background: color-mix(in srgb, var(--accent) light-dark(5%, 11%), transparent);
+    background: light-dark(
+        color-mix(in srgb, var(--danger) 5%, transparent),
+        color-mix(in srgb, var(--danger) 11%, transparent)
+    );
 }
 
 /* 两行判词。左列 38 = 「不可以」三个字在 `--fs-xs` 下的宽度 + 一点余量，

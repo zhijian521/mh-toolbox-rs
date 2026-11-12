@@ -101,7 +101,7 @@ const cardLabel = computed(() =>
 <template>
     <button
         type="button"
-        class="card"
+        class="card activity-card"
         :class="[`t-${activity.tone}`, { reminded }]"
         :aria-label="cardLabel"
         @click="emit('open')"
@@ -181,7 +181,7 @@ const cardLabel = computed(() =>
  *
  * 方向在这里**反了**：暗色的类别色是亮色（moss 是 #86ab86），所以「掺得更多」等于
  * 「更亮」。悬停提亮就该加大比例，而亮色那边是减小。同一个语义，两个方向。 */
-:root.dark .card {
+:global(html.dark .activity-card) {
     --wash: 12%;
     --wash-hi: 18%;
     --wash-lo: 9%;
@@ -245,7 +245,7 @@ const cardLabel = computed(() =>
     --wash-lo: 9%;
 }
 
-:root.dark .card.t-month {
+:global(html.dark .activity-card.t-month) {
     --wash: 9%;
     --wash-hi: 14%;
     --wash-lo: 6%;

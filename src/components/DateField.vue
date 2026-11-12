@@ -510,13 +510,10 @@ onBeforeUnmount(() => {
      * 宽度跟着内容跳会让下面的表格跟着抽一下。 */
     width: calc(234px * var(--fs-scale));
     padding: 6px;
-    border: var(--w-hair) solid var(--rule-2);
+    border: var(--w-hair) solid var(--popover-edge);
     border-radius: var(--r-2);
-    background: var(--paper);
-    box-shadow: var(--shadow-lift);
-}
-:global(html.dark .date-panel) {
-    background: color-mix(in srgb, var(--paper-2) 86%, var(--paper-base) 14%);
+    background: var(--popover-bg);
+    box-shadow: var(--popover-shadow);
 }
 
 .date-head {

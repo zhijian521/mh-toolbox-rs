@@ -113,6 +113,7 @@ async function exportLedger() {
 /** 导入先问：这一步整体顶掉现有账本，问句里必须写着「替换」。 */
 async function askImport() {
     const ok = await askConfirm({
+        danger: true,
         title: '用选中的备份替换现在的账本？',
         note: '全部账本数据（角色、物价、收益流水、速记单价、账号记录与目标）会被整份替换。动手前会自动备份一份，回执里写着它的位置。',
         confirmText: '替换',
@@ -129,6 +130,7 @@ async function askImport() {
  */
 async function askClear() {
     const ok = await askConfirm({
+        danger: true,
         title: '清空全部账本数据？',
         note: '角色、物价、收益流水、速记单价、上线记录与点卡口径、账号记录与目标都会清空。清除前不会自动备份，想留一份就先「导出」。主题与字号不受影响。',
         confirmText: '清除',
@@ -218,6 +220,7 @@ onMounted(() => {
             <div class="form-row">
                 <span class="field-label">清除</span>
                 <SlotButton
+                    danger
                     seal
                     icon="trash"
                     label="清空全部账本数据"

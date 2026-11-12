@@ -287,8 +287,6 @@ function onPointerCancel(event: PointerEvent) {
     --icon-size: var(--vs-ico);
     /* 两条背光棱。**两档不能共用一个值**：`--rule-2` 在暗色比块面亮，照用会在底边
      * 画出一条发光的线，光向就反了。 */
-    --vs-rim-lo: light-dark(color-mix(in srgb, var(--rule-2) 46%, transparent), var(--bevel-lo));
-    --vs-rim-base: light-dark(color-mix(in srgb, var(--rule-2) 78%, transparent), var(--bevel-lo));
 
     position: relative;
     z-index: 1;
@@ -317,37 +315,16 @@ function onPointerCancel(event: PointerEvent) {
      * 混在一起就要用两套算法去调同一格。 */
     margin: 0 3px;
     /* 按钮本体的重置在 `base.css`（`button { font: inherit }`），这里不再重复。 */
-    background-color: var(--well-key);
+    background-color: var(--vs-cell-color);
     /* 与 `.board` 同一套「被顶起来的一张纸」：左上偏光 + 135° 斜差。
      * 两端都用**半透明**的叠加（纸白 9% / 墨黑 9%），不是不透明的实体色——
      * 只有这样悬停换 `background-color` 时底下的浅纸才透得上来，否则渐变把底色全盖住，
      * 悬停只有四条棱在动。暗色两端各收一档（4% / 4%），理由同 `.board`：
      * 暗底上的 9% 就是「半张纸打了光、半张没打」。 */
-    background-image:
-        radial-gradient(
-            120% 92% at 16% -8%,
-            color-mix(in srgb, var(--bevel-hi) 62%, transparent),
-            transparent 54%
-        ),
-        linear-gradient(
-            135deg,
-            light-dark(
-                    color-mix(in srgb, var(--paper-base) 9%, transparent),
-                    color-mix(in srgb, var(--ink) 4%, transparent)
-                )
-                0,
-            transparent 48%,
-            color-mix(in srgb, var(--ink-base) 9%, transparent) 100%
-        );
+    background-image: var(--vs-cell-texture);
     /* 四棱不对称 + 一层很薄的落地：上、左受光（1px），下 2px、右 1px 背光，
      * 落地只有 1px 硬影 + 3px 软影——格与格之间只有 5px 缝，影再长就糊到下一格上。 */
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
-        inset -1px 0 0 var(--vs-rim-lo),
-        inset 0 -2px 0 var(--vs-rim-base),
-        0 1px 0 var(--shadow),
-        0 3px 5px -3px var(--shadow-lg);
+    box-shadow: var(--vs-cell-shadow);
     color: var(--ink-2);
     cursor: pointer;
     transition:
@@ -360,14 +337,8 @@ function onPointerCancel(event: PointerEvent) {
  * 悬停时块反而变成没有厚度的色块。落地也跟着抬一档，与 `PressTile` 的悬停同一个意思。 */
 .vs-cell:hover {
     color: var(--ink);
-    background-color: var(--well-key-hover);
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 78%, transparent),
-        inset -1px 0 0 var(--vs-rim-lo),
-        inset 0 -2px 0 var(--vs-rim-base),
-        0 2px 0 var(--shadow),
-        0 4px 7px -4px var(--shadow-lg);
+    background-color: var(--vs-cell-color);
+    box-shadow: var(--vs-cell-shadow);
 }
 .vs-cell.muted {
     color: var(--muted);

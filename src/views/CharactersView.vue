@@ -108,6 +108,7 @@ async function askRemove(character: CharacterData) {
         .map((goal) => `「${goal.title}」`)
         .join('、');
     const ok = await askConfirm({
+        danger: true,
         title: `删掉「${name}」？`,
         note: related.length
             ? `删了之后名册里就没有这个人了，没法撤回。他还在 ${related.length} 个目标里` +

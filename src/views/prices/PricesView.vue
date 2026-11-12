@@ -260,6 +260,7 @@ async function onSavePoint(draft: PricePointDraft) {
 async function askRemoveItem(item: PriceItem) {
     const count = item.points.length;
     const ok = await askConfirm({
+        danger: true,
         title: `删掉「${item.name}」这张卡？`,
         note: count
             ? `它下面的 ${count} 条价格记录会一并删掉，删了没法撤回。`
@@ -296,6 +297,7 @@ async function askRemovePoint(point: PricePoint) {
     const item = historyItem.value;
     if (!item) return;
     const ok = await askConfirm({
+        danger: true,
         title: `删掉 ${shortDate(point.date)} 的价格记录？`,
         note: '只删这一条，物品本身还留着。删了没法撤回。',
         confirmText: '删除',

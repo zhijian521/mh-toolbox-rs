@@ -56,7 +56,12 @@ export default async function run(ctx) {
                 const board = document.createElement('div');
                 board.className = 'board';
                 board.style.setProperty('--board-face', 'var(--moss)');
-                fixture.append(mark, error, reference, board);
+                const clear = document.querySelector('[aria-label="清空全部账本数据"]');
+                const clearStamp = clear?.querySelector('.slot-stamp');
+                const beforeDanger = clearStamp ? getComputedStyle(clearStamp).backgroundColor : '';
+                const popover = document.createElement('div');
+                popover.className = 'pet-picker-panel';
+                fixture.append(mark, error, reference, board, popover);
                 const tile = document.querySelector('.press-tile')?.cloneNode(true);
                 if (tile) {
                     tile.className = 'press-tile still';
@@ -64,10 +69,13 @@ export default async function run(ctx) {
                     fixture.append(tile);
                 }
                 document.body.append(fixture);
+                const originalPopover = root.style.getPropertyValue('--popover-bg');
+                const popoverPriority = root.style.getPropertyPriority('--popover-bg');
                 try {
                     const beforeError = getComputedStyle(error).color;
                     const beforeClass = root.className;
                     root.style.setProperty('--accent', 'var(--moss)');
+                    root.style.setProperty('--popover-bg', 'var(--moss)');
                     const color = getComputedStyle(reference).color;
                     return {
                         accent: getComputedStyle(mark).backgroundColor === color,
@@ -75,16 +83,27 @@ export default async function run(ctx) {
                         mode: root.className === beforeClass,
                         board: getComputedStyle(board).backgroundColor === color,
                         tile: !!tile && getComputedStyle(tile).backgroundColor === color,
+                        danger:
+                            !!clear?.classList.contains('danger-action') && !!clearStamp &&
+                            getComputedStyle(clearStamp).backgroundColor === beforeDanger,
+                        popover: getComputedStyle(popover).backgroundColor === color,
+                        rootFilter: getComputedStyle(root).filter === 'none',
                     };
                 } finally {
                     if (original) root.style.setProperty('--accent', original, priority);
                     else root.style.removeProperty('--accent');
+                    if (originalPopover) {
+                        root.style.setProperty('--popover-bg', originalPopover, popoverPriority);
+                    } else root.style.removeProperty('--popover-bg');
                     fixture.remove();
                 }
             })()`);
             t.check('主色覆写同步区块标', result.accent);
             t.check('主色覆写不改变错误色或明暗档位', result.error && result.mode);
             t.check('纸卡与压印块的局部染色仍生效', result.board && result.tile);
+            t.check('清除按钮保留危险色', result.danger);
+            t.check('选择器浮层使用共用材质', result.popover);
+            t.check('图标滤镜未落到整页', result.rootFilter);
         });
 
         /*

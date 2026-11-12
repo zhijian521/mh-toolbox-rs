@@ -202,11 +202,8 @@ async function undo(group: ItemGroup) {
     height: 26px;
     object-fit: contain;
     /* 与左栏同一道「纸化」：小图不调会像贴纸。 */
-    filter: sepia(0.22) saturate(0.86) contrast(0.98);
-    opacity: 0.94;
-}
-:global(html.dark) .g img {
-    filter: sepia(0.18) saturate(0.8) brightness(0.86);
+    filter: var(--item-icon-filter);
+    opacity: var(--item-icon-opacity);
 }
 /* 没有图标时的兜底：物品名压到与图标同大的一格，两行之内收住。 */
 .g .txt {

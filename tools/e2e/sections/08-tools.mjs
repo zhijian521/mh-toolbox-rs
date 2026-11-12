@@ -274,6 +274,27 @@ export default async function run(ctx) {
             const groups = await ui.count('.group');
             t.check('活动按时间分了组', groups >= 4, `${groups} 组`);
 
+            const darkWash = await cdp.evaluate(`(() => {
+                const root = document.documentElement;
+                const wasDark = root.classList.contains('dark');
+                const card = document.querySelector('.activity-card:not(.t-month)');
+                const monthly = document.querySelector('.activity-card.t-month');
+                if (!card || !monthly) return false;
+                const wash = (element) => ['--wash', '--wash-hi', '--wash-lo']
+                    .map((name) => getComputedStyle(element).getPropertyValue(name).trim()).join('|');
+                try {
+                    root.classList.remove('dark');
+                    const light = wash(card);
+                    const lightMonthly = wash(monthly);
+                    root.classList.add('dark');
+                    return wash(card) !== light && wash(monthly) !== lightMonthly &&
+                        getComputedStyle(root).filter === 'none';
+                } finally {
+                    root.classList.toggle('dark', wasDark);
+                }
+            })()`);
+            t.check('普通与月度活动的暗色配方均能命中，整页无图标滤镜', darkWash);
+
             const added = await cdp.evaluate(`(async () => {
                 const card = [...document.querySelectorAll('.card')].find(
                     (one) => one.querySelector('.name')?.textContent?.trim() === '科举大赛',

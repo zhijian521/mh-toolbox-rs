@@ -119,7 +119,7 @@ onUnmounted(() => {
 <style scoped>
 /* ---------- 形态：无框淡影 + 靛底 ----------
  * 没有边、没有内衬、没有箭头，只有一块冷靛的纸 + 两道影。
- * 底与字都走令牌（`--indigo` / `--indigo-ink`，`light-dark()` 一处管两套主题），
+ * 底与字都走令牌（`--tooltip-bg` / `--tooltip-ink`，`light-dark()` 一处管两套主题），
  * 这里不写任何色值——色相的取舍在 `tokens.css` 里说。
  */
 .hover-tip {
@@ -130,13 +130,11 @@ onUnmounted(() => {
     max-width: 280px;
     padding: 5px 9px 6px;
     border-radius: var(--r-3);
-    background: var(--indigo);
+    background: var(--tooltip-bg);
     /* 两道：贴边 4px 的一圈轻影 + 远而软的一层。明度差已经不是主要判据（色相差在撑），
      * 影只负责「离开桌面一点点」这件事，别做重。 */
-    box-shadow:
-        0 2px 4px var(--shadow),
-        0 10px 22px -10px var(--shadow-lg);
-    color: var(--indigo-ink);
+    box-shadow: var(--tooltip-shadow);
+    color: var(--tooltip-ink);
     font-size: var(--fs-xs);
     line-height: 1.6;
     letter-spacing: 0.02em;

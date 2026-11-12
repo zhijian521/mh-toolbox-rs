@@ -168,6 +168,7 @@ async function save(patch: { amount: number; item: string; characterId: string }
 /** 删：先问一句。账本里没有回收站，这一步不可逆。 */
 async function remove(one: IncomeEntry) {
     const ok = await askConfirm({
+        danger: true,
         title: `删掉「${one.item || '未记物品'}」这一条？`,
         note: `${amountText(one.amount)}。删了不能撤回。`,
         confirmText: '删除',
@@ -300,6 +301,7 @@ async function remove(one: IncomeEntry) {
                                     @click="editing = one"
                                 />
                                 <PressButton
+                                    danger
                                     icon="trash"
                                     label="删这一条"
                                     size="md"
@@ -587,11 +589,8 @@ async function remove(one: IncomeEntry) {
     height: 20px;
     object-fit: contain;
     /* 与速记格同一道「纸化」：别处调过、这里不调，同一件物品在两张屏上是两种饱和度。 */
-    filter: sepia(0.22) saturate(0.86) contrast(0.98);
-    opacity: 0.94;
-}
-:global(html.dark) .item-cell img {
-    filter: sepia(0.18) saturate(0.8) brightness(0.86);
+    filter: var(--item-icon-filter);
+    opacity: var(--item-icon-opacity);
 }
 .item-name {
     min-width: 0;

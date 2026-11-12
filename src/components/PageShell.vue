@@ -58,12 +58,6 @@ withDefaults(defineProps<{ title: string; desc?: string; surface?: boolean }>(),
  * 而右侧那条滚动条轨道（`--scrollbar-w`）会让抵消量左右不等，台面右缘与页头右端差一条轨道。
  */
 .page-content.surface {
-    background: var(--well);
-}
-
-/* 暗色下 `--well` 与 `--paper` 只差 6 阶（#171409 / #1c1912），卡片是「比台面亮的那块纸」
- * 才浮得起来，所以台面再压深一档。这一步不能省——省了就等于没开 `surface`。 */
-:root.dark .page-content.surface {
-    background: color-mix(in srgb, var(--well) 66%, var(--ink-base));
+    background: var(--page-surface);
 }
 </style>

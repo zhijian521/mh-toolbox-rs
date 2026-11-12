@@ -97,6 +97,7 @@ const { icon: slotIcon } = useGearIcon();
             >
                 <template #name-extra>
                     <PressButton
+                        danger
                         icon="trash"
                         :label="'删除' + active.slot + '这件装备'"
                         :disabled="reading || !clearable"

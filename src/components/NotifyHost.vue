@@ -32,7 +32,7 @@ import { useNotifyState } from '../composables/use-notify';
  * 现在亮色的面只压一档、且是**暖压**（`--well` 掺 `--rule-2`，约 `#e0d4b7`），深度改由
  * **沿口**承担：上沿一道 1px 硬边说明「这里被压住」，紧接着 5px 内的短影只压内壁，
  * 下沿一道亮线把它抬回来。面浅了，边反而更用力——这是「不黑但仍有厚度」的唯一做法。
- * 暗色整条不动（`:global(html.dark .notice)` 那一段），那里压到近黑才有层次。
+ * 暗色材质见 `tokens.css` 的 `html.dark .notice`，那里压到近黑才有层次。
  *
  * ---- 语气：一枚空心圆印 + 一道计时线 ----
  * 语气色不落在整条边上（3px 竖条与文字挨得近、重心偏左），而落在一枚 15px 的空心圆印上：
@@ -120,7 +120,7 @@ function onResume(id: number) {
 
 /* ---------- 槽 ----------
  * 亮色：面只压一档、且是暖压；深度全交给沿口（1px 硬边 → 5px 短影 → 下沿亮线 →
- * 外沿一线纸白）。暗色另给一整段，见下面的 `:global(html.dark .notice)`。
+ * 外沿一线纸白）。亮暗材质统一在 `tokens.css` 的 `.notice`。
  *
  * `overflow: hidden` 是给槽底那条计时线的：它贴着底边跑，不裁就被圆角切出两个方头。
  * 焦点环画在 outline 上，不受影响。 */
@@ -143,38 +143,12 @@ function onResume(id: number) {
     overflow: hidden;
     overflow-wrap: anywhere;
     border-radius: var(--r-2);
-    border: var(--w-hair) solid color-mix(in srgb, var(--rule-2) 58%, transparent);
-    background: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--well) 86%, var(--rule-2)) 0%,
-        color-mix(in srgb, var(--well) 96%, var(--paper)) 32%,
-        color-mix(in srgb, var(--well) 92%, var(--paper)) 100%
-    );
-    box-shadow:
-        inset 0 1px 0 color-mix(in srgb, var(--rule-2) 72%, transparent),
-        inset 0 5px 6px -5px color-mix(in srgb, var(--rule-2) 92%, transparent),
-        inset 0 -1px 0 var(--bevel-hi),
-        0 1px 0 color-mix(in srgb, var(--paper) 55%, transparent);
+    border: var(--w-hair) solid var(--notice-edge);
+    background: var(--notice-background);
+    box-shadow: var(--notice-shadow);
     cursor: default;
     user-select: none;
     pointer-events: auto;
-}
-
-/* 暗色的面要压到近黑才有层次（`--well` 与 `--paper` 只差一档，浅压等于没压）。
- * 这一整段是从亮色那条摘出来的：阴影层数也不同（暗色不要那两笔细边，只要一道厚内影），
- * 而 `light-dark()` 只能换颜色、换不了层数，所以按主题各写一份。 */
-:global(html.dark .notice) {
-    border-color: color-mix(in srgb, var(--rule-2) 86%, var(--ink-base));
-    background: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--well) 52%, var(--ink-base)) 0%,
-        var(--well) 34%,
-        color-mix(in srgb, var(--well) 88%, var(--paper)) 100%
-    );
-    box-shadow:
-        inset 0 3px 5px -1px color-mix(in srgb, var(--ink-base) 94%, transparent),
-        inset 0 -1px 0 var(--bevel-hi),
-        0 1px 0 var(--bevel-hi);
 }
 
 /* 键盘停在这道槽上时的环。它可聚焦就必须看得见焦点——否则 Tab 一下屏幕毫无变化，

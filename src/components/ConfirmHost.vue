@@ -12,7 +12,7 @@ import { useConfirmState } from '../composables/use-confirm';
  * 页面侧的用法：
  *
  * ```ts
- * if (!(await askConfirm({ title: '清空所有角色与物价？', confirmText: '清除' }))) return;
+ * if (!(await askConfirm({ title: '清空所有角色与物价？', confirmText: '清除', danger: true }))) return;
  * ```
  */
 const { pending, settle } = useConfirmState();
@@ -27,6 +27,7 @@ const { pending, settle } = useConfirmState();
         :note="pending.note"
         :confirm-text="pending.confirmText"
         :cancel-text="pending.cancelText"
+        :danger="pending.danger"
         @confirm="settle(true)"
         @cancel="settle(false)"
     />

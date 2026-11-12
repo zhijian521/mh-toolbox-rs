@@ -450,6 +450,17 @@ types/          全局声明与模块增强（`router-meta.d.ts`、`vue-augment.
    不提到 `:root`：自定义属性会在声明处求值，放到根上会丢失门派和局部染色。
    覆写材质也要命中对应元素与状态；普通色值和字体才从根继承。Canvas 先用浏览器求值颜色、字体，
    缓存包含实际令牌与 `color-scheme`，不以亮暗两态代替完整外观。
+
+    **浮层与图标按用途取材质**：选择列表、日期面板、装备浮片、召唤兽选择器共用
+    `--popover-bg/edge/shadow`；弹窗用 `--modal-bg/edge/shadow/mask`，文字提示用
+    `--tooltip-bg/ink/shadow`。通知、印面与导航键的明暗和状态配方同样收在 `tokens.css`。
+    物品图标用 `--item-icon-filter/opacity`，技能图标用 `--skill-icon-filter`；不把图片滤镜
+    挂到根元素，也不靠页面的暗色规则另配一套滤镜。
+
+    **危险动作显式传 `danger`**：`PressButton`、`SlotButton` 与 `askConfirm` 共用这一语义，
+    `seal` 只决定是否填色，两者可组合。危险操作使用 `--danger-fill/edge` 与 `--on-danger`
+    成套配色，不随主色变化；不根据按钮文字推断。保留原生小按钮时加 `danger-action`，
+    悬停字色读 `--action-ink`，焦点读 `--ring`，不另写红色色号。清空筛选属于普通动作。
 2. **字号只能来自 `--fs-*`**，每个令牌已经乘过 `--fs-scale`，禁止 `font-size: 14px`。六档
    `--fs-mini` / `--fs-xs` / `--fs-sm` / `--fs-base` / `--fs-md` / `--fs-xl`；另有 `--fs-amount`
    （`base × 1.4`）只给金额读数——它是**语义档**不是第七档，别拿它排正文。字号表在 `tokens.css`，
@@ -1101,7 +1112,7 @@ offsetHeight` 与 `scrollTop / clientHeight`，直接写 `scrollTop`）；⑤ **
 47. **卡片 = 台面上的一张纸（`PaperCard`），内容区不再用文武线框**（2026-11-05，用户：「把我们所有
     的原本卡片全部优化为这个样式」）。外壳是 `components/PaperCard.vue` → 全局 `.board`，页面内容区由
     `PageShell` 的 `surface`（**默认开**）铺一层台面托住它。五条：
-    - **材质只有一份**，写在 `base.css` 的 `.board`：圆角 6px、上亮下暗的棱、下沿 3px 的「纸的断面」
+    - **材质只有一份**，配方在 `tokens.css` 的 `.board`，`base.css` 负责消费：圆角 6px、上亮下暗的棱、下沿 3px 的「纸的断面」
       （`--rule-2`，不是半透明黑）、3px 硬影 + 10px 软影、左上偏光 + 135° 斜向渐变。改厚度只改这一处；
       **使用方不准再抄一份 `box-shadow`**（角色卡只覆盖底色，厚度照旧借 `.board`）。
     - **卡片必须躺在台面上**。`.page-content.surface` 铺 `--well`（暗色 `color-mix(well 66%, --ink-base)`）。
@@ -1113,7 +1124,7 @@ offsetHeight` 与 `scrollTop / clientHeight`，直接写 `scrollTop`）；⑤ **
       覆盖 `--board-face`，混色锚点仍用 `--board-paper`，否则它会比别人白一档。
     - **斜差按主题分档**：亮色 3/9、暗色 4/4（三轮调下来的数：4/8 → 4/12 → 3/9，暗色 14/12 → 7/6
       → 4/4）。亮色的斜差只能靠暗端压深——纸已最亮，提亮没有余量；暗色 4% 是「看得出方向、说不出
-      哪里不一样」的下限，再收就只剩偏光在撑。两档都写在 `.board` 的注释里，改数前先读那一段。
+      哪里不一样」的下限，再收就只剩偏光在撑。两档都写在 `tokens.css` 的 `.board` 配方里，改数前先读那一段。
     - **`.frame` 只留给浮层**：角色编辑器、捉鬼测试面板这些「盖在纸上的东西」仍是线框；摆在台面上的
       内容卡一律 `.board`。两者不是同一类物件，别互相借样式，也别把 `.frame` 的 `::before` 内衬线
       带进纸片里。

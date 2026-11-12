@@ -49,6 +49,7 @@ const { devMode } = useDevMode();
  */
 async function importDemo() {
     const ok = await askConfirm({
+        danger: true,
         title: '用模拟数据替换现在的角色与物价？',
         note: `${DEMO_COUNTS.characters} 个角色、${DEMO_COUNTS.prices} 件物价会整份顶掉现在的内容，撤不回来。想留一份就先到设置页「导出」。主题与字号不受影响。`,
         confirmText: '导入',
@@ -75,7 +76,7 @@ async function importDemo() {
                         进来：三连击左栏顶部的标（朱印「梦」），或地址栏补 <code>#/dev</code>。
                     </p>
                     <p class="note">
-                        主题只改 <code>color-scheme</code>，字号只改 <code>--fs-scale</code>
+                        明暗只改 <code>color-scheme</code>，字号只改 <code>--fs-scale</code>
                         （0.92 / 1 / 1.1）。
                     </p>
                 </LedgerSection>

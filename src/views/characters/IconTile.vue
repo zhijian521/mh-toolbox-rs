@@ -95,6 +95,6 @@ watch(
      *
      * `brightness(1.05)` 是原有的一档，撤纱后仍留：深底图标压在深一档的块面上，
      * 不提一点会显得比旁边的字闷。 */
-    filter: sepia(0.42) saturate(0.72) contrast(0.95) brightness(1.05);
+    filter: var(--skill-icon-filter);
 }
 </style>

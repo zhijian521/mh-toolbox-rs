@@ -108,6 +108,7 @@ defineExpose({ focusName });
                          那一只，不再像上一版那样每格各留一枚压在角落。 -->
                     <template #name-extra>
                         <PressButton
+                            danger
                             icon="trash"
                             :label="`删除第 ${selected + 1} 只召唤兽：${petName(current)}`"
                             :disabled="reading"

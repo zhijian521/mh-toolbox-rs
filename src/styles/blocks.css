@@ -146,17 +146,14 @@
     padding: 10px;
     overflow-y: auto;
     overscroll-behavior: contain;
-    border: var(--w-hair) solid var(--rule-2);
+    border: var(--w-hair) solid var(--popover-edge);
     border-radius: var(--r-2);
-    background: var(--paper);
-    box-shadow: var(--shadow-lift);
+    background: var(--popover-bg);
+    box-shadow: var(--popover-shadow);
 }
 .pet-picker-panel.up {
     top: auto;
     bottom: calc(100% + 6px);
-}
-html.dark .pet-picker-panel {
-    background: color-mix(in srgb, var(--paper-2) 86%, var(--paper-base) 14%);
 }
 .pet-picker-tools {
     display: flex;

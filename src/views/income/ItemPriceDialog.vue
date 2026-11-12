@@ -115,6 +115,7 @@ function onEnter(event: KeyboardEvent) {
             <!-- 清除放最左、与两个动作隔开：它既不是「取消」也不是「保存」，
                  把三枚并成一排会让人以为「清除」是另一种确定。 -->
             <PressButton
+                danger
                 v-if="canClear"
                 class="foot-left"
                 icon="trash"

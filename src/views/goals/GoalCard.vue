@@ -68,7 +68,12 @@ const readout = computed(() => {
                 <button class="tool" aria-label="编辑目标" title="编辑目标" @click="emit('edit')">
                     <AppIcon name="edit" />
                 </button>
-                <button class="tool" aria-label="删除目标" title="删除目标" @click="emit('remove')">
+                <button
+                    class="tool danger-action"
+                    aria-label="删除目标"
+                    title="删除目标"
+                    @click="emit('remove')"
+                >
                     <AppIcon name="trash" />
                 </button>
             </div>
@@ -239,6 +244,10 @@ const readout = computed(() => {
 .tool:hover {
     background: var(--paper-2);
     color: var(--ink);
+}
+.tool.danger-action:hover,
+.tool.danger-action:focus-visible {
+    color: var(--action-ink);
 }
 .goal-meta {
     display: flex;

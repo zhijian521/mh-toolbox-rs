@@ -46,6 +46,8 @@ withDefaults(
         disabled?: boolean;
         /** 印已落定：印面常驻、字压在印上。用于主操作，一屏只该有一枚。 */
         seal?: boolean;
+        /** 危险操作与主色分开，保留原有槽与印面交互。 */
+        danger?: boolean;
         /**
          * 尺寸预设。`md` 是默认（26px，且听父级 `--slot-h`），`lg` 31px。
          *
@@ -59,7 +61,7 @@ withDefaults(
          */
         size?: 'md' | 'lg';
     }>(),
-    { text: '', disabled: false, seal: false, size: 'md' },
+    { text: '', disabled: false, seal: false, danger: false, size: 'md' },
 );
 </script>
 
@@ -67,7 +69,7 @@ withDefaults(
     <button
         type="button"
         class="slot-btn well"
-        :class="[`size-${size}`, { 'icon-only': icon && !text, seal }]"
+        :class="[`size-${size}`, { 'icon-only': icon && !text, seal, 'danger-action': danger }]"
         :title="label"
         :aria-label="label"
         :disabled="disabled"
@@ -162,9 +164,9 @@ withDefaults(
 
 /* 按下：印被压进槽底的凹痕。 */
 .slot-btn:active:not(:disabled) .slot-stamp {
-    background-color: color-mix(in srgb, var(--seal) 78%, var(--ink));
-    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 58%);
-    box-shadow: inset 0 2px 4px var(--bevel-lo);
+    background-color: var(--stamp-color);
+    background-image: var(--stamp-texture);
+    box-shadow: var(--stamp-shadow);
 }
 
 /* ---------- 变体：印已落定（主操作） ----------
@@ -180,7 +182,7 @@ withDefaults(
     transform: scale(1);
 }
 .slot-btn.seal:hover:not(:disabled) .slot-stamp {
-    background-color: color-mix(in srgb, var(--seal) 88%, var(--ink));
+    background-color: var(--stamp-color);
 }
 
 /* 禁用：不给第二套配色。半透明就够——禁用态的信息是「点不动」，不是「另一种状态」。 */

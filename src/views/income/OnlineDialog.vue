@@ -186,6 +186,7 @@ async function remove() {
     const one = props.session;
     if (!one) return;
     const ok = await askConfirm({
+        danger: true,
         title: '删掉这一段上线记录？',
         note: '删了不能撤回，当天的点卡也会跟着减。',
         confirmText: '删除',
@@ -272,6 +273,7 @@ const submitText = computed(() =>
 
         <template #footer>
             <PressButton
+                danger
                 v-if="editing"
                 class="foot-left"
                 icon="trash"

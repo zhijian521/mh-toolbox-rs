@@ -406,7 +406,7 @@ const demoToggles = ref<string[]>(['task']);
                             <SlotButton label="纯图标" icon="archive" />
                             <SlotButton label="图标加文字" icon="download" text="导出" />
                             <SlotButton label="纯文字" text="刷新" />
-                            <SlotButton label="禁用" icon="trash" text="清除" disabled />
+                            <SlotButton danger label="禁用" icon="trash" text="清除" disabled />
                             <SlotButton label="主操作 26px" icon="play" text="开始" seal />
                             <SlotButton
                                 label="主操作 31px"
@@ -421,6 +421,15 @@ const demoToggles = ref<string[]>(['task']);
                             <code>text</code> / 只 <code>text</code>）。<code>seal</code>
                             是变体，印面常驻， 一屏一枚；尺寸 <code>md</code> 26 /
                             <code>lg</code> 31。
+                        </p>
+                        <div class="kit-row">
+                            <PressButton danger icon="trash" text="删除" label="危险纸按钮" />
+                            <PressButton danger seal text="清除" label="危险填色按钮" />
+                            <SlotButton danger icon="trash" text="删除" label="危险槽按钮" />
+                            <SlotButton danger seal text="清除" label="危险填色槽按钮" />
+                        </div>
+                        <p class="note">
+                            <code>danger</code> 使用独立危险色；<code>seal</code> 控制填色，尺寸沿用原档。
                         </p>
                     </div>
 
@@ -734,21 +743,9 @@ const demoToggles = ref<string[]>(['task']);
     pointer-events: none;
 }
 
-/* 一格 = 图标 + 组名 + 件数，横排、定高 34。
- *
- * 未选中是一枚**浅纸键**（与主侧栏同一轮改动，底色同取 `--well-key`）：材质照 `PressTile`
- * 抄——左上偏光 + 135° 斜差 + 四棱不对称 + 一层很薄的落地。这一列是 118×34 的宽扁块，
- * 偏光用百分比（120% 92%）就够，不必像 `wide` 那样换成固定像素。
- *
- * 选中那格要把这块浅纸**整块撤掉**（背景与四条棱一起），露出下面那枚朱印；
- * 只清 `background` 不够，上沿那条受光线会留在朱印边上成一道白边。
- *
- * 图标 15 与格高都乘 `--fs-scale`：主侧栏的 `.vs-ico` 也是 15，两处的图标必须同大。 */
+/* 导航与主侧栏复用同一套浅纸键材质，这里只保留横排几何。 */
 .nav-item {
     --icon-size: calc(15px * var(--fs-scale));
-    /* 两条背光棱。两档不能共用一个值：`--rule-2` 在暗色比块面亮，照用会在底边发光。 */
-    --nav-rim-lo: light-dark(color-mix(in srgb, var(--rule-2) 46%, transparent), var(--bevel-lo));
-    --nav-rim-base: light-dark(color-mix(in srgb, var(--rule-2) 78%, transparent), var(--bevel-lo));
 
     position: relative;
     z-index: 1;
@@ -758,35 +755,11 @@ const demoToggles = ref<string[]>(['task']);
     padding: 0 11px 0 12px;
     border: 0;
     border-radius: var(--r-2);
-    /* 与朱印**同宽**（2026-11-06，同主侧栏）：印左右各让 2（`left/right: 6`，槽内衬 4），
-     * 格就跟着让 2，两者边界才落在同一条线上——未选中与选中是一颗按钮的两种状态，
-     * 不是两种宽度。 */
+    /* 与拇指两侧各让 2px，切换前后边界才一致。 */
     margin: 0 2px;
-    background-color: var(--well-key);
-    /* 两端半透明叠加，悬停换底色时底下的浅纸才透得上来（理由见 `VerticalSlider`）。 */
-    background-image:
-        radial-gradient(
-            120% 92% at 16% -8%,
-            color-mix(in srgb, var(--bevel-hi) 62%, transparent),
-            transparent 54%
-        ),
-        linear-gradient(
-            135deg,
-            light-dark(
-                    color-mix(in srgb, var(--paper-base) 9%, transparent),
-                    color-mix(in srgb, var(--ink) 4%, transparent)
-                )
-                0,
-            transparent 48%,
-            color-mix(in srgb, var(--ink-base) 9%, transparent) 100%
-        );
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
-        inset -1px 0 0 var(--nav-rim-lo),
-        inset 0 -2px 0 var(--nav-rim-base),
-        0 1px 0 var(--shadow),
-        0 3px 5px -3px var(--shadow-lg);
+    background-color: var(--vs-cell-color);
+    background-image: var(--vs-cell-texture);
+    box-shadow: var(--vs-cell-shadow);
     color: var(--ink-2);
     font: inherit;
     text-align: left;
@@ -796,18 +769,10 @@ const demoToggles = ref<string[]>(['task']);
         background-color var(--t-quick) var(--ease-soft),
         box-shadow var(--t-quick) var(--ease-soft);
 }
-/* 悬停把这块浅纸压实一档（与主侧栏同一条）：四条棱要整套重写，
- * 只写两条会把右、下那两条背光棱清掉，悬停时块反而没有厚度。 */
 .nav-item:hover {
     color: var(--ink);
-    background-color: var(--well-key-hover);
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 78%, transparent),
-        inset -1px 0 0 var(--nav-rim-lo),
-        inset 0 -2px 0 var(--nav-rim-base),
-        0 2px 0 var(--shadow),
-        0 4px 7px -4px var(--shadow-lg);
+    background-color: var(--vs-cell-color);
+    box-shadow: var(--vs-cell-shadow);
 }
 /* 选中那格只换字色（`--on-seal`，与印面成对翻），**不加粗、不加描边、不加字距**。
  * 文楷只有 Regular，描边与合成加粗都会把撇捺糊成块；「当前在哪一组」由那枚朱印说完。

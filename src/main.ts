@@ -60,6 +60,7 @@ Promise.all([
     void guardWindowClose(async () => {
         if (await flushPendingWrites()) return true;
         return askConfirm({
+            danger: true,
             title: '仍有改动未保存，退出吗？',
             note: '退出会丢失未保存的改动。取消后可在页面重试保存，或检查磁盘空间。',
             confirmText: '退出',

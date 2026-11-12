@@ -211,6 +211,7 @@ async function exportPrices() {
 async function importPrices() {
     if (busy.value) return;
     const ok = await askConfirm({
+        danger: true,
         title: '用这份文件里的单价覆盖现有单价？',
         note: '同一件物品以文件里的价为准；文件里没有的物品保持现在的价。',
         confirmText: '导入',
@@ -504,12 +505,8 @@ async function importPrices() {
     object-fit: contain;
     /* 图进纸面前先「纸化」一档：原图是游戏里的高饱和贴图，直接贴像一张贴纸。
      * 只降到「认得出是什么」，不是做成单色。 */
-    filter: sepia(0.22) saturate(0.86) contrast(0.98);
-    opacity: 0.94;
-}
-/* 暗色下原图比纸亮一大截，满屏小图会变成一片小白点；压一档亮度回到「纸上的图」。 */
-:global(html.dark) .item img {
-    filter: sepia(0.18) saturate(0.8) brightness(0.86);
+    filter: var(--item-icon-filter);
+    opacity: var(--item-icon-opacity);
 }
 /* 价格在块外：块下面**一枚淡槽签**（`NumTag` → `.num-slot`，材质在 `base.css`）。
  *

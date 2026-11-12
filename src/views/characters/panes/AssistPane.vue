@@ -112,6 +112,7 @@ function optionsFor(row: AssistSkill) {
                             "
                         />
                         <PressButton
+                            danger
                             v-if="editable"
                             class="assist-remove"
                             icon="trash"

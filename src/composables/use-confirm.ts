@@ -23,8 +23,10 @@ import { shallowRef } from 'vue';
  * 新窗会被随后那句清空顺手抹掉——用户看到弹窗一闪。
  */
 
-/** 一次确认要问的三件事。 */
+/** 确认文案与操作语义。 */
 export interface ConfirmOptions {
+    /** 删除、清空、覆盖等操作显式标记，不根据文案猜测。 */
+    danger?: boolean;
     /** 问句本身，带书名号或引号。例：「删掉「高级魔兽要诀」这张卡？」 */
     title: string;
     /** 后果。写清会连带删掉什么、能不能撤回。可以没有。 */
@@ -66,7 +68,14 @@ export function askConfirm(options: ConfirmOptions): Promise<boolean> {
         /* 上一个还挂着就先放走（当作取消）。不这么做，那个 `await` 永远不返回，
          * 它背后的 `finally` 也就永远不跑——按钮从此停在禁用态。 */
         pending.value?.resolve(false);
-        pending.value = { note: '', confirmText: '删除', cancelText: '取消', ...options, resolve };
+        pending.value = {
+            note: '',
+            confirmText: '删除',
+            cancelText: '取消',
+            danger: false,
+            ...options,
+            resolve,
+        };
     });
 }
 

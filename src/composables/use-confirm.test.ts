@@ -27,6 +27,7 @@ describe('askConfirm：默认值', () => {
             note: '',
             confirmText: '删除',
             cancelText: '取消',
+            danger: false,
         });
 
         settle(false);
@@ -41,9 +42,14 @@ describe('askConfirm：默认值', () => {
             note: '清掉之后找不回来。',
             confirmText: '清除',
             cancelText: '取消清除',
+            danger: true,
         });
 
-        expect(pending.value).toMatchObject({ confirmText: '清除', cancelText: '取消清除' });
+        expect(pending.value).toMatchObject({
+            confirmText: '清除',
+            cancelText: '取消清除',
+            danger: true,
+        });
 
         settle(true);
         await expect(answered).resolves.toBe(true);
@@ -51,6 +57,17 @@ describe('askConfirm：默认值', () => {
 });
 
 describe('askConfirm：回答', () => {
+    it('危险操作结束后，普通确认不继承上一次的危险状态', async () => {
+        const first = askConfirm({ title: '清除账本？', danger: true });
+        settle(false);
+        await expect(first).resolves.toBe(false);
+
+        const second = askConfirm({ title: '继续？', confirmText: '继续' });
+        expect(pending.value?.danger).toBe(false);
+        settle(true);
+        await expect(second).resolves.toBe(true);
+    });
+
     it('settle(true) 回 true，settle(false) 回 false，且答完状态就清空', async () => {
         const yes = askConfirm({ title: '删掉这一条？' });
         settle(true);

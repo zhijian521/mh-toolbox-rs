@@ -100,6 +100,7 @@ function whoText(one: OnlineSession): string {
 
 async function remove(one: OnlineSession) {
     const ok = await askConfirm({
+        danger: true,
         title: '删掉 ' + shortDate(one.date) + ' ' + timeText(one.startAt) + ' 这一段？',
         note:
             whoText(one) +
@@ -185,6 +186,7 @@ async function remove(one: OnlineSession) {
                                     @click="emit('edit', one)"
                                 />
                                 <PressButton
+                                    danger
                                     icon="trash"
                                     label="删这一段"
                                     size="md"
