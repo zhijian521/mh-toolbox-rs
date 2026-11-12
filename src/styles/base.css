@@ -681,7 +681,8 @@ svg {
  * 特异性 0-2-0：压得过 `.num-slot`（0-1-0），压不过 `.field.num-slot:focus`（0-3-0）
  * ——聚焦时仍是实槽，那条不用改。 */
 .slip-row .num-slot {
-    background: color-mix(in srgb, var(--bevel-lo) 50%, var(--paper-2));
+    --num-slot-background: color-mix(in srgb, var(--bevel-lo) 50%, var(--paper-2));
+    background: var(--num-slot-background);
 }
 /* 票面编辑格与读数签共用尺寸；辅助含删除按钮时使用紧凑宽度。 */
 .slip-row .field.slip-input {

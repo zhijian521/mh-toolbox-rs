@@ -189,7 +189,7 @@ const panelStyle = computed(() => {
 </template>
 
 <style scoped>
-/* 遮罩压暗：只压墨色、不加 blur。整站没有一处模糊，模糊会让纸面读成「玻璃」。
+/* 遮罩只负责压暗；水晶的面板模糊由 tokens.css 按风格提供。
  * `place-items: center` 而不是 flex + margin auto：面板高度可变（历史窗会撑高），
  * 居中由网格负责，窗太高时靠 `max-height` 自己滚。 */
 .modal-mask {

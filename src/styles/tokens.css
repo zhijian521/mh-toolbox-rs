@@ -550,7 +550,6 @@
     --on-accent: light-dark(#f5faf6, #15281f);
     --tooltip-bg: light-dark(#e0eee8, #203b31);
     --tooltip-ink: light-dark(#315b48, #c1e1ce);
-    --modal-mask: color-mix(in srgb, var(--ink-base) 42%, transparent);
 
     --bevel-hi: light-dark(#fafff6c2, #e5fff129);
     --bevel-lo: light-dark(#163f2a1c, #000b0780);
@@ -559,7 +558,87 @@
     --scrollbar-thumb: light-dark(#9eb9a9, #3d5b4b);
     --scrollbar-thumb-hover: light-dark(#7b9e89, #557b64);
     --scrollbar-thumb-active: light-dark(#60866e, #719982);
+}
 
+/* ---------- 霁蓝 ---------- */
+:root[data-style='azure'] {
+    --paper-base: #f7f9fc;
+    --bg: light-dark(#e6ecf4, #101922);
+    --paper: light-dark(var(--paper-base), #1b2836);
+    --paper-2: light-dark(#eef3f9, #223244);
+    --well: light-dark(#dfe7f1, #14202e);
+    --ink: light-dark(#253a51, #e3edf7);
+    --ink-2: light-dark(#465e78, #becfe1);
+    --muted: light-dark(#687e95, #8ea6bf);
+    --rule: light-dark(#cbd8e7, #33485e);
+    --rule-2: light-dark(#a4b8d0, #4c6884);
+
+    --accent: light-dark(#426eaa, #93b6e3);
+    --accent-ink: light-dark(#305582, #395d8a);
+    --on-accent: light-dark(#f9fbff, #11243b);
+    --tooltip-bg: light-dark(#e5eefb, #243d59);
+    --tooltip-ink: light-dark(#355985, #c3dcf5);
+
+    --bevel-hi: light-dark(#ffffffc7, #d1e7ff26);
+    --bevel-lo: light-dark(#23476f1c, #030e1c80);
+    --shadow: light-dark(#27476c14, #030d1766);
+    --shadow-lg: light-dark(#27476c24, #030d178c);
+    --scrollbar-thumb: light-dark(#a9bdd5, #435f7e);
+    --scrollbar-thumb-hover: light-dark(#839fc1, #6382a3);
+    --scrollbar-thumb-active: light-dark(#6486b0, #85a6c9);
+}
+
+/* ---------- 水晶 ---------- */
+:root[data-style='crystal'] {
+    --paper-base: #f7fdff;
+    --bg: light-dark(#cce8f4, #091a2c);
+    --paper: light-dark(#f2fbff, #183b55);
+    --paper-2: light-dark(#e7f6fd, #1e425d);
+    --well: light-dark(#cce8f5, #102e46);
+    --ink: light-dark(#153b59, #e9f9ff);
+    --ink-2: light-dark(#315b77, #c3e2f1);
+    --muted: light-dark(#557a92, #8db4cb);
+    --rule: light-dark(#b2d8e9, #315c75);
+    --rule-2: light-dark(#7eb9d3, #4d89aa);
+
+    --accent: light-dark(#1673ad, #79d2fa);
+    --accent-ink: light-dark(#115b91, #185c88);
+    --on-accent: light-dark(#f8feff, #092d47);
+    --tooltip-bg: light-dark(#e3f5ff, #204e70);
+    --tooltip-ink: light-dark(#1c587e, #c6eeff);
+
+    --bevel-hi: light-dark(#ffffffed, #d6f6ff59);
+    --bevel-lo: light-dark(#296b942e, #020c1d8c);
+    --shadow: light-dark(#1d5f841a, #020b1c70);
+    --shadow-lg: light-dark(#17577e40, #020b1ca3);
+    --scrollbar-thumb: light-dark(#86bdd5, #377293);
+    --scrollbar-thumb-hover: light-dark(#5b9fbe, #59a1c6);
+    --scrollbar-thumb-active: light-dark(#3482a6, #7ec7e8);
+
+    --crystal-pane: light-dark(#f4fcffb8, #153951d9);
+    --crystal-rim: light-dark(#ffffffd9, #c2f0ff52);
+    --crystal-glint: light-dark(#ffffffdb, #ceefff38);
+    --crystal-shadow: light-dark(#326e9226, #020b1c80);
+    --crystal-field: light-dark(#a1d7ed, #113c5b);
+    --crystal-glow: light-dark(#edfbff, #2d6d8b);
+    --crystal-pool: light-dark(#b0c8ee, #263c68);
+    --page-surface:
+        radial-gradient(ellipse at 14% 18%, var(--crystal-glow), transparent 45%),
+        radial-gradient(ellipse at 82% 75%, var(--crystal-pool), transparent 52%),
+        linear-gradient(125deg, var(--bg), var(--crystal-field) 64%, var(--paper-2));
+    /* 浮层浓度高于卡片，保证任意背景下仍能读清字段。 */
+    --modal-bg:
+        linear-gradient(140deg, var(--crystal-glint), transparent 55%),
+        light-dark(#e8f8fff0, #153951f0);
+    --popover-bg:
+        linear-gradient(140deg, var(--crystal-glint), transparent 55%),
+        light-dark(#f2fbfff5, #183b55f5);
+}
+
+:root[data-style='celadon'],
+:root[data-style='azure'],
+:root[data-style='crystal'] {
+    --modal-mask: color-mix(in srgb, var(--ink-base) 42%, transparent);
     --item-icon-filter: none;
     --item-icon-opacity: 1;
     --skill-icon-filter: none;
@@ -1008,4 +1087,113 @@ html.dark .rail {
             transparent 48%,
             color-mix(in srgb, var(--board-face, var(--board-paper)) 97%, var(--ink-base)) 100%
         );
+}
+
+/* 风格配方在实际元素上求值，局部染色、危险语义和交互态继续生效。 */
+:root[data-style='azure'] .board {
+    --board-texture: linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--board-face, var(--board-paper)) 97%, var(--paper-base)),
+        transparent 68%
+    );
+    --board-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        inset 0 -2px 0 color-mix(in srgb, var(--rule-2) 54%, transparent),
+        0 3px 0 var(--shadow), 0 12px 22px -15px var(--shadow-lg);
+}
+
+:root[data-style='crystal'] .board {
+    --board-paper: var(--crystal-pane);
+    --board-texture: linear-gradient(135deg, var(--crystal-glint), transparent 44%);
+    --board-shadow:
+        inset 0 1px 0 var(--crystal-rim), inset 1px 0 0 var(--crystal-rim),
+        inset 0 -1px 0 var(--rule-2),
+        0 3px 0 color-mix(in srgb, var(--crystal-rim) 40%, transparent),
+        0 10px 28px -12px var(--crystal-shadow);
+    backdrop-filter: blur(14px) saturate(1.15);
+}
+:root[data-style='crystal'] .character-theme {
+    --character-paper: var(--crystal-pane);
+    --card-bg:
+        linear-gradient(138deg, var(--crystal-glint), transparent 44%),
+        linear-gradient(
+            175deg,
+            transparent 70%,
+            color-mix(in srgb, var(--accent) 7%, transparent)
+        ),
+        color-mix(in srgb, var(--card-tint) 10%, var(--character-paper));
+}
+:root[data-style='crystal'] .slip-row {
+    --slip-background:
+        linear-gradient(180deg, var(--crystal-glint), transparent 66%),
+        color-mix(in srgb, var(--slip-base, var(--crystal-pane)) 78%, transparent);
+    --slip-shadow:
+        inset 0 1px 0 var(--crystal-rim), inset 1px 0 0 var(--crystal-rim),
+        0 1px 2px var(--shadow);
+}
+:root[data-style='crystal'] .well:not(.upright),
+:root[data-style='crystal'] .field {
+    --well-texture: linear-gradient(180deg, var(--crystal-glint), transparent 62%);
+}
+:root[data-style='crystal'] .num-slot {
+    --num-slot-background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--well) 80%, transparent),
+        color-mix(in srgb, var(--paper) 76%, transparent)
+    );
+}
+:root[data-style='crystal'] .press-tile,
+:root[data-style='crystal'] .stamp {
+    --crystal-sheen: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--crystal-rim) 36%, transparent),
+        transparent 47%,
+        color-mix(in srgb, var(--bevel-lo) 20%, transparent) 49%,
+        transparent
+    );
+    --press-image: var(--crystal-sheen);
+    --stamp-texture: var(--crystal-sheen);
+}
+:root[data-style='crystal'] .press-tile:not(.still):active,
+:root[data-style='crystal'] .press-tile.tone-seal:not(.still):active {
+    --press-image: linear-gradient(180deg, var(--bevel-lo), transparent 58%);
+}
+:root[data-style='crystal'] .rail {
+    --rail-background: var(--crystal-pane);
+    --rail-texture: linear-gradient(135deg, var(--crystal-glint), transparent 75%);
+    --rail-shadow: inset -1px 0 0 var(--crystal-rim);
+}
+:root[data-style='crystal'] .vs-cell,
+:root[data-style='crystal'] .atoms-nav .nav-item {
+    --vs-cell-texture: linear-gradient(150deg, var(--crystal-glint), transparent 58%);
+}
+:root[data-style='crystal'] .titlebar,
+:root[data-style='crystal'] .page-head {
+    background:
+        linear-gradient(135deg, var(--crystal-glint), transparent 75%), var(--paper-2);
+    box-shadow: inset 0 1px 0 var(--crystal-rim);
+}
+:root[data-style='crystal'] .modal-panel {
+    backdrop-filter: blur(18px) saturate(1.15);
+}
+:root[data-style='crystal'] .notice {
+    --notice-background:
+        linear-gradient(140deg, var(--crystal-glint), transparent 55%), var(--well);
+}
+:root[data-style='crystal'] .gear-cell:not(.empty) {
+    background:
+        linear-gradient(150deg, var(--crystal-glint), transparent 50%),
+        color-mix(in srgb, var(--well) 36%, transparent);
+}
+:root[data-style='crystal'] .gear-cell:not(.empty):hover {
+    background:
+        linear-gradient(150deg, var(--crystal-glint), transparent 80%), var(--crystal-pane);
+}
+@supports not (backdrop-filter: blur(1px)) {
+    :root[data-style='crystal'] .board {
+        --board-paper: var(--paper-2);
+    }
+    :root[data-style='crystal'] .character-theme {
+        --character-paper: var(--paper-2);
+    }
 }

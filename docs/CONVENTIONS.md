@@ -439,10 +439,13 @@ types/          全局声明与模块增强（`router-meta.d.ts`、`vue-augment.
    会被编译成只剩 `html.dark`。
 
     **风格与明暗分开**：`useTheme()` 的 `mode` 管理 `system / light / dark`，`style` 管理
-    `ledger / celadon`，选项分别由 `THEME_OPTIONS` / `STYLE_OPTIONS` 提供。明暗保留 `mh-theme`
+    `ledger / celadon / azure / crystal`（账簿 / 青瓷 / 霁蓝 / 水晶），选项分别由
+    `THEME_OPTIONS` / `STYLE_OPTIONS` 提供。明暗保留 `mh-theme`
     存储键与根 `dark` 类，风格用 `mh-theme-style` 与根 `data-style`；未知值回落跟随系统 / 账簿。
     两者在挂载前应用，互不改写；字体和字号也保持独立。新风格继续在 `tokens.css` 覆写调色板与
     共用材质，不复制页面样式、不更改布局。截图上的地图标记不随界面风格换色。
+    水晶的透明面、高光与背景模糊同样集中在令牌文件；模糊只用于卡片和弹窗大面，控件沿用
+    共用材质变量，不逐行加滤镜。不支持背景模糊时，卡片回退实色；浮层保持较高浓度。
 
     **共用材质在 `tokens.css`，结构在 `base.css` 与组件**：纸卡 `--board-texture/shadow`、
     压印块 `--press-color/image/shadow/ink/icon-filter`、输入槽 `--well-background/texture/shadow`、
