@@ -40,6 +40,53 @@ export default async function run(ctx) {
             t.info('测试前主题', original);
         });
 
+        await t.step('主色独立于错误色，纸块保留局部染色', async () => {
+            const result = await cdp.evaluate(`(() => {
+                const root = document.documentElement;
+                const original = root.style.getPropertyValue('--accent');
+                const priority = root.style.getPropertyPriority('--accent');
+                const fixture = document.createElement('div');
+                fixture.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none';
+                const mark = document.createElement('span');
+                mark.className = 'section-mark';
+                const error = document.createElement('span');
+                error.className = 'note error';
+                const reference = document.createElement('span');
+                reference.style.color = 'var(--moss)';
+                const board = document.createElement('div');
+                board.className = 'board';
+                board.style.setProperty('--board-face', 'var(--moss)');
+                fixture.append(mark, error, reference, board);
+                const tile = document.querySelector('.press-tile')?.cloneNode(true);
+                if (tile) {
+                    tile.className = 'press-tile still';
+                    tile.style.setProperty('--tile-face', 'var(--moss)');
+                    fixture.append(tile);
+                }
+                document.body.append(fixture);
+                try {
+                    const beforeError = getComputedStyle(error).color;
+                    const beforeClass = root.className;
+                    root.style.setProperty('--accent', 'var(--moss)');
+                    const color = getComputedStyle(reference).color;
+                    return {
+                        accent: getComputedStyle(mark).backgroundColor === color,
+                        error: getComputedStyle(error).color === beforeError,
+                        mode: root.className === beforeClass,
+                        board: getComputedStyle(board).backgroundColor === color,
+                        tile: !!tile && getComputedStyle(tile).backgroundColor === color,
+                    };
+                } finally {
+                    if (original) root.style.setProperty('--accent', original, priority);
+                    else root.style.removeProperty('--accent');
+                    fixture.remove();
+                }
+            })()`);
+            t.check('主色覆写同步区块标', result.accent);
+            t.check('主色覆写不改变错误色或明暗档位', result.error && result.mode);
+            t.check('纸卡与压印块的局部染色仍生效', result.board && result.tile);
+        });
+
         /*
          * 字号：三档的因子是 0.92 / 1 / 1.1（`use-font-scale.ts`）。
          * 先读当前值——用户自己可能就停在「较大」，直接断言「点较大后变了」会假红。

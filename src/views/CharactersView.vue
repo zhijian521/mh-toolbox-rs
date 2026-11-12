@@ -258,8 +258,8 @@ const desc = computed(() =>
  * 同为 (0,2,0)，写成相邻两条时靠先后取胜，改一次顺序就反弹成「禁用却还会泛朱」。
  * 显式排除比依赖顺序稳。 */
 .char-blank:hover:not(:disabled) {
-    border-color: var(--cinnabar);
-    color: var(--cinnabar);
+    border-color: var(--accent);
+    color: var(--accent);
 }
 /* 禁用态不靠 opacity：虚线本就淡，压透明度会糊成一片灰。
  * 线退一档（`--rule-2` → `--rule`）+ 光标换成 not-allowed，说得清又不脏。 */

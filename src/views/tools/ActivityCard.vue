@@ -217,7 +217,7 @@ const cardLabel = computed(() =>
 /* 指针上去：名字转朱——「这里能点」。块面自己会亮（`PressTile` 的悬停态），
  * 不复述它，也不写字位移动画：桌面上一格格排好的东西弹跳会破坏秩序。 */
 .card:hover .name {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 
 .card:focus-visible {
@@ -269,8 +269,8 @@ const cardLabel = computed(() =>
 
 /* 今天 / 已提醒：这枚签换朱。朱是全站的状态色，这里正是「就是今天」。 */
 .tag.hot {
-    border-color: color-mix(in srgb, var(--cinnabar) 45%, transparent);
-    color: var(--cinnabar);
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    color: var(--accent);
 }
 
 .name {

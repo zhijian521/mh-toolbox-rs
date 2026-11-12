@@ -319,18 +319,18 @@ onMounted(async () => {
 /* 只有真的在识别时才点亮：朱色在这套界面里是「当前/要紧」的信号，
  * 未启动时给它上色，就等于说「这里正在发生什么」。 */
 .status.live .status-dot {
-    background: var(--cinnabar);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--cinnabar) 22%, transparent);
+    background: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 .status.warn .status-dot {
-    background: var(--ochre);
+    background: var(--warning);
 }
 .status-text {
     font-size: var(--fs-sm);
     overflow-wrap: anywhere;
 }
 .status.warn .status-text {
-    color: var(--ochre);
+    color: var(--warning);
 }
 .status-meta {
     margin: 5px 0 0;
@@ -456,7 +456,7 @@ onMounted(async () => {
 }
 .detail-issue {
     margin: 6px 0 0;
-    color: var(--ochre);
+    color: var(--warning);
 }
 
 /* 测试文字面板的样式跟着组件走了（`GhostTestPanel.vue`）。

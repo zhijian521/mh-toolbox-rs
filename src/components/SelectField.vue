@@ -424,7 +424,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
 /* 已经选中的那一项：朱字 + 朱色短竖条。竖条与 `.section-mark` 同一个说法
  * （「这一项是当前」），比再画一枚勾省事，也不会与「已入账」的印章混起来。 */
 .select-opt.on {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 .opt-mark {
     flex: none;
@@ -434,7 +434,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
     background: transparent;
 }
 .select-opt.on .opt-mark {
-    background: var(--cinnabar);
+    background: var(--accent);
 }
 .opt-label {
     overflow: hidden;

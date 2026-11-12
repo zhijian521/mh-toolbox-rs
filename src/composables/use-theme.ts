@@ -84,7 +84,11 @@ function wire() {
             [mode, systemDark],
             () => {
                 document.documentElement.classList.toggle('dark', isDark.value);
-                localStorage.setItem(STORAGE_KEY, mode.value);
+                try {
+                    globalThis.localStorage?.setItem(STORAGE_KEY, mode.value);
+                } catch {
+                    // 存储不可用时仍应用当前选择，只是不跨启动记忆。
+                }
             },
             { immediate: true },
         );

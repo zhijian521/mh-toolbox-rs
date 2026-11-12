@@ -236,7 +236,7 @@ const briefs = computed(() => roster.value.map(charBrief));
 /* 亏损：向零线下方长，圆角翻到下面，色转朱。 */
 .bar.neg {
     border-radius: 0 0 2px 2px;
-    background: var(--cinnabar);
+    background: var(--negative);
 }
 /* 日期标签压在柱子下方，`now` 那格加一枚朱点——与 `DateField` 里「今天」同一个说法。 */
 .tag {
@@ -266,7 +266,7 @@ const briefs = computed(() => roster.value.map(charBrief));
     font-variant-numeric: tabular-nums;
 }
 .week-sum b.loss {
-    color: var(--cinnabar);
+    color: var(--negative);
 }
 
 /* ---------- 各号近况 ---------- */

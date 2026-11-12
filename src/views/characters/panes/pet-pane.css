@@ -36,7 +36,7 @@
     cursor: pointer;
 }
 .plate:hover:not(:disabled) .beast-name {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 .plate:focus-visible {
     outline: var(--ring);

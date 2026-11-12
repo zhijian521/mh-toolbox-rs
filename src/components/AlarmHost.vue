@@ -189,7 +189,7 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     gap: 6px;
-    color: var(--cinnabar);
+    color: var(--accent);
     font-size: var(--fs-sm);
 }
 .ring-icon {
@@ -245,7 +245,7 @@ onBeforeUnmount(() => {
     transition: color var(--t-quick) var(--ease-soft);
 }
 .ring-close:hover {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 .ring-close:focus-visible {
     outline: var(--ring);

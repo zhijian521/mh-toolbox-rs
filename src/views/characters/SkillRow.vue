@@ -136,7 +136,7 @@ const seal = computed(() => [...props.row.name][0] ?? '');
 }
 /* 字色写在内层，不写在块上：`PressTile` 给块设了 `--ink-2`，声明在内层更省事。 */
 .seal-text {
-    color: var(--cinnabar);
+    color: var(--accent);
     font-size: calc(var(--fs-sm) + 3px);
     line-height: 1;
 }

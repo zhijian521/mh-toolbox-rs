@@ -361,7 +361,7 @@ async function save(input: EntryInput) {
     color: var(--num);
 }
 .out {
-    color: var(--cinnabar);
+    color: var(--negative);
 }
 
 /* ---------- 快捷记账 ---------- */
@@ -430,7 +430,7 @@ async function save(input: EntryInput) {
     color: var(--num);
 }
 .sc-kind.expense {
-    color: var(--cinnabar);
+    color: var(--negative);
 }
 .sc-title {
     color: var(--ink);
@@ -517,7 +517,7 @@ async function save(input: EntryInput) {
     font-variant-numeric: tabular-nums;
 }
 .c-num.out {
-    color: var(--cinnabar);
+    color: var(--negative);
 }
 
 .log-foot {

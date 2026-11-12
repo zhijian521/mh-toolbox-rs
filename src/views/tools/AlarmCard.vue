@@ -149,7 +149,7 @@ const cardLabel = computed(() => {
     transition: color var(--t-quick) var(--ease-soft);
 }
 .alarm-card.soon .alarm-time {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 
 /* 开关收窄：两枚单字格在 200 宽的卡上与时刻并排，留出的空隙只够 6px。
@@ -203,7 +203,7 @@ const cardLabel = computed(() => {
     font-variant-numeric: tabular-nums;
 }
 .alarm-status.warn {
-    color: var(--cinnabar);
+    color: var(--danger);
 }
 
 /* 底行：两个文字入口，与物价卡那三个小门同一档（9px 字、悬停才上朱）。 */
@@ -228,7 +228,7 @@ const cardLabel = computed(() => {
     transition: color var(--t-quick) var(--ease-soft);
 }
 .alarm-act:hover {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 .alarm-act:focus-visible {
     outline: var(--ring);

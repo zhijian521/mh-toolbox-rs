@@ -425,15 +425,31 @@ types/          全局声明与模块增强（`router-meta.d.ts`、`vue-augment.
 
 ### 2.4 样式
 
-1. **颜色只能来自令牌**。禁止 `#rrggbb`、`rgb()`、颜色名。**灌朱的控件一律用 `--seal` /
-   `--seal-edge` / `--on-seal`**，不要直接拿 `--cinnabar` / `--cinnabar-ink` / `--on-cinnabar` 配面
-   与字：`--cinnabar` 在暗色是亮橙红，而 `--on-cinnabar` 同时翻成近黑，深字压亮红会被吃掉。分界是
-   **面还是前景**：填充用这一组，把朱当字/线/描边用仍取 `--cinnabar`。`--paper` **暗色是深纸**，要
+1. **颜色只能来自令牌**。禁止在令牌表外写 `#rrggbb`、`rgb()`、颜色名。界面按用途取色：
+   主操作、选中、悬停、焦点用 `--accent`；错误、删除用 `--danger` / `--danger-ink`；
+   成功用 `--success`；一般提醒用 `--warning`；账本正负数用 `--positive` / `--negative`。
+   **填色控件一律用 `--seal` / `--seal-edge` / `--on-seal`**，这组由主色映射，保证面与字成套。
+   新风格同时提供 `--accent` / `--accent-ink` / `--on-accent`，不通过替换 `--cinnabar` 把报错、
+   支出、装备分类和涨跌一起改色。`--cinnabar` / `--moss` / `--ochre` 等继续作为业务分类调色板。
+   `--paper` **暗色是深纸**，要
    纸白取 `--ink`；需要**不随主题翻面**的纸白（`color-mix()` 的提亮锚点、画在截图上的标记）取
    `--paper-base`，需要**恒定的暗**取 `--ink-base`——`--ink` 在暗色是纸白，拿它去压会让「背光」变成
    一条发光的线。这两枚是令牌表里唯一允许写绝对色值的地方。组件里若仍需暗色覆写，**必须整条写进
    `:global()`**：`:global(html.dark .sel)` 编出来是 `html.dark .sel`，而 `:global(html.dark) .sel`
    会被编译成只剩 `html.dark`。
+
+   **风格与明暗分开**：`useTheme()` 目前只管理 `system / light / dark`，新风格不能塞进这个枚举。
+   当前默认仍为账簿风格，尚未接入青瓷或风格切换入口。后续风格定义继续放 `src/styles/`，
+   覆写令牌和共用材质，不复制页面样式、不更改布局。
+
+   **共用材质在 `tokens.css`，结构在 `base.css` 与组件**：纸卡 `--board-texture/shadow`、
+   压印块 `--press-color/image/shadow/ink/icon-filter`、输入槽 `--well-background/texture/shadow`、
+   票面 `--slip-background/shadow`、数值槽 `--num-slot-background/shadow`。
+   明暗与悬停、按下、聚焦配方统一在此；业务组件继续传 `--board-face`、`--tile-face*`、
+   `--tile-drop`、`--slip-base`，不再另抄材质。**依赖局部变量的配方在实际元素上声明**，
+   不提到 `:root`：自定义属性会在声明处求值，放到根上会丢失门派和局部染色。
+   覆写材质也要命中对应元素与状态；普通色值和字体才从根继承。Canvas 先用浏览器求值颜色、字体，
+   缓存包含实际令牌与 `color-scheme`，不以亮暗两态代替完整外观。
 2. **字号只能来自 `--fs-*`**，每个令牌已经乘过 `--fs-scale`，禁止 `font-size: 14px`。六档
    `--fs-mini` / `--fs-xs` / `--fs-sm` / `--fs-base` / `--fs-md` / `--fs-xl`；另有 `--fs-amount`
    （`base × 1.4`）只给金额读数——它是**语义档**不是第七档，别拿它排正文。字号表在 `tokens.css`，

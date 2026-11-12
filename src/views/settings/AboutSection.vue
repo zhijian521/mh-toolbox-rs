@@ -70,6 +70,6 @@ const { info } = useAppInfo();
     letter-spacing: 0;
 }
 .warn {
-    color: var(--cinnabar);
+    color: var(--danger);
 }
 </style>

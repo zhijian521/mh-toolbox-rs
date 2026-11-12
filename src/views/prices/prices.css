@@ -120,5 +120,5 @@
     gap: 8px;
     margin: 0 0 10px;
     padding-left: 9px;
-    border-left: 2px solid var(--cinnabar);
+    border-left: 2px solid var(--danger);
 }

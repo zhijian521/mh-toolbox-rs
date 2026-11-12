@@ -144,7 +144,7 @@ function submit() {
 }
 .form-error {
     margin: 0;
-    color: var(--cinnabar);
+    color: var(--danger);
     font-size: var(--fs-sm);
 }
 </style>

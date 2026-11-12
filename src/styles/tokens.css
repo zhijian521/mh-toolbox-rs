@@ -1,7 +1,9 @@
 /*
  * 设计令牌 —— 账簿方向（2026-10-30 拍板）
  *
- * 隐喻是中文账本：宣纸米白作底、墨色作字、朱红作印。三条不变量：
+ * 当前账簿风格：宣纸米白作底、墨色作字、朱红作印。
+ * 调色板描述颜色，语义令牌描述用途，共用材质描述纸面；后续风格统一从这里覆写。
+ * 账簿风格的三条约定：
  *   1. 纸是暖的，不用纯白；墨是灰的，不用纯黑——两者都必须能压住朱红。
  *   2. 结构靠线，不靠阴影。分区用「文武线」（外粗内细），行分隔用 `--rule` 细线。
  *   3. 朱红只给三处：区块标、当前选中、金额支出。到处都是朱红等于没有朱红。
@@ -75,6 +77,20 @@
     --cinnabar-ink: light-dark(#8a2620, #b85b49);
     --on-cinnabar: light-dark(#fbf4e4, #171310);
 
+    /* ---------- 界面语义 ----------
+     * 主色与状态色分开：换风格只改 accent，不会把删除、报错和负数一起改色。
+     * 调色板继续服务装备、门派、图表等业务分类。
+     */
+    --accent: var(--cinnabar);
+    --accent-ink: var(--cinnabar-ink);
+    --on-accent: var(--on-cinnabar);
+    --danger: var(--cinnabar);
+    --danger-ink: var(--cinnabar-ink);
+    --success: var(--moss);
+    --warning: var(--ochre);
+    --positive: var(--moss);
+    --negative: var(--cinnabar);
+
     /* ---------- 印面：一块灌了朱色的面 + 面上的字 ----------
      * 这三枚是**成套**的，不能拆开用。`--cinnabar` 在暗色翻成 #d0755f 的亮橙红，
      * `--on-cinnabar` 同时翻成近黑 #171310：深字压亮红，13px 楷体笔画被红色吃掉，
@@ -84,12 +100,12 @@
      * 不会在翻面的一瞬间整块反色。
      *
      * 用法分界：**填充**朱色的地方（按钮底、选中格、勾选框）用 `--seal` /
-     * `--on-seal` / `--seal-edge`；把朱当**前景**用的地方（字、线、描边、强调数字）
-     * 继续用 `--cinnabar`，那种场合不存在「面与字一起翻」的问题。
+     * `--on-seal` / `--seal-edge`；主色前景用 `--accent`，错误用 `--danger`，
+     * 分类取调色板。更换主色时同时提供 --accent-ink 与 --on-accent。
      */
-    --seal: var(--cinnabar);
-    --seal-edge: var(--cinnabar-ink);
-    --on-seal: var(--on-cinnabar);
+    --seal: var(--accent);
+    --seal-edge: var(--accent-ink);
+    --on-seal: var(--on-accent);
     /* 赭：装备类目与铜色徽章。 */
     --ochre: light-dark(#8a5a2b, #c49a6a);
     /* 苔：已达成、正收益。 */
@@ -176,7 +192,7 @@
      *
      * 偏移 2px 是唯一默认值；`VerticalSlider` 的格用 -2px（34px 宽的槽上向外撑一圈会
      * 盖住邻格），那一处单独写并注明理由——它不是「另一种默认」。 */
-    --ring: 2px solid var(--cinnabar);
+    --ring: 2px solid var(--accent);
     --ring-inv: 2px solid color-mix(in srgb, var(--ink) 45%, transparent);
     --ring-offset: 2px;
 
@@ -224,6 +240,8 @@
     --r-2: 3px;
     --r-3: 4px;
     --r-pill: 999px;
+    --r-panel: 6px;
+    --r-tile: 9px;
 
     /* ---------- 线宽 ---------- */
     --w-hair: 1px;
@@ -321,10 +339,10 @@
     /* 印面整组重映射，理由见上面 `--seal` 那一段。
      * 注意 `--on-cinnabar` 本身仍留在暗色的近黑不动——它只在
      * 「亮色面 + 深色字」的场合有意义，而现在没有地方该这么用。 */
-    --seal: var(--cinnabar-ink);
+    --seal: var(--accent-ink);
     /* 亮色下印边比印面深一档（`--cinnabar-ink`）；暗色下印面已经是 `--cinnabar-ink`，
      * 再用它就分不出来了，所以往纸白方向提 30%，让边浮在面之上。 */
-    --seal-edge: color-mix(in srgb, var(--cinnabar-ink) 70%, var(--ink));
+    --seal-edge: color-mix(in srgb, var(--accent-ink) 70%, var(--ink));
     --on-seal: var(--ink);
 }
 
@@ -481,4 +499,261 @@
     --tint-deep-无底洞: light-dark(#dbc3a2, #443520);
     --tint-天机城: light-dark(#dedccb, #2c2b20);
     --tint-deep-天机城: light-dark(#d0cdb8, #3a392b);
+}
+
+/* ---------- 共用材质 ----------
+ * 配方与明暗差异只有此处一份；组件消费变量，保留自己的尺寸、排版和动作。
+ * 依赖 --tile-face、--board-face、--slip-base 的配方在实际元素上求值，不能提到 :root。
+ * 纸块上亮下暗；图形保留接触影，文字不加影。大块 wide 的光斑使用固定像素。
+ */
+.press-tile {
+    --press-color: var(--tile-face, color-mix(in srgb, var(--paper) 92%, transparent));
+    --press-image: none;
+    --press-shadow: inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--rule-2) 46%, transparent),
+        inset 0 -2px 0 color-mix(in srgb, var(--rule-2) 76%, transparent),
+        0 calc(3px * var(--tile-drop, 1)) 0 var(--shadow),
+        0 calc(8px * var(--tile-drop, 1)) calc(12px * var(--tile-drop, 1))
+            calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
+    --press-ink: var(--ink-2);
+    --press-icon-filter: drop-shadow(0.5px 0.6px 0.4px
+        color-mix(in srgb, var(--ink) 34%, transparent)
+    );
+}
+:root.dark .press-tile {
+    --press-icon-filter: drop-shadow(0.5px 0.6px 0.5px var(--bevel-lo));
+}
+.press-tile:not(.still):hover {
+    --press-color: var(--tile-face-hover, var(--paper));
+    --press-shadow: inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--rule-2) 62%, transparent),
+        inset 0 -2px 0 color-mix(in srgb, var(--rule-2) 92%, transparent),
+        0 calc(4px * var(--tile-drop, 1)) 0 var(--shadow),
+        0 calc(10px * var(--tile-drop, 1)) calc(16px * var(--tile-drop, 1))
+            calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
+    --press-ink: var(--accent);
+}
+.press-tile:not(.still):active {
+    --press-color: var(--tile-face-active, color-mix(in srgb, var(--well) 82%, transparent));
+    --press-image: linear-gradient(
+        325deg,
+        color-mix(in srgb, var(--bevel-hi) 42%, transparent),
+        transparent 58%
+    );
+    --press-shadow: inset 1px 1px 4px var(--bevel-lo),
+        inset -1px 0 0 color-mix(in srgb, var(--bevel-hi) 72%, transparent),
+        inset 0 -1px 0 color-mix(in srgb, var(--bevel-hi) 82%, transparent);
+}
+:root.dark .press-tile {
+    --press-color: var(--tile-face, var(--paper));
+    --press-image: radial-gradient(
+            120% 96% at 20% 6%,
+            color-mix(in srgb, var(--bevel-hi) 46%, transparent),
+            transparent 46%
+        ),
+        linear-gradient(
+            145deg,
+            color-mix(in srgb, var(--bevel-hi) 32%, transparent),
+            transparent 50%
+        ),
+        linear-gradient(
+            315deg,
+            color-mix(in srgb, var(--bevel-lo) 26%, transparent),
+            transparent 55%
+        );
+    --press-shadow: inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 70%, transparent),
+        inset -1px 0 0 var(--bevel-lo),
+        inset 0 -2px 0 var(--bevel-lo),
+        0 calc(3px * var(--tile-drop, 1)) 0 var(--shadow-lg),
+        0 calc(8px * var(--tile-drop, 1)) calc(13px * var(--tile-drop, 1))
+            calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
+}
+:root.dark .press-tile:not(.still):hover {
+    --press-color: var(--tile-face-hover, color-mix(in srgb, var(--paper) 88%, var(--ink)));
+    --press-shadow: inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 70%, transparent),
+        inset -1px 0 0 var(--bevel-lo),
+        inset 0 -2px 0 var(--bevel-lo),
+        0 calc(4px * var(--tile-drop, 1)) 0 var(--shadow-lg),
+        0 calc(10px * var(--tile-drop, 1)) calc(16px * var(--tile-drop, 1))
+            calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
+}
+:root.dark .press-tile:not(.still):active {
+    --press-color: var(--tile-face-active, color-mix(in srgb, var(--well) 86%, transparent));
+    --press-image: linear-gradient(
+        325deg,
+        color-mix(in srgb, var(--bevel-hi) 26%, transparent),
+        transparent 58%
+    );
+    --press-shadow: inset 1px 1px 3px var(--bevel-lo),
+        inset -1px 0 0 color-mix(in srgb, var(--bevel-hi) 55%, transparent),
+        inset 0 -1px 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent);
+}
+.press-tile.tone-seal {
+    --seal-lt: color-mix(in srgb, var(--seal) 62%, var(--paper-base));
+    --seal-dp: color-mix(in srgb, var(--seal) 70%, var(--ink-base));
+    --tile-face: var(--seal);
+    --tile-face-hover: color-mix(in srgb, var(--seal) 88%, var(--ink));
+    --tile-face-active: color-mix(in srgb, var(--seal) 74%, var(--ink));
+    --press-ink: var(--on-seal);
+    --press-shadow: inset 0 1px 0 color-mix(in srgb, var(--seal-lt) 62%, transparent),
+        inset 1px 0 0 color-mix(in srgb, var(--seal-lt) 30%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--seal-dp) 38%, transparent),
+        inset 0 -2px 0 color-mix(in srgb, var(--seal-dp) 72%, transparent),
+        0 calc(3px * var(--tile-drop, 1)) 0 var(--shadow),
+        0 calc(8px * var(--tile-drop, 1)) calc(12px * var(--tile-drop, 1))
+            calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
+}
+:root.dark .press-tile.tone-seal {
+    --press-shadow: inset 0 1px 0 color-mix(in srgb, var(--seal-lt) 62%, transparent),
+        inset 1px 0 0 color-mix(in srgb, var(--seal-lt) 30%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--seal-dp) 38%, transparent),
+        inset 0 -2px 0 color-mix(in srgb, var(--seal-dp) 72%, transparent),
+        0 calc(3px * var(--tile-drop, 1)) 0 var(--shadow-lg),
+        0 calc(8px * var(--tile-drop, 1)) calc(13px * var(--tile-drop, 1))
+            calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
+}
+.press-tile.tone-seal,
+:root.dark .press-tile.tone-seal {
+    --press-icon-filter: drop-shadow(0.5px 0.6px 0.4px
+        color-mix(in srgb, var(--ink-base) 42%, transparent)
+    );
+}
+.press-tile.tone-seal:not(.still):hover,
+:root.dark .press-tile.tone-seal:not(.still):hover {
+    --press-shadow: inset 0 1px 0 color-mix(in srgb, var(--seal-lt) 76%, transparent),
+        inset 1px 0 0 color-mix(in srgb, var(--seal-lt) 42%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--seal-dp) 46%, transparent),
+        inset 0 -2px 0 color-mix(in srgb, var(--seal-dp) 78%, transparent),
+        0 calc(4px * var(--tile-drop, 1)) 0 var(--shadow),
+        0 calc(10px * var(--tile-drop, 1)) calc(16px * var(--tile-drop, 1))
+            calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
+}
+.press-tile.tone-seal:not(.still):active,
+:root.dark .press-tile.tone-seal:not(.still):active {
+    --press-image: linear-gradient(
+        325deg,
+        color-mix(in srgb, var(--seal-lt) 30%, transparent),
+        transparent 60%
+    );
+    --press-shadow: inset 1px 1px 4px var(--seal-dp),
+        inset -1px 0 0 color-mix(in srgb, var(--seal-lt) 45%, transparent),
+        inset 0 -1px 0 color-mix(in srgb, var(--seal-lt) 52%, transparent);
+}
+.press-tile.wide {
+    --press-image: radial-gradient(
+            190px 122px at 26px 6px,
+            color-mix(in srgb, var(--bevel-hi) 58%, transparent),
+            transparent 72%
+        ),
+        linear-gradient(
+            145deg,
+            color-mix(in srgb, var(--bevel-hi) 52%, transparent),
+            transparent 46%
+        ),
+        linear-gradient(
+            315deg,
+            color-mix(in srgb, var(--bevel-lo) 100%, transparent),
+            transparent 70%
+        );
+}
+:root.dark .press-tile.wide {
+    --press-image: radial-gradient(
+            150px 100px at 22px 4px,
+            color-mix(in srgb, var(--bevel-hi) 28%, transparent),
+            transparent 70%
+        ),
+        linear-gradient(
+            160deg,
+            color-mix(in srgb, var(--bevel-hi) 16%, transparent),
+            transparent 44%
+        ),
+        linear-gradient(
+            315deg,
+            color-mix(in srgb, var(--bevel-lo) 26%, transparent),
+            transparent 70%
+        );
+}
+.board {
+    --board-paper: var(--paper-2);
+    --board-texture: radial-gradient(
+            140% 100% at 16% -6%,
+            color-mix(in srgb, var(--bevel-hi) 58%, transparent),
+            transparent 58%
+        ),
+        linear-gradient(
+                135deg,
+                color-mix(in srgb, var(--board-face, var(--board-paper)) 97%, var(--paper-base)) 0%,
+                transparent 48%,
+                color-mix(in srgb, var(--board-face, var(--board-paper)) 91%, var(--ink-base)) 100%
+            );
+    --board-shadow: inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--rule-2) 46%, transparent),
+        inset 0 -3px 0 color-mix(in srgb, var(--rule-2) 84%, transparent),
+        0 3px 0 var(--shadow),
+        0 10px 16px -6px var(--shadow-lg);
+}
+:root.dark .board {
+    --board-paper: var(--paper);
+    --board-texture: radial-gradient(
+            140% 100% at 16% -6%,
+            color-mix(in srgb, var(--bevel-hi) 54%, transparent),
+            transparent 56%
+        ),
+        linear-gradient(
+                135deg,
+                color-mix(in srgb, var(--board-face, var(--board-paper)) 96%, var(--ink)) 0%,
+                transparent 48%,
+                color-mix(in srgb, var(--board-face, var(--board-paper)) 96%, var(--ink-base)) 100%
+            );
+    --board-shadow: inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 70%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--paper) 62%, var(--ink-base)),
+        inset 0 -3px 0 color-mix(in srgb, var(--paper) 45%, var(--ink-base)),
+        0 3px 0 var(--shadow-lg),
+        0 12px 20px -7px var(--shadow-lg);
+}
+.well,
+.field {
+    --well-background: var(--well);
+    --well-texture: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
+    --well-shadow: inset 0 1px 2px var(--bevel-lo),
+        inset 0 -1px 0 var(--bevel-hi);
+}
+.field {
+    --well-texture: linear-gradient(180deg, var(--bevel-lo), transparent 14px);
+}
+.field:focus:not(:disabled) {
+    --well-shadow: inset 0 1px 3px var(--bevel-lo),
+        inset 0 -1px 0 var(--bevel-hi);
+}
+.slip-row {
+    --slip-hi: light-dark(var(--bevel-hi), color-mix(in srgb, var(--paper-base) 34%, transparent));
+    --slip-lo: light-dark(var(--bevel-lo), color-mix(in srgb, var(--ink-base) 42%, transparent));
+    --slip-background: color-mix(in srgb, var(--well) 34%, var(--slip-base, var(--paper-2)));
+    --slip-shadow: inset 1px 1px 0 var(--slip-hi),
+        inset -1px -1px 0 var(--slip-lo),
+        0 2px 4px -1px var(--shadow-lg);
+}
+.slip-row.sm {
+    --slip-shadow: inset 1px 1px 0 var(--slip-hi),
+        inset -1px -1px 0 var(--slip-lo),
+        0 1px 2px var(--shadow);
+}
+.num-slot {
+    --num-slot-background: color-mix(in srgb, var(--well) 45%, transparent);
+    --num-slot-shadow: inset 0 1px 2px var(--bevel-lo),
+        inset 0 -1px 0 var(--bevel-hi);
+}
+.field.num-slot:hover:not(:disabled) {
+    --num-slot-background: color-mix(in srgb, var(--well) 68%, transparent);
+}
+.field.num-slot:focus:not(:disabled) {
+    --num-slot-background: var(--well);
+    --num-slot-shadow: inset 0 1px 3px var(--bevel-lo),
+        inset 0 -1px 0 var(--bevel-hi);
 }

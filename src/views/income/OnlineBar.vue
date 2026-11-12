@@ -275,7 +275,7 @@ function whoText(one: OnlineSession): string {
 }
 
 .price-tag:hover .mark {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 
 /* 在线的号：**一行胶囊**，放不下就横向滚（用户 2026-11-11 的原话）。
@@ -336,7 +336,7 @@ function whoText(one: OnlineSession): string {
     width: 6px;
     height: 6px;
     border-radius: var(--r-pill);
-    background: var(--cinnabar);
+    background: var(--accent);
 }
 
 /* 名字**不收缩**（`flex: none`）：收起来就永远不会有「内容超出、左右滚」这件事。
@@ -351,7 +351,7 @@ function whoText(one: OnlineSession): string {
 /* 时长跟着名字，中间不断开：它属于这枚胶囊，不属于整行。 */
 .time {
     flex: none;
-    color: var(--cinnabar);
+    color: var(--accent);
     font-variant-numeric: tabular-nums;
 }
 
@@ -365,7 +365,7 @@ function whoText(one: OnlineSession): string {
 }
 
 .live-chip:hover .mark {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 
 .idle {

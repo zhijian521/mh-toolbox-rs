@@ -170,7 +170,7 @@ details[open] summary::after {
     width: 22px;
     height: 2px;
     border-radius: 1px;
-    background: var(--cinnabar);
+    background: var(--accent);
     transform: translateX(-50%);
 }
 summary:focus-visible {

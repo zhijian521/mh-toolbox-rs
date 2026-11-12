@@ -241,7 +241,7 @@ html.dark .pet-picker-panel {
 }
 .pet-picker-state.error,
 .pet-resource-state.error {
-    color: var(--cinnabar);
+    color: var(--danger);
 }
 
 .character-theme[data-school='大唐官府'] {

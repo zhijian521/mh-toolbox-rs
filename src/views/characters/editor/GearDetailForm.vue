@@ -442,7 +442,7 @@ function addLine(label: string) {
     color: var(--muted);
 }
 .row-delete:hover {
-    color: var(--cinnabar);
+    color: var(--danger);
 }
 .gear-note {
     display: grid;

@@ -311,7 +311,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
     flex-wrap: wrap;
     gap: 6px 10px;
     min-width: 0;
-    color: var(--cinnabar);
+    color: var(--danger);
     font-size: var(--fs-sm);
 }
 </style>

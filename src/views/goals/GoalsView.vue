@@ -367,7 +367,7 @@ function onProgress(goal: Goal) {
     line-height: 1.3;
 }
 .strip b.warn {
-    color: var(--cinnabar);
+    color: var(--danger);
 }
 .strip small {
     display: block;

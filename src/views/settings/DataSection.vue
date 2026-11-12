@@ -267,6 +267,6 @@ onMounted(() => {
  * 写成复合选择器与 `base.css` 里 `.note.error` / `.note.positive` 同一手法——
  * 独立类与 `.note` 同特异性，谁赢取决于样式表加载顺序。 */
 .note.warning {
-    color: var(--ochre);
+    color: var(--warning);
 }
 </style>

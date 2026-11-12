@@ -166,7 +166,7 @@ svg {
  * ## 圆角 6px 是这一族唯一的例外
  *
  * 全站方角是因为**结构靠线**——线框的角只能是直角。纸片是实体，四角自然是圆的。
- * 写死、不乘 `--fs-scale`：曲率是绝对的，字放大时圆角一起变大会读成另一种控件
+ * 由 `--r-panel` 给出、不乘 `--fs-scale`：字放大时圆角一起变大会读成另一种控件
  * （与 `PressTile` 的 `--tile-r` 同一条）。
  *
  * ## `--board-face`
@@ -177,82 +177,10 @@ svg {
 .board {
     position: relative;
     padding: 20px;
-    border-radius: 6px;
-    /* 卡面的纸色：亮色取 `--paper-2`（#f2ead6），比纯纸白 `--paper`（#f8f3e6）深一档。
-     * 用户 2026-11-05：「亮色取不那么白的」——纯纸白压在台面（`--well` #e7dcc0）上太白，
-     * 一张张读作「打了灯的板子」而不是纸。`--paper-2` 正好是「纸 → 台面」之间的中间档，
-     * 纸的温度还在，又不刺眼。**不新造色号**：它就是「比纸深一档的纸」，本来就有。
-     *
-     * 底下那个变量才是「卡面默认纸色」的唯一来源：底色与渐变两端都引它，
-     * 于是换纸色只改这一行，渐变自动跟着重算。 */
-    --board-paper: var(--paper-2);
-    /* 底色与渐变分两条写：`--board-face` 只换底色（角色卡的门派浅染走这条），
-     * 没填的时候落到 `--board-paper`。 */
+    border-radius: var(--r-panel);
     background-color: var(--board-face, var(--board-paper));
-    /* 两层叠出「一张被顶起来的纸」：
-     *   ① 左上角一团偏光（radial）—— 与 `PressTile` 同一个手法，光从左上打过来，
-     *      纸被顶起时正对光的那个角先亮起来。没有它，斜向渐变只是一条灰带子；
-     *   ② 135° 斜向渐变 —— 左上淡、右下浓。一张纯色的纸在台面上是「一块色块」，
-     *      带上这道斜差之后左右两半的明度不同，眼睛才读得出它是**斜着受光的平面**。
-     *      方向固定 135°（与角色卡的门派浅染同向），全站的纸于是朝同一个光源。 */
-    background-image:
-        radial-gradient(
-            140% 100% at 16% -6%,
-            color-mix(in srgb, var(--bevel-hi) 58%, transparent),
-            transparent 58%
-        ),
-        /* 斜差两端：**亮端 3%、暗端 9%**。三轮调下来的数（4/8 → 4/12 → 3/9）：
-         * 用户第一轮说「亮色下渐变不明显」，加到 12 之后又说「差距过大」，这次两头都收。
-         * 亮端只掉 1 个点——它本来只是个暗示；暗端 12 → 9，一端亮一端暗仍在，
-         * 但不再像「一半打了光、一半没打」。 */
-        linear-gradient(
-                135deg,
-                color-mix(in srgb, var(--board-face, var(--board-paper)) 97%, var(--paper-base)) 0%,
-                transparent 48%,
-                color-mix(in srgb, var(--board-face, var(--board-paper)) 91%, var(--ink-base)) 100%
-            );
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
-        inset -1px 0 0 color-mix(in srgb, var(--rule-2) 46%, transparent),
-        inset 0 -3px 0 color-mix(in srgb, var(--rule-2) 84%, transparent),
-        0 3px 0 var(--shadow),
-        0 10px 16px -6px var(--shadow-lg);
-}
-
-/* 暗色必须重算三处：
- * 1. `--rule-2` 在暗色是 #544a33，比板面**亮**，拿它做下沿会成一条发光的线（光向反了），
- *    断面与右沿换成「板面混不翻面的深色」；
- * 2. 硬影提一档到 `--shadow-lg`——暗底上的第一层 35% 黑几乎看不见；
- * 3. 渐变的方向不变、幅度变大：暗色的纸本来就深，同样 8% 的差在 #1c1912 上只剩两三阶，
- *    所以左上那端改成「混 `--ink`（暗色是纸白）」、偏光也拉到满强度。 */
-:root.dark .board {
-    /* 暗色换回 `--paper`：`--paper-2` 在暗色是 #231f16，会给卡面提亮一档，
-     * 与「台面压深、卡片才浮得起来」的方向相反。 */
-    --board-paper: var(--paper);
-    background-image:
-        radial-gradient(
-            140% 100% at 16% -6%,
-            color-mix(in srgb, var(--bevel-hi) 54%, transparent),
-            transparent 56%
-        ),
-        /* 暗色第三轮：14/12 → 7/6 → **4/4**。用户连说两次「对比太大」，这次两端拉平。
-         * 暗底上的纸本来就深，4% 是「看得出方向、又说不出哪里不一样」的那条线；
-         * 再收就只剩偏光在撑，卡片会退回一块纯色。偏光 100% → 62% → 54%，
-         * 现在只负责把左上角提亮半档。 */
-        linear-gradient(
-                135deg,
-                color-mix(in srgb, var(--board-face, var(--board-paper)) 96%, var(--ink)) 0%,
-                transparent 48%,
-                color-mix(in srgb, var(--board-face, var(--board-paper)) 96%, var(--ink-base)) 100%
-            );
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 70%, transparent),
-        inset -1px 0 0 color-mix(in srgb, var(--paper) 62%, var(--ink-base)),
-        inset 0 -3px 0 color-mix(in srgb, var(--paper) 45%, var(--ink-base)),
-        0 3px 0 var(--shadow-lg),
-        0 12px 20px -7px var(--shadow-lg);
+    background-image: var(--board-texture);
+    box-shadow: var(--board-shadow);
 }
 
 /* ---------- 区块标 ----------
@@ -281,11 +209,11 @@ svg {
     width: var(--mark-w);
     height: var(--mark-h);
     border-radius: 1px;
-    background: var(--cinnabar);
+    background: var(--accent);
     box-shadow:
         inset 1px 0 0 var(--bevel-hi),
         inset -1px 0 0 var(--bevel-lo),
-        0 1px 1px color-mix(in srgb, var(--cinnabar) 40%, transparent);
+        0 1px 1px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 /* ---------- 组头：短竖条 + 分栏名（+ 右端一个小计） ----------
@@ -345,11 +273,9 @@ svg {
      * 侧栏）不传这个变量，落回原来那条半透明的褐线，行为一点没变；
      * 而 `.field` 只在悬停 / 焦点两态覆盖它，用来把整圈加深。 */
     border: var(--w-hair) solid var(--lip-shade, color-mix(in srgb, var(--rule-2) 80%, transparent));
-    background-color: var(--well);
-    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
-    box-shadow:
-        inset 0 1px 2px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
+    background-color: var(--well-background);
+    background-image: var(--well-texture);
+    box-shadow: var(--well-shadow);
 }
 /* 竖过来的槽：光从左上，暗面于是在左壁而不是顶边，顶影也再深一档。
  *
@@ -536,7 +462,7 @@ svg {
     border-radius: var(--r-2);
 }
 .bevel-pill:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--cinnabar) 55%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
     background-color: color-mix(in srgb, var(--well) 78%, var(--paper));
     color: var(--ink);
 }
@@ -681,7 +607,7 @@ svg {
  * 字号与字色也走这一条。
  */
 .note.error {
-    color: var(--cinnabar);
+    color: var(--danger);
 }
 /* 成功一侧同理，2026-11 随「设置 → 数据」那张卡补回来：导入 / 导出 / 清除做完之后
  * 要留一句话（里面还带着自动备份的路径），它和失败那句话**同一档次、只换色**，
@@ -691,7 +617,7 @@ svg {
  * 颜色取现成的苔（`--moss`，全站「正收益」用的那一个）：成功提示与正收益是同一件事，
  * 不为它新开一个色。 */
 .note.positive {
-    color: var(--moss);
+    color: var(--success);
 }
 /* 元信息：日期、量测值、部位、「已套用 N 条」这类**附在主体旁边的一行小字**。
  *
@@ -782,14 +708,7 @@ svg {
     column-gap: 12px;
 }
 .slip-row {
-    /* 两个棱色自己定：`--bevel-hi` 在暗色只有 18% 白，压在深纸上读不出，只剩「下暗」，
-     * 凹会反过来读成一块深色贴片。
-     *
-     * 34% 而不是 32%：`--paper-base` 的相对亮度只有纯白的 90%，同 alpha 下会暗半档，
-     * 补到 34% 才与亮色档的 `--bevel-hi` 等亮度（压在同色的 `--paper-2` 上，
-     * 相对亮度 0.1366 对 0.1362），只是略微偏暖。 */
-    --slip-hi: light-dark(var(--bevel-hi), color-mix(in srgb, var(--paper-base) 34%, transparent));
-    --slip-lo: light-dark(var(--bevel-lo), color-mix(in srgb, var(--ink-base) 42%, transparent));
+    /* 票面与两侧棱色统一在 tokens.css，局部 --slip-base 保留门派染色。 */
     --tag-w: calc(56px * var(--fs-scale));
     /* 26 → 24（2026-11-04 用户：「数字下面的背景框现在高度有点大，都稍微减小一点」）。
      * 票 42 没动：矮下来的 2px 全给了签上下的留白，读起来才像「票托着一枚签」而不是
@@ -806,11 +725,8 @@ svg {
     /* 第二色走 `--slip-base`：编辑弹窗里没有这个变量，回落纸色（原本的行为）；
      * 角色卡上它是 `--card-bg`（门派浅染后的卡底），票于是跟着卡走同一个色相。
      * 不跟着走的话，卡一染色，一排票就成了「贴在一张彩纸上的白条」（2026-11-04）。 */
-    background: color-mix(in srgb, var(--well) 34%, var(--slip-base, var(--paper-2)));
-    box-shadow:
-        inset 1px 1px 0 var(--slip-hi),
-        inset -1px -1px 0 var(--slip-lo),
-        0 2px 4px -1px var(--shadow-lg);
+    background: var(--slip-background);
+    box-shadow: var(--slip-shadow);
 }
 /* 小一号：属性页。高度、签、圆角、影一起收——票小一圈而影仍按原尺寸落，会显得脏。
  * 签同步 20 → 18，理由同 md（票 28 不动，让出来的还是上下留白）：18 里放 12 号的数，
@@ -820,10 +736,7 @@ svg {
     --tag-h: calc(18px * var(--fs-scale));
     height: 28px;
     border-radius: var(--r-2);
-    box-shadow:
-        inset 1px 1px 0 var(--slip-hi),
-        inset -1px -1px 0 var(--slip-lo),
-        0 1px 2px var(--shadow);
+    box-shadow: var(--slip-shadow);
 }
 /* 名目：吃满中间，12px、`--ink-2`。四页同一个层级——名目比读数淡、比读数小一档。
  * 师门与修炼原先用正墨（`--ink`），这次一并退到 `--ink-2`：一行里「数」才是要读的，
@@ -895,7 +808,7 @@ svg {
  * 没有」由朱色的数与那个「满」说清。 */
 .slip-row.full .slip-val .lv,
 .slip-row.full .slip-note {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 .slip-row.idle .slip-name,
 .slip-row.off .slip-name,
@@ -1001,7 +914,7 @@ svg {
      * 62% 是按容器自身高度解析的：26px 的槽按钮上等于 16px，正好；但同一个输入格
      * 多行时会撑到 100px 以上，62% 就是 60px 一大片灰。14px 落在 26px 上等价于 54%，
      * 单行与多行看起来才是同一道槽。 */
-    background-image: linear-gradient(180deg, var(--bevel-lo), transparent 14px);
+    background-image: var(--well-texture);
     color: var(--ink);
     font-family: var(--font-ui);
     font-size: var(--fs-sm);
@@ -1044,10 +957,8 @@ svg {
         color-mix(in srgb, var(--rule-2) 74%, var(--ink-base)),
         color-mix(in srgb, var(--rule-2) 64%, var(--ink-base))
     );
-    box-shadow:
-        inset 0 1px 3px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
-    caret-color: var(--cinnabar);
+    box-shadow: var(--well-shadow);
+    caret-color: var(--accent);
 }
 .field:disabled {
     opacity: 0.5;
@@ -1095,25 +1006,21 @@ svg {
  * 换成 `background-color` 就等于把顶壁渐变又留了回来。 */
 .num-slot {
     border-width: 0;
-    background: color-mix(in srgb, var(--well) 45%, transparent);
-    box-shadow:
-        inset 0 1px 2px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
+    background: var(--num-slot-background);
+    box-shadow: var(--num-slot-shadow);
     transition:
         background-color var(--t-quick) var(--ease-soft),
         box-shadow var(--t-quick) var(--ease-soft);
 }
 .field.num-slot:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--well) 68%, transparent);
+    background: var(--num-slot-background);
 }
 /* 带 `:not(:disabled)` 是为了压过上面那条悬停（同为 0-4-0，写成 0-3-0 会被静默吃掉）：
  * 点进来时必然同时在悬停，底色会停在 68% 那档，聚焦看不出变化。 */
 .field.num-slot:focus:not(:disabled) {
-    background: var(--well);
-    box-shadow:
-        inset 0 1px 3px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
-    caret-color: var(--cinnabar);
+    background: var(--num-slot-background);
+    box-shadow: var(--num-slot-shadow);
+    caret-color: var(--accent);
 }
 
 /* 编辑器里的一行：一行数据 = 几个格子 + 一枚删。行距 5 是「同一组内的行」，

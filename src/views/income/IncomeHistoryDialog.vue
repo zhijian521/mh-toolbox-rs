@@ -422,7 +422,7 @@ async function remove(one: IncomeEntry) {
     color: var(--muted);
 }
 .sum-tag.loss b {
-    color: var(--cinnabar);
+    color: var(--negative);
 }
 
 /* ---------- 流水表 ---------- */
@@ -567,7 +567,7 @@ async function remove(one: IncomeEntry) {
     font-variant-numeric: tabular-nums;
 }
 .c-num.out {
-    color: var(--cinnabar);
+    color: var(--negative);
 }
 .c-ops {
     width: 72px;

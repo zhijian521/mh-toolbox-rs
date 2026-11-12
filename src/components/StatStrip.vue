@@ -135,11 +135,11 @@ withDefaults(defineProps<{ items: StatItem[] }>(), {});
     color: var(--num);
 }
 .gain {
-    color: var(--moss);
+    color: var(--positive);
 }
 /* 支出与净额为负时转朱：与卡上的三层（墨名目 / 赭读数 / 朱强调）同一条。 */
 .loss {
-    color: var(--cinnabar);
+    color: var(--negative);
 }
 
 /* 副文行两端对齐：左段吃满剩余宽度（放不下就省略号），右段永不让位。

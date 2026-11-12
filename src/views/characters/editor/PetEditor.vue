@@ -238,7 +238,7 @@ defineExpose({ focusName });
     background: transparent;
 }
 .pet-choice.selected .pet-mark {
-    background: var(--cinnabar);
+    background: var(--accent);
 }
 /* 名字在最下面，走满一行，太长就省略——不换行，否则格子会被两行字顶高。 */
 .pet-name {

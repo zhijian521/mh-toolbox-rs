@@ -199,7 +199,7 @@ const readout = computed(() => {
 /* 达成的那张：只有边线与一枚章。不换底色——目标卡本来就躺在纸面上，
  * 换底色会让「已经结束的东西」比进行中的还显眼。 */
 .goal.done {
-    border-color: color-mix(in srgb, var(--moss) 42%, var(--rule));
+    border-color: color-mix(in srgb, var(--success) 42%, var(--rule));
 }
 .goal-head {
     display: flex;
@@ -284,7 +284,7 @@ const readout = computed(() => {
     letter-spacing: 0.05em;
 }
 .deadline.over {
-    color: var(--cinnabar);
+    color: var(--danger);
 }
 .readout {
     display: flex;
@@ -311,7 +311,7 @@ const readout = computed(() => {
     font-variant-numeric: tabular-nums;
 }
 .goal.done .readout .pct {
-    color: var(--moss);
+    color: var(--success);
 }
 /* 达成后那条线只留一道底槽（`MeterBar` 拿不到 `percent` 时不画填充），
  * 占位保持卡片高度一致，但不假装还有进度。 */
@@ -369,7 +369,7 @@ const readout = computed(() => {
     white-space: nowrap;
 }
 .member .state.ok {
-    color: var(--moss);
+    color: var(--success);
 }
 .member .state.unknown {
     color: color-mix(in srgb, var(--muted) 70%, var(--paper));

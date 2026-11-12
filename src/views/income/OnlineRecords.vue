@@ -256,7 +256,7 @@ async function remove(one: OnlineSession) {
     font-variant-numeric: tabular-nums;
 }
 .sum-item.live {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 
 /* 只有这一块滚。min-height: 0 不能省：flex 子项默认 min-height: auto，
@@ -311,7 +311,7 @@ async function remove(one: OnlineSession) {
 }
 /* 还在计时的那一段：只有时段一列上朱，整行变色会跟别的意思撞上。 */
 .c-time.live {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 .c-who {
     width: 132px;

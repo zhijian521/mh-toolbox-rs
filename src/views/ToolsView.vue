@@ -251,6 +251,6 @@ const groups = computed(() =>
 }
 .tool-item:hover:not(:disabled) .tool-name,
 .tool-item:focus-visible .tool-name {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 </style>

@@ -244,7 +244,7 @@ async function undo(group: ItemGroup) {
 /* 支出那一组转朱（与合计条里的「支」同一套），收入保持赭。 */
 .g.out .n,
 .g.out .price .v {
-    color: var(--cinnabar);
+    color: var(--negative);
 }
 
 .total {
@@ -267,7 +267,7 @@ async function undo(group: ItemGroup) {
 }
 /* 净额为负时整句转朱：「今天亏了」不该是一个只在符号上不同的棕色数字。 */
 .total .v.loss {
-    color: var(--cinnabar);
+    color: var(--negative);
 }
 
 /* 空态：一句「还没有」，不画空表。留白读作「没做完」，一句话读作「今天还没开始」。 */

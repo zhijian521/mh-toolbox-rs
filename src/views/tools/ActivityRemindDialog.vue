@@ -160,6 +160,6 @@ function submit() {
 
 /* 有损换算那一条要说得出声：它决定「下个月还要不要回来点一次」。 */
 .hint.warn {
-    color: var(--ochre);
+    color: var(--warning);
 }
 </style>

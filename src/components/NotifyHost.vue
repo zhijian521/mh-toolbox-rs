@@ -203,10 +203,10 @@ function onResume(id: number) {
 /* 三档只换颜色，不换结构、不换尺寸。多一套形态就等于多一个「这是哪一类消息」的
  * 判断成本，而这三类本来只是同一件事的三种语气。 */
 .is-success {
-    --notice-tone: var(--moss);
+    --notice-tone: var(--success);
 }
 .is-error {
-    --notice-tone: var(--cinnabar-ink);
+    --notice-tone: var(--danger-ink);
 }
 .is-info {
     --notice-tone: var(--muted);

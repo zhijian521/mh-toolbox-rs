@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
-import { useFontScale } from '../../composables/use-font-scale';
 import { useTheme } from '../../composables/use-theme';
 import type { GhostPlan } from '../../services/ghost-model';
 import { paintMap, resolveColors, type Layout } from './map-paint';
@@ -25,8 +24,6 @@ const image = shallowRef<HTMLImageElement | null>(null);
 const loading = ref(false);
 
 const { isDark } = useTheme();
-// 字号改一档要重画：canvas 里的字不走 CSS，`--fs-scale` 变了它不会自己跟上。
-const { scale } = useFontScale();
 
 const currentMap = computed(() => props.plan?.map ?? null);
 
@@ -78,16 +75,22 @@ function draw() {
         plan,
         layout,
         bitmap,
-        colors: resolveColors(isDark.value),
+        colors: resolveColors(),
         dark: isDark.value,
     });
 }
 
 let observer: ResizeObserver | null = null;
+let appearanceObserver: MutationObserver | null = null;
+let drawFrame: number | null = null;
 
 function scheduleDraw() {
     // 合并同一帧里的多次触发：ResizeObserver 在布局抖动时会连续回调。
-    requestAnimationFrame(draw);
+    if (!canvas.value || drawFrame !== null) return;
+    drawFrame = requestAnimationFrame(() => {
+        drawFrame = null;
+        draw();
+    });
 }
 
 watch(
@@ -118,7 +121,7 @@ watch(
     { immediate: true },
 );
 
-watch([() => props.plan, isDark, scale], scheduleDraw, { deep: false });
+watch(() => props.plan, scheduleDraw);
 
 onMounted(() => {
     const host = stage.value;
@@ -126,14 +129,23 @@ onMounted(() => {
         observer = new ResizeObserver(scheduleDraw);
         observer.observe(host);
     }
+    // Canvas 不继承 CSS；根元素切换明暗、字号或风格后，用更新后的令牌重画。
+    appearanceObserver = new MutationObserver(scheduleDraw);
+    appearanceObserver.observe(document.documentElement, { attributes: true });
     // canvas 里画的是自定义字体，字体没加载完就画会用回退字形，宽度也算错。
     void document.fonts.ready.then(scheduleDraw);
+    document.fonts.addEventListener('loadingdone', scheduleDraw);
     scheduleDraw();
 });
 
 onBeforeUnmount(() => {
     observer?.disconnect();
     observer = null;
+    appearanceObserver?.disconnect();
+    appearanceObserver = null;
+    document.fonts.removeEventListener('loadingdone', scheduleDraw);
+    if (drawFrame !== null) cancelAnimationFrame(drawFrame);
+    drawFrame = null;
 });
 </script>
 
@@ -186,7 +198,7 @@ onBeforeUnmount(() => {
 .map-alert span {
     max-width: 330px;
     padding: 7px 11px;
-    border: var(--w-hair) solid var(--ochre);
+    border: var(--w-hair) solid var(--warning);
     background: var(--paper);
     color: var(--ink);
     font-size: var(--fs-sm);

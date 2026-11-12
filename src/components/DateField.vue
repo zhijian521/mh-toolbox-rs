@@ -602,7 +602,7 @@ onBeforeUnmount(() => {
     height: 4px;
     margin-left: -2px;
     border-radius: 50%;
-    background: var(--cinnabar);
+    background: var(--accent);
 }
 /* 选中日灌朱：`--seal` 那一族是「这块地方是朱的」的唯一配方，不用 `--cinnabar` 灌底。 */
 .day.on {
@@ -642,6 +642,6 @@ onBeforeUnmount(() => {
     cursor: pointer;
 }
 .jump:hover {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 </style>

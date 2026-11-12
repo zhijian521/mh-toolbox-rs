@@ -196,14 +196,14 @@ async function remove(logId: string) {
     cursor: pointer;
 }
 .remove:hover {
-    color: var(--cinnabar);
+    color: var(--danger);
 }
 .empty {
     margin-top: 14px;
 }
 .form-error {
     margin: 6px 0 0;
-    color: var(--cinnabar);
+    color: var(--danger);
     font-size: var(--fs-sm);
 }
 </style>

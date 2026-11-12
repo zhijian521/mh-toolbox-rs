@@ -282,7 +282,7 @@ function nudge(direction: 1 | -1) {
 }
 
 .pf-bad {
-    border-color: var(--cinnabar);
+    border-color: var(--danger);
 }
 
 .pf-hint {

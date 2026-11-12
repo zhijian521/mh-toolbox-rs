@@ -350,7 +350,7 @@ async function remove(one: AccountEntry) {
     color: var(--muted);
 }
 .sum-item.loss {
-    color: var(--cinnabar);
+    color: var(--negative);
 }
 
 /* 只有这一块滚。`min-height: 0` 是必须的：flex 子项默认 `min-height: auto`
@@ -428,7 +428,7 @@ async function remove(one: AccountEntry) {
     font-variant-numeric: tabular-nums;
 }
 .c-num.out {
-    color: var(--cinnabar);
+    color: var(--negative);
 }
 .c-ops {
     width: 74px;

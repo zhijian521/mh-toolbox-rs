@@ -158,7 +158,7 @@
     transition: color var(--t-quick) var(--ease-soft);
 }
 .gear-cell:hover .gear-part {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 /* 两种块**共用一套几何**：有图的 `IconTile` 与没图的首字块必须一样大一样厚，
  * 否则十二格里会出现「三格看着小一圈」。

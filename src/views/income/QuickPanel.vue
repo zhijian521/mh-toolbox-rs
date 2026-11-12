@@ -552,7 +552,7 @@ async function importPrices() {
     content: '';
     position: absolute;
     inset: -1px;
-    border: 1px solid color-mix(in srgb, var(--cinnabar) 55%, var(--rule-2));
+    border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--rule-2));
     border-radius: calc(var(--r-2) + 1px);
     pointer-events: none;
 }
@@ -564,7 +564,7 @@ async function importPrices() {
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: var(--cinnabar);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--cinnabar) 18%, transparent);
+    background: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 </style>

@@ -88,7 +88,7 @@
 }
 .upload-error {
     margin: 0;
-    color: var(--cinnabar);
+    color: var(--danger);
     font-size: var(--fs-sm);
 }
 .upload-raw {
@@ -123,7 +123,7 @@
     font-variant-numeric: tabular-nums;
 }
 .upload-raw-list li.low .raw-score {
-    color: var(--cinnabar);
+    color: var(--danger);
 }
 .upload-detail {
     display: flex;

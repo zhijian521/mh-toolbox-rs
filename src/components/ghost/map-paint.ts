@@ -28,8 +28,6 @@ function project(layout: Layout, map: { maxX: number; maxY: number }, x: number,
     };
 }
 
-const FONT_FAMILY = '"LXGW WenKai Screen", "Microsoft YaHei", sans-serif';
-
 /**
  * 把 CSS 变量解析成 canvas 能用的颜色与字号。
  *
@@ -64,15 +62,35 @@ export interface MapColors {
 
 let colorCache: { key: string; colors: MapColors } | null = null;
 
-export function resolveColors(dark: boolean): MapColors {
-    // 缓存键要带 `--fs-scale`：只按主题缓存的话，用户把字号调大一档之后地图上的
-    // 标签仍是旧字号，得等切一次主题才更新。
-    const scale = getComputedStyle(document.documentElement).getPropertyValue('--fs-scale').trim();
-    const key = `${dark ? 'dark' : 'light'}:${scale || '1'}`;
+const COLOR_TOKENS = {
+    cinnabar: '--cinnabar',
+    mapSeal: '--map-seal',
+    mapSealInk: '--map-seal-ink',
+    mapHalo: '--map-halo',
+    wash: '--ghost-wash',
+    washEdge: '--ghost-wash-edge',
+    hot: '--ghost-hot',
+    hotEdge: '--ghost-hot-edge',
+    paper: '--paper',
+    ink: '--ink',
+    rule: '--rule-2',
+} as const;
+
+export function resolveColors(): MapColors {
+    // 同一明暗模式内也可能换色、换字；缓存跟随实际令牌，不以 light / dark 代替风格。
+    const root = getComputedStyle(document.documentElement);
+    const key = JSON.stringify([
+        root.colorScheme,
+        ...Object.values(COLOR_TOKENS).map((name) => root.getPropertyValue(name)),
+        root.getPropertyValue('--font-ui'),
+        root.getPropertyValue('--fs-sm'),
+        root.getPropertyValue('--fs-base'),
+    ]);
     if (colorCache?.key === key) return colorCache.colors;
 
     const probe = document.createElement('span');
     probe.style.display = 'none';
+    probe.style.fontFamily = 'var(--font-ui)';
     document.body.append(probe);
     const readColor = (name: string): string => {
         probe.style.color = `var(${name})`;
@@ -81,27 +99,22 @@ export function resolveColors(dark: boolean): MapColors {
     /** computed 的 `font-size` 恒是 px，可以直接拼进 canvas 字体串。 */
     const readFont = (name: string): string => {
         probe.style.fontSize = `var(${name})`;
-        return `${getComputedStyle(probe).fontSize} ${FONT_FAMILY}`;
+        const style = getComputedStyle(probe);
+        return `${style.fontSize} ${style.fontFamily}`;
     };
-    const colors: MapColors = {
-        cinnabar: readColor('--cinnabar'),
-        mapSeal: readColor('--map-seal'),
-        mapSealInk: readColor('--map-seal-ink'),
-        mapHalo: readColor('--map-halo'),
-        wash: readColor('--ghost-wash'),
-        washEdge: readColor('--ghost-wash-edge'),
-        hot: readColor('--ghost-hot'),
-        hotEdge: readColor('--ghost-hot-edge'),
-        paper: readColor('--paper'),
-        ink: readColor('--ink'),
-        rule: readColor('--rule-2'),
-        fontLabel: readFont('--fs-sm'),
-        fontExact: readFont('--fs-base'),
-    };
-    probe.remove();
-
-    colorCache = { key, colors };
-    return colors;
+    try {
+        const colors: MapColors = {
+            ...(Object.fromEntries(
+                Object.entries(COLOR_TOKENS).map(([name, token]) => [name, readColor(token)]),
+            ) as Pick<MapColors, keyof typeof COLOR_TOKENS>),
+            fontLabel: readFont('--fs-sm'),
+            fontExact: readFont('--fs-base'),
+        };
+        colorCache = { key, colors };
+        return colors;
+    } finally {
+        probe.remove();
+    }
 }
 
 export interface PaintInput {

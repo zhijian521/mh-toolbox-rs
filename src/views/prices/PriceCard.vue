@@ -339,7 +339,7 @@ function onCardClick(event: MouseEvent) {
     color: color-mix(in srgb, var(--ink) 92%, var(--tint-deep, var(--paper)));
 }
 .card-main:hover .card-name {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 
 /* 品名与价钱之间那道虚线。 */
@@ -477,7 +477,7 @@ function onCardClick(event: MouseEvent) {
     transition: color var(--t-quick) var(--ease-soft);
 }
 .card-act:hover {
-    color: var(--cinnabar);
+    color: var(--accent);
 }
 .card-act:focus-visible {
     outline: var(--ring);
