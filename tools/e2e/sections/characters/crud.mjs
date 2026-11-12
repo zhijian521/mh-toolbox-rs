@@ -449,6 +449,18 @@ export async function pets(ctx) {
                 `document.querySelector('button[aria-label="保存这个角色"]').disabled`,
             ),
         );
+        await ui.clickText('.ocr-tabs button', '属性', { exact: true });
+        t.check(
+            '切到其他分区仍说明保存被哪只未命名召唤兽阻塞',
+            (await ui.text('.editor-validation')).includes('第 1 只召唤兽尚未命名'),
+        );
+        await ui.clickLabel('定位未填写的名称');
+        t.check(
+            '去填写切回召唤兽并聚焦缺名输入框',
+            await cdp.evaluate(`document.querySelector('.ocr-tabs [aria-checked="true"]')
+                ?.textContent.trim() === '召唤兽' &&
+                document.activeElement?.matches('.pet-block input[aria-label="召唤兽名称"]')`),
+        );
         await ui.fillSel('.pet-block input[aria-label="召唤兽名称"]', '   ');
         t.check(
             '空白名称也不能保存，草稿仍保留',
@@ -638,15 +650,39 @@ export async function pets(ctx) {
             '选完技能焦点返回入口',
             await cdp.evaluate(`document.activeElement?.matches('.pet-block .skill-trigger')`),
         );
-        await ui.clickLabelPrefix('第 1 个技能：');
-        await cdp.key('Escape');
-        await sleep(120);
-        t.check(
-            'Esc 只关闭技能选择器并恢复焦点',
-            (await ui.exists('.editor')) &&
-                !(await ui.exists('.pet-block .skill-panel')) &&
-                (await cdp.evaluate(`document.activeElement?.matches('.pet-block .skill-trigger')`)),
-        );
+        for (const index of [1, 2]) {
+            await ui.clickLabelPrefix(`第 ${index} 个技能：`);
+            const placement = await cdp.evaluate(`(() => {
+                const content = document.querySelector('.pet-block .pet-content');
+                const panel = content.querySelector('.skill-panel');
+                const grid = panel.querySelector('.skill-grid');
+                const bounds = content.getBoundingClientRect();
+                const box = panel.getBoundingClientRect();
+                return {
+                    inside: box.left >= bounds.left + content.clientLeft - 1 &&
+                        box.right <= bounds.left + content.clientLeft + content.clientWidth + 1 &&
+                        box.top >= bounds.top + content.clientTop - 1 &&
+                        box.bottom <= bounds.top + content.clientTop + content.clientHeight + 1,
+                    height: box.height,
+                    maxHeight: parseFloat(getComputedStyle(panel).maxHeight),
+                    noOverflow: !!grid && grid.scrollWidth <= grid.clientWidth + 1,
+                };
+            })()`);
+            t.check(
+                `第 ${index} 格技能浮层完整位于详情可见区且列表无横向溢出`,
+                placement.inside && placement.height > 0 &&
+                    placement.maxHeight > 0 && placement.noOverflow,
+                JSON.stringify(placement),
+            );
+            await cdp.key('Escape');
+            await sleep(120);
+            t.check(
+                `第 ${index} 格技能 Esc 只关闭选择器并恢复焦点`,
+                (await ui.exists('.editor')) &&
+                    !(await ui.exists('.pet-block .skill-panel')) &&
+                    (await cdp.evaluate(`document.activeElement?.matches('.pet-block .skill-trigger')`)),
+            );
+        }
 
         await ui.clickText('.ocr-tabs button', '属性', { exact: true });
         await ui.clickText('.ocr-tabs button', '召唤兽', { exact: true });
@@ -889,6 +925,17 @@ export async function pets(ctx) {
         );
         await ui.fillSel('.pet-quick input[aria-label="成长"]', '1.111');
 
+        await ui.clickLabel('选择召唤兽头像');
+        const portraitLabel = await cdp.evaluate(
+            `document.querySelector('.pet-quick .portrait-grid button')?.getAttribute('aria-label')`,
+        );
+        if (!portraitLabel) throw new Error('召唤兽头像候选未加载');
+        await ui.clickLabel(portraitLabel);
+        t.check(
+            '选中头像立即关闭浮层并将焦点返回入口',
+            await cdp.evaluate(`!document.querySelector('.pet-quick .portrait-picker').open &&
+                document.activeElement?.getAttribute('aria-label') === '选择召唤兽头像'`),
+        );
         await ui.clickLabel('选择召唤兽头像');
         await cdp.key('Escape');
         await sleep(120);

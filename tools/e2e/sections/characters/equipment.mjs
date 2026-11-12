@@ -200,7 +200,17 @@ export async function equipment(ctx) {
                 const switched = getComputedStyle(paper).backgroundImage;
                 if (original === null) panel.removeAttribute('data-school');
                 else panel.setAttribute('data-school', original);
-                return { painted: before !== 'none', follows: switched !== before };
+                const content = paper.querySelector('.character-detail-content');
+                const identity = paper.querySelector('.character-detail-identity');
+                const name = paper.querySelector('.character-detail-name-input');
+                const css = content && getComputedStyle(content);
+                return {
+                    painted: before !== 'none', follows: switched !== before,
+                    geometry: content && identity && name ? [
+                        css.paddingTop, css.paddingRight, css.paddingBottom, css.paddingLeft,
+                        getComputedStyle(identity).gap, name.getBoundingClientRect().height,
+                    ] : null,
+                };
             })()`);
         await ui.clickText('.ocr-tabs button', '装备', { exact: true });
         const gearPaper = await paperTint('.ocr .gear-form');
@@ -212,6 +222,12 @@ export async function equipment(ctx) {
                 gearPaper?.painted && gearPaper?.follows && petPaper?.painted && petPaper?.follows,
             ),
             JSON.stringify({ gearPaper, petPaper }),
+        );
+        t.check(
+            '装备与召唤兽共用详情留白、头部间距和名称框高度',
+            Boolean(gearPaper?.geometry && petPaper?.geometry) &&
+                JSON.stringify(gearPaper.geometry) === JSON.stringify(petPaper.geometry),
+            JSON.stringify({ gear: gearPaper?.geometry, pet: petPaper?.geometry }),
         );
         await ui.clickText('.ocr-tabs button', '装备', { exact: true });
         await ui.clickLabel('编辑头的装备');

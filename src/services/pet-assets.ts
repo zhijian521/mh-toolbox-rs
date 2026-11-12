@@ -1,4 +1,4 @@
-import { shallowRef } from 'vue';
+import { ref, shallowRef } from 'vue';
 
 export interface PetIconEntry {
     id: string;
@@ -24,6 +24,8 @@ export interface PetAssets {
 
 const BASE = `${import.meta.env.BASE_URL}game/`;
 export const petAssets = shallowRef<PetAssets | null>(null);
+export const petAssetsLoading = ref(false);
+export const petAssetsError = ref('');
 let pending: Promise<PetAssets> | null = null;
 
 function strings(value: unknown): value is string[] {
@@ -113,7 +115,10 @@ export function parsePetIcons(raw: unknown, portrait: boolean): PetIconEntry[] {
 /** 召唤兽页按需读表，失败可重试；像素模板只在截图识别时加载。 */
 export function loadPetAssets(): Promise<PetAssets> {
     if (petAssets.value) return Promise.resolve(petAssets.value);
-    pending ??= Promise.all(
+    if (pending) return pending;
+    petAssetsLoading.value = true;
+    petAssetsError.value = '';
+    pending = Promise.all(
         ['pet-portraits.json', 'pet-skills.json', 'pet-panel.json'].map(async (file) => {
             const response = await fetch(`${BASE}data/${file}`);
             if (!response.ok) throw new Error(`${file} ${response.status}`);
@@ -131,7 +136,11 @@ export function loadPetAssets(): Promise<PetAssets> {
         })
         .catch((error: unknown) => {
             pending = null;
+            petAssetsError.value = '召唤兽资源加载失败，请重试';
             throw error;
+        })
+        .finally(() => {
+            petAssetsLoading.value = false;
         });
     return pending;
 }

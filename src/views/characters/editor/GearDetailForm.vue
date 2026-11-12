@@ -95,16 +95,16 @@ function addLine(label: string) {
 </script>
 
 <template>
-    <PaperCard class="gear-form">
-        <div class="gear-content">
-            <header class="gear-identity">
+    <PaperCard class="gear-form character-detail">
+        <div class="gear-content character-detail-content">
+            <header class="gear-identity character-detail-identity">
                 <IconTile v-if="icon" class="gear-form-icon" :src="icon" />
                 <span v-else class="gear-form-mark" aria-hidden="true">{{ slotName[0] }}</span>
-                <div class="gear-id">
-                    <div class="gear-name-row">
-                        <label class="gear-name-field">
+                <div class="gear-id character-detail-id">
+                    <div class="gear-name-row character-detail-name-row">
+                        <label class="gear-name-field character-detail-name-field">
                             <input
-                                class="field gear-name-input"
+                                class="field gear-name-input character-detail-name-input"
                                 :value="detail.name || caption"
                                 :aria-label="slotName + ' 的装备名'"
                                 :placeholder="slotName + '装备名'"
@@ -119,7 +119,7 @@ function addLine(label: string) {
                          等级只记一个数（用户同日：「等级条件，修改为等级，我们只记录等级即可」）——
                          旧档的「等级 80」在归一化时抽进 level，五行 / 装备角色仍留在 requires 里
                          只给浮片读，界面不再编辑。 -->
-                    <div class="id-pair gear-kind">
+                    <div class="id-pair gear-kind character-detail-pair">
                         <label class="slip-row sm">
                             <span class="slip-name">类型</span>
                             <input
@@ -279,50 +279,6 @@ function addLine(label: string) {
 </template>
 
 <style scoped>
-/* 一层纸：根元素是 `PaperCard`（全局 `.board`），与属性 / 师门 / 召唤兽那几页同一个材质。
- * 2026-11-10 用户：「右边装备详情部分，可以参考下属性、师门、召唤兽这些，也是用一个卡片
- * 样式背景」。此前这里是一圈 1px 边框 + `--paper` 平底，同一扇窗里别的页是立体纸片，只有
- * 这一页读作「一块表单」。纸自己带棱、断面与落影，这里不再画框，也不再走 `.dual-rule`
- * 那圈内衬线（角色卡 2026-11-06 同样去掉了）。
- *
- * 纸色跟着**角色门派主题色**走（2026-11-10 用户：「装备和召唤兽右侧卡片背景，和属性师门
- * 这些保持一致，走角色门派主题色」）：`.character-theme` 在 `blocks.css` 里给了 `--card-bg`
- * （门派色按 135° 掺进纸，两端浓度随亮暗反转），这里只是 `background: var(--card-bg)`——
- * 与角色卡 `CharacterCard` 用的是**同一条**，不另抄一份色号。
- *
- * `--slip-base` 也跟着回落（原先写死 `var(--paper)`）：票面读的中点色由 `.character-theme`
- * 给，纸一染色票就一起走色相；留死白会变成「彩纸上的白条」。 */
-.gear-form {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-    height: 100%;
-    /* 只撤掉 `.board` 那 20px 内边距：`.gear-content` 与 `.gear-add` 各自带 14，
-     * 叠上 20 就比召唤兽那一页缩进一档。也**不**补底边内衬——这里滚动容器的
-     * 裁剪线落在 `.gear-add` 的上沿（卡中间），不在纸的底缘，与 `.pet-form` 的情况
-     * 不同，那 12 留着只会让按钮下方多一圈空纸。 */
-    padding: 0;
-    /* 回落链是给「万一不在 `.character-theme` 里」留的：`--card-bg` 算不出来时整条
-     * `background` 会变成透明（substitution 失败不回落到 `.board` 那条），一张纸就没了。 */
-    background: var(--card-bg, var(--board-face, var(--board-paper)));
-}
-.gear-content {
-    flex: 1;
-    min-height: 0;
-    padding: 14px max(0px, calc(14px - var(--scrollbar-w))) 14px 14px;
-    overflow-y: auto;
-    scrollbar-gutter: stable;
-}
-.gear-identity {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding-bottom: 14px;
-    margin-bottom: 14px;
-    border-bottom: var(--w-hair) solid var(--rule);
-}
 .gear-identity .gear-form-icon {
     --tile-w: 64px;
     --tile-h: 64px;
@@ -339,34 +295,6 @@ function addLine(label: string) {
     background: var(--paper-2);
     color: var(--ochre);
     font-size: var(--fs-lg);
-}
-.gear-id {
-    display: grid;
-    flex: 1;
-    gap: 4px;
-    min-width: 0;
-}
-.gear-name-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-}
-.gear-name-field {
-    flex: 1;
-    min-width: 0;
-}
-.gear-name-input {
-    width: 100%;
-    height: calc(30px * var(--fs-scale));
-    padding: 0 6px;
-    color: var(--ink);
-    font-size: var(--fs-md);
-}
-.id-pair {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 26px;
 }
 .gear-kind .slip-name {
     white-space: nowrap;
@@ -529,7 +457,7 @@ function addLine(label: string) {
     flex: none;
     flex-wrap: wrap;
     gap: 8px;
-    padding: 12px 14px 14px;
+    padding: 12px 16px 0;
     border-top: var(--w-hair) solid var(--rule-2);
 }
 /* 分类底也从纸里取（`--slip-base` = 这张纸的中点色），不走 `--paper-2`：

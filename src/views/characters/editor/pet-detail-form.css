@@ -1,78 +1,4 @@
-.pet-form {
-    display: flex;
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    /* 底边留一圈纸，理由与名册卡 `.char` 同一条：这一层决定 `.pet-content` 的**裁剪线**。
-     * 内衬为 0 时裁剪线压在纸的底缘（实测 `gap = 0`），滚到中途的资质/技能行被切在
-     * 断面与圆角上。给 `.pet-content` 加 `padding-bottom` 治不了——那个内衬在裁剪线里面，
-     * 只让滚到底时末尾多一段空白。12 = 3px 断面 + 9px 纸。 */
-    padding: 0 0 12px;
-    /* 纸色跟着角色门派主题色走，与装备详情、角色卡同一条 `--card-bg`
-     * （2026-11-10 用户：「装备和召唤兽右侧卡片背景，和属性师门这些保持一致」）。
-     * `--slip-base` 不再写死成 `--paper`：票面读中点色，纸染色时票跟着走。
-     * 回落链同 `GearDetailForm` 的 `.gear-form`：算不出来时退回这张纸自己的颜色。 */
-    background: var(--card-bg, var(--board-face, var(--board-paper)));
-}
-/* 底部内衬 16 → 24 → **12**。三段是同一件事的三次调整，理由叠起来看：
- *
- * 16 时滚到底最后一行贴着页脚（用户：「召唤兽卡片和修改召唤兽都一样」），加到 24 解决
- * 了「贴边」，但滚到**中途**的裁切线仍压在纸的下缘——那才是「透明地透出来」的真正原因
- * （2026-11-09 用户第二次报，实测裁剪线到纸底 = 0）。于是把 24 拆成两段：
- * **12 在裁剪线外面**（`.pet-form` 的 `padding-bottom`）、**12 在这里**。
- *
- * 不改成「外面 12 + 这里 24」：那会让滚到底时末尾离纸边 36，比名册卡的 24 多一档，
- * 同一只召唤兽在两处看得见两个边距。总和不增，只换位置。
- *
- * `overscroll-behavior: contain`：滚轮到底那一下不该再传给弹窗外面的页面。 */
-.pet-content {
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    padding: 16px max(0px, calc(16px - var(--scrollbar-w))) 12px 16px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-gutter: stable;
-}
-/* 头一段从「头像一行、名称一行」改成**一行读完**（2026-11-10 用户：「选择召唤兽头像
- * 占据了很大一行，只占据个头像就行，后面我们可以把名称 等级 参战等级提上去放到右边」）。
- * 左边是那枚 64 的头像（`.portrait-picker` 自己给尺寸），右边两段竖排：名称一条、
- * 等级与参战等级并排一条。这一行的顶边由两者中较高的那个定，头像不再独占一行。
- *
- * 用 flex 而不是两列 grid：左边固定 64、右边吃满剩余——grid 得给列宽写表达式，
- * 而这里只是「一小块固定 + 一大块自适应」。 */
-.pet-identity {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding-bottom: 14px;
-    margin-bottom: 14px;
-    border-bottom: var(--w-hair) solid var(--rule);
-}
-/* 右侧那一段：名称独占一条，等级 / 参战等级并排一条。
- * `flex: 1` + `min-width: 0`：名字框跟着弹窗宽度走，长名字在里面横向滚动而不是撑破。 */
-.pet-id {
-    display: grid;
-    flex: 1;
-    gap: 4px;
-    min-width: 0;
-}
-/* 名称一条 = 名字框 + 右边一枚删除（2026-11-10 用户：左栏去掉删除按钮，「删除按钮添加在
- * 右侧召唤兽详情的名字输入的后面，减少名字输入的宽度，放一个删除按钮」）。
- * `align-items: center` 让 30 的框与 26 的按钮中线对齐；名字框 `flex: 1` 吃掉剩下的宽度。
- * 快速修改窗不传这一格（`<slot>` 空着），名字框自然又回到整行宽。 */
-.pet-name-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-}
-/* 两枚读数行等分：与下面属性 / 资质那几组同一排法。 */
-.id-pair {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 26px;
-}
+/* 属性、资质与技能的专属排布；详情纸和身份区共用 blocks.css。 */
 .pet-fields,
 .pet-layout {
     display: grid;
@@ -93,17 +19,6 @@
 .group-head {
     --gh-mb: 8px;
     margin-top: 2px;
-}
-.pet-name-field {
-    flex: 1;
-    min-width: 0;
-}
-.pet-name-field .field {
-    width: 100%;
-    height: calc(30px * var(--fs-scale));
-    padding: 0 6px;
-    color: var(--ink);
-    font-size: var(--fs-md);
 }
 .pet-facts {
     display: grid;
@@ -153,7 +68,7 @@
     cursor: pointer;
     --icon-size: calc(14px * var(--fs-scale));
 }
-.skill-add:hover {
+.skill-add:hover:not(:disabled) {
     border-color: var(--rule-2);
     /* 同 `GearDetailForm` 的 `.inline-field`：纸走门派浅染后，悬停提亮取中点色，
      * 回落 `--paper-2` 会在彩纸上贴一块白。 */
@@ -164,10 +79,9 @@
     outline: var(--ring);
     outline-offset: var(--ring-offset);
 }
-.note {
-    margin: 12px 0 0;
-    color: var(--muted);
-    font-size: var(--fs-mini);
+.skill-add:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 @media (max-width: 640px) {
     .pet-layout,

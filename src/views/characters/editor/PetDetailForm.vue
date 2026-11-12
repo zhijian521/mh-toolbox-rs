@@ -4,8 +4,14 @@ import AppIcon from '../../../components/AppIcon.vue';
 import GroupHead from '../../../components/GroupHead.vue';
 import PaperCard from '../../../components/PaperCard.vue';
 import NumberField from '../../../components/NumberField.vue';
+import PressButton from '../../../components/PressButton.vue';
 import { hasPetName, PET_QUALITY_FIELDS, type Pet } from '../pets';
-import { loadPetAssets, petAssets } from '../../../services/pet-assets';
+import {
+    loadPetAssets,
+    petAssets,
+    petAssetsError,
+    petAssetsLoading,
+} from '../../../services/pet-assets';
 import PetPortraitPicker from './PetPortraitPicker.vue';
 import PetSkillPicker from './PetSkillPicker.vue';
 
@@ -21,10 +27,10 @@ const groups = computed(() => [
     { key: 'attrs' as const, title: '属性', labels: attrs.value },
     { key: 'points' as const, title: '加点', labels: points.value },
 ]);
-const assetError = computed(() => !petAssets.value);
-onMounted(() => {
+function load() {
     void loadPetAssets().catch(() => {});
-});
+}
+onMounted(load);
 function valueFor(kind: 'attrs' | 'points', label: string): string {
     return pet.value[kind]?.find((row) => row.label === label)?.value ?? '';
 }
@@ -38,36 +44,38 @@ function setValue(kind: 'attrs' | 'points', label: string, event: Event) {
 
 /* 新增一格填一张图标就选掉的**现成技能**，不留空名：空格子在网格里既看不出内容，
  * 也点不开（没有名字就没有可搜的关键词）。挑清单里第一招还没学的——它是图标墙最上面
- * 那一枚，用户点开纸片看到的也是它。清单没加载出来时先塞空串，纸片里选中即补上。 */
+ * 那一枚，用户点开纸片看到的也是它。清单加载成功前不添加，避免留下无名技能。 */
 function addSkill() {
+    if (!petAssets.value || petAssetsLoading.value) return;
     const all = petAssets.value?.skills ?? [];
     const used = new Set(pet.value.skills);
-    pet.value.skills.push(all.find((one) => !used.has(one.name))?.name ?? '');
+    const next = all.find((one) => !used.has(one.name));
+    if (next) pet.value.skills.push(next.name);
 }
 </script>
 
 <template>
-    <PaperCard class="pet-form">
-        <div class="pet-content">
+    <PaperCard class="pet-form character-detail">
+        <div class="pet-content character-detail-content">
             <!-- 头像只占一枚头像位，名称 / 等级 / 参战等级挪到它右边（2026-11-10 用户：
                  「选择召唤兽头像占据了很大一行，只占据个头像就行，后面我们可以把名称 等级
                  参战等级提上去放到右边」）。左侧是头像选择器（展开时是浮层，不撑高这一行），
                  右侧两段：名称一条、等级与参战等级并排一条——两段合起来约 62 高，
                  与左边那枚 64 的头像第一行对齐。 -->
-            <header class="pet-identity">
+            <header class="pet-identity character-detail-identity">
                 <PetPortraitPicker
                     :model-value="pet.portrait || ''"
                     @update:model-value="pet.portrait = $event"
                 />
-                <div class="pet-id">
+                <div class="pet-id character-detail-id">
                     <!-- 名字与「删除这一只」同一条：名字框收窄一点，右边放一枚删除。
                          插槽由外壳给（整份编辑窗传删除，快速修改窗不传，它就只剩名字框）。
                          用插槽而不是把删除写进表单：这张表单两处共用，删除属于外壳的职责。 -->
-                    <div class="pet-name-row">
-                        <label class="pet-name-field">
+                    <div class="pet-name-row character-detail-name-row">
+                        <label class="pet-name-field character-detail-name-field">
                             <input
                                 v-model="pet.name"
-                                class="field"
+                                class="field character-detail-name-input"
                                 aria-label="召唤兽名称"
                                 placeholder="召唤兽名称"
                                 required
@@ -76,7 +84,7 @@ function addSkill() {
                         </label>
                         <slot name="name-extra" />
                     </div>
-                    <div class="id-pair">
+                    <div class="id-pair character-detail-pair">
                         <label class="slip-row sm">
                             <span class="slip-name">等级</span>
                             <NumberField
@@ -193,6 +201,7 @@ function addSkill() {
                             type="button"
                             class="slot skill-add"
                             aria-label="添加一个技能格"
+                            :disabled="!petAssets || petAssetsLoading"
                             @click="addSkill"
                         >
                             <AppIcon name="add" />
@@ -201,7 +210,22 @@ function addSkill() {
                     </div>
                 </section>
             </div>
-            <p v-if="assetError" class="note">召唤兽字段表未加载，可重新打开此窗口重试。</p>
+            <div
+                v-if="!petAssets"
+                class="pet-resource-state"
+                :class="{ error: petAssetsError }"
+                :role="petAssetsError ? 'alert' : 'status'"
+            >
+                <span>{{ petAssetsError || '正在加载召唤兽资源…' }}</span>
+                <PressButton
+                    v-if="petAssetsError"
+                    text="重试"
+                    label="重试加载召唤兽字段与图标"
+                    size="sm"
+                    :disabled="petAssetsLoading"
+                    @click="load"
+                />
+            </div>
         </div>
     </PaperCard>
 </template>

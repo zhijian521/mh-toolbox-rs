@@ -193,6 +193,8 @@ function openDetail(index: number) {
                         class="field identity-name"
                         :value="character.name"
                         aria-label="角色名"
+                        required
+                        :aria-invalid="!character.name.trim()"
                         placeholder="名称"
                         @input="editIdentity('name', $event)"
                     />

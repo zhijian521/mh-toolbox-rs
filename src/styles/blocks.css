@@ -75,6 +75,175 @@
     --tile-face-hover: color-mix(in srgb, var(--slip-base) 82%, var(--card-tint));
     --tile-face-active: color-mix(in srgb, var(--slip-base) 76%, var(--well));
 }
+/* 装备与召唤兽共用详情纸和身份区，业务字段的排布仍由各表单负责。 */
+.board.character-detail {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    padding: 0 0 12px;
+    background: var(--card-bg, var(--board-face, var(--board-paper)));
+}
+.character-detail-content {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    padding: 16px max(0px, calc(16px - var(--scrollbar-w))) 12px 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+.character-detail-identity {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: var(--w-hair) solid var(--rule);
+}
+.character-detail-id {
+    display: grid;
+    flex: 1;
+    gap: 4px;
+    min-width: 0;
+}
+.character-detail-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.character-detail-name-field {
+    flex: 1;
+    min-width: 0;
+}
+.character-detail-name-input {
+    width: 100%;
+    height: calc(30px * var(--fs-scale));
+    padding: 0 6px;
+    color: var(--ink);
+    font-size: var(--fs-md);
+}
+.character-detail-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 26px;
+}
+
+/* 两类召唤兽选择器共用浮层、列表与状态反馈，实际宽高由可见裁剪区约束。 */
+.pet-picker-panel {
+    position: absolute;
+    z-index: 12;
+    top: calc(100% + 6px);
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 372px;
+    max-height: 344px;
+    padding: 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: var(--w-hair) solid var(--rule-2);
+    border-radius: var(--r-2);
+    background: var(--paper);
+    box-shadow: var(--shadow-lift);
+}
+.pet-picker-panel.up {
+    top: auto;
+    bottom: calc(100% + 6px);
+}
+html.dark .pet-picker-panel {
+    background: color-mix(in srgb, var(--paper-2) 86%, var(--paper-base) 14%);
+}
+.pet-picker-tools {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.pet-picker-tools input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+}
+.pet-picker-tools .press-btn,
+.pet-picker-more {
+    flex: none;
+}
+.pet-picker-more {
+    align-self: flex-start;
+}
+.pet-picker-grid {
+    display: grid;
+    flex: 0 1 auto;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+    min-height: 0;
+    max-height: 264px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+.pet-picker-choice {
+    display: grid;
+    align-content: start;
+    justify-items: center;
+    gap: 4px;
+    min-width: 0;
+    padding: 4px 2px;
+    border: var(--w-hair) solid transparent;
+    border-radius: var(--r-2);
+    background: transparent;
+    color: var(--ink-2);
+    font: inherit;
+    font-size: var(--fs-mini);
+    text-align: center;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+    transition:
+        border-color var(--t-quick) var(--ease-soft),
+        background var(--t-quick) var(--ease-soft);
+}
+.pet-picker-choice:hover {
+    border-color: var(--rule-2);
+    background: var(--paper-2);
+}
+.pet-picker-choice[aria-pressed='true'],
+.pet-picker-choice:active {
+    border-color: var(--ochre);
+    background: var(--well);
+}
+.pet-picker-choice:focus-visible {
+    outline: var(--ring);
+    outline-offset: -2px;
+}
+.pet-picker-grid .pet-picker-choice .pet-image {
+    max-width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+}
+.pet-picker-state,
+.pet-resource-state {
+    display: flex;
+    flex: none;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+}
+.pet-resource-state {
+    margin-top: 12px;
+}
+.pet-picker-state.error,
+.pet-resource-state.error {
+    color: var(--cinnabar);
+}
+
 .character-theme[data-school='大唐官府'] {
     --tint: var(--tint-大唐官府);
     --tint-deep: var(--tint-deep-大唐官府);

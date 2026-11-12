@@ -2,94 +2,88 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import PressButton from '../../../components/PressButton.vue';
 import PressTile from '../../../components/PressTile.vue';
-import { loadPetAssets, petAssets } from '../../../services/pet-assets';
+import {
+    loadPetAssets,
+    petAssets,
+    petAssetsError,
+    petAssetsLoading,
+} from '../../../services/pet-assets';
 import PetImage from '../PetImage.vue';
+import { usePetPickerPanel } from './use-pet-picker-panel';
 
-/**
- * 头像选择：**收起时只是一个头像框**，点开才出一张纸片挑图。
- *
- * 上一版是「头像 + 一行『选择召唤兽头像』文字 + 常展开的 4 列头像墙」，整块占掉
- * 表单最上面一整行（2026-11-10 用户：「选择召唤兽头像 占据了很大一行，只占据个头像
- * 就行」）。现在 summary 里只有一个头像（几何 64，与右侧名称/等级那一列并排），
- * 面板改成**绝对定位的浮层**（见下方 .portrait-panel）：展开时不撑高表单，
- * 名称那几行一个字都不会跳。
- *
- * 仍然用 <details> 而不是自己写开合：它自带展开状态与键盘可达，不用再造一份
- * aria-expanded。面板**绝对定位**在这枚头像的下面（包含块就是 `details` 本身），
- * 因此不撑高那一行——展开 / 收起时右侧的名称、等级一动不动。宽度写死而不是撑满
- * 父级：包含块只有 64 宽，撑满会变一条竖缝。
- *
- * **点别处收起**（2026-11-10 用户：「召唤兽头像选择 点击其他地方 关闭选择框」）：
- * `<details>` 只认自己那枚 summary，浏览器不会因为点了外面就合上，所以这里补一个
- * document 上的 `pointerdown`——用 `pointerdown` 而不是 `click`，理由与
- * `SelectField` 同一条：点在别的输入格上时焦点在 `click` 之前就移走了，等 `click`
- * 到来说明纸片已经盖住别人。`Esc` 也要收，而且要吞掉——这张弹窗自己在 document 上
- * 听 `Esc` 关整张纸，不拦就成了「想关面板，连表单一起关」。
- */
+/** 收起时仅一枚头像，展开后与技能共用浮层定位、资源状态和候选反馈。 */
 const selected = defineModel<string>({ default: '' });
 const picker = ref<HTMLDetailsElement | null>(null);
 const summary = ref<HTMLElement | null>(null);
+const panel = ref<HTMLElement | null>(null);
+const search = ref<HTMLInputElement | null>(null);
+const open = ref(false);
 const query = ref('');
 const limit = ref(48);
-const error = ref('');
+const { panelStyle, flipUp } = usePetPickerPanel(picker, panel, search, open);
 const filtered = computed(() =>
     (petAssets.value?.portraits ?? []).filter((one) => one.name.includes(query.value.trim())),
 );
-async function load() {
-    error.value = '';
-    try {
-        await loadPetAssets();
-    } catch {
-        error.value = '头像资源未加载，请重试';
-    }
+function load() {
+    void loadPetAssets().catch(() => {});
 }
 onMounted(load);
 
-/* 面板开着时点外面就合上并**把焦点还给那枚头像**：面板带着搜索框，焦点若留在里面
- * 就会跟着面板一起消失（Vue 一整个拔掉 DOM，焦点掉回 body，Tab 从页面开头重来）。
- * 已经合上时不动焦点——点别处本来就该把焦点交给被点的那个控件。 */
-function closePanel(returnFocus = false) {
-    const el = picker.value;
-    if (!el?.open) return;
-    el.open = false;
-    if (returnFocus) void nextTick(() => summary.value?.focus());
+function onToggle() {
+    const expanded = picker.value?.open ?? false;
+    if (expanded && !open.value) {
+        query.value = '';
+        limit.value = 48;
+    }
+    open.value = expanded;
 }
-
+function closePanel(returnFocus = false) {
+    if (!picker.value?.open) return;
+    picker.value.open = false;
+    open.value = false;
+    if (returnFocus) void nextTick(() => summary.value?.focus({ preventScroll: true }));
+}
+function choose(id: string) {
+    selected.value = id;
+    closePanel(true);
+}
 function onEscape(event: KeyboardEvent) {
     if (!picker.value?.open) return;
     event.preventDefault();
     event.stopPropagation();
     closePanel(true);
 }
-
 function onPointerDown(event: PointerEvent) {
     if (picker.value?.contains(event.target as Node)) return;
     closePanel();
 }
-
 onMounted(() => document.addEventListener('pointerdown', onPointerDown));
 onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown));
 </script>
 
 <template>
-    <details ref="picker" class="portrait-picker" @keydown.esc="onEscape">
-        <!-- 一枚 64 的凸起纸块 + 里面 56 的头像：与装备详情左端那枚 `IconTile` 同一套几何与
-             材质（2026-11-11 用户：「召唤兽右侧的召唤兽头像样式参考装备右侧的头像样式同步一下，
-             并且还需要做成可以点击选择头像的样式」）。块本身就是「按我」的承诺——`PressTile`
-             不传 `still`，指上去提亮、按下去凹回纸里，点开是那张挑图纸片。 -->
+    <details ref="picker" class="portrait-picker" @toggle="onToggle" @keydown.esc="onEscape">
         <summary ref="summary" aria-label="选择召唤兽头像">
             <PressTile class="portrait-plate">
                 <PetImage :name="selected" kind="portrait" />
             </PressTile>
         </summary>
-        <div class="portrait-panel">
-            <div class="portrait-tools">
+        <div
+            ref="panel"
+            class="portrait-panel pet-picker-panel"
+            :class="{ up: flipUp }"
+            :style="panelStyle"
+            :aria-busy="petAssetsLoading"
+        >
+            <div class="portrait-tools pet-picker-tools">
                 <input
+                    ref="search"
                     v-model="query"
                     class="field"
                     type="search"
                     placeholder="搜索召唤兽"
                     aria-label="搜索召唤兽头像"
+                    :disabled="!petAssets"
                     @input="limit = 48"
                 />
                 <PressButton
@@ -97,29 +91,35 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
                     text="清除"
                     label="清除召唤兽头像"
                     size="sm"
-                    @click="selected = ''"
+                    @click="choose('')"
                 />
             </div>
-            <p v-if="error" class="note" role="alert">
-                {{ error }}
+            <p v-if="petAssetsLoading" class="pet-picker-state" role="status">
+                正在加载召唤兽资源…
+            </p>
+            <p v-else-if="petAssetsError" class="pet-picker-state error" role="alert">
+                {{ petAssetsError }}
                 <PressButton text="重试" label="重试加载召唤兽资源" size="sm" @click="load" />
             </p>
-            <div class="portrait-grid">
+            <div v-if="petAssets && filtered.length" class="portrait-grid pet-picker-grid">
                 <button
                     v-for="one in filtered.slice(0, limit)"
                     :key="one.id"
+                    class="pet-picker-choice"
                     type="button"
                     :aria-pressed="selected === one.id"
-                    :aria-label="`选择头像：${one.name}`"
-                    @click="selected = one.id"
+                    :aria-label="'选择头像：' + one.name"
+                    @click="choose(one.id)"
                 >
                     <PetImage :name="one.id" kind="portrait" /><span>{{ one.name }}</span>
                 </button>
             </div>
-            <p v-if="!filtered.length && !error" class="note">未找到头像</p>
+            <p v-if="petAssets && !filtered.length" class="pet-picker-state" role="status">
+                未找到头像
+            </p>
             <PressButton
                 v-if="filtered.length > limit"
-                class="portrait-more"
+                class="portrait-more pet-picker-more"
                 text="显示更多"
                 label="显示更多召唤兽头像"
                 size="sm"
@@ -130,8 +130,6 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
 </template>
 
 <style scoped>
-/* 这 64 是「一个头像」的尺寸（与 `.portrait` 默认 48 不同的那一档）：右侧名称那一列
- * 是 30 的输入格 + 4 行距 + 28 的读数行 = 62，两边同高，第一行才读得成一条。 */
 .portrait-picker {
     position: relative;
     flex: none;
@@ -145,38 +143,25 @@ summary {
     list-style: none;
     cursor: pointer;
 }
-/* 块就是那枚「按我」的承诺：`PressTile` 不给 `still`，悬停提亮、按下凹回纸里，
- * 与装备详情左端那枚图标块、工具页格子同一套材质。64 的块里放 56 的图，与
- * `IconTile` 那边「块 48 / 图 42」同一个比例。 */
 .portrait-plate {
     --tile-w: var(--pick-size);
     --tile-h: var(--pick-size);
     --tile-r: var(--r-3);
-    /* 块面与落地影照抄 `IconTile`（装备详情左端那枚）：`well` 掺 `paper-2` 比纸深一档，
-     * 否则纸上压一块同色的块只剩四道棱，读作「这格画得淡」；`--tile-drop: 0.75`
-     * 是不让 64 的块落满档软影变成「飘着的卡片」。 */
     --tile-face: color-mix(in srgb, var(--well) 55%, var(--paper-2));
     --tile-drop: 0.75;
-    /* 可点的那一档自己给三个面：默认值是按「纯纸块」调的，指上去会闪成一张白纸。 */
     --tile-face-hover: color-mix(in srgb, var(--well) 40%, var(--paper-2));
     --tile-face-active: color-mix(in srgb, var(--well) 72%, var(--paper-2));
 }
-/* 去掉 <summary> 自带的三角。两个写法都要：Chromium 认前者，旧引擎认后者。 */
 summary::-webkit-details-marker {
     display: none;
 }
 summary::marker {
     content: '';
 }
-/* 同 `pet-pane.css`：`PetImage` 的 `.portrait` 是 0-2-0，这里多带一个类抬到 0-3-0。
- * 56 = 64 − 8，与 `IconTile` 那条「--shot 比块小 8」同一条气口；头像 PNG 自带 alpha，
- * 所以图框的 `--well` 底也一起去掉，只让图落在纸块上。 */
 summary :deep(.pet-image.portrait) {
     --pet-icon-size: calc(var(--pick-size) - 8px);
     background: transparent;
 }
-/* 展开时在头像下面压一道朱印，与装备部位格、卡内页签同一个记号：
- * 「这块正在被我动」。 */
 details[open] summary::after {
     content: '';
     position: absolute;
@@ -191,77 +176,5 @@ details[open] summary::after {
 summary:focus-visible {
     outline: var(--ring);
     outline-offset: var(--ring-offset);
-}
-/* 面板是**浮层**：绝对定位到 `.portrait-picker`（它自己写着 `position: relative`），
- * 所以它不参与这一行的排版——展开 / 收起时右侧名称、等级那一列纹丝不动，
- * 这正是上一版「整块占一行、一展开又把表单推下去」要解决的问题。
- *
- * 材质与 `SelectField` 的列表同一条：纸面 + 1px 账线 + `--shadow-lift`。
- * `width` 不走 `max-width: 100%`：包含块是 64 宽，100% 会把它压成一条竖缝。 */
-.portrait-panel {
-    position: absolute;
-    z-index: 12;
-    top: calc(100% + 10px);
-    left: 0;
-    /* 372 是六列 × 58 + 五道 6 的缝 + 两侧 10 的内衬。写死而不是 `left: 0; right: 0`：
-     * 包含块（那枚 64 的头像）撑不开一张纸片。 */
-    width: 372px;
-    display: grid;
-    gap: 8px;
-    padding: 10px;
-    border: var(--w-hair) solid var(--rule-2);
-    border-radius: var(--r-2);
-    background: var(--paper);
-    box-shadow: var(--shadow-lift);
-}
-.portrait-tools {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-/* 面板是栅格，格子默认 `justify-items: stretch`——不写这一条，「显示更多」会被拉成
- * 整张纸片的宽度（用户 2026-11-10：「宽度撑满了 太宽了，自适应宽度就够」）。
- * 只收这一枚，上面那种「输入框吃满一行」与下面的头像墙都不动。 */
-.portrait-more {
-    justify-self: start;
-}
-.portrait-tools input {
-    min-width: 0;
-    width: 100%;
-}
-/* 六列：纸片长满整行（约 414），每格 62 上下，头像 48 还留得住一格气口。
- * 上一版是四列，因为那时候它只有左半栏的一半宽。 */
-.portrait-grid {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 6px;
-    max-height: 264px;
-    overflow-y: auto;
-}
-.portrait-grid button {
-    display: grid;
-    justify-items: center;
-    gap: 4px;
-    padding: 4px 2px;
-    border: 1px solid transparent;
-    border-radius: var(--r-2);
-    background: transparent;
-    color: var(--ink-2);
-    font: inherit;
-    font-size: var(--fs-mini);
-    cursor: pointer;
-}
-.portrait-grid button[aria-pressed='true'] {
-    border-color: var(--ochre);
-    background: var(--well);
-}
-.portrait-grid button:focus-visible {
-    outline: var(--ring);
-    outline-offset: var(--ring-offset);
-}
-.note {
-    margin: 0;
-    color: var(--muted);
-    font-size: var(--fs-mini);
 }
 </style>

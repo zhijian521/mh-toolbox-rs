@@ -116,6 +116,24 @@ export async function ocr(ctx) {
             JSON.stringify(foot),
         );
 
+        const attrInput = '.ocr-card input[aria-label="气血"]';
+        const originalHealth = await cdp.evaluate(
+            `document.querySelector(${JSON.stringify(attrInput)}).value`,
+        );
+        await ui.fillSel(attrInput, originalHealth === '12345' ? '12346' : '12345');
+        t.check(
+            '属性仍在输入时保存立即启用，无需失焦或按 Enter',
+            await cdp.evaluate(`document.activeElement?.matches(${JSON.stringify(attrInput)}) &&
+                !document.querySelector('button[aria-label="保存这个角色"]').disabled`),
+        );
+        await ui.fillSel(attrInput, originalHealth);
+        t.check(
+            '属性改回原值即恢复未修改状态',
+            await cdp.evaluate(
+                `document.querySelector('button[aria-label="保存这个角色"]').disabled`,
+            ),
+        );
+
         /* 派发一次真正的 paste（带一个 PNG File），与用户按 Ctrl+V 走同一条路：
          * 组件监听的是 `document` 的 paste，从 `clipboardData.items` 里取图。 */
         await cdp.evaluate(`(async () => {

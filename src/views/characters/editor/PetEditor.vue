@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import AppIcon from '../../../components/AppIcon.vue';
 import PressButton from '../../../components/PressButton.vue';
 import PetDetailForm from './PetDetailForm.vue';
@@ -7,6 +7,7 @@ import PetScreenshot from '../ocr/PetScreenshot.vue';
 import PetImage from '../PetImage.vue';
 import { applyPetPanel, emptyPet, type PetPanelResult } from '../ocr/pet-panel';
 import type { Pet } from '../pets';
+import { focusInput } from '../focus-input';
 
 const emit = defineEmits<{ busy: [value: boolean] }>();
 
@@ -23,6 +24,7 @@ function recognize(result: PetPanelResult) {
 const selected = ref(0);
 const revision = ref(0);
 const current = computed(() => pets.value[selected.value] ?? null);
+const form = ref<HTMLElement | null>(null);
 const petName = (pet: Pet) => pet.name.trim() || '未命名';
 
 function addPet() {
@@ -37,6 +39,13 @@ function removeAt(index: number) {
     selected.value = Math.max(0, Math.min(selected.value, pets.value.length - 1));
     revision.value++;
 }
+async function focusName(index: number) {
+    if (!pets.value[index]) return;
+    selected.value = index;
+    await nextTick();
+    await focusInput(form, 'input[aria-label="召唤兽名称"]');
+}
+defineExpose({ focusName });
 </script>
 
 <template>
@@ -88,7 +97,7 @@ function removeAt(index: number) {
                 </nav>
             </template>
 
-            <section v-if="current" class="pet-block">
+            <section v-if="current" ref="form" class="pet-block">
                 <PetDetailForm
                     :key="selected"
                     :model-value="current"

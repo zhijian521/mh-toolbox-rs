@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, nextTick } from 'vue';
 import MeterBar from '../../../components/MeterBar.vue';
 import GroupHead from '../../../components/GroupHead.vue';
 import NumTag from '../../../components/NumTag.vue';
@@ -69,16 +69,19 @@ function openExp() {
     emit('quick', { kind: 'exp' });
 }
 
-/**
- * 失焦（`change`）与 Enter 才写回，不在每次按键时写。
- *
- * 与 `NumberField` 同一条理由：值是**父级现算出来的**（`applyAttrPanel` → 卡片），
- * 每敲一个字符就往回写，父级会把它规整一遍再渲染回来，光标就跳到末尾。
- * 这里连 `v-model` 都不能用——绑的是 prop 里的字符串，不是本组件的状态。
- */
+/** 即时同步草稿；中文组词结束再提交，去首尾空白时保留编辑位置。 */
 function commit(key: string, event: Event) {
+    if ((event as InputEvent).isComposing) return;
     const input = event.target as HTMLInputElement;
-    emit('edit-value', key, input.value.trim());
+    const value = input.value;
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    const leading = value.length - value.trimStart().length;
+    emit('edit-value', key, value.trim());
+    void nextTick(() => {
+        if (document.activeElement !== input || input.value === value || start === null) return;
+        input.setSelectionRange(Math.max(0, start - leading), Math.max(0, (end ?? start) - leading));
+    });
 }
 
 /* 经验条的两个值：百分比在 `character.ts` 里算（纯函数、有单测），这里只负责文案。
@@ -141,8 +144,8 @@ const expText = computed(() => {
                                 class="field num num-slot attr-field slip-input"
                                 :value="row.value"
                                 :aria-label="row.label"
-                                @change="commit(row.label, $event)"
-                                @keydown.enter="commit(row.label, $event)"
+                                @input="commit(row.label, $event)"
+                                @compositionend="commit(row.label, $event)"
                             />
                             <NumTag v-else class="slip-val">
                                 <span class="lv">{{ row.value || '—' }}</span>
@@ -171,16 +174,16 @@ const expText = computed(() => {
                     class="field num num-slot exp-field"
                     :value="experience.value"
                     aria-label="当前经验"
-                    @change="commit('experience.value', $event)"
-                    @keydown.enter="commit('experience.value', $event)"
+                    @input="commit('experience.value', $event)"
+                    @compositionend="commit('experience.value', $event)"
                 />
                 <span class="exp-slash">/</span>
                 <input
                     class="field num num-slot exp-field"
                     :value="experience.need"
                     aria-label="升级所需经验"
-                    @change="commit('experience.need', $event)"
-                    @keydown.enter="commit('experience.need', $event)"
+                    @input="commit('experience.need', $event)"
+                    @compositionend="commit('experience.need', $event)"
                 />
             </span>
         </div>

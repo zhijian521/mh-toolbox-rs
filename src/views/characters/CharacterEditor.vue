@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, useId, watch } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
@@ -42,6 +42,8 @@ const {
 
 const pane = ref<PaneKey>(props.pane);
 const content = ref<HTMLElement | null>(null);
+const petEditor = ref<InstanceType<typeof PetEditor> | null>(null);
+const validationId = useId();
 const wide = computed(() => pane.value === 'gear' || pane.value === 'pets');
 const paneLabel = computed(() => PANES.find(({ key }) => key === pane.value)?.label ?? '角色');
 
@@ -59,16 +61,29 @@ const hitCount = computed(() => {
 const totalCount = computed(() => result.value?.value?.total ?? 0);
 
 const preview = computed(() => ({ ...draft.value, id: `${draft.value.id}-preview` }));
+const saveIssue = computed(() => {
+    if (!draft.value.name.trim()) return { message: '请填写角色名称', petIndex: -1 };
+    const petIndex = draft.value.pets.findIndex((pet) => !hasPetName(pet));
+    return petIndex < 0 ? null : { message: `第 ${petIndex + 1} 只召唤兽尚未命名`, petIndex };
+});
 const canSave = computed(
     () =>
-        Boolean(draft.value.name.trim()) &&
-        draft.value.pets.every(hasPetName) &&
+        !saveIssue.value &&
         !busy.value &&
         !gearReading.value &&
         !petReading.value &&
         !props.saving &&
         (props.isNew || changed.value),
 );
+
+async function fillRequired() {
+    const issue = saveIssue.value;
+    if (!issue) return;
+    pane.value = issue.petIndex < 0 ? 'attrs' : 'pets';
+    await nextTick();
+    if (issue.petIndex < 0) await focusInput(content, 'input[aria-label="角色名"]');
+    else await petEditor.value?.focusName(issue.petIndex);
+}
 
 function takeFiles(files: File[]) {
     if (files[0]) void takeFile(files[0]);
@@ -153,7 +168,12 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
                     />
                 </template>
             </GearEditor>
-            <PetEditor v-show="pane === 'pets'" v-model="draft.pets" @busy="petReading = $event">
+            <PetEditor
+                v-show="pane === 'pets'"
+                ref="petEditor"
+                v-model="draft.pets"
+                @busy="petReading = $event"
+            >
                 <template #tabs>
                     <SteppedSlider
                         v-if="pane === 'pets'"
@@ -208,6 +228,16 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
         </div>
 
         <template #footer>
+            <div v-if="saveIssue" :id="validationId" class="editor-validation" role="status">
+                <span>{{ saveIssue.message }}</span>
+                <PressButton
+                    text="去填写"
+                    label="定位未填写的名称"
+                    size="sm"
+                    :disabled="busy || gearReading || petReading || saving"
+                    @click="fillRequired"
+                />
+            </div>
             <PressButton
                 text="取消"
                 label="放弃这次修改"
@@ -220,6 +250,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
                 label="保存这个角色"
                 seal
                 :disabled="!canSave"
+                :aria-describedby="saveIssue ? validationId : undefined"
                 @click="save"
             />
         </template>
@@ -272,5 +303,15 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
 .ocr-card :deep(.char-body) {
     padding-right: var(--card-pad-x);
     scrollbar-gutter: auto;
+}
+.editor-validation {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    min-width: 0;
+    color: var(--cinnabar);
+    font-size: var(--fs-sm);
 }
 </style>
