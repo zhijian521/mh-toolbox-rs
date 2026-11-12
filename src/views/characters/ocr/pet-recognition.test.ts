@@ -77,6 +77,20 @@ describe('召唤兽原图区域', () => {
             { x: 780, y: 650, width: 40, height: 40 },
         ]);
     });
+    it('相近图标返回待确认候选，不把任一候选写成已识别技能', async () => {
+        const image = { width: 1000, height: 900, data: new Uint8ClampedArray(0) } as ImageData;
+        vi.mocked(matchIcons).mockImplementation(async (_image, _candidates, options) => {
+            options?.onAmbiguous?.(['茁壮', '欣欣向荣'], { x: 780, y: 650, width: 40, height: 40 });
+            return [];
+        });
+        const result = await recognizePetPanel(
+            [line('攻击资质1616', 780, 220), line('防御资质1327', 780, 260)],
+            image,
+        );
+        expect(result.ambiguousSkills).toEqual([['茁壮', '欣欣向荣']]);
+        expect(result.patch.skills).toBeUndefined();
+        expect(result.skillCount).toBe(0);
+    });
     it('黄色参战兽不是当前查看项，按蓝色选中背景取第二只；相同原图不互相拉低头像匹配置信度', async () => {
         const image = {
             width: 800,

@@ -27,6 +27,7 @@ const emit = defineEmits<{ remove: [] }>();
 const selected = defineModel<string>({ default: '' });
 
 const root = ref<HTMLElement | null>(null);
+const trigger = ref<HTMLButtonElement | null>(null);
 const panel = ref<HTMLElement | null>(null);
 const search = ref<HTMLInputElement | null>(null);
 const open = ref(false);
@@ -90,8 +91,17 @@ function openPanel() {
     });
 }
 
-function closePanel() {
+function closePanel(returnFocus = false) {
+    if (!open.value) return;
     open.value = false;
+    if (returnFocus) void nextTick(() => trigger.value?.focus());
+}
+
+function onEscape(event: KeyboardEvent) {
+    if (!open.value) return;
+    event.preventDefault();
+    event.stopPropagation();
+    closePanel(true);
 }
 
 function toggle() {
@@ -101,7 +111,7 @@ function toggle() {
 
 function choose(name: string) {
     selected.value = name;
-    closePanel();
+    closePanel(true);
 }
 
 /* 这一格清掉：由表单把整项从名单里删掉（留一个空名会变成一个看不出内容的格子）。 */
@@ -121,14 +131,14 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
 </script>
 
 <template>
-    <div ref="root" class="slot skill-picker">
+    <div ref="root" class="slot skill-picker" @keydown.esc="onEscape">
         <button
+            ref="trigger"
             type="button"
             class="skill-trigger"
             :aria-label="`第 ${props.index + 1} 个技能：${selected || '未选择'}`"
             :aria-expanded="open"
             @click="toggle"
-            @keydown.esc.stop.prevent="closePanel"
         >
             <PetImage v-if="selected" :name="selected" />
             <small :class="{ empty: !selected }">{{ selected || '选择技能' }}</small>
@@ -141,7 +151,6 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
             :style="shift ? { left: `${shift}px` } : undefined"
             role="group"
             :aria-label="`选择第 ${props.index + 1} 个技能`"
-            @keydown.esc.stop.prevent="closePanel"
         >
             <div class="skill-tools">
                 <input

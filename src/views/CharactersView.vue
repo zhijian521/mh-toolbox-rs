@@ -12,13 +12,13 @@ import type { QuickTarget } from './characters/quick/quick-target';
 import type { CharacterData, PaneKey } from './characters/character';
 import { emptyCharacter, useRoster } from './characters/roster';
 import { goalsOfCharacter } from './goals/goals-store';
+import { gameDataError, gameDataLoading, gameDataReady, loadGameData } from '../services/game-data';
 
 /**
  * 角色页 —— 名册。
  *
- * 数据来自 `roster.ts`（模块级单例 + `localStorage`），不再是写死的 `mock.ts`：
- * 增删改在这里发生，改完立即落到本机。首次启动没有存储时，那一层会拿 `mock.ts`
- * 里那两个角色做种子——先给一份能改的样例，比一张空页有用。
+ * 数据来自 `roster.ts`：桌面版读写 SQLite，浏览器预览读写 localStorage。
+ * 桌面空库保持空名册；游戏规则首次加载失败时保留查看，重试成功后开放修改。
  *
  * 卡宽写死 420 而不是 `minmax(…, 1fr)`：一用伸缩列，卡片会随窗口各自拉宽到 600+，
  * 又回到「一条横贯屏幕的长卡」——游戏里的人物面板从来不是那个比例。
@@ -35,6 +35,15 @@ import { goalsOfCharacter } from './goals/goals-store';
  * 页头高度才重新由令牌说了算。
  */
 const { roster, loadError, writeError, pending, flush, retry, add, update, remove } = useRoster();
+const editingDisabled = computed(() => !!loadError.value || !gameDataReady.value);
+
+function openEditor(character: CharacterData, pane: PaneKey) {
+    if (!editingDisabled.value) editing.value = { character, pane };
+}
+
+async function retryGameData() {
+    await loadGameData();
+}
 
 /* 正在编辑的草稿，`null` = 浮层关着。**不另存一个 `isNew` 布尔**：
  * 「这是新角色还是改旧的」由「名册里有没有这个 id」现算，两个状态分开维护，
@@ -52,13 +61,14 @@ const editing = ref<{ character: CharacterData; pane: PaneKey } | null>(null);
 const quicking = ref<{ character: CharacterData; target: QuickTarget } | null>(null);
 
 function openQuick(character: CharacterData, target: QuickTarget) {
+    if (editingDisabled.value) return;
     quicking.value = { character, target };
 }
 
 /* 快速修改的保存：与编辑器共用 `update()`，写入路径只有这一条。
  * `applyQuick` 已经返回**完整的一份**（只替换那一项），所以这里不必再合并。 */
 async function onQuickSave(next: CharacterData) {
-    if (pending.value > 0) return;
+    if (pending.value > 0 || editingDisabled.value) return;
     const source = quicking.value;
     update(next);
     if ((await saved(flush)) && quicking.value === source) quicking.value = null;
@@ -70,11 +80,12 @@ const isNew = computed(() => {
 });
 
 function startNew() {
+    if (editingDisabled.value) return;
     editing.value = { character: emptyCharacter(), pane: 'attrs' };
 }
 
 async function onSave(character: CharacterData) {
-    if (pending.value > 0) return;
+    if (pending.value > 0 || editingDisabled.value) return;
     const source = editing.value;
     if (isNew.value) add(character);
     else update(character);
@@ -89,6 +100,7 @@ async function onSave(character: CharacterData) {
  * 人删了之后卡片上那一行会变成「已删除」并不再计入分母——不说的话，用户是在回到目标页
  * 时才发现「5 个角色达标」变成了「4 个角色达标」。 */
 async function askRemove(character: CharacterData) {
+    if (editingDisabled.value) return;
     const name = character.name || '这个角色';
     const related = goalsOfCharacter(character.id);
     const titles = related
@@ -132,7 +144,7 @@ const desc = computed(() =>
                 text="新角色"
                 label="新建角色"
                 seal
-                :disabled="!!loadError"
+                :disabled="editingDisabled"
                 @click="startNew"
             />
         </template>
@@ -142,6 +154,16 @@ const desc = computed(() =>
              「角色都没了」然后重填一遍；而底层此刻拒绝写入，他重建的东西同样存不下去。
              样式只用现成的 `.note.error`（`base.css` 的朱色状态），不新造类。 -->
         <p v-if="loadError" class="note error">{{ loadError }}</p>
+        <p v-if="!gameDataReady" class="note error" role="alert">
+            {{ gameDataError || '正在加载游戏数据，暂时无法修改角色' }}
+            <PressButton
+                text="重试"
+                label="重试加载角色游戏数据"
+                size="sm"
+                :disabled="gameDataLoading"
+                @click="retryGameData"
+            />
+        </p>
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
 
         <div class="roster">
@@ -152,8 +174,9 @@ const desc = computed(() =>
                 v-for="character in roster"
                 :key="character.id"
                 :character="character"
-                quick
-                @edit="(pane) => (editing = { character, pane })"
+                :quick="!editingDisabled"
+                :disabled="editingDisabled"
+                @edit="(pane) => openEditor(character, pane)"
                 @remove="askRemove(character)"
                 @quick="(target) => openQuick(character, target)"
             />
@@ -167,7 +190,7 @@ const desc = computed(() =>
                 class="char-blank"
                 type="button"
                 aria-label="新建角色"
-                :disabled="!!loadError"
+                :disabled="editingDisabled"
                 @click="startNew"
             >
                 <span class="plus">＋</span>

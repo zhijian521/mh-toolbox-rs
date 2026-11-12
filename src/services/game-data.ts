@@ -16,16 +16,23 @@
  *
  * ---- 失败不崩 ----
  * 首次取不回来就使用空表：门下拉没有选项、辅助技能查不到图标，但应用照常起来
- * （`GAME-ASSETS.md` §1 第 3 条）。空表不写进缓存，下一次调用还能重试——
+ * （`GAME-ASSETS.md` §1 第 3 条）。角色页此时只读，并提供统一的重试入口。
+ * 空表不写进缓存，下一次调用还能重试——
  * 已有有效缓存则保留整套旧值；dev server 抖一下不该把「没有数据」钉死一整晚。
  */
 
+import { ref } from 'vue';
 import { installCharacterRules, parseCharacterRules } from './game-rules';
 import { installActivities, parseActivities } from './game-activities';
 import { installGameplay, parseGameplay } from './gameplay';
 
 /** `public/game/data/` 下的目录。**换目录只改这一行**。 */
 const DATA_DIR = `${import.meta.env.BASE_URL}game/data/`;
+
+/** 应用可在缺资源时启动；角色写入必须等待完整规则装配成功。 */
+export const gameDataReady = ref(false);
+export const gameDataLoading = ref(false);
+export const gameDataError = ref('');
 
 /**
  * 一个门派。
@@ -255,6 +262,8 @@ export function installGameData(raw: {
     installActivities(activities);
     installGameplay(gameplay);
     current = next;
+    gameDataReady.value = true;
+    gameDataError.value = '';
     return current;
 }
 
@@ -323,6 +332,8 @@ let pending: Promise<GameData> | null = null;
  */
 export function loadGameData(): Promise<GameData> {
     if (!pending) {
+        gameDataLoading.value = true;
+        gameDataError.value = '';
         pending = Promise.all([
             fetchJson('schools.json'),
             fetchJson('skills.json'),
@@ -355,7 +366,13 @@ export function loadGameData(): Promise<GameData> {
             .catch((error: unknown) => {
                 console.error('游戏数据表加载失败', error);
                 pending = null;
+                if (!gameDataReady.value) {
+                    gameDataError.value = '游戏数据加载失败，已暂停修改角色，请重试';
+                }
                 return current;
+            })
+            .finally(() => {
+                gameDataLoading.value = false;
             });
     }
     return pending;

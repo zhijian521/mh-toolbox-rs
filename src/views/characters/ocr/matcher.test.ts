@@ -1,15 +1,62 @@
-import { describe, expect, it } from 'vitest';
-import { correlation, findTiles, iconSignature } from './matcher';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { correlation, findTiles, iconSignature, iconMatchMetrics, matchIcons } from './matcher';
+
+afterEach(() => vi.unstubAllGlobals());
 
 /**
- * 图标比对里**与 DOM 无关**的那一半。
+ * 图标定位、像素相关性与候选决策。
  *
- * 方块定位用纯像素数据覆盖；模板解码与完整比对由真窗口烟测覆盖。
+ * 方块定位用纯像素数据覆盖；候选决策用像素桩，真实模板解码由真窗口烟测覆盖。
  * 相关系数算错不会报错，
  * 只会让「哪一格是哪个技能」整体偏掉，而那在界面上看起来只是「认错了」。
  */
 
 const gray = (...values: number[]) => Float32Array.from(values);
+
+describe('图标候选歧义', () => {
+    it('相同图案的不同技能保留候选，同名模板不会制造歧义', async () => {
+        const data = new Uint8ClampedArray(40 * 40 * 4);
+        for (let i = 0; i < data.length; i += 4) {
+            data.set([i % 251, i % 127, i % 79, 255], i);
+        }
+        const image = { width: 40, height: 40, data } as ImageData;
+        vi.stubGlobal(
+            'Image',
+            class {
+                src = '';
+                async decode() {}
+            },
+        );
+        vi.stubGlobal('document', {
+            createElement: () => ({
+                getContext: () => ({ drawImage() {}, getImageData: () => image }),
+            }),
+        });
+        const box = { x: 0, y: 0, width: 40, height: 40 };
+        const onAmbiguous = vi.fn();
+        expect(
+            await matchIcons(
+                image,
+                [
+                    { name: '茁壮', url: '/ambiguous-a.png' },
+                    { name: '欣欣向荣', url: '/ambiguous-b.png' },
+                ],
+                { tiles: [box], onAmbiguous },
+            ),
+        ).toEqual([]);
+        expect(onAmbiguous).toHaveBeenCalledWith(['茁壮', '欣欣向荣'], box);
+        const hits = await matchIcons(
+            image,
+            [
+                { name: '同一技能', url: '/ambiguous-a.png' },
+                { name: '同一技能', url: '/ambiguous-b.png' },
+            ],
+            { tiles: [box] },
+        );
+        expect(hits.map((one) => one.name)).toEqual(['同一技能']);
+        expect(iconMatchMetrics()).toMatchObject({ tiles: 1, candidates: 2 });
+    });
+});
 
 describe('同形异色技能', () => {
     function icon(rgb: number[], badge = false): ImageData {

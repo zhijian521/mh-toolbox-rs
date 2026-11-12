@@ -40,6 +40,13 @@ onBeforeUnmount(() => emit('busy', false));
         @files="takeFiles"
     >
         <template v-if="$slots.navigation" #navigation><slot name="navigation" /></template>
+        <template #feedback>
+            <p v-if="!busy && result?.ambiguousSkills?.length" class="note" role="status">
+                {{ result.ambiguousSkills.length }} 个技能图标需要确认：
+                {{ result.ambiguousSkills.map((names) => names.join(' / ')).join('；') }}。
+                请在右侧技能中选择。
+            </p>
+        </template>
         <slot />
     </ScreenshotUpload>
 </template>

@@ -83,6 +83,9 @@ export async function recognizePetPanel(
             sampleSize: 32,
             floor: 0.65,
             margin: 0.04,
+            onAmbiguous: (names) => {
+                (result.ambiguousSkills ??= []).push(names);
+            },
             // 低级蓝字与高级红字可能同形；保留颜色，避开边框和左上角认证标记。
             appearance: { color: true, inset: 0.08, ignoreTopLeft: 0.26 },
         },

@@ -98,6 +98,7 @@ const props = withDefaults(
         pane?: PaneKey;
         /** 点行 / 格开「快速修改」。 */
         quick?: boolean;
+        disabled?: boolean;
     }>(),
     /* `tabs` 的缺省值**必须显式写 `true`**：Vue 对布尔 prop 的缺省是 `false` 而不是
      * `undefined`（Boolean casting），所以模板里写 `props.tabs !== false` 不管用——
@@ -245,8 +246,18 @@ function openDetail(index: number) {
             <!-- 卡头右侧：改与删。两枚都是纯图标 26px，与左栏、工具页同一种压印块。
                  删除只把事件抛出去，确认窗由名册页开——卡上不出现第二种「确认」的问法。 -->
             <div v-if="!preview" class="head-actions">
-                <PressButton icon="edit" label="编辑这个角色" @click="emit('edit', active)" />
-                <PressButton icon="trash" label="删除这个角色" @click="emit('remove')" />
+                <PressButton
+                    icon="edit"
+                    label="编辑这个角色"
+                    :disabled="disabled"
+                    @click="emit('edit', active)"
+                />
+                <PressButton
+                    icon="trash"
+                    label="删除这个角色"
+                    :disabled="disabled"
+                    @click="emit('remove')"
+                />
             </div>
         </header>
 

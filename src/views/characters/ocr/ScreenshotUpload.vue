@@ -98,6 +98,7 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
                 <span class="upload-status" role="status">{{ busy ? '识别中…' : status }}</span>
             </div>
             <p v-if="error && !busy" class="upload-error" role="alert">{{ error }}</p>
+            <slot name="feedback" />
             <details v-if="rawLines?.length" class="upload-raw">
                 <summary>识别原文 · {{ rawLines.length }} 行</summary>
                 <ul class="upload-raw-list">

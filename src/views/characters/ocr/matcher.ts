@@ -149,11 +149,22 @@ export function correlation(a: Float32Array, b: Float32Array): number {
 }
 
 const templateCache = new Map<string, Promise<Float32Array>>();
+const TEMPLATE_CACHE_LIMIT = 1024;
+let lastMetrics: { durationMs: number; tiles: number; candidates: number } | null = null;
+
+/** 供开发工具读取最近一次匹配开销，不保留截图、技能名或历史记录。 */
+export function iconMatchMetrics() {
+    return lastMetrics ? { ...lastMetrics } : null;
+}
 
 function loadTemplate(url: string, size: number, appearance: Appearance): Promise<Float32Array> {
     const key = `${url}@${size}:${JSON.stringify(appearance)}`;
     const cached = templateCache.get(key);
-    if (cached) return cached;
+    if (cached) {
+        templateCache.delete(key);
+        templateCache.set(key, cached);
+        return cached;
+    }
     const pending = (async () => {
         const image = new Image();
         image.src = url;
@@ -168,10 +179,13 @@ function loadTemplate(url: string, size: number, appearance: Appearance): Promis
         const pixels = context.getImageData(0, 0, size, size);
         return iconSignature(pixels, { x: 0, y: 0, width: size, height: size }, size, appearance);
     })().catch((error) => {
-        templateCache.delete(key);
+        if (templateCache.get(key) === pending) templateCache.delete(key);
         throw error;
     });
     templateCache.set(key, pending);
+    if (templateCache.size > TEMPLATE_CACHE_LIMIT) {
+        templateCache.delete(templateCache.keys().next().value!);
+    }
     return pending;
 }
 
@@ -184,36 +198,64 @@ export async function matchIcons(
         margin?: number;
         sampleSize?: number;
         appearance?: Appearance;
+        onAmbiguous?: (names: string[], box: Tile) => void;
     } = {},
 ): Promise<IconHit[]> {
+    const started = performance.now();
     const tiles = options.tiles ?? findTiles(image);
-    if (!tiles.length || !candidates.length) return [];
+    if (!tiles.length || !candidates.length) {
+        lastMetrics = {
+            durationMs: performance.now() - started,
+            tiles: tiles.length,
+            candidates: candidates.length,
+        };
+        return [];
+    }
     const hits: IconHit[] = [];
     const appearance = options.appearance ?? {};
+    const unique = [
+        ...new Map(candidates.map((one) => [JSON.stringify([one.name, one.url]), one])).values(),
+    ];
+    const templatesBySize = new Map<number, Promise<{ name: string; gray: Float32Array }[]>>();
+    let yieldedAt = performance.now();
     for (const tile of tiles) {
         const size = Math.min(tile.width, tile.height, options.sampleSize ?? Infinity);
-        const loaded = await Promise.allSettled(
-            candidates.map(async (candidate) => ({
-                name: candidate.name,
-                gray: await loadTemplate(candidate.url, size, appearance),
-            })),
-        );
-        const templates = loaded.flatMap((one) => (one.status === 'fulfilled' ? [one.value] : []));
+        let loaded = templatesBySize.get(size);
+        if (!loaded) {
+            loaded = Promise.allSettled(
+                unique.map(async (candidate) => ({
+                    name: candidate.name,
+                    gray: await loadTemplate(candidate.url, size, appearance),
+                })),
+            ).then((results) =>
+                results.flatMap((one) => (one.status === 'fulfilled' ? [one.value] : [])),
+            );
+            templatesBySize.set(size, loaded);
+        }
+        const templates = await loaded;
         const scores = new Map<string, number>();
         const center = iconSignature(image, tile, size, appearance);
         for (const template of templates) {
-            scores.set(template.name, correlation(center, template.gray));
+            scores.set(
+                template.name,
+                Math.max(scores.get(template.name) ?? -1, correlation(center, template.gray)),
+            );
         }
         if (![...scores.values()].some((score) => score >= 0.35)) continue;
 
         for (let dy = -SHIFT; dy <= SHIFT; dy += 1) {
+            // 热缓存下 await Promise 不会让浏览器绘制；按时间片让出主线程，保留全部候选。
+            if (performance.now() - yieldedAt > 12) {
+                await new Promise<void>((resolve) => setTimeout(resolve, 0));
+                yieldedAt = performance.now();
+            }
             for (let dx = -SHIFT; dx <= SHIFT; dx += 1) {
+                if (dx === 0 && dy === 0) continue;
                 const moved = { ...tile, x: tile.x + dx, y: tile.y + dy };
                 if (moved.x < 0 || moved.y < 0) continue;
                 if (moved.x + moved.width > image.width) continue;
                 if (moved.y + moved.height > image.height) continue;
-                const patch =
-                    dx === 0 && dy === 0 ? center : iconSignature(image, moved, size, appearance);
+                const patch = iconSignature(image, moved, size, appearance);
                 for (const template of templates) {
                     const score = correlation(patch, template.gray);
                     scores.set(template.name, Math.max(scores.get(template.name) ?? 0, score));
@@ -224,9 +266,22 @@ export async function matchIcons(
         const best = ranked[0];
         if (!best || best[1] < (options.floor ?? MATCH_FLOOR)) continue;
         // 两个图案过于接近时不猜，避免把一个技能的等级写给另一个技能。
-        if (ranked[1] && best[1] - ranked[1][1] < (options.margin ?? MATCH_MARGIN)) continue;
+        if (ranked[1] && best[1] - ranked[1][1] < (options.margin ?? MATCH_MARGIN)) {
+            options.onAmbiguous?.(
+                ranked
+                    .filter(([, score]) => best[1] - score < (options.margin ?? MATCH_MARGIN))
+                    .map(([name]) => name),
+                tile,
+            );
+            continue;
+        }
         hits.push({ name: best[0], score: best[1], box: tile });
     }
+    lastMetrics = {
+        durationMs: performance.now() - started,
+        tiles: tiles.length,
+        candidates: unique.length,
+    };
     const used = new Set<string>();
     return hits
         .sort((a, b) => b.score - a.score)

@@ -546,10 +546,13 @@
             "治疗能力": 3,
             "速度": 3
         },
-        "jadeGainFactor": 1.5
+        "jadeGainFactor": 1.5,
+        "suitActiveCount": 3
     },
     "pets": {
         "skillSlots": 12,
+        "cardAttributes": ["气血", "攻击", "防御", "法伤", "速度"],
+        "growthLabel": "成长",
         "qualityFields": [
             {
                 "key": "attack",

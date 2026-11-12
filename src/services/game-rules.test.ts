@@ -7,6 +7,9 @@ import {
     GEAR_RULES,
     GEAR_SLOTS,
     STAR_GAINS,
+    PET_CARD_ATTRIBUTES,
+    PET_GROWTH_LABEL,
+    GEAR_SUIT_ACTIVE_COUNT,
     TRAINING_GROUPS,
     parseCharacterRules,
 } from './game-rules';
@@ -14,6 +17,7 @@ import { parseActivities } from './game-activities';
 import { parseGameplay } from './gameplay';
 import { emptyCharacter, normalizeCharacter } from '../views/characters/roster';
 import { parseGearPanel } from '../views/characters/ocr/gear-panel';
+import { gearBrief, type GearSlot } from '../views/characters/gear';
 
 afterEach(() => installGameData(GAME_DATA_FILES));
 
@@ -34,6 +38,9 @@ describe('外置角色规则', () => {
         const trainings = TRAINING_GROUPS.flatMap((group) => group.rows.map((row) => row.name));
         expect(new Set(trainings).size).toBe(trainings.length);
         expect(STAR_GAINS.气血).toBe(28);
+        expect(PET_CARD_ATTRIBUTES).toEqual(['气血', '攻击', '防御', '法伤', '速度']);
+        expect(PET_GROWTH_LABEL).toBe('成长');
+        expect(GEAR_SUIT_ACTIVE_COUNT).toBe(3);
         expect(GEAR_RULES['玉魄·阳']?.effects).toEqual(['奇袭特技']);
     });
 
@@ -41,6 +48,12 @@ describe('外置角色规则', () => {
         for (const change of [
             (rules: typeof GAME_DATA_FILES.characterRules) => {
                 rules.pets.skillSlots = 1.5;
+            },
+            (rules: typeof GAME_DATA_FILES.characterRules) => {
+                rules.gear.suitActiveCount = 0;
+            },
+            (rules: typeof GAME_DATA_FILES.characterRules) => {
+                rules.pets.cardAttributes = ['气血', '气血'];
             },
             (rules: typeof GAME_DATA_FILES.characterRules) => {
                 rules.gear.slots[0].col = 1.5;
@@ -77,6 +90,27 @@ describe('外置角色规则', () => {
             '武器',
         );
         expect(result.detail.stats).toEqual([{ label: '临时(属性)', value: '+9' }]);
+    });
+
+    it('卡片字段与套装激活件数随资源表更新', () => {
+        const files = structuredClone(GAME_DATA_FILES);
+        files.characterRules.pets.cardAttributes = ['速度', '气血'];
+        files.characterRules.gear.suitActiveCount = 5;
+        installGameData(files);
+        expect(PET_CARD_ATTRIBUTES).toEqual(['速度', '气血']);
+        const gear: GearSlot[] = ['头', '衣服', '腰带'].map((slot) => ({
+            slot: slot as GearSlot['slot'],
+            detail: {
+                name: '测试装备',
+                kind: '',
+                stats: [],
+                lines: [{ label: '套装', value: '变身术之巨力神猿' }],
+            },
+        }));
+        const suits = gearBrief(gear, { special: '', suit: '' })
+            .flatMap((group) => group.rows)
+            .find((row) => row.key === 'suit');
+        expect(suits?.items[0]).toMatchObject({ value: '*3', dim: true });
     });
 
     it('规则不可用时保留已录入的属性、修炼与装备', () => {

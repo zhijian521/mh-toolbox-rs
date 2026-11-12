@@ -53,9 +53,13 @@ describe('游戏数据装配边界', () => {
     it('首次失败降级，随后可重试；失败重试仍保留上一份有效缓存', async () => {
         vi.resetModules();
         vi.spyOn(console, 'error').mockImplementation(() => {});
-        const { loadGameData, installGameData } = await import('./game-data');
+        const { loadGameData, installGameData, gameDataReady, gameDataError, gameDataLoading } =
+            await import('./game-data');
         vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
         expect((await loadGameData()).schools.schools).toEqual([]);
+        expect(gameDataReady.value).toBe(false);
+        expect(gameDataError.value).toContain('重试');
+        expect(gameDataLoading.value).toBe(false);
         const { normalizePriceItem } = await import('../views/prices/prices');
         const item = normalizePriceItem({
             id: 'kept',
@@ -67,8 +71,47 @@ describe('游戏数据装配边界', () => {
         expect(item?.category).toBe('兽决内丹');
         expect(item?.sub).toBe('高级兽决');
         const before = installGameData(GAME_DATA_FILES);
+        expect(gameDataReady.value).toBe(true);
+        expect(gameDataError.value).toBe('');
         expect(await loadGameData()).toBe(before);
+        expect(gameDataReady.value).toBe(true);
+        expect(gameDataError.value).toBe('');
         vi.stubGlobal('fetch', vi.fn(response));
         expect((await loadGameData()).schools.schools.length).toBeGreaterThan(0);
+    });
+
+    it('资源未就绪时拒绝改名册，重试成功补模板且不自动写库', async () => {
+        vi.resetModules();
+        const desktop = {
+            hasDesktop: () => true,
+            charactersLoad: vi.fn(async () => [{ id: 'kept', name: '原角色' }]),
+            charactersSave: vi.fn(async () => true),
+        };
+        vi.doMock('./desktop', () => desktop);
+        vi.doMock('./storage', () => desktop);
+        try {
+            const { loadRoster, useRoster, emptyCharacter } =
+                await import('../views/characters/roster');
+            const game = await import('./game-data');
+            await loadRoster();
+            const store = useRoster();
+            const original = store.roster.value[0];
+            store.add(emptyCharacter());
+            store.update({ ...original, name: '不应改写' });
+            store.remove(original.id);
+            expect(store.roster.value).toEqual([original]);
+            expect(desktop.charactersSave).not.toHaveBeenCalled();
+            vi.stubGlobal('fetch', vi.fn(response));
+            await game.loadGameData();
+            expect(store.roster.value[0].gear).toHaveLength(12);
+            expect(store.roster.value[0].name).toBe('原角色');
+            expect(desktop.charactersSave).not.toHaveBeenCalled();
+            store.update({ ...store.roster.value[0], name: '可以修改' });
+            expect(await store.flush()).toBe(true);
+            expect(desktop.charactersSave).toHaveBeenCalledTimes(1);
+        } finally {
+            vi.doUnmock('./desktop');
+            vi.doUnmock('./storage');
+        }
     });
 });

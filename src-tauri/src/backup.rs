@@ -230,16 +230,25 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
         .map_err(|error| format!("{} 不是一份能读的备份：{error}", path.display()))?;
 
     check_envelope(&file)?;
-    /* 校验放在替换之前，而且宁可整份拒绝：`save_records` 对没 id 的记录会兜底成
-     * `row-0` 这种假 id（那是为了「别因为一条坏记录丢掉整份名册」），可在这里，
-     * 兜底意味着用户换回来的账目里混进了几个点不开也删不掉的空壳。
-     * 与其猜，不如说清「第几条坏了」。 */
+    /* 校验放在备份和替换之前：与直接保存共用身份规则，不补造 ID 或合并重复记录。 */
     let truncation = validate_backup(&file)?;
 
-    let current = build(&app)?;
     let dir = backup_dir(&app)?;
-    let saved = dir.join(format!("{AUTO_BACKUP_PREFIX}{}.json", now_ms()));
-    write_to(&saved, &current)?;
+    let saved = match build(&app) {
+        Ok(current) => {
+            let saved = dir.join(format!("{AUTO_BACKUP_PREFIX}{}.json", now_ms()));
+            write_to(&saved, &current)?;
+            saved
+        }
+        Err(error) => {
+            // 损坏行会阻止 JSON 导出，但不应阻止从有效备份恢复；先完整保留原库。
+            let saved = dir.join(format!("账本-recovery-before-import-{}.db", now_ms()));
+            let conn = store::open(&app)?;
+            store::snapshot_database(&conn, &saved)
+                .map_err(|snapshot_error| format!("{error}；{snapshot_error}，未执行导入"))?;
+            saved
+        }
+    };
     prune_auto_backups(&dir);
 
     /* 到这里为止的失败都还是「什么都没换」，不需要报备份路径。下面两条是替换路径上
@@ -654,6 +663,7 @@ fn backup_dir(app: &AppHandle) -> Result<PathBuf, String> {
 ///
 /// 只认 `AUTO_BACKUP_PREFIX` + 时间戳 + `.json` 这个形状：用户手点的导出落在自己选的
 /// 位置，就算他恰好选到 `backups/`，文件名也不是这个形状，不会被误删。
+/// 损坏数据恢复前保存的 `.db` 原库快照也不参与自动清理。
 ///
 /// 全程尽力而为、不返回 `Err`：这是收尾动作，删不掉一份旧备份不该让一次成功的导入
 /// 变成失败。同理，`read_dir` 都不通就直接放弃。
@@ -808,19 +818,7 @@ fn validate_ids<'a>(ids: impl Iterator<Item = &'a str>, label: &str) -> Result<(
 }
 
 fn validate(characters: &[serde_json::Value], prices: &[PriceItem]) -> Result<Truncation, String> {
-    let mut seen_characters: HashSet<&str> = HashSet::new();
-    for (index, character) in characters.iter().enumerate() {
-        let id = character
-            .get("id")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or_default();
-        if !character.is_object() || id.is_empty() {
-            return Err(format!("第 {} 条角色没有 id", index + 1));
-        }
-        if !seen_characters.insert(id) {
-            return Err(format!("第 {} 条角色的 id「{id}」与前面重复", index + 1));
-        }
-    }
+    store::validate_record_ids(characters, "角色")?;
 
     let mut truncation = Truncation::default();
     let mut seen_items: HashSet<&str> = HashSet::new();
@@ -1153,6 +1151,17 @@ mod tests {
             error.contains("第 2 条角色") && error.contains("重复"),
             "文案要说清第几条、哪一类重复，实际是：{error}"
         );
+
+        for id in [" c1", "c1 ", "   "] {
+            validate(
+                &[
+                    serde_json::json!({ "id": "c1" }),
+                    serde_json::json!({ "id": id }),
+                ],
+                &[],
+            )
+            .expect_err("不能接受空白或首尾带空白的角色 id");
+        }
 
         let mut second = sample_item();
         second.id = "item-1".to_string();

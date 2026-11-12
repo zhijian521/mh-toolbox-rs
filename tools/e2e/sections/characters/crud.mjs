@@ -634,6 +634,19 @@ export async function pets(ctx) {
                     .map((e) => e.textContent.trim()).join('、')`,
             )) === '连击、必杀',
         );
+        t.check(
+            '选完技能焦点返回入口',
+            await cdp.evaluate(`document.activeElement?.matches('.pet-block .skill-trigger')`),
+        );
+        await ui.clickLabelPrefix('第 1 个技能：');
+        await cdp.key('Escape');
+        await sleep(120);
+        t.check(
+            'Esc 只关闭技能选择器并恢复焦点',
+            (await ui.exists('.editor')) &&
+                !(await ui.exists('.pet-block .skill-panel')) &&
+                (await cdp.evaluate(`document.activeElement?.matches('.pet-block .skill-trigger')`)),
+        );
 
         await ui.clickText('.ocr-tabs button', '属性', { exact: true });
         await ui.clickText('.ocr-tabs button', '召唤兽', { exact: true });
@@ -876,7 +889,17 @@ export async function pets(ctx) {
         );
         await ui.fillSel('.pet-quick input[aria-label="成长"]', '1.111');
 
-        // Esc 只关这一层（`use-modal` 的冒泡口径），卡片本身不动。
+        await ui.clickLabel('选择召唤兽头像');
+        await cdp.key('Escape');
+        await sleep(120);
+        t.check(
+            '头像选择器展开时 Esc 只关选择器并恢复焦点',
+            await cdp.evaluate(`!!document.querySelector('.pet-quick') &&
+                !document.querySelector('.pet-quick .portrait-picker').open &&
+                document.activeElement?.getAttribute('aria-label') === '选择召唤兽头像'`),
+        );
+
+        // 第二次 Esc 从已经关闭的头像入口冒泡到详情窗。
         await cdp.key('Escape');
         await sleep(300);
         t.check('Esc 关掉详情窗', !(await ui.exists('[role="dialog"]')));

@@ -55,6 +55,13 @@ function closePanel(returnFocus = false) {
     if (returnFocus) void nextTick(() => summary.value?.focus());
 }
 
+function onEscape(event: KeyboardEvent) {
+    if (!picker.value?.open) return;
+    event.preventDefault();
+    event.stopPropagation();
+    closePanel(true);
+}
+
 function onPointerDown(event: PointerEvent) {
     if (picker.value?.contains(event.target as Node)) return;
     closePanel();
@@ -65,7 +72,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
 </script>
 
 <template>
-    <details ref="picker" class="portrait-picker" @keydown.esc.stop.prevent="closePanel(true)">
+    <details ref="picker" class="portrait-picker" @keydown.esc="onEscape">
         <!-- 一枚 64 的凸起纸块 + 里面 56 的头像：与装备详情左端那枚 `IconTile` 同一套几何与
              材质（2026-11-11 用户：「召唤兽右侧的召唤兽头像样式参考装备右侧的头像样式同步一下，
              并且还需要做成可以点击选择头像的样式」）。块本身就是「按我」的承诺——`PressTile`

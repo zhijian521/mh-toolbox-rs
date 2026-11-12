@@ -33,6 +33,7 @@
 - **`quick-items.json`**：`fixed` `{id: 1, name: 60武器, file: item-1.png}` / `variable` `{id: 99, name: 金币, file: item-99.png}`。分开有游戏依据：`fixed` 有牌价（宝石、五宝）、点一下按参考单价入账，`variable` 随行就市（兽决 内丹 图册）、每条现填单价；「金币」（id 99）记金额本身、不乘单价。坑：`id` 稳定（1–40 / 99–200，中间有缺号），单价表按它存，改了等于清空所有人的单价；加物品用没出现过的号（旧习惯往后接 118、200）。
 - **`pet-skills.json`**：低级 68、高级 52、超级 48、特殊 185 张，含藏宝阁常规名录 264 个技能 ID 与神兽升星扩展 89 项，尚未接入页面；`categories` 四类各有 `id`、`name`、`iconDir`（`../icons/pet-basic/` 等四个），`icons` 每项 `id`、`name`、`displayName`、`categoryId`、`subgroup`、`scope`、`img` 与 SHA-256，`displayName` 区分物理 / 法术与强化版（同名按 ID 区分）。坑：`missing` 留触类旁通（56150）与强化版（56196，官网 404、`img: null`）。
 - **`pet-panel.json`** 记属性、加点、标签与别名；**`pet-portraits.json`** 记头像编号、物种、来源与缺项。图片见 `../icons/README.md`。
+- **`character-rules.json`** 的 `gear.suitActiveCount` 是套装激活件数；`pets.cardAttributes` 按卡片展示顺序列出属性，`pets.growthLabel` 是独立成长字段的名称。修改这些字段同步更新规则契约断言。
 
 ## 约定与来源
 
@@ -40,4 +41,4 @@
 
 `pet-skills.json` 取自 2026-11-07 的[藏宝阁技能配置](https://cbg-xyq.res.netease.com/js/game_auto_config.js)快照与 `C:/games/MHXY` 客户端：167 张用客户端 PNG、186 张由官网具名 GIF 无损转 PNG，逐项记 `provenance` 与 SHA-256；同批修正低级 / 高级反击与冥思对调（反击 302、冥思 310 蓝，高级反击 402、高级冥思 410 红），脚本固定这四张已核对图、旧素材被拒，重导用 `python tools/game-icons/import-pet-skill-icons.py --src <素材包目录>`（分类从 `C:/games/MHXY-icons/召唤兽技能专用包/manifest.json` 读，不猜前缀）。
 
-加载只有一个（`services/game-data.ts`，`main.ts` 里 `await loadGameData()` 成功后才 `mount`），之后全站同步读缓存；组件不许 `fetch`、不加「表还没回来」的 `v-if`，失败保留上一份缓存。规则见 `docs/GAME-ASSETS.md` §6。
+基础表由 `services/game-data.ts` 在挂载前统一加载，之后同步读缓存；组件不直接 `fetch`。首次失败仍挂载应用，角色页显示重试入口并暂停修改；重试成功补全内存模板，不自动写盘。已有有效缓存时失败保留旧值。召唤兽资源另由 `pet-assets.ts` 按需加载。规则见 `docs/GAME-ASSETS.md` §6。

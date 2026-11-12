@@ -23,10 +23,10 @@
  * 与此配套的一条：`parseRoster` 只在「整体不可读」时返回 `null`（没存过 / 不是 JSON /
  * 不是数组），由调用方决定用种子还是空名册；单条坏掉不牵连整份名册。
  */
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { hasDesktop } from '../../services/desktop';
 import { charactersLoad, charactersSave } from '../../services/storage';
-import { schoolNames } from '../../services/game-data';
+import { gameDataError, gameDataReady, schoolNames } from '../../services/game-data';
 import { createPersist } from '../../services/persist';
 /* 形状兜底全在 `services/shape.ts`（与物价页共用一份）。两个本地别名值得看清：
  *   `text`  ← `rawText`：名册这边**不 trim**，卡面上的字是用户写什么就显示什么；
@@ -494,10 +494,26 @@ const persist = createPersist({
     writeRemote: () => charactersSave(roster.value),
 });
 
+// 首次加载失败后重试成功，只补全内存模板，不自动写盘或重新读取覆盖当前状态。
+watch(
+    gameDataReady,
+    (ready) => {
+        if (ready) roster.value = roster.value.map(normalizeCharacter);
+    },
+    { flush: 'sync' },
+);
+
+function canWriteRoster(): boolean {
+    if (!persist.canWrite()) return false;
+    if (gameDataReady.value) return true;
+    writeError.value = gameDataError.value || '角色规则尚未加载，请重试后保存';
+    return false;
+}
+
 export function useRoster() {
     /** 新增。返回新角色的 id，调用方拿它决定要不要接着打开编辑器。 */
     function add(character: CharacterData) {
-        if (!persist.canWrite()) return character.id;
+        if (!canWriteRoster()) return character.id;
         roster.value = [...roster.value, character];
         persist();
         return character.id;
@@ -505,13 +521,13 @@ export function useRoster() {
 
     /** 修改：按 id 整条替换。编辑器改的是一份草稿副本，走到这里才算落账。 */
     function update(character: CharacterData) {
-        if (!persist.canWrite()) return;
+        if (!canWriteRoster()) return;
         roster.value = roster.value.map((item) => (item.id === character.id ? character : item));
         persist();
     }
 
     function remove(id: string) {
-        if (!persist.canWrite()) return;
+        if (!canWriteRoster()) return;
         roster.value = roster.value.filter((item) => item.id !== id);
         persist();
     }
@@ -522,7 +538,9 @@ export function useRoster() {
         writeError,
         pending: persist.pending,
         flush: persist.flush,
-        retry: persist,
+        retry: () => {
+            if (canWriteRoster()) persist();
+        },
         add,
         update,
         remove,

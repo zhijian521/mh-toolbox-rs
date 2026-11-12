@@ -10,6 +10,7 @@ export interface PetPanelResult {
     patch: PetPatch;
     hit: number;
     skillCount: number;
+    ambiguousSkills?: string[][];
 }
 const clean = (text: string) => text.replace(/\s+/g, '').replace(/[：:]/g, '');
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

@@ -16,7 +16,7 @@
 //! `legacyImported`（防「localStorage 老数据重复搬入」），随老版本兼容一起删了——
 //! 新应用不接老数据，也就不存在「搬过没有」这个问题。
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use rusqlite::{params, Connection, OptionalExtension};
@@ -297,6 +297,34 @@ pub(crate) fn open_at(base: &Path) -> Result<Connection, String> {
 /// 不能再走三次 `*_save` 命令各自开一次库。
 pub(crate) fn open(app: &AppHandle) -> Result<Connection, String> {
     open_at(&base_dir(app)?)
+}
+
+/// 保留包含 WAL 已提交内容的完整原库，不解析业务 JSON，供损坏记录恢复前留底。
+pub(crate) fn snapshot_database(conn: &Connection, path: &Path) -> Result<(), String> {
+    let target = path
+        .to_str()
+        .ok_or_else(|| "原库快照路径不是有效文本".to_string())?;
+    // 先独占创建空文件；VACUUM INTO 接受空文件，但不能覆盖已有快照。
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|error| format!("创建原库快照 {} 失败：{error}", path.display()))?;
+    let result = (|| -> Result<(), String> {
+        conn.execute("VACUUM INTO ?1", [target])
+            .map_err(|error| format!("保存原库快照失败：{error}"))?;
+        // VACUUM INTO 不保证落到持久介质；同步成功之后才允许导入覆盖原库。
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(path)
+            .and_then(|file| file.sync_all())
+            .map_err(|error| format!("同步原库快照失败：{error}"))?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(path);
+    }
+    result
 }
 
 /// 建表。全部 `IF NOT EXISTS`，可以反复执行。
@@ -728,8 +756,6 @@ struct RecordTable {
     /// 有 `sort_order` 列的按它读回（名册是「用户排的顺序」，不按 id 或名字排）；
     /// 没有的按 `rowid`，也就是写入顺序——目标页自己排，库不管。
     ordered: bool,
-    /// 没 id 的记录兜底成 `{id_prefix}-{index}`。
-    id_prefix: &'static str,
 }
 
 const CHARACTERS: RecordTable = RecordTable {
@@ -738,7 +764,6 @@ const CHARACTERS: RecordTable = RecordTable {
     what: "名册",
     key: "sort_order",
     ordered: true,
-    id_prefix: "row",
 };
 
 const GOALS: RecordTable = RecordTable {
@@ -747,7 +772,6 @@ const GOALS: RecordTable = RecordTable {
     what: "目标表",
     key: "id",
     ordered: false,
-    id_prefix: "goal",
 };
 
 impl RecordTable {
@@ -779,13 +803,8 @@ impl RecordTable {
 
 /// 读整份表。
 ///
-/// **一行坏 JSON 不拖垮整份**：跳过它、`eprintln!` 留一条带行标的痕迹，其余照常返回。
-/// 早先这里是「任一行解析失败就整份 `Err`」，后果比坏掉那一行严重得多——
-/// 前端 `charactersLoad` 拿到 `null` 后立起 `loadError`、名册空白、写入口全禁，
-/// 而界面没有任何「修掉这一行」的入口，等于**永久打不开**。宁可少显示一个角色。
-///
-/// 返回类型仍是 `Vec<serde_json::Value>`，前端契约不变；坏行留在库里没被删，
-/// 下次 `*_save` 整份覆盖时会自然消失。
+/// 任一行损坏就拒绝整份读取，让前端暂停写入。保存采用整表替换，返回残缺列表
+/// 会让下一次正常编辑把损坏行从主库删除，失去恢复原始内容的机会。
 fn load_records(conn: &Connection, table: &RecordTable) -> Result<Vec<serde_json::Value>, String> {
     let what = table.what;
     let mut stmt = conn
@@ -799,26 +818,48 @@ fn load_records(conn: &Connection, table: &RecordTable) -> Result<Vec<serde_json
 
     let mut list = Vec::new();
     for row in rows {
-        /* 连「取这一行」都失败才算致命：那是游标坏了，不是某一条数据坏了。 */
         let (key, raw) = row.map_err(|error| format!("解析{what}行失败：{error}"))?;
-        match serde_json::from_str::<serde_json::Value>(&raw) {
-            Ok(value) => list.push(value),
-            Err(error) => {
-                let key_name = table.key;
-                eprintln!("{what}有一行不是合法 JSON（{key_name}={key}），已跳过：{error}")
-            }
-        }
+        let value = serde_json::from_str::<serde_json::Value>(&raw).map_err(|error| {
+            format!(
+                "{what}记录损坏（{}={key}），已暂停读取，请从备份恢复：{error}",
+                table.key
+            )
+        })?;
+        list.push(value);
     }
+    validate_record_ids(&list, table.label)?;
     Ok(list)
 }
 
-/// 整份写回。同样是一个事务；`OR REPLACE` 容忍前端传来重复 id（名册编辑时可能撞上）。
+/// 写入和导入共用的身份校验。ID 必须规范且唯一，拒绝静默合并和失效引用。
+pub(crate) fn validate_record_ids(items: &[serde_json::Value], label: &str) -> Result<(), String> {
+    let mut seen = HashSet::new();
+    for (index, item) in items.iter().enumerate() {
+        let id = item
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        if id.trim().is_empty() {
+            return Err(format!("第 {} 条{label}没有 id", index + 1));
+        }
+        if id != id.trim() {
+            return Err(format!("第 {} 条{label}的 id 含首尾空白", index + 1));
+        }
+        if !seen.insert(id) {
+            return Err(format!("第 {} 条{label}的 id「{id}」与前面重复", index + 1));
+        }
+    }
+    Ok(())
+}
+
+/// 整份写回：先校验身份，再在一个事务里替换，拒绝静默合并同 id 的记录。
 fn save_records(
     conn: &mut Connection,
     table: &RecordTable,
     items: &[serde_json::Value],
 ) -> Result<(), String> {
     let label = table.label;
+    validate_record_ids(items, label)?;
     let tx = conn
         .transaction()
         .map_err(|error| format!("开事务失败：{error}"))?;
@@ -836,9 +877,7 @@ fn save_records(
 /// 写一条记录。`index` 既是错误文案里的「第几条」，也是 `sort_order`（有这一列的表）——
 /// 名册是「用户排的顺序」，不按 id 或名字排。
 ///
-/// 没 id 的记录兜底成 `{id_prefix}-{index}`：这是既有语义，目的是「别因为一条坏记录
-/// 丢掉整份」。导入那条路不吃这个兜底，它在 `backup::validate` 里就把没 id 的整份
-/// 拒绝了（理由见那边的注释）。
+/// 身份由上游校验；这里仍拒绝缺失 ID，不在写库时生成另一个身份。
 fn insert_record(
     conn: &Connection,
     table: &RecordTable,
@@ -849,8 +888,7 @@ fn insert_record(
     let id = item
         .get("id")
         .and_then(serde_json::Value::as_str)
-        .map(str::to_string)
-        .unwrap_or_else(|| format!("{}-{index}", table.id_prefix));
+        .ok_or_else(|| format!("第 {} 条{label}没有 id", index + 1))?;
     let data = serde_json::to_string(item)
         .map_err(|error| format!("序列化第 {index} 个{label}失败：{error}"))?;
     let sql = table.insert_sql();
@@ -1218,9 +1256,8 @@ fn insert_account_entry(conn: &Connection, entry: &AccountEntry) -> Result<(), S
  * 目标（第 115 批）
  *
  * 与名册同一套：`serde_json::Value` 整条透传，Rust 不认识任何字段（理由见建表那段），
- * 读写共用上面那对 `load_records` / `save_records`。一行坏 JSON 同样只跳过那一行、
- * `eprintln!` 留痕——目标页拿不到整份时会停写，而界面上没有修库的入口，
- * 那等于永久打不开。
+ * 读写共用上面那对 `load_records` / `save_records`。任一坏行都会阻止整份写回，
+ * 避免一次正常编辑把原始坏行删除；恢复走设置页的备份导入入口。
  * ==================================================================== */
 
 #[tauri::command]
@@ -1633,14 +1670,11 @@ mod tests {
         assert_eq!(loaded[0].name, "老数据");
     }
 
-    /// 名册里混进一行坏 JSON 时只跳过它，不许整份返回 `Err`。
-    ///
-    /// 整份 `Err` 的后果是**用户永久打不开这一页**：前端把 `null` 当读失败 →
-    /// 立 `loadError` → 名册空白且写入口全禁，界面上又没有「修掉那一行」的地方。
+    /// 残缺读取必须报错，原始好行与坏行全部留在主库，前端据此暂停写入。
     #[test]
-    fn characters_load_skips_bad_json_row() {
+    fn characters_load_refuses_incomplete_roster_and_keeps_raw_rows() {
         let dir = TempDir::new(10);
-        let conn = open_at(dir.base()).expect("打开数据库");
+        let mut conn = open_at(dir.base()).expect("打开数据库");
 
         let rows = [
             ("c1", r#"{"id":"c1","name":"大唐"}"#),
@@ -1655,10 +1689,41 @@ mod tests {
             .expect("写名册行");
         }
 
-        let list = load_records(&conn, &CHARACTERS).expect("一行坏 JSON 不该拖垮整份名册");
-        assert_eq!(list.len(), 2, "坏的那一行应被跳过，其余照常返回");
-        assert_eq!(list[0]["id"], "c1");
-        assert_eq!(list[1]["id"], "c3");
+        let error = load_records(&conn, &CHARACTERS).expect_err("残缺名册不能作为可写数据返回");
+        assert!(error.contains("记录损坏") && error.contains("sort_order=1"));
+        let raw: String = conn
+            .query_row("SELECT data FROM characters WHERE id = 'bad'", [], |row| {
+                row.get(0)
+            })
+            .expect("保留坏行以供恢复");
+        assert_eq!(raw, rows[1].1);
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM characters", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 3);
+
+        let recovery_dir = dir.base().join("recovery");
+        std::fs::create_dir(&recovery_dir).unwrap();
+        let saved = recovery_dir.join(DB_FILE);
+        snapshot_database(&conn, &saved).expect("业务 JSON 损坏仍可保存原库快照");
+        snapshot_database(&conn, &saved).expect_err("不能覆盖已有原库快照");
+        save_records(
+            &mut conn,
+            &CHARACTERS,
+            &[serde_json::json!({ "id": "restored" })],
+        )
+        .expect("快照成功后可用有效名册替换");
+        let recovery = open_at(&recovery_dir).expect("快照独立可读，包含已提交 WAL 数据");
+        let raw: String = recovery
+            .query_row("SELECT data FROM characters WHERE id = 'bad'", [], |row| {
+                row.get(0)
+            })
+            .expect("替换原库之后，快照仍保留损坏行");
+        assert_eq!(raw, rows[1].1);
+        let count: i64 = recovery
+            .query_row("SELECT COUNT(*) FROM characters", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 3);
     }
 
     /* ---------- 清空：只清账本，不碰 meta ---------- */
@@ -1760,31 +1825,24 @@ mod tests {
         );
     }
 
-    /* ---------- 名册整份写回：OR REPLACE 的实际行为 ---------- */
+    /* ---------- 名册整份写回：身份校验 ---------- */
 
-    /// 重复 id 在 `save_records` 里是**覆盖**，不是报错、也不是留下两行。
-    ///
-    /// 这条不是在「验证实现细节」，而是在钉前端可以依赖的行为：名册编辑时前端可能
-    /// 短暂出现两个同 id 的对象，若这里报错，用户会看到整份名册存不下去。
+    /// 非法或重复身份必须在清表之前拒绝，原记录保持不变。
     #[test]
-    fn save_records_replaces_duplicate_ids() {
+    fn save_records_rejects_invalid_ids_before_replacing() {
         let dir = TempDir::new(16);
         let mut conn = open_at(dir.base()).expect("打开数据库");
 
-        let items = vec![
-            serde_json::json!({ "id": "c1", "name": "甲" }),
-            serde_json::json!({ "id": "c1", "name": "乙" }),
-            serde_json::json!({ "id": "c2", "name": "丙" }),
-        ];
-        save_records(&mut conn, &CHARACTERS, &items).expect("重复 id 不该报错");
-
-        let list = load_records(&conn, &CHARACTERS).expect("读回名册");
-        assert_eq!(list.len(), 2, "两个 c1 只该留一行");
-        assert_eq!(
-            list[0]["name"], "乙",
-            "后写的那条赢，这是 OR REPLACE 的语义"
-        );
-        assert_eq!(list[1]["name"], "丙");
+        let original = vec![serde_json::json!({ "id": "keep", "name": "原有角色" })];
+        save_records(&mut conn, &CHARACTERS, &original).unwrap();
+        for id in ["c1", " c1 ", "   ", ""] {
+            let items = vec![
+                serde_json::json!({ "id": "c1" }),
+                serde_json::json!({ "id": id }),
+            ];
+            save_records(&mut conn, &CHARACTERS, &items).expect_err("身份无效时整份拒绝");
+            assert_eq!(load_records(&conn, &CHARACTERS).unwrap(), original);
+        }
     }
 
     /* ---------- 导入：整份替换必须原子 ---------- */

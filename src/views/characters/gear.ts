@@ -1,5 +1,10 @@
 /** 装备字段契约与摘要算法。游戏名录、部位规则和图标映射见 public/game/data/character-rules.json。 */
-import { GEAR_RULES, GEAR_SLOTS, type GearSlotName } from '../../services/game-rules';
+import {
+    GEAR_RULES,
+    GEAR_SLOTS,
+    GEAR_SUIT_ACTIVE_COUNT,
+    type GearSlotName,
+} from '../../services/game-rules';
 export {
     GEAR_SLOTS,
     GEAR_LAYOUT,
@@ -203,9 +208,7 @@ function suitName(value: string): string {
         .trim();
 }
 
-/** 三件成套。少一件按游戏规则不激活，摘要里退灰——灰的那一串就是「还差几件」。 */
-const SUIT_ACTIVE = 3;
-
+/** 未达到资源表中的激活件数时退灰，提示套装尚未激活。 */
 export function gearBrief(gear: GearSlot[], meta: { special: string; suit: string }): BriefGroup[] {
     const bySlot = new Map<GearSlotName, GearSlot>();
     for (const one of gear) bySlot.set(one.slot, one);
@@ -298,7 +301,7 @@ export function gearBrief(gear: GearSlot[], meta: { special: string; suit: strin
                     items: [...suits].map(([name, count]): BriefItem => ({
                         name,
                         value: count ? `*${count}` : '',
-                        dim: count > 0 && count < SUIT_ACTIVE,
+                        dim: count > 0 && count < GEAR_SUIT_ACTIVE_COUNT,
                     })),
                 },
             ],
