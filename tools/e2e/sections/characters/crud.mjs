@@ -670,8 +670,10 @@ export async function pets(ctx) {
             })()`);
             t.check(
                 `第 ${index} 格技能浮层完整位于详情可见区且列表无横向溢出`,
-                placement.inside && placement.height > 0 &&
-                    placement.maxHeight > 0 && placement.noOverflow,
+                placement.inside &&
+                    placement.height > 0 &&
+                    placement.maxHeight > 0 &&
+                    placement.noOverflow,
                 JSON.stringify(placement),
             );
             await cdp.key('Escape');
@@ -680,7 +682,9 @@ export async function pets(ctx) {
                 `第 ${index} 格技能 Esc 只关闭选择器并恢复焦点`,
                 (await ui.exists('.editor')) &&
                     !(await ui.exists('.pet-block .skill-panel')) &&
-                    (await cdp.evaluate(`document.activeElement?.matches('.pet-block .skill-trigger')`)),
+                    (await cdp.evaluate(
+                        `document.activeElement?.matches('.pet-block .skill-trigger')`,
+                    )),
             );
         }
 

@@ -20,7 +20,7 @@ import SteppedSlider from '../../components/SteppedSlider.vue';
 import TogglePills from '../../components/TogglePills.vue';
 import { useFontScale } from '../../composables/use-font-scale';
 import { notify } from '../../composables/use-notify';
-import { THEME_OPTIONS, useTheme } from '../../composables/use-theme';
+import { STYLE_OPTIONS, THEME_OPTIONS, useTheme } from '../../composables/use-theme';
 import { todayText } from '../../services/format';
 
 /**
@@ -57,7 +57,7 @@ import { todayText } from '../../services/format';
  * 只动这一张卡，不动整页：入口、开发者模式、色板、字号、图标都还是一叠 `.board`，
  * 这张卡内部的分栏是它自己的事。全页改左右布局会让「一叠卡」的读法断掉。
  */
-const { mode } = useTheme();
+const { mode, style } = useTheme();
 const { scale } = useFontScale();
 
 /**
@@ -292,7 +292,8 @@ const demoToggles = ref<string[]>(['task']);
                             <span class="kit-en">SegmentedPills</span>
                         </span>
                         <div class="kit-row">
-                            <SegmentedPills v-model="mode" :options="THEME_OPTIONS" label="主题" />
+                            <SegmentedPills v-model="style" :options="STYLE_OPTIONS" label="风格" />
+                            <SegmentedPills v-model="mode" :options="THEME_OPTIONS" label="明暗" />
                         </div>
                         <p class="note">
                             整组一个 Tab 停靠点；单格质感走全局 <code>.bevel-pill</code>。
@@ -429,7 +430,8 @@ const demoToggles = ref<string[]>(['task']);
                             <SlotButton danger seal text="清除" label="危险填色槽按钮" />
                         </div>
                         <p class="note">
-                            <code>danger</code> 使用独立危险色；<code>seal</code> 控制填色，尺寸沿用原档。
+                            <code>danger</code> 使用独立危险色；<code>seal</code>
+                            控制填色，尺寸沿用原档。
                         </p>
                     </div>
 

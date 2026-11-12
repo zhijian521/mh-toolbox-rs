@@ -9,7 +9,10 @@ async function setup() {
         ['--ghost-wash', 'rgb(240, 184, 170)'],
     ]);
     const root = {};
-    const probe = { style: { color: '', fontSize: '', fontFamily: '', display: '' }, remove: vi.fn() };
+    const probe = {
+        style: { color: '', fontSize: '', fontFamily: '', display: '' },
+        remove: vi.fn(),
+    };
     const createElement = vi.fn(() => probe);
     vi.stubGlobal('document', {
         documentElement: root,
@@ -19,7 +22,10 @@ async function setup() {
     const tokenValue = (value: string) => values.get(value.slice(4, -1)) ?? value;
     vi.stubGlobal('getComputedStyle', (element: unknown) => {
         if (element === root) {
-            return { colorScheme: 'light', getPropertyValue: (name: string) => values.get(name) ?? '' };
+            return {
+                colorScheme: 'light',
+                getPropertyValue: (name: string) => values.get(name) ?? '',
+            };
         }
         return {
             color: tokenValue(probe.style.color),

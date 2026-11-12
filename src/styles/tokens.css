@@ -112,10 +112,7 @@
     --tooltip-bg: var(--indigo);
     --tooltip-ink: var(--indigo-ink);
     --tooltip-shadow: 0 2px 4px var(--shadow), 0 10px 22px -10px var(--shadow-lg);
-    --page-surface: light-dark(
-        var(--well),
-        color-mix(in srgb, var(--well) 66%, var(--ink-base))
-    );
+    --page-surface: light-dark(var(--well), color-mix(in srgb, var(--well) 66%, var(--ink-base)));
 
     /* 物品与技能图标保留各自读图强度，由风格选择是否纸化。 */
     --item-icon-filter: sepia(0.22) saturate(0.86) contrast(0.98);
@@ -198,9 +195,8 @@
      */
     --map-seal: #a8322b;
     --map-seal-ink: #8a2620;
-    /* 白环就是纸白，但**不能**写成 `var(--paper)`——那一枚会跟着主题翻成 #1c1912。
-     * 引 `--paper-base`（不翻面）才是想要的那个值。 */
-    --map-halo: var(--paper-base);
+    /* 标记压在游戏截图上，不跟随界面的风格或明暗换色。 */
+    --map-halo: #f8f3e6;
 
     /* ---------- 立体与阴影 ---------- */
     --bevel-hi: light-dark(#fffaecd0, #ffffff2e);
@@ -533,6 +529,42 @@
     --tint-deep-天机城: light-dark(#d0cdb8, #3a392b);
 }
 
+/* ---------- 青瓷 ----------
+ * 风格只换调色板与材质；分类、门派、账本正负和危险色保留各自含义。
+ * 每枚颜色同时提供亮暗两面，data-style 与 dark 可任意组合。
+ */
+:root[data-style='celadon'] {
+    --paper-base: #f3f7f2;
+    --bg: light-dark(#dfe9e4, #0f1915);
+    --paper: light-dark(var(--paper-base), #18261f);
+    --paper-2: light-dark(#e8f0e9, #203229);
+    --well: light-dark(#d7e3da, #13211a);
+    --ink: light-dark(#273f36, #e4f0e9);
+    --ink-2: light-dark(#476358, #c0d5cb);
+    --muted: light-dark(#587064, #91ac9f);
+    --rule: light-dark(#c2d3c8, #314b3d);
+    --rule-2: light-dark(#90ac9b, #4c6a58);
+
+    --accent: light-dark(#397960, #8ec8aa);
+    --accent-ink: light-dark(#285b48, #326a55);
+    --on-accent: light-dark(#f5faf6, #15281f);
+    --tooltip-bg: light-dark(#e0eee8, #203b31);
+    --tooltip-ink: light-dark(#315b48, #c1e1ce);
+    --modal-mask: color-mix(in srgb, var(--ink-base) 42%, transparent);
+
+    --bevel-hi: light-dark(#fafff6c2, #e5fff129);
+    --bevel-lo: light-dark(#163f2a1c, #000b0780);
+    --shadow: light-dark(#264a3614, #00080666);
+    --shadow-lg: light-dark(#264a3629, #0008068c);
+    --scrollbar-thumb: light-dark(#9eb9a9, #3d5b4b);
+    --scrollbar-thumb-hover: light-dark(#7b9e89, #557b64);
+    --scrollbar-thumb-active: light-dark(#60866e, #719982);
+
+    --item-icon-filter: none;
+    --item-icon-opacity: 1;
+    --skill-icon-filter: none;
+}
+
 /* ---------- 共用材质 ----------
  * 配方与明暗差异只有此处一份；组件消费变量，保留自己的尺寸、排版和动作。
  * 依赖 --tile-face、--board-face、--slip-base 的配方在实际元素上求值，不能提到 :root。
@@ -541,7 +573,8 @@
 .press-tile {
     --press-color: var(--tile-face, color-mix(in srgb, var(--paper) 92%, transparent));
     --press-image: none;
-    --press-shadow: inset 0 1px 0 var(--bevel-hi),
+    --press-shadow:
+        inset 0 1px 0 var(--bevel-hi),
         inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
         inset -1px 0 0 color-mix(in srgb, var(--rule-2) 46%, transparent),
         inset 0 -2px 0 color-mix(in srgb, var(--rule-2) 76%, transparent),
@@ -549,8 +582,8 @@
         0 calc(8px * var(--tile-drop, 1)) calc(12px * var(--tile-drop, 1))
             calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
     --press-ink: var(--ink-2);
-    --press-icon-filter: drop-shadow(0.5px 0.6px 0.4px
-        color-mix(in srgb, var(--ink) 34%, transparent)
+    --press-icon-filter: drop-shadow(
+        0.5px 0.6px 0.4px color-mix(in srgb, var(--ink) 34%, transparent)
     );
 }
 :root.dark .press-tile {
@@ -558,7 +591,8 @@
 }
 .press-tile:not(.still):hover {
     --press-color: var(--tile-face-hover, var(--paper));
-    --press-shadow: inset 0 1px 0 var(--bevel-hi),
+    --press-shadow:
+        inset 0 1px 0 var(--bevel-hi),
         inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
         inset -1px 0 0 color-mix(in srgb, var(--rule-2) 62%, transparent),
         inset 0 -2px 0 color-mix(in srgb, var(--rule-2) 92%, transparent),
@@ -574,13 +608,15 @@
         color-mix(in srgb, var(--bevel-hi) 42%, transparent),
         transparent 58%
     );
-    --press-shadow: inset 1px 1px 4px var(--bevel-lo),
+    --press-shadow:
+        inset 1px 1px 4px var(--bevel-lo),
         inset -1px 0 0 color-mix(in srgb, var(--bevel-hi) 72%, transparent),
         inset 0 -1px 0 color-mix(in srgb, var(--bevel-hi) 82%, transparent);
 }
 :root.dark .press-tile {
     --press-color: var(--tile-face, var(--paper));
-    --press-image: radial-gradient(
+    --press-image:
+        radial-gradient(
             120% 96% at 20% 6%,
             color-mix(in srgb, var(--bevel-hi) 46%, transparent),
             transparent 46%
@@ -595,20 +631,20 @@
             color-mix(in srgb, var(--bevel-lo) 26%, transparent),
             transparent 55%
         );
-    --press-shadow: inset 0 1px 0 var(--bevel-hi),
+    --press-shadow:
+        inset 0 1px 0 var(--bevel-hi),
         inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 70%, transparent),
-        inset -1px 0 0 var(--bevel-lo),
-        inset 0 -2px 0 var(--bevel-lo),
+        inset -1px 0 0 var(--bevel-lo), inset 0 -2px 0 var(--bevel-lo),
         0 calc(3px * var(--tile-drop, 1)) 0 var(--shadow-lg),
         0 calc(8px * var(--tile-drop, 1)) calc(13px * var(--tile-drop, 1))
             calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
 }
 :root.dark .press-tile:not(.still):hover {
     --press-color: var(--tile-face-hover, color-mix(in srgb, var(--paper) 88%, var(--ink)));
-    --press-shadow: inset 0 1px 0 var(--bevel-hi),
+    --press-shadow:
+        inset 0 1px 0 var(--bevel-hi),
         inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 70%, transparent),
-        inset -1px 0 0 var(--bevel-lo),
-        inset 0 -2px 0 var(--bevel-lo),
+        inset -1px 0 0 var(--bevel-lo), inset 0 -2px 0 var(--bevel-lo),
         0 calc(4px * var(--tile-drop, 1)) 0 var(--shadow-lg),
         0 calc(10px * var(--tile-drop, 1)) calc(16px * var(--tile-drop, 1))
             calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
@@ -620,7 +656,8 @@
         color-mix(in srgb, var(--bevel-hi) 26%, transparent),
         transparent 58%
     );
-    --press-shadow: inset 1px 1px 3px var(--bevel-lo),
+    --press-shadow:
+        inset 1px 1px 3px var(--bevel-lo),
         inset -1px 0 0 color-mix(in srgb, var(--bevel-hi) 55%, transparent),
         inset 0 -1px 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent);
 }
@@ -631,7 +668,8 @@
     --tile-face-hover: color-mix(in srgb, var(--seal) 88%, var(--ink));
     --tile-face-active: color-mix(in srgb, var(--seal) 74%, var(--ink));
     --press-ink: var(--on-seal);
-    --press-shadow: inset 0 1px 0 color-mix(in srgb, var(--seal-lt) 62%, transparent),
+    --press-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--seal-lt) 62%, transparent),
         inset 1px 0 0 color-mix(in srgb, var(--seal-lt) 30%, transparent),
         inset -1px 0 0 color-mix(in srgb, var(--seal-dp) 38%, transparent),
         inset 0 -2px 0 color-mix(in srgb, var(--seal-dp) 72%, transparent),
@@ -640,7 +678,8 @@
             calc(-5px * var(--tile-drop, 1)) var(--shadow-lg);
 }
 :root.dark .press-tile.tone-seal {
-    --press-shadow: inset 0 1px 0 color-mix(in srgb, var(--seal-lt) 62%, transparent),
+    --press-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--seal-lt) 62%, transparent),
         inset 1px 0 0 color-mix(in srgb, var(--seal-lt) 30%, transparent),
         inset -1px 0 0 color-mix(in srgb, var(--seal-dp) 38%, transparent),
         inset 0 -2px 0 color-mix(in srgb, var(--seal-dp) 72%, transparent),
@@ -650,13 +689,14 @@
 }
 .press-tile.tone-seal,
 :root.dark .press-tile.tone-seal {
-    --press-icon-filter: drop-shadow(0.5px 0.6px 0.4px
-        color-mix(in srgb, var(--ink-base) 42%, transparent)
+    --press-icon-filter: drop-shadow(
+        0.5px 0.6px 0.4px color-mix(in srgb, var(--ink-base) 42%, transparent)
     );
 }
 .press-tile.tone-seal:not(.still):hover,
 :root.dark .press-tile.tone-seal:not(.still):hover {
-    --press-shadow: inset 0 1px 0 color-mix(in srgb, var(--seal-lt) 76%, transparent),
+    --press-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--seal-lt) 76%, transparent),
         inset 1px 0 0 color-mix(in srgb, var(--seal-lt) 42%, transparent),
         inset -1px 0 0 color-mix(in srgb, var(--seal-dp) 46%, transparent),
         inset 0 -2px 0 color-mix(in srgb, var(--seal-dp) 78%, transparent),
@@ -671,12 +711,14 @@
         color-mix(in srgb, var(--seal-lt) 30%, transparent),
         transparent 60%
     );
-    --press-shadow: inset 1px 1px 4px var(--seal-dp),
+    --press-shadow:
+        inset 1px 1px 4px var(--seal-dp),
         inset -1px 0 0 color-mix(in srgb, var(--seal-lt) 45%, transparent),
         inset 0 -1px 0 color-mix(in srgb, var(--seal-lt) 52%, transparent);
 }
 .press-tile.wide {
-    --press-image: radial-gradient(
+    --press-image:
+        radial-gradient(
             190px 122px at 26px 6px,
             color-mix(in srgb, var(--bevel-hi) 58%, transparent),
             transparent 72%
@@ -693,7 +735,8 @@
         );
 }
 :root.dark .press-tile.wide {
-    --press-image: radial-gradient(
+    --press-image:
+        radial-gradient(
             150px 100px at 22px 4px,
             color-mix(in srgb, var(--bevel-hi) 28%, transparent),
             transparent 70%
@@ -711,83 +754,80 @@
 }
 .board {
     --board-paper: var(--paper-2);
-    --board-texture: radial-gradient(
+    --board-texture:
+        radial-gradient(
             140% 100% at 16% -6%,
             color-mix(in srgb, var(--bevel-hi) 58%, transparent),
             transparent 58%
         ),
         linear-gradient(
-                135deg,
-                color-mix(in srgb, var(--board-face, var(--board-paper)) 97%, var(--paper-base)) 0%,
-                transparent 48%,
-                color-mix(in srgb, var(--board-face, var(--board-paper)) 91%, var(--ink-base)) 100%
-            );
-    --board-shadow: inset 0 1px 0 var(--bevel-hi),
+            135deg,
+            color-mix(in srgb, var(--board-face, var(--board-paper)) 97%, var(--paper-base)) 0%,
+            transparent 48%,
+            color-mix(in srgb, var(--board-face, var(--board-paper)) 91%, var(--ink-base)) 100%
+        );
+    --board-shadow:
+        inset 0 1px 0 var(--bevel-hi),
         inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
         inset -1px 0 0 color-mix(in srgb, var(--rule-2) 46%, transparent),
-        inset 0 -3px 0 color-mix(in srgb, var(--rule-2) 84%, transparent),
-        0 3px 0 var(--shadow),
+        inset 0 -3px 0 color-mix(in srgb, var(--rule-2) 84%, transparent), 0 3px 0 var(--shadow),
         0 10px 16px -6px var(--shadow-lg);
 }
 :root.dark .board {
     --board-paper: var(--paper);
-    --board-texture: radial-gradient(
+    --board-texture:
+        radial-gradient(
             140% 100% at 16% -6%,
             color-mix(in srgb, var(--bevel-hi) 54%, transparent),
             transparent 56%
         ),
         linear-gradient(
-                135deg,
-                color-mix(in srgb, var(--board-face, var(--board-paper)) 96%, var(--ink)) 0%,
-                transparent 48%,
-                color-mix(in srgb, var(--board-face, var(--board-paper)) 96%, var(--ink-base)) 100%
-            );
-    --board-shadow: inset 0 1px 0 var(--bevel-hi),
+            135deg,
+            color-mix(in srgb, var(--board-face, var(--board-paper)) 96%, var(--ink)) 0%,
+            transparent 48%,
+            color-mix(in srgb, var(--board-face, var(--board-paper)) 96%, var(--ink-base)) 100%
+        );
+    --board-shadow:
+        inset 0 1px 0 var(--bevel-hi),
         inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 70%, transparent),
         inset -1px 0 0 color-mix(in srgb, var(--paper) 62%, var(--ink-base)),
         inset 0 -3px 0 color-mix(in srgb, var(--paper) 45%, var(--ink-base)),
-        0 3px 0 var(--shadow-lg),
-        0 12px 20px -7px var(--shadow-lg);
+        0 3px 0 var(--shadow-lg), 0 12px 20px -7px var(--shadow-lg);
 }
 .well,
 .field {
     --well-background: var(--well);
     --well-texture: linear-gradient(180deg, var(--bevel-lo), transparent 62%);
-    --well-shadow: inset 0 1px 2px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
+    --well-shadow: inset 0 1px 2px var(--bevel-lo), inset 0 -1px 0 var(--bevel-hi);
 }
 .field {
     --well-texture: linear-gradient(180deg, var(--bevel-lo), transparent 14px);
 }
 .field:focus:not(:disabled) {
-    --well-shadow: inset 0 1px 3px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
+    --well-shadow: inset 0 1px 3px var(--bevel-lo), inset 0 -1px 0 var(--bevel-hi);
 }
 .slip-row {
     --slip-hi: light-dark(var(--bevel-hi), color-mix(in srgb, var(--paper-base) 34%, transparent));
     --slip-lo: light-dark(var(--bevel-lo), color-mix(in srgb, var(--ink-base) 42%, transparent));
     --slip-background: color-mix(in srgb, var(--well) 34%, var(--slip-base, var(--paper-2)));
-    --slip-shadow: inset 1px 1px 0 var(--slip-hi),
-        inset -1px -1px 0 var(--slip-lo),
+    --slip-shadow:
+        inset 1px 1px 0 var(--slip-hi), inset -1px -1px 0 var(--slip-lo),
         0 2px 4px -1px var(--shadow-lg);
 }
 .slip-row.sm {
-    --slip-shadow: inset 1px 1px 0 var(--slip-hi),
-        inset -1px -1px 0 var(--slip-lo),
-        0 1px 2px var(--shadow);
+    --slip-shadow:
+        inset 1px 1px 0 var(--slip-hi), inset -1px -1px 0 var(--slip-lo), 0 1px 2px var(--shadow);
 }
 .num-slot {
     --num-slot-background: color-mix(in srgb, var(--well) 45%, transparent);
-    --num-slot-shadow: inset 0 1px 2px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
+    --num-slot-shadow: inset 0 1px 2px var(--bevel-lo), inset 0 -1px 0 var(--bevel-hi);
 }
 .field.num-slot:hover:not(:disabled) {
     --num-slot-background: color-mix(in srgb, var(--well) 68%, transparent);
 }
 .field.num-slot:focus:not(:disabled) {
     --num-slot-background: var(--well);
-    --num-slot-shadow: inset 0 1px 3px var(--bevel-lo),
-        inset 0 -1px 0 var(--bevel-hi);
+    --num-slot-shadow: inset 0 1px 3px var(--bevel-lo), inset 0 -1px 0 var(--bevel-hi);
 }
 
 /* 通知、印面与导航材质在实际元素上求值，保留局部染色。 */
@@ -801,10 +841,10 @@
         color-mix(in srgb, var(--well) 96%, var(--paper)) 32%,
         color-mix(in srgb, var(--well) 92%, var(--paper)) 100%
     );
-    --notice-shadow: inset 0 1px 0 color-mix(in srgb, var(--rule-2) 72%, transparent),
+    --notice-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--rule-2) 72%, transparent),
         inset 0 5px 6px -5px color-mix(in srgb, var(--rule-2) 92%, transparent),
-        inset 0 -1px 0 var(--bevel-hi),
-        0 1px 0 color-mix(in srgb, var(--paper) 55%, transparent);
+        inset 0 -1px 0 var(--bevel-hi), 0 1px 0 color-mix(in srgb, var(--paper) 55%, transparent);
     --notice-edge: color-mix(in srgb, var(--rule-2) 58%, transparent);
 }
 html.dark .notice {
@@ -814,9 +854,9 @@ html.dark .notice {
         var(--well) 34%,
         color-mix(in srgb, var(--well) 88%, var(--paper)) 100%
     );
-    --notice-shadow: inset 0 3px 5px -1px color-mix(in srgb, var(--ink-base) 94%, transparent),
-        inset 0 -1px 0 var(--bevel-hi),
-        0 1px 0 var(--bevel-hi);
+    --notice-shadow:
+        inset 0 3px 5px -1px color-mix(in srgb, var(--ink-base) 94%, transparent),
+        inset 0 -1px 0 var(--bevel-hi), 0 1px 0 var(--bevel-hi);
     --notice-edge: color-mix(in srgb, var(--rule-2) 86%, var(--ink-base));
 }
 .well.upright {
@@ -832,7 +872,8 @@ html.dark .notice {
         color-mix(in srgb, var(--paper) 96%, var(--well)),
         color-mix(in srgb, var(--paper) 84%, var(--ink))
     );
-    --well-texture: linear-gradient(
+    --well-texture:
+        linear-gradient(
             90deg,
             color-mix(in srgb, var(--well-wall) 88%, transparent) 0,
             color-mix(in srgb, var(--well-wall) 88%, transparent) 1px,
@@ -858,7 +899,8 @@ html.dark .notice {
             color-mix(in srgb, var(--bevel-hi) 42%, transparent) 1px,
             transparent 5px
         );
-    --well-shadow: inset 2px 0 5px -3px var(--well-wall),
+    --well-shadow:
+        inset 2px 0 5px -3px var(--well-wall),
         inset 0 3px 4px -3px color-mix(in srgb, var(--well-wall) 58%, transparent),
         inset -2px 0 0 color-mix(in srgb, var(--bevel-hi) 72%, transparent),
         inset 0 -2px 0 color-mix(in srgb, var(--bevel-hi) 88%, transparent);
@@ -871,7 +913,8 @@ html.dark .notice {
         transparent 9px,
         var(--bevel-lo)
     );
-    --stamp-shadow: inset 0 1px 0 var(--bevel-hi),
+    --stamp-shadow:
+        inset 0 1px 0 var(--bevel-hi),
         0 var(--stamp-depth, 0px) 0
             color-mix(in srgb, var(--stamp-bg, var(--seal)) 62%, var(--ink-base)),
         0 1px 1px var(--bevel-lo),
@@ -893,7 +936,8 @@ html.dark .notice {
     --vs-rim-lo: light-dark(color-mix(in srgb, var(--rule-2) 46%, transparent), var(--bevel-lo));
     --vs-rim-base: light-dark(color-mix(in srgb, var(--rule-2) 78%, transparent), var(--bevel-lo));
     --vs-cell-color: var(--well-key);
-    --vs-cell-texture: radial-gradient(
+    --vs-cell-texture:
+        radial-gradient(
             120% 92% at 16% -8%,
             color-mix(in srgb, var(--bevel-hi) 62%, transparent),
             transparent 54%
@@ -908,21 +952,19 @@ html.dark .notice {
             transparent 48%,
             color-mix(in srgb, var(--ink-base) 9%, transparent) 100%
         );
-    --vs-cell-shadow: inset 0 1px 0 var(--bevel-hi),
+    --vs-cell-shadow:
+        inset 0 1px 0 var(--bevel-hi),
         inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 62%, transparent),
-        inset -1px 0 0 var(--vs-rim-lo),
-        inset 0 -2px 0 var(--vs-rim-base),
-        0 1px 0 var(--shadow),
+        inset -1px 0 0 var(--vs-rim-lo), inset 0 -2px 0 var(--vs-rim-base), 0 1px 0 var(--shadow),
         0 3px 5px -3px var(--shadow-lg);
 }
 .vs-cell:hover,
 .atoms-nav .nav-item:hover {
     --vs-cell-color: var(--well-key-hover);
-    --vs-cell-shadow: inset 0 1px 0 var(--bevel-hi),
+    --vs-cell-shadow:
+        inset 0 1px 0 var(--bevel-hi),
         inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 78%, transparent),
-        inset -1px 0 0 var(--vs-rim-lo),
-        inset 0 -2px 0 var(--vs-rim-base),
-        0 2px 0 var(--shadow),
+        inset -1px 0 0 var(--vs-rim-lo), inset 0 -2px 0 var(--vs-rim-base), 0 2px 0 var(--shadow),
         0 4px 7px -4px var(--shadow-lg);
 }
 .rail {
@@ -942,4 +984,28 @@ html.dark .rail {
     --on-seal: var(--on-danger);
     --action-ink: var(--danger);
     --ring: 2px solid var(--danger);
+}
+
+/* 釉面收窄斜差；配方留在卡片上求值，继续接受门派与分类的局部染色。 */
+:root[data-style='celadon'] .board {
+    --board-texture:
+        radial-gradient(
+            140% 100% at 16% -6%,
+            color-mix(in srgb, var(--bevel-hi) 64%, transparent),
+            transparent 58%
+        ),
+        linear-gradient(
+            135deg,
+            light-dark(
+                    color-mix(
+                        in srgb,
+                        var(--board-face, var(--board-paper)) 98%,
+                        var(--paper-base)
+                    ),
+                    color-mix(in srgb, var(--board-face, var(--board-paper)) 97%, var(--ink))
+                )
+                0%,
+            transparent 48%,
+            color-mix(in srgb, var(--board-face, var(--board-paper)) 97%, var(--ink-base)) 100%
+        );
 }

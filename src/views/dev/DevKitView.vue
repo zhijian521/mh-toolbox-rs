@@ -76,8 +76,8 @@ async function importDemo() {
                         进来：三连击左栏顶部的标（朱印「梦」），或地址栏补 <code>#/dev</code>。
                     </p>
                     <p class="note">
-                        明暗只改 <code>color-scheme</code>，字号只改 <code>--fs-scale</code>
-                        （0.92 / 1 / 1.1）。
+                        风格改 <code>data-style</code>，明暗改 <code>color-scheme</code>。 字号改
+                        <code>--fs-scale</code>（0.92 / 1 / 1.1）。
                     </p>
                 </LedgerSection>
 

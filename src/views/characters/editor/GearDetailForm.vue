@@ -184,8 +184,8 @@ function addLine(label: string) {
                             </span>
                         </div>
                         <PressButton
-                            danger
                             v-if="!fixedBase(item.row)"
+                            danger
                             class="row-delete"
                             icon="trash"
                             :label="'删除' + item.row.label + '属性'"

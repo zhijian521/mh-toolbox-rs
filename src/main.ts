@@ -19,7 +19,7 @@ import { startDailySync, syncRecent } from './views/accounts/daily-sync';
 import { loadPrices } from './views/prices/prices-store';
 
 /**
- * 持久化偏好在挂载前就先落地：字号是根元素上的一个变量，主题是根元素上的一个类。
+ * 偏好在挂载前落地：字号是根变量，明暗是根类，风格是根属性。
  * 两者都只在「第一次有人调」时才写入 DOM——原先只有设置页和左栏会调，于是冷启动停在
  * 总览时字号不会恢复，得先进一次设置页才对。两个 composable 都是模块级单例，
  * 这里各调一次即可覆盖整个应用，挂在 `mount` 之前也避免了首帧跳动。

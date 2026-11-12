@@ -4,7 +4,74 @@ export default async function run(ctx) {
     const { cdp, ui, t, want, sleep } = ctx;
 
     if (want('设置')) {
-        t.section('7 设置 · 主题、字号、导入与清除的确认窗');
+        t.section('7 设置 · 风格、明暗、字号、导入与清除的确认窗');
+
+        await t.step('风格独立切换并在重载后恢复，结束时还原', async () => {
+            await ui.goto('设置');
+            const readAppearance = () =>
+                cdp.evaluate(`(() => {
+                const root = document.documentElement;
+                const surface = document.querySelector('.page-content.surface');
+                const stamp = document.querySelector('[aria-label="清空全部账本数据"] .slot-stamp');
+                return {
+                    style: root.dataset.style,
+                    storedStyle: localStorage.getItem('mh-theme-style'),
+                    mode: localStorage.getItem('mh-theme'),
+                    dark: root.classList.contains('dark'),
+                    scale: getComputedStyle(root).getPropertyValue('--fs-scale'),
+                    background: surface ? getComputedStyle(surface).backgroundColor : '',
+                    danger: stamp ? getComputedStyle(stamp).backgroundColor : '',
+                };
+            })()`);
+            const original = await readAppearance();
+            try {
+                await ui.clickText('button.bevel-pill', '账簿');
+                await sleep(400);
+                const ledger = await readAppearance();
+                await ui.clickText('button.bevel-pill', '青瓷');
+                await sleep(400);
+                const celadon = await readAppearance();
+                t.check(
+                    '风格与保存值同步',
+                    celadon.style === 'celadon' && celadon.storedStyle === 'celadon',
+                );
+                t.check(
+                    '台面随风格变化',
+                    !!celadon.background && celadon.background !== ledger.background,
+                );
+                t.check(
+                    '危险按钮不跟主色变绿',
+                    !!celadon.danger && celadon.danger === ledger.danger,
+                );
+                t.check(
+                    '切风格保持明暗和字号',
+                    celadon.mode === original.mode &&
+                        celadon.dark === original.dark &&
+                        celadon.scale === original.scale,
+                );
+
+                await ui.reload();
+                await ui.goto('设置');
+                const restored = await readAppearance();
+                t.check(
+                    '重载恢复青瓷及原明暗',
+                    restored.style === 'celadon' &&
+                        restored.background === celadon.background &&
+                        restored.dark === original.dark,
+                );
+            } finally {
+                await ui.goto('设置');
+                await ui.clickText(
+                    'button.bevel-pill',
+                    original.style === 'celadon' ? '青瓷' : '账簿',
+                );
+                await sleep(400);
+                if (original.storedStyle === null) {
+                    await cdp.evaluate(`localStorage.removeItem('mh-theme-style')`);
+                }
+            }
+            t.check('风格还原', (await readAppearance()).style === original.style);
+        });
 
         /*
          * 主题：三档都能切，**切完要还原成跑之前那一档**。

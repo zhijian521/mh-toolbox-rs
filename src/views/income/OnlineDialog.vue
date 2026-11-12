@@ -273,8 +273,8 @@ const submitText = computed(() =>
 
         <template #footer>
             <PressButton
-                danger
                 v-if="editing"
+                danger
                 class="foot-left"
                 icon="trash"
                 text="删除"

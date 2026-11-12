@@ -80,7 +80,10 @@ function commit(key: string, event: Event) {
     emit('edit-value', key, value.trim());
     void nextTick(() => {
         if (document.activeElement !== input || input.value === value || start === null) return;
-        input.setSelectionRange(Math.max(0, start - leading), Math.max(0, (end ?? start) - leading));
+        input.setSelectionRange(
+            Math.max(0, start - leading),
+            Math.max(0, (end ?? start) - leading),
+        );
     });
 }
 

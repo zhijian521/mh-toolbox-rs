@@ -112,8 +112,8 @@ function optionsFor(row: AssistSkill) {
                             "
                         />
                         <PressButton
-                            danger
                             v-if="editable"
+                            danger
                             class="assist-remove"
                             icon="trash"
                             :label="'删除' + (row.name || group.title)"

@@ -33,8 +33,8 @@ describe('召唤兽资源加载状态', () => {
             'pet-skills.json': skills,
             'pet-panel.json': panel,
         };
-        const recovery = vi.fn(async (url: string) =>
-            new Response(JSON.stringify(files[url.split('/').at(-1)!])),
+        const recovery = vi.fn(
+            async (url: string) => new Response(JSON.stringify(files[url.split('/').at(-1)!])),
         );
         vi.stubGlobal('fetch', recovery);
         const retry = state.loadPetAssets();

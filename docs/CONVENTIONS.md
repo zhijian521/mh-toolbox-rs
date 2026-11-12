@@ -438,18 +438,20 @@ types/          全局声明与模块增强（`router-meta.d.ts`、`vue-augment.
    `:global()`**：`:global(html.dark .sel)` 编出来是 `html.dark .sel`，而 `:global(html.dark) .sel`
    会被编译成只剩 `html.dark`。
 
-   **风格与明暗分开**：`useTheme()` 目前只管理 `system / light / dark`，新风格不能塞进这个枚举。
-   当前默认仍为账簿风格，尚未接入青瓷或风格切换入口。后续风格定义继续放 `src/styles/`，
-   覆写令牌和共用材质，不复制页面样式、不更改布局。
+    **风格与明暗分开**：`useTheme()` 的 `mode` 管理 `system / light / dark`，`style` 管理
+    `ledger / celadon`，选项分别由 `THEME_OPTIONS` / `STYLE_OPTIONS` 提供。明暗保留 `mh-theme`
+    存储键与根 `dark` 类，风格用 `mh-theme-style` 与根 `data-style`；未知值回落跟随系统 / 账簿。
+    两者在挂载前应用，互不改写；字体和字号也保持独立。新风格继续在 `tokens.css` 覆写调色板与
+    共用材质，不复制页面样式、不更改布局。截图上的地图标记不随界面风格换色。
 
-   **共用材质在 `tokens.css`，结构在 `base.css` 与组件**：纸卡 `--board-texture/shadow`、
-   压印块 `--press-color/image/shadow/ink/icon-filter`、输入槽 `--well-background/texture/shadow`、
-   票面 `--slip-background/shadow`、数值槽 `--num-slot-background/shadow`。
-   明暗与悬停、按下、聚焦配方统一在此；业务组件继续传 `--board-face`、`--tile-face*`、
-   `--tile-drop`、`--slip-base`，不再另抄材质。**依赖局部变量的配方在实际元素上声明**，
-   不提到 `:root`：自定义属性会在声明处求值，放到根上会丢失门派和局部染色。
-   覆写材质也要命中对应元素与状态；普通色值和字体才从根继承。Canvas 先用浏览器求值颜色、字体，
-   缓存包含实际令牌与 `color-scheme`，不以亮暗两态代替完整外观。
+    **共用材质在 `tokens.css`，结构在 `base.css` 与组件**：纸卡 `--board-texture/shadow`、
+    压印块 `--press-color/image/shadow/ink/icon-filter`、输入槽 `--well-background/texture/shadow`、
+    票面 `--slip-background/shadow`、数值槽 `--num-slot-background/shadow`。
+    明暗与悬停、按下、聚焦配方统一在此；业务组件继续传 `--board-face`、`--tile-face*`、
+    `--tile-drop`、`--slip-base`，不再另抄材质。**依赖局部变量的配方在实际元素上声明**，
+    不提到 `:root`：自定义属性会在声明处求值，放到根上会丢失门派和局部染色。
+    覆写材质也要命中对应元素与状态；普通色值和字体才从根继承。Canvas 先用浏览器求值颜色、字体，
+    缓存包含实际令牌与 `color-scheme`，不以亮暗两态代替完整外观。
 
     **浮层与图标按用途取材质**：选择列表、日期面板、装备浮片、召唤兽选择器共用
     `--popover-bg/edge/shadow`；弹窗用 `--modal-bg/edge/shadow/mask`，文字提示用
@@ -461,6 +463,7 @@ types/          全局声明与模块增强（`router-meta.d.ts`、`vue-augment.
     `seal` 只决定是否填色，两者可组合。危险操作使用 `--danger-fill/edge` 与 `--on-danger`
     成套配色，不随主色变化；不根据按钮文字推断。保留原生小按钮时加 `danger-action`，
     悬停字色读 `--action-ink`，焦点读 `--ring`，不另写红色色号。清空筛选属于普通动作。
+
 2. **字号只能来自 `--fs-*`**，每个令牌已经乘过 `--fs-scale`，禁止 `font-size: 14px`。六档
    `--fs-mini` / `--fs-xs` / `--fs-sm` / `--fs-base` / `--fs-md` / `--fs-xl`；另有 `--fs-amount`
    （`base × 1.4`）只给金额读数——它是**语义档**不是第七档，别拿它排正文。字号表在 `tokens.css`，

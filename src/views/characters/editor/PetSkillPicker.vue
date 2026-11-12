@@ -102,8 +102,8 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
                     @input="limit = 48"
                 />
                 <PressButton
-                    danger
                     v-if="selected"
+                    danger
                     text="清除"
                     :label="'清除第 ' + (props.index + 1) + ' 个技能'"
                     size="sm"
