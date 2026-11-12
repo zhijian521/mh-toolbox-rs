@@ -65,11 +65,13 @@
      * 不填门派时 `--card-tint` 回落成它——新角色还没选门派时必须读作一张普通的纸。 */
     --wash-a: var(--wash-lo);
     --wash-b: var(--wash-hi);
-    --card-bg: linear-gradient(
-        135deg,
-        color-mix(in srgb, var(--card-tint) var(--wash-a), var(--character-paper)) 0%,
-        color-mix(in srgb, var(--card-tint) var(--wash-b), var(--character-paper)) 100%
-    );
+    --card-bg:
+        var(--paper-grain, none),
+        linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--card-tint) var(--wash-a), var(--character-paper)) 0%,
+            color-mix(in srgb, var(--card-tint) var(--wash-b), var(--character-paper)) 100%
+        );
     --slip-base: color-mix(in srgb, var(--card-tint) var(--wash), var(--character-paper));
     --tile-face: var(--slip-base);
     --tile-face-hover: color-mix(in srgb, var(--slip-base) 82%, var(--card-tint));

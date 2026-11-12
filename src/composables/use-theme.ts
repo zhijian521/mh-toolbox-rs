@@ -1,7 +1,7 @@
 import { computed, effectScope, ref, watch } from 'vue';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
-export type ThemeStyle = 'ledger' | 'celadon' | 'azure' | 'crystal';
+export type ThemeStyle = 'ledger' | 'celadon' | 'azure' | 'crystal' | 'dunhuang' | 'rosewood';
 
 /** 明暗与风格各有一组选项，设置页与开发页共用。 */
 export const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
@@ -15,6 +15,8 @@ export const STYLE_OPTIONS: { value: ThemeStyle; label: string }[] = [
     { value: 'celadon', label: '青瓷' },
     { value: 'azure', label: '霁蓝' },
     { value: 'crystal', label: '水晶' },
+    { value: 'dunhuang', label: '敦煌岩彩' },
+    { value: 'rosewood', label: '紫檀书斋' },
 ];
 
 const STORAGE_KEY = 'mh-theme';

@@ -25,8 +25,10 @@ const props = withDefaults(
         disabled?: boolean;
         /** 外壳圆角。默认大圆角胶囊；贴进方角结构里时用 `sm`。 */
         radius?: 'pill' | 'sm';
+        /** 选项较多时按可用宽度换行，仍共用一组键盘选择。 */
+        wrap?: boolean;
     }>(),
-    { label: '', disabled: false, radius: 'pill' },
+    { label: '', disabled: false, radius: 'pill', wrap: false },
 );
 
 const emit = defineEmits<{ 'update:modelValue': [value: T] }>();
@@ -54,7 +56,7 @@ const { cells, tabIndexFor, onKeydown } = useRovingFocus<T>({
 <template>
     <div
         class="pill-group"
-        :class="{ 'radius-sm': radius === 'sm' }"
+        :class="{ 'radius-sm': radius === 'sm', wrap }"
         role="radiogroup"
         :aria-label="label || undefined"
         @keydown="onKeydown"

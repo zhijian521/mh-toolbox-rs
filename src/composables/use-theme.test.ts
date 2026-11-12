@@ -85,7 +85,7 @@ describe('明暗主题', () => {
         expect(env.classes.has('dark')).toBe(false);
     });
 
-    it.each(['celadon', 'azure', 'crystal'] as const)(
+    it.each(['celadon', 'azure', 'crystal', 'dunhuang', 'rosewood'] as const)(
         '存储读写被禁用时仍能切换到 %s',
         async (style) => {
             const env = await setup(null, false, true);
@@ -111,7 +111,7 @@ describe('明暗主题', () => {
 });
 
 describe('外观风格', () => {
-    it.each([null, 'invalid', '__proto__', 'dark', 'mojin'])(
+    it.each([null, 'invalid', '__proto__', 'dark', 'mojin', 'cinnabar', 'ink', 'silk'])(
         '无效风格 %j 回落账簿，保留明暗',
         async (raw) => {
             const env = await setup('dark', false, false, raw);
@@ -122,7 +122,7 @@ describe('外观风格', () => {
         },
     );
 
-    it.each(['celadon', 'azure', 'crystal'] as const)(
+    it.each(['celadon', 'azure', 'crystal', 'dunhuang', 'rosewood'] as const)(
         '挂载前恢复 %s，多处入口共享状态，切回账簿可保存',
         async (style) => {
             const env = await setup('dark', false, false, style);
@@ -141,7 +141,7 @@ describe('外观风格', () => {
         },
     );
 
-    it.each(['celadon', 'azure', 'crystal'] as const)(
+    it.each(['celadon', 'azure', 'crystal', 'dunhuang', 'rosewood'] as const)(
         '明暗和系统变化不改风格 %s',
         async (style) => {
             const env = await setup('system', false, false, style);
@@ -158,20 +158,23 @@ describe('外观风格', () => {
         },
     );
 
-    it('霁蓝与水晶互切时保存新风格，保留当前明暗', async () => {
-        const env = await setup('light', true, false, 'azure');
+    it.each([
+        ['azure', 'crystal'],
+        ['dunhuang', 'rosewood'],
+    ] as const)('%s 与 %s 互切时保存新风格，保留当前明暗', async (from, to) => {
+        const env = await setup('light', true, false, from);
         const first = env.useTheme();
         const second = env.useTheme();
-        first.style.value = 'crystal';
+        first.style.value = to;
         await env.nextTick();
-        expect(second.style.value).toBe('crystal');
-        expect(env.dataset.style).toBe('crystal');
-        expect(env.store.get('mh-theme-style')).toBe('crystal');
-        second.style.value = 'azure';
+        expect(second.style.value).toBe(to);
+        expect(env.dataset.style).toBe(to);
+        expect(env.store.get('mh-theme-style')).toBe(to);
+        second.style.value = from;
         await env.nextTick();
-        expect(first.style.value).toBe('azure');
-        expect(env.dataset.style).toBe('azure');
-        expect(env.store.get('mh-theme-style')).toBe('azure');
+        expect(first.style.value).toBe(from);
+        expect(env.dataset.style).toBe(from);
+        expect(env.store.get('mh-theme-style')).toBe(from);
         expect(env.store.get('mh-theme')).toBe('light');
         expect(env.classes.has('dark')).toBe(false);
     });

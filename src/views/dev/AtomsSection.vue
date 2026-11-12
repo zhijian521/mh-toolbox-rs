@@ -292,7 +292,12 @@ const demoToggles = ref<string[]>(['task']);
                             <span class="kit-en">SegmentedPills</span>
                         </span>
                         <div class="kit-row">
-                            <SegmentedPills v-model="style" :options="STYLE_OPTIONS" label="风格" />
+                            <SegmentedPills
+                                v-model="style"
+                                :options="STYLE_OPTIONS"
+                                label="风格"
+                                wrap
+                            />
                             <SegmentedPills v-model="mode" :options="THEME_OPTIONS" label="明暗" />
                         </div>
                         <p class="note">

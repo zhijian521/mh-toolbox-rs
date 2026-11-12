@@ -529,10 +529,23 @@
     --tint-deep-天机城: light-dark(#d0cdb8, #3a392b);
 }
 
-/* ---------- 青瓷 ----------
- * 风格只换调色板与材质；分类、门派、账本正负和危险色保留各自含义。
+/* 风格只换调色板与材质；分类、门派、账本正负和危险色保留各自含义。
  * 每枚颜色同时提供亮暗两面，data-style 与 dark 可任意组合。
  */
+
+/* ---------- 账簿：收纳朱砂宣纸的纸纹，继续使用原有暖纸与朱红 ---------- */
+:root[data-style='ledger'] {
+    --paper-grain: repeating-linear-gradient(
+        22deg,
+        color-mix(in srgb, var(--ink) 2%, transparent) 0 1px,
+        transparent 1px 5px,
+        color-mix(in srgb, var(--paper-base) 6%, transparent) 5px 6px,
+        transparent 6px 9px
+    );
+    --modal-bg: var(--paper-grain), var(--paper);
+}
+
+/* ---------- 青瓷 ---------- */
 :root[data-style='celadon'] {
     --paper-base: #f3f7f2;
     --bg: light-dark(#dfe9e4, #0f1915);
@@ -635,9 +648,110 @@
         light-dark(#f2fbfff5, #183b55f5);
 }
 
+/* ---------- 敦煌岩彩 ---------- */
+:root[data-style='dunhuang'] {
+    --paper-base: #fbf0db;
+    --bg: light-dark(#e6cfa5, #211d17);
+    --paper: light-dark(var(--paper-base), #30291e);
+    --paper-2: light-dark(#f2e2c2, #3b3224);
+    --well: light-dark(#e2cc9f, #262117);
+    --ink: light-dark(#4b3828, #f4e6c7);
+    --ink-2: light-dark(#6c543d, #d9c4a1);
+    --muted: light-dark(#8c7456, #b29b79);
+    --rule: light-dark(#d7bc8d, #594b34);
+    --rule-2: light-dark(#b4905f, #7c6644);
+
+    --accent: light-dark(#326b61, #94c5b1);
+    --accent-ink: light-dark(#27554e, #34665c);
+    --on-accent: light-dark(#fff5df, #142d25);
+    --tooltip-bg: light-dark(#dce5d0, #2b443a);
+    --tooltip-ink: light-dark(#2d5549, #c9e3cd);
+
+    --bevel-hi: light-dark(#fff6daba, #ffe2a62b);
+    --bevel-lo: light-dark(#7a491c26, #100a028c);
+    --shadow: light-dark(#79512524, #0c080266);
+    --shadow-lg: light-dark(#79512536, #0c08028c);
+    --scrollbar-thumb: light-dark(#baa077, #655337);
+    --scrollbar-thumb-hover: light-dark(#a38456, #89724e);
+    --scrollbar-thumb-active: light-dark(#87683f, #af956a);
+
+    --paper-grain: repeating-linear-gradient(
+        27deg,
+        color-mix(in srgb, var(--ochre) 3%, transparent) 0 1px,
+        transparent 1px 3px,
+        color-mix(in srgb, var(--ink) 1.5%, transparent) 3px 4px,
+        transparent 4px 7px
+    );
+    --dunhuang-trim: linear-gradient(
+        90deg,
+        var(--accent) 0% 37%,
+        var(--ochre) 37% 66%,
+        var(--cinnabar) 66% 100%
+    );
+    --page-surface:
+        repeating-linear-gradient(
+            45deg,
+            transparent 0 35px,
+            color-mix(in srgb, var(--accent) 3%, transparent) 35px 36px
+        ),
+        repeating-linear-gradient(
+            -45deg,
+            transparent 0 35px,
+            color-mix(in srgb, var(--ochre) 4%, transparent) 35px 36px
+        ),
+        var(--well);
+    --modal-bg: var(--paper-grain), var(--paper);
+}
+
+/* ---------- 紫檀书斋：木纹留在台面，卡片与字段保持暖纸 ---------- */
+:root[data-style='rosewood'] {
+    --paper-base: #f8eee6;
+    --bg: light-dark(#d8c0b1, #21151a);
+    --paper: light-dark(var(--paper-base), #352229);
+    --paper-2: light-dark(#ecdbce, #402a32);
+    --well: light-dark(#cfb2a2, #291b20);
+    --ink: light-dark(#422b2c, #f3e3d7);
+    --ink-2: light-dark(#654347, #d8bdb0);
+    --muted: light-dark(#92736c, #ad8e84);
+    --rule: light-dark(#ceb0a1, #60424a);
+    --rule-2: light-dark(#ad8273, #855963);
+
+    --accent: light-dark(#85434b, #e0a8a0);
+    --accent-ink: light-dark(#68303b, #8a4854);
+    --on-accent: light-dark(#fff1e4, #32171d);
+    --tooltip-bg: light-dark(#efddd7, #503039);
+    --tooltip-ink: light-dark(#763d46, #f0c7bd);
+
+    --bevel-hi: light-dark(#fff4dfad, #efc9b638);
+    --bevel-lo: light-dark(#4d1f2529, #10040999);
+    --shadow: light-dark(#582e3026, #10040973);
+    --shadow-lg: light-dark(#582e303d, #100409a3);
+    --scrollbar-thumb: light-dark(#b18b7f, #6d4851);
+    --scrollbar-thumb-hover: light-dark(#967065, #946770);
+    --scrollbar-thumb-active: light-dark(#79524e, #b78b8f);
+
+    --wood-grain: repeating-linear-gradient(
+        94deg,
+        transparent 0 2px,
+        color-mix(in srgb, var(--bevel-lo) 22%, transparent) 2px 3px,
+        transparent 3px 9px,
+        color-mix(in srgb, var(--bevel-hi) 18%, transparent) 9px 10px,
+        transparent 10px 16px
+    );
+    --wood-sheen: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--bevel-hi) 24%, transparent),
+        transparent 70%
+    );
+    --page-surface: var(--wood-grain), linear-gradient(110deg, var(--well), var(--bg));
+    --modal-bg: var(--wood-sheen), var(--paper);
+}
+
 :root[data-style='celadon'],
 :root[data-style='azure'],
-:root[data-style='crystal'] {
+:root[data-style='crystal'],
+:root[data-style='dunhuang'],
+:root[data-style='rosewood'] {
     --modal-mask: color-mix(in srgb, var(--ink-base) 42%, transparent);
     --item-icon-filter: none;
     --item-icon-opacity: 1;
@@ -834,6 +948,7 @@
 .board {
     --board-paper: var(--paper-2);
     --board-texture:
+        var(--paper-grain, none),
         radial-gradient(
             140% 100% at 16% -6%,
             color-mix(in srgb, var(--bevel-hi) 58%, transparent),
@@ -855,6 +970,7 @@
 :root.dark .board {
     --board-paper: var(--paper);
     --board-texture:
+        var(--paper-grain, none),
         radial-gradient(
             140% 100% at 16% -6%,
             color-mix(in srgb, var(--bevel-hi) 54%, transparent),
@@ -986,12 +1102,14 @@ html.dark .notice {
 }
 .stamp {
     --stamp-color: var(--stamp-bg, var(--seal));
-    --stamp-texture: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--bevel-hi) 32%, transparent),
-        transparent 9px,
-        var(--bevel-lo)
-    );
+    --stamp-texture:
+        var(--paper-grain, none),
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--bevel-hi) 32%, transparent),
+            transparent 9px,
+            var(--bevel-lo)
+        );
     --stamp-shadow:
         inset 0 1px 0 var(--bevel-hi),
         0 var(--stamp-depth, 0px) 0
@@ -1102,6 +1220,51 @@ html.dark .rail {
         0 3px 0 var(--shadow), 0 12px 22px -15px var(--shadow-lg);
 }
 
+/* 纸纹与印泥只改材质，表单字段和门派浅染仍沿用各自的配方。 */
+:root:is([data-style='ledger'], [data-style='dunhuang']) .rail {
+    --rail-texture:
+        var(--paper-grain),
+        linear-gradient(180deg, var(--rail-sheen), transparent var(--rail-brand-h));
+}
+:root:is([data-style='ledger'], [data-style='dunhuang']) .titlebar {
+    background: var(--paper-grain), var(--paper);
+}
+:root[data-style='ledger'] .page-head {
+    background: var(--paper-grain), var(--paper-2);
+}
+:root[data-style='dunhuang'] .board {
+    --board-shadow:
+        inset 0 1px 0 var(--bevel-hi), inset 1px 0 0 var(--bevel-hi),
+        inset 0 -3px 0 color-mix(in srgb, var(--accent) 40%, var(--rule-2)),
+        0 3px 0 var(--shadow), 0 12px 24px -14px var(--shadow-lg);
+}
+:root[data-style='dunhuang'] .page-head {
+    background:
+        var(--dunhuang-trim) left bottom / 100% 2px no-repeat,
+        var(--paper-grain), var(--paper-2);
+}
+:root[data-style='rosewood'] .board {
+    --board-texture: var(--wood-sheen);
+    --board-shadow:
+        inset 0 1px 0 var(--bevel-hi), inset 1px 0 0 var(--bevel-hi),
+        inset 0 -3px 0 color-mix(in srgb, var(--accent) 30%, var(--rule-2)),
+        0 3px 0 var(--shadow), 0 12px 24px -14px var(--shadow-lg);
+}
+:root[data-style='rosewood'] .rail {
+    --rail-texture:
+        var(--wood-grain),
+        linear-gradient(180deg, var(--rail-sheen), transparent var(--rail-brand-h));
+}
+:root[data-style='rosewood'] .titlebar {
+    background: var(--wood-grain), var(--paper);
+}
+:root[data-style='rosewood'] .page-head {
+    background: var(--wood-grain), var(--paper-2);
+}
+:root[data-style='rosewood'] .press-tile {
+    --press-image: var(--wood-sheen);
+}
+
 :root[data-style='crystal'] .board {
     --board-paper: var(--crystal-pane);
     --board-texture: linear-gradient(135deg, var(--crystal-glint), transparent 44%);
@@ -1154,8 +1317,9 @@ html.dark .rail {
     --press-image: var(--crystal-sheen);
     --stamp-texture: var(--crystal-sheen);
 }
-:root[data-style='crystal'] .press-tile:not(.still):active,
-:root[data-style='crystal'] .press-tile.tone-seal:not(.still):active {
+:root:is([data-style='crystal'], [data-style='rosewood']) .press-tile:not(.still):active,
+:root:is([data-style='crystal'], [data-style='rosewood'])
+    .press-tile.tone-seal:not(.still):active {
     --press-image: linear-gradient(180deg, var(--bevel-lo), transparent 58%);
 }
 :root[data-style='crystal'] .rail {

@@ -21,7 +21,7 @@ const { scale } = useFontScale();
     <LedgerSection title="外观">
         <div class="form-row">
             <span class="field-label">风格</span>
-            <SegmentedPills v-model="style" :options="STYLE_OPTIONS" label="风格" />
+            <SegmentedPills v-model="style" :options="STYLE_OPTIONS" label="风格" wrap />
         </div>
         <div class="form-row">
             <span class="field-label">明暗</span>

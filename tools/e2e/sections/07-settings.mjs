@@ -8,14 +8,27 @@ export default async function run(ctx) {
 
         await t.step('风格独立切换并在重载后恢复，结束时还原', async () => {
             await ui.goto('设置');
+            const styles = [
+                ['ledger', '账簿'],
+                ['celadon', '青瓷'],
+                ['azure', '霁蓝'],
+                ['crystal', '水晶'],
+                ['dunhuang', '敦煌岩彩'],
+                ['rosewood', '紫檀书斋'],
+            ];
             const readAppearance = () =>
                 cdp.evaluate(`(() => {
                 const root = document.documentElement;
+                const group = document.querySelector('[aria-label="风格"]');
+                const board = group?.closest('.board');
                 const surface = document.querySelector('.page-content.surface');
                 const stamp = document.querySelector('[aria-label="清空全部账本数据"] .slot-stamp');
                 return {
                     style: root.dataset.style,
-                    label: document.querySelector('[aria-label="风格"] [aria-checked="true"]').textContent.trim(),
+                    label: group.querySelector('[aria-checked="true"]').textContent.trim(),
+                    labels: [...group.querySelectorAll('[role="radio"]')].map(el => el.textContent.trim()),
+                    fits: group.scrollWidth <= group.clientWidth + 1 &&
+                        group.getBoundingClientRect().right <= (board?.getBoundingClientRect().right ?? innerWidth) + 1,
                     storedStyle: localStorage.getItem('mh-theme-style'),
                     mode: localStorage.getItem('mh-theme'),
                     dark: root.classList.contains('dark'),
@@ -26,15 +39,16 @@ export default async function run(ctx) {
                 };
             })()`);
             const original = await readAppearance();
+            t.check(
+                '风格入口仅保留最终六套，顺序一致',
+                original.labels.length === styles.length &&
+                    original.labels.every((label, index) => label === styles[index][1]),
+            );
             try {
                 await ui.clickText('button.bevel-pill', '账簿');
                 await sleep(400);
                 const ledger = await readAppearance();
-                for (const [style, label] of [
-                    ['celadon', '青瓷'],
-                    ['azure', '霁蓝'],
-                    ['crystal', '水晶'],
-                ]) {
+                for (const [style, label] of styles.slice(1)) {
                     await ui.clickText('button.bevel-pill', label);
                     await sleep(400);
                     const selected = await readAppearance();
@@ -56,8 +70,9 @@ export default async function run(ctx) {
                             selected.dark === original.dark &&
                             selected.scale === original.scale,
                     );
-                    if (style === 'crystal') {
-                        t.check('水晶台面有折光层次', selected.texture.includes('gradient('));
+                    t.check(`${label}风格选项不挤出卡片`, selected.fits);
+                    if (['crystal', 'dunhuang', 'rosewood'].includes(style)) {
+                        t.check(`${label}台面保留专属材质`, selected.texture.includes('gradient('));
                     }
 
                     await ui.reload();
