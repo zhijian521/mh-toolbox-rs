@@ -34,14 +34,17 @@ export function toWan(amount: number): number {
  * 把一个 `Date` 写成 `YYYY-MM-DD`（本地分量，不碰 UTC）。
  *
  * 这是全站**唯一**的「日期怎么落成字符串」，`todayText` 与 `daysAgo` 都走它。
+ * 收 `Date` 也收毫秒（记录里的 `startAt` / `createdAt` 是 number）——不然每处调用都要先
+ * `new Date(…)` 一遍，补零与本地分量就又有了第二份写法。
  * 2026-11-05 抽出来，是因为收益页要算「本月 / 上月同期」两个窗口：那需要先构造
  * `Date`（跨月由 `setMonth` / `new Date(y, m, 0)` 承担）再落成文本，而落文本的
  * 那一行不能再抄一遍——口径②（本地分量、不用 `toISOString()`）抄第二遍就会漂。
  */
-export function dateText(at: Date): string {
-    const month = `${at.getMonth() + 1}`.padStart(2, '0');
-    const day = `${at.getDate()}`.padStart(2, '0');
-    return `${at.getFullYear()}-${month}-${day}`;
+export function dateText(at: Date | number): string {
+    const one = typeof at === 'number' ? new Date(at) : at;
+    const month = `${one.getMonth() + 1}`.padStart(2, '0');
+    const day = `${one.getDate()}`.padStart(2, '0');
+    return `${one.getFullYear()}-${month}-${day}`;
 }
 
 /**

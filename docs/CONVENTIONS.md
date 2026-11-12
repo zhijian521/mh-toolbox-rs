@@ -1147,7 +1147,7 @@ offsetHeight` 与 `scrollTop / clientHeight`，直接写 `scrollTop`）；⑤ **
 
 ### 2.7 小共用函数：一件事只写一份
 
-同一件小事在几个窗口里各写一遍，改一处另一处就静默落后。下面七条是已经收拢的那几件——
+同一件小事在几个窗口里各写一遍，改一处另一处就静默落后。下面八条是已经收拢的那几件——
 新增同类逻辑前先 grep，已经有家的就去改那一家（§2.6 同一条口径）。
 
 - 下拉选项遇到名录之外的旧值，统一用 `src/components/select-options.ts` 的 `withCurrentOption` 保留当前值；不要在门派、装备属性等各写一份补选项逻辑。
@@ -1157,6 +1157,7 @@ offsetHeight` 与 `scrollTop / clientHeight`，直接写 `scrollTop`）；⑤ **
 - 字段契约只从**自己的模块**取：装备相关的类型与常量在 `gear.ts`、召唤兽在 `pets.ts`，`character.ts` **不再** `export *` 转出一份。同一个类型有两个入口时，改一处另一处静默落后，而类型是同一份所以编译也不报错。
 - 卡内六分区的页签选项只有一处：`character.ts` 的 `PANE_OPTIONS`。卡片与编辑器不要在组件里各自 `PANES.map(...)`——那还会在每次渲染新建数组，把滑块的 `values()` 一起换掉。
 - 装备部位格只有一个边长：`GearEditor.vue` 的 `--slot-block`（48px），图标与首字压印都读它。同一个 48 写两遍时，改大小只改一处会让没图的格子小一圈。
+- 日期与时刻落成字符串只有两处：日期走 `services/format.ts` 的 `dateText`（收 `Date` 也收毫秒），时刻走 `services/clock.ts` 的 `timeText`（补零由同文件的 `pad2` 承担）。不要在窗口里再写一份 `padStart(2, '0')` 去拼 `YYYY-MM-DD` 或 `HH:mm`——这类函数改一处，另一处就静默落后，而它们都长得对。
 
 ## 4. 明确不做的事
 

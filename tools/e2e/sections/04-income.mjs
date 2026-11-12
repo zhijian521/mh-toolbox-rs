@@ -693,6 +693,183 @@ export default async function run(ctx) {
             t.check('今日笔数回到测试前', now === before, `期望 ${before}，实际 ${now}`);
         });
 
+        /* ---------------- 上线计时、点卡单价、每日走势（2026-11-12 补） ----------------
+         *
+         * 第 145–149 批把「上线计时 + 点卡成本 + 两张走势图」整套做上了页，但一条烟测都没有。
+         * 这三件事都会写库（上线记录，以及每日同步顺带写进账号账的那两行），所以这一节的
+         * 做法是**自己造、自己删**：补一段一小时的上线，验完从记录窗里删掉，账回到原样。
+         * 判据全部落在「只有我写的那一行才能满足」的事实上（备注是自造的标记），
+         * 不数库里有几条上线记录——那会随用户自己的数据变红。
+         */
+        await t.step('点卡单价：点开能改，改完能改回原值', async () => {
+            await ui.goto('收益');
+            const tagLabel = async () =>
+                cdp.evaluate(
+                    `document.querySelector('.online-bar .price-tag')?.getAttribute('aria-label') ?? ''`,
+                );
+            const before = await tagLabel();
+            t.check('状态条上有一枚点卡单价签', before.startsWith('点卡单价'), `实际「${before}」`);
+
+            const openPrice = async () => {
+                await ui.clickLabelPrefix('点卡单价 ');
+                const opened = await cdp.waitFor(
+                    `!!document.querySelector('input[aria-label="每点多少钱，以万为单位"]')`,
+                    { timeout: 2500 },
+                );
+                if (!opened) throw new Error('点卡单价窗没打开');
+                return cdp.evaluate(
+                    `document.querySelector('input[aria-label="每点多少钱，以万为单位"]').value`,
+                );
+            };
+
+            const current = await openPrice();
+            t.check(
+                '单价窗预填当前值（不让人对着空格重打一遍）',
+                Number(current) > 0,
+                `实际「${current}」`,
+            );
+
+            /* 只碰一个说得准的值，改完立刻改回来：跑完之后用户的单价要逐字相等。 */
+            const temp = current === '2' ? '3' : '2';
+            await ui.fill('每点多少钱，以万为单位', temp);
+            await ui.clickLabel('保存点卡单价');
+            const closed = await cdp.waitFor(`!document.querySelector('[role="dialog"]')`, {
+                timeout: 3000,
+            });
+            t.check('保存后窗自己关掉', closed);
+            const mid = await tagLabel();
+            t.check(
+                '单价签跟着换成新价',
+                mid !== before && mid.startsWith('点卡单价'),
+                `「${before}」→「${mid}」`,
+            );
+
+            await openPrice();
+            await ui.fill('每点多少钱，以万为单位', current);
+            await ui.clickLabel('保存点卡单价');
+            await cdp.waitFor(`!document.querySelector('[role="dialog"]')`, { timeout: 3000 });
+            const after = await tagLabel();
+            t.check(
+                '把单价改回原值（跑完不留痕）',
+                after === before,
+                `期望「${before}」，实际「${after}」`,
+            );
+        });
+
+        await t.step('补记一段上线：状态条与走势图都跟着走', async () => {
+            await ui.goto('收益');
+            const NOTE = 'E2E上线一段';
+
+            await ui.clickLabel('补记一段已经过去的在线时长');
+            const opened = await cdp.waitFor(
+                `!!document.querySelector('[role="dialog"] .pill-group')`,
+                { timeout: 2500 },
+            );
+            if (!opened) throw new Error('补记窗没打开');
+
+            const hasWho = await cdp.evaluate(
+                `!!document.querySelector('[role="dialog"] .pill-group button')`,
+            );
+            if (!hasWho) {
+                /* 名册空时补记没有可选的号（窗里直接写「名册里还没有角色」），这一段跳过。 */
+                t.info('补记', '名册里没有角色，本轮跳过——补记要先选一个号');
+                await cdp.key('Escape');
+                await sleep(250);
+                return;
+            }
+
+            await cdp.click('[role="dialog"] .pill-group button');
+            /* 备注留一个只有这一段才有的字：记录窗里靠它定位自己写的那一行，不猜位置。 */
+            await ui.fillSel('input[placeholder="比如：摆摊 / 打宝图"]', NOTE);
+            /* 起止时刻用窗里的默认值（「一小时前 → 现在」）：那正是最常见的补记场景，
+             * 顺手也验证默认值落在正时长上——不足一分钟的记录会被规则层直接拒掉。 */
+            await ui.clickLabel('补记');
+            const closed = await cdp.waitFor(`!document.querySelector('[role="dialog"]')`, {
+                timeout: 3000,
+            });
+            t.check('补记后窗自己关掉', closed);
+
+            const bar = await cdp.evaluate(`(() => {
+                const cells = [...document.querySelectorAll('.online-bar .readout.tag')];
+                const pick = (cap) =>
+                    cells.find(
+                        (el) => (el.querySelector('.cap')?.textContent || '').trim() === cap,
+                    );
+                return {
+                    minutes: (pick('今日在线')?.querySelector('.val')?.textContent || '').trim(),
+                    running: document.querySelectorAll('.online-bar .live-chip').length,
+                };
+            })()`);
+            t.check(
+                '状态条的「今日在线」读出了时长',
+                /\d/.test(bar.minutes),
+                `实际「${bar.minutes}」`,
+            );
+            t.info('状态条', `今日在线 ${bar.minutes} · 在线胶囊 ${bar.running} 枚`);
+
+            const charts = await cdp.evaluate(`(() => {
+                return [...document.querySelectorAll('.chart-block')].map((block) => ({
+                    head: (block.querySelector('h3')?.textContent || '').trim(),
+                    drawn: !!block.querySelector('svg.chart-svg'),
+                    lines: block.querySelectorAll('path.chart-line').length,
+                }));
+            })()`);
+            t.check('两张走势图都在', charts.length === 2, `实际 ${charts.length} 张`);
+            t.check(
+                '「每日在线时长」按号画出线来（不是一句空态）',
+                charts[0]?.drawn === true && charts[0]?.lines > 0,
+                JSON.stringify(charts[0]),
+            );
+        });
+
+        await t.step('上线记录窗里找到刚补的那一段，删掉之后账回到原样', async () => {
+            const NOTE = 'E2E上线一段';
+            await ui.goto('收益');
+            await ui.clickLabel('查看全部上线记录');
+            const opened = await cdp.waitFor(
+                `!!document.querySelector('[role="dialog"] .rec-table')`,
+                { timeout: 3000 },
+            );
+            if (!opened) throw new Error('上线记录窗没打开');
+
+            await ui.fillSel('input[aria-label="搜索上线记录"]', NOTE);
+            await sleep(300);
+
+            const rows = await cdp.evaluate(`(() => [
+                ...document.querySelectorAll('[role="dialog"] .rec-table tbody tr'),
+            ].map((tr) => ({
+                time: (tr.querySelector('.c-time')?.textContent || '').trim(),
+                dur: (tr.querySelector('.c-dur')?.textContent || '').trim(),
+                who: (tr.querySelector('.c-who')?.textContent || '').trim(),
+                note: (tr.querySelector('.c-note')?.textContent || '').trim(),
+            })))`);
+            t.check('搜到刚补的那一段（只有一段）', rows.length === 1, JSON.stringify(rows));
+            t.check(
+                '时长是默认的「一小时前 → 现在」',
+                rows[0]?.dur === '01:00',
+                `实际「${rows[0]?.dur}」`,
+            );
+            t.check(
+                '时段写成 HH:mm–HH:mm',
+                /^\d{2}:\d{2}–\d{2}:\d{2}$/.test(rows[0]?.time ?? ''),
+                `实际「${rows[0]?.time}」`,
+            );
+            t.check('备注原样留在记录上', rows[0]?.note === NOTE, `实际「${rows[0]?.note}」`);
+            t.info('这一段的角色', rows[0]?.who ?? '');
+
+            await ui.clickIn('[role="dialog"] .rec-table tbody tr', NOTE, { label: '删这一段' });
+            await sleep(300);
+            await ui.clickText('button', '删除', { exact: true });
+            await sleep(700);
+            const left = await cdp.evaluate(
+                `document.querySelectorAll('[role="dialog"] .rec-table tbody tr').length`,
+            );
+            t.check('删掉之后这一段不在了', left === 0, `还剩 ${left} 行`);
+
+            await ui.clickLabel('关闭上线记录');
+            await sleep(250);
+        });
+
         /* 区间筛选（2026-11-11）：顶部从「一个日期」扩成「起 + 止 + 角色」。
          * 放在最末——它会翻到别的日子，不参与上面那串「笔数 +1」的核对。 */
         await t.step('历史窗的日期区间：默认今天、能往前翻、能跳回今天', async () => {

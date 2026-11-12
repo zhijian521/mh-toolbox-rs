@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId } from 'vue'
 import type { CSSProperties } from 'vue';
 import AppIcon from './AppIcon.vue';
 import { useToday } from '../composables/use-today';
-import { parseDay } from '../services/format';
+import { dateText, parseDay } from '../services/format';
 
 /**
  * 日期选择：一条**槽** + 一张**纸片上的月历**。
@@ -85,14 +85,6 @@ const cursor = ref(props.modelValue || today.value);
 
 const panelId = `date-${useId()}`;
 
-function pad(value: number): string {
-    return `${value}`.padStart(2, '0');
-}
-
-function textOf(date: Date): string {
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
 /** `YYYY-MM-DD` → 那年那月（0 起）。字符串解析不用 `new Date(str)`，见文件头。 */
 function monthOf(value: string): { year: number; month: number } {
     const [year, month] = value.split('-').map(Number);
@@ -133,7 +125,7 @@ const cells = computed<Cell[]>(() => {
             list.push({ key: `out-${i}`, text: '', value: '', out: true });
             continue;
         }
-        const value = textOf(new Date(year, month, day));
+        const value = dateText(new Date(year, month, day));
         list.push({ key: value, text: `${day}`, value, out: false });
     }
     return list;
@@ -259,7 +251,7 @@ function shiftMonth(step: number, focus = false) {
 
     const base = parseDay(cursor.value || props.modelValue || today.value);
     const last = new Date(view.value.year, view.value.month + 1, 0).getDate();
-    cursor.value = textOf(
+    cursor.value = dateText(
         new Date(view.value.year, view.value.month, Math.min(base.getDate(), last)),
     );
     if (focus) void nextTick(() => focusCursor());
@@ -271,7 +263,7 @@ function shiftMonth(step: number, focus = false) {
  * 挪成 23 或 25 小时，落点算出来差一天。东八区没有夏令时，但这条口径换台机器也该成立。 */
 function moveCursor(step: number) {
     const base = parseDay(cursor.value || props.modelValue || today.value);
-    const next = textOf(new Date(base.getFullYear(), base.getMonth(), base.getDate() + step));
+    const next = dateText(new Date(base.getFullYear(), base.getMonth(), base.getDate() + step));
     cursor.value = next;
     const { year, month } = monthOf(next);
     if (year !== view.value.year || month !== view.value.month) view.value = { year, month };

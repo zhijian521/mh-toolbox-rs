@@ -35,6 +35,7 @@
  * 175 级号力量 1046）。物价一律按**万**写（`42 * WAN`），因为这一行里所有人谈价都说万；
  * 角色数值按同级号该有的量级给——练满那张卡是「175 级物理系」，不是把种子放大 1.35 倍。
  */
+import { daysAgo } from '../../services/format';
 import { schoolNames } from '../../services/game-data';
 import type { Pet } from '../characters/pets';
 import type { AssistSkill, CharacterData } from '../characters/character';
@@ -314,14 +315,6 @@ export const DEMO_COUNTS = {
 export type DemoImportResult =
     { ok: true; characters: number; prices: number } | { ok: false; error: string };
 
-/** 几天前的日期文本，与 `prices.ts` 的 `todayText()` 同一种写法（`YYYY-MM-DD`）。 */
-function dayText(daysAgo: number): string {
-    const at = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
-    const month = `${at.getMonth() + 1}`.padStart(2, '0');
-    const day = `${at.getDate()}`.padStart(2, '0');
-    return `${at.getFullYear()}-${month}-${day}`;
-}
-
 /**
  * 把两份模拟数据写进名册与物价表，**先清空再写**。
  *
@@ -353,7 +346,7 @@ export function importDemoData(): DemoImportResult {
         imported += 1;
         for (const point of demo.points) {
             prices.addPoint(added.id, {
-                date: dayText(point.daysAgo),
+                date: daysAgo(point.daysAgo),
                 price: point.price,
                 note: point.note ?? '',
             });

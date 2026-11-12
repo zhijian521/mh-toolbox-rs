@@ -10,11 +10,14 @@
  * ---- 为什么与 `format.ts` 分成两份 ----
  *
  * 那边是日期（`dateText` / `parseDay` / `todayText`）与金额，要处理月份加减与月历；
- * 这边只有 24 × 60 个值，连 `Date` 都不需要。合在一起会让「改日期口径」的人
- * 翻到一堆与时刻无关的代码。
+ * 这边的 `normalizeTime` / `minuteText` 只在 24 × 60 个值里转，连 `Date` 都不需要。
+ * 合在一起会让「改日期口径」的人翻到一堆与时刻无关的代码。
+ *
+ * `timeText` 是这里唯一要一个**真实时刻**的：它把毫秒落成 `HH:mm`，是 `format.ts` 的
+ * `dateText` 在「时刻」上的对应物。留在这一份，是因为它要补零，而补零只有 `pad2` 一处。
  */
 
-/** 两位补零。拼 `HH:mm` 的两个模块（这里与 `alarms.ts` 的提醒键）共用。 */
+/** 两位补零。拼 `HH:mm` 的地方全走它（`normalizeTime` / `minuteText` / `timeText` / `alarms.ts` 的提醒键）。 */
 export function pad2(value: number): string {
     return `${value}`.padStart(2, '0');
 }
@@ -63,4 +66,18 @@ export function normalizeTime(raw: string): string | null {
 export function minuteText(time: string): string {
     const minute = Number(time.split(':')[1] ?? '');
     return Number.isFinite(minute) ? pad2(minute % 60) : '00';
+}
+
+/**
+ * 一个真实时刻写成 `HH:mm`（本地分量）。与 `format.ts` 的 `dateText` 是一对：
+ * 那边写「哪一天」，这边写「当天的哪一刻」。
+ *
+ * 收 `Date` 也收毫秒：调用方手里多半是记录里的 `startAt` / `createdAt`（number），
+ * 让每处都自己 `new Date(…)` 一遍，就是这条口径抄第二遍的开始。
+ *
+ * **秒不进来**：账本里的时间只是「哪一笔」「哪一段」的定位符，多两位数字只会让人多读两位。
+ */
+export function timeText(at: Date | number): string {
+    const one = typeof at === 'number' ? new Date(at) : at;
+    return `${pad2(one.getHours())}:${pad2(one.getMinutes())}`;
 }

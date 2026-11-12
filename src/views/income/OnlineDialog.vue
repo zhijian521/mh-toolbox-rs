@@ -8,8 +8,8 @@ import TogglePills from '../../components/TogglePills.vue';
 import { askConfirm } from '../../composables/use-confirm';
 import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
-import { parseDay, todayText } from '../../services/format';
-import { normalizeTime } from '../../services/clock';
+import { dateText, parseDay, todayText } from '../../services/format';
+import { normalizeTime, timeText } from '../../services/clock';
 import { characterName, useRoster } from '../characters/roster';
 import { ownersOf, type OnlineSession } from './online';
 import { useOnline } from './online-store';
@@ -50,30 +50,19 @@ function baseIds(): string[] {
 
 const ids = ref<string[]>(baseIds());
 
-function dateOf(ms: number): string {
-    const at = new Date(ms);
-    const pad = (value: number) => String(value).padStart(2, '0');
-    return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
-}
-
-function timeOf(ms: number): string {
-    const at = new Date(ms);
-    return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
-}
-
 const date = ref(
-    props.mode === 'backfill' ? todayText() : dateOf(props.session?.startAt ?? Date.now()),
+    props.mode === 'backfill' ? todayText() : dateText(props.session?.startAt ?? Date.now()),
 );
 const startTime = ref(
-    props.mode === 'start' ? timeOf(Date.now()) : timeOf(props.session?.startAt ?? Date.now()),
+    props.mode === 'start' ? timeText(Date.now()) : timeText(props.session?.startAt ?? Date.now()),
 );
-const endTime = ref(timeOf(props.session?.endAt ?? Date.now()));
+const endTime = ref(timeText(props.session?.endAt ?? Date.now()));
 const note = ref(props.session?.note ?? '');
 
 /* 补记的结束时刻初值给「一小时前 → 现在」：最常见的补记就是「刚下线，忘了点结束」。 */
 if (props.mode === 'backfill') {
-    endTime.value = timeOf(Date.now());
-    startTime.value = timeOf(Date.now() - 60 * 60_000);
+    endTime.value = timeText(Date.now());
+    startTime.value = timeText(Date.now() - 60 * 60_000);
 }
 
 /**
@@ -245,7 +234,7 @@ const submitText = computed(() =>
                     <TimeField v-if="mode === 'backfill'" v-model="endTime" label="结束" />
                     <TimeField
                         v-else
-                        :model-value="session?.endAt ? timeOf(session.endAt) : ''"
+                        :model-value="session?.endAt ? timeText(session.endAt) : ''"
                         label="结束"
                     />
                 </div>

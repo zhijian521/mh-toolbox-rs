@@ -6,6 +6,7 @@ import SelectField from '../../components/SelectField.vue';
 import { askConfirm } from '../../composables/use-confirm';
 import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
+import { timeText } from '../../services/clock';
 import { moneyText, shortDate } from '../../services/format';
 import { characterName, useRoster } from '../characters/roster';
 import {
@@ -92,13 +93,6 @@ function reset() {
     keyword.value = '';
 }
 
-function timeOf(ms: number): string {
-    const at = new Date(ms);
-    const hour = String(at.getHours()).padStart(2, '0');
-    const minute = String(at.getMinutes()).padStart(2, '0');
-    return hour + ':' + minute;
-}
-
 function whoText(one: OnlineSession): string {
     const names = ownersOf(one).map((id) => characterName(roster.value, id));
     return names.length ? names.join('、') : '未指定';
@@ -106,7 +100,7 @@ function whoText(one: OnlineSession): string {
 
 async function remove(one: OnlineSession) {
     const ok = await askConfirm({
-        title: '删掉 ' + shortDate(one.date) + ' ' + timeOf(one.startAt) + ' 这一段？',
+        title: '删掉 ' + shortDate(one.date) + ' ' + timeText(one.startAt) + ' 这一段？',
         note:
             whoText(one) +
             ' · ' +
@@ -171,8 +165,8 @@ async function remove(one: OnlineSession) {
                     <tr v-for="one in visible" :key="one.id">
                         <td class="c-date">{{ shortDate(one.date) }}</td>
                         <td class="c-time" :class="{ live: one.endAt === null }">
-                            {{ timeOf(one.startAt) }}–{{
-                                one.endAt === null ? '现在' : timeOf(one.endAt)
+                            {{ timeText(one.startAt) }}–{{
+                                one.endAt === null ? '现在' : timeText(one.endAt)
                             }}
                         </td>
                         <td class="c-who" :title="whoText(one)">{{ whoText(one) }}</td>

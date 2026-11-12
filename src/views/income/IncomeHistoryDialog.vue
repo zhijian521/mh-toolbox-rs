@@ -8,6 +8,7 @@ import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
 import { askConfirm } from '../../composables/use-confirm';
 import { characterName, useRoster } from '../characters/roster';
+import { timeText } from '../../services/clock';
 import { shortDate, todayText } from '../../services/format';
 import { amountText, entriesIn, totalsOf, type IncomeEntry } from './income';
 import { useIncome } from './income-store';
@@ -144,12 +145,6 @@ const whoSums = computed<WhoSum[]>(() => {
     return [...map.values()].sort((a, b) => b.net - a.net || b.count - a.count);
 });
 
-/** `HH:mm`。账本里的时间是「哪一笔」的定位符，不需要秒。 */
-function timeOf(at: number): string {
-    const one = new Date(at);
-    return `${`${one.getHours()}`.padStart(2, '0')}:${`${one.getMinutes()}`.padStart(2, '0')}`;
-}
-
 /** 净额与支出都要带 `−`：只靠颜色的话，色弱或打印时一笔亏损会读成收入。 */
 function signedOf(value: number): string {
     return value < 0 ? `−${amountText(-value)}` : amountText(value);
@@ -270,7 +265,7 @@ async function remove(one: IncomeEntry) {
                                 <span v-if="multiDay" class="c-date">{{
                                     shortDate(one.date)
                                 }}</span>
-                                <span class="c-clock">{{ timeOf(one.createdAt) }}</span>
+                                <span class="c-clock">{{ timeText(one.createdAt) }}</span>
                             </span>
                         </td>
                         <td>

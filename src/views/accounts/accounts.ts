@@ -13,7 +13,7 @@
  * 与收益页同口径）。统一成一种单位反而会出现「1 元 = 1 万」这种中间态。
  */
 import type { IconName } from '../../components/icons';
-import { daysAgo, moneyText, parseDay, todayText } from '../../services/format';
+import { dateText, daysAgo, moneyText, parseDay, todayText } from '../../services/format';
 import { makeId } from '../../services/shape';
 
 /** 币种。`rmb` 按元、`cash` 按万；这是**两本独立的账**，不是同一本账的两种记法。 */
@@ -276,7 +276,7 @@ export function rangeOf(preset: RangePreset, today = todayText()): { from: strin
     if (preset === 'all') return { from: '', to: '' };
     if (preset === 'week') return { from: daysAgo(6, parseDay(today)), to: today };
     const [year, month] = today.split('-').map(Number);
-    return { from: `${year}-${String(month).padStart(2, '0')}-01`, to: today };
+    return { from: dateText(new Date(year, month - 1, 1)), to: today };
 }
 
 /* ---------- 快捷记账 ---------- */

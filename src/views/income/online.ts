@@ -15,6 +15,9 @@
  * 不拆的话，昨天的账里少一块、今天的多一块，而两条各自都对不上当天实际在线。
  */
 
+import { pad2 } from '../../services/clock';
+import { dateText } from '../../services/format';
+
 /** 每个号每小时消耗几点。写死是有理由的：这是游戏的计费口径，不是可配置项。 */
 export const POINTS_PER_HOUR = 6;
 
@@ -105,19 +108,12 @@ export function sessionSlices(session: OnlineSession, now: number = Date.now()):
         ).getTime();
         const stop = Math.min(end, nextMidnight);
         slices.push({
-            date: dayOf(at.getTime()),
+            date: dateText(at),
             minutes: (stop - cursor) / 60_000,
         });
         cursor = stop;
     }
     return slices;
-}
-
-/** 本地日期串 `YYYY-MM-DD`（与 `services/format.ts` 的 `dateText` 同口径，这里不引它以免循环依赖）。 */
-function dayOf(ms: number): string {
-    const at = new Date(ms);
-    const pad = (value: number) => String(value).padStart(2, '0');
-    return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
 }
 
 /**
@@ -316,8 +312,7 @@ export function minutesText(minutes: number): string {
 /** 精确到分钟的短写法（记录列表里用）：`03:20`。 */
 export function clockText(minutes: number): string {
     const total = Math.max(0, Math.round(minutes));
-    const pad = (value: number) => String(value).padStart(2, '0');
-    return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+    return `${pad2(Math.floor(total / 60))}:${pad2(total % 60)}`;
 }
 
 /* ---------- 归一 ----------
@@ -355,7 +350,7 @@ export function normalizeSession(raw: unknown): OnlineSession | null {
 
     return {
         id: text(one.id) || `onl-${startAt.toString(36)}`,
-        date: DATE.test(text(one.date)) ? text(one.date) : dayOf(startAt),
+        date: DATE.test(text(one.date)) ? text(one.date) : dateText(startAt),
         startAt,
         endAt,
         characterId: text(one.characterId),
