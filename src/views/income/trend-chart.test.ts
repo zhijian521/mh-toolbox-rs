@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTrendChart, netByDay, trendValueText } from './trend-chart';
+import { buildTrendChart, netByDay, trendDash, trendSeriesOf, trendValueText } from './trend-chart';
 import type { IncomeEntry } from './income';
 
 /**
@@ -15,6 +15,53 @@ const LABELS = ['2026-11-05', '2026-11-06', '2026-11-07'];
 function series(values: number[], id = 'c1') {
     return { id, name: id.toUpperCase(), values };
 }
+
+describe('趋势角色与样式', () => {
+    const actors = Array.from({ length: 8 }, (_, index) => ({
+        id: 'c' + index,
+        name: '角色' + index,
+    }));
+
+    it('前六个角色在区间内无记录时，仍展示后面的有效角色', () => {
+        const source = new Map([
+            ['2026-11-07|c7', 60],
+            ['2026-10-01|c0', 120],
+        ]);
+        const series = trendSeriesOf(LABELS, source, actors);
+        expect(series.map((one) => one.id)).toEqual(['c7']);
+        expect(series[0].values).toEqual([0, 0, 60]);
+    });
+
+    it('两张图过滤不同空线后，同一角色仍用相同颜色与线型', () => {
+        const minutes = trendSeriesOf(LABELS, new Map([['2026-11-07|c7', 60]]), actors);
+        const income = trendSeriesOf(
+            LABELS,
+            new Map([
+                ['2026-11-07|c0', 10000],
+                ['2026-11-07|c7', -20000],
+            ]),
+            actors,
+        );
+        const chart = (series: typeof minutes) =>
+            buildTrendChart({
+                labels: LABELS,
+                series,
+                width: 500,
+                height: 168,
+                kind: 'money',
+            });
+        const left = chart(minutes).lines.find((one) => one.id === 'c7')!;
+        const right = chart(income).lines.find((one) => one.id === 'c7')!;
+        expect(left.index).toBe(right.index);
+        expect(trendDash(left.index)).toBe(trendDash(right.index));
+        expect(trendDash(left.index)).not.toBe(trendDash(1));
+    });
+
+    it('八个角色都有数据时全部保留', () => {
+        const source = new Map(actors.map((actor) => ['2026-11-07|' + actor.id, 1] as const));
+        expect(trendSeriesOf(LABELS, source, actors)).toHaveLength(8);
+    });
+});
 
 describe('趋势图：刻度写法', () => {
     it('时长按小时为主，不到一小时回到分', () => {
@@ -89,6 +136,39 @@ describe('趋势图：几何', () => {
         /* 三个点都在图里（没有 NaN、没有跑到框外）。 */
         expect(chart.lines[0].path).not.toContain('NaN');
         expect(chart.lines[0].last.y).toBeGreaterThan(chart.plot.top);
+    });
+
+    it('收益全负时仍保留零刻度，曲线不被负值上界裁掉', () => {
+        const chart = buildTrendChart({
+            width: 500,
+            height: 192,
+            labels: LABELS,
+            series: [series([-10000, -20000, -15000])],
+            kind: 'money',
+        });
+        const zero = chart.guides.find((guide) => guide.zero);
+        expect(zero?.label).toBe('0');
+        expect(zero!.y).toBeLessThan(chart.lines[0].last.y);
+        expect(chart.lines[0].last.y).toBeLessThan(chart.plot.top + chart.plot.height);
+    });
+
+    it('正负收益穿过零刻度，两边与末日圆点留在绘图区内', () => {
+        const chart = buildTrendChart({
+            width: 220,
+            height: 192,
+            labels: LABELS,
+            series: [series([20000, -10000, 5000])],
+            kind: 'money',
+        });
+        const zero = chart.guides.find((guide) => guide.zero)!;
+        expect(zero.y).toBeGreaterThan(chart.plot.top);
+        expect(zero.y).toBeLessThan(chart.plot.top + chart.plot.height);
+        expect(chart.lines[0].last.x).toBeLessThan(chart.width - 3);
+        expect(chart.lines[0].path).not.toContain('NaN');
+        const tickXs = chart.ticks.map((tick) => tick.x);
+        for (let i = 1; i < tickXs.length; i += 1) {
+            expect(tickXs[i] - tickXs[i - 1]).toBeGreaterThanOrEqual(56);
+        }
     });
 
     it('一天一个点也能出路径（不能是空字符串）', () => {

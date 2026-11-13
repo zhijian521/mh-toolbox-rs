@@ -111,3 +111,71 @@ describe('上线：单独结束一个号', () => {
         expect(store.useOnline().sessions.value).toHaveLength(0);
     });
 });
+
+describe('上线：时间与冲突校验', () => {
+    it('拒绝未来时间、相同时间和不足一分钟，不产生记录', async () => {
+        const store = await loadStore(host());
+        const now = Date.now();
+        for (const [startAt, endAt] of [
+            [now, now + 60000],
+            [now, now],
+            [now - 30000, now],
+        ]) {
+            expect(store.backfillOnline({ characterIds: ['c1'], startAt, endAt }).ok).toBe(false);
+        }
+        expect(store.useOnline().sessions.value).toEqual([]);
+    });
+
+    it('拒绝相同角色的重叠时段，允许相邻时段与其他角色', async () => {
+        const store = await loadStore(host());
+        const now = Date.now();
+        const hour = 3600000;
+        const add = (id: string, start: number, end: number) =>
+            store.backfillOnline({
+                characterIds: [id],
+                startAt: now - start * hour,
+                endAt: now - end * hour,
+            });
+        expect(add('c1', 3, 2).ok).toBe(true);
+        expect(add('c1', 2.5, 1.5).ok).toBe(false);
+        expect(add('c1', 2, 1).ok).toBe(true);
+        expect(add('c2', 3, 2).ok).toBe(true);
+    });
+
+    it('编辑不能把另一条计时记录改给已在线角色', async () => {
+        const store = await loadStore(host());
+        store.startOnline({ characterIds: ['c1', 'c2'] });
+        const second = store.useOnline().sessions.value.find((one) => one.characterId === 'c2')!;
+        expect(store.updateOnline(second.id, { characterIds: ['c1'] }).ok).toBe(false);
+        expect(
+            store.useOnline().sessions.value.find((one) => one.id === second.id)?.characterId,
+        ).toBe('c2');
+    });
+
+    it('补记与修改都以开始时刻确定日期，切换开关只改变新段的快照', async () => {
+        const store = await loadStore(host());
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 2);
+        yesterday.setHours(10, 0, 0, 0);
+        const startAt = yesterday.getTime();
+        expect(
+            store.backfillOnline({ characterIds: ['c1'], startAt, endAt: startAt + 3600000 }).ok,
+        ).toBe(true);
+        const { sessions } = store.useOnline();
+        const first = sessions.value[0];
+        const expected = [
+            yesterday.getFullYear(),
+            String(yesterday.getMonth() + 1).padStart(2, '0'),
+            String(yesterday.getDate()).padStart(2, '0'),
+        ].join('-');
+        expect(first.date).toBe(expected);
+        store.setCardCost(false);
+        store.startOnline({ characterIds: ['c2'] });
+        expect(sessions.value.find((one) => one.id === first.id)?.cardCost).toBe(true);
+        expect(sessions.value.find((one) => one.characterId === 'c2')?.cardCost).toBe(false);
+        const earlier = new Date(startAt);
+        earlier.setDate(earlier.getDate() - 1);
+        expect(store.updateOnline(first.id, { startAt: earlier.getTime() }).ok).toBe(true);
+        expect(sessions.value.find((one) => one.id === first.id)?.date).not.toBe(expected);
+    });
+});

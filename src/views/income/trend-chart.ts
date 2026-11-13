@@ -25,6 +25,7 @@ export interface TrendSeries {
     id: string;
     name: string;
     values: number[];
+    colorIndex?: number;
 }
 
 export interface TrendLine {
@@ -41,6 +42,7 @@ export interface TrendLine {
 export interface TrendGuide {
     y: number;
     label: string;
+    zero: boolean;
 }
 
 export interface TrendTick {
@@ -68,14 +70,14 @@ export interface TrendGeometry {
     height: number;
 }
 
-/** 两张图共用一套排版：左 52 给「12.5 时 / 4.6 万」这一档刻度，下 20 给日期那行。 */
-const PAD = { left: 52, right: 10, top: 12, bottom: 20 };
+/** 刻度、日期与末端圆点留足纸面，避免贴边。 */
+const PAD = { left: 62, right: 18, top: 18, bottom: 30 };
 
 /** 上下各留一成余量：线贴着框边时读者会怀疑被裁掉了。 */
 const HEADROOM = 0.1;
 
 /** 两个日期刻度之间的最小间距（px）。14 天挤在一张 500 宽的图里时全靠它分批。 */
-const TICK_GAP = 40;
+const TICK_GAP = 56;
 
 /** 哪种读数。决定纵轴刻度怎么写成字，以及读屏摘要里怎么说。 */
 export type TrendKind = 'minutes' | 'money';
@@ -131,7 +133,7 @@ export function buildTrendChart(input: {
 
     /* **下界一定要含 0**：见文件头第 3 条。上界再留一成余量。 */
     const min = Math.min(0, ...values);
-    const max = Math.max(...values);
+    const max = Math.max(0, ...values);
     const span = max - min;
     const margin = span > 0 ? span * HEADROOM : Math.max(Math.abs(max) * 0.1, 1);
     const lo = min < 0 ? min - margin : 0;
@@ -150,7 +152,7 @@ export function buildTrendChart(input: {
         return {
             id: one.id,
             name: one.name,
-            index,
+            index: one.colorIndex ?? index,
             /* 只有一天时两个端点都在同一 x 上，画出来是零长的线（什么都看不见）。
              * 那种情况极罕见（图表范围最少也是七天），但路径不能是空的。 */
             path:
@@ -162,13 +164,14 @@ export function buildTrendChart(input: {
         };
     });
 
-    const guideValues = span > 0 ? [max, (max + min) / 2, min] : [max];
+    const middle = min < 0 && max > 0 ? 0 : (max + min) / 2;
+    const guideValues = span > 0 ? [max, middle, min] : [max];
     const guides: TrendGuide[] = [];
     for (const value of guideValues) {
         const label = trendValueText(value, input.kind);
         /* 三条参考线的字撞在一起（数很小时「1 时 / 0.5 时 / 0 时」可能压成两行）时只留一条。 */
         if (guides.some((one) => one.label === label)) continue;
-        guides.push({ y: Math.round(yOf(value)) + 0.5, label });
+        guides.push({ y: Math.round(yOf(value)) + 0.5, label, zero: value === 0 });
     }
 
     return {
@@ -225,4 +228,21 @@ export function netByDay(entries: readonly IncomeEntry[]): Map<string, number> {
     const out = new Map<string, number>();
     for (const [key, list] of groups) out.set(key, totalsOf(list).net);
     return out;
+}
+
+/** 先按共同角色表分配样式，再过滤当前区间的空线，两张图的同一角色不会换色。 */
+export function trendSeriesOf(
+    labels: readonly string[],
+    source: ReadonlyMap<string, number>,
+    actors: readonly { id: string; name: string }[],
+): TrendSeries[] {
+    return actors.flatMap((actor, colorIndex) => {
+        const values = labels.map((date) => source.get(date + '|' + actor.id) ?? 0);
+        return values.some((value) => value !== 0) ? [{ ...actor, colorIndex, values }] : [];
+    });
+}
+
+export function trendDash(index: number): string | undefined {
+    const group = Math.floor(index / 6);
+    return group === 0 ? undefined : `${group * 2 + 2} 3`;
 }

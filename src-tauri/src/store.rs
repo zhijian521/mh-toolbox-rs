@@ -222,6 +222,9 @@ pub struct OnlineSession {
     pub roster: Vec<String>,
     /// 这一刻的点卡单价快照（原值）。
     pub card_price: f64,
+    /// 本段开始时是否计入账号支出；切换全局开关不改变已有时段。
+    #[serde(default = "default_card_cost")]
+    pub card_cost: bool,
     pub note: String,
     pub created_at: i64,
 }
@@ -235,6 +238,10 @@ pub struct OnlineSession {
 pub struct OnlinePayload {
     pub sessions: Vec<OnlineSession>,
     pub settings: OnlineSettings,
+}
+
+fn default_card_cost() -> bool {
+    true
 }
 
 /* ======================================================================
@@ -451,6 +458,7 @@ fn init(conn: &Connection) -> Result<(), String> {
             character_id TEXT NOT NULL,
             roster       TEXT NOT NULL,
             card_price   REAL NOT NULL,
+            card_cost    INTEGER NOT NULL DEFAULT 1,
             note         TEXT NOT NULL,
             created_at   INTEGER NOT NULL
         );
@@ -482,6 +490,20 @@ fn init(conn: &Connection) -> Result<(), String> {
         "source",
         "TEXT NOT NULL DEFAULT ''",
     )?;
+
+    // 旧库缺少逐段快照时，沿用升级前的口径；之后每段独立保存。
+    if add_column_if_missing(
+        conn,
+        "online_sessions",
+        "card_cost",
+        "INTEGER NOT NULL DEFAULT 1",
+    )? {
+        conn.execute(
+            "UPDATE online_sessions SET card_cost = COALESCE((SELECT card_cost FROM online_settings WHERE id = 1), 1)",
+            [],
+        )
+        .map_err(|error| format!("补上线记录口径失败：{error}"))?;
+    }
 
     /* S4 + S5：**先读，再决定写不写**。
      *
@@ -1301,7 +1323,7 @@ pub fn online_save(app: AppHandle, payload: OnlinePayload) -> Result<(), String>
 fn load_online(conn: &Connection) -> Result<OnlinePayload, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, date, start_at, end_at, character_id, roster, card_price, note, created_at \
+            "SELECT id, date, start_at, end_at, character_id, roster, card_price, note, created_at, card_cost \
              FROM online_sessions ORDER BY start_at DESC",
         )
         .map_err(|error| format!("准备上线查询失败：{error}"))?;
@@ -1319,6 +1341,7 @@ fn load_online(conn: &Connection) -> Result<OnlinePayload, String> {
                 card_price: row.get(6)?,
                 note: row.get(7)?,
                 created_at: row.get(8)?,
+                card_cost: row.get::<_, i64>(9)? != 0,
             })
         })
         .map_err(|error| format!("查上线记录失败：{error}"))?;
@@ -1378,8 +1401,8 @@ fn insert_online_session(conn: &Connection, session: &OnlineSession) -> Result<(
     let roster = serde_json::to_string(&session.roster).unwrap_or_else(|_| "[]".to_string());
     conn.execute(
         "INSERT OR REPLACE INTO online_sessions
-            (id, date, start_at, end_at, character_id, roster, card_price, note, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            (id, date, start_at, end_at, character_id, roster, card_price, note, created_at, card_cost)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
             session.id,
             session.date,
@@ -1390,6 +1413,7 @@ fn insert_online_session(conn: &Connection, session: &OnlineSession) -> Result<(
             session.card_price,
             session.note,
             session.created_at,
+            session.card_cost,
         ],
     )
     .map_err(|error| format!("写上线记录失败：{error}"))?;
@@ -1939,6 +1963,7 @@ mod tests {
                 character_id: "c1".into(),
                 roster: vec!["c1".into(), "c2".into()],
                 card_price: 15_000.0,
+                card_cost: true,
                 note: String::new(),
                 created_at: 3,
             }],
@@ -2060,6 +2085,7 @@ mod tests {
             character_id: "c1".into(),
             roster: Vec::new(),
             card_price: 15_000.0,
+            card_cost: true,
             note: String::new(),
             created_at: 2,
         };
@@ -2071,6 +2097,7 @@ mod tests {
             character_id: "c1".into(),
             roster: vec!["c1".into(), "c2".into()],
             card_price: 15_000.0,
+            card_cost: false,
             note: "双开".into(),
             created_at: 1,
         };
@@ -2093,6 +2120,8 @@ mod tests {
         assert_eq!(back.sessions[0].end_at, None, "计时中的那一段必须还是 None");
         assert_eq!(back.sessions[1].end_at, Some(1_700_000_360_000));
         assert_eq!(back.sessions[1].roster, vec!["c1", "c2"]);
+        assert!(back.sessions[0].card_cost);
+        assert!(!back.sessions[1].card_cost, "逐段快照与全局口径独立保存");
         assert_eq!(back.settings.card_price, 16_500.0);
         assert!(back.settings.card_cost);
 
@@ -2120,4 +2149,37 @@ mod tests {
         assert_eq!(back.settings.card_price, 15_000.0, "默认 1.5 万/点");
         assert!(back.settings.card_cost, "默认计入成本");
     }
+
+    #[test]
+    fn old_online_rows_inherit_settings_once() {
+        let conn = Connection::open_in_memory().expect("临时数据库");
+        conn.execute_batch(
+            "CREATE TABLE online_sessions (
+                id TEXT PRIMARY KEY, date TEXT NOT NULL, start_at INTEGER NOT NULL,
+                end_at INTEGER, character_id TEXT NOT NULL, roster TEXT NOT NULL,
+                card_price REAL NOT NULL, note TEXT NOT NULL, created_at INTEGER NOT NULL
+             );
+             CREATE TABLE online_settings (id INTEGER PRIMARY KEY, card_price REAL NOT NULL, card_cost INTEGER NOT NULL);
+             INSERT INTO online_settings VALUES (1, 15000, 0);
+             INSERT INTO online_sessions VALUES ('old', '2026-11-12', 1000, 2000, 'c1', '[]', 15000, '', 1);",
+        )
+        .expect("创建旧结构");
+        init(&conn).expect("升级");
+        assert!(!load_online(&conn).expect("读旧记录").sessions[0].card_cost);
+        conn.execute("UPDATE online_settings SET card_cost = 1", []).expect("切换口径");
+        init(&conn).expect("重复初始化");
+        assert!(!load_online(&conn).expect("再次读取").sessions[0].card_cost);
+    }
+
+    #[test]
+    fn old_online_json_defaults_to_included() {
+        let value = serde_json::json!({
+            "id": "old", "date": "2026-11-12", "startAt": 1000, "endAt": 2000,
+            "characterId": "c1", "roster": [], "cardPrice": 15000,
+            "note": "", "createdAt": 1
+        });
+        let session: OnlineSession = serde_json::from_value(value).expect("读取旧备份");
+        assert!(session.card_cost);
+    }
+
 }

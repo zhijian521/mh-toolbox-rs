@@ -6,26 +6,14 @@ import PriceField from '../../components/PriceField.vue';
 import SelectField from '../../components/SelectField.vue';
 import { useRoster } from '../characters/roster';
 import type { IncomeEntry } from './income';
+import { characterOptions } from './character-options';
 
-/**
- * 改一条已经记下的账。
- *
- * 存在的理由只有一个：**速记是一下一下点出来的，点错是常态**。没有这一层，记错一笔
- * 只能删掉重记，而重记要先想起来当时是按什么价、记给谁——那是把纠错的成本推回给用户。
- *
- * ---- 只开放三样 ----
- *
- * 金额、物品名、记给谁。**日期与收/支方向不给改**：改日期等于「把这一笔搬到另一天」，
- * 那是删了重记；方向改错会把整页收支同时翻过来，而这个字段在界面上没有任何提示。
- * 这两样真要改，走「删掉重记」——用户会看见那两步，而不是在一次保存里悄悄发生。
- *
- * ---- 不直接写库 ----
- *
- * 与 `ItemPriceDialog` 同一条分工：这个组件只收字段、把结果 `emit` 出去，
- * 写库与「写不进去怎么提示」归页面（`IncomeHistoryDialog`）。这样同一个编辑窗将来
- * 也能给别的入口用，而不必把 store 再 import 一遍。
- */
-const props = defineProps<{ entry: IncomeEntry }>();
+const props = defineProps<{
+    entry: IncomeEntry;
+    saving?: boolean;
+    locked?: boolean;
+    retrying?: boolean;
+}>();
 
 const emit = defineEmits<{
     save: [patch: { amount: number; item: string; characterId: string }];
@@ -48,13 +36,13 @@ const who = ref(props.entry.characterId || NOTHING);
 
 const whoOptions = computed(() => [
     { value: NOTHING, label: '不指定' },
-    ...roster.value.map((one) => ({ value: one.id, label: one.name })),
+    ...characterOptions(roster.value, [props.entry.characterId]),
 ]);
 
 const canSave = computed(() => (amount.value ?? 0) > 0);
 
 function submit() {
-    if (!canSave.value) return;
+    if (props.saving || (!props.retrying && (!canSave.value || props.locked))) return;
     emit('save', {
         amount: Math.round(amount.value ?? 0),
         item: item.value,
@@ -64,33 +52,41 @@ function submit() {
 </script>
 
 <template>
-    <ModalShell title="改这一条" :width="380" :scroll="false" @close="emit('close')">
-        <form class="form" @submit.prevent="submit">
-            <PriceField v-model="amount" label="金额" />
-            <div class="form-row">
-                <label class="field-label" :for="itemId">物品</label>
-                <input
-                    :id="itemId"
-                    v-model="item"
-                    class="field"
-                    type="text"
-                    placeholder="未记物品"
-                    autocomplete="off"
-                />
-            </div>
-            <div class="form-row">
-                <span class="field-label">记给谁</span>
-                <SelectField v-model="who" :options="whoOptions" label="这笔账记给谁" />
-            </div>
+    <ModalShell title="改这一条" :width="380" :scroll="false" @close="!saving && emit('close')">
+        <form class="income-form" @submit.prevent="submit">
+            <fieldset class="income-form" :disabled="locked">
+                <PriceField v-model="amount" label="金额" />
+                <div class="form-row">
+                    <label class="field-label" :for="itemId">物品</label>
+                    <input
+                        :id="itemId"
+                        v-model="item"
+                        class="field"
+                        type="text"
+                        placeholder="未记物品"
+                        autocomplete="off"
+                    />
+                </div>
+                <div class="form-row">
+                    <span class="field-label">记给谁</span>
+                    <SelectField v-model="who" :options="whoOptions" label="这笔账记给谁" />
+                </div>
+            </fieldset>
         </form>
 
         <template #footer>
-            <PressButton data-modal-cancel text="取消" label="不改了" @click="emit('close')" />
+            <PressButton
+                data-modal-cancel
+                :disabled="saving"
+                text="取消"
+                label="不改了"
+                @click="!saving && emit('close')"
+            />
             <PressButton
                 icon="check"
-                text="保存"
+                :text="retrying ? '重试保存' : '保存'"
                 label="保存这一条"
-                :disabled="!canSave"
+                :disabled="saving || (!canSave && !retrying)"
                 seal
                 @click="submit"
             />
@@ -99,15 +95,10 @@ function submit() {
 </template>
 
 <style scoped>
-/* 三个字段竖排、间距 10：这一窗只有一件事，不必分行排版。 */
-.form {
-    display: grid;
-    gap: 10px;
-}
 /* 标签在上、控件在下：`.field` 是通栏宽度，标签放在左侧会把它挤窄，
  * 而金额那一格（`PriceField`）本来就是「标签在上」的排法，两者要同一个节奏。 */
 .form-row {
     display: grid;
-    gap: 4px;
+    gap: 6px;
 }
 </style>

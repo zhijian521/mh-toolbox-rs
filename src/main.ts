@@ -15,7 +15,7 @@ import { loadGoals } from './views/goals/goals-store';
 import { loadRoster } from './views/characters/roster';
 import { loadIncome } from './views/income/income-store';
 import { loadOnline } from './views/income/online-store';
-import { startDailySync, syncRecent } from './views/accounts/daily-sync';
+import { flushDailySync, startDailySync, syncAllDays } from './views/accounts/daily-sync';
 import { loadPrices } from './views/prices/prices-store';
 
 /**
@@ -54,11 +54,13 @@ Promise.all([
      * 用户切到账号页时看到的就是补齐的账，而不是「进来一下才多出两行」。
      *
      * 失败不拦挂载：同步是副动作，读不出账号账本时它自己会拒绝写（`persist.canWrite`）。 */
-    syncRecent();
+    syncAllDays();
     startDailySync();
     createApp(App).use(router).mount('#app');
     void guardWindowClose(async () => {
-        if (await flushPendingWrites()) return true;
+        const synced = await flushDailySync();
+        const written = await flushPendingWrites();
+        if (synced && written) return true;
         return askConfirm({
             danger: true,
             title: '仍有改动未保存，退出吗？',

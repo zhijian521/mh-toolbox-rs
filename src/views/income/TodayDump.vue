@@ -13,33 +13,6 @@ import { useIncome } from './income-store';
 import { itemIconOf } from './item-icons';
 import { useRoster } from '../characters/roster';
 
-/**
- * 今日速记：右边这一列，**一格一个「物品 + 单价」，与左栏同一套语言**（2026-11-04 用户：
- * 「不要列表这种汇总，一个图标 × 20 这种，一眼可以看清的」；后又补「固定价格的可以 ×N，
- * 不固定的价格不同的就分开，并且也显示图标以及价格，类似于左边」）。
- *
- * 早先这里是逐条流水（时间 / 名字 / 角色 / 金额 / ×）。它有两个用处，换形态时都不能丢：
- * 1. **回执** —— 刚点的那一条在不在。`×3` 从 `×2` 变过来的那一下就是回执；
- * 2. **后悔药** —— 点一格撤掉最近记的那一条。
- *
- * ---- 为什么按「物品 + 单价」分组 ----
- *
- * 只按名字聚合时，浮动价的物品（金币、代练）会挤进同一格：一格只能印一个数，而它不代表
- * 组里任何一条——上午 4.6 万、下午 5.2 万，合成一格显示哪个都是错的。分成「名字 + 价」
- * 之后，`amount × count` 恒等于这一格，`×N` 只表示「这个价点了 N 次」——固定价天然是
- * 一个大 `×N`，浮动价是几个 `×1`，两种都读得对。这一条规则在 `groupByItem` 里。
- *
- * 为什么聚合反而更好用：速记是连点的动作，一天点十几次同一个物品很正常，逐条列出来会有
- * 二十行长得一模一样的「定魂珠 4.6 万」，而人真正想确认的是「今天点了几次、有没有多点
- * 一下」。二十行里数不出「二十」，一格 `×20` 一眼就是。
- *
- * ---- 与左栏长得像，为什么这次可以 ----
- *
- * **点一格 = 撤一条**，与左栏「点一下记一条」方向相反。上一版靠「这里没有厚度、只有细边」
- * 来区分，是为了防误按。2026-11-04 用户要求「类似于左边」——照做，靠三样区分：
- * 这里带 `×N`、块小一号（36 对 44）、`×N` 挂在整格右侧（左栏没有这一列）。
- * 撤错的代价本来就低（再点一下原物品就记回来），这是可以接受的交换。
- */
 const { entries, removeEntry, flush } = useIncome();
 const { roster } = useRoster();
 
@@ -52,13 +25,6 @@ const groups = computed(() => groupByItem(todayEntries.value));
 
 const totals = computed(() => totalsOf(todayEntries.value));
 
-/**
- * 这一组记给过谁，拼成一句人话（空数组 = 全程未指定，返回空串）。
- *
- * 聚合之后界面上一格只有图标与 `×N`，**归属就只剩这一处看得见**——而那排「记给」胶囊
- * 会停在最后一次的选择上，换号忘了切，后面几条就全进了上一个号。找不到人写「已删角色」，
- * 与前面那条同一条理由：账不清人，这个状态会真实存在。
- */
 function whoText(ids: readonly string[]): string {
     if (!ids.length) return '';
     const names = ids.map((id) => roster.value.find((one) => one.id === id)?.name ?? '已删角色');
@@ -67,13 +33,6 @@ function whoText(ids: readonly string[]): string {
     return [...new Set(names)].join('、');
 }
 
-/**
- * 撤掉这一格**最近记的那一条**，不是整格清空。
- *
- * 整格清空看着更快，但它把「多点了一下」和「点了二十下要全撤」当成同一件事，
- * 而后者的真实做法是「一开始就别点」。撤一条、再撤一条，`×20 → ×19 → ×18`
- * 自己数得清；一把清空之后，用户要先想起来「刚才那一格原来有几个」。
- */
 async function undo(group: ItemGroup) {
     removeEntry(group.lastId);
     const left = group.count - 1;
@@ -93,7 +52,6 @@ async function undo(group: ItemGroup) {
     <LedgerSection title="今日速记" :hint="`${totals.count} 条`">
         <div v-if="!groups.length" class="empty">
             <p>今天还没有记账。</p>
-            <p class="meta">点左边的物品格，一条就记上了。</p>
         </div>
 
         <!-- 一格一个「物品 + 单价」：左上压印块（图标）、左下价格签，`×N` 在整格右侧。
@@ -129,7 +87,7 @@ async function undo(group: ItemGroup) {
         <div class="total">
             <span class="k">净额</span>
             <!-- 与页头统计条同一条：负数带 `−`，不能只靠颜色。 -->
-            <span class="v" :class="{ loss: totals.net < 0 }">{{
+            <span class="v" :class="{ gain: totals.net > 0, loss: totals.net < 0 }">{{
                 totals.net < 0 ? `−${amountText(-totals.net)}` : amountText(totals.net)
             }}</span>
         </div>
@@ -137,35 +95,12 @@ async function undo(group: ItemGroup) {
 </template>
 
 <style scoped>
-/* 一格一个「物品 + 单价」：**左边一列是块与签（上下同轴），右边一列是 `×N`**，三列。
- *
- * 2026-11-04 用户两次收：先说「图标过大，可以缩小」（32 → 26），再说「固定价格的可以
- * ×N、不固定的价格不同的就分开，并且也显示图标以及价格，类似于左边」，最后是
- * 「让图标和价格对齐，×N 放在整体后面」。
- *
- * ---- 为什么是三列而不是四列 ----
- *
- * 上一版把「签 + ×N」装在同一个 flex 行里居中，于是签的中心被 ×N 推向左边，
- * 而上面那块印是居中的——两个中心错开，「图标和价格没对齐」就是在说这个。
- * 拆成两列之后，签与块同在第一列、各自居中 ⇒ 中心严格同轴；`×N` 落到第二列，
- * 即「整体后面」。
- *
- * 拆开也要占宽度：左列最宽能到 53（「128.5万」这种长签），加 `×N` 的 14 与缝 4 是 71。
- * 四列时每格只有 61，放不下；三列每格 82，正好。
- */
 .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
     gap: 8px 6px;
 }
-/* 两行两列：左上块、左下签、右侧跨两行的 `×N`。
- *
- * 第一列**定宽 56**而不是 `auto`：`auto` 时列宽跟着签的长短走，于是每个格子的 `×N`
- * 落在不同的水平位置上，一整列扫下来是参差的。定宽之后块与签都在这 56 里居中
- * （中心同在 28），`×N` 也逐格对齐。
- * 56 的来由：最长的签是「128.5万」量级，`--fs-mini` 下约 53。
- *
- * `justify-content: center` 把「左列 + 右列」当作一整组在格内居中。 */
+
 .g {
     display: grid;
     grid-template-columns: 56px auto;
@@ -262,7 +197,11 @@ async function undo(group: ItemGroup) {
     color: var(--num);
     font-size: var(--fs-amount);
 }
-/* 净额为负时整句转朱：「今天亏了」不该是一个只在符号上不同的棕色数字。 */
+/* 净额与统计条共用进账、出账配色。 */
+.total .v.gain {
+    color: var(--positive);
+}
+
 .total .v.loss {
     color: var(--negative);
 }
@@ -274,8 +213,5 @@ async function undo(group: ItemGroup) {
 }
 .empty p {
     margin: 0;
-}
-.empty .meta {
-    margin-top: 4px;
 }
 </style>

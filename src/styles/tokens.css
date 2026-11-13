@@ -946,6 +946,7 @@
         );
 }
 .board {
+    --income-board-texture: var(--paper-grain, none);
     --board-paper: var(--paper-2);
     --board-texture:
         var(--paper-grain, none),
@@ -1216,8 +1217,8 @@ html.dark .rail {
     );
     --board-shadow:
         inset 0 1px 0 var(--bevel-hi),
-        inset 0 -2px 0 color-mix(in srgb, var(--rule-2) 54%, transparent),
-        0 3px 0 var(--shadow), 0 12px 22px -15px var(--shadow-lg);
+        inset 0 -2px 0 color-mix(in srgb, var(--rule-2) 54%, transparent), 0 3px 0 var(--shadow),
+        0 12px 22px -15px var(--shadow-lg);
 }
 
 /* 纸纹与印泥只改材质，表单字段和门派浅染仍沿用各自的配方。 */
@@ -1235,8 +1236,8 @@ html.dark .rail {
 :root[data-style='dunhuang'] .board {
     --board-shadow:
         inset 0 1px 0 var(--bevel-hi), inset 1px 0 0 var(--bevel-hi),
-        inset 0 -3px 0 color-mix(in srgb, var(--accent) 40%, var(--rule-2)),
-        0 3px 0 var(--shadow), 0 12px 24px -14px var(--shadow-lg);
+        inset 0 -3px 0 color-mix(in srgb, var(--accent) 40%, var(--rule-2)), 0 3px 0 var(--shadow),
+        0 12px 24px -14px var(--shadow-lg);
 }
 :root[data-style='dunhuang'] .page-head {
     background:
@@ -1244,11 +1245,12 @@ html.dark .rail {
         var(--paper-2);
 }
 :root[data-style='rosewood'] .board {
+    --income-board-texture: var(--board-texture);
     --board-texture: var(--wood-sheen);
     --board-shadow:
         inset 0 1px 0 var(--bevel-hi), inset 1px 0 0 var(--bevel-hi),
-        inset 0 -3px 0 color-mix(in srgb, var(--accent) 30%, var(--rule-2)),
-        0 3px 0 var(--shadow), 0 12px 24px -14px var(--shadow-lg);
+        inset 0 -3px 0 color-mix(in srgb, var(--accent) 30%, var(--rule-2)), 0 3px 0 var(--shadow),
+        0 12px 24px -14px var(--shadow-lg);
 }
 :root[data-style='rosewood'] .rail {
     --rail-texture:
@@ -1267,6 +1269,7 @@ html.dark .rail {
 
 :root[data-style='crystal'] .board {
     --board-paper: var(--crystal-pane);
+    --income-board-texture: var(--board-texture);
     --board-texture: linear-gradient(135deg, var(--crystal-glint), transparent 44%);
     --board-shadow:
         inset 0 1px 0 var(--crystal-rim), inset 1px 0 0 var(--crystal-rim),
@@ -1279,11 +1282,7 @@ html.dark .rail {
     --character-paper: var(--crystal-pane);
     --card-bg:
         linear-gradient(138deg, var(--crystal-glint), transparent 44%),
-        linear-gradient(
-            175deg,
-            transparent 70%,
-            color-mix(in srgb, var(--accent) 7%, transparent)
-        ),
+        linear-gradient(175deg, transparent 70%, color-mix(in srgb, var(--accent) 7%, transparent)),
         color-mix(in srgb, var(--card-tint) 10%, var(--character-paper));
 }
 :root[data-style='crystal'] .slip-row {
@@ -1291,8 +1290,7 @@ html.dark .rail {
         linear-gradient(180deg, var(--crystal-glint), transparent 66%),
         color-mix(in srgb, var(--slip-base, var(--crystal-pane)) 78%, transparent);
     --slip-shadow:
-        inset 0 1px 0 var(--crystal-rim), inset 1px 0 0 var(--crystal-rim),
-        0 1px 2px var(--shadow);
+        inset 0 1px 0 var(--crystal-rim), inset 1px 0 0 var(--crystal-rim), 0 1px 2px var(--shadow);
 }
 :root[data-style='crystal'] .well:not(.upright),
 :root[data-style='crystal'] .field {
@@ -1318,8 +1316,7 @@ html.dark .rail {
     --stamp-texture: var(--crystal-sheen);
 }
 :root:is([data-style='crystal'], [data-style='rosewood']) .press-tile:not(.still):active,
-:root:is([data-style='crystal'], [data-style='rosewood'])
-    .press-tile.tone-seal:not(.still):active {
+:root:is([data-style='crystal'], [data-style='rosewood']) .press-tile.tone-seal:not(.still):active {
     --press-image: linear-gradient(180deg, var(--bevel-lo), transparent 58%);
 }
 :root[data-style='crystal'] .rail {
@@ -1333,8 +1330,7 @@ html.dark .rail {
 }
 :root[data-style='crystal'] .titlebar,
 :root[data-style='crystal'] .page-head {
-    background:
-        linear-gradient(135deg, var(--crystal-glint), transparent 75%), var(--paper-2);
+    background: linear-gradient(135deg, var(--crystal-glint), transparent 75%), var(--paper-2);
     box-shadow: inset 0 1px 0 var(--crystal-rim);
 }
 :root[data-style='crystal'] .modal-panel {
@@ -1350,8 +1346,7 @@ html.dark .rail {
         color-mix(in srgb, var(--well) 36%, transparent);
 }
 :root[data-style='crystal'] .gear-cell:not(.empty):hover {
-    background:
-        linear-gradient(150deg, var(--crystal-glint), transparent 80%), var(--crystal-pane);
+    background: linear-gradient(150deg, var(--crystal-glint), transparent 80%), var(--crystal-pane);
 }
 @supports not (backdrop-filter: blur(1px)) {
     :root[data-style='crystal'] .board {

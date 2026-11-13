@@ -221,35 +221,25 @@ function sameAuto(left: AccountEntry, right: AccountEntry): boolean {
     );
 }
 
-/**
- * **整批替换**自动同步的那几条记录，手记的一条不动。
- *
- * ---- 为什么必须是「整批替换」而不是逐条 upsert ----
- * 自动记录是**算出来的**：某天某个号今天没有收益了（速记被撤回、时长为 0），
- * 那一条就该消失。逐条 upsert 只会追加，账面上会留下一笔早已不存在的收益。
- *
- * ---- 为什么认 `source` 而不认分类 ----
- * 分类可以由用户改（编辑窗里那个下拉），用它当判据会在改名之后认不出来，
- * 于是每同步一次就多一笔。`source` 是这条记录的身份，改分类不影响它。
- *
- * 内容没变就不落盘（返回 `changed: false`）：这个函数会被「速记一变就同步」触发，
- * 而连点速记时每一次都整份写库是没必要的。
- */
+/** 只替换指定日期的自动账目；空 rows 清掉这些日期，手记和其他日期保持不变。 */
 export function applyAutoEntries(
     rows: readonly AutoInput[],
+    dates: readonly string[],
 ): { ok: true; changed: boolean } | { ok: false; error: string } {
     if (!persist.canWrite()) return { ok: false, error: '账号账本读取失败，先修好再来同步' };
 
+    const scope = new Set(dates);
     const keep: AccountEntry[] = [];
     const before = new Map<string, AccountEntry>();
     for (const one of entries.value) {
-        if (one.source === 'auto') before.set(one.id, one);
+        if (one.source === 'auto' && scope.has(one.date)) before.set(one.id, one);
         else keep.push(one);
     }
 
     const now = Date.now();
     const next: AccountEntry[] = [];
     for (const row of rows) {
+        if (!scope.has(row.date)) continue;
         /* 币没有小数：与 `normalizeEntry` 同一个收口，免得浮点尾巴在汇总时差出一点。 */
         const amount = Math.round(row.amount);
         if (!Number.isFinite(amount) || amount <= 0) continue;

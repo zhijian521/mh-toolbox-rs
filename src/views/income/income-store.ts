@@ -15,6 +15,7 @@
  * 就整份覆盖掉原来的记录。所以读失败会把 `loadError` 立起来，并让写入直接返回。
  */
 import { ref } from 'vue';
+import { planPriceImport } from './price-import';
 import { hasDesktop } from '../../services/desktop';
 import { incomeLoad, incomeSave } from '../../services/storage';
 import { fromWan, todayText } from '../../services/format';
@@ -293,50 +294,21 @@ export function clearPrice(itemId: number): void {
     persist();
 }
 
-/** 批量导入单价的结果。`added` / `updated` 一起报，用户才分得清「补了价目」与「换了价目」。 */
 export type PriceMerge =
-    { ok: true; added: number; updated: number } | { ok: false; error: string };
+    { ok: true; added: number; updated: number; unchanged: number } | { ok: false; error: string };
 
-/**
- * 批量导入单价：**同一件物品以文件为准，文件里没有的物品保持现状**。
- *
- * 为什么是合并而不是整份替换：单价表是「价目表」，不是账。文件缺一件物品只说明
- * 那份文件里没写它（多半是导出之后才定的价），把它清成「未设价」等于替用户删配置，
- * 而下一次点那件物品会先弹窗——看上去像 bug，实际是被导没的。
- *
- * 写盘仍然**只写一次**：先算出整份新表，再 `persist()` 一次。逐条 `setPrice` 会写 N 次
- * （每次整份写库），导 59 条就是 59 次事务，中途失败还会留半截。
- *
- * 读失败（`loadError`）时拒绝：那时内存里是空的，合并进去再写就等于拿文件把旧价表顶掉。
- *
- * `price` 收 `number | null`：生成的 `QuickPrice` 里它就是 `number | null`（specta 把 f64
- * 映射成可空数，NaN / Infinity 走 null 过 IPC），所以拿不准的那一档要在这一层挡掉。
- */
+/** 文件中缺失的物品保留，只写入实际变化的价目。 */
 export function mergePrices(
     incoming: readonly { itemId: number; price: number | null }[],
 ): PriceMerge {
     if (!persist.canWrite()) return { ok: false, error: '收益账读取失败，先修好再导入单价' };
-
-    const next = { ...prices.value };
-    let added = 0;
-    let updated = 0;
-    for (const one of incoming) {
-        /* Rust 侧已经校验过一遍（见 `backup.rs` 的 `validate_prices`），这里再挡一次是
-         * 因为这条函数也能被别的调用方直接用：一行非法值进了内存，下一次整份写盘就落库。 */
-        if (!Number.isFinite(one.itemId) || one.itemId <= 0) continue;
-        if (typeof one.price !== 'number' || !Number.isFinite(one.price) || one.price <= 0) {
-            continue;
-        }
-        if (one.itemId in next) updated += 1;
-        else added += 1;
-        next[one.itemId] = one.price;
+    const { next, added, updated, unchanged } = planPriceImport(prices.value, incoming);
+    if (added + updated + unchanged === 0) return { ok: false, error: '这份文件里没有能用的单价' };
+    if (added + updated > 0) {
+        prices.value = next;
+        persist();
     }
-
-    if (added + updated === 0) return { ok: false, error: '这份文件里没有能用的单价' };
-
-    prices.value = next;
-    persist();
-    return { ok: true, added, updated };
+    return { ok: true, added, updated, unchanged };
 }
 
 /** 换「记给谁」。空数组 = 不指定。 */

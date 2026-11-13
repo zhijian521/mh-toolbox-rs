@@ -144,7 +144,7 @@ describe('mergePrices：同一件以文件为准，文件里没有的保持现�
             { itemId: 1, price: 200 },
             { itemId: 2, price: 300 },
         ]);
-        expect(result).toEqual({ ok: true, added: 1, updated: 1 });
+        expect(result).toEqual({ ok: true, added: 1, updated: 1, unchanged: 0 });
         expect(prices.value).toEqual({ 1: 200, 2: 300, 9: 900 });
     });
 
@@ -176,5 +176,20 @@ describe('mergePrices：同一件以文件为准，文件里没有的保持现�
         await flush();
         /* 逐条 `setPrice` 会写 59 次，中途失败还会留半截价目表。 */
         expect(desktop.incomeSave).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('单价原样导入', () => {
+    it('相同价格不算覆盖，也不写数据库', async () => {
+        const desktop = host(async () => ({ entries: [], prices: [{ itemId: 1, price: 100 }] }));
+        const store = await loadStore(desktop);
+        expect(store.mergePrices([{ itemId: 1, price: 100 }])).toEqual({
+            ok: true,
+            added: 0,
+            updated: 0,
+            unchanged: 1,
+        });
+        await store.useIncome().flush();
+        expect(desktop.incomeSave).not.toHaveBeenCalled();
     });
 });

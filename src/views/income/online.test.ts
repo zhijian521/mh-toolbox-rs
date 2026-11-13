@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { dateText } from '../../services/format';
 import {
     DEFAULT_CARD_PRICE,
     POINTS_PER_HOUR,
@@ -281,7 +282,12 @@ describe('上线：归一', () => {
             note: '双开',
             createdAt: 3,
         });
-        expect(one).toMatchObject({ id: 'o1', date: '2026-11-11', roster: ['c1', 'c2'] });
+        expect(one).toMatchObject({
+            id: 'o1',
+            date: dateText(1000),
+            roster: ['c1', 'c2'],
+            cardCost: true,
+        });
     });
 
     it('没有 startAt 就丢掉（不知道从几点开始，算不出任何东西）', () => {
@@ -356,5 +362,22 @@ describe('上线：点卡口径', () => {
     it('单价非正时回落到默认', () => {
         expect(normalizeSettings({ cardPrice: 0 }).cardPrice).toBe(DEFAULT_CARD_PRICE);
         expect(normalizeSettings({ cardPrice: 16500 }).cardPrice).toBe(16500);
+    });
+});
+
+describe('上线：单角色筛选口径', () => {
+    it('旧多人段筛选一个号，只计该号分摊的点卡，在线时长不分摊', () => {
+        const one = session({ roster: ['c1', 'c2'] });
+        const all = onlineTotalsOf([one], '2026-11-11', '2026-11-11');
+        const single = onlineTotalsOf([one], '2026-11-11', '2026-11-11', Date.now(), 'c1');
+        expect(single.minutes).toBe(120);
+        expect(single.cost * 2).toBe(all.cost);
+        expect(onlineTotalsOf([one], '2026-11-11', '2026-11-11', Date.now(), 'c9').cost).toBe(0);
+    });
+
+    it('归一时修正与开始时间不符的日期，并保留不计入快照', () => {
+        const one = normalizeSession(session({ date: '2000-01-01', cardCost: false }));
+        expect(one?.date).toBe('2026-11-11');
+        expect(one?.cardCost).toBe(false);
     });
 });

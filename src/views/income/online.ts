@@ -50,6 +50,8 @@ export interface OnlineSession {
     roster: string[];
     /** `startAt` 那一刻的单价快照（原值）。改了单价不回头重算历史。 */
     cardPrice: number;
+    /** 本段是否同步为账号支出；旧记录缺失时按计入处理。 */
+    cardCost?: boolean;
     note: string;
     createdAt: number;
 }
@@ -276,6 +278,7 @@ export function onlineTotalsOf(
     from: string,
     to: string,
     now: number = Date.now(),
+    characterId = '',
 ): OnlineTotals {
     let minutes = 0;
     let cost = 0;
@@ -284,12 +287,16 @@ export function onlineTotalsOf(
     for (const session of sessions) {
         const owners = ownersOf(session);
         if (owners.length === 0) continue;
+        if (characterId && !owners.includes(characterId)) continue;
         let touched = false;
         for (const slice of sessionSlices(session, now)) {
             if (slice.date < from || slice.date > to) continue;
             touched = true;
             minutes += slice.minutes;
-            cost += sliceCost(slice.minutes, owners.length, session.cardPrice);
+            const amount = sliceCost(slice.minutes, owners.length, session.cardPrice);
+            cost += characterId
+                ? shareOfSlice(amount, owners.length)[owners.indexOf(characterId)]
+                : amount;
         }
         if (!touched) continue;
         if (session.endAt === null) running += 1;
@@ -327,8 +334,6 @@ function num(value: unknown): number {
     return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-
 export function normalizeSession(raw: unknown): OnlineSession | null {
     if (!raw || typeof raw !== 'object') return null;
     const one = raw as Record<string, unknown>;
@@ -350,7 +355,7 @@ export function normalizeSession(raw: unknown): OnlineSession | null {
 
     return {
         id: text(one.id) || `onl-${startAt.toString(36)}`,
-        date: DATE.test(text(one.date)) ? text(one.date) : dateText(startAt),
+        date: dateText(startAt),
         startAt,
         endAt,
         characterId: text(one.characterId),
@@ -358,6 +363,7 @@ export function normalizeSession(raw: unknown): OnlineSession | null {
         /* 单价快照为 0 时回落到默认：一条「0 元/点」的记录会让那段时长白算，
          * 而界面上它长得像「这段时间没扣点卡」。 */
         cardPrice: price > 0 ? price : DEFAULT_CARD_PRICE,
+        cardCost: one.cardCost !== false,
         note: text(one.note),
         createdAt: num(one.createdAt) || startAt,
     };

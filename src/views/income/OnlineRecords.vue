@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useMinuteNow } from '../../composables/use-minute-now';
+import { usePagination } from '../../composables/use-pagination';
+import RecordPager from './RecordPager.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SelectField from '../../components/SelectField.vue';
@@ -15,39 +18,29 @@ import {
     minutesText,
     onlineTotalsOf,
     ownersOf,
+    cardCostOf,
     sessionCost,
     type OnlineSession,
 } from './online';
 import { useOnline } from './online-store';
+import { characterOptions } from './character-options';
 
-/**
- * 全部上线记录：筛选 + 分页 + 改 / 删。
- *
- * ---- 为什么收益页也要一个「全部记录」窗 ----
- * 卡片上只铺今天那几段，而这件事的用法是回看：上个月哪几天没上、哪个号烧得最多、
- * 补记的时候有没有把日期写错。这些都要跨天翻，卡片给不了。
- *
- * ---- 合计跟着筛选走 ----
- * 顶上那行「N 段 · 合计时长 · 合计点卡」算的是筛出来的这些。切完角色先想知道的就是
- * 「这个号这半年一共烧了多少」，与账号记录窗同一个道理。
- */
 const emit = defineEmits<{ close: []; edit: [session: OnlineSession] }>();
 
 const { sessions, removeOnline, flush } = useOnline();
 const { roster } = useRoster();
 
-const PER_PAGE = 20;
+const now = useMinuteNow();
 
 /** 「不限」的哨兵：SelectField 把空串当「没有值」，选中它会退回 placeholder。 */
 const ANY = '__any__';
 
 const who = ref(ANY);
 const keyword = ref('');
-const page = ref(1);
 
 const whoOptions = computed(() => [
     { value: ANY, label: '全部角色' },
-    ...roster.value.map((one) => ({ value: one.id, label: one.name })),
+    ...characterOptions(roster.value, sessions.value.flatMap(ownersOf)),
 ]);
 
 /**
@@ -68,24 +61,29 @@ const filtered = computed(() => {
     });
 });
 
-const pages = computed(() => Math.max(1, Math.ceil(filtered.value.length / PER_PAGE)));
-const visible = computed(() =>
-    filtered.value.slice((page.value - 1) * PER_PAGE, page.value * PER_PAGE),
+const { page, pages, visible } = usePagination(filtered);
+
+const totals = computed(() =>
+    onlineTotalsOf(
+        filtered.value,
+        '0000-01-01',
+        '9999-12-31',
+        now.value,
+        who.value === ANY ? '' : who.value,
+    ),
 );
 
-/** 合计：给一个宽到装下全部的区间——这里要的是「筛出来这些的和」。 */
-const totals = computed(() => onlineTotalsOf(filtered.value, '0000-01-01', '9999-12-31'));
+function costOf(one: OnlineSession) {
+    return who.value === ANY
+        ? sessionCost(one, now.value)
+        : cardCostOf([one], '0000-01-01', '9999-12-31', who.value, now.value);
+}
 
 const anyFilter = computed(() => who.value !== ANY || Boolean(keyword.value.trim()));
 
 /* 筛选一变就回第一页：留在第 5 页而结果只剩两条时屏幕是空的，用户会以为没记录。 */
 watch([who, keyword], () => {
     page.value = 1;
-});
-
-/* 当前页被删空后 page 会超出总页数——退到最后一页。 */
-watch(pages, (value) => {
-    if (page.value > value) page.value = value;
 });
 
 function reset() {
@@ -105,7 +103,7 @@ async function remove(one: OnlineSession) {
         note:
             whoText(one) +
             ' · ' +
-            minutesText(factsOfSession(one).minutes) +
+            minutesText(factsOfSession(one, now.value).minutes) +
             '。删了不能撤回，当天的点卡也会跟着减。',
         confirmText: '删除',
     });
@@ -139,18 +137,20 @@ async function remove(one: OnlineSession) {
         <p class="sums">
             <span class="sum-item">{{ filtered.length }} 段</span>
             <span class="sum-item">合计 {{ minutesText(totals.minutes) }}</span>
-            <span class="sum-item">点卡 {{ totals.cost > 0 ? moneyText(totals.cost) : '—' }}</span>
+            <span class="sum-item" :class="{ cost: totals.cost > 0 }">
+                点卡 {{ totals.cost > 0 ? moneyText(totals.cost) : '—' }}
+            </span>
             <span v-if="totals.running" class="sum-item live">
-                其中有 {{ totals.running }} 段还在计时
+                计时中 {{ totals.running }} 段
             </span>
         </p>
 
-        <div class="log-scroll">
+        <div class="income-log-scroll">
             <p v-if="!filtered.length" class="blank">
                 {{ sessions.length ? '这个筛选下没有记录。' : '还没有上线记录。' }}
             </p>
 
-            <table v-else class="rec-table">
+            <table v-else class="rec-table income-table">
                 <thead>
                     <tr>
                         <th class="c-date">日期</th>
@@ -171,14 +171,14 @@ async function remove(one: OnlineSession) {
                             }}
                         </td>
                         <td class="c-who" :title="whoText(one)">{{ whoText(one) }}</td>
-                        <td class="c-dur">{{ clockText(factsOfSession(one).minutes) }}</td>
+                        <td class="c-dur">{{ clockText(factsOfSession(one, now).minutes) }}</td>
                         <td class="c-num">
-                            {{ sessionCost(one) > 0 ? moneyText(sessionCost(one)) : '—' }}
+                            {{ costOf(one) > 0 ? moneyText(costOf(one)) : '—' }}
                         </td>
                         <td class="c-note" :title="one.note">{{ one.note }}</td>
                         <td class="c-ops">
                             <!-- flex 包在 td 里的 span 上：td 一旦不是 table-cell，整张表的列宽会乱。 -->
-                            <span class="ops">
+                            <span class="income-ops">
                                 <PressButton
                                     icon="edit"
                                     label="改这一段"
@@ -200,24 +200,7 @@ async function remove(one: OnlineSession) {
         </div>
 
         <template #footer>
-            <span class="note foot-note">
-                {{ filtered.length }} 段{{ anyFilter ? '（已筛选）' : '' }}
-            </span>
-            <span v-if="pages > 1" class="pager">
-                <PressButton
-                    text="上一页"
-                    label="上一页"
-                    :disabled="page <= 1"
-                    @click="page -= 1"
-                />
-                <span class="pager-text">{{ page }} / {{ pages }}</span>
-                <PressButton
-                    text="下一页"
-                    label="下一页"
-                    :disabled="page >= pages"
-                    @click="page += 1"
-                />
-            </span>
+            <RecordPager v-model="page" :pages="pages" />
             <PressButton
                 data-modal-cancel
                 text="关闭"
@@ -260,45 +243,10 @@ async function remove(one: OnlineSession) {
 .sum-item.live {
     color: var(--accent);
 }
-
-/* 只有这一块滚。min-height: 0 不能省：flex 子项默认 min-height: auto，
- * 会被内容顶开，写多少高度都拦不住它把弹窗撑长。 */
-.log-scroll {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    scrollbar-gutter: stable;
+.sum-item.cost {
+    color: var(--negative);
 }
 
-.rec-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--fs-sm);
-}
-.rec-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    padding: 5px 6px;
-    /* 表头那条线用 box-shadow 画，不用 border-bottom：
-     * sticky 元素的边框会跟着内容一起滚，读到第 20 行时那条线会悬在两行中间。 */
-    box-shadow: inset 0 -1px 0 var(--rule-2);
-    background: var(--paper);
-    color: var(--muted);
-    font-size: var(--fs-mini);
-    font-weight: 400;
-    letter-spacing: 0.08em;
-    text-align: left;
-    white-space: nowrap;
-}
-.rec-table tbody td {
-    padding: 6px;
-    border-bottom: var(--w-hair) solid var(--rule);
-    vertical-align: middle;
-}
-.rec-table tbody tr:last-child td {
-    border-bottom: 0;
-}
 .c-date {
     width: 58px;
     color: var(--muted);
@@ -329,7 +277,7 @@ async function remove(one: OnlineSession) {
 }
 .c-num {
     width: 96px;
-    color: var(--num);
+    color: var(--negative);
     text-align: right;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
@@ -344,28 +292,10 @@ async function remove(one: OnlineSession) {
 .c-ops {
     width: 74px;
 }
-.ops {
-    display: flex;
-    gap: 4px;
-    justify-content: flex-end;
-}
+
 .blank {
     margin: 30px 0;
     color: var(--muted);
     text-align: center;
-}
-
-.foot-note {
-    margin-right: auto;
-}
-.pager {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.pager-text {
-    color: var(--muted);
-    font-size: var(--fs-mini);
-    font-variant-numeric: tabular-nums;
 }
 </style>

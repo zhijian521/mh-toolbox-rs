@@ -403,6 +403,12 @@ pub fn run() {
         )
         .expect("生成 TS 绑定失败");
 
+    // 仅生成契约时不创建窗口、不打开账本。
+    #[cfg(debug_assertions)]
+    if std::env::args().any(|arg| arg == "--export-bindings") {
+        return;
+    }
+
     /* 对话框插件在这里注册一次。**注册不等于给前端开口子**：它同时带来 JS 命令，
      * 而 `capabilities/default.json` 里没有任何 `dialog:` 权限，所以前端那侧调不动；
      * 本仓只用 Rust 侧的 `app.dialog()`（见 `backup.rs`）。

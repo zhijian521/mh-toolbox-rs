@@ -15,7 +15,7 @@
 import { ref } from 'vue';
 import { hasDesktop } from '../../services/desktop';
 import { onlineLoad, onlineSave } from '../../services/storage';
-import { fromWan, todayText } from '../../services/format';
+import { dateText, fromWan } from '../../services/format';
 import { createPersist } from '../../services/persist';
 import { onStorageSync } from '../../services/storage-sync';
 import { makeId } from '../../services/shape';
@@ -151,6 +151,26 @@ function busyOf(ids: readonly string[]): string[] {
     return [...busy];
 }
 
+function timeError(startAt: number, endAt: number | null): string {
+    const now = Date.now();
+    if (!Number.isFinite(startAt) || startAt <= 0 || startAt > now) return '开始时间不能晚于现在';
+    if (endAt === null) return '';
+    if (!Number.isFinite(endAt) || endAt > now) return '结束时间不能晚于现在';
+    if (endAt <= startAt) return '结束时间要晚于开始时间';
+    return endAt - startAt < 60_000 ? '时长至少要 1 分钟' : '';
+}
+
+/** 相邻时段允许衔接；同角色的重叠时段会重复计算时长与点卡。 */
+function overlaps(ids: readonly string[], startAt: number, endAt: number | null, except = '') {
+    return sessions.value.some(
+        (one) =>
+            one.id !== except &&
+            ownersOf(one).some((id) => ids.includes(id)) &&
+            startAt < (one.endAt ?? Infinity) &&
+            one.startAt < (endAt ?? Infinity),
+    );
+}
+
 /* ---------- 改 ---------- */
 
 /**
@@ -180,10 +200,13 @@ export function startOnline(input: {
     if (busy.length > 0) return { ok: false, error: '这个号还在计时，先结束再开始' };
 
     const startAt = input.startAt ?? Date.now();
+    const error = timeError(startAt, null);
+    if (error) return { ok: false, error };
+    if (overlaps(ids, startAt, null)) return { ok: false, error: '这个号已有重叠的上线时段' };
     const note = (input.note ?? '').trim();
     const fresh: OnlineSession[] = ids.map((id) => ({
         id: makeId('onl'),
-        date: todayText(),
+        date: dateText(startAt),
         startAt,
         endAt: null,
         characterId: id,
@@ -192,6 +215,7 @@ export function startOnline(input: {
         roster: [],
         /* 单价快照：改了单价不回头重算历史。 */
         cardPrice: settings.value.cardPrice,
+        cardCost: settings.value.cardCost,
         note,
         createdAt: Date.now(),
     }));
@@ -217,18 +241,21 @@ export function backfillOnline(input: {
 
     const ids = Array.from(new Set(input.characterIds.filter(Boolean)));
     if (ids.length === 0) return { ok: false, error: '先选一个号' };
-    if (!(input.endAt > input.startAt)) return { ok: false, error: '结束时间要晚于开始时间' };
-    if ((input.endAt - input.startAt) / 60_000 < 1)
-        return { ok: false, error: '补记至少要 1 分钟' };
+    const error = timeError(input.startAt, input.endAt);
+    if (error) return { ok: false, error };
+    if (overlaps(ids, input.startAt, input.endAt)) {
+        return { ok: false, error: '这个号已有重叠的上线时段' };
+    }
 
     const session: OnlineSession = {
         id: makeId('onl'),
-        date: todayText(),
+        date: dateText(input.startAt),
         startAt: input.startAt,
         endAt: input.endAt,
         characterId: ids[0],
         roster: ids.length > 1 ? ids : [],
         cardPrice: settings.value.cardPrice,
+        cardCost: settings.value.cardCost,
         note: (input.note ?? '').trim(),
         createdAt: Date.now(),
     };
@@ -286,17 +313,19 @@ export function updateOnline(
     if (!before) return { ok: false, error: '这条记录已经不在了' };
 
     const startAt = patch.startAt ?? before.startAt;
-    if (startAt <= 0) return { ok: false, error: '开始时间不对' };
-    if (before.endAt !== null && before.endAt <= startAt) {
-        return { ok: false, error: '开始时间要早于结束时间' };
-    }
+    const error = timeError(startAt, before.endAt);
+    if (error) return { ok: false, error };
 
     const ids = patch.characterIds ? Array.from(new Set(patch.characterIds.filter(Boolean))) : null;
     if (ids && ids.length === 0) return { ok: false, error: '至少要留一个号' };
+    if (overlaps(ids ?? ownersOf(before), startAt, before.endAt, id)) {
+        return { ok: false, error: '这个号已有重叠的上线时段' };
+    }
 
     const next: OnlineSession = {
         ...before,
         startAt,
+        date: dateText(startAt),
         characterId: ids ? ids[0] : before.characterId,
         roster: ids ? (ids.length > 1 ? ids : []) : before.roster,
         note: patch.note === undefined ? before.note : patch.note.trim(),

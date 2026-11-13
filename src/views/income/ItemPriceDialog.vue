@@ -1,22 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { usePositiveAmount } from '../../composables/use-positive-amount';
 import ModalShell from '../../components/ModalShell.vue';
 import PriceField from '../../components/PriceField.vue';
 import PressButton from '../../components/PressButton.vue';
 import type { QuickItemEntry } from '../../services/game-data';
-import { amountText } from './income';
 
-/**
- * 填一次单价。三种用法共用这一个窗：
- *
- * 1. **固定价但还没定过价** —— 定完直接记一条（`thenAdd`）；
- * 2. **右键改价** —— 只改单价表，不记账；
- * 3. **浮动价（或金币）** —— 每条现填一次，**不写回单价表**（兽决每天一个价，
- *    写回去等于让下一条默认用昨天的价，那比空着更容易记错）。
- *
- * 三种流程共用输入与校验，由调用方决定保存后是否记账或回写单价表。
- */
 const props = defineProps<{
+    saving?: boolean;
+    locked?: boolean;
+    retryAction?: string | null;
     item: QuickItemEntry;
     mode: 'fixed' | 'variable';
     /** 保存后是否接着记一条。`false` = 只改价（右键进来的）。 */
@@ -27,35 +20,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{ save: [amount: number]; clear: []; close: [] }>();
 
-/**
- * `PriceField` 的 v-model 是**原值**（它内部 ×10000），与库里、与 `recordEntry` 同一个口径。
- *
- * **改价时预填现值**：右键进来是「改」不是「填」，让用户对着空白格重打一遍 1.2 万，
- * 既多一步、又容易打错（而错的是单价，之后每一条都跟着错）。预填之后「只改一位数字」
- * 才成立。浮动价与金币不预填——它们每条都是新的价，预填上一个价就是在诱导沿用。
- */
 const amount = ref(
     props.mode === 'fixed' && !props.thenAdd && (props.current ?? 0) > 0 ? (props.current ?? 0) : 0,
 );
-const submitted = ref(false);
-/**
- * 用户**真的动过这一格**没有。
- *
- * 2026-11-11 用户实报：「点击一个物品，不输入价格，但是关闭弹窗时候还进行校验；
- * 点第一下「取消」取消不掉」。两句话是同一个原因：
- *
- * 原先这一位由 `@blur` 点亮——**鼠标按下「取消」的那一刻输入格正好失焦**，于是
- * 提示行插进来、窗变高、页脚在指针底下往下挪了半行，抬起时指针已经不在按钮上，
- * 那一下点击就没发生（第二下才关得掉）。而「什么都没填」本来也不该算填错。
- *
- * 所以改由 `update:modelValue` 点亮：只有真正打过字（或按过加减）之后才判错，
- * 打开窗直接关掉不会先被告一状，也就不会因为插一行提示而挪动页脚。
- *
- * 模板上同时挂着 `v-model` 与这条监听：Vue 会把同名的两个处理器合并成数组，
- * 各跑一次（一个写值、一个置这一位），不冲突。加减按钮也走 `update:modelValue`，
- * 所以按一下加减同样算「动过」。
- */
-const typed = ref(false);
 
 const isMoney = computed(() => props.item.name === '金币');
 const title = computed(() => {
@@ -63,31 +30,17 @@ const title = computed(() => {
     return props.thenAdd ? `给「${props.item.name}」定价` : `改「${props.item.name}」的单价`;
 });
 
-const error = computed(() => {
-    if (amount.value > 0) return '';
-    return isMoney.value ? '金额要大于 0' : '单价要大于 0';
-});
-const canSave = computed(() => amount.value > 0);
-const showError = computed(() => (submitted.value || typed.value) && !!error.value);
+const { typed, submitted, canSave, error, showError } = usePositiveAmount(amount, () =>
+    isMoney.value ? '金额' : '单价',
+);
 
-/**
- * 「清除」只在**单纯改价**时有意义：
- *
- * - 浮动价与金币本来就不写单价表，没有可清的东西；
- * - 「第一次定价」进来时表里本来就没有；
- * - 只有右键改价、且这件物品现在确实有价，才谈得上清掉。
- */
 const canClear = computed(
     () => props.mode === 'fixed' && !props.thenAdd && (props.current ?? 0) > 0,
 );
 
-/** 「将记为」只在这一窗**真的会记一条**时才有意义（浮动价、第一次定价）。
- *  单纯改价时它是句废话：改完只写单价表，账面上不会多出任何一条。 */
-const willAdd = computed(() => props.thenAdd || props.mode === 'variable');
-
 function submit() {
     submitted.value = true;
-    if (!canSave.value) return;
+    if (props.saving || (props.retryAction !== 'save' && (!canSave.value || props.locked))) return;
     emit('save', Math.round(amount.value));
 }
 
@@ -99,36 +52,44 @@ function onEnter(event: KeyboardEvent) {
 </script>
 
 <template>
-    <ModalShell :title="title" :width="360" :scroll="false" @close="emit('close')">
-        <form class="dialog-form" @submit.prevent="submit" @keydown.enter="onEnter">
-            <PriceField
-                v-model="amount"
-                :label="isMoney ? '这笔多少钱' : '单价'"
-                stepper
-                :error="showError ? error : ''"
-                @update:model-value="typed = true"
-            />
-            <p v-if="willAdd && amount > 0" class="meta">将记为 {{ amountText(amount) }}</p>
+    <ModalShell :title="title" :width="360" :scroll="false" @close="!saving && emit('close')">
+        <form class="income-form" @submit.prevent="submit" @keydown.enter="onEnter">
+            <fieldset class="income-form" :disabled="locked">
+                <PriceField
+                    v-model="amount"
+                    :label="isMoney ? '这笔多少钱' : '单价'"
+                    stepper
+                    :error="showError ? error : ''"
+                    @update:model-value="typed = true"
+                />
+            </fieldset>
         </form>
 
         <template #footer>
             <!-- 清除放最左、与两个动作隔开：它既不是「取消」也不是「保存」，
                  把三枚并成一排会让人以为「清除」是另一种确定。 -->
             <PressButton
-                v-if="canClear"
+                v-if="canClear || retryAction === 'clear'"
                 danger
                 class="foot-left"
                 icon="trash"
-                text="清除"
+                :text="retryAction === 'clear' ? '重试清除' : '清除'"
+                :disabled="saving || retryAction === 'save'"
                 label="清除这件物品的单价"
                 @click="emit('clear')"
             />
-            <PressButton data-modal-cancel text="取消" label="不改了" @click="emit('close')" />
+            <PressButton
+                data-modal-cancel
+                :disabled="saving"
+                text="取消"
+                label="不改了"
+                @click="!saving && emit('close')"
+            />
             <PressButton
                 icon="check"
-                :text="thenAdd ? '记下' : '保存'"
+                :text="retryAction === 'save' ? '重试保存' : thenAdd ? '记下' : '保存'"
                 :label="thenAdd ? '记下这一条' : '保存单价'"
-                :disabled="!canSave"
+                :disabled="saving || retryAction === 'clear' || (!canSave && !retryAction)"
                 seal
                 @click="submit"
             />
@@ -137,11 +98,6 @@ function onEnter(event: KeyboardEvent) {
 </template>
 
 <style scoped>
-.dialog-form {
-    display: flex;
-    flex-direction: column;
-    gap: 9px;
-}
 /* 弹窗底栏是 `justify-content: flex-end`（两个动作贴右），所以「清除」靠
  * `margin-right: auto` 自己站到左端，不用再塞一个占位元素。 */
 .foot-left {

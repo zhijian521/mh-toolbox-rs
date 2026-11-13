@@ -139,16 +139,14 @@ export const commands = {
 	 *  仍然按旧价入账，而用户以为自己刚刚改过。
 	 */
 	incomeSave: (payload: IncomePayload) => __TAURI_INVOKE<null>("income_save", { payload }),
-	accountLoad: () => __TAURI_INVOKE<AccountEntry[]>("account_load"),
-	accountSave: (entries: AccountEntry[]) => __TAURI_INVOKE<null>("account_save", { entries }),
+	accountLoad: () => __TAURI_INVOKE<AccountEntry_Serialize[]>("account_load"),
+	accountSave: (entries: AccountEntry_Deserialize[]) => __TAURI_INVOKE<null>("account_save", { entries }),
 	goalsLoad: () => __TAURI_INVOKE<Value[]>("goals_load"),
 	/**  整份写回。目标页的每一次改动（记一笔、改一条、删一个）都走这里。 */
 	goalsSave: (goals: Value[]) => __TAURI_INVOKE<null>("goals_save", { goals }),
-	onlineLoad: () => __TAURI_INVOKE<OnlinePayload>("online_load"),
-	/**
-	 *  整份写回：记录清空重插，口径原地 upsert，**一个事务**。
-	 */
-	onlineSave: (payload: OnlinePayload) => __TAURI_INVOKE<null>("online_save", { payload }),
+	onlineLoad: () => __TAURI_INVOKE<OnlinePayload_Serialize>("online_load"),
+	/**  整份写回：记录清空重插，口径原地 upsert，**一个事务**。 */
+	onlineSave: (payload: OnlinePayload_Deserialize) => __TAURI_INVOKE<null>("online_save", { payload }),
 };
 
 /* Types */
@@ -163,10 +161,30 @@ export const commands = {
  *  存 46000 而不是 4.6）。两本账从不相加，所以不需要统一成一种单位；
  *  真要统一，反而会出现「1 元 = 1 万」这种离谱的中间态。
  */
-export type AccountEntry = {
+export type AccountEntry = AccountEntry_Serialize | AccountEntry_Deserialize;
+
+/**
+ *  一条账号账本记录（第 112 批）。
+ * 
+ *  与 `IncomeEntry` 是**两张表而不是加列**：收益页记的是「打金产出」（梦幻币、按物品），
+ *  账号页记的是「钱包进出」（人民币与梦幻币、按分类与渠道）。共表就要在每一行上猜
+ *  「这行的 amount 是万还是元、有没有渠道」，而这两个判断漏一次就会把汇总算错。
+ * 
+ *  `amount` 的单位**跟着 `currency` 走**：`rmb` 按元、`cash` 按万（原值，与收益页同口径：
+ *  存 46000 而不是 4.6）。两本账从不相加，所以不需要统一成一种单位；
+ *  真要统一，反而会出现「1 元 = 1 万」这种离谱的中间态。
+ */
+export type AccountEntry_Deserialize = {
 	id: string,
 	/**  `YYYY-MM-DD`。 */
 	date: string,
+	/**
+	 *  来源：空串 = 用户手记，`"auto"` = 收益页按天自动同步写的。
+	 * 
+	 *  **单独一栏，不靠分类前缀猜**：用户完全可以手记一条「游戏收益」，
+	 *  靠 `category` 反推来源的话，第二次同步就会写重复，认反了还会删掉他的手记。
+	 */
+	source?: string,
 	/**  关联的角色 id；空串表示「未指定角色」。 */
 	characterId: string,
 	/**  `income` / `expense`。 */
@@ -180,8 +198,43 @@ export type AccountEntry = {
 	amount: number | null,
 	note: string,
 	createdAt: number,
-	/**  来源：空串 = 用户手记，`"auto"` = 收益页按天自动同步写的。 */
+};
+
+/**
+ *  一条账号账本记录（第 112 批）。
+ * 
+ *  与 `IncomeEntry` 是**两张表而不是加列**：收益页记的是「打金产出」（梦幻币、按物品），
+ *  账号页记的是「钱包进出」（人民币与梦幻币、按分类与渠道）。共表就要在每一行上猜
+ *  「这行的 amount 是万还是元、有没有渠道」，而这两个判断漏一次就会把汇总算错。
+ * 
+ *  `amount` 的单位**跟着 `currency` 走**：`rmb` 按元、`cash` 按万（原值，与收益页同口径：
+ *  存 46000 而不是 4.6）。两本账从不相加，所以不需要统一成一种单位；
+ *  真要统一，反而会出现「1 元 = 1 万」这种离谱的中间态。
+ */
+export type AccountEntry_Serialize = {
+	id: string,
+	/**  `YYYY-MM-DD`。 */
+	date: string,
+	/**
+	 *  来源：空串 = 用户手记，`"auto"` = 收益页按天自动同步写的。
+	 * 
+	 *  **单独一栏，不靠分类前缀猜**：用户完全可以手记一条「游戏收益」，
+	 *  靠 `category` 反推来源的话，第二次同步就会写重复，认反了还会删掉他的手记。
+	 */
 	source: string,
+	/**  关联的角色 id；空串表示「未指定角色」。 */
+	characterId: string,
+	/**  `income` / `expense`。 */
+	kind: string,
+	/**  `rmb`（人民币 · 元）/ `cash`（梦幻币 · 万）。 */
+	currency: string,
+	/**  分类，取值见前端 `accounts.ts` 的 `ACCOUNT_CATEGORIES`。 */
+	category: string,
+	/**  交易渠道，取值见前端 `CHANNELS`。 */
+	channel: string,
+	amount: number | null,
+	note: string,
+	createdAt: number,
 };
 
 /**
@@ -291,25 +344,56 @@ export type IncomePayload = {
  *  两份一起读写，因为「今天扣了多少点卡」需要同时用到时长与单价；
  *  分两条命令会让卡片先画时长、再补数，中间那一拍是错的。
  */
-export type OnlinePayload = {
-	sessions: OnlineSession[],
+export type OnlinePayload = OnlinePayload_Serialize | OnlinePayload_Deserialize;
+
+/**
+ *  收益页一次读回来的上线数据：记录 + 口径。
+ * 
+ *  两份一起读写，因为「今天扣了多少点卡」需要同时用到时长与单价；
+ *  分两条命令会让卡片先画时长、再补数，中间那一拍是错的。
+ */
+export type OnlinePayload_Deserialize = {
+	sessions: OnlineSession_Deserialize[],
 	settings: OnlineSettings,
 };
 
 /**
- *  点卡口径。库里只有一行（`id = 1`），一行都没有就是默认值。
+ *  收益页一次读回来的上线数据：记录 + 口径。
+ * 
+ *  两份一起读写，因为「今天扣了多少点卡」需要同时用到时长与单价；
+ *  分两条命令会让卡片先画时长、再补数，中间那一拍是错的。
  */
-export type OnlineSettings = {
-	/**  点卡单价，**原值**：`15000` 表示 1.5 万/点（与收益、物价同口径）。 */
-	cardPrice: number | null,
-	/**  是否把点卡折算成账号支出。关掉只是口径开关：已算好的成本照旧显示，历史流水也不删。 */
-	cardCost: boolean,
+export type OnlinePayload_Serialize = {
+	sessions: OnlineSession_Serialize[],
+	settings: OnlineSettings,
 };
 
-/**
- *  一次上线（一段计时）。
- */
-export type OnlineSession = {
+/**  一次上线（一段计时）。 */
+export type OnlineSession = OnlineSession_Serialize | OnlineSession_Deserialize;
+
+/**  一次上线（一段计时）。 */
+export type OnlineSession_Deserialize = {
+	id: string,
+	/**  开始那天的 `YYYY-MM-DD`。跨天的那一段由前端按天切开，这里只记起点落在哪天。 */
+	date: string,
+	/**  开始时刻（毫秒时间戳）。 */
+	startAt: number,
+	/**  结束时刻；`null` = 还在计时。 */
+	endAt?: number | null,
+	/**  主体角色。多开时只是其中之一，完整名单在 `roster`。 */
+	characterId: string,
+	/**  多开的角色 id；空数组 = 单开（只有 `character_id`）。 */
+	roster: string[],
+	/**  这一刻的点卡单价快照（原值）。 */
+	cardPrice: number | null,
+	/**  本段开始时是否计入账号支出；切换全局开关不改变已有时段。 */
+	cardCost?: boolean,
+	note: string,
+	createdAt: number,
+};
+
+/**  一次上线（一段计时）。 */
+export type OnlineSession_Serialize = {
 	id: string,
 	/**  开始那天的 `YYYY-MM-DD`。跨天的那一段由前端按天切开，这里只记起点落在哪天。 */
 	date: string,
@@ -319,12 +403,22 @@ export type OnlineSession = {
 	endAt: number | null,
 	/**  主体角色。多开时只是其中之一，完整名单在 `roster`。 */
 	characterId: string,
-	/**  多开的角色 id；空数组 = 单开（只有 `characterId`）。 */
+	/**  多开的角色 id；空数组 = 单开（只有 `character_id`）。 */
 	roster: string[],
 	/**  这一刻的点卡单价快照（原值）。 */
 	cardPrice: number | null,
+	/**  本段开始时是否计入账号支出；切换全局开关不改变已有时段。 */
+	cardCost: boolean,
 	note: string,
 	createdAt: number,
+};
+
+/**  点卡口径。库里只有一行（`id = 1`），一行都没有就是默认值。 */
+export type OnlineSettings = {
+	/**  点卡单价，**原值**：`15000` 表示 1.5 万/点（与收益、物价同口径）。 */
+	cardPrice: number | null,
+	/**  是否把点卡折算成账号支出。关掉只是口径开关：已算好的成本照旧显示，历史流水也不删。 */
+	cardCost: boolean,
 };
 
 /**  一件物品。`points` 是它的全部历史，读出来时按日期倒序。 */

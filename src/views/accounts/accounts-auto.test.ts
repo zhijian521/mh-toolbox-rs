@@ -1,18 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AutoInput } from './accounts-store';
 
-/**
- * `accounts-store` 的 **`applyAutoEntries`（按天同步写账号的那一批）**。
- *
- * 与 `accounts-store.test.ts` 分开：那个文件只测「读失败闸门」，这里测的是另一件事——
- * 自动同步是**整批替换**，它必须做到三件互相牵制的事：
- *
- *   1. 只动 `source === 'auto'` 的，手记一条不碰；
- *   2. 输入没了（速记撤回、时长归零）那一条就得消失，而不是留一笔早已不存在的收益；
- *   3. 内容没变就不落盘——它挂在「速记一变就同步」上，连点十下不该写十次库。
- *
- * 三件事任何一件漏掉都不会报错，只会在账面上悄悄多一笔或少一笔，所以必须有用例钉住。
- */
+/** 自动账目按日期替换，保留手记和其他日期。 */
 
 function host(load: () => Promise<unknown>) {
     return {
@@ -65,7 +54,7 @@ describe('applyAutoEntries：整批替换自动记录', () => {
         const store = await loadStore(desktop);
         const { applyAutoEntries, entries } = store.useAccounts();
 
-        expect(applyAutoEntries([autoRow()]).ok).toBe(true);
+        expect(applyAutoEntries([autoRow()], ['2026-11-11']).ok).toBe(true);
         await flush();
 
         const auto = entries.value.find((one) => one.source === 'auto');
@@ -81,11 +70,11 @@ describe('applyAutoEntries：整批替换自动记录', () => {
         const store = await loadStore(desktop);
         const { applyAutoEntries } = store.useAccounts();
 
-        applyAutoEntries([autoRow()]);
+        applyAutoEntries([autoRow()], ['2026-11-11']);
         await flush();
         const writes = desktop.accountSave.mock.calls.length;
 
-        const again = applyAutoEntries([autoRow()]);
+        const again = applyAutoEntries([autoRow()], ['2026-11-11']);
         await flush();
         expect(again).toEqual({ ok: true, changed: false });
         expect(desktop.accountSave.mock.calls.length).toBe(writes);
@@ -97,13 +86,13 @@ describe('applyAutoEntries：整批替换自动记录', () => {
         const { addEntry, applyAutoEntries, entries } = store.useAccounts();
 
         addEntry(MANUAL);
-        applyAutoEntries([autoRow()]);
+        applyAutoEntries([autoRow()], ['2026-11-11']);
         await flush();
         expect(entries.value).toHaveLength(2);
 
         /* 空数组 = 这一天什么都不该有。逐条 upsert 的实现到这里会留下那条收益，
          * 于是用户撤回速记之后，账号里还挂着一笔已经不存在的一天的收入。 */
-        applyAutoEntries([]);
+        applyAutoEntries([], ['2026-11-11']);
         await flush();
         expect(entries.value).toHaveLength(1);
         expect(entries.value[0].category).toBe('点卡充值');
@@ -115,7 +104,10 @@ describe('applyAutoEntries：整批替换自动记录', () => {
         const store = await loadStore(desktop);
         const { applyAutoEntries, entries } = store.useAccounts();
 
-        applyAutoEntries([autoRow({ amount: 0 }), autoRow({ id: 'auto-x', amount: -5 })]);
+        applyAutoEntries(
+            [autoRow({ amount: 0 }), autoRow({ id: 'auto-x', amount: -5 })],
+            ['2026-11-11'],
+        );
         await flush();
         expect(entries.value).toEqual([]);
     });
@@ -125,14 +117,14 @@ describe('applyAutoEntries：整批替换自动记录', () => {
         const store = await loadStore(desktop);
         const { applyAutoEntries, entries } = store.useAccounts();
 
-        applyAutoEntries([autoRow()]);
+        applyAutoEntries([autoRow()], ['2026-11-11']);
         await flush();
         const before = entries.value[0].createdAt;
 
         /* 等一拍再改内容：不认领 createdAt 的话，这一拍之后的同步会把时间戳刷新，
          * 「新的在上」的列表里那一行会莫名其妙往下掉。 */
         await new Promise((resolve) => setTimeout(resolve, 5));
-        applyAutoEntries([autoRow({ amount: 50000 })]);
+        applyAutoEntries([autoRow({ amount: 50000 })], ['2026-11-11']);
         await flush();
 
         expect(entries.value).toHaveLength(1);
@@ -145,10 +137,20 @@ describe('applyAutoEntries：整批替换自动记录', () => {
         const store = await loadStore(desktop);
         const { applyAutoEntries, entries } = store.useAccounts();
 
-        const result = applyAutoEntries([autoRow()]);
+        const result = applyAutoEntries([autoRow()], ['2026-11-11']);
         expect(result.ok).toBe(false);
         expect(entries.value).toEqual([]);
         await flush();
         expect(desktop.accountSave).not.toHaveBeenCalled();
+    });
+    it('同步一天不删除另一日；清空也只作用于指定日', async () => {
+        const store = await loadStore(host(async () => []));
+        const { applyAutoEntries, entries } = store.useAccounts();
+        const old = autoRow({ id: 'old', date: '2026-10-01' });
+        applyAutoEntries([old, autoRow()], ['2026-10-01', '2026-11-11']);
+        applyAutoEntries([autoRow({ amount: 999 })], ['2026-11-11']);
+        expect(entries.value.find((one) => one.id === 'old')?.amount).toBe(46000);
+        applyAutoEntries([], ['2026-11-11']);
+        expect(entries.value.map((one) => one.id)).toEqual(['old']);
     });
 });

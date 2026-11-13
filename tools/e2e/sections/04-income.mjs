@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { dataDir } from '../db.mjs';
+import { importLoaded } from '../cdp.mjs';
 
 /* ============================ 4. 收益 ============================ */
 
@@ -96,6 +97,43 @@ export default async function run(ctx) {
         await t.step('记录测试前的今日笔数', async () => {
             before = await todayCount();
             t.info('今天已有', `${before} 笔`);
+        });
+
+        await t.step('收益工具归位：文件操作在速记卡头，上线管理在状态条', async () => {
+            await ui.goto('收益');
+            const layout = await cdp.evaluate(`(() => {
+                const find = (label) => document.querySelector('button[aria-label="' + label + '"]');
+                const fileButtons = [find('把物品单价导出成文件'), find('从文件导入物品单价')];
+                const onlineButtons = [find('补记一段已经过去的在线时长'), find('查看全部上线记录')];
+                const filesAtHead = fileButtons.every((button) => button?.closest('.section-head'));
+                const onlineAtBar = onlineButtons.every((button) => button?.closest('.online-actions'));
+                const quick = fileButtons[0]?.closest('.ledger-section');
+                const targets = quick?.querySelector('.targets');
+                const onlineHeights = onlineButtons.map((button) => button?.getBoundingClientRect().height ?? 0);
+                const live = document.querySelector('.online-bar .live-list');
+                return {
+                    filesAtHead,
+                    onlineAtBar,
+                    targetsVisible: !!targets && !targets.closest('.section-head') &&
+                        targets.scrollWidth <= targets.clientWidth + 1,
+                    quietFiles: fileButtons.every((button) => button?.querySelector('.app-icon') &&
+                        !button.textContent.trim() && button.title),
+                    consistentOnline: onlineHeights.every((height) => height > 0 &&
+                        Math.abs(height - onlineHeights[0]) < 1),
+                    switchFirst: !!document.querySelector('.card-settings > .cost-switch:first-child'),
+                    conciseLabels: !document.querySelector('.card-settings > .cap, .roster-label, .targets > .lbl'),
+                    liveScroll: !live || (getComputedStyle(live).overflowX === 'auto' &&
+                        getComputedStyle(live).overflowY === 'hidden'),
+                };
+            })()`);
+            t.check('导出导入属于物品速记标题栏', layout.filesAtHead);
+            t.check('补记记录属于在线区域', layout.onlineAtBar);
+            t.check('记给谁独立常驻且不横向溢出', layout.targetsVisible);
+            t.check('文件操作收成带说明的小图标', layout.quietFiles);
+            t.check('补记记录按钮高度一致', layout.consistentOnline);
+            t.check('点卡开关位于单价前面', layout.switchFirst);
+            t.check('移除点卡、在线和记给的独立标签', layout.conciseLabels);
+            t.check('在线角色保持横向滚动', layout.liveScroll);
         });
 
         await t.step('物品图标滤镜支持风格覆写，不影响整页', async () => {
@@ -383,29 +421,15 @@ export default async function run(ctx) {
 
             writeFileSync(hookFile, JSON.stringify({ open: priceFile }), 'utf8');
             await ui.clickLabel('从文件导入物品单价');
-            const asked = await cdp.waitFor(`!!document.querySelector('[role="dialog"]')`, {
-                timeout: 4000,
-            });
-            if (!asked) throw new Error('导入单价没有二次确认（会直接弹出系统文件窗）');
-            /* **必须限定在对话框里**：速记卡上那枚导入按钮的文字也是「导入」，
-             * 而它排在 DOM 前面。不限定的话 `clickText('button', '导入')` 命中的是
-             * 背景里被遮住的那一枚，报错长得像「按钮被遮罩挡住」——像是界面坏了，
-             * 实际是选择器抓错了人（2026-11-05 在这里红过四次）。 */
-            await ui.clickText('[role="dialog"] button', '导入', { exact: true });
-
             const merged = await cdp.waitFor(
                 `[...document.querySelectorAll('.notice .text')]
-                    .some((e) => (e.textContent || '').includes('已导入'))`,
+                    .some((e) => (e.textContent || '').includes('单价一致，无需导入'))`,
                 { timeout: 8000 },
             );
-            if (!merged) throw new Error(`没等到导入回执：${(await ui.text()).slice(0, 160)}`);
-            const receipt = await cdp.evaluate(
-                `[...document.querySelectorAll('.notice .text')].map((e) => e.textContent || '').join(' | ')`,
-            );
+            t.check('原样导入提示单价一致，跳过覆盖确认', merged);
             t.check(
-                '回执带「新增 / 覆盖」两个数',
-                /已导入 \d+ 件单价（新增 \d+ · 覆盖 \d+）/.test(receipt),
-                receipt,
+                '无变化不弹出覆盖确认',
+                await cdp.evaluate(`!document.querySelector('[role="dialog"]')`),
             );
 
             if (existsSync(hookFile)) rmSync(hookFile);
@@ -776,6 +800,7 @@ export default async function run(ctx) {
             );
         });
 
+        let onlineTestRecorded = false;
         await t.step('补记一段上线：状态条与走势图都跟着走', async () => {
             await ui.goto('收益');
             const NOTE = 'E2E上线一段';
@@ -798,9 +823,51 @@ export default async function run(ctx) {
                 return;
             }
 
-            await cdp.click('[role="dialog"] .pill-group button');
+            const freeRole = await cdp.evaluate(`(async () => {
+                const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
+                const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
+                const start = Date.now() - 3600000;
+                return useRoster().roster.value.findIndex((role) => !useOnline().sessions.value.some((one) => {
+                    const ids = one.roster.length ? one.roster : [one.characterId];
+                    return ids.includes(role.id) && one.startAt < Date.now() && (one.endAt ?? Infinity) > start;
+                }));
+            })()`);
+            if (freeRole < 0) {
+                t.info('补记', '所有角色最近一小时已有记录，跳过，避免重叠计时');
+                await cdp.key('Escape');
+                return;
+            }
+            await ui.markFirst(
+                `() => document.querySelectorAll('[role="dialog"] .pill-group button')[${freeRole}]`,
+            );
+            await cdp.click('[data-e2e="1"]');
+            const startBefore = await cdp.evaluate(
+                `document.querySelector('[role="dialog"] .time-input')?.value`,
+            );
+            await ui.fillSel('[role="dialog"] .time-input', '99:99');
+            await ui.clickLabel('补记');
+            const invalid = await cdp.waitFor(
+                `!!document.querySelector('[role="dialog"] .note.error')`,
+                { timeout: 2000 },
+            );
+            t.check('错误时刻保留补记窗', invalid);
+            await ui.fillSel('[role="dialog"] .time-input', startBefore);
+            const recovered = await cdp.waitFor(
+                `(() => {
+                const button = document.querySelector('[role="dialog"] button[aria-label="补记"]');
+                return button && !button.disabled && !document.querySelector('[role="dialog"] .note.error');
+            })()`,
+                { timeout: 2000 },
+            );
+            t.check('改正时刻后清除报错并恢复保存', recovered);
+            const fit = await cdp.evaluate(`(() => {
+                const row = document.querySelector('[role="dialog"] .times');
+                return row && row.scrollWidth <= row.clientWidth + 1;
+            })()`);
+            t.check('起止时刻两列不产生横向溢出', fit);
+
             /* 备注留一个只有这一段才有的字：记录窗里靠它定位自己写的那一行，不猜位置。 */
-            await ui.fillSel('input[placeholder="比如：摆摊 / 打宝图"]', NOTE);
+            await ui.fillSel('.income-form input[maxlength="40"]', NOTE);
             /* 起止时刻用窗里的默认值（「一小时前 → 现在」）：那正是最常见的补记场景，
              * 顺手也验证默认值落在正时长上——不足一分钟的记录会被规则层直接拒掉。 */
             await ui.clickLabel('补记');
@@ -808,9 +875,10 @@ export default async function run(ctx) {
                 timeout: 3000,
             });
             t.check('补记后窗自己关掉', closed);
+            onlineTestRecorded = closed;
 
             const bar = await cdp.evaluate(`(() => {
-                const cells = [...document.querySelectorAll('.online-bar .readout.tag')];
+                const cells = [...document.querySelectorAll('.online-bar .online-totals .readout')];
                 const pick = (cap) =>
                     cells.find(
                         (el) => (el.querySelector('.cap')?.textContent || '').trim() === cap,
@@ -832,6 +900,7 @@ export default async function run(ctx) {
                     head: (block.querySelector('h3')?.textContent || '').trim(),
                     drawn: !!block.querySelector('svg.chart-svg'),
                     lines: block.querySelectorAll('path.chart-line').length,
+                    legendValues: [...block.querySelectorAll('.legend-value')].map((el) => el.textContent.trim()),
                 }));
             })()`);
             t.check('两张走势图都在', charts.length === 2, `实际 ${charts.length} 张`);
@@ -840,9 +909,16 @@ export default async function run(ctx) {
                 charts[0]?.drawn === true && charts[0]?.lines > 0,
                 JSON.stringify(charts[0]),
             );
+            t.check(
+                '每条时长曲线的图例都显示末日数值',
+                charts[0]?.legendValues.length === charts[0]?.lines &&
+                    charts[0]?.legendValues.every((value) => /\d/.test(value)),
+                JSON.stringify(charts[0]?.legendValues),
+            );
         });
 
         await t.step('上线记录窗里找到刚补的那一段，删掉之后账回到原样', async () => {
+            if (!onlineTestRecorded) return;
             const NOTE = 'E2E上线一段';
             await ui.goto('收益');
             await ui.clickLabel('查看全部上线记录');
@@ -876,6 +952,21 @@ export default async function run(ctx) {
             );
             t.check('备注原样留在记录上', rows[0]?.note === NOTE, `实际「${rows[0]?.note}」`);
             t.info('这一段的角色', rows[0]?.who ?? '');
+
+            await ui.clickIn('[role="dialog"] .rec-table tbody tr', NOTE, { label: '改这一段' });
+            const editOpened = await cdp.waitFor(
+                `!!document.querySelector('[aria-label="结束时刻"]')`,
+                { timeout: 3000 },
+            );
+            t.check('修改上线记录保留只读终点', editOpened);
+            await cdp.key('Escape');
+            await sleep(250);
+            t.check(
+                '关闭修改后保留记录筛选',
+                await cdp.evaluate(
+                    `document.querySelector('[aria-label="搜索上线记录"]')?.value === 'E2E上线一段'`,
+                ),
+            );
 
             await ui.clickIn('[role="dialog"] .rec-table tbody tr', NOTE, { label: '删这一段' });
             await sleep(300);
@@ -930,7 +1021,7 @@ export default async function run(ctx) {
                 const panel = document.querySelector('.modal-panel');
                 const body = panel?.querySelector('.modal-body');
                 if (!panel || !body) return null;
-                const box = panel.querySelector('.log-scroll');
+                const box = panel.querySelector('.income-log-scroll');
                 return {
                     h: Math.round(panel.getBoundingClientRect().height),
                     bodyOverflow: getComputedStyle(body).overflowY,
@@ -943,7 +1034,7 @@ export default async function run(ctx) {
                 `实际 ${layout?.h}`,
             );
             /* 正文的 `overflow` 与数据无关，两条都判；表格那一半要看**这一天有没有记录**：
-             * `.log-scroll` 只在有行时渲染（空态是一句「这一天还没有记录」），没有行时它不存在，
+             * `.income-log-scroll` 只在有行时渲染（空态是一句「这一天还没有记录」），没有行时它不存在，
              * 把它当成失败就是一条**随数据变红**的断言——2026-11-05 在这份库上真红过一次：
              * 当天三条测试流水刚被删干净，表格没渲染。 */
             t.check(

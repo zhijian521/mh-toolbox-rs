@@ -968,6 +968,7 @@ mod tests {
                 character_id: "c1".to_string(),
                 roster: vec!["c1".to_string(), "c2".to_string()],
                 card_price: 15_000.0,
+                card_cost: true,
                 note: String::new(),
                 created_at: 4,
             }],
@@ -1033,6 +1034,7 @@ mod tests {
         assert_eq!(parsed.online.len(), 1);
         assert_eq!(parsed.online[0].end_at, None, "计时中的记录往返后仍是 null");
         assert_eq!(parsed.online[0].roster, vec!["c1", "c2"]);
+        assert!(parsed.online[0].card_cost, "逐段口径跟随备份往返");
         assert_eq!(parsed.card_settings.card_price, 16_500.0);
         assert!(!parsed.card_settings.card_cost);
 
