@@ -77,6 +77,54 @@
     --tile-face-hover: color-mix(in srgb, var(--slip-base) 82%, var(--card-tint));
     --tile-face-active: color-mix(in srgb, var(--slip-base) 76%, var(--well));
 }
+/* 角色卡与修改窗的读数共用字重，传送到 body 的装备浮片不受影响。 */
+.character-theme :is(.num, .slip-val, .meter-text) {
+    font-weight: 700;
+}
+
+/* 装备与召唤兽目录共用交互；图块尺寸和标记位置由各自目录决定。 */
+.character-choice-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+}
+.character-choice {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    padding: 6px 2px;
+    border: var(--w-hair) solid transparent;
+    border-radius: var(--r-2);
+    background: transparent;
+    color: var(--ink);
+    text-align: center;
+    cursor: pointer;
+}
+.character-choice:hover:not(:disabled) {
+    border-color: var(--rule-2);
+    background: var(--slip-base);
+}
+.character-choice:focus-visible {
+    outline: var(--ring);
+    outline-offset: var(--ring-offset);
+}
+.character-choice:disabled {
+    cursor: wait;
+}
+.character-choice-mark {
+    flex: none;
+    width: 22px;
+    height: 2px;
+    border-radius: 1px;
+    background: transparent;
+}
+.character-choice[aria-pressed='true'] .character-choice-mark {
+    background: var(--accent);
+}
+
 /* 装备与召唤兽共用详情纸和身份区，业务字段的排布仍由各表单负责。 */
 .board.character-detail {
     display: flex;

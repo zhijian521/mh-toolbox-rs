@@ -17,7 +17,7 @@ import GearEditor from './editor/GearEditor.vue';
 import PetEditor from './editor/PetEditor.vue';
 import ScreenshotUpload from './ocr/ScreenshotUpload.vue';
 import { normalizeCharacter } from './roster';
-import { EDITOR_MIN_H, EDITOR_W } from './editor-metrics';
+import { EDITOR_H, EDITOR_W } from './editor-metrics';
 import { focusInput } from './focus-input';
 
 /** 新建、手工修改和截图识别共用独立草稿，保存后由名册统一落库。 */
@@ -150,7 +150,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
         :data-school="draft.school || ''"
         :title="isNew ? '新角色' : `修改角色 · ${character.name || '未命名'}`"
         :width="EDITOR_W"
-        :height="EDITOR_MIN_H"
+        :height="EDITOR_H"
         fill
         :initial-focus="pane === 'attrs' ? 'none' : 'first'"
         @close="emit('cancel')"
@@ -205,7 +205,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
                             label="修改分区"
                         />
                         <span v-if="totalCount" class="ocr-count">
-                            认出 <b>{{ hitCount }}</b> / {{ totalCount }}
+                            认出 <b class="num">{{ hitCount }}</b> / {{ totalCount }}
                         </span>
                     </div>
                 </template>
@@ -266,9 +266,6 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
     min-height: 0;
     overflow: hidden;
 }
-.ocr :deep(.num) {
-    font-weight: 700;
-}
 .ocr-bar {
     display: flex;
     flex: none;
@@ -291,7 +288,6 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
 .ocr-count b {
     color: var(--num);
     font-size: var(--fs-sm);
-    font-weight: 700;
 }
 .ocr-card {
     flex: 1;

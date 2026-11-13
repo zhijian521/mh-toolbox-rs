@@ -100,6 +100,7 @@ export async function ocr(ctx) {
 
         const empty = await ui.text('.ocr-standard .upload-preview');
         t.check('空态说清了怎么粘', empty.includes('Ctrl + V'), empty);
+        t.check('未上传且无状态时不留空底栏', (await ui.count('.ocr-standard .upload-bar')) === 0);
 
         /* 页脚只有两枚按钮。原先那里还压着一句「只写认出来的项…乾元丹 / 潜能果
          * 不参与」，2026-11-07 用户要求删——别再顺手加回去。 */
@@ -879,6 +880,15 @@ export async function ocr(ctx) {
         try {
             await paste();
             await ui.waitFor('window.__e2eOcrRequests.length === 1');
+            t.check(
+                '识别中只显示一处提示并保留读屏播报',
+                await cdp.evaluate(`(() => {
+                    const upload = document.querySelector('.ocr-standard');
+                    return upload.querySelector('.upload-busy')?.textContent === '识别中…' &&
+                        !upload.querySelector('.upload-status') &&
+                        upload.querySelector('[role="status"]')?.textContent === '识别中…';
+                })()`),
+            );
             await resolveImage(0, 7001);
             await ui.waitFor(`!document.querySelector('.ocr-standard .upload-busy')`);
             await paste();

@@ -70,7 +70,7 @@
 }
 .skill-add:hover:not(:disabled) {
     border-color: var(--rule-2);
-    /* 同 `GearDetailForm` 的 `.inline-field`：纸走门派浅染后，悬停提亮取中点色，
+    /* 纸走门派浅染后，悬停提亮取中点色，
      * 回落 `--paper-2` 会在彩纸上贴一块白。 */
     background: var(--slip-base);
     color: var(--ink-2);

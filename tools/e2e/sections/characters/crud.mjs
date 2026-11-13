@@ -543,6 +543,24 @@ export async function pets(ctx) {
          * 两条一起验，才能区分「结构换了」与「只是换了个样式」。 */
         const railItems = await ui.count('.pet-editor .pet-choice');
         t.check('编辑页左栏列出全部召唤兽', railItems === 1, `实际 ${railItems} 行`);
+        t.check(
+            '召唤兽目录与详情头像共用主题阴影，选中标记保持短线',
+            await cdp.evaluate(`(() => {
+                const choice = document.querySelector('.pet-choice[aria-pressed="true"]');
+                const tile = choice?.querySelector('.press-tile');
+                const portrait = document.querySelector('.pet-block .portrait-picker summary .press-tile');
+                if (!tile || !portrait) return false;
+                const first = getComputedStyle(tile);
+                const second = getComputedStyle(portrait);
+                const mark = choice.querySelector('.pet-mark').getBoundingClientRect();
+                const emptyMark = document.querySelector('.pet-add .pet-mark');
+                return first.boxShadow !== 'none' && first.boxShadow === second.boxShadow &&
+                    Math.abs(tile.getBoundingClientRect().width - 52) < 1 &&
+                    Math.abs(mark.width - 22) < 1 && Math.abs(mark.height - 2) < 1 &&
+                    getComputedStyle(choice.querySelector('.pet-mark')).backgroundColor !==
+                        getComputedStyle(emptyMark).backgroundColor;
+            })()`),
+        );
         const nameInputs = await ui.count('.pet-block input[aria-label="召唤兽名称"]');
         t.check('右侧只渲染选中那一只', nameInputs === 1, `实际 ${nameInputs} 个名字框`);
 

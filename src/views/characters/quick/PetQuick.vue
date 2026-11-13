@@ -7,7 +7,7 @@ import PetScreenshot from '../ocr/PetScreenshot.vue';
 import { applyPetPanel } from '../ocr/pet-panel';
 import { cloneDraft } from './clone-draft';
 import { applyPet } from './quick-target';
-import { EDITOR_MIN_H, EDITOR_W } from '../editor-metrics';
+import { EDITOR_H, EDITOR_W } from '../editor-metrics';
 import { focusInput } from '../focus-input';
 import { hasPetName, type Pet } from '../pets';
 import type { CharacterData } from '../character';
@@ -49,7 +49,7 @@ onMounted(() => focusInput(form, 'input[aria-label="召唤兽名称"]'));
         :data-school="character.school || ''"
         :title="`快速修改 · 召唤兽 ${pet?.name.trim() || '未命名'}`"
         :width="EDITOR_W"
-        :min-height="EDITOR_MIN_H"
+        :height="EDITOR_H"
         fill
         initial-focus="none"
         @close="emit('close')"

@@ -70,11 +70,11 @@ const { icon: slotIcon } = useGearIcon();
                         <span class="gear-count">{{ filledCount }} / {{ gear.length }}</span></span
                     >
                 </div>
-                <nav class="gear-parts" aria-label="装备部位">
+                <nav class="gear-parts character-choice-grid" aria-label="装备部位">
                     <button
                         v-for="slot in gear"
                         :key="slot.slot"
-                        class="gear-slot"
+                        class="gear-slot character-choice"
                         :class="{ filled: filled(slot), 'has-shot': Boolean(shots[slot.slot]) }"
                         type="button"
                         :aria-label="'编辑' + slot.slot + '的装备'"
@@ -85,6 +85,7 @@ const { icon: slotIcon } = useGearIcon();
                     >
                         <IconTile v-if="slotIcon(slot)" class="slot-icon" :src="slotIcon(slot)" />
                         <span v-else class="slot-mark" aria-hidden="true">{{ slot.slot[0] }}</span>
+                        <span class="slot-selected character-choice-mark" aria-hidden="true"></span>
                     </button>
                 </nav>
             </template>
@@ -121,7 +122,6 @@ const { icon: slotIcon } = useGearIcon();
     display: flex;
     align-items: center;
     justify-content: space-between;
-    /* 部位计数固定行高，切换与删除装备时原图位置保持稳定。 */
     height: calc(20px * var(--fs-scale));
     color: var(--ink-2);
     font-size: var(--fs-sm);
@@ -133,77 +133,37 @@ const { icon: slotIcon } = useGearIcon();
     font-variant-numeric: tabular-nums;
 }
 .gear-parts {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 4px;
     padding-bottom: 10px;
     border-bottom: var(--w-hair) solid var(--rule-2);
 }
 .gear-slot {
-    position: relative;
-    /* 块面 48 只有这一处：图标与首字压印共用同一个数。原先两处各写一遍 48px，
-     * 改大小时只改一处就会让没图的部位比有图的小一圈。 */
     --slot-block: 48px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     gap: 0;
-    min-width: 0;
-    /* 底下那 9px 是给「落格印」留的位置：它只在选中时出现，但位置一旦按选中态撑开，
-     * 切部位时整排图标会跟着上下跳 2px。留白固定，印在一处出现或消失。 */
     padding: 6px 2px 9px;
-    border: var(--w-hair) solid transparent;
-    border-radius: var(--r-2);
-    background: transparent;
     color: var(--muted);
-    cursor: pointer;
 }
-/* 六列图标沿用块 48（`--slot-block`）/ 图 42，适应收窄后的截图栏。 */
 .gear-slot .slot-icon {
     --tile-w: var(--slot-block);
     --tile-h: var(--slot-block);
     --shot: 42px;
 }
-/* 空着的部位（没填装备名、也没有详情）：图标收色、退淡一档。十二格全亮着时分不出哪几件
- * 已经填过；压灰之后空格自己退到后排，填过的那几格站前面（用户 2026-11-10：「没有装备的
- * 话，装备图标格子可以稍微灰色一点」）。 */
 .gear-slot:not(.filled) .slot-icon {
     filter: grayscale(0.45);
     opacity: 0.6;
 }
-/* 悬停：只把格子提成一张纸。**不给朱**——朱在这套语言里是「当前这一件」，
- * 悬停与选中各自一个色，指针扫过去时才不会误读成「已经切过去了」。
- * 空格悬停把颜色还回来：灰是「这里还空着」的状态，不是这一格的固定长相。 */
-.gear-slot:hover {
-    border-color: var(--rule-2);
-    background: var(--paper-2);
+.gear-slot:hover:not(:disabled) {
     color: var(--ink);
 }
-.gear-slot:hover .slot-icon {
+.gear-slot:hover:not(:disabled) .slot-icon {
     filter: none;
     opacity: 1;
 }
-/* 选中：**只在图下面留一道朱印**（2026-11-10 第二轮：用户「选中时候外面的红色边框和背景
- * 不要了，可以保留图标按钮下面的红色下划线」）。原先那圈朱线 + 8% 朱底撤掉——一栏十二枚
- * 图标本来就密，框和底把格子切成一堆小方块；一道短印贴着图脚，既不切格子，也仍然只说
- * 一件事：当前是这一件。padding-bottom 那 9px 常年留着给这道印，印出现时整排不跳。 */
-.gear-slot[aria-pressed='true']::before {
+.slot-selected {
     position: absolute;
     bottom: 3px;
     left: 50%;
-    width: 22px;
-    height: 2px;
-    border-radius: 1px;
-    background: var(--accent);
     transform: translateX(-50%);
-    content: '';
 }
-.gear-slot:focus-visible {
-    outline: var(--ring);
-    outline-offset: var(--ring-offset);
-}
-/* 「这张图这次认过」= 右上角一粒靛点。原先旁边还有一粒苔绿的「这一件有内容」，
- * 2026-11-10 按用户要求撤掉——填没填已由空格的灰淡说清了，不必再点一次。 */
 .gear-slot.has-shot::after {
     position: absolute;
     top: 3px;
@@ -214,8 +174,6 @@ const { icon: slotIcon } = useGearIcon();
     background: var(--indigo-ink);
     content: '';
 }
-/* 没有图标时的首字压印：淡墨，标记「这类图还没切」——它与 `IconTile` 二选一，
- * 尺寸跟着块走（`--slot-block`），不跟字走。 */
 .slot-mark {
     display: grid;
     place-items: center;

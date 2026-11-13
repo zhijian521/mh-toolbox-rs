@@ -281,6 +281,16 @@ export async function quick(ctx) {
             { timeout: 3000 },
         );
         t.check('点兽牌直接进入快速修改', toQuick, await dialogTitle());
+        t.check(
+            '召唤兽快速修改定高，详情区独立滚动',
+            await cdp.evaluate(`(() => {
+                const panel = document.querySelector('.modal-panel');
+                const detail = panel.querySelector('.character-detail-content');
+                return Math.abs(panel.getBoundingClientRect().height - Math.min(740, innerHeight - 48)) < 1 &&
+                    getComputedStyle(detail).overflowY === 'auto' &&
+                    detail.getBoundingClientRect().bottom <= panel.querySelector('.modal-foot').getBoundingClientRect().top;
+            })()`),
+        );
         /* 名 / 等级 / 参战等级三条都在头一段右侧那一列里（2026-11-10 起头像收成一枚，
          * 三条挪到它右边，`.id7 .id-cell` 那套标记随结构一起撤了）。改数这一列里的输入格。 */
         const petLayout = await cdp.evaluate(`(() => ({

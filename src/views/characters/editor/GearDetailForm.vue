@@ -172,13 +172,13 @@ function addLine(label: string) {
                         <div class="stat-number">
                             <input
                                 v-model="item.row.value"
-                                class="field num-slot value-field"
+                                class="field num num-slot value-field"
                                 :aria-label="item.row.label + '属性值'"
                             />
                             <span v-if="hasExtra(item.row)" class="stat-extra">
                                 <input
                                     v-model="item.row.extra"
-                                    class="field num-slot value-field"
+                                    class="field num num-slot value-field"
                                     aria-label="括号值"
                                 />
                             </span>
@@ -205,7 +205,7 @@ function addLine(label: string) {
                         />
                         <input
                             v-model="item.row.value"
-                            class="field num-slot value-field"
+                            class="field num num-slot value-field"
                             :aria-label="item.row.label"
                         />
                         <PressButton
@@ -305,28 +305,6 @@ function addLine(label: string) {
 .gear-kind .slip-input {
     min-width: 0;
 }
-/* 类型是文字、等级是数：两格都收进票面那枚凹槽。等级这格由 `NumberField` 自己的
- * 72 宽收回到票宽——它那条是 0-1-0，压不过 `.slip-row .field.slip-input`（0-3-0），
- * 所以不必再写一遍宽度。 */
-.inline-field {
-    width: 100%;
-    min-width: 0;
-    height: auto;
-    padding: 2px 3px;
-    border-color: transparent;
-    border-radius: var(--r-1);
-    background: transparent;
-    box-shadow: none;
-    color: inherit;
-    font: inherit;
-    line-height: 1.5;
-}
-.inline-field:hover,
-.inline-field:focus {
-    border-color: var(--rule-2);
-    background: var(--slip-base);
-}
-
 .detail-row {
     display: grid;
     grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) calc(26px * var(--fs-scale));
@@ -359,7 +337,9 @@ function addLine(label: string) {
     min-width: 0;
     height: var(--gear-row-h);
     color: inherit;
-    font: inherit;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
 }
 .row-name.slip-row {
     gap: 0;
@@ -369,7 +349,6 @@ function addLine(label: string) {
 .value-field {
     padding: 0 6px;
     text-align: right;
-    font-weight: 700;
 }
 .stat-extra {
     position: relative;

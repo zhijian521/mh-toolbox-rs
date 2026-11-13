@@ -1092,9 +1092,9 @@ offsetHeight` 与 `scrollTop / clientHeight`，直接写 `scrollTop`）；⑤ **
     `.board`（`--board-paper` 当场有值），修改窗面板上没有这个变量时回落成同一个
     `light-dark(--paper-2, --paper)`——两处挂法本来就该是同一种纸。
     **纸上一律不要贴白条**：这两张详情纸内部的任何「底色」都写 `var(--slip-base)`，
-    不写 `var(--paper-2)`——后者在染色纸上是一块白补丁。已改过的三处：
-    `GearDetailForm` 的 `.inline-field:hover/:focus` 与 `.gear-add .press-btn` 的 `--tile-face*`
-    三态、`pet-detail-form.css` 的 `.skill-add:hover`。新增控件时照这条查一遍。
+    不写 `var(--paper-2)`——后者在染色纸上是一块白补丁。现有入口包括：
+    `GearDetailForm` 的 `.gear-add .press-btn` 的 `--tile-face*` 三态、
+    `pet-detail-form.css` 的 `.skill-add:hover`。新增控件时照这条查一遍。
 45. **scoped 里不要复用全局组合类的名字**。`blocks.css` 的 `.stack` / `.stack-pair` / `.note` /
     `.kit` 是跨组件的组合级排版，带着自己的意图（`.stack` 的 `max-width: 1240px` 是给「说明文字
     页」写的：再宽只会让说明拖成一条长线）。在某个视图的 `<style scoped>` 里再写一个 `.stack`，
@@ -1208,6 +1208,7 @@ offsetHeight` 与 `scrollTop / clientHeight`，直接写 `scrollTop`）；⑤ **
 - 字段契约只从**自己的模块**取：装备相关的类型与常量在 `gear.ts`、召唤兽在 `pets.ts`，`character.ts` **不再** `export *` 转出一份。同一个类型有两个入口时，改一处另一处静默落后，而类型是同一份所以编译也不报错。
 - 卡内六分区的页签选项只有一处：`character.ts` 的 `PANE_OPTIONS`。卡片与编辑器不要在组件里各自 `PANES.map(...)`——那还会在每次渲染新建数组，把滑块的 `values()` 一起换掉。
 - 装备部位格只有一个边长：`GearEditor.vue` 的 `--slot-block`（48px），图标与首字压印都读它。同一个 48 写两遍时，改大小只改一处会让没图的格子小一圈。
+- 角色完整修改、单件装备与单只召唤兽的尺寸共用 `editor-metrics.ts` 的 `EDITOR_W` / `EDITOR_H`，均为定高，长详情在卡内滚动；装备与召唤兽目录共用 `blocks.css` 的 `character-choice*`，头像材质复用 `PressTile`。角色卡与修改窗的读数字重统一由 `.character-theme` 管理。
 - 日期与时刻落成字符串只有两处：日期走 `services/format.ts` 的 `dateText`（收 `Date` 也收毫秒），时刻走 `services/clock.ts` 的 `timeText`（补零由同文件的 `pad2` 承担）。不要在窗口里再写一份 `padStart(2, '0')` 去拼 `YYYY-MM-DD` 或 `HH:mm`——这类函数改一处，另一处就静默落后，而它们都长得对。
 
 ## 4. 明确不做的事

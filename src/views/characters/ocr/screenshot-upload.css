@@ -23,6 +23,15 @@
 .upload-file {
     display: none;
 }
+/* 识别状态常驻供读屏播报，视觉提示只在图片蒙层或底栏出现一次。 */
+.upload-live {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
 .upload-preview {
     position: relative;
     display: flex;

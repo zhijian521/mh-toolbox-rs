@@ -151,6 +151,12 @@ export async function equipment(ctx) {
         );
         await ui.clickText('.ocr-tabs button', '属性', { exact: true });
         const standardSize = await dialogSize();
+        t.check(
+            '完整修改按可用视口定高',
+            Math.abs(
+                standardSize.height - (await cdp.evaluate('Math.min(740, innerHeight - 48)')),
+            ) < 1,
+        );
         const sizes = [];
         for (const pane of ['师门', '辅助', '修炼', '召唤兽']) {
             await ui.clickText('.ocr-tabs button', pane, { exact: true });
@@ -323,6 +329,13 @@ export async function equipment(ctx) {
     await t.step('快速修改上传：部位拦错、取消不写入、保存才生效', async () => {
         await openHead();
         await ui.waitFor(`!!document.querySelector('.gear-quick')`);
+        const quickHeight = await cdp.evaluate(
+            `document.querySelector('.modal-panel').getBoundingClientRect().height`,
+        );
+        t.check(
+            '装备快速修改与完整修改使用相同固定高度',
+            Math.abs(quickHeight - (await cdp.evaluate('Math.min(740, innerHeight - 48)'))) < 1,
+        );
         await checkButtonTheme(ctx, '.modal-panel');
         t.check(
             '无图时左侧保留截图入口，右侧详情只有一个名称',
@@ -468,6 +481,15 @@ export async function equipment(ctx) {
                 (await ui.exists('.gear-quick .kind-suit')),
         );
         for (let index = 0; index < 12; index++) await ui.clickLabel('添加宝石行');
+        t.check(
+            '增添长属性保持弹窗高度和数值字重',
+            await cdp.evaluate(`(() => {
+                const panel = document.querySelector('.modal-panel');
+                return Math.abs(panel.getBoundingClientRect().height - ${quickHeight}) < 1 &&
+                    [...panel.querySelectorAll('.value-field')].every(
+                        (input) => getComputedStyle(input).fontWeight === '700');
+            })()`),
+        );
         t.check(
             '长详情独立滚动，紧凑的快捷添加按钮固定在卡片底部',
             await cdp.evaluate(`(() => {

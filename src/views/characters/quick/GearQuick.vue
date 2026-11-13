@@ -7,7 +7,7 @@ import GearScreenshot from '../ocr/GearScreenshot.vue';
 import { mergeGearPanel, type GearPanelResult } from '../ocr/gear-panel';
 import { cloneDraft } from './clone-draft';
 import { applyGear } from './quick-target';
-import { EDITOR_MIN_H, EDITOR_W } from '../editor-metrics';
+import { EDITOR_H, EDITOR_W } from '../editor-metrics';
 import { focusInput } from '../focus-input';
 import type { GearDetail, GearSlotName } from '../gear';
 import type { CharacterData } from '../character';
@@ -56,7 +56,7 @@ onMounted(() => focusInput(form, '.gear-name-input'));
         :data-school="character.school || ''"
         :title="'快速修改 · ' + props.slotName"
         :width="EDITOR_W"
-        :min-height="EDITOR_MIN_H"
+        :height="EDITOR_H"
         fill
         initial-focus="none"
         @close="emit('close')"

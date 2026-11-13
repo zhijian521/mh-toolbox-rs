@@ -69,6 +69,7 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
             @change="onPick"
         />
         <section class="upload-left" :aria-label="`${label}截图`">
+            <span class="upload-live" role="status">{{ busy ? '识别中…' : status }}</span>
             <div v-if="$slots.navigation" class="upload-navigation"><slot name="navigation" /></div>
             <figure class="upload-preview" :class="{ empty: !src }">
                 <img v-if="src" :src="src" :alt="alt || `${label}原始截图`" />
@@ -83,9 +84,9 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
                         @click="picker?.click()"
                     />
                 </div>
-                <span v-if="busy" class="upload-busy">识别中…</span>
+                <span v-if="busy" class="upload-busy" aria-hidden="true">识别中…</span>
             </figure>
-            <div class="upload-bar">
+            <div v-if="src || (!busy && status)" class="upload-bar">
                 <PressButton
                     v-if="src"
                     icon="upload"
@@ -95,7 +96,7 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
                     :disabled="disabled || busy"
                     @click="picker?.click()"
                 />
-                <span class="upload-status" role="status">{{ busy ? '识别中…' : status }}</span>
+                <span v-if="!busy && status" class="upload-status" aria-hidden="true">{{ status }}</span>
             </div>
             <p v-if="error && !busy" class="upload-error" role="alert">{{ error }}</p>
             <slot name="feedback" />
