@@ -13,7 +13,7 @@
  * 与收益页同口径）。统一成一种单位反而会出现「1 元 = 1 万」这种中间态。
  */
 import type { IconName } from '../../components/icons';
-import { dateText, daysAgo, moneyText, parseDay, todayText } from '../../services/format';
+import { dateText, daysAgo, ledgerMoneyText, parseDay, todayText } from '../../services/format';
 import { makeId } from '../../services/shape';
 
 /** 币种。`rmb` 按元、`cash` 按万；这是**两本独立的账**，不是同一本账的两种记法。 */
@@ -103,35 +103,12 @@ export interface AccountStats {
 
 /* ---------- 读数 ---------- */
 
-/**
- * 人民币读数：`¥1,234.5`。
- *
- * 三个决定：① **带千分位**——账号页最常见的数是几百上千元，`1234.5` 要数一遍位数；
- * ② **去掉多余的零**，`¥30` 比 `¥30.00` 干净，而 `¥30.5` 保留了真实存在的角；
- * ③ **保留两位**而不是取整：人民币有分，把 30.5 记成 31 就是在替用户改账。
- *
- * 不用 `toLocaleString`：它的输出取决于运行环境的 locale，测试与会话里看到的可能不同。
- */
-function rmbText(amount: number): string {
-    const fixed = amount.toFixed(2).replace(/\.?0+$/, '');
-    const [whole, cents] = fixed.split('.');
-    const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return cents ? `¥${grouped}.${cents}` : `¥${grouped}`;
-}
-
-/**
- * 金额读数：人民币走 `¥`，梦幻币走 `moneyText`（万）。**按币种分派，绝不混算**。
- *
- * 0 一律显示 `—`，两种币同一个说法。写成 `¥0` 与 `0` 的话，两本账并排时一个带符号、
- * 一个不带，读起来像「人民币那本有个数、梦幻币那本是空的」。而 `—` 在账面上本来
- * 就是「这一栏没有东西」，与收益页的「支出 —」同一条。
- */
+/** 两本账分别按元、万显示，最多两位小数。 */
 export function amountText(amount: number, currency: Currency): string {
-    if (amount === 0) return '—';
-    return currency === 'rmb' ? rmbText(amount) : moneyText(amount);
+    return amount === 0 ? '—' : ledgerMoneyText(amount, currency);
 }
 
-/** 带方向的读数：`+¥30` / `−4.6 万`。负号用 `−`（U+2212），不是连字符。 */
+/** 带方向的读数：`+30 元` / `−4.6 万`。负号用 `−`（U+2212），不是连字符。 */
 export function signedText(entry: Pick<AccountEntry, 'amount' | 'currency' | 'kind'>): string {
     const sign = entry.kind === 'income' ? '+' : '−';
     return `${sign}${amountText(entry.amount, entry.currency)}`;
@@ -223,7 +200,9 @@ export function accountStats(entries: readonly AccountEntry[], currency: Currenc
         else expense += one.amount;
         count += 1;
     }
-    return { income, expense, net: income - expense, count };
+    income = quantize(income, currency);
+    expense = quantize(expense, currency);
+    return { income, expense, net: quantize(income - expense, currency), count };
 }
 
 /** 按日期区间与角色筛。空串表示不限，两者可同时为空（= 全部）。 */

@@ -35,7 +35,7 @@ const loaded = ref(false);
 /**
  * 一次写入的结果。
  *
- * 成功时把**落库那条**带回去：回执里要说「已记 ¥30」或「已记 4.6 万」，而调用方手里
+ * 成功时把**落库那条**带回去：回执里要说「已记 30 元」或「已记 4.6 万」，而调用方手里
  * 只有输入框里的数（万），换算成原值的那一步在这里。让它自己再乘一次 10000，
  * 就是把这个换算写两遍，迟早有一处忘了改。
  */
@@ -116,7 +116,7 @@ export interface EntryInput {
  * 人民币不收万：一笔记几十几百元，多一层换算只会让「30 元」要写成「0.003 万」。
  */
 function toStored(amount: number, currency: Currency): number {
-    if (currency === 'cash') return Math.round(amount * 10000);
+    if (currency === 'cash') return Math.round(amount * 100) * 100;
     return Math.round(amount * 100) / 100;
 }
 
@@ -177,11 +177,11 @@ export function updateEntry(id: string, input: EntryInput): AccountWrite {
     if (!persist.canWrite()) return { ok: false, error: '账号账本读取失败，先修好再来改' };
     const before = entries.value.find((one) => one.id === id);
     if (!before) return { ok: false, error: '这条记录已经不在了' };
+    if (before.source === 'auto') return { ok: false, error: '自动记录请到收益页修改' };
     const checked = check(input);
     if (!checked.ok) return checked;
     const composed = compose(input, checked.amount, id, before.createdAt);
-    /* **来源跟着原记录走**，不重置成手记：自动同步的那几条被改过之后如果降级成手记，
-     * 下一次同步就会另写一条同名的，账面上出现两笔一模一样的收益。 */
+    // 自动记录已在入口拒绝，保留原条目的来源。
     const entry: AccountEntry = { ...composed, source: before.source };
     /* 换整个数组而不是改对象字段：`entries` 是 `ref`，改内部字段不触发依赖，
      * 界面会「保存了但没动」。 */
@@ -278,7 +278,7 @@ export function applyAutoEntries(
 export function removeEntry(id: string): void {
     if (!persist.canWrite()) return;
     const before = entries.value.length;
-    entries.value = entries.value.filter((one) => one.id !== id);
+    entries.value = entries.value.filter((one) => one.id !== id || one.source === 'auto');
     if (entries.value.length !== before) persist();
 }
 

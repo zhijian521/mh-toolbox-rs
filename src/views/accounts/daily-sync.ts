@@ -31,15 +31,15 @@ function rowsOf(dates: ReadonlySet<string>, now: number): AutoInput[] {
         for (const [key, amount] of source) {
             const at = key.indexOf('|');
             const date = key.slice(0, at);
-            if (!dates.has(date) || amount <= 0) continue;
+            if (!dates.has(date) || amount === 0) continue;
             const characterId = key.slice(at + 1);
             rows.push({
                 id: dailyKey(date, characterId, category),
                 date,
                 characterId,
                 category,
-                kind: category === AUTO_CARD ? 'expense' : 'income',
-                amount,
+                kind: category === AUTO_CARD || amount < 0 ? 'expense' : 'income',
+                amount: Math.abs(amount),
                 note: category === AUTO_CARD ? '在线时长折算' : '收益页自动同步',
             });
         }

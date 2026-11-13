@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
+import ChartTooltip from '../../components/ChartTooltip.vue';
+import { chartColor } from '../../components/chart-style';
 import { shortDate } from '../../services/format';
 import {
     buildTrendChart,
     trendDash,
+    trendIndexAt,
     trendValueText,
     type TrendKind,
     type TrendSeries,
@@ -18,9 +21,20 @@ const props = withDefaults(
         /** 读屏与空态里说的「这张图画的是什么」，比如「每日在线时长」。 */
         label: string;
         height?: number;
+        valueText?: (value: number) => string;
+        axisText?: (value: number) => string;
+        axisUnit?: number;
+        dateText?: (label: string) => string;
+        colors?: string[];
     }>(),
     { height: 192 },
 );
+
+const formatValue = (value: number) =>
+    props.valueText?.(value) ?? trendValueText(value, props.kind);
+const formatDate = (label: string) => props.dateText?.(label) ?? shortDate(label);
+const seriesColor = (index: number) =>
+    chartColor(props.colors?.[index] ?? 'var(--series-' + ((index % 6) + 1) + ')');
 
 const host = ref<HTMLDivElement | null>(null);
 /* 量到之前先给一个假宽度：`buildTrendChart` 会把它抬到 160 下限，
@@ -55,6 +69,9 @@ const chart = computed(() =>
         labels: props.labels,
         series: props.series,
         kind: props.kind,
+        valueText: props.axisText,
+        axisUnit: props.axisUnit,
+        dateText: formatDate,
     }),
 );
 
@@ -72,18 +89,95 @@ const summary = computed(() => {
     if (!lines.length) return `${props.label}：还没有数据`;
     const tail = props.labels[props.labels.length - 1] ?? '';
     const parts = lines.map(
-        (one) => `${one.name} ${trendValueText(one.values[one.values.length - 1], props.kind)}`,
+        (one) => `${one.name} ${formatValue(one.values[one.values.length - 1])}`,
     );
-    return `${props.label}：${tail} 各号分别为 ${parts.join('、')}`;
+    return `${props.label}：${tail} 分别为 ${parts.join('、')}`;
 });
+
+const tooltipId = useId();
+const hoverIndex = ref<number | null>(null);
+const hoverPoint = ref<{ x: number; y: number } | null>(null);
+const hovered = computed(() => {
+    const index = hoverIndex.value;
+    if (index === null || chart.value.empty || index >= props.labels.length) return null;
+    return {
+        index,
+        title: props.labels[index],
+        x: chart.value.lines[0].points[index].x,
+        rows: chart.value.lines.map((line) => ({
+            label: line.name,
+            value: formatValue(line.points[index].value),
+            color: seriesColor(line.index),
+        })),
+    };
+});
+watch(
+    () => props.labels,
+    () => {
+        hoverIndex.value = null;
+    },
+);
+function move(event: PointerEvent) {
+    if ((event.target as Element).closest('.chart-tooltip')) return;
+    const svg = host.value?.querySelector('svg');
+    if (!svg) return;
+    const box = svg.getBoundingClientRect();
+    const x = ((event.clientX - box.left) * chart.value.width) / box.width;
+    const y = ((event.clientY - box.top) * chart.value.height) / box.height;
+    const plot = chart.value.plot;
+    const next =
+        y < plot.top || y > plot.top + plot.height
+            ? null
+            : trendIndexAt(plot, props.labels.length, x);
+    const hostBox = host.value!.getBoundingClientRect();
+    hoverPoint.value = { x: event.clientX - hostBox.left, y: event.clientY - hostBox.top };
+    hoverIndex.value = next;
+}
+function navigate(event: KeyboardEvent) {
+    if ((event.target as Element).closest('.chart-tooltip') && event.key !== 'Escape') return;
+    if (event.key === 'Escape') {
+        hoverIndex.value = null;
+        event.stopPropagation();
+        return;
+    }
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key) || chart.value.empty)
+        return;
+    event.preventDefault();
+    hoverPoint.value = null;
+    const last = props.labels.length - 1;
+    hoverIndex.value =
+        event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? last
+              : Math.max(
+                    0,
+                    Math.min(
+                        last,
+                        (hoverIndex.value ?? last) + (event.key === 'ArrowLeft' ? -1 : 1),
+                    ),
+                );
+}
+function leaveFocus(event: FocusEvent) {
+    if (!(event.relatedTarget instanceof Node) || !host.value?.contains(event.relatedTarget))
+        hoverIndex.value = null;
+}
 
 const lastDay = computed(() => props.labels[props.labels.length - 1] ?? '');
 const emptyText = computed(() => '暂无' + props.label + '记录');
 </script>
 
 <template>
-    <div ref="host" class="trend">
-        <div class="chart" :style="{ '--trend-height': height + 'px' }">
+    <div class="trend chart-panel">
+        <div
+            ref="host"
+            class="chart chart-surface"
+            :style="{ '--trend-height': height + 'px' }"
+            @pointermove="move"
+            @pointerleave="hoverIndex = null"
+            @keydown="navigate"
+            @focusout="leaveFocus"
+        >
             <svg
                 v-if="!chart.empty"
                 class="chart-svg"
@@ -92,6 +186,12 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
                 :height="chart.height"
                 role="img"
                 :aria-label="summary"
+                :aria-describedby="hovered ? tooltipId : undefined"
+                tabindex="0"
+                @focus="
+                    hoverIndex = labels.length - 1;
+                    hoverPoint = null;
+                "
             >
                 <g class="chart-guides" aria-hidden="true">
                     <line
@@ -127,25 +227,52 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
                     />
                 </g>
 
-                <path
+                <!-- 同一条路径叠暗侧、彩面和亮边，虚线同步，主线仍落在真实坐标上。 -->
+                <g
                     v-for="line in chart.lines"
                     :key="line.id"
-                    class="chart-line"
-                    :style="{ stroke: `var(--series-${(line.index % 6) + 1})` }"
-                    :d="line.path"
+                    class="chart-series"
+                    :style="{ '--chart-color': seriesColor(line.index) }"
                     :stroke-dasharray="trendDash(line.index)"
-                />
+                    aria-hidden="true"
+                >
+                    <path class="chart-line-depth" :d="line.path" />
+                    <path class="chart-line" :d="line.path" />
+                    <path class="chart-line-glint" :d="line.path" />
+                </g>
 
-                <!-- 每条线的末端一个空心圈：它是「今天」。只有一个点时也靠它把线看见。 -->
-                <circle
+                <g
                     v-for="line in chart.lines"
                     :key="`dot-${line.id}`"
-                    class="chart-dot"
-                    :style="{ stroke: `var(--series-${(line.index % 6) + 1})` }"
-                    :cx="line.last.x"
-                    :cy="line.last.y"
-                    r="3"
-                />
+                    class="chart-marker"
+                    :style="{ '--chart-color': seriesColor(line.index) }"
+                    aria-hidden="true"
+                >
+                    <circle class="chart-dot" :cx="line.last.x" :cy="line.last.y" r="4.2" />
+                    <circle
+                        class="chart-dot-glint"
+                        :cx="line.last.x - 1"
+                        :cy="line.last.y - 1.3"
+                        r="1.2"
+                    />
+                </g>
+
+                <g v-if="hovered" class="chart-hover-mark" aria-hidden="true">
+                    <line
+                        :x1="hovered.x"
+                        :x2="hovered.x"
+                        :y1="chart.plot.top"
+                        :y2="chart.plot.top + chart.plot.height"
+                    />
+                    <circle
+                        v-for="line in chart.lines"
+                        :key="line.id"
+                        :cx="line.points[hovered.index].x"
+                        :cy="line.points[hovered.index].y"
+                        r="4"
+                        :style="{ stroke: seriesColor(line.index) }"
+                    />
+                </g>
 
                 <g class="chart-axis chart-dates" aria-hidden="true">
                     <text
@@ -160,10 +287,21 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
             </svg>
 
             <p v-else class="trend-empty">{{ emptyText }}</p>
+            <ChartTooltip
+                v-if="hovered"
+                :id="tooltipId"
+                :title="hovered.title"
+                :rows="hovered.rows"
+                :anchor="hoverPoint"
+            />
         </div>
 
-        <div v-if="legend.length" class="trend-legend" :aria-label="lastDay + ' 各角色读数'">
-            <span class="legend-date">{{ shortDate(lastDay) }}</span>
+        <div
+            v-if="legend.length"
+            class="trend-legend chart-legend-shelf"
+            :aria-label="lastDay + ' 读数'"
+        >
+            <span class="legend-date">{{ formatDate(lastDay) }}</span>
             <span v-for="one in legend" :key="one.id" class="legend-item">
                 <svg class="swatch" viewBox="0 0 24 4" aria-hidden="true">
                     <line
@@ -171,12 +309,12 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
                         y1="2"
                         x2="24"
                         y2="2"
-                        :stroke="'var(--series-' + ((one.index % 6) + 1) + ')'"
+                        :stroke="seriesColor(one.index)"
                         :stroke-dasharray="trendDash(one.index)"
                     />
                 </svg>
                 <span class="legend-name">{{ one.name }}</span>
-                <span class="legend-value">{{ trendValueText(one.lastValue, kind) }}</span>
+                <span class="legend-value">{{ formatValue(one.lastValue) }}</span>
             </span>
         </div>
     </div>
@@ -194,17 +332,16 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
 
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 0;
     min-width: 0;
+    margin-bottom: 5px;
 }
 
 .chart {
+    position: relative;
     width: 100%;
     min-width: 0;
     min-height: var(--trend-height);
-    border-radius: var(--r-3);
-    background: color-mix(in srgb, var(--paper) 82%, var(--well));
-    box-shadow: inset 0 0 0 var(--w-hair) var(--rule);
 }
 .chart-svg {
     display: block;
@@ -235,24 +372,56 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
 .chart-dates text:last-child {
     fill: var(--ink-2);
 }
-.chart-line {
+.chart-series path {
     fill: none;
-    stroke-width: 1.8;
     stroke-linecap: round;
     stroke-linejoin: round;
     vector-effect: non-scaling-stroke;
+    pointer-events: none;
+}
+.chart-line-depth {
+    stroke: var(--chart-line-shade);
+    stroke-width: 3.4;
+    transform: translateY(1px);
+}
+.chart-line {
+    stroke: var(--chart-color);
+    stroke-width: 2.4;
+    filter: var(--chart-line-shadow);
+}
+.chart-line-glint {
+    stroke: var(--chart-line-gleam);
+    stroke-width: 0.8;
+    transform: translate(-0.2px, -0.5px);
 }
 .chart-dot {
-    fill: none;
-    stroke-width: 1.8;
+    fill: var(--chart-color);
+    stroke: var(--chart-line-shade);
+    stroke-width: 1;
+    filter: var(--chart-point-shadow);
+}
+.chart-dot-glint {
+    fill: var(--chart-line-gleam);
+    pointer-events: none;
 }
 
+.chart-hover-mark {
+    pointer-events: none;
+}
+.chart-hover-mark line {
+    stroke: var(--muted);
+    stroke-width: 1;
+    stroke-dasharray: 3 4;
+}
+.chart-hover-mark circle {
+    fill: var(--paper);
+    stroke-width: 2;
+}
 .trend-legend {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 6px 18px;
-    padding: 0 2px;
     font-size: var(--fs-mini);
 }
 .legend-date {

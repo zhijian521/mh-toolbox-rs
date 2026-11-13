@@ -6,6 +6,7 @@ import {
     dayText,
     daysAgo,
     fromWan,
+    ledgerMoneyText,
     moneyText,
     parseDay,
     priceLabel,
@@ -151,5 +152,28 @@ describe('parseDay：日期文本读回 Date', () => {
     it('缺月/日兜底成 1 号，不产出 Invalid Date', () => {
         expect(dateText(parseDay('2026'))).toBe('2026-01-01');
         expect(Number.isNaN(parseDay('2026').getTime())).toBe(false);
+    });
+});
+
+describe('账号与收益金额：元、万与两位小数', () => {
+    it('人民币按元显示，去尾零并保留千分位', () => {
+        expect(ledgerMoneyText(1234.567, 'rmb')).toBe('1,234.57 元');
+        expect(ledgerMoneyText(30, 'rmb')).toBe('30 元');
+        expect(ledgerMoneyText(0.1 + 0.2, 'rmb')).toBe('0.3 元');
+    });
+
+    it('梦幻币始终按万显示，不足一万与满亿也不换单位', () => {
+        expect(ledgerMoneyText(8000)).toBe('0.8 万');
+        expect(ledgerMoneyText(12345)).toBe('1.23 万');
+        expect(ledgerMoneyText(12399)).toBe('1.24 万');
+        expect(ledgerMoneyText(100000000)).toBe('10,000 万');
+        expect(ledgerMoneyText(-12399)).toBe('1.24 万');
+    });
+
+    it('零与非有限数不产生非法读数', () => {
+        expect(ledgerMoneyText(0)).toBe('0 万');
+        expect(ledgerMoneyText(0, 'rmb')).toBe('0 元');
+        expect(ledgerMoneyText(NaN)).toBe('—');
+        expect(ledgerMoneyText(Infinity, 'rmb')).toBe('—');
     });
 });

@@ -57,6 +57,7 @@ function onEnter(event: KeyboardEvent) {
             <fieldset class="income-form" :disabled="locked">
                 <PriceField
                     v-model="amount"
+                    :precision="2"
                     :label="isMoney ? '这笔多少钱' : '单价'"
                     stepper
                     :error="showError ? error : ''"

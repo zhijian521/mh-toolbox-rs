@@ -9,7 +9,7 @@ import { notify } from '../../composables/use-notify';
 import { useMinuteNow } from '../../composables/use-minute-now';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import { useToday } from '../../composables/use-today';
-import { moneyText, toWan } from '../../services/format';
+import { ledgerMoneyText, toWan } from '../../services/format';
 import { characterName, useRoster } from '../characters/roster';
 import CardPriceDialog from './CardPriceDialog.vue';
 import {
@@ -55,7 +55,7 @@ async function savePrice(amount: number) {
         return result.ok;
     });
     if (!ok) return;
-    notify.success('点卡按 ' + moneyText(amount) + '/点 计');
+    notify.success('点卡按 ' + ledgerMoneyText(amount) + '/点 计');
     closePrice();
 }
 
@@ -94,11 +94,11 @@ function whoText(one: OnlineSession): string {
                 <button
                     type="button"
                     class="price-tag"
-                    :title="`点卡单价 ${moneyText(settings.cardPrice)}/点，点一下改`"
-                    :aria-label="`点卡单价 ${moneyText(settings.cardPrice)}/点，点一下改`"
+                    :title="`点卡单价 ${ledgerMoneyText(settings.cardPrice)}/点，点一下改`"
+                    :aria-label="`点卡单价 ${ledgerMoneyText(settings.cardPrice)}/点，点一下改`"
                     @click="priceOpen = true"
                 >
-                    <span class="val">{{ moneyText(settings.cardPrice) }}</span>
+                    <span class="val">{{ ledgerMoneyText(settings.cardPrice) }}</span>
                     <span class="price-unit">/ 点</span>
                     <AppIcon name="edit" class="mark" />
                 </button>
@@ -114,7 +114,7 @@ function whoText(one: OnlineSession): string {
                 <div class="readout">
                     <span class="cap">今日点卡</span>
                     <span class="val" :class="{ cost: totals.cost > 0 }">{{
-                        totals.cost > 0 ? moneyText(totals.cost) : '—'
+                        totals.cost > 0 ? ledgerMoneyText(totals.cost) : '—'
                     }}</span>
                 </div>
             </div>

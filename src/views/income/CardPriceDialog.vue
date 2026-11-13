@@ -4,7 +4,7 @@ import { usePositiveAmount } from '../../composables/use-positive-amount';
 import ModalShell from '../../components/ModalShell.vue';
 import PriceField from '../../components/PriceField.vue';
 import PressButton from '../../components/PressButton.vue';
-import { moneyText } from '../../services/format';
+import { ledgerMoneyText } from '../../services/format';
 import { POINTS_PER_HOUR } from './online';
 
 const props = defineProps<{
@@ -43,13 +43,14 @@ function submit() {
             <fieldset class="income-form" :disabled="locked">
                 <PriceField
                     v-model="amount"
+                    :precision="2"
                     label="每点多少钱"
                     stepper
                     :error="showError ? error : ''"
                     @update:model-value="typed = true"
                 />
                 <p v-if="hourly > 0" class="meta">
-                    一个号每小时 {{ POINTS_PER_HOUR }} 点，约 {{ moneyText(hourly) }}；{{
+                    一个号每小时 {{ POINTS_PER_HOUR }} 点，约 {{ ledgerMoneyText(hourly) }}；{{
                         cardCost ? '之后上线计入账号收支' : '之后上线不计入账号收支'
                     }}。
                 </p>

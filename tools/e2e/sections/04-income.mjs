@@ -8,12 +8,31 @@ import { importLoaded } from '../cdp.mjs';
 export default async function run(ctx) {
     const { cdp, ui, t, want, sleep, baseline, dbCount } = ctx;
 
+    const autoIncomeMatches = () =>
+        cdp.waitFor(
+            `(async () => {
+        const invoke = window.__TAURI_INTERNALS__.invoke;
+        const [income, accounts] = await Promise.all([invoke('income_load'), invoke('account_load')]);
+        const net = new Map();
+        for (const one of income.entries) {
+            const key = JSON.stringify([one.date, one.characterId]);
+            net.set(key, (net.get(key) || 0) + (one.kind === 'expense' ? -one.amount : one.amount));
+        }
+        const expected = [...net].filter(([, amount]) => amount !== 0)
+            .map(([key, amount]) => JSON.stringify([key, amount])).sort();
+        const actual = accounts.filter((one) => one.source === 'auto' && one.category === '游戏收益')
+            .map((one) => JSON.stringify([JSON.stringify([one.date, one.characterId]), one.kind === 'expense' ? -one.amount : one.amount])).sort();
+        return JSON.stringify(actual) === JSON.stringify(expected);
+    })()`,
+            { timeout: 4000 },
+        );
+
     /**
      * 统计条四格的文本（名目 / 读数 / 副文 / 较上一档）。
      *
      * 2026-11-05 改版后每格多了两层，这两层是**算出来的**（笔均、占比、结余率、上一档），
      * 而算错不会报错——只会显示一个看着正常的错数。所以这里读的是文本本身，
-     * 不是「元素存在」：格式对不对（「31 笔 · 均 14.9 万」「+6 笔」）一并盯住。
+     * 不是「元素存在」：格式对不对（「31 笔 · 均 14.92 万」「+6 笔」）一并盯住。
      */
     const statCells = async () =>
         cdp.evaluate(`(() => [...document.querySelectorAll('.stats .stat')].map((el) => ({
@@ -234,6 +253,10 @@ export default async function run(ctx) {
 
             const after = await todayCount();
             t.check('记一笔后今日笔数 +1', after === before + 1, `${before} → ${after}`);
+            t.check(
+                '速记净额按日期角色自动同步到账户，收支方向与金额一致',
+                await autoIncomeMatches(),
+            );
             baseline.quickPricedByTest = !hadPrice;
         });
 
@@ -297,6 +320,7 @@ export default async function run(ctx) {
                     ledgerRadius: csOf(ledger).borderRadius,
                     gap: boxes.length > 1 ? Math.round(boxes[1].left - boxes[0].right) : -1,
                     colors: values.map((el) => (el ? csOf(el).color : '')),
+                    tones: values.map((el) => el?.classList.contains('loss') ? 'loss' : el?.classList.contains('gain') ? 'gain' : 'num'),
                     moss: inkOf('var(--moss)'),
                     cinnabar: inkOf('var(--cinnabar)'),
                     num: inkOf('var(--num)'),
@@ -321,20 +345,25 @@ export default async function run(ctx) {
                 '实际 ' + look.gap + 'px',
             );
             t.check(
-                '收入读数是苔绿',
-                look.colors[0] === look.moss,
+                '收入读数按金额取业务色或零值中性色',
+                look.colors[0] === (look.tones[0] === 'gain' ? look.moss : look.num),
                 look.colors[0] + ' / 令牌 ' + look.moss,
             );
             t.check(
-                '支出读数是朱红',
-                look.colors[1] === look.cinnabar,
+                '支出读数按金额取业务色或零值中性色',
+                look.colors[1] === (look.tones[1] === 'loss' ? look.cinnabar : look.num),
                 look.colors[1] + ' / 令牌 ' + look.cinnabar,
             );
             /* 净额随正负走：账本里刚记过一笔收入，此刻应为苔绿。不断言「永远绿」——
              * 净额为负的那天它必须转朱，那才是这条规则的意思。 */
             t.check(
-                '净额读数是苔绿（当天为正）',
-                look.colors[2] === look.moss,
+                '净额读数随盈亏和零值变化',
+                look.colors[2] ===
+                    (look.tones[2] === 'loss'
+                        ? look.cinnabar
+                        : look.tones[2] === 'gain'
+                          ? look.moss
+                          : look.num),
                 look.colors[2] + ' / 令牌 ' + look.moss,
             );
             t.check(
@@ -586,7 +615,11 @@ export default async function run(ctx) {
 
             /* 外框画在 table 上而不是滚动容器上：挂在容器上时行会从框底下滚过去。
              * border-collapse: separate 只为一件事——collapse 下 border-radius 不生效。 */
-            t.check('表格最外边有一圈边框', look.border === '1px solid', `实际 ${look.border}`);
+            t.check(
+                '表格最外边有一圈边框',
+                parseFloat(look.border) > 0 && look.border.endsWith(' solid'),
+                `实际 ${look.border}`,
+            );
             t.check('边框带圆角', look.radius !== '0px', `实际 ${look.radius}`);
 
             t.check('至少两行可比（斑马纹要有第二行）', look.rows >= 2, `实际 ${look.rows} 行`);
@@ -735,6 +768,7 @@ export default async function run(ctx) {
             t.check('删掉 3 条', removed === 3, `实际删了 ${removed} 条`);
             const now = await todayCount();
             t.check('今日笔数回到测试前', now === before, `期望 ${before}，实际 ${now}`);
+            t.check('删除源流水后自动账目同步还原', await autoIncomeMatches());
         });
 
         /* ---------------- 上线计时、点卡单价、每日走势（2026-11-12 补） ----------------
@@ -899,11 +933,29 @@ export default async function run(ctx) {
                 return [...document.querySelectorAll('.chart-block')].map((block) => ({
                     head: (block.querySelector('h3')?.textContent || '').trim(),
                     drawn: !!block.querySelector('svg.chart-svg'),
+                    panel: !!block.querySelector('.chart-panel > .chart-surface'),
+                    shelf: !!block.querySelector('.chart-panel > .chart-legend-shelf'),
+                    raised: (() => {
+                        const line = block.querySelector('.chart-line');
+                        const point = block.querySelector('.chart-dot');
+                        const layers = block.querySelectorAll('.chart-series');
+                        return !!line && !!point && getComputedStyle(line).filter !== 'none' && getComputedStyle(point).filter !== 'none'
+                            && [...layers].every((one) => one.querySelector('.chart-line-depth') && one.querySelector('.chart-line-glint')
+                                && one.querySelectorAll('path').length === 3);
+                    })(),
                     lines: block.querySelectorAll('path.chart-line').length,
                     legendValues: [...block.querySelectorAll('.legend-value')].map((el) => el.textContent.trim()),
                 }));
             })()`);
             t.check('两张走势图都在', charts.length === 2, `实际 ${charts.length} 张`);
+            t.check(
+                '走势图使用完整底板，图例位于底板内',
+                charts.every((one) => one.panel && (!one.drawn || one.shelf)),
+            );
+            t.check(
+                '有数据的折线与末日标记使用立体材质',
+                charts.filter((one) => one.drawn).every((one) => one.raised),
+            );
             t.check(
                 '「每日在线时长」按号画出线来（不是一句空态）',
                 charts[0]?.drawn === true && charts[0]?.lines > 0,
@@ -915,6 +967,88 @@ export default async function run(ctx) {
                     charts[0]?.legendValues.every((value) => /\d/.test(value)),
                 JSON.stringify(charts[0]?.legendValues),
             );
+        });
+
+        await t.step('折线悬停日期明细、键盘切换与关闭', async () => {
+            const point = await cdp.evaluate(`(() => {
+                const svg = document.querySelector('.chart-block .chart-svg');
+                if (!svg) return null;
+                svg.scrollIntoView({ block: 'center' });
+                const box = svg.getBoundingClientRect();
+                const guides = [...svg.querySelectorAll('.chart-guides line')];
+                const first = guides[0];
+                const last = guides[guides.length - 1];
+                return { x: box.left + (Number(first.getAttribute('x1')) + Number(first.getAttribute('x2'))) / 2,
+                    y: box.top + (Number(first.getAttribute('y1')) + Number(last.getAttribute('y1'))) / 2 };
+            })()`);
+            if (!point) throw new Error('缺少用于悬停的时长图');
+            await cdp.send('Input.dispatchMouseEvent', {
+                type: 'mouseMoved',
+                ...point,
+                button: 'none',
+                buttons: 0,
+            });
+            t.check(
+                '悬停显示日期、各系列明细与标记',
+                await cdp.waitFor(
+                    "!!document.querySelector('.chart-block .chart-tooltip .tooltip-heading') && document.querySelectorAll('.chart-block .tooltip-row').length > 0 && !!document.querySelector('.chart-hover-mark')",
+                    { timeout: 2000 },
+                ),
+            );
+            const before = await cdp.evaluate(
+                "document.querySelector('.chart-block .chart-tooltip').getBoundingClientRect().left",
+            );
+            await cdp.send('Input.dispatchMouseEvent', {
+                type: 'mouseMoved',
+                x: point.x + 6,
+                y: point.y,
+                button: 'none',
+                buttons: 0,
+            });
+            t.check(
+                '明细随鼠标移动并留在图表内',
+                await cdp.waitFor(
+                    `(() => {
+                const tip = document.querySelector('.chart-block .chart-tooltip');
+                const host = document.querySelector('.chart-block .chart');
+                if (!tip || !host) return false;
+                const box = tip.getBoundingClientRect();
+                const frame = host.getBoundingClientRect();
+                return Math.abs(box.left - ${before}) > 1 && box.left >= frame.left && box.right <= frame.right
+                    && box.top >= frame.top && box.bottom <= frame.bottom;
+            })()`,
+                    { timeout: 2000 },
+                ),
+            );
+            t.check(
+                '纵轴刻度只显示整数',
+                await cdp.evaluate(`(() => {
+                const labels = [...document.querySelectorAll('.chart-block .chart-axis:not(.chart-dates) text')].map((el) => el.textContent.trim());
+                return labels.length >= 2 && labels.every((label) => /^[−-]?[\\d,]+ (元|万|分|时)$/.test(label));
+            })()`),
+            );
+            await cdp.evaluate("document.querySelector('.chart-block .chart-svg').focus()");
+            await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Home' });
+            await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Home' });
+            const firstDay = await cdp.evaluate(
+                "document.querySelector('.chart-block .tooltip-heading')?.textContent",
+            );
+            await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'End' });
+            await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'End' });
+            t.check(
+                'Home、End 查看不同日期',
+                firstDay !==
+                    (await cdp.evaluate(
+                        "document.querySelector('.chart-block .tooltip-heading')?.textContent",
+                    )),
+            );
+            await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape' });
+            await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape' });
+            t.check(
+                'Esc 收起折线明细',
+                await cdp.waitFor("!document.querySelector('.chart-tooltip')", { timeout: 2000 }),
+            );
+            await cdp.evaluate("document.querySelector('.chart-block .chart-svg').blur()");
         });
 
         await t.step('上线记录窗里找到刚补的那一段，删掉之后账回到原样', async () => {
@@ -938,7 +1072,7 @@ export default async function run(ctx) {
                 dur: (tr.querySelector('.c-dur')?.textContent || '').trim(),
                 who: (tr.querySelector('.c-who')?.textContent || '').trim(),
                 note: (tr.querySelector('.c-note')?.textContent || '').trim(),
-            })))`);
+            })))()`);
             t.check('搜到刚补的那一段（只有一段）', rows.length === 1, JSON.stringify(rows));
             t.check(
                 '时长是默认的「一小时前 → 现在」',
@@ -1104,8 +1238,8 @@ export default async function run(ctx) {
                 };
             })()`);
             t.check(
-                '跨天后时间列带日期（表头加宽）',
-                crossed.wide === true,
+                '跨天后有记录则时间列加宽，无记录则显示区间空态',
+                crossed.body ? crossed.wide : crossed.blank.includes('这段时间'),
                 JSON.stringify(crossed),
             );
             t.check(

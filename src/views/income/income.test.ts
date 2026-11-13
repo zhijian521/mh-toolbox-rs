@@ -26,11 +26,11 @@ import {
  * 只会让「今天赚了多少」变成一个看起来正常的错数。
  */
 describe('收益：金额呈现', () => {
-    it('金额一句话与物价页同一口径', () => {
-        expect(amountText(41200000)).toBe('4120 万');
+    it('金额固定以万展示，最多两位小数', () => {
+        expect(amountText(41200000)).toBe('4,120 万');
         expect(amountText(46000)).toBe('4.6 万');
-        // 不到一万时按原值显示（游戏里低于一万的价本来就少，折成 0.03 万更难懂）
-        expect(amountText(8000)).toBe('8000');
+        // 不足一万仍使用万，避免同列单位不一致。
+        expect(amountText(8000)).toBe('0.8 万');
         expect(amountText(0)).toBe('—');
     });
 });
@@ -117,7 +117,7 @@ describe('收益：合计与分组', () => {
             expense: 230000,
             net: 41108000,
             count: 4,
-            /* 笔数要拆开：统计条的「31 笔 · 均 14.9 万」用的是**收入**笔数，
+            /* 笔数要拆开：统计条的「31 笔 · 均 14.92 万」用的是**收入**笔数，
              * 拿总笔数去除收入合计，算出来是「每笔的平均」而不是「每笔收入」。 */
             incomeCount: 2,
             expenseCount: 2,
@@ -393,7 +393,7 @@ describe('收益：统计条四格', () => {
         const rows = statRowsOf(totals, prev, { names: 4, unassigned: 2 });
         expect(rows.map((one) => one.cap)).toEqual(['收入', '支出', '净额', '笔数']);
         expect(rows[0].value).toBe('462.5 万');
-        expect(rows[0].sub).toBe('31 笔 · 均 14.9 万');
+        expect(rows[0].sub).toBe('31 笔 · 均 14.92 万');
         expect(rows[0].delta).toBe('+15.6%');
         expect(rows[1].sub).toBe('6 笔 · 占收入 2.7%');
         expect(rows[1].delta).toBe('+23%');

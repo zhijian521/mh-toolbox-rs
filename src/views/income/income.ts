@@ -12,7 +12,7 @@
  * 方向由 `kind` 说，**不用负数**：支出存正数 + `kind: 'expense'`。
  * 负数与「支出」两套写法混用，汇总时漏掉一处就会把净额算反。
  */
-import { moneyText } from '../../services/format';
+import { ledgerMoneyText } from '../../services/format';
 import { makeId } from '../../services/shape';
 
 export type IncomeKind = 'income' | 'expense';
@@ -69,15 +69,15 @@ export function splitAmount(amount: number, count: number): number[] {
     return Array.from({ length: size }, (_, index) => base + (index < rest ? 1 : 0));
 }
 
-/** 金额一句话：「4,120 万」/「8,000」。与物价页同一个口径（共用 `moneyText`）。 */
+/** 收益金额固定以万展示，最多两位小数。 */
 export function amountText(amount: number): string {
-    return moneyText(amount);
+    return amount === 0 ? '—' : ledgerMoneyText(amount);
 }
 
 /**
  * 金额的**紧凑写法**：`4.6 万` → `4.6万`。
  *
- * `moneyText` 里那个空格是给表格中一列数字对齐用的。速记的格子下面是一条窄签
+ * `ledgerMoneyText` 里那个空格是给表格中一列数字对齐用的。速记的格子下面是一条窄签
  * （44 宽起），空格白占半个字，还把「万」推成一个看着像另一样东西的字
  * （2026-11-04 用户：「价格数字加万字」）。**只在窄签里用**，表格照旧。
  */
@@ -179,7 +179,7 @@ export interface Totals {
     /**
      * 收入 / 支出的笔数。
      *
-     * 统计条的副文要写「31 笔 · 均 14.9 万」，那个 31 必须是**收入**笔数而不是总笔数——
+     * 统计条的副文要写「31 笔 · 均 14.92 万」，那个 31 必须是**收入**笔数而不是总笔数——
      * 用总数去除收入合计，算出来的是「每笔的平均」，两者差着一个量级。
      * 放在 `totalsOf` 里一次数完，比在页面里再 filter 一遍省事，也不会两处口径不同。
      */
@@ -299,15 +299,9 @@ export interface StatRow {
     delta: string;
 }
 
-/**
- * 笔均：圆到千币（0.1 万）。
- *
- * 不圆的话 `462.5 万 ÷ 31` 会显示成「14.9193 万」——`moneyText` 保留四位小数是为了
- * 与输入精度对齐（那是价格的事），而笔均是**估计值**，多出来的位数只会挤占那行小字。
- */
+/** 笔均与总额使用相同单位和两位小数精度。 */
 function averageText(total: number, count: number): string {
-    if (!count) return '—';
-    return moneyText(Math.round(total / count / 1000) * 1000);
+    return count ? ledgerMoneyText(total / count) : '—';
 }
 
 /** 「占收入 2.7%」/「结余率 97.3%」。分母为 0 时给「—」，不编一个 0%。 */

@@ -1,0 +1,245 @@
+.accounts-layout {
+    display: grid;
+    gap: 16px;
+}
+.accounts-layout :deep(.board) {
+    background-image: var(--income-board-texture);
+}
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+}
+.filters .who-pick {
+    flex: 0 0 auto;
+    max-width: 100%;
+    width: calc(148px * var(--fs-scale));
+}
+.range-text {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    font-variant-numeric: tabular-nums;
+}
+.books {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+.book {
+    min-width: 0;
+    padding: 14px 16px;
+}
+.book-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.book-head h2 {
+    margin: 0;
+}
+.book-count {
+    color: var(--muted);
+    font-size: var(--fs-xs);
+}
+.metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.metrics > div {
+    min-width: 0;
+    padding-right: 8px;
+}
+.metrics > div + div {
+    padding-left: 10px;
+    border-left: var(--w-hair) solid var(--rule);
+}
+.metrics span {
+    display: block;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+}
+.metrics b {
+    display: block;
+    margin-top: 3px;
+    font-size: calc(var(--fs-base) * 1.28);
+    font-weight: 400;
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+}
+.in,
+.income {
+    color: var(--positive);
+}
+.out,
+.expense {
+    color: var(--negative);
+}
+.shortcuts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 224px), 1fr));
+    gap: 12px;
+}
+.shortcut {
+    --shortcut-color: var(--accent);
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-2);
+    background: none;
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.shortcut.income {
+    --shortcut-color: var(--positive);
+}
+.shortcut.expense {
+    --shortcut-color: var(--negative);
+}
+.shortcut-face {
+    width: 100%;
+    height: 100%;
+    padding: 14px;
+    --tile-r: var(--r-2);
+}
+.shortcut-face :deep(.press-content) {
+    width: 100%;
+}
+.shortcut-body {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 10px;
+    width: 100%;
+}
+.sc-icon {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--r-2);
+    background: color-mix(in srgb, var(--shortcut-color) 9%, transparent);
+    color: var(--shortcut-color);
+    --icon-size: 20px;
+}
+.sc-copy {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+.sc-title {
+    color: var(--ink);
+    font-size: var(--fs-base);
+}
+.sc-copy small {
+    color: var(--muted);
+    font-size: var(--fs-mini);
+}
+.sc-total {
+    display: flex;
+    grid-column: 2;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    min-width: 0;
+    color: var(--shortcut-color);
+    font-size: var(--fs-md);
+    font-variant-numeric: tabular-nums;
+}
+.sc-total > span {
+    overflow-wrap: anywhere;
+}
+.sc-total small {
+    color: var(--muted);
+    font-size: var(--fs-mini);
+}
+.account-bottom {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 16px;
+}
+.records {
+    min-width: 0;
+}
+.recent-list {
+    max-height: 320px;
+    overflow-y: auto;
+}
+.recent-row {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1.1fr) minmax(45px, 0.8fr) auto;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 39px;
+    padding: 9px 4px;
+    border: 0;
+    border-bottom: var(--w-hair) solid var(--rule);
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.recent-row:last-child {
+    border-bottom: 0;
+}
+.recent-row:hover {
+    background: var(--paper-2);
+}
+.recent-title,
+.recent-who {
+    overflow: hidden;
+    min-width: 0;
+    font-size: var(--fs-xs);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.recent-who,
+.recent-date {
+    color: var(--muted);
+    font-size: var(--fs-mini);
+}
+.recent-date,
+.recent-amount {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.source-tag {
+    margin-left: 4px;
+    padding: 1px 3px;
+    border-radius: var(--r-1);
+    background: var(--well);
+    color: var(--muted);
+    font-size: var(--fs-mini);
+}
+.recent-amount {
+    text-align: right;
+    font-size: var(--fs-sm);
+}
+.blank {
+    display: grid;
+    place-items: center;
+    min-height: 258px;
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+}
+@media (max-width: 760px) {
+    .books,
+    .account-bottom {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .range-text {
+        width: 100%;
+        margin-left: 0;
+    }
+}

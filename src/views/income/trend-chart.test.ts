@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { buildTrendChart, netByDay, trendDash, trendSeriesOf, trendValueText } from './trend-chart';
+import {
+    buildTrendChart,
+    netByDay,
+    trendDash,
+    trendIndexAt,
+    trendSeriesOf,
+    trendValueText,
+} from './trend-chart';
 import type { IncomeEntry } from './income';
 
 /**
@@ -71,9 +78,10 @@ describe('趋势图：刻度写法', () => {
         expect(trendValueText(0, 'minutes')).toBe('0 分');
     });
 
-    it('钱走 moneyText，负值用同一枚减号', () => {
-        expect(trendValueText(0, 'money')).toBe('0');
+    it('钱按万保留两位小数，负值用同一枚减号', () => {
+        expect(trendValueText(0, 'money')).toBe('0 万');
         expect(trendValueText(20000, 'money')).toBe('2 万');
+        expect(trendValueText(8765, 'money')).toBe('0.88 万');
         /* U+2212 而不是 ASCII 连字符：与 `changeText` 一致，等宽一列不会左右晃。 */
         expect(trendValueText(-20000, 'money')).toBe('−2 万');
     });
@@ -120,8 +128,8 @@ describe('趋势图：几何', () => {
         });
         const top = chart.plot.top;
         const last = chart.lines[0].last.y;
-        /* 落在最上面两成里（20000 / 22000 上界 ≈ 9%）。 */
-        expect(last).toBeLessThan(top + chart.plot.height * 0.2);
+        /* 两个端点的高度差应很小，不因整数上界留白而夸大涨幅。 */
+        expect(Math.abs(last - chart.lines[0].points[0].y)).toBeLessThan(chart.plot.height * 0.1);
         expect(last).toBeGreaterThan(top);
     });
 
@@ -147,7 +155,7 @@ describe('趋势图：几何', () => {
             kind: 'money',
         });
         const zero = chart.guides.find((guide) => guide.zero);
-        expect(zero?.label).toBe('0');
+        expect(zero?.label).toBe('0 万');
         expect(zero!.y).toBeLessThan(chart.lines[0].last.y);
         expect(chart.lines[0].last.y).toBeLessThan(chart.plot.top + chart.plot.height);
     });
@@ -220,16 +228,24 @@ describe('趋势图：几何', () => {
         expect(chart.ticks[chart.ticks.length - 1].anchor).toBe('end');
     });
 
-    it('参考线的字不重复（数很小时三条刻度会撞成同一句）', () => {
+    it.each([
+        { kind: 'money' as const, values: [100, 1250, 9999], unit: '万' },
+        { kind: 'minutes' as const, values: [1, 2, 1], unit: '分' },
+        { kind: 'minutes' as const, values: [90, 150, 210], unit: '时' },
+    ])('小数数据的 $kind 轴使用整数 $unit，点仍保留原值', ({ kind, values, unit }) => {
         const chart = buildTrendChart({
             width: 500,
             height: 168,
             labels: LABELS,
-            series: [series([1, 2, 1])],
-            kind: 'minutes',
+            series: [series(values)],
+            kind,
         });
         const labels = chart.guides.map((one) => one.label);
         expect(new Set(labels).size).toBe(labels.length);
+        expect(labels.every((label) => new RegExp(`^[−-]?[\\d,]+ ${unit}$`).test(label))).toBe(
+            true,
+        );
+        expect(chart.lines[0].points.map((point) => point.value)).toEqual(values);
     });
 });
 
@@ -265,5 +281,44 @@ describe('趋势图：每日净额', () => {
     it('没记过的那天不在表里（调用方补 0），不是 0 值条目', () => {
         const map = netByDay([entry()]);
         expect(map.has('2026-11-06|c1')).toBe(false);
+    });
+});
+
+describe('趋势图悬停定位', () => {
+    const plot = { left: 60, top: 18, width: 240, height: 140 };
+    it('按最近日期吸附，并包含左右端点', () => {
+        expect(trendIndexAt(plot, 3, 60)).toBe(0);
+        expect(trendIndexAt(plot, 3, 119)).toBe(0);
+        expect(trendIndexAt(plot, 3, 121)).toBe(1);
+        expect(trendIndexAt(plot, 3, 300)).toBe(2);
+    });
+    it('轴外、空图、无效横坐标不产生明细，单日仍可查看', () => {
+        expect(trendIndexAt(plot, 3, 59)).toBeNull();
+        expect(trendIndexAt(plot, 3, 301)).toBeNull();
+        expect(trendIndexAt(plot, 0, 180)).toBeNull();
+        expect(trendIndexAt(plot, 3, NaN)).toBeNull();
+        expect(trendIndexAt({ ...plot, width: 0 }, 1, 60)).toBeNull();
+        expect(trendIndexAt(plot, 1, 180)).toBe(0);
+    });
+    it('每个悬停点保留真实金额、日期顺序与对应系列', () => {
+        const chart = buildTrendChart({
+            width: 500,
+            height: 192,
+            labels: LABELS,
+            series: [series([-20000, 0, 30000]), series([10000, 20000, 5000], 'c2')],
+            kind: 'money',
+        });
+        expect(chart.lines[0].points.map((point) => point.value)).toEqual([-20000, 0, 30000]);
+        expect(chart.lines[1].points.map((point) => point.value)).toEqual([10000, 20000, 5000]);
+        for (const line of chart.lines) {
+            expect(line.points.map((point) => point.x)).toEqual([
+                chart.plot.left,
+                chart.plot.left + chart.plot.width / 2,
+                chart.plot.left + chart.plot.width,
+            ]);
+            expect(line.points[2]).toMatchObject(line.last);
+        }
+        expect(chart.lines[0].points[0].y).toBeGreaterThan(chart.lines[0].points[1].y);
+        expect(chart.lines[0].points[1].y).toBeGreaterThan(chart.lines[0].points[2].y);
     });
 });

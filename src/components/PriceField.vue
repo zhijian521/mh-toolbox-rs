@@ -36,8 +36,10 @@ const props = withDefaults(
         placeholder?: string;
         /** 两侧的加减印块。开了之后输入格自己收窄，让出两边。 */
         stepper?: boolean;
+        /** 万单位的小数位数；账目页传 2，物价保留原精度。 */
+        precision?: number;
     }>(),
-    { label: '', error: '', size: 'lg', placeholder: '', stepper: false },
+    { label: '', error: '', size: 'lg', placeholder: '', stepper: false, precision: 4 },
 );
 
 const emit = defineEmits<{
@@ -53,16 +55,16 @@ const emit = defineEmits<{
 }>();
 
 /**
- * 原值 → 输入框里的「万」，最多 4 位小数（12345 元 → 1.2345 万）。
+ * 原值 → 输入框里的「万」，小数位由 precision 决定。
  *
  * **不叫 `toWan`**：`services/format.ts` 里那个 `toWan` 是「原值 → 万的数」，
  * `character.ts` 里那个是「万/亿 的文本 → 数」。三个同名不同义，改一个查半天。
- * 这里返回的是**给输入框的字符串**（空值给空串、不做四舍五入到两位），
+ * 这里返回的是**给输入框的字符串**（空值给空串、按指定精度四舍五入），
  * 名字里点明「input」才分得清。
  */
 function wanInput(value: number | null): string {
     if (value === null || !Number.isFinite(value) || value <= 0) return '';
-    return String(Number((value / 10000).toFixed(4)));
+    return String(Number((value / 10000).toFixed(props.precision)));
 }
 
 const text = ref(wanInput(props.modelValue));
@@ -84,7 +86,12 @@ function onInput(event: Event) {
     const input = event.target as HTMLInputElement;
     /* 只留数字与一个小数点。在输入时清，不是失焦时清——
      * 失焦才清的话，用户会先看着一串非法字符停在那儿，然后才消失。 */
-    const cleaned = input.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+    const raw = input.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+    const factor = 10 ** props.precision;
+    const cleaned =
+        (raw.split('.')[1]?.length ?? 0) > props.precision
+            ? String(Math.round(Number(raw) * factor) / factor)
+            : raw;
     text.value = cleaned;
     /* 受控值被拒时（比如打了第二个小数点），DOM 里还留着旧字符串，手动写回去。 */
     input.value = cleaned;
@@ -146,9 +153,10 @@ const inputStyle = computed(() => ({
 
 function nudge(direction: 1 | -1) {
     const base = props.modelValue ?? 0;
-    const next = Math.max(0, base + direction * stepSize(base));
+    const quantum = 10000 / 10 ** props.precision;
+    const next = Math.round(Math.max(0, base + direction * stepSize(base)) / quantum) * quantum;
     text.value = wanInput(next);
-    emit('update:modelValue', next);
+    emit('update:modelValue', Math.round(next));
 }
 </script>
 

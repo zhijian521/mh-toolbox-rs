@@ -10,7 +10,7 @@ import { askConfirm } from '../../composables/use-confirm';
 import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
 import { timeText } from '../../services/clock';
-import { moneyText, shortDate } from '../../services/format';
+import { ledgerMoneyText, shortDate } from '../../services/format';
 import { characterName, useRoster } from '../characters/roster';
 import {
     clockText,
@@ -138,7 +138,7 @@ async function remove(one: OnlineSession) {
             <span class="sum-item">{{ filtered.length }} 段</span>
             <span class="sum-item">合计 {{ minutesText(totals.minutes) }}</span>
             <span class="sum-item" :class="{ cost: totals.cost > 0 }">
-                点卡 {{ totals.cost > 0 ? moneyText(totals.cost) : '—' }}
+                点卡 {{ totals.cost > 0 ? ledgerMoneyText(totals.cost) : '—' }}
             </span>
             <span v-if="totals.running" class="sum-item live">
                 计时中 {{ totals.running }} 段
@@ -173,7 +173,7 @@ async function remove(one: OnlineSession) {
                         <td class="c-who" :title="whoText(one)">{{ whoText(one) }}</td>
                         <td class="c-dur">{{ clockText(factsOfSession(one, now).minutes) }}</td>
                         <td class="c-num">
-                            {{ costOf(one) > 0 ? moneyText(costOf(one)) : '—' }}
+                            {{ costOf(one) > 0 ? ledgerMoneyText(costOf(one)) : '—' }}
                         </td>
                         <td class="c-note" :title="one.note">{{ one.note }}</td>
                         <td class="c-ops">

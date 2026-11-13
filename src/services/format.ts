@@ -166,3 +166,13 @@ export function changeText(delta: number): string {
     const sign = delta > 0 ? '+' : '−';
     return sign + moneyText(delta);
 }
+
+/** 账号、收益统一按元或万展示，最多两位小数；原值精度不变。 */
+export function ledgerMoneyText(amount: number, currency: 'rmb' | 'cash' = 'cash'): string {
+    const value = Math.abs(amount) / (currency === 'cash' ? WAN : 1);
+    if (!Number.isFinite(value)) return '—';
+    return (
+        value.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) +
+        (currency === 'cash' ? ' 万' : ' 元')
+    );
+}

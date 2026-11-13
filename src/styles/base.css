@@ -1062,3 +1062,26 @@ svg {
         scroll-behavior: auto !important;
     }
 }
+
+/* 图表共用厚底板、嵌入绘图区与图例底栏；材质配方在 tokens.css。 */
+.chart-panel {
+    min-width: 0;
+    padding: 8px;
+    border: var(--w-hair) solid var(--rule);
+    border-radius: var(--r-3);
+    background: var(--chart-panel-bg);
+    box-shadow: var(--chart-panel-shadow);
+}
+.chart-surface {
+    border-radius: var(--r-2);
+    background: var(--chart-surface-bg);
+    box-shadow: var(--chart-surface-shadow);
+}
+.chart-legend-shelf {
+    margin: 8px -8px -8px;
+    padding: 10px 12px;
+    border-top: var(--w-hair) solid var(--rule);
+    border-radius: 0 0 var(--r-3) var(--r-3);
+    background: var(--chart-shelf-bg);
+    box-shadow: inset 0 1px 0 var(--bevel-hi);
+}

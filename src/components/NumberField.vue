@@ -34,7 +34,7 @@ const props = withDefaults(
          * 而这个组件最早就是为它们写的。
          *
          * 账号页的人民币要两位：把一个 12.5 元的记录悄悄存成 13，是替用户改账，
-         * 而且它不会报错。梦幻币传 0（币没有小数），一个字段两种精度。
+         * 而且它不会报错。账号页梦幻币按万输入同样传 2。
          */
         precision?: number;
     }>(),
@@ -44,16 +44,20 @@ const props = withDefaults(
 const emit = defineEmits<{ 'update:modelValue': [value: number] }>();
 
 function commit(event: Event) {
-    const raw = (event.target as HTMLInputElement).value.trim();
+    const input = event.target as HTMLInputElement;
+    const raw = input.value.trim();
     const parsed = Number(raw);
     if (!Number.isFinite(parsed)) {
+        input.value = props.zeroAsEmpty ? '' : '0';
         emit('update:modelValue', 0);
         return;
     }
     /* 先按精度放大取整、再缩回来：`Math.round(parsed * 100) / 100` 对 12.5 稳定，
      * 而直接 `toFixed` 返回的是字符串，再 `Number()` 一次又多一步转换。 */
     const factor = 10 ** Math.max(0, props.precision);
-    emit('update:modelValue', Math.max(0, Math.round(parsed * factor) / factor));
+    const value = Math.max(0, Math.round(parsed * factor) / factor);
+    input.value = props.zeroAsEmpty && !value ? '' : String(value);
+    emit('update:modelValue', value);
 }
 </script>
 

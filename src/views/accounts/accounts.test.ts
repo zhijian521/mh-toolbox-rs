@@ -45,17 +45,17 @@ function entry(patch: Partial<AccountEntry> = {}): AccountEntry {
 
 describe('amountText', () => {
     it('人民币带千分位，去掉多余的零', () => {
-        expect(amountText(30, 'rmb')).toBe('¥30');
-        expect(amountText(1234.5, 'rmb')).toBe('¥1,234.5');
-        expect(amountText(0.1 + 0.2, 'rmb')).toBe('¥0.3');
+        expect(amountText(30, 'rmb')).toBe('30 元');
+        expect(amountText(1234.5, 'rmb')).toBe('1,234.5 元');
+        expect(amountText(0.1 + 0.2, 'rmb')).toBe('0.3 元');
     });
 
     it('人民币保留到分：30.5 不能被记成 31', () => {
-        expect(amountText(30.55, 'rmb')).toBe('¥30.55');
+        expect(amountText(30.55, 'rmb')).toBe('30.55 元');
     });
 
     it('0 显示「—」，两种币同一个说法', () => {
-        // 写成「¥0」与「0」的话，两本账并排时一个带符号一个不带，读起来像「梦幻币那本是空的」。
+        // 未记录保持空读数，两本账使用同一约定。
         expect(amountText(0, 'rmb')).toBe('—');
         expect(amountText(0, 'cash')).toBe('—');
     });
@@ -66,16 +66,16 @@ describe('amountText', () => {
     });
 
     it('两本账的单位不同，绝不会混成一个数', () => {
-        // 同样存 30，人民币是 30 元、梦幻币是 30 万——这就是不能相加的原因。
-        expect(amountText(30, 'rmb')).toBe('¥30');
-        expect(amountText(30, 'cash')).toBe('30');
+        // 同样存 30，人民币是 30 元、梦幻币是 30 币，不能相加。
+        expect(amountText(30, 'rmb')).toBe('30 元');
+        expect(amountText(8000, 'cash')).toBe('0.8 万');
     });
 });
 
 describe('signedText', () => {
     it('收入带 +、支出带 −，负号是 U+2212', () => {
-        expect(signedText(entry({ kind: 'income', amount: 30 }))).toBe('+¥30');
-        expect(signedText(entry({ kind: 'expense', amount: 30 }))).toBe('−¥30');
+        expect(signedText(entry({ kind: 'income', amount: 30 }))).toBe('+30 元');
+        expect(signedText(entry({ kind: 'expense', amount: 30 }))).toBe('−30 元');
         expect(signedText(entry({ kind: 'expense', amount: 46000, currency: 'cash' }))).toBe(
             '−4.6 万',
         );

@@ -72,6 +72,43 @@ afterEach(() => {
 });
 
 describe('收益自动同步', () => {
+    it('净亏损同步为支出，盈转亏沿用原记录，归零后移除且不影响手记', async () => {
+        const { sync, accounts, income } = await loadSync({
+            entries: [entry('2026-11-13', 'source')],
+        });
+        accounts.addEntry({
+            date: '2026-11-13',
+            characterId: 'c1',
+            kind: 'expense',
+            currency: 'cash',
+            category: '其他收支',
+            channel: '游戏内',
+            amount: 1,
+        });
+        sync.syncAllDays();
+        const original = accounts.entries.value.find((one) => one.source === 'auto')!;
+        stop = sync.startDailySync();
+        const spent = income.recordEntry({
+            item: '支出',
+            kind: 'expense',
+            amount: 35000,
+            characterIds: ['c1'],
+        });
+        expect(spent.ok).toBe(true);
+        expect(await sync.flushDailySync()).toBe(true);
+        expect(accounts.entries.value.find((one) => one.source === 'auto')).toMatchObject({
+            id: original.id,
+            createdAt: original.createdAt,
+            kind: 'expense',
+            amount: 25000,
+        });
+        if (!spent.ok) return;
+        income.updateEntry(spent.entries[0].id, { amount: 10000 });
+        expect(await sync.flushDailySync()).toBe(true);
+        expect(accounts.entries.value).toHaveLength(1);
+        expect(accounts.entries.value[0]).toMatchObject({ source: '', amount: 10000 });
+    });
+
     it('启动补齐所有源日期，连续同步一天不会清掉其他日期', async () => {
         const { sync, accounts } = await loadSync({
             entries: [entry('2026-10-01'), entry('2026-11-13')],

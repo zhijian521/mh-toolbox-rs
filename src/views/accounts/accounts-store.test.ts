@@ -74,3 +74,32 @@ describe('loadAccounts：读失败不等于空账', () => {
         expect(desktop.accountSave).toHaveBeenCalledTimes(1);
     });
 });
+
+describe('账号写入边界', () => {
+    it('梦幻币按万保留两位小数，舍入后为零的金额不落库', async () => {
+        const store = await loadStore(host(async () => []));
+        const result = store.addEntry({ ...ENTRY, currency: 'cash', amount: 4.606 });
+        expect(result.ok && result.entry.amount).toBe(46100);
+        expect(store.addEntry({ ...ENTRY, currency: 'cash', amount: 0.004 }).ok).toBe(false);
+        await store.useAccounts().flush();
+        expect(store.useAccounts().entries.value).toHaveLength(1);
+    });
+
+    it('自动记录只能由同步更新，手动修改和删除不产生写入', async () => {
+        const automatic = {
+            ...ENTRY,
+            id: 'auto-one',
+            currency: 'cash',
+            source: 'auto',
+            createdAt: 1,
+            note: '',
+        };
+        const desktop = host(async () => [automatic]);
+        const store = await loadStore(desktop);
+        expect(store.updateEntry('auto-one', ENTRY).ok).toBe(false);
+        store.removeEntry('auto-one');
+        await store.useAccounts().flush();
+        expect(store.useAccounts().entries.value).toEqual([automatic]);
+        expect(desktop.accountSave).not.toHaveBeenCalled();
+    });
+});
