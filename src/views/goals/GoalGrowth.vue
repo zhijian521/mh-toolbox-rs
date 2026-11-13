@@ -1,104 +1,95 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import { useRoster } from '../characters/roster';
-import { metricValue, type Goal } from './goals';
+import { metricValue, metricApplicable, type Goal } from './goals';
 
-/**
- * 批量更新养成：把各角色档案里的同一个项目一次改完。
- *
- * 填的是**角色当前的实际值**，不是增量——这一屏写的就是档案本身。留空表示「这个号还没录」，
- * 不会把档案清成 0（`off` 与 `0 级` 在游戏里是两件事）。
- *
- * 不落「变更历史」：新仓的角色档案没有成长流水（旧仓有 `growthHistory`，新仓没搬）。
- * 与其在这一个窗里再造一份只有目标看得见的半截历史，不如不做——要查谁什么时候练的，
- * 那是角色页的事。
- */
-const props = defineProps<{ goal: Goal }>();
+const props = defineProps<{
+    goal: Goal;
+    saving: boolean;
+    locked: boolean;
+    retrying: boolean;
+    error: string;
+}>();
 const emit = defineEmits<{ save: [values: { id: string; value: number }[]]; close: [] }>();
-
 const { roster } = useRoster();
-
-const tracking = computed(() => props.goal.tracking!);
-
-/** 只列还在名册里的成员：删掉的人没有档案可写。 */
 const rows = computed(() =>
-    props.goal.members
-        .map((member) => {
-            const character = roster.value.find((one) => one.id === member.id);
-            if (!character) return null;
-            const value = metricValue(character, tracking.value);
-            return {
+    props.goal.members.flatMap((member) => {
+        const character = roster.value.find((one) => one.id === member.id);
+        if (!character || !props.goal.tracking || !metricApplicable(character, props.goal.tracking))
+            return [];
+        return [
+            {
                 id: member.id,
                 name: character.name || member.name || '未命名',
-                value,
-                done: value !== null && value >= props.goal.target,
-            };
-        })
-        .filter((row): row is NonNullable<typeof row> => row !== null),
+                value: metricValue(character, props.goal.tracking),
+            },
+        ];
+    }),
 );
-
+const original = new Map(rows.value.map((row) => [row.id, row.value]));
 const inputs = reactive<Record<string, number>>(
     Object.fromEntries(rows.value.map((row) => [row.id, row.value ?? 0])),
 );
-
+const touched = reactive(new Set<string>());
 const changed = computed(() =>
-    rows.value.filter((row) => {
-        const next = inputs[row.id];
-        /* 「原来没记录」与「记了一个 0」要分开判：前者填 0 也算一次修改。 */
-        return row.value === null ? Number.isFinite(next) : next !== row.value;
-    }),
+    rows.value.filter((row) => touched.has(row.id) && inputs[row.id] !== original.get(row.id)),
 );
-
-const error = ref('');
-
+function change(id: string, value: number) {
+    inputs[id] = value;
+    touched.add(id);
+}
 function submit() {
-    if (!changed.value.length) {
-        error.value = '一个数都没改';
-        return;
-    }
-    error.value = '';
+    if (props.saving || (!props.retrying && (!changed.value.length || props.locked))) return;
     emit(
         'save',
         changed.value.map((row) => ({ id: row.id, value: inputs[row.id] })),
     );
 }
+function enter(event: KeyboardEvent) {
+    if ((event.target as HTMLElement).tagName !== 'INPUT' || event.isComposing) return;
+    event.preventDefault();
+    submit();
+}
 </script>
 
 <template>
-    <ModalShell title="更新养成" :width="420" :scroll="false" @close="emit('close')">
-        <p class="hint">「{{ tracking.key }}」当前值，保存后同步到角色档案。</p>
-        <!-- 与记一笔同一个理由：`PressButton` 是 `type="button"`，回车没有隐式提交，
-             这里显式接住。填一串数、按回车，是这张表最自然的用法。 -->
-        <form class="growth" @submit.prevent="submit" @keydown.enter.prevent="submit">
-            <label v-for="row in rows" :key="row.id" class="growth-row">
-                <span class="who">
-                    {{ row.name }}
-                    <small v-if="row.done">已达标</small>
-                    <small v-else-if="row.value === null" class="muted">待补录</small>
-                    <small v-else>还差 {{ Math.max(0, goal.target - row.value) }}</small>
-                </span>
-                <NumberField
-                    v-model="inputs[row.id]"
-                    :label="row.name + ' 的当前值'"
-                    zero-as-empty
-                />
-            </label>
-            <p v-if="!rows.length" class="hint">这一批成员都已经不在名册里了。</p>
-            <p v-if="error" class="form-error" role="alert">{{ error }}</p>
+    <ModalShell title="更新进度" :width="460" @close="!saving && emit('close')">
+        <form class="modal-form" @submit.prevent="submit" @keydown.enter="enter">
+            <p class="metric-title">
+                {{ goal.tracking?.key }} <span>目标 {{ goal.target }} {{ goal.unit }}</span>
+            </p>
+            <fieldset class="growth" :disabled="locked" :inert="locked">
+                <label v-for="row in rows" :key="row.id" class="growth-row">
+                    <span class="who"
+                        >{{ row.name }}<small v-if="row.value === null">待补录</small></span
+                    >
+                    <NumberField
+                        :model-value="inputs[row.id]"
+                        :label="`${row.name} 的当前值`"
+                        update-on-input
+                        @update:model-value="change(row.id, $event)"
+                    />
+                    <span class="unit">{{ goal.unit }}</span>
+                </label>
+            </fieldset>
         </form>
         <template #footer>
-            <span class="footer-hint">
-                {{ goal.target }}{{ goal.unit }} · {{ rows.length }} 个角色
-            </span>
-            <PressButton data-modal-cancel text="取消" label="不改了" @click="emit('close')" />
+            <p v-if="error" class="note error save-error" role="alert">{{ error }}</p>
+            <PressButton
+                data-modal-cancel
+                text="取消"
+                label="取消"
+                :disabled="saving"
+                @click="emit('close')"
+            />
             <PressButton
                 icon="check"
-                text="保存"
-                label="保存这些值"
-                :disabled="!changed.length"
+                :text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
+                label="保存养成"
+                :disabled="saving || (!retrying && !changed.length)"
                 seal
                 @click="submit"
             />
@@ -107,44 +98,51 @@ function submit() {
 </template>
 
 <style scoped>
+.metric-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 0 0 14px;
+    color: var(--ink);
+    font-size: var(--fs-base);
+}
+.metric-title span,
+.unit {
+    color: var(--muted);
+    font-size: var(--fs-sm);
+}
 .growth {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-top: 10px;
+    gap: 6px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
 }
 .growth-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 108px;
+    grid-template-columns: minmax(0, 1fr) 100px auto;
     align-items: center;
     gap: 10px;
+    padding: 8px 10px;
+    background: var(--paper-2);
+    border-radius: var(--r-1);
+}
+.growth-row :deep(.number-field) {
+    width: 100%;
 }
 .who {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    overflow: hidden;
+    min-width: 0;
     color: var(--ink-2);
     font-size: var(--fs-sm);
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    overflow-wrap: anywhere;
 }
 .who small {
-    color: var(--moss);
-    font-size: var(--fs-mini);
-}
-.who small.muted {
-    color: var(--muted);
-}
-.footer-hint {
-    margin-right: auto;
+    margin-left: 8px;
     color: var(--muted);
     font-size: var(--fs-xs);
-    letter-spacing: 0.04em;
-}
-.form-error {
-    margin: 0;
-    color: var(--danger);
-    font-size: var(--fs-sm);
 }
 </style>

@@ -5,7 +5,7 @@
  * `goals-store.ts` 只管读写；`.vue` 只管摆。**卡片上的每一个数都从 `goalSummary` 出**，
  * 页面不重算——两处各算一遍，迟早出现「卡片说 71%、成员行加起来是 5/7」那种对不上。
  *
- * ---- 三种类型，两种算法 ----
+ * ---- 两种算法 ----
  * 养成目标跟着角色档案走（每次打开现算），存钱与装备手记流水（累加）。
  * 用户 2026-11-05 定：**存钱先不接账号账本**——账本记的是钱包进出，目标问的是
  * 「攒够了没有」，口径没对齐之前硬接，会把充值也算成进度。
@@ -21,28 +21,32 @@
  */
 import type { IconName } from '../../components/icons';
 import { ATTR_GROUPS, TRAINING_GROUPS, type CharacterData } from '../characters/character';
+import { lifeSkills, storySkills, schoolSkillCap } from '../../services/game-data';
+import { schoolSkillNames } from '../characters/schools';
 
 /* ======================================================================
  * 类型
  * ==================================================================== */
 
-export type GoalKind = 'money' | 'gear' | 'growth';
+export type GoalKind = 'money' | 'gear' | 'growth' | 'manual';
 
 export const GOAL_KINDS: { value: GoalKind; label: string; icon: IconName; unit: string }[] = [
     /* 顺序即新建弹窗里胶囊的顺序：养成在最前，因为它是唯一会自动跑的。 */
     { value: 'growth', label: '养成', icon: 'growth', unit: '级' },
     { value: 'money', label: '存钱', icon: 'coins', unit: '万' },
     { value: 'gear', label: '装备', icon: 'sword', unit: '件' },
+    { value: 'manual', label: '手动', icon: 'edit', unit: '级' },
 ];
 
 export function kindMeta(kind: GoalKind) {
     return GOAL_KINDS.find((one) => one.value === kind) ?? GOAL_KINDS[0];
 }
 
-/** 可跟踪的四类项目的分类。 */
-export type MetricCategory = 'skill' | 'assist' | 'training' | 'attr';
+/** 存档中的指标分类；界面的选择目录可进一步分组。 */
+export type MetricCategory = 'skill' | 'assist' | 'training' | 'attr' | 'level';
 
 export const METRIC_CATEGORIES: { value: MetricCategory; label: string; unit: string }[] = [
+    { value: 'level', label: '角色等级', unit: '级' },
     { value: 'skill', label: '门派技能', unit: '级' },
     { value: 'assist', label: '辅助技能', unit: '级' },
     { value: 'training', label: '修炼', unit: '级' },
@@ -53,6 +57,64 @@ export interface GoalTracking {
     category: MetricCategory;
     /** 项目名。门派/辅助技能是技能名，修炼是修炼项名，属性是属性行名。 */
     key: string;
+}
+
+/** 只细分选择目录，已有目标仍用同一份 category / key 存档。 */
+export const METRIC_GROUPS = [
+    { value: 'training', label: '人物修炼', category: 'training' },
+    { value: 'pet-training', label: '召唤兽修炼', category: 'training' },
+    { value: 'skill', label: '师门技能', category: 'skill' },
+    { value: 'life', label: '生活技能', category: 'assist' },
+    { value: 'story', label: '剧情技能', category: 'assist' },
+    { value: 'attr', label: '角色属性', category: 'attr' },
+    { value: 'level', label: '角色等级', category: 'level' },
+    { value: 'potential', label: '乾元丹 / 潜能果', category: 'attr' },
+] as const;
+export type MetricGroup = (typeof METRIC_GROUPS)[number]['value'];
+
+export function metricGroup(tracking: GoalTracking): MetricGroup {
+    if (tracking.category === 'training')
+        return TRAINING_GROUPS[1]?.rows.some((row) => row.name === tracking.key)
+            ? 'pet-training'
+            : 'training';
+    if (tracking.category === 'assist')
+        return storySkills().includes(tracking.key) ? 'story' : 'life';
+    if (tracking.category === 'attr')
+        return ['乾元丹', '潜能果'].includes(tracking.key) ? 'potential' : 'attr';
+    return tracking.category;
+}
+
+export function groupKeys(group: MetricGroup, characters: CharacterData[]): string[] {
+    if (group === 'level') return ['角色等级'];
+    if (group === 'training' || group === 'pet-training')
+        return TRAINING_GROUPS[group === 'training' ? 0 : 1]?.rows.map((row) => row.name) ?? [];
+    if (group === 'potential') return ['乾元丹', '潜能果'];
+    if (group === 'attr')
+        return metricKeys('attr', characters).filter((key) => !['乾元丹', '潜能果'].includes(key));
+    if (group === 'skill') return metricKeys('skill', characters);
+    const names = group === 'life' ? lifeSkills() : storySkills();
+    return [
+        ...new Set([
+            ...names,
+            ...characters.flatMap((character) =>
+                character.assists.filter((row) => row.kind === group).map((row) => row.name),
+            ),
+        ]),
+    ];
+}
+
+export function metricUnit(tracking: GoalTracking): string {
+    if (tracking.category === 'attr')
+        return ['乾元丹', '潜能果'].includes(tracking.key) ? '个' : '点';
+    return '级';
+}
+
+export function metricApplicable(character: CharacterData, tracking: GoalTracking): boolean {
+    if (tracking.category !== 'skill') return true;
+    const names = schoolSkillNames(character.school);
+    return names
+        ? names.includes(tracking.key)
+        : character.skills.some((row) => row.name === tracking.key);
 }
 
 /** 快照成员。`name` 是建目标那一刻的抄本，角色删掉之后仍要能显示。 */
@@ -103,10 +165,11 @@ function toNumber(text: string): number | null {
  * 某个角色在某个项目上的当前值。
  *
  * 返回 `null` 表示**未记录**（这一项不在这个号的档案里），与「记了一个 0」是两件事：
- * 前者在卡片上显示「待补录」、不参与分母；后者是实实在在的 0，算「还差 N」。
+ * 前者在卡片上显示「待补录」、仍计入分母；后者是实实在在的 0，算「还差 N」。
  */
 export function metricValue(character: CharacterData, tracking: GoalTracking): number | null {
     const { category, key } = tracking;
+    if (category === 'level') return character.level;
     if (category === 'skill') {
         const row = character.skills.find((one) => one.name === key);
         /* `off` 是「未学」——它在游戏里就是 0 级，不是「没填」。 */
@@ -133,11 +196,10 @@ export function metricValue(character: CharacterData, tracking: GoalTracking): n
 /**
  * 某一分类下可选的项目名。
  *
- * 门派 / 辅助技能是**成员并集**：五个号可能是五个门派，「攻击修炼」这种固定项才谈得上
- * 「每个角色都练」。并集按出现顺序去重，先出现的排在前面——这比按拼音排好读，
- * 因为用户是按自己名册的顺序认人的。
+ * 师门合并所选门派与已录技能；辅助合并完整名录与已录技能，未学项目也能建目标。
  */
 export function metricKeys(category: MetricCategory, characters: CharacterData[]): string[] {
+    if (category === 'level') return ['角色等级'];
     if (category === 'training')
         return TRAINING_GROUPS.flatMap((group) => group.rows.map((r) => r.name));
     if (category === 'attr') return ATTR_GROUPS.flatMap((group) => [...group.labels]);
@@ -145,8 +207,13 @@ export function metricKeys(category: MetricCategory, characters: CharacterData[]
     for (const character of characters) {
         const list = category === 'skill' ? character.skills : character.assists;
         for (const row of list) if (!names.includes(row.name)) names.push(row.name);
+        if (category === 'skill')
+            for (const name of schoolSkillNames(character.school) ?? [])
+                if (!names.includes(name)) names.push(name);
     }
-    return names;
+    return category === 'assist'
+        ? [...new Set([...lifeSkills(), ...storySkills(), ...names])]
+        : names;
 }
 
 /** 把某个角色的某个项目改成 `value`，返回**新的**角色对象（不改原对象）。 */
@@ -156,23 +223,57 @@ export function applyMetric(
     value: number,
 ): CharacterData {
     const { category, key } = tracking;
+    if (!Number.isSafeInteger(value) || value < 0 || !metricApplicable(character, tracking))
+        return character;
+    if (category === 'level') return { ...character, level: value };
     if (category === 'skill') {
         return {
             ...character,
-            skills: character.skills.map((row) =>
-                row.name === key ? { ...row, level: value, off: false } : row,
-            ),
+            skills: character.skills.some((row) => row.name === key)
+                ? character.skills.map((row) =>
+                      row.name === key ? { ...row, level: value, off: false } : row,
+                  )
+                : [...character.skills, { name: key, level: value, cap: schoolSkillCap() }],
         };
     }
     if (category === 'assist') {
         return {
             ...character,
-            assists: character.assists.map((row) =>
-                row.name === key ? { ...row, level: value, off: false } : row,
-            ),
+            assists: character.assists.some((row) => row.name === key)
+                ? character.assists.map((row) =>
+                      row.name === key ? { ...row, level: value, off: false } : row,
+                  )
+                : [
+                      ...character.assists,
+                      {
+                          name: key,
+                          level: value,
+                          kind: storySkills().includes(key) ? 'story' : 'life',
+                      },
+                  ],
         };
     }
     if (category === 'training') {
+        const definition = TRAINING_GROUPS.find((group) =>
+            group.rows.some((row) => row.name === key),
+        );
+        if (!definition) return character;
+        const found = character.trainings.some((group) =>
+            group.rows.some((row) => row.name === key),
+        );
+        if (!found) {
+            const groups = character.trainings.some((group) => group.title === definition.title)
+                ? character.trainings.map((group) =>
+                      group.title === definition.title
+                          ? { ...group, rows: [...group.rows, { name: key, level: value }] }
+                          : group,
+                  )
+                : [
+                      ...character.trainings,
+                      { title: definition.title, rows: [{ name: key, level: value }] },
+                  ];
+            return { ...character, trainings: groups };
+        }
         return {
             ...character,
             trainings: character.trainings.map((group) => ({
@@ -180,6 +281,21 @@ export function applyMetric(
                 rows: group.rows.map((row) => (row.name === key ? { ...row, level: value } : row)),
             })),
         };
+    }
+    const definition = ATTR_GROUPS.find((group) => group.labels.includes(key));
+    if (!definition) return character;
+    if (!character.attrGroups.some((group) => group.rows.some((row) => row.label === key))) {
+        const groups = character.attrGroups.some((group) => group.title === definition.title)
+            ? character.attrGroups.map((group) =>
+                  group.title === definition.title
+                      ? { ...group, rows: [...group.rows, { label: key, value: String(value) }] }
+                      : group,
+              )
+            : [
+                  ...character.attrGroups,
+                  { title: definition.title, rows: [{ label: key, value: String(value) }] },
+              ];
+        return { ...character, attrGroups: groups };
     }
     return {
         ...character,
@@ -201,6 +317,7 @@ export interface GoalRow {
     name: string;
     /** 名册里还找得到这个人没有。删掉之后行留着、灰着、不计入分母。 */
     exists: boolean;
+    applicable: boolean;
     value: number | null;
     done: boolean;
     remaining: number | null;
@@ -224,6 +341,18 @@ export interface GoalSummary {
     doneDate: string;
 }
 
+/** 消除两位小数连续加减时的浮点尾差，不把 0.3 − 0.1 判成尚未达到 0.2。 */
+function addProgress(current: number, delta: number): number {
+    return Number((current + delta).toFixed(8));
+}
+
+export function manualProgress(logs: GoalLog[]): number {
+    return Math.max(
+        0,
+        logs.reduce((current, log) => addProgress(current, log.delta), 0),
+    );
+}
+
 /**
  * 一份汇总，页面上的所有数都从它出。
  *
@@ -241,6 +370,7 @@ export function goalSummary(goal: Goal, roster: CharacterData[]): GoalSummary {
                 id: member.id,
                 name: member.name,
                 exists: !!character,
+                applicable: false,
                 value: null,
                 done: false,
                 remaining: null,
@@ -251,6 +381,7 @@ export function goalSummary(goal: Goal, roster: CharacterData[]): GoalSummary {
             id: member.id,
             name: character.name || member.name,
             exists: true,
+            applicable: metricApplicable(character, goal.tracking),
             value,
             done: value !== null && value >= goal.target,
             remaining: value === null ? null : Math.max(0, goal.target - value),
@@ -258,10 +389,7 @@ export function goalSummary(goal: Goal, roster: CharacterData[]): GoalSummary {
     });
 
     if (!goal.tracking) {
-        const current = Math.max(
-            0,
-            goal.logs.reduce((sum, log) => sum + log.delta, 0),
-        );
+        const current = manualProgress(goal.logs);
         const total = goal.target;
         const done = total > 0 && current >= total;
         return {
@@ -278,7 +406,7 @@ export function goalSummary(goal: Goal, roster: CharacterData[]): GoalSummary {
     }
 
     /* 分母只数在册成员：删掉的人留在卡片上是为了「知道少的是谁」，不是为了让他一直欠着。 */
-    const live = rows.filter((row) => row.exists);
+    const live = rows.filter((row) => row.exists && row.applicable);
     const achieved = live.filter((row) => row.done).length;
     const unknown = live.filter((row) => row.value === null).length;
     const current = live.reduce((sum, row) => sum + Math.min(goal.target, row.value ?? 0), 0);
@@ -304,7 +432,7 @@ function firstDateReaching(logs: GoalLog[], target: number): string {
     );
     let sum = 0;
     for (const log of ordered) {
-        sum += log.delta;
+        sum = addProgress(sum, log.delta);
         if (sum >= target) return log.date;
     }
     return '';
@@ -332,6 +460,7 @@ export function autoTitle(goal: Omit<Goal, 'title'>): string {
             : `${goal.members.length} 个角色`;
     if (goal.tracking) return `${scope} · ${goal.tracking.key} 到 ${goal.target}${goal.unit}`;
     if (goal.kind === 'gear') return `${scope} · 买满 ${goal.target} 件装备`;
+    if (goal.kind === 'manual') return `${scope} · 累计 ${goal.target} ${goal.unit}`;
     return `${scope} · 攒到 ${goal.target} ${goal.unit}`;
 }
 
@@ -342,7 +471,7 @@ export function goalTitle(goal: Omit<Goal, 'title'> & { title?: string }): strin
 
 export function signedText(delta: number, unit: string): string {
     const sign = delta > 0 ? '+' : delta < 0 ? '−' : '';
-    return `${sign}${Math.abs(delta)}${unit ? ` ${unit}` : ''}`;
+    return `${sign}${Math.abs(delta).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}${unit ? ` ${unit}` : ''}`;
 }
 
 /**
@@ -427,7 +556,7 @@ export function parseGoal(raw: unknown): Goal | null {
     if (!kind) return null;
     if (!isFiniteNumber(one.target) || one.target <= 0) return null;
 
-    const members: GoalMember[] = Array.isArray(one.members)
+    const parsedMembers: GoalMember[] = Array.isArray(one.members)
         ? one.members
               .map((member) => {
                   if (!member || typeof member !== 'object') return null;
@@ -437,11 +566,13 @@ export function parseGoal(raw: unknown): Goal | null {
               })
               .filter((member): member is GoalMember => member !== null)
         : [];
+    const members = parsedMembers.filter(
+        (member, index) => parsedMembers.findIndex((row) => row.id === member.id) === index,
+    );
     if (!members.length) return null;
 
     const tracking = kind === 'growth' ? parseTracking(one.tracking) : null;
-    /* 养成目标没有追踪项就无从算起。旧仓允许「手动累计的养成目标」，那是给「不想记在
-     * 档案里」的人留的口子；这里不开口子——真不想挂档案，用「装备」类型记件数即可。 */
+    /* 养成读档案；未建档的养成使用独立的手动类型，不混算。 */
     if (kind === 'growth' && !tracking) return null;
 
     const logs = Array.isArray(one.logs)
@@ -454,8 +585,11 @@ export function parseGoal(raw: unknown): Goal | null {
         title: typeof one.title === 'string' ? one.title.trim() : '',
         members,
         target: one.target,
-        unit:
-            typeof one.unit === 'string' && one.unit.trim() ? one.unit.trim() : kindMeta(kind).unit,
+        unit: tracking
+            ? metricUnit(tracking)
+            : typeof one.unit === 'string' && one.unit.trim()
+              ? one.unit.trim()
+              : kindMeta(kind).unit,
         tracking,
         deadline: typeof one.deadline === 'string' && DATE.test(one.deadline) ? one.deadline : '',
         note: typeof one.note === 'string' ? one.note : '',

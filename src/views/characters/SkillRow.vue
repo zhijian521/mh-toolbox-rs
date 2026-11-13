@@ -111,6 +111,7 @@ const seal = computed(() => [...props.row.name][0] ?? '');
         <NumberField
             v-else
             :id="inputId"
+            update-on-input
             :model-value="row.level"
             label="等级"
             class="lv-field num-slot slip-input"

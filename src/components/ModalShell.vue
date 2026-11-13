@@ -237,12 +237,15 @@ const panelStyle = computed(() => {
 /* 正文可滚、页眉页脚固定：历史窗里流水很长，滚的只能是中间那一段，
  * 否则「取消 / 保存」会跟着滚出视野。
  * 右内边距扣掉一条滚动条轨道（CONVENTIONS §2.4-35）：不扣的话，窗内滚起来的一瞬间
- * 正文右缘会比页脚短一截，滚动条消失时又对齐——正文看起来在左右跳。 */
+ * 正文右缘会比页脚短一截。可滚正文固定预留轨道，避免显隐时内容宽度变化。 */
 .modal-body {
     flex: 1 1 auto;
     min-height: 0;
     padding: 14px max(0px, calc(16px - var(--scrollbar-w))) 14px 16px;
     overflow-y: auto;
+}
+.modal-body:not(.modal-body-static):not(.modal-body-fill) {
+    scrollbar-gutter: stable;
 }
 
 /* 不滚的正文（物品、记价这类字段固定的窗）。

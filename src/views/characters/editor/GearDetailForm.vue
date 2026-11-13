@@ -132,6 +132,7 @@ function addLine(label: string) {
                         <label class="slip-row sm">
                             <span class="slip-name">等级</span>
                             <NumberField
+                                update-on-input
                                 class="field num-slot slip-input"
                                 :model-value="detail.level ?? 0"
                                 label="装备等级"

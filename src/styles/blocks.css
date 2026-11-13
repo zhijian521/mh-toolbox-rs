@@ -459,6 +459,13 @@
     padding: 0;
     border: 0;
 }
+/* 窄窗也保留两侧留白，不能只设最大宽度；历史表格与角色截图详情另行布局。 */
+.modal-form {
+    width: calc(100% - 24px);
+    max-width: 420px;
+    min-width: 0;
+    margin: 4px auto;
+}
 .income-log-scroll {
     flex: 1 1 auto;
     min-height: 0;

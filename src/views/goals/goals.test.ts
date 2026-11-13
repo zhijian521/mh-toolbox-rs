@@ -7,6 +7,10 @@ import {
     deadlineText,
     goalSummary,
     goalTitle,
+    groupKeys,
+    metricGroup,
+    metricUnit,
+    metricApplicable,
     metricKeys,
     metricValue,
     orderGoals,
@@ -71,6 +75,7 @@ function log(delta: number, date = TODAY, id = `l${Math.abs(delta)}-${date}`) {
 
 describe('目标：指标取值', () => {
     const withData = character('c1', '甲', {
+        school: '五庄观',
         skills: [
             { name: '周易学', level: 120, cap: 180 },
             { name: '乾坤袖', level: 0, off: true },
@@ -110,11 +115,13 @@ describe('目标：指标取值', () => {
         expect(metricValue(withData, { category: 'attr', key: '伤害' })).toBeNull();
     });
 
-    it('固定清单来自角色契约，技能取成员并集', () => {
+    it('固定清单来自角色契约，师门包含所选门派的未录技能', () => {
         expect(metricKeys('training', []).length).toBe(10);
         expect(metricKeys('attr', [])).toContain('命中');
         const other = character('c2', '乙', { skills: [{ name: '潇湘仙雨', level: 1 }] });
-        expect(metricKeys('skill', [withData, other])).toEqual(['周易学', '乾坤袖', '潇湘仙雨']);
+        const keys = metricKeys('skill', [withData, other]);
+        expect(keys).toEqual(expect.arrayContaining(['周易学', '乾坤袖', '潇湘仙雨', '为官之道']));
+        expect(new Set(keys).size).toBe(keys.length);
     });
 
     it('写回只改那一项，不动别处', () => {
@@ -128,7 +135,116 @@ describe('目标：指标取值', () => {
     });
 });
 
+describe('目标：养成目录与档案补录', () => {
+    it('生活、剧情包含未学技能，人物与召唤兽修炼分开选择', () => {
+        expect(groupKeys('life', [])).toContain('强身术');
+        expect(groupKeys('story', [])).toContain('变化之术');
+        expect(groupKeys('life', [])).not.toContain('变化之术');
+        expect(groupKeys('training', [])).toContain('攻击修炼');
+        expect(groupKeys('training', [])).not.toContain('攻击控制力');
+        expect(groupKeys('pet-training', [])).toContain('攻击控制力');
+        expect(groupKeys('potential', [])).toEqual(['乾元丹', '潜能果']);
+        expect(groupKeys('attr', [])).not.toContain('潜能果');
+        expect(metricGroup({ category: 'assist', key: '变化之术' })).toBe('story');
+        expect(metricGroup({ category: 'training', key: '攻击控制力' })).toBe('pet-training');
+        expect(metricUnit({ category: 'attr', key: '潜能果' })).toBe('个');
+    });
+
+    it('角色等级直接读取与修改档案，不写到属性行', () => {
+        const one = character('c1', '甲', { level: 109 });
+        const tracking = { category: 'level' as const, key: '角色等级' };
+        expect(metricValue(one, tracking)).toBe(109);
+        const next = applyMetric(one, tracking, 129);
+        expect(next.level).toBe(129);
+        expect(next.attrGroups).toEqual([]);
+        expect(one.level).toBe(109);
+    });
+
+    it('辅助缺项按生活、剧情归属新增，已有未学项目直接更新', () => {
+        const one = character('c1', '甲', {
+            assists: [{ name: '强身术', level: 0, off: true, kind: 'life' }],
+        });
+        const next = applyMetric(one, { category: 'assist', key: '变化之术' }, 5);
+        expect(next.assists).toEqual([
+            ...one.assists,
+            { name: '变化之术', level: 5, kind: 'story' },
+        ]);
+        const learned = applyMetric(next, { category: 'assist', key: '强身术' }, 120);
+        expect(learned.assists).toHaveLength(2);
+        expect(learned.assists[0]).toMatchObject({ level: 120, off: false });
+        expect(one.assists[0].off).toBe(true);
+    });
+
+    it('补录修炼和潜能时只新增缺少的行或组', () => {
+        const one = character('c1', '甲', {
+            trainings: [{ title: '任务修炼', rows: [{ name: '攻击修炼', level: 10 }] }],
+        });
+        const next = applyMetric(one, { category: 'training', key: '防御修炼' }, 20);
+        expect(next.trainings).toHaveLength(1);
+        expect(next.trainings[0].rows).toEqual([
+            { name: '攻击修炼', level: 10 },
+            { name: '防御修炼', level: 20 },
+        ]);
+        const pet = applyMetric(next, { category: 'training', key: '攻击控制力' }, 25);
+        expect(metricValue(pet, { category: 'training', key: '攻击控制力' })).toBe(25);
+        const potential = applyMetric(pet, { category: 'attr', key: '潜能果' }, 100);
+        expect(metricValue(potential, { category: 'attr', key: '潜能果' })).toBe(100);
+        const pill = applyMetric(potential, { category: 'attr', key: '乾元丹' }, 7);
+        expect(pill.attrGroups).toHaveLength(1);
+        expect(pill.attrGroups[0].rows).toHaveLength(2);
+        expect(one.attrGroups).toEqual([]);
+    });
+
+    it('不能给其他门派补入师门技能，也不写入负数或小数等级', () => {
+        const one = character('c1', '甲');
+        const tracking = { category: 'skill' as const, key: '周易学' };
+        expect(metricApplicable(one, tracking)).toBe(false);
+        expect(applyMetric(one, tracking, 150)).toBe(one);
+        expect(applyMetric(one, { category: 'level', key: '角色等级' }, -1)).toBe(one);
+        expect(applyMetric(one, { category: 'level', key: '角色等级' }, 109.5)).toBe(one);
+        const correct = character('c2', '乙', { school: '五庄观' });
+        expect(metricValue(applyMetric(correct, tracking, 150), tracking)).toBe(150);
+    });
+
+    it('换门派后不适用的成员保留展示但不计进度，全部不适用也不算达成', () => {
+        const tracking = { category: 'skill' as const, key: '周易学' };
+        const one = goal({
+            kind: 'growth',
+            target: 150,
+            unit: '级',
+            tracking,
+            members: [
+                { id: 'c1', name: '甲' },
+                { id: 'c2', name: '乙' },
+            ],
+        });
+        const roster = [
+            character('c1', '甲'),
+            character('c2', '乙', { school: '五庄观', skills: [{ name: '周易学', level: 150 }] }),
+        ];
+        const summary = goalSummary(one, roster);
+        expect(summary.totalMembers).toBe(1);
+        expect(summary.rows[0].applicable).toBe(false);
+        expect(summary.done).toBe(true);
+        expect(goalSummary(one, roster.slice(0, 1)).done).toBe(false);
+    });
+});
+
 describe('目标：手动累计', () => {
+    it('小数累计和回退消除浮点尾差，手动养成保留自定单位', () => {
+        const one = goal({
+            kind: 'manual',
+            title: '坐骑成长',
+            target: 0.2,
+            unit: '点',
+            logs: [log(0.3, '2026-11-01'), log(-0.1)],
+        });
+        const summary = goalSummary(one, []);
+        expect(summary.current).toBe(0.2);
+        expect(summary.done).toBe(true);
+        expect(summary.doneDate).toBe('2026-11-01');
+        expect(parseGoal(one)?.unit).toBe('点');
+    });
     it('进度是流水之和，最低到 0', () => {
         const one = goal({ target: 100, logs: [log(30), log(-50)] });
         expect(goalSummary(one, []).current).toBe(0);
@@ -313,6 +429,25 @@ describe('目标：展示与排序', () => {
 });
 
 describe('目标：归一', () => {
+    it('成员按 id 去重，新等级与旧养成目标都能读回', () => {
+        const parsed = parseGoal(
+            goal({
+                kind: 'growth',
+                tracking: { category: 'level', key: '角色等级' },
+                unit: '点',
+                members: [
+                    { id: 'c1', name: '甲' },
+                    { id: 'c1', name: '甲' },
+                ],
+            }),
+        );
+        expect(parsed?.members).toEqual([{ id: 'c1', name: '甲' }]);
+        expect(parsed?.unit).toBe('级');
+        const potential = parseGoal(
+            goal({ kind: 'growth', tracking: { category: 'attr', key: '潜能果' }, unit: '点' }),
+        );
+        expect(potential?.unit).toBe('个');
+    });
     it('一条读不懂的目标整条丢掉', () => {
         expect(parseGoal(null)).toBeNull();
         expect(parseGoal({ id: 'x', kind: 'nope', target: 1, members: [{ id: 'c1' }] })).toBeNull();

@@ -129,13 +129,13 @@ function onEnter(event: KeyboardEvent) {
 <template>
     <ModalShell
         :title="item ? '编辑物品' : '新建物品'"
-        :width="520"
+        :width="480"
         :scroll="false"
         @close="emit('close')"
     >
         <form
             id="price-item-form"
-            class="dialog-form"
+            class="dialog-form modal-form"
             @submit.prevent="submit"
             @keydown.enter="onEnter"
         >
@@ -229,7 +229,7 @@ function onEnter(event: KeyboardEvent) {
  * 而这里要的正是「两列各半分」。 */
 .dialog-form {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 11px 13px;
 }
 .cell {

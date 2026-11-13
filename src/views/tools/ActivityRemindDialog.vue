@@ -76,7 +76,7 @@ function submit() {
 
 <template>
     <ModalShell title="加个提醒" :width="404" :scroll="false" @close="emit('close')">
-        <div class="remind">
+        <div class="remind modal-form">
             <div class="head">
                 <h3 class="name">{{ activity.name }}</h3>
                 <p class="rule">{{ ruleLine }}</p>

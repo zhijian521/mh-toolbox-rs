@@ -59,6 +59,7 @@ function open(row: TrainingRow) {
                         <NumberField
                             v-else
                             :id="`${uid}-${row.name}`"
+                            update-on-input
                             :model-value="row.level"
                             :label="`${row.name} 等级`"
                             class="lv-field num-slot slip-input"

@@ -152,6 +152,7 @@ defineExpose({ focusName });
     max-height: 208px;
     min-height: 0;
     overflow-y: auto;
+    scrollbar-gutter: stable;
 }
 .pet-portrait {
     --tile-w: 52px;

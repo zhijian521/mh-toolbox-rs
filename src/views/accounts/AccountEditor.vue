@@ -130,7 +130,7 @@ function submit() {
 <template>
     <ModalShell
         :title="automatic ? '账目详情' : entry ? '修改记录' : '记一笔'"
-        :width="452"
+        :width="480"
         @close="!saving && emit('close')"
     >
         <dl v-if="automatic && entry" class="entry-detail">
@@ -163,7 +163,7 @@ function submit() {
                 <dd>{{ entry.note }}</dd>
             </div>
         </dl>
-        <form v-else @submit.prevent="submit">
+        <form v-else class="modal-form" @submit.prevent="submit">
             <fieldset class="income-form" :disabled="locked">
                 <!-- 币种单独一行、排在最前：它决定下面「金额」那一格说的是元还是万，
                  放到后面等于让人先填一个数、再回头发现单位错了。 -->
@@ -176,16 +176,17 @@ function submit() {
                     />
                 </div>
 
-                <div class="form-row">
+                <div class="form-row amount-row">
                     <span class="field-label">金额（{{ unit }}）</span>
                     <!-- 元、万两种输入都最多保留两位小数。 -->
                     <NumberField
                         v-model="amount"
-                        @input="amountEdited = true"
+                        update-on-input
                         label="成交金额"
                         zero-as-empty
                         :precision="2"
                         class="amount-field"
+                        @input="amountEdited = true"
                     />
                 </div>
 
@@ -267,8 +268,20 @@ function submit() {
 </template>
 
 <style scoped>
+.amount-row {
+    justify-items: center;
+    padding: 8px 0;
+}
 .amount-field {
-    width: 100%;
+    width: min(100%, calc(156px * var(--fs-scale)));
+    height: auto;
+    padding: 8px 16px 10px;
+    border-radius: var(--r-3);
+    color: var(--num);
+    font-size: calc(var(--fs-base) * 1.8);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+    text-align: center;
 }
 /* 标签在上、控件在下：`.field` 是通栏宽度，标签放左侧会把它挤窄；
  * 而 `SegmentedPills` 一组的宽度是按内容走的，两者同一个节奏。 */

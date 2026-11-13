@@ -181,7 +181,7 @@ const submitText = computed(() => {
 
 <template>
     <ModalShell :title="title" :width="420" :scroll="false" @close="close">
-        <form class="income-form" @submit.prevent="submit">
+        <form class="income-form modal-form" @submit.prevent="submit">
             <fieldset class="income-form" :disabled="locked">
                 <div class="form-row">
                     <span class="field-label">记给谁</span>

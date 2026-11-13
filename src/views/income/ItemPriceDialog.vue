@@ -53,7 +53,7 @@ function onEnter(event: KeyboardEvent) {
 
 <template>
     <ModalShell :title="title" :width="360" :scroll="false" @close="!saving && emit('close')">
-        <form class="income-form" @submit.prevent="submit" @keydown.enter="onEnter">
+        <form class="income-form modal-form" @submit.prevent="submit" @keydown.enter="onEnter">
             <fieldset class="income-form" :disabled="locked">
                 <PriceField
                     v-model="amount"

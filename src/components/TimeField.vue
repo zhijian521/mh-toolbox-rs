@@ -125,6 +125,7 @@ function commit() {
  * 双类名是为了压过 `base.css` 里那条 `.field`（同为 0-1-0，靠样式顺序不保险）。 */
 .field.time-input {
     width: calc(208px * var(--fs-scale));
+    max-width: 100%;
     height: calc(56px * var(--fs-scale));
     /* 右侧多留 0.1em：`letter-spacing` 会在末字后面也加一格，不补的话整串看着偏左。 */
     padding: 0 calc(10px * var(--fs-scale)) 0 calc(10px * var(--fs-scale) + 0.1em);

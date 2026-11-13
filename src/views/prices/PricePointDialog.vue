@@ -65,7 +65,7 @@ function onEnter(event: KeyboardEvent) {
         :scroll="false"
         @close="emit('close')"
     >
-        <form class="dialog-form" @submit.prevent="submit" @keydown.enter="onEnter">
+        <form class="dialog-form modal-form" @submit.prevent="submit" @keydown.enter="onEnter">
             <!-- 价格放最上面、占整行、居中：这一窗唯一必须填对的就是它。
                  日期有默认值（今天），备注可空，两者挤在两列里就够。 -->
             <div>

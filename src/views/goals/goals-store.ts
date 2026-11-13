@@ -17,6 +17,9 @@ import { createPersist } from '../../services/persist';
 import { makeId } from '../../services/shape';
 import {
     goalTitle,
+    METRIC_CATEGORIES,
+    metricUnit,
+    manualProgress,
     parseGoals,
     type Goal,
     type GoalKind,
@@ -106,23 +109,31 @@ export interface GoalInput {
 export type GoalWrite = { ok: true; goal: Goal } | { ok: false; error: string };
 
 function check(input: GoalInput): { ok: true; unit: string } | { ok: false; error: string } {
-    if (!input.members.length) return { ok: false, error: '选至少一个角色' };
+    if (!input.members.length || input.members.some((member) => !member.id.trim()))
+        return { ok: false, error: '选至少一个角色' };
     if (!Number.isFinite(input.target) || input.target <= 0) {
         return { ok: false, error: '目标值要大于 0' };
     }
     if (input.kind === 'growth') {
         if (!input.tracking) return { ok: false, error: '选一个跟着走的项目' };
+        if (
+            !METRIC_CATEGORIES.some((row) => row.value === input.tracking?.category) ||
+            !input.tracking.key.trim()
+        )
+            return { ok: false, error: '选择有效的养成项目' };
         /* 养成项目的值都是整数（级、点）。允许小数会让「到 25.5 级」成为一个永远
          * 达标不了的目标——游戏里没有半个等级。 */
         if (!Number.isSafeInteger(input.target)) return { ok: false, error: '养成目标要填整数' };
-        return { ok: true, unit: input.unit };
+        return { ok: true, unit: metricUnit(input.tracking) };
     }
+    if (input.kind === 'manual' && !input.title.trim())
+        return { ok: false, error: '填写手动目标名称' };
     /* 装备按件数：目标也是整数。存钱可以是 0.5 万。 */
     if (input.kind === 'gear' && !Number.isSafeInteger(input.target)) {
         return { ok: false, error: '件数要填整数' };
     }
     if (!input.unit.trim()) return { ok: false, error: '填一个单位' };
-    return { ok: true, unit: input.unit.trim() };
+    return { ok: true, unit: input.kind === 'gear' ? '件' : input.unit.trim() };
 }
 
 function compose(
@@ -135,7 +146,12 @@ function compose(
     const base = {
         id,
         kind: input.kind,
-        members: input.members,
+        members: input.members
+            .filter(
+                (member, index, all) =>
+                    member.id && all.findIndex((row) => row.id === member.id) === index,
+            )
+            .map((member) => ({ ...member })),
         target: input.target,
         unit,
         tracking: input.kind === 'growth' ? input.tracking : null,
@@ -167,6 +183,8 @@ export function updateGoal(id: string, input: GoalInput): GoalWrite {
     if (!persist.canWrite()) return { ok: false, error: '目标读取失败，先修好再来改' };
     const before = goals.value.find((one) => one.id === id);
     if (!before) return { ok: false, error: '这个目标已经不在了' };
+    if (input.kind !== before.kind || (before.logs.length && input.unit !== before.unit))
+        return { ok: false, error: '已有目标不能更换类型，有记录后不能更换单位' };
     const checked = check(input);
     if (!checked.ok) return checked;
     const goal = compose(input, checked.unit, id, before.createdAt, before.logs);
@@ -207,13 +225,12 @@ export function addLog(id: string, input: LogInput): LogWrite {
     if (!Number.isFinite(input.delta) || input.delta === 0) {
         return { ok: false, error: '填一个不为 0 的变化量' };
     }
+    if (goal.kind === 'gear' && !Number.isSafeInteger(input.delta))
+        return { ok: false, error: '件数要填整数' };
 
     /* 累计最低到 0：再减下去只是在记「欠了多少」，而目标问的是「攒了多少」。
      * 夹的是这一笔的增量，不是累计值——夹累计值会让「删了最后一笔」算不回去。 */
-    const current = Math.max(
-        0,
-        goal.logs.reduce((sum, log) => sum + log.delta, 0),
-    );
+    const current = manualProgress(goal.logs);
     const delta = Math.max(-current, input.delta);
     if (delta === 0) return { ok: false, error: '已经到 0 了，减不动' };
 
@@ -242,9 +259,13 @@ export function removeLog(id: string, logId: string): void {
 /** 新建时按「全部角色 / 单个角色」抄一份成员快照。名字一起抄（理由见 `goals.ts` 文件头）。 */
 export function snapshotMembers(
     roster: { id: string; name: string }[],
-    characterId: string,
+    characterId: string | string[],
 ): GoalMember[] {
-    const picked = characterId ? roster.filter((one) => one.id === characterId) : roster;
+    const picked = Array.isArray(characterId)
+        ? roster.filter((one) => characterId.includes(one.id))
+        : characterId
+          ? roster.filter((one) => one.id === characterId)
+          : roster;
     return picked.map((one) => ({ id: one.id, name: one.name || '未命名' }));
 }
 

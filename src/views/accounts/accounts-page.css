@@ -172,6 +172,7 @@
 .recent-list {
     max-height: 320px;
     overflow-y: auto;
+    scrollbar-gutter: stable;
 }
 .recent-row {
     display: grid;

@@ -6,328 +6,320 @@ import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
+import TogglePills from '../../components/TogglePills.vue';
 import { useRoster } from '../characters/roster';
 import {
     GOAL_KINDS,
-    METRIC_CATEGORIES,
+    METRIC_GROUPS,
     autoTitle,
-    goalSummary,
-    metricKeys,
+    groupKeys,
+    metricGroup,
+    metricApplicable,
+    metricUnit,
     type Goal,
     type GoalKind,
-    type GoalMember,
-    type MetricCategory,
+    type MetricGroup,
 } from './goals';
-import { MONEY_UNITS, snapshotMembers, type GoalInput } from './goals-store';
+import { MONEY_UNITS, type GoalInput } from './goals-store';
 
-/**
- * 新建 / 编辑目标。
- *
- * 表单**随类型收放**：选「养成」才出分类与项目；存钱 / 装备只留数值、单位、期限。
- * 摆一堆「对本类型无效」的格子，用户要花时间判断哪几个该填——而判断错了不会报错，
- * 只会得到一个算不出进度的目标。
- *
- * 单位不让人自由填：养成跟项目走（级 / 点）、装备固定「件」、只有存钱要在元与万之间挑。
- * 旧仓让用户自己写单位，写错一次后面每个读数都带着错单位。
- */
-const props = defineProps<{ goal?: Goal }>();
+const props = defineProps<{
+    goal?: Goal;
+    saving: boolean;
+    locked: boolean;
+    retrying: boolean;
+    error: string;
+}>();
 const emit = defineEmits<{ save: [input: GoalInput]; close: [] }>();
-
 const { roster } = useRoster();
 const titleId = useId();
 const noteId = useId();
-
-/** `SelectField` 把空串当「没有值」，所以「全部角色」要一个有值的哨兵。 */
-const ALL = '__all__';
-/** 编辑时「不动快照」：改标题不该顺手把成员换成今天的名册。 */
-const KEEP = '__keep__';
-
-const editing = computed(() => !!props.goal);
 const kind = ref<GoalKind>(props.goal?.kind ?? 'growth');
-const category = ref<MetricCategory>(props.goal?.tracking?.category ?? 'training');
+const group = ref<MetricGroup>(
+    props.goal?.tracking ? metricGroup(props.goal.tracking) : 'training',
+);
 const metric = ref(props.goal?.tracking?.key ?? '');
-const target = ref<number>(props.goal?.target ?? 0);
+const target = ref(props.goal?.target ?? 0);
+const selected = ref(
+    props.goal?.members.map((member) => member.id) ?? roster.value.map((character) => character.id),
+);
+const title = ref(
+    props.goal && (props.goal.kind === 'manual' || props.goal.title !== autoTitle(props.goal))
+        ? props.goal.title
+        : '',
+);
+const unitInput = ref(props.goal?.unit ?? '级');
 const moneyUnit = ref(props.goal?.unit === '元' ? '元' : '万');
-const deadlineOn = ref(!!props.goal?.deadline);
-const deadline = ref(props.goal?.deadline || '');
-const who = ref(props.goal ? KEEP : ALL);
-/* 存的标题与自动标题一样时**不预填**：让它继续留空，占位字才有「留空即自动」的意思。
- * 预填成一样的字之后，用户改目标值，标题不会跟着变——那正是我们要避免的「两处各写一遍」。 */
-const title = ref(props.goal && props.goal.title !== autoTitle(props.goal) ? props.goal.title : '');
+const deadline = ref(props.goal?.deadline ?? '');
 const note = ref(props.goal?.note ?? '');
-const error = ref('');
-
-const kindOptions = GOAL_KINDS.map((one) => ({ value: one.value, label: one.label }));
-const categoryOptions = METRIC_CATEGORIES.map((one) => ({ value: one.value, label: one.label }));
-const unitOptions = MONEY_UNITS.map((one) => ({ value: one, label: `按${one}` }));
-
-/** 当前范围的成员。选「全部角色」时是**此刻**的名册，保存那一刻才抄下来。 */
-const members = computed<GoalMember[]>(() => {
-    if (who.value === KEEP) return props.goal?.members ?? [];
-    if (who.value === ALL) return snapshotMembers(roster.value, '');
-    return snapshotMembers(roster.value, who.value);
-});
-
-const whoOptions = computed(() => {
-    const options = roster.value.map((one) => ({ value: one.id, label: one.name || '未命名' }));
+const extraOpen = ref(
+    !!props.goal?.deadline ||
+        !!props.goal?.note ||
+        (props.goal?.kind !== 'manual' && !!title.value),
+);
+const kindOptions = GOAL_KINDS.map((row) => ({ value: row.value, label: row.label }));
+const groupOptions = METRIC_GROUPS.map((row) => ({ value: row.value, label: row.label }));
+const memberOptions = computed(() => {
+    const live = roster.value.map((character) => ({
+        value: character.id,
+        label: character.name || '未命名',
+    }));
+    const gone = (props.goal?.members ?? []).filter(
+        (member) => !roster.value.some((character) => character.id === member.id),
+    );
     return [
-        ...(editing.value && who.value === KEEP
-            ? [{ value: KEEP, label: `保持快照（${props.goal?.members.length ?? 0} 个）` }]
-            : []),
-        { value: ALL, label: `全部角色（${roster.value.length} 个）` },
-        ...options,
+        ...live,
+        ...gone.map((member) => ({
+            value: member.id,
+            label: `${member.name || '未命名'}（已删除）`,
+        })),
     ];
 });
-
-/** 项目候选按**当前成员**的档案求并集：五个号五个门派时，七项技能会并成十几项。 */
+const members = computed(() =>
+    memberOptions.value
+        .filter((row) => selected.value.includes(row.value))
+        .map((row) => {
+            const live = roster.value.find((character) => character.id === row.value);
+            return {
+                id: row.value,
+                name:
+                    live?.name ||
+                    props.goal?.members.find((member) => member.id === row.value)?.name ||
+                    '未命名',
+            };
+        }),
+);
+const characters = computed(() =>
+    roster.value.filter((character) => selected.value.includes(character.id)),
+);
 const metricOptions = computed(() => {
-    const characters = members.value
-        .map((member) => roster.value.find((one) => one.id === member.id))
-        .filter((one): one is NonNullable<typeof one> => !!one);
-    const keys = metricKeys(category.value, characters);
-    /* 编辑时原项目可能已经不在名单里（换过门派、删过技能）。补回去，
-     * 否则下拉会静静跳到第一项，用户一保存就把追踪项改成了别的。 */
-    const saved = props.goal?.tracking;
-    if (saved && saved.category === category.value && !keys.includes(saved.key)) {
-        keys.push(saved.key);
-    }
+    const keys = groupKeys(group.value, characters.value);
+    const old = props.goal?.tracking;
+    if (old && metricGroup(old) === group.value && !keys.includes(old.key)) keys.push(old.key);
     return keys.map((key) => ({ value: key, label: key }));
 });
-
-/* 新建时先落到第一个可用项目上：停在下拉占位会让「保存」按钮一直是灰的，
- * 而用户看不出是「项目没选」还是「数没填」。 */
 watch(
     metricOptions,
     (options) => {
-        if (!options.some((one) => one.value === metric.value)) {
+        if (!props.locked && !options.some((row) => row.value === metric.value))
             metric.value = options[0]?.value ?? '';
-        }
     },
     { immediate: true },
 );
-
-const unit = computed(() => {
-    if (kind.value === 'gear') return '件';
-    if (kind.value === 'money') return moneyUnit.value;
-    return METRIC_CATEGORIES.find((one) => one.value === category.value)?.unit ?? '级';
-});
-
-/* 分类一换，项目清单整份换掉：留着旧项目会得到一个「不在这批人档案里」的追踪项，
- * 那种目标在卡片上会显示成一排「待补录」。 */
-function pickCategory(next: MetricCategory) {
-    category.value = next;
-    const options = metricKeys(next, roster.value);
-    metric.value = options.includes(metric.value) ? metric.value : (options[0] ?? '');
-}
-
-/* 类型一换，目标值多半要重填（25 级与 25 万不是一件事），清零比留着一个错的数诚实。 */
+const tracking = computed(() =>
+    kind.value === 'growth'
+        ? {
+              category: METRIC_GROUPS.find((row) => row.value === group.value)!.category,
+              key: metric.value,
+          }
+        : null,
+);
+const unit = computed(() =>
+    tracking.value
+        ? metricUnit(tracking.value)
+        : kind.value === 'money'
+          ? moneyUnit.value
+          : kind.value === 'gear'
+            ? '件'
+            : unitInput.value.trim(),
+);
+const incompatible = computed(() =>
+    tracking.value
+        ? characters.value.filter((character) => !metricApplicable(character, tracking.value!))
+        : [],
+);
+const ready = computed(
+    () =>
+        members.value.length > 0 &&
+        Number.isFinite(target.value) &&
+        target.value > 0 &&
+        !!unit.value &&
+        (!tracking.value || (!!metric.value && !incompatible.value.length)) &&
+        (kind.value !== 'manual' || !!title.value.trim()),
+);
 function pickKind(next: GoalKind) {
-    if (next === kind.value) return;
+    if (props.locked || props.goal || kind.value === next) return;
     kind.value = next;
     target.value = 0;
-    if (next === 'growth' && !metric.value) metric.value = metricOptions.value[0]?.value ?? '';
 }
-
-const preview = computed(() => {
-    try {
-        return autoTitle({
-            id: props.goal?.id ?? '',
-            kind: kind.value,
-            members: members.value,
-            target: target.value,
-            unit: unit.value,
-            tracking:
-                kind.value === 'growth' ? { category: category.value, key: metric.value } : null,
-            deadline: deadlineOn.value ? deadline.value : '',
-            note: note.value,
-            logs: props.goal?.logs ?? [],
-            createdAt: props.goal?.createdAt ?? 0,
-        });
-    } catch {
-        return '';
-    }
-});
-
-/** 编辑时把「现在怎么样」写在按钮旁边：改目标值之前，得先看见改完会变成什么样。 */
-const progressNow = computed(() => {
-    if (!props.goal) return '';
-    const summary = goalSummary(props.goal, roster.value);
-    if (props.goal.tracking) {
-        return `现在 ${summary.achieved} / ${summary.totalMembers} 个角色达标`;
-    }
-    return `现在 ${summary.current} / ${summary.total} ${props.goal.unit}`;
-});
-
-/** 目标值那一格在不同类型下问的不是同一件事，标签跟着换。 */
-const targetLabel = computed(() => {
-    if (kind.value === 'gear') return '买够几件';
-    if (kind.value === 'money') return '攒到';
-    return '每个角色到';
-});
-
-const ready = computed(() => {
-    if (!members.value.length) return false;
-    if (!Number.isFinite(target.value) || target.value <= 0) return false;
-    if (kind.value === 'growth' && !metric.value) return false;
-    if (deadlineOn.value && !deadline.value) return false;
-    return true;
-});
-
-/**
- * 表单里按回车 = 保存。
- *
- * 只在**文本输入框**上生效：`SelectField` 的纸片里选一项也是回车，那个回车归它自己，
- * 顺手把目标建掉会让人莫名其妙。`PressButton` 是 `type="button"`，本来也不会隐式提交。
- */
-function enterSubmit(event: KeyboardEvent) {
-    if ((event.target as HTMLElement)?.tagName !== 'INPUT') return;
-    submit();
-}
-
 function submit() {
-    if (!ready.value) {
-        error.value = '填完再保存';
-        return;
-    }
-    error.value = '';
+    if (props.saving || (!props.retrying && (!ready.value || props.locked))) return;
     emit('save', {
         kind: kind.value,
         title: title.value,
         members: members.value,
         target: target.value,
         unit: unit.value,
-        tracking: kind.value === 'growth' ? { category: category.value, key: metric.value } : null,
-        deadline: deadlineOn.value ? deadline.value : '',
+        tracking: tracking.value,
+        deadline: deadline.value,
         note: note.value,
     });
+}
+function enter(event: KeyboardEvent) {
+    if ((event.target as HTMLElement).tagName !== 'INPUT' || event.isComposing) return;
+    event.preventDefault();
+    submit();
 }
 </script>
 
 <template>
     <ModalShell
-        :title="editing ? '改这个目标' : '新建目标'"
+        :title="goal ? '修改目标' : '新建目标'"
         :width="480"
-        :scroll="false"
-        @close="emit('close')"
+        @close="!saving && emit('close')"
     >
-        <form class="form" @submit.prevent="submit" @keydown.enter.prevent="enterSubmit">
-            <div class="form-row pills">
-                <span class="field-label">类型</span>
+        <form class="goal-form modal-form" @submit.prevent="submit" @keydown.enter="enter">
+            <fieldset :disabled="locked" :inert="locked">
                 <SegmentedPills
                     :model-value="kind"
-                    :options="kindOptions"
+                    :options="
+                        kindOptions.map((row) => ({
+                            ...row,
+                            disabled: !!goal && row.value !== kind,
+                        }))
+                    "
                     label="目标类型"
                     @update:model-value="pickKind"
                 />
-            </div>
-
-            <template v-if="kind === 'growth'">
-                <div class="pair">
-                    <div class="form-row">
-                        <span class="field-label">分类</span>
-                        <SelectField
-                            :model-value="category"
-                            :options="categoryOptions"
-                            label="养成项目分类"
-                            @update:model-value="(value) => pickCategory(value as MetricCategory)"
+                <section class="member-picker">
+                    <div class="field-heading">
+                        <span
+                            >角色 <small>{{ members.length }}</small></span
+                        >
+                        <PressButton
+                            text="全选"
+                            label="选择全部角色"
+                            size="sm"
+                            @click="selected = roster.map((character) => character.id)"
                         />
                     </div>
-                    <div class="form-row">
-                        <span class="field-label">项目</span>
-                        <SelectField
+                    <TogglePills
+                        v-model="selected"
+                        :options="memberOptions"
+                        label="目标角色（多选）"
+                        :disabled="locked"
+                    />
+                    <p v-if="!memberOptions.length" class="note">暂无角色，请先到角色页新增。</p>
+                </section>
+                <div v-if="kind === 'growth'" class="pair">
+                    <label class="control"
+                        ><span>养成分类</span
+                        ><SelectField
+                            :model-value="group"
+                            :options="groupOptions"
+                            label="养成项目分类"
+                            @update:model-value="group = $event as MetricGroup"
+                    /></label>
+                    <label class="control"
+                        ><span>项目</span
+                        ><SelectField
                             v-model="metric"
                             :options="metricOptions"
                             label="具体项目"
-                            placeholder="没有可选项"
-                        />
-                    </div>
+                            placeholder="选择项目"
+                    /></label>
                 </div>
-            </template>
-
-            <div class="pair">
-                <div class="form-row">
-                    <label class="field-label">{{ targetLabel }}（{{ unit }}）</label>
+                <label v-if="kind === 'manual'" class="control" :for="titleId">
+                    <span>目标名称</span
+                    ><input
+                        :id="titleId"
+                        v-model="title"
+                        class="field"
+                        aria-label="目标标题"
+                        placeholder="坐骑成长、法宝修炼等"
+                        autocomplete="off"
+                    />
+                </label>
+                <label class="target-field">
+                    <span>{{ tracking ? '每个角色达到' : '累计目标' }}（{{ unit }}）</span>
                     <NumberField
                         v-model="target"
                         label="目标值"
-                        :precision="kind === 'money' ? 2 : 0"
+                        update-on-input
+                        :precision="kind === 'money' || kind === 'manual' ? 2 : 0"
                         zero-as-empty
                     />
+                </label>
+                <div v-if="kind === 'money' || kind === 'manual'" class="unit-row">
+                    <div v-if="kind === 'money'" class="control">
+                        <span>单位</span
+                        ><SegmentedPills
+                            v-model="moneyUnit"
+                            :options="MONEY_UNITS.map((value) => ({ value, label: value }))"
+                            :disabled="!!goal?.logs.length"
+                            label="金额单位"
+                        />
+                    </div>
+                    <label v-else-if="kind === 'manual'" class="control"
+                        ><span>单位</span
+                        ><input
+                            v-model="unitInput"
+                            class="field"
+                            aria-label="目标单位"
+                            :disabled="!!goal?.logs.length"
+                            maxlength="6"
+                    /></label>
                 </div>
-                <div v-if="kind === 'money'" class="form-row">
-                    <span class="field-label">单位</span>
-                    <SegmentedPills v-model="moneyUnit" :options="unitOptions" label="金额单位" />
-                </div>
-                <div v-else class="form-row">
-                    <span class="field-label">单位</span>
-                    <!-- 不画成输入框：它跟着项目走，改不了。画成框会让人去点它。 -->
-                    <p class="unit-fixed">{{ unit }}</p>
-                </div>
-            </div>
-
-            <div class="form-row">
-                <span class="field-label">适用角色</span>
-                <SelectField v-model="who" :options="whoOptions" label="目标适用哪些角色" />
-                <p class="form-note">后续新增角色不加入此目标。</p>
-            </div>
-
-            <div class="form-row">
-                <span class="field-label">期限</span>
-                <div class="deadline-row">
-                    <SegmentedPills
-                        :model-value="deadlineOn ? 'on' : 'off'"
-                        :options="[
-                            { value: 'off', label: '不设' },
-                            { value: 'on', label: '有期限' },
-                        ]"
-                        label="是否设期限"
-                        radius="sm"
-                        @update:model-value="(value) => (deadlineOn = value === 'on')"
-                    />
-                    <DateField v-if="deadlineOn" v-model="deadline" label="期望完成日期" />
-                </div>
-            </div>
-
-            <div class="form-row">
-                <label class="field-label" :for="titleId">标题</label>
-                <input
-                    :id="titleId"
-                    v-model="title"
-                    class="field"
-                    type="text"
-                    :placeholder="`留空自动：${preview}`"
-                    aria-label="目标标题"
-                    autocomplete="off"
-                />
-            </div>
-
-            <div class="form-row">
-                <label class="field-label" :for="noteId">备注</label>
-                <input
-                    :id="noteId"
-                    v-model="note"
-                    class="field"
-                    type="text"
-                    placeholder="选填，如：帮派修炼上限没提，只能到 22"
-                    aria-label="目标备注"
-                    autocomplete="off"
-                />
-            </div>
-
-            <p class="preview">
-                将记为：<b>{{ title.trim() || preview }}</b>
-                <span v-if="progressNow" class="preview-now">· {{ progressNow }}</span>
-            </p>
-            <p v-if="error" class="form-error" role="alert">{{ error }}</p>
+                <p v-if="incompatible.length" class="note error" role="alert">
+                    {{
+                        incompatible.map((character) => character.name || '未命名').join('、')
+                    }}不适用此师门技能，请调整角色。
+                </p>
+                <details
+                    :open="extraOpen"
+                    @toggle="extraOpen = ($event.target as HTMLDetailsElement).open"
+                >
+                    <summary>更多设置</summary>
+                    <div class="extras">
+                        <label v-if="kind !== 'manual'" class="control" :for="titleId"
+                            ><span>标题</span
+                            ><input
+                                :id="titleId"
+                                v-model="title"
+                                class="field"
+                                aria-label="目标标题"
+                                placeholder="留空自动生成"
+                                autocomplete="off"
+                        /></label>
+                        <div class="control">
+                            <span>期限</span>
+                            <div class="deadline-row">
+                                <DateField v-model="deadline" label="期望完成日期" />
+                                <PressButton
+                                    v-if="deadline"
+                                    text="不设"
+                                    label="清除目标期限"
+                                    size="sm"
+                                    @click="deadline = ''"
+                                />
+                            </div>
+                        </div>
+                        <label class="control" :for="noteId"
+                            ><span>备注</span
+                            ><input
+                                :id="noteId"
+                                v-model="note"
+                                class="field"
+                                aria-label="目标备注"
+                                autocomplete="off"
+                        /></label>
+                    </div>
+                </details>
+            </fieldset>
         </form>
-
         <template #footer>
-            <PressButton data-modal-cancel text="取消" label="不建了" @click="emit('close')" />
+            <p v-if="error" class="note error save-error" role="alert">{{ error }}</p>
+            <PressButton
+                data-modal-cancel
+                text="取消"
+                label="取消"
+                :disabled="saving"
+                @click="emit('close')"
+            />
             <PressButton
                 icon="check"
-                :text="editing ? '保存' : '建这个目标'"
+                :text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
                 label="保存目标"
-                :disabled="!ready"
+                :disabled="saving || (!retrying && !ready)"
                 seal
                 @click="submit"
             />
@@ -336,77 +328,112 @@ function submit() {
 </template>
 
 <style scoped>
-.form {
+.goal-form fieldset {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-}
-.form-row {
-    display: flex;
-    flex-direction: column;
-    /* `align-items: stretch` 必须写：全局 `.form-row` 是「标签在左、控件在右」的一行，
-     * 里面写着 `align-items: center`。只改 `flex-direction` 会得到一个「竖排但仍居中」的
-     * 表单——标签飘在控件上方中间，宽度收成内容宽（第一版就是这样）。 */
-    align-items: stretch;
-    gap: 4px;
+    gap: 16px;
     min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
 }
-.field-label {
-    color: var(--muted);
+.member-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.member-picker :deep(.pill-group) {
+    max-width: 100%;
+    flex-wrap: wrap;
+}
+.member-picker :deep(.bevel-pill) {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.field-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--ink-2);
     font-size: var(--fs-sm);
-    letter-spacing: 0.06em;
+}
+.field-heading small {
+    margin-left: 4px;
+    color: var(--muted);
 }
 .pair {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
 }
-/* 胶囊组是 inline-flex，外层一 stretch 就会把它的承载面拉满整行——
- * 那段底色读起来像「这一行有个空输入框」。 */
-.form-row.pills {
-    align-items: flex-start;
-}
-.form-note {
-    margin: 0;
-    color: var(--muted);
-    font-size: var(--fs-xs);
-    line-height: 1.6;
-    letter-spacing: 0.02em;
-}
-.unit-fixed {
+.control {
     display: flex;
-    align-items: center;
-    height: 28px;
-    margin: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    min-width: 0;
     color: var(--muted);
     font-size: var(--fs-sm);
-    letter-spacing: 0.04em;
+}
+.control :deep(.number-field) {
+    width: 100%;
+}
+.target-field {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    text-align: center;
+}
+.target-field :deep(.number-field) {
+    width: min(100%, calc(156px * var(--fs-scale)));
+    height: auto;
+    padding: 8px 16px 10px;
+    border-radius: var(--r-3);
+    color: var(--num);
+    font-size: calc(var(--fs-base) * 1.8);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+    text-align: center;
+}
+.unit-row {
+    align-self: center;
+    max-width: 100%;
+}
+.unit-row .control {
+    align-items: center;
+}
+.unit-row .field {
+    width: 120px;
+    max-width: 100%;
+    text-align: center;
+}
+details {
+    border-top: var(--w-hair) solid var(--rule);
+    padding-top: 10px;
+}
+summary {
+    width: fit-content;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+}
+.extras {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 12px;
+}
+.note {
+    margin: 0;
 }
 .deadline-row {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-.preview {
-    margin: 2px 0 0;
-    padding: 8px 10px;
-    border-left: 2px solid var(--seal);
-    background: color-mix(in srgb, var(--seal) 6%, transparent);
-    color: var(--ink-2);
-    font-size: var(--fs-sm);
-    line-height: 1.6;
-    overflow-wrap: anywhere;
-}
-.preview b {
-    font-weight: 400;
-    color: var(--ink);
-}
-.preview-now {
-    color: var(--muted);
-}
-.form-error {
-    margin: 0;
-    color: var(--danger);
-    font-size: var(--fs-sm);
 }
 </style>

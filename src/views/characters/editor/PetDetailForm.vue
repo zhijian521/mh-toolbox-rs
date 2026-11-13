@@ -88,6 +88,7 @@ function addSkill() {
                         <label class="slip-row sm">
                             <span class="slip-name">等级</span>
                             <NumberField
+                                update-on-input
                                 class="num-slot value-field slip-input"
                                 :model-value="pet.level"
                                 label="等级"
@@ -98,6 +99,7 @@ function addSkill() {
                         <label class="slip-row sm">
                             <span class="slip-name">参战等级</span>
                             <NumberField
+                                update-on-input
                                 class="num-slot value-field slip-input"
                                 :model-value="pet.joinLevel"
                                 label="参战等级"
@@ -144,6 +146,7 @@ function addSkill() {
                         >
                             <span class="slip-name">{{ field.label }}</span>
                             <NumberField
+                                update-on-input
                                 class="num-slot value-field slip-input"
                                 :model-value="pet.quality[field.key]"
                                 :label="field.label + '资质'"
@@ -164,6 +167,7 @@ function addSkill() {
                         <label class="slip-row sm"
                             ><span class="slip-name">寿命</span
                             ><NumberField
+                                update-on-input
                                 class="num-slot value-field slip-input"
                                 :model-value="pet.life"
                                 label="寿命"

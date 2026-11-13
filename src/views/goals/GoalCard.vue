@@ -1,429 +1,367 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import PaperCard from '../../components/PaperCard.vue';
-import AppIcon from '../../components/AppIcon.vue';
-import MeterBar from '../../components/MeterBar.vue';
+import GoalProgress from './GoalProgress.vue';
 import PressButton from '../../components/PressButton.vue';
 import {
     deadlineText,
     kindMeta,
     scopeText,
-    signedText,
-    sourceText,
     type Goal,
+    type GoalRow,
     type GoalSummary,
 } from './goals';
 
-/**
- * 一张目标卡。三种类型共用一个外壳，区别只在中间那段：
- * 养成目标列成员（谁到了、谁还差多少），手动目标列最近三笔流水。
- *
- * 卡片只摆，不算数——`summary` 由页面用 `goalSummary` 算好传进来。两处各算一遍，
- * 迟早出现「卡片 71%、成员行 5/7 但还有 2 个待补录」这种自相矛盾。
- */
-const props = defineProps<{ goal: Goal; summary: GoalSummary; today: string }>();
-
-const emit = defineEmits<{
-    edit: [];
-    remove: [];
-    /** 手动目标：记一笔。
-     *  不叫 `progress`：那是 DOM 的原生事件名（`<progress>` 的加载进度），
-     *  Vue 会把监听同时挂到根元素上，类型检查里就变成 `ProgressEvent` 与自定义载荷的联合。 */
-    record: [];
-    /** 手动目标：看全部流水。 */
-    logs: [];
-    /** 养成目标：批量更新各角色的当前值。 */
-    growth: [];
-    /** 装备目标：一键 +1（「买了就完成」）。 */
-    bought: [];
-}>();
-
-const kind = computed(() => kindMeta(props.goal.kind));
+const props = defineProps<{ goal: Goal; summary: GoalSummary; today: string; disabled: boolean }>();
+const emit = defineEmits<{ edit: []; remove: []; record: []; growth: []; bought: [] }>();
 const deadline = computed(() => deadlineText(props.goal.deadline, props.today, props.summary.done));
-
-/** 未达标的成员排在前面：目标是「还差什么」，不是「已经有什么」。 */
 const rows = computed(() =>
-    [...props.summary.rows].sort((a, b) => Number(a.done) - Number(b.done)),
+    [...props.summary.rows]
+        .sort((a, b) => Number(a.done) - Number(b.done))
+        .map((row) => ({
+            ...row,
+            percent:
+                !row.exists || !row.applicable || row.value === null || props.goal.target <= 0
+                    ? null
+                    : Math.max(
+                          0,
+                          Math.min(row.done ? 100 : 99, (row.value / props.goal.target) * 100),
+                      ),
+        })),
 );
-
-/** 最近三笔，新的在上。全部流水在弹窗里。 */
-const recent = computed(() =>
-    [...props.goal.logs]
-        .sort((a, b) => (a.date === b.date ? b.createdAt - a.createdAt : a.date < b.date ? 1 : -1))
-        .slice(0, 3),
-);
-
-const readout = computed(() => {
-    const { summary, goal } = props;
-    if (goal.tracking) return `${summary.achieved} / ${summary.totalMembers} 个角色达标`;
-    return `${summary.current} / ${summary.total} ${goal.unit}`;
-});
+const number = (value: number) => value.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+function rowText(row: GoalRow): string {
+    if (!row.exists) return '已删除';
+    if (!row.applicable) return '不适用';
+    if (row.value === null) return '待补录';
+    return `${number(row.value)} / ${number(props.goal.target)} ${props.goal.unit} · ${row.done ? '已达标' : '差 ' + number(row.remaining ?? 0)}`;
+}
 </script>
 
 <template>
     <PaperCard as="article" class="goal" :class="{ done: summary.done }" :data-goal-id="goal.id">
         <header class="goal-head">
-            <h2 :title="goal.title">{{ goal.title }}</h2>
-            <div class="goal-tools">
-                <button class="tool" aria-label="编辑目标" title="编辑目标" @click="emit('edit')">
-                    <AppIcon name="edit" />
-                </button>
-                <button
-                    class="tool danger-action"
-                    aria-label="删除目标"
-                    title="删除目标"
-                    @click="emit('remove')"
+            <div class="heading">
+                <h2>{{ goal.title }}</h2>
+                <span class="eyebrow"
+                    ><span class="category">{{ kindMeta(goal.kind).label }}</span
+                    ><template v-if="goal.tracking">
+                        · 目标 {{ number(goal.target) }} {{ goal.unit }}</template
+                    ><template v-else> · {{ scopeText(goal) }}</template></span
                 >
-                    <AppIcon name="trash" />
-                </button>
+            </div>
+            <div class="goal-tools">
+                <PressButton
+                    icon="edit"
+                    label="编辑目标"
+                    size="sm"
+                    :disabled="disabled"
+                    @click="emit('edit')"
+                />
+                <PressButton
+                    icon="trash"
+                    label="删除目标"
+                    size="sm"
+                    danger
+                    :disabled="disabled"
+                    @click="emit('remove')"
+                />
             </div>
         </header>
-
-        <p class="goal-meta">
-            <span class="kind" :class="'kind-' + goal.kind">
-                <AppIcon :name="kind.icon" />
-                {{ kind.label }}
-            </span>
-            <span class="muted">{{ scopeText(goal) }}</span>
-            <span class="muted">{{ sourceText(goal) }}</span>
-            <span v-if="summary.done && summary.doneDate" class="muted">
-                {{ summary.doneDate }} 达成
-            </span>
-            <span
-                v-else-if="deadline"
-                class="deadline"
-                :class="{ over: deadline.startsWith('已逾期') }"
+        <div class="progress-summary">
+            <span v-if="goal.tracking"
+                ><b>{{ summary.achieved }} / {{ summary.totalMembers }}</b> 达标</span
             >
-                {{ deadline }}
-            </span>
-        </p>
-
-        <div class="readout">
-            <span class="left">
-                <b>{{ readout }}</b>
-                <template v-if="goal.tracking && summary.unknown">
-                    · {{ summary.unknown }} 个待补录
-                </template>
-                <template v-else-if="!goal.tracking && !summary.done">
-                    · 还差 {{ Math.max(0, summary.total - summary.current) }} {{ goal.unit }}
-                </template>
-            </span>
-            <span class="pct">{{ summary.pct }}%</span>
-        </div>
-
-        <!-- 达成之后不再画条：100% 的条没有信息，只会让「已经结束的东西」占着视觉重量。 -->
-        <MeterBar v-if="!summary.done" :percent="summary.pct" label="目标进度" class="goal-meter" />
-        <div v-else class="goal-meter done-line" aria-hidden="true" />
-
-        <ul v-if="goal.tracking" class="members">
-            <li v-for="row in rows" :key="row.id" class="member">
-                <span class="who" :title="row.name">
-                    {{ row.name || '未命名' }}
-                    <span v-if="!row.exists" class="gone">已删除</span>
-                </span>
-                <span v-if="!row.exists" class="value">—</span>
-                <span v-else-if="row.value === null" class="value">未记录</span>
-                <span v-else class="value">
-                    <b>{{ row.value }}</b> / {{ goal.target }} {{ goal.unit }}
-                </span>
-                <span
-                    class="state"
-                    :class="{
-                        ok: row.done,
-                        dead: !row.exists,
-                        unknown: row.exists && row.value === null,
-                    }"
-                >
-                    <template v-if="!row.exists">不计入</template>
-                    <template v-else-if="row.done">已达标</template>
-                    <template v-else-if="row.value === null">待补录</template>
-                    <template v-else>还差 {{ row.remaining }}</template>
-                </span>
-            </li>
-        </ul>
-
-        <ul v-else-if="recent.length" class="members">
-            <li v-for="log in recent" :key="log.id" class="member log">
-                <span class="who" :title="log.note">{{ log.date }} {{ log.note || '记一笔' }}</span>
-                <span class="value">{{ signedText(log.delta, goal.unit) }}</span>
-                <span class="state" />
-            </li>
-        </ul>
-        <p v-else class="goal-empty">
-            {{ goal.note ? '' : '还没有记过一笔。点下面的按钮记第一笔。' }}
-        </p>
-
-        <p v-if="goal.note && (goal.tracking || !recent.length)" class="goal-note">
-            {{ goal.note }}
-        </p>
-
-        <div class="goal-actions">
-            <template v-if="goal.tracking">
-                <PressButton
-                    icon="check"
-                    :text="summary.done ? '看看档案' : '更新养成'"
-                    label="更新各角色的当前值"
-                    seal
-                    size="md"
-                    @click="emit('growth')"
+            <span v-else>累计进度</span>
+            <span v-if="summary.done" class="mark">已达成</span>
+            <span
+                v-if="goal.tracking"
+                class="milestones"
+                role="img"
+                :aria-label="`${summary.achieved} / ${summary.totalMembers} 个角色达标`"
+            >
+                <i
+                    v-for="row in rows"
+                    :key="row.id"
+                    :class="{ on: row.exists && row.applicable && row.done }"
+                    :title="row.name + ' · ' + rowText(row)"
                 />
-            </template>
+            </span>
+            <span v-else class="target">目标 {{ number(goal.target) }} {{ goal.unit }}</span>
+        </div>
+        <div class="progress-body">
+            <GoalProgress shape="ring" :percent="summary.pct" :label="goal.title + '总体进度'" />
+            <ul v-if="goal.tracking" class="members">
+                <li
+                    v-for="row in rows"
+                    :key="row.id"
+                    class="member"
+                    :class="{
+                        muted: !row.exists || !row.applicable,
+                        complete: row.exists && row.applicable && row.done,
+                    }"
+                    :title="row.name + ' · ' + rowText(row)"
+                >
+                    <span class="who" :title="row.name">{{ row.name || '未命名' }}</span>
+                    <GoalProgress
+                        :percent="row.percent"
+                        :label="(row.name || '未命名') + '的进度'"
+                        :value-text="rowText(row)"
+                    />
+                    <span class="value">
+                        <template v-if="!row.exists">已删除</template>
+                        <template v-else-if="!row.applicable">不适用</template>
+                        <template v-else-if="row.value === null">待补录</template>
+                        <template v-else
+                            ><b>{{ number(row.value) }}</b
+                            ><small>{{ goal.unit }}</small></template
+                        >
+                    </span>
+                </li>
+            </ul>
+            <div v-else class="manual-progress">
+                <div class="manual-value">
+                    <b>{{ number(summary.current) }}</b
+                    ><small>/ {{ number(goal.target) }} {{ goal.unit }}</small>
+                </div>
+                <GoalProgress :percent="summary.pct" :label="goal.title + '累计进度'" />
+                <span v-if="!summary.done" class="remaining"
+                    >还差 {{ number(Math.max(0, goal.target - summary.current)) }}
+                    {{ goal.unit }}</span
+                >
+            </div>
+        </div>
+        <p v-if="goal.note" class="goal-note" :title="goal.note">{{ goal.note }}</p>
+        <footer class="goal-actions">
+            <span class="deadline" :class="{ over: deadline.startsWith('已逾期') }">{{
+                deadline || (summary.doneDate ? `${summary.doneDate} 达成` : '')
+            }}</span>
+            <PressButton
+                v-if="goal.tracking"
+                icon="edit"
+                text="更新"
+                label="更新各角色的当前值"
+                size="sm"
+                :disabled="disabled || !summary.totalMembers"
+                @click="emit('growth')"
+            />
             <template v-else>
                 <PressButton
-                    v-if="!summary.done && goal.kind === 'gear'"
-                    icon="check"
-                    text="买了一件"
+                    v-if="goal.kind === 'gear' && !summary.done"
+                    icon="add"
+                    text="购入"
                     label="买了一件，进度加一"
-                    seal
+                    size="sm"
+                    :disabled="disabled"
                     @click="emit('bought')"
                 />
                 <PressButton
-                    v-if="!summary.done"
-                    :seal="goal.kind !== 'gear'"
-                    icon="check"
-                    text="记一笔"
-                    label="记一笔进度"
+                    icon="edit"
+                    text="记录"
+                    label="记录目标进度"
+                    size="sm"
+                    :disabled="disabled"
                     @click="emit('record')"
                 />
-                <PressButton text="流水" label="看全部流水" @click="emit('logs')" />
             </template>
-            <span class="spacer" />
-            <span v-if="summary.done" class="mark">达成</span>
-        </div>
+        </footer>
     </PaperCard>
 </template>
 
 <style scoped>
 .goal {
+    --progress-color: var(--ochre);
     display: flex;
     flex-direction: column;
     gap: 8px;
-    /* 底边比上边多 2px：达成章是斜的，贴着底边会压到那圈双线。 */
-    padding: 13px 15px 15px;
+    min-width: 0;
+    padding: 11px 12px;
+    background-image: var(--income-board-texture);
 }
-/* 达成的那张：只有边线与一枚章。不换底色——目标卡本来就躺在纸面上，
- * 换底色会让「已经结束的东西」比进行中的还显眼。 */
-.goal.done {
-    border-color: color-mix(in srgb, var(--success) 42%, var(--rule));
+.goal.done,
+.complete {
+    --progress-color: var(--success);
 }
 .goal-head {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
+    gap: 8px;
 }
-.goal-head h2 {
+.heading {
+    flex: 1;
     min-width: 0;
-    margin: 0;
-    color: var(--ink);
+}
+.eyebrow {
+    color: var(--muted);
+    font-size: var(--fs-xs);
+}
+.category {
+    color: var(--indigo-ink);
+}
+h2 {
+    margin: 0 0 2px;
+    color: var(--accent);
     font-size: var(--fs-md);
     font-weight: 400;
-    line-height: 1.45;
-    letter-spacing: 0.03em;
+    line-height: 1.4;
     overflow-wrap: anywhere;
 }
 .goal-tools {
     display: flex;
     flex: none;
-    gap: 2px;
-    margin-left: auto;
+    gap: 4px;
 }
-.tool {
-    --icon-size: calc(13px * var(--fs-scale));
-    display: grid;
-    place-items: center;
-    width: 22px;
-    height: 22px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--r-1);
-    background: none;
-    color: var(--muted);
-    cursor: pointer;
-    transition: background-color var(--t-quick) var(--ease-soft);
-}
-.tool:hover {
-    background: var(--paper-2);
-    color: var(--ink);
-}
-.tool.danger-action:hover,
-.tool.danger-action:focus-visible {
-    color: var(--action-ink);
-}
-.goal-meta {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 4px 8px;
-    margin: 0;
-}
-.muted {
-    color: var(--muted);
-    font-size: var(--fs-xs);
-    letter-spacing: 0.05em;
-}
-/* 类型章：只给一条边、不灌底。它说的是「这张卡怎么读」，不是分类色块。 */
-.kind {
-    --icon-size: calc(11px * var(--fs-scale));
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 0 5px;
-    border: var(--w-hair) solid var(--rule-2);
-    border-radius: var(--r-1);
-    font-size: var(--fs-mini);
-    letter-spacing: 0.08em;
-    line-height: 1.75;
-}
-.kind-growth {
-    color: var(--moss);
-    border-color: color-mix(in srgb, var(--moss) 48%, transparent);
-}
-.kind-money {
-    color: var(--num);
-    border-color: color-mix(in srgb, var(--num) 48%, transparent);
-}
-/* 装备用中性墨：赭只有一档，与存钱共用就分不出来；朱要留给印面。 */
-.kind-gear {
-    color: var(--ink-2);
-    border-color: color-mix(in srgb, var(--ink-2) 34%, transparent);
-}
-.deadline {
-    color: var(--muted);
-    font-size: var(--fs-xs);
-    letter-spacing: 0.05em;
-}
-.deadline.over {
-    color: var(--danger);
-}
-.readout {
+.progress-summary {
     display: flex;
     align-items: baseline;
-    justify-content: space-between;
-    gap: 10px;
-    margin-top: 2px;
-}
-.readout .left {
-    min-width: 0;
+    flex-wrap: wrap;
+    gap: 6px 10px;
     color: var(--muted);
-    font-size: var(--fs-sm);
-    letter-spacing: 0.03em;
+    font-size: var(--fs-xs);
 }
-.readout .left b {
-    color: var(--ink-2);
+.progress-summary b {
+    color: var(--ink);
     font-weight: 400;
+    font-size: var(--fs-md);
     font-variant-numeric: tabular-nums;
 }
-.readout .pct {
-    flex: none;
-    color: var(--num);
-    font-size: calc(var(--fs-base) * 1.15);
-    font-variant-numeric: tabular-nums;
-}
-.goal.done .readout .pct {
+.mark {
     color: var(--success);
 }
-/* 达成后那条线只留一道底槽（`MeterBar` 拿不到 `percent` 时不画填充），
- * 占位保持卡片高度一致，但不假装还有进度。 */
-.done-line {
-    height: 10px;
+.milestones {
+    display: flex;
+    align-self: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-left: auto;
+    max-width: 55%;
+}
+.milestones i {
+    width: 16px;
+    height: 6px;
+    border-radius: 1px;
+    background: var(--well);
+    box-shadow:
+        inset 0 1px 1px var(--shadow-lg),
+        0 1px 0 var(--bevel-hi);
+}
+.milestones .on {
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--success) 65%, var(--bevel-hi)),
+        var(--success) 55%
+    );
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        inset 0 -1px 0 var(--bevel-lo),
+        0 1px 0 color-mix(in srgb, var(--success) 75%, var(--ink-base)),
+        0 2px 2px var(--shadow);
+}
+.target {
+    margin-left: auto;
+}
+.progress-body {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
 }
 .members {
-    margin: 2px 0 0;
+    display: grid;
+    grid-template-columns: minmax(32px, 0.8fr) minmax(40px, 1.5fr) max-content;
+    align-items: center;
+    gap: 5px 7px;
+    margin: 0;
     padding: 0;
     list-style: none;
 }
 .member {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto 72px;
-    align-items: baseline;
-    gap: 10px;
-    padding: 3px 0;
-    font-size: var(--fs-sm);
-    border-top: var(--w-hair) solid color-mix(in srgb, var(--rule) 55%, transparent);
-}
-.member:first-child {
-    border-top: 0;
-}
-.member .who {
-    display: flex;
-    align-items: baseline;
-    gap: 5px;
-    overflow: hidden;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+    align-items: center;
+    gap: 7px;
+    min-height: calc(20px * var(--fs-scale));
     color: var(--ink-2);
+    font-size: var(--fs-sm);
+}
+.who {
+    overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
 }
-.member .gone {
-    flex: none;
-    padding: 0 4px;
-    border: var(--w-hair) solid var(--rule-2);
-    border-radius: var(--r-1);
+.value {
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 2px;
     color: var(--muted);
-    font-size: var(--fs-mini);
-}
-.member .value {
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
-.member .value b {
-    color: var(--ink);
+.value b {
+    color: var(--num);
     font-weight: 400;
 }
-.member .state {
-    color: var(--muted);
-    font-size: var(--fs-xs);
-    letter-spacing: 0.03em;
-    text-align: right;
-    white-space: nowrap;
-}
-.member .state.ok {
+.complete .value b {
     color: var(--success);
 }
-.member .state.unknown {
-    color: color-mix(in srgb, var(--muted) 70%, var(--paper));
+.value small {
+    color: var(--muted);
+    font-size: var(--fs-xs);
 }
-.member .state.dead {
-    color: color-mix(in srgb, var(--muted) 60%, var(--paper));
+.muted {
+    color: var(--muted);
 }
-.member.log .who {
-    color: var(--ink-2);
+.manual-progress {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+.manual-value {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-variant-numeric: tabular-nums;
+}
+.manual-value b {
+    color: var(--num);
+    font-size: var(--fs-xl);
+    font-weight: 400;
+    line-height: 1.2;
+}
+.manual-value small,
+.remaining {
+    color: var(--muted);
+    font-size: var(--fs-xs);
 }
 .goal-note {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
     margin: 0;
     color: var(--muted);
-    font-size: var(--fs-sm);
-    line-height: 1.65;
+    font-size: var(--fs-xs);
+    line-height: 1.4;
     overflow-wrap: anywhere;
-}
-.goal-empty {
-    margin: 0;
-    color: var(--muted);
-    font-size: var(--fs-sm);
 }
 .goal-actions {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-top: auto;
+    flex-wrap: wrap;
+    gap: 8px;
     padding-top: 6px;
+    border-top: var(--w-hair) solid var(--rule);
 }
-.goal-actions .spacer {
+.deadline {
     flex: 1;
+    color: var(--muted);
+    font-size: var(--fs-xs);
 }
-/* 达成章：方形、微转。全站只有「已入账 / 已达成」配盖章（CONVENTIONS §2.4）。 */
-.mark {
-    display: grid;
-    place-items: center;
-    width: 32px;
-    height: 32px;
-    border: var(--w-hair) solid var(--seal-edge);
-    border-radius: var(--r-1);
-    background: var(--seal);
-    color: var(--on-seal);
-    font-size: var(--fs-mini);
-    letter-spacing: 0.06em;
-    transform: rotate(-5deg);
-    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--bevel-hi) 22%, transparent);
+.deadline.over {
+    color: var(--danger);
 }
 </style>

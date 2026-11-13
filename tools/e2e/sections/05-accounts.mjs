@@ -78,8 +78,26 @@ export default async function run(ctx) {
             });
             t.check('记一笔的弹窗开了', opened);
 
-            await ui.fill('成交金额', '12.5');
             await ui.fill('备注', MARK);
+            await ui.fill('成交金额', '12.');
+            t.check(
+                '金额输入小数点时保留草稿',
+                await cdp.evaluate(`document.activeElement?.value === '12.'`),
+            );
+            await ui.fill('成交金额', '');
+            t.check(
+                '清空金额立即禁止记入',
+                await cdp.evaluate(
+                    `document.querySelector('button[aria-label="记入账本"]')?.disabled === true`,
+                ),
+            );
+            await ui.fill('成交金额', '12.5');
+            t.check(
+                '金额未失焦即可记入',
+                await cdp.evaluate(
+                    `document.activeElement?.getAttribute('aria-label') === '成交金额' && document.querySelector('button[aria-label="记入账本"]')?.disabled === false`,
+                ),
+            );
             await sleep(150);
             await ui.clickText('button', '记入', { exact: true });
             await sleep(500);

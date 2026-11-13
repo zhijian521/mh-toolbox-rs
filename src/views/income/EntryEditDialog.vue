@@ -46,7 +46,7 @@ function submit() {
 
 <template>
     <ModalShell title="改这一条" :width="380" :scroll="false" @close="!saving && emit('close')">
-        <form class="income-form" @submit.prevent="submit">
+        <form class="income-form modal-form" @submit.prevent="submit">
             <fieldset class="income-form" :disabled="locked">
                 <PriceField v-model="amount" :precision="2" label="金额" />
                 <div class="form-row">

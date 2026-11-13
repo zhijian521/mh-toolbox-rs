@@ -186,6 +186,30 @@ export async function setup(ctx) {
             throw new Error('编辑态没打开');
         }
         t.pass('编辑态打开');
+        await ui.clickText('.ocr-tabs button', '属性', { exact: true });
+        const originalLevel = await cdp.evaluate(
+            `document.querySelector('input[aria-label="角色等级"]').value`,
+        );
+        t.check(
+            '未修改角色时禁止保存',
+            await cdp.evaluate(
+                `document.querySelector('button[aria-label="保存这个角色"]').disabled`,
+            ),
+        );
+        await ui.fill('角色等级', String(Number(originalLevel) + 1));
+        t.check(
+            '只改等级且未失焦即可保存',
+            await cdp.evaluate(
+                `document.activeElement?.getAttribute('aria-label') === '角色等级' && !document.querySelector('button[aria-label="保存这个角色"]').disabled`,
+            ),
+        );
+        await ui.fill('角色等级', originalLevel);
+        t.check(
+            '恢复原等级立即回到未修改状态',
+            await cdp.evaluate(
+                `document.querySelector('button[aria-label="保存这个角色"]').disabled`,
+            ),
+        );
         await ui.clickText('.ocr-tabs button', '辅助', { exact: true });
         t.check(
             '修改页辅助按钮统一为新增并保留图标',

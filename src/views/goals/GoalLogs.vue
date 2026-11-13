@@ -1,210 +1,212 @@
 <script setup lang="ts">
-import { useToday } from '../../composables/use-today';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
-import { askConfirm } from '../../composables/use-confirm';
-
+import SegmentedPills from '../../components/SegmentedPills.vue';
+import { useToday } from '../../composables/use-today';
 import { signedText, type Goal, type GoalSummary } from './goals';
 import type { LogInput } from './goals-store';
 
-/**
- * 手动目标的流水。
- *
- * 记一笔与看流水放在同一个窗里：这两件事总是一起发生（看过才知道差多少、记完要确认）。
- * 旧仓把它们拆成两个弹窗，于是「记一笔 → 关掉 → 再点开历史」是三次点击。
- *
- * **不提供「改一笔」**：一条流水只有日期、增量、备注三项，改一项就等于重记一笔。
- * 多开一条「按 id 定位 → 保留 createdAt → 重算累计」的路径，正是最容易出现
- * 「改完累计没跟上」的地方——删了重记只有一条路径。
- */
-const props = defineProps<{ goal: Goal; summary: GoalSummary }>();
-const emit = defineEmits<{ add: [input: LogInput]; remove: [logId: string]; close: [] }>();
-
+const props = defineProps<{
+    goal: Goal;
+    summary: GoalSummary;
+    saving: boolean;
+    locked: boolean;
+    retrying: boolean;
+    error: string;
+    recorded: number;
+}>();
+const emit = defineEmits<{
+    add: [input: LogInput];
+    remove: [logId: string];
+    retry: [];
+    close: [];
+}>();
 const today = useToday();
 const date = ref(today.value);
+const direction = ref('add');
 const delta = ref(0);
 const note = ref('');
-const error = ref('');
-
 const ordered = computed(() =>
     [...props.goal.logs].sort((a, b) =>
         a.date === b.date ? b.createdAt - a.createdAt : a.date < b.date ? 1 : -1,
     ),
 );
-
-const ready = computed(() => delta.value !== 0);
-
+const ready = computed(() => Number.isFinite(delta.value) && delta.value > 0 && !!date.value);
+watch(
+    () => props.recorded,
+    () => {
+        delta.value = 0;
+        note.value = '';
+    },
+);
 function submit() {
-    if (!ready.value) {
-        error.value = '填一个不为 0 的数';
-        return;
-    }
-    error.value = '';
-    emit('add', { date: date.value, delta: delta.value, note: note.value });
-    delta.value = 0;
-    note.value = '';
-}
-
-async function remove(logId: string) {
-    const ok = await askConfirm({
-        danger: true,
-        title: '删掉这一笔？',
-        note: '累计进度会跟着回退。删了没法撤回，只能重记一笔。',
-        confirmText: '删除',
+    if (props.saving || (!props.retrying && (props.locked || !ready.value))) return;
+    emit('add', {
+        date: date.value,
+        delta: direction.value === 'add' ? delta.value : -delta.value,
+        note: note.value,
     });
-    if (ok) emit('remove', logId);
+}
+function enter(event: KeyboardEvent) {
+    if ((event.target as HTMLElement).tagName !== 'INPUT' || event.isComposing) return;
+    event.preventDefault();
+    submit();
 }
 </script>
 
 <template>
-    <ModalShell title="流水" :width="560" :min-height="360" @close="emit('close')">
-        <p class="summary">
-            <span>
-                当前
-                <b>{{ summary.current }}</b>
-                / {{ summary.total }} {{ goal.unit }}
-            </span>
-            <span class="pct">{{ summary.pct }}%</span>
-        </p>
-
-        <!-- `PressButton` 是 `type="button"`，表单没有提交键，回车不会触发隐式提交。
-             这里显式接住回车：记一笔是「填数 → 回车」的动作，不该逼人去点。 -->
-        <form class="entry" @submit.prevent="submit" @keydown.enter.prevent="submit">
-            <div class="entry-row">
-                <DateField v-model="date" label="记在哪一天" :max="today" />
-                <NumberField
-                    v-model="delta"
-                    label="这一笔的变化量"
-                    :precision="goal.kind === 'money' ? 2 : 0"
-                    zero-as-empty
+    <ModalShell title="进度记录" :width="600" :min-height="360" @close="!saving && emit('close')">
+        <div class="record-summary">
+            <span>{{ goal.title }}</span
+            ><b
+                >{{ summary.current.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) }} /
+                {{ goal.target }} {{ goal.unit }}</b
+            >
+        </div>
+        <form class="modal-form" @submit.prevent="submit" @keydown.enter="enter">
+            <fieldset class="entry" :disabled="locked" :inert="locked">
+                <SegmentedPills
+                    v-model="direction"
+                    :options="[
+                        { value: 'add', label: '增加' },
+                        { value: 'subtract', label: '减少' },
+                    ]"
+                    label="进度方向"
                 />
+                <div class="entry-row">
+                    <DateField v-model="date" label="记在哪一天" :max="today" />
+                    <NumberField
+                        v-model="delta"
+                        label="这一笔的变化量"
+                        update-on-input
+                        :precision="goal.kind === 'gear' ? 0 : 2"
+                        zero-as-empty
+                    />
+                    <span>{{ goal.unit }}</span>
+                </div>
                 <input
                     v-model="note"
-                    class="field note"
-                    type="text"
-                    placeholder="这一笔是什么，选填"
+                    class="field"
                     aria-label="备注"
+                    placeholder="备注"
                     autocomplete="off"
                 />
-                <PressButton
-                    icon="check"
-                    text="记入"
-                    label="记入这一笔"
-                    :disabled="!ready"
-                    seal
-                    @click="submit"
-                />
-            </div>
-            <p v-if="error" class="form-error" role="alert">{{ error }}</p>
+            </fieldset>
         </form>
-
         <ul v-if="ordered.length" class="logs">
             <li v-for="log in ordered" :key="log.id" class="log-row">
-                <time :datetime="log.date">{{ log.date }}</time>
-                <span class="delta" :class="{ up: log.delta > 0 }">
-                    {{ signedText(log.delta, goal.unit) }}
-                </span>
-                <span class="note-text">{{ log.note }}</span>
-                <button class="remove" aria-label="删掉这一笔" @click="remove(log.id)">删</button>
+                <time :datetime="log.date">{{ log.date }}</time
+                ><span class="delta">{{ signedText(log.delta, goal.unit) }}</span
+                ><span class="note-text" :title="log.note">{{ log.note }}</span>
+                <PressButton
+                    class="remove"
+                    icon="trash"
+                    label="删掉这一笔"
+                    size="sm"
+                    danger
+                    :disabled="locked"
+                    @click="emit('remove', log.id)"
+                />
             </li>
         </ul>
-        <p v-else class="hint empty">还没有流水</p>
+        <p v-else class="record-empty">暂无记录</p>
+        <template #footer>
+            <p v-if="error" class="note error save-error" role="alert">{{ error }}</p>
+            <PressButton
+                v-if="error && !retrying"
+                text="重试保存"
+                label="重试保存记录"
+                :disabled="saving"
+                @click="emit('retry')"
+            />
+            <PressButton
+                data-modal-cancel
+                text="关闭"
+                label="关闭记录"
+                :disabled="saving"
+                @click="emit('close')"
+            />
+            <PressButton
+                icon="check"
+                :text="saving ? '保存中' : retrying ? '重试保存' : '记入'"
+                label="记入这一笔"
+                :disabled="saving || (!retrying && (locked || !ready))"
+                seal
+                @click="submit"
+            />
+        </template>
     </ModalShell>
 </template>
 
 <style scoped>
-.summary {
+.record-summary {
     display: flex;
-    align-items: baseline;
     justify-content: space-between;
-    gap: 10px;
-    margin: 0 0 10px;
-    color: var(--muted);
-    font-size: var(--fs-sm);
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
 }
-.summary b {
-    color: var(--ink);
+.record-summary span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.record-summary b {
+    color: var(--num);
     font-weight: 400;
     font-variant-numeric: tabular-nums;
 }
-.summary .pct {
-    color: var(--num);
-    font-size: calc(var(--fs-base) * 1.15);
-    font-variant-numeric: tabular-nums;
-}
 .entry {
-    padding-bottom: 10px;
-    border-bottom: var(--w-hair) solid var(--rule);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+    margin: 0;
+    padding: 0 0 16px;
+    border: 0;
+}
+.entry > .field {
+    width: 100%;
 }
 .entry-row {
     display: grid;
-    grid-template-columns: 132px 104px minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(100px, 1fr) auto;
     align-items: center;
     gap: 8px;
+    width: 100%;
+    color: var(--muted);
+    font-size: var(--fs-sm);
 }
-.note {
-    min-width: 0;
-}
-/* `NumberField` 自带 72 的宽度下限，在这里会缩在 104 的格子里留一条空。
- * 这一格要的是「和左边日期一样宽」，让它铺满自己的列。 */
 .entry-row :deep(.number-field) {
     width: 100%;
 }
 .logs {
-    display: flex;
-    flex-direction: column;
     margin: 0;
     padding: 0;
     list-style: none;
 }
 .log-row {
     display: grid;
-    grid-template-columns: 84px 84px minmax(0, 1fr) 28px;
-    align-items: baseline;
-    gap: 8px;
-    padding: 6px 0;
+    grid-template-columns: auto minmax(80px, auto) minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 0;
+    border-top: var(--w-hair) solid var(--rule);
+    color: var(--muted);
     font-size: var(--fs-sm);
-    border-bottom: var(--w-hair) solid color-mix(in srgb, var(--rule) 55%, transparent);
-}
-.log-row time {
-    color: var(--muted);
     font-variant-numeric: tabular-nums;
 }
-.log-row .delta {
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
-}
-.log-row .delta.up {
+.delta {
     color: var(--num);
+    white-space: nowrap;
 }
 .note-text {
     overflow: hidden;
     color: var(--ink-2);
     white-space: nowrap;
     text-overflow: ellipsis;
-}
-.remove {
-    justify-self: end;
-    padding: 0 4px;
-    border: 0;
-    background: none;
-    color: var(--muted);
-    font-family: var(--font-ui);
-    font-size: var(--fs-xs);
-    cursor: pointer;
-}
-.remove:hover {
-    color: var(--danger);
-}
-.empty {
-    margin-top: 14px;
-}
-.form-error {
-    margin: 6px 0 0;
-    color: var(--danger);
-    font-size: var(--fs-sm);
 }
 </style>

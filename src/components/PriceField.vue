@@ -228,7 +228,8 @@ function nudge(direction: 1 | -1) {
     align-items: baseline;
     justify-content: center;
     gap: 3px;
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    min-width: 0;
     width: calc(180px * var(--fs-scale));
     height: auto;
     padding: 8px 16px 10px;
@@ -247,6 +248,8 @@ function nudge(direction: 1 | -1) {
 
 /* 宽度由 `:style="inputStyle"` 给（随内容收放），这里不要再写死。 */
 .pf-input {
+    min-width: 0;
+    max-width: 100%;
     border: 0;
     background: none;
     color: var(--num);
@@ -268,6 +271,7 @@ function nudge(direction: 1 | -1) {
 }
 
 .pf-unit {
+    flex: none;
     color: var(--muted);
     font-size: var(--fs-base);
     letter-spacing: 0.04em;

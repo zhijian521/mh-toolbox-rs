@@ -1,12 +1,12 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue';
+
 /**
  * 数字输入格：`<input class="field">` 的一个特例，只管「什么时候把字变成数」。
  *
- * 用 `:value` + `@change` 而不是 `v-model.number`，是两个具体问题：
- * 1. `v-model.number` 每敲一个字符就把值写回父级，父级再渲染回输入框——
- *    输入「12」时中间那个「1」会被规范化一次，光标跳到末尾；中文输入法在数字框里
- *    虽然少见，但退格删到空时值立刻变 0，用户没法清空重输。
- * 2. 失焦（`change`）才写回，输入过程中的字符归浏览器管，写完一次就落定。
+ * 业务表单启用 `updateOnInput`，逐键同步数值供保存条件使用；本地草稿保留空白、小数点
+ * 与尾零，失焦或 Enter 才规范化显示。外部回写同一个数值不覆盖输入过程，避免光标跳动。
+ * 不启用时仍在失焦或 Enter 写回。
  *
  * 空值与非数字一律按 0 记：等级、上限、资质、寿命这几个字段上，「没填」与「0」
  * 是同一个意思（没练、没加），不需要第四种状态。负数也归 0——这些量没有负数。
@@ -37,26 +37,46 @@ const props = withDefaults(
          * 而且它不会报错。账号页梦幻币按万输入同样传 2。
          */
         precision?: number;
+        /** 表单需要实时判断能否保存时启用；输入中的文字保留到提交再规范化。 */
+        updateOnInput?: boolean;
     }>(),
-    { placeholder: '', zeroAsEmpty: false, precision: 0 },
+    { placeholder: '', zeroAsEmpty: false, precision: 0, updateOnInput: false },
 );
 
 const emit = defineEmits<{ 'update:modelValue': [value: number] }>();
+const displayValue = (value: number) => (props.zeroAsEmpty && !value ? '' : String(value));
+const draft = ref(displayValue(props.modelValue));
 
-function commit(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const raw = input.value.trim();
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) {
-        input.value = props.zeroAsEmpty ? '' : '0';
-        emit('update:modelValue', 0);
-        return;
-    }
+function numberValue(text: string): number {
+    const parsed = Number(text.trim());
+    if (!Number.isFinite(parsed)) return 0;
     /* 先按精度放大取整、再缩回来：`Math.round(parsed * 100) / 100` 对 12.5 稳定，
      * 而直接 `toFixed` 返回的是字符串，再 `Number()` 一次又多一步转换。 */
     const factor = 10 ** Math.max(0, props.precision);
-    const value = Math.max(0, Math.round(parsed * factor) / factor);
-    input.value = props.zeroAsEmpty && !value ? '' : String(value);
+    return Math.max(0, Math.round(parsed * factor) / factor);
+}
+
+watch(
+    () => props.modelValue,
+    (value) => {
+        // 自己回传的数值不覆盖「1.」「1.20」等输入草稿；外部重置仍同步显示。
+        if (value !== numberValue(draft.value)) draft.value = displayValue(value);
+    },
+);
+
+function onInput(event: Event) {
+    if (!props.updateOnInput) return;
+    draft.value = (event.target as HTMLInputElement).value;
+    if ((event as InputEvent).isComposing) return;
+    emit('update:modelValue', numberValue(draft.value));
+}
+
+function commit(event: Event) {
+    if ((event as KeyboardEvent).isComposing) return;
+    const input = event.target as HTMLInputElement;
+    const value = numberValue(input.value);
+    draft.value = displayValue(value);
+    input.value = draft.value;
     emit('update:modelValue', value);
 }
 </script>
@@ -69,7 +89,9 @@ function commit(event: Event) {
         autocomplete="off"
         :aria-label="label"
         :placeholder="placeholder"
-        :value="zeroAsEmpty && !modelValue ? '' : modelValue"
+        :value="updateOnInput ? draft : displayValue(modelValue)"
+        @input="onInput"
+        @compositionend="onInput"
         @change="commit"
         @keydown.enter="commit"
     />

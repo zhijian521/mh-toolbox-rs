@@ -199,6 +199,7 @@ function openDetail(index: number) {
                         @input="editIdentity('name', $event)"
                     />
                     <NumberField
+                        update-on-input
                         class="identity-level num-slot"
                         :model-value="character.level"
                         label="角色等级"

@@ -39,7 +39,7 @@ function submit() {
 
 <template>
     <ModalShell title="点卡单价" :width="360" :scroll="false" @close="!saving && emit('close')">
-        <form class="income-form" @submit.prevent="submit">
+        <form class="income-form modal-form" @submit.prevent="submit">
             <fieldset class="income-form" :disabled="locked">
                 <PriceField
                     v-model="amount"

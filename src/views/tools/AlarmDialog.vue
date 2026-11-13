@@ -141,7 +141,12 @@ function onEnter(event: KeyboardEvent) {
         :scroll="false"
         @close="emit('close')"
     >
-        <form id="alarm-form" class="alarm-form" @submit.prevent="submit" @keydown.enter="onEnter">
+        <form
+            id="alarm-form"
+            class="alarm-form modal-form"
+            @submit.prevent="submit"
+            @keydown.enter="onEnter"
+        >
             <SteppedSlider
                 class="alarm-repeat"
                 :model-value="draft.repeat"
@@ -248,6 +253,7 @@ function onEnter(event: KeyboardEvent) {
  * 触发条内部的排布是它自己的事，这里只借居中：文字居中、箭头绝对定位到右缘，
  * 否则文字会为了给箭头让位而整体偏左 9px。 */
 .alarm-day {
+    max-width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -284,6 +290,7 @@ function onEnter(event: KeyboardEvent) {
  * 读起来像「这里还有一个更大的字段」。它是顺带写一句的位置，收窄之后中心仍在同一条线上。 */
 .alarm-input {
     width: calc(280px * var(--fs-scale));
+    max-width: 100%;
     height: calc(32px * var(--fs-scale));
     text-align: center;
 }

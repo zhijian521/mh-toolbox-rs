@@ -96,19 +96,16 @@ withDefaults(defineProps<{ title: string; hint?: string; maxHeight?: string; hei
     flex: 1;
     min-height: 0;
     overflow: auto;
-    /* 滚动条压进卡的内边距里，不占内容的地：让位的宽度必须是**轨道真宽**
-     * （`--scrollbar-w`，与 `::-webkit-scrollbar` 同一枚），再用等量负外边距补回来。
-     * 先前写的是 4px——轨道 10px，于是内容仍被挤掉 6px，「有没有滚动条」会让
-     * 右栏的控件左右跳。 */
+    /* 轨道固定占位并压进卡片内边距，列表显隐时内容宽度保持不变。 */
+    scrollbar-gutter: stable;
     margin-right: calc(-1 * var(--scrollbar-w));
-    padding-right: var(--scrollbar-w);
 }
 /* 写死高度时这一层退回纯容器：它自己滚的话，卡片里会有一圈滚动条、内容里再套几圈。
- * 上面那两道「让位」也一并收回——这里不再有滚动条要躲，留着反而让内容缩窄一档。 */
+ * 固定轨道与负外边距一并收回，避免无滚动内容也被挤窄。 */
 .fixed .section-body {
     overflow: hidden;
+    scrollbar-gutter: auto;
     margin-right: 0;
-    padding-right: 0;
 }
 
 .section-head {
