@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 768 768">
+    <filter id="mineral" x="0" y="0" width="100%" height="100%">
+        <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.045 0.052"
+            numOctaves="3"
+            seed="29"
+            stitchTiles="stitch"
+        />
+        <feColorMatrix type="saturate" values="0" />
+        <feComponentTransfer>
+            <feFuncA type="linear" slope="0.05" />
+        </feComponentTransfer>
+    </filter>
+    <filter id="dust" x="0" y="0" width="100%" height="100%">
+        <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.7"
+            numOctaves="2"
+            seed="31"
+            stitchTiles="stitch"
+        />
+        <feColorMatrix type="saturate" values="0" />
+        <feComponentTransfer>
+            <feFuncA type="linear" slope="0.035" />
+        </feComponentTransfer>
+    </filter>
+    <rect width="768" height="768" filter="url(#mineral)" />
+    <rect width="768" height="768" filter="url(#dust)" />
+</svg>

@@ -533,15 +533,20 @@
  * 每枚颜色同时提供亮暗两面，data-style 与 dark 可任意组合。
  */
 
-/* ---------- 账簿：收纳朱砂宣纸的纸纹，继续使用原有暖纸与朱红 ---------- */
+/* 静态 SVG 用无缝噪声表现纤维和颗粒，不用等距线条模拟天然材料。
+ * 纹理保持低不透明度，明暗共用；标题栏与页头留素面，避免小字叠在纹理上。
+ */
+/* ---------- 账簿：细纤维暖纸 ---------- */
 :root[data-style='ledger'] {
-    --paper-grain: repeating-linear-gradient(
-        22deg,
-        color-mix(in srgb, var(--ink) 2%, transparent) 0 1px,
-        transparent 1px 5px,
-        color-mix(in srgb, var(--paper-base) 6%, transparent) 5px 6px,
-        transparent 6px 9px
-    );
+    --paper-grain: url('../../assets/textures/paper-fibre.svg');
+    --page-surface:
+        var(--paper-grain),
+        radial-gradient(
+            ellipse at 18% 0%,
+            color-mix(in srgb, var(--bevel-hi) 20%, transparent),
+            transparent 70%
+        ),
+        var(--well);
     --modal-bg: var(--paper-grain), var(--paper);
 }
 
@@ -675,13 +680,7 @@
     --scrollbar-thumb-hover: light-dark(#a38456, #89724e);
     --scrollbar-thumb-active: light-dark(#87683f, #af956a);
 
-    --paper-grain: repeating-linear-gradient(
-        27deg,
-        color-mix(in srgb, var(--ochre) 3%, transparent) 0 1px,
-        transparent 1px 3px,
-        color-mix(in srgb, var(--ink) 1.5%, transparent) 3px 4px,
-        transparent 4px 7px
-    );
+    --paper-grain: url('../../assets/textures/paper-fibre.svg');
     --dunhuang-trim: linear-gradient(
         90deg,
         var(--accent) 0% 37%,
@@ -689,15 +688,16 @@
         var(--cinnabar) 66% 100%
     );
     --page-surface:
-        repeating-linear-gradient(
-            45deg,
-            transparent 0 35px,
-            color-mix(in srgb, var(--accent) 3%, transparent) 35px 36px
+        url('../../assets/textures/mineral-grain.svg'),
+        radial-gradient(
+            ellipse at 8% 0%,
+            color-mix(in srgb, var(--ochre) 5%, transparent),
+            transparent 65%
         ),
-        repeating-linear-gradient(
-            -45deg,
-            transparent 0 35px,
-            color-mix(in srgb, var(--ochre) 4%, transparent) 35px 36px
+        radial-gradient(
+            ellipse at 100% 100%,
+            color-mix(in srgb, var(--accent) 3%, transparent),
+            transparent 65%
         ),
         var(--well);
     --modal-bg: var(--paper-grain), var(--paper);
@@ -730,20 +730,20 @@
     --scrollbar-thumb-hover: light-dark(#967065, #946770);
     --scrollbar-thumb-active: light-dark(#79524e, #b78b8f);
 
-    --wood-grain: repeating-linear-gradient(
-        94deg,
-        transparent 0 2px,
-        color-mix(in srgb, var(--bevel-lo) 22%, transparent) 2px 3px,
-        transparent 3px 9px,
-        color-mix(in srgb, var(--bevel-hi) 18%, transparent) 9px 10px,
-        transparent 10px 16px
-    );
+    --wood-grain: url('../../assets/textures/wood-grain.svg');
     --wood-sheen: linear-gradient(
         135deg,
         color-mix(in srgb, var(--bevel-hi) 24%, transparent),
         transparent 70%
     );
-    --page-surface: var(--wood-grain), linear-gradient(110deg, var(--well), var(--bg));
+    --page-surface:
+        var(--wood-grain),
+        radial-gradient(
+            ellipse at 22% 0%,
+            color-mix(in srgb, var(--bevel-hi) 24%, transparent),
+            transparent 72%
+        ),
+        linear-gradient(110deg, var(--well), var(--bg));
     --modal-bg: var(--wood-sheen), var(--paper);
 }
 
@@ -1227,10 +1227,10 @@ html.dark .rail {
         linear-gradient(180deg, var(--rail-sheen), transparent var(--rail-brand-h));
 }
 :root:is([data-style='ledger'], [data-style='dunhuang']) .titlebar {
-    background: var(--paper-grain), var(--paper);
+    background: var(--paper);
 }
 :root[data-style='ledger'] .page-head {
-    background: var(--paper-grain), var(--paper-2);
+    background: var(--paper-2);
 }
 :root[data-style='dunhuang'] .board {
     --board-shadow:
@@ -1241,7 +1241,7 @@ html.dark .rail {
 :root[data-style='dunhuang'] .page-head {
     background:
         var(--dunhuang-trim) left bottom / 100% 2px no-repeat,
-        var(--paper-grain), var(--paper-2);
+        var(--paper-2);
 }
 :root[data-style='rosewood'] .board {
     --board-texture: var(--wood-sheen);
@@ -1256,10 +1256,10 @@ html.dark .rail {
         linear-gradient(180deg, var(--rail-sheen), transparent var(--rail-brand-h));
 }
 :root[data-style='rosewood'] .titlebar {
-    background: var(--wood-grain), var(--paper);
+    background: var(--wood-sheen), var(--paper);
 }
 :root[data-style='rosewood'] .page-head {
-    background: var(--wood-grain), var(--paper-2);
+    background: var(--wood-sheen), var(--paper-2);
 }
 :root[data-style='rosewood'] .press-tile {
     --press-image: var(--wood-sheen);
