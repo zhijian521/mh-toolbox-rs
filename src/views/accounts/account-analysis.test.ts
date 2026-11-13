@@ -1,9 +1,9 @@
+import { ALL_OPTIONS as ALL_ACCOUNTS } from '../../components/select-options';
+import { UNASSIGNED_CHARACTER as UNASSIGNED } from '../characters/character-options';
 import { describe, expect, it } from 'vitest';
 import { buildTrendChart } from '../income/trend-chart';
 import { accountStats, SHORTCUTS, type AccountEntry } from './accounts';
 import {
-    ALL_ACCOUNTS,
-    UNASSIGNED,
     accountAxisText,
     accountTrend,
     accountValueText,

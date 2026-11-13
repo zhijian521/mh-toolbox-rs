@@ -22,8 +22,16 @@ import { focusInput } from './focus-input';
 
 /** 新建、手工修改和截图识别共用独立草稿，保存后由名册统一落库。 */
 const props = withDefaults(
-    defineProps<{ character: CharacterData; pane?: PaneKey; isNew?: boolean; saving?: boolean }>(),
-    { pane: 'attrs', isNew: false, saving: false },
+    defineProps<{
+        character: CharacterData;
+        pane?: PaneKey;
+        isNew?: boolean;
+        saving?: boolean;
+        locked?: boolean;
+        retrying?: boolean;
+        saveError?: string;
+    }>(),
+    { pane: 'attrs', isNew: false, saving: false, locked: false, retrying: false, saveError: '' },
 );
 const emit = defineEmits<{ save: [character: CharacterData]; cancel: [] }>();
 const gearReading = ref(false);
@@ -68,12 +76,13 @@ const saveIssue = computed(() => {
 });
 const canSave = computed(
     () =>
-        !saveIssue.value &&
+        (props.retrying || !saveIssue.value) &&
         !busy.value &&
         !gearReading.value &&
         !petReading.value &&
         !props.saving &&
-        (props.isNew || changed.value),
+        (!props.locked || props.retrying) &&
+        (props.retrying || props.isNew || changed.value),
 );
 
 async function fillRequired() {
@@ -86,6 +95,7 @@ async function fillRequired() {
 }
 
 function takeFiles(files: File[]) {
+    if (props.locked || props.saving) return;
     if (files[0]) void takeFile(files[0]);
 }
 
@@ -153,9 +163,9 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
         :height="EDITOR_H"
         fill
         :initial-focus="pane === 'attrs' ? 'none' : 'first'"
-        @close="emit('cancel')"
+        @close="!saving && emit('cancel')"
     >
-        <div ref="content" class="ocr" :class="{ 'ocr-wide': wide }">
+        <div ref="content" :inert="locked || saving" class="ocr" :class="{ 'ocr-wide': wide }">
             <GearEditor v-show="pane === 'gear'" v-model="draft.gear" @busy="gearReading = $event">
                 <template #tabs>
                     <SteppedSlider
@@ -228,13 +238,14 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
         </div>
 
         <template #footer>
+            <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
             <div v-if="saveIssue" :id="validationId" class="editor-validation" role="status">
                 <span>{{ saveIssue.message }}</span>
                 <PressButton
                     text="去填写"
                     label="定位未填写的名称"
                     size="sm"
-                    :disabled="busy || gearReading || petReading || saving"
+                    :disabled="busy || gearReading || petReading || saving || locked"
                     @click="fillRequired"
                 />
             </div>
@@ -242,11 +253,12 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
                 text="取消"
                 label="放弃这次修改"
                 data-modal-cancel
+                :disabled="saving"
                 @click="emit('cancel')"
             />
             <PressButton
                 icon="check"
-                text="保存"
+                :text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
                 label="保存这个角色"
                 seal
                 :disabled="!canSave"

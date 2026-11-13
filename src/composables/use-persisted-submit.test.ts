@@ -6,6 +6,26 @@ vi.mock('./save-feedback', () => ({
 }));
 
 describe('弹窗提交与写盘重试', () => {
+    it('新角色首次落盘失败，后续重试只落盘，不重新新增或切换成修改', async () => {
+        const characters: string[] = [];
+        const flush = vi
+            .fn()
+            .mockResolvedValueOnce(false)
+            .mockResolvedValueOnce(false)
+            .mockResolvedValueOnce(true);
+        const retry = vi.fn().mockResolvedValue(true);
+        const draft = usePersistedSubmit(flush, retry);
+        const add = vi.fn(() => {
+            characters.push('new-character');
+            return true;
+        });
+        expect(await draft.run('save', add)).toBe(false);
+        expect(await draft.run('save', add)).toBe(false);
+        expect(await draft.run('save', add)).toBe(true);
+        expect(characters).toEqual(['new-character']);
+        expect(add).toHaveBeenCalledTimes(1);
+        expect(retry).toHaveBeenCalledTimes(2);
+    });
     it('写盘失败后保留已应用操作，重试不重复新增或补记', async () => {
         const flush = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
         const retry = vi.fn().mockResolvedValue(true);

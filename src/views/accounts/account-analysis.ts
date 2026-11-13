@@ -1,8 +1,8 @@
 import { dateText, ledgerMoneyText, parseDay } from '../../services/format';
 import { ACCOUNT_CATEGORIES, type AccountEntry, type Currency, type Shortcut } from './accounts';
 
-export const ALL_ACCOUNTS = '__all__';
-export const UNASSIGNED = '__none__';
+import { ALL_OPTIONS as ALL_ACCOUNTS } from '../../components/select-options';
+import { UNASSIGNED_CHARACTER as UNASSIGNED } from '../characters/character-options';
 export const BOOK_OPTIONS: { value: Currency; label: string }[] = [
     { value: 'rmb', label: '人民币' },
     { value: 'cash', label: '梦幻币' },
@@ -39,9 +39,7 @@ export function filterAccounts(entries: readonly AccountEntry[], filter: Account
 }
 
 export function accountValueText(amount: number, currency: Currency): string {
-    const display = ledgerMoneyText(amount, currency);
-    const scale = currency === 'cash' ? 10000 : 1;
-    return (amount < 0 && Math.round((Math.abs(amount) / scale) * 100) > 0 ? '−' : '') + display;
+    return ledgerMoneyText(amount, currency, { sign: 'auto' });
 }
 
 /** 坐标轴与记录使用相同单位，不切换万、亿。 */

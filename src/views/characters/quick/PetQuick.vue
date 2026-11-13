@@ -14,8 +14,15 @@ import type { CharacterData } from '../character';
 
 /** 快速修改与整份编辑共用截图入口和四组表单，取消不修改原记录。 */
 const props = withDefaults(
-    defineProps<{ character: CharacterData; index: number; saving?: boolean }>(),
-    { saving: false },
+    defineProps<{
+        character: CharacterData;
+        index: number;
+        saving?: boolean;
+        locked?: boolean;
+        retrying?: boolean;
+        saveError?: string;
+    }>(),
+    { saving: false, locked: false, retrying: false, saveError: '' },
 );
 const emit = defineEmits<{ save: [character: CharacterData]; close: [] }>();
 
@@ -26,7 +33,12 @@ const pet = ref<Pet | null>(source.value ? cloneDraft(source.value) : null);
 
 const reading = ref(false);
 const canSave = computed(
-    () => !reading.value && !props.saving && pet.value !== null && hasPetName(pet.value),
+    () =>
+        !reading.value &&
+        !props.saving &&
+        (!props.locked || props.retrying) &&
+        pet.value !== null &&
+        hasPetName(pet.value),
 );
 
 function save() {
@@ -35,6 +47,7 @@ function save() {
 }
 
 function recognize(result: Parameters<typeof applyPetPanel>[1]) {
+    if (props.locked || props.saving) return;
     if (pet.value) pet.value = applyPetPanel(pet.value, result);
 }
 
@@ -52,9 +65,9 @@ onMounted(() => focusInput(form, 'input[aria-label="召唤兽名称"]'));
         :height="EDITOR_H"
         fill
         initial-focus="none"
-        @close="emit('close')"
+        @close="!saving && emit('close')"
     >
-        <div v-if="pet" ref="form" class="pet-quick">
+        <div v-if="pet" ref="form" :inert="locked || saving" class="pet-quick">
             <PetScreenshot @recognize="recognize" @busy="reading = $event">
                 <PetDetailForm v-model="pet" />
             </PetScreenshot>
@@ -62,15 +75,17 @@ onMounted(() => focusInput(form, 'input[aria-label="召唤兽名称"]'));
         <p v-else class="note">这只召唤兽已经不在了。</p>
 
         <template #footer>
+            <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
             <PressButton
                 data-modal-cancel
                 text="取消"
                 label="放弃这次修改"
+                :disabled="saving"
                 @click="emit('close')"
             />
             <PressButton
                 icon="check"
-                text="保存"
+                :text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
                 label="保存这只召唤兽"
                 seal
                 :disabled="!canSave"

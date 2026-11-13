@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import { ALL_OPTIONS as ANY } from '../../components/select-options';
 import { computed, ref, watch } from 'vue';
 import { useMinuteNow } from '../../composables/use-minute-now';
 import { usePagination } from '../../composables/use-pagination';
-import RecordPager from './RecordPager.vue';
+import RecordPager from '../../components/RecordPager.vue';
+import SaveNotice from '../../components/SaveNotice.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SelectField from '../../components/SelectField.vue';
-import { askConfirm } from '../../composables/use-confirm';
-import { saved } from '../../composables/save-feedback';
+import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { notify } from '../../composables/use-notify';
 import { timeText } from '../../services/clock';
 import { ledgerMoneyText, shortDate } from '../../services/format';
@@ -23,25 +24,31 @@ import {
     type OnlineSession,
 } from './online';
 import { useOnline } from './online-store';
-import { characterOptions } from './character-options';
+import { characterOptions } from '../characters/character-options';
 
 const emit = defineEmits<{ close: []; edit: [session: OnlineSession] }>();
 
-const { sessions, removeOnline, flush } = useOnline();
+const { sessions, removeOnline, flush, retry, pending, loadError, writeError } = useOnline();
 const { roster } = useRoster();
+const removal = useConfirmedRemoval(
+    () => pending.value > 0 || Boolean(loadError.value || writeError.value),
+    flush,
+);
+const { removing } = removal;
+const mutationBlocked = computed(
+    () => removing.value || pending.value > 0 || Boolean(loadError.value || writeError.value),
+);
 
 const now = useMinuteNow();
 
 /** 「不限」的哨兵：SelectField 把空串当「没有值」，选中它会退回 placeholder。 */
-const ANY = '__any__';
 
 const who = ref(ANY);
 const keyword = ref('');
 
-const whoOptions = computed(() => [
-    { value: ANY, label: '全部角色' },
-    ...characterOptions(roster.value, sessions.value.flatMap(ownersOf)),
-]);
+const whoOptions = computed(() =>
+    characterOptions(roster.value, sessions.value.flatMap(ownersOf), { all: true }),
+);
 
 /**
  * 按角色筛时看的是名单，不是主体角色。
@@ -97,19 +104,20 @@ function whoText(one: OnlineSession): string {
 }
 
 async function remove(one: OnlineSession) {
-    const ok = await askConfirm({
-        danger: true,
-        title: '删掉 ' + shortDate(one.date) + ' ' + timeText(one.startAt) + ' 这一段？',
-        note:
-            whoText(one) +
-            ' · ' +
-            minutesText(factsOfSession(one, now.value).minutes) +
-            '。删了不能撤回，当天的点卡也会跟着减。',
-        confirmText: '删除',
-    });
-    if (!ok) return;
-    removeOnline(one.id);
-    if (await saved(flush)) notify.success('已删掉一段');
+    const ok = await removal.run(
+        {
+            danger: true,
+            title: '删掉 ' + shortDate(one.date) + ' ' + timeText(one.startAt) + ' 这一段？',
+            note:
+                whoText(one) +
+                ' · ' +
+                minutesText(factsOfSession(one, now.value).minutes) +
+                '。删了不能撤回，当天的点卡也会跟着减。',
+            confirmText: '删除',
+        },
+        () => removeOnline(one.id),
+    );
+    if (ok) notify.success('已删掉一段');
 }
 </script>
 <template>
@@ -119,9 +127,11 @@ async function remove(one: OnlineSession) {
         :width="760"
         min-height="min(520px, calc(100vh - 48px))"
         fill
-        @close="emit('close')"
+        @close="!removing && emit('close')"
     >
-        <div class="filters">
+        <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
+        <p v-if="loadError" class="note error" role="alert">{{ loadError }}</p>
+        <div class="record-filters">
             <SelectField v-model="who" :options="whoOptions" label="角色筛选" class="f-narrow" />
             <input
                 v-model="keyword"
@@ -134,8 +144,7 @@ async function remove(one: OnlineSession) {
             <PressButton v-if="anyFilter" text="重置" label="清空筛选" @click="reset" />
         </div>
 
-        <p class="sums">
-            <span class="sum-item">{{ filtered.length }} 段</span>
+        <p class="record-summary">
             <span class="sum-item">合计 {{ minutesText(totals.minutes) }}</span>
             <span class="sum-item" :class="{ cost: totals.cost > 0 }">
                 点卡 {{ totals.cost > 0 ? ledgerMoneyText(totals.cost) : '—' }}
@@ -146,7 +155,7 @@ async function remove(one: OnlineSession) {
         </p>
 
         <div class="income-log-scroll">
-            <p v-if="!filtered.length" class="blank">
+            <p v-if="!filtered.length" class="record-empty">
                 {{ sessions.length ? '这个筛选下没有记录。' : '还没有上线记录。' }}
             </p>
 
@@ -183,12 +192,14 @@ async function remove(one: OnlineSession) {
                                     icon="edit"
                                     label="改这一段"
                                     size="md"
+                                    :disabled="mutationBlocked"
                                     @click="emit('edit', one)"
                                 />
                                 <PressButton
                                     danger
                                     icon="trash"
                                     label="删这一段"
+                                    :disabled="mutationBlocked"
                                     size="md"
                                     @click="remove(one)"
                                 />
@@ -200,11 +211,13 @@ async function remove(one: OnlineSession) {
         </div>
 
         <template #footer>
+            <span class="record-foot-note">{{ filtered.length }} 段</span>
             <RecordPager v-model="page" :pages="pages" />
             <PressButton
                 data-modal-cancel
                 text="关闭"
                 label="关闭上线记录"
+                :disabled="removing"
                 @click="emit('close')"
             />
         </template>
@@ -212,13 +225,6 @@ async function remove(one: OnlineSession) {
 </template>
 
 <style scoped>
-.filters {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-}
 .f-narrow {
     flex: none;
     width: calc(118px * var(--fs-scale));
@@ -228,14 +234,6 @@ async function remove(one: OnlineSession) {
     min-width: 110px;
 }
 
-.sums {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 4px 14px;
-    margin: 0 0 8px;
-    font-size: var(--fs-mini);
-}
 .sum-item {
     color: var(--num);
     font-variant-numeric: tabular-nums;
@@ -291,11 +289,5 @@ async function remove(one: OnlineSession) {
 }
 .c-ops {
     width: 74px;
-}
-
-.blank {
-    margin: 30px 0;
-    color: var(--muted);
-    text-align: center;
 }
 </style>

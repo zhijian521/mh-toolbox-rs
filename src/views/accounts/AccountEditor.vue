@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useId } from 'vue';
+import { computed, ref, useId, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
@@ -7,8 +7,9 @@ import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
+import { withCurrentOption } from '../../components/select-options';
 import { todayText } from '../../services/format';
-import { characterOptions } from '../income/character-options';
+import { characterOptions, UNASSIGNED_CHARACTER as NOTHING } from '../characters/character-options';
 import { accountValueText } from './account-analysis';
 import { characterName, useRoster } from '../characters/roster';
 import {
@@ -28,6 +29,7 @@ const props = withDefaults(
         saving?: boolean;
         locked?: boolean;
         retrying?: boolean;
+        saveError?: string;
     }>(),
     { saving: false, locked: false, retrying: false },
 );
@@ -36,9 +38,6 @@ const router = useRouter();
 const automatic = computed(() => props.entry?.source === 'auto');
 
 const { roster } = useRoster();
-
-/** 与 `EntryEditDialog` 同一个哨兵：`SelectField` 把空串当「没有值」。 */
-const NOTHING = '__none__';
 
 const noteId = useId();
 
@@ -61,6 +60,15 @@ function inputOf(entry: AccountEntry | undefined): number {
 }
 
 const amount = ref<number>(inputOf(props.entry));
+const amountEdited = ref(false);
+watch(
+    currency,
+    () => {
+        amountEdited.value = true;
+    },
+    { flush: 'sync' },
+);
+const preserveAmount = computed(() => Boolean(props.entry && !amountEdited.value));
 
 const unit = computed(() => CURRENCY_META[currency.value].unit);
 
@@ -75,32 +83,36 @@ const kindOptions: { value: AccountKind; label: string }[] = [
 ];
 
 const categoryOptions = computed(() =>
-    [...new Set([...ACCOUNT_CATEGORIES, category.value])]
-        .filter(Boolean)
-        .map((one) => ({ value: one, label: one })),
+    withCurrentOption(
+        ACCOUNT_CATEGORIES.map((one) => ({ value: one, label: one })),
+        category.value,
+    ),
 );
 const channelOptions = computed(() =>
-    [...new Set([...CHANNELS, channel.value])]
-        .filter(Boolean)
-        .map((one) => ({ value: one, label: one })),
+    withCurrentOption(
+        CHANNELS.map((one) => ({ value: one, label: one })),
+        channel.value,
+    ),
 );
 
-const whoOptions = computed(() => [
-    { value: NOTHING, label: '不指定' },
-    ...characterOptions(roster.value, [props.entry?.characterId ?? '']),
-]);
+const whoOptions = computed(() =>
+    characterOptions(roster.value, [props.entry?.characterId ?? ''], { unassigned: '不指定' }),
+);
 
 const canSave = computed(() => {
     return (
         Number.isFinite(amount.value) &&
-        Math.round(amount.value * 100) > 0 &&
+        (preserveAmount.value
+            ? (props.entry?.amount ?? 0) > 0
+            : Math.round(amount.value * 100) > 0) &&
         Boolean(category.value) &&
         Boolean(date.value)
     );
 });
 
 function submit() {
-    if (automatic.value || props.saving || (!props.retrying && !canSave.value)) return;
+    if (automatic.value || props.saving || (!props.retrying && (props.locked || !canSave.value)))
+        return;
     emit('save', {
         date: date.value,
         characterId: characterId.value === NOTHING ? '' : characterId.value,
@@ -109,6 +121,7 @@ function submit() {
         category: category.value,
         channel: channel.value,
         amount: amount.value,
+        preserveAmount: preserveAmount.value,
         note: note.value,
     });
 }
@@ -118,7 +131,7 @@ function submit() {
     <ModalShell
         :title="automatic ? '账目详情' : entry ? '修改记录' : '记一笔'"
         :width="452"
-        @close="emit('close')"
+        @close="!saving && emit('close')"
     >
         <dl v-if="automatic && entry" class="entry-detail">
             <div class="detail-amount" :class="entry.kind">
@@ -168,6 +181,7 @@ function submit() {
                     <!-- 元、万两种输入都最多保留两位小数。 -->
                     <NumberField
                         v-model="amount"
+                        @input="amountEdited = true"
                         label="成交金额"
                         zero-as-empty
                         :precision="2"
@@ -225,6 +239,7 @@ function submit() {
         </form>
 
         <template #footer>
+            <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
             <PressButton
                 data-modal-cancel
                 :text="automatic ? '关闭' : '取消'"

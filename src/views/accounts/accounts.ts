@@ -13,7 +13,7 @@
  * 与收益页同口径）。统一成一种单位反而会出现「1 元 = 1 万」这种中间态。
  */
 import type { IconName } from '../../components/icons';
-import { dateText, daysAgo, ledgerMoneyText, parseDay, todayText } from '../../services/format';
+import { dateText, daysAgo, parseDay, todayText } from '../../services/format';
 import { makeId } from '../../services/shape';
 
 /** 币种。`rmb` 按元、`cash` 按万；这是**两本独立的账**，不是同一本账的两种记法。 */
@@ -99,19 +99,6 @@ export interface AccountStats {
     expense: number;
     net: number;
     count: number;
-}
-
-/* ---------- 读数 ---------- */
-
-/** 两本账分别按元、万显示，最多两位小数。 */
-export function amountText(amount: number, currency: Currency): string {
-    return amount === 0 ? '—' : ledgerMoneyText(amount, currency);
-}
-
-/** 带方向的读数：`+30 元` / `−4.6 万`。负号用 `−`（U+2212），不是连字符。 */
-export function signedText(entry: Pick<AccountEntry, 'amount' | 'currency' | 'kind'>): string {
-    const sign = entry.kind === 'income' ? '+' : '−';
-    return `${sign}${amountText(entry.amount, entry.currency)}`;
 }
 
 /* ---------- 归一 ----------
@@ -203,22 +190,6 @@ export function accountStats(entries: readonly AccountEntry[], currency: Currenc
     income = quantize(income, currency);
     expense = quantize(expense, currency);
     return { income, expense, net: quantize(income - expense, currency), count };
-}
-
-/** 按日期区间与角色筛。空串表示不限，两者可同时为空（= 全部）。 */
-export function entriesIn(
-    entries: readonly AccountEntry[],
-    from: string,
-    to: string,
-    characterId = '',
-): AccountEntry[] {
-    return entries.filter((one) => {
-        /* `YYYY-MM-DD` 的字典序就是时间序，直接比字符串——前提是归一已经把格式卡死了。 */
-        if (from && one.date < from) return false;
-        if (to && one.date > to) return false;
-        if (characterId && one.characterId !== characterId) return false;
-        return true;
-    });
 }
 
 /** 新的在上：同一天里最后记的那笔排最前。 */

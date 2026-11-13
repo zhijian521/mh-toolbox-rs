@@ -156,6 +156,14 @@ describe('parseDay：日期文本读回 Date', () => {
 });
 
 describe('账号与收益金额：元、万与两位小数', () => {
+    it('显式控制方向与空读数，不拼负零和双重符号', () => {
+        expect(ledgerMoneyText(30000, 'cash', { sign: 'always' })).toBe('+3 万');
+        expect(ledgerMoneyText(-30000, 'cash', { sign: 'auto' })).toBe('−3 万');
+        expect(ledgerMoneyText(-0.001, 'rmb', { sign: 'always' })).toBe('0 元');
+        expect(ledgerMoneyText(0, 'cash', { sign: 'always' })).toBe('0 万');
+        expect(ledgerMoneyText(0, 'cash', { zero: 'dash' })).toBe('—');
+        expect(ledgerMoneyText(NaN, 'cash', { sign: 'always' })).toBe('—');
+    });
     it('人民币按元显示，去尾零并保留千分位', () => {
         expect(ledgerMoneyText(1234.567, 'rmb')).toBe('1,234.57 元');
         expect(ledgerMoneyText(30, 'rmb')).toBe('30 元');

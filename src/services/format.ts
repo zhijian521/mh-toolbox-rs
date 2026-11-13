@@ -168,10 +168,19 @@ export function changeText(delta: number): string {
 }
 
 /** 账号、收益统一按元或万展示，最多两位小数；原值精度不变。 */
-export function ledgerMoneyText(amount: number, currency: 'rmb' | 'cash' = 'cash'): string {
+export function ledgerMoneyText(
+    amount: number,
+    currency: 'rmb' | 'cash' = 'cash',
+    options: { sign?: 'auto' | 'always'; zero?: 'dash' } = {},
+): string {
     const value = Math.abs(amount) / (currency === 'cash' ? WAN : 1);
     if (!Number.isFinite(value)) return '—';
+    if (amount === 0 && options.zero === 'dash') return '—';
+    const visible = Math.round(value * 100) > 0;
+    const sign =
+        !options.sign || !visible ? '' : amount < 0 ? '−' : options.sign === 'always' ? '+' : '';
     return (
+        sign +
         value.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) +
         (currency === 'cash' ? ' 万' : ' 元')
     );

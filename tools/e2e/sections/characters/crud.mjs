@@ -34,6 +34,12 @@ export async function setup(ctx) {
         }
         t.pass('点「新建角色」打开编辑器');
         t.check(
+            '未提交的角色草稿可以编辑，取消可用',
+            await cdp.evaluate(
+                "!document.querySelector('.editor .ocr').inert && !document.querySelector('.editor [data-modal-cancel]').disabled",
+            ),
+        );
+        t.check(
             '新建共用带截图入口的修改窗口，名称为空不能保存',
             await cdp.evaluate(`!!document.querySelector('.editor .ocr-standard .upload-preview') &&
                 document.querySelector('button[aria-label="保存这个角色"]').disabled`),

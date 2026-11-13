@@ -13,7 +13,7 @@ import { normalizeTime, timeText } from '../../services/clock';
 import { useRoster } from '../characters/roster';
 import { ownersOf, type OnlineSession } from './online';
 import { useOnline } from './online-store';
-import { characterOptions } from './character-options';
+import { characterOptions } from '../characters/character-options';
 import { backfillDraft, backfillEndAt, onlineTimeAt as atOf } from './online-time';
 
 const props = defineProps<{
@@ -24,7 +24,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: [] }>();
 
-const { startOnline, backfillOnline, updateOnline, removeOnline, flush, retry } = useOnline();
+const { startOnline, backfillOnline, updateOnline, removeOnline, flush, retry, writeError } =
+    useOnline();
 const { roster } = useRoster();
 const draft = usePersistedSubmit(flush, retry);
 const { saving, action, locked } = draft;
@@ -235,6 +236,7 @@ const submitText = computed(() => {
         </form>
 
         <template #footer>
+            <p v-if="writeError" class="note error save-error" role="status">{{ writeError }}</p>
             <PressButton
                 v-if="editing"
                 danger

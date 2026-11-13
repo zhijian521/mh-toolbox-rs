@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PressButton from '../../components/PressButton.vue';
+import PressButton from './PressButton.vue';
 
 defineProps<{ modelValue: number; pages: number }>();
 const emit = defineEmits<{ 'update:modelValue': [page: number] }>();

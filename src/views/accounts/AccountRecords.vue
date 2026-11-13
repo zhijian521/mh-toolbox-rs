@@ -1,17 +1,18 @@
 <script setup lang="ts">
+import { ALL_OPTIONS as ALL } from '../../components/select-options';
 import { computed, ref, watch } from 'vue';
+import { ledgerMoneyText } from '../../services/format';
 import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
 import SelectField from '../../components/SelectField.vue';
-import { askConfirm } from '../../composables/use-confirm';
-import { saved } from '../../composables/save-feedback';
+import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { notify } from '../../composables/use-notify';
 import { usePagination } from '../../composables/use-pagination';
 import { characterName, useRoster } from '../characters/roster';
-import { characterOptions } from '../income/character-options';
-import RecordPager from '../income/RecordPager.vue';
+import { characterOptions } from '../characters/character-options';
+import RecordPager from '../../components/RecordPager.vue';
 import {
     ACCOUNT_CATEGORIES,
     CHANNELS,
@@ -20,18 +21,20 @@ import {
     newestFirst,
     type AccountEntry,
 } from './accounts';
-import {
-    ALL_ACCOUNTS as ALL,
-    UNASSIGNED,
-    BOOK_OPTIONS,
-    accountValueText,
-    filterAccounts,
-} from './account-analysis';
+import { BOOK_OPTIONS, accountValueText, filterAccounts } from './account-analysis';
 import { useAccounts } from './accounts-store';
 
 const emit = defineEmits<{ close: []; edit: [entry: AccountEntry] }>();
 const { entries, removeEntry, flush, retry, pending, writeError, loadError } = useAccounts();
 const { roster } = useRoster();
+const removal = useConfirmedRemoval(
+    () => pending.value > 0 || Boolean(loadError.value || writeError.value),
+    flush,
+);
+const { removing } = removal;
+const mutationBlocked = computed(
+    () => removing.value || pending.value > 0 || Boolean(loadError.value || writeError.value),
+);
 const currency = ref(ALL);
 const kind = ref(ALL);
 const category = ref(ALL);
@@ -41,7 +44,6 @@ const source = ref(ALL);
 const from = ref('');
 const to = ref('');
 const keyword = ref('');
-const removing = ref(false);
 const categoryOptions = computed(() => [
     { value: ALL, label: '全部分类' },
     ...[...new Set([...ACCOUNT_CATEGORIES, ...entries.value.map((one) => one.category)])].map(
@@ -66,14 +68,13 @@ const sourceOptions = [
     { value: 'manual', label: '手动记账' },
     { value: 'auto', label: '自动同步' },
 ];
-const whoOptions = computed(() => [
-    { value: ALL, label: '全部角色' },
-    { value: UNASSIGNED, label: '未指定' },
-    ...characterOptions(
+const whoOptions = computed(() =>
+    characterOptions(
         roster.value,
         entries.value.map((one) => one.characterId),
+        { all: true, unassigned: '未指定' },
     ),
-]);
+);
 const filtered = computed(() => {
     const word = keyword.value.trim().toLocaleLowerCase();
     return newestFirst(
@@ -120,10 +121,9 @@ function reset() {
     keyword.value = '';
 }
 async function remove(one: AccountEntry) {
-    if (one.source === 'auto' || removing.value || pending.value || loadError.value) return;
-    removing.value = true;
-    try {
-        const ok = await askConfirm({
+    if (one.source === 'auto') return;
+    const ok = await removal.run(
+        {
             danger: true,
             title: '删除这条记录？',
             note:
@@ -133,13 +133,10 @@ async function remove(one: AccountEntry) {
                 ' · ' +
                 accountValueText(one.amount, one.currency),
             confirmText: '删除',
-        });
-        if (!ok) return;
-        removeEntry(one.id);
-        if (await saved(flush)) notify.success('已删除记录');
-    } finally {
-        removing.value = false;
-    }
+        },
+        () => removeEntry(one.id),
+    );
+    if (ok) notify.success('已删除记录');
 }
 </script>
 
@@ -149,10 +146,10 @@ async function remove(one: AccountEntry) {
         :width="960"
         min-height="min(620px, calc(100vh - 48px))"
         fill
-        @close="emit('close')"
+        @close="!removing && emit('close')"
     >
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
-        <div class="filters">
+        <div class="record-filters">
             <DateField v-model="from" label="账号历史开始日期" :max="to" />
             <span class="date-separator">至</span>
             <DateField v-model="to" label="账号历史结束日期" :min="from" />
@@ -172,7 +169,7 @@ async function remove(one: AccountEntry) {
             />
             <PressButton v-if="anyFilter" text="重置" label="清空筛选" @click="reset" />
         </div>
-        <div class="filters">
+        <div class="record-filters">
             <SelectField
                 v-model="currency"
                 :options="currencyOptions"
@@ -194,7 +191,7 @@ async function remove(one: AccountEntry) {
             />
             <SelectField v-model="who" :options="whoOptions" label="角色筛选" class="f-pick" />
         </div>
-        <div class="sums">
+        <div class="record-summary">
             <div v-for="one in sums" :key="one.currency" class="sum">
                 <span>{{ CURRENCY_META[one.currency].label }}</span>
                 <span :class="{ in: one.stats.income > 0 }"
@@ -209,7 +206,7 @@ async function remove(one: AccountEntry) {
             </div>
         </div>
         <div class="income-log-scroll">
-            <p v-if="!filtered.length" class="blank">
+            <p v-if="!filtered.length" class="record-empty">
                 {{ loadError || (entries.length ? '这个筛选下没有记录' : '还没有账号记录') }}
             </p>
             <table v-else class="income-table rec-table">
@@ -235,17 +232,20 @@ async function remove(one: AccountEntry) {
                         <td class="c-channel">{{ one.channel }}</td>
                         <td class="c-num" :class="one.kind === 'expense' ? 'out' : 'in'">
                             {{
-                                (one.kind === 'income' ? '+' : '−') +
-                                accountValueText(one.amount, one.currency)
+                                ledgerMoneyText(
+                                    one.kind === 'expense' ? -one.amount : one.amount,
+                                    one.currency,
+                                    { sign: 'always' },
+                                )
                             }}
                         </td>
                         <td class="c-ops">
                             <span class="income-ops">
                                 <PressButton
                                     :icon="one.source === 'auto' ? 'search' : 'edit'"
+                                    :disabled="mutationBlocked"
                                     :label="one.source === 'auto' ? '查看这一条' : '改这一条'"
                                     size="md"
-                                    :disabled="removing"
                                     @click="emit('edit', one)"
                                 />
                                 <PressButton
@@ -254,7 +254,7 @@ async function remove(one: AccountEntry) {
                                     icon="trash"
                                     label="删这一条"
                                     size="md"
-                                    :disabled="removing || pending > 0 || !!loadError"
+                                    :disabled="mutationBlocked"
                                     @click="remove(one)"
                                 />
                             </span>
@@ -264,7 +264,7 @@ async function remove(one: AccountEntry) {
             </table>
         </div>
         <template #footer>
-            <span class="foot-note"
+            <span class="record-foot-note"
                 >{{ filtered.length }} 笔{{ anyFilter ? ' · 已筛选' : '' }}</span
             >
             <RecordPager v-model="page" :pages="pages" />
@@ -272,6 +272,7 @@ async function remove(one: AccountEntry) {
                 data-modal-cancel
                 text="关闭"
                 label="关闭账号历史记录"
+                :disabled="removing"
                 @click="emit('close')"
             />
         </template>
@@ -279,13 +280,6 @@ async function remove(one: AccountEntry) {
 </template>
 
 <style scoped>
-.filters {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
-}
 .f-pick {
     flex: 1 1 120px;
     min-width: 110px;
@@ -294,16 +288,8 @@ async function remove(one: AccountEntry) {
     flex: 2 1 180px;
     min-width: 120px;
 }
-.date-separator,
-.foot-note {
+.date-separator {
     color: var(--muted);
-    font-size: var(--fs-xs);
-}
-.sums {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 20px;
-    margin: 2px 0 12px;
     font-size: var(--fs-xs);
 }
 .sum {
@@ -359,14 +345,5 @@ async function remove(one: AccountEntry) {
 }
 .c-ops {
     width: 74px;
-}
-.blank {
-    margin: 40px 0;
-    color: var(--muted);
-    text-align: center;
-    font-size: var(--fs-sm);
-}
-.foot-note {
-    margin-right: auto;
 }
 </style>

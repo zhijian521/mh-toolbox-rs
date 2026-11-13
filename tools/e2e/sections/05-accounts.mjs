@@ -217,6 +217,12 @@ export default async function run(ctx) {
                 timeout: 3000,
             });
             t.check('全部记录弹窗开了', opened);
+            t.check(
+                '账号历史共用筛选、汇总和页脚读数',
+                await cdp.evaluate(
+                    "!!document.querySelector('[role=dialog] .record-filters') && !!document.querySelector('[role=dialog] .record-summary') && !!document.querySelector('[role=dialog] .record-foot-note')",
+                ),
+            );
 
             t.check(
                 '历史支持日期和来源筛选',

@@ -6,13 +6,14 @@ import PriceField from '../../components/PriceField.vue';
 import SelectField from '../../components/SelectField.vue';
 import { useRoster } from '../characters/roster';
 import type { IncomeEntry } from './income';
-import { characterOptions } from './character-options';
+import { characterOptions, UNASSIGNED_CHARACTER as NOTHING } from '../characters/character-options';
 
 const props = defineProps<{
     entry: IncomeEntry;
     saving?: boolean;
     locked?: boolean;
     retrying?: boolean;
+    saveError?: string;
 }>();
 
 const emit = defineEmits<{
@@ -22,22 +23,14 @@ const emit = defineEmits<{
 
 const { roster } = useRoster();
 
-/**
- * 「不指定」在 `SelectField` 里不能是空串：那个组件把空串当「没有值」，
- * 选中它之后触发条会退回显示 placeholder「未选」，与事实不符。
- * 所以用一个只在这一层存在的哨兵值，提交时再换回空串。
- */
-const NOTHING = '__none__';
-
 const itemId = useId();
 const amount = ref<number | null>(props.entry.amount);
 const item = ref(props.entry.item);
 const who = ref(props.entry.characterId || NOTHING);
 
-const whoOptions = computed(() => [
-    { value: NOTHING, label: '不指定' },
-    ...characterOptions(roster.value, [props.entry.characterId]),
-]);
+const whoOptions = computed(() =>
+    characterOptions(roster.value, [props.entry.characterId], { unassigned: '不指定' }),
+);
 
 const canSave = computed(() => (amount.value ?? 0) > 0);
 
@@ -75,6 +68,7 @@ function submit() {
         </form>
 
         <template #footer>
+            <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
             <PressButton
                 data-modal-cancel
                 :disabled="saving"

@@ -430,6 +430,12 @@ describe('读档失败：拒绝写入', () => {
         expect(desktop.charactersSave).not.toHaveBeenCalled();
     });
 
+    it('重试返回可等待的失败结果，读失败时仍不写库', async () => {
+        const { desktop, store } = await loadFailingRoster();
+        await expect(store.useRoster().retry()).resolves.toBe(false);
+        expect(desktop.charactersSave).not.toHaveBeenCalled();
+    });
+
     it('读失败之后，新增角色也不会落库（persist 的闸真的生效）', async () => {
         const { desktop, store } = await loadFailingRoster();
         const { loadError, add } = store.useRoster();

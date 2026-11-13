@@ -103,6 +103,8 @@ export interface EntryInput {
     channel: string;
     /** 输入框里的数：人民币按元、梦幻币按万。这里负责换算成原值。 */
     amount: number;
+    /** 仅修改其他字段时，保留当前记录的金额原值。新建及换币种时不生效。 */
+    preserveAmount?: boolean;
     note?: string;
 }
 
@@ -125,10 +127,16 @@ function toStored(amount: number, currency: Currency): number {
  * 反过来会让 `0.00001` 万过关、落成 `0`，而 `0` 在 `normalizeEntry` 里是「丢掉」：
  * 用户点了保存、提示说记上了、重启后那条不见了。
  */
-function check(input: EntryInput): { ok: true; amount: number } | { ok: false; error: string } {
+function check(
+    input: EntryInput,
+    before?: AccountEntry,
+): { ok: true; amount: number } | { ok: false; error: string } {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { ok: false, error: '日期不对' };
     if (!input.category) return { ok: false, error: '选一个分类' };
-    const amount = toStored(input.amount, input.currency);
+    const amount =
+        input.preserveAmount && before?.currency === input.currency
+            ? before.amount
+            : toStored(input.amount, input.currency);
     if (!Number.isFinite(amount) || amount <= 0) {
         return {
             ok: false,
@@ -178,7 +186,7 @@ export function updateEntry(id: string, input: EntryInput): AccountWrite {
     const before = entries.value.find((one) => one.id === id);
     if (!before) return { ok: false, error: '这条记录已经不在了' };
     if (before.source === 'auto') return { ok: false, error: '自动记录请到收益页修改' };
-    const checked = check(input);
+    const checked = check(input, before);
     if (!checked.ok) return checked;
     const composed = compose(input, checked.amount, id, before.createdAt);
     // 自动记录已在入口拒绝，保留原条目的来源。

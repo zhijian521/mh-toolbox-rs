@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { ALL_OPTIONS as ALL_ACCOUNTS } from '../../components/select-options';
 import { computed, ref } from 'vue';
+import { ledgerMoneyText } from '../../services/format';
 import AppIcon from '../../components/AppIcon.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import PaperCard from '../../components/PaperCard.vue';
@@ -13,7 +15,7 @@ import { notify } from '../../composables/use-notify';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import { useToday } from '../../composables/use-today';
 import { characterName, useRoster } from '../characters/roster';
-import { characterOptions } from '../income/character-options';
+import { characterOptions } from '../characters/character-options';
 import AccountCharts from './AccountCharts.vue';
 import AccountFlowCard from './AccountFlowCard.vue';
 import AccountEditor from './AccountEditor.vue';
@@ -28,13 +30,7 @@ import {
     type AccountEntry,
     type RangePreset,
 } from './accounts';
-import {
-    ALL_ACCOUNTS,
-    UNASSIGNED,
-    accountValueText,
-    filterAccounts,
-    shortcutTotal,
-} from './account-analysis';
+import { accountValueText, filterAccounts, shortcutTotal } from './account-analysis';
 import { useAccounts, type EntryInput } from './accounts-store';
 
 const { entries, loadError, writeError, addEntry, updateEntry, pending, flush, retry } =
@@ -42,14 +38,13 @@ const { entries, loadError, writeError, addEntry, updateEntry, pending, flush, r
 const { roster } = useRoster();
 const preset = ref<RangePreset>('month');
 const who = ref(ALL_ACCOUNTS);
-const whoOptions = computed(() => [
-    { value: ALL_ACCOUNTS, label: '全部角色' },
-    { value: UNASSIGNED, label: '未指定' },
-    ...characterOptions(
+const whoOptions = computed(() =>
+    characterOptions(
         roster.value,
         entries.value.map((one) => one.characterId),
+        { all: true, unassigned: '未指定' },
     ),
-]);
+);
 const today = useToday();
 const range = computed(() => rangeOf(preset.value, today.value));
 const scoped = computed(() =>
@@ -256,8 +251,11 @@ async function save(input: EntryInput) {
                                 class="recent-amount"
                                 :class="one.kind === 'income' ? 'in' : 'out'"
                                 >{{
-                                    (one.kind === 'income' ? '+' : '−') +
-                                    accountValueText(one.amount, one.currency)
+                                    ledgerMoneyText(
+                                        one.kind === 'expense' ? -one.amount : one.amount,
+                                        one.currency,
+                                        { sign: 'always' },
+                                    )
                                 }}</span
                             >
                         </button>
@@ -273,6 +271,7 @@ async function save(input: EntryInput) {
             :saving="saving"
             :locked="locked"
             :retrying="action !== null"
+            :save-error="writeError"
             @save="save"
             @close="closeEditor"
         />

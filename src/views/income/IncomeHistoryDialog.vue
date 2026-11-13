@@ -1,35 +1,43 @@
 <script setup lang="ts">
+import { ALL_OPTIONS as ANY } from '../../components/select-options';
 import { computed, ref, watch } from 'vue';
 import { usePagination } from '../../composables/use-pagination';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
-import RecordPager from './RecordPager.vue';
+import RecordPager from '../../components/RecordPager.vue';
+import SaveNotice from '../../components/SaveNotice.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import DateField from '../../components/DateField.vue';
 import SelectField from '../../components/SelectField.vue';
-import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
-import { askConfirm } from '../../composables/use-confirm';
+import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { characterName, useRoster } from '../characters/roster';
 import { timeText } from '../../services/clock';
-import { shortDate, todayText } from '../../services/format';
+import { ledgerMoneyText, shortDate, todayText } from '../../services/format';
 import { amountText, entriesIn, totalsOf, type IncomeEntry } from './income';
 import { useIncome } from './income-store';
 import { itemIconOf } from './item-icons';
 import EntryEditDialog from './EntryEditDialog.vue';
-import { characterOptions } from './character-options';
+import { characterOptions, UNASSIGNED_CHARACTER as NOTHING } from '../characters/character-options';
 
 const emit = defineEmits<{ close: [] }>();
 
-const { entries, removeEntry, updateEntry, pending, flush, retry } = useIncome();
+const { entries, removeEntry, updateEntry, pending, flush, retry, loadError, writeError } =
+    useIncome();
 const { roster } = useRoster();
+const removal = useConfirmedRemoval(
+    () => pending.value > 0 || Boolean(loadError.value || writeError.value),
+    flush,
+);
+const { removing } = removal;
+const mutationBlocked = computed(
+    () => removing.value || pending.value > 0 || Boolean(loadError.value || writeError.value),
+);
 
 /**
  * 「不限角色」的哨兵：`SelectField` 把空串当「没有值」，选中它会退回 placeholder。
  * 与账号页 / 目标页同一个写法。
  */
-const ANY = '__any__';
-const NOTHING = '__none__';
 
 /**
  * 正在看的区间两端。默认两端都落在今天——打开历史的人十次有九次是想核对今天，
@@ -41,14 +49,13 @@ const to = ref(todayText());
 /** 只看哪个号。`ANY` = 全部；空串 = 未指定角色（真实目标，见文件头）。 */
 const who = ref(ANY);
 
-const whoOptions = computed(() => [
-    { value: ANY, label: '全部角色' },
-    { value: NOTHING, label: '未指定' },
-    ...characterOptions(
+const whoOptions = computed(() =>
+    characterOptions(
         roster.value,
         entries.value.map((one) => one.characterId),
+        { all: true, unassigned: '未指定' },
     ),
-]);
+);
 
 function pickFrom(value: string) {
     from.value = value;
@@ -113,7 +120,7 @@ const whoSums = computed<WhoSum[]>(() => {
 
 /** 净额与支出都要带 `−`：只靠颜色的话，色弱或打印时一笔亏损会读成收入。 */
 function signedOf(value: number): string {
-    return value < 0 ? `−${amountText(-value)}` : amountText(value);
+    return ledgerMoneyText(value, 'cash', { sign: 'auto', zero: 'dash' });
 }
 
 /** 改：不进确认，改错了还能再改。 */
@@ -136,16 +143,16 @@ async function save(patch: { amount: number; item: string; characterId: string }
 
 /** 删：先问一句。账本里没有回收站，这一步不可逆。 */
 async function remove(one: IncomeEntry) {
-    const ok = await askConfirm({
-        danger: true,
-        title: `删掉「${one.item || '未记物品'}」这一条？`,
-        note: `${amountText(one.amount)}。删了不能撤回。`,
-        confirmText: '删除',
-    });
-    if (!ok) return;
-
-    removeEntry(one.id);
-    if (await saved(flush)) notify.success('已删掉一条');
+    const ok = await removal.run(
+        {
+            danger: true,
+            title: `删掉「${one.item || '未记物品'}」这一条？`,
+            note: `${amountText(one.amount)}。删了不能撤回。`,
+            confirmText: '删除',
+        },
+        () => removeEntry(one.id),
+    );
+    if (ok) notify.success('已删掉一条');
 }
 </script>
 
@@ -155,12 +162,14 @@ async function remove(one: IncomeEntry) {
         :width="900"
         min-height="min(600px, calc(100vh - 48px))"
         fill
-        @close="emit('close')"
+        @close="!removing && emit('close')"
     >
         <!-- 筛选在上：选哪段看哪段，不用滚动找。三个控件各管一件事——起、止、谁。
              「回到今天」长在纸片自己的页脚里（`DateField` 的能力，不只服务这一页），
              这里不再挂第二枚。 -->
-        <div class="filters">
+        <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
+        <p v-if="loadError" class="note error" role="alert">{{ loadError }}</p>
+        <div class="record-filters">
             <DateField
                 :model-value="from"
                 label="从哪一天"
@@ -177,12 +186,9 @@ async function remove(one: IncomeEntry) {
                 @update:model-value="pickTo"
             />
             <SelectField v-model="who" :options="whoOptions" label="按角色筛选" class="who-pick" />
-            <span class="sum">
-                <span class="dim">{{ rangeTotals.count }} 笔</span>
-            </span>
         </div>
 
-        <p v-if="rows.length" class="sum-bar">
+        <p v-if="rows.length" class="record-summary">
             <span
                 class="sum-tag total"
                 :class="{ gain: rangeTotals.net > 0, loss: rangeTotals.net < 0 }"
@@ -201,8 +207,14 @@ async function remove(one: IncomeEntry) {
             </span>
         </p>
 
-        <p v-if="!rows.length" class="note blank">
-            {{ multiDay ? '这段时间还没有记录。' : '这一天还没有记录。' }}
+        <p v-if="!rows.length" class="record-empty">
+            {{
+                loadError
+                    ? '暂时无法读取记录'
+                    : multiDay
+                      ? '这段时间还没有记录。'
+                      : '这一天还没有记录。'
+            }}
         </p>
 
         <!-- 只有表格滚（`fill` 让正文成为纵向 flex 容器，这里吃掉剩下的全部高度）。
@@ -248,9 +260,11 @@ async function remove(one: IncomeEntry) {
                         </td>
                         <td class="c-num" :class="{ out: one.kind === 'expense' }">
                             {{
-                                one.kind === 'expense'
-                                    ? `−${amountText(one.amount)}`
-                                    : amountText(one.amount)
+                                ledgerMoneyText(
+                                    one.kind === 'expense' ? -one.amount : one.amount,
+                                    'cash',
+                                    { sign: 'always' },
+                                )
                             }}
                         </td>
                         <td class="c-ops">
@@ -259,12 +273,14 @@ async function remove(one: IncomeEntry) {
                                     icon="edit"
                                     label="改这一条"
                                     size="md"
+                                    :disabled="mutationBlocked"
                                     @click="editing = one"
                                 />
                                 <PressButton
                                     danger
                                     icon="trash"
                                     label="删这一条"
+                                    :disabled="mutationBlocked"
                                     size="md"
                                     @click="remove(one)"
                                 />
@@ -276,8 +292,14 @@ async function remove(one: IncomeEntry) {
         </div>
 
         <template #footer>
+            <span class="record-foot-note">{{ rows.length }} 笔</span>
             <RecordPager v-model="page" :pages="pages" />
-            <PressButton text="关闭" label="关闭历史收益" @click="emit('close')" />
+            <PressButton
+                text="关闭"
+                label="关闭历史收益"
+                :disabled="removing"
+                @click="emit('close')"
+            />
         </template>
 
         <!-- 叠在这张窗上面的一层（`ModalShell` 自带弹窗栈，Esc 只关最上面那层）。 -->
@@ -287,6 +309,7 @@ async function remove(one: IncomeEntry) {
             :saving="saving"
             :locked="locked"
             :retrying="action !== null"
+            :save-error="writeError"
             @save="save"
             @close="closeEdit"
         />
@@ -294,16 +317,6 @@ async function remove(one: IncomeEntry) {
 </template>
 
 <style scoped>
-.filters {
-    display: flex;
-    flex: none;
-    align-items: center;
-    gap: 10px;
-    /* 与下面那排 tag / 表格之间留出一道气（2026-11-11 用户「顶部搜索和下面表格中间加点间距」）。
-     * 8 的时候筛选行的下沿几乎贴着表格上框，读起来像表头的一部分。 */
-    margin-bottom: 12px;
-}
-
 .date-pick {
     flex: none;
     width: calc(168px * var(--fs-scale));
@@ -321,29 +334,9 @@ async function remove(one: IncomeEntry) {
     flex: none;
     width: calc(150px * var(--fs-scale));
 }
-/* 笔数留在筛选行右端：它回答的是「这次筛出多少条」，和起止、角色是同一件事。
- * 净额不在这里——它挪到表格顶上那一排 tag 里（见下），那是「钱」的位置。 */
-.sum {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-left: auto;
-}
-.sum .dim {
-    color: var(--muted);
-    font-size: var(--fs-mini);
-}
 
 /* ---------- 总计 + 各号小计：一排 tag ---------- */
 
-.sum-bar {
-    display: flex;
-    flex: none;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    margin: 0 0 10px;
-}
 .sum-tag {
     display: inline-flex;
     align-items: baseline;
@@ -454,8 +447,4 @@ async function remove(one: IncomeEntry) {
 
 /* 空态：定高之后这一句要在整块正文里居中。`margin: auto` 在纵向 flex 容器里就是
  * 「上下都吃掉剩余空间」——写 `margin: 26px 0` 会贴在顶部，下面一大片空白看着像没加载完。 */
-.blank {
-    margin: auto;
-    text-align: center;
-}
 </style>

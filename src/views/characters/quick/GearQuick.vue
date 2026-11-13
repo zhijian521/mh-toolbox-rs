@@ -14,8 +14,15 @@ import type { CharacterData } from '../character';
 
 /** 手改与识别都只动深拷贝，保存前不会触及角色，取消即丢弃。 */
 const props = withDefaults(
-    defineProps<{ character: CharacterData; slotName: GearSlotName; saving?: boolean }>(),
-    { saving: false },
+    defineProps<{
+        character: CharacterData;
+        slotName: GearSlotName;
+        saving?: boolean;
+        locked?: boolean;
+        retrying?: boolean;
+        saveError?: string;
+    }>(),
+    { saving: false, locked: false, retrying: false, saveError: '' },
 );
 const emit = defineEmits<{ save: [character: CharacterData]; close: [] }>();
 const source = props.character.gear.find((one) => one.slot === props.slotName);
@@ -27,6 +34,7 @@ const reading = ref(false);
 const form = ref<HTMLElement | null>(null);
 
 function recognize(result: GearPanelResult) {
+    if (props.locked || props.saving) return;
     const merged = mergeGearPanel(
         { slot: props.slotName, caption: caption.value, detail: detail.value },
         result,
@@ -35,7 +43,7 @@ function recognize(result: GearPanelResult) {
     if (merged.detail) detail.value = merged.detail;
 }
 function save() {
-    if (reading.value || props.saving) return;
+    if (reading.value || props.saving || (props.locked && !props.retrying)) return;
     emit(
         'save',
         applyGear(props.character, props.slotName, {
@@ -59,26 +67,28 @@ onMounted(() => focusInput(form, '.gear-name-input'));
         :height="EDITOR_H"
         fill
         initial-focus="none"
-        @close="emit('close')"
+        @close="!saving && emit('close')"
     >
-        <div ref="form" class="gear-quick">
+        <div ref="form" :inert="locked || saving" class="gear-quick">
             <GearScreenshot :slot-name="slotName" @recognize="recognize" @busy="reading = $event">
                 <GearDetailForm v-model="detail" v-model:caption="caption" :slot-name="slotName" />
             </GearScreenshot>
         </div>
         <template #footer>
+            <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
             <PressButton
                 data-modal-cancel
                 text="取消"
                 label="放弃这次修改"
+                :disabled="saving"
                 @click="emit('close')"
             />
             <PressButton
                 icon="check"
-                text="保存"
+                :text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
                 label="保存这件装备"
                 seal
-                :disabled="reading || saving"
+                :disabled="reading || saving || (locked && !retrying)"
                 @click="save"
             />
         </template>

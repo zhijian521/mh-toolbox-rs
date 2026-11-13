@@ -56,12 +56,15 @@ export default async function run(ctx) {
     const todayCount = async () => {
         await ui.goto('收益');
         await ui.clickLabel('查看历史收益，按角色与按天');
-        const opened = await cdp.waitFor(`!!document.querySelector('[role="dialog"] .filters')`, {
-            timeout: 4000,
-        });
+        const opened = await cdp.waitFor(
+            `!!document.querySelector('[role="dialog"] .record-filters')`,
+            {
+                timeout: 4000,
+            },
+        );
         if (!opened) throw new Error('历史收益窗没打开');
         const raw = await cdp.evaluate(
-            `document.querySelector('[role="dialog"] .filters .sum .dim')?.innerText ?? ''`,
+            `document.querySelector('[role="dialog"] .record-foot-note')?.innerText ?? ''`,
         );
         const value = Number((raw.match(/(\d+)/) ?? [])[1]);
         await cdp.key('Escape');
@@ -551,10 +554,10 @@ export default async function run(ctx) {
                 const head = table.querySelector('thead th');
                 const firstRow = rows[0];
                 const icon = table.querySelector('tbody img');
-                const bar = document.querySelector('.sum-bar');
-                const filters = document.querySelector('.filters');
+                const bar = document.querySelector('.record-summary');
+                const filters = document.querySelector('.record-filters');
                 const boxOf = (el) => (el ? el.getBoundingClientRect() : null);
-                const tags = [...document.querySelectorAll('.sum-bar .sum-tag')];
+                const tags = [...document.querySelectorAll('.record-summary .sum-tag')];
                 return {
                     vw: innerWidth,
                     vh: innerHeight,
@@ -678,14 +681,14 @@ export default async function run(ctx) {
             const countOf = () =>
                 cdp.evaluate(`(() => {
                     const d = document.querySelector('[role="dialog"]');
-                    const dim = d?.querySelector('.filters .sum .dim')?.innerText ?? '';
+                    const dim = d?.querySelector('.record-foot-note')?.innerText ?? '';
                     return Number.parseInt(dim, 10);
                 })()`);
 
             await ui.goto('收益');
             await ui.clickLabel('查看历史收益，按角色与按天');
             const opened = await cdp.waitFor(
-                `!!document.querySelector('[role="dialog"] .filters .sum .dim')`,
+                `!!document.querySelector('[role="dialog"] .record-foot-note')`,
                 { timeout: 4000 },
             );
             if (!opened) throw new Error('历史收益窗没打开');
@@ -724,7 +727,7 @@ export default async function run(ctx) {
                     who: [...d.querySelectorAll('.log tbody tr')].map((r) =>
                         (r.querySelector('.c-who')?.innerText ?? '').trim(),
                     ),
-                    blank: (d.querySelector('.blank')?.innerText ?? '').trim(),
+                    blank: (d.querySelector('.record-empty')?.innerText ?? '').trim(),
                 };
             })()`);
             const filtered = await countOf();
@@ -1233,7 +1236,7 @@ export default async function run(ctx) {
                 const d = document.querySelector('[role="dialog"]');
                 return {
                     wide: !!d.querySelector('.log thead .c-time.wide'),
-                    blank: (d.querySelector('.blank')?.innerText ?? '').trim(),
+                    blank: (d.querySelector('.record-empty')?.innerText ?? '').trim(),
                     body: !!d.querySelector('.log tbody tr'),
                 };
             })()`);

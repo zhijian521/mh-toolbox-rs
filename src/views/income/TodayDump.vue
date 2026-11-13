@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useToday } from '../../composables/use-today';
 import { computed } from 'vue';
+import { ledgerMoneyText } from '../../services/format';
 import LedgerSection from '../../components/LedgerSection.vue';
 import NumTag from '../../components/NumTag.vue';
 import PressTile from '../../components/PressTile.vue';
@@ -88,7 +89,7 @@ async function undo(group: ItemGroup) {
             <span class="k">净额</span>
             <!-- 与页头统计条同一条：负数带 `−`，不能只靠颜色。 -->
             <span class="v" :class="{ gain: totals.net > 0, loss: totals.net < 0 }">{{
-                totals.net < 0 ? `−${amountText(-totals.net)}` : amountText(totals.net)
+                ledgerMoneyText(totals.net, 'cash', { sign: 'auto', zero: 'dash' })
             }}</span>
         </div>
     </LedgerSection>

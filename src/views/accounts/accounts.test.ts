@@ -5,13 +5,10 @@ import {
     CURRENCY_META,
     SHORTCUTS,
     accountStats,
-    amountText,
-    entriesIn,
     newestFirst,
     normalizeEntry,
     parseAccounts,
     rangeOf,
-    signedText,
     type AccountEntry,
 } from './accounts';
 
@@ -42,45 +39,6 @@ function entry(patch: Partial<AccountEntry> = {}): AccountEntry {
         ...patch,
     };
 }
-
-describe('amountText', () => {
-    it('人民币带千分位，去掉多余的零', () => {
-        expect(amountText(30, 'rmb')).toBe('30 元');
-        expect(amountText(1234.5, 'rmb')).toBe('1,234.5 元');
-        expect(amountText(0.1 + 0.2, 'rmb')).toBe('0.3 元');
-    });
-
-    it('人民币保留到分：30.5 不能被记成 31', () => {
-        expect(amountText(30.55, 'rmb')).toBe('30.55 元');
-    });
-
-    it('0 显示「—」，两种币同一个说法', () => {
-        // 未记录保持空读数，两本账使用同一约定。
-        expect(amountText(0, 'rmb')).toBe('—');
-        expect(amountText(0, 'cash')).toBe('—');
-    });
-
-    it('梦幻币走万，与收益页同一个口径', () => {
-        expect(amountText(46000, 'cash')).toBe('4.6 万');
-        expect(amountText(1000000, 'cash')).toBe('100 万');
-    });
-
-    it('两本账的单位不同，绝不会混成一个数', () => {
-        // 同样存 30，人民币是 30 元、梦幻币是 30 币，不能相加。
-        expect(amountText(30, 'rmb')).toBe('30 元');
-        expect(amountText(8000, 'cash')).toBe('0.8 万');
-    });
-});
-
-describe('signedText', () => {
-    it('收入带 +、支出带 −，负号是 U+2212', () => {
-        expect(signedText(entry({ kind: 'income', amount: 30 }))).toBe('+30 元');
-        expect(signedText(entry({ kind: 'expense', amount: 30 }))).toBe('−30 元');
-        expect(signedText(entry({ kind: 'expense', amount: 46000, currency: 'cash' }))).toBe(
-            '−4.6 万',
-        );
-    });
-});
 
 describe('normalizeEntry', () => {
     it('正常一条原样收下', () => {
@@ -166,29 +124,6 @@ describe('accountStats', () => {
 
     it('空表是四个 0，不是 undefined', () => {
         expect(accountStats([], 'rmb')).toEqual({ income: 0, expense: 0, net: 0, count: 0 });
-    });
-});
-
-describe('entriesIn', () => {
-    const list = [
-        entry({ id: 'old', date: '2026-10-01' }),
-        entry({ id: 'mid', date: '2026-11-01' }),
-        entry({ id: 'new', date: TODAY }),
-    ];
-
-    it('区间两端都算在内', () => {
-        expect(entriesIn(list, '2026-11-01', TODAY).map((one) => one.id)).toEqual(['mid', 'new']);
-    });
-
-    it('空串表示不限（全部时间）', () => {
-        expect(entriesIn(list, '', '')).toHaveLength(3);
-        expect(entriesIn(list, '2026-11-01', '')).toHaveLength(2);
-    });
-
-    it('角色筛选：空串是不限，不是「只看未指定」', () => {
-        const owned = [entry({ id: 'a', characterId: 'c1' }), entry({ id: 'b', characterId: '' })];
-        expect(entriesIn(owned, '', '', '')).toHaveLength(2);
-        expect(entriesIn(owned, '', '', 'c1').map((one) => one.id)).toEqual(['a']);
     });
 });
 

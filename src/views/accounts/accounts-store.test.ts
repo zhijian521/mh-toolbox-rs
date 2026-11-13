@@ -76,6 +76,64 @@ describe('loadAccounts：读失败不等于空账', () => {
 });
 
 describe('账号写入边界', () => {
+    it('旧梦幻币记录只改备注保留原值，主动改金额才按两位万归一', async () => {
+        const old = {
+            ...ENTRY,
+            id: 'manual',
+            currency: 'cash' as const,
+            amount: 12345,
+            note: '',
+            source: '',
+            createdAt: 1,
+        };
+        const store = await loadStore(host(async () => [old]));
+        const retained = store.updateEntry(old.id, {
+            ...ENTRY,
+            currency: 'cash',
+            amount: 1.23,
+            preserveAmount: true,
+            note: '补备注',
+        });
+        expect(retained.ok && retained.entry.amount).toBe(12345);
+        expect(retained.ok && retained.entry.note).toBe('补备注');
+        const edited = store.updateEntry(old.id, { ...ENTRY, currency: 'cash', amount: 1.236 });
+        expect(edited.ok && edited.entry.amount).toBe(12400);
+        await store.useAccounts().flush();
+    });
+
+    it('极小旧账也可仅改备注，新建及换币种不能借保留标记绕过精度', async () => {
+        const old = {
+            ...ENTRY,
+            id: 'small',
+            currency: 'cash' as const,
+            amount: 1,
+            note: '',
+            source: '',
+            createdAt: 1,
+        };
+        const store = await loadStore(host(async () => [old]));
+        const retained = store.updateEntry(old.id, {
+            ...ENTRY,
+            currency: 'cash',
+            amount: 0,
+            preserveAmount: true,
+        });
+        expect(retained.ok && retained.entry.amount).toBe(1);
+        const changed = store.updateEntry(old.id, {
+            ...ENTRY,
+            amount: 2.346,
+            preserveAmount: true,
+        });
+        expect(changed.ok && changed.entry.amount).toBe(2.35);
+        const added = store.addEntry({
+            ...ENTRY,
+            currency: 'cash',
+            amount: 1.236,
+            preserveAmount: true,
+        });
+        expect(added.ok && added.entry.amount).toBe(12400);
+        await store.useAccounts().flush();
+    });
     it('梦幻币按万保留两位小数，舍入后为零的金额不落库', async () => {
         const store = await loadStore(host(async () => []));
         const result = store.addEntry({ ...ENTRY, currency: 'cash', amount: 4.606 });

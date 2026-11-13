@@ -26,7 +26,7 @@ const host = ref<HTMLElement | null>(null);
 const picker = ref<HTMLInputElement | null>(null);
 
 function takeFiles(files: Iterable<File>) {
-    if (props.disabled) return;
+    if (props.disabled || host.value?.closest('[inert]')) return;
     const images = imageFiles(files);
     if (images.length) emit('files', images);
 }
@@ -38,7 +38,7 @@ function onPick(event: Event) {
 }
 
 function onPaste(event: ClipboardEvent) {
-    if (props.disabled) return;
+    if (props.disabled || host.value?.closest('[inert]')) return;
     const files = pastedImages(event, host.value);
     if (!files.length) return;
     event.preventDefault();
@@ -96,7 +96,9 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
                     :disabled="disabled || busy"
                     @click="picker?.click()"
                 />
-                <span v-if="!busy && status" class="upload-status" aria-hidden="true">{{ status }}</span>
+                <span v-if="!busy && status" class="upload-status" aria-hidden="true">{{
+                    status
+                }}</span>
             </div>
             <p v-if="error && !busy" class="upload-error" role="alert">{{ error }}</p>
             <slot name="feedback" />

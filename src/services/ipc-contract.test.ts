@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import ts from 'typescript';
 import libSource from '../../src-tauri/src/lib.rs?raw';
 import storeSource from '../../src-tauri/src/store.rs?raw';
 import bindingsSource from './bindings.ts?raw';
@@ -215,17 +216,62 @@ function rustFields(source: string, name: string): string[] {
     );
 }
 
-/** 从 TS 里取 `export type X = { … }` 或 `export interface X { … }` 的字段名。 */
+/** 读取类型声明；Specta 的序列化与反序列化联合必须逐支保持字段一致。 */
 function tsFields(source: string, name: string): string[] {
-    const heads = [`export type ${name} = {`, `export interface ${name} {`];
-    const at = heads.map((head) => source.indexOf(head)).find((index) => index >= 0);
-    if (at === undefined) return [];
-    const body = source
-        .slice(at, source.indexOf('\n}', at))
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-        .replace(/\/\/[^\n]*/g, '');
-    return [...body.matchAll(/^\s*([a-zA-Z_]\w*)\??:/gm)].map((one) => one[1]);
+    const file = ts.createSourceFile('contract.ts', source, ts.ScriptTarget.Latest, true);
+    const declarations = new Map(
+        file.statements
+            .filter((node) => ts.isTypeAliasDeclaration(node) || ts.isInterfaceDeclaration(node))
+            .map((node) => [node.name.text, node]),
+    );
+
+    function resolve(typeName: string, seen: Set<string>): string[] {
+        if (seen.has(typeName)) return [];
+        const declaration = declarations.get(typeName);
+        if (!declaration) return [];
+        const next = new Set([...seen, typeName]);
+        if (ts.isInterfaceDeclaration(declaration)) return members(declaration.members);
+        return fields(declaration.type, next);
+    }
+
+    function members(nodes: ts.NodeArray<ts.TypeElement>): string[] {
+        return nodes.filter(ts.isPropertySignature).map((node) => node.name.getText(file));
+    }
+
+    function fields(node: ts.TypeNode, seen: Set<string>): string[] {
+        if (ts.isTypeLiteralNode(node)) return members(node.members);
+        if (ts.isTypeReferenceNode(node)) return resolve(node.typeName.getText(file), seen);
+        if (ts.isParenthesizedTypeNode(node)) return fields(node.type, seen);
+        if (!ts.isUnionTypeNode(node)) return [];
+        const branches = node.types.map((one) => fields(one, seen).sort());
+        for (const branch of branches) {
+            expect(branch, `${name}：联合类型各分支的字段必须一致`).toEqual(branches[0]);
+        }
+        return branches[0] ?? [];
+    }
+
+    return resolve(name, new Set());
 }
+
+describe('TS 契约字段解析', () => {
+    it('支持接口、别名和 Specta 序列化联合，保留可选字段名', () => {
+        const source = `
+            export interface Read { id: string; note?: string }
+            export type Write = { note: string; id: string };
+            export type Entry = Read | Write;
+            export type Alias = Entry;
+        `;
+        expect(tsFields(source, 'Alias').sort()).toEqual(['id', 'note']);
+        expect(tsFields('export type Loop = Loop;', 'Loop')).toEqual([]);
+        expect(tsFields(source, 'Missing')).toEqual([]);
+    });
+
+    it('不能用联合合并掩盖某个分支丢失字段', () => {
+        expect(() =>
+            tsFields('export type Entry = { id: string } | { id: string; note: string };', 'Entry'),
+        ).toThrow('联合类型各分支的字段必须一致');
+    });
+});
 
 /**
  * 四处双写类型：`bindings.ts` 是生成物，另一个是页面层手写的。

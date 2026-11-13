@@ -13,8 +13,15 @@ import { focusInput } from '../focus-input';
 
 /** 单项修改分发器；装备和召唤兽使用完整表单，保存统一交给名册落库。 */
 const props = withDefaults(
-    defineProps<{ character: CharacterData; target: QuickTarget; saving?: boolean }>(),
-    { saving: false },
+    defineProps<{
+        character: CharacterData;
+        target: QuickTarget;
+        saving?: boolean;
+        locked?: boolean;
+        retrying?: boolean;
+        saveError?: string;
+    }>(),
+    { saving: false, locked: false, retrying: false, saveError: '' },
 );
 const emit = defineEmits<{ save: [character: CharacterData]; close: [] }>();
 
@@ -45,7 +52,9 @@ const petIndex = computed(() => (props.target.kind === 'pet' ? props.target.inde
 const draft = ref<Record<string, string>>({});
 for (const field of panel.value?.fields ?? []) draft.value[field.key] = field.value;
 
-const canSave = computed(() => panel.value !== null && !props.saving);
+const canSave = computed(
+    () => panel.value !== null && !props.saving && (!props.locked || props.retrying),
+);
 
 function save() {
     const current = panel.value;
@@ -72,16 +81,22 @@ onMounted(() => focusInput(form, 'input'));
         :character="props.character"
         :slot-name="gearSlot"
         :saving="saving"
+        :locked="locked"
+        :retrying="retrying"
+        :save-error="saveError"
         @save="emit('save', $event)"
-        @close="emit('close')"
+        @close="!saving && emit('close')"
     />
     <PetQuick
         v-else-if="petIndex !== null"
         :character="props.character"
         :index="petIndex"
         :saving="saving"
+        :locked="locked"
+        :retrying="retrying"
+        :save-error="saveError"
         @save="emit('save', $event)"
-        @close="emit('close')"
+        @close="!saving && emit('close')"
     />
     <ModalShell
         v-else
@@ -90,9 +105,9 @@ onMounted(() => focusInput(form, 'input'));
         :title="skillName ? '快速修改' : (panel?.title ?? '快速修改')"
         :width="340"
         initial-focus="none"
-        @close="emit('close')"
+        @close="!saving && emit('close')"
     >
-        <div v-if="panel" ref="form" class="quick-form">
+        <div v-if="panel" ref="form" :inert="locked || saving" class="quick-form">
             <div v-if="skillName" class="quick-skill">
                 <IconTile v-if="skillIcon" class="quick-icon" :src="skillIcon" aria-hidden="true" />
                 <span class="quick-skill-name">{{ skillName }}</span>
@@ -125,15 +140,17 @@ onMounted(() => focusInput(form, 'input'));
         </div>
 
         <template #footer>
+            <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
             <PressButton
                 data-modal-cancel
                 text="取消"
                 label="放弃这次修改"
+                :disabled="saving"
                 @click="emit('close')"
             />
             <PressButton
                 icon="check"
-                text="保存"
+                :text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
                 label="保存这一项"
                 seal
                 :disabled="!canSave"

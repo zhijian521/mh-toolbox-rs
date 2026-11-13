@@ -3,8 +3,8 @@ import SaveNotice from '../components/SaveNotice.vue';
 import { computed, ref } from 'vue';
 import PageShell from '../components/PageShell.vue';
 import PressButton from '../components/PressButton.vue';
-import { saved } from '../composables/save-feedback';
-import { askConfirm } from '../composables/use-confirm';
+import { usePersistedSubmit } from '../composables/use-persisted-submit';
+import { useConfirmedRemoval } from '../composables/use-confirmed-removal';
 import CharacterCard from './characters/CharacterCard.vue';
 import CharacterEditor from './characters/CharacterEditor.vue';
 import QuickEdit from './characters/quick/QuickEdit.vue';
@@ -35,20 +35,29 @@ import { gameDataError, gameDataLoading, gameDataReady, loadGameData } from '../
  * 页头高度才重新由令牌说了算。
  */
 const { roster, loadError, writeError, pending, flush, retry, add, update, remove } = useRoster();
-const editingDisabled = computed(() => !!loadError.value || !gameDataReady.value);
+const submission = usePersistedSubmit(flush, retry);
+const { saving, locked, action } = submission;
+const removal = useConfirmedRemoval(
+    () => pending.value > 0 || Boolean(loadError.value || writeError.value) || !gameDataReady.value,
+    flush,
+);
+const { removing } = removal;
+const editingDisabled = computed(
+    () => !!loadError.value || !gameDataReady.value || pending.value > 0 || removing.value,
+);
 
 function openEditor(character: CharacterData, pane: PaneKey) {
-    if (!editingDisabled.value) editing.value = { character, pane };
+    if (editingDisabled.value) return;
+    submission.reset();
+    editing.value = { character, pane, isNew: false };
 }
 
 async function retryGameData() {
     await loadGameData();
 }
 
-/* 正在编辑的草稿，`null` = 浮层关着。**不另存一个 `isNew` 布尔**：
- * 「这是新角色还是改旧的」由「名册里有没有这个 id」现算，两个状态分开维护，
- * 总有一次会不同步（保存完忘了清、取消时先清了一个）。 */
-const editing = ref<{ character: CharacterData; pane: PaneKey } | null>(null);
+/** 新建或修改由打开时固定，内存先新增而落盘失败时仍保持新建模式。 */
+const editing = ref<{ character: CharacterData; pane: PaneKey; isNew: boolean } | null>(null);
 
 /**
  * 正在「快速修改」的那一项，`null` = 关着。
@@ -62,6 +71,7 @@ const quicking = ref<{ character: CharacterData; target: QuickTarget } | null>(n
 
 function openQuick(character: CharacterData, target: QuickTarget) {
     if (editingDisabled.value) return;
+    submission.reset();
     quicking.value = { character, target };
 }
 
@@ -70,26 +80,42 @@ function openQuick(character: CharacterData, target: QuickTarget) {
 async function onQuickSave(next: CharacterData) {
     if (pending.value > 0 || editingDisabled.value) return;
     const source = quicking.value;
-    update(next);
-    if ((await saved(flush)) && quicking.value === source) quicking.value = null;
+    if (!source) return;
+    const ok = await submission.run('save', () => {
+        update(next);
+        return true;
+    });
+    if (ok && quicking.value === source) closeQuick();
 }
 
-const isNew = computed(() => {
-    const draft = editing.value?.character;
-    return Boolean(draft && !roster.value.some((item) => item.id === draft.id));
-});
+function closeEditor() {
+    if (saving.value) return;
+    editing.value = null;
+    submission.reset();
+}
+
+function closeQuick() {
+    if (saving.value) return;
+    quicking.value = null;
+    submission.reset();
+}
 
 function startNew() {
     if (editingDisabled.value) return;
-    editing.value = { character: emptyCharacter(), pane: 'attrs' };
+    submission.reset();
+    editing.value = { character: emptyCharacter(), pane: 'attrs', isNew: true };
 }
 
 async function onSave(character: CharacterData) {
     if (pending.value > 0 || editingDisabled.value) return;
     const source = editing.value;
-    if (isNew.value) add(character);
-    else update(character);
-    if ((await saved(flush)) && editing.value === source) editing.value = null;
+    if (!source) return;
+    const ok = await submission.run('save', () => {
+        if (source.isNew) add(character);
+        else update(character);
+        return true;
+    });
+    if (ok && editing.value === source) closeEditor();
 }
 
 /* 删角色要问一次：名册删掉就没有回收站。问句与后果在这里，卡上只负责把这枚按钮画出来
@@ -107,18 +133,18 @@ async function askRemove(character: CharacterData) {
         .slice(0, 3)
         .map((goal) => `「${goal.title}」`)
         .join('、');
-    const ok = await askConfirm({
-        danger: true,
-        title: `删掉「${name}」？`,
-        note: related.length
-            ? `删了之后名册里就没有这个人了，没法撤回。他还在 ${related.length} 个目标里` +
-              `（${titles}${related.length > 3 ? ' 等' : ''}）——删掉后那些目标不再计入他。`
-            : '删了之后名册里就没有这个人了，没法撤回。',
-        confirmText: '删除',
-    });
-    if (!ok) return;
-
-    remove(character.id);
+    await removal.run(
+        {
+            danger: true,
+            title: `删掉「${name}」？`,
+            note: related.length
+                ? `删了之后名册里就没有这个人了，没法撤回。他还在 ${related.length} 个目标里` +
+                  `（${titles}${related.length > 3 ? ' 等' : ''}）——删掉后那些目标不再计入他。`
+                : '删了之后名册里就没有这个人了，没法撤回。',
+            confirmText: '删除',
+        },
+        () => remove(character.id),
+    );
 }
 
 /* 页头的副标题读的是**名册自己**的状态：几个号、存在哪。
@@ -165,7 +191,12 @@ const desc = computed(() =>
                 @click="retryGameData"
             />
         </p>
-        <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
+        <SaveNotice
+            v-if="!editing && !quicking"
+            :error="writeError"
+            :pending="pending"
+            @retry="retry"
+        />
 
         <div class="roster">
             <!-- `quick`：点卡上的行 / 格就开「快速修改」。开关状态在**页面**这一层
@@ -204,19 +235,25 @@ const desc = computed(() =>
             :key="editing.character.id"
             :character="editing.character"
             :pane="editing.pane"
-            :is-new="isNew"
-            :saving="pending > 0"
+            :is-new="editing.isNew"
+            :saving="saving || pending > 0"
+            :locked="locked"
+            :retrying="action !== null"
+            :save-error="writeError"
             @save="onSave"
-            @cancel="editing = null"
+            @cancel="closeEditor"
         />
 
         <QuickEdit
             v-if="quicking"
             :character="quicking.character"
             :target="quicking.target"
-            :saving="pending > 0"
+            :saving="saving || pending > 0"
+            :locked="locked"
+            :retrying="action !== null"
+            :save-error="writeError"
             @save="onQuickSave"
-            @close="quicking = null"
+            @close="closeQuick"
         />
     </PageShell>
 </template>

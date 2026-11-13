@@ -539,7 +539,7 @@ export function useRoster() {
         pending: persist.pending,
         flush: persist.flush,
         retry: () => {
-            if (canWriteRoster()) persist();
+            return canWriteRoster() ? persist() : Promise.resolve(false);
         },
         add,
         update,

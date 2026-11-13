@@ -71,7 +71,7 @@ export function splitAmount(amount: number, count: number): number[] {
 
 /** 收益金额固定以万展示，最多两位小数。 */
 export function amountText(amount: number): string {
-    return amount === 0 ? '—' : ledgerMoneyText(amount);
+    return ledgerMoneyText(amount, 'cash', { zero: 'dash' });
 }
 
 /**
@@ -360,7 +360,7 @@ export function statRowsOf(current: Totals, previous: Totals | null, facts: Entr
             /* 支出为 0 时读数给「—」而不是「0 万」：这一天没花钱，与「花了 0 块」不是一回事
              * （后者不存在）。这条沿用 `StatStrip` 抽取前的写法。 */
             cap: '支出',
-            value: current.expense ? `−${amountText(current.expense)}` : '—',
+            value: ledgerMoneyText(-current.expense, 'cash', { sign: 'auto', zero: 'dash' }),
             tone: current.expense ? 'loss' : 'num',
             sub: expenseSub,
             delta: ratioText(current.expense, prev.expense),
@@ -368,7 +368,7 @@ export function statRowsOf(current: Totals, previous: Totals | null, facts: Entr
         {
             /* 负数必须带符号：只在颜色上转朱时，「15 万」会被读成「今天赚了 15 万」。 */
             cap: '净额',
-            value: current.net < 0 ? `−${amountText(-current.net)}` : amountText(current.net),
+            value: ledgerMoneyText(current.net, 'cash', { sign: 'auto', zero: 'dash' }),
             /* 净额为正是这一页最想让人看见的那个数，给苔绿；为负给朱；
              * 恰好为 0 时两边的意思都不成立，留赭。 */
             tone: current.net < 0 ? 'loss' : current.net > 0 ? 'gain' : 'num',
