@@ -6,6 +6,39 @@ export default async function run(ctx) {
     if (want('设置')) {
         t.section('7 设置 · 风格、明暗、字体、字号、导入与清除的确认窗');
 
+        await t.step('本地备份列表可打开并取消，不执行恢复', async () => {
+            await ui.goto('设置');
+            await ui.clickLabel('查看本地备份与恢复');
+            await cdp.waitFor(
+                `!!document.querySelector('.backup-list') || !!document.querySelector('[role="dialog"] .record-empty')`,
+            );
+            t.check(
+                '备份窗口说明恢复前会另存账本',
+                (await ui.text()).includes('恢复前另存当前账本'),
+            );
+            await ui.clickLabel('关闭备份列表');
+            t.check('备份窗口正常关闭', !(await ui.exists('[role="dialog"]')));
+        });
+
+        await t.step('尚未发布正式版本时检查更新显示正常空态', async () => {
+            await cdp.evaluate(`(() => {
+                window.__e2eUpdateFetch = window.fetch;
+                window.fetch = (...args) => String(args[0]).includes('api.github.com/repos/zhijian521/mh-toolbox-rs/releases/latest')
+                    ? Promise.resolve(new Response('', { status: 404 })) : window.__e2eUpdateFetch(...args);
+            })()`);
+            try {
+                await ui.clickLabel('检查正式版本更新');
+                await cdp.waitFor(
+                    `document.querySelector('.update-check')?.textContent.includes('暂无正式版本')`,
+                );
+                t.pass('无正式 Release 显示暂无正式版本');
+            } finally {
+                await cdp.evaluate(
+                    `window.fetch = window.__e2eUpdateFetch; delete window.__e2eUpdateFetch`,
+                );
+            }
+        });
+
         await t.step('旧版导入与当前备份导入使用独立入口', async () => {
             await ui.goto('设置');
             const labels = await cdp.evaluate(

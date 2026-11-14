@@ -275,6 +275,8 @@ pub(crate) fn open_at(base: &Path) -> Result<Connection, String> {
     std::fs::create_dir_all(base).map_err(|error| format!("建不了数据目录：{error}"))?;
     let path = base.join(DB_FILE);
     let conn = Connection::open(&path).map_err(|error| format!("打不开数据库：{error}"))?;
+    conn.busy_timeout(std::time::Duration::from_secs(5))
+        .map_err(|error| format!("设置数据库等待时间失败：{error}"))?;
     /* 外键约束默认是关的（SQLite 的历史包袱），删物品时级联删价格要靠它。 */
     conn.pragma_update(None, "foreign_keys", "ON")
         .map_err(|error| format!("设置外键约束失败：{error}"))?;
@@ -303,7 +305,34 @@ pub(crate) fn open_at(base: &Path) -> Result<Connection, String> {
 /// `pub(crate)`：`backup::data_import` 要在**一个连接**里完成整份替换（见 `replace_all`），
 /// 不能再走三次 `*_save` 命令各自开一次库。
 pub(crate) fn open(app: &AppHandle) -> Result<Connection, String> {
-    open_at(&base_dir(app)?)
+    let base = base_dir(app)?;
+    let conn = open_at(&base)?;
+    crate::backup::daily_backup(&base, &conn);
+    Ok(conn)
+}
+
+/// 同一读事务内取完整账本，避免不同表来自不同保存时刻。
+pub(crate) fn backup(conn: &Connection) -> Result<crate::backup::BackupFile, String> {
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|error| error.to_string())?;
+    let income = load_income(&tx)?;
+    let online = load_online(&tx)?;
+    let file = crate::backup::BackupFile {
+        format: crate::backup::FORMAT,
+        app: crate::backup::APP_TAG.to_string(),
+        exported_at: crate::backup::now_ms(),
+        characters: load_records(&tx, &CHARACTERS)?,
+        prices: load_items(&tx)?,
+        income: income.entries,
+        quick_prices: income.prices,
+        accounts: load_accounts(&tx)?,
+        goals: load_records(&tx, &GOALS)?,
+        online: online.sessions,
+        card_settings: online.settings,
+    };
+    tx.commit().map_err(|error| error.to_string())?;
+    Ok(file)
 }
 
 /// 保留包含 WAL 已提交内容的完整原库，不解析业务 JSON，供损坏记录恢复前留底。

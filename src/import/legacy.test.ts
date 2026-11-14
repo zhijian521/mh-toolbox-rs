@@ -1,6 +1,5 @@
-import { beforeAll, describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { installCharacterRules, parseCharacterRules } from '../services/game-rules';
+import { describe, expect, it } from 'vitest';
+import '../services/game-data.fixture';
 import { convertLegacyData } from './legacy';
 import { sessionCost, sessionMinutes, sessionSlices } from '../views/income/online';
 
@@ -120,20 +119,41 @@ function fixture() {
     };
 }
 
-beforeAll(() => {
-    installCharacterRules(
-        parseCharacterRules(
-            JSON.parse(
-                readFileSync(
-                    new URL('../../public/game/data/character-rules.json', import.meta.url),
-                    'utf8',
-                ),
-            ),
-        ),
-    );
-});
-
 describe('旧版独立转换', () => {
+    it('旧版成长记录保留零值和修改前后值', () => {
+        const raw = fixture();
+        const { backup } = convertLegacyData(
+            JSON.stringify({
+                ...raw,
+                characters: [
+                    {
+                        ...raw.characters[0],
+                        growthHistory: [
+                            {
+                                id: 'history1',
+                                date: '2026-11-13',
+                                createdAt: NOW,
+                                changes: [
+                                    {
+                                        group: '人物修炼',
+                                        label: '攻击修炼',
+                                        from: 0,
+                                        to: 12,
+                                        unit: '级',
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            }),
+            NOW,
+        );
+        expect(backup.characters[0].growthHistory?.[0]).toMatchObject({
+            source: 'legacy',
+            changes: [{ group: '人物修炼', label: '攻击修炼', from: '0', to: '12' }],
+        });
+    });
     it('物品按当前参考价固定估值，历史点卡成本保持一致并重建账号流水', () => {
         const source = fixture();
         const raw = {

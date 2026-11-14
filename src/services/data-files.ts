@@ -1,6 +1,27 @@
 import { commands, type QuickPrice } from './bindings';
 import { hasDesktop } from './desktop';
 import { flushPendingWrites } from './persist';
+export type { BackupEntry } from './bindings';
+
+export async function listBackups() {
+    if (!hasDesktop()) throw new Error('浏览器预览里没有本地备份');
+    return commands.backupsList();
+}
+
+export async function restoreBackup(name: string): Promise<DataOutcome> {
+    if (!hasDesktop()) return NO_HOST;
+    if (!(await flushPendingWrites())) return failure('仍有数据未保存，请先重试保存');
+    try {
+        const summary = await commands.backupRestore(name);
+        return {
+            status: 'ok',
+            detail: `已恢复账本。恢复前的数据备份在 ${summary.backupPath}`,
+            truncation: { points: summary.truncated, items: summary.truncatedItems },
+        };
+    } catch (error) {
+        return failure(error);
+    }
+}
 
 /* ---------- 账本备份：导出 / 导入 / 清除 ----------
  * 对应 `src-tauri/src/backup.rs`。三个操作都落在「设置 → 数据」那张卡上。

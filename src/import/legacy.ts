@@ -1,21 +1,17 @@
 /** Electron v10 的唯一转换入口；只产出当前结构，不读写文件或修改任何 store。 */
-import type {
-    AccountEntry,
-    IncomeEntry,
-    OnlineSession,
-    PriceItem,
-    QuickPrice,
-} from '../services/bindings';
+import type { AccountEntry, PriceItem, QuickPrice } from '../services/bindings';
 import { storySkills } from '../services/game-data';
 import { ATTR_GROUPS, GEAR_RULES, GEAR_SLOTS, TRAINING_GROUPS } from '../services/game-rules';
 import { dateText, isDayText } from '../services/format';
 import { isObject, text } from '../services/shape';
 import { normalizeCharacter } from '../views/characters/roster';
+import { normalizeGrowthHistory } from '../views/characters/growth-history';
 import type { CharacterData } from '../views/characters/character';
 import type { GearDetail, GearSlot, GearSlotName, GearStat } from '../views/characters/gear';
 import { parseGearPanel } from '../views/characters/ocr/gear-panel';
 import type { Goal, GoalTracking } from '../views/goals/goals';
-import { cardCostByDay } from '../views/income/online';
+import type { IncomeEntry } from '../views/income/income';
+import { cardCostByDay, type OnlineSession } from '../views/income/online';
 import { netByDay } from '../views/income/trend-chart';
 import { AUTO_CARD, AUTO_INCOME, dailyKey } from '../views/accounts/daily-sync';
 
@@ -266,11 +262,12 @@ function equipmentDetail(row: Row, slot: GearSlotName): GearDetail {
     if (Array.isArray(enchantments)) {
         for (const value of enchantments) {
             if (!text(value)) continue;
-            const parsed = parseGearPanel(
-                [{ text: text(value), x: 0, y: 0, width: 600, height: 20, score: 1 }],
-                [],
-                slot,
-            ).detail.stats;
+            const parsed =
+                parseGearPanel(
+                    [{ text: text(value), x: 0, y: 0, width: 600, height: 20, score: 1 }],
+                    [],
+                    slot,
+                ).detail.stats ?? [];
             if (parsed.length)
                 stats.push(...parsed.map((one) => ({ ...one, group: 'trait' as const })));
             else lines.push({ label: '开光强化', value: text(value), tone: 'ochre' });
@@ -339,12 +336,8 @@ function character(
     }
     if (sets.length > 1)
         warnings.add('装备只导入当前选中方案；其他方案和未装备物品保留在旧版原件中。');
-    if (
-        list(raw.growthHistory, '成长历史').length ||
-        text(progress.note) ||
-        object(raw.soulJade).unlocked
-    )
-        warnings.add('成长历史、养成备注和魂玉解锁信息没有对应页面，保留在旧版原件中。');
+    if (text(progress.note) || object(raw.soulJade).unlocked)
+        warnings.add('养成备注和魂玉解锁信息没有对应页面，保留在旧版原件中。');
     const attrGroups = ATTR_GROUPS.map((group) => ({
         title: group.title,
         wide: group.wide,
@@ -374,6 +367,10 @@ function character(
         server: raw.server,
         guild: raw.guild,
         updatedAt: number(raw.updatedAt, number(raw.createdAt)),
+        growthHistory: normalizeGrowthHistory(raw.growthHistory).map((entry) => ({
+            ...entry,
+            source: 'legacy' as const,
+        })),
         attrGroups,
         skills: list(progress.schoolSkills, '师门技能').map((one) => ({
             name: one.name,
@@ -584,7 +581,7 @@ export function convertLegacyData(raw: string, now = Date.now()): LegacyConversi
             id: text(row.id),
             date: day(row.date),
             characterId: text(row.characterId),
-            kind: text(row.kind),
+            kind: row.kind === 'income' ? ('income' as const) : ('expense' as const),
             note: text(row.note),
             createdAt: number(row.createdAt, now),
         };

@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import SlotButton from '../../components/SlotButton.vue';
+import BackupHistory from './BackupHistory.vue';
 import { askConfirm } from '../../composables/use-confirm';
 import {
     dataClear,
@@ -9,6 +10,8 @@ import {
     dataImport,
     legacyDataRead,
     legacyDataImport,
+    restoreBackup,
+    type BackupEntry,
     type DataOutcome,
 } from '../../services/data-files';
 /* 单件物品的价格点位上限，**不在这里再写一个 200**：`prices.ts` 是它的真源，
@@ -56,6 +59,19 @@ import { POINT_LIMIT } from '../prices/prices';
  * 混进备份里会让「账本」读起来像应用设置。这一句也写在清除那条 hint 上。
  */
 const busy = ref(false);
+const backupsOpen = ref(false);
+async function restore(entry: BackupEntry) {
+    if (busy.value) return;
+    const ok = await askConfirm({
+        danger: true,
+        title: '恢复这份备份并替换当前账本？',
+        note: `${new Date(entry.createdAt).toLocaleString('zh-CN')} 的全部账本数据将覆盖当前内容，恢复前会自动另存当前账本。`,
+        confirmText: '恢复',
+    });
+    if (!ok) return;
+    const outcome = await run(() => restoreBackup(entry.name));
+    if (outcome.status === 'ok') reloadWithNotice();
+}
 const message = ref('');
 /** 导入成功但有代价时多出来的那一句（点位被截断）。没有代价时是空串。 */
 const warning = ref('');
@@ -259,6 +275,18 @@ onMounted(() => {
             <span class="hint">导入将替换全部账本</span>
         </div>
 
+        <div class="backup-entry form-row">
+            <span class="field-label">备份</span>
+            <SlotButton
+                icon="history"
+                text="恢复"
+                label="查看本地备份与恢复"
+                :disabled="busy"
+                @click="backupsOpen = true"
+            />
+            <span class="hint">自动留存最近 14 份日常备份</span>
+        </div>
+
         <div class="danger-zone">
             <div class="form-row">
                 <span class="field-label">清除</span>
@@ -286,9 +314,19 @@ onMounted(() => {
             <p v-if="warning" class="note warning">{{ warning }}</p>
         </div>
     </LedgerSection>
+    <BackupHistory
+        v-if="backupsOpen"
+        :busy="busy"
+        :restore-error="messageKind === 'error' ? message : ''"
+        @close="backupsOpen = false"
+        @restore="restore"
+    />
 </template>
 
 <style scoped>
+.backup-entry {
+    margin-top: 12px;
+}
 /* 行本身是全局 `.form-row`（`base.css`：flex + gap 10），纵向节奏留给这一页——
  * 与 `AppearanceSection.vue` 同一处写法、同一个 12px：两张卡并排时行距不一致，
  * 翻过去会读成「另一套表格」。

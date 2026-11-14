@@ -140,6 +140,24 @@ function maxedCharacter(): CharacterData {
         school,
         server: '紫禁之巅',
         guild: '账本试笔',
+        growthHistory: [
+            {
+                id: 'demo-growth-level',
+                date: daysAgo(2),
+                createdAt: 0,
+                source: 'edit',
+                note: '',
+                changes: [{ group: '角色', label: '等级', from: '174', to: '175' }],
+            },
+            {
+                id: 'demo-growth-assist',
+                date: daysAgo(1),
+                createdAt: 0,
+                source: 'goal',
+                note: '强身修满',
+                changes: [{ group: '生活技能', label: '强身术', from: '130', to: '140' }],
+            },
+        ],
         attrGroups: base.attrGroups.map((group) => ({
             ...group,
             rows: group.rows.map((row) => ({ ...row, value: MAXED_ATTRS[row.label] ?? '' })),

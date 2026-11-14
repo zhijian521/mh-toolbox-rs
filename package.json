@@ -1,7 +1,7 @@
 {
     "name": "mh-toolbox-rs",
     "private": true,
-    "version": "0.1.0",
+    "version": "1.0.0",
     "type": "module",
     "description": "梦幻西游端游的角色养成、收益与账号记账工具",
     "repository": {

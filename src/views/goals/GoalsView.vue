@@ -241,7 +241,7 @@ async function applyGrowth(values: { id: string; value: number }[]) {
             return false;
         }
         beforeGrowth = summaryOf(goal.id);
-        for (const item of prepared) updateCharacter(item.next);
+        for (const item of prepared) updateCharacter(item.next, 'goal', goal.title);
         return true;
     });
     if (!ok) return;

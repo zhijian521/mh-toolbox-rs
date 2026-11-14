@@ -95,6 +95,8 @@ export const commands = {
 	 *  但三个命令摆在一起时，签名不一致会让人以为「这个大概不能在等待里调」。
 	 */
 	dataClear: () => __TAURI_INVOKE<ClearSummary>("data_clear"),
+	backupsList: () => __TAURI_INVOKE<BackupList_Serialize>("backups_list"),
+	backupRestore: (name: string) => __TAURI_INVOKE<ImportSummary>("backup_restore", { name }),
 	/**
 	 *  导出速记单价：系统「另存为」对话框选位置，写一份只含单价的 JSON。
 	 * 
@@ -262,6 +264,25 @@ export type AppInfo = {
 	 *  系统对话框，把整轮测试挂在模态窗前面等人。
 	 */
 	debug: boolean,
+};
+
+export type BackupEntry = {
+	name: string,
+	createdAt: number,
+	bytes: number,
+	kind: string,
+};
+
+export type BackupList = BackupList_Serialize | BackupList_Deserialize;
+
+export type BackupList_Deserialize = {
+	entries: BackupEntry[],
+	error?: string | null,
+};
+
+export type BackupList_Serialize = {
+	entries: BackupEntry[],
+	error: string | null,
 };
 
 /**

@@ -1,6 +1,6 @@
 [package]
 name = "mh-toolbox-rs"
-version = "0.1.0"
+version = "1.0.0"
 description = "梦幻养老助手 Rust 版"
 edition = "2021"
 # 取依赖树里最高的那个：锁定的 `tauri 2.12.5` 自己写着 1.90（`windows` 是 1.82）。

@@ -45,10 +45,10 @@ use crate::store::{
 ///
 /// 导入时严格比对：不认识的 `format` 一律拒绝，不做「尽力而为地读」。
 /// 拒绝的代价是「少一次恢复」，猜错的代价是「把用户的账写成一堆缺字段的东西」。
-const FORMAT: u32 = 1;
+pub(crate) const FORMAT: u32 = 1;
 
 /// 信封里的应用标识。将来如果真出现第二份工具导出同名 JSON，这个字段是唯一的分辨依据。
-const APP_TAG: &str = "mh-toolbox-rs";
+pub(crate) const APP_TAG: &str = "mh-toolbox-rs";
 
 /// 导入文件的大小上限。**在反序列化之前**判，理由见 `data_import` 里那一段。
 ///
@@ -71,6 +71,139 @@ const AUTO_BACKUP_PREFIX: &str = "账本-before-import-";
 /// 自动备份最多留几份。它是「导入前那一手」的兜底，不是归档：攒到几百份之后，
 /// 用户反而找不到哪一份才是要退回去的。
 const AUTO_BACKUP_KEEP: usize = 10;
+const DAILY_PREFIX: &str = "账本-daily-";
+const DAILY_KEEP: usize = 14;
+static DAILY_STATE: std::sync::Mutex<(i64, Option<String>)> = std::sync::Mutex::new((0, None));
+
+#[derive(Debug, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupEntry {
+    name: String,
+    created_at: i64,
+    bytes: u64,
+    kind: String,
+}
+
+#[derive(Debug, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupList {
+    entries: Vec<BackupEntry>,
+    error: Option<String>,
+}
+
+fn backup_stamp(name: &str) -> Option<(i64, &'static str)> {
+    for (prefix, kind) in [
+        (DAILY_PREFIX, "daily"),
+        (AUTO_BACKUP_PREFIX, "before-import"),
+    ] {
+        if let Some(stamp) = name
+            .strip_prefix(prefix)
+            .and_then(|one| one.strip_suffix(".json"))
+        {
+            let stamp = stamp.parse::<i64>().ok()?;
+            if stamp > 0 {
+                return Some((stamp, kind));
+            }
+        }
+    }
+    None
+}
+
+fn backup_entries(dir: &Path) -> Result<Vec<BackupEntry>, String> {
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut entries = Vec::new();
+    for item in std::fs::read_dir(dir).map_err(|error| error.to_string())? {
+        let item = item.map_err(|error| error.to_string())?;
+        let name = item.file_name().to_string_lossy().into_owned();
+        let Some((created_at, kind)) = backup_stamp(&name) else {
+            continue;
+        };
+        let meta = std::fs::symlink_metadata(item.path()).map_err(|error| error.to_string())?;
+        if !meta.is_file() || meta.file_type().is_symlink() {
+            continue;
+        }
+        entries.push(BackupEntry {
+            name,
+            created_at,
+            bytes: meta.len(),
+            kind: kind.to_string(),
+        });
+    }
+    entries.sort_by_key(|one| std::cmp::Reverse(one.created_at));
+    Ok(entries)
+}
+
+fn daily_backup_at(base: &Path, conn: &rusqlite::Connection, now: i64) -> Result<(), String> {
+    let dir = base.join("backups");
+    let entries = backup_entries(&dir)?;
+    if entries
+        .iter()
+        .any(|one| one.kind == "daily" && now.saturating_sub(one.created_at) < 86_400_000)
+    {
+        return Ok(());
+    }
+    let file = store::backup(conn)?;
+    validate_backup(&file)?;
+    std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    write_to(&dir.join(format!("{DAILY_PREFIX}{now}.json")), &file)?;
+    for one in backup_entries(&dir)?
+        .into_iter()
+        .filter(|one| one.kind == "daily")
+        .skip(DAILY_KEEP)
+    {
+        std::fs::remove_file(dir.join(one.name)).map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+/// 首次访问留存完整账本，间隔至少 24 小时；失败显示在恢复窗口，不阻断日常记账。
+pub(crate) fn daily_backup(base: &Path, conn: &rusqlite::Connection) {
+    let Ok(mut state) = DAILY_STATE.lock() else {
+        return;
+    };
+    let now = now_ms();
+    if now.saturating_sub(state.0) < 300_000 {
+        return;
+    }
+    state.0 = now;
+    state.1 = daily_backup_at(base, conn, now).err();
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn backups_list(app: AppHandle) -> Result<BackupList, String> {
+    let entries = backup_entries(&backup_dir(&app)?)?;
+    let error = DAILY_STATE
+        .lock()
+        .map_err(|error| error.to_string())?
+        .1
+        .clone();
+    Ok(BackupList { entries, error })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn backup_restore(app: AppHandle, name: String) -> Result<ImportSummary, String> {
+    let dir = backup_dir(&app)?;
+    if !backup_entries(&dir)?.iter().any(|one| one.name == name) {
+        return Err("备份不存在或不在可恢复列表中".to_string());
+    }
+    let path = dir.join(name);
+    if std::fs::metadata(&path)
+        .map_err(|error| error.to_string())?
+        .len()
+        > MAX_BACKUP_BYTES
+    {
+        return Err("备份超过 16 MB，未执行恢复".to_string());
+    }
+    let file: BackupFile =
+        serde_json::from_slice(&std::fs::read(path).map_err(|error| error.to_string())?)
+            .map_err(|error| format!("备份损坏，未执行恢复：{error}"))?;
+    check_envelope(&file)?;
+    replace_backup(&app, file)
+}
 
 /// 一份备份的完整内容。
 ///
@@ -78,55 +211,55 @@ const AUTO_BACKUP_KEEP: usize = 10;
 /// 换台机器本来就会不一样，把它们塞进「账本」会让这份文件读起来像应用配置的垃圾桶。
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct BackupFile {
-    format: u32,
-    app: String,
+pub(crate) struct BackupFile {
+    pub(crate) format: u32,
+    pub(crate) app: String,
     /// 毫秒时间戳，不是格式化好的日期串。
     ///
     /// 不引 `chrono`：这个数只用来「比哪份新」和拼文件名，不需要给人读；
     /// 更要紧的是库里 `created_at` / `updated_at` 就是同一口径，对账时不用做时区换算。
     /// 要给人看的时候，界面/文件名各自格式化一次，那个决定留给看的人。
-    exported_at: i64,
+    pub(crate) exported_at: i64,
     /// 角色原样透传：`store` 那边就是一列 JSON，Rust 侧不认识任何字段
     /// （理由见 `store.rs` 的名册那一段），备份也不该突然认识。
-    characters: Vec<serde_json::Value>,
+    pub(crate) characters: Vec<serde_json::Value>,
     /// 物价用 `PriceItem` 而不是 `Value`：这一侧的结构是规范化表、字段稳定，
     /// 且点位本来就已经内嵌在 `points` 里，没必要为了「透传」再拆一遍。
-    prices: Vec<PriceItem>,
+    pub(crate) prices: Vec<PriceItem>,
     /// 收益账与速记单价（第 97 批起）。
     ///
     /// **`default` 不能省**：97 批之前导出的备份里没有这两个字段，读的时候会因缺字段
     /// 整份失败——用户的旧备份就此打不开，而它可能是唯一一份。空数组表示「那份备份里
     /// 本来就没有收益」，导入时照实清空，与「格式不对」区分开。
     #[serde(default)]
-    income: Vec<IncomeEntry>,
+    pub(crate) income: Vec<IncomeEntry>,
     #[serde(default)]
-    quick_prices: Vec<QuickPrice>,
+    pub(crate) quick_prices: Vec<QuickPrice>,
     /// 账号账本（第 112 批起）。
     ///
     /// **`default` 同样不能省**：112 批之前导出的备份里没有这一栏，缺了它整份备份会
     /// 打不开。空数组表示「那份备份里本来就没有账号记录」，导入时照实清空。
     #[serde(default)]
-    accounts: Vec<AccountEntry>,
+    pub(crate) accounts: Vec<AccountEntry>,
     /// 目标（第 115 批起）。同样是 `Value` 透传，理由与 `characters` 完全一样：
     /// 前端加一个字段（追踪项、快照成员）时，备份不该跟着改一次。
     ///
     /// **`default` 不能省**：115 批之前的备份没有这一栏，缺了它整份备份会打不开。
     #[serde(default)]
-    goals: Vec<serde_json::Value>,
+    pub(crate) goals: Vec<serde_json::Value>,
     /// 上线记录（第 145 批起）。`default` 同上：145 批之前的备份没有这一栏。
     ///
     /// 与 `income` 同一种结构体而不是 `Value` 透传：这几列是页面排序与分摊的依据，
     /// 字段稳定，而且导入时要能逐条校验 id。
     #[serde(default)]
-    online: Vec<OnlineSession>,
+    pub(crate) online: Vec<OnlineSession>,
     /// 点卡口径（第 145 批起）。`default` 用 `OnlineSettings` 的默认实现
     /// （1.5 万/点、计入成本）：旧备份没有这一栏时，导入之后是「默认口径」而不是报错。
     ///
     /// 为什么与记录分两栏：口径是**一份设定**而不是一堆记录，
     /// 混在数组里要么空着、要么假装自己是一条记录。
     #[serde(default)]
-    card_settings: OnlineSettings,
+    pub(crate) card_settings: OnlineSettings,
 }
 
 /// 导入成功后的回执。
@@ -255,8 +388,8 @@ fn replace_backup(app: &AppHandle, file: BackupFile) -> Result<ImportSummary, St
     /* 到这里为止的失败都还是「什么都没换」，不需要报备份路径。下面两条是替换路径上
      * 仅有的失败点，两个都要带上路径。 */
     let backup_path = saved.display().to_string();
-    let mut conn = store::open(app)
-        .map_err(|error| format!("{error}；替换前的数据已备份到 {backup_path}"))?;
+    let mut conn =
+        store::open(app).map_err(|error| format!("{error}；替换前的数据已备份到 {backup_path}"))?;
     let income = IncomePayload {
         entries: file.income,
         prices: file.quick_prices,
@@ -288,7 +421,6 @@ fn replace_backup(app: &AppHandle, file: BackupFile) -> Result<ImportSummary, St
         backup_path,
     })
 }
-
 
 /// 旧版读取只返回原文；预览与确认期间不写入账本。
 #[tauri::command]
@@ -328,8 +460,8 @@ pub async fn legacy_data_import(
     if converted.len() as u64 > MAX_BACKUP_BYTES {
         return Err("转换后的备份超过 16 MB".to_string());
     }
-    let file: BackupFile = serde_json::from_str(&converted)
-        .map_err(|error| format!("转换结果无效：{error}"))?;
+    let file: BackupFile =
+        serde_json::from_str(&converted).map_err(|error| format!("转换结果无效：{error}"))?;
     check_envelope(&file)?;
     validate_backup(&file)?;
     let original_path = backup_dir(&app)?.join(format!("旧版原件-{}.json", now_ms()));
@@ -666,24 +798,7 @@ async fn ask_open_path(app: &AppHandle) -> Result<Option<PathBuf>, String> {
 /// `pub fn`，在这里再写一遍 `open` / 查询只会多出一份会和 `store.rs` 漂移的副本。
 /// 命令在 Rust 侧就是一个函数，调用它不需要 IPC。
 fn build(app: &AppHandle) -> Result<BackupFile, String> {
-    /* 收益与单价一次读回（`income_load` 本来就是两份一起），再拆进信封的两栏：
-     * 备份文件里「记录」与「单价」是两件事，读者不该为了拿单价去翻一堆记录。 */
-    let income = store::income_load(app.clone())?;
-    /* 上线数据也是「两份一起」：记录进 `online`，口径进 `card_settings`。 */
-    let online = store::online_load(app.clone())?;
-    Ok(BackupFile {
-        format: FORMAT,
-        app: APP_TAG.to_string(),
-        exported_at: now_ms(),
-        characters: store::characters_load(app.clone())?,
-        prices: store::prices_load(app.clone())?,
-        income: income.entries,
-        quick_prices: income.prices,
-        accounts: store::account_load(app.clone())?,
-        goals: store::goals_load(app.clone())?,
-        online: online.sessions,
-        card_settings: online.settings,
-    })
+    store::backup(&store::open(app)?)
 }
 
 /// 写一份 JSON 到 `path`。`BackupFile` 与 `PriceFile` 共用这一份。
@@ -771,7 +886,7 @@ fn prune_auto_backups(dir: &Path) {
 }
 
 /// 毫秒时间戳。
-fn now_ms() -> i64 {
+pub(crate) fn now_ms() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|elapsed| elapsed.as_millis() as i64)
@@ -1049,14 +1164,66 @@ mod tests {
     use super::*;
 
     #[test]
+    fn daily_backups_preserve_data_throttle_and_limit_only_daily_files() {
+        let dir =
+            std::env::temp_dir().join(format!("mh-daily-{}-{}", std::process::id(), now_ms()));
+        let conn = store::open_at(&dir).expect("临时库");
+        let mut conn = conn;
+        let first = sample();
+        store::replace_all(
+            &mut conn,
+            &first.characters,
+            &first.prices,
+            &IncomePayload {
+                entries: first.income,
+                prices: first.quick_prices,
+            },
+            &first.accounts,
+            &first.goals,
+            &OnlinePayload {
+                sessions: first.online,
+                settings: first.card_settings,
+            },
+        )
+        .expect("写样本");
+        let start = 1_800_000_000_000;
+        daily_backup_at(&dir, &conn, start).expect("首次备份");
+        daily_backup_at(&dir, &conn, start + 60_000).expect("同日不重复");
+        assert_eq!(backup_entries(&dir.join("backups")).unwrap().len(), 1);
+        let saved: BackupFile = serde_json::from_slice(
+            &std::fs::read(
+                dir.join("backups")
+                    .join(format!("{DAILY_PREFIX}{start}.json")),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(saved.characters, first.characters);
+        assert_eq!(saved.accounts.len(), first.accounts.len());
+        validate_backup(&saved).expect("备份完整有效");
+        let original = dir.join("backups/旧版原件-1.json");
+        std::fs::write(&original, b"{}").unwrap();
+        for index in 1..=16 {
+            daily_backup_at(&dir, &conn, start + index * 86_400_000).unwrap();
+        }
+        let entries = backup_entries(&dir.join("backups")).unwrap();
+        assert_eq!(entries.len(), DAILY_KEEP);
+        assert!(original.exists());
+        assert!(backup_stamp("../账本-daily-123.json").is_none());
+        assert!(backup_stamp("账本-daily-not-number.json").is_none());
+        drop(conn);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
     fn legacy_source_requires_explicit_v10_full_backup() {
         let raw = r#"{"schemaVersion":10,"characters":[],"transactions":[]}"#;
         assert!(validate_legacy_source(raw).is_ok());
         assert!(validate_legacy_source(&format!("\u{feff}{raw}")).is_ok());
-        assert!(
-            validate_legacy_source(r#"{"schemaVersion":11,"characters":[],"transactions":[]}"#)
-                .is_err()
-        );
+        assert!(validate_legacy_source(
+            r#"{"schemaVersion":11,"characters":[],"transactions":[]}"#
+        )
+        .is_err());
         assert!(validate_legacy_source(r#"{"format":1,"app":"mh-toolbox-rs"}"#).is_err());
         assert!(validate_legacy_source(r#"{"schemaVersion":10,"characters":[]}"#).is_err());
         assert!(validate_legacy_source(&" ".repeat(MAX_BACKUP_BYTES as usize + 1)).is_err());
@@ -1302,7 +1469,8 @@ mod tests {
             .contains("目标 1 的流水"));
         file.goals[0]["logs"] = serde_json::json!([{}]);
         assert!(validate_backup(&file).unwrap_err().contains("没有 id"));
-        file.goals[0]["logs"] = serde_json::json!([{ "id": "l1", "date": "2026-11-14", "delta": 1 }]);
+        file.goals[0]["logs"] =
+            serde_json::json!([{ "id": "l1", "date": "2026-11-14", "delta": 1 }]);
         validate_backup(&file).expect("空单价与有身份的流水合法");
     }
 

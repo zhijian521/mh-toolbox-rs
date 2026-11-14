@@ -20,6 +20,7 @@
 /* 字段契约按领域拆分，游戏名录与数值规则统一从 public/game/data 装配。 */
 import type { GearSlot } from './gear';
 import type { Pet } from './pets';
+import type { GrowthEntry } from './growth-history';
 export { ATTR_GROUPS, TRAINING_GROUPS } from '../../services/game-rules';
 
 /** 卡内六个分区。顺序即页签顺序，也是键盘左右键的方向。 */
@@ -200,6 +201,7 @@ export function findTrainingRow(character: CharacterData, name: string): Trainin
 
 export interface CharacterData {
     id: string;
+    growthHistory?: GrowthEntry[];
     /** 最近一次新增或修改的毫秒时间戳；旧档未知时缺省。 */
     updatedAt?: number;
     name: string;

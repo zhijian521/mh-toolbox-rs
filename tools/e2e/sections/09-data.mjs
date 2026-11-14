@@ -268,6 +268,49 @@ export default async function run(ctx) {
             t.check('backups/ 里有刚生成的 before-import', fresh.length > 0, `${fresh.length} 份`);
         });
 
+        await t.step('本地备份恢复：取消不改账本，确认后整份替换并重载', async () => {
+            const name = `账本-daily-${Date.now()}.json`;
+            const path = join(dir, 'backups', name);
+            writeFileSync(path, readFileSync(exportFile));
+            try {
+                await cdp.evaluate(`(async () => {
+                    const { commands } = await import('/src/services/bindings.ts');
+                    await commands.accountSave((await commands.accountLoad()).filter((one) => one.id !== 'e2e-backup-account'));
+                })()`);
+                await ui.reload();
+                await ui.goto('设置');
+                const changed = await counts();
+                t.check('恢复前账号夹具已移除', changed.accounts === before.accounts - 1);
+                await ui.clickLabel('查看本地备份与恢复');
+                await cdp.waitFor(`!!document.querySelector('.backup-list')`);
+                await ui.clickLabel(`恢复备份 ${name}`);
+                await ui.clickText('button', '取消', { exact: true });
+                t.check(
+                    '取消恢复后数据保持原样',
+                    JSON.stringify(await counts()) === JSON.stringify(changed),
+                );
+                await ui.clickLabel(`恢复备份 ${name}`);
+                const origin = await cdp.timeOrigin();
+                await ui.clickLabel('确认恢复');
+                await cdp.waitForReload(origin);
+                t.check('恢复完成后显示回执', await ui.waitText('已恢复账本'));
+                t.check(
+                    '全部集合恢复到备份状态',
+                    JSON.stringify(await counts()) === JSON.stringify(before),
+                );
+                const account = await cdp.evaluate(`(async () => {
+                    const { commands } = await import('/src/services/bindings.ts');
+                    return (await commands.accountLoad()).find((one) => one.id === 'e2e-backup-account');
+                })()`);
+                t.check(
+                    '恢复后账号完整内容仍在',
+                    account?.amount === 30 && account.note === 'E2E备份账号',
+                );
+            } finally {
+                if (existsSync(path)) rmSync(path);
+            }
+        });
+
         await t.step('移除本节夹具，恢复原收益、账号与目标', async () => {
             if (!original) throw new Error('没有取得夹具前的数据');
             await cdp.evaluate(`(async () => {

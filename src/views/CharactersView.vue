@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CharacterHistory from './characters/CharacterHistory.vue';
 import SaveNotice from '../components/SaveNotice.vue';
 import { computed, nextTick, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
@@ -38,6 +39,7 @@ import { gameDataError, gameDataLoading, gameDataReady, loadGameData } from '../
  */
 const { roster, loadError, writeError, pending, flush, retry, add, update, remove } = useRoster();
 const route = useRoute();
+const historyOpen = ref(false);
 watch(
     () => route.query.character,
     async (id) => {
@@ -182,6 +184,13 @@ useRouteAction('/characters', {
 <template>
     <PageShell title="角色" :desc="desc">
         <template #actions>
+            <PressButton
+                icon="history"
+                text="历史"
+                label="查看角色成长历史"
+                :disabled="!!loadError"
+                @click="historyOpen = true"
+            />
             <!-- 原先这里还有一枚禁用的「识别游戏窗口」（占位，注释写着「OCR 是下一步」）。
                  2026-11-07 截图识别接上之后它被删掉：那个占位说的是「点我会识别」，
                  而它点不动——现在页面上真有一个能用的识别入口（每张卡头上那枚），
@@ -280,6 +289,7 @@ useRouteAction('/characters', {
             @close="closeQuick"
         />
     </PageShell>
+    <CharacterHistory v-if="historyOpen" @close="historyOpen = false" />
 </template>
 
 <style scoped>

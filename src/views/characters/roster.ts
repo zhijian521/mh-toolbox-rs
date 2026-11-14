@@ -29,6 +29,7 @@ import { hasDesktop } from '../../services/desktop';
 import { charactersLoad, charactersSave } from '../../services/storage';
 import { gameDataError, gameDataReady, schoolNames } from '../../services/game-data';
 import { createPersist } from '../../services/persist';
+import { normalizeGrowthHistory, withGrowthHistory, type GrowthEntry } from './growth-history';
 /* 形状兜底全在 `services/shape.ts`（与物价页共用一份）。两个本地别名值得看清：
  *   `text`  ← `rawText`：名册这边**不 trim**，卡面上的字是用户写什么就显示什么；
  *   `int`   ← `stamp`  ：`Math.round` + 非有限数变 0，等级与时间戳共用同一条规则。 */
@@ -324,6 +325,9 @@ export function normalizeCharacter(raw: unknown): CharacterData {
 
     return {
         id,
+        ...(Array.isArray(character.growthHistory)
+            ? { growthHistory: normalizeGrowthHistory(character.growthHistory) }
+            : {}),
         ...(updatedAt > 0 && updatedAt <= 8.64e15 ? { updatedAt } : {}),
         name: text(character.name),
         level: int(character.level),
@@ -504,11 +508,13 @@ export function useRoster() {
     }
 
     /** 修改：按 id 整条替换。编辑器改的是一份草稿副本，走到这里才算落账。 */
-    function update(character: CharacterData) {
+    function update(character: CharacterData, source: GrowthEntry['source'] = 'edit', note = '') {
         if (!canWriteRoster()) return;
         const updatedAt = Date.now();
         roster.value = roster.value.map((item) =>
-            item.id === character.id ? { ...character, updatedAt } : item,
+            item.id === character.id
+                ? { ...withGrowthHistory(item, character, source, note, updatedAt), updatedAt }
+                : item,
         );
         persist();
     }

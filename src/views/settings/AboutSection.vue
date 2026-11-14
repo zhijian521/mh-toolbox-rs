@@ -2,6 +2,7 @@
 import LedgerSection from '../../components/LedgerSection.vue';
 import { useAppInfo } from '../../composables/use-app-info';
 import { useFontFamily } from '../../composables/use-font-family';
+import UpdateCheck from './UpdateCheck.vue';
 
 /**
  * 关于：版本与运行环境。
@@ -45,6 +46,7 @@ const { selectedFont } = useFontFamily();
             <dt>字体</dt>
             <dd>{{ selectedFont.label }}（SIL OFL 1.1，常用字子集）</dd>
         </dl>
+        <UpdateCheck />
     </LedgerSection>
 </template>
 
