@@ -22,7 +22,12 @@ import { flushPendingWrites } from './persist';
  * （`src-tauri/src/backup.rs` 已经镜像了一份）。所以句子由用它的页面拼，数字从这边拿。
  */
 export type DataOutcome =
-    | { status: 'ok'; detail: string; truncation?: { points: number; items: number } }
+    | {
+          status: 'ok';
+          detail: string;
+          warning?: string;
+          truncation?: { points: number; items: number };
+      }
     | { status: 'canceled' }
     | { status: 'failed'; error: string };
 
@@ -74,6 +79,35 @@ export async function dataImport(): Promise<DataOutcome> {
                 `已导入 ${summary.characters} 个角色、${summary.prices} 件物价、` +
                 `${summary.entries} 笔收益流水、${summary.accounts} 笔账号记录、` +
                 `${summary.online} 条上线记录、${summary.goals} 个目标。速记单价已一并替换。替换前的数据备份在 ${summary.backupPath}`,
+            truncation: { points: summary.truncated, items: summary.truncatedItems },
+        };
+    } catch (error) {
+        return failure(error);
+    }
+}
+
+/** 专用旧版入口只读取选中文件，预览阶段不写库。 */
+export async function legacyDataRead(): Promise<
+    { status: 'ok'; raw: string } | { status: 'canceled' } | { status: 'failed'; error: string }
+> {
+    if (!hasDesktop()) return NO_HOST;
+    try {
+        const raw = await commands.legacyDataRead();
+        return raw === null ? { status: 'canceled' } : { status: 'ok', raw };
+    } catch (error) {
+        return failure(error);
+    }
+}
+
+/** 提交预览对应的两份内容；后端先留存原件，再备份当前账本并事务替换。 */
+export async function legacyDataImport(original: string, converted: string): Promise<DataOutcome> {
+    if (!hasDesktop()) return NO_HOST;
+    if (!(await flushPendingWrites())) return failure('仍有数据未保存，请先重试保存');
+    try {
+        const { summary, originalPath } = await commands.legacyDataImport(original, converted);
+        return {
+            status: 'ok',
+            detail: `已导入 ${summary.characters} 个角色、${summary.prices} 件物价、${summary.entries} 笔收益、${summary.accounts} 笔账号记录、${summary.online} 条上线记录和 ${summary.goals} 个目标。当前账本备份在 ${summary.backupPath}；旧版原件在 ${originalPath}`,
             truncation: { points: summary.truncated, items: summary.truncatedItems },
         };
     } catch (error) {

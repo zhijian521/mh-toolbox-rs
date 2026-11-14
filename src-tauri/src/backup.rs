@@ -22,14 +22,10 @@
 //! 还是逐字段取较新的？这件事没有正确答案，猜错了就是**悄悄改掉用户的数**。
 //! 整份替换的语义一句话说得清，且出事有自动备份兜底（见 `data_import`）。
 //!
-//! ## 为什么**不**兼容旧版 Electron 的 `data.json`
+//! ## 旧版 Electron 使用独立导入入口
 //!
-//! 旧版那份是 `schemaVersion: 10`，角色结构与现在**完全不同**
-//! （那边是 `progress.equipmentSets` / `growthHistory`，现在是 `skills` / `gear` / `pets`）。
-//! 在同一个入口里「顺手也认一下」，等于让一个函数同时持有两代结构的知识：每个字段都要
-//! 写一次「有就取、没有就猜」，而这些猜测无法验证——猜错的后果是把用户的角色导成半截。
-//! 决定是**另一个入口**、一次性转换、做之前先看清两边的字段，那条路上出问题也只影响那一条路。
-//! 所以这里连 `schemaVersion` 这个词都不出现：不认识的信封一律拒绝，不做降级解析。
+//! 旧版 v10 经前端独立转换模块变为当前信封，预览确认后走相同的备份与事务替换。
+//! 常规导入仍只接受新版信封；不自动扫描旧目录，不修改或回写旧文件。
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -230,11 +226,16 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
         .map_err(|error| format!("{} 不是一份能读的备份：{error}", path.display()))?;
 
     check_envelope(&file)?;
+    Ok(Some(replace_backup(&app, file)?))
+}
+
+/// 新旧两个入口共用备份、校验与事务替换，转换模块不碰数据库。
+fn replace_backup(app: &AppHandle, file: BackupFile) -> Result<ImportSummary, String> {
     /* 校验放在备份和替换之前：与直接保存共用身份规则，不补造 ID 或合并重复记录。 */
     let truncation = validate_backup(&file)?;
 
-    let dir = backup_dir(&app)?;
-    let saved = match build(&app) {
+    let dir = backup_dir(app)?;
+    let saved = match build(app) {
         Ok(current) => {
             let saved = dir.join(format!("{AUTO_BACKUP_PREFIX}{}.json", now_ms()));
             write_to(&saved, &current)?;
@@ -243,7 +244,7 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
         Err(error) => {
             // 损坏行会阻止 JSON 导出，但不应阻止从有效备份恢复；先完整保留原库。
             let saved = dir.join(format!("账本-recovery-before-import-{}.db", now_ms()));
-            let conn = store::open(&app)?;
+            let conn = store::open(app)?;
             store::snapshot_database(&conn, &saved)
                 .map_err(|snapshot_error| format!("{error}；{snapshot_error}，未执行导入"))?;
             saved
@@ -254,7 +255,7 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
     /* 到这里为止的失败都还是「什么都没换」，不需要报备份路径。下面两条是替换路径上
      * 仅有的失败点，两个都要带上路径。 */
     let backup_path = saved.display().to_string();
-    let mut conn = store::open(&app)
+    let mut conn = store::open(app)
         .map_err(|error| format!("{error}；替换前的数据已备份到 {backup_path}"))?;
     let income = IncomePayload {
         entries: file.income,
@@ -275,7 +276,7 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
     )
     .map_err(|error| format!("{error}；替换前的数据已备份到 {backup_path}"))?;
 
-    Ok(Some(ImportSummary {
+    Ok(ImportSummary {
         characters: counts.characters,
         prices: counts.prices,
         entries: counts.entries,
@@ -285,7 +286,75 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
         truncated: truncation.points_dropped,
         truncated_items: truncation.items_over_limit,
         backup_path,
-    }))
+    })
+}
+
+
+/// 旧版读取只返回原文；预览与确认期间不写入账本。
+#[tauri::command]
+#[specta::specta]
+pub async fn legacy_data_read(app: AppHandle) -> Result<Option<String>, String> {
+    let Some(path) = ask_open_path(&app).await? else {
+        return Ok(None);
+    };
+    let size = std::fs::metadata(&path)
+        .map_err(|error| error.to_string())?
+        .len();
+    if size > MAX_BACKUP_BYTES {
+        return Err("旧版备份超过 16 MB，未读取".to_string());
+    }
+    let raw =
+        std::fs::read_to_string(path).map_err(|error| format!("读取旧版备份失败：{error}"))?;
+    validate_legacy_source(&raw)?;
+    Ok(Some(raw))
+}
+
+#[derive(Debug, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LegacyImportSummary {
+    summary: ImportSummary,
+    original_path: String,
+}
+
+/// 只提交预览时的那份原文和转换结果，不在确认后重新读取可能已变化的文件。
+#[tauri::command]
+#[specta::specta]
+pub async fn legacy_data_import(
+    app: AppHandle,
+    original: String,
+    converted: String,
+) -> Result<LegacyImportSummary, String> {
+    validate_legacy_source(&original)?;
+    if converted.len() as u64 > MAX_BACKUP_BYTES {
+        return Err("转换后的备份超过 16 MB".to_string());
+    }
+    let file: BackupFile = serde_json::from_str(&converted)
+        .map_err(|error| format!("转换结果无效：{error}"))?;
+    check_envelope(&file)?;
+    validate_backup(&file)?;
+    let original_path = backup_dir(&app)?.join(format!("旧版原件-{}.json", now_ms()));
+    std::fs::write(&original_path, original.as_bytes())
+        .map_err(|error| format!("旧版原件未能留存，未执行导入：{error}"))?;
+    let summary = replace_backup(&app, file)?;
+    Ok(LegacyImportSummary {
+        summary,
+        original_path: original_path.display().to_string(),
+    })
+}
+
+fn validate_legacy_source(raw: &str) -> Result<(), String> {
+    if raw.len() as u64 > MAX_BACKUP_BYTES {
+        return Err("旧版备份超过 16 MB".to_string());
+    }
+    let value: serde_json::Value = serde_json::from_str(raw.trim_start_matches('\u{feff}'))
+        .map_err(|error| format!("旧版备份不是有效 JSON：{error}"))?;
+    if value["schemaVersion"].as_u64() != Some(10)
+        || !value["characters"].is_array()
+        || !value["transactions"].is_array()
+    {
+        return Err("请选择老版 v10 的完整 JSON 备份".to_string());
+    }
+    Ok(())
 }
 
 /// 清除：清空全部账本数据，保留 `meta`（理由见 `store::clear_all` 的注释）。
@@ -978,6 +1047,20 @@ fn validate(characters: &[serde_json::Value], prices: &[PriceItem]) -> Result<Tr
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn legacy_source_requires_explicit_v10_full_backup() {
+        let raw = r#"{"schemaVersion":10,"characters":[],"transactions":[]}"#;
+        assert!(validate_legacy_source(raw).is_ok());
+        assert!(validate_legacy_source(&format!("\u{feff}{raw}")).is_ok());
+        assert!(
+            validate_legacy_source(r#"{"schemaVersion":11,"characters":[],"transactions":[]}"#)
+                .is_err()
+        );
+        assert!(validate_legacy_source(r#"{"format":1,"app":"mh-toolbox-rs"}"#).is_err());
+        assert!(validate_legacy_source(r#"{"schemaVersion":10,"characters":[]}"#).is_err());
+        assert!(validate_legacy_source(&" ".repeat(MAX_BACKUP_BYTES as usize + 1)).is_err());
+    }
 
     fn sample_item() -> PriceItem {
         PriceItem {

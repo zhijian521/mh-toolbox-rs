@@ -197,7 +197,7 @@ start.bat --force    遇到占用直接处理，不询问
 1. **数据目录固定 `%APPDATA%\mh-tool-rs`**（`lib.rs` 的 `data_dir_path()`），**不要落到 identifier 目录**。
    Tauri 默认写 `%APPDATA%\<identifier>`，必须显式指定。2026-11-04 之前它与旧版 Electron 共用
    `mh-tool-v2`，两代应用的 `data.json` / `.bak` / `logs` 与 `mh-toolbox.db` / `backups/` 混在一处；
-   换名时**没有**写搬迁逻辑——新应用不接老数据（老版本只贡献「有哪些功能、长什么样」），
+   换名时**没有**写自动搬迁逻辑，新应用不扫描旧目录；2026-11-14 起允许设置页手动单向导入旧版 v10，
    新目录从空库开始。`store.rs` 经 `data_dir_path()` 取目录（`open_at(base)` 只认目录），
    **不要再用 `app_data_dir()` 直连**——2026-11-03 之前它就这么写，库落在
    `%APPDATA%\com.zhijian.mhtoolbox.rs\`。
@@ -212,7 +212,7 @@ start.bat --force    遇到占用直接处理，不询问
    （`format: 1` + `app: mh-toolbox-rs`，见 `backup.rs`），旧版 Electron 打不开这份账；也**不做**
    SQLite → 旧 `data.json` 的反向镜像。代价说清楚：升级是**单向**的，退回旧版就看不到新版记的账。
    换来「一份数据只有一个真源」，不必维护两代结构的双向转换——那正是 `backup.rs` 头注释里
-   否掉「顺手也认一下旧格式」的同一个理由（猜错的后果是把用户的角色导成半截，且无法验证）。
+   限定旧格式只能在独立导入入口转换的同一个理由。旧版转换集中在 `src/import/legacy.ts`，其他页面不增加 Electron 字段兼容；导入前预览差异、备份当前账本并完整留存旧原件。
 
 ## 七、明确不做的事
 

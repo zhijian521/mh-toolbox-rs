@@ -53,8 +53,7 @@ pub struct AppInfo {
 /// `data.json` / `.bak` / `logs` 与本应用的 `mh-toolbox.db` / `backups/` 混在一处，
 /// 谁都不知道哪些文件是自己的。
 ///
-/// **不为老版本数据做兼容**（2026-11-04 用户定）：老目录里的东西一概不接，新目录从空库
-/// 开始；老版本只贡献「有哪些功能、长什么样」。所以这里没有搬家函数、没有一次性导入入口。
+/// 新目录从空库开始，不自动扫描或搬迁旧目录。旧版数据仅由设置页手动选择后单向转换导入。
 const DATA_DIR_NAME: &str = "mh-tool-rs";
 
 /// `APPDATA` 下的子目录。
@@ -339,6 +338,8 @@ fn command_table() -> tauri_specta::Builder<tauri::Wry> {
             ocr_image::ocr_frame,
             backup::data_export,
             backup::data_import,
+            backup::legacy_data_read,
+            backup::legacy_data_import,
             backup::data_clear,
             backup::quick_prices_export,
             backup::quick_prices_import,
@@ -370,6 +371,8 @@ fn command_table() -> tauri_specta::Builder<tauri::Wry> {
             notify_alarm,
             backup::data_export,
             backup::data_import,
+            backup::legacy_data_read,
+            backup::legacy_data_import,
             backup::data_clear,
             backup::quick_prices_export,
             backup::quick_prices_import,
@@ -435,7 +438,7 @@ pub fn run() {
                     }
                 });
             }
-            /* 启动路径上**没有**任何库搬运：老版本数据一概不接（见 `DATA_DIR_NAME` 的注释），
+            /* 启动路径上**没有**任何库搬运：旧数据只经设置页手动导入（见 `DATA_DIR_NAME` 的注释），
              * 新目录从空库开始。这也顺手去掉了一整类并发坑——以前搬家要赶在建窗之前跑，
              * 否则 `loadPrices()` 与 `loadRoster()` 会同时看到「目标不存在」、同时往同一处复制。 */
             create_main_window(app)?;

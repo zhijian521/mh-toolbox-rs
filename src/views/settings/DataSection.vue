@@ -3,7 +3,14 @@ import { onMounted, ref } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import SlotButton from '../../components/SlotButton.vue';
 import { askConfirm } from '../../composables/use-confirm';
-import { dataClear, dataExport, dataImport, type DataOutcome } from '../../services/data-files';
+import {
+    dataClear,
+    dataExport,
+    dataImport,
+    legacyDataRead,
+    legacyDataImport,
+    type DataOutcome,
+} from '../../services/data-files';
 /* 单件物品的价格点位上限，**不在这里再写一个 200**：`prices.ts` 是它的真源，
  * `src-tauri/src/backup.rs` 里那份是镜像（那边不裁剪，只用它数「会丢多少」）。
  * 设置页反过来引一个页面模块看着别扭，但它是纯数据契约、不碰 vue 也不碰 DOM；
@@ -86,7 +93,9 @@ async function run(action: () => Promise<DataOutcome>): Promise<DataOutcome> {
             message.value = outcome.detail;
             /* 两句话分开放：一句是「办成了」，一句是「不过有东西会丢」。拼成一串就只能
              * 整段用一种颜色，而这两件事不该看起来一样重。 */
-            warning.value = truncationNote(outcome.truncation);
+            warning.value = [outcome.warning, truncationNote(outcome.truncation)]
+                .filter(Boolean)
+                .join(' ');
         } else if (outcome.status === 'failed') {
             messageKind.value = 'error';
             message.value = outcome.error;
@@ -120,6 +129,33 @@ async function askImport() {
     });
     if (!ok) return;
     const outcome = await run(dataImport);
+    if (outcome.status === 'ok') reloadWithNotice();
+}
+
+async function importLegacy() {
+    const outcome = await run(async () => {
+        const source = await legacyDataRead();
+        if (source.status !== 'ok') return source;
+        try {
+            const { convertLegacyData } = await import('../../import/legacy');
+            const { backup, warnings } = convertLegacyData(source.raw);
+            const counts = `${backup.characters.length} 个角色、${backup.prices.length} 件物价、${backup.income.length} 笔收益、${backup.accounts.length} 笔账号记录、${backup.online.length} 条上线记录、${backup.goals.length} 个目标`;
+            const ok = await askConfirm({
+                danger: true,
+                title: '导入旧版并替换当前账本？',
+                note: `可转换：${counts}。${warnings.join(' ')} 替换前自动备份当前账本，并完整留存旧版原件。`,
+                confirmText: '导入并替换',
+            });
+            if (!ok) return { status: 'canceled' };
+            const result = await legacyDataImport(source.raw, JSON.stringify(backup));
+            return result.status === 'ok' ? { ...result, warning: warnings.join(' ') } : result;
+        } catch (error) {
+            return {
+                status: 'failed',
+                error: error instanceof Error ? error.message : String(error),
+            };
+        }
+    });
     if (outcome.status === 'ok') reloadWithNotice();
 }
 
@@ -212,6 +248,13 @@ onMounted(() => {
                 text="导入"
                 :disabled="busy"
                 @click="askImport"
+            />
+            <SlotButton
+                icon="upload"
+                label="导入旧版 Electron 完整备份"
+                text="导入旧版"
+                :disabled="busy"
+                @click="importLegacy"
             />
             <span class="hint">导入将替换全部账本</span>
         </div>

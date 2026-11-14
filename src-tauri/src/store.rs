@@ -14,7 +14,7 @@
 //!
 //! 只有一件事：`schemaVersion` 让将来的表结构变更有个判断依据。早先还有一个
 //! `legacyImported`（防「localStorage 老数据重复搬入」），随老版本兼容一起删了——
-//! 新应用不接老数据，也就不存在「搬过没有」这个问题。
+//! 启动时不自动迁移；设置页的旧版导入是显式替换，不需要「搬过没有」标记。
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -297,7 +297,7 @@ pub(crate) fn open_at(base: &Path) -> Result<Connection, String> {
 /// 塞进 `State<Mutex<..>>` 会让每个命令都变成「先抢锁」——数据量这个级别不值得。
 ///
 /// **这里只开库**：库就是 `%APPDATA%\mh-tool-rs\mh-toolbox.db` 这一份，不存在「从哪儿搬过来」
-/// 这回事——老版本（Electron）的数据一概不接，只参考它的功能与样式。启动路径上没有任何
+/// 这回事——旧版（Electron）只通过设置页独立导入。启动路径上没有任何
 /// 文件复制，也就不存在「两个命令同时看到目标不存在、同时往同一处写」那个窗口。
 ///
 /// `pub(crate)`：`backup::data_import` 要在**一个连接**里完成整份替换（见 `replace_all`），

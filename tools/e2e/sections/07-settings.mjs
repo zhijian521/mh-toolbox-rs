@@ -6,6 +6,20 @@ export default async function run(ctx) {
     if (want('设置')) {
         t.section('7 设置 · 风格、明暗、字体、字号、导入与清除的确认窗');
 
+        await t.step('旧版导入与当前备份导入使用独立入口', async () => {
+            await ui.goto('设置');
+            const labels = await cdp.evaluate(
+                `Array.from(document.querySelectorAll('button')).map(el => el.getAttribute('aria-label'))`,
+            );
+            if (
+                !labels.includes('导入旧版 Electron 完整备份') ||
+                !labels.includes('从备份文件导入账本')
+            ) {
+                throw new Error('新旧备份导入入口不完整');
+            }
+            t.pass('新旧备份导入入口独立');
+        });
+
         await t.step('字体独立切换、真实字体加载与重载恢复，结束时还原', async () => {
             await ui.goto('设置');
             const read = () =>

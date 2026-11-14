@@ -83,6 +83,10 @@ export const commands = {
 	 *  而「导入失败」这件事本身不足以让他知道旧数据还在不在。
 	 */
 	dataImport: () => __TAURI_INVOKE<ImportSummary | null>("data_import"),
+	/**  旧版读取只返回原文；预览与确认期间不写入账本。 */
+	legacyDataRead: () => __TAURI_INVOKE<string | null>("legacy_data_read"),
+	/**  只提交预览时的那份原文和转换结果，不在确认后重新读取可能已变化的文件。 */
+	legacyDataImport: (original: string, converted: string) => __TAURI_INVOKE<LegacyImportSummary>("legacy_data_import", { original, converted }),
 	/**
 	 *  清除：清空全部账本数据，保留 `meta`（理由见 `store::clear_all` 的注释）。
 	 * 
@@ -336,6 +340,11 @@ export type IncomeEntry = {
 export type IncomePayload = {
 	entries: IncomeEntry[],
 	prices: QuickPrice[],
+};
+
+export type LegacyImportSummary = {
+	summary: ImportSummary,
+	originalPath: string,
 };
 
 /**
