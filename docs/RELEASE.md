@@ -6,6 +6,8 @@
 
 本机先按 [AGENTS.md](../AGENTS.md) 设置 Windows 编译环境，再运行 `npm ci` 与 `npm run desktop:build`。打包前自动检查各清单和锁文件中的版本号，Tauri 随后构建前端与发布版。产物在 `src-tauri/target/release/bundle/nsis/`。
 
+安装包在 Rust 构建后由 `scripts/bundle-windows.mjs` 封装，自动附带 ONNX 使用的 DirectML 与已安装 Visual Studio 的 x64 VC++ 可再分发 DLL，避免依赖开发机已有的运行库。无需手动拷贝 DLL，也不把生成的二进制加入源码仓库。
+
 也可以在 GitHub Actions 手动运行「Windows 安装包」，选择需要打包的分支或标签。工作流使用锁文件构建，保存安装包、`SHA256SUMS.txt` 与源版本信息 `SOURCE.txt`，保留 14 天。它只有仓库读取权限，生成产物后由维护者下载审阅，再上传到 GitHub Releases。
 
 ## 发布版本
@@ -29,7 +31,7 @@
 - 真 Tauri 窗口的导航、修改保存、保存失败重试、关闭保护，以及截图识别覆盖规则与重载恢复。
 - 发布版 CSP、离线模型和字体资源、安装与升级后的数据位置、通知和备份入口。
 
-旧审查清单中的代码问题已收口，变更原因继续查 [RECORD.md](RECORD.md)。本次整理未运行测试、构建、安装或视觉验收，安装包工作流也尚未执行。
+旧审查清单中的代码问题已收口，变更原因继续查 [RECORD.md](RECORD.md)。1.0.0 已在本机构建安装包、核对包内依赖，并用隔离数据目录启动解包后的发布程序；尚未执行干净环境安装升级、真窗口完整交互或视觉验收，GitHub 安装包工作流也尚未执行。
 
 ## 文件保留规则
 

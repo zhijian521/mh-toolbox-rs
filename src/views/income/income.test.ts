@@ -53,7 +53,8 @@ describe('收益：归一', () => {
 
     it('日期不合形、金额不为正、根本不是对象的，一律丢掉', () => {
         expect(normalizeEntry({ ...good, date: '11-04' })).toBeNull();
-        expect(normalizeEntry({ ...good, date: '2026-13-01' })).not.toBeNull(); // 只查形状，不查日历
+        expect(normalizeEntry({ ...good, date: '2026-13-01' })).toBeNull();
+        expect(normalizeEntry({ ...good, date: '2026-02-30' })).toBeNull();
         expect(normalizeEntry({ ...good, amount: 0 })).toBeNull();
         expect(normalizeEntry({ ...good, amount: -5 })).toBeNull();
         expect(normalizeEntry({ ...good, amount: 'abc' })).toBeNull();

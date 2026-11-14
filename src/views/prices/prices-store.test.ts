@@ -123,7 +123,7 @@ describe('还没读过库就写：不许拿空表覆盖', () => {
             },
         ]);
         const store = await openWithoutLoad(desktop);
-        const { items, addItem, writeError } = store.usePrices();
+        const { items, addItem, loadError, writeError } = store.usePrices();
 
         addItem(DRAFT, 1200);
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -132,6 +132,7 @@ describe('还没读过库就写：不许拿空表覆盖', () => {
         expect(items.value).toHaveLength(0);
         expect(desktop.pricesSave).not.toHaveBeenCalled();
         /* 文案要指得着用户能做的事。这里说「磁盘空间」会把人引到完全无关的地方。 */
-        expect(writeError.value).toContain('刷新');
+        expect(loadError.value).toContain('刷新');
+        expect(writeError.value).toBe('');
     });
 });

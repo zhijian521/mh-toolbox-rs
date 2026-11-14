@@ -28,7 +28,7 @@ jobs:
           workspaces: src-tauri
       - run: npm ci
       # npm 的 predesktop:build 先核对版本；Tauri 随后构建前端与 NSIS。
-      - run: npm run desktop:build -- --ci --bundles nsis -- --locked
+      - run: npm run desktop:build
       - name: 整理安装包与校验值
         id: package
         shell: pwsh

@@ -16,7 +16,7 @@
         "tauri": "tauri",
         "desktop": "tauri dev",
         "predesktop:build": "npm run check:version",
-        "desktop:build": "tauri build",
+        "desktop:build": "tauri build --ci --no-bundle -- --locked && node scripts/bundle-windows.mjs",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
         "lint": "eslint . --max-warnings 0",
