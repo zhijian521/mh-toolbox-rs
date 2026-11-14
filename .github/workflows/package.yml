@@ -16,6 +16,7 @@ jobs:
     timeout-minutes: 60
     env:
       CARGO_BUILD_JOBS: 4
+      RUSTUP_TOOLCHAIN: 1.99.1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,6 +24,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUSTUP_TOOLCHAIN }}
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri

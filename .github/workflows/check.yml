@@ -21,6 +21,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # 与首版已成功构建的工具链一致，避免 ort-sys rc.10 的 DLL 复制假设被新 Cargo 布局打破。
+  RUSTUP_TOOLCHAIN: 1.99.1
+
 concurrency:
   group: check-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -52,6 +56,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: ${{ env.RUSTUP_TOOLCHAIN }}
           components: rustfmt
       # 只查格式。`cargo clippy` 在 Linux 上要先装 webkit2gtk 等一整套系统库才编得动
       # （见 AGENTS.md §三），而这条链路本来就在 Windows + MSVC 下验证的。
@@ -74,6 +79,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUSTUP_TOOLCHAIN }}
       # tauri 的依赖树编译很慢，缓存尽量让这条 job 别每次都重编一遍。
       - uses: Swatinem/rust-cache@v2
         with:

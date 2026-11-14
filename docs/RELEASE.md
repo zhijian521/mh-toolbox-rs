@@ -8,6 +8,8 @@
 
 安装包在 Rust 构建后由 `scripts/bundle-windows.mjs` 封装，自动附带 ONNX 使用的 DirectML 与已安装 Visual Studio 的 x64 VC++ 可再分发 DLL，避免依赖开发机已有的运行库。无需手动拷贝 DLL，也不把生成的二进制加入源码仓库。
 
+首版使用 Rust/Cargo 1.99.1，CI 和打包工作流固定为此版本。`ort-sys` rc.10 的 DLL 复制依赖旧 Cargo 输出布局，暂不自动跟随 1.100；升级工具链需要单独确认兼容性。
+
 也可以在 GitHub Actions 手动运行「Windows 安装包」，选择需要打包的分支或标签。工作流使用锁文件构建，保存安装包、`SHA256SUMS.txt` 与源版本信息 `SOURCE.txt`，保留 14 天。它只有仓库读取权限，生成产物后由维护者下载审阅，再上传到 GitHub Releases。
 
 ## 发布版本
