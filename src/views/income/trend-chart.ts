@@ -2,9 +2,13 @@ import type { TrendSeries } from '../../components/trend-chart';
 import { totalsOf, type IncomeEntry } from './income';
 
 /** 每天每个角色的净收益，键是 `${date}|${characterId}`；与账号同步共用 totalsOf 口径。 */
-export function netByDay(entries: readonly IncomeEntry[]): Map<string, number> {
+export function netByDay(
+    entries: readonly IncomeEntry[],
+    dates?: ReadonlySet<string>,
+): Map<string, number> {
     const groups = new Map<string, IncomeEntry[]>();
     for (const one of entries) {
+        if (dates && !dates.has(one.date)) continue;
         const key = `${one.date}|${one.characterId}`;
         const list = groups.get(key);
         if (list) list.push(one);

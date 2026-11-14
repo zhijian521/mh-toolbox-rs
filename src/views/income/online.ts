@@ -174,7 +174,9 @@ export function cardCostOf(
     now: number = Date.now(),
 ): number {
     let total = 0;
+    const { start, end } = dateBounds(from, to);
     for (const session of sessions) {
+        if ((session.endAt ?? now) <= start || session.startAt >= end) continue;
         const owners = ownersOf(session);
         if (owners.length === 0) continue;
         if (characterId && !owners.includes(characterId)) continue;
@@ -203,6 +205,26 @@ export function shareOfSlice(amount: number, count: number): number[] {
     return Array.from({ length: size }, (_, index) => base + (index < rest ? 1 : 0));
 }
 
+/** 本地日期含首尾，时间戳采用左闭右开；结束恰在零点不算入次日。 */
+function dateBounds(from = '', to = '') {
+    const last = to ? new Date(to + 'T00:00:00') : null;
+    if (last) last.setDate(last.getDate() + 1);
+    return {
+        start: from ? new Date(from + 'T00:00:00').getTime() : -Infinity,
+        end: last?.getTime() ?? Infinity,
+    };
+}
+
+function datesBounds(dates?: ReadonlySet<string>) {
+    let from = '';
+    let to = '';
+    for (const date of dates ?? []) {
+        if (!from || date < from) from = date;
+        if (!to || date > to) to = date;
+    }
+    return dateBounds(from, to);
+}
+
 /**
  * 按「天 + 角色」摊出来的点卡成本表（原值整数），键是 `${date}|${characterId}`。
  *
@@ -214,12 +236,18 @@ export function shareOfSlice(amount: number, count: number): number[] {
 export function cardCostByDay(
     sessions: readonly OnlineSession[],
     now: number = Date.now(),
+    dates?: ReadonlySet<string>,
 ): Map<string, number> {
     const out = new Map<string, number>();
+    if (dates?.size === 0) return out;
+    const { start, end } = datesBounds(dates);
     for (const session of sessions) {
+        // 先排除区间外的历史时段，再切天和分摊；结束恰好为零点不计入次日。
+        if ((session.endAt ?? now) <= start || session.startAt >= end) continue;
         const owners = ownersOf(session);
         if (owners.length === 0) continue;
         for (const slice of sessionSlices(session, now)) {
+            if (dates && !dates.has(slice.date)) continue;
             const parts = shareOfSlice(
                 sliceCost(slice.minutes, owners.length, session.cardPrice),
                 owners.length,
@@ -246,12 +274,17 @@ export function cardCostByDay(
 export function minutesByDay(
     sessions: readonly OnlineSession[],
     now: number = Date.now(),
+    dates?: ReadonlySet<string>,
 ): Map<string, number> {
     const out = new Map<string, number>();
+    if (dates?.size === 0) return out;
+    const { start, end } = datesBounds(dates);
     for (const session of sessions) {
+        if ((session.endAt ?? now) <= start || session.startAt >= end) continue;
         const owners = ownersOf(session);
         if (owners.length === 0) continue;
         for (const slice of sessionSlices(session, now)) {
+            if (dates && !dates.has(slice.date)) continue;
             for (const id of owners) {
                 const key = `${slice.date}|${id}`;
                 out.set(key, (out.get(key) ?? 0) + slice.minutes);
@@ -284,7 +317,9 @@ export function onlineTotalsOf(
     let cost = 0;
     let count = 0;
     let running = 0;
+    const { start, end } = dateBounds(from, to);
     for (const session of sessions) {
+        if ((session.endAt ?? now) <= start || session.startAt >= end) continue;
         const owners = ownersOf(session);
         if (owners.length === 0) continue;
         if (characterId && !owners.includes(characterId)) continue;

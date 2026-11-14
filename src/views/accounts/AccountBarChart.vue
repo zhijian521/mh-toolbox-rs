@@ -32,6 +32,10 @@ function showRow(id: string, event: PointerEvent | FocusEvent) {
     hoveredId.value = id;
     locate(event);
 }
+function dismissTooltip(event: KeyboardEvent) {
+    if (hovered.value) event.stopPropagation();
+    hoveredId.value = null;
+}
 const hovered = computed(() => {
     const index = props.rows.findIndex((row) => row.id === hoveredId.value);
     if (index < 0) return null;
@@ -91,7 +95,7 @@ const description = (row: (typeof props.rows)[number]) =>
         :class="{ fit, stacked: !!legend }"
         @pointerleave="hoveredId = null"
         @focusout="leaveFocus"
-        @keydown.esc.stop="hoveredId = null"
+        @keydown.esc="dismissTooltip"
     >
         <div v-if="rows.length" class="bar-frame chart-surface">
             <div class="bar-axis" aria-hidden="true">

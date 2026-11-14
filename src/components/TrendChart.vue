@@ -171,8 +171,8 @@ function focusChart() {
 function navigate(event: KeyboardEvent) {
     if ((event.target as Element).closest('.chart-tooltip') && event.key !== 'Escape') return;
     if (event.key === 'Escape') {
+        if (hovered.value) event.stopPropagation();
         hoverIndex.value = null;
-        event.stopPropagation();
         return;
     }
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key) || chart.value.empty)

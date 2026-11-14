@@ -31,7 +31,7 @@ function rowsOf(dates: ReadonlySet<string>, now: number): AutoInput[] {
         for (const [key, amount] of source) {
             const at = key.indexOf('|');
             const date = key.slice(0, at);
-            if (!dates.has(date) || amount === 0) continue;
+            if (amount === 0) continue;
             const characterId = key.slice(at + 1);
             rows.push({
                 id: dailyKey(date, characterId, category),
@@ -44,11 +44,12 @@ function rowsOf(dates: ReadonlySet<string>, now: number): AutoInput[] {
             });
         }
     };
-    append(netByDay(useIncome().entries.value), AUTO_INCOME);
+    append(netByDay(useIncome().entries.value, dates), AUTO_INCOME);
     append(
         cardCostByDay(
             useOnline().sessions.value.filter((one) => one.cardCost !== false),
             now,
+            dates,
         ),
         AUTO_CARD,
     );

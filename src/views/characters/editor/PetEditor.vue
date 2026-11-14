@@ -157,6 +157,7 @@ defineExpose({ focusName });
 .pet-portrait {
     --tile-w: 52px;
     --tile-r: var(--r-3);
+    --tile-drop: 0.75;
 }
 .pet-portrait :deep(.pet-image) {
     background: transparent;

@@ -45,8 +45,10 @@ export async function equipment(ctx) {
         const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
         return JSON.parse(JSON.stringify(useRoster().roster.value.find((one) => one.name === 'E2E改名后').gear));
     })()`);
-    const upload = (selector, samples) =>
-        cdp.evaluate(`(async () => {
+    let uploadCount = 1;
+    const upload = (selector, samples) => {
+        uploadCount = samples.length;
+        return cdp.evaluate(`(async () => {
         const transfer = new DataTransfer();
         for (const rows of ${JSON.stringify(samples)}) {
             const canvas = document.createElement('canvas');
@@ -65,8 +67,10 @@ export async function equipment(ctx) {
         input.files = transfer.files;
         input.dispatchEvent(new Event('change', { bubbles: true }));
     })()`);
-    const uploadFixtures = (names) =>
-        cdp.evaluate(`(async () => {
+    };
+    const uploadFixtures = (names) => {
+        uploadCount = names.length;
+        return cdp.evaluate(`(async () => {
         const transfer = new DataTransfer();
         for (const name of ${JSON.stringify(names)}) {
             const response = await fetch('/tools/e2e/fixtures/' + name);
@@ -77,6 +81,7 @@ export async function equipment(ctx) {
         input.files = transfer.files;
         input.dispatchEvent(new Event('change', { bubbles: true }));
     })()`);
+    };
     const head = (defense) => [
         '水晶帽',
         '[装备条件] 等级60',
@@ -85,12 +90,15 @@ export async function equipment(ctx) {
         '耐久度191',
         '套装效果：附加状态碎星诀',
     ];
-    const waitUpload = () =>
-        ui.waitFor(
-            `document.querySelector('.upload-status')?.textContent.includes('已填入') &&
-            !document.querySelector('.upload-status')?.textContent.includes('识别中')`,
-            { timeout: 45000 },
+    const waitUpload = async () => {
+        // 批量截图串行识别，每张保留单图预算；不能在四张尚未完成时就读取表单。
+        const completed = await ui.waitFor(
+            `document.querySelector('.gear-upload')?.getAttribute('aria-busy') === 'false' &&
+            document.querySelector('.gear-upload .upload-status')?.textContent.includes('已填入')`,
+            { timeout: 45000 * uploadCount },
         );
+        return completed && !(await ui.exists('.gear-upload .upload-error'));
+    };
     const openHead = () =>
         ui.clickIn('.roster .char', 'E2E改名后', { label: '快速修改 头 · 水晶帽' });
 

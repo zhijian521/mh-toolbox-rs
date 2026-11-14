@@ -62,7 +62,8 @@ import tools from './sections/08-tools.mjs';
 /* ------------------------------ 启动 ------------------------------ */
 
 const only = (process.argv.find((one) => one.startsWith('--only='))?.split('=')[1] ?? '').trim();
-const want = (key) => !only || key.includes(only);
+const skip = (process.argv.find((one) => one.startsWith('--skip='))?.split('=')[1] ?? '').trim();
+const want = (key) => (!only || key.includes(only)) && (!skip || !key.includes(skip));
 
 let cdp;
 try {

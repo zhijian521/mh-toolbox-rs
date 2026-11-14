@@ -31,10 +31,8 @@ export interface PersistOptions {
  * 连点两次记价，两份快照同时在路上，先发的那次若后到，库里就只剩前一份，
  * 而界面明明有两笔。这不是理论风险，记价与速记的用法本来就是连点。
  *
- * 两条出路：**合并**（攒 50ms 只写最后一次）看起来更快，但把「写完」与「点完」错开，
- * 用户点完就关窗口时最后一笔会丢；**排队**（这里）让每一份都真的落下去，
- * 且快照在**执行时**取，排队中的多次写拿到的是最新那份——重复写相同数据，
- * 但最后一次一定是对的。整份几百 KB、一天几十次的量级，这点时间不值得用丢账去换。
+ * 已开始的写入保持串行，尚未开始的请求合并成一笔，执行时读取最新全量。
+ * 合并请求共用真实写入的回执，不加定时防抖；关闭和导出仍等 `flush()`，不会提前报成功。
  *
  * 收益账从第 97 批起就有这条队列，物价与名册没有（同一套写法，三份里只有一份想到了）。
  * 抽到这里之后三处一致。
@@ -59,6 +57,7 @@ export async function flushPendingWrites(): Promise<boolean> {
 
 export function createPersist(options: PersistOptions): Persist {
     let chain: Promise<boolean> = Promise.resolve(true);
+    let queued: Promise<boolean> | undefined;
     const pending = ref(0);
     const canWrite = () => {
         if (options.loadError.value) return false;
@@ -80,8 +79,10 @@ export function createPersist(options: PersistOptions): Persist {
             }
             return Promise.resolve(!options.writeError.value);
         }
+        if (queued) return queued;
         pending.value += 1;
         chain = chain.then(async () => {
+            queued = undefined;
             try {
                 const ok = await options.writeRemote();
                 options.writeError.value = ok ? '' : '这一笔没写进数据库，检查一下磁盘空间';
@@ -94,6 +95,7 @@ export function createPersist(options: PersistOptions): Persist {
                 pending.value -= 1;
             }
         });
+        queued = chain;
         return chain;
     }
     const writer = Object.assign(persist, {

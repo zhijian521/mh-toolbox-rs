@@ -4,7 +4,14 @@ import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
 import { buildSparkBars } from './price-chart-path';
 import { priceLabel } from '../../services/format';
-import { currentPoint, priceBadge, recentPrices, updateSummary, type PriceItem } from './prices';
+import {
+    currentPoint,
+    priceBadge,
+    recentPrices,
+    sortedPoints,
+    updateSummary,
+    type PriceItem,
+} from './prices';
 
 /**
  * 一张物价卡。
@@ -44,15 +51,16 @@ const emit = defineEmits<{
     remove: [];
 }>();
 
-const current = computed(() => currentPoint(props.item));
+const points = computed(() => sortedPoints(props.item));
+const current = computed(() => currentPoint(props.item, points.value));
 /* `currentLabel.value` 是 `priceLabel()` 返回对象里的字段，不是 ref 的 `.value`。 */
 const currentLabel = computed(() => priceLabel(current.value ? current.value.price : null));
 
 /* 徽章与底行文案都属于「物价怎么读」，住在 `prices.ts` 里——同一套口径收益页、
  * 总览页迟早要用，留在某个组件的 setup 里下一页就得再抄一遍。
  * 这个组件从此只剩「这张卡长什么样」。 */
-const badge = computed(() => priceBadge(props.item));
-const footText = computed(() => updateSummary(props.item));
+const badge = computed(() => priceBadge(props.item, points.value));
+const footText = computed(() => updateSummary(props.item, points.value));
 
 /**
  * 卡片读给辅助技术的名字。
@@ -76,7 +84,7 @@ const cardLabel = computed(() => {
 
 /* 迷你柱图：坐标算法在 `price-chart-path.ts`，这里只给尺寸。
  * 56×14 是压过一档的：62×17 在 18px 的价格旁边会把价格挤窄。 */
-const spark = computed(() => buildSparkBars(recentPrices(props.item), 56, 14));
+const spark = computed(() => buildSparkBars(recentPrices(props.item, 8, points.value), 56, 14));
 
 /**
  * 卡片主体点一下 = **记一笔价**；只有点在涨幅或走势柱图上 = **看历史**。

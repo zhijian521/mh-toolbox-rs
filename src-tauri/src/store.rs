@@ -305,10 +305,7 @@ pub(crate) fn open_at(base: &Path) -> Result<Connection, String> {
 /// `pub(crate)`：`backup::data_import` 要在**一个连接**里完成整份替换（见 `replace_all`），
 /// 不能再走三次 `*_save` 命令各自开一次库。
 pub(crate) fn open(app: &AppHandle) -> Result<Connection, String> {
-    let base = base_dir(app)?;
-    let conn = open_at(&base)?;
-    crate::backup::daily_backup(&base, &conn);
-    Ok(conn)
+    open_at(&base_dir(app)?)
 }
 
 /// 同一读事务内取完整账本，避免不同表来自不同保存时刻。

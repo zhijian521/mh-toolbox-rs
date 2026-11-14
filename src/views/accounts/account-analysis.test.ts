@@ -2,7 +2,7 @@ import { ALL_OPTIONS as ALL_ACCOUNTS } from '../../components/select-options';
 import { UNASSIGNED_CHARACTER as UNASSIGNED } from '../characters/character-options';
 import { describe, expect, it } from 'vitest';
 import { buildTrendChart } from '../../components/trend-chart';
-import { accountStats, SHORTCUTS, type AccountEntry } from './accounts';
+import { accountStats, accountStatsByCurrency, SHORTCUTS, type AccountEntry } from './accounts';
 import {
     accountAxisText,
     accountTrend,
@@ -12,6 +12,7 @@ import {
     channelAccounts,
     filterAccounts,
     shortcutTotal,
+    shortcutTotals,
 } from './account-analysis';
 
 function entry(patch: Partial<AccountEntry> = {}): AccountEntry {
@@ -32,6 +33,71 @@ function entry(patch: Partial<AccountEntry> = {}): AccountEntry {
 }
 
 describe('账号概览统计', () => {
+    it('双币种一次汇总不混账，分别按汇总后的金额取整', () => {
+        const rows = [
+            entry({ kind: 'income', amount: 0.1 }),
+            entry({ kind: 'income', amount: 0.2 }),
+            entry({ amount: 0.3 }),
+            entry({ currency: 'cash', kind: 'income', amount: 10000.2 }),
+            entry({ currency: 'cash', kind: 'income', amount: 10000.2 }),
+            entry({ currency: 'cash', amount: 30000.4 }),
+        ];
+        expect(accountStatsByCurrency(rows)).toEqual({
+            rmb: { income: 0.3, expense: 0.3, net: 0, count: 3 },
+            cash: { income: 20000, expense: 30000, net: -10000, count: 3 },
+        });
+        expect(accountStatsByCurrency([])).toEqual({
+            rmb: { income: 0, expense: 0, net: 0, count: 0 },
+            cash: { income: 0, expense: 0, net: 0, count: 0 },
+        });
+    });
+
+    it('快捷项共用汇总仍区分方向、币种、渠道及自动来源，并保留重复预设', () => {
+        const rows = [
+            entry({ amount: 0.1 }),
+            entry({ amount: 0.2 }),
+            entry({ amount: 0.8, source: 'auto' }),
+            entry({ amount: 7, kind: 'income' }),
+            entry({ amount: 11, channel: '游戏内' }),
+            entry({ amount: 13, currency: 'cash' }),
+            entry({ amount: 17, category: '其他收支' }),
+        ];
+        const presets = [...SHORTCUTS.map((one) => one.preset), SHORTCUTS[0].preset];
+        const totals = shortcutTotals(rows, presets);
+        const expected = presets.map((preset) => {
+            const matching = rows.filter(
+                (one) =>
+                    one.source !== 'auto' &&
+                    Object.entries(preset).every(
+                        ([key, value]) => one[key as keyof AccountEntry] === value,
+                    ),
+            );
+            const amount = matching.reduce((sum, one) => sum + one.amount, 0);
+            return {
+                amount:
+                    preset.currency === 'rmb' ? Math.round(amount * 100) / 100 : Math.round(amount),
+                count: matching.length,
+            };
+        });
+        expect(totals).toEqual(expected);
+        expect(totals[0]).toEqual({ amount: 0.3, count: 2 });
+        expect(totals.at(-1)).toEqual(totals[0]);
+        expect(shortcutTotals(rows, [])).toEqual([]);
+    });
+
+    it('日期边界从乱序记录求出，缺失单侧边界时保留另一侧限定', () => {
+        const rows = [
+            entry({ date: '2026-11-03', amount: 3 }),
+            entry({ date: '2020-01-01', currency: 'cash' }),
+            entry({ date: '2026-11-01', amount: 1 }),
+            entry({ date: '2026-11-02', amount: 2 }),
+        ];
+        expect(accountTrend(rows, 'rmb', { from: '', to: '' }).expense).toEqual([1, 2, 3]);
+        expect(accountTrend(rows, 'rmb', { from: '', to: '2026-11-02' }).expense).toEqual([1, 2]);
+        expect(accountTrend(rows, 'rmb', { from: '2026-11-02', to: '' }).expense).toEqual([2, 3]);
+        expect(rows[0].date).toBe('2026-11-03');
+    });
+
     it('两种币种独立，空白日期补零，支出不伪装成负收入', () => {
         const rows = [
             entry({ kind: 'income', amount: 12.5 }),

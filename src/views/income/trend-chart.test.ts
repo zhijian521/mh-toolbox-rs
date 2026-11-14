@@ -309,6 +309,22 @@ describe('趋势图：每日净额', () => {
         const map = netByDay([entry()]);
         expect(map.has('2026-11-06|c1')).toBe(false);
     });
+
+    it('限定日期只汇总对应收支，多个角色的负净额与空范围不变', () => {
+        const entries = [
+            entry({ date: '2026-10-01', amount: 9000 }),
+            entry({ amount: 5000 }),
+            entry({ amount: 7000, kind: 'expense' }),
+            entry({ characterId: 'c2', amount: 1200 }),
+            entry({ date: '2026-11-07', amount: 3000 }),
+        ];
+        const dates = new Set(['2026-11-05', '2026-11-07']);
+        expect([...netByDay(entries, dates)]).toEqual(
+            [...netByDay(entries)].filter(([key]) => dates.has(key.split('|')[0])),
+        );
+        expect(netByDay(entries, dates).get('2026-11-05|c1')).toBe(-2000);
+        expect(netByDay(entries, new Set()).size).toBe(0);
+    });
 });
 
 describe('趋势图悬停定位', () => {

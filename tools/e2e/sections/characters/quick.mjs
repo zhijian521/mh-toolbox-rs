@@ -60,8 +60,9 @@ export async function quick(ctx) {
                 await ui.waitFor('typeof window.__e2eReleaseQuickSave === "function"');
                 t.check(
                     '快速修改写入期间禁用保存',
-                    await cdp.evaluate(`[...document.querySelectorAll('.modal-panel button')]
-                        .find((button) => button.textContent.trim() === '保存')?.disabled === true`),
+                    await cdp.evaluate(
+                        `document.querySelector('.modal-panel [aria-label="保存这一项"], .modal-panel [aria-label="保存这件装备"], .modal-panel [aria-label="保存这只召唤兽"]')?.disabled === true`,
+                    ),
                 );
             } finally {
                 await cdp.evaluate(`(async () => {

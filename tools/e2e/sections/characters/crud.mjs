@@ -243,7 +243,8 @@ export async function setup(ctx) {
             t.check('失败后编辑器仍然打开', await ui.exists('.editor'));
             t.check(
                 '失败原因和重试入口可见',
-                await ui.exists('[aria-label="重试保存未落盘的改动"]'),
+                await cdp.evaluate(`document.querySelector('.editor .save-error')?.textContent.includes('没写进数据库') &&
+                    document.querySelector('.editor [aria-label="保存这个角色"]')?.textContent.includes('重试保存')`),
             );
             const expected = cdp.errors.findIndex(
                 (one) => one.includes('写入角色名册失败') && one.includes('E2E 模拟写盘失败'),
@@ -264,7 +265,7 @@ export async function setup(ctx) {
         t.check('重试保存落库且重载后区服仍在', await ui.waitText('E2E重试区'));
     });
 
-    await t.step('慢写回执只收起原表单，不收掉后来打开的表单', async () => {
+    await t.step('慢写期间保持表单与禁用状态，写入完成才收起', async () => {
         await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         await ui.fill('区服', 'E2E慢写区');
         await cdp.evaluate(`(async () => {
@@ -284,10 +285,16 @@ export async function setup(ctx) {
             await ui.waitFor('typeof window.__e2eReleaseSave === "function"');
             t.check('慢写未完成时原表单保留', await ui.exists('.editor'));
             await cdp.key('Escape');
-            await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
+            t.check(
+                '慢写期间 Esc 不关闭表单，保存按钮禁用',
+                await cdp.evaluate(`
+                document.querySelector('.editor [aria-label="保存这个角色"]')?.disabled === true`),
+            );
             await cdp.evaluate('window.__e2eReleaseSave()');
-            await sleep(500);
-            t.check('旧写入完成后新表单仍然打开', await ui.exists('.editor'));
+            t.check(
+                '真实写入完成后表单收起',
+                await ui.waitFor(`!document.querySelector('.editor')`),
+            );
         } finally {
             await cdp.evaluate(`(async () => {
                 const { commands } = await ${importLoaded('/src/services/bindings.ts')};
@@ -862,7 +869,7 @@ export async function pets(ctx) {
                     sameShadow: style(nameRow).boxShadow === statStyle.boxShadow,
                     /* 名字在左、等级签在右，同一行；等级用属性票同款签宽。 */
                     inline: Math.abs(n.top + n.height / 2 - (l.top + l.height / 2)) < 2,
-                    tagW: Math.round(l.parentElement.getBoundingClientRect().width),
+                    tagW: Math.round(lv.parentElement.getBoundingClientRect().width),
                     statTagW: Math.round(
                         stat.querySelector('.num-tag').getBoundingClientRect().width,
                     ),

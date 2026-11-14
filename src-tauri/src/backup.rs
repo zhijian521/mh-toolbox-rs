@@ -73,7 +73,8 @@ const AUTO_BACKUP_PREFIX: &str = "账本-before-import-";
 const AUTO_BACKUP_KEEP: usize = 10;
 const DAILY_PREFIX: &str = "账本-daily-";
 const DAILY_KEEP: usize = 14;
-static DAILY_STATE: std::sync::Mutex<(i64, Option<String>)> = std::sync::Mutex::new((0, None));
+const DAILY_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(300);
+static DAILY_ERROR: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
 #[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -135,7 +136,7 @@ fn backup_entries(dir: &Path) -> Result<Vec<BackupEntry>, String> {
     Ok(entries)
 }
 
-fn daily_backup_at(base: &Path, conn: &rusqlite::Connection, now: i64) -> Result<(), String> {
+fn daily_backup_at(base: &Path, now: i64) -> Result<(), String> {
     let dir = base.join("backups");
     let entries = backup_entries(&dir)?;
     if entries
@@ -144,7 +145,8 @@ fn daily_backup_at(base: &Path, conn: &rusqlite::Connection, now: i64) -> Result
     {
         return Ok(());
     }
-    let file = store::backup(conn)?;
+    let conn = store::open_at(base)?;
+    let file = store::backup(&conn)?;
     validate_backup(&file)?;
     std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     write_to(&dir.join(format!("{DAILY_PREFIX}{now}.json")), &file)?;
@@ -158,27 +160,26 @@ fn daily_backup_at(base: &Path, conn: &rusqlite::Connection, now: i64) -> Result
     Ok(())
 }
 
-/// 首次访问留存完整账本，间隔至少 24 小时；失败显示在恢复窗口，不阻断日常记账。
-pub(crate) fn daily_backup(base: &Path, conn: &rusqlite::Connection) {
-    let Ok(mut state) = DAILY_STATE.lock() else {
-        return;
-    };
-    let now = now_ms();
-    if now.saturating_sub(state.0) < 300_000 {
-        return;
-    }
-    state.0 = now;
-    state.1 = daily_backup_at(base, conn, now).err();
+/// 建窗后独立调度，间隔至少 24 小时留存完整快照；读写命令不等待备份或文件扫描。
+pub(crate) fn start_daily_backups(app: AppHandle) {
+    std::thread::spawn(move || loop {
+        let error = store::base_dir(&app)
+            .and_then(|base| daily_backup_at(&base, now_ms()))
+            .err();
+        if let Ok(mut state) = DAILY_ERROR.lock() {
+            *state = error;
+        }
+        std::thread::sleep(DAILY_CHECK_INTERVAL);
+    });
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn backups_list(app: AppHandle) -> Result<BackupList, String> {
     let entries = backup_entries(&backup_dir(&app)?)?;
-    let error = DAILY_STATE
+    let error = DAILY_ERROR
         .lock()
         .map_err(|error| error.to_string())?
-        .1
         .clone();
     Ok(BackupList { entries, error })
 }
@@ -1187,8 +1188,12 @@ mod tests {
         )
         .expect("写样本");
         let start = 1_800_000_000_000;
-        daily_backup_at(&dir, &conn, start).expect("首次备份");
-        daily_backup_at(&dir, &conn, start + 60_000).expect("同日不重复");
+        let worker_dir = dir.clone();
+        std::thread::spawn(move || daily_backup_at(&worker_dir, start))
+            .join()
+            .expect("后台线程退出")
+            .expect("独立连接首次备份");
+        daily_backup_at(&dir, start + 60_000).expect("同日不重复");
         assert_eq!(backup_entries(&dir.join("backups")).unwrap().len(), 1);
         let saved: BackupFile = serde_json::from_slice(
             &std::fs::read(
@@ -1204,13 +1209,47 @@ mod tests {
         let original = dir.join("backups/旧版原件-1.json");
         std::fs::write(&original, b"{}").unwrap();
         for index in 1..=16 {
-            daily_backup_at(&dir, &conn, start + index * 86_400_000).unwrap();
+            daily_backup_at(&dir, start + index * 86_400_000).unwrap();
         }
         let entries = backup_entries(&dir.join("backups")).unwrap();
         assert_eq!(entries.len(), DAILY_KEEP);
         assert!(original.exists());
         assert!(backup_stamp("../账本-daily-123.json").is_none());
         assert!(backup_stamp("账本-daily-not-number.json").is_none());
+        drop(conn);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn daily_backup_reads_committed_snapshot_without_waiting_for_pending_write() {
+        let dir = std::env::temp_dir().join(format!(
+            "mh-daily-snapshot-{}-{}",
+            std::process::id(),
+            now_ms()
+        ));
+        let mut conn = store::open_at(&dir).expect("临时库");
+        let tx = conn.transaction().expect("开始写事务");
+        tx.execute(
+            "INSERT INTO characters (id, data, sort_order) VALUES (?1, ?2, 0)",
+            rusqlite::params!["pending", r#"{"id":"pending","name":"未提交角色"}"#],
+        )
+        .expect("未提交写入");
+        let start = 1_800_000_000_000;
+        let worker_dir = dir.clone();
+        std::thread::spawn(move || daily_backup_at(&worker_dir, start))
+            .join()
+            .expect("后台线程退出")
+            .expect("WAL 下读取已提交快照");
+        let saved: BackupFile = serde_json::from_slice(
+            &std::fs::read(
+                dir.join("backups")
+                    .join(format!("{DAILY_PREFIX}{start}.json")),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(saved.characters.is_empty());
+        tx.rollback().expect("撤回未提交写入");
         drop(conn);
         std::fs::remove_dir_all(dir).unwrap();
     }

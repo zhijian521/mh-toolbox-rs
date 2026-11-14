@@ -446,6 +446,7 @@ pub fn run() {
              * 新目录从空库开始。这也顺手去掉了一整类并发坑——以前搬家要赶在建窗之前跑，
              * 否则 `loadPrices()` 与 `loadRoster()` 会同时看到「目标不存在」、同时往同一处复制。 */
             create_main_window(app)?;
+            backup::start_daily_backups(app.handle().clone());
             Ok(())
         })
         // 不用 `expect`：发布版没有控制台，`expect` 的输出去不了任何地方。

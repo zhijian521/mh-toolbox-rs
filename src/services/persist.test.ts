@@ -122,7 +122,7 @@ describe('createPersist：写入排队', () => {
      * 这一组是骨架存在的理由。每次写的都是**整份**，两次写同时在路上时，
      * 先发后到就会把后一笔盖掉——而记价、速记的用法本来就是连点。
      */
-    it('连点两次：两次都真的落盘，且最后一次拿的是最新那份', async () => {
+    it('同一拍连点合并写入，所有调用等待最新全量真正落盘', async () => {
         const snapshots: number[] = [];
         let state = 0;
         const persist = createPersist({
@@ -138,19 +138,15 @@ describe('createPersist：写入排队', () => {
         });
 
         state = 1;
-        persist();
+        const first = persist();
         state = 2;
-        persist();
-        await tick();
-
-        /* 两次都在——只写一次的实现（合并式）这里只会有一条。
-         *
-         * 两条快照**都是 2**，不是 `[1, 2]`：快照在**执行时**取，排队中的第二笔等到
-         * 前一笔写完才取数，而那时内存里已经是最新的一份。所以代价是「重复写一遍相同
-         * 数据」，换来的是「最后落到库里的永远是当下全量」——库不会因为某一笔先到后到
-         * 而停在旧快照上。 */
-        expect(snapshots).toHaveLength(2);
-        expect(snapshots[1]).toBe(2);
+        const last = persist();
+        expect(last).toBe(first);
+        expect(persist.pending.value).toBe(1);
+        expect(await first).toBe(true);
+        expect(await last).toBe(true);
+        expect(snapshots).toEqual([2]);
+        expect(persist.pending.value).toBe(0);
     });
 
     it('第一笔没写完时，第二笔不许抢先', async () => {
@@ -177,8 +173,11 @@ describe('createPersist：写入排队', () => {
         });
 
         persist();
-        persist();
         await tick();
+        const second = persist();
+        const third = persist();
+        expect(third).toBe(second);
+        expect(persist.pending.value).toBe(2);
 
         /* 第一次卡在 gate 上，第二次必须还在门外等。 */
         expect(order).toEqual(['start1']);
@@ -288,6 +287,25 @@ describe('保存完成边界', () => {
         });
         expect(await persist()).toBe(false);
         expect(await persist.flush()).toBe(false);
+        expect(await persist()).toBe(true);
+        expect(await persist.flush()).toBe(true);
+    });
+
+    it('合并请求共享失败回执，重试才清除错误', async () => {
+        const remote = vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true);
+        const persist = createPersist({
+            label: '合并失败',
+            loadError: ref(''),
+            loaded: ref(true),
+            writeError: ref(''),
+            writeLocal: () => {},
+            writeRemote: remote,
+        });
+        const first = persist();
+        const last = persist();
+        expect(await Promise.all([first, last])).toEqual([false, false]);
+        expect(await persist.flush()).toBe(false);
+        expect(remote).toHaveBeenCalledTimes(1);
         expect(await persist()).toBe(true);
         expect(await persist.flush()).toBe(true);
     });

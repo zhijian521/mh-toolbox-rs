@@ -18,7 +18,7 @@ import { readHomeShortcuts, saveHomeShortcuts } from '../../services/home-shortc
 import ShortcutEditor from './ShortcutEditor.vue';
 import { normalizeShortcutIds, shortcutsByIds, type HomeShortcut } from './shortcuts';
 import { accountValueText, filterAccounts } from '../accounts/account-analysis';
-import { accountStats, rangeOf, type Currency } from '../accounts/accounts';
+import { accountStatsByCurrency, rangeOf, type Currency } from '../accounts/accounts';
 import { useAccounts } from '../accounts/accounts-store';
 import { useDailySync } from '../accounts/daily-sync';
 import { useRoster } from '../characters/roster';
@@ -135,10 +135,11 @@ const trend = computed(() => [
 ]);
 const books = computed(() => {
     const month = filterAccounts(accounts.value, rangeOf('month', today.value));
+    const stats = accountStatsByCurrency(month);
     return (['rmb', 'cash'] as Currency[]).map((currency) => ({
         currency,
         label: currency === 'rmb' ? '人民币' : '梦幻币',
-        stats: accountStats(month, currency),
+        stats: stats[currency],
     }));
 });
 const netText = (amount: number) => ledgerMoneyText(amount, 'cash', { sign: 'auto' });

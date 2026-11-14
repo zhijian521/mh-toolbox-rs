@@ -246,7 +246,10 @@ export default async function run(ctx) {
                     content.goal.logs[0]?.note === 'E2E目标流水',
             );
             await ui.goto('账号');
-            t.check('导入后的账号记录出现在页面', (await ui.text()).includes('E2E备份账号'));
+            t.check(
+                '导入后的账号记录出现在页面',
+                await ui.exists('.recent-row[aria-label*="E2E备份账号"]'),
+            );
             await ui.goto('目标');
             t.check('导入后的目标出现在页面', (await ui.text()).includes('E2E备份目标'));
             await ui.goto('角色');

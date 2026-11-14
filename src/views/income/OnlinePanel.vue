@@ -34,9 +34,10 @@ const labels = computed(() => {
     return Array.from({ length: size }, (_, index) => daysAgo(size - 1 - index, day));
 });
 
-const minutes = computed(() => minutesByDay(sessions.value, now.value));
+const dates = computed(() => new Set(labels.value));
+const minutes = computed(() => minutesByDay(sessions.value, now.value, dates.value));
 
-const net = computed(() => netByDay(entries.value));
+const net = computed(() => netByDay(entries.value, dates.value));
 
 const actors = computed(() => {
     const ids = new Set<string>();

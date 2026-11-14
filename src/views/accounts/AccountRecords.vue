@@ -17,7 +17,7 @@ import {
     ACCOUNT_CATEGORIES,
     CHANNELS,
     CURRENCY_META,
-    accountStats,
+    accountStatsByCurrency,
     newestFirst,
     type AccountEntry,
 } from './accounts';
@@ -98,14 +98,15 @@ const filtered = computed(() => {
     );
 });
 const { page, pages, visible } = usePagination(filtered);
-const sums = computed(() =>
-    BOOK_OPTIONS.filter((one) => currency.value === ALL || currency.value === one.value).map(
+const sums = computed(() => {
+    const stats = accountStatsByCurrency(filtered.value);
+    return BOOK_OPTIONS.filter((one) => currency.value === ALL || currency.value === one.value).map(
         (one) => ({
             currency: one.value,
-            stats: accountStats(filtered.value, one.value),
+            stats: stats[one.value],
         }),
-    ),
-);
+    );
+});
 const anyFilter = computed(
     () =>
         [currency, kind, category, channel, who, source].some((one) => one.value !== ALL) ||

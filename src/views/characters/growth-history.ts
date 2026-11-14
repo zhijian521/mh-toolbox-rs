@@ -18,6 +18,27 @@ export interface GrowthEntry {
     changes: GrowthChange[];
 }
 
+/** 先按角色、日期筛选，排序仅保留记录引用；展示字段由当前页补齐。 */
+export function selectGrowthHistory(
+    characters: readonly CharacterData[],
+    filter: { characterId: string; from: string; to: string },
+): { character: CharacterData; entry: GrowthEntry }[] {
+    const result: { character: CharacterData; entry: GrowthEntry }[] = [];
+    for (const character of characters) {
+        if (filter.characterId && filter.characterId !== character.id) continue;
+        for (const entry of character.growthHistory ?? []) {
+            if (filter.from && entry.date < filter.from) continue;
+            if (filter.to && entry.date > filter.to) continue;
+            result.push({ character, entry });
+        }
+    }
+    return result.sort(
+        (left, right) =>
+            right.entry.date.localeCompare(left.entry.date) ||
+            right.entry.createdAt - left.entry.createdAt,
+    );
+}
+
 export function normalizeGrowthHistory(raw: unknown): GrowthEntry[] {
     if (!Array.isArray(raw)) return [];
     const seen = new Set<string>();

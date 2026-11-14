@@ -177,18 +177,29 @@ export function parseAccounts(raw: unknown): AccountEntry[] {
  * 这就是「两本账从不相加」在代码里的样子。
  */
 export function accountStats(entries: readonly AccountEntry[], currency: Currency): AccountStats {
-    let income = 0;
-    let expense = 0;
-    let count = 0;
+    return accountStatsByCurrency(entries)[currency];
+}
+
+/** 一次遍历汇总两本账，金额只在汇总完后按原口径取整。 */
+export function accountStatsByCurrency(
+    entries: readonly AccountEntry[],
+): Record<Currency, AccountStats> {
+    const books: Record<Currency, AccountStats> = {
+        rmb: { income: 0, expense: 0, net: 0, count: 0 },
+        cash: { income: 0, expense: 0, net: 0, count: 0 },
+    };
     for (const one of entries) {
-        if (one.currency !== currency) continue;
-        if (one.kind === 'income') income += one.amount;
-        else expense += one.amount;
-        count += 1;
+        const book = books[one.currency];
+        book[one.kind] += one.amount;
+        book.count += 1;
     }
-    income = quantize(income, currency);
-    expense = quantize(expense, currency);
-    return { income, expense, net: quantize(income - expense, currency), count };
+    for (const currency of ['rmb', 'cash'] as const) {
+        const book = books[currency];
+        book.income = quantize(book.income, currency);
+        book.expense = quantize(book.expense, currency);
+        book.net = quantize(book.income - book.expense, currency);
+    }
+    return books;
 }
 
 /** 新的在上：同一天里最后记的那笔排最前。 */

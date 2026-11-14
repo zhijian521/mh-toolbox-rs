@@ -6,7 +6,7 @@ import {
     type AssistSkill,
     type CharacterData,
 } from '../character';
-import { normalizeCharacter } from '../roster';
+import { normalizeCharacter, normalizeGear } from '../roster';
 import { schoolSkills } from '../schools';
 import { applyAttrPanel, type AttrPanelResult } from './attr-panel';
 import { applyAssistPanel, type AssistPanelResult } from './assist-panel';
@@ -23,9 +23,20 @@ export type PanelResult =
 export function useOcrDraft(character: CharacterData) {
     const base = normalizeCharacter(character);
     base.skills = schoolSkills(base.school, base.skills);
-    const original = JSON.stringify(base);
-    const draft = ref(normalizeCharacter(base));
-    const changed = computed(() => JSON.stringify(normalizeCharacter(draft.value)) !== original);
+    const draft = ref(base);
+    // 各分区独立缓存比较结果；历史和更新时间不参与编辑，也不随每次输入重新遍历。
+    const keys = Object.keys(base) as (keyof CharacterData)[];
+    const changes = keys
+        .filter((key) => key !== 'id' && key !== 'updatedAt' && key !== 'growthHistory')
+        .map((key) => {
+            const original = JSON.stringify(base[key]);
+            // 装备表单会补空详情与基础行，只比较真正会保存的内容。
+            return computed(() => {
+                const value = key === 'gear' ? normalizeGear(draft.value.gear) : draft.value[key];
+                return JSON.stringify(value) !== original;
+            });
+        });
+    const changed = computed(() => changes.some((one) => one.value));
     const applied = new Map<PanelResult['pane'], string>();
 
     function recognize(result: PanelResult | null, shot: string) {

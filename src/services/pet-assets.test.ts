@@ -5,6 +5,17 @@ import panel from '../../public/game/data/pet-panel.json';
 import { parsePetIcons, parsePetPanel } from './pet-assets';
 
 describe('召唤兽资源契约', () => {
+    it('头像按清单文件名支持无损 WebP，继续拒绝路径穿越和其他格式', () => {
+        const icon = { id: 'pet-1', name: '兽', img: 'pet-1.webp' };
+        expect(parsePetIcons({ icons: [icon] }, true)[0].url).toBe(
+            '/game/icons/pet-portrait/pet-1.webp',
+        );
+        for (const img of ['../pet-1.webp', 'pet-1.svg', 'pet-1.webp?x=1']) {
+            expect(() => parsePetIcons({ icons: [{ ...icon, img }] }, true)).toThrow();
+        }
+        expect(() => parsePetIcons({ icons: [{ ...icon, categoryId: 'basic' }] }, false)).toThrow();
+    });
+
     it('已归档技能与头像能生成本地资源地址，规则表保持属性和加点分离', () => {
         expect(parsePetIcons(skills, false).find((one) => one.name === '高级必杀')?.url).toContain(
             '/game/icons/pet-advanced/',

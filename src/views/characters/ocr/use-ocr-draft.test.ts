@@ -3,6 +3,7 @@ import '../../../services/game-data.fixture';
 import { normalizeCharacter } from '../roster';
 import type { OcrField } from './attr-panel';
 import { useOcrDraft, type PanelResult } from './use-ocr-draft';
+import { withGearBaseStats } from '../gear-properties';
 
 const character = () => normalizeCharacter({ id: 'draft', name: '原角色', school: '五庄观' });
 const attrs = (key: string, value: string): PanelResult => ({
@@ -15,6 +16,52 @@ const attrs = (key: string, value: string): PanelResult => ({
 });
 
 describe('截图编辑草稿', () => {
+    it('装备表单补空详情与基础行不算修改，填入属性再清空可回到未修改', () => {
+        const editor = useOcrDraft(character());
+        const slot = editor.draft.value.gear[0];
+        slot.detail = withGearBaseStats({ name: '', kind: '', stats: [] }, slot.slot);
+        expect(editor.changed.value).toBe(false);
+        slot.detail.stats[0].value = '100';
+        expect(editor.changed.value).toBe(true);
+        slot.detail.stats[0].value = '';
+        expect(editor.changed.value).toBe(false);
+        editor.setValue('level', '109');
+        expect(editor.changed.value).toBe(true);
+        editor.setValue('level', '0');
+        expect(editor.changed.value).toBe(false);
+    });
+
+    it('分区修改后还原不再标记变化，历史与更新时间不参与编辑比较', () => {
+        const before = character();
+        const editor = useOcrDraft(before);
+        expect(editor.changed.value).toBe(false);
+        editor.setValue('name', '新名称');
+        expect(editor.changed.value).toBe(true);
+        editor.setValue('name', before.name);
+        expect(editor.changed.value).toBe(false);
+        editor.draft.value.growthHistory = [];
+        editor.draft.value.updatedAt = 123;
+        expect(editor.changed.value).toBe(false);
+        editor.draft.value.gearMeta.suit = '变身术之猫灵';
+        expect(editor.changed.value).toBe(true);
+        editor.draft.value.gearMeta.suit = before.gearMeta.suit;
+        expect(editor.changed.value).toBe(false);
+        editor.draft.value.pets.push({
+            name: '草稿兽',
+            level: 120,
+            joinLevel: 105,
+            quality: { attack: 1000, defense: 1000, hp: 1000, mp: 1000, speed: 1000, dodge: 1000 },
+            life: 10000,
+            growth: '1.2',
+            element: '金',
+            attrs: [],
+            skills: [],
+            innerPills: [],
+        });
+        expect(editor.changed.value).toBe(true);
+        expect(before.pets).toEqual([]);
+    });
+
     it('修炼固定十项，未录入等级为 0，记录不含上限', () => {
         const editor = useOcrDraft(character());
         const rows = editor.draft.value.trainings.flatMap((group) => group.rows);

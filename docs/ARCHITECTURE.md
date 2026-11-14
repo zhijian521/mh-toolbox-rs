@@ -111,7 +111,7 @@
   **清除 = 清掉七张业务表**，`meta` 一个字不动（`schemaVersion` 在那儿）。旧版 `data.json`
   （`schemaVersion: 10`，角色结构完全不同）**不在这个入口范围内**：常规导入不做转换或反向镜像；
   这里只认自己的信封，不认识就拒绝、不猜。旧版专用入口通过 `src/import/legacy.ts` 集中转换 v10 数据，页面只消费当前结构；文件读取和原件留存由 `backup.rs` 负责，提交复用同一备份与事务替换函数。
-- **日常备份与恢复**：`store::open` 触发 `backup::daily_backup`，进程内每五分钟最多检查一次，按至少 24 小时间隔保留最近 14 份；取数复用 `store::backup` 的同一读事务。`backups_list` 只列出本地日常和替换前 JSON，`backup_restore` 校验文件后复用整份替换路径。失败在恢复窗口显示，不阻断正常读写。
+- **日常备份与恢复**：主窗口创建后启动独立备份线程，使用独立数据库连接，每五分钟检查一次，按至少 24 小时间隔保留最近 14 份；取数复用 `store::backup` 的同一读事务。`backups_list` 只列出本地日常和替换前 JSON，`backup_restore` 校验文件后复用整份替换路径。失败在恢复窗口显示，不阻断正常读写。
 - **成长历史**：记录位于角色 JSON 的可选 `growthHistory`，由 `roster.update` 统一比较保存前后值生成，目标回写使用同一入口；草稿不覆盖已有历史。旧版历史只在专用转换模块归一，随角色备份与恢复。
 - **检查更新**：`services/updates.ts` 仅在用户点击时查询 GitHub 正式 Release，处理无版本、限流与网络失败，下载通过已有外链服务打开本仓 Release 页面。CSP 仅放行 `https://api.github.com`，不引入自动安装器。
 - **前端状态**：业务与偏好使用模块级状态（主题、字体、字号、应用信息、路由、开发者模式、角色名册、物价表、收益
@@ -129,7 +129,7 @@
   （`migrateLegacy` 搬一次、老键改名 `*.migrated` 留底）；2026-11-04 移除了启动时自动迁移，
   整套迁移连命令一起删了，见 §3 数据目录。主题、字体、字号、闹钟和首页快捷入口属于本机偏好，桌面版也使用 `localStorage`，不随账本导出。
 
-字体独立选择由 `use-font-family.ts` 单例维护，挂载前恢复 `mh-font-family` 并设置根属性 `data-font`；缺失或非法值使用原有文楷。字体族只在 `tokens.css` 中定义，界面与 Canvas 共用 `--font-ui`，字体加载完成后地图重绘。五种字体随包提供，固定来源、许可与子集生成方式见 [assets/fonts/README.md](../assets/fonts/README.md)。
+字体独立选择由 `use-font-family.ts` 单例维护，挂载前恢复 `mh-font-family` 并设置根属性 `data-font`；缺失或非法值使用原有文楷。字体族只在 `tokens.css` 中定义，界面与 Canvas 共用 `--font-ui`，字体加载完成后地图重绘。三种字体随包提供，固定来源、许可与子集生成方式见 [assets/fonts/README.md](../assets/fonts/README.md)。
 
 ## 3. 磁盘与兼容红线
 

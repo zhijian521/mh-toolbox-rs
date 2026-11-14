@@ -6,6 +6,7 @@ import DateField from '../../components/DateField.vue';
 import RecordPager from '../../components/RecordPager.vue';
 import PressButton from '../../components/PressButton.vue';
 import { useRoster } from './roster';
+import { selectGrowthHistory } from './growth-history';
 
 const emit = defineEmits<{ close: [] }>();
 const { roster } = useRoster();
@@ -18,27 +19,20 @@ const options = computed(() => [
     ...roster.value.map((one) => ({ value: one.id, label: one.name })),
 ]);
 const entries = computed(() =>
-    roster.value
-        .flatMap((character) =>
-            selected.value && selected.value !== character.id
-                ? []
-                : (character.growthHistory ?? []).map((entry) => ({
-                      ...entry,
-                      name: character.name,
-                      characterId: character.id,
-                  })),
-        )
-        .filter(
-            (entry) =>
-                (!from.value || entry.date >= from.value) && (!to.value || entry.date <= to.value),
-        )
-        .sort(
-            (left, right) =>
-                right.date.localeCompare(left.date) || right.createdAt - left.createdAt,
-        ),
+    selectGrowthHistory(roster.value, {
+        characterId: selected.value,
+        from: from.value,
+        to: to.value,
+    }),
 );
 const pages = computed(() => Math.max(1, Math.ceil(entries.value.length / 10)));
-const visible = computed(() => entries.value.slice((page.value - 1) * 10, page.value * 10));
+const visible = computed(() =>
+    entries.value.slice((page.value - 1) * 10, page.value * 10).map(({ character, entry }) => ({
+        ...entry,
+        name: character.name,
+        characterId: character.id,
+    })),
+);
 watch([selected, from, to], () => {
     page.value = 1;
 });

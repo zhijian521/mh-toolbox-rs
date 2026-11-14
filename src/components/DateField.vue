@@ -218,7 +218,8 @@ function openPanel() {
     open.value = true;
     void nextTick(() => {
         placePanel();
-        focusCursor();
+        // 定位解除 hidden 后再聚焦，否则浏览器会忽略隐藏日历上的 focus。
+        void nextTick(focusCursor);
     });
 }
 

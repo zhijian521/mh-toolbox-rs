@@ -195,6 +195,7 @@ const dateText = (value: unknown): string => {
  *
  * **同一日期的一组里，`createdAt` 最大的那条排最前**（也就是「最后记的那一笔」）。
  * 于是「当前价」= 今天最后一次记的价，而不是「今天第一次」。
+ * 卡片与历史窗用 computed 保存本次排序，传给各派生函数复用；不跨数据版本缓存。
  */
 export function sortedPoints(item: PriceItem): PricePoint[] {
     return item.points
@@ -203,8 +204,11 @@ export function sortedPoints(item: PriceItem): PricePoint[] {
 }
 
 /** 当前价 = 最新一条历史；一条都没有时为 `null`（界面显示「未记录」）。 */
-export function currentPoint(item: PriceItem): PricePoint | null {
-    return sortedPoints(item)[0] ?? null;
+export function currentPoint(
+    item: PriceItem,
+    points: readonly PricePoint[] = sortedPoints(item),
+): PricePoint | null {
+    return points[0] ?? null;
 }
 
 /**
@@ -214,8 +218,12 @@ export function currentPoint(item: PriceItem): PricePoint | null {
  * 8 条是「看得出形状」与「每一笔都读得出拐点」的平衡点——再多，两点之间只剩
  * 半个像素的落差，涨跌会被抹平。
  */
-export function recentPrices(item: PriceItem, limit = 8): number[] {
-    return sortedPoints(item)
+export function recentPrices(
+    item: PriceItem,
+    limit = 8,
+    points: readonly PricePoint[] = sortedPoints(item),
+): number[] {
+    return points
         .slice(0, limit)
         .reverse()
         .map((point) => point.price);
@@ -231,8 +239,9 @@ export function recentPrices(item: PriceItem, limit = 8): number[] {
 export function chartPrices(
     item: PriceItem,
     limit = CHART_LIMIT,
+    points: readonly PricePoint[] = sortedPoints(item),
 ): { date: string; price: number }[] {
-    return sortedPoints(item)
+    return points
         .slice(0, limit)
         .reverse()
         .map((point) => ({ date: point.date, price: point.price }));
@@ -262,8 +271,10 @@ function toneOf(delta: number): PriceTone {
  *    补上一条昨天的记录之后，昨天的价就成了基准，今天的涨幅跟着变。这是「当前价由
  *    历史派生」这条设计的必然代价，不是缓存没刷。
  */
-export function priceChange(item: PriceItem): PriceChange | null {
-    const list = sortedPoints(item);
+export function priceChange(
+    item: PriceItem,
+    list: readonly PricePoint[] = sortedPoints(item),
+): PriceChange | null {
     if (list.length < 2) return null;
 
     const latest = list[0];
@@ -350,8 +361,11 @@ export interface PriceBadge {
  * 而是它属于「物价怎么读」这件事——同一套口径还会被收益页、总览页用上，
  * 留在某一个组件的 setup 里，下一页就得再抄一遍。
  */
-export function priceBadge(item: PriceItem): PriceBadge | null {
-    const change = priceChange(item);
+export function priceBadge(
+    item: PriceItem,
+    points: readonly PricePoint[] = sortedPoints(item),
+): PriceBadge | null {
+    const change = priceChange(item, points);
     if (!change) return null;
     if (change.delta === 0) {
         return { text: '持平', tone: 'flat', title: changeSentence(change) };
@@ -372,8 +386,11 @@ export function priceBadge(item: PriceItem): PriceBadge | null {
  * 条数只在历史窗里数得出来，卡片上给一眼的总量；日期不写年份（`shortDate`），
  * 因为这一页关心的都是最近几个月。
  */
-export function updateSummary(item: PriceItem): string {
-    const point = currentPoint(item);
+export function updateSummary(
+    item: PriceItem,
+    points: readonly PricePoint[] = sortedPoints(item),
+): string {
+    const point = currentPoint(item, points);
     if (!point) return '未记录';
     return `${shortDate(point.date)} · ${item.points.length} 条`;
 }
@@ -610,20 +627,15 @@ export function filterItems(items: PriceItem[], filter: PriceFilter): PriceItem[
     if (filter.sort === 'updated') return sorted;
     if (filter.sort === 'name') return sorted.sort(byName);
 
-    /* 先装饰、再排序、最后拆掉装饰。
-     *
-     * 原先 `priceOf` / `priceChange` 直接写在 comparator 里：每比较一次就算一遍，
-     * 而 `currentPoint` 内部要 `sortedPoints`（一次 slice + 全量 sort）、
-     * `priceChange` 还要再来一次。comparator 的调用次数是 O(n log n)，
-     * 100 件物品 × 每件 200 条记录时，一次筛选要做上万次「对整张卡的记录排序」——
-     * 而这个结果只跟物品有关、跟比较多少次毫无关系。现在每件只算一次。 */
+    // 每件物品排序一次；按价格排序时不额外计算涨幅。
     const decorated = sorted.map((item) => {
-        const point = currentPoint(item);
+        const points = sortedPoints(item);
+        const point = currentPoint(item, points);
         return {
             item,
             /** `null` = 还没记过价。不写成 -1 那种哨兵值，两处判断才好读。 */
             price: point ? point.price : null,
-            ratio: priceChange(item)?.ratio ?? null,
+            ratio: filter.sort === 'delta' ? (priceChange(item, points)?.ratio ?? null) : null,
         };
     });
 

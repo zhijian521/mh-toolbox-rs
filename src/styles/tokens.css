@@ -45,20 +45,6 @@
     font-display: swap;
 }
 @font-face {
-    font-family: 'MH Toolbox Song';
-    src: url('../../assets/fonts/MHSong.woff2') format('woff2');
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-}
-@font-face {
-    font-family: 'MH Toolbox Fangsong';
-    src: url('../../assets/fonts/MHFangsong.woff2') format('woff2');
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-}
-@font-face {
     font-family: 'MH Toolbox Rounded';
     src: url('../../assets/fonts/MHRounded.woff2') format('woff2');
     font-style: normal;
@@ -68,17 +54,6 @@
 
 :root[data-font='sans'] {
     --font-ui: 'MH Toolbox Hei', 'Microsoft YaHei', sans-serif;
-}
-:root[data-font='serif'] {
-    --font-ui: 'MH Toolbox Song', 'SimSun', serif;
-}
-:root[data-font='zhuque'] {
-    --font-ui: 'MH Toolbox Fangsong', 'FangSong', 'SimSun', serif;
-}
-:root[data-font='zhuque'],
-:root[data-font='zhuque'] * {
-    /* 轻描字廓补足小字号的细笔画，不改变字宽或行高。 */
-    -webkit-text-stroke: 0.012em currentColor;
 }
 :root[data-font='rounded'] {
     --font-ui: 'MH Toolbox Rounded', 'Microsoft YaHei', sans-serif;

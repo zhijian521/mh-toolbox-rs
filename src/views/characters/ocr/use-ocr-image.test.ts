@@ -5,7 +5,10 @@ import type { OcrLine } from './attr-panel';
 import { useOcrImage } from './use-ocr-image';
 import { base64Of } from './pixels';
 
-vi.mock('../../../services/ocr', () => ({ ocrFrame: vi.fn() }));
+vi.mock('../../../services/ocr', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../../../services/ocr')>()),
+    ocrFrame: vi.fn(),
+}));
 vi.mock('./pixels', () => ({
     imageDataOf: (bitmap: ImageBitmap) => ({
         width: bitmap.width,
@@ -151,14 +154,72 @@ describe('OCR 图像请求生命周期', () => {
         await tick();
         const second = image.takeFile(file());
         await tick();
-        b.release({ status: 'ok', lines: lines('latest') });
-        await second;
+        expect(ocrFrame).toHaveBeenCalledTimes(2);
         a.release({ status: 'ok', lines: lines('stale') });
         await first;
+        await tick();
+        b.release({ status: 'ok', lines: lines('latest') });
+        await second;
         expect(image.result.value).toBe('latest');
         expect(image.rawLines.value[0].text).toBe('latest');
         expect(image.busy.value).toBe(false);
         expect(bitmaps.every((one) => one.close.mock.calls.length === 1)).toBe(true);
+    });
+
+    it('连续换图只识别在途图和最后一张，跳过中间图的编码及识别', async () => {
+        const active = gate<OcrOutcome>();
+        vi.mocked(ocrFrame)
+            .mockReturnValueOnce(active.promise)
+            .mockResolvedValue({ status: 'ok', lines: lines('latest') });
+        const parse = vi.fn(async () => ({ result: 'latest' }));
+        const image = session(parse);
+        const first = image.takeFile(file());
+        await tick();
+        const skipped = image.takeFile(file());
+        await tick();
+        const last = image.takeFile(file());
+        await tick();
+        expect(ocrFrame).toHaveBeenCalledTimes(1);
+        expect(base64Of).toHaveBeenCalledTimes(1);
+        active.release({ status: 'ok', lines: lines('old') });
+        await Promise.all([first, skipped, last]);
+        expect(vi.mocked(ocrFrame).mock.calls.map((args) => args[0])).toEqual(['1', '3']);
+        expect(base64Of).toHaveBeenCalledTimes(2);
+        expect(parse).toHaveBeenCalledTimes(1);
+        expect(image.result.value).toBe('latest');
+        expect(image.busy.value).toBe(false);
+    });
+
+    it('关闭编辑器后丢弃等待中的任务，已开始的识别结束后不再解析', async () => {
+        const active = gate<OcrOutcome>();
+        vi.mocked(ocrFrame).mockReturnValue(active.promise);
+        const parse = vi.fn(async () => ({ result: 'unused' }));
+        const image = session(parse);
+        const first = image.takeFile(file());
+        await tick();
+        const waiting = image.takeFile(file());
+        await tick();
+        scope.stop();
+        active.release({ status: 'ok', lines: lines('old') });
+        await Promise.all([first, waiting]);
+        expect(ocrFrame).toHaveBeenCalledTimes(1);
+        expect(base64Of).toHaveBeenCalledTimes(1);
+        expect(parse).not.toHaveBeenCalled();
+    });
+
+    it('逐张上传全部识别，前一任务编码异常不会阻断后续任务', async () => {
+        vi.mocked(base64Of).mockImplementationOnce(() => {
+            throw new Error('像素编码失败');
+        });
+        vi.mocked(ocrFrame).mockResolvedValue({ status: 'ok', lines: lines('saved') });
+        const image = session();
+        await image.takeFile(file());
+        expect(image.error.value).toContain('像素编码失败');
+        await image.takeFile(file());
+        await image.takeFile(file());
+        expect(ocrFrame).toHaveBeenCalledTimes(2);
+        expect(image.result.value).toBe('saved');
+        expect(image.error.value).toBe('');
     });
     it('切分区的图标匹配后到时，只能保留最后一次解析', async () => {
         vi.mocked(ocrFrame).mockResolvedValue({ status: 'ok', lines: lines('panel') });

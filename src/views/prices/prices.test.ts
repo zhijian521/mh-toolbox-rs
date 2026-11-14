@@ -412,6 +412,33 @@ describe('历史派生：当前价与走势取样', () => {
         expect(currentPoint(makeItem('空'))).toBeNull();
     });
 
+    it('同一份排序可供价格、涨跌、摘要和两种图表使用，取样不修改共享历史', () => {
+        const sorted = sortedPoints(item);
+        const ids = sorted.map((one) => one.id);
+        expect(currentPoint(item, sorted)?.price).toBe(20000);
+        expect(priceChange(item, sorted)).toMatchObject({ from: 10000, to: 20000, ratio: 1 });
+        expect(priceBadge(item, sorted)).toEqual(priceBadge(item));
+        expect(updateSummary(item, sorted)).toBe(updateSummary(item));
+        expect(recentPrices(item, 2, sorted)).toEqual([15000, 20000]);
+        expect(chartPrices(item, 2, sorted).map((one) => one.price)).toEqual([15000, 20000]);
+        expect(sorted.map((one) => one.id)).toEqual(ids);
+        expect(item.points.map((one) => one.price)).toEqual([10000, 20000, 15000]);
+    });
+
+    it('补记和修改后重新派生，同日最新价及上个交易日的基准同步更新', () => {
+        const changed = makeItem('补记', [
+            point(20000, '2026-11-03', 3),
+            point(10000, '2026-11-01', 1),
+        ]);
+        changed.points.push(point(15000, '2026-11-02', 4));
+        let sorted = sortedPoints(changed);
+        expect(priceChange(changed, sorted)).toMatchObject({ from: 15000, to: 20000 });
+        changed.points[0].price = 24000;
+        sorted = sortedPoints(changed);
+        expect(currentPoint(changed, sorted)?.price).toBe(24000);
+        expect(priceChange(changed, sorted)).toMatchObject({ from: 15000, to: 24000 });
+    });
+
     it('迷你走势线取最近 N 条、按时间正序（左老右新）', () => {
         expect(recentPrices(item)).toEqual([10000, 15000, 20000]);
         expect(recentPrices(item, 2)).toEqual([15000, 20000]);

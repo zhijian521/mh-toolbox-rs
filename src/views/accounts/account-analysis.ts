@@ -55,10 +55,15 @@ export function accountTrend(
     currency: Currency,
     range: { from: string; to: string },
 ) {
-    const rows = entries.filter((one) => one.currency === currency);
-    const dates = rows.map((one) => one.date).sort();
-    const from = range.from || dates[0] || '';
-    const to = range.to || dates[dates.length - 1] || '';
+    let from = range.from;
+    let to = range.to;
+    if (!from || !to) {
+        for (const one of entries) {
+            if (one.currency !== currency) continue;
+            if (!range.from && (!from || one.date < from)) from = one.date;
+            if (!range.to && (!to || one.date > to)) to = one.date;
+        }
+    }
     const labels: string[] = [];
     const income: number[] = [];
     const expense: number[] = [];
@@ -88,7 +93,8 @@ export function accountTrend(
         else cursor.setFullYear(cursor.getFullYear() + 1);
     }
     const indexOf = new Map(labels.map((date, index) => [date, index]));
-    for (const one of rows) {
+    for (const one of entries) {
+        if (one.currency !== currency) continue;
         if (one.date < from || one.date > to) continue;
         const index = indexOf.get(keyOf(one.date));
         if (index === undefined) continue;
@@ -140,21 +146,39 @@ export function channelAccounts(entries: readonly AccountEntry[], currency: Curr
 
 /** 快捷卡只合计同方向、币种、分类、渠道的手记，范围由页面传入。 */
 export function shortcutTotal(entries: readonly AccountEntry[], preset: Shortcut['preset']) {
-    let amount = 0;
-    let count = 0;
+    return shortcutTotals(entries, [preset])[0];
+}
+
+/** 先按分类索引快捷项，手记只遍历一次；相同预设仍各自得到一份总额。 */
+export function shortcutTotals(
+    entries: readonly AccountEntry[],
+    presets: readonly Shortcut['preset'][],
+) {
+    const totals = presets.map(() => ({ amount: 0, count: 0 }));
+    const byCategory = new Map<string, number[]>();
+    presets.forEach((preset, index) => {
+        const list = byCategory.get(preset.category);
+        if (list) list.push(index);
+        else byCategory.set(preset.category, [index]);
+    });
     for (const one of entries) {
-        if (
-            one.source === 'auto' ||
-            one.kind !== preset.kind ||
-            one.currency !== preset.currency ||
-            one.category !== preset.category ||
-            one.channel !== preset.channel
-        )
-            continue;
-        amount += one.amount;
-        count += 1;
+        if (one.source === 'auto') continue;
+        for (const index of byCategory.get(one.category) ?? []) {
+            const preset = presets[index];
+            if (
+                one.kind !== preset.kind ||
+                one.currency !== preset.currency ||
+                one.channel !== preset.channel
+            )
+                continue;
+            totals[index].amount += one.amount;
+            totals[index].count += 1;
+        }
     }
-    return { amount: rounded(amount, preset.currency), count };
+    return totals.map((total, index) => ({
+        ...total,
+        amount: rounded(total.amount, presets[index].currency),
+    }));
 }
 
 /** 每个角色的收入、支出各自按分类拆分；段额之和与角色汇总同口径。 */

@@ -2,13 +2,11 @@ import { computed, effectScope, ref, watch } from 'vue';
 import { writePreference } from '../services/local-data';
 import { notify } from './use-notify';
 
-export type FontFamily = 'wenkai' | 'sans' | 'serif' | 'zhuque' | 'rounded';
+export type FontFamily = 'wenkai' | 'sans' | 'rounded';
 
 export const FONT_OPTIONS: { value: FontFamily; label: string }[] = [
     { value: 'wenkai', label: '霞鹜文楷' },
     { value: 'sans', label: '思源黑体' },
-    { value: 'serif', label: '思源宋体' },
-    { value: 'zhuque', label: '朱雀仿宋' },
     { value: 'rounded', label: '资源圆体' },
 ];
 

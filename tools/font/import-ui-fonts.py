@@ -13,7 +13,6 @@ from pathlib import Path
 import runpy
 import subprocess
 import urllib.request
-import zipfile
 
 from fontTools import subset
 from fontTools.ttLib import TTFont
@@ -33,30 +32,6 @@ SOURCES = [
         'license': 'SourceHanSans-OFL.txt',
         'license_url': 'https://raw.githubusercontent.com/adobe-fonts/source-han-sans/'
                        'a4f7cf94edfb9d7ffbdfc4841de276358bd7e0f2/LICENSE.txt',
-    },
-    {
-        'id': 'serif',
-        'source': 'serif.otf',
-        'url': 'https://raw.githubusercontent.com/adobe-fonts/source-han-serif/'
-               '7889f11bf31170b5d092a083b357c8c8130f89e0/SubsetOTF/CN/SourceHanSerifCN-Regular.otf',
-        'sha256': '3754ea669c530e2473354f8f6d9f79680a44d7e26ec7d00eeabee4a7e0753c5d',
-        'family': 'MH Toolbox Song',
-        'output': 'MHSong.woff2',
-        'license': 'SourceHanSerif-OFL.txt',
-        'license_url': 'https://raw.githubusercontent.com/adobe-fonts/source-han-serif/'
-                       '7889f11bf31170b5d092a083b357c8c8130f89e0/LICENSE.txt',
-    },
-    {
-        'id': 'zhuque',
-        'source': 'zhuque.zip',
-        'url': 'https://github.com/TrionesType/zhuque/releases/download/v0.212/'
-               'ZhuqueFangsong-v0.212.zip',
-        'sha256': 'bb8b661a7643d2296a72d9d10530a00949419c4e527fb61783f73c2ba1a8c062',
-        'family': 'MH Toolbox Fangsong',
-        'output': 'MHFangsong.woff2',
-        'license': 'ZhuqueFangsong-OFL.txt',
-        'license_url': 'https://raw.githubusercontent.com/TrionesType/zhuque/'
-                       '005a8d0d620cb1fe2a576620a69daea3cc7477b4/LICENSE.txt',
     },
     {
         'id': 'rounded',
@@ -115,14 +90,7 @@ def main():
         data = cached_download(source['source'], source['url'])
         if hashlib.sha256(data).hexdigest() != source['sha256']:
             raise ValueError('字体原件校验失败：' + source['source'])
-        if source['source'].endswith('.zip'):
-            with zipfile.ZipFile(io.BytesIO(data)) as archive:
-                candidates = [name for name in archive.namelist()
-                              if name.lower().endswith(('.ttf', '.otf'))]
-                if len(candidates) != 1:
-                    raise ValueError('字体压缩包内容不唯一，请明确选择原件')
-                data = archive.read(candidates[0])
-        elif source['source'].endswith('.7z'):
+        if source['source'].endswith('.7z'):
             # Windows 自带 bsdtar；只取固定成员到内存，不解压到工作区。
             data = subprocess.run(
                 ['tar', '-xOf', str(CACHE / source['source']), source['member']],
@@ -131,7 +99,7 @@ def main():
         with TTFont(io.BytesIO(data), recalcTimestamp=False) as font:
             rename(font, source['family'])
             options = subset.Options()
-            # 数字签使用 tabular-nums；仿宋西文的等宽替换不能随竖排特性裁掉。
+            # 数字签使用 tabular-nums，保留等宽数字替换。
             options.layout_features = ['kern', 'liga', 'tnum']
             subsetter = subset.Subsetter(options=options)
             subsetter.populate(text=''.join(chars))

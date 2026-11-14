@@ -35,14 +35,17 @@ afterEach(() => {
 });
 
 describe('独立字体偏好', () => {
-    it.each([null, '', 'constructor', 'unknown'])('没有有效设置时保留原文楷：%s', async (raw) => {
-        const { useFontFamily, dataset } = await setup(raw);
-        const { font, selectedFont } = useFontFamily();
-        expect(font.value).toBe('wenkai');
-        expect(dataset.font).toBe('wenkai');
-        expect(selectedFont.value.label).toBe('霞鹜文楷');
-        expect(errorNotice).not.toHaveBeenCalled();
-    });
+    it.each([null, '', 'constructor', 'unknown', 'serif', 'zhuque'])(
+        '未设置、无效或已移除的字体偏好回到文楷：%s',
+        async (raw) => {
+            const { useFontFamily, dataset } = await setup(raw);
+            const { font, selectedFont } = useFontFamily();
+            expect(font.value).toBe('wenkai');
+            expect(dataset.font).toBe('wenkai');
+            expect(selectedFont.value.label).toBe('霞鹜文楷');
+            expect(errorNotice).not.toHaveBeenCalled();
+        },
+    );
 
     it('全部字体均可切换，且只写字体偏好', async () => {
         const { useFontFamily, FONT_OPTIONS, nextTick, dataset, store } = await setup('sans');
@@ -75,9 +78,9 @@ describe('独立字体偏好', () => {
         page.stop();
         const next = useFontFamily();
         expect(next.font).toBe(initial.font);
-        next.font.value = 'serif';
+        next.font.value = 'sans';
         await nextTick();
-        expect(dataset.font).toBe('serif');
+        expect(dataset.font).toBe('sans');
     });
 
     it('存储被禁用时仍可切字体，初始化安静、用户操作给失败回执', async () => {
@@ -85,10 +88,10 @@ describe('独立字体偏好', () => {
         const { font } = useFontFamily();
         expect(dataset.font).toBe('wenkai');
         expect(errorNotice).not.toHaveBeenCalled();
-        font.value = 'zhuque';
+        font.value = 'rounded';
         await nextTick();
-        expect(font.value).toBe('zhuque');
-        expect(dataset.font).toBe('zhuque');
+        expect(font.value).toBe('rounded');
+        expect(dataset.font).toBe('rounded');
         expect(errorNotice).toHaveBeenCalledWith('本次设置已生效，未能记住');
     });
 });

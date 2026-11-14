@@ -75,6 +75,7 @@ export function parsePetIcons(raw: unknown, portrait: boolean): PetIconEntry[] {
     const file = raw as { icons?: unknown };
     if (!Array.isArray(file?.icons)) throw new TypeError('召唤兽图标清单缺少 icons');
     const ids = new Set<string>();
+    const imagePattern = portrait ? /^[\w-]+\.(?:png|webp)$/ : /^[\w-]+\.png$/;
     return file.icons.map((one: unknown) => {
         const entry = one as {
             id?: unknown;
@@ -91,7 +92,7 @@ export function parsePetIcons(raw: unknown, portrait: boolean): PetIconEntry[] {
             typeof entry.name !== 'string' ||
             !entry.name.trim() ||
             typeof entry.img !== 'string' ||
-            !/^[\w-]+\.png$/.test(entry.img)
+            !imagePattern.test(entry.img)
         ) {
             throw new TypeError('召唤兽图标清单存在无效或重复条目');
         }

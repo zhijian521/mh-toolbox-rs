@@ -241,7 +241,7 @@ function normalizeAttrGroups(source: Record<string, unknown>): AttrGroup[] {
  * 而网格的行列是由 `GEAR_SLOTS` 的次序定的。缺的补空位——空位要占格，
  * 否则「少一件」与「没这一格」就分不开了。
  */
-function normalizeGear(raw: unknown): GearSlot[] {
+export function normalizeGear(raw: unknown): GearSlot[] {
     const bySlot = new Map<string, Record<string, unknown>>();
     for (const item of rows(raw)) {
         if (!isObject(item)) continue;

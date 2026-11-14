@@ -116,9 +116,16 @@ export default async function run(ctx) {
                 labels.includes('删除这件物品'),
                 labels.slice(0, 5).join(' / '),
             );
+            const tooltipOpen = await ui.exists('.chart-tooltip');
             await cdp.key('Escape');
-            await sleep(350);
-            t.check('Esc 关掉历史窗', !(await ui.exists('[role="dialog"]')));
+            if (tooltipOpen) {
+                t.check(
+                    'Esc 先收起图表明细，保留历史窗',
+                    !(await ui.exists('.chart-tooltip')) && (await ui.exists('.modal-panel')),
+                );
+                await cdp.key('Escape');
+            }
+            t.check('Esc 关掉历史窗', await ui.waitFor('!document.querySelector("[role=dialog]")'));
         });
 
         await t.step('删除物品并回到原来的数量', async () => {

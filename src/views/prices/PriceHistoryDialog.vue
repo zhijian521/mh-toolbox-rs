@@ -36,9 +36,10 @@ const emit = defineEmits<{
     removePoint: [point: PricePoint];
 }>();
 
-const current = computed(() => currentPoint(props.item));
+const points = computed(() => sortedPoints(props.item));
+const current = computed(() => currentPoint(props.item, points.value));
 const label = computed(() => priceLabel(current.value?.price ?? null));
-const change = computed(() => priceChange(props.item));
+const change = computed(() => priceChange(props.item, points.value));
 
 /** 与卡片徽章的 `title` **同一句话**（`changeSentence`）：口径不能各拼一遍。 */
 const changeLine = computed(() => (change.value ? changeSentence(change.value) : ''));
@@ -49,7 +50,7 @@ const changeLine = computed(() => (change.value ? changeSentence(change.value) :
  * 的 `pointDelta` 注释里。文案的 `title` 要把基准说出来，否则同屏两个数字看着像算错。
  */
 const rows = computed(() => {
-    const sorted = sortedPoints(props.item);
+    const sorted = points.value;
     return sorted.map((point, index) => {
         const delta = pointDelta(sorted, index);
         const previous = sorted[index + 1];
@@ -72,7 +73,7 @@ const rows = computed(() => {
     });
 });
 
-const chart = computed(() => chartPrices(props.item));
+const chart = computed(() => chartPrices(props.item, undefined, points.value));
 </script>
 
 <template>

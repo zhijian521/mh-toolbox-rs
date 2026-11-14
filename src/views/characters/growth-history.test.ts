@@ -1,9 +1,53 @@
 import { describe, it, expect } from 'vitest';
 import '../../services/game-data.fixture';
 import { emptyCharacter, normalizeCharacter, parseRoster, serializeRoster } from './roster';
-import { normalizeGrowthHistory, withGrowthHistory } from './growth-history';
+import {
+    normalizeGrowthHistory,
+    selectGrowthHistory,
+    withGrowthHistory,
+    type GrowthEntry,
+} from './growth-history';
 
 describe('成长历史', () => {
+    it('角色和日期先筛选，边界包含当天、同日按时间倒序，原始记录与顺序不变', () => {
+        const entry = (id: string, date: string, createdAt: number): GrowthEntry => ({
+            id,
+            date,
+            createdAt,
+            source: 'edit',
+            note: '',
+            changes: [{ group: '角色', label: '等级', from: '0', to: '10' }],
+        });
+        const character = normalizeCharacter({ id: 'c1', name: '角色一' });
+        character.growthHistory = [
+            entry('past', '2026-11-01', 1),
+            entry('early', '2026-11-14', 3),
+            entry('start', '2026-11-12', 2),
+            entry('late', '2026-11-14', 4),
+            entry('future', '2026-11-15', 5),
+        ];
+        const other = normalizeCharacter({ id: 'c2', name: '角色二' });
+        other.growthHistory = [entry('other', '2026-11-14', 6)];
+        const characters = [character, other, normalizeCharacter({ id: 'empty' })];
+        const filter = { characterId: 'c1', from: '2026-11-12', to: '2026-11-14' };
+        const rows = selectGrowthHistory(characters, filter);
+        expect(rows.map((one) => one.entry.id)).toEqual(['late', 'early', 'start']);
+        expect(rows[0].entry).toBe(character.growthHistory[3]);
+        expect(rows[0].character).toBe(character);
+        expect(character.growthHistory.map((one) => one.id)).toEqual([
+            'past',
+            'early',
+            'start',
+            'late',
+            'future',
+        ]);
+        expect(selectGrowthHistory(characters, { ...filter, characterId: '' })[0].entry.id).toBe(
+            'other',
+        );
+        expect(selectGrowthHistory(characters, { ...filter, characterId: 'gone' })).toEqual([]);
+        expect(selectGrowthHistory(characters, { ...filter, from: '2026-12-01' })).toEqual([]);
+    });
+
     it('保存生成前后值，新增删除技能与零值不丢失', () => {
         const previous = emptyCharacter();
         previous.assists = [{ name: '强身术', kind: 'life', level: 0 }];

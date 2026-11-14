@@ -145,6 +145,30 @@ describe('收益自动同步', () => {
         expect(accounts.entries.value).toEqual([]);
     });
 
+    it('限定日期与全量同步一致，跨天多人分摊不漏算', async () => {
+        const { sync, accounts } = await loadSync({
+            entries: [entry('2026-10-01'), entry('2026-11-12'), entry('2026-11-13')],
+            sessions: [
+                session({ id: 'old', date: '2026-11-01', startAt: at(1, 10), endAt: at(1, 11) }),
+                session({ roster: ['c1', 'c2', 'c3'], cardPrice: 15001 }),
+                session({
+                    id: 'midnight',
+                    startAt: at(12, 23),
+                    endAt: at(13, 0),
+                    characterId: 'c2',
+                }),
+            ],
+        });
+        sync.syncAllDays();
+        for (const date of ['2026-10-01', '2026-11-12', '2026-11-13']) {
+            const rows = sync.autoRowsOf(date).map((one) => [one.id, one.amount]);
+            const all = accounts.entries.value
+                .filter((one) => one.date === date)
+                .map((one) => [one.id, one.amount]);
+            expect(rows.sort()).toEqual(all.sort());
+        }
+    });
+
     it('分钟更新同步进行中成本；全局开关不改本段快照', async () => {
         const { sync, accounts, online, minute } = await loadSync({
             sessions: [session({ date: '2026-11-13', startAt: at(13, 11), endAt: null })],

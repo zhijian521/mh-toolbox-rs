@@ -14,7 +14,7 @@ export default async function run(ctx) {
             );
             t.check(
                 '备份窗口说明恢复前会另存账本',
-                (await ui.text()).includes('恢复前另存当前账本'),
+                (await ui.text('.modal-panel')).includes('恢复前另存当前账本'),
             );
             await ui.clickLabel('关闭备份列表');
             t.check('备份窗口正常关闭', !(await ui.exists('[role="dialog"]')));
@@ -63,18 +63,11 @@ export default async function run(ctx) {
                 style: localStorage.getItem('mh-theme-style'),
                 scale: localStorage.getItem('mh-font-scale'),
                 family: getComputedStyle(document.body).fontFamily,
-                stroke: parseFloat(getComputedStyle(document.body).webkitTextStrokeWidth),
-                strokeMatches: [...document.querySelectorAll('h1, button, input')].every(el => {
-                    const style = getComputedStyle(el);
-                    return style.webkitTextStrokeColor === style.color;
-                }),
             }))()`);
             const original = await read();
             const fonts = [
                 ['wenkai', '霞鹜文楷', 'LXGW WenKai Screen'],
                 ['sans', '思源黑体', 'MH Toolbox Hei'],
-                ['serif', '思源宋体', 'MH Toolbox Song'],
-                ['zhuque', '朱雀仿宋', 'MH Toolbox Fangsong'],
                 ['rounded', '资源圆体', 'MH Toolbox Rounded'],
             ];
             try {
@@ -96,30 +89,6 @@ export default async function run(ctx) {
                             current.style === original.style &&
                             current.scale === original.scale,
                     );
-                    t.check(
-                        `${label}仅仿宋启用轻描字廓`,
-                        id === 'zhuque'
-                            ? current.stroke > 0 && current.strokeMatches
-                            : current.stroke === 0,
-                    );
-                    if (id === 'zhuque') {
-                        const tabular = await cdp.evaluate(`(() => {
-                            const probe = document.createElement('span');
-                            probe.className = 'num';
-                            probe.style.cssText = 'position:fixed;visibility:hidden;white-space:nowrap';
-                            document.body.append(probe);
-                            try {
-                                const width = (text) => {
-                                    probe.textContent = text;
-                                    return probe.getBoundingClientRect().width;
-                                };
-                                return Math.abs(width('111111') - width('888888')) < 0.1;
-                            } finally {
-                                probe.remove();
-                            }
-                        })()`);
-                        t.check('仿宋数字签保留等宽数字', tabular);
-                    }
                 }
                 await ui.reload();
                 await cdp.waitFor(`!!document.querySelector('[aria-label="字体"]')`);

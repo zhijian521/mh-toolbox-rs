@@ -1,5 +1,5 @@
 import { computed, onScopeDispose, ref, shallowRef } from 'vue';
-import { ocrFrame, type OcrOutcome } from '../../../services/ocr';
+import { ocrFrame, scheduleOcr, type OcrOutcome } from '../../../services/ocr';
 import type { OcrLine } from './attr-panel';
 import { base64Of, imageDataOf, swapToBgra, type Frame } from './pixels';
 
@@ -24,7 +24,7 @@ export function useOcrImage<T>(
     let imageVersion = 0;
     let parseVersion = 0;
     let disposed = false;
-    let source: { image: ImageData; whole?: Promise<OcrOutcome> } | null = null;
+    let source: { image: ImageData; whole?: Promise<OcrOutcome | null> } | null = null;
 
     async function classify() {
         const frameSource = source;
@@ -40,15 +40,21 @@ export function useOcrImage<T>(
             let lines: OcrLine[] = [];
             if (readWholeFrame()) {
                 if (!frameSource.whole) {
-                    const frame = frameFor?.(image) ?? {
-                        pixels: base64Of(swapToBgra(image.data)),
-                        width: image.width,
-                        height: image.height,
-                    };
-                    frameSource.whole = ocrFrame(frame.pixels, frame.width, frame.height);
+                    frameSource.whole = scheduleOcr(
+                        () => {
+                            const frame = frameFor?.(image) ?? {
+                                pixels: base64Of(swapToBgra(image.data)),
+                                width: image.width,
+                                height: image.height,
+                            };
+                            return ocrFrame(frame.pixels, frame.width, frame.height);
+                        },
+                        // 切分区继续复用同图请求；换图或关闭编辑器才使整图任务过期。
+                        () => !disposed && imageId === imageVersion,
+                    );
                 }
                 const outcome = await frameSource.whole;
-                if (!current()) return;
+                if (!current() || !outcome) return;
                 if (outcome.status === 'failed') {
                     frameSource.whole = undefined;
                     error.value = outcome.error;

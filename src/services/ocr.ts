@@ -11,6 +11,26 @@ import { hasDesktop } from './desktop';
  */
 export type OcrOutcome = { status: 'ok'; lines: TextLine[] } | { status: 'failed'; error: string };
 
+let queue = Promise.resolve();
+
+/** 等待中的整图任务在执行前检查归属，过期时跳过像素编码和 IPC；在途推理仍正常完成。 */
+export async function scheduleOcr<T>(
+    run: () => Promise<T>,
+    isCurrent: () => boolean,
+): Promise<T | null> {
+    const previous = queue;
+    let release!: () => void;
+    queue = new Promise<void>((resolve) => {
+        release = resolve;
+    });
+    await previous;
+    try {
+        return isCurrent() ? await run() : null;
+    } finally {
+        release();
+    }
+}
+
 /**
  * 识别一张图。
  *

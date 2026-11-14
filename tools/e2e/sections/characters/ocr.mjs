@@ -853,7 +853,7 @@ export async function ocr(ctx) {
         })()`);
     });
 
-    await t.step('连续换图：停用旧结果，最新图先返回也不被旧请求覆盖', async () => {
+    await t.step('连续换图：在途完成前不启动下一张，等待中的旧图跳过', async () => {
         await ui.clickIn('.roster .char', 'E2E改名后', { text: '属性' });
         await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         const paste = () =>
@@ -900,10 +900,21 @@ export async function ocr(ctx) {
                 ),
             );
             await paste();
-            await ui.waitFor('window.__e2eOcrRequests.length === 3');
+            await paste();
+            t.check(
+                '在途未完成时不发送后续图片',
+                await cdp.evaluate('window.__e2eOcrRequests.length === 2'),
+            );
+            await resolveImage(1, 7002);
+            t.check(
+                '等待最新图时保持识别状态且不应用旧图',
+                await cdp.evaluate(`!!document.querySelector('.ocr-standard .upload-busy') &&
+                    ![...document.querySelectorAll('.ocr-card input')].some((one) => one.value === '7002')`),
+            );
+            if (!(await ui.waitFor('window.__e2eOcrRequests.length === 3')))
+                throw new Error('最新图片没有进入识别');
             await resolveImage(2, 7003);
             await ui.waitFor(`!document.querySelector('.ocr-standard .upload-busy')`);
-            await resolveImage(1, 7002);
             await sleep(100);
             t.check(
                 '最新图的 7003 保留在预览上',
@@ -911,6 +922,10 @@ export async function ocr(ctx) {
                     (await cdp.evaluate(
                         `[...document.querySelectorAll('.ocr-card input')].some((one) => one.value === '7003')`,
                     )),
+            );
+            t.check(
+                '等待期间替换的中间图未发送',
+                await cdp.evaluate('window.__e2eOcrRequests.length === 3'),
             );
             await ui.clickText('.modal-panel button', '保存');
             await ui.waitFor(`!document.querySelector('.ocr')`);

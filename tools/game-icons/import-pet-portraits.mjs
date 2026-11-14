@@ -7,6 +7,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { encodePortrait } from './optimize-pet-portraits.mjs';
 
 const load = createRequire(import.meta.url);
 const directory = path.dirname(fileURLToPath(import.meta.url));
@@ -231,16 +232,25 @@ async function main() {
                                     };
                                 } else image = decodeVariant(value);
                                 const key = `pet-${shape}${variant.replace('_', '-')}`;
-                                await sharp(image.rgba, {
-                                    raw: { width: image.width, height: image.height, channels: 4 },
-                                })
-                                    .png()
-                                    .toFile(path.join(out, key + '.png'));
+                                const encoded = await encodePortrait(
+                                    sharp,
+                                    sharp(image.rgba, {
+                                        raw: {
+                                            width: image.width,
+                                            height: image.height,
+                                            channels: 4,
+                                        },
+                                    }),
+                                );
+                                fs.writeFileSync(
+                                    path.join(out, key + encoded.extension),
+                                    encoded.data,
+                                );
                                 icons.push({
                                     id: key,
                                     name: name + (variant ? '·进阶' : ''),
                                     species: name,
-                                    img: key + '.png',
+                                    img: key + encoded.extension,
                                     width: image.width,
                                     height: image.height,
                                     resourcePath,
@@ -277,18 +287,17 @@ async function main() {
             const name = matches[0];
             const input = fs.readFileSync(path.join(namedSource, file));
             const id = `portrait-${crypto.createHash('sha256').update(input).digest('hex').slice(0, 16)}`;
-            const image = await sharp(input)
-                .trim({ background: '#00000000', threshold: 1 })
-                .png()
-                .toBuffer({ resolveWithObject: true });
-            fs.writeFileSync(path.join(out, id + '.png'), image.data);
+            const image = sharp(input).trim({ background: '#00000000', threshold: 1 });
+            const encoded = await encodePortrait(sharp, image);
+            const info = await sharp(encoded.data).metadata();
+            fs.writeFileSync(path.join(out, id + encoded.extension), encoded.data);
             icons.push({
                 id,
                 name: name + (advanced ? '·进阶立绘' : '·立绘'),
                 species: name,
-                img: id + '.png',
-                width: image.info.width,
-                height: image.info.height,
+                img: id + encoded.extension,
+                width: info.width,
+                height: info.height,
                 source: `已解包素材/头像/${file}`,
             });
         }
@@ -298,7 +307,7 @@ async function main() {
     );
     const files = new Set(icons.map((icon) => icon.img));
     for (const file of fs.readdirSync(out)) {
-        if (/^(?:pet-[\d-]+|portrait-[a-f\d]+)\.png$/.test(file) && !files.has(file)) {
+        if (/^(?:pet-[\d-]+|portrait-[a-f\d]+)\.(?:png|webp)$/.test(file) && !files.has(file)) {
             fs.unlinkSync(path.join(out, file));
         }
     }

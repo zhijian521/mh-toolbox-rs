@@ -3,6 +3,7 @@ import { dateText } from '../../services/format';
 import {
     DEFAULT_CARD_PRICE,
     POINTS_PER_HOUR,
+    cardCostByDay,
     cardCostOf,
     clockText,
     factsOfSession,
@@ -68,6 +69,34 @@ describe('上线：谁在线', () => {
 });
 
 describe('上线：按天切开', () => {
+    it('按指定日期汇总与全量后筛选一致，保留跨天分摊并跳过日期间隙', () => {
+        const sessions = [
+            session({
+                startAt: at(2026, 10, 1),
+                endAt: at(2026, 10, 2),
+            }),
+            session({
+                startAt: at(2026, 11, 11, 23),
+                endAt: at(2026, 11, 14, 1),
+                roster: ['c1', 'c2', 'c3'],
+                cardPrice: 15001,
+            }),
+            session({
+                startAt: at(2026, 11, 12, 23),
+                endAt: at(2026, 11, 13),
+                characterId: 'c2',
+            }),
+            session({ startAt: at(2026, 11, 13, 10), endAt: null }),
+        ];
+        const now = at(2026, 11, 13, 12);
+        const dates = new Set(['2026-11-11', '2026-11-13']);
+        const all = cardCostByDay(sessions, now);
+        const scoped = cardCostByDay(sessions, now, dates);
+        expect([...scoped]).toEqual([...all].filter(([key]) => dates.has(key.split('|')[0])));
+        expect(cardCostByDay(sessions, now, new Set()).size).toBe(0);
+        expect(cardCostByDay(sessions, now, new Set(['2026-12-01'])).size).toBe(0);
+    });
+
     it('不跨天：一片，日期是开始那天', () => {
         const slices = sessionSlices(session());
         expect(slices).toHaveLength(1);
@@ -177,6 +206,27 @@ describe('上线：分摊一分不差', () => {
 });
 
 describe('上线：按天按号摊时长', () => {
+    it('限定日期与全量后筛选一致，保留多人、跨天及进行中时段', () => {
+        const sessions = [
+            session({ startAt: at(2026, 9, 1), endAt: at(2026, 9, 2) }),
+            session({
+                startAt: at(2026, 11, 10, 23),
+                endAt: at(2026, 11, 13, 1),
+                roster: ['c1', 'c2'],
+            }),
+            session({ startAt: at(2026, 11, 12, 23), endAt: at(2026, 11, 13) }),
+            session({ startAt: at(2026, 11, 13, 10), endAt: null }),
+        ];
+        const now = at(2026, 11, 13, 12);
+        const dates = new Set(['2026-11-13', '2026-11-11']);
+        const all = minutesByDay(sessions, now);
+        expect([...minutesByDay(sessions, now, dates)]).toEqual(
+            [...all].filter(([key]) => dates.has(key.split('|')[0])),
+        );
+        expect(minutesByDay(sessions, now, new Set()).size).toBe(0);
+        expect(minutesByDay(sessions, now, new Set(['2027-01-01'])).size).toBe(0);
+    });
+
     it('一人一条：各自得整段', () => {
         const one = session({ id: 'a', characterId: 'c1', roster: [] });
         const two = session({ id: 'b', characterId: 'c2', roster: [] });
@@ -220,6 +270,33 @@ describe('上线：按天按号摊时长', () => {
 });
 
 describe('上线：区间统计', () => {
+    it('先排除区间外时段，零点边界、跨天成本和多人成本保持原口径', () => {
+        const outside = session({
+            startAt: at(2026, 11, 10, 23),
+            endAt: at(2026, 11, 11),
+        });
+        const future = session({ startAt: at(2026, 11, 12), endAt: at(2026, 11, 12, 1) });
+        for (const one of [outside, future]) {
+            Object.defineProperty(one, 'roster', {
+                get() {
+                    throw new Error('区间外不读取名单');
+                },
+            });
+        }
+        const cross = session({
+            startAt: at(2026, 11, 10, 23),
+            endAt: at(2026, 11, 11, 1),
+            roster: ['c1', 'c2', 'c3'],
+            cardPrice: 15001,
+        });
+        const rows = [outside, cross, future];
+        const now = at(2026, 11, 11, 12);
+        const totals = onlineTotalsOf(rows, '2026-11-11', '2026-11-11', now, 'c2');
+        expect(totals).toEqual({ minutes: 60, cost: 90006, count: 1, running: 0 });
+        expect(cardCostOf(rows, '2026-11-11', '2026-11-11', 'c2', now)).toBe(totals.cost);
+        expect(onlineTotalsOf(rows, '2026-11-12', '2026-11-11', now).minutes).toBe(0);
+    });
+
     it('时长、成本、段数', () => {
         const two = [
             session(),

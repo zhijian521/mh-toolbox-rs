@@ -240,6 +240,11 @@ icons/ 丢一个 png」这种最省事的做法）、**文件名以目录名开�
 导入使用 `node tools/game-icons/import-pet-portraits.mjs --download-missing`，默认只读本地包和
 `.runtime/pet-portrait-resources` 缓存；下载仅用于离线导入，应用运行时只读随包资源。
 
+头像发布资源保持原尺寸，PNG 与无损 WebP 选较小者；WebP 解码后的 RGBA 必须与原图逐字节相同，
+不满足时保留 PNG，不缩图、不做有损压缩。原始来源、资源摘要与稳定编号不变，应用按清单的 `img` 取图，
+不要按编号拼接 `.png`。导入脚本共用这一编码规则；已有资源可运行
+`node tools/game-icons/optimize-pet-portraits.mjs <sharp模块目录>` 优化，不需要客户端或联网。
+
 `data/pet-panel.json` 维护七项属性、六项加点、资源上限字段、标签与别名，以及资质后续行顺序和五行名录；六项资质沿用
 `character-rules.json`。数值解析与技能区域定位在 `views/characters/ocr/pet-*`，成功识别整只覆盖当前草稿，
 未识别字段清空，不合并旧属性或旧技能；识别失败不改草稿。未读到名字时保留当前名字，不按自定义名字猜物种。

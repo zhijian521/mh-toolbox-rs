@@ -25,13 +25,13 @@ import {
     CURRENCY_META,
     RANGE_PRESETS,
     SHORTCUTS,
-    accountStats,
+    accountStatsByCurrency,
     newestFirst,
     rangeOf,
     type AccountEntry,
     type RangePreset,
 } from './accounts';
-import { accountValueText, filterAccounts, shortcutTotal } from './account-analysis';
+import { accountValueText, filterAccounts, shortcutTotals } from './account-analysis';
 import { useAccounts, type EntryInput } from './accounts-store';
 
 const { entries, loadError, writeError, addEntry, updateEntry, pending, flush, retry } =
@@ -51,20 +51,25 @@ const range = computed(() => rangeOf(preset.value, today.value));
 const scoped = computed(() =>
     filterAccounts(entries.value, { ...range.value, characterId: who.value }),
 );
-const books = computed(() =>
-    (['rmb', 'cash'] as const).map((currency) => ({
+const books = computed(() => {
+    const stats = accountStatsByCurrency(scoped.value);
+    return (['rmb', 'cash'] as const).map((currency) => ({
         currency,
         meta: CURRENCY_META[currency],
-        stats: accountStats(scoped.value, currency),
-    })),
-);
-const shortcuts = computed(() =>
-    SHORTCUTS.map((one) => ({
+        stats: stats[currency],
+    }));
+});
+const shortcuts = computed(() => {
+    const totals = shortcutTotals(
+        scoped.value,
+        SHORTCUTS.map((one) => one.preset),
+    );
+    return SHORTCUTS.map((one, index) => ({
         ...one,
         description: one.id === 'game-income' ? '游戏内 · 手动产出' : one.hint,
-        total: shortcutTotal(scoped.value, one.preset),
-    })),
-);
+        total: totals[index],
+    }));
+});
 const recent = computed(() => newestFirst(scoped.value).slice(0, 8));
 const editing = ref<{ entry?: AccountEntry; seed?: Partial<EntryInput> } | null>(null);
 const recordsOpen = ref(false);

@@ -295,19 +295,14 @@ export default async function run(ctx) {
             })()`);
             t.check('普通与月度活动的暗色配方均能命中，整页无图标滤镜', darkWash);
 
-            const added = await cdp.evaluate(`(async () => {
-                const card = [...document.querySelectorAll('.card')].find(
-                    (one) => one.querySelector('.name')?.textContent?.trim() === '科举大赛',
-                );
-                if (!card) return '没有科举大赛这张卡';
-                card.click();
-                await new Promise((resolve) => setTimeout(resolve, 350));
-                const button = [...document.querySelectorAll('.modal-foot .press-btn')].find(
-                    (one) => one.textContent.includes('加提醒'),
-                );
-                if (!button) return '弹窗里没有加提醒按钮';
-                button.click();
-                await new Promise((resolve) => setTimeout(resolve, 450));
+            await ui.markFirst(`() => [...document.querySelectorAll('.card')].find(
+                (one) => one.querySelector('.name')?.textContent?.trim() === '科举大赛',
+            )`);
+            await cdp.click('[data-e2e="1"]');
+            await ui.waitFor('!!document.querySelector(".modal-panel")');
+            await ui.clickLabel('加进闹钟');
+            await ui.waitFor('!document.querySelector(".modal-panel")');
+            const added = await cdp.evaluate(`(() => {
                 const after = [...document.querySelectorAll('.card')].find(
                     (one) => one.querySelector('.name')?.textContent?.trim() === '科举大赛',
                 );
