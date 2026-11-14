@@ -300,7 +300,7 @@ function normalizeTrainings(raw: unknown): TrainingGroup[] {
  *
  * 上一版表单是一个自由多行的「副题」，一行为一条：`['陕西区 · 大雁塔', '帮派 大唐芙蓉园',
  * '今天 14:48']`。老数据还在 `localStorage` 里，直接不看它会让人以为「改版把区服弄丢了」。
- * 第三行（更新时间）没有对应字段，也不要——它是手抄的，现在连入口都没有。
+ * 第三行是手抄的时间，不用它推断自动保存的 updatedAt。
  */
 function legacyLines(character: Record<string, unknown>, key: string, index: number): string {
     const own = text(character[key]);
@@ -318,10 +318,12 @@ function legacyLines(character: Record<string, unknown>, key: string, index: num
 export function normalizeCharacter(raw: unknown): CharacterData {
     const character = isObject(raw) ? raw : {};
     const id = text(character.id) || makeId('char');
+    const updatedAt = int(character.updatedAt);
     const gearMeta = isObject(character.gearMeta) ? character.gearMeta : {};
 
     return {
         id,
+        ...(updatedAt > 0 && updatedAt <= 8.64e15 ? { updatedAt } : {}),
         name: text(character.name),
         level: int(character.level),
         school: text(character.school),
@@ -514,7 +516,7 @@ export function useRoster() {
     /** 新增。返回新角色的 id，调用方拿它决定要不要接着打开编辑器。 */
     function add(character: CharacterData) {
         if (!canWriteRoster()) return character.id;
-        roster.value = [...roster.value, character];
+        roster.value = [...roster.value, { ...character, updatedAt: Date.now() }];
         persist();
         return character.id;
     }
@@ -522,7 +524,10 @@ export function useRoster() {
     /** 修改：按 id 整条替换。编辑器改的是一份草稿副本，走到这里才算落账。 */
     function update(character: CharacterData) {
         if (!canWriteRoster()) return;
-        roster.value = roster.value.map((item) => (item.id === character.id ? character : item));
+        const updatedAt = Date.now();
+        roster.value = roster.value.map((item) =>
+            item.id === character.id ? { ...character, updatedAt } : item,
+        );
         persist();
     }
 

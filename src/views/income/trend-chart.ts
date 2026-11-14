@@ -1,22 +1,5 @@
-/**
- * 每日趋势折线：入参进、路径出，不碰 Vue、不碰 DOM。
- *
- * 与 `prices/price-chart-path.ts` 同一条分工（组件答「什么时候画」，这里答「画成什么样」），
- * 但解决的问题不同，所以没有复用那个函数：
- *
- * ---- 与价格走势图的三处差别 ----
- * 1. **横轴是日期等距，不是记录序号**：这里的每个点就是一天（空白的那天补 0），
- *    所以横轴均匀分格即可，不存在「按日期比例画会留半张空白」的问题。
- * 2. **多条线**：每个角色一条。价格图只有一条线，配色只有「涨/跌」两种；
- *    这里按角色序号取色（色实在 `.vue` 里，这一层只给 `index`）。
- * 3. **读数可能是负的**（收益扣掉支出后为负）：纵轴下界因此可以到 0 以下，
- *    并且**一定含 0**——不含 0 的折线图会让「从 0 涨到 2 万」和「从 1.9 万涨到 2 万」
- *    长得一模一样，而这两件事差得很远。
- *
- * ---- 尺寸同样实测传入 ----
- * 不用固定 `viewBox` + 等比缩放：原因写在 `price-chart-path.ts` 文件头（圆点会被拉成椭圆）。
- * 1 用户单位 = 1 像素，所以这里的常量都是屏幕像素。
- */
+/** 每日分组柱图的坐标与数据派生；比例和悬停位置均按日期槽计算。 */
+import { columnGeometry, type ChartColumnGeometry } from '../../components/chart-columns';
 import { integerAxis } from '../../components/chart-axis';
 import { ledgerMoneyText, shortDate } from '../../services/format';
 import { totalsOf, type IncomeEntry } from './income';
@@ -34,8 +17,7 @@ export interface TrendLine {
     name: string;
     /** 取色用（`--series-1` … `--series-6`）。 */
     index: number;
-    path: string;
-    points: { x: number; y: number; value: number }[];
+    points: { x: number; y: number; value: number; column: ChartColumnGeometry }[];
     last: { x: number; y: number };
     /** 最后一天的值（读屏摘要里要说）。 */
     lastValue: number;
@@ -61,7 +43,7 @@ export interface TrendPlot {
 }
 
 export interface TrendGeometry {
-    /** 一条有意义的线都没有：调用方画空状态，不要画一张什么都没有的图。 */
+    /** 没有有效系列或全部为零：调用方画空状态，不要画一张什么都没有的图。 */
     empty: boolean;
     lines: TrendLine[];
     guides: TrendGuide[];
@@ -72,7 +54,7 @@ export interface TrendGeometry {
     height: number;
 }
 
-/** 刻度、日期与末端圆点留足纸面，避免贴边。 */
+/** 刻度、日期与柱体侧面留足纸面，避免贴边。 */
 const PAD = { left: 62, right: 18, top: 18, bottom: 30 };
 
 /** 两个日期刻度之间的最小间距（px）。14 天挤在一张 500 宽的图里时全靠它分批。 */
@@ -143,7 +125,7 @@ export function buildTrendChart(input: {
         height: Math.max(10, height - PAD.top - PAD.bottom),
     };
 
-    /* 全 0 也是空：一条贴着 0 的平线读起来像「图画砸了」，而事实是那几天什么都没记。 */
+    /* 全零不画柱面，沿用业务页的空态口径。 */
     if (!labels.length || !series.length || values.every((value) => value === 0)) {
         return { empty: true, lines: [], guides: [], ticks: [], plot, width, height };
     }
@@ -151,27 +133,22 @@ export function buildTrendChart(input: {
     const lo = axis.min;
     const hi = axis.max;
 
-    const last = labels.length - 1;
-    const xOf = (index: number): number =>
-        labels.length === 1 ? plot.left + plot.width / 2 : plot.left + (index / last) * plot.width;
+    const slot = plot.width / labels.length;
+    const xOf = (index: number): number => plot.left + (index + 0.5) * slot;
     const yOf = (value: number): number => plot.top + (1 - (value - lo) / (hi - lo)) * plot.height;
 
     const lines: TrendLine[] = series.map((one, index) => {
-        const points = one.values.map(
-            (value, i) => `${i === 0 ? 'M' : 'L'}${xOf(i).toFixed(1)} ${yOf(value).toFixed(1)}`,
-        );
         const final = one.values[one.values.length - 1];
         return {
             id: one.id,
             name: one.name,
             index: one.colorIndex ?? index,
-            /* 只有一天时两个端点都在同一 x 上，画出来是零长的线（什么都看不见）。
-             * 那种情况极罕见（图表范围最少也是七天），但路径不能是空的。 */
-            path:
-                points.length === 1
-                    ? `M${xOf(0)} ${yOf(one.values[0])} L${xOf(0)} ${yOf(one.values[0])}`
-                    : points.join(' '),
-            points: one.values.map((value, index) => ({ x: xOf(index), y: yOf(value), value })),
+            points: one.values.map((value, i) => ({
+                x: xOf(i),
+                y: yOf(value),
+                value,
+                column: columnGeometry(xOf(i), yOf(value), yOf(0), slot, series.length, index),
+            })),
             last: { x: xOf(one.values.length - 1), y: yOf(final) },
             lastValue: final,
         };
@@ -214,10 +191,12 @@ function buildTicks(
     const ticks: TrendTick[] = [];
     for (let index = last; index >= 0; index -= 1) {
         const x = xOf(index);
+        const text = formatDate(labels[index]);
+        if (ticks.some((one) => one.text === text)) continue;
         if (ticks.some((one) => Math.abs(one.x - x) < TICK_GAP)) continue;
         ticks.push({
             x,
-            text: formatDate(labels[index]),
+            text,
             anchor: index === last ? 'end' : index === 0 ? 'start' : 'middle',
         });
     }
@@ -229,7 +208,7 @@ function buildTicks(
  *
  * 与 `accounts/daily-sync.ts` 里私有那个 `netByCharacter` 是同一条口径（都走 `totalsOf`），
  * 但那个一次只算一天、是给「写账号」用的；这里要的是整张表，给图用。
- * **两边都必须用 `totalsOf`**：收益图上的线、账号里那一笔、统计条上的净额若各算一次，
+ * **两边都必须用 `totalsOf`**：收益图的数、账号里那一笔、统计条上的净额若各算一次，
  * 迟早会有一个对不上。
  */
 export function netByDay(entries: readonly IncomeEntry[]): Map<string, number> {
@@ -257,11 +236,6 @@ export function trendSeriesOf(
     });
 }
 
-export function trendDash(index: number): string | undefined {
-    const group = Math.floor(index / 6);
-    return group === 0 ? undefined : `${group * 2 + 2} 3`;
-}
-
 /** 绘图区内按横坐标选最近日期，轴标签区不触发明细。 */
 export function trendIndexAt(plot: TrendPlot, count: number, x: number): number | null {
     if (
@@ -273,8 +247,5 @@ export function trendIndexAt(plot: TrendPlot, count: number, x: number): number 
     )
         return null;
     if (count === 1) return 0;
-    return Math.max(
-        0,
-        Math.min(count - 1, Math.round(((x - plot.left) / plot.width) * (count - 1))),
-    );
+    return Math.max(0, Math.min(count - 1, Math.floor(((x - plot.left) / plot.width) * count)));
 }

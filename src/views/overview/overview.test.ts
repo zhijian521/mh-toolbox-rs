@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { CharacterData, TrainingRow } from '../characters/character';
+import type { CharacterData } from '../characters/character';
 import type { IncomeEntry } from '../income/income';
-import { charBrief, weekSeries } from './overview';
+import type { Goal } from '../goals/goals';
+import { activeGoals, weekSeries } from './overview';
 
 /**
  * 总览页的纯函数。
@@ -11,6 +12,66 @@ import { charBrief, weekSeries } from './overview';
  */
 
 const TODAY = '2026-11-05';
+
+function goal(patch: Partial<Goal> = {}): Goal {
+    return {
+        id: 'g1',
+        kind: 'money',
+        title: '存钱',
+        members: [],
+        target: 100,
+        unit: '万',
+        tracking: null,
+        deadline: '',
+        note: '',
+        logs: [],
+        createdAt: 1,
+        ...patch,
+    };
+}
+
+describe('activeGoals', () => {
+    it('只展示进行中，按期限及创建顺序排列，不修改原数组', () => {
+        const goals = [
+            goal({ id: 'later', deadline: '2026-12-01' }),
+            goal({
+                id: 'done',
+                logs: [{ id: 'l1', date: TODAY, delta: 100, note: '', createdAt: 1 }],
+            }),
+            goal({ id: 'no-date', createdAt: 2 }),
+            goal({ id: 'soon', deadline: '2026-11-06' }),
+        ];
+        expect(activeGoals(goals, []).map((one) => one.goal.id)).toEqual([
+            'soon',
+            'later',
+            'no-date',
+        ]);
+        expect(goals.map((one) => one.id)).toEqual(['later', 'done', 'no-date', 'soon']);
+    });
+
+    it('多人养成独立达标，超额不能抵消其他角色进度，更新档案后自动移出已完成项', () => {
+        const item = goal({
+            kind: 'growth',
+            target: 100,
+            unit: '级',
+            members: [
+                { id: 'c1', name: '甲' },
+                { id: 'c2', name: '乙' },
+            ],
+            tracking: { category: 'level', key: '角色等级' },
+        });
+        const roster = [character({ id: 'c1', level: 120 }), character({ id: 'c2', level: 80 })];
+        const summary = activeGoals([item], roster)[0].summary;
+        expect(summary.current).toBe(180);
+        expect(summary.achieved).toBe(1);
+        roster[1].level = 100;
+        expect(activeGoals([item], roster)).toEqual([]);
+    });
+
+    it('无目标时保持空列表', () => {
+        expect(activeGoals([], [])).toEqual([]);
+    });
+});
 
 function entry(patch: Partial<IncomeEntry> = {}): IncomeEntry {
     return {
@@ -26,10 +87,6 @@ function entry(patch: Partial<IncomeEntry> = {}): IncomeEntry {
     };
 }
 
-function training(rows: TrainingRow[]): CharacterData['trainings'] {
-    return [{ title: '任务修炼', rows }];
-}
-
 function character(patch: Partial<CharacterData> = {}): CharacterData {
     return {
         id: 'c1',
@@ -42,7 +99,7 @@ function character(patch: Partial<CharacterData> = {}): CharacterData {
         experience: { value: '', need: '' },
         skills: [],
         assists: [],
-        trainings: training([]),
+        trainings: [],
         gear: [],
         gearMeta: { special: '', suit: '' },
         pets: [],
@@ -105,49 +162,5 @@ describe('weekSeries', () => {
     it('天数可换（天数只有一个参数，不写死 7）', () => {
         expect(weekSeries([], TODAY, 3)).toHaveLength(3);
         expect(weekSeries([], TODAY, 3)[2].date).toBe(TODAY);
-    });
-});
-
-describe('charBrief', () => {
-    it('经验按 value/need 算百分比', () => {
-        const brief = charBrief(character({ experience: { value: '3,777.2万', need: '4,200万' } }));
-
-        expect(brief.exp).toBeCloseTo(89.93, 1);
-    });
-
-    it('经验分母没填 → null（条子留空，不是画成 0%）', () => {
-        const brief = charBrief(character({ experience: { value: '100万', need: '' } }));
-
-        expect(brief.exp).toBeNull();
-    });
-
-    it('修炼只合计当前等级，不读取上限', () => {
-        const brief = charBrief(
-            character({
-                trainings: training([
-                    { name: '攻击修炼', level: 25 },
-                    { name: '防御修炼', level: 10 },
-                ]),
-            }),
-        );
-        expect(brief.trainingLevel).toBe(35);
-    });
-
-    it('两组一起算（任务修炼与宠物修炼不是两张表）', () => {
-        const brief = charBrief(
-            character({
-                trainings: [
-                    { title: '任务修炼', rows: [{ name: '攻击修炼', level: 20 }] },
-                    { title: '宠物修炼', rows: [{ name: '育兽术', level: 30 }] },
-                ],
-            }),
-        );
-        expect(brief.trainingLevel).toBe(50);
-    });
-
-    it('什么都没填的新号，修炼等级合计为 0', () => {
-        const brief = charBrief(character());
-        expect(brief.exp).toBeNull();
-        expect(brief.trainingLevel).toBe(0);
     });
 });

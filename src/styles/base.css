@@ -1073,9 +1073,19 @@ svg {
     box-shadow: var(--chart-panel-shadow);
 }
 .chart-surface {
+    position: relative;
     border-radius: var(--r-2);
     background: var(--chart-surface-bg);
+}
+/* 边沿在内容上层收口，避免固定纵轴的实色背景盖住左侧内影。 */
+.chart-surface::after {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    border-radius: inherit;
     box-shadow: var(--chart-surface-shadow);
+    pointer-events: none;
 }
 .chart-legend-shelf {
     margin: 8px -8px -8px;

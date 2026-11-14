@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
     buildTrendChart,
     netByDay,
-    trendDash,
     trendIndexAt,
     trendSeriesOf,
     trendValueText,
@@ -10,7 +9,7 @@ import {
 import type { IncomeEntry } from './income';
 
 /**
- * 每日趋势折线：只测纯函数。
+ * 每日趋势柱图：只测纯函数。
  *
  * 盯的是**「图在骗人」**那一类错——数算错了会报错或在别处露馅，图画歪了没人发现：
  * 下界不含 0 时两条完全不同的走势长得一样；全 0 时画一张贴底的平线像图画砸了；
@@ -39,7 +38,7 @@ describe('趋势角色与样式', () => {
         expect(series[0].values).toEqual([0, 0, 60]);
     });
 
-    it('两张图过滤不同空线后，同一角色仍用相同颜色与线型', () => {
+    it('两张图过滤不同空系列后，同一角色仍用相同颜色与柱面纹理', () => {
         const minutes = trendSeriesOf(LABELS, new Map([['2026-11-07|c7', 60]]), actors);
         const income = trendSeriesOf(
             LABELS,
@@ -60,8 +59,8 @@ describe('趋势角色与样式', () => {
         const left = chart(minutes).lines.find((one) => one.id === 'c7')!;
         const right = chart(income).lines.find((one) => one.id === 'c7')!;
         expect(left.index).toBe(right.index);
-        expect(trendDash(left.index)).toBe(trendDash(right.index));
-        expect(trendDash(left.index)).not.toBe(trendDash(1));
+        expect(Math.floor(left.index / 6)).toBe(Math.floor(right.index / 6));
+        expect(Math.floor(left.index / 6)).toBeGreaterThan(0);
     });
 
     it('八个角色都有数据时全部保留', () => {
@@ -105,7 +104,7 @@ describe('趋势图：几何', () => {
         expect(zeros.empty).toBe(true);
     });
 
-    it('长度对不上日期的那条线直接丢掉（会画歪整张图）', () => {
+    it('长度对不上日期的那组柱直接丢掉（会画歪整张图）', () => {
         const chart = buildTrendChart({
             width: 500,
             height: 168,
@@ -142,11 +141,21 @@ describe('趋势图：几何', () => {
             kind: 'money',
         });
         /* 三个点都在图里（没有 NaN、没有跑到框外）。 */
-        expect(chart.lines[0].path).not.toContain('NaN');
+        expect(
+            chart.lines[0].points.every((point) =>
+                [
+                    point.column.x,
+                    point.column.y,
+                    point.column.width,
+                    point.column.height,
+                    point.column.depth,
+                ].every(Number.isFinite),
+            ),
+        ).toBe(true);
         expect(chart.lines[0].last.y).toBeGreaterThan(chart.plot.top);
     });
 
-    it('收益全负时仍保留零刻度，曲线不被负值上界裁掉', () => {
+    it('收益全负时仍保留零刻度，柱体不被负值上界裁掉', () => {
         const chart = buildTrendChart({
             width: 500,
             height: 192,
@@ -160,7 +169,7 @@ describe('趋势图：几何', () => {
         expect(chart.lines[0].last.y).toBeLessThan(chart.plot.top + chart.plot.height);
     });
 
-    it('正负收益穿过零刻度，两边与末日圆点留在绘图区内', () => {
+    it('正负收益穿过零刻度，两边与末日柱体留在绘图区内', () => {
         const chart = buildTrendChart({
             width: 220,
             height: 192,
@@ -172,14 +181,24 @@ describe('趋势图：几何', () => {
         expect(zero.y).toBeGreaterThan(chart.plot.top);
         expect(zero.y).toBeLessThan(chart.plot.top + chart.plot.height);
         expect(chart.lines[0].last.x).toBeLessThan(chart.width - 3);
-        expect(chart.lines[0].path).not.toContain('NaN');
+        expect(
+            chart.lines[0].points.every((point) =>
+                [
+                    point.column.x,
+                    point.column.y,
+                    point.column.width,
+                    point.column.height,
+                    point.column.depth,
+                ].every(Number.isFinite),
+            ),
+        ).toBe(true);
         const tickXs = chart.ticks.map((tick) => tick.x);
         for (let i = 1; i < tickXs.length; i += 1) {
             expect(tickXs[i] - tickXs[i - 1]).toBeGreaterThanOrEqual(56);
         }
     });
 
-    it('一天一个点也能出路径（不能是空字符串）', () => {
+    it('一天一条记录也能画出一根柱体', () => {
         const chart = buildTrendChart({
             width: 500,
             height: 168,
@@ -187,8 +206,8 @@ describe('趋势图：几何', () => {
             series: [series([300])],
             kind: 'minutes',
         });
-        expect(chart.lines[0].path.startsWith('M')).toBe(true);
-        expect(chart.lines[0].path.includes('L')).toBe(true);
+        expect(chart.lines[0].points[0].column.width).toBeGreaterThan(0);
+        expect(chart.lines[0].points[0].column.height).toBeGreaterThan(0);
         expect(chart.ticks).toHaveLength(1);
         expect(chart.ticks[0].anchor).toBe('middle');
     });
@@ -249,6 +268,19 @@ describe('趋势图：几何', () => {
     });
 });
 
+it('同日多次记价保留独立柱体，横轴日期不重复堆叠', () => {
+    const chart = buildTrendChart({
+        width: 500,
+        height: 180,
+        labels: ['2026-11-05', '2026-11-05', '2026-11-05'],
+        series: [series([10000, 20000, 15000])],
+        kind: 'money',
+    });
+    expect(chart.lines[0].points).toHaveLength(3);
+    expect(new Set(chart.lines[0].points.map((one) => one.column.x)).size).toBe(3);
+    expect(chart.ticks.map((one) => one.text)).toEqual(['11-05']);
+});
+
 describe('趋势图：每日净额', () => {
     function entry(patch: Partial<IncomeEntry> = {}): IncomeEntry {
         return {
@@ -286,10 +318,10 @@ describe('趋势图：每日净额', () => {
 
 describe('趋势图悬停定位', () => {
     const plot = { left: 60, top: 18, width: 240, height: 140 };
-    it('按最近日期吸附，并包含左右端点', () => {
+    it('按日期槽吸附，并包含左右端点', () => {
         expect(trendIndexAt(plot, 3, 60)).toBe(0);
-        expect(trendIndexAt(plot, 3, 119)).toBe(0);
-        expect(trendIndexAt(plot, 3, 121)).toBe(1);
+        expect(trendIndexAt(plot, 3, 139)).toBe(0);
+        expect(trendIndexAt(plot, 3, 141)).toBe(1);
         expect(trendIndexAt(plot, 3, 300)).toBe(2);
     });
     it('轴外、空图、无效横坐标不产生明细，单日仍可查看', () => {
@@ -311,11 +343,11 @@ describe('趋势图悬停定位', () => {
         expect(chart.lines[0].points.map((point) => point.value)).toEqual([-20000, 0, 30000]);
         expect(chart.lines[1].points.map((point) => point.value)).toEqual([10000, 20000, 5000]);
         for (const line of chart.lines) {
-            expect(line.points.map((point) => point.x)).toEqual([
-                chart.plot.left,
-                chart.plot.left + chart.plot.width / 2,
-                chart.plot.left + chart.plot.width,
-            ]);
+            line.points.forEach((point, index) => {
+                expect(point.x).toBeCloseTo(
+                    chart.plot.left + ((index + 0.5) * chart.plot.width) / 3,
+                );
+            });
             expect(line.points[2]).toMatchObject(line.last);
         }
         expect(chart.lines[0].points[0].y).toBeGreaterThan(chart.lines[0].points[1].y);

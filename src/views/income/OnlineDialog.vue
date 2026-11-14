@@ -20,6 +20,7 @@ const props = defineProps<{
     mode: 'start' | 'backfill' | 'edit';
 
     session?: OnlineSession;
+    characterIds?: string[];
 }>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -38,9 +39,23 @@ function close() {
 
 const editing = computed(() => props.mode === 'edit');
 
+const busyIds = computed(() => {
+    const busy = new Set<string>();
+    for (const one of useOnline().sessions.value) {
+        if (one.endAt !== null) continue;
+        for (const id of ownersOf(one)) busy.add(id);
+    }
+    return busy;
+});
+
 function baseIds(): string[] {
     const one = props.session;
-    if (!one) return [];
+    if (!one)
+        return (props.characterIds ?? []).filter(
+            (id) =>
+                roster.value.some((character) => character.id === id) &&
+                (props.mode !== 'start' || !busyIds.value.has(id)),
+        );
 
     return ownersOf(one);
 }
@@ -59,15 +74,6 @@ const date = ref(initial.date);
 const startTime = ref(initial.startTime);
 const endTime = ref(initial.endTime);
 const note = ref(props.session?.note ?? '');
-
-const busyIds = computed(() => {
-    const busy = new Set<string>();
-    for (const one of useOnline().sessions.value) {
-        if (one.endAt !== null) continue;
-        for (const id of ownersOf(one)) busy.add(id);
-    }
-    return busy;
-});
 
 const options = computed(() =>
     characterOptions(roster.value, baseIds()).map((one) => ({

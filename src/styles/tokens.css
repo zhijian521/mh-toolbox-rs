@@ -776,25 +776,21 @@
     --chart-surface-shadow:
         inset 0 2px 3px var(--shadow-lg), inset 1px 0 1px var(--shadow), inset -1px 0 0 var(--rule),
         inset 0 -1px 0 var(--bevel-hi);
-    --chart-line-shadow: drop-shadow(0 2px 1.5px var(--shadow));
-    --chart-point-shadow: drop-shadow(0 2px 0 var(--shadow)) drop-shadow(0 3px 2px var(--shadow-lg));
-}
-.chart-series,
-.chart-marker {
-    --chart-line-shade: color-mix(in srgb, var(--chart-color) 74%, var(--ink-base));
-    --chart-line-gleam: color-mix(in srgb, var(--chart-color) 45%, var(--bevel-hi));
 }
 .chart-bar-face {
     --chart-depth: 6px;
+    --chart-front-light: color-mix(in srgb, var(--chart-color) 66%, var(--bevel-hi));
+    --chart-front-dark: color-mix(in srgb, var(--chart-color) 88%, var(--bevel-lo));
     --chart-front: linear-gradient(
         90deg,
-        color-mix(in srgb, var(--chart-color) 66%, var(--bevel-hi)),
+        var(--chart-front-light),
         var(--chart-color) 38%,
-        color-mix(in srgb, var(--chart-color) 88%, var(--bevel-lo))
+        var(--chart-front-dark)
     );
     --chart-side: color-mix(in srgb, var(--chart-color) 78%, var(--ink-base));
     --chart-top: color-mix(in srgb, var(--chart-color) 58%, var(--bevel-hi));
     --chart-bar-shadow: inset 1px 0 0 var(--bevel-hi), 4px 3px 4px var(--shadow-lg);
+    --chart-column-shadow: drop-shadow(2px 3px 2px var(--shadow-lg));
 }
 .press-tile {
     --press-color: var(--tile-face, color-mix(in srgb, var(--paper) 92%, transparent));

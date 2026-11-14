@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import SaveNotice from '../components/SaveNotice.vue';
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import { useRouteAction } from '../composables/use-route-action';
 import PageShell from '../components/PageShell.vue';
 import PressButton from '../components/PressButton.vue';
 import { usePersistedSubmit } from '../composables/use-persisted-submit';
@@ -9,7 +11,7 @@ import CharacterCard from './characters/CharacterCard.vue';
 import CharacterEditor from './characters/CharacterEditor.vue';
 import QuickEdit from './characters/quick/QuickEdit.vue';
 import type { QuickTarget } from './characters/quick/quick-target';
-import type { CharacterData, PaneKey } from './characters/character';
+import { PANES, type CharacterData, type PaneKey } from './characters/character';
 import { emptyCharacter, useRoster } from './characters/roster';
 import { goalsOfCharacter } from './goals/goals-store';
 import { gameDataError, gameDataLoading, gameDataReady, loadGameData } from '../services/game-data';
@@ -35,6 +37,19 @@ import { gameDataError, gameDataLoading, gameDataReady, loadGameData } from '../
  * 页头高度才重新由令牌说了算。
  */
 const { roster, loadError, writeError, pending, flush, retry, add, update, remove } = useRoster();
+const route = useRoute();
+watch(
+    () => route.query.character,
+    async (id) => {
+        if (typeof id !== 'string') return;
+        await nextTick();
+        const card = document.getElementById('character-' + id);
+        if (!card) return;
+        card.scrollIntoView({ block: 'start', inline: 'nearest' });
+        card.focus({ preventScroll: true });
+    },
+    { immediate: true, flush: 'post' },
+);
 const submission = usePersistedSubmit(flush, retry);
 const { saving, locked, action } = submission;
 const removal = useConfirmedRemoval(
@@ -154,6 +169,14 @@ const desc = computed(() =>
         ? `${roster.value.length} 个角色 · 存在本机`
         : '还没有角色 · 点下面那一格开始',
 );
+useRouteAction({
+    new: startNew,
+    edit(query) {
+        const character = roster.value.find((one) => one.id === query.character);
+        const pane = PANES.find((one) => one.key === query.pane)?.key ?? 'attrs';
+        if (character) openEditor(character, pane);
+    },
+});
 </script>
 
 <template>
@@ -206,6 +229,7 @@ const desc = computed(() =>
                 v-for="character in roster"
                 :key="character.id"
                 :character="character"
+                :class="{ 'is-linked': route.query.character === character.id }"
                 :quick="!editingDisabled"
                 :disabled="editingDisabled"
                 @edit="(pane) => openEditor(character, pane)"
@@ -270,6 +294,12 @@ const desc = computed(() =>
      * 角色页的几张卡「更松一点」，却说不出为什么。 */
     gap: 16px;
     width: 100%;
+}
+
+.roster :deep(.char.is-linked) {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    scroll-margin: 12px;
 }
 
 .char-blank {

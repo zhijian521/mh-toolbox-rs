@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useRouteAction } from '../../composables/use-route-action';
 import { computed, ref } from 'vue';
 import SaveNotice from '../../components/SaveNotice.vue';
 import PageShell from '../../components/PageShell.vue';
@@ -308,6 +309,17 @@ async function dropLog(logId: string) {
         () => removeLog(goal.id, logId),
     );
 }
+useRouteAction({
+    new() {
+        openEditor();
+    },
+    update(query) {
+        const goal = goals.value.find((one) => one.id === query.goal);
+        if (!goal) return;
+        if (goal.tracking) openGrowth(goal);
+        else openLogs(goal);
+    },
+});
 </script>
 
 <template>

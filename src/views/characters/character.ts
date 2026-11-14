@@ -200,6 +200,8 @@ export function findTrainingRow(character: CharacterData, name: string): Trainin
 
 export interface CharacterData {
     id: string;
+    /** 最近一次新增或修改的毫秒时间戳；旧档未知时缺省。 */
+    updatedAt?: number;
     name: string;
     level: number;
     school: string;
@@ -209,7 +211,7 @@ export interface CharacterData {
      * 上一版是一个自由的多行「副题」（`subs: string[]`，一行一条：区服 / 帮派 / 更新时间）。
      * 用户 2026-11-03 要求表单只收「区服 + 帮派」，于是把位置固化成两个字段——
      * 数组的玩法是「想记几条记几条」，而这两格是**游戏里就有的两项**，位置固定（§2.4-29
-     * 的判据：数据是不是游戏给的）。更新时间没有入口了，随之删掉。
+     * 的判据：数据是不是游戏给的）。手抄时间不作为自动保存的更新时间。
      */
     server: string;
     guild: string;

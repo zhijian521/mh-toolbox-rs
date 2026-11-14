@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import SaveNotice from '../../components/SaveNotice.vue';
+import { useRouteAction } from '../../composables/use-route-action';
 import { computed, ref } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
 import PageShell from '../../components/PageShell.vue';
@@ -315,6 +316,7 @@ async function askRemovePoint(point: PricePoint) {
 function openHistory(item: PriceItem) {
     historyId.value = item.id;
 }
+useRouteAction({ new: startNew });
 </script>
 
 <template>

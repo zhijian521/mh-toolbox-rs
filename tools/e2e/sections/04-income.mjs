@@ -937,51 +937,61 @@ export default async function run(ctx) {
                     head: (block.querySelector('h3')?.textContent || '').trim(),
                     drawn: !!block.querySelector('svg.chart-svg'),
                     panel: !!block.querySelector('.chart-panel > .chart-surface'),
+                    edge: (() => {
+                        const surface = block.querySelector('.chart-surface');
+                        if (!surface) return false;
+                        const frame = getComputedStyle(surface, '::after');
+                        return frame.content !== 'none' && frame.boxShadow !== 'none'
+                            && Number(frame.zIndex) > 0 && frame.pointerEvents === 'none';
+                    })(),
                     shelf: !!block.querySelector('.chart-panel > .chart-legend-shelf'),
                     raised: (() => {
-                        const line = block.querySelector('.chart-line');
-                        const point = block.querySelector('.chart-dot');
-                        const layers = block.querySelectorAll('.chart-series');
-                        return !!line && !!point && getComputedStyle(line).filter !== 'none' && getComputedStyle(point).filter !== 'none'
-                            && [...layers].every((one) => one.querySelector('.chart-line-depth') && one.querySelector('.chart-line-glint')
-                                && one.querySelectorAll('path').length === 3);
+                        const columns = [...block.querySelectorAll('.chart-column')];
+                        return columns.length > 0 && columns.every((one) => getComputedStyle(one).filter !== 'none'
+                            && one.querySelector('.column-front') && one.querySelector('.column-side') && one.querySelector('.column-cap'));
                     })(),
-                    lines: block.querySelectorAll('path.chart-line').length,
+                    series: block.querySelectorAll('.chart-series').length,
+                    bars: block.querySelectorAll('.chart-column').length,
                     legendValues: [...block.querySelectorAll('.legend-value')].map((el) => el.textContent.trim()),
                 }));
             })()`);
             t.check('两张走势图都在', charts.length === 2, `实际 ${charts.length} 张`);
             t.check(
+                '绘图区立体边沿覆盖在固定纵轴之上且不拦截操作',
+                charts.every((one) => one.edge),
+            );
+            t.check(
                 '走势图使用完整底板，图例位于底板内',
                 charts.every((one) => one.panel && (!one.drawn || one.shelf)),
             );
             t.check(
-                '有数据的折线与末日标记使用立体材质',
+                '有数据的柱体具有正面、侧面和顶面',
                 charts.filter((one) => one.drawn).every((one) => one.raised),
             );
             t.check(
-                '「每日在线时长」按号画出线来（不是一句空态）',
-                charts[0]?.drawn === true && charts[0]?.lines > 0,
+                '「每日在线时长」按号画出柱体（不是一句空态）',
+                charts[0]?.drawn === true && charts[0]?.series > 0 && charts[0]?.bars > 0,
                 JSON.stringify(charts[0]),
             );
             t.check(
-                '每条时长曲线的图例都显示末日数值',
-                charts[0]?.legendValues.length === charts[0]?.lines &&
+                '每条时长柱组的图例都显示末日数值',
+                charts[0]?.legendValues.length === charts[0]?.series &&
                     charts[0]?.legendValues.every((value) => /\d/.test(value)),
                 JSON.stringify(charts[0]?.legendValues),
             );
         });
 
-        await t.step('折线悬停日期明细、键盘切换与关闭', async () => {
+        await t.step('柱图悬停日期明细、键盘切换与关闭', async () => {
             const point = await cdp.evaluate(`(() => {
                 const svg = document.querySelector('.chart-block .chart-svg');
                 if (!svg) return null;
                 svg.scrollIntoView({ block: 'center' });
                 const box = svg.getBoundingClientRect();
+                const viewport = svg.closest('.chart-scroll').getBoundingClientRect();
                 const guides = [...svg.querySelectorAll('.chart-guides line')];
                 const first = guides[0];
                 const last = guides[guides.length - 1];
-                return { x: box.left + (Number(first.getAttribute('x1')) + Number(first.getAttribute('x2'))) / 2,
+                return { x: viewport.left + viewport.width / 2,
                     y: box.top + (Number(first.getAttribute('y1')) + Number(last.getAttribute('y1'))) / 2 };
             })()`);
             if (!point) throw new Error('缺少用于悬停的时长图');
@@ -1048,7 +1058,7 @@ export default async function run(ctx) {
             await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape' });
             await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape' });
             t.check(
-                'Esc 收起折线明细',
+                'Esc 收起柱图明细',
                 await cdp.waitFor("!document.querySelector('.chart-tooltip')", { timeout: 2000 }),
             );
             await cdp.evaluate("document.querySelector('.chart-block .chart-svg').blur()");

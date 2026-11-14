@@ -478,3 +478,53 @@ describe('空库：不塞种子、不写库', () => {
         expect(desktop.charactersSave).not.toHaveBeenCalled();
     });
 });
+
+describe('角色更新时间', () => {
+    it('旧档及无效时间保持未知，合法时间能随名册往返', () => {
+        for (const updatedAt of [undefined, null, 0, -1, NaN, Infinity, '1700000000000', 9e15]) {
+            expect(normalizeCharacter({ id: 'old', updatedAt }).updatedAt).toBeUndefined();
+        }
+        const saved = normalizeCharacter({ id: 'known', updatedAt: 1700000000123 });
+        expect(parseRoster(serializeRoster([saved]))?.[0].updatedAt).toBe(1700000000123);
+    });
+
+    it('只在新增或修改时记录时间，读取与重试不刷新，也不修改原草稿', async () => {
+        vi.resetModules();
+        const desktop = {
+            hasDesktop: () => true,
+            charactersLoad: vi.fn(async () => [{ id: 'old', name: '旧角色' }]),
+            charactersSave: vi.fn(async () => true),
+        };
+        vi.doMock('../../services/desktop', () => desktop);
+        vi.doMock('../../services/storage', () => desktop);
+        await import('../../services/game-data.fixture');
+        const store = await import('./roster');
+        await store.loadRoster();
+        const roster = store.useRoster();
+        expect(roster.roster.value[0].updatedAt).toBeUndefined();
+        const clock = vi.spyOn(Date, 'now').mockReturnValue(1800000000000);
+        try {
+            const draft = store.emptyCharacter();
+            roster.add(draft);
+            await roster.flush();
+            expect(roster.roster.value.find((one) => one.id === draft.id)?.updatedAt).toBe(
+                1800000000000,
+            );
+            expect(draft.updatedAt).toBeUndefined();
+            clock.mockReturnValue(1800000001000);
+            roster.update({ ...draft, name: '新名字' });
+            await roster.flush();
+            const updated = roster.roster.value.find((one) => one.id === draft.id);
+            expect(updated?.name).toBe('新名字');
+            expect(updated?.updatedAt).toBe(1800000001000);
+            clock.mockReturnValue(1800000002000);
+            await roster.retry();
+            expect(roster.roster.value.find((one) => one.id === draft.id)?.updatedAt).toBe(
+                1800000001000,
+            );
+            expect(roster.roster.value[0].updatedAt).toBeUndefined();
+        } finally {
+            clock.mockRestore();
+        }
+    });
+});

@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
-import { buildSparkline } from './price-chart-path';
+import { buildSparkBars } from './price-chart-path';
 import { priceLabel } from '../../services/format';
 import { currentPoint, priceBadge, recentPrices, updateSummary, type PriceItem } from './prices';
 
@@ -23,7 +23,7 @@ import { currentPoint, priceBadge, recentPrices, updateSummary, type PriceItem }
  * 同一行的其他卡由网格拉齐。
  *
  * ---- 整片上半区是一枚按钮，但点出两种结果 ----
- * 点名称或价格 = **记一笔价**（每天最常做的事），点涨幅或走势线 = **看历史**（偶尔回顾）。
+ * 点名称或价格 = **记一笔价**（每天最常做的事），点涨幅或走势柱图 = **看历史**（偶尔回顾）。
  * 两者在同一个 `<button>` 里，靠 `data-role="history"` 标记区分，判定见 `onCardClick`。
  *
  * 不给整张卡挂 `@click`：底行还有三个动作，套一层可点容器就会出现
@@ -68,18 +68,18 @@ const cardLabel = computed(() => {
         ? `${currentLabel.value.value} ${currentLabel.value.unit}`
         : currentLabel.value.value;
     const trend = badge.value?.title ?? '还没有涨跌';
-    /* 只说到键盘真能做到的那一步。「点涨幅或走势线看历史」曾经挂在这里，
+    /* 只说到键盘真能做到的那一步。「点涨幅或走势柱图看历史」曾经挂在这里，
      * 但那两个热区在 `<button>` 内部、键盘到不了（见 `onCardClick` 的已知代价），
      * 念给读屏用户一句做不到的操作，不如不说。 */
     return `${props.item.name}，${tag}，当前价 ${price}，${trend}；按回车记一笔价`;
 });
 
-/* 迷你线：坐标算法在 `price-chart-path.ts`，这里只给尺寸。
+/* 迷你柱图：坐标算法在 `price-chart-path.ts`，这里只给尺寸。
  * 56×14 是压过一档的：62×17 在 18px 的价格旁边会把价格挤窄。 */
-const spark = computed(() => buildSparkline(recentPrices(props.item), 56, 14));
+const spark = computed(() => buildSparkBars(recentPrices(props.item), 56, 14));
 
 /**
- * 卡片主体点一下 = **记一笔价**；只有点在涨幅或走势线上 = **看历史**。
+ * 卡片主体点一下 = **记一笔价**；只有点在涨幅或走势柱图上 = **看历史**。
  *
  * 这是按使用频率分的：一天里最常做的是「看到新行情就补一个价」，
  * 而回顾走势是隔几天才一次的事。所以大面积的点击留给记价，
@@ -141,7 +141,7 @@ function onCardClick(event: MouseEvent) {
                         {{ badge.text }}
                     </span>
                     <svg
-                        v-if="spark"
+                        v-if="spark.length"
                         class="card-spark"
                         :class="badge?.tone"
                         viewBox="0 0 56 14"
@@ -149,7 +149,14 @@ function onCardClick(event: MouseEvent) {
                         aria-hidden="true"
                         data-role="history"
                     >
-                        <path :d="spark" fill="none" vector-effect="non-scaling-stroke" />
+                        <rect
+                            v-for="(bar, index) in spark"
+                            :key="index"
+                            :x="bar.x"
+                            :y="bar.y"
+                            :width="bar.width"
+                            :height="bar.height"
+                        />
                     </svg>
                 </span>
             </button>
@@ -283,9 +290,9 @@ function onCardClick(event: MouseEvent) {
     padding: 7px 8px 8px;
 }
 
-/* 可点的那一片：名称、虚线、价格、涨幅、折线**全在里面**。
+/* 可点的那一片：名称、虚线、价格、涨幅、柱图**全在里面**。
  *
- * 早先只有名称是可点的，用户的意见很具体：眼神落在价格或折线上时点不动，
+ * 早先只有名称是可点的，用户的意见很具体：眼神落在价格或柱图上时点不动，
  * 得把鼠标挪回上面那一行名字才知道能点。现在整片上半区是一枚按钮，
  * 点到哪个数都会开历史。
  *
@@ -375,7 +382,7 @@ function onCardClick(event: MouseEvent) {
 .card-delta {
     flex: none;
     /* 推到右端：价格行也要两端对齐（用户要求「下面的也一样」）。
-     * 涨幅与折线都在回答「现在怎么样」，挨在一起才读得懂
+     * 涨幅与柱图都在回答「现在怎么样」，挨在一起才读得懂
      * 「涨 5.2%，而且这一路在往上」。 */
     margin-left: auto;
     color: var(--muted);
@@ -391,7 +398,7 @@ function onCardClick(event: MouseEvent) {
 .card-spark.down {
     color: var(--moss);
 }
-/* 折线紧跟涨幅，**不再自己推右**——推右的任务交给 `.card-delta`（谁先谁吃剩余空间）。
+/* 柱图紧跟涨幅，**不再自己推右**——推右的任务交给 `.card-delta`（谁先谁吃剩余空间）。
  * 宽度固定不让位：价格那三个字宽度不定（「320 万」与「8.6 万」），
  * 线跟着文字走的话每张卡的线起点都不一样，一排看下来是锯齿。 */
 .card-spark {
@@ -401,14 +408,12 @@ function onCardClick(event: MouseEvent) {
     color: var(--muted);
     overflow: visible;
 }
-.card-spark path {
-    stroke: currentColor;
-    stroke-width: 1.4;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+.card-spark rect {
+    fill: currentColor;
+    opacity: 0.85;
 }
 
-/* 涨幅与走势线是「看历史」的入口。同一枚按钮里两块地方点出两种结果，
+/* 涨幅与走势柱图是「看历史」的入口。同一枚按钮里两块地方点出两种结果，
  * 不给一点悬停反馈的话，用户只能靠试——体验上是「怎么有时开这个、有时开那个」。
  *
  * 这里用**降透明度**而不是全站惯用的「转朱」：这两块的色是**信息**（涨红跌绿），

@@ -51,7 +51,7 @@ declare module '@vue/runtime-dom' {
      * SVG 元素是另一套属性接口（`SVGAttributes`），`HTMLAttributes` 的放行到不了它。
      *
      * 场景：物价卡里那根迷你走势线是 `<svg>`，整片可点区域靠
-     * `closest('[data-role="history"]')` 区分「点折线看历史」与「点价格记价」，
+     * `closest('[data-role="history"]')` 区分「点柱图看历史」与「点价格记价」，
      * 标记必须挂在 `<svg>` 本身上——挂在外面的话 `closest` 会从 `<path>` 先撞到它，
      * 把「点价格」也一并算成历史。
      */

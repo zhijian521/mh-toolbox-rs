@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useRouteAction } from '../../composables/use-route-action';
 import { ALL_OPTIONS as ALL_ACCOUNTS } from '../../components/select-options';
 import { computed, ref } from 'vue';
 import { ledgerMoneyText } from '../../services/format';
@@ -102,6 +103,15 @@ async function save(input: EntryInput) {
         if (editing.value === source) editing.value = null;
     }
 }
+useRouteAction({
+    new(query) {
+        const characterId = roster.value.find((one) => one.id === query.character)?.id ?? '';
+        openBlank({ characterId });
+    },
+    history() {
+        recordsOpen.value = true;
+    },
+});
 </script>
 
 <template>

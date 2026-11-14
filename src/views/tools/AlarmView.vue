@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useRouteAction } from '../../composables/use-route-action';
 import AlarmCard from './AlarmCard.vue';
 import AlarmDialog from './AlarmDialog.vue';
 import AppIcon from '../../components/AppIcon.vue';
@@ -132,6 +133,7 @@ async function askRemove(alarm: AlarmLike) {
     }
     notify.success('已删除');
 }
+useRouteAction({ new: openNew });
 </script>
 
 <template>

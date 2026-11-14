@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useRouteAction } from '../../composables/use-route-action';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import SaveNotice from '../../components/SaveNotice.vue';
 import { useToday } from '../../composables/use-today';
@@ -23,6 +24,7 @@ import TodayDump from './TodayDump.vue';
 import { type OnlineSession } from './online';
 import { useOnline } from './online-store';
 import { useDailySync } from '../accounts/daily-sync';
+import { useRoster } from '../characters/roster';
 
 const {
     entries,
@@ -35,7 +37,9 @@ const {
     pending,
     flush,
     retry,
+    setTarget,
 } = useIncome();
+const { roster } = useRoster();
 
 const today = useToday();
 
@@ -85,6 +89,7 @@ const running = computed(() => sessions.value.filter((one) => one.endAt === null
 const onlineDialog = ref<'start' | 'backfill' | 'edit' | null>(null);
 const editTarget = ref<OnlineSession | null>(null);
 const recordsOpen = ref(false);
+const onlineCharacterIds = ref<string[]>([]);
 
 function editOnline(one: OnlineSession) {
     editTarget.value = one;
@@ -94,6 +99,7 @@ function editOnline(one: OnlineSession) {
 function closeOnlineDialog() {
     onlineDialog.value = null;
     editTarget.value = null;
+    onlineCharacterIds.value = [];
 }
 
 async function finishOnline() {
@@ -146,6 +152,26 @@ async function priceCleared() {
     notify.success('「' + ask.item.name + '」的单价已清除');
     closePrice();
 }
+useRouteAction({
+    quick(query) {
+        const character = roster.value.find((one) => one.id === query.character);
+        if (character) setTarget([character.id]);
+    },
+    history() {
+        historyOpen.value = true;
+    },
+    start(query) {
+        onlineCharacterIds.value = typeof query.character === 'string' ? [query.character] : [];
+        onlineDialog.value = 'start';
+    },
+    backfill(query) {
+        onlineCharacterIds.value = typeof query.character === 'string' ? [query.character] : [];
+        onlineDialog.value = 'backfill';
+    },
+    records() {
+        recordsOpen.value = true;
+    },
+});
 </script>
 
 <template>
@@ -213,6 +239,7 @@ async function priceCleared() {
         <OnlineDialog
             v-if="onlineDialog"
             :mode="onlineDialog"
+            :character-ids="onlineCharacterIds"
             :session="editTarget ?? undefined"
             @close="closeOnlineDialog"
         />
