@@ -146,13 +146,13 @@ async function remove(one: IncomeEntry) {
     const ok = await removal.run(
         {
             danger: true,
-            title: `删掉「${one.item || '未记物品'}」这一条？`,
+            title: `删除「${one.item || '未记物品'}」这一条？`,
             note: `${amountText(one.amount)}。删了不能撤回。`,
             confirmText: '删除',
         },
         () => removeEntry(one.id),
     );
-    if (ok) notify.success('已删掉一条');
+    if (ok) notify.success('已删除');
 }
 </script>
 

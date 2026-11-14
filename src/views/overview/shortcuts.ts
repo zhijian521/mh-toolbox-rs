@@ -2,18 +2,20 @@ import type { IconName } from '../../components/icons';
 import { TOOLS } from '../../tools';
 import type { PaneKey } from '../characters/character';
 
-export interface HomeShortcut {
+import type { RouteActionTarget } from '../../route-actions';
+
+interface ShortcutContent {
     id: string;
     text: string;
     description: string;
     icon: IconName;
     group: string;
     tone: 'accent' | 'indigo' | 'moss' | 'ochre';
-    path: string;
-    action?: string;
     pane?: PaneKey;
     href?: string;
 }
+
+export type HomeShortcut = ShortcutContent & (RouteActionTarget | { path: string; action?: never });
 
 export const HOME_SHORTCUTS: HomeShortcut[] = [
     {

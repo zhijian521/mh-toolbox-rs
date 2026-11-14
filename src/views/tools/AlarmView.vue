@@ -106,7 +106,7 @@ function onSave(draft: AlarmDraft) {
     }
     closeDialog();
     /* 先留一份引用：`closeDialog()` 会把 `editing` 清空，之后再判就成了「永远在新增」。 */
-    notify.success(target ? '已改这个闹钟' : '已加一个闹钟');
+    notify.success('已保存');
 }
 
 /* ---------- 停用 / 启用 ---------- */
@@ -120,7 +120,7 @@ function onToggle(alarm: AlarmLike, enabled: boolean) {
 async function askRemove(alarm: AlarmLike) {
     const ok = await askConfirm({
         danger: true,
-        title: `删掉 ${alarm.time} 这个闹钟？`,
+        title: `删除 ${alarm.time} 这个闹钟？`,
         note: alarm.label ? `「${alarm.label}」删了没法撤回。` : '删了没法撤回。',
         confirmText: '删除',
     });
@@ -133,11 +133,11 @@ async function askRemove(alarm: AlarmLike) {
     }
     notify.success('已删除');
 }
-useRouteAction({ new: openNew });
+useRouteAction('/tools/alarm', { new: openNew });
 </script>
 
 <template>
-    <PageShell title="闹钟" desc="到点前一分钟提醒 · 不在这一页也会提示 · 仅存本机">
+    <PageShell title="闹钟" desc="提前一分钟提醒">
         <template #actions>
             <!-- 与捉鬼页同一枚：图标先读动作方向，字只写动词，完整语义在 `label` 里。
                  排在最左——页头的右端留给主操作（这里是「新增」）。 -->
@@ -151,7 +151,7 @@ useRouteAction({ new: openNew });
             <PressButton icon="add" text="新增" label="新增一个闹钟" seal @click="openNew" />
         </template>
 
-        <p v-if="error" class="note error alarm-error">{{ error }}</p>
+        <p v-if="error" class="note error alarm-error" role="alert">{{ error }}</p>
 
         <div v-if="alarms.length" class="alarm-grid">
             <AlarmCard
@@ -165,8 +165,8 @@ useRouteAction({ new: openNew });
             />
         </div>
 
-        <div v-else class="alarm-void">
-            <AppIcon name="alarm" class="void-icon" />
+        <div v-else class="alarm-void page-empty">
+            <AppIcon name="alarm" class="void-icon page-empty-icon" />
             <h3>设第一个闹钟</h3>
             <p class="note">提醒在时刻前一分钟出来，几个闹钟可以一起管。</p>
             <PressButton icon="add" text="新增" label="设第一个闹钟" seal @click="openNew" />
@@ -198,31 +198,5 @@ useRouteAction({ new: openNew });
 
 .alarm-error {
     margin: 0 0 10px;
-}
-
-/* ---------- 空态 ----------
- * 三样都在：一枚图标、一句话、一枚按钮。读者才知道「这里本来该有什么」与「从哪开始」。
- * 与物价页的空态同一个结构，只是图标换成闹钟。
- */
-.alarm-void {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding: 46px 0 40px;
-    text-align: center;
-}
-.void-icon {
-    /* 空态图标比正文里的大两档；走 `--icon-size` 才跟字号档一起缩放。 */
-    --icon-size: calc(34px * var(--fs-scale));
-
-    color: var(--rule-2);
-}
-.alarm-void h3 {
-    margin: 0;
-    color: var(--ink);
-}
-.alarm-void .note {
-    margin: 0;
 }
 </style>

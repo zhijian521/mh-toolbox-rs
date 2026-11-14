@@ -1,4 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+});
 
 /**
  * `accounts-store.ts` 的**读失败闸门**。
@@ -42,6 +47,19 @@ const ENTRY = {
 };
 
 describe('loadAccounts：读失败不等于空账', () => {
+    it.each(['{broken', '{}', '[null]'])('浏览器损坏存档不被新记录覆盖：%s', async (raw) => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const setItem = vi.fn();
+        vi.stubGlobal('localStorage', { getItem: () => raw, setItem });
+        const desktop = { ...host(async () => []), hasDesktop: () => false };
+        const store = await loadStore(desktop);
+        expect(store.useAccounts().loadError.value).not.toBe('');
+        expect(store.addEntry(ENTRY).ok).toBe(false);
+        expect(await store.useAccounts().retry()).toBe(false);
+        expect(setItem).not.toHaveBeenCalled();
+        expect(desktop.accountSave).not.toHaveBeenCalled();
+    });
+
     it('accountLoad 返回 null：立错误位、账清空、一次都不写', async () => {
         const desktop = host(async () => null);
         const store = await loadStore(desktop);

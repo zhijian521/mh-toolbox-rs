@@ -24,7 +24,8 @@ import { useOnline } from './online-store';
 
 const emit = defineEmits<{ backfill: []; records: [] }>();
 
-const { sessions, settings, setCardCost, setCardPrice, stopOnline, flush, retry } = useOnline();
+const { sessions, settings, setCardCost, setCardPrice, stopOnline, flush, retry, writeError } =
+    useOnline();
 const { roster } = useRoster();
 const today = useToday();
 const now = useMinuteNow();
@@ -164,6 +165,7 @@ function whoText(one: OnlineSession): string {
             :saving="saving"
             :locked="locked"
             :retrying="action !== null"
+            :save-error="writeError"
             @save="savePrice"
             @close="closePrice"
         />

@@ -1,3 +1,4 @@
+import { readLocalData, writeLocalData, parseLocalList } from '../../services/local-data';
 /**
  * 上线计时的**持有者**：模块级单例 + 写入即落盘。
  *
@@ -54,28 +55,6 @@ interface StoredShape {
     settings: unknown;
 }
 
-function readLocal(): StoredShape | null {
-    if (typeof localStorage === 'undefined') return null;
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    try {
-        const parsed: unknown = JSON.parse(raw);
-        return parsed && typeof parsed === 'object' ? (parsed as StoredShape) : null;
-    } catch {
-        return null;
-    }
-}
-
-function saveLocal(payload: StoredShape): void {
-    if (typeof localStorage === 'undefined') return;
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch (error) {
-        console.error('上线记录写不进 localStorage', error);
-        writeError.value = '这一笔没存下来，检查一下浏览器存储空间';
-    }
-}
-
 /** 内存 → 落库形状。与 `OnlinePayload` 同形。 */
 function payloadOf(): { sessions: OnlineSession[]; settings: OnlineSettings } {
     return { sessions: sessions.value, settings: settings.value };
@@ -86,7 +65,7 @@ const persist = createPersist({
     loadError,
     loaded,
     writeError,
-    writeLocal: () => saveLocal(payloadOf()),
+    writeLocal: () => writeLocalData(STORAGE_KEY, payloadOf()),
     writeRemote: () => onlineSave(payloadOf()),
 });
 
@@ -98,9 +77,36 @@ const persist = createPersist({
  */
 export async function loadOnline(): Promise<void> {
     if (!hasDesktop()) {
-        const stored = readLocal();
-        sessions.value = parseSessions(stored?.sessions);
-        settings.value = normalizeSettings(stored?.settings);
+        const stored = readLocalData(STORAGE_KEY, (raw) => {
+            if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+                throw new TypeError('数据不是对象');
+            }
+            const payload = raw as StoredShape;
+            const settings = payload.settings;
+            if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+                throw new TypeError('点卡设置损坏');
+            }
+            const { cardPrice, cardCost } = settings as Record<string, unknown>;
+            if (
+                typeof cardPrice !== 'number' ||
+                !Number.isFinite(cardPrice) ||
+                cardPrice <= 0 ||
+                typeof cardCost !== 'boolean'
+            ) {
+                throw new TypeError('点卡设置无效');
+            }
+            return {
+                sessions: parseLocalList(payload.sessions, parseSessions),
+                settings: normalizeSettings(payload.settings),
+            };
+        });
+        if (!stored.ok) {
+            loadError.value = stored.error;
+            return;
+        }
+        sessions.value = stored.value?.sessions ?? [];
+        settings.value = stored.value?.settings ?? normalizeSettings(undefined);
+        loadError.value = '';
         loaded.value = true;
         return;
     }

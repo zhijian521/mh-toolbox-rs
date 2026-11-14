@@ -1,3 +1,4 @@
+import { readLocalData, writeLocalData, parseLocalList } from '../../services/local-data';
 /**
  * 收益账的**持有者**：模块级单例 + 写入即落盘。
  *
@@ -68,29 +69,6 @@ interface StoredShape {
     prices: unknown;
 }
 
-function readLocal(): StoredShape | null {
-    if (typeof localStorage === 'undefined') return null;
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    try {
-        const parsed: unknown = JSON.parse(raw);
-        return parsed && typeof parsed === 'object' ? (parsed as StoredShape) : null;
-    } catch {
-        return null;
-    }
-}
-
-/** 浏览器那条路径的落盘（`localStorage`）。名字与 `persist` 的参数区分开，避免看混。 */
-function saveLocal(payload: StoredShape): void {
-    if (typeof localStorage === 'undefined') return;
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch (error) {
-        console.error('收益账写不进 localStorage', error);
-        writeError.value = '这一笔没存下来，检查一下浏览器存储空间';
-    }
-}
-
 /** 内存 → 落库形状：单价是 Record，库里是 `[{ itemId, price }]`。 */
 function payloadOf(): { entries: IncomeEntry[]; prices: { itemId: number; price: number }[] } {
     return {
@@ -106,7 +84,7 @@ function payloadOf(): { entries: IncomeEntry[]; prices: { itemId: number; price:
  * 落盘。
  *
  * 「读失败拒绝写、浏览器写本地、桌面版异步写库、连续写排队」这一整套在
- * `services/persist.ts` 的 `createPersist`——三份数据层共用一份，理由写在那里。
+ * `services/persist.ts` 的 `createPersist`——各业务数据层共用一份，理由写在那里。
  *
  * 这一页对那条队列的依赖最重：速记的全部用法就是连点（回执只亮 1.6 秒），
  * 而每次写都是整份，不排队就会丢中间那几笔——第 97 批为它单独写过一版队列，
@@ -117,7 +95,7 @@ const persist = createPersist({
     loadError,
     loaded,
     writeError,
-    writeLocal: () => saveLocal(payloadOf()),
+    writeLocal: () => writeLocalData(STORAGE_KEY, payloadOf()),
     writeRemote: () => incomeSave(payloadOf()),
 });
 
@@ -128,9 +106,30 @@ const persist = createPersist({
  */
 export async function loadIncome(): Promise<void> {
     if (!hasDesktop()) {
-        const stored = readLocal();
-        entries.value = parseEntries(stored?.entries);
-        prices.value = parsePrices(stored?.prices);
+        const stored = readLocalData(STORAGE_KEY, (raw) => {
+            if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+                throw new TypeError('数据不是对象');
+            }
+            const payload = raw as StoredShape;
+            const prices = parsePrices(payload.prices);
+            if (
+                !Array.isArray(payload.prices) ||
+                Object.keys(prices).length !== payload.prices.length
+            ) {
+                throw new TypeError('单价记录损坏或重复');
+            }
+            return {
+                entries: parseLocalList(payload.entries, parseEntries),
+                prices,
+            };
+        });
+        if (!stored.ok) {
+            loadError.value = stored.error;
+            return;
+        }
+        entries.value = stored.value?.entries ?? [];
+        prices.value = stored.value?.prices ?? parsePrices(undefined);
+        loadError.value = '';
         loaded.value = true;
         return;
     }

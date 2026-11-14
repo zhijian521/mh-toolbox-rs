@@ -8,6 +8,7 @@ import type { QuickItemEntry } from '../../services/game-data';
 
 const props = defineProps<{
     saving?: boolean;
+    saveError?: string;
     locked?: boolean;
     retryAction?: string | null;
     item: QuickItemEntry;
@@ -54,7 +55,7 @@ function onEnter(event: KeyboardEvent) {
 <template>
     <ModalShell :title="title" :width="360" :scroll="false" @close="!saving && emit('close')">
         <form class="income-form modal-form" @submit.prevent="submit" @keydown.enter="onEnter">
-            <fieldset class="income-form" :disabled="locked">
+            <fieldset class="income-form" :disabled="locked" :inert="locked">
                 <PriceField
                     v-model="amount"
                     :precision="2"
@@ -67,6 +68,7 @@ function onEnter(event: KeyboardEvent) {
         </form>
 
         <template #footer>
+            <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
             <!-- 清除放最左、与两个动作隔开：它既不是「取消」也不是「保存」，
                  把三枚并成一排会让人以为「清除」是另一种确定。 -->
             <PressButton

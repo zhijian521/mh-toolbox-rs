@@ -9,6 +9,7 @@ import { POINTS_PER_HOUR } from './online';
 
 const props = defineProps<{
     saving?: boolean;
+    saveError?: string;
     locked?: boolean;
     retrying?: boolean;
     /** 现在的单价（游戏币**原值**，与库里同一个口径）。 */
@@ -40,7 +41,7 @@ function submit() {
 <template>
     <ModalShell title="点卡单价" :width="360" :scroll="false" @close="!saving && emit('close')">
         <form class="income-form modal-form" @submit.prevent="submit">
-            <fieldset class="income-form" :disabled="locked">
+            <fieldset class="income-form" :disabled="locked" :inert="locked">
                 <PriceField
                     v-model="amount"
                     :precision="2"
@@ -58,6 +59,7 @@ function submit() {
         </form>
 
         <template #footer>
+            <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
             <PressButton
                 data-modal-cancel
                 :disabled="saving"

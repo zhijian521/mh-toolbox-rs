@@ -103,7 +103,7 @@ async function save(input: EntryInput) {
         if (editing.value === source) editing.value = null;
     }
 }
-useRouteAction({
+useRouteAction('/accounts', {
     new(query) {
         const characterId = roster.value.find((one) => one.id === query.character)?.id ?? '';
         openBlank({ characterId });
@@ -132,7 +132,7 @@ useRouteAction({
             />
         </template>
         <div class="accounts-layout">
-            <p v-if="loadError" class="note error">{{ loadError }}</p>
+            <p v-if="loadError" class="note error" role="alert">{{ loadError }}</p>
             <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
             <PaperCard class="filters">
                 <SegmentedPills v-model="preset" :options="RANGE_PRESETS" label="账目时间范围" />

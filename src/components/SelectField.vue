@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import AppIcon from './AppIcon.vue';
 
 /**
@@ -171,6 +171,7 @@ function toggle() {
 }
 
 function choose(index: number) {
+    if (props.disabled) return;
     const option = props.options[index];
     if (!option) return;
     emit('update:modelValue', option.value);
@@ -242,6 +243,14 @@ function onPointerDown(event: PointerEvent) {
     if (root.value?.contains(event.target as Node)) return;
     closeList();
 }
+
+watch(
+    () => props.disabled,
+    (value) => {
+        if (value) closeList();
+    },
+    { flush: 'sync' },
+);
 
 onMounted(() => document.addEventListener('pointerdown', onPointerDown));
 onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown));

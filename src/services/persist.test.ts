@@ -78,9 +78,10 @@ describe('createPersist：什么时候不写', () => {
         const writeLocal = vi.fn();
         const writeRemote = vi.fn(async () => true);
         const writeError = ref('');
+        const loadError = ref('');
         const persist = createPersist({
             label: '名册',
-            loadError: ref(''),
+            loadError,
             writeError,
             loaded: ref(false),
             writeLocal,
@@ -93,8 +94,9 @@ describe('createPersist：什么时候不写', () => {
         expect(writeRemote).not.toHaveBeenCalled();
         /* 文案要指得着用户真能做的事。这一版代码还没看过库，刷新就好了；
          * 说「检查磁盘空间」会把人引到完全无关的地方去。 */
-        expect(writeError.value).toContain('刷新');
-        expect(writeError.value).not.toContain('磁盘');
+        expect(loadError.value).toContain('刷新');
+        expect(writeError.value).toBe('');
+        expect(loadError.value).not.toContain('磁盘');
     });
 
     it('读过之后照常写：这条闸只管「读过没有」，不插手正常路径', async () => {
@@ -286,6 +288,36 @@ describe('保存完成边界', () => {
         });
         expect(await persist()).toBe(false);
         expect(await persist.flush()).toBe(false);
+        expect(await persist()).toBe(true);
+        expect(await persist.flush()).toBe(true);
+    });
+});
+
+describe('读取失败与保存失败分开', () => {
+    it('读取异常不触发写盘或复制为保存错误，恢复读取后可正常保存', async () => {
+        const loadError = ref('');
+        const loaded = ref(false);
+        const writeError = ref('');
+        const remote = vi.fn().mockResolvedValue(true);
+        const persist = createPersist({
+            label: '读取恢复',
+            loadError,
+            loaded,
+            writeError,
+            writeLocal: () => {},
+            writeRemote: remote,
+        });
+        expect(await persist.flush()).toBe(true);
+        expect(await persist()).toBe(false);
+        expect(writeError.value).toBe('');
+        loaded.value = true;
+        loadError.value = '读取失败';
+        expect(await persist()).toBe(false);
+        // 没有待写改动，不能因读取异常阻止导入修复或正常退出。
+        expect(await persist.flush()).toBe(true);
+        expect(remote).not.toHaveBeenCalled();
+        expect(writeError.value).toBe('');
+        loadError.value = '';
         expect(await persist()).toBe(true);
         expect(await persist.flush()).toBe(true);
     });

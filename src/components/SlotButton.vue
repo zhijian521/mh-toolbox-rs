@@ -89,10 +89,10 @@ withDefaults(
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
+    gap: calc(5px * var(--fs-scale));
     width: var(--slot-w, auto);
-    height: var(--slot-h, 26px);
-    padding: 0 9px;
+    height: var(--slot-h, calc(26px * var(--fs-scale)));
+    padding: 0 calc(9px * var(--fs-scale));
     border-radius: var(--r-2);
     color: var(--ink-2);
     transition:
@@ -103,7 +103,7 @@ withDefaults(
 
 /* ---------- 尺寸预设 ----------
  * 只写 `lg`，它落在 `--slot-h` / `--icon-size` 上——高度还是那句
- * `var(--slot-h, 26px)`，所以父级用更高特异性的选择器覆写变量时仍然生效。
+ * `var(--slot-h, calc(26px * var(--fs-scale)))`，所以父级用更高特异性的选择器覆写变量时仍然生效。
  *
  * `md` **故意不写规则**：它就是「什么都不声明」，默认高度才轮得到继承父级的
  * `--slot-h`（侧栏 footer 传 30px 就是这么用的）。给 md 补一条 `--slot-h: 26px`
@@ -129,7 +129,7 @@ withDefaults(
 /* 纯图标要正方形：宽度默认取高度，父级显式给了 `--slot-w` 才听父级的。
  * 父级若要正方形，把 `--slot-w` 传成与 `--slot-h` 同一个值即可（侧栏就是这么用的）。 */
 .slot-btn.icon-only {
-    width: var(--slot-w, var(--slot-h, 26px));
+    width: var(--slot-w, var(--slot-h, calc(26px * var(--fs-scale))));
     padding: 0;
 }
 

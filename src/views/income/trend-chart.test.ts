@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-    buildTrendChart,
-    netByDay,
-    trendIndexAt,
-    trendSeriesOf,
-    trendValueText,
-} from './trend-chart';
+import { buildTrendChart, trendIndexAt, trendValueText } from '../../components/trend-chart';
+import { netByDay, trendSeriesOf } from './trend-chart';
 import type { IncomeEntry } from './income';
 
 /**

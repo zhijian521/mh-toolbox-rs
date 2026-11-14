@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, useId, watch } from 'vue';
 import { minuteText, normalizeTime } from '../services/clock';
 
 /**
@@ -15,7 +15,7 @@ import { minuteText, normalizeTime } from '../services/clock';
  *
  * 打到一半的 `07:` 不是一个时刻，逐键纠正会把用户正在输入的字符改掉。失焦时把格子里的
  * 字换成规范值——敲 `7` 松开，格子里显示 `07:00`，他立刻知道系统理解成了什么；
- * 认不出来就原样留着，红字由外面的表单挂（这里不判错、不换色）。
+ * 认不出来就原样留着，错误由外部表单判断，通过 error 传入。
  *
  * ---- 字号 ----
  *
@@ -30,8 +30,9 @@ const props = withDefaults(
         label: string;
         /** `clock` 收完整时刻；`minute` 只收「每小时的几分」（0–59）。 */
         mode?: 'clock' | 'minute';
+        error?: string;
     }>(),
-    { mode: 'clock' },
+    { mode: 'clock', error: '' },
 );
 
 const emit = defineEmits<{
@@ -42,6 +43,7 @@ const emit = defineEmits<{
     commit: [];
 }>();
 
+const errorId = `time-error-${useId()}`;
 const text = ref(props.modelValue);
 
 /**
@@ -101,6 +103,8 @@ function commit() {
         <span class="field-label">{{ label }}</span>
         <input
             :value="text"
+            :aria-invalid="!!error || undefined"
+            :aria-describedby="error ? errorId : undefined"
             class="field time-input"
             :class="{ 'is-minute': mode === 'minute' }"
             inputmode="numeric"
@@ -109,6 +113,7 @@ function commit() {
             @input="onInput"
             @blur="commit"
         />
+        <span v-if="error" :id="errorId" class="note error field-error">{{ error }}</span>
     </label>
 </template>
 

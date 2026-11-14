@@ -163,13 +163,14 @@ function enter(event: KeyboardEvent) {
 
 <template>
     <ModalShell
-        :title="goal ? '修改目标' : '新建目标'"
+        :title="goal ? '修改目标' : '新增目标'"
         :width="480"
         @close="!saving && emit('close')"
     >
         <form class="goal-form modal-form" @submit.prevent="submit" @keydown.enter="enter">
             <fieldset :disabled="locked" :inert="locked">
                 <SegmentedPills
+                    :disabled="locked"
                     :model-value="kind"
                     :options="
                         kindOptions.map((row) => ({
@@ -208,6 +209,7 @@ function enter(event: KeyboardEvent) {
                             :options="groupOptions"
                             label="养成项目分类"
                             @update:model-value="group = $event as MetricGroup"
+                            :disabled="locked"
                     /></label>
                     <label class="control"
                         ><span>项目</span
@@ -216,6 +218,7 @@ function enter(event: KeyboardEvent) {
                             :options="metricOptions"
                             label="具体项目"
                             placeholder="选择项目"
+                            :disabled="locked"
                     /></label>
                 </div>
                 <label v-if="kind === 'manual'" class="control" :for="titleId">
@@ -245,7 +248,7 @@ function enter(event: KeyboardEvent) {
                         ><SegmentedPills
                             v-model="moneyUnit"
                             :options="MONEY_UNITS.map((value) => ({ value, label: value }))"
-                            :disabled="!!goal?.logs.length"
+                            :disabled="locked || !!goal?.logs.length"
                             label="金额单位"
                         />
                     </div>
@@ -283,7 +286,11 @@ function enter(event: KeyboardEvent) {
                         <div class="control">
                             <span>期限</span>
                             <div class="deadline-row">
-                                <DateField v-model="deadline" label="期望完成日期" />
+                                <DateField
+                                    v-model="deadline"
+                                    label="期望完成日期"
+                                    :disabled="locked"
+                                />
                                 <PressButton
                                     v-if="deadline"
                                     text="不设"

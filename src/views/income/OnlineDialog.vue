@@ -157,7 +157,7 @@ async function remove() {
     if (action.value !== 'delete') {
         const ok = await askConfirm({
             danger: true,
-            title: '删掉这一段上线记录？',
+            title: '删除这一段上线记录？',
             note: '删了不能撤回，当天的点卡也会跟着减。',
             confirmText: '删除',
         });
@@ -168,7 +168,7 @@ async function remove() {
         return true;
     });
     if (!removed) return;
-    notify.success('已删掉一段');
+    notify.success('已删除');
     emit('close');
 }
 
@@ -188,7 +188,7 @@ const submitText = computed(() => {
 <template>
     <ModalShell :title="title" :width="420" :scroll="false" @close="close">
         <form class="income-form modal-form" @submit.prevent="submit">
-            <fieldset class="income-form" :disabled="locked">
+            <fieldset class="income-form" :disabled="locked" :inert="locked">
                 <div class="form-row">
                     <span class="field-label">记给谁</span>
                     <TogglePills
@@ -196,15 +196,21 @@ const submitText = computed(() => {
                         :options="options"
                         label="选择在线的角色"
                         radius="sm"
+                        :disabled="locked"
                     />
-                    <p v-if="!roster.length" class="note error">
+                    <p v-if="!roster.length" class="note error" role="alert">
                         名册里还没有角色。先去角色页加一个，再回来记。
                     </p>
                 </div>
 
                 <template v-if="mode !== 'start'">
                     <div class="form-row">
-                        <DateField v-model="date" label="日期" :max="todayText()" />
+                        <DateField
+                            v-model="date"
+                            label="日期"
+                            :max="todayText()"
+                            :disabled="locked"
+                        />
                     </div>
                     <div class="times">
                         <TimeField v-model="startTime" label="开始" />
@@ -233,7 +239,7 @@ const submitText = computed(() => {
                     />
                 </div>
 
-                <p v-if="error" class="note error">{{ error }}</p>
+                <p v-if="error" class="note error" role="alert">{{ error }}</p>
 
                 <p v-if="editing && session && ownersOf(session).length > 1" class="note meta">
                     旧记录由 {{ ownersOf(session).length }} 个号共用，点卡按人数分摊。

@@ -1,4 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+});
 
 /**
  * `online-store.ts` 的**逐号上下线**。
@@ -30,6 +35,23 @@ async function loadStore(desktop: ReturnType<typeof host>) {
 }
 
 describe('上线：一个号一条', () => {
+    it.each(
+        [null, [], { cardPrice: -1, cardCost: true }, { cardPrice: 15000, cardCost: 'false' }].map(
+            (settings) => ({ settings }),
+        ),
+    )('浏览器点卡设置损坏时拒绝覆盖：%j', async ({ settings }) => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const setItem = vi.fn();
+        vi.stubGlobal('localStorage', {
+            getItem: () => JSON.stringify({ sessions: [], settings }),
+            setItem,
+        });
+        const store = await loadStore({ ...host(), hasDesktop: () => false });
+        expect(store.useOnline().loadError.value).not.toBe('');
+        expect(store.startOnline({ characterIds: ['c1'] }).ok).toBe(false);
+        expect(setItem).not.toHaveBeenCalled();
+    });
+
     it('同时开两个号 → 两条记录，各记各的主体', async () => {
         const store = await loadStore(host());
         const result = store.startOnline({ characterIds: ['c1', 'c2'] });

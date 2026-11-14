@@ -1,10 +1,12 @@
+import { readLocalData, writeLocalData, parseLocalList } from '../../services/local-data';
+import { isDayText } from '../../services/format';
 /**
  * 账号账本的**持有者**：模块级单例 + 写入即落盘。
  *
  * 与 `income-store.ts` / `prices-store.ts` / `roster.ts` 同一套写法：规则在
  * `accounts.ts`（纯函数、可单测），这里只做四件事——读、改、写、把「改不成」的原因交回去。
  * 「怎么安全地写下去」那一整套（读失败拒写 / 浏览器写本地 / 桌面异步写库 / 写队列）
- * 在 `services/persist.ts`，四个数据层共用一份。
+ * 在 `services/persist.ts`，各业务数据层共用一份。
  *
  * ---- 为什么整份读写 ----
  * 一次记一笔 = 内存里加一条 + 整份写回。一年几百条的量级，这点开销换来的是
@@ -47,15 +49,7 @@ const persist = createPersist({
     loadError,
     loaded,
     writeError,
-    writeLocal: () => {
-        if (typeof localStorage === 'undefined') return;
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.value));
-        } catch (error) {
-            console.error('账号账本写不进 localStorage', error);
-            writeError.value = '这一笔没存下来，检查一下浏览器存储空间';
-        }
-    },
+    writeLocal: () => writeLocalData(STORAGE_KEY, entries.value),
     writeRemote: () => accountSave(entries.value),
 });
 
@@ -66,16 +60,14 @@ const persist = createPersist({
  */
 export async function loadAccounts(): Promise<void> {
     if (!hasDesktop()) {
-        if (typeof localStorage === 'undefined') return;
-        /* 「没存过」是空账，是结论而不是失败——照样算读过。 */
-        loaded.value = true;
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-        try {
-            entries.value = parseAccounts(JSON.parse(raw));
-        } catch {
-            console.error('浏览器里的账号账本读不懂，保留空表');
+        const stored = readLocalData(STORAGE_KEY, (raw) => parseLocalList(raw, parseAccounts));
+        if (!stored.ok) {
+            loadError.value = stored.error;
+            return;
         }
+        entries.value = stored.value ?? [];
+        loadError.value = '';
+        loaded.value = true;
         return;
     }
 
@@ -131,7 +123,7 @@ function check(
     input: EntryInput,
     before?: AccountEntry,
 ): { ok: true; amount: number } | { ok: false; error: string } {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { ok: false, error: '日期不对' };
+    if (!isDayText(input.date)) return { ok: false, error: '日期不对' };
     if (!input.category) return { ok: false, error: '选一个分类' };
     const amount =
         input.preserveAmount && before?.currency === input.currency

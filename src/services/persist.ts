@@ -1,22 +1,4 @@
-/**
- * 「模块级单例 + 整份写盘」的公共骨架。
- *
- * ---- 为什么会有这个文件 ----
- * 物价表、角色名册、收益账三份数据层的**形状**是同一套：
- *
- * - 读档：浏览器走 `localStorage`、桌面版走 SQLite；读失败挂 `loadError` 并**拒绝写入**；
- * - 写盘：整份写回、异步、不 `await`；失败把原因放进 `writeError` 交给界面。
- *
- * 这套东西到第 99 批为止是**三份手抄**。其中「首次启动把 `localStorage` 搬进 SQLite、
- * 搬成功才改名留底」那一段在物价与名册里几乎逐字相同，连注释都在解释同一件事。
- * 抄三份没出事，是因为每份都被人重新读了一遍；到账号 / 目标页要抄第四份时，
- * 漂移几乎是必然的，而这类漂移的**表现**不是报错，是「某一页的数据被空表覆盖」——
- * 等用户发现时原数据已经没了。所以把「怎么落地」抽到这里，规则仍归各家。
- *
- * ---- 这里**不**管什么 ----
- * 归一、排序、金额口径、种子数据、`storage` 事件监听，全部留在各自的 store 里。
- * 这个文件只回答两个问题：**这份数据怎么安全地写下去**、**老数据怎么搬一次**。
- */
+/** 六个业务数据层共用的写队列：未读或读失败时拒写，失败保留错误，关闭/导出前可等待。 */
 import { readonly, ref, type DeepReadonly, type Ref } from 'vue';
 import { hasDesktop } from './desktop';
 
@@ -79,12 +61,9 @@ export function createPersist(options: PersistOptions): Persist {
     let chain: Promise<boolean> = Promise.resolve(true);
     const pending = ref(0);
     const canWrite = () => {
-        if (options.loadError.value) {
-            options.writeError.value = options.loadError.value;
-            return false;
-        }
+        if (options.loadError.value) return false;
         if (!options.loaded.value) {
-            options.writeError.value = '这一页还没读到数据，刷新一次再记';
+            options.loadError.value = '这一页还没读到数据，刷新一次再记';
             return false;
         }
         return true;

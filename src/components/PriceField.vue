@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, useId, watch } from 'vue';
 import PressButton from './PressButton.vue';
 
 /**
@@ -21,6 +21,8 @@ import PressButton from './PressButton.vue';
  * 这里只换尺码：高度不压 26、内衬加大、圆角升一档。再画一套「看起来差不多」的凹槽，
  * 就会重演 2026-11-02 那次「两套深浅」的问题。
  */
+const errorId = `price-error-${useId()}`;
+
 const props = withDefaults(
     defineProps<{
         /** 游戏币**原值**。`null` 表示还没填。 */
@@ -185,6 +187,8 @@ function nudge(direction: 1 | -1) {
                     :style="inputStyle"
                     :placeholder="placeholder"
                     :aria-label="label ? `${label}，以万为单位` : '价格，以万为单位'"
+                    :aria-invalid="!!error || undefined"
+                    :aria-describedby="error ? errorId : undefined"
                     @input="onInput"
                     @blur="onBlur"
                 />
@@ -198,7 +202,7 @@ function nudge(direction: 1 | -1) {
                 @click="nudge(1)"
             />
         </div>
-        <span v-if="error" class="note error pf-hint">{{ error }}</span>
+        <span v-if="error" :id="errorId" class="note error pf-hint">{{ error }}</span>
     </div>
 </template>
 

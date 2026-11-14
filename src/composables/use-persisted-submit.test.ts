@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { usePersistedSubmit } from './use-persisted-submit';
 
-vi.mock('./save-feedback', () => ({
-    saved: (flush: () => Promise<boolean>) => flush(),
-}));
-
 describe('弹窗提交与写盘重试', () => {
     it('新角色首次落盘失败，后续重试只落盘，不重新新增或切换成修改', async () => {
         const characters: string[] = [];

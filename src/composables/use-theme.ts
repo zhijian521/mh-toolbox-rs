@@ -1,4 +1,6 @@
 import { computed, effectScope, ref, watch } from 'vue';
+import { writePreference } from '../services/local-data';
+import { notify } from './use-notify';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type ThemeStyle = 'ledger' | 'celadon' | 'azure' | 'crystal' | 'dunhuang' | 'rosewood';
@@ -53,12 +55,8 @@ function readStoredOption<T extends string>(key: string, options: { value: T }[]
     }
 }
 
-function storeOption(key: string, value: string) {
-    try {
-        globalThis.localStorage?.setItem(key, value);
-    } catch {
-        // 存储不可用时仍应用当前选择，只是不跨启动记忆。
-    }
+function storeOption(key: string, value: string, report: boolean) {
+    if (!writePreference(key, value) && report) notify.error('本次设置已生效，未能记住');
 }
 
 /**
@@ -99,17 +97,17 @@ function wire() {
     scope.run(() => {
         watch(
             [mode, systemDark],
-            () => {
-                document.documentElement.classList.toggle('dark', isDark.value);
-                storeOption(STORAGE_KEY, mode.value);
-            },
+            () => document.documentElement.classList.toggle('dark', isDark.value),
             { immediate: true },
         );
+        watch(mode, (value, previous) => storeOption(STORAGE_KEY, value, previous !== undefined), {
+            immediate: true,
+        });
         watch(
             style,
-            () => {
-                document.documentElement.dataset.style = style.value;
-                storeOption(STYLE_STORAGE_KEY, style.value);
+            (value, previous) => {
+                document.documentElement.dataset.style = value;
+                storeOption(STYLE_STORAGE_KEY, value, previous !== undefined);
             },
             { immediate: true },
         );

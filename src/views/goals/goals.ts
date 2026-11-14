@@ -1,3 +1,4 @@
+import { isDayText } from '../../services/format';
 /**
  * 目标页的**规则**：类型、可跟踪的指标、汇总口径、归一与排序。
  *
@@ -517,8 +518,6 @@ export function deadlineText(deadline: string, now: string, done: boolean): stri
  * 归一
  * ==================================================================== */
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-
 function isFiniteNumber(value: unknown): value is number {
     return typeof value === 'number' && Number.isFinite(value);
 }
@@ -527,7 +526,7 @@ function parseLog(raw: unknown): GoalLog | null {
     if (!raw || typeof raw !== 'object') return null;
     const one = raw as Record<string, unknown>;
     if (typeof one.id !== 'string' || !one.id) return null;
-    if (typeof one.date !== 'string' || !DATE.test(one.date)) return null;
+    if (typeof one.date !== 'string' || !isDayText(one.date)) return null;
     if (!isFiniteNumber(one.delta) || one.delta === 0) return null;
     return {
         id: one.id,
@@ -591,7 +590,7 @@ export function parseGoal(raw: unknown): Goal | null {
               ? one.unit.trim()
               : kindMeta(kind).unit,
         tracking,
-        deadline: typeof one.deadline === 'string' && DATE.test(one.deadline) ? one.deadline : '',
+        deadline: typeof one.deadline === 'string' && isDayText(one.deadline) ? one.deadline : '',
         note: typeof one.note === 'string' ? one.note : '',
         logs,
         createdAt: isFiniteNumber(one.createdAt) ? one.createdAt : 0,

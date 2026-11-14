@@ -10,30 +10,7 @@
  * 自己的 scoped 里（它只属于那张卡），弹窗的质感在 `ModalShell.vue` 里。
  */
 
-/* ---------- 筛选栏 ----------
- * 一行：关键字（吃剩余）+ 一级 + 二级 + 排序 +（筛过之后才出现的）清除。
- *
- * **没有外框**：用户明确要求「不要最外层的卡片」。这一栏就是四个控件并排，
- * 靠间距与页头那道账线分隔，不套文武线也不套纸卡。
- */
-.price-toolbar {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 9px;
-    margin-bottom: 12px;
-}
-
-/* 关键字格**不抢剩余宽度**。
- *
- * 原来写的是 `flex: 1 1 220px`：宽窗口下它会一路涨到 600 以上，一个只用来打两三个字的
- * 输入框横跨半页，整条工具栏的视觉重心全压在它身上，而右边三个下拉被挤成一小撮。
- * 给 260 的上限（约 13 个汉字，最长的物品名也够看），窄窗口时按 `min-width` 缩到 160。
- * 剩下的留白放在这一行右端——四个控件左对齐成一组，读起来才像一条工具栏。 */
-.toolbar-key {
-    flex: 0 1 260px;
-    min-width: 160px;
-}
+/* 筛选栏与搜索框共用 blocks.css 的 page-filters / filter-search。 */
 
 /* 两个分类下拉同宽：它们是一对，宽度不一致会读成「一个是主、一个是附」。
  * 132 是「全部 / 装备灵饰 / 高级兽决」这几档最长一个不截断的宽度。 */
@@ -82,26 +59,6 @@
  * 一件物品都没记过：图标 + 一句话 + 一枚按钮。三样都在，读者才知道
  * 「这里本来该有什么」以及「从哪开始」。
  * 直接摆在内容区里——不再躲进某个区块的框里（那个框已经拆掉了）。 */
-.price-void {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding: 46px 0 40px;
-    text-align: center;
-}
-.void-icon {
-    /* 空态图标比正文里的图标大两档。仍走 `--icon-size` 而不是写死 px：
-     * 写死会顶掉默认值，也不跟 `--fs-scale` 一起缩放（CONVENTIONS §2.3-15）。 */
-    --icon-size: calc(34px * var(--fs-scale));
-
-    color: var(--rule-2);
-}
-.price-void h3 {
-    margin: 0;
-    color: var(--ink);
-}
-
 /* 有物品但被筛掉了：一行字，不留空框。空框读起来像「渲染失败」，
  * 而事实是「这个条件下确实没有」。 */
 .price-blank {

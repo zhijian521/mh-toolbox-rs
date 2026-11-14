@@ -1,4 +1,6 @@
 import { effectScope, ref, watch } from 'vue';
+import { writePreference } from '../services/local-data';
+import { notify } from './use-notify';
 
 export type FontScale = 'small' | 'default' | 'large';
 
@@ -71,7 +73,9 @@ function wire() {
     scope.run(() => {
         watch(scale, () => {
             apply();
-            localStorage.setItem(STORAGE_KEY, scale.value);
+            if (!writePreference(STORAGE_KEY, scale.value)) {
+                notify.error('本次设置已生效，未能记住');
+            }
         });
     });
     apply();

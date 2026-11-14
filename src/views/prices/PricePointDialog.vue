@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
+import DateField from '../../components/DateField.vue';
 import PriceField from '../../components/PriceField.vue';
 import PressButton from '../../components/PressButton.vue';
 import { todayText } from '../../services/format';
@@ -9,11 +10,7 @@ import { pointDraftErrors, toPointDraft, type PricePoint, type PricePointDraft }
 /**
  * 记一笔价 / 改一条旧价。
  *
- * 三个格子：日期 / 价格 / 备注。日期是文本格 + 正则校验，不是 `<input type="date">`——
- * 原生日期控件在 WebView2 上是系统画的一套（月历弹层），与这里「纸与槽」的语言不兼容，
- * 和「不用原生 select」是同一条理由。
- *
- * 价格格让人填「万」（320 就是 320 万）：`PriceField` 内部 ×10000 之后再 emit，
+ * 日期、价格、备注共用全站控件，价格格让人填「万」（320 就是 320 万）：`PriceField` 内部 ×10000 之后再 emit，
  * 所以这一层的 `draft.price` 仍是游戏币**原值**（3200000），与 `prices.ts` 的口径、
  * 存储格式一致；换算只发生在那一格自己的输入框里。
  */
@@ -24,6 +21,9 @@ const props = defineProps<{
     point: PricePoint | null;
     /** 父级写盘失败时的原因（撞到 200 条上限等）。留在窗内显示，不关窗。 */
     error?: string;
+    saving?: boolean;
+    locked?: boolean;
+    retrying?: boolean;
 }>();
 
 const emit = defineEmits<{ save: [draft: PricePointDraft]; close: [] }>();
@@ -45,14 +45,14 @@ const showPriceError = computed(() => (submitted.value || touched.price) && !!er
 
 function submit() {
     submitted.value = true;
-    if (!canSave.value) return;
+    if (props.saving || (!props.retrying && !canSave.value)) return;
     emit('save', { ...draft });
 }
 
-/* 三格文字输入、无 `type="submit"` 按钮 → 隐式提交什么都不做，回车要自己接。
+/* 表单无 `type="submit"` 按钮 → 隐式提交什么都不做，回车要自己接。
  * 只认 `input` 上的回车，免得焦点在按钮上时重复提交一次。 */
 function onEnter(event: KeyboardEvent) {
-    if (!(event.target instanceof HTMLInputElement)) return;
+    if (event.isComposing || !(event.target instanceof HTMLInputElement)) return;
     event.preventDefault();
     submit();
 }
@@ -60,56 +60,60 @@ function onEnter(event: KeyboardEvent) {
 
 <template>
     <ModalShell
-        :title="point ? `改「${itemName}」的一条价` : `给「${itemName}」记一笔价`"
+        :title="point ? '修改价格' : '记价'"
         :width="380"
         :scroll="false"
-        @close="emit('close')"
+        @close="!saving && emit('close')"
     >
         <form class="dialog-form modal-form" @submit.prevent="submit" @keydown.enter="onEnter">
-            <!-- 价格放最上面、占整行、居中：这一窗唯一必须填对的就是它。
+            <fieldset :disabled="locked" :inert="locked">
+                <p class="item-name">{{ itemName }}</p>
+                <!-- 价格放最上面、占整行、居中：这一窗唯一必须填对的就是它。
                  日期有默认值（今天），备注可空，两者挤在两列里就够。 -->
-            <div>
-                <PriceField
-                    v-model="draft.price"
-                    label="这一笔多少钱"
-                    stepper
-                    :error="showPriceError ? errors.price : ''"
-                    @blur="touched.price = true"
-                />
-            </div>
+                <div>
+                    <PriceField
+                        v-model="draft.price"
+                        label="这一笔多少钱"
+                        stepper
+                        :error="showPriceError ? errors.price : ''"
+                        @blur="touched.price = true"
+                    />
+                </div>
 
-            <label class="cell">
-                <span class="field-label">日期</span>
-                <input
+                <DateField
                     v-model="draft.date"
-                    class="field"
-                    aria-label="记录日期，格式 2026-11-05"
-                    placeholder="2026-11-05"
-                    @blur="touched.date = true"
+                    label="记录日期"
+                    :error="showDateError ? errors.date : ''"
+                    @update:model-value="touched.date = true"
+                    :disabled="locked"
                 />
-                <span v-if="showDateError" class="note error">{{ errors.date }}</span>
-            </label>
 
-            <label class="cell">
-                <span class="field-label">备注（可空）</span>
-                <input
-                    v-model="draft.note"
-                    class="field"
-                    aria-label="备注"
-                    placeholder="摊上看到的价"
-                />
-            </label>
-
-            <p v-if="error" class="note error dialog-error">{{ error }}</p>
+                <label class="cell">
+                    <span class="field-label">备注（可空）</span>
+                    <input
+                        v-model="draft.note"
+                        class="field"
+                        aria-label="备注"
+                        placeholder="摊上看到的价"
+                    />
+                </label>
+            </fieldset>
+            <p v-if="error" class="note error dialog-error" role="alert">{{ error }}</p>
         </form>
 
         <template #footer>
-            <PressButton data-modal-cancel text="取消" label="不改了" @click="emit('close')" />
+            <PressButton
+                data-modal-cancel
+                :disabled="saving"
+                text="取消"
+                label="不改了"
+                @click="emit('close')"
+            />
             <PressButton
                 icon="check"
-                :text="point ? '保存' : '记下'"
+                :text="retrying ? '重试保存' : '保存'"
                 :label="point ? '保存这一条价格' : '记下这一笔价'"
-                :disabled="!canSave"
+                :disabled="saving || (!retrying && !canSave)"
                 seal
                 @click="submit"
             />
@@ -118,6 +122,14 @@ function onEnter(event: KeyboardEvent) {
 </template>
 
 <style scoped>
+.item-name {
+    margin: 0;
+    text-align: center;
+    color: var(--accent);
+}
+fieldset {
+    display: contents;
+}
 .dialog-form {
     display: flex;
     flex-direction: column;

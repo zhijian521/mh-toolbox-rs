@@ -1,5 +1,4 @@
 import { computed, readonly, ref } from 'vue';
-import { saved } from './save-feedback';
 
 /** 内存变更只执行一次；落盘失败后锁定草稿，重试只重新写盘。 */
 export function usePersistedSubmit(flush: () => Promise<boolean>, retry: () => Promise<boolean>) {
@@ -17,7 +16,7 @@ export function usePersistedSubmit(flush: () => Promise<boolean>, retry: () => P
                 if (!apply()) return false;
                 action.value = key;
             }
-            if (!(await saved(flush))) return false;
+            if (!(await flush())) return false;
             action.value = null;
             return true;
         } finally {

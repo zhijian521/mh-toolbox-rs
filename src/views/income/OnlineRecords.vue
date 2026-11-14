@@ -107,7 +107,7 @@ async function remove(one: OnlineSession) {
     const ok = await removal.run(
         {
             danger: true,
-            title: '删掉 ' + shortDate(one.date) + ' ' + timeText(one.startAt) + ' 这一段？',
+            title: '删除 ' + shortDate(one.date) + ' ' + timeText(one.startAt) + ' 这一段？',
             note:
                 whoText(one) +
                 ' · ' +
@@ -117,7 +117,7 @@ async function remove(one: OnlineSession) {
         },
         () => removeOnline(one.id),
     );
-    if (ok) notify.success('已删掉一段');
+    if (ok) notify.success('已删除');
 }
 </script>
 <template>
@@ -135,13 +135,13 @@ async function remove(one: OnlineSession) {
             <SelectField v-model="who" :options="whoOptions" label="角色筛选" class="f-narrow" />
             <input
                 v-model="keyword"
-                class="field f-search"
+                class="field filter-search"
                 type="search"
                 placeholder="搜备注 / 日期"
                 aria-label="搜索上线记录"
                 autocomplete="off"
             />
-            <PressButton v-if="anyFilter" text="重置" label="清空筛选" @click="reset" />
+            <PressButton v-if="anyFilter" text="重置" size="sm" label="清空筛选" @click="reset" />
         </div>
 
         <p class="record-summary">
@@ -228,10 +228,6 @@ async function remove(one: OnlineSession) {
 .f-narrow {
     flex: none;
     width: calc(118px * var(--fs-scale));
-}
-.f-search {
-    flex: 1 1 140px;
-    min-width: 110px;
 }
 
 .sum-item {

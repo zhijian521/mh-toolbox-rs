@@ -75,7 +75,7 @@ function submit() {
 </script>
 
 <template>
-    <ModalShell title="加个提醒" :width="404" :scroll="false" @close="emit('close')">
+    <ModalShell title="新增提醒" :width="404" :scroll="false" @close="emit('close')">
         <div class="remind modal-form">
             <div class="head">
                 <h3 class="name">{{ activity.name }}</h3>
@@ -93,15 +93,13 @@ function submit() {
 
             <p v-if="whenLine" class="when">{{ whenLine }}</p>
 
-            <p class="hint">
-                提醒在开场前一分钟发出，不在这一页也会弹。加完可以在「闹钟」页改或删。
-            </p>
+            <p class="hint">开场前一分钟提醒。</p>
             <p v-if="note" class="hint warn">{{ note }}</p>
         </div>
 
         <template #footer>
             <PressButton data-modal-cancel text="取消" label="不加了" @click="emit('close')" />
-            <PressButton icon="check" text="加提醒" label="加进闹钟" seal @click="submit" />
+            <PressButton icon="check" text="保存" label="加进闹钟" seal @click="submit" />
         </template>
     </ModalShell>
 </template>

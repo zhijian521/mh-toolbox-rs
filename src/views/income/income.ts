@@ -1,3 +1,4 @@
+import { isDayText } from '../../services/format';
 /**
  * 收益页的**规则**：类型、金额换算、归一、合计与按日分组。
  *
@@ -112,14 +113,12 @@ function num(value: unknown): number {
     return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-
 export function normalizeEntry(raw: unknown): IncomeEntry | null {
     if (!raw || typeof raw !== 'object') return null;
     const one = raw as Record<string, unknown>;
 
     const date = text(one.date);
-    if (!DATE.test(date)) return null;
+    if (!isDayText(date)) return null;
 
     /* 金额是这一页的命：0 或负数会让「今天赚了多少」直接算错，宁可丢掉。
      * 四舍五入到整数：币没有小数，而备份里可能带着浮点尾巴。 */

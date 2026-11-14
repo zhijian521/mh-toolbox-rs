@@ -6,12 +6,12 @@ import { saved } from './save-feedback';
 export function useConfirmedRemoval(blocked: () => boolean, flush: () => Promise<boolean>) {
     const removing = ref(false);
 
-    async function run(options: ConfirmOptions, apply: () => void): Promise<boolean> {
+    async function run(options: ConfirmOptions, apply: () => void | boolean): Promise<boolean> {
         if (removing.value || blocked()) return false;
         removing.value = true;
         try {
             if (!(await askConfirm(options)) || blocked()) return false;
-            apply();
+            if (apply() === false) return false;
             return await saved(flush);
         } finally {
             removing.value = false;

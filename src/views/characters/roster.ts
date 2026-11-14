@@ -1,3 +1,4 @@
+import { readLocalData, writeLocalData, parseLocalList } from '../../services/local-data';
 /**
  * 角色名册：SQLite / localStorage 双路径 + 增删改。
  *
@@ -371,26 +372,6 @@ export function serializeRoster(list: CharacterData[]): string {
     return JSON.stringify(list);
 }
 
-/**
- * `localStorage` 可能不存在（测试跑在 node 里）或被策略禁用，两种情况都按「读不到」处理：
- * 名册是这一页的**全部内容**，为了一个存储异常把整页打成白屏不值得。
- */
-function readRaw(): string | null {
-    try {
-        return globalThis.localStorage?.getItem(STORAGE_KEY) ?? null;
-    } catch {
-        return null;
-    }
-}
-
-function writeRaw(raw: string) {
-    try {
-        globalThis.localStorage?.setItem(STORAGE_KEY, raw);
-    } catch {
-        writeError.value = '这一笔没存下来，检查一下浏览器存储空间';
-    }
-}
-
 /** 首次启动的种子：`mock.ts` 里那两个角色。宁可给一份能改的样例，也不要一张空页。
  *
  * **动态 `import()`**（2026-11-05）：`mock.ts` 是 34KB 的演示数据，而桌面版这一句永远
@@ -436,15 +417,6 @@ const loaded = ref(false);
  */
 const writeError = ref('');
 
-/** 浏览器路径：读 `localStorage`，没存过就给一份能改的种子。 */
-async function loadFromLocal(): Promise<CharacterData[]> {
-    const parsed = parseRoster(readRaw());
-    if (parsed) return parsed;
-    const initial = await seed();
-    writeRaw(serializeRoster(initial));
-    return initial;
-}
-
 /**
  * 读档。**只能调一次，且在 mount 之前**。
  *
@@ -459,7 +431,17 @@ async function loadFromLocal(): Promise<CharacterData[]> {
  */
 export async function loadRoster(): Promise<void> {
     if (!hasDesktop()) {
-        roster.value = await loadFromLocal();
+        const stored = readLocalData(STORAGE_KEY, (raw) =>
+            parseLocalList(raw, (rows) =>
+                (rows as unknown[]).filter(isObject).map(normalizeCharacter),
+            ),
+        );
+        if (!stored.ok) {
+            loadError.value = stored.error;
+            return;
+        }
+        roster.value = stored.value ?? (await seed());
+        loadError.value = '';
         loaded.value = true;
         return;
     }
@@ -492,7 +474,7 @@ const persist = createPersist({
     loadError,
     loaded,
     writeError,
-    writeLocal: () => writeRaw(serializeRoster(roster.value)),
+    writeLocal: () => writeLocalData(STORAGE_KEY, roster.value),
     writeRemote: () => charactersSave(roster.value),
 });
 

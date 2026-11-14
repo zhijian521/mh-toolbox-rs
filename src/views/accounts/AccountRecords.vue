@@ -161,13 +161,13 @@ async function remove(one: AccountEntry) {
             />
             <input
                 v-model="keyword"
-                class="field f-search"
+                class="field filter-search"
                 type="search"
                 placeholder="搜索备注、分类、角色"
                 aria-label="搜索记录"
                 autocomplete="off"
             />
-            <PressButton v-if="anyFilter" text="重置" label="清空筛选" @click="reset" />
+            <PressButton v-if="anyFilter" text="重置" size="sm" label="清空筛选" @click="reset" />
         </div>
         <div class="record-filters">
             <SelectField
@@ -283,10 +283,6 @@ async function remove(one: AccountEntry) {
 .f-pick {
     flex: 1 1 120px;
     min-width: 110px;
-}
-.f-search {
-    flex: 2 1 180px;
-    min-width: 120px;
 }
 .date-separator {
     color: var(--muted);

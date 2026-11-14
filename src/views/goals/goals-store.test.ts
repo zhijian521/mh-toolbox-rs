@@ -80,6 +80,18 @@ describe('loadGoals：读失败不等于空表', () => {
 });
 
 describe('目标写入：多人养成与记录保护', () => {
+    it('不存在的截止日期拒绝新增和修改，保留原目标', async () => {
+        const store = await loadStore(host(async () => []));
+        expect(store.addGoal({ ...GOAL, deadline: '2026-02-29' }).ok).toBe(false);
+        const created = store.addGoal({ ...GOAL, deadline: '2028-02-29' });
+        expect(created.ok).toBe(true);
+        if (!created.ok) return;
+        expect(store.updateGoal(created.goal.id, { ...GOAL, deadline: '2026-04-31' }).ok).toBe(
+            false,
+        );
+        expect(store.useGoals().goals.value[0].deadline).toBe('2028-02-29');
+    });
+
     it('任意多选按名册顺序取快照，不引用原成员对象', async () => {
         const store = await loadStore(host(async () => []));
         const roster = [

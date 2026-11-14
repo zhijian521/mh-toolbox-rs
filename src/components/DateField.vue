@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import type { CSSProperties } from 'vue';
 import AppIcon from './AppIcon.vue';
 import { useToday } from '../composables/use-today';
@@ -12,9 +12,8 @@ import { dateText, parseDay } from '../services/format';
  *
  * 与 `SelectField` 不用原生 `<select>` 同一条理由：原生日期控件在 Windows / WebView2 上
  * 是系统画的一套（自带边框、自带月历弹层、字号不跟主题），放进这张纸里就是一块贴错的
- * 金属片。物价页的 `PricePointDialog` 因此把日期做成「文本格 + 正则校验」——那里一天只
- * 记一笔价，手敲够用；而收益历史是**选一天翻一天**，手敲一个不存在的日期会得到一句
- * 「这一天没有记录」，与「真的没有记录」分不开。所以这里需要一个能看见月份的控件。
+ * 金属片。物价记价、收益历史等日期入口共用月历，避免手敲不存在的日期后得到
+ * 「这一天没有记录」，与「真的没有记录」分不开。
  *
  * ---- 材质分工 ----
  *
@@ -61,13 +60,17 @@ const props = withDefaults(
         /** 可选范围（`YYYY-MM-DD`），留空即不限。 */
         min?: string;
         max?: string;
+        disabled?: boolean;
+        error?: string;
     }>(),
-    { min: '', max: '' },
+    { min: '', max: '', disabled: false, error: '' },
 );
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
 
 const WEEK = ['一', '二', '三', '四', '五', '六', '日'];
+
+const errorId = `date-error-${useId()}`;
 
 const root = ref<HTMLElement | null>(null);
 const trigger = ref<HTMLButtonElement | null>(null);
@@ -206,7 +209,7 @@ function onViewportChange() {
 /* 打开时把落点摆到已选那天（没有就今天），并把那一天的格子聚焦——否则键盘用户打开
  * 之后要按十几次方向键才能走到想选的日子。 */
 function openPanel() {
-    if (open.value) return;
+    if (props.disabled || open.value) return;
     const seed = props.modelValue || today.value;
     cursor.value = seed;
     view.value = monthOf(seed);
@@ -271,7 +274,7 @@ function moveCursor(step: number) {
 }
 
 function choose(value: string) {
-    if (!value || disabled(value)) return;
+    if (props.disabled || !value || disabled(value)) return;
     emit('update:modelValue', value);
     closePanel(true);
 }
@@ -284,6 +287,7 @@ function jumpToday() {
 }
 
 function onDayKeydown(event: KeyboardEvent) {
+    if (props.disabled) return;
     switch (event.key) {
         case 'ArrowLeft':
             event.preventDefault();
@@ -342,6 +346,7 @@ function onDayKeydown(event: KeyboardEvent) {
 }
 
 function onTriggerKeydown(event: KeyboardEvent) {
+    if (props.disabled) return;
     if (open.value) return;
     if (['ArrowDown', 'Enter', ' '].includes(event.key)) {
         event.preventDefault();
@@ -360,6 +365,14 @@ function onPointerDown(event: PointerEvent) {
     if (root.value?.contains(target) || panel.value?.contains(target)) return;
     closePanel();
 }
+
+watch(
+    () => props.disabled,
+    (value) => {
+        if (value) closePanel();
+    },
+    { flush: 'sync' },
+);
 
 onMounted(() => {
     document.addEventListener('pointerdown', onPointerDown);
@@ -384,6 +397,9 @@ onBeforeUnmount(() => {
             :aria-expanded="open"
             :aria-controls="panelId"
             :aria-label="`${label}：${triggerText}`"
+            :disabled="props.disabled"
+            :aria-invalid="!!error || undefined"
+            :aria-describedby="error ? errorId : undefined"
             @click="toggle"
             @keydown="onTriggerKeydown"
         >
@@ -459,6 +475,7 @@ onBeforeUnmount(() => {
                 </div>
             </div>
         </Teleport>
+        <span v-if="error" :id="errorId" class="note error field-error">{{ error }}</span>
     </div>
 </template>
 
@@ -466,6 +483,8 @@ onBeforeUnmount(() => {
 .date-field {
     position: relative;
     display: flex;
+    flex-direction: column;
+    gap: 4px;
     min-width: 0;
 }
 

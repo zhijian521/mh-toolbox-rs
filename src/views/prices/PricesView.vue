@@ -7,8 +7,8 @@ import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SelectField from '../../components/SelectField.vue';
 import SlotButton from '../../components/SlotButton.vue';
-import { saved } from '../../composables/save-feedback';
-import { askConfirm } from '../../composables/use-confirm';
+import { usePersistedSubmit } from '../../composables/use-persisted-submit';
+import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { notify } from '../../composables/use-notify';
 import PriceCard from './PriceCard.vue';
 import PriceHistoryDialog from './PriceHistoryDialog.vue';
@@ -131,7 +131,28 @@ const historyId = ref('');
 /** 正在编辑的物品；`null` = 新建。 */
 const editingItem = ref<PriceItem | null>(null);
 const itemDialogOpen = ref(false);
-let itemDialogVersion = 0;
+const itemSubmit = usePersistedSubmit(flush, retry);
+const pointSubmit = usePersistedSubmit(flush, retry);
+const { saving: itemSaving, locked: itemLocked, action: itemAction } = itemSubmit;
+const { saving: pointSaving, locked: pointLocked, action: pointAction } = pointSubmit;
+const removal = useConfirmedRemoval(
+    () =>
+        pending.value > 0 ||
+        itemLocked.value ||
+        pointLocked.value ||
+        !!loadError.value ||
+        !!writeError.value,
+    flush,
+);
+const { removing } = removal;
+const busy = computed(
+    () =>
+        itemLocked.value ||
+        pointLocked.value ||
+        removing.value ||
+        pending.value > 0 ||
+        !!writeError.value,
+);
 /** 记价针对哪一件物品。 */
 const pointItemId = ref('');
 const editingPoint = ref<PricePoint | null>(null);
@@ -158,14 +179,16 @@ const pointItem = computed<PriceItem | null>(
 
 /* ---------- 物品 ---------- */
 function startNew() {
-    itemDialogVersion += 1;
+    if (busy.value) return;
+    itemSubmit.reset();
     itemError.value = '';
     editingItem.value = null;
     itemDialogOpen.value = true;
 }
 
 function startEdit(item: PriceItem) {
-    itemDialogVersion += 1;
+    if (busy.value) return;
+    itemSubmit.reset();
     itemError.value = '';
     editingItem.value = item;
     itemDialogOpen.value = true;
@@ -173,25 +196,25 @@ function startEdit(item: PriceItem) {
 }
 
 function closeItemDialog() {
-    itemDialogVersion += 1;
+    if (itemSaving.value) return;
+    itemSubmit.reset();
     itemDialogOpen.value = false;
     editingItem.value = null;
     itemError.value = '';
 }
 
 async function onSaveItem(draft: PriceItemDraft, initialPrice: number) {
-    if (pending.value > 0) return;
-    const version = itemDialogVersion;
-    const target = editingItem.value;
-    const result = target ? saveItem(target.id, draft) : addItem(draft, initialPrice);
-    if (!result.ok) {
-        itemError.value = result.error;
-        return;
-    }
-    editingItem.value = items.value.find((one) => one.id === result.id) ?? null;
-    if (!(await saved(flush))) return;
-    if (version === itemDialogVersion) closeItemDialog();
-    notify.success(target ? '已保存' : '已新增');
+    if (removing.value || (!itemAction.value && busy.value)) return;
+    const ok = await itemSubmit.run('item', () => {
+        const result = editingItem.value
+            ? saveItem(editingItem.value.id, draft)
+            : addItem(draft, initialPrice);
+        itemError.value = result.ok ? '' : result.error;
+        return result.ok;
+    });
+    if (!ok) return;
+    closeItemDialog();
+    notify.success('已保存');
 }
 
 /* ---------- 记价 ----------
@@ -201,6 +224,8 @@ async function onSaveItem(draft: PriceItemDraft, initialPrice: number) {
  * 用户的反馈很直接：他连着记几笔的时候，每记一笔就被一张走势图拦一次，
  * 得先关掉才能记下一笔。历史窗有它自己的入口（点价格那一片），不该由写入动作强行拉出来。 */
 function startLog(item: PriceItem) {
+    if (busy.value) return;
+    pointSubmit.reset();
     pointError.value = '';
     editingPoint.value = null;
     pointItemId.value = item.id;
@@ -219,6 +244,8 @@ function startLog(item: PriceItem) {
  * 这里唯一调用方是历史窗，`historyId` 必定有值。
  */
 function startEditPoint(point: PricePoint) {
+    if (busy.value) return;
+    pointSubmit.reset();
     pointError.value = '';
     pointItemId.value = historyId.value;
     editingPoint.value = point;
@@ -227,96 +254,73 @@ function startEditPoint(point: PricePoint) {
 }
 
 function closePointDialog() {
+    if (pointSaving.value) return;
+    pointSubmit.reset();
     pointDialogOpen.value = false;
     editingPoint.value = null;
     pointError.value = '';
 }
 
 async function onSavePoint(draft: PricePointDraft) {
-    if (pending.value > 0) return;
     const item = pointItem.value;
-    if (!item) return;
-    const version = pointVersion.value;
-    const editing = editingPoint.value;
-    const previousIds = new Set(item.points.map((one) => one.id));
-    const result = editing ? savePoint(item.id, editing.id, draft) : addPoint(item.id, draft);
-    if (!result.ok) {
-        pointError.value = result.error;
-        return;
-    }
-    editingPoint.value =
-        pointItem.value?.points.find((one) =>
-            editing ? one.id === editing.id : !previousIds.has(one.id),
-        ) ?? null;
-    if (!(await saved(flush))) return;
-    if (version === pointVersion.value) closePointDialog();
-    notify.success(editing ? '已改这一笔' : '已记一笔');
-}
-
-/* ---------- 删除 ----------
- * 问句在动作函数里，不再另存一份 `confirming` 状态再去算标题：以前那套是
- * 「点按钮 → 记下目标 → computed 拼两句文案 → 模板渲染窗 → 回调里再读一遍目标」，
- * 一条链走下来，只为回答「删的是哪一件」。
- */
-async function askRemoveItem(item: PriceItem) {
-    const count = item.points.length;
-    const ok = await askConfirm({
-        danger: true,
-        title: `删掉「${item.name}」这张卡？`,
-        note: count
-            ? `它下面的 ${count} 条价格记录会一并删掉，删了没法撤回。`
-            : '这张卡下面还没有价格记录，删了没法撤回。',
-        confirmText: '删除',
+    if (!item || removing.value || (!pointAction.value && busy.value)) return;
+    const ok = await pointSubmit.run('point', () => {
+        const result = editingPoint.value
+            ? savePoint(item.id, editingPoint.value.id, draft)
+            : addPoint(item.id, draft);
+        pointError.value = result.ok ? '' : result.error;
+        return result.ok;
     });
     if (!ok) return;
+    closePointDialog();
+    notify.success('已保存');
+}
 
-    const result = removeItem(item.id);
-    if (!result.ok) {
-        /* 失败用浮层说，不再挤进页头那条 `pointError`：那句话是「记价没写进去」的位置，
-         * 而这里是卡片已经不在眼前了，用户的视点还在网格上。 */
-        notify.error(result.error);
-        return;
-    }
-    if (!(await saved(flush))) return;
-    /* 删的是物品 → 历史窗也没内容了，一起关掉。 */
+async function askRemoveItem(item: PriceItem) {
+    const ok = await removal.run(
+        {
+            danger: true,
+            title: `删除「${item.name}」？`,
+            note: item.points.length
+                ? `同时删除 ${item.points.length} 条价格记录。`
+                : '删除后无法撤回。',
+            confirmText: '删除',
+        },
+        () => {
+            const result = removeItem(item.id);
+            if (!result.ok) notify.error(result.error);
+            return result.ok;
+        },
+    );
+    if (!ok) return;
     historyId.value = '';
     if (pointItemId.value === item.id) pointItemId.value = '';
     notify.success('已删除');
 }
 
-/**
- * 历史里删一条价格。
- *
- * 目标物品只能取 `historyItem`——这个函数唯一的入口就是历史窗的 `@remove-point`。
- * 早先写的是 `pointItem.value ?? historyItem.value`：`pointItem` 是「上一次开过记价窗的
- * 那件」，与此刻打开的历史窗不是同一件。于是在 A 上记过价、再去 B 的历史里删一条，
- * 会拿 A 的 id 去删 B 的记录，得到「这条记录已经不在了」。
- *
- * 确认之后历史窗**留着**（与删整张卡不同）：用户多半还要接着看走势。
- */
 async function askRemovePoint(point: PricePoint) {
     const item = historyItem.value;
     if (!item) return;
-    const ok = await askConfirm({
-        danger: true,
-        title: `删掉 ${shortDate(point.date)} 的价格记录？`,
-        note: '只删这一条，物品本身还留着。删了没法撤回。',
-        confirmText: '删除',
-    });
-    if (!ok) return;
-
-    const result = removePoint(item.id, point.id);
-    if (!result.ok) {
-        notify.error(result.error);
-        return;
-    }
-    if (await saved(flush)) notify.success('已删除');
+    const ok = await removal.run(
+        {
+            danger: true,
+            title: `删除 ${shortDate(point.date)} 的价格记录？`,
+            note: '只删除这一条，无法撤回。',
+            confirmText: '删除',
+        },
+        () => {
+            const result = removePoint(item.id, point.id);
+            if (!result.ok) notify.error(result.error);
+            return result.ok;
+        },
+    );
+    if (ok) notify.success('已删除');
 }
 
 function openHistory(item: PriceItem) {
     historyId.value = item.id;
 }
-useRouteAction({ new: startNew });
+useRouteAction('/prices', { new: startNew });
 </script>
 
 <template>
@@ -336,13 +340,13 @@ useRouteAction({ new: startNew });
         <!-- 数据层的那一行红字：读不出 / 写不进，都是「整张表有问题」而不是「这一笔填错了」，
              所以它在筛选栏之上、卡片区之外。`writeError` 从前只在 `prices-store.ts` 里被赋值
              和返回，没有任何界面读它——注释里说的「界面拿它显示一行红字」是这次才接上的。 -->
-        <p v-if="loadError" class="note error price-error">{{ loadError }}</p>
+        <p v-if="loadError" class="note error price-error" role="alert">{{ loadError }}</p>
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
 
-        <div class="price-toolbar">
+        <div class="price-toolbar page-filters">
             <input
                 v-model="keyword"
-                class="field toolbar-key"
+                class="field toolbar-key filter-search"
                 type="text"
                 aria-label="搜索物品名、子类或备注"
                 placeholder="搜物品名、子类或备注"
@@ -389,8 +393,8 @@ useRouteAction({ new: startNew });
             />
         </div>
 
-        <div v-else-if="!items.length" class="price-void">
-            <AppIcon name="prices" class="void-icon" />
+        <div v-else-if="!items.length" class="price-void page-empty">
+            <AppIcon name="prices" class="void-icon page-empty-icon" />
             <h3>记下第一个价</h3>
             <PressButton
                 icon="add"
@@ -409,7 +413,10 @@ useRouteAction({ new: startNew });
             v-if="itemDialogOpen"
             :key="editingItem?.id ?? 'new'"
             :item="editingItem"
-            :error="itemError"
+            :error="itemError || writeError"
+            :saving="itemSaving"
+            :locked="itemLocked"
+            :retrying="itemAction !== null"
             @save="onSaveItem"
             @close="closeItemDialog"
         />
@@ -419,7 +426,10 @@ useRouteAction({ new: startNew });
             :key="`${pointItem.id}-${editingPoint?.id ?? 'new'}-${pointVersion}`"
             :item-name="pointItem.name"
             :point="editingPoint"
-            :error="pointError"
+            :error="pointError || writeError"
+            :saving="pointSaving"
+            :locked="pointLocked"
+            :retrying="pointAction !== null"
             @save="onSavePoint"
             @close="closePointDialog"
         />

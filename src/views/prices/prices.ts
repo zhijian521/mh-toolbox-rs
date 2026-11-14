@@ -1,5 +1,5 @@
 /**
- * 物价的字段契约 + 纯计算 + 本机存储的读写。
+ * 物价的字段契约、纯计算与序列化。
  *
  * ---- 这个文件为什么存在 ----
  * 物价页要在三个地方读同一份数据（卡片网格、走势面板、编辑表单），而「当前价是多少」
@@ -27,7 +27,7 @@
  */
 /* 金额与日期的写法全站只有一份，在 `services/format.ts`——收益页也要 `moneyText` /
  * `todayText`，放在这一页会让另一页反向依赖物价模块。 */
-import { moneyText, shortDate, todayText } from '../../services/format';
+import { isDayText, moneyText, shortDate, todayText } from '../../services/format';
 import { isObject, makeId, rows, stamp, text } from '../../services/shape';
 import { DEFAULT_CATEGORY, isPriceCategory, legacyPriceSlot, subsOf } from './prices-catalog';
 
@@ -172,29 +172,9 @@ const amount = (value: unknown): number => {
     return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed * 100) / 100 : 0;
 };
 
-/**
- * 只接受存在的那一天：`YYYY-MM-DD` 且日历上真有这一格；认不出退回空串，绝不抛错。
- *
- * 光看形状不够——`2026-13-01`、`2026-02-31` 都能通过 `^\d{4}-\d{2}-\d{2}$`，
- * 于是它们会被原样存进历史，列表里出现一行「13-01」，排序还把它排到最前面
- * （字符串比较里 `13` 比 `11` 大）。`Date.parse` 也靠不住：它会把 2 月 31 日
- * 自动进位成 3 月 3 日，照样不报错。所以构造回来比一遍三个分量——
- * 差一天就说明这个日期是编的。
- */
 const dateText = (value: unknown): string => {
     const candidate = text(value);
-    const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(candidate);
-    if (!matched) return '';
-    const year = Number(matched[1]);
-    const month = Number(matched[2]);
-    const day = Number(matched[3]);
-    /* 用 UTC 构造：本地时区的夏令时会让某些日子偏移一小时，跨过午夜就变成前一天。 */
-    const date = new Date(Date.UTC(year, month - 1, day));
-    const real =
-        date.getUTCFullYear() === year &&
-        date.getUTCMonth() === month - 1 &&
-        date.getUTCDate() === day;
-    return real ? candidate : '';
+    return isDayText(candidate) ? candidate : '';
 };
 
 /* `todayText` / `shortDate` 已挪到 `services/format.ts`：收益页与设置页也要用，
@@ -488,33 +468,6 @@ export function parsePriceItems(raw: string | null): PriceItem[] | null {
 
 export function serializePriceItems(list: PriceItem[]): string {
     return JSON.stringify(list);
-}
-
-/**
- * **浏览器那条路**的读写：`localStorage` 可能不存在（单测跑在 node 里）或被策略禁用，
- * 两种都按「读不到」处理——物价表是这一页的全部内容，为了一个存储异常把整页打成白屏
- * 不值得。桌面版不走这里：那两条路径在 `prices-store.ts` 里分成 `pricesLoad` /
- * `pricesSave`（经 `services/desktop.ts` 落到 SQLite），本文件只管数据长什么样。
- */
-export function readPriceItems(): PriceItem[] {
-    // 不能给初始值 `null`：`try` 与 `catch` 两条路径都必然赋值，那个 `null` 永远用不上，
-    // 只会让 lint 报 `no-useless-assignment`，也会让人以为「读不到」有个隐式的默认路径。
-    let raw: string | null;
-    try {
-        raw = globalThis.localStorage?.getItem(STORAGE_KEY) ?? null;
-    } catch {
-        raw = null;
-    }
-    return parsePriceItems(raw) ?? [];
-}
-
-export function writePriceItems(list: PriceItem[]): boolean {
-    try {
-        globalThis.localStorage?.setItem(STORAGE_KEY, serializePriceItems(list));
-        return true;
-    } catch {
-        return false;
-    }
 }
 
 /* ======================================================================

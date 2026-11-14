@@ -136,7 +136,7 @@ function onEnter(event: KeyboardEvent) {
 
 <template>
     <ModalShell
-        :title="alarm ? '编辑闹钟' : '新增闹钟'"
+        :title="alarm ? '修改闹钟' : '新增闹钟'"
         :width="440"
         :scroll="false"
         @close="emit('close')"
@@ -162,11 +162,15 @@ function onEnter(event: KeyboardEvent) {
                     v-model="draft.time"
                     :label="draft.repeat === 'hourly' ? '每小时的几分' : '时刻'"
                     :mode="draft.repeat === 'hourly' ? 'minute' : 'clock'"
+                    :error="
+                        showTimeError
+                            ? draft.repeat === 'hourly'
+                                ? '写 0–59'
+                                : '写成 07:30 这样'
+                            : ''
+                    "
                     @commit="touched.time = true"
                 />
-                <span v-if="showTimeError" class="note error alarm-note">
-                    {{ draft.repeat === 'hourly' ? '写 0–59' : '写成 07:30 这样' }}
-                </span>
 
                 <div v-if="draft.repeat === 'weekly'" class="alarm-row">
                     <TogglePills
@@ -180,8 +184,12 @@ function onEnter(event: KeyboardEvent) {
 
                 <label v-if="draft.repeat === 'once'" class="alarm-day">
                     <span class="field-label">哪一天</span>
-                    <DateField v-model="draft.date" :min="today" label="闹钟响的日期" />
-                    <span v-if="showDateError" class="note error">选一个日子</span>
+                    <DateField
+                        v-model="draft.date"
+                        :min="today"
+                        label="闹钟响的日期"
+                        :error="showDateError ? '选一个日子' : ''"
+                    />
                 </label>
             </div>
 
@@ -196,11 +204,9 @@ function onEnter(event: KeyboardEvent) {
                 />
             </label>
 
-            <p class="note alarm-hint">
-                提醒在时刻前一分钟发出；不在这一页也会弹出来。关掉窗口就不再提醒。
-            </p>
+            <p class="note alarm-hint">应用运行时提前一分钟提醒。</p>
 
-            <p v-if="error" class="note error alarm-note">{{ error }}</p>
+            <p v-if="error" class="note error alarm-note" role="alert">{{ error }}</p>
         </form>
 
         <template #footer>

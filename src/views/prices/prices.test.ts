@@ -19,13 +19,11 @@ import {
     pointDraftErrors,
     priceBadge,
     priceChange,
-    readPriceItems,
     recentPrices,
     retuneSub,
     serializePriceItems,
     sortedPoints,
     updateSummary,
-    writePriceItems,
 } from './prices';
 import type { PriceFilter, PriceItem, PricePoint, PriceSort } from './prices';
 
@@ -667,16 +665,10 @@ describe('表单校验：逐格给一句话', () => {
 });
 
 /* ======================================================================
- * 存储的降级与往返
+ * 序列化往返
  * ==================================================================== */
 
-describe('本机存储', () => {
-    it('没有 localStorage（单测跑在 node 里）时读成空表、写入静默失败，都不抛错', () => {
-        expect(readPriceItems()).toEqual([]);
-        expect(() => writePriceItems([])).not.toThrow();
-        expect(() => writePriceItems([makeItem('甲')])).not.toThrow();
-    });
-
+describe('物价序列化', () => {
     it('往返：序列化再解析，结构与 id 都不变', () => {
         const original = [
             makeItem('金刚石', [point(10000, '2026-11-03'), point(5000, '2026-11-01')], {

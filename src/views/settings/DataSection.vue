@@ -213,7 +213,7 @@ onMounted(() => {
                 :disabled="busy"
                 @click="askImport"
             />
-            <span class="hint">导出写成 JSON；导入是整份替换</span>
+            <span class="hint">导入将替换全部账本</span>
         </div>
 
         <div class="danger-zone">

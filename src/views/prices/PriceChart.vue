@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { moneyText } from '../../services/format';
-import TrendChart from '../income/TrendChart.vue';
+import TrendChart from '../../components/TrendChart.vue';
 
 const props = defineProps<{
     /** 保留每次记价，时间正序；同一天多条也各占一柱。 */

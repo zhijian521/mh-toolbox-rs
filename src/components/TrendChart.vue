@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import { useChartHover } from '../composables/use-chart-hover';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
-import ChartColumn from '../../components/ChartColumn.vue';
-import ChartTooltip from '../../components/ChartTooltip.vue';
-import { chartColor } from '../../components/chart-style';
-import { shortDate } from '../../services/format';
+import ChartColumn from './ChartColumn.vue';
+import ChartTooltip from './ChartTooltip.vue';
+import { chartColor } from './chart-style';
+import { shortDate } from '../services/format';
 import {
     buildTrendChart,
     trendIndexAt,
@@ -111,8 +112,12 @@ const summary = computed(() => {
 });
 
 const tooltipId = useId();
-const hoverIndex = ref<number | null>(null);
-const hoverPoint = ref<{ x: number; y: number } | null>(null);
+const {
+    active: hoverIndex,
+    point: hoverPoint,
+    locate,
+    leaveFocus,
+} = useChartHover<number>(() => host.value);
 const hovered = computed(() => {
     const index = hoverIndex.value;
     if (index === null || chart.value.empty || index >= props.labels.length) return null;
@@ -145,8 +150,7 @@ function move(event: PointerEvent) {
         y < plot.top || y > plot.top + plot.height
             ? null
             : trendIndexAt(plot, props.labels.length, x);
-    const hostBox = host.value!.getBoundingClientRect();
-    hoverPoint.value = { x: event.clientX - hostBox.left, y: event.clientY - hostBox.top };
+    locate(event);
     hoverIndex.value = next;
 }
 function reveal(index: number) {
@@ -189,10 +193,6 @@ function navigate(event: KeyboardEvent) {
                     ),
                 );
     reveal(hoverIndex.value);
-}
-function leaveFocus(event: FocusEvent) {
-    if (!(event.relatedTarget instanceof Node) || !host.value?.contains(event.relatedTarget))
-        hoverIndex.value = null;
 }
 
 const lastDay = computed(() => props.labels[props.labels.length - 1] ?? '');

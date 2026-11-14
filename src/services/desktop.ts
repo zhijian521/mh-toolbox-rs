@@ -50,12 +50,16 @@ export async function appInfo(): Promise<AppInfo | null> {
  */
 export async function openExternal(url: string): Promise<boolean> {
     try {
-        await commands.openExternal(url);
-        return true;
-    } catch {
-        if (typeof window !== 'undefined') {
+        if (hasTauri) {
+            await commands.openExternal(url);
+        } else {
+            if (typeof window === 'undefined') return false;
+            // noopener 下返回 null 也可能已经打开，回执只代表已交给浏览器。
             window.open(url, '_blank', 'noopener,noreferrer');
         }
+        return true;
+    } catch (error) {
+        console.error('打开外链失败', error);
         return false;
     }
 }

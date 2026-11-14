@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, useId } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PriceField from '../../components/PriceField.vue';
 import PressButton from '../../components/PressButton.vue';
@@ -36,6 +36,9 @@ const props = defineProps<{
     item: PriceItem | null;
     /** 父级写盘失败时的原因（同名物品等）。留在窗内显示：关掉窗再报错，用户得重填一遍。 */
     error?: string;
+    saving?: boolean;
+    locked?: boolean;
+    retrying?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -113,25 +116,27 @@ function pickCategory(value: string) {
 
 function submit() {
     submitted.value = true;
-    if (!canSave.value) return;
+    if (props.saving || (!props.retrying && !canSave.value)) return;
     emit('save', { ...draft }, initialPrice.value);
 }
 
 /* 表单里三格文字输入、又没有 `type="submit"` 按钮，规范规定这种表单的隐式提交什么都不做，
  * 所以回车要自己接。只认 `input` 上的回车：焦点在「保存」上时不能再走一遍。 */
 function onEnter(event: KeyboardEvent) {
-    if (!(event.target instanceof HTMLInputElement)) return;
+    if (event.isComposing || !(event.target instanceof HTMLInputElement)) return;
     event.preventDefault();
     submit();
 }
+const nameErrorId = `item-name-${useId()}`;
+const subErrorId = `item-sub-${useId()}`;
 </script>
 
 <template>
     <ModalShell
-        :title="item ? '编辑物品' : '新建物品'"
+        :title="item ? '修改物品' : '新增物品'"
         :width="480"
         :scroll="false"
-        @close="emit('close')"
+        @close="!saving && emit('close')"
     >
         <form
             id="price-item-form"
@@ -139,83 +144,95 @@ function onEnter(event: KeyboardEvent) {
             @submit.prevent="submit"
             @keydown.enter="onEnter"
         >
-            <label class="cell cell-wide">
-                <span class="field-label">物品名称</span>
-                <input
-                    v-model="draft.name"
-                    class="field"
-                    :maxlength="NAME_LIMIT"
-                    aria-label="物品名称"
-                    placeholder="高级内丹"
-                    @blur="touched.name = true"
-                />
-                <span v-if="showNameError" class="note error">{{ errors.name }}</span>
-            </label>
+            <fieldset :disabled="locked" :inert="locked">
+                <label class="cell cell-wide">
+                    <span class="field-label">物品名称</span>
+                    <input
+                        v-model="draft.name"
+                        class="field"
+                        :maxlength="NAME_LIMIT"
+                        aria-label="物品名称"
+                        :aria-invalid="showNameError || undefined"
+                        :aria-describedby="showNameError ? nameErrorId : undefined"
+                        placeholder="高级内丹"
+                        @blur="touched.name = true"
+                    />
+                    <span v-if="showNameError" :id="nameErrorId" class="note error">{{
+                        errors.name
+                    }}</span>
+                </label>
 
-            <label class="cell">
-                <span class="field-label">一级分类</span>
-                <SelectField
-                    :model-value="draft.category"
-                    :options="CATEGORY_OPTIONS"
-                    label="物品一级分类"
-                    @update:model-value="pickCategory"
-                />
-            </label>
+                <label class="cell">
+                    <span class="field-label">一级分类</span>
+                    <SelectField
+                        :model-value="draft.category"
+                        :options="CATEGORY_OPTIONS"
+                        label="物品一级分类"
+                        @update:model-value="pickCategory"
+                        :disabled="locked"
+                    />
+                </label>
 
-            <label class="cell">
-                <span class="field-label">二级分类</span>
-                <SelectField
-                    v-if="!subCustom"
-                    :model-value="subValue"
-                    :options="subOptions"
-                    label="二级分类"
-                    placeholder="不分类"
-                    @update:model-value="pickSub"
-                />
-                <input
-                    v-else
-                    v-model="draft.sub"
-                    class="field"
-                    :maxlength="SUB_LIMIT"
-                    aria-label="自己写一个二级分类"
-                    placeholder="自己写一个"
-                    @blur="touched.sub = true"
-                />
-                <span v-if="showSubError" class="note error">{{ errors.sub }}</span>
-            </label>
+                <label class="cell">
+                    <span class="field-label">二级分类</span>
+                    <SelectField
+                        v-if="!subCustom"
+                        :model-value="subValue"
+                        :options="subOptions"
+                        label="二级分类"
+                        placeholder="不分类"
+                        @update:model-value="pickSub"
+                        :disabled="locked"
+                    />
+                    <input
+                        v-else
+                        v-model="draft.sub"
+                        class="field"
+                        :maxlength="SUB_LIMIT"
+                        aria-label="自己写一个二级分类"
+                        :aria-invalid="showSubError || undefined"
+                        :aria-describedby="showSubError ? subErrorId : undefined"
+                        placeholder="自己写一个"
+                        @blur="touched.sub = true"
+                    />
+                    <span v-if="showSubError" :id="subErrorId" class="note error">{{
+                        errors.sub
+                    }}</span>
+                </label>
 
-            <div v-if="!item" class="init-price">
-                <!-- 占位符只放 `0`（组件默认）。早先这里塞了「不填就先建卡」，
+                <div v-if="!item" class="init-price">
+                    <!-- 占位符只放 `0`（组件默认）。早先这里塞了「不填就先建卡」，
                      六个中文字在数字格里被裁成「不填就先」，后面还跟着「万」，
                      读起来像两个东西撞在一起。长句该进 label 或提示行，不该进数字格。 -->
-                <PriceField v-model="initialPrice" label="初始价（可空）" size="md" stepper />
-            </div>
+                    <PriceField v-model="initialPrice" label="初始价（可空）" size="md" stepper />
+                </div>
 
-            <label class="cell" :class="{ 'cell-wide': !!item }">
-                <span class="field-label">备注（可空）</span>
-                <input
-                    v-model="draft.note"
-                    class="field"
-                    aria-label="备注"
-                    placeholder="哪条线、什么成色"
-                />
-            </label>
-
-            <p v-if="error" class="note error dialog-error">{{ error }}</p>
+                <label class="cell" :class="{ 'cell-wide': !!item }">
+                    <span class="field-label">备注（可空）</span>
+                    <input
+                        v-model="draft.note"
+                        class="field"
+                        aria-label="备注"
+                        placeholder="哪条线、什么成色"
+                    />
+                </label>
+            </fieldset>
+            <p v-if="error" class="note error dialog-error" role="alert">{{ error }}</p>
         </form>
 
         <template #footer>
             <PressButton
                 data-modal-cancel
+                :disabled="saving"
                 text="取消"
                 label="放弃这次编辑"
                 @click="emit('close')"
             />
             <PressButton
                 icon="check"
-                text="保存"
+                :text="retrying ? '重试保存' : '保存'"
                 label="保存这件物品"
-                :disabled="!canSave"
+                :disabled="saving || (!retrying && !canSave)"
                 seal
                 @click="submit"
             />
@@ -224,6 +241,9 @@ function onEnter(event: KeyboardEvent) {
 </template>
 
 <style scoped>
+fieldset {
+    display: contents;
+}
 /* 两列网格：名称与（编辑时的）备注通栏，其余各占一半。
  * 不用 flex + 定宽——固定比例就该用 grid 的轨道（CONVENTIONS §2.4-32），
  * 而这里要的正是「两列各半分」。 */

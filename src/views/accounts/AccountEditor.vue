@@ -164,7 +164,7 @@ function submit() {
             </div>
         </dl>
         <form v-else class="modal-form" @submit.prevent="submit">
-            <fieldset class="income-form" :disabled="locked">
+            <fieldset class="income-form" :disabled="locked" :inert="locked">
                 <!-- 币种单独一行、排在最前：它决定下面「金额」那一格说的是元还是万，
                  放到后面等于让人先填一个数、再回头发现单位错了。 -->
                 <div class="form-row">
@@ -173,6 +173,7 @@ function submit() {
                         v-model="currency"
                         :options="currencyOptions"
                         label="记账币种"
+                        :disabled="locked"
                     />
                 </div>
 
@@ -193,11 +194,16 @@ function submit() {
                 <div class="pair">
                     <div class="form-row">
                         <span class="field-label">方向</span>
-                        <SegmentedPills v-model="kind" :options="kindOptions" label="收支方向" />
+                        <SegmentedPills
+                            v-model="kind"
+                            :options="kindOptions"
+                            label="收支方向"
+                            :disabled="locked"
+                        />
                     </div>
                     <div class="form-row">
                         <span class="field-label">日期</span>
-                        <DateField v-model="date" label="记账日期" />
+                        <DateField v-model="date" label="记账日期" :disabled="locked" />
                     </div>
                 </div>
 
@@ -208,11 +214,17 @@ function submit() {
                             v-model="category"
                             :options="categoryOptions"
                             label="收支分类"
+                            :disabled="locked"
                         />
                     </div>
                     <div class="form-row">
                         <span class="field-label">渠道</span>
-                        <SelectField v-model="channel" :options="channelOptions" label="交易渠道" />
+                        <SelectField
+                            v-model="channel"
+                            :options="channelOptions"
+                            label="交易渠道"
+                            :disabled="locked"
+                        />
                     </div>
                 </div>
 
@@ -222,6 +234,7 @@ function submit() {
                         v-model="characterId"
                         :options="whoOptions"
                         label="这笔账记给哪个角色"
+                        :disabled="locked"
                     />
                 </div>
 

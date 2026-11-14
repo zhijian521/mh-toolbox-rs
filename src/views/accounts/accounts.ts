@@ -1,3 +1,4 @@
+import { isDayText } from '../../services/format';
 /**
  * 账号页的**规则**：币种、分类、快速入口、金额口径、归一与汇总。
  *
@@ -113,8 +114,6 @@ function num(value: unknown): number {
     return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-
 /**
  * 金额按币种收到该有的精度：人民币到分、梦幻币到整数。
  *
@@ -130,7 +129,7 @@ export function normalizeEntry(raw: unknown): AccountEntry | null {
     const one = raw as Record<string, unknown>;
 
     const date = text(one.date);
-    if (!DATE.test(date)) return null;
+    if (!isDayText(date)) return null;
 
     /* 币种认不出就丢掉，**不猜**：单位差 10000 倍，猜错的那一条会让整本账的汇总错得离谱，
      * 而界面上它看起来只是一条普通记录。 */

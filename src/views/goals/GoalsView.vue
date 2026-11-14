@@ -160,7 +160,6 @@ function closeEditor() {
 }
 async function save(input: GoalInput) {
     if (!editing.value) return;
-    const wasEditing = !!editing.value.goal;
     const ok = await editSubmit.run('editor', () => {
         editError.value = '';
         const goal = editing.value?.goal;
@@ -176,7 +175,7 @@ async function save(input: GoalInput) {
     if (!ok) return;
     announce(beforeSave, savedGoalId);
     closeEditor();
-    notify.success(wasEditing ? '已保存' : '目标已新增');
+    notify.success('已保存');
 }
 async function askRemove(goal: Goal) {
     if (
@@ -192,7 +191,7 @@ async function askRemove(goal: Goal) {
             () => removeGoal(goal.id),
         )
     )
-        notify.success('目标已删除');
+        notify.success('已删除');
 }
 function openGrowth(goal: Goal) {
     if (blocked.value) return;
@@ -309,7 +308,7 @@ async function dropLog(logId: string) {
         () => removeLog(goal.id, logId),
     );
 }
-useRouteAction({
+useRouteAction('/goals', {
     new() {
         openEditor();
     },
@@ -342,13 +341,13 @@ useRouteAction({
             :pending="0"
             @retry="retryRoster"
         />
-        <div class="filters">
+        <div class="filters page-filters">
             <SegmentedPills v-model="status" :options="statusOptions" label="目标状态" />
             <SelectField v-model="kind" :options="kindOptions" label="目标类型" />
             <SelectField v-model="who" :options="whoOptions" label="按角色筛选" />
             <input
                 v-model="keyword"
-                class="field search"
+                class="field search filter-search"
                 type="search"
                 placeholder="搜索目标、角色"
                 aria-label="搜索目标"
@@ -409,22 +408,9 @@ useRouteAction({
 </template>
 
 <style scoped>
-.filters {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 16px;
-}
 .filters :deep(.select-field) {
     flex: 0 1 140px;
     width: 140px;
-    max-width: 100%;
-}
-.search {
-    flex: 0 1 200px;
-    width: 200px;
-    min-width: 0;
     max-width: 100%;
 }
 .grid {

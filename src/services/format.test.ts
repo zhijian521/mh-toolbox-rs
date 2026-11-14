@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     WAN,
+    isDayText,
     changeText,
     dateText,
     dayText,
@@ -183,5 +184,27 @@ describe('账号与收益金额：元、万与两位小数', () => {
         expect(ledgerMoneyText(0, 'rmb')).toBe('0 元');
         expect(ledgerMoneyText(NaN)).toBe('—');
         expect(ledgerMoneyText(Infinity, 'rmb')).toBe('—');
+    });
+});
+
+describe('真实日期校验', () => {
+    it.each(['2024-02-29', '2000-02-29', '2026-11-14', '0099-01-01'])(
+        '接受合法日期 %s',
+        (value) => {
+            expect(isDayText(value)).toBe(true);
+        },
+    );
+    it.each([
+        '2026-02-29',
+        '1900-02-29',
+        '2026-02-31',
+        '2026-13-01',
+        '2026-00-01',
+        '2026-01-00',
+        '0000-01-01',
+        '2026-1-01',
+        '',
+    ])('拒绝非法日期 %s', (value) => {
+        expect(isDayText(value)).toBe(false);
     });
 });

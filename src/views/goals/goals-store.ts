@@ -1,9 +1,11 @@
+import { readLocalData, writeLocalData, parseLocalList } from '../../services/local-data';
+import { isDayText } from '../../services/format';
 /**
  * 目标的**持有者**：模块级单例 + 写入即落盘。
  *
  * 与 `roster.ts` / `accounts-store.ts` 同一套写法：规则在 `goals.ts`（纯函数、可单测），
  * 这里只做四件事——读、改、写、把「改不成」的原因交回去。「怎么安全地写下去」那一整套
- * 在 `services/persist.ts`，四个数据层共用一份。
+ * 在 `services/persist.ts`，各业务数据层共用一份。
  *
  * ---- 为什么整份读写 ----
  * 目标的量级是「一年十几个」，一次改动整份写回的代价可以忽略，换来的是「不会出现
@@ -46,35 +48,25 @@ const persist = createPersist({
     loadError,
     loaded,
     writeError,
-    writeLocal: () => {
-        if (typeof localStorage === 'undefined') return;
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(goals.value));
-        } catch (error) {
-            console.error('目标写不进 localStorage', error);
-            writeError.value = '这个目标没存下来，检查一下浏览器存储空间';
-        }
-    },
+    writeLocal: () => writeLocalData(STORAGE_KEY, goals.value),
     writeRemote: () => goalSave(goals.value),
 });
 
 /**
- * 读档。**只能调一次，且在 mount 之前**（与其余四个 store 同一个位置，见 `main.ts`）。
+ * 读档。**只能调一次，且在 mount 之前**（与其余 store 同一个位置，见 `main.ts`）。
  *
  * 目标页是第 115 批才有的功能，没有更早的存档要搬——不做 legacy 迁移。
  */
 export async function loadGoals(): Promise<void> {
     if (!hasDesktop()) {
-        if (typeof localStorage === 'undefined') return;
-        /* 「没存过」是空表，是结论而不是失败——照样算读过。 */
-        loaded.value = true;
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-        try {
-            goals.value = parseGoals(JSON.parse(raw));
-        } catch {
-            console.error('浏览器里的目标读不懂，保留空表');
+        const stored = readLocalData(STORAGE_KEY, (raw) => parseLocalList(raw, parseGoals));
+        if (!stored.ok) {
+            loadError.value = stored.error;
+            return;
         }
+        goals.value = stored.value ?? [];
+        loadError.value = '';
+        loaded.value = true;
         return;
     }
 
@@ -113,6 +105,9 @@ function check(input: GoalInput): { ok: true; unit: string } | { ok: false; erro
         return { ok: false, error: '选至少一个角色' };
     if (!Number.isFinite(input.target) || input.target <= 0) {
         return { ok: false, error: '目标值要大于 0' };
+    }
+    if (input.deadline && !isDayText(input.deadline)) {
+        return { ok: false, error: '选择有效的截止日期' };
     }
     if (input.kind === 'growth') {
         if (!input.tracking) return { ok: false, error: '选一个跟着走的项目' };
@@ -221,7 +216,7 @@ export function addLog(id: string, input: LogInput): LogWrite {
     const goal = goals.value.find((one) => one.id === id);
     if (!goal) return { ok: false, error: '这个目标已经不在了' };
     if (goal.tracking) return { ok: false, error: '养成目标跟着角色档案走，去「更新养成」里改' };
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return { ok: false, error: '选一个有效日期' };
+    if (!isDayText(input.date)) return { ok: false, error: '选一个有效日期' };
     if (!Number.isFinite(input.delta) || input.delta === 0) {
         return { ok: false, error: '填一个不为 0 的变化量' };
     }

@@ -45,9 +45,9 @@ function submit() {
 </script>
 
 <template>
-    <ModalShell title="改这一条" :width="380" :scroll="false" @close="!saving && emit('close')">
+    <ModalShell title="修改记录" :width="380" :scroll="false" @close="!saving && emit('close')">
         <form class="income-form modal-form" @submit.prevent="submit">
-            <fieldset class="income-form" :disabled="locked">
+            <fieldset class="income-form" :disabled="locked" :inert="locked">
                 <PriceField v-model="amount" :precision="2" label="金额" />
                 <div class="form-row">
                     <label class="field-label" :for="itemId">物品</label>
@@ -62,7 +62,12 @@ function submit() {
                 </div>
                 <div class="form-row">
                     <span class="field-label">记给谁</span>
-                    <SelectField v-model="who" :options="whoOptions" label="这笔账记给谁" />
+                    <SelectField
+                        v-model="who"
+                        :options="whoOptions"
+                        label="这笔账记给谁"
+                        :disabled="locked"
+                    />
                 </div>
             </fieldset>
         </form>

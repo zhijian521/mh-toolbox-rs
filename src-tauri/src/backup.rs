@@ -777,6 +777,19 @@ fn validate_backup(file: &BackupFile) -> Result<Truncation, String> {
     validate_ids(file.accounts.iter().map(|one| one.id.as_str()), "账号记录")?;
     validate_ids(file.goals.iter().map(record_id), "目标")?;
     validate_ids(file.online.iter().map(|one| one.id.as_str()), "上线记录")?;
+    for (date, amount) in file
+        .income
+        .iter()
+        .map(|row| (&row.date, row.amount))
+        .chain(file.accounts.iter().map(|row| (&row.date, row.amount)))
+    {
+        if !valid_day(date) || !amount.is_finite() || amount <= 0.0 {
+            return Err("账目日期或金额无效".to_string());
+        }
+    }
+    if file.online.iter().any(|row| !valid_day(&row.date)) {
+        return Err("上线记录日期无效".to_string());
+    }
     let mut seen_prices = HashSet::new();
     for (index, price) in file.quick_prices.iter().enumerate() {
         if price.item_id <= 0 || !seen_prices.insert(price.item_id) {
@@ -784,17 +797,97 @@ fn validate_backup(file: &BackupFile) -> Result<Truncation, String> {
         }
     }
     for (index, goal) in file.goals.iter().enumerate() {
-        if let Some(logs) = goal.get("logs") {
-            let logs = logs
-                .as_array()
-                .ok_or_else(|| format!("第 {} 个目标的流水不是数组", index + 1))?;
-            validate_ids(
-                logs.iter().map(record_id),
-                &format!("目标 {} 的流水", index + 1),
-            )?;
-        }
+        validate_goal(goal, index)?;
     }
     Ok(truncation)
+}
+
+/// 与前端真实日期校验一致，不接受月底自动进位。
+fn valid_day(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-' {
+        return false;
+    }
+    if bytes
+        .iter()
+        .enumerate()
+        .any(|(i, b)| i != 4 && i != 7 && !b.is_ascii_digit())
+    {
+        return false;
+    }
+    let year = value[..4].parse::<u32>().unwrap_or(0);
+    let month = value[5..7].parse::<u32>().unwrap_or(0);
+    let day = value[8..].parse::<u32>().unwrap_or(0);
+    let days = match month {
+        4 | 6 | 9 | 11 => 30,
+        2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
+        2 => 28,
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        _ => 0,
+    };
+    year > 0 && day > 0 && day <= days
+}
+
+/// 目标以 JSON 存储，导入前必须保证当前前端能完整读取。
+fn validate_goal(goal: &serde_json::Value, index: usize) -> Result<(), String> {
+    let invalid = || format!("第 {} 个目标字段不完整或无效", index + 1);
+    let kind = goal
+        .get("kind")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    if !matches!(kind, "growth" | "money" | "gear" | "manual") {
+        return Err(invalid());
+    }
+    let target = goal
+        .get("target")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    if !target.is_finite() || target <= 0.0 {
+        return Err(invalid());
+    }
+    let members = goal
+        .get("members")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(invalid)?;
+    if members.is_empty() {
+        return Err(invalid());
+    }
+    validate_ids(
+        members.iter().map(record_id),
+        &format!("目标 {} 的角色", index + 1),
+    )?;
+    if kind == "growth" {
+        let tracking = &goal["tracking"];
+        let category = tracking["category"].as_str().unwrap_or_default();
+        let key = tracking["key"].as_str().unwrap_or_default();
+        if !matches!(category, "level" | "skill" | "assist" | "training" | "attr")
+            || key.trim().is_empty()
+        {
+            return Err(invalid());
+        }
+    }
+    if let Some(deadline) = goal.get("deadline") {
+        let value = deadline.as_str().ok_or_else(invalid)?;
+        if !value.is_empty() && !valid_day(value) {
+            return Err(invalid());
+        }
+    }
+    if let Some(logs) = goal.get("logs") {
+        let logs = logs.as_array().ok_or_else(invalid)?;
+        // 先校验身份，使重复/缺失 ID 的回执保持具体。
+        validate_ids(
+            logs.iter().map(record_id),
+            &format!("目标 {} 的流水", index + 1),
+        )?;
+        for log in logs {
+            let date = log["date"].as_str().unwrap_or_default();
+            let delta = log["delta"].as_f64().unwrap_or(0.0);
+            if !valid_day(date) || !delta.is_finite() || delta == 0.0 {
+                return Err(format!("第 {} 个目标的流水日期或数值无效", index + 1));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn record_id(record: &serde_json::Value) -> &str {
@@ -809,6 +902,9 @@ fn validate_ids<'a>(ids: impl Iterator<Item = &'a str>, label: &str) -> Result<(
     for (index, id) in ids.enumerate() {
         if id.trim().is_empty() {
             return Err(format!("第 {} 条{label}没有 id", index + 1));
+        }
+        if id != id.trim() {
+            return Err(format!("第 {} 条{label}的 id 含首尾空白", index + 1));
         }
         if !seen.insert(id) {
             return Err(format!("第 {} 条{label}的 id「{id}」与前面重复", index + 1));
@@ -847,6 +943,9 @@ fn validate(characters: &[serde_json::Value], prices: &[PriceItem]) -> Result<Tr
                     index + 1,
                     point_index + 1
                 ));
+            }
+            if !valid_day(&point.date) || !point.price.is_finite() || point.price <= 0.0 {
+                return Err(format!("第 {} 件物价的价格日期或数值无效", index + 1));
             }
             /* 点位 id 的查重是**跨物品**的：库里那张表只有 `id` 一个主键，
              * 两件物品各有一个 `p1` 一样会撞。 */
@@ -1120,8 +1219,33 @@ mod tests {
             .contains("目标 1 的流水"));
         file.goals[0]["logs"] = serde_json::json!([{}]);
         assert!(validate_backup(&file).unwrap_err().contains("没有 id"));
-        file.goals[0]["logs"] = serde_json::json!([{ "id": "l1" }]);
+        file.goals[0]["logs"] = serde_json::json!([{ "id": "l1", "date": "2026-11-14", "delta": 1 }]);
         validate_backup(&file).expect("空单价与有身份的流水合法");
+    }
+
+    #[test]
+    fn reject_unreadable_goals_before_replacement() {
+        let mut file = sample();
+        for goal in [
+            serde_json::json!({ "id": "g1" }),
+            serde_json::json!({ "id": "g1", "kind": "manual", "target": 1, "members": [] }),
+            serde_json::json!({ "id": "g1", "kind": "unknown", "target": 1 }),
+        ] {
+            file.goals = vec![goal];
+            assert!(validate_backup(&file).is_err());
+        }
+        file = sample();
+        file.goals[0]["logs"] = serde_json::json!([
+            { "id": "l1", "date": "2026-02-31", "delta": 1 }
+        ]);
+        assert!(validate_backup(&file).is_err());
+        for (date, expected) in [
+            ("2024-02-29", true),
+            ("2026-02-29", false),
+            ("2026-13-01", false),
+        ] {
+            assert_eq!(valid_day(date), expected);
+        }
     }
 
     fn point(id: &str) -> store::PricePoint {

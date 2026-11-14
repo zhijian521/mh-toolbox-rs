@@ -29,7 +29,7 @@ import { totalsOf } from '../income/income';
 import { useIncome } from '../income/income-store';
 import { clockText, onlineTotalsOf, ownersOf } from '../income/online';
 import { useOnline } from '../income/online-store';
-import TrendChart from '../income/TrendChart.vue';
+import TrendChart from '../../components/TrendChart.vue';
 import { activeGoals, weekSeries } from './overview';
 import TeamCard from './TeamCard.vue';
 import { teamActivity } from './team-activity';
@@ -49,6 +49,16 @@ const {
     retry: retryOnline,
 } = useOnline();
 const { error: syncError } = useDailySync();
+const sourceErrors = computed(() =>
+    [
+        { label: '角色', error: rosterError.value },
+        { label: '收益', error: incomeError.value },
+        { label: '账号', error: accountError.value },
+        { label: '目标', error: goalError.value },
+        { label: '上线', error: onlineError.value },
+        { label: '自动记账', error: syncError.value },
+    ].filter((one) => one.error),
+);
 const onlineIds = computed(
     () => new Set(sessions.value.filter((one) => one.endAt === null).flatMap(ownersOf)),
 );
@@ -145,17 +155,18 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
                 @click="router.push({ path: '/income', query: { action: 'history' } })"
         /></template>
         <div class="overview day-workbench">
+            <div v-if="sourceErrors.length" class="source-errors" role="status">
+                <p v-for="one in sourceErrors" :key="one.label" class="note error">
+                    {{ one.label }}：{{ one.error }}
+                </p>
+            </div>
             <SaveNotice :error="onlineWriteError" :pending="onlinePending" @retry="retryOnline" />
             <PaperCard class="day-hero">
                 <div class="day-intro">
                     <span class="eyebrow">日常 · 养成 · 收获</span>
                     <h2>今日工作台</h2>
-                    <p
-                        v-if="rosterError || onlineError || goalError"
-                        class="note error"
-                        role="status"
-                    >
-                        {{ rosterError || onlineError || goalError }}
+                    <p v-if="rosterError || onlineError || goalError" class="empty-note inline">
+                        部分数据未读取
                     </p>
                     <p v-else>
                         {{ roster.length }} 个角色，{{ onlineCount }} 个在线，{{ ongoing.length }}
@@ -248,7 +259,7 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
                             </PressTile>
                         </button>
                     </div>
-                    <div v-else class="empty">
+                    <div v-else class="empty empty-note">
                         <PressButton
                             icon="add"
                             text="添加功能"
@@ -265,10 +276,8 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
                             size="sm"
                             @click="router.push('/goals')"
                     /></template>
-                    <p v-if="goalError || rosterError" class="note error" role="status">
-                        {{ goalError || rosterError }}
-                    </p>
-                    <div v-else-if="!ongoing.length" class="empty">
+                    <p v-if="goalError || rosterError" class="empty-note">目标未读取</p>
+                    <div v-else-if="!ongoing.length" class="empty empty-note">
                         <p>{{ goals.length ? '目标已全部达成' : '暂无养成计划' }}</p>
                         <PressButton
                             icon="add"
@@ -335,8 +344,8 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
                         size="sm"
                         @click="router.push('/characters')"
                 /></template>
-                <p v-if="rosterError" class="note error" role="status">{{ rosterError }}</p>
-                <p v-else-if="!team.length" class="empty">暂无角色</p>
+                <p v-if="rosterError" class="empty-note">角色未读取</p>
+                <p v-else-if="!team.length" class="empty empty-note">暂无角色</p>
                 <div v-else class="team-strip" tabindex="0" aria-label="队伍角色，左右滚动查看">
                     <TeamCard
                         v-for="one in team"
@@ -348,13 +357,6 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
                         :account-error="accountError"
                     />
                 </div>
-                <p
-                    v-if="onlineError || incomeError || accountError"
-                    class="note error"
-                    role="status"
-                >
-                    {{ onlineError || incomeError || accountError }}
-                </p>
             </LedgerSection>
             <div class="day-lower">
                 <LedgerSection
@@ -369,7 +371,7 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
                             size="sm"
                             @click="router.push({ path: '/income', query: { action: 'history' } })"
                     /></template>
-                    <p v-if="incomeError" class="note error" role="status">{{ incomeError }}</p>
+                    <p v-if="incomeError" class="empty-note">收益未读取</p>
                     <template v-else>
                         <div class="week-summary">
                             <b class="num" :class="tone(weekTotal)">{{ netText(weekTotal) }}</b
@@ -392,9 +394,8 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
                             size="sm"
                             @click="router.push('/accounts')"
                     /></template>
-                    <p v-if="accountError" class="note error" role="status">{{ accountError }}</p>
+                    <p v-if="accountError" class="empty-note">账号收支未读取</p>
                     <template v-else>
-                        <p v-if="syncError" class="note error" role="status">{{ syncError }}</p>
                         <div class="books">
                             <section
                                 v-for="book in books"
@@ -458,7 +459,7 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
                     @click="openCharacterShortcut(characterShortcut, character.id)"
                 />
             </div>
-            <div v-else class="empty">
+            <div v-else class="empty empty-note">
                 <p>暂无角色</p>
                 <PressButton
                     icon="add"
@@ -472,6 +473,9 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
 </template>
 
 <style scoped>
+.source-errors p {
+    margin: 0;
+}
 .overview {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -817,8 +821,6 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
     align-content: center;
     gap: 12px;
     padding: 24px 0;
-    color: var(--muted);
-    font-size: var(--fs-sm);
 }
 @media (max-width: 900px) {
     .day-hero {

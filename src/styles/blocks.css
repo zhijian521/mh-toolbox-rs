@@ -574,3 +574,41 @@
     overflow-wrap: anywhere;
     font-size: var(--fs-mini);
 }
+
+.page-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 46px 0 40px;
+    text-align: center;
+}
+.page-empty-icon {
+    --icon-size: calc(34px * var(--fs-scale));
+    color: var(--rule-2);
+}
+.page-empty h3 {
+    margin: 0;
+    color: var(--ink);
+}
+.page-empty .note {
+    margin: 0;
+}
+.page-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.filter-search {
+    flex: 0 1 calc(240px * var(--fs-scale));
+    width: calc(240px * var(--fs-scale));
+    min-width: 0;
+    max-width: 100%;
+}
+
+/* 公共字段的校验行紧随控件，不重复引入段落留白。 */
+.field-error {
+    margin: 0;
+}

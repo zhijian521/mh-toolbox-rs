@@ -117,7 +117,7 @@ const countText = computed(() => {
 </script>
 
 <template>
-    <PageShell title="游戏资源" desc="装备、武器、技能与召唤兽的图标 · 全部随包分发，不联网">
+    <PageShell title="游戏资源" desc="装备、技能与召唤兽图标">
         <template #actions>
             <!-- 与捉鬼、闹钟两页同一枚。这一页没有主操作，所以它是动作区里唯一的一个，
                  落在右端。 -->
@@ -148,8 +148,8 @@ const countText = computed(() => {
             <span class="asset-count">{{ countText }}</span>
         </div>
 
-        <div v-if="failed" class="asset-void">
-            <AppIcon name="info" class="void-icon" />
+        <div v-if="failed" class="asset-void page-empty">
+            <AppIcon name="info" class="void-icon page-empty-icon" />
             <h3>资源清单没读上来</h3>
             <p class="note">一般是 dev server 刚起来。刷新一下这一页再试试。</p>
         </div>
@@ -183,8 +183,8 @@ const countText = computed(() => {
             </div>
         </section>
 
-        <div v-if="!loading && !failed && !visible.length" class="asset-void">
-            <AppIcon name="search" class="void-icon" />
+        <div v-if="!loading && !failed && !visible.length" class="asset-void page-empty">
+            <AppIcon name="search" class="void-icon page-empty-icon" />
             <h3>没有匹配的资源</h3>
             <p class="note">换个词试试，或者在上面换一个分类。</p>
         </div>
@@ -332,30 +332,5 @@ const countText = computed(() => {
     font-size: var(--fs-mini);
     font-variant-numeric: tabular-nums;
     line-height: 1.2;
-}
-
-/* ---------- 空态与失败态 ---------- */
-.asset-void {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding: 46px 0 40px;
-    text-align: center;
-}
-
-.void-icon {
-    --icon-size: calc(34px * var(--fs-scale));
-
-    color: var(--rule-2);
-}
-
-.asset-void h3 {
-    margin: 0;
-    color: var(--ink);
-}
-
-.asset-void .note {
-    margin: 0;
 }
 </style>

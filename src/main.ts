@@ -1,4 +1,4 @@
-import { createApp } from 'vue';
+import { createApp, type Ref } from 'vue';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/blocks.css';
@@ -10,13 +10,13 @@ import { guardWindowClose } from './services/desktop';
 import { flushPendingWrites } from './services/persist';
 import { router } from './router';
 import { loadGameData } from './services/game-data';
-import { loadAccounts } from './views/accounts/accounts-store';
-import { loadGoals } from './views/goals/goals-store';
-import { loadRoster } from './views/characters/roster';
-import { loadIncome } from './views/income/income-store';
-import { loadOnline } from './views/income/online-store';
+import { loadAccounts, useAccounts } from './views/accounts/accounts-store';
+import { loadGoals, useGoals } from './views/goals/goals-store';
+import { loadRoster, useRoster } from './views/characters/roster';
+import { loadIncome, useIncome } from './views/income/income-store';
+import { loadOnline, useOnline } from './views/income/online-store';
 import { flushDailySync, startDailySync, syncAllDays } from './views/accounts/daily-sync';
-import { loadPrices } from './views/prices/prices-store';
+import { loadPrices, usePrices } from './views/prices/prices-store';
 
 /**
  * 偏好在挂载前落地：字号是根变量，明暗是根类，风格是根属性。
@@ -27,30 +27,33 @@ import { loadPrices } from './views/prices/prices-store';
 useFontScale();
 useTheme();
 
-/**
- * 游戏数据在**挂载前**加载一次，先安装规则，再读取名册与物价，避免空模板改写存档。
- *
- * 异步与重试统一留在服务边界，角色页读取服务状态，不在各组件自行取表。
- * `schoolSkills()` 与图标查表同步读缓存（见 `services/game-data.ts` 的说明）。
- * `loadGameData()` 失败也会 resolve（退回空表），所以这里不必写 try——
- * 应用照常启动，角色页显示重试入口，名册暂停写入直到完整规则加载成功。
- *
- * 物价表、角色名册与收益账走同一条路：桌面版从 SQLite 读、浏览器从 `localStorage` 读，
- * 两条都在这里等到手再挂载。四个 `load*` 都**不 reject**：读不到就是空表 / 种子 /
- * 一条 `loadError`，写库失败记在各自的 `writeError` 里。这条约束不是白写的——
- * `Promise.all` 只要有一个 reject，`.then(mount)` 就永不执行，用户看到的是一片白。
- * 所以那两个 store 里凡是可能抛的 IO（尤其是迁移时给 `localStorage` 写留底）都就地
- * 兜住：留底是尽力而为，不能因为备份写不进去让整个应用起不来。
- */
-Promise.all([
-    loadGameData().then(() => Promise.all([loadRoster(), loadPrices()])),
-    loadIncome(),
-    loadOnline(),
-    loadAccounts(),
-    loadGoals(),
-]).then(() => {
+async function loadSafely(load: () => Promise<void>, error: Ref<string>) {
+    try {
+        await load();
+    } catch (cause) {
+        console.error('初始化数据失败', cause);
+        error.value = '数据加载失败，已暂停写入，请重新启动或从备份恢复';
+    }
+}
+
+/** 先加载规则与各领域数据；单个领域失败仍挂载页面并保留写入保护。 */
+Promise.allSettled([
+    loadGameData().then(() =>
+        Promise.allSettled([
+            loadSafely(loadRoster, useRoster().loadError),
+            loadSafely(loadPrices, usePrices().loadError),
+        ]),
+    ),
+    loadSafely(loadIncome, useIncome().loadError),
+    loadSafely(loadOnline, useOnline().loadError),
+    loadSafely(loadAccounts, useAccounts().loadError),
+    loadSafely(loadGoals, useGoals().loadError),
+]).then((results) => {
+    for (const result of results) {
+        if (result.status === 'rejected') console.error('初始化数据失败', result.reason);
+    }
     /* 账号账本与收益、上线记录都到手之后才补算——自动同步要读三份数据，
-     * `Promise.all` 之后它们才算都读完了。放在 `mount` 之前：先把那几笔补上，
+     * 所有读取完成之后它们才算都读完了。放在 `mount` 之前：先把那几笔补上，
      * 用户切到账号页时看到的就是补齐的账，而不是「进来一下才多出两行」。
      *
      * 失败不拦挂载：同步是副动作，读不出账号账本时它自己会拒绝写（`persist.canWrite`）。 */

@@ -21,9 +21,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const invokeMock = vi.fn();
 
 /** 模块在求值时就把 `hasTauri` 定下来了，所以宿主必须**先**装好再 import。 */
-async function load() {
+async function load(host = true, open = vi.fn()) {
     vi.resetModules();
-    vi.stubGlobal('window', { __TAURI_INTERNALS__: {} });
+    vi.stubGlobal('window', host ? { __TAURI_INTERNALS__: {}, open } : { open });
     vi.doMock('@tauri-apps/api/core', () => ({ invoke: invokeMock }));
     vi.doMock('@tauri-apps/api/window', () => ({
         getCurrentWindow: () => ({
@@ -175,5 +175,29 @@ describe('读写失败不炸页面，但也不能假装成功', () => {
         expect((await desktop.dataClear()).status).toBe('failed');
         /* 浏览器里一次 invoke 都不该发生。 */
         expect(invokeMock).not.toHaveBeenCalled();
+    });
+});
+
+describe('外链按当前宿主回执', () => {
+    it('浏览器 noopener 返回 null 不误报失败，也不调用 IPC', async () => {
+        const open = vi.fn().mockReturnValue(null);
+        const { openExternal } = await load(false, open);
+        expect(await openExternal('https://example.com')).toBe(true);
+        expect(open).toHaveBeenCalledWith('https://example.com', '_blank', 'noopener,noreferrer');
+        expect(invokeMock).not.toHaveBeenCalled();
+    });
+    it('浏览器打开抛异常时返回失败', async () => {
+        const open = vi.fn(() => {
+            throw new Error('blocked');
+        });
+        const { openExternal } = await load(false, open);
+        expect(await openExternal('https://example.com')).toBe(false);
+    });
+    it('桌面 IPC 失败不再尝试 WebView 弹窗', async () => {
+        const open = vi.fn();
+        const { openExternal } = await load(true, open);
+        invokeMock.mockRejectedValue('denied');
+        expect(await openExternal('https://example.com')).toBe(false);
+        expect(open).not.toHaveBeenCalled();
     });
 });

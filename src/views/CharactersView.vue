@@ -169,7 +169,7 @@ const desc = computed(() =>
         ? `${roster.value.length} 个角色 · 存在本机`
         : '还没有角色 · 点下面那一格开始',
 );
-useRouteAction({
+useRouteAction('/characters', {
     new: startNew,
     edit(query) {
         const character = roster.value.find((one) => one.id === query.character);
@@ -203,7 +203,7 @@ useRouteAction({
              两者都必须显示——读失败时名册本来就是空的，用户看到的是一张空页，不说清楚就会以为
              「角色都没了」然后重填一遍；而底层此刻拒绝写入，他重建的东西同样存不下去。
              样式只用现成的 `.note.error`（`base.css` 的朱色状态），不新造类。 -->
-        <p v-if="loadError" class="note error">{{ loadError }}</p>
+        <p v-if="loadError" class="note error" role="alert">{{ loadError }}</p>
         <p v-if="!gameDataReady" class="note error" role="alert">
             {{ gameDataError || '正在加载游戏数据，暂时无法修改角色' }}
             <PressButton

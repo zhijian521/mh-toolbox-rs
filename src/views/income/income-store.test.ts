@@ -1,4 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+});
 
 /**
  * `income-store.ts` 的**读失败闸门 + 分账**。
@@ -43,6 +48,22 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 const EMPTY = { entries: [], prices: [] };
 
 describe('loadIncome：读失败不等于空账', () => {
+    it.each([{}, [null], [{ itemId: 1, price: 0 }]].map((prices) => ({ prices })))(
+        '浏览器单价损坏时拒绝覆盖：%j',
+        async ({ prices }) => {
+            vi.spyOn(console, 'error').mockImplementation(() => {});
+            const setItem = vi.fn();
+            vi.stubGlobal('localStorage', {
+                getItem: () => JSON.stringify({ entries: [], prices }),
+                setItem,
+            });
+            const store = await loadStore({ ...host(async () => EMPTY), hasDesktop: () => false });
+            expect(store.useIncome().loadError.value).not.toBe('');
+            expect(store.recordEntry({ item: '黑宝石', amount: 150_000 }).ok).toBe(false);
+            expect(setItem).not.toHaveBeenCalled();
+        },
+    );
+
     it('incomeLoad 返回 null：立错误位、账清空、一次都不写', async () => {
         const desktop = host(async () => null);
         const store = await loadStore(desktop);

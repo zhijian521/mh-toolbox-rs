@@ -9,7 +9,7 @@ import { characterName, useRoster } from '../characters/roster';
 import { useIncome } from '../income/income-store';
 import { minutesByDay, ownersOf } from './online';
 import { useOnline } from './online-store';
-import TrendChart from './TrendChart.vue';
+import TrendChart from '../../components/TrendChart.vue';
 import { netByDay, trendSeriesOf } from './trend-chart';
 
 const { sessions } = useOnline();

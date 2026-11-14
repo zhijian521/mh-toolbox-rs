@@ -39,6 +39,16 @@ export default async function run(ctx) {
             if (!open) throw new Error('物品对话框没打开');
             t.pass('点「新增」打开物品对话框');
 
+            await cdp.click('input[aria-label="物品名称"]');
+            await cdp.click('input[aria-label="备注"]');
+            const linkedError = await cdp.evaluate(`(() => {
+                const input = document.querySelector('input[aria-label="物品名称"]');
+                const id = input?.getAttribute('aria-describedby');
+                return input?.getAttribute('aria-invalid') === 'true'
+                    && !!id && !!document.getElementById(id)?.textContent.trim();
+            })()`);
+            t.check('物品名称错误与输入框关联', linkedError);
+
             await ui.fill('物品名称', 'E2E测试物品');
             await ui.fillSel('input[aria-label="初始价（可空），以万为单位"]', '3.5');
             await ui.clickText('button', '保存', { exact: true });
@@ -62,6 +72,18 @@ export default async function run(ctx) {
             );
             if (!asked) throw new Error('记价窗没弹出');
             t.pass('点卡片主体弹出记价窗');
+
+            await cdp.click('[role="dialog"] .date-trigger');
+            t.check(
+                '记价日期可打开统一月历',
+                await cdp.waitFor(`!!document.querySelector('.date-panel')`, { timeout: 3000 }),
+            );
+            await cdp.key('Escape');
+            await cdp.waitFor(`!document.querySelector('.date-panel')`, { timeout: 3000 });
+            t.check(
+                'Esc 只关闭月历，保留记价草稿',
+                await ui.exists('input[aria-label="这一笔多少钱，以万为单位"]'),
+            );
 
             await ui.fillSel('input[aria-label="这一笔多少钱，以万为单位"]', '7.25');
             await ui.clickLabel('记下这一笔价');

@@ -152,7 +152,7 @@ async function priceCleared() {
     notify.success('「' + ask.item.name + '」的单价已清除');
     closePrice();
 }
-useRouteAction({
+useRouteAction('/income', {
     quick(query) {
         const character = roster.value.find((one) => one.id === query.character);
         if (character) setTarget([character.id]);
@@ -201,9 +201,9 @@ useRouteAction({
             />
         </template>
 
-        <p v-if="loadError" class="note error">{{ loadError }}</p>
+        <p v-if="loadError" class="note error" role="alert">{{ loadError }}</p>
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
-        <p v-if="onlineLoadError" class="note error">{{ onlineLoadError }}</p>
+        <p v-if="onlineLoadError" class="note error" role="alert">{{ onlineLoadError }}</p>
         <SaveNotice :error="onlineWriteError" :pending="onlinePending" @retry="retryOnline" />
         <SaveNotice :error="syncError" :pending="syncPending" @retry="retrySync" />
 
@@ -229,6 +229,7 @@ useRouteAction({
             :saving="priceSaving"
             :locked="priceLocked"
             :retry-action="priceAction"
+            :save-error="writeError"
             @save="priceSaved"
             @clear="priceCleared"
             @close="closePrice"

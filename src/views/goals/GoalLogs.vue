@@ -75,9 +75,10 @@ function enter(event: KeyboardEvent) {
                         { value: 'subtract', label: '减少' },
                     ]"
                     label="进度方向"
+                    :disabled="locked"
                 />
                 <div class="entry-row">
-                    <DateField v-model="date" label="记在哪一天" :max="today" />
+                    <DateField v-model="date" label="记在哪一天" :max="today" :disabled="locked" />
                     <NumberField
                         v-model="delta"
                         label="这一笔的变化量"

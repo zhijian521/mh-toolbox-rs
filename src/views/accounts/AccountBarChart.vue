@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useChartHover } from '../../composables/use-chart-hover';
 import { computed, ref, useId } from 'vue';
 import ChartTooltip from '../../components/ChartTooltip.vue';
 import { integerAxis } from '../../components/chart-axis';
@@ -20,17 +21,16 @@ const props = defineProps<{
     fit?: boolean;
 }>();
 const tooltipId = useId();
-const hoveredId = ref<string | null>(null);
 const host = ref<HTMLElement | null>(null);
-const hoverPoint = ref<{ x: number; y: number } | null>(null);
+const {
+    active: hoveredId,
+    point: hoverPoint,
+    locate,
+    leaveFocus,
+} = useChartHover<string>(() => host.value);
 function showRow(id: string, event: PointerEvent | FocusEvent) {
     hoveredId.value = id;
-    if (!(event instanceof PointerEvent)) {
-        hoverPoint.value = null;
-        return;
-    }
-    const box = host.value!.getBoundingClientRect();
-    hoverPoint.value = { x: event.clientX - box.left, y: event.clientY - box.top };
+    locate(event);
 }
 const hovered = computed(() => {
     const index = props.rows.findIndex((row) => row.id === hoveredId.value);
@@ -53,13 +53,6 @@ const hovered = computed(() => {
         ]),
     };
 });
-function leaveFocus(event: FocusEvent) {
-    if (
-        !(event.relatedTarget instanceof Node) ||
-        !(event.currentTarget as HTMLElement).contains(event.relatedTarget)
-    )
-        hoveredId.value = null;
-}
 const axis = computed(() =>
     integerAxis(
         props.rows.flatMap((one) => one.values),

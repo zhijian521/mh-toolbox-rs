@@ -1,3 +1,4 @@
+import { readLocalData, writeLocalData, parseLocalList } from '../../services/local-data';
 /**
  * 物价表的**持有者**：模块级单例 + 写入即落盘。
  *
@@ -36,9 +37,7 @@ import {
     makePricePoint,
     normalizePriceItem,
     parsePriceItems,
-    readPriceItems,
     retuneSub,
-    writePriceItems,
     type PriceItem,
     type PriceItemDraft,
     type PricePoint,
@@ -83,7 +82,15 @@ const loaded = ref(false);
  */
 export async function loadPrices(): Promise<void> {
     if (!hasDesktop()) {
-        items.value = readPriceItems();
+        const stored = readLocalData(STORAGE_KEY, (raw) =>
+            parseLocalList(raw, (rows) => parsePriceItems(JSON.stringify(rows)) ?? []),
+        );
+        if (!stored.ok) {
+            loadError.value = stored.error;
+            return;
+        }
+        items.value = stored.value ?? [];
+        loadError.value = '';
         loaded.value = true;
         return;
     }
@@ -131,7 +138,7 @@ onStorageSync(STORAGE_KEY, (raw) => {
  * 落盘。
  *
  * 「读失败拒绝写、浏览器写本地、桌面版异步写库、连续写排队」这一整套在
- * `services/persist.ts` 的 `createPersist`——三份数据层共用一份，理由写在那里。
+ * `services/persist.ts` 的 `createPersist`——各业务数据层共用一份，理由写在那里。
  * 这里只说这份数据怎么落：整份 `PriceItem[]` 交给 `prices_save`。
  */
 const persist = createPersist({
@@ -139,10 +146,7 @@ const persist = createPersist({
     loadError,
     loaded,
     writeError,
-    writeLocal: () => {
-        if (!writePriceItems(items.value))
-            writeError.value = '这一笔没存下来，检查一下浏览器存储空间';
-    },
+    writeLocal: () => writeLocalData(STORAGE_KEY, items.value),
     writeRemote: () => pricesSave(items.value),
 });
 
@@ -181,7 +185,7 @@ export function usePrices() {
      * 用户往往是「看到这个价了，顺手记一张卡」，逼他建完卡再点一次「记一条」是多余的。
      */
     function addItem(draft: PriceItemDraft, initialPrice: number): PriceWrite {
-        if (!persist.canWrite()) return { ok: false, error: writeError.value };
+        if (!persist.canWrite()) return { ok: false, error: loadError.value || writeError.value };
         if (nameTaken(draft.name, '')) {
             return { ok: false, error: '已经有一件同名物品了，换一个名字，或直接改那一张卡' };
         }
@@ -199,7 +203,7 @@ export function usePrices() {
 
     /** 改物品本身（名称、分类、子类、备注）。价格记录不受影响。 */
     function saveItem(id: string, draft: PriceItemDraft): PriceWrite {
-        if (!persist.canWrite()) return { ok: false, error: writeError.value };
+        if (!persist.canWrite()) return { ok: false, error: loadError.value || writeError.value };
         const item = items.value.find((one) => one.id === id);
         if (!item) return { ok: false, error: '这件物品已经不在了，刷新一下再试' };
         if (nameTaken(draft.name, id)) {
@@ -226,7 +230,7 @@ export function usePrices() {
     }
 
     function removeItem(id: string): PriceWrite {
-        if (!persist.canWrite()) return { ok: false, error: writeError.value };
+        if (!persist.canWrite()) return { ok: false, error: loadError.value || writeError.value };
         if (!find(id)) return { ok: false, error: '这件物品已经不在了，刷新一下再试' };
         items.value = items.value.filter((item) => item.id !== id);
         persist();
@@ -241,7 +245,7 @@ export function usePrices() {
      * 取同一个值才不会出现「记录的时间比物品的更新时间还晚」。
      */
     function addPoint(itemId: string, draft: PricePointDraft): PriceWrite {
-        if (!persist.canWrite()) return { ok: false, error: writeError.value };
+        if (!persist.canWrite()) return { ok: false, error: loadError.value || writeError.value };
         const item = find(itemId);
         if (!item) return { ok: false, error: '这件物品已经不在了，刷新一下再试' };
         if (item.points.length >= POINT_LIMIT) {
@@ -259,7 +263,7 @@ export function usePrices() {
 
     /** 改一条旧价。补错日期、把「万」看成一万这类事都会发生，得改得动。 */
     function savePoint(itemId: string, pointId: string, draft: PricePointDraft): PriceWrite {
-        if (!persist.canWrite()) return { ok: false, error: writeError.value };
+        if (!persist.canWrite()) return { ok: false, error: loadError.value || writeError.value };
         const item = find(itemId);
         if (!item) return { ok: false, error: '这件物品已经不在了，刷新一下再试' };
         const point = item.points.find((one) => one.id === pointId);
@@ -280,7 +284,7 @@ export function usePrices() {
 
     /** 删一条价格。物品本身留着——没有记录的卡显示「未记录」，那仍是「我关注这件东西」。 */
     function removePoint(itemId: string, pointId: string): PriceWrite {
-        if (!persist.canWrite()) return { ok: false, error: writeError.value };
+        if (!persist.canWrite()) return { ok: false, error: loadError.value || writeError.value };
         const item = find(itemId);
         if (!item) return { ok: false, error: '这件物品已经不在了，刷新一下再试' };
         if (!item.points.some((one) => one.id === pointId)) {

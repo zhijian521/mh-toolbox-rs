@@ -37,7 +37,7 @@ import LicenseSection from './settings/LicenseSection.vue';
 </script>
 
 <template>
-    <PageShell title="设置" desc="主题 · 字号 · 数据 · 关于 · 许可">
+    <PageShell title="设置">
         <div class="stack stack-pair">
             <AppearanceSection />
             <DataSection />

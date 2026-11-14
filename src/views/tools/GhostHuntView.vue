@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SelectField from '../../components/SelectField.vue';
 import PaperCard from '../../components/PaperCard.vue';
 import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
@@ -151,12 +152,21 @@ onMounted(async () => {
 
                     <div class="form-row">
                         <span class="field-label">监听窗口</span>
-                        <select v-model="selectedHwnd" class="field-select" :disabled="running">
-                            <option :value="null">自动（标题含「梦幻西游」）</option>
-                            <option v-for="item in windows" :key="item.hwnd" :value="item.hwnd">
-                                {{ item.title }}
-                            </option>
-                        </select>
+                        <SelectField
+                            :model-value="selectedHwnd === null ? '' : String(selectedHwnd)"
+                            :options="[
+                                { value: '', label: '自动选择' },
+                                ...windows.map((item) => ({
+                                    value: String(item.hwnd),
+                                    label: item.title,
+                                })),
+                            ]"
+                            label="监听窗口"
+                            :disabled="running"
+                            @update:model-value="
+                                selectedHwnd = $event === '' ? null : Number($event)
+                            "
+                        />
                     </div>
                     <!-- 两条说明都压到**一行**：原文各 28 字，在 306px 的侧栏里各折成两行，
                          两条摞起来占掉四行高度，中间还夹着「高概率区域」那行开关，
@@ -355,21 +365,9 @@ onMounted(async () => {
 }
 /* `.field-label` 是全局的（`base.css`）：设置页的「主题 / 字号」与这里的
  * 「监听窗口 / 高概率区域」是同一种标签，原先两处各写一份逐字相同的规则。 */
-/* 原生 select 只做最小化的外观修正：全套自绘下拉要处理键盘、滚动、边缘翻转，
- * 为两个选项引一整套不划算。这里只让它读起来属于这张纸。 */
-.field-select {
+.form-row :deep(.select-field) {
     flex: 1;
     min-width: 0;
-    padding: 3px 5px;
-    border: var(--w-hair) solid var(--rule-2);
-    border-radius: var(--r-2);
-    background: var(--paper-2);
-    color: var(--ink);
-    font-family: var(--font-ui);
-    font-size: var(--fs-xs);
-}
-.field-select:disabled {
-    opacity: 0.6;
 }
 .field-note {
     margin: 6px 0 0;

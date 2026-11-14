@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import AccountFlowCard from './AccountFlowCard.vue';
-import TrendChart from '../income/TrendChart.vue';
+import TrendChart from '../../components/TrendChart.vue';
 import { CURRENCY_META, type AccountEntry } from './accounts';
 import { BOOK_OPTIONS, accountTrend, accountAxisText, accountValueText } from './account-analysis';
 

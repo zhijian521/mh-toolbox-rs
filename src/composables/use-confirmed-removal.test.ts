@@ -56,3 +56,11 @@ describe('确认删除共用防连点', () => {
         expect(removal.removing.value).toBe(false);
     });
 });
+
+it('业务删除失败不等待写盘或返回成功', async () => {
+    confirm.mockResolvedValueOnce(true);
+    const flush = vi.fn(async () => true);
+    const removal = useConfirmedRemoval(() => false, flush);
+    expect(await removal.run({ title: '删除？' }, () => false)).toBe(false);
+    expect(flush).not.toHaveBeenCalled();
+});

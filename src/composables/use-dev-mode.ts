@@ -1,4 +1,6 @@
 import { computed, ref } from 'vue';
+import { writePreference } from '../services/local-data';
+import { notify } from './use-notify';
 
 const STORAGE_KEY = 'mh-dev-mode';
 
@@ -48,7 +50,9 @@ const devMode = computed({
     get: () => enabled.value,
     set: (value: boolean) => {
         enabled.value = value;
-        localStorage.setItem(STORAGE_KEY, value ? '1' : '0');
+        if (!writePreference(STORAGE_KEY, value ? '1' : '0')) {
+            notify.error('本次设置已生效，未能记住');
+        }
     },
 });
 

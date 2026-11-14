@@ -30,7 +30,7 @@
  * 所以上面那几条跨日口径能被单测钉住（`alarms.test.ts`）。
  */
 import { normalizeTime, pad2 } from '../../services/clock';
-import { dateText, daysAgo, parseDay } from '../../services/format';
+import { isDayText, dateText, daysAgo, parseDay } from '../../services/format';
 
 export type AlarmRepeat = 'daily' | 'hourly' | 'weekly' | 'once';
 
@@ -137,10 +137,7 @@ export function minuteOf(time: string): number {
     return (hour || 0) * 60 + (minute || 0);
 }
 
-/** `YYYY-MM-DD` 是不是一个像样的日子。只校验形状——`2026-02-31` 这类由 `parseDay` 进位，不拦。 */
-export function isDayText(value: string): boolean {
-    return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
+export { isDayText } from '../../services/format';
 
 /** 那天是星期几（0 = 周日）。`getDay()` 的本地口径。 */
 export function weekdayOf(day: string): number {
