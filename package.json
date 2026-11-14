@@ -3,7 +3,11 @@
     "private": true,
     "version": "0.1.0",
     "type": "module",
-    "description": "梦幻养老助手 · Rust + Tauri 版界面",
+    "description": "梦幻西游端游的角色养成、收益与账号记账工具",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/zhijian521/mh-toolbox-rs.git"
+    },
     "license": "PolyForm-Noncommercial-1.0.0",
     "scripts": {
         "dev": "vite",
@@ -11,6 +15,7 @@
         "preview": "vite preview",
         "tauri": "tauri",
         "desktop": "tauri dev",
+        "predesktop:build": "npm run check:version",
         "desktop:build": "tauri build",
         "format": "prettier --write .",
         "format:check": "prettier --check .",

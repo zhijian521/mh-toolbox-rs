@@ -51,7 +51,6 @@ const router = useRouter();
  * 不提示的话表现就是「点了没反应」——那比「打不开」更难查。
  */
 async function open(tool: ToolEntry) {
-    if (!tool.ready) return;
     if (tool.kind === 'link') {
         if (!(await openExternal(tool.href))) notify.error('没能打开浏览器，手动去官网看吧');
         return;
@@ -95,7 +94,6 @@ const groups = computed(() =>
                             type="button"
                             :data-group="tool.group"
                             :data-kind="tool.kind"
-                            :disabled="!tool.ready"
                             :aria-label="labelOf(tool)"
                             @click="open(tool)"
                         >
@@ -234,11 +232,6 @@ const groups = computed(() =>
     outline-offset: var(--ring-offset);
 }
 
-.tool-item:disabled {
-    cursor: default;
-    opacity: 0.5;
-}
-
 /* 名称允许折两行并居中，与桌面图标一致。
  * 不锁「固定两行高」：网格里同一行的格子本来就会被拉到同一高度；锁了反而在只有
  * 一件工具时多空出一整行。 */
@@ -249,7 +242,7 @@ const groups = computed(() =>
     text-align: center;
     transition: color var(--t-quick) var(--ease-soft);
 }
-.tool-item:hover:not(:disabled) .tool-name,
+.tool-item:hover .tool-name,
 .tool-item:focus-visible .tool-name {
     color: var(--accent);
 }

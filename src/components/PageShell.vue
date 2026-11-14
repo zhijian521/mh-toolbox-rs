@@ -31,7 +31,7 @@ withDefaults(defineProps<{ title: string; desc?: string; surface?: boolean }>(),
 
 <template>
     <PageHeader :title="title" :desc="desc">
-        <!-- 动作区原样透传：`SettingsView` 不用，`PlaceholderView` 放一句提示。 -->
+        <!-- 页头动作由页面提供。 -->
         <slot name="actions" />
     </PageHeader>
     <div class="page-content" :class="{ surface }">

@@ -1,0 +1,55 @@
+name: Windows 安装包
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      CARGO_BUILD_JOBS: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      # npm 的 predesktop:build 先核对版本；Tauri 随后构建前端与 NSIS。
+      - run: npm run desktop:build -- --ci --bundles nsis -- --locked
+      - name: 整理安装包与校验值
+        id: package
+        shell: pwsh
+        run: |
+          $version = (Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json).version
+          $bundleDir = Join-Path $env:GITHUB_WORKSPACE 'src-tauri/target/release/bundle/nsis'
+          $packages = @(Get-ChildItem -LiteralPath $bundleDir -Filter '*-setup.exe' -File)
+          if ($packages.Count -ne 1) { throw '应当生成一个 NSIS 安装包' }
+          $outputDir = Join-Path $env:RUNNER_TEMP 'mh-toolbox-package'
+          New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+          $installer = Join-Path $outputDir $packages[0].Name
+          Copy-Item -LiteralPath $packages[0].FullName -Destination $installer
+          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          $utf8 = [System.Text.UTF8Encoding]::new($false)
+          [System.IO.File]::WriteAllText((Join-Path $outputDir 'SHA256SUMS.txt'), "$hash  $($packages[0].Name)`n", $utf8)
+          [System.IO.File]::WriteAllText((Join-Path $outputDir 'SOURCE.txt'), "version=$version`ncommit=$env:GITHUB_SHA`n", $utf8)
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "directory=$outputDir" >> $env:GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mh-toolbox-${{ steps.package.outputs.version }}-windows-x64
+          path: ${{ steps.package.outputs.directory }}
+          if-no-files-found: error
+          retention-days: 14

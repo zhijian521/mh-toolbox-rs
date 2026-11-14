@@ -5,19 +5,19 @@ export default async function run(ctx) {
     const { cdp, ui, t, want, sleep, charsInDb } = ctx;
 
     const NAV = [
-        ['总览', '#/overview', 'page'],
-        ['收益', '#/income', 'page'],
-        ['账号', '#/accounts', 'page'],
-        ['角色', '#/characters', 'page'],
-        ['物价', '#/prices', 'page'],
-        ['目标', '#/goals', 'page'],
-        ['工具', '#/tools', 'page'],
-        ['设置', '#/settings', 'page'],
+        ['总览', '#/overview'],
+        ['收益', '#/income'],
+        ['账号', '#/accounts'],
+        ['角色', '#/characters'],
+        ['物价', '#/prices'],
+        ['目标', '#/goals'],
+        ['工具', '#/tools'],
+        ['设置', '#/settings'],
     ];
 
     if (want('导航')) {
         t.section('1 导航与首页 · 左栏八项 + 今日工作台');
-        for (const [label, expected, kind] of NAV) {
+        for (const [label, expected] of NAV) {
             await t.step(`进入「${label}」`, async () => {
                 await ui.gotoReady(label);
                 const state = {
@@ -30,9 +30,7 @@ export default async function run(ctx) {
                 if (state.title !== label)
                     throw new Error(`标题是「${state.title}」，期望「${label}」`);
                 if (!state.body.length) throw new Error('正文是空的');
-                if (kind === 'placeholder' && !state.body.includes('还没开始')) {
-                    throw new Error(`占位页没说「还没开始」：${state.body.slice(0, 40)}`);
-                }
+                if (state.body.includes('这一页还没开始')) throw new Error('正式导航出现占位页');
                 t.pass(`进入「${label}」`, `${state.href} · ${state.body.length} 字`);
             });
         }

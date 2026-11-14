@@ -11,10 +11,6 @@ src/services/bindings.ts
 package-lock.json
 src-tauri/Cargo.lock
 
-# 设计产物：图标脚本、预览页、样张与令牌副本都是过程稿，格式与代码无关。
-# 尤其 design/income.html 是「只读参考样张」，格式化它等于改设计原件。
-design/
-
 # 字体二进制随 OFL 保留，但不参与格式化
 assets/fonts/
 
@@ -27,6 +23,6 @@ assets/fonts/
 .workbuddy/
 
 # 地图素材的加工现场：原始整窗截图、切图脚本产物、核对页。
-# 产品真正用的是 public/maps/ 下的 webp 与 maps.json，这里只是原料，
+# 产品真正用的是 public/game/maps/ 下的 webp 与 maps.json，这里只是原料，
 # 格式化一份 47MB 的中间产物没有意义。
 map/

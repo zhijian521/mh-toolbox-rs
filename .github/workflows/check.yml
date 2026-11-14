@@ -18,6 +18,13 @@ on:
     branches: [master]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   web:
     name: 前端质量门
@@ -85,4 +92,4 @@ jobs:
         working-directory: .
       - run: npm run build
         working-directory: .
-      - run: cargo test --lib
+      - run: cargo test --locked --lib

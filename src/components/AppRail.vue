@@ -44,15 +44,12 @@ const emit = defineEmits<{
  * （2026-11-06 用户：「主题切换和 github 按钮删除」），主题仍可从设置页换。 */
 const { isDark } = useTheme();
 
-/* `view: null` 的入口还没实现（见 `navigation.ts`）：字降一档色，仍可点（挂占位页）。
- * 判断留在这里而不是塞进 `VerticalSlider`——组件不该知道「有没有实现页面」这回事。 */
 const options = computed(() =>
     props.items.map((item) => ({
         value: item.key,
         label: item.label,
         icon: item.icon,
-        muted: !item.view,
-        title: item.view ? item.label : `${item.label}（未实现）`,
+        title: item.label,
     })),
 );
 

@@ -58,8 +58,6 @@ interface ToolBase {
     icon: IconName;
     /** 决定图标块的底色（`tokens.css` 的 `--tint-工具*`）。 */
     group: ToolGroup;
-    /** 还没做完的入口画成半透明、不可点，与左栏未实现页的处理一致。 */
-    ready: boolean;
 }
 
 /**
@@ -103,7 +101,6 @@ export const TOOLS: ToolEntry[] = [
         icon: 'pin',
         group: 'game',
         view: () => import('./views/tools/GhostHuntView.vue').then((page) => page.default),
-        ready: true,
     },
     {
         key: 'alarm',
@@ -114,7 +111,6 @@ export const TOOLS: ToolEntry[] = [
         icon: 'alarm',
         group: 'daily',
         view: () => import('./views/tools/AlarmView.vue').then((page) => page.default),
-        ready: true,
     },
     {
         /* 官网「每周维护」栏目，不是「新闻中心」首页——后者混着赛事、活动与版本介绍，
@@ -126,7 +122,6 @@ export const TOOLS: ToolEntry[] = [
         href: 'https://xyq.163.com/news/update/',
         icon: 'notice',
         group: 'lookup',
-        ready: true,
     },
     {
         key: 'assets',
@@ -137,7 +132,6 @@ export const TOOLS: ToolEntry[] = [
         icon: 'grid',
         group: 'lookup',
         view: () => import('./views/tools/AssetView.vue').then((page) => page.default),
-        ready: true,
     },
     {
         key: 'activities',
@@ -148,6 +142,5 @@ export const TOOLS: ToolEntry[] = [
         icon: 'calendar',
         group: 'daily',
         view: () => import('./views/tools/ActivityView.vue').then((page) => page.default),
-        ready: true,
     },
 ];

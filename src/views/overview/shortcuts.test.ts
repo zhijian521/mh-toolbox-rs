@@ -39,10 +39,10 @@ describe('首页常用功能配置', () => {
         expect(ids).toEqual(['a', 'b', 'c', 'd']);
     });
 
-    it('目录不重名，默认项有效，所有已实现工具都可添加', () => {
+    it('目录不重名，默认项有效，所有工具都可添加', () => {
         expect(new Set(HOME_SHORTCUTS.map((one) => one.id)).size).toBe(HOME_SHORTCUTS.length);
         expect(normalizeShortcutIds(DEFAULT_SHORTCUT_IDS)).toEqual(DEFAULT_SHORTCUT_IDS);
-        for (const tool of TOOLS.filter((one) => one.ready)) {
+        for (const tool of TOOLS) {
             const shortcut = HOME_SHORTCUTS.find((one) => one.id === 'tool-' + tool.key);
             expect(shortcut).toMatchObject(
                 tool.kind === 'page' ? { path: tool.path } : { href: tool.href },

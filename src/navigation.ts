@@ -27,19 +27,14 @@ const ToolsView = () => import('./views/ToolsView.vue').then((page) => page.defa
  * 导航 + 路由的**单一真源**。
  *
  * 加一个页面只改这个数组：路由表从它生成（`router.ts`），左栏从它渲染（`App.vue`）。
- * 之前这两处各写一份，加页面要同时改 `pages` 数组和模板里的 `v-if` 分支，漏一处就白屏。
- *
- * `view` 为 `null` 表示这一页还没写，路由会挂占位页，左栏会把它画成半透明。
- * 之前这个判断散在 `AppRail.vue` 的模板里（`page.key !== 'settings'`），
- * 那是个隐式约定——加第二页时必然忘记改。
+ * 只登记已经实现的页面，避免把开发中的占位入口带进发布版。
  */
 export interface NavItem {
     key: string;
     label: string;
     icon: IconName;
     path: string;
-    /** `null` = 这一页还没写。写成函数就是懒加载（见文件头）。 */
-    view: RouteComponent | (() => Promise<RouteComponent>) | null;
+    view: RouteComponent | (() => Promise<RouteComponent>);
 }
 
 export const NAV_ITEMS: NavItem[] = [

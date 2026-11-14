@@ -219,7 +219,7 @@ export const HOME_SHORTCUTS: HomeShortcut[] = [
         path: '/goals',
         action: 'new',
     },
-    ...TOOLS.filter((one) => one.ready).map((one): HomeShortcut => ({
+    ...TOOLS.map((one): HomeShortcut => ({
         id: 'tool-' + one.key,
         text: one.name,
         description: one.desc,
@@ -242,7 +242,7 @@ export const HOME_SHORTCUTS: HomeShortcut[] = [
     {
         id: 'settings',
         text: '设置',
-        description: '主题、字号与数据',
+        description: '主题、字体与数据',
         icon: 'settings',
         group: '设置',
         tone: 'indigo',
