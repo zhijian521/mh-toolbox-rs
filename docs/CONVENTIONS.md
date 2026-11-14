@@ -92,7 +92,7 @@ channel = "stable"
 components = ["rustfmt", "clippy"]
 ```
 
-**大户资源必须可再生**。`assets/fonts/LXGWWenKaiScreen.woff2` 是裁过的（GB2312 全集，1.75MB），
+**大户资源必须可再生**。新增字体的固定版本、校验值、许可与生成入口见 [字体资源说明](../assets/fonts/README.md)。`assets/fonts/LXGWWenKaiScreen.woff2` 是裁过的（GB2312 全集，1.75MB），
 别手改：改覆盖范围就改 `tools/font/subset-font.py` 再跑。同目录 `.full.woff2`（9.84MB 原件）**必须
 留在库里**——没有它就再也裁不出第二版，而游戏更新一批生僻地名时一定得再裁。`public/game/maps/*.webp`
 的切图现场已删，属于「不可再生但已定型」，不要再对成品做二次压缩。

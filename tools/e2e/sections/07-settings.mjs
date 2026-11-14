@@ -4,7 +4,88 @@ export default async function run(ctx) {
     const { cdp, ui, t, want, sleep } = ctx;
 
     if (want('设置')) {
-        t.section('7 设置 · 风格、明暗、字号、导入与清除的确认窗');
+        t.section('7 设置 · 风格、明暗、字体、字号、导入与清除的确认窗');
+
+        await t.step('字体独立切换、真实字体加载与重载恢复，结束时还原', async () => {
+            await ui.goto('设置');
+            const read = () =>
+                cdp.evaluate(`(() => ({
+                font: document.documentElement.dataset.font,
+                stored: localStorage.getItem('mh-font-family'),
+                mode: localStorage.getItem('mh-theme'),
+                style: localStorage.getItem('mh-theme-style'),
+                scale: localStorage.getItem('mh-font-scale'),
+                family: getComputedStyle(document.body).fontFamily,
+                stroke: parseFloat(getComputedStyle(document.body).webkitTextStrokeWidth),
+                strokeMatches: [...document.querySelectorAll('h1, button, input')].every(el => {
+                    const style = getComputedStyle(el);
+                    return style.webkitTextStrokeColor === style.color;
+                }),
+            }))()`);
+            const original = await read();
+            const fonts = [
+                ['wenkai', '霞鹜文楷', 'LXGW WenKai Screen'],
+                ['sans', '思源黑体', 'MH Toolbox Hei'],
+                ['serif', '思源宋体', 'MH Toolbox Song'],
+                ['zhuque', '朱雀仿宋', 'MH Toolbox Fangsong'],
+                ['rounded', '资源圆体', 'MH Toolbox Rounded'],
+            ];
+            try {
+                for (const [id, label, family] of fonts) {
+                    await ui.clickText('[aria-label="字体"] button', label, { exact: true });
+                    await cdp.waitFor(`document.documentElement.dataset.font === '${id}'`);
+                    const loaded = await cdp.evaluate(
+                        `document.fonts.load('14px "${family}"', '梦幻养老助手').then(fonts =>
+                            fonts.length > 0 && fonts.every(font => font.status === 'loaded'))`,
+                    );
+                    const current = await read();
+                    t.check(
+                        `${label}真实字体加载并全局应用`,
+                        loaded && current.family.includes(family),
+                    );
+                    t.check(
+                        `${label}不改主题与字号`,
+                        current.mode === original.mode &&
+                            current.style === original.style &&
+                            current.scale === original.scale,
+                    );
+                    t.check(
+                        `${label}仅仿宋启用轻描字廓`,
+                        id === 'zhuque'
+                            ? current.stroke > 0 && current.strokeMatches
+                            : current.stroke === 0,
+                    );
+                    if (id === 'zhuque') {
+                        const tabular = await cdp.evaluate(`(() => {
+                            const probe = document.createElement('span');
+                            probe.className = 'num';
+                            probe.style.cssText = 'position:fixed;visibility:hidden;white-space:nowrap';
+                            document.body.append(probe);
+                            try {
+                                const width = (text) => {
+                                    probe.textContent = text;
+                                    return probe.getBoundingClientRect().width;
+                                };
+                                return Math.abs(width('111111') - width('888888')) < 0.1;
+                            } finally {
+                                probe.remove();
+                            }
+                        })()`);
+                        t.check('仿宋数字签保留等宽数字', tabular);
+                    }
+                }
+                await ui.reload();
+                await cdp.waitFor(`!!document.querySelector('[aria-label="字体"]')`);
+                t.check('重载后恢复独立字体选择', (await read()).font === 'rounded');
+            } finally {
+                const back = fonts.find(([id]) => id === original.font) ?? fonts[0];
+                await ui.clickText('[aria-label="字体"] button', back[1], { exact: true });
+                await cdp.waitFor(`document.documentElement.dataset.font === '${back[0]}'`);
+                if (original.stored === null) {
+                    await cdp.evaluate(`localStorage.removeItem('mh-font-family')`);
+                }
+            }
+        });
 
         await t.step('风格独立切换并在重载后恢复，结束时还原', async () => {
             await ui.goto('设置');

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import LedgerSection from '../../components/LedgerSection.vue';
 import { useAppInfo } from '../../composables/use-app-info';
+import { useFontFamily } from '../../composables/use-font-family';
 
 /**
  * 关于：版本与运行环境。
@@ -14,6 +15,7 @@ import { useAppInfo } from '../../composables/use-app-info';
  * 读起来像环境表的附录。
  */
 const { info } = useAppInfo();
+const { selectedFont } = useFontFamily();
 </script>
 
 <template>
@@ -41,7 +43,7 @@ const { info } = useAppInfo();
             <dt>运行环境</dt>
             <dd>{{ info?.webview ?? '系统 WebView2（Tauri 2）' }}</dd>
             <dt>字体</dt>
-            <dd>霞鹜文楷 Screen（SIL OFL 1.1，GB2312 子集）</dd>
+            <dd>{{ selectedFont.label }}（SIL OFL 1.1，常用字子集）</dd>
         </dl>
     </LedgerSection>
 </template>

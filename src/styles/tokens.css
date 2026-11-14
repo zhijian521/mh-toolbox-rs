@@ -35,13 +35,61 @@
     font-display: swap;
 }
 
+/* 新字体为常用字子集，原件版本与生成方式见 tools/font/import-ui-fonts.py。
+ * 仅当前字体被使用时加载；内部名称区分于上游原件。 */
+@font-face {
+    font-family: 'MH Toolbox Hei';
+    src: url('../../assets/fonts/MHHei.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'MH Toolbox Song';
+    src: url('../../assets/fonts/MHSong.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'MH Toolbox Fangsong';
+    src: url('../../assets/fonts/MHFangsong.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'MH Toolbox Rounded';
+    src: url('../../assets/fonts/MHRounded.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+
+:root[data-font='sans'] {
+    --font-ui: 'MH Toolbox Hei', 'Microsoft YaHei', sans-serif;
+}
+:root[data-font='serif'] {
+    --font-ui: 'MH Toolbox Song', 'SimSun', serif;
+}
+:root[data-font='zhuque'] {
+    --font-ui: 'MH Toolbox Fangsong', 'FangSong', 'SimSun', serif;
+}
+:root[data-font='zhuque'],
+:root[data-font='zhuque'] * {
+    /* 轻描字廓补足小字号的细笔画，不改变字宽或行高。 */
+    -webkit-text-stroke: 0.012em currentColor;
+}
+:root[data-font='rounded'] {
+    --font-ui: 'MH Toolbox Rounded', 'Microsoft YaHei', sans-serif;
+}
+
 :root {
     color-scheme: light;
 
     /* ---------- 字体 ----------
-     * 全站唯一字体：霞鹜文楷。标题、金额、元信息、数字列都用它，不再与黑体混排——
-     * 混排会让「题字」与「记账」两套字形互相抵消，字号缩放也要照顾两种字体。
-     * 楷体在 10–11px 偏细，小字号靠一点点字距补，不靠加粗硬撑。
+     * 全站由同一字体令牌驱动，默认霞鹜文楷。字体选择与主题、字号独立，
+     * 标题、金额、元信息和数字列均跟随当前选择；越界字符使用对应系统回退。
      */
     --font-ui: 'LXGW WenKai Screen', 'Microsoft YaHei', sans-serif;
 

@@ -2,6 +2,7 @@
 import { onMounted, ref, watch } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import { useFontScale } from '../../composables/use-font-scale';
+import { useFontFamily } from '../../composables/use-font-family';
 import { declaredTokens, tokenFontSize } from './tokens';
 
 /**
@@ -30,6 +31,7 @@ const USAGE: Record<string, string> = {
 
 const rows = ref<{ token: string; px: number; label: string }[]>([]);
 const { scale } = useFontScale();
+const { selectedFont } = useFontFamily();
 
 function measure() {
     /* `--fs-scale` 是系数本身（一个纯数字），不是档位，得排掉。 */
@@ -48,7 +50,11 @@ watch(scale, () => requestAnimationFrame(measure));
 </script>
 
 <template>
-    <LedgerSection title="字号阶梯" hint="霞鹜文楷 · 六档 · 受上方滑块控制" max-height="60vh">
+    <LedgerSection
+        title="字号阶梯"
+        :hint="`${selectedFont.label} · 六档 · 受上方滑块控制`"
+        max-height="60vh"
+    >
         <div class="type-scale">
             <div v-for="item in rows" :key="item.token" class="type-row">
                 <code class="type-token">{{ item.token }}</code>
