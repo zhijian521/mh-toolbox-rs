@@ -186,8 +186,8 @@ function openDetail(index: number) {
          原先还挂着 `dual-rule`（离卡缘 3px 的一圈 1px 内衬线），2026-11-06
          用户要求「最外面的一圈细边框去掉」——卡边只剩纸自己的棱与落影。 -->
     <PaperCard
-        as="article"
         :id="editable || preview ? undefined : 'character-' + character.id"
+        as="article"
         tabindex="-1"
         :aria-label="character.name || '未命名角色'"
         class="char character-theme"

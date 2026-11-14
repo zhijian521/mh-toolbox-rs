@@ -208,8 +208,8 @@ function enter(event: KeyboardEvent) {
                             :model-value="group"
                             :options="groupOptions"
                             label="养成项目分类"
-                            @update:model-value="group = $event as MetricGroup"
                             :disabled="locked"
+                            @update:model-value="group = $event as MetricGroup"
                     /></label>
                     <label class="control"
                         ><span>项目</span

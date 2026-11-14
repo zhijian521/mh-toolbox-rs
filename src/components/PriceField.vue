@@ -21,8 +21,6 @@ import PressButton from './PressButton.vue';
  * 这里只换尺码：高度不压 26、内衬加大、圆角升一档。再画一套「看起来差不多」的凹槽，
  * 就会重演 2026-11-02 那次「两套深浅」的问题。
  */
-const errorId = `price-error-${useId()}`;
-
 const props = withDefaults(
     defineProps<{
         /** 游戏币**原值**。`null` 表示还没填。 */
@@ -55,6 +53,7 @@ const emit = defineEmits<{
      */
     blur: [event: FocusEvent];
 }>();
+const errorId = `price-error-${useId()}`;
 
 /**
  * 原值 → 输入框里的「万」，小数位由 precision 决定。

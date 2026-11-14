@@ -168,8 +168,8 @@ const subErrorId = `item-sub-${useId()}`;
                         :model-value="draft.category"
                         :options="CATEGORY_OPTIONS"
                         label="物品一级分类"
-                        @update:model-value="pickCategory"
                         :disabled="locked"
+                        @update:model-value="pickCategory"
                     />
                 </label>
 
@@ -181,8 +181,8 @@ const subErrorId = `item-sub-${useId()}`;
                         :options="subOptions"
                         label="二级分类"
                         placeholder="不分类"
-                        @update:model-value="pickSub"
                         :disabled="locked"
+                        @update:model-value="pickSub"
                     />
                     <input
                         v-else

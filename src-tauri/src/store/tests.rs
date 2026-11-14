@@ -8,7 +8,8 @@ struct TempDir {
 impl TempDir {
     /// `seq` 是「第几个用例」，与 pid 一起构成唯一目录名。
     fn new(seq: u32) -> Self {
-        let path = std::env::temp_dir().join(format!("mh-toolbox-test-{}-{seq}", std::process::id()));
+        let path =
+            std::env::temp_dir().join(format!("mh-toolbox-test-{}-{seq}", std::process::id()));
         /* 上一轮被 kill 掉时可能残留，先清干净再建——否则上一轮的库文件
          * 会让「首次打开」的断言读到别人的数据。 */
         let _ = std::fs::remove_dir_all(&path);
@@ -648,7 +649,8 @@ fn old_online_rows_inherit_settings_once() {
     .expect("创建旧结构");
     init(&conn).expect("升级");
     assert!(!load_online(&conn).expect("读旧记录").sessions[0].card_cost);
-    conn.execute("UPDATE online_settings SET card_cost = 1", []).expect("切换口径");
+    conn.execute("UPDATE online_settings SET card_cost = 1", [])
+        .expect("切换口径");
     init(&conn).expect("重复初始化");
     assert!(!load_online(&conn).expect("再次读取").sessions[0].card_cost);
 }

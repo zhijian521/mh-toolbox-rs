@@ -134,7 +134,7 @@ const cells = computed<Cell[]>(() => {
     return list;
 });
 
-function disabled(value: string): boolean {
+function dayDisabled(value: string): boolean {
     if (props.min && value < props.min) return true;
     if (props.max && value > props.max) return true;
     return false;
@@ -274,7 +274,7 @@ function moveCursor(step: number) {
 }
 
 function choose(value: string) {
-    if (props.disabled || !value || disabled(value)) return;
+    if (props.disabled || !value || dayDisabled(value)) return;
     emit('update:modelValue', value);
     closePanel(true);
 }
@@ -456,10 +456,10 @@ onBeforeUnmount(() => {
                             :class="{
                                 on: cell.value === modelValue,
                                 now: cell.value === today,
-                                off: disabled(cell.value),
+                                off: dayDisabled(cell.value),
                             }"
                             :tabindex="cell.value === cursor ? 0 : -1"
-                            :disabled="disabled(cell.value)"
+                            :disabled="dayDisabled(cell.value)"
                             :aria-pressed="cell.value === modelValue"
                             :aria-label="`${view.year}年${view.month + 1}月${cell.text}日`"
                             @click="choose(cell.value)"

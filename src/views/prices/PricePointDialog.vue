@@ -84,8 +84,8 @@ function onEnter(event: KeyboardEvent) {
                     v-model="draft.date"
                     label="记录日期"
                     :error="showDateError ? errors.date : ''"
-                    @update:model-value="touched.date = true"
                     :disabled="locked"
+                    @update:model-value="touched.date = true"
                 />
 
                 <label class="cell">

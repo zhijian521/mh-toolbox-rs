@@ -3,7 +3,9 @@ import { computed, ref } from 'vue';
 import PressButton from '../../components/PressButton.vue';
 import { checkUpdate, type UpdateResult } from '../../services/updates';
 import { openExternal } from '../../services/desktop';
+import { useAppInfo } from '../../composables/use-app-info';
 
+const { version } = useAppInfo();
 const busy = ref(false),
     error = ref(''),
     result = ref<UpdateResult | null>(null);
@@ -20,7 +22,7 @@ async function check() {
     busy.value = true;
     error.value = '';
     try {
-        result.value = await checkUpdate(__APP_VERSION__);
+        result.value = await checkUpdate(version.value);
     } catch (cause) {
         result.value = null;
         error.value = cause instanceof Error ? cause.message : String(cause);

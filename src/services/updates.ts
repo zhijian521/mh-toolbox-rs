@@ -60,8 +60,10 @@ export async function checkUpdate(current: string): Promise<UpdateResult> {
         if (!response.ok) throw new Error(`GitHub 查询失败（${response.status}）`);
         return releaseResult(await response.json(), current);
     } catch (error) {
-        if (controller.signal.aborted) throw new Error('检查更新超时，请稍后重试');
-        if (error instanceof TypeError) throw new Error('无法连接 GitHub，请检查网络后重试');
+        if (controller.signal.aborted)
+            throw new Error('检查更新超时，请稍后重试', { cause: error });
+        if (error instanceof TypeError)
+            throw new Error('无法连接 GitHub，请检查网络后重试', { cause: error });
         throw error;
     } finally {
         clearTimeout(timer);
