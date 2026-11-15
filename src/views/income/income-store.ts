@@ -1,7 +1,7 @@
 /** 收益账与速记单价的模块级状态；修改后排队保存，失败保留错误供重试。 */
 import { readonly, ref, watch } from 'vue';
-import { quickItems } from '../../services/game-data';
-import { usePrices } from '../prices/prices-store';
+import { gameDataReady, quickItems } from '../../services/game-data';
+import { linkIncomePriceWrites, usePrices } from '../prices/prices-store';
 import { currentPoint, type ReadonlyPriceItem } from '../prices/prices';
 import { readLocalData, writeLocalData, parseLocalList } from '../../services/local-data';
 import { planPriceImport } from './price-import';
@@ -79,44 +79,57 @@ const persist = createPersist({
     writeRemote: () => incomeSave(payloadOf()),
 });
 
+linkIncomePriceWrites(persist, writeError);
 const market = usePrices();
 let linkingPrices = false;
 let linksReady = false;
 let previousCards: readonly ReadonlyPriceItem[] = [];
 
 /** 两边都读成功才联动；首次只接已有固定价，清除过的单价不因重载恢复。 */
-watch([loaded, market.loaded, market.items], ([incomeReady, marketReady, cards]) => {
-    if (!incomeReady || !marketReady || loadError.value || market.loadError.value) {
-        linksReady = false;
-        return;
-    }
-    if (linkingPrices) return;
-    const fixed = quickItems().fixed;
-    if (!linksReady) {
-        const missing = fixed.filter(
-            (item) => prices.value[item.id] && !cards.some((card) => card.name === item.name),
-        );
-        if (!writePriceCards(missing.map((item) => ({ name: item.name, price: prices.value[item.id] })))) {
+const stopPriceLinks = watch(
+    [loaded, market.loaded, gameDataReady, market.items],
+    ([incomeReady, marketReady, rulesReady, cards]) => {
+        if (!incomeReady || !marketReady || !rulesReady || loadError.value || market.loadError.value) {
+            linksReady = false;
             return;
         }
-    }
-    const next = { ...prices.value };
-    for (const item of fixed) {
-        const card = market.items.value.find((one) => one.name === item.name);
-        const before = previousCards.find((one) => one.name === item.name);
-        const price = card ? currentPoint(card)?.price : undefined;
-        const previous = before ? currentPoint(before)?.price : undefined;
-        if (!linksReady ? !(item.id in next) : price === previous) continue;
-        if (price) next[item.id] = price;
-        else delete next[item.id];
-    }
-    previousCards = market.items.value;
-    linksReady = true;
-    if (JSON.stringify(next) !== JSON.stringify(prices.value)) {
-        prices.value = next;
-        persist();
-    }
-}, { flush: 'sync' });
+        if (linkingPrices) return;
+        const fixed = quickItems().fixed;
+        if (!linksReady) {
+            const missing = fixed
+                .filter(
+                    (item) =>
+                        prices.value[item.id] && !cards.some((card) => card.name === item.name),
+                )
+                .map((item) => ({ name: item.name, price: prices.value[item.id] }));
+            if (!writePriceCards(missing)) return;
+        }
+        const next = { ...prices.value };
+        let changed = false;
+        for (const item of fixed) {
+            const card = market.items.value.find((one) => one.name === item.name);
+            const before = previousCards.find((one) => one.name === item.name);
+            const point = card ? currentPoint(card) : null;
+            const previous = before ? currentPoint(before) : null;
+            const samePoint = point?.id === previous?.id && point?.price === previous?.price;
+            if (!linksReady ? !(item.id in next) : samePoint) continue;
+            const price = point ? Math.round(point.price) : 0;
+            if ((next[item.id] ?? 0) === price) continue;
+            if (price > 0) next[item.id] = price;
+            else delete next[item.id];
+            changed = true;
+        }
+        previousCards = market.items.value;
+        linksReady = true;
+        if (changed) {
+            prices.value = next;
+            persist();
+        }
+    },
+    { flush: 'sync' },
+);
+
+if (import.meta.hot) import.meta.hot.dispose(stopPriceLinks);
 
 function writePriceCards(rows: readonly { name: string; price: number }[]): boolean {
     if (!rows.length) return true;
@@ -132,16 +145,6 @@ function writePriceCards(rows: readonly { name: string; price: number }[]): bool
     } finally {
         linkingPrices = false;
     }
-}
-
-async function flushPrices(): Promise<boolean> {
-    const results = await Promise.all([persist.flush(), market.flush()]);
-    return results.every(Boolean);
-}
-
-async function retryPrices(): Promise<boolean> {
-    const results = await Promise.all([persist(), market.retry()]);
-    return results.every(Boolean);
 }
 
 /** 启动阶段读取，完成前由写队列阻止保存；旧版转换统一在启动导入入口处理。 */
@@ -356,14 +359,14 @@ export function setTarget(characterIds: string[]): void {
 /** 页面拿这一份。 */
 export function useIncome() {
     return {
-        pending: persist.pending,
-        flush: flushPrices,
-        retry: retryPrices,
+        pending: market.pending,
+        flush: market.flush,
+        retry: market.retry,
         entries: readonly(entries),
         prices: readonly(prices),
         target: readonly(target),
         loadError,
-        writeError,
+        writeError: market.writeError,
         recordEntry,
         removeEntry,
         updateEntry,

@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { PriceItem } from '../prices/prices';
+import type { IncomeEntry } from './income';
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -26,6 +28,8 @@ function host(load: () => Promise<unknown>) {
     return {
         hasDesktop: () => true,
         incomeLoad: vi.fn(load),
+        pricesLoad: vi.fn(async () => []),
+        pricesSave: vi.fn(async () => true),
         /* 入参类型不写出来是为了不被 `IncomePayload` 的字段牵着走：
          * 这条用例关心的是「写了几次、写进去几条」，不是形状。 */
         incomeSave: vi.fn(async () => true),
@@ -37,7 +41,10 @@ async function loadStore(desktop: ReturnType<typeof host>) {
     vi.resetModules();
     vi.doMock('../../services/desktop', () => desktop);
     vi.doMock('../../services/storage', () => desktop);
+    await import('../../services/game-data.fixture');
     const store = await import('./income-store');
+    const market = await import('../prices/prices-store');
+    await market.loadPrices();
     await store.loadIncome();
     return store;
 }
@@ -238,5 +245,286 @@ describe('单价原样导入', () => {
         });
         await store.useIncome().flush();
         expect(desktop.incomeSave).not.toHaveBeenCalled();
+    });
+});
+
+async function loadLinkedStore(
+    options: {
+        cards?: PriceItem[];
+        quick?: { itemId: number; price: number }[];
+        incomeFirst?: boolean;
+        rulesReady?: boolean;
+    } = {},
+) {
+    vi.resetModules();
+    let savedCards = options.cards ?? [];
+    let savedIncome = { entries: [] as IncomeEntry[], prices: options.quick ?? [] };
+    const desktop = {
+        hasDesktop: () => true,
+        pricesLoad: vi.fn(async (): Promise<PriceItem[] | null> => savedCards),
+        pricesSave: vi.fn(async (cards: PriceItem[]) => {
+            savedCards = cards;
+            return true;
+        }),
+        incomeLoad: vi.fn(async (): Promise<typeof savedIncome | null> => savedIncome),
+        incomeSave: vi.fn(async (payload: typeof savedIncome) => {
+            savedIncome = payload;
+            return true;
+        }),
+    };
+    vi.doMock('../../services/desktop', () => desktop);
+    vi.doMock('../../services/storage', () => desktop);
+    await import('../../services/game-data.fixture');
+    const { gameDataReady, quickItems } = await import('../../services/game-data');
+    gameDataReady.value = options.rulesReady ?? true;
+    const incomeModule = await import('./income-store');
+    const pricesModule = await import('../prices/prices-store');
+    const models = await import('../prices/prices');
+    const load = async () => {
+        if (options.incomeFirst) {
+            await incomeModule.loadIncome();
+            await pricesModule.loadPrices();
+        } else {
+            await pricesModule.loadPrices();
+            await incomeModule.loadIncome();
+        }
+    };
+    await load();
+    return {
+        income: incomeModule.useIncome(),
+        market: pricesModule.usePrices(),
+        incomeModule,
+        pricesModule,
+        fixed: quickItems().fixed,
+        gameDataReady,
+        models,
+        desktop,
+        load,
+    };
+}
+
+describe('收益固定单价与物价卡片联动', () => {
+    it('游戏物品表晚于账本就绪时，仍会补建已有单价的卡片', async () => {
+        const { income, market, gameDataReady } = await loadLinkedStore({
+            quick: [{ itemId: 1, price: 123_400 }],
+            rulesReady: false,
+        });
+        expect(market.items.value).toEqual([]);
+        gameDataReady.value = true;
+        expect(market.items.value).toHaveLength(1);
+        expect(market.items.value[0].points[0].price).toBe(123_400);
+        await income.flush();
+    });
+
+    it.each([true, false])('已有单价补建卡片，兼容两种加载顺序：%s', async (incomeFirst) => {
+        const { income, market, fixed } = await loadLinkedStore({
+            quick: [{ itemId: 1, price: 123_400 }],
+            incomeFirst,
+        });
+        expect(market.items.value).toHaveLength(1);
+        expect(market.items.value[0].name).toBe(fixed[0].name);
+        expect(market.items.value[0].points[0].price).toBe(123_400);
+        expect(income.prices.value[1]).toBe(123_400);
+        await income.flush();
+    });
+
+    it('设置、重设与改价复用同一卡片，保留历史且同价不重复记录', async () => {
+        const { income, market, fixed, load } = await loadLinkedStore();
+        const item = fixed[0];
+        expect(income.setPrice(item.id, 12.34)).toBe(true);
+        const id = market.items.value[0].id;
+        expect(income.setPrice(item.id, 12.34)).toBe(true);
+        expect(market.items.value[0].points).toHaveLength(1);
+        expect(income.setPrice(item.id, 15)).toBe(true);
+        expect(market.items.value).toHaveLength(1);
+        expect(market.items.value[0].id).toBe(id);
+        expect(market.items.value[0].points.map((point) => point.price)).toEqual([
+            123_400,
+            150_000,
+        ]);
+        expect(await income.flush()).toBe(true);
+        await load();
+        expect(income.prices.value[item.id]).toBe(150_000);
+        expect(market.items.value[0].points).toHaveLength(2);
+    });
+
+    it('首次同名行情优先于旧固定价，不重复建卡或追加历史', async () => {
+        const { income, market, fixed, desktop, incomeModule } = await loadLinkedStore();
+        const item = fixed[0];
+        income.setPrice(item.id, 10);
+        await income.flush();
+        desktop.incomeLoad.mockResolvedValueOnce({
+            entries: [],
+            prices: [{ itemId: item.id, price: 200_000 }],
+        });
+        await incomeModule.loadIncome();
+        expect(income.prices.value[item.id]).toBe(100_000);
+        expect(market.items.value).toHaveLength(1);
+        expect(market.items.value[0].points).toHaveLength(1);
+        await income.flush();
+    });
+
+    it('导入固定单价批量建卡，原样再导不追加行情', async () => {
+        const { income, market, fixed, desktop } = await loadLinkedStore();
+        const rows = fixed.slice(0, 2).map((item, index) => ({
+            itemId: item.id,
+            price: (index + 1) * 100_000,
+        }));
+        expect(income.mergePrices(rows)).toEqual({ ok: true, added: 2, updated: 0, unchanged: 0 });
+        await income.flush();
+        expect(market.items.value.map((item) => item.name)).toEqual(
+            fixed.slice(0, 2).map((item) => item.name),
+        );
+        expect(desktop.pricesSave).toHaveBeenCalledTimes(1);
+        expect(income.mergePrices(rows)).toEqual({ ok: true, added: 0, updated: 0, unchanged: 2 });
+        expect(market.items.value.map((item) => item.points.length)).toEqual([1, 1]);
+        await income.flush();
+        expect(desktop.pricesSave).toHaveBeenCalledTimes(1);
+    });
+
+    it('同名卡片保留分类和历史，更新与删价按当前记录回写，补记旧日不覆盖', async () => {
+        const { income, market, fixed, models } = await loadLinkedStore();
+        const item = fixed[0];
+        const draft = { name: item.name, category: '其他', sub: '自定义', note: '保留备注' };
+        const created = market.addItem(draft, 100_000);
+        if (!created.ok) throw new Error(created.error);
+        expect(income.setPrice(item.id, 15)).toBe(true);
+        expect(market.items.value).toHaveLength(1);
+        expect(market.items.value[0].note).toBe('保留备注');
+        const currentDate = models.currentPoint(market.items.value[0])!.date;
+        market.addPoint(created.id, { date: '2000-01-01', price: 90_000, note: '' });
+        expect(income.prices.value[item.id]).toBe(150_000);
+        market.addPoint(created.id, { date: currentDate, price: 200_000, note: '' });
+        const current = models.currentPoint(market.items.value[0])!;
+        expect(income.prices.value[item.id]).toBe(200_000);
+        market.savePoint(created.id, current.id, { date: currentDate, price: 180_000, note: '' });
+        expect(income.prices.value[item.id]).toBe(180_000);
+        market.removePoint(created.id, current.id);
+        expect(income.prices.value[item.id]).toBe(150_000);
+        await income.flush();
+    });
+
+    it('删除卡片或最后一笔行情清空固定价，重载不会补回已删卡片', async () => {
+        const { income, market, fixed, load } = await loadLinkedStore();
+        const item = fixed[0];
+        income.setPrice(item.id, 10);
+        const card = market.items.value[0];
+        market.removePoint(card.id, card.points[0].id);
+        expect(income.prices.value[item.id]).toBeUndefined();
+        expect(market.items.value).toHaveLength(1);
+        income.setPrice(item.id, 20);
+        market.removeItem(card.id);
+        expect(income.prices.value[item.id]).toBeUndefined();
+        await income.flush();
+        await load();
+        expect(income.prices.value[item.id]).toBeUndefined();
+        expect(market.items.value).toEqual([]);
+    });
+
+    it('清除固定价保留历史，重载后仍未设价，再记同价也能重新同步', async () => {
+        const { income, market, fixed, load, models } = await loadLinkedStore();
+        const item = fixed[0];
+        income.setPrice(item.id, 10);
+        income.clearPrice(item.id);
+        await income.flush();
+        await load();
+        expect(income.prices.value[item.id]).toBeUndefined();
+        const card = market.items.value[0];
+        expect(card.points).toHaveLength(1);
+        market.addPoint(card.id, {
+            date: models.currentPoint(card)!.date,
+            price: 100_000,
+            note: '',
+        });
+        expect(income.prices.value[item.id]).toBe(100_000);
+        await income.flush();
+    });
+
+    it('任一卡片已满时，批量导入和手动改价都保留原数据', async () => {
+        const { income, market, fixed, models } = await loadLinkedStore();
+        const item = fixed[0];
+        income.setPrice(item.id, 10);
+        const card = market.items.value[0];
+        for (let index = card.points.length; index < models.POINT_LIMIT; index++) {
+            market.addPoint(card.id, { date: '2000-01-01', price: index + 1, note: '' });
+        }
+        const before = JSON.stringify(market.items.value);
+        const merged = income.mergePrices([
+            { itemId: fixed[1].id, price: 300_000 },
+            { itemId: item.id, price: 200_000 },
+        ]);
+        expect(merged.ok).toBe(false);
+        expect(income.prices.value[item.id]).toBe(100_000);
+        expect(income.prices.value[fixed[1].id]).toBeUndefined();
+        expect(JSON.stringify(market.items.value)).toBe(before);
+        expect(income.setPrice(item.id, 20)).toBe(false);
+        await income.retry();
+    });
+
+    it('收益或物价重读失败时不跨领域修改，恢复读取后重新对齐', async () => {
+        const { income, market, fixed, pricesModule, incomeModule, desktop } =
+            await loadLinkedStore();
+        const item = fixed[0];
+        income.setPrice(item.id, 10);
+        await income.flush();
+        desktop.pricesLoad.mockResolvedValueOnce(null);
+        await pricesModule.loadPrices();
+        expect(income.setPrice(item.id, 20)).toBe(false);
+        expect(income.prices.value[item.id]).toBe(100_000);
+        await pricesModule.loadPrices();
+        desktop.incomeLoad.mockResolvedValueOnce(null);
+        await incomeModule.loadIncome();
+        const card = market.items.value[0];
+        const point = { date: card.points[0].date, price: 150_000, note: '' };
+        expect(market.addPoint(card.id, point).ok).toBe(false);
+        expect(market.savePoint(card.id, card.points[0].id, point).ok).toBe(false);
+        expect(market.removePoint(card.id, card.points[0].id).ok).toBe(false);
+        expect(market.removeItem(card.id).ok).toBe(false);
+        expect(
+            market.saveItem(card.id, {
+                name: '已改名',
+                category: card.category,
+                sub: card.sub,
+                note: '',
+            }).ok,
+        ).toBe(false);
+        expect(
+            market.addItem({ name: fixed[1].name, category: card.category, sub: '', note: '' }, 1).ok,
+        ).toBe(false);
+        expect(market.items.value).toHaveLength(1);
+        expect(market.items.value[0].points).toHaveLength(1);
+        expect(income.prices.value[item.id]).toBe(100_000);
+        expect(
+            market.addItem({ name: '独立行情', category: card.category, sub: '', note: '' }, 1).ok,
+        ).toBe(true);
+        await incomeModule.loadIncome();
+        expect(market.addPoint(card.id, point).ok).toBe(true);
+        expect(income.prices.value[item.id]).toBe(150_000);
+        await income.flush();
+    });
+
+    it('收益保存等待物价落盘，失败可重试且不会重复追加行情', async () => {
+        const { income, market, fixed, desktop } = await loadLinkedStore();
+        desktop.pricesSave.mockResolvedValueOnce(false);
+        expect(income.setPrice(fixed[0].id, 10)).toBe(true);
+        expect(await income.flush()).toBe(false);
+        expect(income.writeError.value).not.toBe('');
+        expect(await income.retry()).toBe(true);
+        expect(await income.flush()).toBe(true);
+        expect(market.items.value[0].points).toHaveLength(1);
+    });
+
+    it('物价保存同样等待收益落盘，失败后从物价页可重试', async () => {
+        const { income, market, fixed, desktop } = await loadLinkedStore();
+        income.setPrice(fixed[0].id, 10);
+        await income.flush();
+        desktop.incomeSave.mockResolvedValueOnce(false);
+        const card = market.items.value[0];
+        market.addPoint(card.id, { date: card.points[0].date, price: 150_000, note: '' });
+        expect(await market.flush()).toBe(false);
+        expect(market.writeError.value).not.toBe('');
+        expect(await market.retry()).toBe(true);
+        expect(await market.flush()).toBe(true);
+        expect(income.prices.value[fixed[0].id]).toBe(150_000);
     });
 });

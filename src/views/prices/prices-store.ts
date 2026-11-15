@@ -1,12 +1,13 @@
 /** 物价表的模块级状态；规则归 prices.ts，加载与写队列共用 services。 */
-import { readonly, ref } from 'vue';
+import { computed, readonly, ref, type Ref } from 'vue';
 import { readLocalData, writeLocalData, parseLocalList } from '../../services/local-data';
 import { loadData } from '../../services/load-data';
 import { pricesLoad, pricesSave } from '../../services/storage';
 import { todayText } from '../../services/format';
-import { createPersist } from '../../services/persist';
+import { createPersist, type Persist } from '../../services/persist';
 import { onStorageSync } from '../../services/storage-sync';
 import { makeId } from '../../services/shape';
+import { quickItems } from '../../services/game-data';
 import { DEFAULT_CATEGORY, isPriceCategory, legacyPriceSlot } from './prices-catalog';
 import {
     POINT_LIMIT,
@@ -40,6 +41,14 @@ const loadError = ref('');
 
 /** 当前数据已成功加载；读取中或失败时保持不可写。 */
 const loaded = ref(false);
+let incomeWriter: Persist | undefined;
+let incomeWriteError: Ref<string> | undefined;
+
+/** 收益模块接入联动后，两页保存回执共同等待行情与固定单价落盘。 */
+export function linkIncomePriceWrites(writer: Persist, error: Ref<string>): void {
+    incomeWriter = writer;
+    incomeWriteError = error;
+}
 
 /** 启动阶段读取，完成前由写队列阻止保存；旧版转换统一在启动导入入口处理。 */
 export async function loadPrices(): Promise<void> {
@@ -117,10 +126,21 @@ function nameTaken(name: string, exceptId: string): boolean {
     return items.value.some((item) => item.id !== exceptId && item.name.trim() === target);
 }
 
+/** 关联价格必须能同时修改收益账，避免删卡后被旧固定价重新补建。 */
+function canWriteLinkedPrices(...names: string[]): boolean {
+    const linked = quickItems().fixed.some((item) => names.some((name) => name.trim() === item.name));
+    if (!linked || !incomeWriter || incomeWriter.canWrite()) return true;
+    writeError.value = '收益账尚未读取成功，关联物价暂不能修改，请刷新后重试';
+    return false;
+}
+
 export function usePrices() {
     /** 固定单价批量记入同名卡片；先检查整批，避免导入到一半才遇到记录上限。 */
     function setCurrentPrices(incoming: readonly { name: string; price: number }[]): PriceWrite {
         if (!persist.canWrite()) return { ok: false, error: loadError.value || writeError.value };
+        if (!canWriteLinkedPrices(...incoming.map((row) => row.name))) {
+            return { ok: false, error: writeError.value };
+        }
         let next = items.value.slice();
         let changed = false;
         let id = '';
@@ -130,11 +150,13 @@ export function usePrices() {
                 return { ok: false, error: '物品名称不能为空，价格要大于 0' };
             }
             const existing = next.find((item) => item.name === name);
-            const item = existing ?? makePriceItem(
-                { name, ...legacyPriceSlot(name, ''), note: '' },
-                makeId('item'),
-                Date.now(),
-            );
+            const item =
+                existing ??
+                makePriceItem(
+                    { name, ...legacyPriceSlot(name, ''), note: '' },
+                    makeId('item'),
+                    Date.now(),
+                );
             id = item.id;
             const current = currentPoint(item);
             if (current?.price === row.price) continue;
@@ -163,6 +185,7 @@ export function usePrices() {
      */
     function addItem(draft: PriceItemDraft, initialPrice: number): PriceWrite {
         if (!persist.canWrite()) return { ok: false, error: loadError.value || writeError.value };
+        if (!canWriteLinkedPrices(draft.name)) return { ok: false, error: writeError.value };
         if (nameTaken(draft.name, '')) {
             return { ok: false, error: '已经有一件同名物品了，换一个名字，或直接改那一张卡' };
         }
@@ -183,6 +206,9 @@ export function usePrices() {
         if (!persist.canWrite()) return { ok: false, error: loadError.value || writeError.value };
         const item = items.value.find((one) => one.id === id);
         if (!item) return { ok: false, error: '这件物品已经不在了，刷新一下再试' };
+        if (!canWriteLinkedPrices(item.name, draft.name)) {
+            return { ok: false, error: writeError.value };
+        }
         if (nameTaken(draft.name, id)) {
             return { ok: false, error: '已经有一件同名物品了，换一个名字再存' };
         }
@@ -203,7 +229,9 @@ export function usePrices() {
 
     function removeItem(id: string): PriceWrite {
         if (!persist.canWrite()) return { ok: false, error: loadError.value || writeError.value };
-        if (!find(id)) return { ok: false, error: '这件物品已经不在了，刷新一下再试' };
+        const item = find(id);
+        if (!item) return { ok: false, error: '这件物品已经不在了，刷新一下再试' };
+        if (!canWriteLinkedPrices(item.name)) return { ok: false, error: writeError.value };
         items.value = items.value.filter((item) => item.id !== id);
         persist();
         return { ok: true, id };
@@ -220,6 +248,7 @@ export function usePrices() {
         if (!persist.canWrite()) return { ok: false, error: loadError.value || writeError.value };
         const item = find(itemId);
         if (!item) return { ok: false, error: '这件物品已经不在了，刷新一下再试' };
+        if (!canWriteLinkedPrices(item.name)) return { ok: false, error: writeError.value };
         if (item.points.length >= POINT_LIMIT) {
             return {
                 ok: false,
@@ -238,6 +267,7 @@ export function usePrices() {
         if (!persist.canWrite()) return { ok: false, error: loadError.value || writeError.value };
         const item = find(itemId);
         if (!item) return { ok: false, error: '这件物品已经不在了，刷新一下再试' };
+        if (!canWriteLinkedPrices(item.name)) return { ok: false, error: writeError.value };
         const point = item.points.find((one) => one.id === pointId);
         if (!point) return { ok: false, error: '这条记录已经不在了，刷新一下再试' };
 
@@ -259,6 +289,7 @@ export function usePrices() {
         if (!persist.canWrite()) return { ok: false, error: loadError.value || writeError.value };
         const item = find(itemId);
         if (!item) return { ok: false, error: '这件物品已经不在了，刷新一下再试' };
+        if (!canWriteLinkedPrices(item.name)) return { ok: false, error: writeError.value };
         if (!item.points.some((one) => one.id === pointId)) {
             return { ok: false, error: '这条记录已经不在了，刷新一下再试' };
         }
@@ -271,13 +302,19 @@ export function usePrices() {
     }
 
     return {
-        pending: persist.pending,
-        flush: persist.flush,
-        retry: persist,
+        pending: computed(() => persist.pending.value + (incomeWriter?.pending.value ?? 0)),
+        async flush(): Promise<boolean> {
+            const results = await Promise.all([persist.flush(), incomeWriter?.flush() ?? true]);
+            return results.every(Boolean);
+        },
+        async retry(): Promise<boolean> {
+            const results = await Promise.all([persist(), incomeWriter?.() ?? true]);
+            return results.every(Boolean);
+        },
         items: readonly(items),
         loaded: readonly(loaded),
         loadError,
-        writeError,
+        writeError: computed(() => writeError.value || incomeWriteError?.value || ''),
         addItem,
         saveItem,
         removeItem,

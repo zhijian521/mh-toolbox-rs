@@ -20,6 +20,11 @@ describe('业务测试分区', () => {
         expect(new Set(combined).size).toBe(combined.length);
     });
 
+    it('收益与物价互相包含固定单价联动断言', () => {
+        expect(selectTests(['income'], files)).toContain('src/views/prices/prices-store.test.ts');
+        expect(selectTests(['prices'], files)).toContain('src/views/income/income-store.test.ts');
+    });
+
     it('业务分区包含共享加载和只读契约，首页展示不捎带写入契约', () => {
         for (const scope of ['characters', 'income', 'accounts', 'prices', 'goals']) {
             const selected = selectTests([scope], files);

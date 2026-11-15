@@ -121,6 +121,10 @@ async function priceSaved(amount: number) {
     const ask = priceAsk.value;
     if (!ask) return;
     const ok = await priceSubmit.run('save', () => {
+        if (ask.mode === 'fixed' && !setPrice(ask.item.id, toWan(amount))) {
+            notify.error(writeError.value || '单价未修改，请检查金额和账本读取状态');
+            return false;
+        }
         if (ask.thenAdd) {
             const result = recordEntry({ item: ask.item.name, amount });
             if (!result.ok) {
@@ -129,13 +133,8 @@ async function priceSaved(amount: number) {
             }
             priceMessage = recordSummary(ask.item.name, result.entries);
         } else {
-            if (!setPrice(ask.item.id, toWan(amount))) {
-                notify.error('单价未修改，请检查金额和账本读取状态');
-                return false;
-            }
             priceMessage = '「' + ask.item.name + '」的单价已记为 ' + amountText(amount);
         }
-        if (ask.mode === 'fixed' && ask.thenAdd) setPrice(ask.item.id, toWan(amount));
         return true;
     });
     if (!ok) return;

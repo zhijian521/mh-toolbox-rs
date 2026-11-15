@@ -23,6 +23,7 @@ export const TEST_SCOPES = {
     income: [
         ...STORE_CONTRACT_TESTS,
         'src/views/income/',
+        'src/views/prices/prices-store.test.',
         'src/views/accounts/daily-sync.test.',
         'src/views/accounts/accounts-auto.test.',
         'src/views/overview/',
@@ -37,7 +38,12 @@ export const TEST_SCOPES = {
         'src/views/overview/',
         'src/services/format.test.',
     ],
-    prices: [...STORE_CONTRACT_TESTS, 'src/views/prices/', 'src/views/income/price-import.test.'],
+    prices: [
+        ...STORE_CONTRACT_TESTS,
+        'src/views/prices/',
+        'src/views/income/price-import.test.',
+        'src/views/income/income-store.test.',
+    ],
     goals: [
         ...STORE_CONTRACT_TESTS,
         'src/views/goals/',
