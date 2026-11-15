@@ -25,6 +25,7 @@
         "check:version": "node scripts/check-version.mjs",
         "typecheck": "vue-tsc --noEmit",
         "test": "vitest run",
+        "test:scope": "node scripts/test-scope.mjs",
         "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
         "e2e": "node tools/e2e/smoke.mjs",
         "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run check:version && npm run lint:commits"

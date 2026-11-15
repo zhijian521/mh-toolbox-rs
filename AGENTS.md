@@ -1,7 +1,7 @@
 # 本仓库协作约定（开工前先读）
 
 > 这些不是建议，是本机实测过的现象与对应的固定做法。**不要重新发现。**
-> 工程规范见 [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)，本文只讲「这台机器上怎么干活」。
+> 工程规范见 [`docs/CONVENTIONS.md`](docs/CONVENTIONS.md)，测试分区见 [`docs/TESTING.md`](docs/TESTING.md)，本文只讲「这台机器上怎么干活」。
 
 ## 一、验证分档：默认日常，仅明确要求全量检查时运行
 

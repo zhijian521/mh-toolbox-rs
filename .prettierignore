@@ -26,3 +26,6 @@ assets/fonts/
 # 产品真正用的是 public/game/maps/ 下的 webp 与 maps.json，这里只是原料，
 # 格式化一份 47MB 的中间产物没有意义。
 map/
+
+# 历史快照冻结原记录排版，现行文档仍参与格式化
+docs/archive/

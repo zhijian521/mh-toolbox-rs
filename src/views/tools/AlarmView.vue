@@ -124,7 +124,7 @@ useRouteAction('/tools/alarm', { new: openNew });
 
         <p v-if="error" class="note error alarm-error" role="alert">{{ error }}</p>
 
-        <div v-if="alarms.length" class="alarm-grid">
+        <div v-if="alarms.length" class="alarm-grid compact-card-grid">
             <AlarmCard
                 v-for="alarm in alarms"
                 :key="alarm.id"
@@ -155,18 +155,6 @@ useRouteAction('/tools/alarm', { new: openNew });
 </template>
 
 <style scoped>
-/* ---------- 网格 ----------
- * 与物价页同一套：`minmax(200px, 225px)` 自动铺，左对齐。窄窗口时一行两张，
- * 宽窗口时一行五六张——卡宽不跟着窗口拉伸，与价签、目标卡是同一种「一张一张摆」。
- */
-.alarm-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 225px));
-    justify-content: start;
-    gap: 12px;
-    align-items: stretch;
-}
-
 .alarm-error {
     margin: 0 0 10px;
 }

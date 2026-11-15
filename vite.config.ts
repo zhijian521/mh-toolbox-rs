@@ -2,39 +2,20 @@ import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import pkg from './package.json';
 
-/*
- * Tauri 起的是「已启动的 dev server」，所以端口必须固定：5173 被别人占走时
- * Vite 会自动换端口，而 tauri.conf.json 里写死的 devUrl 不会跟着变，窗口会白屏。
- */
+// Tauri 的 devUrl 固定，端口被占时必须失败，不能自动换端口。
 export default defineConfig({
     plugins: [vue()],
     clearScreen: false,
-    /* 版本号在这里注入成常量，客户端不再 `import '../../package.json'`——
-     * 那等于让 `src/` 反向依赖仓库根的清单文件。真源仍是 `package.json`，
-     * 与 `tauri.conf.json` / `Cargo.toml` 的一致性由 `scripts/check-version.mjs` 守。 */
+    // 版本真源为 package.json；客户端只读取编译常量。
     define: {
         __APP_VERSION__: JSON.stringify(pkg.version),
     },
     server: {
         port: 5173,
         strictPort: true,
-        /* 必须显式钉 IPv4。不写 host 时 Vite 用 `localhost`，而 Node 17+ 按系统
-         * getaddrinfo 的顺序解析，本机返回 `::1` 优先 → 实际只监听 `[::1]:5173`
-         * （`netstat` 可见），`127.0.0.1:5173` 没人应答。
-         * WebView2 走 IPv4，于是窗口里是 `net::ERR_CONNECTION_REFUSED` + 白屏，
-         * 而用浏览器打开却是好的——两边解析顺序不同，这类问题只能靠钉地址消掉。
-         * `devUrl` 同步写成 `http://127.0.0.1:5173`，不再依赖任何解析结果。 */
+        // 与 devUrl 同用 IPv4，避免 localhost 解析到 ::1 导致 WebView2 白屏。
         host: '127.0.0.1',
-        /* 监视器必须只盯「源码」，否则会去 watch 构建产物。
-         *
-         * 2026-11-02 实际崩过一次：`.runtime/target-lab` 是 OCR 实验用的独立 cargo
-         * target 目录（1.4GB、含 .o 中间产物），Vite 默认只忽略 node_modules 与 .git，
-         * 于是它去 watch 一个正被 rustc 锁住的 `.o`，抛 EBUSY 直接把 dev server 弄死，
-         * 外壳只报一句 `The "beforeDevCommand" terminated with a non-zero status code`。
-         *
-         * 注意这是**整体覆盖**默认忽略列表，不是追加——`node_modules` 与 `.git` 必须
-         * 自己写回来，否则会把依赖也一起 watch。
-         */
+        // 排除被编译器和编辑器锁定的产物；列表覆盖默认值，需保留 .git 与 node_modules。
         watch: {
             ignored: [
                 '**/.git/**',
@@ -45,13 +26,7 @@ export default defineConfig({
                 '**/src-tauri/gen/**',
                 '**/.workbuddy/**',
                 '**/map/**',
-                /* 编辑工具写文件时的临时目录：`.character-card.css.<pid>.<uuid>.tmpdir/`
-                 * 就建在源文件旁边。2026-11-09 本机连崩两次 dev server——
-                 * `EBUSY: resource busy or locked, watch '…tmpdir/*.tmp'`，因为 Vite 去
-                 * watch 一个正被写入的临时文件，而外壳只报一句
-                 * `beforeDevCommand terminated with a non-zero status code`，
-                 * 看不出真原因（与 `.runtime/target-lab` 那次同一个坑）。
-                 * 临时目录用完即删，永远不该进监视器。 */
+                // 编辑器临时文件不进入监视器，避免 EBUSY 中断开发服务。
                 '**/.*.tmpdir/**',
                 '**/*.tmpdir/**',
             ],

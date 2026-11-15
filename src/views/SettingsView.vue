@@ -29,7 +29,7 @@ import LicenseSection from './settings/LicenseSection.vue';
  * 通栏之后说明都能一行读完」。实拍之后否掉了：通栏那张宽 1198px，而内容最远只到卡片左边
  * 约 400px 处，**右侧空出三分之二**——一张很长的纸、字全挤在左上角，比「说明折一行」更难看。
  * 现在四张卡上都没有 class，也不存在写给它们的 `grid-column` 规则；想再试通栏之前，
- * 先看 `docs/RECORD.md` 第 87 批里这条被否的方案。
+ * 先看 `docs/archive/record-through-2026-11-15.md` 第 87 批里这条被否的方案。
  *
  * 断点由卡片内容宽度决定（`minmax(420px, 1fr)`），窗口窄了自动退回一列，
  * 不做两套布局——所以这里也没有断点媒体查询。

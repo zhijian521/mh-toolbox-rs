@@ -237,6 +237,7 @@ function enter(event: KeyboardEvent) {
                     <NumberField
                         v-model="target"
                         label="目标值"
+                        class="value-emphasis"
                         update-on-input
                         :precision="kind === 'money' || kind === 'manual' ? 2 : 0"
                         zero-as-empty
@@ -394,17 +395,6 @@ function enter(event: KeyboardEvent) {
     padding: 8px 0;
     color: var(--muted);
     font-size: var(--fs-sm);
-    text-align: center;
-}
-.target-field :deep(.number-field) {
-    width: min(100%, calc(156px * var(--fs-scale)));
-    height: auto;
-    padding: 8px 16px 10px;
-    border-radius: var(--r-3);
-    color: var(--num);
-    font-size: calc(var(--fs-base) * 1.8);
-    font-variant-numeric: tabular-nums;
-    line-height: 1.25;
     text-align: center;
 }
 .unit-row {

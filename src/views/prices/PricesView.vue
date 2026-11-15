@@ -383,7 +383,7 @@ useRouteAction('/prices', { new: startNew });
             <SlotButton v-if="filterDirty" icon="close" label="清除筛选" @click="resetFilters" />
         </div>
 
-        <div v-if="visible.length" class="price-grid">
+        <div v-if="visible.length" class="price-grid compact-card-grid">
             <PriceCard
                 v-for="item in visible"
                 :key="item.id"

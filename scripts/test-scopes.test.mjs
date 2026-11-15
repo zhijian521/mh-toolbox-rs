@@ -1,0 +1,29 @@
+import { describe, expect, it } from 'vitest';
+import { fileURLToPath } from 'node:url';
+import { collectTests, selectTests, TEST_SCOPES } from './test-scopes.mjs';
+
+describe('业务测试分区', () => {
+    const files = collectTests(fileURLToPath(new URL('../', import.meta.url)));
+
+    it('仓库测试均有归属，分区均能选择到文件', () => {
+        expect(selectTests(Object.keys(TEST_SCOPES), files)).toEqual(files);
+        for (const scope of Object.keys(TEST_SCOPES)) {
+            expect(selectTests([scope], files).length).toBeGreaterThan(0);
+        }
+    });
+
+    it('收益包含账号自动分账和首页读数，合并选择不会重复', () => {
+        const income = selectTests(['income'], files);
+        expect(income).toContain('src/views/accounts/daily-sync.test.ts');
+        expect(income).toContain('src/views/overview/overview.test.ts');
+        const combined = selectTests(['income', 'accounts', 'income'], files);
+        expect(new Set(combined).size).toBe(combined.length);
+    });
+
+    it('OCR 不捎带无关页面，未知或空范围明确失败', () => {
+        expect(selectTests(['ocr'], files)).not.toContain('src/views/accounts/accounts.test.ts');
+        expect(() => selectTests([], files)).toThrow('请指定');
+        expect(() => selectTests(['typo'], files)).toThrow('未知');
+        expect(() => selectTests(['ocr'], [])).toThrow('没有匹配');
+    });
+});

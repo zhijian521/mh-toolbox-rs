@@ -1,49 +1,11 @@
 /**
- * 全量点击烟测（对真实 Tauri 窗口，走真实 IPC 与 SQLite）。
- *
- * 与 `tools/probe/cdp.mjs` 的分工：那个量「某一像素长什么样」，这里走
- * 「一个用户会走的完整路径」——点进去、填、保存、改、删、按 Esc、**重启/重载后还在**。
- *
- * ---- 怎么跑 ----
- *
- *   start.bat --force debug            # 必须 debug：只有 debug 构建读 MH_CDP_PORT
- *   node tools/e2e/smoke.mjs           # 端口默认 9222，可用 MH_E2E_PORT 改
- *   node tools/e2e/smoke.mjs --only=物价  # 只跑某一节（改一页时用，省时间）
- *
- * 它要的是**一个已经起来、开着调试端口的真窗口**，不自己编译、不自己起服务。
- * 退出码：0 全过 / 1 有断言红 / 2 环境不对（端口不通、连不上）。
- *
- * ---- 会写真实数据 ----
- *
- * 这不是只读测试：它真的往账本里建角色、记价、点速记。所以脚本**开头自动快照**
- * 一份库（`.runtime/e2e-db/`），结尾把还原命令打出来：
- *
- *   关掉窗口后：node tools/e2e/db.mjs restore <id> --yes
- *
- * 能自己收的都会收：带「E2E」前缀的角色与物价条目会删掉，测试里临时设的单价会清掉，
- * **风格、字号与明暗都会还原成跑之前那一档**（风格按 `mh-theme-style`，字号按 `--fs-scale` 反查档位，明暗按
- * `localStorage.mh-theme` 反查，`null` 记作「跟随系统」——只看根元素的 `dark` 类分不出
- * 「跟随系统」和「浅色」，会把用户的跟随系统改成浅色）。收不了的是**速记流水的几笔**
- * ——账本里没有批量撤销，一条条删等于手动做收尾，所以交给快照还原。
- *
- * ---- 断言的口径 ----
- *
- * 每条都基于**页面自己渲染出来的**东西（innerText / DOM 数量 / aria-label），
- * 不看内部状态：状态对了但没画出来，对用户来说仍然是坏的。
- *
- * ---- 一节一个文件（2026-11-05 拆） ----
- *
- * 十一节原本同住这一个文件，1767 行。改一页要在一整条流程里找那一节，而这条流程
- * 从头到尾都在 `await`，跳读很贵。现在每一节是 `sections/` 下的一个模块，
- * 导出一个 `run(ctx)`；本文件只剩**装配**：连窗口、建 reporter、按顺序跑、汇总。
- *
- * `ctx` 里放的是跨节要用的几样东西（`cdp` / `ui` / `t` / `want` / `sleep` / `baseline`），
- * 外加两处**由前一节算出来**的数：`charsInDb`（预检对账的结果，导航那节要用它比
- * 「各号近况」的卡片数）和 `info`（预检拿到的 `app_info`，数据那节要靠它判断
- * 「是不是 debug 构建」）。这两样也走 `ctx`，不另开一个返回值协议。
+ * 真 Tauri 窗口烟测：真实交互、IPC、写入与重载持久化。
+ * 运行前需启动 debug 窗口；自动快照，结束后关闭应用并按输出命令还原。
+ * 页面与角色子流程选择、数据影响及前置见 docs/TESTING.md。
  */
 
 import { attach, sleep, SetupError } from './cdp.mjs';
+import { createSelection } from './selection.mjs';
 import { createUi } from './ui.mjs';
 import { createReporter } from './assert.mjs';
 import accounts from './sections/05-accounts.mjs';
@@ -63,7 +25,14 @@ import tools from './sections/08-tools.mjs';
 
 const only = (process.argv.find((one) => one.startsWith('--only='))?.split('=')[1] ?? '').trim();
 const skip = (process.argv.find((one) => one.startsWith('--skip='))?.split('=')[1] ?? '').trim();
-const want = (key) => (!only || key.includes(only)) && (!skip || !key.includes(skip));
+let selection;
+try {
+    selection = createSelection(only, skip);
+} catch (error) {
+    console.error(error.message);
+    process.exit(2);
+}
+const { want, characterSteps } = selection;
 
 let cdp;
 try {
@@ -92,6 +61,7 @@ const ctx = {
     ui,
     t,
     want,
+    characterSteps,
     sleep,
     baseline: { chars: null, prices: null, quickPricedByTest: false },
     snap: null,

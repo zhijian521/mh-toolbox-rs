@@ -1,15 +1,4 @@
-/*
- * 组合块：由多个基础元素拼出来的展示区块，跨组件复用。
- *
- * 与 `base.css` 的分工：base 管**元素级**基座（线、槽、印面、胶囊、开关、轨道格、文本），
- * blocks 管**组合级**排版（一叠卡、说明文字、组件展示网格）。
- *
- * 这些类原先写在 `SettingsView.vue` 的 scoped 样式里。设置页拆成八个 section 组件后，
- * 每个组件各写一份 `.note` 就变成八份重复，而且改一处要改八处——提到这里只留一份。
- *
- * 注意：scoped 样式不会作用于子组件插槽里的内容（插槽内容由使用方编译、带使用方的
- * scope id），所以这类「跨组件共用」的类只能放全局样式表，不能留在某个组件里。
- */
+/* 跨组件组合排版；元素材质归 base.css，设计令牌归 tokens.css。 */
 
 /* ---------- 一叠卡 ----------
  * 设置页与开发帮助页都是「一列 `.board` 卡」，区块之间 16px：比区块内的 12px 行距略大，
@@ -611,4 +600,26 @@
 /* 公共字段的校验行紧随控件，不重复引入段落留白。 */
 .field-error {
     margin: 0;
+}
+
+/* 金额与目标值的强调数字格；选择器优先于 NumberField 默认宽度。 */
+.field.number-field.value-emphasis {
+    width: min(100%, calc(156px * var(--fs-scale)));
+    height: auto;
+    padding: 8px 16px 10px;
+    border-radius: var(--r-3);
+    color: var(--num);
+    font-size: calc(var(--fs-base) * 1.8);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+    text-align: center;
+}
+
+/* 固定宽度的小卡，窗口加宽时增加列数，卡片本身不拉伸。 */
+.compact-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 225px));
+    justify-content: start;
+    gap: 12px;
+    align-items: stretch;
 }

@@ -61,7 +61,7 @@ const emit = defineEmits<{ confirm: []; cancel: [] }>();
  * **乘 `--fs-scale`**：行宽和字号是一件事的两面。不乘的话「较大」档下字大 10%、
  * 行宽不变，一行只装得下 14 个字，「清空所有角色与物价？」当场折行——
  * 而它与旁边那行 `.note` 的折行位置是由同一个宽度决定的。
- * 判据见 `CONVENTIONS.md` §2.3-15：跟着字号缩放的尺寸就该乘。
+ * 判据见 `CONVENTIONS.md` §2.4-15：跟着字号缩放的尺寸就该乘。
  */
 const WIDTH = 'calc(252px * var(--fs-scale))';
 

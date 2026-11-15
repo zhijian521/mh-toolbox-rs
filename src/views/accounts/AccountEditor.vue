@@ -186,7 +186,7 @@ function submit() {
                         label="成交金额"
                         zero-as-empty
                         :precision="2"
-                        class="amount-field"
+                        class="amount-field value-emphasis"
                         @input="amountEdited = true"
                     />
                 </div>
@@ -284,17 +284,6 @@ function submit() {
 .amount-row {
     justify-items: center;
     padding: 8px 0;
-}
-.amount-field {
-    width: min(100%, calc(156px * var(--fs-scale)));
-    height: auto;
-    padding: 8px 16px 10px;
-    border-radius: var(--r-3);
-    color: var(--num);
-    font-size: calc(var(--fs-base) * 1.8);
-    font-variant-numeric: tabular-nums;
-    line-height: 1.25;
-    text-align: center;
 }
 /* 标签在上、控件在下：`.field` 是通栏宽度，标签放左侧会把它挤窄；
  * 而 `SegmentedPills` 一组的宽度是按内容走的，两者同一个节奏。 */

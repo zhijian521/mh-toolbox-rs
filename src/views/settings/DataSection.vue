@@ -24,7 +24,7 @@ import { POINT_LIMIT } from '../prices/prices';
  * 数据：把整本账搬出去、搬回来，或者清空。
  *
  * 这张卡单独一张、落在 `.stack-pair` 的第二行左列（**不通栏**：试过，实拍否掉了，
- * 见 `SettingsView.vue` 的注释与 `docs/RECORD.md` 第 87 批）。
+ * 见 `SettingsView.vue` 的注释与 `docs/archive/record-through-2026-11-15.md` 第 87 批）。
  *
  * ---- 为什么分两段 ----
  * **账本那一行放两枚**：导出与导入是同一件事的两头（拿走一份 / 换回一份），并排着读是
