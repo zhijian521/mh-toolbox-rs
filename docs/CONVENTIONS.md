@@ -840,6 +840,7 @@ types/          全局声明与模块增强（`router-meta.d.ts`、`vue-augment.
     展开时消费 Esc，关闭后下一次 Esc 继续交给详情窗。选中头像或技能、清除头像、Esc 关闭均返回入口焦点；
     点外面关闭不抢焦点。每次展开重置搜索与显示数量并聚焦搜索框。
     头像、技能与详情字段共用资源加载状态：加载中不显示「未找到」或失败；实际失败才展示错误和原地重试。
+    头像每个物种只展示一张普通图，不提供变异、进阶或立绘候选；清单 aliases 仅用于旧编号解析与选中状态，不增加搜索结果，也不按玩家自定义名称猜测头像。
     清单成功后才显示空搜索结果、允许添加技能，不能往草稿塞无名技能占位。
     **技能段一格格图标、没有文本框**（2026-11-10 用户：「技能添加不使用输入框，可以在技能最后一个后面
     通过 + 号图标添加……然后点击技能图标可以下拉切换，类似于召唤兽头像选择」）：
@@ -956,8 +957,8 @@ offsetHeight` 与 `scrollTop / clientHeight`，直接写 `scrollTop`）；⑤ **
 35. **凡是自己滚动的容器，右内边距都要减一条滚动条轨道**
     （`max(0px, calc(内边距 − var(--scrollbar-w)))`）。不减的话，窗内滚起来的一瞬间内容整体左移。
 36. **游戏事实表进 `public/game/data/`，异步加载只发生在启动那一刻**。门派（21 家 × 7 项 + cap）、
-    生活 / 剧情技能表都由 `src/services/game-data.ts` 一个入口加载：`main.ts` 里
-    `await loadGameData()` 之后才 `mount`，之后全站同步读 `gameData()` / `schoolNames()` /
+    生活 / 剧情技能表都由 `src/services/game-data.ts` 一个入口加载：`main.ts` 先显示外壳，
+    再由 `startup.ts` 加载规则与各领域数据并对账，完成后才开放业务路由导入及渲染；之后全站同步读 `gameData()` / `schoolNames()` /
     `schoolSkillCap()` / `lifeSkills()` / `storySkills()`；失败退空表、永不 reject。**组件里不许
     fetch、不许 `v-if="表没回来"`**——半张表上屏比空表更难查。测试用
     `services/game-data.fixture.ts` 一行副作用导入喂真文件，路径字面量只许出现在那里。

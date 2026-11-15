@@ -142,10 +142,7 @@ fn prepared_dict(dir: &Path) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-/// 预热：把模型加载的时间挪到启动时。
-///
-/// 不预热的话，第一次识别要等 1~2 秒，而那正好是用户点「开始识别」的时刻——
-/// 界面会先停一下再出结果，看起来像卡住了。
+/// 首个业务页面绘制后后台预热；提前识别仍复用同一份按需初始化的引擎。
 pub fn warm_up() -> Result<(), String> {
     engine().map(|_| ())
 }

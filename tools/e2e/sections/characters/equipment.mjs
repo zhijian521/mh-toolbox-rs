@@ -114,6 +114,11 @@ export async function equipment(ctx) {
             ),
         );
         t.check(
+            '从装备分区打开时立即挂载装备，召唤兽仍未初始化',
+            (await ui.exists('.editor .gear-editor')) && !(await ui.exists('.editor .pet-editor')),
+        );
+        await cdp.evaluate(`document.querySelector('.gear-editor').dataset.e2eRetained = 'true'`);
+        t.check(
             '装备识别左侧页签下提供十二部位，右侧直接编辑详情',
             await cdp.evaluate(`document.querySelectorAll('.ocr .upload-left .gear-slot').length === 12 &&
                 !!document.querySelector('.ocr .upload-detail .gear-form') &&
@@ -153,6 +158,11 @@ export async function equipment(ctx) {
             );
         }
         t.check('各分区只启用一份共用截图入口', sharedUploads.every(Boolean));
+        t.check(
+            '首次切入召唤兽后保留实例，切回装备也不重建装备编辑器',
+            await cdp.evaluate(`!!document.querySelector('.editor .pet-editor') &&
+                document.querySelector('.gear-editor').dataset.e2eRetained === 'true'`),
+        );
         t.check(
             '分区页签在六个分区里等宽',
             standardTabs > 0 && tabWidths.every(([, width]) => Math.abs(width - standardTabs) < 1),

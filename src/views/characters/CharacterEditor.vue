@@ -49,6 +49,7 @@ const {
 } = useOcrDraft(props.character);
 
 const pane = ref<PaneKey>(props.pane);
+const openedPanes = ref(new Set<PaneKey>([props.pane]));
 const content = ref<HTMLElement | null>(null);
 const petEditor = ref<InstanceType<typeof PetEditor> | null>(null);
 const validationId = useId();
@@ -142,6 +143,7 @@ async function parse(lines: OcrLine[], image: ImageData) {
 watch(
     pane,
     (value) => {
+        openedPanes.value.add(value);
         if (value !== 'gear' && value !== 'pets') void classify();
     },
     { flush: 'sync' },
@@ -166,7 +168,12 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
         @close="!saving && emit('cancel')"
     >
         <div ref="content" :inert="locked || saving" class="ocr" :class="{ 'ocr-wide': wide }">
-            <GearEditor v-show="pane === 'gear'" v-model="draft.gear" @busy="gearReading = $event">
+            <GearEditor
+                v-if="openedPanes.has('gear')"
+                v-show="pane === 'gear'"
+                v-model="draft.gear"
+                @busy="gearReading = $event"
+            >
                 <template #tabs>
                     <SteppedSlider
                         v-if="pane === 'gear'"
@@ -179,6 +186,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
                 </template>
             </GearEditor>
             <PetEditor
+                v-if="openedPanes.has('pets')"
                 v-show="pane === 'pets'"
                 ref="petEditor"
                 v-model="draft.pets"

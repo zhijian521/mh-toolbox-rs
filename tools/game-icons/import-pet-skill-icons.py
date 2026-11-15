@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import json
 import shutil
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -34,6 +35,7 @@ CORRECTED_HASHES = {
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--src', type=Path, default=DEFAULT_SRC)
+    parser.add_argument('--sharp', type=Path, help='导入后使用此 sharp 模块目录无损压缩')
     args = parser.parse_args()
     source_root = args.src.resolve()
     manifest = json.loads((source_root / 'manifest.json').read_text(encoding='utf-8'))
@@ -63,6 +65,8 @@ def main() -> int:
         icon['img'] = f'{directory}-{skill_id}.png'
         icon.update({key: row[key] for key in ('width', 'height', 'provenance')})
         icon['sha256'] = digest
+        if skill_id in CORRECTED_HASHES:
+            icon['sourceSha256'] = digest
         icon['resourceMd5'] = row['resourceMd5']
         icons.append(icon)
         pending.append((source, ROOT / 'public/game/icons' / directory / icon['img']))
@@ -103,6 +107,11 @@ def main() -> int:
     target = ROOT / 'public/game/data/pet-skills.json'
     with target.open('w', encoding='utf-8', newline='\r\n') as handle:
         handle.write(json.dumps(result, ensure_ascii=False, indent=4) + '\n')
+    if args.sharp:
+        subprocess.run([
+            'node', str(ROOT / 'tools/game-icons/optimize-icons.mjs'),
+            str(args.sharp.resolve()), '--only=' + ','.join(CATEGORY_DIRS.values()),
+        ], check=True)
     print(f'已导入 {len(icons)} 张召唤兽技能 PNG；缺图名称保留 {len(missing)} 项。')
     return 0
 

@@ -41,4 +41,8 @@
 
 `pet-skills.json` 取自 2026-11-07 的[藏宝阁技能配置](https://cbg-xyq.res.netease.com/js/game_auto_config.js)快照与 `C:/games/MHXY` 客户端：167 张用客户端 PNG、186 张由官网具名 GIF 无损转 PNG，逐项记 `provenance` 与 SHA-256；同批修正低级 / 高级反击与冥思对调（反击 302、冥思 310 蓝，高级反击 402、高级冥思 410 红），脚本固定这四张已核对图、旧素材被拒，重导用 `python tools/game-icons/import-pet-skill-icons.py --src <素材包目录>`（分类从 `C:/games/MHXY-icons/召唤兽技能专用包/manifest.json` 读，不猜前缀）。
 
-基础表由 `services/game-data.ts` 在挂载前统一加载，之后同步读缓存；组件不直接 `fetch`。首次失败仍挂载应用，角色页显示重试入口并暂停修改；重试成功补全内存模板，不自动写盘。已有有效缓存时失败保留旧值。召唤兽资源另由 `pet-assets.ts` 按需加载。规则见 `docs/GAME-ASSETS.md` §6。
+PNG 允许同格式无损重编码，文件名、尺寸与解码 RGBA 保持一致；`sha256` 对应当前发布文件，
+四张纠错图的 `sourceSha256` 固定原始来源摘要，其他来源沿用 `resourceMd5` / `provenance`。
+导入命令添加 `--sharp <sharp模块目录>` 可同步压缩，独立重编码入口见 `docs/GAME-ASSETS.md`。
+
+基础表由 `services/game-data.ts` 在业务路由开放前统一加载，外壳可先显示，之后同步读缓存；组件不直接 `fetch`。首次失败仍显示应用，角色页提供重试入口并暂停修改；重试成功补全内存模板，不自动写盘。已有有效缓存时失败保留旧值。召唤兽资源另由 `pet-assets.ts` 按需加载。规则见 `docs/GAME-ASSETS.md` §6。

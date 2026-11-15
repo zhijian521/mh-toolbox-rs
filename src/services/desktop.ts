@@ -1,4 +1,5 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { emit } from '@tauri-apps/api/event';
 import { commands, type AppInfo } from './bindings';
 
 /**
@@ -26,6 +27,16 @@ const hasTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in windo
 
 export function hasDesktop(): boolean {
     return hasTauri;
+}
+
+/** 首个业务页面绘制后通知宿主后台预热 OCR；失败不影响读写或按需识别。 */
+export async function notifyAppReady(): Promise<void> {
+    if (!hasTauri) return;
+    try {
+        await emit('app-ready');
+    } catch (error) {
+        console.error('通知应用就绪失败', error);
+    }
 }
 
 /* `AppInfo` 的定义在生成物里（字段与 `lib.rs` 的 struct 一一对应），这里转出去，

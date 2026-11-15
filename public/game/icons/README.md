@@ -19,7 +19,7 @@ icons/
 ├── pet-advanced/ pet-advanced-<ID>.png 52
 ├── pet-super/ pet-super-<ID>.png 48
 ├── pet-special/ pet-special-<ID>.png 185（含升星扩展 89）
-└── pet-portrait/ pet-<编号>.png / portrait-<摘要>.png
+└── pet-portrait/ pet-<编号>.png|webp（每物种仅一张普通头像）
 ```
 
 两条规则：**根目录不许放图**，一个类目一个子目录；**文件名以目录名开头**（`skill/skill-01.webp`、`school/school-skill-datang-1.webp`）。两条都由 `src/services/game-icons.test.ts` 的「图标目录结构」断言盯着，丢在根下或一个目录住两个类目，`npm run check` 当场红——这批文件会一直长（2026-11-04 一天 268 → 390），规范见 `docs/GAME-ASSETS.md` §9。

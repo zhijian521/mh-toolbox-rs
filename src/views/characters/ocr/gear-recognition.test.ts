@@ -63,6 +63,78 @@ describe('装备原图补读', () => {
         ]);
         expect(result.detail.cond).toContainEqual({ label: '锻炼等级', value: '6' });
         expect(ocrFrame).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(ocrFrame).mock.calls[0].slice(1)).toEqual([200, 200]);
+    });
+
+    const primaryWeapon = () => [
+        { ...lines(['天龙破城'])[0], x: 50, y: 0 },
+        { ...lines(['等级150五行水'])[0], x: 50, y: 16 },
+        { ...lines(['伤害+700帝中+561'])[0], x: 50, y: 32 },
+        { ...lines(['耐久度59'])[0], x: 50, y: 48 },
+        { ...lines(['耐力+30体质+29'])[0], x: 50, y: 64 },
+    ];
+    const localBase = (text: string) => [
+        {
+            ...lines([text])[0],
+            x: 15,
+            y: 17,
+            width: 140,
+        },
+    ];
+
+    it('局部补齐整排后跳过整图，坐标归回原图且不改附加、耐久与原文', async () => {
+        const primary = primaryWeapon();
+        const before = JSON.stringify(primary);
+        vi.mocked(ocrFrame).mockResolvedValue({
+            status: 'ok',
+            lines: localBase('伤害+731命中+561'),
+        });
+        const result = await recognizeGearPanel(primary, image(), names);
+        expect(result.detail.stats).toEqual(
+            expect.arrayContaining([
+                { label: '伤害', value: '+731', group: 'base' },
+                { label: '命中', value: '+561', group: 'base' },
+                expect.objectContaining({ label: '耐力', value: '+30' }),
+                expect.objectContaining({ label: '体质', value: '+29' }),
+            ]),
+        );
+        expect(result.detail.cond).toContainEqual({ label: '耐久度', value: '59' });
+        expect(ocrFrame).toHaveBeenCalledTimes(1);
+        const [, width, height] = vi.mocked(ocrFrame).mock.calls[0];
+        expect(width * height).toBeLessThan((200 * 200) / 4);
+        expect(JSON.stringify(primary)).toBe(before);
+    });
+
+    it.each([
+        { status: 'failed' as const, error: '局部识别失败' },
+        { status: 'ok' as const, lines: [] },
+        { status: 'ok' as const, lines: localBase('命中+561') },
+    ])('局部失败、空结果或缺项时回退整图并替换整排基础值：$status', async (outcome) => {
+        vi.mocked(ocrFrame)
+            .mockResolvedValueOnce(outcome)
+            .mockResolvedValueOnce({
+                status: 'ok',
+                lines: [{ ...lines(['伤害+731命中+561'])[0], x: 50, y: 32 }],
+            });
+        const result = await recognizeGearPanel(primaryWeapon(), image(), names);
+        expect(ocrFrame).toHaveBeenCalledTimes(2);
+        expect(vi.mocked(ocrFrame).mock.calls[1].slice(1)).toEqual([200, 200]);
+        expect(result.detail.stats).toEqual(
+            expect.arrayContaining([
+                { label: '伤害', value: '+731', group: 'base' },
+                { label: '命中', value: '+561', group: 'base' },
+            ]),
+        );
+    });
+
+    it('局部仅认出部分基础且整图失败时保留主结果，不采纳半排补读', async () => {
+        const primary = primaryWeapon();
+        const expected = parseGearPanel(primary, names, undefined, image());
+        vi.mocked(ocrFrame)
+            .mockResolvedValueOnce({ status: 'ok', lines: localBase('命中+999') })
+            .mockResolvedValueOnce({ status: 'failed', error: '整图识别失败' });
+        expect(await recognizeGearPanel(primary, image(), names)).toEqual(expected);
+        expect(ocrFrame).toHaveBeenCalledTimes(2);
     });
 
     it('缺项时整排基础值采用原图，不带入原图误读的强化等级和说明', async () => {
@@ -125,14 +197,16 @@ describe('装备原图补读', () => {
             box('耐久度59', 50, 48),
             box('耐力+30体质+29', 50, 64),
         ];
-        vi.mocked(ocrFrame).mockResolvedValue({
-            status: 'ok',
-            lines: [
-                box('力量+19敏捷-2', 0, 32),
-                box('伤害+731命中+561', 50, 32),
-                box('命中+934伤害+630', 50, 96),
-            ],
-        });
+        vi.mocked(ocrFrame)
+            .mockResolvedValueOnce({ status: 'ok', lines: [] })
+            .mockResolvedValueOnce({
+                status: 'ok',
+                lines: [
+                    box('力量+19敏捷-2', 0, 32),
+                    box('伤害+731命中+561', 50, 32),
+                    box('命中+934伤害+630', 50, 96),
+                ],
+            });
         const shot = image();
         for (let i = 64 * shot.width * 4; i < shot.data.length; i += 4)
             shot.data.set([0, 255, 0, 255], i);

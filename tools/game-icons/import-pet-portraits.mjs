@@ -1,5 +1,5 @@
 /** 从客户端图鉴及 THX/WPK 导入召唤兽头像，保留原始像素。
- * node tools/game-icons/import-pet-portraits.mjs [客户端目录] [game-icon-extract目录] [具名头像目录] [--download-missing]
+ * node tools/game-icons/import-pet-portraits.mjs [客户端目录] [game-icon-extract目录] [--download-missing]
  * 解码器使用既有只读提取工程；不执行客户端 Python，只读静态名录和资源。
  */
 import fs from 'node:fs';
@@ -7,7 +7,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { encodePortrait } from './optimize-pet-portraits.mjs';
+import { encodePortrait, selectPortraits } from './optimize-pet-portraits.mjs';
 
 const load = createRequire(import.meta.url);
 const directory = path.dirname(fileURLToPath(import.meta.url));
@@ -15,7 +15,6 @@ const directory = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2).filter((arg) => !arg.startsWith('--'));
 const game = args[0] || 'E:/zhijian/mhxy';
 const extractor = args[1] || 'E:/zhijian/mh-tool/.workbuddy/game-icon-extract';
-const namedSource = args[2] || 'E:/zhijian/梦幻西游端游素材/梦幻西游端游素材/头像';
 const download = process.argv.includes('--download-missing');
 const sharp = load(path.resolve(extractor, '../../node_modules/sharp'));
 const { staticAssignments } = load(path.join(extractor, 'skill-probe.cjs'));
@@ -190,122 +189,88 @@ async function main() {
     await Promise.all(
         Array.from({ length: 4 }, async () => {
             for (const [shape, name] of queue) {
+                if (name.startsWith('变异')) continue;
                 if (shape < 2000) continue; // 孩子有单独系统，不混入召唤兽头像选择。
                 let mapped = shape;
                 if (shape >= 2500 && shape < 3000 && shape !== 2508) mapped -= 500;
                 if (shape >= 12000 && shape < 17000 && shape % 1000 >= 500) mapped -= 500;
                 mapped = photoMap?.get(mapped) ?? mapped;
-                for (const variant of ['', '_1']) {
-                    let found = false;
-                    const seen = new Set();
-                    for (const id of [shape, mapped]) {
-                        if (seen.has(id)) continue;
-                        seen.add(id);
-                        for (const family of [
-                            'newphoto/npc50',
-                            'photo/facesmall',
-                            'photo/sum',
-                            'newphoto/npc44',
-                            'newphoto/npc',
-                            'photo/npc',
-                        ]) {
-                            const resourcePath = `${family}/${String(id).padStart(4, '0')}${variant}.tcp`;
-                            const hashes = resources.get(resourcePathHash(resourcePath)) || [];
-                            for (const md5 of hashes) {
-                                const result = await resource(md5);
-                                if (!result) continue;
-                                const { value, origin } = result;
-                                let image;
-                                if (value.toString('latin1', 0, 2) === 'RP') {
-                                    const png = value.indexOf(
-                                        Buffer.from('89504e470d0a1a0a', 'hex'),
-                                    );
-                                    if (png < 0) continue;
-                                    const decoded = await sharp(value.subarray(png))
-                                        .ensureAlpha()
-                                        .raw()
-                                        .toBuffer({ resolveWithObject: true });
-                                    image = {
-                                        rgba: decoded.data,
-                                        width: decoded.info.width,
-                                        height: decoded.info.height,
-                                    };
-                                } else image = decodeVariant(value);
-                                const key = `pet-${shape}${variant.replace('_', '-')}`;
-                                const encoded = await encodePortrait(
-                                    sharp,
-                                    sharp(image.rgba, {
-                                        raw: {
-                                            width: image.width,
-                                            height: image.height,
-                                            channels: 4,
-                                        },
-                                    }),
-                                );
-                                fs.writeFileSync(
-                                    path.join(out, key + encoded.extension),
-                                    encoded.data,
-                                );
-                                icons.push({
-                                    id: key,
-                                    name: name + (variant ? '·进阶' : ''),
-                                    species: name,
-                                    img: key + encoded.extension,
-                                    width: image.width,
-                                    height: image.height,
-                                    resourcePath,
-                                    resourceMd5: md5,
-                                    origin,
-                                });
-                                found = true;
-                                break;
-                            }
-                            if (found) break;
+                let found = false;
+                const seen = new Set();
+                for (const id of [shape, mapped]) {
+                    if (seen.has(id)) continue;
+                    seen.add(id);
+                    for (const family of [
+                        'newphoto/npc50',
+                        'photo/facesmall',
+                        'photo/sum',
+                        'newphoto/npc44',
+                        'newphoto/npc',
+                        'photo/npc',
+                    ]) {
+                        const resourcePath = `${family}/${String(id).padStart(4, '0')}.tcp`;
+                        const hashes = resources.get(resourcePathHash(resourcePath)) || [];
+                        for (const md5 of hashes) {
+                            const result = await resource(md5);
+                            if (!result) continue;
+                            const { value, origin } = result;
+                            let image;
+                            if (value.toString('latin1', 0, 2) === 'RP') {
+                                const png = value.indexOf(Buffer.from('89504e470d0a1a0a', 'hex'));
+                                if (png < 0) continue;
+                                const decoded = await sharp(value.subarray(png))
+                                    .ensureAlpha()
+                                    .raw()
+                                    .toBuffer({ resolveWithObject: true });
+                                image = {
+                                    rgba: decoded.data,
+                                    width: decoded.info.width,
+                                    height: decoded.info.height,
+                                };
+                            } else image = decodeVariant(value);
+                            const key = `pet-${shape}`;
+                            const encoded = await encodePortrait(
+                                sharp,
+                                sharp(image.rgba, {
+                                    raw: {
+                                        width: image.width,
+                                        height: image.height,
+                                        channels: 4,
+                                    },
+                                }),
+                            );
+                            fs.writeFileSync(path.join(out, key + encoded.extension), encoded.data);
+                            icons.push({
+                                id: key,
+                                name,
+                                species: name,
+                                img: key + encoded.extension,
+                                width: image.width,
+                                height: image.height,
+                                resourcePath,
+                                resourceMd5: md5,
+                                origin,
+                            });
+                            found = true;
+                            break;
                         }
                         if (found) break;
                     }
-                    if (!found && !variant) missing.push({ shape, name });
+                    if (found) break;
                 }
+                if (!found) missing.push({ shape, name });
             }
         }),
     );
-    // 已具名的解包立绘补充老客户端没有缓存的小头像。裁透明画布，保留原始画稿。
-    const normalize = (name) =>
-        name
-            .replace(/^[^\p{Script=Han}]+/u, '')
-            .replace(/超级|经典|默认|半身像|\d|\s/g, '')
-            .replace(/[（(].*?[）)]/g, '');
-    const species = [...new Set([...names.values()].filter((name) => !name.startsWith('变异')))];
-    if (fs.existsSync(namedSource)) {
-        for (const file of fs.readdirSync(namedSource).filter((name) => /\.png$/i.test(name))) {
-            const label = normalize(path.parse(file).name);
-            const advanced = label.startsWith('进阶');
-            const matches = species.filter(
-                (name) => normalize(name) === label.replace(/^进阶/, ''),
-            );
-            if (matches.length !== 1) continue;
-            const name = matches[0];
-            const input = fs.readFileSync(path.join(namedSource, file));
-            const id = `portrait-${crypto.createHash('sha256').update(input).digest('hex').slice(0, 16)}`;
-            const image = sharp(input).trim({ background: '#00000000', threshold: 1 });
-            const encoded = await encodePortrait(sharp, image);
-            const info = await sharp(encoded.data).metadata();
-            fs.writeFileSync(path.join(out, id + encoded.extension), encoded.data);
-            icons.push({
-                id,
-                name: name + (advanced ? '·进阶立绘' : '·立绘'),
-                species: name,
-                img: id + encoded.extension,
-                width: info.width,
-                height: info.height,
-                source: `已解包素材/头像/${file}`,
-            });
-        }
-    }
+    const manifest = path.join(root, 'public/game/data/pet-portraits.json');
+    const previous = fs.existsSync(manifest)
+        ? JSON.parse(fs.readFileSync(manifest, 'utf8')).icons
+        : [];
+    const selected = selectPortraits(icons, previous);
     const unavailable = missing.filter(
         (entry) => !icons.some((icon) => icon.species === entry.name),
     );
-    const files = new Set(icons.map((icon) => icon.img));
+    const files = new Set(selected.map((icon) => icon.img));
     for (const file of fs.readdirSync(out)) {
         if (/^(?:pet-[\d-]+|portrait-[a-f\d]+)\.(?:png|webp)$/.test(file) && !files.has(file)) {
             fs.unlinkSync(path.join(out, file));
@@ -322,16 +287,15 @@ async function main() {
                     'infophoto.py / PhotoMap',
                     'wzife.thx / 本地 WPK',
                     'https://xyq.gsf.netease.com/xyq_all/dynamic/ / 客户端 cloud.json',
-                    '已具名解包头像',
                 ],
-                icons: icons.sort((a, b) => a.id.localeCompare(b.id, 'en', { numeric: true })),
+                icons: selected.sort((a, b) => a.id.localeCompare(b.id, 'en', { numeric: true })),
                 missing: unavailable.sort((a, b) => a.shape - b.shape),
             },
             null,
             4,
         ) + '\n',
     );
-    console.log(`已导入 ${icons.length} 张头像；${unavailable.length} 个名录条目缺本地资源`);
+    console.log(`已导入 ${selected.length} 张普通头像；${unavailable.length} 个名录条目缺本地资源`);
 }
 main().catch((error) => {
     console.error(error);

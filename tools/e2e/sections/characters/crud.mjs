@@ -34,6 +34,10 @@ export async function setup(ctx) {
         }
         t.pass('点「新建角色」打开编辑器');
         t.check(
+            '属性修改未访问装备与召唤兽时不创建对应编辑器',
+            !(await ui.exists('.editor .gear-editor, .editor .pet-editor')),
+        );
+        t.check(
             '未提交的角色草稿可以编辑，取消可用',
             await cdp.evaluate(
                 "!document.querySelector('.editor .ocr').inert && !document.querySelector('.editor [data-modal-cancel]').disabled",
@@ -474,6 +478,10 @@ export async function pets(ctx) {
             ),
         );
         t.check(
+            '从召唤兽分区打开时立即挂载召唤兽，装备仍未初始化',
+            (await ui.exists('.editor .pet-editor')) && !(await ui.exists('.editor .gear-editor')),
+        );
+        t.check(
             '没有选中召唤兽时不能靠识别新增',
             await cdp.evaluate(
                 `document.querySelector('.pet-editor input[aria-label="召唤兽截图文件"]')?.disabled === true`,
@@ -547,12 +555,14 @@ export async function pets(ctx) {
                 document.querySelector('.pet-block input[aria-label="召唤兽名称"]').value === '临时乙'`,
             ),
         );
+        await cdp.evaluate(`document.querySelector('.pet-editor').dataset.e2eRetained = 'true'`);
         await ui.clickText('.ocr-tabs button', '属性', { exact: true });
         await ui.clickText('.ocr-tabs button', '召唤兽', { exact: true });
         t.check(
-            '切分区保留召唤兽草稿',
+            '切分区保留召唤兽编辑器实例与草稿',
             await cdp.evaluate(
-                `document.querySelector('.pet-block input[aria-label="等级"]').value === '22'`,
+                `document.querySelector('.pet-block input[aria-label="等级"]').value === '22' &&
+                document.querySelector('.pet-editor').dataset.e2eRetained === 'true'`,
             ),
         );
         await ui.clickLabel('放弃这次修改');

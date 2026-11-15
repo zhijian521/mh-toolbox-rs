@@ -6,6 +6,7 @@ export interface PetIconEntry {
     url: string;
     species?: string;
     fingerprint?: string;
+    aliases?: string[];
 }
 export interface PetPanelRules {
     attributes: string[];
@@ -75,8 +76,9 @@ export function parsePetIcons(raw: unknown, portrait: boolean): PetIconEntry[] {
     const file = raw as { icons?: unknown };
     if (!Array.isArray(file?.icons)) throw new TypeError('召唤兽图标清单缺少 icons');
     const ids = new Set<string>();
+    const aliases = new Set<string>();
     const imagePattern = portrait ? /^[\w-]+\.(?:png|webp)$/ : /^[\w-]+\.png$/;
-    return file.icons.map((one: unknown) => {
+    const icons = file.icons.map((one: unknown) => {
         const entry = one as {
             id?: unknown;
             name?: unknown;
@@ -84,6 +86,7 @@ export function parsePetIcons(raw: unknown, portrait: boolean): PetIconEntry[] {
             species?: unknown;
             categoryId?: unknown;
             resourceMd5?: unknown;
+            aliases?: unknown;
         };
         if (
             typeof entry?.id !== 'string' ||
@@ -103,14 +106,36 @@ export function parsePetIcons(raw: unknown, portrait: boolean): PetIconEntry[] {
             throw new TypeError('召唤兽技能分类无效');
         }
         ids.add(entry.id);
+        let previous: string[] | undefined;
+        if (portrait && entry.aliases !== undefined) {
+            if (!Array.isArray(entry.aliases)) throw new TypeError('召唤兽头像旧编号无效');
+            previous = entry.aliases.map((id: unknown) => {
+                if (typeof id !== 'string' || !/^[\w-]+$/.test(id) || aliases.has(id))
+                    throw new TypeError('召唤兽头像旧编号无效或重复');
+                aliases.add(id);
+                return id;
+            });
+        }
         return {
             id: entry.id,
             name: entry.name,
             species: typeof entry.species === 'string' ? entry.species : undefined,
             fingerprint: typeof entry.resourceMd5 === 'string' ? entry.resourceMd5 : undefined,
+            aliases: previous,
             url: `${BASE}icons/${portrait ? 'pet-portrait' : `pet-${String(entry.categoryId)}`}/${entry.img}`,
         };
     });
+    if ([...aliases].some((id) => ids.has(id)))
+        throw new TypeError('召唤兽头像旧编号与现有编号冲突');
+    return icons;
+}
+
+/** 旧变异、进阶及立绘编号只映射普通头像，不增加选择列表条目。 */
+export function findPetPortrait(
+    icons: readonly PetIconEntry[],
+    id: string,
+): PetIconEntry | undefined {
+    return icons.find((one) => one.id === id || one.aliases?.includes(id));
 }
 
 /** 召唤兽页按需读表，失败可重试；像素模板只在截图识别时加载。 */

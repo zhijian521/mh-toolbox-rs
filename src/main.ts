@@ -1,4 +1,4 @@
-import { createApp, type Ref } from 'vue';
+import { createApp, h, nextTick, ref } from 'vue';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/blocks.css';
@@ -7,65 +7,81 @@ import { useFontScale } from './composables/use-font-scale';
 import { useFontFamily } from './composables/use-font-family';
 import { useTheme } from './composables/use-theme';
 import { askConfirm } from './composables/use-confirm';
-import { guardWindowClose } from './services/desktop';
+import { guardWindowClose, notifyAppReady } from './services/desktop';
 import { flushPendingWrites } from './services/persist';
 import { router } from './router';
-import { loadGameData } from './services/game-data';
-import { loadAccounts, useAccounts } from './views/accounts/accounts-store';
-import { loadGoals, useGoals } from './views/goals/goals-store';
-import { loadRoster, useRoster } from './views/characters/roster';
-import { loadIncome, useIncome } from './views/income/income-store';
-import { loadOnline, useOnline } from './views/income/online-store';
-import { flushDailySync, startDailySync, syncAllDays } from './views/accounts/daily-sync';
-import { loadPrices, usePrices } from './views/prices/prices-store';
 
 /** 偏好在挂载前落地，冷启动任意页面都恢复字体、字号与主题。 */
 useFontFamily();
 useFontScale();
 useTheme();
 
-async function loadSafely(load: () => Promise<void>, error: Ref<string>) {
-    try {
-        await load();
-    } catch (cause) {
-        console.error('初始化数据失败', cause);
-        error.value = '数据加载失败，已暂停写入，请重新启动或从备份恢复';
-    }
+const loading = ref(true);
+const startupError = ref('');
+let releaseRoutes = () => {};
+const dataReady = new Promise<void>((resolve) => {
+    releaseRoutes = resolve;
+});
+// 拦在路由组件导入之前，避免模块求值或页面监听读到尚未装配的游戏规则和空账本。
+const removeLoadingGuard = router.beforeEach(() => dataReady);
+
+createApp({
+    render: () => h(App, { loading: loading.value, startupError: startupError.value }),
+})
+    .use(router)
+    .mount('#app');
+
+/** 把后续工作放到绘制机会之后；隐藏窗口不依赖暂停的动画帧。 */
+function afterPaint(): Promise<void> {
+    return new Promise((resolve) => {
+        if (document.hidden) {
+            setTimeout(resolve, 0);
+            return;
+        }
+        const frame = requestAnimationFrame(() => {
+            clearTimeout(timer);
+            setTimeout(resolve, 0);
+        });
+        // 排帧后最小化窗口也不能让启动或关窗一直等待。
+        const timer = setTimeout(() => {
+            cancelAnimationFrame(frame);
+            resolve();
+        }, 100);
+    });
 }
 
-/** 先加载规则与各领域数据；单个领域失败仍挂载页面并保留写入保护。 */
-Promise.allSettled([
-    loadGameData().then(() =>
-        Promise.allSettled([
-            loadSafely(loadRoster, useRoster().loadError),
-            loadSafely(loadPrices, usePrices().loadError),
-        ]),
-    ),
-    loadSafely(loadIncome, useIncome().loadError),
-    loadSafely(loadOnline, useOnline().loadError),
-    loadSafely(loadAccounts, useAccounts().loadError),
-    loadSafely(loadGoals, useGoals().loadError),
-]).then((results) => {
-    for (const result of results) {
-        if (result.status === 'rejected') console.error('初始化数据失败', result.reason);
+const startup = afterPaint().then(async () => {
+    try {
+        const data = await import('./startup');
+        await data.initializeData();
+        releaseRoutes();
+        await router.isReady();
+        removeLoadingGuard();
+        loading.value = false;
+        return data;
+    } catch (error) {
+        console.error('应用启动失败', error);
+        startupError.value = '启动失败，请重新加载';
+        return null;
     }
-    /* 账号账本与收益、上线记录都到手之后才补算——自动同步要读三份数据，
-     * 所有读取完成之后它们才算都读完了。放在 `mount` 之前：先把那几笔补上，
-     * 用户切到账号页时看到的就是补齐的账，而不是「进来一下才多出两行」。
-     *
-     * 失败不拦挂载：同步是副动作，读不出账号账本时它自己会拒绝写（`persist.canWrite`）。 */
-    syncAllDays();
-    startDailySync();
-    createApp(App).use(router).mount('#app');
-    void guardWindowClose(async () => {
-        const synced = await flushDailySync();
-        const written = await flushPendingWrites();
-        if (synced && written) return true;
-        return askConfirm({
-            danger: true,
-            title: '仍有改动未保存，退出吗？',
-            note: '退出会丢失未保存的改动。取消后可在页面重试保存，或检查磁盘空间。',
-            confirmText: '退出',
-        });
+});
+
+void startup.then(async (data) => {
+    if (!data) return;
+    await nextTick();
+    await afterPaint();
+    void notifyAppReady();
+});
+
+void guardWindowClose(async () => {
+    const data = await startup;
+    const synced = data ? await data.flushDailySync() : true;
+    const written = await flushPendingWrites();
+    if (synced && written) return true;
+    return askConfirm({
+        danger: true,
+        title: '仍有改动未保存，退出吗？',
+        note: '退出会丢失未保存的改动。取消后可在页面重试保存，或检查磁盘空间。',
+        confirmText: '退出',
     });
 });

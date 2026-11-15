@@ -31,6 +31,12 @@ export default async function run(ctx) {
                     throw new Error(`标题是「${state.title}」，期望「${label}」`);
                 if (!state.body.length) throw new Error('正文是空的');
                 if (state.body.includes('这一页还没开始')) throw new Error('正式导航出现占位页');
+                if (
+                    !(await cdp.evaluate(
+                        `document.querySelector('main.app')?.getAttribute('aria-busy') === 'false' && !document.querySelector('.app-startup')`,
+                    ))
+                )
+                    throw new Error(`「${label}」仍停留在数据加载状态`);
                 t.pass(`进入「${label}」`, `${state.href} · ${state.body.length} 字`);
             });
         }

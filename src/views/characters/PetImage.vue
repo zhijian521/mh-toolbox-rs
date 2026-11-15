@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import { loadPetAssets, petAssets } from '../../services/pet-assets';
+import { findPetPortrait, loadPetAssets, petAssets } from '../../services/pet-assets';
 
 const props = withDefaults(defineProps<{ name: string; kind?: 'skill' | 'portrait' }>(), {
     kind: 'skill',
@@ -8,7 +8,7 @@ const props = withDefaults(defineProps<{ name: string; kind?: 'skill' | 'portrai
 const failed = ref(false);
 const entry = computed(() =>
     props.kind === 'portrait'
-        ? petAssets.value?.portraits.find((one) => one.id === props.name)
+        ? findPetPortrait(petAssets.value?.portraits ?? [], props.name)
         : petAssets.value?.skills.find((one) => one.name === props.name),
 );
 watch(

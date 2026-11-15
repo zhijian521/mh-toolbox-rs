@@ -7,8 +7,8 @@
  * 存一份」。规则本身在 `docs/GAME-ASSETS.md`，判断某段东西该不该搬进去之前先读那一份。
  *
  * ---- 为什么只有这一处是异步的 ----
- * 表是 JSON，只能 fetch。**加载只在启动时做一次**（`main.ts` 里 `loadGameData()` 之后才
- * `mount`），之后全站都用同步的 `gameData()` 读缓存——于是 `schoolSkills()`、图标查表、
+ * 表是 JSON，只能 fetch。**加载只在启动时做一次**（`startup.ts` 里 `loadGameData()` 之后
+ * 才开放业务路由），之后全站都用同步的 `gameData()` 读缓存——于是 `schoolSkills()`、图标查表、
  * 卡片的渲染全是同步纯函数，单测不必改成 async。
  *
  * 反面做法是「每个消费方各自 `await` + 各自 `v-if`」：六个页面各写一遍加载中状态，
@@ -118,7 +118,7 @@ const EMPTY: GameData = {
 
 let current: GameData = EMPTY;
 
-/** 同步读缓存。启动之后到处都能用；`main.ts` 保证它在第一次渲染前已经填好。 */
+/** 同步读缓存。启动流程保证游戏规则在业务路由导入与页面渲染前装配完毕。 */
 export function gameData(): GameData {
     return current;
 }
@@ -327,8 +327,8 @@ let pending: Promise<GameData> | null = null;
  * 启动时加载一次。各表并行取，装进缓存后返回；失败保留有效缓存并**清掉 promise**，
  * 下一次调用会重试。
  *
- * 调用点是 `main.ts`：它 `await` 完这个才 `mount`，所以全站拿到的都是「加载完再渲染」，
- * 不需要任何组件自带加载态。
+ * 调用点是 `startup.ts`：外壳可先显示，业务路由在加载与对账结束后才开放，
+ * 不需要各业务组件自带规则加载态。
  */
 export function loadGameData(): Promise<GameData> {
     if (!pending) {

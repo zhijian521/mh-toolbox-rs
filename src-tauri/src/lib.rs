@@ -431,15 +431,17 @@ pub fn run() {
             // 模型目录随平台/打包方式变，越早定下来，出错时越早看到一条干净的错误。
             #[cfg(windows)]
             {
-                use tauri::Manager;
+                use tauri::{Listener, Manager};
                 let resource = app.path().resource_dir().ok();
                 ocr_paddle::set_models_dir(ocr_paddle::locate_models(resource.as_deref()));
-                // 加载三个 ONNX 模型约 1 秒。放到后台线程：开局时用户正在点「开始识别」，
-                // 那一刻卡住界面是最容易被当成「坏了」的地方。
-                std::thread::spawn(|| {
-                    if let Err(err) = ocr_paddle::warm_up() {
-                        eprintln!("⚠ OCR 模型预热失败：{err}");
-                    }
+                // 前端首个业务页面绘制后才预热，避免与首屏争抢 CPU / 磁盘。
+                // 只监听一次；若识别先到，仍由引擎的 OnceLock 按需初始化。
+                app.once("app-ready", |_| {
+                    std::thread::spawn(|| {
+                        if let Err(err) = ocr_paddle::warm_up() {
+                            eprintln!("⚠ OCR 模型预热失败：{err}");
+                        }
+                    });
                 });
             }
             /* 启动路径上**没有**任何库搬运：旧数据只经设置页手动导入（见 `DATA_DIR_NAME` 的注释），

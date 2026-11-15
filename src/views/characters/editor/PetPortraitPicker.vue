@@ -4,6 +4,7 @@ import PressButton from '../../../components/PressButton.vue';
 import PressTile from '../../../components/PressTile.vue';
 import {
     loadPetAssets,
+    findPetPortrait,
     petAssets,
     petAssetsError,
     petAssetsLoading,
@@ -23,6 +24,9 @@ const limit = ref(48);
 const { panelStyle, flipUp } = usePetPickerPanel(picker, panel, search, open);
 const filtered = computed(() =>
     (petAssets.value?.portraits ?? []).filter((one) => one.name.includes(query.value.trim())),
+);
+const selectedId = computed(
+    () => findPetPortrait(petAssets.value?.portraits ?? [], selected.value)?.id ?? selected.value,
 );
 function load() {
     void loadPetAssets().catch(() => {});
@@ -108,7 +112,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
                     :key="one.id"
                     class="pet-picker-choice"
                     type="button"
-                    :aria-pressed="selected === one.id"
+                    :aria-pressed="selectedId === one.id"
                     :aria-label="'选择头像：' + one.name"
                     @click="choose(one.id)"
                 >

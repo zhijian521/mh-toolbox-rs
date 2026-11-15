@@ -1,10 +1,11 @@
 import type { EquipmentName } from '../../../services/game-data';
 import { ocrFrame } from '../../../services/ocr';
-import type { GearSlotName } from '../gear';
+import type { GearSlotName, GearStat } from '../gear';
 import { fixedGearBaseLabels, gearStatGroup } from '../gear-properties';
 import type { OcrLine } from './attr-panel';
 import { gearExtraFrame, gearExtraRegions, restoreGearExtras } from './gear-extra-image';
 import { parseGearPanel } from './gear-panel';
+import { gearBaseFrame } from './gear-image';
 import { base64Of, swapToBgra } from './pixels';
 
 /** 耐久上方是基础属性；按浮片文字列裁掉背包列表，防止同一基线合并成一行。 */
@@ -90,14 +91,32 @@ export async function recognizeGearPanel(
         )
     )
         return result;
-    const raw = await ocrFrame(base64Of(swapToBgra(image.data)), image.width, image.height);
-    if (raw.status !== 'ok') return result;
-    const retry = parseGearPanel(baseRegionLines(lines, raw.lines), names, slot, image);
-    if (retry.slot !== slot) return result;
-    const base = retry.detail.stats?.filter(
-        (row) => labels.includes(row.label) && gearStatGroup(row, slot) === 'base',
-    );
-    if (!base?.length) return result;
+    const readBase = (raw: readonly OcrLine[]) => {
+        const retry = parseGearPanel(baseRegionLines(lines, raw), names, slot, image);
+        if (retry.slot !== slot) return [];
+        return (retry.detail.stats ?? []).filter(
+            (row) => labels.includes(row.label) && gearStatGroup(row, slot) === 'base',
+        );
+    };
+    let base: GearStat[] = [];
+    const frame = gearBaseFrame(image, lines);
+    if (frame) {
+        const local = await ocrFrame(frame.pixels, frame.width, frame.height);
+        if (local.status === 'ok') {
+            const recovered = readBase(
+                local.lines.map((line) => ({ ...line, x: line.x + frame.x, y: line.y + frame.y })),
+            );
+            // 同排可能同时存在误读数值，局部补齐整排才替换；不完整则沿用整图兜底。
+            if (labels.every((label) => recovered.some((row) => row.label === label)))
+                base = recovered;
+        }
+    }
+    if (!base.length) {
+        const raw = await ocrFrame(base64Of(swapToBgra(image.data)), image.width, image.height);
+        if (raw.status !== 'ok') return result;
+        base = readBase(raw.lines);
+    }
+    if (!base.length) return result;
     // 同排的字和数字会一起受预处理影响；补读命中时一起替换该排的基础项。
     result.detail.stats = [
         ...stats.filter(

@@ -19,12 +19,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /** 假的 `invoke`：每条用例自己决定它 resolve 什么、reject 什么。 */
 const invokeMock = vi.fn();
+const emitMock = vi.fn();
 
 /** 模块在求值时就把 `hasTauri` 定下来了，所以宿主必须**先**装好再 import。 */
 async function load(host = true, open = vi.fn()) {
     vi.resetModules();
     vi.stubGlobal('window', host ? { __TAURI_INTERNALS__: {}, open } : { open });
     vi.doMock('@tauri-apps/api/core', () => ({ invoke: invokeMock }));
+    vi.doMock('@tauri-apps/api/event', () => ({ emit: emitMock }));
     vi.doMock('@tauri-apps/api/window', () => ({
         getCurrentWindow: () => ({
             isMaximized: async () => false,
@@ -41,6 +43,7 @@ async function load(host = true, open = vi.fn()) {
 
 beforeEach(() => {
     invokeMock.mockReset();
+    emitMock.mockReset();
     /* 失败路径会打 `console.error`（那是给真机排查用的，不该被吞掉）。测试里静音：
      * 断言已经写明「哪一条失败、返回什么」，再刷一屏红字只会埋掉真正的红。 */
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -49,7 +52,25 @@ beforeEach(() => {
 afterEach(() => {
     vi.unstubAllGlobals();
     vi.doUnmock('@tauri-apps/api/core');
+    vi.doUnmock('@tauri-apps/api/event');
     vi.doUnmock('@tauri-apps/api/window');
+});
+
+describe('首屏就绪通知', () => {
+    it('桌面通知宿主预热，浏览器不发送系统事件', async () => {
+        const desktop = await load();
+        await desktop.notifyAppReady();
+        expect(emitMock).toHaveBeenCalledExactlyOnceWith('app-ready');
+        const browser = await load(false);
+        await browser.notifyAppReady();
+        expect(emitMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('通知失败不阻断启动，识别仍可按需初始化', async () => {
+        const desktop = await load();
+        emitMock.mockRejectedValue(new Error('event unavailable'));
+        await expect(desktop.notifyAppReady()).resolves.toBeUndefined();
+    });
 });
 
 describe('账本备份：三种结局不能互相冒充', () => {

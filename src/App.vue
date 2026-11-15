@@ -26,6 +26,14 @@ import { NAV_BY_KEY, NAV_ITEMS } from './navigation';
  */
 const route = useRoute();
 const router = useRouter();
+withDefaults(defineProps<{ loading?: boolean; startupError?: string }>(), {
+    loading: false,
+    startupError: '',
+});
+
+function reload() {
+    location.reload();
+}
 
 /** 当前页的 key。路由名就是导航 key，所以直接取 `route.name`。
  * 子页（如 `tool-ghost`）不在导航里，退到 `meta.nav` 找它的父级——
@@ -61,8 +69,14 @@ function openDevKit() {
                 @request-dev="openDevKit"
             />
 
-            <main class="app">
-                <RouterView />
+            <main class="app" :aria-busy="loading">
+                <div v-if="loading" class="app-startup" role="status">
+                    <p>{{ startupError || '正在加载数据…' }}</p>
+                    <button v-if="startupError" class="btn" type="button" @click="reload">
+                        重新加载
+                    </button>
+                </div>
+                <RouterView v-else />
             </main>
         </div>
 
@@ -101,5 +115,18 @@ function openDevKit() {
     flex-direction: column;
     min-width: 0;
     overflow: hidden;
+}
+.app-startup {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+}
+.app-startup p {
+    margin: 0;
 }
 </style>

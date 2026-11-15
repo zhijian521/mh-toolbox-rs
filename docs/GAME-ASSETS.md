@@ -228,15 +228,26 @@ icons/ 丢一个 png」这种最省事的做法）、**文件名以目录名开�
 
 本批按用户要求保留原 PNG，尺寸有 30/40/50px，不放大、不改为有损 WebP。来源包括客户端原图和官网具名 GIF 转 PNG，清单逐项标记来源；这批已确认的官网补图不会冒充客户端资源。低级/高级反击与冥思已纠正，导入时校验四张已核对图片的摘要。详见 `public/game/data/README.md`。
 
+图标可离线运行 `node tools/game-icons/optimize-icons.mjs <sharp模块目录>` 无损重编码，也可加
+`--only=pet-basic,pet-advanced,pet-super,pet-special` 限定目录。维持原文件名、格式、尺寸与 RGBA，
+普通 PNG 和调色板 PNG 中只采用更小且逐像素完全相同的结果；WebP 只尝试无损编码，收益为零则保持原字节。
+GIF、多帧、带方向或 ICC 配置以及高位深资源跳过，头像仍使用独立的头像优化工具。
+工具先完成全部候选编码与像素比对，再落盘；仅更新召唤兽技能的发布文件 `sha256`，
+原始来源仍由 `resourceMd5` / `provenance` 追溯，四张纠错图另留 `sourceSha256`。
+召唤兽技能重导可加 `--sharp <sharp模块目录>` 连续完成导入和压缩；其他图标重导后运行同一工具。
+压缩明细写入忽略目录 `.runtime/icon-optimization.json`，不进入安装包，不新增运行时依赖。
+
 `categories[].iconDir` 指向对应分类目录，`icons[].img` 只含文件名；`id` 为稳定字符串，`displayName` 区分同名技能的版本。缺图名称在 `missing` 保留，图片字段为 `null`。`services/pet-assets.ts` 按需校验加载，组件不复制名字表。
 
 ### 4.4 召唤兽头像与识别字段
 
 `icons/pet-portrait/` 和 `data/pet-portraits.json` 由 `tools/game-icons/import-pet-portraits.mjs` 再生。
-脚本只读客户端图鉴静态字典、THX 和 WPK，通过资源摘要确认原图；已具名的解包头像作为立绘补充，裁掉透明画布。
+脚本只读客户端图鉴静态字典、THX 和 WPK，通过资源摘要确认原图；每个物种只导入一张普通头像，不再导入变异、进阶及立绘。
 每项记录稳定编号、物种、文件名及资源路径 / 摘要或解包来源。玩家自定义名字与头像编号独立，改名不换头像。
 流式客户端没有下载的头像，通过客户端 `cloud.json` 指定的官方资源端点补齐，解包后逐张核对 THX 的摘要。
-当前召唤兽图鉴已全部覆盖（孩子系统另计），共 548 张头像和立绘；未来未取到的资源仍由 `missing` 明确记录。
+当前召唤兽图鉴覆盖 253 个物种（孩子系统另计），每种一张普通头像；未来未取到的资源仍由 `missing` 明确记录。
+清单的 `aliases` 将已删除变体的旧编号指向同物种普通头像，旧记录不需要改账本，选择列表不展示别名。
+重导与离线优化共用单物种选择规则，沿用上一份清单的别名，避免重新导入恢复多张或丢失旧编号映射。
 导入使用 `node tools/game-icons/import-pet-portraits.mjs --download-missing`，默认只读本地包和
 `.runtime/pet-portrait-resources` 缓存；下载仅用于离线导入，应用运行时只读随包资源。
 
