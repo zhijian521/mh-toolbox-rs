@@ -638,3 +638,12 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--form-pair-gap, 12px);
 }
+
+/* 区块内空态保留动作位置，与整页空态分开。 */
+.section-empty {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 12px;
+    padding: 24px 0;
+}

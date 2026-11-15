@@ -1,7 +1,7 @@
 import { computed, nextTick, ref } from 'vue';
 
 /** 方向键认哪一根轴。横排组只吃左右、竖排组只吃上下——四个方向全收会把页面滚动抢走。 */
-export type RovingAxis = 'horizontal' | 'vertical' | 'both';
+type RovingAxis = 'horizontal' | 'vertical' | 'both';
 
 /**
  * 一组「整组只有一个 Tab 停靠点」的按钮（`radiogroup` / 导航列表）的键盘行为。

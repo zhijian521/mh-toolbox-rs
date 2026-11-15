@@ -48,7 +48,7 @@ const topToken = ref<symbol | null>(null);
 let lockedEl: HTMLElement | null = null;
 let lockedOverflow = '';
 
-export interface UseModalOptions {
+interface UseModalOptions {
     /** 面板元素。焦点陷阱要它。 */
     panel: Ref<HTMLElement | null>;
     /**
@@ -66,7 +66,7 @@ export interface UseModalOptions {
     onClose: () => void;
 }
 
-export interface UseModalResult {
+interface UseModalResult {
     /** 这一层是不是当前最上面的窗。组件据此决定 `aria-modal` 与 `inert`。 */
     isTop: Readonly<Ref<boolean>>;
 }

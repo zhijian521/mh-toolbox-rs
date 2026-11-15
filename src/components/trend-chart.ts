@@ -41,7 +41,7 @@ export interface TrendPlot {
     height: number;
 }
 
-export interface TrendGeometry {
+interface TrendGeometry {
     /** 没有有效系列或全部为零：调用方画空状态，不要画一张什么都没有的图。 */
     empty: boolean;
     lines: TrendLine[];

@@ -27,7 +27,7 @@ import { shallowRef } from 'vue';
  * 另有一条自动判据：**字就在眼前**（没被截断、内容与 title 相同）时不弹——
  * 那是同一句话说两遍。截断的（`text-overflow` 那类）照弹，正是为了看全名。
  */
-export interface HoverTipView {
+interface HoverTipView {
     text: string;
     /**
      * 显示那一刻的**光标位置**，不是元素矩形。

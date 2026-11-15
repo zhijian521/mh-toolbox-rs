@@ -21,7 +21,7 @@
  */
 import { computed, type ComputedRef } from 'vue';
 
-export interface QuickRowBinds {
+interface QuickRowBinds {
     role: 'button' | undefined;
     tabindex: 0 | undefined;
     'aria-label': string | undefined;

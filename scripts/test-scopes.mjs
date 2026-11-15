@@ -61,7 +61,11 @@ export const TEST_SCOPES = {
         'tools/game-icons/',
     ],
     release: ['scripts/windows-runtime.test.', 'src/services/updates.test.'],
-    tooling: ['scripts/test-scopes.test.', 'tools/e2e/selection.test.'],
+    tooling: [
+        'scripts/test-scopes.test.',
+        'scripts/test-impact.test.',
+        'tools/e2e/selection.test.',
+    ],
 };
 
 export function collectTests(root) {

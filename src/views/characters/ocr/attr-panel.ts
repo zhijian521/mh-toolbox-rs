@@ -412,7 +412,7 @@ const fieldOrder = (): string[] => [
 ];
 
 /** 解析参数。 */
-export interface AttrPanelOptions {
+interface AttrPanelOptions {
     /**
      * 门派名清单。默认取 `services/game-data` 里那张表（启动时已加载完）。
      *

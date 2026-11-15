@@ -449,10 +449,6 @@ export function scopeText(goal: Goal): string {
     return `${goal.members.length} 个角色`;
 }
 
-export function sourceText(goal: Goal): string {
-    return goal.tracking ? '跟随档案' : '手动累计';
-}
-
 /** 自动标题：谁 + 什么 + 到多少。与卡片抬头同一个来源，两处不会各写一遍。 */
 export function autoTitle(goal: Omit<Goal, 'title'>): string {
     const scope =

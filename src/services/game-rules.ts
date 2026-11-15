@@ -84,7 +84,6 @@ export let GEAR_SUIT_ALIASES: Record<string, string> = {};
 export let STAR_GAINS: Record<string, number> = {};
 export let JADE_GAIN_FACTOR = 0;
 export let GEAR_SUIT_ACTIVE_COUNT = 0;
-export let PET_SKILL_SLOTS = 0;
 export let PET_QUALITY_FIELDS: { key: PetQualityKey; label: string }[] = [];
 export let PET_CARD_ATTRIBUTES: string[] = [];
 export let PET_GROWTH_LABEL = '';
@@ -263,7 +262,6 @@ export function installCharacterRules(rules: CharacterRules): void {
     STAR_GAINS = rules.gear.starGains;
     JADE_GAIN_FACTOR = rules.gear.jadeGainFactor;
     GEAR_SUIT_ACTIVE_COUNT = rules.gear.suitActiveCount;
-    PET_SKILL_SLOTS = rules.pets.skillSlots;
     PET_QUALITY_FIELDS = rules.pets.qualityFields;
     PET_CARD_ATTRIBUTES = rules.pets.cardAttributes;
     PET_GROWTH_LABEL = rules.pets.growthLabel;
