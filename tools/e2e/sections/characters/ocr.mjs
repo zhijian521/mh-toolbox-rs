@@ -135,7 +135,9 @@ export async function ocr(ctx) {
             ),
         );
 
-        /* 派发一次真正的 paste（带一个 PNG File），与用户按 Ctrl+V 走同一条路：
+        await ui.clickText('.ocr-tabs button', '装备', { exact: true });
+        /* 在装备页粘人物属性图，验证专用上传入口也能自动分流。
+         * 派发一次真正的 paste（带一个 PNG File），与用户按 Ctrl+V 走同一条路：
          * 组件监听的是 `document` 的 paste，从 `clipboardData.items` 里取图。 */
         await cdp.evaluate(`(async () => {
                 const canvas = document.createElement('canvas');
@@ -176,6 +178,19 @@ export async function ocr(ctx) {
             { timeout: 40000 },
         );
         t.check('粘完就开始认，认完报出认出几项', ready);
+        t.check(
+            '跨分区截图自动切回属性并填写',
+            await cdp.evaluate(`document.querySelector('.ocr-tabs [aria-checked="true"]')?.textContent.trim() === '属性' &&
+                document.querySelector('.ocr-card input[aria-label="气血"]')?.value === '3916'`),
+        );
+        await ui.clickText('.ocr-tabs button', '修炼', { exact: true });
+        await sleep(300);
+        t.check(
+            '手工切换不会再次识别旧图或跳回属性',
+            await cdp.evaluate(`document.querySelector('.ocr-tabs [aria-checked="true"]')?.textContent.trim() === '修炼' &&
+                !document.querySelector('.ocr-standard .upload-busy')`),
+        );
+        await ui.clickText('.ocr-tabs button', '属性', { exact: true });
         const complaint = await cdp.evaluate(
             `document.querySelector('.ocr-standard .upload-error')?.textContent.trim() ?? ''`,
         );
@@ -330,6 +345,7 @@ export async function ocr(ctx) {
         const ORDER = [2, 0, 4, 1, 6, 3, 5];
         const LEVELS = [120, 115, 60, 120, 90, 90, 60];
 
+        await ui.clickText('.ocr-tabs button', '属性', { exact: true });
         await cdp.evaluate(`(async () => {
                 const names = ${JSON.stringify(seven)};
                 const order = ${JSON.stringify(ORDER)};
@@ -363,6 +379,12 @@ export async function ocr(ctx) {
             { timeout: 60000 },
         );
         t.check('粘完就认，师门七行都列出来', ready);
+        t.check(
+            '人物属性页粘师门图自动切换为师门',
+            (await cdp.evaluate(
+                `document.querySelector('.ocr-tabs [aria-checked="true"]')?.textContent.trim()`,
+            )) === '师门',
+        );
         t.check(
             '七项全认到（认出 7 / 7）',
             (await ui.text('.ocr-count')).replace(/\s+/g, '') === '认出7/7',
@@ -631,6 +653,7 @@ export async function ocr(ctx) {
                 document.querySelector('.ocr-card .pane').getAttribute('role') === 'region' &&
                 !document.querySelector('.ocr-card .pane').hasAttribute('aria-labelledby')`),
         );
+        await ui.clickText('.ocr-tabs button', '召唤兽', { exact: true });
         await pasteFixture('training.png');
         await ui.waitFor(
             `!document.querySelector('.ocr-standard .upload-busy') && !!document.querySelector('.ocr-count')`,
@@ -640,6 +663,12 @@ export async function ocr(ctx) {
             '修炼原图十项全部识别',
             (await ui.text('.ocr-count')).replace(/\s+/g, '') === '认出10/10',
             await ui.text('.ocr-count'),
+        );
+        t.check(
+            '召唤兽页粘修炼图自动切换为修炼',
+            (await cdp.evaluate(
+                `document.querySelector('.ocr-tabs [aria-checked="true"]')?.textContent.trim()`,
+            )) === '修炼',
         );
         await ui.fillSel('.ocr-card input[aria-label="猎术修炼 等级"]', '7');
         await cdp.key('Enter');

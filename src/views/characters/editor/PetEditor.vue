@@ -9,8 +9,12 @@ import PetImage from '../PetImage.vue';
 import { applyPetPanel, emptyPet, type PetPanelResult } from '../ocr/pet-panel';
 import type { Pet } from '../pets';
 import { focusInput } from '../focus-input';
+import type { ScreenshotIntake } from '../ocr/screenshot-input';
+import type { OcrLine } from '../ocr/attr-panel';
 
+defineProps<{ intake?: ScreenshotIntake }>();
 const emit = defineEmits<{ busy: [value: boolean] }>();
+const screenshot = ref<InstanceType<typeof PetScreenshot> | null>(null);
 
 /** 左侧目录与分区导航常驻，右侧只编辑选中的召唤兽，长详情独立滚动。 */
 const pets = defineModel<Pet[]>({ required: true });
@@ -52,13 +56,18 @@ async function focusName(index: number) {
     await nextTick();
     await focusInput(form, 'input[aria-label="召唤兽名称"]');
 }
-defineExpose({ focusName });
+function acceptScreenshot(file: File, result: PetPanelResult, lines: OcrLine[]) {
+    screenshot.value?.acceptScreenshot(file, result, lines);
+}
+defineExpose({ focusName, acceptScreenshot });
 </script>
 
 <template>
     <div class="pet-editor">
         <PetScreenshot
             :key="`${selected}:${revision}`"
+            ref="screenshot"
+            :intake="intake"
             @recognize="recognize"
             @busy="setBusy"
         >
@@ -78,7 +87,7 @@ defineExpose({ focusName });
                         :class="{ selected: index === selected }"
                         :aria-label="`编辑第 ${index + 1} 只召唤兽：${petName(pet)}`"
                         :aria-pressed="index === selected"
-                        :disabled="reading"
+                        :disabled="reading || intake?.busy"
                         :title="`${petName(pet)} · ${pet.level} 级`"
                         @click="selected = index"
                     >
@@ -93,7 +102,7 @@ defineExpose({ focusName });
                         type="button"
                         aria-label="新增召唤兽"
                         title="新增召唤兽"
-                        :disabled="reading"
+                        :disabled="reading || intake?.busy"
                         @click="addPet"
                     >
                         <span class="pet-add-icon" aria-hidden="true">
@@ -119,7 +128,7 @@ defineExpose({ focusName });
                             danger
                             icon="trash"
                             :label="`删除第 ${selected + 1} 只召唤兽：${petName(current)}`"
-                            :disabled="reading"
+                            :disabled="reading || intake?.busy"
                             @click="removeAt(selected)"
                         />
                     </template>

@@ -90,14 +90,14 @@ export async function equipment(ctx) {
         '耐久度191',
         '套装效果：附加状态碎星诀',
     ];
-    const waitUpload = async () => {
+    const waitUpload = async (allowFailures = false) => {
         // 批量截图串行识别，每张保留单图预算；不能在四张尚未完成时就读取表单。
         const completed = await ui.waitFor(
             `document.querySelector('.gear-upload')?.getAttribute('aria-busy') === 'false' &&
             document.querySelector('.gear-upload .upload-status')?.textContent.includes('已填入')`,
             { timeout: 45000 * uploadCount },
         );
-        return completed && !(await ui.exists('.gear-upload .upload-error'));
+        return completed && (allowFailures || !(await ui.exists('.gear-upload .upload-error')));
     };
     const openHead = () =>
         ui.clickIn('.roster .char', 'E2E改名后', { label: '快速修改 头 · 水晶帽' });
@@ -272,8 +272,15 @@ export async function equipment(ctx) {
         );
         for (let index = 0; index < 12; index++)
             await cdp.click('.ocr [data-group="gem"] .row-delete');
-        await upload('.ocr .upload-file', [head(26)]);
+        await ui.clickText('.ocr-tabs button', '属性', { exact: true });
+        await upload('.ocr-standard .upload-file', [head(26)]);
         t.check('装备截图真实 OCR 完成', await waitUpload());
+        t.check(
+            '人物属性页上传装备图自动切换到装备',
+            (await cdp.evaluate(
+                `document.querySelector('.ocr-tabs [aria-checked="true"]')?.textContent.trim()`,
+            )) === '装备',
+        );
         /* 认错的字要能对着截图核对：装备这一页与召唤兽那页一样，得带出「识别原文」。
            原先只给召唤兽页传了 rawLines，装备页没有，于是这一块永远不出现。 */
         const raw = await cdp.evaluate(
@@ -590,6 +597,7 @@ export async function equipment(ctx) {
                 '精炼等级2',
                 '伤害+8',
             ],
+            ['无法识别的图片'],
             [
                 '上古玉魄·阳',
                 '封印命中等级+15',
@@ -605,7 +613,11 @@ export async function equipment(ctx) {
                 `document.querySelector('button[aria-label="保存这个角色"]').disabled`,
             ),
         );
-        t.check('两张截图依次识别完成', await waitUpload());
+        t.check('有效截图依次识别完成，中间失败不阻断后续图片', await waitUpload(true));
+        t.check(
+            '批量失败信息不会被后续成功覆盖',
+            (await ui.text('.gear-editor .upload-error')).includes('无法识别的图片.png'),
+        );
         t.check(
             '自动选中最后识别的玉魄',
             await cdp.evaluate(

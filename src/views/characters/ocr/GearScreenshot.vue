@@ -7,12 +7,15 @@ import type { GearPanelResult } from './gear-panel';
 import { recognizeGearPanel } from './gear-recognition';
 import { gearFrame } from './gear-image';
 import { useOcrImage } from './use-ocr-image';
+import type { ScreenshotIntake } from './screenshot-input';
+import type { OcrLine } from './attr-panel';
 
 /** 各入口只更新自身草稿，批量上传依次识别，取消后不再写回。 */
 const props = defineProps<{
     slotName?: GearSlotName;
     activeSlot?: GearSlotName;
     multiple?: boolean;
+    intake?: ScreenshotIntake;
 }>();
 const emit = defineEmits<{
     recognize: [result: GearPanelResult];
@@ -49,7 +52,7 @@ const { result, busy, error, rawLines, takeFile } = useOcrImage<GearPanelResult>
     },
     gearFrame,
 );
-const pending = computed(() => queued.value || busy.value);
+const pending = computed(() => props.intake?.busy || queued.value || busy.value);
 watch(pending, (value) => emit('busy', value), { flush: 'sync' });
 let generation = 0;
 let disposed = false;
@@ -66,9 +69,21 @@ function clearShot(slot: GearSlotName) {
     if (shot) URL.revokeObjectURL(shot.url);
     delete shots.value[slot];
 }
-defineExpose({ clearShot });
+function acceptScreenshot(file: File, value: GearPanelResult, lines: OcrLine[]) {
+    rememberShot(value.slot ?? undefined, file);
+    rawLines.value = lines;
+    batchError.value = '';
+    error.value = '';
+    message.value = `${value.detail.name || value.slot} · 已填入`;
+    emit('recognize', value);
+}
+defineExpose({ clearShot, acceptScreenshot });
 
 async function takeFiles(images: File[]) {
+    if (props.intake) {
+        props.intake.takeFiles(images);
+        return;
+    }
     if (!images.length) return;
     const current = ++generation;
     queued.value = true;
@@ -116,8 +131,8 @@ onBeforeUnmount(() => {
         :multiple="multiple"
         :busy="pending"
         :status="message"
-        :error="batchError || error"
-        :raw-lines="rawLines"
+        :error="intake?.error || batchError || error"
+        :raw-lines="intake?.rawLines ?? rawLines"
         @files="takeFiles"
     >
         <template v-if="$slots.navigation" #navigation>

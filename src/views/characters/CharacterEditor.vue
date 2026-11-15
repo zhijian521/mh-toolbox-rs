@@ -1,24 +1,24 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, useId, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import CharacterCard from './CharacterCard.vue';
 import { hasPetName } from './pets';
 import { PANE_OPTIONS, PANES, type CharacterData, type PaneKey } from './character';
-import { schoolSkillNames } from './schools';
-import { parseAttrPanel, type OcrLine } from './ocr/attr-panel';
-import { createAssistReader } from './ocr/assist-reader';
+import type { OcrLine } from './ocr/attr-panel';
+import { createCharacterPanelReader } from './ocr/character-panel';
+import type { ScreenshotIntake } from './ocr/screenshot-input';
 import { useOcrImage } from './ocr/use-ocr-image';
-import { parseSkillPanel } from './ocr/skill-panel';
-import { parseTrainingPanel } from './ocr/training-panel';
-import { useOcrDraft, type PanelResult } from './ocr/use-ocr-draft';
+import { useOcrDraft } from './ocr/use-ocr-draft';
 import GearEditor from './editor/GearEditor.vue';
 import PetEditor from './editor/PetEditor.vue';
 import ScreenshotUpload from './ocr/ScreenshotUpload.vue';
 import { normalizeCharacter } from './roster';
 import { EDITOR_H, EDITOR_W } from './editor-metrics';
 import { focusInput } from './focus-input';
+import { ocrFrame } from '../../services/ocr';
+import { base64Of, swapToBgra } from './ocr/pixels';
 
 /** 新建、手工修改和截图识别共用独立草稿，保存后由名册统一落库。 */
 const props = withDefaults(
@@ -52,22 +52,34 @@ const pane = ref<PaneKey>(props.pane);
 const openedPanes = ref(new Set<PaneKey>([props.pane]));
 const content = ref<HTMLElement | null>(null);
 const petEditor = ref<InstanceType<typeof PetEditor> | null>(null);
+const gearEditor = ref<InstanceType<typeof GearEditor> | null>(null);
 const validationId = useId();
 const wide = computed(() => pane.value === 'gear' || pane.value === 'pets');
 const paneLabel = computed(() => PANES.find(({ key }) => key === pane.value)?.label ?? '角色');
 
-const { result, shotUrl, rawLines, busy, error, takeFile, classify } =
-    useOcrImage<PanelResult | null>(parse, undefined, () => pane.value !== 'assist');
-const readAssist = createAssistReader();
-watch(result, (current) => recognize(current, shotUrl.value), { flush: 'sync' });
+const readPanel = createCharacterPanelReader();
+let readingPane = props.pane;
+const { result, shotUrl, rawLines, busy, error, takeFile } = useOcrImage(
+    parse,
+    undefined,
+    () => readingPane !== 'assist',
+);
+const queued = ref(false);
+const batchError = ref('');
+let disposed = false;
+let generation = 0;
+const intake = computed<ScreenshotIntake>(() => ({
+    busy: busy.value || queued.value,
+    error: batchError.value || error.value,
+    rawLines: rawLines.value,
+    takeFiles,
+}));
 
-const hitCount = computed(() => {
-    const current = result.value;
-    if (!current?.value) return 0;
-    const rows = current.pane === 'attrs' ? current.value.fields : current.value.rows;
-    return rows.filter((row) => row.state === 'ok' || row.state === 'guess').length;
+const hitCount = computed(() => result.value?.value?.hit ?? 0);
+const totalCount = computed(() => {
+    const value = result.value?.value;
+    return value && 'total' in value ? value.total : (value?.hit ?? 0);
 });
-const totalCount = computed(() => result.value?.value?.total ?? 0);
 
 const preview = computed(() => ({ ...draft.value, id: `${draft.value.id}-preview` }));
 const saveIssue = computed(() => {
@@ -78,7 +90,7 @@ const saveIssue = computed(() => {
 const canSave = computed(
     () =>
         (props.retrying || !saveIssue.value) &&
-        !busy.value &&
+        !intake.value.busy &&
         !gearReading.value &&
         !petReading.value &&
         !props.saving &&
@@ -95,59 +107,66 @@ async function fillRequired() {
     else await petEditor.value?.focusName(issue.petIndex);
 }
 
-function takeFiles(files: File[]) {
-    if (props.locked || props.saving) return;
-    if (files[0]) void takeFile(files[0]);
+async function takeFiles(files: File[]) {
+    if (props.locked || props.saving || !files.length) return;
+    const version = ++generation;
+    const currentBatch = () => !disposed && version === generation;
+    queued.value = true;
+    batchError.value = '';
+    const failures: string[] = [];
+    try {
+        for (const file of files) {
+            if (!currentBatch()) return;
+            readingPane = pane.value;
+            await takeFile(file);
+            if (!currentBatch()) return;
+            const current = result.value;
+            if (!current || error.value) {
+                failures.push(`${file.name}：${error.value || '未识别'}`);
+                continue;
+            }
+            pane.value = current.pane;
+            await nextTick();
+            if (!currentBatch()) return;
+            if (current.pane === 'gear') {
+                gearEditor.value?.acceptScreenshot(file, current.value, rawLines.value);
+            } else if (current.pane === 'pets') {
+                petEditor.value?.acceptScreenshot(file, current.value, rawLines.value);
+            } else {
+                recognize(current, shotUrl.value);
+            }
+        }
+    } finally {
+        if (currentBatch()) {
+            if (files.length > 1) batchError.value = failures.join('；');
+            queued.value = false;
+        }
+    }
 }
 
 async function parse(lines: OcrLine[], image: ImageData) {
-    if (wide.value) {
-        return { result: null };
-    }
-    if (pane.value === 'attrs') {
-        const value = parseAttrPanel(lines);
-        return {
-            result: { pane: 'attrs' as const, value },
-            error: value.hit ? '' : '没认出属性字段',
-        };
-    }
-    if (pane.value === 'assist') {
-        const value = await readAssist(image);
-        return {
-            result: { pane: 'assist' as const, value },
-            error: value.hit ? '' : '没认出辅助技能',
-        };
-    }
-    if (pane.value === 'training') {
-        const value = parseTrainingPanel(lines);
-        return {
-            result: { pane: 'training' as const, value },
-            error: value.hit ? '' : '没认出修炼等级',
-        };
-    }
-    const names = schoolSkillNames(draft.value.school);
-    if (!names?.length) {
-        return {
-            result: { pane: 'skills' as const, value: null },
-            error: '请先为角色选择门派',
-        };
-    }
-    const value = parseSkillPanel(lines, names);
-    return {
-        result: { pane: 'skills' as const, value },
-        error: value.hit ? '' : '没认出师门技能',
+    const version = generation;
+    const readText = async () => {
+        const outcome = await ocrFrame(base64Of(swapToBgra(image.data)), image.width, image.height);
+        if (outcome.status === 'failed') throw new Error(outcome.error);
+        if (!disposed && version === generation) rawLines.value = outcome.lines;
+        return outcome.lines;
     };
+    const result = await readPanel(
+        lines,
+        image,
+        draft.value.school,
+        readingPane,
+        readingPane === 'assist' ? readText : undefined,
+    );
+    return { result, error: result ? '' : '没认出可填写的内容，请截取完整的面板' };
 }
 
-// 分区共用编辑草稿；同一原图只覆盖一次，切回时保留手工修改。
-watch(
-    pane,
-    (value) => {
-        openedPanes.value.add(value);
-        if (value !== 'gear' && value !== 'pets') void classify();
-    },
-    { flush: 'sync' },
-);
+// 手工切分区只切展示，不再次解析旧截图或覆盖手工修正。
+watch(pane, (value) => openedPanes.value.add(value), { flush: 'sync' });
+onBeforeUnmount(() => {
+    disposed = true;
+});
 
 function save() {
     if (canSave.value) emit('save', normalizeCharacter(draft.value));
@@ -171,7 +190,9 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
             <GearEditor
                 v-if="openedPanes.has('gear')"
                 v-show="pane === 'gear'"
+                ref="gearEditor"
                 v-model="draft.gear"
+                :intake="intake"
                 @busy="gearReading = $event"
             >
                 <template #tabs>
@@ -190,6 +211,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
                 v-show="pane === 'pets'"
                 ref="petEditor"
                 v-model="draft.pets"
+                :intake="intake"
                 @busy="petReading = $event"
             >
                 <template #tabs>
@@ -208,8 +230,8 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
                 class="ocr-standard"
                 :label="paneLabel"
                 :src="shotUrl"
-                :busy="busy"
-                :error="error"
+                :busy="intake.busy"
+                :error="intake.error"
                 :raw-lines="rawLines"
                 @files="takeFiles"
             >
@@ -253,7 +275,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
                     text="去填写"
                     label="定位未填写的名称"
                     size="sm"
-                    :disabled="busy || gearReading || petReading || saving || locked"
+                    :disabled="intake.busy || gearReading || petReading || saving || locked"
                     @click="fillRequired"
                 />
             </div>

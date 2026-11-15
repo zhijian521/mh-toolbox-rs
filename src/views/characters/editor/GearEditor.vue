@@ -7,8 +7,11 @@ import GearScreenshot from '../ocr/GearScreenshot.vue';
 import { hasGearDetail, type GearSlot } from '../gear';
 import { mergeGearPanel, type GearPanelResult } from '../ocr/gear-panel';
 import { useGearIcon } from '../use-gear-icon';
+import type { ScreenshotIntake } from '../ocr/screenshot-input';
+import type { OcrLine } from '../ocr/attr-panel';
 
 /** 部位图标常驻，原图与详情并排；识别按实际部位更新草稿并选中该件。 */
+defineProps<{ intake?: ScreenshotIntake }>();
 const emit = defineEmits<{ busy: [value: boolean] }>();
 const gear = defineModel<GearSlot[]>({ required: true });
 const screenshot = ref<InstanceType<typeof GearScreenshot> | null>(null);
@@ -45,6 +48,10 @@ function recognize(result: GearPanelResult) {
     gear.value[index] = mergeGearPanel(gear.value[index], result);
     selectByKey(gear.value[index].slot);
 }
+function acceptScreenshot(file: File, result: GearPanelResult, lines: OcrLine[]) {
+    screenshot.value?.acceptScreenshot(file, result, lines);
+}
+defineExpose({ acceptScreenshot });
 if (active.value) ensureDetail(active.value);
 const { icon: slotIcon } = useGearIcon();
 </script>
@@ -56,6 +63,7 @@ const { icon: slotIcon } = useGearIcon();
             class="gear-editor-upload"
             :active-slot="active?.slot"
             multiple
+            :intake="intake"
             @recognize="recognize"
             @busy="
                 reading = $event;
@@ -79,7 +87,7 @@ const { icon: slotIcon } = useGearIcon();
                         type="button"
                         :aria-label="'编辑' + slot.slot + '的装备'"
                         :aria-pressed="selected === slot.slot"
-                        :disabled="reading"
+                        :disabled="reading || intake?.busy"
                         :title="slot.caption || slot.detail?.name || slot.slot"
                         @click="selectByKey(slot.slot)"
                     >
@@ -101,7 +109,7 @@ const { icon: slotIcon } = useGearIcon();
                         danger
                         icon="trash"
                         :label="'删除' + active.slot + '这件装备'"
-                        :disabled="reading || !clearable"
+                        :disabled="reading || intake?.busy || !clearable"
                         @click="clearByKey(active.slot)"
                     />
                 </template>

@@ -482,9 +482,9 @@ export async function pets(ctx) {
             (await ui.exists('.editor .pet-editor')) && !(await ui.exists('.editor .gear-editor')),
         );
         t.check(
-            '没有选中召唤兽时不能靠识别新增',
+            '没有选中召唤兽时仍可上传截图自动新增',
             await cdp.evaluate(
-                `document.querySelector('.pet-editor input[aria-label="召唤兽截图文件"]')?.disabled === true`,
+                `document.querySelector('.pet-editor input[aria-label="召唤兽截图文件"]')?.disabled === false`,
             ),
         );
         await ui.clickLabel('新增召唤兽');
@@ -590,12 +590,13 @@ export async function pets(ctx) {
                 )),
         );
 
+        await ui.clickText('.ocr-tabs button', '属性', { exact: true });
         await cdp.evaluate(`(async () => {
             const response = await fetch('/tools/e2e/fixtures/pet-panel.png');
             if (!response.ok) throw new Error('召唤兽截图样本加载失败');
             const transfer = new DataTransfer();
             transfer.items.add(new File([await response.blob()], 'pet-panel.png', { type: 'image/png' }));
-            const input = document.querySelector('.pet-editor input[aria-label="召唤兽截图文件"]');
+            const input = document.querySelector('.ocr-standard .upload-file');
             input.files = transfer.files;
             input.dispatchEvent(new Event('change', { bubbles: true }));
         })()`);
@@ -604,6 +605,12 @@ export async function pets(ctx) {
             { timeout: 30000 },
         );
         t.check('召唤兽原图识别完成', recognized);
+        t.check(
+            '人物属性页上传召唤兽图自动切换并新建',
+            (await cdp.evaluate(
+                `document.querySelector('.ocr-tabs [aria-checked="true"]')?.textContent.trim()`,
+            )) === '召唤兽',
+        );
         /* 截图自动新增后左栏应有一行，
          * 而右侧只渲染**选中那一只**的表单——旧版是一只一行、一次展开一只。
          * 两条一起验，才能区分「结构换了」与「只是换了个样式」。 */
@@ -950,8 +957,8 @@ export async function pets(ctx) {
 
         await ui.clickIn('.roster .char', 'E2E兽', { label: '查看 E2E兽 的详情' });
         if (
-            !(await ui.waitFor(`!!document.querySelector('[role="dialog"]')`, {
-                timeout: 3000,
+            !(await ui.waitFor(`!!document.querySelector('.pet-quick input[aria-label="成长"]')`, {
+                timeout: 8000,
             }))
         ) {
             throw new Error('详情窗没打开');

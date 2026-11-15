@@ -4,8 +4,12 @@ import ScreenshotUpload from './ScreenshotUpload.vue';
 import { useOcrImage } from './use-ocr-image';
 import { recognizePetPanel } from './pet-recognition';
 import type { PetPanelResult } from './pet-panel';
+import type { ScreenshotIntake } from './screenshot-input';
+import type { OcrLine } from './attr-panel';
 
-const props = withDefaults(defineProps<{ disabled?: boolean }>(), { disabled: false });
+const props = withDefaults(defineProps<{ disabled?: boolean; intake?: ScreenshotIntake }>(), {
+    disabled: false,
+});
 const emit = defineEmits<{ recognize: [value: PetPanelResult]; busy: [value: boolean] }>();
 const { result, busy, error, rawLines, shotUrl, takeFile } = useOcrImage(async (lines, image) => {
     const value = await recognizePetPanel(lines, image);
@@ -20,8 +24,20 @@ watch(
 );
 watch(busy, (value) => emit('busy', value), { flush: 'sync' });
 function takeFiles(files: File[]) {
+    if (props.intake) {
+        props.intake.takeFiles(files);
+        return;
+    }
     if (!busy.value && !props.disabled && files[0]) void takeFile(files[0]);
 }
+function acceptScreenshot(file: File, value: PetPanelResult, lines: OcrLine[]) {
+    if (shotUrl.value) URL.revokeObjectURL(shotUrl.value);
+    shotUrl.value = URL.createObjectURL(file);
+    rawLines.value = lines;
+    error.value = '';
+    result.value = value;
+}
+defineExpose({ acceptScreenshot });
 onBeforeUnmount(() => emit('busy', false));
 </script>
 
@@ -31,10 +47,10 @@ onBeforeUnmount(() => emit('busy', false));
         label="召唤兽"
         :src="shotUrl"
         :disabled="disabled || busy"
-        :busy="busy"
+        :busy="intake?.busy || busy"
         :status="result?.hit ? `已覆盖 ${result.hit} 项，技能 ${result.skillCount} 项` : ''"
-        :error="error"
-        :raw-lines="rawLines"
+        :error="intake?.error || error"
+        :raw-lines="intake?.rawLines ?? rawLines"
         :empty-text="disabled ? '先新增或选择一只召唤兽' : 'Ctrl + V 粘贴截图'"
         hint="识别将覆盖当前召唤兽，建议一起截取属性与资质"
         @files="takeFiles"
