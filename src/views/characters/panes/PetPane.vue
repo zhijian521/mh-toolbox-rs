@@ -5,7 +5,9 @@ import PressTile from '../../../components/PressTile.vue';
 import type { Pet } from '../pets';
 import { PET_CARD_ATTRIBUTES, PET_GROWTH_LABEL } from '../../../services/game-rules';
 
-defineProps<{ pets: Pet[]; quick?: boolean }>();
+withDefaults(defineProps<{ pets: Pet[]; quick?: boolean; tabbed?: boolean }>(), {
+    tabbed: true,
+});
 const emit = defineEmits<{ open: [index: number] }>();
 
 /** 卡面**固定六项、按这个顺序**摆（2026-11-11 用户：「召唤兽的展示属性 按照 气血 攻击 防御
@@ -31,16 +33,16 @@ function cardStats(pet: Pet): { label: string; value: string }[] {
 </script>
 
 <template>
-    <section class="pane" role="tabpanel">
+    <section class="pane" :role="tabbed ? 'tabpanel' : 'region'">
         <div v-if="pets.length" class="pet-list">
-            <button
+            <component
+                :is="quick ? 'button' : 'div'"
                 v-for="(pet, index) in pets"
                 :key="index"
-                type="button"
+                :type="quick ? 'button' : undefined"
                 class="plate"
-                :aria-label="`查看 ${pet.name || '这只召唤兽'} 的详情`"
-                :disabled="!quick"
-                @click="emit('open', index)"
+                :aria-label="quick ? `查看 ${pet.name || '这只召唤兽'} 的详情` : undefined"
+                @click="quick && emit('open', index)"
             >
                 <!-- 头像块 + 右边一列两张属性票（2026-11-11 用户第四轮：
                      「都不行都不用，把名字 和 技能的样式 同步为 下面属性一样的 即可」）。
@@ -83,7 +85,7 @@ function cardStats(pet: Pet): { label: string; value: string }[] {
                     >
                 </span>
                 <p v-else class="empty-note inline">尚未记录属性</p>
-            </button>
+            </component>
         </div>
         <p v-else class="empty-note">还没有记录召唤兽</p>
     </section>

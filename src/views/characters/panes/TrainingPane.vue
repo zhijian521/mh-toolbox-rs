@@ -46,6 +46,7 @@ function open(row: TrainingRow) {
                         :key="row.name"
                         class="slip-row"
                         :class="{ idle: row.level === 0, quickable }"
+                        :title="row.name"
                         v-bind="quickRowBinds(quickable, () => open(row), `快速修改 ${row.name}`)"
                     >
                         <label v-if="editable" class="slip-name" :for="`${uid}-${row.name}`">

@@ -2,6 +2,7 @@ import { setup, pets, cleanup } from './characters/crud.mjs';
 import { ocr } from './characters/ocr.mjs';
 import { quick } from './characters/quick.mjs';
 import { equipment } from './characters/equipment.mjs';
+import { stats } from './characters/stats.mjs';
 
 export default async function run(ctx) {
     if (!ctx.want('角色')) return;
@@ -10,6 +11,7 @@ export default async function run(ctx) {
     await pets(ctx);
     await quick(ctx);
     await equipment(ctx);
+    await stats(ctx);
     await ctx.t.step('成长历史保留修改并可在重载后查看', async () => {
         await ctx.ui.reload();
         await ctx.ui.goto('角色');

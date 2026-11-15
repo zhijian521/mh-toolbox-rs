@@ -60,7 +60,8 @@ const hasActive = computed(() => props.options.some((option) => option.value ===
 
 function pick(target: number) {
     const option = props.options[target];
-    if (!option || option.value === props.modelValue) return;
+    // 子页也高亮所属目录；再次选择当前目录仍要通知外壳返回一级页面。
+    if (!option) return;
     emit('update:modelValue', option.value);
 }
 

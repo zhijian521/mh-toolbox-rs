@@ -20,7 +20,13 @@ function setBusy(value: boolean) {
     emit('busy', value);
 }
 function recognize(result: PetPanelResult) {
-    if (current.value) pets.value[selected.value] = applyPetPanel(current.value, result);
+    if (!result.hit) return;
+    if (!current.value) {
+        pets.value.push(applyPetPanel(emptyPet(), result));
+        selected.value = pets.value.length - 1;
+        return;
+    }
+    pets.value[selected.value] = applyPetPanel(current.value, result);
 }
 const selected = ref(0);
 const revision = ref(0);
@@ -53,7 +59,6 @@ defineExpose({ focusName });
     <div class="pet-editor">
         <PetScreenshot
             :key="`${selected}:${revision}`"
-            :disabled="!current"
             @recognize="recognize"
             @busy="setBusy"
         >
@@ -120,7 +125,7 @@ defineExpose({ focusName });
                     </template>
                 </PetDetailForm>
             </section>
-            <div v-else class="pet-empty well upright">暂无召唤兽，点击左侧“新增”开始记录</div>
+            <div v-else class="pet-empty well upright">暂无召唤兽</div>
         </PetScreenshot>
     </div>
 </template>

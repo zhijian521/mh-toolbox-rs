@@ -33,17 +33,17 @@
     color: var(--ink);
     font-family: var(--font-ui);
     text-align: left;
+    cursor: default;
+}
+.plate:is(button) {
     cursor: pointer;
 }
-.plate:hover:not(:disabled) .beast-name {
+.plate:is(button):hover .beast-name {
     color: var(--accent);
 }
 .plate:focus-visible {
     outline: var(--ring);
     outline-offset: var(--ring-offset);
-}
-.plate:disabled {
-    cursor: default;
 }
 /* 头像块与 PetPortraitPicker 的选择位、装备详情左端的 IconTile 同一套（块 64 / 图 56）。
  * 三个数各写一份而不抽公共类：那三处的容器语义不同（这里点不动、那里可点、另一处是

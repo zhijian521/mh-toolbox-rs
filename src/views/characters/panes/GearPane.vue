@@ -27,8 +27,10 @@ const props = withDefaults(
          * 空位也可点——「还没装备」正是最想填的那一格，让它点不动等于把入口藏起来。
          */
         quick?: boolean;
+        tabbed?: boolean;
+        compact?: boolean;
     }>(),
-    { quick: false },
+    { quick: false, tabbed: true, compact: false },
 );
 
 /* 浮片自己**不画**：`GearTip` 是一层绝对定位的浮层，必须挂在滚动容器之外，
@@ -99,7 +101,7 @@ function quickLabel(slot: GearSlot): string {
 </script>
 
 <template>
-    <section class="pane" role="tabpanel">
+    <section class="pane" :role="tabbed ? 'tabpanel' : 'region'">
         <div class="gear-board">
             <template v-for="slot in gear" :key="slot.slot">
                 <button
@@ -159,7 +161,7 @@ function quickLabel(slot: GearSlot): string {
                  布局重构一下（展示内容不变）」重排了一遍几何：读数三行共用同一个签宽
                  （`--brief-tag-w`，不是各行均分）、效果块与读数块之间补一条账线、
                  六行行高统一由签定。内容与取数规则一个字没动。 -->
-            <div class="gear-stage">
+            <div v-if="!compact" class="gear-stage">
                 <div class="stage-frame" aria-hidden="true">
                     <div class="corner c1"></div>
                     <div class="corner c2"></div>

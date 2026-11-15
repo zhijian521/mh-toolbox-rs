@@ -2,7 +2,7 @@
 import { lazyDialog } from '../components/lazy-dialog';
 import SaveNotice from '../components/SaveNotice.vue';
 import { computed, nextTick, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useRouteAction } from '../composables/use-route-action';
 import PageShell from '../components/PageShell.vue';
 import PressButton from '../components/PressButton.vue';
@@ -41,6 +41,7 @@ const QuickEdit = lazyDialog(() => import('./characters/quick/QuickEdit.vue'));
  */
 const { roster, loadError, writeError, pending, flush, retry, add, update, remove } = useRoster();
 const route = useRoute();
+const router = useRouter();
 const historyOpen = ref(false);
 watch(
     () => route.query.character,
@@ -179,6 +180,13 @@ useRouteAction('/characters', {
 <template>
     <PageShell title="角色" desc="角色档案 · 养成管理">
         <template #actions>
+            <PressButton
+                icon="overview"
+                text="统计"
+                label="查看所有角色统计"
+                :disabled="!!loadError"
+                @click="router.push({ name: 'character-stats' })"
+            />
             <PressButton
                 icon="history"
                 text="历史"

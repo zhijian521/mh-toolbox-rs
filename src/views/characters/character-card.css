@@ -321,3 +321,231 @@
     flex-direction: column;
     min-height: 100%;
 }
+
+/* 统计页共用卡片内容，只压紧排布；整页统一滚动，卡内不再截断明细。 */
+.char.compact {
+    --card-pad-x: 14px;
+    width: 100%;
+    height: auto;
+    min-width: 0;
+    padding-bottom: 0;
+}
+
+.compact .char-head {
+    padding-top: 12px;
+    padding-bottom: 10px;
+    border-bottom: var(--w-hair) solid var(--rule);
+}
+
+.compact .who {
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.compact .who-block {
+    width: 100%;
+}
+
+.compact .who .school {
+    margin-left: auto;
+    font-size: var(--fs-xs);
+}
+
+.compact .who h2 {
+    font-size: var(--fs-md);
+    letter-spacing: 0.02em;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.compact .char-sub {
+    flex-wrap: wrap;
+    white-space: normal;
+    font-size: var(--fs-xs);
+    letter-spacing: 0.02em;
+}
+
+.compact .char-head .lv {
+    font-size: var(--fs-sm);
+}
+
+.compact .char-sub > span {
+    flex: initial;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.compact .char-body {
+    flex: none;
+    padding: 12px var(--card-pad-x) 13px;
+    overflow: visible;
+}
+
+.compact :deep(.pane) {
+    min-height: 0;
+}
+
+.compact :deep(.attr-layout),
+.compact :deep(.training-groups) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+}
+
+.compact :deep(.slip-rows),
+.compact :deep(.attr-group.wide .slip-rows),
+.compact :deep(.stats) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 4px 8px;
+}
+
+.compact :deep(.slip-rows.slip-cols) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 10px;
+}
+
+.compact :deep(.training-list) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.compact :deep(.training-col .group-head),
+.compact :deep(.training-list .slip-name) {
+    white-space: nowrap;
+    overflow-wrap: normal;
+}
+
+.compact :deep(.slip-cols .slip-row) {
+    display: grid;
+    grid-template-columns: calc(20px * var(--fs-scale)) minmax(0, 1fr) max-content;
+    width: auto;
+}
+
+.compact :deep(.training-list .slip-row) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    width: auto;
+}
+
+.compact :deep(.group-head) {
+    --gh-mb: 4px;
+    margin-top: 0;
+    margin-bottom: 4px;
+    font-size: var(--fs-mini);
+    letter-spacing: 0.06em;
+}
+
+.compact :deep(.group-head .section-mark) {
+    --mark-w: 3px;
+    --mark-h: 10px;
+}
+
+.compact :deep(.slip-row) {
+    --tag-w: calc(36px * var(--fs-scale));
+    --tag-h: calc(18px * var(--fs-scale));
+    flex: 0 0 auto;
+    justify-content: flex-start;
+    gap: 4px;
+    width: max-content;
+    max-width: 100%;
+    min-height: calc(27px * var(--fs-scale));
+    height: auto;
+    padding: 3px 7px;
+    border-radius: var(--r-2);
+}
+
+.compact :deep(.slip-name) {
+    flex: 0 1 auto;
+    min-width: 2em;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: var(--fs-sm);
+}
+
+.compact :deep(.slip-val) {
+    flex: none;
+    width: auto;
+    min-width: var(--tag-w);
+}
+
+.compact :deep(.slip-val .lv) {
+    font-size: var(--fs-sm);
+}
+
+.compact :deep(.slip-row .icon-tile),
+.compact :deep(.slip-row .seal-tile) {
+    --tile-w: calc(20px * var(--fs-scale));
+    --tile-h: calc(20px * var(--fs-scale));
+    --shot: calc(18px * var(--fs-scale));
+}
+
+.compact :deep(.assist-groups) {
+    gap: 7px;
+}
+
+.compact :deep(.assist-group + .assist-group) {
+    padding-top: 7px;
+}
+
+.compact :deep(.exp-row) {
+    margin-top: 7px;
+}
+
+.compact :deep(.exp-row .group-head) {
+    margin-bottom: 0;
+}
+
+.compact :deep(.gear-board) {
+    flex: none;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(4, calc(92px * var(--fs-scale)));
+    gap: 8px;
+    height: auto;
+}
+
+.compact :deep(.gear-cell .gear-pic),
+.compact :deep(.gear-ph) {
+    --tile-w: 56px;
+    --tile-h: 56px;
+    --shot: 46px;
+}
+
+.compact :deep(.pet-list) {
+    gap: 10px;
+}
+
+.compact :deep(.beast-head) {
+    gap: 8px;
+}
+
+.compact :deep(.beast-id) {
+    gap: 4px;
+}
+
+.compact :deep(.beast-plate) {
+    --tile-w: 56px;
+    --tile-h: 56px;
+}
+
+.compact :deep(.beast-plate .pet-image.portrait) {
+    --pet-icon-size: 48px;
+}
+
+.compact :deep(.stats) {
+    margin-top: 6px;
+}
+
+.compact :deep(.name-row) {
+    width: auto;
+    max-width: 100%;
+}
+
+.compact :deep(.skill-line) {
+    justify-content: flex-start;
+}
+
+.compact :deep(.skill-icons) {
+    max-height: none;
+}

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import PaperCard from '../../components/PaperCard.vue';
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import PressButton from '../../components/PressButton.vue';
 import NumberField from '../../components/NumberField.vue';
 import SelectField from '../../components/SelectField.vue';
@@ -99,12 +99,13 @@ const props = withDefaults(
         /** 点行 / 格开「快速修改」。 */
         quick?: boolean;
         disabled?: boolean;
+        compact?: boolean;
     }>(),
     /* `tabs` 的缺省值**必须显式写 `true`**：Vue 对布尔 prop 的缺省是 `false` 而不是
      * `undefined`（Boolean casting），所以模板里写 `props.tabs !== false` 不管用——
      * 不传时它已经是 `false` 了，整张名册的页签条会被一起省掉（这一条当场红过）。
      * `preview` / `editable` / `quick` 用不到反直觉的缺省，不写。 */
-    { tabs: true, pane: 'attrs', quick: false },
+    { tabs: true, pane: 'attrs', quick: false, compact: false },
 );
 const emit = defineEmits<{
     edit: [pane: PaneKey];
@@ -123,6 +124,7 @@ watch(
     () => props.pane,
     (next) => {
         active.value = next;
+        closeAll();
     },
 );
 
@@ -171,6 +173,12 @@ function closeAll() {
     tipAnchor.value = null;
 }
 
+// 统计页由外层统一滚动，滚动时也要收起按旧坐标定位的装备浮片。
+onMounted(() => {
+    if (props.compact) window.addEventListener('scroll', closeAll, true);
+});
+onBeforeUnmount(() => window.removeEventListener('scroll', closeAll, true));
+
 function openDetail(index: number) {
     closeAll();
     if (props.quick && props.character.pets[index]) emit('quick', { kind: 'pet', index });
@@ -191,6 +199,7 @@ function openDetail(index: number) {
         tabindex="-1"
         :aria-label="character.name || '未命名角色'"
         class="char character-theme"
+        :class="{ compact }"
         :data-school="character.school || ''"
     >
         <header class="char-head">
@@ -294,7 +303,7 @@ function openDetail(index: number) {
                  没有页签条时（`tabs: false`）这一层的三条约定一起失效：没有 `-tab-xxx`
                  可指、没有「切回来」这回事、`tabpanel` 也不该出现。所以当前那一页改挂
                  `aria-label` 并把 `tabbed` 关掉，其余页**不渲染**。
-                 属性、师门、辅助、修炼按 `pane` 挂载预览，其余页只在名册页签里出现。 -->
+                 六个分区都按 `pane` 单独挂载预览。 -->
             <template v-if="props.tabs || active === 'attrs'">
                 <AttrPane
                     v-show="active === 'attrs'"
@@ -358,23 +367,30 @@ function openDetail(index: number) {
                 />
             </template>
 
-            <template v-if="props.tabs">
+            <template v-if="props.tabs || active === 'gear'">
                 <GearPane
                     v-show="active === 'gear'"
                     :id="`${character.id}-pane-gear`"
-                    :aria-labelledby="`${character.id}-tab-gear`"
+                    :aria-labelledby="props.tabs ? `${character.id}-tab-gear` : undefined"
+                    :aria-label="props.tabs ? undefined : '装备'"
+                    :tabbed="props.tabs"
                     :gear="character.gear"
                     :meta="character.gearMeta"
+                    :compact="compact"
                     :quick="quick"
                     @open-tip="showTip"
                     @close-tip="closeAll"
                     @quick="(target) => emit('quick', target)"
                 />
+            </template>
 
+            <template v-if="props.tabs || active === 'pets'">
                 <PetPane
                     v-show="active === 'pets'"
                     :id="`${character.id}-pane-pets`"
-                    :aria-labelledby="`${character.id}-tab-pets`"
+                    :aria-labelledby="props.tabs ? `${character.id}-tab-pets` : undefined"
+                    :aria-label="props.tabs ? undefined : '召唤兽'"
+                    :tabbed="props.tabs"
                     :pets="character.pets"
                     :quick="quick"
                     @open="openDetail"

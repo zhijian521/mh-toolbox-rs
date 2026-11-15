@@ -575,17 +575,36 @@ export async function pets(ctx) {
     });
 
     // 召唤兽：原图识别 → 手工修正 → 保存 → 卡片与详情 → 重载。
-    await t.step('召唤兽：加一只 → 概览牌 → 详情窗 → Esc', async () => {
+    await t.step('召唤兽：空列表截图自动新增 → 概览牌 → 详情窗 → Esc', async () => {
         await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
             throw new Error('编辑态没打开');
         }
         await ui.clickText('.ocr-tabs button', '召唤兽');
         await sleep(300);
-        await ui.clickLabel('新增召唤兽');
-        await sleep(250);
+        t.check(
+            '空列表无需手工新增即可上传召唤兽截图',
+            (await ui.count('.pet-editor .pet-choice')) === 0 &&
+                (await cdp.evaluate(
+                    `document.querySelector('.pet-editor input[aria-label="召唤兽截图文件"]')?.disabled === false`,
+                )),
+        );
 
-        /* 编辑页 2026-11-05 改成左栏目录（方案 P3）：加一只之后左栏应有一行，
+        await cdp.evaluate(`(async () => {
+            const response = await fetch('/tools/e2e/fixtures/pet-panel.png');
+            if (!response.ok) throw new Error('召唤兽截图样本加载失败');
+            const transfer = new DataTransfer();
+            transfer.items.add(new File([await response.blob()], 'pet-panel.png', { type: 'image/png' }));
+            const input = document.querySelector('.pet-editor input[aria-label="召唤兽截图文件"]');
+            input.files = transfer.files;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        })()`);
+        const recognized = await ui.waitFor(
+            `document.querySelector('.pet-block input[aria-label="召唤兽攻击"]')?.value === '2016' && document.querySelector('.pet-screenshot')?.getAttribute('aria-busy') === 'false'`,
+            { timeout: 30000 },
+        );
+        t.check('召唤兽原图识别完成', recognized);
+        /* 截图自动新增后左栏应有一行，
          * 而右侧只渲染**选中那一只**的表单——旧版是一只一行、一次展开一只。
          * 两条一起验，才能区分「结构换了」与「只是换了个样式」。 */
         const railItems = await ui.count('.pet-editor .pet-choice');
@@ -611,20 +630,6 @@ export async function pets(ctx) {
         const nameInputs = await ui.count('.pet-block input[aria-label="召唤兽名称"]');
         t.check('右侧只渲染选中那一只', nameInputs === 1, `实际 ${nameInputs} 个名字框`);
 
-        await cdp.evaluate(`(async () => {
-            const response = await fetch('/tools/e2e/fixtures/pet-panel.png');
-            if (!response.ok) throw new Error('召唤兽截图样本加载失败');
-            const transfer = new DataTransfer();
-            transfer.items.add(new File([await response.blob()], 'pet-panel.png', { type: 'image/png' }));
-            const input = document.querySelector('.pet-editor input[aria-label="召唤兽截图文件"]');
-            input.files = transfer.files;
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-        })()`);
-        const recognized = await ui.waitFor(
-            `document.querySelector('.pet-block input[aria-label="召唤兽攻击"]').value === '2016' && document.querySelector('.pet-screenshot')?.getAttribute('aria-busy') === 'false'`,
-            { timeout: 30000 },
-        );
-        t.check('召唤兽原图识别完成', recognized);
         t.check(
             '成长、寿命和全部普通技能填入草稿',
             await cdp.evaluate(`
