@@ -326,7 +326,7 @@ useRouteAction('/prices', { new: startNew });
 </script>
 
 <template>
-    <PageShell title="物价" desc="物品行情 · 价格记录 · 仅存本机">
+    <PageShell title="物价" desc="物品行情 · 价格记录">
         <template #actions>
             <!-- 读失败时底层拒绝一切写入，让这枚按钮可点等于让用户白填一遍。 -->
             <PressButton

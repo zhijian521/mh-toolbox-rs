@@ -83,7 +83,7 @@ onMounted(async () => {
 </script>
 
 <template>
-    <PageShell title="捉鬼助手" desc="任务栏 → 该往哪找">
+    <PageShell title="捉鬼助手" desc="任务识别 · 地图指引">
         <template #actions>
             <!-- 页头两个动作走 `PressButton`：内容落在一块凸起的纸上，按下去被压回纸里。
                  主操作（开始/停止）用 `seal` 变体——块面灌朱，一眼能看出这页在跑什么。

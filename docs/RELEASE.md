@@ -1,12 +1,27 @@
 # 发布与维护
 
-第一版功能已完成，版本号以项目清单与锁文件的一致值为准。目标平台为 Windows 10 / 11 x64，安装包使用 NSIS，界面依赖 Microsoft Edge WebView2。其他平台没有打包与验收承诺。
+第一版功能已完成，版本号以项目清单与锁文件的一致值为准。目标平台为 Windows 10 2004（内部版本 19041）及以上 / Windows 11 x64，安装包使用 NSIS，界面依赖 Microsoft Edge WebView2。其他平台没有打包与验收承诺。
 
 ## 生成安装包
 
 本机先按 [AGENTS.md](../AGENTS.md) 设置 Windows 编译环境，再运行 `npm ci` 与 `npm run desktop:build`。打包前自动检查各清单和锁文件中的版本号，Tauri 随后构建前端与发布版。产物在 `src-tauri/target/release/bundle/nsis/`。
 
 安装包在 Rust 构建后由 `scripts/bundle-windows.mjs` 封装，自动附带 ONNX 使用的 DirectML 与已安装 Visual Studio 的 x64 VC++ 可再分发 DLL，避免依赖开发机已有的运行库。无需手动拷贝 DLL，也不把生成的二进制加入源码仓库。
+
+打包脚本拒绝空资源匹配、缺少模型或字典、空文件、目标重名与错误架构的程序 / DLL；VC++ 运行库必须包含 `msvcp140`、`msvcp140_1`、`vcruntime140` 和 `vcruntime140_1`。依赖升级时需重新检查 PE 导入表，这份已知依赖清单不代替依赖审查。
+
+## Windows 环境兼容
+
+| 环节 | 已采取的措施与边界 |
+| --- | --- |
+| 原生依赖 | DirectML 与 VC++ DLL 随安装包分发；ONNX 和 SQLite 主体编入程序，无需另装 `onnxruntime.dll` 或 `sqlite3.dll`。 |
+| Windows 组件 | 程序直接依赖系统 `dxcore.dll`、`d3d12.dll`、`dxgi.dll`，安装前检查文件存在；不从开发机复制系统 DLL。较旧或精简系统需更新 / 修复 Windows，文件存在不代表所有驱动与系统 API 均可用。 |
+| 界面运行时 | 最低 WebView2 123（主题使用 `light-dark()`）；安装器内嵌引导程序，缺失时安装、过旧时尝试更新，仍需联网下载运行时。已有合适版本时不需要下载。 |
+| OCR 模型和字典 | 三个模型和字典随包分发；发布版只读应用资源与安装目录，不依赖源码目录或当前工作目录。补位字典用独占临时文件，初始化后清理，不写安装目录。正常截图识别不依赖 Windows 中文 OCR 语言包；捉鬼助手的 Windows OCR 降级路径仍依赖语言包。 |
+| 游戏截图 | 使用系统 GDI，游戏窗口需可见且未最小化；黑屏、遮挡和权限差异可能影响截取，不能全部归因于 DLL。 |
+| 安装与安全软件 | 当前安装包未做代码签名，可能遇到 SmartScreen 或安全软件拦截；发生时记录原始提示与被拦截文件，不建议关闭系统防护。 |
+
+上述保护不能替代干净 Windows 的安装升级验收。v1.1.0 已公开附件确认含 DirectML、10 个 VC++ DLL、三个模型与字典；本节新增的打包校验、系统组件检查、WebView2 配置及 OCR 临时文件保护尚未重新构建或发布，不会自动进入已有附件。
 
 首版使用 Rust/Cargo 1.99.1，CI 和打包工作流固定为此版本。`ort-sys` rc.10 的 DLL 复制依赖旧 Cargo 输出布局，暂不自动跟随 1.100；升级工具链需要单独确认兼容性。
 

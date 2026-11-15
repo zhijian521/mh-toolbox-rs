@@ -108,6 +108,32 @@ describe('loadIncome：读失败不等于空账', () => {
 });
 
 describe('速记：记给几个号就写几条', () => {
+    it('速记指定人单选，换人后整笔归新角色，清空后归不指定', async () => {
+        const store = await loadStore(host(async () => EMPTY));
+        const { setTarget, target, recordEntry } = store.useIncome();
+
+        setTarget(['a', 'b']);
+        expect(target.value).toEqual(['a']);
+        const first = recordEntry({ item: '黑宝石', amount: 1001 });
+        expect(first.ok && first.entries.map((one) => [one.characterId, one.amount])).toEqual([
+            ['a', 1001],
+        ]);
+
+        setTarget(['b']);
+        const second = recordEntry({ item: '黑宝石', amount: 1001 });
+        expect(second.ok && second.entries.map((one) => [one.characterId, one.amount])).toEqual([
+            ['b', 1001],
+        ]);
+
+        setTarget([]);
+        const unassigned = recordEntry({ item: '黑宝石', amount: 1001 });
+        expect(target.value).toEqual([]);
+        expect(
+            unassigned.ok && unassigned.entries.map((one) => [one.characterId, one.amount]),
+        ).toEqual([['', 1001]]);
+        await flush();
+    });
+
     it('两个号平分，尾差给排在前面的那个，总额不变', async () => {
         const desktop = host(async () => EMPTY);
         const store = await loadStore(desktop);

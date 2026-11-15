@@ -16,6 +16,7 @@
 //! 最后减掉 padding 还原）。它**只缩不放**：`max_side_len` 大于原图长边时按原图跑。
 //! 所以「放大到能认」必须自己先做，见 `recognize` 的 `scale` 参数。
 
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
@@ -94,7 +95,7 @@ fn engine() -> Result<&'static Mutex<OcrLite>, String> {
             &dir.join(DET).to_string_lossy(),
             &dir.join(CLS).to_string_lossy(),
             &dir.join(REC).to_string_lossy(),
-            &dict.to_string_lossy(),
+            &dict.0.to_string_lossy(),
             4,
         )
         .map_err(|err| format!("加载 OCR 模型失败：{err}"))?;
@@ -106,7 +107,7 @@ fn engine() -> Result<&'static Mutex<OcrLite>, String> {
     }
 }
 
-/// 把原始字典补成模型索引期待的样子，写到临时文件后返回路径。
+/// 把原始字典补成模型索引期待的样子，临时文件仅保留到模型完成加载。
 ///
 /// 这一步不能省，也不能把补好的字典直接当资源发出去：
 ///
@@ -119,9 +120,40 @@ fn engine() -> Result<&'static Mutex<OcrLite>, String> {
 ///
 /// 补好的字典写到临时文件而不是随包分发：`ppocr_keys_v1.txt` 保持与上游逐字节
 /// 一致（可校验、可替换），错位规则留在代码里，不会被一次「顺手更新字典」弄丢。
-fn prepared_dict(dir: &Path) -> Result<PathBuf, String> {
+struct PreparedDict(PathBuf);
+
+impl Drop for PreparedDict {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
+fn prepared_dict(dir: &Path) -> Result<PreparedDict, String> {
     let raw =
         std::fs::read_to_string(dir.join(KEYS)).map_err(|err| format!("读 OCR 字典失败：{err}"))?;
+    let text = normalize_dict(&raw);
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|err| format!("创建 OCR 临时字典失败：{err}"))?
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!(
+        "mh-toolbox-ocr-keys-{}-{stamp}.txt",
+        std::process::id()
+    ));
+    // 独占创建，避免不同实例或权限的应用共用旧临时文件；字典读入内存后自动删除。
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .map_err(|err| format!("创建 OCR 临时字典失败（{}）：{err}", path.display()))?;
+    let dict = PreparedDict(path);
+    let result = file.write_all(text.as_bytes());
+    drop(file);
+    result.map_err(|err| format!("写 OCR 临时字典失败（{}）：{err}", dict.0.display()))?;
+    Ok(dict)
+}
+
+fn normalize_dict(raw: &str) -> String {
     let mut text = String::with_capacity(raw.len() + 4);
     text.push_str("#\n");
     for line in raw.split('\n') {
@@ -137,9 +169,7 @@ fn prepared_dict(dir: &Path) -> Result<PathBuf, String> {
     }
     text.push_str(" \n");
 
-    let path = std::env::temp_dir().join("mh-toolbox-ocr-keys.txt");
-    std::fs::write(&path, text).map_err(|err| format!("写 OCR 字典失败：{err}"))?;
-    Ok(path)
+    text
 }
 
 /// 首个业务页面绘制后后台预热；提前识别仍复用同一份按需初始化的引擎。
@@ -296,14 +326,10 @@ fn upscale_rgb(bgra: &[u8], width: u32, height: u32, scale: u32) -> (image::RgbI
 /// 判据必须和「能不能跑」一致：四件都在才叫在。
 const REQUIRED: [&str; 4] = [DET, CLS, REC, KEYS];
 
-/// 找模型目录。按「越具体越先」的顺序试，全部落空则返回最后一个候选，
-/// 让错误信息里带上一个能看的路径。
-///
-/// 为什么要试这么多个：开发跑（`cargo tauri dev`）时 exe 在 `target/debug`，
-/// 打包后 exe 在安装目录且资源在同级 `resources`，而离线实验台要能临时指到别处。
-/// 少试一条，就会出现「打包版能跑、开发版报缺模型」这种只在一边出现的问题。
+/// 发布版只从应用资源与安装目录找模型，避免开发机源码掩盖漏包。
 pub fn locate_models(app_dir: Option<&Path>) -> PathBuf {
     let mut candidates: Vec<PathBuf> = Vec::new();
+    #[cfg(debug_assertions)]
     if let Ok(dir) = std::env::var("MH_OCR_MODELS") {
         candidates.push(PathBuf::from(dir));
     }
@@ -311,9 +337,17 @@ pub fn locate_models(app_dir: Option<&Path>) -> PathBuf {
         candidates.push(dir.join("models"));
         candidates.push(dir.join("resources").join("models"));
     }
-    // 编译期就确定的源码目录：开发机器上一定存在，是最稳的一条。
-    candidates.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("models"));
-    candidates.push(PathBuf::from("models"));
+    if let Some(dir) = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(Path::to_path_buf))
+    {
+        candidates.push(dir.join("models"));
+    }
+    #[cfg(debug_assertions)]
+    {
+        candidates.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("models"));
+        candidates.push(PathBuf::from("models"));
+    }
 
     candidates
         .iter()
@@ -321,7 +355,7 @@ pub fn locate_models(app_dir: Option<&Path>) -> PathBuf {
         .cloned()
         .unwrap_or_else(|| {
             candidates
-                .last()
+                .first()
                 .cloned()
                 .unwrap_or_else(|| PathBuf::from("models"))
         })
@@ -330,6 +364,27 @@ pub fn locate_models(app_dir: Option<&Path>) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dictionary_keeps_model_indices_across_line_endings() {
+        assert_eq!(normalize_dict("一\r\n\r\n二\r\n"), "#\n一\n二\n \n");
+        assert_eq!(normalize_dict("一\n二"), "#\n一\n二\n \n");
+    }
+
+    #[test]
+    fn temporary_dictionaries_are_independent_and_removed_after_loading() {
+        let models = Path::new(env!("CARGO_MANIFEST_DIR")).join("models");
+        let a = prepared_dict(&models).unwrap();
+        let b = prepared_dict(&models).unwrap();
+        assert_ne!(a.0, b.0);
+        let path = a.0.clone();
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.starts_with("#\n"));
+        assert!(content.ends_with("\n \n"));
+        drop(a);
+        assert!(!path.exists());
+        assert!(b.0.is_file());
+    }
 
     /// 放大与颜色通道换算：两件事写在同一个循环里，错了会一起错，
     /// 所以用 2×2 的四个已知像素把两者都钉死。

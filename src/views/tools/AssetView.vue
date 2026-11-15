@@ -117,7 +117,7 @@ const countText = computed(() => {
 </script>
 
 <template>
-    <PageShell title="游戏资源" desc="装备、技能与召唤兽图标">
+    <PageShell title="游戏资源" desc="图标图鉴 · 分类检索">
         <template #actions>
             <!-- 与捉鬼、闹钟两页同一枚。这一页没有主操作，所以它是动作区里唯一的一个，
                  落在右端。 -->

@@ -4,7 +4,7 @@ import LedgerSection from '../../components/LedgerSection.vue';
 import NumTag from '../../components/NumTag.vue';
 import AppIcon from '../../components/AppIcon.vue';
 import PressTile from '../../components/PressTile.vue';
-import TogglePills from '../../components/TogglePills.vue';
+import SegmentedPills from '../../components/SegmentedPills.vue';
 import { askConfirm } from '../../composables/use-confirm';
 import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
@@ -33,22 +33,8 @@ const targetOptions = computed(() => [
     ...roster.value.map((one) => ({ value: one.id, label: one.name })),
 ]);
 
-/**
- * 「不指定」在数据里是**空数组**（一条都不选），而在胶囊组里它需要是一枚能按的格子。
- * 所以两边做一次转译：选中「不指定」= 清空选择，反过来空数组就让「不指定」亮着。
- * 不这么做的话，「一个都没选」与「选了不指定」就成了两种状态，而它们意思完全一样。
- */
-const NOTHING = '';
-const pillsValue = computed(() => (target.value.length ? target.value : [NOTHING]));
-
-function onPills(next: string[]) {
-    const hadNothing = pillsValue.value.includes(NOTHING);
-    const hasNothing = next.includes(NOTHING);
-    if (hasNothing && !hadNothing) {
-        setTarget([]);
-        return;
-    }
-    setTarget(next.filter((one) => one !== NOTHING));
+function onTarget(id: string) {
+    setTarget(id ? [id] : []);
 }
 
 function validateTarget() {
@@ -207,11 +193,12 @@ async function importPrices() {
         </template>
 
         <div class="targets">
-            <TogglePills
-                :model-value="pillsValue"
+            <SegmentedPills
+                :model-value="target[0] ?? ''"
                 :options="targetOptions"
-                label="这笔账记给谁，可以多选"
-                @update:model-value="onPills"
+                label="指定人"
+                wrap
+                @update:model-value="onTarget"
             />
         </div>
 

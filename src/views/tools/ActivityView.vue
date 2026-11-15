@@ -59,7 +59,7 @@ function onConfirm(draft: AlarmDraft) {
 </script>
 
 <template>
-    <PageShell title="活动日历" desc="日常整点、每周固定与每月轮换 · 点一张卡加提醒">
+    <PageShell title="活动日历" desc="日常活动 · 日程提醒">
         <template #actions>
             <PressButton
                 icon="back"

@@ -122,7 +122,7 @@ useRouteAction('/accounts', {
 </script>
 
 <template>
-    <PageShell title="账号" desc="人民币与梦幻币，两本独立的账">
+    <PageShell title="账号" desc="收支记账 · 分类统计">
         <template #actions>
             <PressButton
                 icon="history"

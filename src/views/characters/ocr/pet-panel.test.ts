@@ -5,6 +5,7 @@ import { parsePetPanel as parseRules } from '../../../services/pet-assets';
 import { normalizePet } from '../details';
 import type { OcrLine } from './attr-panel';
 import samples from '../../../../tools/e2e/fixtures/pet-panel-cases.json';
+import hpSamples from '../../../../tools/e2e/fixtures/hp-panels.json';
 
 const rules = parseRules(rulesJson);
 function line(text: string, x: number, y: number, width = 120): OcrLine {
@@ -12,6 +13,20 @@ function line(text: string, x: number, y: number, width = 120): OcrLine {
 }
 
 describe('召唤兽截图字段', () => {
+    it.each(['3929/4238', '3929／4238', '3929∕4238'])(
+        '正式版漏检气血标签时，%s取4238上限，不串到当前值或体质',
+        (hp) => {
+            const lines = hpSamples[1].lines.map((line) =>
+                line.text === hpSamples[1].hp ? { ...line, text: hp } : line,
+            );
+            const result = parse(lines, rules);
+            expect(result.patch.attrs).toContainEqual({ label: '气血', value: '4238' });
+            expect(result.patch.attrs).toContainEqual({ label: '魔法', value: '931' });
+            expect(result.patch.points).toContainEqual({ label: '体质', value: '440' });
+            expect(result.patch.quality?.hp).toBe(5417);
+        },
+    );
+
     it.each(samples)('$name：竖向合并标签的真实 OCR 仍能填入成长和寿命', ({ lines, expected }) => {
         expect(parse(lines, rules).patch).toMatchObject({
             life: expected.life,

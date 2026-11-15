@@ -166,13 +166,6 @@ async function askRemove(character: CharacterData) {
     );
 }
 
-/* 页头的副标题读的是**名册自己**的状态：几个号、存在哪。
- * 原先写「演示数据 · 先定版式，功能随后」，那句话现在是假的。 */
-const desc = computed(() =>
-    roster.value.length
-        ? `${roster.value.length} 个角色 · 存在本机`
-        : '还没有角色 · 点下面那一格开始',
-);
 useRouteAction('/characters', {
     new: startNew,
     edit(query) {
@@ -184,7 +177,7 @@ useRouteAction('/characters', {
 </script>
 
 <template>
-    <PageShell title="角色" :desc="desc">
+    <PageShell title="角色" desc="角色档案 · 养成管理">
         <template #actions>
             <PressButton
                 icon="history"

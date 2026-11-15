@@ -41,8 +41,7 @@ const STORAGE_KEY = 'mh-income';
  * 用户不该重新选一次「记给归ω岚」——他刚才那一整屏都是在给这个号记。
  * 换一个号记是**有意**的动作，不是刷新副作用。
  *
- * 2026-11-04 起是数组：几个号一起摆摊时，一笔收入要落到每个人头上。
- * 平分的规则在 `income.ts` 的 `splitAmount`（尾差按币补给排在前面的人，总额不差）。
+ * 速记仅选一个角色；沿用空数组 / 单元素数组与记账接口对接。
  */
 const target = ref<string[]>([]);
 
@@ -310,9 +309,9 @@ export function mergePrices(
     return { ok: true, added, updated, unchanged };
 }
 
-/** 换「记给谁」。空数组 = 不指定。 */
+/** 换速记指定人，最多保留一个角色；空数组 = 不指定。 */
 export function setTarget(characterIds: string[]): void {
-    target.value = characterIds;
+    target.value = characterIds.filter(Boolean).slice(0, 1);
 }
 
 /** 页面拿这一份。 */

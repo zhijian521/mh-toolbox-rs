@@ -147,7 +147,7 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
 </script>
 
 <template>
-    <PageShell title="总览" :desc="today">
+    <PageShell title="总览" desc="今日概况 · 常用功能">
         <template #actions
             ><PressButton
                 icon="history"

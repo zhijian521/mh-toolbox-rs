@@ -324,7 +324,7 @@ useRouteAction('/goals', {
 </script>
 
 <template>
-    <PageShell title="目标" desc="修炼、技能与属性，按角色跟踪养成进度">
+    <PageShell title="目标" desc="养成计划 · 进度跟踪">
         <template #actions
             ><PressButton
                 icon="add"

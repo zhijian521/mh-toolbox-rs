@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { applyAttrPanel, parseAttrPanel, type OcrField, type OcrLine } from './attr-panel';
 import { emptyCharacter } from '../roster';
+import hpSamples from '../../../../tools/e2e/fixtures/hp-panels.json';
 
 /* 「换门派就换技能表」这条约定的出口在 `schools.ts`，而它读的是 `fetch` 回来的真表
  * ——vitest 里没有启动流程，读到的永远是空表。所以把那一个模块换掉：
@@ -123,6 +124,15 @@ describe('经验换成万', () => {
 });
 
 describe('属性面板：认不清的时候', () => {
+    it('正式版漏检气血标签时，按资源行位置保留已读出的上限', () => {
+        const { fields } = parseAttrPanel(hpSamples[0].lines);
+        expect(fieldOf(fields, '气血').raw).toBe('3050/3050/3050');
+        expect(fieldOf(fields, '气血').value).toBe('3050');
+        expect(fieldOf(fields, '魔法').value).toBe('905');
+        expect(fieldOf(fields, '活力').value).toBe('860');
+        expect(fieldOf(fields, '体力').value).toBe('856');
+    });
+
     it('标签与值被读成一格时也能拆开', () => {
         const lines = [
             line('名称归岚', 20, 20),

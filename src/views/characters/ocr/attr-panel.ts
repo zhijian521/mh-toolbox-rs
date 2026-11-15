@@ -3,6 +3,7 @@ import { normalizeCharacter } from '../roster';
 import { schoolSkills } from '../schools';
 import { schoolNames } from '../../../services/game-data';
 import { ATTR_LABELS as LABELS, ATTR_ORDER, RESOURCE_KEYS } from '../../../services/game-rules';
+import { resourcePanelLines } from './resource-panel';
 
 /**
  * 把「属性面板」的一次 OCR 结果解析成角色字段。
@@ -431,7 +432,7 @@ export function parseAttrPanel(
     options: AttrPanelOptions = {},
 ): AttrPanelResult {
     const schools = options.schools ?? schoolNames();
-    const found = collect(rowsOf(lines));
+    const found = collect(rowsOf(resourcePanelLines(lines)));
 
     /* 「经验 39686092/14142174」这种一行两个数的，拆成当前/所需两项。
      * 当前经验在左、升级所需在右，与面板底部经验条的顺序一致。

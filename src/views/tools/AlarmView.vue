@@ -108,7 +108,7 @@ useRouteAction('/tools/alarm', { new: openNew });
 </script>
 
 <template>
-    <PageShell title="闹钟" desc="提前一分钟提醒">
+    <PageShell title="闹钟" desc="定时提醒 · 日程管理">
         <template #actions>
             <!-- 与捉鬼页同一枚：图标先读动作方向，字只写动词，完整语义在 `label` 里。
                  排在最左——页头的右端留给主操作（这里是「新增」）。 -->

@@ -1,6 +1,6 @@
 # 梦幻养老助手
 
-梦幻西游端游的日常工作台，集中管理角色养成、游戏收益和账号收支。基于 Rust + Tauri 2 + Vue 3 + SQLite，支持 Windows 10 / 11 x64。
+梦幻西游端游的日常工作台，集中管理角色养成、游戏收益和账号收支。基于 Rust + Tauri 2 + Vue 3 + SQLite，支持 Windows 10 2004 及以上 / Windows 11 x64。
 
 [下载安装](https://github.com/zhijian521/mh-toolbox-rs/releases) · [发布说明](docs/RELEASE.md) · [开发规范](docs/CONVENTIONS.md) · [架构说明](docs/ARCHITECTURE.md)
 

@@ -79,7 +79,7 @@ const groups = computed(() =>
 </script>
 
 <template>
-    <PageShell title="工具">
+    <PageShell title="工具" desc="日常工具 · 游戏资料">
         <div class="tool-blocks">
             <LedgerSection
                 v-for="group in groups"

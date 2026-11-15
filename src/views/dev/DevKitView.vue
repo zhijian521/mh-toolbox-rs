@@ -67,7 +67,7 @@ async function importDemo() {
 </script>
 
 <template>
-    <PageShell title="开发帮助" desc="组件 · 令牌 · 图标 · 模拟数据">
+    <PageShell title="开发帮助" desc="组件预览 · 资源调试">
         <div class="stack">
             <!-- 两张说明卡都只有几行，并一排；竖排下来右边全是空纸。 -->
             <div class="stack-pair">

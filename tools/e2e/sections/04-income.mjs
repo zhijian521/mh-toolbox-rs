@@ -138,6 +138,9 @@ export default async function run(ctx) {
                     onlineAtBar,
                     targetsVisible: !!targets && !targets.closest('.section-head') &&
                         targets.scrollWidth <= targets.clientWidth + 1,
+                    singleTarget: !!targets?.querySelector('[role="radiogroup"]') &&
+                        targets.querySelectorAll('[role="radio"][aria-checked="true"]').length === 1 &&
+                        !targets.querySelector('[aria-pressed]'),
                     quietFiles: fileButtons.every((button) => button?.querySelector('.app-icon') &&
                         !button.textContent.trim() && button.title),
                     consistentOnline: onlineHeights.every((height) => height > 0 &&
@@ -151,6 +154,7 @@ export default async function run(ctx) {
             t.check('导出导入属于物品速记标题栏', layout.filesAtHead);
             t.check('补记记录属于在线区域', layout.onlineAtBar);
             t.check('记给谁独立常驻且不横向溢出', layout.targetsVisible);
+            t.check('物品速记指定人单选，始终只有一个选中项', layout.singleTarget);
             t.check('文件操作收成带说明的小图标', layout.quietFiles);
             t.check('补记记录按钮高度一致', layout.consistentOnline);
             t.check('点卡开关位于单价前面', layout.switchFirst);

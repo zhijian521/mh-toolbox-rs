@@ -4,6 +4,7 @@ import { normalizePet } from '../details';
 import type { Pet } from '../pets';
 import type { OcrLine } from './attr-panel';
 import { petPanelLines } from './pet-panel-layout';
+import { resourcePanelLines } from './resource-panel';
 
 export type PetPatch = Partial<Omit<Pet, 'quality'>> & { quality?: Partial<Pet['quality']> };
 export interface PetPanelResult {
@@ -63,7 +64,7 @@ export function parsePetPanel(
             .join('|'),
         'g',
     );
-    const readable = petPanelLines(lines, rules).filter(
+    const readable = petPanelLines(resourcePanelLines(lines), rules).filter(
         (line) => (line.score ?? 1) >= 0.45 && line.height > 0,
     );
     for (const line of readable) {

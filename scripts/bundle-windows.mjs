@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { assertX64Binary, REQUIRED_CRT, validateWindowsResources } from './windows-runtime.mjs';
 
 if (process.platform !== 'win32' || process.arch !== 'x64') {
     throw new Error('当前安装包仅支持 Windows x64 构建');
@@ -12,7 +13,9 @@ const config = JSON.parse(fs.readFileSync(path.join(tauri, 'tauri.conf.json'), '
 const target = path.resolve(process.env.CARGO_TARGET_DIR || path.join(tauri, 'target'), 'release');
 const resources = {};
 for (const pattern of config.bundle.resources) {
-    for (const file of fs.globSync(pattern, { cwd: tauri })) {
+    const files = fs.globSync(pattern, { cwd: tauri });
+    if (files.length === 0) throw new Error(`安装资源未匹配任何文件：${pattern}`);
+    for (const file of files) {
         resources[path.resolve(tauri, file)] = file
             .replaceAll('\\', '/')
             .replaceAll('../', '_up_/');
@@ -44,11 +47,13 @@ for (const base of new Set(
 }
 const redist = redists
     .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
-    .find((dir) => fs.existsSync(path.join(dir, 'msvcp140_1.dll')));
+    .find((dir) => REQUIRED_CRT.every((name) => fs.existsSync(path.join(dir, name))));
 if (!redist) throw new Error('未找到 Visual Studio x64 VC++ 可再分发运行库');
 for (const file of fs.readdirSync(redist).filter((name) => name.endsWith('.dll'))) {
     resources[path.join(redist, file)] = file;
 }
+assertX64Binary(path.join(target, 'mh-toolbox-rs.exe'));
+validateWindowsResources(resources);
 console.log(
     `安装包附带 DirectML 与 ${Object.keys(resources).filter((file) => file.endsWith('.dll')).length - 1} 个 VC++ 运行库文件`,
 );
