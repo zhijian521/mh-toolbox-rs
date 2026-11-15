@@ -23,7 +23,7 @@ const { selectedFont } = useFontFamily();
     <LedgerSection title="关于" hint="版本 · 运行环境">
         <dl class="about">
             <dt>产品名</dt>
-            <dd>{{ info?.productName ?? '梦幻养老助手' }}（开发中）</dd>
+            <dd>{{ info?.productName ?? '梦幻养老助手' }}</dd>
             <dt>版本</dt>
             <dd>
                 <template v-if="info">{{ info.version }}</template>

@@ -137,6 +137,10 @@ export async function attach({ port = DEFAULT_PORT, timeout = 15000 } = {}) {
     await send('Page.enable');
     await send('Runtime.enable');
     await send('Log.enable');
+    // 长流程与重载会加载大量图标；默认 250 条会漏记懒加载模块的真实 URL。
+    const resourceTiming = 'performance.setResourceTimingBufferSize(10000)';
+    await send('Page.addScriptToEvaluateOnNewDocument', { source: resourceTiming });
+    await send('Runtime.evaluate', { expression: resourceTiming });
     /** 求值并返回值本身（不是 RemoteObject 包装）。 */
     const evaluate = async (expression, options = {}) => {
         const res = await send(
