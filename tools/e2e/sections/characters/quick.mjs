@@ -1,3 +1,4 @@
+import { uploadFixtureFiles } from './screenshot.mjs';
 import { importLoaded } from '../../cdp.mjs';
 import { checkButtonTheme } from './theme.mjs';
 
@@ -339,15 +340,7 @@ export async function quick(ctx) {
             ['pet-panel-prince.png', 10, '3606'],
             ['pet-panel-dog.png', 2, '601'],
         ]) {
-            await cdp.evaluate(`(async () => {
-                const response = await fetch('/tools/e2e/fixtures/' + ${JSON.stringify(file)});
-                if (!response.ok) throw new Error('召唤兽截图加载失败');
-                const transfer = new DataTransfer();
-                transfer.items.add(new File([await response.blob()], ${JSON.stringify(file)}, { type: 'image/png' }));
-                const input = document.querySelector('.pet-quick input[aria-label="召唤兽截图文件"]');
-                input.files = transfer.files;
-                input.dispatchEvent(new Event('change', { bubbles: true }));
-            })()`);
+            await uploadFixtureFiles(cdp, '.pet-quick input[aria-label="召唤兽截图文件"]', [file]);
             const filled = await ui.waitFor(
                 `document.querySelector('.pet-quick input[aria-label="召唤兽攻击"]').value === ${JSON.stringify(attack)} && document.querySelector('.pet-quick .pet-screenshot').getAttribute('aria-busy') === 'false'`,
                 { timeout: 60000 },

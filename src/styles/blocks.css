@@ -442,6 +442,8 @@
 /* 收益弹窗共用表单与流水表，列宽由各记录页决定。 */
 .income-form {
     display: grid;
+    /* 单列随容器收缩，不能让角色选项或输入框的固有宽度撑开整份表单。 */
+    grid-template-columns: minmax(0, 1fr);
     gap: 14px;
     min-width: 0;
     margin: 0;
@@ -622,4 +624,17 @@
     justify-content: start;
     gap: 12px;
     align-items: stretch;
+}
+
+/* 表单字段与双列分组；标签内容、校验与业务状态由使用方管理。 */
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+.form-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--form-pair-gap, 12px);
 }

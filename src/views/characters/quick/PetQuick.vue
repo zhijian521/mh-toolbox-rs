@@ -72,7 +72,7 @@ onMounted(() => focusInput(form, 'input[aria-label="召唤兽名称"]'));
                 <PetDetailForm v-model="pet" />
             </PetScreenshot>
         </div>
-        <p v-else class="note">这只召唤兽已经不在了。</p>
+        <p v-else class="note pet-missing-note">这只召唤兽已经不在了。</p>
 
         <template #footer>
             <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
@@ -102,7 +102,7 @@ onMounted(() => focusInput(form, 'input[aria-label="召唤兽名称"]'));
     min-width: 0;
     min-height: 0;
 }
-.note {
+.pet-missing-note {
     margin: 2px 0 0;
     color: var(--muted);
     font-size: var(--fs-mini);

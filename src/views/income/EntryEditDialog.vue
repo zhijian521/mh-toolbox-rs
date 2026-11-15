@@ -49,7 +49,7 @@ function submit() {
         <form class="income-form modal-form" @submit.prevent="submit">
             <fieldset class="income-form" :disabled="locked" :inert="locked">
                 <PriceField v-model="amount" :precision="2" label="金额" />
-                <div class="form-row">
+                <div class="entry-field">
                     <label class="field-label" :for="itemId">物品</label>
                     <input
                         :id="itemId"
@@ -60,7 +60,7 @@ function submit() {
                         autocomplete="off"
                     />
                 </div>
-                <div class="form-row">
+                <div class="entry-field">
                     <span class="field-label">记给谁</span>
                     <SelectField
                         v-model="who"
@@ -94,10 +94,10 @@ function submit() {
 </template>
 
 <style scoped>
-/* 标签在上、控件在下：`.field` 是通栏宽度，标签放在左侧会把它挤窄，
- * 而金额那一格（`PriceField`）本来就是「标签在上」的排法，两者要同一个节奏。 */
-.form-row {
+/* 垂直字段与金额控件保持一致，不覆盖全局横向 form-row。 */
+.entry-field {
     display: grid;
+    align-items: center;
     gap: 6px;
 }
 </style>

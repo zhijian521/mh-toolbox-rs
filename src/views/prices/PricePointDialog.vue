@@ -88,7 +88,7 @@ function onEnter(event: KeyboardEvent) {
                     @update:model-value="touched.date = true"
                 />
 
-                <label class="cell">
+                <label class="form-field cell">
                     <span class="field-label">备注（可空）</span>
                     <input
                         v-model="draft.note"
@@ -134,12 +134,6 @@ fieldset {
     display: flex;
     flex-direction: column;
     gap: 11px;
-}
-.cell {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
 }
 .cell input {
     width: 100%;

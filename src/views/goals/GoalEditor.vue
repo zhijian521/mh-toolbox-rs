@@ -199,10 +199,12 @@ function enter(event: KeyboardEvent) {
                         label="目标角色（多选）"
                         :disabled="locked"
                     />
-                    <p v-if="!memberOptions.length" class="note">暂无角色，请先到角色页新增。</p>
+                    <p v-if="!memberOptions.length" class="note member-note">
+                        暂无角色，请先到角色页新增。
+                    </p>
                 </section>
-                <div v-if="kind === 'growth'" class="pair">
-                    <label class="control"
+                <div v-if="kind === 'growth'" class="pair form-pair">
+                    <label class="form-field control"
                         ><span>养成分类</span
                         ><SelectField
                             :model-value="group"
@@ -211,7 +213,7 @@ function enter(event: KeyboardEvent) {
                             :disabled="locked"
                             @update:model-value="group = $event as MetricGroup"
                     /></label>
-                    <label class="control"
+                    <label class="form-field control"
                         ><span>项目</span
                         ><SelectField
                             v-model="metric"
@@ -221,7 +223,7 @@ function enter(event: KeyboardEvent) {
                             :disabled="locked"
                     /></label>
                 </div>
-                <label v-if="kind === 'manual'" class="control" :for="titleId">
+                <label v-if="kind === 'manual'" class="form-field control" :for="titleId">
                     <span>目标名称</span
                     ><input
                         :id="titleId"
@@ -244,7 +246,7 @@ function enter(event: KeyboardEvent) {
                     />
                 </label>
                 <div v-if="kind === 'money' || kind === 'manual'" class="unit-row">
-                    <div v-if="kind === 'money'" class="control">
+                    <div v-if="kind === 'money'" class="form-field control">
                         <span>单位</span
                         ><SegmentedPills
                             v-model="moneyUnit"
@@ -253,7 +255,7 @@ function enter(event: KeyboardEvent) {
                             label="金额单位"
                         />
                     </div>
-                    <label v-else-if="kind === 'manual'" class="control"
+                    <label v-else-if="kind === 'manual'" class="form-field control"
                         ><span>单位</span
                         ><input
                             v-model="unitInput"
@@ -274,7 +276,7 @@ function enter(event: KeyboardEvent) {
                 >
                     <summary>更多设置</summary>
                     <div class="extras">
-                        <label v-if="kind !== 'manual'" class="control" :for="titleId"
+                        <label v-if="kind !== 'manual'" class="form-field control" :for="titleId"
                             ><span>标题</span
                             ><input
                                 :id="titleId"
@@ -284,7 +286,7 @@ function enter(event: KeyboardEvent) {
                                 placeholder="留空自动生成"
                                 autocomplete="off"
                         /></label>
-                        <div class="control">
+                        <div class="form-field control">
                             <span>期限</span>
                             <div class="deadline-row">
                                 <DateField
@@ -301,7 +303,7 @@ function enter(event: KeyboardEvent) {
                                 />
                             </div>
                         </div>
-                        <label class="control" :for="noteId"
+                        <label class="form-field control" :for="noteId"
                             ><span>备注</span
                             ><input
                                 :id="noteId"
@@ -350,6 +352,9 @@ function enter(event: KeyboardEvent) {
     flex-direction: column;
     gap: 8px;
 }
+.member-note {
+    margin: 0;
+}
 .member-picker :deep(.pill-group) {
     max-width: 100%;
     flex-wrap: wrap;
@@ -370,17 +375,9 @@ function enter(event: KeyboardEvent) {
     margin-left: 4px;
     color: var(--muted);
 }
-.pair {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-}
 .control {
-    display: flex;
-    flex-direction: column;
     align-items: stretch;
     gap: 6px;
-    min-width: 0;
     color: var(--muted);
     font-size: var(--fs-sm);
 }
@@ -424,9 +421,6 @@ summary {
     flex-direction: column;
     gap: 12px;
     padding-top: 12px;
-}
-.note {
-    margin: 0;
 }
 .deadline-row {
     display: flex;

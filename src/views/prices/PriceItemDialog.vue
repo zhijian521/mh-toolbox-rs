@@ -145,7 +145,7 @@ const subErrorId = `item-sub-${useId()}`;
             @keydown.enter="onEnter"
         >
             <fieldset :disabled="locked" :inert="locked">
-                <label class="cell cell-wide">
+                <label class="form-field cell cell-wide">
                     <span class="field-label">物品名称</span>
                     <input
                         v-model="draft.name"
@@ -162,7 +162,7 @@ const subErrorId = `item-sub-${useId()}`;
                     }}</span>
                 </label>
 
-                <label class="cell">
+                <label class="form-field cell">
                     <span class="field-label">一级分类</span>
                     <SelectField
                         :model-value="draft.category"
@@ -173,7 +173,7 @@ const subErrorId = `item-sub-${useId()}`;
                     />
                 </label>
 
-                <label class="cell">
+                <label class="form-field cell">
                     <span class="field-label">二级分类</span>
                     <SelectField
                         v-if="!subCustom"
@@ -207,7 +207,7 @@ const subErrorId = `item-sub-${useId()}`;
                     <PriceField v-model="initialPrice" label="初始价（可空）" size="md" stepper />
                 </div>
 
-                <label class="cell" :class="{ 'cell-wide': !!item }">
+                <label class="form-field cell" :class="{ 'cell-wide': !!item }">
                     <span class="field-label">备注（可空）</span>
                     <input
                         v-model="draft.note"
@@ -251,12 +251,6 @@ fieldset {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 11px 13px;
-}
-.cell {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
 }
 .cell-wide {
     grid-column: 1 / -1;

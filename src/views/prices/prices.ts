@@ -1,30 +1,5 @@
-/**
- * 物价的字段契约、纯计算与序列化。
- *
- * ---- 这个文件为什么存在 ----
- * 物价页要在三个地方读同一份数据（卡片网格、走势面板、编辑表单），而「当前价是多少」
- * 「比上一条涨了几个点」这两件事必须只有一处算法：卡片与走势面板各算一遍，
- * 迟早给出两个价。所以规则全在这里，界面只负责画。
- *
- * ---- 为什么没有 `view` ----
- * 这里**不 import vue、不碰 DOM**。持有状态的是隔壁 `prices-store.ts`（模块级 `ref` +
- * `usePrices()`，与 `characters/roster.ts`、`use-theme.ts` 同一套写法）。
- * 拆开的理由与 `components/ghost/map-paint.ts` 从 `MapCanvas.vue` 里拆出去是同一条
- * （CONVENTIONS §2.2 那条「一个文件只回答一个问题」）：这里答「数据长什么样、怎么算」，
- * store 答「谁持有它、什么时候落盘」。顺带的好处是这一层能直接被单测覆盖，
- * 不必拉起 Vue 运行时。
- *
- * ---- 当前价由历史派生，不单独存 ----
- * 老系统（`mh-tool/src/renderer/domain/prices.js:8-10`）立的第一条规矩：
- * 一件物品只存价格历史，当前价取最新一条。两处各存一份，迟早出现卡上的价与历史
- * 最后一条对不上，而且**没有任何办法判断哪一份是对的**。这里照搬：`PriceItem` 上
- * 没有 `price` 字段，`currentPoint()` 现算。
- *
- * ---- 量纲：只存游戏币原值 ----
- * `price` 一律是原始数（15000 表示 1.5 万），显示时才折算万 / 亿（`priceLabel`）。
- * 把「1.5」和「万」拆开存，等于让每一处读取都得记得乘回去；一旦某天要换成「亿」，
- * 全部历史记录都要批量改。
- */
+/** 物价字段、归一与纯计算；状态和持久化在 prices-store.ts。
+ * 当前价由历史派生，金额保存游戏币原值，显示时再换算万 / 亿。 */
 /* 金额与日期的写法全站只有一份，在 `services/format.ts`——收益页也要 `moneyText` /
  * `todayText`，放在这一页会让另一页反向依赖物价模块。 */
 import { isDayText, moneyText, shortDate, todayText } from '../../services/format';
@@ -106,14 +81,7 @@ export interface PricePointDraft {
     note: string;
 }
 
-/**
- * 涨跌方向。
- *
- * **涨红跌绿是国内的读法，与欧美股市相反**（那边红是跌）。这一页的读者是国服玩家，
- * 摆摊报价涨了就是「贵了」，因此：涨用朱砂（`--cinnabar`），跌用墨绿（`--moss`），
- * 持平用次级墨（`--muted`）。这条口径写死在 `toneOf` 里，配色由三个组件各自引令牌，
- * 谁都不许反着来——反过来读的人会把整张表看反。
- */
+/** 涨用朱砂、跌用墨绿、持平用次级墨；各视图共用 toneOf 的方向。 */
 export type PriceTone = 'up' | 'down' | 'flat';
 
 export interface PriceChange {
@@ -138,28 +106,12 @@ export interface PriceFilter {
     keyword: string;
     /** 一级分类，空串 = 不限。 */
     category: string;
-    /**
-     * 二级分类，空串 = 不限。
-     *
-     * 一级与二级是两个独立的下拉（用户定的），所以这里不能只存一级再「包含其所有二级」：
-     * 一级为空、二级有值时是合法组合吗——不是，界面上二级在一级为「全部」时是禁用的。
-     * 但这一层不替界面兜底：两个条件各自成立就各自过滤，空串跳过。
-     * 数据里的 `sub` 允许为空（只知道大类、还没细分的卡），所以「筛某个二级」时
-     * 那些没填二级的卡自然不出现——这正是筛选该有的意思。
-     */
+    /** 二级分类空串为不限；两级筛选分别生效，未填写二级的条目不匹配具体二级。 */
     sub: string;
     sort: PriceSort;
 }
 
-/* ======================================================================
- * 基础兜底：未知值 → 契约里的形状
- *
- * `isObject` / `text` / `stamp` / `rows` / `makeId` 2026-11-03 提到
- * `src/services/shape.ts`：名册那边有一份逐字相同的（第三个页面一开工就会变三份）。
- * 这里只留**物价自己的**字段语义——日期校验与「0 表示没记价」的解释（`dateText` / `amount`）。
- * `amount` 一度也搬去了那边，2026-11-04 挪了回来：它只有物价页一个消费方，而它编码的
- * 是物价的语义（0 = 没记价），按 `shape.ts` 头注释的划法属于这一侧。
- * ==================================================================== */
+/** 归一使用 services/shape.ts 的基础工具；物价特有日期与金额语义留在本模块。 */
 
 /**
  * 价格：有限正数，保留两位小数；认不出的按 0。
@@ -187,16 +139,8 @@ const dateText = (value: unknown): string => {
  * 读数：当前价、涨跌、显示口径
  * ==================================================================== */
 
-/**
- * 历史按「日期倒序、同一天后记的在前」排好再给界面。
- *
- * 每条读取都先过这里，所以界面里**不许**再出现 `.sort()`：日期字符串是 `YYYY-MM-DD`，
- * 直接按字典序比较就等价于按时间比较，不需要 `Date`——这也顺手绕开了「时区把日期挪一天」。
- *
- * **同一日期的一组里，`createdAt` 最大的那条排最前**（也就是「最后记的那一笔」）。
- * 于是「当前价」= 今天最后一次记的价，而不是「今天第一次」。
- * 卡片与历史窗用 computed 保存本次排序，传给各派生函数复用；不跨数据版本缓存。
- */
+/** 日期倒序，同日按 createdAt 倒序；YYYY-MM-DD 按字典序比较，避免时区换日。
+ * 调用方可复用当前版本的排序结果，不跨数据版本缓存。 */
 export function sortedPoints(item: PriceItem): PricePoint[] {
     return item.points
         .slice()
@@ -229,13 +173,7 @@ export function recentPrices(
         .map((point) => point.price);
 }
 
-/**
- * 走势面板的柱图要的数：最多 N 条，时间正序。
- *
- * 上限存在的理由与卡片那根线不同：这里不是「点太密看不清」，而是「一屏放不下十年的账」。
- * 超过上限时**图只画最近 40 条**，所以调用方必须把总条数一起交出去（`PriceChart` 的
- * `total`），否则读屏会听到「共 40 次记录」而同屏抬头写着「120 条记录」。
- */
+/** 图表仅截取最近 N 条并按时间正序展示；总条数独立传给图表，不能把截取条数当总数。 */
 export function chartPrices(
     item: PriceItem,
     limit = CHART_LIMIT,
@@ -254,23 +192,8 @@ function toneOf(delta: number): PriceTone {
     return 'flat';
 }
 
-/**
- * 涨跌：与**上一条不同日期**的记录比；全部记录都落在同一天时退回上一条。
- *
- * 为什么不是死板地「跟紧挨着的那一条比」：一天内记两次价是常态（先记个大概价、
- * 回头核实再改），两条都在今天时，跟紧邻那条比出来的只是「我今天改过一次数」，
- * 报成涨跌会让人以为行情动了。跨天时基准仍是上一个不同日期，同一天补记不会把
- * 跨天涨跌冲掉。**不足两条返回 `null`**——一条记录谈不上涨跌，界面不挂徽章。
- *
- * 与老系统 `priceChange` 同一条口径（`prices.js:116-144`）。
- *
- * ---- 两个已知后果，写在这里免得被当成 bug 修 ----
- * 1. 同一日期的一组里，基准取 `createdAt` **最新**的那一条（`sortedPoints` 的次序）。
- *    所以「今天记了三次」时，比的是今天最后一次与上个不同日期。
- * 2. **补记一条旧日期的价会改掉徽章**：徽章的基准是「最新的那条」自己找出来的，
- *    补上一条昨天的记录之后，昨天的价就成了基准，今天的涨幅跟着变。这是「当前价由
- *    历史派生」这条设计的必然代价，不是缓存没刷。
- */
+/** 徽章比较上一个不同日期的最新记录；全部同日时退回上一笔，不足两笔返回 null。
+ * 补记旧日期会改变比较基准，这是当前价从历史派生的结果。 */
 export function priceChange(
     item: PriceItem,
     list: readonly PricePoint[] = sortedPoints(item),
@@ -292,17 +215,7 @@ export function priceChange(
     };
 }
 
-/**
- * 历史列表里某一行的涨跌：跟**紧挨着的下一条（更早的那条）**比。
- *
- * **与 `priceChange` 不是一个问题，两个答案都对**：徽章答「行情相对上一个交易日动了多少」，
- * 这一列答「这一笔比上一笔多了多少」。同一天记了两次时，首行可能写 `+10`，而徽章写
- * 「较 11-02 涨 25%」——不是矛盾，是「今天改过一次数」与「这个月涨了多少」。
- * 界面要给首行加 `title` 说明基准（见 `PriceHistoryDialog.vue` 的 `rows`），否则读的人
- * 会以为算错了。
- *
- * 最早那一行没有更早的记录可比，返回 `null`（显示「起点」）。
- */
+/** 历史行与紧邻的更早一笔比较，最早一笔返回 null；与跨日期的徽章基准不同，界面需说明口径。 */
 export function pointDelta(sorted: PricePoint[], index: number): number | null {
     const previous = sorted[index + 1];
     if (!previous) return null;
@@ -323,13 +236,7 @@ export function percentText(ratio: number): string {
     return (percent < 10 ? Number(percent.toFixed(1)) : Math.round(percent)) + '%';
 }
 
-/**
- * 一句完整的涨跌话：跟谁比、差多少、差几个百分点。
- *
- * 例：「较 11-02 涨 1.5 万（5.2%）」「与同日上一条同价」。
- * 这句话原先在 `PriceCard` 的徽章 `title` 与 `PriceHistoryDialog` 的抬头里**各拼一遍**，
- * 句式还不一样（一处带百分比、一处不带）。口径只该有一个，两处都引这里。
- */
+/** 卡片与历史窗口共用涨跌说明，包含比较基准、金额与百分比。 */
 export function changeSentence(change: PriceChange): string {
     /* 「同日上一条」五个字夹在 `较 … 涨` 中间会被空格切碎：「较 同日上一条 涨 2000」。
      * 换成「上一次」这五个字就顺了；日期那一支仍保留两侧空格（「较 11-01 涨 2000」），
@@ -351,16 +258,7 @@ export interface PriceBadge {
     title: string;
 }
 
-/**
- * 卡片的涨跌徽章。不足两条记录时为 `null`——一条记录谈不上涨跌，界面不挂徽章。
- *
- * 徽章只放**一个**数：有百分比就放百分比，没有（基准价为 0）才退回金额。
- * 完整那句话放 `title`，与历史弹窗抬头引的是同一个 `changeSentence`。
- *
- * 这段原先写在 `PriceCard.vue` 的 `computed` 里。搬出来的理由不是「代码长」，
- * 而是它属于「物价怎么读」这件事——同一套口径还会被收益页、总览页用上，
- * 留在某一个组件的 setup 里，下一页就得再抄一遍。
- */
+/** 不足两笔不显示徽章；优先显示百分比，基准为零时显示金额，完整说明放 title。 */
 export function priceBadge(
     item: PriceItem,
     points: readonly PricePoint[] = sortedPoints(item),
@@ -399,13 +297,7 @@ export function updateSummary(
  * 归一：来的东西一律先过这一层
  * ==================================================================== */
 
-/**
- * 一条来路不明的记录 → 合法的 `PricePoint`，认不出返回 `null`（整条丢掉）。
- *
- * 与老系统不同的是这里**不留空壳**：老版把坏记录补成 `{ date: '', price: 0 }` 留着，
- * 结果历史列表里多出一行「— 「—」」，用户既看不出那是坏数据，也没有入口修它。
- * 一条日期不可读或价格不为正的价格记录没有任何信息——丢掉是唯一诚实的处理。
- */
+/** 归一价格记录；无有效日期或价格不为正时返回 null，不保留无信息的空壳。 */
 function normalizePoint(raw: unknown): PricePoint | null {
     if (!isObject(raw)) return null;
     const date = dateText(raw.date);
@@ -420,17 +312,8 @@ function normalizePoint(raw: unknown): PricePoint | null {
     };
 }
 
-/**
- * 一条来路不明的物品 → 合法的 `PriceItem`。**永不抛错**，字段缺什么补什么。
- *
- * 兜底的原则（照 `roster.ts` 的 `normalizeCharacter`）：**缺什么补什么、坏条目单条丢掉**。
- * 它失败的方式很特别——只在重启之后才出错，而那时页面已经挂载完，一行
- * `undefined is not iterable` 就是整页白屏，报错里也看不出是哪一件物品的哪一格。
- *
- * 分类走两级推断：存下来的 `category` 在目录里、且有 `sub` 字段（哪怕是空串）就照用；
- * 否则交给 `legacyPriceSlot` 按名称与旧分类名推一次。推过之后字段就存在了，
- * 用户再改成什么样都不会被推回去。
- */
+/** 归一物品时补缺失字段、隔离坏记录。
+ * 分类已合法且存在 sub 字段时保留原值，否则按旧分类和名称推断，避免反复覆盖用户选择。 */
 export function normalizePriceItem(raw: unknown): PriceItem {
     const item = isObject(raw) ? raw : {};
     const name = text(item.name) || '未命名物品';
@@ -528,21 +411,7 @@ export function toPointDraft(point: PricePoint): PricePointDraft {
     return { date: point.date, price: point.price, note: point.note };
 }
 
-/**
- * 换了一级分类之后，旧的二级还留不留。
- *
- * 二级是用户自己写的，换一级之后它可能**属于另一块行情**：从「宝石符石」改到
- * 「装备灵饰」，子类仍写「宝石」——卡上的小签照旧印「宝石」，而它已经归在装备那一块，
- * 筛选、搜索、`subsHint` 三处立刻互相矛盾。这不是观感问题，是数据不一致。
- *
- * 规则：**旧二级在新一级的名单里就留着，不在就清空**。
- * - 「不在名单里」不等于「乱写的」——用户自造的二级（比如「三药·秘方」）照样会被清掉，
- *   因为它本来就是在旧一级的语境下起的名字；换了一级，重新写一个更省事。
- * - 反过来，换到一个仍然认识这个词的一级（「宝石」在「宝石符石」里）就留着，
- *   用户只是想挪个位置，不该逼他重打一遍。
- *
- * 空二级永远合法（只知道大类、还没细分），所以清空不会造出非法数据。
- */
+/** 切换一级分类时，仅保留新分类允许的二级，包含自定义名称也按此规则；空二级始终合法。 */
 export function retuneSub(sub: string, category: string): string {
     const current = sub.trim();
     if (!current) return '';
@@ -558,14 +427,7 @@ export interface PriceItemErrors {
     sub: string;
 }
 
-/**
- * 物品表单校验。
- *
- * 返回**逐格**的错误而不是抛第一个错：名字与二级分类是两个格子，抛一个错就只能
- * 在表单顶上飘一行字，用户得自己找是哪一格。返回结构化结果，表单把话挂到各自脚下。
- * 与老系统不同的一点：这里不抛异常——`throws` 在纯函数层没法被类型约束住，
- * 而调用方（表单）本来就要逐格校验。
- */
+/** 返回逐字段错误供表单就近展示，不抛出首个错误中断其余字段校验。 */
 export function itemDraftErrors(draft: { name: string; sub: string }): PriceItemErrors {
     const name = draft.name.trim();
     return {

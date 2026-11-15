@@ -1,3 +1,4 @@
+import { uploadFixtureFiles } from './screenshot.mjs';
 import { importLoaded } from '../../cdp.mjs';
 import petSamples from '../../fixtures/pet-panel-cases.json' with { type: 'json' };
 
@@ -127,15 +128,7 @@ export async function pets(ctx) {
         );
 
         await ui.clickText('.ocr-tabs button', '属性', { exact: true });
-        await cdp.evaluate(`(async () => {
-            const response = await fetch('/tools/e2e/fixtures/pet-panel.png');
-            if (!response.ok) throw new Error('召唤兽截图样本加载失败');
-            const transfer = new DataTransfer();
-            transfer.items.add(new File([await response.blob()], 'pet-panel.png', { type: 'image/png' }));
-            const input = document.querySelector('.ocr-standard .upload-file');
-            input.files = transfer.files;
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-        })()`);
+        await uploadFixtureFiles(cdp, '.ocr-standard .upload-file', ['pet-panel.png']);
         const recognized = await ui.waitFor(
             `document.querySelector('.pet-block input[aria-label="召唤兽攻击"]')?.value === '2016' && document.querySelector('.pet-screenshot')?.getAttribute('aria-busy') === 'false'`,
             { timeout: 30000 },

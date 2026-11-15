@@ -167,7 +167,7 @@ function submit() {
             <fieldset class="income-form" :disabled="locked" :inert="locked">
                 <!-- 币种单独一行、排在最前：它决定下面「金额」那一格说的是元还是万，
                  放到后面等于让人先填一个数、再回头发现单位错了。 -->
-                <div class="form-row">
+                <div class="account-field">
                     <span class="field-label">币种</span>
                     <SegmentedPills
                         v-model="currency"
@@ -177,7 +177,7 @@ function submit() {
                     />
                 </div>
 
-                <div class="form-row amount-row">
+                <div class="account-field amount-row">
                     <span class="field-label">金额（{{ unit }}）</span>
                     <!-- 元、万两种输入都最多保留两位小数。 -->
                     <NumberField
@@ -191,8 +191,8 @@ function submit() {
                     />
                 </div>
 
-                <div class="pair">
-                    <div class="form-row">
+                <div class="pair form-pair">
+                    <div class="account-field">
                         <span class="field-label">方向</span>
                         <SegmentedPills
                             v-model="kind"
@@ -201,14 +201,14 @@ function submit() {
                             :disabled="locked"
                         />
                     </div>
-                    <div class="form-row">
+                    <div class="account-field">
                         <span class="field-label">日期</span>
                         <DateField v-model="date" label="记账日期" :disabled="locked" />
                     </div>
                 </div>
 
-                <div class="pair">
-                    <div class="form-row">
+                <div class="pair form-pair">
+                    <div class="account-field">
                         <span class="field-label">分类</span>
                         <SelectField
                             v-model="category"
@@ -217,7 +217,7 @@ function submit() {
                             :disabled="locked"
                         />
                     </div>
-                    <div class="form-row">
+                    <div class="account-field">
                         <span class="field-label">渠道</span>
                         <SelectField
                             v-model="channel"
@@ -228,7 +228,7 @@ function submit() {
                     </div>
                 </div>
 
-                <div class="form-row">
+                <div class="account-field">
                     <span class="field-label">角色</span>
                     <SelectField
                         v-model="characterId"
@@ -238,7 +238,7 @@ function submit() {
                     />
                 </div>
 
-                <div class="form-row">
+                <div class="account-field">
                     <label class="field-label" :for="noteId">备注</label>
                     <input
                         :id="noteId"
@@ -287,16 +287,15 @@ function submit() {
 }
 /* 标签在上、控件在下：`.field` 是通栏宽度，标签放左侧会把它挤窄；
  * 而 `SegmentedPills` 一组的宽度是按内容走的，两者同一个节奏。 */
-.form-row {
+.account-field {
     display: grid;
+    align-items: center;
     gap: 4px;
 }
 /* 两列配对：方向与日期、分类与渠道。这两对的宽度需求相近，并排能少两行；
  * `minmax(0, 1fr)` 让长分类名（「召唤兽交易」）自己截断而不是把整格撑宽。 */
 .pair {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    --form-pair-gap: 10px;
 }
 .entry-detail {
     display: grid;

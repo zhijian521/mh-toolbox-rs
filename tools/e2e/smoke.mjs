@@ -32,7 +32,7 @@ try {
     console.error(error.message);
     process.exit(2);
 }
-const { want, characterSteps } = selection;
+const { want, characterSteps, ocrScenarios, equipmentScenarios } = selection;
 
 let cdp;
 try {
@@ -62,6 +62,8 @@ const ctx = {
     t,
     want,
     characterSteps,
+    ocrScenarios,
+    equipmentScenarios,
     sleep,
     baseline: { chars: null, prices: null, quickPricedByTest: false },
     snap: null,

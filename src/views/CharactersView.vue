@@ -296,7 +296,7 @@ useRouteAction('/characters', {
 </template>
 
 <style scoped>
-/* 名册卡片与空位共用 tokens.css 的 --char-w / --char-h（420 × 620）。
+/* 名册卡片与空位共用 tokens.css 的 --char-w / --char-h（420 × 640）。
  * 修改窗右栏另用 --char-editor-w 分配宽度，这里只维护名册排法。 */
 .roster {
     display: flex;

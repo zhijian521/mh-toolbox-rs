@@ -81,7 +81,7 @@ git blame，收益低于成本。其余约定：
 23. 说明、备注与小签使用既有 note / muted / tag 语义，不增设同义组件。
 24. 卡内页签使用 SteppedSlider 的 tab 模式；保持分区语义、焦点与方向键行为。
 25. 锚定浮层落位统一由 useAnchoredTip 管理，包含翻向、贴边与视口约束。
-26. 表单用 .field，数字用 NumberField；需要即时保存条件时启用 update-on-input。空数值不添加占位提示。
+26. 表单控件用 .field，数字用 NumberField；横向行用 .form-row，垂直字段用 .form-field，双列组用 .form-pair。需要即时保存条件时启用 update-on-input，空数值不添加占位提示。
 27. 进度使用专用进度组件，不把 SteppedSlider 当进度条。
 28. 空态区分未配置与读数为零；使用既有空态提示或禁用样式，不留下无意义白框。
 29. 游戏固定属性与技能结构由规则定义，表单只填值；不增加无效的新增、删除或上限输入。

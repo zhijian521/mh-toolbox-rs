@@ -189,10 +189,11 @@ const submitText = computed(() => {
     <ModalShell :title="title" :width="420" :scroll="false" @close="close">
         <form class="income-form modal-form" @submit.prevent="submit">
             <fieldset class="income-form" :disabled="locked" :inert="locked">
-                <div class="form-row">
+                <div class="online-field">
                     <span class="field-label">记给谁</span>
                     <TogglePills
                         v-model="ids"
+                        class="wrap"
                         :options="options"
                         label="选择在线的角色"
                         radius="sm"
@@ -204,7 +205,7 @@ const submitText = computed(() => {
                 </div>
 
                 <template v-if="mode !== 'start'">
-                    <div class="form-row">
+                    <div class="online-field">
                         <DateField
                             v-model="date"
                             label="日期"
@@ -212,10 +213,10 @@ const submitText = computed(() => {
                             :disabled="locked"
                         />
                     </div>
-                    <div class="times">
+                    <div class="times form-pair">
                         <TimeField v-model="startTime" label="开始" />
                         <TimeField v-if="mode === 'backfill'" v-model="endTime" label="结束" />
-                        <div v-else class="form-row end-time">
+                        <div v-else class="online-field end-time">
                             <span class="field-label">结束</span>
                             <output class="field time-readout" aria-label="结束时刻">
                                 {{ session?.endAt ? timeText(session.endAt) : '计时中' }}
@@ -227,7 +228,7 @@ const submitText = computed(() => {
                     </p>
                 </template>
 
-                <div class="form-row">
+                <div class="online-field">
                     <label class="field-label" :for="noteId">备注</label>
                     <input
                         :id="noteId"
@@ -279,15 +280,17 @@ const submitText = computed(() => {
 </template>
 
 <style scoped>
-.form-row {
+.online-field {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
     gap: 6px;
+    min-width: 0;
 }
-
-.times {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+.online-field :deep(.bevel-pill) {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .times :deep(.time-input) {

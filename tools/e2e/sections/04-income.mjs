@@ -853,6 +853,24 @@ export default async function run(ctx) {
             );
             if (!opened) throw new Error('补记窗没打开');
 
+            const formFit = await cdp.evaluate(`(() => {
+                const panel = document.querySelector('[role="dialog"]');
+                const boundary = panel.getBoundingClientRect();
+                return [...panel.querySelectorAll('.income-form, .online-field, .pill-group, .bevel-pill, .date-field, .times, .time-input, input[maxlength="40"]')]
+                    .filter((one) => one.getClientRects().length)
+                    .map((one) => {
+                        const rect = one.getBoundingClientRect();
+                        return { selector: one.className, left: rect.left, right: rect.right,
+                            fits: rect.left >= boundary.left && rect.right <= boundary.right &&
+                                one.scrollWidth <= one.clientWidth + 1 };
+                    });
+            })()`);
+            t.check(
+                '补记角色选项、日期、时刻与备注均在弹窗内，无横向溢出',
+                formFit.length > 0 && formFit.every((one) => one.fits),
+                JSON.stringify(formFit),
+            );
+
             const hasWho = await cdp.evaluate(
                 `!!document.querySelector('[role="dialog"] .pill-group button')`,
             );
