@@ -34,7 +34,7 @@ import { countdownText, nextReminder, repeatText, type AlarmLike } from './alarm
  */
 const props = defineProps<{
     alarm: AlarmLike;
-    /** 当前时刻。由页面每 30 秒刷新一次，倒计时才会走。 */
+    /** 当前时刻。由共享分钟时钟刷新，倒计时才会走。 */
     now: Date;
 }>();
 

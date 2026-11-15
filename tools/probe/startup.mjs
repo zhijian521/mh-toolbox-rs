@@ -10,27 +10,25 @@
  *      环境初始化。这一段由 Tauri 与 WebView2 决定，前端再快也压不动。
  *   2. **导航开始 → FCP**：解析 HTML、跑 JS、首次绘制。前端产物大小与启动期同步工作
  *      直接体现在这里。
- *   3. **FCP → 字体就位**：`font-display: swap` 让文字先用回退字体画出来，10MB 字体
- *      在后台下载解析完再重排一次。这一段不改前端产物大小就不会变，**但它决定
- *      「字什么时候长得对」**，是一段肉眼可见、却不被 FCP 覆盖的等待。
+ *   3. **导航开始 → 字体资源完成**：记录字体请求的 responseEnd；解析和实际应用另以
+ *      采样时的 FontFaceSet 状态确认。它可能早于 FCP，不代表精确的字体应用时刻。
  *
- * 三段相加才有意义：只报 FCP 会漏掉字体那段，只报总和则不知道该往哪优化。
+ * 前两段相加为进程到 FCP；第三项与绘制并行，不能再相加。`--out <文件>` 保留原始采样。
  *
  * 几个必须注意的点：
  *
- * - **先杀残留实例**。上一版进程活着时占着 `%LOCALAPPDATA%\com.zhijian.mhtoolbox.rs\EBWebView`，
- *   新进程会直接失败或等锁，量出来的数字毫无意义。
+ * - **先正常退出现有实例**。探针拒绝与已有应用同时测量，只结束自己启动的进程树。
  * - **调试端口靠环境变量传**。发布构建的代码里不传 `--remote-debugging-port`，
  *   只有 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` 能生效。
  * - **`t0` 用 `Date.now()` 在 spawn 之前取**，而页面里的 `performance.timeOrigin` 是
  *   导航开始的 epoch 毫秒，两者相减才有第一段的真实值。拿 `performance.timing`
  *   算不出进程启动前的耗时——它根本不知道进程什么时候被创建。
- * - **重复跑时先冷却**。WebView2 的 profile 是热的（缓存、首次运行检查都过了），
- *   所以第 2 次以后必然更快；报「第一次」和「稳态」两个数，别拿稳态冒充冷启动。
+ * - **首次采样不等于系统冷启动**。报告保留每轮原始数据并取有效样本中位数；新建 profile
+ *   仍可能命中系统文件缓存，不能用单次结果声称冷启动提速。
  */
 
-import { spawn, execSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { spawn, execFileSync } from 'node:child_process';
+import { existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const argv = process.argv.slice(2);
@@ -44,6 +42,7 @@ const runs = Number(arg('runs', '3'));
 const hash = arg('hash', '');
 const cdpPort = arg('port', '9224');
 const settleMs = Number(arg('settle', '1500'));
+const output = arg('out', '');
 /**
  * 追加给 WebView2 的参数，逗号分隔。
  *
@@ -120,24 +119,42 @@ const PROBE = `(() => {
         fontBytes: font ? font.decodedBodySize : 0,
         resCount: res.length,
         resBytes: res.reduce((s, r) => s + (r.decodedBodySize || 0), 0),
-        fontReady: document.fonts.check('12px "LXGW WenKai Screen"'),
+        fontReady: document.fonts.status === 'loaded' &&
+            [...document.fonts].some((face) => face.status === 'loaded'),
+        fontFamily: getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim(),
+        pageReady: !!document.querySelector('main.app .page-content') &&
+            !document.querySelector('.app-startup'),
         href: location.href,
         nodes: document.querySelectorAll('*').length,
     };
 })()`;
 
-function killLeftovers() {
+function assertNoInstance() {
+    if (process.platform !== 'win32') return;
+    const list = execFileSync(
+        'tasklist.exe',
+        ['/FI', 'IMAGENAME eq mh-toolbox-rs.exe', '/FO', 'CSV', '/NH'],
+        { encoding: 'utf8' },
+    );
+    if (list.toLowerCase().includes('"mh-toolbox-rs.exe"')) {
+        throw new Error('已有应用实例正在运行，请先正常退出再测量');
+    }
+}
+
+function stopChild(child) {
+    if (child.exitCode !== null) return;
     try {
-        execSync('taskkill /F /IM mh-toolbox-rs.exe', { stdio: 'ignore' });
+        if (process.platform === 'win32') {
+            execFileSync('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
+                stdio: 'ignore',
+            });
+        } else child.kill();
     } catch {
-        /* 没有残留就是好事 */
+        /* 进程已退出时无需清理。 */
     }
 }
 
 async function once(index) {
-    killLeftovers();
-    await sleep(300);
-
     const url = `http://localhost/index.html${hash}`;
     const spawnArgs = hash ? [url] : [];
     const t0 = Date.now();
@@ -151,49 +168,54 @@ async function once(index) {
         detached: false,
     });
 
-    const target = await findTarget(t0 + 30000);
-    if (!target) {
-        child.kill();
-        throw new Error('30s 内没等到 WebView2 的调试端口');
+    let cdp;
+    try {
+        const target = await findTarget(t0 + 30000);
+        if (!target) {
+            throw new Error('30s 内没等到 WebView2 的调试端口');
+        }
+        const tTarget = Date.now();
+
+        cdp = connect(target.webSocketDebuggerUrl);
+        await cdp.open;
+        await cdp.send('Runtime.enable');
+        // 字体是异步的：先等 `document.fonts.ready`，否则量到的是「回退字体已就位」。
+        await cdp.send('Runtime.evaluate', {
+            expression: 'document.fonts.ready.then(() => true)',
+            awaitPromise: true,
+            returnByValue: true,
+        });
+        await sleep(settleMs);
+        const out = await cdp.send('Runtime.evaluate', {
+            expression: PROBE,
+            returnByValue: true,
+        });
+        const m = out.result?.result?.value ?? {};
+        return {
+            run: index,
+            '进程→导航': m.timeOrigin ? Math.round(m.timeOrigin - t0) : null,
+            '导航→FCP': m.fcp ? Math.round(m.fcp) : null,
+            '导航→FP': m.fp ? Math.round(m.fp) : null,
+            '导航→字体资源完成': m.fontEnd ? Math.round(m.fontEnd) : null,
+            '导航→load': m.load ? Math.round(m.load) : null,
+            调试端口出现: tTarget - t0,
+            字体字节: m.fontBytes,
+            资源总字节: m.resBytes,
+            请求数: m.resCount,
+            节点数: m.nodes,
+            字体已生效: m.fontReady,
+            字体族: m.fontFamily,
+            页面已就绪: m.pageReady,
+            href: m.href,
+        };
+    } finally {
+        cdp?.ws.close();
+        stopChild(child);
+        await sleep(300);
     }
-    const tTarget = Date.now();
-
-    const cdp = connect(target.webSocketDebuggerUrl);
-    await cdp.open;
-    await cdp.send('Runtime.enable');
-    // 字体是异步的：先等 `document.fonts.ready`，否则量到的是「回退字体已就位」。
-    await cdp.send('Runtime.evaluate', {
-        expression: 'document.fonts.ready.then(() => true)',
-        awaitPromise: true,
-        returnByValue: true,
-    });
-    await sleep(settleMs);
-    const out = await cdp.send('Runtime.evaluate', {
-        expression: PROBE,
-        returnByValue: true,
-    });
-    const m = out.result?.result?.value ?? {};
-    cdp.ws.close();
-    child.kill();
-    await sleep(300);
-
-    return {
-        run: index,
-        '进程→导航': m.timeOrigin ? Math.round(m.timeOrigin - t0) : null,
-        '导航→FCP': m.fcp ? Math.round(m.fcp) : null,
-        '导航→FP': m.fp ? Math.round(m.fp) : null,
-        '导航→字体就位': m.fontEnd ? Math.round(m.fontEnd) : null,
-        '导航→load': m.load ? Math.round(m.load) : null,
-        调试端口出现: tTarget - t0,
-        字体字节: m.fontBytes,
-        资源总字节: m.resBytes,
-        请求数: m.resCount,
-        节点数: m.nodes,
-        字体已生效: m.fontReady,
-        href: m.href,
-    };
 }
 
+assertNoInstance();
 const rows = [];
 for (let i = 1; i <= runs; i++) {
     process.stdout.write(`第 ${i} 次…\n`);
@@ -214,8 +236,22 @@ console.log(cols.map((c) => '-'.repeat(width(c))).join('  '));
 for (const r of rows) console.log(cols.map((c) => pad(r[c] ?? '', width(c))).join('  '));
 
 const first = rows[0];
-const steady = rows.length > 1 ? rows[rows.length - 1] : null;
-console.log(`\n首次启动：进程→FCP ≈ ${(first['进程→导航'] ?? 0) + (first['导航→FCP'] ?? 0)}ms`);
-if (steady && rows.length > 1) {
-    console.log(`稳态启动：进程→FCP ≈ ${(steady['进程→导航'] ?? 0) + (steady['导航→FCP'] ?? 0)}ms`);
+const total = (row) =>
+    row['进程→导航'] !== null && row['导航→FCP'] !== null
+        ? row['进程→导航'] + row['导航→FCP']
+        : null;
+const valid = rows
+    .map(total)
+    .filter((value) => value !== null)
+    .sort((a, b) => a - b);
+const median = valid.length
+    ? (valid[Math.floor((valid.length - 1) / 2)] + valid[Math.floor(valid.length / 2)]) / 2
+    : null;
+console.log(`\n首次采样：进程→FCP ${total(first) === null ? '缺失' : `≈ ${total(first)}ms`}`);
+console.log(`有效采样中位数：进程→FCP ${median === null ? '缺失' : `≈ ${median}ms`}`);
+if (output) {
+    writeFileSync(
+        resolve(output),
+        JSON.stringify({ exe, rows, medianProcessToFcp: median }, null, 2),
+    );
 }

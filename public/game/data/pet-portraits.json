@@ -19,9 +19,7 @@
             "resourcePath": "newphoto/npc50/2001.tcp",
             "resourceMd5": "f969ccc186dedf6b1059662d305b9844",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2501"
-            ]
+            "aliases": ["pet-2501"]
         },
         {
             "id": "pet-2002",
@@ -33,10 +31,7 @@
             "resourcePath": "newphoto/npc50/2002.tcp",
             "resourceMd5": "09eff30d570e844b1a66132c713832d0",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2502",
-                "portrait-0f3d38d7c74b5088"
-            ]
+            "aliases": ["pet-2502", "portrait-0f3d38d7c74b5088"]
         },
         {
             "id": "pet-2004",
@@ -48,9 +43,7 @@
             "resourcePath": "newphoto/npc50/2004.tcp",
             "resourceMd5": "30204ca0bcfe01c2cb2cb738dc960c7d",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12032"
-            ]
+            "aliases": ["pet-12032"]
         },
         {
             "id": "pet-2005",
@@ -74,10 +67,7 @@
             "resourcePath": "newphoto/npc50/2006.tcp",
             "resourceMd5": "240037c7790422c54dfbd6f91b320f5f",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2506",
-                "portrait-991f818b932c6eee"
-            ]
+            "aliases": ["pet-2506", "portrait-991f818b932c6eee"]
         },
         {
             "id": "pet-2007",
@@ -89,10 +79,7 @@
             "resourcePath": "newphoto/npc50/2007.tcp",
             "resourceMd5": "6ec7da90941250e412d044918eac1924",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2507",
-                "portrait-34275a011ae2f5b4"
-            ]
+            "aliases": ["pet-2507", "portrait-34275a011ae2f5b4"]
         },
         {
             "id": "pet-2008",
@@ -116,10 +103,7 @@
             "resourcePath": "newphoto/npc50/2009.tcp",
             "resourceMd5": "5571f17de1f60ab3a52b3e69c6e60557",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2509",
-                "portrait-7d74d19ccfc089ab"
-            ]
+            "aliases": ["pet-2509", "portrait-7d74d19ccfc089ab"]
         },
         {
             "id": "pet-2010",
@@ -131,10 +115,7 @@
             "resourcePath": "newphoto/npc50/2010.tcp",
             "resourceMd5": "e9b4e53564c167c1d89f11635c610221",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2510",
-                "portrait-c7099af99aff1df4"
-            ]
+            "aliases": ["pet-2510", "portrait-c7099af99aff1df4"]
         },
         {
             "id": "pet-2011",
@@ -146,10 +127,7 @@
             "resourcePath": "newphoto/npc50/2011.tcp",
             "resourceMd5": "0b657192c6d71b5d28b8e96e5155ae95",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2511",
-                "portrait-293a1dd23074ef13"
-            ]
+            "aliases": ["pet-2511", "portrait-293a1dd23074ef13"]
         },
         {
             "id": "pet-2012",
@@ -161,10 +139,7 @@
             "resourcePath": "newphoto/npc50/2012.tcp",
             "resourceMd5": "644ea8865d345a8ce5de3a65e5f6e29c",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2512",
-                "portrait-618a3ef22e983de0"
-            ]
+            "aliases": ["pet-2512", "portrait-618a3ef22e983de0"]
         },
         {
             "id": "pet-2015",
@@ -176,10 +151,7 @@
             "resourcePath": "newphoto/npc50/2015.tcp",
             "resourceMd5": "35c27711da17854adcf7ef91f8f6b9c4",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2515",
-                "portrait-488c9411b7333b3c"
-            ]
+            "aliases": ["pet-2515", "portrait-488c9411b7333b3c"]
         },
         {
             "id": "pet-2016",
@@ -191,10 +163,7 @@
             "resourcePath": "newphoto/npc50/2016.tcp",
             "resourceMd5": "cbbf870e863cd214698c5bfa87eeccd9",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-469253caf2354d59",
-                "portrait-a5e302df13217c93"
-            ]
+            "aliases": ["portrait-469253caf2354d59", "portrait-a5e302df13217c93"]
         },
         {
             "id": "pet-2017",
@@ -206,10 +175,7 @@
             "resourcePath": "newphoto/npc50/2017.tcp",
             "resourceMd5": "5340ddac2b75048f94ab885632adbe31",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2517",
-                "portrait-9add8a5317ed40b2"
-            ]
+            "aliases": ["pet-2517", "portrait-9add8a5317ed40b2"]
         },
         {
             "id": "pet-2018",
@@ -221,9 +187,7 @@
             "resourcePath": "newphoto/npc50/2018.tcp",
             "resourceMd5": "09a4d489925b55f1858d411fe4f03e5e",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-c4fc88f69e9060c8"
-            ]
+            "aliases": ["portrait-c4fc88f69e9060c8"]
         },
         {
             "id": "pet-2019",
@@ -247,10 +211,7 @@
             "resourcePath": "newphoto/npc50/2020.tcp",
             "resourceMd5": "38ce191d972a11f21063bf8bd109f218",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-6506e74b2d8ed7d5",
-                "portrait-d2383cd80bed6224"
-            ]
+            "aliases": ["portrait-6506e74b2d8ed7d5", "portrait-d2383cd80bed6224"]
         },
         {
             "id": "pet-2021",
@@ -262,9 +223,7 @@
             "resourcePath": "newphoto/npc50/2021.tcp",
             "resourceMd5": "0772c2b6d259c1573aa82a488911fcdf",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-1cfaba204f827485"
-            ]
+            "aliases": ["portrait-1cfaba204f827485"]
         },
         {
             "id": "pet-2022",
@@ -276,9 +235,7 @@
             "resourcePath": "newphoto/npc50/2022.tcp",
             "resourceMd5": "e0e934f5d7b134ae2c164547f12a20b0",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2522"
-            ]
+            "aliases": ["pet-2522"]
         },
         {
             "id": "pet-2023",
@@ -290,10 +247,7 @@
             "resourcePath": "newphoto/npc50/2023.tcp",
             "resourceMd5": "c021da71bd25fcfa5b917a2452d91f91",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2523",
-                "portrait-3c24a53eb35287fa"
-            ]
+            "aliases": ["pet-2523", "portrait-3c24a53eb35287fa"]
         },
         {
             "id": "pet-2024",
@@ -305,10 +259,7 @@
             "resourcePath": "newphoto/npc50/2024.tcp",
             "resourceMd5": "babc607b1b0cee6f6e38c183e6785b3a",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2524",
-                "portrait-90db02204aab9465"
-            ]
+            "aliases": ["pet-2524", "portrait-90db02204aab9465"]
         },
         {
             "id": "pet-2028",
@@ -320,10 +271,7 @@
             "resourcePath": "newphoto/npc50/2028.tcp",
             "resourceMd5": "3cf078ef2e4e5bdfe2366c867754d7f8",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2528",
-                "portrait-651ccfb41764bde2"
-            ]
+            "aliases": ["pet-2528", "portrait-651ccfb41764bde2"]
         },
         {
             "id": "pet-2029",
@@ -335,10 +283,7 @@
             "resourcePath": "newphoto/npc50/2029.tcp",
             "resourceMd5": "6fae8631e416795599b43561ddc57646",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2529",
-                "portrait-e76855c4f67043b6"
-            ]
+            "aliases": ["pet-2529", "portrait-e76855c4f67043b6"]
         },
         {
             "id": "pet-2030",
@@ -350,10 +295,7 @@
             "resourcePath": "newphoto/npc50/2030.tcp",
             "resourceMd5": "aaef1af651d50a0017215ca777dc5224",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2530",
-                "portrait-5eb15be4090ef850"
-            ]
+            "aliases": ["pet-2530", "portrait-5eb15be4090ef850"]
         },
         {
             "id": "pet-2031",
@@ -365,9 +307,7 @@
             "resourcePath": "newphoto/npc50/2031.tcp",
             "resourceMd5": "4bd17e54712209ef37c897eddaee3528",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-20491ebc1febf36e"
-            ]
+            "aliases": ["portrait-20491ebc1febf36e"]
         },
         {
             "id": "pet-2032",
@@ -379,9 +319,7 @@
             "resourcePath": "newphoto/npc50/2032.tcp",
             "resourceMd5": "cf5207ba1642f9734da50b283e830028",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-414435e317ac7143"
-            ]
+            "aliases": ["portrait-414435e317ac7143"]
         },
         {
             "id": "pet-2033",
@@ -393,10 +331,7 @@
             "resourcePath": "newphoto/npc50/2033.tcp",
             "resourceMd5": "dc28d92cff921791693e90e52013da44",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2533",
-                "portrait-b189f58c31a6d23b"
-            ]
+            "aliases": ["pet-2533", "portrait-b189f58c31a6d23b"]
         },
         {
             "id": "pet-2034",
@@ -408,10 +343,7 @@
             "resourcePath": "newphoto/npc50/2034.tcp",
             "resourceMd5": "9574260316a5bb215d10397ae400ba84",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2534",
-                "portrait-b7da47cb92da7be1"
-            ]
+            "aliases": ["pet-2534", "portrait-b7da47cb92da7be1"]
         },
         {
             "id": "pet-2035",
@@ -435,10 +367,7 @@
             "resourcePath": "newphoto/npc50/2036.tcp",
             "resourceMd5": "ad28791a56f9a9fc0cbb82151664864c",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2536",
-                "portrait-ae597c8539e3b25b"
-            ]
+            "aliases": ["pet-2536", "portrait-ae597c8539e3b25b"]
         },
         {
             "id": "pet-2037",
@@ -450,10 +379,7 @@
             "resourcePath": "newphoto/npc50/2037.tcp",
             "resourceMd5": "80847605d24d5142ec2db41c5acc1809",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2537",
-                "portrait-a7d01b8fb2342794"
-            ]
+            "aliases": ["pet-2537", "portrait-a7d01b8fb2342794"]
         },
         {
             "id": "pet-2038",
@@ -465,9 +391,7 @@
             "resourcePath": "newphoto/npc50/2038.tcp",
             "resourceMd5": "74bb6076f76ab1cdecaf6d4e74164ddf",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2538"
-            ]
+            "aliases": ["pet-2538"]
         },
         {
             "id": "pet-2039",
@@ -479,9 +403,7 @@
             "resourcePath": "newphoto/npc50/2039.tcp",
             "resourceMd5": "f82628c2c81ceffcc30b8cf739a8c5e3",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2539"
-            ]
+            "aliases": ["pet-2539"]
         },
         {
             "id": "pet-2040",
@@ -493,10 +415,7 @@
             "resourcePath": "newphoto/npc50/2040.tcp",
             "resourceMd5": "a62a17cd16bf64b4d052f7c2dc035dd5",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2540",
-                "portrait-28e89cde4fb8b745"
-            ]
+            "aliases": ["pet-2540", "portrait-28e89cde4fb8b745"]
         },
         {
             "id": "pet-2041",
@@ -508,10 +427,7 @@
             "resourcePath": "newphoto/npc50/2041.tcp",
             "resourceMd5": "ae5c6e591bd5943bdd512059b7fc56b4",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2541",
-                "portrait-721bc1906c3f128b"
-            ]
+            "aliases": ["pet-2541", "portrait-721bc1906c3f128b"]
         },
         {
             "id": "pet-2042",
@@ -523,10 +439,7 @@
             "resourcePath": "newphoto/npc50/2042.tcp",
             "resourceMd5": "b77384792c121cfcc75d1d59fcb78954",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2542",
-                "portrait-1bc062644df47a6b"
-            ]
+            "aliases": ["pet-2542", "portrait-1bc062644df47a6b"]
         },
         {
             "id": "pet-2044",
@@ -538,10 +451,7 @@
             "resourcePath": "newphoto/npc50/2044.tcp",
             "resourceMd5": "b6394dc485e8fef796eb9ecbfe7306f2",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2544",
-                "portrait-193e8dfe35f5d65b"
-            ]
+            "aliases": ["pet-2544", "portrait-193e8dfe35f5d65b"]
         },
         {
             "id": "pet-2045",
@@ -553,10 +463,7 @@
             "resourcePath": "newphoto/npc50/2045.tcp",
             "resourceMd5": "10e6b74008ab1c1a5e14fccda2892101",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2545",
-                "portrait-15978cd1f0e8ef20"
-            ]
+            "aliases": ["pet-2545", "portrait-15978cd1f0e8ef20"]
         },
         {
             "id": "pet-2046",
@@ -568,10 +475,7 @@
             "resourcePath": "newphoto/npc50/2046.tcp",
             "resourceMd5": "85bc58ba195d115a4512b049b4469d54",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2546",
-                "portrait-b458f13f5a33fd17"
-            ]
+            "aliases": ["pet-2546", "portrait-b458f13f5a33fd17"]
         },
         {
             "id": "pet-2047",
@@ -583,9 +487,7 @@
             "resourcePath": "newphoto/npc50/2047.tcp",
             "resourceMd5": "67c3f601534ddb48f770b5d9311e3342",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2547"
-            ]
+            "aliases": ["pet-2547"]
         },
         {
             "id": "pet-2048",
@@ -597,9 +499,7 @@
             "resourcePath": "newphoto/npc50/2048.tcp",
             "resourceMd5": "1c57f29a614ed938be9cad02e9f206d1",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2548"
-            ]
+            "aliases": ["pet-2548"]
         },
         {
             "id": "pet-2049",
@@ -623,9 +523,7 @@
             "resourcePath": "newphoto/npc50/2050.tcp",
             "resourceMd5": "288593a9c27a38f077f363c39dbce7e7",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-a8f4fa3edadf45b4"
-            ]
+            "aliases": ["portrait-a8f4fa3edadf45b4"]
         },
         {
             "id": "pet-2051",
@@ -649,9 +547,7 @@
             "resourcePath": "newphoto/npc50/2052.tcp",
             "resourceMd5": "d1c09a6c42eb6456ddc60a29fc9ace1a",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2552"
-            ]
+            "aliases": ["pet-2552"]
         },
         {
             "id": "pet-2053",
@@ -663,10 +559,7 @@
             "resourcePath": "newphoto/npc50/2053.tcp",
             "resourceMd5": "bf2da4281f6bf45e5918d69b299b9e37",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2553",
-                "portrait-40136251cdceb69a"
-            ]
+            "aliases": ["pet-2553", "portrait-40136251cdceb69a"]
         },
         {
             "id": "pet-2054",
@@ -678,10 +571,7 @@
             "resourcePath": "newphoto/npc50/2054.tcp",
             "resourceMd5": "3ebc88f1fba753affa2e873ed9d9a2f4",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2554",
-                "portrait-d27f362e5a6d2f3d"
-            ]
+            "aliases": ["pet-2554", "portrait-d27f362e5a6d2f3d"]
         },
         {
             "id": "pet-2055",
@@ -693,10 +583,7 @@
             "resourcePath": "newphoto/npc50/2055.tcp",
             "resourceMd5": "6974a8e9918ee5bb3bd4a7b853194102",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2555",
-                "portrait-3e7b3ed2b6d1b388"
-            ]
+            "aliases": ["pet-2555", "portrait-3e7b3ed2b6d1b388"]
         },
         {
             "id": "pet-2059",
@@ -708,10 +595,7 @@
             "resourcePath": "newphoto/npc50/2059.tcp",
             "resourceMd5": "1f5eb38ce5b421cfc13c7b451d564cf6",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2559",
-                "portrait-5126ec10ea23fd26"
-            ]
+            "aliases": ["pet-2559", "portrait-5126ec10ea23fd26"]
         },
         {
             "id": "pet-2060",
@@ -723,9 +607,7 @@
             "resourcePath": "newphoto/npc50/2060.tcp",
             "resourceMd5": "b3beec1dbabe6df375dbb0513d295340",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-e2c0c89064043aa8"
-            ]
+            "aliases": ["portrait-e2c0c89064043aa8"]
         },
         {
             "id": "pet-2061",
@@ -737,10 +619,7 @@
             "resourcePath": "newphoto/npc50/2061.tcp",
             "resourceMd5": "3764dfab033faadb93a08a43a265788c",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2561",
-                "portrait-062b89516c67946e"
-            ]
+            "aliases": ["pet-2561", "portrait-062b89516c67946e"]
         },
         {
             "id": "pet-2062",
@@ -752,9 +631,7 @@
             "resourcePath": "newphoto/npc50/2062.tcp",
             "resourceMd5": "931ba9b806c0a1d5380e5f38aea5f957",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2562"
-            ]
+            "aliases": ["pet-2562"]
         },
         {
             "id": "pet-2063",
@@ -766,10 +643,7 @@
             "resourcePath": "newphoto/npc50/2063.tcp",
             "resourceMd5": "dcc00b4b3f692f90325f87416e0fcf47",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2563",
-                "portrait-f59f7783f0dea6d5"
-            ]
+            "aliases": ["pet-2563", "portrait-f59f7783f0dea6d5"]
         },
         {
             "id": "pet-2064",
@@ -781,10 +655,7 @@
             "resourcePath": "newphoto/npc50/2064.tcp",
             "resourceMd5": "ac68baf7fc09bf995972747efb0a4fc9",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2564",
-                "portrait-e67791ed03ee4991"
-            ]
+            "aliases": ["pet-2564", "portrait-e67791ed03ee4991"]
         },
         {
             "id": "pet-2065",
@@ -796,10 +667,7 @@
             "resourcePath": "newphoto/npc50/2065.tcp",
             "resourceMd5": "0f60250d485752a16046a45ba68f55f7",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2565",
-                "portrait-b0c6a90f47361237"
-            ]
+            "aliases": ["pet-2565", "portrait-b0c6a90f47361237"]
         },
         {
             "id": "pet-2066",
@@ -811,11 +679,7 @@
             "resourcePath": "newphoto/npc50/2066.tcp",
             "resourceMd5": "b4ebf198033679ce701741e306dcf895",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2566",
-                "portrait-1b75f019f1e9614b",
-                "portrait-37cd236c5f44e74d"
-            ]
+            "aliases": ["pet-2566", "portrait-1b75f019f1e9614b", "portrait-37cd236c5f44e74d"]
         },
         {
             "id": "pet-2067",
@@ -827,10 +691,7 @@
             "resourcePath": "newphoto/npc50/2067.tcp",
             "resourceMd5": "78e1a6dc8e950e6b8f79dbfc4ec52f4b",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2567",
-                "portrait-b0c728d1e48e9bb8"
-            ]
+            "aliases": ["pet-2567", "portrait-b0c728d1e48e9bb8"]
         },
         {
             "id": "pet-2068",
@@ -842,10 +703,7 @@
             "resourcePath": "newphoto/npc50/2068.tcp",
             "resourceMd5": "ef3660c666c05617400b659194ee5087",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2568",
-                "portrait-c1fe53e88ce50f9f"
-            ]
+            "aliases": ["pet-2568", "portrait-c1fe53e88ce50f9f"]
         },
         {
             "id": "pet-2070",
@@ -857,10 +715,7 @@
             "resourcePath": "newphoto/npc50/2070.tcp",
             "resourceMd5": "7c184e35a45cd4ec0f195923a6f5912d",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2570",
-                "portrait-8ead41bfaa6b2179"
-            ]
+            "aliases": ["pet-2570", "portrait-8ead41bfaa6b2179"]
         },
         {
             "id": "pet-2071",
@@ -872,10 +727,7 @@
             "resourcePath": "newphoto/npc50/2071.tcp",
             "resourceMd5": "c0ac2204ec6dcddd54ad37fa03790aa0",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2571",
-                "portrait-31d137bf071e626e"
-            ]
+            "aliases": ["pet-2571", "portrait-31d137bf071e626e"]
         },
         {
             "id": "pet-2072",
@@ -887,10 +739,7 @@
             "resourcePath": "newphoto/npc50/2072.tcp",
             "resourceMd5": "5ac8cc3ae546745f838c1d56b6a7d15b",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2572",
-                "portrait-2be250e2addec02f"
-            ]
+            "aliases": ["pet-2572", "portrait-2be250e2addec02f"]
         },
         {
             "id": "pet-2073",
@@ -902,10 +751,7 @@
             "resourcePath": "newphoto/npc50/2073.tcp",
             "resourceMd5": "f06631448e272dac8798ea5b5e061dc0",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2573",
-                "portrait-1d86af5733c649b3"
-            ]
+            "aliases": ["pet-2573", "portrait-1d86af5733c649b3"]
         },
         {
             "id": "pet-2074",
@@ -917,10 +763,7 @@
             "resourcePath": "newphoto/npc50/2074.tcp",
             "resourceMd5": "5955ef1676b5dd478e738003f3dac02b",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2574",
-                "portrait-a5b566fd5d992b53"
-            ]
+            "aliases": ["pet-2574", "portrait-a5b566fd5d992b53"]
         },
         {
             "id": "pet-2076",
@@ -932,11 +775,7 @@
             "resourcePath": "newphoto/npc50/2076.tcp",
             "resourceMd5": "ce3e8f2cf23c33af02ca20e0243c221c",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2576",
-                "portrait-2a54bae2610da714",
-                "portrait-87b42cd2cc7c6c23"
-            ]
+            "aliases": ["pet-2576", "portrait-2a54bae2610da714", "portrait-87b42cd2cc7c6c23"]
         },
         {
             "id": "pet-2077",
@@ -948,10 +787,7 @@
             "resourcePath": "newphoto/npc50/2077.tcp",
             "resourceMd5": "c18d60ab60bd77984b3b45ed5e27dccd",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2577",
-                "portrait-2a1f45b2010364f1"
-            ]
+            "aliases": ["pet-2577", "portrait-2a1f45b2010364f1"]
         },
         {
             "id": "pet-2078",
@@ -963,10 +799,7 @@
             "resourcePath": "newphoto/npc50/2078.tcp",
             "resourceMd5": "9735862e91a737095dbfceb8b03f5bda",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2578",
-                "portrait-ee13454a9d3b2ea8"
-            ]
+            "aliases": ["pet-2578", "portrait-ee13454a9d3b2ea8"]
         },
         {
             "id": "pet-2085",
@@ -978,10 +811,7 @@
             "resourcePath": "newphoto/npc50/2085.tcp",
             "resourceMd5": "9cfa2492e372c290e3d320f1fdfe1016",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2585",
-                "portrait-85592afc2a0f55a9"
-            ]
+            "aliases": ["pet-2585", "portrait-85592afc2a0f55a9"]
         },
         {
             "id": "pet-2086",
@@ -993,10 +823,7 @@
             "resourcePath": "newphoto/npc50/2086.tcp",
             "resourceMd5": "61de4e93c324f5bc5b12734cb4434339",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2586",
-                "portrait-24c2dfa46c240efe"
-            ]
+            "aliases": ["pet-2586", "portrait-24c2dfa46c240efe"]
         },
         {
             "id": "pet-2087",
@@ -1008,10 +835,7 @@
             "resourcePath": "newphoto/npc50/2087.tcp",
             "resourceMd5": "9823a7f04a10192b71d60311330f8179",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2587",
-                "portrait-b70b78000ed8d392"
-            ]
+            "aliases": ["pet-2587", "portrait-b70b78000ed8d392"]
         },
         {
             "id": "pet-2093",
@@ -1023,10 +847,7 @@
             "resourcePath": "newphoto/npc50/2093.tcp",
             "resourceMd5": "28977d4923ea31d2c3c89f05e1dde1d8",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2593",
-                "portrait-3076d95f37e76bcf"
-            ]
+            "aliases": ["pet-2593", "portrait-3076d95f37e76bcf"]
         },
         {
             "id": "pet-2094",
@@ -1038,10 +859,7 @@
             "resourcePath": "newphoto/npc50/2094.tcp",
             "resourceMd5": "cb723092e475ed537822fc527dd6df62",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2594",
-                "portrait-50098fecd5a7d6a8"
-            ]
+            "aliases": ["pet-2594", "portrait-50098fecd5a7d6a8"]
         },
         {
             "id": "pet-2095",
@@ -1053,10 +871,7 @@
             "resourcePath": "newphoto/npc50/2095.tcp",
             "resourceMd5": "de1e59003c06c3ffcd0876ced53ef7dc",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2595",
-                "portrait-d5e3869c67e082e1"
-            ]
+            "aliases": ["pet-2595", "portrait-d5e3869c67e082e1"]
         },
         {
             "id": "pet-2096",
@@ -1068,11 +883,7 @@
             "resourcePath": "newphoto/npc50/2096.tcp",
             "resourceMd5": "7613f4c165191cfedc3a34d6b7c8e55f",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2596",
-                "portrait-cb0d414e03baeb77",
-                "portrait-d6ef3d2b2634286b"
-            ]
+            "aliases": ["pet-2596", "portrait-cb0d414e03baeb77", "portrait-d6ef3d2b2634286b"]
         },
         {
             "id": "pet-2097",
@@ -1084,11 +895,7 @@
             "resourcePath": "newphoto/npc50/2097.tcp",
             "resourceMd5": "632a2c31b9a0783ecfc557cc0468a0ef",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2597",
-                "portrait-bfb1ff39644d6bca",
-                "portrait-c3216ba7e7659f99"
-            ]
+            "aliases": ["pet-2597", "portrait-bfb1ff39644d6bca", "portrait-c3216ba7e7659f99"]
         },
         {
             "id": "pet-2098",
@@ -1100,9 +907,7 @@
             "resourcePath": "newphoto/npc50/2098.tcp",
             "resourceMd5": "4e4eb9281bf5ca3fef28313dd0d037c0",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2598"
-            ]
+            "aliases": ["pet-2598"]
         },
         {
             "id": "pet-2099",
@@ -1114,9 +919,7 @@
             "resourcePath": "newphoto/npc50/2099.tcp",
             "resourceMd5": "d825cc8a51890a35562c69e92444d672",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2599"
-            ]
+            "aliases": ["pet-2599"]
         },
         {
             "id": "pet-2100",
@@ -1128,9 +931,7 @@
             "resourcePath": "newphoto/npc50/2100.tcp",
             "resourceMd5": "c5c7b39c216c39efac61f094e6b88fc0",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-7b7e92741ee347a4"
-            ]
+            "aliases": ["portrait-7b7e92741ee347a4"]
         },
         {
             "id": "pet-2101",
@@ -1142,9 +943,7 @@
             "resourcePath": "newphoto/npc50/2101.tcp",
             "resourceMd5": "ca43326375ec7dcf4b489b32d276581e",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-284242dca7045ceb"
-            ]
+            "aliases": ["portrait-284242dca7045ceb"]
         },
         {
             "id": "pet-2102",
@@ -1156,9 +955,7 @@
             "resourcePath": "newphoto/npc50/2102.tcp",
             "resourceMd5": "29b5260f9d309ef2ffe7e04621627aa2",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2602"
-            ]
+            "aliases": ["pet-2602"]
         },
         {
             "id": "pet-2103",
@@ -1170,9 +967,7 @@
             "resourcePath": "newphoto/npc50/2103.tcp",
             "resourceMd5": "8484d1921b64f2465d68ee77e2603a7f",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2603"
-            ]
+            "aliases": ["pet-2603"]
         },
         {
             "id": "pet-2104",
@@ -1184,9 +979,7 @@
             "resourcePath": "newphoto/npc50/2104.tcp",
             "resourceMd5": "bbd2861191d8042124e95e2b4079ca8d",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2604"
-            ]
+            "aliases": ["pet-2604"]
         },
         {
             "id": "pet-2105",
@@ -1198,10 +991,7 @@
             "resourcePath": "newphoto/npc50/2105.tcp",
             "resourceMd5": "6875ea8c6aa72b0f0d5f83c9ad5e0799",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2605",
-                "portrait-18a61ce6fc7587f6"
-            ]
+            "aliases": ["pet-2605", "portrait-18a61ce6fc7587f6"]
         },
         {
             "id": "pet-2106",
@@ -1213,9 +1003,7 @@
             "resourcePath": "newphoto/npc50/2106.tcp",
             "resourceMd5": "905d91519bd7c909062e399e82ed9c9f",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2606"
-            ]
+            "aliases": ["pet-2606"]
         },
         {
             "id": "pet-2107",
@@ -1227,10 +1015,7 @@
             "resourcePath": "newphoto/npc50/2107.tcp",
             "resourceMd5": "9ec72e0fbf70317c1f5bae700abae139",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2607",
-                "portrait-1deed3caeaa7672b"
-            ]
+            "aliases": ["pet-2607", "portrait-1deed3caeaa7672b"]
         },
         {
             "id": "pet-2108",
@@ -1242,9 +1027,7 @@
             "resourcePath": "newphoto/npc50/2108.tcp",
             "resourceMd5": "feb726260ed5810361950928fad4b10f",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-3738fe07e5f87d69"
-            ]
+            "aliases": ["portrait-3738fe07e5f87d69"]
         },
         {
             "id": "pet-2109",
@@ -1256,9 +1039,7 @@
             "resourcePath": "newphoto/npc50/2109.tcp",
             "resourceMd5": "8aef6c47a9ab3f66f98265ccaacd6bf2",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-e335ac417e160e57"
-            ]
+            "aliases": ["portrait-e335ac417e160e57"]
         },
         {
             "id": "pet-2110",
@@ -1282,11 +1063,7 @@
             "resourcePath": "newphoto/npc50/2111.tcp",
             "resourceMd5": "d32a1d0f98ac654f55ed033012b68fdd",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2116",
-                "pet-2611",
-                "pet-2616"
-            ]
+            "aliases": ["pet-2116", "pet-2611", "pet-2616"]
         },
         {
             "id": "pet-2112",
@@ -1298,9 +1075,7 @@
             "resourcePath": "newphoto/npc50/2112.tcp",
             "resourceMd5": "283ef5ee4db1aceb332bbb3043bb2dcf",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2612"
-            ]
+            "aliases": ["pet-2612"]
         },
         {
             "id": "pet-2113",
@@ -1312,10 +1087,7 @@
             "resourcePath": "newphoto/npc50/2113.tcp",
             "resourceMd5": "e8c98a0d6d84070785ec5ecf2c896a5d",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2613",
-                "portrait-097b25d266152a2d"
-            ]
+            "aliases": ["pet-2613", "portrait-097b25d266152a2d"]
         },
         {
             "id": "pet-2114",
@@ -1327,9 +1099,7 @@
             "resourcePath": "newphoto/npc50/2114.tcp",
             "resourceMd5": "ff4f01e86ed2048da4822db663716140",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2614"
-            ]
+            "aliases": ["pet-2614"]
         },
         {
             "id": "pet-2115",
@@ -1341,9 +1111,7 @@
             "resourcePath": "newphoto/npc50/2115.tcp",
             "resourceMd5": "37614ef3c08172e6f8eebff0e84fa78a",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2615"
-            ]
+            "aliases": ["pet-2615"]
         },
         {
             "id": "pet-2117",
@@ -1355,11 +1123,7 @@
             "resourcePath": "newphoto/npc50/2117.tcp",
             "resourceMd5": "58dc016758f2157a131e54e4d8732259",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2118",
-                "pet-2617",
-                "pet-2618"
-            ]
+            "aliases": ["pet-2118", "pet-2617", "pet-2618"]
         },
         {
             "id": "pet-2119",
@@ -1371,11 +1135,7 @@
             "resourcePath": "newphoto/npc50/2119.tcp",
             "resourceMd5": "36ab50decae5c26db178968d596bda68",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2619",
-                "portrait-d42b76bf65518b84",
-                "portrait-e3e64eddef40d155"
-            ]
+            "aliases": ["pet-2619", "portrait-d42b76bf65518b84", "portrait-e3e64eddef40d155"]
         },
         {
             "id": "pet-2120",
@@ -1387,10 +1147,7 @@
             "resourcePath": "newphoto/npc50/2120.tcp",
             "resourceMd5": "447dc727be970d32a488062e06ca3b9b",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2620",
-                "portrait-0243009a7d355b7b"
-            ]
+            "aliases": ["pet-2620", "portrait-0243009a7d355b7b"]
         },
         {
             "id": "pet-2121",
@@ -1402,9 +1159,7 @@
             "resourcePath": "newphoto/npc50/2121.tcp",
             "resourceMd5": "088e62e220bc3af791e8b6f86c830648",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2621"
-            ]
+            "aliases": ["pet-2621"]
         },
         {
             "id": "pet-2122",
@@ -1416,9 +1171,7 @@
             "resourcePath": "newphoto/npc50/2122.tcp",
             "resourceMd5": "2b94c3221591fd06978b7eb47cc8a434",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2622"
-            ]
+            "aliases": ["pet-2622"]
         },
         {
             "id": "pet-2123",
@@ -1430,9 +1183,7 @@
             "resourcePath": "newphoto/npc50/2123.tcp",
             "resourceMd5": "bc4ee54a1ec104b8a7bb70cab818b25c",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2623"
-            ]
+            "aliases": ["pet-2623"]
         },
         {
             "id": "pet-2124",
@@ -1444,9 +1195,7 @@
             "resourcePath": "newphoto/npc50/2124.tcp",
             "resourceMd5": "42e3da4f3394adf5e11c98ca2e498bbc",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2624"
-            ]
+            "aliases": ["pet-2624"]
         },
         {
             "id": "pet-2125",
@@ -1458,12 +1207,7 @@
             "resourcePath": "newphoto/npc50/2125.tcp",
             "resourceMd5": "7ce024529ef0afabd6b810e18a6ab720",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2126",
-                "pet-2625",
-                "pet-2626",
-                "portrait-dd638851da4ad0bf"
-            ]
+            "aliases": ["pet-2126", "pet-2625", "pet-2626", "portrait-dd638851da4ad0bf"]
         },
         {
             "id": "pet-2127",
@@ -1493,10 +1237,7 @@
             "resourcePath": "newphoto/npc50/2129.tcp",
             "resourceMd5": "dd87576b49e95f90fc09a38450c2500a",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2629",
-                "portrait-8be894c57f4e0a52"
-            ]
+            "aliases": ["pet-2629", "portrait-8be894c57f4e0a52"]
         },
         {
             "id": "pet-2130",
@@ -1508,9 +1249,7 @@
             "resourcePath": "newphoto/npc50/2130.tcp",
             "resourceMd5": "ab80e6f9cc3f452190aa81cecb1915fd",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2630"
-            ]
+            "aliases": ["pet-2630"]
         },
         {
             "id": "pet-2131",
@@ -1522,9 +1261,7 @@
             "resourcePath": "newphoto/npc50/2131.tcp",
             "resourceMd5": "fd34bdbb2abe4fd5842e9bec905fdc59",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-691cf0babe5c9367"
-            ]
+            "aliases": ["portrait-691cf0babe5c9367"]
         },
         {
             "id": "pet-2132",
@@ -1548,9 +1285,7 @@
             "resourcePath": "newphoto/npc50/2150.tcp",
             "resourceMd5": "c3774528a815658b08d2199f0f3a6360",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2650"
-            ]
+            "aliases": ["pet-2650"]
         },
         {
             "id": "pet-2151",
@@ -1562,9 +1297,7 @@
             "resourcePath": "newphoto/npc50/2151.tcp",
             "resourceMd5": "b568111d447613f158e56e982addc0ca",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2651"
-            ]
+            "aliases": ["pet-2651"]
         },
         {
             "id": "pet-2152",
@@ -1576,9 +1309,7 @@
             "resourcePath": "newphoto/npc50/2152.tcp",
             "resourceMd5": "9bbe2723669197e0ec623c02bd4fa364",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2652"
-            ]
+            "aliases": ["pet-2652"]
         },
         {
             "id": "pet-2153",
@@ -1590,10 +1321,7 @@
             "resourcePath": "newphoto/npc50/2153.tcp",
             "resourceMd5": "d8bc4b77ef29a39dccce39c1ea58f8b2",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2653",
-                "portrait-ced5d229d2bf2147"
-            ]
+            "aliases": ["pet-2653", "portrait-ced5d229d2bf2147"]
         },
         {
             "id": "pet-2159",
@@ -1605,9 +1333,7 @@
             "resourcePath": "newphoto/npc50/2159.tcp",
             "resourceMd5": "568bebd69e7b8013a148761c0cbd07dc",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2659"
-            ]
+            "aliases": ["pet-2659"]
         },
         {
             "id": "pet-2160",
@@ -1619,9 +1345,7 @@
             "resourcePath": "newphoto/npc50/2160.tcp",
             "resourceMd5": "3e3aa8c85f76879a721ae902a0729193",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2660"
-            ]
+            "aliases": ["pet-2660"]
         },
         {
             "id": "pet-2161",
@@ -1633,9 +1357,7 @@
             "resourcePath": "newphoto/npc50/2161.tcp",
             "resourceMd5": "46a49c1e9d15912c63ee91c5a11e4310",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2661"
-            ]
+            "aliases": ["pet-2661"]
         },
         {
             "id": "pet-2162",
@@ -1647,9 +1369,7 @@
             "resourcePath": "newphoto/npc50/2162.tcp",
             "resourceMd5": "8d5cb73a0ab11be4d5a49facd47bca4d",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2662"
-            ]
+            "aliases": ["pet-2662"]
         },
         {
             "id": "pet-2163",
@@ -1661,9 +1381,7 @@
             "resourcePath": "newphoto/npc50/2163.tcp",
             "resourceMd5": "c035f19227df5c387ed7a26edbc6e6da",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2663"
-            ]
+            "aliases": ["pet-2663"]
         },
         {
             "id": "pet-2164",
@@ -1675,9 +1393,7 @@
             "resourcePath": "newphoto/npc50/2164.tcp",
             "resourceMd5": "91c5070e22b48baa6afa857ae5e5a967",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2664"
-            ]
+            "aliases": ["pet-2664"]
         },
         {
             "id": "pet-2242",
@@ -1689,9 +1405,7 @@
             "resourcePath": "newphoto/npc50/2242.tcp",
             "resourceMd5": "352311a94779a914b9660b05be07a9a1",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2742"
-            ]
+            "aliases": ["pet-2742"]
         },
         {
             "id": "pet-2243",
@@ -1703,10 +1417,7 @@
             "resourcePath": "newphoto/npc50/2243.tcp",
             "resourceMd5": "36f3f8ab94b384c2d41c3d53768b7e61",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2743",
-                "portrait-31ab0fd18d537370"
-            ]
+            "aliases": ["pet-2743", "portrait-31ab0fd18d537370"]
         },
         {
             "id": "pet-2244",
@@ -1718,9 +1429,7 @@
             "resourcePath": "newphoto/npc50/2244.tcp",
             "resourceMd5": "2953a0df59e0808e5dd4617c59c2b6c8",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2744"
-            ]
+            "aliases": ["pet-2744"]
         },
         {
             "id": "pet-2249",
@@ -1732,9 +1441,7 @@
             "resourcePath": "newphoto/npc50/2249.tcp",
             "resourceMd5": "8457f2623b2b7312f203d594fd61d2d4",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-82604ccfb1f4bfdc"
-            ]
+            "aliases": ["portrait-82604ccfb1f4bfdc"]
         },
         {
             "id": "pet-2250",
@@ -1758,10 +1465,7 @@
             "resourcePath": "newphoto/npc50/2283.tcp",
             "resourceMd5": "418e783609e56a02d9f73c91a602dcdc",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2783",
-                "portrait-01db3a7e5050fa02"
-            ]
+            "aliases": ["pet-2783", "portrait-01db3a7e5050fa02"]
         },
         {
             "id": "pet-2300",
@@ -1785,9 +1489,7 @@
             "resourcePath": "newphoto/npc50/2303.tcp",
             "resourceMd5": "414895d0ceba87b9c305b970c381d82b",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2803"
-            ]
+            "aliases": ["pet-2803"]
         },
         {
             "id": "pet-2305",
@@ -1799,9 +1501,7 @@
             "resourcePath": "newphoto/npc50/2305.tcp",
             "resourceMd5": "2acf9f6fb488ddb6d2dbcacf7d7efe44",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2805"
-            ]
+            "aliases": ["pet-2805"]
         },
         {
             "id": "pet-2307",
@@ -1813,9 +1513,7 @@
             "resourcePath": "newphoto/npc50/2307.tcp",
             "resourceMd5": "d3f31517716b6769fe29c11f0889a306",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2807"
-            ]
+            "aliases": ["pet-2807"]
         },
         {
             "id": "pet-2309",
@@ -1827,9 +1525,7 @@
             "resourcePath": "newphoto/npc50/2309.tcp",
             "resourceMd5": "4a0378a2b3c38d5dc090bd93ead9efc4",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2809"
-            ]
+            "aliases": ["pet-2809"]
         },
         {
             "id": "pet-2311",
@@ -1841,9 +1537,7 @@
             "resourcePath": "newphoto/npc50/2311.tcp",
             "resourceMd5": "75313aa8e4b2c11bb5795b12a68d2c56",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-f9b6845e45fc3840"
-            ]
+            "aliases": ["portrait-f9b6845e45fc3840"]
         },
         {
             "id": "pet-2313",
@@ -1855,9 +1549,7 @@
             "resourcePath": "newphoto/npc50/2313.tcp",
             "resourceMd5": "66ddd2e29b823c79c54cb4473ef22d47",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-33d0a6aee9999907"
-            ]
+            "aliases": ["portrait-33d0a6aee9999907"]
         },
         {
             "id": "pet-2315",
@@ -1869,9 +1561,7 @@
             "resourcePath": "newphoto/npc50/2315.tcp",
             "resourceMd5": "438ba80e53b231a1399140ef0d0be492",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-d11e066e4239c16b"
-            ]
+            "aliases": ["portrait-d11e066e4239c16b"]
         },
         {
             "id": "pet-2317",
@@ -1883,9 +1573,7 @@
             "resourcePath": "newphoto/npc50/2317.tcp",
             "resourceMd5": "968263ff732e139acc649c19fc57476d",
             "origin": "官方客户端资源",
-            "aliases": [
-                "portrait-a131e473d39bb940"
-            ]
+            "aliases": ["portrait-a131e473d39bb940"]
         },
         {
             "id": "pet-2319",
@@ -1897,9 +1585,7 @@
             "resourcePath": "newphoto/npc50/2319.tcp",
             "resourceMd5": "756c069b77fbe21878f68b9f91294798",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2819"
-            ]
+            "aliases": ["pet-2819"]
         },
         {
             "id": "pet-2320",
@@ -1911,9 +1597,7 @@
             "resourcePath": "newphoto/npc50/2320.tcp",
             "resourceMd5": "68c59e12a87c2783172b56146b5bca1c",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2820"
-            ]
+            "aliases": ["pet-2820"]
         },
         {
             "id": "pet-2321",
@@ -1925,9 +1609,7 @@
             "resourcePath": "newphoto/npc50/2321.tcp",
             "resourceMd5": "363c6f7b35bde896a9890a7158f3ec2a",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2821"
-            ]
+            "aliases": ["pet-2821"]
         },
         {
             "id": "pet-2325",
@@ -1951,9 +1633,7 @@
             "resourcePath": "newphoto/npc50/2329.tcp",
             "resourceMd5": "96c976da4ac37ff14a462eca2515da1c",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2829"
-            ]
+            "aliases": ["pet-2829"]
         },
         {
             "id": "pet-2331",
@@ -1965,9 +1645,7 @@
             "resourcePath": "newphoto/npc50/2331.tcp",
             "resourceMd5": "64449f210bbab0819c9566656625192c",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2831"
-            ]
+            "aliases": ["pet-2831"]
         },
         {
             "id": "pet-2333",
@@ -1979,9 +1657,7 @@
             "resourcePath": "newphoto/npc50/2333.tcp",
             "resourceMd5": "271e482b93922af1149bbe0be2d5bd91",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2833"
-            ]
+            "aliases": ["pet-2833"]
         },
         {
             "id": "pet-2335",
@@ -1993,9 +1669,7 @@
             "resourcePath": "newphoto/npc50/2335.tcp",
             "resourceMd5": "8b10c95e5f04a568abec2c74240c9ec1",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2835"
-            ]
+            "aliases": ["pet-2835"]
         },
         {
             "id": "pet-2337",
@@ -2007,9 +1681,7 @@
             "resourcePath": "newphoto/npc50/2337.tcp",
             "resourceMd5": "c95f52c014983cd7d85e764a1ab9d23f",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2837"
-            ]
+            "aliases": ["pet-2837"]
         },
         {
             "id": "pet-2339",
@@ -2021,9 +1693,7 @@
             "resourcePath": "newphoto/npc50/2339.tcp",
             "resourceMd5": "a518237e766ecdb90ffeca1ec24f1bc2",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2839"
-            ]
+            "aliases": ["pet-2839"]
         },
         {
             "id": "pet-2341",
@@ -2091,9 +1761,7 @@
             "resourcePath": "newphoto/npc50/2385.tcp",
             "resourceMd5": "06314ac544d6372e13163c43326ee0c1",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2885"
-            ]
+            "aliases": ["pet-2885"]
         },
         {
             "id": "pet-2387",
@@ -2105,9 +1773,7 @@
             "resourcePath": "newphoto/npc50/2387.tcp",
             "resourceMd5": "53cc0c6e5958d9f838224ac2a516cb49",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2887"
-            ]
+            "aliases": ["pet-2887"]
         },
         {
             "id": "pet-2389",
@@ -2119,9 +1785,7 @@
             "resourcePath": "newphoto/npc50/2389.tcp",
             "resourceMd5": "8970a01914d127319f612dc5c9b98aac",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2889"
-            ]
+            "aliases": ["pet-2889"]
         },
         {
             "id": "pet-2391",
@@ -2133,9 +1797,7 @@
             "resourcePath": "newphoto/npc50/2391.tcp",
             "resourceMd5": "6e74c58e0847ee94c6197afca3deea03",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2891"
-            ]
+            "aliases": ["pet-2891"]
         },
         {
             "id": "pet-2393",
@@ -2147,9 +1809,7 @@
             "resourcePath": "newphoto/npc50/2393.tcp",
             "resourceMd5": "4a85e77f50c3e4963dfe7ecccc01db59",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2893"
-            ]
+            "aliases": ["pet-2893"]
         },
         {
             "id": "pet-2395",
@@ -2161,9 +1821,7 @@
             "resourcePath": "newphoto/npc50/2395.tcp",
             "resourceMd5": "b329616b908e929da391601318b61fbd",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2895"
-            ]
+            "aliases": ["pet-2895"]
         },
         {
             "id": "pet-2397",
@@ -2175,9 +1833,7 @@
             "resourcePath": "newphoto/npc50/2397.tcp",
             "resourceMd5": "147072ad05867afd546c5c924126b960",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2897"
-            ]
+            "aliases": ["pet-2897"]
         },
         {
             "id": "pet-2399",
@@ -2189,9 +1845,7 @@
             "resourcePath": "newphoto/npc50/2399.tcp",
             "resourceMd5": "3372e3ec3ca02620a8207a86716c4377",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2899"
-            ]
+            "aliases": ["pet-2899"]
         },
         {
             "id": "pet-2401",
@@ -2203,9 +1857,7 @@
             "resourcePath": "newphoto/npc50/2401.tcp",
             "resourceMd5": "139c7fe1320d4f6e9aacb20835ef5475",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2901"
-            ]
+            "aliases": ["pet-2901"]
         },
         {
             "id": "pet-2403",
@@ -2217,9 +1869,7 @@
             "resourcePath": "newphoto/npc50/2403.tcp",
             "resourceMd5": "07f6a0538234fba0cbded47f30ae3739",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2903"
-            ]
+            "aliases": ["pet-2903"]
         },
         {
             "id": "pet-2405",
@@ -2255,9 +1905,7 @@
             "resourcePath": "newphoto/npc50/2409.tcp",
             "resourceMd5": "74839dae860c1552dfc97326c98b44b8",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2909"
-            ]
+            "aliases": ["pet-2909"]
         },
         {
             "id": "pet-2411",
@@ -2281,9 +1929,7 @@
             "resourcePath": "newphoto/npc50/2413.tcp",
             "resourceMd5": "f776de7d88a33609b9a18c6428cdc263",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2913"
-            ]
+            "aliases": ["pet-2913"]
         },
         {
             "id": "pet-2414",
@@ -2295,9 +1941,7 @@
             "resourcePath": "newphoto/npc50/2414.tcp",
             "resourceMd5": "9395dd18de98956a12b636fc83727052",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2914"
-            ]
+            "aliases": ["pet-2914"]
         },
         {
             "id": "pet-2415",
@@ -2309,9 +1953,7 @@
             "resourcePath": "newphoto/npc50/2415.tcp",
             "resourceMd5": "37e66f0db22dc61904fd0c8254ad320d",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2915"
-            ]
+            "aliases": ["pet-2915"]
         },
         {
             "id": "pet-2416",
@@ -2323,9 +1965,7 @@
             "resourcePath": "newphoto/npc50/2416.tcp",
             "resourceMd5": "0505a5ddc8182b1c7be2973626955b6c",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2916"
-            ]
+            "aliases": ["pet-2916"]
         },
         {
             "id": "pet-2417",
@@ -2337,9 +1977,7 @@
             "resourcePath": "newphoto/npc50/2417.tcp",
             "resourceMd5": "88ff2ecdce58bb6bc1f51e8584e171f1",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2917"
-            ]
+            "aliases": ["pet-2917"]
         },
         {
             "id": "pet-2418",
@@ -2363,9 +2001,7 @@
             "resourcePath": "newphoto/npc50/2419.tcp",
             "resourceMd5": "06f1a6d208f2e1762bac1d44923a41be",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2919"
-            ]
+            "aliases": ["pet-2919"]
         },
         {
             "id": "pet-2420",
@@ -2377,9 +2013,7 @@
             "resourcePath": "newphoto/npc50/2420.tcp",
             "resourceMd5": "797f78b524ad3ba85d37a4457f03f328",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2920"
-            ]
+            "aliases": ["pet-2920"]
         },
         {
             "id": "pet-2421",
@@ -2391,9 +2025,7 @@
             "resourcePath": "newphoto/npc50/2421.tcp",
             "resourceMd5": "94f3449899915638de857d674987aa67",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2921"
-            ]
+            "aliases": ["pet-2921"]
         },
         {
             "id": "pet-2422",
@@ -2405,9 +2037,7 @@
             "resourcePath": "newphoto/npc50/2422.tcp",
             "resourceMd5": "065d7423d69e7b444dc7ee26ee731d14",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2922"
-            ]
+            "aliases": ["pet-2922"]
         },
         {
             "id": "pet-2423",
@@ -2419,9 +2049,7 @@
             "resourcePath": "newphoto/npc50/2423.tcp",
             "resourceMd5": "9eabb7e2dcc321a653dbdc81b07b926d",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2923"
-            ]
+            "aliases": ["pet-2923"]
         },
         {
             "id": "pet-2424",
@@ -2433,9 +2061,7 @@
             "resourcePath": "newphoto/npc50/2424.tcp",
             "resourceMd5": "b1cacff261195b58012b17fda4b73a07",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2924"
-            ]
+            "aliases": ["pet-2924"]
         },
         {
             "id": "pet-2425",
@@ -2447,9 +2073,7 @@
             "resourcePath": "newphoto/npc50/2425.tcp",
             "resourceMd5": "8fd852892bb2b8e9d40297c5e3e80ed6",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2925"
-            ]
+            "aliases": ["pet-2925"]
         },
         {
             "id": "pet-2426",
@@ -2461,9 +2085,7 @@
             "resourcePath": "newphoto/npc50/2426.tcp",
             "resourceMd5": "a37d6868d256527ee66203dbd78f38d4",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2926"
-            ]
+            "aliases": ["pet-2926"]
         },
         {
             "id": "pet-2427",
@@ -2487,9 +2109,7 @@
             "resourcePath": "newphoto/npc50/2428.tcp",
             "resourceMd5": "8233224592f636016285b89302a70df3",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2928"
-            ]
+            "aliases": ["pet-2928"]
         },
         {
             "id": "pet-2429",
@@ -2501,9 +2121,7 @@
             "resourcePath": "newphoto/npc50/2429.tcp",
             "resourceMd5": "36a25c27e28fe5da116607639271182c",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2929"
-            ]
+            "aliases": ["pet-2929"]
         },
         {
             "id": "pet-2430",
@@ -2515,9 +2133,7 @@
             "resourcePath": "newphoto/npc50/2430.tcp",
             "resourceMd5": "9d5705fa88cfd72426a4c64d13502a47",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2930"
-            ]
+            "aliases": ["pet-2930"]
         },
         {
             "id": "pet-2431",
@@ -2529,9 +2145,7 @@
             "resourcePath": "newphoto/npc50/2431.tcp",
             "resourceMd5": "b58296f28231bc9094584f4d19415e81",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2931"
-            ]
+            "aliases": ["pet-2931"]
         },
         {
             "id": "pet-2432",
@@ -2543,9 +2157,7 @@
             "resourcePath": "newphoto/npc50/2432.tcp",
             "resourceMd5": "036ebb4de5ac456b5007497ccb9e19ad",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2932"
-            ]
+            "aliases": ["pet-2932"]
         },
         {
             "id": "pet-2433",
@@ -2557,9 +2169,7 @@
             "resourcePath": "newphoto/npc50/2433.tcp",
             "resourceMd5": "dac9a747044a96993f328484695ca22e",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2933"
-            ]
+            "aliases": ["pet-2933"]
         },
         {
             "id": "pet-2434",
@@ -2571,9 +2181,7 @@
             "resourcePath": "newphoto/npc50/2434.tcp",
             "resourceMd5": "528ce0c758f35f539ae2c2540f502beb",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2934"
-            ]
+            "aliases": ["pet-2934"]
         },
         {
             "id": "pet-2435",
@@ -2585,9 +2193,7 @@
             "resourcePath": "newphoto/npc50/2435.tcp",
             "resourceMd5": "d96c4a5dea58eb2ca46f40399ec04327",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2935"
-            ]
+            "aliases": ["pet-2935"]
         },
         {
             "id": "pet-2436",
@@ -2599,9 +2205,7 @@
             "resourcePath": "newphoto/npc50/2436.tcp",
             "resourceMd5": "436bca5d2fd7d0d2876a62f8a0522915",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2936"
-            ]
+            "aliases": ["pet-2936"]
         },
         {
             "id": "pet-2437",
@@ -2613,9 +2217,7 @@
             "resourcePath": "newphoto/npc50/2437.tcp",
             "resourceMd5": "3e867d6ef5b85c530ed540c83e51fdaf",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2937"
-            ]
+            "aliases": ["pet-2937"]
         },
         {
             "id": "pet-2438",
@@ -2627,9 +2229,7 @@
             "resourcePath": "newphoto/npc50/2438.tcp",
             "resourceMd5": "537f9b2cee8810d2ee0f61f1a3a8096c",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2938"
-            ]
+            "aliases": ["pet-2938"]
         },
         {
             "id": "pet-2439",
@@ -2641,9 +2241,7 @@
             "resourcePath": "newphoto/npc50/2439.tcp",
             "resourceMd5": "9dbe570d3824abddb233138403ff4055",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2939"
-            ]
+            "aliases": ["pet-2939"]
         },
         {
             "id": "pet-2440",
@@ -2655,9 +2253,7 @@
             "resourcePath": "newphoto/npc50/2440.tcp",
             "resourceMd5": "dc2de947c24b818b02cccda8d76d2ba8",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2940"
-            ]
+            "aliases": ["pet-2940"]
         },
         {
             "id": "pet-2441",
@@ -2885,9 +2481,7 @@
             "resourcePath": "newphoto/npc50/2471.tcp",
             "resourceMd5": "10f0cbc92b8f60c96de45043f4bbd5ca",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2971"
-            ]
+            "aliases": ["pet-2971"]
         },
         {
             "id": "pet-2473",
@@ -2899,9 +2493,7 @@
             "resourcePath": "newphoto/npc50/2473.tcp",
             "resourceMd5": "f1fb2630710e7315a4cc390e05e50621",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2973"
-            ]
+            "aliases": ["pet-2973"]
         },
         {
             "id": "pet-2475",
@@ -2913,9 +2505,7 @@
             "resourcePath": "newphoto/npc50/2475.tcp",
             "resourceMd5": "27865b44307aaea4ca7745fdfea5fcd1",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2975"
-            ]
+            "aliases": ["pet-2975"]
         },
         {
             "id": "pet-2477",
@@ -2927,9 +2517,7 @@
             "resourcePath": "newphoto/npc50/2477.tcp",
             "resourceMd5": "966c2a2c51cc0f21f4d5df7cda03e8d1",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2977"
-            ]
+            "aliases": ["pet-2977"]
         },
         {
             "id": "pet-2479",
@@ -2941,9 +2529,7 @@
             "resourcePath": "newphoto/npc50/2479.tcp",
             "resourceMd5": "78cba963d9d4dd745235e5515ff762dc",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2979"
-            ]
+            "aliases": ["pet-2979"]
         },
         {
             "id": "pet-2481",
@@ -2955,9 +2541,7 @@
             "resourcePath": "newphoto/npc50/2481.tcp",
             "resourceMd5": "c2c8e95d36f49a8c7278a0e13a5b1921",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2981"
-            ]
+            "aliases": ["pet-2981"]
         },
         {
             "id": "pet-2485",
@@ -2993,9 +2577,7 @@
             "resourcePath": "newphoto/npc50/2495.tcp",
             "resourceMd5": "e6fe36bb095ce9e2e7ed37da5db78032",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-2995"
-            ]
+            "aliases": ["pet-2995"]
         },
         {
             "id": "pet-2497",
@@ -3055,9 +2637,7 @@
             "resourcePath": "newphoto/npc50/12004.tcp",
             "resourceMd5": "9310a93badd11756a94b81ae6fbfea27",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12504"
-            ]
+            "aliases": ["pet-12504"]
         },
         {
             "id": "pet-12006",
@@ -3069,9 +2649,7 @@
             "resourcePath": "newphoto/npc50/12006.tcp",
             "resourceMd5": "f550e4e6d7e926edff4c599d0d7a9c62",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12506"
-            ]
+            "aliases": ["pet-12506"]
         },
         {
             "id": "pet-12008",
@@ -3083,9 +2661,7 @@
             "resourcePath": "newphoto/npc50/12008.tcp",
             "resourceMd5": "633d2d9cfdfe3be9481aea1d59045816",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12508"
-            ]
+            "aliases": ["pet-12508"]
         },
         {
             "id": "pet-12010",
@@ -3097,9 +2673,7 @@
             "resourcePath": "newphoto/npc50/12010.tcp",
             "resourceMd5": "897ba765c70ab0ae1fb83cfc90779f6c",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12510"
-            ]
+            "aliases": ["pet-12510"]
         },
         {
             "id": "pet-12016",
@@ -3123,9 +2697,7 @@
             "resourcePath": "newphoto/npc50/12019.tcp",
             "resourceMd5": "7d3961f442b8cda5cac1b3dff52d54fe",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12519"
-            ]
+            "aliases": ["pet-12519"]
         },
         {
             "id": "pet-12020",
@@ -3137,9 +2709,7 @@
             "resourcePath": "newphoto/npc50/12020.tcp",
             "resourceMd5": "d388abb2af4255ed44d7f0ccbd1b9aee",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12520"
-            ]
+            "aliases": ["pet-12520"]
         },
         {
             "id": "pet-12021",
@@ -3151,9 +2721,7 @@
             "resourcePath": "newphoto/npc50/12021.tcp",
             "resourceMd5": "6811e185746698d50facc7ae6fa6c9c4",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12521"
-            ]
+            "aliases": ["pet-12521"]
         },
         {
             "id": "pet-12022",
@@ -3165,9 +2733,7 @@
             "resourcePath": "newphoto/npc50/12022.tcp",
             "resourceMd5": "0e0acf7b8cc369e9bf4e1192a02ecff6",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12522"
-            ]
+            "aliases": ["pet-12522"]
         },
         {
             "id": "pet-12027",
@@ -3215,9 +2781,7 @@
             "resourcePath": "newphoto/npc50/12038.tcp",
             "resourceMd5": "7f91dd47470a186911f3e29f5eb90757",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12538"
-            ]
+            "aliases": ["pet-12538"]
         },
         {
             "id": "pet-12039",
@@ -3229,9 +2793,7 @@
             "resourcePath": "newphoto/npc50/12039.tcp",
             "resourceMd5": "4bfdd85c27999cd1be4aad5053c8b963",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12539"
-            ]
+            "aliases": ["pet-12539"]
         },
         {
             "id": "pet-12040",
@@ -3243,9 +2805,7 @@
             "resourcePath": "newphoto/npc50/12040.tcp",
             "resourceMd5": "05a102a238395abf9868cfb3026528cf",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12540"
-            ]
+            "aliases": ["pet-12540"]
         },
         {
             "id": "pet-12041",
@@ -3257,11 +2817,7 @@
             "resourcePath": "newphoto/npc50/12041.tcp",
             "resourceMd5": "1c332b3338b2b48039e84a627f687274",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12061",
-                "pet-12541",
-                "pet-12561"
-            ]
+            "aliases": ["pet-12061", "pet-12541", "pet-12561"]
         },
         {
             "id": "pet-12042",
@@ -3273,11 +2829,7 @@
             "resourcePath": "newphoto/npc50/12042.tcp",
             "resourceMd5": "194ea7ba261be27d5345ddccc9b4375a",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12062",
-                "pet-12542",
-                "pet-12562"
-            ]
+            "aliases": ["pet-12062", "pet-12542", "pet-12562"]
         },
         {
             "id": "pet-12043",
@@ -3289,11 +2841,7 @@
             "resourcePath": "newphoto/npc50/12043.tcp",
             "resourceMd5": "bdd70b58bf7fc1d18cb172ac8911b593",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12063",
-                "pet-12543",
-                "pet-12563"
-            ]
+            "aliases": ["pet-12063", "pet-12543", "pet-12563"]
         },
         {
             "id": "pet-12044",
@@ -3305,11 +2853,7 @@
             "resourcePath": "newphoto/npc50/12044.tcp",
             "resourceMd5": "b501121773b4534c5d6770e1c84d36a5",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12064",
-                "pet-12544",
-                "pet-12564"
-            ]
+            "aliases": ["pet-12064", "pet-12544", "pet-12564"]
         },
         {
             "id": "pet-12045",
@@ -3321,11 +2865,7 @@
             "resourcePath": "newphoto/npc50/12045.tcp",
             "resourceMd5": "ff894c763cc388612f94b9adab820248",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12065",
-                "pet-12545",
-                "pet-12565"
-            ]
+            "aliases": ["pet-12065", "pet-12545", "pet-12565"]
         },
         {
             "id": "pet-12054",
@@ -3361,9 +2901,7 @@
             "resourcePath": "newphoto/npc50/12071.tcp",
             "resourceMd5": "4bfdd85c27999cd1be4aad5053c8b963",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12571"
-            ]
+            "aliases": ["pet-12571"]
         },
         {
             "id": "pet-12074",
@@ -3387,9 +2925,7 @@
             "resourcePath": "newphoto/npc50/12078.tcp",
             "resourceMd5": "99655b6f90774352c5e9edac518df37d",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12578"
-            ]
+            "aliases": ["pet-12578"]
         },
         {
             "id": "pet-12079",
@@ -3401,9 +2937,7 @@
             "resourcePath": "newphoto/npc50/12079.tcp",
             "resourceMd5": "52114a1ed51f7ad27671c6204467d9ed",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12579"
-            ]
+            "aliases": ["pet-12579"]
         },
         {
             "id": "pet-12080",
@@ -3415,9 +2949,7 @@
             "resourcePath": "newphoto/npc50/12080.tcp",
             "resourceMd5": "a1c08b9a3e65e731411e4a67dd56f075",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12580"
-            ]
+            "aliases": ["pet-12580"]
         },
         {
             "id": "pet-12081",
@@ -3429,9 +2961,7 @@
             "resourcePath": "newphoto/npc50/12081.tcp",
             "resourceMd5": "71e7a5e89225382c1df7bf10f7de6f28",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12581"
-            ]
+            "aliases": ["pet-12581"]
         },
         {
             "id": "pet-12082",
@@ -3443,9 +2973,7 @@
             "resourcePath": "newphoto/npc50/12082.tcp",
             "resourceMd5": "2eaf09791b6ba1e7c0129f2f72c6d381",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12582"
-            ]
+            "aliases": ["pet-12582"]
         },
         {
             "id": "pet-12089",
@@ -3469,9 +2997,7 @@
             "resourcePath": "newphoto/npc50/12090.tcp",
             "resourceMd5": "846f6f6573059a79e008cb9b3a25c74b",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12590"
-            ]
+            "aliases": ["pet-12590"]
         },
         {
             "id": "pet-12092",
@@ -3483,9 +3009,7 @@
             "resourcePath": "newphoto/npc50/12092.tcp",
             "resourceMd5": "a6d43472e68c7a71c59484e848586180",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12592"
-            ]
+            "aliases": ["pet-12592"]
         },
         {
             "id": "pet-12094",
@@ -3497,9 +3021,7 @@
             "resourcePath": "newphoto/npc50/12094.tcp",
             "resourceMd5": "4587fad0fec63b69ac0bafaee65d9fd8",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12594"
-            ]
+            "aliases": ["pet-12594"]
         },
         {
             "id": "pet-12096",
@@ -3511,9 +3033,7 @@
             "resourcePath": "newphoto/npc50/12096.tcp",
             "resourceMd5": "709459531ff936a3835f4d439e96c4f1",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-12596"
-            ]
+            "aliases": ["pet-12596"]
         },
         {
             "id": "pet-18866",
@@ -3525,9 +3045,7 @@
             "resourcePath": "newphoto/npc50/18866.tcp",
             "resourceMd5": "7e4090442ed9ab763a68726f6a04ab79",
             "origin": "官方客户端资源",
-            "aliases": [
-                "pet-18868"
-            ]
+            "aliases": ["pet-18868"]
         },
         {
             "id": "pet-19089",

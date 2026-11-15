@@ -24,7 +24,7 @@ const emit = defineEmits<{
 const { prices, target, recordEntry, setTarget, mergePrices, flush } = useIncome();
 const { roster } = useRoster();
 
-/* 清单在启动时已装好（`main.ts` 等 `loadGameData()` 完成才挂载），这里取一次就够。
+/* 清单在启动时已装好（`startup.ts` 完成规则装配后才开放业务路由），这里取一次就够。
  * 模板里每次渲染都调 `quickItems()` 也能跑，但那是 59 项的表，没必要每帧找一遍。 */
 const groups = quickItems();
 

@@ -347,6 +347,12 @@ export async function equipment(ctx) {
     await t.step('快速修改上传：部位拦错、取消不写入、保存才生效', async () => {
         await openHead();
         await ui.waitFor(`!!document.querySelector('.gear-quick')`);
+        // 入场会缩放面板；等动画结束后再比较固定高度，避免把中间帧留作后续基线。
+        const settled = await ui.waitFor(`(() => {
+            const panel = document.querySelector('.gear-quick')?.closest('.modal-panel');
+            return panel && getComputedStyle(panel).transform === 'none';
+        })()`);
+        if (!settled) throw new Error('装备修改窗入场动画未结束');
         const quickHeight = await cdp.evaluate(
             `document.querySelector('.modal-panel').getBoundingClientRect().height`,
         );

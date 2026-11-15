@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useMinuteNow } from '../../composables/use-minute-now';
 import { useRouteAction } from '../../composables/use-route-action';
 import AlarmCard from './AlarmCard.vue';
 import AlarmDialog from './AlarmDialog.vue';
@@ -21,14 +22,9 @@ import { useAlarms } from './alarm-store';
  * ---- 这一页只负责「摆」与「开窗」----
  *
  * 数据在 `useAlarms()`（模块级单例），提醒的计时在 `AlarmHost`（全站一个，挂在外壳里）。
- * 这一页不自己算什么时候响：它只每 30 秒刷新一次「现在几点」，卡片拿它算倒计时。
+ * 这一页不自己算什么时候响：它使用共享分钟时钟刷新「现在几点」，卡片拿它算倒计时。
  * 两处各算一份时间的话，卡片说「1 分钟后」、提示却在半分钟后就弹，用户会以为它不准。
  *
- * ---- 为什么每 30 秒而不是每秒 ----
- *
- * 显示的最小单位是「分钟」（`29 分钟后`），秒级刷新只会让屏幕每秒钟动一次，
- * 而那一格字一分钟里只变一次。30 秒是为了「跨分钟时最多晚半分钟」，肉眼可接受，
- * 又不至于让一个后台页面每秒醒一次。
  */
 const { alarms, error, add, update, remove, setEnabled } = useAlarms();
 
@@ -37,33 +33,8 @@ const { alarms, error, add, update, remove, setEnabled } = useAlarms();
  * 目录一个，写死它才符合「返回」在这张纸上唯一的意思。 */
 const router = useRouter();
 
-/* 当前时刻。卡片拿它算「还有多久」。 */
-const now = ref(new Date());
-let timer: ReturnType<typeof setInterval> | undefined;
-
-onMounted(() => {
-    timer = setInterval(() => {
-        now.value = new Date();
-    }, 30_000);
-    /* 窗口从最小化回来 / 休眠恢复时立刻对一次：`setInterval` 在后台会被节流成
-     * 一分钟一次，回来时 `now` 可能还停在十分钟前，倒计时会先跳一下。 */
-    window.addEventListener('focus', refresh);
-    document.addEventListener('visibilitychange', onVisible);
-});
-
-onBeforeUnmount(() => {
-    if (timer) clearInterval(timer);
-    window.removeEventListener('focus', refresh);
-    document.removeEventListener('visibilitychange', onVisible);
-});
-
-function refresh() {
-    now.value = new Date();
-}
-
-function onVisible() {
-    if (document.visibilityState === 'visible') refresh();
-}
+const minuteNow = useMinuteNow();
+const now = computed(() => new Date(minuteNow.value));
 
 /* ---------- 弹窗 ---------- */
 const dialogOpen = ref(false);

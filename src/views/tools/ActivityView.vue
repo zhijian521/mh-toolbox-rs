@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useMinuteNow } from '../../composables/use-minute-now';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import { notify } from '../../composables/use-notify';
@@ -29,20 +30,8 @@ import { useAlarms } from './alarm-store';
 const router = useRouter();
 const { alarms, add } = useAlarms();
 
-/* 「现在」每 30 秒走一次。分组按天变，但「这条今天已经结束」是按分钟变的——
- * 一场 17:00 结束的活动，17:01 就该从「今天」挪到明天/下周，不该等到零点。 */
-const now = ref(new Date());
-let ticker: ReturnType<typeof setInterval> | undefined;
-
-onMounted(() => {
-    ticker = setInterval(() => {
-        now.value = new Date();
-    }, 30_000);
-});
-
-onBeforeUnmount(() => {
-    clearInterval(ticker);
-});
+const minuteNow = useMinuteNow();
+const now = computed(() => new Date(minuteNow.value));
 
 const groups = computed(() => groupActivities(ACTIVITIES, now.value));
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildAssets, type AssetSources } from './game-assets';
 
 /** 一份最小可用的原材料，各用例只改自己关心的那几项。 */
@@ -133,4 +133,57 @@ describe('资源索引', () => {
         expect(sectionOf(list, 'pet')?.items).toEqual([]);
         expect(list).toHaveLength(10);
     });
+});
+
+describe('资源清单缓存与补读', () => {
+    afterEach(() => {
+        vi.doUnmock('./game-data');
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+    });
+
+    it.each(['icons.json', 'pet-skills.json', 'equipment'])(
+        '%s 首次失败后只补读失败部分',
+        async (failed) => {
+            vi.resetModules();
+            const sources = make();
+            const equipment = vi.fn().mockResolvedValue(sources.equipment);
+            if (failed === 'equipment') equipment.mockRejectedValueOnce(new Error('unavailable'));
+            vi.doMock('./game-data', () => ({
+                gameDataReady: { value: true },
+                loadGameData: vi.fn().mockResolvedValue(undefined),
+                loadEquipmentNames: equipment,
+                gameData: () => sources,
+            }));
+            vi.spyOn(console, 'error').mockImplementation(() => {});
+            let failedOnce = false;
+            const fetcher = vi.fn(async (url: string) => {
+                const file = url.split('/').pop();
+                if (file === failed && !failedOnce) {
+                    failedOnce = true;
+                    throw new Error('unavailable');
+                }
+                return Response.json(
+                    file === 'icons.json' ? { groups: sources.iconGroups } : sources.petSkills,
+                );
+            });
+            vi.stubGlobal('fetch', fetcher);
+            const { loadAssetSections } = await import('./game-assets');
+            const first = loadAssetSections();
+            expect(loadAssetSections()).toBe(first);
+            const partial = await first;
+            const kind =
+                failed === 'icons.json' ? 'life' : failed === 'pet-skills.json' ? 'pet' : 'gear';
+            expect(sectionOf(partial, kind)?.items).toHaveLength(0);
+            const complete = await loadAssetSections();
+            expect(sectionOf(complete, kind)?.items.length).toBeGreaterThan(0);
+            expect(await loadAssetSections()).toBe(complete);
+            for (const file of ['icons.json', 'pet-skills.json']) {
+                expect(fetcher.mock.calls.filter(([url]) => url.endsWith(file))).toHaveLength(
+                    file === failed ? 2 : 1,
+                );
+            }
+            expect(equipment).toHaveBeenCalledTimes(2);
+        },
+    );
 });

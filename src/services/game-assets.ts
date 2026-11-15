@@ -20,6 +20,7 @@
 
 import {
     gameData,
+    gameDataReady,
     loadEquipmentNames,
     loadGameData,
     type EquipmentEntry,
@@ -238,11 +239,19 @@ async function fetchJson(name: string): Promise<unknown> {
     return response.json();
 }
 
+const optionalFiles = new Map<string, Promise<unknown>>();
+
 /** 取数的两层兜底：单份失败只是少一类，不让整页空白。 */
 async function optional(name: string): Promise<unknown> {
     try {
-        return await fetchJson(name);
+        let request = optionalFiles.get(name);
+        if (!request) {
+            request = fetchJson(name);
+            optionalFiles.set(name, request);
+        }
+        return await request;
     } catch (error) {
+        optionalFiles.delete(name);
         console.error(`资源清单 ${name} 读取失败`, error);
         return null;
     }
@@ -259,8 +268,10 @@ let pending: Promise<AssetSection[]> | null = null;
 export function loadAssetSections(): Promise<AssetSection[]> {
     pending ??= (async () => {
         await loadGameData();
+        let complete = gameDataReady.value;
         const [equipment, iconGroups, petSkills] = await Promise.all([
             loadEquipmentNames().catch((error: unknown) => {
+                complete = false;
                 console.error('装备名录读取失败', error);
                 return [] as EquipmentEntry[];
             }),
@@ -268,6 +279,8 @@ export function loadAssetSections(): Promise<AssetSection[]> {
             optional('pet-skills.json'),
         ]);
 
+        // 缺项结果只供本次展示；下次进入补读失败清单，成功文件继续复用。
+        if (!complete || iconGroups === null || petSkills === null) pending = null;
         const data = gameData();
         const groups = (iconGroups as { groups?: Record<string, unknown> } | null)?.groups ?? null;
         return buildAssets({

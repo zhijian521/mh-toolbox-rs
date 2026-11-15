@@ -54,10 +54,6 @@ const startup = afterPaint().then(async () => {
     try {
         const data = await import('./startup');
         await data.initializeData();
-        releaseRoutes();
-        await router.isReady();
-        removeLoadingGuard();
-        loading.value = false;
         return data;
     } catch (error) {
         console.error('应用启动失败', error);
@@ -68,9 +64,18 @@ const startup = afterPaint().then(async () => {
 
 void startup.then(async (data) => {
     if (!data) return;
-    await nextTick();
-    await afterPaint();
-    void notifyAppReady();
+    try {
+        releaseRoutes();
+        await router.isReady();
+        removeLoadingGuard();
+        loading.value = false;
+        await nextTick();
+        await afterPaint();
+        void notifyAppReady();
+    } catch (error) {
+        console.error('页面加载失败', error);
+        startupError.value = '页面加载失败，请重新加载';
+    }
 });
 
 void guardWindowClose(async () => {

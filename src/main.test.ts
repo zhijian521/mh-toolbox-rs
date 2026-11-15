@@ -128,4 +128,32 @@ describe('分阶段启动', () => {
         await vi.advanceTimersByTimeAsync(100);
         expect(mocks.ready).toHaveBeenCalledOnce();
     });
+
+    it('路由仍在加载或加载失败时，关窗只等待数据和真实写盘', async () => {
+        let finishRoute = () => {};
+        mocks.isReady.mockReturnValue(new Promise<void>((resolve) => (finishRoute = resolve)));
+        await import('./main');
+        await paint();
+        expect(render().props?.loading).toBe(true);
+        expect(await mocks.close.mock.calls[0][0]()).toBe(true);
+        expect(mocks.sync).toHaveBeenCalledOnce();
+        expect(mocks.flush).toHaveBeenCalledOnce();
+        finishRoute();
+        await vi.dynamicImportSettled();
+    });
+
+    it('路由失败仍刷新已经启动的日常联动，不发送预热通知', async () => {
+        const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+        mocks.isReady.mockRejectedValue(new Error('route chunk unavailable'));
+        try {
+            await import('./main');
+            await paint();
+            expect(render().props?.startupError).toContain('页面加载失败');
+            expect(await mocks.close.mock.calls[0][0]()).toBe(true);
+            expect(mocks.sync).toHaveBeenCalledOnce();
+            expect(mocks.ready).not.toHaveBeenCalled();
+        } finally {
+            log.mockRestore();
+        }
+    });
 });

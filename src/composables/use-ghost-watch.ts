@@ -195,6 +195,9 @@ export function useGhostWatch() {
     let inFlight = false;
     let failCount = 0;
     let disposed = false;
+    let runSeq = 0;
+
+    const isCurrent = (seq: number) => !disposed && seq === runSeq;
 
     function recompute() {
         // 测试模式不经过 `hold`：那一层解决的是「这一帧没读清，用上一帧顶着」，
@@ -259,8 +262,10 @@ export function useGhostWatch() {
         report.value = null;
     }
 
-    async function refreshWindows() {
-        windows.value = await listGhostWindows();
+    async function refreshWindows(valid = () => !disposed) {
+        const found = await listGhostWindows();
+        if (!valid()) return;
+        windows.value = found;
         // 用户没手动选过时，若恰好只剩一个候选就替它选上，省一次操作。
         if (selectedHwnd.value === null && windows.value.length === 1) {
             selectedHwnd.value = windows.value[0].hwnd;
@@ -270,8 +275,12 @@ export function useGhostWatch() {
     async function tick() {
         if (inFlight || disposed || !running.value) return;
         inFlight = true;
+        const seq = runSeq;
+        const hwnd = selectedHwnd.value;
+        const valid = () => isCurrent(seq) && running.value && hwnd === selectedHwnd.value;
         try {
-            const result = await probeGhostTask(selectedHwnd.value);
+            const result = await probeGhostTask(hwnd);
+            if (!valid()) return;
             failCount = 0;
             error.value = '';
             const now = Date.now();
@@ -289,6 +298,7 @@ export function useGhostWatch() {
             ages.value = holdAges(hold, now);
             settling.value = isSettling(hold);
         } catch (cause) {
+            if (!valid()) return;
             const message = cause instanceof Error ? cause.message : String(cause);
             // 游戏重开后句柄就作废了。若继续拿着旧 hwnd，之后每一帧都会得到同一个
             // 「窗口已关闭」，而重试的是同一次调用、同一份选择——不会自愈，只能让用户
@@ -296,7 +306,8 @@ export function useGhostWatch() {
             if (message.includes(WINDOW_GONE)) {
                 selectedHwnd.value = null;
                 failCount = 0;
-                await refreshWindows();
+                await refreshWindows(() => isCurrent(seq) && running.value);
+                if (!isCurrent(seq) || !running.value) return;
                 error.value = '游戏窗口已重开，正在重新查找';
                 return;
             }
@@ -308,7 +319,9 @@ export function useGhostWatch() {
     }
 
     async function start() {
-        if (running.value || starting.value) return;
+        if (disposed || running.value || starting.value) return;
+        const seq = ++runSeq;
+        testSeq += 1;
         // 真机接管：测试文字要让位。不然第一帧还没回来时 `recompute` 会把上一轮
         // 测试的结果和真帧的结果交替写进 `plans`，图来回跳。
         testing.value = false;
@@ -316,7 +329,9 @@ export function useGhostWatch() {
         starting.value = true;
         try {
             if (maps.value.length === 0) maps.value = await loadGhostMaps();
-            if (windows.value.length === 0) await refreshWindows();
+            if (!isCurrent(seq)) return;
+            if (windows.value.length === 0) await refreshWindows(() => isCurrent(seq));
+            if (!isCurrent(seq)) return;
             running.value = true;
             resetHeld();
             /* `resetHeld` 只清 `plans`，`report` 还留着上一轮——从测试文字点「开始」
@@ -326,13 +341,22 @@ export function useGhostWatch() {
             failCount = 0;
             error.value = '';
             await tick();
-            timer = window.setInterval(() => void tick(), POLL_MS);
+            if (isCurrent(seq) && running.value) {
+                timer = window.setInterval(() => void tick(), POLL_MS);
+            }
+        } catch (cause) {
+            if (isCurrent(seq)) {
+                running.value = false;
+                error.value = cause instanceof Error ? cause.message : String(cause);
+            }
         } finally {
-            starting.value = false;
+            if (isCurrent(seq)) starting.value = false;
         }
     }
 
     function stop() {
+        runSeq += 1;
+        starting.value = false;
         running.value = false;
         settling.value = false;
         if (timer !== null) {
@@ -342,13 +366,14 @@ export function useGhostWatch() {
     }
 
     function toggle() {
-        if (running.value) stop();
+        if (running.value || starting.value) stop();
         else void start();
     }
 
     /** 页面打开就先加载地图与窗口列表：用户还没点开始，就该能选要监听哪个窗口。 */
     async function prepare() {
         if (maps.value.length === 0) maps.value = await loadGhostMaps();
+        if (disposed) return;
         await refreshWindows();
     }
 

@@ -70,10 +70,16 @@ export function lazyDialog<T extends Component>(loader: () => Promise<{ default:
                         footer: () => [
                             h(PressButton, {
                                 text: failed.value ? '关闭' : '取消',
+                                label: failed.value ? '关闭' : '取消',
                                 onClick: close,
                             }),
                             failed.value &&
-                                h(PressButton, { text: '重试', seal: true, onClick: open }),
+                                h(PressButton, {
+                                    text: '重试',
+                                    label: '重试',
+                                    seal: true,
+                                    onClick: open,
+                                }),
                         ],
                     },
                 );

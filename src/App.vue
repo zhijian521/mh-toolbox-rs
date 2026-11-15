@@ -24,12 +24,13 @@ import { NAV_BY_KEY, NAV_ITEMS } from './navigation';
  * `AppRail` 仍然是纯组件（收 props、发事件），路由这一层留在外壳里：
  * 组件一旦自己 `useRoute()`，就没法在别的上下文里复用，也没法单独渲染做视觉验收。
  */
-const route = useRoute();
-const router = useRouter();
 withDefaults(defineProps<{ loading?: boolean; startupError?: string }>(), {
     loading: false,
     startupError: '',
 });
+
+const route = useRoute();
+const router = useRouter();
 
 function reload() {
     location.reload();
