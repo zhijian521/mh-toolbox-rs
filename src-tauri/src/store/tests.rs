@@ -1,5 +1,94 @@
 use super::*;
 
+#[test]
+fn legacy_startup_checks_once_even_after_clear_and_reopen() {
+    let dir = TempDir::new(800);
+    let mut conn = open_at(dir.base()).unwrap();
+    assert!(claim_legacy_startup(&mut conn).unwrap());
+    clear_records(&mut conn).unwrap();
+    drop(conn);
+    let mut conn = open_at(dir.base()).unwrap();
+    assert!(!claim_legacy_startup(&mut conn).unwrap());
+}
+
+#[test]
+fn legacy_startup_preserves_settings_and_quick_prices_without_characters() {
+    let dir = TempDir::new(801);
+    let mut conn = open_at(dir.base()).unwrap();
+    conn.execute(
+        "INSERT INTO quick_prices (item_id, price) VALUES (1, 10)",
+        [],
+    )
+    .unwrap();
+    assert!(!claim_legacy_startup(&mut conn).unwrap());
+    clear_records(&mut conn).unwrap();
+    assert!(!claim_legacy_startup(&mut conn).unwrap());
+
+    let dir = TempDir::new(802);
+    let mut conn = open_at(dir.base()).unwrap();
+    conn.execute(
+        "INSERT INTO online_settings (id, card_price, card_cost) VALUES (1, 123, 0)",
+        [],
+    )
+    .unwrap();
+    assert!(!claim_legacy_startup(&mut conn).unwrap());
+}
+
+#[test]
+fn legacy_startup_rechecks_empty_ledger_before_writing() {
+    let dir = TempDir::new(803);
+    let mut conn = open_at(dir.base()).unwrap();
+    assert!(claim_legacy_startup(&mut conn).unwrap());
+    let mut other = open_at(dir.base()).unwrap();
+    save_items(&mut other, &[item("keep", "保留", vec![])]).unwrap();
+    assert!(
+        replace_all_on_startup(&mut conn, &[], &[], &no_income(), &[], &[], &no_online()).is_err()
+    );
+    assert_eq!(load_items(&conn).unwrap()[0].id, "keep");
+}
+
+#[test]
+fn legacy_startup_rolls_back_partial_import_and_commits_marker_with_data() {
+    let dir = TempDir::new(804);
+    let mut conn = open_at(dir.base()).unwrap();
+    assert!(claim_legacy_startup(&mut conn).unwrap());
+    let duplicate = item("duplicate", "重复", vec![]);
+    assert!(replace_all_on_startup(
+        &mut conn,
+        &[],
+        &[duplicate.clone(), duplicate],
+        &no_income(),
+        &[],
+        &[],
+        &no_online()
+    )
+    .is_err());
+    assert!(ledger_is_empty(&conn).unwrap());
+    assert_eq!(
+        read_meta(&conn, "legacyStartup").unwrap().as_deref(),
+        Some("checked")
+    );
+    let counts = replace_all_on_startup(
+        &mut conn,
+        &[],
+        &[item("imported", "导入", vec![])],
+        &no_income(),
+        &[],
+        &[],
+        &no_online(),
+    )
+    .unwrap();
+    assert_eq!(counts.prices, 1);
+    assert_eq!(
+        read_meta(&conn, "legacyStartup").unwrap().as_deref(),
+        Some("imported")
+    );
+    clear_records(&mut conn).unwrap();
+    assert!(
+        replace_all_on_startup(&mut conn, &[], &[], &no_income(), &[], &[], &no_online()).is_err()
+    );
+}
+
 /// 一次性目录，离开作用域就删。
 struct TempDir {
     path: std::path::PathBuf,

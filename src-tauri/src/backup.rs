@@ -25,7 +25,7 @@
 //! ## 旧版 Electron 使用独立导入入口
 //!
 //! 旧版 v10 经前端独立转换模块变为当前信封，预览确认后走相同的备份与事务替换。
-//! 常规导入仍只接受新版信封；不自动扫描旧目录，不修改或回写旧文件。
+//! 首次空账本可自动读取旧目录，复用相同转换；常规导入仍只接受新版信封，不回写旧文件。
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -365,6 +365,14 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
 
 /// 新旧两个入口共用备份、校验与事务替换，转换模块不碰数据库。
 fn replace_backup(app: &AppHandle, file: BackupFile) -> Result<ImportSummary, String> {
+    replace_backup_with(app, file, false)
+}
+
+fn replace_backup_with(
+    app: &AppHandle,
+    file: BackupFile,
+    startup: bool,
+) -> Result<ImportSummary, String> {
     /* 校验放在备份和替换之前：与直接保存共用身份规则，不补造 ID 或合并重复记录。 */
     let truncation = validate_backup(&file)?;
 
@@ -399,7 +407,12 @@ fn replace_backup(app: &AppHandle, file: BackupFile) -> Result<ImportSummary, St
         sessions: file.online,
         settings: file.card_settings,
     };
-    let counts = store::replace_all(
+    let replace = if startup {
+        store::replace_all_on_startup
+    } else {
+        store::replace_all
+    };
+    let counts = replace(
         &mut conn,
         &file.characters,
         &file.prices,
@@ -430,7 +443,32 @@ pub async fn legacy_data_read(app: AppHandle) -> Result<Option<String>, String> 
     let Some(path) = ask_open_path(&app).await? else {
         return Ok(None);
     };
-    let size = std::fs::metadata(&path)
+    read_legacy_source(&path).map(Some)
+}
+
+/// 首次空账本才读取固定旧目录；不查找备份文件，不触发文件选择框。
+#[tauri::command]
+#[specta::specta]
+pub async fn legacy_startup_read(app: AppHandle) -> Result<Option<String>, String> {
+    let mut conn = store::open(&app)?;
+    if !store::claim_legacy_startup(&mut conn)? {
+        return Ok(None);
+    }
+    let Some(path) = crate::data_dir_path().and_then(|base| {
+        base.parent()
+            .map(|parent| parent.join("mh-tool-v2/data.json"))
+    }) else {
+        return Ok(None);
+    };
+    match std::fs::metadata(&path) {
+        Ok(_) => read_legacy_source(&path).map(Some),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(format!("读取旧版数据失败：{error}")),
+    }
+}
+
+fn read_legacy_source(path: &Path) -> Result<String, String> {
+    let size = std::fs::metadata(path)
         .map_err(|error| error.to_string())?
         .len();
     if size > MAX_BACKUP_BYTES {
@@ -439,7 +477,7 @@ pub async fn legacy_data_read(app: AppHandle) -> Result<Option<String>, String> 
     let raw =
         std::fs::read_to_string(path).map_err(|error| format!("读取旧版备份失败：{error}"))?;
     validate_legacy_source(&raw)?;
-    Ok(Some(raw))
+    Ok(raw)
 }
 
 #[derive(Debug, Serialize, specta::Type)]
@@ -456,6 +494,7 @@ pub async fn legacy_data_import(
     app: AppHandle,
     original: String,
     converted: String,
+    startup: Option<bool>,
 ) -> Result<LegacyImportSummary, String> {
     validate_legacy_source(&original)?;
     if converted.len() as u64 > MAX_BACKUP_BYTES {
@@ -468,7 +507,7 @@ pub async fn legacy_data_import(
     let original_path = backup_dir(&app)?.join(format!("旧版原件-{}.json", now_ms()));
     std::fs::write(&original_path, original.as_bytes())
         .map_err(|error| format!("旧版原件未能留存，未执行导入：{error}"))?;
-    let summary = replace_backup(&app, file)?;
+    let summary = replace_backup_with(&app, file, startup.unwrap_or(false))?;
     Ok(LegacyImportSummary {
         summary,
         original_path: original_path.display().to_string(),

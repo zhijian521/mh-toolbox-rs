@@ -10,6 +10,7 @@ import { askConfirm } from './composables/use-confirm';
 import { guardWindowClose, notifyAppReady } from './services/desktop';
 import { flushPendingWrites } from './services/persist';
 import { router } from './router';
+import type { StartupNotice } from './services/legacy-startup';
 
 /** 偏好在挂载前落地，冷启动任意页面都恢复字体、字号与主题。 */
 useFontFamily();
@@ -18,6 +19,8 @@ useTheme();
 
 const loading = ref(true);
 const startupError = ref('');
+const startupStage = ref(0);
+let startupNotice: StartupNotice | undefined;
 let releaseRoutes = () => {};
 const dataReady = new Promise<void>((resolve) => {
     releaseRoutes = resolve;
@@ -26,7 +29,12 @@ const dataReady = new Promise<void>((resolve) => {
 const removeLoadingGuard = router.beforeEach(() => dataReady);
 
 createApp({
-    render: () => h(App, { loading: loading.value, startupError: startupError.value }),
+    render: () =>
+        h(App, {
+            loading: loading.value,
+            startupError: startupError.value,
+            startupStage: startupStage.value,
+        }),
 })
     .use(router)
     .mount('#app');
@@ -53,7 +61,8 @@ function afterPaint(): Promise<void> {
 const startup = afterPaint().then(async () => {
     try {
         const data = await import('./startup');
-        await data.initializeData();
+        startupStage.value = 1;
+        startupNotice = await data.initializeData();
         return data;
     } catch (error) {
         console.error('应用启动失败', error);
@@ -65,6 +74,7 @@ const startup = afterPaint().then(async () => {
 void startup.then(async (data) => {
     if (!data) return;
     try {
+        startupStage.value = 2;
         releaseRoutes();
         await router.isReady();
         removeLoadingGuard();
@@ -72,6 +82,9 @@ void startup.then(async (data) => {
         await nextTick();
         await afterPaint();
         void notifyAppReady();
+        if (startupNotice) {
+            void askConfirm({ ...startupNotice, confirmText: '知道了', cancelText: '' });
+        }
     } catch (error) {
         console.error('页面加载失败', error);
         startupError.value = '页面加载失败，请重新加载';

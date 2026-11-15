@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AlarmHost from './components/AlarmHost.vue';
 import AppRail from './components/AppRail.vue';
+import AppStartup from './components/AppStartup.vue';
 import ConfirmHost from './components/ConfirmHost.vue';
 import HoverTip from './components/HoverTip.vue';
 import NotifyHost from './components/NotifyHost.vue';
@@ -24,9 +25,10 @@ import { NAV_BY_KEY, NAV_ITEMS } from './navigation';
  * `AppRail` 仍然是纯组件（收 props、发事件），路由这一层留在外壳里：
  * 组件一旦自己 `useRoute()`，就没法在别的上下文里复用，也没法单独渲染做视觉验收。
  */
-withDefaults(defineProps<{ loading?: boolean; startupError?: string }>(), {
+withDefaults(defineProps<{ loading?: boolean; startupError?: string; startupStage?: number }>(), {
     loading: false,
     startupError: '',
+    startupStage: 0,
 });
 
 const route = useRoute();
@@ -64,6 +66,7 @@ function openDevKit() {
         <TitleBar />
         <div class="shell">
             <AppRail
+                v-if="!loading"
                 :items="NAV_ITEMS"
                 :current="current"
                 @update:current="go"
@@ -71,12 +74,12 @@ function openDevKit() {
             />
 
             <main class="app" :aria-busy="loading">
-                <div v-if="loading" class="app-startup" role="status">
-                    <p>{{ startupError || '正在加载数据…' }}</p>
-                    <button v-if="startupError" class="btn" type="button" @click="reload">
-                        重新加载
-                    </button>
-                </div>
+                <AppStartup
+                    v-if="loading"
+                    :stage="startupStage"
+                    :error="startupError"
+                    @reload="reload"
+                />
                 <RouterView v-else />
             </main>
         </div>
@@ -116,18 +119,5 @@ function openDevKit() {
     flex-direction: column;
     min-width: 0;
     overflow: hidden;
-}
-.app-startup {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    color: var(--muted);
-    font-size: var(--fs-sm);
-}
-.app-startup p {
-    margin: 0;
 }
 </style>

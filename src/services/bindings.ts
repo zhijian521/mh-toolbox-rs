@@ -85,8 +85,10 @@ export const commands = {
 	dataImport: () => __TAURI_INVOKE<ImportSummary | null>("data_import"),
 	/**  旧版读取只返回原文；预览与确认期间不写入账本。 */
 	legacyDataRead: () => __TAURI_INVOKE<string | null>("legacy_data_read"),
+	/**  首次空账本才读取固定旧目录；不查找备份文件，不触发文件选择框。 */
+	legacyStartupRead: () => __TAURI_INVOKE<string | null>("legacy_startup_read"),
 	/**  只提交预览时的那份原文和转换结果，不在确认后重新读取可能已变化的文件。 */
-	legacyDataImport: (original: string, converted: string) => __TAURI_INVOKE<LegacyImportSummary>("legacy_data_import", { original, converted }),
+	legacyDataImport: (original: string, converted: string, startup: boolean | null) => __TAURI_INVOKE<LegacyImportSummary>("legacy_data_import", { original, converted, startup }),
 	/**
 	 *  清除：清空全部账本数据，保留 `meta`（理由见 `store::clear_all` 的注释）。
 	 * 

@@ -121,11 +121,19 @@ export async function legacyDataRead(): Promise<
 }
 
 /** 提交预览对应的两份内容；后端先留存原件，再备份当前账本并事务替换。 */
-export async function legacyDataImport(original: string, converted: string): Promise<DataOutcome> {
+export async function legacyDataImport(
+    original: string,
+    converted: string,
+    startup = false,
+): Promise<DataOutcome> {
     if (!hasDesktop()) return NO_HOST;
     if (!(await flushPendingWrites())) return failure('仍有数据未保存，请先重试保存');
     try {
-        const { summary, originalPath } = await commands.legacyDataImport(original, converted);
+        const { summary, originalPath } = await commands.legacyDataImport(
+            original,
+            converted,
+            startup,
+        );
         return {
             status: 'ok',
             detail: `已导入 ${summary.characters} 个角色、${summary.prices} 件物价、${summary.entries} 笔收益、${summary.accounts} 笔账号记录、${summary.online} 条上线记录和 ${summary.goals} 个目标。当前账本备份在 ${summary.backupPath}；旧版原件在 ${originalPath}`,

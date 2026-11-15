@@ -1,6 +1,7 @@
 /** 外壳绘制后再装配业务数据；页面开放前完成规则加载和历史对账。 */
 import type { Ref } from 'vue';
 import { loadGameData } from './services/game-data';
+import { importLegacyOnStartup, type StartupNotice } from './services/legacy-startup';
 import { loadAccounts, useAccounts } from './views/accounts/accounts-store';
 import { loadGoals, useGoals } from './views/goals/goals-store';
 import { loadRoster, useRoster } from './views/characters/roster';
@@ -21,7 +22,8 @@ async function loadSafely(load: () => Promise<void>, error: Ref<string>) {
 }
 
 /** 单个领域失败保留原写入保护，允许页面展示错误及恢复入口。 */
-export async function initializeData(): Promise<void> {
+export async function initializeData(): Promise<StartupNotice | undefined> {
+    const notice = await importLegacyOnStartup();
     const results = await Promise.allSettled([
         loadGameData().then(() =>
             Promise.allSettled([
@@ -40,4 +42,5 @@ export async function initializeData(): Promise<void> {
     // 收益、上线和账号全部读取结束后才补账；失败领域仍由各自 persist 拒写。
     syncAllDays();
     startDailySync();
+    return notice;
 }

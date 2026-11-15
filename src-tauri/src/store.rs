@@ -12,9 +12,8 @@
 //!
 //! ## 为什么加 `meta` 表
 //!
-//! 只有一件事：`schemaVersion` 让将来的表结构变更有个判断依据。早先还有一个
-//! `legacyImported`（防「localStorage 老数据重复搬入」），随老版本兼容一起删了——
-//! 启动时不自动迁移；设置页的旧版导入是显式替换，不需要「搬过没有」标记。
+//! `schemaVersion` 记录表结构版本；`legacyStartup` 记录首次旧版检测，清空账本也保留，
+//! 避免用户清空后再次自动导入。手动导入仍是显式替换，不受此标记限制。
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -298,9 +297,7 @@ pub(crate) fn open_at(base: &Path) -> Result<Connection, String> {
 /// 每次命令打开一次连接：SQLite 打开一个本地文件是微秒级，而把 `Connection`
 /// 塞进 `State<Mutex<..>>` 会让每个命令都变成「先抢锁」——数据量这个级别不值得。
 ///
-/// **这里只开库**：库就是 `%APPDATA%\mh-tool-rs\mh-toolbox.db` 这一份，不存在「从哪儿搬过来」
-/// 这回事——旧版（Electron）只通过设置页独立导入。启动路径上没有任何
-/// 文件复制，也就不存在「两个命令同时看到目标不存在、同时往同一处写」那个窗口。
+/// **这里只开库**：旧版转换由独立导入入口负责，不在各领域读写命令里隐式搬家。
 ///
 /// `pub(crate)`：`backup::data_import` 要在**一个连接**里完成整份替换（见 `replace_all`），
 /// 不能再走三次 `*_save` 命令各自开一次库。
@@ -625,6 +622,63 @@ fn write_meta(conn: &Connection, key: &str, value: &str) -> Result<(), String> {
     )
     .map(|_| ())
     .map_err(|error| format!("写 meta 失败：{error}"))
+}
+
+fn ledger_is_empty(conn: &Connection) -> Result<bool, String> {
+    conn.query_row(
+        "SELECT NOT (EXISTS(SELECT 1 FROM characters)
+            OR EXISTS(SELECT 1 FROM price_items)
+            OR EXISTS(SELECT 1 FROM price_points)
+            OR EXISTS(SELECT 1 FROM income_entries)
+            OR EXISTS(SELECT 1 FROM quick_prices)
+            OR EXISTS(SELECT 1 FROM account_entries)
+            OR EXISTS(SELECT 1 FROM goals)
+            OR EXISTS(SELECT 1 FROM online_sessions)
+            OR EXISTS(SELECT 1 FROM online_settings))",
+        [],
+        |row| row.get(0),
+    )
+    .map_err(|error| format!("检查空账本失败：{error}"))
+}
+
+/// 首次检测先落标记；不存在旧文件、转换失败或重启都不会反复自动尝试。
+pub(crate) fn claim_legacy_startup(conn: &mut Connection) -> Result<bool, String> {
+    let tx = conn
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(|error| format!("开事务失败：{error}"))?;
+    if read_meta(&tx, "legacyStartup")?.is_some() {
+        return Ok(false);
+    }
+    let empty = ledger_is_empty(&tx)?;
+    write_meta(
+        &tx,
+        "legacyStartup",
+        if empty { "checked" } else { "skipped" },
+    )?;
+    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
+    Ok(empty)
+}
+
+/// 复核空库与导入在同一个立即事务中完成，避免检测后写入的数据被覆盖。
+pub(crate) fn replace_all_on_startup(
+    conn: &mut Connection,
+    characters: &[serde_json::Value],
+    prices: &[PriceItem],
+    income: &IncomePayload,
+    accounts: &[AccountEntry],
+    goals: &[serde_json::Value],
+    online: &OnlinePayload,
+) -> Result<Counts, String> {
+    let tx = conn
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(|error| format!("开事务失败：{error}"))?;
+    if read_meta(&tx, "legacyStartup")?.as_deref() != Some("checked") || !ledger_is_empty(&tx)? {
+        return Err("已有新版数据或已完成旧版导入，未自动替换账本".to_string());
+    }
+    let counts = replace_records(&tx, characters, prices, income, accounts, goals, online)?;
+    write_meta(&tx, "legacyStartup", "imported")?;
+    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
+    Ok(counts)
 }
 
 /// 读全部物品（含各自的历史）。
@@ -1008,7 +1062,20 @@ pub(crate) fn replace_all(
     let tx = conn
         .transaction()
         .map_err(|error| format!("开事务失败：{error}"))?;
+    let counts = replace_records(&tx, characters, prices, income, accounts, goals, online)?;
+    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
+    Ok(counts)
+}
 
+fn replace_records(
+    tx: &Connection,
+    characters: &[serde_json::Value],
+    prices: &[PriceItem],
+    income: &IncomePayload,
+    accounts: &[AccountEntry],
+    goals: &[serde_json::Value],
+    online: &OnlinePayload,
+) -> Result<Counts, String> {
     tx.execute("DELETE FROM price_points", [])
         .map_err(|error| format!("清空价格失败：{error}"))?;
     tx.execute("DELETE FROM price_items", [])
@@ -1028,40 +1095,40 @@ pub(crate) fn replace_all(
 
     let mut written_characters: i64 = 0;
     for (index, character) in characters.iter().enumerate() {
-        insert_record(&tx, &CHARACTERS, index, character)?;
+        insert_record(tx, &CHARACTERS, index, character)?;
         written_characters += 1;
     }
 
     let mut written_items: i64 = 0;
     for item in prices {
-        insert_item(&tx, item)?;
+        insert_item(tx, item)?;
         written_items += 1;
     }
 
     let mut written_entries: i64 = 0;
     for entry in &income.entries {
-        insert_income_entry(&tx, entry)?;
+        insert_income_entry(tx, entry)?;
         written_entries += 1;
     }
     for price in &income.prices {
-        insert_quick_price(&tx, price)?;
+        insert_quick_price(tx, price)?;
     }
 
     let mut written_accounts: i64 = 0;
     for entry in accounts {
-        insert_account_entry(&tx, entry)?;
+        insert_account_entry(tx, entry)?;
         written_accounts += 1;
     }
 
     let mut written_goals: i64 = 0;
     for (index, goal) in goals.iter().enumerate() {
-        insert_record(&tx, &GOALS, index, goal)?;
+        insert_record(tx, &GOALS, index, goal)?;
         written_goals += 1;
     }
 
     let mut written_online: i64 = 0;
     for session in &online.sessions {
-        insert_online_session(&tx, session)?;
+        insert_online_session(tx, session)?;
         written_online += 1;
     }
     /* 口径是单行，不算进条数：回执里报「N 条上线记录」，
@@ -1075,7 +1142,6 @@ pub(crate) fn replace_all(
     )
     .map_err(|error| format!("写点卡口径失败：{error}"))?;
 
-    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
     Ok(Counts {
         characters: written_characters,
         prices: written_items,
@@ -1452,9 +1518,8 @@ fn insert_online_session(conn: &Connection, session: &OnlineSession) -> Result<(
 
 /// 清空角色、物价、收益，返回 (角色数, 物品数, 收益条数) 供界面提示。
 ///
-/// **不动 `meta`**：它里面现在只有 `schemaVersion`，删了 `init` 会补回来，补的是「当前版本」
-/// 这句话本身没有意义。通用的理由是：这张表存的是**关于库的状态**，将来一旦有别的标记
-/// 落进来，删它就是把「这件事做过」抹成「没做过」——用户刚清干净、重启又变回去。
+/// **不动 `meta`**：保留表结构版本与首次旧版检测标记。
+/// 删掉标记会把「这件事做过」抹成「没做过」——用户刚清干净、重启又自动导入。
 ///
 /// 四条 `DELETE` 显式写出来，不依赖 `ON DELETE CASCADE`：级联只在
 /// `PRAGMA foreign_keys = ON` 时成立，而这个 pragma **是按连接设的**

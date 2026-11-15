@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => {
     const domain = () => ({ load: vi.fn(), loadError: { value: '' } });
     return {
         rules: vi.fn(),
+        migrate: vi.fn(),
         roster: domain(),
         prices: domain(),
         income: domain(),
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock('./services/game-data', () => ({ loadGameData: mocks.rules }));
+vi.mock('./services/legacy-startup', () => ({ importLegacyOnStartup: mocks.migrate }));
 vi.mock('./views/characters/roster', () => ({
     loadRoster: mocks.roster.load,
     useRoster: () => mocks.roster,
@@ -72,6 +74,7 @@ describe('启动数据边界', () => {
             new Promise<void>((resolve) => (releaseIncome = resolve)),
         );
         const startup = initializeData();
+        await Promise.resolve();
         expect(mocks.accounts.load).toHaveBeenCalledOnce();
         expect(mocks.online.load).toHaveBeenCalledOnce();
         expect(mocks.goals.load).toHaveBeenCalledOnce();
@@ -105,5 +108,23 @@ describe('启动数据边界', () => {
         } finally {
             log.mockRestore();
         }
+    });
+
+    it('首次导入完成后才加载领域并启动对账，回传进入页面后的提示', async () => {
+        const notice = { title: '已导入旧版本数据，可以直接使用', note: '旧版原件已保留。' };
+        let release = () => {};
+        mocks.migrate.mockReturnValue(
+            new Promise<typeof notice>((resolve) => (release = () => resolve(notice))),
+        );
+        const startup = initializeData();
+        expect(mocks.rules).not.toHaveBeenCalled();
+        expect(mocks.roster.load).not.toHaveBeenCalled();
+        expect(mocks.income.load).not.toHaveBeenCalled();
+        expect(mocks.sync).not.toHaveBeenCalled();
+        release();
+        expect(await startup).toEqual(notice);
+        expect(mocks.roster.load).toHaveBeenCalledOnce();
+        expect(mocks.accounts.load).toHaveBeenCalledOnce();
+        expect(mocks.sync).toHaveBeenCalledOnce();
     });
 });

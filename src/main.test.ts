@@ -71,18 +71,35 @@ async function paint() {
 }
 
 describe('分阶段启动', () => {
+    it('旧版导入回执在业务页面绘制后弹出，不要求用户重载', async () => {
+        const notice = { title: '已导入旧版本数据，可以直接使用', note: '旧版原件已保留。' };
+        mocks.initialize.mockResolvedValue(notice);
+        await import('./main');
+        await paint();
+        expect(render().props?.loading).toBe(false);
+        expect(mocks.confirm).not.toHaveBeenCalled();
+        await paint();
+        expect(mocks.confirm).toHaveBeenCalledWith({
+            ...notice,
+            confirmText: '知道了',
+            cancelText: '',
+        });
+    });
+
     it('先挂载外壳，数据未完成不放行路由；页面绘制后才通知预热', async () => {
         let release = () => {};
         mocks.initialize.mockReturnValue(new Promise<void>((resolve) => (release = resolve)));
         await import('./main');
         expect(mocks.mount).toHaveBeenCalledWith('#app');
         expect(render().props?.loading).toBe(true);
+        expect(render().props?.startupStage).toBe(0);
         expect(mocks.initialize).not.toHaveBeenCalled();
         const guard = mocks.beforeEach.mock.calls[0][0] as () => Promise<void>;
         const allowed = vi.fn();
         void guard().then(allowed);
         await paint();
         expect(mocks.initialize).toHaveBeenCalledOnce();
+        expect(render().props?.startupStage).toBe(1);
         expect(allowed).not.toHaveBeenCalled();
         expect(render().props?.loading).toBe(true);
         const closing = (mocks.close.mock.calls[0][0] as () => Promise<boolean>)();
@@ -92,6 +109,7 @@ describe('分阶段启动', () => {
         expect(allowed).toHaveBeenCalledOnce();
         expect(mocks.removeGuard).toHaveBeenCalledOnce();
         expect(render().props?.loading).toBe(false);
+        expect(render().props?.startupStage).toBe(2);
         expect(mocks.ready).not.toHaveBeenCalled();
         // 关窗等待数据与写队列，不等待下一次绘制或 OCR 预热。
         expect(await closing).toBe(true);
@@ -135,6 +153,7 @@ describe('分阶段启动', () => {
         await import('./main');
         await paint();
         expect(render().props?.loading).toBe(true);
+        expect(render().props?.startupStage).toBe(2);
         expect(await mocks.close.mock.calls[0][0]()).toBe(true);
         expect(mocks.sync).toHaveBeenCalledOnce();
         expect(mocks.flush).toHaveBeenCalledOnce();

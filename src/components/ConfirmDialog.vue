@@ -86,6 +86,7 @@ const titleId = `confirm-title-${Math.random().toString(36).slice(2, 9)}`;
                  删掉之后焦点会落回「第一个可聚焦元素」——也就是它自己没错，
                  但这只是巧合；哪天按钮顺序调换，一次误触回车就执行了删除。 -->
             <PressButton
+                v-if="cancelText"
                 data-modal-cancel
                 :text="cancelText"
                 :label="cancelText"

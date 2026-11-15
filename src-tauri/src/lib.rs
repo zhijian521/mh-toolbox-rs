@@ -53,7 +53,7 @@ pub struct AppInfo {
 /// `data.json` / `.bak` / `logs` 与本应用的 `mh-toolbox.db` / `backups/` 混在一处，
 /// 谁都不知道哪些文件是自己的。
 ///
-/// 新目录从空库开始，不自动扫描或搬迁旧目录。旧版数据仅由设置页手动选择后单向转换导入。
+/// 首次空账本可读取旧目录的 data.json，经设置页共用的转换入口单向导入，旧原件不动。
 const DATA_DIR_NAME: &str = "mh-tool-rs";
 
 /// `APPDATA` 下的子目录。
@@ -339,6 +339,7 @@ fn command_table() -> tauri_specta::Builder<tauri::Wry> {
             backup::data_export,
             backup::data_import,
             backup::legacy_data_read,
+            backup::legacy_startup_read,
             backup::legacy_data_import,
             backup::data_clear,
             backup::backups_list,
@@ -374,6 +375,7 @@ fn command_table() -> tauri_specta::Builder<tauri::Wry> {
             backup::data_export,
             backup::data_import,
             backup::legacy_data_read,
+            backup::legacy_startup_read,
             backup::legacy_data_import,
             backup::data_clear,
             backup::backups_list,
@@ -444,9 +446,7 @@ pub fn run() {
                     });
                 });
             }
-            /* 启动路径上**没有**任何库搬运：旧数据只经设置页手动导入（见 `DATA_DIR_NAME` 的注释），
-             * 新目录从空库开始。这也顺手去掉了一整类并发坑——以前搬家要赶在建窗之前跑，
-             * 否则 `loadPrices()` 与 `loadRoster()` 会同时看到「目标不存在」、同时往同一处复制。 */
+            // 首次旧版检测由前端在各领域读取和自动对账之前串行完成，不在建窗时复制文件。
             create_main_window(app)?;
             backup::start_daily_backups(app.handle().clone());
             Ok(())
