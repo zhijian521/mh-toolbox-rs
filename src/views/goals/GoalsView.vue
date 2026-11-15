@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { lazyDialog } from '../../components/lazy-dialog';
 import { useRouteAction } from '../../composables/use-route-action';
 import { computed, ref } from 'vue';
 import SaveNotice from '../../components/SaveNotice.vue';
@@ -14,9 +15,6 @@ import { useToday } from '../../composables/use-today';
 import { characterOptions } from '../characters/character-options';
 import { useRoster } from '../characters/roster';
 import GoalCard from './GoalCard.vue';
-import GoalEditor from './GoalEditor.vue';
-import GoalGrowth from './GoalGrowth.vue';
-import GoalLogs from './GoalLogs.vue';
 import {
     GOAL_KINDS,
     applyMetric,
@@ -27,6 +25,10 @@ import {
     type GoalSummary,
 } from './goals';
 import { useGoals, type GoalInput, type LogInput } from './goals-store';
+
+const GoalEditor = lazyDialog(() => import('./GoalEditor.vue'));
+const GoalGrowth = lazyDialog(() => import('./GoalGrowth.vue'));
+const GoalLogs = lazyDialog(() => import('./GoalLogs.vue'));
 
 const {
     goals,

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { lazyDialog } from '../../components/lazy-dialog';
 import { useRouteAction } from '../../composables/use-route-action';
 import { ALL_OPTIONS as ALL_ACCOUNTS } from '../../components/select-options';
 import { computed, ref } from 'vue';
@@ -19,8 +20,6 @@ import { characterName, useRoster } from '../characters/roster';
 import { characterOptions } from '../characters/character-options';
 import AccountCharts from './AccountCharts.vue';
 import AccountFlowCard from './AccountFlowCard.vue';
-import AccountEditor from './AccountEditor.vue';
-import AccountRecords from './AccountRecords.vue';
 import {
     CURRENCY_META,
     RANGE_PRESETS,
@@ -33,6 +32,9 @@ import {
 } from './accounts';
 import { accountValueText, filterAccounts, shortcutTotals } from './account-analysis';
 import { useAccounts, type EntryInput } from './accounts-store';
+
+const AccountEditor = lazyDialog(() => import('./AccountEditor.vue'));
+const AccountRecords = lazyDialog(() => import('./AccountRecords.vue'));
 
 const { entries, loadError, writeError, addEntry, updateEntry, pending, flush, retry } =
     useAccounts();

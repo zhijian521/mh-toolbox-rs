@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { lazyDialog } from '../../components/lazy-dialog';
 import { useRouteAction } from '../../composables/use-route-action';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import SaveNotice from '../../components/SaveNotice.vue';
@@ -13,18 +14,19 @@ import type { QuickItemEntry } from '../../services/game-data';
 import { daysAgo, parseDay, toWan } from '../../services/format';
 import { amountText, entriesOn, factsOf, recordSummary, statRowsOf, totalsOf } from './income';
 import { useIncome } from './income-store';
-import IncomeHistoryDialog from './IncomeHistoryDialog.vue';
-import ItemPriceDialog from './ItemPriceDialog.vue';
 import OnlineBar from './OnlineBar.vue';
-import OnlineDialog from './OnlineDialog.vue';
 import OnlinePanel from './OnlinePanel.vue';
-import OnlineRecords from './OnlineRecords.vue';
 import QuickPanel from './QuickPanel.vue';
 import TodayDump from './TodayDump.vue';
 import { type OnlineSession } from './online';
 import { useOnline } from './online-store';
 import { useDailySync } from '../accounts/daily-sync';
 import { useRoster } from '../characters/roster';
+
+const IncomeHistoryDialog = lazyDialog(() => import('./IncomeHistoryDialog.vue'));
+const ItemPriceDialog = lazyDialog(() => import('./ItemPriceDialog.vue'));
+const OnlineDialog = lazyDialog(() => import('./OnlineDialog.vue'));
+const OnlineRecords = lazyDialog(() => import('./OnlineRecords.vue'));
 
 const {
     entries,

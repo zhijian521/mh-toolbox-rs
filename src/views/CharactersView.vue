@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import CharacterHistory from './characters/CharacterHistory.vue';
+import { lazyDialog } from '../components/lazy-dialog';
 import SaveNotice from '../components/SaveNotice.vue';
 import { computed, nextTick, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
@@ -9,13 +9,15 @@ import PressButton from '../components/PressButton.vue';
 import { usePersistedSubmit } from '../composables/use-persisted-submit';
 import { useConfirmedRemoval } from '../composables/use-confirmed-removal';
 import CharacterCard from './characters/CharacterCard.vue';
-import CharacterEditor from './characters/CharacterEditor.vue';
-import QuickEdit from './characters/quick/QuickEdit.vue';
 import type { QuickTarget } from './characters/quick/quick-target';
 import { PANES, type CharacterData, type PaneKey } from './characters/character';
 import { emptyCharacter, useRoster } from './characters/roster';
 import { goalsOfCharacter } from './goals/goals-store';
 import { gameDataError, gameDataLoading, gameDataReady, loadGameData } from '../services/game-data';
+
+const CharacterHistory = lazyDialog(() => import('./characters/CharacterHistory.vue'));
+const CharacterEditor = lazyDialog(() => import('./characters/CharacterEditor.vue'));
+const QuickEdit = lazyDialog(() => import('./characters/quick/QuickEdit.vue'));
 
 /**
  * 角色页 —— 名册。

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { lazyDialog } from '../../components/lazy-dialog';
 import SaveNotice from '../../components/SaveNotice.vue';
 import { useRouteAction } from '../../composables/use-route-action';
 import { computed, ref } from 'vue';
@@ -11,9 +12,6 @@ import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { notify } from '../../composables/use-notify';
 import PriceCard from './PriceCard.vue';
-import PriceHistoryDialog from './PriceHistoryDialog.vue';
-import PriceItemDialog from './PriceItemDialog.vue';
-import PricePointDialog from './PricePointDialog.vue';
 import { PRICE_CATEGORIES, subsOf } from './prices-catalog';
 import { shortDate } from '../../services/format';
 import {
@@ -26,6 +24,10 @@ import {
     type PriceSort,
 } from './prices';
 import { usePrices } from './prices-store';
+
+const PriceHistoryDialog = lazyDialog(() => import('./PriceHistoryDialog.vue'));
+const PriceItemDialog = lazyDialog(() => import('./PriceItemDialog.vue'));
+const PricePointDialog = lazyDialog(() => import('./PricePointDialog.vue'));
 
 /**
  * 物价页：记下每件东西的行情，看它涨还是跌。
