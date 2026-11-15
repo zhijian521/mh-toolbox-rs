@@ -2,10 +2,10 @@
 import PetImage from '../PetImage.vue';
 import NumTag from '../../../components/NumTag.vue';
 import PressTile from '../../../components/PressTile.vue';
-import type { Pet } from '../pets';
+import type { ReadonlyPet } from '../pets';
 import { PET_CARD_ATTRIBUTES, PET_GROWTH_LABEL } from '../../../services/game-rules';
 
-withDefaults(defineProps<{ pets: Pet[]; quick?: boolean; tabbed?: boolean }>(), {
+withDefaults(defineProps<{ pets: readonly ReadonlyPet[]; quick?: boolean; tabbed?: boolean }>(), {
     tabbed: true,
 });
 const emit = defineEmits<{ open: [index: number] }>();
@@ -21,7 +21,7 @@ const emit = defineEmits<{ open: [index: number] }>();
  * 只在这里挑着画，**数据一行不动**：编辑窗、截图识别、浮片与快速修改照旧读写全套属性。
  * 「成长」来自 pet.growth 而不是 attrs（它一位小数三位），所以由这里补一行。
  */
-function cardStats(pet: Pet): { label: string; value: string }[] {
+function cardStats(pet: ReadonlyPet): { label: string; value: string }[] {
     /* 一项都没记的兽不摆六张空票（六行「—」读起来像坏了），交给空态那行说清楚。 */
     if (!pet.attrs.length && !pet.growth) return [];
     const rows = PET_CARD_ATTRIBUTES.map((label) => ({

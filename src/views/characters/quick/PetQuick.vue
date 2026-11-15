@@ -10,12 +10,12 @@ import { applyPet } from './quick-target';
 import { EDITOR_H, EDITOR_W } from '../editor-metrics';
 import { focusInput } from '../focus-input';
 import { hasPetName, type Pet } from '../pets';
-import type { CharacterData } from '../character';
+import type { ReadonlyCharacter } from '../character';
 
 /** 快速修改与整份编辑共用截图入口和四组表单，取消不修改原记录。 */
 const props = withDefaults(
     defineProps<{
-        character: CharacterData;
+        character: ReadonlyCharacter;
         index: number;
         saving?: boolean;
         locked?: boolean;
@@ -24,12 +24,12 @@ const props = withDefaults(
     }>(),
     { saving: false, locked: false, retrying: false, saveError: '' },
 );
-const emit = defineEmits<{ save: [character: CharacterData]; close: [] }>();
+const emit = defineEmits<{ save: [character: ReadonlyCharacter]; close: [] }>();
 
 const source = computed(() => props.character.pets[props.index] ?? null);
 
 /* 深拷贝的理由与坑见 `clone-draft.ts`：Esc 该是「什么都没发生」。 */
-const pet = ref<Pet | null>(source.value ? cloneDraft(source.value) : null);
+const pet = ref<Pet | null>(source.value ? cloneDraft<Pet>(source.value) : null);
 
 const reading = ref(false);
 const canSave = computed(

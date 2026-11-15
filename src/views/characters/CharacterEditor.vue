@@ -5,7 +5,13 @@ import PressButton from '../../components/PressButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import CharacterCard from './CharacterCard.vue';
 import { hasPetName } from './pets';
-import { PANE_OPTIONS, PANES, type CharacterData, type PaneKey } from './character';
+import {
+    PANE_OPTIONS,
+    PANES,
+    type CharacterData,
+    type ReadonlyCharacter,
+    type PaneKey,
+} from './character';
 import type { OcrLine } from './ocr/attr-panel';
 import { createCharacterPanelReader } from './ocr/character-panel';
 import type { ScreenshotIntake } from './ocr/screenshot-input';
@@ -23,7 +29,7 @@ import { base64Of, swapToBgra } from './ocr/pixels';
 /** 新建、手工修改和截图识别共用独立草稿，保存后由名册统一落库。 */
 const props = withDefaults(
     defineProps<{
-        character: CharacterData;
+        character: ReadonlyCharacter;
         pane?: PaneKey;
         isNew?: boolean;
         saving?: boolean;

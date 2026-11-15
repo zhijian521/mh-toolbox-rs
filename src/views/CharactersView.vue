@@ -10,7 +10,7 @@ import { usePersistedSubmit } from '../composables/use-persisted-submit';
 import { useConfirmedRemoval } from '../composables/use-confirmed-removal';
 import CharacterCard from './characters/CharacterCard.vue';
 import type { QuickTarget } from './characters/quick/quick-target';
-import { PANES, type CharacterData, type PaneKey } from './characters/character';
+import { PANES, type ReadonlyCharacter, type PaneKey } from './characters/character';
 import { emptyCharacter, useRoster } from './characters/roster';
 import { goalsOfCharacter } from './goals/goals-store';
 import { gameDataError, gameDataLoading, gameDataReady, loadGameData } from '../services/game-data';
@@ -66,7 +66,7 @@ const editingDisabled = computed(
     () => !!loadError.value || !gameDataReady.value || pending.value > 0 || removing.value,
 );
 
-function openEditor(character: CharacterData, pane: PaneKey) {
+function openEditor(character: ReadonlyCharacter, pane: PaneKey) {
     if (editingDisabled.value) return;
     submission.reset();
     editing.value = { character, pane, isNew: false };
@@ -77,7 +77,7 @@ async function retryGameData() {
 }
 
 /** 新建或修改由打开时固定，内存先新增而落盘失败时仍保持新建模式。 */
-const editing = ref<{ character: CharacterData; pane: PaneKey; isNew: boolean } | null>(null);
+const editing = ref<{ character: ReadonlyCharacter; pane: PaneKey; isNew: boolean } | null>(null);
 
 /**
  * 正在「快速修改」的那一项，`null` = 关着。
@@ -87,9 +87,9 @@ const editing = ref<{ character: CharacterData; pane: PaneKey; isNew: boolean } 
  * 带上 `character` 而不是只带 id：快速修改要读现值来填那几格，`roster` 里那一份
  * 就是点开那一刻的，不另存快照——保存时算出来的新整份会按 id 整条替换。
  */
-const quicking = ref<{ character: CharacterData; target: QuickTarget } | null>(null);
+const quicking = ref<{ character: ReadonlyCharacter; target: QuickTarget } | null>(null);
 
-function openQuick(character: CharacterData, target: QuickTarget) {
+function openQuick(character: ReadonlyCharacter, target: QuickTarget) {
     if (editingDisabled.value) return;
     submission.reset();
     quicking.value = { character, target };
@@ -97,7 +97,7 @@ function openQuick(character: CharacterData, target: QuickTarget) {
 
 /* 快速修改的保存：与编辑器共用 `update()`，写入路径只有这一条。
  * `applyQuick` 已经返回**完整的一份**（只替换那一项），所以这里不必再合并。 */
-async function onQuickSave(next: CharacterData) {
+async function onQuickSave(next: ReadonlyCharacter) {
     if (pending.value > 0 || editingDisabled.value) return;
     const source = quicking.value;
     if (!source) return;
@@ -126,7 +126,7 @@ function startNew() {
     editing.value = { character: emptyCharacter(), pane: 'attrs', isNew: true };
 }
 
-async function onSave(character: CharacterData) {
+async function onSave(character: ReadonlyCharacter) {
     if (pending.value > 0 || editingDisabled.value) return;
     const source = editing.value;
     if (!source) return;
@@ -145,7 +145,7 @@ async function onSave(character: CharacterData) {
  * **有目标引用他时必须说出来**（用户 2026-11-05 定）：目标的成员是建目标那一刻的快照，
  * 人删了之后卡片上那一行会变成「已删除」并不再计入分母——不说的话，用户是在回到目标页
  * 时才发现「5 个角色达标」变成了「4 个角色达标」。 */
-async function askRemove(character: CharacterData) {
+async function askRemove(character: ReadonlyCharacter) {
     if (editingDisabled.value) return;
     const name = character.name || '这个角色';
     const related = goalsOfCharacter(character.id);

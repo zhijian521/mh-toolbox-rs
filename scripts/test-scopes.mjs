@@ -2,8 +2,15 @@ import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** 测试留在业务模块旁；这里只维护选择范围及直接联动，不复制测试内容。 */
+const STORE_CONTRACT_TESTS = ['src/services/load-data.test.', 'src/services/store-readonly.test.'];
+
 export const TEST_SCOPES = {
-    characters: ['src/views/characters/', 'src/views/goals/', 'src/views/overview/'],
+    characters: [
+        ...STORE_CONTRACT_TESTS,
+        'src/views/characters/',
+        'src/views/goals/',
+        'src/views/overview/',
+    ],
     ocr: [
         'src/views/characters/ocr/',
         'src/views/characters/gear.test.',
@@ -14,6 +21,7 @@ export const TEST_SCOPES = {
         'src/services/game-rules.test.',
     ],
     income: [
+        ...STORE_CONTRACT_TESTS,
         'src/views/income/',
         'src/views/accounts/daily-sync.test.',
         'src/views/accounts/accounts-auto.test.',
@@ -21,6 +29,7 @@ export const TEST_SCOPES = {
         'src/services/format.test.',
     ],
     accounts: [
+        ...STORE_CONTRACT_TESTS,
         'src/views/accounts/',
         'src/views/income/income.test.',
         'src/views/income/online.test.',
@@ -28,8 +37,9 @@ export const TEST_SCOPES = {
         'src/views/overview/',
         'src/services/format.test.',
     ],
-    prices: ['src/views/prices/', 'src/views/income/price-import.test.'],
+    prices: [...STORE_CONTRACT_TESTS, 'src/views/prices/', 'src/views/income/price-import.test.'],
     goals: [
+        ...STORE_CONTRACT_TESTS,
         'src/views/goals/',
         'src/views/characters/roster.test.',
         'src/views/characters/growth-history.test.',

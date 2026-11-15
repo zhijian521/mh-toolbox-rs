@@ -10,12 +10,12 @@ import { applyGear } from './quick-target';
 import { EDITOR_H, EDITOR_W } from '../editor-metrics';
 import { focusInput } from '../focus-input';
 import type { GearDetail, GearSlotName } from '../gear';
-import type { CharacterData } from '../character';
+import type { ReadonlyCharacter } from '../character';
 
 /** 手改与识别都只动深拷贝，保存前不会触及角色，取消即丢弃。 */
 const props = withDefaults(
     defineProps<{
-        character: CharacterData;
+        character: ReadonlyCharacter;
         slotName: GearSlotName;
         saving?: boolean;
         locked?: boolean;
@@ -24,11 +24,11 @@ const props = withDefaults(
     }>(),
     { saving: false, locked: false, retrying: false, saveError: '' },
 );
-const emit = defineEmits<{ save: [character: CharacterData]; close: [] }>();
+const emit = defineEmits<{ save: [character: ReadonlyCharacter]; close: [] }>();
 const source = props.character.gear.find((one) => one.slot === props.slotName);
 const caption = ref<string | undefined>(source?.caption ?? '');
 const detail = ref<GearDetail>(
-    source?.detail ? cloneDraft(source.detail) : { name: caption.value ?? '', kind: '', stats: [] },
+    source?.detail ? cloneDraft<GearDetail>(source.detail) : { name: caption.value ?? '', kind: '', stats: [] },
 );
 const reading = ref(false);
 const form = ref<HTMLElement | null>(null);

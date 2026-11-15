@@ -1,23 +1,11 @@
+/** 收益账与速记单价的模块级状态；修改后排队保存，失败保留错误供重试。 */
+import { readonly, ref, watch } from 'vue';
+import { quickItems } from '../../services/game-data';
+import { usePrices } from '../prices/prices-store';
+import { currentPoint, type ReadonlyPriceItem } from '../prices/prices';
 import { readLocalData, writeLocalData, parseLocalList } from '../../services/local-data';
-/**
- * 收益账的**持有者**：模块级单例 + 写入即落盘。
- *
- * 与 `prices/prices-store.ts`、`characters/roster.ts` 同一套写法。规则全在 `income.ts`
- * （纯函数、可单测），这里只做四件事：读、改、写、把「改不成」的原因交回去。
- *
- * ---- 为什么读写是「整份」 ----
- * 一次速记点击 = 内存里加一条 + 整份写回。整份的代价是每次点都写一遍全表，
- * 好处是**永远不会出现「界面有、库里没有」**：写的是当下这一份全量，后发先至也不坏。
- * 一天几十条、一年几千条的量级，这点开销换来的是「不丢账」，划算。
- *
- * ---- 读失败为什么拒绝写入 ----
- * `incomeLoad()` 返回 `null` 时有两种可能：没有 Tauri 宿主，或调用失败。两者在类型上
- * 分不开，后果却差得远——把它当成「空账」处理，用户随手点一下速记，`persist()`
- * 就整份覆盖掉原来的记录。所以读失败会把 `loadError` 立起来，并让写入直接返回。
- */
-import { ref } from 'vue';
 import { planPriceImport } from './price-import';
-import { hasDesktop } from '../../services/desktop';
+import { loadData } from '../../services/load-data';
 import { incomeLoad, incomeSave } from '../../services/storage';
 import { fromWan, todayText } from '../../services/format';
 import { createPersist } from '../../services/persist';
@@ -57,11 +45,13 @@ const writeError = ref('');
 /** 读档失败的原因。空串 = 读到了（含「库里本来就没有」）。 */
 const loadError = ref('');
 
-/** 读过一轮没有。`persist` 靠它挡住「还没读库就整份覆盖」（见 `services/persist.ts`）。 */
+/** 当前数据已成功加载；读取中或失败时保持不可写。 */
 const loaded = ref(false);
 
 /** 一次写入的结果。速记要据此弹一句话（或红字）。 */
-export type IncomeWrite = { ok: true; entries: IncomeEntry[] } | { ok: false; error: string };
+export type IncomeWrite =
+    | { ok: true; entries: readonly Readonly<IncomeEntry>[] }
+    | { ok: false; error: string };
 
 interface StoredShape {
     entries: unknown;
@@ -79,16 +69,7 @@ function payloadOf(): { entries: IncomeEntry[]; prices: { itemId: number; price:
     };
 }
 
-/**
- * 落盘。
- *
- * 「读失败拒绝写、浏览器写本地、桌面版异步写库、连续写排队」这一整套在
- * `services/persist.ts` 的 `createPersist`——各业务数据层共用一份，理由写在那里。
- *
- * 这一页对那条队列的依赖最重：速记的全部用法就是连点（回执只亮 1.6 秒），
- * 而每次写都是整份，不排队就会丢中间那几笔——第 97 批为它单独写过一版队列，
- * 现在与物价、名册共用同一份。
- */
+/** 修改后排队保存当前全量；读取失败拒写，导出与关窗等待 flush。 */
 const persist = createPersist({
     label: '收益账',
     loadError,
@@ -98,58 +79,112 @@ const persist = createPersist({
     writeRemote: () => incomeSave(payloadOf()),
 });
 
-/**
- * 读档。**只能调一次，且在 mount 之前**（与 `loadPrices()` 同一个位置）。
- *
- * 收益是第 97 批才有的功能，没有更早的 `localStorage` 版本要搬——不做 legacy 迁移。
- */
-export async function loadIncome(): Promise<void> {
-    if (!hasDesktop()) {
-        const stored = readLocalData(STORAGE_KEY, (raw) => {
-            if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-                throw new TypeError('数据不是对象');
-            }
-            const payload = raw as StoredShape;
-            const prices = parsePrices(payload.prices);
-            if (
-                !Array.isArray(payload.prices) ||
-                Object.keys(prices).length !== payload.prices.length
-            ) {
-                throw new TypeError('单价记录损坏或重复');
-            }
-            return {
-                entries: parseLocalList(payload.entries, parseEntries),
-                prices,
-            };
-        });
-        if (!stored.ok) {
-            loadError.value = stored.error;
+const market = usePrices();
+let linkingPrices = false;
+let linksReady = false;
+let previousCards: readonly ReadonlyPriceItem[] = [];
+
+/** 两边都读成功才联动；首次只接已有固定价，清除过的单价不因重载恢复。 */
+watch([loaded, market.loaded, market.items], ([incomeReady, marketReady, cards]) => {
+    if (!incomeReady || !marketReady || loadError.value || market.loadError.value) {
+        linksReady = false;
+        return;
+    }
+    if (linkingPrices) return;
+    const fixed = quickItems().fixed;
+    if (!linksReady) {
+        const missing = fixed.filter(
+            (item) => prices.value[item.id] && !cards.some((card) => card.name === item.name),
+        );
+        if (!writePriceCards(missing.map((item) => ({ name: item.name, price: prices.value[item.id] })))) {
             return;
         }
-        entries.value = stored.value?.entries ?? [];
-        prices.value = stored.value?.prices ?? parsePrices(undefined);
-        loadError.value = '';
-        loaded.value = true;
-        return;
     }
+    const next = { ...prices.value };
+    for (const item of fixed) {
+        const card = market.items.value.find((one) => one.name === item.name);
+        const before = previousCards.find((one) => one.name === item.name);
+        const price = card ? currentPoint(card)?.price : undefined;
+        const previous = before ? currentPoint(before)?.price : undefined;
+        if (!linksReady ? !(item.id in next) : price === previous) continue;
+        if (price) next[item.id] = price;
+        else delete next[item.id];
+    }
+    previousCards = market.items.value;
+    linksReady = true;
+    if (JSON.stringify(next) !== JSON.stringify(prices.value)) {
+        prices.value = next;
+        persist();
+    }
+}, { flush: 'sync' });
 
-    const stored = await incomeLoad();
-    /* 读失败**不是空账**。先拿原始结果再分支，就是为了让 `null` 这个信号走到错误位；
-     * 写成 `stored ?? {}` 就把它抹掉了，而后果是「用户一点速记，旧账被清空」。 */
-    if (stored === null) {
-        loadError.value = '读不出收益账，已暂停写入以免覆盖原有数据';
-        entries.value = [];
-        prices.value = {};
-        return;
+function writePriceCards(rows: readonly { name: string; price: number }[]): boolean {
+    if (!rows.length) return true;
+    linkingPrices = true;
+    try {
+        const result = market.setCurrentPrices(rows);
+        if (!result.ok) {
+            writeError.value = result.error;
+            return false;
+        }
+        previousCards = market.items.value;
+        return true;
+    } finally {
+        linkingPrices = false;
     }
-    loadError.value = '';
-    loaded.value = true;
-    entries.value = parseEntries(stored.entries);
-    prices.value = parsePrices(stored.prices);
 }
 
-/* 多窗口同步：事件的边界在 `services/storage-sync.ts`，这里只说「读到之后怎么应用」。
- * 桌面版两窗共享同一个库，这条只在浏览器路径（`npm run dev` / 探针）上真的会发生。 */
+async function flushPrices(): Promise<boolean> {
+    const results = await Promise.all([persist.flush(), market.flush()]);
+    return results.every(Boolean);
+}
+
+async function retryPrices(): Promise<boolean> {
+    const results = await Promise.all([persist(), market.retry()]);
+    return results.every(Boolean);
+}
+
+/** 启动阶段读取，完成前由写队列阻止保存；旧版转换统一在启动导入入口处理。 */
+export async function loadIncome(): Promise<void> {
+    await loadData({
+        loaded,
+        loadError,
+        error: '读不出收益账，已暂停写入以免覆盖原有数据',
+        readLocal: () =>
+            readLocalData(STORAGE_KEY, (raw) => {
+                if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+                    throw new TypeError('数据不是对象');
+                }
+                const payload = raw as StoredShape;
+                const prices = parsePrices(payload.prices);
+                if (
+                    !Array.isArray(payload.prices) ||
+                    Object.keys(prices).length !== payload.prices.length
+                ) {
+                    throw new TypeError('单价记录损坏或重复');
+                }
+                return {
+                    entries: parseLocalList(payload.entries, parseEntries),
+                    prices,
+                };
+            }),
+        readRemote: incomeLoad,
+        applyLocal: (stored) => {
+            entries.value = stored?.entries ?? [];
+            prices.value = stored?.prices ?? parsePrices(undefined);
+        },
+        applyRemote: (stored) => {
+            const next = {
+                entries: parseEntries(stored.entries),
+                prices: parsePrices(stored.prices),
+            };
+            entries.value = next.entries;
+            prices.value = next.prices;
+        },
+    });
+}
+
+/* 仅同步浏览器同源 localStorage，桌面数据不走此通道。 */
 onStorageSync(STORAGE_KEY, (raw) => {
     if (raw === null) {
         entries.value = [];
@@ -223,7 +258,7 @@ export function recordEntry(input: {
 
     entries.value = [...created, ...entries.value];
     persist();
-    return { ok: true, entries: created };
+    return { ok: true, entries: readonly(created) };
 }
 
 /** 删一条（今日清单上的 ×）。撤回是**真删**——账本里没有「隐藏」。 */
@@ -265,11 +300,9 @@ export function updateEntry(
         characterId: patch.characterId ?? before.characterId,
     };
 
-    /* 整数组换新引用，而不是改对象字段：`entries` 是 `ref`，改内部字段不会触发依赖
-     * （数组本身没变），页面看着「保存了但界面没动」。 */
     entries.value = entries.value.map((one, at) => (at === index ? next : one));
     persist();
-    return { ok: true, entries: [next] };
+    return { ok: true, entries: readonly([next]) };
 }
 
 /** 改一件物品的单价（右键改价）。`wan` 是「万」，转原值后落盘。 */
@@ -277,6 +310,8 @@ export function setPrice(itemId: number, wan: number): boolean {
     if (!persist.canWrite()) return false;
     const amount = fromWan(wan);
     if (!Number.isFinite(amount) || amount <= 0) return false;
+    const item = quickItems().fixed.find((one) => one.id === itemId);
+    if (item && !writePriceCards([{ name: item.name, price: amount }])) return false;
     prices.value = { ...prices.value, [itemId]: amount };
     persist();
     return true;
@@ -303,6 +338,10 @@ export function mergePrices(
     const { next, added, updated, unchanged } = planPriceImport(prices.value, incoming);
     if (added + updated + unchanged === 0) return { ok: false, error: '这份文件里没有能用的单价' };
     if (added + updated > 0) {
+        const rows = quickItems().fixed
+            .filter((item) => next[item.id] && next[item.id] !== prices.value[item.id])
+            .map((item) => ({ name: item.name, price: next[item.id] }));
+        if (!writePriceCards(rows)) return { ok: false, error: writeError.value };
         prices.value = next;
         persist();
     }
@@ -318,11 +357,11 @@ export function setTarget(characterIds: string[]): void {
 export function useIncome() {
     return {
         pending: persist.pending,
-        flush: persist.flush,
-        retry: persist,
-        entries,
-        prices,
-        target,
+        flush: flushPrices,
+        retry: retryPrices,
+        entries: readonly(entries),
+        prices: readonly(prices),
+        target: readonly(target),
         loadError,
         writeError,
         recordEntry,

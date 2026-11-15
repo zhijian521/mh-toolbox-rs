@@ -53,6 +53,11 @@ const RULES = [
     { prefix: 'src/services/ghost-', scopes: ['tools'], smoke: ['工具'] },
     { prefix: 'src/services/game-', scopes: ['assets', 'characters', 'ocr', 'tools'] },
     { prefix: 'src/services/pet-assets', scopes: ['assets', 'characters', 'ocr'] },
+    {
+        prefix: 'src/services/load-data',
+        scopes: ['core', 'characters', 'income', 'accounts', 'prices', 'goals'],
+        smoke: ['数据'],
+    },
     { prefix: 'src/services/persist', scopes: ['core'], smoke: ['数据'] },
     { prefix: 'src/services/storage-sync', scopes: ['core'], smoke: ['数据'] },
     { prefix: 'src/services/local-data', scopes: ['core', 'settings'], smoke: ['数据'] },

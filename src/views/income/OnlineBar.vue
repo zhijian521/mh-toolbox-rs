@@ -18,7 +18,7 @@ import {
     onlineTotalsOf,
     ownersOf,
     sessionMinutes,
-    type OnlineSession,
+    type ReadonlyOnlineSession,
 } from './online';
 import { useOnline } from './online-store';
 
@@ -66,7 +66,7 @@ function closePrice() {
     priceSubmit.reset();
 }
 
-async function stopOne(one: OnlineSession) {
+async function stopOne(one: ReadonlyOnlineSession) {
     const result = stopOnline([one.characterId]);
     if (!result.ok) {
         notify.error(result.error);
@@ -75,7 +75,7 @@ async function stopOne(one: OnlineSession) {
     if (await saved(flush)) notify.success(`${whoText(one)} 的计时已结束`);
 }
 
-function whoText(one: OnlineSession): string {
+function whoText(one: ReadonlyOnlineSession): string {
     const names = ownersOf(one).map((id) => characterName(roster.value, id));
     return names.length ? names.join('、') : '未指定';
 }

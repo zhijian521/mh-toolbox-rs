@@ -20,6 +20,15 @@ describe('业务测试分区', () => {
         expect(new Set(combined).size).toBe(combined.length);
     });
 
+    it('业务分区包含共享加载和只读契约，首页展示不捎带写入契约', () => {
+        for (const scope of ['characters', 'income', 'accounts', 'prices', 'goals']) {
+            const selected = selectTests([scope], files);
+            expect(selected).toContain('src/services/load-data.test.ts');
+            expect(selected).toContain('src/services/store-readonly.test.ts');
+        }
+        expect(selectTests(['overview'], files)).not.toContain('src/services/store-readonly.test.ts');
+    });
+
     it('OCR 不捎带无关页面，未知或空范围明确失败', () => {
         expect(selectTests(['ocr'], files)).not.toContain('src/views/accounts/accounts.test.ts');
         expect(() => selectTests([], files)).toThrow('请指定');

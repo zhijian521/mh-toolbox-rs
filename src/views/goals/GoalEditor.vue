@@ -16,14 +16,14 @@ import {
     metricGroup,
     metricApplicable,
     metricUnit,
-    type Goal,
+    type ReadonlyGoal,
     type GoalKind,
     type MetricGroup,
 } from './goals';
 import { MONEY_UNITS, type GoalInput } from './goals-store';
 
 const props = defineProps<{
-    goal?: Goal;
+    goal?: ReadonlyGoal;
     saving: boolean;
     locked: boolean;
     retrying: boolean;

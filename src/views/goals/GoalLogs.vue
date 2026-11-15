@@ -6,11 +6,11 @@ import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import { useToday } from '../../composables/use-today';
-import { signedText, type Goal, type GoalSummary } from './goals';
+import { signedText, type ReadonlyGoal, type GoalSummary } from './goals';
 import type { LogInput } from './goals-store';
 
 const props = defineProps<{
-    goal: Goal;
+    goal: ReadonlyGoal;
     summary: GoalSummary;
     saving: boolean;
     locked: boolean;

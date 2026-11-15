@@ -89,7 +89,8 @@ describe('上线：单独结束一个号', () => {
         /* 计时不足一分钟的段会被丢掉，所以先把开始时刻挪到两小时前。 */
         const { sessions } = store.useOnline();
         const two = 2 * 60 * 60_000;
-        sessions.value = sessions.value.map((one) => ({ ...one, startAt: one.startAt - two }));
+        for (const one of sessions.value)
+            store.updateOnline(one.id, { startAt: one.startAt - two });
 
         const result = store.stopOnline(['c2']);
         expect(result.ok).toBe(true);
@@ -103,10 +104,8 @@ describe('上线：单独结束一个号', () => {
         const store = await loadStore(host());
         store.startOnline({ characterIds: ['c1', 'c2'] });
         const { sessions } = store.useOnline();
-        sessions.value = sessions.value.map((one) => ({
-            ...one,
-            startAt: one.startAt - 3_600_000,
-        }));
+        for (const one of sessions.value)
+            store.updateOnline(one.id, { startAt: one.startAt - 3_600_000 });
 
         expect(store.stopOnline().ok).toBe(true);
         expect(store.runningSessions()).toHaveLength(0);
@@ -116,10 +115,8 @@ describe('上线：单独结束一个号', () => {
         const store = await loadStore(host());
         store.startOnline({ characterIds: ['c1'] });
         const { sessions } = store.useOnline();
-        sessions.value = sessions.value.map((one) => ({
-            ...one,
-            startAt: one.startAt - 3_600_000,
-        }));
+        for (const one of sessions.value)
+            store.updateOnline(one.id, { startAt: one.startAt - 3_600_000 });
 
         const result = store.stopOnline(['c9']);
         expect(result.ok).toBe(false);

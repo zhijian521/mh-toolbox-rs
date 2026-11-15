@@ -11,7 +11,7 @@ import {
     itemDraftErrors,
     retuneSub,
     toItemDraft,
-    type PriceItem,
+    type ReadonlyPriceItem,
     type PriceItemDraft,
 } from './prices';
 
@@ -33,7 +33,7 @@ import {
  * `submitted`（点过保存）或 `touched.x`（离开过这一格）之一才亮。
  */
 const props = defineProps<{
-    item: PriceItem | null;
+    item: ReadonlyPriceItem | null;
     /** 父级写盘失败时的原因（同名物品等）。留在窗内显示：关掉窗再报错，用户得重填一遍。 */
     error?: string;
     saving?: boolean;

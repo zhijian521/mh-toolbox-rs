@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick } from 'vue';
+import { computed, nextTick, type DeepReadonly } from 'vue';
 import MeterBar from '../../../components/MeterBar.vue';
 import GroupHead from '../../../components/GroupHead.vue';
 import NumTag from '../../../components/NumTag.vue';
@@ -35,8 +35,8 @@ import { quickRowBinds, useQuickable } from '../quick-row';
  */
 const props = withDefaults(
     defineProps<{
-        groups: AttrGroup[];
-        experience: ExpRow;
+        groups: readonly DeepReadonly<AttrGroup>[];
+        experience: Readonly<ExpRow>;
         editable?: boolean;
         tabbed?: boolean;
         /**

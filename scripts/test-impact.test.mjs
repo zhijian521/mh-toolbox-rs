@@ -3,6 +3,19 @@ import { recommendTests, statusPaths } from './test-impact.mjs';
 import { TEST_SCOPES } from './test-scopes.mjs';
 
 describe('根据改动推荐测试范围', () => {
+    it('公共加载覆盖六个数据层及数据烟测，不只推荐服务层', () => {
+        const result = recommendTests(['src/services/load-data.ts']);
+        expect(result.scopes).toEqual([
+            'characters',
+            'income',
+            'accounts',
+            'prices',
+            'goals',
+            'core',
+        ]);
+        expect(result.smoke).toContain('数据');
+    });
+
     it('收益口径带上账号及首页联动，合并路径不重复', () => {
         const result = recommendTests(['src/views/income/online.ts', 'src/views/income/online.ts']);
         expect(result.scopes).toEqual(['income', 'accounts', 'overview']);

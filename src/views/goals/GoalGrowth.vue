@@ -4,10 +4,10 @@ import ModalShell from '../../components/ModalShell.vue';
 import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import { useRoster } from '../characters/roster';
-import { metricValue, metricApplicable, type Goal } from './goals';
+import { metricValue, metricApplicable, type ReadonlyGoal } from './goals';
 
 const props = defineProps<{
-    goal: Goal;
+    goal: ReadonlyGoal;
     saving: boolean;
     locked: boolean;
     retrying: boolean;

@@ -10,7 +10,7 @@ import {
     recentPrices,
     sortedPoints,
     updateSummary,
-    type PriceItem,
+    type ReadonlyPriceItem,
 } from './prices';
 
 /**
@@ -41,7 +41,7 @@ import {
  * 与 `ToolsView` 的整枚格子同类，属于可点区域而不是按钮器件；
  * 弹窗里那几个动作才是按钮器件（`PressButton`）。
  */
-const props = defineProps<{ item: PriceItem }>();
+const props = defineProps<{ item: ReadonlyPriceItem }>();
 
 const emit = defineEmits<{
     /** 点卡头：开这一件的走势与流水。 */

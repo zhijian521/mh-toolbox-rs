@@ -11,7 +11,7 @@ import { notify } from '../../composables/use-notify';
 import { dateText, todayText } from '../../services/format';
 import { normalizeTime, timeText } from '../../services/clock';
 import { useRoster } from '../characters/roster';
-import { ownersOf, type OnlineSession } from './online';
+import { ownersOf, type ReadonlyOnlineSession } from './online';
 import { useOnline } from './online-store';
 import { characterOptions } from '../characters/character-options';
 import { backfillDraft, backfillEndAt, onlineTimeAt as atOf } from './online-time';
@@ -19,7 +19,7 @@ import { backfillDraft, backfillEndAt, onlineTimeAt as atOf } from './online-tim
 const props = defineProps<{
     mode: 'start' | 'backfill' | 'edit';
 
-    session?: OnlineSession;
+    session?: ReadonlyOnlineSession;
     characterIds?: string[];
 }>();
 

@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { GearDetail, GearSlotName } from './gear';
+import type { ReadonlyGearDetail, GearSlotName } from './gear';
 import {
     gearPropertyGroups,
     type GearPropertyGroup,
     type GearPropertyItem,
 } from './gear-properties';
 
-const props = defineProps<{ detail: GearDetail; slotName?: GearSlotName; editable?: boolean }>();
+const props = defineProps<{ detail: ReadonlyGearDetail; slotName?: GearSlotName; editable?: boolean }>();
 interface PropertySlot {
     item: GearPropertyItem;
     group: GearPropertyGroup;

@@ -1,7 +1,7 @@
 import { onMounted, shallowRef } from 'vue';
 import { loadEquipmentNames, type EquipmentEntry } from '../../services/game-data';
 import { gearSlotIcon } from '../../services/game-icons';
-import type { GearSlot } from './gear';
+import type { ReadonlyGearSlot } from './gear';
 import { gearIconFile } from './gear-icons';
 
 const entries = shallowRef<EquipmentEntry[]>([]);
@@ -32,12 +32,12 @@ export function useGearIcon() {
                 pending = null;
             });
     });
-    function icon(slot: GearSlot): string | undefined {
+    function icon(slot: ReadonlyGearSlot): string | undefined {
         const file = gearIconFile(slot, entries.value);
         return file ? gearSlotIcon(file) : undefined;
     }
     /** 名录没加载完时返回空表——与 `icon()` 返回 `undefined` 同义，调用方照旧回退首字。 */
-    function many(slots: readonly GearSlot[]): Map<string, string> {
+    function many(slots: readonly ReadonlyGearSlot[]): Map<string, string> {
         const table = new Map<string, string>();
         if (!entries.value.length) return table;
         for (const slot of slots) {

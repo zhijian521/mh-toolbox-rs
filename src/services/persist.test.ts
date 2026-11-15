@@ -2,18 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ref } from 'vue';
 import { createPersist } from './persist';
 
-/**
- * `services/persist.ts` 的**行为**：写的闸门、写的排队。
- *
- * 这个文件是第 100 批从三份手抄里收拢出来的骨架，三个 store 的测试只覆盖了「读失败不写」，
- * 而它最微妙的那个性质——**连续写要排队**——一条用例都没有。这个性质失效的样子不是报错，
- * 是「连点两次只存下一条」，等用户发现时账已经少了。
- *
- * 早先还有一段「把 `localStorage` 那一版搬进库、只搬一次」的用例，随老版本兼容一起删了
- * （2026-11-04：新应用不接老数据，见 `lib.rs` 的 `DATA_DIR_NAME`）。
- *
- * `hasDesktop` 走模块桩：这条分叉决定「写去哪儿」，与断言无关的部分不该被真实宿主干扰。
- */
+/** 写入保护、串行合并与回执边界；宿主使用模块桩，不访问真实数据。 */
 const desktop = vi.hoisted(() => ({ hasDesktop: vi.fn(() => true) }));
 
 vi.mock('./desktop', () => ({ hasDesktop: desktop.hasDesktop }));

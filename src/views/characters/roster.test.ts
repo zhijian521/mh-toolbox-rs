@@ -442,18 +442,13 @@ describe('读档失败：拒绝写入', () => {
 
         const id = add(store.emptyCharacter());
         expect(id).toBeTruthy();
-        /* 内存里加进去了（界面要能响应），但一个字节都没往库里写。
-         * `persist()` 是同步函数、`charactersSave` 是异步写，所以这里同步断言即可。 */
+        /* 读取失败时新增入口拒绝修改，内存和磁盘都不应变化。 */
+        expect(store.useRoster().roster.value).toEqual([]);
         expect(desktop.charactersSave).not.toHaveBeenCalled();
         expect(loadError.value).not.toBe('');
     });
 });
 
-/**
- * 老版本兼容那套（`migrateLegacy` + `*LegacyImported` 标记）的用例整块删了：
- * 2026-11-04 起新应用不接老数据，`loadRoster` 只剩「读库 → 规范化」两步，
- * 上面那条「读失败不写」与下面这条「空库不塞种子」就是它全部的分支。
- */
 describe('空库：不塞种子、不写库', () => {
     it('库里一条都没有时保持空名册，不种演示角色', async () => {
         vi.resetModules();
@@ -470,9 +465,7 @@ describe('空库：不塞种子、不写库', () => {
         await store.loadRoster();
         const { roster, loadError } = store.useRoster();
 
-        /* 早先「库空 + 首次启动」会种两个演示角色。判据是 `legacyImported` 标记，
-         * 那套删掉之后无法在本地区分「首次启动」与「用户把角色删光了」——
-         * 后者被塞回演示角色是明确不该发生的事，所以干脆都不种。 */
+        /* 桌面空库合法，不因角色被删光而重新填入演示数据。 */
         expect(roster.value).toEqual([]);
         expect(loadError.value).toBe('');
         expect(desktop.charactersSave).not.toHaveBeenCalled();

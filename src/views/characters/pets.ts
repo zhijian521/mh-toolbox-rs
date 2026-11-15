@@ -1,3 +1,4 @@
+import type { DeepReadonly } from 'vue';
 /** 召唤兽字段契约。名录、属性顺序和识别标签均来自 public/game/data。 */
 export { PET_QUALITY_FIELDS } from '../../services/game-rules';
 
@@ -32,3 +33,5 @@ export interface Pet {
 export function hasPetName(pet: Pick<Pet, 'name'>): boolean {
     return Boolean(pet.name.trim());
 }
+
+export type ReadonlyPet = DeepReadonly<Pet>;

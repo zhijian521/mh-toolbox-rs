@@ -1,19 +1,8 @@
+/** 目标定义与流水的模块级状态；进度现算，加载与写队列共用 services。 */
+import { readonly, ref } from 'vue';
 import { readLocalData, writeLocalData, parseLocalList } from '../../services/local-data';
 import { isDayText } from '../../services/format';
-/**
- * 目标的**持有者**：模块级单例 + 写入即落盘。
- *
- * 与 `roster.ts` / `accounts-store.ts` 同一套写法：规则在 `goals.ts`（纯函数、可单测），
- * 这里只做四件事——读、改、写、把「改不成」的原因交回去。「怎么安全地写下去」那一整套
- * 在 `services/persist.ts`，各业务数据层共用一份。
- *
- * ---- 为什么整份读写 ----
- * 目标的量级是「一年十几个」，一次改动整份写回的代价可以忽略，换来的是「不会出现
- * 界面有、库里没有」。分条写要处理「插入失败但界面已经加了」的补偿，而那套补偿本身
- * 就是新的 bug 来源。
- */
-import { ref } from 'vue';
-import { hasDesktop } from '../../services/desktop';
+import { loadData } from '../../services/load-data';
 import { goalLoad, goalSave } from '../../services/storage';
 import { createPersist } from '../../services/persist';
 import { makeId } from '../../services/shape';
@@ -24,6 +13,7 @@ import {
     manualProgress,
     parseGoals,
     type Goal,
+    type ReadonlyGoal,
     type GoalKind,
     type GoalMember,
     type GoalTracking,
@@ -40,7 +30,7 @@ const writeError = ref('');
 /** 读档失败的原因。空串 = 读到了（含「库里本来就没有」）。 */
 const loadError = ref('');
 
-/** 读过一轮没有。`persist` 靠它挡住「还没读库就整份覆盖」（见 `services/persist.ts`）。 */
+/** 当前数据已成功加载；读取中或失败时保持不可写。 */
 const loaded = ref(false);
 
 const persist = createPersist({
@@ -52,35 +42,21 @@ const persist = createPersist({
     writeRemote: () => goalSave(goals.value),
 });
 
-/**
- * 读档。**只能调一次，且在 mount 之前**（与其余 store 同一个位置，见 `main.ts`）。
- *
- * 目标页是第 115 批才有的功能，没有更早的存档要搬——不做 legacy 迁移。
- */
+/** 启动阶段读取，完成前由写队列阻止保存；旧版转换统一在启动导入入口处理。 */
 export async function loadGoals(): Promise<void> {
-    if (!hasDesktop()) {
-        const stored = readLocalData(STORAGE_KEY, (raw) => parseLocalList(raw, parseGoals));
-        if (!stored.ok) {
-            loadError.value = stored.error;
-            return;
-        }
-        goals.value = stored.value ?? [];
-        loadError.value = '';
-        loaded.value = true;
-        return;
-    }
-
-    const stored = await goalLoad();
-    /* 读失败**不是空表**。先拿原始结果再分支，就是为了让 `null` 这个信号走到错误位；
-     * 写成 `stored ?? []` 就把它抹掉了，后果是「用户随手改一个目标，其余全被清空」。 */
-    if (stored === null) {
-        loadError.value = '读不出目标，已暂停写入以免覆盖原有数据';
-        goals.value = [];
-        return;
-    }
-    loadError.value = '';
-    loaded.value = true;
-    goals.value = parseGoals(stored);
+    await loadData({
+        loaded,
+        loadError,
+        error: '读不出目标，已暂停写入以免覆盖原有数据',
+        readLocal: () => readLocalData(STORAGE_KEY, (raw) => parseLocalList(raw, parseGoals)),
+        readRemote: goalLoad,
+        applyLocal: (stored) => {
+            goals.value = stored ?? [];
+        },
+        applyRemote: (stored) => {
+            goals.value = parseGoals(stored);
+        },
+    });
 }
 
 /* ---------- 改 ---------- */
@@ -98,7 +74,7 @@ export interface GoalInput {
     note: string;
 }
 
-export type GoalWrite = { ok: true; goal: Goal } | { ok: false; error: string };
+export type GoalWrite = { ok: true; goal: ReadonlyGoal } | { ok: false; error: string };
 
 function check(input: GoalInput): { ok: true; unit: string } | { ok: false; error: string } {
     if (!input.members.length || input.members.some((member) => !member.id.trim()))
@@ -149,7 +125,7 @@ function compose(
             .map((member) => ({ ...member })),
         target: input.target,
         unit,
-        tracking: input.kind === 'growth' ? input.tracking : null,
+        tracking: input.kind === 'growth' && input.tracking ? { ...input.tracking } : null,
         deadline: input.deadline,
         note: input.note.trim(),
         logs,
@@ -165,7 +141,7 @@ export function addGoal(input: GoalInput): GoalWrite {
     const goal = compose(input, checked.unit, makeId('goal'), Date.now(), []);
     goals.value = [...goals.value, goal];
     persist();
-    return { ok: true, goal };
+    return { ok: true, goal: readonly(goal) };
 }
 
 /**
@@ -185,7 +161,7 @@ export function updateGoal(id: string, input: GoalInput): GoalWrite {
     const goal = compose(input, checked.unit, id, before.createdAt, before.logs);
     goals.value = goals.value.map((one) => (one.id === id ? goal : one));
     persist();
-    return { ok: true, goal };
+    return { ok: true, goal: readonly(goal) };
 }
 
 export function removeGoal(id: string): void {
@@ -203,7 +179,7 @@ export interface LogInput {
     note: string;
 }
 
-export type LogWrite = { ok: true; goal: Goal } | { ok: false; error: string };
+export type LogWrite = { ok: true; goal: ReadonlyGoal } | { ok: false; error: string };
 
 /**
  * 记一笔。**记增量，不记累计**——累计由 `goalSummary` 加出来。
@@ -239,7 +215,7 @@ export function addLog(id: string, input: LogInput): LogWrite {
     const next: Goal = { ...goal, logs: [...goal.logs, log] };
     goals.value = goals.value.map((one) => (one.id === id ? next : one));
     persist();
-    return { ok: true, goal: next };
+    return { ok: true, goal: readonly(next) };
 }
 
 export function removeLog(id: string, logId: string): void {
@@ -253,7 +229,7 @@ export function removeLog(id: string, logId: string): void {
 
 /** 新建时按「全部角色 / 单个角色」抄一份成员快照。名字一起抄（理由见 `goals.ts` 文件头）。 */
 export function snapshotMembers(
-    roster: { id: string; name: string }[],
+    roster: readonly { id: string; name: string }[],
     characterId: string | string[],
 ): GoalMember[] {
     const picked = Array.isArray(characterId)
@@ -271,7 +247,7 @@ export function useGoals() {
         pending: persist.pending,
         flush: persist.flush,
         retry: persist,
-        goals,
+        goals: readonly(goals),
         loadError,
         writeError,
         addGoal,
@@ -283,8 +259,8 @@ export function useGoals() {
 }
 
 /** 某个角色被哪些目标引用（快照里有他）。删角色前要拿这个数去提示。 */
-export function goalsOfCharacter(id: string): Goal[] {
-    return goals.value.filter((goal) => goal.members.some((member) => member.id === id));
+export function goalsOfCharacter(id: string): readonly ReadonlyGoal[] {
+    return readonly(goals.value.filter((goal) => goal.members.some((member) => member.id === id)));
 }
 
 /** 单位候选。装备固定「件」，养成跟项目走，只有存钱要用户挑（元 / 万）。 */

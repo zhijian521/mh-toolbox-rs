@@ -8,8 +8,8 @@ import {
     briefText,
     gearBrief,
     type BriefRow,
-    type GearDetail,
-    type GearSlot,
+    type ReadonlyGearDetail,
+    type ReadonlyGearSlot,
     type GearSlotName,
 } from '../gear';
 import { useGearIcon } from '../use-gear-icon';
@@ -18,7 +18,7 @@ import type { QuickTarget } from '../quick/quick-target';
 /** 卡内「装备」页。拆法与理由见 `AttrPane.vue` 顶部。 */
 const props = withDefaults(
     defineProps<{
-        gear: GearSlot[];
+        gear: readonly ReadonlyGearSlot[];
         meta: { special: string; suit: string };
         /**
          * 点一格就开「快速修改」。
@@ -39,7 +39,7 @@ const props = withDefaults(
  * 抛 rect 而不是抛事件：`getBoundingClientRect()` 得在事件当时同一帧取，
  * 隔着一次 emit 之后再去读 `event.currentTarget` 有可能已经是空的。 */
 const emit = defineEmits<{
-    'open-tip': [{ anchor: DOMRect; detail: GearDetail; slotName: GearSlotName }];
+    'open-tip': [{ anchor: DOMRect; detail: ReadonlyGearDetail; slotName: GearSlotName }];
     'close-tip': [];
     quick: [target: QuickTarget];
 }>();
@@ -62,7 +62,7 @@ function rowTitle(row: BriefRow): string | undefined {
 }
 
 /* 仅有短名的旧记录仍能显示；完全空白的详情由读档归一化丢掉。 */
-function openTip(event: Event, slot: GearSlot) {
+function openTip(event: Event, slot: ReadonlyGearSlot) {
     if (!slot.detail) return;
     emit('open-tip', {
         anchor: (event.currentTarget as HTMLElement).getBoundingClientRect(),
@@ -88,13 +88,13 @@ const { many } = useGearIcon();
 const icons = computed(() => many(props.gear));
 
 /** 缺图时回退到名称首字。 */
-function slotInitial(slot: GearSlot): string {
+function slotInitial(slot: ReadonlyGearSlot): string {
     const name = slot.caption?.trim();
     return (name ? name[0] : slot.slot[0]) ?? '';
 }
 
 /** 可点时那一格念什么。有名字就「部位 · 装备名」，空位说「填写」，比只念部位清楚。 */
-function quickLabel(slot: GearSlot): string {
+function quickLabel(slot: ReadonlyGearSlot): string {
     const name = slot.caption?.trim() || slot.detail?.name?.trim();
     return name ? `快速修改 ${slot.slot} · ${name}` : `填写 ${slot.slot}`;
 }

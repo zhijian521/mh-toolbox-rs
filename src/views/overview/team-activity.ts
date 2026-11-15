@@ -1,11 +1,11 @@
 import type { AccountEntry } from '../accounts/accounts';
-import type { CharacterData } from '../characters/character';
+import type { ReadonlyCharacter } from '../characters/character';
 import type { IncomeEntry } from '../income/income';
-import { ownersOf, type OnlineSession } from '../income/online';
+import { ownersOf, type ReadonlyOnlineSession } from '../income/online';
 
 export interface TeamActivity {
-    character: CharacterData;
-    session: OnlineSession | null;
+    character: ReadonlyCharacter;
+    session: ReadonlyOnlineSession | null;
     income: IncomeEntry | null;
     accountIncome: AccountEntry | null;
     accountExpense: AccountEntry | null;
@@ -32,15 +32,15 @@ function latestByCharacter<T extends { characterId: string; date: string; create
 
 /** 各账本只索引一次，队伍顺序沿用名册，不混算双币种或两本账。 */
 export function teamActivity(
-    roster: readonly CharacterData[],
+    roster: readonly ReadonlyCharacter[],
     entries: readonly IncomeEntry[],
-    sessions: readonly OnlineSession[],
+    sessions: readonly ReadonlyOnlineSession[],
     accounts: readonly AccountEntry[],
 ): TeamActivity[] {
     const income = latestByCharacter(entries);
     const accountIncome = latestByCharacter(accounts.filter((one) => one.kind === 'income'));
     const accountExpense = latestByCharacter(accounts.filter((one) => one.kind === 'expense'));
-    const online = new Map<string, OnlineSession>();
+    const online = new Map<string, ReadonlyOnlineSession>();
     for (const session of sessions) {
         for (const id of ownersOf(session)) {
             const previous = online.get(id);

@@ -17,7 +17,7 @@ import { shortDate } from '../../services/format';
 import {
     filterItems,
     type PriceFilter,
-    type PriceItem,
+    type ReadonlyPriceItem,
     type PriceItemDraft,
     type PricePoint,
     type PricePointDraft,
@@ -131,7 +131,7 @@ function resetFilters() {
 /* ---------- 四层弹窗 ---------- */
 const historyId = ref('');
 /** 正在编辑的物品；`null` = 新建。 */
-const editingItem = ref<PriceItem | null>(null);
+const editingItem = ref<ReadonlyPriceItem | null>(null);
 const itemDialogOpen = ref(false);
 const itemSubmit = usePersistedSubmit(flush, retry);
 const pointSubmit = usePersistedSubmit(flush, retry);
@@ -172,10 +172,10 @@ const pointVersion = ref(0);
 const itemError = ref('');
 const pointError = ref('');
 
-const historyItem = computed<PriceItem | null>(
+const historyItem = computed<ReadonlyPriceItem | null>(
     () => items.value.find((item) => item.id === historyId.value) ?? null,
 );
-const pointItem = computed<PriceItem | null>(
+const pointItem = computed<ReadonlyPriceItem | null>(
     () => items.value.find((item) => item.id === pointItemId.value) ?? null,
 );
 
@@ -188,7 +188,7 @@ function startNew() {
     itemDialogOpen.value = true;
 }
 
-function startEdit(item: PriceItem) {
+function startEdit(item: ReadonlyPriceItem) {
     if (busy.value) return;
     itemSubmit.reset();
     itemError.value = '';
@@ -225,7 +225,7 @@ async function onSaveItem(draft: PriceItemDraft, initialPrice: number) {
  * **记完只关窗，不自动开历史。** 早先这里会顺手把历史窗切到这件物品，
  * 用户的反馈很直接：他连着记几笔的时候，每记一笔就被一张走势图拦一次，
  * 得先关掉才能记下一笔。历史窗有它自己的入口（点价格那一片），不该由写入动作强行拉出来。 */
-function startLog(item: PriceItem) {
+function startLog(item: ReadonlyPriceItem) {
     if (busy.value) return;
     pointSubmit.reset();
     pointError.value = '';
@@ -278,7 +278,7 @@ async function onSavePoint(draft: PricePointDraft) {
     notify.success('已保存');
 }
 
-async function askRemoveItem(item: PriceItem) {
+async function askRemoveItem(item: ReadonlyPriceItem) {
     const ok = await removal.run(
         {
             danger: true,
@@ -319,7 +319,7 @@ async function askRemovePoint(point: PricePoint) {
     if (ok) notify.success('已删除');
 }
 
-function openHistory(item: PriceItem) {
+function openHistory(item: ReadonlyPriceItem) {
     historyId.value = item.id;
 }
 useRouteAction('/prices', { new: startNew });

@@ -1,3 +1,4 @@
+import type { DeepReadonly } from 'vue';
 /**
  * 收益页「上线计时」的**规则**：时长、点卡成本、按天切开、分摊。
  *
@@ -68,7 +69,7 @@ export interface DaySlice {
  * `roster` 为空时回落到 `characterId`——单开时前端不会填名单（填一份只有一个人
  * 的数组没有意义），于是「谁在线」这条信息只能从这里推。
  */
-export function ownersOf(session: OnlineSession): string[] {
+export function ownersOf(session: ReadonlyOnlineSession): string[] {
     const list = session.roster.filter((id) => id);
     /* 去重：多选面板理论上不会给出重复项，但账本不能因为面板的 bug 多扣一份点卡。 */
     const unique = Array.from(new Set(list));
@@ -77,7 +78,7 @@ export function ownersOf(session: OnlineSession): string[] {
 }
 
 /** 这一段实际持续了多少分钟。还在计时时用 `now` 补终点。 */
-export function sessionMinutes(session: OnlineSession, now: number = Date.now()): number {
+export function sessionMinutes(session: ReadonlyOnlineSession, now: number = Date.now()): number {
     const end = session.endAt ?? now;
     return Math.max(0, (end - session.startAt) / 60_000);
 }
@@ -89,7 +90,7 @@ export function sessionMinutes(session: OnlineSession, now: number = Date.now())
  * 本地日就是 24 小时；但「按 24 小时切」在跨零点时会把 23:30 那段算进「开始日 + 1 天」
  * 的同一格里，日期字符串与用户看到的日期对不上。
  */
-export function sessionSlices(session: OnlineSession, now: number = Date.now()): DaySlice[] {
+export function sessionSlices(session: ReadonlyOnlineSession, now: number = Date.now()): DaySlice[] {
     const end = session.endAt ?? now;
     if (end <= session.startAt) return [];
 
@@ -132,7 +133,7 @@ export function sliceCost(minutes: number, accounts: number, cardPrice: number):
 }
 
 /** 这次上线的总成本（所有片相加）。界面上的「本次消耗」用它。 */
-export function sessionCost(session: OnlineSession, now: number = Date.now()): number {
+export function sessionCost(session: ReadonlyOnlineSession, now: number = Date.now()): number {
     const owners = ownersOf(session);
     if (owners.length === 0) return 0;
     return sessionSlices(session, now).reduce(
@@ -151,7 +152,7 @@ export interface SessionFacts {
     running: boolean;
 }
 
-export function factsOfSession(session: OnlineSession, now: number = Date.now()): SessionFacts {
+export function factsOfSession(session: ReadonlyOnlineSession, now: number = Date.now()): SessionFacts {
     return {
         minutes: sessionMinutes(session, now),
         cost: sessionCost(session, now),
@@ -167,7 +168,7 @@ export function factsOfSession(session: OnlineSession, now: number = Date.now())
  * （`shareOfSlice`），两处共用才能保证「卡片上的数」与「账号里的那一笔」永远相等。
  */
 export function cardCostOf(
-    sessions: readonly OnlineSession[],
+    sessions: readonly ReadonlyOnlineSession[],
     from: string,
     to: string,
     characterId = '',
@@ -234,7 +235,7 @@ function datesBounds(dates?: ReadonlySet<string>) {
  * 分摊口径与 `cardCostOf` 完全一致（`shareOfSlice`），否则卡片与账号两边又会对不上。
  */
 export function cardCostByDay(
-    sessions: readonly OnlineSession[],
+    sessions: readonly ReadonlyOnlineSession[],
     now: number = Date.now(),
     dates?: ReadonlySet<string>,
 ): Map<string, number> {
@@ -272,7 +273,7 @@ export function cardCostByDay(
  * 只是点卡要按人头乘，所以成本那边才要分摊。
  */
 export function minutesByDay(
-    sessions: readonly OnlineSession[],
+    sessions: readonly ReadonlyOnlineSession[],
     now: number = Date.now(),
     dates?: ReadonlySet<string>,
 ): Map<string, number> {
@@ -307,7 +308,7 @@ export interface OnlineTotals {
 }
 
 export function onlineTotalsOf(
-    sessions: readonly OnlineSession[],
+    sessions: readonly ReadonlyOnlineSession[],
     from: string,
     to: string,
     now: number = Date.now(),
@@ -428,3 +429,6 @@ export function parseSessions(raw: unknown): OnlineSession[] {
     }
     return list.sort((left, right) => right.startAt - left.startAt);
 }
+
+/** 已保存数据的只读视图；编辑使用独立草稿。 */
+export type ReadonlyOnlineSession = DeepReadonly<OnlineSession>;

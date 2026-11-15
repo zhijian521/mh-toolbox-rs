@@ -1,4 +1,5 @@
-import type { CharacterData } from './character';
+import type { DeepReadonly } from 'vue';
+import type { CharacterData, ReadonlyCharacter } from './character';
 import { dateText, isDayText } from '../../services/format';
 import { isObject, makeId, text } from '../../services/shape';
 
@@ -20,10 +21,10 @@ export interface GrowthEntry {
 
 /** 先按角色、日期筛选，排序仅保留记录引用；展示字段由当前页补齐。 */
 export function selectGrowthHistory(
-    characters: readonly CharacterData[],
+    characters: readonly ReadonlyCharacter[],
     filter: { characterId: string; from: string; to: string },
-): { character: CharacterData; entry: GrowthEntry }[] {
-    const result: { character: CharacterData; entry: GrowthEntry }[] = [];
+): { character: ReadonlyCharacter; entry: DeepReadonly<GrowthEntry> }[] {
+    const result: { character: ReadonlyCharacter; entry: DeepReadonly<GrowthEntry> }[] = [];
     for (const character of characters) {
         if (filter.characterId && filter.characterId !== character.id) continue;
         for (const entry of character.growthHistory ?? []) {
@@ -90,7 +91,7 @@ export function normalizeGrowthHistory(raw: unknown): GrowthEntry[] {
 }
 
 function values(
-    character: CharacterData,
+    character: ReadonlyCharacter,
 ): Map<string, { group: string; label: string; value: string }> {
     const result = new Map<string, { group: string; label: string; value: string }>();
     const add = (group: string, label: string, value: unknown) =>

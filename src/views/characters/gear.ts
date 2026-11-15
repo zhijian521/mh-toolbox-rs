@@ -1,3 +1,4 @@
+import type { DeepReadonly } from 'vue';
 /** 装备字段契约与摘要算法。游戏名录、部位规则和图标映射见 public/game/data/character-rules.json。 */
 import {
     GEAR_RULES,
@@ -81,7 +82,7 @@ export interface GearSlot {
 }
 
 /** 只填属性或备注也算内容；预置的空输入行不算一件装备。 */
-export function hasGearDetail(detail: GearDetail | undefined): boolean {
+export function hasGearDetail(detail: ReadonlyGearDetail | undefined): boolean {
     if (!detail) return false;
     return Boolean(
         [detail.name, detail.kind, detail.flavor, detail.foot, detail.note].some((value) =>
@@ -209,8 +210,11 @@ function suitName(value: string): string {
 }
 
 /** 未达到资源表中的激活件数时退灰，提示套装尚未激活。 */
-export function gearBrief(gear: GearSlot[], meta: { special: string; suit: string }): BriefGroup[] {
-    const bySlot = new Map<GearSlotName, GearSlot>();
+export function gearBrief(
+    gear: readonly ReadonlyGearSlot[],
+    meta: { special: string; suit: string },
+): BriefGroup[] {
+    const bySlot = new Map<GearSlotName, ReadonlyGearSlot>();
     for (const one of gear) bySlot.set(one.slot, one);
     /* 顺序**不由传入数组决定**：名册每次读档都重建十二格，但截图预览、测试里传进来的
      * 可能只有几件。按 `GEAR_SLOTS`（游戏面板的顺序）走，缺的那几件才算得出 0。 */
@@ -321,3 +325,6 @@ export function gearBrief(gear: GearSlot[], meta: { special: string; suit: strin
         },
     ];
 }
+
+export type ReadonlyGearDetail = DeepReadonly<GearDetail>;
+export type ReadonlyGearSlot = DeepReadonly<GearSlot>;

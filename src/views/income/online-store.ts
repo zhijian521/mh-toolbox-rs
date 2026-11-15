@@ -1,20 +1,7 @@
+/** 上线记录与点卡口径一起读写；计时状态落盘，重启后继续计算。 */
+import { readonly, ref } from 'vue';
 import { readLocalData, writeLocalData, parseLocalList } from '../../services/local-data';
-/**
- * 上线计时的**持有者**：模块级单例 + 写入即落盘。
- *
- * 与 `income/income-store.ts` 同一套写法：规则全在 `online.ts`（纯函数、可单测），
- * 这里只做读、改、写，以及把「改不成」的原因交回去。
- *
- * ---- 为什么记录与口径一起写 ----
- * `OnlinePayload` 两栏一次读写（见 `store.rs` 的 `online_load`）：点卡成本要同时用到
- * 时长与单价，分两条命令会让卡片先画时长、再补成本，中间那一拍是错的。
- *
- * ---- 为什么计时中的那一条也落盘 ----
- * 不落盘的话，关掉应用那一刻正在计时的那段就没了；而「忘了点结束」是常态。
- * 于是 `endAt: null` 是一个**真实的状态**（不是「还没写」），启动时读回来就接着算。
- */
-import { ref } from 'vue';
-import { hasDesktop } from '../../services/desktop';
+import { loadData } from '../../services/load-data';
 import { onlineLoad, onlineSave } from '../../services/storage';
 import { dateText, fromWan } from '../../services/format';
 import { createPersist } from '../../services/persist';
@@ -26,6 +13,7 @@ import {
     parseSessions,
     normalizeSettings,
     type OnlineSession,
+    type ReadonlyOnlineSession,
     type OnlineSettings,
 } from './online';
 
@@ -44,11 +32,13 @@ const writeError = ref('');
 /** 读档失败的原因。空串 = 读到了（含「库里本来就没有」）。 */
 const loadError = ref('');
 
-/** 读过一轮没有。`persist` 靠它挡住「还没读库就整份覆盖」。 */
+/** 当前数据已成功加载；读取中或失败时保持不可写。 */
 const loaded = ref(false);
 
 /** 一次写入的结果。 */
-export type OnlineWrite = { ok: true; sessions: OnlineSession[] } | { ok: false; error: string };
+export type OnlineWrite =
+    | { ok: true; sessions: readonly ReadonlyOnlineSession[] }
+    | { ok: false; error: string };
 
 interface StoredShape {
     sessions: unknown;
@@ -69,62 +59,53 @@ const persist = createPersist({
     writeRemote: () => onlineSave(payloadOf()),
 });
 
-/**
- * 读档。**只能调一次，且在 mount 之前**（`main.ts` 的那个 `Promise.all`）。
- *
- * 读失败**不是空账**：把它当成空账的话，用户随手点一下「开始」就会整份覆盖原有记录。
- * 与收益账同一个判据，理由写在那里。
- */
+/** 启动阶段读取，完成前由写队列阻止保存；旧版转换统一在启动导入入口处理。 */
 export async function loadOnline(): Promise<void> {
-    if (!hasDesktop()) {
-        const stored = readLocalData(STORAGE_KEY, (raw) => {
-            if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-                throw new TypeError('数据不是对象');
-            }
-            const payload = raw as StoredShape;
-            const settings = payload.settings;
-            if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
-                throw new TypeError('点卡设置损坏');
-            }
-            const { cardPrice, cardCost } = settings as Record<string, unknown>;
-            if (
-                typeof cardPrice !== 'number' ||
-                !Number.isFinite(cardPrice) ||
-                cardPrice <= 0 ||
-                typeof cardCost !== 'boolean'
-            ) {
-                throw new TypeError('点卡设置无效');
-            }
-            return {
-                sessions: parseLocalList(payload.sessions, parseSessions),
-                settings: normalizeSettings(payload.settings),
+    await loadData({
+        loaded,
+        loadError,
+        error: '读不出上线记录，已暂停写入以免覆盖原有数据',
+        readLocal: () =>
+            readLocalData(STORAGE_KEY, (raw) => {
+                if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+                    throw new TypeError('数据不是对象');
+                }
+                const payload = raw as StoredShape;
+                const settings = payload.settings;
+                if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+                    throw new TypeError('点卡设置损坏');
+                }
+                const { cardPrice, cardCost } = settings as Record<string, unknown>;
+                if (
+                    typeof cardPrice !== 'number' ||
+                    !Number.isFinite(cardPrice) ||
+                    cardPrice <= 0 ||
+                    typeof cardCost !== 'boolean'
+                ) {
+                    throw new TypeError('点卡设置无效');
+                }
+                return {
+                    sessions: parseLocalList(payload.sessions, parseSessions),
+                    settings: normalizeSettings(payload.settings),
+                };
+            }),
+        readRemote: onlineLoad,
+        applyLocal: (stored) => {
+            sessions.value = stored?.sessions ?? [];
+            settings.value = stored?.settings ?? normalizeSettings(undefined);
+        },
+        applyRemote: (stored) => {
+            const next = {
+                sessions: parseSessions(stored.sessions),
+                settings: normalizeSettings(stored.settings),
             };
-        });
-        if (!stored.ok) {
-            loadError.value = stored.error;
-            return;
-        }
-        sessions.value = stored.value?.sessions ?? [];
-        settings.value = stored.value?.settings ?? normalizeSettings(undefined);
-        loadError.value = '';
-        loaded.value = true;
-        return;
-    }
-
-    const stored = await onlineLoad();
-    if (stored === null) {
-        loadError.value = '读不出上线记录，已暂停写入以免覆盖原有数据';
-        sessions.value = [];
-        return;
-    }
-    loadError.value = '';
-    loaded.value = true;
-    sessions.value = parseSessions(stored.sessions);
-    settings.value = normalizeSettings(stored.settings);
+            sessions.value = next.sessions;
+            settings.value = next.settings;
+        },
+    });
 }
 
-/* 多窗口同步：事件的边界在 `services/storage-sync.ts`。桌面版两窗共享同一个库，
- * 这条只在浏览器路径（`npm run dev` / 探针）上真的会发生。 */
+/* 仅同步浏览器同源 localStorage，桌面数据不走此通道。 */
 onStorageSync(STORAGE_KEY, (raw) => {
     if (raw === null) {
         sessions.value = [];
@@ -142,8 +123,8 @@ onStorageSync(STORAGE_KEY, (raw) => {
 /* ---------- 读数 ---------- */
 
 /** 还在计时的几条。界面据此把按钮从「上线」换成「结束」。 */
-export function runningSessions(): OnlineSession[] {
-    return sessions.value.filter((one) => one.endAt === null);
+export function runningSessions(): readonly ReadonlyOnlineSession[] {
+    return readonly(sessions.value.filter((one) => one.endAt === null));
 }
 
 /** 这些号里有没有正在计时的。判断「能不能开始」用它。 */
@@ -227,7 +208,7 @@ export function startOnline(input: {
     }));
     sessions.value = [...fresh, ...sessions.value];
     persist();
-    return { ok: true, sessions: sessions.value };
+    return { ok: true, sessions: readonly(sessions.value) };
 }
 
 /**
@@ -269,7 +250,7 @@ export function backfillOnline(input: {
         (left, right) => right.startAt - left.startAt,
     );
     persist();
-    return { ok: true, sessions: sessions.value };
+    return { ok: true, sessions: readonly(sessions.value) };
 }
 
 /**
@@ -306,7 +287,7 @@ export function stopOnline(characterIds?: string[], now: number = Date.now()): O
     }
     sessions.value = kept;
     persist();
-    return { ok: true, sessions: sessions.value };
+    return { ok: true, sessions: readonly(sessions.value) };
 }
 
 /** 改一条（改开始时间、改正名单、改备注）。**结束时间只能由「结束」写**。 */
@@ -338,7 +319,7 @@ export function updateOnline(
     };
     sessions.value = sessions.value.map((one) => (one.id === id ? next : one));
     persist();
-    return { ok: true, sessions: sessions.value };
+    return { ok: true, sessions: readonly(sessions.value) };
 }
 
 /** 删一条。撤回是真删——账本里没有「隐藏」。 */
@@ -366,7 +347,7 @@ export function setCardPrice(wan: number): OnlineWrite {
         one.endAt === null ? { ...one, cardPrice: price } : one,
     );
     persist();
-    return { ok: true, sessions: sessions.value };
+    return { ok: true, sessions: readonly(sessions.value) };
 }
 
 /**
@@ -379,7 +360,7 @@ export function setCardCost(on: boolean): OnlineWrite {
     if (!persist.canWrite()) return { ok: false, error: '上线记录读取失败，先修好再来改' };
     settings.value = { ...settings.value, cardCost: on };
     persist();
-    return { ok: true, sessions: sessions.value };
+    return { ok: true, sessions: readonly(sessions.value) };
 }
 
 /* ---------- 给页面 ---------- */
@@ -388,8 +369,8 @@ export function useOnline() {
         pending: persist.pending,
         flush: persist.flush,
         retry: persist,
-        sessions,
-        settings,
+        sessions: readonly(sessions),
+        settings: readonly(settings),
         loadError,
         writeError,
         startOnline,

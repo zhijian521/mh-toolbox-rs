@@ -1,38 +1,17 @@
+/** 物价表的模块级状态；规则归 prices.ts，加载与写队列共用 services。 */
+import { readonly, ref } from 'vue';
 import { readLocalData, writeLocalData, parseLocalList } from '../../services/local-data';
-/**
- * 物价表的**持有者**：模块级单例 + 写入即落盘。
- *
- * 与 `characters/roster.ts`、`use-theme.ts`、`use-font-scale.ts` 同一套写法：状态放模块
- * 作用域，`usePrices()` 只把它递出去。全仓目前只有 `PricesView` 调一次——卡片、走势窗、
- * 几个弹窗都靠 props 往下传。之所以仍然放模块作用域而不是 `ref` 挂在页面里：
- * 换存储（`ARCHITECTURE.md` §2 的「写盘时机」）时只改这一层，调用方一处都不用动。
- *
- * 不引 Pinia：这几个组件都在同一页里、共享的只是一份「本机物价表」，
- * 与角色名册的处境一样，用同一条写法更省事。
- *
- * ---- 为什么规则不在这里 ----
- * 归一、排序、涨跌、显示口径全在 `prices.ts`（那里的头注释解释了拆分理由）。
- * 这个文件只做四件事：读、改、写、把「改不成」的原因原样交回去。
- *
- * ---- 错误用返回值，不用 throw ----
- * 老系统这层是 `async` + `throw`（`savePriceLog` 超过上限就抛）。这里不抛：写盘确实
- * 是异步的（`persist()` 异步写 SQLite、失败落进 `writeError`），但异步不等于该用 `throw`
- * ——失败是**常态**（磁盘满、库文件被别的进程占住），而调用方是同步的界面事件，
- * 既等不起、也没有合适的 `catch` 位置。`throw` 在这条链上唯一的去处是被界面兜住
- * 之后变成一行红字，那不如直接返回 `{ ok: false, error }`：调用方少一层 try，
- * 类型上也说得清「哪些情况会失败」。
- */
-import { ref } from 'vue';
-import { hasDesktop } from '../../services/desktop';
+import { loadData } from '../../services/load-data';
 import { pricesLoad, pricesSave } from '../../services/storage';
 import { todayText } from '../../services/format';
 import { createPersist } from '../../services/persist';
 import { onStorageSync } from '../../services/storage-sync';
 import { makeId } from '../../services/shape';
-import { DEFAULT_CATEGORY, isPriceCategory } from './prices-catalog';
+import { DEFAULT_CATEGORY, isPriceCategory, legacyPriceSlot } from './prices-catalog';
 import {
     POINT_LIMIT,
     STORAGE_KEY,
+    currentPoint,
     makePriceItem,
     makePricePoint,
     normalizePriceItem,
@@ -50,74 +29,39 @@ import {
  */
 export type PriceWrite = { ok: true; id: string } | { ok: false; error: string };
 
-/**
- * 本机物价表。**启动时是空的**——真数据由 `loadPrices()` 填，而它必须在 `mount` 之前
- * `await` 完（见 `main.ts`）。桌面版读 SQLite，浏览器里（探针 / `npm run dev`）读
- * `localStorage`，两条路径的数据各自独立。
- */
+/** 初始为空，启动阶段由 loadPrices 读取；桌面 SQLite 与浏览器存储独立。 */
 const items = ref<PriceItem[]>([]);
 
 /** 最近一次落盘失败的原因。写着「已保存」但其实是空的，比报错更糟。 */
 const writeError = ref('');
 
-/**
- * 读档失败的原因。空串 = 读到了（含「库里本来就没有」）。
- *
- * `pricesLoad()` 的契约是「`null` = 没有 Tauri 宿主或调用失败」，而这两件事在类型上
- * 分不开、后果却差得远：早先这里写 `(stored ?? [])`，把「读失败」当「空库」处理——
- * 界面是空表、没有任何红字，用户随手记一笔，`persist()` 就整份覆盖掉了原来的物价表。
- * 现在读失败会把这条错误位立起来，并让 `persist()` 拒绝写入。
- */
+/** 最近一次读取错误；非空时写队列拒绝覆盖。 */
 const loadError = ref('');
 
-/** 读过一轮没有。`persist` 靠它挡住「还没读库就整份覆盖」（见 `services/persist.ts`）。 */
+/** 当前数据已成功加载；读取中或失败时保持不可写。 */
 const loaded = ref(false);
 
-/**
- * 读档。**只能调一次，且在 mount 之前**。
- *
- * 桌面路径只有两步：读库 → 规范化。**不搬 `localStorage` 那一版**——老版本数据一概
- * 不接（见 `lib.rs` 的 `DATA_DIR_NAME`），`migrateLegacy` 那套「三态判据 + 留底改名」
- * 随老版本兼容一起删了。
- */
+/** 启动阶段读取，完成前由写队列阻止保存；旧版转换统一在启动导入入口处理。 */
 export async function loadPrices(): Promise<void> {
-    if (!hasDesktop()) {
-        const stored = readLocalData(STORAGE_KEY, (raw) =>
-            parseLocalList(raw, (rows) => parsePriceItems(JSON.stringify(rows)) ?? []),
-        );
-        if (!stored.ok) {
-            loadError.value = stored.error;
-            return;
-        }
-        items.value = stored.value ?? [];
-        loadError.value = '';
-        loaded.value = true;
-        return;
-    }
-
-    const stored = await pricesLoad();
-    /* 读失败**不是空库**。先拿到原始结果再分支，是为了让「`null`」这个信号
-     * 能走到下面那条错误位——写成 `(stored ?? [])` 就把它抹掉了。 */
-    if (stored === null) {
-        loadError.value = '读不出物价表，已暂停写入以免覆盖原有数据';
-        items.value = [];
-        return;
-    }
-    loadError.value = '';
-    loaded.value = true;
-    /* 过一遍 `normalizePriceItem`：库是上一版应用写的、或有人手动改过文件时，
-     * 读出来的东西不一定合今天的形。它是幂等的，正常数据走一遍什么都不会变。 */
-    items.value = stored.map(normalizePriceItem);
+    await loadData({
+        loaded,
+        loadError,
+        error: '读不出物价表，已暂停写入以免覆盖原有数据',
+        readLocal: () =>
+            readLocalData(STORAGE_KEY, (raw) =>
+                parseLocalList(raw, (rows) => parsePriceItems(JSON.stringify(rows)) ?? []),
+            ),
+        readRemote: pricesLoad,
+        applyLocal: (stored) => {
+            items.value = stored ?? [];
+        },
+        applyRemote: (stored) => {
+            items.value = stored.map(normalizePriceItem);
+        },
+    });
 }
 
-/**
- * 多窗口同步（**只在浏览器那条路径上真正发生**）。
- *
- * 桌面版两个窗口共享的是同一个 SQLite 文件，`localStorage` 的 `storage` 事件不会触发；
- * 两窗同时写由 SQLite 自己串行化，最后写的那份是全量，覆盖掉前面的也无妨。
- * 这里保留监听是为了探针和 `npm run dev`——那边仍是 `localStorage`。
- * 事件本身的过滤（`key === null` 的 `clear()`、只认自己的键）在 `services/storage-sync.ts`。
- */
+/** 仅同步浏览器同源 localStorage；不提供桌面多窗口间的数据库状态协调。 */
 onStorageSync(STORAGE_KEY, (raw) => {
     /* 那一份被删掉了（`removeItem` / `clear`），确实该空——这与「解析失败」是两件事。 */
     if (raw === null) {
@@ -134,13 +78,7 @@ onStorageSync(STORAGE_KEY, (raw) => {
     items.value = parsed;
 });
 
-/**
- * 落盘。
- *
- * 「读失败拒绝写、浏览器写本地、桌面版异步写库、连续写排队」这一整套在
- * `services/persist.ts` 的 `createPersist`——各业务数据层共用一份，理由写在那里。
- * 这里只说这份数据怎么落：整份 `PriceItem[]` 交给 `prices_save`。
- */
+/** 修改后排队保存当前全量；读取失败拒写，导出与关窗等待 flush。 */
 const persist = createPersist({
     label: '物价表',
     loadError,
@@ -180,6 +118,45 @@ function nameTaken(name: string, exceptId: string): boolean {
 }
 
 export function usePrices() {
+    /** 固定单价批量记入同名卡片；先检查整批，避免导入到一半才遇到记录上限。 */
+    function setCurrentPrices(incoming: readonly { name: string; price: number }[]): PriceWrite {
+        if (!persist.canWrite()) return { ok: false, error: loadError.value || writeError.value };
+        let next = items.value.slice();
+        let changed = false;
+        let id = '';
+        for (const row of incoming) {
+            const name = row.name.trim();
+            if (!name || !Number.isFinite(row.price) || row.price <= 0) {
+                return { ok: false, error: '物品名称不能为空，价格要大于 0' };
+            }
+            const existing = next.find((item) => item.name === name);
+            const item = existing ?? makePriceItem(
+                { name, ...legacyPriceSlot(name, ''), note: '' },
+                makeId('item'),
+                Date.now(),
+            );
+            id = item.id;
+            const current = currentPoint(item);
+            if (current?.price === row.price) continue;
+            if (item.points.length >= POINT_LIMIT) {
+                return { ok: false, error: `「${name}」的价格记录已满，先删除几条旧记录再设价` };
+            }
+            const createdAt = nextStamp(item.points);
+            const date = current && current.date > todayText() ? current.date : todayText();
+            const point = makePricePoint({ date, price: row.price, note: '' }, createdAt);
+            const updated = { ...item, points: [...item.points, point], updatedAt: createdAt };
+            next = existing
+                ? next.map((one) => (one.id === item.id ? updated : one))
+                : [...next, updated];
+            changed = true;
+        }
+        if (changed) {
+            items.value = next;
+            persist();
+        }
+        return { ok: true, id };
+    }
+
     /**
      * 新建一件物品。`initialPrice` 大于 0 时顺带记下当天的第一条价——
      * 用户往往是「看到这个价了，顺手记一张卡」，逼他建完卡再点一次「记一条」是多余的。
@@ -210,12 +187,7 @@ export function usePrices() {
             return { ok: false, error: '已经有一件同名物品了，换一个名字再存' };
         }
         const category = isPriceCategory(draft.category) ? draft.category : DEFAULT_CATEGORY;
-        /* 逐字段覆盖，**不整条换新对象**：`points` / `unit` / `createdAt` 都不该被
-         * 「改个名字」牵连。老系统这里用的也是 `Object.assign(item, draft)`——
-         * 单位不在界面上填，编辑时不动已有值。
-         *
-         * 二级只在**一级变了**的时候重新审一遍：旧的「宝石」挂在「装备灵饰」下是数据不一致，
-         * 而没换一级时用户自造的二级必须原样留着（那是他自己写的字）。 */
+        /* 只替换可编辑字段；一级变化时校正二级，未变化时保留用户自定义值。 */
         replaceItem({
             ...item,
             name: draft.name.trim() || item.name,
@@ -302,7 +274,8 @@ export function usePrices() {
         pending: persist.pending,
         flush: persist.flush,
         retry: persist,
-        items,
+        items: readonly(items),
+        loaded: readonly(loaded),
         loadError,
         writeError,
         addItem,
@@ -311,5 +284,6 @@ export function usePrices() {
         addPoint,
         savePoint,
         removePoint,
+        setCurrentPrices,
     };
 }

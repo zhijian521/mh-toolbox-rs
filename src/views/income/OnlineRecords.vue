@@ -21,12 +21,12 @@ import {
     ownersOf,
     cardCostOf,
     sessionCost,
-    type OnlineSession,
+    type ReadonlyOnlineSession,
 } from './online';
 import { useOnline } from './online-store';
 import { characterOptions } from '../characters/character-options';
 
-const emit = defineEmits<{ close: []; edit: [session: OnlineSession] }>();
+const emit = defineEmits<{ close: []; edit: [session: ReadonlyOnlineSession] }>();
 
 const { sessions, removeOnline, flush, retry, pending, loadError, writeError } = useOnline();
 const { roster } = useRoster();
@@ -80,7 +80,7 @@ const totals = computed(() =>
     ),
 );
 
-function costOf(one: OnlineSession) {
+function costOf(one: ReadonlyOnlineSession) {
     return who.value === ANY
         ? sessionCost(one, now.value)
         : cardCostOf([one], '0000-01-01', '9999-12-31', who.value, now.value);
@@ -98,12 +98,12 @@ function reset() {
     keyword.value = '';
 }
 
-function whoText(one: OnlineSession): string {
+function whoText(one: ReadonlyOnlineSession): string {
     const names = ownersOf(one).map((id) => characterName(roster.value, id));
     return names.length ? names.join('、') : '未指定';
 }
 
-async function remove(one: OnlineSession) {
+async function remove(one: ReadonlyOnlineSession) {
     const ok = await removal.run(
         {
             danger: true,

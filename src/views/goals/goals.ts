@@ -1,3 +1,4 @@
+import type { DeepReadonly } from 'vue';
 import { isDayText } from '../../services/format';
 /**
  * 目标页的**规则**：类型、可跟踪的指标、汇总口径、归一与排序。
@@ -21,7 +22,7 @@ import { isDayText } from '../../services/format';
  * 删掉的角色**不计入分母**——分母里留一个永远补不上的人，目标永远到不了 100%。
  */
 import type { IconName } from '../../components/icons';
-import { ATTR_GROUPS, TRAINING_GROUPS, type CharacterData } from '../characters/character';
+import { ATTR_GROUPS, TRAINING_GROUPS, type ReadonlyCharacter } from '../characters/character';
 import { lifeSkills, storySkills, schoolSkillCap } from '../../services/game-data';
 import { schoolSkillNames } from '../characters/schools';
 
@@ -85,7 +86,10 @@ export function metricGroup(tracking: GoalTracking): MetricGroup {
     return tracking.category;
 }
 
-export function groupKeys(group: MetricGroup, characters: CharacterData[]): string[] {
+export function groupKeys(
+    group: MetricGroup,
+    characters: readonly ReadonlyCharacter[],
+): string[] {
     if (group === 'level') return ['角色等级'];
     if (group === 'training' || group === 'pet-training')
         return TRAINING_GROUPS[group === 'training' ? 0 : 1]?.rows.map((row) => row.name) ?? [];
@@ -110,7 +114,7 @@ export function metricUnit(tracking: GoalTracking): string {
     return '级';
 }
 
-export function metricApplicable(character: CharacterData, tracking: GoalTracking): boolean {
+export function metricApplicable(character: ReadonlyCharacter, tracking: GoalTracking): boolean {
     if (tracking.category !== 'skill') return true;
     const names = schoolSkillNames(character.school);
     return names
@@ -168,7 +172,7 @@ function toNumber(text: string): number | null {
  * 返回 `null` 表示**未记录**（这一项不在这个号的档案里），与「记了一个 0」是两件事：
  * 前者在卡片上显示「待补录」、仍计入分母；后者是实实在在的 0，算「还差 N」。
  */
-export function metricValue(character: CharacterData, tracking: GoalTracking): number | null {
+export function metricValue(character: ReadonlyCharacter, tracking: GoalTracking): number | null {
     const { category, key } = tracking;
     if (category === 'level') return character.level;
     if (category === 'skill') {
@@ -199,7 +203,10 @@ export function metricValue(character: CharacterData, tracking: GoalTracking): n
  *
  * 师门合并所选门派与已录技能；辅助合并完整名录与已录技能，未学项目也能建目标。
  */
-export function metricKeys(category: MetricCategory, characters: CharacterData[]): string[] {
+export function metricKeys(
+    category: MetricCategory,
+    characters: readonly ReadonlyCharacter[],
+): string[] {
     if (category === 'level') return ['角色等级'];
     if (category === 'training')
         return TRAINING_GROUPS.flatMap((group) => group.rows.map((r) => r.name));
@@ -219,10 +226,10 @@ export function metricKeys(category: MetricCategory, characters: CharacterData[]
 
 /** 把某个角色的某个项目改成 `value`，返回**新的**角色对象（不改原对象）。 */
 export function applyMetric(
-    character: CharacterData,
+    character: ReadonlyCharacter,
     tracking: GoalTracking,
     value: number,
-): CharacterData {
+): ReadonlyCharacter {
     const { category, key } = tracking;
     if (!Number.isSafeInteger(value) || value < 0 || !metricApplicable(character, tracking))
         return character;
@@ -347,7 +354,7 @@ function addProgress(current: number, delta: number): number {
     return Number((current + delta).toFixed(8));
 }
 
-export function manualProgress(logs: GoalLog[]): number {
+export function manualProgress(logs: readonly GoalLog[]): number {
     return Math.max(
         0,
         logs.reduce((current, log) => addProgress(current, log.delta), 0),
@@ -362,7 +369,7 @@ export function manualProgress(logs: GoalLog[]): number {
  *
  * **未达成最多 99%**：只有全员达标才给 100。差一个人也是 99，条形与数字说同一句话。
  */
-export function goalSummary(goal: Goal, roster: CharacterData[]): GoalSummary {
+export function goalSummary(goal: ReadonlyGoal, roster: readonly ReadonlyCharacter[]): GoalSummary {
     const byId = new Map(roster.map((one) => [one.id, one]));
     const rows: GoalRow[] = goal.members.map((member) => {
         const character = byId.get(member.id);
@@ -427,7 +434,7 @@ export function goalSummary(goal: Goal, roster: CharacterData[]): GoalSummary {
 }
 
 /** 按日期累加，找出第一次达到目标的那天。同一笔也算。 */
-function firstDateReaching(logs: GoalLog[], target: number): string {
+function firstDateReaching(logs: readonly GoalLog[], target: number): string {
     const ordered = [...logs].sort((a, b) =>
         a.date === b.date ? a.createdAt - b.createdAt : a.date < b.date ? -1 : 1,
     );
@@ -444,13 +451,13 @@ function firstDateReaching(logs: GoalLog[], target: number): string {
  * ==================================================================== */
 
 /** 范围文案。快照几个就写几个——「全部角色」四个字在加过人之后就是假的。 */
-export function scopeText(goal: Goal): string {
+export function scopeText(goal: ReadonlyGoal): string {
     if (goal.members.length === 1) return goal.members[0].name || '一个角色';
     return `${goal.members.length} 个角色`;
 }
 
 /** 自动标题：谁 + 什么 + 到多少。与卡片抬头同一个来源，两处不会各写一遍。 */
-export function autoTitle(goal: Omit<Goal, 'title'>): string {
+export function autoTitle(goal: Omit<ReadonlyGoal, 'title'>): string {
     const scope =
         goal.members.length === 1
             ? goal.members[0].name || '一个角色'
@@ -462,7 +469,7 @@ export function autoTitle(goal: Omit<Goal, 'title'>): string {
 }
 
 /** 标题为空时用自动标题。存下来的是解析后的完整标题，卡片不必再判一次。 */
-export function goalTitle(goal: Omit<Goal, 'title'> & { title?: string }): string {
+export function goalTitle(goal: Omit<ReadonlyGoal, 'title'> & { title?: string }): string {
     return (goal.title ?? '').trim() || autoTitle(goal);
 }
 
@@ -477,8 +484,8 @@ export function signedText(delta: number, unit: string): string {
  * 没有手动排序。旧仓那套拖拽 + 方向键换来的是「顺序会被记住」，代价是一条看不见的
  * `sortOrder` 与一整块拖拽代码；而目标页的自然读法是「快到期/还差的先看」。
  */
-export function orderGoals(entries: { goal: Goal; summary: GoalSummary }[]): {
-    goal: Goal;
+export function orderGoals(entries: { goal: ReadonlyGoal; summary: GoalSummary }[]): {
+    goal: ReadonlyGoal;
     summary: GoalSummary;
 }[] {
     return [...entries].sort((a, b) => {
@@ -598,3 +605,6 @@ export function parseGoals(raw: unknown): Goal[] {
     if (!Array.isArray(raw)) return [];
     return raw.map(parseGoal).filter((goal): goal is Goal => goal !== null);
 }
+
+/** 已保存数据的只读视图；编辑使用独立草稿。 */
+export type ReadonlyGoal = DeepReadonly<Goal>;

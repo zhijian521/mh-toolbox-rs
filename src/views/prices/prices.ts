@@ -1,3 +1,4 @@
+import type { DeepReadonly } from 'vue';
 /** 物价字段、归一与纯计算；状态和持久化在 prices-store.ts。
  * 当前价由历史派生，金额保存游戏币原值，显示时再换算万 / 亿。 */
 /* 金额与日期的写法全站只有一份，在 `services/format.ts`——收益页也要 `moneyText` /
@@ -141,7 +142,7 @@ const dateText = (value: unknown): string => {
 
 /** 日期倒序，同日按 createdAt 倒序；YYYY-MM-DD 按字典序比较，避免时区换日。
  * 调用方可复用当前版本的排序结果，不跨数据版本缓存。 */
-export function sortedPoints(item: PriceItem): PricePoint[] {
+export function sortedPoints(item: ReadonlyPriceItem): PricePoint[] {
     return item.points
         .slice()
         .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
@@ -149,7 +150,7 @@ export function sortedPoints(item: PriceItem): PricePoint[] {
 
 /** 当前价 = 最新一条历史；一条都没有时为 `null`（界面显示「未记录」）。 */
 export function currentPoint(
-    item: PriceItem,
+    item: ReadonlyPriceItem,
     points: readonly PricePoint[] = sortedPoints(item),
 ): PricePoint | null {
     return points[0] ?? null;
@@ -163,7 +164,7 @@ export function currentPoint(
  * 半个像素的落差，涨跌会被抹平。
  */
 export function recentPrices(
-    item: PriceItem,
+    item: ReadonlyPriceItem,
     limit = 8,
     points: readonly PricePoint[] = sortedPoints(item),
 ): number[] {
@@ -175,7 +176,7 @@ export function recentPrices(
 
 /** 图表仅截取最近 N 条并按时间正序展示；总条数独立传给图表，不能把截取条数当总数。 */
 export function chartPrices(
-    item: PriceItem,
+    item: ReadonlyPriceItem,
     limit = CHART_LIMIT,
     points: readonly PricePoint[] = sortedPoints(item),
 ): { date: string; price: number }[] {
@@ -195,7 +196,7 @@ function toneOf(delta: number): PriceTone {
 /** 徽章比较上一个不同日期的最新记录；全部同日时退回上一笔，不足两笔返回 null。
  * 补记旧日期会改变比较基准，这是当前价从历史派生的结果。 */
 export function priceChange(
-    item: PriceItem,
+    item: ReadonlyPriceItem,
     list: readonly PricePoint[] = sortedPoints(item),
 ): PriceChange | null {
     if (list.length < 2) return null;
@@ -260,7 +261,7 @@ export interface PriceBadge {
 
 /** 不足两笔不显示徽章；优先显示百分比，基准为零时显示金额，完整说明放 title。 */
 export function priceBadge(
-    item: PriceItem,
+    item: ReadonlyPriceItem,
     points: readonly PricePoint[] = sortedPoints(item),
 ): PriceBadge | null {
     const change = priceChange(item, points);
@@ -285,7 +286,7 @@ export function priceBadge(
  * 因为这一页关心的都是最近几个月。
  */
 export function updateSummary(
-    item: PriceItem,
+    item: ReadonlyPriceItem,
     points: readonly PricePoint[] = sortedPoints(item),
 ): string {
     const point = currentPoint(item, points);
@@ -402,7 +403,7 @@ export function makePricePoint(draft: PricePointDraft, createdAt: number): Price
 }
 
 /** 已有物品 → 表单草稿（编辑时打开表单用）。 */
-export function toItemDraft(item: PriceItem): PriceItemDraft {
+export function toItemDraft(item: ReadonlyPriceItem): PriceItemDraft {
     return { name: item.name, category: item.category, sub: item.sub, note: item.note };
 }
 
@@ -457,13 +458,14 @@ export function pointDraftErrors(draft: { date: string; price: number }): PriceP
  * 筛选与排序
  * ==================================================================== */
 
-const byName = (a: PriceItem, b: PriceItem) => a.name.localeCompare(b.name, 'zh-Hans-CN');
+const byName = (a: ReadonlyPriceItem, b: ReadonlyPriceItem) =>
+    a.name.localeCompare(b.name, 'zh-Hans-CN');
 
 /**
  * 最近更新的排在前面；同一时间戳按名称排，避免刷新一次顺序就变。
  * 这是**基准顺序**，筛选之后的重新排序都以它为出发点（同值时仍稳定）。
  */
-function orderedItems(items: PriceItem[]): PriceItem[] {
+function orderedItems(items: readonly ReadonlyPriceItem[]): ReadonlyPriceItem[] {
     return items.slice().sort((a, b) => b.updatedAt - a.updatedAt || byName(a, b));
 }
 
@@ -471,7 +473,10 @@ function orderedItems(items: PriceItem[]): PriceItem[] {
  * 筛选 + 排序。排序是**看数据的临时视角**，不写进档案：同一批物品，有人要看贵的、
  * 有人要看刚记的，存下来只会在下次打开时制造一个说不清来由的顺序。
  */
-export function filterItems(items: PriceItem[], filter: PriceFilter): PriceItem[] {
+export function filterItems(
+    items: readonly ReadonlyPriceItem[],
+    filter: PriceFilter,
+): ReadonlyPriceItem[] {
     const keyword = filter.keyword.trim().toLocaleLowerCase();
     const kept = items.filter((item) => {
         if (filter.category && item.category !== filter.category) return false;
@@ -537,3 +542,6 @@ export function filterItems(items: PriceItem[], filter: PriceFilter): PriceItem[
 
     return decorated.map((entry) => entry.item);
 }
+
+/** 已保存数据的只读视图；编辑使用独立草稿。 */
+export type ReadonlyPriceItem = DeepReadonly<PriceItem>;

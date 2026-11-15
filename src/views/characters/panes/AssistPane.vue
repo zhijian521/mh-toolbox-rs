@@ -14,7 +14,7 @@ import { quickRowBinds, useQuickable } from '../quick-row';
 /** 卡内「辅助」页。拆法与理由见 `AttrPane.vue` 顶部。 */
 const props = withDefaults(
     defineProps<{
-        assists: AssistSkill[];
+        assists: readonly AssistSkill[];
         quick?: boolean;
         editable?: boolean;
         tabbed?: boolean;

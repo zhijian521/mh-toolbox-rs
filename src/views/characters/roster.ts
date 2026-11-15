@@ -1,31 +1,7 @@
+/** 角色名册的归一与模块级状态；保存统一记录成长历史，浏览器与桌面数据独立。 */
+import { readonly, ref, watch } from 'vue';
 import { readLocalData, writeLocalData, parseLocalList } from '../../services/local-data';
-/**
- * 角色名册：SQLite / localStorage 双路径 + 增删改。
- *
- * 这是角色页第一份**真数据层**。此前 `mock.ts` 只是字面量，页面直接 `v-for` 上去；
- * 现在名册要能改、能删、能加，还必须活过重启——所以有一处持久化、一层逐字段兜底。
- *
- * ---- 存储：桌面版 SQLite / 浏览器 localStorage ----
- * `mh-store`（Rust 侧的 SQLite）已经起来了，桌面版由它持有；探针和 `npm run dev`
- * 没有 Tauri 宿主，仍退回 `localStorage`。两条路径的数据各自独立。
- *
- * 换存储这件事刻意压在**两个函数**里：读档 `loadRoster()`、落盘 `persist()`。
- * `useRoster()` 与所有页面代码一行不动——2026-11-03 从 localStorage 换到 SQLite
- * 时，改的确实只有这两个函数体。
- * 读档现在必须在 `mount` 之前 `await`（见 `main.ts`），所以 `roster` 初值是空数组。
- *
- * ---- 为什么每个字段都要兜底 ----
- * 存进去的是结构化对象，读回来的是**别人写的** JSON：可能是上一版的字段、
- * 可能是手工改过的、也可能是将来 OCR 导入的半成品。少一个 `stats` 数组，
- * 卡片就会在 `v-for` 上抛错，而整页白屏的报错只有一行 `Cannot read properties of
- * undefined`，看不出是哪个角色的哪一格。所以解析走 `normalizeCharacter`，
- * 缺什么补什么，坏掉的条目整条丢掉——**宁可少显示一条，不要整页打不开**。
- *
- * 与此配套的一条：`parseRoster` 只在「整体不可读」时返回 `null`（没存过 / 不是 JSON /
- * 不是数组），由调用方决定用种子还是空名册；单条坏掉不牵连整份名册。
- */
-import { ref, watch } from 'vue';
-import { hasDesktop } from '../../services/desktop';
+import { loadData } from '../../services/load-data';
 import { charactersLoad, charactersSave } from '../../services/storage';
 import { gameDataError, gameDataReady, schoolNames } from '../../services/game-data';
 import { createPersist } from '../../services/persist';
@@ -50,6 +26,7 @@ import {
     type AttrGroup,
     type AttrRow,
     type CharacterData,
+    type ReadonlyCharacter,
     type SkillRow,
     type TrainingGroup,
 } from './character';
@@ -116,7 +93,10 @@ function defaultSchool(): string {
  * 放这里而不是 `services/format.ts`：它要读名册，而名册是角色这一支的数据，
  * 呈现层不该知道「角色」是什么。
  */
-export function characterName(list: readonly CharacterData[], id: string): string {
+export function characterName(
+    list: readonly Pick<CharacterData, 'id' | 'name'>[],
+    id: string,
+): string {
     if (!id) return '未指定';
     return list.find((one) => one.id === id)?.name ?? '已删角色';
 }
@@ -376,11 +356,7 @@ export function serializeRoster(list: CharacterData[]): string {
     return JSON.stringify(list);
 }
 
-/** 首次启动的种子：`mock.ts` 里那两个角色。宁可给一份能改的样例，也不要一张空页。
- *
- * **动态 `import()`**（2026-11-05）：`mock.ts` 是 34KB 的演示数据，而桌面版这一句永远
- * 走不到——零兼容之后不种演示角色（理由见 `loadRoster` 的注释），只有纯 web 开发那条
- * 路径会用。静态 import 会把它打进首包，等真要用时再取更划算。 */
+/** 仅浏览器首次预览按需加载演示角色；桌面空库保持空名册。 */
 async function seed(): Promise<CharacterData[]> {
     const { CHARACTERS } = await import('./mock');
     return CHARACTERS.map((character) => normalizeCharacter(character));
@@ -390,27 +366,13 @@ async function seed(): Promise<CharacterData[]> {
  * 单例：页面与编辑器共用同一份
  * ==================================================================== */
 
-/* 与 `use-font-scale.ts` / `use-dev-mode.ts` 同一条理由：状态放模块作用域，
- * 页面里 `v-for` 读它、编辑器保存时写它，各 new 一个就变成两份互不相干的名册。
- * **初值是空的**：真数据由 `loadRoster()` 在 mount 之前填（见 `main.ts`）。 */
+/* 页面共享同一份名册；启动读取结束前不允许写入。 */
 const roster = ref<CharacterData[]>([]);
 
-/**
- * 读档失败的原因。空串 = 读到了（含「库里本来就没有」）。
- *
- * 与 `prices-store.ts` 的 `loadError` 同一件事：`charactersLoad()` 返回 `null` 是
- * 「没有 Tauri 宿主」**或**「调用失败」，两者在类型上分不开，但后果差得远。
- * 早先把它和「库里没有」并成一个分支（`stored === null || stored.length === 0`），
- * 于是一行坏 JSON 就能让整份名册被种子覆盖并**立刻写回库**，原数据无法恢复。
- * 现在读失败只挂这条错误位，界面照旧显示空名册但**拒绝任何写入**。
- */
+/** 最近一次读取错误；非空时写队列拒绝覆盖。 */
 const loadError = ref('');
 
-/**
- * 读过一轮没有。`persist` 靠它挡住「还没读库就整份覆盖」——dev 里改一个文件，
- * 模块被重算、单例回到空数组，而 `loadRoster()` 只在启动时跑过，那种状态下任何一次
- * `add()` 都是 `characters_save([新角色])`。2026-11-04 实测因此丢了 4 个角色。
- */
+/** 仅成功应用读取结果后开放写入。 */
 const loaded = ref(false);
 
 /**
@@ -421,58 +383,29 @@ const loaded = ref(false);
  */
 const writeError = ref('');
 
-/**
- * 读档。**只能调一次，且在 mount 之前**。
- *
- * 桌面路径只有两步：读库 → 规范化。另外两件事都**故意不做**：
- * - **不搬 `localStorage` 那一版**。老版本数据一概不接（见 `lib.rs` 的 `DATA_DIR_NAME`），
- *   于是也不需要「搬过没有」的三态判断。
- * - **不种演示角色**。以前靠 `legacyImported` 标记区分「首次启动」与「用户把角色删光了」，
- *   标记随兼容一起删了；为三个假角色再加一条 meta 标记 + 两条命令不划算，而
- *   「删光之后重启又被塞回来一批」是明确不该发生的事。空名册是合法状态，界面有空态。
- *
- * 浏览器路径（纯 web 开发）照旧种种子——那里没有库、也没有「删光」之外的状态。
- */
+/** 启动阶段读取，完成前由写队列阻止保存；旧版转换统一在启动导入入口处理。 */
 export async function loadRoster(): Promise<void> {
-    if (!hasDesktop()) {
-        const stored = readLocalData(STORAGE_KEY, (raw) =>
-            parseLocalList(raw, (rows) =>
-                (rows as unknown[]).filter(isObject).map(normalizeCharacter),
+    await loadData({
+        loaded,
+        loadError,
+        error: '读不出角色名册，已暂停写入以免覆盖原有数据',
+        readLocal: () =>
+            readLocalData(STORAGE_KEY, (raw) =>
+                parseLocalList(raw, (rows) =>
+                    (rows as unknown[]).filter(isObject).map(normalizeCharacter),
+                ),
             ),
-        );
-        if (!stored.ok) {
-            loadError.value = stored.error;
-            return;
-        }
-        roster.value = stored.value ?? (await seed());
-        loadError.value = '';
-        loaded.value = true;
-        return;
-    }
-
-    const stored = await charactersLoad();
-    /* 读失败（`null`）**不能**当「库里没有」：`charactersLoad` 的契约是
-     * 「`null` = 没有宿主或调用失败」。一行坏 JSON（`store.rs` 的 `characters_load`
-     * 遇到非法行整份返回 `Err`）就会走到这里，而那时如果写回，用户攒下来的名册就被
-     * 顶掉了，且不可恢复。所以这条分支只挂错误位、把名册留空，绝不调用 `charactersSave`。 */
-    if (stored === null) {
-        loadError.value = '读不出角色名册，已暂停写入以免覆盖原有数据';
-        roster.value = [];
-        return;
-    }
-    loadError.value = '';
-
-    loaded.value = true;
-    roster.value = stored.map(normalizeCharacter);
+        readRemote: charactersLoad,
+        applyLocal: async (stored) => {
+            roster.value = stored ?? (await seed());
+        },
+        applyRemote: (stored) => {
+            roster.value = stored.map(normalizeCharacter);
+        },
+    });
 }
 
-/**
- * 落盘。
- *
- * 「读失败拒绝写（最后一道闸）、浏览器写本地、桌面版异步写库、连续写排队」这一整套在
- * `services/persist.ts` 的 `createPersist`——三份数据层共用一份。这里只说这份数据
- * 怎么落：整份 `CharacterData[]` 交给 `characters_save`，浏览器里序列化进 `mh-roster`。
- */
+/** 修改后排队保存当前全量；读取失败拒写，导出与关窗等待 flush。 */
 const persist = createPersist({
     label: '名册',
     loadError,
@@ -500,20 +433,21 @@ function canWriteRoster(): boolean {
 
 export function useRoster() {
     /** 新增。返回新角色的 id，调用方拿它决定要不要接着打开编辑器。 */
-    function add(character: CharacterData) {
+    function add(character: ReadonlyCharacter) {
         if (!canWriteRoster()) return character.id;
-        roster.value = [...roster.value, { ...character, updatedAt: Date.now() }];
+        roster.value = [...roster.value, { ...normalizeCharacter(character), updatedAt: Date.now() }];
         persist();
         return character.id;
     }
 
     /** 修改：按 id 整条替换。编辑器改的是一份草稿副本，走到这里才算落账。 */
-    function update(character: CharacterData, source: GrowthEntry['source'] = 'edit', note = '') {
+    function update(character: ReadonlyCharacter, source: GrowthEntry['source'] = 'edit', note = '') {
         if (!canWriteRoster()) return;
         const updatedAt = Date.now();
+        const next = normalizeCharacter(character);
         roster.value = roster.value.map((item) =>
             item.id === character.id
-                ? { ...withGrowthHistory(item, character, source, note, updatedAt), updatedAt }
+                ? { ...withGrowthHistory(item, next, source, note, updatedAt), updatedAt }
                 : item,
         );
         persist();
@@ -526,7 +460,7 @@ export function useRoster() {
     }
 
     return {
-        roster,
+        roster: readonly(roster),
         loadError,
         writeError,
         pending: persist.pending,

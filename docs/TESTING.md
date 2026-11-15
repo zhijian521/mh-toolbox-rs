@@ -41,6 +41,8 @@ npm run test:scope -- goals -t 养成
 ```
 
 支持逗号合并分区并去重，分区后的选项透传给 Vitest。未知或空范围报错，不回退到全量。
+角色、收益、账号、物价与目标分区均包含共享加载及业务只读契约；公共加载改动同时覆盖这些领域。
+
 选择真源为 [scripts/test-scopes.mjs](../scripts/test-scopes.mjs)，新增测试需有分区归属；归属断言随 tooling 分区维护。
 
 | 分区       | 主范围及直接联动                               |

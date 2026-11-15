@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useId } from 'vue';
+import { useId, type DeepReadonly } from 'vue';
 import NumberField from '../../../components/NumberField.vue';
 import GroupHead from '../../../components/GroupHead.vue';
 import NumTag from '../../../components/NumTag.vue';
@@ -10,7 +10,7 @@ import { quickRowBinds, useQuickable } from '../quick-row';
 /** 卡内「修炼」页。拆法与理由见 `AttrPane.vue` 顶部。 */
 const props = withDefaults(
     defineProps<{
-        groups: TrainingGroup[];
+        groups: readonly DeepReadonly<TrainingGroup>[];
         quick?: boolean;
         editable?: boolean;
         tabbed?: boolean;

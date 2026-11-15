@@ -1,3 +1,4 @@
+import type { DeepReadonly } from 'vue';
 /**
  * 角色数据的字段契约。
  *
@@ -188,11 +189,17 @@ export interface TrainingGroup {
     rows: TrainingRow[];
 }
 /** 属性、修炼按游戏中的行名定位，手工编辑与快速修改共用同一查询口径。 */
-export function findAttrRow(character: CharacterData, label: string): AttrRow | undefined {
+export function findAttrRow<T extends ReadonlyCharacter>(
+    character: T,
+    label: string,
+): T['attrGroups'][number]['rows'][number] | undefined {
     return character.attrGroups.flatMap((group) => group.rows).find((row) => row.label === label);
 }
 
-export function findTrainingRow(character: CharacterData, name: string): TrainingRow | undefined {
+export function findTrainingRow<T extends ReadonlyCharacter>(
+    character: T,
+    name: string,
+): T['trainings'][number]['rows'][number] | undefined {
     return character.trainings.flatMap((group) => group.rows).find((row) => row.name === name);
 }
 /* ======================================================================
@@ -232,9 +239,12 @@ export interface CharacterData {
     skills: SkillRow[];
     /** 辅助技能：生活 + 剧情，两类合在一页格子里。 */
     assists: AssistSkill[];
-    /** 两组，结构固定（`TRAINING_GROUPS`）：任务修炼、宠物修炼。上限每行自带，界面只改等级。 */
+    /** 固定分组与上限由 TRAINING_GROUPS 提供，数据只保存等级。 */
     trainings: TrainingGroup[];
     gear: GearSlot[];
     gearMeta: { special: string; suit: string };
     pets: Pet[];
 }
+
+/** 已保存数据的只读视图；编辑使用独立草稿。 */
+export type ReadonlyCharacter = DeepReadonly<CharacterData>;

@@ -18,7 +18,7 @@ import OnlineBar from './OnlineBar.vue';
 import OnlinePanel from './OnlinePanel.vue';
 import QuickPanel from './QuickPanel.vue';
 import TodayDump from './TodayDump.vue';
-import { type OnlineSession } from './online';
+import { type ReadonlyOnlineSession } from './online';
 import { useOnline } from './online-store';
 import { useDailySync } from '../accounts/daily-sync';
 import { useRoster } from '../characters/roster';
@@ -89,11 +89,11 @@ const {
 const running = computed(() => sessions.value.filter((one) => one.endAt === null));
 
 const onlineDialog = ref<'start' | 'backfill' | 'edit' | null>(null);
-const editTarget = ref<OnlineSession | null>(null);
+const editTarget = ref<ReadonlyOnlineSession | null>(null);
 const recordsOpen = ref(false);
 const onlineCharacterIds = ref<string[]>([]);
 
-function editOnline(one: OnlineSession) {
+function editOnline(one: ReadonlyOnlineSession) {
     editTarget.value = one;
     onlineDialog.value = 'edit';
 }

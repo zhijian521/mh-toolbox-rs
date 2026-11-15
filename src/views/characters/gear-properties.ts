@@ -2,6 +2,7 @@ import {
     GEAR_JADE_EFFECTS,
     GEAR_TRAITS,
     type GearDetail,
+    type ReadonlyGearDetail,
     type GearSlotName,
     type GearStat,
     type GearStatGroup,
@@ -153,7 +154,7 @@ export interface GearPropertyGroup {
 
 /** 共享分类布局；保留原数组下标和对象，编辑后保存不会丢失重复附加词条。 */
 export function gearPropertyGroups(
-    detail: GearDetail,
+    detail: ReadonlyGearDetail,
     slot?: GearSlotName,
     editable = false,
 ): GearPropertyGroup[] {

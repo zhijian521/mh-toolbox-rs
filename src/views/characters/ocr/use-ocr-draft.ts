@@ -4,7 +4,7 @@ import {
     findTrainingRow,
     type AssistKind,
     type AssistSkill,
-    type CharacterData,
+    type ReadonlyCharacter,
 } from '../character';
 import { normalizeCharacter, normalizeGear } from '../roster';
 import { schoolSkills } from '../schools';
@@ -20,12 +20,12 @@ export type PanelResult =
     | { pane: 'training'; value: TrainingPanelResult };
 
 /** OCR 只覆盖一次草稿，之后的手工修正、补录和清空不再受识别状态限制。 */
-export function useOcrDraft(character: CharacterData) {
+export function useOcrDraft(character: ReadonlyCharacter) {
     const base = normalizeCharacter(character);
     base.skills = schoolSkills(base.school, base.skills);
     const draft = ref(base);
     // 各分区独立缓存比较结果；历史和更新时间不参与编辑，也不随每次输入重新遍历。
-    const keys = Object.keys(base) as (keyof CharacterData)[];
+    const keys = Object.keys(base) as (keyof ReadonlyCharacter)[];
     const changes = keys
         .filter((key) => key !== 'id' && key !== 'updatedAt' && key !== 'growthHistory')
         .map((key) => {

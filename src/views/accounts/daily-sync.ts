@@ -4,7 +4,7 @@ import { useMinuteNow } from '../../composables/use-minute-now';
 import { useAccounts, type AutoInput } from './accounts-store';
 import { useOnline } from '../income/online-store';
 import { useIncome } from '../income/income-store';
-import { cardCostByDay, sessionSlices, type OnlineSession } from '../income/online';
+import { cardCostByDay, sessionSlices, type ReadonlyOnlineSession } from '../income/online';
 import { netByDay } from '../income/trend-chart';
 
 export const AUTO_INCOME = '游戏收益';
@@ -86,7 +86,7 @@ export function syncAllDays() {
     return syncDates([...dates]);
 }
 
-function addSessionDays(dates: Set<string>, session: OnlineSession, now = Date.now()) {
+function addSessionDays(dates: Set<string>, session: ReadonlyOnlineSession, now = Date.now()) {
     dates.add(session.date);
     for (const slice of sessionSlices(session, now)) dates.add(slice.date);
 }

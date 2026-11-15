@@ -8,13 +8,13 @@ import IconTile from '../IconTile.vue';
 import GearQuick from './GearQuick.vue';
 import PetQuick from './PetQuick.vue';
 import { applyQuick, isScalarTarget, quickPanel, type QuickTarget } from './quick-target';
-import type { CharacterData } from '../character';
+import type { ReadonlyCharacter } from '../character';
 import { focusInput } from '../focus-input';
 
 /** 单项修改分发器；装备和召唤兽使用完整表单，保存统一交给名册落库。 */
 const props = withDefaults(
     defineProps<{
-        character: CharacterData;
+        character: ReadonlyCharacter;
         target: QuickTarget;
         saving?: boolean;
         locked?: boolean;
@@ -23,7 +23,7 @@ const props = withDefaults(
     }>(),
     { saving: false, locked: false, retrying: false, saveError: '' },
 );
-const emit = defineEmits<{ save: [character: CharacterData]; close: [] }>();
+const emit = defineEmits<{ save: [character: ReadonlyCharacter]; close: [] }>();
 
 /* 当前该画哪几格。点开之后数据被别处改掉、或者传错了定位键时是 `null`——
  * 那时窗里什么都不画，保存也点不动（见下面的 `canSave`）。

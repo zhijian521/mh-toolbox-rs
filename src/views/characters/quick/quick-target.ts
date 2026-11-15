@@ -5,7 +5,7 @@ import {
     findAttrRow,
     findTrainingRow,
     type AssistKind,
-    type CharacterData,
+    type ReadonlyCharacter,
 } from '../character';
 import type { GearDetail, GearSlot, GearSlotName } from '../gear';
 import type { Pet } from '../pets';
@@ -82,7 +82,7 @@ export interface QuickPanel {
  * 读：卡片上那一项现在是什么
  * ==================================================================== */
 
-function attrValue(character: CharacterData, label: string): string | undefined {
+function attrValue(character: ReadonlyCharacter, label: string): string | undefined {
     return findAttrRow(character, label)?.value;
 }
 
@@ -125,7 +125,10 @@ function levelPanel(title: string, level: number): QuickPanel {
  *
  * 只服务五类单值项：装备与召唤兽是整份表单，见 `applyGear` / `applyPet`。
  */
-export function quickPanel(character: CharacterData, target: QuickScalarTarget): QuickPanel | null {
+export function quickPanel(
+    character: ReadonlyCharacter,
+    target: QuickScalarTarget,
+): QuickPanel | null {
     switch (target.kind) {
         case 'attr': {
             const value = attrValue(character, target.label);
@@ -225,7 +228,7 @@ function trimText(value: unknown): unknown {
 }
 
 /**
- * 把弹窗里那几格贴回整份角色，返回**新的** `CharacterData`。
+ * 把弹窗里那几格贴回整份角色，返回**新的** `ReadonlyCharacter`。
  *
  * 只替换被点的那一项，其余字段原样带过去（引用不变）：`update()` 是整条替换，
  * 所以这里必须给出一份完整对象，但没必要深拷贝——没改的部分共享引用不影响正确性，
@@ -237,10 +240,10 @@ function trimText(value: unknown): unknown {
  * 只服务五类单值项：装备与召唤兽走 `applyGear` / `applyPet`（整份对象进出）。
  */
 export function applyQuick(
-    character: CharacterData,
+    character: ReadonlyCharacter,
     target: QuickScalarTarget,
     values: Record<string, string>,
-): CharacterData {
+): ReadonlyCharacter {
     switch (target.kind) {
         case 'attr':
             return {
@@ -316,10 +319,10 @@ export function applyQuick(
  * `caption` 为旧记录的独立短名，也可为详情全名兜底；仅填属性或备注的详情仍保留。
  */
 export function applyGear(
-    character: CharacterData,
+    character: ReadonlyCharacter,
     slotName: GearSlotName,
     next: { caption?: string; detail?: GearDetail },
-): CharacterData {
+): ReadonlyCharacter {
     const caption = (next.caption ?? '').trim();
     const detail = next.detail
         ? normalizeGearDetail(
@@ -350,7 +353,11 @@ export function applyGear(
  *
  * 按**下标**定位而不是名字：`Pet` 没有 id，两只「天狗」是正常的。
  */
-export function applyPet(character: CharacterData, index: number, next: Pet): CharacterData {
+export function applyPet(
+    character: ReadonlyCharacter,
+    index: number,
+    next: Pet,
+): ReadonlyCharacter {
     if (!character.pets[index]) return character;
     const pet = normalizePet(trimText(next));
     if (!pet) return character;

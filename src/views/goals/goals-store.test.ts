@@ -4,7 +4,7 @@ import type { GoalInput } from './goals-store';
 /**
  * `goals-store.ts` 的**读失败闸门**。
  *
- * 目标与其它四本账同一个骨架（`services/persist.ts`）。它比别的账多一层风险：
+ * 目标与其它业务数据层共用加载和写队列（`services/persist.ts`）。它比别的账多一层风险：
  * 一个目标身上挂着流水，整份覆盖丢的不只是「许了什么」，还有已经攒下的进度。
  *
  * 同时覆盖多角色快照、写入校验与已记进度的保护。

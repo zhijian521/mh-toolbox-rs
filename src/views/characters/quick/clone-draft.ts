@@ -1,4 +1,4 @@
-import { toRaw } from 'vue';
+import { toRaw, type DeepReadonly } from 'vue';
 
 /**
  * 弹窗里的草稿：**深拷贝一份再改**，`Esc` 才是「什么都没发生」。
@@ -13,6 +13,6 @@ import { toRaw } from 'vue';
  *    （实测：`Proxy` 一进 `structuredClone` 就红，剥一层就正常）。`toRaw` 只剥最外层，
  *    内层挂的都是原始值，够用。
  */
-export function cloneDraft<T>(source: T): T {
-    return structuredClone(toRaw(source));
+export function cloneDraft<T>(source: T | DeepReadonly<T>): T {
+    return structuredClone(toRaw(source)) as T;
 }

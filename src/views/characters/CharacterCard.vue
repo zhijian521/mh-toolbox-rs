@@ -18,10 +18,10 @@ import {
     PANE_OPTIONS,
     type AssistKind,
     type AssistSkill,
-    type CharacterData,
+    type ReadonlyCharacter,
     type PaneKey,
 } from './character';
-import type { GearDetail, GearSlotName } from './gear';
+import type { ReadonlyGearDetail, GearSlotName } from './gear';
 import type { QuickTarget } from './quick/quick-target';
 
 /**
@@ -90,7 +90,7 @@ import type { QuickTarget } from './quick/quick-target';
  */
 const props = withDefaults(
     defineProps<{
-        character: CharacterData;
+        character: ReadonlyCharacter;
         preview?: boolean;
         editable?: boolean;
         tabs?: boolean;
@@ -156,13 +156,13 @@ function choose(key: PaneKey) {
  * （`GearTip` 的注释里写着同一件事：两处各写一遍，抄到第二遍时就已经漂了）。
  * 现在兽是**点开看详情**，悬停不再停 90ms 才出东西——那一页本来就要点。
  */
-const tip = ref<GearDetail | null>(null);
+const tip = ref<ReadonlyGearDetail | null>(null);
 const tipAnchor = ref<DOMRect | null>(null);
 const tipSlot = ref<GearSlotName>();
 
 /* 装备页抛上来的是**量好的 rect**，不是事件：`getBoundingClientRect()` 得在事件
  * 当时同一帧取，隔着一次 emit 再去读 `event.currentTarget` 可能已经是空的。 */
-function showTip(payload: { anchor: DOMRect; detail: GearDetail; slotName: GearSlotName }) {
+function showTip(payload: { anchor: DOMRect; detail: ReadonlyGearDetail; slotName: GearSlotName }) {
     tipAnchor.value = payload.anchor;
     tip.value = payload.detail;
     tipSlot.value = payload.slotName;

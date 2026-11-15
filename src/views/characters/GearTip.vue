@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue';
 import { useAnchoredTip } from '../../composables/use-anchored-tip';
-import type { GearDetail, GearSlotName } from './gear';
+import type { ReadonlyGearDetail, GearSlotName } from './gear';
 import GearProperties from './GearProperties.vue';
 
 /**
@@ -22,7 +22,7 @@ import GearProperties from './GearProperties.vue';
 const props = defineProps<{
     /** 锚点：触发浮片的那个格子。`null` 表示没有指向任何格子。 */
     anchor: DOMRect | null;
-    detail: GearDetail | null;
+    detail: ReadonlyGearDetail | null;
     slotName?: GearSlotName;
 }>();
 

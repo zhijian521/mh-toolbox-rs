@@ -11,7 +11,7 @@ import {
     pointDelta,
     priceChange,
     sortedPoints,
-    type PriceItem,
+    type ReadonlyPriceItem,
     type PricePoint,
 } from './prices';
 
@@ -25,7 +25,7 @@ import {
  * 所以要能点到具体那一条——两个动作都往外抛，由页面统一开下一层弹窗，
  * 这个组件不自己管确认状态：它只负责「显示」与「派发」，确认那一步属于页面。
  */
-const props = defineProps<{ item: PriceItem }>();
+const props = defineProps<{ item: ReadonlyPriceItem }>();
 
 const emit = defineEmits<{
     close: [];

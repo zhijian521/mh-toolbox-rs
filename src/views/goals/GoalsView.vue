@@ -21,7 +21,7 @@ import {
     goalSummary,
     metricApplicable,
     orderGoals,
-    type Goal,
+    type ReadonlyGoal,
     type GoalSummary,
 } from './goals';
 import { useGoals, type GoalInput, type LogInput } from './goals-store';
@@ -98,7 +98,7 @@ const visible = computed(() => {
     });
 });
 
-const editing = ref<{ goal?: Goal } | null>(null);
+const editing = ref<{ goal?: ReadonlyGoal } | null>(null);
 const growthId = ref('');
 const logsId = ref('');
 const growth = computed(() => goals.value.find((goal) => goal.id === growthId.value));
@@ -148,7 +148,7 @@ function announce(before: GoalSummary | null, id: string) {
     notify.success('目标达成');
     if (status.value === 'active') status.value = 'all';
 }
-function openEditor(goal?: Goal) {
+function openEditor(goal?: ReadonlyGoal) {
     if (blocked.value) return;
     editSubmit.reset();
     savedGoalId = '';
@@ -179,7 +179,7 @@ async function save(input: GoalInput) {
     closeEditor();
     notify.success('已保存');
 }
-async function askRemove(goal: Goal) {
+async function askRemove(goal: ReadonlyGoal) {
     if (
         await removal.run(
             {
@@ -195,7 +195,7 @@ async function askRemove(goal: Goal) {
     )
         notify.success('已删除');
 }
-function openGrowth(goal: Goal) {
+function openGrowth(goal: ReadonlyGoal) {
     if (blocked.value) return;
     growthSubmit.reset();
     growthError.value = '';
@@ -251,7 +251,7 @@ async function applyGrowth(values: { id: string; value: number }[]) {
     closeGrowth();
     notify.success('角色档案已更新');
 }
-function openLogs(goal: Goal) {
+function openLogs(goal: ReadonlyGoal) {
     if (blocked.value) return;
     progressSubmit.reset();
     progressError.value = '';
@@ -280,7 +280,7 @@ async function record(input: LogInput) {
     recorded.value += 1;
     announce(beforeProgress, goal.id);
 }
-async function bought(goal: Goal) {
+async function bought(goal: ReadonlyGoal) {
     if (blocked.value) return;
     beforeProgress = summaryOf(goal.id);
     const ok = await progressSubmit.run(`bought:${goal.id}`, () => {
