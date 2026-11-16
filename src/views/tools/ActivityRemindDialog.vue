@@ -8,10 +8,12 @@ import {
     remindNote,
     repeatText,
     timesText,
+    upcomingSlot,
     type Activity,
     type ActivitySlot,
 } from './activities';
-import { LEAD_MINUTES, type AlarmDraft } from './alarms';
+import { activitySlotText } from '../../services/game-activities';
+import { LEAD_MINUTES, type AlarmDraft, type AlarmLike } from './alarms';
 
 /**
  * 「给这条活动加个提醒」：确认是哪一场，然后把它翻成一份闹钟。
@@ -20,28 +22,29 @@ import { LEAD_MINUTES, type AlarmDraft } from './alarms';
  * 直接加要么一次加五个闹钟，要么替用户挑一个——两种都不该由代码决定。所以先让人
  * 选一段，顺便把「这个提醒会怎么响」说清楚。
  *
- * 换算的口径全在 `activities.ts` 的 `remindDraft()`，这里不重复判断——它那句注释里
- * 写着「每月第几周只能退成仅一次」，那是全局唯一的解释。
+ * 日期与场次按共享活动规则计算，弹窗只负责选择和管理对应提醒。
  */
 const props = defineProps<{
     activity: Activity;
     now: Date;
+    alarms: readonly AlarmLike[];
 }>();
 
 const emit = defineEmits<{
     close: [];
     confirm: [draft: AlarmDraft];
+    'toggle-reminder': [id: number, enabled: boolean];
 }>();
 
 /* 多段的活动先挑一段；只有一段时没什么可挑的，直接用它。 */
 const slotOptions = computed(() =>
     props.activity.slots.map((slot) => ({
         value: slot.start,
-        label: `${slot.start}–${slot.end}`,
+        label: activitySlotText(slot),
     })),
 );
 
-const pickedStart = ref(props.activity.slots[0]?.start ?? '');
+const pickedStart = ref(upcomingSlot(props.activity, props.now));
 
 const pickedSlot = computed<ActivitySlot>(() => {
     const found = props.activity.slots.find((slot) => slot.start === pickedStart.value);
@@ -51,6 +54,15 @@ const pickedSlot = computed<ActivitySlot>(() => {
 });
 
 const note = computed(() => remindNote(props.activity));
+const matchingAlarm = computed(() => {
+    const draft = remindDraft(props.activity, pickedSlot.value);
+    return props.alarms.find(
+        (one) =>
+            one.repeat === 'activity' &&
+            one.activityId === draft.activityId &&
+            one.time === draft.time,
+    );
+});
 
 /* 规则那行只说「多久一次」：时段已经在下面说了，两处都写一遍会让窗里出现
  * 「每月第 2 周周日 · 12:00–17:00」紧跟「12:00–17:00 开场」这种复读。
@@ -65,17 +77,19 @@ const ruleLine = computed(() => {
 const whenLine = computed(() => {
     const slots = props.activity.slots;
     if (!slots.length) return `${timesText(props.activity)}开场`;
-    if (slots.length === 1) return `${slots[0].start}–${slots[0].end} 开场`;
+    if (slots.length === 1) return activitySlotText(slots[0]);
     return '';
 });
 
 function submit() {
-    emit('confirm', remindDraft(props.activity, pickedSlot.value, props.now));
+    const existing = matchingAlarm.value;
+    if (existing) emit('toggle-reminder', existing.id, !existing.enabled);
+    else emit('confirm', remindDraft(props.activity, pickedSlot.value));
 }
 </script>
 
 <template>
-    <ModalShell title="新增提醒" :width="404" :scroll="false" @close="emit('close')">
+    <ModalShell title="活动提醒" :width="440" @close="emit('close')">
         <div class="remind modal-form">
             <div class="head">
                 <h3 class="name">{{ activity.name }}</h3>
@@ -92,6 +106,9 @@ function submit() {
             </div>
 
             <p v-if="whenLine" class="when">{{ whenLine }}</p>
+            <p v-if="matchingAlarm" class="hint">
+                {{ matchingAlarm.enabled ? '这一场已开启提醒。' : '这一场的提醒已停用。' }}
+            </p>
 
             <p class="hint">应用运行时，开场前 {{ LEAD_MINUTES }} 分钟提醒。</p>
             <p v-if="note" class="hint warn">{{ note }}</p>
@@ -99,7 +116,13 @@ function submit() {
 
         <template #footer>
             <PressButton data-modal-cancel text="取消" label="不加了" @click="emit('close')" />
-            <PressButton icon="check" text="保存" label="加进闹钟" seal @click="submit" />
+            <PressButton
+                icon="check"
+                :text="matchingAlarm ? (matchingAlarm.enabled ? '停用' : '开启') : '保存'"
+                label="保存这一场的提醒设置"
+                seal
+                @click="submit"
+            />
         </template>
     </ModalShell>
 </template>

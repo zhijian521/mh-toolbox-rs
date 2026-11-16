@@ -4,16 +4,19 @@ import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
+import SegmentedPills from '../../components/SegmentedPills.vue';
 import TimeField from '../../components/TimeField.vue';
 import TogglePills from '../../components/TogglePills.vue';
 import { useToday } from '../../composables/use-today';
 import { minuteText } from '../../services/clock';
+import { activityRuleText, activitySlotText } from '../../services/game-activities';
 import {
     LABEL_LIMIT,
     LEAD_MINUTES,
     WEEKDAY_OPTIONS,
     alarmDraftError,
     alarmTime,
+    activityOf,
     isDayText,
     type AlarmDraft,
     type AlarmLike,
@@ -61,6 +64,7 @@ const draft = reactive<AlarmDraft>(
               repeat: props.alarm.repeat,
               weekdays: [...props.alarm.weekdays],
               date: props.alarm.date || today.value,
+              activityId: props.alarm.activityId,
           }
         : {
               time: '07:30',
@@ -71,6 +75,14 @@ const draft = reactive<AlarmDraft>(
               weekdays: [1, 2, 3, 4, 5],
               date: today.value,
           },
+);
+const linkedActivity = computed(() => activityOf(draft));
+const activitySlots = computed(
+    () =>
+        linkedActivity.value?.slots.map((slot) => ({
+            value: slot.start,
+            label: activitySlotText(slot),
+        })) ?? [],
 );
 
 const REPEAT_OPTIONS: { value: AlarmRepeat; label: string }[] = [
@@ -149,16 +161,41 @@ function onEnter(event: KeyboardEvent) {
             @keydown.enter="onEnter"
         >
             <SteppedSlider
+                v-if="draft.repeat !== 'activity'"
                 class="alarm-repeat"
                 :model-value="draft.repeat"
                 :options="REPEAT_OPTIONS"
                 label="重复方式"
                 @update:model-value="pickRepeat"
             />
+            <template v-else>
+                <p class="note alarm-hint">
+                    {{
+                        linkedActivity
+                            ? activityRuleText(linkedActivity)
+                            : '活动规则已更新，请在活动日历重新设置。'
+                    }}
+                </p>
+                <SegmentedPills
+                    v-if="activitySlots.length > 1"
+                    v-model="draft.time"
+                    :options="activitySlots"
+                    label="提醒哪一场"
+                    radius="sm"
+                />
+                <p v-else class="note alarm-hint">
+                    {{
+                        linkedActivity?.rule.type === 'hourly'
+                            ? '每小时 ' + minuteText(draft.time) + ' 分开场'
+                            : draft.time + ' 开场'
+                    }}
+                </p>
+                <p v-if="submitted && !linkedActivity" class="note error">活动场次已更新，请重新选择</p>
+            </template>
 
             <!-- 时刻与它的条件（星期几 / 哪一天）是一组「什么时候」：组内 10、组外 16，
                  否则日期会被 14 的间距推得像另一件事。 -->
-            <div class="alarm-when">
+            <div v-if="draft.repeat !== 'activity'" class="alarm-when">
                 <TimeField
                     v-model="draft.time"
                     :label="draft.repeat === 'hourly' ? '每小时的几分' : '时刻'"

@@ -323,8 +323,8 @@ export default async function run(ctx) {
 
         /* ---------- 活动日历：点一张卡能把提醒加进闹钟 ----------
          *
-         * 验的是**全链路**：卡片 → 弹窗 → 换算 → 闹钟落盘 → 重载后卡上还盖着「已提醒」。
-         * 挑「科举大赛」是因为它走的是最特别的一支换算（每月轮换只能退成「仅一次」），
+         * 验的是**全链路**：卡片 → 弹窗 → 换算 → 闹钟落盘 → 重载后仍按活动 ID 标记「已设提醒」。
+         * 挑「科举大赛」覆盖按月持续循环，不能退成每周或一次性，
          * 那一支错的话，别的分支看着都好。
          */
         await t.step('活动日历：点一张卡能加提醒', async () => {
@@ -332,82 +332,90 @@ export default async function run(ctx) {
              * 目录上，留一条测试闹钟在用户的闹钟列表里是实打实的副作用。 */
             const before = await cdp.evaluate(`localStorage.getItem('mh-alarms')`);
 
-            await cdp.evaluate(`location.hash = '#/tools'`);
-            await cdp.waitFor(
-                `document.querySelector('.page-title')?.textContent?.trim() === '工具'`,
-                { timeout: 4000 },
-            );
-            await ui.clickText('button, a', '活动日历');
-            const entered = await cdp.waitFor(`location.hash.includes('activities')`, {
-                timeout: 5000,
-            });
-            if (!entered) throw new Error(`点了活动日历，地址还是 ${await ui.hash()}`);
-
-            const loaded = await cdp.waitFor(`document.querySelectorAll('.card').length >= 10`, {
-                timeout: 8000,
-            });
-            if (!loaded) throw new Error('活动卡片没出来');
-
-            const groups = await ui.count('.group');
-            t.check('活动按时间分了组', groups >= 4, `${groups} 组`);
-
-            const darkWash = await cdp.evaluate(`(() => {
-                const root = document.documentElement;
-                const wasDark = root.classList.contains('dark');
-                const card = document.querySelector('.activity-card:not(.t-month)');
-                const monthly = document.querySelector('.activity-card.t-month');
-                if (!card || !monthly) return false;
-                const wash = (element) => ['--wash', '--wash-hi', '--wash-lo']
-                    .map((name) => getComputedStyle(element).getPropertyValue(name).trim()).join('|');
-                try {
-                    root.classList.remove('dark');
-                    const light = wash(card);
-                    const lightMonthly = wash(monthly);
-                    root.classList.add('dark');
-                    return wash(card) !== light && wash(monthly) !== lightMonthly &&
-                        getComputedStyle(root).filter === 'none';
-                } finally {
-                    root.classList.toggle('dark', wasDark);
-                }
-            })()`);
-            t.check('普通与月度活动的暗色配方均能命中，整页无图标滤镜', darkWash);
-
-            await ui.markFirst(`() => [...document.querySelectorAll('.card')].find(
-                (one) => one.querySelector('.name')?.textContent?.trim() === '科举大赛',
-            )`);
-            await cdp.click('[data-e2e="1"]');
-            await ui.waitFor('!!document.querySelector(".modal-panel")');
-            await ui.clickLabel('加进闹钟');
-            await ui.waitFor('!document.querySelector(".modal-panel")');
-            const added = await cdp.evaluate(`(() => {
-                const after = [...document.querySelectorAll('.card')].find(
-                    (one) => one.querySelector('.name')?.textContent?.trim() === '科举大赛',
+            try {
+                await cdp.evaluate(`localStorage.setItem('mh-alarms', '[]')`);
+                await ui.reload({ wait: 1000 });
+                await cdp.evaluate(`location.hash = '#/tools'`);
+                await cdp.waitFor(
+                    `document.querySelector('.page-title')?.textContent?.trim() === '工具'`,
+                    { timeout: 4000 },
                 );
-                return after?.querySelector('.tag')?.textContent?.trim() ?? '';
-            })()`);
-            t.check('加完提醒，卡上盖了「已提醒」', added === '已提醒', String(added));
+                await ui.clickText('button, a', '活动日历');
+                const entered = await cdp.waitFor(`location.hash.includes('activities')`, {
+                    timeout: 5000,
+                });
+                if (!entered) throw new Error(`点了活动日历，地址还是 ${await ui.hash()}`);
 
-            /* 落盘：闹钟存在 localStorage，重载后还在才算真加上了。
-             * 只查内存的话，「点完变了个色」也能过，而什么都没存下来。 */
-            await ui.reload({ wait: 1300 });
-            const kept = await cdp.waitFor(
-                `[...document.querySelectorAll('.card')].some(
-                    (one) => one.querySelector('.name')?.textContent?.trim() === '科举大赛'
-                        && one.querySelector('.tag')?.textContent?.trim() === '已提醒',
-                )`,
-                { timeout: 6000 },
-            );
-            t.check('重载后仍在', kept, kept ? '已提醒' : '没了');
+                const loaded = await cdp.waitFor(`document.querySelectorAll('.card').length >= 10`, {
+                    timeout: 8000,
+                });
+                if (!loaded) throw new Error('活动卡片没出来');
 
-            /* 写回原值，不给用户留一条测试闹钟。 */
-            const restore = `(() => {
-                const v = ${before === null ? 'null' : JSON.stringify(before)};
-                if (v) localStorage.setItem('mh-alarms', v);
-                else localStorage.removeItem('mh-alarms');
-                return 'ok';
-            })()`;
-            await cdp.evaluate(restore);
-            await ui.reload({ wait: 1000 });
+                const groups = await ui.count('.group');
+                t.check('活动按时间分了组', groups >= 4, `${groups} 组`);
+
+                const darkWash = await cdp.evaluate(`(() => {
+                    const root = document.documentElement;
+                    const wasDark = root.classList.contains('dark');
+                    const card = document.querySelector('.activity-card:not(.t-month)');
+                    const monthly = document.querySelector('.activity-card.t-month');
+                    if (!card || !monthly) return false;
+                    const wash = (element) => ['--wash', '--wash-hi', '--wash-lo']
+                        .map((name) => getComputedStyle(element).getPropertyValue(name).trim()).join('|');
+                    try {
+                        root.classList.remove('dark');
+                        const light = wash(card);
+                        const lightMonthly = wash(monthly);
+                        root.classList.add('dark');
+                        return wash(card) !== light && wash(monthly) !== lightMonthly &&
+                            getComputedStyle(root).filter === 'none';
+                    } finally {
+                        root.classList.toggle('dark', wasDark);
+                    }
+                })()`);
+                t.check('普通与月度活动的暗色配方均能命中，整页无图标滤镜', darkWash);
+
+                await ui.markFirst(`() => [...document.querySelectorAll('.card')].find(
+                    (one) => one.querySelector('.name')?.textContent?.trim() === '科举大赛',
+                )`);
+                await cdp.click('[data-e2e="1"]');
+                await ui.waitFor('!!document.querySelector(".modal-panel")');
+                await ui.clickLabel('保存这一场的提醒设置');
+                await ui.waitFor('!document.querySelector(".modal-panel")');
+                const added = await cdp.evaluate(`(() => {
+                    const after = [...document.querySelectorAll('.card')].find(
+                        (one) => one.querySelector('.name')?.textContent?.trim() === '科举大赛',
+                    );
+                    return after?.querySelector('.tag')?.textContent?.trim() ?? '';
+                })()`);
+                t.check('加完提醒，卡上标记「已设提醒」', added === '已设提醒', String(added));
+                const linked = await cdp.evaluate(`JSON.parse(localStorage.getItem('mh-alarms')).some(
+                    (one) => one.repeat === 'activity' && one.activityId === 'exam' && one.time === '12:00'
+                )`);
+                t.check('月度活动按 ID 与场次保存', linked);
+
+                /* 落盘：闹钟存在 localStorage，重载后还在才算真加上了。
+                 * 只查内存的话，「点完变了个色」也能过，而什么都没存下来。 */
+                await ui.reload({ wait: 1300 });
+                const kept = await cdp.waitFor(
+                    `[...document.querySelectorAll('.card')].some(
+                        (one) => one.querySelector('.name')?.textContent?.trim() === '科举大赛'
+                            && one.querySelector('.tag')?.textContent?.trim() === '已设提醒',
+                    )`,
+                    { timeout: 6000 },
+                );
+                t.check('重载后仍在', kept, kept ? '已设提醒' : '没了');
+            } finally {
+                /* 写回原值，不给用户留一条测试闹钟。 */
+                const restore = `(() => {
+                    const v = ${before === null ? 'null' : JSON.stringify(before)};
+                    if (v) localStorage.setItem('mh-alarms', v);
+                    else localStorage.removeItem('mh-alarms');
+                    return 'ok';
+                })()`;
+                await cdp.evaluate(restore);
+                await ui.reload({ wait: 1000 });
+            }
         });
     }
 }

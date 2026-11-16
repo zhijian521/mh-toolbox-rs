@@ -106,7 +106,7 @@ export const TOOLS: ToolEntry[] = [
         key: 'alarm',
         kind: 'page',
         name: '闹钟',
-        desc: '到点前一分钟提醒，不在这一页也会弹出来',
+        desc: '到点前五分钟提醒，不在这一页也会弹出来',
         path: '/tools/alarm',
         icon: 'alarm',
         group: 'daily',

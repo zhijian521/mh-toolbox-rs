@@ -135,7 +135,9 @@ describe('外置角色规则', () => {
 
 describe('外置活动与玩法规则', () => {
     it('真实活动表完整可读，时段与周期合法', () => {
-        expect(parseActivities(GAME_DATA_FILES.activities)).toHaveLength(24);
+        const activities = parseActivities(GAME_DATA_FILES.activities);
+        expect(activities.map((one) => one.id)).toContain('tiangang');
+        expect(activities.map((one) => one.id)).toContain('palace-thief');
         const rules = parseGameplay(GAME_DATA_FILES.gameplay);
         expect(rules.prices.groups).toHaveLength(9);
         expect(rules.ghost).toEqual({ tolerance: 50, edgeLow: 50, edgeHigh: 150 });
@@ -179,6 +181,28 @@ describe('外置活动与玩法规则', () => {
         expect(() =>
             parseActivities([{ ...activity, slots: [{ start: '12:00', end: '11:00' }] }]),
         ).toThrow(/时段/);
+        const overnight = parseActivities([
+            { ...activity, slots: [{ start: '23:30', end: '00:30', nextDay: true }] },
+        ]);
+        expect(overnight[0].slots[0].nextDay).toBe(true);
+        const openEnded = parseActivities([{ ...activity, slots: [{ start: '12:00' }] }]);
+        expect(openEnded[0].slots[0].end).toBeUndefined();
+        expect(() => parseActivities([{ ...activity, slots: [] }])).toThrow(/时段/);
+        expect(() =>
+            parseActivities([{ ...activity, slots: [activity.slots[0], activity.slots[0]] }]),
+        ).toThrow(/时段/);
+        expect(() =>
+            parseActivities([
+                {
+                    ...activity,
+                    rule: {
+                        type: 'weekly',
+                        weekdays: [1],
+                        extra: { weeks: [0], weekdays: [5] },
+                    },
+                },
+            ]),
+        ).toThrow(/周期/);
         expect(() =>
             parseGameplay({
                 ...GAME_DATA_FILES.gameplay,

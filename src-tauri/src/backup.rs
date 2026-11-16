@@ -28,6 +28,7 @@
 //! 首次空账本可自动读取旧目录，复用相同转换；常规导入仍只接受新版信封，不回写旧文件。
 
 use std::collections::HashSet;
+use std::io::{BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -50,11 +51,8 @@ pub(crate) const FORMAT: u32 = 1;
 /// 信封里的应用标识。将来如果真出现第二份工具导出同名 JSON，这个字段是唯一的分辨依据。
 pub(crate) const APP_TAG: &str = "mh-toolbox-rs";
 
-/// 导入文件的大小上限。**在反序列化之前**判，理由见 `data_import` 里那一段。
-///
-/// 16 MB 是真实账本的几十倍（一份百来件物品、几千条点位的备份约几百 KB），
-/// 正常的备份碰不到它；会碰到的是「用户选错了文件」（日志、视频、别的应用的数据）。
-const MAX_BACKUP_BYTES: u64 = 16 * 1024 * 1024;
+/// 旧版原文需要经过 IPC 与前端转换，仍限制为 16 MB；新版备份在 Rust 内流式读写。
+const MAX_LEGACY_BACKUP_BYTES: u64 = 16 * 1024 * 1024;
 
 /// 前端单件物品最多存多少条点位，与 `src/views/prices/prices.ts:36` 的 `POINT_LIMIT`
 /// 是同一个数。
@@ -192,16 +190,7 @@ pub async fn backup_restore(app: AppHandle, name: String) -> Result<ImportSummar
         return Err("备份不存在或不在可恢复列表中".to_string());
     }
     let path = dir.join(name);
-    if std::fs::metadata(&path)
-        .map_err(|error| error.to_string())?
-        .len()
-        > MAX_BACKUP_BYTES
-    {
-        return Err("备份超过 16 MB，未执行恢复".to_string());
-    }
-    let file: BackupFile =
-        serde_json::from_slice(&std::fs::read(path).map_err(|error| error.to_string())?)
-            .map_err(|error| format!("备份损坏，未执行恢复：{error}"))?;
+    let file = read_backup(&path)?;
     check_envelope(&file)?;
     replace_backup(&app, file)
 }
@@ -345,19 +334,7 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
         return Ok(None);
     };
 
-    /* 先问大小、再反序列化。这份文件来自硬盘上任意一个位置，拿几百 MB 的视频去试
-     * `serde_json::from_slice`，最轻的后果是界面卡住几秒、最后报一句「不是 JSON」。 */
-    let size = std::fs::metadata(&path)
-        .map_err(|error| format!("读不了 {}：{error}", path.display()))?
-        .len();
-    if size > MAX_BACKUP_BYTES {
-        return Err("这个文件太大，可能不是账本备份".to_string());
-    }
-
-    let raw =
-        std::fs::read(&path).map_err(|error| format!("读不了 {}：{error}", path.display()))?;
-    let file: BackupFile = serde_json::from_slice(&raw)
-        .map_err(|error| format!("{} 不是一份能读的备份：{error}", path.display()))?;
+    let file = read_backup(&path)?;
 
     check_envelope(&file)?;
     Ok(Some(replace_backup(&app, file)?))
@@ -471,7 +448,7 @@ fn read_legacy_source(path: &Path) -> Result<String, String> {
     let size = std::fs::metadata(path)
         .map_err(|error| error.to_string())?
         .len();
-    if size > MAX_BACKUP_BYTES {
+    if size > MAX_LEGACY_BACKUP_BYTES {
         return Err("旧版备份超过 16 MB，未读取".to_string());
     }
     let raw =
@@ -497,7 +474,7 @@ pub async fn legacy_data_import(
     startup: Option<bool>,
 ) -> Result<LegacyImportSummary, String> {
     validate_legacy_source(&original)?;
-    if converted.len() as u64 > MAX_BACKUP_BYTES {
+    if converted.len() as u64 > MAX_LEGACY_BACKUP_BYTES {
         return Err("转换后的备份超过 16 MB".to_string());
     }
     let file: BackupFile =
@@ -515,7 +492,7 @@ pub async fn legacy_data_import(
 }
 
 fn validate_legacy_source(raw: &str) -> Result<(), String> {
-    if raw.len() as u64 > MAX_BACKUP_BYTES {
+    if raw.len() as u64 > MAX_LEGACY_BACKUP_BYTES {
         return Err("旧版备份超过 16 MB".to_string());
     }
     let value: serde_json::Value = serde_json::from_str(raw.trim_start_matches('\u{feff}'))
@@ -841,6 +818,15 @@ fn build(app: &AppHandle) -> Result<BackupFile, String> {
     store::backup(&store::open(app)?)
 }
 
+/// 导入和恢复共用读取契约，不按文件体积拒绝本应用能导出的有效账本。
+/// 直接从缓冲流解析，避免同时保留完整 JSON 字节与解析后的账本；坏文件仍在替换前拒绝。
+fn read_backup(path: &Path) -> Result<BackupFile, String> {
+    let input = std::fs::File::open(path)
+        .map_err(|error| format!("读不了 {}：{error}", path.display()))?;
+    serde_json::from_reader(BufReader::new(input))
+        .map_err(|error| format!("{} 不是一份能读的备份：{error}", path.display()))
+}
+
 /// 写一份 JSON 到 `path`。`BackupFile` 与 `PriceFile` 共用这一份。
 ///
 /// 末尾补一个换行：仓库里其它 JSON（清单、种子数据、探针导出）都是这么存的，
@@ -853,18 +839,17 @@ fn build(app: &AppHandle) -> Result<BackupFile, String> {
 /// 时候它恰好是坏的。改名是原子替换，于是正式名要么不存在、要么完整。临时名带 pid：
 /// 两个实例同时导出时互不截断。
 fn write_to<T: Serialize>(path: &Path, file: &T) -> Result<(), String> {
-    let mut bytes =
-        serde_json::to_vec_pretty(file).map_err(|error| format!("序列化失败：{error}"))?;
-    bytes.push(b'\n');
-
     let tmp = path.with_extension(format!("{}.tmp", std::process::id()));
-    if let Err(error) = std::fs::write(&tmp, &bytes) {
-        /* 失败的那一份本身也可能留下半截 `.tmp`，一并删——它对任何人都没有用处，
-         * 留着只会在下一次写的时候让人怀疑「这个是哪来的」。 */
-        let _ = std::fs::remove_file(&tmp);
-        return Err(format!("写入 {} 失败：{error}", path.display()));
-    }
-    std::fs::rename(&tmp, path).map_err(|error| {
+    let result = (|| -> std::io::Result<()> {
+        let mut output = BufWriter::new(std::fs::File::create(&tmp)?);
+        serde_json::to_writer_pretty(&mut output, file).map_err(std::io::Error::other)?;
+        output.write_all(b"\n")?;
+        output.flush()?;
+        output.get_ref().sync_all()?;
+        drop(output);
+        std::fs::rename(&tmp, path)
+    })();
+    result.map_err(|error| {
         let _ = std::fs::remove_file(&tmp);
         format!("写入 {} 失败：{error}", path.display())
     })
@@ -1204,6 +1189,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn native_backup_over_sixteen_mb_round_trips_and_rejects_truncated_json() {
+        let path = std::env::temp_dir().join(format!("mh-large-backup-{}.json", now_ms()));
+        let mut file = sample();
+        file.income[0].note = "账".repeat(6 * 1024 * 1024);
+        write_to(&path, &file).expect("流式导出大账本");
+        assert!(std::fs::metadata(&path).unwrap().len() > MAX_LEGACY_BACKUP_BYTES);
+        let restored = read_backup(&path).expect("同一读取入口支持导入和恢复");
+        check_envelope(&restored).unwrap();
+        validate_backup(&restored).unwrap();
+        assert_eq!(restored.income[0].note, file.income[0].note);
+        std::fs::write(&path, b"{\"format\":1,").unwrap();
+        assert!(read_backup(&path).is_err());
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
     fn daily_backups_preserve_data_throttle_and_limit_only_daily_files() {
         let dir =
             std::env::temp_dir().join(format!("mh-daily-{}-{}", std::process::id(), now_ms()));
@@ -1304,7 +1305,7 @@ mod tests {
         .is_err());
         assert!(validate_legacy_source(r#"{"format":1,"app":"mh-toolbox-rs"}"#).is_err());
         assert!(validate_legacy_source(r#"{"schemaVersion":10,"characters":[]}"#).is_err());
-        assert!(validate_legacy_source(&" ".repeat(MAX_BACKUP_BYTES as usize + 1)).is_err());
+        assert!(validate_legacy_source(&" ".repeat(MAX_LEGACY_BACKUP_BYTES as usize + 1)).is_err());
     }
 
     fn sample_item() -> PriceItem {

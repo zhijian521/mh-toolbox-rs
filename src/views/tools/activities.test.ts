@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { reminderAt } from './alarms';
+import { activityOf, dueAlarms, nextReminder, readAlarm, reminderAt } from './alarms';
 import {
     ACTIVITIES,
     dayGap,
@@ -11,6 +11,7 @@ import {
     remindNote,
     repeatText,
     timesText,
+    upcomingSlot,
     type Activity,
 } from './activities';
 
@@ -50,9 +51,11 @@ describe('这一天有没有', () => {
         /* 降妖伏魔：每周六。11/14 是周六，11/15 是周日。 */
         expect(occursOn(byId('subdue'), at(11, 14))).toBe(true);
         expect(occursOn(byId('subdue'), at(11, 15))).toBe(false);
-        /* 天下美食：周一到周四。周五不算。 */
+        /* 天下美食只在周一、周三，不能把入场或其他活动的时间混入。 */
         expect(occursOn(byId('food'), at(11, 13))).toBe(false);
-        expect(occursOn(byId('food'), at(11, 12))).toBe(true);
+        expect(occursOn(byId('food'), at(11, 12))).toBe(false);
+        expect(occursOn(byId('food'), at(11, 9))).toBe(true);
+        expect(occursOn(byId('food'), at(11, 11))).toBe(true);
     });
 
     it('每月第几周同时看周次与星期', () => {
@@ -67,14 +70,39 @@ describe('这一天有没有', () => {
     });
 
     it('一条活动可以落在同一周的几天上', () => {
-        /* 决战华山：无帮战的两周（第 1、5 周）里周五到周日都有场。
-         * 11/6 周五、11/7 周六都在第 1 周；11/13 是第 2 周周五，归帮战建设。 */
-        expect(occursOn(byId('huashan'), at(11, 6))).toBe(true);
-        expect(occursOn(byId('huashan'), at(11, 7))).toBe(true);
+        /* 10/30–11/1 是十一月第一个周末；11/6–11/8 是第二个周末。 */
+        expect(occursOn(byId('huashan'), at(10, 30))).toBe(true);
+        expect(occursOn(byId('huashan'), at(10, 31))).toBe(true);
+        expect(occursOn(byId('huashan'), at(11, 1))).toBe(true);
+        expect(occursOn(byId('huashan'), at(11, 6))).toBe(false);
+        expect(occursOn(byId('huashan'), at(11, 7))).toBe(false);
         expect(occursOn(byId('huashan'), at(11, 13))).toBe(false);
         /* 与帮战互补：11/8 是第 2 周周日，归夺旗，不归华山。 */
         expect(occursOn(byId('huashan'), at(11, 8))).toBe(false);
-        expect(repeatText(byId('huashan'))).toBe('每月第 1、5 周周五、周六、周日');
+        expect(occursOn(byId('war-build'), at(11, 6))).toBe(true);
+        expect(occursOn(byId('war-race'), at(11, 7))).toBe(true);
+        expect(repeatText(byId('huashan'))).toBe('每月第 1、5 个周末周五、周六、周日');
+    });
+
+    it('迷宫保留周一、三，周五、日只落在非帮战周末', () => {
+        const maze = byId('maze');
+        expect(occursOn(maze, at(11, 9))).toBe(true);
+        expect(occursOn(maze, at(11, 11))).toBe(true);
+        expect(occursOn(maze, at(10, 30))).toBe(true);
+        expect(occursOn(maze, at(11, 1))).toBe(true);
+        expect(occursOn(maze, at(11, 6))).toBe(false);
+        expect(occursOn(maze, at(11, 8))).toBe(false);
+        expect(occursOn(maze, at(11, 7))).toBe(false);
+    });
+
+    it('地煞、天罡周日不开，皇宫飞贼只在工作日', () => {
+        expect(occursOn(byId('disha'), at(11, 8))).toBe(false);
+        expect(occursOn(byId('tiangang'), at(11, 7))).toBe(true);
+        expect(occursOn(byId('tiangang'), at(11, 8))).toBe(false);
+        expect(occursOn(byId('palace-thief'), at(11, 6))).toBe(true);
+        expect(occursOn(byId('palace-thief'), at(11, 7))).toBe(false);
+        expect(occursOn(byId('card-war'), at(11, 10))).toBe(true);
+        expect(occursOn(byId('card-war'), at(11, 11))).toBe(false);
     });
 });
 
@@ -110,6 +138,17 @@ describe('下一次', () => {
         expect(next?.getMonth()).toBe(11);
         expect(next?.getDate()).toBe(13);
     });
+
+    it('前一天开场的跨日地煞在周日零点仍然有效', () => {
+        expect(nextOccurrence(byId('disha'), at(11, 8, 0, 10))?.getDate()).toBe(8);
+        expect(nextOccurrence(byId('disha'), at(11, 8, 0, 30))?.getDate()).toBe(9);
+        expect(timesText(byId('disha'))).toContain('23:30–次日 00:30');
+    });
+
+    it('多场默认选择尚未错过提前提醒点的下一场', () => {
+        expect(upcomingSlot(byId('turtle'), at(11, 8, 13))).toBe('22:00');
+        expect(upcomingSlot(byId('turtle'), at(11, 8, 21, 56))).toBe('12:00');
+    });
 });
 
 describe('文案', () => {
@@ -118,8 +157,11 @@ describe('文案', () => {
         expect(repeatText(byId('exam'))).toBe('每月第 2 周周日');
         expect(timesText(byId('stars'))).toBe('每个整点');
         expect(timesText(byId('star-dust'))).toBe('每小时的 10 分');
-        expect(repeatText(byId('food'))).toBe('每周一、二、三、四');
+        expect(repeatText(byId('food'))).toBe('每周一、三');
         expect(repeatText(byId('yiguan'))).toBe('每天');
+        expect(timesText(byId('turtle'))).toBe('12:00 开始、22:00 开始');
+        expect(timesText(byId('qiankun'))).toBe('20:00–21:05');
+        expect(timesText(byId('hero'))).toBe('14:00–16:30、16:45–18:55');
     });
 });
 
@@ -146,8 +188,9 @@ describe('分组', () => {
         expect(idsIn('tomorrow')).toContain('maze');
     });
 
-    it('每天那一批单独一组，六条', () => {
-        expect(idsIn('daily')).toHaveLength(6);
+    it('每天那一批单独一组，有限定星期的地煞不能混入', () => {
+        expect(idsIn('daily')).toContain('turtle');
+        expect(idsIn('daily')).not.toContain('disha');
     });
 
     it('「之后」按日期升序', () => {
@@ -165,43 +208,72 @@ describe('分组', () => {
 describe('翻成闹钟', () => {
     const now = at(11, 8, 21);
 
-    it('每周固定 → weekly + 那几个星期', () => {
-        const draft = remindDraft(byId('maze'), byId('maze').slots[0], now);
-        expect(draft.repeat).toBe('weekly');
-        expect(draft.weekdays).toEqual([1, 3, 6]);
+    it('有条件的每周活动保留活动关联，不简化周期', () => {
+        const draft = remindDraft(byId('maze'), byId('maze').slots[0]);
+        expect(draft.repeat).toBe('activity');
+        expect(draft.activityId).toBe('maze');
         expect(draft.time).toBe('20:00');
         expect(draft.label).toBe('帮派迷宫');
     });
 
     it('每天 → daily，保留开场时刻，提醒统一提前五分钟', () => {
-        const draft = remindDraft(byId('turtle'), byId('turtle').slots[1], now);
-        expect(draft.repeat).toBe('daily');
+        const draft = remindDraft(byId('turtle'), byId('turtle').slots[1]);
+        expect(draft.repeat).toBe('activity');
         expect(draft.time).toBe('22:00');
         const alarm = { ...draft, id: 1, enabled: true, fired: '' };
         expect(reminderAt(alarm, '2026-11-08').getTime()).toBe(at(11, 8, 21, 55).getTime());
     });
 
     it('整点类 → hourly，只留分钟', () => {
-        const stars = remindDraft(byId('stars'), { start: '00:00', end: '00:00' }, now);
-        expect(stars.repeat).toBe('hourly');
+        const stars = remindDraft(byId('stars'), { start: '00:00' });
+        expect(stars.repeat).toBe('activity');
         expect(stars.time).toBe('00:00');
 
-        const dust = remindDraft(byId('star-dust'), { start: '00:00', end: '00:00' }, now);
+        const dust = remindDraft(byId('star-dust'), { start: '00:00' });
         expect(dust.time).toBe('00:10');
     });
 
-    it('每月轮换 → 只能落成「仅一次 + 下一次那天」', () => {
-        const draft = remindDraft(byId('exam'), byId('exam').slots[0], now);
-        expect(draft.repeat).toBe('once');
-        expect(draft.date).toBe('2026-12-13');
+    it('月度提醒持续轮换，过了本月仍有下一次', () => {
+        const draft = remindDraft(byId('exam'), byId('exam').slots[0]);
+        expect(draft.repeat).toBe('activity');
+        expect(draft.date).toBe('');
         expect(draft.time).toBe('12:00');
+        const alarm = { ...draft, id: 1, enabled: true, fired: '' };
+        expect(nextReminder(alarm, now)?.getTime()).toBe(at(12, 13, 11, 55).getTime());
+        const hits = dueAlarms([alarm], at(12, 13, 11, 54), at(12, 13, 11, 55));
+        expect(hits.map((hit) => hit.key)).toEqual(['2026-12-13 12:00']);
+    });
+
+    it('活动关联可重载、改备注；同名手动闹钟不产生关联', () => {
+        const draft = remindDraft(byId('hero'), byId('hero').slots[1]);
+        const alarm = readAlarm({ ...draft, id: 1, enabled: true, fired: '', label: '我的比赛' });
+        expect(alarm?.activityId).toBe('hero');
+        expect(activityOf(alarm!)).toBe(byId('hero'));
+        expect(alarm?.time).toBe('16:45');
+        expect(activityOf({ ...draft, repeat: 'daily', activityId: undefined })).toBeUndefined();
+    });
+
+    it('第五个周日和整点活动都使用活动规则扫描', () => {
+        const draft = remindDraft(byId('changan'), byId('changan').slots[0]);
+        const alarm = { ...draft, id: 1, enabled: true, fired: '' };
+        expect(nextReminder(alarm, at(2, 8))?.getTime()).toBe(at(3, 29, 14, 55).getTime());
+        const stars = {
+            ...remindDraft(byId('stars'), { start: '00:00' }),
+            id: 2,
+            enabled: true,
+            fired: '',
+        };
+        expect(dueAlarms([stars], at(11, 8, 23, 54), at(11, 8, 23, 55))[0]?.key).toBe(
+            '2026-11-09 00:00',
+        );
     });
 });
 
 describe('加提醒之前要说的话', () => {
-    it('有损换算必须说出来', () => {
-        expect(remindNote(byId('exam'))).toContain('下一次');
-        expect(remindNote(byId('war-flag'))).toContain('下一次');
+    it('按月持续提醒和本帮开启条件必须说出来', () => {
+        expect(remindNote(byId('exam'))).toContain('持续');
+        expect(remindNote(byId('war-flag'))).toContain('持续');
+        expect(remindNote(byId('maze'))).toContain('本帮申请');
     });
 
     it('随机时段要说', () => {
@@ -213,7 +285,7 @@ describe('加提醒之前要说的话', () => {
     });
 
     it('普通的每周活动不必多说', () => {
-        expect(remindNote(byId('maze'))).toBe('');
+        expect(remindNote(byId('food'))).toBe('');
     });
 });
 

@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import PaperCard from '../../components/PaperCard.vue';
 import { minuteText } from '../../services/clock';
-import { countdownText, nextReminder, repeatText, type AlarmLike } from './alarms';
+import { activityOf, countdownText, nextReminder, repeatText, type AlarmLike } from './alarms';
 
 /**
  * 一张闹钟卡。
@@ -54,7 +54,9 @@ const next = computed(() => nextReminder(props.alarm, props.now));
  * 原样印出来会读成「定在半夜十二点半」，与「每小时的第 30 分」完全相反。
  */
 const timeText = computed(() =>
-    props.alarm.repeat === 'hourly' ? `:${minuteText(props.alarm.time)}` : props.alarm.time,
+    props.alarm.repeat === 'hourly' || activityOf(props.alarm)?.rule.type === 'hourly'
+        ? `:${minuteText(props.alarm.time)}`
+        : props.alarm.time,
 );
 
 /** 临近提醒时刻转朱，扫一眼就能找到。 */
@@ -67,10 +69,8 @@ const status = computed(() => {
     if (!props.alarm.enabled) return '已停用';
     const at = next.value;
     if (at) return `${countdownText(at, props.now)}提醒`;
-    /* 走到这里只剩一种：`仅一次` 且那一天已经过去（`nextReminder` 返回 null）。
-     * 另外三种重复永远有下一次——`每天` 明天还响、`每小时` 下一小时就响，
-     * 所以不需要「今天已提醒」那样的第三句兜底。 */
-    return '已过期';
+    // 关联活动已下架或修改了开场时刻时不继续按过时规则提醒。
+    return props.alarm.repeat === 'activity' ? '活动规则待确认' : '已过期';
 });
 
 const nameText = computed(() => props.alarm.label || '未命名闹钟');
@@ -79,7 +79,7 @@ const nameText = computed(() => props.alarm.label || '未命名闹钟');
 const cardLabel = computed(() => {
     const state = props.alarm.enabled ? status.value : '已停用';
     const time =
-        props.alarm.repeat === 'hourly'
+        props.alarm.repeat === 'hourly' || activityOf(props.alarm)?.rule.type === 'hourly'
             ? `每小时第 ${minuteText(props.alarm.time)} 分`
             : props.alarm.time;
     return `${time} ${nameText.value}，${repeatText(props.alarm)}，${state}`;

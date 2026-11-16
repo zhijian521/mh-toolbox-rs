@@ -1,8 +1,12 @@
 /** 活动日历算法与闹钟换算。活动表见 public/game/data/activities.json。 */
-import { dateText } from '../../services/format';
 import { pad2 } from '../../services/clock';
-import type { AlarmDraft } from './alarms';
+import { LEAD_MS, type AlarmDraft } from './alarms';
 import type { Activity, ActivitySlot } from '../../services/game-activities';
+import {
+    activityOccursOn,
+    activityRuleText,
+    activitySlotText,
+} from '../../services/game-activities';
 export { ACTIVITIES } from '../../services/game-activities';
 export type {
     Activity,
@@ -34,13 +38,7 @@ export function nthWeekday(date: Date): number {
 
 /** 这一天有没有这条活动。 */
 export function occursOn(activity: Activity, date: Date): boolean {
-    const weekday = date.getDay();
-    const rule = activity.rule;
-
-    if (rule.type === 'daily' || rule.type === 'hourly') return true;
-    if (rule.type === 'weekly') return rule.weekdays.includes(weekday);
-
-    return rule.weekdays.includes(weekday) && rule.weeks.includes(nthWeekday(date));
+    return activityOccursOn(activity, date);
 }
 
 /**
@@ -54,6 +52,17 @@ export function occursOn(activity: Activity, date: Date): boolean {
  * 那时卡片写「本月已过」，比编一个日期出来诚实。
  */
 export function nextOccurrence(activity: Activity, from: Date): Date | null {
+    const yesterday = new Date(from.getFullYear(), from.getMonth(), from.getDate() - 1);
+    if (
+        occursOn(activity, yesterday) &&
+        activity.slots.some(
+            (slot) =>
+                slot.nextDay &&
+                minutesOf(slot.end ?? '') > from.getHours() * 60 + from.getMinutes(),
+        )
+    ) {
+        return new Date(from);
+    }
     for (let offset = 0; offset < 70; offset += 1) {
         const day = new Date(from);
         day.setDate(from.getDate() + offset);
@@ -63,7 +72,16 @@ export function nextOccurrence(activity: Activity, from: Date): Date | null {
         if (offset === 0) {
             const now = from.getHours() * 60 + from.getMinutes();
             const last = activity.slots.length
-                ? activity.slots.reduce((max, slot) => Math.max(max, minutesOf(slot.end)), 0)
+                ? activity.slots.reduce(
+                      (max, slot) =>
+                          Math.max(
+                              max,
+                              slot.end
+                                  ? minutesOf(slot.end) + (slot.nextDay ? 1440 : 0)
+                                  : minutesOf(slot.start),
+                          ),
+                      0,
+                  )
                 : 24 * 60;
             if (last <= now) continue;
         }
@@ -83,21 +101,12 @@ export function timesText(activity: Activity): string {
     if (rule.type === 'hourly') {
         return rule.minute === 0 ? '每个整点' : `每小时的 ${rule.minute} 分`;
     }
-    return activity.slots.map((slot) => `${slot.start}–${slot.end}`).join('、');
+    return activity.slots.map(activitySlotText).join('、');
 }
 
 /** 规则那行：不含时刻，只说「多久来一次」。 */
 export function repeatText(activity: Activity): string {
-    const rule = activity.rule;
-
-    if (rule.type === 'daily' || rule.type === 'hourly') return '每天';
-    if (rule.type === 'weekly') {
-        return `每周${rule.weekdays.map((day) => WEEKDAY_NAMES[day]).join('、')}`;
-    }
-
-    const weeks = rule.weeks.join('、');
-    const days = rule.weekdays.map(weekdayName).join('、');
-    return `每月第 ${weeks} 周${days}`;
+    return activityRuleText(activity);
 }
 
 /* ============================================================
@@ -183,69 +192,52 @@ export function groupActivities(activities: readonly Activity[], now: Date): Act
  * 只提醒**开始时刻**：活动结束不需要人上线。多段的活动由调用方先选一段——一次
  * 加五个闹钟（衣冠古丘一天五场）只会把用户自己的闹钟列表变成噪声。
  *
- * 「每月第几周」在闹钟那边没有对应，退成「仅一次 + 下一次的日期」。这是唯一的
- * 有损换算，所以界面上必须说出来（见 `remindNote`）。
+ * 闹钟只保存活动 ID 与开场时刻，日期始终按同一份活动规则推算。
  */
-export function remindDraft(activity: Activity, slot: ActivitySlot, now: Date): AlarmDraft {
+export function remindDraft(activity: Activity, slot: ActivitySlot): AlarmDraft {
     const rule = activity.rule;
 
-    if (rule.type === 'hourly') {
-        return {
-            time: `00:${pad2(rule.minute)}`,
-            label: activity.name,
-            repeat: 'hourly',
-            weekdays: [],
-            date: '',
-        };
-    }
-
-    if (rule.type === 'weekly') {
-        return {
-            time: slot.start,
-            label: activity.name,
-            repeat: 'weekly',
-            weekdays: [...rule.weekdays],
-            date: '',
-        };
-    }
-
-    if (rule.type === 'daily') {
-        return {
-            time: slot.start,
-            label: activity.name,
-            repeat: 'daily',
-            weekdays: [],
-            date: '',
-        };
-    }
-
-    const next = nextOccurrence(activity, now);
     return {
-        time: slot.start,
+        time: rule.type === 'hourly' ? `00:${pad2(rule.minute)}` : slot.start,
         label: activity.name,
-        repeat: 'once',
+        repeat: 'activity',
+        activityId: activity.id,
         weekdays: [],
-        date: next ? dateText(next) : '',
+        date: '',
     };
+}
+
+/** 默认选择下一次还来得及提前提醒的场次，而不是固定第一场。 */
+export function upcomingSlot(activity: Activity, now: Date): string {
+    for (let offset = 0; offset < 70; offset += 1) {
+        const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+        if (!occursOn(activity, day)) continue;
+        const starts = [...activity.slots].sort((a, b) => a.start.localeCompare(b.start));
+        for (const slot of starts) {
+            const at = new Date(day);
+            at.setMinutes(minutesOf(slot.start));
+            if (at.getTime() - LEAD_MS > now.getTime()) return slot.start;
+        }
+    }
+    return activity.slots[0]?.start ?? '';
 }
 
 /**
  * 加提醒之前该说的一句话。空串表示没有要提醒的。
  *
- * 三种情况各有一句：换算有损（每月轮换）、时段随机、整点类会一直响。
+ * 按月活动持续按规则提醒；随机和需要本帮开启的活动仍需明确条件。
  *  其余活动（每周固定、每天固定时段）不必多说——怎样响从规则本身就读得出来。
  */
 export function remindNote(activity: Activity): string {
     const rule = activity.rule;
 
-    if (rule.type === 'monthWeek') {
-        return '这类活动按月轮换，闹钟只能记到「下一次」那一天；那天过后要回来再点一次。';
-    }
     if (activity.fuzzy) {
         return '时段是随机的，提醒落在开始的整点，不等于活动就在那一刻开。';
     }
     if (rule.type === 'hourly') {
         return '每小时都提醒一次，一直到你把这条闹钟关掉。';
     }
+    if (rule.type === 'monthWeek') return '按活动日期持续提醒，无需每月重新设置。';
+    if (rule.type === 'weekly' && rule.extra) return activity.note ?? '';
     return '';
 }

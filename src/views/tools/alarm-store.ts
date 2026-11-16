@@ -88,6 +88,7 @@ function fieldsOf(draft: AlarmDraft) {
         repeat: draft.repeat,
         weekdays: draft.repeat === 'weekly' ? [...draft.weekdays].sort((a, b) => a - b) : [],
         date: draft.repeat === 'once' ? draft.date : '',
+        activityId: draft.repeat === 'activity' ? draft.activityId : undefined,
     };
 }
 
@@ -100,12 +101,19 @@ export function useAlarms() {
      * **不在这里生成 `fired`**：新闹钟还没提醒过，空串就是「没提醒过」的意思。
      */
     function add(draft: AlarmDraft): AlarmResult {
+        const problem = alarmDraftError(draft);
+        if (problem) return { ok: false, error: problem };
+        const existing = alarms.value.find(
+            (one) =>
+                draft.repeat === 'activity' &&
+                one.repeat === 'activity' &&
+                one.activityId === draft.activityId &&
+                one.time === draft.time,
+        );
+        if (existing) return setEnabled(existing.id, true);
         if (alarms.value.length >= MAX_ALARMS) {
             return { ok: false, error: `最多 ${MAX_ALARMS} 个，先删掉几个` };
         }
-        const problem = alarmDraftError(draft);
-        if (problem) return { ok: false, error: problem };
-
         const alarm: Alarm = {
             id: nextId(),
             enabled: true,
@@ -120,6 +128,18 @@ export function useAlarms() {
         if (problem) return { ok: false, error: problem };
         const index = alarms.value.findIndex((one) => one.id === id);
         if (index < 0) return { ok: false, error: '这个闹钟已经不在了，刷新一下看看' };
+        if (
+            draft.repeat === 'activity' &&
+            alarms.value.some(
+                (one) =>
+                    one.id !== id &&
+                    one.repeat === 'activity' &&
+                    one.activityId === draft.activityId &&
+                    one.time === draft.time,
+            )
+        ) {
+            return { ok: false, error: '这一场已有提醒，请修改已有的闹钟' };
+        }
 
         const before = alarms.value[index];
         const fields = fieldsOf(draft);
@@ -131,6 +151,7 @@ export function useAlarms() {
             fired:
                 before.time !== fields.time ||
                 before.repeat !== fields.repeat ||
+                before.activityId !== fields.activityId ||
                 before.date !== fields.date ||
                 before.weekdays.join(',') !== fields.weekdays.join(',')
                     ? ''

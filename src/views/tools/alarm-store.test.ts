@@ -27,6 +27,50 @@ async function setup(raw: string | null = null) {
 }
 
 describe('闹钟保存回执', () => {
+    it('活动同一场次复用记录，改备注后仍关联，停用后可重新开启并重载', async () => {
+        const { store, storage } = await setup();
+        await import('../../services/game-data.fixture');
+        const activity: AlarmDraft = {
+            time: '22:00',
+            label: '小龟快跑',
+            repeat: 'activity',
+            activityId: 'turtle',
+            weekdays: [],
+            date: '',
+        };
+        expect(store.add({ ...draft, label: '小龟快跑' }).ok).toBe(true);
+        expect(store.add(activity).ok).toBe(true);
+        const linked = store.alarms.value.find((one) => one.repeat === 'activity')!;
+        store.markFired(linked.id, '2026-11-16 22:00');
+        expect(store.update(linked.id, { ...activity, label: '晚上的比赛' }).ok).toBe(true);
+        expect(store.setEnabled(linked.id, false).ok).toBe(true);
+        expect(store.add(activity).ok).toBe(true);
+        expect(store.alarms.value).toHaveLength(2);
+        const saved = storage.setItem.mock.calls.at(-1)!;
+        const reloaded = await setup(saved[1]);
+        const result = reloaded.store.alarms.value.find((one) => one.id === linked.id)!;
+        expect(result.activityId).toBe('turtle');
+        expect(result.enabled).toBe(true);
+        expect(result.label).toBe('晚上的比赛');
+        expect(result.fired).toBe('2026-11-16 22:00');
+    });
+
+    it('不同场次可以独立提醒，修改不允许合并到已存在的场次', async () => {
+        const { store } = await setup();
+        await import('../../services/game-data.fixture');
+        const first: AlarmDraft = {
+            ...draft,
+            time: '12:00',
+            repeat: 'activity',
+            activityId: 'turtle',
+        };
+        expect(store.add(first).ok).toBe(true);
+        expect(store.add({ ...first, time: '22:00' }).ok).toBe(true);
+        const second = store.alarms.value.find((one) => one.time === '22:00')!;
+        expect(store.update(second.id, first).ok).toBe(false);
+        expect(store.alarms.value.map((one) => one.time)).toEqual(['12:00', '22:00']);
+    });
+
     it('新增失败保留原清单，重试只添加一条且重载仍在', async () => {
         const { store, storage } = await setup();
         storage.setItem.mockImplementationOnce(() => {

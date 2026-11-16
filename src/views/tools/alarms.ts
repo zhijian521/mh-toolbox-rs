@@ -7,12 +7,13 @@
  * 所以除时间之外，这里所有函数都以「响的那一天」为参数，
  * 由调用方决定是哪天——`00:00` 这一类才不会差一天。
  *
- * ---- 四种重复，共用一个 `time` ----
+ * ---- 手动重复与活动规则，共用一个 `time` ----
  *
  * `每天` / `每小时` / `每周` / `仅一次`。四者只在「哪些天响、一天响几次」上不同，
  * 所以不必各存一套字段：`time` 一律是 `HH:mm`，`每周` 另带 `weekdays`，`仅一次` 另带
  * `date`；**`每小时` 只用 `time` 的分钟部分**（小时固定 `00` 占位）——它的语义是
  * 「每小时的第几分」，存一个完整的 `HH:mm` 里那一半没用的数字反而容易读错。
+ * 活动提醒另存 `activityId`，时刻定位场次，日期由 public/game/data/activities.json 推算。
  *
  * ---- 为什么记 `fired` 是「哪一次的键」，不是「哪一天」 ----
  *
@@ -31,8 +32,9 @@
  */
 import { normalizeTime, pad2 } from '../../services/clock';
 import { isDayText, dateText, daysAgo, parseDay } from '../../services/format';
+import { ACTIVITIES, activityOccursOn, activityRuleText } from '../../services/game-activities';
 
-export type AlarmRepeat = 'daily' | 'hourly' | 'weekly' | 'once';
+export type AlarmRepeat = 'daily' | 'hourly' | 'weekly' | 'once' | 'activity';
 
 /**
  * 只读看待一条闹钟时的形状。
@@ -52,6 +54,7 @@ export interface AlarmLike {
     readonly weekdays: readonly number[];
     readonly date: string;
     readonly fired: string;
+    readonly activityId?: string;
 }
 
 export interface Alarm extends AlarmLike {
@@ -76,6 +79,7 @@ export interface AlarmDraft {
     repeat: AlarmRepeat;
     weekdays: number[];
     date: string;
+    activityId?: string;
 }
 
 /** 一次提醒命中：哪个闹钟、是哪一次的键、什么时候该提醒。 */
@@ -176,6 +180,13 @@ export function firedKey(day: string, at: Date): string {
 export function occurrences(alarm: AlarmLike, day: string): Date[] {
     const weekday = weekdayOf(day);
     switch (alarm.repeat) {
+        case 'activity': {
+            const activity = activityOf(alarm);
+            if (!activity || !activityOccursOn(activity, parseDay(day))) return [];
+            return activity.rule.type === 'hourly'
+                ? occurrences({ ...alarm, repeat: 'hourly' }, day)
+                : [fireAt(alarm, day)];
+        }
         case 'daily':
             return [fireAt(alarm, day)];
         case 'weekly':
@@ -240,7 +251,7 @@ export function dueAlarms(alarms: readonly AlarmLike[], from: Date, to: Date): D
  * 下一次提醒的时刻。卡片拿它算「还有多久」。
  *
  * 仅一次直接按指定日期计算，不受周循环的扫描范围限制；月度活动可能在一个月后。
- * 其余模式往后看 8 天，足以覆盖最晚 7 天后的每周事件及提前量跨日的情形。
+ * 手动循环往后看 8 天，活动看 70 天，覆盖无第五个周日的月份及跨月周末。
  */
 export function nextReminder(alarm: AlarmLike, now: Date): Date | null {
     if (!alarm.enabled) return null;
@@ -248,7 +259,7 @@ export function nextReminder(alarm: AlarmLike, now: Date): Date | null {
         const remind = reminderAt(alarm, alarm.date);
         return remind.getTime() > now.getTime() ? remind : null;
     }
-    for (let offset = 0; offset <= 8; offset += 1) {
+    for (let offset = 0; offset <= (alarm.repeat === 'activity' ? 70 : 8); offset += 1) {
         const day = daysAgo(-offset, now);
         for (const at of occurrences(alarm, day)) {
             const remind = at.getTime() - LEAD_MS;
@@ -278,6 +289,11 @@ export function countdownText(at: Date, now: Date): string {
  */
 export function repeatText(alarm: AlarmLike): string {
     switch (alarm.repeat) {
+        case 'activity': {
+            const activity = activityOf(alarm);
+            if (!activity) return '活动规则待确认';
+            return activity.rule.type === 'hourly' ? '每小时' : activityRuleText(activity);
+        }
         case 'daily':
             return '每天';
         case 'hourly':
@@ -306,7 +322,20 @@ export function alarmDraftError(draft: AlarmDraft): string {
     }
     if (draft.repeat === 'weekly' && draft.weekdays.length === 0) return '选几天';
     if (draft.repeat === 'once' && !isDayText(draft.date)) return '选一个日子';
+    if (draft.repeat === 'activity' && !activityOf(draft)) return '活动场次已更新，请重新选择';
     return '';
+}
+
+/** 活动 ID 与开场时刻共同定位场次，名称只用于展示，不参与关联。 */
+export function activityOf(alarm: Pick<AlarmDraft, 'repeat' | 'activityId' | 'time'>) {
+    if (alarm.repeat !== 'activity') return undefined;
+    return ACTIVITIES.find(
+        (activity) =>
+            activity.id === alarm.activityId &&
+            (activity.rule.type === 'hourly'
+                ? alarm.time === `00:${pad2(activity.rule.minute)}`
+                : activity.slots.some((slot) => slot.start === alarm.time)),
+    );
 }
 
 /**
@@ -319,7 +348,10 @@ export function readAlarm(raw: unknown): Alarm | null {
     if (!raw || typeof raw !== 'object') return null;
     const one = raw as Partial<Alarm>;
     const repeat: AlarmRepeat =
-        one.repeat === 'hourly' || one.repeat === 'weekly' || one.repeat === 'once'
+        one.repeat === 'hourly' ||
+        one.repeat === 'weekly' ||
+        one.repeat === 'once' ||
+        one.repeat === 'activity'
             ? one.repeat
             : 'daily';
 
@@ -328,6 +360,12 @@ export function readAlarm(raw: unknown): Alarm | null {
 
     const date = typeof one.date === 'string' && isDayText(one.date) ? one.date : '';
     if (repeat === 'once' && !date) return null;
+    if (
+        repeat === 'activity' &&
+        (typeof one.activityId !== 'string' || !/^[a-z0-9-]+$/.test(one.activityId))
+    ) {
+        return null;
+    }
 
     /* 星期几去重、去越界、排成「一 … 六、日」的顺序。`weekly` 但一个都没选，按坏记录丢：
      * 留着一个永远不响的闹钟，用户只会以为它坏了。 */
@@ -351,6 +389,7 @@ export function readAlarm(raw: unknown): Alarm | null {
         weekdays,
         date: repeat === 'once' ? date : '',
         fired: readFired(one.fired, time),
+        ...(repeat === 'activity' ? { activityId: one.activityId } : {}),
     };
 }
 

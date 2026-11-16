@@ -53,7 +53,7 @@ const isDaily = computed(() => {
 });
 
 const tagText = computed(() => {
-    if (props.reminded) return '已提醒';
+    if (props.reminded) return '已设提醒';
     /* 每天的活动不写「今天」：它每天都是今天，写出来等于没说，还容易被读成
      * 「只有今天有」。写「每天」，与所在的那一组同一个词。 */
     if (isDaily.value) return '每天';

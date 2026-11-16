@@ -15,6 +15,8 @@ mod ocr_image;
 mod ocr_paddle;
 #[cfg(windows)]
 mod screen;
+#[cfg(windows)]
+mod single_instance;
 /* 数据层不分平台：SQLite 在哪儿都能跑，不像截屏 / OCR 只认 Win32。 */
 mod store;
 /* 数据的备份信封与三个命令（导出 / 导入 / 清除）。同样不分平台：读写文件、
@@ -429,6 +431,18 @@ pub fn run() {
 
     let started = builder
         .setup(|app| {
+            #[cfg(windows)]
+            {
+                use tauri::Manager;
+                let base = data_dir_path().ok_or("无法定位 APPDATA 数据目录")?;
+                let Some(lock) = single_instance::acquire(&base)? else {
+                    single_instance::focus_existing();
+                    app.handle().exit(0);
+                    return Ok(());
+                };
+                // 比建窗、OCR 和数据库访问更早持锁，直到应用退出才释放。
+                app.manage(lock);
+            }
             // OCR 模型路径要在第一次识别前告诉引擎。放在 setup 而不是懒加载：
             // 模型目录随平台/打包方式变，越早定下来，出错时越早看到一条干净的错误。
             #[cfg(windows)]

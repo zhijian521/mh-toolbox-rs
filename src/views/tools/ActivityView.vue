@@ -8,7 +8,7 @@ import { notify } from '../../composables/use-notify';
 import ActivityCard from './ActivityCard.vue';
 import ActivityRemindDialog from './ActivityRemindDialog.vue';
 import { ACTIVITIES, groupActivities, type Activity } from './activities';
-import type { AlarmDraft } from './alarms';
+import { nextReminder, type AlarmDraft } from './alarms';
 import { useAlarms } from './alarm-store';
 
 /**
@@ -28,20 +28,21 @@ import { useAlarms } from './alarm-store';
  * 分组、文案、与闹钟的换算都是那边的纯函数，所以能单测。
  */
 const router = useRouter();
-const { alarms, add } = useAlarms();
+const { alarms, add, setEnabled } = useAlarms();
 
 const minuteNow = useMinuteNow();
 const now = computed(() => new Date(minuteNow.value));
 
 const groups = computed(() => groupActivities(ACTIVITIES, now.value));
 
-/** 已经加过提醒的活动名。用名字而不是额外存一个 id：闹钟的 `label` 就是活动名，
- *  多存一份 id 等于让两处可能对不上。改过名的闹钟自然不再算「已提醒」。
- *
- *  **停用的不算**：关掉的闹钟不会再响，卡上还写「已提醒」就是在骗人——
- *  那个状态原本正是告诉用户「这条有提醒，不用管了」。 */
-const remindedNames = computed(
-    () => new Set(alarms.value.filter((one) => one.enabled).map((one) => one.label)),
+/** 只有具备有效下一次提醒的活动关联记录才算已设置，旧同名手动闹钟不推测归属。 */
+const remindedIds = computed(
+    () =>
+        new Set(
+            alarms.value
+                .filter((one) => one.repeat === 'activity' && nextReminder(one, now.value))
+                .map((one) => one.activityId),
+        ),
 );
 
 const picked = ref<Activity | null>(null);
@@ -54,6 +55,16 @@ function onConfirm(draft: AlarmDraft) {
         return;
     }
     notify.success(`已加提醒：${picked.value?.name ?? '活动'}`);
+    picked.value = null;
+}
+
+function onToggle(id: number, enabled: boolean) {
+    const result = setEnabled(id, enabled);
+    if (!result.ok) {
+        notify.error(result.error);
+        return;
+    }
+    notify.success(enabled ? '已开启提醒' : '已停用提醒');
     picked.value = null;
 }
 </script>
@@ -86,7 +97,7 @@ function onConfirm(draft: AlarmDraft) {
                     :activity="one.activity"
                     :next="one.next"
                     :now="now"
-                    :reminded="remindedNames.has(one.activity.name)"
+                    :reminded="remindedIds.has(one.activity.id)"
                     @open="picked = one.activity"
                 />
             </div>
@@ -96,8 +107,10 @@ function onConfirm(draft: AlarmDraft) {
             v-if="picked"
             :activity="picked"
             :now="now"
+            :alarms="alarms"
             @close="picked = null"
             @confirm="onConfirm"
+            @toggle-reminder="onToggle"
         />
     </PageShell>
 </template>
