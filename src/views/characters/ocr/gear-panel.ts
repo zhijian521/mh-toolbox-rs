@@ -8,7 +8,7 @@ import {
     type GearStat,
 } from '../gear';
 import type { OcrLine } from './attr-panel';
-import { JADE_TITLE_PATTERN } from './jade-panels';
+import { jadeIdentity } from './jade-panels';
 import {
     GEAR_GROUP_SLOTS as GROUP_SLOTS,
     GEAR_GROUP_KINDS as GROUP_KINDS,
@@ -154,7 +154,8 @@ export function parseGearPanel(
         'g',
     );
     const bands = suitRows(textRows(lines, image));
-    const jadeTop = bands.find((row) => JADE_TITLE_PATTERN.test(row.text))?.y;
+    const jade = jadeIdentity(lines);
+    const jadeTop = jade.top;
     const soulTitle = [...lines]
         .filter((line) => compact(line.text).startsWith('命魂之玉'))
         .sort((a, b) => a.y - b.y)[0];
@@ -210,11 +211,10 @@ export function parseGearPanel(
         detail.name = named.name;
         detail.kind = GROUP_KINDS[named.group] ?? named.group;
     }
-    const jade = JADE_TITLE_PATTERN.exec(text);
     const spirit = /灵饰类型\]?:?(戒指|耳饰|配饰|手镯)/.exec(text);
-    if (jade) {
-        slot = jade[1] === '阴' ? '玉魄·阴' : '玉魄·阳';
-        detail.name = `上古玉魄·${jade[1]}`;
+    if (jade.slot) {
+        slot = jade.slot;
+        detail.name = `上古${jade.slot}`;
         detail.kind = detail.name;
     } else if (spirit) {
         slot = spirit[1] as GearSlotName;
@@ -354,7 +354,7 @@ export function parseGearPanel(
         stats.some((stat) => stat.label === '伤害')
     )
         slot = '武器';
-    if (!slot && stats.length) slot = fallbackSlot ?? null;
+    if (!slot && stats.length && !jade.conflict) slot = fallbackSlot ?? null;
     const hit =
         stats.length +
         cond.length +

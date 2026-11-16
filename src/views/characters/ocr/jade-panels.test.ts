@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../../services/game-data.fixture';
 import { ocrFrame } from '../../../services/ocr';
+import { GEAR_RULES } from '../../../services/game-rules';
 import { normalizeCharacter, parseRoster, serializeRoster } from '../roster';
 import { normalizeGearMeta } from '../details';
 import { characterSnapshot, changeReport } from './change-summary';
 import { gearPanelParts, mergeGearPanels, parseGearPanel } from './gear-panel';
 import { recognizeGearPanel } from './gear-recognition';
-import { jadePanels } from './jade-panels';
+import { jadeIdentity, jadePanels } from './jade-panels';
 import { gearAmbushFrame } from './gear-image';
 import originals from './jade-originals.fixture.json';
 import type { OcrLine } from './attr-panel';
@@ -71,15 +72,83 @@ beforeEach(() => {
 });
 
 describe('命魂之玉双列截图', () => {
-    it.each(['上古玉·阴', '上古玉朗·阴', '上古玉魂·阴', '上古玉魄·阴', '上古玉魏·阴'])(
-        '标题漏字或形近字仍定位阴玉魄：%s',
-        (title) => {
-            const result = parseGearPanel(rows([title, '格挡值+31']));
-            expect(result.slot).toBe('玉魄·阴');
-            expect(result.detail.name).toBe('上古玉魄·阴');
-            expect(result.detail.stats).toContainEqual({ label: '格挡值', value: '+31' });
-        },
-    );
+    it.each(
+        (['玉魄·阴', '玉魄·阳'] as const).flatMap((slot) => {
+            const rule = GEAR_RULES[slot]!;
+            return [...new Set([...rule.base, ...rule.extra])]
+                .filter((label) => label !== '奇袭法术')
+                .map((label) => ({ slot, label }));
+        }),
+    )('$slot 独有属性 $label 在标题漏识别时仍可判断部位', ({ slot, label }) => {
+        const result = parseGearPanel(rows(['上古玉', `${label}+15`, '灵尘等级2']));
+        expect(result.slot).toBe(slot);
+        expect(result.detail.name).toBe(`上古${slot}`);
+    });
+
+    it.each([
+        ['玉魄·阳', '上古玉魄·阴', '封印命中等级+15'],
+        ['玉魄·阴', '上古玉魄·阳', '格挡值+31'],
+        ['玉魄·阴', '上古玉魄·阳', '抵抗封印等级+15'],
+    ])('属性优先于误读的标题：%s', (slot, title, stat) => {
+        expect(parseGearPanel(rows([title, stat])).slot).toBe(slot);
+    });
+
+    it('共有奇袭不区分阴阳，普通灵饰和武器不因属性被改成玉魄', () => {
+        expect(jadeIdentity(rows(['灵尘等级2', '奇袭法术+0.5%'])).slot).toBeNull();
+        expect(jadeIdentity(rows(['上古玉魄·阴', '奇袭法术+0.5%'])).slot).toBe('玉魄·阴');
+        expect(jadeIdentity(rows(['灵饰类型：戒指', '伤害+15', '精炼等级2'])).slot).toBeNull();
+        expect(jadeIdentity(rows(['命中+100', '伤害+100', '耐久度100'])).slot).toBeNull();
+        expect(jadeIdentity(rows(['灵尘等级2', '气血不足时不能使用'])).slot).toBeNull();
+    });
+
+    it('阴阳均漏识别或被读成同一字时，仍由两列独有属性区分', () => {
+        for (const title of ['上古玉错', '上古玉魄·阴']) {
+            const lines = source().map((row) => ({
+                ...row,
+                text: row.text.startsWith('上古玉') ? title : row.text,
+            }));
+            expect(jadePanels(lines, image()).map((panel) => panel.slot)).toEqual([
+                '玉魄·阳',
+                '玉魄·阴',
+            ]);
+            expect(parseGearPanel(lines).soul).toEqual([{ label: '抗法术暴击率', value: '+0.5%' }]);
+        }
+    });
+
+    it('两列左右互换时仍按实际属性归属，不写死左阳右阴', () => {
+        const lines = [...rows(right), ...rows(left, 220)];
+        expect(jadePanels(lines, image()).map((panel) => panel.slot)).toEqual([
+            '玉魄·阴',
+            '玉魄·阳',
+        ]);
+    });
+
+    it('同列属性冲突时不按标题或当前格子写入，也不返回半份结果', async () => {
+        const lines = rows(['上古玉魄·阴', '格挡值+31', '封印命中等级+15', '灵尘等级2']);
+        expect(parseGearPanel(lines, [], '玉魄·阴').slot).toBeNull();
+        await expect(recognizeGearPanel(lines, image(), [], '玉魄·阴')).rejects.toThrow(
+            '同一件玉魄出现阴阳两类属性',
+        );
+        const mixed = [...source(), line('格挡值+31', 10, 390)];
+        await expect(recognizeGearPanel(mixed, image(), [])).rejects.toThrow(
+            '阴阳玉魄属性归属不明确',
+        );
+        expect(ocrFrame).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        '上古玉·阴',
+        '上古玉朗·阴',
+        '上古玉魂·阴',
+        '上古玉魄·阴',
+        '上古玉魏·阴',
+        '上古玉晚·阴',
+    ])('标题漏字或形近字仍定位阴玉魄：%s', (title) => {
+        const result = parseGearPanel(rows([title, '格挡值+31']));
+        expect(result.slot).toBe('玉魄·阴');
+        expect(result.detail.name).toBe('上古玉魄·阴');
+        expect(result.detail.stats).toContainEqual({ label: '格挡值', value: '+31' });
+    });
 
     it.each(['上古玉', '上古玉佩·阴', '普通玉魄·阴'])(
         '标题缺少阴阳或不是上古玉魄时不猜部位：%s',
@@ -132,6 +201,40 @@ describe('命魂之玉双列截图', () => {
         });
         const result = await recognizeGearPanel(originals[1].processed, image(), []);
         expect(result.detail.stats).toContainEqual({ label: '奇袭法术', value: '+0.596' });
+    });
+
+    it.each(['奇蓉法术+0.5%', '奇装法术+0.5%'])(
+        '小图奇袭名称误读时仅接受原色补读的完整属性：%s',
+        async (text) => {
+            vi.mocked(ocrFrame).mockReset();
+            vi.mocked(ocrFrame).mockResolvedValue({
+                status: 'ok',
+                lines: rows(['奇袭法术+0.5%']),
+            });
+            const lines = rows(left).map((row) => ({
+                ...row,
+                text: row.text.startsWith('奇袭法术') ? text : row.text,
+            }));
+            const result = await recognizeGearPanel(lines, image(), []);
+            expect(result.detail.stats).toContainEqual({ label: '奇袭法术', value: '+0.5%' });
+            expect(result.hit).toBe(parseGearPanel(lines).hit + 1);
+            expect(result.total).toBe(result.hit);
+        },
+    );
+
+    it('小图阳标题误读为晚、阴标题误读为魏时仍裁出两个格子', async () => {
+        const lines = source().map((row) => ({
+            ...row,
+            text: row.text
+                .replace('上古玉魄·阳', '上古玉晚·阳')
+                .replace('上古玉魄·阴', '上古玉魏·阴'),
+        }));
+        const result = await recognizeGearPanel(lines, image(), [], '玉魄·阴');
+        const parts = gearPanelParts(result);
+        expect(parts.map((part) => part.slot)).toEqual(['玉魄·阴', '玉魄·阳']);
+        expect(parts[0].detail.stats?.some((row) => row.label === '封印命中等级')).toBe(false);
+        expect(parts[1].detail.stats?.some((row) => row.label === '格挡值')).toBe(false);
+        expect(result.soul).toEqual([{ label: '抗法术暴击率', value: '+0.5%' }]);
     });
 
     it('两列裁图保留各自像素，标题被 OCR 合成一框时也能分列', () => {

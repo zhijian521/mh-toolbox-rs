@@ -383,7 +383,7 @@
     /* 宽度由格给，内衬归零：30 是按最宽的「头12」量出来的，再各留 4 的气就装不下。 */
     padding: 0;
     color: var(--ink-2);
-    font-size: var(--fs-sm);
+    font-size: var(--fs-mini);
     line-height: 1;
     /* 签里居中（与师门 / 修炼那几行一致）：凹格里左对齐读起来像「漏填了右边」。 */
     align-items: center;

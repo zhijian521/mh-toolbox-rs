@@ -136,6 +136,79 @@ describe('版心摘要', () => {
         expect(rows['奇袭']).toBeUndefined();
     });
 
+    it('总览排除灵饰套装、玉魄特技和共用命魂，保留普通装备效果', () => {
+        const gear = [
+            slot('头', {
+                stats: [],
+                lines: [
+                    { label: '特技', value: '起死回生' },
+                    { label: '特效', value: '愤怒' },
+                    { label: '套装', value: '碎星诀' },
+                ],
+            }),
+            slot('戒指', {
+                stats: [],
+                cond: [{ label: '钟灵石', value: '健步如飞(4级)' }],
+                lines: [{ label: '套装', value: '健步如飞' }],
+            }),
+            slot('耳饰', { stats: [], lines: [{ label: '特效', value: '健步如飞（6级）' }] }),
+            slot('玉魄·阳', {
+                stats: [],
+                lines: [
+                    { label: '奇袭特技', value: '乾坤妙法' },
+                    { label: '特技', value: '慈航普度' },
+                ],
+            }),
+        ];
+        const meta = {
+            special: '',
+            suit: '',
+            soul: [{ label: '抗法术暴击率', value: '+0.5%' }],
+        };
+        const groups = gearBrief(gear, meta);
+        const rows = rowsOf(groups);
+        expect(groups.map((group) => group.key)).toEqual(['effect', 'level']);
+        expect(text(rows['特技'])).toBe('起死回生');
+        expect(text(rows['特效'])).toBe('愤怒');
+        expect(rows['套装'].items).toEqual([{ name: '碎星诀', value: '*1', dim: true }]);
+        expect(rows['命魂']).toBeUndefined();
+        expect(JSON.stringify(groups)).not.toMatch(/健步如飞|乾坤妙法|慈航普度|抗法术暴击率/);
+    });
+
+    it('隐藏灵饰套装后仍保留普通装备套装兜底与灵饰普通特效', () => {
+        const gear = [
+            slot('戒指', {
+                stats: [],
+                lines: [
+                    { label: '套装', value: '健步如飞' },
+                    { label: '特效', value: '超级简易' },
+                ],
+            }),
+        ];
+        const rows = rowsOf(gearBrief(gear, { special: '', suit: '天罡 5/5' }));
+        expect(rows['套装'].items).toEqual([{ name: '天罡', value: '*5', dim: false }]);
+        expect(text(rows['特效'])).toBe('超级简易');
+    });
+
+    it.each([false, true])(
+        '同一件灵饰逐行排除旧套装，普通特效不受行序影响（倒序 %s）',
+        (reverse) => {
+            const lines = [
+                { label: '特效', value: '健步如飞(4级)' },
+                { label: '特效', value: '超级简易' },
+                { label: '特效', value: '自我陶醉（6级）' },
+                { label: '特效', value: '超级简易' },
+            ];
+            const rows = rowsOf(
+                gearBrief([slot('戒指', { stats: [], lines: reverse ? lines.reverse() : lines })], {
+                    special: '',
+                    suit: '',
+                }),
+            );
+            expect(rows['特效'].items).toEqual([{ name: '超级简易', value: '' }]);
+        },
+    );
+
     it('套装配到三件才不退灰，件数按身上那几件数', () => {
         const gear = ['头', '衣服', '腰带'].map((name) =>
             slot(name, { stats: [], lines: [{ label: '套装', value: '慈悲 3/5' }] }),

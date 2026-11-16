@@ -225,25 +225,6 @@ function quickLabel(slot: ReadonlyGearSlot): string {
                             </dd>
                         </div>
                     </div>
-                    <div v-if="meta.soul?.length" class="brief-group">
-                        <div class="brief-row">
-                            <dt>命魂</dt>
-                            <dd
-                                :title="
-                                    meta.soul.map((row) => row.label + ' ' + row.value).join('、')
-                                "
-                            >
-                                <span
-                                    v-for="(row, index) in meta.soul"
-                                    :key="index"
-                                    class="brief-item"
-                                >
-                                    <span class="item-name">{{ row.label }}</span
-                                    ><b>{{ row.value }}</b>
-                                </span>
-                            </dd>
-                        </div>
-                    </div>
                 </dl>
             </div>
         </div>

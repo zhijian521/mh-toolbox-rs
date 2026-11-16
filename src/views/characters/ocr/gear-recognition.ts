@@ -6,7 +6,7 @@ import type { OcrLine } from './attr-panel';
 import { gearExtraFrame, gearExtraRegions, restoreGearExtras } from './gear-extra-image';
 import { parseGearPanel, type GearPanelResult } from './gear-panel';
 import { gearAmbushFrame, gearBaseFrame, gearFrame } from './gear-image';
-import { jadePanels } from './jade-panels';
+import { jadeIdentity, jadePanels } from './jade-panels';
 import { base64Of, swapToBgra } from './pixels';
 
 /** 耐久上方是基础属性；按浮片文字列裁掉背包列表，防止同一基线合并成一行。 */
@@ -95,6 +95,7 @@ export async function recognizeGearPanel(
             ...(result.soul ? { soul: result.soul } : {}),
         };
     }
+    if (jadeIdentity(lines).conflict) throw new Error('同一件玉魄出现阴阳两类属性，请核对截图');
     const slot = result.slot;
     if (!slot) return result;
     if (['戒指', '耳饰', '配饰', '手镯', '玉魄·阴', '玉魄·阳'].includes(slot)) {
@@ -105,7 +106,7 @@ export async function recognizeGearPanel(
                 : result;
         if (
             slot.startsWith('玉魄') &&
-            best.detail.stats?.some((row) => row.label === '奇袭法术' && !row.value.includes('%'))
+            !best.detail.stats?.some((row) => row.label === '奇袭法术' && row.value.includes('%'))
         ) {
             const frame = gearAmbushFrame(image, lines);
             if (frame) {
@@ -117,9 +118,16 @@ export async function recognizeGearPanel(
                           )
                         : undefined;
                 if (recovered) {
-                    best.detail.stats = best.detail.stats.map((row) =>
-                        row.label === '奇袭法术' && !row.value.includes('%') ? recovered : row,
-                    );
+                    const stats = best.detail.stats ?? [];
+                    if (stats.some((row) => row.label === '奇袭法术')) {
+                        best.detail.stats = stats.map((row) =>
+                            row.label === '奇袭法术' ? recovered : row,
+                        );
+                    } else {
+                        best.detail.stats = [...stats, recovered];
+                        best.hit++;
+                        best.total = best.hit;
+                    }
                 }
             }
         }

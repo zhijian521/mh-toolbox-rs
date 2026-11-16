@@ -103,41 +103,7 @@ export function hasGearDetail(detail: ReadonlyGearDetail | undefined): boolean {
     );
 }
 
-/* ======================================================================
- * 版心摘要（2026-11-06 建立；2026-11-10 改成「一件一格」，同日补「特效」行）
- *
- * 用户 2026-11-10：「只展示特技、套装和装备强化数；套装后面 *n 表示几件，
- * 三件以上激活、三件以下灰色；强化数分宝石 / 灵饰 / 玉魄 / 钟灵石，奇袭不要了；
- * 0 段的也显示 0，按顺序排列，这样可以快速看到。」
- * 后续追问确认：**强化只留 宝石 / 灵饰 / 玉魄 三行**，钟灵石与奇袭都不显示。
- * 同日又补：「特效也加一行，放到特技下面」「宝石因为太长了，分两个，一行三个对齐」。
- *
- * 所以七行压成**两组六行**：效果三行（特技 / 特效 / 套装）+ 强化三行（宝石 /
- * 灵饰 / 玉魄）。**钟灵石与奇袭都不要了**（用户 2026-11-10 明确）：钟灵石是灵饰上
- * 那条自由文本（品名 + 等级），扫段数时读不成一列数；奇袭是「配了什么」，不是
- * 「练到几段」。数据一个字没删——它们照旧在浮片与编辑器里，只是不进摘要。
- *
- * 强化三行不再串成一句话，而是**一件装备一格**：`头6 · 项5 · …`。部位首字就是
- * 身份（十二格住址固定，见 `GEAR_LAYOUT`），一行里六件事各读各的，「哪一件还
- * 没练」数得出来。写成一串「太阳石 6 段 · 红玛瑙 5 段」时，没练的那两件根本
- * 不出现——这正是用户要改掉的地方。
- *
- * 宝石那一行六格在 26 + 值这一列里挤成一行时，格与格之间的「·」把读数切得太碎，
- * 一眼扫不出列（用户：「太长了」）。所以**六格拆成两行、每行三个**（`perRow` 3），
- * 上下两行同宽同起点，读成三列两行的小表——`头 项 武` 与 `衣 带 鞋` 各就其位。
- *
- * 取数规则（对着 mock 与截图识别两条路各验一遍）：
- *   · `lines` 里的 `特技` / `特效`：名字，去重（同一特效常写在两件上）；
- *   · `lines` 里的 `套装` / `套装效果`：名字尾部那截「5 / 5」剥掉，**件数按实际
- *     写了这套的装备数**——面板上的 5 是「凑满几件出效果」，不是「身上有几件」；
- *   · `cond` 里 `锻炼等级`（身上六件）、`精炼等级`（灵饰四件）、`灵尘等级`（玉魄
- *     两件）——三种段数各有各的名字与上限，混成一个「段数」就分不出是哪一件了；
- *   · 读不到的段数写 `0` 并退灰：留白会读成「漏了一行」，0 才是「这一件还没练」。
- *
- * 两处**兜底**：特技与套装在 `gearMeta` 里另有一份手填的汇总（导入那条路只给
- * 这两个字段）。detail 里读得到就用 detail 的，读不到才退回 `gearMeta`。特效没有
- * 兜底来源——`gearMeta` 里本来就没有这一项，读不到就画淡「—」。
- * ==================================================================== */
+/** 中央总览保留特技、普通特效、装备套装与三组强化；灵饰套装、玉魄奇袭和命魂不参与。 */
 
 /** 摘要里的一格：前半截是部位首字或名字，后半截是段数 / `*件数`（空串 = 只有名字）。 */
 export interface BriefItem {
@@ -241,8 +207,15 @@ export function gearBrief(
     const named = (labels: string[]): string[] => {
         const names: string[] = [];
         for (const slot of order) {
-            const value = effect(slot, labels);
-            if (value && value !== '空' && !names.includes(value)) names.push(value);
+            if (labels.includes('特技') && slotCategory(slot) !== 'equipment') continue;
+            for (const row of bySlot.get(slot)?.detail?.lines ?? []) {
+                if (!labels.includes(row.label)) continue;
+                const value = row.value.trim();
+                // 逐行排除旧档的钟灵石套装，不能漏掉同一件灵饰后面的普通特效。
+                if (slotCategory(slot) === 'spirit' && /[（(]\s*\d+\s*级\s*[)）]\s*$/.test(value))
+                    continue;
+                if (value && value !== '空' && !names.includes(value)) names.push(value);
+            }
         }
         return names;
     };
@@ -253,6 +226,7 @@ export function gearBrief(
     /* 套装：按名字数件数，顺序跟着装备走（先出现的那件决定顺序）。 */
     const suits = new Map<string, number>();
     for (const slot of order) {
+        if (slotCategory(slot) !== 'equipment') continue;
         const value = effect(slot, ['套装', '套装效果']);
         if (!value || value === '空') continue;
         const name = suitName(value);

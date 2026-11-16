@@ -31,9 +31,9 @@ export function gearFrame(image: ImageData): Frame {
     };
 }
 
-/** 百分号在整图预处理中会变成数字；只放大奇袭原色行，补读必须保留实际的百分号。 */
+/** 预处理会误读「袭」或百分号；按实图形近字定位原色行，补读仍须认出完整属性。 */
 export function gearAmbushFrame(image: ImageData, lines: readonly OcrLine[]): Frame | null {
-    const row = lines.find((line) => /^奇袭法术/.test(line.text.replace(/\s/g, '')));
+    const row = lines.find((line) => /^奇[袭装蓉]法术/.test(line.text.replace(/\s/g, '')));
     if (!row) return null;
     const margin = Math.max(2, Math.round(row.height * 0.1));
     const left = Math.max(0, Math.floor(row.x - margin));

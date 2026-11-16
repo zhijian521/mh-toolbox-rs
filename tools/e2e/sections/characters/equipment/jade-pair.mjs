@@ -80,6 +80,7 @@ export async function jadePair(ctx, tools) {
         await ui.clickText('.ocr-tabs button', '装备');
         for (const [fixture, slots] of [
             ['gear-jade-pair-physical.png', ['玉魄·阳', '玉魄·阴']],
+            ['gear-jade-pair-small.png', ['玉魄·阳', '玉魄·阴']],
             ['gear-jade-yang.png', ['玉魄·阳']],
             ['gear-jade-yin.png', ['玉魄·阴']],
         ]) {
@@ -106,5 +107,55 @@ export async function jadePair(ctx, tools) {
         await ui.clickLabel('确认放弃修改');
         await ui.waitFor(`!document.querySelector('.editor')`);
         t.check('原图回归取消后保留原档案', JSON.stringify(await saved()) === before);
+    });
+    await t.step('背包背景双列玉魄原图：阴阳属性、耐久与命魂分别保存重载', async () => {
+        for (const sample of [
+            {
+                file: 'gear-jade-pair-bag.png',
+                soul: '抗物理暴击率',
+                yang: { 封印命中等级: '+15', 物理暴击等级: '+6', 速度: '+5', 耐久度: '242' },
+                yin: { 格挡值: '+31', 气血回复效果: '+9', 气血: '+41', 耐久度: '154' },
+            },
+            {
+                file: 'gear-jade-pair-bag-magic.png',
+                soul: '抗法术暴击率',
+                yang: { 封印命中等级: '+15', 物理暴击等级: '+7', 速度: '+4', 耐久度: '239' },
+                yin: { 格挡值: '+18', 气血回复效果: '+8', 气血: '+40', 耐久度: '56' },
+            },
+        ]) {
+            await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
+            await ui.waitFor(`!!document.querySelector('.editor')`);
+            await ui.clickText('.ocr-tabs button', '装备');
+            await uploadFixtures([sample.file]);
+            t.check(sample.file + '识别完成', await waitUpload());
+            await ui.clickLabel('保存这个角色');
+            await ui.waitFor(`!document.querySelector('.editor')`);
+            await ui.reload();
+            await ui.waitText('E2E改名后');
+            const value = await saved();
+            t.check(
+                sample.file + '共用命魂独立保存',
+                value.soul?.length === 1 &&
+                    value.soul[0].label === sample.soul &&
+                    value.soul[0].value === '+0.5%',
+                JSON.stringify(value.soul),
+            );
+            for (const [slot, expected] of [
+                ['玉魄·阳', sample.yang],
+                ['玉魄·阴', sample.yin],
+            ]) {
+                const detail = value.jade.find((one) => one.slot === slot)?.detail;
+                const rows = [...(detail?.stats ?? []), ...(detail?.cond ?? [])];
+                t.check(
+                    sample.file + slot + '自身读数与奇袭保留，另一列属性不混入',
+                    Object.entries(expected).every(([label, text]) =>
+                        rows.some((row) => row.label === label && row.value === text),
+                    ) &&
+                        detail?.stats.length === 4 &&
+                        rows.some((row) => row.label === '奇袭法术' && row.value === '+0.5%'),
+                    JSON.stringify(detail),
+                );
+            }
+        }
     });
 }

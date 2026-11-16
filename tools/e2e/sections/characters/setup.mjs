@@ -380,6 +380,9 @@ export async function setup(ctx) {
                     n: row.querySelectorAll('.brief-item').length,
                     tags: row.querySelectorAll('dd .brief-tag').length,
                     cols: row.querySelector('dd')?.style.getPropertyValue('--brief-cols') ?? '',
+                    font: Number.parseFloat(getComputedStyle(
+                        row.querySelector('.brief-tag') ?? row.querySelector('dd')
+                    ).fontSize),
                 }));
             })()`);
         t.check('版心画出六行摘要', brief.length === 6, `实际 ${brief.length} 行`);
@@ -412,6 +415,13 @@ export async function setup(ctx) {
             brief.slice(3).every((row) => row.tags === row.n) &&
                 brief.slice(0, 3).every((row) => row.tags === 0),
             JSON.stringify(brief.map((row) => `${row.k}:${row.tags}/${row.n}`)),
+        );
+        t.check(
+            '宝石、灵饰、玉魄读数字号统一小于效果正文',
+            brief.slice(3).every((row) => row.font > 0 && row.font < brief[0].font) &&
+                brief[3]?.font === brief[4]?.font &&
+                brief[4]?.font === brief[5]?.font,
+            JSON.stringify(brief.map((row) => ({ label: row.k, font: row.font }))),
         );
     });
 
