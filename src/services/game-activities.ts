@@ -65,19 +65,17 @@ export function parseActivities(raw: unknown): Activity[] {
         }
         seen.add(value.id);
         const rule = value.rule;
-        if (
-            !(
-                rule.type === 'daily' ||
-                (rule.type === 'hourly' &&
-                    Number.isInteger(rule.minute) &&
-                    Number(rule.minute) >= 0 &&
-                    Number(rule.minute) <= 59) ||
-                (rule.type === 'weekly' &&
-                    indices(rule.weekdays, 0, 6) &&
-                    (rule.extra === undefined || monthPattern(rule.extra))) ||
-                (rule.type === 'monthWeek' && monthPattern(rule))
-            )
-        ) {
+        if (!(
+            rule.type === 'daily' ||
+            (rule.type === 'hourly' &&
+                Number.isInteger(rule.minute) &&
+                Number(rule.minute) >= 0 &&
+                Number(rule.minute) <= 59) ||
+            (rule.type === 'weekly' &&
+                indices(rule.weekdays, 0, 6) &&
+                (rule.extra === undefined || monthPattern(rule.extra))) ||
+            (rule.type === 'monthWeek' && monthPattern(rule))
+        )) {
             throw new TypeError(`activities.json：${value.id} 的周期无效`);
         }
         const slots = value.slots.map((slot) => {

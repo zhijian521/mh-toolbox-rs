@@ -206,11 +206,12 @@ const panelStyle = computed(() => {
 .modal-panel {
     display: flex;
     flex-direction: column;
-    width: var(--modal-w);
+    width: min(var(--modal-w), calc(100dvw - 48px));
+    min-width: 0;
     max-width: 100%;
     height: var(--modal-h, auto);
     /* 传了 `minHeight` 就有个下限（表格类窗），没传就纯跟着内容长。 */
-    min-height: var(--modal-min-h, auto);
+    min-height: min(var(--modal-min-h, 0px), calc(100dvh - 48px));
     max-height: calc(100vh - 48px);
     background: var(--modal-bg);
     border: var(--w-hair) solid var(--modal-edge);
@@ -281,8 +282,16 @@ const panelStyle = computed(() => {
     align-items: center;
     justify-content: flex-end;
     gap: 8px;
+    flex-wrap: wrap;
     padding: 12px 16px;
     border-top: var(--w-hair) solid var(--rule-2);
+}
+
+@media (max-height: 720px) {
+    .modal-body-static {
+        overflow-y: auto;
+        scrollbar-gutter: stable;
+    }
 }
 
 /* 两个关键帧：遮罩淡入、面板从「略低略小」落到位。

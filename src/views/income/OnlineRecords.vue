@@ -222,7 +222,9 @@ async function remove(one: ReadonlyOnlineSession) {
         </div>
 
         <template #footer>
-            <span class="record-foot-note">{{ loadError ? '读取失败' : filtered.length + ' 段' }}</span>
+            <span class="record-foot-note">{{
+                loadError ? '读取失败' : filtered.length + ' 段'
+            }}</span>
             <RecordPager v-if="!loadError" v-model="page" :pages="pages" />
             <PressButton
                 data-modal-cancel

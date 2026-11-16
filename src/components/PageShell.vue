@@ -1,15 +1,44 @@
 <script setup lang="ts">
 import PageHeader from './PageHeader.vue';
+import { nextTick, onMounted, ref, watch } from 'vue';
 
 /**
  * 页头与内容共用 --page-pad，保持左右及内容四边留白一致。
  * 保留两个根节点参与父级 flex 分配；额外包装会让滚动从内容区移到外层。
  */
 /** 默认铺台面承托 PaperCard；整页纸面的页面可关闭。 */
-withDefaults(defineProps<{ title: string; desc?: string; surface?: boolean }>(), {
-    desc: '',
-    surface: true,
+const props = withDefaults(
+    defineProps<{
+        title: string;
+        desc?: string;
+        surface?: boolean;
+        /** 可选的会话浏览位置，由页面持有。 */
+        scrollTop?: number;
+    }>(),
+    { desc: '', surface: true },
+);
+const emit = defineEmits<{ 'update:scrollTop': [top: number] }>();
+const content = ref<HTMLElement | null>(null);
+let restoring = true;
+onMounted(async () => {
+    await nextTick();
+    if (content.value && props.scrollTop !== undefined) content.value.scrollTop = props.scrollTop;
+    restoring = false;
 });
+watch(
+    () => props.scrollTop,
+    (top) => {
+        if (!restoring && content.value && top !== undefined && content.value.scrollTop !== top) {
+            content.value.scrollTop = top;
+        }
+    },
+    { flush: 'post' },
+);
+function rememberScroll() {
+    if (!restoring && props.scrollTop !== undefined && content.value) {
+        emit('update:scrollTop', content.value.scrollTop);
+    }
+}
 </script>
 
 <template>
@@ -17,7 +46,7 @@ withDefaults(defineProps<{ title: string; desc?: string; surface?: boolean }>(),
         <!-- 页头动作由页面提供。 -->
         <slot name="actions" />
     </PageHeader>
-    <div class="page-content" :class="{ surface }">
+    <div ref="content" class="page-content" :class="{ surface }" @scroll.passive="rememberScroll">
         <slot />
     </div>
 </template>

@@ -17,6 +17,7 @@ import { createCharacterPanelReader } from './ocr/character-panel';
 import type { ScreenshotIntake } from './ocr/screenshot-input';
 import { useOcrImage } from './ocr/use-ocr-image';
 import { useOcrDraft } from './ocr/use-ocr-draft';
+import { emptyPet } from './ocr/pet-panel';
 import GearEditor from './editor/GearEditor.vue';
 import PetEditor from './editor/PetEditor.vue';
 import ScreenshotUpload from './ocr/ScreenshotUpload.vue';
@@ -26,6 +27,16 @@ import { focusInput } from './focus-input';
 import { ocrFrame } from '../../services/ocr';
 import { base64Of, swapToBgra } from './ocr/pixels';
 import { useDraftGuard } from '../../composables/use-draft-guard';
+import OcrSummary from './ocr/OcrSummary.vue';
+import {
+    characterSnapshot,
+    changeReport,
+    panelReview,
+    gearReview,
+    petReview,
+    REPLACE_NOTE,
+    type OcrReport,
+} from './ocr/change-summary';
 
 /** 新建、手工修改和截图识别共用独立草稿，保存后由名册统一落库。 */
 const props = withDefaults(
@@ -73,6 +84,7 @@ const { result, shotUrl, rawLines, busy, error, takeFile } = useOcrImage(
 );
 const queued = ref(false);
 const batchError = ref('');
+const reports = ref<OcrReport[]>([]);
 let disposed = false;
 let generation = 0;
 const intake = computed<ScreenshotIntake>(() => ({
@@ -128,6 +140,7 @@ async function takeFiles(files: File[]) {
     const currentBatch = () => !disposed && version === generation;
     queued.value = true;
     batchError.value = '';
+    reports.value = [];
     const failures: string[] = [];
     try {
         for (const file of files) {
@@ -143,6 +156,12 @@ async function takeFiles(files: File[]) {
             pane.value = current.pane;
             await nextTick();
             if (!currentBatch()) return;
+            const before = characterSnapshot(
+                current.pane === 'pets' && !draft.value.pets.length
+                    ? { ...draft.value, pets: [{ ...emptyPet(), name: '' }] }
+                    : draft.value,
+                current.pane,
+            );
             if (current.pane === 'gear') {
                 gearEditor.value?.acceptScreenshot(file, current.value, rawLines.value);
             } else if (current.pane === 'pets') {
@@ -150,6 +169,27 @@ async function takeFiles(files: File[]) {
             } else {
                 recognize(current, shotUrl.value);
             }
+            await nextTick();
+            if (!currentBatch()) return;
+            const review =
+                current.pane === 'gear'
+                    ? gearReview(current.value)
+                    : current.pane === 'pets'
+                      ? petReview(current.value)
+                      : panelReview(current);
+            reports.value.push(
+                changeReport(
+                    `${file.name} · ${PANES.find((one) => one.key === current.pane)?.label ?? ''}`,
+                    before,
+                    characterSnapshot(draft.value, current.pane),
+                    review,
+                    current.pane === 'gear' || current.pane === 'pets'
+                        ? REPLACE_NOTE
+                        : current.pane === 'assist'
+                          ? '按截图覆盖识别到的技能组；请核对空值与遗漏。'
+                          : '未识别项目保留原值。',
+                ),
+            );
         }
     } finally {
         if (currentBatch()) {
@@ -282,6 +322,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
             </ScreenshotUpload>
         </div>
 
+        <OcrSummary :reports="reports" />
         <template #footer>
             <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
             <div v-if="saveIssue" :id="validationId" class="editor-validation" role="status">

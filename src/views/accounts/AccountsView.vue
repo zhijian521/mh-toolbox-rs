@@ -143,12 +143,7 @@ useRouteAction('/accounts', {
 <template>
     <PageShell title="账号" desc="收支记账 · 分类统计">
         <template #actions>
-            <PressButton
-                icon="history"
-                text="历史"
-                label="查看账号历史记录"
-                @click="openRecords"
-            />
+            <PressButton icon="history" text="历史" label="查看账号历史记录" @click="openRecords" />
             <PressButton
                 icon="add"
                 text="记一笔"
@@ -233,7 +228,7 @@ useRouteAction('/accounts', {
                                     :title="one.preset.kind === 'income' ? '收入合计' : '支出合计'"
                                 >
                                     <span
-                                        v-for="currency in (['cash', 'rmb'] as const)"
+                                        v-for="currency in ['cash', 'rmb'] as const"
                                         :key="currency"
                                         class="sc-currency"
                                         :title="

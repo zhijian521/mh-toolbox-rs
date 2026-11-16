@@ -122,6 +122,18 @@ export async function attributes(ctx) {
             { timeout: 40000 },
         );
         t.check('粘完就开始认，认完报出认出几项', ready);
+        await cdp.waitFor(`!!document.querySelector('.ocr-report')`);
+        t.check(
+            '识别后展示逐图变更与待核对摘要',
+            (await ui.text('.ocr-summary')).includes('panel.png') &&
+                (await ui.text('.ocr-summary-live')).includes('修改'),
+        );
+        await cdp.click('.ocr-report summary');
+        t.check(
+            '展开摘要可查看旧值到新值',
+            (await ui.count('.ocr-changes dd')) > 0 &&
+                (await ui.text('.ocr-changes')).includes('→'),
+        );
         t.check(
             '跨分区截图自动切回属性并填写',
             await cdp.evaluate(`document.querySelector('.ocr-tabs [aria-checked="true"]')?.textContent.trim() === '属性' &&

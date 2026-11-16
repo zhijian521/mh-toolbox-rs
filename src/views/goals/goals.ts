@@ -86,10 +86,7 @@ export function metricGroup(tracking: GoalTracking): MetricGroup {
     return tracking.category;
 }
 
-export function groupKeys(
-    group: MetricGroup,
-    characters: readonly ReadonlyCharacter[],
-): string[] {
+export function groupKeys(group: MetricGroup, characters: readonly ReadonlyCharacter[]): string[] {
     if (group === 'level') return ['角色等级'];
     if (group === 'training' || group === 'pet-training')
         return TRAINING_GROUPS[group === 'training' ? 0 : 1]?.rows.map((row) => row.name) ?? [];

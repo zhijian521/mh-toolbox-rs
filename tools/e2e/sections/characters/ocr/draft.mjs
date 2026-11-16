@@ -139,8 +139,8 @@ export async function draft(ctx, tools) {
             ),
         );
         await cdp.key('Escape');
-        await ui.waitFor(`!!document.querySelector('[aria-label="放弃修改"]')`);
-        await ui.clickLabel('放弃修改');
+        await ui.waitFor(`!!document.querySelector('[aria-label="确认放弃修改"]')`);
+        await ui.clickLabel('确认放弃修改');
         await ui.waitFor(`!document.querySelector('.ocr')`);
         t.check(
             '取消不修改真实角色',

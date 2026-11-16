@@ -142,9 +142,11 @@
     min-height: 0;
     overflow: hidden;
 }
-@media (max-width: 640px) {
+@media (max-width: 960px) {
     .screenshot-upload {
         grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: max-content minmax(400px, auto);
+        align-content: start;
         overflow-y: auto;
         scrollbar-gutter: stable;
     }

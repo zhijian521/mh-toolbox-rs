@@ -7,7 +7,11 @@ import {
     type GearPropertyItem,
 } from './gear-properties';
 
-const props = defineProps<{ detail: ReadonlyGearDetail; slotName?: GearSlotName; editable?: boolean }>();
+const props = defineProps<{
+    detail: ReadonlyGearDetail;
+    slotName?: GearSlotName;
+    editable?: boolean;
+}>();
 interface PropertySlot {
     item: GearPropertyItem;
     group: GearPropertyGroup;

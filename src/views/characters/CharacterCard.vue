@@ -92,6 +92,8 @@ const props = withDefaults(
     defineProps<{
         character: ReadonlyCharacter;
         preview?: boolean;
+        /** 统计预览只开放编辑入口，不显示删除。 */
+        editShortcut?: boolean;
         editable?: boolean;
         tabs?: boolean;
         /** 要显示哪一页。缺省是属性页；父级改值时跟随。 */
@@ -264,7 +266,7 @@ function openDetail(index: number) {
             </div>
             <!-- 卡头右侧：改与删。两枚都是纯图标 26px，与左栏、工具页同一种压印块。
                  删除只把事件抛出去，确认窗由名册页开——卡上不出现第二种「确认」的问法。 -->
-            <div v-if="!preview" class="head-actions">
+            <div v-if="!preview || editShortcut" class="head-actions">
                 <PressButton
                     icon="edit"
                     label="编辑这个角色"
@@ -272,6 +274,7 @@ function openDetail(index: number) {
                     @click="emit('edit', active)"
                 />
                 <PressButton
+                    v-if="!preview"
                     danger
                     icon="trash"
                     label="删除这个角色"

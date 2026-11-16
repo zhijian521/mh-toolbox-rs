@@ -25,7 +25,10 @@ function cacheKey(slot: ReadonlyGearSlot): string {
 }
 
 /** 名称优先；未收录的低等级装备按类型使用 60 级图，部位之间不串图。 */
-export function gearIconFile(slot: ReadonlyGearSlot, entries: readonly EquipmentEntry[]): string | null {
+export function gearIconFile(
+    slot: ReadonlyGearSlot,
+    entries: readonly EquipmentEntry[],
+): string | null {
     let table = memo.get(entries);
     if (!table) {
         table = new Map();
@@ -40,7 +43,10 @@ export function gearIconFile(slot: ReadonlyGearSlot, entries: readonly Equipment
     return file;
 }
 
-function resolveGearIcon(slot: ReadonlyGearSlot, entries: readonly EquipmentEntry[]): string | null {
+function resolveGearIcon(
+    slot: ReadonlyGearSlot,
+    entries: readonly EquipmentEntry[],
+): string | null {
     const fallback = GEAR_SLOT_ICON[slot.slot] ?? null;
     if (slot.slot.startsWith('玉魄')) return fallback;
     const candidates = entries.filter((entry) =>

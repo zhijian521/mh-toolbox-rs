@@ -435,13 +435,20 @@ export function useRoster() {
     /** 新增。返回新角色的 id，调用方拿它决定要不要接着打开编辑器。 */
     function add(character: ReadonlyCharacter) {
         if (!canWriteRoster()) return character.id;
-        roster.value = [...roster.value, { ...normalizeCharacter(character), updatedAt: Date.now() }];
+        roster.value = [
+            ...roster.value,
+            { ...normalizeCharacter(character), updatedAt: Date.now() },
+        ];
         persist();
         return character.id;
     }
 
     /** 修改：按 id 整条替换。编辑器改的是一份草稿副本，走到这里才算落账。 */
-    function update(character: ReadonlyCharacter, source: GrowthEntry['source'] = 'edit', note = '') {
+    function update(
+        character: ReadonlyCharacter,
+        source: GrowthEntry['source'] = 'edit',
+        note = '',
+    ) {
         if (!canWriteRoster()) return;
         const updatedAt = Date.now();
         const next = normalizeCharacter(character);

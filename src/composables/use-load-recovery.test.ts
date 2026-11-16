@@ -7,7 +7,11 @@ describe('失败后就地重读', () => {
         const error = ref('');
         const blocked = ref(false);
         const load = vi.fn(async () => {});
-        const recovery = useLoadRecovery(load, () => error.value, () => blocked.value);
+        const recovery = useLoadRecovery(
+            load,
+            () => error.value,
+            () => blocked.value,
+        );
         expect(await recovery.retryLoad()).toBe(false);
         error.value = '读取失败';
         blocked.value = true;
@@ -21,7 +25,11 @@ describe('失败后就地重读', () => {
         const error = ref('读取失败');
         let finish!: () => void;
         const load = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)));
-        const recovery = useLoadRecovery(load, () => error.value, () => false);
+        const recovery = useLoadRecovery(
+            load,
+            () => error.value,
+            () => false,
+        );
         const first = recovery.retryLoad();
         expect(recovery.loading.value).toBe(true);
         expect(error.value).toBe('读取失败');
@@ -37,7 +45,11 @@ describe('失败后就地重读', () => {
     it('读取仍失败时允许再次重试，只有完整读取成功才报告恢复', async () => {
         const error = ref('读取失败');
         const load = vi.fn(async () => {});
-        const recovery = useLoadRecovery(load, () => error.value, () => false);
+        const recovery = useLoadRecovery(
+            load,
+            () => error.value,
+            () => false,
+        );
         expect(await recovery.retryLoad()).toBe(false);
         expect(recovery.canRetry.value).toBe(true);
         load.mockImplementationOnce(async () => {
@@ -50,9 +62,17 @@ describe('失败后就地重读', () => {
         const error = ref('读取失败');
         let finish!: () => void;
         const load = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)));
-        const history = useLoadRecovery(load, () => error.value, () => false);
+        const history = useLoadRecovery(
+            load,
+            () => error.value,
+            () => false,
+        );
         const request = history.retryLoad();
-        const page = useLoadRecovery(load, () => error.value, () => false);
+        const page = useLoadRecovery(
+            load,
+            () => error.value,
+            () => false,
+        );
         expect(page.loading.value).toBe(true);
         expect(await page.retryLoad()).toBe(false);
         expect(load).toHaveBeenCalledOnce();

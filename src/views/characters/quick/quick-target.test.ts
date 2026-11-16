@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { CharacterData } from '../character';
+import type { CharacterData, ReadonlyCharacter } from '../character';
 import { briefText, gearBrief, type GearDetail, type GearSlotName } from '../gear';
 import type { Pet } from '../pets';
 import { emptyCharacter, normalizeCharacter } from '../roster';
@@ -46,7 +46,7 @@ function setAttr(character: CharacterData, label: string, value: string) {
     }
 }
 
-function attrOf(character: CharacterData, label: string): string {
+function attrOf(character: ReadonlyCharacter, label: string): string {
     return (
         character.attrGroups.flatMap((group) => group.rows).find((row) => row.label === label)
             ?.value ?? ''
@@ -54,7 +54,7 @@ function attrOf(character: CharacterData, label: string): string {
 }
 
 function fieldValue(
-    character: CharacterData,
+    character: ReadonlyCharacter,
     target: Parameters<typeof quickPanel>[1],
     key: string,
 ) {

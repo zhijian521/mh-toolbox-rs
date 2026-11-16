@@ -182,11 +182,7 @@ function enter(event: KeyboardEvent) {
 </script>
 
 <template>
-    <ModalShell
-        :title="goal ? '修改目标' : '新增目标'"
-        :width="480"
-        @close="requestClose"
-    >
+    <ModalShell :title="goal ? '修改目标' : '新增目标'" :width="480" @close="requestClose">
         <form class="goal-form modal-form" @submit.prevent="submit" @keydown.enter="enter">
             <fieldset :disabled="locked" :inert="locked">
                 <SegmentedPills

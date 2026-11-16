@@ -60,6 +60,7 @@ export const TEST_SCOPES = {
     ],
     ui: ['src/components/', 'src/composables/'],
     settings: [
+        'src/views/settings/',
         'src/composables/preference-write.test.',
         'src/composables/use-theme.test.',
         'src/composables/use-font-',

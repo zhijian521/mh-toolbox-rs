@@ -5,10 +5,7 @@ import type { IncomeEntry } from '../income/income';
 
 /** 首页只读现有账本与档案；进度和排序沿用业务页面的计算。 */
 
-export function activeGoals(
-    goals: readonly ReadonlyGoal[],
-    roster: readonly ReadonlyCharacter[],
-) {
+export function activeGoals(goals: readonly ReadonlyGoal[], roster: readonly ReadonlyCharacter[]) {
     return orderGoals(goals.map((goal) => ({ goal, summary: goalSummary(goal, roster) }))).filter(
         (one) => !one.summary.done,
     );

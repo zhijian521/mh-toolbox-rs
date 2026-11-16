@@ -12,7 +12,13 @@ function editor() {
     const changed = ref(false);
     const busy = ref(false);
     const close = vi.fn();
-    const guard = scope.run(() => useDraftGuard(() => changed.value, () => busy.value, close))!;
+    const guard = scope.run(() =>
+        useDraftGuard(
+            () => changed.value,
+            () => busy.value,
+            close,
+        ),
+    )!;
     return { ...guard, changed, busy, close, scope };
 }
 

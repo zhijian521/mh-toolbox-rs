@@ -64,7 +64,7 @@ function onBrandClick(event: MouseEvent) {
 </script>
 
 <template>
-    <aside class="rail">
+    <aside class="rail" :style="{ '--rail-count': Math.max(1, items.length) }">
         <div class="rail-brand" aria-hidden="true" @click="onBrandClick">
             <PressTile class="rail-mark">
                 <img class="rail-glyph" :src="isDark ? markPaper : markInk" alt="" />
@@ -132,19 +132,9 @@ function onBrandClick(event: MouseEvent) {
      * 的色差分开，再加一道软暗只会显脏。注释写在这里而不是 `box-shadow` 里：prettier 会把
      * 行内注释与值挤成一行。 */
     box-shadow: var(--rail-shadow);
-    /* 不滚动：槽一定要整条可见，「第几档」靠的是整条槽的比例。
-     * 允许滚动的代价是拇指会跑到视口外，位置感失效；而 8 档的高度是定死的，
-     * 所以高度交给窗口兜底——`src-tauri/src/lib.rs` 的 `min_inner_size` 取「较大」字号
-     * （fs = 1.1）时的实测需求，见那里的注释与实测表。
-     * 这里用 hidden 而不是 auto：既然保证放得下，就不要再留一条可能出现的滚动条。
-     *
-     * **这一笔已经花掉了。** 栏底两枚 30px 按钮（主题、仓库）删掉，沿线加内衬一起让出
-     * 约 73（1.1 档 79）；同一轮把格高从 62 加到 69（见 `VerticalSlider` 的 `--vs-cell`），
-     * 8 格吃掉 52（1.1 档 57）——那时还余二十来像素，`MIN_HEIGHT` 812 没动。
-     * 随后格高又按用户要求加到 75（1.1 档 82.5），8 格再吃 53，812 撑不住，
-     * `MIN_HEIGHT` 因此抬到 **848**、默认窗口 820 → **860**（账在 `lib.rs`）。
-     * 再想加格高、或把工具条请回来，都要回去重新量。 */
+    /* 目录始终整条可见；格高按实际内容区高度收紧，不依赖窗口固定最小高度。 */
     overflow: hidden;
+    container: app-rail / size;
 }
 
 /* ---------- 牌记 ----------
@@ -152,10 +142,6 @@ function onBrandClick(event: MouseEvent) {
  * 方块 48 见方、左右各留 12（栏宽 72 减去槽宽 48 的一半），要上下也留 12，区高就只能
  * 是 48 + 12 + 12 = 72。这不是可以挑的数——`--rail-brand-h` 直接由「槽宽 + 两侧内衬」
  * 算出来，改槽宽或栏内衬时它会自己跟，不用记第二个数。
- *
- * 代价说明白：牌记区从 56 涨到 72，栏高多 16（1.1 档是 17.6），**最小窗口高度跟着涨**
- * （`src-tauri/src/lib.rs` 的 `MIN_HEIGHT` 与那张实测表要一起改）。上一版是「上 0、下 8」，
- * 靠 `margin-bottom` 把留白全塞在下面——那时只求印与目录隔开一段，没求四边等宽。
  *
  * **不画下边框。** 加一条 `--rule` 账线会横穿字的下沿，把牌记切成一个「头部区块」；
  * 可上面放的不是区块名，是一枚直接落在纸上的标。
@@ -214,23 +200,29 @@ function onBrandClick(event: MouseEvent) {
     height: auto;
 }
 
-/* 槽不参与 flex 分配：让它在栏顶按自身高度摆着。
- * **槽顶与页头的下边框同高、不留间距**：牌记区高度与 `PageHeader` 等值，页头底线
- * 就是牌记的底边，槽从这里起排，那条账线才在视觉上「拐个弯继续走」。留 6px 的话，
- * 槽顶比右侧横线低半格，接缝处永远差一个台阶。
- *
- * **栏底原先竖排着两枚 `SlotButton`**（切日夜、开仓库，30px 见方、间距 6、上衬 6、
- * 顶上一道账线）。2026-11-06 按用户要求整块删掉，栏里只剩「牌记 + 目录」，
- * 槽下面那段是留白，不再是第二个功能区。
- *
- * 省下来的高度没有还给窗口，而是换成了格高：用户当天连着两次要求菜单格更松
- * （内边距 5.9 → 9 → 12，见 `VerticalSlider` 的 `--vs-pad`），格高从 62 长到 75
- * （1.1 档 82.5）。73 / 79 只够填第一档，第二次不够，`MIN_HEIGHT` 因此从 812 抬到
- * **848**、默认窗口 820 → **860**（账在 `lib.rs` 那段注释里）。
- * 想把工具条请回来之前先算一笔：那 73 / 79 已经花掉了。 */
-.rail-nav {
+/* 宽屏保留原格高；矮窗口先压缩留白，必要时省去图标，文字入口始终保留。 */
+.rail .rail-nav {
     /* 槽宽由栏给，组件自己那份 34 只在「无父级」时兜底。 */
     --vs-w: var(--rail-slot-w);
+    --vs-cell: min(
+        calc(75px * var(--fs-scale)),
+        calc(
+            (100cqh - var(--rail-brand-h) - 10px - (var(--rail-count) - 1) * var(--vs-gap)) /
+                var(--rail-count)
+        )
+    );
+    --vs-content: calc(51px * var(--fs-scale));
+    --vs-pad: max(0px, calc((var(--vs-cell) - var(--vs-content)) / 2));
     flex: none;
+}
+
+/* 极矮工作区保留全部文字入口，省去图标占用；不缩用户设定的字号。 */
+@container app-rail (max-height: 660px) {
+    .rail .rail-nav {
+        --vs-content: calc(34px * var(--fs-scale));
+    }
+    .rail-nav :deep(.vs-cell > svg) {
+        display: none;
+    }
 }
 </style>

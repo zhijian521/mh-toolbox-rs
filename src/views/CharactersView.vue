@@ -7,6 +7,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { useRouteAction } from '../composables/use-route-action';
 import PageShell from '../components/PageShell.vue';
 import PressButton from '../components/PressButton.vue';
+import SlotButton from '../components/SlotButton.vue';
+import { filterCharacters } from './characters/character-search';
 import { usePersistedSubmit } from '../composables/use-persisted-submit';
 import { useConfirmedRemoval } from '../composables/use-confirmed-removal';
 import CharacterCard from './characters/CharacterCard.vue';
@@ -44,10 +46,13 @@ const { roster, loadError, writeError, pending, flush, retry, add, update, remov
 const route = useRoute();
 const router = useRouter();
 const historyOpen = ref(false);
+const keyword = ref('');
+const visible = computed(() => filterCharacters(roster.value, keyword.value));
 watch(
     () => route.query.character,
     async (id) => {
         if (typeof id !== 'string') return;
+        keyword.value = '';
         await nextTick();
         const card = document.getElementById('character-' + id);
         if (!card) return;
@@ -238,12 +243,28 @@ useRouteAction('/characters', {
             @retry="retry"
         />
 
+        <div v-if="roster.length" class="page-filters character-filters">
+            <input
+                v-model="keyword"
+                class="field filter-search"
+                type="search"
+                aria-label="搜索角色名、门派或区服"
+                placeholder="搜角色名、门派或区服"
+            />
+            <SlotButton v-if="keyword" text="清空" label="清空角色搜索" @click="keyword = ''" />
+            <span class="hint" aria-live="polite"
+                >{{ visible.length }} / {{ roster.length }} 个角色</span
+            >
+        </div>
+        <p v-if="roster.length && !visible.length" class="empty-note">
+            没有匹配的角色，试试其他关键词
+        </p>
         <div class="roster">
             <!-- `quick`：点卡上的行 / 格就开「快速修改」。开关状态在**页面**这一层
                  （`quicking`），卡片只把「点了什么」抛上来——卡是循环渲染的，
                  每张卡各存一个弹窗状态就等于开了 N 个窗。 -->
             <CharacterCard
-                v-for="character in roster"
+                v-for="character in visible"
                 :key="character.id"
                 :character="character"
                 :class="{ 'is-linked': route.query.character === character.id }"
@@ -260,7 +281,7 @@ useRouteAction('/characters', {
                  **所以它也得跟页头那枚同进退**：读失败时名册被清成空，这一格恰好会露出来，
                  不禁用就成了「页头点不动、这里能点进去」，用户填完一整份再被 `persist()` 的闸丢掉。 -->
             <button
-                v-if="!loadError"
+                v-if="!loadError && !keyword.trim()"
                 class="char-blank"
                 type="button"
                 aria-label="新建角色"
@@ -302,6 +323,9 @@ useRouteAction('/characters', {
 </template>
 
 <style scoped>
+.character-filters {
+    gap: 10px;
+}
 /* 名册卡片与空位共用 tokens.css 的 --char-w / --char-h（420 × 640）。
  * 修改窗右栏另用 --char-editor-w 分配宽度，这里只维护名册排法。 */
 .roster {

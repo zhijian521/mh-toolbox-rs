@@ -6,8 +6,9 @@ import PressButton from '../../components/PressButton.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import CharacterCard from './CharacterCard.vue';
-import { PANES, PANE_OPTIONS, type PaneKey } from './character';
+import { PANES, PANE_OPTIONS, type PaneKey, type ReadonlyCharacter } from './character';
 import { loadRoster, useRoster } from './roster';
+import { gameDataReady } from '../../services/game-data';
 
 const route = useRoute();
 const router = useRouter();
@@ -18,6 +19,12 @@ const pane = computed<PaneKey>({
         void router.replace({ query: { ...route.query, pane: value } });
     },
 });
+function editCharacter(character: ReadonlyCharacter, target: PaneKey) {
+    void router.push({
+        path: '/characters',
+        query: { action: 'edit', character: character.id, pane: target },
+    });
+}
 </script>
 
 <template>
@@ -31,11 +38,7 @@ const pane = computed<PaneKey>({
             />
         </template>
 
-        <LoadNotice
-            :error="loadError"
-            :load="loadRoster"
-            :blocked="pending > 0 || !!writeError"
-        />
+        <LoadNotice :error="loadError" :load="loadRoster" :blocked="pending > 0 || !!writeError" />
         <template v-if="!loadError">
             <div class="stats-controls page-filters">
                 <SteppedSlider v-model="pane" :options="PANE_OPTIONS" label="角色统计分区" />
@@ -48,8 +51,11 @@ const pane = computed<PaneKey>({
                     :character="character"
                     :pane="pane"
                     :tabs="false"
+                    edit-shortcut
+                    :disabled="pending > 0 || !!writeError || !gameDataReady"
                     preview
                     compact
+                    @edit="editCharacter(character, $event)"
                 />
             </div>
             <p v-else class="empty-note">还没有记录角色</p>

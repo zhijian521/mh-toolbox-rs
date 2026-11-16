@@ -149,7 +149,9 @@ describe('上线：时间与冲突校验', () => {
         expect(sessionCost(sessions.value[0])).toBe(180000);
         expect(await flush()).toBe(true);
         expect(desktop.onlineSave).toHaveBeenLastCalledWith(
-            expect.objectContaining({ sessions: [expect.objectContaining({ id: before.id, endAt })] }),
+            expect.objectContaining({
+                sessions: [expect.objectContaining({ id: before.id, endAt })],
+            }),
         );
         expect(store.updateOnline(before.id, { note: '只改备注' }).ok).toBe(true);
         expect(sessions.value[0].endAt).toBe(endAt);

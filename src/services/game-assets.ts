@@ -165,7 +165,8 @@ function portraitItems(raw: unknown): AssetItem[] {
             !one.name.trim() ||
             typeof one.img !== 'string' ||
             !/^[\w-]+\.(png|webp)$/i.test(one.img)
-        ) return [];
+        )
+            return [];
         return [
             {
                 key: `portrait:${one.id}`,
@@ -292,7 +293,9 @@ export function filterAssets(
                     item.subgroup,
                     item.note,
                     ...(item.aliases ?? []),
-                ].join(' ').toLowerCase();
+                ]
+                    .join(' ')
+                    .toLowerCase();
                 return words.every((word) => text.includes(word));
             }),
         }))

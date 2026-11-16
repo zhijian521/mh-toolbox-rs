@@ -3,7 +3,8 @@ import { lazyDialog } from '../../components/lazy-dialog';
 import SaveNotice from '../../components/SaveNotice.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
 import { useRouteAction } from '../../composables/use-route-action';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { usePriceViewState } from './price-view-state';
 import AppIcon from '../../components/AppIcon.vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
@@ -66,10 +67,10 @@ const {
  * 一级、二级是两个独立下拉（用户定的）。二级的选项 = 目录里该一级的常见子类
  * ∪ 数据里实际出现过的子类——只用目录的话，用户自造的二级（「三药·秘方」）
  * 在筛选里根本选不到，而它是能存进数据的。 */
-const keyword = ref('');
-const category = ref('');
-const sub = ref('');
-const sort = ref<PriceSort>('updated');
+const { keyword, category, sub, sort, scroll } = usePriceViewState();
+watch([keyword, category, sub, sort], () => {
+    scroll.value.top = 0;
+});
 
 const SORT_OPTIONS: { value: string; label: string }[] = [
     { value: 'updated', label: '最近更新' },
@@ -327,7 +328,7 @@ useRouteAction('/prices', { new: startNew });
 </script>
 
 <template>
-    <PageShell title="物价" desc="物品行情 · 价格记录">
+    <PageShell v-model:scroll-top="scroll.top" title="物价" desc="物品行情 · 价格记录">
         <template #actions>
             <!-- 读失败时底层拒绝一切写入，让这枚按钮可点等于让用户白填一遍。 -->
             <PressButton

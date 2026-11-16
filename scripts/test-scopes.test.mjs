@@ -31,7 +31,9 @@ describe('业务测试分区', () => {
             expect(selected).toContain('src/services/load-data.test.ts');
             expect(selected).toContain('src/services/store-readonly.test.ts');
         }
-        expect(selectTests(['overview'], files)).not.toContain('src/services/store-readonly.test.ts');
+        expect(selectTests(['overview'], files)).not.toContain(
+            'src/services/store-readonly.test.ts',
+        );
     });
 
     it('OCR 不捎带无关页面，未知或空范围明确失败', () => {

@@ -190,7 +190,9 @@ function onEnter(event: KeyboardEvent) {
                             : draft.time + ' 开场'
                     }}
                 </p>
-                <p v-if="submitted && !linkedActivity" class="note error">活动场次已更新，请重新选择</p>
+                <p v-if="submitted && !linkedActivity" class="note error">
+                    活动场次已更新，请重新选择
+                </p>
             </template>
 
             <!-- 时刻与它的条件（星期几 / 哪一天）是一组「什么时候」：组内 10、组外 16，

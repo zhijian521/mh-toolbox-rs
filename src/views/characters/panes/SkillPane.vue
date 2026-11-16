@@ -16,7 +16,12 @@ import type { QuickTarget } from '../quick/quick-target';
  * `tabbed` 只影响 ARIA：预览卡不画页签条时，这一页从 `tabpanel` 降级成 `region`。
  */
 withDefaults(
-    defineProps<{ rows: readonly SkillRow[]; editable?: boolean; tabbed?: boolean; quick?: boolean }>(),
+    defineProps<{
+        rows: readonly SkillRow[];
+        editable?: boolean;
+        tabbed?: boolean;
+        quick?: boolean;
+    }>(),
     { editable: false, tabbed: true, quick: false },
 );
 

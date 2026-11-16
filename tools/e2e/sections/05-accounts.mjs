@@ -79,21 +79,32 @@ export default async function run(ctx) {
             for (const title of ['买入游戏币', '卖出游戏币', '卖出装备', '卖出召唤兽']) {
                 await ui.clickLabelPrefix(title + '，');
                 await ui.waitFor(`!!document.querySelector('input[aria-label="成交金额"]')`);
-                t.check(title + '默认藏宝阁', await cdp.evaluate(
-                    `document.querySelector('[aria-label="交易渠道"]')?.textContent.includes('藏宝阁')`,
-                ));
+                t.check(
+                    title + '默认藏宝阁',
+                    await cdp.evaluate(
+                        `document.querySelector('[aria-label="交易渠道"]')?.textContent.includes('藏宝阁')`,
+                    ),
+                );
                 if (title === '买入游戏币') {
                     t.check('买入不扣费', !(await ui.exists('.fee-preview')));
                 } else {
                     await ui.fill('成交金额', '100.3');
-                    t.check(title + '向上取分并展示实得', await cdp.waitFor(
-                        `document.querySelector('.fee-amounts')?.textContent.includes('5.02') && document.querySelector('.fee-amounts')?.textContent.includes('95.28')`,
-                    ));
+                    t.check(
+                        title + '向上取分并展示实得',
+                        await cdp.waitFor(
+                            `document.querySelector('.fee-amounts')?.textContent.includes('5.02') && document.querySelector('.fee-amounts')?.textContent.includes('95.28')`,
+                        ),
+                    );
                     await ui.fill('成交金额', '0.01');
-                    t.check('实得为零禁止记入', await cdp.evaluate(
-                        `document.querySelector('button[aria-label="记入账本"]')?.disabled === true`,
-                    ));
-                    t.check('手续费两格开关在价格下方居中，默认是，只显示手续费与实得', await cdp.evaluate(`(() => {
+                    t.check(
+                        '实得为零禁止记入',
+                        await cdp.evaluate(
+                            `document.querySelector('button[aria-label="记入账本"]')?.disabled === true`,
+                        ),
+                    );
+                    t.check(
+                        '手续费两格开关在价格下方居中，默认是，只显示手续费与实得',
+                        await cdp.evaluate(`(() => {
                         const group = document.querySelector('.fee-switch [aria-label="是否扣除手续费"]');
                         const amount = document.querySelector('.amount-row input');
                         const row = document.querySelector('.amount-row');
@@ -108,14 +119,20 @@ export default async function run(ctx) {
                             row.querySelectorAll('.fee-preview p').length === 1 &&
                             !row.querySelector('.fee-preview .note') &&
                             amount && amount.getBoundingClientRect().bottom <= group.getBoundingClientRect().top;
-                    })()`));
-                    await ui.clickText('[aria-label="是否扣除手续费"] button', '否', { exact: true });
+                    })()`),
+                    );
+                    await ui.clickText('[aria-label="是否扣除手续费"] button', '否', {
+                        exact: true,
+                    });
                     await ui.waitFor(`!!document.querySelector('input[aria-label="实得金额"]')`);
                     await ui.fill('实得金额', '95.28');
                     t.check('可直接填写实得且不再扣费', !(await ui.exists('.fee-preview')));
                     await ui.clickLabel('交易渠道');
                     await ui.clickText('[role="option"]', '游戏内', { exact: true });
-                    t.check('游戏内交易不展示手续费', !(await ui.exists('[aria-label="是否扣除手续费"]')));
+                    t.check(
+                        '游戏内交易不展示手续费',
+                        !(await ui.exists('[aria-label="是否扣除手续费"]')),
+                    );
                 }
                 await ui.clickLabel('关闭账目编辑');
                 await ui.waitFor(`!document.querySelector('[role="dialog"]')`);
@@ -133,7 +150,9 @@ export default async function run(ctx) {
             });
             t.check('记一笔的弹窗开了', opened);
 
-            t.check('角色单选胶囊在方向日期上方，默认不指定', await cdp.evaluate(`(() => {
+            t.check(
+                '角色单选胶囊在方向日期上方，默认不指定',
+                await cdp.evaluate(`(() => {
                 const group = document.querySelector('[aria-label="这笔账记给哪个角色"]');
                 const selected = group?.querySelectorAll('[aria-checked="true"]');
                 const direction = document.querySelector('[aria-label="收支方向"]');
@@ -143,16 +162,24 @@ export default async function run(ctx) {
                     group.querySelectorAll('[role="radio"]').length >= 1 &&
                     !group.querySelector('[aria-haspopup="listbox"]') &&
                     characterField?.nextElementSibling === direction?.closest('.pair');
-            })()`));
-            const characterCount = await ui.count('[aria-label="这笔账记给哪个角色"] [role="radio"]');
+            })()`),
+            );
+            const characterCount = await ui.count(
+                '[aria-label="这笔账记给哪个角色"] [role="radio"]',
+            );
             if (characterCount > 1) {
                 await cdp.evaluate(
                     `document.querySelector('[aria-label="这笔账记给哪个角色"] [role="radio"]:nth-child(2)')?.click()`,
                 );
-                t.check('选择角色后仍只选中一枚胶囊', await cdp.evaluate(
-                    `document.querySelectorAll('[aria-label="这笔账记给哪个角色"] [aria-checked="true"]').length === 1 && document.querySelector('[aria-label="这笔账记给哪个角色"] [role="radio"]:nth-child(2)')?.getAttribute('aria-checked') === 'true'`,
-                ));
-                await ui.clickText('[aria-label="这笔账记给哪个角色"] button', '不指定', { exact: true });
+                t.check(
+                    '选择角色后仍只选中一枚胶囊',
+                    await cdp.evaluate(
+                        `document.querySelectorAll('[aria-label="这笔账记给哪个角色"] [aria-checked="true"]').length === 1 && document.querySelector('[aria-label="这笔账记给哪个角色"] [role="radio"]:nth-child(2)')?.getAttribute('aria-checked') === 'true'`,
+                    ),
+                );
+                await ui.clickText('[aria-label="这笔账记给哪个角色"] button', '不指定', {
+                    exact: true,
+                });
             }
 
             await ui.fill('备注', MARK);

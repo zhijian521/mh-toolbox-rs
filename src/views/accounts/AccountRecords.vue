@@ -33,8 +33,18 @@ import { loadAccounts, useAccounts } from './accounts-store';
 
 const emit = defineEmits<{ close: []; edit: [entry: AccountEntry] }>();
 const filters = defineModel<AccountRecordFilters>({ required: true });
-const { currency, kind, category, channel, who, source, from, to, keyword, page: selectedPage } =
-    toRefs(filters.value);
+const {
+    currency,
+    kind,
+    category,
+    channel,
+    who,
+    source,
+    from,
+    to,
+    keyword,
+    page: selectedPage,
+} = toRefs(filters.value);
 const { scroll, rememberScroll } = useRecordScroll(filters);
 const { entries, removeEntry, flush, retry, pending, writeError, loadError } = useAccounts();
 const { roster } = useRoster();

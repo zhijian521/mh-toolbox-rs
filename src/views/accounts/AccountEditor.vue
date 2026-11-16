@@ -82,8 +82,8 @@ watch(
     },
     { flush: 'sync' },
 );
-const preserveAmount = computed(
-    () => Boolean(props.entry && !amountEdited.value && !deductFee.value),
+const preserveAmount = computed(() =>
+    Boolean(props.entry && !amountEdited.value && !deductFee.value),
 );
 
 const unit = computed(() => CURRENCY_META[currency.value].unit);
@@ -230,7 +230,9 @@ function submit() {
                     >
                         <p v-if="feeQuote" class="fee-amounts">
                             <span>手续费 {{ accountValueText(feeQuote.fee, 'rmb') }}</span>
-                            <span>实得 <b>{{ accountValueText(feeQuote.net, 'rmb') }}</b></span>
+                            <span
+                                >实得 <b>{{ accountValueText(feeQuote.net, 'rmb') }}</b></span
+                            >
                         </p>
                         <p v-else class="note error">规则未加载，请选择不扣费并填写实得。</p>
                     </div>

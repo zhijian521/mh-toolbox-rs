@@ -25,7 +25,7 @@ import {
     sortedPoints,
     updateSummary,
 } from './prices';
-import type { PriceFilter, PriceItem, PricePoint, PriceSort } from './prices';
+import type { PriceFilter, PriceItem, PricePoint, PriceSort, ReadonlyPriceItem } from './prices';
 
 /**
  * 物价的纯函数层。
@@ -294,7 +294,7 @@ const 定魂珠 = makeItem('定魂珠', [point(30000, '2026-11-03'), point(20000
 describe('filterItems：五种排序', () => {
     /** 故意乱序传入：排序不该依赖输入顺序。 */
     const items = [藏宝图, 金刚石, 定魂珠];
-    const names = (list: PriceItem[]) => list.map((item) => item.name);
+    const names = (list: readonly ReadonlyPriceItem[]) => list.map((item) => item.name);
 
     it('updated（基准顺序）：最近更新的在前', () => {
         expect(names(filterItems(items, filterOf('updated')))).toEqual([
@@ -349,7 +349,7 @@ describe('filterItems：五种排序', () => {
 
 describe('filterItems：筛选条件', () => {
     const items = [藏宝图, 金刚石, 定魂珠];
-    const names = (list: PriceItem[]) => list.map((item) => item.name);
+    const names = (list: readonly ReadonlyPriceItem[]) => list.map((item) => item.name);
 
     it('关键词命中名称、二级分类、单位、备注里的任意一个', () => {
         expect(names(filterItems(items, filterOf('updated', { keyword: '金刚' })))).toEqual([

@@ -50,8 +50,7 @@ const loaded = ref(false);
 
 /** 一次写入的结果。速记要据此弹一句话（或红字）。 */
 export type IncomeWrite =
-    | { ok: true; entries: readonly Readonly<IncomeEntry>[] }
-    | { ok: false; error: string };
+    { ok: true; entries: readonly Readonly<IncomeEntry>[] } | { ok: false; error: string };
 
 interface StoredShape {
     entries: unknown;
@@ -89,7 +88,13 @@ let previousCards: readonly ReadonlyPriceItem[] = [];
 const stopPriceLinks = watch(
     [loaded, market.loaded, gameDataReady, market.items],
     ([incomeReady, marketReady, rulesReady, cards]) => {
-        if (!incomeReady || !marketReady || !rulesReady || loadError.value || market.loadError.value) {
+        if (
+            !incomeReady ||
+            !marketReady ||
+            !rulesReady ||
+            loadError.value ||
+            market.loadError.value
+        ) {
             linksReady = false;
             return;
         }
@@ -341,8 +346,8 @@ export function mergePrices(
     const { next, added, updated, unchanged } = planPriceImport(prices.value, incoming);
     if (added + updated + unchanged === 0) return { ok: false, error: '这份文件里没有能用的单价' };
     if (added + updated > 0) {
-        const rows = quickItems().fixed
-            .filter((item) => next[item.id] && next[item.id] !== prices.value[item.id])
+        const rows = quickItems()
+            .fixed.filter((item) => next[item.id] && next[item.id] !== prices.value[item.id])
             .map((item) => ({ name: item.name, price: next[item.id] }));
         if (!writePriceCards(rows)) return { ok: false, error: writeError.value };
         prices.value = next;

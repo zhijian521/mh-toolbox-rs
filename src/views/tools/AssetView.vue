@@ -64,9 +64,8 @@ const levelOptions = computed(() => [
     { value: 'all', label: '全部等级' },
     ...[
         ...new Set(
-            current.value?.items.flatMap((one) =>
-                one.level === undefined ? [] : [one.level],
-            ) ?? [],
+            current.value?.items.flatMap((one) => (one.level === undefined ? [] : [one.level])) ??
+                [],
         ),
     ]
         .sort((a, b) => a - b)
@@ -82,7 +81,9 @@ watch(
 );
 watch(
     [kind, keyword, subgroup, level],
-    () => { page.value = 1; },
+    () => {
+        page.value = 1;
+    },
     { flush: 'sync' },
 );
 
@@ -119,9 +120,10 @@ const visible = computed(() => {
             {
                 ...section,
                 groups: [...groups].map(([name, entries]) => ({ name, items: entries })),
-                summary: items.length === section.items.length
-                    ? `${section.items.length} 项`
-                    : `本页 ${items.length} / ${section.items.length} 项`,
+                summary:
+                    items.length === section.items.length
+                        ? `${section.items.length} 项`
+                        : `本页 ${items.length} / ${section.items.length} 项`,
             },
         ];
     });
@@ -133,9 +135,10 @@ const missingHere = computed(() =>
 const hasFilters = computed(
     () => !!keyword.value.trim() || subgroup.value !== 'all' || level.value !== 'all',
 );
-const warningText = computed(() => failed.value
-    ? '资源清单加载失败。'
-    : `未加载：${unavailable.value.map((one) => one.title).join('、')}`,
+const warningText = computed(() =>
+    failed.value
+        ? '资源清单加载失败。'
+        : `未加载：${unavailable.value.map((one) => one.title).join('、')}`,
 );
 const countText = computed(() => {
     if (loading.value) return '正在加载…';
@@ -146,7 +149,9 @@ const emptyTitle = computed(() => {
     if (missingHere.value) return '当前范围有资源未加载';
     return hasFilters.value ? '没有匹配的资源' : '这个分类暂无资源';
 });
-const previewSection = computed(() => sections.value.find((one) => one.kind === preview.value?.kind));
+const previewSection = computed(() =>
+    sections.value.find((one) => one.kind === preview.value?.kind),
+);
 const emptyDescription = computed(() => {
     if (failed.value || missingHere.value) return '请重试加载资源后再查看。';
     return hasFilters.value ? '换个关键词，或清除筛选后查看。' : '可以切换其他分类查看。';
@@ -181,7 +186,9 @@ function turnPage(next: number) {
                 class="field asset-search"
                 type="search"
                 aria-label="搜索资源名"
-                :placeholder="kind === 'all' ? '搜索全部资源、名称或别名' : '搜索当前分类、名称或别名'"
+                :placeholder="
+                    kind === 'all' ? '搜索全部资源、名称或别名' : '搜索当前分类、名称或别名'
+                "
             />
             <SelectField
                 v-model="kind"
@@ -204,23 +211,13 @@ function turnPage(next: number) {
                 :options="levelOptions"
                 label="按等级筛选"
             />
-            <PressButton
-                v-if="hasFilters"
-                text="清除"
-                label="清除资源筛选"
-                @click="clearFilters"
-            />
+            <PressButton v-if="hasFilters" text="清除" label="清除资源筛选" @click="clearFilters" />
             <span class="asset-count" role="status">{{ countText }}</span>
         </div>
 
         <div v-if="unavailable.length || failed" class="asset-warning" role="status">
             <span>{{ warningText }}</span>
-            <PressButton
-                text="重试"
-                label="重试加载资源"
-                :disabled="loading"
-                @click="load"
-            />
+            <PressButton text="重试" label="重试加载资源" :disabled="loading" @click="load" />
         </div>
 
         <div v-if="loading && !sections.length" class="asset-void page-empty" role="status">

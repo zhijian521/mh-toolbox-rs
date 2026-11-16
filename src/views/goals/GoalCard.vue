@@ -12,7 +12,12 @@ import {
     type GoalSummary,
 } from './goals';
 
-const props = defineProps<{ goal: ReadonlyGoal; summary: GoalSummary; today: string; disabled: boolean }>();
+const props = defineProps<{
+    goal: ReadonlyGoal;
+    summary: GoalSummary;
+    today: string;
+    disabled: boolean;
+}>();
 const emit = defineEmits<{ edit: []; remove: []; record: []; growth: []; bought: [] }>();
 const deadline = computed(() => deadlineText(props.goal.deadline, props.today, props.summary.done));
 const rows = computed(() =>

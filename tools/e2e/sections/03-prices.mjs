@@ -28,6 +28,47 @@ export default async function run(ctx) {
         baseline.prices = await ui.count('article.price-card');
         t.info('物价现有物品', `${baseline.prices} 件`);
 
+        await t.step('切页返回保留物价搜索，可一次清除', async () => {
+            await ui.fill('搜索物品名、子类或备注', '__E2E_筛选记忆__');
+            await ui.goto('角色');
+            await ui.goto('物价');
+            t.check(
+                '返回保留搜索条件',
+                await cdp.evaluate(
+                    `document.querySelector('[aria-label="搜索物品名、子类或备注"]')?.value === '__E2E_筛选记忆__'`,
+                ),
+            );
+            await ui.clickLabel('清除筛选');
+            t.check(
+                '清除后恢复完整物价表',
+                (await ui.count('article.price-card')) === baseline.prices,
+            );
+            const top = await cdp.evaluate(`(() => {
+                const page = document.querySelector('.page-content');
+                page.scrollTop = Math.min(300, page.scrollHeight - page.clientHeight);
+                return page.scrollTop;
+            })()`);
+            if (top > 0) {
+                await sleep(150);
+                await ui.goto('角色');
+                await ui.goto('物价');
+                t.check(
+                    '返回恢复物价滚动位置',
+                    await cdp.waitFor(
+                        `Math.abs(document.querySelector('.page-content').scrollTop - ${top}) <= 1`,
+                    ),
+                );
+                await ui.fill('搜索物品名、子类或备注', '__E2E_清除滚动__');
+                await ui.clickLabel('清除筛选');
+                t.check(
+                    '改变筛选回到列表顶部',
+                    await cdp.evaluate(`document.querySelector('.page-content').scrollTop === 0`),
+                );
+            } else {
+                t.info('滚动记忆', '当前物价不足一屏，无需恢复滚动位置');
+            }
+        });
+
         await t.step('新建物品并定初始价 3.5 万', async () => {
             await ui.clickLabel('新建一件物品');
             const open = await cdp.waitFor(

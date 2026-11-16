@@ -173,7 +173,9 @@ describe('资源索引', () => {
         ]);
         expect(pets[2].note).toBe('神兽升星·强化');
         expect(filterAssets(list, { kind: 'pet', keyword: '泡泡相伴' })[0].items).toHaveLength(2);
-        expect(filterAssets(list, { kind: 'all', keyword: '神兽 强化' })[0].items).toEqual([pets[2]]);
+        expect(filterAssets(list, { kind: 'all', keyword: '神兽 强化' })[0].items).toEqual([
+            pets[2],
+        ]);
     });
 
     it('头像使用清单文件名，旧编号别名命中同一个头像，坏条目不阻断其他头像', () => {
@@ -198,12 +200,16 @@ describe('资源索引', () => {
         const portraits = sectionOf(list, 'portrait')?.items ?? [];
         expect(portraits).toHaveLength(1);
         expect(portraits[0].img).toContain('game/icons/pet-portrait/rabbit.webp');
-        expect(filterAssets(list, { kind: 'all', keyword: '  pet-2501  ' })[0].items).toEqual(portraits);
+        expect(filterAssets(list, { kind: 'all', keyword: '  pet-2501  ' })[0].items).toEqual(
+            portraits,
+        );
     });
 
     it('全分类搜索匹配分类与门派，局部搜索不穿透分类', () => {
         const list = buildAssets(make());
-        expect(filterAssets(list, { kind: 'all', keyword: '技能 龙宫' })[0].items[0].name).toBe('龙腾');
+        expect(filterAssets(list, { kind: 'all', keyword: '技能 龙宫' })[0].items[0].name).toBe(
+            '龙腾',
+        );
         expect(filterAssets(list, { kind: 'weapon', keyword: '龙宫' })).toEqual([]);
         expect(filterAssets(list, { kind: 'all', keyword: '不存在的资源' })).toEqual([]);
         expect(filterAssets(list, { kind: 'gear', subgroup: '鞋子' })).toEqual([]);

@@ -6,8 +6,80 @@ export default async function run(ctx) {
     if (want('设置')) {
         t.section('7 设置 · 风格、明暗、字体、字号、导入与清除的确认窗');
 
+        await t.step('小屏大字号导航完整，角色编辑和保存区不越界', async () => {
+            const original = await cdp.evaluate(`({
+                scale: document.documentElement.style.getPropertyValue('--fs-scale'),
+            })`);
+            try {
+                for (const [width, height] of [
+                    [1024, 600],
+                    [879, 461],
+                ]) {
+                    await cdp.send('Emulation.setDeviceMetricsOverride', {
+                        width,
+                        height,
+                        deviceScaleFactor: 1,
+                        mobile: false,
+                    });
+                    await cdp.evaluate(
+                        `document.documentElement.style.setProperty('--fs-scale', '1.1')`,
+                    );
+                    await ui.goto('角色');
+                    await ui.clickLabel('新建角色');
+                    await ui.waitFor(`!!document.querySelector('.ocr')`);
+                    const layout = await cdp.evaluate(`(() => {
+                        const inside = (el) => {
+                            const box = el.getBoundingClientRect();
+                            return box.width > 0 && box.height > 0 && box.left >= 0 &&
+                                box.top >= 0 && box.right <= innerWidth + 1 && box.bottom <= innerHeight + 1;
+                        };
+                        const nav = [...document.querySelectorAll('.rail .vs-cell')];
+                        const panel = document.querySelector('.modal-panel');
+                        const footer = panel.querySelector('.modal-foot');
+                        const upload = panel.querySelector('.screenshot-upload');
+                        const left = upload.querySelector('.upload-left').getBoundingClientRect();
+                        const detail = upload.querySelector('.upload-detail').getBoundingClientRect();
+                        return {
+                            nav: nav.length === 8 && nav.every(inside),
+                            panel: inside(panel),
+                            footer: inside(footer),
+                            actions: [...footer.querySelectorAll('button')].every(inside),
+                            overflow: upload.scrollWidth - upload.clientWidth,
+                            separated: left.right <= detail.left || left.bottom <= detail.top,
+                            width: panel.getBoundingClientRect().width,
+                        };
+                    })()`);
+                    t.check(
+                        `${width}×${height} 保留八个导航及完整保存区`,
+                        layout.nav &&
+                            layout.panel &&
+                            layout.footer &&
+                            layout.actions &&
+                            layout.separated &&
+                            layout.overflow <= 1,
+                        JSON.stringify(layout),
+                    );
+                    await ui.clickLabel('放弃这次修改');
+                    await ui.waitFor(`!document.querySelector('.ocr')`);
+                }
+            } finally {
+                await ui.dismiss();
+                await cdp.send('Emulation.clearDeviceMetricsOverride');
+                await cdp.evaluate(
+                    `document.documentElement.style.setProperty('--fs-scale', ${JSON.stringify(original.scale)})`,
+                );
+                await ui.goto('设置');
+            }
+        });
+
         await t.step('本地备份列表可打开并取消，不执行恢复', async () => {
             await ui.goto('设置');
+            await cdp.waitFor(`!!document.querySelector('.backup-status .note') &&
+                !document.querySelector('.backup-status')?.textContent.includes('正在读取')`);
+            t.check(
+                '设置页直接展示自动备份时间或明确状态',
+                /最近自动备份|尚无自动备份|备份状态读取失败/.test(await ui.text('.backup-status')),
+            );
             await ui.clickLabel('查看本地备份与恢复');
             await cdp.waitFor(
                 `!!document.querySelector('.backup-list') || !!document.querySelector('[role="dialog"] .record-empty')`,

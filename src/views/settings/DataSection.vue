@@ -3,6 +3,8 @@ import { onMounted, ref } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import SlotButton from '../../components/SlotButton.vue';
 import BackupHistory from './BackupHistory.vue';
+import { backupTime, useBackups } from './use-backups';
+import { hasDesktop } from '../../services/desktop';
 import { askConfirm } from '../../composables/use-confirm';
 import {
     dataClear,
@@ -60,6 +62,21 @@ import { POINT_LIMIT } from '../prices/prices';
  */
 const busy = ref(false);
 const backupsOpen = ref(false);
+const desktop = hasDesktop();
+const {
+    entries,
+    loading,
+    loaded,
+    error,
+    warning: backupWarning,
+    latestDaily,
+    refresh,
+} = useBackups();
+onMounted(refresh);
+function openBackups() {
+    backupsOpen.value = true;
+    void refresh();
+}
 async function restore(entry: BackupEntry) {
     if (busy.value) return;
     const ok = await askConfirm({
@@ -281,10 +298,29 @@ onMounted(() => {
                 icon="history"
                 text="恢复"
                 label="查看本地备份与恢复"
-                :disabled="busy"
-                @click="backupsOpen = true"
+                :disabled="busy || !desktop"
+                @click="openBackups"
             />
-            <span class="hint">自动留存最近 14 份日常备份</span>
+            <span class="hint">留存最近 14 份日常备份</span>
+        </div>
+        <div class="backup-status" role="status">
+            <p v-if="!desktop" class="note">自动备份在桌面版可用</p>
+            <template v-else>
+                <p v-if="latestDaily" class="note">
+                    最近自动备份：{{ backupTime(latestDaily.createdAt) }}
+                </p>
+                <p v-else-if="loading && !loaded" class="note">正在读取备份状态…</p>
+                <p v-else-if="loaded && !error" class="note">尚无自动备份</p>
+                <p v-if="backupWarning" class="note error">自动备份未完成：{{ backupWarning }}</p>
+                <p v-if="error" class="note error">备份状态读取失败：{{ error }}</p>
+                <SlotButton
+                    v-if="error"
+                    text="重新读取"
+                    label="重新读取备份状态"
+                    :disabled="loading || busy"
+                    @click="refresh"
+                />
+            </template>
         </div>
 
         <div class="danger-zone">
@@ -317,7 +353,12 @@ onMounted(() => {
     <BackupHistory
         v-if="backupsOpen"
         :busy="busy"
+        :entries="entries"
+        :loading="loading"
+        :error="error"
+        :warning="backupWarning"
         :restore-error="messageKind === 'error' ? message : ''"
+        @refresh="refresh"
         @close="backupsOpen = false"
         @restore="restore"
     />
@@ -326,6 +367,13 @@ onMounted(() => {
 <style scoped>
 .backup-entry {
     margin-top: 12px;
+}
+.backup-status {
+    margin-left: calc(2em + 10px);
+    overflow-wrap: anywhere;
+}
+.backup-status .note {
+    margin: 6px 0 0;
 }
 /* 行本身是全局 `.form-row`（`base.css`：flex + gap 10），纵向节奏留给这一页——
  * 与 `AppearanceSection.vue` 同一处写法、同一个 12px：两张卡并排时行距不一致，

@@ -339,8 +339,7 @@ describe('收益固定单价与物价卡片联动', () => {
         expect(market.items.value).toHaveLength(1);
         expect(market.items.value[0].id).toBe(id);
         expect(market.items.value[0].points.map((point) => point.price)).toEqual([
-            123_400,
-            150_000,
+            123_400, 150_000,
         ]);
         expect(await income.flush()).toBe(true);
         await load();
@@ -489,7 +488,8 @@ describe('收益固定单价与物价卡片联动', () => {
             }).ok,
         ).toBe(false);
         expect(
-            market.addItem({ name: fixed[1].name, category: card.category, sub: '', note: '' }, 1).ok,
+            market.addItem({ name: fixed[1].name, category: card.category, sub: '', note: '' }, 1)
+                .ok,
         ).toBe(false);
         expect(market.items.value).toHaveLength(1);
         expect(market.items.value[0].points).toHaveLength(1);

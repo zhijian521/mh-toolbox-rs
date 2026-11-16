@@ -70,7 +70,10 @@ let timer: ReturnType<typeof setInterval> | undefined;
  * 弹一条提醒。`time` 是**这一次**的响铃时刻，不是 `alarm.time`：
  * `每小时` 的闹钟 `alarm.time` 存的是 `00:30`（小时是占位），念出来会让人以为定在半夜。
  */
-function ring(hit: { alarm: { id: number; label: string }; key: string; remindAt: Date }, now: Date) {
+function ring(
+    hit: { alarm: { id: number; label: string }; key: string; remindAt: Date },
+    now: Date,
+) {
     const name = hit.alarm.label || '闹钟';
     /* 键是 `<日期> <时刻>`，后 5 位就是这次的 `HH:mm`。 */
     const time = hit.key.slice(-5);

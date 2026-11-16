@@ -2,13 +2,21 @@ export async function stats(ctx) {
     await ctx.t.step('角色统计二级页完整对照并可返回', async () => {
         await ctx.ui.goto('角色');
         const count = await ctx.ui.count('.roster .char');
+        await ctx.ui.fill('搜索角色名、门派或区服', '__E2E_没有匹配角色__');
+        ctx.t.check(
+            '角色搜索无结果时不展示新增空位',
+            (await ctx.ui.count('.roster .char')) === 0 && !(await ctx.ui.exists('.char-blank')),
+        );
+        await ctx.ui.clickLabel('清空角色搜索');
+        ctx.t.check('清空搜索恢复完整名册', (await ctx.ui.count('.roster .char')) === count);
         await ctx.ui.clickLabel('查看所有角色统计');
         await ctx.cdp.waitFor(`location.hash.startsWith('#/characters/stats')`);
         await ctx.cdp.waitFor(`!!document.querySelector('.stats-grid .compact')`);
         ctx.t.check(
-            '统计使用全部真实角色且不显示编辑与删除入口',
+            '统计使用全部真实角色，每张卡提供编辑但不显示删除',
             (await ctx.ui.count('.stats-grid .char')) === count &&
-                !(await ctx.ui.exists('.stats-grid .head-actions')),
+                (await ctx.ui.count('.stats-grid .head-actions button')) === count &&
+                !(await ctx.ui.exists('.stats-grid [aria-label="删除这个角色"]')),
         );
         const sections = [
             ['属性', '.attr-layout .slip-row'],
@@ -107,6 +115,21 @@ export async function stats(ctx) {
         await ctx.ui.clickLabel('返回角色页面');
         await ctx.cdp.waitFor(`!!document.querySelector('.roster')`);
         ctx.t.check('返回后名册数量不变', (await ctx.ui.count('.roster .char')) === count);
+        await ctx.ui.clickLabel('查看所有角色统计');
+        await ctx.cdp.waitFor(`!!document.querySelector('.stats-grid')`);
+        await ctx.ui.clickText('[aria-label="角色统计分区"] button', '修炼', { exact: true });
+        await ctx.ui.markFirst(
+            `() => document.querySelector('.stats-grid [aria-label="编辑这个角色"]')`,
+        );
+        await ctx.cdp.click('[data-e2e="1"]');
+        await ctx.cdp.waitFor(`!!document.querySelector('[aria-label="修改分区"]')`);
+        ctx.t.check(
+            '统计编辑直接进入所选角色的修炼分区',
+            await ctx.cdp.evaluate(
+                `document.querySelector('[aria-label="修改分区"] [aria-checked="true"]')?.textContent.trim() === '修炼'`,
+            ),
+        );
+        await ctx.ui.clickLabel('放弃这次修改');
         await ctx.ui.clickLabel('查看所有角色统计');
         await ctx.cdp.waitFor(`!!document.querySelector('.stats-grid')`);
         await ctx.ui.goto('角色');

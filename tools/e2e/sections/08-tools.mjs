@@ -198,18 +198,23 @@ export default async function run(ctx) {
                 const heading = document.querySelector('.asset-sub');
                 const marker = heading.querySelector('.section-mark').getBoundingClientRect();
                 const text = heading.lastElementChild.getBoundingClientRect();
-                const style = getComputedStyle(heading);
+                const range = document.createRange();
+                range.selectNodeContents(heading.lastElementChild);
                 const scale = parseFloat(getComputedStyle(input).getPropertyValue('--fs-scale')) || 1;
                 return {
                     width: input.getBoundingClientRect().width,
                     expected: Math.min(260 * scale, bar.getBoundingClientRect().width),
-                    singleLine: text.height <= parseFloat(style.lineHeight) + 1,
+                    singleLine: range.getClientRects().length === 1,
                     besideMarker: text.left >= marker.right &&
                         Math.abs((text.top + text.bottom - marker.top - marker.bottom) / 2) <= 1,
                 };
             })()`);
             t.check('搜索框保持固定宽度', Math.abs(layout.width - layout.expected) <= 1);
-            t.check('分组标题单行且位于竖条右侧', layout.singleLine && layout.besideMarker);
+            t.check(
+                '分组标题单行且位于竖条右侧',
+                layout.singleLine && layout.besideMarker,
+                JSON.stringify(layout),
+            );
             t.check('每页限制图标数量', (await ui.count('.asset-cell')) <= 120);
             await ui.clickLabel('资源下一页');
             t.check(
@@ -346,9 +351,12 @@ export default async function run(ctx) {
                 });
                 if (!entered) throw new Error(`点了活动日历，地址还是 ${await ui.hash()}`);
 
-                const loaded = await cdp.waitFor(`document.querySelectorAll('.card').length >= 10`, {
-                    timeout: 8000,
-                });
+                const loaded = await cdp.waitFor(
+                    `document.querySelectorAll('.card').length >= 10`,
+                    {
+                        timeout: 8000,
+                    },
+                );
                 if (!loaded) throw new Error('活动卡片没出来');
 
                 const groups = await ui.count('.group');
@@ -389,7 +397,8 @@ export default async function run(ctx) {
                     return after?.querySelector('.tag')?.textContent?.trim() ?? '';
                 })()`);
                 t.check('加完提醒，卡上标记「已设提醒」', added === '已设提醒', String(added));
-                const linked = await cdp.evaluate(`JSON.parse(localStorage.getItem('mh-alarms')).some(
+                const linked =
+                    await cdp.evaluate(`JSON.parse(localStorage.getItem('mh-alarms')).some(
                     (one) => one.repeat === 'activity' && one.activityId === 'exam' && one.time === '12:00'
                 )`);
                 t.check('月度活动按 ID 与场次保存', linked);

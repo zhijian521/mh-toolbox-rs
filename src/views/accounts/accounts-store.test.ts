@@ -130,7 +130,10 @@ describe('账号写入边界', () => {
     });
 
     it('普通装备和召唤兽卖出手续费封顶，卖币不套用物品封顶', async () => {
-        const store = await loadStore(host(async () => []), true);
+        const store = await loadStore(
+            host(async () => []),
+            true,
+        );
         for (const category of ['装备交易', '召唤兽交易']) {
             const result = store.addEntry({ ...sale, category, amount: 30000 });
             expect(result.ok && result.entry.amount).toBe(29000);
@@ -141,7 +144,10 @@ describe('账号写入边界', () => {
     });
 
     it('购买、游戏内、梦幻币及直接填写实得都不扣手续费', async () => {
-        const store = await loadStore(host(async () => []), true);
+        const store = await loadStore(
+            host(async () => []),
+            true,
+        );
         const inputs = [
             { ...sale, kind: 'expense' as const, category: '游戏币买入' },
             { ...sale, kind: 'expense' as const, category: '装备交易' },

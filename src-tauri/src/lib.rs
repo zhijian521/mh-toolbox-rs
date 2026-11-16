@@ -23,6 +23,7 @@ mod store;
  * 序列化、SQLite 都不认 Win32，唯一带平台味的对话框整个交给 `tauri-plugin-dialog`。
  * 所以这里没有 `#[cfg(windows)]`——别因为相邻几行都有就顺手加上。 */
 mod backup;
+mod window_layout;
 
 /// 前端「关于」要的那点信息。
 ///
@@ -252,63 +253,40 @@ fn debug_browser_args() -> Option<String> {
     None
 }
 
-/// 主窗口。
-///
-/// 尺寸原本与 `tauri.conf.json` 声明的一致（1280×820 / 居中），改成代码里建是为了
-/// 挂调试参数；高度随侧栏牌记与格高调整过两轮，原因见下。
-///
-/// **最小高度是量出来的，不是估的。** 侧栏不滚动（`AppRail.vue` 的
-/// `overflow: hidden`），高度由字体三档缩放决定，且**每一次改侧栏的纵向尺寸都要回来复量**。
-///
-/// 2026-11-06 那一轮把侧栏纵向加了这几笔（槽 34 → 48、槽内衬上下 2 → 4、底栏间距 8 → 6、
-/// 牌记从「按页头 45.3」改成 48 的方印），随后又要求**牌记四边留白同值**——方块是方的、
-/// 到左右栏边的距离本来就是栏内衬 12，要上下也留 12，牌记区就只能等于栏宽 72（56 → 72）。
-/// 实测（探针把视口钉在 690 上，读 `rail.scrollHeight`，各档字号一次）：
-///
-/// | 字号档 | `--fs-scale` | 侧栏需要 | 加 40 标题栏 |
-/// | --- | --- | --- | --- |
-/// | 较小 | 0.92 | 657 以内（装得下） | 697 |
-/// | 默认 | 1 | 698 | 738 |
-/// | 较大 | 1.1 | **765** | **805** |
-///
-/// **这个数现在是 848，不是 812。** 2026-11-06 同一天里改了两次，两次都是同一件事的
-/// 副作用——菜单格的上下内边距（`VerticalSlider` 的 `--vs-pad`）：
-///
-/// 1. 先删掉栏底两枚 30px 按钮（切日夜、开仓库），让出 73（1.1 档 79）；
-///    同时把格高从 62 加到 69（内边距 9），8 格吃掉 52 / 57。两笔相抵，余量从 7 涨到约 25
-///    ——那一轮 812 还够，所以没动。
-/// 2. 用户接着要求「默认和较大时候再大一点」，内边距 9 → **12**：格高 1 档 75、1.1 档 82.5，
-///    8 格再吃 53。「较大」档的需求变成 839.7 + 40 的标题条，812 撑不住。
-///
-/// 于是抬到 **848**（较大档余 8.3），默认窗口跟着 820 → **860**。上面那张
-/// 657 / 698 / 765 的表是**格高 62 那一版**的实测值，只能当历史看；这两轮的数是算出来的，
-/// 不是探针量的——**下次动侧栏纵向尺寸时重新量一遍**，别在旧数上叠加减法。
-///
-/// 再往上加高度（格高、内衬、牌记）必须回来重新量。848 之后 1366×768 的屏早就放不下了，
-/// 真要在小屏上用，只能缩栏宽（牌记区高度跟着栏宽走，见 `AppRail.vue` 里那条等式）
-/// 或缩格高。默认窗口给到 **860**——必须大于最小高度，反过来一打开就被钳到这里。
-///
-/// 想往下压只能动侧栏自己：格高（`VerticalSlider` 的 `--vs-cell`，内边距 12 是用户看着
-/// 定下的）、栏宽（牌记区 = 栏宽，缩栏宽同时缩牌记）。栏底那两枚 30px 按钮已经删了。
-const MIN_HEIGHT: f64 = 848.0;
-
+/// 主窗口按当前显示器的逻辑工作区居中，默认尺寸与最小尺寸统一由 window_layout 管理。
 fn create_main_window(app: &mut tauri::App) -> tauri::Result<()> {
     let mut builder =
         tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
             .title("梦幻养老助手")
             .inner_size(1280.0, 860.0)
-            .min_inner_size(1024.0, MIN_HEIGHT)
+            .min_inner_size(1024.0, 600.0)
             .resizable(true)
             // 无边框：系统标题栏是一条蓝色栏 + 三个系统按钮，与纸面语言冲突。
             // 标题栏由前端的 TitleBar.vue 自绘，拖动靠 data-tauri-drag-region。
-            .decorations(false)
-            .center();
+            .decorations(false);
+
+    if let Ok(Some(monitor)) = app.primary_monitor() {
+        let scale = monitor.scale_factor();
+        let area = monitor.work_area();
+        let work = area.size.to_logical::<f64>(scale);
+        let layout = window_layout::layout(work.width, work.height);
+        builder = builder
+            .inner_size(layout.width, layout.height)
+            .min_inner_size(layout.min_width, layout.min_height)
+            .position(
+                area.position.x as f64 / scale + (work.width - layout.width) / 2.0,
+                area.position.y as f64 / scale + (work.height - layout.height) / 2.0,
+            );
+    } else {
+        builder = builder.center();
+    }
 
     if let Some(args) = debug_browser_args() {
         builder = builder.additional_browser_args(&args);
     }
 
-    builder.build()?;
+    let window = builder.build()?;
+    window_layout::watch_workspace(&window);
     Ok(())
 }
 

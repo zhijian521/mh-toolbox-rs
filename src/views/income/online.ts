@@ -90,7 +90,10 @@ export function sessionMinutes(session: ReadonlyOnlineSession, now: number = Dat
  * 本地日就是 24 小时；但「按 24 小时切」在跨零点时会把 23:30 那段算进「开始日 + 1 天」
  * 的同一格里，日期字符串与用户看到的日期对不上。
  */
-export function sessionSlices(session: ReadonlyOnlineSession, now: number = Date.now()): DaySlice[] {
+export function sessionSlices(
+    session: ReadonlyOnlineSession,
+    now: number = Date.now(),
+): DaySlice[] {
     const end = session.endAt ?? now;
     if (end <= session.startAt) return [];
 
@@ -152,7 +155,10 @@ export interface SessionFacts {
     running: boolean;
 }
 
-export function factsOfSession(session: ReadonlyOnlineSession, now: number = Date.now()): SessionFacts {
+export function factsOfSession(
+    session: ReadonlyOnlineSession,
+    now: number = Date.now(),
+): SessionFacts {
     return {
         minutes: sessionMinutes(session, now),
         cost: sessionCost(session, now),

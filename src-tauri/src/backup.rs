@@ -821,8 +821,8 @@ fn build(app: &AppHandle) -> Result<BackupFile, String> {
 /// 导入和恢复共用读取契约，不按文件体积拒绝本应用能导出的有效账本。
 /// 直接从缓冲流解析，避免同时保留完整 JSON 字节与解析后的账本；坏文件仍在替换前拒绝。
 fn read_backup(path: &Path) -> Result<BackupFile, String> {
-    let input = std::fs::File::open(path)
-        .map_err(|error| format!("读不了 {}：{error}", path.display()))?;
+    let input =
+        std::fs::File::open(path).map_err(|error| format!("读不了 {}：{error}", path.display()))?;
     serde_json::from_reader(BufReader::new(input))
         .map_err(|error| format!("{} 不是一份能读的备份：{error}", path.display()))
 }

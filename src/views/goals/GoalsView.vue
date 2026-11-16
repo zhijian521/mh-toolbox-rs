@@ -365,7 +365,9 @@ useRouteAction('/goals', {
                 aria-label="搜索目标"
             />
         </div>
-        <div v-if="loadError && !goals.length" class="record-empty">暂时无法读取目标，请重新读取。</div>
+        <div v-if="loadError && !goals.length" class="record-empty">
+            暂时无法读取目标，请重新读取。
+        </div>
         <div v-else-if="!goals.length" class="record-empty">暂无目标</div>
         <div v-else-if="!visible.length" class="record-empty">暂无符合条件的目标</div>
         <div v-else class="grid">

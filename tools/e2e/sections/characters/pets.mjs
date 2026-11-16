@@ -103,8 +103,8 @@ export async function pets(ctx) {
             ),
         );
         await ui.clickLabel('放弃这次修改');
-        await ui.waitFor(`!!document.querySelector('[aria-label="放弃修改"]')`);
-        await ui.clickLabel('放弃修改');
+        await ui.waitFor(`!!document.querySelector('[aria-label="确认放弃修改"]')`);
+        await ui.clickLabel('确认放弃修改');
         await ui.waitFor(`!document.querySelector('.editor')`);
         await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         await ui.waitFor(`!!document.querySelector('.editor')`);
@@ -569,8 +569,8 @@ export async function pets(ctx) {
             ),
         );
         await cdp.key('Escape');
-        await ui.waitFor(`!!document.querySelector('[aria-label="放弃修改"]')`);
-        await ui.clickLabel('放弃修改');
+        await ui.waitFor(`!!document.querySelector('[aria-label="确认放弃修改"]')`);
+        await ui.clickLabel('确认放弃修改');
         await sleep(300);
         t.check('Esc 确认放弃后关掉详情窗', !(await ui.exists('[role="dialog"]')));
         t.check(

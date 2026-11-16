@@ -37,8 +37,7 @@ const loaded = ref(false);
 
 /** 一次写入的结果。 */
 export type OnlineWrite =
-    | { ok: true; sessions: readonly ReadonlyOnlineSession[] }
-    | { ok: false; error: string };
+    { ok: true; sessions: readonly ReadonlyOnlineSession[] } | { ok: false; error: string };
 
 interface StoredShape {
     sessions: unknown;

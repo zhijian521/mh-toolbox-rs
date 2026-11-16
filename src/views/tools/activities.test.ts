@@ -256,7 +256,7 @@ describe('翻成闹钟', () => {
     it('第五个周日和整点活动都使用活动规则扫描', () => {
         const draft = remindDraft(byId('changan'), byId('changan').slots[0]);
         const alarm = { ...draft, id: 1, enabled: true, fired: '' };
-        expect(nextReminder(alarm, at(2, 8))?.getTime()).toBe(at(3, 29, 14, 55).getTime());
+        expect(nextReminder(alarm, at(2, 8))?.getTime()).toBe(at(3, 29, 13, 55).getTime());
         const stars = {
             ...remindDraft(byId('stars'), { start: '00:00' }),
             id: 2,

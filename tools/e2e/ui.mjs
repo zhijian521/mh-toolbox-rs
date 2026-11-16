@@ -130,7 +130,11 @@ export function createUi(cdp) {
         const open = `!!document.querySelector('[role="dialog"], .editor, .modal-mask')`;
         for (let i = 0; i < 4; i += 1) {
             if (!(await cdp.evaluate(open))) return i;
-            await cdp.key('Escape');
+            if (await exists('[aria-label="确认放弃修改"]')) {
+                await clickLabel('确认放弃修改');
+            } else {
+                await cdp.key('Escape');
+            }
             await sleep(260);
         }
         return 4;

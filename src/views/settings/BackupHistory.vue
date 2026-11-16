@@ -1,33 +1,18 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
-import { listBackups, type BackupEntry } from '../../services/data-files';
+import type { BackupEntry } from '../../services/data-files';
+import { backupTime } from './use-backups';
 
-defineProps<{ busy: boolean; restoreError: string }>();
-const emit = defineEmits<{ close: []; restore: [entry: BackupEntry] }>();
-const entries = ref<BackupEntry[]>([]),
-    error = ref(''),
-    warning = ref(''),
-    loading = ref(false);
-async function load() {
-    if (loading.value) return;
-    loading.value = true;
-    error.value = '';
-    try {
-        const result = await listBackups();
-        entries.value = result.entries;
-        warning.value = result.error ?? '';
-    } catch (cause) {
-        error.value = String(cause);
-    } finally {
-        loading.value = false;
-    }
-}
-onMounted(load);
-function time(stamp: number) {
-    return new Date(stamp).toLocaleString('zh-CN', { hour12: false });
-}
+defineProps<{
+    busy: boolean;
+    restoreError: string;
+    entries: BackupEntry[];
+    error: string;
+    warning: string;
+    loading: boolean;
+}>();
+const emit = defineEmits<{ close: []; restore: [entry: BackupEntry]; refresh: [] }>();
 </script>
 
 <template>
@@ -37,11 +22,11 @@ function time(stamp: number) {
         <p v-if="error" class="note error" role="alert">{{ error }}</p>
         <p v-if="restoreError" class="note error" role="alert">{{ restoreError }}</p>
         <p v-if="loading" class="record-empty">正在读取…</p>
-        <div v-else-if="!entries.length" class="record-empty">暂无备份</div>
+        <div v-else-if="!entries.length && !error" class="record-empty">暂无备份</div>
         <div v-else class="backup-list">
             <div v-for="entry in entries" :key="entry.name" class="backup-row">
                 <span
-                    >{{ time(entry.createdAt)
+                    >{{ backupTime(entry.createdAt)
                     }}<small
                         >{{ entry.kind === 'daily' ? '日常' : '替换前' }} ·
                         {{ Math.max(1, Math.round(entry.bytes / 1024)) }} KB</small
@@ -61,7 +46,7 @@ function time(stamp: number) {
                 label="刷新备份列表"
                 icon="refresh"
                 :disabled="busy || loading"
-                @click="load"
+                @click="emit('refresh')"
             />
             <PressButton text="关闭" label="关闭备份列表" :disabled="busy" @click="emit('close')" />
         </template>

@@ -128,7 +128,9 @@ function nameTaken(name: string, exceptId: string): boolean {
 
 /** 关联价格必须能同时修改收益账，避免删卡后被旧固定价重新补建。 */
 function canWriteLinkedPrices(...names: string[]): boolean {
-    const linked = quickItems().fixed.some((item) => names.some((name) => name.trim() === item.name));
+    const linked = quickItems().fixed.some((item) =>
+        names.some((name) => name.trim() === item.name),
+    );
     if (!linked || !incomeWriter || incomeWriter.canWrite()) return true;
     writeError.value = '收益账尚未读取成功，关联物价暂不能修改，请刷新后重试';
     return false;

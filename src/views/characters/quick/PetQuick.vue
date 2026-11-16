@@ -12,6 +12,14 @@ import { focusInput } from '../focus-input';
 import { hasPetName, type Pet } from '../pets';
 import type { ReadonlyCharacter } from '../character';
 import { useDraftGuard } from '../../../composables/use-draft-guard';
+import OcrSummary from '../ocr/OcrSummary.vue';
+import {
+    petSnapshot,
+    changeReport,
+    petReview,
+    REPLACE_NOTE,
+    type OcrReport,
+} from '../ocr/change-summary';
 
 /** 快速修改与整份编辑共用截图入口和四组表单，取消不修改原记录。 */
 const props = withDefaults(
@@ -33,6 +41,7 @@ const source = computed(() => props.character.pets[props.index] ?? null);
 const pet = ref<Pet | null>(source.value ? cloneDraft<Pet>(source.value) : null);
 
 const reading = ref(false);
+const reports = ref<OcrReport[]>([]);
 const original = JSON.stringify(pet.value);
 const { requestClose } = useDraftGuard(
     () => !props.retrying && (reading.value || JSON.stringify(pet.value) !== original),
@@ -55,7 +64,17 @@ function save() {
 
 function recognize(result: Parameters<typeof applyPetPanel>[1]) {
     if (props.locked || props.saving) return;
-    if (pet.value) pet.value = applyPetPanel(pet.value, result);
+    if (pet.value) {
+        const before = petSnapshot(pet.value);
+        pet.value = applyPetPanel(pet.value, result);
+        reports.value = [
+            changeReport('召唤兽', before, petSnapshot(pet.value), petReview(result), REPLACE_NOTE),
+        ];
+    }
+}
+function setReading(value: boolean) {
+    reading.value = value;
+    if (value) reports.value = [];
 }
 
 const form = ref<HTMLElement | null>(null);
@@ -75,11 +94,12 @@ onMounted(() => focusInput(form, 'input[aria-label="召唤兽名称"]'));
         @close="requestClose"
     >
         <div v-if="pet" ref="form" :inert="locked || saving" class="pet-quick">
-            <PetScreenshot @recognize="recognize" @busy="reading = $event">
+            <PetScreenshot @recognize="recognize" @busy="setReading">
                 <PetDetailForm v-model="pet" />
             </PetScreenshot>
         </div>
         <p v-else class="note pet-missing-note">这只召唤兽已经不在了。</p>
+        <OcrSummary :reports="reports" />
 
         <template #footer>
             <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>

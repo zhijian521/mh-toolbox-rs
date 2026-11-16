@@ -30,7 +30,8 @@ const loaded = ref(false);
  * 只有输入框里的数（万），换算成原值的那一步在这里。让它自己再乘一次 10000，
  * 就是把这个换算写两遍，迟早有一处忘了改。
  */
-export type AccountWrite = { ok: true; entry: Readonly<AccountEntry> } | { ok: false; error: string };
+export type AccountWrite =
+    { ok: true; entry: Readonly<AccountEntry> } | { ok: false; error: string };
 
 /** 落盘。浏览器写本地、桌面版异步写库，连续写排队——细节见 `services/persist.ts`。 */
 const persist = createPersist({
@@ -115,7 +116,8 @@ function check(
     }
     if (deductFee) {
         const rule = cbgSaleRule(input);
-        if (!rule) return { ok: false, error: '手续费规则未加载，请稍后重试或选择不扣费并填写实得' };
+        if (!rule)
+            return { ok: false, error: '手续费规则未加载，请稍后重试或选择不扣费并填写实得' };
         const quote = quoteCbgFee(amount, rule);
         if (!quote || quote.net <= 0) return { ok: false, error: '扣除手续费后的实得要大于 0 元' };
         amount = quote.net;
