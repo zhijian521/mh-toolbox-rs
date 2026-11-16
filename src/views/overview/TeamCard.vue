@@ -66,7 +66,7 @@ function sessionTitle() {
         >
             <section class="team-record online-record">
                 <h3><AppIcon name="history" />最近上线</h3>
-                <p v-if="onlineError" class="team-empty empty-note inline">未读取</p>
+                <p v-if="onlineError" class="team-empty">未读取</p>
                 <div v-else-if="activity.session" class="record-line">
                     <span class="record-label online-label num" :title="sessionTitle()">{{
                         sessionLabel()
@@ -77,11 +77,11 @@ function sessionTitle() {
                         >{{ clockText(sessionMinutes(activity.session, now)) }}</b
                     >
                 </div>
-                <p v-else class="team-empty empty-note inline">暂无上线记录</p>
+                <p v-else class="team-empty">暂无上线记录</p>
             </section>
             <section class="team-record income-record">
                 <h3><AppIcon name="income" />最近收益</h3>
-                <p v-if="incomeError" class="team-empty empty-note inline">未读取</p>
+                <p v-if="incomeError" class="team-empty">未读取</p>
                 <div v-else-if="activity.income" class="record-line">
                     <div class="record-copy">
                         <span
@@ -113,11 +113,11 @@ function sessionTitle() {
                         }}</b
                     >
                 </div>
-                <p v-else class="team-empty empty-note inline">暂无收益记录</p>
+                <p v-else class="team-empty">暂无收益记录</p>
             </section>
             <section class="team-record account-record">
                 <h3><AppIcon name="accounts" />账号收支</h3>
-                <p v-if="accountError" class="team-empty empty-note inline">未读取</p>
+                <p v-if="accountError" class="team-empty">未读取</p>
                 <template v-else>
                     <div
                         v-for="(record, index) in [activity.accountIncome, activity.accountExpense]"
@@ -149,7 +149,7 @@ function sessionTitle() {
                                 }}</b
                             >
                         </template>
-                        <p v-else class="team-empty empty-note inline">
+                        <p v-else class="team-empty">
                             {{ index === 0 ? '暂无收入' : '暂无支出' }}
                         </p>
                     </div>
@@ -230,7 +230,7 @@ function sessionTitle() {
 .team-record {
     --record-ink: var(--indigo-ink);
     min-width: 0;
-    padding: 9px 10px;
+    padding: 5px 10px;
     border-radius: var(--r-2);
     background: color-mix(in srgb, var(--record-ink) 4%, var(--paper));
     box-shadow:
@@ -247,7 +247,7 @@ function sessionTitle() {
     display: flex;
     align-items: center;
     gap: 5px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     color: var(--record-ink);
     font-size: var(--fs-mini);
 }
@@ -309,6 +309,7 @@ function sessionTitle() {
     background: color-mix(in srgb, var(--negative) 8%, var(--paper));
 }
 .team-empty {
+    padding: 0;
     font-size: var(--fs-xs);
     color: var(--muted);
 }

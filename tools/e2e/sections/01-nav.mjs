@@ -85,6 +85,10 @@ export default async function run(ctx) {
                                 [...card.querySelectorAll('.record-label')].every(label => getComputedStyle(label).whiteSpace === 'nowrap');
                         });
                 })(),
+                teamSizes: [...document.querySelectorAll('.team-records')].map(body => ({
+                    available: body.clientHeight,
+                    content: body.scrollHeight,
+                })),
                 shortcuts: [...document.querySelectorAll('.workbench-shortcut')].map(el => ({ name: el.querySelector('.shortcut-name')?.textContent.trim(), id: el.dataset.shortcutId })),
                 quickForm: !!document.querySelector('.overview form'),
                 chart: document.querySelectorAll('.week-section .trend').length,
@@ -115,7 +119,11 @@ export default async function run(ctx) {
                             shape.periodControls === 0,
                     );
                     t.check('队伍卡仅保留身份与三类最近记录，采用 B 分区浅槽', shape.teamCards);
-                    t.check('队伍单排横滚、卡高固定、记录单行且默认完整展示', shape.teamScroll);
+                    t.check(
+                        '队伍单排横滚、卡高固定、记录单行且默认完整展示',
+                        shape.teamScroll,
+                        JSON.stringify(shape.teamSizes),
+                    );
                     t.check(
                         '我的队伍与角色名册一致，每个档案可定位',
                         shape.chars === charsInDb &&
