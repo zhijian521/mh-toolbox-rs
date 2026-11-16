@@ -160,12 +160,8 @@ export default async function run(ctx) {
             t.check('删掉之后卡片消失', gone);
         });
 
-        /* ---------- 游戏资源：一进来落在武器、搜索能收窄、能换类 ----------
-         *
-         * 判据用卡片标题而不是图数：图片是 `loading="lazy"`，屏外的那些还没请求，
-         * 按图数断言会在不同窗口高度下飘。
-         */
-        await t.step('游戏资源：清单出来了、搜得到', async () => {
+        /* 图鉴只读，不写账本；图片加载只检查进入视口的预览，不要求屏外懒加载完成。 */
+        await t.step('游戏资源：检索、分组等级、头像与预览', async () => {
             /* 上一段停在闹钟页，而左栏「工具」那一格在 `/tools/alarm` 下本来就是高亮的——
              * 点它等于点「当前这一项」，路由不动。所以这里直接改地址回列表。 */
             await cdp.evaluate(`location.hash = '#/tools'`);
@@ -194,54 +190,135 @@ export default async function run(ctx) {
             const total = await cdp.evaluate(
                 `document.querySelector('.asset-count')?.textContent?.trim() ?? ''`,
             );
-            /* 只摆一类是有意的（十类一千多项一次性建 DOM 会卡），所以这里断言**恰好一张**：
-             * 多出来就说明「全部分类」又回来了。 */
             t.check('默认只摆武器一类', cards === 1, `${cards} 张，${total}`);
             t.check('计数是这一类的总数', /^共 \d+ 项$/.test(total), total);
-
-            /* 搜索：只在当前这一类里收窄。 */
-            const count = await cdp.evaluate(`(async () => {
-                const el = document.querySelector('.asset-search');
-                const setter = Object.getOwnPropertyDescriptor(
-                    HTMLInputElement.prototype,
-                    'value',
-                ).set;
-                setter.call(el, '剑');
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-                await new Promise((resolve) => setTimeout(resolve, 500));
-                return document.querySelector('.asset-count')?.textContent?.trim() ?? '';
+            const layout = await cdp.evaluate(`(() => {
+                const input = document.querySelector('.asset-search');
+                const bar = document.querySelector('.asset-bar');
+                const heading = document.querySelector('.asset-sub');
+                const marker = heading.querySelector('.section-mark').getBoundingClientRect();
+                const text = heading.lastElementChild.getBoundingClientRect();
+                const style = getComputedStyle(heading);
+                const scale = parseFloat(getComputedStyle(input).getPropertyValue('--fs-scale')) || 1;
+                return {
+                    width: input.getBoundingClientRect().width,
+                    expected: Math.min(260 * scale, bar.getBoundingClientRect().width),
+                    singleLine: text.height <= parseFloat(style.lineHeight) + 1,
+                    besideMarker: text.left >= marker.right &&
+                        Math.abs((text.top + text.bottom - marker.top - marker.bottom) / 2) <= 1,
+                };
             })()`);
-            t.check('搜「剑」能收窄', /^找到 \d+ 项$/.test(count), count);
-
-            const left = await cdp.evaluate(
-                `[...document.querySelectorAll('.asset-section')].map((el) => el.querySelector('.asset-title')?.textContent ?? '')`,
-            );
+            t.check('搜索框保持固定宽度', Math.abs(layout.width - layout.expected) <= 1);
+            t.check('分组标题单行且位于竖条右侧', layout.singleLine && layout.besideMarker);
+            t.check('每页限制图标数量', (await ui.count('.asset-cell')) <= 120);
+            await ui.clickLabel('资源下一页');
             t.check(
-                '收窄后仍在武器这一类里',
-                Array.isArray(left) && left.length === 1 && left[0] === '武器',
-                JSON.stringify(left),
+                '下一页生效',
+                await cdp.waitFor(
+                    `document.querySelector('.asset-page-info')?.textContent?.trim().startsWith('2 /')`,
+                ),
             );
 
-            /* 换一类：点触发条开列表，再点「门派技能」那一项。
-             * 顺带把搜索词清掉——不清的话新一类会被一个不相关的词再筛一遍。 */
-            const switched = await cdp.evaluate(`(async () => {
-                const el = document.querySelector('.asset-search');
-                const setter = Object.getOwnPropertyDescriptor(
-                    HTMLInputElement.prototype,
-                    'value',
-                ).set;
-                setter.call(el, '');
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-                document.querySelector('.asset-kind .select-trigger').click();
-                await new Promise((resolve) => setTimeout(resolve, 250));
-                const opt = [...document.querySelectorAll('.asset-kind .select-opt')].find(
-                    (one) => one.textContent.trim() === '门派技能',
-                );
-                opt?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
-                await new Promise((resolve) => setTimeout(resolve, 450));
-                return document.querySelector('.asset-title')?.textContent?.trim() ?? '';
-            })()`);
-            t.check('换分类后只剩那一类', switched === '门派技能', switched);
+            await ui.fill('搜索资源名', '剑');
+            const narrowed = await cdp.waitFor(
+                `document.querySelector('.asset-count')?.textContent?.trim().startsWith('找到 ')`,
+            );
+            t.check('搜索收窄并重置分页', narrowed && !(await ui.exists('.asset-pages')));
+            const choose = async (label, value) => {
+                await ui.clickLabel(label);
+                await ui.clickText('.select-opt', value, { exact: true });
+            };
+            await choose('按分组筛选', '剑');
+            await choose('按等级筛选', '60 级');
+            t.check(
+                '精确筛选 60 级剑',
+                await cdp.waitFor(
+                    `document.querySelectorAll('.asset-cell').length > 0 &&
+                [...document.querySelectorAll('.asset-meta')].every((el) => el.textContent.trim() === '60 级')`,
+                ),
+            );
+
+            await choose('按类别筛选', '全部分类');
+            await ui.fill('搜索资源名', '兔子怪');
+            t.check(
+                '全局搜索找到头像，切分类清除等级与分组',
+                await cdp.waitFor(
+                    `document.querySelector('.asset-title')?.textContent?.trim() === '召唤兽头像'`,
+                ),
+            );
+            await ui.fill('搜索资源名', '泡泡相伴');
+            t.check(
+                '同名技能的物法版本分别展示',
+                await cdp.waitFor(
+                    `[...document.querySelectorAll('.asset-name')].some((el) => el.textContent === '泡泡相伴（物）') &&
+                [...document.querySelectorAll('.asset-name')].some((el) => el.textContent === '泡泡相伴（法）')`,
+                ),
+            );
+            await ui.clickLabel('查看泡泡相伴（物）大图');
+            t.check(
+                '预览完整技能名称',
+                await cdp.waitFor(
+                    `document.querySelector('[role="dialog"] h2')?.textContent === '泡泡相伴（物）'`,
+                ),
+            );
+            await cdp.key('Escape');
+            t.check(
+                'Esc 关闭后焦点回到原图标',
+                await cdp.waitFor(
+                    `!document.querySelector('[role="dialog"]') &&
+                document.activeElement?.getAttribute('aria-label') === '查看泡泡相伴（物）大图'`,
+                ),
+            );
+            await cdp.key('Enter');
+            t.check(
+                '键盘可重新打开预览',
+                await cdp.waitFor(`!!document.querySelector('[role="dialog"]')`),
+            );
+            await cdp.key('Escape');
+
+            await ui.clickLabel('清除资源筛选');
+            await choose('按类别筛选', '召唤兽头像');
+            t.check(
+                '头像分类分页显示',
+                await cdp.waitFor(
+                    `document.querySelector('.asset-title')?.textContent?.trim() === '召唤兽头像' &&
+                document.querySelectorAll('.asset-cell').length <= 120 && !!document.querySelector('.asset-pages')`,
+                ),
+            );
+            await ui.clickLabel('查看兔子怪大图');
+            const imageReady = `(() => {
+                const img = document.querySelector('[role="dialog"] .asset-image img');
+                return !!img?.complete && img.naturalWidth > 0;
+            })()`;
+            t.check('头像原图实际可读', await cdp.waitFor(imageReady));
+            await cdp.evaluate(`document.querySelector('[role="dialog"] .asset-image img')
+                .dispatchEvent(new Event('error'))`);
+            t.check(
+                '缺图显示占位',
+                await cdp.waitFor(
+                    `!!document.querySelector('[role="dialog"] .asset-image-missing')`,
+                ),
+            );
+            await ui.clickLabel('重试预览图片');
+            t.check('重试后恢复图片', await cdp.waitFor(imageReady));
+            await ui.clickLabel('关闭资源预览');
+
+            await ui.fill('搜索资源名', '不存在的资源-e2e');
+            t.check(
+                '搜索无结果与加载失败区分',
+                await cdp.waitFor(
+                    `document.querySelector('.asset-void h3')?.textContent === '没有匹配的资源' &&
+                !document.querySelector('.asset-warning')`,
+                ),
+            );
+            await ui.clickLabel('清除无结果筛选');
+            await choose('按类别筛选', '门派技能');
+            t.check(
+                '清除筛选后仍可切换分类',
+                await cdp.waitFor(
+                    `document.querySelector('.asset-title')?.textContent?.trim() === '门派技能'`,
+                ),
+            );
         });
 
         /* ---------- 活动日历：点一张卡能把提醒加进闹钟 ----------

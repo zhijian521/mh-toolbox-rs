@@ -31,7 +31,7 @@
 - **`schools.json`**：`id` 拼音小写 `[a-z0-9-]` 稳定、`name` 是显示名。坑：`cap` 180 是**表级**一个数不是每项一份，分开放要改 147 处；`skills` 按重要度排。
 - **`skills.json`**：`life` 21、`story` 11，只是**有序名录**，按名字查、图标按**下标**拼文件名（`skill-01` = 生活表第 1 项）。坑：中间插一项后面整体错位（`game-icons.test.ts` 会红，但红在「名字对不上」而非「顺序错了」）。
 - **`quick-items.json`**：`fixed` `{id: 1, name: 60武器, file: item-1.png}` / `variable` `{id: 99, name: 金币, file: item-99.png}`。分开有游戏依据：`fixed` 有牌价（宝石、五宝）、点一下按参考单价入账，`variable` 随行就市（兽决 内丹 图册）、每条现填单价；「金币」（id 99）记金额本身、不乘单价。坑：`id` 稳定（1–40 / 99–200，中间有缺号），单价表按它存，改了等于清空所有人的单价；加物品用没出现过的号（旧习惯往后接 118、200）。
-- **`pet-skills.json`**：低级 68、高级 52、超级 48、特殊 185 张，含藏宝阁常规名录 264 个技能 ID 与神兽升星扩展 89 项，尚未接入页面；`categories` 四类各有 `id`、`name`、`iconDir`（`../icons/pet-basic/` 等四个），`icons` 每项 `id`、`name`、`displayName`、`categoryId`、`subgroup`、`scope`、`img` 与 SHA-256，`displayName` 区分物理 / 法术与强化版（同名按 ID 区分）。坑：`missing` 留触类旁通（56150）与强化版（56196，官网 404、`img: null`）。
+- **`pet-skills.json`**：低级 68、高级 52、超级 48、特殊 185 张，含藏宝阁常规名录 264 个技能 ID 与神兽升星扩展 89 项，已接入召唤兽功能与游戏资源图鉴；`categories` 四类各有 `id`、`name`、`iconDir`（`../icons/pet-basic/` 等四个），`icons` 每项 `id`、`name`、`displayName`、`categoryId`、`subgroup`、`scope`、`img` 与 SHA-256，图鉴用 `displayName` 区分物理 / 法术与强化版（同名按 ID 区分），`subgroup` 展示技能来源。坑：`missing` 留触类旁通（56150）与强化版（56196，官网 404、`img: null`）。
 - **`pet-panel.json`** 记属性、加点、标签与别名；**`pet-portraits.json`** 记头像编号、物种、来源与缺项。图片见 `../icons/README.md`。
 - **`character-rules.json`** 的 `gear.suitActiveCount` 是套装激活件数；`pets.cardAttributes` 按卡片展示顺序列出属性，`pets.growthLabel` 是独立成长字段的名称。修改这些字段同步更新规则契约断言。
 

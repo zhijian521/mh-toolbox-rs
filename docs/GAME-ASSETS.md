@@ -239,6 +239,11 @@ GIF、多帧、带方向或 ICC 配置以及高位深资源跳过，头像仍使
 
 `categories[].iconDir` 指向对应分类目录，`icons[].img` 只含文件名；`id` 为稳定字符串，`displayName` 区分同名技能的版本。缺图名称在 `missing` 保留，图片字段为 `null`。`services/pet-assets.ts` 按需校验加载，组件不复制名字表。
 
+图鉴索引由 `services/game-assets.ts` 按需加载，召唤兽头像与技能分别分类；展示名称不回写业务存档。
+搜索覆盖分类、名称、技能来源与清单别名，部位 / 门派 / 技能类型与装备等级可进一步筛选。
+页面先筛全部索引再分页，按分类分组；图片可打开预览，缺图显示占位。
+每个分类区分就绪与加载失败，失败可就地重试，成功清单继续复用缓存，结构无效的清单不会缓存为空结果。
+
 ### 4.4 召唤兽头像与识别字段
 
 `icons/pet-portrait/` 和 `data/pet-portraits.json` 由 `tools/game-icons/import-pet-portraits.mjs` 再生。

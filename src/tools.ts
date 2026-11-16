@@ -127,7 +127,7 @@ export const TOOLS: ToolEntry[] = [
         key: 'assets',
         kind: 'page',
         name: '游戏资源',
-        desc: '装备、武器、技能与召唤兽的图标图鉴，能按名字搜',
+        desc: '装备、技能与召唤兽头像图鉴，支持跨分类检索和大图预览',
         path: '/tools/assets',
         icon: 'grid',
         group: 'lookup',
