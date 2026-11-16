@@ -10,6 +10,7 @@ import { useToday } from '../../composables/use-today';
 import { minuteText } from '../../services/clock';
 import {
     LABEL_LIMIT,
+    LEAD_MINUTES,
     WEEKDAY_OPTIONS,
     alarmDraftError,
     alarmTime,
@@ -204,7 +205,7 @@ function onEnter(event: KeyboardEvent) {
                 />
             </label>
 
-            <p class="note alarm-hint">应用运行时提前一分钟提醒。</p>
+            <p class="note alarm-hint">应用运行时提前 {{ LEAD_MINUTES }} 分钟提醒。</p>
 
             <p v-if="error" class="note error alarm-note" role="alert">{{ error }}</p>
         </form>

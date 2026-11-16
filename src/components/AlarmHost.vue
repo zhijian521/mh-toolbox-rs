@@ -4,7 +4,7 @@ import AppIcon from './AppIcon.vue';
 import PaperCard from './PaperCard.vue';
 import { notify } from '../composables/use-notify';
 import { notifySystem } from '../services/desktop';
-import { dueAlarms, LEAD_MS } from '../views/tools/alarms';
+import { countdownText, dueAlarms, LEAD_MINUTES, LEAD_MS } from '../views/tools/alarms';
 import { useAlarms } from '../views/tools/alarm-store';
 
 /**
@@ -18,7 +18,7 @@ import { useAlarms } from '../views/tools/alarm-store';
  * ---- 判定用「区间跨越」，不是「此刻等于」 ----
  *
  * 每 15 秒看一眼 `(上次, 现在]` 之间跨过了哪些提醒点。两种写法都不用：
- *   · `现在 == 08:29` 这种精确匹配，15 秒的间隔必然漏掉大部分；
+ *   · `现在 == 08:25` 这种精确匹配，15 秒的间隔必然漏掉大部分；
  *   · 每秒醒一次能对上，但窗口最小化后 WebView 会把定时器节流到一分钟一次——
  *     恰恰是最需要它准的时候对不上。
  * 区间跨越对节流免疫：醒来一次就把整段补上，`fired` 挡住重复。
@@ -54,14 +54,14 @@ interface Ring {
     /** 这一次实际响的时刻 `HH:mm`。`每小时` 的闹钟不能显示它的 `time`（那是占位的 `00:mm`）。 */
     time: string;
     label: string;
-    /** 收起时刻：响铃后一分钟（提醒本身只提前一分钟，留到那时刚好）。 */
+    /** 收起时刻：设定时刻后一分钟，与提前量分开计算。 */
     until: number;
 }
 
 const rings = ref<Ring[]>([]);
 
 /* 上一次检查的时刻。初值往前退 90 秒：应用刚打开时若正落在某个提醒点之后几十秒
- * （先关窗、再打开，很可能就是 8:29:20），这一次也该提醒。再早的不管——
+ * （先关窗、再打开，很可能就是 8:25:20），这一次也该提醒。再早的不管——
  * 启动时不该先补一串昨天的闹钟。 */
 let last = new Date(Date.now() - 90_000);
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -70,21 +70,23 @@ let timer: ReturnType<typeof setInterval> | undefined;
  * 弹一条提醒。`time` 是**这一次**的响铃时刻，不是 `alarm.time`：
  * `每小时` 的闹钟 `alarm.time` 存的是 `00:30`（小时是占位），念出来会让人以为定在半夜。
  */
-function ring(hit: { alarm: { id: number; label: string }; key: string; remindAt: Date }) {
+function ring(hit: { alarm: { id: number; label: string }; key: string; remindAt: Date }, now: Date) {
     const name = hit.alarm.label || '闹钟';
     /* 键是 `<日期> <时刻>`，后 5 位就是这次的 `HH:mm`。 */
     const time = hit.key.slice(-5);
-    notify.info(`${name} ${time} 还有一分钟`);
+    const remaining = countdownText(new Date(hit.remindAt.getTime() + LEAD_MS), now);
+    const message = remaining ? `${remaining}到点` : '已到设定时间';
+    notify.info(`${name} ${time} ${message}`);
     /* 系统那一条不等它：`notifySystem` 写盘/跨进程要几毫秒，而 `tick()` 是同步循环，
      * 等它就等于把同一批的其它闹钟一起压后。失败了也只是少一层。 */
-    void notifySystem(`${name} ${time}`, '还有一分钟');
+    void notifySystem(`${name} ${time}`, message);
     rings.value = [
         ...rings.value.filter((one) => one.id !== hit.alarm.id),
         {
             id: hit.alarm.id,
             time,
             label: hit.alarm.label,
-            until: hit.remindAt.getTime() + LEAD_MS + LEAD_MS,
+            until: hit.remindAt.getTime() + LEAD_MS + 60_000,
         },
     ];
 }
@@ -98,11 +100,10 @@ function tick() {
         /* 先记「这一次发过了」。写盘失败也已在内存里生效，这一次不会再弹。 */
         markFired(hit.alarm.id, hit.key);
         if (now.getTime() - hit.remindAt.getTime() > GRACE_MS) continue;
-        ring(hit);
+        ring(hit, now);
     }
 
-    /* 收起到时的提醒。放到响铃后一分钟才收，是因为「提前一分钟」这句提醒在整一分钟里都
-     * 还成立；到点就收会让它只出现几秒。 */
+    /* 留到设定时刻后一分钟，短暂切走窗口的人回来时仍能看到这条提醒。 */
     if (rings.value.length) {
         const time = now.getTime();
         const alive = rings.value.filter((one) => one.until > time);
@@ -142,7 +143,7 @@ onBeforeUnmount(() => {
                 <PaperCard as="article" class="ring-card">
                     <header class="ring-head">
                         <AppIcon name="alarm" class="ring-icon" />
-                        <span class="ring-title">即将提醒</span>
+                        <span class="ring-title">闹钟提醒</span>
                     </header>
                     <ul class="ring-list">
                         <li v-for="one in rings" :key="one.id" class="ring-row">
@@ -158,7 +159,7 @@ onBeforeUnmount(() => {
                             </button>
                         </li>
                     </ul>
-                    <p class="ring-note">还有一分钟</p>
+                    <p class="ring-note">提前 {{ LEAD_MINUTES }} 分钟提醒</p>
                 </PaperCard>
             </div>
         </Transition>

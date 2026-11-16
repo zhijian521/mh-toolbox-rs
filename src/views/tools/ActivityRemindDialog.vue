@@ -11,7 +11,7 @@ import {
     type Activity,
     type ActivitySlot,
 } from './activities';
-import type { AlarmDraft } from './alarms';
+import { LEAD_MINUTES, type AlarmDraft } from './alarms';
 
 /**
  * 「给这条活动加个提醒」：确认是哪一场，然后把它翻成一份闹钟。
@@ -93,7 +93,7 @@ function submit() {
 
             <p v-if="whenLine" class="when">{{ whenLine }}</p>
 
-            <p class="hint">开场前一分钟提醒。</p>
+            <p class="hint">应用运行时，开场前 {{ LEAD_MINUTES }} 分钟提醒。</p>
             <p v-if="note" class="hint warn">{{ note }}</p>
         </div>
 

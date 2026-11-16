@@ -57,7 +57,7 @@ const timeText = computed(() =>
     props.alarm.repeat === 'hourly' ? `:${minuteText(props.alarm.time)}` : props.alarm.time,
 );
 
-/** 一分钟内要响的那一个：时刻转朱，扫一眼就能找到。 */
+/** 临近提醒时刻转朱，扫一眼就能找到。 */
 const soon = computed(() => {
     const at = next.value;
     return !!at && at.getTime() - props.now.getTime() <= 90_000;
@@ -66,7 +66,7 @@ const soon = computed(() => {
 const status = computed(() => {
     if (!props.alarm.enabled) return '已停用';
     const at = next.value;
-    if (at) return countdownText(at, props.now) || '马上提醒';
+    if (at) return `${countdownText(at, props.now)}提醒`;
     /* 走到这里只剩一种：`仅一次` 且那一天已经过去（`nextReminder` 返回 null）。
      * 另外三种重复永远有下一次——`每天` 明天还响、`每小时` 下一小时就响，
      * 所以不需要「今天已提醒」那样的第三句兜底。 */
@@ -78,7 +78,11 @@ const nameText = computed(() => props.alarm.label || '未命名闹钟');
 /** 读屏念的一句：时刻、备注、重复、当前状态，最后是「按开关键停用」。 */
 const cardLabel = computed(() => {
     const state = props.alarm.enabled ? status.value : '已停用';
-    return `${props.alarm.time} ${nameText.value}，${repeatText(props.alarm)}，${state}`;
+    const time =
+        props.alarm.repeat === 'hourly'
+            ? `每小时第 ${minuteText(props.alarm.time)} 分`
+            : props.alarm.time;
+    return `${time} ${nameText.value}，${repeatText(props.alarm)}，${state}`;
 });
 </script>
 

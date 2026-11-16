@@ -48,17 +48,17 @@ describe('按重复方式收时间', () => {
 });
 
 describe('提醒时刻', () => {
-    it('比响的时刻早一分钟', () => {
+    it('比响的时刻早五分钟', () => {
         expect(reminderAt(make({ time: '08:30' }), SUNDAY).getTime()).toBe(
-            at(SUNDAY, 8, 29).getTime(),
+            at(SUNDAY, 8, 25).getTime(),
         );
     });
 
-    /* 这一条是整套跨日口径的核心：00:00 的闹钟要提前到**前一天** 23:59，
+    /* 这一条是整套跨日口径的核心：00:00 的闹钟要提前到**前一天** 23:55，
      * 而它的键仍是次日。写反了就会漏掉这一类，且只在午夜前后才看得出来。 */
-    it('00:00 的闹钟提醒落在前一天 23:59', () => {
+    it('00:00 的闹钟提醒落在前一天 23:55', () => {
         const alarm = make({ time: '00:00' });
-        expect(reminderAt(alarm, SUNDAY).getTime()).toBe(at('2026-11-07', 23, 59).getTime());
+        expect(reminderAt(alarm, SUNDAY).getTime()).toBe(at('2026-11-07', 23, 55).getTime());
         expect(fireAt(alarm, SUNDAY).getTime()).toBe(at(SUNDAY, 0, 0).getTime());
     });
 });
@@ -66,45 +66,45 @@ describe('提醒时刻', () => {
 describe('该提醒谁', () => {
     it('扫过提醒点就命中一次', () => {
         const alarm = make();
-        const hits = dueAlarms([alarm], at(SUNDAY, 8, 28), at(SUNDAY, 8, 30));
+        const hits = dueAlarms([alarm], at(SUNDAY, 8, 24), at(SUNDAY, 8, 30));
         expect(hits).toHaveLength(1);
         expect(hits[0].key).toBe(`${SUNDAY} 08:30`);
     });
 
     it('区间是左开右闭，同一点不会被两次检查各命中一次', () => {
         const alarm = make();
-        const point = at(SUNDAY, 8, 29);
-        expect(dueAlarms([alarm], at(SUNDAY, 8, 28), point)).toHaveLength(1);
+        const point = at(SUNDAY, 8, 25);
+        expect(dueAlarms([alarm], at(SUNDAY, 8, 24), point)).toHaveLength(1);
         expect(dueAlarms([alarm], point, at(SUNDAY, 8, 30))).toHaveLength(0);
     });
 
     it('已经提醒过的那一次不再命中', () => {
         const alarm = make({ fired: `${SUNDAY} 08:30` });
-        expect(dueAlarms([alarm], at(SUNDAY, 8, 28), at(SUNDAY, 8, 30))).toEqual([]);
+        expect(dueAlarms([alarm], at(SUNDAY, 8, 24), at(SUNDAY, 8, 30))).toEqual([]);
     });
 
     it('停用的不命中', () => {
         const alarm = make({ enabled: false });
-        expect(dueAlarms([alarm], at(SUNDAY, 8, 28), at(SUNDAY, 8, 30))).toEqual([]);
+        expect(dueAlarms([alarm], at(SUNDAY, 8, 24), at(SUNDAY, 8, 30))).toEqual([]);
     });
 
     it('仅一次只在它那一天命中', () => {
         const alarm = make({ repeat: 'once', date: MONDAY });
-        expect(dueAlarms([alarm], at(MONDAY, 8, 28), at(MONDAY, 8, 30))).toHaveLength(1);
-        expect(dueAlarms([alarm], at(SUNDAY, 8, 28), at(SUNDAY, 8, 30))).toEqual([]);
+        expect(dueAlarms([alarm], at(MONDAY, 8, 24), at(MONDAY, 8, 30))).toHaveLength(1);
+        expect(dueAlarms([alarm], at(SUNDAY, 8, 24), at(SUNDAY, 8, 30))).toEqual([]);
     });
 
     it('每周只在选中的那天命中', () => {
         const alarm = make({ repeat: 'weekly', weekdays: [1, 3] });
         /* 11-09 周一：响 */
-        expect(dueAlarms([alarm], at(MONDAY, 8, 28), at(MONDAY, 8, 30))).toHaveLength(1);
+        expect(dueAlarms([alarm], at(MONDAY, 8, 24), at(MONDAY, 8, 30))).toHaveLength(1);
         /* 11-08 周日：不响 */
-        expect(dueAlarms([alarm], at(SUNDAY, 8, 28), at(SUNDAY, 8, 30))).toEqual([]);
+        expect(dueAlarms([alarm], at(SUNDAY, 8, 24), at(SUNDAY, 8, 30))).toEqual([]);
     });
 
     it('每小时的每个整点那一分都命中，且键各不相同', () => {
         const alarm = make({ repeat: 'hourly', time: '00:30' });
-        const hits = dueAlarms([alarm], at(SUNDAY, 9, 28), at(SUNDAY, 11, 32));
+        const hits = dueAlarms([alarm], at(SUNDAY, 9, 24), at(SUNDAY, 11, 32));
         expect(hits.map((hit) => hit.key)).toEqual([
             `${SUNDAY} 09:30`,
             `${SUNDAY} 10:30`,
@@ -114,33 +114,60 @@ describe('该提醒谁', () => {
 
     it('每小时记过 09:30 之后，10:30 那一次照样响', () => {
         const alarm = make({ repeat: 'hourly', time: '00:30', fired: `${SUNDAY} 09:30` });
-        const hits = dueAlarms([alarm], at(SUNDAY, 10, 28), at(SUNDAY, 10, 30));
+        const hits = dueAlarms([alarm], at(SUNDAY, 10, 24), at(SUNDAY, 10, 30));
         expect(hits).toHaveLength(1);
         expect(hits[0].key).toBe(`${SUNDAY} 10:30`);
     });
 
     it('跨午夜时，零点档的闹钟在这一段里被扫到', () => {
         const alarm = make({ time: '00:00' });
-        const hits = dueAlarms([alarm], at('2026-11-07', 23, 58), at('2026-11-08', 0, 1));
+        const hits = dueAlarms([alarm], at('2026-11-07', 23, 54), at('2026-11-08', 0, 1));
         expect(hits).toHaveLength(1);
         expect(hits[0].key).toBe(`${SUNDAY} 00:00`);
     });
 
+    it.each<Partial<Alarm>>([
+        { repeat: 'daily' },
+        { repeat: 'weekly', weekdays: [0] },
+        { repeat: 'once', date: SUNDAY },
+        { repeat: 'hourly' },
+    ])('午夜事件在前一天 23:55 就提醒：%o', (patch) => {
+        const alarm = make({ time: '00:00', ...patch });
+        const hits = dueAlarms([alarm], at('2026-11-07', 23, 54), at('2026-11-07', 23, 55));
+        expect(hits.map((hit) => hit.key)).toEqual([`${SUNDAY} 00:00`]);
+        expect(hits[0].remindAt.getTime()).toBe(at('2026-11-07', 23, 55).getTime());
+        expect(dueAlarms([alarm], at('2026-11-07', 23, 55), at('2026-11-07', 23, 56))).toEqual([]);
+        expect(
+            dueAlarms(
+                [{ ...alarm, fired: hits[0].key }],
+                at('2026-11-07', 23, 54),
+                at('2026-11-07', 23, 55),
+            ),
+        ).toEqual([]);
+    });
+
+    it('零点后五分钟内的事件也在前一天提醒', () => {
+        const alarm = make({ time: '00:03', repeat: 'once', date: SUNDAY });
+        const hits = dueAlarms([alarm], at('2026-11-07', 23, 57), at('2026-11-07', 23, 58));
+        expect(hits.map((hit) => hit.key)).toEqual([`${SUNDAY} 00:03`]);
+        expect(hits[0].remindAt.getTime()).toBe(at('2026-11-07', 23, 58).getTime());
+    });
+
     it('区间反过来就是没有命中', () => {
         const alarm = make();
-        expect(dueAlarms([alarm], at(SUNDAY, 8, 30), at(SUNDAY, 8, 28))).toEqual([]);
+        expect(dueAlarms([alarm], at(SUNDAY, 8, 30), at(SUNDAY, 8, 24))).toEqual([]);
     });
 });
 
 describe('下一次提醒', () => {
     it('今天的还没到就给今天', () => {
         const next = nextReminder(make(), at(SUNDAY, 7, 0));
-        expect(next?.getTime()).toBe(at(SUNDAY, 8, 29).getTime());
+        expect(next?.getTime()).toBe(at(SUNDAY, 8, 25).getTime());
     });
 
     it('今天的过了就给明天', () => {
         const next = nextReminder(make(), at(SUNDAY, 9, 0));
-        expect(next?.getTime()).toBe(at(MONDAY, 8, 29).getTime());
+        expect(next?.getTime()).toBe(at(MONDAY, 8, 25).getTime());
     });
 
     it('仅一次的日子过了就没有下一次', () => {
@@ -149,21 +176,35 @@ describe('下一次提醒', () => {
         expect(nextReminder(alarm, at(MONDAY, 9, 0))).toBeNull();
     });
 
+    it('一个月后的一次性提醒不被八天的周循环范围截断', () => {
+        const alarm = make({ repeat: 'once', date: '2026-12-08' });
+        expect(nextReminder(alarm, at(SUNDAY, 9, 0))?.getTime()).toBe(
+            at('2026-12-08', 8, 25).getTime(),
+        );
+    });
+
+    it('下一次零点提醒的日期落在前一天', () => {
+        const alarm = make({ time: '00:00' });
+        expect(nextReminder(alarm, at(SUNDAY, 23, 54))?.getTime()).toBe(
+            at(SUNDAY, 23, 55).getTime(),
+        );
+    });
+
     it('每周：今天没选中，下一次落在最近的那个选中的日子', () => {
         const alarm = make({ repeat: 'weekly', weekdays: [1, 3] });
-        /* 周日 12:00 → 下一次是周一 08:29 */
-        expect(nextReminder(alarm, at(SUNDAY, 12, 0))?.getTime()).toBe(at(MONDAY, 8, 29).getTime());
-        /* 周一 09:00（已过）→ 下一次是周三 08:29 */
+        /* 周日 12:00 → 下一次是周一 08:25 */
+        expect(nextReminder(alarm, at(SUNDAY, 12, 0))?.getTime()).toBe(at(MONDAY, 8, 25).getTime());
+        /* 周一 09:00（已过）→ 下一次是周三 08:25 */
         expect(nextReminder(alarm, at(MONDAY, 9, 0))?.getTime()).toBe(
-            at('2026-11-11', 8, 29).getTime(),
+            at('2026-11-11', 8, 25).getTime(),
         );
     });
 
     it('每小时：本小时的过了就给下一小时', () => {
         const alarm = make({ repeat: 'hourly', time: '00:30' });
-        expect(nextReminder(alarm, at(SUNDAY, 9, 10))?.getTime()).toBe(at(SUNDAY, 9, 29).getTime());
-        expect(nextReminder(alarm, at(SUNDAY, 9, 29))?.getTime()).toBe(
-            at(SUNDAY, 10, 29).getTime(),
+        expect(nextReminder(alarm, at(SUNDAY, 9, 10))?.getTime()).toBe(at(SUNDAY, 9, 25).getTime());
+        expect(nextReminder(alarm, at(SUNDAY, 9, 25))?.getTime()).toBe(
+            at(SUNDAY, 10, 25).getTime(),
         );
     });
 

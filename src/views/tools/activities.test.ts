@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { reminderAt } from './alarms';
 import {
     ACTIVITIES,
     dayGap,
@@ -172,10 +173,12 @@ describe('翻成闹钟', () => {
         expect(draft.label).toBe('帮派迷宫');
     });
 
-    it('每天 → daily，只提醒开始那一刻', () => {
+    it('每天 → daily，保留开场时刻，提醒统一提前五分钟', () => {
         const draft = remindDraft(byId('turtle'), byId('turtle').slots[1], now);
         expect(draft.repeat).toBe('daily');
         expect(draft.time).toBe('22:00');
+        const alarm = { ...draft, id: 1, enabled: true, fired: '' };
+        expect(reminderAt(alarm, '2026-11-08').getTime()).toBe(at(11, 8, 21, 55).getTime());
     });
 
     it('整点类 → hourly，只留分钟', () => {

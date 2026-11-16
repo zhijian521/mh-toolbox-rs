@@ -10,7 +10,7 @@ import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import { askConfirm } from '../../composables/use-confirm';
 import { notify } from '../../composables/use-notify';
-import { MAX_ALARMS, type AlarmDraft, type AlarmLike } from './alarms';
+import { LEAD_MINUTES, MAX_ALARMS, type AlarmDraft, type AlarmLike } from './alarms';
 import { useAlarms } from './alarm-store';
 
 /**
@@ -139,7 +139,7 @@ useRouteAction('/tools/alarm', { new: openNew });
         <div v-else class="alarm-void page-empty">
             <AppIcon name="alarm" class="void-icon page-empty-icon" />
             <h3>设第一个闹钟</h3>
-            <p class="note">提醒在时刻前一分钟出来，几个闹钟可以一起管。</p>
+            <p class="note">应用运行时，提前 {{ LEAD_MINUTES }} 分钟提醒。</p>
             <PressButton icon="add" text="新增" label="设第一个闹钟" seal @click="openNew" />
         </div>
 

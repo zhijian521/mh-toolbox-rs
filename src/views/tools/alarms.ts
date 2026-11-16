@@ -3,8 +3,8 @@
  *
  * ---- 与「记录一笔账」不同，这里只有一件事要算准 ----
  *
- * 提醒点在**响铃前一分钟**。单看这条很短，但跨日一进来就不直白了：`00:00` 的闹钟要
- * 提前到**前一天 23:59** 提醒。所以除时间之外，这里所有函数都以「响的那一天」为参数，
+ * 提醒点在**响铃前五分钟**。跨日时，`00:00` 的闹钟要提前到**前一天 23:55** 提醒。
+ * 所以除时间之外，这里所有函数都以「响的那一天」为参数，
  * 由调用方决定是哪天——`00:00` 这一类才不会差一天。
  *
  * ---- 四种重复，共用一个 `time` ----
@@ -89,8 +89,9 @@ export interface DueHit {
 /** 备注上限。卡片一行放得下十来个字，多出来的会折行把卡顶高。 */
 export const LABEL_LIMIT = 20;
 
-/** 提前量：一分钟。 */
-export const LEAD_MS = 60_000;
+/** 全部闹钟与活动提醒共用的提前量，界面文案也从这里读取。 */
+export const LEAD_MINUTES = 5;
+export const LEAD_MS = LEAD_MINUTES * 60_000;
 
 /** 同时最多几个闹钟：一张卡片一个，再多就得分页，而这一页没有分页的理由。 */
 export const MAX_ALARMS = 12;
@@ -155,7 +156,7 @@ export function fireAt(alarm: AlarmLike, day: string): Date {
     return new Date(at.getFullYear(), at.getMonth(), at.getDate(), 0, minuteOf(alarm.time), 0, 0);
 }
 
-/** 某一天的**提醒**时刻 = 响的时刻早一分钟。`00:00` 的闹钟因此落在前一天 23:59。 */
+/** 某一天的**提醒**时刻 = 响的时刻早五分钟。`00:00` 的闹钟因此落在前一天 23:55。 */
 export function reminderAt(alarm: AlarmLike, day: string): Date {
     return new Date(fireAt(alarm, day).getTime() - LEAD_MS);
 }
@@ -200,15 +201,17 @@ export function occurrences(alarm: AlarmLike, day: string): Date[] {
  *
  * **左开右闭**：`from` 是上一次检查的时刻，同一点不该被两次检查各命中一次。
  *
- * 为什么要扫「前一天」：`00:00` 的闹钟提醒发生在 23:59，而它记的键是**次日**。
- * 只扫 `from` 到 `to` 当天的话，跨午夜那一下会漏掉这一类。
+ * 事件发生在提醒点之后，因此先把区间两端加上提前量，再枚举事件日期。
+ * `00:00` 的事件在前一天 23:55 就应命中，不能等扫描跨过午夜才找到次日的事件。
  */
 export function dueAlarms(alarms: readonly AlarmLike[], from: Date, to: Date): DueHit[] {
     if (to.getTime() <= from.getTime()) return [];
 
     const days: string[] = [];
-    const last = new Date(to.getFullYear(), to.getMonth(), to.getDate());
-    let cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate() - 1);
+    const firstAt = new Date(from.getTime() + LEAD_MS);
+    const lastAt = new Date(to.getTime() + LEAD_MS);
+    const last = new Date(lastAt.getFullYear(), lastAt.getMonth(), lastAt.getDate());
+    let cursor = new Date(firstAt.getFullYear(), firstAt.getMonth(), firstAt.getDate());
     while (cursor.getTime() <= last.getTime()) {
         days.push(dateText(cursor));
         cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
@@ -236,13 +239,16 @@ export function dueAlarms(alarms: readonly AlarmLike[], from: Date, to: Date): D
 /**
  * 下一次提醒的时刻。卡片拿它算「还有多久」。
  *
- * 往后看 **8 天**：`每周` 最坏的情况是「今天不是选中的那天、本周剩下的也不是」，
- * 下一次在 7 天后。往前看 1 天是给 `每小时` 兜底——若此刻正好在本小时的提醒点之前一点，
- * 那一次在今天里就能命中，不必等到明天。
+ * 仅一次直接按指定日期计算，不受周循环的扫描范围限制；月度活动可能在一个月后。
+ * 其余模式往后看 8 天，足以覆盖最晚 7 天后的每周事件及提前量跨日的情形。
  */
 export function nextReminder(alarm: AlarmLike, now: Date): Date | null {
     if (!alarm.enabled) return null;
-    for (let offset = -1; offset <= 8; offset += 1) {
+    if (alarm.repeat === 'once') {
+        const remind = reminderAt(alarm, alarm.date);
+        return remind.getTime() > now.getTime() ? remind : null;
+    }
+    for (let offset = 0; offset <= 8; offset += 1) {
         const day = daysAgo(-offset, now);
         for (const at of occurrences(alarm, day)) {
             const remind = at.getTime() - LEAD_MS;
