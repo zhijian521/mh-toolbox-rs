@@ -1187,7 +1187,8 @@ export default async function run(ctx) {
             t.check(
                 '修改终点后记录时长更新为半小时',
                 await cdp.waitFor(
-                    `document.querySelector('[role="dialog"] .rec-table tbody tr .c-dur')?.textContent.trim() === '00:30'`,
+                    `!document.querySelector('[role="dialog"] .times') &&
+                        document.querySelector('[role="dialog"] .rec-table tbody tr .c-dur')?.textContent.trim() === '00:30'`,
                     { timeout: 3000 },
                 ),
             );

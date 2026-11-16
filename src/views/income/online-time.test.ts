@@ -17,4 +17,15 @@ describe('补记时刻', () => {
         );
         expect(backfillEndAt('2026-11-12', '23:30', start)).toBe(start);
     });
+
+    it('编辑未改的时刻保留秒数，修改日期或分钟才重新落时刻', () => {
+        const original = new Date(2026, 10, 14, 0, 30, 45, 123).getTime();
+        expect(onlineTimeAt('2026-11-14', '00:30', original)).toBe(original);
+        expect(onlineTimeAt('2026-11-14', '00:45', original)).toBe(
+            new Date(2026, 10, 14, 0, 45).getTime(),
+        );
+        expect(onlineTimeAt('2026-11-12', '00:30', original)).toBe(
+            new Date(2026, 10, 12, 0, 30).getTime(),
+        );
+    });
 });

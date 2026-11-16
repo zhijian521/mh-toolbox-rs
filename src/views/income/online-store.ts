@@ -290,28 +290,30 @@ export function stopOnline(characterIds?: string[], now: number = Date.now()): O
     return { ok: true, sessions: readonly(sessions.value) };
 }
 
-/** 改一条（改开始时间、改正名单、改备注）。**结束时间只能由「结束」写**。 */
+/** 改起止时间、名单与备注；不传结束时间时保留原终点及计时状态。 */
 export function updateOnline(
     id: string,
-    patch: { startAt?: number; characterIds?: string[]; note?: string },
+    patch: { startAt?: number; endAt?: number; characterIds?: string[]; note?: string },
 ): OnlineWrite {
     if (!persist.canWrite()) return { ok: false, error: '上线记录读取失败，先修好再来改' };
     const before = sessions.value.find((one) => one.id === id);
     if (!before) return { ok: false, error: '这条记录已经不在了' };
 
     const startAt = patch.startAt ?? before.startAt;
-    const error = timeError(startAt, before.endAt);
+    const endAt = patch.endAt === undefined ? before.endAt : patch.endAt;
+    const error = timeError(startAt, endAt);
     if (error) return { ok: false, error };
 
     const ids = patch.characterIds ? Array.from(new Set(patch.characterIds.filter(Boolean))) : null;
     if (ids && ids.length === 0) return { ok: false, error: '至少要留一个号' };
-    if (overlaps(ids ?? ownersOf(before), startAt, before.endAt, id)) {
+    if (overlaps(ids ?? ownersOf(before), startAt, endAt, id)) {
         return { ok: false, error: '这个号已有重叠的上线时段' };
     }
 
     const next: OnlineSession = {
         ...before,
         startAt,
+        endAt,
         date: dateText(startAt),
         characterId: ids ? ids[0] : before.characterId,
         roster: ids ? (ids.length > 1 ? ids : []) : before.roster,

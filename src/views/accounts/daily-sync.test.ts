@@ -135,6 +135,39 @@ describe('收益自动同步', () => {
         expect(accounts.entries.value.map((one) => one.date)).toEqual(['2026-11-13']);
     });
 
+    it('修改上线终点跨日重算，缩回当天移除次日成本且保留手记', async () => {
+        const { sync, accounts, online } = await loadSync({ sessions: [session()] });
+        accounts.addEntry({
+            date: '2026-11-13',
+            characterId: 'c1',
+            kind: 'expense',
+            currency: 'cash',
+            category: '其他收支',
+            channel: '游戏内',
+            amount: 1,
+        });
+        sync.syncAllDays();
+        stop = sync.startDailySync();
+        expect(online.updateOnline('online', { endAt: at(13, 2) }).ok).toBe(true);
+        expect(await sync.flushDailySync()).toBe(true);
+        expect(
+            accounts.entries.value.find((one) => one.id === 'auto-2026-11-12-c1-card'),
+        ).toMatchObject({ amount: 90000 });
+        expect(
+            accounts.entries.value.find((one) => one.id === 'auto-2026-11-13-c1-card'),
+        ).toMatchObject({ amount: 180000 });
+
+        expect(online.updateOnline('online', { endAt: at(12, 23) + 30 * 60000 }).ok).toBe(true);
+        expect(await sync.flushDailySync()).toBe(true);
+        expect(accounts.entries.value.filter((one) => one.source === 'auto')).toEqual([
+            expect.objectContaining({ id: 'auto-2026-11-12-c1-card', amount: 45000 }),
+        ]);
+        expect(accounts.entries.value.find((one) => one.source === '')).toMatchObject({
+            amount: 10000,
+            date: '2026-11-13',
+        });
+    });
+
     it('跨日时段删除后，两天的成本都移除', async () => {
         const { sync, accounts, online } = await loadSync({ sessions: [session()] });
         sync.syncAllDays();

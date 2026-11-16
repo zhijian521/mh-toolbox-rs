@@ -38,6 +38,9 @@ function close() {
 }
 
 const editing = computed(() => props.mode === 'edit');
+const editableEnd = computed(
+    () => editing.value && props.session !== undefined && props.session.endAt !== null,
+);
 
 const busyIds = computed(() => {
     const busy = new Set<string>();
@@ -73,6 +76,7 @@ const initial =
 const date = ref(initial.date);
 const startTime = ref(initial.startTime);
 const endTime = ref(initial.endTime);
+const endDate = ref(dateText(props.session?.endAt ?? Date.now()));
 const note = ref(props.session?.note ?? '');
 
 const options = computed(() =>
@@ -86,7 +90,7 @@ const options = computed(() =>
 const error = ref('');
 
 watch(
-    [ids, date, startTime, endTime, note],
+    [ids, date, startTime, endDate, endTime, note],
     () => {
         error.value = '';
     },
@@ -117,7 +121,7 @@ function applySave(): boolean {
         error.value = '开始时刻格式有误';
         return false;
     }
-    const startAt = atOf(date.value, start);
+    const startAt = atOf(date.value, start, editing.value ? props.session?.startAt : undefined);
     if (props.mode === 'backfill') {
         const end = normalizeTime(endTime.value);
         if (!end) {
@@ -135,8 +139,18 @@ function applySave(): boolean {
         return result.ok;
     }
     if (!props.session) return false;
+    let endAt: number | undefined;
+    if (editableEnd.value) {
+        const end = normalizeTime(endTime.value);
+        if (!end) {
+            error.value = '结束时刻格式有误';
+            return false;
+        }
+        endAt = atOf(endDate.value, end, props.session.endAt ?? undefined);
+    }
     const result = updateOnline(props.session.id, {
         startAt,
+        endAt,
         characterIds: ids.value,
         note: note.value,
     });
@@ -205,17 +219,28 @@ const submitText = computed(() => {
                 </div>
 
                 <template v-if="mode !== 'start'">
-                    <div class="online-field">
+                    <div :class="editableEnd ? 'form-pair' : 'online-field'">
                         <DateField
                             v-model="date"
-                            label="日期"
+                            :label="editableEnd ? '开始日期' : '日期'"
+                            :max="todayText()"
+                            :disabled="locked"
+                        />
+                        <DateField
+                            v-if="editableEnd"
+                            v-model="endDate"
+                            label="结束日期"
                             :max="todayText()"
                             :disabled="locked"
                         />
                     </div>
                     <div class="times form-pair">
                         <TimeField v-model="startTime" label="开始" />
-                        <TimeField v-if="mode === 'backfill'" v-model="endTime" label="结束" />
+                        <TimeField
+                            v-if="mode === 'backfill' || editableEnd"
+                            v-model="endTime"
+                            label="结束"
+                        />
                         <div v-else class="online-field end-time">
                             <span class="field-label">结束</span>
                             <output class="field time-readout" aria-label="结束时刻">

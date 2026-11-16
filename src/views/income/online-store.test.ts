@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { sessionCost, sessionMinutes } from './online';
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -132,6 +133,65 @@ describe('上线：单独结束一个号', () => {
 });
 
 describe('上线：时间与冲突校验', () => {
+    it('修改结束时间后重算时长与点卡，保留单价快照并写回', async () => {
+        const desktop = host();
+        const store = await loadStore(desktop);
+        const now = Date.now();
+        const startAt = now - 3 * 3600000;
+        store.backfillOnline({ characterIds: ['c1'], startAt, endAt: now - 2 * 3600000 });
+        const { sessions, flush } = store.useOnline();
+        const before = sessions.value[0];
+        const endAt = now - 3600000;
+        expect(store.updateOnline(before.id, { endAt }).ok).toBe(true);
+        expect(sessions.value).toHaveLength(1);
+        expect(sessions.value[0]).toEqual({ ...before, endAt });
+        expect(sessionMinutes(sessions.value[0])).toBe(120);
+        expect(sessionCost(sessions.value[0])).toBe(180000);
+        expect(await flush()).toBe(true);
+        expect(desktop.onlineSave).toHaveBeenLastCalledWith(
+            expect.objectContaining({ sessions: [expect.objectContaining({ id: before.id, endAt })] }),
+        );
+        expect(store.updateOnline(before.id, { note: '只改备注' }).ok).toBe(true);
+        expect(sessions.value[0].endAt).toBe(endAt);
+    });
+
+    it('修改结束时间拒绝未来、倒置、不足一分钟和非法时刻，失败不动记录', async () => {
+        const desktop = host();
+        const store = await loadStore(desktop);
+        const now = Date.now();
+        const startAt = now - 3600000;
+        store.backfillOnline({ characterIds: ['c1'], startAt, endAt: now - 600000 });
+        const { sessions, flush } = store.useOnline();
+        await flush();
+        desktop.onlineSave.mockClear();
+        const before = sessions.value[0];
+        for (const endAt of [now + 60000, startAt, startAt - 60000, startAt + 30000, NaN]) {
+            expect(store.updateOnline(before.id, { endAt }).ok).toBe(false);
+            expect(sessions.value[0]).toBe(before);
+        }
+        await flush();
+        expect(desktop.onlineSave).not.toHaveBeenCalled();
+    });
+
+    it('延长结束时间不能撞上同角色下一段，恰好衔接允许', async () => {
+        const store = await loadStore(host());
+        const now = Date.now();
+        const hour = 3600000;
+        store.backfillOnline({
+            characterIds: ['c1'],
+            startAt: now - 4 * hour,
+            endAt: now - 3 * hour,
+        });
+        const before = store.useOnline().sessions.value[0];
+        store.backfillOnline({
+            characterIds: ['c1'],
+            startAt: now - 2 * hour,
+            endAt: now - hour,
+        });
+        expect(store.updateOnline(before.id, { endAt: now - hour }).ok).toBe(false);
+        expect(store.updateOnline(before.id, { endAt: now - 2 * hour }).ok).toBe(true);
+    });
+
     it('拒绝未来时间、相同时间和不足一分钟，不产生记录', async () => {
         const store = await loadStore(host());
         const now = Date.now();

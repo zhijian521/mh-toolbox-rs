@@ -6,7 +6,11 @@ export function backfillDraft(now = Date.now()) {
     return { date: dateText(start), startTime: timeText(start), endTime: timeText(now) };
 }
 
-export function onlineTimeAt(day: string, time: string): number {
+/** 编辑未改变分钟读数时保留原始秒数，避免只改备注也改变时长与点卡。 */
+export function onlineTimeAt(day: string, time: string, originalAt?: number): number {
+    if (originalAt !== undefined && day === dateText(originalAt) && time === timeText(originalAt)) {
+        return originalAt;
+    }
     const at = parseDay(day);
     const [hour, minute] = time.split(':').map(Number);
     at.setHours(hour, minute, 0, 0);
