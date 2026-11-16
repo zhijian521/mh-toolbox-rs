@@ -8,7 +8,11 @@ export async function jadePair(ctx, tools) {
         cdp.evaluate(`(async () => {
         const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
         const one = useRoster().roster.value.find(row => row.name === 'E2E改名后');
-        return { soul: one.gearMeta.soul, jade: one.gear.filter(row => row.slot.startsWith('玉魄')) };
+        // CDP 不能完整传输 Vue 只读代理，先在页面内转换为普通快照。
+        return JSON.parse(JSON.stringify({
+            soul: one.gearMeta.soul,
+            jade: one.gear.filter(row => row.slot.startsWith('玉魄')),
+        }));
     })()`);
     await t.step('阴阳玉魄同图识别：两件分别覆盖，共用命魂属性保存重载', async () => {
         await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });

@@ -71,7 +71,7 @@ beforeEach(() => {
 });
 
 describe('命魂之玉双列截图', () => {
-    it.each(['上古玉·阴', '上古玉朗·阴', '上古玉魂·阴', '上古玉魄·阴'])(
+    it.each(['上古玉·阴', '上古玉朗·阴', '上古玉魂·阴', '上古玉魄·阴', '上古玉魏·阴'])(
         '标题漏字或形近字仍定位阴玉魄：%s',
         (title) => {
             const result = parseGearPanel(rows([title, '格挡值+31']));
@@ -177,6 +177,27 @@ describe('命魂之玉双列截图', () => {
         expect(yang.lines).toEqual([{ label: '奇袭特技', value: '空', tone: 'ochre' }]);
         expect(yin.lines).toEqual([{ label: '奇袭道具', value: '空', tone: 'ochre' }]);
         expect(gearAmbushFrame).not.toHaveBeenCalled();
+    });
+
+    it('同图阴标题误读为魏时仍分列，不能把两件属性合进阳玉魄', async () => {
+        const lines = source().map((row) => ({
+            ...row,
+            text: row.text.replace('上古玉魄·阴', '上古玉魏·阴'),
+        }));
+        expect(jadePanels(lines, image()).map((panel) => panel.slot)).toEqual([
+            '玉魄·阳',
+            '玉魄·阴',
+        ]);
+        const result = await recognizeGearPanel(lines, image(), []);
+        expect(result.related?.[0].slot).toBe('玉魄·阴');
+        expect(result.detail.stats?.some((row) => row.label === '气血')).toBe(false);
+        expect(result.related?.[0].detail.stats).toContainEqual({
+            label: '气血',
+            value: '+40',
+            extra: '+84',
+            gain: true,
+        });
+        expect(result.soul).toEqual([{ label: '抗法术暴击率', value: '+0.5%' }]);
     });
 
     it('一张图覆盖两件并保留各自备注，存档重载只保留一份命魂属性', async () => {

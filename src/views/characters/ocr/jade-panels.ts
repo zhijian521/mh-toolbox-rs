@@ -1,8 +1,8 @@
 import type { GearSlotName } from '../gear';
 import type { OcrLine } from './attr-panel';
 
-/** 「魄」会漏读或识别成「魂 / 朗」；必须同时命中完整前缀与阴阳，不能只按属性猜部位。 */
-export const JADE_TITLE_PATTERN = /上古玉[魄魂朗]?[·・.。:：]?([阴阳])/;
+/** 「魄」会漏读或误识别；只兼容实图出现的形近字，同时要求完整前缀与阴阳。 */
+export const JADE_TITLE_PATTERN = /上古玉[魄魂朗魏]?[·・.。:：]?([阴阳])/;
 
 /** 同一行的两个标题可能共用 OCR 框；按标题文字位置估计列界，再裁原图分别识别。 */
 export function jadePanels(lines: readonly OcrLine[], image: ImageData) {
