@@ -3,6 +3,16 @@ import { ACCOUNT_CATEGORIES, type AccountEntry, type Currency, type Shortcut } f
 
 import { ALL_OPTIONS as ALL_ACCOUNTS } from '../../components/select-options';
 import { UNASSIGNED_CHARACTER as UNASSIGNED } from '../characters/character-options';
+import type { RecordFilters } from '../../composables/use-record-filters';
+
+export interface AccountRecordFilters extends RecordFilters {
+    currency: string;
+    kind: string;
+    category: string;
+    channel: string;
+    source: string;
+    keyword: string;
+}
 export const BOOK_OPTIONS: { value: Currency; label: string }[] = [
     { value: 'rmb', label: '人民币' },
     { value: 'cash', label: '梦幻币' },

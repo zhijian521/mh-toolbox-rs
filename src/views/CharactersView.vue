@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { lazyDialog } from '../components/lazy-dialog';
 import SaveNotice from '../components/SaveNotice.vue';
+import LoadNotice from '../components/LoadNotice.vue';
 import { computed, nextTick, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useRouteAction } from '../composables/use-route-action';
@@ -11,7 +12,7 @@ import { useConfirmedRemoval } from '../composables/use-confirmed-removal';
 import CharacterCard from './characters/CharacterCard.vue';
 import type { QuickTarget } from './characters/quick/quick-target';
 import { PANES, type ReadonlyCharacter, type PaneKey } from './characters/character';
-import { emptyCharacter, useRoster } from './characters/roster';
+import { emptyCharacter, loadRoster, useRoster } from './characters/roster';
 import { goalsOfCharacter } from './goals/goals-store';
 import { gameDataError, gameDataLoading, gameDataReady, loadGameData } from '../services/game-data';
 
@@ -215,7 +216,11 @@ useRouteAction('/characters', {
              两者都必须显示——读失败时名册本来就是空的，用户看到的是一张空页，不说清楚就会以为
              「角色都没了」然后重填一遍；而底层此刻拒绝写入，他重建的东西同样存不下去。
              样式只用现成的 `.note.error`（`base.css` 的朱色状态），不新造类。 -->
-        <p v-if="loadError" class="note error" role="alert">{{ loadError }}</p>
+        <LoadNotice
+            :error="loadError"
+            :load="loadRoster"
+            :blocked="pending > 0 || !!writeError || !!editing || !!quicking || removing"
+        />
         <p v-if="!gameDataReady" class="note error" role="alert">
             {{ gameDataError || '正在加载游戏数据，暂时无法修改角色' }}
             <PressButton
@@ -255,6 +260,7 @@ useRouteAction('/characters', {
                  **所以它也得跟页头那枚同进退**：读失败时名册被清成空，这一格恰好会露出来，
                  不禁用就成了「页头点不动、这里能点进去」，用户填完一整份再被 `persist()` 的闸丢掉。 -->
             <button
+                v-if="!loadError"
                 class="char-blank"
                 type="button"
                 aria-label="新建角色"

@@ -5,6 +5,7 @@ import { useMinuteNow } from '../../composables/use-minute-now';
 import { usePagination } from '../../composables/use-pagination';
 import RecordPager from '../../components/RecordPager.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
+import LoadNotice from '../../components/LoadNotice.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SelectField from '../../components/SelectField.vue';
@@ -23,7 +24,7 @@ import {
     sessionCost,
     type ReadonlyOnlineSession,
 } from './online';
-import { useOnline } from './online-store';
+import { loadOnline, useOnline } from './online-store';
 import { characterOptions } from '../characters/character-options';
 
 const emit = defineEmits<{ close: []; edit: [session: ReadonlyOnlineSession] }>();
@@ -130,7 +131,11 @@ async function remove(one: ReadonlyOnlineSession) {
         @close="!removing && emit('close')"
     >
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
-        <p v-if="loadError" class="note error" role="alert">{{ loadError }}</p>
+        <LoadNotice
+            :error="loadError"
+            :load="loadOnline"
+            :blocked="pending > 0 || !!writeError || removing"
+        />
         <div class="record-filters">
             <SelectField v-model="who" :options="whoOptions" label="角色筛选" class="f-narrow" />
             <input
@@ -144,7 +149,7 @@ async function remove(one: ReadonlyOnlineSession) {
             <PressButton v-if="anyFilter" text="重置" size="sm" label="清空筛选" @click="reset" />
         </div>
 
-        <p class="record-summary">
+        <p v-if="!loadError" class="record-summary">
             <span class="sum-item">合计 {{ minutesText(totals.minutes) }}</span>
             <span class="sum-item" :class="{ cost: totals.cost > 0 }">
                 点卡 {{ totals.cost > 0 ? ledgerMoneyText(totals.cost) : '—' }}
@@ -156,7 +161,13 @@ async function remove(one: ReadonlyOnlineSession) {
 
         <div class="income-log-scroll">
             <p v-if="!filtered.length" class="record-empty">
-                {{ sessions.length ? '这个筛选下没有记录。' : '还没有上线记录。' }}
+                {{
+                    loadError
+                        ? '暂时无法读取上线记录，请重新读取。'
+                        : sessions.length
+                          ? '这个筛选下没有记录。'
+                          : '还没有上线记录。'
+                }}
             </p>
 
             <table v-else class="rec-table income-table">
@@ -211,8 +222,8 @@ async function remove(one: ReadonlyOnlineSession) {
         </div>
 
         <template #footer>
-            <span class="record-foot-note">{{ filtered.length }} 段</span>
-            <RecordPager v-model="page" :pages="pages" />
+            <span class="record-foot-note">{{ loadError ? '读取失败' : filtered.length + ' 段' }}</span>
+            <RecordPager v-if="!loadError" v-model="page" :pages="pages" />
             <PressButton
                 data-modal-cancel
                 text="关闭"

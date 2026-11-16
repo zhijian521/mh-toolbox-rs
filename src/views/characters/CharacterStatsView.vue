@@ -3,14 +3,15 @@ import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
+import LoadNotice from '../../components/LoadNotice.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import CharacterCard from './CharacterCard.vue';
 import { PANES, PANE_OPTIONS, type PaneKey } from './character';
-import { useRoster } from './roster';
+import { loadRoster, useRoster } from './roster';
 
 const route = useRoute();
 const router = useRouter();
-const { roster, loadError } = useRoster();
+const { roster, loadError, pending, writeError } = useRoster();
 const pane = computed<PaneKey>({
     get: () => PANES.find((item) => item.key === route.query.pane)?.key ?? 'attrs',
     set: (value) => {
@@ -30,8 +31,12 @@ const pane = computed<PaneKey>({
             />
         </template>
 
-        <p v-if="loadError" class="note error" role="alert">{{ loadError }}</p>
-        <template v-else>
+        <LoadNotice
+            :error="loadError"
+            :load="loadRoster"
+            :blocked="pending > 0 || !!writeError"
+        />
+        <template v-if="!loadError">
             <div class="stats-controls page-filters">
                 <SteppedSlider v-model="pane" :options="PANE_OPTIONS" label="角色统计分区" />
                 <span class="stats-count num" aria-live="polite"> {{ roster.length }} 个角色 </span>

@@ -130,6 +130,17 @@ export async function draft(ctx, tools) {
                 document.querySelector('.ocr-card input[aria-label="气血"]').value === ''`),
         );
         await ui.clickText('.modal-panel button', '取消', { exact: true });
+        await ui.waitFor(`!!document.querySelector('[aria-label="继续编辑"]')`);
+        await ui.clickLabel('继续编辑');
+        t.check(
+            '取消放弃后保留截图和补录草稿',
+            await cdp.evaluate(
+                `document.querySelector('.ocr-card input[aria-label="角色名"]').value === 'E2E截图草稿'`,
+            ),
+        );
+        await cdp.key('Escape');
+        await ui.waitFor(`!!document.querySelector('[aria-label="放弃修改"]')`);
+        await ui.clickLabel('放弃修改');
         await ui.waitFor(`!document.querySelector('.ocr')`);
         t.check(
             '取消不修改真实角色',

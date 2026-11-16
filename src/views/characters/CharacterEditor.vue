@@ -25,6 +25,7 @@ import { EDITOR_H, EDITOR_W } from './editor-metrics';
 import { focusInput } from './focus-input';
 import { ocrFrame } from '../../services/ocr';
 import { base64Of, swapToBgra } from './ocr/pixels';
+import { useDraftGuard } from '../../composables/use-draft-guard';
 
 /** 新建、手工修改和截图识别共用独立草稿，保存后由名册统一落库。 */
 const props = withDefaults(
@@ -102,6 +103,14 @@ const canSave = computed(
         !props.saving &&
         (!props.locked || props.retrying) &&
         (props.retrying || props.isNew || changed.value),
+);
+
+const { requestClose } = useDraftGuard(
+    () =>
+        !props.retrying &&
+        (changed.value || intake.value.busy || gearReading.value || petReading.value),
+    () => props.saving,
+    () => emit('cancel'),
 );
 
 async function fillRequired() {
@@ -190,7 +199,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
         :height="EDITOR_H"
         fill
         :initial-focus="pane === 'attrs' ? 'none' : 'first'"
-        @close="!saving && emit('cancel')"
+        @close="requestClose"
     >
         <div ref="content" :inert="locked || saving" class="ocr" :class="{ 'ocr-wide': wide }">
             <GearEditor
@@ -290,7 +299,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
                 label="放弃这次修改"
                 data-modal-cancel
                 :disabled="saving"
-                @click="emit('cancel')"
+                @click="requestClose"
             />
             <PressButton
                 icon="check"

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ALL_OPTIONS as ALL } from '../../components/select-options';
-import { computed, ref, watch } from 'vue';
+import { computed, toRefs, watch } from 'vue';
+import { useRecordScroll } from '../../composables/use-record-filters';
+import LoadNotice from '../../components/LoadNotice.vue';
 import { ledgerMoneyText } from '../../services/format';
 import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
@@ -21,10 +23,19 @@ import {
     newestFirst,
     type AccountEntry,
 } from './accounts';
-import { BOOK_OPTIONS, accountValueText, filterAccounts } from './account-analysis';
-import { useAccounts } from './accounts-store';
+import {
+    BOOK_OPTIONS,
+    accountValueText,
+    filterAccounts,
+    type AccountRecordFilters,
+} from './account-analysis';
+import { loadAccounts, useAccounts } from './accounts-store';
 
 const emit = defineEmits<{ close: []; edit: [entry: AccountEntry] }>();
+const filters = defineModel<AccountRecordFilters>({ required: true });
+const { currency, kind, category, channel, who, source, from, to, keyword, page: selectedPage } =
+    toRefs(filters.value);
+const { scroll, rememberScroll } = useRecordScroll(filters);
 const { entries, removeEntry, flush, retry, pending, writeError, loadError } = useAccounts();
 const { roster } = useRoster();
 const removal = useConfirmedRemoval(
@@ -35,15 +46,6 @@ const { removing } = removal;
 const mutationBlocked = computed(
     () => removing.value || pending.value > 0 || Boolean(loadError.value || writeError.value),
 );
-const currency = ref(ALL);
-const kind = ref(ALL);
-const category = ref(ALL);
-const channel = ref(ALL);
-const who = ref(ALL);
-const source = ref(ALL);
-const from = ref('');
-const to = ref('');
-const keyword = ref('');
 const categoryOptions = computed(() => [
     { value: ALL, label: '全部分类' },
     ...[...new Set([...ACCOUNT_CATEGORIES, ...entries.value.map((one) => one.category)])].map(
@@ -97,7 +99,7 @@ const filtered = computed(() => {
                 .includes(word),
     );
 });
-const { page, pages, visible } = usePagination(filtered);
+const { page, pages, visible } = usePagination(filtered, 20, selectedPage);
 const sums = computed(() => {
     const stats = accountStatsByCurrency(filtered.value);
     return BOOK_OPTIONS.filter((one) => currency.value === ALL || currency.value === one.value).map(
@@ -114,6 +116,8 @@ const anyFilter = computed(
 );
 watch([currency, kind, category, channel, who, source, from, to, keyword], () => {
     page.value = 1;
+    if (scroll.value) scroll.value.scrollTop = 0;
+    filters.value.scrollTop = 0;
 });
 function reset() {
     for (const field of [currency, kind, category, channel, who, source]) field.value = ALL;
@@ -150,6 +154,11 @@ async function remove(one: AccountEntry) {
         @close="!removing && emit('close')"
     >
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
+        <LoadNotice
+            :error="loadError"
+            :load="loadAccounts"
+            :blocked="pending > 0 || !!writeError || removing"
+        />
         <div class="record-filters">
             <DateField v-model="from" label="账号历史开始日期" :max="to" />
             <span class="date-separator">至</span>
@@ -192,7 +201,7 @@ async function remove(one: AccountEntry) {
             />
             <SelectField v-model="who" :options="whoOptions" label="角色筛选" class="f-pick" />
         </div>
-        <div class="record-summary">
+        <div v-if="!loadError" class="record-summary">
             <div v-for="one in sums" :key="one.currency" class="sum">
                 <span>{{ CURRENCY_META[one.currency].label }}</span>
                 <span :class="{ in: one.stats.income > 0 }"
@@ -206,9 +215,15 @@ async function remove(one: AccountEntry) {
                 >
             </div>
         </div>
-        <div class="income-log-scroll">
+        <div ref="scroll" class="income-log-scroll" @scroll="rememberScroll">
             <p v-if="!filtered.length" class="record-empty">
-                {{ loadError || (entries.length ? '这个筛选下没有记录' : '还没有账号记录') }}
+                {{
+                    loadError
+                        ? '暂时无法读取记录'
+                        : entries.length
+                          ? '这个筛选下没有记录'
+                          : '还没有账号记录'
+                }}
             </p>
             <table v-else class="income-table rec-table">
                 <thead>
@@ -265,10 +280,11 @@ async function remove(one: AccountEntry) {
             </table>
         </div>
         <template #footer>
-            <span class="record-foot-note"
+            <span v-if="loadError" class="record-foot-note">读取失败</span>
+            <span v-else class="record-foot-note"
                 >{{ filtered.length }} 笔{{ anyFilter ? ' · 已筛选' : '' }}</span
             >
-            <RecordPager v-model="page" :pages="pages" />
+            <RecordPager v-if="!loadError" v-model="page" :pages="pages" />
             <PressButton
                 data-modal-cancel
                 text="关闭"

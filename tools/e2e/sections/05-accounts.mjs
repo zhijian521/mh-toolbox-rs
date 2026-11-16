@@ -327,6 +327,16 @@ export default async function run(ctx) {
             );
             await ui.fill('搜索记录', MARK);
             await sleep(250);
+            await cdp.key('Escape');
+            await ui.waitFor(`!document.querySelector('[role="dialog"]')`);
+            await ui.clickLabel('查看账号历史记录');
+            await ui.waitFor(`!!document.querySelector('[aria-label="搜索记录"]')`);
+            t.check(
+                '关闭重开保留账号历史搜索条件',
+                await cdp.evaluate(
+                    `document.querySelector('[aria-label="搜索记录"]').value === ${JSON.stringify(MARK)}`,
+                ),
+            );
             const hits = await cdp.evaluate(
                 `[...document.querySelectorAll('.rec-table tbody tr')]
                     .filter((row) => (row.textContent || '').includes('⚠E2E账号')).length`,

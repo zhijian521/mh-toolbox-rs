@@ -21,6 +21,7 @@ import {
     type MetricGroup,
 } from './goals';
 import { MONEY_UNITS, type GoalInput } from './goals-store';
+import { useDraftGuard } from '../../composables/use-draft-guard';
 
 const props = defineProps<{
     goal?: ReadonlyGoal;
@@ -136,6 +137,25 @@ const ready = computed(
         (!tracking.value || (!!metric.value && !incompatible.value.length)) &&
         (kind.value !== 'manual' || !!title.value.trim()),
 );
+const snapshot = () =>
+    JSON.stringify({
+        kind: kind.value,
+        group: group.value,
+        metric: metric.value,
+        target: target.value,
+        selected: [...selected.value].sort(),
+        title: title.value,
+        unit: unit.value,
+        deadline: deadline.value,
+        note: note.value,
+    });
+const original = snapshot();
+const { requestClose } = useDraftGuard(
+    () => !props.retrying && snapshot() !== original,
+    () => props.saving,
+    () => emit('close'),
+);
+
 function pickKind(next: GoalKind) {
     if (props.locked || props.goal || kind.value === next) return;
     kind.value = next;
@@ -165,7 +185,7 @@ function enter(event: KeyboardEvent) {
     <ModalShell
         :title="goal ? '修改目标' : '新增目标'"
         :width="480"
-        @close="!saving && emit('close')"
+        @close="requestClose"
     >
         <form class="goal-form modal-form" @submit.prevent="submit" @keydown.enter="enter">
             <fieldset :disabled="locked" :inert="locked">
@@ -323,7 +343,7 @@ function enter(event: KeyboardEvent) {
                 text="取消"
                 label="取消"
                 :disabled="saving"
-                @click="emit('close')"
+                @click="requestClose"
             />
             <PressButton
                 icon="check"

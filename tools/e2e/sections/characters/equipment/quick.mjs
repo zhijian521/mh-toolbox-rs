@@ -192,6 +192,8 @@ export async function quick(ctx, tools) {
         );
         await ui.fillSel('.gear-quick textarea[aria-label="装备备注"]', '取消的备注');
         await ui.clickText('.modal-panel button', '取消', { exact: true });
+        await ui.waitFor(`!!document.querySelector('[aria-label="放弃修改"]')`);
+        await ui.clickLabel('放弃修改');
         await ui.waitFor(`!document.querySelector('.gear-quick')`);
         t.check(
             '取消保持原防御',

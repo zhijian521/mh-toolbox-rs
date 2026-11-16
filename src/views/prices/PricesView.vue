@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { lazyDialog } from '../../components/lazy-dialog';
 import SaveNotice from '../../components/SaveNotice.vue';
+import LoadNotice from '../../components/LoadNotice.vue';
 import { useRouteAction } from '../../composables/use-route-action';
 import { computed, ref } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
@@ -23,7 +24,7 @@ import {
     type PricePointDraft,
     type PriceSort,
 } from './prices';
-import { usePrices } from './prices-store';
+import { loadPrices, usePrices } from './prices-store';
 
 const PriceHistoryDialog = lazyDialog(() => import('./PriceHistoryDialog.vue'));
 const PriceItemDialog = lazyDialog(() => import('./PriceItemDialog.vue'));
@@ -342,7 +343,11 @@ useRouteAction('/prices', { new: startNew });
         <!-- 数据层的那一行红字：读不出 / 写不进，都是「整张表有问题」而不是「这一笔填错了」，
              所以它在筛选栏之上、卡片区之外。`writeError` 从前只在 `prices-store.ts` 里被赋值
              和返回，没有任何界面读它——注释里说的「界面拿它显示一行红字」是这次才接上的。 -->
-        <p v-if="loadError" class="note error price-error" role="alert">{{ loadError }}</p>
+        <LoadNotice
+            :error="loadError"
+            :load="loadPrices"
+            :blocked="pending > 0 || !!writeError || itemDialogOpen || pointDialogOpen || removing"
+        />
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
 
         <div class="price-toolbar page-filters">
@@ -394,6 +399,8 @@ useRouteAction('/prices', { new: startNew });
                 @remove="askRemoveItem(item)"
             />
         </div>
+
+        <p v-else-if="loadError" class="note price-blank">暂时无法读取物价，请重新读取。</p>
 
         <div v-else-if="!items.length" class="price-void page-empty">
             <AppIcon name="prices" class="void-icon page-empty-icon" />

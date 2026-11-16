@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ALL_OPTIONS as ANY } from '../../components/select-options';
-import { computed, ref, watch } from 'vue';
+import { computed, ref, toRefs, watch } from 'vue';
+import { useRecordScroll, type RecordFilters } from '../../composables/use-record-filters';
+import LoadNotice from '../../components/LoadNotice.vue';
 import { usePagination } from '../../composables/use-pagination';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import RecordPager from '../../components/RecordPager.vue';
@@ -13,14 +15,17 @@ import { notify } from '../../composables/use-notify';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { characterName, useRoster } from '../characters/roster';
 import { timeText } from '../../services/clock';
-import { ledgerMoneyText, shortDate, todayText } from '../../services/format';
+import { ledgerMoneyText, shortDate } from '../../services/format';
 import { amountText, entriesIn, totalsOf, type IncomeEntry } from './income';
-import { useIncome } from './income-store';
+import { loadIncome, useIncome } from './income-store';
 import { itemIconOf } from './item-icons';
 import EntryEditDialog from './EntryEditDialog.vue';
 import { characterOptions, UNASSIGNED_CHARACTER as NOTHING } from '../characters/character-options';
 
 const emit = defineEmits<{ close: [] }>();
+const filters = defineModel<RecordFilters>({ required: true });
+const { from, to, who, page: selectedPage } = toRefs(filters.value);
+const { scroll, rememberScroll } = useRecordScroll(filters);
 
 const { entries, removeEntry, updateEntry, pending, flush, retry, loadError, writeError } =
     useIncome();
@@ -34,21 +39,7 @@ const mutationBlocked = computed(
     () => removing.value || pending.value > 0 || Boolean(loadError.value || writeError.value),
 );
 
-/**
- * 「不限角色」的哨兵：`SelectField` 把空串当「没有值」，选中它会退回 placeholder。
- * 与账号页 / 目标页同一个写法。
- */
-
-/**
- * 正在看的区间两端。默认两端都落在今天——打开历史的人十次有九次是想核对今天，
- * 而「一天」正是这个区间的退化情形（起 == 止），不必为单日另留一套界面。
- */
-const from = ref(todayText());
-const to = ref(todayText());
-
-/** 只看哪个号。`ANY` = 全部；空串 = 未指定角色（真实目标，见文件头）。 */
-const who = ref(ANY);
-
+/** 页面持有历史范围；同一速记角色下重新打开时保留上次筛选。 */
 const whoOptions = computed(() =>
     characterOptions(
         roster.value,
@@ -82,9 +73,11 @@ const rows = computed(() =>
         .sort((a, b) => b.createdAt - a.createdAt),
 );
 
-const { page, pages, visible } = usePagination(rows);
+const { page, pages, visible } = usePagination(rows, 20, selectedPage);
 watch([from, to, who], () => {
     page.value = 1;
+    if (scroll.value) scroll.value.scrollTop = 0;
+    filters.value.scrollTop = 0;
 });
 const editSubmit = usePersistedSubmit(flush, retry);
 const { saving, action, locked } = editSubmit;
@@ -168,7 +161,11 @@ async function remove(one: IncomeEntry) {
              「回到今天」长在纸片自己的页脚里（`DateField` 的能力，不只服务这一页），
              这里不再挂第二枚。 -->
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
-        <p v-if="loadError" class="note error" role="alert">{{ loadError }}</p>
+        <LoadNotice
+            :error="loadError"
+            :load="loadIncome"
+            :blocked="pending > 0 || !!writeError || removing || !!editing"
+        />
         <div class="record-filters">
             <DateField
                 :model-value="from"
@@ -188,7 +185,7 @@ async function remove(one: IncomeEntry) {
             <SelectField v-model="who" :options="whoOptions" label="按角色筛选" class="who-pick" />
         </div>
 
-        <p v-if="rows.length" class="record-summary">
+        <p v-if="rows.length && !loadError" class="record-summary">
             <span
                 class="sum-tag total"
                 :class="{ gain: rangeTotals.net > 0, loss: rangeTotals.net < 0 }"
@@ -219,7 +216,7 @@ async function remove(one: IncomeEntry) {
 
         <!-- 只有表格滚（`fill` 让正文成为纵向 flex 容器，这里吃掉剩下的全部高度）。
              表头 `sticky` 钉在容器顶上：往下翻十几行之后仍知道哪列是哪列。 -->
-        <div v-else class="income-log-scroll">
+        <div v-else ref="scroll" class="income-log-scroll" @scroll="rememberScroll">
             <table class="log income-table">
                 <thead>
                     <tr>
@@ -292,8 +289,8 @@ async function remove(one: IncomeEntry) {
         </div>
 
         <template #footer>
-            <span class="record-foot-note">{{ rows.length }} 笔</span>
-            <RecordPager v-model="page" :pages="pages" />
+            <span class="record-foot-note">{{ loadError ? '读取失败' : rows.length + ' 笔' }}</span>
+            <RecordPager v-if="!loadError" v-model="page" :pages="pages" />
             <PressButton
                 text="关闭"
                 label="关闭历史收益"

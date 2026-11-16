@@ -7,6 +7,7 @@ import { useFontScale } from './composables/use-font-scale';
 import { useFontFamily } from './composables/use-font-family';
 import { useTheme } from './composables/use-theme';
 import { askConfirm } from './composables/use-confirm';
+import { confirmDiscardDrafts } from './composables/use-draft-guard';
 import { guardWindowClose, notifyAppReady } from './services/desktop';
 import { flushPendingWrites } from './services/persist';
 import { router } from './router';
@@ -27,6 +28,7 @@ const dataReady = new Promise<void>((resolve) => {
 });
 // 拦在路由组件导入之前，避免模块求值或页面监听读到尚未装配的游戏规则和空账本。
 const removeLoadingGuard = router.beforeEach(() => dataReady);
+router.beforeEach((to, from) => (to.path === from.path ? true : confirmDiscardDrafts()));
 
 createApp({
     render: () =>
@@ -92,6 +94,7 @@ void startup.then(async (data) => {
 });
 
 void guardWindowClose(async () => {
+    if (!(await confirmDiscardDrafts())) return false;
     const data = await startup;
     const synced = data ? await data.flushDailySync() : true;
     const written = await flushPendingWrites();

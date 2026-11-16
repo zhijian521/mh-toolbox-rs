@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import PageShell from '../../components/PageShell.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import SlotButton from '../../components/SlotButton.vue';
+import LoadNotice from '../../components/LoadNotice.vue';
 import { askConfirm } from '../../composables/use-confirm';
 import { notify } from '../../composables/use-notify';
 import { useDevMode } from '../../composables/use-dev-mode';
@@ -35,6 +37,10 @@ import { DEMO_COUNTS, importDemoData } from './demo-data';
  */
 
 const { devMode } = useDevMode();
+const sampleLoadError = ref('示例：暂时无法读取记录');
+async function recoverSample() {
+    sampleLoadError.value = '';
+}
 
 /**
  * 灌一份模拟数据进名册与物价表。
@@ -113,6 +119,16 @@ async function importDemo() {
 
             <AtomsSection />
             <SlipRowSection />
+            <LedgerSection title="数据读取提示" hint="组合组件 · 不读写账本">
+                <LoadNotice :error="sampleLoadError" :load="recoverSample" />
+                <p v-if="!sampleLoadError" class="note">已恢复读取。</p>
+                <SlotButton
+                    v-if="!sampleLoadError"
+                    text="重置示例"
+                    label="重置读取失败示例"
+                    @click="sampleLoadError = '示例：暂时无法读取记录'"
+                />
+            </LedgerSection>
 
             <!-- 五张卡里四张传 `max-height="60vh"`（色板 97 枚、图标 41 枚、字号六档、票面行），
                  卡头钉住、内容自己滚，一张卡不会再长到两屏。原子组件那张传的是 `height`

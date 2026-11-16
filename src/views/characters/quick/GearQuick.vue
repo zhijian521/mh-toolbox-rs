@@ -11,6 +11,8 @@ import { EDITOR_H, EDITOR_W } from '../editor-metrics';
 import { focusInput } from '../focus-input';
 import type { GearDetail, GearSlotName } from '../gear';
 import type { ReadonlyCharacter } from '../character';
+import { normalizeGear } from '../roster';
+import { useDraftGuard } from '../../../composables/use-draft-guard';
 
 /** 手改与识别都只动深拷贝，保存前不会触及角色，取消即丢弃。 */
 const props = withDefaults(
@@ -32,6 +34,16 @@ const detail = ref<GearDetail>(
 );
 const reading = ref(false);
 const form = ref<HTMLElement | null>(null);
+const snapshot = () =>
+    JSON.stringify(
+        normalizeGear([{ slot: props.slotName, caption: caption.value, detail: detail.value }]),
+    );
+const original = snapshot();
+const { requestClose } = useDraftGuard(
+    () => !props.retrying && (reading.value || snapshot() !== original),
+    () => props.saving,
+    () => emit('close'),
+);
 
 function recognize(result: GearPanelResult) {
     if (props.locked || props.saving) return;
@@ -67,7 +79,7 @@ onMounted(() => focusInput(form, '.gear-name-input'));
         :height="EDITOR_H"
         fill
         initial-focus="none"
-        @close="!saving && emit('close')"
+        @close="requestClose"
     >
         <div ref="form" :inert="locked || saving" class="gear-quick">
             <GearScreenshot :slot-name="slotName" @recognize="recognize" @busy="reading = $event">
@@ -81,7 +93,7 @@ onMounted(() => focusInput(form, '.gear-name-input'));
                 text="取消"
                 label="放弃这次修改"
                 :disabled="saving"
-                @click="emit('close')"
+                @click="requestClose"
             />
             <PressButton
                 icon="check"

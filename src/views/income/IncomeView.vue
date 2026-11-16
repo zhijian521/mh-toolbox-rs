@@ -3,6 +3,9 @@ import { lazyDialog } from '../../components/lazy-dialog';
 import { useRouteAction } from '../../composables/use-route-action';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import SaveNotice from '../../components/SaveNotice.vue';
+import LoadNotice from '../../components/LoadNotice.vue';
+import { useRecordFilters } from '../../composables/use-record-filters';
+import { ALL_OPTIONS } from '../../components/select-options';
 import { useToday } from '../../composables/use-today';
 import { computed, ref } from 'vue';
 import PageShell from '../../components/PageShell.vue';
@@ -13,13 +16,13 @@ import { notify } from '../../composables/use-notify';
 import type { QuickItemEntry } from '../../services/game-data';
 import { daysAgo, parseDay, toWan } from '../../services/format';
 import { amountText, entriesOn, factsOf, recordSummary, statRowsOf, totalsOf } from './income';
-import { useIncome } from './income-store';
+import { loadIncome, useIncome } from './income-store';
 import OnlineBar from './OnlineBar.vue';
 import OnlinePanel from './OnlinePanel.vue';
 import QuickPanel from './QuickPanel.vue';
 import TodayDump from './TodayDump.vue';
 import { type ReadonlyOnlineSession } from './online';
-import { useOnline } from './online-store';
+import { loadOnline, useOnline } from './online-store';
 import { useDailySync } from '../accounts/daily-sync';
 import { useRoster } from '../characters/roster';
 
@@ -40,6 +43,7 @@ const {
     flush,
     retry,
     setTarget,
+    target,
 } = useIncome();
 const { roster } = useRoster();
 
@@ -74,6 +78,14 @@ function closePrice() {
 }
 
 const historyOpen = ref(false);
+const { filters: historyFilters, syncScope } = useRecordFilters(
+    () => ({ from: today.value, to: today.value, who: target.value[0] || ALL_OPTIONS }),
+    { page: 1, scrollTop: 0 },
+);
+function openHistory() {
+    syncScope();
+    historyOpen.value = true;
+}
 const { error: syncError, pending: syncPending, retry: retrySync } = useDailySync();
 
 const {
@@ -159,7 +171,7 @@ useRouteAction('/income', {
         if (character) setTarget([character.id]);
     },
     history() {
-        historyOpen.value = true;
+        openHistory();
     },
     start(query) {
         onlineCharacterIds.value = typeof query.character === 'string' ? [query.character] : [];
@@ -182,7 +194,7 @@ useRouteAction('/income', {
                 icon="history"
                 text="历史"
                 label="查看历史收益，按角色与按天"
-                @click="historyOpen = true"
+                @click="openHistory"
             />
 
             <PressButton
@@ -202,14 +214,22 @@ useRouteAction('/income', {
             />
         </template>
 
-        <p v-if="loadError" class="note error" role="alert">{{ loadError }}</p>
+        <LoadNotice
+            :error="loadError"
+            :load="loadIncome"
+            :blocked="pending > 0 || !!writeError || !!priceAsk"
+        />
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
-        <p v-if="onlineLoadError" class="note error" role="alert">{{ onlineLoadError }}</p>
+        <LoadNotice
+            :error="onlineLoadError"
+            :load="loadOnline"
+            :blocked="onlinePending > 0 || !!onlineWriteError || !!onlineDialog"
+        />
         <SaveNotice :error="onlineWriteError" :pending="onlinePending" @retry="retryOnline" />
         <SaveNotice :error="syncError" :pending="syncPending" @retry="retrySync" />
 
         <div class="income-stack">
-            <StatStrip :items="statItems" />
+            <StatStrip v-if="!loadError" :items="statItems" />
 
             <OnlineBar @records="recordsOpen = true" @backfill="onlineDialog = 'backfill'" />
 
@@ -236,7 +256,11 @@ useRouteAction('/income', {
             @close="closePrice"
         />
 
-        <IncomeHistoryDialog v-if="historyOpen" @close="historyOpen = false" />
+        <IncomeHistoryDialog
+            v-if="historyOpen"
+            v-model="historyFilters"
+            @close="historyOpen = false"
+        />
 
         <OnlineDialog
             v-if="onlineDialog"

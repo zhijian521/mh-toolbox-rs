@@ -11,6 +11,7 @@ import { EDITOR_H, EDITOR_W } from '../editor-metrics';
 import { focusInput } from '../focus-input';
 import { hasPetName, type Pet } from '../pets';
 import type { ReadonlyCharacter } from '../character';
+import { useDraftGuard } from '../../../composables/use-draft-guard';
 
 /** 快速修改与整份编辑共用截图入口和四组表单，取消不修改原记录。 */
 const props = withDefaults(
@@ -32,6 +33,12 @@ const source = computed(() => props.character.pets[props.index] ?? null);
 const pet = ref<Pet | null>(source.value ? cloneDraft<Pet>(source.value) : null);
 
 const reading = ref(false);
+const original = JSON.stringify(pet.value);
+const { requestClose } = useDraftGuard(
+    () => !props.retrying && (reading.value || JSON.stringify(pet.value) !== original),
+    () => props.saving,
+    () => emit('close'),
+);
 const canSave = computed(
     () =>
         !reading.value &&
@@ -65,7 +72,7 @@ onMounted(() => focusInput(form, 'input[aria-label="召唤兽名称"]'));
         :height="EDITOR_H"
         fill
         initial-focus="none"
-        @close="!saving && emit('close')"
+        @close="requestClose"
     >
         <div v-if="pet" ref="form" :inert="locked || saving" class="pet-quick">
             <PetScreenshot @recognize="recognize" @busy="reading = $event">
@@ -81,7 +88,7 @@ onMounted(() => focusInput(form, 'input[aria-label="召唤兽名称"]'));
                 text="取消"
                 label="放弃这次修改"
                 :disabled="saving"
-                @click="emit('close')"
+                @click="requestClose"
             />
             <PressButton
                 icon="check"

@@ -5,6 +5,7 @@ import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import { useRoster } from '../characters/roster';
 import { metricValue, metricApplicable, type ReadonlyGoal } from './goals';
+import { useDraftGuard } from '../../composables/use-draft-guard';
 
 const props = defineProps<{
     goal: ReadonlyGoal;
@@ -37,6 +38,12 @@ const touched = reactive(new Set<string>());
 const changed = computed(() =>
     rows.value.filter((row) => touched.has(row.id) && inputs[row.id] !== original.get(row.id)),
 );
+const { requestClose } = useDraftGuard(
+    () => !props.retrying && changed.value.length > 0,
+    () => props.saving,
+    () => emit('close'),
+);
+
 function change(id: string, value: number) {
     inputs[id] = value;
     touched.add(id);
@@ -56,7 +63,7 @@ function enter(event: KeyboardEvent) {
 </script>
 
 <template>
-    <ModalShell title="更新进度" :width="460" @close="!saving && emit('close')">
+    <ModalShell title="更新进度" :width="460" @close="requestClose">
         <form class="modal-form" @submit.prevent="submit" @keydown.enter="enter">
             <p class="metric-title">
                 {{ goal.tracking?.key }} <span>目标 {{ goal.target }} {{ goal.unit }}</span>
@@ -83,7 +90,7 @@ function enter(event: KeyboardEvent) {
                 text="取消"
                 label="取消"
                 :disabled="saving"
-                @click="emit('close')"
+                @click="requestClose"
             />
             <PressButton
                 icon="check"

@@ -43,6 +43,13 @@ export default async function run(ctx) {
             color: getComputedStyle(el.querySelector('.v')).color,
         })))()`);
 
+    // 计数与清理覆盖所有角色，不受本节前一次手工筛选或速记目标影响。
+    const showAllHistory = async () => {
+        await ui.clickLabel('按角色筛选');
+        await ui.clickText('.select-list .opt-label', '全部角色', { exact: true });
+        await sleep(150);
+    };
+
     /**
      * 今日笔数：从「历史收益」窗里读。
      *
@@ -63,6 +70,7 @@ export default async function run(ctx) {
             },
         );
         if (!opened) throw new Error('历史收益窗没打开');
+        await showAllHistory();
         const raw = await cdp.evaluate(
             `document.querySelector('[role="dialog"] .record-foot-note')?.innerText ?? ''`,
         );
@@ -84,12 +92,13 @@ export default async function run(ctx) {
         await ui.goto('收益');
         await ui.clickLabel('查看历史收益，按角色与按天');
         const opened = await cdp.waitFor(
-            `!!document.querySelector('[role="dialog"] .log tbody tr')`,
+            `!!document.querySelector('[role="dialog"] .record-filters')`,
             {
                 timeout: 4000,
             },
         );
         if (!opened) throw new Error('历史收益窗里没有流水行');
+        await showAllHistory();
 
         let removed = 0;
         for (let i = 0; i < n; i += 1) {
@@ -689,6 +698,8 @@ export default async function run(ctx) {
                     return Number.parseInt(dim, 10);
                 })()`);
 
+            // 新页面上下文检验首次继承，后续同页面重开另验保留筛选。
+            await ui.goto('角色');
             await ui.goto('收益');
             await ui.clickLabel('查看历史收益，按角色与按天');
             const opened = await cdp.waitFor(
@@ -697,9 +708,22 @@ export default async function run(ctx) {
             );
             if (!opened) throw new Error('历史收益窗没打开');
 
+            const expectedWho = await cdp.evaluate(`(async () => {
+                const { useIncome } = await ${importLoaded('/src/views/income/income-store.ts')};
+                const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
+                const id = useIncome().target.value[0];
+                return id ? (useRoster().roster.value.find((one) => one.id === id)?.name || '未命名') : '全部角色';
+            })()`);
+            t.check(
+                '历史继承当前速记角色',
+                await cdp.evaluate(
+                    `document.querySelector('[aria-label="按角色筛选"]').textContent.includes(${JSON.stringify(expectedWho)})`,
+                ),
+            );
+            await showAllHistory();
             const total = await countOf();
             t.check(
-                '默认是「全部角色」',
+                '切到全部角色后包含全部今日记录',
                 total === before + 3,
                 `期望 ${before + 3}，实际 ${total}`,
             );
@@ -1124,10 +1148,62 @@ export default async function run(ctx) {
 
             await ui.clickIn('[role="dialog"] .rec-table tbody tr', NOTE, { label: '改这一段' });
             const editOpened = await cdp.waitFor(
-                `!!document.querySelector('[aria-label="结束时刻"]')`,
+                `document.querySelectorAll('[role="dialog"] .times .time-input').length === 2`,
                 { timeout: 3000 },
             );
-            t.check('修改上线记录保留只读终点', editOpened);
+            t.check('已结束记录的起止时刻都可修改', editOpened);
+            if (!editOpened) throw new Error('修改窗没有可编辑的结束时刻');
+            t.check(
+                '修改窗同时显示开始日期与结束日期',
+                await cdp.evaluate(
+                    `document.querySelectorAll('[role="dialog"] .date-trigger').length === 2`,
+                ),
+            );
+            const changedEnd = await cdp.evaluate(`(async () => {
+                const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
+                const one = useOnline().sessions.value.find((one) => one.note === 'E2E上线一段');
+                const end = new Date(one.startAt + 30 * 60000);
+                const original = new Date(one.endAt);
+                return {
+                    time: String(end.getHours()).padStart(2, '0') + ':' +
+                        String(end.getMinutes()).padStart(2, '0'),
+                    dayLabel: end.getFullYear() + '年' + (end.getMonth() + 1) + '月' + end.getDate() + '日',
+                    previousMonth: end.getFullYear() !== original.getFullYear() ||
+                        end.getMonth() !== original.getMonth(),
+                };
+            })()`);
+            const endInput = '[role="dialog"] .times .time-field:nth-child(2) .time-input';
+            await ui.fillSel(endInput, '99:99');
+            await ui.clickLabel('保存');
+            t.check(
+                '错误结束时刻阻止保存并保留编辑窗',
+                await cdp.waitFor(`!!document.querySelector('[role="dialog"] .note.error')`),
+            );
+            await ui.fillSel(endInput, changedEnd.time);
+            await ui.clickLabelPrefix('结束日期：');
+            if (changedEnd.previousMonth) await ui.clickLabel('上一个月');
+            await ui.clickLabel(changedEnd.dayLabel);
+            await ui.clickLabel('保存');
+            t.check(
+                '修改终点后记录时长更新为半小时',
+                await cdp.waitFor(
+                    `document.querySelector('[role="dialog"] .rec-table tbody tr .c-dur')?.textContent.trim() === '00:30'`,
+                    { timeout: 3000 },
+                ),
+            );
+            await ui.clickIn('[role="dialog"] .rec-table tbody tr', NOTE, { label: '改这一段' });
+            await ui.waitFor(
+                `document.querySelectorAll('[role="dialog"] .times .time-input').length === 2`,
+            );
+            t.check(
+                '重新打开保留修改后的结束日期与时刻',
+                await cdp.evaluate(`(() => {
+                    const end = document.querySelector('[role="dialog"] .times .time-field:nth-child(2) .time-input');
+                    const day = document.querySelector('[role="dialog"] [aria-label^="结束日期："]');
+                    return end?.value === ${JSON.stringify(changedEnd.time)} &&
+                        day?.getAttribute('aria-label').includes(${JSON.stringify(changedEnd.dayLabel)});
+                })()`),
+            );
             await cdp.key('Escape');
             await sleep(250);
             t.check(
@@ -1290,8 +1366,16 @@ export default async function run(ctx) {
             const back = (await triggerTexts())[0] ?? '';
             t.check('纸片里的「回到今天」跳得回来', back.includes(todayLabel), `实际「${back}」`);
 
+            const retainedDates = await triggerTexts();
             await cdp.key('Escape');
             await sleep(250);
+            await ui.clickLabel('查看历史收益，按角色与按天');
+            await ui.waitFor(`document.querySelectorAll('[role="dialog"] .date-trigger').length === 2`);
+            t.check(
+                '关闭重开保留历史日期条件',
+                JSON.stringify(await triggerTexts()) === JSON.stringify(retainedDates),
+            );
+            await cdp.key('Escape');
         });
     }
 }

@@ -3,6 +3,7 @@ import { lazyDialog } from '../../components/lazy-dialog';
 import { useRouteAction } from '../../composables/use-route-action';
 import { computed, ref } from 'vue';
 import SaveNotice from '../../components/SaveNotice.vue';
+import LoadNotice from '../../components/LoadNotice.vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
@@ -13,7 +14,7 @@ import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import { useToday } from '../../composables/use-today';
 import { characterOptions } from '../characters/character-options';
-import { useRoster } from '../characters/roster';
+import { loadRoster, useRoster } from '../characters/roster';
 import GoalCard from './GoalCard.vue';
 import {
     GOAL_KINDS,
@@ -24,7 +25,7 @@ import {
     type ReadonlyGoal,
     type GoalSummary,
 } from './goals';
-import { useGoals, type GoalInput, type LogInput } from './goals-store';
+import { loadGoals, useGoals, type GoalInput, type LogInput } from './goals-store';
 
 const GoalEditor = lazyDialog(() => import('./GoalEditor.vue'));
 const GoalGrowth = lazyDialog(() => import('./GoalGrowth.vue'));
@@ -50,6 +51,7 @@ const {
     writeError: rosterWriteError,
     flush: flushRoster,
     retry: retryRoster,
+    pending: rosterPending,
 } = useRoster();
 const today = useToday();
 const entries = computed(() =>
@@ -334,13 +336,21 @@ useRouteAction('/goals', {
                 :disabled="blocked"
                 @click="openEditor()"
         /></template>
-        <p v-if="loadError" class="note error" role="alert">{{ loadError }}</p>
+        <LoadNotice
+            :error="loadError"
+            :load="loadGoals"
+            :blocked="pending > 0 || !!writeError || !!editing || !!growth || !!logs"
+        />
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
-        <p v-if="rosterLoadError" class="note error" role="alert">{{ rosterLoadError }}</p>
+        <LoadNotice
+            :error="rosterLoadError"
+            :load="loadRoster"
+            :blocked="rosterPending > 0 || !!rosterWriteError || !!editing || !!growth"
+        />
         <SaveNotice
             v-if="rosterWriteError"
             :error="rosterWriteError"
-            :pending="0"
+            :pending="rosterPending"
             @retry="retryRoster"
         />
         <div class="filters page-filters">
@@ -355,7 +365,8 @@ useRouteAction('/goals', {
                 aria-label="搜索目标"
             />
         </div>
-        <div v-if="!goals.length" class="record-empty">暂无目标</div>
+        <div v-if="loadError && !goals.length" class="record-empty">暂时无法读取目标，请重新读取。</div>
+        <div v-else-if="!goals.length" class="record-empty">暂无目标</div>
         <div v-else-if="!visible.length" class="record-empty">暂无符合条件的目标</div>
         <div v-else class="grid">
             <GoalCard

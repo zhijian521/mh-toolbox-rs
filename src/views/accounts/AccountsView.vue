@@ -11,6 +11,8 @@ import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
+import LoadNotice from '../../components/LoadNotice.vue';
+import { useRecordFilters } from '../../composables/use-record-filters';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
 import { notify } from '../../composables/use-notify';
@@ -31,7 +33,7 @@ import {
     type RangePreset,
 } from './accounts';
 import { accountValueText, filterAccounts, shortcutTotals } from './account-analysis';
-import { useAccounts, type EntryInput } from './accounts-store';
+import { loadAccounts, useAccounts, type EntryInput } from './accounts-store';
 
 const AccountEditor = lazyDialog(() => import('./AccountEditor.vue'));
 const AccountRecords = lazyDialog(() => import('./AccountRecords.vue'));
@@ -75,6 +77,23 @@ const shortcuts = computed(() => {
 const recent = computed(() => newestFirst(scoped.value).slice(0, 8));
 const editing = ref<{ entry?: AccountEntry; seed?: Partial<EntryInput> } | null>(null);
 const recordsOpen = ref(false);
+const { filters: historyFilters, syncScope } = useRecordFilters(
+    () => ({ ...range.value, who: who.value }),
+    {
+        currency: ALL_ACCOUNTS,
+        kind: ALL_ACCOUNTS,
+        category: ALL_ACCOUNTS,
+        channel: ALL_ACCOUNTS,
+        source: ALL_ACCOUNTS,
+        keyword: '',
+        page: 1,
+        scrollTop: 0,
+    },
+);
+function openRecords() {
+    syncScope();
+    recordsOpen.value = true;
+}
 const submission = usePersistedSubmit(flush, retry);
 const { saving, locked, action } = submission;
 
@@ -116,7 +135,7 @@ useRouteAction('/accounts', {
         openBlank({ characterId });
     },
     history() {
-        recordsOpen.value = true;
+        openRecords();
     },
 });
 </script>
@@ -128,7 +147,7 @@ useRouteAction('/accounts', {
                 icon="history"
                 text="历史"
                 label="查看账号历史记录"
-                @click="recordsOpen = true"
+                @click="openRecords"
             />
             <PressButton
                 icon="add"
@@ -139,7 +158,11 @@ useRouteAction('/accounts', {
             />
         </template>
         <div class="accounts-layout">
-            <p v-if="loadError" class="note error" role="alert">{{ loadError }}</p>
+            <LoadNotice
+                :error="loadError"
+                :load="loadAccounts"
+                :blocked="pending > 0 || !!writeError || !!editing"
+            />
             <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
             <PaperCard class="filters">
                 <SegmentedPills v-model="preset" :options="RANGE_PRESETS" label="账目时间范围" />
@@ -154,7 +177,7 @@ useRouteAction('/accounts', {
                 }}</span>
             </PaperCard>
 
-            <div class="books">
+            <div v-if="!loadError" class="books">
                 <PaperCard v-for="book in books" :key="book.currency" as="article" class="book">
                     <header class="book-head">
                         <h2>{{ book.meta.label }}</h2>
@@ -205,6 +228,7 @@ useRouteAction('/accounts', {
                                     <small>{{ one.description }}</small>
                                 </span>
                                 <span
+                                    v-if="!loadError"
                                     class="sc-total"
                                     :title="one.preset.kind === 'income' ? '收入合计' : '支出合计'"
                                 >
@@ -231,16 +255,23 @@ useRouteAction('/accounts', {
                 </div>
             </LedgerSection>
 
-            <AccountCharts :entries="scoped" :range="range" />
+            <AccountCharts v-if="!loadError" :entries="scoped" :range="range" />
 
             <div class="account-bottom">
-                <AccountFlowCard :entries="scoped" group="channel" class="channel-card" />
+                <AccountFlowCard
+                    v-if="!loadError"
+                    :entries="scoped"
+                    group="channel"
+                    class="channel-card"
+                />
                 <LedgerSection
                     title="最近记录"
-                    :hint="scoped.length + ' 笔 · 最近八笔'"
+                    :hint="loadError ? '读取失败' : scoped.length + ' 笔 · 最近八笔'"
                     class="records"
                 >
-                    <p v-if="!recent.length" class="blank">这个范围还没有记录</p>
+                    <p v-if="!recent.length" class="blank">
+                        {{ loadError ? '暂时无法读取记录，请重新读取。' : '这个范围还没有记录' }}
+                    </p>
                     <div v-else class="recent-list" tabindex="0" aria-label="最近八笔账号记录">
                         <button
                             v-for="one in recent"
@@ -292,7 +323,12 @@ useRouteAction('/accounts', {
                 </LedgerSection>
             </div>
         </div>
-        <AccountRecords v-if="recordsOpen" @close="recordsOpen = false" @edit="openEntry" />
+        <AccountRecords
+            v-if="recordsOpen"
+            v-model="historyFilters"
+            @close="recordsOpen = false"
+            @edit="openEntry"
+        />
         <AccountEditor
             v-if="editing"
             :entry="editing.entry"
