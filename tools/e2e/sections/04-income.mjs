@@ -865,6 +865,70 @@ export default async function run(ctx) {
             );
         });
 
+        await t.step('上线角色多选胶囊：全部勾选、清空与逐个调整', async () => {
+            await ui.goto('收益');
+            await ui.clickLabel('开始计时（可以随时再加号）');
+            await ui.waitFor(
+                `!!document.querySelector('[role="dialog"] [aria-label="选择在线的角色"]')`,
+            );
+            const group = '[role="dialog"] [aria-label="选择在线的角色"]';
+            try {
+                const initial = await cdp.evaluate(`(() => {
+                    const buttons = [...document.querySelectorAll(${JSON.stringify(group)} + ' button')];
+                    return {
+                        allFirst: buttons[0]?.textContent.trim() === '全部',
+                        allDisabled: buttons[0]?.disabled,
+                        available: buttons.slice(1).filter(button => !button.disabled).length,
+                        rounded: buttons.every(button => !button.classList.contains('radius-sm')),
+                    };
+                })()`);
+                t.check('全部位于首项，角色使用多选圆角胶囊', initial.allFirst && initial.rounded);
+                t.check(
+                    '没有可上线角色时禁用全部',
+                    initial.allDisabled === (initial.available === 0),
+                );
+                if (!initial.available) return;
+                const state = () =>
+                    cdp.evaluate(`(() => {
+                    const buttons = [...document.querySelectorAll(${JSON.stringify(group)} + ' button')];
+                    const roles = buttons.slice(1);
+                    return {
+                        allOn: buttons[0].getAttribute('aria-pressed') === 'true',
+                        selected: roles.filter(button => button.getAttribute('aria-pressed') === 'true').length,
+                        disabledSelected: roles.some(button => button.disabled && button.getAttribute('aria-pressed') === 'true'),
+                    };
+                })()`);
+                await ui.clickText(group + ' button', '全部', { exact: true });
+                const selected = await state();
+                t.check(
+                    '全部只勾选可上线角色，跳过在线中的角色',
+                    selected.allOn &&
+                        selected.selected === initial.available &&
+                        !selected.disabledSelected,
+                );
+                await cdp.click(group + ' button:not(:disabled):nth-child(n + 2)');
+                const partial = await state();
+                t.check(
+                    '取消一位角色后全部同步取消高亮',
+                    !partial.allOn && partial.selected === initial.available - 1,
+                );
+                await ui.clickText(group + ' button', '全部', { exact: true });
+                t.check('部分选择时可再次补齐全部', (await state()).selected === initial.available);
+                await ui.clickText(group + ' button', '全部', { exact: true });
+                const cleared = await state();
+                t.check('再次点击全部清空勾选', !cleared.allOn && cleared.selected === 0);
+                t.check(
+                    '清空后不能开始计时',
+                    await cdp.evaluate(
+                        `document.querySelector('[role="dialog"] button[aria-label="开始"]')?.disabled === true`,
+                    ),
+                );
+            } finally {
+                await ui.clickLabel('取消');
+                await ui.waitFor(`!document.querySelector('[role="dialog"]')`);
+            }
+        });
+
         let onlineTestRecorded = false;
         await t.step('补记一段上线：状态条与走势图都跟着走', async () => {
             await ui.goto('收益');

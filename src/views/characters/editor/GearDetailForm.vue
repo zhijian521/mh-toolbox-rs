@@ -17,6 +17,7 @@ import PaperCard from '../../../components/PaperCard.vue';
 import NumberField from '../../../components/NumberField.vue';
 import PressButton from '../../../components/PressButton.vue';
 import IconTile from '../IconTile.vue';
+import { GEAR_STAT_LABELS } from '../../../services/game-rules';
 import { useGearIcon } from '../use-gear-icon';
 import {
     GEAR_ACTIVES,
@@ -31,6 +32,12 @@ import {
 const props = defineProps<{ slotName: GearSlotName }>();
 const detail = defineModel<GearDetail>({ required: true });
 const caption = defineModel<string | undefined>('caption');
+const soul = defineModel<GearStat[]>('soul');
+const soulOptions = computed(() => GEAR_STAT_LABELS.map((value) => ({ value, label: value })));
+function addSoulStat() {
+    const label = GEAR_STAT_LABELS[0];
+    if (label) soul.value = [...(soul.value ?? []), { label, value: '' }];
+}
 const statShortcuts = computed(() =>
     gearGroupOptions(props.slotName).filter(
         (group) => group.value !== 'base' || !fixedGearBaseLabels(props.slotName).length,
@@ -245,6 +252,36 @@ function addLine(label: string) {
                 </template>
             </GearProperties>
 
+            <section v-if="slotName.startsWith('玉魄')" class="gear-soul" aria-label="命魂之玉属性">
+                <span class="field-label">命魂之玉</span>
+                <div v-for="(row, index) in soul" :key="index" class="detail-row stat-row">
+                    <SelectField
+                        v-model="row.label"
+                        :options="withCurrentOption(soulOptions, row.label)"
+                        class="stat-select row-name slip-row sm"
+                        label="命魂之玉属性名"
+                    />
+                    <input
+                        v-model="row.value"
+                        class="field num num-slot value-field"
+                        :aria-label="'命魂之玉' + row.label + '属性值'"
+                    />
+                    <PressButton
+                        danger
+                        icon="trash"
+                        class="row-delete"
+                        label="删除命魂之玉属性"
+                        @click="soul = soul?.filter((_, i) => i !== index)"
+                    />
+                </div>
+                <PressButton
+                    icon="add"
+                    text="属性行"
+                    label="添加命魂之玉属性行"
+                    @click="addSoulStat"
+                />
+            </section>
+
             <label class="gear-note">
                 <span class="field-label">备注</span>
                 <textarea v-model="detail.note" class="field area" rows="3" aria-label="装备备注" />
@@ -283,6 +320,14 @@ function addLine(label: string) {
 </template>
 
 <style scoped>
+.gear-soul {
+    display: grid;
+    gap: 6px;
+    margin-top: 12px;
+}
+.gear-soul > :last-child {
+    justify-self: start;
+}
 .gear-identity .gear-form-icon {
     --tile-w: 64px;
     --tile-h: 64px;

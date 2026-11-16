@@ -1,3 +1,5 @@
+import { jadePair } from './jade-pair.mjs';
+
 export async function originals(ctx, tools) {
     const { cdp, ui, t } = ctx;
     const { readGear, uploadFixtures, waitUpload } = tools;
@@ -350,4 +352,5 @@ export async function originals(ctx, tools) {
                 detail.stats.some((row) => row.label === '灵力' && row.value === '0'),
         );
     });
+    await jadePair(ctx, tools);
 }

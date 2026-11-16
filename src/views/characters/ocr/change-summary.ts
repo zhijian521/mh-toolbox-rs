@@ -128,6 +128,7 @@ export function characterSnapshot(character: ReadonlyCharacter, pane: PaneKey): 
         }
     }
     if (pane === 'gear') {
+        rows(out, '命魂之玉·', character.gearMeta.soul ?? []);
         for (const slot of character.gear) {
             for (const [label, value] of Object.entries(gearSnapshot(slot.detail, slot.slot))) {
                 out[`${slot.slot}·${label}`] = value;
@@ -177,9 +178,9 @@ export function panelReview(result: PanelResult): string[] {
 }
 
 export function gearReview(result: GearPanelResult): string[] {
-    return result.hit < result.total
-        ? [`${result.total - result.hit} 项未识别，请对照原图核对`]
-        : [];
+    const review =
+        result.hit < result.total ? [`${result.total - result.hit} 项未识别，请对照原图核对`] : [];
+    return [...review, ...(result.related ?? []).flatMap(gearReview)];
 }
 
 export function petReview(result: PetPanelResult): string[] {

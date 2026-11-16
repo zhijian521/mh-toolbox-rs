@@ -14,9 +14,9 @@
 }
 .day-hero {
     display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-    gap: 28px;
-    padding: 24px 26px;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 2fr);
+    gap: 20px;
+    padding: 22px;
 }
 .eyebrow {
     font-size: var(--fs-mini);
@@ -39,12 +39,30 @@
     gap: 8px;
     margin-top: 20px;
 }
+.workbench-readouts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    min-width: 0;
+}
+.workbench-readouts > section {
+    min-width: 0;
+    padding-left: 18px;
+    border-left: var(--w-hair) solid var(--rule);
+}
+.readouts-head {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.readouts-head h3 {
+    color: var(--muted);
+    font-size: calc(var(--fs-base) * 0.96);
+}
 .day-stats {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px 24px;
-    padding-left: 28px;
-    border-left: var(--w-hair) solid var(--rule);
+    gap: 14px 12px;
 }
 .day-stats > div {
     min-width: 0;
@@ -53,18 +71,18 @@
     gap: 7px;
 }
 .day-stats span {
-    font-size: var(--fs-xs);
+    font-size: calc(var(--fs-xs) * 0.97);
     color: var(--muted);
 }
 .day-stats b {
     color: var(--accent);
-    font-size: var(--fs-amount);
+    font-size: calc(var(--fs-amount) * 0.9);
     font-weight: 400;
     overflow-wrap: anywhere;
 }
 .day-stats small {
     margin-left: 5px;
-    font-size: var(--fs-xs);
+    font-size: calc(var(--fs-xs) * 0.97);
     color: var(--muted);
 }
 .day-grid {
@@ -170,11 +188,11 @@
     .day-hero {
         gap: 20px;
         padding: 20px;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr);
     }
-    .day-stats {
-        padding-left: 20px;
-        gap: 16px;
+    .workbench-readouts > .workbench-today {
+        padding-left: 0;
+        border-left: 0;
     }
     .day-grid {
         grid-template-columns: minmax(0, 1fr);
@@ -185,9 +203,10 @@
     .day-lower {
         grid-template-columns: minmax(0, 1fr);
     }
-    .day-stats {
-        padding: 18px 0 0;
-        border-left: 0;
-        border-top: var(--w-hair) solid var(--rule);
+    .workbench-readouts {
+        gap: 12px;
+    }
+    .workbench-readouts > .workbench-accounts {
+        padding-left: 12px;
     }
 }

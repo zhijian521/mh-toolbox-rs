@@ -7,6 +7,7 @@ import { createAssistReader } from './assist-reader';
 import { gearFrame } from './gear-image';
 import { recognizeGearPanel } from './gear-recognition';
 import type { GearPanelResult } from './gear-panel';
+import { JADE_TITLE_PATTERN } from './jade-panels';
 import { recognizePetPanel } from './pet-recognition';
 import type { PetPanelResult } from './pet-panel';
 import { parseSkillPanel } from './skill-panel';
@@ -38,7 +39,9 @@ export function createCharacterPanelReader() {
         const pet = /召唤兽(?:属性|资质)|(?:攻击|防御|体力|法力|速度|躲闪)资质|参战等级|寿命/.test(
             text,
         );
-        const gear = /装备条件|灵饰类型|耐久|锻炼等级|精炼等级|灵尘等级|镶嵌宝石/.test(text);
+        const gear =
+            JADE_TITLE_PATTERN.test(text) ||
+            /装备条件|灵饰类型|命魂之玉|耐久|锻炼等级|精炼等级|灵尘等级|镶嵌宝石/.test(text);
         // 同时包含两种面板时不猜，避免把召唤兽读数写进人物或装备。
         if (pet && gear) return null;
         if (pet) {

@@ -4,8 +4,9 @@ import type { GearSlotName, GearStat } from '../gear';
 import { fixedGearBaseLabels, gearStatGroup } from '../gear-properties';
 import type { OcrLine } from './attr-panel';
 import { gearExtraFrame, gearExtraRegions, restoreGearExtras } from './gear-extra-image';
-import { parseGearPanel } from './gear-panel';
-import { gearBaseFrame } from './gear-image';
+import { parseGearPanel, type GearPanelResult } from './gear-panel';
+import { gearAmbushFrame, gearBaseFrame, gearFrame } from './gear-image';
+import { jadePanels } from './jade-panels';
 import { base64Of, swapToBgra } from './pixels';
 
 /** 耐久上方是基础属性；按浮片文字列裁掉背包列表，防止同一基线合并成一行。 */
@@ -73,15 +74,56 @@ export async function recognizeGearPanel(
     image: ImageData,
     names: readonly EquipmentName[],
     fallbackSlot?: GearSlotName,
-) {
+): Promise<GearPanelResult> {
     const result = parseGearPanel(lines, names, fallbackSlot, image);
+    const panels = jadePanels(lines, image);
+    if (panels.length) {
+        const parts: GearPanelResult[] = [];
+        for (const panel of panels) {
+            const frame = gearFrame(panel.image);
+            const outcome = await ocrFrame(frame.pixels, frame.width, frame.height);
+            if (outcome.status === 'failed') throw new Error(outcome.error);
+            const part = await recognizeGearPanel(outcome.lines, panel.image, names, panel.slot);
+            if (part.slot !== panel.slot || !part.hit)
+                throw new Error(`没认出${panel.slot}，请截取完整的阴阳玉魄详情`);
+            parts.push(part);
+        }
+        const primary = parts.find((part) => part.slot === fallbackSlot) ?? parts[0];
+        return {
+            ...primary,
+            related: parts.filter((part) => part !== primary),
+            ...(result.soul ? { soul: result.soul } : {}),
+        };
+    }
     const slot = result.slot;
     if (!slot) return result;
     if (['戒指', '耳饰', '配饰', '手镯', '玉魄·阴', '玉魄·阳'].includes(slot)) {
         const retry = await recognizeExtras(lines, image, names, slot);
-        return retry && (retry.detail.stats?.length ?? 0) >= (result.detail.stats?.length ?? 0)
-            ? retry
-            : result;
+        const best =
+            retry && (retry.detail.stats?.length ?? 0) >= (result.detail.stats?.length ?? 0)
+                ? retry
+                : result;
+        if (
+            slot.startsWith('玉魄') &&
+            best.detail.stats?.some((row) => row.label === '奇袭法术' && !row.value.includes('%'))
+        ) {
+            const frame = gearAmbushFrame(image, lines);
+            if (frame) {
+                const outcome = await ocrFrame(frame.pixels, frame.width, frame.height);
+                const recovered =
+                    outcome.status === 'ok'
+                        ? parseGearPanel(outcome.lines, [], slot).detail.stats?.find(
+                              (row) => row.label === '奇袭法术' && row.value.includes('%'),
+                          )
+                        : undefined;
+                if (recovered) {
+                    best.detail.stats = best.detail.stats.map((row) =>
+                        row.label === '奇袭法术' && !row.value.includes('%') ? recovered : row,
+                    );
+                }
+            }
+        }
+        return result.soul ? { ...best, soul: result.soul } : best;
     }
     const labels = fixedGearBaseLabels(slot);
     const stats = result.detail.stats ?? [];

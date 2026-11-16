@@ -247,6 +247,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
                 v-show="pane === 'gear'"
                 ref="gearEditor"
                 v-model="draft.gear"
+                v-model:meta="draft.gearMeta"
                 :intake="intake"
                 @busy="gearReading = $event"
             >

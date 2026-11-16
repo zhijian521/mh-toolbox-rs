@@ -31,6 +31,42 @@ export function gearFrame(image: ImageData): Frame {
     };
 }
 
+/** 百分号在整图预处理中会变成数字；只放大奇袭原色行，补读必须保留实际的百分号。 */
+export function gearAmbushFrame(image: ImageData, lines: readonly OcrLine[]): Frame | null {
+    const row = lines.find((line) => /^奇袭法术/.test(line.text.replace(/\s/g, '')));
+    if (!row) return null;
+    const margin = Math.max(2, Math.round(row.height * 0.1));
+    const left = Math.max(0, Math.floor(row.x - margin));
+    const top = Math.max(0, Math.floor(row.y - margin));
+    const bottom = Math.min(image.height, Math.ceil(row.y + row.height * 1.3));
+    const width = image.width - left;
+    const height = bottom - top;
+    if (width <= 0 || height <= 0) return null;
+    const source = document.createElement('canvas');
+    source.width = image.width;
+    source.height = image.height;
+    const sourceContext = source.getContext('2d');
+    if (!sourceContext) return null;
+    const sourcePixels = sourceContext.createImageData(image.width, image.height);
+    sourcePixels.data.set(image.data);
+    sourceContext.putImageData(sourcePixels, 0, 0);
+    const canvas = document.createElement('canvas');
+    // 留白让小行保持稳定的检测尺度；浏览器插值避免引擎整数倍复制放大百分号锯齿。
+    canvas.width = Math.max(700, width * 2 + 40);
+    canvas.height = height * 2 + 40;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) return null;
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(source, left, top, width, height, 20, 20, width * 2, height * 2);
+    return {
+        pixels: base64Of(swapToBgra(context.getImageData(0, 0, canvas.width, canvas.height).data)),
+        width: canvas.width,
+        height: canvas.height,
+    };
+}
+
 /** 等级与耐久同列时只补读中间的原色基础行，边缘留白并记录回到原图的偏移。 */
 export function gearBaseFrame(
     image: ImageData,

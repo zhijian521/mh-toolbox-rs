@@ -30,7 +30,7 @@ import {
     type SkillRow,
     type TrainingGroup,
 } from './character';
-import { normalizeGearDetail, normalizePet } from './details';
+import { normalizeGearDetail, normalizeGearMeta, normalizePet } from './details';
 import { schoolSkills } from './schools';
 
 const STORAGE_KEY = 'mh-roster';
@@ -301,7 +301,6 @@ export function normalizeCharacter(raw: unknown): CharacterData {
     const character = isObject(raw) ? raw : {};
     const id = text(character.id) || makeId('char');
     const updatedAt = int(character.updatedAt);
-    const gearMeta = isObject(character.gearMeta) ? character.gearMeta : {};
 
     return {
         id,
@@ -323,7 +322,7 @@ export function normalizeCharacter(raw: unknown): CharacterData {
         assists: normalizeAssists(character.assists),
         trainings: normalizeTrainings(character.trainings),
         gear: normalizeGear(character.gear),
-        gearMeta: { special: text(gearMeta.special), suit: text(gearMeta.suit) },
+        gearMeta: normalizeGearMeta(character.gearMeta),
         pets: rows(character.pets)
             .map(normalizePet)
             .filter((pet): pet is Pet => pet !== null),

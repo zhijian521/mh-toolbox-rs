@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { CharacterData } from '../characters/character';
+import type { AccountEntry } from '../accounts/accounts';
 import type { IncomeEntry } from '../income/income';
 import type { Goal } from '../goals/goals';
-import { activeGoals, weekSeries } from './overview';
+import { activeGoals, weekSeries, workbenchSummary } from './overview';
 
 /**
  * 总览页的纯函数。
@@ -162,5 +163,84 @@ describe('weekSeries', () => {
     it('天数可换（天数只有一个参数，不写死 7）', () => {
         expect(weekSeries([], TODAY, 3)).toHaveLength(3);
         expect(weekSeries([], TODAY, 3)[2].date).toBe(TODAY);
+    });
+});
+
+function accountEntry(patch: Partial<AccountEntry> = {}): AccountEntry {
+    return {
+        id: 'account',
+        date: '2026-11-16',
+        characterId: '',
+        kind: 'income',
+        currency: 'cash',
+        category: '其他收支',
+        channel: '游戏内',
+        amount: 10000,
+        note: '',
+        createdAt: 1,
+        source: '',
+        ...patch,
+    };
+}
+
+describe('workbenchSummary', () => {
+    it.each([
+        ['2026-11-16', '2026-10-16'],
+        ['2026-01-31', '2025-12-31'],
+        ['2026-03-31', '2026-02-28'],
+        ['2024-03-31', '2024-02-29'],
+    ])('近一个月以 %s 为终点，起点为 %s', (today, from) => {
+        expect(workbenchSummary([], today).range).toEqual({ from, to: today });
+    });
+
+    it('两端日期均计入，排除范围前与未来记录且不修改原数组', () => {
+        const rows = [
+            accountEntry({ id: 'old', date: '2026-05-15', amount: 100000 }),
+            accountEntry({ id: 'half-start', date: '2026-05-16', amount: 20000 }),
+            accountEntry({ id: 'month-before', date: '2026-10-15', amount: 30000 }),
+            accountEntry({ id: 'month-start', date: '2026-10-16', amount: 40000 }),
+            accountEntry({ id: 'today', amount: 50000 }),
+            accountEntry({ id: 'future', date: '2026-11-17', amount: 900000 }),
+        ];
+        const original = structuredClone(rows);
+        const book = workbenchSummary(rows, '2026-11-16').books[0];
+        expect(book.currency).toBe('cash');
+        expect(book.stats).toEqual({ income: 90000, expense: 0, net: 90000, count: 2 });
+        expect(rows).toEqual(original);
+    });
+
+    it('两种币种各自汇总收支，包含手记、自动分账、所有角色与渠道且保留金额口径', () => {
+        const rows = [
+            accountEntry({ id: 'auto', source: 'auto', characterId: 'c1', amount: 12345 }),
+            accountEntry({ id: 'manual', characterId: 'deleted', amount: 87655 }),
+            accountEntry({ id: 'spent', kind: 'expense', amount: 23456 }),
+            accountEntry({ id: 'rmb1', currency: 'rmb', channel: '藏宝阁', amount: 123.45 }),
+            accountEntry({ id: 'rmb2', currency: 'rmb', amount: 0.1 }),
+            accountEntry({ id: 'rmb3', currency: 'rmb', kind: 'expense', amount: 10.2 }),
+        ];
+        expect(workbenchSummary(rows, '2026-11-16').books).toEqual([
+            {
+                currency: 'cash',
+                label: '梦幻币',
+                stats: { income: 100000, expense: 23456, net: 76544, count: 3 },
+            },
+            {
+                currency: 'rmb',
+                label: '人民币',
+                stats: { income: 123.55, expense: 10.2, net: 113.35, count: 3 },
+            },
+        ]);
+    });
+
+    it('空范围仍返回两种币种的零收支，只有支出时净额为负', () => {
+        const empty = workbenchSummary([], '2026-11-16');
+        expect(empty.books.map((book) => book.currency)).toEqual(['cash', 'rmb']);
+        expect(
+            empty.books.every((book) => book.stats.income === 0 && book.stats.expense === 0),
+        ).toBe(true);
+        expect(
+            workbenchSummary([accountEntry({ kind: 'expense', amount: 1000 })], '2026-11-16')
+                .books[0].stats,
+        ).toEqual({ income: 0, expense: 1000, net: -1000, count: 1 });
     });
 });

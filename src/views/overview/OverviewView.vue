@@ -16,12 +16,11 @@ import { useAccounts } from '../accounts/accounts-store';
 import { useDailySync } from '../accounts/daily-sync';
 import { useRoster } from '../characters/roster';
 import { useGoals } from '../goals/goals-store';
-import { totalsOf } from '../income/income';
 import { useIncome } from '../income/income-store';
 import { clockText, onlineTotalsOf, ownersOf } from '../income/online';
 import { useOnline } from '../income/online-store';
 import TrendChart from '../../components/TrendChart.vue';
-import { activeGoals, weekSeries } from './overview';
+import { activeGoals, weekSeries, workbenchSummary } from './overview';
 import TeamCard from './TeamCard.vue';
 import OverviewShortcuts from './OverviewShortcuts.vue';
 import OverviewGoals from './OverviewGoals.vue';
@@ -58,11 +57,9 @@ const onlineIds = computed(
 const onlineCount = computed(
     () => roster.value.filter((one) => onlineIds.value.has(one.id)).length,
 );
-const todayNet = computed(
-    () => totalsOf(entries.value.filter((one) => one.date === today.value)).net,
-);
-const todayOnline = computed(() =>
-    onlineTotalsOf(sessions.value, today.value, today.value, now.value),
+const weekRange = computed(() => rangeOf('week', today.value));
+const weekOnline = computed(() =>
+    onlineTotalsOf(sessions.value, weekRange.value.from, weekRange.value.to, now.value),
 );
 const team = computed(() =>
     teamActivity(roster.value, entries.value, sessions.value, accounts.value),
@@ -81,6 +78,10 @@ const weekCount = computed(() => week.value.reduce((sum, day) => sum + day.count
 const trend = computed(() => [
     { id: 'net', name: '净额', values: week.value.map((day) => day.net) },
 ]);
+const workbench = computed(() => workbenchSummary(accounts.value, today.value));
+const booksUnavailable = computed(
+    () => !!(accountError.value || incomeError.value || onlineError.value || syncError.value),
+);
 const books = computed(() => {
     const month = filterAccounts(accounts.value, rangeOf('month', today.value));
     const stats = accountStatsByCurrency(month);
@@ -95,7 +96,7 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
 </script>
 
 <template>
-    <PageShell title="总览" desc="今日概况 · 常用功能">
+    <PageShell title="总览" desc="工作台 · 常用功能">
         <template #actions
             ><PressButton
                 icon="history"
@@ -113,7 +114,7 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
             <PaperCard class="day-hero">
                 <div class="day-intro">
                     <span class="eyebrow">日常 · 养成 · 收获</span>
-                    <h2>今日工作台</h2>
+                    <h2>工作台</h2>
                     <p v-if="rosterError || onlineError || goalError" class="empty-note inline">
                         部分数据未读取
                     </p>
@@ -144,32 +145,82 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
                         />
                     </div>
                 </div>
-                <div class="day-stats" aria-label="今日概览">
-                    <div>
-                        <span>今日速记净额</span
-                        ><b class="num" :class="incomeError ? '' : tone(todayNet)">{{
-                            incomeError ? '未读取' : netText(todayNet)
-                        }}</b>
-                    </div>
-                    <div>
-                        <span>今日在线</span
-                        ><b class="num">{{
-                            onlineError ? '未读取' : clockText(todayOnline.minutes)
-                        }}</b>
-                    </div>
-                    <div>
-                        <span>点卡消耗</span
-                        ><b class="num">{{
-                            onlineError ? '未读取' : ledgerMoneyText(todayOnline.cost, 'cash')
-                        }}</b>
-                    </div>
-                    <div>
-                        <span>进行中目标</span
-                        ><b class="num"
-                            >{{ goalError || rosterError ? '未读取' : ongoing.length
-                            }}<small v-if="!goalError && !rosterError">项</small></b
+                <div class="workbench-readouts">
+                    <section class="workbench-today" aria-label="近一周概览">
+                        <header
+                            class="readouts-head"
+                            :title="weekRange.from + ' 至 ' + weekRange.to"
                         >
-                    </div>
+                            <h3>近一周</h3>
+                        </header>
+                        <div class="day-stats">
+                            <div>
+                                <span>速记净额</span
+                                ><b class="num" :class="incomeError ? '' : tone(weekTotal)">{{
+                                    incomeError ? '未读取' : netText(weekTotal)
+                                }}</b>
+                            </div>
+                            <div>
+                                <span>在线时长</span
+                                ><b class="num">{{
+                                    onlineError ? '未读取' : clockText(weekOnline.minutes)
+                                }}</b>
+                            </div>
+                            <div>
+                                <span>点卡消耗</span
+                                ><b class="num">{{
+                                    onlineError
+                                        ? '未读取'
+                                        : ledgerMoneyText(weekOnline.cost, 'cash')
+                                }}</b>
+                            </div>
+                            <div>
+                                <span title="当前仍在进行的目标数量">进行中目标</span
+                                ><b class="num"
+                                    >{{ goalError || rosterError ? '未读取' : ongoing.length
+                                    }}<small v-if="!goalError && !rosterError">项</small></b
+                                >
+                            </div>
+                        </div>
+                    </section>
+                    <section class="workbench-accounts" aria-label="收支概览">
+                        <header
+                            class="readouts-head"
+                            :title="workbench.range.from + ' 至 ' + workbench.range.to"
+                        >
+                            <h3>近一个月</h3>
+                        </header>
+                        <div class="day-stats" aria-live="polite" aria-atomic="true">
+                            <template v-for="book in workbench.books" :key="book.currency">
+                                <div
+                                    v-for="kind in ['income', 'expense'] as const"
+                                    :key="kind"
+                                    :data-currency="book.currency"
+                                    :data-kind="kind"
+                                >
+                                    <span
+                                        >{{ book.label
+                                        }}{{ kind === 'income' ? '收入' : '支出' }}</span
+                                    >
+                                    <b
+                                        class="num"
+                                        :class="
+                                            booksUnavailable
+                                                ? ''
+                                                : kind === 'income'
+                                                  ? 'gain'
+                                                  : 'loss'
+                                        "
+                                        >{{
+                                            booksUnavailable
+                                                ? '未读取'
+                                                : accountValueText(book.stats[kind], book.currency)
+                                        }}</b
+                                    >
+                                </div>
+                            </template>
+                        </div>
+                    </section>
                 </div>
             </PaperCard>
             <div class="day-grid">

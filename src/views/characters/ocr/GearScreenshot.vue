@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import ScreenshotUpload from './ScreenshotUpload.vue';
 import { loadEquipmentNames } from '../../../services/game-data';
 import type { GearSlotName } from '../gear';
-import type { GearPanelResult } from './gear-panel';
+import { gearPanelParts, type GearPanelResult } from './gear-panel';
 import { recognizeGearPanel } from './gear-recognition';
 import { gearFrame } from './gear-image';
 import { useOcrImage } from './use-ocr-image';
@@ -70,11 +70,13 @@ function clearShot(slot: GearSlotName) {
     delete shots.value[slot];
 }
 function acceptScreenshot(file: File, value: GearPanelResult, lines: OcrLine[]) {
-    rememberShot(value.slot ?? undefined, file);
+    for (const part of gearPanelParts(value)) rememberShot(part.slot ?? undefined, file);
     rawLines.value = lines;
     batchError.value = '';
     error.value = '';
-    message.value = `${value.detail.name || value.slot} · 已填入`;
+    message.value = `${gearPanelParts(value)
+        .map((part) => part.detail.name || part.slot)
+        .join('、')} · 已填入`;
     emit('recognize', value);
 }
 defineExpose({ clearShot, acceptScreenshot });
@@ -96,14 +98,17 @@ async function takeFiles(images: File[]) {
         const fallbackSlot = props.slotName ?? props.activeSlot;
         await takeFile(file);
         if (disposed || current !== generation) return;
-        rememberShot(!error.value ? (result.value?.slot ?? fallbackSlot) : fallbackSlot, file);
         if (error.value || !result.value?.slot || !result.value.hit) {
+            rememberShot(fallbackSlot, file);
             failures.push(`${file.name}：${error.value || '未识别'}`);
             continue;
         }
+        for (const part of gearPanelParts(result.value)) rememberShot(part.slot ?? undefined, file);
         emit('recognize', result.value);
         count++;
-        message.value = `${result.value.detail.name || result.value.slot} · 已填入`;
+        message.value = `${gearPanelParts(result.value)
+            .map((part) => part.detail.name || part.slot)
+            .join('、')} · 已填入`;
     }
     if (images.length > 1 && props.multiple) {
         message.value = `已填入 ${count} 张${failures.length ? `，${failures.length} 张未识别` : ''}`;

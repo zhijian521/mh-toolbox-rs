@@ -37,6 +37,13 @@ export interface GearStat {
     gain?: boolean;
 }
 
+/** 命魂之玉是阴阳玉魄共用的载体，属性只保存一份。 */
+export interface GearMeta {
+    special: string;
+    suit: string;
+    soul?: GearStat[];
+}
+
 /**
  * 装备详情：鼠标停在一格上时浮出来的那张纸。
  *
@@ -327,4 +334,5 @@ export function gearBrief(
 }
 
 export type ReadonlyGearDetail = DeepReadonly<GearDetail>;
+export type ReadonlyGearMeta = DeepReadonly<GearMeta>;
 export type ReadonlyGearSlot = DeepReadonly<GearSlot>;

@@ -3,6 +3,7 @@ import {
     GEAR_JADE_EFFECTS,
     hasGearDetail,
     type GearDetail,
+    type GearMeta,
     type GearStat,
     type GearTone,
 } from './gear';
@@ -36,6 +37,18 @@ function normalizeGearStats(raw: unknown): GearStat[] {
         const normalized = normalizeGearStat(stat);
         return normalized ? [normalized] : [];
     });
+}
+
+export function normalizeGearMeta(raw: unknown): GearMeta {
+    const meta = isObject(raw) ? raw : {};
+    const soul = normalizeGearStats(meta.soul)
+        .filter((row) => row.value.trim())
+        .map(({ label, value }) => ({ label, value }));
+    return {
+        special: text(meta.special),
+        suit: text(meta.suit),
+        ...(soul.length ? { soul } : {}),
+    };
 }
 
 export function normalizeGearDetail(raw: unknown): GearDetail | undefined {

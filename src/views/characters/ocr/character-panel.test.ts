@@ -133,6 +133,21 @@ describe('角色截图自动分区', () => {
         expect(readAssist).not.toHaveBeenCalled();
     });
 
+    it.each(['上古玉·阳', '上古玉朗·阴'])(
+        '玉魄标题漏字和形近字仍进入装备识别：%s',
+        async (title) => {
+            const result = await createCharacterPanelReader()(
+                lines(title, '格挡值+31'),
+                image,
+                '五庄观',
+                'attrs',
+            );
+            expect(result?.pane).toBe('gear');
+            expect(recognizeGearPanel).toHaveBeenCalledOnce();
+            expect(readAssist).not.toHaveBeenCalled();
+        },
+    );
+
     it('召唤兽的同名属性只交给召唤兽解析器', async () => {
         const result = await createCharacterPanelReader()(
             lines('召唤兽属性', '气血4238', '魔法931', '攻击2016'),

@@ -1,21 +1,22 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import ModalShell from '../../../components/ModalShell.vue';
 import PressButton from '../../../components/PressButton.vue';
 import GearDetailForm from '../editor/GearDetailForm.vue';
 import GearScreenshot from '../ocr/GearScreenshot.vue';
-import { mergeGearPanel, type GearPanelResult } from '../ocr/gear-panel';
+import { gearPanelParts, mergeGearPanels, type GearPanelResult } from '../ocr/gear-panel';
 import { cloneDraft } from './clone-draft';
 import { applyGear } from './quick-target';
 import { EDITOR_H, EDITOR_W } from '../editor-metrics';
 import { focusInput } from '../focus-input';
-import type { GearDetail, GearSlotName } from '../gear';
+import type { GearDetail, GearMeta, GearSlotName } from '../gear';
 import type { ReadonlyCharacter } from '../character';
 import { normalizeGear } from '../roster';
+import { normalizeGearMeta } from '../details';
 import { useDraftGuard } from '../../../composables/use-draft-guard';
 import OcrSummary from '../ocr/OcrSummary.vue';
 import {
-    gearSnapshot,
+    characterSnapshot,
     changeReport,
     gearReview,
     REPLACE_NOTE,
@@ -35,20 +36,28 @@ const props = withDefaults(
     { saving: false, locked: false, retrying: false, saveError: '' },
 );
 const emit = defineEmits<{ save: [character: ReadonlyCharacter]; close: [] }>();
-const source = props.character.gear.find((one) => one.slot === props.slotName);
-const caption = ref<string | undefined>(source?.caption ?? '');
-const detail = ref<GearDetail>(
-    source?.detail
-        ? cloneDraft<GearDetail>(source.detail)
-        : { name: caption.value ?? '', kind: '', stats: [] },
-);
+const gear = ref(normalizeGear(props.character.gear));
+const meta = ref<GearMeta>(cloneDraft<GearMeta>(props.character.gearMeta));
+const active = computed(() => gear.value.find((one) => one.slot === props.slotName)!);
+active.value.detail ??= { name: active.value.caption ?? '', kind: '', stats: [] };
+const caption = computed({
+    get: () => active.value.caption,
+    set: (value: string | undefined) => {
+        active.value.caption = value;
+    },
+});
+const detail = computed({
+    get: () => active.value.detail!,
+    set: (value: GearDetail) => {
+        active.value.detail = value;
+    },
+});
+const editedSlots = new Set<GearSlotName>([props.slotName]);
 const reading = ref(false);
 const reports = ref<OcrReport[]>([]);
 const form = ref<HTMLElement | null>(null);
 const snapshot = () =>
-    JSON.stringify(
-        normalizeGear([{ slot: props.slotName, caption: caption.value, detail: detail.value }]),
-    );
+    JSON.stringify({ gear: normalizeGear(gear.value), meta: normalizeGearMeta(meta.value) });
 const original = snapshot();
 const { requestClose } = useDraftGuard(
     () => !props.retrying && (reading.value || snapshot() !== original),
@@ -58,18 +67,23 @@ const { requestClose } = useDraftGuard(
 
 function recognize(result: GearPanelResult) {
     if (props.locked || props.saving) return;
-    const before = gearSnapshot(detail.value, props.slotName);
-    const merged = mergeGearPanel(
-        { slot: props.slotName, caption: caption.value, detail: detail.value },
-        result,
+    const before = characterSnapshot(
+        { ...props.character, gear: gear.value, gearMeta: meta.value },
+        'gear',
     );
-    caption.value = merged.caption ?? '';
-    if (merged.detail) detail.value = merged.detail;
+    gear.value = mergeGearPanels(gear.value, result);
+    for (const part of gearPanelParts(result)) if (part.slot) editedSlots.add(part.slot);
+    if (result.soul) meta.value.soul = result.soul.map(({ label, value }) => ({ label, value }));
     reports.value = [
         changeReport(
-            props.slotName,
+            gearPanelParts(result)
+                .map((part) => part.slot)
+                .join('、'),
             before,
-            gearSnapshot(detail.value, props.slotName),
+            characterSnapshot(
+                { ...props.character, gear: gear.value, gearMeta: meta.value },
+                'gear',
+            ),
             gearReview(result),
             REPLACE_NOTE,
         ),
@@ -81,13 +95,11 @@ function setReading(value: boolean) {
 }
 function save() {
     if (reading.value || props.saving || (props.locked && !props.retrying)) return;
-    emit(
-        'save',
-        applyGear(props.character, props.slotName, {
-            caption: caption.value,
-            detail: detail.value,
-        }),
-    );
+    let next = props.character;
+    for (const slot of gear.value) {
+        if (editedSlots.has(slot.slot)) next = applyGear(next, slot.slot, slot);
+    }
+    emit('save', { ...next, gearMeta: normalizeGearMeta(meta.value) });
 }
 /* `.gear-name input` 这条选择器一直没有匹配到东西（类名是 `gear-name-field` /
  * `gear-name-input`，没有 `gear-name` 这个 token），于是快速修改窗从来不会把焦点
@@ -108,7 +120,12 @@ onMounted(() => focusInput(form, '.gear-name-input'));
     >
         <div ref="form" :inert="locked || saving" class="gear-quick">
             <GearScreenshot :slot-name="slotName" @recognize="recognize" @busy="setReading">
-                <GearDetailForm v-model="detail" v-model:caption="caption" :slot-name="slotName" />
+                <GearDetailForm
+                    v-model="detail"
+                    v-model:caption="caption"
+                    v-model:soul="meta.soul"
+                    :slot-name="slotName"
+                />
             </GearScreenshot>
         </div>
         <OcrSummary :reports="reports" />

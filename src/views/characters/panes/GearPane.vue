@@ -9,6 +9,7 @@ import {
     gearBrief,
     type BriefRow,
     type ReadonlyGearDetail,
+    type ReadonlyGearMeta,
     type ReadonlyGearSlot,
     type GearSlotName,
 } from '../gear';
@@ -19,7 +20,7 @@ import type { QuickTarget } from '../quick/quick-target';
 const props = withDefaults(
     defineProps<{
         gear: readonly ReadonlyGearSlot[];
-        meta: { special: string; suit: string };
+        meta: ReadonlyGearMeta;
         /**
          * 点一格就开「快速修改」。
          *
@@ -221,6 +222,25 @@ function quickLabel(slot: ReadonlyGearSlot): string {
                                     </template>
                                 </template>
                                 <template v-else>—</template>
+                            </dd>
+                        </div>
+                    </div>
+                    <div v-if="meta.soul?.length" class="brief-group">
+                        <div class="brief-row">
+                            <dt>命魂</dt>
+                            <dd
+                                :title="
+                                    meta.soul.map((row) => row.label + ' ' + row.value).join('、')
+                                "
+                            >
+                                <span
+                                    v-for="(row, index) in meta.soul"
+                                    :key="index"
+                                    class="brief-item"
+                                >
+                                    <span class="item-name">{{ row.label }}</span
+                                    ><b>{{ row.value }}</b>
+                                </span>
                             </dd>
                         </div>
                     </div>

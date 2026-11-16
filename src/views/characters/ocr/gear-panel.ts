@@ -8,6 +8,7 @@ import {
     type GearStat,
 } from '../gear';
 import type { OcrLine } from './attr-panel';
+import { JADE_TITLE_PATTERN } from './jade-panels';
 import {
     GEAR_GROUP_SLOTS as GROUP_SLOTS,
     GEAR_GROUP_KINDS as GROUP_KINDS,
@@ -17,12 +18,14 @@ import {
     JADE_GAIN_FACTOR,
 } from '../../../services/game-rules';
 
-/** 一次识别一件，仅按明确的强化等级补括号值；应用时按部位整件替换。 */
+/** 按部位整件替换；同图阴阳玉魄各自识别，共用载体属性单独返回。 */
 export interface GearPanelResult {
     slot: GearSlotName | null;
     detail: Partial<GearDetail>;
     hit: number;
     total: number;
+    related?: GearPanelResult[];
+    soul?: GearStat[];
 }
 
 type GearImage = Pick<ImageData, 'data' | 'width' | 'height'>;
@@ -151,6 +154,28 @@ export function parseGearPanel(
         'g',
     );
     const bands = suitRows(textRows(lines, image));
+    const jadeTop = bands.find((row) => JADE_TITLE_PATTERN.test(row.text))?.y;
+    const soulTitle = [...lines]
+        .filter((line) => compact(line.text).startsWith('命魂之玉'))
+        .sort((a, b) => a.y - b.y)[0];
+    const hasSoul = jadeTop !== undefined && soulTitle !== undefined && soulTitle.y < jadeTop;
+    const soul = hasSoul
+        ? textRows(
+              lines.filter(
+                  (line) =>
+                      line.y > soulTitle.y &&
+                      line.y < jadeTop &&
+                      line.x >= soulTitle.x - soulTitle.height,
+              ),
+          )
+              .filter((row) => STAT_LABELS.some((label) => row.text.startsWith(label)))
+              .flatMap((row) =>
+                  [...row.text.matchAll(STAT_PATTERN)].map((match) => ({
+                      label: match[1],
+                      value: match[2],
+                  })),
+              )
+        : [];
     const rows = bands.map((row) => row.text);
     const text = rows.join('\n');
     const detail: Partial<GearDetail> = {};
@@ -185,7 +210,7 @@ export function parseGearPanel(
         detail.name = named.name;
         detail.kind = GROUP_KINDS[named.group] ?? named.group;
     }
-    const jade = /上古玉[魄魂][·・.。]?([阴阳])/.exec(text);
+    const jade = JADE_TITLE_PATTERN.exec(text);
     const spirit = /灵饰类型\]?:?(戒指|耳饰|配饰|手镯)/.exec(text);
     if (jade) {
         slot = jade[1] === '阴' ? '玉魄·阴' : '玉魄·阳';
@@ -213,6 +238,7 @@ export function parseGearPanel(
     let readingStats = true;
     let readingMelt = false;
     for (const { text: row, green, y } of bands) {
+        if (hasSoul && y < jadeTop) continue;
         if (!isSpirit && !isJade && y >= runeTop) readingStats = false;
         if (/^熔炼效果/.test(row)) readingMelt = true;
         if (readingMelt) {
@@ -336,7 +362,20 @@ export function parseGearPanel(
         requires.length +
         (detail.level ? 1 : 0) +
         (detail.name ? 1 : 0);
-    return { slot, detail, hit, total: hit };
+    return { slot, detail, hit, total: hit, ...(soul.length ? { soul } : {}) };
+}
+
+export function gearPanelParts(result: GearPanelResult): GearPanelResult[] {
+    return [result, ...(result.related ?? [])].filter((one) => one.slot && one.hit);
+}
+
+/** 两件来自同一张截图时一起进入草稿，未出现在图里的部位保持原样。 */
+export function mergeGearPanels(original: GearSlot[], result: GearPanelResult): GearSlot[] {
+    const parts = gearPanelParts(result);
+    return original.map((slot) => {
+        const part = parts.find((one) => one.slot === slot.slot);
+        return part ? mergeGearPanel(slot, part) : slot;
+    });
 }
 
 /** 同部位整件覆盖，仅保留自用备注；多条同名属性仍按截图原样记录。 */

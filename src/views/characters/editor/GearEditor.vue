@@ -4,8 +4,8 @@ import PressButton from '../../../components/PressButton.vue';
 import IconTile from '../IconTile.vue';
 import GearDetailForm from './GearDetailForm.vue';
 import GearScreenshot from '../ocr/GearScreenshot.vue';
-import { hasGearDetail, type GearSlot } from '../gear';
-import { mergeGearPanel, type GearPanelResult } from '../ocr/gear-panel';
+import { hasGearDetail, type GearMeta, type GearSlot } from '../gear';
+import { mergeGearPanels, type GearPanelResult } from '../ocr/gear-panel';
 import { useGearIcon } from '../use-gear-icon';
 import type { ScreenshotIntake } from '../ocr/screenshot-input';
 import type { OcrLine } from '../ocr/attr-panel';
@@ -14,6 +14,7 @@ import type { OcrLine } from '../ocr/attr-panel';
 defineProps<{ intake?: ScreenshotIntake }>();
 const emit = defineEmits<{ busy: [value: boolean] }>();
 const gear = defineModel<GearSlot[]>({ required: true });
+const meta = defineModel<GearMeta>('meta', { required: true });
 const screenshot = ref<InstanceType<typeof GearScreenshot> | null>(null);
 const reading = ref(false);
 const selected = ref<string>(gear.value.find(filled)?.slot ?? gear.value[0]?.slot ?? '');
@@ -43,10 +44,9 @@ function clearByKey(key: string) {
     if (slot.slot === selected.value) ensureDetail(slot);
 }
 function recognize(result: GearPanelResult) {
-    const index = gear.value.findIndex((slot) => slot.slot === result.slot);
-    if (index < 0) return;
-    gear.value[index] = mergeGearPanel(gear.value[index], result);
-    selectByKey(gear.value[index].slot);
+    gear.value = mergeGearPanels(gear.value, result);
+    if (result.soul) meta.value.soul = result.soul.map(({ label, value }) => ({ label, value }));
+    if (result.slot) selectByKey(result.slot);
 }
 function acceptScreenshot(file: File, result: GearPanelResult, lines: OcrLine[]) {
     screenshot.value?.acceptScreenshot(file, result, lines);
@@ -102,6 +102,7 @@ const { icon: slotIcon } = useGearIcon();
                 :key="active.slot"
                 v-model="active.detail"
                 v-model:caption="active.caption"
+                v-model:soul="meta.soul"
                 :slot-name="active.slot"
             >
                 <template #name-extra>

@@ -16,7 +16,7 @@ export default async function run(ctx) {
     ];
 
     if (want('导航')) {
-        t.section('1 导航与首页 · 左栏八项 + 今日工作台');
+        t.section('1 导航与首页 · 左栏八项 + 工作台');
         for (const [label, expected] of NAV) {
             await t.step(`进入「${label}」`, async () => {
                 await ui.gotoReady(label);
@@ -46,11 +46,23 @@ export default async function run(ctx) {
             // 入口允许用户隐藏和排序；仅此节临时使用默认配置，结束后恢复本机偏好。
             await cdp.evaluate("localStorage.removeItem('mh-home-shortcuts')");
             await ui.reload();
-            await t.step('今日工作台：今日概览、功能入口、养成目标和我的队伍', async () => {
-                await ui.gotoReady('总览');
-                const shape = await cdp.evaluate(`(() => ({
+            await t.step(
+                '工作台：近一周概览、近一个月收支、功能入口、养成目标和我的队伍',
+                async () => {
+                    await ui.gotoReady('总览');
+                    const shape = await cdp.evaluate(`(() => ({
                 hero: !!document.querySelector('.day-hero'),
-                stats: document.querySelectorAll('.day-stats > div').length,
+                heroTitle: document.querySelector('.day-intro h2')?.textContent.trim(),
+                stats: document.querySelectorAll('.workbench-today .day-stats > div').length,
+                cashflow: document.querySelectorAll('.workbench-accounts .day-stats > div').length,
+                weekTitle: document.querySelector('.workbench-today h3')?.textContent.trim(),
+                monthTitle: document.querySelector('.workbench-accounts h3')?.textContent.trim(),
+                periodControls: document.querySelectorAll('.workbench-accounts [role=radio]').length,
+                pairedReadouts: (() => {
+                    const today = document.querySelector('.workbench-today')?.getBoundingClientRect();
+                    const accounts = document.querySelector('.workbench-accounts')?.getBoundingClientRect();
+                    return today && accounts && Math.abs(today.top - accounts.top) < 1 && today.right <= accounts.left;
+                })(),
                 chars: document.querySelectorAll('.team-person').length,
                 names: [...document.querySelectorAll('.team-name')].map(el => el.getAttribute('href')),
                 teamCards: [...document.querySelectorAll('.team-person')].every(el =>
@@ -89,43 +101,99 @@ export default async function run(ctx) {
                 }),
                 links: [...document.querySelectorAll('.goal-row')].every(el => el.getAttribute('href')?.includes('action=update')),
             }))()`);
-                t.check('B 方案顶部显示四项今日概览', shape.hero && shape.stats === 4);
-                t.check('队伍卡仅保留身份与三类最近记录，采用 B 分区浅槽', shape.teamCards);
-                t.check('队伍单排横滚、卡高固定、记录单行且默认完整展示', shape.teamScroll);
-                t.check(
-                    '我的队伍与角色名册一致，每个档案可定位',
-                    shape.chars === charsInDb &&
-                        shape.names.every((href) => href.includes('character=')),
-                );
-                t.check(
-                    '移除首页记账表单，改为八项功能按钮',
-                    !shape.quickForm && shape.shortcuts.length === 8,
-                );
-                t.check(
-                    '添加物价入口保留稳定标识',
-                    shape.shortcuts.some(
-                        (one) => one.name === '添加物价' && one.id === 'price-new',
-                    ),
-                );
-                t.check(
-                    '捉鬼助手、闹钟和活动日历入口就绪',
-                    ['tool-ghost', 'tool-alarm', 'tool-activities'].every((id) =>
-                        shape.shortcuts.some((one) => one.id === id),
-                    ),
-                );
-                t.check('最近收益复用公共柱图', shape.chart === 1);
-                t.check(
-                    '本月收支保留双币种和六格立体读数',
-                    shape.books.join(',') === 'rmb,cash' && shape.raisedCells === 6,
-                );
-                t.check(
-                    '最多三项目标并直达更新',
-                    shape.goals <= 3 && shape.goals === shape.ticks && shape.links,
-                );
-                t.check(
-                    '目标标题及十格立体刻度与目标页一致',
-                    shape.goalTitle === '目标' && shape.tickStyles,
-                );
+                    t.check('顶部显示四项近一周概览', shape.hero && shape.stats === 4);
+                    t.check(
+                        '工作台并排展示近一周概览和四项双币种收支',
+                        shape.heroTitle === '工作台' &&
+                            shape.cashflow === 4 &&
+                            shape.pairedReadouts,
+                    );
+                    t.check(
+                        '两个区块使用固定周月标题，不再提供范围切换',
+                        shape.weekTitle === '近一周' &&
+                            shape.monthTitle === '近一个月' &&
+                            shape.periodControls === 0,
+                    );
+                    t.check('队伍卡仅保留身份与三类最近记录，采用 B 分区浅槽', shape.teamCards);
+                    t.check('队伍单排横滚、卡高固定、记录单行且默认完整展示', shape.teamScroll);
+                    t.check(
+                        '我的队伍与角色名册一致，每个档案可定位',
+                        shape.chars === charsInDb &&
+                            shape.names.every((href) => href.includes('character=')),
+                    );
+                    t.check(
+                        '移除首页记账表单，改为八项功能按钮',
+                        !shape.quickForm && shape.shortcuts.length === 8,
+                    );
+                    t.check(
+                        '添加物价入口保留稳定标识',
+                        shape.shortcuts.some(
+                            (one) => one.name === '添加物价' && one.id === 'price-new',
+                        ),
+                    );
+                    t.check(
+                        '捉鬼助手、闹钟和活动日历入口就绪',
+                        ['tool-ghost', 'tool-alarm', 'tool-activities'].every((id) =>
+                            shape.shortcuts.some((one) => one.id === id),
+                        ),
+                    );
+                    t.check('最近收益复用公共柱图', shape.chart === 1);
+                    t.check(
+                        '本月收支保留双币种和六格立体读数',
+                        shape.books.join(',') === 'rmb,cash' && shape.raisedCells === 6,
+                    );
+                    t.check(
+                        '最多三项目标并直达更新',
+                        shape.goals <= 3 && shape.goals === shape.ticks && shape.links,
+                    );
+                    t.check(
+                        '目标标题及十格立体刻度与目标页一致',
+                        shape.goalTitle === '目标' && shape.tickStyles,
+                    );
+                },
+            );
+
+            await t.step('工作台固定周月统计与源记录一致', async () => {
+                const result = await cdp.evaluate(`(async () => {
+                        const { useAccounts } = await ${importLoaded('/src/views/accounts/accounts-store.ts')};
+                        const { accountValueText } = await ${importLoaded('/src/views/accounts/account-analysis.ts')};
+                        const { useIncome } = await ${importLoaded('/src/views/income/income-store.ts')};
+                        const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
+                        const { onlineTotalsOf, clockText } = await ${importLoaded('/src/views/income/online.ts')};
+                        const { useMinuteNow } = await ${importLoaded('/src/composables/use-minute-now.ts')};
+                        const { todayText, daysAgo, parseDay, ledgerMoneyText } = await ${importLoaded('/src/services/format.ts')};
+                        const today = todayText();
+                        const weekFrom = daysAgo(6, parseDay(today));
+                        const weekly = document.querySelector('.workbench-today');
+                        const weekNet = useIncome().entries.value
+                            .filter(row => row.date >= weekFrom && row.date <= today)
+                            .reduce((sum, row) => sum + (row.kind === 'expense' ? -row.amount : row.amount), 0);
+                        const online = onlineTotalsOf(useOnline().sessions.value, weekFrom, today, useMinuteNow().value);
+                        const weekValues = [...weekly.querySelectorAll('.day-stats b')].slice(0, 3).map(el => el.textContent.trim());
+                        const section = document.querySelector('.workbench-accounts');
+                        const [from, to] = section.querySelector('header').title.split(' 至 ');
+                        const cells = [...section.querySelectorAll('.day-stats > div')];
+                        return {
+                            weekRangeValid: weekly.querySelector('header').title === weekFrom + ' 至 ' + today,
+                            weekValuesMatch: JSON.stringify(weekValues) === JSON.stringify([
+                                ledgerMoneyText(weekNet, 'cash', { sign: 'auto' }),
+                                clockText(online.minutes),
+                                ledgerMoneyText(online.cost, 'cash'),
+                            ]),
+                            rangeValid: Boolean(from) && from < to && to === today,
+                            valuesMatch: cells.length === 4 && cells.every(cell => {
+                                const { currency, kind } = cell.dataset;
+                                const amount = useAccounts().entries.value
+                                    .filter(row => row.currency === currency && row.kind === kind && (!from || row.date >= from) && row.date <= to)
+                                    .reduce((sum, row) => sum + row.amount, 0);
+                                return cell.querySelector('b').textContent.trim() === accountValueText(amount, currency);
+                            }),
+                        };
+                    })()`);
+                t.check('近一周包含今日及此前六天', result.weekRangeValid);
+                t.check('近一周速记、在线和点卡读数与源记录一致', result.weekValuesMatch);
+                t.check('近一个月日期有效且截至今天', result.rangeValid);
+                t.check('近一个月双币种收支与原始账目一致', result.valuesMatch);
             });
 
             await t.step('常用功能自定义：取消不生效，保存顺序后重载保留', async () => {

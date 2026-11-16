@@ -5,6 +5,7 @@ import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import TimeField from '../../components/TimeField.vue';
 import TogglePills from '../../components/TogglePills.vue';
+import { ALL_OPTIONS } from '../../components/select-options';
 import { askConfirm } from '../../composables/use-confirm';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import { notify } from '../../composables/use-notify';
@@ -86,6 +87,33 @@ const options = computed(() =>
         disabled: props.mode === 'start' && busyIds.value.has(one.value),
     })),
 );
+
+const availableIds = computed(() =>
+    options.value.filter((one) => !one.disabled).map((one) => one.value),
+);
+const allSelected = computed(
+    () => availableIds.value.length > 0 && availableIds.value.every((id) => ids.value.includes(id)),
+);
+const roleOptions = computed(() =>
+    props.mode === 'start'
+        ? [
+              { value: ALL_OPTIONS, label: '全部', disabled: !availableIds.value.length },
+              ...options.value,
+          ]
+        : options.value,
+);
+// 「全部」只控制勾选，提交时仍传真实角色 ID，不能把占位值写进上线记录。
+const selectedIds = computed({
+    get: () =>
+        props.mode === 'start' && allSelected.value ? [ALL_OPTIONS, ...ids.value] : ids.value,
+    set: (next: string[]) => {
+        if (props.mode === 'start' && next.includes(ALL_OPTIONS) !== allSelected.value) {
+            ids.value = next.includes(ALL_OPTIONS) ? [...availableIds.value] : [];
+        } else {
+            ids.value = next.filter((id) => id !== ALL_OPTIONS);
+        }
+    },
+});
 
 const error = ref('');
 
@@ -206,11 +234,10 @@ const submitText = computed(() => {
                 <div class="online-field">
                     <span class="field-label">记给谁</span>
                     <TogglePills
-                        v-model="ids"
+                        v-model="selectedIds"
                         class="wrap"
-                        :options="options"
+                        :options="roleOptions"
                         label="选择在线的角色"
-                        radius="sm"
                         :disabled="locked"
                     />
                     <p v-if="!roster.length" class="note error" role="alert">

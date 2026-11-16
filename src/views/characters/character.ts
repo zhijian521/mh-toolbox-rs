@@ -19,7 +19,7 @@ import type { DeepReadonly } from 'vue';
  *    逻辑，跟装备不是一种东西。这两类连格子都不留——留着空格会让人以为「还没填」。
  */
 /* 字段契约按领域拆分，游戏名录与数值规则统一从 public/game/data 装配。 */
-import type { GearSlot } from './gear';
+import type { GearMeta, GearSlot } from './gear';
 import type { Pet } from './pets';
 import type { GrowthEntry } from './growth-history';
 export { ATTR_GROUPS, TRAINING_GROUPS } from '../../services/game-rules';
@@ -242,7 +242,7 @@ export interface CharacterData {
     /** 固定分组与上限由 TRAINING_GROUPS 提供，数据只保存等级。 */
     trainings: TrainingGroup[];
     gear: GearSlot[];
-    gearMeta: { special: string; suit: string };
+    gearMeta: GearMeta;
     pets: Pet[];
 }
 
