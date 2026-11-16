@@ -170,6 +170,15 @@ describe('rangeOf', () => {
 });
 
 describe('SHORTCUTS', () => {
+    it('买卖游戏币默认使用藏宝阁人民币渠道', () => {
+        for (const id of ['coin-buy', 'coin-sell']) {
+            expect(SHORTCUTS.find((one) => one.id === id)?.preset).toMatchObject({
+                currency: 'rmb',
+                channel: '藏宝阁',
+            });
+        }
+    });
+
     it('id 不重复', () => {
         const ids = SHORTCUTS.map((one) => one.id);
         expect(new Set(ids).size).toBe(ids.length);

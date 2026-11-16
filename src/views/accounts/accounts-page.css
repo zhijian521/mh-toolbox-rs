@@ -142,21 +142,32 @@
     font-size: var(--fs-mini);
 }
 .sc-total {
-    display: flex;
-    grid-column: 2;
-    justify-content: space-between;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 4px 10px;
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
     min-width: 0;
     color: var(--shortcut-color);
-    font-size: var(--fs-md);
+    font-size: var(--fs-sm);
     font-variant-numeric: tabular-nums;
 }
-.sc-total > span {
-    overflow-wrap: anywhere;
+.sc-currency {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    min-width: 0;
+}
+.sc-currency:last-child {
+    justify-content: flex-end;
+}
+.sc-value {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .sc-total small {
+    flex-shrink: 0;
     color: var(--muted);
     font-size: var(--fs-mini);
 }

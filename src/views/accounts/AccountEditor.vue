@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, useId, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import CostSwitch from '../../components/CostSwitch.vue';
 import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import NumberField from '../../components/NumberField.vue';
@@ -11,6 +12,7 @@ import { withCurrentOption } from '../../components/select-options';
 import { todayText } from '../../services/format';
 import { characterOptions, UNASSIGNED_CHARACTER as NOTHING } from '../characters/character-options';
 import { accountValueText } from './account-analysis';
+import { cbgSaleRule, isCbgSale, quoteCbgFee } from './account-fees';
 import { characterName, useRoster } from '../characters/roster';
 import {
     ACCOUNT_CATEGORIES,
@@ -61,6 +63,18 @@ function inputOf(entry: AccountEntry | undefined): number {
 
 const amount = ref<number>(inputOf(props.entry));
 const amountEdited = ref(false);
+// 存档金额已经是实得；编辑时默认再扣一次会让旧账越改越少。
+const deductCbgFee = ref(seed.deductCbgFee ?? !props.entry);
+const sale = computed(() => ({
+    kind: kind.value,
+    currency: currency.value,
+    category: category.value,
+    channel: channel.value,
+}));
+const cbgSale = computed(() => isCbgSale(sale.value));
+const feeRule = computed(() => cbgSaleRule(sale.value));
+const deductFee = computed(() => cbgSale.value && deductCbgFee.value);
+const feeQuote = computed(() => (feeRule.value ? quoteCbgFee(amount.value, feeRule.value) : null));
 watch(
     currency,
     () => {
@@ -68,9 +82,15 @@ watch(
     },
     { flush: 'sync' },
 );
-const preserveAmount = computed(() => Boolean(props.entry && !amountEdited.value));
+const preserveAmount = computed(
+    () => Boolean(props.entry && !amountEdited.value && !deductFee.value),
+);
 
 const unit = computed(() => CURRENCY_META[currency.value].unit);
+const amountLabel = computed(() => {
+    const label = cbgSale.value ? (deductFee.value ? '成交总价' : '实得金额') : '金额';
+    return `${label}（${unit.value}）`;
+});
 
 const currencyOptions: { value: Currency; label: string }[] = [
     { value: 'rmb', label: '人民币 · 元' },
@@ -96,7 +116,9 @@ const channelOptions = computed(() =>
 );
 
 const whoOptions = computed(() =>
-    characterOptions(roster.value, [props.entry?.characterId ?? ''], { unassigned: '不指定' }),
+    characterOptions(roster.value, [props.entry?.characterId ?? seed.characterId ?? ''], {
+        unassigned: '不指定',
+    }),
 );
 
 const canSave = computed(() => {
@@ -106,7 +128,8 @@ const canSave = computed(() => {
             ? (props.entry?.amount ?? 0) > 0
             : Math.round(amount.value * 100) > 0) &&
         Boolean(category.value) &&
-        Boolean(date.value)
+        Boolean(date.value) &&
+        (!deductFee.value || (feeQuote.value !== null && feeQuote.value.net > 0))
     );
 });
 
@@ -122,6 +145,7 @@ function submit() {
         channel: channel.value,
         amount: amount.value,
         preserveAmount: preserveAmount.value,
+        deductCbgFee: deductFee.value,
         note: note.value,
     });
 }
@@ -178,16 +202,49 @@ function submit() {
                 </div>
 
                 <div class="account-field amount-row">
-                    <span class="field-label">金额（{{ unit }}）</span>
+                    <span class="field-label">{{ amountLabel }}</span>
                     <!-- 元、万两种输入都最多保留两位小数。 -->
                     <NumberField
                         v-model="amount"
                         update-on-input
-                        label="成交金额"
+                        :label="cbgSale && !deductFee ? '实得金额' : '成交金额'"
                         zero-as-empty
                         :precision="2"
                         class="amount-field value-emphasis"
                         @input="amountEdited = true"
+                    />
+                    <div v-if="cbgSale" class="fee-switch">
+                        <span class="field-label">是否扣除手续费</span>
+                        <CostSwitch
+                            v-model="deductCbgFee"
+                            off-label="否"
+                            on-label="是"
+                            label="是否扣除手续费"
+                            :disabled="locked"
+                        />
+                    </div>
+                    <div
+                        v-if="deductFee && (feeQuote || !feeRule)"
+                        class="fee-preview"
+                        aria-live="polite"
+                    >
+                        <p v-if="feeQuote" class="fee-amounts">
+                            <span>手续费 {{ accountValueText(feeQuote.fee, 'rmb') }}</span>
+                            <span>实得 <b>{{ accountValueText(feeQuote.net, 'rmb') }}</b></span>
+                        </p>
+                        <p v-else class="note error">规则未加载，请选择不扣费并填写实得。</p>
+                    </div>
+                </div>
+
+                <div class="account-field">
+                    <span class="field-label">角色</span>
+                    <SegmentedPills
+                        v-model="characterId"
+                        class="character-pick"
+                        :options="whoOptions"
+                        label="这笔账记给哪个角色"
+                        :disabled="locked"
+                        wrap
                     />
                 </div>
 
@@ -226,16 +283,6 @@ function submit() {
                             :disabled="locked"
                         />
                     </div>
-                </div>
-
-                <div class="account-field">
-                    <span class="field-label">角色</span>
-                    <SelectField
-                        v-model="characterId"
-                        :options="whoOptions"
-                        label="这笔账记给哪个角色"
-                        :disabled="locked"
-                    />
                 </div>
 
                 <div class="account-field">
@@ -284,6 +331,36 @@ function submit() {
 .amount-row {
     justify-items: center;
     padding: 8px 0;
+}
+.fee-switch {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    margin-top: 4px;
+}
+.character-pick :deep(.bevel-pill) {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.fee-preview {
+    width: 100%;
+    text-align: center;
+}
+.fee-amounts {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    font-variant-numeric: tabular-nums;
+}
+.fee-amounts b {
+    color: var(--positive);
+    font-weight: inherit;
 }
 /* 标签在上、控件在下：`.field` 是通栏宽度，标签放左侧会把它挤窄；
  * 而 `SegmentedPills` 一组的宽度是按内容走的，两者同一个节奏。 */

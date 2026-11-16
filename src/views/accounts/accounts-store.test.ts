@@ -24,10 +24,11 @@ function host(load: () => Promise<unknown>) {
     };
 }
 
-async function loadStore(desktop: ReturnType<typeof host>) {
+async function loadStore(desktop: ReturnType<typeof host>, gameRules = false) {
     vi.resetModules();
     vi.doMock('../../services/desktop', () => desktop);
     vi.doMock('../../services/storage', () => desktop);
+    if (gameRules) await import('../../services/game-data.fixture');
     const store = await import('./accounts-store');
     await store.loadAccounts();
     return store;
@@ -94,6 +95,83 @@ describe('loadAccounts：读失败不等于空账', () => {
 });
 
 describe('账号写入边界', () => {
+    const sale = {
+        ...ENTRY,
+        kind: 'income' as const,
+        category: '游戏币卖出',
+        channel: '藏宝阁',
+        amount: 100.3,
+    };
+
+    it('藏宝阁卖币默认扣费，修改、重试落盘不重复扣费，主动填总价可重算', async () => {
+        const desktop = host(async () => []);
+        const store = await loadStore(desktop, true);
+        const added = store.addEntry(sale);
+        expect(added.ok && added.entry.amount).toBe(95.28);
+        if (!added.ok) throw new Error(added.error);
+        const edited = store.updateEntry(added.entry.id, {
+            ...sale,
+            amount: added.entry.amount,
+            preserveAmount: true,
+            note: '补充备注',
+        });
+        expect(edited.ok && edited.entry.amount).toBe(95.28);
+        const recalculated = store.updateEntry(added.entry.id, {
+            ...sale,
+            amount: 200,
+            preserveAmount: true,
+            deductCbgFee: true,
+        });
+        expect(recalculated.ok && recalculated.entry.amount).toBe(190);
+        await store.useAccounts().flush();
+        await store.useAccounts().retry();
+        expect(store.useAccounts().entries.value).toHaveLength(1);
+        expect(store.useAccounts().entries.value[0].amount).toBe(190);
+    });
+
+    it('普通装备和召唤兽卖出手续费封顶，卖币不套用物品封顶', async () => {
+        const store = await loadStore(host(async () => []), true);
+        for (const category of ['装备交易', '召唤兽交易']) {
+            const result = store.addEntry({ ...sale, category, amount: 30000 });
+            expect(result.ok && result.entry.amount).toBe(29000);
+        }
+        const coin = store.addEntry({ ...sale, amount: 30000 });
+        expect(coin.ok && coin.entry.amount).toBe(28500);
+        await store.useAccounts().flush();
+    });
+
+    it('购买、游戏内、梦幻币及直接填写实得都不扣手续费', async () => {
+        const store = await loadStore(host(async () => []), true);
+        const inputs = [
+            { ...sale, kind: 'expense' as const, category: '游戏币买入' },
+            { ...sale, kind: 'expense' as const, category: '装备交易' },
+            { ...sale, channel: '游戏内' },
+            { ...sale, deductCbgFee: false },
+        ];
+        for (const input of inputs) {
+            const result = store.addEntry(input);
+            expect(result.ok && result.entry.amount).toBe(100.3);
+        }
+        const cash = store.addEntry({ ...sale, currency: 'cash', deductCbgFee: true });
+        expect(cash.ok && cash.entry.amount).toBe(1003000);
+        await store.useAccounts().flush();
+    });
+
+    it('扣费后无实得不写账；规则缺失时须直接填实得，不能静默漏扣', async () => {
+        const store = await loadStore(host(async () => []));
+        expect(store.addEntry(sale)).toMatchObject({
+            ok: false,
+            error: expect.stringContaining('规则未加载'),
+        });
+        expect(store.useAccounts().entries.value).toHaveLength(0);
+        const net = store.addEntry({ ...sale, deductCbgFee: false });
+        expect(net.ok && net.entry.amount).toBe(100.3);
+        await import('../../services/game-data.fixture');
+        expect(store.addEntry({ ...sale, amount: 0.01 })).toMatchObject({ ok: false });
+        expect(store.useAccounts().entries.value).toHaveLength(1);
+        await store.useAccounts().flush();
+    });
+
     it('旧梦幻币记录只改备注保留原值，主动改金额才按两位万归一', async () => {
         const old = {
             ...ENTRY,

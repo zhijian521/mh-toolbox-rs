@@ -42,7 +42,7 @@ public/game/
     ├── quick-items.json  速记物品 59（固定价 38 / 浮动价 21）+ 图标文件名
     ├── character-rules.json  角色模板、装备选项、OCR 标签与强化系数
     ├── activities.json  活动周期与时段
-    └── gameplay.json  物价分类、旧名称线索与抓鬼参数
+    └── gameplay.json  物价分类、旧名称线索、抓鬼参数与藏宝阁手续费
 ```
 
 **`icons/` 下只允许有子目录**，目录名就是文件名前缀；加新类目（任务图、NPC、宝石）就新建同名
@@ -286,7 +286,7 @@ GIF、多帧、带方向或 ICC 配置以及高位深资源跳过，头像仍使
 | ---------------------- | ------------------------------------------------------------------------------------------ | ----------------------------- |
 | `character-rules.json` | 属性与修炼模板、部位/图标分组、特技特效/蓝字、属性选项与强化系数、召唤兽资质、OCR 标签名录 | `services/game-rules.ts`      |
 | `activities.json`      | 活动名称、周期、时段及来源标记                                                             | `services/game-activities.ts` |
-| `gameplay.json`        | 物价品类与旧名称线索、抓鬼容差和经验边界                                                   | `services/gameplay.ts`        |
+| `gameplay.json`        | 物价品类与旧名称线索、抓鬼容差和经验边界、藏宝阁普通寄售手续费及来源                       | `services/gameplay.ts`        |
 
 生产代码不直接 import public JSON。`game-data.ts` 在启动边界并行读取、全部校验后统一安装，
 完成首次加载尝试后再读取角色名册与物价、挂载应用；消费方同步读取服务导出的表。

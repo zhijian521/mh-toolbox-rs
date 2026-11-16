@@ -183,7 +183,7 @@ useRouteAction('/accounts', {
                 </PaperCard>
             </div>
 
-            <LedgerSection title="快捷记账" hint="当前范围合计">
+            <LedgerSection title="快捷记账" hint="当前范围 · 全部渠道">
                 <div class="shortcuts">
                     <button
                         v-for="one in shortcuts"
@@ -208,10 +208,22 @@ useRouteAction('/accounts', {
                                     class="sc-total"
                                     :title="one.preset.kind === 'income' ? '收入合计' : '支出合计'"
                                 >
-                                    <span>{{
-                                        accountValueText(one.total.amount, one.preset.currency)
-                                    }}</span>
-                                    <small>{{ one.total.count }} 笔</small>
+                                    <span
+                                        v-for="currency in (['cash', 'rmb'] as const)"
+                                        :key="currency"
+                                        class="sc-currency"
+                                        :title="
+                                            accountValueText(one.total[currency].amount, currency) +
+                                            ' · ' +
+                                            one.total[currency].count +
+                                            ' 笔'
+                                        "
+                                    >
+                                        <small>{{ CURRENCY_META[currency].label }}</small>
+                                        <span class="sc-value">{{
+                                            accountValueText(one.total[currency].amount, currency)
+                                        }}</span>
+                                    </span>
                                 </span>
                             </span>
                         </PressTile>

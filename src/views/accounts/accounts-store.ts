@@ -7,6 +7,7 @@ import { accountLoad, accountSave } from '../../services/storage';
 import { createPersist } from '../../services/persist';
 import { makeId } from '../../services/shape';
 import { parseAccounts, type AccountEntry, type AccountKind, type Currency } from './accounts';
+import { cbgSaleRule, isCbgSale, quoteCbgFee } from './account-fees';
 
 /** 浏览器预览（探针 / `npm run dev`）那一版存在这里；桌面版走 SQLite，两者各自独立。 */
 const STORAGE_KEY = 'mh-accounts';
@@ -71,6 +72,8 @@ export interface EntryInput {
     amount: number;
     /** 仅修改其他字段时，保留当前记录的金额原值。新建及换币种时不生效。 */
     preserveAmount?: boolean;
+    /** 藏宝阁卖出按成交总价扣费。新建默认扣费，修改默认已是实得。 */
+    deductCbgFee?: boolean;
     note?: string;
 }
 
@@ -99,8 +102,9 @@ function check(
 ): { ok: true; amount: number } | { ok: false; error: string } {
     if (!isDayText(input.date)) return { ok: false, error: '日期不对' };
     if (!input.category) return { ok: false, error: '选一个分类' };
-    const amount =
-        input.preserveAmount && before?.currency === input.currency
+    const deductFee = isCbgSale(input) && (input.deductCbgFee ?? !before);
+    let amount =
+        !deductFee && input.preserveAmount && before?.currency === input.currency
             ? before.amount
             : toStored(input.amount, input.currency);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -108,6 +112,13 @@ function check(
             ok: false,
             error: input.currency === 'cash' ? '金额要大于 0 万' : '金额要大于 0 元',
         };
+    }
+    if (deductFee) {
+        const rule = cbgSaleRule(input);
+        if (!rule) return { ok: false, error: '手续费规则未加载，请稍后重试或选择不扣费并填写实得' };
+        const quote = quoteCbgFee(amount, rule);
+        if (!quote || quote.net <= 0) return { ok: false, error: '扣除手续费后的实得要大于 0 元' };
+        amount = quote.net;
     }
     return { ok: true, amount };
 }

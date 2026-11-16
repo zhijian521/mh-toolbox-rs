@@ -144,7 +144,7 @@ export function channelAccounts(entries: readonly AccountEntry[], currency: Curr
     return groupedAccounts(entries, currency, 'channel');
 }
 
-/** 快捷卡只合计同方向、币种、分类、渠道的手记，范围由页面传入。 */
+/** 快捷卡按分类、方向合计手记，跨渠道分币种汇总，范围由页面传入。 */
 export function shortcutTotal(entries: readonly AccountEntry[], preset: Shortcut['preset']) {
     return shortcutTotals(entries, [preset])[0];
 }
@@ -154,7 +154,10 @@ export function shortcutTotals(
     entries: readonly AccountEntry[],
     presets: readonly Shortcut['preset'][],
 ) {
-    const totals = presets.map(() => ({ amount: 0, count: 0 }));
+    const totals = presets.map(() => ({
+        cash: { amount: 0, count: 0 },
+        rmb: { amount: 0, count: 0 },
+    }));
     const byCategory = new Map<string, number[]>();
     presets.forEach((preset, index) => {
         const list = byCategory.get(preset.category);
@@ -165,19 +168,14 @@ export function shortcutTotals(
         if (one.source === 'auto') continue;
         for (const index of byCategory.get(one.category) ?? []) {
             const preset = presets[index];
-            if (
-                one.kind !== preset.kind ||
-                one.currency !== preset.currency ||
-                one.channel !== preset.channel
-            )
-                continue;
-            totals[index].amount += one.amount;
-            totals[index].count += 1;
+            if (one.kind !== preset.kind) continue;
+            totals[index][one.currency].amount += one.amount;
+            totals[index][one.currency].count += 1;
         }
     }
-    return totals.map((total, index) => ({
-        ...total,
-        amount: rounded(total.amount, presets[index].currency),
+    return totals.map((total) => ({
+        cash: { ...total.cash, amount: rounded(total.cash.amount, 'cash') },
+        rmb: { ...total.rmb, amount: rounded(total.rmb.amount, 'rmb') },
     }));
 }
 

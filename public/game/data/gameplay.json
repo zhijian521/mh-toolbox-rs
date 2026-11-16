@@ -173,6 +173,12 @@
             }
         ]
     },
+    "cbgFees": {
+        "sourceUrl": "https://cbg-xyq.res.netease.com/help/index.html?help_key=help42",
+        "checkedOn": "2026-11-16",
+        "coin": { "rateBasisPoints": 500, "maxYuan": null },
+        "item": { "rateBasisPoints": 500, "maxYuan": 1000 }
+    },
     "ghost": {
         "tolerance": 50,
         "edgeLow": 50,

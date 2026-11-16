@@ -139,6 +139,29 @@ describe('外置活动与玩法规则', () => {
         const rules = parseGameplay(GAME_DATA_FILES.gameplay);
         expect(rules.prices.groups).toHaveLength(9);
         expect(rules.ghost).toEqual({ tolerance: 50, edgeLow: 50, edgeHigh: 150 });
+        expect(rules.cbgFees.coin).toEqual({ rateBasisPoints: 500, maxYuan: null });
+        expect(rules.cbgFees.item).toEqual({ rateBasisPoints: 500, maxYuan: 1000 });
+    });
+
+    it('手续费规则拒绝缺失、非法费率及封顶金额', () => {
+        const raw = GAME_DATA_FILES.gameplay;
+        expect(() => parseGameplay({ ...raw, cbgFees: undefined })).toThrow(/gameplay/);
+        for (const rateBasisPoints of [0, -1, 0.5, 10001, NaN]) {
+            expect(() =>
+                parseGameplay({
+                    ...raw,
+                    cbgFees: { ...raw.cbgFees, coin: { ...raw.cbgFees.coin, rateBasisPoints } },
+                }),
+            ).toThrow(/gameplay/);
+        }
+        for (const maxYuan of [-1, 0, Infinity, '1000']) {
+            expect(() =>
+                parseGameplay({
+                    ...raw,
+                    cbgFees: { ...raw.cbgFees, item: { ...raw.cbgFees.item, maxYuan } },
+                }),
+            ).toThrow(/gameplay/);
+        }
     });
 
     it('拒绝重复活动、错误周期和逆序时段', () => {

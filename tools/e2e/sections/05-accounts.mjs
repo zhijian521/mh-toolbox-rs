@@ -14,7 +14,15 @@ export default async function run(ctx) {
                 books: document.querySelectorAll('.books .book').length,
                 shortcuts: document.querySelectorAll('.shortcuts .shortcut').length,
                 shortcutContent: [...document.querySelectorAll('.shortcuts .shortcut')].every((one) =>
-                    one.querySelector('.press-tile.wide') && one.querySelector('.sc-copy small') && one.querySelector('.sc-total small') && one.scrollWidth <= one.clientWidth + 1),
+                    one.querySelector('.press-tile.wide') && one.querySelector('.sc-copy small') &&
+                    one.querySelectorAll('.sc-currency').length === 2 &&
+                    ['梦幻币', '人民币'].every((name) => one.querySelector('.sc-total')?.textContent.includes(name)) &&
+                    [...one.querySelectorAll('.sc-currency')].every((row) => row.querySelector('.sc-value') && row.querySelector('small') && row.title.includes('笔')) &&
+                    (() => {
+                        const [cash, rmb] = [...one.querySelectorAll('.sc-currency')].map((row) => row.getBoundingClientRect());
+                        return cash && rmb && Math.abs(cash.top - rmb.top) < 1 && cash.right < rmb.left;
+                    })() &&
+                    one.scrollWidth <= one.clientWidth + 1),
                 charts: document.querySelectorAll('.account-charts .analysis-card').length,
                 chartSurfaces: document.querySelectorAll('.account-charts .chart-panel > .chart-surface').length,
                 barFrame: [...document.querySelectorAll('.bar-frame')].every((one) =>
@@ -46,7 +54,7 @@ export default async function run(ctx) {
              * 少一张就是回到了那个错。 */
             t.check('并排两本账', shape.books === 2, `实际 ${shape.books}`);
             t.check('快捷入口 11 个', shape.shortcuts === 11, `实际 ${shape.shortcuts}`);
-            t.check('快捷卡共用按钮材质并保留说明、金额与笔数，无横向溢出', shape.shortcutContent);
+            t.check('快捷卡一行左梦幻币右人民币，笔数悬停显示且无横向溢出', shape.shortcutContent);
             t.check('两张走势与一张角色分类图', shape.charts === 3);
             t.check(
                 '账号图表共用台面材质，非零柱带亮面与侧面',
@@ -67,6 +75,53 @@ export default async function run(ctx) {
             })()`);
         });
 
+        await t.step('藏宝阁买卖默认渠道与卖出实得预览', async () => {
+            for (const title of ['买入游戏币', '卖出游戏币', '卖出装备', '卖出召唤兽']) {
+                await ui.clickLabelPrefix(title + '，');
+                await ui.waitFor(`!!document.querySelector('input[aria-label="成交金额"]')`);
+                t.check(title + '默认藏宝阁', await cdp.evaluate(
+                    `document.querySelector('[aria-label="交易渠道"]')?.textContent.includes('藏宝阁')`,
+                ));
+                if (title === '买入游戏币') {
+                    t.check('买入不扣费', !(await ui.exists('.fee-preview')));
+                } else {
+                    await ui.fill('成交金额', '100.3');
+                    t.check(title + '向上取分并展示实得', await cdp.waitFor(
+                        `document.querySelector('.fee-amounts')?.textContent.includes('5.02') && document.querySelector('.fee-amounts')?.textContent.includes('95.28')`,
+                    ));
+                    await ui.fill('成交金额', '0.01');
+                    t.check('实得为零禁止记入', await cdp.evaluate(
+                        `document.querySelector('button[aria-label="记入账本"]')?.disabled === true`,
+                    ));
+                    t.check('手续费两格开关在价格下方居中，默认是，只显示手续费与实得', await cdp.evaluate(`(() => {
+                        const group = document.querySelector('.fee-switch [aria-label="是否扣除手续费"]');
+                        const amount = document.querySelector('.amount-row input');
+                        const row = document.querySelector('.amount-row');
+                        const control = group?.closest('.fee-switch');
+                        const box = control?.getBoundingClientRect();
+                        const rowBox = row?.getBoundingClientRect();
+                        return group?.classList.contains('cost-switch') &&
+                            group.querySelectorAll('[role="radio"]').length === 2 &&
+                            [...group.querySelectorAll('[role="radio"]')].some((one) => one.textContent.trim() === '是' && one.getAttribute('aria-checked') === 'true') &&
+                            row?.querySelector('.amount-field')?.nextElementSibling === control &&
+                            box && rowBox && Math.abs(box.left + box.width / 2 - rowBox.left - rowBox.width / 2) <= 1 &&
+                            row.querySelectorAll('.fee-preview p').length === 1 &&
+                            !row.querySelector('.fee-preview .note') &&
+                            amount && amount.getBoundingClientRect().bottom <= group.getBoundingClientRect().top;
+                    })()`));
+                    await ui.clickText('[aria-label="是否扣除手续费"] button', '否', { exact: true });
+                    await ui.waitFor(`!!document.querySelector('input[aria-label="实得金额"]')`);
+                    await ui.fill('实得金额', '95.28');
+                    t.check('可直接填写实得且不再扣费', !(await ui.exists('.fee-preview')));
+                    await ui.clickLabel('交易渠道');
+                    await ui.clickText('[role="option"]', '游戏内', { exact: true });
+                    t.check('游戏内交易不展示手续费', !(await ui.exists('[aria-label="是否扣除手续费"]')));
+                }
+                await ui.clickLabel('关闭账目编辑');
+                await ui.waitFor(`!document.querySelector('[role="dialog"]')`);
+            }
+        });
+
         /* 记一笔真账，走完整的写库路径，最后自己删干净。
          * 用 `⚠E2E` 开头的备注做标记：删的时候按它定位，不会误删用户的记录。 */
         const MARK = '⚠E2E账号';
@@ -77,6 +132,28 @@ export default async function run(ctx) {
                 timeout: 3000,
             });
             t.check('记一笔的弹窗开了', opened);
+
+            t.check('角色单选胶囊在方向日期上方，默认不指定', await cdp.evaluate(`(() => {
+                const group = document.querySelector('[aria-label="这笔账记给哪个角色"]');
+                const selected = group?.querySelectorAll('[aria-checked="true"]');
+                const direction = document.querySelector('[aria-label="收支方向"]');
+                const characterField = group?.closest('.account-field');
+                return group?.getAttribute('role') === 'radiogroup' && group.classList.contains('wrap') &&
+                    selected?.length === 1 && selected[0].textContent.trim() === '不指定' &&
+                    group.querySelectorAll('[role="radio"]').length >= 1 &&
+                    !group.querySelector('[aria-haspopup="listbox"]') &&
+                    characterField?.nextElementSibling === direction?.closest('.pair');
+            })()`));
+            const characterCount = await ui.count('[aria-label="这笔账记给哪个角色"] [role="radio"]');
+            if (characterCount > 1) {
+                await cdp.evaluate(
+                    `document.querySelector('[aria-label="这笔账记给哪个角色"] [role="radio"]:nth-child(2)')?.click()`,
+                );
+                t.check('选择角色后仍只选中一枚胶囊', await cdp.evaluate(
+                    `document.querySelectorAll('[aria-label="这笔账记给哪个角色"] [aria-checked="true"]').length === 1 && document.querySelector('[aria-label="这笔账记给哪个角色"] [role="radio"]:nth-child(2)')?.getAttribute('aria-checked') === 'true'`,
+                ));
+                await ui.clickText('[aria-label="这笔账记给哪个角色"] button', '不指定', { exact: true });
+            }
 
             await ui.fill('备注', MARK);
             await ui.fill('成交金额', '12.');

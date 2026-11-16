@@ -52,7 +52,7 @@ describe('账号概览统计', () => {
         });
     });
 
-    it('快捷项共用汇总仍区分方向、币种、渠道及自动来源，并保留重复预设', () => {
+    it('快捷项跨渠道分币种汇总，区分方向与自动来源，并保留重复预设', () => {
         const rows = [
             entry({ amount: 0.1 }),
             entry({ amount: 0.2 }),
@@ -64,23 +64,18 @@ describe('账号概览统计', () => {
         ];
         const presets = [...SHORTCUTS.map((one) => one.preset), SHORTCUTS[0].preset];
         const totals = shortcutTotals(rows, presets);
-        const expected = presets.map((preset) => {
-            const matching = rows.filter(
-                (one) =>
-                    one.source !== 'auto' &&
-                    Object.entries(preset).every(
-                        ([key, value]) => one[key as keyof AccountEntry] === value,
-                    ),
-            );
-            const amount = matching.reduce((sum, one) => sum + one.amount, 0);
-            return {
-                amount:
-                    preset.currency === 'rmb' ? Math.round(amount * 100) / 100 : Math.round(amount),
-                count: matching.length,
-            };
+        expect(totals[0]).toEqual({
+            rmb: { amount: 11.3, count: 3 },
+            cash: { amount: 13, count: 1 },
         });
-        expect(totals).toEqual(expected);
-        expect(totals[0]).toEqual({ amount: 0.3, count: 2 });
+        expect(totals[1]).toEqual({
+            rmb: { amount: 7, count: 1 },
+            cash: { amount: 0, count: 0 },
+        });
+        expect(totals[2]).toEqual({
+            rmb: { amount: 0, count: 0 },
+            cash: { amount: 0, count: 0 },
+        });
         expect(totals.at(-1)).toEqual(totals[0]);
         expect(shortcutTotals(rows, [])).toEqual([]);
     });
@@ -230,7 +225,7 @@ it('渠道收支合并不同角色的同渠道记录，币种隔离并保留自�
     expect(channelAccounts([], 'rmb')).toEqual([]);
 });
 
-it('快捷卡汇总仅匹配手记的方向、币种、分类和渠道，保留小数', () => {
+it('快捷卡按手记方向和分类匹配，跨渠道分币种保留小数', () => {
     const preset = SHORTCUTS.find((one) => one.id === 'gear-buy')!.preset;
     const rows = [
         entry({ amount: 0.1 }),
@@ -241,8 +236,14 @@ it('快捷卡汇总仅匹配手记的方向、币种、分类和渠道，保留�
         entry({ currency: 'cash', amount: 10000 }),
         entry({ source: 'auto', amount: 100 }),
     ];
-    expect(shortcutTotal(rows, preset)).toEqual({ amount: 0.3, count: 2 });
-    expect(shortcutTotal([], preset)).toEqual({ amount: 0, count: 0 });
+    expect(shortcutTotal(rows, preset)).toEqual({
+        rmb: { amount: 100.3, count: 3 },
+        cash: { amount: 10000, count: 1 },
+    });
+    expect(shortcutTotal([], preset)).toEqual({
+        rmb: { amount: 0, count: 0 },
+        cash: { amount: 0, count: 0 },
+    });
 });
 
 it('角色堆叠分开收支和币种，同一分类合并，柱段合计等于角色总额', () => {

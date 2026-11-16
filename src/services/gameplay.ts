@@ -1,4 +1,10 @@
+import { shallowRef } from 'vue';
 import { isObject } from './shape';
+
+export interface CbgFeeRule {
+    rateBasisPoints: number;
+    maxYuan: number | null;
+}
 
 export interface PriceGroup {
     name: string;
@@ -17,6 +23,12 @@ export interface Gameplay {
         legacyNames: LegacyNameRule[];
     };
     ghost: { tolerance: number; edgeLow: number; edgeHigh: number };
+    cbgFees: {
+        sourceUrl: string;
+        checkedOn: string;
+        coin: CbgFeeRule;
+        item: CbgFeeRule;
+    };
 }
 
 /** 稳定的存档兜底分类。规则未加载时不改写已有分类。 */
@@ -26,6 +38,7 @@ export let PRICE_CATEGORIES: string[] = [];
 export let LEGACY_PRICE_GROUPS: Record<string, string> = {};
 export let LEGACY_PRICE_NAMES: LegacyNameRule[] = [];
 export let GHOST_RULES: Gameplay['ghost'] | null = null;
+export const CBG_FEES = shallowRef<Gameplay['cbgFees'] | null>(null);
 
 export function parseGameplay(raw: unknown): Gameplay {
     const fail = (): never => {
@@ -74,9 +87,32 @@ export function parseGameplay(raw: unknown): Gameplay {
     const edgeLow = number(ghost.edgeLow);
     const edgeHigh = number(ghost.edgeHigh);
     if (tolerance <= 0 || edgeHigh <= edgeLow) fail();
+    const cbgFees = object(file.cbgFees);
+    const feeRule = (value: unknown): CbgFeeRule => {
+        const row = object(value);
+        const rateBasisPoints = number(row.rateBasisPoints);
+        const maxYuan = row.maxYuan === null ? null : number(row.maxYuan);
+        if (
+            !Number.isInteger(rateBasisPoints) ||
+            rateBasisPoints <= 0 ||
+            rateBasisPoints > 10000 ||
+            (maxYuan !== null && (!Number.isSafeInteger(maxYuan * 100) || maxYuan <= 0))
+        )
+            fail();
+        return { rateBasisPoints, maxYuan };
+    };
+    const sourceUrl = text(cbgFees.sourceUrl);
+    const checkedOn = text(cbgFees.checkedOn);
+    if (!sourceUrl.startsWith('https://') || !/^\d{4}-\d{2}-\d{2}$/.test(checkedOn)) fail();
     return {
         prices: { groups, legacyGroups, legacyNames },
         ghost: { tolerance, edgeLow, edgeHigh },
+        cbgFees: {
+            sourceUrl,
+            checkedOn,
+            coin: feeRule(cbgFees.coin),
+            item: feeRule(cbgFees.item),
+        },
     };
 }
 
@@ -87,4 +123,5 @@ export function installGameplay(rules: Gameplay): void {
     LEGACY_PRICE_GROUPS = rules.prices.legacyGroups;
     LEGACY_PRICE_NAMES = rules.prices.legacyNames;
     GHOST_RULES = rules.ghost;
+    CBG_FEES.value = rules.cbgFees;
 }
