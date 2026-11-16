@@ -4,7 +4,7 @@
 裁成统一边长输出 webp，并生成 `icons.json` 记录「文件 → 中文名」。
 
 用法：
-    python tools/game-icons/slice.py <输出目录>
+    python tools/game-icons/slice.py [输出目录] --src <截图目录>
 
 为什么不用固定坐标：同一界面的三张目录（生活技能 / 剧情技能 / 特技特效）行距不同
 （生活 134、特技 136），且末行常常只有 1 项。所以先检测、再按间距外推补空行，
@@ -16,10 +16,10 @@
 """
 
 import json
-import os
 import re
-import sys
 from pathlib import Path
+
+from shot_source import shot_directory, shot_parser
 
 import numpy as np
 from PIL import Image
@@ -47,9 +47,6 @@ PAGES = {
 }
 
 ROOT = Path(__file__).resolve().parents[2]
-# 截图从哪儿读。默认是本机剪贴板目录（图的来路），换机器时用 --src 指定，
-# 或者把图放好之后直接改这一行。截图本身不入库——它们是「一次性的原料」。
-SRC = Path(os.environ.get('GAME_SHOT_DIR', r'C:\Users\pc\.workbuddy\clipboard-images'))
 
 
 def find_bands(proj, thr, minw=18, gap=8):
@@ -298,11 +295,11 @@ def read_skill_table():
 
 
 def main():
-    # 参数是**图标的根**（`public/game/icons`），不是某一类的目录：这个脚本一次写三类，
-    # 各自落到与自己同名的子目录（`skill/` `story/` `active/`）。一个类目一个文件夹，
-    # 与 `slice-school.py` → `school/`、`slice-gear.py` → `gear/` 是同一条规矩：
-    # 目录名就是文件名前缀，新人往哪个目录放图不用猜。
-    out_root = Path(sys.argv[1] if len(sys.argv) > 1 else 'public/game/icons')
+    parser = shot_parser('切分生活、剧情与特技图标')
+    parser.add_argument('output', nargs='?', default='public/game/icons')
+    args = parser.parse_args()
+    shot_dir = shot_directory(parser, args)
+    out_root = Path(args.output)
     out_root.mkdir(parents=True, exist_ok=True)
     skills = read_skill_table()
     names = {
@@ -317,7 +314,7 @@ def main():
         kind_dir.mkdir(parents=True, exist_ok=True)
         items = []
         for name, expect in pages:
-            page = slice_page(SRC / name, expect)
+            page = slice_page(shot_dir / name, expect)
             items.extend(page)
             print(f'{kind:7s} {name.split("-")[-1]:16s} {len(page):2d} 格')
         if len(items) != len(names[kind]):

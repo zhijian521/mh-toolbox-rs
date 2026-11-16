@@ -1071,9 +1071,6 @@
 }
 
 /* 通知、印面与导航材质在实际元素上求值，保留局部染色。 */
-.chart.well {
-    --chart-texture: linear-gradient(180deg, var(--bevel-lo), transparent 18px);
-}
 .notice {
     --notice-background: linear-gradient(
         180deg,

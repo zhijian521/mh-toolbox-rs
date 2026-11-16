@@ -172,14 +172,6 @@ export function parseAccounts(raw: unknown): AccountEntry[] {
 
 /* ---------- 汇总与筛选 ---------- */
 
-/**
- * 一本账的合计。只数 `currency` 那一种，另一种直接跳过——
- * 这就是「两本账从不相加」在代码里的样子。
- */
-export function accountStats(entries: readonly AccountEntry[], currency: Currency): AccountStats {
-    return accountStatsByCurrency(entries)[currency];
-}
-
 /** 一次遍历汇总两本账，金额只在汇总完后按原口径取整。 */
 export function accountStatsByCurrency(
     entries: readonly AccountEntry[],

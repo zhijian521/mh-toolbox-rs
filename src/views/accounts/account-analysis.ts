@@ -154,11 +154,6 @@ export function channelAccounts(entries: readonly AccountEntry[], currency: Curr
     return groupedAccounts(entries, currency, 'channel');
 }
 
-/** 快捷卡按分类、方向合计手记，跨渠道分币种汇总，范围由页面传入。 */
-export function shortcutTotal(entries: readonly AccountEntry[], preset: Shortcut['preset']) {
-    return shortcutTotals(entries, [preset])[0];
-}
-
 /** 先按分类索引快捷项，手记只遍历一次；相同预设仍各自得到一份总额。 */
 export function shortcutTotals(
     entries: readonly AccountEntry[],

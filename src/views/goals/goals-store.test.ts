@@ -92,22 +92,22 @@ describe('目标写入：多人养成与记录保护', () => {
         expect(store.useGoals().goals.value[0].deadline).toBe('2028-02-29');
     });
 
-    it('任意多选按名册顺序取快照，不引用原成员对象', async () => {
+    it('新增保存成员顺序、去重，并复制成员快照', async () => {
         const store = await loadStore(host(async () => []));
-        const roster = [
-            { id: 'a', name: '甲' },
-            { id: 'b', name: '乙' },
+        const members = [
             { id: 'c', name: '丙' },
+            { id: 'a', name: '甲' },
+            { id: 'c', name: '重复' },
         ];
-        const members = store.snapshotMembers(roster, ['c', 'a', 'c']);
-        expect(members).toEqual([
-            { id: 'a', name: '甲' },
+        const result = store.addGoal({ ...GOAL, members });
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        members[0].name = '改名';
+        expect(result.goal.members).toEqual([
             { id: 'c', name: '丙' },
+            { id: 'a', name: '甲' },
         ]);
-        roster[0].name = '改名';
-        expect(members[0].name).toBe('甲');
-        expect(store.snapshotMembers(roster, [])).toEqual([]);
-        expect(store.snapshotMembers(roster, '')).toHaveLength(3);
+        expect(store.addGoal({ ...GOAL, members: [] }).ok).toBe(false);
     });
 
     it('养成单位由项目决定，非法等级不写入', async () => {

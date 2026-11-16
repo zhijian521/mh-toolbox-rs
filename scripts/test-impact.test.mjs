@@ -89,7 +89,7 @@ describe('根据改动推荐测试范围', () => {
 
     it('Rust 模块建议定向范围，入口与依赖变更扩大后端范围', () => {
         expect(
-            recommendTests(['src-tauri/src/store/tests.rs', 'src-tauri/src/backup.rs']).rust,
+            recommendTests(['src-tauri/src/store/tests.rs', 'src-tauri/src/backup/tests.rs']).rust,
         ).toEqual(['backup::', 'store::']);
         const result = recommendTests([
             'src-tauri/src/store.rs',
@@ -99,5 +99,19 @@ describe('根据改动推荐测试范围', () => {
         expect(result.rust).toEqual(['']);
         expect(result.scopes).toContain('release');
         expect(result.notes.length).toBeGreaterThan(0);
+    });
+
+    it('共享时钟包含业务联动，拆分后的收益场景仍建议收益烟测', () => {
+        const clock = recommendTests(['src/composables/shared-clock.ts']);
+        expect(clock.scopes).toEqual(['income', 'accounts', 'goals', 'overview', 'tools', 'ui']);
+        for (const file of ['use-today.ts', 'use-minute-now.ts']) {
+            expect(recommendTests(['src/composables/' + file]).scopes).toContain('tools');
+        }
+        for (const file of ['04-income.mjs', 'income/quick.mjs', 'income/shared.mjs']) {
+            const result = recommendTests(['tools/e2e/sections/' + file]);
+            expect(result.scopes).toEqual(['tooling']);
+            expect(result.smoke).toEqual(['收益']);
+            expect(result.unknown).toEqual([]);
+        }
     });
 });

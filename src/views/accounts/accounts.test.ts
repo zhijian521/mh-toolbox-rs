@@ -4,7 +4,7 @@ import {
     CHANNELS,
     CURRENCY_META,
     SHORTCUTS,
-    accountStats,
+    accountStatsByCurrency,
     newestFirst,
     normalizeEntry,
     parseAccounts,
@@ -95,7 +95,7 @@ describe('parseAccounts', () => {
     });
 });
 
-describe('accountStats', () => {
+describe('accountStatsByCurrency', () => {
     it('只数本币种：两本账从不相加', () => {
         const list = [
             entry({ id: 'a', kind: 'income', amount: 100 }),
@@ -103,13 +103,13 @@ describe('accountStats', () => {
             entry({ id: 'c', kind: 'income', currency: 'cash', amount: 46000 }),
         ];
 
-        expect(accountStats(list, 'rmb')).toEqual({
+        expect(accountStatsByCurrency(list).rmb).toEqual({
             income: 100,
             expense: 30,
             net: 70,
             count: 2,
         });
-        expect(accountStats(list, 'cash')).toEqual({
+        expect(accountStatsByCurrency(list).cash).toEqual({
             income: 46000,
             expense: 0,
             net: 46000,
@@ -119,11 +119,11 @@ describe('accountStats', () => {
 
     it('净额可为负，且不等于「收支都取正」', () => {
         const list = [entry({ kind: 'expense', amount: 500 })];
-        expect(accountStats(list, 'rmb').net).toBe(-500);
+        expect(accountStatsByCurrency(list).rmb.net).toBe(-500);
     });
 
     it('空表是四个 0，不是 undefined', () => {
-        expect(accountStats([], 'rmb')).toEqual({ income: 0, expense: 0, net: 0, count: 0 });
+        expect(accountStatsByCurrency([]).rmb).toEqual({ income: 0, expense: 0, net: 0, count: 0 });
     });
 });
 

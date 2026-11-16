@@ -69,8 +69,15 @@ const RULES = [
     { prefix: 'src/services/updates', scopes: ['release', 'settings'], smoke: ['设置'] },
     { prefix: 'src/composables/use-theme', scopes: ['settings'], smoke: ['设置', '导航'] },
     { prefix: 'src/composables/use-font-', scopes: ['settings'], smoke: ['设置', '导航'] },
-    { prefix: 'src/composables/use-today', scopes: ['income', 'accounts', 'goals', 'overview'] },
-    { prefix: 'src/composables/use-minute-now', scopes: ['income', 'overview'] },
+    {
+        prefix: 'src/composables/shared-clock',
+        scopes: ['income', 'accounts', 'goals', 'overview', 'tools'],
+    },
+    {
+        prefix: 'src/composables/use-today',
+        scopes: ['income', 'accounts', 'goals', 'overview', 'tools'],
+    },
+    { prefix: 'src/composables/use-minute-now', scopes: ['income', 'accounts', 'overview', 'tools'] },
     { prefix: 'src/composables/use-ghost-', scopes: ['tools'], smoke: ['工具'] },
     { prefix: 'src/main', scopes: ['core'], smoke: ['导航'] },
     { prefix: 'src/startup', scopes: ['core', 'settings'], smoke: ['导航', '数据'] },
@@ -86,6 +93,8 @@ const RULES = [
         note: '字体资源需补充实际加载与字号溢出验收。',
     },
     { prefix: 'tools/game-icons/', scopes: ['assets'] },
+    { prefix: 'tools/e2e/sections/income/', scopes: ['tooling'], smoke: ['收益'] },
+    { prefix: 'tools/e2e/sections/04-income.mjs', scopes: ['tooling'], smoke: ['收益'] },
     {
         prefix: 'tools/e2e/',
         scopes: ['tooling'],

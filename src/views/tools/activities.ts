@@ -31,11 +31,6 @@ const minutesOf = (text: string): number => {
     return (hour || 0) * 60 + (minute || 0);
 };
 
-/** 这一天是本月第几个「该星期几」。按日期除以 7 取整，与游戏内的轮换口径一致。 */
-export function nthWeekday(date: Date): number {
-    return Math.ceil(date.getDate() / 7);
-}
-
 /** 这一天有没有这条活动。 */
 export function occursOn(activity: Activity, date: Date): boolean {
     return activityOccursOn(activity, date);

@@ -2,7 +2,7 @@ import { ALL_OPTIONS as ALL_ACCOUNTS } from '../../components/select-options';
 import { UNASSIGNED_CHARACTER as UNASSIGNED } from '../characters/character-options';
 import { describe, expect, it } from 'vitest';
 import { buildTrendChart } from '../../components/trend-chart';
-import { accountStats, accountStatsByCurrency, SHORTCUTS, type AccountEntry } from './accounts';
+import { accountStatsByCurrency, SHORTCUTS, type AccountEntry } from './accounts';
 import {
     accountAxisText,
     accountTrend,
@@ -11,7 +11,6 @@ import {
     characterCategoryAccounts,
     channelAccounts,
     filterAccounts,
-    shortcutTotal,
     shortcutTotals,
 } from './account-analysis';
 
@@ -183,7 +182,12 @@ describe('账号概览统计', () => {
             entry({ kind: 'income', amount: 0.2 }),
             entry({ amount: 0.3 }),
         ];
-        expect(accountStats(rows, 'rmb')).toEqual({ income: 0.3, expense: 0.3, net: 0, count: 3 });
+        expect(accountStatsByCurrency(rows).rmb).toEqual({
+            income: 0.3,
+            expense: 0.3,
+            net: 0,
+            count: 3,
+        });
         expect(accountTrend(rows, 'rmb', { from: '', to: '' }).income).toEqual([0.3]);
         expect(accountValueText(0, 'rmb')).toBe('0 元');
         expect(accountValueText(-46000, 'cash')).toBe('−4.6 万');
@@ -236,11 +240,11 @@ it('快捷卡按手记方向和分类匹配，跨渠道分币种保留小数', (
         entry({ currency: 'cash', amount: 10000 }),
         entry({ source: 'auto', amount: 100 }),
     ];
-    expect(shortcutTotal(rows, preset)).toEqual({
+    expect(shortcutTotals(rows, [preset])[0]).toEqual({
         rmb: { amount: 100.3, count: 3 },
         cash: { amount: 10000, count: 1 },
     });
-    expect(shortcutTotal([], preset)).toEqual({
+    expect(shortcutTotals([], [preset])[0]).toEqual({
         rmb: { amount: 0, count: 0 },
         cash: { amount: 0, count: 0 },
     });

@@ -26,10 +26,10 @@
 
 ## 重跑
 
-    python tools/game-icons/slice-weapon.py          # 切图 + 写清单
-    python tools/game-icons/slice-weapon.py --check  # 只打印数量
+    python tools/game-icons/slice-weapon.py --src <截图目录>          # 切图 + 写清单
+    python tools/game-icons/slice-weapon.py --src <截图目录> --check  # 只打印数量
 
-截图默认从 `clipboard-images` 取，文件列表在 SCREENSHOTS 里；换截图要同时更新
+截图目录由 --src 或 GAME_SHOT_DIR 指定，文件列表在 SCREENSHOTS 里；换截图要同时更新
 SCREENSHOTS 与 OFFSETS（偏移由官网图标比对得到，页面布局变了就得重算）。
 """
 
@@ -37,15 +37,15 @@ from __future__ import annotations
 
 import json
 import shutil
-import sys
 from collections import OrderedDict
 from pathlib import Path
+
+from shot_source import shot_directory, shot_parser
 
 import numpy as np
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC = Path(r'C://Users//pc//.workbuddy//clipboard-images')
 
 SCREENSHOTS = [
     'clipboard-2026-11-04T08-42-40-513Z-ea8aced4.png',
@@ -291,7 +291,11 @@ def page_cells(path, top_min, top_max):
 
 
 def main() -> int:
-    check = '--check' in sys.argv
+    parser = shot_parser('切分游戏图标')
+    parser.add_argument('--check', action='store_true')
+    args = parser.parse_args()
+    shot_dir = shot_directory(parser, args)
+    check = args.check
     flat = rows_with_names()
     if len(flat) != 340:
         raise SystemExit('名称表应为 340 行（20 种 × 17 档），实际 {}'.format(len(flat)))
@@ -299,7 +303,7 @@ def main() -> int:
     groups = OrderedDict()
     taken = set()          # 同一全局行只取一张：相邻截图有 0~3 行重叠，不挡会切出重复
     for page, fname in enumerate(SCREENSHOTS, start=1):
-        path = SRC / fname
+        path = shot_dir / fname
         if not path.exists():
             raise SystemExit('找不到截图：{}'.format(path))
         im = Image.open(path).convert('RGB')
@@ -332,7 +336,7 @@ def main() -> int:
     for slot, group, start, tmin, tmax in LATE_PAGES:
         page, src = slot
         fname = SCREENSHOTS[page - 1] if src == 'S' else LATE_SHOTS[page - 1]
-        path = SRC / fname
+        path = shot_dir / fname
         if not path.exists():
             raise SystemExit('找不到截图：{}'.format(path))
         items = late_items(group)

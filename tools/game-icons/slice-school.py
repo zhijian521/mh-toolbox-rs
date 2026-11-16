@@ -5,9 +5,9 @@
 中间那一列是师门法术（墨绿），这批**不收**：使用方只要门派技能。
 
 用法：
-    python tools/game-icons/slice-school.py            # 切图 + 写清单
+    python tools/game-icons/slice-school.py --src <截图目录>  # 切图 + 写清单
     python tools/game-icons/slice-school.py --check    # 只校验名字，不写文件
-    python tools/game-icons/slice-school.py --report   # 只打印每家量到的本体高度，不写文件
+    python tools/game-icons/slice-school.py --src <截图目录> --report  # 只打印几何，不写文件
 
 横向是固定值：21 张截图同分辨率（1218×995），列位置逐像素一致，图标本体 x 213..272
 （左右各 1px 已是抗锯齿过渡、不含背景），行起点 y = 322 + 75·i。
@@ -27,8 +27,9 @@
 """
 
 import json
-import sys
 from pathlib import Path
+
+from shot_source import shot_directory, shot_parser
 
 from PIL import Image
 
@@ -49,7 +50,6 @@ BG_TONE = 185
 X0, X1 = 214, 272
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC = Path(r"C:\Users\wenbo\.workbuddy\clipboard-images")
 OUT_ICON = ROOT / 'public/game/icons/school'
 OUT_MANIFEST = ROOT / 'public/game/data/school-icons.json'
 
@@ -306,11 +306,16 @@ def assert_no_pale_edge(pale):
 
 
 def main():
-    if '--check' in sys.argv:
+    parser = shot_parser('切分游戏图标')
+    parser.add_argument('--check', action='store_true')
+    parser.add_argument('--report', action='store_true')
+    args = parser.parse_args()
+    if args.check:
         problems = check_names()
         print('\n'.join(problems) if problems else '名字全部对得上')
         return 1 if problems else 0
 
+    shot_dir = shot_directory(parser, args)
     problems = check_names()
     if problems:
         raise SystemExit('\n'.join(problems))
@@ -320,9 +325,9 @@ def main():
     # 先全部算完、校验过，再落盘：中途发现黄边就退出，不留半批新图混着旧图。
     pending = []
     pale = []  # 末行像背景的（底边切到卡片米黄）
-    report = '--report' in sys.argv
+    report = args.report
     for panel in PANELS:
-        im = Image.open(SRC / panel['shot']).convert('RGB')
+        im = Image.open(shot_dir / panel['shot']).convert('RGB')
         heights = []
         for i, name in enumerate(panel['skills']):
             # 前缀带 `skill`：光用 `school-<id>-<n>` 会和「门派徽记」的

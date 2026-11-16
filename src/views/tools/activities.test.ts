@@ -5,7 +5,6 @@ import {
     dayGap,
     groupActivities,
     nextOccurrence,
-    nthWeekday,
     occursOn,
     remindDraft,
     remindNote,
@@ -30,16 +29,6 @@ const byId = (id: string): Activity => {
     if (!found) throw new Error(`活动表里没有 ${id}`);
     return found;
 };
-
-describe('第几周', () => {
-    it('按日期除以 7 取整，1–7 日是第 1 周', () => {
-        expect(nthWeekday(at(11, 1))).toBe(1);
-        expect(nthWeekday(at(11, 7))).toBe(1);
-        expect(nthWeekday(at(11, 8))).toBe(2);
-        expect(nthWeekday(at(11, 29))).toBe(5);
-        expect(nthWeekday(at(11, 30))).toBe(5);
-    });
-});
 
 describe('这一天有没有', () => {
     it('每天与整点类天天都有', () => {

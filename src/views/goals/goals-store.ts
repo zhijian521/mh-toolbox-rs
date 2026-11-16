@@ -227,19 +227,6 @@ export function removeLog(id: string, logId: string): void {
     persist();
 }
 
-/** 新建时按「全部角色 / 单个角色」抄一份成员快照。名字一起抄（理由见 `goals.ts` 文件头）。 */
-export function snapshotMembers(
-    roster: readonly { id: string; name: string }[],
-    characterId: string | string[],
-): GoalMember[] {
-    const picked = Array.isArray(characterId)
-        ? roster.filter((one) => characterId.includes(one.id))
-        : characterId
-          ? roster.filter((one) => one.id === characterId)
-          : roster;
-    return picked.map((one) => ({ id: one.id, name: one.name || '未命名' }));
-}
-
 /* ---------- 给页面 ---------- */
 
 export function useGoals() {

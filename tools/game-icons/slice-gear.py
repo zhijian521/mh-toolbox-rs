@@ -4,8 +4,8 @@
 格子本身没有名字，只有图。所以这里只做「按格子裁图」，不解析名字。
 
 用法：
-    python tools/game-icons/slice-gear.py            # 写文件 + 清单
-    python tools/game-icons/slice-gear.py --check    # 只打印每页裁出几个
+    python tools/game-icons/slice-gear.py --src <截图目录>          # 写文件 + 清单
+    python tools/game-icons/slice-gear.py --src <截图目录> --check  # 只打印每页裁出几个
 
 几条实测结论（别重新发现）：
 
@@ -35,9 +35,9 @@
 """
 
 import json
-import os
-import sys
 from pathlib import Path
+
+from shot_source import shot_directory, shot_parser
 
 import numpy as np
 from PIL import Image
@@ -113,7 +113,6 @@ NAMES = {
 }
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC = Path(os.environ.get('GAME_SHOT_DIR', r'C:\Users\pc\.workbuddy\clipboard-images'))
 
 
 def find_rows(content, y_lo=460, y_hi=945):
@@ -163,10 +162,14 @@ def hash_of(img, side=24):
 
 
 def main():
-    dry = '--check' in sys.argv
+    parser = shot_parser('切分游戏图标')
+    parser.add_argument('--check', action='store_true')
+    args = parser.parse_args()
+    shot_dir = shot_directory(parser, args)
+    dry = args.check
     groups, seen = {}, {}
     for page in PAGES:
-        path = SRC / page['file']
+        path = shot_dir / page['file']
         if not path.exists():
             raise SystemExit(f'找不到截图 {path}')
         im = Image.open(path).convert('RGB')
