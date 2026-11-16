@@ -92,6 +92,21 @@ npm run test:rust -- backup::
 过滤按模块或用例名匹配，范围由实际改动决定；存储结构变更同时考虑备份、导入与 IPC，不能只测一个写入函数。
 生成绑定或返回类型变化需追加前端契约测试。Rust 环境与全量 fmt、Clippy 要求见 AGENTS.md。
 
+### 云端与系统环境测试
+
+GitHub Actions 的 check 保留前端整套检查、Rust 格式与 Windows 后端测试。
+云端仅用完整测试名排除 `ocr::tests::pipeline_runs_on_a_synthetic_frame`：
+托管镜像不保证 Windows 系统中文 OCR 引擎可用。排除项写入任务摘要，其他失败照常阻断。
+
+本机 `cargo test --lib` 仍运行该项；需要定向验证时，在支持中文 OCR 的 Windows 环境执行：
+
+```sh
+npm run test:rust -- ocr::tests::pipeline_runs_on_a_synthetic_frame -- --exact
+```
+
+该项只检查 Windows OCR 备用链路，不代表随包 PaddleOCR 的识别效果。
+前台游戏实验仍按源码 ignore 标记手动执行；云端通过不替代真窗口与正式安装包验收。
+
 ## 窗口烟测分区
 
 先启动 debug 真窗口，再按需要执行：
