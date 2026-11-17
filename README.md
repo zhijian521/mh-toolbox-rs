@@ -8,7 +8,7 @@
 
 <table>
     <tr>
-        <td width="33%" align="center"><a href="docs/screenshots/overview.png"><img src="docs/screenshots/overview.png" alt="总览：今日工作台、常用功能与队伍近况" width="100%"></a><br>总览</td>
+        <td width="33%" align="center"><a href="docs/screenshots/overview.png"><img src="docs/screenshots/overview.png" alt="总览：近一周概况、近一个月双币种收支与常用功能" width="100%"></a><br>总览</td>
         <td width="33%" align="center"><a href="docs/screenshots/characters.png"><img src="docs/screenshots/characters.png" alt="角色：属性、技能、修炼与装备管理" width="100%"></a><br>角色</td>
         <td width="33%" align="center"><a href="docs/screenshots/income.png"><img src="docs/screenshots/income.png" alt="收益：物品速记、点卡与统计图表" width="100%"></a><br>收益</td>
     </tr>
@@ -18,17 +18,20 @@
 
 ## 功能
 
-- **角色与目标**：属性、师门、辅助、修炼、装备和召唤兽管理；离线截图识别、成长历史，单角色或多角色养成目标。
-- **收益与记账**：物品速记、点卡成本、上线记录、角色分账、物价追踪与统计图表。
-- **日常与外观**：自定义快捷入口、捉鬼助手、闹钟、活动日历；六种主题、明暗切换、独立字体与字号设置。
+- **工作台**：近一周速记、在线时长与点卡消耗，近一个月梦幻币和人民币的收入、支出，以及可自定义的常用功能入口。
+- **角色与目标**：属性、师门、辅助、修炼、装备和召唤兽统一管理；离线截图识别、识别改动摘要、成长历史与角色统计，支持单角色或多角色养成目标。阴阳玉魄可同图识别，命魂之玉属性单独记录。
+- **收益与记账**：物品图标速记、多人上线计时、点卡成本、角色分账、物价追踪与统计图表；账号账本按梦幻币和人民币分别汇总，卖币支持扣除藏宝阁手续费后计算实得。
+- **日常与外观**：捉鬼助手、活动日历、提前五分钟提醒的闹钟，装备、技能与召唤兽头像图鉴；六种主题、明暗切换、独立字体与字号设置。
 
-账本保存在本机，支持导入、导出，自动保留最近 14 份日常备份，可在设置页恢复；卸载不删除数据。目录为 `%APPDATA%\mh-tool-rs`；支持通过「导入旧版」单向转换[旧 Electron 版](https://github.com/zhijian521/mh-toolbox) v10 完整备份，新版数据不能回写旧版。设置页支持手动检查正式版本更新。
+无需注册账号，日常记账与截图识别均在本机完成。账本目录为 `%APPDATA%\mh-tool-rs`，支持 JSON 导入、导出，自动保留最近 14 份日常备份，可在设置页恢复；导入或恢复前另存当前账本，卸载不删除数据。主题、字体、字号、闹钟与首页入口属于本机偏好，不随账本导出。设置页支持手动检查正式版本更新。
 
 ## 开发
 
 需要 Node.js 22、Rust stable（最低 1.90）、Visual Studio C++ Build Tools 与 Windows SDK，环境配置见 [AGENTS.md](AGENTS.md)。
 
 ```bash
+git clone https://github.com/zhijian521/mh-toolbox-rs.git
+cd mh-toolbox-rs
 npm ci
 npm run dev            # 浏览器预览，桌面能力需启动 Tauri
 npm run desktop        # Tauri 开发窗口
