@@ -7,6 +7,8 @@ import PressButton from '../../components/PressButton.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
 import TogglePills from '../../components/TogglePills.vue';
+import GoalComboEditor from './GoalComboEditor.vue';
+import { askConfirm } from '../../composables/use-confirm';
 import { useRoster } from '../characters/roster';
 import {
     GOAL_KINDS,
@@ -19,6 +21,8 @@ import {
     type ReadonlyGoal,
     type GoalKind,
     type MetricGroup,
+    type GoalItem,
+    parseGoalItems,
 } from './goals';
 import { MONEY_UNITS, type GoalInput } from './goals-store';
 import { useDraftGuard } from '../../composables/use-draft-guard';
@@ -35,6 +39,11 @@ const { roster } = useRoster();
 const titleId = useId();
 const noteId = useId();
 const kind = ref<GoalKind>(props.goal?.kind ?? 'growth');
+const comboItems = ref<GoalItem[]>(
+    props.goal?.items?.map((item) => ({ ...item, tracking: { ...item.tracking } })) ?? [],
+);
+const comboPending = ref(false);
+const comboDraft = ref('');
 const group = ref<MetricGroup>(
     props.goal?.tracking ? metricGroup(props.goal.tracking) : 'training',
 );
@@ -43,20 +52,12 @@ const target = ref(props.goal?.target ?? 0);
 const selected = ref(
     props.goal?.members.map((member) => member.id) ?? roster.value.map((character) => character.id),
 );
-const title = ref(
-    props.goal && (props.goal.kind === 'manual' || props.goal.title !== autoTitle(props.goal))
-        ? props.goal.title
-        : '',
-);
+const title = ref(props.goal && props.goal.title !== autoTitle(props.goal) ? props.goal.title : '');
 const unitInput = ref(props.goal?.unit ?? '级');
 const moneyUnit = ref(props.goal?.unit === '元' ? '元' : '万');
 const deadline = ref(props.goal?.deadline ?? '');
 const note = ref(props.goal?.note ?? '');
-const extraOpen = ref(
-    !!props.goal?.deadline ||
-        !!props.goal?.note ||
-        (props.goal?.kind !== 'manual' && !!title.value),
-);
+const extraOpen = ref(!!props.goal?.deadline || !!props.goal?.note);
 const kindOptions = GOAL_KINDS.map((row) => ({ value: row.value, label: row.label }));
 const groupOptions = METRIC_GROUPS.map((row) => ({ value: row.value, label: row.label }));
 const memberOptions = computed(() => {
@@ -77,17 +78,18 @@ const memberOptions = computed(() => {
 });
 const members = computed(() =>
     memberOptions.value
-        .filter((row) => selected.value.includes(row.value))
-        .map((row) => {
-            const live = roster.value.find((character) => character.id === row.value);
-            return {
-                id: row.value,
-                name:
-                    live?.name ||
-                    props.goal?.members.find((member) => member.id === row.value)?.name ||
-                    '未命名',
-            };
-        }),
+        .filter((row) =>
+            kind.value === 'combo'
+                ? comboItems.value.some((item) => item.characterId === row.value)
+                : selected.value.includes(row.value),
+        )
+        .map((row) => ({
+            id: row.value,
+            name:
+                roster.value.find((character) => character.id === row.value)?.name ||
+                props.goal?.members.find((member) => member.id === row.value)?.name ||
+                '未命名',
+        })),
 );
 const characters = computed(() =>
     roster.value.filter((character) => selected.value.includes(character.id)),
@@ -115,13 +117,15 @@ const tracking = computed(() =>
         : null,
 );
 const unit = computed(() =>
-    tracking.value
-        ? metricUnit(tracking.value)
-        : kind.value === 'money'
-          ? moneyUnit.value
-          : kind.value === 'gear'
-            ? '件'
-            : unitInput.value.trim(),
+    kind.value === 'combo'
+        ? '项'
+        : tracking.value
+          ? metricUnit(tracking.value)
+          : kind.value === 'money'
+            ? moneyUnit.value
+            : kind.value === 'gear'
+              ? '件'
+              : unitInput.value.trim(),
 );
 const incompatible = computed(() =>
     tracking.value
@@ -131,15 +135,17 @@ const incompatible = computed(() =>
 const ready = computed(
     () =>
         members.value.length > 0 &&
-        Number.isFinite(target.value) &&
-        target.value > 0 &&
+        (kind.value === 'combo'
+            ? !comboPending.value && !!parseGoalItems(comboItems.value, members.value)
+            : Number.isFinite(target.value) && target.value > 0) &&
         !!unit.value &&
-        (!tracking.value || (!!metric.value && !incompatible.value.length)) &&
-        (kind.value !== 'manual' || !!title.value.trim()),
+        (!tracking.value || (!!metric.value && !incompatible.value.length)),
 );
 const snapshot = () =>
     JSON.stringify({
         kind: kind.value,
+        comboItems: comboItems.value,
+        comboDraft: comboDraft.value,
         group: group.value,
         metric: metric.value,
         target: target.value,
@@ -156,8 +162,21 @@ const { requestClose } = useDraftGuard(
     () => emit('close'),
 );
 
-function pickKind(next: GoalKind) {
+async function pickKind(next: GoalKind) {
     if (props.locked || props.goal || kind.value === next) return;
+    if (kind.value === 'combo' && comboDraft.value) {
+        if (
+            !(await askConfirm({
+                title: '放弃尚未添加的项目？',
+                note: '已经添加到列表的项目仍会保留。',
+                confirmText: '切换类型',
+                danger: true,
+            }))
+        )
+            return;
+        comboDraft.value = '';
+        comboPending.value = false;
+    }
     kind.value = next;
     target.value = 0;
 }
@@ -167,9 +186,10 @@ function submit() {
         kind: kind.value,
         title: title.value,
         members: members.value,
-        target: target.value,
+        target: kind.value === 'combo' ? 0 : target.value,
         unit: unit.value,
         tracking: tracking.value,
+        ...(kind.value === 'combo' ? { items: comboItems.value } : {}),
         deadline: deadline.value,
         note: note.value,
     });
@@ -182,8 +202,17 @@ function enter(event: KeyboardEvent) {
 </script>
 
 <template>
-    <ModalShell :title="goal ? '修改目标' : '新增目标'" :width="480" @close="requestClose">
-        <form class="goal-form modal-form" @submit.prevent="submit" @keydown.enter="enter">
+    <ModalShell
+        :title="goal ? '修改目标' : '新增目标'"
+        :width="kind === 'combo' ? 600 : 480"
+        @close="requestClose"
+    >
+        <form
+            class="goal-form modal-form"
+            :class="{ 'combo-goal-form': kind === 'combo' }"
+            @submit.prevent="submit"
+            @keydown.enter="enter"
+        >
             <fieldset :disabled="locked" :inert="locked">
                 <SegmentedPills
                     :disabled="locked"
@@ -197,7 +226,25 @@ function enter(event: KeyboardEvent) {
                     label="目标类型"
                     @update:model-value="pickKind"
                 />
-                <section class="member-picker">
+                <label class="form-field goal-name" :for="titleId"
+                    ><span>{{ kind === 'combo' ? '组合名称' : '目标名称' }}</span
+                    ><input
+                        :id="titleId"
+                        v-model="title"
+                        class="field"
+                        :aria-label="kind === 'combo' ? '组合名称' : '目标名称'"
+                        placeholder="留空自动生成"
+                        autocomplete="off"
+                /></label>
+                <GoalComboEditor
+                    v-if="kind === 'combo'"
+                    v-model="comboItems"
+                    :members="members"
+                    :disabled="locked"
+                    @pending="comboPending = $event"
+                    @draft="comboDraft = $event"
+                />
+                <section v-else class="member-picker">
                     <div class="field-heading">
                         <span
                             >角色 <small>{{ members.length }}</small></span
@@ -239,18 +286,7 @@ function enter(event: KeyboardEvent) {
                             :disabled="locked"
                     /></label>
                 </div>
-                <label v-if="kind === 'manual'" class="form-field control" :for="titleId">
-                    <span>目标名称</span
-                    ><input
-                        :id="titleId"
-                        v-model="title"
-                        class="field"
-                        aria-label="目标标题"
-                        placeholder="坐骑成长、法宝修炼等"
-                        autocomplete="off"
-                    />
-                </label>
-                <label class="target-field">
+                <label v-if="kind !== 'combo'" class="target-field">
                     <span>{{ tracking ? '每个角色达到' : '累计目标' }}（{{ unit }}）</span>
                     <NumberField
                         v-model="target"
@@ -281,7 +317,7 @@ function enter(event: KeyboardEvent) {
                             maxlength="6"
                     /></label>
                 </div>
-                <p v-if="incompatible.length" class="note error" role="alert">
+                <p v-if="kind === 'growth' && incompatible.length" class="note error" role="alert">
                     {{
                         incompatible.map((character) => character.name || '未命名').join('、')
                     }}不适用此师门技能，请调整角色。
@@ -292,16 +328,6 @@ function enter(event: KeyboardEvent) {
                 >
                     <summary>更多设置</summary>
                     <div class="extras">
-                        <label v-if="kind !== 'manual'" class="form-field control" :for="titleId"
-                            ><span>标题</span
-                            ><input
-                                :id="titleId"
-                                v-model="title"
-                                class="field"
-                                aria-label="目标标题"
-                                placeholder="留空自动生成"
-                                autocomplete="off"
-                        /></label>
                         <div class="form-field control">
                             <span>期限</span>
                             <div class="deadline-row">
@@ -333,6 +359,13 @@ function enter(event: KeyboardEvent) {
             </fieldset>
         </form>
         <template #footer>
+            <p v-if="kind === 'combo'" class="note combo-editor-count">
+                {{ members.length }} 个角色 · {{ comboItems.length }} 项目标<span
+                    v-if="comboPending"
+                >
+                    · 请先添加或取消当前输入</span
+                >
+            </p>
             <p v-if="error" class="note error save-error" role="alert">{{ error }}</p>
             <PressButton
                 data-modal-cancel
@@ -354,6 +387,28 @@ function enter(event: KeyboardEvent) {
 </template>
 
 <style scoped>
+.combo-goal-form {
+    max-width: none;
+}
+.goal-name {
+    align-self: center;
+    width: min(100%, calc(300px * var(--fs-scale)));
+    gap: 6px;
+    text-align: center;
+}
+.goal-name > span {
+    color: var(--muted);
+    font-size: var(--fs-xs);
+}
+.goal-name > .field {
+    width: 100%;
+    height: calc(34px * var(--fs-scale));
+    text-align: center;
+}
+.combo-editor-count {
+    width: 100%;
+    margin: 0;
+}
 .goal-form fieldset {
     display: flex;
     flex-direction: column;

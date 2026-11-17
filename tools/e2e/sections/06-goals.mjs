@@ -1,4 +1,6 @@
 /* ============================ 6. 目标 ============================ */
+import { importLoaded } from '../cdp.mjs';
+
 export default async function run(ctx) {
     const { cdp, ui, t, want, sleep } = ctx;
     if (!want('目标')) return;
@@ -31,8 +33,7 @@ export default async function run(ctx) {
         await sleep(250);
     };
     const saveNamed = async (title, target) => {
-        await cdp.click(`${dialog} details > summary`);
-        await ui.fill('目标标题', title);
+        await ui.fill('目标名称', title);
         await ui.fill('目标值', '');
         t.check(
             '清空目标立即禁用保存',
@@ -267,6 +268,131 @@ export default async function run(ctx) {
                 `${card(title)}?.querySelector('.manual-value b')?.textContent === '1.5' && ${card(title)}?.querySelector('.ring')?.getAttribute('aria-valuenow') === '75'`,
             ),
         );
+    });
+    await t.step('独立组合：多角色多项目、按项进度与统一回写', async () => {
+        const title = MARK + '组合计划';
+        await openNew();
+        await ui.clickText(`${dialog} button`, '组合', { exact: true });
+        await ui.fill('组合名称', title);
+        t.check(
+            '默认展示全部角色，移除选择角色和复制入口，空角色不阻止保存',
+            await cdp.evaluate(`(() => {
+                const form = document.querySelector('${dialog} .goal-form');
+                return ${JSON.stringify(names)}.every((name) => [...form.querySelectorAll('[role="tab"]')].some((tab) => tab.textContent.includes(name)))
+                    && !form.querySelector('[aria-label="选择组合角色"]')
+                    && !form.querySelector('[aria-label="复制组合设置"]');
+            })()`),
+        );
+        await ui.clickText(`${dialog} [role="tab"]`, names[0]);
+        await ui.clickLabel('继续添加组合项目');
+        await choose('组合项目分类', '角色等级');
+        await ui.fill('组合项目目标值', '130');
+        await ui.clickLabel('添加组合项目');
+        await ui.clickText(`${dialog} [role="tab"]`, names[1]);
+        await ui.clickLabel('继续添加组合项目');
+        await choose('组合项目分类', '角色等级');
+        await ui.fill('组合项目目标值', '120');
+        await ui.clickLabel('添加组合项目');
+        await ui.clickLabel('继续添加组合项目');
+        await choose('组合项目分类', '生活技能');
+        await choose('组合具体项目', '强身术');
+        await ui.fill('组合项目目标值', '100');
+        await ui.clickLabel('添加组合项目');
+        await ui.clickLabel('继续添加组合项目');
+        await choose('组合项目分类', '乾元丹 / 潜能果');
+        await choose('组合具体项目', '乾元丹');
+        await ui.fill('组合项目目标值', '7');
+        await ui.clickLabel('添加组合项目');
+        t.check(
+            '项目名称与分类同行、表格行区分底色，添加按钮右对齐且不撑满',
+            await cdp.evaluate(`(() => {
+                const pane = document.querySelector('${dialog} .combo-projects');
+                const rows = [...pane.querySelectorAll('tbody tr')];
+                const name = rows.find((row) => row.textContent.includes('乾元丹')).querySelector('.combo-project-name');
+                const metric = name.querySelector('span').getBoundingClientRect();
+                const category = name.querySelector('small').getBoundingClientRect();
+                const button = pane.querySelector('[aria-label="继续添加组合项目"]').getBoundingClientRect();
+                const bounds = pane.getBoundingClientRect();
+                return Math.max(metric.top, category.top) < Math.min(metric.bottom, category.bottom)
+                    && getComputedStyle(rows[0].querySelector('td')).backgroundColor !== getComputedStyle(rows[1].querySelector('td')).backgroundColor
+                    && Math.abs(button.right - bounds.right) < 2 && button.width < bounds.width / 2;
+            })()`),
+        );
+        await ui.clickLabel('保存目标');
+        await ui.waitFor(`!document.querySelector('${dialog}')`, { timeout: 5000 });
+        t.check(
+            '组合仅保存设置项目的角色，每人一条，并展示总体圆环',
+            await cdp.evaluate(`(() => {
+            const node = ${card(title)};
+            return node?.querySelectorAll('.combo-member').length === 2
+                && node.querySelectorAll('.combo-card-body > .ring[role="progressbar"]').length === 1
+                && !node.textContent.includes('强身术');
+        })()`),
+        );
+        await ui.clickIn('[data-goal-id]', title, { label: `更新${names[0]}的组合进度` });
+        t.check(
+            '更新窗口使用表格且不再显示同步档案提示',
+            await cdp.evaluate(`!!document.querySelector('${dialog} table[aria-label="组合项目进度"]')
+                && !document.querySelector('${dialog}').textContent.includes('保存后同步角色档案')`),
+        );
+        await ui.fill(names[0] + '的角色等级当前值', '130');
+        await ui.clickText(`${dialog} [role="tab"]`, names[1]);
+        await ui.fill(names[1] + '的角色等级当前值', '120');
+        await ui.fill(names[1] + '的强身术当前值', '100');
+        await ui.fill(names[1] + '的乾元丹当前值', '7');
+        await ui.clickText(`${dialog} [role="tab"]`, names[0]);
+        t.check(
+            '切换角色保留待保存修改',
+            await cdp.evaluate(
+                `document.querySelector('input[aria-label=${q(names[0] + '的角色等级当前值')}]')?.value === '130'`,
+            ),
+        );
+        const rulesSnapshot = await cdp.evaluate(`(async () => {
+            const rules = await ${importLoaded('/src/services/game-data.ts')};
+            const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
+            const snapshot = { ready: rules.gameDataReady.value, roster: JSON.stringify(useRoster().roster.value) };
+            rules.gameDataReady.value = false;
+            return snapshot;
+        })()`);
+        try {
+            await ui.clickLabel('保存组合进度');
+            await ui.waitFor(
+                `document.querySelector('${dialog} .save-error')?.textContent.includes('角色规则')`,
+                { timeout: 5000 },
+            );
+            t.check(
+                '规则未就绪时保留草稿，不进入假保存重试，不改角色档案',
+                await cdp.evaluate(`(async () => {
+                    const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
+                    const form = document.querySelector('${dialog}');
+                    return JSON.stringify(useRoster().roster.value) === ${q(rulesSnapshot.roster)}
+                        && form.querySelector('button[aria-label="保存组合进度"]')?.disabled === false
+                        && !form.textContent.includes('重试保存')
+                        && form.querySelector('input[aria-label=${q(names[0] + '的角色等级当前值')}]')?.value === '130';
+                })()`),
+            );
+        } finally {
+            await cdp.evaluate(`(async () => {
+                const rules = await ${importLoaded('/src/services/game-data.ts')};
+                rules.gameDataReady.value = ${JSON.stringify(rulesSnapshot.ready)};
+            })()`);
+        }
+        await ui.clickLabel('保存组合进度');
+        await ui.waitFor(`!document.querySelector('${dialog}')`, { timeout: 5000 });
+        await all();
+        t.check(
+            '统一保存后各角色按达标项数满进度',
+            await cdp.evaluate(`(() => {
+            const node = ${card(title)};
+            return node?.textContent.includes('4 / 4 项达标')
+                && node.querySelector('.ring')?.getAttribute('aria-valuenow') === '100'
+                && [...node.querySelectorAll('.combo-member [role="progressbar"]')].every((bar) => bar.getAttribute('aria-valuenow') === '100');
+        })()`),
+        );
+        await ui.reload();
+        await ui.gotoReady('目标');
+        await all();
+        t.check('组合定义与整批档案修改重载保留', (await textOf(title)).includes('4 / 4 项达标'));
     });
     await t.step('清理临时目标与角色', async () => {
         await sweep();

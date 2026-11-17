@@ -7,6 +7,7 @@ const props = withDefaults(
         label: string;
         shape?: 'ring' | 'ticks';
         valueText?: string;
+        steps?: number;
     }>(),
     { shape: 'ticks', valueText: '' },
 );
@@ -14,17 +15,27 @@ const gradientId = `goal-progress-${useId()}`;
 const value = computed(() =>
     props.percent === null ? null : Math.max(0, Math.min(100, props.percent)),
 );
-const fills = computed(() =>
-    Array.from({ length: 10 }, (_, i) =>
-        Math.max(0, Math.min(100, ((value.value ?? 0) - i * 10) * 10)),
-    ),
-);
+const stepCount = computed(() => Math.max(1, Math.min(20, Math.round(props.steps ?? 10))));
+const fills = computed(() => {
+    if (props.steps === undefined)
+        return Array.from({ length: 10 }, (_, i) =>
+            Math.max(0, Math.min(100, ((value.value ?? 0) - i * 10) * 10)),
+        );
+    return Array.from({ length: stepCount.value }, (_, i) =>
+        Math.max(0, Math.min(100, (value.value ?? 0) * stepCount.value - i * 100)),
+    );
+});
 </script>
 
 <template>
     <div
         class="goal-progress"
         :class="shape"
+        :style="
+            steps === undefined
+                ? undefined
+                : { gridTemplateColumns: `repeat(${stepCount}, minmax(0, 1fr))` }
+        "
         role="progressbar"
         :aria-label="label"
         :aria-valuenow="value === null ? undefined : Math.round(value)"

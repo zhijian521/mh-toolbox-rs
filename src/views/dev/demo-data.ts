@@ -43,6 +43,72 @@ import { CHARACTERS } from '../characters/mock';
 import { emptyCharacter, normalizeCharacter, useRoster } from '../characters/roster';
 import { schoolSkills } from '../characters/schools';
 import { usePrices } from '../prices/prices-store';
+import { useGoals, type GoalInput } from '../goals/goals-store';
+import type { ReadonlyCharacter } from '../characters/character';
+
+/** 目标示例追加到现有角色，不替换用户的目标或角色档案。 */
+export function demoGoalInputs(characters: readonly ReadonlyCharacter[]): GoalInput[] {
+    const selected = characters.slice(0, 2);
+    if (!selected.length) return [];
+    const base = {
+        members: selected.map((one) => ({ id: one.id, name: one.name })),
+        deadline: '',
+        note: '',
+        title: '',
+        target: 0,
+        unit: '项',
+        tracking: null,
+    };
+    return [
+        {
+            ...base,
+            kind: 'growth',
+            title: '示例 · 角色等级',
+            target: Math.max(...selected.map((one) => one.level)) + 1,
+            unit: '级',
+            tracking: { category: 'level', key: '角色等级' },
+        },
+        {
+            ...base,
+            kind: 'combo',
+            title: '示例 · 组合养成',
+            items: selected.flatMap((one) => [
+                {
+                    characterId: one.id,
+                    tracking: { category: 'level' as const, key: '角色等级' },
+                    target: Math.max(1, one.level),
+                },
+                {
+                    characterId: one.id,
+                    tracking: { category: 'assist' as const, key: '强身术' },
+                    target: (one.assists.find((row) => row.name === '强身术')?.level ?? 0) + 10,
+                },
+            ]),
+        },
+    ];
+}
+
+export function importDemoGoals(): { ok: true; added: number } | { ok: false; error: string } {
+    const roster = useRoster();
+    const goals = useGoals();
+    if (
+        roster.loadError.value ||
+        goals.loadError.value ||
+        goals.writeError.value ||
+        goals.pending.value
+    )
+        return { ok: false, error: '角色或目标尚未就绪，请先处理读取与保存提示' };
+    const inputs = demoGoalInputs(roster.roster.value);
+    if (!inputs.length) return { ok: false, error: '请先新增角色或导入模拟角色' };
+    let added = 0;
+    for (const input of inputs) {
+        if (goals.goals.value.some((goal) => goal.title === input.title)) continue;
+        const result = goals.addGoal(input);
+        if (!result.ok) return result;
+        added += 1;
+    }
+    return { ok: true, added };
+}
 
 /* ======================================================================
  * 角色

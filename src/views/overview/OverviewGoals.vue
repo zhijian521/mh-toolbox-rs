@@ -53,6 +53,8 @@ const visibleGoals = computed(() => props.goals.slice(0, 3));
                         ><span v-if="one.goal.tracking"
                             >{{ one.summary.achieved }} /
                             {{ one.summary.totalMembers }} 个角色达标</span
+                        ><span v-else-if="one.goal.kind === 'combo'"
+                            >{{ one.summary.achieved }} / {{ one.summary.total }} 项达标</span
                         ><span v-else-if="one.goal.members.length"
                             >{{ one.goal.members.length }} 个角色</span
                         ><span v-if="one.goal.deadline">{{

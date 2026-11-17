@@ -608,3 +608,32 @@ fn prune_auto_backups_keeps_latest_ten() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+#[test]
+fn combo_goal_backup_keeps_per_character_items_and_rejects_partial_definitions() {
+    let goal = serde_json::json!({
+        "id": "combo", "kind": "combo", "target": 0, "unit": "项", "tracking": null,
+        "members": [{"id": "a", "name": "甲"}, {"id": "b", "name": "乙"}],
+        "items": [
+            {"characterId": "a", "tracking": {"category": "level", "key": "角色等级"}, "target": 130},
+            {"characterId": "b", "tracking": {"category": "assist", "key": "强身术"}, "target": 120}
+        ], "logs": []
+    });
+    assert!(validate_goal(&goal, 0).is_ok());
+    let mut transitional = goal.clone();
+    transitional["kind"] = serde_json::json!("growth");
+    assert!(validate_goal(&transitional, 0).is_ok());
+    for items in [
+        serde_json::json!([]),
+        serde_json::json!([goal["items"][0]]),
+        serde_json::json!([goal["items"][0], goal["items"][1], goal["items"][0]]),
+        serde_json::json!([
+            {"characterId": "a", "tracking": {"category": "level", "key": "角色等级"}, "target": 1.5},
+            goal["items"][1]
+        ]),
+    ] {
+        let mut invalid = goal.clone();
+        invalid["items"] = items;
+        assert!(validate_goal(&invalid, 0).is_err());
+    }
+}
+

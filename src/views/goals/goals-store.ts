@@ -12,11 +12,13 @@ import {
     metricUnit,
     manualProgress,
     parseGoals,
+    parseGoalItems,
     type Goal,
     type ReadonlyGoal,
     type GoalKind,
     type GoalMember,
     type GoalTracking,
+    type GoalItem,
 } from './goals';
 
 /** 浏览器预览（探针 / `npm run dev`）那一版存在这里；桌面版走 SQLite，两者各自独立。 */
@@ -70,6 +72,7 @@ export interface GoalInput {
     target: number;
     unit: string;
     tracking: GoalTracking | null;
+    items?: GoalItem[];
     deadline: string;
     note: string;
 }
@@ -79,11 +82,16 @@ export type GoalWrite = { ok: true; goal: ReadonlyGoal } | { ok: false; error: s
 function check(input: GoalInput): { ok: true; unit: string } | { ok: false; error: string } {
     if (!input.members.length || input.members.some((member) => !member.id.trim()))
         return { ok: false, error: '选至少一个角色' };
-    if (!Number.isFinite(input.target) || input.target <= 0) {
+    if (input.kind !== 'combo' && (!Number.isFinite(input.target) || input.target <= 0)) {
         return { ok: false, error: '目标值要大于 0' };
     }
     if (input.deadline && !isDayText(input.deadline)) {
         return { ok: false, error: '选择有效的截止日期' };
+    }
+    if (input.kind === 'combo') {
+        if (!parseGoalItems(input.items, input.members))
+            return { ok: false, error: '每个角色至少添加一项，目标为正整数，同一项目不能重复' };
+        return { ok: true, unit: '项' };
     }
     if (input.kind === 'growth') {
         if (!input.tracking) return { ok: false, error: '选一个跟着走的项目' };
@@ -97,8 +105,6 @@ function check(input: GoalInput): { ok: true; unit: string } | { ok: false; erro
         if (!Number.isSafeInteger(input.target)) return { ok: false, error: '养成目标要填整数' };
         return { ok: true, unit: metricUnit(input.tracking) };
     }
-    if (input.kind === 'manual' && !input.title.trim())
-        return { ok: false, error: '填写手动目标名称' };
     /* 装备按件数：目标也是整数。存钱可以是 0.5 万。 */
     if (input.kind === 'gear' && !Number.isSafeInteger(input.target)) {
         return { ok: false, error: '件数要填整数' };
@@ -123,9 +129,12 @@ function compose(
                     member.id && all.findIndex((row) => row.id === member.id) === index,
             )
             .map((member) => ({ ...member })),
-        target: input.target,
+        target: input.kind === 'combo' ? 0 : input.target,
         unit,
         tracking: input.kind === 'growth' && input.tracking ? { ...input.tracking } : null,
+        ...(input.kind === 'combo'
+            ? { items: parseGoalItems(input.items, input.members)!, comboVersion: 1 as const }
+            : {}),
         deadline: input.deadline,
         note: input.note.trim(),
         logs,
@@ -191,7 +200,8 @@ export function addLog(id: string, input: LogInput): LogWrite {
     if (!persist.canWrite()) return { ok: false, error: '目标读取失败，先修好再来记' };
     const goal = goals.value.find((one) => one.id === id);
     if (!goal) return { ok: false, error: '这个目标已经不在了' };
-    if (goal.tracking) return { ok: false, error: '养成目标跟着角色档案走，去「更新养成」里改' };
+    if (goal.tracking || goal.kind === 'combo')
+        return { ok: false, error: '养成目标跟着角色档案走，去「更新养成」里改' };
     if (!isDayText(input.date)) return { ok: false, error: '选一个有效日期' };
     if (!Number.isFinite(input.delta) || input.delta === 0) {
         return { ok: false, error: '填一个不为 0 的变化量' };

@@ -42,6 +42,86 @@ const GOAL: GoalInput = {
     note: '',
 };
 
+describe('组合目标独立存档', () => {
+    it('读取时恢复误存为组合的普通养成，不自动改写账本', async () => {
+        const raw = {
+            ...GOAL,
+            id: 'old-growth',
+            kind: 'combo',
+            title: '归ω岚 · 角色等级 到 120级',
+            target: 0,
+            unit: '项',
+            items: [
+                {
+                    characterId: 'c1',
+                    tracking: { category: 'level', key: '角色等级' },
+                    target: 120,
+                },
+            ],
+            logs: [],
+            createdAt: 1,
+        };
+        const before = JSON.stringify(raw);
+        const desktop = host(async () => [raw]);
+        const store = await loadStore(desktop);
+        const loaded = store.useGoals().goals.value;
+        expect(loaded).toHaveLength(1);
+        expect(loaded[0]).toMatchObject({
+            id: raw.id,
+            kind: 'growth',
+            target: 120,
+            unit: '级',
+            tracking: { category: 'level', key: '角色等级' },
+        });
+        expect(loaded[0]).not.toHaveProperty('items');
+        await store.useGoals().flush();
+        expect(desktop.goalSave).not.toHaveBeenCalled();
+        expect(JSON.stringify(raw)).toBe(before);
+    });
+
+    it('保存逐角色项目、深拷贝草稿，拒绝手记流水和不完整项目', async () => {
+        const store = await loadStore(host(async () => []));
+        const input: GoalInput = {
+            ...GOAL,
+            kind: 'combo',
+            target: 0,
+            unit: '项',
+            items: [
+                {
+                    characterId: 'c1',
+                    tracking: { category: 'level', key: '角色等级' },
+                    target: 130,
+                },
+                { characterId: 'c1', tracking: { category: 'assist', key: '强身术' }, target: 120 },
+            ],
+        };
+        const result = store.addGoal(input);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        input.items![0].target = 175;
+        expect(result.goal.items?.[0].target).toBe(130);
+        expect(result.goal.tracking).toBeNull();
+        expect(result.goal.comboVersion).toBe(1);
+        expect(store.addLog(result.goal.id, { date: '2026-11-17', delta: 1, note: '' }).ok).toBe(
+            false,
+        );
+        expect(store.addGoal({ ...input, items: [] }).ok).toBe(false);
+        expect(store.addGoal({ ...input, items: [...input.items!, input.items![0]] }).ok).toBe(
+            false,
+        );
+        const renamed = store.updateGoal(result.goal.id, { ...input, title: '组合新标题' });
+        expect(renamed.ok && renamed.goal.createdAt).toBe(result.goal.createdAt);
+        expect(
+            store.updateGoal(result.goal.id, {
+                ...GOAL,
+                kind: 'growth',
+                tracking: { category: 'level', key: '角色等级' },
+            }).ok,
+        ).toBe(false);
+        await store.useGoals().flush();
+    });
+});
+
 describe('loadGoals：读失败不等于空表', () => {
     it('goalLoad 返回 null：立错误位、目标清空、一次都不写', async () => {
         const desktop = host(async () => null);
@@ -128,9 +208,21 @@ describe('目标写入：多人养成与记录保护', () => {
         await flush();
     });
 
-    it('手动养成需要名称，并支持小数累计、减少与删除记录', async () => {
+    it('手动养成名称可留空自动生成，并支持小数累计、减少与删除记录', async () => {
         const store = await loadStore(host(async () => []));
-        expect(store.addGoal({ ...GOAL, kind: 'manual' }).ok).toBe(false);
+        const automatic = store.addGoal({ ...GOAL, kind: 'manual', title: '  ' });
+        expect(automatic.ok).toBe(true);
+        if (automatic.ok) {
+            expect(automatic.goal.title).toBe('归ω岚 · 累计 100 万');
+            const renamed = store.updateGoal(automatic.goal.id, {
+                ...GOAL,
+                kind: 'manual',
+                title: '  自定计划  ',
+            });
+            expect(renamed.ok && renamed.goal.title).toBe('自定计划');
+            const cleared = store.updateGoal(automatic.goal.id, { ...GOAL, kind: 'manual' });
+            expect(cleared.ok && cleared.goal.title).toBe(automatic.goal.title);
+        }
         const result = store.addGoal({
             ...GOAL,
             kind: 'manual',

@@ -13,7 +13,8 @@ import IconsSection from './IconsSection.vue';
 import PaletteSection from './PaletteSection.vue';
 import SlipRowSection from './SlipRowSection.vue';
 import TypeScaleSection from './TypeScaleSection.vue';
-import { DEMO_COUNTS, importDemoData } from './demo-data';
+import { DEMO_COUNTS, importDemoData, importDemoGoals } from './demo-data';
+import { useGoals } from '../goals/goals-store';
 
 /**
  * 开发帮助：做界面时才要查的东西——组件、色板、字号阶梯、图标。
@@ -38,8 +39,33 @@ import { DEMO_COUNTS, importDemoData } from './demo-data';
 
 const { devMode } = useDevMode();
 const sampleLoadError = ref('示例：暂时无法读取记录');
+const goalSamplesSaving = ref(false);
 async function recoverSample() {
     sampleLoadError.value = '';
+}
+async function addGoalSamples() {
+    if (goalSamplesSaving.value) return;
+    goalSamplesSaving.value = true;
+    try {
+        const goals = useGoals();
+        // 失败时示例已在内存中；重试只落盘，不重复追加。
+        if (goals.writeError.value && !(await goals.retry())) {
+            notify.error(goals.writeError.value);
+            return;
+        }
+        const result = importDemoGoals();
+        if (!result.ok) {
+            notify.error(result.error);
+            return;
+        }
+        if (!(await goals.flush())) {
+            notify.error(goals.writeError.value || '目标示例未保存，请重试');
+            return;
+        }
+        notify.success(result.added ? `已添加 ${result.added} 个目标示例` : '目标示例已存在');
+    } finally {
+        goalSamplesSaving.value = false;
+    }
 }
 
 /**
@@ -114,6 +140,16 @@ async function importDemo() {
                         整份替换，撤不回来（想留底稿先到设置页「导出」）。角色一满一空，物价
                         涨跌平、一件只记过一天、一件一条没记。
                     </p>
+                    <div class="form-row">
+                        <span class="field-label">目标示例</span
+                        ><SlotButton
+                            icon="goals"
+                            text="添加"
+                            label="添加目标示例"
+                            :disabled="goalSamplesSaving"
+                            @click="addGoalSamples"
+                        /><span class="meta">基于当前角色，追加养成与组合示例，已有目标保留。</span>
+                    </div>
                 </LedgerSection>
             </div>
 

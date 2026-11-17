@@ -30,14 +30,15 @@ import { schoolSkillNames } from '../characters/schools';
  * 类型
  * ==================================================================== */
 
-export type GoalKind = 'money' | 'gear' | 'growth' | 'manual';
+export type GoalKind = 'money' | 'gear' | 'growth' | 'manual' | 'combo';
 
 export const GOAL_KINDS: { value: GoalKind; label: string; icon: IconName; unit: string }[] = [
-    /* 顺序即新建弹窗里胶囊的顺序：养成在最前，因为它是唯一会自动跑的。 */
+    /* 顺序即新建弹窗里胶囊的顺序，组合使用独立的设置与进度入口。 */
     { value: 'growth', label: '养成', icon: 'growth', unit: '级' },
     { value: 'money', label: '存钱', icon: 'coins', unit: '万' },
     { value: 'gear', label: '装备', icon: 'sword', unit: '件' },
     { value: 'manual', label: '手动', icon: 'edit', unit: '级' },
+    { value: 'combo', label: '组合', icon: 'goals', unit: '项' },
 ];
 
 export function kindMeta(kind: GoalKind) {
@@ -59,6 +60,17 @@ export interface GoalTracking {
     category: MetricCategory;
     /** 项目名。门派/辅助技能是技能名，修炼是修炼项名，属性是属性行名。 */
     key: string;
+}
+
+/** 组合的每一项归属于一个角色；普通养成仍使用顶层 tracking 与 target。 */
+export interface GoalItem {
+    characterId: string;
+    tracking: GoalTracking;
+    target: number;
+}
+
+export function goalItemKey(item: DeepReadonly<GoalItem>): string {
+    return JSON.stringify([item.characterId, item.tracking.category, item.tracking.key]);
 }
 
 /** 只细分选择目录，已有目标仍用同一份 category / key 存档。 */
@@ -141,10 +153,14 @@ export interface Goal {
     /** 空串 = 用自动标题（`goalTitle`）。存下来的是**解析后**的完整标题。 */
     title: string;
     members: GoalMember[];
-    /** 养成：每个角色的目标值；手动：累计目标。 */
+    /** 普通养成：每个角色的目标值；手动：累计目标；组合逐项保存，此值为 0。 */
     target: number;
     unit: string;
     tracking: GoalTracking | null;
+    /** 仅组合保存逐角色的多项目定义，普通目标不改存档结构。 */
+    items?: GoalItem[];
+    /** 显式创建的组合标记，区别于试用期误转的普通养成。 */
+    comboVersion?: 1;
     deadline: string;
     note: string;
     logs: GoalLog[];
@@ -329,17 +345,17 @@ export interface GoalRow {
 }
 
 export interface GoalSummary {
-    /** 手动：累计值；养成：各成员封顶后的和（只算在册成员）。 */
+    /** 手动累计值、普通养成各成员封顶值之和，或组合已达标项数。 */
     current: number;
-    /** 分母。养成 = 每个角色的目标 × 在册成员数；手动 = 目标值。 */
+    /** 普通养成是目标值乘有效角色数，手动是累计目标，组合是有效项目数。 */
     total: number;
     pct: number;
     done: boolean;
-    /** 养成：达标人数。 */
+    /** 普通养成达标人数，或组合达标项数。 */
     achieved: number;
     /** 在册成员数（分母里的那个数）。 */
     totalMembers: number;
-    /** 未记录的成员数。 */
+    /** 未记录的养成成员或组合项目数。 */
     unknown: number;
     rows: GoalRow[];
     /** 手动目标的达成日期：累计首次到线的那笔流水的日期。养成目标没有。 */
@@ -367,6 +383,25 @@ export function manualProgress(logs: readonly GoalLog[]): number {
  * **未达成最多 99%**：只有全员达标才给 100。差一个人也是 99，条形与数字说同一句话。
  */
 export function goalSummary(goal: ReadonlyGoal, roster: readonly ReadonlyCharacter[]): GoalSummary {
+    if (goal.kind === 'combo') {
+        const rows = comboGoalRows(goal, roster);
+        const live = rows.filter((row) => row.exists && row.applicable);
+        const achieved = live.filter((row) => row.done).length;
+        const done = live.length > 0 && achieved === live.length;
+        return {
+            current: achieved,
+            total: live.length,
+            pct: live.length
+                ? Math.min(done ? 100 : 99, Math.round((achieved / live.length) * 100))
+                : 0,
+            done,
+            achieved,
+            totalMembers: new Set(live.map((row) => row.characterId)).size,
+            unknown: live.filter((row) => row.value === null).length,
+            rows,
+            doneDate: '',
+        };
+    }
     const byId = new Map(roster.map((one) => [one.id, one]));
     const rows: GoalRow[] = goal.members.map((member) => {
         const character = byId.get(member.id);
@@ -430,6 +465,102 @@ export function goalSummary(goal: ReadonlyGoal, roster: readonly ReadonlyCharact
     };
 }
 
+export interface ComboGoalRow extends GoalRow {
+    characterId: string;
+    tracking: GoalTracking;
+    target: number;
+    unit: string;
+}
+
+export function comboGoalRows(
+    goal: ReadonlyGoal,
+    roster: readonly ReadonlyCharacter[],
+): ComboGoalRow[] {
+    const byId = new Map(roster.map((character) => [character.id, character]));
+    return (goal.items ?? []).map((item) => {
+        const character = byId.get(item.characterId);
+        const applicable = !!character && metricApplicable(character, item.tracking);
+        const value = applicable ? metricValue(character!, item.tracking) : null;
+        return {
+            ...item,
+            tracking: { ...item.tracking },
+            id: goalItemKey(item),
+            name:
+                character?.name ||
+                goal.members.find((member) => member.id === item.characterId)?.name ||
+                '未命名',
+            unit: metricUnit(item.tracking),
+            exists: !!character,
+            applicable,
+            value,
+            done: value !== null && value >= item.target,
+            remaining: value === null ? null : Math.max(0, item.target - value),
+        };
+    });
+}
+
+/** 组合按达标项计进度，属性点与技能等级不相加，也不计未达标项目的数值比例。 */
+export function groupComboRows(rows: readonly ComboGoalRow[]) {
+    const groups = new Map<string, { id: string; name: string; rows: ComboGoalRow[] }>();
+    for (const row of rows) {
+        if (!groups.has(row.characterId))
+            groups.set(row.characterId, { id: row.characterId, name: row.name, rows: [] });
+        groups.get(row.characterId)!.rows.push(row);
+    }
+    return [...groups.values()].map((group) => {
+        const live = group.rows.filter((row) => row.exists && row.applicable);
+        const achieved = live.filter((row) => row.done).length;
+        const done = live.length > 0 && achieved === live.length;
+        return {
+            ...group,
+            achieved,
+            total: live.length,
+            done,
+            pct: live.length
+                ? Math.min(done ? 100 : 99, Math.round((achieved / live.length) * 100))
+                : 0,
+        };
+    });
+}
+
+export interface GoalProgressInput {
+    id: string;
+    value: number;
+    previous?: number | null;
+}
+
+/** 以打开时的值检测冲突，先合并同一角色的所有修改，整批有效后才交给名册保存。 */
+export function prepareComboUpdates(
+    goal: ReadonlyGoal,
+    roster: readonly ReadonlyCharacter[],
+    values: readonly GoalProgressInput[],
+): ReadonlyCharacter[] | null {
+    if (goal.kind !== 'combo' || !values.length) return null;
+    const rows = new Map(comboGoalRows(goal, roster).map((row) => [row.id, row]));
+    const prepared = new Map<string, ReadonlyCharacter>();
+    const seen = new Set<string>();
+    for (const input of values) {
+        const row = rows.get(input.id);
+        if (
+            !row ||
+            !row.exists ||
+            !row.applicable ||
+            seen.has(input.id) ||
+            !Number.isSafeInteger(input.value) ||
+            input.value < 0 ||
+            row.value !== input.previous
+        )
+            return null;
+        seen.add(input.id);
+        const character =
+            prepared.get(row.characterId) ?? roster.find((one) => one.id === row.characterId)!;
+        const next = applyMetric(character, row.tracking, input.value);
+        if (next === character) return null;
+        prepared.set(row.characterId, next);
+    }
+    return [...prepared.values()];
+}
+
 /** 按日期累加，找出第一次达到目标的那天。同一笔也算。 */
 function firstDateReaching(logs: readonly GoalLog[], target: number): string {
     const ordered = [...logs].sort((a, b) =>
@@ -459,6 +590,7 @@ export function autoTitle(goal: Omit<ReadonlyGoal, 'title'>): string {
         goal.members.length === 1
             ? goal.members[0].name || '一个角色'
             : `${goal.members.length} 个角色`;
+    if (goal.kind === 'combo') return `${scope} · 组合养成`;
     if (goal.tracking) return `${scope} · ${goal.tracking.key} 到 ${goal.target}${goal.unit}`;
     if (goal.kind === 'gear') return `${scope} · 买满 ${goal.target} 件装备`;
     if (goal.kind === 'manual') return `${scope} · 累计 ${goal.target} ${goal.unit}`;
@@ -546,14 +678,44 @@ function parseTracking(raw: unknown): GoalTracking | null {
     return { category: one.category as MetricCategory, key: one.key.trim() };
 }
 
+/** 拒绝半份组合，防止漏项后仍把剩余项目当成整个目标。 */
+export function parseGoalItems(
+    raw: unknown,
+    members: readonly DeepReadonly<GoalMember>[],
+): GoalItem[] | null {
+    if (!Array.isArray(raw) || !raw.length) return null;
+    const items: GoalItem[] = [];
+    const keys = new Set<string>();
+    for (const value of raw) {
+        if (!value || typeof value !== 'object') return null;
+        const one = value as Record<string, unknown>;
+        const tracking = parseTracking(one.tracking);
+        if (
+            !tracking ||
+            typeof one.characterId !== 'string' ||
+            !members.some((member) => member.id === one.characterId) ||
+            !Number.isSafeInteger(one.target) ||
+            Number(one.target) <= 0
+        )
+            return null;
+        const item = { characterId: one.characterId, tracking, target: Number(one.target) };
+        const key = goalItemKey(item);
+        if (keys.has(key)) return null;
+        keys.add(key);
+        items.push(item);
+    }
+    return members.every((member) => items.some((item) => item.characterId === member.id))
+        ? items
+        : null;
+}
+
 /** 一条目标。读不懂就整条丢掉——比「读成半条」好，半条会算出一个错的进度。 */
 export function parseGoal(raw: unknown): Goal | null {
     if (!raw || typeof raw !== 'object') return null;
     const one = raw as Record<string, unknown>;
     if (typeof one.id !== 'string' || !one.id) return null;
-    const kind = GOAL_KINDS.find((item) => item.value === one.kind)?.value;
+    let kind = GOAL_KINDS.find((item) => item.value === one.kind)?.value;
     if (!kind) return null;
-    if (!isFiniteNumber(one.target) || one.target <= 0) return null;
 
     const parsedMembers: GoalMember[] = Array.isArray(one.members)
         ? one.members
@@ -570,7 +732,51 @@ export function parseGoal(raw: unknown): Goal | null {
     );
     if (!members.length) return null;
 
-    const tracking = kind === 'growth' ? parseTracking(one.tracking) : null;
+    const itemGrowth = kind === 'growth' && one.items !== undefined && !one.tracking;
+    let items = kind === 'combo' || itemGrowth ? parseGoalItems(one.items, members) : undefined;
+    if ((kind === 'combo' || itemGrowth) && !items) return null;
+    let tracking = kind === 'growth' ? parseTracking(one.tracking) : null;
+    let target = one.target;
+    if (items) {
+        const first = items[0]!;
+        const single =
+            items.length === members.length &&
+            items.every(
+                (item) =>
+                    item.tracking.category === first.tracking.category &&
+                    item.tracking.key === first.tracking.key &&
+                    item.target === first.target,
+            );
+        // 误转且已落盘的记录保留了原自动标题；显式组合即使只有一项也不降级。
+        const oldTitle = autoTitle({
+            id: one.id,
+            kind: 'growth',
+            members,
+            tracking: first.tracking,
+            target: first.target,
+            unit: metricUnit(first.tracking),
+            deadline: '',
+            note: '',
+            logs: [],
+            createdAt: 0,
+        });
+        if (
+            single &&
+            (itemGrowth ||
+                (one.comboVersion !== 1 &&
+                    typeof one.title === 'string' &&
+                    one.title.trim() === oldTitle))
+        ) {
+            kind = 'growth';
+            tracking = { ...first.tracking };
+            target = first.target;
+            items = undefined;
+        } else {
+            kind = 'combo';
+            tracking = null;
+        }
+    }
+    if (kind !== 'combo' && (!isFiniteNumber(target) || target <= 0)) return null;
     /* 养成读档案；未建档的养成使用独立的手动类型，不混算。 */
     if (kind === 'growth' && !tracking) return null;
 
@@ -583,13 +789,17 @@ export function parseGoal(raw: unknown): Goal | null {
         kind,
         title: typeof one.title === 'string' ? one.title.trim() : '',
         members,
-        target: one.target,
-        unit: tracking
-            ? metricUnit(tracking)
-            : typeof one.unit === 'string' && one.unit.trim()
-              ? one.unit.trim()
-              : kindMeta(kind).unit,
+        target: kind === 'combo' ? 0 : Number(target),
+        unit:
+            kind === 'combo'
+                ? '项'
+                : tracking
+                  ? metricUnit(tracking)
+                  : typeof one.unit === 'string' && one.unit.trim()
+                    ? one.unit.trim()
+                    : kindMeta(kind).unit,
         tracking,
+        ...(items ? { items, comboVersion: 1 as const } : {}),
         deadline: typeof one.deadline === 'string' && isDayText(one.deadline) ? one.deadline : '',
         note: typeof one.note === 'string' ? one.note : '',
         logs,

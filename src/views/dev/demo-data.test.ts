@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
  * 所以一行副作用导入把真文件装进缓存——与 `schools.test.ts` 同一条做法。 */
 import '../../services/game-data.fixture';
 import { isPriceCategory } from '../prices/prices-catalog';
-import { DEMO_COUNTS, DEMO_PRICES, demoCharacters } from './demo-data';
+import { DEMO_COUNTS, DEMO_PRICES, demoCharacters, demoGoalInputs } from './demo-data';
+import { parseGoal, goalSummary } from '../goals/goals';
 
 /**
  * 模拟数据的两条**结构**断言。
@@ -14,6 +15,19 @@ import { DEMO_COUNTS, DEMO_PRICES, demoCharacters } from './demo-data';
  * 却不会有任何地方报错。
  */
 describe('开发页的模拟数据', () => {
+    it('目标示例同时保留普通养成与组合，组合每个角色有多项且可完整读取', () => {
+        const characters = demoCharacters();
+        const inputs = demoGoalInputs(characters);
+        expect(inputs.map((input) => input.kind)).toEqual(['growth', 'combo']);
+        const goals = inputs.map((input, index) =>
+            parseGoal({ ...input, id: `demo-${index}`, createdAt: 0, logs: [] }),
+        );
+        expect(goals.every(Boolean)).toBe(true);
+        const combo = goals.find((goal) => goal?.kind === 'combo')!;
+        expect(combo.items).toHaveLength(combo.members.length * 2);
+        expect(goalSummary(combo, characters).done).toBe(false);
+        expect(demoGoalInputs([])).toEqual([]);
+    });
     it('四个角色：id 唯一，且一满一空都在', () => {
         const characters = demoCharacters();
 

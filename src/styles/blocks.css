@@ -463,7 +463,8 @@
     overflow: auto;
     scrollbar-gutter: stable;
 }
-.income-table {
+.income-table,
+.ledger-table {
     --log-inner-r: max(0px, calc(var(--r-3) - var(--w-hair)));
     width: 100%;
     border-collapse: separate;
@@ -473,7 +474,8 @@
     background: var(--paper);
     font-size: var(--fs-sm);
 }
-.income-table thead th {
+.income-table thead th,
+.ledger-table thead th {
     position: sticky;
     top: 0;
     z-index: 1;
@@ -488,31 +490,47 @@
     text-align: left;
     white-space: nowrap;
 }
-.income-table thead th:first-child {
+.income-table thead th:first-child,
+.ledger-table thead th:first-child {
     border-top-left-radius: var(--log-inner-r);
 }
-.income-table thead th:last-child {
+.income-table thead th:last-child,
+.ledger-table thead th:last-child {
     border-top-right-radius: var(--log-inner-r);
 }
-.income-table tbody td {
+.income-table tbody td,
+.ledger-table tbody td {
     padding: 7px 6px;
     border-bottom: var(--w-hair) solid var(--rule);
     vertical-align: middle;
 }
-.income-table tbody tr:last-child td {
+.income-table tbody tr:last-child td,
+.ledger-table tbody tr:last-child td {
     border-bottom: 0;
 }
-.income-table tbody tr:last-child td:first-child {
+.income-table tbody tr:last-child td:first-child,
+.ledger-table tbody tr:last-child td:first-child {
     border-bottom-left-radius: var(--log-inner-r);
 }
-.income-table tbody tr:last-child td:last-child {
+.income-table tbody tr:last-child td:last-child,
+.ledger-table tbody tr:last-child td:last-child {
     border-bottom-right-radius: var(--log-inner-r);
 }
-.income-table tbody tr:nth-child(even) td {
+.income-table tbody tr:nth-child(even) td,
+.ledger-table tbody tr:nth-child(even) td {
     background: color-mix(in srgb, var(--well) 12%, transparent);
 }
-.income-table tbody tr:hover td {
+.income-table tbody tr:hover td,
+.ledger-table tbody tr:hover td {
     background: color-mix(in srgb, var(--well) 26%, transparent);
+}
+.ledger-table thead th {
+    background: var(--paper-2);
+    line-height: 1.6;
+}
+.ledger-table th + th,
+.ledger-table td + td {
+    border-left: var(--w-hair) solid var(--rule);
 }
 .income-ops {
     display: flex;

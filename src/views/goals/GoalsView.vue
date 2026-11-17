@@ -9,6 +9,7 @@ import PressButton from '../../components/PressButton.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
 import { ALL_OPTIONS } from '../../components/select-options';
+import { gameDataError, gameDataReady } from '../../services/game-data';
 import { notify } from '../../composables/use-notify';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
@@ -16,12 +17,15 @@ import { useToday } from '../../composables/use-today';
 import { characterOptions } from '../characters/character-options';
 import { loadRoster, useRoster } from '../characters/roster';
 import GoalCard from './GoalCard.vue';
+import GoalComboCard from './GoalComboCard.vue';
 import {
     GOAL_KINDS,
     applyMetric,
     goalSummary,
     metricApplicable,
     orderGoals,
+    prepareComboUpdates,
+    type GoalProgressInput,
     type ReadonlyGoal,
     type GoalSummary,
 } from './goals';
@@ -29,6 +33,7 @@ import { loadGoals, useGoals, type GoalInput, type LogInput } from './goals-stor
 
 const GoalEditor = lazyDialog(() => import('./GoalEditor.vue'));
 const GoalGrowth = lazyDialog(() => import('./GoalGrowth.vue'));
+const GoalComboProgress = lazyDialog(() => import('./GoalComboProgress.vue'));
 const GoalLogs = lazyDialog(() => import('./GoalLogs.vue'));
 
 const {
@@ -94,7 +99,7 @@ const visible = computed(() => {
                     member.name,
             )
             .join(' ');
-        return `${goal.title} ${goal.tracking?.key ?? ''} ${goal.note} ${names}`
+        return `${goal.title} ${goal.tracking?.key ?? ''} ${(goal.items ?? []).map((item) => item.tracking.key).join(' ')} ${goal.note} ${names}`
             .toLocaleLowerCase()
             .includes(text);
     });
@@ -102,6 +107,7 @@ const visible = computed(() => {
 
 const editing = ref<{ goal?: ReadonlyGoal } | null>(null);
 const growthId = ref('');
+const growthCharacter = ref('');
 const logsId = ref('');
 const growth = computed(() => goals.value.find((goal) => goal.id === growthId.value));
 const logs = computed(() => goals.value.find((goal) => goal.id === logsId.value));
@@ -187,9 +193,10 @@ async function askRemove(goal: ReadonlyGoal) {
             {
                 danger: true,
                 title: `删除「${goal.title}」？`,
-                note: goal.tracking
-                    ? '角色档案保持不变。'
-                    : `同时删除 ${goal.logs.length} 条记录。`,
+                note:
+                    goal.tracking || goal.kind === 'combo'
+                        ? '角色档案保持不变。'
+                        : `同时删除 ${goal.logs.length} 条记录。`,
                 confirmText: '删除',
             },
             () => removeGoal(goal.id),
@@ -197,25 +204,53 @@ async function askRemove(goal: ReadonlyGoal) {
     )
         notify.success('已删除');
 }
-function openGrowth(goal: ReadonlyGoal) {
+function openGrowth(goal: ReadonlyGoal, characterId = '') {
     if (blocked.value) return;
     growthSubmit.reset();
     growthError.value = '';
     growthId.value = goal.id;
+    growthCharacter.value = characterId;
 }
 function closeGrowth() {
     if (growthSaving.value) return;
     growthSubmit.reset();
     growthId.value = '';
+    growthCharacter.value = '';
 }
-async function applyGrowth(values: { id: string; value: number }[]) {
+async function applyGrowth(values: GoalProgressInput[]) {
     const goal = growth.value;
+    if (goal?.kind === 'combo') {
+        const ok = await growthSubmit.run(goal.id, () => {
+            growthError.value = '';
+            if (rosterLoadError.value || !gameDataReady.value) {
+                growthError.value =
+                    rosterLoadError.value ||
+                    gameDataError.value ||
+                    '角色规则尚未加载，请重试后保存';
+                return false;
+            }
+            const prepared = prepareComboUpdates(goal, roster.value, values);
+            if (!prepared) {
+                growthError.value = '角色或数值已变化，请重新打开后修改';
+                return false;
+            }
+            beforeGrowth = summaryOf(goal.id);
+            for (const character of prepared) updateCharacter(character, 'goal', goal.title);
+            return true;
+        });
+        if (!ok) return;
+        announce(beforeGrowth, goal.id);
+        closeGrowth();
+        notify.success('角色档案已更新');
+        return;
+    }
     if (!goal?.tracking) return;
     const tracking = goal.tracking;
     const ok = await growthSubmit.run(goal.id, () => {
         growthError.value = '';
-        if (rosterLoadError.value) {
-            growthError.value = rosterLoadError.value;
+        if (rosterLoadError.value || !gameDataReady.value) {
+            growthError.value =
+                rosterLoadError.value || gameDataError.value || '角色规则尚未加载，请重试后保存';
             return false;
         }
         const updates = values.map((item) => ({
@@ -319,7 +354,7 @@ useRouteAction('/goals', {
     update(query) {
         const goal = goals.value.find((one) => one.id === query.goal);
         if (!goal) return;
-        if (goal.tracking) openGrowth(goal);
+        if (goal.tracking || goal.kind === 'combo') openGrowth(goal);
         else openLogs(goal);
     },
 });
@@ -371,19 +406,30 @@ useRouteAction('/goals', {
         <div v-else-if="!goals.length" class="record-empty">暂无目标</div>
         <div v-else-if="!visible.length" class="record-empty">暂无符合条件的目标</div>
         <div v-else class="grid">
-            <GoalCard
-                v-for="entry in visible"
-                :key="entry.goal.id"
-                :goal="entry.goal"
-                :summary="entry.summary"
-                :today="today"
-                :disabled="blocked"
-                @edit="openEditor(entry.goal)"
-                @remove="askRemove(entry.goal)"
-                @growth="openGrowth(entry.goal)"
-                @record="openLogs(entry.goal)"
-                @bought="bought(entry.goal)"
-            />
+            <template v-for="entry in visible" :key="entry.goal.id">
+                <GoalComboCard
+                    v-if="entry.goal.kind === 'combo'"
+                    :goal="entry.goal"
+                    :summary="entry.summary"
+                    :today="today"
+                    :disabled="blocked"
+                    @edit="openEditor(entry.goal)"
+                    @remove="askRemove(entry.goal)"
+                    @growth="openGrowth(entry.goal, $event)"
+                />
+                <GoalCard
+                    v-else
+                    :goal="entry.goal"
+                    :summary="entry.summary"
+                    :today="today"
+                    :disabled="blocked"
+                    @edit="openEditor(entry.goal)"
+                    @remove="askRemove(entry.goal)"
+                    @growth="openGrowth(entry.goal)"
+                    @record="openLogs(entry.goal)"
+                    @bought="bought(entry.goal)"
+                />
+            </template>
         </div>
     </PageShell>
     <GoalEditor
@@ -396,8 +442,10 @@ useRouteAction('/goals', {
         @save="save"
         @close="closeEditor"
     />
-    <GoalGrowth
+    <component
+        :is="growth?.kind === 'combo' ? GoalComboProgress : GoalGrowth"
         v-if="growth"
+        v-bind="growth.kind === 'combo' ? { initialCharacter: growthCharacter } : {}"
         :goal="growth"
         :saving="growthSaving"
         :locked="growthLocked"

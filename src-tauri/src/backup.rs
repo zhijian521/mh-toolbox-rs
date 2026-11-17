@@ -996,14 +996,16 @@ fn validate_goal(goal: &serde_json::Value, index: usize) -> Result<(), String> {
         .get("kind")
         .and_then(serde_json::Value::as_str)
         .unwrap_or_default();
-    if !matches!(kind, "growth" | "money" | "gear" | "manual") {
+    if !matches!(kind, "growth" | "money" | "gear" | "manual" | "combo") {
         return Err(invalid());
     }
     let target = goal
         .get("target")
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(0.0);
-    if !target.is_finite() || target <= 0.0 {
+    let composite = kind == "combo"
+        || (kind == "growth" && goal.get("items").is_some() && goal["tracking"].is_null());
+    if !composite && (!target.is_finite() || target <= 0.0) {
         return Err(invalid());
     }
     let members = goal
@@ -1017,7 +1019,38 @@ fn validate_goal(goal: &serde_json::Value, index: usize) -> Result<(), String> {
         members.iter().map(record_id),
         &format!("目标 {} 的角色", index + 1),
     )?;
-    if kind == "growth" {
+    if composite {
+        let items = goal["items"].as_array().ok_or_else(invalid)?;
+        if items.is_empty() {
+            return Err(invalid());
+        }
+        let mut keys = HashSet::new();
+        let mut covered = HashSet::new();
+        for item in items {
+            let character_id = item["characterId"].as_str().unwrap_or_default();
+            let category = item["tracking"]["category"].as_str().unwrap_or_default();
+            let key = item["tracking"]["key"].as_str().unwrap_or_default().trim();
+            let value = item["target"].as_f64().unwrap_or(0.0);
+            if !members.iter().any(|member| record_id(member) == character_id)
+                || !matches!(category, "level" | "skill" | "assist" | "training" | "attr")
+                || key.is_empty()
+                || !value.is_finite()
+                || value <= 0.0
+                || value.fract() != 0.0
+                || value > 9_007_199_254_740_991.0
+                || !keys.insert((character_id, category, key))
+            {
+                return Err(invalid());
+            }
+            covered.insert(character_id);
+        }
+        if members
+            .iter()
+            .any(|member| !covered.contains(record_id(member)))
+        {
+            return Err(invalid());
+        }
+    } else if kind == "growth" {
         let tracking = &goal["tracking"];
         let category = tracking["category"].as_str().unwrap_or_default();
         let key = tracking["key"].as_str().unwrap_or_default();
