@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => {
+    vi.restoreAllMocks();
+});
 
 async function setup(stock = false, failLoad = false) {
     vi.resetModules();
@@ -12,23 +14,46 @@ async function setup(stock = false, failLoad = false) {
     await import('../../services/game-data.fixture');
     const { normalizeWarehouseItem } = await import('../warehouse/warehouse');
     const item = normalizeWarehouseItem({
-        id: 'trade-pet', kind: 'pet', server: '', createdAt: 1, updatedAt: 1,
+        id: 'trade-pet',
+        kind: 'pet',
+        server: '',
+        createdAt: 1,
+        updatedAt: 1,
         pet: { name: '画魂', growth: '1.287', life: '9999', skills: ['高级必杀'] },
     })!;
     const warehouseLoad = vi.fn().mockResolvedValue(failLoad ? null : stock ? [item] : []);
     vi.doMock('../../services/storage', () => ({
-        accountLoad, accountSave, accountTradeSave, warehouseSave, warehouseLoad,
+        accountLoad,
+        accountSave,
+        accountTradeSave,
+        warehouseSave,
+        warehouseLoad,
     }));
     const accounts = await import('./accounts-store');
     const warehouse = await import('../warehouse/warehouse-store');
     await accounts.loadAccounts();
     await warehouse.loadWarehouse();
-    return { ...accounts, ...warehouse, item, accountSave, accountTradeSave, warehouseSave, accountLoad, warehouseLoad };
+    return {
+        ...accounts,
+        ...warehouse,
+        item,
+        accountSave,
+        accountTradeSave,
+        warehouseSave,
+        accountLoad,
+        warehouseLoad,
+    };
 }
 
 const INPUT = {
-    date: '2026-11-17', characterId: '', kind: 'expense' as const, currency: 'rmb' as const,
-    category: '召唤兽交易', channel: '游戏内', amount: 100, note: '',
+    date: '2026-11-17',
+    characterId: '',
+    kind: 'expense' as const,
+    currency: 'rmb' as const,
+    category: '召唤兽交易',
+    channel: '游戏内',
+    amount: 100,
+    note: '',
 };
 
 describe('账号与仓库关联交易', () => {
@@ -58,7 +83,9 @@ describe('账号与仓库关联交易', () => {
         if (!result.ok) throw new Error(result.error);
         s.accountLoad.mockResolvedValue(JSON.parse(JSON.stringify(s.useAccounts().entries.value)));
         await s.loadAccounts();
-        expect(s.useAccounts().entries.value[0].assets?.[0]).toMatchObject({ pet: { name: '画魂' } });
+        expect(s.useAccounts().entries.value[0].assets?.[0]).toMatchObject({
+            pet: { name: '画魂' },
+        });
         expect(s.updateEntry(result.entry.id, { ...INPUT, amount: 200 }).ok).toBe(true);
         await s.useAccounts().flush();
         expect(s.accountTradeSave).toHaveBeenCalledOnce();
@@ -105,14 +132,17 @@ describe('账号与仓库关联交易', () => {
         expect(s.useAccounts().entries.value).toHaveLength(1);
         expect(s.useWarehouse().items.value).toEqual(pair);
         expect(s.accountTradeSave).toHaveBeenLastCalledWith(
-            s.useAccounts().entries.value, s.useWarehouse().items.value,
+            s.useAccounts().entries.value,
+            s.useWarehouse().items.value,
         );
         s.accountLoad.mockResolvedValue(JSON.parse(JSON.stringify(s.useAccounts().entries.value)));
         s.warehouseLoad.mockResolvedValue(JSON.parse(JSON.stringify(s.useWarehouse().items.value)));
         await s.loadAccounts();
         await s.loadWarehouse();
         const { soldWarehouseItems } = await import('./account-assets');
-        expect(soldWarehouseItems(s.useAccounts().entries.value, s.useWarehouse().items.value)).toEqual([]);
+        expect(
+            soldWarehouseItems(s.useAccounts().entries.value, s.useWarehouse().items.value),
+        ).toEqual([]);
         expect(s.useWarehouse().items.value).toHaveLength(2);
         expect(s.warehouseSave).not.toHaveBeenCalled();
     });
@@ -137,9 +167,16 @@ describe('账号与仓库关联交易', () => {
 
     it('仓库读取失败不能删除卖出记录，删除买入记录不改变库存', async () => {
         const s = await setup(false, true);
-        s.accountLoad.mockResolvedValue([{
-            ...INPUT, id: 'sale', createdAt: 1, kind: 'income', source: '', assets: [s.item],
-        }]);
+        s.accountLoad.mockResolvedValue([
+            {
+                ...INPUT,
+                id: 'sale',
+                createdAt: 1,
+                kind: 'income',
+                source: '',
+                assets: [s.item],
+            },
+        ]);
         await s.loadAccounts();
         expect(s.removeEntry('sale').ok).toBe(false);
         expect(s.useAccounts().entries.value).toHaveLength(1);
@@ -147,9 +184,15 @@ describe('账号与仓库关联交易', () => {
 
         s.warehouseLoad.mockResolvedValue([s.item]);
         await s.loadWarehouse();
-        s.accountLoad.mockResolvedValue([{
-            ...INPUT, id: 'purchase', createdAt: 1, source: '', assets: [s.item],
-        }]);
+        s.accountLoad.mockResolvedValue([
+            {
+                ...INPUT,
+                id: 'purchase',
+                createdAt: 1,
+                source: '',
+                assets: [s.item],
+            },
+        ]);
         await s.loadAccounts();
         expect(s.removeEntry('purchase').ok).toBe(true);
         await s.useAccounts().flush();

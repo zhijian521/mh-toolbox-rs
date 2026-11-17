@@ -3,7 +3,14 @@ import { describe, expect, it } from 'vitest';
  * 所以一行副作用导入把真文件装进缓存——与 `schools.test.ts` 同一条做法。 */
 import '../../services/game-data.fixture';
 import { isPriceCategory } from '../prices/prices-catalog';
-import { DEMO_COUNTS, DEMO_PRICES, demoCharacters, demoGoalInputs, demoWarehouseItems, demoTradeInput } from './demo-data';
+import {
+    DEMO_COUNTS,
+    DEMO_PRICES,
+    demoCharacters,
+    demoGoalInputs,
+    demoWarehouseItems,
+    demoTradeInput,
+} from './demo-data';
 import { parseGoal, goalSummary } from '../goals/goals';
 
 /**
@@ -26,6 +33,9 @@ describe('开发页的模拟数据', () => {
         const first = demoWarehouseItems();
         expect(first.map((item) => item.kind)).toEqual(['gear', 'pet']);
         expect(demoWarehouseItems().map((item) => item.id)).toEqual(first.map((item) => item.id));
+        expect(first[0]).toMatchObject({ gear: { detail: { name: '霜冷九州' } } });
+        if (first[0].kind === 'gear') first[0].gear.detail.name = '临时修改';
+        expect(demoWarehouseItems()[0]).toMatchObject({ gear: { detail: { name: '霜冷九州' } } });
     });
     it('目标示例同时保留普通养成与组合，组合每个角色有多项且可完整读取', () => {
         const characters = demoCharacters();

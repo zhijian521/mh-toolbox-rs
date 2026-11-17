@@ -2,7 +2,11 @@ import { TEST_SCOPES } from './test-scopes.mjs';
 
 /** 推荐直接受影响领域与已知联动；未知路径单独列出，不静默回退全量。 */
 const RULES = [
-    { prefix: 'src/views/warehouse/', scopes: ['accounts', 'ocr', 'core'], smoke: ['账号', '数据'] },
+    {
+        prefix: 'src/views/warehouse/',
+        scopes: ['accounts', 'ocr', 'core'],
+        smoke: ['账号', '数据'],
+    },
     {
         prefix: 'src/views/characters/',
         except: ['src/views/characters/ocr/'],
@@ -78,7 +82,10 @@ const RULES = [
         prefix: 'src/composables/use-today',
         scopes: ['income', 'accounts', 'goals', 'overview', 'tools'],
     },
-    { prefix: 'src/composables/use-minute-now', scopes: ['income', 'accounts', 'overview', 'tools'] },
+    {
+        prefix: 'src/composables/use-minute-now',
+        scopes: ['income', 'accounts', 'overview', 'tools'],
+    },
     { prefix: 'src/composables/use-ghost-', scopes: ['tools'], smoke: ['工具'] },
     { prefix: 'src/main', scopes: ['core'], smoke: ['导航'] },
     { prefix: 'src/startup', scopes: ['core', 'settings'], smoke: ['导航', '数据'] },

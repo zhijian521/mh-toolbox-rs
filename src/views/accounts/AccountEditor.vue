@@ -50,7 +50,9 @@ const linked = ref(Boolean(props.entry?.assets?.length));
 const assets = ref<ReadonlyWarehouseItem[]>([...(props.entry?.assets ?? [])]);
 const fixedAssets = computed(() => Boolean(props.entry?.assets?.length));
 const assetKind = computed(() => accountAssetKind(category.value));
-const linkAvailable = computed(() => Boolean(assetKind.value && (!props.entry || fixedAssets.value)));
+const linkAvailable = computed(() =>
+    Boolean(assetKind.value && (!props.entry || fixedAssets.value)),
+);
 function selectAssets(items: readonly ReadonlyWarehouseItem[]) {
     assets.value = [...items];
 }
@@ -257,7 +259,9 @@ const { requestClose } = useDraftGuard(
                             />
                         </div>
                         <div v-if="linkAvailable" class="fee-switch asset-switch">
-                            <span class="field-label">关联{{ assetKind === 'gear' ? '装备' : '召唤兽' }}</span>
+                            <span class="field-label"
+                                >关联{{ assetKind === 'gear' ? '装备' : '召唤兽' }}</span
+                            >
                             <CostSwitch
                                 v-model="linked"
                                 off-label="否"
@@ -284,17 +288,27 @@ const { requestClose } = useDraftGuard(
 
                 <PaperCard v-if="linkAvailable && linked" class="account-asset">
                     <div class="account-asset-head">
-                        <span class="field-label">{{ fixedAssets ? '关联' : '选择' }}{{ assetKind === 'gear' ? '装备' : '召唤兽' }}<span v-if="assets.length" class="muted account-asset-count">{{ assets.length }} {{ assetKind === 'gear' ? '件' : '只' }}</span></span>
+                        <span class="field-label"
+                            >{{ fixedAssets ? '关联' : '选择'
+                            }}{{ assetKind === 'gear' ? '装备' : '召唤兽'
+                            }}<span v-if="assets.length" class="muted account-asset-count"
+                                >{{ assets.length }} {{ assetKind === 'gear' ? '件' : '只' }}</span
+                            ></span
+                        >
                         <PressButton
                             v-if="!fixedAssets"
                             class="account-asset-choose"
                             :icon="kind === 'expense' ? 'add' : 'search'"
-                            :text="kind === 'expense' ? (assets.length ? '修改资料' : '录入') : '选择'"
+                            :text="
+                                kind === 'expense' ? (assets.length ? '修改资料' : '录入') : '选择'
+                            "
                             label="设置交易关联物品"
                             :disabled="locked"
                             @click="assetDialog = kind === 'expense' ? 'draft' : 'pick'"
                         />
-                        <span v-else class="muted">{{ entry?.kind === 'expense' ? '买入快照' : '卖出快照' }}</span>
+                        <span v-else class="muted">{{
+                            entry?.kind === 'expense' ? '买入快照' : '卖出快照'
+                        }}</span>
                     </div>
                     <div class="account-asset-tray well">
                         <WarehouseItems
@@ -305,7 +319,9 @@ const { requestClose } = useDraftGuard(
                             :disabled="locked || assetDialog !== null"
                             inspect-only
                         />
-                        <p v-else class="account-asset-empty muted">{{ assetKind === 'gear' ? '未选择装备' : '未选择召唤兽' }}</p>
+                        <p v-else class="account-asset-empty muted">
+                            {{ assetKind === 'gear' ? '未选择装备' : '未选择召唤兽' }}
+                        </p>
                     </div>
                 </PaperCard>
 
@@ -404,7 +420,7 @@ const { requestClose } = useDraftGuard(
         :asset-kind="assetKind"
         :draft-items="assetDialog === 'draft' ? assets : undefined"
         :selected-items="assetDialog === 'pick' ? assets : undefined"
-        @select="selectAssets"
+        @pick="selectAssets"
         @draft="confirmAssets"
         @close="assetDialog = null"
     />

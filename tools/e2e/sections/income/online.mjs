@@ -77,10 +77,7 @@ export default async function runOnline(ctx) {
                     };
                 })()`);
             t.check('全部位于首项，角色使用多选圆角胶囊', initial.allFirst && initial.rounded);
-            t.check(
-                '没有可上线角色时禁用全部',
-                initial.allDisabled === (initial.available === 0),
-            );
+            t.check('没有可上线角色时禁用全部', initial.allDisabled === (initial.available === 0));
             if (!initial.available) return;
             const state = () =>
                 cdp.evaluate(`(() => {
@@ -229,11 +226,7 @@ export default async function runOnline(ctx) {
                     running: document.querySelectorAll('.online-bar .live-chip').length,
                 };
             })()`);
-        t.check(
-            '状态条的「今日在线」读出了时长',
-            /\d/.test(bar.minutes),
-            `实际「${bar.minutes}」`,
-        );
+        t.check('状态条的「今日在线」读出了时长', /\d/.test(bar.minutes), `实际「${bar.minutes}」`);
         t.info('状态条', `今日在线 ${bar.minutes} · 在线胶囊 ${bar.running} 枚`);
 
         const charts = await cdp.evaluate(`(() => {
@@ -373,10 +366,9 @@ export default async function runOnline(ctx) {
         const NOTE = 'E2E上线一段';
         await ui.goto('收益');
         await ui.clickLabel('查看全部上线记录');
-        const opened = await cdp.waitFor(
-            `!!document.querySelector('[role="dialog"] .rec-table')`,
-            { timeout: 3000 },
-        );
+        const opened = await cdp.waitFor(`!!document.querySelector('[role="dialog"] .rec-table')`, {
+            timeout: 3000,
+        });
         if (!opened) throw new Error('上线记录窗没打开');
 
         await ui.fillSel('input[aria-label="搜索上线记录"]', NOTE);

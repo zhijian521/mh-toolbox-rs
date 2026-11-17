@@ -25,15 +25,18 @@ import { loadAccounts, useAccounts } from '../accounts/accounts-store';
 import { soldWarehouseItems } from '../accounts/account-assets';
 import WarehouseEditor from './WarehouseEditor.vue';
 
-const props = withDefaults(defineProps<{
-    mode?: 'manage' | 'pick' | 'draft';
-    assetKind?: WarehouseKind;
-    draftItems?: readonly ReadonlyWarehouseItem[];
-    selectedItems?: readonly ReadonlyWarehouseItem[];
-}>(), { mode: 'manage', assetKind: 'gear' });
+const props = withDefaults(
+    defineProps<{
+        mode?: 'manage' | 'pick' | 'draft';
+        assetKind?: WarehouseKind;
+        draftItems?: readonly ReadonlyWarehouseItem[];
+        selectedItems?: readonly ReadonlyWarehouseItem[];
+    }>(),
+    { mode: 'manage', assetKind: 'gear' },
+);
 const emit = defineEmits<{
     close: [];
-    select: [items: readonly ReadonlyWarehouseItem[]];
+    pick: [items: readonly ReadonlyWarehouseItem[]];
     draft: [items: WarehouseItem[]];
 }>();
 const store = useWarehouse();
@@ -45,11 +48,12 @@ const stockOptions = [
     { value: 'sold' as const, label: '已卖出' },
 ];
 const soldView = computed(() => props.mode === 'manage' && stockState.value === 'sold');
-const sourceItems = computed(() => soldView.value
-    ? soldWarehouseItems(accounts.entries.value, items.value)
-    : items.value,
+const sourceItems = computed(() =>
+    soldView.value ? soldWarehouseItems(accounts.entries.value, items.value) : items.value,
 );
-const viewError = computed(() => loadError.value || (soldView.value ? accounts.loadError.value : ''));
+const viewError = computed(
+    () => loadError.value || (soldView.value ? accounts.loadError.value : ''),
+);
 const viewLoaded = computed(() => loaded.value && (!soldView.value || accounts.loaded.value));
 const kind = ref<WarehouseKind>(props.assetKind);
 const keyword = ref('');
@@ -61,9 +65,9 @@ const stages = ref<HTMLElement | null>(null);
 const editor = ref<InstanceType<typeof WarehouseEditor> | null>(null);
 const grid = ref<InstanceType<typeof WarehouseItems> | null>(null);
 const selectedIds = ref(new Set((props.selectedItems ?? []).map((item) => item.id)));
-const selected = computed(() => items.value.filter(
-    (item) => item.kind === kind.value && selectedIds.value.has(item.id),
-));
+const selected = computed(() =>
+    items.value.filter((item) => item.kind === kind.value && selectedIds.value.has(item.id)),
+);
 const direction = ref('warehouse-forward');
 let returnItemId: string | null = null;
 function hideTip() {
@@ -87,12 +91,12 @@ const title = computed(() =>
         : props.mode === 'draft'
           ? `录入买入的${kind.value === 'gear' ? '装备' : '召唤兽'}`
           : !editing.value
-        ? '仓库'
-        : editing.value.existing
-          ? '修改仓库物品'
-          : editing.value.item.kind === 'gear'
-            ? '装备入仓'
-            : '召唤兽入仓',
+            ? '仓库'
+            : editing.value.existing
+              ? '修改仓库物品'
+              : editing.value.item.kind === 'gear'
+                ? '装备入仓'
+                : '召唤兽入仓',
 );
 function close() {
     if (editing.value) void editor.value?.requestClose();
@@ -116,7 +120,8 @@ function focusPage(element: Element) {
     if (!element.isConnected || element.hasAttribute('aria-hidden')) return;
     if (editing.value) {
         if (element.classList.contains('warehouse-editor-page')) {
-            element.querySelector<HTMLInputElement>('.gear-name-input, [aria-label="召唤兽名称"]')
+            element
+                .querySelector<HTMLInputElement>('.gear-name-input, [aria-label="召唤兽名称"]')
                 ?.focus({ preventScroll: true });
         }
         return;
@@ -124,21 +129,33 @@ function focusPage(element: Element) {
     const item = Array.from(element.querySelectorAll<HTMLElement>('.warehouse-item')).find(
         (one) => one.dataset.assetId === returnItemId,
     );
-    const fallback = returnItemId !== null
-        ? element.querySelector<HTMLElement>('[data-warehouse-add]')
-        : element.querySelector<HTMLElement>('.warehouse-search');
+    const fallback =
+        returnItemId !== null
+            ? element.querySelector<HTMLElement>('[data-warehouse-add]')
+            : element.querySelector<HTMLElement>('.warehouse-search');
     (item ?? fallback)?.focus({ preventScroll: true });
 }
 const options = computed(() => [
-    { value: 'gear' as const, label: `装备 ${sourceItems.value.filter((item) => item.kind === 'gear').length}` },
-    { value: 'pet' as const, label: `召唤兽 ${sourceItems.value.filter((item) => item.kind === 'pet').length}` },
+    {
+        value: 'gear' as const,
+        label: `装备 ${sourceItems.value.filter((item) => item.kind === 'gear').length}`,
+    },
+    {
+        value: 'pet' as const,
+        label: `召唤兽 ${sourceItems.value.filter((item) => item.kind === 'pet').length}`,
+    },
 ]);
 const slots = computed(() => [
     { value: '', label: '全部部位' },
     ...GEAR_SLOTS.map((value) => ({ value, label: value })),
 ]);
 const filtered = computed(() =>
-    filterWarehouse(sourceItems.value, kind.value, keyword.value, kind.value === 'gear' ? slot.value : ''),
+    filterWarehouse(
+        sourceItems.value,
+        kind.value,
+        keyword.value,
+        kind.value === 'gear' ? slot.value : '',
+    ),
 );
 const PAGE_SIZE = 48;
 const pages = computed(() => Math.max(1, Math.ceil(filtered.value.length / PAGE_SIZE)));
@@ -159,8 +176,13 @@ watch(pages, (value) => {
     page.value = Math.min(page.value, value);
 });
 const blocked = computed(
-    () => !viewLoaded.value || !!viewError.value || !!writeError.value || pending.value > 0 ||
-        tradePending.value || (soldView.value && (!!accounts.writeError.value || accounts.pending.value > 0)),
+    () =>
+        !viewLoaded.value ||
+        !!viewError.value ||
+        !!writeError.value ||
+        pending.value > 0 ||
+        tradePending.value ||
+        (soldView.value && (!!accounts.writeError.value || accounts.pending.value > 0)),
 );
 async function load() {
     try {
@@ -206,7 +228,7 @@ function open(item: ReadonlyWarehouseItem) {
 }
 function confirmSelection() {
     if (blocked.value) return;
-    emit('select', selected.value);
+    emit('pick', selected.value);
     emit('close');
 }
 </script>
@@ -235,7 +257,10 @@ function confirmSelection() {
                     @close="back"
                     @saved="back"
                     @removed="back"
-                    @confirm="emit('draft', $event); emit('close')"
+                    @confirm="
+                        emit('draft', $event);
+                        emit('close');
+                    "
                 />
                 <div v-else key="list" class="warehouse-page">
                     <div class="warehouse-page-body">
@@ -263,7 +288,9 @@ function confirmSelection() {
                                 data-warehouse-add
                                 icon="add"
                                 :text="kind === 'gear' ? '装备入仓' : '召唤兽入仓'"
-                                :label="kind === 'gear' ? '新增或截图录入装备' : '新增或截图录入召唤兽'"
+                                :label="
+                                    kind === 'gear' ? '新增或截图录入装备' : '新增或截图录入召唤兽'
+                                "
                                 :disabled="blocked"
                                 seal
                                 @click="add"
@@ -274,7 +301,9 @@ function confirmSelection() {
                                 v-model="keyword"
                                 class="field warehouse-search"
                                 aria-label="搜索仓库物品"
-                                :placeholder="kind === 'gear' ? '搜索名称、特效、备注' : '搜索名称、技能'"
+                                :placeholder="
+                                    kind === 'gear' ? '搜索名称、特效、备注' : '搜索名称、技能'
+                                "
                             />
                             <SelectField
                                 v-if="kind === 'gear'"
@@ -287,7 +316,11 @@ function confirmSelection() {
                                 {{ filtered.length }} {{ kind === 'gear' ? '件装备' : '只召唤兽' }}
                             </span>
                         </div>
-                        <LoadNotice :error="loadError" :load="load" :blocked="pending > 0 || !!writeError" />
+                        <LoadNotice
+                            :error="loadError"
+                            :load="load"
+                            :blocked="pending > 0 || !!writeError"
+                        />
                         <SaveNotice :error="writeError" :pending="pending" @retry="store.retry" />
                         <template v-if="soldView">
                             <LoadNotice
@@ -301,21 +334,45 @@ function confirmSelection() {
                                 @retry="accounts.retry"
                             />
                         </template>
-                        <p v-if="tradePending" class="note">关联交易尚未保存，请返回账号页完成保存。</p>
+                        <p v-if="tradePending" class="note">
+                            关联交易尚未保存，请返回账号页完成保存。
+                        </p>
                         <section
                             :id="`warehouse-pane-${kind}`"
                             ref="content"
-                            :aria-labelledby="mode === 'manage' ? `warehouse-tab-${kind}` : undefined"
+                            :aria-labelledby="
+                                mode === 'manage' ? `warehouse-tab-${kind}` : undefined
+                            "
                             :aria-label="mode === 'pick' ? '选择交易物品，可多选' : undefined"
                             :role="mode === 'manage' ? 'tabpanel' : 'region'"
                             class="warehouse-content"
                             @scroll="scroll"
                         >
-                            <p v-if="viewError" class="empty-note">暂时无法读取{{ soldView ? '卖出物品' : '仓库' }}，请重试。</p>
-                            <p v-else-if="!viewLoaded" class="empty-note" role="status">正在读取{{ soldView ? '卖出物品' : '仓库' }}…</p>
+                            <p v-if="viewError" class="empty-note">
+                                暂时无法读取{{ soldView ? '卖出物品' : '仓库' }}，请重试。
+                            </p>
+                            <p v-else-if="!viewLoaded" class="empty-note" role="status">
+                                正在读取{{ soldView ? '卖出物品' : '仓库' }}…
+                            </p>
                             <div v-else-if="!filtered.length" class="warehouse-empty">
-                                <p>{{ keyword || (kind === 'gear' && slot) ? '没有符合条件的物品' : soldView ? `还没有卖出的${kind === 'gear' ? '装备' : '召唤兽'}` : kind === 'gear' ? '还没有入仓装备' : '还没有入仓召唤兽' }}</p>
-                                <span v-if="!soldView" class="muted">{{ keyword || (kind === 'gear' && slot) ? '换个关键词或筛选条件试试' : mode === 'pick' ? '暂无可选择的仓库物品' : '点击右上角入仓，支持截图识别和手动填写' }}</span>
+                                <p>
+                                    {{
+                                        keyword || (kind === 'gear' && slot)
+                                            ? '没有符合条件的物品'
+                                            : soldView
+                                              ? `还没有卖出的${kind === 'gear' ? '装备' : '召唤兽'}`
+                                              : kind === 'gear'
+                                                ? '还没有入仓装备'
+                                                : '还没有入仓召唤兽'
+                                    }}
+                                </p>
+                                <span v-if="!soldView" class="muted">{{
+                                    keyword || (kind === 'gear' && slot)
+                                        ? '换个关键词或筛选条件试试'
+                                        : mode === 'pick'
+                                          ? '暂无可选择的仓库物品'
+                                          : '点击右上角入仓，支持截图识别和手动填写'
+                                }}</span>
                             </div>
                             <WarehouseItems
                                 v-else
@@ -323,7 +380,13 @@ function confirmSelection() {
                                 :items="visible"
                                 :selectable="mode === 'pick'"
                                 :selected-ids="selectedIds"
-                                :label-prefix="mode === 'pick' ? '选择卖出' : soldView ? '查看已卖出' : '查看并修改'"
+                                :label-prefix="
+                                    mode === 'pick'
+                                        ? '选择卖出'
+                                        : soldView
+                                          ? '查看已卖出'
+                                          : '查看并修改'
+                                "
                                 :inspect-only="soldView"
                                 :disabled="blocked"
                                 @itemclick="open"
@@ -331,7 +394,11 @@ function confirmSelection() {
                         </section>
                     </div>
                     <footer class="modal-actions">
-                        <span v-if="mode === 'pick'" class="warehouse-selected-count muted" aria-live="polite">
+                        <span
+                            v-if="mode === 'pick'"
+                            class="warehouse-selected-count muted"
+                            aria-live="polite"
+                        >
                             已选 {{ selected.length }} {{ kind === 'gear' ? '件装备' : '只召唤兽' }}
                         </span>
                         <RecordPager v-model="page" :pages="pages" />

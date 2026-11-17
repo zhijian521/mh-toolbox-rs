@@ -52,10 +52,16 @@ watch([() => props.pet, () => props.anchor], ([pet]) => {
             <div v-if="pet" class="tip-content">
                 <div class="tip-name">{{ pet.name }}</div>
                 <div class="meta tip-kind">
-                    {{ pet.level }} 级<template v-if="pet.joinLevel"> · 参战 {{ pet.joinLevel }} 级</template>
+                    {{ pet.level }} 级<template v-if="pet.joinLevel">
+                        · 参战 {{ pet.joinLevel }} 级</template
+                    >
                 </div>
                 <section v-for="group in groups" :key="group.title" class="pet-tip-group">
-                    <h4 class="group-head"><span class="section-mark" aria-hidden="true" /><span>{{ group.title }}</span></h4>
+                    <h4 class="group-head">
+                        <span class="section-mark" aria-hidden="true" /><span>{{
+                            group.title
+                        }}</span>
+                    </h4>
                     <div v-if="group.rows.length" class="pet-tip-rows">
                         <span v-for="(row, i) in group.rows" :key="i" class="slip-row sm">
                             <span class="slip-name">{{ row.label }}</span>
@@ -71,10 +77,13 @@ watch([() => props.pet, () => props.anchor], ([pet]) => {
                     </span>
                 </div>
                 <section class="pet-tip-group">
-                    <h4 class="group-head"><span class="section-mark" aria-hidden="true" /><span>技能</span><span class="muted">{{ pet.skills.length }} 项</span></h4>
+                    <h4 class="group-head">
+                        <span class="section-mark" aria-hidden="true" /><span>技能</span
+                        ><span class="muted">{{ pet.skills.length }} 项</span>
+                    </h4>
                     <div v-if="pet.skills.length" class="pet-tip-skills">
                         <span v-for="(name, i) in pet.skills" :key="i" class="pet-tip-skill">
-                            <PetImage :name="name" :title="null" aria-hidden="true" />
+                            <PetImage :name="name" title="" aria-hidden="true" />
                             <span>{{ name }}</span>
                         </span>
                     </div>

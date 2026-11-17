@@ -32,14 +32,11 @@ const emit = defineEmits<{ mouseenter: []; mouseleave: [] }>();
 
 const { el, pos, place } = useAnchoredTip();
 
-watch(
-    [() => props.detail, () => props.anchor],
-    ([detail]) => {
-        if (!detail) return;
-        /* 内容换了才知道新高度，`place()` 内部会先等 DOM 更新。 */
-        void place(props.anchor);
-    },
-);
+watch([() => props.detail, () => props.anchor], ([detail]) => {
+    if (!detail) return;
+    /* 内容换了才知道新高度，`place()` 内部会先等 DOM 更新。 */
+    void place(props.anchor);
+});
 
 /* 条件合并成一行小字：`130 级 · 五行 木 · 女`。
  * 游戏里它们分三行，那是为了塞进固定宽的框；浮片没这个限制，一行读完更省高度。
@@ -51,8 +48,8 @@ const requires = computed(() => props.detail?.requires?.join(' · ') ?? '');
 <template>
     <Teleport to="body">
         <div
-            ref="el"
             :id="tooltipId"
+            ref="el"
             class="gear-tip detail-tip dual-rule"
             :class="{ on: detail !== null, interactive }"
             :style="{ left: `${pos.left}px`, top: `${pos.top}px`, zIndex: layer }"

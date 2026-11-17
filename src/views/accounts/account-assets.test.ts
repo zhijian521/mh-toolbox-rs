@@ -9,17 +9,34 @@ import {
 import type { AccountEntry } from './accounts';
 import { normalizeWarehouseItem } from '../warehouse/warehouse';
 
-beforeAll(async () => { await import('../../services/game-data.fixture'); });
+beforeAll(async () => {
+    await import('../../services/game-data.fixture');
+});
 
-const pet = () => normalizeWarehouseItem({
-    id: 'pet-1', kind: 'pet', server: '测试区', createdAt: 1, updatedAt: 1,
-    pet: { name: '画魂', growth: '1.287', life: '9999', skills: ['高级必杀'] },
-})!;
+const pet = () =>
+    normalizeWarehouseItem({
+        id: 'pet-1',
+        kind: 'pet',
+        server: '测试区',
+        createdAt: 1,
+        updatedAt: 1,
+        pet: { name: '画魂', growth: '1.287', life: '9999', skills: ['高级必杀'] },
+    })!;
 
 function sale(id: string, createdAt: number, assets = [pet()]): AccountEntry {
     return {
-        id, createdAt, assets, date: '2026-11-17', characterId: '', kind: 'income',
-        currency: 'rmb', category: '召唤兽交易', channel: '游戏内', amount: 100, note: '', source: '',
+        id,
+        createdAt,
+        assets,
+        date: '2026-11-17',
+        characterId: '',
+        kind: 'income',
+        currency: 'rmb',
+        category: '召唤兽交易',
+        channel: '游戏内',
+        amount: 100,
+        note: '',
+        source: '',
     };
 }
 
@@ -44,7 +61,9 @@ describe('交易物品与库存计划', () => {
         expect(() => planAssetTrade('召唤兽交易', 'expense', [item, item], [])).toThrow();
         expect(() => planAssetTrade('召唤兽交易', 'expense', [item], [item])).toThrow();
         expect(() => planAssetTrade('召唤兽交易', 'income', [item], [])).toThrow();
-        expect(() => planAssetTrade('召唤兽交易', 'income', [{ ...item, server: '旧区服' }], [item])).toThrow();
+        expect(() =>
+            planAssetTrade('召唤兽交易', 'income', [{ ...item, server: '旧区服' }], [item]),
+        ).toThrow();
         expect(() => planAssetTrade('召唤兽交易', 'expense', [], [])).toThrow();
         expect(() => normalizeAccountAssets([{ id: 'broken' }])).toThrow();
         expect(normalizeAccountAssets(undefined)).toEqual([]);
@@ -55,7 +74,9 @@ describe('交易物品与库存计划', () => {
         const latest = sale('latest', 2, [{ ...pet(), server: '成交时区服' }]);
         const stocked = { ...pet(), id: 'stocked' };
         const entries = [
-            first, latest, sale('in-stock', 3, [stocked]),
+            first,
+            latest,
+            sale('in-stock', 3, [stocked]),
             { ...sale('purchase', 4, [{ ...pet(), id: 'bought' }]), kind: 'expense' as const },
             { ...sale('other', 5, [{ ...pet(), id: 'other' }]), category: '其他收支' },
             { ...sale('auto', 6, [{ ...pet(), id: 'auto' }]), source: 'auto' },

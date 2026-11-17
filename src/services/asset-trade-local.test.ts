@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { recoverAssetTradeLocal, writeAssetTradeLocal } from './asset-trade-local';
 
-afterEach(() => { vi.unstubAllGlobals(); });
+afterEach(() => {
+    vi.unstubAllGlobals();
+});
 
 describe('浏览器关联交易恢复', () => {
     it('中断保留日志，下一次读取恢复完整账目与库存', () => {

@@ -13,7 +13,13 @@ import IconsSection from './IconsSection.vue';
 import PaletteSection from './PaletteSection.vue';
 import SlipRowSection from './SlipRowSection.vue';
 import TypeScaleSection from './TypeScaleSection.vue';
-import { DEMO_COUNTS, importDemoData, importDemoGoals, importDemoWarehouse, importDemoTrade } from './demo-data';
+import {
+    DEMO_COUNTS,
+    importDemoData,
+    importDemoGoals,
+    importDemoWarehouse,
+    importDemoTrade,
+} from './demo-data';
 import { useAccounts } from '../accounts/accounts-store';
 import { useGoals } from '../goals/goals-store';
 import { useWarehouse } from '../warehouse/warehouse-store';

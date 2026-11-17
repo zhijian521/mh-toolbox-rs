@@ -209,10 +209,9 @@ export default async function runHistory(ctx, tools, quick) {
         );
 
         await ui.clickLabel('按角色筛选');
-        const listed = await cdp.waitFor(
-            `!!document.querySelector('.select-list .opt-label')`,
-            { timeout: 2000 },
-        );
+        const listed = await cdp.waitFor(`!!document.querySelector('.select-list .opt-label')`, {
+            timeout: 2000,
+        });
         if (!listed) throw new Error('按角色筛选没展开选项');
         const names = await cdp.evaluate(
             `[...document.querySelectorAll('.select-list .opt-label')].map((e) => e.textContent.trim())`,

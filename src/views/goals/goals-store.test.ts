@@ -241,7 +241,9 @@ describe('目标写入：多人养成与记录保护', () => {
             expect(reduced.goal.logs[1].delta).toBe(-1.3);
             store.removeLog(result.goal.id, reduced.goal.logs[1].id);
         }
-        expect(store.useGoals().goals.value[0].logs).toHaveLength(1);
+        expect(
+            store.useGoals().goals.value.find((goal) => goal.id === result.goal.id)?.logs,
+        ).toHaveLength(1);
         await flush();
     });
 

@@ -184,7 +184,12 @@ export function addEntry(input: EntryInput): AccountWrite {
         if (persist.pending.value || writeError.value || !gameDataReady.value)
             return { ok: false, error: '请先完成当前保存并加载游戏规则' };
         try {
-            const plan = planAssetTrade(input.category, input.kind, input.assets, useWarehouse().items.value);
+            const plan = planAssetTrade(
+                input.category,
+                input.kind,
+                input.assets,
+                useWarehouse().items.value,
+            );
             if (!stageWarehouseTrade(plan.inventory))
                 return { ok: false, error: '仓库暂不可写，请先完成仓库的读取或保存' };
             entry.assets = plan.assets;
@@ -210,8 +215,10 @@ export function updateEntry(id: string, input: EntryInput): AccountWrite {
     if (before.source === 'auto') return { ok: false, error: '自动记录请到收益页修改' };
     if (
         (input.assets !== undefined && !before.assets?.length) ||
-        (before.assets?.length && (input.kind !== before.kind || input.category !== before.category))
-    ) return { ok: false, error: '已记账的交易不能更换关联物品、方向或分类' };
+        (before.assets?.length &&
+            (input.kind !== before.kind || input.category !== before.category))
+    )
+        return { ok: false, error: '已记账的交易不能更换关联物品、方向或分类' };
     const checked = check(input, before);
     if (!checked.ok) return checked;
     const composed = compose(input, checked.amount, id, before.createdAt);

@@ -27,7 +27,7 @@
  * 只有一条、一条没有，四种里至少给前两种，否则退墨与空行那几屏永远验不到。
  *
  * ---- 数量 ----
- * 4 个角色：两个来自 `mock.ts` 的种子（装备、召唤兽、浮片都有完整内容），两个按极端造
+ * 4 个角色：两个来自 `mock.ts` 的种子，两个按极端造
  * （一个练满、一个空号）。6 件物价：4 件五天的走势、1 件只有一天、1 件一条没有。
  *
  * ---- 数字要像真的 ----
@@ -46,34 +46,61 @@ import { schoolSkills } from '../characters/schools';
 import { usePrices } from '../prices/prices-store';
 import { useGoals, type GoalInput } from '../goals/goals-store';
 import type { ReadonlyCharacter } from '../characters/character';
-import { normalizeWarehouseItem, type WarehouseItem } from '../warehouse/warehouse';
+import { parseWarehouse, type WarehouseItem } from '../warehouse/warehouse';
 import { useWarehouse } from '../warehouse/warehouse-store';
 
 /** 仓库示例有独立固定编号，重复添加不复制，也不绑定模拟角色。 */
 export function demoWarehouseItems(): WarehouseItem[] {
-    const character = CHARACTERS.find((one) => one.pets.length && one.gear.some((slot) => slot.detail));
-    if (!character) return [];
-    const gear = character.gear.find((one) => one.detail);
-    const base = { server: character.server, createdAt: 1_800_000_000_000, updatedAt: 1_800_000_000_000 };
-    return [
-        { ...base, id: 'demo-warehouse-gear', kind: 'gear', gear },
-        { ...base, id: 'demo-warehouse-pet', kind: 'pet', pet: character.pets[0] },
-    ].map(normalizeWarehouseItem).filter((item): item is WarehouseItem => item !== null);
+    const base = {
+        server: '紫禁之巅',
+        createdAt: 1_800_000_000_000,
+        updatedAt: 1_800_000_000_000,
+    };
+    return parseWarehouse([
+        {
+            ...base,
+            id: 'demo-warehouse-gear',
+            kind: 'gear',
+            gear: {
+                slot: '武器',
+                detail: {
+                    name: '霜冷九州',
+                    kind: '剑',
+                    level: 160,
+                    stats: [
+                        { label: '命中', value: '720' },
+                        { label: '伤害', value: '650' },
+                    ],
+                },
+            },
+        },
+        { ...base, id: 'demo-warehouse-pet', kind: 'pet', pet: MAXED_PET },
+    ]);
 }
 
 export function demoTradeInput(): EntryInput {
     const pet = demoWarehouseItems().find((item) => item.kind === 'pet');
     return {
-        date: todayText(), characterId: '', kind: 'expense', currency: 'rmb',
-        category: '召唤兽交易', channel: '游戏内', amount: 3500,
-        note: '开发页交易示例', assets: pet ? [{ ...pet, id: 'demo-trade-pet' }] : [],
+        date: todayText(),
+        characterId: '',
+        kind: 'expense',
+        currency: 'rmb',
+        category: '召唤兽交易',
+        channel: '游戏内',
+        amount: 3500,
+        note: '开发页交易示例',
+        assets: pet ? [{ ...pet, id: 'demo-trade-pet' }] : [],
     };
 }
 
 export function importDemoTrade(): { ok: true; added: boolean } | { ok: false; error: string } {
     const accounts = useAccounts();
-    if (accounts.entries.value.some((entry) => entry.assets?.some((item) => item.id === 'demo-trade-pet')) ||
-        useWarehouse().items.value.some((item) => item.id === 'demo-trade-pet'))
+    if (
+        accounts.entries.value.some((entry) =>
+            entry.assets?.some((item) => item.id === 'demo-trade-pet'),
+        ) ||
+        useWarehouse().items.value.some((item) => item.id === 'demo-trade-pet')
+    )
         return { ok: true, added: false };
     const result = accounts.addEntry(demoTradeInput());
     return result.ok ? { ok: true, added: true } : result;
@@ -81,10 +108,17 @@ export function importDemoTrade(): { ok: true; added: boolean } | { ok: false; e
 
 export function importDemoWarehouse(): { ok: true; added: number } | { ok: false; error: string } {
     const warehouse = useWarehouse();
-    if (!warehouse.loaded.value || warehouse.loadError.value || warehouse.writeError.value || warehouse.pending.value) {
+    if (
+        !warehouse.loaded.value ||
+        warehouse.loadError.value ||
+        warehouse.writeError.value ||
+        warehouse.pending.value
+    ) {
         return { ok: false, error: '仓库尚未就绪，请先处理读取与保存提示' };
     }
-    const samples = demoWarehouseItems().filter((sample) => !warehouse.items.value.some((item) => item.id === sample.id));
+    const samples = demoWarehouseItems().filter(
+        (sample) => !warehouse.items.value.some((item) => item.id === sample.id),
+    );
     if (samples.length && !warehouse.save(samples)) {
         return { ok: false, error: warehouse.operationError.value || '未能添加仓库示例' };
     }
@@ -225,7 +259,7 @@ const MAXED_PET: Pet = {
 };
 
 /**
- * 练满的号：门派技能全上限、十项修炼全满、五项辅助、三件装备、一只满配召唤兽。
+ * 练满的号：门派技能全上限、十项修炼全满、五项辅助、一只满配召唤兽。
  *
  * 用 `emptyCharacter()` 起手而不是手写整份对象：结构（五组属性、十二格装备、十项修炼）
  * 由它按清单建，这里只覆盖**值**。游戏表没加载上时门派技能会是空的，那时它退化成一个

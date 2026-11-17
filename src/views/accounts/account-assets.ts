@@ -37,13 +37,17 @@ export function planAssetTrade(
     for (const item of assets) {
         const current = byId.get(item.id);
         if (direction === 'expense' && current) throw new Error('这件物品已在仓库中');
-        if (direction === 'income' && JSON.stringify(normalizeWarehouseItem(current)) !== JSON.stringify(item))
+        if (
+            direction === 'income' &&
+            JSON.stringify(normalizeWarehouseItem(current)) !== JSON.stringify(item)
+        )
             throw new Error('所选物品已被修改或移出仓库，请重新选择');
     }
     const ids = new Set(assets.map((item) => item.id));
-    const next = direction === 'expense'
-        ? [...inventory, ...assets]
-        : inventory.filter((item) => !ids.has(item.id));
+    const next =
+        direction === 'expense'
+            ? [...inventory, ...assets]
+            : inventory.filter((item) => !ids.has(item.id));
     return { assets, inventory: next.map((item) => normalizeWarehouseItem(item)!) };
 }
 

@@ -1016,7 +1016,9 @@ fn validate_goal(goal: &serde_json::Value, index: usize) -> Result<(), String> {
             let category = item["tracking"]["category"].as_str().unwrap_or_default();
             let key = item["tracking"]["key"].as_str().unwrap_or_default().trim();
             let value = item["target"].as_f64().unwrap_or(0.0);
-            if !members.iter().any(|member| record_id(member) == character_id)
+            if !members
+                .iter()
+                .any(|member| record_id(member) == character_id)
                 || !matches!(category, "level" | "skill" | "assist" | "training" | "attr")
                 || key.is_empty()
                 || !value.is_finite()

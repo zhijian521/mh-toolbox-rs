@@ -64,11 +64,7 @@ export default async function runDates(ctx) {
         if (layout?.boxOverflow === 'none') {
             t.info('表格滚动', '这一天没有记录，表格未渲染（有记录时才判 overflow）');
         } else {
-            t.check(
-                '滚动交给表格',
-                layout?.boxOverflow === 'auto',
-                `表格 ${layout?.boxOverflow}`,
-            );
+            t.check('滚动交给表格', layout?.boxOverflow === 'auto', `表格 ${layout?.boxOverflow}`);
         }
 
         await cdp.click('[role="dialog"] .date-trigger');
@@ -144,9 +140,7 @@ export default async function runDates(ctx) {
         await cdp.key('Escape');
         await sleep(250);
         await ui.clickLabel('查看历史收益，按角色与按天');
-        await ui.waitFor(
-            `document.querySelectorAll('[role="dialog"] .date-trigger').length === 2`,
-        );
+        await ui.waitFor(`document.querySelectorAll('[role="dialog"] .date-trigger').length === 2`);
         t.check(
             '关闭重开保留历史日期条件',
             JSON.stringify(await triggerTexts()) === JSON.stringify(retainedDates),

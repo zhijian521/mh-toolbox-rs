@@ -9,12 +9,19 @@ fn account_trade_is_atomic_and_snapshots_survive_backup() {
         "id": "trade", "date": "2026-11-17", "characterId": "", "kind": "expense",
         "currency": "rmb", "category": "召唤兽交易", "channel": "游戏内",
         "amount": 100, "note": "", "createdAt": 1, "assets": [pet.clone()]
-    })).unwrap();
+    }))
+    .unwrap();
     conn.execute_batch(
         "CREATE TRIGGER refuse_trade BEFORE INSERT ON warehouse_items
          BEGIN SELECT RAISE(ABORT, '拒绝写入'); END;",
-    ).unwrap();
-    assert!(save_account_trade(&mut conn, std::slice::from_ref(&entry), std::slice::from_ref(&pet)).is_err());
+    )
+    .unwrap();
+    assert!(save_account_trade(
+        &mut conn,
+        std::slice::from_ref(&entry),
+        std::slice::from_ref(&pet)
+    )
+    .is_err());
     assert!(load_accounts(&conn).unwrap().is_empty());
     assert!(load_records(&conn, &WAREHOUSE).unwrap().is_empty());
     conn.execute_batch("DROP TRIGGER refuse_trade").unwrap();
@@ -45,7 +52,10 @@ fn account_snapshot_column_is_added_to_v6_without_changing_old_money() {
     assert_eq!(accounts.len(), 1);
     assert_eq!(accounts[0].amount, 123.45);
     assert!(accounts[0].assets.is_empty());
-    assert_eq!(read_meta(&conn, "schemaVersion").unwrap(), Some(SCHEMA_VERSION.to_string()));
+    assert_eq!(
+        read_meta(&conn, "schemaVersion").unwrap(),
+        Some(SCHEMA_VERSION.to_string())
+    );
 }
 
 #[test]

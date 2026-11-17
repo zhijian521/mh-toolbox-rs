@@ -165,7 +165,7 @@ describe('独立组合目标', () => {
     });
 
     it('显式创建的单项目组合即使使用旧养成标题也保持组合，自定义组合不误恢复', () => {
-        const raw = {
+        const raw: Goal = {
             ...combo(),
             items: ['a', 'b'].map((characterId) => ({
                 characterId,

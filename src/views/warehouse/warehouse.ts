@@ -89,7 +89,11 @@ export function filterWarehouse(
             if (slot && (item.kind !== 'gear' || item.gear.slot !== slot)) return false;
             const fields = [warehouseName(item), item.server];
             if (item.kind === 'gear') {
-                fields.push(item.gear.slot, item.gear.detail?.kind ?? '', item.gear.detail?.note ?? '');
+                fields.push(
+                    item.gear.slot,
+                    item.gear.detail?.kind ?? '',
+                    item.gear.detail?.note ?? '',
+                );
                 for (const row of rows(item.gear.detail?.lines)) {
                     if (isObject(row)) fields.push(rawText(row.value));
                 }
@@ -125,24 +129,27 @@ export function recognizeWarehouseGear(
     const parts = gearPanelParts(result).filter((part) => part.slot && part.hit);
     const primary = parts.find((part) => part.slot === current.gear.slot) ?? parts[0];
     if (!primary) return [current];
-    return [primary, ...parts.filter((part) => part !== primary)].map<WarehouseGear>((part, index) => {
-        const base =
-            index === 0
-                ? current
-                : companions.find((one) => one.gear.slot === part.slot) ?? newWarehouseItem('gear');
-        const detail = normalizeGearDetail(
-            mergeGearPanel({ ...base.gear, slot: part.slot! }, part).detail,
-        )!;
-        return {
-            ...base,
-            kind: 'gear',
-            server: base.server || current.server,
-            gear: { slot: part.slot!, caption: detail.name, detail },
-            soul: result.soul
-                ? index === 0
-                    ? result.soul.map((row) => ({ ...row }))
-                    : undefined
-                : base.soul,
-        };
-    });
+    return [primary, ...parts.filter((part) => part !== primary)].map<WarehouseGear>(
+        (part, index) => {
+            const base =
+                index === 0
+                    ? current
+                    : (companions.find((one) => one.gear.slot === part.slot) ??
+                      newWarehouseItem('gear'));
+            const detail = normalizeGearDetail(
+                mergeGearPanel({ ...base.gear, slot: part.slot! }, part).detail,
+            )!;
+            return {
+                ...base,
+                kind: 'gear',
+                server: base.server || current.server,
+                gear: { slot: part.slot!, caption: detail.name, detail },
+                soul: result.soul
+                    ? index === 0
+                        ? result.soul.map((row) => ({ ...row }))
+                        : undefined
+                    : base.soul,
+            };
+        },
+    );
 }

@@ -154,7 +154,11 @@ const panelStyle = computed(() => {
         <!-- 点遮罩关闭。只听 `click` 一处：`mousedown` 与 `click` 同时挂，
              一次点击会 `emit('close')` 两次——虽然父级的 close 都幂等，
              但读代码的人会以为有两条关闭路径。 -->
-        <div class="modal-mask" :class="{ 'modal-mask-nested': isNested }" @click.self="onMaskClick">
+        <div
+            class="modal-mask"
+            :class="{ 'modal-mask-nested': isNested }"
+            @click.self="onMaskClick"
+        >
             <!-- 只有栈顶那层是 `aria-modal` 且可聚焦。被盖住的那层还留在 DOM 里
                  （历史窗 + 删除确认就是这个状态）：不给它 `inert`，Tab 能走到遮罩下面
                  那张窗的按钮上，而它在视觉上已经被盖住了。`undefined` 会移除属性。 -->

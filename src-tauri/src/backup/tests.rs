@@ -38,8 +38,7 @@ fn native_backup_over_sixteen_mb_round_trips_and_rejects_truncated_json() {
 
 #[test]
 fn daily_backups_preserve_data_throttle_and_limit_only_daily_files() {
-    let dir =
-        std::env::temp_dir().join(format!("mh-daily-{}-{}", std::process::id(), now_ms()));
+    let dir = std::env::temp_dir().join(format!("mh-daily-{}-{}", std::process::id(), now_ms()));
     let conn = store::open_at(&dir).expect("临时库");
     let mut conn = conn;
     let first = sample();
@@ -131,10 +130,10 @@ fn legacy_source_requires_explicit_v10_full_backup() {
     let raw = r#"{"schemaVersion":10,"characters":[],"transactions":[]}"#;
     assert!(validate_legacy_source(raw).is_ok());
     assert!(validate_legacy_source(&format!("\u{feff}{raw}")).is_ok());
-    assert!(validate_legacy_source(
-        r#"{"schemaVersion":11,"characters":[],"transactions":[]}"#
-    )
-    .is_err());
+    assert!(
+        validate_legacy_source(r#"{"schemaVersion":11,"characters":[],"transactions":[]}"#)
+            .is_err()
+    );
     assert!(validate_legacy_source(r#"{"format":1,"app":"mh-toolbox-rs"}"#).is_err());
     assert!(validate_legacy_source(r#"{"schemaVersion":10,"characters":[]}"#).is_err());
     assert!(validate_legacy_source(&" ".repeat(MAX_LEGACY_BACKUP_BYTES as usize + 1)).is_err());
@@ -334,8 +333,8 @@ fn check_envelope_rejects_other_format_and_app() {
 /// 导入是整体替换，用户只能靠这句话去原始文件里找。
 #[test]
 fn validate_rejects_records_without_id() {
-    let ok = validate(&[serde_json::json!({ "id": "c1" })], &[sample_item()])
-        .expect("都有 id 时应通过");
+    let ok =
+        validate(&[serde_json::json!({ "id": "c1" })], &[sample_item()]).expect("都有 id 时应通过");
     assert_eq!(ok, Truncation::default(), "没有超限的物品，不该报截断");
     validate(&[], &[]).expect("空备份也是合法备份：它就是「清空」这一件事");
 
@@ -383,8 +382,7 @@ fn validate_all_collections_before_replacing() {
         .contains("目标 1 的流水"));
     file.goals[0]["logs"] = serde_json::json!([{}]);
     assert!(validate_backup(&file).unwrap_err().contains("没有 id"));
-    file.goals[0]["logs"] =
-        serde_json::json!([{ "id": "l1", "date": "2026-11-14", "delta": 1 }]);
+    file.goals[0]["logs"] = serde_json::json!([{ "id": "l1", "date": "2026-11-14", "delta": 1 }]);
     validate_backup(&file).expect("空单价与有身份的流水合法");
 }
 
@@ -659,4 +657,3 @@ fn combo_goal_backup_keeps_per_character_items_and_rejects_partial_definitions()
         assert!(validate_goal(&invalid, 0).is_err());
     }
 }
-

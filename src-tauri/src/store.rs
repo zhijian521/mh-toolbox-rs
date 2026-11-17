@@ -501,7 +501,12 @@ fn init(conn: &Connection) -> Result<(), String> {
         "source",
         "TEXT NOT NULL DEFAULT ''",
     )?;
-    add_column_if_missing(conn, "account_entries", "assets", "TEXT NOT NULL DEFAULT '[]'")?;
+    add_column_if_missing(
+        conn,
+        "account_entries",
+        "assets",
+        "TEXT NOT NULL DEFAULT '[]'",
+    )?;
 
     // 旧库缺少逐段快照时，沿用升级前的口径；之后每段独立保存。
     if add_column_if_missing(
@@ -1425,7 +1430,9 @@ fn save_account_trade(
     items: &[serde_json::Value],
 ) -> Result<(), String> {
     validate_record_ids(items, "仓库物品")?;
-    let tx = conn.transaction().map_err(|error| format!("开事务失败：{error}"))?;
+    let tx = conn
+        .transaction()
+        .map_err(|error| format!("开事务失败：{error}"))?;
     tx.execute("DELETE FROM account_entries", [])
         .map_err(|error| format!("清空账号账本失败：{error}"))?;
     for entry in entries {

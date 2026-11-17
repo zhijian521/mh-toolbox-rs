@@ -24,10 +24,14 @@ describe('仓库物品与截图草稿', () => {
         source.gear.slot = '玉魄·阳';
         source.gear.detail.note = '自用备注';
         const result: GearPanelResult = {
-            slot: '玉魄·阳', hit: 2, total: 2,
+            slot: '玉魄·阳',
+            hit: 2,
+            total: 2,
             detail: { name: '上古玉魄', stats: [{ label: '伤害', value: '10' }] },
             soul: [{ label: '防御', value: '20' }],
-            related: [{ slot: '玉魄·阴', hit: 1, total: 1, detail: { name: '上古玉魄', stats: [] } }],
+            related: [
+                { slot: '玉魄·阴', hit: 1, total: 1, detail: { name: '上古玉魄', stats: [] } },
+            ],
         };
         const first = recognizeWarehouseGear(source, result);
         expect(first).toHaveLength(2);

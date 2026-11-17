@@ -180,7 +180,7 @@ async function remove() {
     if (!canRemove.value) return;
     if (action.value !== 'remove') {
         confirming.value = true;
-        let confirmed = false;
+        let confirmed: boolean;
         try {
             confirmed = await askConfirm({
                 title: `删除${warehouseName(props.item)}？`,
@@ -220,12 +220,21 @@ async function remove() {
                     label="装备部位"
                     class="warehouse-slot"
                 />
-                <span v-else class="tag">{{ active.kind === 'gear' ? active.gear.slot : '召唤兽' }}</span>
+                <span v-else class="tag">{{
+                    active.kind === 'gear' ? active.gear.slot : '召唤兽'
+                }}</span>
                 <label class="warehouse-server">
                     <span class="muted">区服</span>
-                    <input v-model="active.server" class="field" aria-label="物品区服" placeholder="选填" />
+                    <input
+                        v-model="active.server"
+                        class="field"
+                        aria-label="物品区服"
+                        placeholder="选填"
+                    />
                 </label>
-                <span class="warehouse-edit-hint muted">{{ draftOnly ? '截图识别后核对，记账时入仓' : '截图识别后核对，保存入仓' }}</span>
+                <span class="warehouse-edit-hint muted">{{
+                    draftOnly ? '截图识别后核对，记账时入仓' : '截图识别后核对，保存入仓'
+                }}</span>
             </div>
             <SegmentedPills
                 v-if="drafts.length > 1"

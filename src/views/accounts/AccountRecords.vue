@@ -104,8 +104,13 @@ const filtered = computed(() => {
     ).filter(
         (one) =>
             !word ||
-            [one.category, one.note, one.channel, characterName(roster.value, one.characterId),
-                ...(one.assets ?? []).map(warehouseName)]
+            [
+                one.category,
+                one.note,
+                one.channel,
+                characterName(roster.value, one.characterId),
+                ...(one.assets ?? []).map(warehouseName),
+            ]
                 .join(' ')
                 .toLocaleLowerCase()
                 .includes(word),
@@ -260,8 +265,17 @@ async function remove(one: AccountEntry) {
                         <td class="c-category">
                             {{ one.category }}<small v-if="one.source === 'auto'">自动同步</small>
                         </td>
-                        <td class="c-note" :title="[one.note, ...(one.assets ?? []).map(warehouseName)].filter(Boolean).join(' · ')">
-                            <span v-if="one.assets?.length" class="record-assets">{{ one.assets.map(warehouseName).join('、') }}</span>
+                        <td
+                            class="c-note"
+                            :title="
+                                [one.note, ...(one.assets ?? []).map(warehouseName)]
+                                    .filter(Boolean)
+                                    .join(' · ')
+                            "
+                        >
+                            <span v-if="one.assets?.length" class="record-assets">{{
+                                one.assets.map(warehouseName).join('、')
+                            }}</span>
                             {{ one.note }}
                         </td>
                         <td class="c-who">{{ characterName(roster, one.characterId) }}</td>

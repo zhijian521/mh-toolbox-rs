@@ -6,7 +6,7 @@ async function setup(failRead = false) {
     const save = vi.fn().mockResolvedValue(true);
     vi.doMock('../../services/desktop', () => ({ hasDesktop: () => true }));
     vi.doMock('../../services/storage', () => ({
-        warehouseLoad: async () => failRead ? null : [],
+        warehouseLoad: async () => (failRead ? null : []),
         warehouseSave: save,
     }));
     await import('../../services/game-data.fixture');

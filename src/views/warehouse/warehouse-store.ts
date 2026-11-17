@@ -106,7 +106,11 @@ export function useWarehouse() {
         return true;
     }
     function remove(id: string): boolean {
-        if (tradePending.value || !persist.canWrite() || !items.value.some((item) => item.id === id))
+        if (
+            tradePending.value ||
+            !persist.canWrite() ||
+            !items.value.some((item) => item.id === id)
+        )
             return false;
         items.value = items.value.filter((item) => item.id !== id);
         void persist();
@@ -121,7 +125,7 @@ export function useWarehouse() {
         tradePending: readonly(tradePending),
         pending: persist.pending,
         flush: persist.flush,
-        retry: () => tradePending.value ? Promise.resolve(false) : persist(),
+        retry: () => (tradePending.value ? Promise.resolve(false) : persist()),
         save,
         remove,
     };

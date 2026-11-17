@@ -146,17 +146,11 @@ export default async function runQuick(ctx, tools) {
         } else {
             t.pass('已有单价，点一下直接记一条');
         }
-        t.info(
-            '单价来源',
-            hadPrice ? '用户原本就有（跑完不动它）' : '测试临时设的（跑完清掉）',
-        );
+        t.info('单价来源', hadPrice ? '用户原本就有（跑完不动它）' : '测试临时设的（跑完清掉）');
 
         const after = await todayCount();
         t.check('记一笔后今日笔数 +1', after === before + 1, `${before} → ${after}`);
-        t.check(
-            '速记净额按日期角色自动同步到账户，收支方向与金额一致',
-            await autoIncomeMatches(),
-        );
+        t.check('速记净额按日期角色自动同步到账户，收支方向与金额一致', await autoIncomeMatches());
         baseline.quickPricedByTest = !hadPrice;
     });
 
@@ -367,19 +361,11 @@ export default async function runQuick(ctx, tools) {
 
     await t.step('单价：导入后条数不变，重载后仍在', async () => {
         const now = await dbCount('income_load', 'prices');
-        t.check(
-            '库里单价条数与导出前一致',
-            now === priceCount,
-            `期望 ${priceCount}，实际 ${now}`,
-        );
+        t.check('库里单价条数与导出前一致', now === priceCount, `期望 ${priceCount}，实际 ${now}`);
 
         await ui.reload();
         const after = await dbCount('income_load', 'prices');
-        t.check(
-            '重载后单价还在（写回的是库，不是内存）',
-            after === priceCount,
-            `实际 ${after}`,
-        );
+        t.check('重载后单价还在（写回的是库，不是内存）', after === priceCount, `实际 ${after}`);
     });
 
     await t.step('把测试临时设的单价清掉', async () => {

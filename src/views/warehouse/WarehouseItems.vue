@@ -10,14 +10,17 @@ import PetTip from '../characters/PetTip.vue';
 import { useGearIcon } from '../characters/use-gear-icon';
 import { warehouseName, type ReadonlyWarehouseItem } from './warehouse';
 
-const props = withDefaults(defineProps<{
-    items: readonly ReadonlyWarehouseItem[];
-    labelPrefix?: string;
-    disabled?: boolean;
-    selectable?: boolean;
-    selectedIds?: ReadonlySet<string>;
-    inspectOnly?: boolean;
-}>(), { labelPrefix: '查看并修改' });
+const props = withDefaults(
+    defineProps<{
+        items: readonly ReadonlyWarehouseItem[];
+        labelPrefix?: string;
+        disabled?: boolean;
+        selectable?: boolean;
+        selectedIds?: ReadonlySet<string>;
+        inspectOnly?: boolean;
+    }>(),
+    { labelPrefix: '查看并修改' },
+);
 const emit = defineEmits<{ itemclick: [item: ReadonlyWarehouseItem] }>();
 const { icon } = useGearIcon();
 const tipId = useId();
@@ -106,13 +109,14 @@ defineExpose({ hideTip });
                 </PressTile>
             </template>
             <PressTile v-else still class="warehouse-pet-icon" aria-hidden="true">
-                <PetImage :name="item.pet.portrait || ''" kind="portrait" :title="null" />
+                <PetImage :name="item.pet.portrait || ''" kind="portrait" title="" />
             </PressTile>
             <span
                 v-if="selectable && selectedIds?.has(item.id)"
                 class="warehouse-item-check"
                 aria-hidden="true"
-            ><AppIcon name="check" /></span>
+                ><AppIcon name="check"
+            /></span>
         </button>
         <GearTip
             :tooltip-id="`${tipId}-gear`"
@@ -131,7 +135,9 @@ defineExpose({ hideTip });
                         {{ row.label }} {{ row.value }}
                     </div>
                 </div>
-                <div v-if="hovered.server" class="meta warehouse-tip-server">{{ hovered.server }}</div>
+                <div v-if="hovered.server" class="meta warehouse-tip-server">
+                    {{ hovered.server }}
+                </div>
             </template>
         </GearTip>
         <PetTip
