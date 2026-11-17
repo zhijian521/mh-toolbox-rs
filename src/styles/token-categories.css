@@ -1,0 +1,91 @@
+/* 物价分类：卡底与分类签两档浅染，light-dark() 同时维护明暗配色。 */
+:root {
+    --tint-装备灵饰: light-dark(#eef0e9, #272e23); /* 青灰：金属，冷 */
+    --tint-deep-装备灵饰: light-dark(#dbe0d4, #313a2c);
+    --tint-召唤兽: light-dark(#f6efdf, #302922); /* 暖橙：活物 */
+    --tint-deep-召唤兽: light-dark(#ece0c9, #3b3126);
+    --tint-兽决内丹: light-dark(#f5eae2, #332825); /* 赭红：书卷，朱的近亲 */
+    --tint-deep-兽决内丹: light-dark(#eed9cf, #3d2c26);
+    --tint-宝石符石: light-dark(#eaf2ec, #202c26); /* 青绿：矿石 */
+    --tint-deep-宝石符石: light-dark(#d5e6d9, #263429);
+    --tint-打造材料: light-dark(#f2ecdd, #302b21); /* 土黄：木料，最接近纸本色 */
+    --tint-deep-打造材料: light-dark(#e8dfc8, #383223);
+    --tint-消耗补给: light-dark(#edf3e7, #242c1f); /* 草绿：药草 */
+    --tint-deep-消耗补给: light-dark(#dbe8d1, #2b3525);
+    --tint-任务产出: light-dark(#ecf0f6, #222932); /* 靛青：藏宝，唯一偏冷的一类 */
+    --tint-deep-任务产出: light-dark(#d9e3f1, #262f3a);
+    --tint-通货账号: light-dark(#f7eed6, #322d20); /* 旧金：钱 */
+    --tint-deep-通货账号: light-dark(#f0e3bd, #3c3522);
+    --tint-其他: light-dark(#f2f0e9, #2c2a26); /* 中性兜底，不跟具体品类抢注意力 */
+    --tint-deep-其他: light-dark(#e6e3da, #322f2a);
+}
+
+/* 工具按日程、资料、游戏分类浅染；新增类别时同步 tools.ts 与工具页映射。 */
+:root {
+    /* 亮色按门派那一组的强度取（它们掺 30% 在整卡上就分得开），因为工具块只有 56px、
+     * 掺得更多（`--tool-wash: 58%`）——色号本身若也按「极淡」取，两层都淡，混出来
+     * 还是纸色。第一版取的是 #f7ecd0 那一档，实测四枚块几乎同色。 */
+    --tint-工具日程: light-dark(#f4ddb0, #3a3120); /* 土赭：日晷、时刻 */
+    --tint-工具资料: light-dark(#d8e5f4, #242e3a); /* 靛青：书卷、图鉴 */
+    --tint-工具游戏: light-dark(#dceace, #28331f); /* 苔绿：动手做的事 */
+}
+
+/* 门派色按七族组织，族间分色相、族内分明度；与物价分类独立。 */
+:root {
+    /* 门派染色的两端与中点成套调整，避免票面比卡底最浓处更深。 */
+    --wash: 19%;
+    --wash-hi: 30%;
+    --wash-lo: 8%;
+    /* 暗色独立设置染色两端；票面直接使用端点，不额外定义中点。 */
+    --wash-hi-dark: 76%;
+    --wash-lo-dark: 16%;
+
+    --tint-大唐官府: light-dark(#f2d2c6, #3a2a24);
+    --tint-deep-大唐官府: light-dark(#e8c4b6, #4b3730);
+    --tint-魔王寨: light-dark(#f3d1bb, #3c281f);
+    --tint-deep-魔王寨: light-dark(#ecc0aa, #4e3528);
+
+    --tint-化生寺: light-dark(#f3e5bd, #3a331c);
+    --tint-deep-化生寺: light-dark(#e8d49f, #4b4225);
+    --tint-天宫: light-dark(#f6e9c3, #3b341d);
+    --tint-deep-天宫: light-dark(#ebd8a2, #4c4326);
+    --tint-弥勒山: light-dark(#f1e1ac, #393116);
+    --tint-deep-弥勒山: light-dark(#e6d094, #493f1e);
+    --tint-九黎城: light-dark(#e7ddb6, #37301c);
+    --tint-deep-九黎城: light-dark(#dcc79f, #463d25);
+
+    --tint-女儿村: light-dark(#f7dcd5, #3b2825);
+    --tint-deep-女儿村: light-dark(#f0c3b9, #4c352f);
+    --tint-普陀山: light-dark(#efd0dd, #382732);
+    --tint-deep-普陀山: light-dark(#e2c3d0, #483341);
+
+    --tint-方寸山: light-dark(#cfe8d0, #21301f);
+    --tint-deep-方寸山: light-dark(#c3dcc5, #2b3e29);
+    --tint-龙宫: light-dark(#c7ddf2, #1c2937);
+    --tint-deep-龙宫: light-dark(#b9d3e8, #253546);
+    --tint-东海渊: light-dark(#b6e2ec, #193033);
+    --tint-deep-东海渊: light-dark(#b0d6dc, #224143);
+    --tint-凌波城: light-dark(#c8edde, #1d3229);
+    --tint-deep-凌波城: light-dark(#bce0d0, #254137);
+
+    --tint-五庄观: light-dark(#dbf0c2, #28351c);
+    --tint-deep-五庄观: light-dark(#cbe0b3, #344426);
+    --tint-神木林: light-dark(#cfeec0, #26341a);
+    --tint-deep-神木林: light-dark(#c5ddb0, #314323);
+    --tint-花果山: light-dark(#efeeb4, #33331a);
+    --tint-deep-花果山: light-dark(#e0e0a6, #424222);
+
+    --tint-阴曹地府: light-dark(#d8caec, #2c2438);
+    --tint-deep-阴曹地府: light-dark(#c9bcdd, #3a3049);
+    --tint-盘丝洞: light-dark(#edcae8, #352439);
+    --tint-deep-盘丝洞: light-dark(#dfbdda, #45304a);
+    --tint-女魃墓: light-dark(#d8ccd6, #2e2630);
+    --tint-deep-女魃墓: light-dark(#c9b8c6, #3c3240);
+
+    --tint-狮驼岭: light-dark(#ece0ba, #332a18);
+    --tint-deep-狮驼岭: light-dark(#dfd0a8, #423722);
+    --tint-无底洞: light-dark(#ebd6b4, #352917);
+    --tint-deep-无底洞: light-dark(#dbc3a2, #443520);
+    --tint-天机城: light-dark(#dedccb, #2c2b20);
+    --tint-deep-天机城: light-dark(#d0cdb8, #3a392b);
+}

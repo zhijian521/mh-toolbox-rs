@@ -63,7 +63,7 @@ git blame，收益低于成本。其余约定：
 5. 内容靠层级区分，避免层层描边；卡片与浮层各用对应公共基座。
 6. 动效用 --t-* 与 --ease-*；位移使用 --ease-snap，时长按移动距离选。
 7. 支持 prefers-reduced-motion；公共降级规则不得被局部动画绕开。
-8. 样式唯一真源是 tokens.css / base.css / blocks.css；独立 HTML 方案也引用它们。
+8. 样式唯一真源在 src/styles/；tokens.css 按固定顺序加载令牌与材质分层，base.css 管元素基座，blocks.css 管组合排版。独立 HTML 方案引用同一入口，不复制样式。
 9. 选中态改变底色，不改变字重、字号、字距或内容尺寸。
 10. 互斥组选项共用一个 Tab 停靠点，使用 radiogroup / radio / aria-checked 与方向键导航。
 11. 凹槽与印面复用 .well / .stamp，不复制第二份材质。

@@ -1,0 +1,242 @@
+/* 字体使用常用字子集，缺字回退系统字体；来源与再生成方式见 assets/fonts/README.md。 */
+@font-face {
+    font-family: 'LXGW WenKai Screen';
+    src: url('../../assets/fonts/LXGWWenKaiScreen.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+
+/* 新字体为常用字子集，原件版本与生成方式见 tools/font/import-ui-fonts.py。
+ * 仅当前字体被使用时加载；内部名称区分于上游原件。 */
+@font-face {
+    font-family: 'MH Toolbox Hei';
+    src: url('../../assets/fonts/MHHei.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'MH Toolbox Rounded';
+    src: url('../../assets/fonts/MHRounded.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+
+:root[data-font='sans'] {
+    --font-ui: 'MH Toolbox Hei', 'Microsoft YaHei', sans-serif;
+}
+:root[data-font='rounded'] {
+    --font-ui: 'MH Toolbox Rounded', 'Microsoft YaHei', sans-serif;
+}
+
+:root {
+    color-scheme: light;
+
+    /* ---------- 字体 ----------
+     * 全站由同一字体令牌驱动，默认霞鹜文楷。字体选择与主题、字号独立，
+     * 标题、金额、元信息和数字列均跟随当前选择；越界字符使用对应系统回退。
+     */
+    --font-ui: 'LXGW WenKai Screen', 'Microsoft YaHei', sans-serif;
+
+    /* 纸：--paper-base 与 --ink-base 是不随明暗翻面的混色锚点。 */
+    --paper-base: #f8f3e6;
+    /* `--ink-base` 是**不翻面的墨黑绝对值**，与 `--paper-base` 成对：它是 `color-mix()`
+     * 里「往深压」的那个锚点。`--ink` 在亮色是暖墨 #292520、暗色是纸白 #ece3cd——
+     * 拿它去压，同一个算式在两个主题里一个变深、一个变浅（朱红块的背光面会因此发光）。
+     * 需要「恒定的暗」时引这一枚，别写 `#000`。 */
+    --ink-base: #000000;
+    --bg: light-dark(#eee5cf, #131109);
+    --paper: light-dark(var(--paper-base), #1c1912);
+    --paper-2: light-dark(#f2ead6, #231f16);
+    --well: light-dark(#e7dcc0, #171409);
+    --ink: light-dark(#292520, #ece3cd);
+    --ink-2: light-dark(#4a4238, #cdc2a8);
+    --muted: light-dark(#877b62, #9a8f77);
+
+    /* ---------- 线 ----------
+     * --rule 是账线（细、暖、几乎不抢），--rule-2 是分割与描边（说得清边界）。
+     */
+    --rule: light-dark(#dccdab, #38321f);
+    --rule-2: light-dark(#bca87c, #544a33);
+
+    /* ---------- 朱与诸色 ---------- */
+    /* 朱红：区块标、选中、支出。深一档的 --cinnabar-ink 用于字与描边，浅的只做底。 */
+    --cinnabar: light-dark(#a8322b, #d0755f);
+    --cinnabar-ink: light-dark(#8a2620, #b85b49);
+    --on-cinnabar: light-dark(#fbf4e4, #171310);
+
+    /* ---------- 界面语义 ----------
+     * 主色与状态色分开：换风格只改 accent，不会把删除、报错和负数一起改色。
+     * 调色板继续服务装备、门派、图表等业务分类。
+     */
+    --accent: var(--cinnabar);
+    --accent-ink: var(--cinnabar-ink);
+    --on-accent: var(--on-cinnabar);
+    --danger: var(--cinnabar);
+    --danger-ink: var(--cinnabar-ink);
+    --success: var(--moss);
+    --warning: var(--ochre);
+    --positive: var(--moss);
+    --negative: var(--cinnabar);
+    --action-ink: var(--accent);
+    --danger-fill: light-dark(var(--danger), var(--danger-ink));
+    --danger-edge: light-dark(
+        var(--danger-ink),
+        color-mix(in srgb, var(--danger-ink) 70%, var(--ink))
+    );
+    --on-danger: light-dark(var(--on-cinnabar), var(--ink));
+
+    /* 浮层、弹窗、提示的用途与分类色分开。 */
+    --popover-bg: light-dark(
+        var(--paper),
+        color-mix(in srgb, var(--paper-2) 86%, var(--paper-base) 14%)
+    );
+    --popover-edge: var(--rule-2);
+    --popover-shadow: var(--shadow-lift);
+    --modal-bg: var(--paper);
+    --modal-edge: var(--rule-2);
+    --modal-shadow: var(--shadow-lift);
+    --modal-mask: color-mix(in srgb, var(--ink) 42%, transparent);
+    --tooltip-bg: var(--indigo);
+    --tooltip-ink: var(--indigo-ink);
+    --tooltip-shadow: 0 2px 4px var(--shadow), 0 10px 22px -10px var(--shadow-lg);
+    --page-surface: light-dark(var(--well), color-mix(in srgb, var(--well) 66%, var(--ink-base)));
+
+    /* 物品与技能图标保留各自读图强度，由风格选择是否纸化。 */
+    --item-icon-filter: sepia(0.22) saturate(0.86) contrast(0.98);
+    --item-icon-opacity: 0.94;
+    --skill-icon-filter: sepia(0.42) saturate(0.72) contrast(0.95) brightness(1.05);
+
+    /* 印面、边缘与文字成套使用 --seal / --seal-edge / --on-seal。
+     * 主色前景用 --accent，错误用 --danger，分类使用各自调色板。 */
+    --seal: var(--accent);
+    --seal-edge: var(--accent-ink);
+    --on-seal: var(--on-accent);
+    /* 赭：装备类目与铜色徽章。 */
+    --ochre: light-dark(#8a5a2b, #c49a6a);
+    /* 苔：已达成、正收益。 */
+    --moss: light-dark(#4a6b4a, #86ab86);
+
+    /* 悬停说明使用冷靛色，与暖纸底区分；明暗两版独立配色。 */
+    --indigo: light-dark(#e8eef3, #1e2833);
+    --indigo-ink: light-dark(#26425d, #a9c3d8);
+
+    /* 读数使用赭色，与名称及主操作、危险状态区分。 */
+    --num: var(--ochre);
+
+    /* 地图范围靠明度区分内外层；Canvas 与侧栏图例共用这组颜色。 */
+    --ghost-wash: light-dark(#f0b8aa, #6b3a32);
+    --ghost-wash-edge: light-dark(#b56b5a, #9a5f52);
+    --ghost-hot: light-dark(#9e3d33, #b4553f);
+    --ghost-hot-edge: light-dark(#6b211a, #e09070);
+
+    /* 地图标记不随主题翻面，与固定游戏底图配对；恒定浅色光晕保证对比。 */
+    --map-seal: #a8322b;
+    --map-seal-ink: #8a2620;
+    /* 标记压在游戏截图上，不跟随界面的风格或明暗换色。 */
+    --map-halo: #f8f3e6;
+
+    /* ---------- 立体与阴影 ---------- */
+    --bevel-hi: light-dark(#fffaecd0, #ffffff2e);
+    --bevel-lo: light-dark(#3a33241f, #0000008c);
+    --shadow: light-dark(#2f2a2414, #00000059);
+    --shadow-lg: light-dark(#2f2a242e, #00000080);
+    /* 浮层（浮片、浮动面板、整张卡）抬起一次的影子：一层贴边、一层大而软。
+     * 原先三处各写一套（卡片 22/-12、浮片 32/-16、测试面板 8px 混墨），
+     * 数值差得不多、方向也不一致——同一件「纸片抬离桌面」的事，读起来是三种厚度。 */
+    --shadow-lift: 0 1px 2px var(--shadow), 0 16px 30px -14px var(--shadow-lg);
+    --warn-bg: light-dark(#f0e6cf, #332c1f);
+
+    /* 普通纸面使用主色环，填色面使用反色环；默认偏移 2px。 */
+    --ring: 2px solid var(--accent);
+    --ring-inv: 2px solid color-mix(in srgb, var(--ink) 45%, transparent);
+    --ring-offset: 2px;
+
+    /* ---------- 滚动条 ---------- */
+    --scrollbar-thumb: light-dark(#c4b189, #4b4130);
+    --scrollbar-thumb-hover: light-dark(#a79066, #665a41);
+    --scrollbar-thumb-active: light-dark(#8e7850, #83714f);
+
+    /* 字号统一包含 --fs-scale，组件不再重复缩放。 */
+    --fs-scale: 1;
+    /* 小字三档与三个类一一对应（`base.css` 的「文本」段、§2.4-23）：
+     * `--fs-mini` 归 `.meta`（元信息）与 `.chip`（小签），`--fs-xs` 归 `.note`（块级说明）
+     * 与 `.field-label`，`--fs-sm` 归 `.hint`（行内提示）。选字号前先想「这是哪一档」，
+     * 不要按像素数就近挑一个。 */
+    --fs-mini: calc(10px * var(--fs-scale)); /* 印、小签、元信息 */
+    --fs-xs: calc(11px * var(--fs-scale)); /* 块级说明、行标签 */
+    --fs-sm: calc(12px * var(--fs-scale)); /* 胶囊、行内提示 */
+    --fs-base: calc(13.5px * var(--fs-scale)); /* 正文、表单 */
+    --fs-md: calc(14.5px * var(--fs-scale)); /* 分栏标题 */
+    --fs-xl: calc(22px * var(--fs-scale)); /* 页面标题 */
+    /* 金额读数：卡面当前价、历史弹窗抬头那一档。
+     * 这两处本来就是同一个数在同一个人眼前出现两次，字号必须同源——
+     * 早先卡片写 `× 1.4`、历史窗写 `--fs-xl × 0.95`（20.9 对 18.9），同一个价格两个大小。
+     * 输入格那两档（1.8 / 1.3）不并进来：它们是「编辑焦点」的尺寸，不是读数。 */
+    --fs-amount: calc(var(--fs-base) * 1.4);
+    --lh-base: 1.72;
+
+    /* 间距按布局就地声明，不维护通用间距刻度。 */
+
+    /* ---------- 圆角 ----------
+     * 账簿方向几乎不用圆角：纸与线都是方的。胶囊与开关是唯一例外（要读出厚度）。
+     */
+    --r-1: 2px;
+    --r-2: 3px;
+    --r-3: 4px;
+    --r-pill: 999px;
+    --r-panel: 6px;
+    --r-tile: 9px;
+
+    /* ---------- 线宽 ---------- */
+    --w-hair: 1px;
+
+    /* 页头高度与左栏牌记对齐；改变页头内边距或行高时同步调整。 */
+    --page-head-h: calc(19px + var(--fs-xl) * 1.15 + var(--w-hair));
+
+    /* 页头左右与内容四边共用；纸面留白不随字号缩放。 */
+    --page-pad: 16px;
+
+    /* 主卡与紧凑区块使用两个公共留白规格。 */
+    --block-pad: 15px 18px 18px;
+    --block-pad-tight: 11px 14px 12px;
+
+    /* 名册卡片固定尺寸；修改窗右栏通过 --char-editor-w 独立分配宽度。 */
+    --char-w: 420px;
+    --char-h: 640px;
+    /* 修改窗右栏独立加宽，左截图栏使用剩余宽度。 */
+    --char-editor-w: 460px;
+
+    /* 滚动条轨道宽。它有两个用处，必须同源：`::-webkit-scrollbar` 的 `width`
+     * 与 `.page-content` 右侧内边距的扣减（轨道占的是纸边，不该再把卡片推离右缘）。
+     * 一旦两边各自写死，卡片右缘与页头右端就会差一条轨道的宽度。
+     * 归在「骨架尺寸」而不是「线宽」：它不是笔画的粗细，是版面上一条固定宽的槽。 */
+    --scrollbar-w: 10px;
+
+    /* 动效按变化距离分档：颜色、淡入、按压、形变、滑块、整格移动与浮层。 */
+    --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-snap: cubic-bezier(0.34, 1.28, 0.6, 1);
+    --t-quick: 120ms;
+    --t-mid: 180ms;
+    --t-press: 200ms;
+    --t-shape: 220ms;
+    --t-thumb: 240ms;
+    --t-slide: 300ms;
+    --t-tip: 90ms;
+}
+
+:root.dark {
+    --item-icon-filter: sepia(0.18) saturate(0.8) brightness(0.86);
+    color-scheme: dark;
+
+    /* 印面整组重映射，理由见上面 `--seal` 那一段。
+     * 注意 `--on-cinnabar` 本身仍留在暗色的近黑不动——它只在
+     * 「亮色面 + 深色字」的场合有意义，而现在没有地方该这么用。 */
+    --seal: var(--accent-ink);
+    /* 亮色下印边比印面深一档（`--cinnabar-ink`）；暗色下印面已经是 `--cinnabar-ink`，
+     * 再用它就分不出来了，所以往纸白方向提 30%，让边浮在面之上。 */
+    --seal-edge: color-mix(in srgb, var(--accent-ink) 70%, var(--ink));
+    --on-seal: var(--ink);
+}

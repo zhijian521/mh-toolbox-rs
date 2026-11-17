@@ -72,7 +72,17 @@ Windows 在访问账本、建窗和预热 OCR 前独占数据目录中的 app-in
 - **业务数据的 `localStorage` 路径仅用于浏览器**（`npm run dev`、探针）——没有 Tauri 宿主，
   `hasDesktop()` 为假，六个 store 直接走本地分支。主题、字体、字号、闹钟和首页快捷入口属于本机偏好，桌面版也使用 `localStorage`，不随账本导出。
 
-字体独立选择由 `use-font-family.ts` 单例维护，挂载前恢复 `mh-font-family` 并设置根属性 `data-font`；缺失或非法值使用原有文楷。字体族只在 `tokens.css` 中定义，界面与 Canvas 共用 `--font-ui`，字体加载完成后地图重绘。三种字体随包提供，固定来源、许可与子集生成方式见 [assets/fonts/README.md](../assets/fonts/README.md)。
+主题样式统一从 `src/styles/tokens.css` 加载，应用与独立预览共用入口，顺序为：
+
+- `token-core.css`：字体、基础语义、尺寸与动效。
+- `token-categories.css`：物价、工具与门派分类色。
+- `token-themes.css`：六套主题的配色及根变量。
+- `materials.css`：公共控件材质，在实际元素上求值。
+- `theme-materials.css`：主题材质覆写与兼容降级。
+
+分层保持原声明顺序、选择器与变量名，不使用额外级联层；依赖局部染色的配方不提升到根节点。
+
+字体独立选择由 `use-font-family.ts` 单例维护，挂载前恢复 `mh-font-family` 并设置根属性 `data-font`；缺失或非法值使用原有文楷。字体族集中在 `token-core.css`，界面与 Canvas 共用 `--font-ui`，字体加载完成后地图重绘。三种字体随包提供，固定来源、许可与子集生成方式见 [assets/fonts/README.md](../assets/fonts/README.md)。
 
 ### 业务联动
 

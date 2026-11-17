@@ -206,8 +206,9 @@ start.bat --force    遇到占用直接处理，不询问
    两个安装包当成同一个应用互相覆盖。
 3. **渲染层只有 `src/services/` 能碰系统**。ESLint 已拦 `@tauri-apps/api/core` 出现在
    `components/`、`views/`、`composables/` 里。
-4. **令牌只有一份真源**：`src/styles/` 的 `tokens.css` / `base.css` / `blocks.css`。全仓**没有
-   任何样式表副本**——以后做设计稿也引同一份，不要复制。
+4. **令牌只有一份真源**：`src/styles/` 的 `tokens.css` 为令牌与材质分层入口，
+   `base.css` / `blocks.css` 管基座与组合排版。分层文件只由入口按固定顺序加载；
+   全仓**没有任何样式表副本**——以后做设计稿也引同一份，不要复制。
 5. **卸载不删数据**（`deleteAppDataOnUninstall` 保持 false）。
 6. **新版数据不回落旧版**（2026-11-04 用户定）。数据层在 SQLite，导出是 JSON 信封
    （`format: 1` + `app: mh-toolbox-rs`，见 `backup.rs`），旧版 Electron 打不开这份账；也**不做**

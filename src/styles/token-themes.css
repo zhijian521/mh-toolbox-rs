@@ -1,0 +1,228 @@
+/* 风格只换调色板与材质；分类、门派、账本正负和危险色保留各自含义。
+ * 每枚颜色同时提供亮暗两面，data-style 与 dark 可任意组合。
+ */
+
+/* 静态 SVG 用无缝噪声表现纤维和颗粒，不用等距线条模拟天然材料。
+ * 纹理保持低不透明度，明暗共用；标题栏与页头留素面，避免小字叠在纹理上。
+ */
+/* ---------- 账簿：细纤维暖纸 ---------- */
+:root[data-style='ledger'] {
+    --paper-grain: url('../../assets/textures/paper-fibre.svg');
+    --page-surface:
+        var(--paper-grain),
+        radial-gradient(
+            ellipse at 18% 0%,
+            color-mix(in srgb, var(--bevel-hi) 20%, transparent),
+            transparent 70%
+        ),
+        var(--well);
+    --modal-bg: var(--paper-grain), var(--paper);
+}
+
+/* ---------- 青瓷 ---------- */
+:root[data-style='celadon'] {
+    --paper-base: #f3f7f2;
+    --bg: light-dark(#dfe9e4, #0f1915);
+    --paper: light-dark(var(--paper-base), #18261f);
+    --paper-2: light-dark(#e8f0e9, #203229);
+    --well: light-dark(#d7e3da, #13211a);
+    --ink: light-dark(#273f36, #e4f0e9);
+    --ink-2: light-dark(#476358, #c0d5cb);
+    --muted: light-dark(#587064, #91ac9f);
+    --rule: light-dark(#c2d3c8, #314b3d);
+    --rule-2: light-dark(#90ac9b, #4c6a58);
+
+    --accent: light-dark(#397960, #8ec8aa);
+    --accent-ink: light-dark(#285b48, #326a55);
+    --on-accent: light-dark(#f5faf6, #15281f);
+    --tooltip-bg: light-dark(#e0eee8, #203b31);
+    --tooltip-ink: light-dark(#315b48, #c1e1ce);
+
+    --bevel-hi: light-dark(#fafff6c2, #e5fff129);
+    --bevel-lo: light-dark(#163f2a1c, #000b0780);
+    --shadow: light-dark(#264a3614, #00080666);
+    --shadow-lg: light-dark(#264a3629, #0008068c);
+    --scrollbar-thumb: light-dark(#9eb9a9, #3d5b4b);
+    --scrollbar-thumb-hover: light-dark(#7b9e89, #557b64);
+    --scrollbar-thumb-active: light-dark(#60866e, #719982);
+}
+
+/* ---------- 霁蓝 ---------- */
+:root[data-style='azure'] {
+    --paper-base: #f7f9fc;
+    --bg: light-dark(#e6ecf4, #101922);
+    --paper: light-dark(var(--paper-base), #1b2836);
+    --paper-2: light-dark(#eef3f9, #223244);
+    --well: light-dark(#dfe7f1, #14202e);
+    --ink: light-dark(#253a51, #e3edf7);
+    --ink-2: light-dark(#465e78, #becfe1);
+    --muted: light-dark(#687e95, #8ea6bf);
+    --rule: light-dark(#cbd8e7, #33485e);
+    --rule-2: light-dark(#a4b8d0, #4c6884);
+
+    --accent: light-dark(#426eaa, #93b6e3);
+    --accent-ink: light-dark(#305582, #395d8a);
+    --on-accent: light-dark(#f9fbff, #11243b);
+    --tooltip-bg: light-dark(#e5eefb, #243d59);
+    --tooltip-ink: light-dark(#355985, #c3dcf5);
+
+    --bevel-hi: light-dark(#ffffffc7, #d1e7ff26);
+    --bevel-lo: light-dark(#23476f1c, #030e1c80);
+    --shadow: light-dark(#27476c14, #030d1766);
+    --shadow-lg: light-dark(#27476c24, #030d178c);
+    --scrollbar-thumb: light-dark(#a9bdd5, #435f7e);
+    --scrollbar-thumb-hover: light-dark(#839fc1, #6382a3);
+    --scrollbar-thumb-active: light-dark(#6486b0, #85a6c9);
+}
+
+/* ---------- 水晶 ---------- */
+:root[data-style='crystal'] {
+    --paper-base: #f7fdff;
+    --bg: light-dark(#cce8f4, #091a2c);
+    --paper: light-dark(#f2fbff, #183b55);
+    --paper-2: light-dark(#e7f6fd, #1e425d);
+    --well: light-dark(#cce8f5, #102e46);
+    --ink: light-dark(#153b59, #e9f9ff);
+    --ink-2: light-dark(#315b77, #c3e2f1);
+    --muted: light-dark(#557a92, #8db4cb);
+    --rule: light-dark(#b2d8e9, #315c75);
+    --rule-2: light-dark(#7eb9d3, #4d89aa);
+
+    --accent: light-dark(#1673ad, #79d2fa);
+    --accent-ink: light-dark(#115b91, #185c88);
+    --on-accent: light-dark(#f8feff, #092d47);
+    --tooltip-bg: light-dark(#e3f5ff, #204e70);
+    --tooltip-ink: light-dark(#1c587e, #c6eeff);
+
+    --bevel-hi: light-dark(#ffffffed, #d6f6ff59);
+    --bevel-lo: light-dark(#296b942e, #020c1d8c);
+    --shadow: light-dark(#1d5f841a, #020b1c70);
+    --shadow-lg: light-dark(#17577e40, #020b1ca3);
+    --scrollbar-thumb: light-dark(#86bdd5, #377293);
+    --scrollbar-thumb-hover: light-dark(#5b9fbe, #59a1c6);
+    --scrollbar-thumb-active: light-dark(#3482a6, #7ec7e8);
+
+    --crystal-pane: light-dark(#f4fcffb8, #153951d9);
+    --crystal-rim: light-dark(#ffffffd9, #c2f0ff52);
+    --crystal-glint: light-dark(#ffffffdb, #ceefff38);
+    --crystal-shadow: light-dark(#326e9226, #020b1c80);
+    --crystal-field: light-dark(#a1d7ed, #113c5b);
+    --crystal-glow: light-dark(#edfbff, #2d6d8b);
+    --crystal-pool: light-dark(#b0c8ee, #263c68);
+    --page-surface:
+        radial-gradient(ellipse at 14% 18%, var(--crystal-glow), transparent 45%),
+        radial-gradient(ellipse at 82% 75%, var(--crystal-pool), transparent 52%),
+        linear-gradient(125deg, var(--bg), var(--crystal-field) 64%, var(--paper-2));
+    /* 浮层浓度高于卡片，保证任意背景下仍能读清字段。 */
+    --modal-bg:
+        linear-gradient(140deg, var(--crystal-glint), transparent 55%),
+        light-dark(#e8f8fff0, #153951f0);
+    --popover-bg:
+        linear-gradient(140deg, var(--crystal-glint), transparent 55%),
+        light-dark(#f2fbfff5, #183b55f5);
+}
+
+/* ---------- 敦煌岩彩 ---------- */
+:root[data-style='dunhuang'] {
+    --paper-base: #fbf0db;
+    --bg: light-dark(#e6cfa5, #211d17);
+    --paper: light-dark(var(--paper-base), #30291e);
+    --paper-2: light-dark(#f2e2c2, #3b3224);
+    --well: light-dark(#e2cc9f, #262117);
+    --ink: light-dark(#4b3828, #f4e6c7);
+    --ink-2: light-dark(#6c543d, #d9c4a1);
+    --muted: light-dark(#8c7456, #b29b79);
+    --rule: light-dark(#d7bc8d, #594b34);
+    --rule-2: light-dark(#b4905f, #7c6644);
+
+    --accent: light-dark(#326b61, #94c5b1);
+    --accent-ink: light-dark(#27554e, #34665c);
+    --on-accent: light-dark(#fff5df, #142d25);
+    --tooltip-bg: light-dark(#dce5d0, #2b443a);
+    --tooltip-ink: light-dark(#2d5549, #c9e3cd);
+
+    --bevel-hi: light-dark(#fff6daba, #ffe2a62b);
+    --bevel-lo: light-dark(#7a491c26, #100a028c);
+    --shadow: light-dark(#79512524, #0c080266);
+    --shadow-lg: light-dark(#79512536, #0c08028c);
+    --scrollbar-thumb: light-dark(#baa077, #655337);
+    --scrollbar-thumb-hover: light-dark(#a38456, #89724e);
+    --scrollbar-thumb-active: light-dark(#87683f, #af956a);
+
+    --paper-grain: url('../../assets/textures/paper-fibre.svg');
+    --dunhuang-trim: linear-gradient(
+        90deg,
+        var(--accent) 0% 37%,
+        var(--ochre) 37% 66%,
+        var(--cinnabar) 66% 100%
+    );
+    --page-surface:
+        url('../../assets/textures/mineral-grain.svg'),
+        radial-gradient(
+            ellipse at 8% 0%,
+            color-mix(in srgb, var(--ochre) 5%, transparent),
+            transparent 65%
+        ),
+        radial-gradient(
+            ellipse at 100% 100%,
+            color-mix(in srgb, var(--accent) 3%, transparent),
+            transparent 65%
+        ),
+        var(--well);
+    --modal-bg: var(--paper-grain), var(--paper);
+}
+
+/* ---------- 紫檀书斋：木纹留在台面，卡片与字段保持暖纸 ---------- */
+:root[data-style='rosewood'] {
+    --paper-base: #f8eee6;
+    --bg: light-dark(#d8c0b1, #21151a);
+    --paper: light-dark(var(--paper-base), #352229);
+    --paper-2: light-dark(#ecdbce, #402a32);
+    --well: light-dark(#cfb2a2, #291b20);
+    --ink: light-dark(#422b2c, #f3e3d7);
+    --ink-2: light-dark(#654347, #d8bdb0);
+    --muted: light-dark(#92736c, #ad8e84);
+    --rule: light-dark(#ceb0a1, #60424a);
+    --rule-2: light-dark(#ad8273, #855963);
+
+    --accent: light-dark(#85434b, #e0a8a0);
+    --accent-ink: light-dark(#68303b, #8a4854);
+    --on-accent: light-dark(#fff1e4, #32171d);
+    --tooltip-bg: light-dark(#efddd7, #503039);
+    --tooltip-ink: light-dark(#763d46, #f0c7bd);
+
+    --bevel-hi: light-dark(#fff4dfad, #efc9b638);
+    --bevel-lo: light-dark(#4d1f2529, #10040999);
+    --shadow: light-dark(#582e3026, #10040973);
+    --shadow-lg: light-dark(#582e303d, #100409a3);
+    --scrollbar-thumb: light-dark(#b18b7f, #6d4851);
+    --scrollbar-thumb-hover: light-dark(#967065, #946770);
+    --scrollbar-thumb-active: light-dark(#79524e, #b78b8f);
+
+    --wood-grain: url('../../assets/textures/wood-grain.svg');
+    --wood-sheen: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--bevel-hi) 24%, transparent),
+        transparent 70%
+    );
+    --page-surface:
+        var(--wood-grain),
+        radial-gradient(
+            ellipse at 22% 0%,
+            color-mix(in srgb, var(--bevel-hi) 24%, transparent),
+            transparent 72%
+        ),
+        linear-gradient(110deg, var(--well), var(--bg));
+    --modal-bg: var(--wood-sheen), var(--paper);
+}
+
+:root[data-style='celadon'],
+:root[data-style='azure'],
+:root[data-style='crystal'],
+:root[data-style='dunhuang'],
+:root[data-style='rosewood'] {
+    --modal-mask: color-mix(in srgb, var(--ink-base) 42%, transparent);
+    --item-icon-filter: none;
+    --item-icon-opacity: 1;
+    --skill-icon-filter: none;
+}
