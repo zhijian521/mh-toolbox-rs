@@ -157,19 +157,37 @@ defineExpose({ hideTip });
 <style scoped>
 .warehouse-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, var(--warehouse-cell-size, 80px));
-    gap: 8px;
+    grid-template-columns: repeat(auto-fill, var(--warehouse-cell-size, 60px));
+    gap: 4px;
     align-content: start;
 }
 .warehouse-item {
     position: relative;
     justify-content: center;
-    min-height: var(--warehouse-cell-size, 80px);
+    min-height: var(--warehouse-cell-size, 60px);
+    gap: 0;
+    padding: 3px;
+    transition:
+        border-color var(--t-mid) var(--ease-soft),
+        background var(--t-mid) var(--ease-soft),
+        box-shadow var(--t-mid) var(--ease-soft);
+}
+.warehouse-item:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--rule-2));
+    background: color-mix(in srgb, var(--accent) 6%, var(--paper));
+    box-shadow: 0 2px 5px var(--shadow);
+}
+.warehouse-item:hover:not(:disabled) :is(.warehouse-gear-icon, .warehouse-pet-icon),
+.warehouse-item:focus-visible :is(.warehouse-gear-icon, .warehouse-pet-icon) {
+    transform: translateY(-1px);
 }
 .warehouse-item-selected {
     outline: 1px solid var(--accent);
     outline-offset: -2px;
     background: color-mix(in srgb, var(--accent) 8%, var(--paper));
+}
+.warehouse-item-selected:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 12%, var(--paper));
 }
 .warehouse-item-check {
     position: absolute;
@@ -186,12 +204,12 @@ defineExpose({ hideTip });
 }
 .warehouse-gear-icon,
 .warehouse-pet-icon {
-    --tile-w: var(--warehouse-tile-size, 64px);
-    --tile-h: var(--warehouse-tile-size, 64px);
+    --tile-w: var(--warehouse-tile-size, 52px);
+    --tile-h: var(--warehouse-tile-size, 52px);
     --tile-r: var(--r-3);
 }
 .warehouse-gear-icon {
-    --shot: var(--warehouse-gear-size, 52px);
+    --shot: var(--warehouse-gear-size, 44px);
     --tile-drop: 0.6;
     --tile-face: light-dark(var(--paper), color-mix(in srgb, var(--paper-2) 84%, var(--ink)));
 }
@@ -205,7 +223,7 @@ defineExpose({ hideTip });
     --tile-face: color-mix(in srgb, var(--well) 55%, var(--paper-2));
 }
 .warehouse-pet-icon :deep(.pet-image.portrait) {
-    --pet-icon-size: var(--warehouse-pet-size, 56px);
+    --pet-icon-size: var(--warehouse-pet-size, 46px);
     background: transparent;
 }
 .warehouse-soul,

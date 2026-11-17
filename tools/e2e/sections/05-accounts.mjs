@@ -180,6 +180,31 @@ export default async function run(ctx) {
                             : !!tip.querySelector('[aria-label="装备属性"]'));
                 })()`),
                 );
+                if (kind === '召唤兽') {
+                    t.check(
+                        '召唤兽属性、加点、资质三列对齐，技能放在下方',
+                        await cdp.evaluate(`(() => {
+                        const tip = document.querySelector('.pet-tip.on');
+                        const columns = Array.from(tip.querySelectorAll('.pet-tip-columns > section'));
+                        const boxes = columns.map((column) => column.getBoundingClientRect());
+                        const skills = tip.querySelector('.tip-content > .pet-tip-group');
+                        const facts = columns[2]?.querySelector('.pet-tip-facts');
+                        return columns.length === 3 &&
+                            columns.map((column) => column.getAttribute('aria-label')).join() === '属性,加点,资质' &&
+                            boxes.every((box) => Math.abs(box.top - boxes[0].top) <= 1) &&
+                            boxes.slice(1).every((box, i) => box.left > boxes[i].right) &&
+                            columns.every((column) => {
+                                const rows = Array.from(column.querySelectorAll('.slip-row'));
+                                return rows.every((row) => Math.abs(row.getBoundingClientRect().left -
+                                    rows[0].getBoundingClientRect().left) <= 1);
+                            }) &&
+                            Array.from(facts.querySelectorAll('.slip-name')).map((name) => name.textContent).join() === '寿命,成长' &&
+                            facts.getBoundingClientRect().bottom <= columns[2].querySelector('.group-head').getBoundingClientRect().top &&
+                            skills.getBoundingClientRect().top >= Math.max(...boxes.map((box) => box.bottom)) &&
+                            tip.scrollWidth <= tip.clientWidth + 1;
+                    })()`),
+                    );
+                }
                 await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 0, y: 0 });
                 await ui.waitFor(`!document.querySelector('.detail-tip.on')`);
                 await cdp.evaluate(`document.querySelector('.warehouse-item').focus()`);
@@ -267,9 +292,34 @@ export default async function run(ctx) {
                             amount && amount.getBoundingClientRect().bottom <= group.getBoundingClientRect().top;
                     })()`),
                     );
-                    await ui.clickText('[aria-label="手续费"] button', '否', {
-                        exact: true,
-                    });
+                    await ui.waitFor(`!document.querySelector('.modal-panel-sizing')`);
+                    t.check(
+                        '手续费提示收起时弹窗平滑缩高，结束后恢复自然高度',
+                        await cdp.evaluate(`(async () => {
+                        const panel = document.querySelector('.modal-panel');
+                        const before = panel.getBoundingClientRect().height;
+                        const heights = [];
+                        const off = Array.from(document.querySelectorAll('[aria-label="手续费"] button'))
+                            .find((button) => button.textContent.trim() === '否');
+                        off.click();
+                        await new Promise((resolve) => {
+                            const start = performance.now();
+                            function sample() {
+                                heights.push(panel.getBoundingClientRect().height);
+                                if (performance.now() - start > 1500 ||
+                                    (heights.length > 1 && !panel.classList.contains('modal-panel-sizing'))) resolve();
+                                else requestAnimationFrame(sample);
+                            }
+                            requestAnimationFrame(sample);
+                        });
+                        const after = panel.getBoundingClientRect().height;
+                        const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+                        return !panel.classList.contains('modal-panel-sizing') &&
+                            !panel.style.height && !panel.querySelector('.fee-preview') &&
+                            after <= before + 1 && (reduced || Math.abs(before - after) <= 1 ||
+                            heights.some((height) => height > after + 1 && height < before - 1));
+                    })()`),
+                    );
                     await ui.waitFor(`!!document.querySelector('input[aria-label="实得金额"]')`);
                     await ui.fill('实得金额', '95.28');
                     t.check('可直接填写实得且不再扣费', !(await ui.exists('.fee-preview')));
@@ -561,6 +611,9 @@ export default async function run(ctx) {
                     await ui.waitFor(`!!document.querySelector('[aria-label="是否关联仓库物品"]')`);
                     await ui.fill('成交金额', '100');
                     await ui.clickText('[aria-label="是否关联仓库物品"] button', '是');
+                    await ui.waitFor(
+                        `!!document.querySelector('.account-asset') && !document.querySelector('.modal-panel-sizing')`,
+                    );
                     t.check(
                         `${kind}无手续费时关联开关居中`,
                         await cdp.evaluate(`(() => {
@@ -600,6 +653,9 @@ export default async function run(ctx) {
                 await ui.clickText('.shortcut', `卖出${kind}`);
                 await ui.fill('成交金额', '150');
                 await ui.clickText('[aria-label="是否关联仓库物品"] button', '是');
+                await ui.waitFor(
+                    `!!document.querySelector('.account-asset') && !document.querySelector('.modal-panel-sizing')`,
+                );
                 t.check(
                     `${kind}手续费与关联开关同排且顺序正确`,
                     await cdp.evaluate(`(() => {
@@ -652,8 +708,9 @@ export default async function run(ctx) {
                         !host.textContent.includes('点击右上角') &&
                         !host.textContent.includes('记账后移出仓库') &&
                         host.querySelectorAll('.account-asset-list .warehouse-item').length === 2 &&
-                        Math.abs(tile.width - 48) <= 1 && Math.abs(tile.height - 48) <= 1 &&
-                        Math.abs(cell.width - 64) <= 1 &&
+                        Math.abs(tile.width - 44) <= 1 && Math.abs(tile.height - 44) <= 1 &&
+                        Math.abs(cell.width - 52) <= 1 &&
+                        host.querySelector('.account-asset-tray').getBoundingClientRect().height <= 133 &&
                         button.width < head.width / 2 && Math.abs(button.right - head.right) <= 1;
                 })()`),
                 );

@@ -27,9 +27,8 @@ const groups = computed(() => [
     },
 ]);
 const facts = computed(() => [
-    { label: '成长', value: props.pet?.growth },
     { label: '寿命', value: props.pet?.life ? String(props.pet.life) : '' },
-    { label: '五行', value: props.pet?.element },
+    { label: '成长', value: props.pet?.growth },
 ]);
 watch([() => props.pet, () => props.anchor], ([pet]) => {
     if (pet) void place(props.anchor);
@@ -55,26 +54,34 @@ watch([() => props.pet, () => props.anchor], ([pet]) => {
                     {{ pet.level }} 级<template v-if="pet.joinLevel">
                         · 参战 {{ pet.joinLevel }} 级</template
                     >
+                    <template v-if="pet.element"> · {{ pet.element }}</template>
                 </div>
-                <section v-for="group in groups" :key="group.title" class="pet-tip-group">
-                    <h4 class="group-head">
-                        <span class="section-mark" aria-hidden="true" /><span>{{
-                            group.title
-                        }}</span>
-                    </h4>
-                    <div v-if="group.rows.length" class="pet-tip-rows">
-                        <span v-for="(row, i) in group.rows" :key="i" class="slip-row sm">
-                            <span class="slip-name">{{ row.label }}</span>
-                            <NumTag class="slip-val">{{ row.value || '—' }}</NumTag>
-                        </span>
-                    </div>
-                    <p v-else class="empty-note inline">尚未记录</p>
-                </section>
-                <div class="pet-tip-facts">
-                    <span v-for="row in facts" :key="row.label" class="slip-row sm">
-                        <span class="slip-name">{{ row.label }}</span>
-                        <NumTag class="slip-val">{{ row.value || '—' }}</NumTag>
-                    </span>
+                <div class="pet-tip-columns">
+                    <section
+                        v-for="group in groups"
+                        :key="group.title"
+                        class="pet-tip-group"
+                        :aria-label="group.title"
+                    >
+                        <div v-if="group.title === '资质'" class="pet-tip-facts">
+                            <span v-for="row in facts" :key="row.label" class="slip-row sm">
+                                <span class="slip-name">{{ row.label }}</span>
+                                <NumTag class="slip-val">{{ row.value || '—' }}</NumTag>
+                            </span>
+                        </div>
+                        <h4 class="group-head">
+                            <span class="section-mark" aria-hidden="true" /><span>{{
+                                group.title
+                            }}</span>
+                        </h4>
+                        <div v-if="group.rows.length" class="pet-tip-rows">
+                            <span v-for="(row, i) in group.rows" :key="i" class="slip-row sm">
+                                <span class="slip-name">{{ row.label }}</span>
+                                <NumTag class="slip-val">{{ row.value || '—' }}</NumTag>
+                            </span>
+                        </div>
+                        <p v-else class="empty-note inline">尚未记录</p>
+                    </section>
                 </div>
                 <section class="pet-tip-group">
                     <h4 class="group-head">
@@ -98,9 +105,17 @@ watch([() => props.pet, () => props.anchor], ([pet]) => {
 <style scoped src="./detail-tip.css"></style>
 <style scoped>
 .pet-tip {
-    width: 320px;
+    width: 460px;
+    max-width: calc(100vw - 20px);
+}
+.pet-tip-columns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+    gap: 8px;
 }
 .pet-tip-group {
+    min-width: 0;
     margin-top: 10px;
 }
 .pet-tip-group .group-head {
@@ -110,16 +125,19 @@ watch([() => props.pet, () => props.anchor], ([pet]) => {
 .pet-tip-rows,
 .pet-tip-facts {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 5px 8px;
-    --tag-w: calc(58px * var(--fs-scale));
+    gap: 4px;
+}
+.pet-tip .slip-row.sm {
+    --tag-w: calc(48px * var(--fs-scale));
+    gap: 4px;
+    padding: 0 6px;
 }
 .pet-tip-facts {
-    margin-top: 8px;
+    margin-bottom: 8px;
 }
 .pet-tip-skills {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px 8px;
 }
 .pet-tip-skill {

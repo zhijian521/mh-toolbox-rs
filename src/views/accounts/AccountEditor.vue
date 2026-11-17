@@ -430,8 +430,9 @@ const { requestClose } = useDraftGuard(
 .account-asset {
     display: grid;
     min-width: 0;
-    gap: 10px;
-    padding: 12px;
+    gap: 6px;
+    margin: 2px 2px 4px;
+    padding: 8px;
 }
 .account-asset-head {
     display: flex;
@@ -442,18 +443,18 @@ const { requestClose } = useDraftGuard(
 }
 .account-asset-tray {
     min-width: 0;
-    min-height: 84px;
-    max-height: 184px;
-    padding: 8px;
+    min-height: 60px;
+    max-height: 132px;
+    padding: 2px;
     border-radius: var(--r-2);
     overflow-y: auto;
     scrollbar-gutter: stable;
 }
 .account-asset-list {
-    --warehouse-cell-size: 64px;
-    --warehouse-tile-size: 48px;
-    --warehouse-gear-size: 40px;
-    --warehouse-pet-size: 42px;
+    --warehouse-cell-size: 52px;
+    --warehouse-tile-size: 44px;
+    --warehouse-gear-size: 36px;
+    --warehouse-pet-size: 38px;
     padding: 2px;
 }
 .account-asset-count {
@@ -466,7 +467,7 @@ const { requestClose } = useDraftGuard(
 .account-asset-empty {
     display: grid;
     place-items: center;
-    min-height: 66px;
+    min-height: 50px;
     margin: 0;
     font-size: var(--fs-sm);
 }

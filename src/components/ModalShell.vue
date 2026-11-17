@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useModal } from '../composables/use-modal';
+import { useModalSize } from '../composables/use-modal-size';
 
 defineOptions({ inheritAttrs: false });
 
@@ -115,6 +116,7 @@ const emit = defineEmits<{ close: [] }>();
 const titleId = `modal-title-${Math.random().toString(36).slice(2, 9)}`;
 
 const panel = ref<HTMLElement | null>(null);
+useModalSize(panel, () => props.height !== undefined);
 
 /* 行为全部交给 `use-modal`：Esc、焦点陷阱、锁滚动、关闭还焦点、叠层栈。
  * 这个组件从此只管「它长什么样」——`CONVENTIONS.md` §2.3-3。 */
@@ -242,6 +244,9 @@ const panelStyle = computed(() => {
     flex: none;
     padding: 11px 16px;
     border-bottom: var(--w-hair) solid var(--rule-2);
+}
+.modal-panel-sizing {
+    overflow: clip;
 }
 /* 标题与全站同级标题同一个字重与色：`base.css` 的 `h2` 是 400，
  * 这里不覆写——弹窗靠浮层与阴影表态，不靠把标题加粗。 */
