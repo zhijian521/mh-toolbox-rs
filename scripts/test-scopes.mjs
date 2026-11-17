@@ -13,6 +13,7 @@ export const TEST_SCOPES = {
     ],
     ocr: [
         'src/views/characters/ocr/',
+        'src/views/warehouse/warehouse.test.',
         'src/views/characters/gear.test.',
         'src/views/characters/gear-properties.test.',
         'src/views/characters/pets.test.',
@@ -32,6 +33,7 @@ export const TEST_SCOPES = {
     accounts: [
         ...STORE_CONTRACT_TESTS,
         'src/views/accounts/',
+        'src/views/warehouse/',
         'src/views/income/income.test.',
         'src/views/income/online.test.',
         'src/views/income/online-time.test.',

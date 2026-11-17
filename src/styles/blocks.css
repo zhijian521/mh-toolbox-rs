@@ -617,6 +617,18 @@
     max-width: 100%;
 }
 
+/* 弹窗与窗内页面共用操作栏，切页时面板外壳保持挂载。 */
+.modal-actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    border-top: var(--w-hair) solid var(--rule-2);
+}
+
 /* 公共字段的校验行紧随控件，不重复引入段落留白。 */
 .field-error {
     margin: 0;

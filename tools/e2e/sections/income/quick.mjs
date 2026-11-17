@@ -327,7 +327,7 @@ export default async function runQuick(ctx, tools) {
         const file = JSON.parse(readFileSync(priceFile, 'utf8'));
         t.check(
             '信封格式与应用标识对',
-            file.format === 1 && file.app === 'mh-toolbox-rs',
+            file.format === 2 && file.app === 'mh-toolbox-rs',
             `format=${file.format} app=${file.app}`,
         );
         t.check(

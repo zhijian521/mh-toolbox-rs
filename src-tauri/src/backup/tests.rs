@@ -1,6 +1,26 @@
 use super::*;
 
 #[test]
+fn warehouse_backup_preserves_assets_and_accepts_v1_without_warehouse() {
+    let mut file = sample();
+    file.warehouse = vec![serde_json::json!({
+        "id": "asset-1", "kind": "pet", "pet": { "name": "画魂", "growth": "1.287" }
+    })];
+    let value = serde_json::to_value(&file).unwrap();
+    let restored: BackupFile = serde_json::from_value(value.clone()).unwrap();
+    assert_eq!(restored.warehouse, file.warehouse);
+    validate_backup(&restored).unwrap();
+    let mut old = value;
+    old["format"] = serde_json::json!(1);
+    old.as_object_mut().unwrap().remove("warehouse");
+    let restored: BackupFile = serde_json::from_value(old).unwrap();
+    check_envelope(&restored).unwrap();
+    assert!(restored.warehouse.is_empty());
+    file.warehouse.push(file.warehouse[0].clone());
+    assert!(validate_backup(&file).is_err());
+}
+
+#[test]
 fn native_backup_over_sixteen_mb_round_trips_and_rejects_truncated_json() {
     let path = std::env::temp_dir().join(format!("mh-large-backup-{}.json", now_ms()));
     let mut file = sample();
@@ -137,6 +157,7 @@ fn sample_item() -> PriceItem {
 fn sample() -> BackupFile {
     BackupFile {
         format: FORMAT,
+        warehouse: vec![],
         app: APP_TAG.to_string(),
         exported_at: 1_700_000_000_000,
         characters: vec![serde_json::json!({ "id": "c1", "name": "大唐" })],

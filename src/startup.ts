@@ -9,6 +9,7 @@ import { loadIncome, useIncome } from './views/income/income-store';
 import { loadOnline, useOnline } from './views/income/online-store';
 import { startDailySync, syncAllDays } from './views/accounts/daily-sync';
 import { loadPrices, usePrices } from './views/prices/prices-store';
+import { loadWarehouse, useWarehouse } from './views/warehouse/warehouse-store';
 
 export { flushDailySync } from './views/accounts/daily-sync';
 
@@ -29,6 +30,7 @@ export async function initializeData(): Promise<StartupNotice | undefined> {
             Promise.allSettled([
                 loadSafely(loadRoster, useRoster().loadError),
                 loadSafely(loadPrices, usePrices().loadError),
+                loadSafely(loadWarehouse, useWarehouse().loadError),
             ]),
         ),
         loadSafely(loadIncome, useIncome().loadError),

@@ -1,0 +1,73 @@
+/* 装备与召唤兽详情共用纸片材质，业务内容各自排布。 */
+.detail-tip {
+    position: fixed;
+    z-index: 60;
+    width: 240px;
+    padding: var(--block-pad-tight);
+    border: var(--w-hair) solid var(--popover-edge);
+    background: var(--popover-bg);
+    box-shadow: var(--popover-shadow);
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-3px);
+    transition:
+        opacity var(--t-tip) var(--ease-soft),
+        transform var(--t-tip) var(--ease-soft),
+        visibility 0s linear var(--t-tip);
+    --dual-inset: 2px;
+}
+.detail-tip.on {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    transition-delay: 0s;
+}
+.detail-tip.interactive {
+    max-width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+.detail-tip.interactive.on {
+    pointer-events: auto;
+}
+.tip-name {
+    color: var(--ink);
+    font-size: var(--fs-md);
+    letter-spacing: 0.03em;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+.tip-kind {
+    margin-top: 2px;
+    letter-spacing: 0.06em;
+}
+.flavor {
+    display: -webkit-box;
+    margin: 5px 0 0;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    line-height: 1.6;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+.tip-foot {
+    margin-top: 6px;
+    padding-top: 5px;
+    border-top: var(--w-hair) dotted var(--rule-2);
+    letter-spacing: 0.04em;
+}
+.tip-note {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: var(--w-hair) solid var(--rule-2);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.tip-note span {
+    margin-right: 6px;
+    color: var(--ink-2);
+}

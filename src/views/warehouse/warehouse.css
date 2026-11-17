@@ -1,0 +1,139 @@
+/* 仓库只摆角色同款图标；工具条固定，只有图标列表滚动。 */
+.warehouse-pages {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    isolation: isolate;
+}
+.warehouse-pages :deep(.warehouse-page) {
+    display: flex;
+    flex-direction: column;
+    grid-area: 1 / 1;
+    min-width: 0;
+    min-height: 0;
+}
+.warehouse-pages :deep(.warehouse-page-body) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    padding: 14px max(0px, calc(16px - var(--scrollbar-w))) 14px 16px;
+    overflow: hidden;
+}
+.warehouse-forward-enter-active,
+.warehouse-forward-leave-active,
+.warehouse-back-enter-active,
+.warehouse-back-leave-active {
+    transition:
+        opacity var(--t-mid) var(--ease-soft),
+        transform var(--t-mid) var(--ease-soft);
+}
+.warehouse-forward-leave-active,
+.warehouse-back-leave-active {
+    pointer-events: none;
+}
+.warehouse-forward-enter-from,
+.warehouse-back-leave-to {
+    opacity: 0;
+    transform: translateX(10px);
+}
+.warehouse-forward-leave-to,
+.warehouse-back-enter-from {
+    opacity: 0;
+    transform: translateX(-10px);
+}
+.warehouse-toolbar,
+.warehouse-filters {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.warehouse-toolbar {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+.warehouse-filters {
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+.warehouse-search {
+    width: 260px;
+    max-width: 100%;
+}
+.warehouse-slot-filter {
+    flex: none;
+    width: 130px;
+}
+.warehouse-slot-filter :deep(.select-list) {
+    min-width: 100%;
+}
+.warehouse-count {
+    margin-left: auto;
+    font-size: var(--fs-mini);
+}
+.warehouse-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    padding: 2px 4px 12px 2px;
+}
+.warehouse-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 80px);
+    gap: 8px;
+    align-content: start;
+}
+.warehouse-item {
+    justify-content: center;
+    min-height: 80px;
+}
+.warehouse-gear-icon,
+.warehouse-pet-icon {
+    --tile-w: 64px;
+    --tile-h: 64px;
+    --tile-r: var(--r-3);
+}
+.warehouse-gear-icon {
+    --shot: 52px;
+    --tile-drop: 0.6;
+    --tile-face: light-dark(var(--paper), color-mix(in srgb, var(--paper-2) 84%, var(--ink)));
+}
+.warehouse-icon-fallback {
+    color: color-mix(in srgb, var(--ink-2) 78%, transparent);
+    font-size: calc(20px * var(--fs-scale));
+    line-height: 1;
+}
+.warehouse-pet-icon {
+    --tile-drop: 0.75;
+    --tile-face: color-mix(in srgb, var(--well) 55%, var(--paper-2));
+}
+.warehouse-pet-icon :deep(.pet-image.portrait) {
+    --pet-icon-size: 56px;
+    background: transparent;
+}
+.warehouse-soul,
+.warehouse-tip-server {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: var(--w-hair) dotted var(--rule-2);
+    overflow-wrap: anywhere;
+}
+.warehouse-empty {
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    min-height: 250px;
+    gap: 8px;
+    text-align: center;
+}
+.warehouse-empty p {
+    margin: 0;
+}
+.warehouse-empty span {
+    font-size: var(--fs-sm);
+}

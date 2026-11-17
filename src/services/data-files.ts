@@ -99,7 +99,7 @@ export async function dataImport(): Promise<DataOutcome> {
             detail:
                 `已导入 ${summary.characters} 个角色、${summary.prices} 件物价、` +
                 `${summary.entries} 笔收益流水、${summary.accounts} 笔账号记录、` +
-                `${summary.online} 条上线记录、${summary.goals} 个目标。速记单价已一并替换。替换前的数据备份在 ${summary.backupPath}`,
+                `${summary.online} 条上线记录、${summary.goals} 个目标、${summary.warehouse} 件仓库物品。速记单价已一并替换。替换前的数据备份在 ${summary.backupPath}`,
             truncation: { points: summary.truncated, items: summary.truncatedItems },
         };
     } catch (error) {
@@ -155,7 +155,7 @@ export async function dataClear(): Promise<DataOutcome> {
             detail:
                 `已清空 ${summary.characters} 个角色、${summary.prices} 件物价、` +
                 `${summary.entries} 笔收益流水、${summary.accounts} 笔账号记录、${summary.online} 条上线记录、` +
-                `${summary.goals} 个目标，速记单价已清空`,
+                `${summary.goals} 个目标、${summary.warehouse} 件仓库物品，速记单价已清空`,
         };
     } catch (error) {
         return failure(error);

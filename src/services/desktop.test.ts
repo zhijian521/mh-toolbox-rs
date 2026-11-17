@@ -100,6 +100,7 @@ describe('账本备份：三种结局不能互相冒充', () => {
             accounts: 0,
             online: 3,
             goals: 2,
+            warehouse: 3,
             truncated: 12,
             truncatedItems: 2,
             backupPath: 'D:/备份/账本-before-import-1.json',
@@ -110,7 +111,7 @@ describe('账本备份：三种结局不能互相冒充', () => {
         expect(outcome.status).toBe('ok');
         expect(outcome).toMatchObject({
             detail:
-                '已导入 4 个角色、6 件物价、1 笔收益流水、0 笔账号记录、3 条上线记录、2 个目标。速记单价已一并替换。' +
+                '已导入 4 个角色、6 件物价、1 笔收益流水、0 笔账号记录、3 条上线记录、2 个目标、3 件仓库物品。速记单价已一并替换。' +
                 '替换前的数据备份在 D:/备份/账本-before-import-1.json',
             truncation: { points: 12, items: 2 },
         });
@@ -140,12 +141,13 @@ describe('账本备份：三种结局不能互相冒充', () => {
             accounts: 1,
             online: 2,
             goals: 4,
+            warehouse: 2,
         });
 
         /* 目标也报出来：清空会把它们一起删掉，不说一声用户会以为只是清了两样。 */
         expect(await dataClear()).toEqual({
             status: 'ok',
-            detail: '已清空 2 个角色、0 件物价、3 笔收益流水、1 笔账号记录、2 条上线记录、4 个目标，速记单价已清空',
+            detail: '已清空 2 个角色、0 件物价、3 笔收益流水、1 笔账号记录、2 条上线记录、4 个目标、2 件仓库物品，速记单价已清空',
         });
     });
 });

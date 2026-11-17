@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => {
         online: domain(),
         accounts: domain(),
         goals: domain(),
+        warehouse: domain(),
         sync: vi.fn(),
         watch: vi.fn(),
     };
@@ -43,6 +44,10 @@ vi.mock('./views/goals/goals-store', () => ({
     loadGoals: mocks.goals.load,
     useGoals: () => mocks.goals,
 }));
+vi.mock('./views/warehouse/warehouse-store', () => ({
+    loadWarehouse: mocks.warehouse.load,
+    useWarehouse: () => mocks.warehouse,
+}));
 vi.mock('./views/accounts/daily-sync', () => ({
     syncAllDays: mocks.sync,
     startDailySync: mocks.watch,
@@ -59,6 +64,7 @@ beforeEach(() => {
         mocks.online,
         mocks.accounts,
         mocks.goals,
+        mocks.warehouse,
     ]) {
         domain.load.mockResolvedValue(undefined);
         domain.loadError.value = '';
@@ -80,10 +86,12 @@ describe('启动数据边界', () => {
         expect(mocks.goals.load).toHaveBeenCalledOnce();
         expect(mocks.roster.load).not.toHaveBeenCalled();
         expect(mocks.prices.load).not.toHaveBeenCalled();
+        expect(mocks.warehouse.load).not.toHaveBeenCalled();
         releaseRules();
         await Promise.resolve();
         expect(mocks.roster.load).toHaveBeenCalledOnce();
         expect(mocks.prices.load).toHaveBeenCalledOnce();
+        expect(mocks.warehouse.load).toHaveBeenCalledOnce();
         expect(mocks.sync).not.toHaveBeenCalled();
         expect(mocks.watch).not.toHaveBeenCalled();
         releaseIncome();

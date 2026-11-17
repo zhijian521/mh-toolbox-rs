@@ -84,6 +84,8 @@ const props = withDefaults(
          * （`overflow: hidden`），调用方用 `flex: 1` + `min-height: 0` 给滚动区。
          */
         fill?: boolean;
+        /** 同窗切页的正文自带留白和操作栏，外壳不再重复补内边距。 */
+        flush?: boolean;
         /**
          * 外部给的「这个名字念什么」（元素 id）。
          *
@@ -116,7 +118,7 @@ const panel = ref<HTMLElement | null>(null);
 
 /* 行为全部交给 `use-modal`：Esc、焦点陷阱、锁滚动、关闭还焦点、叠层栈。
  * 这个组件从此只管「它长什么样」——`CONVENTIONS.md` §2.3-3。 */
-const { isTop } = useModal({
+const { isTop, isNested } = useModal({
     panel,
     initialFocus: props.initialFocus,
     onClose: () => emit('close'),
@@ -152,7 +154,7 @@ const panelStyle = computed(() => {
         <!-- 点遮罩关闭。只听 `click` 一处：`mousedown` 与 `click` 同时挂，
              一次点击会 `emit('close')` 两次——虽然父级的 close 都幂等，
              但读代码的人会以为有两条关闭路径。 -->
-        <div class="modal-mask" @click.self="onMaskClick">
+        <div class="modal-mask" :class="{ 'modal-mask-nested': isNested }" @click.self="onMaskClick">
             <!-- 只有栈顶那层是 `aria-modal` 且可聚焦。被盖住的那层还留在 DOM 里
                  （历史窗 + 删除确认就是这个状态）：不给它 `inert`，Tab 能走到遮罩下面
                  那张窗的按钮上，而它在视觉上已经被盖住了。`undefined` 会移除属性。 -->
@@ -175,12 +177,16 @@ const panelStyle = computed(() => {
 
                 <div
                     class="modal-body"
-                    :class="{ 'modal-body-static': !scroll, 'modal-body-fill': fill }"
+                    :class="{
+                        'modal-body-static': !scroll,
+                        'modal-body-fill': fill,
+                        'modal-body-flush': flush,
+                    }"
                 >
                     <slot />
                 </div>
 
-                <footer v-if="$slots.footer" class="modal-foot">
+                <footer v-if="$slots.footer" class="modal-foot modal-actions">
                     <slot name="footer" />
                 </footer>
             </div>
@@ -201,6 +207,11 @@ const panelStyle = computed(() => {
     padding: 24px;
     background: var(--modal-mask);
     animation: mask-in var(--t-mid) var(--ease-soft);
+}
+.modal-mask-nested {
+    /* 下层弹窗已经压暗背景，叠层只让新面板入场。 */
+    background: transparent;
+    animation: none;
 }
 
 .modal-panel {
@@ -276,15 +287,8 @@ const panelStyle = computed(() => {
     overflow: hidden;
 }
 
-.modal-foot {
-    display: flex;
-    flex: none;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    flex-wrap: wrap;
-    padding: 12px 16px;
-    border-top: var(--w-hair) solid var(--rule-2);
+.modal-body-flush {
+    padding: 0;
 }
 
 @media (max-height: 720px) {

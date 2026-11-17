@@ -178,3 +178,25 @@ export async function charactersSave(items: JsonValue[]): Promise<boolean> {
         return false;
     }
 }
+
+/** 独立仓库与角色名册使用相同 JSON 透传契约。 */
+export async function warehouseLoad(): Promise<JsonValue[] | null> {
+    if (!hasDesktop()) return null;
+    try {
+        return await commands.warehouseLoad();
+    } catch (error) {
+        console.error('读取仓库失败', error);
+        return null;
+    }
+}
+
+export async function warehouseSave(items: readonly unknown[]): Promise<boolean> {
+    if (!hasDesktop()) return false;
+    try {
+        await commands.warehouseSave(JSON.parse(JSON.stringify(items)) as JsonValue[]);
+        return true;
+    } catch (error) {
+        console.error('写入仓库失败', error);
+        return false;
+    }
+}

@@ -1,6 +1,44 @@
 use super::*;
 
 #[test]
+fn warehouse_round_trip_backup_clear_and_legacy_startup_guard() {
+    let dir = TempDir::new(910);
+    let mut conn = open_at(dir.base()).unwrap();
+    let item = serde_json::json!({
+        "id": "asset-1", "kind": "pet", "pet": { "name": "画魂", "growth": "1.287" }
+    });
+    save_records(&mut conn, &WAREHOUSE, std::slice::from_ref(&item)).unwrap();
+    assert!(!claim_legacy_startup(&mut conn).unwrap());
+    let file = backup(&conn).unwrap();
+    assert_eq!(file.warehouse, vec![item.clone()]);
+    let counts = clear_records(&mut conn).unwrap();
+    assert_eq!(counts.warehouse, 1);
+    assert!(load_records(&conn, &WAREHOUSE).unwrap().is_empty());
+    let restored = replace_backup(&mut conn, file, false).unwrap();
+    assert_eq!(restored.warehouse, 1);
+    assert_eq!(load_records(&conn, &WAREHOUSE).unwrap(), vec![item]);
+}
+
+#[test]
+fn warehouse_import_failure_rolls_back_other_domains() {
+    let dir = TempDir::new(911);
+    let mut conn = open_at(dir.base()).unwrap();
+    let old = serde_json::json!({ "id": "old", "name": "原角色" });
+    save_records(&mut conn, &CHARACTERS, std::slice::from_ref(&old)).unwrap();
+    let mut file = backup(&conn).unwrap();
+    file.characters = vec![serde_json::json!({ "id": "new" })];
+    file.warehouse = vec![serde_json::json!({ "id": "asset" })];
+    conn.execute_batch(
+        "CREATE TRIGGER refuse_warehouse BEFORE INSERT ON warehouse_items
+         BEGIN SELECT RAISE(ABORT, '拒绝写入'); END;",
+    )
+    .unwrap();
+    assert!(replace_backup(&mut conn, file, false).is_err());
+    assert_eq!(load_records(&conn, &CHARACTERS).unwrap(), vec![old]);
+    assert!(load_records(&conn, &WAREHOUSE).unwrap().is_empty());
+}
+
+#[test]
 fn legacy_startup_checks_once_even_after_clear_and_reopen() {
     let dir = TempDir::new(800);
     let mut conn = open_at(dir.base()).unwrap();
@@ -194,8 +232,7 @@ fn open_at_twice_is_fine() {
         (0, 0, 0),
         "新库里三张表都该是空的"
     );
-    /* `init` 只在**缺失时**写 `schemaVersion`（见 `init` 里那段注释：无条件覆写会让
-     * 每条读命令都变成一次写事务），所以跑两遍既不该报错，也不该把值改掉。 */
+    /* 当前版本重开不改版本号；仅缺失或升级时写入。 */
     assert_eq!(
         read_meta(&second, "schemaVersion").expect("读 schemaVersion"),
         Some(SCHEMA_VERSION.to_string())
@@ -398,7 +435,32 @@ fn clear_records_keeps_meta_but_drops_ledger() {
     );
 }
 
-/* ---------- schemaVersion：只读，不降级 ---------- */
+/* ---------- schemaVersion：升级，不降级 ---------- */
+
+#[test]
+fn open_at_upgrades_old_database_without_losing_records() {
+    let dir = TempDir::new(1617);
+    let original = vec![serde_json::json!({ "id": "keep", "name": "原有角色" })];
+    {
+        let mut conn = open_at(dir.base()).expect("先建旧库样本");
+        save_records(&mut conn, &CHARACTERS, &original).unwrap();
+        conn.execute("DROP TABLE warehouse_items", []).unwrap();
+        write_meta(&conn, "schemaVersion", "5").unwrap();
+    }
+
+    let conn = open_at(dir.base()).expect("升级旧库");
+    assert_eq!(
+        read_meta(&conn, "schemaVersion").unwrap(),
+        Some(SCHEMA_VERSION.to_string())
+    );
+    assert_eq!(load_records(&conn, &CHARACTERS).unwrap(), original);
+    assert!(load_records(&conn, &WAREHOUSE).unwrap().is_empty());
+    drop(conn);
+
+    let reopened = open_at(dir.base()).expect("升级后仍可重开");
+    assert_eq!(load_records(&reopened, &CHARACTERS).unwrap(), original);
+    assert!(load_records(&reopened, &WAREHOUSE).unwrap().is_empty());
+}
 
 /// 库里的版本比当前高就拒绝打开。
 ///

@@ -69,11 +69,14 @@ interface UseModalOptions {
 interface UseModalResult {
     /** 这一层是不是当前最上面的窗。组件据此决定 `aria-modal` 与 `inert`。 */
     isTop: Readonly<Ref<boolean>>;
+    /** 叠层沿用底层遮罩，避免每开一个确认窗就额外压暗一次。 */
+    isNested: Readonly<Ref<boolean>>;
 }
 
 export function useModal(options: UseModalOptions): UseModalResult {
     const token = Symbol('modal');
     const isTop = computed(() => topToken.value === token);
+    const isNested = ref(false);
 
     /** 关闭后要还回去的那个元素。在 `onMounted` 里取，那时它还在文档里。 */
     let restoreTo: HTMLElement | null = null;
@@ -86,7 +89,7 @@ export function useModal(options: UseModalOptions): UseModalResult {
             'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
         /* `offsetParent` 过滤掉不可见的：`v-if` 之外还要防 `display: none` 的分支。 */
         return Array.from(panel.querySelectorAll<HTMLElement>(selector)).filter(
-            (element) => element.offsetParent !== null,
+            (element) => element.offsetParent !== null && !element.closest('[inert]'),
         );
     }
 
@@ -154,6 +157,7 @@ export function useModal(options: UseModalOptions): UseModalResult {
     onMounted(() => {
         restoreTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
+        isNested.value = modalStack.length > 0;
         modalStack.push(token);
         topToken.value = token;
 
@@ -204,5 +208,5 @@ export function useModal(options: UseModalOptions): UseModalResult {
         });
     });
 
-    return { isTop };
+    return { isTop, isNested };
 }

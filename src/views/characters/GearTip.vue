@@ -24,13 +24,17 @@ const props = defineProps<{
     anchor: DOMRect | null;
     detail: ReadonlyGearDetail | null;
     slotName?: GearSlotName;
+    tooltipId?: string;
+    layer?: number;
+    interactive?: boolean;
 }>();
+const emit = defineEmits<{ mouseenter: []; mouseleave: [] }>();
 
 const { el, pos, place } = useAnchoredTip();
 
 watch(
-    () => props.detail,
-    (detail) => {
+    [() => props.detail, () => props.anchor],
+    ([detail]) => {
         if (!detail) return;
         /* 内容换了才知道新高度，`place()` 内部会先等 DOM 更新。 */
         void place(props.anchor);
@@ -48,11 +52,14 @@ const requires = computed(() => props.detail?.requires?.join(' · ') ?? '');
     <Teleport to="body">
         <div
             ref="el"
-            class="gear-tip dual-rule"
-            :class="{ on: detail !== null }"
-            :style="{ left: `${pos.left}px`, top: `${pos.top}px` }"
+            :id="tooltipId"
+            class="gear-tip detail-tip dual-rule"
+            :class="{ on: detail !== null, interactive }"
+            :style="{ left: `${pos.left}px`, top: `${pos.top}px`, zIndex: layer }"
             role="tooltip"
             :aria-hidden="detail === null"
+            @mouseenter="emit('mouseenter')"
+            @mouseleave="emit('mouseleave')"
         >
             <template v-if="detail">
                 <div class="tip-name">{{ detail.name || slotName }}</div>
@@ -70,79 +77,10 @@ const requires = computed(() => props.detail?.requires?.join(' · ') ?? '');
                 <div v-if="detail.note" class="meta tip-note">
                     <span>备注</span>{{ detail.note }}
                 </div>
+                <slot />
             </template>
         </div>
     </Teleport>
 </template>
 
-<style scoped>
-.gear-tip {
-    position: fixed;
-    z-index: 60;
-    /* 240 而不是 216：真实属性名有「抗封印命中等级」这种七字标签，
-     * 216 宽时值与标签会挤成两行，读起来像两条属性。 */
-    width: 240px;
-    padding: var(--block-pad-tight);
-    border: var(--w-hair) solid var(--popover-edge);
-    background: var(--popover-bg);
-    /* 与整张卡片、测试面板同一枚「纸片抬起」的影子。 */
-    box-shadow: var(--popover-shadow);
-    /* 藏起来时不能留 tab 停靠点，也不能被读屏念到（`aria-hidden` 兜住内容）。 */
-    visibility: hidden;
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(-3px);
-    transition:
-        opacity var(--t-tip) var(--ease-soft),
-        transform var(--t-tip) var(--ease-soft),
-        visibility 0s linear var(--t-tip);
-    /* 文武线内衬走全局 `.dual-rule`（`base.css`），这里只把它收紧一档：
-     * 浮片内边距 11~14，按 3px 会让内衬几乎贴住文字。 */
-    --dual-inset: 2px;
-}
-.gear-tip.on {
-    visibility: visible;
-    opacity: 1;
-    transform: none;
-    transition-delay: 0s;
-}
-
-.tip-name {
-    color: var(--ink);
-    font-size: var(--fs-md);
-    letter-spacing: 0.03em;
-    line-height: 1.3;
-}
-.tip-kind {
-    margin-top: 2px;
-    letter-spacing: 0.06em;
-}
-.flavor {
-    display: -webkit-box;
-    /* 两行封顶：风味文本最长的一句有 60 多字，放开会把属性顶出屏幕。 */
-    margin: 5px 0 0;
-    overflow: hidden;
-    color: var(--muted);
-    font-size: var(--fs-mini);
-    line-height: 1.6;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-}
-.tip-foot {
-    margin-top: 6px;
-    padding-top: 5px;
-    border-top: var(--w-hair) dotted var(--rule-2);
-    letter-spacing: 0.04em;
-}
-.tip-note {
-    margin-top: 8px;
-    padding-top: 6px;
-    border-top: var(--w-hair) solid var(--rule-2);
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-}
-.tip-note span {
-    margin-right: 6px;
-    color: var(--ink-2);
-}
-</style>
+<style scoped src="./detail-tip.css"></style>

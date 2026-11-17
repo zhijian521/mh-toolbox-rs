@@ -45,6 +45,32 @@ import { schoolSkills } from '../characters/schools';
 import { usePrices } from '../prices/prices-store';
 import { useGoals, type GoalInput } from '../goals/goals-store';
 import type { ReadonlyCharacter } from '../characters/character';
+import { normalizeWarehouseItem, type WarehouseItem } from '../warehouse/warehouse';
+import { useWarehouse } from '../warehouse/warehouse-store';
+
+/** 仓库示例有独立固定编号，重复添加不复制，也不绑定模拟角色。 */
+export function demoWarehouseItems(): WarehouseItem[] {
+    const character = CHARACTERS.find((one) => one.pets.length && one.gear.some((slot) => slot.detail));
+    if (!character) return [];
+    const gear = character.gear.find((one) => one.detail);
+    const base = { server: character.server, createdAt: 1_800_000_000_000, updatedAt: 1_800_000_000_000 };
+    return [
+        { ...base, id: 'demo-warehouse-gear', kind: 'gear', gear },
+        { ...base, id: 'demo-warehouse-pet', kind: 'pet', pet: character.pets[0] },
+    ].map(normalizeWarehouseItem).filter((item): item is WarehouseItem => item !== null);
+}
+
+export function importDemoWarehouse(): { ok: true; added: number } | { ok: false; error: string } {
+    const warehouse = useWarehouse();
+    if (!warehouse.loaded.value || warehouse.loadError.value || warehouse.writeError.value || warehouse.pending.value) {
+        return { ok: false, error: '仓库尚未就绪，请先处理读取与保存提示' };
+    }
+    const samples = demoWarehouseItems().filter((sample) => !warehouse.items.value.some((item) => item.id === sample.id));
+    if (samples.length && !warehouse.save(samples)) {
+        return { ok: false, error: warehouse.operationError.value || '未能添加仓库示例' };
+    }
+    return { ok: true, added: samples.length };
+}
 
 /** 目标示例追加到现有角色，不替换用户的目标或角色档案。 */
 export function demoGoalInputs(characters: readonly ReadonlyCharacter[]): GoalInput[] {

@@ -132,6 +132,9 @@ export const commands = {
 	charactersLoad: () => __TAURI_INVOKE<Value[]>("characters_load"),
 	/**  整份写回名册。 */
 	charactersSave: (items: Value[]) => __TAURI_INVOKE<null>("characters_save", { items }),
+	/**  仓库只存独立物品，不通过保存接口隐式生成角色配置或收支。 */
+	warehouseLoad: () => __TAURI_INVOKE<Value[]>("warehouse_load"),
+	warehouseSave: (items: Value[]) => __TAURI_INVOKE<null>("warehouse_save", { items }),
 	/**
 	 *  读回全部收益记录与速记单价。
 	 * 
@@ -292,6 +295,7 @@ export type BackupList_Serialize = {
  *  界面上「已清除」不带数量的话，用户没法区分「清掉了一份账」和「本来就是空的」。
  */
 export type ClearSummary = {
+	warehouse: number,
 	characters: number,
 	prices: number,
 	entries: number,
@@ -302,6 +306,7 @@ export type ClearSummary = {
 
 /**  导入成功后的回执。 */
 export type ImportSummary = {
+	warehouse: number,
 	characters: number,
 	prices: number,
 	/**

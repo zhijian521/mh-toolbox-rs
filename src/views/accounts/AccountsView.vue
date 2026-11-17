@@ -37,6 +37,8 @@ import { loadAccounts, useAccounts, type EntryInput } from './accounts-store';
 
 const AccountEditor = lazyDialog(() => import('./AccountEditor.vue'));
 const AccountRecords = lazyDialog(() => import('./AccountRecords.vue'));
+const WarehouseDialog = lazyDialog(() => import('../warehouse/WarehouseDialog.vue'));
+const warehouseOpen = ref(false);
 
 const { entries, loadError, writeError, addEntry, updateEntry, pending, flush, retry } =
     useAccounts();
@@ -143,6 +145,12 @@ useRouteAction('/accounts', {
 <template>
     <PageShell title="账号" desc="收支记账 · 分类统计">
         <template #actions>
+            <PressButton
+                icon="archive"
+                text="仓库"
+                label="打开装备和召唤兽仓库"
+                @click="warehouseOpen = true"
+            />
             <PressButton icon="history" text="历史" label="查看账号历史记录" @click="openRecords" />
             <PressButton
                 icon="add"
@@ -318,6 +326,7 @@ useRouteAction('/accounts', {
                 </LedgerSection>
             </div>
         </div>
+        <WarehouseDialog v-if="warehouseOpen" @close="warehouseOpen = false" />
         <AccountRecords
             v-if="recordsOpen"
             v-model="historyFilters"

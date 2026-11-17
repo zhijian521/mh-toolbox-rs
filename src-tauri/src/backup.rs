@@ -14,15 +14,13 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
 use crate::store::{
-    self, AccountEntry, IncomeEntry, IncomePayload, OnlinePayload, OnlineSession, OnlineSettings,
-    PriceItem, QuickPrice,
+    self, AccountEntry, IncomeEntry, OnlineSession, OnlineSettings, PriceItem, QuickPrice,
 };
+#[cfg(test)]
+use crate::store::{IncomePayload, OnlinePayload};
 
-/// 信封格式版本。**改字段含义才 +1**，加一个可选字段不用动它。
-///
-/// 导入时严格比对：不认识的 `format` 一律拒绝，不做「尽力而为地读」。
-/// 拒绝的代价是「少一次恢复」，猜错的代价是「把用户的账写成一堆缺字段的东西」。
-pub(crate) const FORMAT: u32 = 1;
+/// v2 纳入独立仓库，避免旧应用忽略资产后再次导出而丢失数据；读取兼容 v1。
+pub(crate) const FORMAT: u32 = 2;
 
 /// 信封里的应用标识。将来如果真出现第二份工具导出同名 JSON，这个字段是唯一的分辨依据。
 pub(crate) const APP_TAG: &str = "mh-toolbox-rs";
@@ -196,6 +194,9 @@ pub(crate) struct BackupFile {
     /// 目标 JSON 原样透传，避免前端字段变化牵动备份结构。
     #[serde(default)]
     pub(crate) goals: Vec<serde_json::Value>,
+    /// 仓库随账本完整备份；v1 文件缺省为空。
+    #[serde(default)]
+    pub(crate) warehouse: Vec<serde_json::Value>,
     /// 上线记录按稳定字段校验。
     #[serde(default)]
     pub(crate) online: Vec<OnlineSession>,
@@ -208,6 +209,7 @@ pub(crate) struct BackupFile {
 #[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportSummary {
+    warehouse: i64,
     characters: i64,
     prices: i64,
     /// 导进来的收益条数。不看这个数，用户会以为「导入成功了、收益也回来了」，
@@ -237,6 +239,7 @@ pub struct ImportSummary {
 #[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ClearSummary {
+    warehouse: i64,
     characters: i64,
     prices: i64,
     entries: i64,
@@ -328,31 +331,11 @@ fn replace_backup_with(
     let backup_path = saved.display().to_string();
     let mut conn =
         store::open(app).map_err(|error| format!("{error}；替换前的数据已备份到 {backup_path}"))?;
-    let income = IncomePayload {
-        entries: file.income,
-        prices: file.quick_prices,
-    };
-    let online = OnlinePayload {
-        sessions: file.online,
-        settings: file.card_settings,
-    };
-    let replace = if startup {
-        store::replace_all_on_startup
-    } else {
-        store::replace_all
-    };
-    let counts = replace(
-        &mut conn,
-        &file.characters,
-        &file.prices,
-        &income,
-        &file.accounts,
-        &file.goals,
-        &online,
-    )
-    .map_err(|error| format!("{error}；替换前的数据已备份到 {backup_path}"))?;
+    let counts = store::replace_backup(&mut conn, file, startup)
+        .map_err(|error| format!("{error}；替换前的数据已备份到 {backup_path}"))?;
 
     Ok(ImportSummary {
+        warehouse: counts.warehouse,
         characters: counts.characters,
         prices: counts.prices,
         entries: counts.entries,
@@ -468,6 +451,7 @@ fn validate_legacy_source(raw: &str) -> Result<(), String> {
 pub async fn data_clear(app: AppHandle) -> Result<ClearSummary, String> {
     let counts = store::clear_all(&app)?;
     Ok(ClearSummary {
+        warehouse: counts.warehouse,
         characters: counts.characters,
         prices: counts.prices,
         entries: counts.entries,
@@ -878,7 +862,7 @@ pub(crate) fn now_ms() -> i64 {
 /// 「更新版本写的」（用户该升级应用），`app` 不对则是「这压根不是本应用的文件」
 /// （用户拖进来的是别的 JSON）。合成一句「无法识别的文件」就把这条线索丢了。
 ///
-/// 拒绝就是拒绝：不尝试「按 v1 的字段名猜一猜」。理由见模块注释里旧版 `data.json` 那一段。
+/// v1 按原字段读取，缺省仓库为空；更高版本不能猜字段后继续导入。
 fn check_envelope(file: &BackupFile) -> Result<(), String> {
     check_tag(file.format, &file.app, "备份")
 }
@@ -892,7 +876,7 @@ fn check_envelope(file: &BackupFile) -> Result<(), String> {
 ///
 /// 拒绝就是拒绝：不尝试「按 v1 的字段名猜一猜」。理由见模块注释里旧版 `data.json` 那一段。
 fn check_tag(format: u32, app: &str, what: &str) -> Result<(), String> {
-    if format != FORMAT {
+    if !(1..=FORMAT).contains(&format) {
         return Err(format!(
             "不认识的{what}格式（format={format}，本版本是 {FORMAT}）：这不是本版本导出的{what}，\
              可能是更新版本写的"
@@ -937,6 +921,7 @@ fn validate_backup(file: &BackupFile) -> Result<Truncation, String> {
     validate_ids(file.income.iter().map(|one| one.id.as_str()), "收益流水")?;
     validate_ids(file.accounts.iter().map(|one| one.id.as_str()), "账号记录")?;
     validate_ids(file.goals.iter().map(record_id), "目标")?;
+    validate_ids(file.warehouse.iter().map(record_id), "仓库物品")?;
     validate_ids(file.online.iter().map(|one| one.id.as_str()), "上线记录")?;
     for (date, amount) in file
         .income

@@ -13,8 +13,9 @@ import IconsSection from './IconsSection.vue';
 import PaletteSection from './PaletteSection.vue';
 import SlipRowSection from './SlipRowSection.vue';
 import TypeScaleSection from './TypeScaleSection.vue';
-import { DEMO_COUNTS, importDemoData, importDemoGoals } from './demo-data';
+import { DEMO_COUNTS, importDemoData, importDemoGoals, importDemoWarehouse } from './demo-data';
 import { useGoals } from '../goals/goals-store';
+import { useWarehouse } from '../warehouse/warehouse-store';
 
 /**
  * 开发帮助：做界面时才要查的东西——组件、色板、字号阶梯、图标。
@@ -40,6 +41,30 @@ import { useGoals } from '../goals/goals-store';
 const { devMode } = useDevMode();
 const sampleLoadError = ref('示例：暂时无法读取记录');
 const goalSamplesSaving = ref(false);
+const warehouseSamplesSaving = ref(false);
+async function addWarehouseSamples() {
+    if (warehouseSamplesSaving.value) return;
+    warehouseSamplesSaving.value = true;
+    try {
+        const warehouse = useWarehouse();
+        if (warehouse.writeError.value && !(await warehouse.retry())) {
+            notify.error(warehouse.writeError.value);
+            return;
+        }
+        const result = importDemoWarehouse();
+        if (!result.ok) {
+            notify.error(result.error);
+            return;
+        }
+        if (!(await warehouse.flush())) {
+            notify.error(warehouse.writeError.value || '仓库示例未保存，请重试');
+            return;
+        }
+        notify.success(result.added ? `已添加 ${result.added} 件仓库示例` : '仓库示例已存在');
+    } finally {
+        warehouseSamplesSaving.value = false;
+    }
+}
 async function recoverSample() {
     sampleLoadError.value = '';
 }
@@ -149,6 +174,17 @@ async function importDemo() {
                             :disabled="goalSamplesSaving"
                             @click="addGoalSamples"
                         /><span class="meta">基于当前角色，追加养成与组合示例，已有目标保留。</span>
+                    </div>
+                    <div class="form-row">
+                        <span class="field-label">仓库示例</span>
+                        <SlotButton
+                            icon="archive"
+                            text="添加"
+                            label="添加仓库示例"
+                            :disabled="warehouseSamplesSaving"
+                            @click="addWarehouseSamples"
+                        />
+                        <span class="meta">追加装备与召唤兽示例，已有物品保留。</span>
                     </div>
                 </LedgerSection>
             </div>

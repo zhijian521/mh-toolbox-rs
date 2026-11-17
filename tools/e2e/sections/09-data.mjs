@@ -106,7 +106,7 @@ export default async function run(ctx) {
             const file = JSON.parse(readFileSync(exportFile, 'utf8'));
             t.check(
                 '信封格式与应用标识对',
-                file.format === 1 && file.app === 'mh-toolbox-rs',
+                file.format === 2 && file.app === 'mh-toolbox-rs' && Array.isArray(file.warehouse),
                 `format=${file.format} app=${file.app}`,
             );
             t.check(

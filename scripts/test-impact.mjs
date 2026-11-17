@@ -2,6 +2,7 @@ import { TEST_SCOPES } from './test-scopes.mjs';
 
 /** 推荐直接受影响领域与已知联动；未知路径单独列出，不静默回退全量。 */
 const RULES = [
+    { prefix: 'src/views/warehouse/', scopes: ['accounts', 'ocr', 'core'], smoke: ['账号', '数据'] },
     {
         prefix: 'src/views/characters/',
         except: ['src/views/characters/ocr/'],

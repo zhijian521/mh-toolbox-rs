@@ -27,7 +27,7 @@ const DB_FILE: &str = "mh-toolbox.db";
 
 /// 表结构变更递增版本；先拒绝高版本库，再建缺失表并执行独立列迁移。
 /// 不降写版本号，避免旧程序破坏新库的迁移判断。
-const SCHEMA_VERSION: i64 = 5;
+const SCHEMA_VERSION: i64 = 6;
 
 /// 一条价格记录。字段名与前端 `PricePoint` 一一对应（`serde` 自动转 camelCase）。
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -300,6 +300,7 @@ pub(crate) fn backup(conn: &Connection) -> Result<crate::backup::BackupFile, Str
         quick_prices: income.prices,
         accounts: load_accounts(&tx)?,
         goals: load_records(&tx, &GOALS)?,
+        warehouse: load_records(&tx, &WAREHOUSE)?,
         online: online.sessions,
         card_settings: online.settings,
     };
@@ -376,6 +377,12 @@ fn init(conn: &Connection) -> Result<(), String> {
          * `sort_order` 保留数组顺序——名册是「用户排的顺序」，不是按 id 或名字排的。
          * 没有按字段查询的需求，拆十几张表只会让每次加字段都变成一次 migration。 */
         CREATE TABLE IF NOT EXISTS characters (
+            id         TEXT PRIMARY KEY,
+            data       TEXT NOT NULL,
+            sort_order INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS warehouse_items (
             id         TEXT PRIMARY KEY,
             data       TEXT NOT NULL,
             sort_order INTEGER NOT NULL
@@ -521,11 +528,8 @@ fn init(conn: &Connection) -> Result<(), String> {
      * - 库里比当前版本大 → 拒绝打开。旧 exe 跑过一次新库会把版本号**降级**写回去，
      *   之后「小于才迁移」永远不成立、表缺列也自愈不了；宁可在启动时说清
      *   「请升级应用」，也不要拿一个自己看不懂的库继续跑。
-     * - 更小 → 什么都不做。三次升版都只是加表，而建表全是 `IF NOT EXISTS`，缺的表
-     *   已经在上面那条 `execute_batch` 里建好了，没有第二步可做。版本号**也不回写**：
-     *   它现在唯一的读者是「拒绝更新版」那道门，回写只让 `meta` 好看，代价是每次
-     *   拿旧库启动都多一次 fsync。真出现「改列 / 改语义」时，在这里按版本升序补分支，
-     *   第一步才是把库里的版本号对齐。 */
+     * - 更小 → 缺失表及列补齐后升版一次，旧程序因此拒绝打开包含独立仓库的新库，
+     *   避免它用不完整的领域集合做备份或清空。常态读取仍不写版本号。 */
     match read_meta(conn, "schemaVersion")? {
         None => write_meta(conn, "schemaVersion", &SCHEMA_VERSION.to_string())?,
         Some(stored) => {
@@ -537,6 +541,10 @@ fn init(conn: &Connection) -> Result<(), String> {
                     "这个数据文件是更新版本的应用写的（表结构 v{stored}，本版本只认 v{SCHEMA_VERSION}），\
                      请升级应用后再打开"
                 ));
+            }
+            // 新领域纳入备份与清空后，旧应用不能用不完整的表集合覆盖账本。
+            if stored < SCHEMA_VERSION {
+                write_meta(conn, "schemaVersion", &SCHEMA_VERSION.to_string())?;
             }
         }
     }
@@ -605,6 +613,7 @@ fn write_meta(conn: &Connection, key: &str, value: &str) -> Result<(), String> {
 fn ledger_is_empty(conn: &Connection) -> Result<bool, String> {
     conn.query_row(
         "SELECT NOT (EXISTS(SELECT 1 FROM characters)
+            OR EXISTS(SELECT 1 FROM warehouse_items)
             OR EXISTS(SELECT 1 FROM price_items)
             OR EXISTS(SELECT 1 FROM price_points)
             OR EXISTS(SELECT 1 FROM income_entries)
@@ -638,6 +647,7 @@ pub(crate) fn claim_legacy_startup(conn: &mut Connection) -> Result<bool, String
 }
 
 /// 复核空库与导入在同一个立即事务中完成，避免检测后写入的数据被覆盖。
+#[cfg(test)]
 pub(crate) fn replace_all_on_startup(
     conn: &mut Connection,
     characters: &[serde_json::Value],
@@ -854,6 +864,14 @@ const GOALS: RecordTable = RecordTable {
     ordered: false,
 };
 
+const WAREHOUSE: RecordTable = RecordTable {
+    table: "warehouse_items",
+    label: "仓库物品",
+    what: "仓库",
+    key: "sort_order",
+    ordered: true,
+};
+
 impl RecordTable {
     /// `key` 那一列只进日志，所以一律 `CAST(... AS TEXT)`：名册那边是 INTEGER、
     /// 目标那边是 TEXT，取成一个类型才写得出同一句 `format!`。
@@ -997,6 +1015,19 @@ pub fn characters_save(app: AppHandle, items: Vec<serde_json::Value>) -> Result<
     save_records(&mut conn, &CHARACTERS, &items)
 }
 
+/// 仓库只存独立物品，不通过保存接口隐式生成角色配置或收支。
+#[tauri::command]
+#[specta::specta]
+pub fn warehouse_load(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
+    load_records(&open(&app)?, &WAREHOUSE)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn warehouse_save(app: AppHandle, items: Vec<serde_json::Value>) -> Result<(), String> {
+    save_records(&mut open(&app)?, &WAREHOUSE, &items)
+}
+
 /// 导入用的整份替换：名册 + 物价，**一个事务**。
 ///
 /// 为什么不能沿用 `clear_all` + `characters_save` + `prices_save`：那是三次 `open`、
@@ -1026,8 +1057,10 @@ pub(crate) struct Counts {
     pub accounts: i64,
     pub goals: i64,
     pub online: i64,
+    pub warehouse: i64,
 }
 
+#[cfg(test)]
 pub(crate) fn replace_all(
     conn: &mut Connection,
     characters: &[serde_json::Value],
@@ -1060,6 +1093,8 @@ fn replace_records(
         .map_err(|error| format!("清空物品失败：{error}"))?;
     tx.execute("DELETE FROM characters", [])
         .map_err(|error| format!("清空名册失败：{error}"))?;
+    tx.execute("DELETE FROM warehouse_items", [])
+        .map_err(|error| format!("清空仓库失败：{error}"))?;
     tx.execute("DELETE FROM income_entries", [])
         .map_err(|error| format!("清空收益失败：{error}"))?;
     tx.execute("DELETE FROM quick_prices", [])
@@ -1127,7 +1162,66 @@ fn replace_records(
         accounts: written_accounts,
         goals: written_goals,
         online: written_online,
+        warehouse: 0,
     })
+}
+
+/// 全部领域在同一事务中替换；旧备份缺少仓库时明确恢复为空仓库。
+pub(crate) fn replace_backup(
+    conn: &mut Connection,
+    file: crate::backup::BackupFile,
+    startup: bool,
+) -> Result<Counts, String> {
+    let crate::backup::BackupFile {
+        characters,
+        prices,
+        income,
+        quick_prices,
+        accounts,
+        goals,
+        warehouse,
+        online,
+        card_settings,
+        ..
+    } = file;
+    let tx = conn
+        .transaction_with_behavior(if startup {
+            rusqlite::TransactionBehavior::Immediate
+        } else {
+            rusqlite::TransactionBehavior::Deferred
+        })
+        .map_err(|error| format!("开事务失败：{error}"))?;
+    if startup
+        && (read_meta(&tx, "legacyStartup")?.as_deref() != Some("checked")
+            || !ledger_is_empty(&tx)?)
+    {
+        return Err("已有新版数据或已完成旧版导入，未自动替换账本".to_string());
+    }
+    validate_record_ids(&warehouse, "仓库物品")?;
+    let mut counts = replace_records(
+        &tx,
+        &characters,
+        &prices,
+        &IncomePayload {
+            entries: income,
+            prices: quick_prices,
+        },
+        &accounts,
+        &goals,
+        &OnlinePayload {
+            sessions: online,
+            settings: card_settings,
+        },
+    )?;
+    for (index, item) in warehouse.iter().enumerate() {
+        insert_record(&tx, &WAREHOUSE, index, item)?;
+        counts.warehouse += 1;
+    }
+    if startup {
+        write_meta(&tx, "legacyStartup", "imported")?;
+    }
+    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
+    Ok(counts)
 }
 
 /* ======================================================================
@@ -1550,6 +1644,9 @@ fn clear_records(conn: &mut Connection) -> Result<Counts, String> {
     let online = tx
         .execute("DELETE FROM online_sessions", [])
         .map_err(|error| format!("清空上线记录失败：{error}"))?;
+    let warehouse = tx
+        .execute("DELETE FROM warehouse_items", [])
+        .map_err(|error| format!("清空仓库失败：{error}"))?;
     /* 口径也清：单价是用户设定的业务数据，不是「关于库的状态」。留下的后果是
      * 「清空了全部数据，下一次记上线仍按我上次填的价扣点卡」——那不是回到刚装好。 */
     tx.execute("DELETE FROM online_settings", [])
@@ -1566,6 +1663,7 @@ fn clear_records(conn: &mut Connection) -> Result<Counts, String> {
         accounts: accounts as i64,
         goals: goals as i64,
         online: online as i64,
+        warehouse: warehouse as i64,
     })
 }
 

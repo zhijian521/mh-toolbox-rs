@@ -4,6 +4,7 @@ export default async function run(ctx) {
     const { cdp, ui, t, want, sleep } = ctx;
 
     if (want('账号')) {
+        const warehouseIdle = `!document.querySelector('.warehouse-forward-enter-active, .warehouse-forward-leave-active, .warehouse-back-enter-active, .warehouse-back-leave-active')`;
         t.section('5 账号 · 两本账 · 角色分类堆叠图 · 记一笔 → 历史里删掉');
         let baseline;
         const rmbNumber = (text) => Number(text.replace('−', '-').replace(/[^0-9.-]/g, ''));
@@ -73,6 +74,118 @@ export default async function run(ctx) {
                 const book = [...document.querySelectorAll('.books .book')].find((one) => one.textContent.includes('人民币'));
                 return [...book.querySelectorAll('.metrics b')].map((one) => one.textContent.trim());
             })()`);
+        });
+
+        await t.step('仓库分类与独立截图草稿入口，取消不入仓', async () => {
+            await ui.clickLabel('打开装备和召唤兽仓库');
+            await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
+            const before = await cdp.evaluate(`document.querySelector('.warehouse-count').textContent`);
+            await cdp.evaluate(`window.__warehouseMask = document.querySelector('.modal-mask')`);
+            await ui.clickLabel('新增或截图录入装备');
+            await ui.waitFor(`!!document.querySelector('input[aria-label="装备截图文件"]')`);
+            await ui.waitFor(warehouseIdle);
+            t.check('进入编辑沿用原遮罩，只有一个弹窗', await cdp.evaluate(`
+                window.__warehouseMask === document.querySelector('.modal-mask') &&
+                document.querySelectorAll('.modal-mask').length === 1 &&
+                document.querySelectorAll('[role="dialog"]').length === 1
+            `));
+            t.check('装备复用详情与截图入口', await cdp.evaluate(`!!document.querySelector('.gear-name-input')`));
+            await ui.clickLabel('返回仓库列表');
+            await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
+            await ui.waitFor(warehouseIdle);
+            t.check('返回沿用遮罩并还焦点给入仓按钮', await cdp.evaluate(`
+                window.__warehouseMask === document.querySelector('.modal-mask') &&
+                document.activeElement?.hasAttribute('data-warehouse-add')
+            `));
+            t.check('空草稿取消不入仓', before === await cdp.evaluate(`document.querySelector('.warehouse-count').textContent`));
+            await ui.clickText('[aria-label="仓库分类"] button', '召唤兽', { exact: false });
+            await ui.clickLabel('新增或截图录入召唤兽');
+            await ui.waitFor(`!!document.querySelector('input[aria-label="召唤兽截图文件"]')`);
+            await ui.waitFor(warehouseIdle);
+            t.check('宝宝复用属性表单', await cdp.evaluate(`!!document.querySelector('input[aria-label="召唤兽名称"]')`));
+            await ui.clickLabel('返回仓库列表');
+            await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
+            await ui.waitFor(warehouseIdle);
+            await ui.clickLabel('关闭仓库');
+            await cdp.evaluate(`delete window.__warehouseMask`);
+        });
+
+        await t.step('仓库只显示图标，悬停看属性，点击修改并从详情删除', async () => {
+            await ui.clickLabel('打开装备和召唤兽仓库');
+            await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
+            for (const kind of ['装备', '召唤兽']) {
+                await ui.clickText('[aria-label="仓库分类"] button', kind);
+                const name = `E2E仓库${kind}-${Date.now()}`;
+                await ui.clickLabel(`新增或截图录入${kind}`);
+                if (kind === '装备') {
+                    await ui.waitFor(`!!document.querySelector('.gear-name-input')`);
+                    await ui.waitFor(warehouseIdle);
+                    await ui.fillSel('.gear-name-input', name);
+                } else {
+                    await ui.waitFor(`!!document.querySelector('input[aria-label="召唤兽名称"]')`);
+                    await ui.waitFor(warehouseIdle);
+                    await ui.fill('召唤兽名称', name);
+                    await ui.fill('召唤兽气血', '3456');
+                    await ui.fill('成长', '1.275');
+                }
+                await ui.clickLabel('保存仓库物品');
+                await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
+                await ui.waitFor(warehouseIdle);
+                await ui.fill('搜索仓库物品', name);
+                await ui.waitFor(`document.querySelectorAll('.warehouse-item').length === 1`);
+                t.check(`${kind}列表仅保留图标`, await cdp.evaluate(`(() => {
+                    const item = document.querySelector('.warehouse-item');
+                    return !!item?.querySelector('.press-tile') &&
+                        !item.querySelector('.slip-row, .pet-list, b, small') &&
+                        !document.querySelector('.warehouse-grid [aria-label="删除仓库物品"]');
+                })()`));
+                const point = await cdp.evaluate(`(() => {
+                    const box = document.querySelector('.warehouse-item').getBoundingClientRect();
+                    return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+                })()`);
+                await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point });
+                await ui.waitFor(`!!document.querySelector('.detail-tip.on')`);
+                t.check(`${kind}浮层展示名称且位于仓库遮罩上方`, await cdp.evaluate(`(() => {
+                    const tip = document.querySelector('.detail-tip.on');
+                    const mask = document.querySelector('.modal-mask');
+                    return tip?.textContent.includes(${JSON.stringify(name)}) &&
+                        Number(getComputedStyle(tip).zIndex) > Number(getComputedStyle(mask).zIndex) &&
+                        (tip.classList.contains('pet-tip')
+                            ? tip.textContent.includes('3456') && tip.textContent.includes('1.275') &&
+                                ['属性', '加点', '资质', '技能'].every((label) => tip.textContent.includes(label)) &&
+                                !tip.textContent.includes('内丹')
+                            : !!tip.querySelector('[aria-label="装备属性"]'));
+                })()`));
+                await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 0, y: 0 });
+                await ui.waitFor(`!document.querySelector('.detail-tip.on')`);
+                await cdp.evaluate(`document.querySelector('.warehouse-item').focus()`);
+                t.check(`${kind}键盘聚焦也能看详情`, await ui.waitFor(`!!document.querySelector('.detail-tip.on')`));
+                await cdp.key('Escape');
+                await ui.waitFor(`!document.querySelector('.detail-tip.on')`);
+                t.check('关闭浮层后仓库仍在', await ui.exists('.warehouse-toolbar'));
+                await ui.clickLabel(`查看并修改 ${name}`);
+                await ui.waitFor(`!!document.querySelector('[aria-label="删除仓库物品"]')`);
+                await ui.waitFor(warehouseIdle);
+                t.check('进入编辑后收起悬停详情', !(await ui.exists('.detail-tip.on')));
+                await ui.clickLabel('删除仓库物品');
+                await ui.waitFor(`!!document.querySelector('.confirm-title')`);
+                t.check('确认窗共用底层遮罩，不再次压暗背景', await cdp.evaluate(`(() => {
+                    const mask = document.querySelector('.modal-mask-nested');
+                    return !!mask && getComputedStyle(mask).backgroundColor === 'rgba(0, 0, 0, 0)' &&
+                        !document.querySelector('.modal-panel:not([inert])')?.contains(document.querySelector('.warehouse-editor-page'));
+                })()`));
+                await ui.clickLabel('取消');
+                t.check('取消删除保留编辑内容', await ui.exists('[aria-label="删除仓库物品"]'));
+                await ui.clickLabel('删除仓库物品');
+                await ui.waitFor(`!!document.querySelector('.confirm-title')`);
+                await ui.clickLabel('确认删除');
+                await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
+                await ui.waitFor(warehouseIdle);
+                t.check('删除后回列表，筛选中不再有该物品', await ui.waitFor(`document.querySelectorAll('.warehouse-item').length === 0`));
+                await ui.fill('搜索仓库物品', '');
+            }
+            await ui.clickLabel('关闭仓库');
+            t.check('关闭仓库不残留详情浮层', !(await ui.exists('.detail-tip.on')));
         });
 
         await t.step('藏宝阁买卖默认渠道与卖出实得预览', async () => {
