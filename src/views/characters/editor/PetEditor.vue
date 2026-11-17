@@ -11,6 +11,8 @@ import type { Pet } from '../pets';
 import { focusInput } from '../focus-input';
 import type { ScreenshotIntake } from '../ocr/screenshot-input';
 import type { OcrLine } from '../ocr/attr-panel';
+import CharacterAssetPicker from '../../warehouse/CharacterAssetPicker.vue';
+import { normalizeWarehouseItem, type ReadonlyWarehouseItem } from '../../warehouse/warehouse';
 
 defineProps<{ intake?: ScreenshotIntake }>();
 const emit = defineEmits<{ busy: [value: boolean] }>();
@@ -41,6 +43,16 @@ const petName = (pet: Pet) => pet.name.trim() || '未命名';
 function addPet() {
     pets.value.push({ ...emptyPet(), name: '' });
     selected.value = pets.value.length - 1;
+    revision.value++;
+}
+function pickWarehouse(items: readonly ReadonlyWarehouseItem[]) {
+    const added = items
+        .map(normalizeWarehouseItem)
+        .flatMap((item) => (item?.kind === 'pet' ? [{ ...item.pet, warehouseId: item.id }] : []));
+    if (!added.length) return;
+    if (current.value && !current.value.name.trim()) pets.value.splice(selected.value, 1);
+    selected.value = pets.value.length;
+    pets.value.push(...added);
     revision.value++;
 }
 
@@ -77,6 +89,12 @@ defineExpose({ focusName, acceptScreenshot });
                     <span
                         >召唤兽 <span class="pet-count">{{ pets.length }}</span></span
                     >
+                    <CharacterAssetPicker
+                        kind="pet"
+                        :excluded-ids="pets.map((pet) => pet.warehouseId || '')"
+                        :disabled="reading || intake?.busy"
+                        @pick="pickWarehouse"
+                    />
                 </div>
                 <nav class="pet-grid character-choice-grid" aria-label="召唤兽列表">
                     <button
@@ -125,9 +143,9 @@ defineExpose({ focusName, acceptScreenshot });
                          那一只，不再像上一版那样每格各留一枚压在角落。 -->
                     <template #name-extra>
                         <PressButton
-                            danger
-                            icon="trash"
-                            :label="`删除第 ${selected + 1} 只召唤兽：${petName(current)}`"
+                            icon="back"
+                            text="移除"
+                            :label="`移除第 ${selected + 1} 只召唤兽：${petName(current)}`"
                             :disabled="reading || intake?.busy"
                             @click="removeAt(selected)"
                         />

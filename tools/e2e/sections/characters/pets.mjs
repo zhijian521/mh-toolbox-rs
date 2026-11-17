@@ -84,7 +84,7 @@ export async function pets(ctx) {
                 `document.querySelector('.pet-block input[aria-label="等级"]').value`,
             )) === '11',
         );
-        await ui.clickLabel('删除第 1 只召唤兽：临时甲');
+        await ui.clickLabel('移除第 1 只召唤兽：临时甲');
         t.check(
             '删除前项后仍选中原召唤兽',
             await cdp.evaluate(

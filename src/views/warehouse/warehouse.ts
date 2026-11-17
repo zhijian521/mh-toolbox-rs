@@ -42,6 +42,7 @@ export function normalizeWarehouseItem(raw: unknown): WarehouseItem | null {
     };
     if (raw.kind === 'pet') {
         const pet = normalizePet(raw.pet);
+        if (pet) delete pet.warehouseId;
         return pet ? { ...base, kind: 'pet', pet } : null;
     }
     if (raw.kind !== 'gear' || !isObject(raw.gear)) return null;

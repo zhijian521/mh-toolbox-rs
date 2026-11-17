@@ -132,7 +132,7 @@ export const commands = {
 	charactersLoad: () => __TAURI_INVOKE<Value[]>("characters_load"),
 	/**  整份写回名册。 */
 	charactersSave: (items: Value[]) => __TAURI_INVOKE<null>("characters_save", { items }),
-	/**  仓库只存独立物品，不通过保存接口隐式生成角色配置或收支。 */
+	/**  仓库包含独立物品与角色已穿戴投影，读取不产生收支。 */
 	warehouseLoad: () => __TAURI_INVOKE<Value[]>("warehouse_load"),
 	warehouseSave: (items: Value[]) => __TAURI_INVOKE<null>("warehouse_save", { items }),
 	/**

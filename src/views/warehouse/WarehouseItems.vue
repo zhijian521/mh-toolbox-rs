@@ -18,6 +18,8 @@ const props = withDefaults(
         selectable?: boolean;
         selectedIds?: ReadonlySet<string>;
         inspectOnly?: boolean;
+        status?: 'stock' | 'sold';
+        owners?: ReadonlyMap<string, string>;
     }>(),
     { labelPrefix: '查看并修改' },
 );
@@ -54,7 +56,7 @@ function dismissTip(event: KeyboardEvent) {
 }
 function activate(item: ReadonlyWarehouseItem, event: MouseEvent) {
     if (props.disabled) return;
-    if (props.inspectOnly) showTip(item, event);
+    if (props.inspectOnly || props.owners?.has(item.id)) showTip(item, event);
     else {
         hideTip();
         emit('itemclick', item);
@@ -85,8 +87,12 @@ defineExpose({ hideTip });
             :data-asset-id="item.id"
             type="button"
             class="character-choice warehouse-item"
-            :class="{ 'warehouse-item-selected': selectable && selectedIds?.has(item.id) }"
-            :aria-label="`${labelPrefix} ${warehouseName(item)}`"
+            :class="{
+                'warehouse-item-selected': selectable && selectedIds?.has(item.id),
+                'warehouse-item-worn': owners?.has(item.id),
+                'warehouse-item-sold': status === 'sold',
+            }"
+            :aria-label="`${owners?.has(item.id) ? '查看已穿戴' : labelPrefix} ${warehouseName(item)}`"
             :aria-pressed="selectable ? selectedIds?.has(item.id) === true : undefined"
             :aria-describedby="hovered?.id === item.id ? `${tipId}-${item.kind}` : undefined"
             :disabled="disabled"
@@ -111,6 +117,9 @@ defineExpose({ hideTip });
             <PressTile v-else still class="warehouse-pet-icon" aria-hidden="true">
                 <PetImage :name="item.pet.portrait || ''" kind="portrait" title="" />
             </PressTile>
+            <span v-if="status" class="warehouse-item-state" :title="owners?.get(item.id)">{{
+                status === 'sold' ? '已卖出' : owners?.has(item.id) ? '已穿戴' : '未穿戴'
+            }}</span>
             <span
                 v-if="selectable && selectedIds?.has(item.id)"
                 class="warehouse-item-check"
@@ -129,6 +138,9 @@ defineExpose({ hideTip });
             @mouseleave="scheduleHide"
         >
             <template v-if="hovered?.kind === 'gear'">
+                <div v-if="owners?.get(hovered.id)" class="meta warehouse-tip-owner">
+                    已穿戴 · {{ owners?.get(hovered.id) }}
+                </div>
                 <div v-if="hovered.soul?.length" class="warehouse-soul">
                     <span class="meta">命魂之玉</span>
                     <div v-for="(row, i) in hovered.soul" :key="i" class="meta">
@@ -149,6 +161,9 @@ defineExpose({ hideTip });
             @mouseenter="keepTip"
             @mouseleave="scheduleHide"
         >
+            <div v-if="hovered && owners?.get(hovered.id)" class="meta warehouse-tip-owner">
+                已携带 · {{ owners?.get(hovered.id) }}
+            </div>
             <div v-if="hovered?.server" class="meta warehouse-tip-server">{{ hovered.server }}</div>
         </PetTip>
     </div>
@@ -188,6 +203,35 @@ defineExpose({ hideTip });
 }
 .warehouse-item-selected:hover:not(:disabled) {
     background: color-mix(in srgb, var(--accent) 12%, var(--paper));
+}
+.warehouse-item-worn {
+    border-color: color-mix(in srgb, var(--accent) 50%, var(--rule-2));
+    background: color-mix(in srgb, var(--accent) 7%, var(--paper));
+}
+.warehouse-item-state {
+    margin-top: 3px;
+    padding: 1px 4px;
+    border-radius: var(--r-1);
+    background: var(--slip-base);
+    color: var(--ink-3);
+    font-size: var(--fs-mini);
+    line-height: 1.2;
+    white-space: nowrap;
+}
+.warehouse-item-worn .warehouse-item-state,
+.warehouse-tip-owner {
+    color: var(--accent);
+}
+.warehouse-item-worn .warehouse-item-state {
+    background: color-mix(in srgb, var(--accent) 12%, var(--paper));
+}
+.warehouse-item-sold {
+    border-style: dashed;
+    border-color: var(--rule-2);
+}
+.warehouse-item-sold .warehouse-item-state {
+    background: color-mix(in srgb, var(--seal) 8%, var(--paper));
+    color: var(--seal);
 }
 .warehouse-item-check {
     position: absolute;

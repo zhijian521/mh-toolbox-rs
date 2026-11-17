@@ -8,6 +8,8 @@ export const TEST_SCOPES = {
     characters: [
         ...STORE_CONTRACT_TESTS,
         'src/views/characters/',
+        'src/views/warehouse/',
+        'src/services/character-assets-local.test.',
         'src/views/goals/',
         'src/views/overview/',
     ],
@@ -35,6 +37,7 @@ export const TEST_SCOPES = {
         'src/views/accounts/',
         'src/views/warehouse/',
         'src/views/income/income.test.',
+        'src/services/character-assets-local.test.',
         'src/views/income/online.test.',
         'src/views/income/online-time.test.',
         'src/views/overview/',

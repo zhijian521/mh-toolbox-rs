@@ -15,6 +15,8 @@ import { normalizeGear } from '../roster';
 import { normalizeGearMeta } from '../details';
 import { useDraftGuard } from '../../../composables/use-draft-guard';
 import OcrSummary from '../ocr/OcrSummary.vue';
+import CharacterAssetPicker from '../../warehouse/CharacterAssetPicker.vue';
+import { normalizeWarehouseItem, type ReadonlyWarehouseItem } from '../../warehouse/warehouse';
 import {
     characterSnapshot,
     changeReport,
@@ -93,6 +95,14 @@ function setReading(value: boolean) {
     reading.value = value;
     if (value) reports.value = [];
 }
+function pickWarehouse(items: readonly ReadonlyWarehouseItem[]) {
+    const item = normalizeWarehouseItem(items[0]);
+    if (!item || item.kind !== 'gear' || item.gear.slot !== props.slotName) return;
+    gear.value = gear.value.map((slot) =>
+        slot.slot === props.slotName ? { ...item.gear, warehouseId: item.id } : slot,
+    );
+    if (item.soul) meta.value.soul = item.soul;
+}
 function save() {
     if (reading.value || props.saving || (props.locked && !props.retrying)) return;
     let next = props.character;
@@ -125,7 +135,16 @@ onMounted(() => focusInput(form, '.gear-name-input'));
                     v-model:caption="caption"
                     v-model:soul="meta.soul"
                     :slot-name="slotName"
-                />
+                >
+                    <template #name-extra>
+                        <CharacterAssetPicker
+                            kind="gear"
+                            :gear-slot="slotName"
+                            :disabled="reading || locked || saving"
+                            @pick="pickWarehouse"
+                        />
+                    </template>
+                </GearDetailForm>
             </GearScreenshot>
         </div>
         <OcrSummary :reports="reports" />

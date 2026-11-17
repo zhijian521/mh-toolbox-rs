@@ -321,7 +321,7 @@ export function applyQuick(
 export function applyGear(
     character: ReadonlyCharacter,
     slotName: GearSlotName,
-    next: { caption?: string; detail?: GearDetail },
+    next: { caption?: string; detail?: GearDetail; warehouseId?: string },
 ): ReadonlyCharacter {
     const caption = (next.caption ?? '').trim();
     const detail = next.detail
@@ -333,7 +333,14 @@ export function applyGear(
     /* 空位也**占一格**：十二个部位是游戏定的、卡上 4×4 一格一个，
      * 清空只能把它变空，不能让它从数组里消失。 */
     const merged: GearSlot = detail
-        ? { slot: slotName, caption: caption || detail.name, detail }
+        ? {
+              slot: slotName,
+              caption: caption || detail.name,
+              detail,
+              warehouseId:
+                  next.warehouseId ??
+                  character.gear.find((one) => one.slot === slotName)?.warehouseId,
+          }
         : caption
           ? { slot: slotName, caption }
           : { slot: slotName };

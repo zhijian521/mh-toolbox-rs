@@ -827,7 +827,7 @@ export default async function run(ctx) {
                     `${kind}回仓后已卖出列表清空`,
                     await ui.waitFor(`document.querySelectorAll('.warehouse-item').length === 0`),
                 );
-                await ui.clickText('[aria-label="仓库状态"] button', '在仓');
+                await ui.clickText('[aria-label="仓库状态"] button', '未穿戴');
                 for (const itemName of names) {
                     await ui.clickLabel(`查看并修改 ${itemName}`);
                     await ui.waitFor(`!!document.querySelector('[aria-label="删除仓库物品"]')`);

@@ -85,6 +85,8 @@ describe('游戏数据装配边界', () => {
         const desktop = {
             hasDesktop: () => true,
             charactersLoad: vi.fn(async () => [{ id: 'kept', name: '原角色' }]),
+            warehouseLoad: vi.fn(async () => []),
+            warehouseSave: vi.fn(async () => true),
             charactersSave: vi.fn(async () => true),
         };
         vi.doMock('./desktop', () => desktop);

@@ -10,6 +10,7 @@ describe('烟测范围选择', () => {
         expect(createSelection('角色/装备').characterSteps).toEqual(['pets', 'equipment']);
         expect(createSelection('角色/截图').characterSteps).toEqual(['ocr']);
         expect(createSelection('角色/基础').characterSteps).toEqual([]);
+        expect(createSelection('角色/仓库').characterSteps).toEqual(['pets', 'assets']);
     });
 
     it('保留页面选择、收益日期联动和全量入口', () => {

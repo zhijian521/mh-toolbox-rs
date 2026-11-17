@@ -6,6 +6,18 @@ import { charactersLoad, charactersSave } from '../../services/storage';
 import { gameDataError, gameDataReady, schoolNames } from '../../services/game-data';
 import { createPersist } from '../../services/persist';
 import { normalizeGrowthHistory, withGrowthHistory, type GrowthEntry } from './growth-history';
+import { characterAssetOwners, identifyCharacterAssets } from '../warehouse/character-assets';
+import {
+    loadWarehouse,
+    stageCharacterWarehouse,
+    characterWarehouseSnapshot,
+    finishCharacterWarehouse,
+    useWarehouse,
+} from '../warehouse/warehouse-store';
+import {
+    recoverCharacterAssetsLocal,
+    writeCharacterAssetsLocal,
+} from '../../services/character-assets-local';
 /* 形状兜底全在 `services/shape.ts`（与物价页共用一份）。两个本地别名值得看清：
  *   `text`  ← `rawText`：名册这边**不 trim**，卡面上的字是用户写什么就显示什么；
  *   `int`   ← `stamp`  ：`Math.round` + 非有限数变 0，等级与时间戳共用同一条规则。 */
@@ -235,7 +247,10 @@ export function normalizeGear(raw: unknown): GearSlot[] {
         if (!item) return { slot };
         const detail = normalizeGearDetail(item.detail);
         const caption = text(item.caption) || detail?.name;
-        return detail ? { slot, caption, detail } : { slot, caption };
+        const warehouseId = text(item.warehouseId).trim();
+        return detail
+            ? { slot, caption, detail, ...(warehouseId ? { warehouseId } : {}) }
+            : { slot, caption };
     });
 }
 
@@ -388,20 +403,31 @@ export async function loadRoster(): Promise<void> {
         loaded,
         loadError,
         error: '读不出角色名册，已暂停写入以免覆盖原有数据',
-        readLocal: () =>
-            readLocalData(STORAGE_KEY, (raw) =>
+        readLocal: () => {
+            recoverCharacterAssetsLocal();
+            return readLocalData(STORAGE_KEY, (raw) =>
                 parseLocalList(raw, (rows) =>
                     (rows as unknown[]).filter(isObject).map(normalizeCharacter),
                 ),
-            ),
+            );
+        },
         readRemote: charactersLoad,
         applyLocal: async (stored) => {
-            roster.value = stored ?? (await seed());
+            const next = (stored ?? (await seed())).map((item) =>
+                identifyCharacterAssets(item, true),
+            );
+            characterAssetOwners(next);
+            roster.value = next;
         },
         applyRemote: (stored) => {
-            roster.value = stored.map(normalizeCharacter);
+            const next = stored.map((item) =>
+                identifyCharacterAssets(normalizeCharacter(item), true),
+            );
+            characterAssetOwners(next);
+            roster.value = next;
         },
     });
+    await loadWarehouse();
 }
 
 /** 修改后排队保存当前全量；读取失败拒写，导出与关窗等待 flush。 */
@@ -410,8 +436,17 @@ const persist = createPersist({
     loadError,
     loaded,
     writeError,
-    writeLocal: () => writeLocalData(STORAGE_KEY, roster.value),
-    writeRemote: () => charactersSave(roster.value),
+    writeLocal: () => {
+        const inventory = characterWarehouseSnapshot();
+        if (inventory) writeCharacterAssetsLocal(roster.value, inventory);
+        else writeLocalData(STORAGE_KEY, roster.value);
+        finishCharacterWarehouse();
+    },
+    writeRemote: async () => {
+        const ok = await charactersSave(roster.value);
+        if (ok) finishCharacterWarehouse();
+        return ok;
+    },
 });
 
 // 首次加载失败后重试成功，只补全内存模板，不自动写盘或重新读取覆盖当前状态。
@@ -430,14 +465,42 @@ function canWriteRoster(): boolean {
     return false;
 }
 
+function stageAssets(next: readonly ReadonlyCharacter[]): boolean {
+    if (stageCharacterWarehouse(roster.value, next)) return true;
+    writeError.value = useWarehouse().operationError.value;
+    return false;
+}
+
+function canSelectAssets(character: ReadonlyCharacter): boolean {
+    const current = roster.value.find((item) => item.id === character.id);
+    const previous = new Set(
+        [...(current?.gear ?? []), ...(current?.pets ?? [])].map((item) => item.warehouseId),
+    );
+    const inventory = new Set(useWarehouse().items.value.map((item) => item.id));
+    if (
+        [...character.gear, ...character.pets].some(
+            (item) =>
+                item.warehouseId &&
+                !previous.has(item.warehouseId) &&
+                !inventory.has(item.warehouseId),
+        )
+    ) {
+        writeError.value = '所选物品已被移除或卖出，请重新从仓库选择';
+        return false;
+    }
+    return true;
+}
+
 export function useRoster() {
     /** 新增。返回新角色的 id，调用方拿它决定要不要接着打开编辑器。 */
     function add(character: ReadonlyCharacter) {
-        if (!canWriteRoster()) return character.id;
-        roster.value = [
+        if (!canWriteRoster() || !canSelectAssets(character)) return character.id;
+        const next = [
             ...roster.value,
-            { ...normalizeCharacter(character), updatedAt: Date.now() },
+            identifyCharacterAssets({ ...normalizeCharacter(character), updatedAt: Date.now() }),
         ];
+        if (!stageAssets(next)) return character.id;
+        roster.value = next;
         persist();
         return character.id;
     }
@@ -448,21 +511,27 @@ export function useRoster() {
         source: GrowthEntry['source'] = 'edit',
         note = '',
     ) {
-        if (!canWriteRoster()) return;
+        if (!canWriteRoster() || !canSelectAssets(character)) return false;
         const updatedAt = Date.now();
-        const next = normalizeCharacter(character);
-        roster.value = roster.value.map((item) =>
+        const next = identifyCharacterAssets(normalizeCharacter(character));
+        const list = roster.value.map((item) =>
             item.id === character.id
                 ? { ...withGrowthHistory(item, next, source, note, updatedAt), updatedAt }
                 : item,
         );
+        if (!stageAssets(list)) return false;
+        roster.value = list;
         persist();
+        return true;
     }
 
     function remove(id: string) {
-        if (!canWriteRoster()) return;
-        roster.value = roster.value.filter((item) => item.id !== id);
+        if (!canWriteRoster()) return false;
+        const next = roster.value.filter((item) => item.id !== id);
+        if (!stageAssets(next)) return false;
+        roster.value = next;
         persist();
+        return true;
     }
 
     return {

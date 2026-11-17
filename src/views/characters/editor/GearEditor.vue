@@ -9,6 +9,8 @@ import { mergeGearPanels, type GearPanelResult } from '../ocr/gear-panel';
 import { useGearIcon } from '../use-gear-icon';
 import type { ScreenshotIntake } from '../ocr/screenshot-input';
 import type { OcrLine } from '../ocr/attr-panel';
+import CharacterAssetPicker from '../../warehouse/CharacterAssetPicker.vue';
+import { normalizeWarehouseItem, type ReadonlyWarehouseItem } from '../../warehouse/warehouse';
 
 /** 部位图标常驻，原图与详情并排；识别按实际部位更新草稿并选中该件。 */
 defineProps<{ intake?: ScreenshotIntake }>();
@@ -40,6 +42,7 @@ function clearByKey(key: string) {
     if (!slot) return;
     slot.caption = '';
     delete slot.detail;
+    delete slot.warehouseId;
     screenshot.value?.clearShot(slot.slot);
     if (slot.slot === selected.value) ensureDetail(slot);
 }
@@ -47,6 +50,15 @@ function recognize(result: GearPanelResult) {
     gear.value = mergeGearPanels(gear.value, result);
     if (result.soul) meta.value.soul = result.soul.map(({ label, value }) => ({ label, value }));
     if (result.slot) selectByKey(result.slot);
+}
+function pickWarehouse(items: readonly ReadonlyWarehouseItem[]) {
+    const item = normalizeWarehouseItem(items[0]);
+    if (!item || item.kind !== 'gear' || item.gear.slot !== active.value?.slot) return;
+    gear.value = gear.value.map((slot) =>
+        slot.slot === item.gear.slot ? { ...item.gear, warehouseId: item.id } : slot,
+    );
+    if (item.soul) meta.value.soul = item.soul;
+    screenshot.value?.clearShot(item.gear.slot);
 }
 function acceptScreenshot(file: File, result: GearPanelResult, lines: OcrLine[]) {
     screenshot.value?.acceptScreenshot(file, result, lines);
@@ -77,6 +89,13 @@ const { icon: slotIcon } = useGearIcon();
                         >装备
                         <span class="gear-count">{{ filledCount }} / {{ gear.length }}</span></span
                     >
+                    <CharacterAssetPicker
+                        kind="gear"
+                        :gear-slot="active?.slot"
+                        :excluded-ids="gear.map((slot) => slot.warehouseId || '')"
+                        :disabled="reading || intake?.busy"
+                        @pick="pickWarehouse"
+                    />
                 </div>
                 <nav class="gear-parts character-choice-grid" aria-label="装备部位">
                     <button
@@ -107,9 +126,9 @@ const { icon: slotIcon } = useGearIcon();
             >
                 <template #name-extra>
                     <PressButton
-                        danger
-                        icon="trash"
-                        :label="'删除' + active.slot + '这件装备'"
+                        icon="back"
+                        text="卸下"
+                        :label="'卸下' + active.slot + '这件装备'"
                         :disabled="reading || intake?.busy || !clearable"
                         @click="clearByKey(active.slot)"
                     />
@@ -131,7 +150,7 @@ const { icon: slotIcon } = useGearIcon();
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: calc(20px * var(--fs-scale));
+    min-height: calc(26px * var(--fs-scale));
     color: var(--ink-2);
     font-size: var(--fs-sm);
 }

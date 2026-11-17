@@ -82,6 +82,8 @@ export interface GearDetail {
 
 /** 一格。`detail` 缺席即空位——**空位要占格**，否则「少一件」与「没这一格」分不开。 */
 export interface GearSlot {
+    /** 仓库身份随物品保留，空位不保留旧物品编号。 */
+    warehouseId?: string;
     slot: GearSlotName;
     /** 格内显示的短名，通常是装备名；太长会省略号截断。 */
     caption?: string;

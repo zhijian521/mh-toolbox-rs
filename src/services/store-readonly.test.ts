@@ -9,6 +9,8 @@ describe('业务状态只读边界', () => {
         vi.doMock('./desktop', () => ({ hasDesktop: () => true }));
         vi.doMock('./storage', () => ({
             charactersLoad: async () => [],
+            warehouseLoad: vi.fn(async () => []),
+            warehouseSave: vi.fn(async () => true),
             charactersSave: async () => true,
             pricesLoad: async () => [],
             pricesSave: async () => true,

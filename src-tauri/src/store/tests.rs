@@ -1,6 +1,83 @@
 use super::*;
 
 #[test]
+fn character_assets_keep_identity_and_archive_unequipped_items() {
+    let dir = TempDir::new(1730);
+    let mut conn = open_at(dir.base()).unwrap();
+    let mut role = serde_json::json!({
+        "id": "hero", "name": "甲", "server": "大雁塔", "updatedAt": 1,
+        "gear": [{ "slot": "武器", "warehouseId": "weapon",
+            "detail": { "name": "斩妖泣血", "kind": "", "stats": [] } }],
+        "pets": [{ "name": "画魂", "warehouseId": "pet" }]
+    });
+    character_assets::save_roster(&mut conn, std::slice::from_ref(&role)).unwrap();
+    assert_eq!(load_records(&conn, &WAREHOUSE).unwrap().len(), 2);
+    role["pets"][0]["name"] = serde_json::json!("改名画魂");
+    character_assets::save_roster(&mut conn, std::slice::from_ref(&role)).unwrap();
+    let inventory = character_assets::load(&conn).unwrap();
+    assert_eq!(inventory.len(), 2);
+    assert_eq!(
+        inventory.iter().find(|item| item["id"] == "pet").unwrap()["pet"]["name"],
+        "改名画魂"
+    );
+    assert!(character_assets::check_worn(&conn, &[]).is_err());
+    role["gear"] = serde_json::json!([]);
+    role["pets"] = serde_json::json!([]);
+    character_assets::save_roster(&mut conn, &[role]).unwrap();
+    character_assets::check_worn(&conn, &[]).unwrap();
+    character_assets::save_roster(&mut conn, &[]).unwrap();
+    assert_eq!(load_records(&conn, &WAREHOUSE).unwrap().len(), 2);
+}
+
+#[test]
+fn character_asset_failure_rolls_back_roster_and_inventory() {
+    let dir = TempDir::new(1731);
+    let mut conn = open_at(dir.base()).unwrap();
+    let original = serde_json::json!({ "id": "hero", "name": "原角色" });
+    character_assets::save_roster(&mut conn, std::slice::from_ref(&original)).unwrap();
+    conn.execute_batch(
+        "CREATE TRIGGER refuse_asset BEFORE INSERT ON warehouse_items
+         BEGIN SELECT RAISE(ABORT, '拒绝写入'); END;",
+    )
+    .unwrap();
+    let next = serde_json::json!({ "id": "hero", "name": "新角色",
+        "pets": [{ "name": "画魂", "warehouseId": "pet" }] });
+    assert!(character_assets::save_roster(&mut conn, std::slice::from_ref(&next)).is_err());
+    assert_eq!(load_records(&conn, &CHARACTERS).unwrap(), vec![original]);
+    assert!(load_records(&conn, &WAREHOUSE).unwrap().is_empty());
+    conn.execute_batch("DROP TRIGGER refuse_asset").unwrap();
+    character_assets::save_roster(&mut conn, std::slice::from_ref(&next)).unwrap();
+    let mut second = next.clone();
+    second["id"] = serde_json::json!("other");
+    assert!(character_assets::save_roster(&mut conn, &[next, second]).is_err());
+    assert_eq!(load_records(&conn, &CHARACTERS).unwrap().len(), 1);
+    assert_eq!(load_records(&conn, &WAREHOUSE).unwrap().len(), 1);
+}
+
+#[test]
+fn worn_items_cannot_be_sold_and_stale_selection_cannot_restore_a_sale() {
+    let dir = TempDir::new(1732);
+    let mut conn = open_at(dir.base()).unwrap();
+    let worn = serde_json::json!({ "id": "hero", "pets": [
+        { "name": "画魂", "warehouseId": "pet" }
+    ] });
+    character_assets::save_roster(&mut conn, std::slice::from_ref(&worn)).unwrap();
+    assert!(save_account_trade(&mut conn, &[], &[]).is_err());
+    let inventory = character_assets::load(&conn).unwrap();
+    character_assets::save_roster(&mut conn, &[serde_json::json!({ "id": "hero" })]).unwrap();
+    let sale: AccountEntry = serde_json::from_value(serde_json::json!({
+        "id": "sale", "date": "2026-11-17", "characterId": "", "kind": "income",
+        "currency": "rmb", "category": "召唤兽交易", "channel": "游戏内",
+        "amount": 100, "note": "", "createdAt": 1, "assets": inventory
+    }))
+    .unwrap();
+    save_account_trade(&mut conn, &[sale], &[]).unwrap();
+    assert!(character_assets::save_roster(&mut conn, &[worn]).is_err());
+    assert!(load_records(&conn, &WAREHOUSE).unwrap().is_empty());
+    assert_eq!(load_accounts(&conn).unwrap().len(), 1);
+}
+
+#[test]
 fn account_trade_is_atomic_and_snapshots_survive_backup() {
     let dir = TempDir::new(1618);
     let mut conn = open_at(dir.base()).unwrap();

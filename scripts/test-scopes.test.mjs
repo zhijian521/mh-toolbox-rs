@@ -42,4 +42,12 @@ describe('业务测试分区', () => {
         expect(() => selectTests(['typo'], files)).toThrow('未知');
         expect(() => selectTests(['ocr'], [])).toThrow('没有匹配');
     });
+
+    it('角色和账号均包含仓库归属及联动恢复', () => {
+        for (const scope of ['characters', 'accounts']) {
+            const selected = selectTests([scope], files);
+            expect(selected).toContain('src/views/warehouse/character-assets.test.ts');
+            expect(selected).toContain('src/services/character-assets-local.test.ts');
+        }
+    });
 });

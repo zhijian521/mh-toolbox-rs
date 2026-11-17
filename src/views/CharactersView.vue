@@ -21,6 +21,8 @@ import { gameDataError, gameDataLoading, gameDataReady, loadGameData } from '../
 const CharacterHistory = lazyDialog(() => import('./characters/CharacterHistory.vue'));
 const CharacterEditor = lazyDialog(() => import('./characters/CharacterEditor.vue'));
 const QuickEdit = lazyDialog(() => import('./characters/quick/QuickEdit.vue'));
+const WarehouseDialog = lazyDialog(() => import('./warehouse/WarehouseDialog.vue'));
+const warehouseOpen = ref(false);
 
 /**
  * 角色页 —— 名册。
@@ -108,8 +110,7 @@ async function onQuickSave(next: ReadonlyCharacter) {
     const source = quicking.value;
     if (!source) return;
     const ok = await submission.run('save', () => {
-        update(next);
-        return true;
+        return update(next);
     });
     if (ok && quicking.value === source) closeQuick();
 }
@@ -137,9 +138,9 @@ async function onSave(character: ReadonlyCharacter) {
     const source = editing.value;
     if (!source) return;
     const ok = await submission.run('save', () => {
-        if (source.isNew) add(character);
-        else update(character);
-        return true;
+        if (!source.isNew) return update(character);
+        add(character);
+        return roster.value.some((item) => item.id === character.id);
     });
     if (ok && editing.value === source) closeEditor();
 }
@@ -243,8 +244,15 @@ useRouteAction('/characters', {
             @retry="retry"
         />
 
-        <div v-if="roster.length" class="page-filters character-filters">
+        <div class="page-filters character-filters">
+            <PressButton
+                icon="archive"
+                text="仓库"
+                label="打开装备和召唤兽仓库"
+                @click="warehouseOpen = true"
+            />
             <input
+                v-if="roster.length"
                 v-model="keyword"
                 class="field filter-search"
                 type="search"
@@ -252,7 +260,7 @@ useRouteAction('/characters', {
                 placeholder="搜角色名、门派或区服"
             />
             <SlotButton v-if="keyword" text="清空" label="清空角色搜索" @click="keyword = ''" />
-            <span class="hint" aria-live="polite"
+            <span v-if="roster.length" class="hint" aria-live="polite"
                 >{{ visible.length }} / {{ roster.length }} 个角色</span
             >
         </div>
@@ -320,6 +328,7 @@ useRouteAction('/characters', {
         />
     </PageShell>
     <CharacterHistory v-if="historyOpen" @close="historyOpen = false" />
+    <WarehouseDialog v-if="warehouseOpen" @close="warehouseOpen = false" />
 </template>
 
 <style scoped>

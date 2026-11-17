@@ -3,6 +3,7 @@ import type { DeepReadonly } from 'vue';
 export { PET_QUALITY_FIELDS } from '../../services/game-rules';
 
 export interface Pet {
+    warehouseId?: string;
     name: string;
     /** 稳定资源编号，独立于玩家自定义的名字。 */
     portrait?: string;

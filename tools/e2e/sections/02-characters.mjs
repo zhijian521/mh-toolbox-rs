@@ -5,12 +5,13 @@ import { ocr } from './characters/ocr.mjs';
 import { quick } from './characters/quick.mjs';
 import { equipment } from './characters/equipment.mjs';
 import { stats } from './characters/stats.mjs';
+import { assets } from './characters/assets.mjs';
 
 export default async function run(ctx) {
     if (!ctx.want('角色')) return;
     await setup(ctx);
     const steps = new Set(ctx.characterSteps);
-    for (const [key, run] of Object.entries({ ocr, pets, quick, equipment, stats })) {
+    for (const [key, run] of Object.entries({ ocr, pets, assets, quick, equipment, stats })) {
         if (steps.has(key)) await run(ctx);
     }
     if (steps.has('history')) {

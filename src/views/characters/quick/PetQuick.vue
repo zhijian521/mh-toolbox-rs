@@ -13,6 +13,8 @@ import { hasPetName, type Pet } from '../pets';
 import type { ReadonlyCharacter } from '../character';
 import { useDraftGuard } from '../../../composables/use-draft-guard';
 import OcrSummary from '../ocr/OcrSummary.vue';
+import CharacterAssetPicker from '../../warehouse/CharacterAssetPicker.vue';
+import { normalizeWarehouseItem, type ReadonlyWarehouseItem } from '../../warehouse/warehouse';
 import {
     petSnapshot,
     changeReport,
@@ -76,6 +78,10 @@ function setReading(value: boolean) {
     reading.value = value;
     if (value) reports.value = [];
 }
+function pickWarehouse(items: readonly ReadonlyWarehouseItem[]) {
+    const item = normalizeWarehouseItem(items[0]);
+    if (item?.kind === 'pet') pet.value = { ...item.pet, warehouseId: item.id };
+}
 
 const form = ref<HTMLElement | null>(null);
 
@@ -95,7 +101,16 @@ onMounted(() => focusInput(form, 'input[aria-label="召唤兽名称"]'));
     >
         <div v-if="pet" ref="form" :inert="locked || saving" class="pet-quick">
             <PetScreenshot @recognize="recognize" @busy="setReading">
-                <PetDetailForm v-model="pet" />
+                <PetDetailForm v-model="pet">
+                    <template #name-extra>
+                        <CharacterAssetPicker
+                            kind="pet"
+                            single
+                            :disabled="reading || locked || saving"
+                            @pick="pickWarehouse"
+                        />
+                    </template>
+                </PetDetailForm>
             </PetScreenshot>
         </div>
         <p v-else class="note pet-missing-note">这只召唤兽已经不在了。</p>

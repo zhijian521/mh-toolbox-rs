@@ -1021,20 +1021,36 @@ pub fn characters_load(app: AppHandle) -> Result<Vec<serde_json::Value>, String>
 #[specta::specta]
 pub fn characters_save(app: AppHandle, items: Vec<serde_json::Value>) -> Result<(), String> {
     let mut conn = open(&app)?;
-    save_records(&mut conn, &CHARACTERS, &items)
+    character_assets::save_roster(&mut conn, &items)
 }
 
-/// 仓库只存独立物品，不通过保存接口隐式生成角色配置或收支。
+/// 仓库包含独立物品与角色已穿戴投影，读取不产生收支。
 #[tauri::command]
 #[specta::specta]
 pub fn warehouse_load(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
-    load_records(&open(&app)?, &WAREHOUSE)
+    let mut conn = open(&app)?;
+    let tx = conn
+        .transaction()
+        .map_err(|error| format!("开事务失败：{error}"))?;
+    character_assets::load(&tx)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn warehouse_save(app: AppHandle, items: Vec<serde_json::Value>) -> Result<(), String> {
-    save_records(&mut open(&app)?, &WAREHOUSE, &items)
+    let mut conn = open(&app)?;
+    let tx = conn
+        .transaction()
+        .map_err(|error| format!("开事务失败：{error}"))?;
+    character_assets::check_worn(&tx, &items)?;
+    let next = character_assets::merge(&items, &load_records(&tx, &CHARACTERS)?)?;
+    validate_record_ids(&next, "仓库物品")?;
+    tx.execute("DELETE FROM warehouse_items", [])
+        .map_err(|error| format!("清空仓库失败：{error}"))?;
+    for (index, item) in next.iter().enumerate() {
+        insert_record(&tx, &WAREHOUSE, index, item)?;
+    }
+    tx.commit().map_err(|error| format!("提交失败：{error}"))
 }
 
 /// 导入用的整份替换：名册 + 物价，**一个事务**。
@@ -1433,6 +1449,7 @@ fn save_account_trade(
     let tx = conn
         .transaction()
         .map_err(|error| format!("开事务失败：{error}"))?;
+    character_assets::check_worn(&tx, items)?;
     tx.execute("DELETE FROM account_entries", [])
         .map_err(|error| format!("清空账号账本失败：{error}"))?;
     for entry in entries {
@@ -1731,6 +1748,9 @@ fn clear_records(conn: &mut Connection) -> Result<Counts, String> {
  * 序号区分用例（同一进程里 `pid` 相同），`Drop` 负责收尾——`cargo test` 中途断言
  * 失败时 `Drop` 照样跑，不会在 `%TEMP%` 里留一地库文件。
  * ==================================================================== */
+
+#[path = "store/character_assets.rs"]
+mod character_assets;
 
 #[cfg(test)]
 #[path = "store/tests.rs"]

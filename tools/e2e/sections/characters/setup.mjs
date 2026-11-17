@@ -425,8 +425,8 @@ export async function setup(ctx) {
         );
     });
 
-    /* 装备和召唤兽都从右栏名称后删除，装备仍保留固定的十二部位。 */
-    await t.step('装备：名称后删除当前件，十二部位保留', async () => {
+    /* 卸下只解除角色归属，装备仍保留固定的十二部位。 */
+    await t.step('装备：名称后卸下当前件，十二部位保留', async () => {
         await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
         if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
             throw new Error('编辑态没打开');
@@ -435,28 +435,28 @@ export async function setup(ctx) {
         await sleep(300);
 
         const clearState = `(() => {
-            const btn = document.querySelector('.gear-editor .gear-identity button[aria-label^="删除"]');
+            const btn = document.querySelector('.gear-editor .gear-identity button[aria-label^="卸下"]');
             if (!btn) return 'missing';
             const style = getComputedStyle(btn);
             return style.visibility + '/' + (btn.disabled ? 'off' : 'on');
         })()`;
         const headHeight = `document.querySelector('.gear-editor .gear-parts-head').getBoundingClientRect().height`;
         const heightBefore = await cdp.evaluate(headHeight);
-        t.check('当前有内容的武器可删除', (await cdp.evaluate(clearState)) === 'visible/on');
+        t.check('当前有内容的武器可卸下', (await cdp.evaluate(clearState)) === 'visible/on');
         t.check(
-            '删除按钮位于右栏装备名称后，左侧没有删除按钮',
-            await cdp.evaluate(`document.querySelector('.gear-editor .gear-name-row button[aria-label="删除武器这件装备"]') &&
-                !document.querySelector('.gear-parts-head button')`),
+            '卸下按钮位于右栏装备名称后，左侧提供仓库选择',
+            await cdp.evaluate(`document.querySelector('.gear-editor .gear-name-row button[aria-label="卸下武器这件装备"]') &&
+                !!document.querySelector('.gear-parts-head button[aria-label="从仓库选择装备"]')`),
         );
 
-        await ui.clickLabel('删除武器这件装备');
+        await ui.clickLabel('卸下武器这件装备');
         await sleep(350);
 
         const rows = await ui.count('.gear-editor .gear-slot');
         t.check('清空后十二部位保留', rows === 12, `实际 ${rows} 行`);
         const head = (await ui.text('.gear-editor .gear-count')).replace(/\s+/g, ' ').trim();
         t.check('清空后计数归零', head.includes('0 / 12'), head);
-        t.check('空部位保留删除按钮且禁用', (await cdp.evaluate(clearState)) === 'visible/off');
+        t.check('空部位保留卸下按钮且禁用', (await cdp.evaluate(clearState)) === 'visible/off');
         t.check(
             '删除前后左栏计数高度不变',
             Math.abs((await cdp.evaluate(headHeight)) - heightBefore) < 1,

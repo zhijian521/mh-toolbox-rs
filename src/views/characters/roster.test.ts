@@ -407,6 +407,8 @@ describe('读档失败：拒绝写入', () => {
         const desktop = {
             hasDesktop: () => true,
             charactersLoad: vi.fn(async () => null),
+            warehouseLoad: vi.fn(async () => []),
+            warehouseSave: vi.fn(async () => true),
             charactersSave: vi.fn(async () => true),
         };
         vi.doMock('../../services/desktop', () => desktop);
@@ -455,6 +457,8 @@ describe('空库：不塞种子、不写库', () => {
         const desktop = {
             hasDesktop: () => true,
             charactersLoad: vi.fn(async () => []),
+            warehouseLoad: vi.fn(async () => []),
+            warehouseSave: vi.fn(async () => true),
             charactersSave: vi.fn(async () => true),
         };
         vi.doMock('../../services/desktop', () => desktop);
@@ -486,6 +490,8 @@ describe('角色更新时间', () => {
         const desktop = {
             hasDesktop: () => true,
             charactersLoad: vi.fn(async () => [{ id: 'old', name: '旧角色' }]),
+            warehouseLoad: vi.fn(async () => []),
+            warehouseSave: vi.fn(async () => true),
             charactersSave: vi.fn(async () => true),
         };
         vi.doMock('../../services/desktop', () => desktop);

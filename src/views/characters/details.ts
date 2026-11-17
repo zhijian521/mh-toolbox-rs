@@ -93,6 +93,7 @@ export function normalizePet(raw: unknown): Pet | null {
 
     return {
         name,
+        ...(text(raw.warehouseId).trim() ? { warehouseId: text(raw.warehouseId).trim() } : {}),
         portrait: text(raw.portrait),
         points: rows(raw.points).flatMap((point) => {
             if (!isObject(point)) return [];

@@ -4,8 +4,8 @@ import { TEST_SCOPES } from './test-scopes.mjs';
 const RULES = [
     {
         prefix: 'src/views/warehouse/',
-        scopes: ['accounts', 'ocr', 'core'],
-        smoke: ['账号', '数据'],
+        scopes: ['characters', 'accounts', 'ocr', 'core'],
+        smoke: ['角色', '账号', '数据'],
     },
     {
         prefix: 'src/views/characters/',
@@ -66,6 +66,11 @@ const RULES = [
     { prefix: 'src/services/persist', scopes: ['core'], smoke: ['数据'] },
     { prefix: 'src/services/storage-sync', scopes: ['core'], smoke: ['数据'] },
     { prefix: 'src/services/local-data', scopes: ['core', 'settings'], smoke: ['数据'] },
+    {
+        prefix: 'src/services/character-assets-local',
+        scopes: ['characters', 'accounts', 'core'],
+        smoke: ['角色', '账号', '数据'],
+    },
     {
         prefix: 'src/services/bindings.ts',
         scopes: ['core'],

@@ -3,7 +3,7 @@ import { CONFIRM_DELETE } from '../shared.mjs';
 export async function cleanup(ctx, { hasPet }) {
     const { cdp, ui, t, sleep, baseline } = ctx;
     if (hasPet) {
-        await t.step('召唤兽：左栏 × 真的删掉这一只', async () => {
+        await t.step('召唤兽：移除当前角色携带的这一只', async () => {
             await ui.clickIn('.roster .char', 'E2E改名后', { label: '编辑这个角色' });
             if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
                 throw new Error('编辑态没打开');
@@ -16,7 +16,7 @@ export async function cleanup(ctx, { hasPet }) {
                 `实际 ${await ui.count('.pet-editor .pet-choice')} 行`,
             );
 
-            await ui.clickLabelPrefix('删除第 1 只');
+            await ui.clickLabelPrefix('移除第 1 只');
             await sleep(350);
             t.check(
                 '删之后左栏空了',
