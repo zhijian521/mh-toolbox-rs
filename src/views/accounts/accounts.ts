@@ -16,6 +16,8 @@ import { isDayText } from '../../services/format';
 import type { IconName } from '../../components/icons';
 import { dateText, daysAgo, parseDay, todayText } from '../../services/format';
 import { makeId } from '../../services/shape';
+import { normalizeAccountAssets } from './account-assets';
+import type { ReadonlyWarehouseItem } from '../warehouse/warehouse';
 
 /** 币种。`rmb` 按元、`cash` 按万；这是**两本独立的账**，不是同一本账的两种记法。 */
 export type Currency = 'rmb' | 'cash';
@@ -72,6 +74,8 @@ export type Channel = (typeof CHANNELS)[number];
  * 角色被删掉时**不清这条记录**，界面显示「未指定」——账不能因为改了个名字就少一笔。
  */
 export interface AccountEntry {
+    /** 交易时的物品快照；库存后续修改不改写历史。 */
+    assets?: readonly ReadonlyWarehouseItem[];
     id: string;
     /** `YYYY-MM-DD`。 */
     date: string;
@@ -105,6 +109,7 @@ export interface AccountStats {
 /* ---------- 归一 ----------
  * 库可能是上一版应用写的、也可能是人手动改过的备份。**坏条目单条丢掉、不抛错**：
  * 一条坏记录不该让整页白屏。丢掉时 `console.error`，不能静默。
+ * 关联物品损坏则拒绝整份读取，避免后续写回时丢失交易快照。
  */
 function text(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
@@ -139,7 +144,9 @@ export function normalizeEntry(raw: unknown): AccountEntry | null {
     const amount = quantize(num(one.amount), currency);
     if (amount <= 0) return null;
 
+    const assets = normalizeAccountAssets(one.assets);
     return {
+        ...(assets.length ? { assets } : {}),
         id: text(one.id) || makeId('acc'),
         date,
         characterId: text(one.characterId),

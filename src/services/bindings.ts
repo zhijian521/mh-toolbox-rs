@@ -152,6 +152,7 @@ export const commands = {
 	incomeSave: (payload: IncomePayload) => __TAURI_INVOKE<null>("income_save", { payload }),
 	accountLoad: () => __TAURI_INVOKE<AccountEntry_Serialize[]>("account_load"),
 	accountSave: (entries: AccountEntry_Deserialize[]) => __TAURI_INVOKE<null>("account_save", { entries }),
+	accountTradeSave: (entries: AccountEntry_Deserialize[], items: Value[]) => __TAURI_INVOKE<null>("account_trade_save", { entries, items }),
 	goalsLoad: () => __TAURI_INVOKE<Value[]>("goals_load"),
 	/**  整份写回。目标页的每一次改动（记一笔、改一条、删一个）都走这里。 */
 	goalsSave: (goals: Value[]) => __TAURI_INVOKE<null>("goals_save", { goals }),
@@ -186,6 +187,8 @@ export type AccountEntry = AccountEntry_Serialize | AccountEntry_Deserialize;
  *  真要统一，反而会出现「1 元 = 1 万」这种离谱的中间态。
  */
 export type AccountEntry_Deserialize = {
+	/**  交易快照不随库存修改；旧账默认没有关联物品。 */
+	assets?: Value[],
 	id: string,
 	/**  `YYYY-MM-DD`。 */
 	date: string,
@@ -223,6 +226,8 @@ export type AccountEntry_Deserialize = {
  *  真要统一，反而会出现「1 元 = 1 万」这种离谱的中间态。
  */
 export type AccountEntry_Serialize = {
+	/**  交易快照不随库存修改；旧账默认没有关联物品。 */
+	assets?: Value[],
 	id: string,
 	/**  `YYYY-MM-DD`。 */
 	date: string,

@@ -88,13 +88,31 @@ export async function accountLoad(): Promise<AccountEntry[] | null> {
 }
 
 /** 整份写回。返回 false 表示没写进去——记一笔的每一次提交都走这里。 */
-export async function accountSave(entries: AccountEntry[]): Promise<boolean> {
+export async function accountSave(entries: readonly unknown[]): Promise<boolean> {
     if (!hasDesktop()) return false;
     try {
-        await commands.accountSave(entries);
+        await commands.accountSave(JSON.parse(JSON.stringify(entries)) as AccountEntry[]);
         return true;
     } catch (error) {
         console.error('写入账号账本失败', error);
+        return false;
+    }
+}
+
+/** 账号账目与库存必须同时成功，不能分别写入后产生半笔交易。 */
+export async function accountTradeSave(
+    entries: readonly unknown[],
+    items: readonly unknown[],
+): Promise<boolean> {
+    if (!hasDesktop()) return false;
+    try {
+        await commands.accountTradeSave(
+            JSON.parse(JSON.stringify(entries)) as AccountEntry[],
+            JSON.parse(JSON.stringify(items)) as JsonValue[],
+        );
+        return true;
+    } catch (error) {
+        console.error('保存关联交易失败', error);
         return false;
     }
 }

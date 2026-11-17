@@ -30,6 +30,7 @@ import {
     type AccountRecordFilters,
 } from './account-analysis';
 import { loadAccounts, useAccounts } from './accounts-store';
+import { warehouseName } from '../warehouse/warehouse';
 
 const emit = defineEmits<{ close: []; edit: [entry: AccountEntry] }>();
 const filters = defineModel<AccountRecordFilters>({ required: true });
@@ -103,7 +104,8 @@ const filtered = computed(() => {
     ).filter(
         (one) =>
             !word ||
-            [one.category, one.note, one.channel, characterName(roster.value, one.characterId)]
+            [one.category, one.note, one.channel, characterName(roster.value, one.characterId),
+                ...(one.assets ?? []).map(warehouseName)]
                 .join(' ')
                 .toLocaleLowerCase()
                 .includes(word),
@@ -146,10 +148,15 @@ async function remove(one: AccountEntry) {
                 ' · ' +
                 one.category +
                 ' · ' +
-                accountValueText(one.amount, one.currency),
+                accountValueText(one.amount, one.currency) +
+                (one.kind === 'income' && one.assets?.length ? '。关联物品将返回仓库。' : ''),
             confirmText: '删除',
         },
-        () => removeEntry(one.id),
+        () => {
+            const result = removeEntry(one.id);
+            if (!result.ok) notify.error(result.error);
+            return result.ok;
+        },
     );
     if (ok) notify.success('已删除记录');
 }
@@ -253,7 +260,10 @@ async function remove(one: AccountEntry) {
                         <td class="c-category">
                             {{ one.category }}<small v-if="one.source === 'auto'">自动同步</small>
                         </td>
-                        <td class="c-note" :title="one.note">{{ one.note }}</td>
+                        <td class="c-note" :title="[one.note, ...(one.assets ?? []).map(warehouseName)].filter(Boolean).join(' · ')">
+                            <span v-if="one.assets?.length" class="record-assets">{{ one.assets.map(warehouseName).join('、') }}</span>
+                            {{ one.note }}
+                        </td>
                         <td class="c-who">{{ characterName(roster, one.characterId) }}</td>
                         <td class="c-channel">{{ one.channel }}</td>
                         <td class="c-num" :class="one.kind === 'expense' ? 'out' : 'in'">
@@ -351,6 +361,12 @@ async function remove(one: AccountEntry) {
     color: var(--muted);
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+.record-assets {
+    display: block;
+    overflow: hidden;
+    color: var(--ink-2);
+    text-overflow: ellipsis;
 }
 .c-who {
     width: 100px;

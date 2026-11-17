@@ -3,7 +3,17 @@ import { readonly, ref } from 'vue';
 import { readLocalData, writeLocalData, parseLocalList } from '../../services/local-data';
 import { isDayText } from '../../services/format';
 import { loadData } from '../../services/load-data';
-import { accountLoad, accountSave } from '../../services/storage';
+import { accountLoad, accountSave, accountTradeSave } from '../../services/storage';
+import { recoverAssetTradeLocal, writeAssetTradeLocal } from '../../services/asset-trade-local';
+import { gameDataReady } from '../../services/game-data';
+import { accountAssetKind, planAssetTrade, planSaleReturn } from './account-assets';
+import {
+    finishWarehouseTrade,
+    stageWarehouseTrade,
+    useWarehouse,
+    warehouseTradeSnapshot,
+} from '../warehouse/warehouse-store';
+import type { ReadonlyWarehouseItem } from '../warehouse/warehouse';
 import { createPersist } from '../../services/persist';
 import { makeId } from '../../services/shape';
 import { parseAccounts, type AccountEntry, type AccountKind, type Currency } from './accounts';
@@ -39,17 +49,37 @@ const persist = createPersist({
     loadError,
     loaded,
     writeError,
-    writeLocal: () => writeLocalData(STORAGE_KEY, entries.value),
-    writeRemote: () => accountSave(entries.value),
+    writeLocal: () => {
+        const inventory = warehouseTradeSnapshot();
+        if (inventory) {
+            writeAssetTradeLocal(entries.value, inventory);
+            finishWarehouseTrade();
+        } else writeLocalData(STORAGE_KEY, entries.value);
+    },
+    writeRemote: async () => {
+        const inventory = warehouseTradeSnapshot();
+        if (!inventory) return accountSave(entries.value);
+        const ok = await accountTradeSave(entries.value, inventory);
+        if (ok) finishWarehouseTrade();
+        return ok;
+    },
 });
 
 /** 启动阶段读取，完成前由写队列阻止保存；旧版转换统一在启动导入入口处理。 */
 export async function loadAccounts(): Promise<void> {
+    if (warehouseTradeSnapshot()) return;
     await loadData({
         loaded,
         loadError,
         error: '读不出账号账本，已暂停写入以免覆盖原有数据',
-        readLocal: () => readLocalData(STORAGE_KEY, (raw) => parseLocalList(raw, parseAccounts)),
+        readLocal: () => {
+            try {
+                recoverAssetTradeLocal();
+            } catch {
+                return { ok: false, error: '关联交易恢复失败，请重新读取' };
+            }
+            return readLocalData(STORAGE_KEY, (raw) => parseLocalList(raw, parseAccounts));
+        },
         readRemote: accountLoad,
         applyLocal: (stored) => {
             entries.value = stored ?? [];
@@ -63,6 +93,7 @@ export async function loadAccounts(): Promise<void> {
 /* ---------- 改 ---------- */
 
 export interface EntryInput {
+    assets?: readonly ReadonlyWarehouseItem[];
     date: string;
     characterId: string;
     kind: AccountKind;
@@ -149,6 +180,18 @@ export function addEntry(input: EntryInput): AccountWrite {
     const checked = check(input);
     if (!checked.ok) return checked;
     const entry = compose(input, checked.amount, makeId('acc'), Date.now());
+    if (input.assets !== undefined) {
+        if (persist.pending.value || writeError.value || !gameDataReady.value)
+            return { ok: false, error: '请先完成当前保存并加载游戏规则' };
+        try {
+            const plan = planAssetTrade(input.category, input.kind, input.assets, useWarehouse().items.value);
+            if (!stageWarehouseTrade(plan.inventory))
+                return { ok: false, error: '仓库暂不可写，请先完成仓库的读取或保存' };
+            entry.assets = plan.assets;
+        } catch (error) {
+            return { ok: false, error: error instanceof Error ? error.message : '关联物品无效' };
+        }
+    }
     entries.value = [...entries.value, entry];
     persist();
     return { ok: true, entry: readonly(entry) };
@@ -165,11 +208,19 @@ export function updateEntry(id: string, input: EntryInput): AccountWrite {
     const before = entries.value.find((one) => one.id === id);
     if (!before) return { ok: false, error: '这条记录已经不在了' };
     if (before.source === 'auto') return { ok: false, error: '自动记录请到收益页修改' };
+    if (
+        (input.assets !== undefined && !before.assets?.length) ||
+        (before.assets?.length && (input.kind !== before.kind || input.category !== before.category))
+    ) return { ok: false, error: '已记账的交易不能更换关联物品、方向或分类' };
     const checked = check(input, before);
     if (!checked.ok) return checked;
     const composed = compose(input, checked.amount, id, before.createdAt);
     // 自动记录已在入口拒绝，保留原条目的来源。
-    const entry: AccountEntry = { ...composed, source: before.source };
+    const entry: AccountEntry = {
+        ...composed,
+        source: before.source,
+        ...(before.assets?.length ? { assets: before.assets } : {}),
+    };
     entries.value = entries.value.map((one) => (one.id === id ? entry : one));
     persist();
     return { ok: true, entry: readonly(entry) };
@@ -259,12 +310,26 @@ export function applyAutoEntries(
     return { ok: true, changed: true };
 }
 
-/** 删一条。撤回是**真删**——账本里没有「隐藏」。 */
-export function removeEntry(id: string): void {
-    if (!persist.canWrite()) return;
-    const before = entries.value.length;
-    entries.value = entries.value.filter((one) => one.id !== id || one.source === 'auto');
-    if (entries.value.length !== before) persist();
+/** 删除关联卖出时，物品回仓和账目删除必须同事务落盘。 */
+export function removeEntry(id: string): { ok: true } | { ok: false; error: string } {
+    if (!persist.canWrite()) return { ok: false, error: '账号账本读取失败，暂不能删除' };
+    const entry = entries.value.find((one) => one.id === id);
+    if (!entry) return { ok: false, error: '这条记录已经不在了' };
+    if (entry.source === 'auto') return { ok: false, error: '自动记录请到收益页修改' };
+    if (entry.kind === 'income' && accountAssetKind(entry.category) && entry.assets?.length) {
+        if (persist.pending.value || writeError.value || !gameDataReady.value)
+            return { ok: false, error: '请先完成当前保存并加载游戏规则' };
+        try {
+            const inventory = planSaleReturn(id, entries.value, useWarehouse().items.value);
+            if (!stageWarehouseTrade(inventory))
+                return { ok: false, error: '仓库暂不可写，请先完成仓库的读取或保存' };
+        } catch (error) {
+            return { ok: false, error: error instanceof Error ? error.message : '物品回仓失败' };
+        }
+    }
+    entries.value = entries.value.filter((one) => one.id !== id);
+    void persist();
+    return { ok: true };
 }
 
 /* ---------- 给页面 ---------- */
@@ -275,6 +340,7 @@ export function useAccounts() {
         flush: persist.flush,
         retry: persist,
         entries: readonly(entries),
+        loaded: readonly(loaded),
         loadError,
         writeError,
         addEntry,

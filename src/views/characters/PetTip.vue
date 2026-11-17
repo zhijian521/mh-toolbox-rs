@@ -49,13 +49,13 @@ watch([() => props.pet, () => props.anchor], ([pet]) => {
             @mouseenter="emit('mouseenter')"
             @mouseleave="emit('mouseleave')"
         >
-            <template v-if="pet">
+            <div v-if="pet" class="tip-content">
                 <div class="tip-name">{{ pet.name }}</div>
                 <div class="meta tip-kind">
                     {{ pet.level }} 级<template v-if="pet.joinLevel"> · 参战 {{ pet.joinLevel }} 级</template>
                 </div>
                 <section v-for="group in groups" :key="group.title" class="pet-tip-group">
-                    <h4 class="section-mark">{{ group.title }}</h4>
+                    <h4 class="group-head"><span class="section-mark" aria-hidden="true" /><span>{{ group.title }}</span></h4>
                     <div v-if="group.rows.length" class="pet-tip-rows">
                         <span v-for="(row, i) in group.rows" :key="i" class="slip-row sm">
                             <span class="slip-name">{{ row.label }}</span>
@@ -71,7 +71,7 @@ watch([() => props.pet, () => props.anchor], ([pet]) => {
                     </span>
                 </div>
                 <section class="pet-tip-group">
-                    <h4 class="section-mark">技能 <span class="muted">{{ pet.skills.length }} 项</span></h4>
+                    <h4 class="group-head"><span class="section-mark" aria-hidden="true" /><span>技能</span><span class="muted">{{ pet.skills.length }} 项</span></h4>
                     <div v-if="pet.skills.length" class="pet-tip-skills">
                         <span v-for="(name, i) in pet.skills" :key="i" class="pet-tip-skill">
                             <PetImage :name="name" :title="null" aria-hidden="true" />
@@ -81,7 +81,7 @@ watch([() => props.pet, () => props.anchor], ([pet]) => {
                     <p v-else class="empty-note inline">尚未记录技能</p>
                 </section>
                 <slot />
-            </template>
+            </div>
         </div>
     </Teleport>
 </template>
@@ -94,7 +94,7 @@ watch([() => props.pet, () => props.anchor], ([pet]) => {
 .pet-tip-group {
     margin-top: 10px;
 }
-.pet-tip-group .section-mark {
+.pet-tip-group .group-head {
     margin: 0 0 6px;
     font-size: var(--fs-mini);
 }

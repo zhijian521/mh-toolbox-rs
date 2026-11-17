@@ -46,10 +46,15 @@
     transform: translateX(-10px);
 }
 .warehouse-toolbar,
+.warehouse-tabs,
 .warehouse-filters {
     display: flex;
     align-items: center;
     gap: 12px;
+}
+.warehouse-tabs {
+    min-width: 0;
+    flex-wrap: wrap;
 }
 .warehouse-toolbar {
     justify-content: space-between;
@@ -82,46 +87,17 @@
     scrollbar-gutter: stable;
     padding: 2px 4px 12px 2px;
 }
-.warehouse-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, 80px);
-    gap: 8px;
-    align-content: start;
+.warehouse-pick-heading {
+    flex: none;
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-base);
+    letter-spacing: normal;
+    white-space: nowrap;
 }
-.warehouse-item {
-    justify-content: center;
-    min-height: 80px;
-}
-.warehouse-gear-icon,
-.warehouse-pet-icon {
-    --tile-w: 64px;
-    --tile-h: 64px;
-    --tile-r: var(--r-3);
-}
-.warehouse-gear-icon {
-    --shot: 52px;
-    --tile-drop: 0.6;
-    --tile-face: light-dark(var(--paper), color-mix(in srgb, var(--paper-2) 84%, var(--ink)));
-}
-.warehouse-icon-fallback {
-    color: color-mix(in srgb, var(--ink-2) 78%, transparent);
-    font-size: calc(20px * var(--fs-scale));
-    line-height: 1;
-}
-.warehouse-pet-icon {
-    --tile-drop: 0.75;
-    --tile-face: color-mix(in srgb, var(--well) 55%, var(--paper-2));
-}
-.warehouse-pet-icon :deep(.pet-image.portrait) {
-    --pet-icon-size: 56px;
-    background: transparent;
-}
-.warehouse-soul,
-.warehouse-tip-server {
-    margin-top: 8px;
-    padding-top: 6px;
-    border-top: var(--w-hair) dotted var(--rule-2);
-    overflow-wrap: anywhere;
+.warehouse-selected-count {
+    margin-right: auto;
+    font-size: var(--fs-sm);
 }
 .warehouse-empty {
     display: grid;

@@ -182,6 +182,7 @@ fn sample() -> BackupFile {
          * 原样过了一遍信封——两本账的单位不同，读回来混了就是一条算错的净额。 */
         accounts: vec![
             AccountEntry {
+                assets: vec![],
                 id: "a1".to_string(),
                 date: "2026-11-05".to_string(),
                 character_id: "c1".to_string(),
@@ -195,6 +196,7 @@ fn sample() -> BackupFile {
                 source: String::new(),
             },
             AccountEntry {
+                assets: vec![],
                 id: "a2".to_string(),
                 date: "2026-11-05".to_string(),
                 character_id: String::new(),

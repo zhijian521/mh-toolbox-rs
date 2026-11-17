@@ -81,7 +81,7 @@ describe('启动数据边界', () => {
         );
         const startup = initializeData();
         await Promise.resolve();
-        expect(mocks.accounts.load).toHaveBeenCalledOnce();
+        expect(mocks.accounts.load).not.toHaveBeenCalled();
         expect(mocks.online.load).toHaveBeenCalledOnce();
         expect(mocks.goals.load).toHaveBeenCalledOnce();
         expect(mocks.roster.load).not.toHaveBeenCalled();
@@ -92,6 +92,7 @@ describe('启动数据边界', () => {
         expect(mocks.roster.load).toHaveBeenCalledOnce();
         expect(mocks.prices.load).toHaveBeenCalledOnce();
         expect(mocks.warehouse.load).toHaveBeenCalledOnce();
+        expect(mocks.accounts.load).toHaveBeenCalledOnce();
         expect(mocks.sync).not.toHaveBeenCalled();
         expect(mocks.watch).not.toHaveBeenCalled();
         releaseIncome();

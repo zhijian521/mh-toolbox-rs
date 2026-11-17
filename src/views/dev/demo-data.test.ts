@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
  * 所以一行副作用导入把真文件装进缓存——与 `schools.test.ts` 同一条做法。 */
 import '../../services/game-data.fixture';
 import { isPriceCategory } from '../prices/prices-catalog';
-import { DEMO_COUNTS, DEMO_PRICES, demoCharacters, demoGoalInputs, demoWarehouseItems } from './demo-data';
+import { DEMO_COUNTS, DEMO_PRICES, demoCharacters, demoGoalInputs, demoWarehouseItems, demoTradeInput } from './demo-data';
 import { parseGoal, goalSummary } from '../goals/goals';
 
 /**
@@ -15,6 +15,13 @@ import { parseGoal, goalSummary } from '../goals/goals';
  * 却不会有任何地方报错。
  */
 describe('开发页的模拟数据', () => {
+    it('交易示例是独立编号的召唤兽买入，包含完整物品资料', () => {
+        const input = demoTradeInput();
+        expect(input).toMatchObject({ kind: 'expense', category: '召唤兽交易' });
+        expect(input.assets).toHaveLength(1);
+        expect(input.assets?.[0]).toMatchObject({ id: 'demo-trade-pet', kind: 'pet' });
+        expect(demoTradeInput().assets?.[0].id).toBe(input.assets?.[0].id);
+    });
     it('仓库示例保留装备和宝宝两类，固定编号便于重复添加去重', () => {
         const first = demoWarehouseItems();
         expect(first.map((item) => item.kind)).toEqual(['gear', 'pet']);

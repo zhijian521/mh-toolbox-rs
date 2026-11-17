@@ -27,7 +27,7 @@ const DB_FILE: &str = "mh-toolbox.db";
 
 /// 表结构变更递增版本；先拒绝高版本库，再建缺失表并执行独立列迁移。
 /// 不降写版本号，避免旧程序破坏新库的迁移判断。
-const SCHEMA_VERSION: i64 = 6;
+const SCHEMA_VERSION: i64 = 7;
 
 /// 一条价格记录。字段名与前端 `PricePoint` 一一对应（`serde` 自动转 camelCase）。
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -120,6 +120,9 @@ pub struct IncomePayload {
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountEntry {
+    /// 交易快照不随库存修改；旧账默认没有关联物品。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub assets: Vec<serde_json::Value>,
     pub id: String,
     /// `YYYY-MM-DD`。
     pub date: String,
@@ -498,6 +501,7 @@ fn init(conn: &Connection) -> Result<(), String> {
         "source",
         "TEXT NOT NULL DEFAULT ''",
     )?;
+    add_column_if_missing(conn, "account_entries", "assets", "TEXT NOT NULL DEFAULT '[]'")?;
 
     // 旧库缺少逐段快照时，沿用升级前的口径；之后每段独立保存。
     if add_column_if_missing(
@@ -1365,7 +1369,7 @@ fn load_accounts(conn: &Connection) -> Result<Vec<AccountEntry>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, date, character_id, kind, currency, category, channel, amount, note, \
-             created_at, source FROM account_entries ORDER BY date DESC, created_at DESC",
+             created_at, source, assets FROM account_entries ORDER BY date DESC, created_at DESC",
         )
         .map_err(|error| format!("准备账号查询失败：{error}"))?;
     let rows = stmt
@@ -1382,6 +1386,13 @@ fn load_accounts(conn: &Connection) -> Result<Vec<AccountEntry>, String> {
                 note: row.get(8)?,
                 created_at: row.get(9)?,
                 source: row.get(10)?,
+                assets: serde_json::from_str(&row.get::<_, String>(11)?).map_err(|error| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        11,
+                        rusqlite::types::Type::Text,
+                        Box::new(error),
+                    )
+                })?,
             })
         })
         .map_err(|error| format!("读账号账本失败：{error}"))?
@@ -1395,6 +1406,38 @@ fn load_accounts(conn: &Connection) -> Result<Vec<AccountEntry>, String> {
 pub fn account_save(app: AppHandle, entries: Vec<AccountEntry>) -> Result<(), String> {
     let mut conn = open(&app)?;
     save_accounts(&mut conn, &entries)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn account_trade_save(
+    app: AppHandle,
+    entries: Vec<AccountEntry>,
+    items: Vec<serde_json::Value>,
+) -> Result<(), String> {
+    save_account_trade(&mut open(&app)?, &entries, &items)
+}
+
+/// 两个领域只开一个事务，任一条物品或账目写入失败都保留原账本。
+fn save_account_trade(
+    conn: &mut Connection,
+    entries: &[AccountEntry],
+    items: &[serde_json::Value],
+) -> Result<(), String> {
+    validate_record_ids(items, "仓库物品")?;
+    let tx = conn.transaction().map_err(|error| format!("开事务失败：{error}"))?;
+    tx.execute("DELETE FROM account_entries", [])
+        .map_err(|error| format!("清空账号账本失败：{error}"))?;
+    for entry in entries {
+        insert_account_entry(&tx, entry)?;
+    }
+    tx.execute("DELETE FROM warehouse_items", [])
+        .map_err(|error| format!("清空仓库失败：{error}"))?;
+    for (index, item) in items.iter().enumerate() {
+        insert_record(&tx, &WAREHOUSE, index, item)?;
+    }
+    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
+    Ok(())
 }
 
 /// 整份写回：清空 + 逐条插入，**一个事务**。
@@ -1418,8 +1461,8 @@ fn save_accounts(conn: &mut Connection, entries: &[AccountEntry]) -> Result<(), 
 fn insert_account_entry(conn: &Connection, entry: &AccountEntry) -> Result<(), String> {
     conn.execute(
         "INSERT OR REPLACE INTO account_entries
-            (id, date, character_id, kind, currency, category, channel, amount, note, created_at, source)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            (id, date, character_id, kind, currency, category, channel, amount, note, created_at, source, assets)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
         params![
             entry.id,
             entry.date,
@@ -1432,6 +1475,8 @@ fn insert_account_entry(conn: &Connection, entry: &AccountEntry) -> Result<(), S
             entry.note,
             entry.created_at,
             entry.source,
+            serde_json::to_string(&entry.assets)
+                .map_err(|error| format!("保存交易快照失败：{error}"))?,
         ],
     )
     .map_err(|error| format!("写账号记录失败：{error}"))?;

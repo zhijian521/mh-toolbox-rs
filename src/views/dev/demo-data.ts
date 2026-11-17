@@ -35,7 +35,8 @@
  * 175 级号力量 1046）。物价一律按**万**写（`42 * WAN`），因为这一行里所有人谈价都说万；
  * 角色数值按同级号该有的量级给——练满那张卡是「175 级物理系」，不是把种子放大 1.35 倍。
  */
-import { daysAgo } from '../../services/format';
+import { daysAgo, todayText } from '../../services/format';
+import { useAccounts, type EntryInput } from '../accounts/accounts-store';
 import { schoolNames } from '../../services/game-data';
 import type { Pet } from '../characters/pets';
 import type { AssistSkill, CharacterData } from '../characters/character';
@@ -58,6 +59,24 @@ export function demoWarehouseItems(): WarehouseItem[] {
         { ...base, id: 'demo-warehouse-gear', kind: 'gear', gear },
         { ...base, id: 'demo-warehouse-pet', kind: 'pet', pet: character.pets[0] },
     ].map(normalizeWarehouseItem).filter((item): item is WarehouseItem => item !== null);
+}
+
+export function demoTradeInput(): EntryInput {
+    const pet = demoWarehouseItems().find((item) => item.kind === 'pet');
+    return {
+        date: todayText(), characterId: '', kind: 'expense', currency: 'rmb',
+        category: '召唤兽交易', channel: '游戏内', amount: 3500,
+        note: '开发页交易示例', assets: pet ? [{ ...pet, id: 'demo-trade-pet' }] : [],
+    };
+}
+
+export function importDemoTrade(): { ok: true; added: boolean } | { ok: false; error: string } {
+    const accounts = useAccounts();
+    if (accounts.entries.value.some((entry) => entry.assets?.some((item) => item.id === 'demo-trade-pet')) ||
+        useWarehouse().items.value.some((item) => item.id === 'demo-trade-pet'))
+        return { ok: true, added: false };
+    const result = accounts.addEntry(demoTradeInput());
+    return result.ok ? { ok: true, added: true } : result;
 }
 
 export function importDemoWarehouse(): { ok: true; added: number } | { ok: false; error: string } {

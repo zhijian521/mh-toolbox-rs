@@ -61,7 +61,7 @@ const requires = computed(() => props.detail?.requires?.join(' · ') ?? '');
             @mouseenter="emit('mouseenter')"
             @mouseleave="emit('mouseleave')"
         >
-            <template v-if="detail">
+            <div v-if="detail" class="tip-content">
                 <div class="tip-name">{{ detail.name || slotName }}</div>
                 <div class="meta tip-kind">
                     {{ detail.kind }}<template v-if="level"> · {{ level }} 级</template
@@ -78,7 +78,7 @@ const requires = computed(() => props.detail?.requires?.join(' · ') ?? '');
                     <span>备注</span>{{ detail.note }}
                 </div>
                 <slot />
-            </template>
+            </div>
         </div>
     </Teleport>
 </template>

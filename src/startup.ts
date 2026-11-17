@@ -31,11 +31,11 @@ export async function initializeData(): Promise<StartupNotice | undefined> {
                 loadSafely(loadRoster, useRoster().loadError),
                 loadSafely(loadPrices, usePrices().loadError),
                 loadSafely(loadWarehouse, useWarehouse().loadError),
+                loadSafely(loadAccounts, useAccounts().loadError),
             ]),
         ),
         loadSafely(loadIncome, useIncome().loadError),
         loadSafely(loadOnline, useOnline().loadError),
-        loadSafely(loadAccounts, useAccounts().loadError),
         loadSafely(loadGoals, useGoals().loadError),
     ]);
     for (const result of results) {

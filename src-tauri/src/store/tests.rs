@@ -1,6 +1,54 @@
 use super::*;
 
 #[test]
+fn account_trade_is_atomic_and_snapshots_survive_backup() {
+    let dir = TempDir::new(1618);
+    let mut conn = open_at(dir.base()).unwrap();
+    let pet = serde_json::json!({ "id": "pet", "kind": "pet", "pet": { "name": "画魂" } });
+    let entry: AccountEntry = serde_json::from_value(serde_json::json!({
+        "id": "trade", "date": "2026-11-17", "characterId": "", "kind": "expense",
+        "currency": "rmb", "category": "召唤兽交易", "channel": "游戏内",
+        "amount": 100, "note": "", "createdAt": 1, "assets": [pet.clone()]
+    })).unwrap();
+    conn.execute_batch(
+        "CREATE TRIGGER refuse_trade BEFORE INSERT ON warehouse_items
+         BEGIN SELECT RAISE(ABORT, '拒绝写入'); END;",
+    ).unwrap();
+    assert!(save_account_trade(&mut conn, std::slice::from_ref(&entry), std::slice::from_ref(&pet)).is_err());
+    assert!(load_accounts(&conn).unwrap().is_empty());
+    assert!(load_records(&conn, &WAREHOUSE).unwrap().is_empty());
+    conn.execute_batch("DROP TRIGGER refuse_trade").unwrap();
+    save_account_trade(&mut conn, &[entry], std::slice::from_ref(&pet)).unwrap();
+    let file = backup(&conn).unwrap();
+    assert_eq!(file.accounts[0].assets, vec![pet.clone()]);
+    clear_records(&mut conn).unwrap();
+    replace_backup(&mut conn, file, false).unwrap();
+    assert_eq!(load_accounts(&conn).unwrap()[0].assets, vec![pet.clone()]);
+    assert_eq!(load_records(&conn, &WAREHOUSE).unwrap(), vec![pet]);
+}
+
+#[test]
+fn account_snapshot_column_is_added_to_v6_without_changing_old_money() {
+    let dir = TempDir::new(1619);
+    {
+        let conn = open_at(dir.base()).unwrap();
+        conn.execute_batch(
+            "ALTER TABLE account_entries DROP COLUMN assets;
+             INSERT INTO account_entries
+                 (id, date, character_id, kind, currency, category, channel, amount, note, created_at)
+             VALUES ('old', '2026-11-17', '', 'expense', 'rmb', '装备交易', '游戏内', 123.45, '', 1);",
+        ).unwrap();
+        write_meta(&conn, "schemaVersion", "6").unwrap();
+    }
+    let conn = open_at(dir.base()).unwrap();
+    let accounts = load_accounts(&conn).unwrap();
+    assert_eq!(accounts.len(), 1);
+    assert_eq!(accounts[0].amount, 123.45);
+    assert!(accounts[0].assets.is_empty());
+    assert_eq!(read_meta(&conn, "schemaVersion").unwrap(), Some(SCHEMA_VERSION.to_string()));
+}
+
+#[test]
 fn warehouse_round_trip_backup_clear_and_legacy_startup_guard() {
     let dir = TempDir::new(910);
     let mut conn = open_at(dir.base()).unwrap();
@@ -573,6 +621,7 @@ fn replace_all_reports_written_counts() {
         }],
     };
     let accounts = vec![AccountEntry {
+        assets: vec![],
         id: "a1".into(),
         date: "2026-11-07".into(),
         character_id: "c1".into(),

@@ -4,6 +4,7 @@ import { gameDataReady } from '../../services/game-data';
 import { readLocalData, writeLocalData } from '../../services/local-data';
 import { loadData } from '../../services/load-data';
 import { createPersist } from '../../services/persist';
+import { recoverAssetTradeLocal } from '../../services/asset-trade-local';
 import { warehouseLoad, warehouseSave } from '../../services/storage';
 import {
     normalizeWarehouseItem,
@@ -18,6 +19,7 @@ const loaded = ref(false);
 const loadError = ref('');
 const writeError = ref('');
 const operationError = ref('');
+const tradePending = ref(false);
 const persist = createPersist({
     label: '仓库',
     loaded,
@@ -28,11 +30,19 @@ const persist = createPersist({
 });
 
 export async function loadWarehouse(): Promise<void> {
+    if (tradePending.value) return;
     await loadData({
         loaded,
         loadError,
         error: '仓库读取失败，已暂停写入，请重新读取',
-        readLocal: () => readLocalData(STORAGE_KEY, parseWarehouse),
+        readLocal: () => {
+            try {
+                recoverAssetTradeLocal();
+            } catch {
+                return { ok: false, error: '关联交易恢复失败，请重新读取' };
+            }
+            return readLocalData(STORAGE_KEY, parseWarehouse);
+        },
         readRemote: warehouseLoad,
         applyLocal: (value) => {
             items.value = value ?? [];
@@ -43,10 +53,25 @@ export async function loadWarehouse(): Promise<void> {
     });
 }
 
+/** 关联交易由账号写队列一次落库；完成前仓库不能单独改写。 */
+export function stageWarehouseTrade(next: WarehouseItem[]): boolean {
+    if (tradePending.value || persist.pending.value || writeError.value || !persist.canWrite())
+        return false;
+    items.value = parseWarehouse(next);
+    tradePending.value = true;
+    return true;
+}
+export function warehouseTradeSnapshot(): WarehouseItem[] | null {
+    return tradePending.value ? items.value : null;
+}
+export function finishWarehouseTrade(): void {
+    tradePending.value = false;
+}
+
 export function useWarehouse() {
     function save(drafts: readonly ReadonlyWarehouseItem[], expected?: string): boolean {
         operationError.value = '';
-        if (!persist.canWrite()) return false;
+        if (tradePending.value || !persist.canWrite()) return false;
         if (!gameDataReady.value) {
             operationError.value = '游戏规则尚未加载，请重试后保存';
             return false;
@@ -81,7 +106,8 @@ export function useWarehouse() {
         return true;
     }
     function remove(id: string): boolean {
-        if (!persist.canWrite() || !items.value.some((item) => item.id === id)) return false;
+        if (tradePending.value || !persist.canWrite() || !items.value.some((item) => item.id === id))
+            return false;
         items.value = items.value.filter((item) => item.id !== id);
         void persist();
         return true;
@@ -92,9 +118,10 @@ export function useWarehouse() {
         loadError,
         writeError,
         operationError,
+        tradePending: readonly(tradePending),
         pending: persist.pending,
         flush: persist.flush,
-        retry: () => persist(),
+        retry: () => tradePending.value ? Promise.resolve(false) : persist(),
         save,
         remove,
     };

@@ -13,7 +13,8 @@ import IconsSection from './IconsSection.vue';
 import PaletteSection from './PaletteSection.vue';
 import SlipRowSection from './SlipRowSection.vue';
 import TypeScaleSection from './TypeScaleSection.vue';
-import { DEMO_COUNTS, importDemoData, importDemoGoals, importDemoWarehouse } from './demo-data';
+import { DEMO_COUNTS, importDemoData, importDemoGoals, importDemoWarehouse, importDemoTrade } from './demo-data';
+import { useAccounts } from '../accounts/accounts-store';
 import { useGoals } from '../goals/goals-store';
 import { useWarehouse } from '../warehouse/warehouse-store';
 
@@ -63,6 +64,24 @@ async function addWarehouseSamples() {
         notify.success(result.added ? `已添加 ${result.added} 件仓库示例` : '仓库示例已存在');
     } finally {
         warehouseSamplesSaving.value = false;
+    }
+}
+const tradeSamplesSaving = ref(false);
+async function addTradeSample() {
+    if (tradeSamplesSaving.value) return;
+    tradeSamplesSaving.value = true;
+    try {
+        const accounts = useAccounts();
+        if (accounts.writeError.value && !(await accounts.retry())) {
+            notify.error(accounts.writeError.value);
+            return;
+        }
+        const result = importDemoTrade();
+        if (!result.ok) notify.error(result.error);
+        else if (!(await accounts.flush())) notify.error(accounts.writeError.value);
+        else notify.success(result.added ? '已添加关联买入示例' : '交易示例已存在');
+    } finally {
+        tradeSamplesSaving.value = false;
     }
 }
 async function recoverSample() {
@@ -185,6 +204,17 @@ async function importDemo() {
                             @click="addWarehouseSamples"
                         />
                         <span class="meta">追加装备与召唤兽示例，已有物品保留。</span>
+                    </div>
+                    <div class="form-row">
+                        <span class="field-label">交易示例</span>
+                        <SlotButton
+                            icon="archive"
+                            text="添加"
+                            label="添加关联交易示例"
+                            :disabled="tradeSamplesSaving"
+                            @click="addTradeSample"
+                        />
+                        <span class="meta">追加一笔召唤兽买入与仓库物品，可在账号页体验卖出。</span>
                     </div>
                 </LedgerSection>
             </div>

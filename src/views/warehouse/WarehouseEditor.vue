@@ -36,8 +36,18 @@ import {
 } from './warehouse';
 import { useWarehouse } from './warehouse-store';
 
-const props = defineProps<{ item: ReadonlyWarehouseItem; existing: boolean }>();
-const emit = defineEmits<{ close: []; saved: []; removed: [] }>();
+const props = defineProps<{
+    item: ReadonlyWarehouseItem;
+    existing: boolean;
+    draftOnly?: boolean;
+    initialDrafts?: readonly ReadonlyWarehouseItem[];
+}>();
+const emit = defineEmits<{
+    close: [];
+    saved: [];
+    removed: [];
+    confirm: [items: WarehouseItem[]];
+}>();
 const store = useWarehouse();
 store.operationError.value = '';
 const { operationError, writeError } = store;
@@ -45,7 +55,11 @@ const submission = usePersistedSubmit(store.flush, store.retry);
 const { saving, locked, action } = submission;
 const confirming = ref(false);
 const departed = ref(false);
-const drafts = ref<WarehouseItem[]>([cloneDraft<WarehouseItem>(props.item)]);
+const drafts = ref<WarehouseItem[]>(
+    (props.initialDrafts?.length ? props.initialDrafts : [props.item]).map((item) =>
+        cloneDraft<WarehouseItem>(item),
+    ),
+);
 const index = ref('0');
 const active = computed(() => drafts.value[Number(index.value)]!);
 const reading = ref(false);
@@ -78,6 +92,7 @@ const canSave = computed(
         !reading.value &&
         !saving.value &&
         !confirming.value &&
+        (props.draftOnly || !store.tradePending.value) &&
         action.value !== 'remove' &&
         drafts.value.every((item) =>
             item.kind === 'pet' ? hasPetName(item.pet) : hasGearDetail(item.gear.detail),
@@ -86,12 +101,14 @@ const canSave = computed(
 const saveText = computed(() => {
     if (saving.value) return '保存中';
     if (action.value === 'save') return '重试保存';
+    if (props.draftOnly) return '使用这些资料';
     if (props.existing) return '保存修改';
     return drafts.value.length > 1 ? '全部入仓' : '保存入仓';
 });
 const canRemove = computed(
     () =>
         props.existing &&
+        !store.tradePending.value &&
         !reading.value &&
         !saving.value &&
         !confirming.value &&
@@ -147,6 +164,11 @@ function busy(value: boolean) {
 }
 async function save() {
     if (!canSave.value || (locked.value && action.value === null)) return;
+    if (props.draftOnly) {
+        departed.value = true;
+        emit('confirm', cloneDraft<WarehouseItem[]>(drafts.value));
+        return;
+    }
     const ok = await submission.run('save', () => store.save(drafts.value, expected));
     if (ok) {
         notify.success(props.existing ? '已保存仓库物品' : `已入仓 ${drafts.value.length} 件物品`);
@@ -203,7 +225,7 @@ async function remove() {
                     <span class="muted">区服</span>
                     <input v-model="active.server" class="field" aria-label="物品区服" placeholder="选填" />
                 </label>
-                <span class="warehouse-edit-hint muted">截图识别后核对，保存入仓</span>
+                <span class="warehouse-edit-hint muted">{{ draftOnly ? '截图识别后核对，记账时入仓' : '截图识别后核对，保存入仓' }}</span>
             </div>
             <SegmentedPills
                 v-if="drafts.length > 1"
@@ -251,15 +273,15 @@ async function remove() {
             <PressButton
                 data-modal-cancel
                 icon="back"
-                text="返回仓库"
-                label="返回仓库列表"
+                :text="draftOnly ? '取消录入' : '返回仓库'"
+                :label="draftOnly ? '取消本次物品录入' : '返回仓库列表'"
                 :disabled="saving || confirming"
                 @click="requestClose"
             />
             <PressButton
                 icon="check"
                 :text="saveText"
-                label="保存仓库物品"
+                :label="draftOnly ? '确认交易物品资料' : '保存仓库物品'"
                 seal
                 :disabled="!canSave"
                 @click="save"

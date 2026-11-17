@@ -218,10 +218,10 @@ export default async function run(ctx) {
                     t.check(
                         '手续费两格开关在价格下方居中，默认是，只显示手续费与实得',
                         await cdp.evaluate(`(() => {
-                        const group = document.querySelector('.fee-switch [aria-label="是否扣除手续费"]');
+                        const group = document.querySelector('.fee-switch [aria-label="手续费"]');
                         const amount = document.querySelector('.amount-row input');
                         const row = document.querySelector('.amount-row');
-                        const control = group?.closest('.fee-switch');
+                        const control = group?.closest('.trade-switches');
                         const box = control?.getBoundingClientRect();
                         const rowBox = row?.getBoundingClientRect();
                         return group?.classList.contains('cost-switch') &&
@@ -234,7 +234,7 @@ export default async function run(ctx) {
                             amount && amount.getBoundingClientRect().bottom <= group.getBoundingClientRect().top;
                     })()`),
                     );
-                    await ui.clickText('[aria-label="是否扣除手续费"] button', '否', {
+                    await ui.clickText('[aria-label="手续费"] button', '否', {
                         exact: true,
                     });
                     await ui.waitFor(`!!document.querySelector('input[aria-label="实得金额"]')`);
@@ -244,7 +244,7 @@ export default async function run(ctx) {
                     await ui.clickText('[role="option"]', '游戏内', { exact: true });
                     t.check(
                         '游戏内交易不展示手续费',
-                        !(await ui.exists('[aria-label="是否扣除手续费"]')),
+                        !(await ui.exists('[aria-label="手续费"]')),
                     );
                 }
                 await ui.clickLabel('关闭账目编辑');
@@ -520,6 +520,189 @@ export default async function run(ctx) {
                 return [...document.querySelectorAll('.recent-row')].some((one) => one.getAttribute('aria-label')?.includes('⚠E2E账号'));
             })()`);
             t.check('页面上不再有那一笔', still === false, '还能看到 E2E 那条');
+        });
+
+        await t.step('物品买卖快照、已卖出查看及删除卖出后回仓', async () => {
+            for (const kind of ['装备', '召唤兽']) {
+                const name = `E2E交易${kind}-${Date.now()}`;
+                const names = [name, `${name}-第二件`];
+                for (const itemName of names) {
+                    await ui.clickText('.shortcut', `买入${kind}`);
+                    await ui.waitFor(`!!document.querySelector('[aria-label="是否关联仓库物品"]')`);
+                    await ui.fill('成交金额', '100');
+                    await ui.clickText('[aria-label="是否关联仓库物品"] button', '是');
+                    t.check(`${kind}无手续费时关联开关居中`, await cdp.evaluate(`(() => {
+                        const row = document.querySelector('.trade-switches').getBoundingClientRect();
+                        const group = document.querySelector('.asset-switch').getBoundingClientRect();
+                        return !document.querySelector('[aria-label="手续费"]') &&
+                            Math.abs(row.left + row.width / 2 - group.left - group.width / 2) <= 1;
+                    })()`));
+                    t.check(`${kind}关联后必须先录入资料`, await cdp.evaluate(
+                        `document.querySelector('[aria-label="记入账本"]')?.disabled === true`,
+                    ));
+                    await ui.clickLabel('设置交易关联物品');
+                    await ui.waitFor(`!!document.querySelector('.warehouse-editor-page')`);
+                    if (kind === '装备') {
+                        await ui.fillSel('.gear-name-input', itemName);
+                    } else {
+                        await ui.fill('召唤兽名称', itemName);
+                        await ui.fill('召唤兽气血', '3456');
+                    }
+                    await ui.clickLabel('确认交易物品资料');
+                    await ui.waitFor(`!document.querySelector('.warehouse-editor-page')`);
+                    t.check(`${kind}核对资料返回账目草稿`, await cdp.evaluate(
+                        `!!document.querySelector('.account-asset-list [aria-label="查看物品属性 ${itemName}"]')`,
+                    ));
+                    await ui.clickLabel('记入账本');
+                    await ui.waitFor(`!document.querySelector('.modal-mask')`);
+                    await ui.reload();
+                    await ui.gotoReady('账号');
+                }
+                await ui.clickText('.shortcut', `卖出${kind}`);
+                await ui.fill('成交金额', '150');
+                await ui.clickText('[aria-label="是否关联仓库物品"] button', '是');
+                t.check(`${kind}手续费与关联开关同排且顺序正确`, await cdp.evaluate(`(() => {
+                    const [fee, asset] = document.querySelectorAll('.trade-switches > .fee-switch');
+                    if (!fee || !asset) return false;
+                    const a = fee.getBoundingClientRect();
+                    const b = asset.getBoundingClientRect();
+                    return Math.abs(a.top - b.top) <= 1 && a.right < b.left &&
+                        fee.querySelector('.field-label').textContent.trim() === '手续费';
+                })()`));
+                await ui.clickLabel('设置交易关联物品');
+                await ui.waitFor(`!!document.querySelector('.warehouse-search')`);
+                await ui.fill('搜索仓库物品', name);
+                await ui.waitFor(`document.querySelectorAll('.warehouse-content .warehouse-item').length === 2`);
+                t.check(`${kind}仓库标题横排且装饰条独立`, await cdp.evaluate(`(() => {
+                    const title = document.querySelector('.warehouse-pick-heading');
+                    const [mark, text] = title.children;
+                    const a = mark.getBoundingClientRect();
+                    const b = text.getBoundingClientRect();
+                    return !mark.textContent.trim() && b.width > a.width * 4 &&
+                        Math.abs(a.top + a.height / 2 - b.top - b.height / 2) <= 1 &&
+                        getComputedStyle(title).whiteSpace === 'nowrap';
+                })()`));
+                for (const itemName of names) await ui.clickLabel(`选择卖出 ${itemName}`);
+                t.check(`${kind}可同时勾选两件，选择窗保留到确认`, await cdp.evaluate(
+                    `document.querySelectorAll('.warehouse-content [aria-pressed="true"]').length === 2`,
+                ));
+                await ui.clickLabel('确认选择交易物品');
+                await ui.waitFor(`!document.querySelector('.warehouse-search')`);
+                t.check(`${kind}已选区使用紧凑图标，选择按钮靠右且自适应`, await cdp.evaluate(`(() => {
+                    const host = document.querySelector('.account-asset');
+                    const button = host.querySelector('.account-asset-choose').getBoundingClientRect();
+                    const head = host.querySelector('.account-asset-head').getBoundingClientRect();
+                    const tile = host.querySelector('.warehouse-gear-icon, .warehouse-pet-icon').getBoundingClientRect();
+                    const cell = host.querySelector('.warehouse-item').getBoundingClientRect();
+                    return host.classList.contains('board') &&
+                        !!host.querySelector('.account-asset-tray.well') &&
+                        !host.querySelector('.account-asset-hint') &&
+                        !host.textContent.includes('点击右上角') &&
+                        !host.textContent.includes('记账后移出仓库') &&
+                        host.querySelectorAll('.account-asset-list .warehouse-item').length === 2 &&
+                        Math.abs(tile.width - 48) <= 1 && Math.abs(tile.height - 48) <= 1 &&
+                        Math.abs(cell.width - 64) <= 1 &&
+                        button.width < head.width / 2 && Math.abs(button.right - head.right) <= 1;
+                })()`));
+                await ui.clickLabel(`查看物品属性 ${names[0]}`);
+                t.check(`${kind}已选图标可查看属性`, await ui.waitFor(
+                    `!!document.querySelector('.detail-tip.on[aria-hidden="false"]')`,
+                ));
+                t.check(`${kind}属性浮层边框等距，滚动条不挤占外框`, await cdp.evaluate(`(() => {
+                    const tip = document.querySelector('.detail-tip.on[aria-hidden="false"]');
+                    const content = tip.querySelector(':scope > .tip-content');
+                    const style = getComputedStyle(tip);
+                    const rule = getComputedStyle(tip, '::before');
+                    const borders = parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+                    return !!content &&
+                        Math.abs(parseFloat(rule.left) - parseFloat(rule.right)) <= 1 &&
+                        Math.abs(parseFloat(rule.top) - parseFloat(rule.bottom)) <= 1 &&
+                        Math.abs(tip.getBoundingClientRect().width - tip.clientWidth - borders) <= 1 &&
+                        tip.scrollHeight <= tip.clientHeight + 1;
+                })()`));
+                await cdp.key('Escape');
+                await ui.clickLabel('设置交易关联物品');
+                await ui.waitFor(`!!document.querySelector('.warehouse-search')`);
+                t.check(`${kind}重开保留两件勾选`, await cdp.evaluate(
+                    `document.querySelectorAll('.warehouse-content [aria-pressed="true"]').length === 2`,
+                ));
+                await ui.clickLabel(`选择卖出 ${names[0]}`);
+                await ui.clickLabel('关闭仓库');
+                await ui.waitFor(`!document.querySelector('.warehouse-search')`);
+                t.check(`${kind}取消选择不改变账目草稿`, await cdp.evaluate(
+                    `document.querySelectorAll('.account-asset-list .warehouse-item').length === 2`,
+                ));
+                await ui.clickLabel('记入账本');
+                await ui.waitFor(`!document.querySelector('.modal-mask')`);
+                await ui.reload();
+                await ui.gotoReady('账号');
+                await ui.clickLabel('打开装备和召唤兽仓库');
+                await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
+                await ui.clickText('[aria-label="仓库分类"] button', kind);
+                await ui.fill('搜索仓库物品', name);
+                t.check(`${kind}卖出后重载仍不在仓库`, await cdp.evaluate(
+                    `document.querySelectorAll('.warehouse-item').length === 0`,
+                ));
+                await ui.clickText('[aria-label="仓库状态"] button', '已卖出');
+                t.check(`${kind}已卖出分类保留两件快照且不能新增或修改`, await ui.waitFor(
+                    `document.querySelectorAll('.warehouse-item').length === 2 &&
+                     !document.querySelector('[data-warehouse-add]')`,
+                ));
+                await ui.clickLabel(`查看已卖出 ${names[0]}`);
+                t.check(`${kind}已卖出仅查看属性`, await ui.waitFor(
+                    `!!document.querySelector('.detail-tip.on') &&
+                     !document.querySelector('.warehouse-editor-page')`,
+                ));
+                await cdp.key('Escape');
+                await ui.clickLabel('关闭仓库');
+                await ui.clickLabel('查看账号历史记录');
+                await ui.waitFor(`!!document.querySelector('[aria-label="搜索记录"]')`);
+                await ui.fill('搜索记录', name);
+                t.check(`${kind}两次买入和批量卖出都保留历史快照`, await cdp.evaluate(
+                    `document.querySelectorAll('.rec-table tbody tr').length === 3 &&
+                     document.querySelectorAll('.record-assets').length === 3`,
+                ));
+                await ui.clickIn('.rec-table tbody tr:has(.c-num.in)', name, { label: '删这一条' });
+                t.check(`${kind}删除卖出前提示关联物品回仓`, await ui.waitFor(
+                    `document.querySelector('.confirm-note')?.textContent.includes('返回仓库') === true`,
+                ));
+                await ui.clickLabel('确认删除');
+                await ui.waitFor(`document.querySelectorAll('.rec-table tbody tr').length === 2`);
+                for (let index = 0; index < 2; index += 1) {
+                    await ui.clickIn('.rec-table tbody tr', name, { label: '删这一条' });
+                    await ui.clickLabel('确认删除');
+                    await ui.waitFor(`document.querySelectorAll('.rec-table tbody tr').length === ${1 - index}`);
+                }
+                await cdp.key('Escape');
+                await ui.waitFor(`!document.querySelector('.modal-mask')`);
+                await ui.reload();
+                await ui.gotoReady('账号');
+                await ui.clickLabel('打开装备和召唤兽仓库');
+                await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
+                await ui.clickText('[aria-label="仓库分类"] button', kind);
+                await ui.fill('搜索仓库物品', name);
+                t.check(`${kind}删除卖出后重载回仓，删除买入不再改变库存`, await ui.waitFor(
+                    `document.querySelectorAll('.warehouse-item').length === 2`,
+                ));
+                await ui.clickText('[aria-label="仓库状态"] button', '已卖出');
+                t.check(`${kind}回仓后已卖出列表清空`, await ui.waitFor(
+                    `document.querySelectorAll('.warehouse-item').length === 0`,
+                ));
+                await ui.clickText('[aria-label="仓库状态"] button', '在仓');
+                for (const itemName of names) {
+                    await ui.clickLabel(`查看并修改 ${itemName}`);
+                    await ui.waitFor(`!!document.querySelector('[aria-label="删除仓库物品"]')`);
+                    await ui.waitFor(warehouseIdle);
+                    await ui.clickLabel('删除仓库物品');
+                    await ui.clickLabel('确认删除');
+                    await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
+                    await ui.waitFor(warehouseIdle);
+                }
+                t.check(`${kind}回仓测试物品已清理`, await ui.waitFor(
+                    `document.querySelectorAll('.warehouse-item').length === 0`,
+                ));
+                await ui.clickLabel('关闭仓库');
+            }
         });
     }
 }
