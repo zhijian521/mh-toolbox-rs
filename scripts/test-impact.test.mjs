@@ -3,6 +3,11 @@ import { recommendTests, statusPaths } from './test-impact.mjs';
 import { TEST_SCOPES } from './test-scopes.mjs';
 
 describe('根据改动推荐测试范围', () => {
+    it('封妖偏好改动推荐工具断言与页面烟测', () => {
+        const result = recommendTests(['src/services/fengyao.ts']);
+        expect(result.scopes).toContain('tools');
+        expect(result.smoke).toContain('工具');
+    });
     it('养成公式改动推荐工具计算断言', () => {
         const result = recommendTests(['src/services/level-costs.ts']);
         expect(result.scopes).toContain('tools');

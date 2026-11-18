@@ -1,0 +1,20 @@
+{
+    "sourceUrl": "https://xyq.163.com/introduce/cg002.html",
+    "checkedOn": "2026-11-18",
+    "note": "普通封妖最低挑战等级；不代表最佳奖励等级。变异妖另有限制，妖王不在本助手提醒范围。",
+    "scenes": [
+        { "name": "建邺城", "minLevel": 20, "aliases": ["建业城"] },
+        { "name": "江南野外", "minLevel": 30, "aliases": [] },
+        { "name": "大唐国境", "minLevel": 40, "aliases": [] },
+        { "name": "大唐境外", "minLevel": 50, "aliases": [] },
+        { "name": "傲来国", "minLevel": 60, "aliases": ["傲莱国"] },
+        { "name": "长寿郊外", "minLevel": 60, "aliases": [] },
+        { "name": "朱紫国", "minLevel": 80, "aliases": [] },
+        { "name": "北俱芦洲", "minLevel": 80, "aliases": ["北俱芦州"] },
+        { "name": "麒麟山", "minLevel": 100, "aliases": [] },
+        { "name": "蓬莱仙岛", "minLevel": 120, "aliases": [] },
+        { "name": "碗子山", "minLevel": 130, "aliases": [] },
+        { "name": "柳林坡", "minLevel": 160, "aliases": [] },
+        { "name": "比丘国", "minLevel": 160, "aliases": [] }
+    ]
+}

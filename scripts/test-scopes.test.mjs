@@ -8,6 +8,7 @@ describe('业务测试分区', () => {
     it('工具分区包含养成公式与角色预算，避免只测页面逻辑', () => {
         const selected = selectTests(['tools'], files);
         expect(selected).toContain('src/services/level-costs.test.ts');
+        expect(selected).toContain('src/services/fengyao.test.ts');
         expect(selected).toContain('src/views/tools/growth-plan.test.ts');
     });
 

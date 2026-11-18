@@ -1,5 +1,9 @@
 use serde::Serialize;
 
+mod fengyao;
+#[cfg(windows)]
+mod window_capture;
+
 // 截屏与 OCR 全是对 Win32 / WinRT 的直接调用，非 Windows 平台没有替身实现。
 // 整个模块按 cfg 门控，而不是在函数体内散落 `#[cfg]`——那样编译错误会指向
 // 「这一段为什么没被编」而不是「这个平台不支持」。
@@ -313,6 +317,10 @@ fn command_table() -> tauri_specta::Builder<tauri::Wry> {
             app_info,
             open_external,
             notify_alarm,
+            fengyao::fengyao_status,
+            fengyao::fengyao_start,
+            fengyao::fengyao_stop,
+            fengyao::fengyao_capture,
             ghost::ghost_windows,
             ghost::ghost_probe,
             ocr_image::ocr_frame,
@@ -355,6 +363,10 @@ fn command_table() -> tauri_specta::Builder<tauri::Wry> {
             app_info,
             open_external,
             notify_alarm,
+            fengyao::fengyao_status,
+            fengyao::fengyao_start,
+            fengyao::fengyao_stop,
+            fengyao::fengyao_capture,
             backup::data_export,
             backup::data_import,
             backup::legacy_data_read,

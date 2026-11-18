@@ -24,6 +24,158 @@ export default async function run(ctx) {
             t.check('回到工具列表', back, await ui.hash());
         });
 
+        await t.step('封妖助手：简洁首屏与切页继续监听', async () => {
+            // IPC 替身只验证页面生命周期，不开始或停止用户正在使用的游戏监听。
+            const stubbed = await cdp.evaluate(`(async () => {
+                const internals = window.__TAURI_INTERNALS__;
+                if (!internals || typeof internals.invoke !== 'function') return false;
+                const invoke = internals.invoke;
+                const actual = await invoke.call(internals, 'fengyao_status');
+                const fake = {
+                    ...actual, running: false, baselineReady: true, error: '',
+                    config: {
+                        hwnd: 1, scenes: ['柳林坡'],
+                        region: { x: 0, y: 0, width: 400, height: 100,
+                            frameWidth: 800, frameHeight: 600 },
+                    },
+                    text: ['E2E 识别原文'],
+                    alerts: Array.from({ length: 4 }, (_, i) => ({
+                        id: 'e2e-' + i, scene: '麒麟山', at: Date.now() - i * 1000,
+                        text: 'E2E 公告正文',
+                    })),
+                };
+                window.__e2eFengyao = {
+                    invoke, fake, config: fake.config,
+                    preference: localStorage.getItem('mh-fengyao-preferences'),
+                    stopCalls: 0, statusCalls: 0,
+                };
+                fake.config = null;
+                localStorage.setItem('mh-fengyao-preferences', JSON.stringify({
+                    scenes: [], windowTitle: '', region: null,
+                }));
+                internals.invoke = (cmd, ...rest) => {
+                    if (cmd === 'fengyao_status') {
+                        window.__e2eFengyao.statusCalls += 1;
+                        return Promise.resolve(fake);
+                    }
+                    if (cmd === 'ghost_windows') {
+                        return Promise.resolve([{ hwnd: 1, title: '梦幻西游 聊天窗口' }]);
+                    }
+                    if (cmd === 'fengyao_capture') {
+                        return Promise.resolve({ image: '', title: '梦幻西游 聊天窗口',
+                            width: 800, height: 600 });
+                    }
+                    if (cmd === 'fengyao_stop' || cmd === 'fengyao_start') {
+                        window.__e2eFengyao.stopCalls += 1;
+                        return Promise.reject(new Error('页面进出不应控制监听'));
+                    }
+                    return invoke.call(internals, cmd, ...rest);
+                };
+                return true;
+            })()`);
+            if (!stubbed) throw new Error('无法隔离封妖 IPC，停止页面烟测');
+            try {
+                await cdp.evaluate(`location.hash = '#/tools/fengyao'`);
+                const loaded = await cdp.waitFor(
+                    `document.querySelectorAll('.fy-scene').length > 0`,
+                    { timeout: 5000 },
+                );
+                t.check('提醒场景直接展示，默认全部关闭', loaded && await cdp.evaluate(`
+                    !document.querySelector('.fy-scenes').closest('details') &&
+                    [...document.querySelectorAll('.fy-scene .cost-switch')].every(s =>
+                        s.classList.contains('off')) &&
+                    !document.querySelector('[aria-label="开始封妖监听"]').disabled
+                `));
+                await ui.clickLabel('开始封妖监听');
+                t.check('无地图时点击开始给出明确原因', await cdp.evaluate(`
+                    [...document.querySelectorAll('[role="alert"]')].some(el =>
+                        el.textContent.includes('请先开启至少一个提醒地图'))
+                `));
+                t.check('移除等级、测试通知和官方规则入口', await cdp.evaluate(`
+                    !document.querySelector('[aria-label="封妖角色等级"]') &&
+                    !document.querySelector('[aria-label="发送一条封妖测试通知"]') &&
+                    !document.querySelector('[aria-label="打开官网封妖等级规则"]')
+                `));
+                await cdp.click('[aria-label="柳林坡刷妖提醒"] [role="radio"]:last-child');
+                t.check('场景可手动开启，不受等级筛选', await cdp.evaluate(`
+                    !document.querySelector('[aria-label="柳林坡刷妖提醒"]').classList.contains('off')
+                `));
+                await ui.clickLabel('开始封妖监听');
+                t.check('首次开始引导框选，完成后可直接监听', await cdp.evaluate(`
+                    !!document.querySelector('.fy-calibration') &&
+                    document.querySelector('[aria-label="完成系统消息区域框选"]').textContent.includes('完成并开始监听')
+                `));
+                await cdp.evaluate(`location.hash = '#/tools'`);
+                await ui.waitFor(`!document.querySelector('.fengyao')`);
+                await ui.clickText('button, a', '封妖助手');
+                await ui.waitFor(`!!document.querySelector('.fy-scenes')`);
+                t.check('页面重新创建后恢复手动地图选择', await cdp.evaluate(`
+                    !document.querySelector('[aria-label="柳林坡刷妖提醒"]').classList.contains('off') &&
+                    JSON.parse(localStorage.getItem('mh-fengyao-preferences')).scenes.includes('柳林坡')
+                `));
+                await cdp.evaluate(`(() => {
+                    const saved = JSON.parse(localStorage.getItem('mh-fengyao-preferences'));
+                    saved.windowTitle = '梦幻西游 聊天窗口';
+                    saved.region = { ...window.__e2eFengyao.config.region, y: 40, height: 120 };
+                    localStorage.setItem('mh-fengyao-preferences', JSON.stringify(saved));
+                    window.__e2eFengyao.fake.config = window.__e2eFengyao.config;
+                    location.hash = '#/tools';
+                })()`);
+                await ui.waitFor(`!document.querySelector('.fengyao')`);
+                await ui.clickText('button, a', '封妖助手');
+                await ui.waitFor(`!!document.querySelector('.fy-scenes')`);
+                await ui.clickLabel('截取游戏画面并框选系统消息区域');
+                await ui.waitFor(`!!document.querySelector('.fy-adjust')`);
+                t.check('停止任务的旧选区不覆盖后来保存的新选区', await cdp.evaluate(`
+                    document.querySelector('[aria-label="选区上边距"]').value === '40' &&
+                    document.querySelector('[aria-label="选区高度"]').value === '120'
+                `));
+                await cdp.evaluate(`
+                    window.__e2eFengyao.fake.config = window.__e2eFengyao.config;
+                    window.__e2eFengyao.fake.running = true;
+                    location.hash = '#/tools';
+                `);
+                await ui.waitFor(`!document.querySelector('.fengyao')`);
+                await ui.clickText('button, a', '封妖助手');
+                await ui.waitFor(`document.querySelector('.fy-status')?.textContent.includes('监听中')`);
+                t.check('区块标题使用独立装饰条', await cdp.evaluate(`
+                    [...document.querySelectorAll('.fengyao h3')].length === 2 &&
+                    [...document.querySelectorAll('.fengyao h3')].every((h) =>
+                        !h.classList.contains('section-mark') && h.querySelector('.section-mark'))
+                `));
+                t.check('识别详情和校准画面默认收起', await cdp.evaluate(`
+                    !document.querySelector('.fy-reading').open &&
+                    !document.querySelector('.fy-calibration')
+                `));
+                t.check('最近提醒最多展示三条，不展开公告正文',
+                    (await ui.count('.fy-alerts .fy-alert-tile.press-tile.still')) === 3 &&
+                    !(await cdp.evaluate(`document.querySelector('.fy-alerts').textContent.includes('E2E 公告正文')`)),
+                );
+                await ui.clickLabel('返回工具列表');
+                await ui.waitFor(`location.hash === '#/tools' && !document.querySelector('.fengyao')`);
+                t.check('离开页面没有停止后台监听', await cdp.evaluate(
+                    'window.__e2eFengyao.stopCalls === 0',
+                ));
+                await ui.clickText('button, a', '封妖助手');
+                await ui.waitFor(`document.querySelector('.fy-status')?.textContent.includes('监听中')`);
+                t.check('回来读取后台状态，保留手动选择与选区', await cdp.evaluate(`
+                    window.__e2eFengyao.statusCalls >= 2 &&
+                    !document.querySelector('[aria-label="柳林坡刷妖提醒"]').classList.contains('off') &&
+                    !document.querySelector('[aria-label="停止封妖监听"]').disabled
+                `));
+            } finally {
+                await cdp.evaluate(`location.hash = '#/tools'`);
+                await ui.waitFor(`!document.querySelector('.fengyao')`);
+                await cdp.evaluate(`(() => {
+                    const saved = window.__e2eFengyao;
+                    window.__TAURI_INTERNALS__.invoke = saved.invoke;
+                    if (saved.preference === null) localStorage.removeItem('mh-fengyao-preferences');
+                    else localStorage.setItem('mh-fengyao-preferences', saved.preference);
+                    delete window.__e2eFengyao;
+                })()`);
+            }
+        });
+
         /* ---------- 维护公告：外链，点了不进路由 ----------
          *
          * 这一枚现在的落点是系统浏览器（`open_external`）。真点一下会在这台机器上

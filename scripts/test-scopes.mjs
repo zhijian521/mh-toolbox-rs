@@ -60,6 +60,7 @@ export const TEST_SCOPES = {
     tools: [
         'src/views/tools/',
         'src/services/level-costs.test.',
+        'src/services/fengyao.test.',
         'src/services/ghost-',
         'src/components/ghost/',
         'src/composables/use-ghost-watch.test.',

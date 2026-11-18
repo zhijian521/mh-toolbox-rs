@@ -93,6 +93,16 @@ export type ToolEntry = ToolPage | ToolLink;
 
 export const TOOLS: ToolEntry[] = [
     {
+        key: 'fengyao',
+        kind: 'page',
+        name: '封妖助手',
+        desc: '持续读取系统公告，按手动开启的场景弹窗提醒',
+        path: '/tools/fengyao',
+        icon: 'notice',
+        group: 'game',
+        view: () => import('./views/tools/FengyaoView.vue').then((page) => page.default),
+    },
+    {
         key: 'ghost',
         kind: 'page',
         name: '捉鬼助手',

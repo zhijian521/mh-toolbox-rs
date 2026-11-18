@@ -33,6 +33,10 @@ export const commands = {
 	 *  裁在半个字上比我们主动截难看。这里按**字符**截而不是字节，中文才不会被切坏。
 	 */
 	notifyAlarm: (title: string, body: string) => __TAURI_INVOKE<null>("notify_alarm", { title, body }),
+	fengyaoStatus: () => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_status"),
+	fengyaoStart: (config: WatchConfig) => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_start", { config }),
+	fengyaoStop: () => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_stop"),
+	fengyaoCapture: (hwnd: number) => __TAURI_INVOKE<WindowShot>("fengyao_capture", { hwnd }),
 	/**
 	 *  列出可见窗口，供前端选择要监听哪一个。
 	 * 
@@ -380,6 +384,15 @@ export type LegacyImportSummary = {
 	originalPath: string,
 };
 
+export type MessageRegion = {
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+	frameWidth: number,
+	frameHeight: number,
+};
+
 /**
  *  收益页一次读回来的上线数据：记录 + 口径。
  * 
@@ -606,6 +619,26 @@ export type Roi_Serialize = {
 	scale: number,
 };
 
+export type Rules = {
+	sourceUrl: string,
+	checkedOn: string,
+	note: string,
+	scenes: SceneRule[],
+};
+
+export type SceneRule = {
+	name: string,
+	minLevel: number,
+	aliases: string[],
+};
+
+export type SpawnAlert = {
+	id: string,
+	scene: string,
+	text: string,
+	at: number,
+};
+
 /**
  *  一行识别结果。
  * 
@@ -638,6 +671,44 @@ export type TextLine = {
 
 export type Value = null | boolean | number | string | Value[] | { [key in string]: Value };
 
+export type WatchConfig = {
+	hwnd: number,
+	scenes: string[],
+	region: MessageRegion,
+};
+
+export type WatchStatus = WatchStatus_Serialize | WatchStatus_Deserialize;
+
+export type WatchStatus_Deserialize = {
+	running: boolean,
+	config?: WatchConfig | null,
+	title: string,
+	error: string,
+	text: string[],
+	lastReadAt: number,
+	checkedAt: number,
+	ocrMs: number,
+	baselineReady: boolean,
+	alerts: SpawnAlert[],
+	notificationError: string,
+	rules: Rules,
+};
+
+export type WatchStatus_Serialize = {
+	running: boolean,
+	config: WatchConfig | null,
+	title: string,
+	error: string,
+	text: string[],
+	lastReadAt: number,
+	checkedAt: number,
+	ocrMs: number,
+	baselineReady: boolean,
+	alerts: SpawnAlert[],
+	notificationError: string,
+	rules: Rules,
+};
+
 /**
  *  一个可见的顶层窗口。前端用它做「监听哪个客户端」的选择。
  * 
@@ -651,5 +722,12 @@ export type WindowInfo = {
 	y: number,
 	width: number,
 	height: number,
+};
+
+export type WindowShot = {
+	image: string,
+	width: number,
+	height: number,
+	title: string,
 };
 

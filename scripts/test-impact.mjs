@@ -57,6 +57,7 @@ const RULES = [
     { prefix: 'src/services/home-shortcuts', scopes: ['overview'], smoke: ['导航'] },
     { prefix: 'src/services/ghost-', scopes: ['tools'], smoke: ['工具'] },
     { prefix: 'src/services/level-costs', scopes: ['tools'], smoke: ['工具'] },
+    { prefix: 'src/services/fengyao', scopes: ['tools'], smoke: ['工具'] },
     { prefix: 'src/services/game-', scopes: ['assets', 'characters', 'ocr', 'tools'] },
     { prefix: 'src/services/pet-assets', scopes: ['assets', 'characters', 'ocr'] },
     {
