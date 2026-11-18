@@ -7,6 +7,7 @@ import ModalShell from '../../components/ModalShell.vue';
 import NumberField from '../../components/NumberField.vue';
 import PaperCard from '../../components/PaperCard.vue';
 import PressButton from '../../components/PressButton.vue';
+import FormActions from '../../components/FormActions.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
 import { withCurrentOption } from '../../components/select-options';
@@ -389,29 +390,25 @@ const { requestClose } = useDraftGuard(
         </form>
 
         <template #footer>
-            <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
-            <PressButton
-                data-modal-cancel
-                :text="automatic ? '关闭' : '取消'"
-                label="关闭账目编辑"
-                :disabled="saving"
-                @click="requestClose"
-            />
-            <PressButton
-                v-if="automatic"
-                text="去收益页"
-                label="前往收益页修改原始记录"
-                @click="router.push('/income')"
-            />
-            <PressButton
-                v-else
-                icon="check"
-                :text="saving ? '保存中' : retrying ? '重试保存' : entry ? '保存' : '记入'"
-                :label="entry ? '保存这一条' : '记入账本'"
-                :disabled="saving || (!retrying && !canSave)"
-                seal
-                @click="submit"
-            />
+            <FormActions
+                :error="saveError"
+                :cancel-text="automatic ? '关闭' : '取消'"
+                cancel-label="关闭账目编辑"
+                :cancel-disabled="saving"
+                :submit-text="saving ? '保存中' : retrying ? '重试保存' : entry ? '保存' : '记入'"
+                :submit-label="entry ? '保存这一条' : '记入账本'"
+                :submit-disabled="saving || (!retrying && !canSave)"
+                @cancel="requestClose"
+                @submit="submit"
+            >
+                <template v-if="automatic" #submit>
+                    <PressButton
+                        text="去收益页"
+                        label="前往收益页修改原始记录"
+                        @click="router.push('/income')"
+                    />
+                </template>
+            </FormActions>
         </template>
     </ModalShell>
     <WarehouseDialog

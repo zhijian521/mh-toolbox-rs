@@ -4,6 +4,7 @@ import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
+import FormActions from '../../components/FormActions.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
 import TogglePills from '../../components/TogglePills.vue';
@@ -359,29 +360,26 @@ function enter(event: KeyboardEvent) {
             </fieldset>
         </form>
         <template #footer>
-            <p v-if="kind === 'combo'" class="note combo-editor-count">
-                {{ members.length }} 个角色 · {{ comboItems.length }} 项目标<span
-                    v-if="comboPending"
-                >
-                    · 请先添加或取消当前输入</span
-                >
-            </p>
-            <p v-if="error" class="note error save-error" role="alert">{{ error }}</p>
-            <PressButton
-                data-modal-cancel
-                text="取消"
-                label="取消"
-                :disabled="saving"
-                @click="requestClose"
-            />
-            <PressButton
-                icon="check"
-                :text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
-                label="保存目标"
-                :disabled="saving || (!retrying && !ready)"
-                seal
-                @click="submit"
-            />
+            <FormActions
+                :error="error"
+                error-role="alert"
+                :cancel-disabled="saving"
+                :submit-text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
+                submit-label="保存目标"
+                :submit-disabled="saving || (!retrying && !ready)"
+                @cancel="requestClose"
+                @submit="submit"
+            >
+                <template #before>
+                    <p v-if="kind === 'combo'" class="note combo-editor-count">
+                        {{ members.length }} 个角色 · {{ comboItems.length }} 项目标<span
+                            v-if="comboPending"
+                        >
+                            · 请先添加或取消当前输入</span
+                        >
+                    </p>
+                </template>
+            </FormActions>
         </template>
     </ModalShell>
 </template>

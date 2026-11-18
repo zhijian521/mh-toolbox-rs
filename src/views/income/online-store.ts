@@ -5,7 +5,7 @@ import { loadData } from '../../services/load-data';
 import { onlineLoad, onlineSave } from '../../services/storage';
 import { dateText, fromWan } from '../../services/format';
 import { createPersist } from '../../services/persist';
-import { onStorageSync } from '../../services/storage-sync';
+import { onLocalDataSync } from '../../services/storage-sync';
 import { makeId } from '../../services/shape';
 import {
     DEFAULT_CARD_PRICE,
@@ -58,41 +58,44 @@ const persist = createPersist({
     writeRemote: () => onlineSave(payloadOf()),
 });
 
+function parseStoredOnline(raw: unknown) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        throw new TypeError('数据不是对象');
+    }
+    const payload = raw as StoredShape;
+    const settings = payload.settings;
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+        throw new TypeError('点卡设置损坏');
+    }
+    const { cardPrice, cardCost } = settings as Record<string, unknown>;
+    if (
+        typeof cardPrice !== 'number' ||
+        !Number.isFinite(cardPrice) ||
+        cardPrice <= 0 ||
+        typeof cardCost !== 'boolean'
+    ) {
+        throw new TypeError('点卡设置无效');
+    }
+    return {
+        sessions: parseLocalList(payload.sessions, parseSessions),
+        settings: normalizeSettings(payload.settings),
+    };
+}
+
+function applyLocal(stored: ReturnType<typeof parseStoredOnline> | null) {
+    sessions.value = stored?.sessions ?? [];
+    settings.value = stored?.settings ?? normalizeSettings(undefined);
+}
+
 /** 启动阶段读取，完成前由写队列阻止保存；旧版转换统一在启动导入入口处理。 */
 export async function loadOnline(): Promise<void> {
     await loadData({
         loaded,
         loadError,
         error: '读不出上线记录，已暂停写入以免覆盖原有数据',
-        readLocal: () =>
-            readLocalData(STORAGE_KEY, (raw) => {
-                if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-                    throw new TypeError('数据不是对象');
-                }
-                const payload = raw as StoredShape;
-                const settings = payload.settings;
-                if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
-                    throw new TypeError('点卡设置损坏');
-                }
-                const { cardPrice, cardCost } = settings as Record<string, unknown>;
-                if (
-                    typeof cardPrice !== 'number' ||
-                    !Number.isFinite(cardPrice) ||
-                    cardPrice <= 0 ||
-                    typeof cardCost !== 'boolean'
-                ) {
-                    throw new TypeError('点卡设置无效');
-                }
-                return {
-                    sessions: parseLocalList(payload.sessions, parseSessions),
-                    settings: normalizeSettings(payload.settings),
-                };
-            }),
+        readLocal: () => readLocalData(STORAGE_KEY, parseStoredOnline),
         readRemote: onlineLoad,
-        applyLocal: (stored) => {
-            sessions.value = stored?.sessions ?? [];
-            settings.value = stored?.settings ?? normalizeSettings(undefined);
-        },
+        applyLocal,
         applyRemote: (stored) => {
             const next = {
                 sessions: parseSessions(stored.sessions),
@@ -105,19 +108,7 @@ export async function loadOnline(): Promise<void> {
 }
 
 /* 仅同步浏览器同源 localStorage，桌面数据不走此通道。 */
-onStorageSync(STORAGE_KEY, (raw) => {
-    if (raw === null) {
-        sessions.value = [];
-        return;
-    }
-    try {
-        const parsed = JSON.parse(raw) as StoredShape;
-        sessions.value = parseSessions(parsed.sessions);
-        settings.value = normalizeSettings(parsed.settings);
-    } catch {
-        console.error('storage 事件里的上线记录解析失败，保留当前数据不动');
-    }
-});
+onLocalDataSync(STORAGE_KEY, { parse: parseStoredOnline, apply: applyLocal, loadError });
 
 /* ---------- 读数 ---------- */
 

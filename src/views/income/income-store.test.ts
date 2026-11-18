@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PriceItem } from '../prices/prices';
 import type { IncomeEntry } from './income';
 
+type StorageHandler = (event: Pick<StorageEvent, 'key' | 'newValue'>) => void;
+
 afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -55,6 +57,37 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 const EMPTY = { entries: [], prices: [] };
 
 describe('loadIncome：读失败不等于空账', () => {
+    it('跨窗口缺字段或坏条目不覆盖收益账，完整快照可恢复写入', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const handlers: StorageHandler[] = [];
+        vi.stubGlobal('window', {
+            addEventListener: (_type: string, handler: StorageHandler) => handlers.push(handler),
+        });
+        const setItem = vi.fn();
+        vi.stubGlobal('localStorage', { getItem: () => null, setItem });
+        const store = await loadStore({ ...host(async () => EMPTY), hasDesktop: () => false });
+        const { entries, loadError } = store.useIncome();
+        expect(store.recordEntry({ item: '黑宝石', amount: 150_000 }).ok).toBe(true);
+        const original = JSON.parse(JSON.stringify(entries.value));
+        setItem.mockClear();
+        const sync = (value: unknown) =>
+            handlers.forEach((handler) =>
+                handler({ key: 'mh-income', newValue: JSON.stringify(value) }),
+            );
+
+        for (const value of [{ prices: [] }, { entries: [null], prices: [] }]) {
+            sync(value);
+            expect(entries.value).toEqual(original);
+            expect(loadError.value).not.toBe('');
+            expect(store.recordEntry({ item: '黑宝石', amount: 1 }).ok).toBe(false);
+        }
+        expect(setItem).not.toHaveBeenCalled();
+        sync({ entries: original, prices: [] });
+        expect(loadError.value).toBe('');
+        expect(store.recordEntry({ item: '黑宝石', amount: 1 }).ok).toBe(true);
+        expect(setItem).toHaveBeenCalledTimes(1);
+    });
+
     it.each([{}, [null], [{ itemId: 1, price: 0 }]].map((prices) => ({ prices })))(
         '浏览器单价损坏时拒绝覆盖：%j',
         async ({ prices }) => {

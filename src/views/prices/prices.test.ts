@@ -21,7 +21,6 @@ import {
     priceChange,
     recentPrices,
     retuneSub,
-    serializePriceItems,
     sortedPoints,
     updateSummary,
 } from './prices';
@@ -464,53 +463,43 @@ describe('历史派生：当前价与走势取样', () => {
  * ==================================================================== */
 
 describe('parsePriceItems：读一份来路不明的存档', () => {
-    it('没存过 / 不是 JSON / 不是数组，一律交还 null', () => {
-        expect(parsePriceItems(null)).toBeNull();
-        expect(parsePriceItems('')).toBeNull();
-        expect(parsePriceItems('{ 这不是 JSON')).toBeNull();
-        expect(parsePriceItems('{"id":"a"}')).toBeNull();
-        expect(parsePriceItems('null')).toBeNull();
-        expect(parsePriceItems('42')).toBeNull();
+    it.each([null, '', {}, 42])('非数组存档整份拒绝：%j', (raw) => {
+        expect(() => parsePriceItems(raw)).toThrow();
     });
 
-    it('单条坏掉不牵连整份：只丢非对象那几条', () => {
-        const parsed = parsePriceItems(
-            JSON.stringify([null, '字符串', 42, { id: 'a', name: '甲' }, { name: '乙' }]),
+    it('损坏条目不静默丢弃，避免后续保存覆盖原物价表', () => {
+        expect(() => parsePriceItems([null, '字符串', 42, { id: 'a', name: '甲' }])).toThrow();
+        const names = parsePriceItems([{ id: 'a', name: '甲' }, { name: '乙' }]).map(
+            (one) => one.name,
         );
-        expect(parsed?.map((item) => item.name)).toEqual(['甲', '乙']);
+        expect(names).toEqual(['甲', '乙']);
     });
 
     it('对象哪怕字段全空也留着——那是录到一半的记录', () => {
-        const parsed = parsePriceItems(JSON.stringify([{}]));
+        const parsed = parsePriceItems([{}]);
         expect(parsed).toHaveLength(1);
         expect(parsed?.[0].name).toBe('未命名物品');
     });
 
     it('points 不是数组就当成没有历史，不抛错', () => {
-        expect(
-            parsePriceItems(JSON.stringify([{ name: '甲', points: '不是数组' }]))?.[0].points,
-        ).toEqual([]);
-        expect(
-            parsePriceItems(JSON.stringify([{ name: '甲', points: { a: 1 } }]))?.[0].points,
-        ).toEqual([]);
+        expect(parsePriceItems([{ name: '甲', points: '不是数组' }])?.[0].points).toEqual([]);
+        expect(parsePriceItems([{ name: '甲', points: { a: 1 } }])?.[0].points).toEqual([]);
     });
 
     it('单条记录缺日期、或价格不为正，整条丢掉——不留一行「—」让人猜', () => {
-        const parsed = parsePriceItems(
-            JSON.stringify([
-                {
-                    name: '甲',
-                    points: [
-                        { id: 'p1', date: '2026-11-03', price: 10000 },
-                        { id: 'p2', date: '', price: 10000 },
-                        { id: 'p3', date: '2026-11-02', price: 0 },
-                        { id: 'p4', date: '2026-11-01', price: -5 },
-                        null,
-                        '垃圾',
-                    ],
-                },
-            ]),
-        );
+        const parsed = parsePriceItems([
+            {
+                name: '甲',
+                points: [
+                    { id: 'p1', date: '2026-11-03', price: 10000 },
+                    { id: 'p2', date: '', price: 10000 },
+                    { id: 'p3', date: '2026-11-02', price: 0 },
+                    { id: 'p4', date: '2026-11-01', price: -5 },
+                    null,
+                    '垃圾',
+                ],
+            },
+        ]);
         expect(parsed?.[0].points.map((one) => one.id)).toEqual(['p1']);
     });
 
@@ -703,6 +692,6 @@ describe('物价序列化', () => {
                 sub: '五宝',
             }),
         ];
-        expect(parsePriceItems(serializePriceItems(original))).toEqual(original);
+        expect(parsePriceItems(JSON.parse(JSON.stringify(original)))).toEqual(original);
     });
 });

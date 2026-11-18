@@ -40,18 +40,18 @@
 .detail-tip.interactive.on {
     pointer-events: auto;
 }
-.tip-name {
+.detail-tip .tip-name {
     color: var(--ink);
     font-size: var(--fs-md);
     letter-spacing: 0.03em;
     line-height: 1.3;
     overflow-wrap: anywhere;
 }
-.tip-kind {
+.detail-tip .tip-kind {
     margin-top: 2px;
     letter-spacing: 0.06em;
 }
-.flavor {
+.detail-tip .flavor {
     display: -webkit-box;
     margin: 5px 0 0;
     overflow: hidden;
@@ -61,20 +61,66 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
 }
-.tip-foot {
+.detail-tip .tip-foot {
     margin-top: 6px;
     padding-top: 5px;
     border-top: var(--w-hair) dotted var(--rule-2);
     letter-spacing: 0.04em;
 }
-.tip-note {
+.detail-tip .tip-note {
     margin-top: 8px;
     padding-top: 6px;
     border-top: var(--w-hair) solid var(--rule-2);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
-.tip-note span {
+.detail-tip .tip-note span {
     margin-right: 6px;
     color: var(--ink-2);
+}
+
+.pet-tip {
+    width: 460px;
+    max-width: calc(100vw - 20px);
+}
+.pet-tip-columns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+    gap: 8px;
+}
+.pet-tip-group {
+    min-width: 0;
+    margin-top: 10px;
+}
+.pet-tip-group .group-head {
+    margin: 0 0 6px;
+    font-size: var(--fs-mini);
+}
+.pet-tip-rows,
+.pet-tip-facts {
+    display: grid;
+    gap: 4px;
+}
+.pet-tip .slip-row.sm {
+    --tag-w: calc(48px * var(--fs-scale));
+    gap: 4px;
+    padding: 0 6px;
+}
+.pet-tip-facts {
+    margin-bottom: 8px;
+}
+.pet-tip-skills {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px 8px;
+}
+.pet-tip-skill {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 5px;
+    font-size: var(--fs-mini);
+    overflow-wrap: anywhere;
+    --pet-icon-size: 24px;
 }

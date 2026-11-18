@@ -46,7 +46,7 @@ Windows 在访问账本、建窗和预热 OCR 前独占数据目录中的 app-in
 - **数据进出走 `backup.rs`**：`data_export` / `data_import` / `data_clear` 管的是「离开这台机器
   的那个文件」——`format` + `app` + `exportedAt` 的信封、`backups/` 下的自动备份、导入前校验；
   `quick_prices_export` / `quick_prices_import` 是同一套信封的窄口径，只装速记单价。
-  **它不碰 SQL**：读写库一律回落 `store.rs` 及其子模块的普通函数，不在那里写第二份查询。物价查询与写入位于 `store/prices.rs`，建表迁移和跨领域事务由 `store.rs` 统一编排。两条语义：
+  **它不碰 SQL**：读写库一律回落 `store.rs` 及其子模块的普通函数，不在那里写第二份查询。物价、收益、账号及上线的 SQL 分别位于 `store/prices.rs`、`income.rs`、`accounts.rs`、`online.rs`，角色与仓库联动位于 `store/character_assets.rs`；命令、类型、建表迁移和跨领域事务由 `store.rs` 统一编排。两条语义：
   **导入 = 整体替换**（动手前把当前数据导一份到 `<数据目录>\backups\`，路径随回执给用户）；
   **清除 = 清掉全部业务表**，`meta` 一个字不动（`schemaVersion` 在那儿）。旧版 `data.json`
   （`schemaVersion: 10`，角色结构完全不同）**不在这个入口范围内**：常规导入不做转换或反向镜像；

@@ -545,6 +545,15 @@ export default async function run(ctx) {
                     '!!document.querySelector(\'[aria-label^="账号历史开始日期"]\') && !!document.querySelector(\'[aria-label^="账号历史结束日期"]\') && !!document.querySelector(\'[aria-label="来源筛选"]\')',
                 ),
             );
+            t.check(
+                '账号历史的起止日期位于同一组且各自只有一个入口',
+                await cdp.evaluate(`(() => {
+                    const range = document.querySelector('[role="dialog"] .date-range-field');
+                    return range?.querySelectorAll('.date-field').length === 2 &&
+                        !!range.querySelector('[aria-label^="账号历史开始日期"]') &&
+                        !!range.querySelector('[aria-label^="账号历史结束日期"]');
+                })()`),
+            );
             await ui.fill('搜索记录', MARK);
             await sleep(250);
             await cdp.key('Escape');

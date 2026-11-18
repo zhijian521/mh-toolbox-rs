@@ -5,8 +5,8 @@ import { pickerPlacement, type PickerBounds } from './picker-placement';
 export function usePetPickerPanel(
     anchor: Ref<HTMLElement | null>,
     panel: Ref<HTMLElement | null>,
-    search: Ref<HTMLInputElement | null>,
     open: Ref<boolean>,
+    close: (returnFocus?: boolean) => void,
 ) {
     const panelStyle = ref<Record<string, string>>({});
     const flipUp = ref(false);
@@ -53,6 +53,18 @@ export function usePetPickerPanel(
         frame = requestAnimationFrame(place);
     }
 
+    function onEscape(event: KeyboardEvent) {
+        if (!open.value) return;
+        event.preventDefault();
+        event.stopPropagation();
+        close(true);
+    }
+
+    function onPointerDown(event: PointerEvent) {
+        if (event.target instanceof Node && anchor.value?.contains(event.target)) return;
+        close();
+    }
+
     const stop = watch(open, async (value, _old, cleanup) => {
         if (!value) return;
         let active = true;
@@ -64,19 +76,23 @@ export function usePetPickerPanel(
             observer.disconnect();
             window.removeEventListener('resize', schedule);
             document.removeEventListener('scroll', schedule, true);
+            document.removeEventListener('pointerdown', onPointerDown);
             cancelAnimationFrame(frame);
         });
         await nextTick();
         if (!active || !open.value || !panel.value || !anchor.value) return;
         place();
-        search.value?.focus({ preventScroll: true });
+        panel.value
+            .querySelector<HTMLInputElement>('input[type="search"]')
+            ?.focus({ preventScroll: true });
         observer.observe(panel.value);
         observer.observe(anchor.value);
         const content = anchor.value.closest('.pet-content');
         if (content) observer.observe(content);
         window.addEventListener('resize', schedule);
         document.addEventListener('scroll', schedule, true);
+        document.addEventListener('pointerdown', onPointerDown);
     });
     onScopeDispose(stop);
-    return { panelStyle, flipUp };
+    return { panelStyle, flipUp, onEscape };
 }

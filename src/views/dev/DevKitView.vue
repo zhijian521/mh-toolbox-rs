@@ -5,6 +5,10 @@ import LedgerSection from '../../components/LedgerSection.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import SlotButton from '../../components/SlotButton.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
+import DateRangeField from '../../components/DateRangeField.vue';
+import FormActions from '../../components/FormActions.vue';
+import DetailTipShell from '../../components/DetailTipShell.vue';
+import PressButton from '../../components/PressButton.vue';
 import { askConfirm } from '../../composables/use-confirm';
 import { notify } from '../../composables/use-notify';
 import { useDevMode } from '../../composables/use-dev-mode';
@@ -47,6 +51,15 @@ import { useWarehouse } from '../warehouse/warehouse-store';
 
 const { devMode } = useDevMode();
 const sampleLoadError = ref('示例：暂时无法读取记录');
+const sampleFrom = ref('2026-11-01');
+const sampleTo = ref('2026-11-18');
+const sampleSaveError = ref('示例：保存失败，可保留输入后重试');
+const sampleTipAnchor = ref<DOMRect | null>(null);
+function showSampleTip(event: Event) {
+    if (event.currentTarget instanceof HTMLElement) {
+        sampleTipAnchor.value = event.currentTarget.getBoundingClientRect();
+    }
+}
 const goalSamplesSaving = ref(false);
 const warehouseSamplesSaving = ref(false);
 async function addWarehouseSamples() {
@@ -227,7 +240,40 @@ async function importDemo() {
 
             <AtomsSection />
             <SlipRowSection />
-            <LedgerSection title="数据读取提示" hint="组合组件 · 不读写账本">
+            <LedgerSection title="表单与读取反馈" hint="组合组件 · 不读写账本">
+                <DateRangeField
+                    v-model:from="sampleFrom"
+                    v-model:to="sampleTo"
+                    from-label="示例开始日期"
+                    to-label="示例结束日期"
+                />
+                <div class="modal-actions demo-actions">
+                    <FormActions
+                        :error="sampleSaveError"
+                        :submit-text="sampleSaveError ? '重试保存' : '保存'"
+                        submit-label="示例保存"
+                        @cancel="sampleSaveError = '示例：保存失败，可保留输入后重试'"
+                        @submit="() => (sampleSaveError = '')"
+                    >
+                        <PressButton
+                            text="详情浮片"
+                            label="展示详情浮片示例"
+                            aria-describedby="dev-detail-tip"
+                            @mouseenter="showSampleTip"
+                            @focus="showSampleTip"
+                            @mouseleave="sampleTipAnchor = null"
+                            @blur="sampleTipAnchor = null"
+                        />
+                    </FormActions>
+                </div>
+                <DetailTipShell
+                    :open="sampleTipAnchor !== null"
+                    :anchor="sampleTipAnchor"
+                    tooltip-id="dev-detail-tip"
+                >
+                    <div class="tip-name">详情浮片</div>
+                    <p class="note">跟随锚点落位，靠近边缘时自动避让。</p>
+                </DetailTipShell>
                 <LoadNotice :error="sampleLoadError" :load="recoverSample" />
                 <p v-if="!sampleLoadError" class="note">已恢复读取。</p>
                 <SlotButton
@@ -259,5 +305,10 @@ async function importDemo() {
  * 这一行接在上一段的说明文字后面，12px 才读得出「换了一件事」。 */
 .demo-row {
     margin-top: 12px;
+}
+.demo-actions {
+    margin-top: 12px;
+    margin-bottom: 12px;
+    padding: 12px 0 0;
 }
 </style>

@@ -158,16 +158,16 @@ start.bat --force    遇到占用直接处理，不询问
 
 测试归属、分区选择与场景前置统一见 [docs/TESTING.md](docs/TESTING.md)。本节保留本机命令与环境前提。
 
-| 要验什么              | 怎么做                                                                                                                                                                                                                                                                                                                                            |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 代码质量              | `npm run check`                                                                                                                                                                                                                                                                                                                                   |
-| 界面观感              | `npm run build` → `node tools/probe/cdp.mjs --root dist --hash '#/settings' --shot x.png`                                                                                                                                                                                                                                                         |
-| IPC / 外链 / 窗口操作 | **必须回 Tauri 真窗口**：`MH_CDP_PORT=9223 npm run desktop`，连 `127.0.0.1:9223/json/list`                                                                                                                                                                                                                                                        |
-| 整条交互路径          | `start.bat --force debug` → `npm run e2e`；分区与场景前置见 TESTING.md。**会写真实数据**：运行前快照账本，结束后先关应用，再用 `node tools/e2e/db.mjs restore <id> --yes` 整份还原，失败也要还原 |
-| IPC 契约              | `npm run test -- src/services/ipc-contract.test.ts`：核对两张 Rust 命令表、生成绑定与前端调用的命令名和字段名 |
+| 要验什么              | 怎么做                                                                                                                                                                                                                                         |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 代码质量              | `npm run check`                                                                                                                                                                                                                                |
+| 界面观感              | `npm run build` → `node tools/probe/cdp.mjs --root dist --hash '#/settings' --shot x.png`                                                                                                                                                      |
+| IPC / 外链 / 窗口操作 | **必须回 Tauri 真窗口**：`MH_CDP_PORT=9223 npm run desktop`，连 `127.0.0.1:9223/json/list`                                                                                                                                                     |
+| 整条交互路径          | `start.bat --force debug` → `npm run e2e`；分区与场景前置见 TESTING.md。**会写真实数据**：运行前快照账本，结束后先关应用，再用 `node tools/e2e/db.mjs restore <id> --yes` 整份还原，失败也要还原                                               |
+| IPC 契约              | `npm run test -- src/services/ipc-contract.test.ts`：核对两张 Rust 命令表、生成绑定与前端调用的命令名和字段名                                                                                                                                  |
 | CSP / 安全策略        | **`tauri dev` 走 `devCsp`，验不到生产的 `csp`**：出包 `npm run tauri build -- --debug --no-bundle`，再 `MH_CDP_PORT=9224 ./src-tauri/target/debug/mh-toolbox-rs.exe`。检查设置页与开发页完整绘制、字体 `loaded`、`appInfo` IPC 通、零 CSP 拦截 |
-| 降动效                | CDP `Emulation.setEmulatedMedia` 传 `prefers-reduced-motion: reduce`，读 `getComputedStyle(el).transitionDuration`，应为 `0.001s`                                                                                                                                                                                                                 |
-| 几何是否对齐          | 读 `getBoundingClientRect()` 断言，不要靠眼看截图                                                                                                                                                                                                                                                                                                 |
+| 降动效                | CDP `Emulation.setEmulatedMedia` 传 `prefers-reduced-motion: reduce`，读 `getComputedStyle(el).transitionDuration`，应为 `0.001s`                                                                                                              |
+| 几何是否对齐          | 读 `getBoundingClientRect()` 断言，不要靠眼看截图                                                                                                                                                                                              |
 
 **测「导出 / 导入」不用人点系统对话框**：数据目录下的 `e2e-dialog.json`（`{"save":"…"}` 或
 `{"open":"…"}`）会被 `backup.rs` 的 `dialog_override` 读走，**读到就删、只生效一次**。这段代码
@@ -228,7 +228,7 @@ start.bat --force    遇到占用直接处理，不询问
 | ESLint 风格规则     | 不开     | 风格一律 Prettier。`eslint-plugin-vue` 用 `flat/essential` 而非 `recommended`（后者 584 条格式化告警，与 4 空格冲突） |
 | 组件单测全覆盖      | 不做     | 组件靠 CDP 截图 + 几何断言；单测只覆盖纯逻辑、composable 与页面数据层                                                 |
 | CSS 框架            | 不引入   | 账簿语言是手写令牌体系，引入框架会带来第二套命名与优先级                                                              |
-| 状态管理库（现在）  | 暂不引入 | 现有业务状态用 composable 维护。**触发条件**：跨三个以上组件的共享业务状态时上 Pinia，并把决定写进 `ARCHITECTURE.md`        |
+| 状态管理库（现在）  | 暂不引入 | 现有业务状态用 composable 维护。**触发条件**：跨三个以上组件的共享业务状态时上 Pinia，并把决定写进 `ARCHITECTURE.md`  |
 | 大改现有命名        | 不做     | 改名冲掉 git blame。用「新代码守新规」渐进收敛                                                                        |
 | 间距刻度令牌        | 不做     | 2026-11-01 删掉 `--sp-1…10`（十档只用过 2 档）。间距就地写 px；旧代码的裸值不做全量令牌化，遇到再换                   |
 | 一次性的探针脚本    | 不做     | 每轮现写再删，那几条前提（关缓存 / 时间戳 / 禁动画 / 清存储）每次重踩；改用 `tools/probe/cdp.mjs`                     |

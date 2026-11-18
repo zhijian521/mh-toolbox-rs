@@ -4,6 +4,7 @@ import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
+import FormActions from '../../components/FormActions.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import { useToday } from '../../composables/use-today';
 import { signedText, type ReadonlyGoal, type GoalSummary } from './goals';
@@ -115,29 +116,26 @@ function enter(event: KeyboardEvent) {
         </ul>
         <p v-else class="record-empty">暂无记录</p>
         <template #footer>
-            <p v-if="error" class="note error save-error" role="alert">{{ error }}</p>
-            <PressButton
-                v-if="error && !retrying"
-                text="重试保存"
-                label="重试保存记录"
-                :disabled="saving"
-                @click="emit('retry')"
-            />
-            <PressButton
-                data-modal-cancel
-                text="关闭"
-                label="关闭记录"
-                :disabled="saving"
-                @click="emit('close')"
-            />
-            <PressButton
-                icon="check"
-                :text="saving ? '保存中' : retrying ? '重试保存' : '记入'"
-                label="记入这一笔"
-                :disabled="saving || (!retrying && (locked || !ready))"
-                seal
-                @click="submit"
-            />
+            <FormActions
+                :error="error"
+                error-role="alert"
+                cancel-text="关闭"
+                cancel-label="关闭记录"
+                :cancel-disabled="saving"
+                :submit-text="saving ? '保存中' : retrying ? '重试保存' : '记入'"
+                submit-label="记入这一笔"
+                :submit-disabled="saving || (!retrying && (locked || !ready))"
+                @cancel="emit('close')"
+                @submit="submit"
+            >
+                <PressButton
+                    v-if="error && !retrying"
+                    text="重试保存"
+                    label="重试保存记录"
+                    :disabled="saving"
+                    @click="emit('retry')"
+                />
+            </FormActions>
         </template>
     </ModalShell>
 </template>

@@ -348,26 +348,11 @@ export function normalizeCharacter(raw: unknown): CharacterData {
  * 序列化与存储
  * ==================================================================== */
 
-/**
- * 读一份名册。返回 `null` 表示「没有可用数据」——没存过、不是 JSON、或不是数组。
- * 这三种都交给调用方决定是给种子还是给空名册，不在这一层替它选。
- */
-export function parseRoster(raw: string | null): CharacterData[] | null {
-    if (!raw) return null;
-    try {
-        const parsed: unknown = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return null;
-        /* 非对象（`null`、字符串、数字）是**结构垃圾**，直接丢——留着会变成一条
-         * 名字全空的卡片。对象哪怕字段全空也留着：那是录到一半的记录，
-         * 「名字必填」由编辑器保证，不该在读取时替用户判死。 */
-        return parsed.filter(isObject).map(normalizeCharacter);
-    } catch {
-        return null;
-    }
-}
-
-export function serializeRoster(list: CharacterData[]): string {
-    return JSON.stringify(list);
+/** 名册本地读取入口；结构损坏时保留原存档并阻止写回。 */
+export function parseCharacters(raw: unknown): CharacterData[] {
+    return parseLocalList(raw, (list) =>
+        (list as unknown[]).filter(isObject).map(normalizeCharacter),
+    );
 }
 
 /** 仅浏览器首次预览按需加载演示角色；桌面空库保持空名册。 */
@@ -405,11 +390,7 @@ export async function loadRoster(): Promise<void> {
         error: '读不出角色名册，已暂停写入以免覆盖原有数据',
         readLocal: () => {
             recoverCharacterAssetsLocal();
-            return readLocalData(STORAGE_KEY, (raw) =>
-                parseLocalList(raw, (rows) =>
-                    (rows as unknown[]).filter(isObject).map(normalizeCharacter),
-                ),
-            );
+            return readLocalData(STORAGE_KEY, parseCharacters);
         },
         readRemote: charactersLoad,
         applyLocal: async (stored) => {

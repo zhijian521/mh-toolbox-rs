@@ -1,55 +1,28 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
-import PressButton from '../../../components/PressButton.vue';
-import {
-    loadPetAssets,
-    petAssets,
-    petAssetsError,
-    petAssetsLoading,
-} from '../../../services/pet-assets';
+import { nextTick, ref } from 'vue';
+import { petAssetsLoading } from '../../../services/pet-assets';
 import PetImage from '../PetImage.vue';
+import PetAssetPickerPanel from './PetAssetPickerPanel.vue';
 import { usePetPickerPanel } from './use-pet-picker-panel';
 
-/** 一格技能对应一个选择浮层；开合、外点与 Esc 留在此处，定位与皮肤由两类选择器共用。 */
+/** 每格保留独立触发器，候选资源与交互共用选择面板。 */
 const props = defineProps<{ index: number }>();
 const emit = defineEmits<{ remove: [] }>();
 const selected = defineModel<string>({ default: '' });
 const root = ref<HTMLElement | null>(null);
 const trigger = ref<HTMLButtonElement | null>(null);
 const panel = ref<HTMLElement | null>(null);
-const search = ref<HTMLInputElement | null>(null);
 const open = ref(false);
-const query = ref('');
-const limit = ref(48);
-const { panelStyle, flipUp } = usePetPickerPanel(root, panel, search, open);
-const filtered = computed(() => {
-    const needle = query.value.trim();
-    const all = petAssets.value?.skills ?? [];
-    return needle ? all.filter((one) => one.name.includes(needle)) : all;
-});
-function load() {
-    void loadPetAssets().catch(() => {});
-}
-onMounted(load);
+const { panelStyle, flipUp, onEscape } = usePetPickerPanel(root, panel, open, closePanel);
 
 function closePanel(returnFocus = false) {
     if (!open.value) return;
     open.value = false;
     if (returnFocus) void nextTick(() => trigger.value?.focus({ preventScroll: true }));
 }
-function onEscape(event: KeyboardEvent) {
-    if (!open.value) return;
-    event.preventDefault();
-    event.stopPropagation();
-    closePanel(true);
-}
 function toggle() {
     if (open.value) closePanel();
-    else {
-        query.value = '';
-        limit.value = 48;
-        open.value = true;
-    }
+    else open.value = true;
 }
 function choose(name: string) {
     selected.value = name;
@@ -59,12 +32,6 @@ function clear() {
     emit('remove');
     closePanel();
 }
-function onPointerDown(event: PointerEvent) {
-    if (root.value?.contains(event.target as Node)) return;
-    closePanel();
-}
-onMounted(() => document.addEventListener('pointerdown', onPointerDown));
-onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown));
 </script>
 
 <template>
@@ -90,56 +57,12 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
             :aria-label="'选择第 ' + (props.index + 1) + ' 个技能'"
             :aria-busy="petAssetsLoading"
         >
-            <div class="skill-tools pet-picker-tools">
-                <input
-                    ref="search"
-                    v-model="query"
-                    class="field"
-                    type="search"
-                    placeholder="搜索技能"
-                    aria-label="搜索召唤兽技能"
-                    :disabled="!petAssets"
-                    @input="limit = 48"
-                />
-                <PressButton
-                    v-if="selected"
-                    danger
-                    text="清除"
-                    :label="'清除第 ' + (props.index + 1) + ' 个技能'"
-                    size="sm"
-                    @click="clear"
-                />
-            </div>
-            <p v-if="petAssetsLoading" class="pet-picker-state" role="status">
-                正在加载召唤兽资源…
-            </p>
-            <p v-else-if="petAssetsError" class="pet-picker-state error" role="alert">
-                {{ petAssetsError }}
-                <PressButton text="重试" label="重试加载召唤兽技能" size="sm" @click="load" />
-            </p>
-            <div v-if="petAssets && filtered.length" class="skill-grid pet-picker-grid">
-                <button
-                    v-for="one in filtered.slice(0, limit)"
-                    :key="one.id"
-                    class="pet-picker-choice"
-                    type="button"
-                    :aria-pressed="selected === one.name"
-                    :aria-label="'选择技能：' + one.name"
-                    @click="choose(one.name)"
-                >
-                    <PetImage :name="one.name" /><span>{{ one.name }}</span>
-                </button>
-            </div>
-            <p v-if="petAssets && !filtered.length" class="pet-picker-state" role="status">
-                未找到技能
-            </p>
-            <PressButton
-                v-if="filtered.length > limit"
-                class="skill-more pet-picker-more"
-                text="显示更多"
-                label="显示更多召唤兽技能"
-                size="sm"
-                @click="limit += 48"
+            <PetAssetPickerPanel
+                kind="skill"
+                :selected="selected"
+                :clear-label="'清除第 ' + (props.index + 1) + ' 个技能'"
+                @choose="choose"
+                @clear="clear"
             />
         </div>
     </div>

@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import ModalShell from '../../../components/ModalShell.vue';
 import CounterField from '../../../components/CounterField.vue';
-import PressButton from '../../../components/PressButton.vue';
+import FormActions from '../../../components/FormActions.vue';
 import { assistIcon, schoolSkillIcon } from '../../../services/game-icons';
 import IconTile from '../IconTile.vue';
 import GearQuick from './GearQuick.vue';
@@ -140,21 +140,15 @@ onMounted(() => focusInput(form, 'input'));
         </div>
 
         <template #footer>
-            <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
-            <PressButton
-                data-modal-cancel
-                text="取消"
-                label="放弃这次修改"
-                :disabled="saving"
-                @click="emit('close')"
-            />
-            <PressButton
-                icon="check"
-                :text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
-                label="保存这一项"
-                seal
-                :disabled="!canSave"
-                @click="save"
+            <FormActions
+                :error="saveError"
+                cancel-label="放弃这次修改"
+                :cancel-disabled="saving"
+                :submit-text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
+                submit-label="保存这一项"
+                :submit-disabled="!canSave"
+                @cancel="emit('close')"
+                @submit="save"
             />
         </template>
     </ModalShell>

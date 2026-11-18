@@ -9,7 +9,7 @@ import RecordPager from '../../components/RecordPager.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
-import DateField from '../../components/DateField.vue';
+import DateRangeField from '../../components/DateRangeField.vue';
 import SelectField from '../../components/SelectField.vue';
 import { notify } from '../../composables/use-notify';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
@@ -47,16 +47,6 @@ const whoOptions = computed(() =>
         { all: true, unassigned: '未指定' },
     ),
 );
-
-function pickFrom(value: string) {
-    from.value = value;
-    if (to.value < value) to.value = value;
-}
-
-function pickTo(value: string) {
-    to.value = value;
-    if (from.value > value) from.value = value;
-}
 
 /** 区间跨没跨天。跨天时时间列要带上日期，否则「14:32」看不出是哪一天的。 */
 const multiDay = computed(() => from.value !== to.value);
@@ -167,20 +157,11 @@ async function remove(one: IncomeEntry) {
             :blocked="pending > 0 || !!writeError || removing || !!editing"
         />
         <div class="record-filters">
-            <DateField
-                :model-value="from"
-                label="从哪一天"
-                class="date-pick"
-                :max="to"
-                @update:model-value="pickFrom"
-            />
-            <span class="range-dash" aria-hidden="true">至</span>
-            <DateField
-                :model-value="to"
-                label="到哪一天"
-                class="date-pick"
-                :min="from"
-                @update:model-value="pickTo"
+            <DateRangeField
+                v-model:from="from"
+                v-model:to="to"
+                from-label="从哪一天"
+                to-label="到哪一天"
             />
             <SelectField v-model="who" :options="whoOptions" label="按角色筛选" class="who-pick" />
         </div>
@@ -314,17 +295,6 @@ async function remove(one: IncomeEntry) {
 </template>
 
 <style scoped>
-.date-pick {
-    flex: none;
-    width: calc(168px * var(--fs-scale));
-}
-/* 两条日期之间那个「至」：一个小字，不由控件念出来（读屏靠两条各自的 label）。
- * `--fs-mini` + 淡墨，它是分隔符不是内容。 */
-.range-dash {
-    flex: none;
-    color: var(--muted);
-    font-size: var(--fs-mini);
-}
 /* 角色下拉：`SelectField` 根上写着 `flex: 1`（给「下拉与输入格并排」那种布局），
  * 这里是筛选行，让它吃掉剩余宽度会把右边那行汇总顶到边上去。 */
 .who-pick {

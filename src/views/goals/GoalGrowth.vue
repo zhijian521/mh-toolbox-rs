@@ -2,7 +2,7 @@
 import { computed, reactive } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import NumberField from '../../components/NumberField.vue';
-import PressButton from '../../components/PressButton.vue';
+import FormActions from '../../components/FormActions.vue';
 import { useRoster } from '../characters/roster';
 import { metricValue, metricApplicable, type ReadonlyGoal } from './goals';
 import { useDraftGuard } from '../../composables/use-draft-guard';
@@ -84,21 +84,15 @@ function enter(event: KeyboardEvent) {
             </fieldset>
         </form>
         <template #footer>
-            <p v-if="error" class="note error save-error" role="alert">{{ error }}</p>
-            <PressButton
-                data-modal-cancel
-                text="取消"
-                label="取消"
-                :disabled="saving"
-                @click="requestClose"
-            />
-            <PressButton
-                icon="check"
-                :text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
-                label="保存养成"
-                :disabled="saving || (!retrying && !changed.length)"
-                seal
-                @click="submit"
+            <FormActions
+                :error="error"
+                error-role="alert"
+                :cancel-disabled="saving"
+                :submit-text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
+                submit-label="保存养成"
+                :submit-disabled="saving || (!retrying && !changed.length)"
+                @cancel="requestClose"
+                @submit="submit"
             />
         </template>
     </ModalShell>

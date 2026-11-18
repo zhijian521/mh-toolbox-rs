@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { onStorageSync } from './storage-sync';
+import { ref } from 'vue';
+import { parseLocalList } from './local-data';
+import { createPersist } from './persist';
+import { onLocalDataSync, onStorageSync } from './storage-sync';
 
 /**
  * 跨窗口同步的**过滤条件**。
@@ -27,6 +30,7 @@ function stubWindow(): Handler[] {
 
 afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
 });
 
 describe('onStorageSync：什么时候该重读', () => {
@@ -84,5 +88,51 @@ describe('onStorageSync：什么时候该重读', () => {
         handlers[0]({ key: 'mh-prices', newValue: null });
         expect(apply).toHaveBeenCalledWith(null);
         expect(apply).not.toHaveBeenCalledWith('');
+    });
+});
+
+describe('跨窗口同步的数据保护', () => {
+    it('损坏快照保留当前内容、阻止写回，完整快照到来后恢复', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const handlers = stubWindow();
+        const current = ref([1, 2]);
+        const loadError = ref('');
+        const writeLocal = vi.fn();
+        const persist = createPersist({
+            label: '同步保护测试',
+            loaded: ref(true),
+            loadError,
+            writeError: ref(''),
+            writeLocal,
+            writeRemote: vi.fn(async () => true),
+        });
+        onLocalDataSync('test', {
+            parse: (raw) =>
+                parseLocalList(raw, (list) =>
+                    (list as unknown[]).filter((one): one is number => typeof one === 'number'),
+                ),
+            apply: (value) => {
+                current.value = value ?? [];
+            },
+            loadError,
+        });
+
+        for (const raw of ['{broken', '{}', '[3,null]']) {
+            handlers[0]({ key: 'test', newValue: raw });
+            expect(current.value).toEqual([1, 2]);
+            expect(loadError.value).not.toBe('');
+            expect(await persist()).toBe(false);
+        }
+        expect(writeLocal).not.toHaveBeenCalled();
+
+        handlers[0]({ key: 'test', newValue: '[3,4]' });
+        expect(current.value).toEqual([3, 4]);
+        expect(loadError.value).toBe('');
+        expect(await persist()).toBe(true);
+        expect(writeLocal).toHaveBeenCalledTimes(1);
+
+        handlers[0]({ key: 'test', newValue: null });
+        expect(current.value).toEqual([]);
+        expect(loadError.value).toBe('');
     });
 });

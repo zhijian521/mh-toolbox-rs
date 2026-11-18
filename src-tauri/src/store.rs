@@ -18,6 +18,9 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+use accounts::{insert_account_entry, load_accounts, save_accounts};
+use income::{insert_income_entry, insert_quick_price, load_income, save_income};
+use online::{insert_online_session, load_online, save_online};
 use prices::{insert_item, load_items, save_items};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -1138,48 +1141,6 @@ pub fn income_load(app: AppHandle) -> Result<IncomePayload, String> {
     load_income(&conn)
 }
 
-/// `income_load` 的本体。与 `load_items` 同一个理由拆出来：测试能对着临时目录跑。
-fn load_income(conn: &Connection) -> Result<IncomePayload, String> {
-    let mut entry_stmt = conn
-        .prepare(
-            "SELECT id, date, character_id, kind, amount, item_name, note, created_at
-             FROM income_entries ORDER BY date DESC, created_at DESC",
-        )
-        .map_err(|error| format!("准备收益查询失败：{error}"))?;
-    let entries = entry_stmt
-        .query_map([], |row| {
-            Ok(IncomeEntry {
-                id: row.get(0)?,
-                date: row.get(1)?,
-                character_id: row.get(2)?,
-                kind: row.get(3)?,
-                amount: row.get(4)?,
-                item: row.get(5)?,
-                note: row.get(6)?,
-                created_at: row.get(7)?,
-            })
-        })
-        .map_err(|error| format!("读收益失败：{error}"))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("读收益失败：{error}"))?;
-
-    let mut price_stmt = conn
-        .prepare("SELECT item_id, price FROM quick_prices ORDER BY item_id")
-        .map_err(|error| format!("准备单价查询失败：{error}"))?;
-    let prices = price_stmt
-        .query_map([], |row| {
-            Ok(QuickPrice {
-                item_id: row.get(0)?,
-                price: row.get(1)?,
-            })
-        })
-        .map_err(|error| format!("读单价失败：{error}"))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("读单价失败：{error}"))?;
-
-    Ok(IncomePayload { entries, prices })
-}
-
 /// 整份写回收益账与速记单价。
 ///
 /// **两张表同一个事务**：速记一次点击会同时产生「一条记录」与「可能改了单价」，
@@ -1190,58 +1151,6 @@ fn load_income(conn: &Connection) -> Result<IncomePayload, String> {
 pub fn income_save(app: AppHandle, payload: IncomePayload) -> Result<(), String> {
     let mut conn = open(&app)?;
     save_income(&mut conn, &payload)
-}
-
-fn save_income(conn: &mut Connection, payload: &IncomePayload) -> Result<(), String> {
-    let tx = conn
-        .transaction()
-        .map_err(|error| format!("开事务失败：{error}"))?;
-
-    tx.execute("DELETE FROM income_entries", [])
-        .map_err(|error| format!("清空收益失败：{error}"))?;
-    tx.execute("DELETE FROM quick_prices", [])
-        .map_err(|error| format!("清空单价失败：{error}"))?;
-
-    for entry in &payload.entries {
-        insert_income_entry(&tx, entry)?;
-    }
-    for price in &payload.prices {
-        insert_quick_price(&tx, price)?;
-    }
-
-    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
-    Ok(())
-}
-
-/// 写一条收益。`INSERT OR REPLACE`：同一 id 再写一次是覆盖（与名册同一个语义）。
-fn insert_income_entry(conn: &Connection, entry: &IncomeEntry) -> Result<(), String> {
-    conn.execute(
-        "INSERT OR REPLACE INTO income_entries
-            (id, date, character_id, kind, amount, item_name, note, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        params![
-            entry.id,
-            entry.date,
-            entry.character_id,
-            entry.kind,
-            entry.amount,
-            entry.item,
-            entry.note,
-            entry.created_at,
-        ],
-    )
-    .map_err(|error| format!("写收益失败：{error}"))?;
-    Ok(())
-}
-
-/// 写一件物品的单价。一件一行，主键是物品 id。
-fn insert_quick_price(conn: &Connection, price: &QuickPrice) -> Result<(), String> {
-    conn.execute(
-        "INSERT OR REPLACE INTO quick_prices (item_id, price) VALUES (?1, ?2)",
-        params![price.item_id, price.price],
-    )
-    .map_err(|error| format!("写单价失败：{error}"))?;
-    Ok(())
 }
 
 /* ======================================================================
@@ -1257,43 +1166,6 @@ fn insert_quick_price(conn: &Connection, price: &QuickPrice) -> Result<(), Strin
 pub fn account_load(app: AppHandle) -> Result<Vec<AccountEntry>, String> {
     let conn = open(&app)?;
     load_accounts(&conn)
-}
-
-/// `account_load` 的本体。与 `load_income` 同一个理由拆出来：测试能对着临时目录跑。
-fn load_accounts(conn: &Connection) -> Result<Vec<AccountEntry>, String> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, date, character_id, kind, currency, category, channel, amount, note, \
-             created_at, source, assets FROM account_entries ORDER BY date DESC, created_at DESC",
-        )
-        .map_err(|error| format!("准备账号查询失败：{error}"))?;
-    let rows = stmt
-        .query_map([], |row| {
-            Ok(AccountEntry {
-                id: row.get(0)?,
-                date: row.get(1)?,
-                character_id: row.get(2)?,
-                kind: row.get(3)?,
-                currency: row.get(4)?,
-                category: row.get(5)?,
-                channel: row.get(6)?,
-                amount: row.get(7)?,
-                note: row.get(8)?,
-                created_at: row.get(9)?,
-                source: row.get(10)?,
-                assets: serde_json::from_str(&row.get::<_, String>(11)?).map_err(|error| {
-                    rusqlite::Error::FromSqlConversionFailure(
-                        11,
-                        rusqlite::types::Type::Text,
-                        Box::new(error),
-                    )
-                })?,
-            })
-        })
-        .map_err(|error| format!("读账号账本失败：{error}"))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("读账号账本失败：{error}"))?;
-    Ok(rows)
 }
 
 #[tauri::command]
@@ -1335,49 +1207,6 @@ fn save_account_trade(
         insert_record(&tx, &WAREHOUSE, index, item)?;
     }
     tx.commit().map_err(|error| format!("提交失败：{error}"))?;
-    Ok(())
-}
-
-/// 整份写回：清空 + 逐条插入，**一个事务**。
-///
-/// 与 `save_income` 同一套：整份写的代价是每次几毫秒，换来的是「不会出现界面有、库里没有」。
-/// 账号页一次记一笔、一天记几十笔的量级，这点开销不值得用丢账去换。
-fn save_accounts(conn: &mut Connection, entries: &[AccountEntry]) -> Result<(), String> {
-    let tx = conn
-        .transaction()
-        .map_err(|error| format!("开事务失败：{error}"))?;
-    tx.execute("DELETE FROM account_entries", [])
-        .map_err(|error| format!("清空账号账本失败：{error}"))?;
-    for entry in entries {
-        insert_account_entry(&tx, entry)?;
-    }
-    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
-    Ok(())
-}
-
-/// 写一条账号记录。`INSERT OR REPLACE`：同一 id 再写一次是覆盖（与收益、名册同语义）。
-fn insert_account_entry(conn: &Connection, entry: &AccountEntry) -> Result<(), String> {
-    conn.execute(
-        "INSERT OR REPLACE INTO account_entries
-            (id, date, character_id, kind, currency, category, channel, amount, note, created_at, source, assets)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-        params![
-            entry.id,
-            entry.date,
-            entry.character_id,
-            entry.kind,
-            entry.currency,
-            entry.category,
-            entry.channel,
-            entry.amount,
-            entry.note,
-            entry.created_at,
-            entry.source,
-            serde_json::to_string(&entry.assets)
-                .map_err(|error| format!("保存交易快照失败：{error}"))?,
-        ],
-    )
-    .map_err(|error| format!("写账号记录失败：{error}"))?;
     Ok(())
 }
 
@@ -1424,107 +1253,6 @@ pub fn online_load(app: AppHandle) -> Result<OnlinePayload, String> {
 pub fn online_save(app: AppHandle, payload: OnlinePayload) -> Result<(), String> {
     let mut conn = open(&app)?;
     save_online(&mut conn, &payload)
-}
-
-/// `online_load` 的本体。拆出来的理由与 `load_income` 一样：测试能对着临时目录跑。
-fn load_online(conn: &Connection) -> Result<OnlinePayload, String> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, date, start_at, end_at, character_id, roster, card_price, note, created_at, card_cost \
-             FROM online_sessions ORDER BY start_at DESC",
-        )
-        .map_err(|error| format!("准备上线查询失败：{error}"))?;
-    let rows = stmt
-        .query_map([], |row| {
-            Ok(OnlineSession {
-                id: row.get(0)?,
-                date: row.get(1)?,
-                start_at: row.get(2)?,
-                end_at: row.get(3)?,
-                character_id: row.get(4)?,
-                /* 一行坏 JSON 只让这一行的名单变空，不让整表读不出来：
-                 * 名单只影响「分摊给谁」，而记录本身还有时长与单价。 */
-                roster: serde_json::from_str(&row.get::<_, String>(5)?).unwrap_or_default(),
-                card_price: row.get(6)?,
-                note: row.get(7)?,
-                created_at: row.get(8)?,
-                card_cost: row.get::<_, i64>(9)? != 0,
-            })
-        })
-        .map_err(|error| format!("查上线记录失败：{error}"))?;
-    let mut sessions = Vec::new();
-    for row in rows {
-        sessions.push(row.map_err(|error| format!("读上线记录失败：{error}"))?);
-    }
-
-    let settings = conn
-        .query_row(
-            "SELECT card_price, card_cost FROM online_settings WHERE id = 1",
-            [],
-            |row| {
-                Ok(OnlineSettings {
-                    card_price: row.get(0)?,
-                    card_cost: row.get::<_, i64>(1)? != 0,
-                })
-            },
-        )
-        .optional()
-        .map_err(|error| format!("读点卡口径失败：{error}"))?
-        .unwrap_or_default();
-
-    Ok(OnlinePayload { sessions, settings })
-}
-
-fn save_online(conn: &mut Connection, payload: &OnlinePayload) -> Result<(), String> {
-    let tx = conn
-        .transaction()
-        .map_err(|error| format!("开事务失败：{error}"))?;
-
-    tx.execute("DELETE FROM online_sessions", [])
-        .map_err(|error| format!("清空上线记录失败：{error}"))?;
-    for session in &payload.sessions {
-        insert_online_session(&tx, session)?;
-    }
-
-    /* 口径是单行：`INSERT OR REPLACE` 靠 `id = 1` 这条约束盖掉旧值。
-     * 布尔存 0/1——SQLite 没有布尔类型，而 `INTEGER` 一列比多一张表省事得多。 */
-    tx.execute(
-        "INSERT OR REPLACE INTO online_settings (id, card_price, card_cost) VALUES (1, ?1, ?2)",
-        params![
-            payload.settings.card_price,
-            if payload.settings.card_cost { 1 } else { 0 },
-        ],
-    )
-    .map_err(|error| format!("写点卡口径失败：{error}"))?;
-
-    tx.commit().map_err(|error| format!("提交失败：{error}"))?;
-    Ok(())
-}
-
-/// 写一行上线记录。`INSERT OR REPLACE`：同一 id 再写一次是覆盖（与其余各表同语义）。
-fn insert_online_session(conn: &Connection, session: &OnlineSession) -> Result<(), String> {
-    /* 名单序列化失败只可能是内有坏字符，这里退回空数组而不是让整次保存失败：
-     * 一条记录写不进去，用户丢掉的是这段时间；名单丢了只影响分摊，还能手动补。 */
-    let roster = serde_json::to_string(&session.roster).unwrap_or_else(|_| "[]".to_string());
-    conn.execute(
-        "INSERT OR REPLACE INTO online_sessions
-            (id, date, start_at, end_at, character_id, roster, card_price, note, created_at, card_cost)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-        params![
-            session.id,
-            session.date,
-            session.start_at,
-            session.end_at,
-            session.character_id,
-            roster,
-            session.card_price,
-            session.note,
-            session.created_at,
-            session.card_cost,
-        ],
-    )
-    .map_err(|error| format!("写上线记录失败：{error}"))?;
-    Ok(())
 }
 
 /* ======================================================================
@@ -1623,8 +1351,14 @@ fn clear_records(conn: &mut Connection) -> Result<Counts, String> {
  * 失败时 `Drop` 照样跑，不会在 `%TEMP%` 里留一地库文件。
  * ==================================================================== */
 
+#[path = "store/accounts.rs"]
+mod accounts;
 #[path = "store/character_assets.rs"]
 mod character_assets;
+#[path = "store/income.rs"]
+mod income;
+#[path = "store/online.rs"]
+mod online;
 
 #[path = "store/prices.rs"]
 mod prices;

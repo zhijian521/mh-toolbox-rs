@@ -4,6 +4,7 @@ import { usePositiveAmount } from '../../composables/use-positive-amount';
 import ModalShell from '../../components/ModalShell.vue';
 import PriceField from '../../components/PriceField.vue';
 import PressButton from '../../components/PressButton.vue';
+import FormActions from '../../components/FormActions.vue';
 import type { QuickItemEntry } from '../../services/game-data';
 
 const props = defineProps<{
@@ -68,34 +69,27 @@ function onEnter(event: KeyboardEvent) {
         </form>
 
         <template #footer>
-            <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
-            <!-- 清除放最左、与两个动作隔开：它既不是「取消」也不是「保存」，
-                 把三枚并成一排会让人以为「清除」是另一种确定。 -->
-            <PressButton
-                v-if="canClear || retryAction === 'clear'"
-                danger
-                class="foot-left"
-                icon="trash"
-                :text="retryAction === 'clear' ? '重试清除' : '清除'"
-                :disabled="saving || retryAction === 'save'"
-                label="清除这件物品的单价"
-                @click="emit('clear')"
-            />
-            <PressButton
-                data-modal-cancel
-                :disabled="saving"
-                text="取消"
-                label="不改了"
-                @click="!saving && emit('close')"
-            />
-            <PressButton
-                icon="check"
-                :text="retryAction === 'save' ? '重试保存' : thenAdd ? '记下' : '保存'"
-                :label="thenAdd ? '记下这一条' : '保存单价'"
-                :disabled="saving || retryAction === 'clear' || (!canSave && !retryAction)"
-                seal
-                @click="submit"
-            />
+            <FormActions
+                :error="saveError"
+                :cancel-disabled="saving"
+                cancel-label="不改了"
+                :submit-text="retryAction === 'save' ? '重试保存' : thenAdd ? '记下' : '保存'"
+                :submit-label="thenAdd ? '记下这一条' : '保存单价'"
+                :submit-disabled="saving || retryAction === 'clear' || (!canSave && !retryAction)"
+                @cancel="!saving && emit('close')"
+                @submit="submit"
+            >
+                <PressButton
+                    v-if="canClear || retryAction === 'clear'"
+                    danger
+                    class="foot-left"
+                    icon="trash"
+                    :text="retryAction === 'clear' ? '重试清除' : '清除'"
+                    :disabled="saving || retryAction === 'save'"
+                    label="清除这件物品的单价"
+                    @click="emit('clear')"
+                />
+            </FormActions>
         </template>
     </ModalShell>
 </template>

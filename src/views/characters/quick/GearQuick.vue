@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import ModalShell from '../../../components/ModalShell.vue';
-import PressButton from '../../../components/PressButton.vue';
+import FormActions from '../../../components/FormActions.vue';
 import GearDetailForm from '../editor/GearDetailForm.vue';
 import GearScreenshot from '../ocr/GearScreenshot.vue';
 import { gearPanelParts, mergeGearPanels, type GearPanelResult } from '../ocr/gear-panel';
@@ -149,21 +149,15 @@ onMounted(() => focusInput(form, '.gear-name-input'));
         </div>
         <OcrSummary :reports="reports" />
         <template #footer>
-            <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
-            <PressButton
-                data-modal-cancel
-                text="取消"
-                label="放弃这次修改"
-                :disabled="saving"
-                @click="requestClose"
-            />
-            <PressButton
-                icon="check"
-                :text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
-                label="保存这件装备"
-                seal
-                :disabled="reading || saving || (locked && !retrying)"
-                @click="save"
+            <FormActions
+                :error="saveError"
+                cancel-label="放弃这次修改"
+                :cancel-disabled="saving"
+                :submit-text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
+                submit-label="保存这件装备"
+                :submit-disabled="reading || saving || (locked && !retrying)"
+                @cancel="requestClose"
+                @submit="save"
             />
         </template>
     </ModalShell>

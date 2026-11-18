@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
+import FormActions from '../../components/FormActions.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import CharacterCard from './CharacterCard.vue';
 import { hasPetName } from './pets';
@@ -325,33 +326,28 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
 
         <OcrSummary :reports="reports" />
         <template #footer>
-            <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
-            <div v-if="saveIssue" :id="validationId" class="editor-validation" role="status">
-                <span>{{ saveIssue.message }}</span>
-                <PressButton
-                    text="去填写"
-                    label="定位未填写的名称"
-                    size="sm"
-                    :disabled="intake.busy || gearReading || petReading || saving || locked"
-                    @click="fillRequired"
-                />
-            </div>
-            <PressButton
-                text="取消"
-                label="放弃这次修改"
-                data-modal-cancel
-                :disabled="saving"
-                @click="requestClose"
-            />
-            <PressButton
-                icon="check"
-                :text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
-                label="保存这个角色"
-                seal
-                :disabled="!canSave"
-                :aria-describedby="saveIssue ? validationId : undefined"
-                @click="save"
-            />
+            <FormActions
+                :error="saveError"
+                cancel-label="放弃这次修改"
+                :cancel-disabled="saving"
+                :submit-text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
+                submit-label="保存这个角色"
+                :submit-disabled="!canSave"
+                :submit-describedby="saveIssue ? validationId : undefined"
+                @cancel="requestClose"
+                @submit="save"
+            >
+                <div v-if="saveIssue" :id="validationId" class="editor-validation" role="status">
+                    <span>{{ saveIssue.message }}</span>
+                    <PressButton
+                        text="去填写"
+                        label="定位未填写的名称"
+                        size="sm"
+                        :disabled="intake.busy || gearReading || petReading || saving || locked"
+                        @click="fillRequired"
+                    />
+                </div>
+            </FormActions>
         </template>
     </ModalShell>
 </template>

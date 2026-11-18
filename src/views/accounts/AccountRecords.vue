@@ -4,7 +4,7 @@ import { computed, toRefs, watch } from 'vue';
 import { useRecordScroll } from '../../composables/use-record-filters';
 import LoadNotice from '../../components/LoadNotice.vue';
 import { ledgerMoneyText } from '../../services/format';
-import DateField from '../../components/DateField.vue';
+import DateRangeField from '../../components/DateRangeField.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
@@ -182,9 +182,12 @@ async function remove(one: AccountEntry) {
             :blocked="pending > 0 || !!writeError || removing"
         />
         <div class="record-filters">
-            <DateField v-model="from" label="账号历史开始日期" :max="to" />
-            <span class="date-separator">至</span>
-            <DateField v-model="to" label="账号历史结束日期" :min="from" />
+            <DateRangeField
+                v-model:from="from"
+                v-model:to="to"
+                from-label="账号历史开始日期"
+                to-label="账号历史结束日期"
+            />
             <SelectField
                 v-model="source"
                 :options="sourceOptions"
@@ -334,10 +337,6 @@ async function remove(one: AccountEntry) {
 .f-pick {
     flex: 1 1 120px;
     min-width: 110px;
-}
-.date-separator {
-    color: var(--muted);
-    font-size: var(--fs-xs);
 }
 .sum {
     display: flex;

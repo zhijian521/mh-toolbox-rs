@@ -1,4 +1,5 @@
 import type { DeepReadonly } from 'vue';
+import { parseLocalList } from '../../services/local-data';
 /** 物价字段、归一与纯计算；状态和持久化在 prices-store.ts。
  * 当前价由历史派生，金额保存游戏币原值，显示时再换算万 / 亿。 */
 /* 金额与日期的写法全站只有一份，在 `services/format.ts`——收益页也要 `moneyText` /
@@ -350,25 +351,11 @@ export function normalizePriceItem(raw: unknown): PriceItem {
     };
 }
 
-/**
- * 读一份物价表。返回 `null` 表示「没有可用数据」——没存过、不是 JSON、或不是数组，
- * 三种都交给调用方决定（这里是给空表，因为物价页的空状态是专门画过的）。
- */
-export function parsePriceItems(raw: string | null): PriceItem[] | null {
-    if (!raw) return null;
-    try {
-        const parsed: unknown = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return null;
-        /* 非对象（`null`、字符串、数字）是结构垃圾，直接丢——留着会变成一张名字全空的卡。
-         * 对象哪怕字段全空也留着：那是录到一半的记录，「名字必填」由表单保证。 */
-        return parsed.filter(isObject).map(normalizePriceItem);
-    } catch {
-        return null;
-    }
-}
-
-export function serializePriceItems(list: PriceItem[]): string {
-    return JSON.stringify(list);
+/** 本地读取和跨窗口同步共用，结构损坏时整份拒绝。 */
+export function parsePriceItems(raw: unknown): PriceItem[] {
+    return parseLocalList(raw, (list) =>
+        (list as unknown[]).filter(isObject).map(normalizePriceItem),
+    );
 }
 
 /* ======================================================================

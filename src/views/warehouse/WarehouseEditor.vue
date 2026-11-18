@@ -2,6 +2,7 @@
 /** 物品编辑独立于角色；账号与角色入口共享相同草稿和截图识别流程。 */
 import { computed, ref } from 'vue';
 import PressButton from '../../components/PressButton.vue';
+import FormActions from '../../components/FormActions.vue';
 import SelectField from '../../components/SelectField.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import { useDraftGuard } from '../../composables/use-draft-guard';
@@ -267,34 +268,30 @@ async function remove() {
             <OcrSummary :reports="reports" />
         </div>
         <footer class="modal-actions">
-            <PressButton
-                v-if="existing"
-                class="warehouse-remove"
-                icon="trash"
-                :text="action === 'remove' ? (saving ? '删除中' : '重试删除') : '删除'"
-                label="删除仓库物品"
-                :disabled="!canRemove"
-                @click="remove"
-            />
-            <p v-if="operationError || writeError" class="note error save-error" role="status">
-                {{ operationError || writeError }}
-            </p>
-            <PressButton
-                data-modal-cancel
-                icon="back"
-                :text="draftOnly ? '取消录入' : '返回仓库'"
-                :label="draftOnly ? '取消本次物品录入' : '返回仓库列表'"
-                :disabled="saving || confirming"
-                @click="requestClose"
-            />
-            <PressButton
-                icon="check"
-                :text="saveText"
-                :label="draftOnly ? '确认交易物品资料' : '保存仓库物品'"
-                seal
-                :disabled="!canSave"
-                @click="save"
-            />
+            <FormActions
+                :error="operationError || writeError"
+                cancel-icon="back"
+                :cancel-text="draftOnly ? '取消录入' : '返回仓库'"
+                :cancel-label="draftOnly ? '取消本次物品录入' : '返回仓库列表'"
+                :cancel-disabled="saving || confirming"
+                :submit-text="saveText"
+                :submit-label="draftOnly ? '确认交易物品资料' : '保存仓库物品'"
+                :submit-disabled="!canSave"
+                @cancel="requestClose"
+                @submit="save"
+            >
+                <template #before>
+                    <PressButton
+                        v-if="existing"
+                        class="warehouse-remove"
+                        icon="trash"
+                        :text="action === 'remove' ? (saving ? '删除中' : '重试删除') : '删除'"
+                        label="删除仓库物品"
+                        :disabled="!canRemove"
+                        @click="remove"
+                    />
+                </template>
+            </FormActions>
         </footer>
     </section>
 </template>

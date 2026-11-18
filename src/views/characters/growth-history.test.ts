@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import '../../services/game-data.fixture';
-import { emptyCharacter, normalizeCharacter, parseRoster, serializeRoster } from './roster';
+import { emptyCharacter, normalizeCharacter, parseCharacters } from './roster';
 import {
     normalizeGrowthHistory,
     selectGrowthHistory,
@@ -68,7 +68,8 @@ describe('成长历史', () => {
             ]),
         });
         expect(previous.growthHistory).toBeUndefined();
-        expect(parseRoster(serializeRoster([next]))?.[0].growthHistory).toEqual(next.growthHistory);
+        const restored = parseCharacters(JSON.parse(JSON.stringify([next])))[0];
+        expect(restored.growthHistory).toEqual(next.growthHistory);
     });
     it('无变化不添加记录，草稿不能覆盖已有记录', () => {
         const previous = emptyCharacter();

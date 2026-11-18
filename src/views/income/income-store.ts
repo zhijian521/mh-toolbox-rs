@@ -9,7 +9,7 @@ import { loadData } from '../../services/load-data';
 import { incomeLoad, incomeSave } from '../../services/storage';
 import { fromWan, todayText } from '../../services/format';
 import { createPersist } from '../../services/persist';
-import { onStorageSync } from '../../services/storage-sync';
+import { onLocalDataSync } from '../../services/storage-sync';
 import { makeId } from '../../services/shape';
 import {
     parseEntries,
@@ -152,35 +152,35 @@ function writePriceCards(rows: readonly { name: string; price: number }[]): bool
     }
 }
 
+function parseStoredIncome(raw: unknown) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        throw new TypeError('数据不是对象');
+    }
+    const payload = raw as StoredShape;
+    const prices = parsePrices(payload.prices);
+    if (!Array.isArray(payload.prices) || Object.keys(prices).length !== payload.prices.length) {
+        throw new TypeError('单价记录损坏或重复');
+    }
+    return {
+        entries: parseLocalList(payload.entries, parseEntries),
+        prices,
+    };
+}
+
+function applyLocal(stored: ReturnType<typeof parseStoredIncome> | null) {
+    entries.value = stored?.entries ?? [];
+    prices.value = stored?.prices ?? parsePrices(undefined);
+}
+
 /** 启动阶段读取，完成前由写队列阻止保存；旧版转换统一在启动导入入口处理。 */
 export async function loadIncome(): Promise<void> {
     await loadData({
         loaded,
         loadError,
         error: '读不出收益账，已暂停写入以免覆盖原有数据',
-        readLocal: () =>
-            readLocalData(STORAGE_KEY, (raw) => {
-                if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-                    throw new TypeError('数据不是对象');
-                }
-                const payload = raw as StoredShape;
-                const prices = parsePrices(payload.prices);
-                if (
-                    !Array.isArray(payload.prices) ||
-                    Object.keys(prices).length !== payload.prices.length
-                ) {
-                    throw new TypeError('单价记录损坏或重复');
-                }
-                return {
-                    entries: parseLocalList(payload.entries, parseEntries),
-                    prices,
-                };
-            }),
+        readLocal: () => readLocalData(STORAGE_KEY, parseStoredIncome),
         readRemote: incomeLoad,
-        applyLocal: (stored) => {
-            entries.value = stored?.entries ?? [];
-            prices.value = stored?.prices ?? parsePrices(undefined);
-        },
+        applyLocal,
         applyRemote: (stored) => {
             const next = {
                 entries: parseEntries(stored.entries),
@@ -193,21 +193,7 @@ export async function loadIncome(): Promise<void> {
 }
 
 /* 仅同步浏览器同源 localStorage，桌面数据不走此通道。 */
-onStorageSync(STORAGE_KEY, (raw) => {
-    if (raw === null) {
-        entries.value = [];
-        prices.value = {};
-        return;
-    }
-    try {
-        const parsed = JSON.parse(raw) as StoredShape;
-        entries.value = parseEntries(parsed.entries);
-        prices.value = parsePrices(parsed.prices);
-    } catch {
-        /* 读不懂就保持现状：另一个窗口写坏了自己的存储，不该连累这一边。 */
-        console.error('storage 事件里的收益账解析失败，保留当前数据不动');
-    }
-});
+onLocalDataSync(STORAGE_KEY, { parse: parseStoredIncome, apply: applyLocal, loadError });
 
 /* ---------- 改 ---------- */
 

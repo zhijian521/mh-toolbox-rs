@@ -1,14 +1,26 @@
 /** 本地业务数据区分未保存与读取失败；失败时由数据层暂停覆盖。 */
 export type LocalData<T> = { ok: true; value: T | null } | { ok: false; error: string };
 
+function readFailure(error: unknown): LocalData<never> {
+    console.error('读取本地数据失败', error);
+    return { ok: false, error: '本地数据读取失败，已暂停写入以免覆盖原有数据' };
+}
+
+/** 首次读取与跨窗口同步共用；删除键与损坏数据是两种结果。 */
+export function parseLocalData<T>(raw: string | null, parse: (raw: unknown) => T): LocalData<T> {
+    try {
+        return { ok: true, value: raw === null ? null : parse(JSON.parse(raw)) };
+    } catch (error) {
+        return readFailure(error);
+    }
+}
+
 export function readLocalData<T>(key: string, parse: (raw: unknown) => T): LocalData<T> {
     try {
         if (!globalThis.localStorage) throw new Error('本地存储不可用');
-        const raw = globalThis.localStorage.getItem(key);
-        return { ok: true, value: raw === null ? null : parse(JSON.parse(raw)) };
+        return parseLocalData(globalThis.localStorage.getItem(key), parse);
     } catch (error) {
-        console.error('读取本地数据失败：' + key, error);
-        return { ok: false, error: '本地数据读取失败，已暂停写入以免覆盖原有数据' };
+        return readFailure(error);
     }
 }
 

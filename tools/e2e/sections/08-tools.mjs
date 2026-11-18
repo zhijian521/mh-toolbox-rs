@@ -82,6 +82,14 @@ export default async function run(ctx) {
             if (!ok) throw new Error(`开发页没渲染：${await ui.title()}`);
             const cards = await ui.count('.ledger-section');
             t.check('开发页的卡片都在', cards >= 7, `${cards} 张`);
+            t.check(
+                '日期区间和表单操作区组合示例可见',
+                await cdp.evaluate(`!!document.querySelector('.date-range-field') &&
+                    !!document.querySelector('.demo-actions [data-modal-cancel]') &&
+                    !!document.querySelector('.demo-actions [aria-label="示例保存"]')`),
+            );
+            await ui.clickLabel('示例保存');
+            t.check('示例重试清除错误', !(await ui.exists('.demo-actions .save-error')));
         });
 
         /* ---------- 闹钟：建一个、重载后还在、再删掉 ----------
@@ -216,6 +224,11 @@ export default async function run(ctx) {
                 JSON.stringify(layout),
             );
             t.check('每页限制图标数量', (await ui.count('.asset-cell')) <= 120);
+            t.check(
+                '图鉴分页保留资源专属标签和页码播报',
+                await cdp.evaluate(`!!document.querySelector('[aria-label="资源分页"] [aria-live="polite"] .asset-page-info') &&
+                    document.querySelector('[aria-label="资源上一页"]')?.disabled === true`),
+            );
             await ui.clickLabel('资源下一页');
             t.check(
                 '下一页生效',

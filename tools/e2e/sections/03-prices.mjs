@@ -114,7 +114,16 @@ export default async function run(ctx) {
             if (!asked) throw new Error('记价窗没弹出');
             t.pass('点卡片主体弹出记价窗');
 
+            const dateTop = await cdp.evaluate(
+                `document.querySelector('[role="dialog"] .date-trigger').getBoundingClientRect().top`,
+            );
             await cdp.click('[role="dialog"] .date-trigger');
+            t.check(
+                '空价格失焦显示错误时，日期按钮保持原位',
+                await cdp.evaluate(`Math.abs(document.querySelector('[role="dialog"] .date-trigger')
+                    .getBoundingClientRect().top - ${dateTop}) <= 1 &&
+                    !!document.querySelector('.pf-hint:not([aria-hidden="true"])')`),
+            );
             t.check(
                 '记价日期可打开统一月历',
                 await cdp.waitFor(`!!document.querySelector('.date-panel')`, { timeout: 3000 }),

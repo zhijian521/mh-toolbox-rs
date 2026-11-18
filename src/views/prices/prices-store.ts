@@ -1,11 +1,11 @@
 /** 物价表的模块级状态；规则归 prices.ts，加载与写队列共用 services。 */
 import { computed, readonly, ref, type Ref } from 'vue';
-import { readLocalData, writeLocalData, parseLocalList } from '../../services/local-data';
+import { readLocalData, writeLocalData } from '../../services/local-data';
 import { loadData } from '../../services/load-data';
 import { pricesLoad, pricesSave } from '../../services/storage';
 import { todayText } from '../../services/format';
 import { createPersist, type Persist } from '../../services/persist';
-import { onStorageSync } from '../../services/storage-sync';
+import { onLocalDataSync } from '../../services/storage-sync';
 import { makeId } from '../../services/shape';
 import { quickItems } from '../../services/game-data';
 import { DEFAULT_CATEGORY, isPriceCategory, legacyPriceSlot } from './prices-catalog';
@@ -56,10 +56,7 @@ export async function loadPrices(): Promise<void> {
         loaded,
         loadError,
         error: '读不出物价表，已暂停写入以免覆盖原有数据',
-        readLocal: () =>
-            readLocalData(STORAGE_KEY, (raw) =>
-                parseLocalList(raw, (rows) => parsePriceItems(JSON.stringify(rows)) ?? []),
-            ),
+        readLocal: () => readLocalData(STORAGE_KEY, parsePriceItems),
         readRemote: pricesLoad,
         applyLocal: (stored) => {
             items.value = stored ?? [];
@@ -71,20 +68,12 @@ export async function loadPrices(): Promise<void> {
 }
 
 /** 仅同步浏览器同源 localStorage；不提供桌面多窗口间的数据库状态协调。 */
-onStorageSync(STORAGE_KEY, (raw) => {
-    /* 那一份被删掉了（`removeItem` / `clear`），确实该空——这与「解析失败」是两件事。 */
-    if (raw === null) {
-        items.value = [];
-        return;
-    }
-    const parsed = parsePriceItems(raw);
-    /* 解析失败**不是空库**：把它当空表会清掉内存里的 `items`，而下一次任意写
-     * （加一条价、改个名字）就把这份空表整份写回去，用户的物价表就没了。 */
-    if (parsed === null) {
-        console.error('storage 事件里的物价表解析失败，保留当前数据不动', raw);
-        return;
-    }
-    items.value = parsed;
+onLocalDataSync(STORAGE_KEY, {
+    parse: parsePriceItems,
+    apply: (stored) => {
+        items.value = stored ?? [];
+    },
+    loadError,
 });
 
 /** 修改后排队保存当前全量；读取失败拒写，导出与关窗等待 flush。 */

@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { sessionCost, sessionMinutes } from './online';
 
+type StorageHandler = (event: Pick<StorageEvent, 'key' | 'newValue'>) => void;
+
 afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -36,6 +38,39 @@ async function loadStore(desktop: ReturnType<typeof host>) {
 }
 
 describe('上线：一个号一条', () => {
+    it('跨窗口损坏设置不覆盖计时，删除存档重置记录和点卡口径', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const handlers: StorageHandler[] = [];
+        vi.stubGlobal('window', {
+            addEventListener: (_type: string, handler: StorageHandler) => handlers.push(handler),
+        });
+        const setItem = vi.fn();
+        vi.stubGlobal('localStorage', {
+            getItem: () =>
+                JSON.stringify({
+                    sessions: [],
+                    settings: { cardPrice: 30000, cardCost: false },
+                }),
+            setItem,
+        });
+        const store = await loadStore({ ...host(), hasDesktop: () => false });
+        expect(store.startOnline({ characterIds: ['c1'] }).ok).toBe(true);
+        const { sessions, settings, loadError } = store.useOnline();
+        const original = JSON.parse(JSON.stringify(sessions.value));
+        setItem.mockClear();
+        handlers.forEach((handler) => handler({ key: 'mh-online', newValue: '{"sessions":[]}' }));
+        expect(sessions.value).toEqual(original);
+        expect(settings.value).toEqual({ cardPrice: 30000, cardCost: false });
+        expect(loadError.value).not.toBe('');
+        expect(store.startOnline({ characterIds: ['c2'] }).ok).toBe(false);
+        expect(setItem).not.toHaveBeenCalled();
+
+        handlers.forEach((handler) => handler({ key: 'mh-online', newValue: null }));
+        expect(sessions.value).toEqual([]);
+        expect(settings.value).toEqual({ cardPrice: 15000, cardCost: true });
+        expect(loadError.value).toBe('');
+    });
+
     it.each(
         [null, [], { cardPrice: -1, cardCost: true }, { cardPrice: 15000, cardCost: 'false' }].map(
             (settings) => ({ settings }),

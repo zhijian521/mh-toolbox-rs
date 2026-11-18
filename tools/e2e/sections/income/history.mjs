@@ -15,6 +15,16 @@ export default async function runHistory(ctx, tools, quick) {
             { timeout: 4000 },
         );
         if (!opened) throw new Error('历史窗里没有流水行');
+        t.check(
+            '日期区间保留起止日期入口和单一分隔符',
+            await cdp.evaluate(`(() => {
+                const range = document.querySelector('[role="dialog"] .date-range-field');
+                return range?.querySelectorAll('.date-field').length === 2 &&
+                    !!range.querySelector('[aria-label^="从哪一天"]') &&
+                    !!range.querySelector('[aria-label^="到哪一天"]') &&
+                    range.querySelectorAll('.date-range-separator[aria-hidden="true"]').length === 1;
+            })()`),
+        );
 
         /* 先把指针挪到角上再量颜色：鼠标还停在「查看历史收益」那一枚上时，它现在
          * 已经压在某一行上了，而悬停会改底色——那样量到的「第一行不铺底」永远是假的。 */

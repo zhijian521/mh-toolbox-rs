@@ -3,7 +3,7 @@
 import { computed, reactive, ref, useId } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import NumberField from '../../components/NumberField.vue';
-import PressButton from '../../components/PressButton.vue';
+import FormActions from '../../components/FormActions.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import { useDraftGuard } from '../../composables/use-draft-guard';
 import { useRoster } from '../characters/roster';
@@ -194,20 +194,16 @@ function enter(event: KeyboardEvent) {
             </p>
         </form>
         <template #footer>
-            <p v-if="error" class="note error save-error" role="alert">{{ error }}</p>
-            <PressButton
-                data-modal-cancel
-                text="取消"
-                label="取消"
-                :disabled="saving"
-                @click="requestClose"
-            />
-            <PressButton
-                :text="saving ? '保存中' : retrying ? '重试保存' : '保存更新'"
-                label="保存组合进度"
-                seal
-                :disabled="saving || (!retrying && (!valid || locked))"
-                @click="submit"
+            <FormActions
+                :error="error"
+                error-role="alert"
+                :cancel-disabled="saving"
+                :submit-text="saving ? '保存中' : retrying ? '重试保存' : '保存更新'"
+                submit-label="保存组合进度"
+                :submit-disabled="saving || (!retrying && (!valid || locked))"
+                submit-icon=""
+                @cancel="requestClose"
+                @submit="submit"
             />
         </template>
     </ModalShell>

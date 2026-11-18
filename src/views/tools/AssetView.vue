@@ -2,6 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import AppIcon from '../../components/AppIcon.vue';
+import GroupHead from '../../components/GroupHead.vue';
+import RecordPager from '../../components/RecordPager.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
@@ -231,10 +233,9 @@ function turnPage(next: number) {
                 <span class="asset-total">{{ section.summary }}</span>
             </header>
             <div v-for="group in section.groups" :key="group.name" class="asset-group">
-                <h4 v-if="group.name" class="asset-sub group-head">
-                    <span class="section-mark" aria-hidden="true" />
+                <GroupHead v-if="group.name" as="h4" class="asset-sub">
                     <span>{{ group.name }}</span>
-                </h4>
+                </GroupHead>
                 <ul class="asset-grid">
                     <li v-for="item in group.items" :key="item.key">
                         <button
@@ -253,23 +254,19 @@ function turnPage(next: number) {
             </div>
         </section>
 
-        <nav v-if="pages > 1" class="asset-pages" aria-label="资源分页">
-            <PressButton
-                text="上一页"
-                label="资源上一页"
-                :disabled="currentPage === 1"
-                @click="turnPage(currentPage - 1)"
-            />
-            <span class="asset-page-info" role="status">
+        <RecordPager
+            class="asset-pages"
+            :model-value="currentPage"
+            :pages="pages"
+            label="资源分页"
+            previous-label="资源上一页"
+            next-label="资源下一页"
+            @update:model-value="turnPage"
+        >
+            <span class="asset-page-info">
                 {{ currentPage }} / {{ pages }} 页 · {{ start + 1 }}–{{ end }} 项
             </span>
-            <PressButton
-                text="下一页"
-                label="资源下一页"
-                :disabled="currentPage === pages"
-                @click="turnPage(currentPage + 1)"
-            />
-        </nav>
+        </RecordPager>
 
         <div v-if="!loading && !visible.length" class="asset-void page-empty">
             <AppIcon :name="failed || missingHere ? 'info' : 'search'" class="page-empty-icon" />
@@ -440,7 +437,7 @@ function turnPage(next: number) {
     align-items: center;
     justify-content: center;
     gap: 12px;
-    margin-top: 16px;
+    margin: 16px 0 0;
 }
 .asset-preview {
     --asset-image-size: min(180px, 45vw);

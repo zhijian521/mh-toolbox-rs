@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../../../services/game-data.fixture';
 import { ocrFrame } from '../../../services/ocr';
 import { GEAR_RULES } from '../../../services/game-rules';
-import { normalizeCharacter, parseRoster, serializeRoster } from '../roster';
+import { normalizeCharacter, parseCharacters } from '../roster';
 import { normalizeGearMeta } from '../details';
 import { characterSnapshot, changeReport } from './change-summary';
 import { gearPanelParts, mergeGearPanels, parseGearPanel } from './gear-panel';
@@ -327,7 +327,7 @@ describe('命魂之玉双列截图', () => {
             gear: mergeGearPanels(original.gear, result),
             gearMeta: normalizeGearMeta({ ...original.gearMeta, soul: result.soul }),
         };
-        const restored = parseRoster(serializeRoster([next]))![0];
+        const restored = parseCharacters(JSON.parse(JSON.stringify([next])))[0];
         expect(original.gear.find((slot) => slot.slot === '玉魄·阳')!.detail!.name).toBe('旧玉魄');
         expect(restored.gearMeta.soul).toEqual(result.soul);
         for (const slot of ['玉魄·阳', '玉魄·阴'] as const) {

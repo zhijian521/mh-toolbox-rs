@@ -43,7 +43,7 @@ async function loadSync(
     };
     vi.doMock('../../services/desktop', () => ({ hasDesktop: () => true }));
     vi.doMock('../../services/storage', () => storage);
-    vi.doMock('../../services/storage-sync', () => ({ onStorageSync: () => {} }));
+    vi.doMock('../../services/storage-sync', () => ({ onLocalDataSync: () => {} }));
     vi.doMock('../../composables/use-minute-now', () => ({ useMinuteNow: () => minute }));
     const income = await import('../income/income-store');
     const online = await import('../income/online-store');

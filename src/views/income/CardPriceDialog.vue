@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import { usePositiveAmount } from '../../composables/use-positive-amount';
 import ModalShell from '../../components/ModalShell.vue';
 import PriceField from '../../components/PriceField.vue';
-import PressButton from '../../components/PressButton.vue';
+import FormActions from '../../components/FormActions.vue';
 import { ledgerMoneyText } from '../../services/format';
 import { POINTS_PER_HOUR } from './online';
 
@@ -59,21 +59,15 @@ function submit() {
         </form>
 
         <template #footer>
-            <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
-            <PressButton
-                data-modal-cancel
-                :disabled="saving"
-                text="取消"
-                label="不改了"
-                @click="!saving && emit('close')"
-            />
-            <PressButton
-                icon="check"
-                :text="retrying ? '重试保存' : '保存'"
-                label="保存点卡单价"
-                :disabled="saving || (!canSave && !retrying)"
-                seal
-                @click="submit"
+            <FormActions
+                :error="saveError"
+                :cancel-disabled="saving"
+                cancel-label="不改了"
+                :submit-text="retrying ? '重试保存' : '保存'"
+                submit-label="保存点卡单价"
+                :submit-disabled="saving || (!canSave && !retrying)"
+                @cancel="!saving && emit('close')"
+                @submit="submit"
             />
         </template>
     </ModalShell>

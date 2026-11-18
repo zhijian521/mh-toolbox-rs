@@ -27,6 +27,8 @@ const props = withDefaults(
         modelValue: number | null;
         label?: string;
         error?: string;
+        /** 失焦校验时保留提示位置，避免下方控件在按下与抬起之间移位。 */
+        reserveError?: boolean;
         /**
          * `lg` 是主角（记价窗里价格是唯一必须填对的东西），`md` 是配角
          * （新建卡时的「初始价」是可选项，跟其它字段同一档语气就够）。
@@ -201,7 +203,13 @@ function nudge(direction: 1 | -1) {
                 @click="nudge(1)"
             />
         </div>
-        <span v-if="error" :id="errorId" class="note error pf-hint">{{ error }}</span>
+        <span
+            v-if="error || reserveError"
+            :id="error ? errorId : undefined"
+            class="note error pf-hint"
+            :aria-hidden="!error || undefined"
+            >{{ error || '\u00a0' }}</span
+        >
     </div>
 </template>
 

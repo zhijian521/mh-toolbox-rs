@@ -75,6 +75,7 @@ function onEnter(event: KeyboardEvent) {
                         v-model="draft.price"
                         label="这一笔多少钱"
                         stepper
+                        reserve-error
                         :error="showPriceError ? errors.price : ''"
                         @blur="touched.price = true"
                     />

@@ -98,6 +98,7 @@ npm run test:rust -- backup::
 ```
 
 备份纯逻辑与文件测试集中在 src-tauri/src/backup/tests.rs，保持 backup::tests 名称过滤不变。
+存储领域 SQL 位于 src-tauri/src/store/；父模块的 store::tests 继续覆盖读取、保存、导入、清空及跨领域事务回滚。
 
 过滤按模块或用例名匹配，范围由实际改动决定；存储结构变更同时考虑备份、导入与 IPC，不能只测一个写入函数。
 生成绑定或返回类型变化需追加前端契约测试。Rust 环境与全量 fmt、Clippy 要求见 AGENTS.md。

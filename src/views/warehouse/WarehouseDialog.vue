@@ -2,6 +2,7 @@
 /** 自包含仓库入口：调用方只控制开关，筛选、编辑与持久化均留在模块内。 */
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
+import GroupHead from '../../components/GroupHead.vue';
 import PressButton from '../../components/PressButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
@@ -300,10 +301,9 @@ function confirmSelection() {
                                     label="仓库状态"
                                 />
                             </div>
-                            <div v-else class="group-head warehouse-pick-heading">
-                                <span class="section-mark" aria-hidden="true" />
+                            <GroupHead v-else class="warehouse-pick-heading">
                                 <span>{{ kind === 'gear' ? '仓库装备' : '仓库召唤兽' }}</span>
-                            </div>
+                            </GroupHead>
                             <PressButton
                                 v-if="mode === 'manage' && !soldView"
                                 data-warehouse-add

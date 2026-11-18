@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import ModalShell from '../../../components/ModalShell.vue';
-import PressButton from '../../../components/PressButton.vue';
+import FormActions from '../../../components/FormActions.vue';
 import PetDetailForm from '../editor/PetDetailForm.vue';
 import PetScreenshot from '../ocr/PetScreenshot.vue';
 import { applyPetPanel } from '../ocr/pet-panel';
@@ -117,21 +117,15 @@ onMounted(() => focusInput(form, 'input[aria-label="召唤兽名称"]'));
         <OcrSummary :reports="reports" />
 
         <template #footer>
-            <p v-if="saveError" class="note error save-error" role="status">{{ saveError }}</p>
-            <PressButton
-                data-modal-cancel
-                text="取消"
-                label="放弃这次修改"
-                :disabled="saving"
-                @click="requestClose"
-            />
-            <PressButton
-                icon="check"
-                :text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
-                label="保存这只召唤兽"
-                seal
-                :disabled="!canSave"
-                @click="save"
+            <FormActions
+                :error="saveError"
+                cancel-label="放弃这次修改"
+                :cancel-disabled="saving"
+                :submit-text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
+                submit-label="保存这只召唤兽"
+                :submit-disabled="!canSave"
+                @cancel="requestClose"
+                @submit="save"
             />
         </template>
     </ModalShell>

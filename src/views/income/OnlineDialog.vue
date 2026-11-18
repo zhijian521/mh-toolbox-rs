@@ -3,6 +3,7 @@ import { computed, ref, watch, useId } from 'vue';
 import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
+import FormActions from '../../components/FormActions.vue';
 import TimeField from '../../components/TimeField.vue';
 import TogglePills from '../../components/TogglePills.vue';
 import { ALL_OPTIONS } from '../../components/select-options';
@@ -301,32 +302,26 @@ const submitText = computed(() => {
         </form>
 
         <template #footer>
-            <p v-if="writeError" class="note error save-error" role="status">{{ writeError }}</p>
-            <PressButton
-                v-if="editing"
-                danger
-                class="foot-left"
-                icon="trash"
-                :text="action === 'delete' ? '重试删除' : '删除'"
-                :disabled="saving || action === 'save'"
-                label="删掉这一段上线记录"
-                @click="remove"
-            />
-            <PressButton
-                data-modal-cancel
-                :disabled="saving"
-                text="取消"
-                label="取消"
-                @click="close"
-            />
-            <PressButton
-                icon="check"
-                :text="submitText"
-                :label="submitText"
-                :disabled="!canSave"
-                seal
-                @click="submit"
-            />
+            <FormActions
+                :error="writeError"
+                :cancel-disabled="saving"
+                :submit-text="submitText"
+                :submit-label="submitText"
+                :submit-disabled="!canSave"
+                @cancel="close"
+                @submit="submit"
+            >
+                <PressButton
+                    v-if="editing"
+                    danger
+                    class="foot-left"
+                    icon="trash"
+                    :text="action === 'delete' ? '重试删除' : '删除'"
+                    :disabled="saving || action === 'save'"
+                    label="删掉这一段上线记录"
+                    @click="remove"
+                />
+            </FormActions>
         </template>
     </ModalShell>
 </template>

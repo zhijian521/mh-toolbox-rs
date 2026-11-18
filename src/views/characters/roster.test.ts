@@ -4,7 +4,7 @@ import { schoolNames, schoolSkillCap } from '../../services/game-data';
 import { GEAR_SLOTS } from './gear';
 import { CHARACTERS } from './mock';
 import { expPercent, isMaxed } from './character';
-import { emptyCharacter, normalizeCharacter, parseRoster, serializeRoster } from './roster';
+import { emptyCharacter, normalizeCharacter, parseCharacters } from './roster';
 import { schoolSkillNames } from './schools';
 
 /**
@@ -16,19 +16,16 @@ import { schoolSkillNames } from './schools';
  * 所以断言全在「坏输入进来会怎样」，而不是「好数据能不能过」。
  */
 describe('名册解析', () => {
-    it('没存过 / 不是 JSON / 不是数组，一律交还 null', () => {
-        expect(parseRoster(null)).toBeNull();
-        expect(parseRoster('')).toBeNull();
-        expect(parseRoster('{ 这不是 JSON')).toBeNull();
-        expect(parseRoster('{"id":"a"}')).toBeNull();
-        expect(parseRoster('null')).toBeNull();
+    it.each([null, '', {}, 42])('非数组存档整份拒绝：%j', (raw) => {
+        expect(() => parseCharacters(raw)).toThrow();
     });
 
-    it('单条坏掉不牵连整份名册', () => {
-        const parsed = parseRoster(
-            JSON.stringify([null, '字符串', { id: 'a', name: '甲' }, { name: '乙' }]),
+    it('损坏条目不静默丢弃，避免后续保存覆盖原名册', () => {
+        expect(() => parseCharacters([null, '字符串', { id: 'a', name: '甲' }])).toThrow();
+        const names = parseCharacters([{ id: 'a', name: '甲' }, { name: '乙' }]).map(
+            (one) => one.name,
         );
-        expect(parsed?.map((item) => item.name)).toEqual(['甲', '乙']);
+        expect(names).toEqual(['甲', '乙']);
     });
 
     it('缺字段的记录补成可渲染的形状，不抛错', () => {
@@ -76,7 +73,7 @@ describe('装备格对齐', () => {
                 },
             })),
         });
-        const restored = parseRoster(serializeRoster([character]))?.[0];
+        const restored = parseCharacters(JSON.parse(JSON.stringify([character])))[0];
         expect(restored?.gear.map((slot) => slot.detail?.note)).toEqual(
             GEAR_SLOTS.map((slot) => slot + '备注\n暂不更换'),
         );
@@ -134,7 +131,7 @@ describe('装备格对齐', () => {
     ])('未填装备名时已录入内容仍可保存并重载：%j', (detail) => {
         const character = normalizeCharacter({ gear: [{ slot: '头', detail }] });
         expect(character.gear[0].detail).toMatchObject(detail);
-        const restored = parseRoster(serializeRoster([character]))?.[0];
+        const restored = parseCharacters(JSON.parse(JSON.stringify([character])))[0];
         expect(restored?.gear[0].detail).toEqual(character.gear[0].detail);
     });
 
@@ -374,7 +371,7 @@ describe('空白角色', () => {
 
 describe('往返', () => {
     it('存下去再读回来，结构与 id 都不变', () => {
-        const parsed = parseRoster(serializeRoster(CHARACTERS));
+        const parsed = parseCharacters(JSON.parse(JSON.stringify(CHARACTERS)));
         expect(parsed).toHaveLength(CHARACTERS.length);
         expect(parsed?.map((item) => item.id)).toEqual(CHARACTERS.map((item) => item.id));
         // 演示装备清空后，往返不能重新生成旧的详情值。
@@ -482,7 +479,8 @@ describe('角色更新时间', () => {
             expect(normalizeCharacter({ id: 'old', updatedAt }).updatedAt).toBeUndefined();
         }
         const saved = normalizeCharacter({ id: 'known', updatedAt: 1700000000123 });
-        expect(parseRoster(serializeRoster([saved]))?.[0].updatedAt).toBe(1700000000123);
+        const restored = parseCharacters(JSON.parse(JSON.stringify([saved])))[0];
+        expect(restored.updatedAt).toBe(1700000000123);
     });
 
     it('只在新增或修改时记录时间，读取与重试不刷新，也不修改原草稿', async () => {
