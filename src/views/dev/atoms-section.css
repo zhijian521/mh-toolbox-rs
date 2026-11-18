@@ -1,0 +1,410 @@
+/* ---------- 目录 + 整组 ----------
+ * 左 132 一条目录（五行装在一道凹槽里），右余下整块画当前这一组。卡高由
+ * `LedgerSection` 的 `height` 写死，两栏各滚各的——切换组时页面纹丝不动。
+ *
+ * 132 跟着字号走（与 `.demo-select` 的 168 同一种写法）：一行里装的是「图标 + 组名
+ * （两个字）+ 件数」，列宽不跟着长的话，字号一放「较大」组名就被挤成竖排。
+ */
+.atoms-split {
+    display: grid;
+    grid-template-columns: calc(132px * var(--fs-scale)) minmax(0, 1fr);
+    /* 18 → 12：目录与正文之间只隔一道气口。宽到 18 时（再加上右栏自己的 132 名目列）
+     * 从左栏的边到第一件控件要走 170 多像素，两栏读起来是两块东西。 */
+    gap: 12px;
+    height: 100%;
+    min-height: 0;
+}
+
+/* 目录 = 一道竖槽 + 一枚会滑下去的朱印。
+ *
+ * **照主侧栏 `AppRail` / `VerticalSlider` 的做法**（2026-11-06 用户：「你直接复制，
+ * 我们现在项目整体的左侧菜单栏吧，只不过要把菜单项从竖的改成横的」）：
+ * 那边格内是「图标在上、两字竖排」（窄条只有 34 宽），这里改成横排——
+ * 这一栏是 132 宽的目录，不是 34 宽的窄条，横排才放得下图标 + 组名 + 件数。
+ *
+ * 三样东西与主侧栏一一对应：
+ *   槽  = 全局 `.well upright`（金边 / `--well` 底 / 左壁暗 / 顶影 / 下沿亮边）；
+ *   印  = 全局 `.stamp`（朱底 / 9px 受光带 / 上沿高光 / 落地线 / 朱色投影）；
+ *   拇指 = 一枚独立定位的 `.stamp`，用 `translateY` 滑到当前那一格。
+ *
+ * **为什么印要单独一层、而不是让选中格自己灌朱**：上一版正是后者，于是得靠
+ * `.nav-item:not(.on) { background: none }` 绕开 scoped 特异性压掉全局 `.stamp` 的坑；
+ * 更要紧的是「选中的是哪一格」变成了「哪一格挂了 stamp 类」——切换瞬间没有位移、
+ * 只有一次闪断。独立拇指把这件事收回成一处：印在哪，选中的就是哪。
+ *
+ * 深度一行都不写在这里：字号滑块、两格开关、槽按钮、主侧栏、这一栏是
+ * **同一道槽切成五种形状**，厚度只能由 `base.css` 那一处说了算。
+ * （132 批之前手写过一版，只有上亮线与一道软影，用户看完说「3D 效果不明显」。）
+ *
+ * **槽铺满整列**：`align-self: stretch`，左栏是一列凹进去的侧栏，五行排在顶部，
+ * 底下那截空槽是「这一栏的底」。分区靠的是 `.well` 的金边与 `.upright` 的左壁暗——
+ * 光有底色差不够，一大片平色只会读成「一块浅色板」。
+ *
+ * 格高 34（主侧栏 62，那是竖排两字的高度）、格间 3、槽内衬 4：
+ * 五行合计 8 + 170 + 12 = 190，字号 1.1 时 209，仍在 404 里。
+ */
+.atoms-nav {
+    /* 这一栏的规格。只有三处引用：格高、格间、拇指位移的那个算式。 */
+    --nav-cell: calc(34px * var(--fs-scale));
+    --nav-gap: calc(3px * var(--fs-scale));
+
+    position: relative;
+    display: grid;
+    grid-auto-rows: var(--nav-cell);
+    align-content: start;
+    row-gap: var(--nav-gap);
+    /* **铺满整列**（2026-11-06 用户先试过收成内容高，随即改回）：「左侧菜单背景还是撑满」。
+     * 右边有了自己的一块底色之后，两栏高度不一会把卡切成两块高矮不齐的板；
+     * 撑满之后它们是同一层架子上的两道竖列。 */
+    align-self: stretch;
+    max-height: 100%;
+    padding: 4px;
+    border-radius: var(--r-2);
+    /* 组变多时的退路：现在 190 远不到 404，真加到十组它自己会滚，不会顶出卡片。 */
+    overflow: auto;
+}
+
+/* 拇指：一枚落在槽里的朱印。几何与 `VerticalSlider` 的 `.vs-thumb` 同构——
+ * **比格四周各缩 2px**（槽内衬 4 + 让出的 2 = 6）：这里格高只有 34，缩 3 会把印压到 28，
+ * 与图标 15 只剩 6 的上下留白，反而更挤。 */
+.nav-thumb {
+    /* 同 `VerticalSlider` 的拇指：2px 实底边，印比格面高一点。 */
+    --stamp-depth: 2px;
+
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    left: 6px;
+    height: calc(var(--nav-cell) - 4px);
+    border-radius: var(--r-2);
+    transition: transform var(--t-slide) var(--ease-snap);
+    /* 印面不吃指针：否则点在印上时事件目标是它，`data-id` 拿不到，点击会落空。 */
+    pointer-events: none;
+}
+
+/* 导航与主侧栏复用同一套浅纸键材质，这里只保留横排几何。 */
+.nav-item {
+    --icon-size: calc(15px * var(--fs-scale));
+
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: calc(9px * var(--fs-scale));
+    padding: 0 11px 0 12px;
+    border: 0;
+    border-radius: var(--r-2);
+    /* 与拇指两侧各让 2px，切换前后边界才一致。 */
+    margin: 0 2px;
+    background-color: var(--vs-cell-color);
+    background-image: var(--vs-cell-texture);
+    box-shadow: var(--vs-cell-shadow);
+    color: var(--ink-2);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        color var(--t-mid) var(--ease-soft),
+        background-color var(--t-quick) var(--ease-soft),
+        box-shadow var(--t-quick) var(--ease-soft);
+}
+.nav-item:hover {
+    color: var(--ink);
+    background-color: var(--vs-cell-color);
+    box-shadow: var(--vs-cell-shadow);
+}
+/* 选中那格只换字色（`--on-seal`，与印面成对翻），**不加粗、不加描边、不加字距**。
+ * 文楷只有 Regular，描边与合成加粗都会把撇捺糊成块；「当前在哪一组」由那枚朱印说完。
+ * 悬停时要清底：否则划过选中项时那层浅纸会盖住朱印。 */
+.nav-item.on,
+.nav-item.on:hover {
+    color: var(--on-seal);
+    background: none;
+    box-shadow: none;
+}
+/* 聚焦环不能用朱红：选中时底就是朱红，红环会消失（`--ring-inv`，与
+ * `SegmentedPills` 的选中格、主侧栏的格同一条规矩）。负 offset 收进印面里，
+ * 免得在槽上向外撑出一圈。 */
+.nav-item:focus-visible {
+    outline: var(--ring-inv);
+    outline-offset: -2px;
+}
+.nav-name {
+    flex: none;
+    font-size: var(--fs-sm);
+    letter-spacing: 0.02em;
+}
+/* 件数靠右：这一栏没有账线撑开它了，靠 `margin-left: auto`。
+ * 朱底上退一档（72%）：与格名同重会让「几件」读成第二个名字。 */
+.nav-count {
+    flex: none;
+    margin-left: auto;
+    font-family: var(--font-ui);
+    font-size: var(--fs-mini);
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+}
+.nav-item.on .nav-count {
+    color: color-mix(in srgb, var(--on-seal) 72%, transparent);
+}
+
+/* 正文区托在一块纸上（2026-11-06 用户：「给右边也加个区块啥的背景，或者凹陷的背景」）。
+ *
+ * 左栏那道槽是「目录」，右边这一块是「正文」——两栏各自有底色，才读作同一层架子上
+ * 的两列；原来右栏直接落在卡面的白纸上，左边一块槽、右边一片空，读成两件事。
+ *
+ * **深度直接借 `.well upright`**（模板上的两个类，与左栏那道目录槽同一套）：
+ * 底色 `--well`、左壁暗、顶口暗、右沿与下沿受光亮线、一圈褐线，全由 `base.css` 那一处
+ * 说了算，组件里只给内衬与圆角。
+ *
+ * 原先是光秃秃的 `.well`（只压 180° 的顶影），方向与左栏不一致——左边那道是「竖槽，
+ * 左壁暗、右壁亮」，右边却「顶边暗、底边亮」，两块并排时读者得当作两种东西看
+ * （2026-11-06 用户：「右侧样式也直接使用左侧菜单背景的样式好了」）。换 `upright`
+ * 之后两栏的光向一致，左壁暗带都用 10px 的固定宽度，窄槽与大面板读作同一种语言。
+ *
+ * **不加落地影**：它是「卡上的一块凹面」，不是卡里再套一张卡——开发页早先六宫格
+ * 那版正是这个毛病。凹面越宽越不能靠影，只能靠壁与边的明暗。
+ */
+.kit-pane {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    padding: calc(10px * var(--fs-scale)) calc(14px * var(--fs-scale)) calc(6px * var(--fs-scale));
+    border-radius: var(--r-2);
+}
+
+/* 一组一件一行，像账本上的一笔：左边名目，右边样子与说明。
+ *
+ * 原先是两列六宫格：六块等大的带框小卡嵌在这张 `.board` 里，读作「卡里还套着卡」；
+ * 而且 grid 会把同一行的两格拉到同高——「分段胶囊」只有一行控件，下面空出一大块，
+ * 六格并排看下来全是同样的框、同样的灰字，没有一个能当锚点。
+ * 改成一列之后行高各随内容，界线只剩行与行之间那道账线。
+ */
+.kit {
+    display: flex;
+    /* 撑满 `.kit-pane` 的内容盒：底色归 pane，滚动归这里。 */
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    /* 右栏自己滚（2026-11-06）：卡高写死之后，「这一组比卡还长」的退路就在这儿。
+     * 让位用轨道真宽（`--scrollbar-w`）再用等量负外边距补回：滚动条压进卡的内边距里，
+     * 内容宽度不因「有没有滚动条」而变化——`.kit-row` 里那些并排控件的宽度会跟着跳，
+     * 组与组之间切换时看起来像整块抖一下。 */
+    overflow: auto;
+    margin-right: calc(-1 * var(--scrollbar-w));
+    padding-right: var(--scrollbar-w);
+}
+.kit-cell {
+    display: grid;
+    /* 名目列 132 → 108（2026-11-06）：它与左栏目录同宽时，两条 132 的竖列并排，
+     * 眼睛先读出「两个一样的列」再读内容，反而把左右推远；收窄一档之后它是
+     * 「每条的名字」，不再跟目录抢同一条轴线。五位组件名 87.5，108 仍留 20 的余量。 */
+    grid-template-columns: calc(108px * var(--fs-scale)) minmax(0, 1fr);
+    /* 行距 9：一行里有三排演示时（槽按钮的形态 / 尺寸），3px 会把它们糊成一片，
+     * 分不出是「一组三种形态」还是「三组各一枚」。 */
+    gap: 9px 20px;
+    padding: 13px 0;
+    border-top: var(--w-hair) solid var(--rule);
+}
+/* 第一件不画线：上面是这张卡的标题栏，再画一道就成了两条。
+ * 有了组头之后，这条规则轮不到第一件（它是 `:nth-child(2)`），那道线正好落在
+ * 「组头 / 第一件」之间，读作表头下的分界——要的就是它。 */
+.kit-cell:first-child {
+    padding-top: 2px;
+    border-top: 0;
+}
+/* 组头：哪一组、几件。图标与左栏那一格同一枚，字形对上之后不用读字也知道是同一处。
+ * 字重照全站规矩（不加粗），靠 `--ink` 与 `--muted` 的墨色差分层。 */
+.kit-head {
+    --icon-size: calc(15px * var(--fs-scale));
+
+    display: flex;
+    align-items: center;
+    gap: calc(8px * var(--fs-scale));
+    padding: 2px 0 calc(7px * var(--fs-scale));
+}
+.kit-group {
+    font-family: var(--font-ui);
+    font-size: var(--fs-base);
+    line-height: 1.3;
+    color: var(--ink);
+}
+.kit-group-count {
+    /* 紧跟在组名后面，不推到行尾：卡片通栏一千多像素，`margin-left: auto` 会把
+     * 「6 件」甩到最右边，与组名隔八百像素，读成两个不相干的数。 */
+    font-size: var(--fs-mini);
+    line-height: 1.35;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+}
+/* 名目列在左，演示行与说明一律进右列；列写死之后行数由内容自己长。 */
+.kit-cell > * {
+    grid-column: 2;
+}
+.kit-cell > .col-head {
+    grid-column: 1;
+    grid-row: 1;
+    /* 中文名（17.5 高）与首行控件（26–31 高）的视觉中线对齐：差的一半就是这 6px。
+     * 不补时名目浮在控件上方，读起来像「标题 + 下面的东西」，而不是一行两栏。 */
+    padding-top: 6px;
+}
+.kit-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+/* 两枚开关并排时要更宽的间隔：10px 是给胶囊与小按钮的，两只两格开关挨这么近
+ * 会读成一只四格的开关。 */
+.kit-row-sw {
+    gap: 18px;
+}
+/* 块、按钮、尺寸三者同排时**底对齐**：块是 56 / 34 高、按钮 20–31，居中会让每一样
+ * 上下都错开半格，读起来像随手摆的；底对齐之后它们落在同一条地面上，
+ * 「同一块纸的两种厚度」与「三档尺寸差几px」才同时读得出。 */
+.kit-row-tiles {
+    align-items: flex-end;
+}
+/* 统计条在真实页面里是通栏的一条（收益页、总览页都是），这里也让它撑满：
+ * 四格等分要靠整行宽度才看得出，缩在一半里会像一张卡。 */
+.demo-stats {
+    flex: 1;
+    min-width: 0;
+}
+/* 价格格按真身的宽度摆，不铺满整行：右栏 564 全给它时，`−` 和 `+` 会跑到两头，
+ * 数字孤零零悬在中间那 300 的空当里。430 是「撑得开、两头还够得着」的宽度。 */
+.kit-price {
+    width: 100%;
+    max-width: calc(430px * var(--fs-scale));
+}
+/* 两档并排时把 430 的上限撤掉：半栏放不下 430，`max-width` 会让第二枚被挤到下一行。 */
+.kit-price-half {
+    flex: 1 1 0;
+    max-width: none;
+    min-width: 0;
+}
+.kit-cell .note {
+    margin-top: 0;
+}
+/* 名目两行：中文名是这一条的条目，英文名给认得组件的人对号。
+ * 原先一行写完（`SegmentedPills · 分段胶囊`）时两者同重、都只有 10px 灰字，
+ * 六条看下来没有一个能当锚点。 */
+.col-head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-family: var(--font-ui);
+}
+.kit-name {
+    font-size: var(--fs-base);
+    line-height: 1.3;
+    color: var(--ink);
+}
+.kit-en {
+    font-size: var(--fs-mini);
+    line-height: 1.35;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+}
+
+/* 演示用的三条宽度：输入格里最长的一条是「角色名」，数字格按真实表单里的 72px 给，
+ * 多行那条铺满整格——都按业务页里真身的尺寸摆，不另调一套。 */
+.kit-field {
+    width: 130px;
+}
+.kit-field-num {
+    width: 72px;
+}
+.kit-area {
+    /* **不再撑满整行**（2026-11-06 用户：「文本框的输入设置个宽度，现在撑满了」）：
+     * 它是个描述框，真身在角色编辑器（装备描述、召唤兽技能），那里宽度由表单列决定，
+     * 最宽也就四五百，从不横贯一屏。演示给 280：放得下一行七个字 + 换行箭头，
+     * 读者一眼看出这是个窄件。 */
+    width: calc(280px * var(--fs-scale));
+}
+
+/* 数值签按卡上那枚摆：56 × 24（乘字号档）、字号也照抄 15.5。
+ * 30 与 17.5 是这条票面统一之前的值，早已对不上（§2.4-37 记着 24 的来由）——
+ * 演示页摆的必须是线上那个数，否则「演示里好看、业务页里不对劲」又要多查一轮。 */
+.kit-tag {
+    --tag-w: calc(56px * var(--fs-scale));
+    --tag-h: calc(24px * var(--fs-scale));
+    font-size: calc(var(--fs-md) + 1px);
+}
+.kit-tag-note {
+    color: var(--muted);
+    font-size: var(--fs-mini);
+}
+
+/* 滑块演示给 300 宽：`inline-grid` 会收缩到内容宽，收缩态下「N 格等分 + 印按格位移」
+ * 看不出比例。加高那行只覆写纵向变量、宽度不动，差 8px 才对得出来。 */
+.kit-steps {
+    width: 300px;
+}
+/* 并排时各占一半，但**留着 300 的上限**：300 是这条控件本来该有的宽（三格 × 100），
+ * 开发页的卡是通栏 1198、右栏 1022，纯 `flex: 1 1 0` 会把两条拉到各 400+，
+ * 三格里的两个字被摊在 140 的格子里，读起来像两块横幅而不是控件。
+ * `width: auto` 是必须的——不写它，`.kit-steps` 的 300 会顶住 flex-basis，
+ * 两条就并不到一行。 */
+.kit-steps-half {
+    flex: 1 1 0;
+    width: auto;
+    max-width: calc(300px * var(--fs-scale));
+    min-width: 0;
+}
+.kit-steps-tall {
+    --step-pad-y: 6px;
+}
+
+/* 进度条的加大档：与角色卡经验条同值（14）。演示页摆的必须是线上那个数，
+ * 否则「演示里好看、业务页里不对劲」又要多查一轮。 */
+/* 两条进度条并排时各占一半（2026-11-06）：MeterBar 自己的 `.meter` 虽然是 `flex: 1`，
+ * 但那是在**组件内部**分配；组件根放在 `.kit-row` 里默认 `flex: 0 1 auto`，
+ * 不伸展的话两条会缩成「文本 + 40 的轨道」那么点宽。`min-width: 0` 让它们在窄窗口
+ * 下肯让位，而不是把行撑出滚动条。 */
+.kit-meter {
+    flex: 1 1 0;
+    min-width: 0;
+}
+/* 加大那档只改高度：`--meter-h` 从 10 到 14，与业务页「独占一行当读数」那个用法同值。 */
+.kit-meter-lg {
+    --meter-h: 14px;
+}
+
+/* 两块并排（56 与 34），间隔 14 —— 比 `.kit-row` 的 10 宽：10 是给胶囊与小按钮的，
+ * 56 的块挨这么紧会读作「一块被切成了两片」。底部对齐，34 那枚自然坐同一条线。 */
+.kit-tiles {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+}
+
+/* 56px 是工具页图标格的尺寸、26px 是它的图标——演示按真身给，不另调一套，
+ * 否则「演示里好看、业务页里不对劲」又要多查一轮。
+ * 34px 那两枚与左栏牌记同尺寸：落地影缩到 0.6（块小了，8px 软影会读作「浮起来」），
+ * 圆角回到 `--r-2` 与目录槽同心。图标跟着缩到 15px，与牌记里那只字的份量接近。 */
+.kit-tile {
+    --tile-w: 56px;
+    --icon-size: calc(26px * var(--fs-scale));
+}
+.kit-tile-sm {
+    --tile-w: 34px;
+    --tile-r: var(--r-2);
+    /* 与左栏牌记逐项同值（0.85，不是 0.6）：这一格是验收面，摆的必须是线上那块。
+     * 0.6 时影子只剩 1px 宽的一条，在这张 `--bg` 底的格子里勉强看得出，搬到牌记的
+     * `--paper` 栏底就成了「一张平的浅色方块」。 */
+    --tile-drop: 0.85;
+    --icon-size: calc(15px * var(--fs-scale));
+}
+/* 下拉按真实用法给宽（门派那一格约 168）：`.kit-row` 是整行宽，撑满时它读作
+ * 一条通栏控件，而它实际是个窄的。 */
+.demo-select {
+    flex: none;
+    width: calc(168px * var(--fs-scale));
+}
+/* 日期条与它同宽（176 是「2026年12月15日」加箭头与内衬的实测宽度），
+ * 业务页（收益历史）也取这个值，两处并排时才是同一个尺度。 */
+.demo-date {
+    flex: none;
+    width: calc(176px * var(--fs-scale));
+}

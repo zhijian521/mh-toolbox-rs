@@ -1,4 +1,4 @@
-/** 六个业务数据层共用的写队列：未读或读失败时拒写，失败保留错误，关闭/导出前可等待。 */
+/** 各业务数据层共用的写队列：未读或读失败时拒写，失败保留错误，关闭/导出前可等待。 */
 import { readonly, ref, type DeepReadonly, type Ref } from 'vue';
 import { hasDesktop } from './desktop';
 
