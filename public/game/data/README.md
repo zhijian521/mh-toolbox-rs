@@ -2,23 +2,23 @@
 
 **游戏更新时这批数据会变，代码不该跟着改**；表里写脚本名的由脚本生成、不手改。
 
-| 文件                   | 内容                          | 谁维护                      |
-| ---------------------- | ----------------------------- | --------------------------- |
-| `icons.json`           | 生活/剧情/特技清单            | `slice.py`                  |
-| `school-icons.json`    | 门派技能 147 张               | `slice-school.py`           |
-| `gear-icons.json`      | 装备 83 张                    | `import-slot-icons.py`      |
-| `weapon-icons.json`    | 武器 231 张                   | `import-slot-icons.py`      |
-| `lingshi-icons.json`   | 灵饰 20 张                    | `import-client-icons.py`    |
-| `schools.json`         | 门派、技能、上限              | 手改                        |
-| `skills.json`          | 生活 21、剧情 11              | 手改                        |
-| `quick-items.json`     | 速记物品 59 件                | 手改；id 不改               |
-| `pet-skills.json`      | 技能 ID 与 353 张 PNG         | `import-pet-skill-icons.py` |
-| `pet-portraits.json`   | 头像编号与物种                | `import-pet-portraits.mjs`  |
-| `pet-panel.json`       | 属性、加点、标签              | 手改                        |
-| `character-rules.json` | 属性、修炼、OCR 标签          | 手改（同改断言）            |
-| `activities.json`      | 活动周期与时段                | 手改                        |
-| `gameplay.json`        | 物价品类、抓鬼容差            | 手改                        |
-| `level-costs.json`     | 人物/师门/修炼/召唤兽分级代价 | 手改（官网工具箱抄录）      |
+| 文件                   | 内容                                     | 谁维护                      |
+| ---------------------- | ---------------------------------------- | --------------------------- |
+| `icons.json`           | 生活/剧情/特技清单                       | `slice.py`                  |
+| `school-icons.json`    | 门派技能 147 张                          | `slice-school.py`           |
+| `gear-icons.json`      | 装备 83 张                               | `import-slot-icons.py`      |
+| `weapon-icons.json`    | 武器 231 张                              | `import-slot-icons.py`      |
+| `lingshi-icons.json`   | 灵饰 20 张                               | `import-client-icons.py`    |
+| `schools.json`         | 门派、技能、上限                         | 手改                        |
+| `skills.json`          | 生活 21、剧情 11                         | 手改                        |
+| `quick-items.json`     | 速记物品 59 件                           | 手改；id 不改               |
+| `pet-skills.json`      | 技能 ID 与 353 张 PNG                    | `import-pet-skill-icons.py` |
+| `pet-portraits.json`   | 头像编号与物种                           | `import-pet-portraits.mjs`  |
+| `pet-panel.json`       | 属性、加点、标签                         | 手改                        |
+| `character-rules.json` | 属性、修炼、OCR 标签                     | 手改（同改断言）            |
+| `activities.json`      | 活动周期与时段                           | 手改                        |
+| `gameplay.json`        | 物价品类、抓鬼容差                       | 手改                        |
+| `level-costs.json`     | 养成代价、丹果、转门派、宝石与召唤兽场景 | 手改（官网工具箱抄录）      |
 
 五份 `*-icons.json` 同一套路：`slice-*.py` 定名字与顺序并出图，`import-*-icons.py` 只覆写 `img` 与 `source`（第 120 批起用客户端 `item120` 大图），**先切后导**；`img` 只写文件名（目录见 `../icons/README.md`），`id` 稳定。不能并成一份：谁后跑谁覆盖对方分组且不报错，`slice-weapon.py` 曾把「截图没覆盖最底那格」当成「没有 160 造型」，名字表各砍一条（第 121 批）——切到的档要覆盖名字表每一档，**少一档不报错，后面的档整体前移一格**。
 
@@ -37,6 +37,12 @@
 - **`character-rules.json`** 的 `gear.suitActiveCount` 是套装激活件数；`pets.cardAttributes` 按卡片展示顺序列出属性，`pets.growthLabel` 是独立成长字段的名称。修改这些字段同步更新规则契约断言。
 
 ## 约定与来源
+
+养成计算表取自 [电脑版官网工具箱](https://xyq.163.com/tools/)，快照日期见 JSON 的
+`capturedAt`。人物、师门、辅助、修炼、召唤兽升级取工具箱接口；乾元丹、潜能果、转门派等级表、
+宝石与练级场景取同页脚本。辅助技能按代价曲线去重，技能上限不得超过所挂曲线长度。
+剧情技能、育兽术没有对应代价表，不套用普通技能或宠修；月华露与宠修任务轮次为官网估算口径。
+综合预算只组合这些表，不增加另一份公式，也不修改角色资料。
 
 只写数据不写路径前缀（图片只写文件名、目录由常量拼，同 `maps.json` 的 `img`；一份清单配一个图标目录）；`id` 稳定唯一、显示名可改；不写界面文案（`tag`/`note` 属夹具或 UI 常量）；没量过的数值不写。新表用复数名（`items.json`），**不要做成一个大 `game.json`**。
 

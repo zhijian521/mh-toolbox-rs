@@ -61,7 +61,7 @@ npm run test:scope -- goals -t 养成
 | prices     | 物价与速记单价导入                             |
 | goals      | 目标、名册回写、成长历史与首页目标读数         |
 | overview   | 首页聚合、队伍近况与快捷入口                   |
-| tools      | 活动、闹钟、捉鬼服务与地图逻辑                 |
+| tools      | 活动、闹钟、捉鬼、地图与养成计算及角色预算逻辑 |
 | ui         | 公共组件逻辑、偏好与通用 composable            |
 | settings   | 偏好、旧版导入、更新与数据服务                 |
 | core       | 启动、服务层、导入、存储与模拟数据             |

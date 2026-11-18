@@ -5,6 +5,12 @@ import { collectTests, selectTests, TEST_SCOPES } from './test-scopes.mjs';
 describe('业务测试分区', () => {
     const files = collectTests(fileURLToPath(new URL('../', import.meta.url)));
 
+    it('工具分区包含养成公式与角色预算，避免只测页面逻辑', () => {
+        const selected = selectTests(['tools'], files);
+        expect(selected).toContain('src/services/level-costs.test.ts');
+        expect(selected).toContain('src/views/tools/growth-plan.test.ts');
+    });
+
     it('仓库测试均有归属，分区均能选择到文件', () => {
         expect(selectTests(Object.keys(TEST_SCOPES), files)).toEqual(files);
         for (const scope of Object.keys(TEST_SCOPES)) {

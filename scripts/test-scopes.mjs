@@ -59,6 +59,7 @@ export const TEST_SCOPES = {
     overview: ['src/views/overview/', 'src/services/home-shortcuts.test.'],
     tools: [
         'src/views/tools/',
+        'src/services/level-costs.test.',
         'src/services/ghost-',
         'src/components/ghost/',
         'src/composables/use-ghost-watch.test.',

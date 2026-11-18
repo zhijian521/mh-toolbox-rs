@@ -3,10 +3,19 @@ import rawLevelCosts from '../../public/game/data/level-costs.json';
 import {
     cultivationCost,
     expToGrade,
+    fruitForExp,
+    gemCost,
+    guildShopQuota,
+    lifeSkillCost,
+    lifeSkillOf,
+    menpaiCost,
     parseLevelCosts,
     petCultivationCost,
     petCultivationCumulative,
     petLevelCost,
+    petScenesAt,
+    qianNengGuoCost,
+    qianYuanDanCost,
     roleConvention,
     roleExpBetween,
     schoolSkillCost,
@@ -26,6 +35,32 @@ import {
  * `game-data.fixture.ts` 同一套做法。
  */
 const costs = parseLevelCosts(rawLevelCosts);
+
+describe('养成输入边界', () => {
+    it.each([-1, 1.5, NaN, Infinity])('非法起点 %s 不产生负成本', (from) => {
+        expect(lifeSkillCost(costs, 201, from, 10)).toBeNull();
+        expect(cultivationCost(costs, 1, from, 10)).toBeNull();
+        expect(qianYuanDanCost(costs, from, 9)).toBeNull();
+        expect(qianNengGuoCost(costs, from, 10)).toBeNull();
+    });
+
+    it('辅助与修炼不能倒算负消耗，宝石等级不得默默取整', () => {
+        expect(lifeSkillCost(costs, 201, 20, 10)).toBeNull();
+        expect(cultivationCost(costs, 1, 20, 10)).toBeNull();
+        expect(gemCost(costs, 'putong', 2.5, 100)).toBeNull();
+        expect(gemCost(costs, 'putong', 5, NaN)).toBeNull();
+        expect(menpaiCost(costs, 129, Infinity)).toBeNull();
+    });
+
+    it('技能上限超过曲线与重复技能必须在读取时拦下', () => {
+        const short = structuredClone(rawLevelCosts);
+        short.lifeSkill.skills[0].cap = 999;
+        expect(() => parseLevelCosts(short)).toThrow(/曲线/);
+        const duplicate = structuredClone(rawLevelCosts);
+        duplicate.lifeSkill.skills.push(duplicate.lifeSkill.skills[0]);
+        expect(() => parseLevelCosts(duplicate)).toThrow(/重复/);
+    });
+});
 
 describe('表本身', () => {
     it('四个上限与官网一致', () => {
@@ -233,6 +268,245 @@ describe('人物常规', () => {
 
     it('20 级起技能上限开始有值', () => {
         expect(roleConvention(20).skillCap).toBe(6);
+    });
+});
+
+describe('辅助技能（官网 get_life_skill_upgrade_need）', () => {
+    /* 21 项去重成 5 条曲线：多数技能逐级代价完全相同，只有打造那一族、
+     * 灵石、强壮那一族各自不一样。这一条钉住去重没把两条不同的曲线并成一條。 */
+    it('5 条曲线、21 项技能，上限按官网', () => {
+        expect(costs.lifeSkill.curves).toHaveLength(5);
+        expect(costs.lifeSkill.skills.map((one) => one.id)).toEqual([
+            201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 216, 217, 218, 230, 231,
+            237, 239, 240, 241,
+        ]);
+        expect(lifeSkillOf(costs, 201)?.cap).toBe(140);
+        /* 烹饪技巧官网 bundle 的 limitobj 写 160，接口从 141 起就报错 —— 真实上限 140。 */
+        expect(lifeSkillOf(costs, 208)?.cap).toBe(140);
+        expect(lifeSkillOf(costs, 239)?.cap).toBe(20);
+        expect(lifeSkillOf(costs, 230)?.cap).toBe(60);
+    });
+
+    it('强身术 0→140：经验 104406194、梦幻币 13901235', () => {
+        expect(lifeSkillCost(costs, 201, 0, 140)).toEqual({
+            exp: 104406194,
+            cash: 13901235,
+            reqBond: 700,
+            usedBond: 9870,
+        });
+    });
+
+    it('烹饪技巧 0→140 的经验比强身术少（两者共用前 140 级曲线以外的那条）', () => {
+        expect(lifeSkillCost(costs, 208, 0, 140)?.exp).toBe(74141717);
+    });
+
+    it('冥想 100→120：经验 20551163、梦幻币 3853295、帮贡 600 / 2210', () => {
+        /* 区间是从 100 级起，两列帮贡都按「目标等级」与「区间差」算，不随经验表求和。 */
+        expect(lifeSkillCost(costs, 202, 100, 120)).toEqual({
+            exp: 20551163,
+            cash: 3853295,
+            reqBond: 600,
+            usedBond: 2210,
+        });
+    });
+
+    it('打造 0→160 与淬灵 0→160 同值（同一条曲线）', () => {
+        const build = lifeSkillCost(costs, 204, 0, 160);
+        const quench = lifeSkillCost(costs, 231, 0, 160);
+        expect(build?.exp).toBe(161126102);
+        expect(build?.cash).toBe(26315625);
+        expect(quench).toEqual(build);
+    });
+
+    it('灵石 0→120、强壮 0→60、风之感应 0→20', () => {
+        expect(lifeSkillCost(costs, 218, 0, 120)).toEqual({
+            exp: 87583962,
+            cash: 13137285,
+            reqBond: 600,
+            usedBond: 7260,
+        });
+        expect(lifeSkillCost(costs, 230, 0, 60)?.exp).toBe(3612200000);
+        expect(lifeSkillCost(costs, 230, 0, 60)?.cash).toBe(903050000);
+        expect(lifeSkillCost(costs, 239, 0, 20)).toEqual({
+            exp: 129400000,
+            cash: 32350000,
+            reqBond: 100,
+            usedBond: 210,
+        });
+    });
+
+    it('超上限、未知技能一律 null', () => {
+        expect(lifeSkillCost(costs, 208, 0, 141)).toBeNull();
+        expect(lifeSkillCost(costs, 239, 0, 21)).toBeNull();
+        expect(lifeSkillCost(costs, 999, 0, 10)).toBeNull();
+        expect(lifeSkillOf(costs, 999)).toBeNull();
+    });
+
+    it('区间可加：0→160 = 0→80 + 80→160', () => {
+        const whole = lifeSkillCost(costs, 202, 0, 160);
+        const half = lifeSkillCost(costs, 202, 0, 80);
+        const rest = lifeSkillCost(costs, 202, 80, 160);
+        expect((half?.exp ?? 0) + (rest?.exp ?? 0)).toBe(whole?.exp);
+        expect((half?.usedBond ?? 0) + (rest?.usedBond ?? 0)).toBe(whole?.usedBond);
+    });
+});
+
+describe('乾元丹（官网 bundle qianyuandandata）', () => {
+    it('0→9 颗：经验 465600800、梦幻币 93120136', () => {
+        expect(qianYuanDanCost(costs, 0, 9)).toEqual({ exp: 465600800, cash: 93120136 });
+    });
+
+    it('1→2 颗就是第一档：22341872 / 4468371', () => {
+        expect(qianYuanDanCost(costs, 0, 1)).toEqual({ exp: 22341872, cash: 4468371 });
+    });
+
+    it('第 9 颗的经验比第 8 颗低 —— 原始数据就是这样，不做「修正」', () => {
+        /* 75415928 → 75977600 → **72201200**：末一颗反而回落，官网表里就是这个数。 */
+        const eighth = qianYuanDanCost(costs, 7, 8);
+        const ninth = qianYuanDanCost(costs, 8, 9);
+        expect(eighth).toEqual({ exp: 75977600, cash: 15195518 });
+        expect(ninth).toEqual({ exp: 72201200, cash: 14440238 });
+        expect(ninth?.exp).toBeLessThan(eighth?.exp as number);
+    });
+
+    it('超出 9 颗或区间反了都返回 null', () => {
+        expect(qianYuanDanCost(costs, 0, 10)).toBeNull();
+        expect(qianYuanDanCost(costs, 5, 4)).toBeNull();
+    });
+});
+
+describe('商会免税（官网 shms）', () => {
+    it('指数 × 1000 × 间数', () => {
+        expect(guildShopQuota(100, 2)).toBe(200000);
+        expect(guildShopQuota(150, 10)).toBe(1500000);
+        expect(guildShopQuota(100, 1)).toBe(100000);
+    });
+
+    it('小数与负数都归整，不会出负值', () => {
+        expect(guildShopQuota(120.7, 3)).toBe(360000);
+        expect(guildShopQuota(-5, 2)).toBe(0);
+    });
+});
+
+describe('宝石合成（官网 baoshi）', () => {
+    it('普通宝石：2 的幂，上限 20', () => {
+        const lv5 = gemCost(costs, 'putong', 5, 1000);
+        expect(lv5).toEqual({ total: 16, lower: 8, lower2: 4, money: 16000 });
+        expect(gemCost(costs, 'putong', 20, 1)?.total).toBe(2 ** 19);
+    });
+
+    it('星辉石：3 的幂，上限 11', () => {
+        expect(gemCost(costs, 'xinghui', 4, 10)).toEqual({
+            total: 27,
+            lower: 9,
+            lower2: 3,
+            money: 270,
+        });
+        expect(gemCost(costs, 'xinghui', 11, 1)?.total).toBe(3 ** 10);
+        expect(gemCost(costs, 'xinghui', 12, 1)).toBeNull();
+    });
+
+    it('1 级与 2 级没有更下一档，记 0', () => {
+        expect(gemCost(costs, 'putong', 1, 500)).toEqual({
+            total: 1,
+            lower: 0,
+            lower2: 0,
+            money: 500,
+        });
+        expect(gemCost(costs, 'putong', 2, 1)?.lower2).toBe(0);
+    });
+
+    it('未知档位或越界一律 null', () => {
+        expect(gemCost(costs, 'nope', 3, 1)).toBeNull();
+        expect(gemCost(costs, 'putong', 0, 1)).toBeNull();
+        expect(gemCost(costs, 'putong', 21, 1)).toBeNull();
+    });
+});
+
+describe('转门派（官网 menpai_nofly / menpai_fly）', () => {
+    it('未飞升：官网 get_exp 的四个样本', () => {
+        expect(menpaiCost(costs, 69, 0)?.exp).toBe(39750864);
+        expect(menpaiCost(costs, 109, 0)?.exp).toBe(156809887);
+        expect(menpaiCost(costs, 129, 0)?.exp).toBe(260345752);
+        expect(menpaiCost(costs, 155, 0)?.exp).toBe(463926794);
+    });
+
+    it('175 级零经验就顶到 10 亿', () => {
+        const top = menpaiCost(costs, 175, 0);
+        expect(top?.exp).toBe(1_000_000_000);
+        expect(top?.capped).toBe(true);
+    });
+
+    it('总经验按 2% 计入，超上限仍截到 10 亿', () => {
+        expect(menpaiCost(costs, 159, 1_000_000_000)?.exp).toBe(521241377);
+        expect(menpaiCost(costs, 175, 5_000_000_000)?.exp).toBe(1_000_000_000);
+    });
+
+    it('未飞升不算潜能果；已飞升才给 fruit 与缺口', () => {
+        expect(menpaiCost(costs, 129, 0)?.fruit).toBeNull();
+        const fly = menpaiCost(costs, 129, 0, 0);
+        expect(fly?.fruit).toBe(fly?.fruitShort);
+        const rich = menpaiCost(costs, 129, 0, 200);
+        expect(rich?.fruitShort).toBe(0);
+    });
+
+    it('等级越界返回 null', () => {
+        expect(menpaiCost(costs, 59, 0)).toBeNull();
+        expect(menpaiCost(costs, 176, 0)).toBeNull();
+    });
+});
+
+describe('潜能果反推（官网 get_qianneng）', () => {
+    it('官网五个样本', () => {
+        expect(fruitForExp(costs, 200, 1_000_000_000)).toBe(9);
+        expect(fruitForExp(costs, 10, 1_000_000)).toBe(1);
+        expect(fruitForExp(costs, 0, 1_000_000)).toBe(1);
+        expect(fruitForExp(costs, 50, 10_000_000)).toBe(1);
+        expect(fruitForExp(costs, 3, 300_000_000)).toBe(26);
+    });
+
+    it('不需要经验就是 0 颗', () => {
+        expect(fruitForExp(costs, 0, 0)).toBe(0);
+    });
+});
+
+describe('潜能果兑换经验（官网 qiannengguo）', () => {
+    it('累计三个点：0→10 / 0→50 / 0→200', () => {
+        expect(qianNengGuoCost(costs, 0, 10)).toEqual({ exp: 106750000, fruits: 10 });
+        expect(qianNengGuoCost(costs, 0, 50)?.exp).toBe(683750000);
+        expect(qianNengGuoCost(costs, 0, 200)?.exp).toBe(8792500000);
+    });
+
+    it('区间可加，且只算新增那几颗', () => {
+        const whole = qianNengGuoCost(costs, 0, 50)?.exp ?? 0;
+        const head = qianNengGuoCost(costs, 0, 20)?.exp ?? 0;
+        const rest = qianNengGuoCost(costs, 20, 50)?.exp ?? 0;
+        expect(head + rest).toBe(whole);
+        expect(qianNengGuoCost(costs, 30, 30)).toEqual({ exp: 0, fruits: 0 });
+    });
+
+    it('超过 200 颗或区间反了返回 null', () => {
+        expect(qianNengGuoCost(costs, 0, 201)).toBeNull();
+        expect(qianNengGuoCost(costs, 50, 40)).toBeNull();
+    });
+});
+
+describe('召唤兽练级场景（官网 zhsscene）', () => {
+    it('0 级只有东海湾，175 级三个场景同经验', () => {
+        expect(petScenesAt(costs, 0).map((one) => one.name)).toEqual(['东海湾']);
+        const top = petScenesAt(costs, 175);
+        expect(top.map((one) => one.exp)).toEqual([20710, 20710, 20710]);
+    });
+
+    it('80 级命中七段，含龙窟六层与凤巢五层', () => {
+        const names = petScenesAt(costs, 80).map((one) => one.name);
+        expect(names).toHaveLength(7);
+        expect(names).toContain('龙窟六层');
+        expect(names).toContain('凤巢五层');
+    });
+
+    it('等级负值给空数组', () => {
+        expect(petScenesAt(costs, -1)).toEqual([]);
     });
 });
 

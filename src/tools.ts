@@ -106,7 +106,7 @@ export const TOOLS: ToolEntry[] = [
         key: 'growth',
         kind: 'page',
         name: '养成计算器',
-        desc: '等级、师门技能、修炼、召唤兽 · 手动输入，与官网工具箱同口径',
+        desc: '等级、技能、修炼、宝石 · 单项计算与角色养成预算',
         path: '/tools/growth',
         icon: 'growth',
         group: 'game',

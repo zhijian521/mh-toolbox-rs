@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import LedgerSection from '../../components/LedgerSection.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
@@ -7,48 +7,45 @@ import NumberField from '../../components/NumberField.vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SelectField from '../../components/SelectField.vue';
+import SegmentedPills from '../../components/SegmentedPills.vue';
+import GrowthPlan from './GrowthPlan.vue';
+import { useRovingFocus } from '../../composables/use-roving-focus';
 import { ledgerMoneyText } from '../../services/format';
 import {
     cultivationCost,
     expToGrade,
+    gemCost,
+    guildShopQuota,
     levelCosts,
     levelCostsError,
+    lifeSkillCost,
+    lifeSkillOf,
     loadLevelCosts,
+    MENPAI_FLY_MIN_LEVEL,
+    menpaiCost,
     petCultivationCost,
     petLevelCost,
+    petScenesAt,
+    qianNengGuoCost,
+    qianYuanDanCost,
     roleConvention,
     roleExpBetween,
     schoolSkillCost,
 } from '../../services/level-costs';
 
-/**
- * 养成计算器：把官网工具箱那七块「手动填两个等级、看要多少」搬进来。
- *
- * ---- 这一版只吃手动输入 ----
- *
- * 不读本机的角色、召唤兽、账簿。理由是先对齐口径：官网那七块全部是「起始等级 +
- * 目标等级 → 代价」，接本机数据只影响**默认值填什么**，不影响算法。把算法钉死之后
- * 再决定哪些字段自动带出来，改动面只有「初值」那一行。
- *
- * ---- 一屏七块，每块一张纸 ----
- *
- * 与闹钟页、活动页同一条：`PageShell` 下面直接摆 `LedgerSection`，不套最外层卡片。
- * 每块自己管三个输入格与一组读数，块与块之间没有共享状态 —— 官网那七块也互不相干，
- * 硬凑一个「总表单」会让人以为改一处会牵动别处。
- *
- * ---- 数字格式 ----
- *
- * 经验按整数千分位（九位数以上必须分位，否则一眼数不清位数）；梦幻币走
- * `ledgerMoneyText`，折成「万」并与全站账面同一个口径。
- */
+/** 单项计算保留各自输入；综合预算读取角色草稿，共用官网代价表。 */
 const router = useRouter();
+const mode = ref<'single' | 'plan'>('single');
+const MODES = [
+    { value: 'single' as const, label: '单项计算' },
+    { value: 'plan' as const, label: '综合计算' },
+];
 
 onMounted(() => {
     void loadLevelCosts();
 });
 
-/* `LoadNotice` 要的是「重试这一下」本身，返回值由服务层自己收着（成功写进
- * `levelCosts`，失败写进 `levelCostsError`），所以这里把返回值吃掉。 */
+/* `LoadNotice` 要的是「重试这一下」本身，返回值由服务层自己收着，所以这里把返回值吃掉。 */
 const reload = async () => {
     await loadLevelCosts();
 };
@@ -59,161 +56,543 @@ const costs = computed(() => levelCosts.value);
 /** 千分位整数。经验动辄十亿，不分位读不出量级。 */
 const count = (value: number) => value.toLocaleString('zh-CN');
 
-/** 两个等级是否构成一个官网接受的区间；不构成时给出**这句话**。 */
-function rangeNote(from: number, to: number, min: number, cap: number): string {
-    if (from < min || from > cap) return '起始等级需在 ' + min + ' 到 ' + cap + ' 之间';
-    if (to < min || to > cap) return '目标等级需在 ' + min + ' 到 ' + cap + ' 之间';
-    if (from >= to) return '目标等级要比起始等级高';
-    return '';
+type CalcKey =
+    | 'role'
+    | 'expGrade'
+    | 'convention'
+    | 'schoolSkill'
+    | 'lifeSkill'
+    | 'cultivation'
+    | 'petCultivation'
+    | 'petLevel'
+    | 'qianYuanDan'
+    | 'qianNengGuo'
+    | 'menpai'
+    | 'gem'
+    | 'guildShop'
+    | 'petScene';
+
+interface CalcType {
+    key: CalcKey;
+    /** 卡片上那行小字：这一项算的是什么。 */
+    tag: string;
+    name: string;
+    /** 输入卡头右侧的范围提示。 */
+    inputHint: string;
+    /** 读数卡头右侧的口径提示。 */
+    resultHint: string;
 }
 
-/** 一块里的读数：名目 + 已格式化的值。 */
-type Rows = { cap: string; value: string }[];
+/**
+ * 单项计算目录，顺序即键盘切换顺序。
+ */
+const TYPES: CalcType[] = [
+    {
+        key: 'role',
+        tag: '人物',
+        name: '等级经验',
+        inputHint: '0 到 175 级',
+        resultHint: '从当前升到目标',
+    },
+    {
+        key: 'expGrade',
+        tag: '人物',
+        name: '经验换算等级',
+        inputHint: '当前等级 + 手上经验',
+        resultHint: '逐级扣减后的落点',
+    },
+    {
+        key: 'convention',
+        tag: '人物',
+        name: '人物常规',
+        inputHint: '1 到 175 级',
+        resultHint: '升级技能要求与携带金钱',
+    },
+    {
+        key: 'schoolSkill',
+        tag: '技能',
+        name: '师门技能',
+        inputHint: '单项 0 到 180 级',
+        resultHint: '经验与梦幻币',
+    },
+    {
+        key: 'lifeSkill',
+        tag: '技能',
+        name: '辅助技能',
+        inputHint: '21 项，上限各自不同',
+        resultHint: '含帮贡消耗',
+    },
+    {
+        key: 'cultivation',
+        tag: '修炼',
+        name: '人物修炼',
+        inputHint: '攻击等四类 25、猎术 20',
+        resultHint: '帮贡与等级取目标级',
+    },
+    {
+        key: 'petCultivation',
+        tag: '修炼',
+        name: '召唤兽修炼',
+        inputHint: '0 到 25 级',
+        resultHint: '按 100 环估算',
+    },
+    {
+        key: 'petLevel',
+        tag: '召唤兽',
+        name: '召唤兽升级',
+        inputHint: '1 到 180 级',
+        resultHint: '含月华露用量',
+    },
+    {
+        key: 'qianYuanDan',
+        tag: '人物',
+        name: '乾元丹',
+        inputHint: '最多 9 颗',
+        resultHint: '单颗代价累加',
+    },
+    {
+        key: 'qianNengGuo',
+        tag: '人物',
+        name: '潜能果兑换',
+        inputHint: '最多 200 颗',
+        resultHint: '只算新增那几颗',
+    },
+    {
+        key: 'menpai',
+        tag: '人物',
+        name: '转门派',
+        inputHint: '60 到 175 级',
+        resultHint: '经验封顶 10 亿',
+    },
+    {
+        key: 'gem',
+        tag: '物品',
+        name: '宝石合成',
+        inputHint: '普通 20 级、星辉 11 级',
+        resultHint: '要几颗 1 级',
+    },
+    {
+        key: 'guildShop',
+        tag: '帮派',
+        name: '商会免税',
+        inputHint: '商业指数与间数',
+        resultHint: '需卖出的营业额',
+    },
+    {
+        key: 'petScene',
+        tag: '召唤兽',
+        name: '练级场景',
+        inputHint: '0 到 175 级',
+        resultHint: '能满经验的场景',
+    },
+];
 
-function rowsOf(pairs: [string, string | null][]): Rows {
-    return pairs
-        .filter((pair) => pair[1] !== null)
-        .map(([cap, value]) => ({ cap, value: value as string }));
-}
+/** 每张卡的格子叫什么。空串表示这一格不显示；`c` 只在少数几项出现。 */
+const FIELD_LABELS: Record<CalcKey, { a: string; b: string; c: string }> = {
+    role: { a: '当前等级', b: '目标等级', c: '' },
+    expGrade: { a: '当前等级', b: '手上经验', c: '' },
+    convention: { a: '人物等级', b: '', c: '' },
+    schoolSkill: { a: '当前等级', b: '目标等级', c: '' },
+    lifeSkill: { a: '当前等级', b: '目标等级', c: '' },
+    cultivation: { a: '当前等级', b: '目标等级', c: '' },
+    petCultivation: { a: '当前等级', b: '目标等级', c: '' },
+    petLevel: { a: '当前等级', b: '目标等级', c: '' },
+    qianYuanDan: { a: '已有颗数', b: '目标颗数', c: '' },
+    qianNengGuo: { a: '已有颗数', b: '目标颗数', c: '' },
+    /* 未飞升只填前两格；已飞升多一格「已吃潜能果」。 */
+    menpai: { a: '人物等级', b: '人物总经验', c: '已吃潜能果' },
+    gem: { a: '目标等级', b: '1 级单价（万）', c: '' },
+    guildShop: { a: '商业指数', b: '店铺间数', c: '' },
+    petScene: { a: '召唤兽等级', b: '', c: '' },
+};
 
-/* ---------- ① 等级换算经验 ---------- */
-const roleFrom = ref(0);
-const roleTo = ref(175);
-const roleNote = computed(() =>
-    costs.value ? rangeNote(roleFrom.value, roleTo.value, 0, costs.value.role.cap) : '',
+/**
+ * 十四项的输入各自存一份：换卡再换回来，刚才填的数还在。
+ * `pick` 是「这一项里选哪一个」：辅助技能、修炼类型、宝石档位、转门派是否飞升。
+ */
+const form = reactive<Record<CalcKey, { a: number; b: number; c: number; pick: string }>>({
+    role: { a: 0, b: 175, c: 0, pick: '' },
+    expGrade: { a: 100, b: 100000, c: 0, pick: '' },
+    convention: { a: 175, b: 0, c: 0, pick: '' },
+    schoolSkill: { a: 0, b: 180, c: 0, pick: '' },
+    /* 默认强身术：上限 140，是 21 项里最常点的一项。 */
+    lifeSkill: { a: 0, b: 140, c: 0, pick: '201' },
+    cultivation: { a: 0, b: 25, c: 0, pick: '1' },
+    petCultivation: { a: 0, b: 25, c: 0, pick: '' },
+    petLevel: { a: 1, b: 180, c: 0, pick: '' },
+    qianYuanDan: { a: 0, b: 9, c: 0, pick: '' },
+    qianNengGuo: { a: 0, b: 50, c: 0, pick: '' },
+    menpai: { a: 129, b: 0, c: 0, pick: 'nofly' },
+    gem: { a: 5, b: 1, c: 0, pick: 'putong' },
+    guildShop: { a: 100, b: 2, c: 0, pick: '' },
+    petScene: { a: 80, b: 0, c: 0, pick: '' },
+});
+
+const active = ref<CalcKey>('role');
+const activeType = computed(() => TYPES.find((one) => one.key === active.value) ?? TYPES[0]);
+const current = computed(() => form[active.value]);
+const labels = computed(() => FIELD_LABELS[active.value]);
+
+/* 换项目只换卡，键盘仍按「一组里选一个」走：整组一个 Tab 停靠点、方向键换卡。 */
+const { cells, tabIndexFor, onKeydown } = useRovingFocus<CalcKey>({
+    values: () => TYPES.map((one) => one.key),
+    activeValue: () => active.value,
+    pick: (index) => {
+        const next = TYPES[index];
+        if (next) active.value = next.key;
+    },
+    axis: 'horizontal',
+});
+
+const lifeOptions = computed(() =>
+    (costs.value?.lifeSkill.skills ?? []).map((one) => ({
+        value: String(one.id),
+        label: `${one.name}（${one.cap}）`,
+    })),
 );
-const roleRows = computed<Rows>(() => {
-    const table = costs.value;
-    if (!table || roleNote.value) return [];
-    return rowsOf([['需要经验', count(roleExpBetween(table, roleFrom.value, roleTo.value))]]);
-});
-
-/* ---------- ② 经验换算等级 ---------- */
-const gradeNow = ref(100);
-const gradeExp = ref(100000);
-const gradeNote = computed(() => {
-    const table = costs.value;
-    if (!table) return '';
-    if (gradeNow.value < 1 || gradeNow.value > table.role.cap) {
-        return '当前等级需在 1 到 ' + table.role.cap + ' 之间';
-    }
-    return '';
-});
-const gradeRows = computed<Rows>(() => {
-    const table = costs.value;
-    if (!table || gradeNote.value) return [];
-    const result = expToGrade(table, gradeNow.value, gradeExp.value);
-    return rowsOf([
-        ['可达等级', String(result.grade)],
-        ['剩余经验', count(result.left)],
-    ]);
-});
-
-/* ---------- ③ 人物常规 ---------- */
-const conventionLevel = ref(175);
-const conventionNote = computed(() => {
-    const table = costs.value;
-    if (!table) return '';
-    if (conventionLevel.value < 1 || conventionLevel.value > table.role.cap) {
-        return '人物等级需在 1 到 ' + table.role.cap + ' 之间';
-    }
-    return '';
-});
-const conventionRows = computed<Rows>(() => {
-    if (!costs.value || conventionNote.value) return [];
-    const result = roleConvention(conventionLevel.value);
-    return rowsOf([
-        /* 官网那一格 19 级及以下写的就是「无」：技能没有上限，不是上限为零。 */
-        ['人物技能要求', result.skillCap === null ? '无' : String(result.skillCap)],
-        ['携带金钱上限', ledgerMoneyText(result.moneyCap)],
-    ]);
-});
-
-/* ---------- ④ 师门技能 ---------- */
-const skillFrom = ref(0);
-const skillTo = ref(180);
-const skillNote = computed(() =>
-    costs.value ? rangeNote(skillFrom.value, skillTo.value, 0, costs.value.schoolSkill.cap) : '',
-);
-const skillRows = computed<Rows>(() => {
-    const table = costs.value;
-    if (!table || skillNote.value) return [];
-    const result = schoolSkillCost(table, skillFrom.value, skillTo.value);
-    return rowsOf([
-        ['需要经验', count(result.exp)],
-        ['需要梦幻币', ledgerMoneyText(result.cash)],
-    ]);
-});
-
-/* ---------- ⑤ 人物修炼 ---------- */
-const cultType = ref('1');
-const cultFrom = ref(0);
-const cultTo = ref(25);
 const cultOptions = computed(() =>
     (costs.value?.cultivation.types ?? []).map((one) => ({
         value: String(one.id),
         label: one.name,
     })),
 );
-/** 选中类型的上限：猎术 20，其余 25。区间校验按它算，不写死 25。 */
-const cultCap = computed(() => {
-    const id = Number(cultType.value);
-    return costs.value?.cultivation.types.find((one) => one.id === id)?.cap ?? 25;
-});
-const cultNote = computed(() =>
-    costs.value ? rangeNote(cultFrom.value, cultTo.value, 0, cultCap.value) : '',
+const gemOptions = computed(() =>
+    (costs.value?.gem.types ?? []).map((one) => ({
+        value: one.id,
+        label: `${one.name}（${one.cap} 级）`,
+    })),
 );
-const cultRows = computed<Rows>(() => {
-    const table = costs.value;
-    if (!table || cultNote.value) return [];
-    const result = cultivationCost(table, Number(cultType.value), cultFrom.value, cultTo.value);
-    if (!result) return [];
-    return rowsOf([
-        ['需要修炼经验', count(result.exp)],
-        ['需要梦幻币', ledgerMoneyText(result.cash)],
-        ['需要资材', count(result.material)],
-        /* 帮贡与人物等级要求取目标等级那一级，不随区间增长。 */
-        ['需要帮贡', count(result.bond)],
-        ['人物等级要求', String(result.minRoleLevel)],
-    ]);
-});
+/* 转门派两条分支：官网是两个独立入口，公式只差「潜能果」那一格。 */
+const MENPAI_OPTIONS = [
+    { value: 'nofly', label: '未飞升' },
+    { value: 'fly', label: '已飞升' },
+];
 
-/* ---------- ⑥ 召唤兽修炼 ---------- */
-const petCultFrom = ref(0);
-const petCultTo = ref(25);
-const petCultNote = computed(() => rangeNote(petCultFrom.value, petCultTo.value, 0, 25));
-const petCultRows = computed<Rows>(() => {
-    const table = costs.value;
-    if (!table || petCultNote.value) return [];
-    const result = petCultivationCost(table, petCultFrom.value, petCultTo.value);
-    return rowsOf([
-        ['需要修炼经验', count(result.exp)],
-        ['人物等级要求', String(result.minRoleLevel)],
-        ['100 环数量', result.rounds100 + ' 轮'],
-    ]);
-});
+/**
+ * 换技能 / 换修炼类型时把目标等级收进新上限。
+ *
+ * 不这么做就得让用户在「必填」和「超上限」之间自己发现矛盾：21 项辅助技能的上限
+ * 从 20 到 160 不等，默认的 140 落到风之感应上就是一个必然报错的输入。
+ */
+watch(
+    () => current.value.pick,
+    () => {
+        const table = costs.value;
+        if (!table) return;
+        if (active.value === 'menpai' && current.value.pick === 'fly') {
+            current.value.a = Math.max(current.value.a, MENPAI_FLY_MIN_LEVEL);
+        }
+        const cap =
+            active.value === 'lifeSkill'
+                ? (lifeSkillOf(table, Number(current.value.pick))?.cap ?? 0)
+                : active.value === 'cultivation'
+                  ? (table.cultivation.types.find((one) => one.id === Number(current.value.pick))
+                        ?.cap ?? 0)
+                  : active.value === 'gem'
+                    ? (table.gem.types.find((one) => one.id === current.value.pick)?.cap ?? 0)
+                    : 0;
+        /* 宝石那一格是「目标等级」（`a`），其余几项收的是「目标等级」（`b`）。 */
+        if (!cap) return;
+        const level = active.value === 'gem' ? current.value.a : current.value.b;
+        if (level > cap) {
+            if (active.value === 'gem') current.value.a = cap;
+            else current.value.b = cap;
+        }
+    },
+);
 
-/* ---------- ⑦ 召唤兽升级 ---------- */
-const petFrom = ref(1);
-const petTo = ref(180);
-const petNote = computed(() => {
+/** 两个等级是否构成一个官网接受的区间；不构成时给出**这句话**。 */
+function rangeNote(from: number, to: number, min: number, cap: number): string {
+    if (![from, to].every(Number.isSafeInteger)) return '等级需为有效整数';
+    if (from < min || from > cap) return '起始等级需在 ' + min + ' 到 ' + cap + ' 之间';
+    if (to < min || to > cap) return '目标等级需在 ' + min + ' 到 ' + cap + ' 之间';
+    if (from >= to) return '目标等级要比起始等级高';
+    return '';
+}
+
+interface Reading {
+    cap: string;
+    value: string;
+}
+
+interface Outcome {
+    /** 区间不成立时的说明；非空时读数整块空着，只显示这句。 */
+    note: string;
+    /** 这一项的答案：经验、梦幻币这类主数字，大字摆在读数卡上半。 */
+    headline: Reading[];
+    /** 附带条件：等级要求、帮贡、轮次这类小字。 */
+    details: Reading[];
+}
+
+const NONE: Outcome = { note: '', headline: [], details: [] };
+
+/**
+ * 各项读数共用一个出口：页面只认识「主数字 + 附带条件」两栏，
+ * 不认识「修炼」与「乾元丹」的区别——那些口径住在 `level-costs.ts` 里。
+ */
+const outcome = computed<Outcome>(() => {
     const table = costs.value;
-    if (!table) return '';
-    return rangeNote(petFrom.value, petTo.value, 1, table.petLevel.cap);
-});
-const petRows = computed<Rows>(() => {
-    const table = costs.value;
-    if (!table || petNote.value) return [];
-    const result = petLevelCost(table, petFrom.value, petTo.value);
-    return rowsOf([
-        ['需要经验', count(result.exp)],
-        ['需要月华露', count(result.moonDew) + ' 个'],
-    ]);
+    if (!table) return NONE;
+    const input = current.value;
+    const values = [
+        input.a,
+        ...(labels.value.b ? [input.b] : []),
+        ...(active.value === 'menpai' && input.pick === 'fly' ? [input.c] : []),
+    ];
+    if (
+        values.some(
+            (value) => !Number.isFinite(value) || value < 0 || value > Number.MAX_SAFE_INTEGER,
+        )
+    ) {
+        return { ...NONE, note: '请输入有效的非负数值' };
+    }
+
+    switch (active.value) {
+        case 'role': {
+            const note = rangeNote(input.a, input.b, 0, table.role.cap);
+            if (note) return { ...NONE, note };
+            return {
+                note: '',
+                headline: [
+                    { cap: '需要经验', value: count(roleExpBetween(table, input.a, input.b)) },
+                ],
+                details: [],
+            };
+        }
+        case 'expGrade': {
+            if (input.a < 1 || input.a > table.role.cap) {
+                return { ...NONE, note: `当前等级需在 1 到 ${table.role.cap} 之间` };
+            }
+            const result = expToGrade(table, input.a, input.b);
+            return {
+                note: '',
+                headline: [{ cap: '剩余经验', value: count(result.left) }],
+                details: [{ cap: '可达等级', value: String(result.grade) }],
+            };
+        }
+        case 'convention': {
+            if (input.a < 1 || input.a > table.role.cap) {
+                return { ...NONE, note: `人物等级需在 1 到 ${table.role.cap} 之间` };
+            }
+            const result = roleConvention(input.a);
+            return {
+                note: '',
+                headline: [{ cap: '携带金钱上限', value: ledgerMoneyText(result.moneyCap) }],
+                /* 这里是升级所需技能要求，不是师门技能可学上限。 */
+                details: [
+                    {
+                        cap: '人物技能要求',
+                        value: result.skillCap === null ? '无' : String(result.skillCap),
+                    },
+                ],
+            };
+        }
+        case 'schoolSkill': {
+            const note = rangeNote(input.a, input.b, 0, table.schoolSkill.cap);
+            if (note) return { ...NONE, note };
+            const result = schoolSkillCost(table, input.a, input.b);
+            return {
+                note: '',
+                headline: [
+                    { cap: '需要经验', value: count(result.exp) },
+                    { cap: '需要梦幻币', value: ledgerMoneyText(result.cash) },
+                ],
+                details: [],
+            };
+        }
+        case 'lifeSkill': {
+            const skill = lifeSkillOf(table, Number(input.pick));
+            if (!skill) return { ...NONE, note: '请选择一项辅助技能' };
+            const note = rangeNote(input.a, input.b, 0, skill.cap);
+            if (note) return { ...NONE, note };
+            const result = lifeSkillCost(table, skill.id, input.a, input.b);
+            if (!result) return { ...NONE, note: `目标等级需在 0 到 ${skill.cap} 之间` };
+            return {
+                note: '',
+                headline: [
+                    { cap: '需要经验', value: count(result.exp) },
+                    { cap: '需要梦幻币', value: ledgerMoneyText(result.cash) },
+                ],
+                /* 帮贡两列都由等级推出：需要 = 5×目标等级，消耗 = 区间三角数之差。 */
+                details: [
+                    { cap: '需要帮贡', value: count(result.reqBond) },
+                    { cap: '消耗帮贡', value: count(result.usedBond) },
+                ],
+            };
+        }
+        case 'cultivation': {
+            const type = table.cultivation.types.find((one) => one.id === Number(input.pick));
+            if (!type) return { ...NONE, note: '请选择一类修炼' };
+            const note = rangeNote(input.a, input.b, 0, type.cap);
+            if (note) return { ...NONE, note };
+            const result = cultivationCost(table, type.id, input.a, input.b);
+            if (!result) return { ...NONE, note: `目标等级需在 0 到 ${type.cap} 之间` };
+            return {
+                note: '',
+                headline: [
+                    { cap: '需要修炼经验', value: count(result.exp) },
+                    { cap: '需要梦幻币', value: ledgerMoneyText(result.cash) },
+                ],
+                /* 帮贡与人物等级要求取目标等级那一级，不随区间增长。 */
+                details: [
+                    { cap: '需要资材', value: count(result.material) },
+                    { cap: '需要帮贡', value: count(result.bond) },
+                    { cap: '人物等级要求', value: String(result.minRoleLevel) },
+                ],
+            };
+        }
+        case 'petCultivation': {
+            const note = rangeNote(input.a, input.b, 0, 25);
+            if (note) return { ...NONE, note };
+            const result = petCultivationCost(table, input.a, input.b);
+            return {
+                note: '',
+                headline: [{ cap: '需要修炼经验', value: count(result.exp) }],
+                details: [
+                    { cap: '人物等级要求', value: String(result.minRoleLevel) },
+                    { cap: '100 环数量', value: result.rounds100 + ' 轮' },
+                ],
+            };
+        }
+        case 'petLevel': {
+            const note = rangeNote(input.a, input.b, 1, table.petLevel.cap);
+            if (note) return { ...NONE, note };
+            const result = petLevelCost(table, input.a, input.b);
+            return {
+                note: '',
+                headline: [{ cap: '需要经验', value: count(result.exp) }],
+                details: [{ cap: '需要月华露', value: count(result.moonDew) + ' 个' }],
+            };
+        }
+        case 'qianYuanDan': {
+            if (input.a < 0 || input.a > table.qianYuanDan.cap) {
+                return { ...NONE, note: `已有颗数需在 0 到 ${table.qianYuanDan.cap} 之间` };
+            }
+            if (input.b < input.a || input.b > table.qianYuanDan.cap) {
+                return {
+                    ...NONE,
+                    note: `目标颗数需在 ${input.a} 到 ${table.qianYuanDan.cap} 之间`,
+                };
+            }
+            const result = qianYuanDanCost(table, input.a, input.b);
+            if (!result) return { ...NONE, note: '颗数超出范围' };
+            return {
+                note: '',
+                headline: [
+                    { cap: '需要经验', value: count(result.exp) },
+                    { cap: '需要梦幻币', value: ledgerMoneyText(result.cash) },
+                ],
+                details: [],
+            };
+        }
+        case 'qianNengGuo': {
+            const cap = table.qianNengGuo.cap;
+            if (input.a < 0 || input.a > cap) {
+                return { ...NONE, note: `已有颗数需在 0 到 ${cap} 之间` };
+            }
+            if (input.b < input.a || input.b > cap) {
+                return { ...NONE, note: `目标颗数需在 ${input.a} 到 ${cap} 之间` };
+            }
+            const result = qianNengGuoCost(table, input.a, input.b);
+            if (!result) return { ...NONE, note: '颗数超出范围' };
+            return {
+                note: '',
+                headline: [{ cap: '需要经验', value: count(result.exp) }],
+                /* 只算新增那几颗：0→200 与 150→200 的差价，取决于从第几颗开始吃。 */
+                details: [{ cap: '新增颗数', value: count(result.fruits) + ' 颗' }],
+            };
+        }
+        case 'menpai': {
+            const fly = input.pick === 'fly';
+            const floor = fly ? MENPAI_FLY_MIN_LEVEL : table.menpai.min;
+            if (input.a < floor || input.a > table.menpai.max) {
+                return { ...NONE, note: `人物等级需在 ${floor} 到 ${table.menpai.max} 之间` };
+            }
+            if (fly && (input.c < 0 || input.c > table.qianNengGuo.cap)) {
+                return { ...NONE, note: `已吃潜能果需在 0 到 ${table.qianNengGuo.cap} 之间` };
+            }
+            const result = menpaiCost(table, input.a, input.b, fly ? input.c : null);
+            if (!result) return { ...NONE, note: '等级超出可转范围' };
+            const details: Reading[] = [];
+            if (result.capped) {
+                details.push({ cap: '已按上限计', value: '10 亿' });
+            }
+            if (result.fruit !== null) {
+                details.push({ cap: '需扣除潜能果', value: count(result.fruit) + ' 颗' });
+                if (result.fruitShort) {
+                    details.push({ cap: '还需再吃', value: count(result.fruitShort) + ' 颗' });
+                }
+            }
+            return {
+                note: '',
+                headline: [{ cap: '需要经验', value: count(result.exp) }],
+                details,
+            };
+        }
+        case 'gem': {
+            const type = table.gem.types.find((one) => one.id === input.pick);
+            if (!type) return { ...NONE, note: '请选择宝石档位' };
+            const result = gemCost(table, type.id, input.a, input.b * 10_000);
+            if (!result)
+                return { ...NONE, note: `等级需在 1 到 ${type.cap} 之间，单价需为有效金额` };
+            return {
+                note: '',
+                headline: [{ cap: '需要 1 级', value: count(result.total) + ' 颗' }],
+                details: [
+                    ...(input.a >= 2
+                        ? [{ cap: `${input.a - 1} 级等价数量`, value: count(result.lower) + ' 颗' }]
+                        : []),
+                    ...(input.a >= 3
+                        ? [
+                              {
+                                  cap: `${input.a - 2} 级等价数量`,
+                                  value: count(result.lower2) + ' 颗',
+                              },
+                          ]
+                        : []),
+                    { cap: '折合花费', value: ledgerMoneyText(result.money) },
+                ],
+            };
+        }
+        case 'guildShop': {
+            if (input.a <= 0) return { ...NONE, note: '商业指数要大于 0' };
+            if (input.b < 1) return { ...NONE, note: '店铺间数至少 1 间' };
+            const quota = guildShopQuota(input.a, input.b);
+            if (!Number.isSafeInteger(quota)) return { ...NONE, note: '营业额超出计算范围' };
+            return {
+                note: '',
+                headline: [
+                    {
+                        cap: '需卖出的营业额',
+                        value: ledgerMoneyText(quota),
+                    },
+                ],
+                details: [{ cap: '换算口径', value: '指数 × 1000 × 间数' }],
+            };
+        }
+        case 'petScene': {
+            if (input.a < 0 || input.a > 175)
+                return { ...NONE, note: '召唤兽等级需在 0 到 175 之间' };
+            const scenes = petScenesAt(table, input.a);
+            if (!scenes.length) return { ...NONE, note: '这一级没有能吃满经验的场景' };
+            return {
+                note: '',
+                /* 场景经验是「五人组队领双」的单场值，与召唤兽等级无关，所以不求和只列区间。 */
+                headline: [{ cap: '满经验场景', value: scenes.length + ' 处' }],
+                details: scenes.map((one) => ({
+                    cap: one.name,
+                    value: `${one.min}–${one.max} 级 · ${count(one.exp)}`,
+                })),
+            };
+        }
+        default:
+            return NONE;
+    }
 });
 </script>
 
 <template>
-    <PageShell title="养成计算器" desc="手动输入 · 与官网工具箱同口径">
+    <PageShell title="养成计算器" desc="单项代价 · 角色预算">
         <template #actions>
             <!-- 与捉鬼、闹钟页同一枚：图标读动作方向，字只写动词，完整语义在 label 里。 -->
             <PressButton
@@ -224,195 +603,211 @@ const petRows = computed<Rows>(() => {
             />
         </template>
 
-        <LoadNotice :error="levelCostsError" :load="reload" />
+        <div class="growth-calculator">
+            <LoadNotice :error="levelCostsError" :load="reload" />
 
-        <template v-if="costs">
-            <LedgerSection title="等级换算经验" hint="人物 0 到 175 级">
-                <div class="calc-fields">
-                    <label class="form-field">
-                        <span class="field-label">当前等级</span>
-                        <NumberField v-model="roleFrom" label="当前等级" />
-                    </label>
-                    <label class="form-field">
-                        <span class="field-label">目标等级</span>
-                        <NumberField v-model="roleTo" label="目标等级" />
-                    </label>
+            <template v-if="costs">
+                <SegmentedPills
+                    v-model="mode"
+                    :options="MODES"
+                    label="计算方式"
+                    class="calc-mode"
+                />
+                <div v-show="mode === 'plan'">
+                    <GrowthPlan :costs="costs" />
                 </div>
-                <p v-if="roleNote" class="note error" role="alert">{{ roleNote }}</p>
-                <dl v-else class="calc-rows">
-                    <template v-for="row in roleRows" :key="row.cap">
-                        <dt>{{ row.cap }}</dt>
-                        <dd class="num">{{ row.value }}</dd>
-                    </template>
-                </dl>
-            </LedgerSection>
+                <template v-if="mode === 'single'">
+                    <!-- 类型卡共用纸面材质。用 `button` 而不是把纸包在按钮里——按钮里只能放行内内容，
+                 而这一格既要是纸（`.board`）、又要能被点与键盘选中。材质仍走全局那一条，
+                 这里只加边与选中记号。 -->
+                    <div
+                        class="calc-picks"
+                        role="radiogroup"
+                        aria-label="计算项目"
+                        @keydown="onKeydown"
+                    >
+                        <button
+                            v-for="(one, i) in TYPES"
+                            :key="one.key"
+                            ref="cells"
+                            type="button"
+                            class="board calc-pick"
+                            role="radio"
+                            :aria-checked="one.key === active"
+                            :tabindex="tabIndexFor(i)"
+                            @click="active = one.key"
+                        >
+                            <span class="calc-pick-tag">{{ one.tag }}</span>
+                            <span class="calc-pick-name">{{ one.name }}</span>
+                            <span class="calc-pick-mark" aria-hidden="true" />
+                        </button>
+                    </div>
 
-            <LedgerSection title="经验换算等级" hint="当前等级 + 手上经验">
-                <div class="calc-fields">
-                    <label class="form-field">
-                        <span class="field-label">当前等级</span>
-                        <NumberField v-model="gradeNow" label="当前等级" />
-                    </label>
-                    <label class="form-field">
-                        <span class="field-label">当前经验</span>
-                        <NumberField v-model="gradeExp" label="当前经验" />
-                    </label>
-                </div>
-                <p v-if="gradeNote" class="note error" role="alert">{{ gradeNote }}</p>
-                <dl v-else class="calc-rows">
-                    <template v-for="row in gradeRows" :key="row.cap">
-                        <dt>{{ row.cap }}</dt>
-                        <dd class="num">{{ row.value }}</dd>
-                    </template>
-                </dl>
-            </LedgerSection>
+                    <div class="calc-panel growth-layout">
+                        <LedgerSection
+                            class="growth-card"
+                            :title="activeType.name"
+                            :hint="activeType.inputHint"
+                        >
+                            <div class="calc-fields growth-field-grid">
+                                <label
+                                    v-if="active === 'lifeSkill'"
+                                    class="slip-row sm growth-input-row growth-pick-row"
+                                >
+                                    <span class="field-label">技能</span>
+                                    <SelectField
+                                        v-model="current.pick"
+                                        :options="lifeOptions"
+                                        label="辅助技能"
+                                    />
+                                </label>
+                                <label
+                                    v-if="active === 'cultivation'"
+                                    class="slip-row sm growth-input-row growth-pick-row"
+                                >
+                                    <span class="field-label">类型</span>
+                                    <SelectField
+                                        v-model="current.pick"
+                                        :options="cultOptions"
+                                        label="修炼类型"
+                                    />
+                                </label>
+                                <label
+                                    v-if="active === 'gem' || active === 'menpai'"
+                                    class="slip-row sm growth-input-row growth-pick-row"
+                                >
+                                    <span class="field-label">{{
+                                        active === 'gem' ? '档位' : '阶段'
+                                    }}</span>
+                                    <SelectField
+                                        v-model="current.pick"
+                                        :options="active === 'gem' ? gemOptions : MENPAI_OPTIONS"
+                                        :label="active === 'gem' ? '宝石档位' : '飞升阶段'"
+                                    />
+                                </label>
+                                <label class="slip-row sm growth-input-row">
+                                    <span class="field-label">{{ labels.a }}</span>
+                                    <NumberField
+                                        v-model="current.a"
+                                        :label="labels.a"
+                                        update-on-input
+                                    />
+                                </label>
+                                <label v-if="labels.b" class="slip-row sm growth-input-row">
+                                    <span class="field-label">{{ labels.b }}</span>
+                                    <NumberField
+                                        v-model="current.b"
+                                        :label="labels.b"
+                                        :precision="active === 'gem' ? 2 : 0"
+                                        update-on-input
+                                    />
+                                </label>
+                                <!-- 已飞升转门派多一格「已吃潜能果」：未飞升那条公式没有它。 -->
+                                <label
+                                    v-if="
+                                        labels.c && (active !== 'menpai' || current.pick === 'fly')
+                                    "
+                                    class="slip-row sm growth-input-row"
+                                >
+                                    <span class="field-label">{{ labels.c }}</span>
+                                    <NumberField
+                                        v-model="current.c"
+                                        :label="labels.c"
+                                        update-on-input
+                                    />
+                                </label>
+                            </div>
+                        </LedgerSection>
 
-            <LedgerSection title="人物常规" hint="技能上限与携带金钱">
-                <div class="calc-fields">
-                    <label class="form-field">
-                        <span class="field-label">人物等级</span>
-                        <NumberField v-model="conventionLevel" label="人物等级" />
-                    </label>
-                </div>
-                <p v-if="conventionNote" class="note error" role="alert">
-                    {{ conventionNote }}
-                </p>
-                <dl v-else class="calc-rows">
-                    <template v-for="row in conventionRows" :key="row.cap">
-                        <dt>{{ row.cap }}</dt>
-                        <dd class="num">{{ row.value }}</dd>
-                    </template>
-                </dl>
-            </LedgerSection>
-
-            <LedgerSection title="师门技能" hint="单项技能 0 到 180 级">
-                <div class="calc-fields">
-                    <label class="form-field">
-                        <span class="field-label">当前等级</span>
-                        <NumberField v-model="skillFrom" label="技能当前等级" />
-                    </label>
-                    <label class="form-field">
-                        <span class="field-label">目标等级</span>
-                        <NumberField v-model="skillTo" label="技能目标等级" />
-                    </label>
-                </div>
-                <p v-if="skillNote" class="note error" role="alert">{{ skillNote }}</p>
-                <dl v-else class="calc-rows">
-                    <template v-for="row in skillRows" :key="row.cap">
-                        <dt>{{ row.cap }}</dt>
-                        <dd class="num">{{ row.value }}</dd>
-                    </template>
-                </dl>
-            </LedgerSection>
-
-            <LedgerSection title="人物修炼" hint="帮贡与等级要求取目标等级">
-                <div class="calc-fields">
-                    <label class="form-field cult-type">
-                        <span class="field-label">类型</span>
-                        <SelectField v-model="cultType" :options="cultOptions" label="修炼类型" />
-                    </label>
-                    <label class="form-field">
-                        <span class="field-label">当前等级</span>
-                        <NumberField v-model="cultFrom" label="修炼当前等级" />
-                    </label>
-                    <label class="form-field">
-                        <span class="field-label">目标等级</span>
-                        <NumberField v-model="cultTo" label="修炼目标等级" />
-                    </label>
-                </div>
-                <p v-if="cultNote" class="note error" role="alert">{{ cultNote }}</p>
-                <dl v-else class="calc-rows">
-                    <template v-for="row in cultRows" :key="row.cap">
-                        <dt>{{ row.cap }}</dt>
-                        <dd class="num">{{ row.value }}</dd>
-                    </template>
-                </dl>
-            </LedgerSection>
-
-            <LedgerSection title="召唤兽修炼" hint="0 到 25 级 · 按 100 环估算">
-                <div class="calc-fields">
-                    <label class="form-field">
-                        <span class="field-label">当前等级</span>
-                        <NumberField v-model="petCultFrom" label="召唤兽修炼当前等级" />
-                    </label>
-                    <label class="form-field">
-                        <span class="field-label">目标等级</span>
-                        <NumberField v-model="petCultTo" label="召唤兽修炼目标等级" />
-                    </label>
-                </div>
-                <p v-if="petCultNote" class="note error" role="alert">
-                    {{ petCultNote }}
-                </p>
-                <dl v-else class="calc-rows">
-                    <template v-for="row in petCultRows" :key="row.cap">
-                        <dt>{{ row.cap }}</dt>
-                        <dd class="num">{{ row.value }}</dd>
-                    </template>
-                </dl>
-            </LedgerSection>
-
-            <LedgerSection title="召唤兽升级" hint="1 到 180 级 · 含月华露">
-                <div class="calc-fields">
-                    <label class="form-field">
-                        <span class="field-label">当前等级</span>
-                        <NumberField v-model="petFrom" label="召唤兽当前等级" />
-                    </label>
-                    <label class="form-field">
-                        <span class="field-label">目标等级</span>
-                        <NumberField v-model="petTo" label="召唤兽目标等级" />
-                    </label>
-                </div>
-                <p v-if="petNote" class="note error" role="alert">{{ petNote }}</p>
-                <dl v-else class="calc-rows">
-                    <template v-for="row in petRows" :key="row.cap">
-                        <dt>{{ row.cap }}</dt>
-                        <dd class="num">{{ row.value }}</dd>
-                    </template>
-                </dl>
-            </LedgerSection>
-        </template>
+                        <LedgerSection
+                            class="growth-card growth-result-card"
+                            title="需要多少"
+                            :hint="activeType.resultHint"
+                        >
+                            <p v-if="outcome.note" class="note error" role="alert">
+                                {{ outcome.note }}
+                            </p>
+                            <template v-else>
+                                <!-- 主数字并排：经验与梦幻币是这一屏的答案，字号给到账面读数那一档。 -->
+                                <div
+                                    v-if="outcome.headline.length"
+                                    class="calc-amounts growth-amounts"
+                                    :style="{ '--amount-n': outcome.headline.length }"
+                                >
+                                    <div
+                                        v-for="one in outcome.headline"
+                                        :key="one.cap"
+                                        class="calc-amount growth-amount"
+                                    >
+                                        <span class="cap">{{ one.cap }}</span>
+                                        <strong class="v num">{{ one.value }}</strong>
+                                    </div>
+                                </div>
+                                <dl v-if="outcome.details.length" class="calc-rows growth-readings">
+                                    <template v-for="one in outcome.details" :key="one.cap">
+                                        <dt>{{ one.cap }}</dt>
+                                        <dd class="num">{{ one.value }}</dd>
+                                    </template>
+                                </dl>
+                            </template>
+                        </LedgerSection>
+                    </div>
+                </template>
+            </template>
+        </div>
     </PageShell>
 </template>
 
-<style scoped>
-/* 一格输入 = 一行小标签 + 一个凹槽。竖排而不是横排：格子上方那行标签是「这一格是什么」，
- * 横排时几个标签连成一句，读起来像一句话而不是几格。 */
-.calc-fields {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px 16px;
-    align-items: flex-end;
-}
-/* 类型下拉比等级格宽一档：五个选项的名字（「抗法修炼」）四个字，72 宽会截断。 */
-.cult-type {
-    width: 132px;
-}
+<style src="./growth-calculator.css"></style>
 
-/* 读数区：左列名目、右列数字。名目列宽按最长的一项定（「需要修炼经验」六个字），
- * 数字才在七块之间左缘对齐。 */
-.calc-rows {
+<style scoped>
+.calc-mode {
+    width: fit-content;
+    margin-bottom: 12px;
+}
+/* 项目入口保持统一窄卡宽度，窗口加宽只增加列数。 */
+.calc-picks {
     display: grid;
-    grid-template-columns: 7.5em minmax(0, 1fr);
-    gap: 0;
-    margin: 14px 0 0;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 152px), 168px));
+    justify-content: start;
+    gap: 8px;
+    margin-bottom: 12px;
 }
-.calc-rows dt,
-.calc-rows dd {
-    margin: 0;
-    padding: 6px 0;
-    border-top: 1px dashed var(--rule-2);
-    font-size: var(--fs-sm);
-    line-height: 1.5;
+/* 留一圈透明边：选中时只换边色，卡片不会因此跳 2px（与 `.character-choice` 同一手法）。 */
+.calc-pick {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    padding: 8px 10px;
+    border: var(--w-hair) solid transparent;
+    text-align: left;
+    cursor: pointer;
 }
-.calc-rows dt {
+.calc-pick:hover {
+    border-color: var(--rule-2);
+}
+.calc-pick[aria-checked='true'] {
+    border-color: var(--seal-edge);
+}
+.calc-pick-tag {
     color: var(--muted);
+    font-size: var(--fs-mini);
+    letter-spacing: 0.08em;
 }
-.calc-rows dd {
-    overflow-wrap: anywhere;
-    font-variant-numeric: tabular-nums;
+.calc-pick-name {
+    color: var(--ink);
+    font-size: var(--fs-sm);
+    line-height: 1.4;
 }
-/* 数字是这块的主角：与统计签同一个赭色。 */
-.calc-rows .num {
-    color: var(--num);
+/* 选中记号是一道短朱条，不换字号字重（CONVENTIONS §2.4-9）。 */
+.calc-pick-mark {
+    width: 22px;
+    height: 2px;
+    margin-top: 3px;
+    border-radius: 1px;
+    background: transparent;
+}
+.calc-pick[aria-checked='true'] .calc-pick-mark {
+    background: var(--accent);
 }
 </style>

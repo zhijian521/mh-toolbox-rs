@@ -1,0 +1,125 @@
+/* 单项与综合计算共用尺寸、结果层级及数字强调，不影响其他页面的数值墨。 */
+.growth-calculator {
+    max-width: 1376px;
+    container-type: inline-size;
+}
+.growth-calculator .growth-card {
+    --block-pad: 12px;
+    min-width: 0;
+}
+.growth-calculator .growth-card .section-head {
+    margin-bottom: 8px;
+}
+.growth-calculator .growth-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 360px) minmax(0, 380px);
+    gap: 12px;
+    align-items: start;
+    justify-content: start;
+}
+/* 列数随内容区宽度变化；每张卡保留上限，最后一张不会独占一整行。 */
+.growth-calculator .plan-layout {
+    grid-template-columns: minmax(0, 984px);
+}
+.growth-calculator .plan-layout .plan-summary {
+    width: 100%;
+    max-width: 380px;
+}
+.growth-calculator .growth-result-card {
+    border-top: 3px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 6%, var(--paper));
+}
+.growth-calculator .growth-result-card .section-head h2,
+.growth-calculator .num,
+.growth-calculator .field.num {
+    color: var(--accent);
+}
+.growth-calculator .growth-field-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+}
+.growth-calculator .growth-input-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 144px);
+    gap: 6px;
+    height: auto;
+    min-height: calc(32px * var(--fs-scale));
+    padding: 3px 8px;
+}
+.growth-calculator .growth-input-row .field-label {
+    font-size: var(--fs-xs);
+    line-height: 1.35;
+}
+.growth-calculator .growth-input-row .number-field {
+    width: 100%;
+    min-width: 0;
+    height: calc(24px * var(--fs-scale));
+    padding: 2px 4px;
+    font-size: var(--fs-xs);
+}
+.growth-calculator .growth-pick-row {
+    grid-column: 1 / -1;
+}
+.growth-calculator .growth-pick-row .select-field {
+    justify-self: end;
+    width: min(100%, 200px);
+}
+.growth-calculator .growth-amounts {
+    display: grid;
+    grid-template-columns: repeat(var(--amount-n, 2), minmax(0, 1fr));
+    gap: 8px;
+}
+.growth-calculator .growth-amount {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+.growth-calculator .growth-amount > span {
+    color: var(--muted);
+    font-size: var(--fs-xs);
+}
+.growth-calculator .growth-amount > strong {
+    overflow-wrap: anywhere;
+    font-size: var(--fs-amount);
+    font-weight: 500;
+    line-height: 1.3;
+    font-variant-numeric: tabular-nums;
+}
+.growth-calculator .growth-readings {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    gap: 5px 8px;
+    margin: 10px 0 0;
+    font-size: var(--fs-xs);
+    line-height: 1.5;
+}
+.growth-calculator .growth-readings dt {
+    color: var(--muted);
+}
+.growth-calculator .growth-readings dd {
+    margin: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+}
+/* 以页面可用宽度为准，侧栏与窗口大小均不会把卡片挤窄。 */
+@container (max-width: 640px) {
+    .growth-calculator .growth-layout {
+        grid-template-columns: minmax(0, 380px);
+    }
+}
+@container (min-width: 1044px) {
+    .growth-calculator .plan-layout {
+        grid-template-columns: minmax(0, 652px) minmax(0, 380px);
+    }
+    .growth-calculator .plan-layout .plan-summary {
+        position: sticky;
+        top: 12px;
+    }
+}
+@container (min-width: 1376px) {
+    .growth-calculator .plan-layout {
+        grid-template-columns: minmax(0, 984px) minmax(0, 380px);
+    }
+}

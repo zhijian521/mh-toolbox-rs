@@ -3,6 +3,11 @@ import { recommendTests, statusPaths } from './test-impact.mjs';
 import { TEST_SCOPES } from './test-scopes.mjs';
 
 describe('根据改动推荐测试范围', () => {
+    it('养成公式改动推荐工具计算断言', () => {
+        const result = recommendTests(['src/services/level-costs.ts']);
+        expect(result.scopes).toContain('tools');
+        expect(result.smoke).toContain('工具');
+    });
     it('公共加载覆盖业务数据层及数据烟测，不只推荐服务层', () => {
         const result = recommendTests(['src/services/load-data.ts']);
         expect(result.scopes).toEqual([
