@@ -441,6 +441,17 @@ onBeforeUnmount(() => {
                     >
                         <AppIcon name="chevron-right" />
                     </button>
+                    <button
+                        type="button"
+                        class="nav"
+                        aria-label="关闭日历"
+                        title="关闭日历"
+                        @keydown.enter.stop
+                        @keydown.space.stop
+                        @click="closePanel(true)"
+                    >
+                        <AppIcon name="close" />
+                    </button>
                 </div>
 
                 <div class="date-week">

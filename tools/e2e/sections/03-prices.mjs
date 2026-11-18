@@ -125,6 +125,29 @@ export default async function run(ctx) {
                 'Esc 只关闭月历，保留记价草稿',
                 await ui.exists('input[aria-label="这一笔多少钱，以万为单位"]'),
             );
+            await cdp.click('[role="dialog"] .date-trigger');
+            await cdp.waitFor(`!!document.querySelector('.date-panel')`, { timeout: 3000 });
+            await ui.clickLabel('关闭日历');
+            t.check(
+                '月历关闭图标只收起月历并还焦点给日期字段',
+                await cdp.evaluate(`!document.querySelector('.date-panel') &&
+                    document.activeElement?.matches('.date-trigger') &&
+                    !!document.querySelector('input[aria-label="这一笔多少钱，以万为单位"]')`),
+            );
+            const selectedDate = await cdp.evaluate(
+                `document.querySelector('.date-trigger')?.textContent`,
+            );
+            await cdp.click('[role="dialog"] .date-trigger');
+            await cdp.waitFor(`!!document.querySelector('.date-panel')`, { timeout: 3000 });
+            await ui.clickLabel('下一个月');
+            await cdp.evaluate(`document.querySelector('[aria-label="关闭日历"]')?.focus()`);
+            await cdp.key('Enter');
+            t.check(
+                '键盘触发月历关闭图标不选中翻页后的日期',
+                await cdp.evaluate(`!document.querySelector('.date-panel') &&
+                    document.activeElement?.matches('.date-trigger') &&
+                    document.querySelector('.date-trigger')?.textContent === ${JSON.stringify(selectedDate)}`),
+            );
 
             await ui.fillSel('input[aria-label="这一笔多少钱，以万为单位"]', '7.25');
             await ui.clickLabel('记下这一笔价');
@@ -170,6 +193,18 @@ export default async function run(ctx) {
         });
 
         await t.step('删除物品并回到原来的数量', async () => {
+            await ui.clickIn('article.price-card', 'E2E测试物品', { text: '删' });
+            await sleep(400);
+            t.check(
+                '无标题确认窗仍默认聚焦取消',
+                await cdp.evaluate('document.activeElement?.hasAttribute("data-modal-cancel")'),
+            );
+            await cdp.click('.modal-panel[aria-modal="true"] [data-modal-close]');
+            t.check(
+                '确认窗关闭图标取消删除并保留物品',
+                (await ui.waitFor('!document.querySelector(".modal-panel")')) &&
+                    (await ui.text()).includes('E2E测试物品'),
+            );
             await ui.clickIn('article.price-card', 'E2E测试物品', { text: '删' });
             await sleep(400);
             await ui.clickText(CONFIRM_DELETE, '删除', { exact: true });

@@ -293,6 +293,12 @@ export async function setup(ctx) {
                 await cdp.evaluate(`
                 document.querySelector('.editor [aria-label="保存这个角色"]')?.disabled === true`),
             );
+            await cdp.click('.modal-panel[aria-modal="true"] [data-modal-close]');
+            t.check(
+                '慢写期间右上角关闭图标不绕过保存保护',
+                await cdp.evaluate(`!!document.querySelector('.editor') &&
+                    document.querySelector('.editor [aria-label="保存这个角色"]')?.disabled === true`),
+            );
             await cdp.evaluate('window.__e2eReleaseSave()');
             t.check(
                 '真实写入完成后表单收起',

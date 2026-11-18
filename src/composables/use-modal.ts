@@ -99,7 +99,8 @@ export function useModal(options: UseModalOptions): UseModalResult {
         if (options.initialFocus === 'none') return;
 
         const panel = options.panel.value;
-        const list = focusables();
+        /* 右上角关闭键参与 Tab 循环，但不抢走原有表单的初始焦点。 */
+        const list = focusables().filter((element) => !element.hasAttribute('data-modal-close'));
         if (options.initialFocus === 'cancel') {
             const cancel = panel?.querySelector<HTMLElement>('[data-modal-cancel]');
             if (cancel) {

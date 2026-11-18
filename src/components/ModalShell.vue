@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import PressButton from './PressButton.vue';
 import { useModal } from '../composables/use-modal';
 import { useModalSize } from '../composables/use-modal-size';
 
@@ -90,10 +91,10 @@ const props = withDefaults(
         /**
          * 外部给的「这个名字念什么」（元素 id）。
          *
-         * `title` 同时管两件事：**画不画标题栏**、**读屏念什么**。删除确认两件都不想要标题栏
+         * `title` 同时管两件事：**显示什么标题**、**读屏念什么**。删除确认不重复显示标题
          * （一句话的窗顶一行「删除确认」是把同句话说两遍），但它必须能被念出来——
          * 否则读屏只听到一个叫「确认」的对话框，听不到要删的是哪一件、会连带几条记录。
-         * 所以拆开：`title` 管画不画，这个 prop 管念什么。
+         * 所以拆开：`title` 管标题，这个 prop 管念什么；右上角关闭入口始终保留。
          */
         labelledby?: string;
     }>(),
@@ -177,8 +178,15 @@ const panelStyle = computed(() => {
                 tabindex="-1"
                 :style="panelStyle"
             >
-                <header v-if="title" class="modal-head">
-                    <h2 :id="titleId">{{ title }}</h2>
+                <header class="modal-head" :class="{ 'modal-head-untitled': !title }">
+                    <h2 v-if="title" :id="titleId">{{ title }}</h2>
+                    <PressButton
+                        class="modal-close"
+                        data-modal-close
+                        icon="close"
+                        label="关闭弹窗"
+                        @click="emit('close')"
+                    />
                 </header>
 
                 <div
@@ -242,8 +250,21 @@ const panelStyle = computed(() => {
 
 .modal-head {
     flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     padding: 11px 16px;
     border-bottom: var(--w-hair) solid var(--rule-2);
+}
+.modal-head-untitled {
+    padding-top: 8px;
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+.modal-close {
+    flex: none;
+    margin-left: auto;
 }
 .modal-panel-sizing {
     overflow: clip;
@@ -251,8 +272,10 @@ const panelStyle = computed(() => {
 /* 标题与全站同级标题同一个字重与色：`base.css` 的 `h2` 是 400，
  * 这里不覆写——弹窗靠浮层与阴影表态，不靠把标题加粗。 */
 .modal-head h2 {
+    min-width: 0;
     margin: 0;
     color: var(--ink);
+    overflow-wrap: anywhere;
 }
 
 /* 正文可滚、页眉页脚固定：历史窗里流水很长，滚的只能是中间那一段，

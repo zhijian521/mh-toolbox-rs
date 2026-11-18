@@ -299,7 +299,36 @@ export default async function run(ctx) {
                     );
                     t.check('快捷动作参数已消费', !(await ui.hash()).includes('action='));
                     const hash = await ui.hash();
-                    await ui.dismiss();
+                    const closeButton = await cdp.evaluate(`(() => {
+                        const panel = document.querySelector('.modal-panel[aria-modal="true"]');
+                        const button = panel?.querySelector('.modal-head [data-modal-close]');
+                        if (!panel || !button) return null;
+                        const box = panel.getBoundingClientRect();
+                        const close = button.getBoundingClientRect();
+                        return {
+                            right: box.right - close.right,
+                            top: close.top - box.top,
+                            width: close.width,
+                            height: close.height,
+                            focused: document.activeElement === button,
+                        };
+                    })()`);
+                    t.check(
+                        prefix + '关闭图标位于弹窗右上角',
+                        !!closeButton &&
+                            closeButton.width > 0 &&
+                            closeButton.height > 0 &&
+                            closeButton.right >= 0 &&
+                            closeButton.right <= 24 &&
+                            closeButton.top >= 0 &&
+                            closeButton.top <= 20,
+                    );
+                    t.check(prefix + '关闭图标不抢初始焦点', closeButton?.focused === false);
+                    await cdp.click('.modal-panel[aria-modal="true"] [data-modal-close]');
+                    t.check(
+                        prefix + '点击右上角关闭弹窗',
+                        await ui.waitFor('!document.querySelector(".modal-panel")'),
+                    );
                     await ui.gotoReady('总览');
                     await cdp.evaluate('location.hash = ' + JSON.stringify(hash));
                     await sleep(400);
