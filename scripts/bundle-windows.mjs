@@ -49,8 +49,13 @@ const redist = redists
     .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
     .find((dir) => REQUIRED_CRT.every((name) => fs.existsSync(path.join(dir, name))));
 if (!redist) throw new Error('未找到 Visual Studio x64 VC++ 可再分发运行库');
+// Tauri 的资源相对路径处理不支持跨盘来源，先落到同盘构建目录再封装。
+const stagedRedist = path.join(target, 'bundle-resources', 'crt');
+fs.mkdirSync(stagedRedist, { recursive: true });
 for (const file of fs.readdirSync(redist).filter((name) => name.endsWith('.dll'))) {
-    resources[path.join(redist, file)] = file;
+    const staged = path.join(stagedRedist, file);
+    fs.copyFileSync(path.join(redist, file), staged);
+    resources[staged] = file;
 }
 assertX64Binary(path.join(target, 'mh-toolbox-rs.exe'));
 validateWindowsResources(resources);

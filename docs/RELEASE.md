@@ -6,7 +6,7 @@
 
 本机先按 [AGENTS.md](../AGENTS.md) 设置 Windows 编译环境，再运行 `npm ci` 与 `npm run desktop:build`。打包前自动检查各清单和锁文件中的版本号，Tauri 随后构建前端与发布版。产物在 `src-tauri/target/release/bundle/nsis/`。
 
-安装包在 Rust 构建后由 `scripts/bundle-windows.mjs` 封装，自动附带 ONNX 使用的 DirectML 与已安装 Visual Studio 的 x64 VC++ 可再分发 DLL，避免依赖开发机已有的运行库。无需手动拷贝 DLL，也不把生成的二进制加入源码仓库。
+安装包在 Rust 构建后由 `scripts/bundle-windows.mjs` 封装，自动附带 ONNX 使用的 DirectML 与已安装 Visual Studio 的 x64 VC++ 可再分发 DLL，避免依赖开发机已有的运行库。运行库先复制到构建目录，避免仓库与 Visual Studio 位于不同盘时资源路径失效。无需手动拷贝 DLL，也不把生成的二进制加入源码仓库。
 
 打包脚本拒绝空资源匹配、缺少模型或字典、空文件、目标重名与错误架构的程序 / DLL；VC++ 运行库必须包含 `msvcp140`、`msvcp140_1`、`vcruntime140` 和 `vcruntime140_1`。依赖升级时需重新检查 PE 导入表，这份已知依赖清单不代替依赖审查。
 
