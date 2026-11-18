@@ -103,6 +103,16 @@ export const TOOLS: ToolEntry[] = [
         view: () => import('./views/tools/GhostHuntView.vue').then((page) => page.default),
     },
     {
+        key: 'growth',
+        kind: 'page',
+        name: '养成计算器',
+        desc: '等级、师门技能、修炼、召唤兽 · 手动输入，与官网工具箱同口径',
+        path: '/tools/growth',
+        icon: 'growth',
+        group: 'game',
+        view: () => import('./views/tools/GrowthView.vue').then((page) => page.default),
+    },
+    {
         key: 'alarm',
         kind: 'page',
         name: '闹钟',

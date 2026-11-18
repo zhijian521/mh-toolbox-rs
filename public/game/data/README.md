@@ -2,22 +2,23 @@
 
 **游戏更新时这批数据会变，代码不该跟着改**；表里写脚本名的由脚本生成、不手改。
 
-| 文件                   | 内容                  | 谁维护                      |
-| ---------------------- | --------------------- | --------------------------- |
-| `icons.json`           | 生活/剧情/特技清单    | `slice.py`                  |
-| `school-icons.json`    | 门派技能 147 张       | `slice-school.py`           |
-| `gear-icons.json`      | 装备 83 张            | `import-slot-icons.py`      |
-| `weapon-icons.json`    | 武器 231 张           | `import-slot-icons.py`      |
-| `lingshi-icons.json`   | 灵饰 20 张            | `import-client-icons.py`    |
-| `schools.json`         | 门派、技能、上限      | 手改                        |
-| `skills.json`          | 生活 21、剧情 11      | 手改                        |
-| `quick-items.json`     | 速记物品 59 件        | 手改；id 不改               |
-| `pet-skills.json`      | 技能 ID 与 353 张 PNG | `import-pet-skill-icons.py` |
-| `pet-portraits.json`   | 头像编号与物种        | `import-pet-portraits.mjs`  |
-| `pet-panel.json`       | 属性、加点、标签      | 手改                        |
-| `character-rules.json` | 属性、修炼、OCR 标签  | 手改（同改断言）            |
-| `activities.json`      | 活动周期与时段        | 手改                        |
-| `gameplay.json`        | 物价品类、抓鬼容差    | 手改                        |
+| 文件                   | 内容                          | 谁维护                      |
+| ---------------------- | ----------------------------- | --------------------------- |
+| `icons.json`           | 生活/剧情/特技清单            | `slice.py`                  |
+| `school-icons.json`    | 门派技能 147 张               | `slice-school.py`           |
+| `gear-icons.json`      | 装备 83 张                    | `import-slot-icons.py`      |
+| `weapon-icons.json`    | 武器 231 张                   | `import-slot-icons.py`      |
+| `lingshi-icons.json`   | 灵饰 20 张                    | `import-client-icons.py`    |
+| `schools.json`         | 门派、技能、上限              | 手改                        |
+| `skills.json`          | 生活 21、剧情 11              | 手改                        |
+| `quick-items.json`     | 速记物品 59 件                | 手改；id 不改               |
+| `pet-skills.json`      | 技能 ID 与 353 张 PNG         | `import-pet-skill-icons.py` |
+| `pet-portraits.json`   | 头像编号与物种                | `import-pet-portraits.mjs`  |
+| `pet-panel.json`       | 属性、加点、标签              | 手改                        |
+| `character-rules.json` | 属性、修炼、OCR 标签          | 手改（同改断言）            |
+| `activities.json`      | 活动周期与时段                | 手改                        |
+| `gameplay.json`        | 物价品类、抓鬼容差            | 手改                        |
+| `level-costs.json`     | 人物/师门/修炼/召唤兽分级代价 | 手改（官网工具箱抄录）      |
 
 五份 `*-icons.json` 同一套路：`slice-*.py` 定名字与顺序并出图，`import-*-icons.py` 只覆写 `img` 与 `source`（第 120 批起用客户端 `item120` 大图），**先切后导**；`img` 只写文件名（目录见 `../icons/README.md`），`id` 稳定。不能并成一份：谁后跑谁覆盖对方分组且不报错，`slice-weapon.py` 曾把「截图没覆盖最底那格」当成「没有 160 造型」，名字表各砍一条（第 121 批）——切到的档要覆盖名字表每一档，**少一档不报错，后面的档整体前移一格**。
 
