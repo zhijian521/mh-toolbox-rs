@@ -158,7 +158,8 @@ git blame，收益低于成本。其余约定：
 - 卡内六分区的页签选项只有一处：`character.ts` 的 `PANE_OPTIONS`。卡片与编辑器不要在组件里各自 `PANES.map(...)`——那还会在每次渲染新建数组，把滑块的 `values()` 一起换掉。
 - 角色完整修改、单件装备与单只召唤兽的尺寸共用 `editor-metrics.ts` 的 `EDITOR_W` / `EDITOR_H`，均为定高，长详情在卡内滚动；装备与召唤兽目录共用 `blocks.css` 的 `character-choice*`，头像材质复用 `PressTile`。角色卡与修改窗的读数字重统一由 `.character-theme` 管理。
 - 日期与时刻落成字符串只有两处：日期走 `services/format.ts` 的 `dateText`（收 `Date` 也收毫秒），时刻走 `services/clock.ts` 的 `timeText`（补零由同文件的 `pad2` 承担）。不要在窗口里再写一份 `padStart(2, '0')` 去拼 `YYYY-MM-DD` 或 `HH:mm`——这类函数改一处，另一处就静默落后，而它们都长得对。
-- 表单页脚复用 `FormActions`，业务保留关闭保护、保存与重试回调；起止日期复用 `DateRangeField`。分组标题用 `GroupHead` 的 `as` 保留标题层级，分页复用 `RecordPager` 的摘要插槽和业务标签。
+- 表单页脚复用 `FormActions`，业务保留关闭保护、保存与重试回调；起止日期复用 `DateRangeField`。分组标题用 `GroupHead` 的 `as` 保留标题层级。分页统一用 `RecordPager`：左右箭头翻页、最多七档页码，首尾常驻、省略号前后跳五页，当前页用印面及 aria-current，单页隐藏；复用 PressButton／PressTile 和图标注册表，保留业务标签与摘要插槽。页数及数据切片仍由业务计算，不引入第二套 UI 库。
+- 收益历史与上线记录共用 `blocks.css` 的 `record-history`、`record-roles`、`record-role-*` 和 `record-table-frame`；角色使用紧凑单行 SteppedSlider，长名省略且保留完整提示，金额不随角色筛选缩减。表格只有内部滚动，外框与表头固定；搜索、日期和汇总口径由业务保留。
 - 装备、召唤兽详情浮片共用 `DetailTipShell`；召唤兽头像和技能候选共用 `PetAssetPickerPanel`，入口只保留各自触发与选择动作。
 - 本地读取与跨窗口同步使用同一解析器；同步失败保留当前内容并暂停写回，完整数据或明确删除后解除读取错误，不把残缺列表当空库。
 

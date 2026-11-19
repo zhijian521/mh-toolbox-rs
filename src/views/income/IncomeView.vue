@@ -114,6 +114,14 @@ const running = computed(() => sessions.value.filter((one) => one.endAt === null
 const onlineDialog = ref<'start' | 'backfill' | 'edit' | null>(null);
 const editTarget = ref<ReadonlyOnlineSession | null>(null);
 const recordsOpen = ref(false);
+const { filters: onlineFilters, syncScope: syncOnlineScope } = useRecordFilters(
+    () => ({ from: today.value, to: today.value, who: ALL_OPTIONS }),
+    { keyword: '', page: 1, scrollTop: 0 },
+);
+function openRecords() {
+    syncOnlineScope();
+    recordsOpen.value = true;
+}
 const onlineCharacterIds = ref<string[]>([]);
 
 function editOnline(one: ReadonlyOnlineSession) {
@@ -169,7 +177,10 @@ async function priceCleared() {
     const ask = priceAsk.value;
     if (!ask) return;
     const ok = await priceSubmit.run('clear', () => {
-        clearPrice(ask.item.id);
+        if (!clearPrice(ask.item.id)) {
+            notify.error('单价未清除，请检查账本状态后重试');
+            return false;
+        }
         return true;
     });
     if (!ok) return;
@@ -192,9 +203,7 @@ useRouteAction('/income', {
         onlineCharacterIds.value = typeof query.character === 'string' ? [query.character] : [];
         onlineDialog.value = 'backfill';
     },
-    records() {
-        recordsOpen.value = true;
-    },
+    records: openRecords,
 });
 </script>
 
@@ -240,7 +249,7 @@ useRouteAction('/income', {
         <SaveNotice :error="syncError" :pending="syncPending" @retry="retrySync" />
 
         <div class="income-stack">
-            <OnlineBar @records="recordsOpen = true" @backfill="onlineDialog = 'backfill'">
+            <OnlineBar @records="openRecords" @backfill="onlineDialog = 'backfill'">
                 <template v-if="!loadError" #summary>
                     <StatStrip
                         class="income-summary"
@@ -290,7 +299,12 @@ useRouteAction('/income', {
             @close="closeOnlineDialog"
         />
 
-        <OnlineRecords v-if="recordsOpen" @close="recordsOpen = false" @edit="editOnline" />
+        <OnlineRecords
+            v-if="recordsOpen"
+            v-model="onlineFilters"
+            @close="recordsOpen = false"
+            @edit="editOnline"
+        />
     </PageShell>
 </template>
 

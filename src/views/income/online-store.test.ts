@@ -38,6 +38,34 @@ async function loadStore(desktop: ReturnType<typeof host>) {
 }
 
 describe('上线：一个号一条', () => {
+    it('读取失败时删除明确拒绝；恢复后只对实际删除返回成功', async () => {
+        const desktop = host();
+        const store = await loadStore(desktop);
+        store.startOnline({ characterIds: ['c1'] });
+        const state = store.useOnline();
+        const id = state.sessions.value[0].id;
+        await state.flush();
+        desktop.onlineSave.mockClear();
+        desktop.onlineLoad.mockRejectedValueOnce(new Error('读取失败'));
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        await store.loadOnline();
+
+        expect(store.removeOnline(id)).toBe(false);
+        expect(state.sessions.value).toHaveLength(1);
+        await state.flush();
+        expect(desktop.onlineSave).not.toHaveBeenCalled();
+        // 通过完整读取恢复写入，后续删除仍作用于原记录。
+        desktop.onlineLoad.mockImplementationOnce(async () => ({
+            sessions: JSON.parse(JSON.stringify(state.sessions.value)),
+            settings: {},
+        }));
+        await store.loadOnline();
+        expect(store.removeOnline(id)).toBe(true);
+        expect(store.removeOnline(id)).toBe(false);
+        expect(state.sessions.value).toEqual([]);
+        expect(await state.flush()).toBe(true);
+    });
+
     it('跨窗口损坏设置不覆盖计时，删除存档重置记录和点卡口径', async () => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         const handlers: StorageHandler[] = [];

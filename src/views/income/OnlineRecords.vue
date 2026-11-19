@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ALL_OPTIONS as ANY } from '../../components/select-options';
-import { computed, ref, watch } from 'vue';
+import { computed, toRefs, watch } from 'vue';
+import { useRecordScroll, type RecordFilters } from '../../composables/use-record-filters';
 import { useMinuteNow } from '../../composables/use-minute-now';
 import { usePagination } from '../../composables/use-pagination';
 import RecordPager from '../../components/RecordPager.vue';
@@ -8,11 +9,12 @@ import SaveNotice from '../../components/SaveNotice.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
-import SelectField from '../../components/SelectField.vue';
+import SteppedSlider from '../../components/SteppedSlider.vue';
+import DateRangeField from '../../components/DateRangeField.vue';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { notify } from '../../composables/use-notify';
 import { timeText } from '../../services/clock';
-import { ledgerMoneyText, shortDate } from '../../services/format';
+import { dateText, ledgerMoneyText, shortDate } from '../../services/format';
 import { characterName, useRoster } from '../characters/roster';
 import {
     clockText,
@@ -21,13 +23,16 @@ import {
     onlineTotalsOf,
     ownersOf,
     cardCostOf,
-    sessionCost,
+    sessionsIn,
     type ReadonlyOnlineSession,
 } from './online';
 import { loadOnline, useOnline } from './online-store';
 import { characterOptions } from '../characters/character-options';
 
 const emit = defineEmits<{ close: []; edit: [session: ReadonlyOnlineSession] }>();
+const filters = defineModel<RecordFilters & { keyword: string }>({ required: true });
+const { from, to, who, keyword, page: selectedPage } = toRefs(filters.value);
+const { scroll, rememberScroll } = useRecordScroll(filters);
 
 const { sessions, removeOnline, flush, retry, pending, loadError, writeError } = useOnline();
 const { roster } = useRoster();
@@ -42,25 +47,18 @@ const mutationBlocked = computed(
 
 const now = useMinuteNow();
 
-/** 「不限」的哨兵：SelectField 把空串当「没有值」，选中它会退回 placeholder。 */
-
-const who = ref(ANY);
-const keyword = ref('');
+const rangeRows = computed(() => sessionsIn(sessions.value, from.value, to.value, now.value));
 
 const whoOptions = computed(() =>
-    characterOptions(roster.value, sessions.value.flatMap(ownersOf), { all: true }),
+    characterOptions(roster.value, sessions.value.flatMap(ownersOf), { all: true }).map((option) => ({
+        ...option,
+        label: option.value === ANY ? '总计' : option.label,
+    })),
 );
 
-/**
- * 按角色筛时看的是名单，不是主体角色。
- *
- * 双开那一段记在一个人名下、名单里有两个人——用户找「某个号上了多久」时，
- * 双开的这一段确实有他一半，按主体角色筛会漏掉（ownersOf 是同一套口径）。
- */
-const filtered = computed(() => {
+const searched = computed(() => {
     const word = keyword.value.trim().toLocaleLowerCase();
-    return sessions.value.filter((one) => {
-        if (who.value !== ANY && !ownersOf(one).includes(who.value)) return false;
+    return rangeRows.value.filter((one) => {
         if (!word) return true;
         return [one.note, one.date, ...ownersOf(one).map((id) => characterName(roster.value, id))]
             .join(' ')
@@ -69,32 +67,75 @@ const filtered = computed(() => {
     });
 });
 
-const { page, pages, visible } = usePagination(filtered);
+// 角色小计基于日期与搜索全集，切换角色只过滤明细，不缩减其他角色的小计。
+const whoTotals = computed(
+    () =>
+        new Map(
+            whoOptions.value.map((option) => [
+                option.value,
+                cardCostOf(
+                    searched.value,
+                    from.value,
+                    to.value,
+                    option.value === ANY ? '' : option.value,
+                    now.value,
+                ),
+            ]),
+        ),
+);
+/**
+ * 按角色筛时看的是名单，不是主体角色。
+ *
+ * 双开那一段记在一个人名下、名单里有两个人——用户找「某个号上了多久」时，
+ * 双开的这一段确实有他一半，按主体角色筛会漏掉（ownersOf 是同一套口径）。
+ */
+const filtered = computed(() =>
+    searched.value.filter((one) => who.value === ANY || ownersOf(one).includes(who.value)),
+);
+const { page, pages, visible } = usePagination(filtered, 20, selectedPage);
 
 const totals = computed(() =>
     onlineTotalsOf(
         filtered.value,
-        '0000-01-01',
-        '9999-12-31',
+        from.value,
+        to.value,
         now.value,
         who.value === ANY ? '' : who.value,
     ),
 );
 
-function costOf(one: ReadonlyOnlineSession) {
-    return who.value === ANY
-        ? sessionCost(one, now.value)
-        : cardCostOf([one], '0000-01-01', '9999-12-31', who.value, now.value);
-}
-
-const anyFilter = computed(() => who.value !== ANY || Boolean(keyword.value.trim()));
+const visibleRows = computed(() =>
+    visible.value.map((one) => ({
+        one,
+        facts: onlineTotalsOf(
+            [one],
+            from.value,
+            to.value,
+            now.value,
+            who.value === ANY ? '' : who.value,
+        ),
+    })),
+);
+const anyFilter = computed(() => {
+    const today = dateText(now.value);
+    return (
+        from.value !== today ||
+        to.value !== today ||
+        who.value !== ANY ||
+        Boolean(keyword.value.trim())
+    );
+});
 
 /* 筛选一变就回第一页：留在第 5 页而结果只剩两条时屏幕是空的，用户会以为没记录。 */
-watch([who, keyword], () => {
+watch([from, to, who, keyword], () => {
     page.value = 1;
+    if (scroll.value) scroll.value.scrollTop = 0;
+    filters.value.scrollTop = 0;
 });
 
 function reset() {
+    from.value = dateText(now.value);
+    to.value = from.value;
     who.value = ANY;
     keyword.value = '';
 }
@@ -113,7 +154,7 @@ async function remove(one: ReadonlyOnlineSession) {
                 whoText(one) +
                 ' · ' +
                 minutesText(factsOfSession(one, now.value).minutes) +
-                '。删了不能撤回，当天的点卡也会跟着减。',
+                '。删除整段记录后，对应日期的点卡也会跟着减，不能撤回。',
             confirmText: '删除',
         },
         () => removeOnline(one.id),
@@ -122,11 +163,11 @@ async function remove(one: ReadonlyOnlineSession) {
 }
 </script>
 <template>
-    <!-- minHeight + fill：窗不低于 520，筛选条与小计钉在顶上，只有表格滚。 -->
     <ModalShell
+        class="online-records record-history"
         title="上线记录"
-        :width="760"
-        min-height="min(520px, calc(100vh - 48px))"
+        :width="900"
+        min-height="min(600px, calc(100vh - 48px))"
         fill
         @close="!removing && emit('close')"
     >
@@ -137,7 +178,12 @@ async function remove(one: ReadonlyOnlineSession) {
             :blocked="pending > 0 || !!writeError || removing"
         />
         <div class="record-filters">
-            <SelectField v-model="who" :options="whoOptions" label="角色筛选" class="f-narrow" />
+            <DateRangeField
+                v-model:from="from"
+                v-model:to="to"
+                from-label="从哪一天"
+                to-label="到哪一天"
+            />
             <input
                 v-model="keyword"
                 class="field filter-search"
@@ -149,8 +195,24 @@ async function remove(one: ReadonlyOnlineSession) {
             <PressButton v-if="anyFilter" text="重置" size="sm" label="清空筛选" @click="reset" />
         </div>
 
+        <div v-if="!loadError" class="record-roles">
+            <SteppedSlider
+                v-model="who"
+                :options="whoOptions"
+                label="按角色筛选上线记录"
+                class="record-role-slider"
+            >
+                <template #option="{ option }">
+                    <span class="record-role-name" :title="option.label">{{ option.label }}</span>
+                    <span class="record-role-value">{{
+                        ledgerMoneyText(whoTotals.get(option.value) ?? 0, 'cash', { zero: 'dash' })
+                    }}</span>
+                </template>
+            </SteppedSlider>
+        </div>
+
         <p v-if="!loadError" class="record-summary">
-            <span class="sum-item">合计 {{ minutesText(totals.minutes) }}</span>
+            <span class="sum-item">区间合计 {{ minutesText(totals.minutes) }}</span>
             <span class="sum-item" :class="{ cost: totals.cost > 0 }">
                 点卡 {{ totals.cost > 0 ? ledgerMoneyText(totals.cost) : '—' }}
             </span>
@@ -159,66 +221,68 @@ async function remove(one: ReadonlyOnlineSession) {
             </span>
         </p>
 
-        <div class="income-log-scroll">
-            <p v-if="!filtered.length" class="record-empty">
-                {{
-                    loadError
-                        ? '暂时无法读取上线记录，请重新读取。'
-                        : sessions.length
-                          ? '这个筛选下没有记录。'
-                          : '还没有上线记录。'
-                }}
-            </p>
+        <p v-if="!filtered.length" class="record-empty">
+            {{
+                loadError
+                    ? '暂时无法读取上线记录，请重新读取。'
+                    : sessions.length
+                      ? '这个筛选下没有记录。'
+                      : '还没有上线记录。'
+            }}
+        </p>
 
-            <table v-else class="rec-table income-table">
-                <thead>
-                    <tr>
-                        <th class="c-date">日期</th>
-                        <th class="c-time">时段</th>
-                        <th>角色</th>
-                        <th class="c-dur">时长</th>
-                        <th class="c-num">点卡</th>
-                        <th class="c-note">备注</th>
-                        <th class="c-ops">操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="one in visible" :key="one.id">
-                        <td class="c-date">{{ shortDate(one.date) }}</td>
-                        <td class="c-time" :class="{ live: one.endAt === null }">
-                            {{ timeText(one.startAt) }}–{{
-                                one.endAt === null ? '现在' : timeText(one.endAt)
-                            }}
-                        </td>
-                        <td class="c-who" :title="whoText(one)">{{ whoText(one) }}</td>
-                        <td class="c-dur">{{ clockText(factsOfSession(one, now).minutes) }}</td>
-                        <td class="c-num">
-                            {{ costOf(one) > 0 ? ledgerMoneyText(costOf(one)) : '—' }}
-                        </td>
-                        <td class="c-note" :title="one.note">{{ one.note }}</td>
-                        <td class="c-ops">
-                            <!-- flex 包在 td 里的 span 上：td 一旦不是 table-cell，整张表的列宽会乱。 -->
-                            <span class="income-ops">
-                                <PressButton
-                                    icon="edit"
-                                    label="改这一段"
-                                    size="md"
-                                    :disabled="mutationBlocked"
-                                    @click="emit('edit', one)"
-                                />
-                                <PressButton
-                                    danger
-                                    icon="trash"
-                                    label="删这一段"
-                                    :disabled="mutationBlocked"
-                                    size="md"
-                                    @click="remove(one)"
-                                />
-                            </span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+        <div v-else class="online-table-frame record-table-frame">
+            <div ref="scroll" class="income-log-scroll" @scroll="rememberScroll">
+                <table class="rec-table income-table">
+                    <thead>
+                        <tr>
+                            <th class="c-date">日期</th>
+                            <th class="c-time">时段</th>
+                            <th>角色</th>
+                            <th class="c-dur" title="所选日期范围内的在线时长">时长</th>
+                            <th class="c-num" title="所选日期范围内的点卡花费">点卡</th>
+                            <th class="c-note">备注</th>
+                            <th class="c-ops">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="{ one, facts } in visibleRows" :key="one.id">
+                            <td class="c-date">{{ shortDate(one.date) }}</td>
+                            <td class="c-time" :class="{ live: one.endAt === null }">
+                                {{ timeText(one.startAt) }}–{{
+                                    one.endAt === null ? '现在' : timeText(one.endAt)
+                                }}
+                            </td>
+                            <td class="c-who" :title="whoText(one)">{{ whoText(one) }}</td>
+                            <td class="c-dur">{{ clockText(facts.minutes) }}</td>
+                            <td class="c-num">
+                                {{ facts.cost > 0 ? ledgerMoneyText(facts.cost) : '—' }}
+                            </td>
+                            <td class="c-note" :title="one.note">{{ one.note }}</td>
+                            <td class="c-ops">
+                                <!-- flex 包在 td 里的 span 上：td 一旦不是 table-cell，整张表的列宽会乱。 -->
+                                <span class="income-ops">
+                                    <PressButton
+                                        icon="edit"
+                                        label="改这一段"
+                                        size="md"
+                                        :disabled="mutationBlocked"
+                                        @click="emit('edit', one)"
+                                    />
+                                    <PressButton
+                                        danger
+                                        icon="trash"
+                                        label="删这一段"
+                                        :disabled="mutationBlocked"
+                                        size="md"
+                                        @click="remove(one)"
+                                    />
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <template #footer>
@@ -238,11 +302,6 @@ async function remove(one: ReadonlyOnlineSession) {
 </template>
 
 <style scoped>
-.f-narrow {
-    flex: none;
-    width: calc(118px * var(--fs-scale));
-}
-
 .sum-item {
     color: var(--num);
     font-variant-numeric: tabular-nums;

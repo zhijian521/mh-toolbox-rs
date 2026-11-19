@@ -437,8 +437,95 @@ export default async function runOnline(ctx) {
             timeout: 3000,
         });
         if (!opened) throw new Error('上线记录窗没打开');
+        const layout = await cdp.evaluate(`(() => {
+            const panel = document.querySelector('.online-records');
+            const roles = panel?.querySelector('.record-roles');
+            const frame = panel?.querySelector('.record-table-frame');
+            const head = frame?.querySelector('thead th');
+            if (!panel || !roles || !frame || !head) return null;
+            const options = [...roles.querySelectorAll('[role="radio"]')];
+            const border = getComputedStyle(frame);
+            return {
+                width: panel.getBoundingClientRect().width,
+                height: panel.getBoundingClientRect().height,
+                viewport: { width: innerWidth, height: innerHeight },
+                singleRow: new Set(options.map((el) => Math.round(el.getBoundingClientRect().top))).size === 1,
+                fits: roles.scrollWidth <= roles.clientWidth + 1,
+                tabStops: options.filter((el) => el.tabIndex === 0).length,
+                totalFirst: options[0]?.querySelector('.record-role-name')?.textContent === '总计',
+                frame: parseFloat(border.borderTopWidth) > 0 && border.borderTopStyle === 'solid',
+                sticky: getComputedStyle(head).position === 'sticky',
+            };
+        })()`);
+        if (!layout) throw new Error('上线记录缺少公共角色区或表格外框');
+        t.check(
+            '上线记录沿用历史收益的弹窗尺寸与固定表格外框',
+            Math.abs(layout.width - Math.min(900, layout.viewport.width - 48)) <= 2 &&
+                layout.height >= Math.min(600, layout.viewport.height - 48) - 2 &&
+                layout.frame && layout.sticky,
+            JSON.stringify(layout),
+        );
+        t.check(
+            '角色胶囊单行展示总计、无横向溢出且只有一个 Tab 停靠点',
+            layout.singleRow && layout.fits && layout.totalFirst && layout.tabStops === 1,
+            JSON.stringify(layout),
+        );
 
+        const range = await cdp.evaluate(`(async () => {
+            const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
+            const one = useOnline().sessions.value.find((one) => one.note === ${JSON.stringify(NOTE)});
+            if (!one) return null;
+            const today = new Date();
+            const from = new Date(one.startAt);
+            from.setDate(from.getDate() - 1);
+            const label = (day) => day.getFullYear() + '年' + (day.getMonth() + 1) + '月' + day.getDate() + '日';
+            return {
+                today: label(today),
+                from: label(from),
+                previousMonth: from.getFullYear() !== today.getFullYear() || from.getMonth() !== today.getMonth(),
+                defaults: [...document.querySelectorAll('.online-records .date-trigger')]
+                    .map((el) => el.getAttribute('aria-label')),
+            };
+        })()`);
+        if (!range) throw new Error('日期筛选场景缺少本轮补记记录');
+        t.check(
+            '上线记录使用与历史收益相同的起止日期，默认今天',
+            JSON.stringify(range.defaults) === JSON.stringify([
+                '从哪一天：' + range.today,
+                '到哪一天：' + range.today,
+            ]),
+            JSON.stringify(range.defaults),
+        );
+        // 扩到记录开始前一天，跨零点运行也保留原有整段修改断言。
+        await ui.clickLabelPrefix('从哪一天：');
+        if (range.previousMonth) await ui.clickLabel('上一个月');
+        await ui.clickLabel(range.from);
         await ui.fillSel('input[aria-label="搜索上线记录"]', NOTE);
+        await ui.clickLabelPrefix('到哪一天：');
+        if (range.previousMonth) await ui.clickLabel('上一个月');
+        await ui.clickLabel(range.from);
+        t.check(
+            '结束日期收窄后不展示区间外记录',
+            await cdp.waitFor(`!document.querySelector('.online-records .rec-table')`),
+        );
+        await ui.clickLabelPrefix('到哪一天：');
+        await ui.clickText('button', '回到今天', { exact: true });
+        await ui.waitFor(
+            `document.querySelectorAll('.online-records .rec-table tbody tr').length === 1`,
+        );
+        await ui.clickLabel('关闭上线记录');
+        await ui.waitFor(`!document.querySelector('.online-records')`);
+        await ui.clickLabel('查看全部上线记录');
+        await ui.waitFor(`!!document.querySelector('.online-records .rec-table')`);
+        t.check(
+            '关闭重开保留日期与搜索条件',
+            await cdp.evaluate(`(() => {
+                const panel = document.querySelector('.online-records');
+                return panel.querySelector('[aria-label="搜索上线记录"]')?.value === ${JSON.stringify(NOTE)} &&
+                    panel.querySelector('[aria-label^="从哪一天："]')?.getAttribute('aria-label') === ${JSON.stringify('从哪一天：' + range.from)} &&
+                    panel.querySelector('[aria-label^="到哪一天："]')?.getAttribute('aria-label') === ${JSON.stringify('到哪一天：' + range.today)};
+            })()`),
+        );
         await sleep(300);
 
         const rows = await cdp.evaluate(`(() => [
@@ -462,6 +549,27 @@ export default async function runOnline(ctx) {
         );
         t.check('备注原样留在记录上', rows[0]?.note === NOTE, `实际「${rows[0]?.note}」`);
         t.info('这一段的角色', rows[0]?.who ?? '');
+        const roleName = await cdp.evaluate(`(() => {
+            const names = ${JSON.stringify(rows[0]?.who.split('、') ?? [])};
+            return [...document.querySelectorAll('.online-records .record-role-name')]
+                .map((el) => el.textContent)
+                .find((name) => names.includes(name));
+        })()`);
+        if (!roleName) throw new Error('找不到本次记录的角色胶囊');
+        const summaries = await cdp.evaluate(
+            `document.querySelector('.online-records .record-role-slider').textContent`,
+        );
+        await ui.clickText('.online-records .record-role-name', roleName, { exact: true });
+        t.check(
+            '选择角色后只筛明细，所有角色的点卡小计保持完整',
+            await cdp.evaluate(`(() => {
+                const panel = document.querySelector('.online-records');
+                return panel.querySelector('.record-role-slider').textContent === ${JSON.stringify(summaries)} &&
+                    panel.querySelector('.record-role-slider [aria-checked="true"] .record-role-name')?.textContent === ${JSON.stringify(roleName)} &&
+                    panel.querySelectorAll('.rec-table tbody tr').length === 1;
+            })()`),
+        );
+        await ui.clickText('.online-records .record-role-name', '总计', { exact: true });
 
         await ui.clickIn('[role="dialog"] .rec-table tbody tr', NOTE, { label: '改这一段' });
         const editOpened = await cdp.waitFor(
@@ -473,7 +581,7 @@ export default async function runOnline(ctx) {
         t.check(
             '修改窗同时显示开始日期与结束日期',
             await cdp.evaluate(
-                `document.querySelectorAll('[role="dialog"] .date-trigger').length === 2`,
+                `document.querySelectorAll('[role="dialog"][aria-modal="true"] .date-trigger').length === 2`,
             ),
         );
         const changedEnd = await cdp.evaluate(`(async () => {

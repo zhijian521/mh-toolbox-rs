@@ -78,6 +78,8 @@ export default async function runHistory(ctx, tools, quick) {
                     gapTop: bar && filters ? Math.round(boxOf(bar).top - boxOf(filters).bottom) : -1,
                     gapTable: bar ? Math.round(boxOf(frame).top - boxOf(bar).bottom) : -1,
                     tags: tags.length,
+                    roleRows: new Set(tags.map((tag) => Math.round(boxOf(tag).top))).size,
+                    roleFits: bar && bar.scrollWidth <= bar.clientWidth + 1,
                     inlineSummaries: tags.every((tag) => {
                         const name = tag.querySelector('.history-role-name')?.getBoundingClientRect();
                         const net = tag.querySelector('.history-role-net')?.getBoundingClientRect();
@@ -167,6 +169,11 @@ export default async function runHistory(ctx, tools, quick) {
         t.check('滑块与表格之间留了气', look.gapTable >= 6, `实际 ${look.gapTable}px`);
 
         t.check('总计 + 各号小计使用多档滑块', look.tags >= 2 && look.radios === look.tags);
+        t.check(
+            '角色滑块单行显示且没有横向溢出',
+            look.roleRows === 1 && look.roleFits,
+            `行数 ${look.roleRows} / 横向完整 ${look.roleFits}`,
+        );
         t.check('每档角色名称与金额同行居中，不增加第二行高度', look.inlineSummaries);
         t.check('移除角色下拉，滑块只有一个 Tab 停靠点', !look.dropdown && look.tabStops === 1);
         t.check('总计排在第一位', look.totalFirst === true);

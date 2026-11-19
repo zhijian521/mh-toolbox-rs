@@ -118,7 +118,8 @@ describe('loadIncome：读失败不等于空账', () => {
     it('读失败时速记、改价、合并单价、删除都拒绝，且不落盘', async () => {
         const desktop = host(async () => null);
         const store = await loadStore(desktop);
-        const { recordEntry, setPrice, mergePrices, removeEntry, entries } = store.useIncome();
+        const { recordEntry, setPrice, clearPrice, mergePrices, removeEntry, entries } =
+            store.useIncome();
 
         /* 与物价页不同，这一页在**函数入口**就拒绝：返回 `ok: false` 让界面弹红字，
          * 而不是「假装记上了但没写」。速记没有「内存里先加一条」的理由——
@@ -128,10 +129,49 @@ describe('loadIncome：读失败不等于空账', () => {
         expect(entries.value).toEqual([]);
         expect(setPrice(1, 10)).toBe(false);
         expect(mergePrices([{ itemId: 1, price: 100 }]).ok).toBe(false);
-        removeEntry('whatever');
+        expect(removeEntry('whatever')).toBe(false);
+        expect(clearPrice(1)).toBe(false);
 
         await flush();
         expect(desktop.incomeSave).not.toHaveBeenCalled();
+    });
+
+    it('已读账本重新读取失败时，撤回和清价明确拒绝，保留原数据且不写入', async () => {
+        const desktop = host(async () => ({
+            entries: [],
+            prices: [{ itemId: 1, price: 100 }],
+        }));
+        const store = await loadStore(desktop);
+        const state = store.useIncome();
+        store.recordEntry({ item: '黑宝石', amount: 150000 });
+        await state.flush();
+        const before = JSON.parse(JSON.stringify(state.entries.value));
+        desktop.incomeSave.mockClear();
+        desktop.incomeLoad.mockResolvedValue(null);
+        await store.loadIncome();
+
+        expect(store.removeEntry(before[0].id)).toBe(false);
+        expect(store.clearPrice(1)).toBe(false);
+        expect(state.entries.value).toEqual(before);
+        expect(state.prices.value[1]).toBe(100);
+        await state.flush();
+        expect(desktop.incomeSave).not.toHaveBeenCalled();
+    });
+
+    it('撤回和清价成功才返回 true，目标已不存在时返回 false', async () => {
+        const store = await loadStore(
+            host(async () => ({ entries: [], prices: [{ itemId: 1, price: 100 }] })),
+        );
+        store.recordEntry({ item: '黑宝石', amount: 150000 });
+        const state = store.useIncome();
+        const id = state.entries.value[0].id;
+        expect(store.removeEntry(id)).toBe(true);
+        expect(store.removeEntry(id)).toBe(false);
+        expect(store.clearPrice(1)).toBe(true);
+        expect(store.clearPrice(1)).toBe(false);
+        expect(state.entries.value).toEqual([]);
+        expect(state.prices.value[1]).toBeUndefined();
+        await state.flush();
     });
 
     it('下一轮读到数据时闸要放开——错误位清空，写入恢复', async () => {

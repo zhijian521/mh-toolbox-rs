@@ -315,11 +315,13 @@ export function updateOnline(
 }
 
 /** 删一条。撤回是真删——账本里没有「隐藏」。 */
-export function removeOnline(id: string): void {
-    if (!persist.canWrite()) return;
-    const before = sessions.value.length;
-    sessions.value = sessions.value.filter((one) => one.id !== id);
-    if (sessions.value.length !== before) persist();
+export function removeOnline(id: string): boolean {
+    if (!persist.canWrite()) return false;
+    const next = sessions.value.filter((one) => one.id !== id);
+    if (next.length === sessions.value.length) return false;
+    sessions.value = next;
+    persist();
+    return true;
 }
 
 /**

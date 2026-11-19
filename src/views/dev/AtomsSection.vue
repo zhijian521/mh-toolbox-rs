@@ -12,6 +12,7 @@ import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import PriceField from '../../components/PriceField.vue';
 import PressTile from '../../components/PressTile.vue';
+import RecordPager from '../../components/RecordPager.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
 import SlotButton from '../../components/SlotButton.vue';
@@ -109,6 +110,7 @@ const KIT_GROUPS: {
             ['slot', '槽按钮'],
             ['press', '压印块与按钮'],
             ['text', '文字按钮'],
+            ['pager', '分页'],
         ],
     },
     {
@@ -200,6 +202,7 @@ const demoLevel = ref(130);
 /** 价格格的演示值：存的是**游戏币原值**，显示时才折成 320 万 / 860 万。 */
 const demoPrice = ref<number | null>(3200000);
 const demoPriceMd = ref<number | null>(8600000);
+const demoPage = ref(1);
 
 /** 多档滑块的演示：三档够看出「等分 + 落格」，页签条那行验证加高后的点击区。 */
 const DEMO_PANES: { value: 'attrs' | 'skills' | 'assist'; label: string }[] = [
@@ -747,6 +750,19 @@ const demoToggles = ref<string[]>(['task']);
                             低频辅助操作使用文字按钮，默认无底板、无投影。悬停显示下划线，
                             保留键盘焦点、禁用和完整说明；高度由
                             <code>--text-button-h</code> 控制，默认 26px 并跟随字号。
+                        </p>
+                    </div>
+                    <div v-if="current === 'action'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">分页</span>
+                            <span class="kit-en">RecordPager</span>
+                        </span>
+                        <div class="kit-row">
+                            <RecordPager v-model="demoPage" :pages="20" label="演示分页" />
+                        </div>
+                        <p class="note">
+                            左右箭头逐页翻动，点击页码直达；省略号每次跳五页，首尾始终可见。
+                            当前页使用印面与 <code>aria-current</code>，单页自动隐藏。
                         </p>
                     </div>
                 </div>

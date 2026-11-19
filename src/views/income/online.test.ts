@@ -17,6 +17,7 @@ import {
     sessionCost,
     sessionMinutes,
     sessionSlices,
+    sessionsIn,
     shareOfSlice,
     sliceCost,
     type OnlineSession,
@@ -270,6 +271,39 @@ describe('上线：按天按号摊时长', () => {
 });
 
 describe('上线：区间统计', () => {
+    it('按实际时段筛选，包含跨天交集，排除日期两端的零点边界', () => {
+        const ended = session({
+            startAt: at(2026, 11, 10, 23),
+            endAt: at(2026, 11, 11),
+        });
+        const cross = session({
+            startAt: at(2026, 11, 10, 23),
+            endAt: at(2026, 11, 11, 1),
+        });
+        const spanning = session({
+            startAt: at(2026, 11, 10),
+            endAt: at(2026, 11, 13),
+        });
+        const inside = session();
+        const future = session({ startAt: at(2026, 11, 12), endAt: at(2026, 11, 12, 1) });
+        const selected = sessionsIn(
+            [ended, cross, spanning, inside, future],
+            '2026-11-11',
+            '2026-11-11',
+        );
+        expect(selected).toEqual([cross, spanning, inside]);
+        expect(selected[0]).toBe(cross);
+        expect(cross.startAt).toBe(at(2026, 11, 10, 23));
+    });
+
+    it('进行中按当前时刻判断交集，未来日期与反向区间不展示记录', () => {
+        const running = session({ startAt: at(2026, 11, 10, 23), endAt: null });
+        const now = at(2026, 11, 11, 1);
+        expect(sessionsIn([running], '2026-11-11', '2026-11-11', now)).toEqual([running]);
+        expect(sessionsIn([running], '2026-11-12', '2026-11-12', now)).toEqual([]);
+        expect(sessionsIn([running], '2026-11-12', '2026-11-11', at(2026, 11, 13))).toEqual([]);
+    });
+
     it('先排除区间外时段，零点边界、跨天成本和多人成本保持原口径', () => {
         const outside = session({
             startAt: at(2026, 11, 10, 23),
@@ -291,9 +325,13 @@ describe('上线：区间统计', () => {
         });
         const rows = [outside, cross, future];
         const now = at(2026, 11, 11, 12);
+        const selected = sessionsIn(rows, '2026-11-11', '2026-11-11', now);
+        expect(selected).toEqual([cross]);
         const totals = onlineTotalsOf(rows, '2026-11-11', '2026-11-11', now, 'c2');
         expect(totals).toEqual({ minutes: 60, cost: 90006, count: 1, running: 0 });
         expect(cardCostOf(rows, '2026-11-11', '2026-11-11', 'c2', now)).toBe(totals.cost);
+        expect(onlineTotalsOf(selected, '2026-11-11', '2026-11-11', now, 'c2')).toEqual(totals);
+        expect(onlineTotalsOf(selected, '2026-11-11', '2026-11-11', now).cost).toBe(270018);
         expect(onlineTotalsOf(rows, '2026-11-12', '2026-11-11', now).minutes).toBe(0);
     });
 

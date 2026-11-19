@@ -2,7 +2,7 @@ import { ALL_OPTIONS } from '../../components/select-options';
 import { characterOptions, UNASSIGNED_CHARACTER } from '../characters/character-options';
 import type { IncomeEntry } from './income';
 
-/** 角色滑块始终以整个日期区间汇总，不能跟随选中的角色缩成一格。 */
+/** 角色选项始终以整个日期区间汇总，不能跟随选中的角色缩成一项。 */
 export function historyGroupsOf(
     rows: readonly IncomeEntry[],
     roster: readonly { id: string; name: string }[],

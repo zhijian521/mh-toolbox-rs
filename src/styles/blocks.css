@@ -539,6 +539,55 @@
 }
 
 /* 历史窗口共用排法；列宽、筛选内容和默认日期由业务决定。 */
+.record-history .modal-body.modal-body-fill {
+    padding-right: 16px;
+}
+.record-roles {
+    flex: none;
+    min-width: 0;
+    margin: 0 0 12px;
+    padding: 2px;
+}
+.record-role-slider {
+    --step-pad-y: 4px;
+    --step-pad-x: 4px;
+    min-width: 0;
+    width: 100%;
+}
+.record-role-slider .step-opt {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+}
+.record-role-name {
+    min-width: 0;
+    max-width: 4em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.record-role-value {
+    flex: none;
+    font-size: var(--fs-mini);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.record-table-frame {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+    border: var(--w-hair) solid var(--rule-2);
+    border-radius: var(--r-3);
+    background: var(--paper);
+}
+.record-table-frame .income-table {
+    border: 0;
+    border-radius: 0;
+}
+
 .record-filters {
     display: flex;
     flex: none;
@@ -567,9 +616,6 @@
     color: var(--muted);
     font-size: var(--fs-sm);
     text-align: center;
-}
-.income-log-scroll:has(> .record-empty) {
-    display: grid;
 }
 .record-foot-note {
     margin-right: auto;

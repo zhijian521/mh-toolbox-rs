@@ -256,11 +256,13 @@ export function recordEntry(input: {
 }
 
 /** 删一条（今日清单上的 ×）。撤回是**真删**——账本里没有「隐藏」。 */
-export function removeEntry(id: string): void {
-    if (!persist.canWrite()) return;
-    const before = entries.value.length;
-    entries.value = entries.value.filter((one) => one.id !== id);
-    if (entries.value.length !== before) persist();
+export function removeEntry(id: string): boolean {
+    if (!persist.canWrite()) return false;
+    const next = entries.value.filter((one) => one.id !== id);
+    if (next.length === entries.value.length) return false;
+    entries.value = next;
+    persist();
+    return true;
 }
 
 /**
@@ -312,13 +314,13 @@ export function setPrice(itemId: number, wan: number): boolean {
 }
 
 /** 清掉一件物品的单价（改价窗里的「清除」）。清掉之后格子显示「未设价」。 */
-export function clearPrice(itemId: number): void {
-    if (!persist.canWrite()) return;
-    if (!(itemId in prices.value)) return;
+export function clearPrice(itemId: number): boolean {
+    if (!persist.canWrite() || !(itemId in prices.value)) return false;
     const next = { ...prices.value };
     delete next[itemId];
     prices.value = next;
     persist();
+    return true;
 }
 
 export type PriceMerge =

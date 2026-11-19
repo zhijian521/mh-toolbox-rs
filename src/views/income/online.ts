@@ -301,6 +301,18 @@ export function minutesByDay(
     return out;
 }
 
+/** 与所选本地日期相交的原始时段；结束恰在首日零点、开始恰在次日零点均不计入。 */
+export function sessionsIn(
+    sessions: readonly ReadonlyOnlineSession[],
+    from: string,
+    to: string,
+    now: number = Date.now(),
+): ReadonlyOnlineSession[] {
+    const { start, end } = dateBounds(from, to);
+    if (start >= end) return [];
+    return sessions.filter((one) => (one.endAt ?? now) > start && one.startAt < end);
+}
+
 /** 在线统计：时长、点卡成本、进行中的条数。 */
 export interface OnlineTotals {
     /** 分钟数（`running` 的那几段按「到现在」算）。 */

@@ -381,6 +381,17 @@ export default async function run(ctx) {
                 await cdp.evaluate(`!!document.querySelector('[aria-label="资源分页"] [aria-live="polite"] .asset-page-info') &&
                     document.querySelector('[aria-label="资源上一页"]')?.disabled === true`),
             );
+            t.check(
+                '上一页和下一页使用纯图标按钮，当前页有唯一标记',
+                await cdp.evaluate(`(() => {
+                    const pager = document.querySelector('.asset-pages');
+                    const arrows = ['资源上一页', '资源下一页'].map((label) =>
+                        pager.querySelector('[aria-label="' + label + '"]'));
+                    return arrows.every((button) => button?.querySelector('svg') && !button.textContent.trim()) &&
+                        pager.querySelectorAll('[aria-current="page"]').length === 1 &&
+                        pager.querySelector('[aria-current="page"]')?.dataset.page === '1';
+                })()`),
+            );
             await ui.clickLabel('资源下一页');
             t.check(
                 '下一页生效',
@@ -389,6 +400,34 @@ export default async function run(ctx) {
                 ),
             );
 
+            const lastPage = await cdp.evaluate(`Number(
+                [...document.querySelectorAll('.asset-pages [data-page]')].at(-1).dataset.page,
+            )`);
+            await cdp.click(`.asset-pages [data-page="${lastPage}"]`);
+            t.check(
+                '点击末页直接到达，下一页在边界禁用',
+                await cdp.waitFor(`document.querySelector('.asset-pages [aria-current="page"]')?.dataset.page === '${lastPage}' &&
+                    document.querySelector('[aria-label="资源下一页"]')?.disabled === true`),
+            );
+            if (lastPage > 7) {
+                await cdp.click('.asset-pages [data-page-gap="previous"]');
+                t.check(
+                    '省略号向前跳五页，焦点保留在新的当前页',
+                    await cdp.waitFor(`(() => {
+                        const current = document.querySelector('.asset-pages [aria-current="page"]');
+                        return current?.dataset.page === '${lastPage - 5}' && document.activeElement === current;
+                    })()`),
+                );
+                await cdp.click('.asset-pages [data-page-gap="next"]');
+                t.check(
+                    '省略号向后跳五页，恢复末页',
+                    await cdp.waitFor(`document.querySelector('.asset-pages [aria-current="page"]')?.dataset.page === '${lastPage}'`),
+                );
+            }
+            await cdp.click('.asset-pages [data-page="1"]');
+            await ui.waitFor(
+                `document.querySelector('.asset-pages [aria-current="page"]')?.dataset.page === '1'`,
+            );
             await ui.fill('搜索资源名', '剑');
             const narrowed = await cdp.waitFor(
                 `document.querySelector('.asset-count')?.textContent?.trim().startsWith('找到 ')`,

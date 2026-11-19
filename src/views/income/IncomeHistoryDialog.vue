@@ -43,16 +43,6 @@ const mutationBlocked = computed(
 const rangeRows = computed(() => entriesIn(entries.value, { from: from.value, to: to.value }));
 const whoGroups = computed(() => historyGroupsOf(rangeRows.value, roster.value, who.value));
 const whoTotals = computed(() => new Map(whoGroups.value.map((group) => [group.value, group.net])));
-const roleScroll = ref<HTMLElement | null>(null);
-watch(
-    [who, whoGroups, roleScroll],
-    () => {
-        roleScroll.value
-            ?.querySelector<HTMLElement>('[aria-checked="true"]')
-            ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    },
-    { flush: 'post' },
-);
 
 /** 区间跨没跨天。跨天时时间列要带上日期，否则「14:32」看不出是哪一天的。 */
 const multiDay = computed(() => from.value !== to.value);
@@ -125,7 +115,7 @@ async function remove(one: IncomeEntry) {
 
 <template>
     <ModalShell
-        class="income-history"
+        class="income-history record-history"
         title="历史收益"
         :width="900"
         min-height="min(600px, calc(100vh - 48px))"
@@ -150,16 +140,18 @@ async function remove(one: IncomeEntry) {
             />
         </div>
 
-        <div v-if="!loadError" ref="roleScroll" class="history-roles">
+        <div v-if="!loadError" class="history-roles record-roles">
             <SteppedSlider
                 v-model="who"
                 :options="whoGroups"
                 label="按角色筛选"
-                class="history-role-slider"
+                class="history-role-slider record-role-slider"
             >
                 <template #option="{ option }">
-                    <span class="history-role-name" :title="option.label">{{ option.label }}</span>
-                    <span class="history-role-net">{{
+                    <span class="history-role-name record-role-name" :title="option.label">{{
+                        option.label
+                    }}</span>
+                    <span class="history-role-net record-role-value">{{
                         signedOf(whoTotals.get(option.value) ?? 0)
                     }}</span>
                 </template>
@@ -177,7 +169,7 @@ async function remove(one: IncomeEntry) {
         </p>
 
         <!-- 外框不参与滚动，表头在内层 sticky；仍是同一张原生表，列宽始终一致。 -->
-        <div v-else class="history-table-frame">
+        <div v-else class="history-table-frame record-table-frame">
             <div ref="scroll" class="income-log-scroll" @scroll="rememberScroll">
                 <table class="log income-table">
                     <thead>
@@ -277,55 +269,6 @@ async function remove(one: IncomeEntry) {
 </template>
 
 <style scoped>
-.income-history :deep(.modal-body-fill) {
-    padding-right: 16px;
-}
-.history-roles {
-    flex: none;
-    min-width: 0;
-    margin: 0 0 12px;
-    padding: 2px;
-    overflow-x: auto;
-}
-.history-role-slider {
-    --step-pad-y: 4px;
-    width: max-content;
-    min-width: 100%;
-}
-.history-role-slider :deep(.step-opt) {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-width: calc(132px * var(--fs-scale));
-}
-.history-role-name {
-    min-width: 0;
-    max-width: calc(128px * var(--fs-scale));
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.history-role-net {
-    flex: none;
-    font-size: var(--fs-mini);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-.history-table-frame {
-    flex: 1 1 auto;
-    display: flex;
-    min-height: 0;
-    overflow: hidden;
-    border: var(--w-hair) solid var(--rule-2);
-    border-radius: var(--r-3);
-    background: var(--paper);
-}
-.history-table-frame .income-table {
-    border: 0;
-    border-radius: 0;
-}
-
 /* ---------- 流水表 ---------- */
 
 .c-time {

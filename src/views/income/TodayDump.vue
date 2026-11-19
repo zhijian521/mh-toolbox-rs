@@ -35,7 +35,10 @@ function whoText(ids: readonly string[]): string {
 }
 
 async function undo(group: ItemGroup) {
-    removeEntry(group.lastId);
+    if (!removeEntry(group.lastId)) {
+        notify.error('这条记录未撤回，请检查账本状态后重试');
+        return;
+    }
     const left = group.count - 1;
     /* 带上单价：按价分开之后，同一个名字可能有好几格，只说「已撤掉 定魂珠 一条」
      * 分不清撤的是 4.6 万那格还是 5.2 万那格。 */

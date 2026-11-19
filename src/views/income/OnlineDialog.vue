@@ -201,13 +201,16 @@ async function remove() {
         const ok = await askConfirm({
             danger: true,
             title: '删除这一段上线记录？',
-            note: '删了不能撤回，当天的点卡也会跟着减。',
+            note: '删除整段记录后，对应日期的点卡也会跟着减，不能撤回。',
             confirmText: '删除',
         });
         if (!ok) return;
     }
     const removed = await draft.run('delete', () => {
-        removeOnline(one.id);
+        if (!removeOnline(one.id)) {
+            error.value = '这条记录未删除，请检查账本状态后重试';
+            return false;
+        }
         return true;
     });
     if (!removed) return;

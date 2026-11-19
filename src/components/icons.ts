@@ -33,11 +33,13 @@ import {
     IconCash,
     IconCheck,
     IconChevronDown,
+    IconChevronLeft,
     IconChevronRight,
     IconCoins,
     IconCopy,
     IconCreditCard,
     IconDownload,
+    IconDots,
     IconFileText,
     IconFlag,
     IconFlask,
@@ -162,7 +164,9 @@ const ICON_META = {
      * 后者在这套界面里一直靠再点一次原按钮，加一枚通用重试图标等于给了两条路。 */
     refresh: { glyph: IconRefresh, label: '刷新', group: 'action' },
     'chevron-down': { glyph: IconChevronDown, label: '下拉', group: 'action' },
+    'chevron-left': { glyph: IconChevronLeft, label: '左折', group: 'action' },
     'chevron-right': { glyph: IconChevronRight, label: '右折', group: 'action' },
+    dots: { glyph: IconDots, label: '省略', group: 'action' },
 
     /* ---------- 账目分类（账号页的快捷入口） ----------
      *
