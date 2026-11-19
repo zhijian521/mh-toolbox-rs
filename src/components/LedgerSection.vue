@@ -30,16 +30,22 @@ import PaperCard from './PaperCard.vue';
  * 写死之后 **`section-body` 自己不滚**（不然卡片里会有一圈滚动条、里面再套两圈）：
  * 它的子内容自己决定怎么滚（那张卡是左右两栏各自滚）。
  */
-withDefaults(defineProps<{ title: string; hint?: string; maxHeight?: string; height?: string }>(), {
-    hint: '',
-    maxHeight: '',
-    height: '',
-});
+withDefaults(
+    defineProps<{
+        title: string;
+        hint?: string;
+        maxHeight?: string;
+        height?: string;
+        plain?: boolean;
+    }>(),
+    { hint: '', maxHeight: '', height: '', plain: false },
+);
 </script>
 
 <template>
     <PaperCard
         class="ledger-section"
+        :plain="plain"
         :class="{ capped: maxHeight || height, fixed: height }"
         :style="
             height

@@ -6,6 +6,8 @@
  * （它在编译后是 `setup()` 的函数体），而调用方需要这个类型来拼数组。
  */
 export interface StatItem {
+    /** 可选稳定标识，供调用方定位读数。 */
+    id?: string;
     /** 名目（「收入」「笔数」）。 */
     cap: string;
     /**
@@ -13,6 +15,12 @@ export interface StatItem {
      * 格式化不在这里做：单位和符号的口径属于业务（`amountText` / `signedOf`），组件只负责摆。
      */
     value: string;
+    /** 紧随读数的单位，不参与格式化。 */
+    unit?: string;
+    /** 标签的补充说明。 */
+    hint?: string;
+    /** 未读取时保留业务提供的文字，并降低读数强调。 */
+    unavailable?: boolean;
     /**
      * 读数色。三档各有方向：
      *   - `gain` 苔绿：进账（收入、为正的净额）；
@@ -37,51 +45,62 @@ export interface StatItem {
 </script>
 
 <script setup lang="ts">
+import AppIcon from './AppIcon.vue';
+import type { IconName } from './icons';
 import PaperCard from './PaperCard.vue';
+import TicketCard from './TicketCard.vue';
 
 /**
- * 统计条：一排四张纸。
- *
- * ---- 材质为什么从「四枚压印签」换成「四张纸」 ----
- * 2026-11-05 这里从「一行账」改成四枚 `PressTile` 压印签（用户当时说「参考下物价卡片」，
- * 借的是那块凸起纸块的厚度）。2026-11-11 用户再看这一屏：「四个统计卡片和下面的卡片
- * 样式保持一致吧，看起来整齐」——同一页里统计条是凸起的小块、下面两张是台面上的纸，
- * 两种厚度并排，读起来像「上半页和下半页不是一套」。
- *
- * 现在四格都用 `PaperCard`（`.board`），与 `LedgerSection` 包着的速记两栏**同一层材质**：
- * 一张纸的圆角、上亮下暗的棱、下沿 3px 断面、硬影加软影，一处都不重写。间距也给到 16，
- * 与 `.income-stack` / `.split` 同一个数——纸的软影会探出卡外，10 的时候邻卡的影子
- * 压在下一张的边角上，读作「四张糊在一起」。
- *
- * ---- 为什么每格还留一行副文 ----
- * 只有「名目 + 读数」时，一格只回答「多少」，不回答「由什么组成」。用户嫌薄。
- * 现在副文那行是**两端**：左端说构成（几笔、笔均、占收入、结余率、几个号），
- * 右端说较上一档的增减。两者都是 10px 灰字，读数仍是唯一的主角。
- *
- * 副文**不上色**：四格的「好」方向不一样（收入涨是好事、支出涨不是），
- * 同一个苔/朱压在四个方向上会读出错的意思，方向交给 `+/−`。
- *
- * ---- 列数不写死 ----
- * 由 `items.length` 决定（`--stat-n`）：这一块以后可能要摆 3 格或 5 格。
+ * 独立统计沿用 PaperCard；embedded 复用 TicketCard 外壳，标题保留小图标。
+ * 组件只排列已格式化读数，统计口径、加载状态和正负判断由业务提供。
  */
-withDefaults(defineProps<{ items: StatItem[] }>(), {});
+withDefaults(
+    defineProps<{
+        items: StatItem[];
+        surface?: 'standalone' | 'embedded';
+        heading?: string;
+        hint?: string;
+        icon?: IconName;
+    }>(),
+    { surface: 'standalone', heading: '', hint: '' },
+);
 </script>
 
 <template>
-    <section class="stats" :style="{ '--stat-n': items.length }">
-        <!-- 每格就是一张纸，不是「纸 + 内容层」两层：材质与下面两张速记卡完全同源，
-             内容直接排在这张纸的内边距里。 -->
-        <PaperCard v-for="item in items" :key="item.cap" as="div" class="stat">
-            <div class="cap">{{ item.cap }}</div>
+    <component
+        :is="surface === 'embedded' ? TicketCard : 'section'"
+        class="stats"
+        :class="surface === 'embedded' ? 'stats-embedded' : undefined"
+        :style="{ '--stat-n': items.length }"
+    >
+        <header v-if="heading" class="stats-head" :title="hint">
+            <AppIcon
+                v-if="surface === 'embedded' && icon"
+                :name="icon"
+                class="stats-heading-icon"
+            />
+            <h3>{{ heading }}</h3>
+        </header>
+        <component
+            :is="surface === 'embedded' ? 'div' : PaperCard"
+            v-for="item in items"
+            :key="item.id ?? item.cap"
+            :as="surface === 'embedded' ? undefined : 'div'"
+            class="stat"
+            :data-stat-id="item.id"
+        >
+            <div class="cap" :title="item.hint">{{ item.cap }}</div>
             <!-- 品名与读数之间那道虚线，与物价卡同一个说法：上半写名目、下半写数目。 -->
             <span class="dash" aria-hidden="true" />
-            <div class="v" :class="item.tone ?? 'num'">{{ item.value }}</div>
+            <div class="v" :class="[item.tone ?? 'num', { unavailable: item.unavailable }]">
+                {{ item.value }}<small v-if="item.unit" class="stat-unit">{{ item.unit }}</small>
+            </div>
             <div v-if="item.sub || item.delta" class="subrow">
                 <span class="sub">{{ item.sub }}</span>
                 <span class="delta">{{ item.delta }}</span>
             </div>
-        </PaperCard>
-    </section>
+        </component>
+    </component>
 </template>
 
 <style scoped>
@@ -169,5 +188,71 @@ withDefaults(defineProps<{ items: StatItem[] }>(), {});
     line-height: 1.5;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+}
+
+.stats-embedded {
+    --ticket-notch-y: calc(12px + var(--fs-base) * 0.96 * 1.3 + 10.5px);
+
+    grid-template-columns: repeat(var(--stat-columns, 2), minmax(0, 1fr));
+    align-content: start;
+    gap: 12px;
+    padding: 12px 16px 15px;
+}
+.stats-head {
+    grid-column: 1 / -1;
+    min-width: 0;
+}
+.stats-head h3 {
+    color: var(--muted);
+    font-size: calc(var(--fs-base) * 0.96);
+}
+.stats-embedded .stats-head {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-inline: -10px;
+    padding-inline: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--rule-2);
+}
+.stats-heading-icon {
+    --icon-size: calc(14px * var(--fs-scale));
+    color: var(--stats-ink, var(--accent));
+}
+.stats-embedded .stats-head h3 {
+    color: var(--ink);
+    line-height: 1.3;
+}
+.stats-embedded .stat {
+    position: relative;
+    z-index: 1;
+    min-height: 0;
+    padding: 0;
+    gap: 3px;
+}
+.stats-embedded .cap {
+    font-size: calc(var(--fs-xs) * 0.97);
+    letter-spacing: normal;
+}
+.stats-embedded .dash {
+    display: none;
+}
+.stats-embedded .v {
+    overflow: visible;
+    font-size: calc(var(--fs-amount) * 0.9);
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.stats-embedded .num {
+    color: var(--ink);
+}
+.v.unavailable {
+    color: var(--muted);
+}
+.stat-unit {
+    margin-left: 5px;
+    color: var(--muted);
+    font-size: var(--fs-xs);
 }
 </style>

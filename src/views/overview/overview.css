@@ -9,9 +9,6 @@
 .overview > * {
     min-width: 0;
 }
-.overview :deep(.board) {
-    background-image: var(--income-board-texture);
-}
 .day-hero {
     display: grid;
     grid-template-columns: minmax(0, 0.8fr) minmax(0, 2fr);
@@ -43,47 +40,22 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
+    width: 100%;
+    max-width: 616px;
     min-width: 0;
+    justify-self: end;
 }
-.workbench-readouts > section {
-    min-width: 0;
-    padding-left: 18px;
-    border-left: var(--w-hair) solid var(--rule);
+.workbench-today {
+    --stats-ink: var(--indigo-ink);
 }
-.readouts-head {
-    display: flex;
-    align-items: center;
-    margin-bottom: 12px;
+.workbench-accounts {
+    --stats-ink: var(--moss);
 }
-.readouts-head h3 {
-    color: var(--muted);
-    font-size: calc(var(--fs-base) * 0.96);
+.trend-section {
+    --block-pad: 15px 18px 8px;
 }
-.day-stats {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px 12px;
-}
-.day-stats > div {
-    min-width: 0;
-    display: grid;
-    align-content: start;
-    gap: 7px;
-}
-.day-stats span {
-    font-size: calc(var(--fs-xs) * 0.97);
-    color: var(--muted);
-}
-.day-stats b {
-    color: var(--accent);
-    font-size: calc(var(--fs-amount) * 0.9);
-    font-weight: 400;
-    overflow-wrap: anywhere;
-}
-.day-stats small {
-    margin-left: 5px;
-    font-size: calc(var(--fs-xs) * 0.97);
-    color: var(--muted);
+.team-section {
+    --block-pad: 15px 18px 10px;
 }
 .day-grid {
     display: grid;
@@ -91,8 +63,7 @@
     gap: 16px;
     align-items: stretch;
 }
-.day-grid > *,
-.day-lower > * {
+.day-grid > * {
     min-width: 0;
 }
 .team-strip {
@@ -102,111 +73,32 @@
     justify-content: start;
     min-width: 0;
     overflow-x: auto;
-    padding-bottom: 8px;
-    gap: 10px;
-    align-items: start;
-}
-.day-lower {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    scrollbar-width: none;
+    /* 首张票据与区块内容共用左边界，上下保留焦点环和薄纸底边空间。 */
+    padding: 8px 13px 12px 0;
     gap: 16px;
-    align-items: stretch;
+    align-items: start;
+    counter-reset: team-slip;
 }
-.week-summary {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 8px;
-    margin-bottom: 10px;
+.team-strip::-webkit-scrollbar {
+    display: none;
 }
-.week-summary b {
-    font-size: var(--fs-amount);
-    font-weight: 400;
-}
-.week-summary span {
-    color: var(--muted);
-    font-size: var(--fs-mini);
-}
-.books {
-    display: grid;
-    gap: 12px;
-}
-.book header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 8px;
-}
-.book h3 {
-    color: var(--indigo-ink);
-    font-size: var(--fs-xs);
-}
-.book header > span,
-.book-cell-cap {
-    color: var(--muted);
-    font-size: var(--fs-mini);
-}
-.book-values {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 7px;
-    padding: 8px 8px 11px;
-    border-radius: var(--r-2);
-    background: var(--well);
-}
-.book-cell {
-    --tile-w: 100%;
-    --tile-h: auto;
-    --tile-r: var(--r-2);
-    --tile-face: var(--paper);
-    min-width: 0;
-    padding: 8px 3px;
-    text-align: center;
-}
-.book-cell :deep(.press-content) {
-    gap: 6px;
-    width: 100%;
-    min-width: 0;
-}
-.book-cell b {
-    font-weight: 400;
-    font-size: var(--fs-xs);
-    overflow-wrap: anywhere;
-    max-width: 100%;
-}
-.gain,
-.day-stats .gain {
-    color: var(--positive);
-}
-.loss,
-.day-stats .loss {
-    color: var(--negative);
-}
-
 @media (max-width: 900px) {
     .day-hero {
         gap: 20px;
         padding: 20px;
         grid-template-columns: minmax(0, 1fr);
     }
-    .workbench-readouts > .workbench-today {
-        padding-left: 0;
-        border-left: 0;
-    }
     .day-grid {
         grid-template-columns: minmax(0, 1fr);
     }
-}
-@media (max-width: 650px) {
-    .day-hero,
-    .day-lower {
-        grid-template-columns: minmax(0, 1fr);
-    }
     .workbench-readouts {
-        gap: 12px;
+        justify-self: start;
     }
-    .workbench-readouts > .workbench-accounts {
-        padding-left: 12px;
+}
+@media (max-width: 500px) {
+    .workbench-readouts {
+        grid-template-columns: minmax(0, 1fr);
+        max-width: 300px;
     }
 }

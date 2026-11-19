@@ -13,6 +13,7 @@ interface ShortcutContent {
     tone: 'accent' | 'indigo' | 'moss' | 'ochre';
     pane?: PaneKey;
     href?: string;
+    dialog?: 'warehouse';
 }
 
 export type HomeShortcut = ShortcutContent & (RouteActionTarget | { path: string; action?: never });
@@ -182,6 +183,16 @@ export const HOME_SHORTCUTS: HomeShortcut[] = [
         action: 'history',
     },
     {
+        id: 'warehouse',
+        text: '仓库',
+        description: '管理装备和召唤兽',
+        icon: 'archive',
+        group: '账号',
+        tone: 'ochre',
+        path: '/accounts',
+        dialog: 'warehouse',
+    },
+    {
         id: 'prices',
         text: '物价行情',
         description: '查行情与记价格',
@@ -259,6 +270,7 @@ export const DEFAULT_SHORTCUT_IDS = [
     'goal-new',
     'tool-activities',
     'online-records',
+    'warehouse',
 ];
 const knownIds = new Set(HOME_SHORTCUTS.map((one) => one.id));
 

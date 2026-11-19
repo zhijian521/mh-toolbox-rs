@@ -265,11 +265,54 @@
 .kit-row-tiles {
     align-items: flex-end;
 }
-/* 统计条在真实页面里是通栏的一条（收益页、总览页都是），这里也让它撑满：
+/* 独立统计条在真实页面里通栏展示，这里也让它撑满：
  * 四格等分要靠整行宽度才看得出，缩在一半里会像一张卡。 */
 .demo-stats {
     flex: 1;
     min-width: 0;
+}
+.demo-stats-embedded {
+    width: min(100%, 300px);
+}
+.demo-ticket {
+    width: min(100%, 300px);
+    padding: 12px 16px 15px;
+}
+.demo-ticket h3 {
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--rule-2);
+    font-size: calc(var(--fs-base) * 0.96);
+    line-height: 1.3;
+}
+.demo-ticket > p {
+    margin-top: 12px;
+}
+.demo-trend {
+    width: 100%;
+}
+.demo-side-tab-button {
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-ticket);
+    background: transparent;
+}
+.demo-side-tab-face {
+    --tile-w: calc(220px * var(--fs-scale));
+    --tile-h: auto;
+    --tile-ink: var(--accent);
+    min-height: calc(60px * var(--fs-scale));
+    padding: 14px 14px 14px 19px;
+}
+.demo-side-tab-face :deep(.press-content) {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+.demo-side-tab-arrow {
+    --icon-size: calc(16px * var(--fs-scale));
+    margin-left: auto;
+    color: var(--muted);
 }
 /* 价格格按真身的宽度摆，不铺满整行：右栏 564 全给它时，`−` 和 `+` 会跑到两头，
  * 数字孤零零悬在中间那 300 的空当里。430 是「撑得开、两头还够得着」的宽度。 */

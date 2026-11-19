@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
 import AppIcon from '../../components/AppIcon.vue';
+import TicketCard from '../../components/TicketCard.vue';
 import { timeText } from '../../services/clock';
 import { dateText, ledgerMoneyText } from '../../services/format';
 import { clockText, sessionMinutes } from '../income/online';
@@ -39,30 +40,34 @@ function sessionTitle() {
 </script>
 
 <template>
-    <article class="team-person">
-        <header class="team-identity">
-            <div>
-                <RouterLink
-                    class="team-name"
-                    :to="{ path: '/characters', query: { character: activity.character.id } }"
-                    :aria-label="'查看角色档案：' + activity.character.name"
-                    :title="activity.character.name || '未命名'"
-                    >{{ activity.character.name || '未命名' }}</RouterLink
-                >
-                <p class="team-school">
+    <TicketCard as="article" class="team-person">
+        <template #header>
+            <div class="team-slip-print" aria-hidden="true">
+                <span>最近记录</span><span class="team-slip-number num" />
+            </div>
+            <header class="team-identity">
+                <div class="team-name-row">
+                    <RouterLink
+                        class="team-name"
+                        :to="{ path: '/characters', query: { character: activity.character.id } }"
+                        :aria-label="'查看角色档案：' + (activity.character.name || '未命名')"
+                        :title="activity.character.name || '未命名'"
+                        >{{ activity.character.name || '未命名' }}</RouterLink
+                    >
+                    <span class="team-level num">{{ activity.character.level }} 级</span>
                     <span
                         class="team-school-name"
                         :title="activity.character.school || '未选门派'"
                         >{{ activity.character.school || '未选门派' }}</span
-                    ><span class="team-level num">{{ activity.character.level }} 级</span>
-                </p>
-            </div>
-            <AppIcon name="chevron-right" aria-hidden="true" />
-        </header>
+                    >
+                </div>
+                <AppIcon name="chevron-right" aria-hidden="true" />
+            </header>
+        </template>
         <div
             class="team-records"
             tabindex="0"
-            :aria-label="activity.character.name + '最近记录，上下滚动查看'"
+            :aria-label="(activity.character.name || '未命名') + '最近记录，上下滚动查看'"
         >
             <section class="team-record online-record">
                 <h3><AppIcon name="history" />最近上线</h3>
@@ -156,20 +161,44 @@ function sessionTitle() {
                 </template>
             </section>
         </div>
-    </article>
+        <footer class="team-slip-footer">
+            <span
+                class="team-slip-state"
+                :class="{ online: !onlineError && activity.session?.endAt === null }"
+                >{{
+                    onlineError
+                        ? '未读取'
+                        : activity.session?.endAt === null
+                          ? '在线中'
+                          : '最近记录'
+                }}</span
+            ><span aria-hidden="true">梦幻助手</span>
+        </footer>
+    </TicketCard>
 </template>
 
 <style scoped>
 .team-person {
     display: flex;
     flex-direction: column;
-    min-width: 0;
-    height: calc(300px * var(--fs-scale));
-    overflow: hidden;
-    padding: 12px 10px 10px;
-    border: var(--w-hair) solid var(--rule);
-    border-radius: var(--r-2);
-    background: var(--paper);
+    height: calc(374px * var(--fs-scale));
+    padding: 20px 19px 17px;
+    counter-increment: team-slip;
+}
+.team-slip-print {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    line-height: 1.5;
+    letter-spacing: 0.1em;
+}
+.team-slip-number::before {
+    content: 'No. ' counter(team-slip, decimal-leading-zero);
 }
 .team-identity {
     flex: none;
@@ -177,7 +206,9 @@ function sessionTitle() {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 0 3px 11px;
+    margin-inline: -13px;
+    padding: 0 13px 12px;
+    border-bottom: var(--w-hair) dashed var(--rule-2);
 }
 .team-identity > div {
     flex: 1;
@@ -186,32 +217,40 @@ function sessionTitle() {
 .team-identity > .app-icon {
     color: var(--rule-2);
 }
-.team-name {
-    display: block;
-    font-size: var(--fs-md);
-    color: var(--accent);
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-.team-school {
+.team-name-row {
     display: flex;
     align-items: baseline;
     gap: 8px;
-    margin-top: 5px;
-    font-size: var(--fs-mini);
-    color: var(--muted);
+    min-width: 0;
+}
+.team-name {
+    display: block;
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: calc(var(--fs-md) * 1.3);
+    line-height: 1.45;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+.team-name:hover {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 4px;
 }
 .team-level {
     flex: none;
-    padding: 1px 5px;
-    border: var(--w-hair) solid color-mix(in srgb, var(--indigo-ink) 17%, var(--rule));
-    border-radius: var(--r-1);
-    color: var(--indigo-ink);
-    background: color-mix(in srgb, var(--indigo-ink) 5%, var(--paper));
+    font-size: var(--fs-xs);
+    line-height: 1.6;
+    white-space: nowrap;
+    color: var(--ochre);
 }
 .team-school-name {
-    min-width: 0;
+    flex: none;
+    max-width: 40%;
+    font-size: var(--fs-xs);
+    line-height: 1.6;
+    color: var(--muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -224,32 +263,23 @@ function sessionTitle() {
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-gutter: stable;
-    padding: 1px 3px 2px 1px;
-    gap: 7px;
+    padding: 6px 3px 2px;
 }
 .team-record {
-    --record-ink: var(--indigo-ink);
     min-width: 0;
-    padding: 5px 10px;
-    border-radius: var(--r-2);
-    background: color-mix(in srgb, var(--record-ink) 4%, var(--paper));
-    box-shadow:
-        inset 0 1px 2px var(--shadow),
-        0 1px 0 var(--bevel-hi);
+    padding: 9px 0;
 }
-.income-record {
-    --record-ink: var(--moss);
-}
-.account-record {
-    --record-ink: var(--ochre);
+.team-record + .team-record {
+    border-top: var(--w-hair) dotted var(--rule);
 }
 .team-record h3 {
     display: flex;
     align-items: center;
     gap: 5px;
-    margin-bottom: 4px;
-    color: var(--record-ink);
-    font-size: var(--fs-mini);
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    line-height: 1.4;
 }
 .team-record h3 .app-icon {
     --icon-size: calc(12px * var(--fs-scale));
@@ -258,8 +288,9 @@ function sessionTitle() {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
     min-width: 0;
+    line-height: 1.6;
 }
 .record-copy {
     flex: 1;
@@ -270,7 +301,7 @@ function sessionTitle() {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    font-size: var(--fs-xs);
+    font-size: var(--fs-sm);
     color: var(--ink-2);
 }
 .online-label {
@@ -285,33 +316,57 @@ function sessionTitle() {
 }
 .record-value {
     flex: none;
-    color: var(--record-ink);
+    color: var(--indigo-ink);
     font-weight: 400;
-    font-size: var(--fs-sm);
+    font-size: var(--fs-base);
     white-space: nowrap;
 }
 .account-line + .account-line {
-    padding-top: 7px;
-    margin-top: 7px;
-    border-top: var(--w-hair) solid var(--rule);
+    margin-top: 6px;
 }
 .account-direction {
-    display: inline-flex;
-    padding: 1px 4px;
-    margin-right: 5px;
-    border-radius: var(--r-1);
-    background: color-mix(in srgb, var(--positive) 8%, var(--paper));
+    margin-right: 4px;
     color: var(--positive);
     font-size: var(--fs-mini);
 }
 .account-direction.out {
     color: var(--negative);
-    background: color-mix(in srgb, var(--negative) 8%, var(--paper));
 }
 .team-empty {
     padding: 0;
-    font-size: var(--fs-xs);
+    font-size: var(--fs-sm);
+    line-height: 1.6;
     color: var(--muted);
+}
+.team-slip-footer {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 9px;
+    padding-top: 10px;
+    border-top: var(--w-hair) dashed var(--rule-2);
+    color: var(--muted);
+    font-size: var(--fs-mini);
+    line-height: 1.4;
+}
+.team-slip-footer > :last-child {
+    letter-spacing: 0.09em;
+}
+.team-slip-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.team-slip-state.online {
+    color: var(--positive);
+}
+.team-slip-state.online::before {
+    content: '';
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
 }
 .gain {
     color: var(--positive);

@@ -5,14 +5,16 @@ import AppIcon from '../../components/AppIcon.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
-import PressTile from '../../components/PressTile.vue';
+import { lazyDialog } from '../../components/lazy-dialog';
 import { notify } from '../../composables/use-notify';
 import { openExternal } from '../../services/desktop';
 import { readHomeShortcuts, saveHomeShortcuts } from '../../services/home-shortcuts';
 import { useRoster } from '../characters/roster';
-import ShortcutEditor from './ShortcutEditor.vue';
+import ShortcutFace from './ShortcutFace.vue';
 import { normalizeShortcutIds, shortcutsByIds, type HomeShortcut } from './shortcuts';
 
+const WarehouseDialog = lazyDialog(() => import('../warehouse/WarehouseDialog.vue'));
+const ShortcutEditor = lazyDialog(() => import('./ShortcutEditor.vue'));
 const router = useRouter();
 const { roster, loadError: rosterError } = useRoster();
 const shortcutIds = ref(normalizeShortcutIds(readHomeShortcuts()));
@@ -20,6 +22,7 @@ const shortcuts = computed(() => shortcutsByIds(shortcutIds.value));
 const customizingShortcuts = ref(false);
 const shortcutSaveError = ref('');
 const characterShortcut = ref<HomeShortcut | null>(null);
+const warehouseOpen = ref(false);
 function customizeShortcuts() {
     shortcutSaveError.value = '';
     customizingShortcuts.value = true;
@@ -41,6 +44,10 @@ function openCharacterShortcut(one: HomeShortcut, id: string) {
     });
 }
 async function openShortcut(one: HomeShortcut) {
+    if (one.dialog === 'warehouse') {
+        warehouseOpen.value = true;
+        return;
+    }
     if (one.href) {
         if (!(await openExternal(one.href))) notify.error('没能打开浏览器');
         return;
@@ -62,7 +69,7 @@ async function openShortcut(one: HomeShortcut) {
 </script>
 
 <template>
-    <LedgerSection title="常用功能" class="shortcuts-section">
+    <LedgerSection title="常用功能" class="shortcuts-section" plain>
         <template #actions
             ><PressButton
                 icon="settings"
@@ -78,20 +85,17 @@ async function openShortcut(one: HomeShortcut) {
                 type="button"
                 class="workbench-shortcut"
                 :data-shortcut-id="one.id"
-                :data-tone="one.tone"
                 :aria-label="
                     one.text + '：' + one.description + (one.href ? '，在浏览器中打开' : '')
                 "
                 :title="one.description"
                 @click="openShortcut(one)"
             >
-                <PressTile class="shortcut-face">
-                    <span class="shortcut-icon"><AppIcon :name="one.icon" /></span>
-                    <span class="shortcut-copy">
-                        <span class="shortcut-name">{{ one.text }}</span>
-                        <small>{{ one.description }}</small>
-                    </span>
-                </PressTile>
+                <ShortcutFace :one="one">
+                    <template #suffix>
+                        <AppIcon name="chevron-right" class="shortcut-arrow" />
+                    </template>
+                </ShortcutFace>
             </button>
         </div>
         <div v-else class="section-empty empty-note">
@@ -109,6 +113,7 @@ async function openShortcut(one: HomeShortcut) {
             @save="saveShortcuts"
             @close="customizingShortcuts = false"
         />
+        <WarehouseDialog v-if="warehouseOpen" @close="warehouseOpen = false" />
         <ModalShell
             v-if="characterShortcut"
             :title="'选择角色 · ' + characterShortcut.text"
@@ -139,7 +144,8 @@ async function openShortcut(one: HomeShortcut) {
 
 <style scoped>
 .shortcuts-section {
-    align-self: start;
+    --shortcut-min-w: calc(180px * var(--fs-scale));
+    --shortcut-max-w: calc(260px * var(--fs-scale));
     display: flex;
     flex-direction: column;
 }
@@ -150,102 +156,36 @@ async function openShortcut(one: HomeShortcut) {
 .shortcut-grid {
     flex: 1;
     display: grid;
+    width: 100%;
+    max-width: calc(var(--shortcut-max-w) * 3 + 36px);
     grid-template-columns: repeat(
         auto-fill,
-        minmax(min(100%, max(calc(126px * var(--fs-scale)), calc((100% - 30px) / 4))), 1fr)
+        minmax(min(100%, max(var(--shortcut-min-w), calc((100% - 32px) / 3))), 1fr)
     );
-    gap: 10px;
+    gap: 12px 16px;
     align-content: start;
-    padding: 2px 0 5px;
+    padding: 2px 4px 6px 0;
 }
 .workbench-shortcut {
-    --shortcut-ink: var(--accent);
-    --tile-face: color-mix(in srgb, var(--shortcut-ink) 5%, var(--paper));
-    --tile-face-hover: color-mix(in srgb, var(--shortcut-ink) 9%, var(--paper));
-    --tile-face-active: color-mix(in srgb, var(--shortcut-ink) 6%, var(--well));
     display: flex;
     min-width: 0;
+    width: 100%;
+    max-width: var(--shortcut-max-w);
+    justify-self: start;
     padding: 0;
     border: 0;
     background: transparent;
     color: var(--ink);
     text-align: left;
+    border-radius: var(--r-ticket);
 }
-.workbench-shortcut[data-tone='indigo'] {
-    --shortcut-ink: var(--indigo-ink);
+.workbench-shortcut:focus-visible :deep(.shortcut-face) {
+    background-color: var(--tile-face-hover);
 }
-.workbench-shortcut[data-tone='moss'] {
-    --shortcut-ink: var(--moss);
-}
-.workbench-shortcut[data-tone='ochre'] {
-    --shortcut-ink: var(--ochre);
-}
-.shortcut-face {
-    --tile-w: 100%;
-    --tile-h: auto;
-    --tile-r: var(--r-2);
-    --tile-drop: 1.4;
-    position: relative;
-    flex: 1;
-    min-width: 0;
-    min-height: calc(76px * var(--fs-scale));
-    padding: 9px 10px;
-}
-.shortcut-face :deep(.press-content) {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
-    width: 100%;
-    height: 100%;
-    min-width: 0;
-}
-.shortcut-face::after {
-    content: '';
-    position: absolute;
-    top: 7px;
-    right: 7px;
-    width: 3px;
-    height: 3px;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--shortcut-ink) 30%, transparent);
-    box-shadow:
-        inset 0 1px 1px var(--shadow),
-        0 1px 0 var(--bevel-hi);
-}
-.workbench-shortcut:hover .shortcut-face {
-    transform: translateY(-2px);
-}
-.workbench-shortcut:active .shortcut-face {
-    transform: translateY(3px);
-}
-.shortcut-icon {
-    display: grid;
-    place-items: center;
-    flex: none;
-    width: calc(20px * var(--fs-scale));
-    height: calc(20px * var(--fs-scale));
-    color: var(--shortcut-ink);
-}
-.shortcut-icon :deep(.app-icon) {
-    --icon-size: calc(19px * var(--fs-scale));
-}
-.shortcut-copy {
-    display: grid;
-    gap: 2px;
-    min-width: 0;
-}
-.shortcut-name {
-    font-size: var(--fs-sm);
-    color: var(--shortcut-ink);
-}
-.shortcut-copy small {
-    font-size: var(--fs-mini);
+.shortcut-arrow {
+    --icon-size: calc(16px * var(--fs-scale));
+    margin-left: auto;
     color: var(--muted);
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
 }
 .shortcut-character-list {
     display: flex;

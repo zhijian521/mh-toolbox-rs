@@ -27,6 +27,20 @@ describe('首页常用功能配置', () => {
         ).toEqual(['settings', 'account-new']);
     });
 
+    it('仓库作为弹窗入口可添加，已有自定义顺序不被默认新增项覆盖', () => {
+        expect(shortcutsByIds(['warehouse'])[0]).toMatchObject({
+            id: 'warehouse',
+            dialog: 'warehouse',
+            group: '账号',
+        });
+        expect(DEFAULT_SHORTCUT_IDS).toContain('warehouse');
+        expect(normalizeShortcutIds(['settings', 'warehouse', 'warehouse'])).toEqual([
+            'settings',
+            'warehouse',
+        ]);
+        expect(normalizeShortcutIds(['settings'])).toEqual(['settings']);
+    });
+
     it('支持前移、后移与拖动目标，其他入口的相对顺序不变', () => {
         const ids = ['a', 'b', 'c', 'd'];
         expect(moveShortcut(ids, 'c', 0)).toEqual(['c', 'a', 'b', 'd']);

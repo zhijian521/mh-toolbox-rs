@@ -37,6 +37,8 @@
     },
     "packageManager": "npm@10.9.7",
     "dependencies": {
+        "@dnd-kit/dom": "0.5.3",
+        "@dnd-kit/vue": "0.5.3",
         "@tabler/icons-vue": "^3.50.0",
         "@tauri-apps/api": "^2",
         "vue": "^3.5.13",

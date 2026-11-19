@@ -11,6 +11,13 @@
         0 9px 12px -7px var(--shadow-lg);
     --chart-shelf-bg: color-mix(in srgb, var(--paper-2) 76%, var(--well));
 }
+/* 卡内图表由 PaperCard 承担外壳材质，绘图区、柱体和图例底栏保留原有立体效果。 */
+.chart-panel.chart-in-card {
+    --chart-panel-bg: transparent;
+    --chart-panel-shadow: none;
+    /* 图例透出外层纸卡的底色与纹理，分隔线和内高光继续由底栏基座绘制。 */
+    --chart-shelf-bg: transparent;
+}
 .chart-surface {
     --chart-surface-bg: color-mix(in srgb, var(--paper) 78%, var(--well));
     --chart-surface-shadow:
@@ -31,6 +38,29 @@
     --chart-top: color-mix(in srgb, var(--chart-color) 58%, var(--bevel-hi));
     --chart-bar-shadow: inset 1px 0 0 var(--bevel-hi), 4px 3px 4px var(--shadow-lg);
     --chart-column-shadow: drop-shadow(2px 3px 2px var(--shadow-lg));
+}
+/* 进度沿用主题强调色，随读数加深，浅高光保留厚度；空值保持空槽。 */
+.goal-progress.progress-adaptive {
+    --progress-color: color-mix(
+        in oklab,
+        var(--goal-progress-start),
+        var(--goal-progress-end) var(--progress-ratio, 0%)
+    );
+    --progress-tick-fill: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--progress-color) 84%, var(--paper)),
+        var(--progress-color) 62%,
+        color-mix(in srgb, var(--progress-color) 94%, var(--ink-base))
+    );
+}
+/* 票据外壳共用纸面与清晰薄底边，布局和缺口高度由调用方提供。 */
+.ticket-card {
+    --ticket-layer: color-mix(in srgb, var(--paper) 62%, var(--rule-2));
+    --ticket-paper: color-mix(in srgb, var(--paper) 97%, var(--paper-base));
+    --ticket-image:
+        var(--paper-grain, none),
+        linear-gradient(180deg, var(--bevel-hi), transparent 12px);
+    --ticket-shadow: inset 0 1px 0 var(--bevel-hi);
 }
 .press-tile {
     --press-color: var(--tile-face, color-mix(in srgb, var(--paper) 92%, transparent));
@@ -213,6 +243,23 @@
             color-mix(in srgb, var(--bevel-lo) 26%, transparent),
             transparent 70%
         );
+}
+/* 侧签短键只保留薄底边和接触影，三态共用纯色纸面，不叠加大块高光。 */
+:root .press-tile.press-side-tab,
+:root.dark .press-tile.press-side-tab {
+    --press-color: var(--tile-face, var(--paper));
+    --press-side-tab-edge: var(--rule);
+    --press-image: none;
+    --press-shadow: 2px 2px 0 var(--rule), 3px 5px 5px -4px var(--shadow-lg);
+    --press-icon-filter: none;
+}
+:root .press-tile.press-side-tab:not(.still):hover {
+    --press-color: var(--tile-face-hover, var(--paper));
+    --press-side-tab-edge: var(--tile-ink, var(--accent));
+}
+:root .press-tile.press-side-tab:not(.still):active {
+    --press-color: var(--tile-face-active, var(--well));
+    --press-shadow: inset 1px 1px 3px var(--shadow);
 }
 .board {
     --income-board-texture: var(--paper-grain, none);

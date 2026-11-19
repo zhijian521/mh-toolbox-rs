@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="zh-CN" data-style="ledger" data-font="wenkai">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>首页样式 · 六套方案</title>
+    <link rel="stylesheet" href="../../src/styles/tokens.css">
+    <link rel="stylesheet" href="../../src/styles/base.css">
+    <style>
+        /* 仅包含提案的布局和造型。颜色、字体与主题直接引用项目样式入口。 */
+        html { scroll-behavior: smooth; scroll-padding-top: 160px; }
+        body { height: auto; min-height: 100vh; background: var(--paper); }
+        button, select { -webkit-tap-highlight-color: transparent; }
+        button { border: 0; background: none; }
+        button, a, select { touch-action: manipulation; }
+        [hidden] { display: none !important; }
+        .icon { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+        .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+        .preview-shell { max-width: 1320px; margin: auto; padding: 40px 36px 80px; }
+        .preview-intro { display: flex; gap: 24px; align-items: flex-end; justify-content: space-between; padding-bottom: 27px; }
+        .eyebrow { color: var(--accent); font-size: var(--fs-xs); letter-spacing: .2em; margin-bottom: 11px; }
+        .preview-intro h1 { font-size: 30px; line-height: 1.3; }
+        .preview-intro p { color: var(--muted); margin-top: 10px; font-size: var(--fs-sm); }
+        .sample-note { flex: none; color: var(--muted); font-size: var(--fs-xs); padding-bottom: 4px; }
+        .toolbar { position: sticky; top: 0; z-index: 20; background: var(--paper); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 12px 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+        .toolbar-start, .toolbar-end { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+        .view-tabs { display: inline-flex; padding: 3px; background: var(--paper-2); border-radius: 6px; gap: 3px; }
+        .view-tabs button { padding: 6px 15px; border-radius: 4px; color: var(--muted); font-size: var(--fs-sm); }
+        .view-tabs button[aria-pressed="true"] { color: var(--ink); background: var(--paper); box-shadow: 0 1px 3px var(--shadow); }
+        .toolbar label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-xs); }
+        select { padding: 6px 25px 6px 9px; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper); color: var(--ink-2); }
+        .small-control { padding: 6px 11px; min-height: 33px; border: 1px solid var(--rule); border-radius: 4px; font-size: var(--fs-sm); }
+        .small-control:hover { background: var(--paper-2); }
+        .small-control[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--paper)); }
+        .scheme-nav { display: flex; gap: 8px; padding: 19px 0 8px; flex-wrap: wrap; }
+        .scheme-nav a { display: flex; align-items: center; gap: 8px; padding: 7px 13px; border: 1px solid var(--rule); border-radius: 4px; font-size: var(--fs-sm); transition: background var(--t-quick); }
+        .scheme-nav a:hover { background: var(--paper-2); border-color: var(--rule-2); }
+        .scheme-nav b { color: var(--accent); font-weight: 400; }
+        .proposal { margin-top: 32px; }
+        .proposal-head { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 14px; }
+        .proposal-label { display: flex; align-items: center; gap: 13px; }
+        .proposal-letter { font-size: 28px; width: 34px; line-height: 1; color: var(--accent); }
+        .proposal-head h2 { font-size: 18px; }
+        .proposal-head p { color: var(--muted); font-size: var(--fs-sm); margin-top: 3px; }
+        .pick { flex: none; border: 1px solid var(--rule-2); padding: 6px 13px; border-radius: 4px; font-size: var(--fs-sm); }
+        .pick:hover { color: var(--accent); border-color: var(--accent); }
+        .pick[aria-pressed="true"] { color: var(--on-accent); border-color: var(--accent); background: var(--accent); }
+        .demo-canvas { background: var(--page-surface); padding: 26px; border: 1px solid var(--rule); border-radius: 9px; max-width: 100%; margin-inline: auto; container: demo / inline-size; transition: max-width var(--t-slide); }
+        body.compact .demo-canvas { max-width: 900px; }
+        .demo-page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .demo-page-head h3 { color: var(--ink); font-size: var(--fs-md); }
+        .demo-page-head span { color: var(--muted); font-size: var(--fs-xs); }
+        .workbench { display: grid; grid-template-columns: 174px minmax(0, 1fr); gap: 22px; padding: 20px 22px; }
+        .workbench-intro { display: flex; flex-direction: column; justify-content: center; border-right: 1px solid var(--rule); padding-right: 20px; }
+        .workbench-title { display: flex; align-items: center; gap: 9px; margin-bottom: 15px; }
+        .workbench-title h3 { font-size: var(--fs-md); white-space: nowrap; }
+        .workbench-intro p { color: var(--muted); font-size: var(--fs-xs); }
+        .workbench-intro .team-status { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 5px; color: var(--ink-2); font-size: var(--fs-sm); }
+        .status-dot { width: 5px; height: 5px; background: var(--positive); border-radius: 50%; }
+        .stats-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; min-width: 0; }
+        .stat-panel { position: relative; min-width: 0; isolation: isolate; }
+        .stat-head { display: flex; align-items: center; gap: 7px; position: relative; z-index: 1; margin-bottom: 14px; }
+        .stat-head h4 { font-size: var(--fs-base); white-space: nowrap; }
+        .stat-head > .icon { color: var(--panel-ink); width: 16px; height: 16px; }
+        .stat-watermark { position: absolute; right: 11px; top: 12px; color: var(--panel-ink); opacity: .065; width: 73px; height: 73px; z-index: -1; pointer-events: none; stroke-width: 1.1; }
+        .stat-panel.week { --panel-ink: var(--indigo-ink); }
+        .stat-panel.month { --panel-ink: var(--moss); }
+        .stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px 15px; margin: 0; }
+        .metric { min-width: 0; }
+        .metric dt { font-size: var(--fs-xs); color: var(--muted); margin-bottom: 3px; white-space: nowrap; }
+        .metric dd { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; color: var(--ink); font-variant-numeric: tabular-nums; font-size: 17px; line-height: 1.35; }
+        .metric dd small { color: var(--muted); font-size: var(--fs-xs); white-space: nowrap; }
+        .metric.positive dd { color: var(--positive); }
+        .metric.negative dd { color: var(--negative); }
+        .shortcuts { margin-top: 16px; padding: 16px 22px 21px; }
+        .shortcuts-head { display: flex; align-items: center; gap: 9px; margin-bottom: 17px; }
+        .shortcuts-head h3 { font-size: var(--fs-md); }
+        .shortcut-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 11px; }
+        .shortcut { position: relative; min-width: 0; color: var(--ink-2); display: flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 7px; border-radius: 5px; font-size: var(--fs-sm); white-space: nowrap; transition: transform var(--t-quick), box-shadow var(--t-quick), background var(--t-quick), border-color var(--t-quick); }
+        .shortcut .icon { color: var(--button-ink); width: 20px; height: 20px; }
+        .shortcut .mini-arrow { width: 12px; height: 12px; opacity: .4; margin-left: auto; }
+        .shortcut:nth-child(4n+1) { --button-ink: var(--accent); }
+        .shortcut:nth-child(4n+2) { --button-ink: var(--indigo-ink); }
+        .shortcut:nth-child(4n+3) { --button-ink: var(--moss); }
+        .shortcut:nth-child(4n+4) { --button-ink: var(--ochre); }
+
+        /* A：两块独立浅凹槽。按钮为轻键，四周有细小受光边。 */
+        .stats-a .stat-panel { padding: 15px 17px; border-radius: 6px; background: color-mix(in srgb, var(--panel-ink) 4%, var(--paper)); box-shadow: inset 0 2px 4px var(--shadow), inset 0 1px 0 var(--bevel-lo), 0 1px 0 var(--bevel-hi); }
+        .buttons-a .shortcut { background: var(--paper); border: 1px solid var(--rule); box-shadow: inset 0 1px 0 var(--bevel-hi), 0 2px 0 var(--rule), 0 3px 5px var(--shadow); }
+        .buttons-a .shortcut:hover { background: color-mix(in srgb, var(--button-ink) 5%, var(--paper)); border-color: color-mix(in srgb, var(--button-ink) 45%, var(--rule)); transform: translateY(-1px); box-shadow: inset 0 1px 0 var(--bevel-hi), 0 3px 0 var(--rule), 0 5px 7px var(--shadow); }
+        .buttons-a .shortcut:active { transform: translateY(2px); box-shadow: inset 0 1px 2px var(--shadow); }
+
+        /* B：账线排版，数字同列对齐；按键有独立底座和凹面。 */
+        .stats-b .stat-panel { padding: 4px 8px; }
+        .stats-b .stat-head { border-bottom: 2px solid var(--rule); padding-bottom: 10px; margin-bottom: 0; }
+        .stats-b .stat-head::after { content: ''; position: absolute; bottom: -2px; left: 0; width: 28px; border-bottom: 2px solid var(--panel-ink); }
+        .stats-b .stat-grid { grid-template-columns: 1fr; gap: 0; }
+        .stats-b .metric { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--rule); }
+        .stats-b .metric dt { margin: 0; }
+        .stats-b .metric:last-child { border: 0; }
+        .stats-b .metric dd { font-size: 16px; }
+        .stats-b .stat-watermark { top: 52px; width: 94px; height: 94px; }
+        .buttons-b .shortcut { flex-direction: column; gap: 8px; padding: 14px 5px 12px; border: 1px solid var(--rule-2); border-radius: 9px; background: linear-gradient(145deg, var(--paper), var(--paper-2)); box-shadow: inset 2px 2px 1px var(--bevel-hi), inset -2px -2px 1px var(--bevel-lo), 0 5px 0 var(--rule-2), 0 7px 6px var(--shadow); }
+        .buttons-b .shortcut .icon { width: 24px; height: 24px; }
+        .buttons-b .shortcut:hover { transform: translateY(-2px); box-shadow: inset 2px 2px 1px var(--bevel-hi), inset -2px -2px 1px var(--bevel-lo), 0 7px 0 var(--rule-2), 0 9px 9px var(--shadow); }
+        .buttons-b .shortcut:active { transform: translateY(4px); box-shadow: inset 1px 1px 2px var(--bevel-lo), 0 1px 0 var(--rule-2); }
+
+        /* C：统计共用一整块承托槽；按钮采用偏右下的压边。 */
+        .stats-c { gap: 0; padding: 5px; border-radius: 8px; background: var(--paper-2); box-shadow: inset 0 1px 3px var(--shadow), 0 1px 0 var(--bevel-hi); }
+        .stats-c .stat-panel { padding: 12px 17px; }
+        .stats-c .stat-panel + .stat-panel { border-left: 1px solid var(--rule); }
+        .stats-c .stat-head { margin-bottom: 15px; }
+        .stats-c .metric { border-left: 2px solid color-mix(in srgb, var(--panel-ink) 20%, var(--rule)); padding-left: 9px; }
+        .buttons-c { gap: 13px; padding-right: 4px; padding-bottom: 4px; }
+        .buttons-c .shortcut { justify-content: flex-start; background: var(--paper); border: 1px solid var(--rule-2); box-shadow: 3px 3px 0 var(--rule), 4px 4px 0 var(--rule-2), 5px 6px 5px var(--shadow); padding: 14px 9px; border-radius: 3px; }
+        .buttons-c .shortcut:hover { background: color-mix(in srgb, var(--button-ink) 5%, var(--paper)); transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--rule), 5px 5px 0 var(--rule-2), 6px 7px 7px var(--shadow); }
+        .buttons-c .shortcut:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--rule), 1px 1px 0 var(--rule-2); }
+
+        /* D：两张票据嵌在暗一档底面；拉手按钮上暗下亮。 */
+        .stats-d { gap: 12px; padding: 8px; border-radius: 5px; background: var(--well); box-shadow: inset 0 2px 4px var(--shadow), 0 1px 0 var(--bevel-hi); }
+        .stats-d .stat-panel { padding: 10px 14px 13px; background: var(--paper); border: 1px solid var(--rule); box-shadow: 0 2px 2px var(--shadow); border-radius: 2px; }
+        .stats-d .stat-head { padding-bottom: 10px; margin-bottom: 11px; border-bottom: 1px dashed var(--rule-2); }
+        .stats-d .stat-head::before, .stats-d .stat-head::after { content: ''; position: absolute; width: 9px; height: 9px; bottom: -5px; border-radius: 50%; background: var(--well); }
+        .stats-d .stat-head::before { left: -19px; }
+        .stats-d .stat-head::after { right: -19px; }
+        .stats-d .stat-grid { gap: 12px; }
+        .buttons-d { gap: 13px; }
+        .buttons-d .shortcut { border: 1px solid var(--rule); border-top-color: var(--rule-2); border-radius: 5px 5px 8px 8px; padding-block: 15px; background: linear-gradient(to bottom, var(--paper-2), var(--paper) 35%, var(--paper) 75%, var(--paper-2)); box-shadow: inset 0 2px 2px var(--shadow), inset 0 -2px 0 var(--bevel-hi), 0 3px 0 var(--rule), 0 5px 5px var(--shadow); }
+        .buttons-d .shortcut::after { content: ''; position: absolute; width: 20px; height: 2px; border-top: 1px solid var(--rule-2); border-bottom: 1px solid var(--bevel-hi); bottom: 5px; }
+        .buttons-d .shortcut:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--button-ink) 35%, var(--rule-2)); }
+        .buttons-d .shortcut:active { transform: translateY(2px); box-shadow: inset 0 2px 4px var(--shadow), 0 1px 0 var(--rule); }
+
+        /* E：侧签划分统计范围，水平分栏；圆润而短的胶囊按键。 */
+        .stats-e { gap: 14px; }
+        .stats-e .stat-panel { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 14px; padding: 12px; background: color-mix(in srgb, var(--panel-ink) 3%, var(--paper)); border: 1px solid var(--rule); border-radius: 5px; }
+        .stats-e .stat-head { flex-direction: column; justify-content: center; gap: 8px; margin: 0; padding-right: 11px; border-right: 1px solid var(--rule); }
+        .stats-e .stat-head h4 { writing-mode: vertical-rl; letter-spacing: .16em; font-size: var(--fs-sm); }
+        .stats-e .stat-grid { gap: 0; grid-template-columns: 1fr; }
+        .stats-e .metric { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; gap: 7px; }
+        .stats-e .metric dd { font-size: 16px; }
+        .stats-e .metric dt { margin: 0; }
+        .stats-e .stat-watermark { top: auto; bottom: 3px; }
+        .buttons-e { gap: 12px; }
+        .buttons-e .shortcut { border-radius: 24px; background: var(--paper); border: 1px solid var(--rule); padding: 12px 7px; box-shadow: inset 0 2px 1px var(--bevel-hi), inset 0 -2px 2px var(--bevel-lo), 0 3px 0 var(--rule), 0 5px 6px var(--shadow); }
+        .buttons-e .shortcut .icon { width: 18px; height: 18px; }
+        .buttons-e .shortcut:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--button-ink) 6%, var(--paper)); box-shadow: inset 0 2px 1px var(--bevel-hi), inset 0 -2px 2px var(--bevel-lo), 0 4px 0 var(--rule), 0 6px 7px var(--shadow); }
+        .buttons-e .shortcut:active { transform: translateY(2px); box-shadow: inset 0 1px 3px var(--shadow), 0 1px 0 var(--rule); }
+
+        /* F：两条横向读数带，保持整体平整；仅图标托座有立体。 */
+        .stats-f { grid-template-columns: 1fr; gap: 0; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; background: color-mix(in srgb, var(--paper-2) 50%, var(--paper)); }
+        .stats-f .stat-panel { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: 14px; padding: 16px; }
+        .stats-f .stat-panel + .stat-panel { border-top: 1px solid var(--rule); }
+        .stats-f .stat-head { margin: 0; gap: 6px; }
+        .stats-f .stat-head h4 { font-size: var(--fs-sm); }
+        .stats-f .stat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+        .stats-f .stat-watermark { right: 8px; top: 1px; height: 65px; width: 65px; }
+        .stats-f .metric dd { font-size: 16px; }
+        .buttons-f .shortcut { flex-direction: column; gap: 9px; padding: 0 6px 2px; }
+        .buttons-f .icon-seat { display: flex; justify-content: center; align-items: center; width: 46px; height: 42px; border-radius: 11px; border: 1px solid color-mix(in srgb, var(--button-ink) 20%, var(--rule)); background: color-mix(in srgb, var(--button-ink) 6%, var(--paper)); box-shadow: inset 0 1px 0 var(--bevel-hi), 0 3px 0 var(--rule), 0 5px 7px var(--shadow); transition: transform var(--t-quick), box-shadow var(--t-quick); }
+        .buttons-f .shortcut .icon { width: 23px; height: 23px; }
+        .buttons-f .shortcut:hover .icon-seat { transform: translateY(-2px); box-shadow: inset 0 1px 0 var(--bevel-hi), 0 5px 0 var(--rule), 0 7px 9px var(--shadow); }
+        .buttons-f .shortcut:active .icon-seat { transform: translateY(2px); box-shadow: inset 0 1px 2px var(--shadow), 0 1px 0 var(--rule); }
+
+        .mix-panel { margin-top: 27px; }
+        .mix-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 22px; margin-bottom: 18px; padding: 16px 18px; border: 1px solid var(--rule); border-radius: 6px; }
+        .mix-controls label { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: var(--fs-sm); }
+        .mix-controls select { min-width: 190px; }
+        .mix-selection { color: var(--accent); margin-left: auto; font-size: var(--fs-sm); }
+        .compare-notes { display: flex; flex-wrap: wrap; gap: 8px 24px; border-top: 1px solid var(--rule); margin-top: 18px; padding-top: 13px; font-size: var(--fs-xs); color: var(--muted); }
+        .compare-notes strong { color: var(--ink-2); font-weight: 400; }
+        .preview-footer { border-top: 1px solid var(--rule); margin-top: 36px; padding-top: 20px; color: var(--muted); font-size: var(--fs-sm); display: flex; justify-content: space-between; gap: 16px; }
+        #choice-summary { color: var(--accent); }
+        .toast { position: fixed; left: 50%; bottom: 25px; transform: translateX(-50%); padding: 10px 20px; border: 1px solid var(--popover-edge); background: var(--popover-bg); border-radius: 6px; box-shadow: var(--shadow-lift); z-index: 30; font-size: var(--fs-sm); max-width: calc(100vw - 32px); text-align: center; }
+        @container demo (max-width: 1000px) {
+            .workbench { grid-template-columns: 140px minmax(0, 1fr); gap: 16px; padding: 18px; }
+            .workbench-intro { padding-right: 15px; }
+            .shortcut-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+            .buttons-f { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; }
+            .stats-pair { gap: 12px; }
+            .stats-c, .stats-f { gap: 0; }
+            .stats-e .stat-panel { grid-template-columns: 27px minmax(0, 1fr); gap: 10px; }
+            .stats-e .metric { flex-wrap: wrap; gap: 0 6px; }
+            .stats-f .stat-panel { grid-template-columns: 72px minmax(0, 1fr); gap: 9px; padding: 13px; }
+        }
+        @container demo (max-width: 730px) {
+            .workbench { grid-template-columns: 1fr; }
+            .workbench-intro { flex-direction: row; align-items: center; justify-content: space-between; padding: 0 0 12px; border-right: 0; border-bottom: 1px solid var(--rule); }
+            .workbench-title { margin-bottom: 0; }
+            .workbench-intro > p { display: none; }
+            .workbench-intro .team-status { margin: 0; }
+            .stats-f .stat-panel { grid-template-columns: 80px minmax(0, 1fr); }
+            .buttons-f { grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 20px; }
+        }
+        @container demo (max-width: 470px) {
+            .stats-pair { grid-template-columns: 1fr; }
+            .stats-c .stat-panel + .stat-panel { border-left: 0; border-top: 1px solid var(--rule); }
+            .stats-e .metric { flex-wrap: nowrap; }
+            .stats-f .stat-panel { grid-template-columns: 1fr; gap: 12px; }
+            .stats-f .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .shortcut-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 700px) {
+            .preview-shell { padding: 25px 16px 48px; }
+            .preview-intro h1 { font-size: 25px; }
+            .sample-note { display: none; }
+            .preview-intro { padding-bottom: 20px; }
+            .toolbar { position: relative; }
+            .toolbar-end { gap: 7px; }
+            .toolbar label { gap: 4px; }
+            .proposal-head { align-items: flex-start; gap: 10px; }
+            .proposal-label { gap: 8px; }
+            .proposal-head h2 { font-size: 16px; }
+            .proposal-head p { font-size: var(--fs-xs); }
+            .proposal-letter { width: 25px; font-size: 24px; }
+            .demo-canvas { padding: 14px; }
+            .shortcuts { padding-inline: 16px; }
+            .mix-selection { margin-left: 0; }
+            .preview-footer { flex-direction: column; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+            *, *::before, *::after { transition-duration: .001s !important; animation-duration: .001s !important; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Icons: Tabler Icons v3.50.0, MIT, https://github.com/tabler/tabler-icons/blob/main/LICENSE -->
+    <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<symbol id="i-calendar" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12"></path><path d="M16 3v4"></path><path d="M8 3v4"></path><path d="M4 11h16"></path><path d="M11 15h1"></path><path d="M12 15v3"></path></symbol>
+<symbol id="i-wallet" viewBox="0 0 24 24"><path d="M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12"></path><path d="M20 12v4h-4a2 2 0 0 1 0 -4h4"></path></symbol>
+<symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"></path><path d="M13.5 6.5l4 4"></path></symbol>
+<symbol id="i-history" viewBox="0 0 24 24"><path d="M12 8l0 4l2 2"></path><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"></path></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13 -8l-13 -8"></path></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"></path><path d="M12 7v5l3 3"></path></symbol>
+<symbol id="i-scan" viewBox="0 0 24 24"><path d="M5 12h14"></path><path d="M3 7v-2a2 2 0 0 1 2 -2h2"></path><path d="M3 17v2a2 2 0 0 0 2 2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M17 21h2a2 2 0 0 0 2 -2v-2"></path></symbol>
+<symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path><path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3"></path></symbol>
+<symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 5a5 5 0 0 1 7 0a5 5 0 0 0 7 0v9a5 5 0 0 1 -7 0a5 5 0 0 0 -7 0v-9"></path><path d="M5 21v-7"></path></symbol>
+    </svg>
+    <main class="preview-shell">
+        <header class="preview-intro">
+            <div>
+                <div class="eyebrow">梦幻助手 / 首页样式提案</div>
+                <h1>同一份内容，六种手感。</h1>
+                <p>先比较整体，再自由搭配。按钮可以悬停、按压，所有方案使用相同的示例数据。</p>
+            </div>
+            <span class="sample-note">近一周 · 近一个月 · 常用功能</span>
+        </header>
+        <div class="toolbar" aria-label="预览设置">
+            <div class="toolbar-start">
+                <div class="view-tabs" role="group" aria-label="浏览方式">
+                    <button type="button" data-view="gallery" aria-pressed="true">六套对比</button>
+                    <button type="button" data-view="mix" aria-pressed="false">自由搭配</button>
+                </div>
+                <button type="button" id="width-toggle" class="small-control" aria-pressed="false">紧凑宽度</button>
+            </div>
+            <div class="toolbar-end">
+                <label>主题 <select id="theme-select"><option value="ledger">账簿</option><option value="celadon">青瓷</option><option value="azure">霁蓝</option><option value="crystal">水晶</option><option value="dunhuang">敦煌岩彩</option><option value="rosewood">紫檀书斋</option></select></label>
+                <label>字体 <select id="font-select"><option value="wenkai">文楷</option><option value="sans">黑体</option><option value="rounded">圆体</option></select></label>
+                <button type="button" id="dark-toggle" class="small-control" aria-pressed="false">暗色</button>
+            </div>
+        </div>
+        <div id="gallery-view">
+            <nav class="scheme-nav" aria-label="跳转到方案"></nav>
+            <div id="gallery"></div>
+        </div>
+        <section id="mix-view" class="mix-panel" aria-label="自由搭配" hidden>
+            <div class="mix-controls">
+                <label>统计区域 <select id="stats-select"></select></label>
+                <label>常用功能 <select id="buttons-select"></select></label>
+                <span id="mix-selection" class="mix-selection"></span>
+                <button type="button" class="pick" id="pick-mix" aria-pressed="false">记下搭配</button>
+            </div>
+            <div id="mix-preview"></div>
+            <div class="compare-notes" id="mix-notes"></div>
+        </section>
+        <footer class="preview-footer">
+            <span>可以选整套，也可以告诉我「统计 C + 按钮 B」。</span>
+            <span id="choice-summary" role="status" aria-live="polite">尚未选择方案</span>
+        </footer>
+    </main>
+    <div class="toast" id="toast" role="status" hidden></div>
+    <script>
+        const schemes = [
+            { id: 'A', name: '浅槽 · 轻键', stats: '双浅槽', buttons: '横向轻键', description: '接近队伍里的嵌入读数，按钮只保留薄薄一层厚度。', statNote: '两块独立浅槽，留白均衡，数字两列。', buttonNote: '横排图文，薄底边，按下后落回纸面。' },
+            { id: 'B', name: '账线 · 键帽', stats: '账线读数', buttons: '方形键帽', description: '统计像小账页，常用功能像一排有明确行程的按键。', statNote: '标签在左、数字在右，细线划分每行。', buttonNote: '图标在上、名称在下，底座明显，按压感最强。' },
+            { id: 'C', name: '合槽 · 压边', stats: '一体浅槽', buttons: '侧向压边', description: '统计合并为一个整体，入口用偏右下的硬边拉开层次。', statNote: '周、月共用承托面，中间一条分隔线。', buttonNote: '方正短按钮，右下角压边，斜向按压。' },
+            { id: 'D', name: '票据 · 拉手', stats: '嵌入票据', buttons: '抽屉拉手', description: '带一点账簿器物感，统计是票据，入口像短小的抽屉拉手。', statNote: '两张票据落在凹槽内，虚线与缺口区分表头。', buttonNote: '弧面短拉手，下沿有细握纹，悬停轻轻抬起。' },
+            { id: 'E', name: '侧签 · 圆键', stats: '侧签分栏', buttons: '圆润胶囊', description: '用侧边签条收拢标题，圆润按钮让页面更柔和。', statNote: '周、月标签置于侧边，金额逐行对齐。', buttonNote: '短胶囊按键，弧面受光，薄底座。' },
+            { id: 'F', name: '读数带 · 托座', stats: '连续读数带', buttons: '图标托座', description: '统计尽量平整，立体只集中在图标上，减少卡片套卡片。', statNote: '周、月各占一条横带，四个数字横向排列。', buttonNote: '图标有独立小托座，名称直接放在纸面上。' },
+        ];
+        const groups = [
+            { kind: 'week', title: '近一周', icon: 'calendar', metrics: [
+                ['速记净额', '128.6', '万', 'positive'],
+                ['在线时长', '36', '时 20 分', ''],
+                ['点卡消耗', '18.4', '万', ''],
+                ['进行中目标', '3', '项', ''],
+            ] },
+            { kind: 'month', title: '近一个月', icon: 'wallet', metrics: [
+                ['梦幻币收入', '1,286', '万', 'positive'],
+                ['梦幻币支出', '362', '万', 'negative'],
+                ['人民币收入', '2,680', '元', 'positive'],
+                ['人民币支出', '860', '元', 'negative'],
+            ] },
+        ];
+        const shortcuts = [
+            ['记一笔', 'pencil'], ['收益历史', 'history'], ['开始计时', 'play'], ['补记在线', 'clock'],
+            ['截图更新', 'scan'], ['添加物价', 'tag'], ['新建目标', 'flag'], ['活动日历', 'calendar'],
+        ];
+        const icon = (name, extra = '') => `<svg class="icon ${extra}" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+        const statsMarkup = (style) => `<div class="stats-pair stats-${style.toLowerCase()}">${groups.map(group => `
+            <section class="stat-panel ${group.kind}" aria-label="${group.title}">
+                ${icon(group.icon, 'stat-watermark')}
+                <div class="stat-head">${icon(group.icon)}<h4>${group.title}</h4></div>
+                <dl class="stat-grid">${group.metrics.map(([label, value, unit, tone]) => `
+                    <div class="metric ${tone}"><dt>${label}</dt><dd>${value}<small>${unit}</small></dd></div>
+                `).join('')}</dl>
+            </section>`).join('')}</div>`;
+        const buttonsMarkup = (style) => `<div class="shortcut-grid buttons-${style.toLowerCase()}">${shortcuts.map(([label, name]) => `
+            <button type="button" class="shortcut" data-demo="${label}">
+                ${style === 'F' ? `<span class="icon-seat">${icon(name)}</span>` : icon(name)}<span>${label}</span>
+            </button>`).join('')}</div>`;
+        const demoMarkup = (statsStyle, buttonStyle) => `
+            <div class="demo-canvas">
+                <div class="demo-page-head"><h3>总览</h3><span>11 月 19 日 · 周四</span></div>
+                <section class="board workbench" aria-label="工作台预览">
+                    <div class="workbench-intro">
+                        <div class="workbench-title"><i class="section-mark" aria-hidden="true"></i><h3>工作台</h3></div>
+                        <span class="team-status"><i class="status-dot" aria-hidden="true"></i>2 个队伍 · 5 个角色</span>
+                        <p>近况与收支，放在一起看。</p>
+                    </div>
+                    ${statsMarkup(statsStyle)}
+                </section>
+                <section class="board shortcuts" aria-label="常用功能预览">
+                    <div class="shortcuts-head"><i class="section-mark" aria-hidden="true"></i><h3>常用功能</h3></div>
+                    ${buttonsMarkup(buttonStyle)}
+                </section>
+            </div>`;
+        document.querySelector('.scheme-nav').innerHTML = schemes.map(s => `<a href="#proposal-${s.id}"><b>${s.id}</b>${s.name}</a>`).join('');
+        document.querySelector('#gallery').innerHTML = schemes.map(s => `
+            <section class="proposal" id="proposal-${s.id}" aria-labelledby="title-${s.id}">
+                <header class="proposal-head">
+                    <div class="proposal-label"><span class="proposal-letter">${s.id}</span><div><h2 id="title-${s.id}">${s.name}</h2><p>${s.description}</p></div></div>
+                    <button type="button" class="pick" data-pick="${s.id}" aria-pressed="false">选这套</button>
+                </header>
+                ${demoMarkup(s.id, s.id)}
+                <div class="compare-notes"><span><strong>统计：</strong>${s.statNote}</span><span><strong>按钮：</strong>${s.buttonNote}</span></div>
+            </section>`).join('');
+        const statsSelect = document.querySelector('#stats-select');
+        const buttonsSelect = document.querySelector('#buttons-select');
+        statsSelect.innerHTML = schemes.map(s => `<option value="${s.id}">${s.id} · ${s.stats}</option>`).join('');
+        buttonsSelect.innerHTML = schemes.map(s => `<option value="${s.id}">${s.id} · ${s.buttons}</option>`).join('');
+        let choice = '';
+        let toastTimer;
+        const showToast = text => {
+            const toast = document.querySelector('#toast');
+            toast.textContent = text;
+            toast.hidden = false;
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => { toast.hidden = true; }, 2300);
+        };
+        function updatePressed() {
+            document.querySelectorAll('[data-pick]').forEach(button => button.setAttribute('aria-pressed', String(choice === `${button.dataset.pick}+${button.dataset.pick}`)));
+            document.querySelector('#pick-mix').setAttribute('aria-pressed', String(choice === `${statsSelect.value}+${buttonsSelect.value}`));
+        }
+        function renderMix() {
+            const stats = schemes.find(s => s.id === statsSelect.value);
+            const buttons = schemes.find(s => s.id === buttonsSelect.value);
+            document.querySelector('#mix-preview').innerHTML = demoMarkup(stats.id, buttons.id);
+            document.querySelector('#mix-selection').textContent = `统计 ${stats.id} + 按钮 ${buttons.id}`;
+            const notes = document.querySelector('#mix-notes');
+            notes.replaceChildren();
+            for (const text of [`统计：${stats.statNote}`, `按钮：${buttons.buttonNote}`]) {
+                const span = document.createElement('span');
+                span.textContent = text;
+                notes.append(span);
+            }
+            updatePressed();
+        }
+        function selectChoice(stats, buttons) {
+            choice = `${stats}+${buttons}`;
+            const label = stats === buttons ? `方案 ${stats}` : `统计 ${stats} + 按钮 ${buttons}`;
+            document.querySelector('#choice-summary').textContent = `已记下：${label}`;
+            updatePressed();
+            showToast(`已记下 ${label}，把这个选择告诉我即可`);
+        }
+        document.addEventListener('click', event => {
+            const demoButton = event.target.closest('[data-demo]');
+            if (demoButton) showToast(`${demoButton.dataset.demo} · 示例入口`);
+            const pick = event.target.closest('[data-pick]');
+            if (pick) {
+                statsSelect.value = pick.dataset.pick;
+                buttonsSelect.value = pick.dataset.pick;
+                selectChoice(pick.dataset.pick, pick.dataset.pick);
+                renderMix();
+            }
+        });
+        document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
+            const mix = button.dataset.view === 'mix';
+            document.querySelector('#gallery-view').hidden = mix;
+            document.querySelector('#mix-view').hidden = !mix;
+            document.querySelectorAll('[data-view]').forEach(tab => tab.setAttribute('aria-pressed', String(tab === button)));
+            if (mix) renderMix();
+        }));
+        statsSelect.addEventListener('change', renderMix);
+        buttonsSelect.addEventListener('change', renderMix);
+        document.querySelector('#pick-mix').addEventListener('click', () => selectChoice(statsSelect.value, buttonsSelect.value));
+        document.querySelector('#theme-select').addEventListener('change', event => { document.documentElement.dataset.style = event.target.value; });
+        document.querySelector('#font-select').addEventListener('change', event => { document.documentElement.dataset.font = event.target.value; });
+        document.querySelector('#dark-toggle').addEventListener('click', event => {
+            const dark = document.documentElement.classList.toggle('dark');
+            event.currentTarget.setAttribute('aria-pressed', String(dark));
+            event.currentTarget.textContent = dark ? '亮色' : '暗色';
+        });
+        document.querySelector('#width-toggle').addEventListener('click', event => {
+            const compact = document.body.classList.toggle('compact');
+            event.currentTarget.setAttribute('aria-pressed', String(compact));
+            event.currentTarget.textContent = compact ? '恢复宽度' : '紧凑宽度';
+        });
+        renderMix();
+    </script>
+</body>
+</html>

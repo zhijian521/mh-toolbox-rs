@@ -19,9 +19,14 @@ const visibleGoals = computed(() => props.goals.slice(0, 3));
 </script>
 
 <template>
-    <LedgerSection title="目标" class="goals-section">
+    <LedgerSection title="目标" class="goals-section" plain>
         <template #actions
-            ><PressButton text="全部" label="查看全部目标" size="sm" @click="router.push('/goals')"
+            ><PressButton
+                icon="grid"
+                text="全部"
+                label="查看全部目标"
+                size="sm"
+                @click="router.push('/goals')"
         /></template>
         <p v-if="error" class="empty-note">目标未读取</p>
         <div v-else-if="!goals.length" class="section-empty empty-note">
@@ -61,7 +66,11 @@ const visibleGoals = computed(() => props.goals.slice(0, 3));
                             deadlineText(one.goal.deadline, today, one.summary.done)
                         }}</span>
                     </p>
-                    <GoalProgress :percent="one.summary.pct" :label="one.goal.title + '进度'" />
+                    <GoalProgress
+                        :percent="one.summary.pct"
+                        :label="one.goal.title + '进度'"
+                        adaptive
+                    />
                 </div>
                 <AppIcon name="chevron-right" class="goal-arrow" />
             </RouterLink>
@@ -70,9 +79,6 @@ const visibleGoals = computed(() => props.goals.slice(0, 3));
 </template>
 
 <style scoped>
-.goals-section {
-    --progress-color: var(--ochre);
-}
 .goal-list {
     display: grid;
 }

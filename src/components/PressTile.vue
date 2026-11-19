@@ -4,16 +4,29 @@
  * --tile-w / --tile-h 控制尺寸，--tile-r 控制圆角，--tile-drop 控制影子尺度。
  * --tile-face / --tile-face-hover / --tile-face-active 保留局部染色入口。
  * wide 收拢大块偏光，still 关闭不可点击内容的悬停和按下反馈。
+ * side-tab 供卡内入口使用，左侧短签和薄底边区分层级，交互不产生位移。
  */
-withDefaults(defineProps<{ still?: boolean; tone?: 'paper' | 'seal'; wide?: boolean }>(), {
-    still: false,
-    tone: 'paper',
-    wide: false,
-});
+withDefaults(
+    defineProps<{
+        still?: boolean;
+        tone?: 'paper' | 'seal';
+        wide?: boolean;
+        surface?: 'raised' | 'side-tab';
+    }>(),
+    { still: false, tone: 'paper', wide: false, surface: 'raised' },
+);
 </script>
 
 <template>
-    <span class="press-tile" :class="[{ still }, { 'tone-seal': tone === 'seal' }, { wide }]">
+    <span
+        class="press-tile"
+        :class="{
+            still,
+            wide,
+            'tone-seal': tone === 'seal',
+            'press-side-tab': surface === 'side-tab',
+        }"
+    >
         <span class="press-content"><slot /></span>
     </span>
 </template>
@@ -42,6 +55,30 @@ withDefaults(defineProps<{ still?: boolean; tone?: 'paper' | 'seal'; wide?: bool
 }
 .press-tile:not(.still):active {
     transform: translateY(2px);
+}
+.press-tile.press-side-tab {
+    position: relative;
+    border: 1px solid var(--press-side-tab-edge);
+    border-radius: var(--tile-r, var(--r-ticket));
+    transition:
+        background-color var(--t-quick) var(--ease-soft),
+        border-color var(--t-quick) var(--ease-soft),
+        box-shadow var(--t-quick) var(--ease-soft),
+        color var(--t-quick) var(--ease-soft);
+}
+.press-side-tab::before {
+    content: '';
+    position: absolute;
+    top: 13px;
+    bottom: 13px;
+    left: -1px;
+    width: 3px;
+    border-radius: var(--r-1);
+    background: var(--tile-ink, var(--accent));
+    pointer-events: none;
+}
+.press-tile.press-side-tab:not(.still):active {
+    transform: none;
 }
 .press-content :deep(:is(svg, img)) {
     filter: var(--press-icon-filter);

@@ -77,6 +77,8 @@
     --danger: var(--cinnabar);
     --danger-ink: var(--cinnabar-ink);
     --success: var(--moss);
+    --goal-progress-start: color-mix(in srgb, var(--accent) 68%, var(--paper));
+    --goal-progress-end: var(--accent);
     --warning: var(--ochre);
     --positive: var(--moss);
     --negative: var(--cinnabar);
@@ -181,11 +183,12 @@
     /* 间距按布局就地声明，不维护通用间距刻度。 */
 
     /* ---------- 圆角 ----------
-     * 账簿方向几乎不用圆角：纸与线都是方的。胶囊与开关是唯一例外（要读出厚度）。
+     * 纸面保持小圆角，统计票据与队伍小票共用独立的票据圆角；胶囊与开关按自身形状取值。
      */
     --r-1: 2px;
     --r-2: 3px;
     --r-3: 4px;
+    --r-ticket: 4px;
     --r-pill: 999px;
     --r-panel: 6px;
     --r-tile: 9px;

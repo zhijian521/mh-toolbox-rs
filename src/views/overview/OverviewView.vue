@@ -5,13 +5,13 @@ import LedgerSection from '../../components/LedgerSection.vue';
 import PageShell from '../../components/PageShell.vue';
 import PaperCard from '../../components/PaperCard.vue';
 import PressButton from '../../components/PressButton.vue';
-import PressTile from '../../components/PressTile.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
+import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
 import { useMinuteNow } from '../../composables/use-minute-now';
 import { useToday } from '../../composables/use-today';
 import { ledgerMoneyText } from '../../services/format';
-import { accountValueText, filterAccounts } from '../accounts/account-analysis';
-import { accountStatsByCurrency, rangeOf, type Currency } from '../accounts/accounts';
+import { accountValueText } from '../accounts/account-analysis';
+import { rangeOf } from '../accounts/accounts';
 import { useAccounts } from '../accounts/accounts-store';
 import { useDailySync } from '../accounts/daily-sync';
 import { useRoster } from '../characters/roster';
@@ -74,7 +74,6 @@ const timerDisabled = computed(
 const ongoing = computed(() => activeGoals(goals.value, roster.value));
 const week = computed(() => weekSeries(entries.value, today.value));
 const weekTotal = computed(() => week.value.reduce((sum, day) => sum + day.net, 0));
-const weekCount = computed(() => week.value.reduce((sum, day) => sum + day.count, 0));
 const trend = computed(() => [
     { id: 'net', name: '净额', values: week.value.map((day) => day.net) },
 ]);
@@ -82,28 +81,55 @@ const workbench = computed(() => workbenchSummary(accounts.value, today.value));
 const booksUnavailable = computed(
     () => !!(accountError.value || incomeError.value || onlineError.value || syncError.value),
 );
-const books = computed(() => {
-    const month = filterAccounts(accounts.value, rangeOf('month', today.value));
-    const stats = accountStatsByCurrency(month);
-    return (['rmb', 'cash'] as Currency[]).map((currency) => ({
-        currency,
-        label: currency === 'rmb' ? '人民币' : '梦幻币',
-        stats: stats[currency],
-    }));
-});
 const netText = (amount: number) => ledgerMoneyText(amount, 'cash', { sign: 'auto' });
-const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : '');
+const tone = (amount: number): StatItem['tone'] =>
+    amount > 0 ? 'gain' : amount < 0 ? 'loss' : 'num';
+const weekStats = computed<StatItem[]>(() => [
+    {
+        id: 'net',
+        cap: '速记净额',
+        value: incomeError.value ? '未读取' : netText(weekTotal.value),
+        tone: tone(weekTotal.value),
+        unavailable: !!incomeError.value,
+    },
+    {
+        id: 'online',
+        cap: '在线时长',
+        value: onlineError.value ? '未读取' : clockText(weekOnline.value.minutes),
+        unavailable: !!onlineError.value,
+    },
+    {
+        id: 'card-cost',
+        cap: '点卡消耗',
+        value: onlineError.value ? '未读取' : ledgerMoneyText(weekOnline.value.cost, 'cash'),
+        unavailable: !!onlineError.value,
+    },
+    {
+        id: 'goals',
+        cap: '进行中目标',
+        hint: '当前仍在进行的目标数量',
+        value: goalError.value || rosterError.value ? '未读取' : String(ongoing.value.length),
+        unit: goalError.value || rosterError.value ? '' : '项',
+        unavailable: !!(goalError.value || rosterError.value),
+    },
+]);
+const monthStats = computed<StatItem[]>(() =>
+    workbench.value.books.flatMap((book) =>
+        (['income', 'expense'] as const).map<StatItem>((kind) => ({
+            id: `${book.currency}-${kind}`,
+            cap: book.label + (kind === 'income' ? '收入' : '支出'),
+            value: booksUnavailable.value
+                ? '未读取'
+                : accountValueText(book.stats[kind], book.currency),
+            tone: kind === 'income' ? 'gain' : 'loss',
+            unavailable: booksUnavailable.value,
+        })),
+    ),
+);
 </script>
 
 <template>
     <PageShell title="总览" desc="工作台 · 常用功能">
-        <template #actions
-            ><PressButton
-                icon="history"
-                text="历史"
-                label="查看收益历史"
-                @click="router.push({ path: '/income', query: { action: 'history' } })"
-        /></template>
         <div class="overview day-workbench">
             <div v-if="sourceErrors.length" class="source-errors" role="status">
                 <p v-for="one in sourceErrors" :key="one.label" class="note error">
@@ -111,7 +137,7 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
                 </p>
             </div>
             <SaveNotice :error="onlineWriteError" :pending="onlinePending" @retry="retryOnline" />
-            <PaperCard class="day-hero">
+            <PaperCard class="day-hero" plain>
                 <div class="day-intro">
                     <span class="eyebrow">日常 · 养成 · 收获</span>
                     <h2>工作台</h2>
@@ -146,81 +172,26 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
                     </div>
                 </div>
                 <div class="workbench-readouts">
-                    <section class="workbench-today" aria-label="近一周概览">
-                        <header
-                            class="readouts-head"
-                            :title="weekRange.from + ' 至 ' + weekRange.to"
-                        >
-                            <h3>近一周</h3>
-                        </header>
-                        <div class="day-stats">
-                            <div>
-                                <span>速记净额</span
-                                ><b class="num" :class="incomeError ? '' : tone(weekTotal)">{{
-                                    incomeError ? '未读取' : netText(weekTotal)
-                                }}</b>
-                            </div>
-                            <div>
-                                <span>在线时长</span
-                                ><b class="num">{{
-                                    onlineError ? '未读取' : clockText(weekOnline.minutes)
-                                }}</b>
-                            </div>
-                            <div>
-                                <span>点卡消耗</span
-                                ><b class="num">{{
-                                    onlineError
-                                        ? '未读取'
-                                        : ledgerMoneyText(weekOnline.cost, 'cash')
-                                }}</b>
-                            </div>
-                            <div>
-                                <span title="当前仍在进行的目标数量">进行中目标</span
-                                ><b class="num"
-                                    >{{ goalError || rosterError ? '未读取' : ongoing.length
-                                    }}<small v-if="!goalError && !rosterError">项</small></b
-                                >
-                            </div>
-                        </div>
-                    </section>
-                    <section class="workbench-accounts" aria-label="收支概览">
-                        <header
-                            class="readouts-head"
-                            :title="workbench.range.from + ' 至 ' + workbench.range.to"
-                        >
-                            <h3>近一个月</h3>
-                        </header>
-                        <div class="day-stats" aria-live="polite" aria-atomic="true">
-                            <template v-for="book in workbench.books" :key="book.currency">
-                                <div
-                                    v-for="kind in ['income', 'expense'] as const"
-                                    :key="kind"
-                                    :data-currency="book.currency"
-                                    :data-kind="kind"
-                                >
-                                    <span
-                                        >{{ book.label
-                                        }}{{ kind === 'income' ? '收入' : '支出' }}</span
-                                    >
-                                    <b
-                                        class="num"
-                                        :class="
-                                            booksUnavailable
-                                                ? ''
-                                                : kind === 'income'
-                                                  ? 'gain'
-                                                  : 'loss'
-                                        "
-                                        >{{
-                                            booksUnavailable
-                                                ? '未读取'
-                                                : accountValueText(book.stats[kind], book.currency)
-                                        }}</b
-                                    >
-                                </div>
-                            </template>
-                        </div>
-                    </section>
+                    <StatStrip
+                        class="workbench-today"
+                        surface="embedded"
+                        heading="近一周"
+                        icon="calendar"
+                        :hint="weekRange.from + ' 至 ' + weekRange.to"
+                        :items="weekStats"
+                        aria-label="近一周概览"
+                    />
+                    <StatStrip
+                        class="workbench-accounts"
+                        surface="embedded"
+                        heading="近一个月"
+                        icon="accounts"
+                        :hint="workbench.range.from + ' 至 ' + workbench.range.to"
+                        :items="monthStats"
+                        aria-label="收支概览"
+                        aria-live="polite"
+                        aria-atomic="true"
+                    />
                 </div>
             </PaperCard>
             <div class="day-grid">
@@ -232,11 +203,19 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
                     :today="today"
                 />
             </div>
-            <LedgerSection
-                title="我的队伍"
-                :hint="rosterError ? '' : roster.length + ' 个角色'"
-                class="team-section"
-            >
+            <LedgerSection title="收益趋势" class="trend-section" plain>
+                <p v-if="incomeError" class="empty-note">收益未读取</p>
+                <TrendChart
+                    v-else
+                    class="chart-in-card"
+                    :labels="week.map((day) => day.date)"
+                    :series="trend"
+                    kind="money"
+                    label="最近七天收益"
+                    :height="180"
+                />
+            </LedgerSection>
+            <LedgerSection title="我的队伍" class="team-section" plain>
                 <template #actions
                     ><PressButton
                         icon="add"
@@ -247,6 +226,7 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
                         @click="
                             router.push({ path: '/characters', query: { action: 'new' } })
                         " /><PressButton
+                        icon="characters"
                         text="管理"
                         label="管理全部角色"
                         size="sm"
@@ -266,84 +246,6 @@ const tone = (amount: number) => (amount > 0 ? 'gain' : amount < 0 ? 'loss' : ''
                     />
                 </div>
             </LedgerSection>
-            <div class="day-lower">
-                <LedgerSection
-                    title="最近收益"
-                    :hint="incomeError ? '' : weekCount + ' 笔'"
-                    class="week-section"
-                >
-                    <template #actions
-                        ><PressButton
-                            text="明细"
-                            label="查看收益明细"
-                            size="sm"
-                            @click="router.push({ path: '/income', query: { action: 'history' } })"
-                    /></template>
-                    <p v-if="incomeError" class="empty-note">收益未读取</p>
-                    <template v-else>
-                        <div class="week-summary">
-                            <b class="num" :class="tone(weekTotal)">{{ netText(weekTotal) }}</b
-                            ><span>最近 7 天 · 速记净额</span>
-                        </div>
-                        <TrendChart
-                            :labels="week.map((day) => day.date)"
-                            :series="trend"
-                            kind="money"
-                            label="最近七天收益"
-                            :height="150"
-                        />
-                    </template>
-                </LedgerSection>
-                <LedgerSection title="本月收支" class="accounts-section">
-                    <template #actions
-                        ><PressButton
-                            text="账号"
-                            label="查看账号收支"
-                            size="sm"
-                            @click="router.push('/accounts')"
-                    /></template>
-                    <p v-if="accountError" class="empty-note">账号收支未读取</p>
-                    <template v-else>
-                        <div class="books">
-                            <section
-                                v-for="book in books"
-                                :key="book.currency"
-                                class="book"
-                                :data-currency="book.currency"
-                            >
-                                <header>
-                                    <h3>{{ book.label }}</h3>
-                                    <span>{{ book.stats.count }} 笔</span>
-                                </header>
-                                <div
-                                    class="book-values"
-                                    role="list"
-                                    :aria-label="book.label + '本月收支'"
-                                >
-                                    <PressTile class="book-cell" still role="listitem"
-                                        ><span class="book-cell-cap">收入</span
-                                        ><b class="num gain">{{
-                                            accountValueText(book.stats.income, book.currency)
-                                        }}</b></PressTile
-                                    >
-                                    <PressTile class="book-cell" still role="listitem"
-                                        ><span class="book-cell-cap">支出</span
-                                        ><b class="num loss">{{
-                                            accountValueText(book.stats.expense, book.currency)
-                                        }}</b></PressTile
-                                    >
-                                    <PressTile class="book-cell" still role="listitem"
-                                        ><span class="book-cell-cap">净额</span
-                                        ><b class="num" :class="tone(book.stats.net)">{{
-                                            accountValueText(book.stats.net, book.currency)
-                                        }}</b></PressTile
-                                    >
-                                </div>
-                            </section>
-                        </div>
-                    </template>
-                </LedgerSection>
-            </div>
         </div>
     </PageShell>
 </template>

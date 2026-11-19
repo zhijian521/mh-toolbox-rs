@@ -8,6 +8,7 @@ const props = withDefaults(
         shape?: 'ring' | 'ticks';
         valueText?: string;
         steps?: number;
+        adaptive?: boolean;
     }>(),
     { shape: 'ticks', valueText: '' },
 );
@@ -30,12 +31,12 @@ const fills = computed(() => {
 <template>
     <div
         class="goal-progress"
-        :class="shape"
-        :style="
-            steps === undefined
-                ? undefined
-                : { gridTemplateColumns: `repeat(${stepCount}, minmax(0, 1fr))` }
-        "
+        :class="[shape, { 'progress-adaptive': adaptive }]"
+        :style="{
+            gridTemplateColumns:
+                steps === undefined ? undefined : `repeat(${stepCount}, minmax(0, 1fr))`,
+            '--progress-ratio': adaptive ? `${value ?? 0}%` : undefined,
+        }"
         role="progressbar"
         :aria-label="label"
         :aria-valuenow="value === null ? undefined : Math.round(value)"
@@ -181,11 +182,14 @@ const fills = computed(() => {
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(
-        180deg,
-        var(--progress-light),
-        var(--progress-color) 45%,
-        var(--progress-dark)
+    background: var(
+        --progress-tick-fill,
+        linear-gradient(
+            180deg,
+            var(--progress-light),
+            var(--progress-color) 45%,
+            var(--progress-dark)
+        )
     );
     box-shadow:
         inset 0 1px 0 var(--bevel-hi),

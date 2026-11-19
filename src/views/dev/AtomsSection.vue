@@ -18,6 +18,8 @@ import SlotButton from '../../components/SlotButton.vue';
 import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import TogglePills from '../../components/TogglePills.vue';
+import TicketCard from '../../components/TicketCard.vue';
+import TrendChart from '../../components/TrendChart.vue';
 import { useFontScale } from '../../composables/use-font-scale';
 import { notify } from '../../composables/use-notify';
 import { STYLE_OPTIONS, THEME_OPTIONS, useTheme } from '../../composables/use-theme';
@@ -115,6 +117,7 @@ const KIT_GROUPS: {
             ['numtag', '数值签'],
             ['meter', '进度条'],
             ['stat', '统计条'],
+            ['trend', '趋势图'],
         ],
     },
     {
@@ -219,6 +222,12 @@ const DEMO_STATS: StatItem[] = [
     { cap: '支出', value: '−12.3 万', tone: 'loss', sub: '6 笔 · 占收入 2.7%', delta: '+3.1%' },
     { cap: '净额', value: '450.2 万', tone: 'gain', sub: '结余率 97.3%', delta: '+13.2%' },
     { cap: '笔数', value: '37', sub: '4 个号 · 2 条未指定', delta: '+6 笔' },
+];
+const DEMO_EMBEDDED_STATS: StatItem[] = [
+    { cap: '收入', value: '462.5 万', tone: 'gain' },
+    { cap: '支出', value: '12.3 万', tone: 'loss' },
+    { cap: '目标', value: '3', unit: '项' },
+    { cap: '在线时长', value: '未读取', unavailable: true },
 ];
 
 /** 多选胶囊：初值给一项，才好看出「按下的那几枚是朱的」与「其余仍是空槽」。 */
@@ -587,16 +596,62 @@ const demoToggles = ref<string[]>(['task']);
                             <span class="kit-name">统计条</span>
                             <span class="kit-en">StatStrip</span>
                         </span>
-                        <!-- 四格是收益页与总览页的实际用法，这里也让它撑满整行（见 `.demo-stats`）：
-                     四格等分要靠整行宽度才看得出来，缩在一半里会读成一张卡。 -->
                         <div class="kit-row">
                             <StatStrip :items="DEMO_STATS" class="demo-stats" />
                         </div>
+                        <div class="kit-row">
+                            <StatStrip
+                                :items="DEMO_EMBEDDED_STATS"
+                                class="demo-stats-embedded"
+                                surface="embedded"
+                                heading="近一周"
+                                icon="calendar"
+                                aria-label="薄票据统计示例"
+                            />
+                        </div>
                         <p class="note">
-                            四枚<b>压印签</b>，材质与物价卡同一块（<code>PressTile</code> 的
-                            <code>wide</code> 档：大块要把左上那颗偏光收小）。每格三层——名目、读数、
-                            副文；副文<b>左端说构成、右端说较上一档</b>，且不上色（四格的「好」方向不同，
-                            方向交给 +/−）。列数由 <code>items.length</code> 决定。
+                            默认每格为独立纸面；卡内使用 <code>surface="embedded"</code>，票据直接
+                            放在纸面上，保留虚线、镂空缺口、平直纸边和标题小图标。
+                            与队伍小票共用 <code>TicketCard</code> 外壳，圆角取 <code>--r-ticket</code>。
+                            立体感来自纸色薄底边与顶部高光，不叠加模糊影。
+                            金额、单位和未读取状态由业务提供。
+                        </p>
+                        <div class="kit-row">
+                            <TicketCard as="article" class="demo-ticket">
+                                <template #header><h3>自定义内容</h3></template>
+                                <p>同一票据外壳，内部保留各自的内容排版。</p>
+                            </TicketCard>
+                        </div>
+                        <p class="note">
+                            <code>TicketCard</code> 只提供纸面、侧缺口和薄底边；可换行签头放在
+                            <code>header</code> 插槽并以分隔线收尾，票口跟随实际高度。固定签头也可用
+                            <code>--ticket-notch-y</code> 定位，不参与统计或业务计算。
+                        </p>
+                    </div>
+
+                    <div v-if="current === 'read'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">趋势图</span>
+                            <span class="kit-en">TrendChart</span>
+                        </span>
+                        <div class="kit-row">
+                            <LedgerSection class="demo-trend" title="收益趋势" plain>
+                                <TrendChart
+                                    class="chart-in-card"
+                                    :labels="['2026-11-13', '2026-11-14', '2026-11-15']"
+                                    :series="[
+                                        { id: 'net', name: '净额', values: [450000, -130000, 820000] },
+                                    ]"
+                                    kind="money"
+                                    label="示例收益趋势"
+                                    :height="130"
+                                />
+                            </LedgerSection>
+                        </div>
+                        <p class="note">
+                            图表单独使用时自带立体底板；放在卡片内使用 <code>.chart-in-card</code>，
+                            由外层纸卡统一承载标题和阴影，图例透出同一底色，保留立体分隔线和高光。
+                            外层使用 <code>plain</code> 关闭纹理和渐变，仍保留公共圆角与立体阴影。
                         </p>
                     </div>
 
@@ -650,6 +705,19 @@ const demoToggles = ref<string[]>(['task']);
                             <PressButton text="md" label="默认 26px" />
                             <PressButton text="lg" label="大一号 31px" size="lg" />
                         </div>
+                        <div class="kit-row">
+                            <button
+                                type="button"
+                                class="demo-side-tab-button"
+                                aria-label="侧签短键入口示例"
+                            >
+                                <PressTile class="demo-side-tab-face" surface="side-tab">
+                                    <AppIcon name="tools" />
+                                    <span>常用工具</span>
+                                    <AppIcon name="chevron-right" class="demo-side-tab-arrow" />
+                                </PressTile>
+                            </button>
+                        </div>
                         <p class="note">
                             左边两枚是<b>块</b>（工具页图标格、左栏牌记），右边依次是<b>按钮</b>的四种
                             内容与三档尺寸：同一块纸，<code>seal</code> 把块面灌朱，一屏一枚。尺寸
@@ -657,6 +725,8 @@ const demoToggles = ref<string[]>(['task']);
                             <code>md</code> 与槽按钮逐像素同值，<code>sm</code>
                             是注脚级（塞在说明行右端、读数格边上，字号与内距一并收窄）。
                             <b>但一凹一凸是两种材质，别混在同一行</b>。
+                            卡内入口使用 <code>surface="side-tab"</code>，通过左侧色签和薄底边
+                            区分层级；悬停改变底色和描边，按下收紧投影，均不位移，由外层原生按钮负责焦点和点击。
                         </p>
                     </div>
                 </div>

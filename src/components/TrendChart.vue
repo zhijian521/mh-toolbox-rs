@@ -368,6 +368,10 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
     min-width: 0;
     margin-bottom: 5px;
 }
+.trend.chart-in-card {
+    /* 卡内图表由外壳投影，不再额外预留独立底板的落影间距。 */
+    margin-bottom: 0;
+}
 
 .chart {
     position: relative;

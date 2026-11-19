@@ -7,7 +7,7 @@ import { computed } from 'vue';
  * ## 为什么要有这个组件
  *
  * 材质只有一份，写在 `base.css` 的 `.board` 里（圆角、上亮下暗的棱、下沿 3px 纸的断面、
- * 硬影 + 软影、左上偏光 + 135° 斜向渐变）。组件这边不加一条样式，只负责两件事：
+ * 硬影 + 软影、左上偏光 + 135° 斜向渐变）。组件不重复材质，只负责以下入口：
  *
  * 1. **定标签**。卡片的语义标签不止一种：区块是 `<section>`、列表项是 `<article>`、
  *    捉鬼页的识别原文是 `<details>`（要能折叠）。三处各写一遍 `class="board"` 就是
@@ -16,6 +16,7 @@ import { computed } from 'vue';
  * 2. **传底色**。默认取 `--paper`；有自己底色的卡传 `face`（将来角色卡若要走纸渐变而不是
  *    门派渐变，也在这里换），渐变与棱会按新底色重算——`base.css` 里那两条
  *    `color-mix()` 读的就是 `--board-face`，不需要为「另一种纸」再抄一份影。
+ * 3. **选纸面**。`plain` 只关闭背景图层，仍沿用公共圆角与阴影；页面无需覆盖所有后代卡片。
  *
  * ## 为什么没有 `padding`
  *
@@ -37,8 +38,10 @@ const props = withDefaults(
         as?: 'section' | 'article' | 'div' | 'details';
         /** 纸色。空 = `--paper`；有自己底色的卡传一枚令牌（如角色卡的门派浅染底）。 */
         face?: string;
+        /** 纯色纸面；保留公共圆角、棱与阴影，不叠加主题纹理或渐变。 */
+        plain?: boolean;
     }>(),
-    { as: 'section', face: '' },
+    { as: 'section', face: '', plain: false },
 );
 
 /** `--board-face` 走内联变量：它是**这一张卡**的纸色，不是全局令牌，写在样式表里就串页了。 */
@@ -46,7 +49,7 @@ const surface = computed(() => (props.face ? { '--board-face': props.face } : un
 </script>
 
 <template>
-    <component :is="as" class="board" :style="surface">
+    <component :is="as" class="board" :class="{ 'board-plain': plain }" :style="surface">
         <slot />
     </component>
 </template>

@@ -77,7 +77,7 @@
 :root[data-style='rosewood'] .page-head {
     background: var(--wood-sheen), var(--paper-2);
 }
-:root[data-style='rosewood'] .press-tile {
+:root[data-style='rosewood'] .press-tile:where(:not(.press-side-tab)) {
     --press-image: var(--wood-sheen);
 }
 
@@ -117,7 +117,7 @@
         color-mix(in srgb, var(--paper) 76%, transparent)
     );
 }
-:root[data-style='crystal'] .press-tile,
+:root[data-style='crystal'] .press-tile:where(:not(.press-side-tab)),
 :root[data-style='crystal'] .stamp {
     --crystal-sheen: linear-gradient(
         180deg,
@@ -129,8 +129,8 @@
     --press-image: var(--crystal-sheen);
     --stamp-texture: var(--crystal-sheen);
 }
-:root:is([data-style='crystal'], [data-style='rosewood']) .press-tile:not(.still):active,
-:root:is([data-style='crystal'], [data-style='rosewood']) .press-tile.tone-seal:not(.still):active {
+:root:is([data-style='crystal'], [data-style='rosewood']) .press-tile:not(.still, .press-side-tab):active,
+:root:is([data-style='crystal'], [data-style='rosewood']) .press-tile.tone-seal:not(.still, .press-side-tab):active {
     --press-image: linear-gradient(180deg, var(--bevel-lo), transparent 58%);
 }
 :root[data-style='crystal'] .rail {
