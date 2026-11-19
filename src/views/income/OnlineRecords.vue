@@ -9,6 +9,7 @@ import SaveNotice from '../../components/SaveNotice.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
+import TextButton from '../../components/TextButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import DateRangeField from '../../components/DateRangeField.vue';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
@@ -192,7 +193,7 @@ async function remove(one: ReadonlyOnlineSession) {
                 aria-label="搜索上线记录"
                 autocomplete="off"
             />
-            <PressButton v-if="anyFilter" text="重置" size="sm" label="清空筛选" @click="reset" />
+            <TextButton v-if="anyFilter" text="重置" label="清空筛选" @click="reset" />
         </div>
 
         <div v-if="!loadError" class="record-roles">
@@ -221,19 +222,21 @@ async function remove(one: ReadonlyOnlineSession) {
             </span>
         </p>
 
-        <p v-if="!filtered.length" class="record-empty">
-            {{
-                loadError
-                    ? '暂时无法读取上线记录，请重新读取。'
-                    : sessions.length
-                      ? '这个筛选下没有记录。'
-                      : '还没有上线记录。'
-            }}
-        </p>
-
-        <div v-else class="online-table-frame record-table-frame">
+        <div
+            class="online-table-frame record-table-frame"
+            :class="{ 'is-empty': !!loadError || !sessions.length }"
+        >
             <div ref="scroll" class="income-log-scroll" @scroll="rememberScroll">
-                <table class="rec-table income-table">
+                <p v-if="loadError || !filtered.length" class="record-empty">
+                    {{
+                        loadError
+                            ? '暂时无法读取上线记录，请重新读取。'
+                            : sessions.length
+                              ? '这个筛选下没有记录。'
+                              : '还没有上线记录。'
+                    }}
+                </p>
+                <table v-else class="rec-table income-table">
                     <thead>
                         <tr>
                             <th class="c-date">日期</th>

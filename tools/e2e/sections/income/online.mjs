@@ -199,7 +199,7 @@ export default async function runOnline(ctx) {
         const formFit = await cdp.evaluate(`(() => {
                 const panel = document.querySelector('[role="dialog"]');
                 const boundary = panel.getBoundingClientRect();
-                return [...panel.querySelectorAll('.income-form, .online-field, .pill-group, .bevel-pill, .date-field, .times, .time-input, input[maxlength="40"]')]
+                return [...panel.querySelectorAll('.income-form, .form-field, .pill-group, .bevel-pill, .date-field, .times, .time-input, input[maxlength="40"]')]
                     .filter((one) => one.getClientRects().length)
                     .map((one) => {
                         const rect = one.getBoundingClientRect();
@@ -291,6 +291,7 @@ export default async function runOnline(ctx) {
         const charts = await cdp.evaluate(`(() => {
                 return [...document.querySelectorAll('.chart-block')].map((block) => ({
                     head: (block.querySelector('h3')?.textContent || '').trim(),
+                    bottomPadding: parseFloat(getComputedStyle(block.closest('.ledger-section')).paddingBottom),
                     height: Number.parseFloat(getComputedStyle(block.querySelector('.chart')).minHeight),
                     drawn: !!block.querySelector('svg.chart-svg'),
                     panel: !!block.querySelector('.chart-panel > .chart-surface'),
@@ -320,6 +321,7 @@ export default async function runOnline(ctx) {
         t.check('两张走势图都在', charts.length === 2, `实际 ${charts.length} 张`);
         t.check('每日时长与每日收益标题一致', charts.map((one) => one.head).join('/') === '每日时长/每日收益');
         t.check('两张图与总览同为 180px 高', charts.every((one) => one.height === 180));
+        t.check('每日走势外卡底部与总览同为 8px 留白', charts.every((one) => one.bottomPadding === 8));
         t.check(
             '绘图区立体边沿覆盖在固定纵轴之上且不拦截操作',
             charts.every((one) => one.edge),
@@ -508,6 +510,12 @@ export default async function runOnline(ctx) {
             '结束日期收窄后不展示区间外记录',
             await cdp.waitFor(`!document.querySelector('.online-records .rec-table')`),
         );
+        t.check('筛选无匹配保留固定内容区，重置使用文字按钮', await cdp.evaluate(`(() => {
+            const frame = document.querySelector('.online-records .record-table-frame');
+            return !!frame?.querySelector('.income-log-scroll .record-empty') &&
+                !frame.classList.contains('is-empty') &&
+                !!document.querySelector('.online-records .text-btn[aria-label="清空筛选"]');
+        })()`));
         await ui.clickLabelPrefix('到哪一天：');
         await ui.clickText('button', '回到今天', { exact: true });
         await ui.waitFor(

@@ -283,7 +283,7 @@ function whoText(one: ReadonlyOnlineSession): string {
                     <div
                         v-for="one in roles"
                         :key="one.id"
-                        class="role-item"
+                        class="role-item side-tab-surface"
                         :class="{ 'is-running': one.session }"
                         :data-character-id="one.id"
                     >
@@ -467,29 +467,21 @@ function whoText(one: ReadonlyOnlineSession): string {
     gap: 8px;
 }
 .role-item {
+    --side-tab-shadow: 0 2px 0 var(--rule);
+    --side-tab-mark-height: 12px;
+    --side-tab-mark: var(--rule-2);
+
     display: flex;
     flex: none;
     align-items: center;
     width: min(100%, calc(156px * var(--fs-scale)));
     min-width: 0;
     min-height: var(--online-role-row-h, auto);
-    border: var(--w-hair) solid var(--rule);
-    border-radius: var(--r-ticket);
-    background: var(--paper);
-    box-shadow: 0 2px 0 var(--rule);
+    padding-left: 2px;
     transition: border-color var(--t-quick) var(--ease-soft);
 }
-.role-item::before {
-    content: '';
-    flex: none;
-    width: 3px;
-    height: 12px;
-    margin-left: -1px;
-    border-radius: var(--r-1);
-    background: var(--rule-2);
-}
 .role-item:has(.role-start:hover:not(:disabled)) {
-    border-color: var(--rule-2);
+    --side-tab-edge: var(--rule-2);
 }
 .role-start {
     display: flex;
@@ -530,10 +522,8 @@ function whoText(one: ReadonlyOnlineSession): string {
     font-variant-numeric: tabular-nums;
 }
 .is-running {
-    border-color: color-mix(in srgb, var(--accent) 35%, var(--rule));
-}
-.is-running::before {
-    background: var(--accent);
+    --side-tab-edge: color-mix(in srgb, var(--accent) 35%, var(--rule));
+    --side-tab-mark: var(--accent);
 }
 .is-running .role-start:disabled {
     opacity: 1;

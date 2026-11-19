@@ -1,21 +1,17 @@
 .accounts-layout {
+    container: accounts / inline-size;
     display: grid;
     gap: 16px;
 }
-.accounts-layout :deep(.board) {
-    background-image: var(--income-board-texture);
+.account-overview {
+    min-width: 0;
+    padding: var(--block-pad);
 }
 .filters {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 10px;
-    padding: 10px 16px;
-}
-.filters .who-pick {
-    flex: 0 0 auto;
-    max-width: 100%;
-    width: calc(148px * var(--fs-scale));
 }
 .range-text {
     margin-left: auto;
@@ -27,48 +23,11 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
+    margin-top: 16px;
 }
 .book {
+    --stat-columns: 3;
     min-width: 0;
-    padding: 14px 16px;
-}
-.book-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: 12px;
-}
-.book-head h2 {
-    margin: 0;
-}
-.book-count {
-    color: var(--muted);
-    font-size: var(--fs-xs);
-}
-.metrics {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-.metrics > div {
-    min-width: 0;
-    padding-right: 8px;
-}
-.metrics > div + div {
-    padding-left: 10px;
-    border-left: var(--w-hair) solid var(--rule);
-}
-.metrics span {
-    display: block;
-    color: var(--muted);
-    font-size: var(--fs-xs);
-}
-.metrics b {
-    display: block;
-    margin-top: 3px;
-    font-size: calc(var(--fs-base) * 1.28);
-    font-weight: 400;
-    overflow-wrap: anywhere;
-    font-variant-numeric: tabular-nums;
 }
 .in,
 .income {
@@ -88,7 +47,7 @@
     min-width: 0;
     padding: 0;
     border: 0;
-    border-radius: var(--r-2);
+    border-radius: var(--r-ticket);
     background: none;
     color: var(--ink);
     font: inherit;
@@ -102,44 +61,38 @@
     --shortcut-color: var(--negative);
 }
 .shortcut-face {
-    width: 100%;
-    height: 100%;
-    padding: 14px;
-    --tile-r: var(--r-2);
+    --tile-ink: var(--shortcut-color);
+    --tile-face: var(--paper);
+    --tile-face-hover: color-mix(in srgb, var(--shortcut-color) 4%, var(--paper));
+    --tile-face-active: var(--well);
+    --tile-w: 100%;
+    --tile-h: 100%;
+    --tile-r: var(--r-ticket);
+    padding: 11px 13px 11px 17px;
 }
 .shortcut-face :deep(.press-content) {
     width: 100%;
 }
 .shortcut-body {
     display: grid;
-    grid-template-columns: 32px minmax(0, 1fr);
+    grid-template-columns: 24px minmax(0, 1fr);
     align-items: center;
     column-gap: 10px;
-    row-gap: 10px;
+    row-gap: 7px;
     width: 100%;
 }
 .sc-icon {
     display: grid;
     place-items: center;
-    width: 32px;
-    height: 32px;
-    border-radius: var(--r-2);
-    background: color-mix(in srgb, var(--shortcut-color) 9%, transparent);
+    width: 24px;
+    height: 24px;
     color: var(--shortcut-color);
     --icon-size: 20px;
 }
-.sc-copy {
-    display: grid;
-    gap: 3px;
-    min-width: 0;
-}
 .sc-title {
+    min-width: 0;
     color: var(--ink);
     font-size: var(--fs-base);
-}
-.sc-copy small {
-    color: var(--muted);
-    font-size: var(--fs-mini);
 }
 .sc-total {
     display: grid;
@@ -178,9 +131,22 @@
     gap: 16px;
 }
 .records {
+    display: flex;
+    flex-direction: column;
     min-width: 0;
 }
+.records :deep(.section-head) {
+    flex: none;
+}
+.records :deep(.section-body) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+}
 .recent-list {
+    flex: 1;
+    min-height: 0;
     max-height: 320px;
     overflow-y: auto;
     scrollbar-gutter: stable;
@@ -239,13 +205,14 @@
 }
 .blank {
     display: grid;
+    flex: 1;
     place-items: center;
     min-height: 258px;
     margin: 0;
     color: var(--muted);
     font-size: var(--fs-sm);
 }
-@media (max-width: 760px) {
+@container accounts (max-width: 760px) {
     .books,
     .account-bottom {
         grid-template-columns: minmax(0, 1fr);
@@ -253,5 +220,10 @@
     .range-text {
         width: 100%;
         margin-left: 0;
+    }
+}
+@container accounts (max-width: 480px) {
+    .book {
+        --stat-columns: 1;
     }
 }

@@ -235,7 +235,7 @@ const submitText = computed(() => {
     <ModalShell :title="title" :width="420" :scroll="false" @close="close">
         <form class="income-form modal-form" @submit.prevent="submit">
             <fieldset class="income-form" :disabled="locked" :inert="locked">
-                <div class="online-field">
+                <div class="form-field character-pick">
                     <span class="field-label">记给谁</span>
                     <TogglePills
                         v-model="selectedIds"
@@ -250,7 +250,7 @@ const submitText = computed(() => {
                 </div>
 
                 <template v-if="mode !== 'start'">
-                    <div :class="editableEnd ? 'form-pair' : 'online-field'">
+                    <div :class="editableEnd ? 'form-pair' : 'form-field'">
                         <DateField
                             v-model="date"
                             :label="editableEnd ? '开始日期' : '日期'"
@@ -272,9 +272,9 @@ const submitText = computed(() => {
                             v-model="endTime"
                             label="结束"
                         />
-                        <div v-else class="online-field end-time">
+                        <div v-else class="form-field end-time">
                             <span class="field-label">结束</span>
-                            <output class="field time-readout" aria-label="结束时刻">
+                            <output class="time-readout" aria-label="结束时刻">
                                 {{ session?.endAt ? timeText(session.endAt) : '计时中' }}
                             </output>
                         </div>
@@ -284,7 +284,7 @@ const submitText = computed(() => {
                     </p>
                 </template>
 
-                <div class="online-field">
+                <div class="form-field">
                     <label class="field-label" :for="noteId">备注</label>
                     <input
                         :id="noteId"
@@ -330,14 +330,7 @@ const submitText = computed(() => {
 </template>
 
 <style scoped>
-.online-field {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-}
-.online-field :deep(.bevel-pill) {
+.character-pick :deep(.bevel-pill) {
     max-width: 100%;
     white-space: normal;
     overflow-wrap: anywhere;
@@ -348,13 +341,15 @@ const submitText = computed(() => {
     min-width: 0;
 }
 .end-time {
-    align-content: start;
+    align-items: stretch;
+    gap: 6px;
     text-align: center;
 }
 .time-readout {
     display: grid;
     place-items: center;
     height: calc(56px * var(--fs-scale));
+    color: var(--num);
     font-size: calc(var(--fs-xl) * 1.18);
     font-variant-numeric: tabular-nums;
 }

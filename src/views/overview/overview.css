@@ -1,7 +1,16 @@
 .source-errors p {
     margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.source-error {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
 }
 .overview {
+    container: overview / inline-size;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
@@ -51,9 +60,6 @@
 .workbench-accounts {
     --stats-ink: var(--moss);
 }
-.trend-section {
-    --block-pad: 15px 18px 8px;
-}
 .team-section {
     --block-pad: 15px 18px 10px;
 }
@@ -83,7 +89,7 @@
 .team-strip::-webkit-scrollbar {
     display: none;
 }
-@media (max-width: 900px) {
+@container overview (max-width: 900px) {
     .day-hero {
         gap: 20px;
         padding: 20px;
@@ -96,7 +102,7 @@
         justify-self: start;
     }
 }
-@media (max-width: 500px) {
+@container overview (max-width: 500px) {
     .workbench-readouts {
         grid-template-columns: minmax(0, 1fr);
         max-width: 300px;

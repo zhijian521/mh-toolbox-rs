@@ -14,8 +14,10 @@ import { useIncome } from './income-store';
 import { itemIconOf } from './item-icons';
 import { useRoster } from '../characters/roster';
 
-const { entries, removeEntry, flush } = useIncome();
+const { entries, loaded, loadError, writeError, pending, removeEntry, flush } = useIncome();
 const { roster } = useRoster();
+const readable = computed(() => loaded.value && !loadError.value);
+const mutationBlocked = computed(() => !readable.value || !!writeError.value || pending.value > 0);
 
 /** 今天的记录（`groupByItem` 只要这一天的，日期在右栏是常量）。 */
 const today = useToday();
@@ -35,6 +37,7 @@ function whoText(ids: readonly string[]): string {
 }
 
 async function undo(group: ItemGroup) {
+    if (mutationBlocked.value) return;
     if (!removeEntry(group.lastId)) {
         notify.error('这条记录未撤回，请检查账本状态后重试');
         return;
@@ -53,8 +56,16 @@ async function undo(group: ItemGroup) {
 </script>
 
 <template>
-    <LedgerSection title="今日速记" :hint="`${totals.count} 条`" plain class="today-dump">
-        <div v-if="!groups.length" class="empty">
+    <LedgerSection
+        title="今日速记"
+        :hint="readable ? `${totals.count} 条` : ''"
+        plain
+        class="today-dump"
+    >
+        <div v-if="!readable" class="empty" role="status">
+            <p>{{ loadError ? '收益未读取，请在页面上方重新读取。' : '正在读取收益…' }}</p>
+        </div>
+        <div v-else-if="!groups.length" class="empty">
             <p>今天还没有记账。</p>
         </div>
 
@@ -65,6 +76,7 @@ async function undo(group: ItemGroup) {
                 :key="group.key"
                 type="button"
                 class="g"
+                :disabled="mutationBlocked"
                 :class="{ out: group.kind === 'expense' }"
                 :title="`${group.name} · ${compactAmount(group.amount)} · ${group.count} 条 · 合计 ${amountText(group.total)}${whoText(group.whoIds) ? ` · 记给 ${whoText(group.whoIds)}` : ''}（点一下撤掉最近一条）`"
                 :aria-label="`${group.name}，单价 ${compactAmount(group.amount)}，今天 ${group.count} 条，合计 ${amountText(group.total)}${whoText(group.whoIds) ? `，记给 ${whoText(group.whoIds)}` : ''}，点一下撤掉最近一条`"
@@ -87,7 +99,7 @@ async function undo(group: ItemGroup) {
             </button>
         </div>
 
-        <div class="total">
+        <div v-if="readable" class="total">
             <span class="k">净额</span>
             <!-- 净额负数带 `−`，不能只靠颜色。 -->
             <span class="v" :class="{ gain: totals.net > 0, loss: totals.net < 0 }">{{
@@ -144,6 +156,10 @@ async function undo(group: ItemGroup) {
 .g:focus-visible {
     outline: var(--ring);
     outline-offset: var(--ring-offset);
+}
+.g:disabled {
+    opacity: 0.42;
+    cursor: default;
 }
 .g img {
     width: 26px;

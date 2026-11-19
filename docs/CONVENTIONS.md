@@ -116,13 +116,13 @@ git blame，收益低于成本。其余约定：
 | ---- | -------- |
 | 外层区块 | PaperCard 承载独立内容，带标题和操作时使用 LedgerSection；纯色使用 plain，不复制纸面和阴影配方。 |
 | 卡内统计 | StatStrip 的 embedded 模式，内部使用 TicketCard 票据外壳；业务先完成范围筛选、单位和金额格式化，组件只展示，不再包同义外卡。 |
-| 卡内趋势 | TrendChart 使用 chart-in-card，由 LedgerSection 承载标题与外壳；保留绘图区、图例分隔线和键盘交互。 |
-| 卡内功能入口 | PressTile 的 side-tab 模式负责外观，外层原生按钮或链接负责点击和焦点；悬停、按下不位移。区块主操作使用带图标的 PressButton，紧凑操作用 sm；低频辅助操作使用 TextButton。 |
+| 图表区块与卡内趋势 | 图表外卡使用 LedgerSection + blocks.css 的 chart-section，底部留白统一为 8px；TrendChart／账号柱图使用 chart-in-card。保留绘图区、图例分隔线和键盘交互，不在各页复制外卡留白规则。 |
+| 卡内功能入口 | PressTile 的 side-tab 模式与多操作复合容器共用 side-tab-surface，材质入口在 materials.css，侧签结构在 blocks.css；局部变量仅调短签高度、状态色与薄底边。外层原生按钮或链接负责点击和焦点，复合容器保留各操作独立按钮；悬停、按下不位移。区块主操作使用带图标的 PressButton，紧凑操作用 sm；低频辅助操作使用 TextButton。 |
 | 小票与读数 | 周月统计、队伍小票共用 TicketCard，纸面、侧缺口、--r-ticket 圆角与 2px 薄底边只实现一份，不另写票据伪元素或模糊投影。固定签头可用 --ticket-notch-y；允许换行时使用 header 插槽，并以分隔线收尾，由组件同步实际高度，线后间距留给默认内容。材质只在 styles/ 维护。 |
 
 同一领域出现两处真实相同展示时，可在领域目录封装组合件。总览的 ShortcutFace 统一入口与排序草稿的图标、名称和配色，尾部操作走插槽；排序注册、点击与存储不放进展示组件。只有出现跨领域的真实调用方后，才考虑提升到 components/。
 
-读取失败、未配置与数值为零分别展示；局部失败保留其他可读内容。快捷入口的用户顺序和明确清空必须保留，新增默认入口不能覆盖已有偏好。
+读取中、读取失败、未配置与数值为零分别展示；读取失败不显示正常零值、笔数或旧数据图表，局部失败保留其他可读内容。聚合页为每个错误提供明确来源恢复入口；恢复仍由领域页面原 LoadNotice／SaveNotice 执行，尊重保存队列及草稿保护。快捷入口的用户顺序和明确清空必须保留，新增默认入口不能覆盖已有偏好。
 
 ### 2.5 注释
 
@@ -159,7 +159,8 @@ git blame，收益低于成本。其余约定：
 - 角色完整修改、单件装备与单只召唤兽的尺寸共用 `editor-metrics.ts` 的 `EDITOR_W` / `EDITOR_H`，均为定高，长详情在卡内滚动；装备与召唤兽目录共用 `blocks.css` 的 `character-choice*`，头像材质复用 `PressTile`。角色卡与修改窗的读数字重统一由 `.character-theme` 管理。
 - 日期与时刻落成字符串只有两处：日期走 `services/format.ts` 的 `dateText`（收 `Date` 也收毫秒），时刻走 `services/clock.ts` 的 `timeText`（补零由同文件的 `pad2` 承担）。不要在窗口里再写一份 `padStart(2, '0')` 去拼 `YYYY-MM-DD` 或 `HH:mm`——这类函数改一处，另一处就静默落后，而它们都长得对。
 - 表单页脚复用 `FormActions`，业务保留关闭保护、保存与重试回调；起止日期复用 `DateRangeField`。分组标题用 `GroupHead` 的 `as` 保留标题层级。分页统一用 `RecordPager`：左右箭头翻页、最多七档页码，首尾常驻、省略号前后跳五页，当前页用印面及 aria-current，单页隐藏；复用 PressButton／PressTile 和图标注册表，保留业务标签与摘要插槽。页数及数据切片仍由业务计算，不引入第二套 UI 库。
-- 收益历史与上线记录共用 `blocks.css` 的 `record-history`、`record-roles`、`record-role-*` 和 `record-table-frame`；角色使用紧凑单行 SteppedSlider，长名省略且保留完整提示，金额不随角色筛选缩减。表格只有内部滚动，外框与表头固定；搜索、日期和汇总口径由业务保留。
+- 收益历史、上线记录与账号历史共用 `blocks.css` 的 `record-history`、`record-table-frame`；表格只有内部滚动，外框与表头固定；四种状态保留同一滚动宿主：有数据、筛选无匹配保留可见外框，首次无数据或读取失败使用 is-empty 将边框和底板透明化，提示在剩余内容区居中，失败不绘制旧表格。收益历史与上线记录额外共用 `record-roles`、`record-role-*`，角色使用紧凑单行 SteppedSlider，长名省略且保留完整提示，金额不随角色筛选缩减；账号保留多维下拉筛选。搜索、日期和汇总口径由业务保留。
+- 仓库浏览与历史表格的固定内容外框共用 `record-content-frame`／`record-table-frame` 的同一规则，只有内部列表滚动；外框两侧与工具栏、页脚留白对齐。筛选复用 `record-filters`，结果数及已选数归页脚，重置使用 TextButton。账号历史日期／搜索在首行，六项下拉按内容宽度收列，汇总按币种分别列出收入、支出和差额，不叠同义统计卡。
 - 装备、召唤兽详情浮片共用 `DetailTipShell`；召唤兽头像和技能候选共用 `PetAssetPickerPanel`，入口只保留各自触发与选择动作。
 - 本地读取与跨窗口同步使用同一解析器；同步失败保留当前内容并暂停写回，完整数据或明确删除后解除读取错误，不把残缺列表当空库。
 

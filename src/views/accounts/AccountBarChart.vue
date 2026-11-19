@@ -186,6 +186,9 @@ const description = (row: (typeof props.rows)[number]) =>
     min-width: 0;
     margin-bottom: 5px;
 }
+.bar-chart.chart-in-card {
+    margin-bottom: 0;
+}
 .bar-legend {
     flex-wrap: wrap;
     display: flex;
@@ -213,7 +216,7 @@ const description = (row: (typeof props.rows)[number]) =>
 .bar-axis {
     position: relative;
     min-width: 58px;
-    height: 176px;
+    height: 180px;
     margin-top: 18px;
     color: var(--muted);
     font-size: var(--fs-mini);
@@ -272,7 +275,7 @@ const description = (row: (typeof props.rows)[number]) =>
     align-items: flex-end;
     justify-content: center;
     gap: 22px;
-    height: 176px;
+    height: 180px;
 }
 .column {
     position: relative;

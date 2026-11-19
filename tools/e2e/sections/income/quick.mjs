@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { dataDir } from '../../db.mjs';
+import { importLoaded } from '../../cdp.mjs';
 
 export default async function runQuick(ctx, tools) {
     const { cdp, ui, t, sleep, baseline, dbCount } = ctx;
@@ -12,6 +13,49 @@ export default async function runQuick(ctx, tools) {
     await t.step('记录测试前的今日笔数', async () => {
         before = await todayCount();
         t.info('今天已有', `${before} 笔`);
+    });
+
+    await t.step('收益与上线读取失败各自降级，恢复后重用原数据', async () => {
+        await ui.gotoReady('收益');
+        const result = await cdp.evaluate(`(async () => {
+            const { useIncome } = await ${importLoaded('/src/views/income/income-store.ts')};
+            const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
+            const income = useIncome();
+            const online = useOnline();
+            const errors = [income.loadError.value, online.loadError.value];
+            const before = JSON.stringify([income.entries.value, online.sessions.value]);
+            const tick = () => new Promise(resolve => requestAnimationFrame(resolve));
+            const charts = () => [...document.querySelectorAll('.chart-block')];
+            const state = {};
+            try {
+                income.loadError.value = 'E2E收益读取失败';
+                online.loadError.value = '';
+                await tick();
+                const dump = document.querySelector('.today-dump');
+                state.incomeFailed = dump?.textContent.includes('收益未读取') &&
+                    !dump.querySelector('.total, .g') &&
+                    !charts()[1]?.querySelector('.trend') &&
+                    !!charts()[0]?.querySelector('.trend');
+                income.loadError.value = '';
+                online.loadError.value = 'E2E上线读取失败';
+                await tick();
+                state.onlineFailed = !!document.querySelector('.today-dump .total') &&
+                    !charts()[0]?.querySelector('.trend') &&
+                    charts()[0]?.textContent.includes('上线记录未读取') &&
+                    !!charts()[1]?.querySelector('.trend');
+            } finally {
+                income.loadError.value = errors[0];
+                online.loadError.value = errors[1];
+                await tick();
+            }
+            state.restored = JSON.stringify([income.entries.value, online.sessions.value]) === before &&
+                charts().length === 2 && charts().every(el => el.querySelector('.trend')) &&
+                !!document.querySelector('.today-dump .total');
+            return state;
+        })()`);
+        t.check('收益失败不显示正常净额、撤回或收益图，时长图仍可读', result.incomeFailed);
+        t.check('上线失败只隐藏时长图，今日速记及收益图保留', result.onlineFailed);
+        t.check('恢复后图表重现，原始记录没有变化', result.restored);
     });
 
     await t.step('收益工具归位：文件操作在速记卡头，点卡与上线管理在右上方', async () => {

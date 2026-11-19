@@ -245,12 +245,18 @@
         );
 }
 /* 侧签短键只保留薄底边和接触影，三态共用纯色纸面，不叠加大块高光。 */
+:root .side-tab-surface,
 :root .press-tile.press-side-tab,
+:root.dark .side-tab-surface,
 :root.dark .press-tile.press-side-tab {
     --press-color: var(--tile-face, var(--paper));
-    --press-side-tab-edge: var(--rule);
+    --press-side-tab-edge: var(--side-tab-edge, var(--rule));
     --press-image: none;
-    --press-shadow: 2px 2px 0 var(--rule), 3px 5px 5px -4px var(--shadow-lg);
+    --press-shadow: var(
+        --side-tab-shadow,
+        2px 2px 0 var(--rule),
+        3px 5px 5px -4px var(--shadow-lg)
+    );
     --press-icon-filter: none;
 }
 :root .press-tile.press-side-tab:not(.still):hover {

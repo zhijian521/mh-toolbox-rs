@@ -6,6 +6,7 @@ import PageShell from '../../components/PageShell.vue';
 import PaperCard from '../../components/PaperCard.vue';
 import PressButton from '../../components/PressButton.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
+import TextButton from '../../components/TextButton.vue';
 import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
 import { useMinuteNow } from '../../composables/use-minute-now';
 import { useToday } from '../../composables/use-today';
@@ -43,12 +44,12 @@ const {
 const { error: syncError } = useDailySync();
 const sourceErrors = computed(() =>
     [
-        { label: '角色', error: rosterError.value },
-        { label: '收益', error: incomeError.value },
-        { label: '账号', error: accountError.value },
-        { label: '目标', error: goalError.value },
-        { label: '上线', error: onlineError.value },
-        { label: '自动记账', error: syncError.value },
+        { label: '角色', error: rosterError.value, path: '/characters', page: '角色' },
+        { label: '收益', error: incomeError.value, path: '/income', page: '收益' },
+        { label: '账号', error: accountError.value, path: '/accounts', page: '账号' },
+        { label: '目标', error: goalError.value, path: '/goals', page: '目标' },
+        { label: '上线', error: onlineError.value, path: '/income', page: '收益' },
+        { label: '自动记账', error: syncError.value, path: '/income', page: '收益' },
     ].filter((one) => one.error),
 );
 const onlineIds = computed(
@@ -132,9 +133,19 @@ const monthStats = computed<StatItem[]>(() =>
     <PageShell title="总览" desc="工作台 · 常用功能">
         <div class="overview day-workbench">
             <div v-if="sourceErrors.length" class="source-errors" role="status">
-                <p v-for="one in sourceErrors" :key="one.label" class="note error">
-                    {{ one.label }}：{{ one.error }}
-                </p>
+                <div
+                    v-for="one in sourceErrors"
+                    :key="one.label"
+                    class="source-error"
+                    :data-source="one.label"
+                >
+                    <p class="note error">{{ one.label }}：{{ one.error }}</p>
+                    <TextButton
+                        :text="`前往${one.page}恢复`"
+                        :label="`前往${one.page}页面处理${one.label}错误`"
+                        @click="router.push(one.path)"
+                    />
+                </div>
             </div>
             <SaveNotice :error="onlineWriteError" :pending="onlinePending" @retry="retryOnline" />
             <PaperCard class="day-hero" plain>
@@ -203,7 +214,7 @@ const monthStats = computed<StatItem[]>(() =>
                     :today="today"
                 />
             </div>
-            <LedgerSection title="收益趋势" class="trend-section" plain>
+            <LedgerSection title="收益趋势" class="trend-section chart-section" plain>
                 <p v-if="incomeError" class="empty-note">收益未读取</p>
                 <TrendChart
                     v-else

@@ -4,6 +4,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import GroupHead from '../../components/GroupHead.vue';
 import PressButton from '../../components/PressButton.vue';
+import TextButton from '../../components/TextButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
@@ -73,6 +74,16 @@ const viewLoaded = computed(() => loaded.value && (!soldView.value || accounts.l
 const kind = ref<WarehouseKind>(props.assetKind);
 const keyword = ref('');
 const slot = ref(props.gearSlot ?? '');
+const anyFilter = computed(
+    () =>
+        Boolean(keyword.value.trim() || (kind.value === 'gear' && !props.gearSlot && slot.value)) ||
+        (props.mode === 'manage' && stockState.value !== 'all'),
+);
+function resetFilters() {
+    keyword.value = '';
+    slot.value = props.gearSlot ?? '';
+    stockState.value = 'all';
+}
 const page = ref(1);
 const scrollTop = ref(0);
 const content = ref<HTMLElement | null>(null);
@@ -257,7 +268,7 @@ function confirmSelection() {
 
 <template>
     <ModalShell
-        class="character-theme"
+        class="warehouse-dialog character-theme"
         :title="title"
         :width="EDITOR_W"
         :height="EDITOR_H"
@@ -285,8 +296,8 @@ function confirmSelection() {
                     "
                 />
                 <div v-else key="list" class="warehouse-page">
-                    <div class="warehouse-page-body">
-                        <div class="warehouse-toolbar">
+                    <div class="warehouse-page-body warehouse-list-body">
+                        <div class="warehouse-toolbar record-filters">
                             <div v-if="mode === 'manage'" class="warehouse-tabs">
                                 <SteppedSlider
                                     v-model="kind"
@@ -294,11 +305,6 @@ function confirmSelection() {
                                     as="tab"
                                     prefix="warehouse"
                                     label="仓库分类"
-                                />
-                                <SegmentedPills
-                                    v-model="stockState"
-                                    :options="stockOptions"
-                                    label="仓库状态"
                                 />
                             </div>
                             <GroupHead v-else class="warehouse-pick-heading">
@@ -317,10 +323,23 @@ function confirmSelection() {
                                 @click="add"
                             />
                         </div>
-                        <div class="warehouse-filters">
+                        <div
+                            class="warehouse-filters record-filters"
+                            role="group"
+                            aria-label="仓库筛选"
+                        >
+                            <SegmentedPills
+                                v-if="mode === 'manage'"
+                                v-model="stockState"
+                                :options="stockOptions"
+                                label="仓库状态"
+                                class="warehouse-stock-filter"
+                            />
                             <input
                                 v-model="keyword"
-                                class="field warehouse-search"
+                                class="field filter-search warehouse-search"
+                                type="search"
+                                autocomplete="off"
                                 aria-label="搜索仓库物品"
                                 :placeholder="
                                     kind === 'gear' ? '搜索名称、特效、备注' : '搜索名称、技能'
@@ -334,9 +353,12 @@ function confirmSelection() {
                                 :disabled="Boolean(gearSlot)"
                                 class="warehouse-slot-filter"
                             />
-                            <span class="muted warehouse-count">
-                                {{ filtered.length }} {{ kind === 'gear' ? '件装备' : '只召唤兽' }}
-                            </span>
+                            <TextButton
+                                v-if="anyFilter"
+                                text="重置"
+                                label="清空仓库筛选"
+                                @click="resetFilters"
+                            />
                         </div>
                         <LoadNotice
                             :error="loadError"
@@ -359,81 +381,95 @@ function confirmSelection() {
                         <p v-if="tradePending" class="note">
                             关联交易尚未保存，请返回账号页完成保存。
                         </p>
-                        <section
-                            :id="`warehouse-pane-${kind}`"
-                            ref="content"
-                            :aria-labelledby="
-                                mode === 'manage' ? `warehouse-tab-${kind}` : undefined
-                            "
-                            :aria-label="
-                                choosing
-                                    ? mode === 'equip'
-                                        ? '选择角色物品'
-                                        : '选择交易物品，可多选'
-                                    : undefined
-                            "
-                            :role="mode === 'manage' ? 'tabpanel' : 'region'"
-                            class="warehouse-content"
-                            @scroll="scroll"
-                        >
-                            <p v-if="viewError" class="empty-note">
-                                暂时无法读取{{ soldView ? '卖出物品' : '仓库' }}，请重试。
-                            </p>
-                            <p v-else-if="!viewLoaded" class="empty-note" role="status">
-                                正在读取{{ soldView ? '卖出物品' : '仓库' }}…
-                            </p>
-                            <div v-else-if="!filtered.length" class="warehouse-empty">
-                                <p>
-                                    {{
-                                        keyword || (kind === 'gear' && slot)
-                                            ? '没有符合条件的物品'
-                                            : soldView
-                                              ? `还没有卖出的${kind === 'gear' ? '装备' : '召唤兽'}`
-                                              : kind === 'gear'
-                                                ? '还没有入仓装备'
-                                                : '还没有入仓召唤兽'
-                                    }}
-                                </p>
-                                <span v-if="!soldView" class="muted">{{
-                                    keyword || (kind === 'gear' && slot)
-                                        ? '换个关键词或筛选条件试试'
-                                        : choosing
-                                          ? '暂无可选择的仓库物品'
-                                          : '点击右上角入仓，支持截图识别和手动填写'
-                                }}</span>
-                            </div>
-                            <WarehouseItems
-                                v-else
-                                ref="grid"
-                                :items="visible"
-                                :owners="owners"
-                                :status="soldView ? 'sold' : 'stock'"
-                                :selectable="choosing"
-                                :selected-ids="selectedIds"
-                                :label-prefix="
+                        <div class="record-content-frame">
+                            <section
+                                :id="`warehouse-pane-${kind}`"
+                                ref="content"
+                                :aria-labelledby="
+                                    mode === 'manage' ? `warehouse-tab-${kind}` : undefined
+                                "
+                                :aria-label="
                                     choosing
                                         ? mode === 'equip'
-                                            ? '选择穿戴'
-                                            : '选择卖出'
-                                        : soldView
-                                          ? '查看已卖出'
-                                          : '查看并修改'
+                                            ? '选择角色物品'
+                                            : '选择交易物品，可多选'
+                                        : undefined
                                 "
-                                :inspect-only="soldView"
-                                :disabled="blocked"
-                                @itemclick="open"
-                            />
-                        </section>
+                                :role="mode === 'manage' ? 'tabpanel' : 'region'"
+                                class="warehouse-content"
+                                @scroll="scroll"
+                            >
+                                <p v-if="viewError" class="record-empty">
+                                    暂时无法读取{{ soldView ? '卖出物品' : '仓库' }}，请重试。
+                                </p>
+                                <p v-else-if="!viewLoaded" class="record-empty" role="status">
+                                    正在读取{{ soldView ? '卖出物品' : '仓库' }}…
+                                </p>
+                                <div v-else-if="!filtered.length" class="warehouse-empty">
+                                    <p>
+                                        {{
+                                            keyword || (kind === 'gear' && slot)
+                                                ? '没有符合条件的物品'
+                                                : soldView
+                                                  ? `还没有卖出的${kind === 'gear' ? '装备' : '召唤兽'}`
+                                                  : kind === 'gear'
+                                                    ? '还没有入仓装备'
+                                                    : '还没有入仓召唤兽'
+                                        }}
+                                    </p>
+                                    <span v-if="!soldView" class="muted">{{
+                                        keyword || (kind === 'gear' && slot)
+                                            ? '换个关键词或筛选条件试试'
+                                            : choosing
+                                              ? '暂无可选择的仓库物品'
+                                              : '点击右上角入仓，支持截图识别和手动填写'
+                                    }}</span>
+                                </div>
+                                <WarehouseItems
+                                    v-else
+                                    ref="grid"
+                                    :items="visible"
+                                    :owners="owners"
+                                    :status="soldView ? 'sold' : 'stock'"
+                                    :selectable="choosing"
+                                    :selected-ids="selectedIds"
+                                    :label-prefix="
+                                        choosing
+                                            ? mode === 'equip'
+                                                ? '选择穿戴'
+                                                : '选择卖出'
+                                            : soldView
+                                              ? '查看已卖出'
+                                              : '查看并修改'
+                                    "
+                                    :inspect-only="soldView"
+                                    :disabled="blocked"
+                                    @itemclick="open"
+                                />
+                            </section>
+                        </div>
                     </div>
                     <footer class="modal-actions">
                         <span
-                            v-if="choosing"
-                            class="warehouse-selected-count muted"
+                            class="warehouse-count record-foot-note"
                             aria-live="polite"
+                            aria-atomic="true"
                         >
-                            已选 {{ selected.length }} {{ kind === 'gear' ? '件装备' : '只召唤兽' }}
+                            <template v-if="viewError">读取失败</template>
+                            <template v-else-if="!viewLoaded">读取中…</template>
+                            <template v-else>
+                                {{ filtered.length }} {{ kind === 'gear' ? '件装备' : '只召唤兽' }}
+                                <span v-if="choosing" class="warehouse-selected-count">
+                                    · 已选 {{ selected.length }} {{ kind === 'gear' ? '件' : '只' }}
+                                </span>
+                            </template>
                         </span>
-                        <RecordPager v-model="page" :pages="pages" />
+                        <RecordPager
+                            v-if="viewLoaded && !viewError"
+                            v-model="page"
+                            :pages="pages"
+                            label="仓库分页"
+                        />
                         <PressButton
                             data-modal-cancel
                             :text="choosing ? '取消' : '关闭'"

@@ -12,9 +12,11 @@ import { useOnline } from './online-store';
 import TrendChart from '../../components/TrendChart.vue';
 import { netByDay, trendSeriesOf } from './trend-chart';
 
-const { sessions } = useOnline();
-const { entries } = useIncome();
+const { sessions, loaded: onlineLoaded, loadError: onlineError } = useOnline();
+const { entries, loaded: incomeLoaded, loadError: incomeError } = useIncome();
 const { roster } = useRoster();
+const onlineReadable = computed(() => onlineLoaded.value && !onlineError.value);
+const incomeReadable = computed(() => incomeLoaded.value && !incomeError.value);
 const today = useToday();
 const now = useMinuteNow();
 
@@ -41,8 +43,9 @@ const net = computed(() => netByDay(entries.value, dates.value));
 
 const actors = computed(() => {
     const ids = new Set<string>();
-    for (const one of sessions.value) for (const id of ownersOf(one)) ids.add(id);
-    for (const one of entries.value) ids.add(one.characterId);
+    if (onlineReadable.value)
+        for (const one of sessions.value) for (const id of ownersOf(one)) ids.add(id);
+    if (incomeReadable.value) for (const one of entries.value) ids.add(one.characterId);
     for (const one of roster.value) ids.add(one.id);
 
     const order = new Map(roster.value.map((one, index) => [one.id, index]));
@@ -68,7 +71,7 @@ const netSeries = computed(() => seriesOf(net.value));
 </script>
 
 <template>
-    <LedgerSection title="每日走势" plain>
+    <LedgerSection title="每日走势" class="chart-section" plain>
         <template #actions>
             <SteppedSlider v-model="span" :options="SPANS" label="走势范围" class="span-slider" />
         </template>
@@ -80,6 +83,7 @@ const netSeries = computed(() => seriesOf(net.value));
                     <span class="cap">按号分线 · {{ DAYS[span] }} 天</span>
                 </header>
                 <TrendChart
+                    v-if="onlineReadable"
                     class="chart-in-card"
                     :labels="labels"
                     :series="minuteSeries"
@@ -87,6 +91,9 @@ const netSeries = computed(() => seriesOf(net.value));
                     label="每日时长"
                     :height="180"
                 />
+                <p v-else class="chart-unavailable empty-note" role="status">
+                    {{ onlineError ? '上线记录未读取，请在页面上方重新读取。' : '正在读取上线记录…' }}
+                </p>
             </section>
 
             <section class="chart-block">
@@ -95,6 +102,7 @@ const netSeries = computed(() => seriesOf(net.value));
                     <span class="cap">速记净额 · 不扣点卡</span>
                 </header>
                 <TrendChart
+                    v-if="incomeReadable"
                     class="chart-in-card"
                     :labels="labels"
                     :series="netSeries"
@@ -102,6 +110,9 @@ const netSeries = computed(() => seriesOf(net.value));
                     label="每日收益"
                     :height="180"
                 />
+                <p v-else class="chart-unavailable empty-note" role="status">
+                    {{ incomeError ? '收益未读取，请在页面上方重新读取。' : '正在读取收益…' }}
+                </p>
             </section>
         </div>
     </LedgerSection>
@@ -133,6 +144,12 @@ const netSeries = computed(() => seriesOf(net.value));
 .chart-block + .chart-block {
     padding-top: 18px;
     border-top: var(--w-hair) solid var(--rule);
+}
+.chart-unavailable {
+    display: grid;
+    place-content: center;
+    min-height: 180px;
+    margin: 0;
 }
 
 .chart-head {

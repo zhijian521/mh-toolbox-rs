@@ -158,20 +158,22 @@ async function remove(one: IncomeEntry) {
             </SteppedSlider>
         </div>
 
-        <p v-if="!rows.length" class="record-empty">
-            {{
-                loadError
-                    ? '暂时无法读取记录'
-                    : multiDay
-                      ? '这段时间还没有记录。'
-                      : '这一天还没有记录。'
-            }}
-        </p>
-
         <!-- 外框不参与滚动，表头在内层 sticky；仍是同一张原生表，列宽始终一致。 -->
-        <div v-else class="history-table-frame record-table-frame">
+        <div
+            class="history-table-frame record-table-frame"
+            :class="{ 'is-empty': !!loadError || !entries.length }"
+        >
             <div ref="scroll" class="income-log-scroll" @scroll="rememberScroll">
-                <table class="log income-table">
+                <p v-if="loadError || !rows.length" class="record-empty">
+                    {{
+                        loadError
+                            ? '暂时无法读取记录'
+                            : multiDay
+                              ? '这段时间还没有记录。'
+                              : '这一天还没有记录。'
+                    }}
+                </p>
+                <table v-else class="log income-table">
                     <thead>
                         <tr>
                             <th class="c-time" :class="{ wide: multiDay }">时间</th>

@@ -23,6 +23,10 @@
     padding: 14px max(0px, calc(16px - var(--scrollbar-w))) 14px 16px;
     overflow: hidden;
 }
+.warehouse-pages .warehouse-list-body {
+    padding-right: 16px;
+    container: warehouse-list / inline-size;
+}
 .warehouse-forward-enter-active,
 .warehouse-forward-leave-active,
 .warehouse-back-enter-active,
@@ -45,47 +49,46 @@
     opacity: 0;
     transform: translateX(-10px);
 }
-.warehouse-toolbar,
-.warehouse-tabs,
-.warehouse-filters {
+.warehouse-tabs {
     display: flex;
     align-items: center;
-    gap: 12px;
-}
-.warehouse-tabs {
     min-width: 0;
-    flex-wrap: wrap;
+    max-width: 100%;
+    width: calc(260px * var(--fs-scale));
+}
+.warehouse-tabs :deep(.stepped) {
+    width: 100%;
+    min-width: 0;
 }
 .warehouse-toolbar {
     justify-content: space-between;
-    flex-wrap: wrap;
-    margin-bottom: 14px;
 }
-.warehouse-filters {
-    flex-wrap: wrap;
-    margin-bottom: 14px;
+.warehouse-stock-filter {
+    flex: none;
+    max-width: 100%;
 }
 .warehouse-search {
-    width: 260px;
-    max-width: 100%;
+    flex: 1 1 180px;
+    max-width: calc(280px * var(--fs-scale));
 }
 .warehouse-slot-filter {
     flex: none;
-    width: 130px;
+    width: calc(120px * var(--fs-scale));
+    max-width: 100%;
 }
 .warehouse-slot-filter :deep(.select-list) {
     min-width: 100%;
 }
-.warehouse-count {
-    margin-left: auto;
-    font-size: var(--fs-mini);
-}
 .warehouse-content {
     flex: 1;
+    min-width: 0;
     min-height: 0;
     overflow-y: auto;
     scrollbar-gutter: stable;
-    padding: 2px 4px 12px 2px;
+    padding: 12px;
+}
+.warehouse-content > .record-empty {
+    min-height: 100%;
 }
 .warehouse-pick-heading {
     flex: none;
@@ -95,16 +98,14 @@
     letter-spacing: normal;
     white-space: nowrap;
 }
-.warehouse-selected-count {
-    margin-right: auto;
-    font-size: var(--fs-sm);
-}
 .warehouse-empty {
     display: grid;
     align-content: center;
     justify-items: center;
-    min-height: 250px;
+    min-height: 100%;
     gap: 8px;
+    padding: 26px 0;
+    color: var(--muted);
     text-align: center;
 }
 .warehouse-empty p {
@@ -112,4 +113,9 @@
 }
 .warehouse-empty span {
     font-size: var(--fs-sm);
+}
+@container warehouse-list (max-width: 680px) {
+    .warehouse-stock-filter {
+        flex-basis: 100%;
+    }
 }

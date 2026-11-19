@@ -1,5 +1,10 @@
 /* 跨组件组合排版；元素材质归 base.css，设计令牌归 tokens.css。 */
 
+/* 图表区块共用紧凑底部留白，图例与绘图区的间距仍由图表基座管理。 */
+.chart-section {
+    --block-pad: 15px 18px 8px;
+}
+
 /* ---------- 一叠卡 ----------
  * 设置页与开发帮助页都是「一列 `.board` 卡」，区块之间 16px：比区块内的 12px 行距略大，
  * 一眼能分出「块」与「行」；再大就散了。上限 1240 是窗口 1280 减去左栏后的可用宽度，
@@ -538,6 +543,27 @@
     gap: 4px;
 }
 
+/* 侧签材质兼容普通入口和含多个独立按钮的复合容器。 */
+.side-tab-surface {
+    position: relative;
+    border: var(--w-hair) solid var(--press-side-tab-edge);
+    border-radius: var(--tile-r, var(--r-ticket));
+    background-color: var(--press-color);
+    box-shadow: var(--press-shadow);
+}
+.side-tab-surface::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: -1px;
+    width: 3px;
+    height: var(--side-tab-mark-height, calc(100% - 26px));
+    border-radius: var(--r-1);
+    background: var(--side-tab-mark, var(--tile-ink, var(--accent)));
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
 /* 历史窗口共用排法；列宽、筛选内容和默认日期由业务决定。 */
 .record-history .modal-body.modal-body-fill {
     padding-right: 16px;
@@ -574,9 +600,11 @@
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
+.record-content-frame,
 .record-table-frame {
     flex: 1 1 auto;
     display: flex;
+    min-width: 0;
     min-height: 0;
     overflow: hidden;
     border: var(--w-hair) solid var(--rule-2);
@@ -586,6 +614,14 @@
 .record-table-frame .income-table {
     border: 0;
     border-radius: 0;
+}
+.record-table-frame.is-empty {
+    border-color: transparent;
+    background: transparent;
+}
+.record-table-frame > .income-log-scroll {
+    display: flex;
+    flex-direction: column;
 }
 
 .record-filters {

@@ -12,10 +12,18 @@ export default async function run(ctx) {
         await t.step('两本账与十一个快捷入口都在', async () => {
             await ui.gotoReady('账号');
             const shape = await cdp.evaluate(`(() => ({
-                books: document.querySelectorAll('.books .book').length,
+                books: document.querySelectorAll('.account-overview .books .book.ticket-card').length,
+                bookValues: [...document.querySelectorAll('.books .book')].every((one) =>
+                    one.querySelectorAll('[data-stat-id]').length === 3),
+                plainCards: [...document.querySelectorAll('.accounts-layout .board')].every((one) =>
+                    getComputedStyle(one).backgroundImage === 'none'),
+                headerActions: ['查看账号历史记录', '打开装备和召唤兽仓库'].every((label) =>
+                    !!document.querySelector('[aria-label="' + label + '"] .press-tile')),
+                noGenericEntry: !document.querySelector('[aria-label="记一笔账号收支"]'),
+                noSectionHints: !document.querySelector('.accounts-layout .section-head .hint, .trend-head .muted'),
                 shortcuts: document.querySelectorAll('.shortcuts .shortcut').length,
                 shortcutContent: [...document.querySelectorAll('.shortcuts .shortcut')].every((one) =>
-                    one.querySelector('.press-tile.wide') && one.querySelector('.sc-copy small') &&
+                    one.querySelector('.press-side-tab') && one.title && !one.querySelector('.sc-copy small') &&
                     one.querySelectorAll('.sc-currency').length === 2 &&
                     ['梦幻币', '人民币'].every((name) => one.querySelector('.sc-total')?.textContent.includes(name)) &&
                     [...one.querySelectorAll('.sc-currency')].every((row) => row.querySelector('.sc-value') && row.querySelector('small') && row.title.includes('笔')) &&
@@ -25,7 +33,15 @@ export default async function run(ctx) {
                     })() &&
                     one.scrollWidth <= one.clientWidth + 1),
                 charts: document.querySelectorAll('.account-charts .analysis-card').length,
+                trendBlocks: document.querySelectorAll('.account-charts .trend-block .chart-in-card').length,
+                recordsBeforeCharts: !!(document.querySelector('.account-bottom')?.compareDocumentPosition(
+                    document.querySelector('.account-charts')) & Node.DOCUMENT_POSITION_FOLLOWING),
                 chartSurfaces: document.querySelectorAll('.account-charts .chart-panel > .chart-surface').length,
+                chartsInCards: [...document.querySelectorAll('.accounts-layout .chart-panel')].every((one) =>
+                    one.classList.contains('chart-in-card') &&
+                    getComputedStyle(one).boxShadow === 'none' &&
+                    parseFloat(getComputedStyle(one).borderTopWidth) === 0 &&
+                    parseFloat(getComputedStyle(one).paddingTop) === 0),
                 barFrame: [...document.querySelectorAll('.bar-frame')].every((one) =>
                     one.classList.contains('chart-surface') && !!one.querySelector('.bar-axis') && !!one.closest('.chart-panel')?.querySelector('.chart-legend-shelf')),
                 barDepth: [...document.querySelectorAll('.column.has-value')].every((one) => {
@@ -41,22 +57,38 @@ export default async function run(ctx) {
                         fits: !plot || plot.scrollWidth <= plot.clientWidth + 1,
                     } : null;
                 })(),
-                whoWidth: document.querySelector('.who-pick')?.getBoundingClientRect().width,
+                noRoleFilter: !document.querySelector('.accounts-layout [aria-label="按角色筛选"]'),
+                chartSpacing: [...document.querySelectorAll('.accounts-layout .analysis-card')].every((one) =>
+                    one.classList.contains('chart-section') &&
+                    parseFloat(getComputedStyle(one).paddingBottom) === 8) &&
+                    getComputedStyle(document.querySelector('.account-bottom')).alignItems === 'stretch',
+                contentWidth: document.querySelector('.accounts-layout')?.getBoundingClientRect().width,
                 history: !!document.querySelector('[aria-label="查看账号历史记录"]'),
-                primary: document.querySelector('[aria-label="记一笔账号收支"]')?.classList.contains('seal'),
+                primary: document.querySelector('[aria-label="打开装备和召唤兽仓库"]')?.classList.contains('seal') &&
+                    !!document.querySelector('[aria-label="打开装备和召唤兽仓库"] .app-icon'),
                 bottom: (() => {
                     const recent = document.querySelector('.account-bottom .records')?.getBoundingClientRect();
                     const channel = document.querySelector('.account-bottom .channel-card')?.getBoundingClientRect();
-                    return recent && channel ? { sameRow: Math.abs(recent.top - channel.top) < 1, sameWidth: Math.abs(recent.width - channel.width) < 1, channelFirst: channel.left < recent.left } : null;
+                    return recent && channel ? {
+                        sameRow: Math.abs(recent.top - channel.top) < 1,
+                        sameWidth: Math.abs(recent.width - channel.width) < 1,
+                        sameHeight: Math.abs(recent.height - channel.height) < 1,
+                        channelFirst: channel.left < recent.left,
+                        stacked: channel.bottom <= recent.top && Math.abs(channel.left - recent.left) < 1,
+                    } : null;
                 })(),
             }))()`);
 
             /* 两本账是这一页的立论：合成一张「总收支」等于把元与万加起来。
              * 少一张就是回到了那个错。 */
             t.check('并排两本账', shape.books === 2, `实际 ${shape.books}`);
+            t.check('独立币种票据保留收入、支出与差额，外卡统一纯色', shape.bookValues && shape.plainCards);
             t.check('快捷入口 11 个', shape.shortcuts === 11, `实际 ${shape.shortcuts}`);
             t.check('快捷卡一行左梦幻币右人民币，笔数悬停显示且无横向溢出', shape.shortcutContent);
-            t.check('两张走势与一张角色分类图', shape.charts === 3);
+            t.check('双币种走势共用外卡，保留角色分类图', shape.charts === 2 && shape.trendBlocks === 2);
+            t.check('仓库与历史使用普通按钮，移除独立记一笔入口', shape.headerActions && shape.noGenericEntry);
+            t.check('最近记录先于走势，区块移除辅助小字', shape.recordsBeforeCharts && shape.noSectionHints);
+            t.check('账号图表统一卡内样式，不重复绘制底板与外影', shape.chartsInCards);
             t.check(
                 '账号图表共用台面材质，非零柱带亮面与侧面',
                 shape.chartSurfaces >= 2 && shape.barDepth && shape.barFrame,
@@ -66,13 +98,18 @@ export default async function run(ctx) {
                 '角色分类图占满整行且无横向滚动',
                 shape.roleChart?.fullWidth && shape.roleChart?.fits,
             );
-            t.check('角色筛选不撑满', shape.whoWidth > 100 && shape.whoWidth < 230);
-            t.check('渠道在左、最近记录在右', shape.bottom?.channelFirst);
-            t.check('记一笔使用主操作色', shape.primary);
-            t.check('最近记录与渠道图表等宽并排', shape.bottom?.sameRow && shape.bottom?.sameWidth);
+            t.check('账号主页移除角色筛选，统一展示日期范围内的全部角色', shape.noRoleFilter);
+            t.check('图表底部沿用总览 8px 留白，渠道与记录卡片拉伸对齐', shape.chartSpacing);
+            t.check('仓库使用带收纳图标的主操作色', shape.primary);
+            t.check(
+                '渠道与最近记录宽屏等高并排，窄屏上下排列',
+                shape.bottom?.sameWidth && (shape.contentWidth > 760
+                    ? shape.bottom.sameRow && shape.bottom.sameHeight && shape.bottom.channelFirst
+                    : shape.bottom.stacked),
+            );
             baseline = await cdp.evaluate(`(() => {
                 const book = [...document.querySelectorAll('.books .book')].find((one) => one.textContent.includes('人民币'));
-                return [...book.querySelectorAll('.metrics b')].map((one) => one.textContent.trim());
+                return [...book.querySelectorAll('[data-stat-id] .v')].map((one) => one.textContent.trim());
             })()`);
         });
 
@@ -81,6 +118,37 @@ export default async function run(ctx) {
             await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
             const before = await cdp.evaluate(
                 `document.querySelector('.warehouse-count').textContent`,
+            );
+            t.check(
+                '仓库沿用固定内容外框和分页页脚，只有物品区滚动',
+                await cdp.evaluate(`(() => {
+                    const dialog = document.querySelector('.warehouse-dialog');
+                    const body = dialog?.querySelector('.warehouse-list-body');
+                    const frame = body?.querySelector('.record-content-frame');
+                    const content = frame?.querySelector('.warehouse-content');
+                    const footer = dialog?.querySelector('.modal-actions');
+                    if (!body || !frame || !content || !footer) return false;
+                    const a = frame.getBoundingClientRect();
+                    const b = body.getBoundingClientRect();
+                    return getComputedStyle(frame).overflow === 'hidden' &&
+                        parseFloat(getComputedStyle(frame).borderTopWidth) > 0 &&
+                        getComputedStyle(content).overflowY === 'auto' &&
+                        Math.abs(a.left - b.left - 16) <= 1 &&
+                        Math.abs(b.right - a.right - 16) <= 1 &&
+                        !!footer.querySelector('.warehouse-count.record-foot-note') &&
+                        !body.querySelector('.warehouse-count') &&
+                        !!body.querySelector('.warehouse-filters [aria-label="仓库状态"]');
+                })()`),
+            );
+            await ui.fill('搜索仓库物品', 'E2E无匹配仓库筛选-' + Date.now());
+            await ui.waitFor(`!!document.querySelector('[aria-label="清空仓库筛选"]')`);
+            await ui.clickLabel('清空仓库筛选');
+            t.check(
+                '仓库重置筛选恢复原列表，未新增或修改物品',
+                (await cdp.evaluate(`document.querySelector('.warehouse-search').value === '' &&
+                    !document.querySelector('[aria-label="清空仓库筛选"]')`)) &&
+                    before ===
+                        (await cdp.evaluate(`document.querySelector('.warehouse-count').textContent`)),
             );
             await cdp.evaluate(`window.__warehouseMask = document.querySelector('.modal-mask')`);
             await ui.clickLabel('新增或截图录入装备');
@@ -337,7 +405,7 @@ export default async function run(ctx) {
         const MARK = '⚠E2E账号';
 
         await t.step('记一笔人民币支出：弹窗 → 填数 → 入账', async () => {
-            await ui.clickLabel('记一笔账号收支');
+            await ui.clickText('.shortcut', '其他收支');
             const opened = await ui.waitFor(`!!document.querySelector('[role="dialog"]')`, {
                 timeout: 3000,
             });
@@ -349,12 +417,12 @@ export default async function run(ctx) {
                 const group = document.querySelector('[aria-label="这笔账记给哪个角色"]');
                 const selected = group?.querySelectorAll('[aria-checked="true"]');
                 const direction = document.querySelector('[aria-label="收支方向"]');
-                const characterField = group?.closest('.account-field');
+                const characterField = group?.closest('.form-field');
                 return group?.getAttribute('role') === 'radiogroup' && group.classList.contains('wrap') &&
                     selected?.length === 1 && selected[0].textContent.trim() === '不指定' &&
                     group.querySelectorAll('[role="radio"]').length >= 1 &&
                     !group.querySelector('[aria-haspopup="listbox"]') &&
-                    characterField?.nextElementSibling === direction?.closest('.pair');
+                    characterField?.nextElementSibling === direction?.closest('.form-pair');
             })()`),
             );
             const characterCount = await ui.count(
@@ -501,7 +569,7 @@ export default async function run(ctx) {
                 const book = [...document.querySelectorAll('.books .book')]
                     .find((one) => (one.textContent || '').includes('人民币'));
                 if (!book) return null;
-                return [...book.querySelectorAll('.metrics b')].map((b) => b.textContent.trim());
+                return [...book.querySelectorAll('[data-stat-id] .v')].map((b) => b.textContent.trim());
             })()`);
             // 相对现有账目检查增量，不假定测试前是空账。
             t.check(
@@ -533,10 +601,46 @@ export default async function run(ctx) {
             });
             t.check('全部记录弹窗开了', opened);
             t.check(
+                '账号历史沿用固定外框，内容内部滚动且表头固定',
+                await cdp.evaluate(`(() => {
+                    const frame = document.querySelector('.account-history .record-table-frame');
+                    const scroll = frame?.querySelector('.income-log-scroll');
+                    const table = scroll?.querySelector('.income-table');
+                    const head = table?.querySelector('thead th');
+                    return frame && scroll && table && head &&
+                        frame !== scroll && getComputedStyle(frame).overflow === 'hidden' &&
+                        parseFloat(getComputedStyle(frame).borderTopWidth) > 0 &&
+                        getComputedStyle(scroll).overflowY === 'auto' &&
+                        getComputedStyle(head).position === 'sticky';
+                })()`),
+            );
+            t.check(
                 '账号历史共用筛选、汇总和页脚读数',
                 await cdp.evaluate(
                     "!!document.querySelector('[role=dialog] .record-filters') && !!document.querySelector('[role=dialog] .record-summary') && !!document.querySelector('[role=dialog] .record-foot-note')",
                 ),
+            );
+            t.check(
+                '账号历史六项下拉独立成组，双币种收支与差额分栏展示',
+                await cdp.evaluate(`(() => {
+                    const dialog = document.querySelector('.account-history');
+                    const search = dialog?.querySelector('.account-record-search');
+                    const grid = dialog?.querySelector('.account-record-filter-grid');
+                    const totals = [...(dialog?.querySelectorAll('.account-record-total') ?? [])];
+                    if (!search || !grid || totals.length !== 2) return false;
+                    const fields = [...grid.querySelectorAll('.select-field')];
+                    const rect = grid.getBoundingClientRect();
+                    return !!search.querySelector('.date-range-field') &&
+                        !!search.querySelector('[aria-label="搜索记录"]') &&
+                        !search.querySelector('[aria-label="来源筛选"]') && fields.length === 6 &&
+                        getComputedStyle(grid).display === 'grid' &&
+                        fields.every((one) => {
+                            const box = one.getBoundingClientRect();
+                            return box.left >= rect.left - 1 && box.right <= rect.right + 1;
+                        }) && totals.every((one) =>
+                            [...one.querySelectorAll('dt')].map((label) => label.textContent).join('/') === '收入/支出/差额' &&
+                            one.querySelectorAll('dd').length === 3);
+                })()`),
             );
 
             t.check(

@@ -164,6 +164,25 @@ export default async function runHistory(ctx, tools, quick) {
             Math.abs(look.headH - look.rowH) <= 1,
             `表头 ${look.headH} / 行 ${look.rowH}`,
         );
+        t.check('历史读取失败保留滚动宿主并隐藏表格和空白底板', await cdp.evaluate(`(async () => {
+            const { useIncome } = await ${importLoaded('/src/views/income/income-store.ts')};
+            const error = useIncome().loadError;
+            const before = error.value;
+            const scroll = document.querySelector('.history-table-frame .income-log-scroll');
+            try {
+                error.value = 'E2E历史读取失败';
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                const frame = document.querySelector('.history-table-frame');
+                return frame?.querySelector('.income-log-scroll') === scroll &&
+                    frame.classList.contains('is-empty') &&
+                    getComputedStyle(frame).backgroundColor === 'rgba(0, 0, 0, 0)' &&
+                    !frame.querySelector('table') &&
+                    frame.querySelector('.record-empty')?.textContent.includes('无法读取');
+            } finally {
+                error.value = before;
+                await new Promise(resolve => requestAnimationFrame(resolve));
+            }
+        })()`));
         /* 两段气各自判：原来筛选行下沿到表框只有 8，读起来像表头的一部分。 */
         t.check('筛选行与滑块之间留了气', look.gapTop >= 10, `实际 ${look.gapTop}px`);
         t.check('滑块与表格之间留了气', look.gapTable >= 6, `实际 ${look.gapTable}px`);

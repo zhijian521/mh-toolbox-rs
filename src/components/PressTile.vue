@@ -25,6 +25,7 @@ withDefaults(
             wide,
             'tone-seal': tone === 'seal',
             'press-side-tab': surface === 'side-tab',
+            'side-tab-surface': surface === 'side-tab',
         }"
     >
         <span class="press-content"><slot /></span>
@@ -57,25 +58,12 @@ withDefaults(
     transform: translateY(2px);
 }
 .press-tile.press-side-tab {
-    position: relative;
-    border: 1px solid var(--press-side-tab-edge);
     border-radius: var(--tile-r, var(--r-ticket));
     transition:
         background-color var(--t-quick) var(--ease-soft),
         border-color var(--t-quick) var(--ease-soft),
         box-shadow var(--t-quick) var(--ease-soft),
         color var(--t-quick) var(--ease-soft);
-}
-.press-side-tab::before {
-    content: '';
-    position: absolute;
-    top: 13px;
-    bottom: 13px;
-    left: -1px;
-    width: 3px;
-    border-radius: var(--r-1);
-    background: var(--tile-ink, var(--accent));
-    pointer-events: none;
 }
 .press-tile.press-side-tab:not(.still):active {
     transform: none;

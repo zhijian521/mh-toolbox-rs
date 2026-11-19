@@ -226,7 +226,7 @@ const { requestClose } = useDraftGuard(
             <fieldset class="income-form" :disabled="locked" :inert="locked">
                 <!-- 币种单独一行、排在最前：它决定下面「金额」那一格说的是元还是万，
                  放到后面等于让人先填一个数、再回头发现单位错了。 -->
-                <div class="account-field">
+                <div class="form-field">
                     <span class="field-label">币种</span>
                     <SegmentedPills
                         v-model="currency"
@@ -236,7 +236,7 @@ const { requestClose } = useDraftGuard(
                     />
                 </div>
 
-                <div class="account-field amount-row">
+                <div class="form-field amount-row">
                     <span class="field-label">{{ amountLabel }}</span>
                     <!-- 元、万两种输入都最多保留两位小数。 -->
                     <NumberField
@@ -326,7 +326,7 @@ const { requestClose } = useDraftGuard(
                     </div>
                 </PaperCard>
 
-                <div class="account-field">
+                <div class="form-field">
                     <span class="field-label">角色</span>
                     <SegmentedPills
                         v-model="characterId"
@@ -338,8 +338,8 @@ const { requestClose } = useDraftGuard(
                     />
                 </div>
 
-                <div class="pair form-pair">
-                    <div class="account-field">
+                <div class="form-pair">
+                    <div class="form-field">
                         <span class="field-label">方向</span>
                         <SegmentedPills
                             v-model="kind"
@@ -348,14 +348,14 @@ const { requestClose } = useDraftGuard(
                             :disabled="locked || fixedAssets"
                         />
                     </div>
-                    <div class="account-field">
+                    <div class="form-field">
                         <span class="field-label">日期</span>
                         <DateField v-model="date" label="记账日期" :disabled="locked" />
                     </div>
                 </div>
 
-                <div class="pair form-pair">
-                    <div class="account-field">
+                <div class="form-pair">
+                    <div class="form-field">
                         <span class="field-label">分类</span>
                         <SelectField
                             v-model="category"
@@ -364,7 +364,7 @@ const { requestClose } = useDraftGuard(
                             :disabled="locked || fixedAssets"
                         />
                     </div>
-                    <div class="account-field">
+                    <div class="form-field">
                         <span class="field-label">渠道</span>
                         <SelectField
                             v-model="channel"
@@ -375,7 +375,7 @@ const { requestClose } = useDraftGuard(
                     </div>
                 </div>
 
-                <div class="account-field">
+                <div class="form-field">
                     <label class="field-label" :for="noteId">备注</label>
                     <input
                         :id="noteId"
@@ -469,7 +469,7 @@ const { requestClose } = useDraftGuard(
     font-size: var(--fs-sm);
 }
 .amount-row {
-    justify-items: center;
+    align-items: center;
     padding: 8px 0;
 }
 .trade-switches {
@@ -508,18 +508,6 @@ const { requestClose } = useDraftGuard(
 .fee-amounts b {
     color: var(--positive);
     font-weight: inherit;
-}
-/* 标签在上、控件在下：`.field` 是通栏宽度，标签放左侧会把它挤窄；
- * 而 `SegmentedPills` 一组的宽度是按内容走的，两者同一个节奏。 */
-.account-field {
-    display: grid;
-    align-items: center;
-    gap: 4px;
-}
-/* 两列配对：方向与日期、分类与渠道。这两对的宽度需求相近，并排能少两行；
- * `minmax(0, 1fr)` 让长分类名（「召唤兽交易」）自己截断而不是把整格撑宽。 */
-.pair {
-    --form-pair-gap: 10px;
 }
 .entry-detail {
     display: grid;

@@ -69,11 +69,12 @@ const series = [
 </script>
 
 <template>
-    <LedgerSection :title="title" class="flow-card analysis-card">
+    <LedgerSection :title="title" class="flow-card analysis-card chart-section" plain>
         <template #actions>
             <SegmentedPills v-model="currency" :options="BOOK_OPTIONS" :label="title + '币种'" />
         </template>
         <AccountBarChart
+            class="chart-in-card"
             :rows="chartRows"
             :series="series"
             :currency="currency"

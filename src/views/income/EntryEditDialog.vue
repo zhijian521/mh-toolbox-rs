@@ -49,7 +49,7 @@ function submit() {
         <form class="income-form modal-form" @submit.prevent="submit">
             <fieldset class="income-form" :disabled="locked" :inert="locked">
                 <PriceField v-model="amount" :precision="2" label="金额" />
-                <div class="entry-field">
+                <div class="form-field">
                     <label class="field-label" :for="itemId">物品</label>
                     <input
                         :id="itemId"
@@ -60,7 +60,7 @@ function submit() {
                         autocomplete="off"
                     />
                 </div>
-                <div class="entry-field">
+                <div class="form-field">
                     <span class="field-label">记给谁</span>
                     <SelectField
                         v-model="who"
@@ -87,11 +87,3 @@ function submit() {
     </ModalShell>
 </template>
 
-<style scoped>
-/* 垂直字段与金额控件保持一致，不覆盖全局横向 form-row。 */
-.entry-field {
-    display: grid;
-    align-items: center;
-    gap: 6px;
-}
-</style>

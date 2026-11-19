@@ -7,6 +7,7 @@ import { ledgerMoneyText } from '../../services/format';
 import DateRangeField from '../../components/DateRangeField.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
+import TextButton from '../../components/TextButton.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
 import SelectField from '../../components/SelectField.vue';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
@@ -170,6 +171,7 @@ async function remove(one: AccountEntry) {
 <template>
     <ModalShell
         title="历史记录"
+        class="account-history record-history"
         :width="960"
         min-height="min(620px, calc(100vh - 48px))"
         fill
@@ -181,140 +183,144 @@ async function remove(one: AccountEntry) {
             :load="loadAccounts"
             :blocked="pending > 0 || !!writeError || removing"
         />
-        <div class="record-filters">
-            <DateRangeField
-                v-model:from="from"
-                v-model:to="to"
-                from-label="账号历史开始日期"
-                to-label="账号历史结束日期"
-            />
-            <SelectField
-                v-model="source"
-                :options="sourceOptions"
-                label="来源筛选"
-                class="f-pick"
-            />
-            <input
-                v-model="keyword"
-                class="field filter-search"
-                type="search"
-                placeholder="搜索备注、分类、角色"
-                aria-label="搜索记录"
-                autocomplete="off"
-            />
-            <PressButton v-if="anyFilter" text="重置" size="sm" label="清空筛选" @click="reset" />
-        </div>
-        <div class="record-filters">
-            <SelectField
-                v-model="currency"
-                :options="currencyOptions"
-                label="币种筛选"
-                class="f-pick"
-            />
-            <SelectField v-model="kind" :options="kindOptions" label="方向筛选" class="f-pick" />
-            <SelectField
-                v-model="category"
-                :options="categoryOptions"
-                label="分类筛选"
-                class="f-pick"
-            />
-            <SelectField
-                v-model="channel"
-                :options="channelOptions"
-                label="渠道筛选"
-                class="f-pick"
-            />
-            <SelectField v-model="who" :options="whoOptions" label="角色筛选" class="f-pick" />
-        </div>
-        <div v-if="!loadError" class="record-summary">
-            <div v-for="one in sums" :key="one.currency" class="sum">
-                <span>{{ CURRENCY_META[one.currency].label }}</span>
-                <span :class="{ in: one.stats.income > 0 }"
-                    >收 {{ accountValueText(one.stats.income, one.currency) }}</span
-                >
-                <span :class="{ out: one.stats.expense > 0 }"
-                    >支 {{ accountValueText(one.stats.expense, one.currency) }}</span
-                >
-                <span :class="{ out: one.stats.net < 0, in: one.stats.net > 0 }"
-                    >差额 {{ accountValueText(one.stats.net, one.currency) }}</span
-                >
+        <div class="account-record-controls">
+            <div class="record-filters account-record-search">
+                <DateRangeField
+                    v-model:from="from"
+                    v-model:to="to"
+                    from-label="账号历史开始日期"
+                    to-label="账号历史结束日期"
+                />
+                <input
+                    v-model="keyword"
+                    class="field filter-search"
+                    type="search"
+                    placeholder="搜索备注、分类、角色、物品"
+                    aria-label="搜索记录"
+                    autocomplete="off"
+                />
+                <TextButton v-if="anyFilter" text="重置" label="清空筛选" @click="reset" />
+            </div>
+            <div
+                class="record-filters account-record-filter-grid"
+                role="group"
+                aria-label="账号记录筛选"
+            >
+                <SelectField v-model="currency" :options="currencyOptions" label="币种筛选" />
+                <SelectField v-model="kind" :options="kindOptions" label="方向筛选" />
+                <SelectField v-model="category" :options="categoryOptions" label="分类筛选" />
+                <SelectField v-model="channel" :options="channelOptions" label="渠道筛选" />
+                <SelectField v-model="who" :options="whoOptions" label="角色筛选" />
+                <SelectField v-model="source" :options="sourceOptions" label="来源筛选" />
             </div>
         </div>
-        <div ref="scroll" class="income-log-scroll" @scroll="rememberScroll">
-            <p v-if="!filtered.length" class="record-empty">
-                {{
-                    loadError
-                        ? '暂时无法读取记录'
-                        : entries.length
-                          ? '这个筛选下没有记录'
-                          : '还没有账号记录'
-                }}
-            </p>
-            <table v-else class="income-table rec-table">
-                <thead>
-                    <tr>
-                        <th>日期</th>
-                        <th>分类 / 来源</th>
-                        <th>备注</th>
-                        <th>角色</th>
-                        <th>渠道</th>
-                        <th class="c-num">金额</th>
-                        <th class="c-ops">操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="one in visible" :key="one.id">
-                        <td class="c-date">{{ one.date }}</td>
-                        <td class="c-category">
-                            {{ one.category }}<small v-if="one.source === 'auto'">自动同步</small>
-                        </td>
-                        <td
-                            class="c-note"
-                            :title="
-                                [one.note, ...(one.assets ?? []).map(warehouseName)]
-                                    .filter(Boolean)
-                                    .join(' · ')
-                            "
-                        >
-                            <span v-if="one.assets?.length" class="record-assets">{{
-                                one.assets.map(warehouseName).join('、')
-                            }}</span>
-                            {{ one.note }}
-                        </td>
-                        <td class="c-who">{{ characterName(roster, one.characterId) }}</td>
-                        <td class="c-channel">{{ one.channel }}</td>
-                        <td class="c-num" :class="one.kind === 'expense' ? 'out' : 'in'">
-                            {{
-                                ledgerMoneyText(
-                                    one.kind === 'expense' ? -one.amount : one.amount,
-                                    one.currency,
-                                    { sign: 'always' },
-                                )
-                            }}
-                        </td>
-                        <td class="c-ops">
-                            <span class="income-ops">
-                                <PressButton
-                                    :icon="one.source === 'auto' ? 'search' : 'edit'"
-                                    :disabled="mutationBlocked"
-                                    :label="one.source === 'auto' ? '查看这一条' : '改这一条'"
-                                    size="md"
-                                    @click="emit('edit', one)"
-                                />
-                                <PressButton
-                                    v-if="one.source !== 'auto'"
-                                    danger
-                                    icon="trash"
-                                    label="删这一条"
-                                    size="md"
-                                    :disabled="mutationBlocked"
-                                    @click="remove(one)"
-                                />
-                            </span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+        <div v-if="!loadError" class="record-summary account-record-summary">
+            <section
+                v-for="one in sums"
+                :key="one.currency"
+                class="account-record-total"
+                :aria-label="CURRENCY_META[one.currency].label + '汇总'"
+            >
+                <h3>{{ CURRENCY_META[one.currency].label }}</h3>
+                <dl>
+                    <div>
+                        <dt>收入</dt>
+                        <dd :class="{ in: one.stats.income > 0 }">{{
+                            accountValueText(one.stats.income, one.currency)
+                        }}</dd>
+                    </div>
+                    <div>
+                        <dt>支出</dt>
+                        <dd :class="{ out: one.stats.expense > 0 }">{{
+                            accountValueText(one.stats.expense, one.currency)
+                        }}</dd>
+                    </div>
+                    <div>
+                        <dt>差额</dt>
+                        <dd :class="{ out: one.stats.net < 0, in: one.stats.net > 0 }">{{
+                            accountValueText(one.stats.net, one.currency)
+                        }}</dd>
+                    </div>
+                </dl>
+            </section>
+        </div>
+        <div class="record-table-frame" :class="{ 'is-empty': !!loadError || !entries.length }">
+            <div ref="scroll" class="income-log-scroll" @scroll="rememberScroll">
+                <p v-if="loadError || !filtered.length" class="record-empty">
+                    {{
+                        loadError
+                            ? '暂时无法读取记录'
+                            : entries.length
+                              ? '这个筛选下没有记录'
+                              : '还没有账号记录'
+                    }}
+                </p>
+                <table v-else class="income-table rec-table">
+                    <thead>
+                        <tr>
+                            <th>日期</th>
+                            <th>分类 / 来源</th>
+                            <th>备注</th>
+                            <th>角色</th>
+                            <th>渠道</th>
+                            <th class="c-num">金额</th>
+                            <th class="c-ops">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="one in visible" :key="one.id">
+                            <td class="c-date">{{ one.date }}</td>
+                            <td class="c-category">
+                                {{ one.category }}<small v-if="one.source === 'auto'">自动同步</small>
+                            </td>
+                            <td
+                                class="c-note"
+                                :title="
+                                    [one.note, ...(one.assets ?? []).map(warehouseName)]
+                                        .filter(Boolean)
+                                        .join(' · ')
+                                "
+                            >
+                                <span v-if="one.assets?.length" class="record-assets">{{
+                                    one.assets.map(warehouseName).join('、')
+                                }}</span>
+                                {{ one.note }}
+                            </td>
+                            <td class="c-who">{{ characterName(roster, one.characterId) }}</td>
+                            <td class="c-channel">{{ one.channel }}</td>
+                            <td class="c-num" :class="one.kind === 'expense' ? 'out' : 'in'">
+                                {{
+                                    ledgerMoneyText(
+                                        one.kind === 'expense' ? -one.amount : one.amount,
+                                        one.currency,
+                                        { sign: 'always' },
+                                    )
+                                }}
+                            </td>
+                            <td class="c-ops">
+                                <span class="income-ops">
+                                    <PressButton
+                                        :icon="one.source === 'auto' ? 'search' : 'edit'"
+                                        :disabled="mutationBlocked"
+                                        :label="one.source === 'auto' ? '查看这一条' : '改这一条'"
+                                        size="md"
+                                        @click="emit('edit', one)"
+                                    />
+                                    <PressButton
+                                        v-if="one.source !== 'auto'"
+                                        danger
+                                        icon="trash"
+                                        label="删这一条"
+                                        size="md"
+                                        :disabled="mutationBlocked"
+                                        @click="remove(one)"
+                                    />
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
         <template #footer>
             <span v-if="loadError" class="record-foot-note">读取失败</span>
@@ -334,15 +340,59 @@ async function remove(one: AccountEntry) {
 </template>
 
 <style scoped>
-.f-pick {
-    flex: 1 1 120px;
-    min-width: 110px;
+.account-record-controls {
+    flex: none;
+    min-width: 0;
+    container: account-records / inline-size;
 }
-.sum {
-    display: flex;
-    flex-wrap: wrap;
+.account-record-search .filter-search {
+    margin-left: auto;
+}
+.account-record-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.account-record-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+    align-items: start;
+    gap: 10px 20px;
+}
+.account-record-total {
+    min-width: 0;
+}
+.account-record-total h3 {
+    margin: 0 0 6px;
+    color: var(--ink-2);
+    font-size: var(--fs-sm);
+}
+.account-record-total dl {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
-    font-variant-numeric: tabular-nums;
+    margin: 0;
+}
+.account-record-total dt {
+    color: var(--muted);
+}
+.account-record-total dd {
+    margin: 2px 0 0;
+    font-size: var(--fs-sm);
+    overflow-wrap: anywhere;
+}
+@container account-records (max-width: 800px) {
+    .account-record-filter-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+@container account-records (max-width: 480px) {
+    .account-record-filter-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .account-record-search .filter-search {
+        flex: 1 1 180px;
+        margin-left: 0;
+    }
 }
 .in {
     color: var(--positive);

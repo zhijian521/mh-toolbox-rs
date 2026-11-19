@@ -365,6 +365,7 @@ export function useOnline() {
         retry: persist,
         sessions: readonly(sessions),
         settings: readonly(settings),
+        loaded: readonly(loaded),
         loadError,
         writeError,
         startOnline,

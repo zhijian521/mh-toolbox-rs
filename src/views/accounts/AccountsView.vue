@@ -10,16 +10,15 @@ import PaperCard from '../../components/PaperCard.vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import PressTile from '../../components/PressTile.vue';
+import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
 import { useRecordFilters } from '../../composables/use-record-filters';
 import SegmentedPills from '../../components/SegmentedPills.vue';
-import SelectField from '../../components/SelectField.vue';
 import { notify } from '../../composables/use-notify';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import { useToday } from '../../composables/use-today';
 import { characterName, useRoster } from '../characters/roster';
-import { characterOptions } from '../characters/character-options';
 import AccountCharts from './AccountCharts.vue';
 import AccountFlowCard from './AccountFlowCard.vue';
 import {
@@ -44,26 +43,38 @@ const { entries, loadError, writeError, addEntry, updateEntry, pending, flush, r
     useAccounts();
 const { roster } = useRoster();
 const preset = ref<RangePreset>('month');
-const who = ref(ALL_ACCOUNTS);
-const whoOptions = computed(() =>
-    characterOptions(
-        roster.value,
-        entries.value.map((one) => one.characterId),
-        { all: true, unassigned: '未指定' },
-    ),
-);
 const today = useToday();
 const range = computed(() => rangeOf(preset.value, today.value));
-const scoped = computed(() =>
-    filterAccounts(entries.value, { ...range.value, characterId: who.value }),
-);
+const scoped = computed(() => filterAccounts(entries.value, range.value));
 const books = computed(() => {
     const stats = accountStatsByCurrency(scoped.value);
-    return (['rmb', 'cash'] as const).map((currency) => ({
-        currency,
-        meta: CURRENCY_META[currency],
-        stats: stats[currency],
-    }));
+    return (['rmb', 'cash'] as const).map((currency) => {
+        const book = stats[currency];
+        return {
+            currency,
+            heading: CURRENCY_META[currency].label + ' · ' + book.count + ' 笔',
+            items: [
+                {
+                    id: currency + '-income',
+                    cap: '收入',
+                    value: accountValueText(book.income, currency),
+                    tone: book.income > 0 ? 'gain' : 'num',
+                },
+                {
+                    id: currency + '-expense',
+                    cap: '支出',
+                    value: accountValueText(book.expense, currency),
+                    tone: book.expense > 0 ? 'loss' : 'num',
+                },
+                {
+                    id: currency + '-net',
+                    cap: '差额',
+                    value: accountValueText(book.net, currency),
+                    tone: book.net < 0 ? 'loss' : book.net > 0 ? 'gain' : 'num',
+                },
+            ] satisfies StatItem[],
+        };
+    });
 });
 const shortcuts = computed(() => {
     const totals = shortcutTotals(
@@ -72,7 +83,6 @@ const shortcuts = computed(() => {
     );
     return SHORTCUTS.map((one, index) => ({
         ...one,
-        description: one.id === 'game-income' ? '游戏内 · 手动产出' : one.hint,
         total: totals[index],
     }));
 });
@@ -80,7 +90,7 @@ const recent = computed(() => newestFirst(scoped.value).slice(0, 8));
 const editing = ref<{ entry?: AccountEntry; seed?: Partial<EntryInput> } | null>(null);
 const recordsOpen = ref(false);
 const { filters: historyFilters, syncScope } = useRecordFilters(
-    () => ({ ...range.value, who: who.value }),
+    () => ({ ...range.value, who: ALL_ACCOUNTS }),
     {
         currency: ALL_ACCOUNTS,
         kind: ALL_ACCOUNTS,
@@ -101,12 +111,7 @@ const { saving, locked, action } = submission;
 
 function openBlank(seed?: Partial<EntryInput>) {
     submission.reset();
-    editing.value = {
-        seed: {
-            characterId: roster.value.some((one) => one.id === who.value) ? who.value : '',
-            ...seed,
-        },
-    };
+    editing.value = { seed };
 }
 function openEntry(entry: AccountEntry) {
     submission.reset();
@@ -145,19 +150,13 @@ useRouteAction('/accounts', {
 <template>
     <PageShell title="账号" desc="收支记账 · 分类统计">
         <template #actions>
+            <PressButton icon="history" text="历史" label="查看账号历史记录" @click="openRecords" />
             <PressButton
                 icon="archive"
                 text="仓库"
                 label="打开装备和召唤兽仓库"
-                @click="warehouseOpen = true"
-            />
-            <PressButton icon="history" text="历史" label="查看账号历史记录" @click="openRecords" />
-            <PressButton
-                icon="add"
-                text="记一笔"
-                label="记一笔账号收支"
                 seal
-                @click="openBlank()"
+                @click="warehouseOpen = true"
             />
         </template>
         <div class="accounts-layout">
@@ -167,49 +166,27 @@ useRouteAction('/accounts', {
                 :blocked="pending > 0 || !!writeError || !!editing"
             />
             <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
-            <PaperCard class="filters">
-                <SegmentedPills v-model="preset" :options="RANGE_PRESETS" label="账目时间范围" />
-                <SelectField
-                    v-model="who"
-                    :options="whoOptions"
-                    label="按角色筛选"
-                    class="who-pick"
-                />
-                <span class="range-text">{{
-                    range.from ? range.from + ' 至 ' + range.to : '全部时间'
-                }}</span>
+            <PaperCard class="account-overview" plain>
+                <div class="filters">
+                    <SegmentedPills v-model="preset" :options="RANGE_PRESETS" label="账目时间范围" />
+                    <span class="range-text">{{
+                        range.from ? range.from + ' 至 ' + range.to : '全部时间'
+                    }}</span>
+                </div>
+                <div v-if="!loadError" class="books">
+                    <StatStrip
+                        v-for="book in books"
+                        :key="book.currency"
+                        class="book"
+                        surface="embedded"
+                        :heading="book.heading"
+                        :items="book.items"
+                        :data-book-currency="book.currency"
+                    />
+                </div>
             </PaperCard>
 
-            <div v-if="!loadError" class="books">
-                <PaperCard v-for="book in books" :key="book.currency" as="article" class="book">
-                    <header class="book-head">
-                        <h2>{{ book.meta.label }}</h2>
-                        <span class="book-count">{{ book.stats.count }} 笔</span>
-                    </header>
-                    <div class="metrics">
-                        <div>
-                            <span>收入</span
-                            ><b :class="{ in: book.stats.income > 0 }">{{
-                                accountValueText(book.stats.income, book.currency)
-                            }}</b>
-                        </div>
-                        <div>
-                            <span>支出</span
-                            ><b :class="{ out: book.stats.expense > 0 }">{{
-                                accountValueText(book.stats.expense, book.currency)
-                            }}</b>
-                        </div>
-                        <div>
-                            <span>差额</span
-                            ><b :class="{ out: book.stats.net < 0, in: book.stats.net > 0 }">{{
-                                accountValueText(book.stats.net, book.currency)
-                            }}</b>
-                        </div>
-                    </div>
-                </PaperCard>
-            </div>
-
-            <LedgerSection title="快捷记账" hint="当前范围 · 全部渠道">
+            <LedgerSection title="快捷记账" plain>
                 <div class="shortcuts">
                     <button
                         v-for="one in shortcuts"
@@ -221,15 +198,12 @@ useRouteAction('/accounts', {
                         :class="one.preset.kind"
                         @click="openBlank({ ...one.preset })"
                     >
-                        <PressTile class="shortcut-face" wide>
+                        <PressTile class="shortcut-face" surface="side-tab" wide>
                             <span class="shortcut-body">
                                 <span class="sc-icon" aria-hidden="true"
                                     ><AppIcon :name="one.icon"
                                 /></span>
-                                <span class="sc-copy">
-                                    <span class="sc-title">{{ one.title }}</span>
-                                    <small>{{ one.description }}</small>
-                                </span>
+                                <span class="sc-title">{{ one.title }}</span>
                                 <span
                                     v-if="!loadError"
                                     class="sc-total"
@@ -258,8 +232,6 @@ useRouteAction('/accounts', {
                 </div>
             </LedgerSection>
 
-            <AccountCharts v-if="!loadError" :entries="scoped" :range="range" />
-
             <div class="account-bottom">
                 <AccountFlowCard
                     v-if="!loadError"
@@ -267,11 +239,7 @@ useRouteAction('/accounts', {
                     group="channel"
                     class="channel-card"
                 />
-                <LedgerSection
-                    title="最近记录"
-                    :hint="loadError ? '读取失败' : scoped.length + ' 笔 · 最近八笔'"
-                    class="records"
-                >
+                <LedgerSection title="最近记录" class="records" plain>
                     <p v-if="!recent.length" class="blank">
                         {{ loadError ? '暂时无法读取记录，请重新读取。' : '这个范围还没有记录' }}
                     </p>
@@ -325,6 +293,8 @@ useRouteAction('/accounts', {
                     </div>
                 </LedgerSection>
             </div>
+
+            <AccountCharts v-if="!loadError" :entries="scoped" :range="range" />
         </div>
         <WarehouseDialog v-if="warehouseOpen" @close="warehouseOpen = false" />
         <AccountRecords

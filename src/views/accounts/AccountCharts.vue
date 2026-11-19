@@ -31,24 +31,27 @@ const chartDate = (value: string) =>
 
 <template>
     <div class="account-charts">
-        <LedgerSection
-            v-for="one in trends"
-            :key="one.currency"
-            class="analysis-card"
-            :title="CURRENCY_META[one.currency].label + '走势'"
-            :hint="'按' + one.unit + '汇总'"
-        >
-            <TrendChart
-                :labels="one.labels"
-                :series="one.series"
-                kind="money"
-                :label="CURRENCY_META[one.currency].label + '收支'"
-                :value-text="one.format"
-                :axis-text="(value) => accountAxisText(value, one.currency)"
-                :axis-unit="one.currency === 'cash' ? 10000 : 1"
-                :date-text="chartDate"
-                :colors="colors"
-            />
+        <LedgerSection title="收支走势" class="analysis-card chart-section" plain>
+            <div class="trend-pair">
+                <section v-for="one in trends" :key="one.currency" class="trend-block">
+                    <header class="trend-head">
+                        <h3 :title="'按' + one.unit + '汇总'">{{ CURRENCY_META[one.currency].label }}</h3>
+                    </header>
+                    <TrendChart
+                        class="chart-in-card"
+                        :labels="one.labels"
+                        :series="one.series"
+                        kind="money"
+                        :label="CURRENCY_META[one.currency].label + '收支'"
+                        :height="180"
+                        :value-text="one.format"
+                        :axis-text="(value) => accountAxisText(value, one.currency)"
+                        :axis-unit="one.currency === 'cash' ? 10000 : 1"
+                        :date-text="chartDate"
+                        :colors="colors"
+                    />
+                </section>
+            </div>
         </LedgerSection>
 
         <AccountFlowCard :entries="entries" group="character" class="character-flow" />
@@ -58,17 +61,31 @@ const chartDate = (value: string) =>
 <style scoped>
 .account-charts {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+}
+.trend-pair {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
 }
-.character-flow {
-    grid-column: 1 / -1;
-}
-.analysis-card {
+.analysis-card,
+.trend-block {
     min-width: 0;
 }
-@media (max-width: 760px) {
-    .account-charts {
+.trend-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: var(--fs-xs);
+}
+.trend-head h3 {
+    font-size: var(--fs-sm);
+}
+@container accounts (max-width: 760px) {
+    .trend-pair {
         grid-template-columns: minmax(0, 1fr);
     }
 }

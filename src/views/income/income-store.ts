@@ -358,6 +358,7 @@ export function useIncome() {
         entries: readonly(entries),
         prices: readonly(prices),
         target: readonly(target),
+        loaded: readonly(loaded),
         loadError,
         writeError: market.writeError,
         recordEntry,

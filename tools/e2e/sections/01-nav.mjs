@@ -41,6 +41,58 @@ export default async function run(ctx) {
             });
         }
 
+        await t.step('总览每一错误来源都有可达的恢复入口', async () => {
+            await ui.gotoReady('总览');
+            await cdp.evaluate(`(async () => {
+                const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
+                const { useIncome } = await ${importLoaded('/src/views/income/income-store.ts')};
+                const { useAccounts } = await ${importLoaded('/src/views/accounts/accounts-store.ts')};
+                const { useGoals } = await ${importLoaded('/src/views/goals/goals-store.ts')};
+                const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
+                const refs = [useRoster(), useIncome(), useAccounts(), useGoals(), useOnline()]
+                    .map(source => source.loadError);
+                const before = refs.map(one => one.value);
+                window.__restoreOverviewErrors = () => refs.forEach((one, i) => one.value = before[i]);
+                refs.forEach(one => one.value = 'E2E来源读取失败');
+            })()`);
+            try {
+                for (const [source, page, hash] of [
+                    ['角色', '角色', '#/characters'], ['收益', '收益', '#/income'],
+                    ['账号', '账号', '#/accounts'], ['目标', '目标', '#/goals'],
+                    ['上线', '收益', '#/income'], ['自动记账', '收益', '#/income'],
+                ]) {
+                    const label = `前往${page}页面处理${source}错误`;
+                    await ui.clickLabel(label);
+                    t.check(`${source}错误前往对应恢复页面`, await cdp.waitFor(
+                        `location.hash === ${JSON.stringify(hash)}`,
+                    ));
+                    await ui.gotoReady('总览');
+                }
+            } finally {
+                await cdp.evaluate(`(() => {
+                    window.__restoreOverviewErrors?.();
+                    delete window.__restoreOverviewErrors;
+                })()`);
+            }
+            t.check('恢复后来源提示消失', await cdp.waitFor(
+                `!document.querySelector('.source-error')`,
+            ));
+            t.check('工作台按实际内容宽度收列', await cdp.evaluate(`(async () => {
+                const root = document.querySelector('.overview');
+                const before = root.style.width;
+                try {
+                    root.style.width = '480px';
+                    await new Promise(resolve => requestAnimationFrame(resolve));
+                    const single = selector => getComputedStyle(root.querySelector(selector))
+                        .gridTemplateColumns.split(' ').length === 1;
+                    return getComputedStyle(root).containerName === 'overview' &&
+                        single('.day-hero') && single('.day-grid') && single('.workbench-readouts');
+                } finally {
+                    root.style.width = before;
+                }
+            })()`));
+        });
+
         const shortcutPreference = await cdp.evaluate("localStorage.getItem('mh-home-shortcuts')");
         try {
             // 入口允许用户隐藏和排序；仅此节临时使用默认配置，结束后恢复本机偏好。
@@ -233,6 +285,8 @@ export default async function run(ctx) {
                     const reference = document.querySelector('.shortcuts-section');
                     return section && chart && surface && legend && column &&
                         reference && section.classList.contains('board') &&
+                        section.classList.contains('chart-section') &&
+                        parseFloat(getComputedStyle(section).paddingBottom) === 8 &&
                         !!section.querySelector('.section-head h2') &&
                         !section.querySelector('.section-head .hint') &&
                         !document.querySelector('.team-section > .section-head .hint') &&
