@@ -10,17 +10,18 @@ import SaveNotice from '../../components/SaveNotice.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import DateRangeField from '../../components/DateRangeField.vue';
-import SelectField from '../../components/SelectField.vue';
+import SteppedSlider from '../../components/SteppedSlider.vue';
 import { notify } from '../../composables/use-notify';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { characterName, useRoster } from '../characters/roster';
 import { timeText } from '../../services/clock';
 import { ledgerMoneyText, shortDate } from '../../services/format';
-import { amountText, entriesIn, totalsOf, type IncomeEntry } from './income';
+import { amountText, entriesIn, type IncomeEntry } from './income';
 import { loadIncome, useIncome } from './income-store';
 import { itemIconOf } from './item-icons';
 import EntryEditDialog from './EntryEditDialog.vue';
-import { characterOptions, UNASSIGNED_CHARACTER as NOTHING } from '../characters/character-options';
+import { UNASSIGNED_CHARACTER as NOTHING } from '../characters/character-options';
+import { historyGroupsOf } from './history-summary';
 
 const emit = defineEmits<{ close: [] }>();
 const filters = defineModel<RecordFilters>({ required: true });
@@ -39,13 +40,18 @@ const mutationBlocked = computed(
     () => removing.value || pending.value > 0 || Boolean(loadError.value || writeError.value),
 );
 
-/** 页面持有历史范围；同一速记角色下重新打开时保留上次筛选。 */
-const whoOptions = computed(() =>
-    characterOptions(
-        roster.value,
-        entries.value.map((one) => one.characterId),
-        { all: true, unassigned: '未指定' },
-    ),
+const rangeRows = computed(() => entriesIn(entries.value, { from: from.value, to: to.value }));
+const whoGroups = computed(() => historyGroupsOf(rangeRows.value, roster.value, who.value));
+const whoTotals = computed(() => new Map(whoGroups.value.map((group) => [group.value, group.net])));
+const roleScroll = ref<HTMLElement | null>(null);
+watch(
+    [who, whoGroups, roleScroll],
+    () => {
+        roleScroll.value
+            ?.querySelector<HTMLElement>('[aria-checked="true"]')
+            ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    },
+    { flush: 'post' },
 );
 
 /** 区间跨没跨天。跨天时时间列要带上日期，否则「14:32」看不出是哪一天的。 */
@@ -55,7 +61,7 @@ const multiDay = computed(() => from.value !== to.value);
 const editing = ref<IncomeEntry | null>(null);
 
 const rows = computed(() =>
-    entriesIn(entries.value, { from: from.value, to: to.value })
+    rangeRows.value
         .filter(
             (one) =>
                 who.value === ANY || one.characterId === (who.value === NOTHING ? '' : who.value),
@@ -78,28 +84,6 @@ function closeEdit() {
     editing.value = null;
     editSubmit.reset();
 }
-
-const rangeTotals = computed(() => totalsOf(rows.value));
-
-interface WhoSum {
-    id: string;
-    name: string;
-    count: number;
-    net: number;
-}
-
-/** 区间内按角色小计，按净额降序。只服务顶部那一行，不进表格。 */
-const whoSums = computed<WhoSum[]>(() => {
-    const map = new Map<string, WhoSum>();
-    for (const one of rows.value) {
-        const id = one.characterId || '';
-        const hit = map.get(id) ?? { id, name: characterName(roster.value, id), count: 0, net: 0 };
-        hit.count += 1;
-        hit.net += one.kind === 'expense' ? -one.amount : one.amount;
-        map.set(id, hit);
-    }
-    return [...map.values()].sort((a, b) => b.net - a.net || b.count - a.count);
-});
 
 /** 净额与支出都要带 `−`：只靠颜色的话，色弱或打印时一笔亏损会读成收入。 */
 function signedOf(value: number): string {
@@ -141,6 +125,7 @@ async function remove(one: IncomeEntry) {
 
 <template>
     <ModalShell
+        class="income-history"
         title="历史收益"
         :width="900"
         min-height="min(600px, calc(100vh - 48px))"
@@ -163,27 +148,23 @@ async function remove(one: IncomeEntry) {
                 from-label="从哪一天"
                 to-label="到哪一天"
             />
-            <SelectField v-model="who" :options="whoOptions" label="按角色筛选" class="who-pick" />
         </div>
 
-        <p v-if="rows.length && !loadError" class="record-summary">
-            <span
-                class="sum-tag total"
-                :class="{ gain: rangeTotals.net > 0, loss: rangeTotals.net < 0 }"
+        <div v-if="!loadError" ref="roleScroll" class="history-roles">
+            <SteppedSlider
+                v-model="who"
+                :options="whoGroups"
+                label="按角色筛选"
+                class="history-role-slider"
             >
-                <span class="tag-name">总计</span>
-                <b>{{ signedOf(rangeTotals.net) }}</b>
-            </span>
-            <span
-                v-for="row in whoSums"
-                :key="row.id"
-                class="sum-tag"
-                :class="{ idle: !row.id, gain: row.net > 0, loss: row.net < 0 }"
-            >
-                <span class="tag-name">{{ row.name }}</span>
-                <b>{{ signedOf(row.net) }}</b>
-            </span>
-        </p>
+                <template #option="{ option }">
+                    <span class="history-role-name" :title="option.label">{{ option.label }}</span>
+                    <span class="history-role-net">{{
+                        signedOf(whoTotals.get(option.value) ?? 0)
+                    }}</span>
+                </template>
+            </SteppedSlider>
+        </div>
 
         <p v-if="!rows.length" class="record-empty">
             {{
@@ -195,78 +176,79 @@ async function remove(one: IncomeEntry) {
             }}
         </p>
 
-        <!-- 只有表格滚（`fill` 让正文成为纵向 flex 容器，这里吃掉剩下的全部高度）。
-             表头 `sticky` 钉在容器顶上：往下翻十几行之后仍知道哪列是哪列。 -->
-        <div v-else ref="scroll" class="income-log-scroll" @scroll="rememberScroll">
-            <table class="log income-table">
-                <thead>
-                    <tr>
-                        <th class="c-time" :class="{ wide: multiDay }">时间</th>
-                        <th>物品</th>
-                        <th class="c-who">角色</th>
-                        <th class="c-num">金额</th>
-                        <th class="c-ops">操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="one in visible" :key="one.id">
-                        <td class="c-time" :class="{ wide: multiDay }">
-                            <!-- 跨天时把日期补在时间上面：区间一跨天，「14:32」单独看
-                                 分不出是哪天的 14:32，而这一列正是给人对时间的。 -->
-                            <span class="time-cell">
-                                <span v-if="multiDay" class="c-date">{{
-                                    shortDate(one.date)
-                                }}</span>
-                                <span class="c-clock">{{ timeText(one.createdAt) }}</span>
-                            </span>
-                        </td>
-                        <td>
-                            <!-- flex 包在 td 里的 span 上，不挂在 td 上：td 一旦不是
-                                 table-cell，整张表的列宽计算会跟着乱。 -->
-                            <span class="item-cell">
-                                <img
-                                    v-if="itemIconOf(one.item)"
-                                    :src="itemIconOf(one.item)"
-                                    alt=""
-                                    loading="lazy"
-                                />
-                                <span class="item-name">{{ one.item || '未记物品' }}</span>
-                            </span>
-                        </td>
-                        <td class="c-who" :class="{ idle: !one.characterId }">
-                            {{ characterName(roster, one.characterId) }}
-                        </td>
-                        <td class="c-num" :class="{ out: one.kind === 'expense' }">
-                            {{
-                                ledgerMoneyText(
-                                    one.kind === 'expense' ? -one.amount : one.amount,
-                                    'cash',
-                                    { sign: 'always' },
-                                )
-                            }}
-                        </td>
-                        <td class="c-ops">
-                            <span class="income-ops">
-                                <PressButton
-                                    icon="edit"
-                                    label="改这一条"
-                                    size="md"
-                                    :disabled="mutationBlocked"
-                                    @click="editing = one"
-                                />
-                                <PressButton
-                                    danger
-                                    icon="trash"
-                                    label="删这一条"
-                                    :disabled="mutationBlocked"
-                                    size="md"
-                                    @click="remove(one)"
-                                />
-                            </span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+        <!-- 外框不参与滚动，表头在内层 sticky；仍是同一张原生表，列宽始终一致。 -->
+        <div v-else class="history-table-frame">
+            <div ref="scroll" class="income-log-scroll" @scroll="rememberScroll">
+                <table class="log income-table">
+                    <thead>
+                        <tr>
+                            <th class="c-time" :class="{ wide: multiDay }">时间</th>
+                            <th>物品</th>
+                            <th class="c-who">角色</th>
+                            <th class="c-num">金额</th>
+                            <th class="c-ops">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="one in visible" :key="one.id">
+                            <td class="c-time" :class="{ wide: multiDay }">
+                                <!-- 跨天时把日期补在时间上面：区间一跨天，「14:32」单独看
+                                     分不出是哪天的 14:32，而这一列正是给人对时间的。 -->
+                                <span class="time-cell">
+                                    <span v-if="multiDay" class="c-date">{{
+                                        shortDate(one.date)
+                                    }}</span>
+                                    <span class="c-clock">{{ timeText(one.createdAt) }}</span>
+                                </span>
+                            </td>
+                            <td>
+                                <!-- flex 包在 td 里的 span 上，不挂在 td 上：td 一旦不是
+                                     table-cell，整张表的列宽计算会跟着乱。 -->
+                                <span class="item-cell">
+                                    <img
+                                        v-if="itemIconOf(one.item)"
+                                        :src="itemIconOf(one.item)"
+                                        alt=""
+                                        loading="lazy"
+                                    />
+                                    <span class="item-name">{{ one.item || '未记物品' }}</span>
+                                </span>
+                            </td>
+                            <td class="c-who" :class="{ idle: !one.characterId }">
+                                {{ characterName(roster, one.characterId) }}
+                            </td>
+                            <td class="c-num" :class="{ out: one.kind === 'expense' }">
+                                {{
+                                    ledgerMoneyText(
+                                        one.kind === 'expense' ? -one.amount : one.amount,
+                                        'cash',
+                                        { sign: 'always' },
+                                    )
+                                }}
+                            </td>
+                            <td class="c-ops">
+                                <span class="income-ops">
+                                    <PressButton
+                                        icon="edit"
+                                        label="改这一条"
+                                        size="md"
+                                        :disabled="mutationBlocked"
+                                        @click="editing = one"
+                                    />
+                                    <PressButton
+                                        danger
+                                        icon="trash"
+                                        label="删这一条"
+                                        :disabled="mutationBlocked"
+                                        size="md"
+                                        @click="remove(one)"
+                                    />
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <template #footer>
@@ -295,52 +277,53 @@ async function remove(one: IncomeEntry) {
 </template>
 
 <style scoped>
-/* 角色下拉：`SelectField` 根上写着 `flex: 1`（给「下拉与输入格并排」那种布局），
- * 这里是筛选行，让它吃掉剩余宽度会把右边那行汇总顶到边上去。 */
-.who-pick {
-    flex: none;
-    width: calc(150px * var(--fs-scale));
+.income-history :deep(.modal-body-fill) {
+    padding-right: 16px;
 }
-
-/* ---------- 总计 + 各号小计：一排 tag ---------- */
-
-.sum-tag {
-    display: inline-flex;
-    align-items: baseline;
+.history-roles {
+    flex: none;
+    min-width: 0;
+    margin: 0 0 12px;
+    padding: 2px;
+    overflow-x: auto;
+}
+.history-role-slider {
+    --step-pad-y: 4px;
+    width: max-content;
+    min-width: 100%;
+}
+.history-role-slider :deep(.step-opt) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     gap: 6px;
-    padding: 3px 10px;
-    border: var(--w-hair) solid var(--rule);
-    border-radius: var(--r-pill);
-    background: color-mix(in srgb, var(--well) 24%, transparent);
-    color: var(--ink-2);
-    font-size: var(--fs-mini);
-    line-height: 1.5;
+    min-width: calc(132px * var(--fs-scale));
+}
+.history-role-name {
+    min-width: 0;
+    max-width: calc(128px * var(--fs-scale));
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
-.sum-tag b {
-    color: var(--num);
-    font-weight: 400;
+.history-role-net {
+    flex: none;
+    font-size: var(--fs-mini);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
-/* 总计：一枚标签也是这一排的标题。底色掺的是「数的颜色」（--num，赭）而不是灰槽——
- * 它不是又一个角色，是这些角色的和。 */
-.sum-tag.total {
-    border-color: color-mix(in srgb, var(--num) 34%, transparent);
-    background: color-mix(in srgb, var(--num) 13%, transparent);
-    color: var(--ink);
+.history-table-frame {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+    border: var(--w-hair) solid var(--rule-2);
+    border-radius: var(--r-3);
+    background: var(--paper);
 }
-.sum-tag.total b {
-    font-weight: 700;
-}
-/* 未指定角色的那一枚淡一档：它记的是「没记给人」的账，不是某个人。 */
-.sum-tag.idle {
-    color: var(--muted);
-}
-.sum-tag.gain b {
-    color: var(--positive);
-}
-.sum-tag.loss b {
-    color: var(--negative);
+.history-table-frame .income-table {
+    border: 0;
+    border-radius: 0;
 }
 
 /* ---------- 流水表 ---------- */
@@ -412,6 +395,4 @@ async function remove(one: IncomeEntry) {
     white-space: nowrap;
 }
 
-/* 空态：定高之后这一句要在整块正文里居中。`margin: auto` 在纵向 flex 容器里就是
- * 「上下都吃掉剩余空间」——写 `margin: 26px 0` 会贴在顶部，下面一大片空白看着像没加载完。 */
 </style>

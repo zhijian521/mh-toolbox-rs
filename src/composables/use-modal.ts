@@ -33,7 +33,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, type Ref } from 'v
  * 这个坑没有类型错误、没有 lint、也不报错，只有实测看得见。
  */
 
-const modalStack: symbol[] = [];
+const modalStack = ref<symbol[]>([]);
 
 /**
  * 当前栈顶的 token。
@@ -42,7 +42,7 @@ const modalStack: symbol[] = [];
  * 最上面那层，下层的面板还要 `inert`（否则 Tab 能走到遮罩下面那张窗的按钮上，
  * 而它在视觉上已经被盖住了）。
  */
-const topToken = ref<symbol | null>(null);
+const topToken = computed(() => modalStack.value[modalStack.value.length - 1] ?? null);
 
 /** 被锁滚动的元素与它的原值。只认「栈深 0→1」与「1→0」两个时刻，中间层不管。 */
 let lockedEl: HTMLElement | null = null;
@@ -64,6 +64,8 @@ interface UseModalOptions {
     initialFocus?: 'first' | 'cancel' | 'none';
     /** 请求关闭。Esc 按下时调用，由组件决定发出哪个事件。 */
     onClose: () => void;
+    /** ModalShell 在真实面板退场后释放栈与焦点，其他宿主仍随卸载清理。 */
+    deferCleanup?: boolean;
 }
 
 interface UseModalResult {
@@ -71,12 +73,14 @@ interface UseModalResult {
     isTop: Readonly<Ref<boolean>>;
     /** 叠层沿用底层遮罩，避免每开一个确认窗就额外压暗一次。 */
     isNested: Readonly<Ref<boolean>>;
+    finishLeave: () => void;
 }
 
 export function useModal(options: UseModalOptions): UseModalResult {
     const token = Symbol('modal');
     const isTop = computed(() => topToken.value === token);
-    const isNested = ref(false);
+    const isNested = computed(() => modalStack.value.indexOf(token) > 0);
+    let leaving = false;
 
     /** 关闭后要还回去的那个元素。在 `onMounted` 里取，那时它还在文档里。 */
     let restoreTo: HTMLElement | null = null;
@@ -94,6 +98,7 @@ export function useModal(options: UseModalOptions): UseModalResult {
     }
 
     function focusInitial() {
+        if (leaving || !isTop.value) return;
         /* 调用方自己定位（见 `initialFocus` 的注释）：这里什么都不做，包括那个
          * 「退而聚焦面板」的兜底——兜底会把 `none` 变成 `first`，等于没传。 */
         if (options.initialFocus === 'none') return;
@@ -121,7 +126,14 @@ export function useModal(options: UseModalOptions): UseModalResult {
         /* 内层已经处理过就别再管（见头注释 ①）。 */
         if (event.defaultPrevented) return;
         /* 只有栈顶的窗响应：叠着开时一次 Esc 不能关掉两层。 */
-        if (modalStack[modalStack.length - 1] !== token) return;
+        if (topToken.value !== token) return;
+        if (leaving) {
+            if (event.key === 'Escape' || event.key === 'Tab') {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            return;
+        }
 
         if (event.key === 'Escape') {
             event.preventDefault();
@@ -158,16 +170,14 @@ export function useModal(options: UseModalOptions): UseModalResult {
     onMounted(() => {
         restoreTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
-        isNested.value = modalStack.length > 0;
-        modalStack.push(token);
-        topToken.value = token;
+        modalStack.value.push(token);
 
         /* 只在栈深 0→1 时锁（见头注释 ④）。
          *
          * 锁的是 `.page-content`——这个应用里真正滚动的就是它（`.app` 是固定高度的一屏，
          * `body` 从头到尾不滚）。找不到它时退回 `.app` 而不是 body：`.app` 是这一屏的
          * 容器，把它的 `overflow` 关住才有意义；body 本来就不滚，锁它等于什么都没做。 */
-        if (modalStack.length === 1) {
+        if (modalStack.value.length === 1) {
             lockedEl =
                 document.querySelector<HTMLElement>('.page-content') ??
                 document.querySelector<HTMLElement>('.app');
@@ -182,15 +192,16 @@ export function useModal(options: UseModalOptions): UseModalResult {
         void nextTick(focusInitial);
     });
 
-    onBeforeUnmount(() => {
+    function finishLeave() {
         document.removeEventListener('keydown', onKeydown);
 
-        const at = modalStack.indexOf(token);
-        if (at >= 0) modalStack.splice(at, 1);
-        /* 让位给下面那一层：它重新成为「最上面」的那一个。 */
-        topToken.value = modalStack[modalStack.length - 1] ?? null;
+        const at = modalStack.value.indexOf(token);
+        if (at < 0) return;
+        const wasTop = topToken.value === token;
+        modalStack.value.splice(at, 1);
+        const nextTop = topToken.value;
 
-        if (!modalStack.length && lockedEl) {
+        if (!modalStack.value.length && lockedEl) {
             lockedEl.style.overflow = lockedOverflow;
             lockedEl = null;
         }
@@ -205,9 +216,18 @@ export function useModal(options: UseModalOptions): UseModalResult {
         const target = restoreTo;
         restoreTo = null;
         void nextTick(() => {
-            if (target?.isConnected) target.focus();
+            if (wasTop && topToken.value === nextTop && target?.isConnected) target.focus();
         });
+    }
+
+    onBeforeUnmount(() => {
+        leaving = true;
+        const panel = options.panel.value;
+        panel?.setAttribute('inert', '');
+        panel?.setAttribute('aria-hidden', 'true');
+        panel?.removeAttribute('aria-modal');
+        if (!options.deferCleanup) finishLeave();
     });
 
-    return { isTop, isNested };
+    return { isTop, isNested, finishLeave };
 }

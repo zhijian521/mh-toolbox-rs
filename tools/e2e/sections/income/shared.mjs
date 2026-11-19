@@ -22,7 +22,7 @@ export function createIncomeTools(ctx) {
 
     /** 读取实际统计文本与颜色，覆盖派生读数。 */
     const statCells = async () =>
-        cdp.evaluate(`(() => [...document.querySelectorAll('.stats .stat')].map((el) => ({
+        cdp.evaluate(`(() => [...document.querySelectorAll('.income-summary .stat')].map((el) => ({
             cap: el.querySelector('.cap')?.textContent?.trim() ?? '',
             value: el.querySelector('.v')?.textContent?.trim() ?? '',
             sub: el.querySelector('.sub')?.textContent?.trim() ?? '',
@@ -32,8 +32,7 @@ export function createIncomeTools(ctx) {
 
     // 计数与清理覆盖所有角色，不受本节前一次手工筛选或速记目标影响。
     const showAllHistory = async () => {
-        await ui.clickLabel('按角色筛选');
-        await ui.clickText('.select-list .opt-label', '全部角色', { exact: true });
+        await ui.clickText('.history-role-slider .history-role-name', '总计', { exact: true });
         await sleep(150);
     };
 

@@ -3,8 +3,8 @@ import { useToday } from '../../composables/use-today';
 import { computed } from 'vue';
 import { ledgerMoneyText } from '../../services/format';
 import LedgerSection from '../../components/LedgerSection.vue';
-import NumTag from '../../components/NumTag.vue';
 import PressTile from '../../components/PressTile.vue';
+import NumTag from '../../components/NumTag.vue';
 import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
 
@@ -50,13 +50,12 @@ async function undo(group: ItemGroup) {
 </script>
 
 <template>
-    <LedgerSection title="今日速记" :hint="`${totals.count} 条`">
+    <LedgerSection title="今日速记" :hint="`${totals.count} 条`" plain class="today-dump">
         <div v-if="!groups.length" class="empty">
             <p>今天还没有记账。</p>
         </div>
 
-        <!-- 一格一个「物品 + 单价」：左上压印块（图标）、左下价格签，`×N` 在整格右侧。
-             点一下撤掉最近那一条（见 script 里的理由）。 -->
+        <!-- 一格一个「物品 + 单价」，点一下只撤掉该组最近一条。 -->
         <div v-else class="grid">
             <button
                 v-for="group in groups"
@@ -87,7 +86,7 @@ async function undo(group: ItemGroup) {
 
         <div class="total">
             <span class="k">净额</span>
-            <!-- 与页头统计条同一条：负数带 `−`，不能只靠颜色。 -->
+            <!-- 净额负数带 `−`，不能只靠颜色。 -->
             <span class="v" :class="{ gain: totals.net > 0, loss: totals.net < 0 }">{{
                 ledgerMoneyText(totals.net, 'cash', { sign: 'auto', zero: 'dash' })
             }}</span>
@@ -96,23 +95,34 @@ async function undo(group: ItemGroup) {
 </template>
 
 <style scoped>
+.today-dump {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.today-dump :deep(.section-body) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 16px;
+}
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
-    gap: 8px 6px;
+    grid-template-columns: repeat(auto-fill, minmax(calc(82px * var(--fs-scale)), 1fr));
+    align-content: start;
+    gap: 12px 8px;
 }
-
 .g {
     display: grid;
-    grid-template-columns: 56px auto;
+    grid-template-columns: 56px minmax(0, auto);
     grid-template-areas:
         'tile n'
         'price n';
     align-items: center;
     justify-content: center;
     justify-items: center;
-    column-gap: 4px;
-    row-gap: 3px;
+    gap: 6px 4px;
+    min-width: 0;
     padding: 0;
     border: 0;
     background: none;
@@ -124,10 +134,9 @@ async function undo(group: ItemGroup) {
     --tile-w: 36px;
     --tile-h: 36px;
     --tile-r: var(--r-2);
-    /* 落影 0.4：36 比左栏的 44 还小，按 0.55 落 1.65px 的硬影会糊成一圈灰边。 */
     --tile-drop: 0.4;
-    --tile-face: var(--paper-2);
-    --tile-face-hover: var(--paper);
+    --tile-face: var(--paper);
+    --tile-face-hover: var(--paper-2);
 }
 .g:focus-visible {
     outline: var(--ring);
@@ -137,11 +146,10 @@ async function undo(group: ItemGroup) {
     width: 26px;
     height: 26px;
     object-fit: contain;
-    /* 与左栏同一道「纸化」：小图不调会像贴纸。 */
     filter: var(--item-icon-filter);
     opacity: var(--item-icon-opacity);
 }
-/* 没有图标时的兜底：物品名压到与图标同大的一格，两行之内收住。 */
+/* 图标可能缺失，物品名保留在同一按钮内兜底，完整名称仍可由提示读取。 */
 .g .txt {
     display: grid;
     place-items: center;
@@ -153,8 +161,6 @@ async function undo(group: ItemGroup) {
     line-height: 1.05;
     text-align: center;
 }
-/* 签：`min-width` 与块同宽（36），短价不至于比上面的块还窄；长的自然撑开，
- * 块仍在它中间——两条中线重合才算「对齐」。 */
 .price {
     grid-area: price;
     --tag-h: calc(14px * var(--fs-scale));
@@ -165,27 +171,25 @@ async function undo(group: ItemGroup) {
 .price .v {
     color: var(--num);
 }
-/* `×N` 在整格后面，与「块 + 签」这一组**垂直居中**（`grid-area: n` 跨两行）。
- * 不再与签同色同号挤在一行：它是次数，不是价格，本来就不该和价贴在一起。 */
+/* 数量跨图标与价格两行，不和单价混在一起。 */
 .g .n {
     grid-area: n;
     color: var(--num);
     font-size: var(--fs-mini);
     line-height: 1;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
-/* 支出那一组转朱（与合计条里的「支」同一套），收入保持赭。 */
 .g.out .n,
 .g.out .price .v {
     color: var(--negative);
 }
-
 .total {
     display: flex;
-    align-items: baseline;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 8px;
-    margin-top: 10px;
-    padding-top: 9px;
+    margin-top: auto;
+    padding-top: 12px;
     border-top: var(--w-hair) solid var(--rule-2);
 }
 .total .k {
@@ -197,19 +201,20 @@ async function undo(group: ItemGroup) {
     margin-left: auto;
     color: var(--num);
     font-size: var(--fs-amount);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
 }
-/* 净额与统计条共用进账、出账配色。 */
 .total .v.gain {
     color: var(--positive);
 }
-
 .total .v.loss {
     color: var(--negative);
 }
-
-/* 空态：一句「还没有」，不画空表。留白读作「没做完」，一句话读作「今天还没开始」。 */
 .empty {
-    padding: 22px 0 18px;
+    display: grid;
+    flex: 1;
+    place-items: center;
+    padding: 28px 0;
     text-align: center;
 }
 .empty p {

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import PressButton from './PressButton.vue';
 import { useModal } from '../composables/use-modal';
 import { useModalSize } from '../composables/use-modal-size';
+import { useModalMotion } from '../composables/use-modal-motion';
 
 defineOptions({ inheritAttrs: false });
 
@@ -116,19 +117,23 @@ const emit = defineEmits<{ close: [] }>();
 /** 每个实例一个 id：同一页可能同时存在两个窗（历史里再开删除确认）。 */
 const titleId = `modal-title-${Math.random().toString(36).slice(2, 9)}`;
 
+const mask = ref<HTMLElement | null>(null);
 const panel = ref<HTMLElement | null>(null);
 useModalSize(panel, () => props.height !== undefined);
 
 /* 行为全部交给 `use-modal`：Esc、焦点陷阱、锁滚动、关闭还焦点、叠层栈。
  * 这个组件从此只管「它长什么样」——`CONVENTIONS.md` §2.3-3。 */
-const { isTop, isNested } = useModal({
+const { isTop, isNested, finishLeave } = useModal({
     panel,
     initialFocus: props.initialFocus,
     onClose: () => emit('close'),
+    deferCleanup: true,
 });
+const { beforeUnmount } = useModalMotion(mask, panel, finishLeave);
 
 /** 点遮罩关闭 = 取消。点面板内部不关（面板是遮罩的子元素，靠 `currentTarget` 区分）。 */
 function onMaskClick(event: MouseEvent) {
+    if ((event.currentTarget as HTMLElement).hasAttribute('data-modal-leaving')) return;
     if (event.target === event.currentTarget) emit('close');
 }
 
@@ -158,8 +163,10 @@ const panelStyle = computed(() => {
              一次点击会 `emit('close')` 两次——虽然父级的 close 都幂等，
              但读代码的人会以为有两条关闭路径。 -->
         <div
+            ref="mask"
             class="modal-mask"
             :class="{ 'modal-mask-nested': isNested }"
+            @vue:before-unmount="beforeUnmount"
             @click.self="onMaskClick"
         >
             <!-- 只有栈顶那层是 `aria-modal` 且可聚焦。被盖住的那层还留在 DOM 里
@@ -220,12 +227,10 @@ const panelStyle = computed(() => {
     place-items: center;
     padding: 24px;
     background: var(--modal-mask);
-    animation: mask-in var(--t-mid) var(--ease-soft);
 }
 .modal-mask-nested {
     /* 下层弹窗已经压暗背景，叠层只让新面板入场。 */
     background: transparent;
-    animation: none;
 }
 
 .modal-panel {
@@ -245,7 +250,6 @@ const panelStyle = computed(() => {
      * 不是嵌在页面里的卡，所以比卡片的影子深一档。 */
     box-shadow: var(--modal-shadow);
     outline: none;
-    animation: panel-in var(--t-mid) var(--ease-soft);
 }
 
 .modal-head {
@@ -330,18 +334,8 @@ const panelStyle = computed(() => {
     }
 }
 
-/* 两个关键帧：遮罩淡入、面板从「略低略小」落到位。
- * 只动 `opacity` 与 `transform`，不动 `height`——后者会让内容在动画中重排一次。
- * `prefers-reduced-motion` 由 `base.css` 的全局通配降级兜住，这里不重复写媒体查询。 */
-@keyframes mask-in {
-    from {
-        opacity: 0;
-    }
-}
-@keyframes panel-in {
-    from {
-        opacity: 0;
-        transform: translateY(6px) scale(0.99);
-    }
+/* 开关动画由 useModalMotion 统一承接，退出中遮罩仍挡住背景点击。 */
+.modal-mask[data-modal-leaving] {
+    cursor: default;
 }
 </style>

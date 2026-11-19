@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
-import NumTag from '../../components/NumTag.vue';
-import AppIcon from '../../components/AppIcon.vue';
+import TextButton from '../../components/TextButton.vue';
 import PressTile from '../../components/PressTile.vue';
+import NumTag from '../../components/NumTag.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import { askConfirm } from '../../composables/use-confirm';
 import { saved } from '../../composables/save-feedback';
@@ -166,29 +166,21 @@ async function importPrices() {
 </script>
 
 <template>
-    <LedgerSection title="物品速记">
+    <LedgerSection title="物品速记" plain>
         <template #actions>
             <div class="prices-io" role="group" aria-label="物品单价管理">
-                <button
-                    type="button"
-                    class="price-file"
-                    title="把物品单价导出成文件"
-                    aria-label="把物品单价导出成文件"
+                <TextButton
+                    text="导出"
+                    label="把物品单价导出成文件"
                     :disabled="busy || !hasPrices"
                     @click="exportPrices"
-                >
-                    <AppIcon name="download" />
-                </button>
-                <button
-                    type="button"
-                    class="price-file"
-                    title="从文件导入物品单价"
-                    aria-label="从文件导入物品单价"
+                />
+                <TextButton
+                    text="导入"
+                    label="从文件导入物品单价"
                     :disabled="busy"
                     @click="importPrices"
-                >
-                    <AppIcon name="upload" />
-                </button>
+                />
             </div>
         </template>
 
@@ -202,7 +194,10 @@ async function importPrices() {
             />
         </div>
 
-        <div class="group-label"><b>固定价格</b>· 右键改价</div>
+        <div class="group-label">
+            <h3>固定价格</h3>
+            <span>右键改价</span>
+        </div>
         <div class="grid">
             <button
                 v-for="item in groups.fixed"
@@ -225,7 +220,7 @@ async function importPrices() {
             </button>
         </div>
 
-        <div class="group-label"><b>浮动价格</b></div>
+        <div class="group-label"><h3>浮动价格</h3></div>
         <div class="grid">
             <button
                 v-for="item in groups.variable"
@@ -245,87 +240,54 @@ async function importPrices() {
 </template>
 
 <style scoped>
-/* 低频文件操作归标题栏；记账对象独立一行，始终可见。 */
+/* 低频操作归标题栏，角色选择常驻；物品使用紧凑图标块与价格签。 */
 .prices-io {
     display: flex;
     align-items: center;
-    gap: 2px;
-}
-.price-file {
-    --icon-size: calc(12px * var(--fs-scale));
-
-    display: grid;
-    place-items: center;
-    width: calc(24px * var(--fs-scale));
-    height: calc(24px * var(--fs-scale));
-    padding: 0;
-    border: 0;
-    border-radius: var(--r-2);
-    background: transparent;
-    color: var(--muted);
-    transition:
-        color var(--t-quick) var(--ease-soft),
-        background-color var(--t-quick) var(--ease-soft);
-}
-.price-file:hover:not(:disabled) {
-    background-color: color-mix(in srgb, var(--well) 38%, transparent);
-    color: var(--ink-2);
-}
-.price-file:focus-visible {
-    outline: var(--ring);
-    outline-offset: var(--ring-offset);
+    gap: 8px;
 }
 .targets {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
     min-width: 0;
-    padding: 8px 10px;
-    margin-bottom: 12px;
-    border-radius: var(--r-2);
-    background: color-mix(in srgb, var(--well) 24%, transparent);
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: var(--w-hair) solid var(--rule);
 }
 .targets :deep(.pill-group) {
-    flex-wrap: wrap;
     min-width: 0;
 }
-:deep(.section-head h2) {
-    flex: none;
-}
-
-/* 分类只承载名称与改价提示；第一组紧接记账对象行。 */
 .group-label {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0;
-    margin: 9px 0;
+    justify-content: space-between;
+    gap: 4px 12px;
+    margin: 16px 0 10px;
     color: var(--muted);
     font-size: var(--fs-xs);
-    letter-spacing: 0.06em;
 }
 .targets + .group-label {
     margin-top: 0;
 }
-.group-label b {
-    margin-right: 4px;
-    font-weight: 400;
+.group-label h3 {
+    margin: 0;
     color: var(--ink-2);
+    font-size: var(--fs-xs);
+    font-weight: 400;
 }
-
 .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
-    /* 行距仍 6、列距收到 4：用户说的是**左右**间距。行距不能跟着收——块下面还有一枚
-     * 价格签，上一排的签与下一排的块之间只剩 6，再压就贴着上一排的落影了。 */
     gap: 6px 4px;
 }
-
 .item {
     position: relative;
     display: grid;
     justify-items: center;
     align-content: start;
     gap: 3px;
+    min-width: 0;
     padding: 0;
     border: 0;
     background: none;
@@ -334,44 +296,28 @@ async function importPrices() {
     user-select: none;
 }
 .item-tile {
-    /* **44 见方，只包图标**。宽高都写死而不是 `100%`：块是一块「印」，尺寸不该跟着
-     * 列宽伸缩——列宽会随窗口变，块不会。 */
     --tile-w: 44px;
     --tile-h: 44px;
     --tile-r: var(--r-2);
-    /* 落影 0.55：44 的块比原先 76 的小一半，0.7 的 2.1px 硬影压在这么小的块上会
-     * 读成「掉了块垫子」。19 列密排时还要再轻一点，块与块之间才留得住纸面。 */
     --tile-drop: 0.55;
-    /* 块面与卡面同色（`--paper-2`）：2026-11-05 卡面下沉到这一档之后，块面**不再靠深浅差**
-     * 与卡面区分——比纸更亮没有余量（纸上没有比纸更亮的纸），比纸更暗又会读成凹槽。
-     * 59 格并排时靠的是**上亮下暗的棱 + 落地影**，与角色卡的装备块、物价卡同一个做法。
-     * 悬停才回到 `--paper`（比卡面亮一档），那是「这一块被压实了」的提亮语义，
-     * 也是 `PressTile` 的默认值。 */
-    --tile-face: var(--paper-2);
-    --tile-face-hover: var(--paper);
-    /* 朱点要相对**块**定位，不是相对整条（含价格那一段）。 */
+    --tile-face: var(--paper);
+    --tile-face-hover: var(--paper-2);
+    /* 回执定位到图标块，避免价格换行带着角标偏移。 */
     position: relative;
 }
-/* 32：块里只有图标，它就是这一格的全部身份（口令牌、兽决这类图本身很像，再小认不出）。
- * 44 的块配 32 的图，四周各留 6——「包住」，不是「框住」。 */
 .item img {
     width: 32px;
     height: 32px;
     object-fit: contain;
-    /* 图进纸面前先「纸化」一档：原图是游戏里的高饱和贴图，直接贴像一张贴纸。
-     * 只降到「认得出是什么」，不是做成单色。 */
     filter: var(--item-icon-filter);
     opacity: var(--item-icon-opacity);
 }
-
 .item .p {
     --tag-h: calc(15px * var(--fs-scale));
     min-width: 44px;
     font-size: var(--fs-mini);
     line-height: 1;
 }
-/* 字色写在里面的 span 上，不写签的根：`NumTag` 作为通用器件把根色定成墨（那是它
- * 在角色卡上的用法），这里要的是「读数赭」。写在内层就压得过，也不必抬高特异性去抢。 */
 .item .p .v {
     color: var(--num);
 }
@@ -379,9 +325,7 @@ async function importPrices() {
     outline: var(--ring);
     outline-offset: var(--ring-offset);
 }
-/* 没价格的那一格**什么都不印**，也不整格变灰：它本来就存在，只是还没定价；
- * 退格色会把「还没定价」读成「这件不存在」。悬停时 `title` 会说「未设价」。 */
-
+/* 未定价不印空签，物品仍能点击；名称和改价入口由原按钮提示提供。 */
 .item.hit .item-tile::before {
     content: '';
     position: absolute;
@@ -400,5 +344,6 @@ async function importPrices() {
     border-radius: 50%;
     background: var(--accent);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+    pointer-events: none;
 }
 </style>

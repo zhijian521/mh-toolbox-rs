@@ -61,11 +61,15 @@ export function useModalSize(panel: Ref<HTMLElement | null>, fixed: () => boolea
     });
 
     onBeforeUnmount(() => {
+        const element = panel.value;
+        const height = animation && element ? getComputedStyle(element).height : null;
         cancelAnimationFrame(frame);
         resizeObserver?.disconnect();
         mutationObserver?.disconnect();
         window.removeEventListener('resize', resize);
         motion?.removeEventListener('change', resize);
         finish();
+        // 关闭中断尺寸过渡时，从眼前高度退场，避免先跳到内容的最终高度。
+        if (height && element) element.style.height = height;
     });
 }

@@ -14,7 +14,7 @@ import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
 import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
 import type { QuickItemEntry } from '../../services/game-data';
-import { daysAgo, parseDay, toWan } from '../../services/format';
+import { daysAgo, ledgerMoneyText, parseDay, toWan } from '../../services/format';
 import { amountText, entriesOn, factsOf, recordSummary, statRowsOf, totalsOf } from './income';
 import { loadIncome, useIncome } from './income-store';
 import OnlineBar from './OnlineBar.vue';
@@ -58,7 +58,18 @@ const previousTotals = computed(() =>
 const totals = computed(() => totalsOf(scoped.value));
 
 const statItems = computed<StatItem[]>(() =>
-    statRowsOf(totals.value, previousTotals.value, factsOf(scoped.value)),
+    statRowsOf(totals.value, previousTotals.value, factsOf(scoped.value))
+        .filter((row) => row.cap === '净额' || row.cap === '笔数')
+        .map((row) => ({
+            ...row,
+            sub:
+                row.cap === '净额'
+                    ? `昨日${ledgerMoneyText(previousTotals.value.net, 'cash', {
+                          sign: 'auto',
+                          zero: 'dash',
+                      }).replaceAll(' ', '')}`
+                    : `昨日${previousTotals.value.count}笔`,
+        })),
 );
 
 interface PriceAsk {
@@ -229,9 +240,18 @@ useRouteAction('/income', {
         <SaveNotice :error="syncError" :pending="syncPending" @retry="retrySync" />
 
         <div class="income-stack">
-            <StatStrip v-if="!loadError" :items="statItems" />
-
-            <OnlineBar @records="recordsOpen = true" @backfill="onlineDialog = 'backfill'" />
+            <OnlineBar @records="recordsOpen = true" @backfill="onlineDialog = 'backfill'">
+                <template v-if="!loadError" #summary>
+                    <StatStrip
+                        class="income-summary"
+                        :items="statItems"
+                        surface="embedded"
+                        heading="今日收益"
+                        icon="coins"
+                        aria-label="今日收益统计"
+                    />
+                </template>
+            </OnlineBar>
 
             <div class="split">
                 <QuickPanel @need-price="askPrice" />
@@ -276,20 +296,24 @@ useRouteAction('/income', {
 
 <style scoped>
 .income-stack {
+    container: income / inline-size;
     display: flex;
     flex-direction: column;
-
     gap: 16px;
-}
-
-.income-stack :deep(.board) {
-    background-image: var(--income-board-texture);
+    min-width: 0;
 }
 
 .split {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
     gap: 16px;
     align-items: stretch;
+}
+
+/* 按内容区宽度收列，侧栏和窗口宽度变化使用同一条边界。 */
+@container income (max-width: 760px) {
+    .split {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 </style>

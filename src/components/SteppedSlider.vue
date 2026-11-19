@@ -124,7 +124,9 @@ const { cells, indexOf, tabIndexFor, onKeydown } = useRovingFocus<T>({
             :disabled="disabled || option.disabled"
             @click="choose(option.value)"
         >
-            {{ option.label }}
+            <slot name="option" :option="option" :selected="modelValue === option.value">
+                {{ option.label }}
+            </slot>
         </button>
     </span>
 </template>

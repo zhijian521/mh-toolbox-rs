@@ -68,7 +68,7 @@ const netSeries = computed(() => seriesOf(net.value));
 </script>
 
 <template>
-    <LedgerSection title="每日走势">
+    <LedgerSection title="每日走势" plain>
         <template #actions>
             <SteppedSlider v-model="span" :options="SPANS" label="走势范围" class="span-slider" />
         </template>
@@ -76,14 +76,16 @@ const netSeries = computed(() => seriesOf(net.value));
         <div class="charts">
             <section class="chart-block">
                 <header class="chart-head">
-                    <h3>每日在线时长</h3>
+                    <h3>每日时长</h3>
                     <span class="cap">按号分线 · {{ DAYS[span] }} 天</span>
                 </header>
                 <TrendChart
+                    class="chart-in-card"
                     :labels="labels"
                     :series="minuteSeries"
                     kind="minutes"
-                    label="每日在线时长"
+                    label="每日时长"
+                    :height="180"
                 />
             </section>
 
@@ -92,7 +94,14 @@ const netSeries = computed(() => seriesOf(net.value));
                     <h3>每日收益</h3>
                     <span class="cap">速记净额 · 不扣点卡</span>
                 </header>
-                <TrendChart :labels="labels" :series="netSeries" kind="money" label="每日收益" />
+                <TrendChart
+                    class="chart-in-card"
+                    :labels="labels"
+                    :series="netSeries"
+                    kind="money"
+                    label="每日收益"
+                    :height="180"
+                />
             </section>
         </div>
     </LedgerSection>
@@ -101,7 +110,8 @@ const netSeries = computed(() => seriesOf(net.value));
 <style scoped>
 /* 走势标题栏只保留范围；上线操作归状态条。 */
 .span-slider {
-    width: 148px;
+    width: calc(148px * var(--fs-scale));
+    max-width: 100%;
     --step-pad-y: 1px;
     --step-pad-x: 6px;
 }
@@ -111,24 +121,25 @@ const netSeries = computed(() => seriesOf(net.value));
 .charts {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 18px;
 }
 
 .chart-block {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     min-width: 0;
 }
 .chart-block + .chart-block {
-    padding-top: 20px;
+    padding-top: 18px;
     border-top: var(--w-hair) solid var(--rule);
 }
 
 .chart-head {
     display: flex;
-    align-items: baseline;
-    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
 }
 
 /* 图下的小标题比区块标题小一档：它属于卡内的一层，不另开一块纸。 */
@@ -144,6 +155,5 @@ const netSeries = computed(() => seriesOf(net.value));
     margin-left: auto;
     color: var(--muted);
     font-size: var(--fs-xs);
-    letter-spacing: 0.04em;
 }
 </style>

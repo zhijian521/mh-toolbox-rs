@@ -1,0 +1,122 @@
+/* 提案专属排版；主题、字体、票据、印面直接引用项目入口与原组件。 */
+body { height: auto; min-height: 100vh; }
+[hidden] { display: none !important; }
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.icon { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+button { font: inherit; }
+button:focus-visible, select:focus-visible { outline: var(--ring); outline-offset: 3px; }
+.design-page { max-width: 1280px; margin: auto; padding: 34px 34px 60px; }
+.intro { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 25px; }
+.eyebrow { margin-bottom: 8px; color: var(--accent); font-size: var(--fs-xs); letter-spacing: .12em; }
+h1 { font-size: calc(var(--fs-xl) * 1.2); }
+.intro-note { margin-top: 10px; color: var(--muted); font-size: var(--fs-sm); }
+.preview-label { flex: none; color: var(--muted); font-size: var(--fs-xs); }
+.settings { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 15px; padding: 12px 0; border-block: 1px solid var(--rule); background: var(--bg); }
+.settings label { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--muted); }
+.control, select { min-height: 30px; padding: 4px 9px; border: 1px solid var(--rule); border-radius: var(--r-ticket); background: var(--paper); color: var(--ink-2); font-size: var(--fs-sm); }
+.control:hover { border-color: var(--rule-2); }
+.control[aria-pressed='true'] { color: var(--accent); border-color: var(--accent); }
+.reset { margin-left: auto; }
+.scheme-nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 10px; }
+.scheme-nav button { padding: 7px 10px; border: 1px solid transparent; border-radius: var(--r-ticket); background: transparent; color: var(--muted); font-size: var(--fs-sm); }
+.scheme-nav button[aria-pressed='true'] { border-color: var(--rule-2); background: var(--paper); color: var(--ink); }
+.scheme-nav b { margin-right: 5px; font-weight: 400; color: var(--accent); }
+.recommendation { color: var(--muted); font-size: var(--fs-xs); }
+.proposal { margin-top: 32px; }
+.proposal-head { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 12px; }
+.proposal-title { display: flex; align-items: center; gap: 12px; }
+.letter { color: var(--accent); font-size: 32px; }
+.proposal-title h2 { font-size: var(--fs-md); }
+.proposal-title p { margin-top: 4px; color: var(--muted); font-size: var(--fs-xs); }
+.pick { flex: none; }
+.canvas { container: online-preview / inline-size; margin: auto; }
+body.narrow .canvas { max-width: 740px; }
+.online-board { padding: 20px 22px 22px; }
+.board-head { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px 20px; margin-bottom: 18px; }
+.board-head h3 { display: flex; align-items: center; gap: 7px; font-size: var(--fs-md); }
+.toolbar { --online-action-h: calc(26px * var(--fs-scale)); display: flex; flex-wrap: wrap; align-items: center; justify-content: end; gap: 10px; }
+.toolbar .press-btn, .toolbar .price { height: var(--online-action-h); }
+.toolbar .press-btn { --tile-h: var(--online-action-h); }
+.price { display: inline-flex; align-items: center; gap: 6px; padding: 0 9px; border: 1px solid var(--rule); border-radius: var(--r-2); background: color-mix(in srgb, var(--well) 24%, transparent); color: var(--num); font-size: var(--fs-sm); white-space: nowrap; }
+.price small { font-size: var(--fs-mini); color: var(--muted); }
+.cost-switch { flex: none; }
+.cost-switch .cost-opt { font-size: var(--fs-xs); }
+.main-layout { display: grid; grid-template-columns: minmax(0, 600px) minmax(240px, 1fr); gap: 24px; align-items: start; }
+.tickets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; min-width: 0; }
+.tickets .subrow { flex-wrap: wrap; justify-content: space-between; gap: 0 6px; }
+.tickets .sub { flex: 0 1 auto; overflow: visible; white-space: normal; overflow-wrap: anywhere; }
+.tickets .delta { white-space: normal; overflow-wrap: anywhere; }
+.roster-zone { min-width: 0; }
+.roster-tools { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.role-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 128px), 1fr)); align-items: stretch; gap: 8px; }
+.person { display: flex; align-items: center; min-width: 0; position: relative; }
+.person-main { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; min-height: calc(34px * var(--fs-scale)); padding: 6px 9px; border: 0; border-radius: inherit; background: transparent; color: var(--ink-2); text-align: left; font-size: var(--fs-xs); }
+.person-main:disabled { opacity: 1; cursor: default; }
+.person-copy { display: flex; flex: 1; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 7px; min-width: 0; }
+.person-name { min-width: 0; overflow-wrap: anywhere; }
+.person-time { color: var(--num); white-space: nowrap; font-size: var(--fs-mini); font-variant-numeric: tabular-nums; }
+.start-mark { flex: none; color: var(--muted); }
+.dot { width: 5px; height: 5px; border-radius: var(--r-pill); background: var(--accent); }
+.stop { display: grid; place-items: center; flex: none; width: 23px; height: 24px; margin-right: 4px; padding: 0; border: 0; border-radius: var(--r-1); background: transparent; color: var(--muted); }
+.stop .icon { width: 11px; height: 11px; }
+.stop:hover { color: var(--negative); background: color-mix(in srgb, var(--negative) 7%, transparent); }
+.initial { display: none; }
+.person:has(.person-main:hover:not(:disabled)) { border-color: var(--rule-2); }
+.person-main:hover:not(:disabled) { color: var(--accent); }
+.empty { padding: 12px 0; color: var(--muted); font-size: var(--fs-sm); }
+.split-label { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px; color: var(--muted); font-size: var(--fs-mini); }
+.split-label::after { content: ''; flex: 1; border-top: 1px solid var(--rule); }
+.split-list + .split-label { margin-top: 12px; }
+.detail-note { display: flex; flex-wrap: wrap; gap: 7px 20px; margin-top: 12px; color: var(--muted); font-size: var(--fs-xs); }
+.detail-note span::before { content: '· '; color: var(--accent); }
+.page-foot { padding-top: 30px; color: var(--muted); font-size: var(--fs-xs); }
+#toast { position: fixed; z-index: 20; left: 50%; bottom: 24px; width: max-content; max-width: calc(100vw - 40px); transform: translateX(-50%); padding: 10px 16px; border: 1px solid var(--rule-2); border-radius: var(--r-ticket); background: var(--paper); color: var(--ink); box-shadow: 0 3px 0 var(--rule); font-size: var(--fs-sm); }
+body.focus .board-head, body.focus .tickets { display: none; }
+body.focus .main-layout { display: block; max-width: 450px; margin: auto; }
+body.focus .online-board { padding: 20px 24px 24px; }
+
+/* A：细圆边，在线小点，不把整个区域变成一排重卡。 */
+.choice-a .person { border: 1px solid var(--rule); border-radius: var(--r-pill); background: var(--paper); }
+.choice-a .person-main { padding-inline: 11px; }
+.choice-a .person.is-on { border-color: color-mix(in srgb, var(--accent) 45%, var(--rule)); background: color-mix(in srgb, var(--accent) 5%, var(--paper)); }
+.choice-a .stop { border-radius: var(--r-pill); }
+
+/* B：有秩序的账线名单，每个角色是一行。 */
+.choice-b .role-grid { gap: 0 16px; border-top: 1px solid var(--rule); }
+.choice-b .person { border-bottom: 1px solid var(--rule); }
+.choice-b .person:nth-child(4n + 1), .choice-b .person:nth-child(4n + 2) { background: color-mix(in srgb, var(--well) 25%, transparent); }
+.choice-b .person-main { min-height: calc(36px * var(--fs-scale)); padding-inline: 7px; }
+.choice-b .is-on .person-name { color: var(--ink); }
+
+/* C：薄纸签，边与底都是清楚的实线，侧签使用主题色。 */
+.choice-c .person { border: 1px solid var(--rule); border-radius: var(--r-ticket); background: var(--paper); box-shadow: 0 2px 0 var(--rule); }
+.choice-c .person::before { content: ''; flex: none; width: 3px; height: 12px; margin-left: -1px; border-radius: var(--r-1); background: var(--rule-2); }
+.choice-c .person.is-on::before { background: var(--accent); }
+.choice-c .person.is-on { border-color: color-mix(in srgb, var(--accent) 36%, var(--rule)); }
+.choice-c .person-main { padding-left: 8px; }
+.choice-c .start-mark { display: none; }
+
+/* D：底座用原有浅槽，在线时像压入槽里的纸键。 */
+.choice-d .role-grid { padding: 9px; border-radius: var(--r-2); gap: 7px; }
+.choice-d .person { border: 1px solid transparent; border-radius: var(--r-2); }
+.choice-d .person-main { min-height: calc(35px * var(--fs-scale)); }
+.choice-d .person.is-on { border-color: var(--rule); background: var(--paper); box-shadow: inset 0 1px 0 var(--bevel-hi), 0 1px 0 var(--rule); }
+.choice-d .start-mark { color: var(--rule-2); }
+.choice-d .person.is-on .start-mark { color: var(--accent); }
+
+/* E：名字首字作小圆牌，未在线轮廓、在线纸面，区别于常规胶囊。 */
+.choice-e .role-grid { gap: 7px 12px; }
+.choice-e .person { border-bottom: 1px solid var(--rule); }
+.choice-e .person-main { gap: 8px; min-height: calc(42px * var(--fs-scale)); padding: 4px 2px; }
+.choice-e .initial { display: grid; place-items: center; flex: none; width: calc(25px * var(--fs-scale)); height: calc(25px * var(--fs-scale)); border: 1px solid var(--rule-2); border-radius: var(--r-pill); color: var(--muted); background: transparent; }
+.choice-e .is-on .initial { color: var(--accent); border-color: var(--accent); background: var(--paper); box-shadow: 0 1px 0 var(--rule); }
+.choice-e .start-mark { display: none; }
+
+/* F：在线与待上线分栏排列，状态由位置表达。 */
+.choice-f .person { border: 1px solid var(--rule); border-radius: var(--r-2); }
+.choice-f .split-list.on .person { border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 4%, var(--paper)); }
+.choice-f .split-list.off .person { border-style: dashed; }
+.choice-f .person-main { min-height: calc(32px * var(--fs-scale)); }
+@container online-preview (max-width: 900px) { .main-layout { grid-template-columns: minmax(0, 1fr); gap: 20px; } .roster-zone { max-width: 600px; width: 100%; } }
+@container online-preview (max-width: 520px) { .tickets { grid-template-columns: minmax(0, 1fr); max-width: 340px; } }
+@media (max-width: 700px) { .design-page { padding: 20px 16px 40px; } .intro { display: block; } .preview-label { display: inline-block; margin-top: 10px; } .online-board { padding: 16px; } .proposal-head { align-items: start; } }

@@ -14,7 +14,7 @@ export default async function runQuick(ctx, tools) {
         t.info('今天已有', `${before} 笔`);
     });
 
-    await t.step('收益工具归位：文件操作在速记卡头，上线管理在状态条', async () => {
+    await t.step('收益工具归位：文件操作在速记卡头，点卡与上线管理在右上方', async () => {
         await ui.goto('收益');
         const layout = await cdp.evaluate(`(() => {
                 const find = (label) => document.querySelector('button[aria-label="' + label + '"]');
@@ -25,34 +25,50 @@ export default async function runQuick(ctx, tools) {
                 const quick = fileButtons[0]?.closest('.ledger-section');
                 const targets = quick?.querySelector('.targets');
                 const onlineHeights = onlineButtons.map((button) => button?.getBoundingClientRect().height ?? 0);
-                const live = document.querySelector('.online-bar .live-list');
+                const priceHeight = document.querySelector('.online-bar .price-tag')?.getBoundingClientRect().height ?? 0;
+                const onlineHead = document.querySelector('.online-bar .section-head');
+                const toolbar = document.querySelector('.online-tools');
+                const tools = [document.querySelector('.card-settings'), ...onlineButtons];
+                const boxes = tools.map((el) => el?.getBoundingClientRect());
                 return {
                     filesAtHead,
-                    onlineAtBar,
+                    onlineAtBar: onlineAtBar && tools.every((el) => el?.closest('.section-head') === onlineHead),
                     targetsVisible: !!targets && !targets.closest('.section-head') &&
                         targets.scrollWidth <= targets.clientWidth + 1,
                     singleTarget: !!targets?.querySelector('[role="radiogroup"]') &&
                         targets.querySelectorAll('[role="radio"][aria-checked="true"]').length === 1 &&
                         !targets.querySelector('[aria-pressed]'),
-                    quietFiles: fileButtons.every((button) => button?.querySelector('.app-icon') &&
-                        !button.textContent.trim() && button.title),
+                    quietActions: [...fileButtons, ...onlineButtons].every((button) =>
+                        button?.classList.contains('text-btn') && button.textContent.trim() &&
+                        button.title && !button.querySelector('.press-tile') &&
+                        getComputedStyle(button).boxShadow === 'none' &&
+                        getComputedStyle(button).backgroundColor === 'rgba(0, 0, 0, 0)'),
                     consistentOnline: onlineHeights.every((height) => height > 0 &&
-                        Math.abs(height - onlineHeights[0]) < 1),
-                    switchFirst: !!document.querySelector('.card-settings > .cost-switch:first-child'),
+                        Math.abs(height - priceHeight) < 1),
+                    switchLast: !!document.querySelector('.card-settings > .cost-switch:last-child'),
+                    toolOrder: (() => {
+                        const ordered = [onlineButtons[0], onlineButtons[1],
+                            document.querySelector('.price-tag'), document.querySelector('.card-settings > .cost-switch')];
+                        return document.querySelector('.income-stack').clientWidth < 760 ||
+                            ordered.every((el, i) => el && (!i ||
+                                ordered[i - 1].getBoundingClientRect().right <= el.getBoundingClientRect().left + 1));
+                    })(),
                     conciseLabels: !document.querySelector('.card-settings > .cap, .roster-label, .targets > .lbl'),
-                    liveScroll: !live || (getComputedStyle(live).overflowX === 'auto' &&
-                        getComputedStyle(live).overflowY === 'hidden'),
+                    toolsFit: !!toolbar && toolbar.scrollWidth <= toolbar.clientWidth + 1,
+                    sameRow: document.querySelector('.income-stack').clientWidth < 760 ||
+                        boxes.every((box) => box && Math.abs((box.top + box.bottom) / 2 -
+                            (boxes[0].top + boxes[0].bottom) / 2) < 2),
                 };
             })()`);
         t.check('导出导入属于物品速记标题栏', layout.filesAtHead);
-        t.check('补记记录属于在线区域', layout.onlineAtBar);
+        t.check('点卡设置、补记和记录同属卡片标题栏', layout.onlineAtBar);
         t.check('记给谁独立常驻且不横向溢出', layout.targetsVisible);
         t.check('物品速记指定人单选，始终只有一个选中项', layout.singleTarget);
-        t.check('文件操作收成带说明的小图标', layout.quietFiles);
-        t.check('补记记录按钮高度一致', layout.consistentOnline);
-        t.check('点卡开关位于单价前面', layout.switchFirst);
+        t.check('补记、记录和导入导出共用无底板文字按钮', layout.quietActions);
+        t.check('补记、记录、点卡价格高度一致', layout.consistentOnline);
+        t.check('右起为计入开关、点卡设置、记录、补记', layout.switchLast && layout.toolOrder);
         t.check('移除点卡、在线和记给的独立标签', layout.conciseLabels);
-        t.check('在线角色保持横向滚动', layout.liveScroll);
+        t.check('右上操作不横向溢出，宽窗保持同一排', layout.toolsFit && layout.sameRow);
     });
 
     await t.step('物品图标滤镜支持风格覆写，不影响整页', async () => {
@@ -154,45 +170,31 @@ export default async function runQuick(ctx, tools) {
         baseline.quickPricedByTest = !hadPrice;
     });
 
-    /* 2026-11-05 统计条改版：四格从「名目 + 读数」变成「名目 + 读数 + 副文 + 较上一档」。
-     * 副文是算出来的（笔均、占比、结余率），算错不会报错，只会显示一个看着正常的数——
-     * 所以这里读文本本身，连格式一起盯住。 */
-    await t.step('统计条：四格都有副文与「较上一档」', async () => {
+    /* 今日速记已有小计，在线卡旁只保留净额、笔数和昨日对比。 */
+    await t.step('在线卡左侧收益票据保留净额、笔数与昨日对比', async () => {
         await ui.goto('收益');
         const cells = await statCells();
-        t.check('四格齐', cells.length === 4, `实际 ${cells.length}`);
+        t.check('摘要只保留两项', cells.length === 2, `实际 ${cells.length}`);
         const caps = cells.map((one) => one.cap).join('/');
-        t.check('名目顺序没变', caps === '收入/支出/净额/笔数', caps);
-        t.check(
-            '每格都有副文',
-            cells.every((one) => one.sub.length > 0),
-            JSON.stringify(cells.map((one) => one.sub)),
+        t.check('名目顺序为净额和笔数', caps === '净额/笔数', caps);
+        t.check('摘要保留副文与昨日对比', cells.every((one) => one.sub && one.delta));
+        t.check('底部统一为简短昨日读数', cells.every((one) => one.sub.startsWith('昨日') &&
+            !one.sub.includes(' ')), cells.map((one) => one.sub).join('/'));
+        t.check('笔数对比是「±N 笔」', /^[+−±]\d+ 笔$/.test(cells[1].delta), cells[1].delta);
+        const subtotal = await cdp.evaluate(
+            "document.querySelector('.today-dump .total .v')?.textContent.trim()",
         );
-        t.check(
-            '每格都有较上一档',
-            cells.every((one) => one.delta.length > 0),
-            JSON.stringify(cells.map((one) => one.delta)),
-        );
-        /* 刚记过一笔，收入格必然是「N 笔 · 均 X」；净额格的结余率只有在有收入时才算得出。 */
-        t.check('收入副文是「N 笔 · 均 X」', /^\d+ 笔 · 均/.test(cells[0].sub), cells[0].sub);
-        t.check('净额副文是结余率', cells[2].sub.startsWith('结余率'), cells[2].sub);
-        /* 笔数用差不用百分比：`±0 笔` 也要能读出来。 */
-        t.check('笔数对比是「±N 笔」', /^[+−±]\d+ 笔$/.test(cells[3].delta), cells[3].delta);
+        t.check('摘要净额与今日速记小计一致', cells[0].value === subtotal);
     });
 
-    /* 2026-11-11 用户：「收益上面四个统计卡片和下面的卡片样式保持一致吧，看起来整齐，
-     * 并且统计上的数字字体颜色优化一下，一般收益为绿色，花费为红色」。
-     *
-     * 两件事都只有量出来才作数：①「同一套材质」要比 computedStyle（底色 / 落影 / 圆角），
-     * 比 class 名只能证明写了那几行；②颜色要跟令牌本身比——写死 #4a6b4a 在暗色主题下
-     * 是另一个值（--moss 在暗色翻成 #86ab86）。 */
-    await t.step('统计四格与速记卡是同一张纸，进账苔绿、出账朱红', async () => {
+    /* 摘要共用一张票据；比较实际材质与数值颜色，避免只证明类名存在。 */
+    await t.step('收益标签并入在线卡，保留读数与收支语义', async () => {
         await ui.goto('收益');
         const look = await cdp.evaluate(`(() => {
-                const cards = [...document.querySelectorAll('.income-stack .stats .stat')];
-                const ledger = document.querySelector('.income-stack .split .ledger-section');
-                if (!cards.length || !ledger) return null;
-                const csOf = (el) => getComputedStyle(el);
+                const summary = document.querySelector('.online-bar .income-summary');
+                const cards = [...(summary?.querySelectorAll('.stat') ?? [])];
+                const boards = [...document.querySelectorAll('.income-stack .board')];
+                if (!summary || cards.length !== 2) return null;
                 const inkOf = (name) => {
                     const probe = document.createElement('span');
                     probe.style.color = name;
@@ -202,69 +204,130 @@ export default async function runQuick(ctx, tools) {
                     return value;
                 };
                 const values = cards.map((el) => el.querySelector('.v'));
-                const boxes = cards.map((el) => el.getBoundingClientRect());
+                const bounds = summary.getBoundingClientRect();
                 return {
-                    count: cards.length,
-                    allBoard: cards.every((el) => el.classList.contains('board')),
-                    face: csOf(cards[0]).backgroundColor,
-                    ledgerFace: csOf(ledger).backgroundColor,
-                    shadow: csOf(cards[0]).boxShadow,
-                    ledgerShadow: csOf(ledger).boxShadow,
-                    radius: csOf(cards[0]).borderRadius,
-                    ledgerRadius: csOf(ledger).borderRadius,
-                    gap: boxes.length > 1 ? Math.round(boxes[1].left - boxes[0].right) : -1,
-                    colors: values.map((el) => (el ? csOf(el).color : '')),
-                    tones: values.map((el) => el?.classList.contains('loss') ? 'loss' : el?.classList.contains('gain') ? 'gain' : 'num'),
-                    moss: inkOf('var(--moss)'),
-                    cinnabar: inkOf('var(--cinnabar)'),
-                    num: inkOf('var(--num)'),
+                    ticket: summary.classList.contains('ticket-card'),
+                    paired: (() => {
+                        const online = document.querySelector('.online-summary');
+                        const tickets = document.querySelector('.online-tickets');
+                        const roster = document.querySelector('.online-roster');
+                        if (!online || !tickets || !roster) return false;
+                        const first = online.getBoundingClientRect();
+                        const frame = tickets.getBoundingClientRect();
+                        const right = roster.getBoundingClientRect();
+                        return online.classList.contains('ticket-card') &&
+                            Math.abs(first.left - frame.left) < 1 &&
+                            (document.querySelector('.income-stack').clientWidth <= 900 ||
+                                right.left >= frame.right);
+                    })(),
+                    merged: !document.querySelector('.income-stack > .income-summary'),
+                    singleSurface: cards.every((el) => !el.classList.contains('board') &&
+                        getComputedStyle(el).boxShadow === 'none'),
+                    plainBoards: boards.length > 0 && boards.every((el) =>
+                        getComputedStyle(el).backgroundImage === 'none'),
+                    contained: cards.every((el) => {
+                        const box = el.getBoundingClientRect();
+                        return box.left >= bounds.left && box.right <= bounds.right + 1;
+                    }),
+                    readableFooters: [...document.querySelectorAll('.online-tickets .sub, .online-tickets .delta')]
+                        .every((el) => {
+                            const row = el.closest('.stat').getBoundingClientRect();
+                            const box = el.getBoundingClientRect();
+                            return el.scrollWidth <= el.clientWidth + 1 &&
+                                el.scrollHeight <= el.clientHeight + 1 &&
+                                box.left >= row.left - 1 && box.right <= row.right + 1;
+                        }),
+                    noRosterTitle: !document.querySelector('.online-roster h3'),
+                    roleLayout: (() => {
+                        const list = document.querySelector('.online-roster .role-list');
+                        const items = [...(list?.querySelectorAll('.role-item') ?? [])];
+                        const ticket = document.querySelector('.online-summary');
+                        const roster = document.querySelector('.online-roster');
+                        const scale = Number(getComputedStyle(document.documentElement).getPropertyValue('--fs-scale')) || 1;
+                        const beside = roster && ticket && roster.getBoundingClientRect().left >= ticket.getBoundingClientRect().right;
+                        return {
+                            noBatch: !document.querySelector('.online-roster [aria-label^="一键上号"]'),
+                            topAligned: !beside || !items.length ||
+                                Math.abs(items[0].getBoundingClientRect().top - ticket.getBoundingClientRect().top) < 1,
+                            fixedWidth: items.every(el => Math.abs(el.getBoundingClientRect().width -
+                                Math.min(list.clientWidth, 156 * scale)) < 1),
+                            thinEdge: items.every(el => {
+                                const shadow = getComputedStyle(el).boxShadow;
+                                const sign = getComputedStyle(el, '::before');
+                                return shadow !== 'none' && sign.content !== 'none' && sign.width === '3px';
+                            }),
+                        };
+                    })(),
+                    colors: values.map((el) => getComputedStyle(el).color),
+                    tones: values.map((el) => el.classList.contains('loss') ? 'loss' :
+                        el.classList.contains('gain') ? 'gain' : 'num'),
+                    positive: inkOf('var(--positive)'),
+                    negative: inkOf('var(--negative)'),
+                    neutral: inkOf('var(--ink)'),
                 };
             })()`);
-        if (!look) throw new Error('收益页上没找到统计四格或速记卡');
-        t.check('四格都换成了纸卡', look.count === 4 && look.allBoard, look.count + ' 格');
-        t.check(
-            '统计卡纸色与速记卡相同',
-            look.face === look.ledgerFace,
-            look.face + ' / ' + look.ledgerFace,
-        );
-        t.check('统计卡落影与速记卡相同', look.shadow === look.ledgerShadow);
-        t.check(
-            '统计卡圆角与速记卡相同',
-            look.radius === look.ledgerRadius,
-            look.radius + ' / ' + look.ledgerRadius,
-        );
-        t.check(
-            '四格之间留了与别处一样的 16',
-            Math.abs(look.gap - 16) <= 1,
-            '实际 ' + look.gap + 'px',
-        );
-        t.check(
-            '收入读数按金额取业务色或零值中性色',
-            look.colors[0] === (look.tones[0] === 'gain' ? look.moss : look.num),
-            look.colors[0] + ' / 令牌 ' + look.moss,
-        );
-        t.check(
-            '支出读数按金额取业务色或零值中性色',
-            look.colors[1] === (look.tones[1] === 'loss' ? look.cinnabar : look.num),
-            look.colors[1] + ' / 令牌 ' + look.cinnabar,
-        );
-        /* 净额随正负走：账本里刚记过一笔收入，此刻应为苔绿。不断言「永远绿」——
-         * 净额为负的那天它必须转朱，那才是这条规则的意思。 */
-        t.check(
-            '净额读数随盈亏和零值变化',
-            look.colors[2] ===
-                (look.tones[2] === 'loss'
-                    ? look.cinnabar
-                    : look.tones[2] === 'gain'
-                      ? look.moss
-                      : look.num),
-            look.colors[2] + ' / 令牌 ' + look.moss,
-        );
-        t.check(
-            '笔数仍是赭色（数的是条数，不是钱）',
-            look.colors[3] === look.num,
-            look.colors[3] + ' / 令牌 ' + look.num,
-        );
+        if (!look) throw new Error('收益页上没找到完整的统计摘要');
+        t.check('统计共用一张票据，不在每格叠卡', look.ticket && look.singleSurface);
+        t.check('收益摘要合并在在线卡内部', look.merged);
+        t.check('在线与收益共用票据风格并靠左，宽窗角色位于右侧', look.paired);
+        t.check('收益外卡使用纯色纸面', look.plainBoards);
+        t.check('两项统计保持在摘要范围内', look.contained);
+        t.check('双票据昨日读数和增减完整显示、不裁切', look.readableFooters);
+        t.check('角色列表不再重复展示标题', look.noRosterTitle);
+        t.check('角色区移除一键上号', look.roleLayout.noBatch);
+        t.check('并排时角色首项与票据顶面对齐', look.roleLayout.topAligned);
+        t.check('角色侧签固定 156px 并随字号缩放，窄区不溢出', look.roleLayout.fixedWidth);
+        t.check('角色使用 C 方案的短侧签和薄底边', look.roleLayout.thinEdge);
+        for (const [index, label] of ['净额', '笔数'].entries()) {
+            const expected = look.tones[index] === 'gain' ? look.positive :
+                look.tones[index] === 'loss' ? look.negative : look.neutral;
+            t.check(label + '读数使用对应业务色', look.colors[index] === expected,
+                look.colors[index] + ' / ' + expected);
+        }
+    });
+
+    await t.step('角色三行跟随票据高度，改为两行后恢复紧凑尺寸', async () => {
+        const original = await cdp.evaluate(`(() => {
+                const list = document.querySelector('.role-list');
+                const ticket = document.querySelector('.income-summary');
+                const items = [...(list?.querySelectorAll('.role-item') ?? [])];
+                if (!list || !ticket || items.length < 3 ||
+                    document.querySelector('.online-roster .note.error, .unlisted') ||
+                    list.getBoundingClientRect().left < ticket.getBoundingClientRect().right) return null;
+                const scale = Number(getComputedStyle(document.documentElement).getPropertyValue('--fs-scale')) || 1;
+                const style = document.createElement('style');
+                style.id = 'e2e-role-alignment';
+                style.textContent = '.online-bar .role-list { width: ' + (156 * scale) + 'px !important; }' +
+                    '.online-bar .role-item:nth-child(n + 4) { display: none !important; }';
+                document.head.appendChild(style);
+                return { scale };
+            })()`);
+        if (!original) {
+            t.info('三行专项未执行', '需要至少三个角色、双票据并排且无读取错误');
+            return;
+        }
+        try {
+            const aligned = await cdp.waitFor(`(() => {
+                    const list = document.querySelector('.role-list');
+                    const ticket = document.querySelector('.income-summary');
+                    const boxes = [...list.querySelectorAll('.role-item')].filter(el => el.getClientRects().length)
+                        .map(el => el.getBoundingClientRect());
+                    const rows = new Set(boxes.map(box => Math.round(box.top)));
+                    const bounds = ticket.getBoundingClientRect();
+                    return rows.size === 3 && Math.abs(boxes[0].top - bounds.top) < 1 &&
+                        Math.abs(Math.max(...boxes.map(box => box.bottom)) - bounds.bottom) < 1;
+                })()`, { timeout: 2500 });
+            t.check('三行首尾与今日收益票据上下对齐', aligned);
+            await cdp.evaluate(`document.getElementById('e2e-role-alignment').textContent =
+                ${JSON.stringify('.online-bar .role-list { width: ' + (312 * original.scale + 8) + 'px !important; }' +
+                    '.online-bar .role-item:nth-child(n + 4) { display: none !important; }')}`);
+            t.check('两行不沿用三行高度，恢复紧凑排列', await cdp.waitFor(`(() => {
+                    const list = document.querySelector('.role-list');
+                    return !getComputedStyle(list).getPropertyValue('--online-role-row-h').trim();
+                })()`, { timeout: 2500 }));
+        } finally {
+            await cdp.evaluate(`document.getElementById('e2e-role-alignment')?.remove()`);
+        }
     });
 
     await t.step('连点两次：两笔都要落到库里（写队列）', async () => {

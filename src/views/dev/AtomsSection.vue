@@ -15,6 +15,7 @@ import PressTile from '../../components/PressTile.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
 import SlotButton from '../../components/SlotButton.vue';
+import TextButton from '../../components/TextButton.vue';
 import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import TogglePills from '../../components/TogglePills.vue';
@@ -107,6 +108,7 @@ const KIT_GROUPS: {
         items: [
             ['slot', '槽按钮'],
             ['press', '压印块与按钮'],
+            ['text', '文字按钮'],
         ],
     },
     {
@@ -384,6 +386,7 @@ const demoToggles = ref<string[]>(['task']);
                         <p class="note">
                             <code>as="tab"</code> 只换 ARIA 不换几何；高度走
                             <code>--step-pad-y</code>，不认 prop。
+                            <code>#option</code> 可补充金额等读数，沿用同一档位和键盘导航。
                         </p>
                     </div>
                     <div v-if="current === 'choose'" class="kit-cell">
@@ -727,6 +730,23 @@ const demoToggles = ref<string[]>(['task']);
                             <b>但一凹一凸是两种材质，别混在同一行</b>。
                             卡内入口使用 <code>surface="side-tab"</code>，通过左侧色签和薄底边
                             区分层级；悬停改变底色和描边，按下收紧投影，均不位移，由外层原生按钮负责焦点和点击。
+                        </p>
+                    </div>
+                    <div v-if="current === 'action'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">文字按钮</span>
+                            <span class="kit-en">TextButton</span>
+                        </span>
+                        <div class="kit-row">
+                            <TextButton text="补记" label="补记在线时长" />
+                            <TextButton text="记录" label="查看上线记录" />
+                            <TextButton icon="download" text="导出" label="导出单价文件" />
+                            <TextButton text="导入" label="导入暂不可用" disabled />
+                        </div>
+                        <p class="note">
+                            低频辅助操作使用文字按钮，默认无底板、无投影。悬停显示下划线，
+                            保留键盘焦点、禁用和完整说明；高度由
+                            <code>--text-button-h</code> 控制，默认 26px 并跟随字号。
                         </p>
                     </div>
                 </div>

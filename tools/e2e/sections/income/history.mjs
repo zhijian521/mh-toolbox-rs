@@ -7,7 +7,7 @@ export default async function runHistory(ctx, tools, quick) {
 
     t.info('本次写入的流水', `3 笔「${QUICK}」，下面删掉`);
     // 先写入本轮流水，确保斑马纹与外框有实际数据可量。
-    await t.step('历史窗放大到 900，表格有外框、隔行换底', async () => {
+    await t.step('历史窗保留固定外框、角色汇总滑块与斑马纹', async () => {
         await ui.goto('收益');
         await ui.clickLabel('查看历史收益，按角色与按天');
         const opened = await cdp.waitFor(
@@ -45,22 +45,22 @@ export default async function runHistory(ctx, tools, quick) {
         const look = await cdp.evaluate(`(() => {
                 const panel = document.querySelector('.modal-panel');
                 const table = document.querySelector('[role="dialog"] table.log');
-                if (!panel || !table) return null;
-                const cs = getComputedStyle(table);
+                const frame = panel?.querySelector('.history-table-frame');
+                if (!panel || !table || !frame) return null;
+                const cs = getComputedStyle(frame);
                 const rows = [...table.querySelectorAll('tbody tr')];
                 const bgOf = (row) => {
                     const td = row && row.querySelector('td');
                     return td ? getComputedStyle(td).backgroundColor : '';
                 };
-                /* 表头与数据行同高、筛选行与表格之间的气、物品图标的边长、
-                 * 顶上那排 tag——四件事都是「看上去对不对」，只有量得出来。 */
+                /* 一次量表头、图标、固定外框及汇总滑块，避免分轮读取。 */
                 const head = table.querySelector('thead th');
                 const firstRow = rows[0];
                 const icon = table.querySelector('tbody img');
-                const bar = document.querySelector('.record-summary');
+                const bar = document.querySelector('.history-roles');
                 const filters = document.querySelector('.record-filters');
                 const boxOf = (el) => (el ? el.getBoundingClientRect() : null);
-                const tags = [...document.querySelectorAll('.record-summary .sum-tag')];
+                const tags = [...document.querySelectorAll('.history-role-slider .step-opt')];
                 return {
                     vw: innerWidth,
                     vh: innerHeight,
@@ -75,14 +75,21 @@ export default async function runHistory(ctx, tools, quick) {
                     headH: head ? Math.round(boxOf(head).height) : -1,
                     rowH: firstRow ? Math.round(boxOf(firstRow).height) : -1,
                     iconW: icon ? Math.round(boxOf(icon).width) : -1,
-                    /* 两段气分别量：筛选行 → tag 排、tag 排 → 表框。合成一个总数会把
-                     * 「挤在一起的 20」也当成合格。 */
                     gapTop: bar && filters ? Math.round(boxOf(bar).top - boxOf(filters).bottom) : -1,
-                    gapTable: bar ? Math.round(boxOf(table).top - boxOf(bar).bottom) : -1,
+                    gapTable: bar ? Math.round(boxOf(frame).top - boxOf(bar).bottom) : -1,
                     tags: tags.length,
-                    totalFirst: tags[0]?.classList.contains('total') === true,
+                    inlineSummaries: tags.every((tag) => {
+                        const name = tag.querySelector('.history-role-name')?.getBoundingClientRect();
+                        const net = tag.querySelector('.history-role-net')?.getBoundingClientRect();
+                        return name && net && net.left >= name.right &&
+                            Math.abs((name.top + name.bottom - net.top - net.bottom) / 2) < 1;
+                    }),
+                    totalFirst: tags[0]?.querySelector('.history-role-name')?.textContent === '总计',
                     totalText: (tags[0]?.textContent ?? '').replace(/\\s+/g, ''),
-                    roleTags: tags.filter((el) => !el.classList.contains('total')).length,
+                    roleTags: tags.length - 1,
+                    dropdown: !!panel.querySelector('.who-pick'),
+                    radios: panel.querySelectorAll('[aria-label="按角色筛选"] [role="radio"]').length,
+                    tabStops: tags.filter((el) => el.tabIndex === 0).length,
                     /* 上面两个角：表格的圆角裁不掉方盒子的单元格（纸色会盖住那道弧），
                      * 所以四角那四格自己也要跟着圆。这里量的是「角上的格子确实带圆」
                      * 以及「内圆比外圆小一个边框宽」，两件事都对才没有切角。 */
@@ -119,8 +126,7 @@ export default async function runHistory(ctx, tools, quick) {
             `实际 ${look.h}px / 期望 ${expectH}px（视口高 ${look.vh}）`,
         );
 
-        /* 外框画在 table 上而不是滚动容器上：挂在容器上时行会从框底下滚过去。
-         * border-collapse: separate 只为一件事——collapse 下 border-radius 不生效。 */
+        /* 外框独立于滚动区，边缘由外框裁剪；原生表继续负责列对齐。 */
         t.check(
             '表格最外边有一圈边框',
             parseFloat(look.border) > 0 && look.border.endsWith(' solid'),
@@ -150,8 +156,6 @@ export default async function runHistory(ctx, tools, quick) {
         );
         t.check('单日时时间列只有时刻（不加宽）', look.wide === false);
 
-        /* 2026-11-11 用户四条：图标大一点、表头与列表同高、筛选与表格之间留气、
-         * 总计与各号小计排成一排 tag。四条都是观感，只有量几何能证。 */
         t.check('物品图标放大到 20', look.iconW >= 20, `实际 ${look.iconW}px`);
         t.check(
             '表头与数据行同高',
@@ -159,26 +163,71 @@ export default async function runHistory(ctx, tools, quick) {
             `表头 ${look.headH} / 行 ${look.rowH}`,
         );
         /* 两段气各自判：原来筛选行下沿到表框只有 8，读起来像表头的一部分。 */
-        t.check('筛选行与 tag 排之间留了气', look.gapTop >= 10, `实际 ${look.gapTop}px`);
-        t.check('tag 排与表格之间留了气', look.gapTable >= 6, `实际 ${look.gapTable}px`);
+        t.check('筛选行与滑块之间留了气', look.gapTop >= 10, `实际 ${look.gapTop}px`);
+        t.check('滑块与表格之间留了气', look.gapTable >= 6, `实际 ${look.gapTable}px`);
 
-        /* 一排 tag：总计排第一、每个人一枚。总数要与表里出现的角色数对得上
-         * （未指定的那枚也在——它同样是个"人"）。 */
-        t.check('总计 + 各号小计是一排 tag', look.tags >= 2, `实际 ${look.tags} 枚`);
+        t.check('总计 + 各号小计使用多档滑块', look.tags >= 2 && look.radios === look.tags);
+        t.check('每档角色名称与金额同行居中，不增加第二行高度', look.inlineSummaries);
+        t.check('移除角色下拉，滑块只有一个 Tab 停靠点', !look.dropdown && look.tabStops === 1);
         t.check('总计排在第一位', look.totalFirst === true);
-        t.check('总计那枚写着「总计」和一个数', /^总计/.test(look.totalText), look.totalText);
+        t.check('总计档保留金额', /^总计.+/.test(look.totalText), look.totalText);
         t.check(
-            '每个角色一枚 tag',
-            look.roleTags === look.whoColNames,
+            '滑块涵盖所有记录归属及没有记录的现存角色',
+            look.roleTags >= look.whoColNames,
             `标签 ${look.roleTags} / 表里的角色 ${look.whoColNames}`,
         );
 
-        await cdp.key('Escape');
-        await sleep(250);
+        const scrollLook = await cdp.evaluate(`(async () => {
+            const frame = document.querySelector('.history-table-frame');
+            const box = frame.querySelector('.income-log-scroll');
+            const head = box.querySelector('thead th');
+            const previous = box.style.maxHeight;
+            const top = box.scrollTop;
+            try {
+                box.style.maxHeight = '100px';
+                box.scrollTop = 0;
+                const before = { frame: frame.getBoundingClientRect(), head: head.getBoundingClientRect() };
+                box.scrollTop = box.scrollHeight;
+                await new Promise(requestAnimationFrame);
+                const after = { frame: frame.getBoundingClientRect(), head: head.getBoundingClientRect() };
+                return { moved: box.scrollTop > 0,
+                    top: Math.abs(before.frame.top - after.frame.top),
+                    bottom: Math.abs(before.frame.bottom - after.frame.bottom),
+                    header: Math.abs(before.head.top - after.head.top),
+                    border: getComputedStyle(frame).borderBottomWidth };
+            } finally {
+                box.style.maxHeight = previous;
+                box.scrollTop = top;
+            }
+        })()`);
+        t.check('表格实际滚动时表头与外框上下边缘不移动',
+            scrollLook.moved && scrollLook.top < 1 && scrollLook.bottom < 1 &&
+                scrollLook.header < 1 && parseFloat(scrollLook.border) > 0,
+            JSON.stringify(scrollLook));
+
+        const motion = await cdp.evaluate(`(async () => {
+            const mask = document.querySelector('.modal-mask');
+            const panel = mask.querySelector('.modal-panel');
+            panel.querySelector('[data-modal-close]').click();
+            await Promise.resolve();
+            const held = mask.isConnected && mask.hasAttribute('data-modal-leaving');
+            const inert = panel.hasAttribute('inert') && !panel.hasAttribute('aria-modal');
+            const locked = document.querySelector('.page-content').style.overflow === 'hidden';
+            await Promise.all(mask.getAnimations({ subtree: true }).map((one) => one.finished.catch(() => {})));
+            await new Promise(requestAnimationFrame);
+            return { held, inert, locked, removed: !mask.isConnected,
+                focusReturned: document.activeElement?.getAttribute('aria-label') === '查看历史收益，按角色与按天',
+                unlocked: document.querySelector('.page-content').style.overflow !== 'hidden' };
+        })()`);
+        t.check(
+            '关闭保留原节点直到退场结束，期间禁用面板且锁住背景',
+            motion.held && motion.inert && motion.locked && motion.removed && motion.unlocked,
+            JSON.stringify(motion),
+        );
+        t.check('退场完成后焦点回到历史收益入口', motion.focusReturned);
     });
 
-    /* 按角色筛选（2026-11-11）：历史窗里多了一个「按角色筛选」下拉。
-     * 判据不依赖数据——挑一个号，要求每一行都是他；再切回「全部角色」，笔数回到原样。
+    /* 直接点击汇总滑块选角色；再切回总计，笔数回到原样。
      * 库里有没有这个人、他有没有账，都不影响这几条（0 行也放行，只要求口径自洽）。 */
     await t.step('历史窗能按角色筛选，切回全部角色笔数还原', async () => {
         const countOf = () =>
@@ -202,12 +251,12 @@ export default async function runHistory(ctx, tools, quick) {
                 const { useIncome } = await ${importLoaded('/src/views/income/income-store.ts')};
                 const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
                 const id = useIncome().target.value[0];
-                return id ? (useRoster().roster.value.find((one) => one.id === id)?.name || '未命名') : '全部角色';
+                return id ? (useRoster().roster.value.find((one) => one.id === id)?.name || '未命名') : '总计';
             })()`);
         t.check(
             '历史继承当前速记角色',
             await cdp.evaluate(
-                `document.querySelector('[aria-label="按角色筛选"]').textContent.includes(${JSON.stringify(expectedWho)})`,
+                `document.querySelector('.history-role-slider [aria-checked="true"] .history-role-name')?.textContent === ${JSON.stringify(expectedWho)}`,
             ),
         );
         await showAllHistory();
@@ -218,24 +267,22 @@ export default async function runHistory(ctx, tools, quick) {
             `期望 ${before + 3}，实际 ${total}`,
         );
 
-        await ui.clickLabel('按角色筛选');
-        const listed = await cdp.waitFor(`!!document.querySelector('.select-list .opt-label')`, {
-            timeout: 2000,
-        });
-        if (!listed) throw new Error('按角色筛选没展开选项');
         const names = await cdp.evaluate(
-            `[...document.querySelectorAll('.select-list .opt-label')].map((e) => e.textContent.trim())`,
+            `[...document.querySelectorAll('.history-role-name')].map((e) => e.textContent.trim())`,
         );
-        /* 头两项固定是「全部角色」「未指定」，第三项起才是角色名。
+        const summaries = await cdp.evaluate(
+            `document.querySelector('.history-role-slider').textContent`,
+        );
+        /* 头两项固定是「总计」「未指定」，第三项起才是角色名。
          * 没有角色时退到「未指定」——那一格可能一条账都没有，所以下面的判据容得下 0 行。 */
         t.check(
-            '选项里有「全部角色」与「未指定」',
-            names[0] === '全部角色' && names[1] === '未指定',
+            '选项里有「总计」与「未指定」',
+            names[0] === '总计' && names[1] === '未指定',
             JSON.stringify(names.slice(0, 4)),
         );
         const chosen = names[2] ?? names[1];
         if (!chosen) throw new Error('按角色筛选里没有任何可选项');
-        await ui.clickText('.select-list .opt-label', chosen, { exact: true });
+        await ui.clickText('.history-role-slider .history-role-name', chosen, { exact: true });
         await sleep(300);
 
         const seen = await cdp.evaluate(`(() => {
@@ -255,7 +302,7 @@ export default async function runHistory(ctx, tools, quick) {
         );
         t.check(
             '笔数跟着行数走',
-            filtered === seen.who.length,
+            Math.min(filtered, 20) === seen.who.length,
             `笔数 ${filtered} / 行 ${seen.who.length}`,
         );
         t.check(
@@ -264,13 +311,25 @@ export default async function runHistory(ctx, tools, quick) {
             `行 ${seen.who.length} / 空态「${seen.blank}」`,
         );
         t.check('筛选不会筛出比全部还多', filtered <= total, `${filtered} > ${total}`);
+        t.check(
+            '选择单个角色后，其他角色档位和小计保持完整',
+            (await cdp.evaluate(`document.querySelector('.history-role-slider').textContent`)) ===
+                summaries,
+        );
+
+        await cdp.key('Escape');
+        await sleep(250);
+        await ui.clickLabel('查看历史收益，按角色与按天');
+        await cdp.waitFor(`!!document.querySelector('.history-role-slider [aria-checked="true"]')`);
+        t.check(
+            '同一页面重开保留选中的角色',
+            (await cdp.evaluate(
+                `document.querySelector('.history-role-slider [aria-checked="true"] .history-role-name')?.textContent`,
+            )) === chosen,
+        );
 
         /* 切回「全部角色」：笔数回到筛选前，证明它是过滤而不是改写。 */
-        await ui.clickLabel('按角色筛选');
-        await cdp.waitFor(`!!document.querySelector('.select-list .opt-label')`, {
-            timeout: 2000,
-        });
-        await ui.clickText('.select-list .opt-label', '全部角色', { exact: true });
+        await showAllHistory();
         await sleep(300);
         const restored = await countOf();
         t.check(

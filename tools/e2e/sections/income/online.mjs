@@ -3,6 +3,70 @@ import { importLoaded } from '../../cdp.mjs';
 export default async function runOnline(ctx) {
     const { cdp, ui, t, sleep } = ctx;
 
+    await t.step('角色列表完整展示，点击快速上线、重载继续、单独结束', async () => {
+        await ui.goto('收益');
+        const baseline = await cdp.evaluate(`(async () => {
+                const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
+                const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
+                const state = useOnline();
+                const rendered = [...document.querySelectorAll('.role-item')].map(el => el.dataset.characterId);
+                const expected = useRoster().roster.value.map(one => one.id);
+                const candidate = [...document.querySelectorAll('.role-item')].find(el => {
+                    const button = el.querySelector('.role-start');
+                    return button && !button.disabled && !state.sessions.value.some(one =>
+                        (one.roster.length ? one.roster : [one.characterId]).includes(el.dataset.characterId) &&
+                        (one.endAt === null || one.endAt > Date.now()));
+                });
+                return {
+                    complete: JSON.stringify(rendered) === JSON.stringify(expected),
+                    id: candidate?.dataset.characterId ?? '',
+                    ids: state.sessions.value.map(one => one.id),
+                    running: state.sessions.value.filter(one => one.endAt === null).map(one => one.id).sort(),
+                };
+            })()`);
+        t.check('列表包含名册全部角色且顺序一致', baseline.complete);
+        if (!baseline.id) {
+            t.info('快速上线场景未执行', '当前没有可上线且无后续重叠时段的角色');
+            return;
+        }
+        const selector = '.role-item[data-character-id=' + JSON.stringify(baseline.id) + ']';
+        const extraCount = () => cdp.evaluate(`(async () => {
+                const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
+                return useOnline().sessions.value.filter(one => one.characterId === ${JSON.stringify(baseline.id)} &&
+                    !${JSON.stringify(baseline.ids)}.includes(one.id)).length;
+            })()`);
+        try {
+            await cdp.click(selector + ' .role-start');
+            await ui.waitFor(`!!document.querySelector(${JSON.stringify(selector + '.is-running .role-stop:not(:disabled)')})`);
+            t.check('点击角色直接开始，不弹表单', await cdp.evaluate(`!document.querySelector('[role="dialog"]')`));
+            t.check('快速上线只增加一条该角色记录', (await extraCount()) === 1);
+            await cdp.click(selector + ' .role-start');
+            t.check('点击计时中角色不重复上线或停止', (await extraCount()) === 1 &&
+                await cdp.evaluate(`!!document.querySelector(${JSON.stringify(selector + '.is-running')})`));
+            await ui.reload();
+            await ui.waitFor(`!!document.querySelector(${JSON.stringify(selector + '.is-running .role-stop:not(:disabled)')})`);
+            t.check('重载后角色仍在计时，记录不重复', (await extraCount()) === 1);
+            await cdp.click(selector + ' .role-stop');
+            await ui.waitFor(`!document.querySelector(${JSON.stringify(selector + '.is-running')}) &&
+                document.querySelector(${JSON.stringify(selector + ' .role-start')})?.disabled === false`);
+            t.check('独立结束按钮只结束本次角色计时', await cdp.evaluate(`(async () => {
+                    const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
+                    const running = useOnline().sessions.value.filter(one => one.endAt === null).map(one => one.id).sort();
+                    return JSON.stringify(running) === ${JSON.stringify(JSON.stringify(baseline.running))};
+                })()`));
+        } finally {
+            // 只删除本次角色新增的记录；保留测试前已存在的计时和历史。
+            await cdp.evaluate(`(async () => {
+                    const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
+                    const state = useOnline();
+                    const ids = state.sessions.value.filter(one => one.characterId === ${JSON.stringify(baseline.id)} &&
+                        !${JSON.stringify(baseline.ids)}.includes(one.id)).map(one => one.id);
+                    for (const id of ids) state.removeOnline(id);
+                    if (!await state.flush()) throw new Error('快速上线烟测清理未保存，请还原账本快照');
+                })()`);
+        }
+    });
+
     // 补记本轮标记的上线记录，验完删除，保留原账本。
     await t.step('点卡单价：点开能改，改完能改回原值', async () => {
         await ui.goto('收益');
@@ -216,24 +280,25 @@ export default async function runOnline(ctx) {
         onlineTestRecorded = closed;
 
         const bar = await cdp.evaluate(`(() => {
-                const cells = [...document.querySelectorAll('.online-bar .online-totals .readout')];
-                const pick = (cap) =>
-                    cells.find(
-                        (el) => (el.querySelector('.cap')?.textContent || '').trim() === cap,
-                    );
                 return {
-                    minutes: (pick('今日在线')?.querySelector('.val')?.textContent || '').trim(),
-                    running: document.querySelectorAll('.online-bar .live-chip').length,
+                    minutes: document.querySelector('.online-summary [data-stat-id="minutes"] .v')?.textContent.trim() || '',
+                    running: document.querySelectorAll('.online-bar .role-item.is-running').length,
                 };
             })()`);
         t.check('状态条的「今日在线」读出了时长', /\d/.test(bar.minutes), `实际「${bar.minutes}」`);
-        t.info('状态条', `今日在线 ${bar.minutes} · 在线胶囊 ${bar.running} 枚`);
+        t.info('今日在线', `${bar.minutes} · 正在计时的角色 ${bar.running} 个`);
 
         const charts = await cdp.evaluate(`(() => {
                 return [...document.querySelectorAll('.chart-block')].map((block) => ({
                     head: (block.querySelector('h3')?.textContent || '').trim(),
+                    height: Number.parseFloat(getComputedStyle(block.querySelector('.chart')).minHeight),
                     drawn: !!block.querySelector('svg.chart-svg'),
                     panel: !!block.querySelector('.chart-panel > .chart-surface'),
+                    singleSurface: (() => {
+                        const panel = block.querySelector('.chart-panel');
+                        return !!panel && getComputedStyle(panel).boxShadow === 'none' &&
+                            getComputedStyle(panel).borderTopWidth === '0px';
+                    })(),
                     edge: (() => {
                         const surface = block.querySelector('.chart-surface');
                         if (!surface) return false;
@@ -253,20 +318,22 @@ export default async function runOnline(ctx) {
                 }));
             })()`);
         t.check('两张走势图都在', charts.length === 2, `实际 ${charts.length} 张`);
+        t.check('每日时长与每日收益标题一致', charts.map((one) => one.head).join('/') === '每日时长/每日收益');
+        t.check('两张图与总览同为 180px 高', charts.every((one) => one.height === 180));
         t.check(
             '绘图区立体边沿覆盖在固定纵轴之上且不拦截操作',
             charts.every((one) => one.edge),
         );
         t.check(
-            '走势图使用完整底板，图例位于底板内',
-            charts.every((one) => one.panel && (!one.drawn || one.shelf)),
+            '走势图复用外卡，保留绘图区与图例分隔栏',
+            charts.every((one) => one.panel && one.singleSurface && (!one.drawn || one.shelf)),
         );
         t.check(
             '有数据的柱体具有正面、侧面和顶面',
             charts.filter((one) => one.drawn).every((one) => one.raised),
         );
         t.check(
-            '「每日在线时长」按号画出柱体（不是一句空态）',
+            '「每日时长」按号画出柱体（不是一句空态）',
             charts[0]?.drawn === true && charts[0]?.series > 0 && charts[0]?.bars > 0,
             JSON.stringify(charts[0]),
         );
