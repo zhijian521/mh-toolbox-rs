@@ -25,7 +25,7 @@ import {
 } from '../../services/character-assets-local';
 /* 形状兜底全在 `services/shape.ts`（与物价页共用一份）。两个本地别名值得看清：
  *   `text`  ← `rawText`：名册这边**不 trim**，卡面上的字是用户写什么就显示什么；
- *   `int`   ← `stamp`  ：`Math.round` + 非有限数变 0，等级与时间戳共用同一条规则。 */
+ *   `int`   ← `stamp`  ：时间戳等已知为数值的字段取整数。 */
 import {
     isObject,
     makeId,
@@ -49,6 +49,7 @@ import {
 } from './character';
 import { normalizeGearDetail, normalizeGearMeta, normalizePet } from './details';
 import { schoolSkills } from './schools';
+import { normalizeLevel } from './field-values';
 
 const STORAGE_KEY = 'mh-roster';
 
@@ -148,7 +149,7 @@ function normalizeSkill(raw: unknown): SkillRow | null {
     const name = text(raw.name);
     // 没有名字的行留着只会画出一条空白分隔线，不如丢掉。
     if (!name) return null;
-    const level = int(raw.level);
+    const level = normalizeLevel(raw.level);
     // 缺失上限不补成 0，避免把「未记录」误当作一个实际数值。
     /* 上限是**正整数**：0 与负数都不可能是技能上限，它们只表示「这一格空着」。
      * 表单里那一格留空就是写 0（`NumberField` 只有一个数值），所以这里必须把 0 还原成
@@ -273,7 +274,7 @@ function normalizeTrainings(raw: unknown): TrainingGroup[] {
                     .filter(isObject)
                     .map((row) => ({
                         name: text(row.name),
-                        level: int(row.level),
+                        level: normalizeLevel(row.level),
                     }))
                     .filter((row) => row.name),
             }));
@@ -286,7 +287,7 @@ function normalizeTrainings(raw: unknown): TrainingGroup[] {
             const name = text(row.name);
             // 同名取第一条：清单里每项只出现一次，重复说明这份数据被改过。
             if (name && !saved.has(name)) {
-                saved.set(name, int(row.level));
+                saved.set(name, normalizeLevel(row.level));
             }
         }
     }
@@ -329,7 +330,7 @@ export function normalizeCharacter(raw: unknown): CharacterData {
             : {}),
         ...(updatedAt > 0 && updatedAt <= 8.64e15 ? { updatedAt } : {}),
         name: text(character.name),
-        level: int(character.level),
+        level: normalizeLevel(character.level),
         school: text(character.school),
         server: legacyLines(character, 'server', 0),
         guild: legacyLines(character, 'guild', 1).replace(/^帮派\s*[·:：]?\s*/, ''),

@@ -26,13 +26,7 @@ export const router = createRouter({
         // 装备并入角色后，旧地址仍要能到达。落到下面的兜底重定向也「不会 404」，
         // 但那会把用户送回总览页，读起来像「这一页没了」；显式指过去才是「换了个地方」。
         { path: '/equipment', redirect: '/characters' },
-        {
-            path: '/characters/stats',
-            name: 'character-stats',
-            component: () =>
-                import('./views/characters/CharacterStatsView.vue').then((page) => page.default),
-            meta: { title: '角色统计', nav: 'characters' },
-        },
+        { path: '/characters/stats', redirect: '/characters' },
         ...NAV_ITEMS.map((item) => ({
             path: item.path,
             name: item.key,

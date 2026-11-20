@@ -1,6 +1,7 @@
 import { TRAINING_GROUPS, type CharacterData } from '../character';
 import type { OcrLine } from './attr-panel';
-import type { SkillHit } from './skill-panel';
+import { isRecognizedLevel } from '../field-values';
+import { canApplySkillHit, type SkillHit } from './skill-panel';
 
 export interface TrainingPanelResult {
     rows: SkillHit[];
@@ -24,7 +25,7 @@ function readLevel(text: string): number | undefined {
     if (!matched || (!value.startsWith('等级') && !matched[2])) return;
     const level = Number(matched[1]);
     const cap = matched[2] ? Number(matched[2]) : undefined;
-    if (level > 200 || (cap !== undefined && (cap <= 0 || level > cap))) return;
+    if (!isRecognizedLevel(level, 0, cap) || cap === 0) return;
     return level;
 }
 
@@ -60,13 +61,7 @@ export function applyTrainingPanel(
 ): CharacterData {
     const found = new Map(
         rows
-            .filter(
-                (row) =>
-                    (row.state === 'ok' || row.state === 'guess') &&
-                    Number.isInteger(row.level) &&
-                    row.level >= 0 &&
-                    row.level <= 200,
-            )
+            .filter((row) => canApplySkillHit(row))
             .map((row) => [row.name, row.level]),
     );
     return {

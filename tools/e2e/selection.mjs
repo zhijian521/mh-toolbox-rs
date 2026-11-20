@@ -6,7 +6,6 @@ export const CHARACTER_SCENARIOS = {
     仓库: ['pets', 'assets'],
     快速修改: ['ocr', 'pets', 'quick'],
     装备: ['pets', 'equipment'],
-    统计: ['pets', 'stats'],
     成长历史: ['history'],
 };
 
@@ -23,7 +22,7 @@ const SECTIONS = [
     '数据',
     '收尾',
 ];
-const ALL_CHARACTER_STEPS = ['ocr', 'pets', 'quick', 'equipment', 'stats', 'assets', 'history'];
+const ALL_CHARACTER_STEPS = ['ocr', 'pets', 'quick', 'equipment', 'assets', 'history'];
 const OCR_SCENARIOS = {
     属性: ['attributes'],
     // 属性原图先识别门派，师门场景才能核对对应的七项技能。

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, useId, watch } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import FormActions from '../../components/FormActions.vue';
@@ -14,30 +14,18 @@ import {
     type PaneKey,
 } from './character';
 import type { OcrLine } from './ocr/attr-panel';
-import { createCharacterPanelReader } from './ocr/character-panel';
+import type { CharacterPanelResult } from './ocr/character-panel';
 import type { ScreenshotIntake } from './ocr/screenshot-input';
-import { useOcrImage } from './ocr/use-ocr-image';
+import { useCharacterScreenshots } from './ocr/use-character-screenshots';
 import { useOcrDraft } from './ocr/use-ocr-draft';
-import { emptyPet } from './ocr/pet-panel';
 import GearEditor from './editor/GearEditor.vue';
 import PetEditor from './editor/PetEditor.vue';
 import ScreenshotUpload from './ocr/ScreenshotUpload.vue';
 import { normalizeCharacter } from './roster';
 import { EDITOR_H, EDITOR_W } from './editor-metrics';
 import { focusInput } from './focus-input';
-import { ocrFrame } from '../../services/ocr';
-import { base64Of, swapToBgra } from './ocr/pixels';
 import { useDraftGuard } from '../../composables/use-draft-guard';
 import OcrSummary from './ocr/OcrSummary.vue';
-import {
-    characterSnapshot,
-    changeReport,
-    panelReview,
-    gearReview,
-    petReview,
-    REPLACE_NOTE,
-    type OcrReport,
-} from './ocr/change-summary';
 
 /** 新建、手工修改和截图识别共用独立草稿，保存后由名册统一落库。 */
 const props = withDefaults(
@@ -76,30 +64,16 @@ const validationId = useId();
 const wide = computed(() => pane.value === 'gear' || pane.value === 'pets');
 const paneLabel = computed(() => PANES.find(({ key }) => key === pane.value)?.label ?? '角色');
 
-const readPanel = createCharacterPanelReader();
-let readingPane = props.pane;
-const { result, shotUrl, rawLines, busy, error, takeFile } = useOcrImage(
-    parse,
-    undefined,
-    () => readingPane !== 'assist',
-);
-const queued = ref(false);
-const batchError = ref('');
-const reports = ref<OcrReport[]>([]);
-let disposed = false;
-let generation = 0;
+const screenshots = useCharacterScreenshots(pane, draft, applyScreenshot);
+const { preview: screenshot, reports } = screenshots;
+function takeFiles(files: File[]) {
+    if (!props.locked && !props.saving) void screenshots.takeFiles(files);
+}
 const intake = computed<ScreenshotIntake>(() => ({
-    busy: busy.value || queued.value,
-    error: batchError.value || error.value,
-    rawLines: rawLines.value,
+    busy: screenshots.busy.value,
+    error: screenshots.error.value,
     takeFiles,
 }));
-
-const hitCount = computed(() => result.value?.value?.hit ?? 0);
-const totalCount = computed(() => {
-    const value = result.value?.value;
-    return value && 'total' in value ? value.total : (value?.hit ?? 0);
-});
 
 const preview = computed(() => ({ ...draft.value, id: `${draft.value.id}-preview` }));
 const saveIssue = computed(() => {
@@ -135,94 +109,19 @@ async function fillRequired() {
     else await petEditor.value?.focusName(issue.petIndex);
 }
 
-async function takeFiles(files: File[]) {
-    if (props.locked || props.saving || !files.length) return;
-    const version = ++generation;
-    const currentBatch = () => !disposed && version === generation;
-    queued.value = true;
-    batchError.value = '';
-    reports.value = [];
-    const failures: string[] = [];
-    try {
-        for (const file of files) {
-            if (!currentBatch()) return;
-            readingPane = pane.value;
-            await takeFile(file);
-            if (!currentBatch()) return;
-            const current = result.value;
-            if (!current || error.value) {
-                failures.push(`${file.name}：${error.value || '未识别'}`);
-                continue;
-            }
-            pane.value = current.pane;
-            await nextTick();
-            if (!currentBatch()) return;
-            const before = characterSnapshot(
-                current.pane === 'pets' && !draft.value.pets.length
-                    ? { ...draft.value, pets: [{ ...emptyPet(), name: '' }] }
-                    : draft.value,
-                current.pane,
-            );
-            if (current.pane === 'gear') {
-                gearEditor.value?.acceptScreenshot(file, current.value, rawLines.value);
-            } else if (current.pane === 'pets') {
-                petEditor.value?.acceptScreenshot(file, current.value, rawLines.value);
-            } else {
-                recognize(current, shotUrl.value);
-            }
-            await nextTick();
-            if (!currentBatch()) return;
-            const review =
-                current.pane === 'gear'
-                    ? gearReview(current.value)
-                    : current.pane === 'pets'
-                      ? petReview(current.value)
-                      : panelReview(current);
-            reports.value.push(
-                changeReport(
-                    `${file.name} · ${PANES.find((one) => one.key === current.pane)?.label ?? ''}`,
-                    before,
-                    characterSnapshot(draft.value, current.pane),
-                    review,
-                    current.pane === 'gear' || current.pane === 'pets'
-                        ? REPLACE_NOTE
-                        : current.pane === 'assist'
-                          ? '按截图覆盖识别到的技能组；请核对空值与遗漏。'
-                          : '未识别项目保留原值。',
-                ),
-            );
-        }
-    } finally {
-        if (currentBatch()) {
-            if (files.length > 1) batchError.value = failures.join('；');
-            queued.value = false;
-        }
-    }
-}
-
-async function parse(lines: OcrLine[], image: ImageData) {
-    const version = generation;
-    const readText = async () => {
-        const outcome = await ocrFrame(base64Of(swapToBgra(image.data)), image.width, image.height);
-        if (outcome.status === 'failed') throw new Error(outcome.error);
-        if (!disposed && version === generation) rawLines.value = outcome.lines;
-        return outcome.lines;
-    };
-    const result = await readPanel(
-        lines,
-        image,
-        draft.value.school,
-        readingPane,
-        readingPane === 'assist' ? readText : undefined,
-    );
-    return { result, error: result ? '' : '没认出可填写的内容，请截取完整的面板' };
+function applyScreenshot(
+    file: File,
+    panel: CharacterPanelResult,
+    lines: OcrLine[],
+    shot: string,
+) {
+    if (panel.pane === 'gear') gearEditor.value?.acceptScreenshot(file, panel.value, lines);
+    else if (panel.pane === 'pets') petEditor.value?.acceptScreenshot(file, panel.value, lines);
+    else recognize(panel, shot);
 }
 
 // 手工切分区只切展示，不再次解析旧截图或覆盖手工修正。
 watch(pane, (value) => openedPanes.value.add(value), { flush: 'sync' });
-onBeforeUnmount(() => {
-    disposed = true;
-});
 
 function save() {
     if (canSave.value) emit('save', normalizeCharacter(draft.value));
@@ -242,7 +141,18 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
         :initial-focus="pane === 'attrs' ? 'none' : 'first'"
         @close="requestClose"
     >
-        <div ref="content" :inert="locked || saving" class="ocr" :class="{ 'ocr-wide': wide }">
+        <div ref="content" :inert="locked || saving" class="ocr">
+            <div class="ocr-bar">
+                <SteppedSlider
+                    v-model="pane"
+                    class="ocr-tabs"
+                    :options="PANE_OPTIONS"
+                    label="修改分区"
+                />
+                <span v-if="screenshot?.total" class="ocr-count">
+                    认出 <b class="num">{{ screenshot.hit }}</b> / {{ screenshot.total }}
+                </span>
+            </div>
             <GearEditor
                 v-if="openedPanes.has('gear')"
                 v-show="pane === 'gear'"
@@ -251,18 +161,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
                 v-model:meta="draft.gearMeta"
                 :intake="intake"
                 @busy="gearReading = $event"
-            >
-                <template #tabs>
-                    <SteppedSlider
-                        v-if="pane === 'gear'"
-                        class="ocr-tabs"
-                        :model-value="pane"
-                        :options="PANE_OPTIONS"
-                        label="修改分区"
-                        @update:model-value="pane = $event"
-                    />
-                </template>
-            </GearEditor>
+            />
             <PetEditor
                 v-if="openedPanes.has('pets')"
                 v-show="pane === 'pets'"
@@ -270,42 +169,17 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
                 v-model="draft.pets"
                 :intake="intake"
                 @busy="petReading = $event"
-            >
-                <template #tabs>
-                    <SteppedSlider
-                        v-if="pane === 'pets'"
-                        class="ocr-tabs"
-                        :model-value="pane"
-                        :options="PANE_OPTIONS"
-                        label="修改分区"
-                        @update:model-value="pane = $event"
-                    />
-                </template>
-            </PetEditor>
+            />
             <ScreenshotUpload
                 v-show="!wide"
                 class="ocr-standard"
                 :label="paneLabel"
-                :src="shotUrl"
+                :src="screenshot?.url"
                 :busy="intake.busy"
                 :error="intake.error"
-                :raw-lines="rawLines"
+                :raw-lines="screenshot?.lines"
                 @files="takeFiles"
             >
-                <template #navigation>
-                    <div class="ocr-bar">
-                        <SteppedSlider
-                            v-if="!wide"
-                            v-model="pane"
-                            class="ocr-tabs"
-                            :options="PANE_OPTIONS"
-                            label="修改分区"
-                        />
-                        <span v-if="totalCount" class="ocr-count">
-                            认出 <b class="num">{{ hitCount }}</b> / {{ totalCount }}
-                        </span>
-                    </div>
-                </template>
                 <div class="ocr-card">
                     <CharacterCard
                         :character="preview"
@@ -357,6 +231,8 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
 .ocr {
     display: flex;
     flex: 1;
+    flex-direction: column;
+    gap: 10px;
     min-width: 0;
     min-height: 0;
     overflow: hidden;
@@ -366,7 +242,6 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
     flex: none;
     align-items: center;
     gap: 10px;
-    flex-wrap: wrap;
 }
 .ocr-tabs {
     width: max-content;
@@ -375,7 +250,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
     --step-pad-x: 10px;
 }
 .ocr-count {
-    margin-left: auto;
+    white-space: nowrap;
     color: var(--muted);
     font-size: var(--fs-mini);
     letter-spacing: 0.1em;

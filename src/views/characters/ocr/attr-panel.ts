@@ -1,6 +1,8 @@
 import type { AttrGroup, CharacterData } from '../character';
 import { normalizeCharacter } from '../roster';
 import { schoolSkills } from '../schools';
+import { isRecognizedLevel } from '../field-values';
+import { text } from '../../../services/shape';
 import { schoolNames } from '../../../services/game-data';
 import { ATTR_LABELS as LABELS, ATTR_ORDER, RESOURCE_KEYS } from '../../../services/game-rules';
 import { resourcePanelLines } from './resource-panel';
@@ -374,7 +376,7 @@ function levelOf(raw: string): Parsed {
     const one = firstNumber(raw);
     if (one.state === 'bad') return one;
     const level = Number(one.value);
-    if (!Number.isInteger(level) || level < 1 || level > 200) {
+    if (!isRecognizedLevel(level, 1)) {
         return { value: one.value, state: 'bad' };
     }
     return one;
@@ -513,7 +515,7 @@ export function applyAttrPanel(base: CharacterData, fields: readonly OcrField[])
         const field = fields.find((one) => one.key === key);
         if (!field) return '';
         if (field.state !== 'ok' && field.state !== 'guess') return '';
-        return field.value.trim();
+        return text(field.value);
     };
 
     const name = valueOf('name');
@@ -523,7 +525,7 @@ export function applyAttrPanel(base: CharacterData, fields: readonly OcrField[])
     if (guild) next.guild = guild;
 
     const level = Number(valueOf('level'));
-    if (Number.isInteger(level) && level > 0) next.level = level;
+    if (isRecognizedLevel(level, 1)) next.level = level;
 
     const school = valueOf('school');
     if (school && school !== next.school) {

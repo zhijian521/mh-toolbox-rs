@@ -1,5 +1,3 @@
-import type { OcrLine } from './attr-panel';
-
 /** 上传入口只接受图片；保留文件原顺序，批量策略由业务组件决定。 */
 export function imageFiles(files: Iterable<File>): File[] {
     return [...files].filter((file) => file.type.startsWith('image/'));
@@ -20,6 +18,5 @@ export function pastedImages(event: ClipboardEvent, host: HTMLElement | null): F
 export interface ScreenshotIntake {
     busy: boolean;
     error: string;
-    rawLines: OcrLine[];
     takeFiles: (files: File[]) => void;
 }

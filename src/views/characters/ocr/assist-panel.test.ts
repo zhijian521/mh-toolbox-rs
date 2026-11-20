@@ -131,7 +131,7 @@ describe('辅助面板：按截图覆盖对应组', () => {
             ],
         }) as CharacterData;
 
-    it('替换生活组，另一类、同名上限及其他角色字段不动', () => {
+    it('覆盖生活组时，已匹配图标但等级漏读的技能保留原值', () => {
         const before = card();
         const result = parseAssistPanel(
             [line('98', 65, 140)],
@@ -140,6 +140,7 @@ describe('辅助面板：按截图覆盖对应组', () => {
         const after = applyAssistPanel(before, result.rows);
         expect(after.assists).toEqual([
             { name: '强身术', kind: 'life', level: 98, cap: 140, off: true },
+            before.assists[1],
             before.assists[2],
         ]);
         expect(after.skills).toBe(before.skills);

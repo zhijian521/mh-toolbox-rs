@@ -4,7 +4,6 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import GroupHead from '../../components/GroupHead.vue';
 import PressButton from '../../components/PressButton.vue';
-import TextButton from '../../components/TextButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
@@ -93,11 +92,6 @@ const anyFilter = computed(
         ) ||
         (props.mode === 'manage' && stockState.value !== 'all'),
 );
-function resetFilters() {
-    keyword.value = '';
-    slot.value = props.gearSlot ?? '';
-    stockState.value = 'all';
-}
 const page = ref(1);
 const scrollTop = ref(0);
 const content = ref<HTMLElement | null>(null);
@@ -374,12 +368,6 @@ function confirmSelection() {
                                 label="筛选装备部位"
                                 :disabled="Boolean(gearSlot)"
                                 class="warehouse-slot-filter"
-                            />
-                            <TextButton
-                                v-if="anyFilter"
-                                text="重置"
-                                label="清空仓库筛选"
-                                @click="resetFilters"
                             />
                         </div>
                         <LoadNotice

@@ -83,7 +83,6 @@ const { icon: slotIcon } = useGearIcon();
             "
         >
             <template #navigation="{ shots }">
-                <slot name="tabs" />
                 <div class="gear-parts-head">
                     <span
                         >装备

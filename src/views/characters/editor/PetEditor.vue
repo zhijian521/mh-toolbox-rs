@@ -84,7 +84,6 @@ defineExpose({ focusName, acceptScreenshot });
             @busy="setBusy"
         >
             <template #navigation>
-                <slot name="tabs" />
                 <div class="pet-list-head">
                     <span
                         >召唤兽 <span class="pet-count">{{ pets.length }}</span></span

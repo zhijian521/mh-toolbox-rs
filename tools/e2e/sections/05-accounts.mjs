@@ -249,16 +249,20 @@ export default async function run(ctx) {
                 return !document.querySelector('.warehouse-search') &&
                     tabs.getBoundingClientRect().width < 250 * scale;
             })()`));
+            t.check('部位下拉在筛选行右对齐且没有重置按钮', await cdp.evaluate(`(() => {
+                const filters = document.querySelector('.warehouse-filters');
+                const slot = filters.querySelector('.warehouse-slot-filter');
+                return Math.abs(filters.getBoundingClientRect().right - slot.getBoundingClientRect().right) <= 1 &&
+                    !filters.querySelector('[aria-label="清空仓库筛选"]');
+            })()`));
             await ui.clickLabel('筛选装备部位');
             await ui.clickText('[role="option"]', '武器', { exact: true });
-            await ui.waitFor(`!!document.querySelector('[aria-label="清空仓库筛选"]')`);
-            await ui.clickLabel('清空仓库筛选');
+            await ui.clickLabel('筛选装备部位');
+            await ui.clickText('[role="option"]', '全部部位', { exact: true });
             t.check(
-                '仓库重置筛选恢复原列表，未新增或修改物品',
-                (await cdp.evaluate(`document.querySelector('[aria-label="筛选装备部位"]').textContent.includes('全部部位') &&
-                    !document.querySelector('[aria-label="清空仓库筛选"]')`)) &&
-                    before ===
-                        (await cdp.evaluate(`document.querySelector('.warehouse-count').textContent`)),
+                '选择全部部位恢复原列表',
+                before ===
+                    (await cdp.evaluate(`document.querySelector('.warehouse-count').textContent`)),
             );
             await cdp.evaluate(`window.__warehouseMask = document.querySelector('.modal-mask')`);
             await ui.clickLabel('新增或截图录入装备');

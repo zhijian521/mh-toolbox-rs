@@ -1,4 +1,6 @@
 import { computed, ref } from 'vue';
+import { text } from '../../../services/shape';
+import { normalizeLevel, normalizeSchoolLevel } from '../field-values';
 import {
     findAttrRow,
     findTrainingRow,
@@ -74,30 +76,32 @@ export function useOcrDraft(character: ReadonlyCharacter) {
     }
 
     function setValue(key: string, value: string) {
-        const text = value.trim();
+        const clean = text(value);
         if (key === 'school') {
-            draft.value.school = text;
-            draft.value.skills = schoolSkills(text, draft.value.skills);
+            draft.value.school = clean;
+            draft.value.skills = schoolSkills(clean, draft.value.skills);
         } else if (key === 'level') {
-            draft.value.level = Math.max(0, Math.trunc(Number(text) || 0));
+            draft.value.level = normalizeLevel(clean);
         } else if (key === 'name' || key === 'guild' || key === 'server') {
-            draft.value[key] = text;
+            draft.value[key] = clean;
         } else if (key === 'experience.value' || key === 'experience.need') {
-            draft.value.experience[key === 'experience.value' ? 'value' : 'need'] = text;
+            draft.value.experience[key === 'experience.value' ? 'value' : 'need'] = clean;
         } else {
             const row = findAttrRow(draft.value, key);
-            if (row) row.value = text;
+            if (row) row.value = clean;
         }
     }
 
     function setSkill(name: string, level: number) {
         const row = draft.value.skills.find((row) => row.name === name);
-        if (row) row.level = level;
+        if (row) row.level = normalizeSchoolLevel(level, row.cap);
     }
 
     function setAssist(index: number, patch: Partial<AssistSkill>) {
         const row = draft.value.assists[index];
-        if (row) Object.assign(row, patch);
+        if (!row) return;
+        Object.assign(row, patch);
+        if (patch.level !== undefined) row.level = normalizeLevel(patch.level);
     }
 
     function addAssist(kind: AssistKind) {
@@ -110,7 +114,7 @@ export function useOcrDraft(character: ReadonlyCharacter) {
 
     function setTraining(name: string, level: number) {
         const row = findTrainingRow(draft.value, name);
-        if (row) row.level = level;
+        if (row) row.level = normalizeLevel(level);
     }
 
     return {

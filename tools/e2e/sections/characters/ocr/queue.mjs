@@ -40,6 +40,16 @@ export async function queue(ctx) {
             );
             await resolveImage(0, 7001);
             await ui.waitFor(`!document.querySelector('.ocr-standard .upload-busy')`);
+            const url = await cdp.evaluate(`document.querySelector('.ocr-standard .upload-preview img')?.src`);
+            await ui.clickText('.ocr-tabs button', '修炼');
+            const otherHasImage = await ui.exists('.ocr-standard .upload-preview img');
+            await ui.clickText('.ocr-tabs button', '属性');
+            t.check(
+                '手工切页时显示各自原图，切回属性复用原图',
+                Boolean(url) &&
+                    !otherHasImage &&
+                    url === (await cdp.evaluate(`document.querySelector('.ocr-standard .upload-preview img')?.src`)),
+            );
             await paste();
             await ui.waitFor('window.__e2eOcrRequests.length === 2');
             t.check(
@@ -76,6 +86,16 @@ export async function queue(ctx) {
                 '等待期间替换的中间图未发送',
                 await cdp.evaluate('window.__e2eOcrRequests.length === 3'),
             );
+            await paste();
+            await ui.waitFor('window.__e2eOcrRequests.length === 4');
+            await ui.fillSel('.ocr-card input[aria-label="气血"]', '7010');
+            await resolveImage(3, 7004);
+            await ui.waitFor(`!document.querySelector('.ocr-standard .upload-busy')`);
+            t.check(
+                '识别期间手工修改的分区保留草稿',
+                await cdp.evaluate(`document.querySelector('.ocr-card input[aria-label="气血"]').value === '7010' &&
+                    document.querySelector('.ocr-standard').textContent.includes('已保留草稿')`),
+            );
             await ui.clickText('.modal-panel button', '保存');
             await ui.waitFor(`!document.querySelector('.ocr')`);
         } finally {
@@ -90,8 +110,8 @@ export async function queue(ctx) {
         await ui.clickIn('.roster .char', 'E2E改名后', { text: '属性' });
         const card = await ui.text('.roster');
         t.check(
-            '最新 OCR 结果写库，重载后仍是 7003',
-            card.includes('7003') && !card.includes('7002'),
+            '重载后保留手工修改的 7010',
+            card.includes('7010') && !card.includes('7004'),
         );
     });
 }

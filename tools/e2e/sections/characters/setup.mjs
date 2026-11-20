@@ -26,7 +26,7 @@ export async function setup(ctx) {
     baseline.chars = await ui.count('.roster .char');
     t.info('名册现有角色', `${baseline.chars} 个`);
 
-    await t.step('新建：点「新角色」并填字段', async () => {
+    await t.step('新建：点「新增」并填字段', async () => {
         await ui.clickLabel('新建角色');
         if (!(await ui.waitFor(`!!document.querySelector('.editor')`, { timeout: 3000 }))) {
             throw new Error('编辑器没打开');
@@ -77,7 +77,60 @@ export async function setup(ctx) {
         t.check('新角色画在页面上', (await ui.text()).includes('E2E测试角色'));
     });
 
-    await t.step('卡内滚动到边缘后，滚轮继续滚动角色页面', async () => {
+    await t.step('角色页入口集中，属性卡随字号完整显示', async () => {
+        t.check(
+            '角色页新增和仓库集中在页头，正文直接展示角色卡片',
+            (await ui.exists('.page-head [aria-label="打开装备和召唤兽仓库"]')) &&
+                (await ui.exists('.page-head [aria-label="新建角色"]')) &&
+                !(await ui.exists('.page-filters, .char-blank')),
+        );
+        const layout = await cdp.evaluate(`(async () => {
+            const card = [...document.querySelectorAll('.roster .char')]
+                .find((el) => el.textContent.includes('E2E测试角色'));
+            const body = card.querySelector('.char-body');
+            const experience = body.querySelector('.exp-row');
+            const tabs = [...card.querySelectorAll('[role="tab"]')];
+            const style = document.documentElement.style;
+            const previousScale = style.getPropertyValue('--fs-scale');
+            const sizes = [];
+            try {
+                for (const scale of [0.92, 1, 1.1]) {
+                    style.setProperty('--fs-scale', String(scale));
+                    tabs[0].click();
+                    await Promise.resolve();
+                    const attrs = card.getBoundingClientRect();
+                    const bottomGap = attrs.bottom - experience.getBoundingClientRect().bottom;
+                    const overflow = body.scrollHeight - body.clientHeight;
+                    const heights = [];
+                    for (const tab of tabs.slice(1)) {
+                        tab.click();
+                        await Promise.resolve();
+                        heights.push(card.getBoundingClientRect().height);
+                    }
+                    sizes.push({ scale, overflow, bottomGap, height: attrs.height, heights });
+                }
+                return sizes;
+            } finally {
+                tabs[0].click();
+                if (previousScale) style.setProperty('--fs-scale', previousScale);
+                else style.removeProperty('--fs-scale');
+            }
+        })()`);
+        t.check(
+            '三个字号档位下属性完整可见，切换各分区卡片保持等高',
+            layout.every(
+                ({ overflow, bottomGap, height, heights }) =>
+                    overflow <= 1 &&
+                    bottomGap >= 0 &&
+                    bottomGap <= 24 &&
+                    heights.length === 5 &&
+                    heights.every((one) => Math.abs(one - height) <= 1),
+            ),
+            JSON.stringify(layout),
+        );
+    });
+
+    await t.step('鼠标放在属性卡上时，滚轮直接滚动角色页面', async () => {
         const state = await cdp.evaluate(`(() => {
             const card = [...document.querySelectorAll('.roster .char')]
                 .find((el) => el.textContent.includes('E2E测试角色'));

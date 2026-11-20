@@ -3,12 +3,10 @@ import { lazyDialog } from '../components/lazy-dialog';
 import SaveNotice from '../components/SaveNotice.vue';
 import LoadNotice from '../components/LoadNotice.vue';
 import { computed, nextTick, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { useRouteAction } from '../composables/use-route-action';
 import PageShell from '../components/PageShell.vue';
 import PressButton from '../components/PressButton.vue';
-import SlotButton from '../components/SlotButton.vue';
-import { filterCharacters } from './characters/character-search';
 import { usePersistedSubmit } from '../composables/use-persisted-submit';
 import { useConfirmedRemoval } from '../composables/use-confirmed-removal';
 import CharacterCard from './characters/CharacterCard.vue';
@@ -24,37 +22,13 @@ const QuickEdit = lazyDialog(() => import('./characters/quick/QuickEdit.vue'));
 const WarehouseDialog = lazyDialog(() => import('./warehouse/WarehouseDialog.vue'));
 const warehouseOpen = ref(false);
 
-/**
- * 角色页 —— 名册。
- *
- * 数据来自 `roster.ts`：桌面版读写 SQLite，浏览器预览读写 localStorage。
- * 桌面空库保持空名册；游戏规则首次加载失败时保留查看，重试成功后开放修改。
- *
- * 卡宽写死 420 而不是 `minmax(…, 1fr)`：一用伸缩列，卡片会随窗口各自拉宽到 600+，
- * 又回到「一条横贯屏幕的长卡」——游戏里的人物面板从来不是那个比例。
- * 420 是观感定值（见 `tokens.css` 的 `--char-w`，450 → 420 → 400 → 420 的来回记在那边），
- * 1280 与 1024 下都是一行两张。
- *
- * 页头只剩一枚按钮（新角色），走 `PressButton` 的 `seal` 变体——块面灌朱、一屏一枚。
- * 卡头的修改入口与新建共用 `CharacterEditor`，手工录入与截图识别在同一份草稿里完成。
- *
- * **这枚用默认档 `md`（26px），不写 `size="lg"`**（2026-11-03 改）。页头高度是
- * `--page-head-h` = 19 + 字号 × 1.15 + 1（1.1 档实测 47.8）；`lg` 是 31，加上下
- * padding 19 就到 50，页头被这枚按钮顶高一截，与本页内容区、左栏牌记、其余无按钮的
- * 页面全部对不上。`md` 三档字号下都低于页头自然高度（42.9 / 45 / 47.6 < 43.3 / 45.3 / 47.8），
- * 页头高度才重新由令牌说了算。
- */
 const { roster, loadError, writeError, pending, flush, retry, add, update, remove } = useRoster();
 const route = useRoute();
-const router = useRouter();
 const historyOpen = ref(false);
-const keyword = ref('');
-const visible = computed(() => filterCharacters(roster.value, keyword.value));
 watch(
     () => route.query.character,
     async (id) => {
         if (typeof id !== 'string') return;
-        keyword.value = '';
         await nextTick();
         const card = document.getElementById('character-' + id);
         if (!card) return;
@@ -185,15 +159,8 @@ useRouteAction('/characters', {
 </script>
 
 <template>
-    <PageShell title="角色" desc="角色档案 · 养成管理">
+    <PageShell title="角色" desc="角色档案">
         <template #actions>
-            <PressButton
-                icon="overview"
-                text="统计"
-                label="查看所有角色统计"
-                :disabled="!!loadError"
-                @click="router.push({ name: 'character-stats' })"
-            />
             <PressButton
                 icon="history"
                 text="历史"
@@ -201,16 +168,15 @@ useRouteAction('/characters', {
                 :disabled="!!loadError"
                 @click="historyOpen = true"
             />
-            <!-- 原先这里还有一枚禁用的「识别游戏窗口」（占位，注释写着「OCR 是下一步」）。
-                 2026-11-07 截图识别接上之后它被删掉：那个占位说的是「点我会识别」，
-                 而它点不动——现在页面上真有一个能用的识别入口（每张卡头上那枚），
-                 留着它只会让人以为「识别这个功能坏了」。直接抓游戏窗口那条路
-                 要回来时，它该带着实现一起回来。 -->
-            <!-- 读失败时底层拒绝一切写入（`persist()` 的闸），所以这枚按钮必须一起禁用：
-                 让它可点等于让用户一路填完再被静默丢掉，那比不能点更伤人。 -->
+            <PressButton
+                icon="archive"
+                text="仓库"
+                label="打开装备和召唤兽仓库"
+                @click="warehouseOpen = true"
+            />
             <PressButton
                 icon="add"
-                text="新角色"
+                text="新增"
                 label="新建角色"
                 seal
                 :disabled="editingDisabled"
@@ -244,37 +210,16 @@ useRouteAction('/characters', {
             @retry="retry"
         />
 
-        <div class="page-filters character-filters">
-            <PressButton
-                icon="archive"
-                text="仓库"
-                label="打开装备和召唤兽仓库"
-                @click="warehouseOpen = true"
-            />
-            <input
-                v-if="roster.length"
-                v-model="keyword"
-                class="field filter-search"
-                type="search"
-                aria-label="搜索角色名、门派或区服"
-                placeholder="搜角色名、门派或区服"
-            />
-            <SlotButton v-if="keyword" text="清空" label="清空角色搜索" @click="keyword = ''" />
-            <span v-if="roster.length" class="hint" aria-live="polite"
-                >{{ visible.length }} / {{ roster.length }} 个角色</span
-            >
-        </div>
-        <p v-if="roster.length && !visible.length" class="empty-note">
-            没有匹配的角色，试试其他关键词
-        </p>
-        <div class="roster">
+        <p v-if="!loadError && !roster.length" class="empty-note">还没有角色，点击右上角新增</p>
+        <div v-else-if="!loadError" class="roster">
             <!-- `quick`：点卡上的行 / 格就开「快速修改」。开关状态在**页面**这一层
                  （`quicking`），卡片只把「点了什么」抛上来——卡是循环渲染的，
                  每张卡各存一个弹窗状态就等于开了 N 个窗。 -->
             <CharacterCard
-                v-for="character in visible"
+                v-for="character in roster"
                 :key="character.id"
                 :character="character"
+                class="roster-card"
                 :class="{ 'is-linked': route.query.character === character.id }"
                 :quick="!editingDisabled"
                 :disabled="editingDisabled"
@@ -282,23 +227,6 @@ useRouteAction('/characters', {
                 @remove="askRemove(character)"
                 @quick="(target) => openQuick(character, target)"
             />
-
-            <!-- 空位卡与角色卡同高：名册的行高由最高那张决定，缺一角会让整行看着没排完。
-                 它同时是「新角色」的第二个入口——名册空着的时候，页头那枚按钮之外
-                 这里还有一整格可点，不至于对着一片空白找不到开始的地方。
-                 **所以它也得跟页头那枚同进退**：读失败时名册被清成空，这一格恰好会露出来，
-                 不禁用就成了「页头点不动、这里能点进去」，用户填完一整份再被 `persist()` 的闸丢掉。 -->
-            <button
-                v-if="!loadError && !keyword.trim()"
-                class="char-blank"
-                type="button"
-                aria-label="新建角色"
-                :disabled="editingDisabled"
-                @click="startNew"
-            >
-                <span class="plus">＋</span>
-                <span class="blank-text">新角色</span>
-            </button>
         </div>
 
         <CharacterEditor
@@ -332,71 +260,17 @@ useRouteAction('/characters', {
 </template>
 
 <style scoped>
-.character-filters {
-    gap: 10px;
-}
-/* 名册卡片与空位共用 tokens.css 的 --char-w / --char-h（420 × 640）。
- * 修改窗右栏另用 --char-editor-w 分配宽度，这里只维护名册排法。 */
 .roster {
+    container: character-roster / inline-size;
     display: flex;
     flex-wrap: wrap;
-    align-content: flex-start;
-    /* 14 与 `.stack` / `.hunt` 同一档：卡与卡之间的距离在全站只有一个数。
-     * 原先是 16，与设置页、捉鬼页的 14 差 2px——单独看没感觉，切页时会觉得
-     * 角色页的几张卡「更松一点」，却说不出为什么。 */
-    gap: 16px;
-    width: 100%;
+    align-items: flex-start;
+    gap: 14px;
 }
 
-.roster :deep(.char.is-linked) {
+.roster-card.is-linked {
     outline: 2px solid var(--accent);
     outline-offset: 3px;
     scroll-margin: 12px;
-}
-
-.char-blank {
-    display: grid;
-    place-items: center;
-    /* 两行居中：不写 `align-content` 会按 stretch 把两行各拉一半，
-     * 看起来是上下两个孤零零的字。 */
-    align-content: center;
-    gap: 8px;
-    flex: none;
-    width: var(--char-w);
-    height: var(--char-h);
-    /* 圆角与 `.board`（`PaperCard`）同曲率：旁边那几张是真纸片，这一格是
-     * 「还空着、可以再放一张」的位置。方角会读作「那一圈的纸没铺完」。 */
-    border: var(--w-hair) dashed var(--rule-2);
-    border-radius: 6px;
-    background: none;
-    color: var(--muted);
-    font-family: var(--font-ui);
-    cursor: pointer;
-    transition: color var(--t-quick) var(--ease-soft);
-}
-/* 悬停规则必须带 `:not(:disabled)`：`.char-blank:hover` 与 `.char-blank:disabled`
- * 同为 (0,2,0)，写成相邻两条时靠先后取胜，改一次顺序就反弹成「禁用却还会泛朱」。
- * 显式排除比依赖顺序稳。 */
-.char-blank:hover:not(:disabled) {
-    border-color: var(--accent);
-    color: var(--accent);
-}
-/* 禁用态不靠 opacity：虚线本就淡，压透明度会糊成一片灰。
- * 线退一档（`--rule-2` → `--rule`）+ 光标换成 not-allowed，说得清又不脏。 */
-.char-blank:disabled {
-    border-color: var(--rule);
-    color: var(--muted);
-    cursor: not-allowed;
-}
-.char-blank .plus {
-    /* 那个「+」没有对应的字号档，但必须跟着 `--fs-scale` 走：
-     * 写死 26px 时「较大」档下它会显得比旁边的说明字还小。
-     * 1.5 倍是跟着卡一起长大的：420 × 620 的格子里，26px 的加号像一个落单的符号。 */
-    font-size: calc(var(--fs-xl) * 1.5);
-    line-height: 1;
-}
-.char-blank .blank-text {
-    font-size: var(--fs-base);
-    letter-spacing: 0.1em;
 }
 </style>

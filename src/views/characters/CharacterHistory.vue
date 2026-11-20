@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
+import FoldedCard from '../../components/FoldedCard.vue';
 import SelectField from '../../components/SelectField.vue';
 import DateField from '../../components/DateField.vue';
 import RecordPager from '../../components/RecordPager.vue';
@@ -50,30 +51,37 @@ watch(pages, (total) => {
             <DateField v-model="to" label="成长历史结束日期" :min="from" />
         </div>
         <div v-if="!entries.length" class="record-empty">暂无成长记录</div>
-        <article
-            v-for="entry in visible"
-            :key="`${entry.characterId}-${entry.id}`"
-            class="growth-entry"
-        >
-            <header>
-                <b>{{ entry.name }}</b
-                ><time>{{ entry.date }}</time
-                ><span>{{
-                    entry.source === 'goal'
-                        ? '目标更新'
-                        : entry.source === 'legacy'
-                          ? '旧版记录'
-                          : '角色修改'
-                }}</span
-                ><small v-if="entry.note">{{ entry.note }}</small>
-            </header>
-            <div v-for="(change, index) in entry.changes" :key="index" class="growth-change">
-                <span class="growth-group">{{ change.group }}</span
-                ><span>{{ change.label }}</span>
-                <span class="growth-before">{{ change.from || '未记录' }}</span
-                ><span aria-hidden="true">→</span><b>{{ change.to || '未记录' }}</b>
-            </div>
-        </article>
+        <div v-else class="growth-list">
+            <FoldedCard
+                v-for="entry in visible"
+                :key="`${entry.characterId}-${entry.id}`"
+                as="article"
+                spine="left"
+                class="growth-entry"
+            >
+                <header>
+                    <strong>{{ entry.name }}</strong>
+                    <span>
+                        {{
+                            entry.source === 'goal'
+                                ? '目标更新'
+                                : entry.source === 'legacy'
+                                  ? '旧版记录'
+                                  : '角色修改'
+                        }}
+                    </span>
+                    <time>{{ entry.date }}</time>
+                </header>
+                <p v-if="entry.note" class="growth-note">{{ entry.note }}</p>
+                <div v-for="(change, index) in entry.changes" :key="index" class="growth-change">
+                    <span class="growth-group">{{ change.group }}</span>
+                    <span>{{ change.label }}</span>
+                    <span class="growth-before">{{ change.from || '未记录' }}</span>
+                    <span aria-hidden="true">→</span>
+                    <b>{{ change.to || '未记录' }}</b>
+                </div>
+            </FoldedCard>
+        </div>
         <template #footer>
             <RecordPager v-model="page" :pages="pages" />
             <PressButton text="关闭" label="关闭成长历史" @click="emit('close')" />
@@ -89,27 +97,37 @@ watch(pages, (total) => {
     align-items: center;
     margin-bottom: 14px;
 }
-.growth-entry {
-    padding: 12px;
-    margin-top: 10px;
-    background: var(--well);
-    border-radius: var(--r-2);
+.growth-list {
+    display: grid;
+    gap: 12px;
+}
+.folded-card.growth-entry {
+    --folded-pad-block: 10px;
+    --folded-pad-inline: 14px;
 }
 .growth-entry header {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 4px 10px;
     align-items: baseline;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     font-size: var(--fs-xs);
     color: var(--muted);
 }
-.growth-entry header b {
+.growth-entry header strong {
+    overflow-wrap: anywhere;
     font-size: var(--fs-sm);
     color: var(--ink);
 }
-.growth-entry header small {
+.growth-entry time {
+    margin-inline-start: auto;
+    font-variant-numeric: tabular-nums;
+}
+.growth-note {
+    margin: 0 0 6px;
     overflow-wrap: anywhere;
+    font-size: var(--fs-xs);
+    color: var(--muted);
 }
 .growth-change {
     display: grid;

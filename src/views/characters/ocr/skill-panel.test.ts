@@ -139,6 +139,19 @@ describe('写回角色', () => {
         expect(after.skills.find((row) => row.name === '周易学')?.level).toBe(120);
     });
 
+    it('识别到超过门派上限的数字时保留原等级', () => {
+        const lines = DEEP.map((one) => (one.y === 97 ? { ...one, text: '181' } : one));
+        const { rows, hit } = parseSkillPanel(lines, NAMES);
+        expect(hit).toBe(6);
+        expect(rows[0]).toMatchObject({ name: '周易学', level: 181, state: 'bad' });
+
+        const before = card({ skills: [{ name: '周易学', level: 120, cap: 180 }] });
+        for (const state of ['bad', 'ok'] as const) {
+            const after = applySkillPanel(before, [{ ...rows[0], state }]);
+            expect(after.skills[0].level).toBe(120);
+        }
+    });
+
     it('顺序与上限由门派定，且 0 级是合法值', () => {
         const rows = parseSkillPanel(DEEP, NAMES).rows.map((row) => ({ ...row, level: 0 }));
         const after = applySkillPanel(card(), rows);

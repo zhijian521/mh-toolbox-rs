@@ -2,7 +2,7 @@ import { lifeSkills, storySkills } from '../../../services/game-data';
 import type { AssistKind, AssistSkill, CharacterData } from '../character';
 import type { OcrLine } from './attr-panel';
 import type { IconHit } from './matcher';
-import { levelBelow, type SkillHit } from './skill-panel';
+import { canApplySkillHit, levelBelow, type SkillHit } from './skill-panel';
 
 /** 辅助截图没有技能名；图标确认身份，下面的数字确认等级。 */
 export interface AssistHit extends SkillHit {
@@ -71,33 +71,26 @@ export function parseAssistPanel(
     };
 }
 
-/** 覆盖本次识别到的生活或剧情组，另一组保持原样；同名技能保留已有上限与状态。 */
+/** 覆盖截图对应组，按截图排序。已辨认的技能读不到等级时保留原记录。 */
 export function applyAssistPanel(
     character: CharacterData,
     rows: readonly AssistHit[],
 ): CharacterData {
-    const found = new Map(
-        rows
-            .filter(
-                (row) =>
-                    (row.state === 'ok' || row.state === 'guess') &&
-                    Number.isInteger(row.level) &&
-                    row.level >= 0 &&
-                    row.level <= 200,
-            )
-            .map((row) => [`${row.kind}-${row.name}`, row]),
-    );
+    const hits = new Map(rows.map((row) => [`${row.kind}-${row.name}`, row]));
     const previous = new Map(character.assists.map((row) => [`${row.kind}-${row.name}`, row]));
     const groups = new Map<AssistKind, AssistSkill[]>();
-    for (const row of found.values()) {
-        const group = groups.get(row.kind) ?? [];
-        group.push({
-            ...previous.get(`${row.kind}-${row.name}`),
-            name: row.name,
-            kind: row.kind,
-            level: row.level,
-        });
-        groups.set(row.kind, group);
+    for (const row of hits.values()) {
+        if (canApplySkillHit(row)) groups.set(row.kind, []);
+    }
+    for (const [key, row] of hits) {
+        const group = groups.get(row.kind);
+        if (!group) continue;
+        const saved = previous.get(key);
+        if (canApplySkillHit(row)) {
+            group.push({ ...saved, name: row.name, kind: row.kind, level: row.level });
+        } else if (saved) {
+            group.push(saved);
+        }
     }
     const assists = (['life', 'story'] as const).flatMap(
         (kind) => groups.get(kind) ?? character.assists.filter((row) => row.kind === kind),

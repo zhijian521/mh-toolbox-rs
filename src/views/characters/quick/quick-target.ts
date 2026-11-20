@@ -1,4 +1,6 @@
+import { text } from '../../../services/shape';
 import { normalizeGearDetail, normalizePet } from '../details';
+import { normalizeLevel, normalizeSchoolLevel } from '../field-values';
 /** 快速修改按行名、装备部位或召唤兽下标定位，返回新角色，存储由名册处理。 */
 import {
     expWanValue,
@@ -94,9 +96,8 @@ function attrValue(character: ReadonlyCharacter, label: string): string | undefi
  * 而他点开只是想改个数。
  */
 function expDigits(raw: string): string | null {
-    const text = raw.trim();
-    if (!text) return '';
-    const value = expWanValue(text);
+    if (!text(raw)) return '';
+    const value = expWanValue(raw);
     if (value === null) return null;
     /* `toFixed(1)` 之后再 `Number`：整数不留 `.0`（`1414.2` 保留，`4200` 还是 `4200`）。 */
     return String(Number(value.toFixed(1)));
@@ -210,11 +211,12 @@ export function quickPanel(
  * 写：把这几格贴回整份角色
  * ==================================================================== */
 
-/** 数字格 → 非负整数。空、非数字、负数一律 0，与 `NumberField` 同一条口径。 */
-function num(raw: string | undefined): number {
-    const parsed = Number((raw ?? '').trim());
-    if (!Number.isFinite(parsed)) return 0;
-    return Math.max(0, Math.round(parsed));
+/** 未改动的经验保留原单位和精度，包括输入框只显示一位小数的旧值。 */
+function editedExperience(raw: string | undefined, previous: string): string {
+    const value = text(raw);
+    if (raw === undefined || value === text(previous)) return previous;
+    const shown = expDigits(previous);
+    return value === shown || (shown && value === `${shown}万`) ? previous : value;
 }
 
 /** 编辑草稿先 trim，读取边界则保留用户原文；两者共用详情形状和判空规则。 */
@@ -254,7 +256,7 @@ export function applyQuick(
                               ...group,
                               rows: group.rows.map((row) =>
                                   row.label === target.label
-                                      ? { ...row, value: (values.value ?? '').trim() }
+                                      ? { ...row, value: text(values.value) }
                                       : row,
                               ),
                           }
@@ -266,19 +268,19 @@ export function applyQuick(
             return {
                 ...character,
                 experience: {
-                    value: (values.value ?? '').trim(),
-                    need: (values.need ?? '').trim(),
+                    value: editedExperience(values.value, character.experience.value),
+                    need: editedExperience(values.need, character.experience.need),
                 },
             };
 
         case 'skill':
-            /* **`cap` 一个字都不动**：门派技能上限恒为 180，弹窗里也不再问
-             * （见 `quickPanel` 的 skill 分支）。这里保留原值，等于「改等级不碰上限」，
-             * 老数据里缺 `cap` 的那几条也不会被顺手塞一个数进来。 */
+            // 门派表限制本次输入的等级，已存上限照原样保留。
             return {
                 ...character,
                 skills: character.skills.map((row) =>
-                    row.name === target.name ? { ...row, level: num(values.level) } : row,
+                    row.name === target.name
+                        ? { ...row, level: normalizeSchoolLevel(values.level, row.cap) }
+                        : row,
                 ),
             };
 
@@ -290,7 +292,7 @@ export function applyQuick(
                 ...character,
                 assists: character.assists.map((row) =>
                     row.name === target.name && row.kind === target.assist
-                        ? { ...row, level: num(values.level) }
+                        ? { ...row, level: normalizeLevel(values.level) }
                         : row,
                 ),
             };
@@ -301,7 +303,9 @@ export function applyQuick(
                 trainings: character.trainings.map((group) => ({
                     ...group,
                     rows: group.rows.map((row) =>
-                        row.name === target.name ? { ...row, level: num(values.level) } : row,
+                        row.name === target.name
+                            ? { ...row, level: normalizeLevel(values.level) }
+                            : row,
                     ),
                 })),
             };

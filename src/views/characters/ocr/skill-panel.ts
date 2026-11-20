@@ -1,6 +1,6 @@
-import { schoolSkillCap } from '../../../services/game-data';
 import type { CharacterData, SkillRow } from '../character';
 import { schoolSkillNames, schoolSkills } from '../schools';
+import { isRecognizedLevel, schoolLevelLimit } from '../field-values';
 import type { OcrLine, OcrState } from './attr-panel';
 
 /** 师门只识别带技能名的深蓝列表，等级与名字按相邻行配对。 */
@@ -9,6 +9,10 @@ export interface SkillHit {
     level: number;
     state: OcrState;
     score: number;
+}
+
+export function canApplySkillHit(row: SkillHit, cap?: number): boolean {
+    return (row.state === 'ok' || row.state === 'guess') && isRecognizedLevel(row.level, 0, cap);
 }
 
 export interface SkillPanelResult {
@@ -73,7 +77,7 @@ export function levelBelow(
     let best: { value: number; score: number; gap: number } | undefined;
     for (const line of lines) {
         const text = line.text.trim();
-        if (!/^\d{1,3}$/.test(text) || Number(text) > 200) continue;
+        if (!/^\d{1,3}$/.test(text) || !isRecognizedLevel(Number(text))) continue;
         const overlap =
             Math.min(anchor.x + anchor.width, line.x + line.width) - Math.max(anchor.x, line.x);
         if (overlap < Math.min(8, line.width * 0.5)) continue;
@@ -90,6 +94,7 @@ export function parseSkillPanel(
     lines: readonly OcrLine[],
     names: readonly string[],
 ): SkillPanelResult {
+    const cap = schoolLevelLimit();
     const taken = new Set<OcrLine>();
     const rows = names.map((name): SkillHit => {
         let best: { line: OcrLine; score: number } | undefined;
@@ -103,6 +108,9 @@ export function parseSkillPanel(
         const level = levelBelow(best.line, lines);
         if (!level) return { name, level: 0, state: 'miss', score: 0 };
         const score = Math.min(best.score, level.score || 1);
+        if (!isRecognizedLevel(level.value, 0, cap)) {
+            return { name, level: level.value, state: 'bad', score };
+        }
         return { name, level: level.value, state: score >= 0.9 ? 'ok' : 'guess', score };
     });
     return {
@@ -124,8 +132,8 @@ export function applySkillPanel(
         ...character,
         skills: base.map((row): SkillRow => {
             const hit = byName.get(row.name);
-            if (!hit || (hit.state !== 'ok' && hit.state !== 'guess')) return row;
-            return { ...row, level: hit.level, cap: row.cap ?? schoolSkillCap() };
+            if (!hit || !canApplySkillHit(hit, schoolLevelLimit(row.cap))) return row;
+            return { ...row, level: hit.level };
         }),
     };
 }

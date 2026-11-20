@@ -29,9 +29,8 @@ const props = withDefaults(
          */
         quick?: boolean;
         tabbed?: boolean;
-        compact?: boolean;
     }>(),
-    { quick: false, tabbed: true, compact: false },
+    { quick: false, tabbed: true },
 );
 
 /* 浮片自己**不画**：`GearTip` 是一层绝对定位的浮层，必须挂在滚动容器之外，
@@ -162,7 +161,7 @@ function quickLabel(slot: ReadonlyGearSlot): string {
                  布局重构一下（展示内容不变）」重排了一遍几何：读数三行共用同一个签宽
                  （`--brief-tag-w`，不是各行均分）、效果块与读数块之间补一条账线、
                  六行行高统一由签定。内容与取数规则一个字没动。 -->
-            <div v-if="!compact" class="gear-stage">
+            <div class="gear-stage">
                 <div class="stage-frame" aria-hidden="true">
                     <div class="corner c1"></div>
                     <div class="corner c2"></div>

@@ -166,14 +166,20 @@ describe('快速修改：写回', () => {
         expect(next.experience).toEqual({ value: '3968.6万', need: '1414.2万' });
     });
 
-    it('技能：只改等级，上限原样不动', () => {
+    it('只改一格经验时，另一格保留原单位和精度', () => {
         const character = base();
-        const next = applyQuick(character, { kind: 'skill', name: '周易学' }, { level: '121' });
+        character.experience = { value: '12万', need: '1.234567亿' };
+        for (const need of ['12345.7', '12345.7万']) {
+            const saved = applyQuick(character, { kind: 'exp' }, { value: '13万', need });
+            expect(saved.experience).toEqual({ value: '13万', need: '1.234567亿' });
+        }
+    });
+
+    it('师门等级限制在上限内，只改选中的技能', () => {
+        const character = base();
+        const next = applyQuick(character, { kind: 'skill', name: '周易学' }, { level: '181' });
         const row = next.skills.find((one) => one.name === '周易学');
-        expect(row?.level).toBe(121);
-        /* 上限不在弹窗里，也就不该被这次修改碰到——它恒为 180，
-         * 改一次等级顺手把 `cap` 写成 undefined，卡上就不再标「满」了。 */
-        expect(row?.cap).toBe(180);
+        expect(row).toMatchObject({ level: 180, cap: 180 });
         expect(next.skills.find((one) => one.name === '潇湘仙雨')?.level).toBe(115);
     });
 

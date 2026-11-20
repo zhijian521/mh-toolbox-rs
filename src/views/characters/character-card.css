@@ -15,12 +15,7 @@
 /* ======================================================================
  * 卡片本体
  * ==================================================================== */
-/* 360 × 480 = 0.75，与游戏「人物属性」面板同为竖版。
- *
- * 尺寸走变量由名册给（`CharactersView` 的 `.roster`）：同一行里还有一张「空位卡」，
- * 它必须与真卡等高宽，否则整行看着没排完。两处各写一次 360×480 就是
- * 「需要记得两边都改」——改一处忘一处，空位卡会先露出马脚。
- * 兜底值留在这里，卡片单独拿出来渲染（开发页、截图核对）时仍然是竖版。 */
+/* 名册限制卡宽，属性定高。弹窗预览从外层接收可用宽高。 */
 .char {
     position: relative;
     display: flex;
@@ -74,6 +69,35 @@
      * 原先这里写的是 `border: 1px` + `--shadow-lift`——一张被边框圈住的纸，与物价卡、
      * 收益页的压印块互不相认；2026-11-05 全站统一之后，它就是台面上的一张纸。 */
     background: var(--card-bg);
+}
+
+.char.roster-card {
+    --roster-column-gap: 16px;
+    --roster-number-width: calc(56px * var(--fs-scale));
+    min-width: 0;
+    max-width: 100%;
+}
+
+/* 四个读数分区沿用属性票，只统一名册内的列距和数字签宽度。 */
+.roster-card :deep(:is(.attr-layout, .slip-cols, .training-groups)) {
+    column-gap: var(--roster-column-gap);
+}
+.roster-card :deep(.attr-layout) {
+    --pair-gap: var(--roster-column-gap);
+}
+.roster-card :deep(:is(.attr-layout, .slip-cols, .training-list) .slip-row) {
+    --tag-w: var(--roster-number-width);
+}
+
+@container character-roster (max-width: 380px) {
+    .char.roster-card {
+        --card-pad-x: 12px;
+        --roster-column-gap: 10px;
+        --roster-number-width: calc(46px * var(--fs-scale));
+    }
+    .roster-card .tabs {
+        --step-pad-x: 0px;
+    }
 }
 
 /* 卡缘**只有纸自己的棱**（`.board` 的上沿/左沿亮线 + 下沿 3px 断面 + 两层落影），
@@ -143,11 +167,14 @@
 }
 .who {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 7px;
     min-width: 0;
 }
 .who h2 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: calc(var(--fs-md) + 2px);
     letter-spacing: 0.06em;
     line-height: 1.2;
@@ -168,6 +195,8 @@
  * 之后这条够不着了——那边自己有一份 `.beast-id .lv`（2026-11-11 起等级挪到名字下面），
  * 值一模一样，两边不必再各写一遍。 */
 .char-head .lv {
+    flex: none;
+    white-space: nowrap;
     color: var(--num);
     font-size: calc(var(--fs-sm) + 1px);
 }
@@ -180,6 +209,7 @@
  * `var(--tint-deep, …)` 的兜底不是客套：编辑弹窗里若也有这枚签，它拿不到卡上的变量，
  * 那时必须退回「一枚普通 chip」，而不是让整条声明失效。 */
 .school {
+    flex: none;
     border-color: color-mix(in srgb, var(--tint-deep, var(--rule-2)) 60%, var(--rule-2));
     background: color-mix(in srgb, var(--tint-deep, var(--paper-2)) 58%, transparent);
     color: var(--ochre);
@@ -188,13 +218,6 @@
  * 台账里没有对应菜单，它只是一个看起来能点的装饰。2026-11-02 删掉：
  * **点了没反应的控件比没有这个控件更糟**，用户会以为自己点错了。
  * 真要加「更多操作」时，按钮和菜单一起加，别只加按钮。 */
-/* 颜色与字号来自全局 `.meta`；这里只剩排布（三点分隔）与它离上面那行的距离。
- *
- * `nowrap` + 裁切**必须有**：这行是「区服 · 帮派」两段（2026-11-03 之前是三段，
- * 还带一句手抄的更新时间），卡头右侧又要放改 / 删两枚按钮。允许折行时，
- * 那两个按钮一变宽（删除确认态就是），这行就从一行折成四行，整个卡头往下长一截——
- * 卡高由 `--char-h` 固定，折行会把它顶到溢出。宁可在窄的一瞬间把末段裁掉：
- * 它是**当前值的补充说明**，不是这一格的核心信息，裁掉不影响读数。 */
 .char-sub {
     display: flex;
     align-items: baseline;
@@ -204,11 +227,13 @@
     white-space: nowrap;
     letter-spacing: 0.04em;
 }
-.char-sub > span {
-    flex: none;
-    white-space: nowrap;
+.char-sub > span:not(.dot) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .char-sub .dot {
+    flex: none;
     opacity: 0.5;
 }
 
@@ -298,7 +323,37 @@
     /* 藏滑块（见上一条注释）：两道写法一起给，旧引擎也跟得上。 */
     scrollbar-width: none;
 }
-.char-body::-webkit-scrollbar {
+.other-panes {
+    display: contents;
+}
+/* 属性页始终参与排版。其他分区在同一块版心内滚动，切页不改变卡高。 */
+.char.fit-attrs {
+    height: auto;
+}
+.fit-attrs .char-body {
+    flex: none;
+    overflow: visible;
+    padding-bottom: 6px;
+}
+.fit-attrs .pane-sizing {
+    visibility: hidden;
+}
+.fit-attrs .other-panes {
+    position: absolute;
+    inset: 0;
+    display: block;
+    padding: inherit;
+    overflow: auto;
+    scrollbar-width: none;
+}
+.fit-attrs :deep(.attr-layout .slip-row) {
+    height: auto;
+    min-height: 28px;
+    padding-block: 4px;
+}
+
+.char-body::-webkit-scrollbar,
+.other-panes::-webkit-scrollbar {
     width: 0;
     height: 0;
 }
@@ -320,232 +375,4 @@
     display: flex;
     flex-direction: column;
     min-height: 100%;
-}
-
-/* 统计页共用卡片内容，只压紧排布；整页统一滚动，卡内不再截断明细。 */
-.char.compact {
-    --card-pad-x: 14px;
-    width: 100%;
-    height: auto;
-    min-width: 0;
-    padding-bottom: 0;
-}
-
-.compact .char-head {
-    padding-top: 12px;
-    padding-bottom: 10px;
-    border-bottom: var(--w-hair) solid var(--rule);
-}
-
-.compact .who {
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-.compact .who-block {
-    width: 100%;
-}
-
-.compact .who .school {
-    margin-left: auto;
-    font-size: var(--fs-xs);
-}
-
-.compact .who h2 {
-    font-size: var(--fs-md);
-    letter-spacing: 0.02em;
-    white-space: normal;
-    overflow-wrap: anywhere;
-}
-
-.compact .char-sub {
-    flex-wrap: wrap;
-    white-space: normal;
-    font-size: var(--fs-xs);
-    letter-spacing: 0.02em;
-}
-
-.compact .char-head .lv {
-    font-size: var(--fs-sm);
-}
-
-.compact .char-sub > span {
-    flex: initial;
-    white-space: normal;
-    overflow-wrap: anywhere;
-}
-
-.compact .char-body {
-    flex: none;
-    padding: 12px var(--card-pad-x) 13px;
-    overflow: visible;
-}
-
-.compact :deep(.pane) {
-    min-height: 0;
-}
-
-.compact :deep(.attr-layout),
-.compact :deep(.training-groups) {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 7px;
-}
-
-.compact :deep(.slip-rows),
-.compact :deep(.attr-group.wide .slip-rows),
-.compact :deep(.stats) {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 4px 8px;
-}
-
-.compact :deep(.slip-rows.slip-cols) {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 4px 10px;
-}
-
-.compact :deep(.training-list) {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.compact :deep(.training-col .group-head),
-.compact :deep(.training-list .slip-name) {
-    white-space: nowrap;
-    overflow-wrap: normal;
-}
-
-.compact :deep(.slip-cols .slip-row) {
-    display: grid;
-    grid-template-columns: calc(20px * var(--fs-scale)) minmax(0, 1fr) max-content;
-    width: auto;
-}
-
-.compact :deep(.training-list .slip-row) {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) max-content;
-    width: auto;
-}
-
-.compact :deep(.group-head) {
-    --gh-mb: 4px;
-    margin-top: 0;
-    margin-bottom: 4px;
-    font-size: var(--fs-mini);
-    letter-spacing: 0.06em;
-}
-
-.compact :deep(.group-head .section-mark) {
-    --mark-w: 3px;
-    --mark-h: 10px;
-}
-
-.compact :deep(.slip-row) {
-    --tag-w: calc(36px * var(--fs-scale));
-    --tag-h: calc(18px * var(--fs-scale));
-    flex: 0 0 auto;
-    justify-content: flex-start;
-    gap: 4px;
-    width: max-content;
-    max-width: 100%;
-    min-height: calc(27px * var(--fs-scale));
-    height: auto;
-    padding: 3px 7px;
-    border-radius: var(--r-2);
-}
-
-.compact :deep(.slip-name) {
-    flex: 0 1 auto;
-    min-width: 2em;
-    white-space: normal;
-    overflow-wrap: anywhere;
-    font-size: var(--fs-sm);
-}
-
-.compact :deep(.slip-val) {
-    flex: none;
-    width: auto;
-    min-width: var(--tag-w);
-}
-
-.compact :deep(.slip-val .lv) {
-    font-size: var(--fs-sm);
-}
-
-.compact :deep(.slip-row .icon-tile),
-.compact :deep(.slip-row .seal-tile) {
-    --tile-w: calc(20px * var(--fs-scale));
-    --tile-h: calc(20px * var(--fs-scale));
-    --shot: calc(18px * var(--fs-scale));
-}
-
-.compact :deep(.assist-groups) {
-    gap: 7px;
-}
-
-.compact :deep(.assist-group + .assist-group) {
-    padding-top: 7px;
-}
-
-.compact :deep(.exp-row) {
-    margin-top: 7px;
-}
-
-.compact :deep(.exp-row .group-head) {
-    margin-bottom: 0;
-}
-
-.compact :deep(.gear-board) {
-    flex: none;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-rows: repeat(4, calc(92px * var(--fs-scale)));
-    gap: 8px;
-    height: auto;
-}
-
-.compact :deep(.gear-cell .gear-pic),
-.compact :deep(.gear-ph) {
-    --tile-w: 56px;
-    --tile-h: 56px;
-    --shot: 46px;
-}
-
-.compact :deep(.pet-list) {
-    gap: 10px;
-}
-
-.compact :deep(.beast-head) {
-    gap: 8px;
-}
-
-.compact :deep(.beast-id) {
-    gap: 4px;
-}
-
-.compact :deep(.beast-plate) {
-    --tile-w: 56px;
-    --tile-h: 56px;
-}
-
-.compact :deep(.beast-plate .pet-image.portrait) {
-    --pet-icon-size: 48px;
-}
-
-.compact :deep(.stats) {
-    margin-top: 6px;
-}
-
-.compact :deep(.name-row) {
-    width: auto;
-    max-width: 100%;
-}
-
-.compact :deep(.skill-line) {
-    justify-content: flex-start;
-}
-
-.compact :deep(.skill-icons) {
-    max-height: none;
 }

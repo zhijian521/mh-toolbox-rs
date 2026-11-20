@@ -235,8 +235,10 @@ describe('截图编辑草稿', () => {
         const editor = useOcrDraft(before);
         const skill = editor.draft.value.skills[0].name;
         const training = editor.draft.value.trainings[0].rows[0].name;
-        editor.setSkill(skill, 150);
-        editor.setTraining(training, 12);
+        editor.setSkill(skill, 181);
+        editor.setTraining(training, 23);
+        expect(editor.draft.value.skills[0].level).toBe(180);
+        expect(editor.draft.value.trainings[0].rows[0].level).toBe(23);
         editor.setSkill(skill, 0);
         editor.setTraining(training, 0);
         expect(editor.draft.value.skills[0].level).toBe(0);

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import PaperCard from '../../components/PaperCard.vue';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import PressButton from '../../components/PressButton.vue';
 import NumberField from '../../components/NumberField.vue';
 import SelectField from '../../components/SelectField.vue';
@@ -30,9 +30,7 @@ import type { QuickTarget } from './quick/quick-target';
  * 为什么不是「侧边竖排按钮 + 一张长卡」：卡宽只有 420，侧栏一挤就变成第三列；
  * 而且名册一行要放两张，切换控件只能收进卡内。
  *
- * 卡高共用 `--char-h`：同一行的卡必须**齐头齐脚**，否则第二行会被最高那张顶歪。
- * 代价是内容少的分区（召唤兽）底下会空一块——那里就只是留白，不再压一句页脚说明
- * （2026-11-03 用户要求删掉卡片上所有手抄的注脚）。
+ * 名册卡以属性内容定高，切换分区时复用同一版心。弹窗预览由外层指定高度。
  *
  * 六个页签均分卡宽：`(420 − 40 − 4) / 6 ≈ 62.7` 一格，扣掉格内两侧 8 的留白得
  * 54.7；最长的「召唤兽」三个字在 1.1 字号档约 46（`--fs-base` 13.5 × 1.1 × 3 +
@@ -92,8 +90,6 @@ const props = withDefaults(
     defineProps<{
         character: ReadonlyCharacter;
         preview?: boolean;
-        /** 统计预览只开放编辑入口，不显示删除。 */
-        editShortcut?: boolean;
         editable?: boolean;
         tabs?: boolean;
         /** 要显示哪一页。缺省是属性页；父级改值时跟随。 */
@@ -101,13 +97,12 @@ const props = withDefaults(
         /** 点行 / 格开「快速修改」。 */
         quick?: boolean;
         disabled?: boolean;
-        compact?: boolean;
     }>(),
     /* `tabs` 的缺省值**必须显式写 `true`**：Vue 对布尔 prop 的缺省是 `false` 而不是
      * `undefined`（Boolean casting），所以模板里写 `props.tabs !== false` 不管用——
      * 不传时它已经是 `false` 了，整张名册的页签条会被一起省掉（这一条当场红过）。
      * `preview` / `editable` / `quick` 用不到反直觉的缺省，不写。 */
-    { tabs: true, pane: 'attrs', quick: false, compact: false },
+    { tabs: true, pane: 'attrs', quick: false },
 );
 const emit = defineEmits<{
     edit: [pane: PaneKey];
@@ -122,6 +117,7 @@ const emit = defineEmits<{
 }>();
 
 const active = ref<PaneKey>(props.pane);
+const fitAttrs = computed(() => props.tabs && !props.preview && !props.editable);
 watch(
     () => props.pane,
     (next) => {
@@ -175,12 +171,6 @@ function closeAll() {
     tipAnchor.value = null;
 }
 
-// 统计页由外层统一滚动，滚动时也要收起按旧坐标定位的装备浮片。
-onMounted(() => {
-    if (props.compact) window.addEventListener('scroll', closeAll, true);
-});
-onBeforeUnmount(() => window.removeEventListener('scroll', closeAll, true));
-
 function openDetail(index: number) {
     closeAll();
     if (props.quick && props.character.pets[index]) emit('quick', { kind: 'pet', index });
@@ -201,7 +191,7 @@ function openDetail(index: number) {
         tabindex="-1"
         :aria-label="character.name || '未命名角色'"
         class="char character-theme"
-        :class="{ compact }"
+        :class="{ 'fit-attrs': fitAttrs }"
         :data-school="character.school || ''"
     >
         <header class="char-head">
@@ -234,7 +224,7 @@ function openDetail(index: number) {
                     />
                 </div>
                 <div v-else class="who">
-                    <h2>{{ character.name }}</h2>
+                    <h2 :title="character.name">{{ character.name }}</h2>
                     <span class="lv num">{{ character.level }} 级</span>
                     <!-- 门派空着就不挂签：一个新角色还没填门派，画一个空胶囊
                          比不画更像「这里坏了」。 -->
@@ -259,14 +249,18 @@ function openDetail(index: number) {
                     />
                 </div>
                 <p v-else-if="character.server || character.guild" class="meta char-sub">
-                    <span v-if="character.server">{{ character.server }}</span>
+                    <span v-if="character.server" :title="character.server">{{
+                        character.server
+                    }}</span>
                     <span v-if="character.server && character.guild" class="dot">·</span>
-                    <span v-if="character.guild">{{ character.guild }}</span>
+                    <span v-if="character.guild" :title="character.guild">{{
+                        character.guild
+                    }}</span>
                 </p>
             </div>
             <!-- 卡头右侧：改与删。两枚都是纯图标 26px，与左栏、工具页同一种压印块。
                  删除只把事件抛出去，确认窗由名册页开——卡上不出现第二种「确认」的问法。 -->
-            <div v-if="!preview || editShortcut" class="head-actions">
+            <div v-if="!preview" class="head-actions">
                 <PressButton
                     icon="edit"
                     label="编辑这个角色"
@@ -274,7 +268,6 @@ function openDetail(index: number) {
                     @click="emit('edit', active)"
                 />
                 <PressButton
-                    v-if="!preview"
                     danger
                     icon="trash"
                     label="删除这个角色"
@@ -299,7 +292,7 @@ function openDetail(index: number) {
             <!-- 六个分区各是一个组件，`id` 与 `aria-labelledby` 由这里给：
                  它们要与页签条那枚按钮的 `-tab-xxx` 同名，而页签是这一层画的
                  （`SteppedSlider` 的 `prefix`）。`v-show` 也挂在这一层——
-                 六个分区要一直挂载着，切回来才不会丢掉滚动位置。
+                 名册的属性分区参与定高，切走时只隐藏内容。
                  分区根元素是 `<section class="pane">`，它的 `role="tabpanel"`
                  由组件自己带。
 
@@ -309,7 +302,9 @@ function openDetail(index: number) {
                  六个分区都按 `pane` 单独挂载预览。 -->
             <template v-if="props.tabs || active === 'attrs'">
                 <AttrPane
-                    v-show="active === 'attrs'"
+                    v-show="fitAttrs || active === 'attrs'"
+                    :class="{ 'pane-sizing': fitAttrs && active !== 'attrs' }"
+                    :inert="fitAttrs && active !== 'attrs'"
                     :id="`${character.id}-pane-attrs`"
                     :aria-labelledby="props.tabs ? `${character.id}-tab-attrs` : undefined"
                     :aria-label="props.tabs ? undefined : '属性'"
@@ -323,82 +318,83 @@ function openDetail(index: number) {
                 />
             </template>
 
-            <template v-if="props.tabs || active === 'skills'">
-                <SkillPane
-                    v-show="active === 'skills'"
-                    :id="`${character.id}-pane-skills`"
-                    :aria-labelledby="props.tabs ? `${character.id}-tab-skills` : undefined"
-                    :aria-label="props.tabs ? undefined : '师门'"
-                    :rows="character.skills"
-                    :editable="editable"
-                    :tabbed="props.tabs"
-                    :quick="quick"
-                    @edit-level="(name, level) => emit('edit-level', name, level)"
-                    @quick="(target) => emit('quick', target)"
-                />
-            </template>
+            <div v-show="!fitAttrs || active !== 'attrs'" class="other-panes" @scroll="closeAll">
+                <template v-if="props.tabs || active === 'skills'">
+                    <SkillPane
+                        v-show="active === 'skills'"
+                        :id="`${character.id}-pane-skills`"
+                        :aria-labelledby="props.tabs ? `${character.id}-tab-skills` : undefined"
+                        :aria-label="props.tabs ? undefined : '师门'"
+                        :rows="character.skills"
+                        :editable="editable"
+                        :tabbed="props.tabs"
+                        :quick="quick"
+                        @edit-level="(name, level) => emit('edit-level', name, level)"
+                        @quick="(target) => emit('quick', target)"
+                    />
+                </template>
 
-            <template v-if="props.tabs || active === 'assist'">
-                <AssistPane
-                    v-show="active === 'assist'"
-                    :id="`${character.id}-pane-assist`"
-                    :aria-labelledby="props.tabs ? `${character.id}-tab-assist` : undefined"
-                    :aria-label="props.tabs ? undefined : '辅助'"
-                    :tabbed="props.tabs"
-                    :assists="character.assists"
-                    :editable="editable"
-                    :quick="quick"
-                    @edit-row="(index, patch) => emit('edit-assist', index, patch)"
-                    @add-row="(kind) => emit('add-assist', kind)"
-                    @remove-row="(index) => emit('remove-assist', index)"
-                    @quick="(target) => emit('quick', target)"
-                />
-            </template>
+                <template v-if="props.tabs || active === 'assist'">
+                    <AssistPane
+                        v-show="active === 'assist'"
+                        :id="`${character.id}-pane-assist`"
+                        :aria-labelledby="props.tabs ? `${character.id}-tab-assist` : undefined"
+                        :aria-label="props.tabs ? undefined : '辅助'"
+                        :tabbed="props.tabs"
+                        :assists="character.assists"
+                        :editable="editable"
+                        :quick="quick"
+                        @edit-row="(index, patch) => emit('edit-assist', index, patch)"
+                        @add-row="(kind) => emit('add-assist', kind)"
+                        @remove-row="(index) => emit('remove-assist', index)"
+                        @quick="(target) => emit('quick', target)"
+                    />
+                </template>
 
-            <template v-if="props.tabs || active === 'training'">
-                <TrainingPane
-                    v-show="active === 'training'"
-                    :id="`${character.id}-pane-training`"
-                    :aria-labelledby="props.tabs ? `${character.id}-tab-training` : undefined"
-                    :aria-label="props.tabs ? undefined : '修炼'"
-                    :tabbed="props.tabs"
-                    :groups="character.trainings"
-                    :editable="editable"
-                    :quick="quick"
-                    @edit-level="(name, level) => emit('edit-training', name, level)"
-                    @quick="(target) => emit('quick', target)"
-                />
-            </template>
+                <template v-if="props.tabs || active === 'training'">
+                    <TrainingPane
+                        v-show="active === 'training'"
+                        :id="`${character.id}-pane-training`"
+                        :aria-labelledby="props.tabs ? `${character.id}-tab-training` : undefined"
+                        :aria-label="props.tabs ? undefined : '修炼'"
+                        :tabbed="props.tabs"
+                        :groups="character.trainings"
+                        :editable="editable"
+                        :quick="quick"
+                        @edit-level="(name, level) => emit('edit-training', name, level)"
+                        @quick="(target) => emit('quick', target)"
+                    />
+                </template>
 
-            <template v-if="props.tabs || active === 'gear'">
-                <GearPane
-                    v-show="active === 'gear'"
-                    :id="`${character.id}-pane-gear`"
-                    :aria-labelledby="props.tabs ? `${character.id}-tab-gear` : undefined"
-                    :aria-label="props.tabs ? undefined : '装备'"
-                    :tabbed="props.tabs"
-                    :gear="character.gear"
-                    :meta="character.gearMeta"
-                    :compact="compact"
-                    :quick="quick"
-                    @open-tip="showTip"
-                    @close-tip="closeAll"
-                    @quick="(target) => emit('quick', target)"
-                />
-            </template>
+                <template v-if="props.tabs || active === 'gear'">
+                    <GearPane
+                        v-show="active === 'gear'"
+                        :id="`${character.id}-pane-gear`"
+                        :aria-labelledby="props.tabs ? `${character.id}-tab-gear` : undefined"
+                        :aria-label="props.tabs ? undefined : '装备'"
+                        :tabbed="props.tabs"
+                        :gear="character.gear"
+                        :meta="character.gearMeta"
+                        :quick="quick"
+                        @open-tip="showTip"
+                        @close-tip="closeAll"
+                        @quick="(target) => emit('quick', target)"
+                    />
+                </template>
 
-            <template v-if="props.tabs || active === 'pets'">
-                <PetPane
-                    v-show="active === 'pets'"
-                    :id="`${character.id}-pane-pets`"
-                    :aria-labelledby="props.tabs ? `${character.id}-tab-pets` : undefined"
-                    :aria-label="props.tabs ? undefined : '召唤兽'"
-                    :tabbed="props.tabs"
-                    :pets="character.pets"
-                    :quick="quick"
-                    @open="openDetail"
-                />
-            </template>
+                <template v-if="props.tabs || active === 'pets'">
+                    <PetPane
+                        v-show="active === 'pets'"
+                        :id="`${character.id}-pane-pets`"
+                        :aria-labelledby="props.tabs ? `${character.id}-tab-pets` : undefined"
+                        :aria-label="props.tabs ? undefined : '召唤兽'"
+                        :tabbed="props.tabs"
+                        :pets="character.pets"
+                        :quick="quick"
+                        @open="openDetail"
+                    />
+                </template>
+            </div>
         </div>
 
         <GearTip :anchor="tipAnchor" :detail="tip" :slot-name="tipSlot" />

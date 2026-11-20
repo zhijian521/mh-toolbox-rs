@@ -24,7 +24,9 @@ const emit = defineEmits<{
 const message = ref('');
 const batchError = ref('');
 const queued = ref(false);
-const shots = ref<Partial<Record<GearSlotName, { url: string; name: string }>>>({});
+const shots = ref<Partial<Record<GearSlotName, { url: string; name: string; lines: OcrLine[] }>>>(
+    {},
+);
 const currentShot = computed(() => {
     const slot = props.slotName ?? props.activeSlot;
     return slot ? shots.value[slot] : undefined;
@@ -57,11 +59,11 @@ watch(pending, (value) => emit('busy', value), { flush: 'sync' });
 let generation = 0;
 let disposed = false;
 
-function rememberShot(slot: GearSlotName | undefined, file: File) {
+function rememberShot(slot: GearSlotName | undefined, file: File, lines: OcrLine[]) {
     if (!slot) return;
     const previous = shots.value[slot];
     if (previous) URL.revokeObjectURL(previous.url);
-    shots.value[slot] = { url: URL.createObjectURL(file), name: file.name };
+    shots.value[slot] = { url: URL.createObjectURL(file), name: file.name, lines };
 }
 
 function clearShot(slot: GearSlotName) {
@@ -70,8 +72,7 @@ function clearShot(slot: GearSlotName) {
     delete shots.value[slot];
 }
 function acceptScreenshot(file: File, value: GearPanelResult, lines: OcrLine[]) {
-    for (const part of gearPanelParts(value)) rememberShot(part.slot ?? undefined, file);
-    rawLines.value = lines;
+    for (const part of gearPanelParts(value)) rememberShot(part.slot ?? undefined, file, lines);
     batchError.value = '';
     error.value = '';
     message.value = `${gearPanelParts(value)
@@ -99,11 +100,13 @@ async function takeFiles(images: File[]) {
         await takeFile(file);
         if (disposed || current !== generation) return;
         if (error.value || !result.value?.slot || !result.value.hit) {
-            rememberShot(fallbackSlot, file);
+            rememberShot(fallbackSlot, file, rawLines.value);
             failures.push(`${file.name}：${error.value || '未识别'}`);
             continue;
         }
-        for (const part of gearPanelParts(result.value)) rememberShot(part.slot ?? undefined, file);
+        for (const part of gearPanelParts(result.value)) {
+            rememberShot(part.slot ?? undefined, file, rawLines.value);
+        }
         emit('recognize', result.value);
         count++;
         message.value = `${gearPanelParts(result.value)
@@ -137,7 +140,7 @@ onBeforeUnmount(() => {
         :busy="pending"
         :status="message"
         :error="intake?.error || batchError || error"
-        :raw-lines="intake?.rawLines ?? rawLines"
+        :raw-lines="currentShot?.lines"
         @files="takeFiles"
     >
         <template v-if="$slots.navigation" #navigation>

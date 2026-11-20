@@ -59,7 +59,7 @@ export async function entry(ctx, tools) {
             '装备识别左侧页签下提供十二部位，右侧直接编辑详情',
             await cdp.evaluate(`document.querySelectorAll('.ocr .upload-left .gear-slot').length === 12 &&
                 !!document.querySelector('.ocr .upload-detail .gear-form') &&
-                document.querySelector('.ocr .upload-navigation .ocr-tabs').nextElementSibling.classList.contains('gear-parts-head')`),
+                document.querySelector('.ocr .upload-navigation').firstElementChild.classList.contains('gear-parts-head')`),
         );
         const dialogSize = () =>
             cdp.evaluate(`(() => {
@@ -74,21 +74,25 @@ export async function entry(ctx, tools) {
                     left: left.getBoundingClientRect().width,
                 };
             })()`);
-        /* 页签条的宽度在六个分区里必须是同一个：装备 / 召唤兽两页它被塞进
-         * `upload-navigation` 的栅格，那一层默认 stretch 会把它拉满整列。
-         * 量的是控件自身，不是弹窗宽——弹窗宽高一致那条断言看不出这个。 */
-        const tabsWidth = () =>
+        await cdp.evaluate(`document.querySelector('.ocr-tabs .step-thumb').dataset.e2eRetained = 'true'`);
+        const tabsState = () =>
             cdp.evaluate(`(() => {
-                const tabs = document.querySelector('.ocr .ocr-tabs');
-                return tabs ? Math.round(tabs.getBoundingClientRect().width) : -1;
+                const slider = document.querySelector('.ocr-tabs');
+                const thumb = slider.querySelector('.step-thumb');
+                return {
+                    width: slider.getBoundingClientRect().width,
+                    selected: slider.querySelector('[aria-checked="true"]')?.textContent.trim(),
+                    sameThumb: thumb.dataset.e2eRetained === 'true',
+                    sliders: document.querySelectorAll('.ocr-tabs').length,
+                };
             })()`);
         await ui.clickText('.ocr-tabs button', '属性', { exact: true });
-        const standardTabs = await tabsWidth();
-        const tabWidths = [];
+        const standardTabs = await tabsState();
+        const tabStates = [];
         const sharedUploads = [];
         for (const pane of ['师门', '辅助', '修炼', '召唤兽', '装备']) {
             await ui.clickText('.ocr-tabs button', pane, { exact: true });
-            tabWidths.push([pane, await tabsWidth()]);
+            tabStates.push([pane, await tabsState()]);
             sharedUploads.push(
                 await cdp.evaluate(`[...document.querySelectorAll('.ocr .screenshot-upload')]
                 .filter((el) => el.getClientRects().length).length === 1`),
@@ -101,8 +105,15 @@ export async function entry(ctx, tools) {
                 document.querySelector('.gear-editor').dataset.e2eRetained === 'true'`),
         );
         t.check(
-            '分区页签在六个分区里等宽',
-            standardTabs > 0 && tabWidths.every(([, width]) => Math.abs(width - standardTabs) < 1),
+            '六个分区复用等宽页签和同一个滑块，切换时更新选中项',
+            standardTabs.width > 0 &&
+                tabStates.every(
+                    ([pane, state]) =>
+                        state.sliders === 1 &&
+                        state.sameThumb &&
+                        state.selected === pane &&
+                        Math.abs(state.width - standardTabs.width) < 1,
+                ),
         );
         await ui.clickText('.ocr-tabs button', '属性', { exact: true });
         const standardSize = await dialogSize();

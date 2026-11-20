@@ -340,7 +340,7 @@ describe('练满了没有', () => {
     it('要看得到上限才算得出来', () => {
         expect(isMaxed({ level: 180, cap: 180 })).toBe(true);
         expect(isMaxed({ level: 179, cap: 180 })).toBe(false);
-        // 写超上限仍算满（手填 200 是「记为满」，不是「没满」）。
+        // 旧档中的超限值仍标记为满。
         expect(isMaxed({ level: 200, cap: 180 })).toBe(true);
         expect(isMaxed({ level: 200 })).toBe(false);
     });
