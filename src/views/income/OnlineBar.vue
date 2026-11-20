@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
+import KeycapButton from '../../components/KeycapButton.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
 import TextButton from '../../components/TextButton.vue';
@@ -86,61 +87,6 @@ const onlineItems = computed<StatItem[]>(() =>
         : onlineSummaryItems(sessions.value, today.value, now.value),
 );
 
-const ticketsElement = ref<HTMLElement | null>(null);
-const rolesElement = ref<HTMLElement | null>(null);
-const roleRowHeight = ref<number>();
-
-/** 仅并排三行时跟随收益票据高度；观察器不改宽度，行数不会因对齐反复切换。 */
-watch(
-    [ticketsElement, rolesElement, () => roles.value.length, rosterError, () => unlisted.value.length],
-    ([tickets, list], _previous, onCleanup) => {
-        roleRowHeight.value = undefined;
-        if (!tickets || !list) return;
-        let reference: HTMLElement | null = null;
-        let frame = 0;
-        const align = () => {
-            frame = 0;
-            const nextReference = tickets.querySelector<HTMLElement>('.income-summary') ?? tickets;
-            if (reference !== nextReference) {
-                if (reference && reference !== tickets) observer.unobserve(reference);
-                reference = nextReference;
-                observer.observe(reference);
-            }
-            const bounds = nextReference.getBoundingClientRect();
-            const items = [...list.querySelectorAll<HTMLElement>('.role-item')].filter(
-                (item) => item.getClientRects().length,
-            );
-            const rows = new Set(items.map((item) => Math.round(item.getBoundingClientRect().top)));
-            const beside =
-                list.getBoundingClientRect().left >= tickets.getBoundingClientRect().right;
-            const gap = Number.parseFloat(getComputedStyle(list).rowGap) || 0;
-            const height =
-                beside && rows.size === 3 && !rosterError.value && !unlisted.value.length
-                    ? (bounds.height - gap * 2) / 3
-                    : undefined;
-            if (
-                height === undefined ||
-                roleRowHeight.value === undefined ||
-                Math.abs(height - roleRowHeight.value) > 0.25
-            ) {
-                roleRowHeight.value = height;
-            }
-        };
-        const schedule = () => {
-            if (!frame) frame = requestAnimationFrame(align);
-        };
-        schedule();
-        const observer = new ResizeObserver(schedule);
-        observer.observe(tickets);
-        observer.observe(list);
-        onCleanup(() => {
-            observer.disconnect();
-            cancelAnimationFrame(frame);
-        });
-    },
-    { flush: 'post' },
-);
-
 async function toggleCost(on: boolean) {
     if (controlsLocked.value) return;
     changing.value = true;
@@ -206,6 +152,14 @@ async function stopOne(one: ReadonlyOnlineSession) {
     }
 }
 
+async function toggleRole(id: string) {
+    if (controlsLocked.value) return;
+    // 点击时读取当前会话，不使用上一拍模板状态；保存锁同步生效，连点不会反向切换。
+    const session = activeByRole.value.get(id);
+    if (session) await stopOne(session);
+    else await startOne(id);
+}
+
 function whoText(one: ReadonlyOnlineSession): string {
     const names = ownersOf(one).map((id) => characterName(roster.value, id));
     return names.length ? names.join('、') : '未指定';
@@ -213,7 +167,7 @@ function whoText(one: ReadonlyOnlineSession): string {
 </script>
 
 <template>
-    <LedgerSection title="在线与点卡" plain class="online-bar" aria-label="在线与点卡">
+    <LedgerSection title="在线点卡" plain class="online-bar" aria-label="在线点卡">
         <template #actions>
             <div class="online-tools">
                 <div class="online-actions" role="group" aria-label="上线记录管理">
@@ -255,11 +209,12 @@ function whoText(one: ReadonlyOnlineSession): string {
         </template>
 
         <div class="online-layout">
-            <div ref="ticketsElement" class="online-tickets">
+            <div class="online-tickets">
                 <StatStrip
                     class="online-summary"
                     :items="onlineItems"
-                    surface="embedded"
+                    surface="folded"
+                    spine="left"
                     heading="今日在线"
                     icon="play"
                     aria-label="今日在线统计"
@@ -273,29 +228,25 @@ function whoText(one: ReadonlyOnlineSession): string {
                     :load="loadRoster"
                     :blocked="changing || rosterPending > 0 || !!rosterWriteError"
                 />
-                <div
-                    v-if="roles.length"
-                    ref="rolesElement"
-                    class="role-list"
-                    :style="roleRowHeight ? { '--online-role-row-h': `${roleRowHeight}px` } : undefined"
-                    aria-label="全部角色"
-                >
+                <div v-if="roles.length" class="role-list" aria-label="全部角色">
                     <div
                         v-for="one in roles"
                         :key="one.id"
-                        class="role-item side-tab-surface"
+                        class="role-item"
                         :class="{ 'is-running': one.session }"
                         :data-character-id="one.id"
                     >
-                        <button
-                            type="button"
+                        <KeycapButton
                             class="role-start"
-                            :disabled="!!one.session || controlsLocked || !!rosterError"
-                            :title="one.session ? `${one.name} 正在计时` : `点击上线 ${one.name}`"
-                            :aria-label="
-                                one.session ? `${one.name} 正在计时` : `快速上线 ${one.name}`
+                            indicator
+                            :active="!!one.session"
+                            :disabled="controlsLocked || (!one.session && !!rosterError)"
+                            :label="
+                                one.session
+                                    ? `结束 ${whoText(one.session)} 的计时`
+                                    : `快速上线 ${one.name}`
                             "
-                            @click="startOne(one.id)"
+                            @click="toggleRole(one.id)"
                         >
                             <span class="role-copy">
                                 <span class="name">{{ one.name }}</span>
@@ -303,36 +254,26 @@ function whoText(one: ReadonlyOnlineSession): string {
                                     {{ clockText(sessionMinutes(one.session, now)) }}
                                 </span>
                             </span>
-                        </button>
-                        <button
-                            v-if="one.session"
-                            type="button"
-                            class="role-stop"
-                            :disabled="controlsLocked"
-                            :title="`结束 ${whoText(one.session)} 的计时`"
-                            :aria-label="`结束 ${whoText(one.session)} 的计时`"
-                            @click="stopOne(one.session)"
-                        >
-                            <AppIcon name="stop" />
-                        </button>
+                        </KeycapButton>
                     </div>
                 </div>
                 <p v-else-if="!rosterError" class="idle">添加角色后，点一下即可上线</p>
                 <div v-if="unlisted.length" class="unlisted" aria-label="名册外正在计时的记录">
-                    <div v-for="one in unlisted" :key="one.id" class="unlisted-row">
-                        <span class="name">{{ whoText(one) }}</span>
-                        <span class="role-state">{{ clockText(sessionMinutes(one, now)) }}</span>
-                        <button
-                            type="button"
-                            class="role-stop"
-                            :disabled="controlsLocked"
-                            :title="`结束 ${whoText(one)} 的计时`"
-                            :aria-label="`结束 ${whoText(one)} 的计时`"
-                            @click="stopOne(one)"
-                        >
-                            <AppIcon name="stop" />
-                        </button>
-                    </div>
+                    <KeycapButton
+                        v-for="one in unlisted"
+                        :key="one.id"
+                        class="unlisted-row"
+                        active
+                        indicator
+                        :disabled="controlsLocked"
+                        :label="`结束 ${whoText(one)} 的计时`"
+                        @click="stopOne(one)"
+                    >
+                        <span class="role-copy">
+                            <span class="name">{{ whoText(one) }}</span>
+                            <span class="role-state">{{ clockText(sessionMinutes(one, now)) }}</span>
+                        </span>
+                    </KeycapButton>
                 </div>
             </div>
         </div>
@@ -467,42 +408,20 @@ function whoText(one: ReadonlyOnlineSession): string {
     gap: 8px;
 }
 .role-item {
-    --side-tab-shadow: 0 2px 0 var(--rule);
-    --side-tab-mark-height: 12px;
-    --side-tab-mark: var(--rule-2);
-
     display: flex;
     flex: none;
-    align-items: center;
-    width: min(100%, calc(156px * var(--fs-scale)));
+    align-items: stretch;
+    width: max-content;
+    max-width: 100%;
     min-width: 0;
-    min-height: var(--online-role-row-h, auto);
-    padding-left: 2px;
-    transition: border-color var(--t-quick) var(--ease-soft);
-}
-.role-item:has(.role-start:hover:not(:disabled)) {
-    --side-tab-edge: var(--rule-2);
 }
 .role-start {
-    display: flex;
+    --keycap-min-h: calc(34px * var(--fs-scale));
+    --keycap-pad: 4px 8px;
+
     flex: 1;
     align-self: stretch;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-    min-height: calc(34px * var(--fs-scale));
-    padding: 5px 8px;
-    border: 0;
-    border-radius: inherit;
-    background: transparent;
-    color: var(--ink-2);
-    font: inherit;
     text-align: left;
-    cursor: pointer;
-    transition: color var(--t-quick) var(--ease-soft);
-}
-.role-start:hover:not(:disabled) {
-    color: var(--accent);
 }
 .role-copy {
     display: flex;
@@ -521,45 +440,10 @@ function whoText(one: ReadonlyOnlineSession): string {
 .role-state {
     font-variant-numeric: tabular-nums;
 }
-.is-running {
-    --side-tab-edge: color-mix(in srgb, var(--accent) 35%, var(--rule));
-    --side-tab-mark: var(--accent);
-}
-.is-running .role-start:disabled {
-    opacity: 1;
-    cursor: default;
-}
 .is-running .role-state {
     color: var(--num);
 }
-.role-stop {
-    display: inline-flex;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    width: calc(24px * var(--fs-scale));
-    height: calc(24px * var(--fs-scale));
-    margin-right: 4px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--r-1);
-    background: transparent;
-    color: var(--muted);
-    cursor: pointer;
-    transition:
-        color var(--t-quick) var(--ease-soft),
-        background-color var(--t-quick) var(--ease-soft);
-}
-.role-stop .app-icon {
-    --icon-size: calc(13px * var(--fs-scale));
-}
-.role-stop:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--negative) 8%, transparent);
-    color: var(--negative);
-}
-.price-tag:focus-visible,
-.role-start:focus-visible,
-.role-stop:focus-visible {
+.price-tag:focus-visible {
     outline: var(--ring);
     outline-offset: var(--ring-offset);
 }
@@ -573,9 +457,13 @@ function whoText(one: ReadonlyOnlineSession): string {
     margin-top: 10px;
 }
 .unlisted-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    --keycap-min-h: calc(34px * var(--fs-scale));
+    --keycap-pad: 4px 8px;
+
+    width: max-content;
+    max-width: 100%;
+    justify-self: start;
+    text-align: left;
 }
 .unlisted-row .name {
     flex: 1;

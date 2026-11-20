@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRenderer, defineComponent, h, nextTick, ref } from 'vue';
 import { lazyDialog } from './lazy-dialog';
 
@@ -90,10 +90,12 @@ const Dialog = defineComponent({
     },
 });
 const mounted: Array<() => void> = [];
+beforeEach(() => vi.useFakeTimers());
 afterEach(() => {
     mounted.splice(0).forEach((unmount) => unmount());
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    vi.useRealTimers();
 });
 
 describe('弹窗代码按需加载', () => {
@@ -117,7 +119,7 @@ describe('弹窗代码按需加载', () => {
         const first = mount(Lazy);
         const second = mount(Lazy);
         expect(loader).toHaveBeenCalledTimes(1);
-        expect(find(first.root, 'modal')).toBeDefined();
+        expect(find(first.root, 'modal')).toBeUndefined();
         request.resolve({ default: Dialog });
         await settle();
         expect(find(first.root, 'editor')).toBeDefined();
@@ -127,6 +129,19 @@ describe('弹窗代码按需加载', () => {
         expect(loader).toHaveBeenCalledTimes(1);
     });
 
+    it('慢请求才展示加载窗口，快速完成不会先闪出占位窗', async () => {
+        const request = deferred<{ default: typeof Dialog }>();
+        const { root } = mount(lazyDialog(() => request.promise));
+        await vi.advanceTimersByTimeAsync(179);
+        expect(find(root, 'modal')).toBeUndefined();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(find(root, 'modal')).toBeDefined();
+        request.resolve({ default: Dialog });
+        await settle();
+        expect(find(root, 'modal')).toBeUndefined();
+        expect(find(root, 'editor')).toBeDefined();
+    });
+
     it('等待期间关闭，加载完成不重新打开', async () => {
         const request = deferred<{ default: typeof Dialog }>();
         const close = vi.fn();
@@ -134,6 +149,7 @@ describe('弹窗代码按需加载', () => {
             lazyDialog(() => request.promise),
             { onClose: close },
         );
+        await vi.advanceTimersByTimeAsync(180);
         (find(root, 'modal')!.props.onClose as () => void)();
         expect(close).toHaveBeenCalledOnce();
         visible.value = false;
@@ -167,12 +183,23 @@ describe('弹窗代码按需加载', () => {
         expect(loader).toHaveBeenCalledTimes(2);
     });
 
-    it('角色编辑器的 cancel 事件同样可以关闭加载窗口', () => {
+    it('等待提示出现前卸载，延迟计时器不会留下加载窗口', async () => {
+        const { root, visible } = mount(
+            lazyDialog(() => new Promise<{ default: typeof Dialog }>(() => {})),
+        );
+        visible.value = false;
+        await nextTick();
+        await vi.advanceTimersByTimeAsync(200);
+        expect(find(root, 'modal')).toBeUndefined();
+    });
+
+    it('角色编辑器的 cancel 事件同样可以关闭加载窗口', async () => {
         const cancel = vi.fn();
         const { root } = mount(
             lazyDialog(() => new Promise<{ default: typeof Dialog }>(() => {})),
             { onCancel: cancel },
         );
+        await vi.advanceTimersByTimeAsync(180);
         (find(root, 'modal')!.props.onClose as () => void)();
         expect(cancel).toHaveBeenCalledOnce();
     });

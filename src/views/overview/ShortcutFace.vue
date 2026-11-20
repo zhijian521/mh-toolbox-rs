@@ -1,34 +1,27 @@
 <script setup lang="ts">
-/** 首页入口与排序草稿共用侧签面板；点击、焦点、拖动仍由调用方的语义元素负责。 */
+/** 首页入口与排序草稿共用双孔纸签；仅装饰层镂空，点击、焦点与拖动由外层负责。 */
 import AppIcon from '../../components/AppIcon.vue';
-import PressTile from '../../components/PressTile.vue';
+import PaperTag from '../../components/PaperTag.vue';
 import type { HomeShortcut } from './shortcuts';
 
 defineProps<{ one: HomeShortcut }>();
 </script>
 
 <template>
-    <PressTile class="shortcut-face" surface="side-tab" :data-tone="one.tone">
-        <span class="shortcut-icon"><AppIcon :name="one.icon" /></span>
-        <span class="shortcut-name">{{ one.text }}</span>
-        <slot name="suffix" />
-    </PressTile>
+    <PaperTag class="shortcut-face" :data-tone="one.tone">
+        <span class="shortcut-content">
+            <span class="shortcut-icon"><AppIcon :name="one.icon" /></span>
+            <span class="shortcut-name">{{ one.text }}</span>
+            <slot name="suffix" />
+        </span>
+    </PaperTag>
 </template>
 
 <style scoped>
 .shortcut-face {
     --shortcut-tone: var(--accent);
-    --tile-ink: var(--shortcut-tone);
-    --tile-face: var(--paper);
-    --tile-face-hover: color-mix(in srgb, var(--shortcut-tone) 4%, var(--paper));
-    --tile-face-active: var(--well);
-    --tile-w: 100%;
-    --tile-h: auto;
-    --tile-r: var(--r-ticket);
-    flex: 1;
-    min-width: 0;
-    min-height: var(--shortcut-min-h, calc(60px * var(--fs-scale)));
-    padding: var(--shortcut-pad, 14px 14px 14px 19px);
+    --paper-tag-tone: var(--shortcut-tone);
+    --paper-tag-pad: var(--shortcut-pad, 14px 14px 14px 40px);
 }
 .shortcut-face[data-tone='indigo'] {
     --shortcut-tone: var(--indigo-ink);
@@ -39,12 +32,11 @@ defineProps<{ one: HomeShortcut }>();
 .shortcut-face[data-tone='ochre'] {
     --shortcut-tone: var(--ochre);
 }
-.shortcut-face :deep(.press-content) {
+.shortcut-content {
     display: flex;
     align-items: center;
     gap: var(--shortcut-gap, 12px);
     width: 100%;
-    height: 100%;
     min-width: 0;
 }
 .shortcut-icon {
@@ -64,7 +56,7 @@ defineProps<{ one: HomeShortcut }>();
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: var(--shortcut-font-size, var(--fs-base));
+    font-size: var(--fs-base);
     color: var(--ink-2);
 }
 </style>

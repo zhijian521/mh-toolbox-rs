@@ -5,6 +5,7 @@ import AppIcon from '../../components/AppIcon.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
+import TextButton from '../../components/TextButton.vue';
 import { lazyDialog } from '../../components/lazy-dialog';
 import { notify } from '../../composables/use-notify';
 import { openExternal } from '../../services/desktop';
@@ -13,7 +14,7 @@ import { useRoster } from '../characters/roster';
 import ShortcutFace from './ShortcutFace.vue';
 import { normalizeShortcutIds, shortcutsByIds, type HomeShortcut } from './shortcuts';
 
-const WarehouseDialog = lazyDialog(() => import('../warehouse/WarehouseDialog.vue'));
+const emit = defineEmits<{ warehouse: [] }>();
 const ShortcutEditor = lazyDialog(() => import('./ShortcutEditor.vue'));
 const router = useRouter();
 const { roster, loadError: rosterError } = useRoster();
@@ -22,7 +23,6 @@ const shortcuts = computed(() => shortcutsByIds(shortcutIds.value));
 const customizingShortcuts = ref(false);
 const shortcutSaveError = ref('');
 const characterShortcut = ref<HomeShortcut | null>(null);
-const warehouseOpen = ref(false);
 function customizeShortcuts() {
     shortcutSaveError.value = '';
     customizingShortcuts.value = true;
@@ -45,7 +45,7 @@ function openCharacterShortcut(one: HomeShortcut, id: string) {
 }
 async function openShortcut(one: HomeShortcut) {
     if (one.dialog === 'warehouse') {
-        warehouseOpen.value = true;
+        emit('warehouse');
         return;
     }
     if (one.href) {
@@ -71,11 +71,10 @@ async function openShortcut(one: HomeShortcut) {
 <template>
     <LedgerSection title="常用功能" class="shortcuts-section" plain>
         <template #actions
-            ><PressButton
+            ><TextButton
                 icon="settings"
                 text="自定义"
                 label="自定义常用功能"
-                size="sm"
                 @click="customizeShortcuts"
         /></template>
         <div v-if="shortcuts.length" class="shortcut-grid">
@@ -113,7 +112,6 @@ async function openShortcut(one: HomeShortcut) {
             @save="saveShortcuts"
             @close="customizingShortcuts = false"
         />
-        <WarehouseDialog v-if="warehouseOpen" @close="warehouseOpen = false" />
         <ModalShell
             v-if="characterShortcut"
             :title="'选择角色 · ' + characterShortcut.text"
@@ -180,7 +178,7 @@ async function openShortcut(one: HomeShortcut) {
     border-radius: var(--r-ticket);
 }
 .workbench-shortcut:focus-visible :deep(.shortcut-face) {
-    background-color: var(--tile-face-hover);
+    --paper-tag-face: color-mix(in srgb, var(--paper) 96%, var(--shortcut-tone));
 }
 .shortcut-arrow {
     --icon-size: calc(16px * var(--fs-scale));

@@ -46,12 +46,10 @@ useSortable({
 
 <style scoped>
 .selected-tile {
-    --shortcut-min-h: calc(63px * var(--fs-scale));
-    --shortcut-pad: 12px 9px 12px 15px;
+    --shortcut-pad: 12px 9px 12px 40px;
     --shortcut-gap: 11px;
     --shortcut-icon-box: calc(22px * var(--fs-scale));
     --shortcut-icon-size: calc(22px * var(--fs-scale));
-    --shortcut-font-size: var(--fs-sm);
     min-width: 0;
     list-style: none;
     border-radius: var(--r-ticket);
@@ -78,10 +76,6 @@ useSortable({
 .selected-tile[data-dnd-dragging],
 .selected-tile[data-dnd-dropping] {
     cursor: grabbing;
-}
-.selected-tile:is([data-dnd-dragging], [data-dnd-dropping]) :deep(.press-tile) {
-    --press-shadow: 0 2px 0 var(--rule-2), 0 12px 26px -7px var(--shadow-lg);
-    --press-side-tab-edge: var(--shortcut-tone);
 }
 .selected-tile[data-dnd-placeholder] {
     opacity: 0.3;

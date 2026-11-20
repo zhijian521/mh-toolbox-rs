@@ -543,27 +543,6 @@
     gap: 4px;
 }
 
-/* 侧签材质兼容普通入口和含多个独立按钮的复合容器。 */
-.side-tab-surface {
-    position: relative;
-    border: var(--w-hair) solid var(--press-side-tab-edge);
-    border-radius: var(--tile-r, var(--r-ticket));
-    background-color: var(--press-color);
-    box-shadow: var(--press-shadow);
-}
-.side-tab-surface::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: -1px;
-    width: 3px;
-    height: var(--side-tab-mark-height, calc(100% - 26px));
-    border-radius: var(--r-1);
-    background: var(--side-tab-mark, var(--tile-ink, var(--accent)));
-    transform: translateY(-50%);
-    pointer-events: none;
-}
-
 /* 历史窗口共用排法；列宽、筛选内容和默认日期由业务决定。 */
 .record-history .modal-body.modal-body-fill {
     padding-right: 16px;
@@ -749,6 +728,31 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--form-pair-gap, 12px);
+}
+
+/* 虚线的暗刻痕与下沿高光共用遮罩，断点始终重合，且不影响正文与焦点。 */
+.ticket-rule {
+    position: relative;
+}
+.ticket-rule::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 -1px;
+    height: 2px;
+    pointer-events: none;
+    background-image: var(--ticket-rule-image);
+    -webkit-mask-image: var(
+        --ticket-rule-mask,
+        repeating-linear-gradient(90deg, #000 0 4px, transparent 4px 8px)
+    );
+    mask-image: var(
+        --ticket-rule-mask,
+        repeating-linear-gradient(90deg, #000 0 4px, transparent 4px 8px)
+    );
+}
+.ticket-rule-top::after {
+    top: -1px;
+    bottom: auto;
 }
 
 /* 区块内空态保留动作位置，与整页空态分开。 */

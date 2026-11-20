@@ -46,16 +46,17 @@ watch(
 
 <style scoped>
 .ticket-card {
+    --ticket-notch-radius: 6px;
     --ticket-mask:
         radial-gradient(
             circle at 0 var(--ticket-notch-y, 44px),
-            transparent 5px,
-            var(--ink-base) 5.5px
+            transparent var(--ticket-notch-radius),
+            var(--ink-base) calc(var(--ticket-notch-radius) + 0.5px)
         ),
         radial-gradient(
             circle at 100% var(--ticket-notch-y, 44px),
-            transparent 5px,
-            var(--ink-base) 5.5px
+            transparent var(--ticket-notch-radius),
+            var(--ink-base) calc(var(--ticket-notch-radius) + 0.5px)
         );
 
     position: relative;
@@ -67,33 +68,30 @@ watch(
     flex: none;
     min-width: 0;
 }
-/* 缺口透出所在区块的真实底色，文字与交互不参与遮罩。 */
-.ticket-card::before {
+/* 两层共用缺口，纸层不会填平票口；文字与交互不参与遮罩。 */
+.ticket-card::before,
+.ticket-card::after {
     content: '';
     position: absolute;
-    z-index: -1;
     pointer-events: none;
-    inset: 0;
     border-radius: inherit;
-    background-color: var(--ticket-paper);
-    background-image: var(--ticket-image);
-    box-shadow: var(--ticket-shadow);
     -webkit-mask-image: var(--ticket-mask);
     mask-image: var(--ticket-mask);
     -webkit-mask-composite: source-in;
     mask-composite: intersect;
 }
-/* 仅在下沿露出 2px 纸层，不给内容或卡片四周叠加模糊滤镜。 */
+.ticket-card::before {
+    z-index: -1;
+    inset: 0;
+    background-color: var(--ticket-paper);
+    background-image: var(--ticket-image);
+    box-shadow: var(--ticket-shadow);
+}
+/* 左右露出 1px 清晰纸棱，下沿保留 2px 厚度，不以模糊暗影代替侧边。 */
 .ticket-card::after {
-    content: '';
-    position: absolute;
     z-index: -2;
-    pointer-events: none;
-    left: 1px;
-    right: 1px;
-    bottom: -2px;
-    height: calc(var(--r-ticket) + 2px);
-    border-radius: 0 0 var(--r-ticket) var(--r-ticket);
-    background: var(--ticket-layer);
+    inset: 1px -1px -2px;
+    background-color: var(--ticket-layer);
+    background-image: var(--ticket-layer-image);
 }
 </style>

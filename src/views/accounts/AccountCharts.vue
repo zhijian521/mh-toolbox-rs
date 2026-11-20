@@ -43,7 +43,6 @@ const chartDate = (value: string) =>
                         :series="one.series"
                         kind="money"
                         :label="CURRENCY_META[one.currency].label + '收支'"
-                        :height="180"
                         :value-text="one.format"
                         :axis-text="(value) => accountAxisText(value, one.currency)"
                         :axis-unit="one.currency === 'cash' ? 10000 : 1"

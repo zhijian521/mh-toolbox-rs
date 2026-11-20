@@ -7,15 +7,8 @@
     font-display: swap;
 }
 
-/* 新字体为常用字子集，原件版本与生成方式见 tools/font/import-ui-fonts.py。
+/* 圆体为常用字子集，原件版本与生成方式见 tools/font/import-ui-fonts.py。
  * 仅当前字体被使用时加载；内部名称区分于上游原件。 */
-@font-face {
-    font-family: 'MH Toolbox Hei';
-    src: url('../../assets/fonts/MHHei.woff2') format('woff2');
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-}
 @font-face {
     font-family: 'MH Toolbox Rounded';
     src: url('../../assets/fonts/MHRounded.woff2') format('woff2');
@@ -24,8 +17,8 @@
     font-display: swap;
 }
 
-:root[data-font='sans'] {
-    --font-ui: 'MH Toolbox Hei', 'Microsoft YaHei', sans-serif;
+:root[data-font='system'] {
+    --font-ui: system-ui, sans-serif;
 }
 :root[data-font='rounded'] {
     --font-ui: 'MH Toolbox Rounded', 'Microsoft YaHei', sans-serif;
@@ -101,6 +94,7 @@
     --modal-edge: var(--rule-2);
     --modal-shadow: var(--shadow-lift);
     --modal-mask: color-mix(in srgb, var(--ink) 42%, transparent);
+    --modal-backdrop-blur: 2px;
     --tooltip-bg: var(--indigo);
     --tooltip-ink: var(--indigo-ink);
     --tooltip-shadow: 0 2px 4px var(--shadow), 0 10px 22px -10px var(--shadow-lg);
@@ -224,6 +218,11 @@
     --t-quick: 120ms;
     --t-mid: 180ms;
     --t-press: 200ms;
+    --t-modal-enter: 240ms;
+    --t-modal-leave: 140ms;
+    --t-modal-stagger: 24ms;
+    --ease-modal-enter: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-modal-leave: cubic-bezier(0.4, 0, 1, 1);
     --t-shape: 220ms;
     --t-thumb: 240ms;
     --t-slide: 300ms;

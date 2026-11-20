@@ -46,46 +46,56 @@ export interface StatItem {
 
 <script setup lang="ts">
 import AppIcon from './AppIcon.vue';
+import FoldedCard from './FoldedCard.vue';
 import type { IconName } from './icons';
 import PaperCard from './PaperCard.vue';
 import TicketCard from './TicketCard.vue';
 
 /**
- * 独立统计沿用 PaperCard；embedded 复用 TicketCard 外壳，标题保留小图标。
+ * 独立统计沿用 PaperCard；embedded 用票据，folded 用侧折纸卡，共用读数排版。
  * 组件只排列已格式化读数，统计口径、加载状态和正负判断由业务提供。
  */
 withDefaults(
     defineProps<{
         items: StatItem[];
-        surface?: 'standalone' | 'embedded';
+        surface?: 'standalone' | 'embedded' | 'folded';
+        spine?: 'left' | 'right';
         heading?: string;
         hint?: string;
         icon?: IconName;
     }>(),
-    { surface: 'standalone', heading: '', hint: '' },
+    { surface: 'standalone', spine: 'right', heading: '', hint: '' },
 );
+
+const surfaces = { standalone: 'section', embedded: TicketCard, folded: FoldedCard };
 </script>
 
 <template>
     <component
-        :is="surface === 'embedded' ? TicketCard : 'section'"
+        :is="surfaces[surface]"
+        :spine="surface === 'folded' ? spine : undefined"
         class="stats"
-        :class="surface === 'embedded' ? 'stats-embedded' : undefined"
+        :class="{ 'stats-embedded': surface !== 'standalone', 'stats-folded': surface === 'folded' }"
         :style="{ '--stat-n': items.length }"
     >
-        <header v-if="heading" class="stats-head" :title="hint">
+        <header
+            v-if="heading"
+            class="stats-head"
+            :class="{ 'ticket-rule': surface !== 'standalone' }"
+            :title="hint"
+        >
             <AppIcon
-                v-if="surface === 'embedded' && icon"
+                v-if="surface !== 'standalone' && icon"
                 :name="icon"
                 class="stats-heading-icon"
             />
             <h3>{{ heading }}</h3>
         </header>
         <component
-            :is="surface === 'embedded' ? 'div' : PaperCard"
+            :is="surface !== 'standalone' ? 'div' : PaperCard"
             v-for="item in items"
             :key="item.id ?? item.cap"
-            :as="surface === 'embedded' ? undefined : 'div'"
+            :as="surface !== 'standalone' ? undefined : 'div'"
             class="stat"
             :data-stat-id="item.id"
         >
@@ -190,17 +200,22 @@ withDefaults(
     white-space: nowrap;
 }
 
-.stats-embedded {
+.stats-embedded:not(.stats-folded) {
     --ticket-notch-y: calc(12px + var(--fs-base) * 0.96 * 1.3 + 10.5px);
 
+    padding: 12px 16px 15px;
+}
+.stats-embedded {
     grid-template-columns: repeat(var(--stat-columns, 2), minmax(0, 1fr));
     align-content: start;
     gap: 12px;
-    padding: 12px 16px 15px;
 }
 .stats-head {
     grid-column: 1 / -1;
     min-width: 0;
+}
+.stats-folded {
+    --folded-pad-block: 15px 18px;
 }
 .stats-head h3 {
     color: var(--muted);
@@ -214,7 +229,7 @@ withDefaults(
     margin-inline: -10px;
     padding-inline: 10px;
     padding-bottom: 10px;
-    border-bottom: 1px dashed var(--rule-2);
+    border-bottom: 1px dashed transparent;
 }
 .stats-heading-icon {
     --icon-size: calc(14px * var(--fs-scale));

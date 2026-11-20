@@ -3,7 +3,7 @@ import { importLoaded } from '../../cdp.mjs';
 export default async function runOnline(ctx) {
     const { cdp, ui, t, sleep } = ctx;
 
-    await t.step('角色列表完整展示，点击快速上线、重载继续、单独结束', async () => {
+    await t.step('角色列表完整展示，同键开始与结束，重载继续且保存期间连点不反转', async () => {
         await ui.goto('收益');
         const baseline = await cdp.evaluate(`(async () => {
                 const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
@@ -36,23 +36,43 @@ export default async function runOnline(ctx) {
                     !${JSON.stringify(baseline.ids)}.includes(one.id)).length;
             })()`);
         try {
-            await cdp.click(selector + ' .role-start');
-            await ui.waitFor(`!!document.querySelector(${JSON.stringify(selector + '.is-running .role-stop:not(:disabled)')})`);
+            await cdp.evaluate(`(() => {
+                const button = document.querySelector(${JSON.stringify(selector + ' .role-start')});
+                // 同一拍触发两次，在 DOM 禁用更新前验证同步保存锁。
+                button.click();
+                button.click();
+            })()`);
+            await ui.waitFor(`!!document.querySelector(${JSON.stringify(selector + '.is-running .role-start:not(:disabled)')})`);
             t.check('点击角色直接开始，不弹表单', await cdp.evaluate(`!document.querySelector('[role="dialog"]')`));
-            t.check('快速上线只增加一条该角色记录', (await extraCount()) === 1);
-            await cdp.click(selector + ' .role-start');
-            t.check('点击计时中角色不重复上线或停止', (await extraCount()) === 1 &&
-                await cdp.evaluate(`!!document.querySelector(${JSON.stringify(selector + '.is-running')})`));
+            t.check('保存期间同拍连点只开始一次，不反向结束', (await extraCount()) === 1 &&
+                await cdp.evaluate(`!!document.querySelector(${JSON.stringify(selector + '.is-running')}) &&
+                    !document.querySelector(${JSON.stringify(selector + ' .role-stop')})`));
             await ui.reload();
-            await ui.waitFor(`!!document.querySelector(${JSON.stringify(selector + '.is-running .role-stop:not(:disabled)')})`);
+            await ui.waitFor(`!!document.querySelector(${JSON.stringify(selector + '.is-running .role-start:not(:disabled)')})`);
             t.check('重载后角色仍在计时，记录不重复', (await extraCount()) === 1);
-            await cdp.click(selector + ' .role-stop');
+            const stopped = await cdp.evaluate(`(async () => {
+                const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
+                const session = useOnline().sessions.value.find(one =>
+                    one.characterId === ${JSON.stringify(baseline.id)} && one.endAt === null);
+                const button = document.querySelector(${JSON.stringify(selector + ' .role-start')});
+                const before = Date.now();
+                button.click();
+                button.click();
+                return { id: session.id, startAt: session.startAt, before };
+            })()`);
             await ui.waitFor(`!document.querySelector(${JSON.stringify(selector + '.is-running')}) &&
                 document.querySelector(${JSON.stringify(selector + ' .role-start')})?.disabled === false`);
-            t.check('独立结束按钮只结束本次角色计时', await cdp.evaluate(`(async () => {
+            t.check('同键结束且连点不重开，不足一分钟按原规则移除', await cdp.evaluate(`(async () => {
                     const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
-                    const running = useOnline().sessions.value.filter(one => one.endAt === null).map(one => one.id).sort();
-                    return JSON.stringify(running) === ${JSON.stringify(JSON.stringify(baseline.running))};
+                    const sessions = useOnline().sessions.value;
+                    const running = sessions.filter(one => one.endAt === null).map(one => one.id).sort();
+                    const created = sessions.filter(one => one.characterId === ${JSON.stringify(baseline.id)} &&
+                        !${JSON.stringify(baseline.ids)}.includes(one.id));
+                    const ended = created.find(one => one.id === ${JSON.stringify(stopped.id)});
+                    const settled = ended
+                        ? created.length === 1 && ended.endAt !== null && ended.endAt - ended.startAt >= 60000
+                        : created.length === 0 && ${stopped.before - stopped.startAt} < 60000;
+                    return settled && JSON.stringify(running) === ${JSON.stringify(JSON.stringify(baseline.running))};
                 })()`));
         } finally {
             // 只删除本次角色新增的记录；保留测试前已存在的计时和历史。
@@ -292,7 +312,11 @@ export default async function runOnline(ctx) {
                 return [...document.querySelectorAll('.chart-block')].map((block) => ({
                     head: (block.querySelector('h3')?.textContent || '').trim(),
                     bottomPadding: parseFloat(getComputedStyle(block.closest('.ledger-section')).paddingBottom),
-                    height: Number.parseFloat(getComputedStyle(block.querySelector('.chart')).minHeight),
+                    height: block.querySelector('.chart').getBoundingClientRect().height,
+                    hiddenScroll: (() => {
+                        const scroll = getComputedStyle(block.querySelector('.chart-scroll'));
+                        return scroll.overflowX === 'auto' && scroll.scrollbarWidth === 'none';
+                    })(),
                     drawn: !!block.querySelector('svg.chart-svg'),
                     panel: !!block.querySelector('.chart-panel > .chart-surface'),
                     singleSurface: (() => {
@@ -320,14 +344,15 @@ export default async function runOnline(ctx) {
             })()`);
         t.check('两张走势图都在', charts.length === 2, `实际 ${charts.length} 张`);
         t.check('每日时长与每日收益标题一致', charts.map((one) => one.head).join('/') === '每日时长/每日收益');
-        t.check('两张图与总览同为 180px 高', charts.every((one) => one.height === 180));
+        t.check('两张图与总览同为 220px 高，横向滚动但不显示滚动条',
+            charts.every((one) => Math.abs(one.height - 220) < 1 && one.hiddenScroll));
         t.check('每日走势外卡底部与总览同为 8px 留白', charts.every((one) => one.bottomPadding === 8));
         t.check(
             '绘图区立体边沿覆盖在固定纵轴之上且不拦截操作',
             charts.every((one) => one.edge),
         );
         t.check(
-            '走势图复用外卡，保留绘图区与图例分隔栏',
+            '走势图复用外卡，保留绘图区与图例栏',
             charts.every((one) => one.panel && one.singleSurface && (!one.drawn || one.shelf)),
         );
         t.check(

@@ -93,15 +93,18 @@ export function sessionMinutes(session: ReadonlyOnlineSession, now: number = Dat
 export function sessionSlices(
     session: ReadonlyOnlineSession,
     now: number = Date.now(),
+    bounds?: { start: number; end: number },
 ): DaySlice[] {
-    const end = session.endAt ?? now;
-    if (end <= session.startAt) return [];
+    const start = Math.max(session.startAt, bounds?.start ?? -Infinity);
+    const end = Math.min(session.endAt ?? now, bounds?.end ?? Infinity);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
+    if (!Number.isFinite(new Date(start).getTime()) || !Number.isFinite(new Date(end).getTime()))
+        return [];
 
     const slices: DaySlice[] = [];
-    let cursor = session.startAt;
-    /* 上限 32 片：一段计时超过一天本就异常（应用没关、忘了结束），
-     * 而无限循环的后果是把页面挂死。宁可只切一个月，也不要死循环。 */
-    while (cursor < end && slices.length < 32) {
+    let cursor = start;
+    // 合法时段完整切分；有查询边界时先裁剪，避免为一周读数扫描多年的时段。
+    while (cursor < end) {
         const at = new Date(cursor);
         const nextMidnight = new Date(
             at.getFullYear(),
@@ -112,6 +115,7 @@ export function sessionSlices(
             0,
             0,
         ).getTime();
+        if (!Number.isFinite(nextMidnight) || nextMidnight <= cursor) break;
         const stop = Math.min(end, nextMidnight);
         slices.push({
             date: dateText(at),
@@ -188,7 +192,7 @@ export function cardCostOf(
         if (owners.length === 0) continue;
         if (characterId && !owners.includes(characterId)) continue;
         const index = characterId ? owners.indexOf(characterId) : -1;
-        for (const slice of sessionSlices(session, now)) {
+        for (const slice of sessionSlices(session, now, { start, end })) {
             if (slice.date < from || slice.date > to) continue;
             const amount = sliceCost(slice.minutes, owners.length, session.cardPrice);
             total += index >= 0 ? shareOfSlice(amount, owners.length)[index] : amount;
@@ -253,7 +257,7 @@ export function cardCostByDay(
         if ((session.endAt ?? now) <= start || session.startAt >= end) continue;
         const owners = ownersOf(session);
         if (owners.length === 0) continue;
-        for (const slice of sessionSlices(session, now)) {
+        for (const slice of sessionSlices(session, now, { start, end })) {
             if (dates && !dates.has(slice.date)) continue;
             const parts = shareOfSlice(
                 sliceCost(slice.minutes, owners.length, session.cardPrice),
@@ -290,7 +294,7 @@ export function minutesByDay(
         if ((session.endAt ?? now) <= start || session.startAt >= end) continue;
         const owners = ownersOf(session);
         if (owners.length === 0) continue;
-        for (const slice of sessionSlices(session, now)) {
+        for (const slice of sessionSlices(session, now, { start, end })) {
             if (dates && !dates.has(slice.date)) continue;
             for (const id of owners) {
                 const key = `${slice.date}|${id}`;
@@ -343,7 +347,7 @@ export function onlineTotalsOf(
         if (owners.length === 0) continue;
         if (characterId && !owners.includes(characterId)) continue;
         let touched = false;
-        for (const slice of sessionSlices(session, now)) {
+        for (const slice of sessionSlices(session, now, { start, end })) {
             if (slice.date < from || slice.date > to) continue;
             touched = true;
             minutes += slice.minutes;

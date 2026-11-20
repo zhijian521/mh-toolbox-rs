@@ -15,7 +15,7 @@
 .chart-panel.chart-in-card {
     --chart-panel-bg: transparent;
     --chart-panel-shadow: none;
-    /* 图例透出外层纸卡的底色与纹理，分隔线和内高光继续由底栏基座绘制。 */
+    /* 图例透出外层纸卡底色；是否保留底栏分隔由对应图表决定。 */
     --chart-shelf-bg: transparent;
 }
 .chart-surface {
@@ -53,14 +53,124 @@
         color-mix(in srgb, var(--progress-color) 94%, var(--ink-base))
     );
 }
-/* 票据外壳共用纸面与清晰薄底边，布局和缺口高度由调用方提供。 */
+/* 票据的侧棱与薄纸层一起表达厚度，布局和缺口高度由调用方提供。 */
 .ticket-card {
-    --ticket-layer: color-mix(in srgb, var(--paper) 62%, var(--rule-2));
+    --ticket-layer: color-mix(in srgb, var(--paper) 44%, var(--rule-2));
+    --ticket-layer-image: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--paper) 76%, var(--rule-2)),
+        transparent 2px,
+        transparent calc(100% - 2px),
+        color-mix(in srgb, var(--rule-2) 78%, var(--paper))
+    );
     --ticket-paper: color-mix(in srgb, var(--paper) 97%, var(--paper-base));
     --ticket-image:
+        radial-gradient(
+            circle at 0 var(--ticket-notch-y, 44px),
+            transparent var(--ticket-notch-radius),
+            var(--bevel-hi) calc(var(--ticket-notch-radius) + 0.5px),
+            color-mix(in srgb, var(--bevel-hi) 64%, transparent)
+                calc(var(--ticket-notch-radius) + 1.5px),
+            transparent calc(var(--ticket-notch-radius) + 2px)
+        ),
+        radial-gradient(
+            circle at 100% var(--ticket-notch-y, 44px),
+            transparent var(--ticket-notch-radius),
+            color-mix(in srgb, var(--rule-2) 72%, transparent)
+                calc(var(--ticket-notch-radius) + 0.5px),
+            color-mix(in srgb, var(--rule-2) 48%, transparent)
+                calc(var(--ticket-notch-radius) + 1.5px),
+            transparent calc(var(--ticket-notch-radius) + 2px)
+        ),
         var(--paper-grain, none),
         linear-gradient(180deg, var(--bevel-hi), transparent 12px);
-    --ticket-shadow: inset 0 1px 0 var(--bevel-hi);
+    --ticket-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 88%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--rule-2) 72%, transparent),
+        inset 0 -1px 0 color-mix(in srgb, var(--rule-2) 48%, transparent);
+}
+/* 票据与侧折纸卡共用断续压痕的深浅双棱，几何由各自标题维护。 */
+.ticket-card,
+.folded-card {
+    --ticket-rule-image: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--rule-2) 82%, var(--paper)) 1px,
+        var(--bevel-hi) 1px
+    );
+}
+/* 侧折纸卡的面纸保持纯色，只有窄纸脊以折面明暗表达厚度。 */
+.folded-card {
+    --folded-paper: var(--paper);
+    --folded-layer: color-mix(in srgb, var(--paper) 48%, var(--rule-2));
+    --folded-paper-shadow:
+        inset 0 1px 0 var(--bevel-hi), inset 1px 0 0 var(--bevel-hi),
+        inset -1px 0 0 color-mix(in srgb, var(--rule-2) 65%, transparent);
+    --folded-spine-image: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--paper) 72%, var(--rule-2)),
+        var(--paper-2) 50%,
+        color-mix(in srgb, var(--paper) 52%, var(--rule-2))
+    );
+    --folded-spine-shadow:
+        inset 1px 0 0 var(--bevel-hi), inset -1px 0 0 var(--rule-2), 0 2px 0 var(--rule);
+    --folded-crease-image: linear-gradient(90deg, var(--rule-2) 1px, var(--bevel-hi) 1px);
+}
+/* 弧面瓷键以浅凹键面、圆润肩部与薄前沿表达厚度，避免暗色重底座。 */
+.keycap-btn {
+    --keycap-edge: color-mix(in srgb, var(--rule) 70%, var(--paper));
+    --keycap-base: linear-gradient(
+        180deg,
+        var(--paper),
+        color-mix(in srgb, var(--paper) 70%, var(--rule-2))
+    );
+    --keycap-shadow: 0 2px 0 color-mix(in srgb, var(--paper) 60%, var(--rule-2));
+    --keycap-face: var(--paper);
+    --keycap-face-image: radial-gradient(
+        ellipse at 50% 30%,
+        color-mix(in srgb, var(--keycap-face) 96%, var(--rule-2)),
+        var(--keycap-face) 70%,
+        var(--bevel-hi)
+    );
+    --keycap-face-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        inset 1px 0 0 color-mix(in srgb, var(--bevel-hi) 45%, transparent);
+    --keycap-indicator: var(--rule-2);
+}
+.keycap-btn:hover:not(:disabled) {
+    --keycap-face: color-mix(in srgb, var(--paper) 94%, var(--keycap-tone, var(--accent)));
+}
+.keycap-btn.is-active {
+    --keycap-edge: color-mix(in srgb, var(--accent) 17%, var(--rule));
+    --keycap-face: color-mix(in srgb, var(--paper) 96%, var(--accent));
+    --keycap-indicator: var(--accent);
+}
+.keycap-btn:active:not(:disabled) {
+    --keycap-shadow: 0 1px 0 color-mix(in srgb, var(--paper) 60%, var(--rule-2));
+}
+/* 双孔纸签的孔壁与断续压痕共用主题材质，点击容器不参与裁剪。 */
+.paper-tag {
+    --paper-tag-face: var(--paper);
+    --paper-tag-layer: color-mix(in srgb, var(--paper) 48%, var(--rule-2));
+    --paper-tag-shadow:
+        inset 0 1px 0 var(--bevel-hi), inset 1px 0 0 var(--bevel-hi),
+        inset -1px 0 0 var(--rule-2),
+        inset 0 -1px 0 color-mix(in srgb, var(--rule-2) 60%, transparent);
+    --paper-tag-hole-edge: color-mix(in srgb, var(--paper) 80%, var(--rule-2));
+    --paper-tag-hole-shadow:
+        inset 0 1.3px 1px color-mix(in srgb, var(--ink-base) 34%, transparent),
+        0 1px 0 var(--bevel-hi);
+    --paper-tag-rule-image: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--rule-2) 76%, var(--paper)) 1px,
+        var(--bevel-hi) 1px
+    );
+}
+.paper-tag:hover {
+    --paper-tag-face: color-mix(in srgb, var(--paper) 96%, var(--paper-tag-tone, var(--accent)));
+}
+.paper-tag:active {
+    --paper-tag-shadow: inset 0 1px 2px var(--shadow), inset -1px 0 0 var(--rule-2);
 }
 .press-tile {
     --press-color: var(--tile-face, color-mix(in srgb, var(--paper) 92%, transparent));
@@ -243,29 +353,6 @@
             color-mix(in srgb, var(--bevel-lo) 26%, transparent),
             transparent 70%
         );
-}
-/* 侧签短键只保留薄底边和接触影，三态共用纯色纸面，不叠加大块高光。 */
-:root .side-tab-surface,
-:root .press-tile.press-side-tab,
-:root.dark .side-tab-surface,
-:root.dark .press-tile.press-side-tab {
-    --press-color: var(--tile-face, var(--paper));
-    --press-side-tab-edge: var(--side-tab-edge, var(--rule));
-    --press-image: none;
-    --press-shadow: var(
-        --side-tab-shadow,
-        2px 2px 0 var(--rule),
-        3px 5px 5px -4px var(--shadow-lg)
-    );
-    --press-icon-filter: none;
-}
-:root .press-tile.press-side-tab:not(.still):hover {
-    --press-color: var(--tile-face-hover, var(--paper));
-    --press-side-tab-edge: var(--tile-ink, var(--accent));
-}
-:root .press-tile.press-side-tab:not(.still):active {
-    --press-color: var(--tile-face-active, var(--well));
-    --press-shadow: inset 1px 1px 3px var(--shadow);
 }
 .board {
     --income-board-texture: var(--paper-grain, none);

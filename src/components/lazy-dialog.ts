@@ -1,4 +1,5 @@
-import { defineComponent, h, onBeforeUnmount, ref, shallowRef, type Component } from 'vue';
+import { defineComponent, h, onBeforeUnmount, provide, ref, shallowRef, type Component } from 'vue';
+import { MODAL_HANDOFF } from '../composables/use-modal-motion';
 import ModalShell from './ModalShell.vue';
 import PressButton from './PressButton.vue';
 
@@ -23,11 +24,24 @@ export function lazyDialog<T extends Component>(loader: () => Promise<{ default:
         setup(_, { attrs, slots }) {
             const component = shallowRef(cached);
             const failed = ref(false);
-            const status = ref<HTMLElement | null>(null);
+            const showLoading = ref(false);
             const trigger = document.activeElement;
+            const handoff = {
+                pending: false,
+                origin: trigger && trigger instanceof HTMLElement ? trigger : null,
+            };
+            provide(MODAL_HANDOFF, handoff);
+            const status = ref<HTMLElement | null>(null);
+            // 缓存和本地快速加载不闪现小窗；慢请求仍保留取消与失败重试。
+            const loadingTimer = cached
+                ? undefined
+                : setTimeout(() => {
+                      showLoading.value = true;
+                  }, 180);
             let active = true;
             onBeforeUnmount(() => {
                 active = false;
+                clearTimeout(loadingTimer);
             });
 
             async function open() {
@@ -35,15 +49,18 @@ export function lazyDialog<T extends Component>(loader: () => Promise<{ default:
                 try {
                     const loaded = await load();
                     if (!active) return;
-                    // 先让新弹窗捕获原触发点；加载窗卸载还焦点后，新窗再执行自身初始聚焦。
-                    const panel = status.value?.closest('[role="dialog"]');
-                    if (panel?.contains(document.activeElement) && trigger instanceof HTMLElement) {
-                        trigger.focus();
+                    clearTimeout(loadingTimer);
+                    // 显示过占位窗时直接交接原触发点，避免聚焦仍被 inert 的父窗。
+                    if (status.value) {
+                        status.value?.closest('.modal-mask')?.setAttribute('data-modal-replaced', '');
+                        handoff.pending = true;
                     }
                     component.value = loaded;
                 } catch (error) {
                     if (!active) return;
                     console.error('弹窗加载失败', error);
+                    clearTimeout(loadingTimer);
+                    showLoading.value = true;
                     failed.value = true;
                 }
             }
@@ -57,6 +74,7 @@ export function lazyDialog<T extends Component>(loader: () => Promise<{ default:
 
             return () => {
                 if (component.value) return h(component.value, attrs, slots);
+                if (!showLoading.value) return null;
                 return h(
                     ModalShell,
                     { title: failed.value ? '加载失败' : '加载中', width: 320, onClose: close },

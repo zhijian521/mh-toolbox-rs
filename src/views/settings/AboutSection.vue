@@ -16,7 +16,7 @@ import UpdateCheck from './UpdateCheck.vue';
  * 读起来像环境表的附录。
  */
 const { info } = useAppInfo();
-const { selectedFont } = useFontFamily();
+const { font, selectedFont } = useFontFamily();
 </script>
 
 <template>
@@ -44,7 +44,11 @@ const { selectedFont } = useFontFamily();
             <dt>运行环境</dt>
             <dd>{{ info?.webview ?? '系统 WebView2（Tauri 2）' }}</dd>
             <dt>字体</dt>
-            <dd>{{ selectedFont.label }}（SIL OFL 1.1，常用字子集）</dd>
+            <dd>
+                {{ selectedFont.label }}
+                <template v-if="font === 'system'">（由操作系统提供）</template>
+                <template v-else>（SIL OFL 1.1，常用字子集）</template>
+            </dd>
         </dl>
         <UpdateCheck />
     </LedgerSection>

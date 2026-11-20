@@ -3,7 +3,7 @@
     python tools/font/import-ui-fonts.py
 
 依赖 fonttools[woff]；原件仅缓存在 .runtime/font-sources，版本与 SHA256 固定在下表。
-思源保留名称不用于修改后的字体内部名称；界面选项保留原字体来源名称。
+上游保留名称不用于修改后的字体内部名称；界面选项保留原字体来源名称。
 """
 
 import argparse
@@ -21,18 +21,6 @@ ROOT = Path(__file__).resolve().parents[2]
 CACHE = ROOT / '.runtime/font-sources'
 DEST = ROOT / 'assets/fonts'
 SOURCES = [
-    {
-        'id': 'sans',
-        'source': 'sans.otf',
-        'url': 'https://raw.githubusercontent.com/adobe-fonts/source-han-sans/'
-               'a4f7cf94edfb9d7ffbdfc4841de276358bd7e0f2/SubsetOTF/CN/SourceHanSansCN-Regular.otf',
-        'sha256': 'e2bc8a2e7f37474b774fff8db758681ece40bb6947a90d571bce9dd60671a8e4',
-        'family': 'MH Toolbox Hei',
-        'output': 'MHHei.woff2',
-        'license': 'SourceHanSans-OFL.txt',
-        'license_url': 'https://raw.githubusercontent.com/adobe-fonts/source-han-sans/'
-                       'a4f7cf94edfb9d7ffbdfc4841de276358bd7e0f2/LICENSE.txt',
-    },
     {
         'id': 'rounded',
         'source': 'rounded.7z',

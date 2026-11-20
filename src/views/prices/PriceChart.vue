@@ -30,7 +30,6 @@ const summary = computed(
             :series="series"
             kind="money"
             label="价格走势"
-            :height="180"
             :colors="colors"
             :value-text="moneyText"
         />

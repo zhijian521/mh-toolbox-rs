@@ -5,9 +5,11 @@ import type { IconName } from '../../components/icons';
 import CostSwitch from '../../components/CostSwitch.vue';
 import DateField from '../../components/DateField.vue';
 import FontSizeSlider from '../../components/FontSizeSlider.vue';
+import KeycapButton from '../../components/KeycapButton.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import MeterBar from '../../components/MeterBar.vue';
 import NumTag from '../../components/NumTag.vue';
+import PaperTag from '../../components/PaperTag.vue';
 import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import PriceField from '../../components/PriceField.vue';
@@ -18,6 +20,7 @@ import SelectField from '../../components/SelectField.vue';
 import SlotButton from '../../components/SlotButton.vue';
 import TextButton from '../../components/TextButton.vue';
 import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
+import FoldedCard from '../../components/FoldedCard.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import TogglePills from '../../components/TogglePills.vue';
 import TicketCard from '../../components/TicketCard.vue';
@@ -28,7 +31,7 @@ import { STYLE_OPTIONS, THEME_OPTIONS, useTheme } from '../../composables/use-th
 import { todayText } from '../../services/format';
 
 /**
- * 原子组件：抽出来复用的十五件（十五条 `kit-cell`，一条里可能并排两个同族件——
+ * 公共组件目录：一条 `kit-cell` 可并排同族件，件数统一由 KIT_GROUPS 派生——
  * 比如 `Field` / `NumberField`、`PressTile` / `PressButton`）。
  *
  * 加一件要动两处，且**必须一起动**：`KIT_GROUPS` 那一组的 `items` 里加一项
@@ -63,6 +66,7 @@ import { todayText } from '../../services/format';
  */
 const { mode, style } = useTheme();
 const { scale } = useFontScale();
+const demoKeycapActive = ref(false);
 
 /**
  * 目录：五组，一组一条。组名按**手上那个动作**分，不按组件的技术分类：
@@ -109,8 +113,10 @@ const KIT_GROUPS: {
         items: [
             ['slot', '槽按钮'],
             ['press', '压印块与按钮'],
+            ['keycap', '弧面瓷键'],
             ['text', '文字按钮'],
             ['pager', '分页'],
+            ['paper-tag', '双孔纸签'],
         ],
     },
     {
@@ -121,6 +127,7 @@ const KIT_GROUPS: {
             ['numtag', '数值签'],
             ['meter', '进度条'],
             ['stat', '统计条'],
+            ['folded', '侧折纸卡'],
             ['trend', '趋势图'],
         ],
     },
@@ -610,28 +617,73 @@ const demoToggles = ref<string[]>(['task']);
                                 :items="DEMO_EMBEDDED_STATS"
                                 class="demo-stats-embedded"
                                 surface="embedded"
-                                heading="近一周"
-                                icon="calendar"
+                                heading="梦幻币统计"
+                                icon="accounts"
                                 aria-label="薄票据统计示例"
                             />
                         </div>
                         <p class="note">
                             默认每格为独立纸面；卡内使用 <code>surface="embedded"</code>，票据直接
                             放在纸面上，保留虚线、镂空缺口、平直纸边和标题小图标。
-                            与队伍小票共用 <code>TicketCard</code> 外壳，圆角取 <code>--r-ticket</code>。
-                            立体感来自纸色薄底边与顶部高光，不叠加模糊影。
+                            账号票据使用 <code>TicketCard</code> 外壳，圆角取 <code>--r-ticket</code>。
+                            立体感来自左亮右暗的细纸棱、两侧薄纸层与顶部高光，不叠加模糊影。
                             金额、单位和未读取状态由业务提供。
                         </p>
                         <div class="kit-row">
                             <TicketCard as="article" class="demo-ticket">
-                                <template #header><h3>自定义内容</h3></template>
+                                <template #header><h3 class="ticket-rule">自定义内容</h3></template>
                                 <p>同一票据外壳，内部保留各自的内容排版。</p>
                             </TicketCard>
                         </div>
                         <p class="note">
-                            <code>TicketCard</code> 只提供纸面、侧缺口和薄底边；可换行签头放在
+                            <code>TicketCard</code> 只提供纸面、侧缺口和立体纸边；可换行签头放在
                             <code>header</code> 插槽并以分隔线收尾，票口跟随实际高度。固定签头也可用
                             <code>--ticket-notch-y</code> 定位，不参与统计或业务计算。
+                        </p>
+                    </div>
+
+                    <div v-if="current === 'read'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">侧折纸卡</span>
+                            <span class="kit-en">FoldedCard</span>
+                        </span>
+                        <div class="kit-row">
+                            <FoldedCard spine="left" class="demo-folded">
+                                <h3>左侧纸脊</h3>
+                                <p>内容自然排列，折边独立换向。</p>
+                            </FoldedCard>
+                            <FoldedCard spine="right" class="demo-folded">
+                                <h3>右侧纸脊</h3>
+                                <p>内容自然排列，折边独立换向。</p>
+                            </FoldedCard>
+                        </div>
+                        <div class="kit-row">
+                            <StatStrip
+                                :items="DEMO_EMBEDDED_STATS"
+                                class="demo-stats-embedded"
+                                surface="folded"
+                                heading="近一周"
+                                icon="calendar"
+                                aria-label="右侧纸脊统计示例"
+                            />
+                            <StatStrip
+                                :items="DEMO_EMBEDDED_STATS"
+                                class="demo-stats-embedded"
+                                surface="folded"
+                                spine="left"
+                                heading="今日在线"
+                                icon="play"
+                                aria-label="左侧纸脊统计示例"
+                            />
+                        </div>
+                        <p class="note">
+                            <code>FoldedCard</code> 只提供外壳，任意内容放入默认插槽。
+                            <code>spine="left"</code>／<code>spine="right"</code> 控制纸脊，默认右侧；
+                            正文不镜像，内边距自动为纸脊留空。统计条使用
+                            <code>surface="folded"</code>，字号与票据模式一致。
+                            <code>--folded-pad-block</code>／<code>--folded-pad-inline</code> 控制留白，
+                            纸脊的避让统一由外壳处理。总览周月、队伍和收益双便签共用此组件，
+                            内部排版由各自内容决定。
                         </p>
                     </div>
 
@@ -650,13 +702,14 @@ const demoToggles = ref<string[]>(['task']);
                                     ]"
                                     kind="money"
                                     label="示例收益趋势"
-                                    :height="130"
                                 />
                             </LedgerSection>
                         </div>
                         <p class="note">
                             图表单独使用时自带立体底板；放在卡片内使用 <code>.chart-in-card</code>，
-                            由外层纸卡统一承载标题和阴影，图例透出同一底色，保留立体分隔线和高光。
+                            由外层纸卡统一承载标题和阴影，图例透出同一底色，不额外绘制分隔线。
+                            完整绘图区默认 220px（含坐标与标签，不含图例），多数据横向滚动且隐藏滚动条，
+                            保留悬停明细和键盘查看；账号分类图沿用同一默认高度与滚动基座。
                             外层使用 <code>plain</code> 关闭纹理和渐变，仍保留公共圆角与立体阴影。
                         </p>
                     </div>
@@ -711,19 +764,6 @@ const demoToggles = ref<string[]>(['task']);
                             <PressButton text="md" label="默认 26px" />
                             <PressButton text="lg" label="大一号 31px" size="lg" />
                         </div>
-                        <div class="kit-row">
-                            <button
-                                type="button"
-                                class="demo-side-tab-button"
-                                aria-label="侧签短键入口示例"
-                            >
-                                <PressTile class="demo-side-tab-face" surface="side-tab">
-                                    <AppIcon name="tools" />
-                                    <span>常用工具</span>
-                                    <AppIcon name="chevron-right" class="demo-side-tab-arrow" />
-                                </PressTile>
-                            </button>
-                        </div>
                         <p class="note">
                             左边两枚是<b>块</b>（工具页图标格、左栏牌记），右边依次是<b>按钮</b>的四种
                             内容与三档尺寸：同一块纸，<code>seal</code> 把块面灌朱，一屏一枚。尺寸
@@ -731,8 +771,40 @@ const demoToggles = ref<string[]>(['task']);
                             <code>md</code> 与槽按钮逐像素同值，<code>sm</code>
                             是注脚级（塞在说明行右端、读数格边上，字号与内距一并收窄）。
                             <b>但一凹一凸是两种材质，别混在同一行</b>。
-                            卡内入口使用 <code>surface="side-tab"</code>，通过左侧色签和薄底边
-                            区分层级；悬停改变底色和描边，按下收紧投影，均不位移，由外层原生按钮负责焦点和点击。
+                        </p>
+                    </div>
+                    <div v-if="current === 'action'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">弧面瓷键</span>
+                            <span class="kit-en">KeycapButton</span>
+                        </span>
+                        <div class="kit-row">
+                            <KeycapButton
+                                class="demo-keycap"
+                                text="清风明月"
+                                indicator
+                                :active="demoKeycapActive"
+                                :label="demoKeycapActive ? '演示：结束计时' : '演示：开始计时'"
+                                @click="demoKeycapActive = !demoKeycapActive"
+                            />
+                            <KeycapButton
+                                class="demo-keycap"
+                                text="正在保存"
+                                label="演示在线保存中"
+                                active
+                                indicator
+                                disabled
+                            />
+                            <KeycapButton text="暂不可用" label="演示禁用状态" disabled />
+                        </div>
+                        <p class="note">
+                            弧面瓷键使用浅凹键面、圆润肩部和薄前沿；悬停不位移，按下仅键面下沉。
+                            点击首枚可切换演示状态，业务页同一角色键开始／结束计时，保存中禁用。
+                            <code>--keycap-min-h</code>／<code>--keycap-pad</code> 控制尺寸，
+                            <code>active</code> 标记业务状态，<code>indicator</code> 显示状态灯；
+                            状态与保存仍由调用方管理，禁用的在线键保留清晰读数。
+                            角色键按内容定宽，常规最小高度 34px 随字号缩放，不按排数拉高，
+                            长名称在窄区自然换行。
                         </p>
                     </div>
                     <div v-if="current === 'action'" class="kit-cell">
@@ -763,6 +835,30 @@ const demoToggles = ref<string[]>(['task']);
                         <p class="note">
                             左右箭头逐页翻动，点击页码直达；省略号每次跳五页，首尾始终可见。
                             当前页使用印面与 <code>aria-current</code>，单页自动隐藏。
+                        </p>
+                    </div>
+                    <div v-if="current === 'action'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">双孔纸签</span>
+                            <span class="kit-en">PaperTag</span>
+                        </span>
+                        <div class="kit-row">
+                            <button
+                                type="button"
+                                class="demo-paper-tag-button"
+                                aria-label="演示双孔纸签"
+                                @click="notify.info('双孔纸签')"
+                            >
+                                <PaperTag>
+                                    <span class="demo-paper-tag-content">
+                                        <AppIcon name="accounts" />
+                                        <span>记一笔</span>
+                                    </span>
+                                </PaperTag>
+                            </button>
+                        </div>
+                        <p class="note">
+                            首页常用功能与账号快捷记账共用纸面、孔壁和断续压痕；内容经默认插槽传入，颜色与尺寸通过 CSS 变量调整，按钮、焦点与业务由外层负责。
                         </p>
                     </div>
                 </div>

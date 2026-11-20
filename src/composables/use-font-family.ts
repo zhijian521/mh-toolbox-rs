@@ -2,12 +2,12 @@ import { computed, effectScope, ref, watch } from 'vue';
 import { writePreference } from '../services/local-data';
 import { notify } from './use-notify';
 
-export type FontFamily = 'wenkai' | 'sans' | 'rounded';
+export type FontFamily = 'wenkai' | 'rounded' | 'system';
 
 export const FONT_OPTIONS: { value: FontFamily; label: string }[] = [
     { value: 'wenkai', label: '霞鹜文楷' },
-    { value: 'sans', label: '思源黑体' },
     { value: 'rounded', label: '资源圆体' },
+    { value: 'system', label: '系统默认' },
 ];
 
 const STORAGE_KEY = 'mh-font-family';
@@ -15,6 +15,8 @@ const STORAGE_KEY = 'mh-font-family';
 function readStoredFont(): FontFamily {
     try {
         const stored = globalThis.localStorage?.getItem(STORAGE_KEY);
+        // 原黑体偏好改用系统字体；保留用户的无衬线阅读选择，不再依赖已移除的字体文件。
+        if (stored === 'sans') return 'system';
         return FONT_OPTIONS.find((option) => option.value === stored)?.value ?? 'wenkai';
     } catch {
         return 'wenkai';

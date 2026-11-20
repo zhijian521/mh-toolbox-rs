@@ -61,7 +61,10 @@ export function autoRowsOf(date: string, now = Date.now()): AutoInput[] {
 }
 
 function syncDates(dates: readonly string[]) {
-    const sourceError = useIncome().loadError.value || useOnline().loadError.value;
+    const sources = [useIncome(), useOnline(), useAccounts()];
+    const sourceError =
+        sources.find((source) => source.loadError.value)?.loadError.value ||
+        (sources.some((source) => !source.loaded.value) ? '账本尚未读取完成' : '');
     if (sourceError) {
         error.value = sourceError;
         return { ok: false, error: sourceError };
@@ -119,6 +122,18 @@ export function startDailySync(): () => void {
     const scope = effectScope();
     scope.run(() => {
         const now = useMinuteNow();
+        const sources = [useIncome(), useOnline(), useAccounts()];
+        // 恢复读取后重新核对全部日期；仅监听源数组会漏掉账号自身恢复的情况。
+        watch(
+            () => sources.every((source) => source.loaded.value && !source.loadError.value),
+            (ready) => {
+                if (!ready || !syncAllDays().ok) return;
+                queued.clear();
+                clearTimeout(timer);
+                timer = undefined;
+            },
+            { flush: 'sync' },
+        );
         watch(
             useIncome().entries,
             (after, before) => {
@@ -138,8 +153,12 @@ export function startDailySync(): () => void {
         watch(now, (value, previous) => {
             for (const one of useOnline().sessions.value) {
                 if (one.endAt !== null) continue;
-                addSessionDays(queued, one, previous);
-                addSessionDays(queued, one, value);
+                // 只补本次时钟推进涉及的日期，休眠跨日也完整保留，不重切全部历史。
+                const end = Math.max(previous, value);
+                const start = Math.min(previous, value);
+                for (const slice of sessionSlices(one, end, { start, end })) {
+                    queued.add(slice.date);
+                }
             }
             if (queued.size) schedule();
         });

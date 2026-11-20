@@ -254,7 +254,8 @@ useRouteAction('/income', {
                     <StatStrip
                         class="income-summary"
                         :items="statItems"
-                        surface="embedded"
+                        surface="folded"
+                        spine="left"
                         heading="今日收益"
                         icon="coins"
                         aria-label="今日收益统计"

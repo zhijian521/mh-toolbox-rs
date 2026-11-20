@@ -106,14 +106,16 @@ export default async function run(ctx) {
                 hero: !!document.querySelector('.day-hero'),
                 heroTitle: document.querySelector('.day-intro h2')?.textContent.trim(),
                 overviewActions: !document.querySelector('[aria-label="查看收益历史"]') &&
-                    !!document.querySelector('[aria-label="查看全部目标"] .app-icon') &&
-                    !!document.querySelector('[aria-label="管理全部角色"] .app-icon'),
+                    !document.querySelector('.goals-section [aria-label="查看全部目标"]') &&
+                    !document.querySelector('.team-section [aria-label="管理全部角色"]') &&
+                    !document.querySelector('.team-section [aria-label="新建角色"]'),
+                customizeTextButton: !!document.querySelector('.shortcuts-section .text-btn[aria-label="自定义常用功能"]'),
                 solidBoards: [...document.querySelectorAll('.overview .board')].every(el =>
                     getComputedStyle(el).backgroundImage === 'none' &&
                     getComputedStyle(el).boxShadow !== 'none'),
                 stats: document.querySelectorAll('.workbench-today .stat').length,
                 cashflow: document.querySelectorAll('.workbench-accounts .stat').length,
-                ticketReadouts: (() => {
+                foldedReadouts: (() => {
                     const container = document.querySelector('.workbench-readouts');
                     const tickets = [...(container?.querySelectorAll(':scope > .stats-embedded') ?? [])];
                     return container && container.getBoundingClientRect().width <= 617 &&
@@ -126,40 +128,87 @@ export default async function run(ctx) {
                                 !el.querySelector('.stats-watermark') &&
                                 head.querySelectorAll('.app-icon').length === 1 &&
                                 getComputedStyle(el).borderTopWidth === '0px' &&
-                                el.classList.contains('ticket-card') &&
+                                el.classList.contains('folded-card') && el.dataset.spine === 'right' &&
+                                !!el.querySelector('.folded-spine[aria-hidden=true]') &&
+                                Math.abs(Number.parseFloat(getComputedStyle(el).paddingRight) -
+                                    Number.parseFloat(getComputedStyle(el).paddingLeft) - 14) < 0.1 &&
                                 getComputedStyle(el).filter === 'none' &&
                                 getComputedStyle(head).borderBottomStyle === 'dashed' &&
-                                getComputedStyle(el, '::before').maskImage !== 'none' &&
+                                getComputedStyle(el, '::before').maskImage === 'none' &&
                                 getComputedStyle(el, '::after').content !== 'none' &&
                                 getComputedStyle(el, '::after').boxShadow === 'none';
                         });
                 })(),
+                foldedDirections: (() => {
+                    const original = document.querySelector('.workbench-today.folded-card');
+                    if (!original) return false;
+                    const left = original.cloneNode(true);
+                    left.dataset.spine = 'left';
+                    Object.assign(left.style, {
+                        position: 'fixed', left: '-10000px', top: '0', visibility: 'hidden',
+                        width: original.getBoundingClientRect().width + 'px',
+                    });
+                    original.parentElement.append(left);
+                    try {
+                        const rightStyle = getComputedStyle(original);
+                        const leftStyle = getComputedStyle(left);
+                        const paper = getComputedStyle(left, '::before');
+                        const leftRect = left.getBoundingClientRect();
+                        const leftSpine = left.querySelector('.folded-spine').getBoundingClientRect();
+                        const rightRect = original.getBoundingClientRect();
+                        const rightSpine = original.querySelector('.folded-spine').getBoundingClientRect();
+                        return Math.abs(leftSpine.left - leftRect.left) < 0.1 &&
+                            Math.abs(rightSpine.right - rightRect.right) < 0.1 &&
+                            leftStyle.paddingLeft === rightStyle.paddingRight &&
+                            leftStyle.paddingRight === rightStyle.paddingLeft &&
+                            paper.left === '14px' && paper.right === '0px' &&
+                            leftStyle.transform === 'none' &&
+                            getComputedStyle(left.querySelector('.stats-head')).transform === 'none' &&
+                            left.textContent === original.textContent;
+                    } finally {
+                        left.remove();
+                    }
+                })(),
                 ticketCorners: (() => {
                     const radius = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--r-ticket'));
-                    const surfaces = [...document.querySelectorAll('.overview .ticket-card')]
-                        .map(el => getComputedStyle(el, '::before'));
+                    const surfaces = [...document.querySelectorAll('.overview .ticket-card, .overview .folded-card')]
+                        .map(el => getComputedStyle(el));
                     return radius > 0 && surfaces.length >= 2 && surfaces.every(style =>
                         ['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius']
                             .every(corner => Math.abs(Number.parseFloat(style[corner]) - radius) < 0.1));
                 })(),
-                unifiedTickets: (() => {
-                    const cards = [...document.querySelectorAll('.overview .ticket-card')];
-                    const reference = document.querySelector('.workbench-today.ticket-card');
-                    if (!reference || cards.length < 2) return false;
+                teamFoldedCards: (() => {
+                    const cards = [...document.querySelectorAll('.team-person')];
+                    const reference = document.querySelector('.workbench-today.folded-card');
+                    if (!reference) return false;
                     const paper = getComputedStyle(reference, '::before');
                     const edge = getComputedStyle(reference, '::after');
+                    const spine = getComputedStyle(reference.querySelector('.folded-spine'));
+                    const rule = getComputedStyle(reference.querySelector('.stats-head'), '::after');
                     return cards.every(card => {
                         const face = getComputedStyle(card, '::before');
                         const bottom = getComputedStyle(card, '::after');
-                        return getComputedStyle(card).filter === 'none' &&
+                        const fold = card.querySelector('.folded-spine[aria-hidden=true]');
+                        if (!fold) return false;
+                        return card.classList.contains('folded-card') && card.dataset.spine === 'left' &&
+                            getComputedStyle(card).filter === 'none' &&
                             face.backgroundColor === paper.backgroundColor &&
                             face.backgroundImage === paper.backgroundImage &&
-                            face.boxShadow === paper.boxShadow && face.maskImage !== 'none' &&
+                            face.boxShadow === paper.boxShadow && face.maskImage === 'none' &&
+                            face.boxShadow.includes('inset') &&
                             bottom.backgroundColor === edge.backgroundColor &&
-                            bottom.bottom === '-2px' && bottom.boxShadow === 'none';
-                    }) && [...document.querySelectorAll('.team-person')].every(card =>
-                        card.classList.contains('ticket-card') &&
-                        getComputedStyle(card.querySelector('.team-identity')).borderBottomStyle === 'dashed');
+                            bottom.backgroundImage === edge.backgroundImage &&
+                            bottom.maskImage === 'none' &&
+                            bottom.top === '1px' && bottom.left === '14px' && bottom.right === '0px' &&
+                            bottom.bottom === '-2px' && bottom.boxShadow === 'none' &&
+                            getComputedStyle(fold).backgroundImage === spine.backgroundImage &&
+                            getComputedStyle(fold).boxShadow === spine.boxShadow &&
+                            ['.team-identity', '.team-slip-footer'].every(selector =>
+                                getComputedStyle(card.querySelector(selector), '::after').maskImage === rule.maskImage) &&
+                            ['.team-identity', '.team-records', '.team-slip-footer'].every(selector =>
+                                card.querySelector(selector).getBoundingClientRect().left >=
+                                    fold.getBoundingClientRect().right + 15);
+                    });
                 })(),
                 pairedCards: (() => {
                     const shortcuts = document.querySelector('.shortcuts-section')?.getBoundingClientRect();
@@ -203,7 +252,7 @@ export default async function run(ctx) {
                             const paper = getComputedStyle(card, '::before');
                             const cast = getComputedStyle(card, '::after');
                             const records = [...card.querySelectorAll('.team-record')];
-                            if (!card.classList.contains('ticket-card') || card.querySelector('.team-slip-clip')) return false;
+                            if (!card.classList.contains('folded-card') || card.querySelector('.team-slip-clip')) return false;
                             const cardBox = card.getBoundingClientRect();
                             const stripBox = strip.getBoundingClientRect();
                             return cardBox.top - stripBox.top <= 9 &&
@@ -248,20 +297,28 @@ export default async function run(ctx) {
                     content: body.scrollHeight,
                 })),
                 shortcuts: [...document.querySelectorAll('.workbench-shortcut')].map(el => ({ name: el.querySelector('.shortcut-name')?.textContent.trim(), id: el.dataset.shortcutId })),
-                sideTabShortcuts: [...document.querySelectorAll('.workbench-shortcut')].every(el => {
-                    const face = el.querySelector('.shortcut-face.press-side-tab');
+                punchedShortcuts: [...document.querySelectorAll('.workbench-shortcut')].every(el => {
+                    const face = el.querySelector('.shortcut-face');
                     if (!face || el.querySelector('.shortcut-copy small')) return false;
                     const scale = Number(getComputedStyle(face).getPropertyValue('--fs-scale'));
                     const icon = face.querySelector('.shortcut-icon .app-icon');
                     const name = face.querySelector('.shortcut-name');
-                    if (!icon || !name || face.getBoundingClientRect().height < 60 * scale - 1 ||
+                    if (!icon || !name || face.getBoundingClientRect().height < 70 * scale - 1 ||
                         icon.getBoundingClientRect().width < 23 * scale - 1 ||
                         Number.parseFloat(getComputedStyle(name).fontSize) < 13.5 * scale - 0.1) return false;
-                    const shadow = getComputedStyle(face).boxShadow;
-                    return shadow.includes(' 2px 2px 0px ') &&
-                        getComputedStyle(face).backgroundImage === 'none' &&
-                        getComputedStyle(face, '::before').width === '3px' &&
-                        getComputedStyle(face, '::before').content !== 'none' &&
+                    const binding = face.querySelector('.paper-tag-binding[aria-hidden=true]');
+                    const content = face.querySelector('.paper-tag-content');
+                    const mask = getComputedStyle(face, '::before').maskImage;
+                    return binding && content && mask !== 'none' &&
+                        (mask.match(/radial-gradient/g) ?? []).length === 2 &&
+                        getComputedStyle(face, '::after').maskImage === mask &&
+                        getComputedStyle(face).backgroundColor === 'rgba(0, 0, 0, 0)' &&
+                        getComputedStyle(face).boxShadow === 'none' &&
+                        getComputedStyle(binding, '::before').content !== 'none' &&
+                        getComputedStyle(binding, '::after').content !== 'none' &&
+                        getComputedStyle(content, '::before').maskImage.includes('repeating-linear-gradient') &&
+                        getComputedStyle(content, '::before').backgroundImage.includes('linear-gradient') &&
+                        getComputedStyle(content, '::before').width === '2px' &&
                         !!face.querySelector('.shortcut-arrow') && !!el.title;
                 }),
                 shortcutColumns: (() => {
@@ -294,10 +351,15 @@ export default async function run(ctx) {
                         getComputedStyle(section).boxShadow === getComputedStyle(reference).boxShadow &&
                         getComputedStyle(chart).boxShadow === 'none' &&
                         getComputedStyle(surface, '::after').boxShadow.includes('inset') &&
-                        surface.getBoundingClientRect().height >= 180 &&
+                        Math.abs(surface.getBoundingClientRect().height - 220) < 1 &&
+                        getComputedStyle(chart.querySelector('.chart-scroll')).overflowX === 'auto' &&
+                        getComputedStyle(chart.querySelector('.chart-scroll')).scrollbarWidth === 'none' &&
                         section.getBoundingClientRect().bottom - legend.getBoundingClientRect().bottom <= 9 &&
-                        getComputedStyle(legend).borderTopWidth === '1px' &&
-                        getComputedStyle(legend).boxShadow.includes('inset') &&
+                        getComputedStyle(legend).borderTopWidth === '0px' &&
+                        getComputedStyle(legend).boxShadow === 'none' &&
+                        Math.abs(legend.getBoundingClientRect().left - surface.getBoundingClientRect().left) < 1 &&
+                        getComputedStyle(legend).paddingLeft === '0px' &&
+                        parseFloat(getComputedStyle(legend).marginTop) + parseFloat(getComputedStyle(legend).paddingTop) === 12 &&
                         getComputedStyle(legend).backgroundColor === 'rgba(0, 0, 0, 0)' &&
                         getComputedStyle(legend).backgroundImage === 'none' &&
                         getComputedStyle(column).getPropertyValue('--chart-depth').trim() === '6px';
@@ -320,11 +382,13 @@ export default async function run(ctx) {
                 links: [...document.querySelectorAll('.goal-row')].every(el => el.getAttribute('href')?.includes('action=update')),
             }))()`);
                     t.check('顶部显示四项近一周概览', shape.hero && shape.stats === 4);
-                    t.check('总览去掉页头历史，全部与管理按钮带图标', shape.overviewActions);
+                    t.check('总览省去历史、队伍新增和管理、目标全部按钮', shape.overviewActions);
+                    t.check('常用功能自定义采用文字按钮', shape.customizeTextButton);
                     t.check('首页外层卡片使用纯色背景并保留立体阴影', shape.solidBoards);
-                    t.check('周月票据保留限宽、缺口与标题小图标，底边平直无锯齿', shape.ticketReadouts);
+                    t.check('周月统计采用限宽侧折纸卡，标题保留小图标并为纸脊留空', shape.foldedReadouts);
+                    t.check('侧折纸卡支持左右换向，正文不镜像且两侧留白互换', shape.foldedDirections);
                     t.check('周月统计与队伍小票的四角共用同一圆角', shape.ticketCorners);
-                    t.check('周月统计与队伍共用纸面、侧缺口和清晰薄底边，保留各自排版', shape.unifiedTickets);
+                    t.check('队伍使用左侧纸脊，与周月共用侧折材质，内容避开折边', shape.teamFoldedCards);
                     t.check('常用功能与目标并排时卡片等高', shape.pairedCards);
                     t.check(
                         '工作台并排展示近一周概览和四项双币种收支',
@@ -340,19 +404,14 @@ export default async function run(ctx) {
                     );
                     t.check('队伍小票保留身份与三类最近记录', shape.teamCards);
                     t.check('队伍签头独立一行，名称、等级与门派在分隔线上方同排', shape.teamNameFlow);
-                    const teamLongName = await cdp.evaluate(`(async () => {
+                    const teamLongName = await cdp.evaluate(`(() => {
                         const card = document.querySelector('.team-person');
                         if (!card) return false;
                         const name = card.querySelector('.team-name');
                         const original = name.textContent;
-                        const marker = document.createElement('span');
-                        marker.style.cssText = 'position:absolute;top:var(--ticket-notch-y);width:0;height:0;pointer-events:none';
-                        const settled = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
                         try {
-                            // 只暂改展示文字，触发真实签头的 ResizeObserver；不修改名册或落盘。
+                            // 只暂改展示文字，检查自然换行与滚动边界；不修改名册或落盘。
                             name.textContent = '星河长名字角色'.repeat(4);
-                            card.append(marker);
-                            await settled();
                             const nameBox = name.getBoundingClientRect();
                             const levelBox = card.querySelector('.team-level').getBoundingClientRect();
                             const schoolBox = card.querySelector('.team-school-name').getBoundingClientRect();
@@ -360,23 +419,20 @@ export default async function run(ctx) {
                             const body = card.querySelector('.team-records');
                             const footer = card.querySelector('.team-slip-footer');
                             const lineHeight = Number.parseFloat(getComputedStyle(name).lineHeight);
-                            const divider = identity.getBoundingClientRect().bottom -
-                                Number.parseFloat(getComputedStyle(identity).borderBottomWidth) / 2;
                             return nameBox.height > lineHeight * 1.5 &&
                                 name.scrollWidth <= name.clientWidth + 1 &&
                                 nameBox.right <= levelBox.left + 1 && levelBox.right <= schoolBox.left + 1 &&
                                 levelBox.bottom <= nameBox.top + lineHeight + 1 &&
                                 card.scrollWidth <= card.clientWidth + 1 &&
-                                Math.abs(marker.getBoundingClientRect().top - divider) < 1 &&
+                                identity.getBoundingClientRect().bottom <= body.getBoundingClientRect().top + 1 &&
+                                nameBox.left >= card.querySelector('.folded-spine').getBoundingClientRect().right + 15 &&
                                 getComputedStyle(body).overflowY === 'auto' &&
                                 body.getBoundingClientRect().bottom <= footer.getBoundingClientRect().top + 1;
                         } finally {
                             name.textContent = original;
-                            marker.remove();
-                            await settled();
                         }
                     })()`);
-                    t.check('长名称完整换行，等级、门派、票口与底部状态不被挤出', teamLongName);
+                    t.check('长名称完整换行，等级、门派避开纸脊，底部状态不被挤出', teamLongName);
                     t.check('队伍只保留清晰薄纸底边，没有模糊投影', shape.paperTeam);
                     t.check('队伍首张卡片与收益趋势绘图区左边界对齐', shape.teamAligned);
                     t.check(
@@ -393,7 +449,7 @@ export default async function run(ctx) {
                         '首页使用功能按钮，默认包含仓库入口',
                         !shape.quickForm && shape.shortcuts.some((one) => one.id === 'warehouse'),
                     );
-                    t.check('常用功能使用侧签短键、薄底边和右侧箭头，说明保留在悬停提示', shape.sideTabShortcuts);
+                    t.check('常用功能使用双孔纸签、装订虚线和右侧箭头，说明保留在悬停提示', shape.punchedShortcuts);
                     t.check('常用功能按宽度排一至三列，按钮限宽且名称不换行', shape.shortcutColumns);
                     const shortcutPoint = await cdp.evaluate(`(() => {
                         const button = document.querySelector('.workbench-shortcut');
@@ -435,7 +491,7 @@ export default async function run(ctx) {
                         ),
                     );
                     t.check(
-                        '趋势与队伍省去副标题，图例底色融入纸卡，保留立体分隔线',
+                        '趋势与队伍省去副标题，趋势图例融入纸卡且不显示分隔线',
                         shape.chart === 1 && shape.trendTitle === '收益趋势' && shape.raisedChart,
                     );
                     t.check('收益趋势位于我的队伍上方', shape.trendBeforeTeam);
@@ -566,6 +622,15 @@ export default async function run(ctx) {
                         added.length === document.querySelectorAll('.selected-list > li').length &&
                         added.every(button => button.disabled && !!button.querySelector('.catalog-state'));
                 })()`));
+                t.check('排序草稿与首页沿用相同双孔纸签', await cdp.evaluate(`(() => {
+                    const reference = document.querySelector('.workbench-shortcut .shortcut-face');
+                    const drafts = [...document.querySelectorAll('.selected-list .shortcut-face')];
+                    return reference && drafts.length > 0 && drafts.every(face =>
+                        !!face.querySelector('.paper-tag-binding[aria-hidden=true]') &&
+                        getComputedStyle(face, '::before').maskImage === getComputedStyle(reference, '::before').maskImage &&
+                        getComputedStyle(face.querySelector('.shortcut-name')).fontSize ===
+                            getComputedStyle(reference.querySelector('.shortcut-name')).fontSize);
+                })()`));
                 const expandedWidth = await cdp.evaluate("document.querySelector('.selected-pane').getBoundingClientRect().width");
                 await cdp.click('.catalog-toggle');
                 t.check('收起功能库后编排区铺开', await cdp.evaluate('(() => {' +
@@ -618,6 +683,31 @@ export default async function run(ctx) {
                     '恢复默认入口顺序',
                     JSON.stringify(await ids()) === JSON.stringify(original),
                 );
+            });
+
+            await t.step('工作台上线、记一笔和仓库入口接入原有流程', async () => {
+                await ui.gotoReady('总览');
+                t.check('工作台只展示上线、记一笔、仓库', await cdp.evaluate(`
+                    JSON.stringify([...document.querySelectorAll('.hero-actions button')]
+                        .map(button => button.textContent.trim())) === JSON.stringify(['上线', '记一笔', '仓库'])
+                `));
+                await ui.clickLabel('记一笔账号收支');
+                await cdp.waitFor("!!document.querySelector('.modal-panel .amount-row')");
+                t.check('记一笔打开账号新增表单', (await ui.hash()).startsWith('#/accounts'));
+                await cdp.click('.modal-panel[aria-modal=true] [data-modal-close]');
+                await cdp.waitFor("!document.querySelector('.modal-panel')");
+                await ui.gotoReady('总览');
+                const homeHash = await ui.hash();
+                await ui.clickLabel('打开工作台仓库');
+                await cdp.waitFor("!!document.querySelector('.modal-panel[aria-modal=true] .warehouse-pages')");
+                t.check('工作台仓库原地打开且只有一个实例', await cdp.evaluate(`
+                    document.querySelectorAll('.warehouse-pages').length === 1
+                `) && await ui.hash() === homeHash);
+                await ui.clickLabel('关闭仓库');
+                await cdp.waitFor("!document.querySelector('.modal-panel')");
+                t.check('关闭后焦点回到工作台仓库', await cdp.evaluate(
+                    "document.activeElement?.getAttribute('aria-label') === '打开工作台仓库'",
+                ));
             });
 
             await t.step('首页仓库直接弹出，关闭与再次打开均保留首页', async () => {

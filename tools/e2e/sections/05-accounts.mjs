@@ -23,7 +23,11 @@ export default async function run(ctx) {
                 noSectionHints: !document.querySelector('.accounts-layout .section-head .hint, .trend-head .muted'),
                 shortcuts: document.querySelectorAll('.shortcuts .shortcut').length,
                 shortcutContent: [...document.querySelectorAll('.shortcuts .shortcut')].every((one) =>
-                    one.querySelector('.press-side-tab') && one.title && !one.querySelector('.sc-copy small') &&
+                    one.querySelector('.paper-tag') && one.title && !one.querySelector('.sc-copy small') &&
+                    !!one.querySelector('.paper-tag-binding[aria-hidden=true]') &&
+                    getComputedStyle(one.querySelector('.paper-tag'), '::before').maskImage !== 'none' &&
+                    getComputedStyle(one.querySelector('.paper-tag-content'), '::before').maskImage.includes('repeating-linear-gradient') &&
+                    getComputedStyle(one.querySelector('.paper-tag-content'), '::before').backgroundImage.includes('linear-gradient') &&
                     one.querySelectorAll('.sc-currency').length === 2 &&
                     ['梦幻币', '人民币'].every((name) => one.querySelector('.sc-total')?.textContent.includes(name)) &&
                     [...one.querySelectorAll('.sc-currency')].every((row) => row.querySelector('.sc-value') && row.querySelector('small') && row.title.includes('笔')) &&
@@ -44,6 +48,25 @@ export default async function run(ctx) {
                     parseFloat(getComputedStyle(one).paddingTop) === 0),
                 barFrame: [...document.querySelectorAll('.bar-frame')].every((one) =>
                     one.classList.contains('chart-surface') && !!one.querySelector('.bar-axis') && !!one.closest('.chart-panel')?.querySelector('.chart-legend-shelf')),
+                chartHeight: [...document.querySelectorAll('.accounts-layout .chart-surface')].every((one) =>
+                    Math.abs(one.getBoundingClientRect().height - 220) < 1),
+                chartScroll: [...document.querySelectorAll('.accounts-layout .chart-scroll')].every((viewport) => {
+                    const style = getComputedStyle(viewport);
+                    if (style.overflowX !== 'auto' || style.scrollbarWidth !== 'none') return false;
+                    if (!viewport.firstElementChild) return true;
+                    const maxWidth = viewport.style.maxWidth;
+                    const scrollLeft = viewport.scrollLeft;
+                    try {
+                        // 只收窄可视区验证真实横滚，不改图表数据或持久化状态。
+                        viewport.style.maxWidth = '80px';
+                        viewport.scrollLeft = 0;
+                        viewport.scrollLeft = viewport.scrollWidth;
+                        return viewport.scrollWidth > viewport.clientWidth && viewport.scrollLeft > 0;
+                    } finally {
+                        viewport.style.maxWidth = maxWidth;
+                        viewport.scrollLeft = scrollLeft;
+                    }
+                }),
                 barDepth: [...document.querySelectorAll('.column.has-value')].every((one) => {
                     const face = one.querySelector('.column-segment') ?? one;
                     return getComputedStyle(face, '::after').content !== 'none' && parseFloat(getComputedStyle(face, '::after').width) >= 6 && getComputedStyle(face).backgroundImage !== 'none';
@@ -54,7 +77,9 @@ export default async function run(ctx) {
                     const plot = role?.querySelector('.columns-scroll');
                     return host && role ? {
                         fullWidth: Math.abs(host.getBoundingClientRect().width - role.getBoundingClientRect().width) < 1,
-                        fits: !plot || plot.scrollWidth <= plot.clientWidth + 1,
+                        readable: !plot || (getComputedStyle(plot).overflowX === 'auto' &&
+                            [...plot.querySelectorAll('.column-group')].every((one) =>
+                                one.getBoundingClientRect().width >= (one.classList.contains('paired') ? 132 : 100) - 1)),
                     } : null;
                 })(),
                 noRoleFilter: !document.querySelector('.accounts-layout [aria-label="按角色筛选"]'),
@@ -89,14 +114,15 @@ export default async function run(ctx) {
             t.check('仓库与历史使用普通按钮，移除独立记一笔入口', shape.headerActions && shape.noGenericEntry);
             t.check('最近记录先于走势，区块移除辅助小字', shape.recordsBeforeCharts && shape.noSectionHints);
             t.check('账号图表统一卡内样式，不重复绘制底板与外影', shape.chartsInCards);
+            t.check('账号趋势与分类图统一为 220px，窄区可横滚且隐藏滚动条', shape.chartHeight && shape.chartScroll);
             t.check(
                 '账号图表共用台面材质，非零柱带亮面与侧面',
                 shape.chartSurfaces >= 2 && shape.barDepth && shape.barFrame,
             );
             t.check('历史入口在页头', shape.history);
             t.check(
-                '角色分类图占满整行且无横向滚动',
-                shape.roleChart?.fullWidth && shape.roleChart?.fits,
+                '角色分类图占满整行，柱组保留最小宽度并支持横滚',
+                shape.roleChart?.fullWidth && shape.roleChart?.readable,
             );
             t.check('账号主页移除角色筛选，统一展示日期范围内的全部角色', shape.noRoleFilter);
             t.check('图表底部沿用总览 8px 留白，渠道与记录卡片拉伸对齐', shape.chartSpacing);
@@ -294,6 +320,7 @@ export default async function run(ctx) {
                     await cdp.evaluate(`(() => {
                     const mask = document.querySelector('.modal-mask-nested');
                     return !!mask && getComputedStyle(mask).backgroundColor === 'rgba(0, 0, 0, 0)' &&
+                        getComputedStyle(mask.querySelector('.modal-backdrop')).visibility === 'hidden' &&
                         !document.querySelector('.modal-panel:not([inert])')?.contains(document.querySelector('.warehouse-editor-page'));
                 })()`),
                 );

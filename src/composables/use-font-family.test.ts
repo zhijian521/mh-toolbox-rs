@@ -48,9 +48,9 @@ describe('独立字体偏好', () => {
     );
 
     it('全部字体均可切换，且只写字体偏好', async () => {
-        const { useFontFamily, FONT_OPTIONS, nextTick, dataset, store } = await setup('sans');
+        const { useFontFamily, FONT_OPTIONS, nextTick, dataset, store } = await setup('system');
         const { font, selectedFont } = useFontFamily();
-        expect(dataset.font).toBe('sans');
+        expect(dataset.font).toBe('system');
         for (const option of FONT_OPTIONS) {
             font.value = option.value;
             await nextTick();
@@ -63,12 +63,30 @@ describe('独立字体偏好', () => {
         expect(store.get('mh-font-scale')).toBe('large');
     });
 
-    it('重新打开时恢复圆体偏好', async () => {
-        const { useFontFamily, dataset } = await setup('rounded');
+    it.each([
+        ['rounded', '资源圆体'],
+        ['system', '系统默认'],
+    ])('重新打开时恢复字体偏好：%s', async (saved, label) => {
+        const { useFontFamily, dataset } = await setup(saved);
         const { font, selectedFont } = useFontFamily();
-        expect(font.value).toBe('rounded');
-        expect(dataset.font).toBe('rounded');
-        expect(selectedFont.value.label).toBe('资源圆体');
+        expect(font.value).toBe(saved);
+        expect(dataset.font).toBe(saved);
+        expect(selectedFont.value.label).toBe(label);
+    });
+
+    it('旧黑体偏好使用系统默认，后续可独立保存新选择', async () => {
+        const { useFontFamily, FONT_OPTIONS, nextTick, dataset, store } = await setup('sans');
+        const { font, selectedFont } = useFontFamily();
+        expect(font.value).toBe('system');
+        expect(dataset.font).toBe('system');
+        expect(selectedFont.value.label).toBe('系统默认');
+        expect(FONT_OPTIONS.map((option) => option.value)).toEqual(['wenkai', 'rounded', 'system']);
+        font.value = 'rounded';
+        await nextTick();
+        font.value = 'system';
+        await nextTick();
+        expect(store.get('mh-font-family')).toBe('system');
+        expect(store.get('mh-theme')).toBe('dark');
     });
 
     it('设置页卸载后仍保持共享状态与监听', async () => {
@@ -78,9 +96,9 @@ describe('独立字体偏好', () => {
         page.stop();
         const next = useFontFamily();
         expect(next.font).toBe(initial.font);
-        next.font.value = 'sans';
+        next.font.value = 'system';
         await nextTick();
-        expect(dataset.font).toBe('sans');
+        expect(dataset.font).toBe('system');
     });
 
     it('存储被禁用时仍可切字体，初始化安静、用户操作给失败回执', async () => {

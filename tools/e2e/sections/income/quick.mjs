@@ -250,7 +250,8 @@ export default async function runQuick(ctx, tools) {
                 const values = cards.map((el) => el.querySelector('.v'));
                 const bounds = summary.getBoundingClientRect();
                 return {
-                    ticket: summary.classList.contains('ticket-card'),
+                    heading: document.querySelector('.online-bar .section-head h2')?.textContent.trim(),
+                    folded: summary.classList.contains('folded-card') && summary.dataset.spine === 'left',
                     paired: (() => {
                         const online = document.querySelector('.online-summary');
                         const tickets = document.querySelector('.online-tickets');
@@ -259,7 +260,7 @@ export default async function runQuick(ctx, tools) {
                         const first = online.getBoundingClientRect();
                         const frame = tickets.getBoundingClientRect();
                         const right = roster.getBoundingClientRect();
-                        return online.classList.contains('ticket-card') &&
+                        return online.classList.contains('folded-card') && online.dataset.spine === 'left' &&
                             Math.abs(first.left - frame.left) < 1 &&
                             (document.querySelector('.income-stack').clientWidth <= 900 ||
                                 right.left >= frame.right);
@@ -271,7 +272,8 @@ export default async function runQuick(ctx, tools) {
                         getComputedStyle(el).backgroundImage === 'none'),
                     contained: cards.every((el) => {
                         const box = el.getBoundingClientRect();
-                        return box.left >= bounds.left && box.right <= bounds.right + 1;
+                        const spine = summary.querySelector('.folded-spine').getBoundingClientRect();
+                        return box.left >= spine.right + 15 && box.right <= bounds.right + 1;
                     }),
                     readableFooters: [...document.querySelectorAll('.online-tickets .sub, .online-tickets .delta')]
                         .every((el) => {
@@ -287,18 +289,40 @@ export default async function runQuick(ctx, tools) {
                         const items = [...(list?.querySelectorAll('.role-item') ?? [])];
                         const ticket = document.querySelector('.online-summary');
                         const roster = document.querySelector('.online-roster');
-                        const scale = Number(getComputedStyle(document.documentElement).getPropertyValue('--fs-scale')) || 1;
                         const beside = roster && ticket && roster.getBoundingClientRect().left >= ticket.getBoundingClientRect().right;
                         return {
                             noBatch: !document.querySelector('.online-roster [aria-label^="一键上号"]'),
                             topAligned: !beside || !items.length ||
                                 Math.abs(items[0].getBoundingClientRect().top - ticket.getBoundingClientRect().top) < 1,
-                            fixedWidth: items.every(el => Math.abs(el.getBoundingClientRect().width -
-                                Math.min(list.clientWidth, 156 * scale)) < 1),
-                            thinEdge: items.every(el => {
-                                const shadow = getComputedStyle(el).boxShadow;
-                                const sign = getComputedStyle(el, '::before');
-                                return shadow !== 'none' && sign.content !== 'none' && sign.width === '3px';
+                            autoWidth: items.every(el => el.getBoundingClientRect().width <= list.clientWidth + 1 &&
+                                el.scrollWidth <= el.clientWidth + 1) && (() => {
+                                const item = items[0];
+                                const name = item?.querySelector('.name');
+                                if (!name) return true;
+                                const original = name.textContent;
+                                try {
+                                    name.textContent = '甲';
+                                    const shortWidth = item.getBoundingClientRect().width;
+                                    name.textContent = '甲乙丙丁戊己';
+                                    const longWidth = item.getBoundingClientRect().width;
+                                    return longWidth > shortWidth + 1 && longWidth <= list.clientWidth + 1;
+                                } finally {
+                                    name.textContent = original;
+                                }
+                            })(),
+                            keycaps: items.every(el => {
+                                const start = el.querySelector('.role-start.keycap-btn');
+                                const face = start?.querySelector('.keycap-face');
+                                const stop = el.querySelector('.role-stop');
+                                return start instanceof HTMLButtonElement && face &&
+                                    start.type === 'button' && !el.classList.contains('side-tab-surface') &&
+                                    getComputedStyle(start).backgroundImage.includes('linear-gradient') &&
+                                    getComputedStyle(face).backgroundImage.includes('radial-gradient') &&
+                                    getComputedStyle(face).boxShadow !== 'none' &&
+                                    !!face.querySelector('.keycap-indicator[aria-hidden=true]') &&
+                                    start.classList.contains('is-active') === el.classList.contains('is-running') &&
+                                    !start.querySelector('button') && !stop &&
+                                    el.querySelectorAll('button').length === 1;
                             }),
                         };
                     })(),
@@ -311,17 +335,18 @@ export default async function runQuick(ctx, tools) {
                 };
             })()`);
         if (!look) throw new Error('收益页上没找到完整的统计摘要');
-        t.check('统计共用一张票据，不在每格叠卡', look.ticket && look.singleSurface);
+        t.check('区块标题简化为在线点卡', look.heading === '在线点卡');
+        t.check('收益统计使用左侧纸脊，不在每格叠卡', look.folded && look.singleSurface);
         t.check('收益摘要合并在在线卡内部', look.merged);
-        t.check('在线与收益共用票据风格并靠左，宽窗角色位于右侧', look.paired);
+        t.check('在线与收益均用左侧纸脊并靠左，宽窗角色位于右侧', look.paired);
         t.check('收益外卡使用纯色纸面', look.plainBoards);
-        t.check('两项统计保持在摘要范围内', look.contained);
+        t.check('两项统计避开左侧纸脊并保持在摘要范围内', look.contained);
         t.check('双票据昨日读数和增减完整显示、不裁切', look.readableFooters);
         t.check('角色列表不再重复展示标题', look.noRosterTitle);
         t.check('角色区移除一键上号', look.roleLayout.noBatch);
         t.check('并排时角色首项与票据顶面对齐', look.roleLayout.topAligned);
-        t.check('角色侧签固定 156px 并随字号缩放，窄区不溢出', look.roleLayout.fixedWidth);
-        t.check('角色使用 C 方案的短侧签和薄底边', look.roleLayout.thinEdge);
+        t.check('角色键按内容自适应宽度，窄区不溢出', look.roleLayout.autoWidth);
+        t.check('角色使用带状态灯的弧面瓷键，同一按钮开始和结束', look.roleLayout.keycaps);
         for (const [index, label] of ['净额', '笔数'].entries()) {
             const expected = look.tones[index] === 'gain' ? look.positive :
                 look.tones[index] === 'loss' ? look.negative : look.neutral;
@@ -330,7 +355,7 @@ export default async function runQuick(ctx, tools) {
         }
     });
 
-    await t.step('角色三行跟随票据高度，改为两行后恢复紧凑尺寸', async () => {
+    await t.step('角色排成三行或两行时，按钮不再按便签高度拉伸', async () => {
         const original = await cdp.evaluate(`(() => {
                 const list = document.querySelector('.role-list');
                 const ticket = document.querySelector('.income-summary');
@@ -338,36 +363,45 @@ export default async function runQuick(ctx, tools) {
                 if (!list || !ticket || items.length < 3 ||
                     document.querySelector('.online-roster .note.error, .unlisted') ||
                     list.getBoundingClientRect().left < ticket.getBoundingClientRect().right) return null;
-                const scale = Number(getComputedStyle(document.documentElement).getPropertyValue('--fs-scale')) || 1;
+                const sizes = items.slice(0, 3).map(item => {
+                    const box = item.getBoundingClientRect();
+                    return { width: box.width, height: box.height };
+                });
+                const gap = Number.parseFloat(getComputedStyle(list).columnGap) || 0;
+                if (list.clientWidth + 1 < Math.max(...sizes.map(item => item.width)) * 2 + gap) return null;
                 const style = document.createElement('style');
                 style.id = 'e2e-role-alignment';
-                style.textContent = '.online-bar .role-list { width: ' + (156 * scale) + 'px !important; }' +
+                style.textContent = '.online-bar .role-list { display: grid !important; grid-template-columns: max-content !important; justify-items: start; }' +
                     '.online-bar .role-item:nth-child(n + 4) { display: none !important; }';
                 document.head.appendChild(style);
-                return { scale };
+                return sizes;
             })()`);
         if (!original) {
-            t.info('三行专项未执行', '需要至少三个角色、双票据并排且无读取错误');
+            t.info('三行专项未执行', '需要至少三个角色、双便签并排、无读取错误且角色区可容纳两列');
             return;
         }
         try {
             const aligned = await cdp.waitFor(`(() => {
                     const list = document.querySelector('.role-list');
-                    const ticket = document.querySelector('.income-summary');
                     const boxes = [...list.querySelectorAll('.role-item')].filter(el => el.getClientRects().length)
                         .map(el => el.getBoundingClientRect());
                     const rows = new Set(boxes.map(box => Math.round(box.top)));
-                    const bounds = ticket.getBoundingClientRect();
-                    return rows.size === 3 && Math.abs(boxes[0].top - bounds.top) < 1 &&
-                        Math.abs(Math.max(...boxes.map(box => box.bottom)) - bounds.bottom) < 1;
+                    return rows.size === 3 && boxes.every((box, index) =>
+                        Math.abs(box.height - ${JSON.stringify(original)}[index].height) < 1 &&
+                        Math.abs(box.width - ${JSON.stringify(original)}[index].width) < 1);
                 })()`, { timeout: 2500 });
-            t.check('三行首尾与今日收益票据上下对齐', aligned);
+            t.check('三行保持原有按钮高度，不跟随便签拉高', aligned);
             await cdp.evaluate(`document.getElementById('e2e-role-alignment').textContent =
-                ${JSON.stringify('.online-bar .role-list { width: ' + (312 * original.scale + 8) + 'px !important; }' +
+                ${JSON.stringify('.online-bar .role-list { display: grid !important; grid-template-columns: repeat(2, max-content) !important; justify-items: start; }' +
                     '.online-bar .role-item:nth-child(n + 4) { display: none !important; }')}`);
-            t.check('两行不沿用三行高度，恢复紧凑排列', await cdp.waitFor(`(() => {
+            t.check('两行与三行保持同样的自然尺寸', await cdp.waitFor(`(() => {
                     const list = document.querySelector('.role-list');
-                    return !getComputedStyle(list).getPropertyValue('--online-role-row-h').trim();
+                    const boxes = [...list.querySelectorAll('.role-item')].filter(el => el.getClientRects().length)
+                        .map(el => el.getBoundingClientRect());
+                    const rows = new Set(boxes.map(box => Math.round(box.top)));
+                    return rows.size === 2 && boxes.every((box, index) =>
+                        Math.abs(box.height - ${JSON.stringify(original)}[index].height) < 1 &&
+                        Math.abs(box.width - ${JSON.stringify(original)}[index].width) < 1);
                 })()`, { timeout: 2500 }));
         } finally {
             await cdp.evaluate(`document.getElementById('e2e-role-alignment')?.remove()`);

@@ -139,20 +139,22 @@ export default async function run(ctx) {
             const original = await read();
             const fonts = [
                 ['wenkai', '霞鹜文楷', 'LXGW WenKai Screen'],
-                ['sans', '思源黑体', 'MH Toolbox Hei'],
                 ['rounded', '资源圆体', 'MH Toolbox Rounded'],
+                ['system', '系统默认', 'system-ui'],
             ];
             try {
                 for (const [id, label, family] of fonts) {
                     await ui.clickText('[aria-label="字体"] button', label, { exact: true });
                     await cdp.waitFor(`document.documentElement.dataset.font === '${id}'`);
                     const loaded = await cdp.evaluate(
-                        `document.fonts.load('14px "${family}"', '梦幻养老助手').then(fonts =>
-                            fonts.length > 0 && fonts.every(font => font.status === 'loaded'))`,
+                        id === 'system'
+                            ? `document.fonts.check('14px system-ui', '梦幻养老助手')`
+                            : `document.fonts.load('14px "${family}"', '梦幻养老助手').then(fonts =>
+                                fonts.length > 0 && fonts.every(font => font.status === 'loaded'))`,
                     );
                     const current = await read();
                     t.check(
-                        `${label}真实字体加载并全局应用`,
+                        `${label}${id === 'system' ? '使用系统字体' : '字体加载'}并全局应用`,
                         loaded && current.family.includes(family),
                     );
                     t.check(
@@ -164,13 +166,18 @@ export default async function run(ctx) {
                 }
                 await ui.reload();
                 await cdp.waitFor(`!!document.querySelector('[aria-label="字体"]')`);
-                t.check('重载后恢复独立字体选择', (await read()).font === 'rounded');
+                t.check('重载后恢复系统默认字体选择', (await read()).font === 'system');
             } finally {
                 const back = fonts.find(([id]) => id === original.font) ?? fonts[0];
                 await ui.clickText('[aria-label="字体"] button', back[1], { exact: true });
                 await cdp.waitFor(`document.documentElement.dataset.font === '${back[0]}'`);
                 if (original.stored === null) {
                     await cdp.evaluate(`localStorage.removeItem('mh-font-family')`);
+                } else {
+                    // 旧 sans 会在内存中转为 system，仍按快照还原原始偏好值。
+                    await cdp.evaluate(
+                        `localStorage.setItem('mh-font-family', ${JSON.stringify(original.stored)})`,
+                    );
                 }
             }
         });

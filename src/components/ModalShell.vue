@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, inject, ref } from 'vue';
 import PressButton from './PressButton.vue';
 import { useModal } from '../composables/use-modal';
 import { useModalSize } from '../composables/use-modal-size';
-import { useModalMotion } from '../composables/use-modal-motion';
+import { MODAL_HANDOFF, useModalMotion } from '../composables/use-modal-motion';
 
 defineOptions({ inheritAttrs: false });
 
@@ -120,6 +120,9 @@ const titleId = `modal-title-${Math.random().toString(36).slice(2, 9)}`;
 const mask = ref<HTMLElement | null>(null);
 const panel = ref<HTMLElement | null>(null);
 useModalSize(panel, () => props.height !== undefined);
+const loading = inject(MODAL_HANDOFF, null);
+const handoff = loading?.pending === true;
+if (loading && handoff) loading.pending = false;
 
 /* 行为全部交给 `use-modal`：Esc、焦点陷阱、锁滚动、关闭还焦点、叠层栈。
  * 这个组件从此只管「它长什么样」——`CONVENTIONS.md` §2.3-3。 */
@@ -128,8 +131,9 @@ const { isTop, isNested, finishLeave } = useModal({
     initialFocus: props.initialFocus,
     onClose: () => emit('close'),
     deferCleanup: true,
+    restoreFocusTo: handoff ? loading?.origin : undefined,
 });
-const { beforeUnmount } = useModalMotion(mask, panel, finishLeave);
+const { beforeUnmount } = useModalMotion(mask, panel, finishLeave, handoff);
 
 /** 点遮罩关闭 = 取消。点面板内部不关（面板是遮罩的子元素，靠 `currentTarget` 区分）。 */
 function onMaskClick(event: MouseEvent) {
@@ -169,6 +173,7 @@ const panelStyle = computed(() => {
             @vue:before-unmount="beforeUnmount"
             @click.self="onMaskClick"
         >
+            <div class="modal-backdrop" aria-hidden="true" />
             <!-- 只有栈顶那层是 `aria-modal` 且可聚焦。被盖住的那层还留在 DOM 里
                  （历史窗 + 删除确认就是这个状态）：不给它 `inert`，Tab 能走到遮罩下面
                  那张窗的按钮上，而它在视觉上已经被盖住了。`undefined` 会移除属性。 -->
@@ -216,7 +221,7 @@ const panelStyle = computed(() => {
 </template>
 
 <style scoped>
-/* 遮罩只负责压暗；水晶的面板模糊由 tokens.css 按风格提供。
+/* 一级遮罩轻度虚化背景；水晶面板自身材质仍由主题提供。
  * `place-items: center` 而不是 flex + margin auto：面板高度可变（历史窗会撑高），
  * 居中由网格负责，窗太高时靠 `max-height` 自己滚。 */
 .modal-mask {
@@ -226,14 +231,24 @@ const panelStyle = computed(() => {
     display: grid;
     place-items: center;
     padding: 24px;
-    background: var(--modal-mask);
 }
-.modal-mask-nested {
+.modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: var(--modal-mask);
+    backdrop-filter: blur(var(--modal-backdrop-blur));
+    pointer-events: none;
+}
+.modal-mask-nested > .modal-backdrop {
     /* 下层弹窗已经压暗背景，叠层只让新面板入场。 */
-    background: transparent;
+    visibility: hidden;
+}
+.modal-mask[data-modal-inherited] > .modal-backdrop {
+    visibility: visible;
 }
 
 .modal-panel {
+    position: relative;
     display: flex;
     flex-direction: column;
     width: min(var(--modal-w), calc(100dvw - 48px));

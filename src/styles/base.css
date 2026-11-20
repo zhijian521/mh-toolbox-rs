@@ -713,6 +713,16 @@ svg {
     border-radius: var(--r-2);
     background: var(--chart-surface-bg);
 }
+/* 数据密集时横向滚动，保留原生触控板、Shift+滚轮与键盘操作，不显示滚动条。 */
+.chart-scroll {
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+}
+.chart-scroll::-webkit-scrollbar {
+    display: none;
+}
 /* 边沿在内容上层收口，避免固定纵轴的实色背景盖住左侧内影。 */
 .chart-surface::after {
     content: '';

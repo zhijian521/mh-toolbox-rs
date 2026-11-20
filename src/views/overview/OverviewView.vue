@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import LedgerSection from '../../components/LedgerSection.vue';
 import PageShell from '../../components/PageShell.vue';
@@ -21,6 +21,7 @@ import { useIncome } from '../income/income-store';
 import { clockText, onlineTotalsOf, ownersOf } from '../income/online';
 import { useOnline } from '../income/online-store';
 import TrendChart from '../../components/TrendChart.vue';
+import { lazyDialog } from '../../components/lazy-dialog';
 import { activeGoals, weekSeries, workbenchSummary } from './overview';
 import TeamCard from './TeamCard.vue';
 import OverviewShortcuts from './OverviewShortcuts.vue';
@@ -28,6 +29,8 @@ import OverviewGoals from './OverviewGoals.vue';
 import { teamActivity } from './team-activity';
 
 const router = useRouter();
+const WarehouseDialog = lazyDialog(() => import('../warehouse/WarehouseDialog.vue'));
+const warehouseOpen = ref(false);
 const today = useToday();
 const now = useMinuteNow();
 const { roster, loadError: rosterError } = useRoster();
@@ -170,22 +173,22 @@ const monthStats = computed<StatItem[]>(() =>
                         />
                         <PressButton
                             icon="edit"
-                            text="补记"
-                            label="补记在线：补录过去时段"
-                            @click="router.push({ path: '/income', query: { action: 'backfill' } })"
+                            text="记一笔"
+                            label="记一笔账号收支"
+                            @click="router.push({ path: '/accounts', query: { action: 'new' } })"
                         />
                         <PressButton
-                            icon="scan"
-                            text="截图更新"
-                            label="选择角色截图更新"
-                            @click="router.push('/characters')"
+                            icon="archive"
+                            text="仓库"
+                            label="打开工作台仓库"
+                            @click="warehouseOpen = true"
                         />
                     </div>
                 </div>
                 <div class="workbench-readouts">
                     <StatStrip
                         class="workbench-today"
-                        surface="embedded"
+                        surface="folded"
                         heading="近一周"
                         icon="calendar"
                         :hint="weekRange.from + ' 至 ' + weekRange.to"
@@ -194,7 +197,7 @@ const monthStats = computed<StatItem[]>(() =>
                     />
                     <StatStrip
                         class="workbench-accounts"
-                        surface="embedded"
+                        surface="folded"
                         heading="近一个月"
                         icon="accounts"
                         :hint="workbench.range.from + ' 至 ' + workbench.range.to"
@@ -206,7 +209,7 @@ const monthStats = computed<StatItem[]>(() =>
                 </div>
             </PaperCard>
             <div class="day-grid">
-                <OverviewShortcuts />
+                <OverviewShortcuts @warehouse="warehouseOpen = true" />
                 <OverviewGoals
                     :goals="ongoing"
                     :has-goals="goals.length > 0"
@@ -223,26 +226,9 @@ const monthStats = computed<StatItem[]>(() =>
                     :series="trend"
                     kind="money"
                     label="最近七天收益"
-                    :height="180"
                 />
             </LedgerSection>
             <LedgerSection title="我的队伍" class="team-section" plain>
-                <template #actions
-                    ><PressButton
-                        icon="add"
-                        text="新增"
-                        label="新建角色"
-                        size="sm"
-                        :disabled="!!rosterError"
-                        @click="
-                            router.push({ path: '/characters', query: { action: 'new' } })
-                        " /><PressButton
-                        icon="characters"
-                        text="管理"
-                        label="管理全部角色"
-                        size="sm"
-                        @click="router.push('/characters')"
-                /></template>
                 <p v-if="rosterError" class="empty-note">角色未读取</p>
                 <p v-else-if="!team.length" class="section-empty empty-note">暂无角色</p>
                 <div v-else class="team-strip" tabindex="0" aria-label="队伍角色，左右滚动查看">
@@ -258,6 +244,7 @@ const monthStats = computed<StatItem[]>(() =>
                 </div>
             </LedgerSection>
         </div>
+        <WarehouseDialog v-if="warehouseOpen" @close="warehouseOpen = false" />
     </PageShell>
 </template>
 

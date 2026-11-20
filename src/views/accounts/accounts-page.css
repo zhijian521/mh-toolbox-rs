@@ -61,17 +61,12 @@
     --shortcut-color: var(--negative);
 }
 .shortcut-face {
-    --tile-ink: var(--shortcut-color);
-    --tile-face: var(--paper);
-    --tile-face-hover: color-mix(in srgb, var(--shortcut-color) 4%, var(--paper));
-    --tile-face-active: var(--well);
-    --tile-w: 100%;
-    --tile-h: 100%;
-    --tile-r: var(--r-ticket);
-    padding: 11px 13px 11px 17px;
+    --paper-tag-tone: var(--shortcut-color);
+    --paper-tag-pad: 11px 13px 11px 40px;
+    height: 100%;
 }
-.shortcut-face :deep(.press-content) {
-    width: 100%;
+.shortcut:focus-visible :deep(.paper-tag) {
+    --paper-tag-face: color-mix(in srgb, var(--paper) 96%, var(--shortcut-color));
 }
 .shortcut-body {
     display: grid;

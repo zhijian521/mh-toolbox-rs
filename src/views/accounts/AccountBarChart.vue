@@ -3,7 +3,7 @@ import { useChartHover } from '../../composables/use-chart-hover';
 import { computed, ref, useId } from 'vue';
 import ChartTooltip from '../../components/ChartTooltip.vue';
 import { integerAxis } from '../../components/chart-axis';
-import { chartColor } from '../../components/chart-style';
+import { CHART_HEIGHT, chartColor } from '../../components/chart-style';
 import { type Currency } from './accounts';
 import { accountAxisText, accountValueText } from './account-analysis';
 
@@ -93,6 +93,7 @@ const description = (row: (typeof props.rows)[number]) =>
         ref="host"
         class="bar-chart chart-panel"
         :class="{ fit, stacked: !!legend }"
+        :style="{ '--chart-height': CHART_HEIGHT + 'px' }"
         @pointerleave="hoveredId = null"
         @focusout="leaveFocus"
         @keydown.esc="dismissTooltip"
@@ -106,7 +107,12 @@ const description = (row: (typeof props.rows)[number]) =>
                     >{{ accountAxisText(tick, currency) }}</span
                 >
             </div>
-            <div class="columns-scroll" tabindex="0" role="region" :aria-label="label + '柱状图'">
+            <div
+                class="columns-scroll chart-scroll"
+                tabindex="0"
+                role="region"
+                :aria-label="label + '柱状图'"
+            >
                 <div class="columns-plot">
                     <div class="column-guides" aria-hidden="true">
                         <span v-for="(_, index) in ticks" :key="index" />
@@ -182,6 +188,8 @@ const description = (row: (typeof props.rows)[number]) =>
 
 <style scoped>
 .bar-chart {
+    --column-label-h: 36px;
+
     position: relative;
     min-width: 0;
     margin-bottom: 5px;
@@ -210,13 +218,15 @@ const description = (row: (typeof props.rows)[number]) =>
 .bar-frame {
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    height: var(--chart-height);
     gap: 8px;
     padding: 10px 10px 4px;
 }
 .bar-axis {
     position: relative;
     min-width: 58px;
-    height: 180px;
+    height: calc(100% - 18px - var(--column-label-h));
     margin-top: 18px;
     color: var(--muted);
     font-size: var(--fs-mini);
@@ -231,21 +241,21 @@ const description = (row: (typeof props.rows)[number]) =>
     transform: translateY(-50%);
 }
 .columns-scroll {
-    min-width: 0;
-    overflow-x: auto;
+    min-height: 0;
 }
 .columns-plot {
     position: relative;
     display: flex;
     min-width: 100%;
     width: max-content;
+    height: 100%;
     padding: 18px 6px 0;
 }
 .column-guides {
     position: absolute;
     top: 18px;
     right: 0;
-    bottom: 36px;
+    bottom: var(--column-label-h);
     left: 0;
     display: flex;
     flex-direction: column;
@@ -261,6 +271,8 @@ const description = (row: (typeof props.rows)[number]) =>
 }
 .column-group {
     position: relative;
+    display: flex;
+    flex-direction: column;
     flex: 1 0 100px;
     min-width: 100px;
     max-width: 180px;
@@ -272,10 +284,11 @@ const description = (row: (typeof props.rows)[number]) =>
 }
 .column-stage {
     display: flex;
+    flex: 1;
+    min-height: 0;
     align-items: flex-end;
     justify-content: center;
     gap: 22px;
-    height: 180px;
 }
 .column {
     position: relative;
@@ -335,9 +348,10 @@ const description = (row: (typeof props.rows)[number]) =>
 }
 .column-label {
     display: block;
+    flex: none;
     overflow: hidden;
     max-width: 150px;
-    height: 36px;
+    height: var(--column-label-h);
     padding-top: 10px;
     color: var(--ink-2);
     font-size: var(--fs-xs);
@@ -348,7 +362,7 @@ const description = (row: (typeof props.rows)[number]) =>
 .chart-blank {
     display: grid;
     place-items: center;
-    min-height: 230px;
+    min-height: var(--chart-height);
     margin: 0;
     color: var(--muted);
     font-size: var(--fs-sm);
@@ -368,23 +382,14 @@ const description = (row: (typeof props.rows)[number]) =>
     font-size: var(--fs-mini);
     white-space: nowrap;
 }
+.bar-chart.stacked {
+    --column-label-h: 52px;
+}
 .stacked .column-label {
     padding-top: 26px;
-    height: 52px;
-}
-.stacked .column-guides {
-    bottom: 52px;
-}
-.fit .columns-scroll {
-    overflow-x: hidden;
-}
-.fit .columns-plot {
-    width: 100%;
 }
 .fit .column-group {
-    min-width: 0;
     max-width: none;
-    flex: 1 1 0;
     padding: 0 6px;
 }
 .fit .column-stage {

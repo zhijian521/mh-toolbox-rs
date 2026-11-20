@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
 import AppIcon from '../../components/AppIcon.vue';
-import TicketCard from '../../components/TicketCard.vue';
+import FoldedCard from '../../components/FoldedCard.vue';
 import { timeText } from '../../services/clock';
 import { dateText, ledgerMoneyText } from '../../services/format';
 import { clockText, sessionMinutes } from '../income/online';
@@ -40,30 +40,28 @@ function sessionTitle() {
 </script>
 
 <template>
-    <TicketCard as="article" class="team-person">
-        <template #header>
-            <div class="team-slip-print" aria-hidden="true">
-                <span>最近记录</span><span class="team-slip-number num" />
+    <FoldedCard as="article" spine="left" class="team-person">
+        <div class="team-slip-print" aria-hidden="true">
+            <span>最近记录</span><span class="team-slip-number num" />
+        </div>
+        <header class="team-identity ticket-rule">
+            <div class="team-name-row">
+                <RouterLink
+                    class="team-name"
+                    :to="{ path: '/characters', query: { character: activity.character.id } }"
+                    :aria-label="'查看角色档案：' + (activity.character.name || '未命名')"
+                    :title="activity.character.name || '未命名'"
+                    >{{ activity.character.name || '未命名' }}</RouterLink
+                >
+                <span class="team-level num">{{ activity.character.level }} 级</span>
+                <span
+                    class="team-school-name"
+                    :title="activity.character.school || '未选门派'"
+                    >{{ activity.character.school || '未选门派' }}</span
+                >
             </div>
-            <header class="team-identity">
-                <div class="team-name-row">
-                    <RouterLink
-                        class="team-name"
-                        :to="{ path: '/characters', query: { character: activity.character.id } }"
-                        :aria-label="'查看角色档案：' + (activity.character.name || '未命名')"
-                        :title="activity.character.name || '未命名'"
-                        >{{ activity.character.name || '未命名' }}</RouterLink
-                    >
-                    <span class="team-level num">{{ activity.character.level }} 级</span>
-                    <span
-                        class="team-school-name"
-                        :title="activity.character.school || '未选门派'"
-                        >{{ activity.character.school || '未选门派' }}</span
-                    >
-                </div>
-                <AppIcon name="chevron-right" aria-hidden="true" />
-            </header>
-        </template>
+            <AppIcon name="chevron-right" aria-hidden="true" />
+        </header>
         <div
             class="team-records"
             tabindex="0"
@@ -161,7 +159,7 @@ function sessionTitle() {
                 </template>
             </section>
         </div>
-        <footer class="team-slip-footer">
+        <footer class="team-slip-footer ticket-rule ticket-rule-top">
             <span
                 class="team-slip-state"
                 :class="{ online: !onlineError && activity.session?.endAt === null }"
@@ -174,15 +172,16 @@ function sessionTitle() {
                 }}</span
             ><span aria-hidden="true">梦幻助手</span>
         </footer>
-    </TicketCard>
+    </FoldedCard>
 </template>
 
 <style scoped>
 .team-person {
+    --folded-pad-block: 20px 17px;
+
     display: flex;
     flex-direction: column;
     height: calc(374px * var(--fs-scale));
-    padding: 20px 19px 17px;
     counter-increment: team-slip;
 }
 .team-slip-print {
@@ -206,9 +205,8 @@ function sessionTitle() {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    margin-inline: -13px;
-    padding: 0 13px 12px;
-    border-bottom: var(--w-hair) dashed var(--rule-2);
+    padding-bottom: 12px;
+    border-bottom: var(--w-hair) dashed transparent;
 }
 .team-identity > div {
     flex: 1;
@@ -227,7 +225,7 @@ function sessionTitle() {
     display: block;
     flex: 0 1 auto;
     min-width: 0;
-    font-size: calc(var(--fs-md) * 1.3);
+    font-size: var(--fs-md);
     line-height: 1.45;
     color: var(--ink);
     overflow-wrap: anywhere;
@@ -345,7 +343,7 @@ function sessionTitle() {
     justify-content: space-between;
     gap: 9px;
     padding-top: 10px;
-    border-top: var(--w-hair) dashed var(--rule-2);
+    border-top: var(--w-hair) dashed transparent;
     color: var(--muted);
     font-size: var(--fs-mini);
     line-height: 1.4;

@@ -27,17 +27,22 @@ export function useModalSize(panel: Ref<HTMLElement | null>, fixed: () => boolea
             finish();
             return;
         }
-        // 不读包围盒：入场的 scale 会把高度也缩小，造成两段动效互相干扰。
+        // 不读包围盒，避免面板位移和尺寸计算相互干扰。
         const from = animation ? parseFloat(getComputedStyle(element).height) : lastHeight;
         finish();
         const style = getComputedStyle(element);
         const to = parseFloat(style.height);
         lastHeight = to;
-        if (motion.matches || Math.abs(from - to) < 1) return;
+        if (
+            motion.matches ||
+            element.closest('.modal-mask')?.hasAttribute('data-modal-entering') ||
+            Math.abs(from - to) < 1
+        )
+            return;
 
         element.classList.add('modal-panel-sizing');
         animation = element.animate([{ height: `${from}px` }, { height: `${to}px` }], {
-            duration: parseFloat(style.getPropertyValue('--t-slide')),
+            duration: parseFloat(style.getPropertyValue('--t-mid')),
             easing: style.getPropertyValue('--ease-soft').trim(),
         });
         animation.onfinish = finish;
@@ -54,7 +59,9 @@ export function useModalSize(panel: Ref<HTMLElement | null>, fixed: () => boolea
             if (!animation && !frame) frame = requestAnimationFrame(resize);
         });
         resizeObserver.observe(element);
-        mutationObserver = new MutationObserver(resize);
+        mutationObserver = new MutationObserver(() => {
+            if (!frame) frame = requestAnimationFrame(resize);
+        });
         mutationObserver.observe(element, { childList: true, characterData: true, subtree: true });
         window.addEventListener('resize', resize);
         motion.addEventListener('change', resize);

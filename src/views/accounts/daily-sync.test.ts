@@ -26,7 +26,13 @@ const session = (patch = {}) => ({
 });
 
 async function loadSync(
-    input: { entries?: unknown[]; sessions?: unknown[]; failed?: boolean } = {},
+    input: {
+        entries?: unknown[];
+        sessions?: unknown[];
+        accounts?: unknown[];
+        failed?: boolean;
+        accountFailed?: boolean;
+    } = {},
 ) {
     vi.resetModules();
     const { ref } = await import('vue');
@@ -38,7 +44,7 @@ async function loadSync(
         incomeSave: vi.fn(async () => true),
         onlineLoad: vi.fn(async () => ({ sessions: input.sessions ?? [], settings: {} })),
         onlineSave: vi.fn(async () => true),
-        accountLoad: vi.fn(async () => []),
+        accountLoad: vi.fn(async () => (input.accountFailed ? null : (input.accounts ?? []))),
         accountSave: vi.fn(async () => true),
     };
     vi.doMock('../../services/desktop', () => ({ hasDesktop: () => true }));
@@ -55,6 +61,8 @@ async function loadSync(
         income: income.useIncome(),
         online: online.useOnline(),
         accounts: accounts.useAccounts(),
+        loadAccounts: accounts.loadAccounts,
+        loadIncome: income.loadIncome,
         minute,
         storage,
     };
@@ -243,5 +251,92 @@ describe('收益自动同步', () => {
         expect(sync.useDailySync().error.value).toContain('同步到账户失败');
         await sync.useDailySync().retry();
         expect(sync.useDailySync().error.value).toBe('');
+    });
+
+    it('账号读取恢复后自动补历史收益和点卡，保留手记且不重复同步', async () => {
+        const manual = {
+            id: 'manual',
+            date: '2026-10-01',
+            characterId: 'c1',
+            kind: 'expense',
+            currency: 'cash',
+            category: '其他收支',
+            channel: '游戏内',
+            amount: 1234,
+            note: '',
+            createdAt: 1,
+            source: '',
+        };
+        const { sync, accounts, storage, loadAccounts } = await loadSync({
+            entries: [entry('2026-10-01')],
+            sessions: [session()],
+            accountFailed: true,
+        });
+        expect(sync.syncAllDays().ok).toBe(false);
+        stop = sync.startDailySync();
+        storage.accountLoad.mockResolvedValueOnce([manual]);
+        await loadAccounts();
+        expect(await sync.flushDailySync()).toBe(true);
+        expect(accounts.entries.value).toContainEqual(manual);
+        expect(accounts.entries.value.filter((one) => one.source === 'auto')).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ date: '2026-10-01', category: '游戏收益', amount: 10000 }),
+                expect.objectContaining({ date: '2026-11-12', category: '点卡消耗', amount: 90000 }),
+                expect.objectContaining({ date: '2026-11-13', category: '点卡消耗', amount: 90000 }),
+            ]),
+        );
+        expect(accounts.entries.value).toHaveLength(4);
+        expect(sync.useDailySync().error.value).toBe('');
+        const writes = storage.accountSave.mock.calls.length;
+        await vi.advanceTimersByTimeAsync(401);
+        expect(storage.accountSave).toHaveBeenCalledTimes(writes);
+    });
+
+    it('重读期间不按旧快照补账，源账恢复为空后清除原自动账', async () => {
+        const { sync, accounts, storage, loadIncome } = await loadSync({
+            entries: [entry('2026-10-01')],
+        });
+        sync.syncAllDays();
+        await accounts.flush();
+        stop = sync.startDailySync();
+        let resolveRead!: (value: { entries: unknown[]; prices: never[] }) => void;
+        storage.incomeLoad.mockImplementationOnce(
+            () =>
+                new Promise<{ entries: unknown[]; prices: never[] }>((resolve) => {
+                    resolveRead = resolve;
+                }),
+        );
+        const reading = loadIncome();
+        expect(sync.syncDay('2026-10-01').ok).toBe(false);
+        expect(accounts.entries.value).toHaveLength(1);
+        resolveRead({ entries: [], prices: [] });
+        await reading;
+        expect(await sync.flushDailySync()).toBe(true);
+        expect(accounts.entries.value).toEqual([]);
+        expect(sync.useDailySync().error.value).toBe('');
+    });
+
+    it('长期计时跨日补账只处理时钟经过的日期，回拨后移除多算日期', async () => {
+        const { sync, accounts, minute } = await loadSync({
+            sessions: [session({ startAt: new Date(2026, 9, 1).getTime(), endAt: null })],
+        });
+        const { nextTick } = await import('vue');
+        sync.syncAllDays();
+        await accounts.flush();
+        stop = sync.startDailySync();
+        vi.setSystemTime(at(15, 1));
+        minute.value = Date.now();
+        await nextTick();
+        expect(await sync.flushDailySync()).toBe(true);
+        expect(accounts.entries.value.find((one) => one.date === '2026-11-13')?.amount).toBe(2160000);
+        expect(accounts.entries.value.find((one) => one.date === '2026-11-14')?.amount).toBe(2160000);
+        expect(accounts.entries.value.find((one) => one.date === '2026-11-15')?.amount).toBe(90000);
+
+        vi.setSystemTime(at(13));
+        minute.value = Date.now();
+        await nextTick();
+        expect(await sync.flushDailySync()).toBe(true);
+        expect(accounts.entries.value.find((one) => one.date === '2026-11-13')?.amount).toBe(1080000);
+        expect(accounts.entries.value.some((one) => one.date > '2026-11-13')).toBe(false);
     });
 });

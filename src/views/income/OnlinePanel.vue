@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
+import { CHART_HEIGHT } from '../../components/chart-style';
 import { useMinuteNow } from '../../composables/use-minute-now';
 import { useToday } from '../../composables/use-today';
 import { daysAgo, parseDay } from '../../services/format';
@@ -76,7 +77,7 @@ const netSeries = computed(() => seriesOf(net.value));
             <SteppedSlider v-model="span" :options="SPANS" label="走势范围" class="span-slider" />
         </template>
 
-        <div class="charts">
+        <div class="charts" :style="{ '--chart-height': CHART_HEIGHT + 'px' }">
             <section class="chart-block">
                 <header class="chart-head">
                     <h3>每日时长</h3>
@@ -89,7 +90,6 @@ const netSeries = computed(() => seriesOf(net.value));
                     :series="minuteSeries"
                     kind="minutes"
                     label="每日时长"
-                    :height="180"
                 />
                 <p v-else class="chart-unavailable empty-note" role="status">
                     {{ onlineError ? '上线记录未读取，请在页面上方重新读取。' : '正在读取上线记录…' }}
@@ -108,7 +108,6 @@ const netSeries = computed(() => seriesOf(net.value));
                     :series="netSeries"
                     kind="money"
                     label="每日收益"
-                    :height="180"
                 />
                 <p v-else class="chart-unavailable empty-note" role="status">
                     {{ incomeError ? '收益未读取，请在页面上方重新读取。' : '正在读取收益…' }}
@@ -148,7 +147,7 @@ const netSeries = computed(() => seriesOf(net.value));
 .chart-unavailable {
     display: grid;
     place-content: center;
-    min-height: 180px;
+    min-height: var(--chart-height);
     margin: 0;
 }
 

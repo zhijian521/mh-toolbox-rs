@@ -3,7 +3,7 @@ import { useChartHover } from '../composables/use-chart-hover';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import ChartColumn from './ChartColumn.vue';
 import ChartTooltip from './ChartTooltip.vue';
-import { chartColor } from './chart-style';
+import { CHART_HEIGHT, chartColor } from './chart-style';
 import { shortDate } from '../services/format';
 import {
     buildTrendChart,
@@ -28,7 +28,7 @@ const props = withDefaults(
         dateText?: (label: string) => string;
         colors?: string[];
     }>(),
-    { height: 192 },
+    { height: CHART_HEIGHT },
 );
 
 const formatValue = (value: number) =>
@@ -379,11 +379,6 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
     min-width: 0;
     min-height: var(--trend-height);
 }
-.chart-scroll {
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-gutter: stable;
-}
 .chart-svg {
     display: block;
     max-width: none;
@@ -434,11 +429,15 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
     fill: none;
     stroke-width: 1;
 }
-.trend-legend {
+.trend > .trend-legend {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 6px 18px;
+    margin: 4px 0 0;
+    padding: 8px 0 10px;
+    border-top: 0;
+    box-shadow: none;
     font-size: var(--fs-mini);
 }
 .legend-date {

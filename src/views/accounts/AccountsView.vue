@@ -9,7 +9,7 @@ import LedgerSection from '../../components/LedgerSection.vue';
 import PaperCard from '../../components/PaperCard.vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
-import PressTile from '../../components/PressTile.vue';
+import PaperTag from '../../components/PaperTag.vue';
 import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
@@ -33,6 +33,7 @@ import {
 } from './accounts';
 import { accountValueText, filterAccounts, shortcutTotals } from './account-analysis';
 import { loadAccounts, useAccounts, type EntryInput } from './accounts-store';
+import { useDailySync } from './daily-sync';
 
 const AccountEditor = lazyDialog(() => import('./AccountEditor.vue'));
 const AccountRecords = lazyDialog(() => import('./AccountRecords.vue'));
@@ -42,6 +43,7 @@ const warehouseOpen = ref(false);
 const { entries, loadError, writeError, addEntry, updateEntry, pending, flush, retry } =
     useAccounts();
 const { roster } = useRoster();
+const { error: syncError, retry: retrySync } = useDailySync();
 const preset = ref<RangePreset>('month');
 const today = useToday();
 const range = computed(() => rangeOf(preset.value, today.value));
@@ -165,7 +167,11 @@ useRouteAction('/accounts', {
                 :load="loadAccounts"
                 :blocked="pending > 0 || !!writeError || !!editing"
             />
-            <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
+            <SaveNotice
+                :error="writeError || (loadError ? '' : syncError)"
+                :pending="pending"
+                @retry="writeError ? retry() : retrySync()"
+            />
             <PaperCard class="account-overview" plain>
                 <div class="filters">
                     <SegmentedPills v-model="preset" :options="RANGE_PRESETS" label="账目时间范围" />
@@ -198,7 +204,7 @@ useRouteAction('/accounts', {
                         :class="one.preset.kind"
                         @click="openBlank({ ...one.preset })"
                     >
-                        <PressTile class="shortcut-face" surface="side-tab" wide>
+                        <PaperTag class="shortcut-face">
                             <span class="shortcut-body">
                                 <span class="sc-icon" aria-hidden="true"
                                     ><AppIcon :name="one.icon"
@@ -227,7 +233,7 @@ useRouteAction('/accounts', {
                                     </span>
                                 </span>
                             </span>
-                        </PressTile>
+                        </PaperTag>
                     </button>
                 </div>
             </LedgerSection>
@@ -240,7 +246,7 @@ useRouteAction('/accounts', {
                     class="channel-card"
                 />
                 <LedgerSection title="最近记录" class="records" plain>
-                    <p v-if="!recent.length" class="blank">
+                    <p v-if="loadError || !recent.length" class="blank">
                         {{ loadError ? '暂时无法读取记录，请重新读取。' : '这个范围还没有记录' }}
                     </p>
                     <div v-else class="recent-list" tabindex="0" aria-label="最近八笔账号记录">

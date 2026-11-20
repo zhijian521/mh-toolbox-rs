@@ -70,6 +70,45 @@ describe('上线：谁在线', () => {
 });
 
 describe('上线：按天切开', () => {
+    it('超过 32 天仍完整计时和计费，限定日期与完整计算一致', () => {
+        const long = session({ startAt: at(2026, 10, 1), endAt: at(2026, 11, 13) });
+        const slices = sessionSlices(long);
+        const totalMinutes = (long.endAt! - long.startAt) / 60000;
+        expect(slices).toHaveLength(43);
+        expect(slices.reduce((sum, one) => sum + one.minutes, 0)).toBe(totalMinutes);
+        expect(sessionCost(long)).toBe(sliceCost(totalMinutes, 1, long.cardPrice));
+
+        const dates = new Set(['2026-11-10', '2026-11-12']);
+        const costs = cardCostByDay([long]);
+        const minutes = minutesByDay([long]);
+        expect([...cardCostByDay([long], Date.now(), dates)]).toEqual(
+            [...costs].filter(([key]) => dates.has(key.split('|')[0])),
+        );
+        expect([...minutesByDay([long], Date.now(), dates)]).toEqual(
+            [...minutes].filter(([key]) => dates.has(key.split('|')[0])),
+        );
+        expect(onlineTotalsOf([long], '2026-11-12', '2026-11-12')).toMatchObject({
+            minutes: 1440,
+            cost: 2160000,
+            count: 1,
+        });
+        expect(cardCostOf([long], '2026-11-12', '2026-11-12')).toBe(2160000);
+    });
+
+    it('长期进行中的记录保留查询日，非法时间不会进入切片循环', () => {
+        const live = session({ startAt: at(2026, 10, 1), endAt: null });
+        const now = at(2026, 11, 13, 1);
+        expect(onlineTotalsOf([live], '2026-11-13', '2026-11-13', now)).toMatchObject({
+            minutes: 60,
+            cost: 90000,
+            running: 1,
+        });
+        expect(sessionSlices(session({ startAt: NaN }))).toEqual([]);
+        expect(sessionSlices(session({ endAt: Infinity }))).toEqual([]);
+        expect(sessionSlices(session({ endAt: 1e20 }))).toEqual([]);
+        expect(sessionSlices(session({ startAt: 1e20, endAt: 1e20 + 1e10 }))).toEqual([]);
+    });
+
     it('按指定日期汇总与全量后筛选一致，保留跨天分摊并跳过日期间隙', () => {
         const sessions = [
             session({

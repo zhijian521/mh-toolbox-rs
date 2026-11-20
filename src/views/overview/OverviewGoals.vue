@@ -20,14 +20,6 @@ const visibleGoals = computed(() => props.goals.slice(0, 3));
 
 <template>
     <LedgerSection title="目标" class="goals-section" plain>
-        <template #actions
-            ><PressButton
-                icon="grid"
-                text="全部"
-                label="查看全部目标"
-                size="sm"
-                @click="router.push('/goals')"
-        /></template>
         <p v-if="error" class="empty-note">目标未读取</p>
         <div v-else-if="!goals.length" class="section-empty empty-note">
             <p>{{ hasGoals ? '目标已全部达成' : '暂无养成计划' }}</p>

@@ -66,6 +66,8 @@ interface UseModalOptions {
     onClose: () => void;
     /** ModalShell 在真实面板退场后释放栈与焦点，其他宿主仍随卸载清理。 */
     deferCleanup?: boolean;
+    /** 加载占位替换为正式窗时保留原触发点，不将已移除的占位按钮作为返回目标。 */
+    restoreFocusTo?: HTMLElement | null;
 }
 
 interface UseModalResult {
@@ -109,17 +111,17 @@ export function useModal(options: UseModalOptions): UseModalResult {
         if (options.initialFocus === 'cancel') {
             const cancel = panel?.querySelector<HTMLElement>('[data-modal-cancel]');
             if (cancel) {
-                cancel.focus();
+                cancel.focus({ preventScroll: true });
                 return;
             }
         }
         if (list.length) {
-            list[0].focus();
+            list[0].focus({ preventScroll: true });
             return;
         }
         /* 一个可聚焦元素都没有时把焦点给面板本身：面板带 `tabindex="-1"`，可以聚焦
          * 但不进 Tab 序列。不这么做的话焦点留在遮罩下的页面上，读屏仍会念背景内容。 */
-        panel?.focus();
+        panel?.focus({ preventScroll: true });
     }
 
     function onKeydown(event: KeyboardEvent) {
@@ -168,7 +170,9 @@ export function useModal(options: UseModalOptions): UseModalResult {
     }
 
     onMounted(() => {
-        restoreTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        restoreTo =
+            options.restoreFocusTo ??
+            (document.activeElement instanceof HTMLElement ? document.activeElement : null);
 
         modalStack.value.push(token);
 
@@ -216,7 +220,8 @@ export function useModal(options: UseModalOptions): UseModalResult {
         const target = restoreTo;
         restoreTo = null;
         void nextTick(() => {
-            if (wasTop && topToken.value === nextTop && target?.isConnected) target.focus();
+            if (wasTop && topToken.value === nextTop && target?.isConnected)
+                target.focus({ preventScroll: true });
         });
     }
 
