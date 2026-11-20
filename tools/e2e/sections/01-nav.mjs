@@ -333,6 +333,18 @@ export default async function run(ctx) {
                 }),
                 quickForm: !!document.querySelector('.overview form'),
                 chart: document.querySelectorAll('.trend-section .trend').length,
+                chartPigment: (() => {
+                    const swatch = document.querySelector('.trend-section .swatch');
+                    if (!swatch) return false;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = canvas.height = 1;
+                    const context = canvas.getContext('2d');
+                    if (!context) return false;
+                    context.fillStyle = getComputedStyle(swatch).backgroundColor;
+                    context.fillRect(0, 0, 1, 1);
+                    const alpha = context.getImageData(0, 0, 1, 1).data[3] / 255;
+                    return Math.abs(alpha - 0.65) < 0.01;
+                })(),
                 raisedChart: (() => {
                     const section = document.querySelector('.trend-section');
                     const chart = section?.querySelector('.chart-panel');
@@ -385,6 +397,7 @@ export default async function run(ctx) {
                     t.check('总览省去历史、队伍新增和管理、目标全部按钮', shape.overviewActions);
                     t.check('常用功能自定义采用文字按钮', shape.customizeTextButton);
                     t.check('首页外层卡片使用纯色背景并保留立体阴影', shape.solidBoards);
+                    t.check('趋势柱与图例的共用色保留适度透明度', shape.chartPigment);
                     t.check('周月统计采用限宽侧折纸卡，标题保留小图标并为纸脊留空', shape.foldedReadouts);
                     t.check('侧折纸卡支持左右换向，正文不镜像且两侧留白互换', shape.foldedDirections);
                     t.check('周月统计与队伍小票的四角共用同一圆角', shape.ticketCorners);

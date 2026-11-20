@@ -12,7 +12,7 @@ import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
 import { withCurrentOption } from '../../components/select-options';
 import { lazyDialog } from '../../components/lazy-dialog';
-import { accountAssetKind } from './account-assets';
+import { accountAssetKind, type AccountAssetSource } from './account-assets';
 import WarehouseItems from '../warehouse/WarehouseItems.vue';
 import type { ReadonlyWarehouseItem, WarehouseItem } from '../warehouse/warehouse';
 import { useDraftGuard } from '../../composables/use-draft-guard';
@@ -49,6 +49,7 @@ const WarehouseDialog = lazyDialog(() => import('../warehouse/WarehouseDialog.vu
 const assetDialog = ref<'pick' | 'draft' | null>(null);
 const linked = ref(Boolean(props.entry?.assets?.length));
 const assets = ref<ReadonlyWarehouseItem[]>([...(props.entry?.assets ?? [])]);
+const assetSource = ref<AccountAssetSource>('draft');
 const fixedAssets = computed(() => Boolean(props.entry?.assets?.length));
 const assetKind = computed(() => accountAssetKind(category.value));
 const linkAvailable = computed(() =>
@@ -56,9 +57,11 @@ const linkAvailable = computed(() =>
 );
 function selectAssets(items: readonly ReadonlyWarehouseItem[]) {
     assets.value = [...items];
+    assetSource.value = 'warehouse';
 }
 function confirmAssets(items: WarehouseItem[]) {
     assets.value = items;
+    assetSource.value = 'draft';
 }
 
 const { roster } = useRoster();
@@ -79,6 +82,7 @@ watch([kind, category], () => {
     if (fixedAssets.value) return;
     linked.value = false;
     assets.value = [];
+    assetSource.value = 'draft';
 });
 
 /** 金额在输入框里的值：人民币是元，梦幻币是万。 */
@@ -175,7 +179,9 @@ function submit() {
         preserveAmount: preserveAmount.value,
         deductCbgFee: deductFee.value,
         note: note.value,
-        ...(linked.value && !props.entry ? { assets: assets.value } : {}),
+        ...(linked.value && !props.entry
+            ? { assets: assets.value, assetSource: assetSource.value }
+            : {}),
     });
 }
 
@@ -296,17 +302,24 @@ const { requestClose } = useDraftGuard(
                                 >{{ assets.length }} {{ assetKind === 'gear' ? '件' : '只' }}</span
                             ></span
                         >
-                        <PressButton
-                            v-if="!fixedAssets"
-                            class="account-asset-choose"
-                            :icon="kind === 'expense' ? 'add' : 'search'"
-                            :text="
-                                kind === 'expense' ? (assets.length ? '修改资料' : '录入') : '选择'
-                            "
-                            label="设置交易关联物品"
-                            :disabled="locked"
-                            @click="assetDialog = kind === 'expense' ? 'draft' : 'pick'"
-                        />
+                        <div v-if="!fixedAssets" class="account-asset-actions">
+                            <PressButton
+                                class="account-asset-record"
+                                icon="add"
+                                text="录入"
+                                label="录入交易物品"
+                                :disabled="locked"
+                                @click="assetDialog = 'draft'"
+                            />
+                            <PressButton
+                                class="account-asset-choose"
+                                icon="search"
+                                text="选择"
+                                label="设置交易关联物品"
+                                :disabled="locked"
+                                @click="assetDialog = 'pick'"
+                            />
+                        </div>
                         <span v-else class="muted">{{
                             entry?.kind === 'expense' ? '买入快照' : '卖出快照'
                         }}</span>
@@ -415,8 +428,9 @@ const { requestClose } = useDraftGuard(
         v-if="assetDialog && assetKind"
         :mode="assetDialog"
         :asset-kind="assetKind"
-        :draft-items="assetDialog === 'draft' ? assets : undefined"
-        :selected-items="assetDialog === 'pick' ? assets : undefined"
+        :trade-direction="kind"
+        :draft-items="assetDialog === 'draft' && assetSource === 'draft' ? assets : undefined"
+        :selected-items="assetDialog === 'pick' && assetSource === 'warehouse' ? assets : undefined"
         @pick="selectAssets"
         @draft="confirmAssets"
         @close="assetDialog = null"
@@ -460,6 +474,13 @@ const { requestClose } = useDraftGuard(
 .account-asset-choose {
     flex: none;
     width: auto;
+}
+.account-asset-actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
 }
 .account-asset-empty {
     display: grid;

@@ -6,10 +6,28 @@ import {
     normalizeWarehouseItem,
     parseWarehouse,
     recognizeWarehouseGear,
+    warehouseItemsByState,
 } from './warehouse';
 import type { GearPanelResult } from '../characters/ocr/gear-panel';
 
 describe('仓库物品与截图草稿', () => {
+    it('全部包含售出快照，已穿戴和未穿戴仍仅来自在仓物品', () => {
+        const worn = newWarehouseItem('gear', 1);
+        const stock = { ...newWarehouseItem('pet', 2), id: 'stock' };
+        const sold = { ...newWarehouseItem('gear', 3), id: 'sold' };
+        const inventory = [worn, stock];
+        const sales = [sold];
+        const owners = new Map([[worn.id, '测试角色']]);
+        const before = JSON.stringify({ inventory, sales });
+
+        expect(warehouseItemsByState(inventory, sales, owners, 'all')).toEqual([worn, stock, sold]);
+        expect(warehouseItemsByState(inventory, sales, owners, 'equipped')).toEqual([worn]);
+        expect(warehouseItemsByState(inventory, sales, owners, 'stock')).toEqual([stock]);
+        expect(warehouseItemsByState(inventory, sales, owners, 'sold')).toEqual([sold]);
+        expect(warehouseItemsByState([], [], owners, 'all')).toEqual([]);
+        expect(JSON.stringify({ inventory, sales })).toBe(before);
+    });
+
     it('同名同部位保留独立身份，不按属性自动合并', () => {
         const first = newWarehouseItem('gear');
         first.gear.detail.name = '霜冷九州';

@@ -9,6 +9,8 @@ import {
     type WarehouseKind,
 } from '../warehouse/warehouse';
 
+export type AccountAssetSource = 'draft' | 'warehouse';
+
 export function accountAssetKind(category: string): WarehouseKind | null {
     return category === '装备交易' ? 'gear' : category === '召唤兽交易' ? 'pet' : null;
 }
@@ -28,26 +30,30 @@ export function planAssetTrade(
     direction: AccountKind,
     drafts: readonly ReadonlyWarehouseItem[],
     inventory: readonly ReadonlyWarehouseItem[],
+    source: AccountAssetSource = direction === 'expense' ? 'draft' : 'warehouse',
 ): { assets: WarehouseItem[]; inventory: WarehouseItem[] } {
     const kind = accountAssetKind(category);
     const assets = normalizeAccountAssets(drafts);
     if (!kind || !assets.length || assets.some((item) => item.kind !== kind))
         throw new Error('请选择与交易分类一致的物品');
+    if (source !== 'draft' && source !== 'warehouse') throw new Error('物品来源无效，请重新录入或选择');
     const byId = new Map(inventory.map((item) => [item.id, item]));
     for (const item of assets) {
         const current = byId.get(item.id);
-        if (direction === 'expense' && current) throw new Error('这件物品已在仓库中');
+        if (source === 'draft' && current) throw new Error('这件物品已在仓库中，请从仓库重新选择');
         if (
-            direction === 'income' &&
+            source === 'warehouse' &&
             JSON.stringify(normalizeWarehouseItem(current)) !== JSON.stringify(item)
         )
             throw new Error('所选物品已被修改或移出仓库，请重新选择');
     }
     const ids = new Set(assets.map((item) => item.id));
     const next =
-        direction === 'expense'
+        direction === 'expense' && source === 'draft'
             ? [...inventory, ...assets]
-            : inventory.filter((item) => !ids.has(item.id));
+            : direction === 'income' && source === 'warehouse'
+              ? inventory.filter((item) => !ids.has(item.id))
+              : inventory;
     return { assets, inventory: next.map((item) => normalizeWarehouseItem(item)!) };
 }
 

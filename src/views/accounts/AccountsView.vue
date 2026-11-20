@@ -3,14 +3,12 @@ import { lazyDialog } from '../../components/lazy-dialog';
 import { useRouteAction } from '../../composables/use-route-action';
 import { ALL_OPTIONS as ALL_ACCOUNTS } from '../../components/select-options';
 import { computed, ref } from 'vue';
-import { ledgerMoneyText } from '../../services/format';
 import AppIcon from '../../components/AppIcon.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
-import PaperCard from '../../components/PaperCard.vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import PaperTag from '../../components/PaperTag.vue';
-import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
+import StatStrip from '../../components/StatStrip.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
 import { useRecordFilters } from '../../composables/use-record-filters';
@@ -18,20 +16,21 @@ import SegmentedPills from '../../components/SegmentedPills.vue';
 import { notify } from '../../composables/use-notify';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import { useToday } from '../../composables/use-today';
-import { characterName, useRoster } from '../characters/roster';
+import { useRoster } from '../characters/roster';
 import AccountCharts from './AccountCharts.vue';
 import AccountFlowCard from './AccountFlowCard.vue';
+import AccountRecentRecords from './AccountRecentRecords.vue';
 import {
     CURRENCY_META,
     RANGE_PRESETS,
     SHORTCUTS,
-    accountStatsByCurrency,
     newestFirst,
     rangeOf,
     type AccountEntry,
     type RangePreset,
 } from './accounts';
 import { accountValueText, filterAccounts, shortcutTotals } from './account-analysis';
+import { accountSummaryBooks } from './account-summary';
 import { loadAccounts, useAccounts, type EntryInput } from './accounts-store';
 import { useDailySync } from './daily-sync';
 
@@ -48,36 +47,7 @@ const preset = ref<RangePreset>('month');
 const today = useToday();
 const range = computed(() => rangeOf(preset.value, today.value));
 const scoped = computed(() => filterAccounts(entries.value, range.value));
-const books = computed(() => {
-    const stats = accountStatsByCurrency(scoped.value);
-    return (['rmb', 'cash'] as const).map((currency) => {
-        const book = stats[currency];
-        return {
-            currency,
-            heading: CURRENCY_META[currency].label + ' · ' + book.count + ' 笔',
-            items: [
-                {
-                    id: currency + '-income',
-                    cap: '收入',
-                    value: accountValueText(book.income, currency),
-                    tone: book.income > 0 ? 'gain' : 'num',
-                },
-                {
-                    id: currency + '-expense',
-                    cap: '支出',
-                    value: accountValueText(book.expense, currency),
-                    tone: book.expense > 0 ? 'loss' : 'num',
-                },
-                {
-                    id: currency + '-net',
-                    cap: '差额',
-                    value: accountValueText(book.net, currency),
-                    tone: book.net < 0 ? 'loss' : book.net > 0 ? 'gain' : 'num',
-                },
-            ] satisfies StatItem[],
-        };
-    });
-});
+const books = computed(() => accountSummaryBooks(scoped.value));
 const shortcuts = computed(() => {
     const totals = shortcutTotals(
         scoped.value,
@@ -88,7 +58,7 @@ const shortcuts = computed(() => {
         total: totals[index],
     }));
 });
-const recent = computed(() => newestFirst(scoped.value).slice(0, 8));
+const recent = computed(() => newestFirst(scoped.value).slice(0, 4));
 const editing = ref<{ entry?: AccountEntry; seed?: Partial<EntryInput> } | null>(null);
 const recordsOpen = ref(false);
 const { filters: historyFilters, syncScope } = useRecordFilters(
@@ -172,25 +142,32 @@ useRouteAction('/accounts', {
                 :pending="pending"
                 @retry="writeError ? retry() : retrySync()"
             />
-            <PaperCard class="account-overview" plain>
-                <div class="filters">
-                    <SegmentedPills v-model="preset" :options="RANGE_PRESETS" label="账目时间范围" />
-                    <span class="range-text">{{
-                        range.from ? range.from + ' 至 ' + range.to : '全部时间'
-                    }}</span>
-                </div>
+            <LedgerSection title="收支概览" class="account-overview" plain>
+                <template #actions>
+                    <div class="filters">
+                        <SegmentedPills
+                            v-model="preset"
+                            :options="RANGE_PRESETS"
+                            label="账目时间范围"
+                            wrap
+                        />
+                    </div>
+                </template>
                 <div v-if="!loadError" class="books">
                     <StatStrip
                         v-for="book in books"
                         :key="book.currency"
                         class="book"
-                        surface="embedded"
+                        surface="folded"
+                        spine="left"
                         :heading="book.heading"
+                        :hint="book.hint"
+                        :icon="book.currency === 'cash' ? 'coins' : 'accounts'"
                         :items="book.items"
                         :data-book-currency="book.currency"
                     />
                 </div>
-            </PaperCard>
+            </LedgerSection>
 
             <LedgerSection title="快捷记账" plain>
                 <div class="shortcuts">
@@ -245,59 +222,12 @@ useRouteAction('/accounts', {
                     group="channel"
                     class="channel-card"
                 />
-                <LedgerSection title="最近记录" class="records" plain>
-                    <p v-if="loadError || !recent.length" class="blank">
-                        {{ loadError ? '暂时无法读取记录，请重新读取。' : '这个范围还没有记录' }}
-                    </p>
-                    <div v-else class="recent-list" tabindex="0" aria-label="最近八笔账号记录">
-                        <button
-                            v-for="one in recent"
-                            :key="one.id"
-                            type="button"
-                            class="recent-row"
-                            :aria-label="
-                                one.date +
-                                ' ' +
-                                one.category +
-                                '，' +
-                                (one.source === 'auto' ? '查看详情' : '修改记录') +
-                                (one.note ? '，' + one.note : '')
-                            "
-                            @click="openEntry(one)"
-                        >
-                            <span class="recent-date" :title="one.date">{{
-                                one.date.slice(5)
-                            }}</span>
-                            <span class="recent-title"
-                                >{{ one.category
-                                }}<small v-if="one.source === 'auto'" class="source-tag"
-                                    >自动</small
-                                ></span
-                            >
-                            <span
-                                class="recent-who"
-                                :title="
-                                    characterName(roster, one.characterId) +
-                                    ' · ' +
-                                    one.channel +
-                                    (one.note ? ' · ' + one.note : '')
-                                "
-                                >{{ characterName(roster, one.characterId) }}</span
-                            >
-                            <span
-                                class="recent-amount"
-                                :class="one.kind === 'income' ? 'in' : 'out'"
-                                >{{
-                                    ledgerMoneyText(
-                                        one.kind === 'expense' ? -one.amount : one.amount,
-                                        one.currency,
-                                        { sign: 'always' },
-                                    )
-                                }}</span
-                            >
-                        </button>
-                    </div>
-                </LedgerSection>
+                <AccountRecentRecords
+                    :entries="recent"
+                    :roster="roster"
+                    :error="loadError"
+                    @edit="openEntry"
+                />
             </div>
 
             <AccountCharts v-if="!loadError" :entries="scoped" :range="range" />

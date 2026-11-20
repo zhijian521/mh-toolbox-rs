@@ -55,7 +55,7 @@ fn character_asset_failure_rolls_back_roster_and_inventory() {
 }
 
 #[test]
-fn worn_items_cannot_be_sold_and_stale_selection_cannot_restore_a_sale() {
+fn worn_sale_detaches_owner_and_stale_selection_cannot_restore_a_sale() {
     let dir = TempDir::new(1732);
     let mut conn = open_at(dir.base()).unwrap();
     let worn = serde_json::json!({ "id": "hero", "pets": [
@@ -64,7 +64,6 @@ fn worn_items_cannot_be_sold_and_stale_selection_cannot_restore_a_sale() {
     character_assets::save_roster(&mut conn, std::slice::from_ref(&worn)).unwrap();
     assert!(save_account_trade(&mut conn, &[], &[]).is_err());
     let inventory = character_assets::load(&conn).unwrap();
-    character_assets::save_roster(&mut conn, &[serde_json::json!({ "id": "hero" })]).unwrap();
     let sale: AccountEntry = serde_json::from_value(serde_json::json!({
         "id": "sale", "date": "2026-11-17", "characterId": "", "kind": "income",
         "currency": "rmb", "category": "召唤兽交易", "channel": "游戏内",
@@ -72,9 +71,70 @@ fn worn_items_cannot_be_sold_and_stale_selection_cannot_restore_a_sale() {
     }))
     .unwrap();
     save_account_trade(&mut conn, &[sale], &[]).unwrap();
+    assert!(load_records(&conn, &CHARACTERS).unwrap()[0]["pets"]
+        .as_array().unwrap().is_empty());
     assert!(character_assets::save_roster(&mut conn, &[worn]).is_err());
     assert!(load_records(&conn, &WAREHOUSE).unwrap().is_empty());
     assert_eq!(load_accounts(&conn).unwrap().len(), 1);
+}
+
+#[test]
+fn worn_sale_failure_rolls_back_roster_accounts_and_inventory() {
+    let dir = TempDir::new(20261120);
+    let mut conn = open_at(dir.base()).unwrap();
+    let role = serde_json::json!({ "id": "hero", "gear": [
+        { "slot": "武器", "warehouseId": "weapon", "detail": { "name": "斩妖泣血" } }
+    ] });
+    character_assets::save_roster(&mut conn, std::slice::from_ref(&role)).unwrap();
+    let inventory = character_assets::load(&conn).unwrap();
+    let sale: AccountEntry = serde_json::from_value(serde_json::json!({
+        "id": "sale", "date": "2026-11-20", "characterId": "", "kind": "income",
+        "currency": "rmb", "category": "装备交易", "channel": "游戏内",
+        "amount": 100, "note": "", "createdAt": 1, "assets": inventory
+    })).unwrap();
+    let mut stale = sale.clone();
+    stale.assets[0]["gear"]["detail"]["name"] = serde_json::json!("过期武器");
+    assert!(save_account_trade(&mut conn, &[stale], &[]).is_err());
+    assert_eq!(load_records(&conn, &CHARACTERS).unwrap(), vec![role.clone()]);
+    conn.execute_batch("CREATE TRIGGER refuse_worn_sale BEFORE INSERT ON account_entries
+        BEGIN SELECT RAISE(ABORT, '拒绝卖出'); END;").unwrap();
+    assert!(save_account_trade(&mut conn, std::slice::from_ref(&sale), &[]).is_err());
+    assert_eq!(load_records(&conn, &CHARACTERS).unwrap(), vec![role.clone()]);
+    assert_eq!(character_assets::load(&conn).unwrap(), inventory);
+    assert!(load_accounts(&conn).unwrap().is_empty());
+    conn.execute_batch("DROP TRIGGER refuse_worn_sale").unwrap();
+    save_account_trade(&mut conn, &[sale], &[]).unwrap();
+    assert_eq!(load_records(&conn, &CHARACTERS).unwrap()[0]["gear"][0],
+        serde_json::json!({ "slot": "武器" }));
+}
+
+#[test]
+fn worn_sale_accepts_default_fields_added_when_reading_old_records() {
+    let dir = TempDir::new(20261121);
+    let mut conn = open_at(dir.base()).unwrap();
+    let role = serde_json::json!({ "id": "legacy", "pets": [
+        { "name": "画魂", "warehouseId": "pet", "growth": "1.287", "skills": ["高级必杀", "高级偷袭"] }
+    ] });
+    character_assets::save_roster(&mut conn, &[role]).unwrap();
+    let mut snapshot = character_assets::load(&conn).unwrap()[0].clone();
+    snapshot["pet"]["points"] = serde_json::json!([]);
+    snapshot["pet"]["attrs"] = serde_json::json!([]);
+    snapshot["pet"]["level"] = serde_json::json!(0);
+    snapshot["pet"]["quality"] = serde_json::json!({ "attack": 0, "defense": 0 });
+    let sale: AccountEntry = serde_json::from_value(serde_json::json!({
+        "id": "sale", "date": "2026-11-20", "characterId": "", "kind": "income",
+        "currency": "rmb", "category": "召唤兽交易", "channel": "游戏内",
+        "amount": 100, "note": "", "createdAt": 1, "assets": [snapshot]
+    })).unwrap();
+    let mut stale = sale.clone();
+    stale.assets[0]["pet"]["growth"] = serde_json::json!("1.300");
+    assert!(save_account_trade(&mut conn, &[stale], &[]).is_err());
+    let mut reordered = sale.clone();
+    reordered.assets[0]["pet"]["skills"] = serde_json::json!(["高级偷袭", "高级必杀"]);
+    assert!(save_account_trade(&mut conn, &[reordered], &[]).is_err());
+    save_account_trade(&mut conn, &[sale], &[]).unwrap();
+    assert!(character_assets::load(&conn).unwrap().is_empty());
+    assert!(load_records(&conn, &CHARACTERS).unwrap()[0]["pets"].as_array().unwrap().is_empty());
 }
 
 #[test]

@@ -133,7 +133,7 @@ function recognizeGear(result: GearPanelResult) {
             gearSnapshot(asset.gear.detail, asset.gear.slot),
             gearReview(result),
             next.length > 1
-                ? `同图识别 ${next.length} 件，将一起入仓；保存前可逐件核对。`
+                ? `同图识别 ${next.length} 件，确认前可逐件核对。`
                 : '识别已覆盖当前草稿，保存后生效。',
         );
     });
@@ -234,7 +234,7 @@ async function remove() {
                     />
                 </label>
                 <span class="warehouse-edit-hint muted">{{
-                    draftOnly ? '截图识别后核对，记账时入仓' : '截图识别后核对，保存入仓'
+                    draftOnly ? '截图识别后核对，记账后生效' : '截图识别后核对，保存入仓'
                 }}</span>
             </div>
             <SegmentedPills

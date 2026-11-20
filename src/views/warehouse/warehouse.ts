@@ -31,6 +31,19 @@ export interface WarehousePet extends ItemBase {
 export type WarehouseItem = WarehouseGear | WarehousePet;
 export type ReadonlyWarehouseItem = DeepReadonly<WarehouseItem>;
 export type WarehouseKind = WarehouseItem['kind'];
+export type WarehouseState = 'all' | 'equipped' | 'stock' | 'sold';
+
+/** 全部包含成交快照；未穿戴只返回实物库存，供浏览与交易选取区分。 */
+export function warehouseItemsByState(
+    inventory: readonly ReadonlyWarehouseItem[],
+    sold: readonly ReadonlyWarehouseItem[],
+    owners: ReadonlyMap<string, string>,
+    state: WarehouseState,
+): readonly ReadonlyWarehouseItem[] {
+    if (state === 'all') return [...inventory, ...sold];
+    if (state === 'sold') return sold;
+    return inventory.filter((item) => owners.has(item.id) === (state === 'equipped'));
+}
 
 export function normalizeWarehouseItem(raw: unknown): WarehouseItem | null {
     if (!isObject(raw) || !rawText(raw.id).trim()) return null;

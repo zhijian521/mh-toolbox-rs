@@ -48,6 +48,28 @@ export function characterAssetOwners(roster: readonly ReadonlyCharacter[]): Map<
     return owners;
 }
 
+/** 卖出只解除对应编号的归属；装备空位保留，其他档案与未售出物品不变。 */
+export function detachSoldCharacterAssets(
+    roster: readonly ReadonlyCharacter[],
+    soldIds: ReadonlySet<string>,
+): ReadonlyCharacter[] {
+    return roster.map((character) => {
+        const gear: ReadonlyCharacter['gear'] = character.gear.map((item) =>
+            item.warehouseId && soldIds.has(item.warehouseId) ? { slot: item.slot } : item,
+        );
+        const pets = character.pets.filter(
+            (item) => !item.warehouseId || !soldIds.has(item.warehouseId),
+        );
+        const soldJade = character.gear.some(
+            (item) => item.slot.startsWith('玉魄') && item.warehouseId && soldIds.has(item.warehouseId),
+        );
+        const gearMeta = { ...character.gearMeta };
+        if (soldJade && !gear.some((item) => item.slot.startsWith('玉魄') && item.warehouseId))
+            delete gearMeta.soul;
+        return { ...character, gear, pets, gearMeta };
+    });
+}
+
 export function mergeCharacterAssets(
     inventory: readonly ReadonlyWarehouseItem[],
     roster: readonly ReadonlyCharacter[],

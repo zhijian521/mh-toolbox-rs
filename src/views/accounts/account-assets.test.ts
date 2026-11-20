@@ -87,6 +87,36 @@ describe('交易物品与库存计划', () => {
         expect(soldWarehouseItems([], [])).toEqual([]);
     });
 
+    it('买入选择库存仅关联原编号，拒绝过期选择和直接录入已有编号', () => {
+        const item = pet();
+        const before = JSON.stringify(item);
+        const plan = planAssetTrade('召唤兽交易', 'expense', [item], [item], 'warehouse');
+        expect(plan.assets).toEqual([item]);
+        expect(plan.inventory).toEqual([item]);
+        expect(plan.inventory[0]).not.toBe(item);
+        expect(JSON.stringify(item)).toBe(before);
+        expect(() =>
+            planAssetTrade('召唤兽交易', 'expense', [item], [], 'warehouse'),
+        ).toThrow('修改或移出');
+        expect(() =>
+            planAssetTrade('召唤兽交易', 'expense', [{ ...item, server: '旧区服' }], [item], 'warehouse'),
+        ).toThrow('修改或移出');
+        expect(() =>
+            planAssetTrade('召唤兽交易', 'income', [item], [item], 'draft'),
+        ).toThrow('已在仓库');
+    });
+
+    it('卖出直接录入只留成交快照，删除卖出后资料回仓', () => {
+        const item = pet();
+        const stock = { ...pet(), id: 'keep' };
+        const plan = planAssetTrade('召唤兽交易', 'income', [item], [stock], 'draft');
+        expect(plan.inventory).toEqual([stock]);
+        expect(plan.assets).toEqual([item]);
+        const entry = sale('direct-sale', 1, plan.assets);
+        expect(soldWarehouseItems([entry], plan.inventory)).toEqual([item]);
+        expect(planSaleReturn(entry.id, [entry], plan.inventory)).toEqual([stock, item]);
+    });
+
     it('撤销卖出批量回仓且不覆盖在仓资料，不复活仍被较新记录卖出的物品', () => {
         const first = sale('first', 1);
         const second = { ...pet(), id: 'second' };

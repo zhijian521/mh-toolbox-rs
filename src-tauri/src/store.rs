@@ -1185,7 +1185,7 @@ pub fn account_trade_save(
     save_account_trade(&mut open(&app)?, &entries, &items)
 }
 
-/// 两个领域只开一个事务，任一条物品或账目写入失败都保留原账本。
+/// 成交、库存与售出归属共用一个事务，任一步失败都保留原账本。
 fn save_account_trade(
     conn: &mut Connection,
     entries: &[AccountEntry],
@@ -1195,6 +1195,7 @@ fn save_account_trade(
     let tx = conn
         .transaction()
         .map_err(|error| format!("开事务失败：{error}"))?;
+    character_assets::detach_sales(&tx, entries, items)?;
     character_assets::check_worn(&tx, items)?;
     tx.execute("DELETE FROM account_entries", [])
         .map_err(|error| format!("清空账号账本失败：{error}"))?;

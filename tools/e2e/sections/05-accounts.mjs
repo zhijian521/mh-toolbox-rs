@@ -8,20 +8,87 @@ export default async function run(ctx) {
         t.section('5 账号 · 两本账 · 角色分类堆叠图 · 记一笔 → 历史里删掉');
         let baseline;
         const rmbNumber = (text) => Number(text.replace('−', '-').replace(/[^0-9.-]/g, ''));
+        const warehouseItems = (name) => `[...document.querySelectorAll('.warehouse-item')].filter((one) =>
+            one.getAttribute('aria-label')?.includes(${JSON.stringify(name)}))`;
+        async function narrowWarehouse(kind, name) {
+            if (kind === '召唤兽') await ui.fill('搜索仓库物品', name);
+            else {
+                await ui.clickLabel('筛选装备部位');
+                await ui.clickText('[role="option"]', '武器', { exact: true });
+            }
+        }
 
         await t.step('两本账与十一个快捷入口都在', async () => {
             await ui.gotoReady('账号');
             const shape = await cdp.evaluate(`(() => ({
-                books: document.querySelectorAll('.account-overview .books .book.ticket-card').length,
+                books: document.querySelectorAll('.account-overview .books .book.folded-card[data-spine=left]').length,
                 bookValues: [...document.querySelectorAll('.books .book')].every((one) =>
-                    one.querySelectorAll('[data-stat-id]').length === 3),
+                    one.querySelectorAll('[data-stat-id]').length === 3 &&
+                    !!one.querySelector('.stats-heading-icon') &&
+                    !one.querySelector('h3').textContent.includes('笔') &&
+                    one.querySelector('.stats-head').title.includes('笔') &&
+                    [...one.querySelectorAll('[data-stat-id]')].every((cell) =>
+                        cell.getBoundingClientRect().left >=
+                            one.querySelector('.folded-spine').getBoundingClientRect().right + 15)),
+                overviewHeading: document.querySelector('.account-overview .section-head h2')?.textContent.trim(),
+                noRangeText: !document.querySelector('.account-overview .range-text'),
+                booksFill: (() => {
+                    const host = document.querySelector('.books');
+                    const box = host.getBoundingClientRect();
+                    const [first, last] = [...host.querySelectorAll('.book')].map((one) => one.getBoundingClientRect());
+                    return first && last &&
+                        Math.abs(box.width - host.parentElement.getBoundingClientRect().width) < 1 &&
+                        Math.abs(first.width - last.width) < 1 &&
+                        Math.abs(first.left - box.left) < 1 && Math.abs(last.right - box.right) < 1;
+                })(),
                 plainCards: [...document.querySelectorAll('.accounts-layout .board')].every((one) =>
                     getComputedStyle(one).backgroundImage === 'none'),
-                headerActions: ['查看账号历史记录', '打开装备和召唤兽仓库'].every((label) =>
-                    !!document.querySelector('[aria-label="' + label + '"] .press-tile')),
+                headerActions: !!document.querySelector('[aria-label="查看账号历史记录"]:not(.seal) .press-tile') &&
+                    !!document.querySelector('[aria-label="打开装备和召唤兽仓库"] .press-tile'),
                 noGenericEntry: !document.querySelector('[aria-label="记一笔账号收支"]'),
                 noSectionHints: !document.querySelector('.accounts-layout .section-head .hint, .trend-head .muted'),
                 shortcuts: document.querySelectorAll('.shortcuts .shortcut').length,
+                shortcutSizing: (() => {
+                    const list = document.querySelector('.shortcuts');
+                    const scale = Number(getComputedStyle(list).getPropertyValue('--fs-scale')) || 1;
+                    return [...list.querySelectorAll('.shortcut')].every((one) =>
+                        one.getBoundingClientRect().width <= 260 * scale + 1 &&
+                        Math.abs(Number.parseFloat(getComputedStyle(one.querySelector('.sc-icon .app-icon')).width) -
+                            23 * scale) < 1);
+                })(),
+                shortcutWrapping: (() => {
+                    const list = document.querySelector('.shortcuts');
+                    const scale = Number(getComputedStyle(list).getPropertyValue('--fs-scale')) || 1;
+                    const width = list.style.width;
+                    const firstRowCount = () => {
+                        const cards = [...list.querySelectorAll('.shortcut')];
+                        const top = cards[0].getBoundingClientRect().top;
+                        return cards.filter((one) => Math.abs(one.getBoundingClientRect().top - top) < 1).length;
+                    };
+                    try {
+                        // 只调整快捷区可用宽度，检查宽窗超过四列、收窄后列数减少。
+                        list.style.width = 760 * scale + 'px';
+                        const narrow = firstRowCount();
+                        list.style.width = 1680 * scale + 'px';
+                        const wide = firstRowCount();
+                        return wide > 4 && wide > narrow && list.scrollWidth <= list.clientWidth + 1;
+                    } finally {
+                        list.style.width = width;
+                    }
+                })(),
+                recentCount: document.querySelectorAll('.account-bottom .recent-row').length,
+                recentRows: [...document.querySelectorAll('.recent-row')].every((row) => {
+                    const copy = row.querySelector('.recent-copy');
+                    const title = row.querySelector('.recent-title');
+                    const meta = row.querySelector('.recent-meta');
+                    const amount = row.querySelector('.recent-amount');
+                    return copy && title && meta && amount && !!row.querySelector('.recent-arrow') &&
+                        !!meta.querySelector('.recent-who') && !!meta.querySelector('.recent-channel') &&
+                        title.getBoundingClientRect().bottom <= meta.getBoundingClientRect().top + 1 &&
+                        copy.getBoundingClientRect().right <= amount.getBoundingClientRect().left &&
+                        row.title.includes(amount.textContent.trim()) &&
+                        row.scrollWidth <= row.clientWidth + 1;
+                }),
                 shortcutContent: [...document.querySelectorAll('.shortcuts .shortcut')].every((one) =>
                     one.querySelector('.paper-tag') && one.title && !one.querySelector('.sc-copy small') &&
                     !!one.querySelector('.paper-tag-binding[aria-hidden=true]') &&
@@ -93,25 +160,34 @@ export default async function run(ctx) {
                     !!document.querySelector('[aria-label="打开装备和召唤兽仓库"] .app-icon'),
                 bottom: (() => {
                     const recent = document.querySelector('.account-bottom .records')?.getBoundingClientRect();
-                    const channel = document.querySelector('.account-bottom .channel-card')?.getBoundingClientRect();
+                    const card = document.querySelector('.account-bottom .channel-card');
+                    const channel = card?.getBoundingClientRect();
+                    const chartBottom = card?.querySelector('.chart-legend-shelf') ?? card?.querySelector('.chart-surface');
+                    const scale = Number(getComputedStyle(document.querySelector('.accounts-layout')).getPropertyValue('--fs-scale')) || 1;
                     return recent && channel ? {
                         sameRow: Math.abs(recent.top - channel.top) < 1,
                         sameWidth: Math.abs(recent.width - channel.width) < 1,
                         sameHeight: Math.abs(recent.height - channel.height) < 1,
                         channelFirst: channel.left < recent.left,
                         stacked: channel.bottom <= recent.top && Math.abs(channel.left - recent.left) < 1,
+                        compact: !!chartBottom && channel.bottom - chartBottom.getBoundingClientRect().bottom <= 54 * scale,
                     } : null;
                 })(),
             }))()`);
 
             /* 两本账是这一页的立论：合成一张「总收支」等于把元与万加起来。
              * 少一张就是回到了那个错。 */
-            t.check('并排两本账', shape.books === 2, `实际 ${shape.books}`);
+            t.check('收支概览复用左侧纸脊双账，等宽铺满内容区且标题保持简洁',
+                shape.books === 2 && shape.overviewHeading === '收支概览' && shape.booksFill);
             t.check('独立币种票据保留收入、支出与差额，外卡统一纯色', shape.bookValues && shape.plainCards);
+            t.check('概览只保留时间范围切换，不重复显示起止日期文字', shape.noRangeText);
             t.check('快捷入口 11 个', shape.shortcuts === 11, `实际 ${shape.shortcuts}`);
+            t.check('快捷纸签限宽，图标跟随总览尺寸与字号缩放', shape.shortcutSizing);
+            t.check('快捷纸签随可用宽度自动换行，宽窗不限制为四列或三行', shape.shortcutWrapping);
             t.check('快捷卡一行左梦幻币右人民币，笔数悬停显示且无横向溢出', shape.shortcutContent);
             t.check('双币种走势共用外卡，保留角色分类图', shape.charts === 2 && shape.trendBlocks === 2);
-            t.check('仓库与历史使用普通按钮，移除独立记一笔入口', shape.headerActions && shape.noGenericEntry);
+            t.check('历史使用普通按钮，仓库保留主操作，移除独立记一笔入口', shape.headerActions && shape.noGenericEntry);
+            t.check('最近记录分类和角色渠道分两行，金额右对齐并保留完整悬停', shape.recentRows);
             t.check('最近记录先于走势，区块移除辅助小字', shape.recordsBeforeCharts && shape.noSectionHints);
             t.check('账号图表统一卡内样式，不重复绘制底板与外影', shape.chartsInCards);
             t.check('账号趋势与分类图统一为 220px，窄区可横滚且隐藏滚动条', shape.chartHeight && shape.chartScroll);
@@ -126,6 +202,7 @@ export default async function run(ctx) {
             );
             t.check('账号主页移除角色筛选，统一展示日期范围内的全部角色', shape.noRoleFilter);
             t.check('图表底部沿用总览 8px 留白，渠道与记录卡片拉伸对齐', shape.chartSpacing);
+            t.check('最近记录最多四笔，渠道图表下方不留整行以上空白', shape.recentCount <= 4 && shape.bottom?.compact);
             t.check('仓库使用带收纳图标的主操作色', shape.primary);
             t.check(
                 '渠道与最近记录宽屏等高并排，窄屏上下排列',
@@ -166,12 +243,19 @@ export default async function run(ctx) {
                         !!body.querySelector('.warehouse-filters [aria-label="仓库状态"]');
                 })()`),
             );
-            await ui.fill('搜索仓库物品', 'E2E无匹配仓库筛选-' + Date.now());
+            t.check('装备仅显示部位筛选，分类滑块按内容定宽', await cdp.evaluate(`(() => {
+                const tabs = document.querySelector('.warehouse-tabs');
+                const scale = Number(getComputedStyle(tabs).getPropertyValue('--fs-scale')) || 1;
+                return !document.querySelector('.warehouse-search') &&
+                    tabs.getBoundingClientRect().width < 250 * scale;
+            })()`));
+            await ui.clickLabel('筛选装备部位');
+            await ui.clickText('[role="option"]', '武器', { exact: true });
             await ui.waitFor(`!!document.querySelector('[aria-label="清空仓库筛选"]')`);
             await ui.clickLabel('清空仓库筛选');
             t.check(
                 '仓库重置筛选恢复原列表，未新增或修改物品',
-                (await cdp.evaluate(`document.querySelector('.warehouse-search').value === '' &&
+                (await cdp.evaluate(`document.querySelector('[aria-label="筛选装备部位"]').textContent.includes('全部部位') &&
                     !document.querySelector('[aria-label="清空仓库筛选"]')`)) &&
                     before ===
                         (await cdp.evaluate(`document.querySelector('.warehouse-count').textContent`)),
@@ -243,19 +327,19 @@ export default async function run(ctx) {
                 await ui.clickLabel('保存仓库物品');
                 await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
                 await ui.waitFor(warehouseIdle);
-                await ui.fill('搜索仓库物品', name);
-                await ui.waitFor(`document.querySelectorAll('.warehouse-item').length === 1`);
+                await narrowWarehouse(kind, name);
+                await ui.waitFor(`${warehouseItems(name)}.length === 1`);
                 t.check(
                     `${kind}列表仅保留图标`,
                     await cdp.evaluate(`(() => {
-                    const item = document.querySelector('.warehouse-item');
+                    const item = ${warehouseItems(name)}[0];
                     return !!item?.querySelector('.press-tile') &&
                         !item.querySelector('.slip-row, .pet-list, b, small') &&
                         !document.querySelector('.warehouse-grid [aria-label="删除仓库物品"]');
                 })()`),
                 );
                 const point = await cdp.evaluate(`(() => {
-                    const box = document.querySelector('.warehouse-item').getBoundingClientRect();
+                    const box = ${warehouseItems(name)}[0].getBoundingClientRect();
                     return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
                 })()`);
                 await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point });
@@ -333,9 +417,9 @@ export default async function run(ctx) {
                 await ui.waitFor(warehouseIdle);
                 t.check(
                     '删除后回列表，筛选中不再有该物品',
-                    await ui.waitFor(`document.querySelectorAll('.warehouse-item').length === 0`),
+                    await ui.waitFor(`${warehouseItems(name)}.length === 0`),
                 );
-                await ui.fill('搜索仓库物品', '');
+                if (kind === '召唤兽') await ui.fill('搜索仓库物品', '');
             }
             await ui.clickLabel('关闭仓库');
             t.check('关闭仓库不残留详情浮层', !(await ui.exists('.detail-tip.on')));
@@ -502,7 +586,7 @@ export default async function run(ctx) {
             const first = await cdp.evaluate(`(() => {
                 const row = [...document.querySelectorAll('.recent-row')].find((one) => one.getAttribute('aria-label')?.includes('⚠E2E账号'));
                 if (!row) return null;
-                return ['.recent-date', '.recent-title', '.recent-note', '.recent-who', '.recent-amount'].map((selector) => row.querySelector(selector)?.textContent.trim() ?? '');
+                return ['.recent-date', '.recent-title', '.recent-channel', '.recent-who', '.recent-amount'].map((selector) => row.querySelector(selector)?.textContent.trim() ?? '');
             })()`);
             t.check('最近记录里出现这一条', Boolean(first), '一行都没有');
             t.check(
@@ -648,7 +732,19 @@ export default async function run(ctx) {
                 ),
             );
             t.check(
-                '账号历史六项下拉独立成组，双币种收支与差额分栏展示',
+                '账号历史默认只展示日期和搜索，细分条件折叠在筛选入口',
+                await cdp.evaluate(`(() => {
+                    const toggle = document.querySelector('[aria-label="展开或收起账号筛选"]');
+                    const panel = document.getElementById(toggle?.getAttribute('aria-controls'));
+                    return toggle?.getAttribute('aria-expanded') === 'false' && panel &&
+                        getComputedStyle(panel).display === 'none' &&
+                        !!document.querySelector('.account-record-search .date-range-field') &&
+                        !!document.querySelector('.account-record-search [aria-label="搜索记录"]');
+                })()`),
+            );
+            await ui.clickLabel('展开或收起账号筛选');
+            t.check(
+                '历史下拉与日期等宽，搜索限宽，主题筛选和普通重置靠右',
                 await cdp.evaluate(`(() => {
                     const dialog = document.querySelector('.account-history');
                     const search = dialog?.querySelector('.account-record-search');
@@ -657,16 +753,28 @@ export default async function run(ctx) {
                     if (!search || !grid || totals.length !== 2) return false;
                     const fields = [...grid.querySelectorAll('.select-field')];
                     const rect = grid.getBoundingClientRect();
+                    const dateWidth = search.querySelector('.date-field').getBoundingClientRect().width;
+                    const keyword = search.querySelector('[aria-label="搜索记录"]');
+                    const scale = Number(getComputedStyle(search).getPropertyValue('--fs-scale')) || 1;
+                    const actions = dialog.querySelector('.account-record-actions');
+                    const toggle = actions?.querySelector('[aria-label="展开或收起账号筛选"]');
+                    const reset = actions?.querySelector('[aria-label="清空筛选"]');
                     return !!search.querySelector('.date-range-field') &&
-                        !!search.querySelector('[aria-label="搜索记录"]') &&
+                        !!keyword && keyword.getBoundingClientRect().width <= 210 * scale + 1 &&
+                        toggle?.classList.contains('seal') && !!toggle.querySelector('.press-tile') &&
+                        !!reset?.querySelector('.press-tile') && !search.contains(toggle) &&
+                        Math.abs(actions.getBoundingClientRect().right - dialog.querySelector('.account-record-toolbar').getBoundingClientRect().right) < 1 &&
                         !search.querySelector('[aria-label="来源筛选"]') && fields.length === 6 &&
-                        getComputedStyle(grid).display === 'grid' &&
+                        getComputedStyle(grid).display === 'flex' &&
                         fields.every((one) => {
                             const box = one.getBoundingClientRect();
-                            return box.left >= rect.left - 1 && box.right <= rect.right + 1;
+                            return box.left >= rect.left - 1 && box.right <= rect.right + 1 &&
+                                Math.abs(box.width - dateWidth) < 1;
                         }) && totals.every((one) =>
-                            [...one.querySelectorAll('dt')].map((label) => label.textContent).join('/') === '收入/支出/差额' &&
-                            one.querySelectorAll('dd').length === 3);
+                            one.classList.contains('folded-card') && one.dataset.spine === 'left' &&
+                            !!one.querySelector('.stats-heading-icon') &&
+                            [...one.querySelectorAll('.cap')].map((label) => label.textContent).join('/') === '收入/支出/差额' &&
+                            one.querySelectorAll('[data-stat-id] .v').length === 3);
                 })()`),
             );
 
@@ -685,6 +793,20 @@ export default async function run(ctx) {
                         !!range.querySelector('[aria-label^="账号历史结束日期"]');
                 })()`),
             );
+            await ui.clickLabel('方向筛选');
+            await ui.clickText('[role="option"]', '收入', { exact: true });
+            const selectedRows = await cdp.evaluate(`document.querySelectorAll('.rec-table tbody tr').length`);
+            await ui.clickLabel('展开或收起账号筛选');
+            t.check(
+                '收起筛选仍显示已选条件并保留筛选结果',
+                await cdp.evaluate(`document.querySelector('.account-record-active')?.textContent.includes('收入') &&
+                    document.querySelector('[aria-label="展开或收起账号筛选"]').textContent.includes('1') &&
+                    document.querySelectorAll('.rec-table tbody tr').length === ${selectedRows}`),
+            );
+            await ui.clickLabel('展开或收起账号筛选');
+            await ui.clickLabel('方向筛选');
+            await ui.clickText('[role="option"]', '全部方向', { exact: true });
+            await ui.clickLabel('展开或收起账号筛选');
             await ui.fill('搜索记录', MARK);
             await sleep(250);
             await cdp.key('Escape');
@@ -769,7 +891,16 @@ export default async function run(ctx) {
                             `document.querySelector('[aria-label="记入账本"]')?.disabled === true`,
                         ),
                     );
+                    t.check(
+                        `${kind}买入关联区同时提供录入和选择`,
+                        await cdp.evaluate(`!!document.querySelector('.account-asset-actions [aria-label="录入交易物品"]') &&
+                            !!document.querySelector('.account-asset-actions [aria-label="设置交易关联物品"]')`),
+                    );
                     await ui.clickLabel('设置交易关联物品');
+                    await ui.waitFor(`!!document.querySelector('.warehouse-content')`);
+                    await ui.clickLabel('关闭仓库');
+                    await ui.waitFor(`!document.querySelector('.warehouse-content')`);
+                    await ui.clickLabel('录入交易物品');
                     await ui.waitFor(`!!document.querySelector('.warehouse-editor-page')`);
                     if (kind === '装备') {
                         await ui.fillSel('.gear-name-input', itemName);
@@ -807,11 +938,20 @@ export default async function run(ctx) {
                         fee.querySelector('.field-label').textContent.trim() === '手续费';
                 })()`),
                 );
+                t.check(
+                    `${kind}卖出关联区同时提供录入和选择`,
+                    await cdp.evaluate(`!!document.querySelector('.account-asset-actions [aria-label="录入交易物品"]') &&
+                        !!document.querySelector('.account-asset-actions [aria-label="设置交易关联物品"]')`),
+                );
+                await ui.clickLabel('录入交易物品');
+                await ui.waitFor(`!!document.querySelector('.warehouse-editor-page')`);
+                await ui.clickLabel('取消本次物品录入');
+                await ui.waitFor(`!document.querySelector('.warehouse-editor-page')`);
                 await ui.clickLabel('设置交易关联物品');
-                await ui.waitFor(`!!document.querySelector('.warehouse-search')`);
-                await ui.fill('搜索仓库物品', name);
+                await ui.waitFor(`!!document.querySelector('.warehouse-content')`);
+                await narrowWarehouse(kind, name);
                 await ui.waitFor(
-                    `document.querySelectorAll('.warehouse-content .warehouse-item').length === 2`,
+                    `${warehouseItems(name)}.length === 2`,
                 );
                 t.check(
                     `${kind}仓库标题横排且装饰条独立`,
@@ -833,7 +973,7 @@ export default async function run(ctx) {
                     ),
                 );
                 await ui.clickLabel('确认选择交易物品');
-                await ui.waitFor(`!document.querySelector('.warehouse-search')`);
+                await ui.waitFor(`!document.querySelector('.warehouse-content')`);
                 t.check(
                     `${kind}已选区使用紧凑图标，选择按钮靠右且自适应`,
                     await cdp.evaluate(`(() => {
@@ -855,6 +995,15 @@ export default async function run(ctx) {
                 })()`),
                 );
                 await ui.clickLabel(`查看物品属性 ${names[0]}`);
+                t.check(
+                    `${kind}图标悬停不向上位移`,
+                    await cdp.evaluate(`(() => {
+                        const item = [...document.querySelectorAll('.account-asset-list .warehouse-item')]
+                            .find((one) => one.getAttribute('aria-label') === ${JSON.stringify(`查看物品属性 ${names[0]}`)});
+                        const icon = item?.querySelector('.warehouse-gear-icon, .warehouse-pet-icon');
+                        return icon && getComputedStyle(icon).transform === 'none';
+                    })()`),
+                );
                 t.check(
                     `${kind}已选图标可查看属性`,
                     await ui.waitFor(
@@ -878,7 +1027,7 @@ export default async function run(ctx) {
                 );
                 await cdp.key('Escape');
                 await ui.clickLabel('设置交易关联物品');
-                await ui.waitFor(`!!document.querySelector('.warehouse-search')`);
+                await ui.waitFor(`!!document.querySelector('.warehouse-content')`);
                 t.check(
                     `${kind}重开保留两件勾选`,
                     await cdp.evaluate(
@@ -887,7 +1036,7 @@ export default async function run(ctx) {
                 );
                 await ui.clickLabel(`选择卖出 ${names[0]}`);
                 await ui.clickLabel('关闭仓库');
-                await ui.waitFor(`!document.querySelector('.warehouse-search')`);
+                await ui.waitFor(`!document.querySelector('.warehouse-content')`);
                 t.check(
                     `${kind}取消选择不改变账目草稿`,
                     await cdp.evaluate(
@@ -901,20 +1050,42 @@ export default async function run(ctx) {
                 await ui.clickLabel('打开装备和召唤兽仓库');
                 await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
                 await ui.clickText('[aria-label="仓库分类"] button', kind);
-                await ui.fill('搜索仓库物品', name);
+                await narrowWarehouse(kind, name);
                 t.check(
-                    `${kind}卖出后重载仍不在仓库`,
-                    await cdp.evaluate(`document.querySelectorAll('.warehouse-item').length === 0`),
+                    `${kind}全部包含两件已售出快照，状态只使用下方文字`,
+                    await ui.waitFor(`${warehouseItems(name)}.length === 2 &&
+                        ${warehouseItems(name)}.every((one) => {
+                            const style = getComputedStyle(one);
+                            const state = one.querySelector('.warehouse-item-state');
+                            return one.classList.contains('warehouse-item-sold') &&
+                                state?.dataset.state === 'sold' && state.textContent.trim() === '已售出' &&
+                                state.classList.contains('num-tag') && state.classList.contains('num-slot') &&
+                                getComputedStyle(state).fontWeight === '400' &&
+                                style.backgroundColor === 'rgba(0, 0, 0, 0)' &&
+                                style.borderTopColor === 'rgba(0, 0, 0, 0)';
+                        })`),
                 );
-                await ui.clickText('[aria-label="仓库状态"] button', '已卖出');
+                await ui.clickLabel(`查看已售出 ${names[0]}`);
+                t.check(
+                    `${kind}全部中的售出物品同样只查看属性`,
+                    await ui.waitFor(`!!document.querySelector('.detail-tip.on') &&
+                        !document.querySelector('.warehouse-editor-page')`),
+                );
+                await cdp.key('Escape');
+                await ui.clickText('[aria-label="仓库状态"] button', '未穿戴');
+                t.check(
+                    `${kind}已售出不会混入可交易库存`,
+                    await ui.waitFor(`${warehouseItems(name)}.length === 0`),
+                );
+                await ui.clickText('[aria-label="仓库状态"] button', '已售出');
                 t.check(
                     `${kind}已卖出分类保留两件快照且不能新增或修改`,
                     await ui.waitFor(
-                        `document.querySelectorAll('.warehouse-item').length === 2 &&
+                        `${warehouseItems(name)}.length === 2 &&
                      !document.querySelector('[data-warehouse-add]')`,
                     ),
                 );
-                await ui.clickLabel(`查看已卖出 ${names[0]}`);
+                await ui.clickLabel(`查看已售出 ${names[0]}`);
                 t.check(
                     `${kind}已卖出仅查看属性`,
                     await ui.waitFor(
@@ -957,15 +1128,15 @@ export default async function run(ctx) {
                 await ui.clickLabel('打开装备和召唤兽仓库');
                 await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
                 await ui.clickText('[aria-label="仓库分类"] button', kind);
-                await ui.fill('搜索仓库物品', name);
+                await narrowWarehouse(kind, name);
                 t.check(
                     `${kind}删除卖出后重载回仓，删除买入不再改变库存`,
-                    await ui.waitFor(`document.querySelectorAll('.warehouse-item').length === 2`),
+                    await ui.waitFor(`${warehouseItems(name)}.length === 2`),
                 );
-                await ui.clickText('[aria-label="仓库状态"] button', '已卖出');
+                await ui.clickText('[aria-label="仓库状态"] button', '已售出');
                 t.check(
                     `${kind}回仓后已卖出列表清空`,
-                    await ui.waitFor(`document.querySelectorAll('.warehouse-item').length === 0`),
+                    await ui.waitFor(`${warehouseItems(name)}.length === 0`),
                 );
                 await ui.clickText('[aria-label="仓库状态"] button', '未穿戴');
                 for (const itemName of names) {
@@ -979,7 +1150,7 @@ export default async function run(ctx) {
                 }
                 t.check(
                     `${kind}回仓测试物品已清理`,
-                    await ui.waitFor(`document.querySelectorAll('.warehouse-item').length === 0`),
+                    await ui.waitFor(`${warehouseItems(name)}.length === 0`),
                 );
                 await ui.clickLabel('关闭仓库');
             }

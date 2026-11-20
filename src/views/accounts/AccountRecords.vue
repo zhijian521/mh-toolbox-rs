@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { ALL_OPTIONS as ALL } from '../../components/select-options';
-import { computed, toRefs, watch } from 'vue';
+import { computed, ref, toRefs, useId, watch } from 'vue';
 import { useRecordScroll } from '../../composables/use-record-filters';
 import LoadNotice from '../../components/LoadNotice.vue';
 import { ledgerMoneyText } from '../../services/format';
 import DateRangeField from '../../components/DateRangeField.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
-import TextButton from '../../components/TextButton.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
 import SelectField from '../../components/SelectField.vue';
+import StatStrip from '../../components/StatStrip.vue';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { notify } from '../../composables/use-notify';
 import { usePagination } from '../../composables/use-pagination';
@@ -20,7 +20,6 @@ import {
     ACCOUNT_CATEGORIES,
     CHANNELS,
     CURRENCY_META,
-    accountStatsByCurrency,
     newestFirst,
     type AccountEntry,
 } from './accounts';
@@ -32,6 +31,7 @@ import {
 } from './account-analysis';
 import { loadAccounts, useAccounts } from './accounts-store';
 import { warehouseName } from '../warehouse/warehouse';
+import { accountSummaryBooks } from './account-summary';
 
 const emit = defineEmits<{ close: []; edit: [entry: AccountEntry] }>();
 const filters = defineModel<AccountRecordFilters>({ required: true });
@@ -89,6 +89,20 @@ const whoOptions = computed(() =>
         { all: true, unassigned: '未指定' },
     ),
 );
+const moreFiltersOpen = ref(false);
+const filterPanelId = useId();
+const activeFilterLabels = computed(() =>
+    [
+        { value: currency.value, options: currencyOptions },
+        { value: kind.value, options: kindOptions },
+        { value: category.value, options: categoryOptions.value },
+        { value: channel.value, options: channelOptions.value },
+        { value: who.value, options: whoOptions.value },
+        { value: source.value, options: sourceOptions },
+    ]
+        .filter((one) => one.value !== ALL)
+        .map((one) => one.options.find((option) => option.value === one.value)?.label ?? one.value),
+);
 const filtered = computed(() => {
     const word = keyword.value.trim().toLocaleLowerCase();
     return newestFirst(
@@ -118,15 +132,11 @@ const filtered = computed(() => {
     );
 });
 const { page, pages, visible } = usePagination(filtered, 20, selectedPage);
-const sums = computed(() => {
-    const stats = accountStatsByCurrency(filtered.value);
-    return BOOK_OPTIONS.filter((one) => currency.value === ALL || currency.value === one.value).map(
-        (one) => ({
-            currency: one.value,
-            stats: stats[one.value],
-        }),
-    );
-});
+const sums = computed(() =>
+    accountSummaryBooks(filtered.value).filter(
+        (one) => currency.value === ALL || currency.value === one.currency,
+    ),
+);
 const anyFilter = computed(
     () =>
         [currency, kind, category, channel, who, source].some((one) => one.value !== ALL) ||
@@ -142,6 +152,7 @@ function reset() {
     from.value = '';
     to.value = '';
     keyword.value = '';
+    moreFiltersOpen.value = false;
 }
 async function remove(one: AccountEntry) {
     if (one.source === 'auto') return;
@@ -184,24 +195,51 @@ async function remove(one: AccountEntry) {
             :blocked="pending > 0 || !!writeError || removing"
         />
         <div class="account-record-controls">
-            <div class="record-filters account-record-search">
-                <DateRangeField
-                    v-model:from="from"
-                    v-model:to="to"
-                    from-label="账号历史开始日期"
-                    to-label="账号历史结束日期"
-                />
-                <input
-                    v-model="keyword"
-                    class="field filter-search"
-                    type="search"
-                    placeholder="搜索备注、分类、角色、物品"
-                    aria-label="搜索记录"
-                    autocomplete="off"
-                />
-                <TextButton v-if="anyFilter" text="重置" label="清空筛选" @click="reset" />
+            <div class="account-record-toolbar">
+                <div class="record-filters account-record-search">
+                    <DateRangeField
+                        v-model:from="from"
+                        v-model:to="to"
+                        from-label="账号历史开始日期"
+                        to-label="账号历史结束日期"
+                    />
+                    <input
+                        v-model="keyword"
+                        class="field filter-search"
+                        type="search"
+                        placeholder="搜索记录或物品"
+                        aria-label="搜索记录"
+                        autocomplete="off"
+                    />
+                </div>
+                <div class="account-record-actions">
+                    <PressButton
+                        v-if="anyFilter"
+                        icon="refresh"
+                        text="重置"
+                        label="清空筛选"
+                        @click="reset"
+                    />
+                    <PressButton
+                        class="account-record-filter-toggle"
+                        icon="chevron-down"
+                        :text="
+                            '筛选' + (activeFilterLabels.length ? ' · ' + activeFilterLabels.length : '')
+                        "
+                        label="展开或收起账号筛选"
+                        :aria-expanded="moreFiltersOpen"
+                        :aria-controls="filterPanelId"
+                        seal
+                        @click="moreFiltersOpen = !moreFiltersOpen"
+                    />
+                </div>
             </div>
+            <p v-if="!moreFiltersOpen && activeFilterLabels.length" class="account-record-active">
+                筛选：{{ activeFilterLabels.join(' · ') }}
+            </p>
             <div
+                v-show="moreFiltersOpen"
+                :id="filterPanelId"
                 class="record-filters account-record-filter-grid"
                 role="group"
                 aria-label="账号记录筛选"
@@ -215,34 +253,19 @@ async function remove(one: AccountEntry) {
             </div>
         </div>
         <div v-if="!loadError" class="record-summary account-record-summary">
-            <section
+            <StatStrip
                 v-for="one in sums"
                 :key="one.currency"
                 class="account-record-total"
+                surface="folded"
+                spine="left"
+                :heading="one.heading"
+                :hint="one.hint"
+                :icon="one.currency === 'cash' ? 'coins' : 'accounts'"
+                :items="one.items"
+                :data-currency="one.currency"
                 :aria-label="CURRENCY_META[one.currency].label + '汇总'"
-            >
-                <h3>{{ CURRENCY_META[one.currency].label }}</h3>
-                <dl>
-                    <div>
-                        <dt>收入</dt>
-                        <dd :class="{ in: one.stats.income > 0 }">{{
-                            accountValueText(one.stats.income, one.currency)
-                        }}</dd>
-                    </div>
-                    <div>
-                        <dt>支出</dt>
-                        <dd :class="{ out: one.stats.expense > 0 }">{{
-                            accountValueText(one.stats.expense, one.currency)
-                        }}</dd>
-                    </div>
-                    <div>
-                        <dt>差额</dt>
-                        <dd :class="{ out: one.stats.net < 0, in: one.stats.net > 0 }">{{
-                            accountValueText(one.stats.net, one.currency)
-                        }}</dd>
-                    </div>
-                </dl>
-            </section>
+            />
         </div>
         <div class="record-table-frame" :class="{ 'is-empty': !!loadError || !entries.length }">
             <div ref="scroll" class="income-log-scroll" @scroll="rememberScroll">
@@ -341,58 +364,75 @@ async function remove(one: AccountEntry) {
 
 <style scoped>
 .account-record-controls {
+    --record-field-w: calc(148px * var(--fs-scale));
+
     flex: none;
     min-width: 0;
-    container: account-records / inline-size;
 }
-.account-record-search .filter-search {
+.account-record-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px 16px;
+    margin-bottom: 12px;
+}
+.account-record-search {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    margin-bottom: 0;
+}
+.account-record-actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 8px;
     margin-left: auto;
 }
+.account-record-search .filter-search {
+    flex: 0 1 calc(210px * var(--fs-scale));
+    width: calc(210px * var(--fs-scale));
+    min-width: 0;
+    max-width: 100%;
+}
+.account-record-search .date-range-field {
+    --range-date-width: var(--record-field-w);
+}
+.account-record-filter-toggle[aria-expanded='true'] :deep(.app-icon) {
+    transform: rotate(180deg);
+}
+.account-record-active {
+    margin: -2px 0 12px;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    overflow-wrap: anywhere;
+}
 .account-record-filter-grid {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+}
+.account-record-filter-grid :deep(.select-field) {
+    flex: 0 1 var(--record-field-w);
+    width: var(--record-field-w);
+    min-width: 0;
+    max-width: 100%;
 }
 .account-record-summary {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
     align-items: start;
-    gap: 10px 20px;
+    gap: 12px;
 }
 .account-record-total {
+    --stat-columns: 3;
+    --folded-pad-block: 10px 12px;
+    --folded-pad-inline: 12px;
+    --stats-ink: var(--accent);
+
     min-width: 0;
 }
-.account-record-total h3 {
-    margin: 0 0 6px;
-    color: var(--ink-2);
-    font-size: var(--fs-sm);
-}
-.account-record-total dl {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    margin: 0;
-}
-.account-record-total dt {
-    color: var(--muted);
-}
-.account-record-total dd {
-    margin: 2px 0 0;
-    font-size: var(--fs-sm);
-    overflow-wrap: anywhere;
-}
-@container account-records (max-width: 800px) {
-    .account-record-filter-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-@container account-records (max-width: 480px) {
-    .account-record-filter-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .account-record-search .filter-search {
-        flex: 1 1 180px;
-        margin-left: 0;
-    }
+.account-record-total[data-currency='cash'] {
+    --stats-ink: var(--moss);
 }
 .in {
     color: var(--positive);

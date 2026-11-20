@@ -6,12 +6,18 @@ import { loadData } from '../../services/load-data';
 import { accountLoad, accountSave, accountTradeSave } from '../../services/storage';
 import { recoverAssetTradeLocal, writeAssetTradeLocal } from '../../services/asset-trade-local';
 import { gameDataReady } from '../../services/game-data';
-import { accountAssetKind, planAssetTrade, planSaleReturn } from './account-assets';
+import {
+    accountAssetKind,
+    planAssetTrade,
+    planSaleReturn,
+    type AccountAssetSource,
+} from './account-assets';
 import {
     finishWarehouseTrade,
     stageWarehouseTrade,
     useWarehouse,
     warehouseTradeSnapshot,
+    warehouseTradeRosterSnapshot,
 } from '../warehouse/warehouse-store';
 import type { ReadonlyWarehouseItem } from '../warehouse/warehouse';
 import { createPersist } from '../../services/persist';
@@ -52,7 +58,7 @@ const persist = createPersist({
     writeLocal: () => {
         const inventory = warehouseTradeSnapshot();
         if (inventory) {
-            writeAssetTradeLocal(entries.value, inventory);
+            writeAssetTradeLocal(entries.value, inventory, warehouseTradeRosterSnapshot());
             finishWarehouseTrade();
         } else writeLocalData(STORAGE_KEY, entries.value);
     },
@@ -94,6 +100,8 @@ export async function loadAccounts(): Promise<void> {
 
 export interface EntryInput {
     assets?: readonly ReadonlyWarehouseItem[];
+    /** 仅新建交易的临时来源；不落盘，选择已有物品不重复入仓。 */
+    assetSource?: AccountAssetSource;
     date: string;
     characterId: string;
     kind: AccountKind;
@@ -189,8 +197,10 @@ export function addEntry(input: EntryInput): AccountWrite {
                 input.kind,
                 input.assets,
                 useWarehouse().items.value,
+                input.assetSource,
             );
-            if (!stageWarehouseTrade(plan.inventory))
+            const soldIds = new Set(input.kind === 'income' ? plan.assets.map((item) => item.id) : []);
+            if (!stageWarehouseTrade(plan.inventory, soldIds))
                 return { ok: false, error: '仓库暂不可写，请先完成仓库的读取或保存' };
             entry.assets = plan.assets;
         } catch (error) {

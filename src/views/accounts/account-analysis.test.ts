@@ -3,6 +3,7 @@ import { UNASSIGNED_CHARACTER as UNASSIGNED } from '../characters/character-opti
 import { describe, expect, it } from 'vitest';
 import { buildTrendChart } from '../../components/trend-chart';
 import { accountStatsByCurrency, SHORTCUTS, type AccountEntry } from './accounts';
+import { accountSummaryBooks } from './account-summary';
 import {
     accountAxisText,
     accountTrend,
@@ -32,6 +33,26 @@ function entry(patch: Partial<AccountEntry> = {}): AccountEntry {
 }
 
 describe('账号概览统计', () => {
+    it('概览和历史共用读数，保留币种单位、笔数、亏损及零值', () => {
+        const books = accountSummaryBooks([
+            entry({ kind: 'income', amount: 0.1 }),
+            entry({ kind: 'income', amount: 0.2 }),
+            entry({ amount: 0.4 }),
+            entry({ currency: 'cash', kind: 'income', amount: 10000 }),
+        ]);
+        expect(books.map((book) => book.currency)).toEqual(['rmb', 'cash']);
+        expect(books[0]).toMatchObject({ heading: '人民币', hint: '3 笔' });
+        expect(books[0].items.map(({ value, tone }) => ({ value, tone }))).toEqual([
+            { value: '0.3 元', tone: 'gain' },
+            { value: '0.4 元', tone: 'loss' },
+            { value: '−0.1 元', tone: 'loss' },
+        ]);
+        expect(books[1].items.map((item) => item.value)).toEqual(['1 万', '0 万', '1 万']);
+        expect(accountSummaryBooks([]).every((book) =>
+            book.hint === '0 笔' && book.items.every((item) => item.tone === 'num'),
+        )).toBe(true);
+    });
+
     it('双币种一次汇总不混账，分别按汇总后的金额取整', () => {
         const rows = [
             entry({ kind: 'income', amount: 0.1 }),

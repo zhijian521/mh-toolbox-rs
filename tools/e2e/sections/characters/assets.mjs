@@ -3,6 +3,7 @@ import { importLoaded } from '../../cdp.mjs';
 
 export async function assets(ctx) {
     const { cdp, ui, t } = ctx;
+    let stockStateColor;
     const read = () =>
         cdp.evaluate(`(async () => {
         const { useRoster } = await ${importLoaded('/src/views/characters/roster.ts')};
@@ -24,11 +25,11 @@ export async function assets(ctx) {
     }
     async function choose(kind, name) {
         await ui.clickLabel(`从仓库选择${kind}`);
-        await ui.waitFor(`!!document.querySelector('.warehouse-search')`);
-        await ui.fill('搜索仓库物品', name);
+        await ui.waitFor(`!!document.querySelector('.warehouse-content')`);
+        if (kind === '召唤兽') await ui.fill('搜索仓库物品', name);
         await ui.clickLabel(`选择穿戴 ${name}`);
         await ui.clickLabel('确认选择角色物品');
-        await ui.waitFor(`!document.querySelector('.warehouse-search')`);
+        await ui.waitFor(`!document.querySelector('.warehouse-content')`);
     }
     async function save() {
         await ui.clickLabel('保存这个角色');
@@ -50,18 +51,20 @@ export async function assets(ctx) {
             ),
         );
         await ui.clickLabel('打开装备和召唤兽仓库');
-        await ui.waitFor(`!!document.querySelector('.warehouse-search')`);
-        await ui.fill('搜索仓库物品', 'E2E刀');
+        await ui.waitFor(`!!document.querySelector('.warehouse-content')`);
         t.check(
             '卸下的装备显示未穿戴',
             await ui.waitFor(
-                `document.querySelector('.warehouse-item-state')?.textContent.trim() === '未穿戴'`,
+                `document.querySelector('.warehouse-item[aria-label$=" E2E刀"] .warehouse-item-state')?.textContent.trim() === '未穿戴'`,
             ),
+        );
+        stockStateColor = await cdp.evaluate(
+            `getComputedStyle(document.querySelector('.warehouse-item[aria-label$=" E2E刀"] .warehouse-item-state')).color`,
         );
         await ui.clickText('[aria-label="仓库状态"] button', '已穿戴');
         t.check(
             '已穿戴分类不包含卸下的武器',
-            await ui.waitFor(`document.querySelectorAll('.warehouse-item').length === 0`),
+            await ui.waitFor(`!document.querySelector('.warehouse-item[aria-label$=" E2E刀"]')`),
         );
         await ui.clickLabel('关闭仓库');
     });
@@ -101,15 +104,51 @@ export async function assets(ctx) {
                 after.stock.find((one) => one.id === id)?.owner === 'E2E改名后',
         );
         await ui.clickLabel('打开装备和召唤兽仓库');
-        await ui.waitFor(`!!document.querySelector('.warehouse-search')`);
-        await ui.fill('搜索仓库物品', 'E2E刀');
+        await ui.waitFor(`!!document.querySelector('.warehouse-content')`);
         t.check(
-            '已穿戴物品使用独立状态样式',
+            '已穿戴只用下方状态文字区分，移除外框填色',
             await ui.waitFor(
-                `!!document.querySelector('.warehouse-item-worn') && document.querySelector('.warehouse-item-state')?.textContent.trim() === '已穿戴'`,
+                `(() => {
+                    const item = document.querySelector('.warehouse-item-worn[aria-label$=" E2E刀"]');
+                    const state = item?.querySelector('.warehouse-item-state');
+                    if (!item || !state) return false;
+                    const style = getComputedStyle(item);
+                    return state.dataset.state === 'worn' && state.textContent.trim() === '已穿戴' &&
+                        state.classList.contains('num-tag') && state.classList.contains('num-slot') &&
+                        getComputedStyle(state).fontWeight === '400' &&
+                        style.backgroundColor === 'rgba(0, 0, 0, 0)' &&
+                        style.borderTopColor === 'rgba(0, 0, 0, 0)' &&
+                        getComputedStyle(state).color !== ${JSON.stringify(stockStateColor)};
+                })()`,
             ),
         );
         await ui.clickLabel('关闭仓库');
+    });
+
+    await t.step('穿戴装备和携带召唤兽可补记买入或选择出售，取消不改关联', async () => {
+        const before = await read();
+        await ui.gotoReady('账号');
+        for (const [direction, kind, name] of [
+            ['买入', '装备', 'E2E刀'], ['买入', '召唤兽', 'E2E兽'],
+            ['卖出', '装备', 'E2E刀'], ['卖出', '召唤兽', 'E2E兽'],
+        ]) {
+            await ui.clickText('.shortcut', `${direction}${kind}`);
+            await ui.clickText('[aria-label="是否关联仓库物品"] button', '是');
+            await ui.clickLabel('设置交易关联物品');
+            await ui.waitFor(`!!document.querySelector('.warehouse-content')`);
+            if (kind === '召唤兽') await ui.fill('搜索仓库物品', name);
+            await ui.clickLabel(`选择${direction} ${name}`);
+            await ui.clickLabel('确认选择交易物品');
+            await ui.waitFor(`!document.querySelector('.warehouse-content')`);
+            t.check(`${kind}穿戴物品可加入${direction}草稿`, await ui.exists(
+                `.account-asset-list [aria-label="查看物品属性 ${name}"]`,
+            ));
+            await ui.clickLabel('关闭账目编辑');
+            await ui.clickLabel('确认放弃修改');
+            await ui.waitFor(`!document.querySelector('.modal-mask')`);
+        }
+        t.check('取消出售不改角色或库存', JSON.stringify(await read()) === JSON.stringify(before));
+        await ui.gotoReady('角色');
     });
 
     await t.step('卸下装备与移除召唤兽后原物品留仓，再次选择沿用编号', async () => {

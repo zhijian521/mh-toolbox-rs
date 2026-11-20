@@ -3,6 +3,7 @@ import '../../services/game-data.fixture';
 import { normalizeCharacter } from '../characters/roster';
 import {
     characterAssetOwners,
+    detachSoldCharacterAssets,
     identifyCharacterAssets,
     mergeCharacterAssets,
 } from './character-assets';
@@ -23,6 +24,19 @@ function role() {
 }
 
 describe('角色与仓库物品身份', () => {
+    it('出售穿戴装备和携带召唤兽只解除匹配编号，不影响其他物品或原档案', () => {
+        const character = role();
+        const weapon = character.gear.find((item) => item.warehouseId)!;
+        const before = JSON.stringify(character);
+        const next = detachSoldCharacterAssets([character], new Set([
+            weapon.warehouseId!, character.pets[0].warehouseId!,
+        ]));
+        expect(next[0].gear.find((item) => item.slot === weapon.slot)).toEqual({ slot: weapon.slot });
+        expect(next[0].pets).toEqual([character.pets[1]]);
+        expect(characterAssetOwners(next).size).toBe(1);
+        expect(JSON.stringify(character)).toBe(before);
+    });
+
     it('旧物品按位置稳定纳入，同名召唤兽各有编号，重载不重复', () => {
         const character = role();
         expect(character.pets[0].warehouseId).not.toBe(character.pets[1].warehouseId);

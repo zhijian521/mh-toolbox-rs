@@ -6,7 +6,12 @@ import { charactersLoad, charactersSave } from '../../services/storage';
 import { gameDataError, gameDataReady, schoolNames } from '../../services/game-data';
 import { createPersist } from '../../services/persist';
 import { normalizeGrowthHistory, withGrowthHistory, type GrowthEntry } from './growth-history';
-import { characterAssetOwners, identifyCharacterAssets } from '../warehouse/character-assets';
+import {
+    characterAssetOwners,
+    detachSoldCharacterAssets,
+    identifyCharacterAssets,
+} from '../warehouse/character-assets';
+import { recoverAssetTradeLocal } from '../../services/asset-trade-local';
 import {
     loadWarehouse,
     stageCharacterWarehouse,
@@ -384,11 +389,13 @@ const writeError = ref('');
 
 /** 启动阶段读取，完成前由写队列阻止保存；旧版转换统一在启动导入入口处理。 */
 export async function loadRoster(): Promise<void> {
+    if (useWarehouse().tradePending.value) return;
     await loadData({
         loaded,
         loadError,
         error: '读不出角色名册，已暂停写入以免覆盖原有数据',
         readLocal: () => {
+            recoverAssetTradeLocal();
             recoverCharacterAssetsLocal();
             return readLocalData(STORAGE_KEY, parseCharacters);
         },
@@ -440,10 +447,18 @@ watch(
 );
 
 function canWriteRoster(): boolean {
+    if (useWarehouse().tradePending.value) return false;
     if (!persist.canWrite()) return false;
     if (gameDataReady.value) return true;
     writeError.value = gameDataError.value || '角色规则尚未加载，请重试后保存';
     return false;
+}
+
+/** 由账号交易队列统一保存，不单独触发名册写入或新增成长记录。 */
+export function stageSoldRosterAssets(soldIds: ReadonlySet<string>): boolean {
+    if (!canWriteRoster() || persist.pending.value || writeError.value) return false;
+    roster.value = detachSoldCharacterAssets(roster.value, soldIds).map(normalizeCharacter);
+    return true;
 }
 
 function stageAssets(next: readonly ReadonlyCharacter[]): boolean {

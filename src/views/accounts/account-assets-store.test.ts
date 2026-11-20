@@ -4,7 +4,7 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
-async function setup(stock = false, failLoad = false) {
+async function setup(stock = false, failLoad = false, worn = false) {
     vi.resetModules();
     const accountSave = vi.fn().mockResolvedValue(true);
     const accountTradeSave = vi.fn().mockResolvedValue(true);
@@ -22,17 +22,27 @@ async function setup(stock = false, failLoad = false) {
         pet: { name: '画魂', growth: '1.287', life: '9999', skills: ['高级必杀'] },
     })!;
     const warehouseLoad = vi.fn().mockResolvedValue(failLoad ? null : stock ? [item] : []);
+    const charactersLoad = vi.fn().mockResolvedValue(worn ? [{
+        id: 'owner', name: '角色甲', updatedAt: 1,
+        pets: [{ ...('pet' in item ? item.pet : {}), warehouseId: item.id }],
+    }] : []);
     vi.doMock('../../services/storage', () => ({
         accountLoad,
         accountSave,
         accountTradeSave,
         warehouseSave,
         warehouseLoad,
+        charactersLoad,
+        charactersSave: vi.fn().mockResolvedValue(true),
     }));
     const accounts = await import('./accounts-store');
     const warehouse = await import('../warehouse/warehouse-store');
     await accounts.loadAccounts();
     await warehouse.loadWarehouse();
+    if (worn) {
+        const roster = await import('../characters/roster');
+        await roster.loadRoster();
+    }
     return {
         ...accounts,
         ...warehouse,
@@ -42,6 +52,7 @@ async function setup(stock = false, failLoad = false) {
         warehouseSave,
         accountLoad,
         warehouseLoad,
+        charactersLoad,
     };
 }
 
@@ -57,6 +68,73 @@ const INPUT = {
 };
 
 describe('账号与仓库关联交易', () => {
+    it('补记买入可关联携带物品，保留原编号、资料和角色归属', async () => {
+        const s = await setup(true, false, true);
+        const { useRoster } = await import('../characters/roster');
+        const before = JSON.stringify(useRoster().roster.value);
+        const selected = [...s.useWarehouse().items.value];
+        expect(s.addEntry({ ...INPUT, assets: selected, assetSource: 'warehouse' }).ok).toBe(true);
+        expect(await s.useAccounts().flush()).toBe(true);
+        expect(s.useWarehouse().items.value).toEqual(selected);
+        expect(s.useWarehouse().owners.value.get(s.item.id)).toBe('角色甲');
+        expect(JSON.stringify(useRoster().roster.value)).toBe(before);
+        expect(s.useAccounts().entries.value[0].assets).toEqual(selected);
+    });
+
+    it('携带中的召唤兽出售与名册解除关联一起暂存，失败重试后回仓不自动携带', async () => {
+        const s = await setup(true, false, true);
+        const { useRoster } = await import('../characters/roster');
+        expect(s.useWarehouse().owners.value.has(s.item.id)).toBe(true);
+        s.accountTradeSave.mockResolvedValueOnce(false);
+        const result = s.addEntry({ ...INPUT, kind: 'income', assets: [...s.useWarehouse().items.value] });
+        if (!result.ok) throw new Error(result.error);
+        expect(useRoster().roster.value[0].pets).toEqual([]);
+        expect(await s.useAccounts().flush()).toBe(false);
+        expect(s.useWarehouse().tradePending.value).toBe(true);
+        expect(useRoster().update(useRoster().roster.value[0])).toBe(false);
+        expect(await s.useAccounts().retry()).toBe(true);
+        expect(s.useWarehouse().items.value).toEqual([]);
+        expect(s.removeEntry(result.entry.id).ok).toBe(true);
+        expect(await s.useAccounts().flush()).toBe(true);
+        expect(s.useWarehouse().items.value).toHaveLength(1);
+        expect(s.useWarehouse().owners.value.has(s.item.id)).toBe(false);
+    });
+
+    it('买入选择现有库存保持唯一编号，临时来源不写入成交记录', async () => {
+        const s = await setup(true);
+        const result = s.addEntry({ ...INPUT, assets: [s.item], assetSource: 'warehouse' });
+        expect(result.ok).toBe(true);
+        expect(await s.useAccounts().flush()).toBe(true);
+        expect(s.useWarehouse().items.value).toEqual([s.item]);
+        expect(s.accountTradeSave).toHaveBeenCalledOnce();
+        expect(s.useAccounts().entries.value[0]).not.toHaveProperty('assetSource');
+        expect(s.useAccounts().entries.value[0].assets).toEqual([s.item]);
+        expect(s.warehouseSave).not.toHaveBeenCalled();
+    });
+
+    it('卖出录入失败可原样重试，成功后删除卖出一次回仓', async () => {
+        const s = await setup();
+        s.accountTradeSave.mockResolvedValueOnce(false);
+        const result = s.addEntry({
+            ...INPUT,
+            kind: 'income',
+            assets: [s.item],
+            assetSource: 'draft',
+        });
+        if (!result.ok) throw new Error(result.error);
+        expect(await s.useAccounts().flush()).toBe(false);
+        expect(s.useWarehouse().tradePending.value).toBe(true);
+        expect(s.useWarehouse().items.value).toEqual([]);
+        expect(await s.useAccounts().retry()).toBe(true);
+        expect(s.useAccounts().entries.value).toHaveLength(1);
+        expect(s.useAccounts().entries.value[0].assets).toEqual([s.item]);
+        expect(s.removeEntry(result.entry.id).ok).toBe(true);
+        expect(await s.useAccounts().flush()).toBe(true);
+        expect(s.useWarehouse().items.value).toEqual([s.item]);
+        expect(s.useAccounts().entries.value).toEqual([]);
+        expect(s.accountSave).not.toHaveBeenCalled();
+    });
+
     it('多件物品同笔买入和卖出，快照完整且库存一次更新', async () => {
         const s = await setup();
         const pair = [s.item, { ...s.item, id: 'second-pet' }];

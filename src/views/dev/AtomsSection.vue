@@ -617,7 +617,7 @@ const demoToggles = ref<string[]>(['task']);
                                 :items="DEMO_EMBEDDED_STATS"
                                 class="demo-stats-embedded"
                                 surface="embedded"
-                                heading="梦幻币统计"
+                                heading="票据统计"
                                 icon="accounts"
                                 aria-label="薄票据统计示例"
                             />
@@ -625,7 +625,7 @@ const demoToggles = ref<string[]>(['task']);
                         <p class="note">
                             默认每格为独立纸面；卡内使用 <code>surface="embedded"</code>，票据直接
                             放在纸面上，保留虚线、镂空缺口、平直纸边和标题小图标。
-                            账号票据使用 <code>TicketCard</code> 外壳，圆角取 <code>--r-ticket</code>。
+                            <code>TicketCard</code> 提供带缺口的票据外壳，圆角取 <code>--r-ticket</code>。
                             立体感来自左亮右暗的细纸棱、两侧薄纸层与顶部高光，不叠加模糊影。
                             金额、单位和未读取状态由业务提供。
                         </p>
@@ -682,7 +682,7 @@ const demoToggles = ref<string[]>(['task']);
                             正文不镜像，内边距自动为纸脊留空。统计条使用
                             <code>surface="folded"</code>，字号与票据模式一致。
                             <code>--folded-pad-block</code>／<code>--folded-pad-inline</code> 控制留白，
-                            纸脊的避让统一由外壳处理。总览周月、队伍和收益双便签共用此组件，
+                            纸脊的避让统一由外壳处理。总览周月、队伍、收益和账号便签共用此组件，
                             内部排版由各自内容决定。
                         </p>
                     </div>
@@ -710,6 +710,7 @@ const demoToggles = ref<string[]>(['task']);
                             由外层纸卡统一承载标题和阴影，图例透出同一底色，不额外绘制分隔线。
                             完整绘图区默认 220px（含坐标与标签，不含图例），多数据横向滚动且隐藏滚动条，
                             保留悬停明细和键盘查看；账号分类图沿用同一默认高度与滚动基座。
+                            柱色、图例和悬停色标共用 35% 透明度的浅染色，文字保持正常清晰度。
                             外层使用 <code>plain</code> 关闭纹理和渐变，仍保留公共圆角与立体阴影。
                         </p>
                     </div>

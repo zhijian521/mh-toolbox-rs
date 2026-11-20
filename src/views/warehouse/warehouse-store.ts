@@ -1,6 +1,6 @@
 /** 仓库状态由各页面共用；新增、覆盖与删除统一归一并进入现有写队列。 */
 import { computed, readonly, ref } from 'vue';
-import { useRoster } from '../characters/roster';
+import { stageSoldRosterAssets, useRoster } from '../characters/roster';
 import type { ReadonlyCharacter } from '../characters/character';
 import { characterAssetOwners, mergeCharacterAssets } from './character-assets';
 import { recoverCharacterAssetsLocal } from '../../services/character-assets-local';
@@ -25,6 +25,7 @@ const writeError = ref('');
 const operationError = ref('');
 const tradePending = ref(false);
 const characterPending = ref(false);
+let tradeRoster: readonly ReadonlyCharacter[] | null = null;
 // 归属在 computed 内惰性读取，两个模块初始化时不能提前展开对方的状态。
 const owners = computed(() => characterAssetOwners(useRoster().roster.value));
 const inventory = computed(() => mergeCharacterAssets(items.value, useRoster().roster.value));
@@ -68,26 +69,38 @@ export async function loadWarehouse(): Promise<void> {
 }
 
 /** 关联交易由账号写队列一次落库；完成前仓库不能单独改写。 */
-export function stageWarehouseTrade(next: WarehouseItem[]): boolean {
+export function stageWarehouseTrade(
+    next: WarehouseItem[],
+    soldIds: ReadonlySet<string> = new Set(),
+): boolean {
     if (
         characterPending.value ||
         useRoster().pending.value ||
         tradePending.value ||
         persist.pending.value ||
         writeError.value ||
-        !persist.canWrite() ||
-        [...owners.value.keys()].some((id) => !next.some((item) => item.id === id))
+        !persist.canWrite()
     )
         return false;
-    items.value = parseWarehouse(next);
+    const inventory = parseWarehouse(next);
+    const stocked = new Set(inventory.map((item) => item.id));
+    const removedOwners = new Set([...owners.value.keys()].filter((id) => !stocked.has(id)));
+    if ([...removedOwners].some((id) => !soldIds.has(id))) return false;
+    if (removedOwners.size && !stageSoldRosterAssets(removedOwners)) return false;
+    tradeRoster = removedOwners.size ? useRoster().roster.value : null;
+    items.value = inventory;
     tradePending.value = true;
     return true;
 }
 export function warehouseTradeSnapshot(): WarehouseItem[] | null {
     return tradePending.value ? items.value : null;
 }
+export function warehouseTradeRosterSnapshot(): readonly ReadonlyCharacter[] | null {
+    return tradeRoster;
+}
 export function finishWarehouseTrade(): void {
     tradePending.value = false;
+    tradeRoster = null;
 }
 
 /** 名册与库存由名册队列一次落库，失败保留联动锁，重试不重复入仓。 */

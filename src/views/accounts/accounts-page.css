@@ -5,46 +5,57 @@
 }
 .account-overview {
     min-width: 0;
-    padding: var(--block-pad);
+}
+.account-overview :deep(.section-head) {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 20px;
+    margin-bottom: 16px;
+}
+.account-overview :deep(.section-actions) {
+    min-width: 0;
+    max-width: 100%;
 }
 .filters {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 10px;
-}
-.range-text {
-    margin-left: auto;
-    color: var(--muted);
-    font-size: var(--fs-xs);
-    font-variant-numeric: tabular-nums;
+    justify-content: flex-end;
+    gap: 8px 16px;
 }
 .books {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
-    margin-top: 16px;
+    width: 100%;
 }
 .book {
     --stat-columns: 3;
+    --stats-ink: var(--accent);
+
     min-width: 0;
 }
-.in,
-.income {
-    color: var(--positive);
-}
-.out,
-.expense {
-    color: var(--negative);
+.book[data-book-currency='cash'] {
+    --stats-ink: var(--moss);
 }
 .shortcuts {
+    --shortcut-min-w: calc(224px * var(--fs-scale));
+    --shortcut-max-w: calc(260px * var(--fs-scale));
+
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 224px), 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--shortcut-min-w)), 1fr));
+    width: 100%;
+    gap: 12px 16px;
+    align-content: start;
+    padding: 2px 4px 6px 0;
 }
 .shortcut {
     --shortcut-color: var(--accent);
+
     min-width: 0;
+    width: 100%;
+    max-width: var(--shortcut-max-w);
+    justify-self: start;
     padding: 0;
     border: 0;
     border-radius: var(--r-ticket);
@@ -70,7 +81,7 @@
 }
 .shortcut-body {
     display: grid;
-    grid-template-columns: 24px minmax(0, 1fr);
+    grid-template-columns: calc(24px * var(--fs-scale)) minmax(0, 1fr);
     align-items: center;
     column-gap: 10px;
     row-gap: 7px;
@@ -79,10 +90,10 @@
 .sc-icon {
     display: grid;
     place-items: center;
-    width: 24px;
-    height: 24px;
+    width: calc(24px * var(--fs-scale));
+    height: calc(24px * var(--fs-scale));
     color: var(--shortcut-color);
-    --icon-size: 20px;
+    --icon-size: calc(23px * var(--fs-scale));
 }
 .sc-title {
     min-width: 0;
@@ -93,7 +104,7 @@
     display: grid;
     grid-column: 1 / -1;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    gap: 8px;
     min-width: 0;
     color: var(--shortcut-color);
     font-size: var(--fs-sm);
@@ -125,96 +136,10 @@
     align-items: stretch;
     gap: 16px;
 }
-.records {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-.records :deep(.section-head) {
-    flex: none;
-}
-.records :deep(.section-body) {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-height: 0;
-}
-.recent-list {
-    flex: 1;
-    min-height: 0;
-    max-height: 320px;
-    overflow-y: auto;
-    scrollbar-gutter: stable;
-}
-.recent-row {
-    display: grid;
-    grid-template-columns: 40px minmax(0, 1.1fr) minmax(45px, 0.8fr) auto;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    min-height: 39px;
-    padding: 9px 4px;
-    border: 0;
-    border-bottom: var(--w-hair) solid var(--rule);
-    background: transparent;
-    color: var(--ink);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-.recent-row:last-child {
-    border-bottom: 0;
-}
-.recent-row:hover {
-    background: var(--paper-2);
-}
-.recent-title,
-.recent-who {
-    overflow: hidden;
-    min-width: 0;
-    font-size: var(--fs-xs);
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-.recent-who,
-.recent-date {
-    color: var(--muted);
-    font-size: var(--fs-mini);
-}
-.recent-date,
-.recent-amount {
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-.source-tag {
-    margin-left: 4px;
-    padding: 1px 3px;
-    border-radius: var(--r-1);
-    background: var(--well);
-    color: var(--muted);
-    font-size: var(--fs-mini);
-}
-.recent-amount {
-    text-align: right;
-    font-size: var(--fs-sm);
-}
-.blank {
-    display: grid;
-    flex: 1;
-    place-items: center;
-    min-height: 258px;
-    margin: 0;
-    color: var(--muted);
-    font-size: var(--fs-sm);
-}
 @container accounts (max-width: 760px) {
     .books,
     .account-bottom {
         grid-template-columns: minmax(0, 1fr);
-    }
-    .range-text {
-        width: 100%;
-        margin-left: 0;
     }
 }
 @container accounts (max-width: 480px) {

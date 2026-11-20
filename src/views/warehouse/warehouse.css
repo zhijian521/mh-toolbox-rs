@@ -54,10 +54,11 @@
     align-items: center;
     min-width: 0;
     max-width: 100%;
-    width: calc(260px * var(--fs-scale));
+    width: auto;
+    flex: none;
 }
 .warehouse-tabs :deep(.stepped) {
-    width: 100%;
+    width: auto;
     min-width: 0;
 }
 .warehouse-toolbar {

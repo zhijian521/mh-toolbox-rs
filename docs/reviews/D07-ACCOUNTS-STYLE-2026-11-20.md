@@ -1,0 +1,70 @@
+# D07 账号主界面风格统一
+
+本轮调整后的静态审查与修复见[账号收口报告](D07-ACCOUNTS-CLOSEOUT-2026-11-20.md)。下文保留界面与业务决定；不以“已补断言”表示运行通过。
+
+日期：2026-11-20。档位：日常，不跑验证。按用户要求沿总览和收益最终风格实施本批；主界面、历史筛选及仓库状态已修改待查看，不是 D07 全领域或视觉验收完成。
+
+## 结果
+
+| 区域 | 本批处理 |
+| ---- | -------- |
+| 收支概览 | 改用 LedgerSection 标题与纯色外壳，时间范围切换位于标题右侧，删除重复的起止日期文字，窄区可换行。双币种使用 StatStrip folded 左侧纸脊，收入／支出／差额各三栏；按最新反馈删除统计区 840px 上限，两卡等分铺满可用宽度，窄区保留单列。沿用公共字号、纸面与纸脊留白。标题仅写币种，笔数移到标题提示。 |
+| 页头操作 | 按最新反馈，历史使用普通 PressButton；仓库保持收纳图标和 seal 主操作，保留原入口与唯一弹窗宿主。 |
+| 快捷记账 | 继续使用 PaperTag 双孔纸签。单卡宽度按 224～260px 随字号缩放，auto-fill 按可用宽度自动换行；移除四列公式与列表总宽上限，宽窗可超过四列，单卡仍不会无限撑开，窄区受容器限宽。图标跟随总览规格。梦幻币／人民币仍在同一行两端，全文及笔数悬停可查，原预设、方向和渠道保持。 |
+| 最近记录 | 封装领域 AccountRecentRecords：日期在左，分类在上、角色／渠道在下，金额和箭头靠右；金额保留符号与单位，自动来源标记保留，完整日期／金额／备注等放在 title 与可访问名称。按反馈仅展示最近四笔、列表上限由 320px 调为 240px，减少渠道卡下方被撑出的空白；保留内部滚动、错误和空态，点击只回传原记录。更多记录从页头历史查看。 |
+| 图表与排列 | 渠道／最近记录仍在趋势前，宽区等宽等高，窄区上下排列。双币种走势及角色分类图继续使用公共默认图高、横滚、隐藏滚动条和 35% 透明度色彩，未另写材质或图表算法。 |
+| 历史筛选 | 日期和限宽搜索常驻，六项细分条件默认收起，通过带数量提示的主题色 PressButton 展开，普通重置与筛选移至工具栏右侧。下拉与单个日期框共用 148px 随字号缩放的宽度，关键词宽 210px 随字号缩放，窄区自然换行。收起后展示已选条件文本，重开窗口也能看出当前限制；折叠不改变筛选值、页码或滚动，重置仍清空全部条件。顶部汇总改为 StatStrip folded 左侧纸脊双卡，分别展示收入／支出／差额，紧凑留白，笔数放标题提示；表格及计算口径保留。 |
+| 仓库状态 | 移除已穿戴／售出状态的整格染色与特殊边框，下方改用与收益固定价格共用的 NumTag 包裹状态，常规字重区分已穿戴 moss、已售出 ochre、未穿戴 muted；图标悬停不向上移动，装备取消关键词框、只按部位筛选，召唤兽保留关键词；分类滑块按内容自适应。全部合并真实库存和去重后的成交快照；已售出在全部及售出分类中都只能查看，未穿戴与交易／穿戴选取不混入售出物品。 |
+
+## 范围与依赖
+
+已读 AccountsView、accounts-page、AccountCharts、AccountFlowCard、AccountBarChart、账号预设与 account-analysis 的使用契约，以及 PaperTag／StatStrip／FoldedCard、总览入口和收益布局作为参考。主界面仅调整展示：过滤仍由页面 scoped 派生；最近记录先 newestFirst 后截取四笔，组件不重新筛选或排序；openEntry 及 AccountEditor 继续管理自动记录详情和手记编辑，usePersistedSubmit 和自动对账沿原链路。交易双入口的输入来源变化见下方说明，不增加 IPC 参数或数据库字段。渠道图表的公共 220px 绘图区不改，以减少右侧条目和列表高度上限维持并排等高。
+
+最近记录是单领域组合，不登记为原子组件；开发页仅更新共用统计外壳的说明，不把账号业务数据塞进公共纸卡。TicketCard／embedded 仍保留兼容外壳和演示，本批不为全局统一额外删除公共 API。
+
+| 文件 | 状态与证据 |
+| ---- | ---------- |
+| src/views/accounts/AccountsView.vue | 已审查并改：区块、折脊便签、辅助入口和最近记录组合；保存／预设链保持。 |
+| src/views/accounts/accounts-page.css | 已审查并改：标题筛选响应布局、统计等宽铺满、快捷纸签宽度／图标；移走最近记录独占样式。 |
+| src/views/accounts/AccountRecentRecords.vue | 新增已静态审查：展示派生、原记录回传、空态／错误、金额符号、滚动及可访问描述。 |
+| src/views/accounts/AccountRecords.vue | 已静态审查并改：日期／搜索常驻、细分筛选折叠与已选摘要；沿用全部过滤维度、双币种汇总及分页编辑链。 |
+| src/views/warehouse/WarehouseDialog.vue／WarehouseItems.vue／warehouse.ts | 已静态审查并改：全部合并在仓／售出，按单件区分只读状态，读取错误与保存保护涵盖售出数据源；状态不再染整格。warehouseItemsByState 只派生浏览列表，不改库存或成交快照。 |
+| tools/e2e/sections/05-accounts.mjs／characters/assets.mjs、warehouse.test.ts | 已维护：左脊三读数／标题提示、统计铺满与快捷限宽、宽窄列数变化、普通历史入口、最近四笔／渠道底部留白；新增筛选折叠保留条件、全部含售出且只读、未穿戴排除售出、状态无外框染色及纯逻辑筛选断言；未执行。 |
+| src/views/dev/AtomsSection.vue | 已同步：embedded 改为通用票据示例说明，FoldedCard 用途包含账号。 |
+| CONVENTIONS／ARCHITECTURE／RECORD／OPTIMIZATION-PLAN 与原 D07 报告 | 已同步现行职责、进度与报告指向，历史记录不冒充当前验收结论。 |
+
+## 未改变的部分与理由
+
+收支编辑器的金额、手续费及角色字段不重新设计；关联区按最新要求补齐录入／选择双入口。日期筛选、双币种口径、快捷汇总、角色归属、自动记录只读、对账失败与普通写入重试沿原实现。游戏资源、Schema 和 IPC 签名未调整；服务及 Rust 为支持穿戴出售的联动保存已修改，范围见下方补充；其故障与并发深审仍归 D07 及其他原工作包，不声称本次已验证。
+
+本轮仓库依赖链为 WarehouseDialog → 现有 accounts／warehouse store → soldWarehouseItems 派生成交快照 → warehouseItemsByState 筛选 → WarehouseItems 按件只读展示；成交去重和在仓优先继续由 soldWarehouseItems 管理。管理模式全部／已售出依赖账号数据的 loaded、loadError、pending 和 writeError，其他库存分类与选择模式保留原库存来源。没有新增系统调用或持久化字段；删除卖出回仓仍走既有事务。
+
+## 交易双入口补充
+
+新建装备／召唤兽买卖的关联区右上方同时提供录入和选择。录入走截图草稿，选择走可用库存；确认后替换本组资料，取消保留原组。选择买入保留原编号、不重复入仓，录入卖出仅留成交快照；已有交易关联仍只读，删除卖出后沿原规则回仓。录入与选择目前替换本组关联资料，不在同一组混合两种来源。
+
+依赖链：AccountEditor.assetSource → EntryInput.assetSource → planAssetTrade → stageWarehouseTrade → persist → accountTradeSave。来源仅在提交时校验和规划库存，compose 不写该字段。Rust save_account_trade 已扩展为在原事务内按新增、匹配的卖出快照解除角色关联，账号／库存／角色一并提交；IPC 签名及 Schema 未修改。
+
+文件：AccountEditor.vue、account-assets.ts、accounts-store.ts、WarehouseDialog.vue、WarehouseEditor.vue；相关 account-assets.test.ts／account-assets-store.test.ts 维护选择买入不复制、过期快照拒绝、录入卖出、失败重试及删除回仓，窗口烟测维护双入口与取消，全部未执行。开发页已有 NumTag 演示，不新增同义组件；本轮范围不包含动态主题、几何或全流程验收。
+
+## 穿戴出售与仓库细化
+
+出售选择包含穿戴中的装备和携带中的召唤兽；选取或取消只修改交易草稿，确认记账后才按编号解除角色关联。删除卖出仅回仓，不重新穿戴。角色其余字段和未售出物品保留，不新增成长记录；最后一枚玉魄售出后清除遗留命魂读数。
+
+依赖链增加 warehouse-store.stageWarehouseTrade → roster.stageSoldRosterAssets；账号保存成功前保留交易锁，失败重试仍走原账号队列，名册不能另写或重读。桌面 save_account_trade 调用 character_assets.detach_sales，只有本次新增、分类和当前物品快照匹配的卖出允许解除归属；后续写入失败时三域一起回滚，普通仓库删除仍受 check_worn 保护。浏览器 asset-trade-local 的同一恢复日志可携带名册，角色读取前重放，兼容旧的两份数据日志。
+
+已维护 character-assets.test.ts、account-assets-store.test.ts、asset-trade-local.test.ts、Rust store/tests.rs 及账号／角色仓库烟测：领域解除、保存失败重试、名册锁、日志中断恢复、SQLite 回滚、选取取消、部位筛选、状态签常规字重。全部未执行；Rust 未编译、窗口未启动，真实账本未接触。现有纯逻辑 filterWarehouse 继续供其他消费者搜索，不为删除一个输入框移除通用能力。
+
+## 补记买入与历史汇总
+
+买入和卖出的仓库选择都包含穿戴装备／携带召唤兽。买入选择已有物品只补记交易，保留编号、数量、角色引用和资料；角色穿戴选择仍不允许重复占用。WarehouseDialog 的 choosingTrade 控制选取范围与穿戴项可选，已有 AccountAssetSource 分支无须再改保存方式。
+
+历史顶部用两张紧凑 StatStrip folded 左侧纸脊卡替换原标题／列表汇总；币种配图标，收入／支出／差额三栏保留各自单位与颜色，窄区自然单列，笔数仅放标题提示。旧的 h3／dl／dt／dd 局部布局清理，复用已有组件，无新材质副本或演示组件。
+
+补记穿戴买入的 store 断言、账号历史统计卡烟测和角色仓库买卖选取／取消场景已维护，未执行。金额仍从 filtered → accountStatsByCurrency → accountValueText 派生，未修改历史筛选、分页、编辑、费用或自动对账。
+
+## 未验收与下一步
+
+未运行 format、lint、typecheck、测试、e2e、build、Rust、CDP、性能或视觉验收；未启动应用、未改真实账本、未提交。仅做静态阅读、引用搜索和差异审查。
+
+用户先查看账号主界面、历史及仓库弹窗。后续若指定验收，范围应覆盖主题明暗、最大字号、760／480px 收列、长金额和角色名、统计铺满、快捷双币种一行、最近记录滚动、手记编辑／自动详情、历史折叠／重开条件、全部与售出／未穿戴切换、售出只读和删除回仓。账号读取失败或在途保存下的全部列表保护尚未动态复现。断言已维护但未执行，不能替代实际窗口结论。

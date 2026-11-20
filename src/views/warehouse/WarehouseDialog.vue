@@ -18,13 +18,16 @@ import { loadGameData } from '../../services/game-data';
 import {
     filterWarehouse,
     newWarehouseItem,
+    warehouseItemsByState,
     type ReadonlyWarehouseItem,
     type WarehouseKind,
     type WarehouseItem,
+    type WarehouseState,
 } from './warehouse';
 import { loadWarehouse, useWarehouse } from './warehouse-store';
 import { loadAccounts, useAccounts } from '../accounts/accounts-store';
 import { soldWarehouseItems } from '../accounts/account-assets';
+import type { AccountKind } from '../accounts/accounts';
 import WarehouseEditor from './WarehouseEditor.vue';
 
 const props = withDefaults(
@@ -36,6 +39,7 @@ const props = withDefaults(
         assetKind?: WarehouseKind;
         draftItems?: readonly ReadonlyWarehouseItem[];
         selectedItems?: readonly ReadonlyWarehouseItem[];
+        tradeDirection?: AccountKind;
     }>(),
     { mode: 'manage', assetKind: 'gear' },
 );
@@ -48,35 +52,45 @@ const store = useWarehouse();
 const { items, owners, loaded, loadError, writeError, pending, tradePending, characterPending } =
     store;
 const choosing = computed(() => props.mode === 'pick' || props.mode === 'equip');
+const choosingTrade = computed(() => props.mode === 'pick');
 const accounts = useAccounts();
-const stockState = ref<'all' | 'equipped' | 'stock' | 'sold'>('all');
+const stockState = ref<WarehouseState>('all');
 const stockOptions = [
     { value: 'all' as const, label: '全部' },
     { value: 'equipped' as const, label: '已穿戴' },
     { value: 'stock' as const, label: '未穿戴' },
-    { value: 'sold' as const, label: '已卖出' },
+    { value: 'sold' as const, label: '已售出' },
 ];
 const soldView = computed(() => props.mode === 'manage' && stockState.value === 'sold');
+const showsSales = computed(
+    () => props.mode === 'manage' && (stockState.value === 'all' || stockState.value === 'sold'),
+);
+const sales = computed(() =>
+    props.mode === 'manage' ? soldWarehouseItems(accounts.entries.value, items.value) : [],
+);
+const soldIds = computed(() => new Set(sales.value.map((item) => item.id)));
 const sourceItems = computed(() => {
-    if (soldView.value) return soldWarehouseItems(accounts.entries.value, items.value);
-    return items.value.filter((item) => {
-        const equipped = owners.value.has(item.id);
-        if (choosing.value) return !equipped && !props.excludedIds?.includes(item.id);
-        return (
-            stockState.value === 'all' || (stockState.value === 'equipped' ? equipped : !equipped)
+    if (choosing.value)
+        return items.value.filter(
+            (item) =>
+                (choosingTrade.value || !owners.value.has(item.id)) &&
+                !props.excludedIds?.includes(item.id),
         );
-    });
+    return warehouseItemsByState(items.value, sales.value, owners.value, stockState.value);
 });
 const viewError = computed(
-    () => loadError.value || (soldView.value ? accounts.loadError.value : ''),
+    () => loadError.value || (showsSales.value ? accounts.loadError.value : ''),
 );
-const viewLoaded = computed(() => loaded.value && (!soldView.value || accounts.loaded.value));
+const viewLoaded = computed(() => loaded.value && (!showsSales.value || accounts.loaded.value));
 const kind = ref<WarehouseKind>(props.assetKind);
 const keyword = ref('');
 const slot = ref(props.gearSlot ?? '');
 const anyFilter = computed(
     () =>
-        Boolean(keyword.value.trim() || (kind.value === 'gear' && !props.gearSlot && slot.value)) ||
+        Boolean(
+            (kind.value === 'pet' && keyword.value.trim()) ||
+            (kind.value === 'gear' && !props.gearSlot && slot.value),
+        ) ||
         (props.mode === 'manage' && stockState.value !== 'all'),
 );
 function resetFilters() {
@@ -111,13 +125,18 @@ const editing = ref<{ item: ReadonlyWarehouseItem; existing: boolean } | null>(
         ? { item: props.draftItems?.[0] ?? newWarehouseItem(props.assetKind), existing: false }
         : null,
 );
+const tradeLabel = computed(() =>
+    props.tradeDirection === 'income' || (!props.tradeDirection && props.mode === 'pick')
+        ? '卖出'
+        : '买入',
+);
 const title = computed(() =>
     props.mode === 'equip'
         ? `从仓库选择${kind.value === 'gear' ? '装备' : '召唤兽'}`
         : props.mode === 'pick'
-          ? `选择卖出的${kind.value === 'gear' ? '装备' : '召唤兽'}`
+          ? `选择${tradeLabel.value}的${kind.value === 'gear' ? '装备' : '召唤兽'}`
           : props.mode === 'draft'
-            ? `录入买入的${kind.value === 'gear' ? '装备' : '召唤兽'}`
+            ? `录入${tradeLabel.value}的${kind.value === 'gear' ? '装备' : '召唤兽'}`
             : !editing.value
               ? '仓库'
               : editing.value.existing
@@ -160,7 +179,7 @@ function focusPage(element: Element) {
     const fallback =
         returnItemId !== null
             ? element.querySelector<HTMLElement>('[data-warehouse-add]')
-            : element.querySelector<HTMLElement>('.warehouse-search');
+            : element.querySelector<HTMLElement>('.warehouse-search, [aria-label="筛选装备部位"]');
     (item ?? fallback)?.focus({ preventScroll: true });
 }
 const options = computed(() => [
@@ -181,7 +200,7 @@ const filtered = computed(() =>
     filterWarehouse(
         sourceItems.value,
         kind.value,
-        keyword.value,
+        kind.value === 'pet' ? keyword.value : '',
         kind.value === 'gear' ? slot.value : '',
     ),
 );
@@ -211,7 +230,7 @@ const blocked = computed(
         pending.value > 0 ||
         tradePending.value ||
         characterPending.value ||
-        (soldView.value && (!!accounts.writeError.value || accounts.pending.value > 0)),
+        (showsSales.value && (!!accounts.writeError.value || accounts.pending.value > 0)),
 );
 async function load() {
     try {
@@ -245,7 +264,11 @@ function add() {
     editing.value = { item: newWarehouseItem(kind.value), existing: false };
 }
 function open(item: ReadonlyWarehouseItem) {
-    if (blocked.value || soldView.value || owners.value.has(item.id)) return;
+    if (
+        blocked.value ||
+        soldIds.value.has(item.id) ||
+        (owners.value.has(item.id) && !choosingTrade.value)
+    ) return;
     if (choosing.value) {
         if (props.mode === 'equip' && (kind.value === 'gear' || props.single)) {
             selectedIds.value = new Set([item.id]);
@@ -336,14 +359,13 @@ function confirmSelection() {
                                 class="warehouse-stock-filter"
                             />
                             <input
+                                v-if="kind === 'pet'"
                                 v-model="keyword"
                                 class="field filter-search warehouse-search"
                                 type="search"
                                 autocomplete="off"
                                 aria-label="搜索仓库物品"
-                                :placeholder="
-                                    kind === 'gear' ? '搜索名称、特效、备注' : '搜索名称、技能'
-                                "
+                                placeholder="搜索名称、技能"
                             />
                             <SelectField
                                 v-if="kind === 'gear'"
@@ -366,7 +388,7 @@ function confirmSelection() {
                             :blocked="pending > 0 || !!writeError"
                         />
                         <SaveNotice :error="writeError" :pending="pending" @retry="store.retry" />
-                        <template v-if="soldView">
+                        <template v-if="showsSales">
                             <LoadNotice
                                 :error="accounts.loadError.value"
                                 :load="loadSales"
@@ -408,17 +430,17 @@ function confirmSelection() {
                                 <div v-else-if="!filtered.length" class="warehouse-empty">
                                     <p>
                                         {{
-                                            keyword || (kind === 'gear' && slot)
+                                            anyFilter
                                                 ? '没有符合条件的物品'
                                                 : soldView
-                                                  ? `还没有卖出的${kind === 'gear' ? '装备' : '召唤兽'}`
+                                                  ? `还没有售出的${kind === 'gear' ? '装备' : '召唤兽'}`
                                                   : kind === 'gear'
                                                     ? '还没有入仓装备'
                                                     : '还没有入仓召唤兽'
                                         }}
                                     </p>
                                     <span v-if="!soldView" class="muted">{{
-                                        keyword || (kind === 'gear' && slot)
+                                        anyFilter
                                             ? '换个关键词或筛选条件试试'
                                             : choosing
                                               ? '暂无可选择的仓库物品'
@@ -431,15 +453,19 @@ function confirmSelection() {
                                     :items="visible"
                                     :owners="owners"
                                     :status="soldView ? 'sold' : 'stock'"
+                                    :sold-ids="soldIds"
                                     :selectable="choosing"
+                                    :allow-worn-selection="choosingTrade"
                                     :selected-ids="selectedIds"
                                     :label-prefix="
                                         choosing
                                             ? mode === 'equip'
                                                 ? '选择穿戴'
-                                                : '选择卖出'
+                                                : tradeDirection === 'expense'
+                                                  ? '选择买入'
+                                                  : '选择卖出'
                                             : soldView
-                                              ? '查看已卖出'
+                                              ? '查看已售出'
                                               : '查看并修改'
                                     "
                                     :inspect-only="soldView"

@@ -3,6 +3,7 @@
 import { onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
 import PressTile from '../../components/PressTile.vue';
+import NumTag from '../../components/NumTag.vue';
 import GearTip from '../characters/GearTip.vue';
 import IconTile from '../characters/IconTile.vue';
 import PetImage from '../characters/PetImage.vue';
@@ -16,15 +17,32 @@ const props = withDefaults(
         labelPrefix?: string;
         disabled?: boolean;
         selectable?: boolean;
+        allowWornSelection?: boolean;
         selectedIds?: ReadonlySet<string>;
         inspectOnly?: boolean;
         status?: 'stock' | 'sold';
+        soldIds?: ReadonlySet<string>;
         owners?: ReadonlyMap<string, string>;
     }>(),
     { labelPrefix: '查看并修改' },
 );
 const emit = defineEmits<{ itemclick: [item: ReadonlyWarehouseItem] }>();
 const { icon } = useGearIcon();
+const stateLabels = { sold: '已售出', worn: '已穿戴', stock: '未穿戴' };
+function itemState(item: ReadonlyWarehouseItem): keyof typeof stateLabels {
+    if (props.status === 'sold' || props.soldIds?.has(item.id)) return 'sold';
+    return props.owners?.has(item.id) ? 'worn' : 'stock';
+}
+function itemLabel(item: ReadonlyWarehouseItem) {
+    const state = itemState(item);
+    const prefix =
+        state === 'sold'
+            ? '查看已售出'
+            : state === 'worn' && !props.allowWornSelection
+              ? '查看已穿戴'
+              : props.labelPrefix;
+    return `${prefix} ${warehouseName(item)}`;
+}
 const tipId = useId();
 const hovered = ref<ReadonlyWarehouseItem | null>(null);
 const anchor = ref<DOMRect | null>(null);
@@ -56,7 +74,9 @@ function dismissTip(event: KeyboardEvent) {
 }
 function activate(item: ReadonlyWarehouseItem, event: MouseEvent) {
     if (props.disabled) return;
-    if (props.inspectOnly || props.owners?.has(item.id)) showTip(item, event);
+    const state = itemState(item);
+    if (props.inspectOnly || state === 'sold' || (state === 'worn' && !props.allowWornSelection))
+        showTip(item, event);
     else {
         hideTip();
         emit('itemclick', item);
@@ -89,10 +109,10 @@ defineExpose({ hideTip });
             class="character-choice warehouse-item"
             :class="{
                 'warehouse-item-selected': selectable && selectedIds?.has(item.id),
-                'warehouse-item-worn': owners?.has(item.id),
-                'warehouse-item-sold': status === 'sold',
+                'warehouse-item-worn': itemState(item) === 'worn',
+                'warehouse-item-sold': itemState(item) === 'sold',
             }"
-            :aria-label="`${owners?.has(item.id) ? '查看已穿戴' : labelPrefix} ${warehouseName(item)}`"
+            :aria-label="itemLabel(item)"
             :aria-pressed="selectable ? selectedIds?.has(item.id) === true : undefined"
             :aria-describedby="hovered?.id === item.id ? `${tipId}-${item.kind}` : undefined"
             :disabled="disabled"
@@ -117,9 +137,13 @@ defineExpose({ hideTip });
             <PressTile v-else still class="warehouse-pet-icon" aria-hidden="true">
                 <PetImage :name="item.pet.portrait || ''" kind="portrait" title="" />
             </PressTile>
-            <span v-if="status" class="warehouse-item-state" :title="owners?.get(item.id)">{{
-                status === 'sold' ? '已卖出' : owners?.has(item.id) ? '已穿戴' : '未穿戴'
-            }}</span>
+            <NumTag
+                v-if="status"
+                class="warehouse-item-state"
+                :data-state="itemState(item)"
+                :title="owners?.get(item.id)"
+                >{{ stateLabels[itemState(item)] }}</NumTag
+            >
             <span
                 v-if="selectable && selectedIds?.has(item.id)"
                 class="warehouse-item-check"
@@ -192,10 +216,6 @@ defineExpose({ hideTip });
     background: color-mix(in srgb, var(--accent) 6%, var(--paper));
     box-shadow: 0 2px 5px var(--shadow);
 }
-.warehouse-item:hover:not(:disabled) :is(.warehouse-gear-icon, .warehouse-pet-icon),
-.warehouse-item:focus-visible :is(.warehouse-gear-icon, .warehouse-pet-icon) {
-    transform: translateY(-1px);
-}
 .warehouse-item-selected {
     outline: 1px solid var(--accent);
     outline-offset: -2px;
@@ -204,34 +224,25 @@ defineExpose({ hideTip });
 .warehouse-item-selected:hover:not(:disabled) {
     background: color-mix(in srgb, var(--accent) 12%, var(--paper));
 }
-.warehouse-item-worn {
-    border-color: color-mix(in srgb, var(--accent) 50%, var(--rule-2));
-    background: color-mix(in srgb, var(--accent) 7%, var(--paper));
-}
 .warehouse-item-state {
+    --tag-h: calc(15px * var(--fs-scale));
+
+    min-width: 44px;
     margin-top: 3px;
-    padding: 1px 4px;
-    border-radius: var(--r-1);
-    background: var(--slip-base);
-    color: var(--ink-3);
+    color: var(--muted);
     font-size: var(--fs-mini);
     line-height: 1.2;
     white-space: nowrap;
 }
-.warehouse-item-worn .warehouse-item-state,
+.warehouse-item .warehouse-item-state {
+    font-weight: 400;
+}
+.warehouse-item-state[data-state='worn'],
 .warehouse-tip-owner {
-    color: var(--accent);
+    color: var(--moss);
 }
-.warehouse-item-worn .warehouse-item-state {
-    background: color-mix(in srgb, var(--accent) 12%, var(--paper));
-}
-.warehouse-item-sold {
-    border-style: dashed;
-    border-color: var(--rule-2);
-}
-.warehouse-item-sold .warehouse-item-state {
-    background: color-mix(in srgb, var(--seal) 8%, var(--paper));
-    color: var(--seal);
+.warehouse-item-state[data-state='sold'] {
+    color: var(--ochre);
 }
 .warehouse-item-check {
     position: absolute;

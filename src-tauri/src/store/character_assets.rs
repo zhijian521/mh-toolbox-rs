@@ -160,6 +160,100 @@ pub(super) fn save_roster(conn: &mut Connection, roster: &[Value]) -> Result<(),
     tx.commit().map_err(|error| format!("提交失败：{error}"))
 }
 
+/// 旧档缺省字段与前端补全的零／空值等价；非空字段和数组顺序仍参与快照核对。
+fn snapshot_content(value: &Value) -> Option<Value> {
+    match value {
+        Value::Null | Value::Bool(false) => None,
+        Value::String(text) if text.is_empty() => None,
+        Value::Number(number) if number.as_f64() == Some(0.0) => None,
+        Value::Array(items) if items.is_empty() => None,
+        Value::Array(items) => Some(Value::Array(
+            items
+                .iter()
+                .map(|item| snapshot_content(item).unwrap_or(Value::Null))
+                .collect(),
+        )),
+        Value::Object(fields) => {
+            let fields: serde_json::Map<String, Value> = fields
+                .iter()
+                .filter_map(|(key, value)| {
+                    snapshot_content(value).map(|value| (key.clone(), value))
+                })
+                .collect();
+            (!fields.is_empty()).then_some(Value::Object(fields))
+        }
+        _ => Some(value.clone()),
+    }
+}
+
+/// 只有本次新增且快照匹配的卖出才能解除归属，旧账和普通删库存不获得权限。
+pub(super) fn detach_sales(
+    conn: &Connection,
+    entries: &[AccountEntry],
+    inventory: &[Value],
+) -> Result<(), String> {
+    let previous: HashSet<_> = load_accounts(conn)?.into_iter().map(|entry| entry.id).collect();
+    let mut roster = load_records(conn, &CHARACTERS)?;
+    let worn = merge(&[], &roster)?;
+    let current = load(conn)?;
+    let mut sold = HashSet::new();
+    for item in worn {
+        if inventory.iter().any(|one| one["id"] == item["id"]) {
+            continue;
+        }
+        let snapshot = current
+            .iter()
+            .find(|one| one["id"] == item["id"])
+            .and_then(snapshot_content);
+        let matched = entries.iter().any(|entry| {
+            !previous.contains(&entry.id)
+                && entry.kind == "income"
+                && entry.source != "auto"
+                && ((item["kind"] == "gear" && entry.category == "装备交易")
+                    || (item["kind"] == "pet" && entry.category == "召唤兽交易"))
+                && entry.assets.iter().any(|asset| snapshot_content(asset) == snapshot)
+        });
+        if !matched {
+            return Err("穿戴物品的成交资料已变化，请重新选择后出售".into());
+        }
+        if let Some(id) = item["id"].as_str() {
+            sold.insert(id.to_string());
+        }
+    }
+    if sold.is_empty() {
+        return Ok(());
+    }
+    for character in &mut roster {
+        let mut sold_jade = false;
+        let mut has_jade = false;
+        if let Some(gear) = character.get_mut("gear").and_then(Value::as_array_mut) {
+            for part in gear {
+                let jade = part["slot"].as_str().is_some_and(|slot| slot.starts_with("玉魄"));
+                if part["warehouseId"].as_str().is_some_and(|id| sold.contains(id)) {
+                    sold_jade |= jade;
+                    *part = json!({ "slot": part["slot"].clone() });
+                } else {
+                    has_jade |= jade && part["warehouseId"].as_str().is_some_and(|id| !id.is_empty());
+                }
+            }
+        }
+        if let Some(pets) = character.get_mut("pets").and_then(Value::as_array_mut) {
+            pets.retain(|pet| !pet["warehouseId"].as_str().is_some_and(|id| sold.contains(id)));
+        }
+        if sold_jade && !has_jade {
+            if let Some(meta) = character.get_mut("gearMeta").and_then(Value::as_object_mut) {
+                meta.remove("soul");
+            }
+        }
+    }
+    conn.execute("DELETE FROM characters", [])
+        .map_err(|error| format!("更新售出归属失败：{error}"))?;
+    for (index, character) in roster.iter().enumerate() {
+        insert_record(conn, &CHARACTERS, index, character)?;
+    }
+    Ok(())
+}
+
 pub(super) fn check_worn(conn: &Connection, inventory: &[Value]) -> Result<(), String> {
     let worn = merge(&[], &load_records(conn, &CHARACTERS)?)?;
     if worn
