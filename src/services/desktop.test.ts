@@ -124,6 +124,30 @@ describe('账本备份：三种结局不能互相冒充', () => {
         expect(await dataImport()).toEqual({ status: 'canceled' });
     });
 
+    it('模拟账本使用新版内容导入入口，回执保留替换前备份位置', async () => {
+        const { dataImportPayload } = await load();
+        invokeMock.mockResolvedValue({
+            backupPath: 'D:/备份/模拟前.json', truncated: 0, truncatedItems: 0,
+        });
+        const raw = '{"format":2,"app":"mh-toolbox-rs"}';
+        expect(await dataImportPayload(raw)).toMatchObject({
+            status: 'ok', detail: '已导入模拟账本。替换前的数据备份在 D:/备份/模拟前.json',
+        });
+        expect(invokeMock).toHaveBeenCalledWith('data_import_payload', { raw });
+    });
+
+    it('模拟账本导入失败保留后端原因，浏览器不发替换命令', async () => {
+        const { dataImportPayload } = await load();
+        invokeMock.mockRejectedValue('备份无法写入，未执行导入');
+        expect(await dataImportPayload('{}')).toEqual({
+            status: 'failed', error: '备份无法写入，未执行导入',
+        });
+        invokeMock.mockClear();
+        const browser = await load(false);
+        expect((await browser.dataImportPayload('{}')).status).toBe('failed');
+        expect(invokeMock).not.toHaveBeenCalled();
+    });
+
     it('Rust 的 Err(String) 原样进界面，不加 `Error: ` 前缀', async () => {
         const { dataImport } = await load();
         /* Tauri 把 `Err(String)` 作为**字符串**抛到 JS，不是 Error 实例。 */

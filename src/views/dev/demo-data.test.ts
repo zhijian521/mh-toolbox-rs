@@ -4,31 +4,17 @@ import { describe, expect, it } from 'vitest';
 import '../../services/game-data.fixture';
 import { isPriceCategory } from '../prices/prices-catalog';
 import {
-    DEMO_COUNTS,
+    buildDemoData,
+    demoCounts,
     DEMO_PRICES,
     demoCharacters,
     demoGoalInputs,
     demoWarehouseItems,
-    demoTradeInput,
 } from './demo-data';
 import { parseGoal, goalSummary } from '../goals/goals';
 
-/**
- * 模拟数据的两条**结构**断言。
- *
- * 它不验「好不好看」，只验这份数据还能不能用：角色 id 会当页签与 key、物价名要过
- * 重名校验（`addItem` 直接拒同名），而「练满 / 空号」「有历史 / 没记录」这两种极端
- * 一旦被后来的改动悄悄抹平，开发页那个按钮就只是往库里灌了几张普通卡片，
- * 却不会有任何地方报错。
- */
+/** 仅检查完整演示账本的结构、资产归属和数据量级，不执行导入。 */
 describe('开发页的模拟数据', () => {
-    it('交易示例是独立编号的召唤兽买入，包含完整物品资料', () => {
-        const input = demoTradeInput();
-        expect(input).toMatchObject({ kind: 'expense', category: '召唤兽交易' });
-        expect(input.assets).toHaveLength(1);
-        expect(input.assets?.[0]).toMatchObject({ id: 'demo-trade-pet', kind: 'pet' });
-        expect(demoTradeInput().assets?.[0].id).toBe(input.assets?.[0].id);
-    });
     it('仓库示例保留装备和宝宝两类，固定编号便于重复添加去重', () => {
         const first = demoWarehouseItems();
         expect(first.map((item) => item.kind)).toEqual(['gear', 'pet']);
@@ -117,10 +103,59 @@ describe('开发页的模拟数据', () => {
         );
     });
 
-    it('界面报的两个数跟真数据一致', () => {
-        /* 开关旁边的小字与确认窗的问句都读 `DEMO_COUNTS`。补了数据却忘了改它，
-         * 界面会平静地说一个旧数——不报错、不影响功能，只是说了假话。 */
-        expect(DEMO_COUNTS.characters).toBe(demoCharacters().length);
-        expect(DEMO_COUNTS.prices).toBe(DEMO_PRICES.length);
+    it('完整账本覆盖各领域，目标／流水只关联本套角色，编号唯一', () => {
+        const data = buildDemoData();
+        const ids = new Set(data.characters.map((one) => one.id));
+        expect(data).toMatchObject({ format: 2, app: 'mh-toolbox-rs' });
+        for (const rows of [data.characters, data.prices, data.income, data.online, data.accounts, data.goals, data.warehouse]) {
+            expect(rows.length).toBeGreaterThan(0);
+            expect(new Set(rows.map((one) => one.id)).size).toBe(rows.length);
+        }
+        expect(data.income.every((one) => ids.has(one.characterId))).toBe(true);
+        expect(data.online.every((one) => ids.has(one.characterId) && one.endAt! > one.startAt && one.endAt! <= Date.now())).toBe(true);
+        expect(data.goals.every((one) => one.members.every((member) => ids.has(member.id)))).toBe(true);
+        expect(new Set(data.goals.map((one) => one.kind))).toEqual(
+            new Set(['growth', 'combo', 'money', 'gear', 'manual']),
+        );
+        expect(data.goals.every((one) => parseGoal(one))).toBe(true);
+        expect(data.income.some((one) => one.kind === 'income')).toBe(true);
+        expect(data.income.some((one) => one.kind === 'expense')).toBe(true);
+        expect(new Set(data.accounts.map((one) => one.currency))).toEqual(new Set(['cash', 'rmb']));
+        expect(new Set(data.accounts.map((one) => one.kind))).toEqual(new Set(['income', 'expense']));
+        const counts = demoCounts(data);
+        expect(counts).toEqual({
+            characters: data.characters.length, prices: data.prices.length,
+            income: data.income.length, accounts: data.accounts.length,
+            goals: data.goals.length, warehouse: data.warehouse.length, online: data.online.length,
+        });
+    });
+
+    it('穿戴与买入资产在仓库，已售出仅留成交快照，删除售出后有资料可回仓', () => {
+        const data = buildDemoData();
+        const stocked = new Set(data.warehouse.map((one) => one.id));
+        const owned = data.characters.flatMap((one) => [...one.gear, ...one.pets])
+            .map((one) => one.warehouseId).filter(Boolean);
+        expect(owned.every((id) => stocked.has(id!))).toBe(true);
+        expect(stocked.has('demo-bought-pet')).toBe(true);
+        expect(stocked.has('demo-sold-gear')).toBe(false);
+        expect(data.accounts.find((one) => one.id === 'demo-account-pet-buy')?.assets?.[0])
+            .toMatchObject({ id: 'demo-bought-pet', kind: 'pet' });
+        expect(data.accounts.find((one) => one.id === 'demo-account-gear-sale')?.assets?.[0])
+            .toMatchObject({ id: 'demo-sold-gear', kind: 'gear', gear: { detail: { name: '霜冷九州' } } });
+    });
+
+    it('固定单价对应同名物价的当前价，重复生成编号稳定且没有共享可变对象', () => {
+        const first = buildDemoData();
+        const next = buildDemoData();
+        expect(next.characters.map((one) => one.id)).toEqual(first.characters.map((one) => one.id));
+        expect(next.warehouse.map((one) => one.id)).toEqual(first.warehouse.map((one) => one.id));
+        for (const price of first.quickPrices) {
+            expect(first.prices.find((one) => one.id === `demo-quick-price-${price.itemId}`)?.points.at(-1)?.price)
+                .toBe(price.price);
+        }
+        first.characters[0].name = '临时修改';
+        first.warehouse[0].server = '临时修改';
+        expect(next.characters[0].name).not.toBe('临时修改');
+        expect(next.warehouse[0].server).not.toBe('临时修改');
     });
 });

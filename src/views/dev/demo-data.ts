@@ -1,55 +1,22 @@
-/**
- * 开发帮助里「导入模拟数据」的那一份数据与那两个循环。
- *
- * 目的只有一个：**让刚做完的功能有东西可看**。角色卡要看到「练满」与「刚开号」两种极端，
- * 物价页要看到涨、跌、持平，以及一张「还没记过价」的卡——否则每验一次界面都要手填十行属性。
- *
- * ---- 只走 store 的公开方法 ----
- * 不直接改 `roster` / `items` 这两个 ref，也不碰 localStorage：`useRoster()` 的
- * `add` / `remove` 与 `usePrices()` 的 `addItem` / `removeItem` / `addPoint` 都自己落盘，
- * 内存里那份也跟着换。于是**不需要 reload**——设置页的「导入备份」走的是 Rust 整份替换，
- * 那边必须 `location.reload()`；这一条是从应用自己的数据层写的，重载反而会把刚弹出来的
- * 回执一起丢掉。
- *
- * ---- 为什么先清空再写 ----
- * 导入的定义是「让界面变成这份样子」。追加写第二遍会得到两份同名角色、两份同名物品
- * （物价那边还会因为重名被 `addItem` 拒掉一半），越点越乱。清空和写入在同一个动作里，
- * 确认窗挡在前面，代价写在问句里。
- *
- * ---- 为什么写死，不随机 ----
- * 每次点出来一样，验界面时「昨天那一版长什么样」还能对上；随机数只会让「这条为什么
- * 只涨了一点」变成一件无法复现的事。
- *
- * ---- 以后每加一个带持久化的功能，都在这份里补一段 ----
- * 这个按钮的意义是「一屏有没有东西可看」。功能加了、数据没加，开发页就只覆盖了半张表，
- * 而缺的那半张恰恰要手填十行才验得出来（CONVENTIONS §2.3-6）。补的时候照三条走：
- * **写死**（可复现，不随机）、**量级真实**（见下一条）、**极端态齐全**——满、空、
- * 只有一条、一条没有，四种里至少给前两种，否则退墨与空行那几屏永远验不到。
- *
- * ---- 数量 ----
- * 4 个角色：两个来自 `mock.ts` 的种子，两个按极端造
- * （一个练满、一个空号）。6 件物价：4 件五天的走势、1 件只有一天、1 件一条没有。
- *
- * ---- 数字要像真的 ----
- * 模拟数据最怕的是「量级不对」：一屏看着像表，读第二个数字就出戏（一颗宝石 820 币、
- * 175 级号力量 1046）。物价一律按**万**写（`42 * WAN`），因为这一行里所有人谈价都说万；
- * 角色数值按同级号该有的量级给——练满那张卡是「175 级物理系」，不是把种子放大 1.35 倍。
- */
-import { daysAgo, todayText } from '../../services/format';
-import { useAccounts, type EntryInput } from '../accounts/accounts-store';
-import { schoolNames } from '../../services/game-data';
+/** 完整演示账本的唯一生成入口：固定编号、相对日期，每次返回独立副本，不读写 store。 */
+import { dateText, daysAgo, parseDay } from '../../services/format';
+import { quickItems, schoolNames } from '../../services/game-data';
 import type { Pet } from '../characters/pets';
 import type { AssistSkill, CharacterData } from '../characters/character';
 import { CHARACTERS } from '../characters/mock';
-import { emptyCharacter, normalizeCharacter, useRoster } from '../characters/roster';
+import { emptyCharacter, normalizeCharacter } from '../characters/roster';
 import { schoolSkills } from '../characters/schools';
-import { usePrices } from '../prices/prices-store';
-import { useGoals, type GoalInput } from '../goals/goals-store';
+import type { AccountEntry } from '../accounts/accounts';
+import type { IncomeEntry } from '../income/income';
+import { DEFAULT_CARD_PRICE, type OnlineSession } from '../income/online';
+import type { Goal } from '../goals/goals';
+import type { PriceItem } from '../prices/prices';
+import { identifyCharacterAssets, mergeCharacterAssets } from '../warehouse/character-assets';
+import type { GoalInput } from '../goals/goals-store';
 import type { ReadonlyCharacter } from '../characters/character';
 import { parseWarehouse, type WarehouseItem } from '../warehouse/warehouse';
-import { useWarehouse } from '../warehouse/warehouse-store';
 
-/** 仓库示例有独立固定编号，重复添加不复制，也不绑定模拟角色。 */
+/** 整套账本中的未穿戴资产；使用固定编号，和角色资产分开。 */
 export function demoWarehouseItems(): WarehouseItem[] {
     const base = {
         server: '紫禁之巅',
@@ -78,54 +45,7 @@ export function demoWarehouseItems(): WarehouseItem[] {
     ]);
 }
 
-export function demoTradeInput(): EntryInput {
-    const pet = demoWarehouseItems().find((item) => item.kind === 'pet');
-    return {
-        date: todayText(),
-        characterId: '',
-        kind: 'expense',
-        currency: 'rmb',
-        category: '召唤兽交易',
-        channel: '游戏内',
-        amount: 3500,
-        note: '开发页交易示例',
-        assets: pet ? [{ ...pet, id: 'demo-trade-pet' }] : [],
-    };
-}
-
-export function importDemoTrade(): { ok: true; added: boolean } | { ok: false; error: string } {
-    const accounts = useAccounts();
-    if (
-        accounts.entries.value.some((entry) =>
-            entry.assets?.some((item) => item.id === 'demo-trade-pet'),
-        ) ||
-        useWarehouse().items.value.some((item) => item.id === 'demo-trade-pet')
-    )
-        return { ok: true, added: false };
-    const result = accounts.addEntry(demoTradeInput());
-    return result.ok ? { ok: true, added: true } : result;
-}
-
-export function importDemoWarehouse(): { ok: true; added: number } | { ok: false; error: string } {
-    const warehouse = useWarehouse();
-    if (
-        !warehouse.loaded.value ||
-        warehouse.loadError.value ||
-        warehouse.writeError.value ||
-        warehouse.pending.value
-    ) {
-        return { ok: false, error: '仓库尚未就绪，请先处理读取与保存提示' };
-    }
-    const samples = demoWarehouseItems().filter(
-        (sample) => !warehouse.items.value.some((item) => item.id === sample.id),
-    );
-    if (samples.length && !warehouse.save(samples)) {
-        return { ok: false, error: warehouse.operationError.value || '未能添加仓库示例' };
-    }
-    return { ok: true, added: samples.length };
-}
-
-/** 目标示例追加到现有角色，不替换用户的目标或角色档案。 */
+/** 目标只关联本套模拟角色，不引用当前真实名册。 */
 export function demoGoalInputs(characters: readonly ReadonlyCharacter[]): GoalInput[] {
     const selected = characters.slice(0, 2);
     if (!selected.length) return [];
@@ -165,28 +85,6 @@ export function demoGoalInputs(characters: readonly ReadonlyCharacter[]): GoalIn
             ]),
         },
     ];
-}
-
-export function importDemoGoals(): { ok: true; added: number } | { ok: false; error: string } {
-    const roster = useRoster();
-    const goals = useGoals();
-    if (
-        roster.loadError.value ||
-        goals.loadError.value ||
-        goals.writeError.value ||
-        goals.pending.value
-    )
-        return { ok: false, error: '角色或目标尚未就绪，请先处理读取与保存提示' };
-    const inputs = demoGoalInputs(roster.roster.value);
-    if (!inputs.length) return { ok: false, error: '请先新增角色或导入模拟角色' };
-    let added = 0;
-    for (const input of inputs) {
-        if (goals.goals.value.some((goal) => goal.title === input.title)) continue;
-        const result = goals.addGoal(input);
-        if (!result.ok) return result;
-        added += 1;
-    }
-    return { ok: true, added };
 }
 
 /* ======================================================================
@@ -343,7 +241,7 @@ function blankCharacter(): CharacterData {
 
 /** 导入用的四个角色，**每份都是新副本**（`normalizeCharacter` 逐字段新建）。 */
 export function demoCharacters(): CharacterData[] {
-    return [...CHARACTERS, maxedCharacter(), blankCharacter()].map(normalizeCharacter);
+    return [...CHARACTERS, maxedCharacter(), blankCharacter()].map((one) => identifyCharacterAssets(normalizeCharacter(one), true));
 }
 
 /* ======================================================================
@@ -459,62 +357,217 @@ export const DEMO_PRICES: DemoPrice[] = [
     },
 ];
 
-/* ======================================================================
- * 导入
- * ==================================================================== */
-
-/**
- * 界面上的两处数字都读这一份：开关旁边那行小字，与确认窗问句里的「N 个角色”。
- *
- * 不把 4 / 6 写进模板——补数据的人改了上面两张表，界面却还报旧数，那是最难发现的一种
- * 不一致（不报错、不影响功能，只是说了假话）。
- */
-export const DEMO_COUNTS = {
-    /* + 2 = `maxedCharacter()` 与 `blankCharacter()`，种子角色之外的这两个极端。 */
-    characters: CHARACTERS.length + 2,
-    prices: DEMO_PRICES.length,
-};
-
-export type DemoImportResult =
-    { ok: true; characters: number; prices: number } | { ok: false; error: string };
-
-/**
- * 把两份模拟数据写进名册与物价表，**先清空再写**。
- *
- * 读失败时**拒绝动手**：两个 store 的 `persist()` 都有「读失败一律不写」的闸，可内存里
- * 仍会被改成这份模拟数据——界面看着像成功了，重启之后却什么都没留下，比报错更误导人。
- * 所以先在这里拦一道，把原因交回页面去说。
- */
-export function importDemoData(): DemoImportResult {
-    const roster = useRoster();
-    const prices = usePrices();
-
-    if (roster.loadError.value || prices.loadError.value) {
-        return { ok: false, error: '名册或物价表正处在读取失败状态，先修好再来导入' };
-    }
-
-    for (const one of [...roster.roster.value]) roster.remove(one.id);
+/** 收益、在线和账号统一使用同一批角色与日期，重载后由正常流程派生自动账目。 */
+export function buildDemoData(now = new Date()) {
     const characters = demoCharacters();
-    for (const one of characters) roster.add(one);
-
-    for (const one of [...prices.items.value]) prices.removeItem(one.id);
-    let imported = 0;
-    for (const demo of DEMO_PRICES) {
-        /* `initialPrice` 给 0：日期要按 `daysAgo` 自己排，交给 `addItem` 只会落成今天。 */
-        const added = prices.addItem(
-            { name: demo.name, category: demo.category, sub: demo.sub, note: demo.note },
-            0,
-        );
-        if (!added.ok) continue;
-        imported += 1;
-        for (const point of demo.points) {
-            prices.addPoint(added.id, {
-                date: daysAgo(point.daysAgo),
-                price: point.price,
-                note: point.note ?? '',
+    const members = characters.slice(0, 2).map(({ id, name }) => ({ id, name }));
+    const today = dateText(now);
+    const stamp = now.getTime();
+    const at = (day: number, hour = 10) => {
+        const time = parseDay(daysAgo(day, now));
+        time.setHours(hour, 0, 0, 0);
+        return time.getTime();
+    };
+    const prices: PriceItem[] = DEMO_PRICES.map((one, index) => ({
+        id: `demo-price-${index}`,
+        name: one.name,
+        category: one.category,
+        sub: one.sub,
+        unit: '个',
+        note: one.note,
+        points: one.points.map((point, pointIndex) => ({
+            id: `demo-price-${index}-point-${pointIndex}`,
+            date: daysAgo(point.daysAgo, now),
+            price: point.price,
+            note: point.note ?? '',
+            createdAt: point.daysAgo ? at(point.daysAgo) : stamp,
+        })),
+        createdAt: at(4),
+        updatedAt: stamp,
+    }));
+    const income: IncomeEntry[] = [];
+    const online: OnlineSession[] = [];
+    // 近两周用于日趋势，更早的记录用于近月／半年与全部的范围差异。
+    for (const day of [...Array.from({ length: 14 }, (_, index) => index), 35, 90, 160, 240]) {
+        for (const [index, character] of members.entries()) {
+            const createdAt = day ? at(day) : stamp;
+            income.push({
+                id: `demo-income-${day}-${index}`,
+                date: daysAgo(day, now),
+                characterId: character.id,
+                kind: 'income',
+                amount: wan(24 + (day % 5) * 7 + index * 11),
+                item: day % 2 ? '师门任务' : '捉鬼任务',
+                note: '模拟数据',
+                createdAt,
+            });
+            income.push({
+                id: `demo-expense-${day}-${index}`,
+                date: daysAgo(day, now),
+                characterId: character.id,
+                kind: 'expense',
+                amount: wan(3 + index),
+                item: '任务补给',
+                note: '模拟数据',
+                createdAt,
+            });
+            // 不自动启动计时；历史时段均已结束，也不占用真实角色。
+            if (day > 0) {
+                online.push({
+                    id: `demo-online-${day}-${index}`,
+                    date: daysAgo(day, now),
+                    startAt: at(day, 19),
+                    endAt: at(day, 21) + index * 30 * 60_000,
+                    characterId: character.id,
+                    roster: [],
+                    cardPrice: DEFAULT_CARD_PRICE,
+                    cardCost: true,
+                    note: '模拟数据',
+                    createdAt,
+                });
+            }
+        }
+    }
+    const baseGoal = {
+        members,
+        deadline: '',
+        tracking: null,
+        note: '模拟数据',
+        createdAt: stamp,
+    };
+    const goals: Goal[] = demoGoalInputs(characters).map((input, index) => ({
+        ...input,
+        id: `demo-goal-${index}`,
+        logs: [],
+        createdAt: stamp,
+        ...(input.kind === 'combo' ? { comboVersion: 1 as const } : {}),
+    }));
+    goals.push(
+        {
+            ...baseGoal,
+            id: 'demo-goal-money',
+            kind: 'money',
+            title: '模拟 · 攒一套装备钱',
+            target: 3000,
+            unit: '万',
+            logs: [{
+                id: 'demo-goal-deposit', date: today, delta: 850,
+                note: '起步存款', createdAt: stamp,
+            }],
+        },
+        {
+            ...baseGoal,
+            id: 'demo-goal-gear',
+            kind: 'gear',
+            title: '模拟 · 凑齐装备',
+            target: 6,
+            unit: '件',
+            logs: [{
+                id: 'demo-goal-gear-log', date: today, delta: 2,
+                note: '已备两件', createdAt: stamp,
+            }],
+        },
+        {
+            ...baseGoal,
+            id: 'demo-goal-manual',
+            kind: 'manual',
+            title: '模拟 · 每周副本',
+            target: 20,
+            unit: '次',
+            logs: [{
+                id: 'demo-goal-manual-log', date: today, delta: 6,
+                note: '已完成六次', createdAt: stamp,
+            }],
+        },
+    );
+    const stock = demoWarehouseItems().map((item) => ({
+        ...item, createdAt: stamp, updatedAt: stamp,
+    }));
+    const pet = stock.find((one) => one.kind === 'pet')!;
+    const bought = { ...pet, id: 'demo-bought-pet' };
+    const sold = { ...stock[0], id: 'demo-sold-gear' };
+    const entry = (id: string, patch: Partial<AccountEntry>): AccountEntry => ({
+        id,
+        date: today,
+        characterId: members[0].id,
+        kind: 'expense',
+        currency: 'rmb',
+        category: '其他收支',
+        channel: '游戏内',
+        amount: 100,
+        note: '模拟数据',
+        createdAt: stamp,
+        source: '',
+        ...patch,
+    });
+    const accounts: AccountEntry[] = [
+        entry('demo-account-card', { category: '点卡充值', channel: '官方充值', amount: 50 }),
+        entry('demo-account-cash-in', {
+            category: '游戏币买入', currency: 'cash', kind: 'income', amount: wan(1000),
+        }),
+        entry('demo-account-rmb-out', { category: '游戏币买入', channel: '藏宝阁', amount: 80 }),
+        entry('demo-account-cash-out', { category: '游戏币卖出', currency: 'cash', amount: wan(600) }),
+        entry('demo-account-rmb-in', {
+            category: '游戏币卖出', channel: '藏宝阁', kind: 'income', amount: 45.5,
+        }),
+        entry('demo-account-pet-buy', { category: '召唤兽交易', amount: 3500, assets: [bought] }),
+        entry('demo-account-gear-sale', {
+            category: '装备交易', kind: 'income', amount: 1800, assets: [sold],
+        }),
+    ];
+    const fixed = quickItems().fixed.slice(0, 3);
+    const quickPrices = fixed.map((item, index) => ({ itemId: item.id, price: wan(5 + index * 3) }));
+    // 固定单价和物价同名卡使用相同当前价，避免启动联动改写这份初始场景。
+    for (const [index, item] of fixed.entries()) {
+        const existing = prices.find((one) => one.name === item.name);
+        const point = {
+            id: `demo-quick-point-${item.id}`,
+            date: today,
+            price: quickPrices[index].price,
+            note: '模拟数据',
+            createdAt: stamp,
+        };
+        if (existing) {
+            existing.points = existing.points.filter((one) => one.date !== today);
+            existing.points.push(point);
+        } else {
+            prices.push({
+                id: `demo-quick-price-${item.id}`,
+                name: item.name,
+                category: '任务产出',
+                sub: '',
+                unit: '个',
+                note: '模拟固定单价',
+                points: [point],
+                createdAt: stamp,
+                updatedAt: stamp,
             });
         }
     }
+    return {
+        format: 2 as const,
+        app: 'mh-toolbox-rs' as const,
+        exportedAt: stamp,
+        characters,
+        prices,
+        income,
+        accounts,
+        goals,
+        warehouse: mergeCharacterAssets([...stock, bought], characters),
+        online,
+        quickPrices,
+        cardSettings: { cardPrice: DEFAULT_CARD_PRICE, cardCost: true },
+    };
+}
 
-    return { ok: true, characters: characters.length, prices: imported };
+export function demoCounts(data: ReturnType<typeof buildDemoData>) {
+    return {
+        characters: data.characters.length,
+        prices: data.prices.length,
+        income: data.income.length,
+        accounts: data.accounts.length,
+        goals: data.goals.length,
+        warehouse: data.warehouse.length,
+        online: data.online.length,
+    };
 }

@@ -232,8 +232,10 @@ export default async function run(ctx) {
                 { timeout: 6000 },
             );
             if (!ok) throw new Error(`开发页没渲染：${await ui.title()}`);
-            const cards = await ui.count('.ledger-section');
-            t.check('开发页的卡片都在', cards >= 7, `${cards} 张`);
+            const visible = await cdp.evaluate(`
+                [...document.querySelectorAll('[data-dev-section]')]
+                    .filter(el => el.getClientRects().length).map(el => el.dataset.devSection)`);
+            t.check('默认仅展示组件预览，调试数据单独分组', visible.join() === 'components');
             t.check(
                 '日期区间和表单操作区组合示例可见',
                 await cdp.evaluate(`!!document.querySelector('.date-range-field') &&
@@ -242,6 +244,22 @@ export default async function run(ctx) {
             );
             await ui.clickLabel('示例保存');
             t.check('示例重试清除错误', !(await ui.exists('.demo-actions .save-error')));
+            await ui.clickText('[aria-label="开发帮助分组"] button', '图标目录', { exact: true });
+            t.check('图标目录直接展示完整清单，不提供搜索', await cdp.evaluate(`
+                document.querySelectorAll('.icon-item').length > 0 &&
+                !document.querySelector('.icon-search')`));
+            await ui.clickText('[aria-label="开发帮助分组"] button', '调试数据', { exact: true });
+            t.check('只保留统一模拟账本入口，无独立领域示例按钮', await cdp.evaluate(`
+                !!document.querySelector('[aria-label="导入模拟数据"]')?.getClientRects().length &&
+                !document.querySelector('[aria-label="添加目标示例"], [aria-label="添加仓库示例"], [aria-label="添加关联交易示例"]')`));
+            await ui.clickLabel('导入模拟数据');
+            await ui.waitFor(`!!document.querySelector('[role="dialog"]')`);
+            t.check('替换前确认包含全部账本与自动备份',
+                (await ui.text('[role="dialog"]')).includes('替换全部账本') &&
+                (await ui.text('[role="dialog"]')).includes('替换前自动备份'));
+            await ui.clickText('[role="dialog"] button', '保持现状', { exact: true });
+            await ui.clickText('[aria-label="开发帮助分组"] button', '组件预览', { exact: true });
+            t.check('切组返回保留纯内存示例状态', !(await ui.exists('.demo-actions .save-error')));
         });
 
         /* ---------- 闹钟：建一个、重载后还在、再删掉 ----------

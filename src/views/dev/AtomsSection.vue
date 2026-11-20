@@ -256,6 +256,7 @@ const demoToggles = ref<string[]>(['task']);
         title="原子组件"
         :hint="`抽出来复用的 ${KIT_COUNT} 件，业务页直接拿去用`"
         height="60vh"
+        plain
     >
         <div class="atoms-split">
             <!-- 目录只列「图标 + 组名 + 件数」，成员名不再铺在下面（2026-11-06 去掉）：

@@ -22,7 +22,7 @@ import { ICON_GROUPS, ICON_LABELS } from '../../components/icons';
 </script>
 
 <template>
-    <LedgerSection title="图标" hint="成套线稿 · 24 网格 · 笔宽 1.8 · 悬停看名字" max-height="60vh">
+    <LedgerSection title="图标" hint="24 网格 · 笔宽 1.8 · 悬停看名字" max-height="60vh" plain>
         <div v-for="group in ICON_GROUPS" :key="group.label" class="icon-group">
             <div class="icon-group-head">
                 <span class="icon-group-label">{{ group.label }}</span>
@@ -57,6 +57,7 @@ import { ICON_GROUPS, ICON_LABELS } from '../../components/icons';
 .icon-group-head {
     display: flex;
     align-items: baseline;
+    flex-wrap: wrap;
     gap: 8px;
     padding-bottom: 5px;
     border-bottom: var(--w-hair) solid var(--rule-2);

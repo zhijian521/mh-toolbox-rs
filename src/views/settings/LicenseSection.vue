@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import LedgerSection from '../../components/LedgerSection.vue';
-import PressButton from '../../components/PressButton.vue';
+import TextButton from '../../components/TextButton.vue';
 import { openExternal } from '../../services/desktop';
 
 /**
@@ -22,7 +22,7 @@ const LICENSE_URL = 'https://polyformproject.org/licenses/noncommercial/1.0.0';
 </script>
 
 <template>
-    <LedgerSection title="许可" hint="PolyForm Noncommercial 1.0.0">
+    <LedgerSection title="许可" hint="非商业许可" plain>
         <p class="lead">本软件免费使用，源码公开。</p>
 
         <!-- 这张卡唯一要人记住的一句话，给一道朱线压住。
@@ -46,13 +46,13 @@ const LICENSE_URL = 'https://polyformproject.org/licenses/noncommercial/1.0.0';
         </dl>
 
         <div class="license-links">
-            <PressButton
+            <TextButton
                 icon="github"
                 text="项目源码"
                 label="在浏览器里打开项目仓库"
                 @click="openExternal(REPO_URL)"
             />
-            <PressButton
+            <TextButton
                 icon="doc"
                 text="许可证全文"
                 label="在浏览器里打开许可证全文"

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
+import { useTheme } from '../../composables/use-theme';
 import { colorTokens, declaredTokens } from './tokens';
 
 /**
@@ -52,17 +53,20 @@ const LABELS: Record<string, string> = {
 };
 
 const swatches = ref<{ token: string; label: string }[]>([]);
+const { style, isDark } = useTheme();
 
-onMounted(() => {
+function refresh() {
     swatches.value = colorTokens(declaredTokens()).map((token) => ({
         token,
         label: LABELS[token] ?? token.replace(/^--/, ''),
     }));
-});
+}
+onMounted(refresh);
+watch([style, isDark], refresh, { flush: 'post' });
 </script>
 
 <template>
-    <LedgerSection title="色板" hint="纸是暖的，墨是灰的，朱只给三处" max-height="60vh">
+    <LedgerSection title="色板" hint="当前主题 · 运行时令牌" max-height="60vh" plain>
         <div class="swatches">
             <div v-for="item in swatches" :key="item.token" class="swatch">
                 <i :style="{ '--c': `var(${item.token})` }" />

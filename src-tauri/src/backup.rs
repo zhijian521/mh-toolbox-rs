@@ -295,6 +295,21 @@ pub async fn data_import(app: AppHandle) -> Result<Option<ImportSummary>, String
     Ok(Some(replace_backup(&app, file)?))
 }
 
+/// 内置模拟账本共用新版信封校验、替换前备份与单事务替换，不走旧版转换入口。
+#[tauri::command]
+#[specta::specta]
+pub async fn data_import_payload(app: AppHandle, raw: String) -> Result<ImportSummary, String> {
+    let file = parse_backup_payload(&raw)?;
+    replace_backup(&app, file)
+}
+
+fn parse_backup_payload(raw: &str) -> Result<BackupFile, String> {
+    let file: BackupFile =
+        serde_json::from_str(raw).map_err(|error| format!("账本内容无法解析：{error}"))?;
+    check_envelope(&file)?;
+    Ok(file)
+}
+
 /// 新旧两个入口共用备份、校验与事务替换，转换模块不碰数据库。
 fn replace_backup(app: &AppHandle, file: BackupFile) -> Result<ImportSummary, String> {
     replace_backup_with(app, file, false)

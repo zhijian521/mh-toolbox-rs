@@ -1,6 +1,23 @@
 use super::*;
 
 #[test]
+fn inline_payload_accepts_current_envelope_and_keeps_asset_snapshots() {
+    let mut file = sample();
+    file.warehouse = vec![serde_json::json!({
+        "id": "demo-stock", "kind": "pet", "pet": { "name": "画魂" }
+    })];
+    let raw = serde_json::to_string(&file).unwrap();
+    let parsed = parse_backup_payload(&raw).expect("内置数据使用当前信封");
+    validate_backup(&parsed).unwrap();
+    assert_eq!(parsed.warehouse, file.warehouse);
+    assert_eq!(parsed.characters, file.characters);
+    assert!(parse_backup_payload("{\"format\":").is_err());
+    let mut wrong_app = serde_json::to_value(file).unwrap();
+    wrong_app["app"] = serde_json::json!("other-app");
+    assert!(parse_backup_payload(&wrong_app.to_string()).is_err());
+}
+
+#[test]
 fn warehouse_backup_preserves_assets_and_accepts_v1_without_warehouse() {
     let mut file = sample();
     file.warehouse = vec![serde_json::json!({

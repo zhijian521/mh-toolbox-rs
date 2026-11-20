@@ -107,6 +107,22 @@ export async function dataImport(): Promise<DataOutcome> {
     }
 }
 
+/** 内置演示账本与文件导入共用后端校验、备份和事务；成功后调用方必须重载。 */
+export async function dataImportPayload(raw: string): Promise<DataOutcome> {
+    if (!hasDesktop()) return NO_HOST;
+    if (!(await flushPendingWrites())) return failure('仍有数据未保存，请先重试保存');
+    try {
+        const summary = await commands.dataImportPayload(raw);
+        return {
+            status: 'ok',
+            detail: `已导入模拟账本。替换前的数据备份在 ${summary.backupPath}`,
+            truncation: { points: summary.truncated, items: summary.truncatedItems },
+        };
+    } catch (error) {
+        return failure(error);
+    }
+}
+
 /** 专用旧版入口只读取选中文件，预览阶段不写库。 */
 export async function legacyDataRead(): Promise<
     { status: 'ok'; raw: string } | { status: 'canceled' } | { status: 'failed'; error: string }

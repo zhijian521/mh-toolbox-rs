@@ -44,7 +44,7 @@ const SMALL = [
 </script>
 
 <template>
-    <LedgerSection title="票面行" hint="四页共用：图标（可省）｜ 名字 ｜ 读数签" max-height="60vh">
+    <LedgerSection title="票面行" hint="图标（可省）｜ 名字 ｜ 读数签" max-height="60vh" plain>
         <!-- md 档、带图标：师门与辅助就是这一态 -->
         <div class="slip-kit">
             <div
@@ -105,13 +105,13 @@ const SMALL = [
  * 材质与两档尺寸都在 `base.css` 的 `.slip-row`，这里只给「演示怎么排」。 */
 .slip-kit {
     display: grid;
-    grid-template-columns: repeat(2, 183px);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 183px), 183px));
     max-width: 100%;
     gap: 6px 12px;
     margin-bottom: 6px;
 }
 .slip-kit.sm {
-    grid-template-columns: repeat(2, 177px);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 177px), 177px));
     gap: 2px 26px;
 }
 </style>

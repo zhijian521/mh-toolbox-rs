@@ -72,6 +72,24 @@ export default async function run(ctx) {
             }
         });
 
+        await t.step('设置保留四区与对齐控件，运行信息可展开', async () => {
+            await ui.goto('设置');
+            const layout = await cdp.evaluate(`(() => {
+                const rows = [...document.querySelectorAll('.settings-row')];
+                return {
+                    cards: document.querySelectorAll('.ledger-section').length,
+                    controls: rows.length === 7 && rows.every(row =>
+                        row.querySelector('.field-label') && row.querySelector('.settings-control')),
+                    collapsed: !document.querySelector('.runtime-details')?.open,
+                    hasDataPath: document.querySelector('.about')?.textContent.includes('数据目录'),
+                };
+            })()`);
+            t.check('四张卡保留外观与数据入口，标签控件对齐', layout.cards === 4 && layout.controls);
+            t.check('数据目录直接可见，低频运行信息默认收起', layout.collapsed && layout.hasDataPath);
+            await ui.clickText('.runtime-details summary', '运行信息');
+            t.check('运行信息可展开', await cdp.evaluate(`document.querySelector('.runtime-details').open`));
+        });
+
         await t.step('本地备份列表可打开并取消，不执行恢复', async () => {
             await ui.goto('设置');
             await cdp.waitFor(`!!document.querySelector('.backup-status .note') &&

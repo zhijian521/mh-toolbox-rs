@@ -87,6 +87,8 @@ export const commands = {
 	 *  而「导入失败」这件事本身不足以让他知道旧数据还在不在。
 	 */
 	dataImport: () => __TAURI_INVOKE<ImportSummary | null>("data_import"),
+	/**  内置模拟账本共用新版信封校验、替换前备份与单事务替换，不走旧版转换入口。 */
+	dataImportPayload: (raw: string) => __TAURI_INVOKE<ImportSummary>("data_import_payload", { raw }),
 	/**  旧版读取只返回原文；预览与确认期间不写入账本。 */
 	legacyDataRead: () => __TAURI_INVOKE<string | null>("legacy_data_read"),
 	/**  首次空账本才读取固定旧目录；不查找备份文件，不触发文件选择框。 */

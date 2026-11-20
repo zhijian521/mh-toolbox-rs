@@ -127,6 +127,12 @@ ModalShell 统一使用 useModalMotion 承接开关动画。modal-mask 负责事
 - 三页状态与展示收口：收益／上线 store 只读暴露 loaded，今日速记和两张走势图按各自 loaded／loadError 区分读取与成功空账；撤回同时尊重 pending／writeError。总览来源错误仅导航到领域原恢复入口，自动记账和上线错误前往收益页，不增加聚合重载器。总览响应按 overview 内容容器宽度收列。
 - 原侧签已无业务调用，PressTile 的 side-tab API、公共侧签配方／结构、主题排除特判与开发示例一并移除；首页／账号纸签和收益瓷键各用最终公共组件。账号／收益／上线编辑普通字段共用 form-field／form-pair，只读结束时刻以 output 文字展示。三类历史保留同一滚动宿主，首次空账或失败仅隐藏底板边框，无匹配保留内容边界；不改变筛选、统计、保存及账号联动链。
 
+设置页只编排外观、数据、关于与许可四区，SettingsRow 是 settings 领域的无状态布局组件。外观仍由主题／字体／字号单例保存；数据操作仍经 data-files 服务等待写队列、调用原 IPC，替换成功后重载。关于使用同一 useAppInfo 版本，不另写版本常量；运行信息使用原生折叠区。
+
+开发帮助由 DevKitView 管理页面内分组，v-show 保留组件演示状态。FeedbackSection 仅持有内存中的错误、日期与浮片样例；图标目录直接展示公共映射，不设搜索。设计令牌组复用 AppearanceSection 和同一偏好单例，色板随主题／明暗重新读取，字号阶梯继续从样式表测量。隐藏路由与三连击入口不变。
+
+DevDataSection 将测试开关与统一模拟数据分卡展示，只有一个完整账本导入入口。demo-data.ts 的 buildDemoData 返回新版 v2 信封，集中提供角色、物价、收益、双币种账号收支与交易快照、各类目标、仓库、历史上线、固定单价与点卡口径，使用固定编号及相对日期；角色资产由同一 identifyCharacterAssets／mergeCharacterAssets 归一，售出物品只留成交快照，派生自动账目仍由启动对账生成。确认后经 data-files.dataImportPayload 等待全部写队列，调用 Rust data_import_payload；后端复用信封校验、替换前备份和 store::replace_backup 的单事务，不从各 store 逐表写入，也不借用旧版导入。成功后 settings/data-notice 交接备份回执并重载到设置页，避免旧单例继续操作；浏览器预览禁用导入。后续持久化示例只补这套数据，不另增按钮。
+
 ## 3. 数据与打包边界
 
 账号新建交易关联区通过 AccountEditor 的录入／选择双入口管理临时 AccountAssetSource，确认后才替换原草稿；取消不改当前选择，已有交易快照不开放替换。来源随 EntryInput 送入 planAssetTrade，不写入 AccountEntry：draft 买入新增库存、warehouse 买入只关联现有编号；warehouse 卖出移出库存、draft 卖出仅留快照。仓库来源仍核对当前资料，草稿不能冒用已有编号。accounts-store → stageWarehouseTrade → accountTradeSave／本地恢复日志继续一次保存两域，穿戴出售由 stageSoldRosterAssets 按物品编号清空对应装备位或移除召唤兽，交易未落盘时锁定名册写入／重读。Rust save_account_trade 在原事务内仅对本次新增且快照匹配的卖出解除角色归属（旧档缺省零／空字段与前端补全等价，有值字段及数组顺序仍核对），普通库存操作仍保留穿戴校验；浏览器交易日志可携带名册并在角色读取前恢复。删除卖出统一回仓，不恢复穿戴；不新增命令、Schema 或持久化来源字段。

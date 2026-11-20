@@ -2,6 +2,8 @@
 import { onMounted, ref } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import SlotButton from '../../components/SlotButton.vue';
+import SettingsRow from './SettingsRow.vue';
+import { reloadWithDataNotice, takeDataNotice } from './data-notice';
 import BackupHistory from './BackupHistory.vue';
 import { backupTime, useBackups } from './use-backups';
 import { hasDesktop } from '../../services/desktop';
@@ -22,44 +24,7 @@ import {
  * 在这里抄一个数反而会和真源悄悄分家——文案里的数字没人记得改。 */
 import { POINT_LIMIT } from '../prices/prices';
 
-/**
- * 数据：把整本账搬出去、搬回来，或者清空。
- *
- * 这张卡单独一张、落在 `.stack-pair` 的第二行左列（**不通栏**：试过，实拍否掉了，
- * 见 `SettingsView.vue` 的注释与 `docs/archive/record-through-2026-11-15.md` 第 87 批）。
- *
- * ---- 为什么分两段 ----
- * **账本那一行放两枚**：导出与导入是同一件事的两头（拿走一份 / 换回一份），并排着读是
- * 「进出」。分成两行时，中间那句说明会被读成两条互不相干的规则，而它们其实共享一句
- * 「导入是整份替换」。
- *
- * **清除另起一段**，上面隔一条通栏细线加 14px 留白。它不是第三种账本操作，是**不一样的
- * 后果**：前两个有备份可退（导出本身就是一份备份，导入动手前还会自动备份一份），
- * 它没有。分段靠线与留白，红留给按钮本身。
- *
- * ---- 为什么二次确认都用弹窗 ----
- * 导入与清除都是从用户手里拿走数据、且撤不回来，所以两件都要再问一次。弹窗的好处
- * 不是多一道手续，而是**问句能带上后果**（「整份替换」「不会自动备份，想留就先去导出」）；
- * 早先清除用的是「按钮就地改名 + 灌朱」，那只能换三个字，说不清后果，还得靠 4 秒自动
- * 退回防止一枚朱红按钮常驻。
- *
- * 两个窗都不在这里渲染：`await askConfirm({...})` 走全站唯一的那一枚
- * （`composables/use-confirm.ts` + `App.vue` 里的 `ConfirmHost`），问句与后果直接写在
- * 动作函数的开头。这样「问完要做什么」和「问的是什么」在同一个屏幕里，中间不隔一层
- * `pending` 状态。
- *
- * ---- 为什么三枚都是槽按钮，且清除取 `seal` ----
- * 这一页原先用 `PressButton`（凸块）。换成 `SlotButton`（凹槽）之后，「悬停落一枚朱印」
- * 本身就是「按下去会发生事」的提示，两枚账本按钮停在空槽上也足够安静。
- *
- * 清除取 `seal`（印面常驻）：两版试完，用户定稿「删除使用 seal 变体」。
- * `seal` 的文档写着「一屏只该有一枚主操作」——这里守住了：三枚里只有它常驻印面，
- * 因为只有它按下去收不回来。把红只落在字上（试过一版 `danger`）在 13px 楷体里读起来
- * 是「一个偏红的普通按钮」，不如下半格朱印来得直接。
- *
- * 只动全部账本数据。主题与字号存在 `localStorage`，换台机器本来就该不一样，
- * 混进备份里会让「账本」读起来像应用设置。这一句也写在清除那条 hint 上。
- */
+/** 全部账本操作共用忙状态；替换前确认并备份，成功后重载领域单例。 */
 const busy = ref(false);
 const backupsOpen = ref(false);
 const desktop = hasDesktop();
@@ -209,54 +174,12 @@ async function askClear() {
     if (outcome.status === 'ok') reloadWithNotice();
 }
 
-/**
- * 导入与清除成功后**必须重载页面**。
- *
- * `roster` / `prices-store` 都是模块级单例，且只在启动时读一次库；库整份换掉了、
- * 内存里还是旧数组，名册页会列出已经不存在的角色，物价图表也照旧画上一版。
- * 这两处没有任何「重新加载」的公共入口，重载页面是唯一不惊动它们内部状态的改法。
- */
 function reloadWithNotice() {
-    try {
-        sessionStorage.setItem(NOTICE_KEY, message.value);
-        /* 截断那句话也必须跟着过河。**不能走 `notify`**：浮层三秒就收，而这个页面下一行
-         * 就 `location.reload()`，DOM 整个换掉——刚弹出来的提示会跟着没。
-         * 何况这条要停着读完（还得对上备份路径），本来就不属于「扫一眼」那一档。 */
-        sessionStorage.setItem(WARNING_KEY, warning.value);
-    } catch {
-        /* 存储被禁（极端隐私设置）时放弃这次交接：账已经换好了，少一句提示不算失败。 */
-    }
-    location.reload();
-}
-
-/** 提示在重载前后的交接键。带前缀是因为 `sessionStorage` 是整个 origin 共用的。 */
-const NOTICE_KEY = 'mh-data-notice';
-/** 同一轮交接里那句「有数据会被裁掉」，与 `NOTICE_KEY` 成对出现、成对取走。 */
-const WARNING_KEY = 'mh-data-warning';
-
-/**
- * 取出上一次重载前留下的那两句，**取到就删**——于是它们只活一轮，
- * 不会在下次打开设置页时冒充「刚刚发生过」。
- *
- * 单独一个函数而不是写进 `onMounted`：`try` 里赋值、`catch` 里返回的写法
- * 会让变量「可能没被赋值」（eslint 的 `no-useless-assignment` 和 TS 的确定赋值
- * 两头都不满意），而这里真正想说的是「读不到就是空字符串」，那就直说。
- */
-function takeNotice(): { text: string; warning: string } {
-    try {
-        const text = sessionStorage.getItem(NOTICE_KEY) ?? '';
-        const savedWarning = sessionStorage.getItem(WARNING_KEY) ?? '';
-        sessionStorage.removeItem(NOTICE_KEY);
-        sessionStorage.removeItem(WARNING_KEY);
-        return { text, warning: savedWarning };
-    } catch {
-        /* 存储被禁时既没有交接也没有异常要报：这张卡照常可用，只是少一句提示。 */
-        return { text: '', warning: '' };
-    }
+    reloadWithDataNotice(message.value, warning.value);
 }
 
 onMounted(() => {
-    const saved = takeNotice();
+    const saved = takeDataNotice();
     if (!saved.text) return;
     messageKind.value = 'positive';
     message.value = saved.text;
@@ -265,9 +188,8 @@ onMounted(() => {
 </script>
 
 <template>
-    <LedgerSection title="数据" hint="导入 · 导出 · 清除">
-        <div class="form-row">
-            <span class="field-label">账本</span>
+    <LedgerSection title="数据" hint="备份与恢复" plain>
+        <SettingsRow label="账本">
             <SlotButton
                 icon="download"
                 label="导出账本到文件"
@@ -289,11 +211,11 @@ onMounted(() => {
                 :disabled="busy"
                 @click="importLegacy"
             />
-            <span class="hint">导入将替换全部账本</span>
-        </div>
-
-        <div class="backup-entry form-row">
-            <span class="field-label">备份</span>
+            <template #detail>
+                <p class="note">导入将替换全部账本，替换前自动备份。</p>
+            </template>
+        </SettingsRow>
+        <SettingsRow label="备份">
             <SlotButton
                 icon="history"
                 text="恢复"
@@ -301,31 +223,33 @@ onMounted(() => {
                 :disabled="busy || !desktop"
                 @click="openBackups"
             />
-            <span class="hint">留存最近 14 份日常备份</span>
-        </div>
-        <div class="backup-status" role="status">
-            <p v-if="!desktop" class="note">自动备份在桌面版可用</p>
-            <template v-else>
-                <p v-if="latestDaily" class="note">
-                    最近自动备份：{{ backupTime(latestDaily.createdAt) }}
-                </p>
-                <p v-else-if="loading && !loaded" class="note">正在读取备份状态…</p>
-                <p v-else-if="loaded && !error" class="note">尚无自动备份</p>
-                <p v-if="backupWarning" class="note error">自动备份未完成：{{ backupWarning }}</p>
-                <p v-if="error" class="note error">备份状态读取失败：{{ error }}</p>
-                <SlotButton
-                    v-if="error"
-                    text="重新读取"
-                    label="重新读取备份状态"
-                    :disabled="loading || busy"
-                    @click="refresh"
-                />
+            <span class="hint">最近 14 份日常备份</span>
+            <template #detail>
+                <div class="backup-status" role="status">
+                    <p v-if="!desktop" class="note">自动备份在桌面版可用</p>
+                    <template v-else>
+                        <p v-if="latestDaily" class="note">
+                            最近自动备份：{{ backupTime(latestDaily.createdAt) }}
+                        </p>
+                        <p v-else-if="loading && !loaded" class="note">正在读取备份状态…</p>
+                        <p v-else-if="loaded && !error" class="note">尚无自动备份</p>
+                        <p v-if="backupWarning" class="note error">
+                            自动备份未完成：{{ backupWarning }}
+                        </p>
+                        <p v-if="error" class="note error">备份状态读取失败：{{ error }}</p>
+                        <SlotButton
+                            v-if="error"
+                            text="重新读取"
+                            label="重新读取备份状态"
+                            :disabled="loading || busy"
+                            @click="refresh"
+                        />
+                    </template>
+                </div>
             </template>
-        </div>
-
+        </SettingsRow>
         <div class="danger-zone">
-            <div class="form-row">
-                <span class="field-label">清除</span>
+            <SettingsRow label="清除">
                 <SlotButton
                     danger
                     seal
@@ -335,18 +259,14 @@ onMounted(() => {
                     :disabled="busy"
                     @click="askClear"
                 />
-                <span class="hint">不可撤销；清除前不会自动备份</span>
-            </div>
+                <template #detail>
+                    <p class="note">不可撤销，不会自动备份，请先导出。</p>
+                </template>
+            </SettingsRow>
         </div>
-
-        <!-- 回执（含自动备份的路径）是**一次出现**的一句话：读屏只在「区域已存在、
-             内容变了」时才播报，`v-if` 直接挂在这一段上会让整条被略过。
-             所以常驻一个空的 `role="status"` 容器，句子从里面进出——与 `NotifyHost`
-             那层 `aria-live` 同一个做法。空容器高度为 0，没有留白。 -->
+        <!-- 常驻播报容器：回执可包含备份路径，成功后也必须保留截断警示。 -->
         <div role="status">
             <p v-if="message" class="note" :class="messageKind">{{ message }}</p>
-            <!-- 截断提示与回执同一个播报区域，排在它下面：先「办成了」，再「不过……」。
-                 用赭（`--ochre`）而不是朱红——导入本身是成功的，红字会被读成「导入失败」。 -->
             <p v-if="warning" class="note warning">{{ warning }}</p>
         </div>
     </LedgerSection>
@@ -365,39 +285,18 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.backup-entry {
-    margin-top: 12px;
-}
 .backup-status {
-    margin-left: calc(2em + 10px);
     overflow-wrap: anywhere;
 }
 .backup-status .note {
     margin: 6px 0 0;
 }
-/* 行本身是全局 `.form-row`（`base.css`：flex + gap 10），纵向节奏留给这一页——
- * 与 `AppearanceSection.vue` 同一处写法、同一个 12px：两张卡并排时行距不一致，
- * 翻过去会读成「另一套表格」。
- *
- * 这一页只有两段而不是三行，于是相邻选择器落不到（`.form-row + .form-row` 中间隔着
- * `.danger-zone` 这层）。段间距写在下面那条上，不再留一个只对第一段生效的规则。 */
-
-/* 清除那一段：一条通栏细线 + 上下各 14px。
- *
- * 用 `--rule-2`（细线色）而不是 `--bevel-lo`：后者是棱的暗面，横着铺满整栏会读成
- * 「这里压了一道槽」，而这条线要说的只是「下面的事不一样」。14 比行距 12 多 2px，
- * 是「隔开」与「同一张卡里两段」的分界；再大就会让人以为这是两张卡拼起来的。 */
+/* 清除独立分区，保留不可撤销与不会自动备份的提示。 */
 .danger-zone {
     margin-top: 14px;
     padding-top: 14px;
     border-top: var(--w-hair) solid var(--rule-2);
 }
-
-/* 「有数据会被裁掉」那句：只换色，档位与 `.note` 一致（排版来自 `blocks.css`）。
- *
- * 取赭（`--ochre`）而不是朱（`--cinnabar`）：导入是**成功**的，朱红会被读成「导入失败」。
- * 写成复合选择器与 `base.css` 里 `.note.error` / `.note.positive` 同一手法——
- * 独立类与 `.note` 同特异性，谁赢取决于样式表加载顺序。 */
 .note.warning {
     color: var(--warning);
 }

@@ -2,6 +2,7 @@
 import FontSizeSlider from '../../components/FontSizeSlider.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
+import SettingsRow from './SettingsRow.vue';
 import { useFontScale } from '../../composables/use-font-scale';
 import { FONT_OPTIONS, useFontFamily } from '../../composables/use-font-family';
 import { STYLE_OPTIONS, THEME_OPTIONS, useTheme } from '../../composables/use-theme';
@@ -20,23 +21,19 @@ const { font } = useFontFamily();
 </script>
 
 <template>
-    <LedgerSection title="外观">
-        <div class="form-row">
-            <span class="field-label">风格</span>
+    <LedgerSection title="外观" hint="即时生效 · 自动记住" plain>
+        <SettingsRow label="风格">
             <SegmentedPills v-model="style" :options="STYLE_OPTIONS" label="风格" wrap />
-        </div>
-        <div class="form-row">
-            <span class="field-label">明暗</span>
-            <SegmentedPills v-model="mode" :options="THEME_OPTIONS" label="明暗" />
-        </div>
-        <div class="form-row">
-            <span class="field-label">字体</span>
+        </SettingsRow>
+        <SettingsRow label="明暗">
+            <SegmentedPills v-model="mode" :options="THEME_OPTIONS" label="明暗" wrap />
+        </SettingsRow>
+        <SettingsRow label="字体">
             <SegmentedPills v-model="font" :options="FONT_OPTIONS" label="字体" wrap />
-        </div>
-        <div class="form-row">
-            <span class="field-label">字号</span>
+        </SettingsRow>
+        <SettingsRow label="字号">
             <FontSizeSlider v-model="scale" />
-        </div>
+        </SettingsRow>
         <p class="well font-preview">梦幻养老助手 · 师门修炼 · 1234567890</p>
     </LedgerSection>
 </template>
@@ -51,17 +48,4 @@ const { font } = useFontFamily();
     text-align: center;
     overflow-wrap: anywhere;
 }
-/* 行是全局 `.form-row`（`base.css`：flex + gap 10）——与捉鬼页的「监听窗口 /
- * 高概率区域」同一件东西。原先这里叫 `.row`，gap 12、纵向 12，那边 gap 9、纵向 13，
- * 两页翻着看时行内挤法确实不一样。
- *
- * 这里只留**这一页**的纵向节奏：两行紧邻时 12px。捉鬼页那边不同，它的一行后面
- * 还跟着一条 `.meta` 说明，相邻兄弟选择器落不到，所以那 12px 写在页面自己身上
- * （见 `GhostHuntView` 的 `.side-block > .form-row`）。 */
-.form-row + .form-row {
-    margin-top: 12px;
-}
-/* 标签的样式在全局 `.field-label`（`base.css`）：与捉鬼页的「监听窗口」「高概率区域」
- * 是同一种东西——次级墨、一档小字、字距放宽。原先这里叫 `.row-label`，
- * 与那边逐字相同地写了一份。 */
 </style>

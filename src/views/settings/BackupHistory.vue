@@ -25,13 +25,13 @@ const emit = defineEmits<{ close: []; restore: [entry: BackupEntry]; refresh: []
         <div v-else-if="!entries.length && !error" class="record-empty">暂无备份</div>
         <div v-else class="backup-list">
             <div v-for="entry in entries" :key="entry.name" class="backup-row">
-                <span
-                    >{{ backupTime(entry.createdAt)
-                    }}<small
-                        >{{ entry.kind === 'daily' ? '日常' : '替换前' }} ·
-                        {{ Math.max(1, Math.round(entry.bytes / 1024)) }} KB</small
-                    ></span
-                >
+                <div class="backup-info">
+                    <span>{{ backupTime(entry.createdAt) }}</span>
+                    <small>
+                        {{ entry.kind === 'daily' ? '日常' : '替换前' }} ·
+                        {{ Math.max(1, Math.round(entry.bytes / 1024)) }} KB
+                    </small>
+                </div>
                 <PressButton
                     text="恢复"
                     :label="`恢复备份 ${entry.name}`"
@@ -66,13 +66,18 @@ const emit = defineEmits<{ close: []; restore: [entry: BackupEntry]; refresh: []
     background: var(--well);
     border-radius: var(--r-2);
 }
-.backup-row > span {
+.backup-info {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
     flex: 1;
+    min-width: 0;
     font-size: var(--fs-sm);
     font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
 }
 .backup-row small {
-    margin-left: 12px;
     color: var(--muted);
     font-size: var(--fs-xs);
 }
