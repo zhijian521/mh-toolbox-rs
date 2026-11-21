@@ -112,7 +112,7 @@ const groups = TOOL_GROUPS.map((group) => ({
     --icon-size: calc(26px * var(--fs-scale));
     --tile-face: color-mix(in srgb, var(--tint) var(--tool-wash), var(--paper));
     --tile-face-hover: color-mix(in srgb, var(--tint) var(--tool-wash-hover), var(--paper));
-        --tile-face-active: color-mix(in srgb, var(--tint) var(--tool-wash-active), var(--well));
+    --tile-face-active: color-mix(in srgb, var(--tint) var(--tool-wash-active), var(--well));
 }
 
 .tool-item:focus-visible .tool-tile {

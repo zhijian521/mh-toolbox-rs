@@ -10,7 +10,7 @@ import { growthExtraCost, type GrowthExtra } from './growth-extras';
 
 /** 可选项目沿用养成卡片，输入变更交回父页，删除即从预算移除。 */
 const props = defineProps<{ item: GrowthExtra; costs: LevelCosts }>();
-const emit = defineEmits<{ change: [value: GrowthExtra]; remove: [] }>();
+const emit = defineEmits<{ 'update:item': [value: GrowthExtra]; remove: [] }>();
 const result = computed(() => growthExtraCost(props.costs, props.item));
 const fields = computed<{ key: 'a' | 'b' | 'c'; label: string; precision?: number }[]>(() => {
     switch (props.item.kind) {
@@ -40,6 +40,7 @@ const fields = computed<{ key: 'a' | 'b' | 'c'; label: string; precision?: numbe
         case 'convention':
             return [{ key: 'a', label: '人物等级' }];
     }
+    return [];
 });
 const options = computed(() =>
     props.item.kind === 'gem'
@@ -58,7 +59,7 @@ function update(key: 'a' | 'b' | 'c' | 'pick', value: number | string) {
         const type = props.costs.gem.types.find((one) => one.id === value);
         if (type) next.a = Math.min(next.a, type.cap);
     }
-    emit('change', next);
+    emit('update:item', next);
 }
 const count = (value: number) => value.toLocaleString('zh-CN');
 </script>

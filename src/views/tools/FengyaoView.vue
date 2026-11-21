@@ -12,9 +12,16 @@ import PressTile from '../../components/PressTile.vue';
 import { hasDesktop } from '../../services/desktop';
 import { listGhostWindows, type GhostWindow } from '../../services/ghost';
 import {
-    captureFengyaoWindow, fengyaoStatus, startFengyao, stopFengyao,
-    isMessageRegion, readFengyaoPreferences, saveFengyaoPreferences,
-    type MessageRegion, type WatchStatus, type WindowShot,
+    captureFengyaoWindow,
+    fengyaoStatus,
+    startFengyao,
+    stopFengyao,
+    isMessageRegion,
+    readFengyaoPreferences,
+    saveFengyaoPreferences,
+    type MessageRegion,
+    type WatchStatus,
+    type WindowShot,
 } from '../../services/fengyao';
 import { timeText } from '../../services/clock';
 
@@ -41,7 +48,9 @@ let polling = false;
 let revision = 0;
 let anchor: { x: number; y: number } | null = null;
 const running = computed(() => status.value?.running === true);
-const windowOptions = computed(() => windows.value.map((w) => ({ value: String(w.hwnd), label: w.title })));
+const windowOptions = computed(() =>
+    windows.value.map((w) => ({ value: String(w.hwnd), label: w.title })),
+);
 const sceneRules = computed(() => status.value?.rules.scenes ?? []);
 const validRegion = computed(() => isMessageRegion(region.value));
 const recentAlerts = computed(() => status.value?.alerts.slice(0, 3) ?? []);
@@ -55,22 +64,31 @@ const stateText = computed(() => {
 const selectionStyle = computed(() => {
     const r = region.value;
     if (!r) return {};
-    return { left: `${r.x / r.frameWidth * 100}%`, top: `${r.y / r.frameHeight * 100}%`,
-        width: `${r.width / r.frameWidth * 100}%`, height: `${r.height / r.frameHeight * 100}%` };
+    return {
+        left: `${(r.x / r.frameWidth) * 100}%`,
+        top: `${(r.y / r.frameHeight) * 100}%`,
+        width: `${(r.width / r.frameWidth) * 100}%`,
+        height: `${(r.height / r.frameHeight) * 100}%`,
+    };
 });
 
-watch(hwnd, () => {
-    startAfterSelection.value = false;
-    calibrationOpen.value = false;
-    shot.value = null;
-    const title = windows.value.find((window) => String(window.hwnd) === hwnd.value)?.title;
-    const saved = readFengyaoPreferences();
-    const calibration = preferencePending.value ?? (saved.ok ? saved.value : null);
-    const unique = windows.value.filter((window) => window.title === title).length === 1;
-    region.value = unique && calibration?.windowTitle === title && calibration?.region
-        ? { ...calibration.region }
-        : null;
-}, { flush: 'sync' });
+watch(
+    hwnd,
+    () => {
+        startAfterSelection.value = false;
+        calibrationOpen.value = false;
+        shot.value = null;
+        const title = windows.value.find((window) => String(window.hwnd) === hwnd.value)?.title;
+        const saved = readFengyaoPreferences();
+        const calibration = preferencePending.value ?? (saved.ok ? saved.value : null);
+        const unique = windows.value.filter((window) => window.title === title).length === 1;
+        region.value =
+            unique && calibration?.windowTitle === title && calibration?.region
+                ? { ...calibration.region }
+                : null;
+    },
+    { flush: 'sync' },
+);
 
 async function refreshWindows() {
     const found = await listGhostWindows();
@@ -81,9 +99,14 @@ async function refreshWindows() {
     const title = saved.ok ? saved.value?.windowTitle : undefined;
     const rememberedWindow = windows.value.filter((w) => w.title === title);
     const chatWindows = windows.value.filter((w) => /聊天窗口/.test(w.title));
-    const selected = rememberedWindow.length === 1 ? rememberedWindow[0]
-        : chatWindows.length === 1 ? chatWindows[0]
-        : windows.value.length === 1 ? windows.value[0] : undefined;
+    const selected =
+        rememberedWindow.length === 1
+            ? rememberedWindow[0]
+            : chatWindows.length === 1
+              ? chatWindows[0]
+              : windows.value.length === 1
+                ? windows.value[0]
+                : undefined;
     hwnd.value = selected ? String(selected.hwnd) : '';
 }
 
@@ -92,9 +115,13 @@ async function act(action: () => Promise<void>) {
     busy.value = true;
     revision += 1;
     error.value = '';
-    try { await action(); }
-    catch (cause) { error.value = cause instanceof Error ? cause.message : String(cause); }
-    finally { busy.value = false; }
+    try {
+        await action();
+    } catch (cause) {
+        error.value = cause instanceof Error ? cause.message : String(cause);
+    } finally {
+        busy.value = false;
+    }
 }
 
 async function capture() {
@@ -115,8 +142,12 @@ function point(event: PointerEvent) {
     const image = shot.value;
     if (!image) return { x: 0, y: 0 };
     return {
-        x: Math.round(Math.max(0, Math.min(1, (event.clientX - box.left) / box.width)) * image.width),
-        y: Math.round(Math.max(0, Math.min(1, (event.clientY - box.top) / box.height)) * image.height),
+        x: Math.round(
+            Math.max(0, Math.min(1, (event.clientX - box.left) / box.width)) * image.width,
+        ),
+        y: Math.round(
+            Math.max(0, Math.min(1, (event.clientY - box.top) / box.height)) * image.height,
+        ),
     };
 }
 
@@ -131,13 +162,18 @@ function moveSelection(event: PointerEvent) {
     if (!anchor || !shot.value) return;
     const to = point(event);
     region.value = {
-        x: Math.min(anchor.x, to.x), y: Math.min(anchor.y, to.y),
-        width: Math.abs(to.x - anchor.x), height: Math.abs(to.y - anchor.y),
-        frameWidth: shot.value.width, frameHeight: shot.value.height,
+        x: Math.min(anchor.x, to.x),
+        y: Math.min(anchor.y, to.y),
+        width: Math.abs(to.x - anchor.x),
+        height: Math.abs(to.y - anchor.y),
+        frameWidth: shot.value.width,
+        frameHeight: shot.value.height,
     };
 }
 
-function endSelection() { anchor = null; }
+function endSelection() {
+    anchor = null;
+}
 
 function toggleScene(name: string, enabled: boolean) {
     scenes.value = enabled ? [...scenes.value, name] : scenes.value.filter((s) => s !== name);
@@ -170,8 +206,11 @@ async function beginWatching() {
     if (!scenes.value.length) throw new Error('请先开启至少一个提醒地图');
     if (!hwnd.value) throw new Error('请先选择游戏窗口');
     if (!isMessageRegion(region.value)) throw new Error('请框选完整系统消息区域');
-    status.value = await startFengyao({ hwnd: Number(hwnd.value),
-        scenes: [...scenes.value], region: { ...region.value } });
+    status.value = await startFengyao({
+        hwnd: Number(hwnd.value),
+        scenes: [...scenes.value],
+        region: { ...region.value },
+    });
     calibrationOpen.value = false;
     startAfterSelection.value = false;
     savePreferences(true);
@@ -202,8 +241,11 @@ async function toggle() {
         const image = await captureFengyaoWindow(Number(hwnd.value));
         if (disposed) return;
         // 保存的相对选区只在同尺寸下复用，不能把旧窗口句柄或缩放带入新监听。
-        if (!isMessageRegion(region.value) || region.value.frameWidth !== image.width
-            || region.value.frameHeight !== image.height) {
+        if (
+            !isMessageRegion(region.value) ||
+            region.value.frameWidth !== image.width ||
+            region.value.frameHeight !== image.height
+        ) {
             shot.value = image;
             region.value = null;
             startAfterSelection.value = true;
@@ -270,16 +312,25 @@ onBeforeUnmount(() => {
         </template>
         <div class="fengyao">
             <div class="fy-status-row">
-                <p class="fy-status" role="status" :class="{ live: running && !status?.error }">{{ stateText }}</p>
+                <p class="fy-status" role="status" :class="{ live: running && !status?.error }">
+                    {{ stateText }}
+                </p>
                 <p class="note">应用运行时持续监听。</p>
             </div>
             <p v-if="error" class="note danger-text" role="alert">{{ error }}</p>
             <p v-if="statusError" class="note danger-text" role="alert">{{ statusError }}</p>
             <div v-if="preferenceError" class="fy-feedback">
                 <p class="note danger-text" role="alert">{{ preferenceError }}</p>
-                <PressButton text="重试" label="重试保存监听设置" size="sm" @click="savePreferences()" />
+                <PressButton
+                    text="重试"
+                    label="重试保存监听设置"
+                    size="sm"
+                    @click="savePreferences()"
+                />
             </div>
-            <p v-if="status?.notificationError" class="note danger-text" role="alert">{{ status.notificationError }}</p>
+            <p v-if="status?.notificationError" class="note danger-text" role="alert">
+                {{ status.notificationError }}
+            </p>
 
             <PaperCard plain class="fy-settings">
                 <div class="fy-card-head">
@@ -297,12 +348,27 @@ onBeforeUnmount(() => {
                                 :disabled="running || busy"
                                 placeholder="请选择游戏窗口"
                             />
-                            <PressButton text="刷新" label="重新查找游戏窗口" :disabled="running || busy || !desktop" @click="act(refreshWindows)" />
+                            <PressButton
+                                text="刷新"
+                                label="重新查找游戏窗口"
+                                :disabled="running || busy || !desktop"
+                                @click="act(refreshWindows)"
+                            />
                         </div>
                     </div>
                     <div class="form-field">
-                        <span>系统消息区域 <small class="meta">{{ validRegion ? '已设置' : '未设置' }}</small></span>
-                        <PressButton :text="validRegion ? '重新框选' : '框选消息区域'" label="截取游戏画面并框选系统消息区域" :disabled="running || busy || !hwnd" @click="capture" />
+                        <span
+                            >系统消息区域
+                            <small class="meta">{{
+                                validRegion ? '已设置' : '未设置'
+                            }}</small></span
+                        >
+                        <PressButton
+                            :text="validRegion ? '重新框选' : '框选消息区域'"
+                            label="截取游戏画面并框选系统消息区域"
+                            :disabled="running || busy || !hwnd"
+                            @click="capture"
+                        />
                     </div>
                 </div>
                 <div class="fy-scenes" role="group" aria-label="提醒场景">
@@ -318,40 +384,70 @@ onBeforeUnmount(() => {
                         />
                     </div>
                 </div>
-
             </PaperCard>
 
             <PaperCard v-if="calibrationOpen && shot" plain class="fy-calibration">
                 <div class="fy-card-head">
                     <GroupHead as="h3">框选系统消息</GroupHead>
-                    <PressButton :text="startAfterSelection ? '完成并开始监听' : '完成框选'" label="完成系统消息区域框选" :disabled="busy || !validRegion" @click="completeSelection" />
+                    <PressButton
+                        :text="startAfterSelection ? '完成并开始监听' : '完成框选'"
+                        label="完成系统消息区域框选"
+                        :disabled="busy || !validRegion"
+                        @click="completeSelection"
+                    />
                 </div>
-                <p class="note">拖动框住最新几条公告，保留“[系统]”标记和完整正文。游戏内保持消息区展开；改变窗口尺寸后需重新框选。</p>
-                <div class="fy-canvas" role="group" aria-label="拖动框选系统消息区域" @pointerdown.prevent="beginSelection" @pointermove="moveSelection" @pointerup="endSelection" @pointercancel="endSelection">
-                    <img :src="shot.image" alt="用于选择系统消息区域的当前游戏画面" draggable="false" />
+                <p class="note">
+                    拖动框住最新几条公告，保留“[系统]”标记和完整正文。游戏内保持消息区展开；改变窗口尺寸后需重新框选。
+                </p>
+                <div
+                    class="fy-canvas"
+                    role="group"
+                    aria-label="拖动框选系统消息区域"
+                    @pointerdown.prevent="beginSelection"
+                    @pointermove="moveSelection"
+                    @pointerup="endSelection"
+                    @pointercancel="endSelection"
+                >
+                    <img
+                        :src="shot.image"
+                        alt="用于选择系统消息区域的当前游戏画面"
+                        draggable="false"
+                    />
                     <div v-if="region" class="fy-selection" :style="selectionStyle" />
                 </div>
                 <details v-if="region" class="fy-details fy-adjust">
                     <summary>手动设置选区</summary>
                     <div class="fy-coordinates fy-details-body">
-                        <label class="form-field">左边距<NumberField v-model="region.x" label="选区左边距" /></label>
-                        <label class="form-field">上边距<NumberField v-model="region.y" label="选区上边距" /></label>
-                        <label class="form-field">宽度<NumberField v-model="region.width" label="选区宽度" /></label>
-                        <label class="form-field">高度<NumberField v-model="region.height" label="选区高度" /></label>
+                        <label class="form-field"
+                            >左边距<NumberField v-model="region.x" label="选区左边距"
+                        /></label>
+                        <label class="form-field"
+                            >上边距<NumberField v-model="region.y" label="选区上边距"
+                        /></label>
+                        <label class="form-field"
+                            >宽度<NumberField v-model="region.width" label="选区宽度"
+                        /></label>
+                        <label class="form-field"
+                            >高度<NumberField v-model="region.height" label="选区高度"
+                        /></label>
                     </div>
                 </details>
             </PaperCard>
 
             <PaperCard plain class="fy-history">
                 <GroupHead as="h3">最近提醒</GroupHead>
-                <p v-if="!recentAlerts.length" class="note">暂无新提醒，所选场景刷妖时会弹出系统通知。</p>
+                <p v-if="!recentAlerts.length" class="note">
+                    暂无新提醒，所选场景刷妖时会弹出系统通知。
+                </p>
                 <ol v-else class="fy-alerts">
                     <li v-for="alert in recentAlerts" :key="alert.id">
                         <PressTile class="fy-alert-tile" still>
                             <AppIcon name="pin" class="fy-alert-icon" />
                             <span class="fy-alert-copy">
                                 <strong>{{ alert.scene }}</strong>
-                                <time :datetime="new Date(alert.at).toISOString()">{{ timeText(new Date(alert.at)) }} · 刷妖提醒</time>
+                                <time :datetime="new Date(alert.at).toISOString()"
+                                    >{{ timeText(new Date(alert.at)) }} · 刷妖提醒</time
+                                >
                             </span>
                         </PressTile>
                     </li>
@@ -359,9 +455,16 @@ onBeforeUnmount(() => {
                 <details class="fy-details fy-reading">
                     <summary>识别详情</summary>
                     <div class="fy-details-body">
-                        <p v-if="status?.lastReadAt" class="meta">最近读取 {{ timeText(new Date(status.lastReadAt)) }} · {{ status.ocrMs }}ms</p>
-                        <pre v-if="status?.text.length" class="fy-transcript">{{ status.text.join('\n') }}</pre>
-                        <p v-else class="note">开始监听后显示识别原文，首次读取仅建立基线，不提醒旧公告。</p>
+                        <p v-if="status?.lastReadAt" class="meta">
+                            最近读取 {{ timeText(new Date(status.lastReadAt)) }} ·
+                            {{ status.ocrMs }}ms
+                        </p>
+                        <pre v-if="status?.text.length" class="fy-transcript">{{
+                            status.text.join('\n')
+                        }}</pre>
+                        <p v-else class="note">
+                            开始监听后显示识别原文，首次读取仅建立基线，不提醒旧公告。
+                        </p>
                         <p class="note">仅提醒普通放妖公告；公告不代表妖怪仍未被击败。</p>
                     </div>
                 </details>

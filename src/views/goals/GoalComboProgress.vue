@@ -6,7 +6,12 @@ import NumberField from '../../components/NumberField.vue';
 import FormActions from '../../components/FormActions.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import { useDraftGuard } from '../../composables/use-draft-guard';
-import { groupComboRows, type ComboGoalRow, type ReadonlyGoal, type GoalProgressInput } from './goals';
+import {
+    groupComboRows,
+    type ComboGoalRow,
+    type ReadonlyGoal,
+    type GoalProgressInput,
+} from './goals';
 
 const props = defineProps<{
     goal: ReadonlyGoal;

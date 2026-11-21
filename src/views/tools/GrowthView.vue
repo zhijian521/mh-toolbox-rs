@@ -34,9 +34,13 @@ import {
 const GrowthPlan = defineAsyncComponent(() => import('./GrowthPlan.vue'));
 const mode = ref<'single' | 'plan'>('single');
 const openedPlan = ref(false);
-watch(mode, () => {
-    openedPlan.value = true;
-}, { once: true });
+watch(
+    mode,
+    () => {
+        openedPlan.value = true;
+    },
+    { once: true },
+);
 const MODES = [
     { value: 'single' as const, label: '单项计算' },
     { value: 'plan' as const, label: '综合计算' },

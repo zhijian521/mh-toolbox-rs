@@ -252,7 +252,7 @@ watch([character, () => props.costs], reset, { immediate: true });
                     :key="extra.key"
                     :item="extra"
                     :costs="costs"
-                    @change="changeExtra"
+                    @update:item="changeExtra"
                     @remove="extras = extras.filter((one) => one.key !== extra.key)"
                 />
                 <div v-if="availableSkills.length" class="plan-add">

@@ -426,7 +426,11 @@ describe('目标：进度历史', () => {
             kind: 'combo',
             createdAt: 10,
             items: [
-                { characterId: 'c1', tracking: { category: 'level', key: '角色等级' }, target: 120 },
+                {
+                    characterId: 'c1',
+                    tracking: { category: 'level', key: '角色等级' },
+                    target: 120,
+                },
             ],
         });
         expect(goalProgressHistory(combo, roster)).toEqual(rows);

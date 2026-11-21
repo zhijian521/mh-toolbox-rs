@@ -23,7 +23,9 @@ const clock = new Intl.DateTimeFormat('zh-CN', {
 const tracked = computed(() => props.goal.kind === 'combo' || !!props.goal.tracking);
 const rows = computed(() => goalProgressHistory(props.goal, roster.value));
 const pages = computed(() => Math.max(1, Math.ceil(rows.value.length / PAGE_SIZE)));
-const visible = computed(() => rows.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE));
+const visible = computed(() =>
+    rows.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE),
+);
 watch(pages, (total) => {
     page.value = Math.min(page.value, total);
 });

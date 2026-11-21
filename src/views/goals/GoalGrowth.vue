@@ -56,7 +56,8 @@ function enter(event: KeyboardEvent) {
             <fieldset class="growth" :disabled="locked" :inert="locked">
                 <label v-for="row in rows" :key="row.id" class="growth-row">
                     <span class="who"
-                        >{{ row.name || '未命名' }}<small v-if="row.value === null">待补录</small></span
+                        >{{ row.name || '未命名'
+                        }}<small v-if="row.value === null">待补录</small></span
                     >
                     <NumberField
                         :model-value="inputs[row.id]"

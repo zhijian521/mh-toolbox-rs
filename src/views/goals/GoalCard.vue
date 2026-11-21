@@ -62,7 +62,13 @@ const rows = computed(() => {
 </script>
 
 <template>
-    <PaperCard as="article" plain class="goal" :class="{ done: summary.done }" :data-goal-id="goal.id">
+    <PaperCard
+        as="article"
+        plain
+        class="goal"
+        :class="{ done: summary.done }"
+        :data-goal-id="goal.id"
+    >
         <header class="goal-head">
             <div class="heading">
                 <h2>{{ goal.title }}</h2>
@@ -112,7 +118,8 @@ const rows = computed(() => {
                         />
                         <span class="value">
                             <template v-if="row.value !== null">
-                                <b>{{ row.value }}</b>{{ row.targetText }}
+                                <b>{{ row.value }}</b
+                                >{{ row.targetText }}
                             </template>
                             <template v-else>{{ row.status }}</template>
                         </span>

@@ -69,7 +69,9 @@ export interface GoalItem {
     target: number;
 }
 
-export function goalItemKey(item: DeepReadonly<GoalItem>): string {
+export function goalItemKey(
+    item: DeepReadonly<Pick<GoalItem, 'characterId' | 'tracking'>>,
+): string {
     return JSON.stringify([item.characterId, item.tracking.category, item.tracking.key]);
 }
 

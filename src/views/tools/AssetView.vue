@@ -216,7 +216,11 @@ function turnPage(next: number) {
             <h3>正在加载资源</h3>
         </div>
 
-        <section v-for="section in visible" :key="section.kind" class="board board-plain asset-section">
+        <section
+            v-for="section in visible"
+            :key="section.kind"
+            class="board board-plain asset-section"
+        >
             <header class="asset-head">
                 <h3 class="asset-title">{{ section.title }}</h3>
                 <span class="asset-total">{{ section.summary }}</span>

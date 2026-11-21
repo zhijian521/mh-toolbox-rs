@@ -109,7 +109,9 @@ function enter(event: KeyboardEvent) {
             </thead>
             <tbody>
                 <tr v-for="log in ordered" :key="log.id" class="log-row">
-                    <td class="num"><time :datetime="log.date">{{ log.date }}</time></td>
+                    <td class="num">
+                        <time :datetime="log.date">{{ log.date }}</time>
+                    </td>
                     <td class="delta num">{{ signedText(log.delta, goal.unit) }}</td>
                     <td class="note-text">{{ log.note }}</td>
                     <td>

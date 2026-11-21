@@ -169,7 +169,8 @@ onMounted(() => {
                     <!-- 按行原样列出而不是给拼接后的整串：任务栏会按像素折行，
                          「这个地名是不是被切断过」只有对着折行才看得出来。 -->
                     <p v-if="stats" class="meta status-meta">
-                        截屏 {{ stats.grabMs }}ms · 识别 {{ stats.ocrMs }}ms · 系统 {{ scalePercent }}%
+                        截屏 {{ stats.grabMs }}ms · 识别 {{ stats.ocrMs }}ms · 系统
+                        {{ scalePercent }}%
                     </p>
                     <ol class="detail-lines">
                         <li v-for="(line, index) in report.lines" :key="index">{{ line }}</li>

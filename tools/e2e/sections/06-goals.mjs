@@ -115,9 +115,12 @@ export default async function run(ctx) {
             ),
         );
         await cdp.key('Enter');
-        await ui.waitFor(`document.querySelectorAll('${dialog} table[aria-label="进度流水"] tbody tr').length === 4`, {
-            timeout: 5000,
-        });
+        await ui.waitFor(
+            `document.querySelectorAll('${dialog} table[aria-label="进度流水"] tbody tr').length === 4`,
+            {
+                timeout: 5000,
+            },
+        );
         t.check(
             '减少后回到 2 / 3',
             await cdp.evaluate(`(() => {
@@ -342,7 +345,9 @@ export default async function run(ctx) {
                 && node.textContent.includes('强身术');
         })()`),
         );
-        await ui.clickIn('[data-goal-id]', title, { label: `更新${names[0]} · 角色等级的组合进度` });
+        await ui.clickIn('[data-goal-id]', title, {
+            label: `更新${names[0]} · 角色等级的组合进度`,
+        });
         t.check(
             '更新窗口使用表格且不再显示同步档案提示',
             await cdp.evaluate(`!!document.querySelector('${dialog} table[aria-label="组合项目进度"]')

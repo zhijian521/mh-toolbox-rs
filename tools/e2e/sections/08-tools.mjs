@@ -80,39 +80,58 @@ export default async function run(ctx) {
                     `document.querySelectorAll('.fy-scene').length > 0`,
                     { timeout: 5000 },
                 );
-                t.check('提醒场景直接展示，默认全部关闭', loaded && await cdp.evaluate(`
+                t.check(
+                    '提醒场景直接展示，默认全部关闭',
+                    loaded &&
+                        (await cdp.evaluate(`
                     !document.querySelector('.fy-scenes').closest('details') &&
                     [...document.querySelectorAll('.fy-scene .cost-switch')].every(s =>
                         s.classList.contains('off')) &&
                     !document.querySelector('[aria-label="开始封妖监听"]').disabled
-                `));
+                `)),
+                );
                 await ui.clickLabel('开始封妖监听');
-                t.check('无地图时点击开始给出明确原因', await cdp.evaluate(`
+                t.check(
+                    '无地图时点击开始给出明确原因',
+                    await cdp.evaluate(`
                     [...document.querySelectorAll('[role="alert"]')].some(el =>
                         el.textContent.includes('请先开启至少一个提醒地图'))
-                `));
-                t.check('移除等级、测试通知和官方规则入口', await cdp.evaluate(`
+                `),
+                );
+                t.check(
+                    '移除等级、测试通知和官方规则入口',
+                    await cdp.evaluate(`
                     !document.querySelector('[aria-label="封妖角色等级"]') &&
                     !document.querySelector('[aria-label="发送一条封妖测试通知"]') &&
                     !document.querySelector('[aria-label="打开官网封妖等级规则"]')
-                `));
+                `),
+                );
                 await cdp.click('[aria-label="柳林坡刷妖提醒"] [role="radio"]:last-child');
-                t.check('场景可手动开启，不受等级筛选', await cdp.evaluate(`
+                t.check(
+                    '场景可手动开启，不受等级筛选',
+                    await cdp.evaluate(`
                     !document.querySelector('[aria-label="柳林坡刷妖提醒"]').classList.contains('off')
-                `));
+                `),
+                );
                 await ui.clickLabel('开始封妖监听');
-                t.check('首次开始引导框选，完成后可直接监听', await cdp.evaluate(`
+                t.check(
+                    '首次开始引导框选，完成后可直接监听',
+                    await cdp.evaluate(`
                     !!document.querySelector('.fy-calibration') &&
                     document.querySelector('[aria-label="完成系统消息区域框选"]').textContent.includes('完成并开始监听')
-                `));
+                `),
+                );
                 await cdp.evaluate(`location.hash = '#/tools'`);
                 await ui.waitFor(`!document.querySelector('.fengyao')`);
                 await ui.clickText('button, a', '封妖助手');
                 await ui.waitFor(`!!document.querySelector('.fy-scenes')`);
-                t.check('页面重新创建后恢复手动地图选择', await cdp.evaluate(`
+                t.check(
+                    '页面重新创建后恢复手动地图选择',
+                    await cdp.evaluate(`
                     !document.querySelector('[aria-label="柳林坡刷妖提醒"]').classList.contains('off') &&
                     JSON.parse(localStorage.getItem('mh-fengyao-preferences')).scenes.includes('柳林坡')
-                `));
+                `),
+                );
                 await cdp.evaluate(`(() => {
                     const saved = JSON.parse(localStorage.getItem('mh-fengyao-preferences'));
                     saved.windowTitle = '梦幻西游 聊天窗口';
@@ -126,17 +145,23 @@ export default async function run(ctx) {
                 await ui.waitFor(`!!document.querySelector('.fy-scenes')`);
                 await ui.clickLabel('截取游戏画面并框选系统消息区域');
                 await ui.waitFor(`!!document.querySelector('.fy-adjust')`);
-                t.check('停止任务的旧选区不覆盖后来保存的新选区', await cdp.evaluate(`
+                t.check(
+                    '停止任务的旧选区不覆盖后来保存的新选区',
+                    await cdp.evaluate(`
                     document.querySelector('[aria-label="选区上边距"]').value === '40' &&
                     document.querySelector('[aria-label="选区高度"]').value === '120'
-                `));
+                `),
+                );
                 await cdp.click('.fy-adjust summary');
                 await ui.fill('选区上边距', '55');
                 await cdp.click('[aria-label="柳林坡刷妖提醒"] [role="radio"]:first-child');
-                t.check('切换提醒地图保留原选区，未确认的修改留在草稿', await cdp.evaluate(`
+                t.check(
+                    '切换提醒地图保留原选区，未确认的修改留在草稿',
+                    await cdp.evaluate(`
                     document.querySelector('[aria-label="选区上边距"]').value === '55' &&
                     JSON.parse(localStorage.getItem('mh-fengyao-preferences')).region.y === 40
-                `));
+                `),
+                );
                 await cdp.evaluate(`
                     window.__e2eFengyao.fake.config = window.__e2eFengyao.config;
                     window.__e2eFengyao.fake.running = true;
@@ -144,32 +169,51 @@ export default async function run(ctx) {
                 `);
                 await ui.waitFor(`!document.querySelector('.fengyao')`);
                 await ui.clickText('button, a', '封妖助手');
-                await ui.waitFor(`document.querySelector('.fy-status')?.textContent.includes('监听中')`);
-                t.check('区块标题使用独立装饰条', await cdp.evaluate(`
+                await ui.waitFor(
+                    `document.querySelector('.fy-status')?.textContent.includes('监听中')`,
+                );
+                t.check(
+                    '区块标题使用独立装饰条',
+                    await cdp.evaluate(`
                     [...document.querySelectorAll('.fengyao h3')].length === 2 &&
                     [...document.querySelectorAll('.fengyao h3')].every((h) =>
                         !h.classList.contains('section-mark') && h.querySelector('.section-mark'))
-                `));
-                t.check('识别详情和校准画面默认收起', await cdp.evaluate(`
+                `),
+                );
+                t.check(
+                    '识别详情和校准画面默认收起',
+                    await cdp.evaluate(`
                     !document.querySelector('.fy-reading').open &&
                     !document.querySelector('.fy-calibration')
-                `));
-                t.check('最近提醒最多展示三条，不展开公告正文',
+                `),
+                );
+                t.check(
+                    '最近提醒最多展示三条，不展开公告正文',
                     (await ui.count('.fy-alerts .fy-alert-tile.press-tile.still')) === 3 &&
-                    !(await cdp.evaluate(`document.querySelector('.fy-alerts').textContent.includes('E2E 公告正文')`)),
+                        !(await cdp.evaluate(
+                            `document.querySelector('.fy-alerts').textContent.includes('E2E 公告正文')`,
+                        )),
                 );
                 await ui.clickLabel('返回工具列表');
-                await ui.waitFor(`location.hash === '#/tools' && !document.querySelector('.fengyao')`);
-                t.check('离开页面没有停止后台监听', await cdp.evaluate(
-                    'window.__e2eFengyao.stopCalls === 0',
-                ));
+                await ui.waitFor(
+                    `location.hash === '#/tools' && !document.querySelector('.fengyao')`,
+                );
+                t.check(
+                    '离开页面没有停止后台监听',
+                    await cdp.evaluate('window.__e2eFengyao.stopCalls === 0'),
+                );
                 await ui.clickText('button, a', '封妖助手');
-                await ui.waitFor(`document.querySelector('.fy-status')?.textContent.includes('监听中')`);
-                t.check('回来读取后台状态，保留手动选择与选区', await cdp.evaluate(`
+                await ui.waitFor(
+                    `document.querySelector('.fy-status')?.textContent.includes('监听中')`,
+                );
+                t.check(
+                    '回来读取后台状态，保留手动选择与选区',
+                    await cdp.evaluate(`
                     window.__e2eFengyao.statusCalls >= 2 &&
                     !document.querySelector('[aria-label="柳林坡刷妖提醒"]').classList.contains('off') &&
                     !document.querySelector('[aria-label="停止封妖监听"]').disabled
-                `));
+                `),
+                );
             } finally {
                 await cdp.evaluate(`location.hash = '#/tools'`);
                 await ui.waitFor(`!document.querySelector('.fengyao')`);
@@ -252,18 +296,26 @@ export default async function run(ctx) {
             await ui.clickLabel('示例保存');
             t.check('示例重试清除错误', !(await ui.exists('.demo-actions .save-error')));
             await ui.clickText('[aria-label="开发帮助分组"] button', '图标目录', { exact: true });
-            t.check('图标目录直接展示完整清单，不提供搜索', await cdp.evaluate(`
+            t.check(
+                '图标目录直接展示完整清单，不提供搜索',
+                await cdp.evaluate(`
                 document.querySelectorAll('.icon-item').length > 0 &&
-                !document.querySelector('.icon-search')`));
+                !document.querySelector('.icon-search')`),
+            );
             await ui.clickText('[aria-label="开发帮助分组"] button', '调试数据', { exact: true });
-            t.check('只保留统一模拟账本入口，无独立领域示例按钮', await cdp.evaluate(`
+            t.check(
+                '只保留统一模拟账本入口，无独立领域示例按钮',
+                await cdp.evaluate(`
                 !!document.querySelector('[aria-label="导入模拟数据"]')?.getClientRects().length &&
-                !document.querySelector('[aria-label="添加目标示例"], [aria-label="添加仓库示例"], [aria-label="添加关联交易示例"]')`));
+                !document.querySelector('[aria-label="添加目标示例"], [aria-label="添加仓库示例"], [aria-label="添加关联交易示例"]')`),
+            );
             await ui.clickLabel('导入模拟数据');
             await ui.waitFor(`!!document.querySelector('[role="dialog"]')`);
-            t.check('替换前确认包含全部账本与自动备份',
+            t.check(
+                '替换前确认包含全部账本与自动备份',
                 (await ui.text('[role="dialog"]')).includes('替换全部账本') &&
-                (await ui.text('[role="dialog"]')).includes('替换前自动备份'));
+                    (await ui.text('[role="dialog"]')).includes('替换前自动备份'),
+            );
             await ui.clickText('[role="dialog"] button', '保持现状', { exact: true });
             await ui.clickText('[aria-label="开发帮助分组"] button', '组件预览', { exact: true });
             t.check('切组返回保留纯内存示例状态', !(await ui.exists('.demo-actions .save-error')));
@@ -452,7 +504,9 @@ export default async function run(ctx) {
                 await cdp.click('.asset-pages [data-page-gap="next"]');
                 t.check(
                     '省略号向后跳五页，恢复末页',
-                    await cdp.waitFor(`document.querySelector('.asset-pages [aria-current="page"]')?.dataset.page === '${lastPage}'`),
+                    await cdp.waitFor(
+                        `document.querySelector('.asset-pages [aria-current="page"]')?.dataset.page === '${lastPage}'`,
+                    ),
                 );
             }
             await cdp.click('.asset-pages [data-page="1"]');
