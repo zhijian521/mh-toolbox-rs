@@ -57,7 +57,7 @@
      * 修改窗里装备 / 召唤兽的详情纸走的是同一条，定义留在这里就变成两份要一起改的东西。
      * 这里只负责「用」。 */
 
-    width: var(--char-w, 360px);
+    width: var(--char-w);
     height: var(--char-h, 480px);
     /* 圆角、上亮下暗的棱、下沿断面、两层落影**一条都不在这里**：角色卡的根已经是
      * `PaperCard`（全局 `.board`），厚度由那一份材质给。
@@ -72,7 +72,8 @@
 }
 
 .char.roster-card {
-    --roster-column-gap: 16px;
+    --card-pad-x: 14px;
+    --roster-column-gap: 12px;
     --roster-number-width: calc(56px * var(--fs-scale));
     min-width: 0;
     max-width: 100%;
@@ -87,6 +88,17 @@
 }
 .roster-card :deep(:is(.attr-layout, .slip-cols, .training-list) .slip-row) {
     --tag-w: var(--roster-number-width);
+}
+.roster-card :deep(.slip-cols .slip-row) {
+    gap: 6px;
+    padding-inline: 7px;
+}
+.roster-card :deep(.slip-cols .slip-name) {
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+.roster-card .tabs {
+    --step-pad-x: 2px;
 }
 
 @container character-roster (max-width: 380px) {
@@ -129,10 +141,7 @@
     align-items: flex-start;
     gap: 8px;
     flex: none;
-    /* 卡头内边距跟着卡宽松一档：11/9 是按 360 的卡定的，加宽到 450 时同样的数会让名字
-     * 贴住上沿。卡宽 2026-11-10 收到 420 后这里**不再回缩**——13px 是按 450 定的余量，
-     * 420 下只是更松一点，收回去反而要在两个宽度之间来回试。左右引 `--card-pad-x`，
-     * 与页签条、正文同一条竖线。 */
+    /* 卡头、页签与正文共用横向内边距。 */
     padding: 13px var(--card-pad-x) 10px;
 }
 .who-block {
@@ -253,24 +262,9 @@
     --step-pad-y: 6px;
     --step-pad-x: 4px;
 
-    /* 左右引 `--card-pad-x`：页签条比正文更靠外时，卡内的竖线就出现两条基准。
-     * 卡宽 420、左右各 20 时每格 (420 − 40 − 4) / 6 ≈ 62.7，
-     * 「召唤兽」在 1.1 档占 46，余 8.7。 */
+    /* 页签条与卡头、正文共用横向内边距。 */
     margin: 0 var(--card-pad-x);
 }
-/* 格内文案再放大一档，到 `--fs-base`（2026-11-06 用户：「按钮字体整体放大一号」）。
- * 它走过三档：`--fs-xs`（11，早先为省横向余量）→ `--fs-sm`（12，2026-11-03
- * 用户「字体偏小，增大一号」）→ **`--fs-base`（13.5）**。页签条是卡内唯一一排
- * 导航，字号跟着正文走才不像「贴在卡头下面的小注」。
- *
- * 行高跟着抬（全局 `.track-opt` 的 17 → 18）：`--fs-base` 在 1.1 档是 14.85，
- * 压在 17px 的行盒里只剩 1px 上下的气，字会贴住凹槽顶。18 之后格子高
- * = 18 + 2 × 6 = **30**、整条 **36**（原来 29 / 35）——卡高 620 不变，
- * 多的那 1px 从滚动区里出（属性页 1.1 档原本余 25）。
- *
- * 宽度重算一遍：六格各 62.7，减 `--step-pad-x` 两侧 8 得 54.7；最长的「召唤兽」
- * 在 1.1 档 3 × 14.85 + 字距 ≈ 46，仍余 8.7——**六格封顶**这条不变，但余量已经很薄，
- * 卡宽再往下收就先崩这里（400 那次「召唤兽」已经换行了）。 */
 .tabs :deep(.step-opt) {
     font-size: var(--fs-base);
     line-height: 18px;

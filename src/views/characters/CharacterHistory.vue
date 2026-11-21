@@ -9,6 +9,7 @@ import PressButton from '../../components/PressButton.vue';
 import { useRoster } from './roster';
 import { selectGrowthHistory } from './growth-history';
 
+const PAGE_SIZE = 10;
 const emit = defineEmits<{ close: [] }>();
 const { roster } = useRoster();
 const selected = ref(''),
@@ -26,13 +27,15 @@ const entries = computed(() =>
         to: to.value,
     }),
 );
-const pages = computed(() => Math.max(1, Math.ceil(entries.value.length / 10)));
+const pages = computed(() => Math.max(1, Math.ceil(entries.value.length / PAGE_SIZE)));
 const visible = computed(() =>
-    entries.value.slice((page.value - 1) * 10, page.value * 10).map(({ character, entry }) => ({
-        ...entry,
-        name: character.name,
-        characterId: character.id,
-    })),
+    entries.value
+        .slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE)
+        .map(({ character, entry }) => ({
+            ...entry,
+            name: character.name,
+            characterId: character.id,
+        })),
 );
 watch([selected, from, to], () => {
     page.value = 1;
@@ -59,27 +62,39 @@ watch(pages, (total) => {
                 spine="left"
                 class="growth-entry"
             >
-                <header>
+                <header class="growth-heading ticket-rule">
                     <strong>{{ entry.name }}</strong>
-                    <span>
-                        {{
-                            entry.source === 'goal'
-                                ? '目标更新'
-                                : entry.source === 'legacy'
-                                  ? '旧版记录'
-                                  : '角色修改'
-                        }}
-                    </span>
-                    <time>{{ entry.date }}</time>
+                    <div class="growth-meta">
+                        <span>
+                            {{
+                                entry.source === 'goal'
+                                    ? '目标更新'
+                                    : entry.source === 'legacy'
+                                      ? '旧版记录'
+                                      : '角色修改'
+                            }}
+                        </span>
+                        <time class="num" :datetime="entry.date">{{ entry.date }}</time>
+                    </div>
+                    <p v-if="entry.note" class="growth-note">{{ entry.note }}</p>
                 </header>
-                <p v-if="entry.note" class="growth-note">{{ entry.note }}</p>
-                <div v-for="(change, index) in entry.changes" :key="index" class="growth-change">
-                    <span class="growth-group">{{ change.group }}</span>
-                    <span>{{ change.label }}</span>
-                    <span class="growth-before">{{ change.from || '未记录' }}</span>
-                    <span aria-hidden="true">→</span>
-                    <b>{{ change.to || '未记录' }}</b>
-                </div>
+                <dl v-if="entry.changes.length" class="growth-changes">
+                    <div
+                        v-for="(change, index) in entry.changes"
+                        :key="index"
+                        class="slip-row sm growth-change"
+                    >
+                        <dt>
+                            <span class="growth-group">{{ change.group }}</span>
+                            <span>{{ change.label }}</span>
+                        </dt>
+                        <dd>
+                            <span class="growth-before">{{ change.from || '未记录' }}</span>
+                            <span aria-hidden="true">→</span>
+                            <b>{{ change.to || '未记录' }}</b>
+                        </dd>
+                    </div>
+                </dl>
             </FoldedCard>
         </div>
         <template #footer>
@@ -92,7 +107,7 @@ watch(pages, (total) => {
 <style scoped>
 .growth-filters {
     display: grid;
-    grid-template-columns: minmax(110px, 1fr) minmax(120px, 1fr) auto minmax(120px, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto minmax(0, 1fr);
     gap: 8px;
     align-items: center;
     margin-bottom: 14px;
@@ -103,50 +118,89 @@ watch(pages, (total) => {
 }
 .folded-card.growth-entry {
     --folded-pad-block: 10px;
-    --folded-pad-inline: 14px;
+    --folded-pad-inline: 12px;
+
+    overflow-wrap: anywhere;
 }
-.growth-entry header {
+.growth-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px 12px;
+    padding-bottom: 8px;
+}
+.growth-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 4px 10px;
-    align-items: baseline;
-    margin-bottom: 6px;
-    font-size: var(--fs-xs);
-    color: var(--muted);
-}
-.growth-entry header strong {
-    overflow-wrap: anywhere;
-    font-size: var(--fs-sm);
-    color: var(--ink);
-}
-.growth-entry time {
     margin-inline-start: auto;
-    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+    font-size: var(--fs-mini);
+}
+.growth-meta time {
+    white-space: nowrap;
+}
+.growth-heading strong {
+    color: var(--ink);
+    font-size: var(--fs-md);
+    line-height: 1.45;
 }
 .growth-note {
-    margin: 0 0 6px;
-    overflow-wrap: anywhere;
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--muted);
     font-size: var(--fs-xs);
-    color: var(--muted);
 }
-.growth-change {
+.growth-changes {
     display: grid;
-    grid-template-columns: 82px minmax(90px, 1fr) minmax(75px, 1fr) 16px minmax(75px, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(300px * var(--fs-scale))), 1fr));
+    gap: 6px 10px;
+    margin: 9px 0 0;
+}
+.slip-row.growth-change {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: baseline;
-    padding: 5px 0;
+    gap: 8px;
+    min-height: 28px;
+    height: auto;
+    padding-block: 5px;
+    color: var(--ink-2);
     font-size: var(--fs-sm);
-    border-top: var(--w-hair) solid var(--rule-2);
 }
-.growth-change > * {
-    overflow-wrap: anywhere;
+.growth-change dt {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 1px 6px;
 }
-.growth-group,
-.growth-before {
+.growth-group {
     color: var(--muted);
+    font-size: var(--fs-xs);
 }
-.growth-change > b {
-    color: var(--num);
+.growth-change dd {
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    justify-content: end;
+    align-items: baseline;
+    gap: 5px;
+    margin: 0;
+    color: var(--muted);
     font-variant-numeric: tabular-nums;
+}
+.growth-before {
+    text-align: end;
+}
+.growth-change b {
+    color: var(--num);
+    font-size: var(--fs-base);
+}
+@media (max-width: 540px) {
+    .growth-filters {
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    }
+    .growth-filters > :first-child {
+        grid-column: 1 / -1;
+    }
 }
 </style>

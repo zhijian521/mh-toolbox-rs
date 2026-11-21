@@ -200,8 +200,8 @@
     --block-pad: 15px 18px 18px;
     --block-pad-tight: 11px 14px 12px;
 
-    /* 名册卡片固定尺寸；修改窗右栏通过 --char-editor-w 独立分配宽度。 */
-    --char-w: 420px;
+    /* 留白固定，内容宽度随字号缩放，容纳双列技能名和等级签。 */
+    --char-w: calc(112px + 280px * var(--fs-scale));
     --char-h: 640px;
     /* 修改窗右栏独立加宽，左截图栏使用剩余宽度。 */
     --char-editor-w: 460px;
