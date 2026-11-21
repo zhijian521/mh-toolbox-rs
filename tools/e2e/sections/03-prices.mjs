@@ -5,6 +5,8 @@ import { CONFIRM_DELETE } from './shared.mjs';
 export default async function run(ctx) {
     const { cdp, ui, t, want, sleep, baseline } = ctx;
 
+    const historyReady = `!!document.querySelector('[aria-modal="true"] [aria-label="删除这件物品"]')`;
+
     if (want('物价')) {
         t.section('3 物价 · 新建 → 记价 → 重载 → 历史 → 删除');
 
@@ -13,10 +15,12 @@ export default async function run(ctx) {
             let purged = 0;
             for (let i = 0; i < 8; i += 1) {
                 try {
-                    await ui.clickIn('article.price-card', 'E2E', { text: '删' });
+                    await ui.clickIn('article.price-card', 'E2E', { text: '历史' });
                 } catch {
                     break;
                 }
+                await cdp.waitFor(historyReady, { timeout: 3000 });
+                await ui.clickLabel('删除这件物品');
                 await sleep(350);
                 await ui.clickText(CONFIRM_DELETE, '删除', { exact: true });
                 await sleep(650);
@@ -81,7 +85,16 @@ export default async function run(ctx) {
             t.pass('点「新增」打开物品对话框');
 
             await cdp.click('input[aria-label="物品名称"]');
-            await cdp.click('input[aria-label="备注"]');
+            await ui.clickLabel('放弃这次编辑');
+            t.check(
+                '空表单点击一次取消即可关闭',
+                await ui.waitFor(`!document.querySelector('input[aria-label="物品名称"]')`),
+            );
+            await ui.clickLabel('新建一件物品');
+            await cdp.waitFor(`!!document.querySelector('input[aria-label="物品名称"]')`, {
+                timeout: 3000,
+            });
+            await ui.clickLabel('保存这件物品');
             const linkedError = await cdp.evaluate(`(() => {
                 const input = document.querySelector('input[aria-label="物品名称"]');
                 const id = input?.getAttribute('aria-describedby');
@@ -91,6 +104,33 @@ export default async function run(ctx) {
             t.check('物品名称错误与输入框关联', linkedError);
 
             await ui.fill('物品名称', 'E2E测试物品');
+            await ui.clickLabel('物品分类');
+            const equipmentGroup = '.cascade-option[data-group="装备灵饰"]';
+            const center = await cdp.evaluate(`(() => {
+                const group = document.querySelector(${JSON.stringify(equipmentGroup)});
+                group.closest('.cascade-column').scrollTop = 0;
+                const box = group.getBoundingClientRect();
+                return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+            })()`);
+            await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...center });
+            t.check('悬停一级时二级展开在右侧，一级仍可见', await cdp.waitFor(`(() => {
+                const group = document.querySelector(${JSON.stringify(equipmentGroup)});
+                const child = document.querySelector('[aria-label="装备灵饰的二级分类"]');
+                return !!child && child.getBoundingClientRect().left >= group.getBoundingClientRect().right;
+            })()`));
+            await cdp.evaluate(`document.querySelector(${JSON.stringify(equipmentGroup)}).focus()`);
+            await cdp.key('ArrowRight');
+            t.check('右键进入二级列表', await cdp.evaluate(`document.activeElement?.dataset.level === '2'`));
+            await cdp.key('ArrowLeft');
+            t.check('左键回到一级分类', await cdp.evaluate(`document.activeElement?.dataset.group === '装备灵饰'`));
+            await ui.clickText('.cascade-option[data-level="2"]', '自定义子类', { exact: true });
+            t.check(
+                '选择自定义后焦点进入子类输入框',
+                await cdp.evaluate(
+                    `document.activeElement?.getAttribute('aria-label') === '自己写一个二级分类'`,
+                ),
+            );
+            await ui.fill('自己写一个二级分类', 'E2E试验子类');
             await ui.fillSel('input[aria-label="初始价（可空），以万为单位"]', '3.5');
             await ui.clickText('button', '保存', { exact: true });
             await sleep(700);
@@ -100,11 +140,49 @@ export default async function run(ctx) {
             t.check('新物品带价格 3.5 万', /E2E测试物品[\s\S]{0,80}3\.5[\s\S]{0,10}万/.test(body));
         });
 
-        await t.step('点卡片主体记一笔价 7.25 万', async () => {
+        await t.step('物价可直接按一级或二级筛选', async () => {
+            const filter = 'button[aria-label="按分类筛选"]';
+            await ui.clickLabel('按分类筛选');
+            await ui.clickText('.cascade-option[data-level="1"]', '装备灵饰', { exact: true });
+            t.check(
+                '点击一级直接筛选并关闭下拉',
+                await cdp.evaluate(`(() => {
+                    const trigger = document.querySelector(${JSON.stringify(filter)});
+                    return trigger?.textContent.trim() === '装备灵饰'
+                        && trigger.getAttribute('aria-expanded') === 'false'
+                        && !!trigger.parentElement.querySelector('[aria-label="清除筛选"]');
+                })()`),
+            );
+            await ui.clickLabel('按分类筛选');
+            await ui.clickLabel('展开装备灵饰的二级分类');
+            await ui.clickText('.cascade-option[data-level="2"]', 'E2E试验子类', { exact: true });
+            t.check(
+                '按自定义子类筛选只显示新物品',
+                (await ui.count('article.price-card')) === 1 && (await ui.text()).includes('E2E测试物品'),
+            );
+            t.check(
+                '自定义二级分类沿用一级分类的玻璃色，卡片直接放在公共台面上',
+                await cdp.evaluate(`(() => {
+                    const card = document.querySelector('.page-content.surface .price-grid > [data-material="glass"]');
+                    if (!card) return false;
+                    const style = getComputedStyle(card);
+                    const hue = style.getPropertyValue('--material-hue').trim();
+                    return !!hue && hue === style.getPropertyValue('--tint-hue-装备灵饰').trim();
+                })()`),
+            );
+            await ui.clickLabel('清除筛选');
+            t.check(
+                '分类框内的叉号清除筛选并返回完整列表',
+                !(await ui.exists('.cascade-clear')) &&
+                    (await ui.count('article.price-card')) === baseline.prices + 1,
+            );
+        });
+
+        await t.step('点卡片价格记一笔价 7.25 万', async () => {
             await ui.markFirst(`() => {
                 const card = [...document.querySelectorAll('article.price-card')]
                     .find((c) => (c.textContent || '').includes('E2E测试物品'));
-                return card?.querySelector('.card-main') ?? null;
+                return card?.querySelector('.card-log') ?? null;
             }`);
             await cdp.click('[data-e2e="1"]');
             const asked = await cdp.waitFor(
@@ -170,13 +248,11 @@ export default async function run(ctx) {
             t.check('重载后 7.25 仍在卡片上', (await ui.text()).includes('7.25'));
         });
 
-        await t.step('卡片上的历史入口能开窗', async () => {
-            await ui.markFirst(`() => {
-                const card = [...document.querySelectorAll('article.price-card')]
-                    .find((c) => (c.textContent || '').includes('E2E测试物品'));
-                return card?.querySelector('[data-role="history"]') ?? null;
-            }`);
-            await cdp.click('[data-e2e="1"]');
+        await t.step('卡片上的历史入口支持键盘打开', async () => {
+            await cdp.evaluate(`
+                document.querySelector('[aria-label="查看E2E测试物品的价格历史"]')?.focus()
+            `);
+            await cdp.key('Enter');
             const opened = await cdp.waitFor(`!!document.querySelector('[role="dialog"]')`, {
                 timeout: 3000,
             });
@@ -188,6 +264,11 @@ export default async function run(ctx) {
                 '历史窗里有「删除这件物品」',
                 labels.includes('删除这件物品'),
                 labels.slice(0, 5).join(' / '),
+            );
+            t.check(
+                '价格明细使用账本表格，历史图表在表格下方',
+                (await ui.exists('.price-history-table.income-table tbody td.log-price')) &&
+                    (await ui.exists('.price-history-table + .hist-chart .chart-in-card')),
             );
             const tooltipOpen = await ui.exists('.chart-tooltip');
             await cdp.key('Escape');
@@ -202,7 +283,9 @@ export default async function run(ctx) {
         });
 
         await t.step('删除物品并回到原来的数量', async () => {
-            await ui.clickIn('article.price-card', 'E2E测试物品', { text: '删' });
+            await ui.clickLabel('查看E2E测试物品的价格历史');
+            await cdp.waitFor(historyReady, { timeout: 3000 });
+            await ui.clickLabel('删除这件物品');
             await sleep(400);
             t.check(
                 '无标题确认窗仍默认聚焦取消',
@@ -211,10 +294,10 @@ export default async function run(ctx) {
             await cdp.click('.modal-panel[aria-modal="true"] [data-modal-close]');
             t.check(
                 '确认窗关闭图标取消删除并保留物品',
-                (await ui.waitFor('!document.querySelector(".modal-panel")')) &&
+                (await ui.waitFor(historyReady)) &&
                     (await ui.text()).includes('E2E测试物品'),
             );
-            await ui.clickIn('article.price-card', 'E2E测试物品', { text: '删' });
+            await ui.clickLabel('删除这件物品');
             await sleep(400);
             await ui.clickText(CONFIRM_DELETE, '删除', { exact: true });
             await sleep(700);

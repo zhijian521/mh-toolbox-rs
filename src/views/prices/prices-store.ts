@@ -17,7 +17,6 @@ import {
     makePricePoint,
     normalizePriceItem,
     parsePriceItems,
-    retuneSub,
     type PriceItem,
     type PriceItemDraft,
     type PricePoint,
@@ -204,12 +203,12 @@ export function usePrices() {
             return { ok: false, error: '已经有一件同名物品了，换一个名字再存' };
         }
         const category = isPriceCategory(draft.category) ? draft.category : DEFAULT_CATEGORY;
-        /* 只替换可编辑字段；一级变化时校正二级，未变化时保留用户自定义值。 */
+        /* 分类路径在表单中一并选择，保存时保留明确提交的自定义子类。 */
         replaceItem({
             ...item,
             name: draft.name.trim() || item.name,
             category,
-            sub: category === item.category ? draft.sub.trim() : retuneSub(draft.sub, category),
+            sub: draft.sub.trim(),
             note: draft.note.trim(),
             /* 「最近更新」要对得起它的名字：改名、改分类、改备注也是更新。
              * 不刷新的话，用户改完一张卡它仍排在列表原位，看着像没存上。 */

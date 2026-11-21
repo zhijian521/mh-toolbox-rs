@@ -20,11 +20,10 @@ import {
     priceBadge,
     priceChange,
     recentPrices,
-    retuneSub,
     sortedPoints,
     updateSummary,
 } from './prices';
-import type { PriceFilter, PriceItem, PricePoint, PriceSort, ReadonlyPriceItem } from './prices';
+import type { PriceFilter, PriceItem, PricePoint, ReadonlyPriceItem } from './prices';
 
 /**
  * 物价的纯函数层。
@@ -68,8 +67,8 @@ function makeItem(
     };
 }
 
-function filterOf(sort: PriceSort, rest: Partial<PriceFilter> = {}): PriceFilter {
-    return { keyword: '', category: '', sub: '', sort, ...rest };
+function filterOf(rest: Partial<PriceFilter> = {}): PriceFilter {
+    return { keyword: '', category: '', sub: '', ...rest };
 }
 
 /** 2026 年起第 n 天的 `YYYY-MM-DD`，造大批历史用。 */
@@ -290,59 +289,22 @@ const 定魂珠 = makeItem('定魂珠', [point(30000, '2026-11-03'), point(20000
     sub: '兽决',
 });
 
-describe('filterItems：五种排序', () => {
+describe('filterItems：默认顺序', () => {
     /** 故意乱序传入：排序不该依赖输入顺序。 */
     const items = [藏宝图, 金刚石, 定魂珠];
     const names = (list: readonly ReadonlyPriceItem[]) => list.map((item) => item.name);
 
-    it('updated（基准顺序）：最近更新的在前', () => {
-        expect(names(filterItems(items, filterOf('updated')))).toEqual([
+    it('最近更新的在前', () => {
+        expect(names(filterItems(items, filterOf()))).toEqual([
             '定魂珠',
             '藏宝图',
             '金刚石',
         ]);
-    });
-
-    it('name：按拼音排，不是按传入顺序也不是按码点', () => {
-        expect(names(filterItems(items, filterOf('name')))).toEqual(['藏宝图', '定魂珠', '金刚石']);
-    });
-
-    it('price-desc：贵的在前，未记录排最后', () => {
-        expect(names(filterItems(items, filterOf('price-desc')))).toEqual([
-            '定魂珠',
-            '金刚石',
-            '藏宝图',
-        ]);
-    });
-
-    it('price-asc：便宜的在前，未记录仍然排最后（不是当成 0 顶到最前）', () => {
-        expect(names(filterItems(items, filterOf('price-asc')))).toEqual([
-            '金刚石',
-            '定魂珠',
-            '藏宝图',
-        ]);
-    });
-
-    it('delta：按涨幅比例，不按差价——未记录排最后', () => {
-        /* 差价是 定魂珠 10000 > 金刚石 5000，按差价该是定魂珠在前；
-         * 按比例则是 金刚石 100% > 定魂珠 50%。这里要的是后者。 */
-        expect(names(filterItems(items, filterOf('delta')))).toEqual([
-            '金刚石',
-            '定魂珠',
-            '藏宝图',
-        ]);
-    });
-
-    it('同价时按名称兜底，刷新两次顺序不变', () => {
-        const a = makeItem('定魂珠', [point(10000, '2026-11-03')], { updatedAt: 1 });
-        const b = makeItem('藏宝图', [point(10000, '2026-11-03')], { updatedAt: 2 });
-        expect(names(filterItems([a, b], filterOf('price-asc')))).toEqual(['藏宝图', '定魂珠']);
     });
 
     it('空表与「全被筛掉」都返回空数组', () => {
-        expect(filterItems([], filterOf('updated'))).toEqual([]);
-        expect(filterItems([], filterOf('delta'))).toEqual([]);
-        expect(filterItems(items, filterOf('updated', { keyword: '没有这个东西' }))).toEqual([]);
+        expect(filterItems([], filterOf())).toEqual([]);
+        expect(filterItems(items, filterOf({ keyword: '没有这个东西' }))).toEqual([]);
     });
 });
 
@@ -351,22 +313,22 @@ describe('filterItems：筛选条件', () => {
     const names = (list: readonly ReadonlyPriceItem[]) => list.map((item) => item.name);
 
     it('关键词命中名称、二级分类、单位、备注里的任意一个', () => {
-        expect(names(filterItems(items, filterOf('updated', { keyword: '金刚' })))).toEqual([
+        expect(names(filterItems(items, filterOf({ keyword: '金刚' })))).toEqual([
             '金刚石',
         ]);
-        expect(names(filterItems(items, filterOf('updated', { keyword: '五宝' })))).toEqual([
+        expect(names(filterItems(items, filterOf({ keyword: '五宝' })))).toEqual([
             '金刚石',
         ]);
-        expect(names(filterItems(items, filterOf('updated', { keyword: '枚' })))).toEqual([
+        expect(names(filterItems(items, filterOf({ keyword: '枚' })))).toEqual([
             '金刚石',
         ]);
-        expect(names(filterItems(items, filterOf('updated', { keyword: 'OCR' })))).toEqual([
+        expect(names(filterItems(items, filterOf({ keyword: 'OCR' })))).toEqual([
             '金刚石',
         ]);
     });
 
     it('关键词不分大小写', () => {
-        expect(names(filterItems(items, filterOf('updated', { keyword: 'ocr' })))).toEqual([
+        expect(names(filterItems(items, filterOf({ keyword: 'ocr' })))).toEqual([
             '金刚石',
         ]);
     });
@@ -374,18 +336,18 @@ describe('filterItems：筛选条件', () => {
     it('一级分类是精确匹配', () => {
         const other = makeItem('别的', [], { category: '召唤兽' });
         expect(
-            names(filterItems([...items, other], filterOf('updated', { category: '任务产出' }))),
+            names(filterItems([...items, other], filterOf({ category: '任务产出' }))),
         ).toEqual(['定魂珠', '藏宝图', '金刚石']);
-        expect(filterItems(items, filterOf('updated', { category: '召唤兽' }))).toEqual([]);
+        expect(filterItems(items, filterOf({ category: '召唤兽' }))).toEqual([]);
     });
 
     it('二级分类是精确匹配：「兽决」不会把「高级兽决」也捞进来', () => {
         const low = makeItem('低级兽决', [], { category: '兽决内丹', sub: '兽决' });
         const high = makeItem('高级兽决', [], { category: '兽决内丹', sub: '高级兽决' });
-        expect(names(filterItems([low, high], filterOf('updated', { sub: '兽决' })))).toEqual([
+        expect(names(filterItems([low, high], filterOf({ sub: '兽决' })))).toEqual([
             '低级兽决',
         ]);
-        expect(names(filterItems([low, high], filterOf('updated', { sub: '高级兽决' })))).toEqual([
+        expect(names(filterItems([low, high], filterOf({ sub: '高级兽决' })))).toEqual([
             '高级兽决',
         ]);
     });
@@ -613,24 +575,6 @@ describe('工厂：草稿 → 数据', () => {
         const item = makePricePoint({ date: '2026-1-5', price: -1, note: '' }, 1000);
         expect(item.date).toBe(todayText());
         expect(item.price).toBe(0);
-    });
-});
-
-describe('retuneSub：换了一级之后旧的二级还留不留', () => {
-    it('旧二级在新一级的名单里就留着——用户只是想挪个位置', () => {
-        expect(retuneSub('宝石', '宝石符石')).toBe('宝石');
-    });
-
-    it('不在新一级的名单里就清空，避免「卡上印宝石、它已归装备」', () => {
-        expect(retuneSub('宝石', '装备灵饰')).toBe('');
-    });
-
-    it('用户自造的二级换类后也清掉——它本来是在旧一级的语境下起的名字', () => {
-        expect(retuneSub('三药·秘方', '消耗补给')).toBe('');
-    });
-
-    it('空二级永远合法', () => {
-        expect(retuneSub('   ', '召唤兽')).toBe('');
     });
 });
 

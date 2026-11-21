@@ -8,13 +8,12 @@ import { usePriceViewState } from './price-view-state';
 import AppIcon from '../../components/AppIcon.vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
-import SelectField from '../../components/SelectField.vue';
-import SlotButton from '../../components/SlotButton.vue';
+import CascadeSelect from '../../components/CascadeSelect.vue';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { notify } from '../../composables/use-notify';
 import PriceCard from './PriceCard.vue';
-import { PRICE_CATEGORIES, subsOf } from './prices-catalog';
+import { priceCategoryGroups } from './prices-catalog';
 import { shortDate } from '../../services/format';
 import {
     filterItems,
@@ -23,7 +22,6 @@ import {
     type PriceItemDraft,
     type PricePoint,
     type PricePointDraft,
-    type PriceSort,
 } from './prices';
 import { loadPrices, usePrices } from './prices-store';
 
@@ -46,7 +44,7 @@ const PricePointDialog = lazyDialog(() => import('./PricePointDialog.vue'));
  *
  * ---- 这个页面自己只留界面状态 ----
  * 业务数据在 `usePrices()`（模块级单例），读写规则在 `prices.ts`。这里只有：
- * 四个筛选项、四层弹窗各自开着谁、以及两条「刚才为什么没写进去」。
+ * 筛选条件、四层弹窗各自开着谁、以及两条「刚才为什么没写进去」。
  */
 const {
     items,
@@ -63,71 +61,30 @@ const {
     removePoint,
 } = usePrices();
 
-/* ---------- 筛选 ----------
- * 一级、二级是两个独立下拉（用户定的）。二级的选项 = 目录里该一级的常见子类
- * ∪ 数据里实际出现过的子类——只用目录的话，用户自造的二级（「三药·秘方」）
- * 在筛选里根本选不到，而它是能存进数据的。 */
-const { keyword, category, sub, sort, scroll } = usePriceViewState();
-watch([keyword, category, sub, sort], () => {
+const { keyword, category, sub, scroll } = usePriceViewState();
+watch([keyword, category, sub], () => {
     scroll.value.top = 0;
 });
 
-const SORT_OPTIONS: { value: string; label: string }[] = [
-    { value: 'updated', label: '最近更新' },
-    { value: 'price-desc', label: '价格从高到低' },
-    { value: 'price-asc', label: '价格从低到高' },
-    { value: 'delta', label: '涨幅优先' },
-    { value: 'name', label: '按名称' },
-];
-
-/* 第一项是「不筛」：`SelectField` 没有清空按钮，不给一颗「全部分类」的选项，
- * 用户一旦筛过就回不去了。 */
-const CATEGORY_OPTIONS = [
-    { value: '', label: '全部分类' },
-    ...PRICE_CATEGORIES.map((name) => ({ value: name, label: name })),
-];
-
-const SUB_OPTIONS = computed(() => {
-    if (!category.value) return [{ value: '', label: '先选一级' }];
-    const fromData = items.value
-        .filter((item) => item.category === category.value && item.sub)
-        .map((item) => item.sub);
-    const merged = Array.from(new Set([...subsOf(category.value), ...fromData]));
-    return [{ value: '', label: '全部' }, ...merged.map((name) => ({ value: name, label: name }))];
-});
-
+const categoryGroups = computed(() => priceCategoryGroups(items.value));
 const filter = computed<PriceFilter>(() => ({
     keyword: keyword.value,
     category: category.value,
     sub: sub.value,
-    sort: sort.value,
 }));
 
 const visible = computed(() => filterItems(items.value, filter.value));
 
-/** 换一级：二级必须回到「全部」，否则会拿上一块行情的子类去筛新的一块，结果恒为空。 */
-function pickCategory(value: string) {
-    category.value = value;
-    sub.value = '';
+function pickCategory([group, child]: [string, string | null]) {
+    category.value = group;
+    sub.value = child ?? '';
 }
 
-/* `SelectField` 只吐 `string`，这里收窄回 `PriceSort`：不硬转，值不在表里就退回默认排序，
- * 而不是让一个不认识的字符串一路流进 comparator。 */
-function pickSort(value: string) {
-    sort.value = SORT_OPTIONS.some((option) => option.value === value)
-        ? (value as PriceSort)
-        : 'updated';
-}
-
-const filterDirty = computed(
-    () => !!keyword.value.trim() || !!category.value || !!sub.value || sort.value !== 'updated',
-);
+const filterDirty = computed(() => !!keyword.value.trim() || !!category.value || !!sub.value);
 
 function resetFilters() {
     keyword.value = '';
-    category.value = '';
-    sub.value = '';
-    sort.value = 'updated';
+    pickCategory(['', '']);
 }
 
 /* ---------- 四层弹窗 ---------- */
@@ -328,7 +285,7 @@ useRouteAction('/prices', { new: startNew });
 </script>
 
 <template>
-    <PageShell v-model:scroll-top="scroll.top" title="物价" desc="物品行情 · 价格记录">
+    <PageShell v-model:scroll-top="scroll.top" title="物价" desc="查价 · 记价">
         <template #actions>
             <!-- 读失败时底层拒绝一切写入，让这枚按钮可点等于让用户白填一遍。 -->
             <PressButton
@@ -352,41 +309,23 @@ useRouteAction('/prices', { new: startNew });
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
 
         <div class="price-toolbar page-filters">
+            <CascadeSelect
+                class="price-filter"
+                :model-value="[category, sub]"
+                :groups="categoryGroups"
+                :clear-label="filterDirty ? '清除筛选' : undefined"
+                label="按分类筛选"
+                all-label="全部分类"
+                @update:model-value="pickCategory"
+                @clear="resetFilters"
+            />
             <input
                 v-model="keyword"
-                class="field toolbar-key filter-search"
+                class="field filter-search"
                 type="text"
                 aria-label="搜索物品名、子类或备注"
                 placeholder="搜物品名、子类或备注"
             />
-            <div class="toolbar-cell">
-                <SelectField
-                    :model-value="category"
-                    :options="CATEGORY_OPTIONS"
-                    label="按一级分类筛选"
-                    placeholder="全部分类"
-                    @update:model-value="pickCategory"
-                />
-            </div>
-            <div class="toolbar-cell">
-                <SelectField
-                    :model-value="sub"
-                    :options="SUB_OPTIONS"
-                    label="按二级分类筛选"
-                    placeholder="二级分类"
-                    :disabled="!category"
-                    @update:model-value="sub = $event"
-                />
-            </div>
-            <div class="toolbar-cell toolbar-sort">
-                <SelectField
-                    :model-value="sort"
-                    :options="SORT_OPTIONS"
-                    label="排序方式"
-                    @update:model-value="pickSort"
-                />
-            </div>
-            <SlotButton v-if="filterDirty" icon="close" label="清除筛选" @click="resetFilters" />
         </div>
 
         <div v-if="visible.length" class="price-grid compact-card-grid">
@@ -396,8 +335,6 @@ useRouteAction('/prices', { new: startNew });
                 :item="item"
                 @open="openHistory(item)"
                 @log="startLog(item)"
-                @edit="startEdit(item)"
-                @remove="askRemoveItem(item)"
             />
         </div>
 

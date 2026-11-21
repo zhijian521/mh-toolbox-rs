@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { moneyText } from '../../services/format';
+import LedgerSection from '../../components/LedgerSection.vue';
 import TrendChart from '../../components/TrendChart.vue';
 
 const props = defineProps<{
@@ -18,14 +19,15 @@ const colors = computed(() => {
     const last = props.points[props.points.length - 1]?.price ?? 0;
     return [last > first ? 'var(--cinnabar)' : last < first ? 'var(--moss)' : 'var(--accent)'];
 });
-const summary = computed(
-    () => '图中最近 ' + props.points.length + ' 次记价，共 ' + total.value + ' 条记录',
+const hint = computed(() =>
+    total.value > props.points.length ? '近 ' + props.points.length + ' 次记价' : '',
 );
 </script>
 
 <template>
-    <section class="price-chart" :aria-label="summary">
+    <LedgerSection title="价格走势" :hint="hint" class="chart-section" plain>
         <TrendChart
+            class="chart-in-card"
             :labels="labels"
             :series="series"
             kind="money"
@@ -33,18 +35,5 @@ const summary = computed(
             :colors="colors"
             :value-text="moneyText"
         />
-        <p v-if="total > points.length" class="meta chart-more">
-            只画最近 {{ points.length }} 次，这件物品一共 {{ total }} 条记录
-        </p>
-    </section>
+    </LedgerSection>
 </template>
-
-<style scoped>
-.price-chart {
-    min-width: 0;
-}
-.chart-more {
-    margin: 8px 0 0;
-    text-align: right;
-}
-</style>

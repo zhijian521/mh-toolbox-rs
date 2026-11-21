@@ -260,6 +260,12 @@ export default async function run(ctx) {
             await ui.clickText('[role="dialog"] button', '保持现状', { exact: true });
             await ui.clickText('[aria-label="开发帮助分组"] button', '组件预览', { exact: true });
             t.check('切组返回保留纯内存示例状态', !(await ui.exists('.demo-actions .save-error')));
+            await cdp.click('.atoms-nav button[data-id="read"]');
+            t.check(
+                '读数示例展示三种可复用材质卡',
+                await cdp.evaluate(`[...document.querySelectorAll('.demo-materials figure > .material-card')]
+                    .map(card => card.dataset.material).join() === 'glass,frosted,turned-metal'`),
+            );
         });
 
         /* ---------- 闹钟：建一个、重载后还在、再删掉 ----------

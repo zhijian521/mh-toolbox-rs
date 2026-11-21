@@ -14,9 +14,17 @@ export function isPriceCategory(value: string): boolean {
     return PRICE_CATEGORIES.length ? PRICE_CATEGORIES.includes(value) : Boolean(value.trim());
 }
 
-/** 二级只是提示，允许用户填写新玩法产出的品类。 */
-export function subsOf(category: string): string[] {
-    return PRICE_GROUPS.find((group) => group.name === category)?.subs ?? [];
+export function priceCategoryGroups(items: readonly { category: string; sub: string }[] = []) {
+    const groups = new Map(PRICE_GROUPS.map(({ name, subs }) => [name, new Set(subs)]));
+    for (const { category, sub } of items) {
+        if (!groups.has(category)) groups.set(category, new Set());
+        if (sub) groups.get(category)?.add(sub);
+    }
+    return [...groups].map(([name, subs]) => ({
+        value: name,
+        label: name,
+        children: [...subs].map((sub) => ({ value: sub, label: sub })),
+    }));
 }
 
 /** 只在旧记录缺少合法二级时推断一次，线索按数据表顺序匹配。 */

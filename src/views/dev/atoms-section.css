@@ -254,6 +254,25 @@
     gap: 10px;
     flex-wrap: wrap;
 }
+.demo-materials {
+    --demo-material-width: calc(240px * var(--fs-scale));
+
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--demo-material-width)), 1fr));
+    gap: 16px;
+    max-width: calc(3 * var(--demo-material-width) + 32px);
+}
+.demo-materials figure {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+    margin: 0;
+}
+.demo-materials figcaption {
+    color: var(--ink-2);
+    font-size: var(--fs-sm);
+}
+
 /* 两枚开关并排时要更宽的间隔：10px 是给胶囊与小按钮的，两只两格开关挨这么近
  * 会读成一只四格的开关。 */
 .kit-row-sw {

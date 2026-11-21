@@ -136,3 +136,22 @@ describe('还没读过库就写：不许拿空表覆盖', () => {
         expect(writeError.value).toBe('');
     });
 });
+
+describe('保存物品分类', () => {
+    it('更换一级分类时保留明确填写的自定义子类', async () => {
+        const desktop = host(async () => [
+            { ...DRAFT, id: 'stone', unit: '万', points: [], createdAt: 1, updatedAt: 1 },
+        ]);
+        const { usePrices } = await loadStore(desktop);
+        const { saveItem, flush } = usePrices();
+
+        expect(
+            saveItem('stone', { ...DRAFT, category: '装备灵饰', sub: ' 试验配饰 ' }).ok,
+        ).toBe(true);
+        await flush();
+
+        expect(desktop.pricesSave).toHaveBeenLastCalledWith([
+            expect.objectContaining({ id: 'stone', category: '装备灵饰', sub: '试验配饰' }),
+        ]);
+    });
+});

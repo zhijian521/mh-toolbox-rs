@@ -589,3 +589,121 @@ html.dark .rail {
     --action-ink: var(--danger);
     --ring: 2px solid var(--danger);
 }
+
+/* 材质卡：玻璃折边、磨砂散射与旋切刀纹都绘制在内容下方。 */
+.material-card {
+    --material-face: var(--material-tint, var(--paper));
+    --material-base: var(--material-depth, var(--paper-2));
+    --material-color: var(--material-hue, var(--accent));
+    --material-rim: color-mix(in srgb, var(--material-base) 66%, var(--rule-2));
+    --material-light: light-dark(#fffffff0, #e3ffff78);
+    --material-shadow: 2px 5px 6px -3px var(--shadow-lg), 0 12px 15px -11px var(--shadow-lg);
+
+    position: relative;
+    isolation: isolate;
+    min-width: 0;
+    padding: var(--material-pad, 10px 12px);
+    border: var(--w-hair) solid var(--material-rim);
+}
+.material-card::before,
+.material-card::after {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+}
+.material-card[data-material='glass'] {
+    border-color: color-mix(in srgb, var(--material-color) 44%, var(--material-light));
+    border-radius: 10px;
+    background: linear-gradient(
+        125deg,
+        color-mix(in srgb, var(--material-face) 67%, transparent),
+        color-mix(in srgb, var(--material-color) 18%, transparent) 74%,
+        color-mix(in srgb, var(--material-base) 70%, transparent)
+    );
+    backdrop-filter: saturate(138%) blur(1px);
+    box-shadow:
+        inset 1px 1px 0 var(--material-light),
+        inset -2px -3px 1px color-mix(in srgb, var(--material-color) 44%, transparent),
+        var(--material-shadow);
+}
+.material-card[data-material='glass']::before {
+    content: '';
+    inset: 3px 4px 4px 3px;
+    border: var(--w-hair) solid color-mix(in srgb, var(--material-light) 65%, transparent);
+}
+.material-card[data-material='glass']::after {
+    content: '';
+    inset: 3px 4px 4px 3px;
+    background: linear-gradient(
+        118deg,
+        transparent 9%,
+        light-dark(rgb(255 255 255 / 24%), rgb(227 255 255 / 12%)) 17%,
+        light-dark(rgb(255 255 255 / 10%), rgb(227 255 255 / 5%)) 22%,
+        transparent 31%
+    );
+    opacity: 0.65;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .material-card[data-material='glass']::after {
+        transition: opacity var(--t-shape) var(--ease-soft);
+    }
+    .material-card[data-material='glass']:hover::after {
+        opacity: 1;
+    }
+}
+.material-card[data-material='frosted'] {
+    border-color: color-mix(in srgb, var(--material-light) 70%, var(--material-base));
+    border-radius: 15px;
+    background: linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--material-face) 49%, transparent),
+        color-mix(in srgb, var(--material-color) 26%, transparent)
+    );
+    backdrop-filter: blur(12px) saturate(118%);
+    box-shadow:
+        inset 0 1px 4px var(--material-light),
+        inset 0 -3px 8px var(--material-base),
+        var(--material-shadow);
+}
+.material-card[data-material='frosted']::after {
+    content: '';
+    background: url('../../assets/textures/etched-grain.png');
+    opacity: 0.13;
+}
+.material-card[data-material='turned-metal'] {
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--material-color) 35%, var(--material-base));
+    box-shadow:
+        inset 1px 1px var(--material-light),
+        inset 0 -2px 0 var(--bevel-lo),
+        0 2px 0 var(--material-rim),
+        var(--material-shadow);
+}
+.material-card[data-material='turned-metal']::before {
+    content: '';
+    background:
+        repeating-radial-gradient(
+            circle at 90% 72%,
+            transparent 0 1px,
+            var(--bevel-lo) 1.5px,
+            var(--material-light) 2px,
+            transparent 2.8px
+        ),
+        conic-gradient(
+            from 24deg at 90% 72%,
+            transparent,
+            var(--material-light) 12%,
+            transparent 26%,
+            var(--bevel-lo) 45%,
+            transparent 62%,
+            var(--material-light) 74%,
+            transparent 95%
+        );
+    opacity: 0.7;
+}
+.material-card[data-material='turned-metal']::after {
+    content: '';
+    background: linear-gradient(95deg, var(--material-face) 5%, transparent 90%);
+}

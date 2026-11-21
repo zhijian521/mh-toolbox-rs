@@ -6,7 +6,7 @@ import { parseLocalList } from '../../services/local-data';
  * `todayText`，放在这一页会让另一页反向依赖物价模块。 */
 import { isDayText, moneyText, shortDate, todayText } from '../../services/format';
 import { isObject, makeId, rows, stamp, text } from '../../services/shape';
-import { DEFAULT_CATEGORY, isPriceCategory, legacyPriceSlot, subsOf } from './prices-catalog';
+import { DEFAULT_CATEGORY, isPriceCategory, legacyPriceSlot } from './prices-catalog';
 
 /** 名称上限，与表单的 `maxlength` 同一枚常量——两处各写一个数必然有一天不相等。 */
 export const NAME_LIMIT = 40;
@@ -101,16 +101,12 @@ export interface PriceChange {
     sameDay: boolean;
 }
 
-/** 排序方式。「最近更新」是基准顺序，其余都是看数据的临时视角。 */
-export type PriceSort = 'updated' | 'price-desc' | 'price-asc' | 'delta' | 'name';
-
 export interface PriceFilter {
     keyword: string;
     /** 一级分类，空串 = 不限。 */
     category: string;
     /** 二级分类空串为不限；两级筛选分别生效，未填写二级的条目不匹配具体二级。 */
     sub: string;
-    sort: PriceSort;
 }
 
 /** 归一使用 services/shape.ts 的基础工具；物价特有日期与金额语义留在本模块。 */
@@ -399,13 +395,6 @@ export function toPointDraft(point: PricePoint): PricePointDraft {
     return { date: point.date, price: point.price, note: point.note };
 }
 
-/** 切换一级分类时，仅保留新分类允许的二级，包含自定义名称也按此规则；空二级始终合法。 */
-export function retuneSub(sub: string, category: string): string {
-    const current = sub.trim();
-    if (!current) return '';
-    return subsOf(category).includes(current) ? current : '';
-}
-
 /* ======================================================================
  * 校验：返回「每个格子各自的那句话」，空串表示没问题
  * ==================================================================== */
@@ -456,10 +445,7 @@ function orderedItems(items: readonly ReadonlyPriceItem[]): ReadonlyPriceItem[] 
     return items.slice().sort((a, b) => b.updatedAt - a.updatedAt || byName(a, b));
 }
 
-/**
- * 筛选 + 排序。排序是**看数据的临时视角**，不写进档案：同一批物品，有人要看贵的、
- * 有人要看刚记的，存下来只会在下次打开时制造一个说不清来由的顺序。
- */
+/** 按条件筛选，最近更新的物品在前。 */
 export function filterItems(
     items: readonly ReadonlyPriceItem[],
     filter: PriceFilter,
@@ -477,57 +463,7 @@ export function filterItems(
             .includes(keyword);
     });
 
-    const sorted = orderedItems(kept);
-    if (filter.sort === 'updated') return sorted;
-    if (filter.sort === 'name') return sorted.sort(byName);
-
-    // 每件物品排序一次；按价格排序时不额外计算涨幅。
-    const decorated = sorted.map((item) => {
-        const points = sortedPoints(item);
-        const point = currentPoint(item, points);
-        return {
-            item,
-            /** `null` = 还没记过价。不写成 -1 那种哨兵值，两处判断才好读。 */
-            price: point ? point.price : null,
-            ratio: filter.sort === 'delta' ? (priceChange(item, points)?.ratio ?? null) : null,
-        };
-    });
-
-    switch (filter.sort) {
-        case 'price-desc':
-            decorated.sort((a, b) => {
-                const left = a.price ?? -1;
-                const right = b.price ?? -1;
-                return right - left || byName(a.item, b.item);
-            });
-            break;
-        case 'price-asc':
-            /* 未记录的排最后，而不是当成 0 顶到最前：0 会让所有「还没记价」的卡
-             * 挤在列表开头，看起来像最便宜的一批。 */
-            decorated.sort((a, b) => {
-                if (a.price === null || b.price === null) {
-                    return (
-                        Number(b.price !== null) - Number(a.price !== null) ||
-                        byName(a.item, b.item)
-                    );
-                }
-                return a.price - b.price || byName(a.item, b.item);
-            });
-            break;
-        case 'delta':
-        default:
-            decorated.sort((a, b) => {
-                if (a.ratio === null || b.ratio === null) {
-                    return (
-                        Number(b.ratio !== null) - Number(a.ratio !== null) ||
-                        byName(a.item, b.item)
-                    );
-                }
-                return b.ratio - a.ratio || byName(a.item, b.item);
-            });
-    }
-
-    return decorated.map((entry) => entry.item);
+    return orderedItems(kept);
 }
 
 /** 已保存数据的只读视图；编辑使用独立草稿。 */

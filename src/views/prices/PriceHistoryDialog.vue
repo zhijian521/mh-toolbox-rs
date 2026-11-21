@@ -15,16 +15,7 @@ import {
     type PricePoint,
 } from './prices';
 
-/**
- * 一件物品的走势与流水。
- *
- * 点卡片的抬头打开它。原先走势挂在页面右侧常驻，卡片网格铺满之后没有位置了——
- * 而「看走势」是这一页的核心动作，不能砍。老系统的做法也是点卡片开历史弹窗。
- *
- * 两段：上面是柱图（`PriceChart`，沿用公共默认高度），下面是流水。流水里每一行都有改与删，
- * 所以要能点到具体那一条——两个动作都往外抛，由页面统一开下一层弹窗，
- * 这个组件不自己管确认状态：它只负责「显示」与「派发」，确认那一步属于页面。
- */
+/* 记价、编辑和删除交给物价页，这里只展示历史与走势。 */
 const props = defineProps<{ item: ReadonlyPriceItem }>();
 
 const emit = defineEmits<{
@@ -90,43 +81,49 @@ const chart = computed(() => chartPrices(props.item, undefined, points.value));
             </p>
         </div>
 
-        <PriceChart :points="chart" :total="item.points.length" />
+        <table v-if="rows.length" class="income-table price-history-table" aria-label="价格记录">
+            <thead>
+                <tr>
+                    <th scope="col" class="log-date">日期</th>
+                    <th scope="col" class="log-price">价格</th>
+                    <th scope="col" class="log-delta">涨跌</th>
+                    <th scope="col">备注</th>
+                    <th scope="col" class="log-actions">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="row in rows" :key="row.point.id" :class="{ latest: row.latest }">
+                    <td class="log-date num" :title="row.point.date">
+                        {{ shortDate(row.point.date) }}
+                    </td>
+                    <td class="log-price num">
+                        {{ row.value }}<small v-if="row.unit">{{ row.unit }}</small>
+                    </td>
+                    <td class="log-delta num" :class="row.tone" :title="row.deltaTitle">
+                        {{ row.delta }}
+                    </td>
+                    <td class="log-note" :title="row.point.note">{{ row.point.note || '—' }}</td>
+                    <td class="log-actions">
+                        <span class="income-ops">
+                            <PressButton
+                                icon="edit"
+                                label="改这一条价格"
+                                @click="emit('editPoint', row.point)"
+                            />
+                            <PressButton
+                                danger
+                                icon="trash"
+                                label="删除这条价格"
+                                @click="emit('removePoint', row.point)"
+                            />
+                        </span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <p v-else class="note hist-blank">还没有价格记录</p>
 
-        <ol class="log-list">
-            <li
-                v-for="row in rows"
-                :key="row.point.id"
-                class="log-row"
-                :class="{ latest: row.latest }"
-            >
-                <span class="log-date num">{{ shortDate(row.point.date) }}</span>
-                <span class="log-price num">
-                    {{ row.value }}<small v-if="row.unit">{{ row.unit }}</small>
-                </span>
-                <span class="log-delta" :class="row.tone" :title="row.deltaTitle">
-                    {{ row.delta }}
-                </span>
-                <span class="log-note hint" :title="row.point.note">{{
-                    row.point.note || '—'
-                }}</span>
-                <span class="log-acts">
-                    <PressButton
-                        icon="edit"
-                        label="改这一条价格"
-                        size="md"
-                        @click="emit('editPoint', row.point)"
-                    />
-                    <PressButton
-                        danger
-                        icon="trash"
-                        label="删除这条价格"
-                        size="md"
-                        @click="emit('removePoint', row.point)"
-                    />
-                </span>
-            </li>
-        </ol>
-        <p v-if="!rows.length" class="note hist-blank">还没有价格记录</p>
+        <PriceChart v-if="rows.length" class="hist-chart" :points="chart" :total="item.points.length" />
 
         <template #footer>
             <PressButton text="改物品" label="编辑这件物品的名称与分类" @click="emit('editItem')" />
@@ -183,51 +180,33 @@ const chart = computed(() => chartPrices(props.item, undefined, points.value));
     margin: 0;
 }
 
-/* 流水一行：日期 / 价格 / 涨跌 / 备注 / 两枚图标。
- * flex + 固定列宽而不是 grid 四轨：备注要能缩到 0 并打出省略号，
- * flex 里一个 `min-width: 0` 就够。 */
-.log-list {
-    margin: 12px 0 0;
-    padding: 0;
-    list-style: none;
+.price-history-table {
+    margin-top: 12px;
 }
-.log-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 5px 0;
-    border-bottom: var(--w-hair) solid var(--rule);
-    font-size: var(--fs-sm);
+.log-date,
+.log-price,
+.log-delta,
+.log-actions {
+    width: 1%;
+    white-space: nowrap;
 }
-.log-row:last-child {
-    border-bottom: 0;
-}
-.log-date {
-    flex: none;
-    width: 42px;
+.log-date,
+.log-delta {
     color: var(--muted);
 }
-.log-row.latest .log-date {
+.latest .log-date {
     color: var(--ink);
 }
-.log-price {
-    flex: none;
-    width: 86px;
+.price-history-table :is(.log-price, .log-delta, .log-actions) {
     text-align: right;
+}
+td.log-price {
     color: var(--num);
     font-size: var(--fs-base);
 }
 .log-price small {
-    margin-left: 2px;
-    color: var(--num);
+    margin-inline-start: 2px;
     font-size: var(--fs-mini);
-}
-.log-delta {
-    flex: none;
-    width: 76px;
-    text-align: right;
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
 }
 .log-delta.up {
     color: var(--cinnabar);
@@ -235,19 +214,12 @@ const chart = computed(() => chartPrices(props.item, undefined, points.value));
 .log-delta.down {
     color: var(--moss);
 }
-/* 备注只负责「挤得下、截得断」，字档走基座的 `.hint`。 */
 .log-note {
-    flex: 1 1 auto;
-    min-width: 0;
-    margin-left: 4px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    color: var(--ink-2);
+    overflow-wrap: anywhere;
 }
-.log-acts {
-    display: flex;
-    flex: none;
-    gap: 4px;
+.hist-chart {
+    margin-top: 16px;
 }
 .hist-blank {
     margin: 12px 0 0;

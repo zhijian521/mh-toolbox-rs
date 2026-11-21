@@ -1,42 +1,18 @@
-/* 物价页的筛选与空态布局；卡片材质归 PriceCard，网格归 blocks.css。 */
-
-/* 筛选栏与搜索框共用 blocks.css 的 page-filters / filter-search。 */
-
-/* 两个分类下拉同宽：它们是一对，宽度不一致会读成「一个是主、一个是附」。
- * 132 是「全部 / 装备灵饰 / 高级兽决」这几档最长一个不截断的宽度。 */
-.toolbar-cell {
-    flex: none;
-    width: 132px;
+.price-toolbar .price-filter {
+    flex: 0 1 auto;
+    width: calc(192px * var(--fs-scale));
+    max-width: 100%;
 }
+.price-grid {
+    --price-card-width: calc(240px * var(--fs-scale));
 
-/* 排序最长的选项是「价格从高到低」（六字）。112 在默认字号档刚好不截断，
- * 但**必须乘 `--fs-scale`**：1.1 档文字宽 10%，不乘的话 `.select-text` 的省略号
- * 会把它截成「价格从高…」。§2.4-15：跟字号一起缩放的东西就走变量。 */
-.toolbar-sort {
-    width: calc(112px * var(--fs-scale));
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(min(100%, var(--price-card-width)), var(--price-card-width))
+    );
 }
-
-/* ---------- 空状态 ----------
- * 一件物品都没记过：图标 + 一句话 + 一枚按钮。三样都在，读者才知道
- * 「这里本来该有什么」以及「从哪开始」。
- * 直接摆在内容区里——不再躲进某个区块的框里（那个框已经拆掉了）。 */
-/* 有物品但被筛掉了：一行字，不留空框。空框读起来像「渲染失败」，
- * 而事实是「这个条件下确实没有」。 */
 .price-blank {
     margin: 0;
     padding: 40px 0;
     text-align: center;
-}
-
-/* ---------- 写入失败的那一句 ----------
- * **排版在这里，字档在基座**：字号与朱色来自 `.note.error`（`base.css`），
- * 这里只管那道左竖线与外边距。一个类同时管排版又管字档的话，
- * 第二次出现就会长出第二份「看起来差不多」的规则。 */
-.price-error {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 0 10px;
-    padding-left: 9px;
-    border-left: 2px solid var(--danger);
 }

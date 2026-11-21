@@ -1,31 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { buildSparkBars } from './price-chart-path';
+import { sparkLinePoints } from './price-chart-path';
 
-describe('物价迷你柱图', () => {
-    it('不足两条不展示走势', () => {
-        expect(buildSparkBars([], 56, 14)).toEqual([]);
-        expect(buildSparkBars([10000], 56, 14)).toEqual([]);
+describe('物价迷你折线', () => {
+    it('不足两笔时不显示折线', () => {
+        expect(sparkLinePoints([], 56, 20)).toBe('');
+        expect(sparkLinePoints([10000], 56, 20)).toBe('');
     });
-    it('价格从零起量，翻倍的价格对应翻倍的柱高', () => {
-        const bars = buildSparkBars([10, 20], 56, 14);
-        expect(bars[1].height).toBe(bars[0].height * 2);
-        expect(bars[0].y + bars[0].height).toBe(bars[1].y + bars[1].height);
+
+    it('接近的价格仍能看出涨跌，保持记录顺序', () => {
+        expect(sparkLinePoints([10001, 10002, 10001], 56, 20)).toBe(
+            '2.00,18.00 28.00,2.00 54.00,18.00',
+        );
     });
-    it('同价等高且零值不画假柱', () => {
-        const bars = buildSparkBars([0, 100, 100], 56, 14);
-        expect(bars[0].height).toBe(0);
-        expect(bars[1].height).toBe(bars[2].height);
-        expect(buildSparkBars([0, 0], 56, 14).every((one) => one.height === 0)).toBe(true);
-    });
-    it('每条记录独立占位，极大和接近的价格都留在图内', () => {
-        const bars = buildSparkBars([1e12, 1e12 + 1, 1], 56, 14);
-        expect(bars).toHaveLength(3);
-        for (const bar of bars) {
-            expect(Object.values(bar).every(Number.isFinite)).toBe(true);
-            expect(bar.x).toBeGreaterThanOrEqual(0);
-            expect(bar.x + bar.width).toBeLessThanOrEqual(56);
-            expect(bar.y).toBeGreaterThanOrEqual(0);
-            expect(bar.y + bar.height).toBeLessThanOrEqual(14);
-        }
+
+    it('价格持平时显示居中的水平线', () => {
+        expect(sparkLinePoints([100, 100], 56, 20)).toBe('2.00,10.00 54.00,10.00');
     });
 });

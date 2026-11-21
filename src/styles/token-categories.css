@@ -1,23 +1,32 @@
-/* 物价分类：卡底与分类签两档浅染，light-dark() 同时维护明暗配色。 */
+/* 物价分类：卡面、厚边和折射色，light-dark() 同时维护明暗配色。 */
 :root {
     --tint-装备灵饰: light-dark(#eef0e9, #272e23); /* 青灰：金属，冷 */
     --tint-deep-装备灵饰: light-dark(#dbe0d4, #313a2c);
+    --tint-hue-装备灵饰: #60879b;
     --tint-召唤兽: light-dark(#f6efdf, #302922); /* 暖橙：活物 */
     --tint-deep-召唤兽: light-dark(#ece0c9, #3b3126);
+    --tint-hue-召唤兽: #c69a63;
     --tint-兽决内丹: light-dark(#f5eae2, #332825); /* 赭红：书卷，朱的近亲 */
     --tint-deep-兽决内丹: light-dark(#eed9cf, #3d2c26);
+    --tint-hue-兽决内丹: #bd7158;
     --tint-宝石符石: light-dark(#eaf2ec, #202c26); /* 青绿：矿石 */
     --tint-deep-宝石符石: light-dark(#d5e6d9, #263429);
+    --tint-hue-宝石符石: #3c947c;
     --tint-打造材料: light-dark(#f2ecdd, #302b21); /* 土黄：木料，最接近纸本色 */
     --tint-deep-打造材料: light-dark(#e8dfc8, #383223);
+    --tint-hue-打造材料: light-dark(#a88c62, #a58a62);
     --tint-消耗补给: light-dark(#edf3e7, #242c1f); /* 草绿：药草 */
     --tint-deep-消耗补给: light-dark(#dbe8d1, #2b3525);
+    --tint-hue-消耗补给: light-dark(#779549, #88a65e);
     --tint-任务产出: light-dark(#ecf0f6, #222932); /* 靛青：藏宝，唯一偏冷的一类 */
     --tint-deep-任务产出: light-dark(#d9e3f1, #262f3a);
+    --tint-hue-任务产出: #778ac2;
     --tint-通货账号: light-dark(#f7eed6, #322d20); /* 旧金：钱 */
     --tint-deep-通货账号: light-dark(#f0e3bd, #3c3522);
+    --tint-hue-通货账号: light-dark(#ba9444, #ad884c);
     --tint-其他: light-dark(#f2f0e9, #2c2a26); /* 中性兜底，不跟具体品类抢注意力 */
     --tint-deep-其他: light-dark(#e6e3da, #322f2a);
+    --tint-hue-其他: #918e83;
 }
 
 /* 工具按日程、资料、游戏分类浅染；新增类别时同步 tools.ts 与工具页映射。 */

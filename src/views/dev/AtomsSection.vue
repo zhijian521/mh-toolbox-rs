@@ -29,6 +29,8 @@ import { useFontScale } from '../../composables/use-font-scale';
 import { notify } from '../../composables/use-notify';
 import { STYLE_OPTIONS, THEME_OPTIONS, useTheme } from '../../composables/use-theme';
 import { todayText } from '../../services/format';
+import PriceCard from '../prices/PriceCard.vue';
+import type { ReadonlyPriceItem } from '../prices/prices';
 
 /**
  * 公共组件目录：一条 `kit-cell` 可并排同族件，件数统一由 KIT_GROUPS 派生——
@@ -128,6 +130,7 @@ const KIT_GROUPS: {
             ['meter', '进度条'],
             ['stat', '统计条'],
             ['folded', '侧折纸卡'],
+            ['material', '材质卡'],
             ['trend', '趋势图'],
         ],
     },
@@ -138,6 +141,31 @@ const KIT_GROUPS: {
         items: [['notify', '消息提示']],
     },
 ];
+
+const MATERIAL_SAMPLES = [
+    { material: 'glass', name: 'A · 厚边清玻璃' },
+    { material: 'frosted', name: 'B · 酸蚀磨砂玻璃' },
+    { material: 'turned-metal', name: 'F · 旋切金属' },
+] as const;
+const MATERIAL_SAMPLE_ITEM: ReadonlyPriceItem = {
+    id: 'material-preview',
+    name: '黑宝石',
+    category: '宝石符石',
+    sub: '宝石',
+    unit: '个',
+    note: '',
+    createdAt: 0,
+    updatedAt: 0,
+    points: (
+        [
+            ['2026-11-12', 96000],
+            ['2026-11-14', 89000],
+            ['2026-11-16', 92000],
+            ['2026-11-19', 85500],
+            ['2026-11-21', 82000],
+        ] as const
+    ).map(([date, price], i) => ({ id: String(i), date, price, note: '', createdAt: i })),
+};
 
 /** 目录行：图标 + 组名 + 件数。成员名与组号都不再画（2026-11-06），
  * 前者让五行参差，后者只是「目录的目录」——五组一眼数得完，主侧栏也没有编号。 */
@@ -685,6 +713,30 @@ const demoToggles = ref<string[]>(['task']);
                             <code>--folded-pad-block</code>／<code>--folded-pad-inline</code> 控制留白，
                             纸脊的避让统一由外壳处理。总览周月、队伍、收益和账号便签共用此组件，
                             内部排版由各自内容决定。
+                        </p>
+                    </div>
+
+                    <div v-if="current === 'read'" class="kit-cell">
+                        <span class="col-head">
+                            <span class="kit-name">材质卡</span>
+                            <span class="kit-en">MaterialCard</span>
+                        </span>
+                        <div class="demo-materials">
+                            <figure v-for="sample in MATERIAL_SAMPLES" :key="sample.material">
+                                <PriceCard
+                                    :item="MATERIAL_SAMPLE_ITEM"
+                                    :material="sample.material"
+                                    @open="notify.info('示例价格历史')"
+                                    @log="notify.info('示例记价')"
+                                />
+                                <figcaption>{{ sample.name }}</figcaption>
+                            </figure>
+                        </div>
+                        <p class="note">
+                            <code>material</code> 可选 <code>glass</code>、<code>frosted</code>、
+                            <code>turned-metal</code>。内容放入默认插槽，可用
+                            <code>--material-tint</code>、<code>--material-depth</code>、
+                            <code>--material-hue</code> 调色，<code>--material-pad</code> 调整内边距。
                         </p>
                     </div>
 
