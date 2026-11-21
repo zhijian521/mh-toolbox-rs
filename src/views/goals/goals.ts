@@ -344,7 +344,7 @@ export interface GoalRow {
     remaining: number | null;
 }
 
-export interface GoalSummary {
+interface GoalTotals {
     /** 手动累计值、普通养成各成员封顶值之和，或组合已达标项数。 */
     current: number;
     /** 普通养成是目标值乘有效角色数，手动是累计目标，组合是有效项目数。 */
@@ -357,10 +357,12 @@ export interface GoalSummary {
     totalMembers: number;
     /** 未记录的养成成员或组合项目数。 */
     unknown: number;
-    rows: GoalRow[];
     /** 手动目标的达成日期：累计首次到线的那笔流水的日期。养成目标没有。 */
     doneDate: string;
 }
+
+export type GoalSummary = GoalTotals &
+    ({ kind: 'combo'; rows: ComboGoalRow[] } | { kind: 'growth' | 'manual'; rows: GoalRow[] });
 
 /** 消除两位小数连续加减时的浮点尾差，不把 0.3 − 0.1 判成尚未达到 0.2。 */
 function addProgress(current: number, delta: number): number {
@@ -389,6 +391,7 @@ export function goalSummary(goal: ReadonlyGoal, roster: readonly ReadonlyCharact
         const achieved = live.filter((row) => row.done).length;
         const done = live.length > 0 && achieved === live.length;
         return {
+            kind: 'combo',
             current: achieved,
             total: live.length,
             pct: live.length
@@ -405,10 +408,10 @@ export function goalSummary(goal: ReadonlyGoal, roster: readonly ReadonlyCharact
     const byId = new Map(roster.map((one) => [one.id, one]));
     const rows: GoalRow[] = goal.members.map((member) => {
         const character = byId.get(member.id);
-        if (!character || !goal.tracking) {
+        if (!character || !goal.tracking || !metricApplicable(character, goal.tracking)) {
             return {
                 id: member.id,
-                name: member.name,
+                name: character?.name || member.name,
                 exists: !!character,
                 applicable: false,
                 value: null,
@@ -421,7 +424,7 @@ export function goalSummary(goal: ReadonlyGoal, roster: readonly ReadonlyCharact
             id: member.id,
             name: character.name || member.name,
             exists: true,
-            applicable: metricApplicable(character, goal.tracking),
+            applicable: true,
             value,
             done: value !== null && value >= goal.target,
             remaining: value === null ? null : Math.max(0, goal.target - value),
@@ -433,6 +436,7 @@ export function goalSummary(goal: ReadonlyGoal, roster: readonly ReadonlyCharact
         const total = goal.target;
         const done = total > 0 && current >= total;
         return {
+            kind: 'manual',
             current,
             total,
             pct: total > 0 ? Math.min(done ? 100 : 99, Math.round((current / total) * 100)) : 0,
@@ -453,6 +457,7 @@ export function goalSummary(goal: ReadonlyGoal, roster: readonly ReadonlyCharact
     const total = goal.target * live.length;
     const done = live.length > 0 && achieved === live.length;
     return {
+        kind: 'growth',
         current,
         total,
         pct: total > 0 ? Math.min(done ? 100 : 99, Math.round((current / total) * 100)) : 0,
@@ -529,6 +534,36 @@ export interface GoalProgressInput {
     previous?: number | null;
 }
 
+/** 普通养成也以打开时的值检测冲突，整批有效后才写入名册。 */
+export function prepareGrowthUpdates(
+    goal: ReadonlyGoal,
+    roster: readonly ReadonlyCharacter[],
+    values: readonly GoalProgressInput[],
+): ReadonlyCharacter[] | null {
+    const tracking = goal.tracking;
+    if (!tracking || !values.length) return null;
+    const members = new Set(goal.members.map((member) => member.id));
+    const byId = new Map(roster.map((character) => [character.id, character]));
+    const prepared = new Map<string, ReadonlyCharacter>();
+    for (const { id, value, previous } of values) {
+        const character = byId.get(id);
+        if (
+            !character ||
+            !members.has(id) ||
+            prepared.has(id) ||
+            !Number.isSafeInteger(value) ||
+            value < 0 ||
+            !metricApplicable(character, tracking) ||
+            metricValue(character, tracking) !== previous
+        )
+            return null;
+        const next = applyMetric(character, tracking, value);
+        if (next === character) return null;
+        prepared.set(id, next);
+    }
+    return [...prepared.values()];
+}
+
 /** 以打开时的值检测冲突，先合并同一角色的所有修改，整批有效后才交给名册保存。 */
 export function prepareComboUpdates(
     goal: ReadonlyGoal,
@@ -577,6 +612,66 @@ function firstDateReaching(logs: readonly GoalLog[], target: number): string {
 /* ======================================================================
  * 展示
  * ==================================================================== */
+
+/** 成长事件按目标的角色 ID 和指标筛选，手动目标直接读取已录入的流水。 */
+export function goalProgressHistory(goal: ReadonlyGoal, roster: readonly ReadonlyCharacter[]) {
+    if (!goal.tracking && goal.kind !== 'combo') {
+        return goal.logs
+            .map((log) => ({
+                id: log.id,
+                date: log.date,
+                at: log.createdAt,
+                name: log.note,
+                change: signedText(log.delta, goal.unit),
+            }))
+            .sort((a, b) => b.at - a.at || b.date.localeCompare(a.date));
+    }
+
+    const tracking = goal.tracking;
+    const items = tracking
+        ? goal.members.map((member) => ({ characterId: member.id, tracking }))
+        : (goal.items ?? []);
+    const watched = new Set(items.map(goalItemKey));
+    const members = new Set(items.map((item) => item.characterId));
+    const rows: { id: string; date: string; at: number; name: string; change: string }[] = [];
+    for (const character of roster) {
+        if (!members.has(character.id)) continue;
+        for (const entry of character.growthHistory ?? []) {
+            if (entry.createdAt < goal.createdAt) continue;
+            for (const { group, label, from, to } of entry.changes) {
+                const metric = historyMetric(group, label);
+                if (
+                    !metric ||
+                    !watched.has(goalItemKey({ characterId: character.id, tracking: metric }))
+                )
+                    continue;
+                const before = toNumber(from);
+                const after = toNumber(to);
+                if (before === after) continue;
+                const beforeText = before === null ? '未记录' : from;
+                const afterText = after === null ? '未记录' : `${to} ${metricUnit(metric)}`;
+                rows.push({
+                    id: JSON.stringify([character.id, entry.id, group, label]),
+                    date: entry.date,
+                    at: entry.createdAt,
+                    name: `${character.name || '未命名'} · ${metric.key}`,
+                    change: `${beforeText} → ${afterText}`,
+                });
+            }
+        }
+    }
+    return rows.sort((a, b) => b.at - a.at || b.date.localeCompare(a.date));
+}
+
+function historyMetric(group: string, label: string): GoalTracking | null {
+    if (group === '角色') return label === '等级' ? { category: 'level', key: '角色等级' } : null;
+    if (group === '师门') return { category: 'skill', key: label };
+    if (group === '生活技能' || group === '剧情技能') return { category: 'assist', key: label };
+    if (TRAINING_GROUPS.some((item) => item.title === group))
+        return { category: 'training', key: label };
+    if (ATTR_GROUPS.some((item) => item.title === group)) return { category: 'attr', key: label };
+    return null;
+}
 
 /** 范围文案。快照几个就写几个——「全部角色」四个字在加过人之后就是假的。 */
 export function scopeText(goal: ReadonlyGoal): string {

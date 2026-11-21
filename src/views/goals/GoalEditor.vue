@@ -35,7 +35,7 @@ const props = defineProps<{
     retrying: boolean;
     error: string;
 }>();
-const emit = defineEmits<{ save: [input: GoalInput]; close: [] }>();
+const emit = defineEmits<{ save: [input: GoalInput]; close: []; remove: [] }>();
 const { roster } = useRoster();
 const titleId = useId();
 const noteId = useId();
@@ -366,7 +366,7 @@ function enter(event: KeyboardEvent) {
                 :cancel-disabled="saving"
                 :submit-text="saving ? '保存中' : retrying ? '重试保存' : '保存'"
                 submit-label="保存目标"
-                :submit-disabled="saving || (!retrying && !ready)"
+                :submit-disabled="saving || (!retrying && (locked || !ready))"
                 @cancel="requestClose"
                 @submit="submit"
             >
@@ -379,6 +379,15 @@ function enter(event: KeyboardEvent) {
                         >
                     </p>
                 </template>
+                <PressButton
+                    v-if="goal"
+                    icon="trash"
+                    text="删除"
+                    label="删除目标"
+                    danger
+                    :disabled="locked"
+                    @click="emit('remove')"
+                />
             </FormActions>
         </template>
     </ModalShell>

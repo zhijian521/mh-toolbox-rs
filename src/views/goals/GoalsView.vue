@@ -7,24 +7,18 @@ import LoadNotice from '../../components/LoadNotice.vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
-import SelectField from '../../components/SelectField.vue';
-import { ALL_OPTIONS } from '../../components/select-options';
 import { gameDataError, gameDataReady } from '../../services/game-data';
 import { notify } from '../../composables/use-notify';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import { useToday } from '../../composables/use-today';
-import { characterOptions } from '../characters/character-options';
 import { loadRoster, useRoster } from '../characters/roster';
 import GoalCard from './GoalCard.vue';
-import GoalComboCard from './GoalComboCard.vue';
 import {
-    GOAL_KINDS,
-    applyMetric,
     goalSummary,
-    metricApplicable,
     orderGoals,
     prepareComboUpdates,
+    prepareGrowthUpdates,
     type GoalProgressInput,
     type ReadonlyGoal,
     type GoalSummary,
@@ -35,6 +29,7 @@ const GoalEditor = lazyDialog(() => import('./GoalEditor.vue'));
 const GoalGrowth = lazyDialog(() => import('./GoalGrowth.vue'));
 const GoalComboProgress = lazyDialog(() => import('./GoalComboProgress.vue'));
 const GoalLogs = lazyDialog(() => import('./GoalLogs.vue'));
+const GoalHistory = lazyDialog(() => import('./GoalHistory.vue'));
 
 const {
     goals,
@@ -62,55 +57,29 @@ const today = useToday();
 const entries = computed(() =>
     goals.value.map((goal) => ({ goal, summary: goalSummary(goal, roster.value) })),
 );
+const byId = computed(() => new Map(entries.value.map((entry) => [entry.goal.id, entry])));
 const ordered = computed(() => orderGoals(entries.value));
 const active = computed(() => entries.value.filter((entry) => !entry.summary.done));
 const status = ref<'active' | 'done' | 'all'>('active');
-const kind = ref(ALL_OPTIONS);
-const who = ref(ALL_OPTIONS);
-const keyword = ref('');
 const statusOptions = computed(() => [
     { value: 'active' as const, label: `进行中 ${active.value.length}` },
     { value: 'done' as const, label: `已达成 ${entries.value.length - active.value.length}` },
     { value: 'all' as const, label: `全部 ${entries.value.length}` },
 ]);
-const kindOptions = [
-    { value: ALL_OPTIONS, label: '全部类型' },
-    ...GOAL_KINDS.map((row) => ({ value: row.value, label: row.label })),
-];
-const whoOptions = computed(() =>
-    characterOptions(
-        roster.value,
-        goals.value.flatMap((goal) => goal.members.map((member) => member.id)),
-        { all: true },
+const visible = computed(() =>
+    ordered.value.filter(
+        ({ summary }) => status.value === 'all' || summary.done === (status.value === 'done'),
     ),
 );
-const visible = computed(() => {
-    const text = keyword.value.trim().toLocaleLowerCase();
-    return ordered.value.filter(({ goal, summary }) => {
-        if (status.value === 'active' && summary.done) return false;
-        if (status.value === 'done' && !summary.done) return false;
-        if (kind.value !== ALL_OPTIONS && goal.kind !== kind.value) return false;
-        if (who.value !== ALL_OPTIONS && !goal.members.some((member) => member.id === who.value))
-            return false;
-        const names = goal.members
-            .map(
-                (member) =>
-                    roster.value.find((character) => character.id === member.id)?.name ||
-                    member.name,
-            )
-            .join(' ');
-        return `${goal.title} ${goal.tracking?.key ?? ''} ${(goal.items ?? []).map((item) => item.tracking.key).join(' ')} ${goal.note} ${names}`
-            .toLocaleLowerCase()
-            .includes(text);
-    });
-});
 
 const editing = ref<{ goal?: ReadonlyGoal } | null>(null);
 const growthId = ref('');
 const growthCharacter = ref('');
 const logsId = ref('');
-const growth = computed(() => goals.value.find((goal) => goal.id === growthId.value));
-const logs = computed(() => goals.value.find((goal) => goal.id === logsId.value));
+const historyGoal = ref<ReadonlyGoal | null>(null);
+const growth = computed(() => byId.value.get(growthId.value));
+const logEntry = computed(() => byId.value.get(logsId.value));
+const logs = computed(() => logEntry.value?.goal);
 const editSubmit = usePersistedSubmit(flush, retry);
 const { saving: editSaving, locked: editLocked, action: editAction } = editSubmit;
 const growthSubmit = usePersistedSubmit(flushRoster, retryRoster);
@@ -148,8 +117,7 @@ const blocked = computed(
 );
 
 function summaryOf(id: string) {
-    const goal = goals.value.find((row) => row.id === id);
-    return goal ? goalSummary(goal, roster.value) : null;
+    return byId.value.get(id)?.summary ?? null;
 }
 function announce(before: GoalSummary | null, id: string) {
     if (before?.done || !summaryOf(id)?.done) return;
@@ -164,12 +132,12 @@ function openEditor(goal?: ReadonlyGoal) {
     editing.value = { goal };
 }
 function closeEditor() {
-    if (editSaving.value) return;
+    if (editSaving.value || removing.value) return;
     editSubmit.reset();
     editing.value = null;
 }
 async function save(input: GoalInput) {
-    if (!editing.value) return;
+    if (!editing.value || removing.value) return;
     const ok = await editSubmit.run('editor', () => {
         editError.value = '';
         const goal = editing.value?.goal;
@@ -187,7 +155,9 @@ async function save(input: GoalInput) {
     closeEditor();
     notify.success('已保存');
 }
-async function askRemove(goal: ReadonlyGoal) {
+async function askRemove() {
+    const goal = editing.value?.goal;
+    if (!goal) return;
     if (
         await removal.run(
             {
@@ -199,7 +169,10 @@ async function askRemove(goal: ReadonlyGoal) {
                         : `同时删除 ${goal.logs.length} 条记录。`,
                 confirmText: '删除',
             },
-            () => removeGoal(goal.id),
+            () => {
+                removeGoal(goal.id);
+                editing.value = null;
+            },
         )
     )
         notify.success('已删除');
@@ -218,34 +191,8 @@ function closeGrowth() {
     growthCharacter.value = '';
 }
 async function applyGrowth(values: GoalProgressInput[]) {
-    const goal = growth.value;
-    if (goal?.kind === 'combo') {
-        const ok = await growthSubmit.run(goal.id, () => {
-            growthError.value = '';
-            if (rosterLoadError.value || !gameDataReady.value) {
-                growthError.value =
-                    rosterLoadError.value ||
-                    gameDataError.value ||
-                    '角色规则尚未加载，请重试后保存';
-                return false;
-            }
-            const prepared = prepareComboUpdates(goal, roster.value, values);
-            if (!prepared) {
-                growthError.value = '角色或数值已变化，请重新打开后修改';
-                return false;
-            }
-            beforeGrowth = summaryOf(goal.id);
-            for (const character of prepared) updateCharacter(character, 'goal', goal.title);
-            return true;
-        });
-        if (!ok) return;
-        announce(beforeGrowth, goal.id);
-        closeGrowth();
-        notify.success('角色档案已更新');
-        return;
-    }
-    if (!goal?.tracking) return;
-    const tracking = goal.tracking;
+    const goal = growth.value?.goal;
+    if (!goal) return;
     const ok = await growthSubmit.run(goal.id, () => {
         growthError.value = '';
         if (rosterLoadError.value || !gameDataReady.value) {
@@ -253,34 +200,14 @@ async function applyGrowth(values: GoalProgressInput[]) {
                 rosterLoadError.value || gameDataError.value || '角色规则尚未加载，请重试后保存';
             return false;
         }
-        const updates = values.map((item) => ({
-            ...item,
-            character: roster.value.find((character) => character.id === item.id),
-        }));
-        if (
-            !updates.length ||
-            updates.some(
-                (item) =>
-                    !item.character ||
-                    !goal.members.some((member) => member.id === item.id) ||
-                    !Number.isSafeInteger(item.value) ||
-                    item.value < 0 ||
-                    !metricApplicable(item.character, tracking),
-            )
-        ) {
+        const prepare = goal.kind === 'combo' ? prepareComboUpdates : prepareGrowthUpdates;
+        const prepared = prepare(goal, roster.value, values);
+        if (!prepared) {
             growthError.value = '角色或数值已变化，请重新打开后修改';
             return false;
         }
-        const prepared = updates.map((item) => ({
-            current: item.character!,
-            next: applyMetric(item.character!, tracking, item.value),
-        }));
-        if (prepared.some((item) => item.next === item.current)) {
-            growthError.value = '此项目暂不能写入角色档案';
-            return false;
-        }
         beforeGrowth = summaryOf(goal.id);
-        for (const item of prepared) updateCharacter(item.next, 'goal', goal.title);
+        for (const character of prepared) updateCharacter(character, 'goal', goal.title);
         return true;
     });
     if (!ok) return;
@@ -390,63 +317,47 @@ useRouteAction('/goals', {
         />
         <div class="filters page-filters">
             <SegmentedPills v-model="status" :options="statusOptions" label="目标状态" />
-            <SelectField v-model="kind" :options="kindOptions" label="目标类型" />
-            <SelectField v-model="who" :options="whoOptions" label="按角色筛选" />
-            <input
-                v-model="keyword"
-                class="field search filter-search"
-                type="search"
-                placeholder="搜索目标、角色"
-                aria-label="搜索目标"
-            />
         </div>
         <div v-if="loadError && !goals.length" class="record-empty">
             暂时无法读取目标，请重新读取。
         </div>
         <div v-else-if="!goals.length" class="record-empty">暂无目标</div>
-        <div v-else-if="!visible.length" class="record-empty">暂无符合条件的目标</div>
+        <div v-else-if="!visible.length" class="record-empty">
+            {{ status === 'done' ? '暂无已达成目标' : '暂无进行中的目标' }}
+        </div>
         <div v-else class="grid">
-            <template v-for="entry in visible" :key="entry.goal.id">
-                <GoalComboCard
-                    v-if="entry.goal.kind === 'combo'"
-                    :goal="entry.goal"
-                    :summary="entry.summary"
-                    :today="today"
-                    :disabled="blocked"
-                    @edit="openEditor(entry.goal)"
-                    @remove="askRemove(entry.goal)"
-                    @growth="openGrowth(entry.goal, $event)"
-                />
-                <GoalCard
-                    v-else
-                    :goal="entry.goal"
-                    :summary="entry.summary"
-                    :today="today"
-                    :disabled="blocked"
-                    @edit="openEditor(entry.goal)"
-                    @remove="askRemove(entry.goal)"
-                    @growth="openGrowth(entry.goal)"
-                    @record="openLogs(entry.goal)"
-                    @bought="bought(entry.goal)"
-                />
-            </template>
+            <GoalCard
+                v-for="entry in visible"
+                :key="entry.goal.id"
+                :goal="entry.goal"
+                :summary="entry.summary"
+                :today="today"
+                :disabled="blocked"
+                @edit="openEditor(entry.goal)"
+                @history="historyGoal = entry.goal"
+                @growth="openGrowth(entry.goal, $event)"
+                @record="openLogs(entry.goal)"
+                @bought="bought(entry.goal)"
+            />
         </div>
     </PageShell>
     <GoalEditor
         v-if="editing"
         :goal="editing.goal"
         :saving="editSaving"
-        :locked="editLocked"
+        :locked="editLocked || removing"
         :retrying="editAction !== null"
         :error="editError || writeError"
         @save="save"
+        @remove="askRemove"
         @close="closeEditor"
     />
     <component
-        :is="growth?.kind === 'combo' ? GoalComboProgress : GoalGrowth"
+        :is="growth?.summary.kind === 'combo' ? GoalComboProgress : GoalGrowth"
         v-if="growth"
-        v-bind="growth.kind === 'combo' ? { initialCharacter: growthCharacter } : {}"
-        :goal="growth"
+        v-bind="growth.summary.kind === 'combo' ? { initialCharacter: growthCharacter } : {}"
+        :goal="growth.goal"
+        :rows="growth.summary.rows"
         :saving="growthSaving"
         :locked="growthLocked"
         :retrying="growthAction !== null"
@@ -455,9 +366,9 @@ useRouteAction('/goals', {
         @close="closeGrowth"
     />
     <GoalLogs
-        v-if="logs"
-        :goal="logs"
-        :summary="goalSummary(logs, roster)"
+        v-if="logEntry"
+        :goal="logEntry.goal"
+        :summary="logEntry.summary"
         :saving="progressSaving || removing"
         :locked="progressLocked || removing || !!writeError"
         :retrying="progressAction !== null"
@@ -468,18 +379,13 @@ useRouteAction('/goals', {
         @retry="retry"
         @close="closeLogs"
     />
+    <GoalHistory v-if="historyGoal" :goal="historyGoal" @close="historyGoal = null" />
 </template>
 
 <style scoped>
-.filters :deep(.select-field) {
-    flex: 0 1 140px;
-    width: 140px;
-    max-width: 100%;
-}
 .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
-    gap: 16px;
-    align-items: start;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
 }
 </style>

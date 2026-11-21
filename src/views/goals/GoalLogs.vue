@@ -98,22 +98,35 @@ function enter(event: KeyboardEvent) {
                 />
             </fieldset>
         </form>
-        <ul v-if="ordered.length" class="logs">
-            <li v-for="log in ordered" :key="log.id" class="log-row">
-                <time :datetime="log.date">{{ log.date }}</time
-                ><span class="delta">{{ signedText(log.delta, goal.unit) }}</span
-                ><span class="note-text" :title="log.note">{{ log.note }}</span>
-                <PressButton
-                    class="remove"
-                    icon="trash"
-                    label="删掉这一笔"
-                    size="sm"
-                    danger
-                    :disabled="locked"
-                    @click="emit('remove', log.id)"
-                />
-            </li>
-        </ul>
+        <table v-if="ordered.length" class="income-table log-table" aria-label="进度流水">
+            <thead>
+                <tr>
+                    <th scope="col">日期</th>
+                    <th scope="col">变动</th>
+                    <th scope="col">备注</th>
+                    <th scope="col">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="log in ordered" :key="log.id" class="log-row">
+                    <td class="num"><time :datetime="log.date">{{ log.date }}</time></td>
+                    <td class="delta num">{{ signedText(log.delta, goal.unit) }}</td>
+                    <td class="note-text">{{ log.note }}</td>
+                    <td>
+                        <span class="income-ops">
+                            <PressButton
+                                icon="trash"
+                                label="删掉这一笔"
+                                size="sm"
+                                danger
+                                :disabled="locked"
+                                @click="emit('remove', log.id)"
+                            />
+                        </span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
         <p v-else class="record-empty">暂无记录</p>
         <template #footer>
             <FormActions
@@ -182,30 +195,19 @@ function enter(event: KeyboardEvent) {
 .entry-row :deep(.number-field) {
     width: 100%;
 }
-.logs {
-    margin: 0;
-    padding: 0;
-    list-style: none;
+.log-table :is(th, td):last-child {
+    width: 1%;
+    text-align: end;
+    white-space: nowrap;
 }
-.log-row {
-    display: grid;
-    grid-template-columns: auto minmax(80px, auto) minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 12px;
-    padding: 9px 0;
-    border-top: var(--w-hair) solid var(--rule);
-    color: var(--muted);
-    font-size: var(--fs-sm);
-    font-variant-numeric: tabular-nums;
+.log-table time,
+.delta {
+    white-space: nowrap;
 }
 .delta {
     color: var(--num);
-    white-space: nowrap;
 }
 .note-text {
-    overflow: hidden;
-    color: var(--ink-2);
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    overflow-wrap: anywhere;
 }
 </style>

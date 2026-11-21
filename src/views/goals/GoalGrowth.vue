@@ -3,40 +3,25 @@ import { computed, reactive } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import NumberField from '../../components/NumberField.vue';
 import FormActions from '../../components/FormActions.vue';
-import { useRoster } from '../characters/roster';
-import { metricValue, metricApplicable, type ReadonlyGoal } from './goals';
+import type { GoalProgressInput, GoalRow, ReadonlyGoal } from './goals';
 import { useDraftGuard } from '../../composables/use-draft-guard';
 
 const props = defineProps<{
     goal: ReadonlyGoal;
+    rows: readonly GoalRow[];
     saving: boolean;
     locked: boolean;
     retrying: boolean;
     error: string;
 }>();
-const emit = defineEmits<{ save: [values: { id: string; value: number }[]]; close: [] }>();
-const { roster } = useRoster();
-const rows = computed(() =>
-    props.goal.members.flatMap((member) => {
-        const character = roster.value.find((one) => one.id === member.id);
-        if (!character || !props.goal.tracking || !metricApplicable(character, props.goal.tracking))
-            return [];
-        return [
-            {
-                id: member.id,
-                name: character.name || member.name || '未命名',
-                value: metricValue(character, props.goal.tracking),
-            },
-        ];
-    }),
-);
-const original = new Map(rows.value.map((row) => [row.id, row.value]));
+const emit = defineEmits<{ save: [values: GoalProgressInput[]]; close: [] }>();
+const rows = props.rows.filter((row) => row.exists && row.applicable);
 const inputs = reactive<Record<string, number>>(
-    Object.fromEntries(rows.value.map((row) => [row.id, row.value ?? 0])),
+    Object.fromEntries(rows.map((row) => [row.id, row.value ?? 0])),
 );
 const touched = reactive(new Set<string>());
 const changed = computed(() =>
-    rows.value.filter((row) => touched.has(row.id) && inputs[row.id] !== original.get(row.id)),
+    rows.filter((row) => touched.has(row.id) && inputs[row.id] !== row.value),
 );
 const { requestClose } = useDraftGuard(
     () => !props.retrying && changed.value.length > 0,
@@ -52,7 +37,7 @@ function submit() {
     if (props.saving || (!props.retrying && (!changed.value.length || props.locked))) return;
     emit(
         'save',
-        changed.value.map((row) => ({ id: row.id, value: inputs[row.id] })),
+        changed.value.map((row) => ({ id: row.id, value: inputs[row.id], previous: row.value })),
     );
 }
 function enter(event: KeyboardEvent) {
@@ -71,11 +56,11 @@ function enter(event: KeyboardEvent) {
             <fieldset class="growth" :disabled="locked" :inert="locked">
                 <label v-for="row in rows" :key="row.id" class="growth-row">
                     <span class="who"
-                        >{{ row.name }}<small v-if="row.value === null">待补录</small></span
+                        >{{ row.name || '未命名' }}<small v-if="row.value === null">待补录</small></span
                     >
                     <NumberField
                         :model-value="inputs[row.id]"
-                        :label="`${row.name} 的当前值`"
+                        :label="`${row.name || '未命名'} 的当前值`"
                         update-on-input
                         @update:model-value="change(row.id, $event)"
                     />

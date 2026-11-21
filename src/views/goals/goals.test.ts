@@ -5,6 +5,7 @@ import {
     autoTitle,
     daysLeft,
     deadlineText,
+    goalProgressHistory,
     goalSummary,
     goalTitle,
     groupKeys,
@@ -16,6 +17,7 @@ import {
     orderGoals,
     parseGoal,
     parseGoals,
+    prepareGrowthUpdates,
     scopeText,
     signedText,
     type Goal,
@@ -338,6 +340,25 @@ describe('目标：养成（跟随档案）', () => {
         expect(summary.done).toBe(false);
     });
 
+    it('角色改名后按 ID 展示现名，删除后仍使用原快照', () => {
+        const summary = goalSummary(one, [{ ...roster[0], name: '甲的新名' }]);
+        expect(summary.rows.map(({ name, exists }) => ({ name, exists }))).toEqual([
+            { name: '甲的新名', exists: true },
+            { name: '乙', exists: false },
+            { name: '丙', exists: false },
+        ]);
+        expect(summary).toMatchObject({ totalMembers: 1, achieved: 1, done: true, pct: 100 });
+    });
+
+    it('任一角色的当前值已变化时，保留整批档案并拒绝更新', () => {
+        const first = { id: 'c1', value: 24, previous: 25 };
+        const second = { id: 'c2', value: 25, previous: 10 };
+        expect(prepareGrowthUpdates(one, roster, [first, second])).toHaveLength(2);
+        const changed = [roster[0], applyMetric(roster[1], tracking, 12), roster[2]];
+        expect(prepareGrowthUpdates(one, changed, [first, second])).toBeNull();
+        expect(changed.map((row) => metricValue(row, tracking))).toEqual([25, 12, null]);
+    });
+
     it('达成给出 100 与达成人数', () => {
         const full = goalSummary(one, [
             roster[0],
@@ -351,6 +372,78 @@ describe('目标：养成（跟随档案）', () => {
         expect(full.done).toBe(true);
         expect(full.achieved).toBe(3);
         expect(full.pct).toBe(100);
+    });
+});
+
+describe('目标：进度历史', () => {
+    it('只取建目标后的关联角色和指标，按更新时间倒序', () => {
+        const roster = [
+            character('c1', '甲的新名', {
+                growthHistory: [
+                    {
+                        id: 'old',
+                        date: TODAY,
+                        createdAt: 9,
+                        source: 'edit',
+                        note: '',
+                        changes: [{ group: '角色', label: '等级', from: '90', to: '100' }],
+                    },
+                    {
+                        id: 'newer',
+                        date: TODAY,
+                        createdAt: 30,
+                        source: 'edit',
+                        note: '',
+                        changes: [
+                            { group: '角色', label: '等级', from: '110', to: '120' },
+                            { group: '角色', label: '名称', from: '甲', to: '甲的新名' },
+                        ],
+                    },
+                    {
+                        id: 'from-goal',
+                        date: TODAY,
+                        createdAt: 20,
+                        source: 'goal',
+                        note: '',
+                        changes: [{ group: '角色', label: '等级', from: '100', to: '110' }],
+                    },
+                ],
+            }),
+            character('c2', '乙'),
+        ];
+        roster[1].growthHistory = roster[0].growthHistory;
+        const one = goal({
+            kind: 'growth',
+            tracking: { category: 'level', key: '角色等级' },
+            createdAt: 10,
+        });
+        const rows = goalProgressHistory(one, roster);
+        expect(rows.map(({ at, name, change }) => ({ at, name, change }))).toEqual([
+            { at: 30, name: '甲的新名 · 角色等级', change: '110 → 120 级' },
+            { at: 20, name: '甲的新名 · 角色等级', change: '100 → 110 级' },
+        ]);
+        const combo = goal({
+            kind: 'combo',
+            createdAt: 10,
+            items: [
+                { characterId: 'c1', tracking: { category: 'level', key: '角色等级' }, target: 120 },
+            ],
+        });
+        expect(goalProgressHistory(combo, roster)).toEqual(rows);
+    });
+
+    it('手动目标按实际录入时间排序，旧流水保留记录日期', () => {
+        const one = goal({
+            logs: [
+                { ...log(10, '2026-11-06'), createdAt: 0 },
+                { ...log(-3, '2026-11-04'), createdAt: 20 },
+            ],
+        });
+        const rows = goalProgressHistory(one, []);
+        expect(rows.map(({ at, date }) => ({ at, date }))).toEqual([
+            { at: 20, date: '2026-11-04' },
+            { at: 0, date: '2026-11-06' },
+        ]);
     });
 });
 

@@ -62,8 +62,9 @@ export default async function run(ctx) {
                 `[...document.querySelectorAll('[data-goal-id] h2')].map((node) => node.textContent).find((text) => text.startsWith(${q(MARK)})) ?? ''`,
             );
             if (!title) return;
-            await ui.clickIn('[data-goal-id]', title, { label: '删除目标' });
-            await ui.clickText(`${dialog} button`, '删除', { exact: true });
+            await ui.clickIn('[data-goal-id]', title, { label: '编辑目标' });
+            await ui.clickLabel('删除目标');
+            await ui.clickLabel('确认删除');
             await ui.waitFor(`!${card(title)}`, { timeout: 5000 });
         }
     };
@@ -71,6 +72,10 @@ export default async function run(ctx) {
         await ui.gotoReady('目标');
         await sweep();
         t.check('状态三段', (await ui.count('.filters .bevel-pill')) === 3);
+        t.check(
+            '筛选区只保留状态',
+            (await ui.count('.filters > :not([aria-label="目标状态"])')) === 0,
+        );
         t.check('不再重复展示概览', (await ui.count('.strip')) === 0);
         for (const name of names) {
             await ui.gotoReady('角色');
@@ -110,7 +115,7 @@ export default async function run(ctx) {
             ),
         );
         await cdp.key('Enter');
-        await ui.waitFor(`document.querySelectorAll('${dialog} .log-row').length === 4`, {
+        await ui.waitFor(`document.querySelectorAll('${dialog} table[aria-label="进度流水"] tbody tr').length === 4`, {
             timeout: 5000,
         });
         t.check(
@@ -146,8 +151,7 @@ export default async function run(ctx) {
             '总体圆环与角色分格进度分别呈现',
             await cdp.evaluate(`(() => {
                 const node = ${card(title)};
-                return node?.querySelectorAll('.milestones i').length === 2
-                    && node.querySelectorAll('.progress-body > .ring[role="progressbar"]').length === 1
+                return node?.querySelectorAll('.progress-body > .ring[role="progressbar"]').length === 1
                     && [...node.querySelectorAll('.member')].every((row) => row.querySelectorAll('.tick').length === 10);
             })()`),
         );
@@ -170,7 +174,7 @@ export default async function run(ctx) {
             await cdp.evaluate(`(() => {
                 const node = ${card(title)};
                 const row = [...node.querySelectorAll('.member')].find((one) => one.querySelector('.who')?.textContent === ${q(names[0])});
-                return node.querySelectorAll('.milestones .on').length === 1
+                return node.querySelectorAll('.member.complete').length === 1
                     && node.querySelector('.ring')?.getAttribute('aria-valuenow') === '50'
                     && row?.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '100';
             })()`),
@@ -189,6 +193,12 @@ export default async function run(ctx) {
         await cdp.key('Enter');
         await ui.waitFor(`!document.querySelector('${dialog}')`, { timeout: 5000 });
         t.check('两人都达到才完成', await cdp.evaluate(`!!${card(title)}?.querySelector('.mark')`));
+        await ui.clickIn('[data-goal-id]', title, { label: '目标历史' });
+        await ui.waitFor(
+            `document.querySelectorAll('${dialog} table[aria-label="目标更新历史"] tbody tr').length === 2`,
+            { timeout: 5000 },
+        );
+        await ui.clickLabel('关闭目标历史');
     });
     await t.step('未学的剧情技能可建目标并补入角色档案', async () => {
         const title = MARK + '剧情技能';
@@ -256,9 +266,12 @@ export default async function run(ctx) {
                 && node.querySelector('.ring')?.getAttribute('aria-valuenow') === '75';
         })()`),
         );
-        await ui.fill('搜索目标', title);
-        t.check('搜索收拢到指定目标', (await ui.count('[data-goal-id]')) === 1);
-        await ui.fill('搜索目标', '');
+        await ui.clickIn('[data-goal-id]', title, { label: '目标历史' });
+        await ui.waitFor(
+            `document.querySelectorAll('${dialog} table[aria-label="目标更新历史"] tbody tr').length === 2`,
+            { timeout: 5000 },
+        );
+        await ui.clickLabel('关闭目标历史');
         await ui.reload();
         await ui.gotoReady('目标');
         await all();
@@ -321,15 +334,15 @@ export default async function run(ctx) {
         await ui.clickLabel('保存目标');
         await ui.waitFor(`!document.querySelector('${dialog}')`, { timeout: 5000 });
         t.check(
-            '组合仅保存设置项目的角色，每人一条，并展示总体圆环',
+            '组合逐项展示角色进度，并使用同一总体圆环',
             await cdp.evaluate(`(() => {
             const node = ${card(title)};
-            return node?.querySelectorAll('.combo-member').length === 2
-                && node.querySelectorAll('.combo-card-body > .ring[role="progressbar"]').length === 1
-                && !node.textContent.includes('强身术');
+            return node?.querySelectorAll('.member').length === 4
+                && node.querySelectorAll('.progress-body > .ring[role="progressbar"]').length === 1
+                && node.textContent.includes('强身术');
         })()`),
         );
-        await ui.clickIn('[data-goal-id]', title, { label: `更新${names[0]}的组合进度` });
+        await ui.clickIn('[data-goal-id]', title, { label: `更新${names[0]} · 角色等级的组合进度` });
         t.check(
             '更新窗口使用表格且不再显示同步档案提示',
             await cdp.evaluate(`!!document.querySelector('${dialog} table[aria-label="组合项目进度"]')
@@ -386,7 +399,7 @@ export default async function run(ctx) {
             const node = ${card(title)};
             return node?.textContent.includes('4 / 4 项达标')
                 && node.querySelector('.ring')?.getAttribute('aria-valuenow') === '100'
-                && [...node.querySelectorAll('.combo-member [role="progressbar"]')].every((bar) => bar.getAttribute('aria-valuenow') === '100');
+                && [...node.querySelectorAll('.member [role="progressbar"]')].every((bar) => bar.getAttribute('aria-valuenow') === '100');
         })()`),
         );
         await ui.reload();

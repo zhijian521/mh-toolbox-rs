@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import PaperCard from '../../components/PaperCard.vue';
-import GoalProgress from './GoalProgress.vue';
 import PressButton from '../../components/PressButton.vue';
+import GoalProgress from './GoalProgress.vue';
 import {
     deadlineText,
     kindMeta,
     scopeText,
-    type ReadonlyGoal,
+    type ComboGoalRow,
     type GoalRow,
     type GoalSummary,
+    type ReadonlyGoal,
 } from './goals';
 
 const props = defineProps<{
@@ -18,155 +19,146 @@ const props = defineProps<{
     today: string;
     disabled: boolean;
 }>();
-const emit = defineEmits<{ edit: []; remove: []; record: []; growth: []; bought: [] }>();
+const emit = defineEmits<{
+    edit: [];
+    history: [];
+    record: [];
+    growth: [characterId?: string];
+    bought: [];
+}>();
 const deadline = computed(() => deadlineText(props.goal.deadline, props.today, props.summary.done));
-const rows = computed(() =>
-    [...props.summary.rows]
-        .sort((a, b) => Number(a.done) - Number(b.done))
-        .map((row) => ({
-            ...row,
-            percent:
-                !row.exists || !row.applicable || row.value === null || props.goal.target <= 0
-                    ? null
-                    : Math.max(
-                          0,
-                          Math.min(row.done ? 100 : 99, (row.value / props.goal.target) * 100),
-                      ),
-        })),
-);
 const number = (value: number) => value.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
-function rowText(row: GoalRow): string {
-    if (!row.exists) return '已删除';
-    if (!row.applicable) return '不适用';
-    if (row.value === null) return '待补录';
-    return `${number(row.value)} / ${number(props.goal.target)} ${props.goal.unit} · ${row.done ? '已达标' : '差 ' + number(row.remaining ?? 0)}`;
-}
+const rows = computed(() => {
+    const { goal, summary } = props;
+    if (summary.kind === 'manual') return [];
+    return summary.rows
+        .map((row: GoalRow | ComboGoalRow) => {
+            const item = 'characterId' in row ? row : null;
+            const target = item?.target ?? goal.target;
+            const unit = item?.unit ?? goal.unit;
+            const name = row.name || '未命名';
+            const label = item ? `${name} · ${item.tracking.key}` : name;
+            const status = !row.exists ? '已删除' : !row.applicable ? '不适用' : '待补录';
+            const value = row.value === null ? null : number(row.value);
+            const targetText = ` / ${number(target)} ${unit}`;
+            const readout = value === null ? status : `${value}${targetText}`;
+            return {
+                id: row.id,
+                label,
+                done: row.done,
+                value,
+                targetText,
+                status,
+                characterId: item && row.exists && row.applicable ? item.characterId : '',
+                percent:
+                    row.value === null || target <= 0
+                        ? null
+                        : Math.max(0, Math.min(row.done ? 100 : 99, (row.value / target) * 100)),
+                readout: row.done ? `${readout} · 已达标` : readout,
+            };
+        })
+        .sort((a, b) => Number(a.done) - Number(b.done));
+});
 </script>
 
 <template>
-    <PaperCard as="article" class="goal" :class="{ done: summary.done }" :data-goal-id="goal.id">
+    <PaperCard as="article" plain class="goal" :class="{ done: summary.done }" :data-goal-id="goal.id">
         <header class="goal-head">
             <div class="heading">
                 <h2>{{ goal.title }}</h2>
-                <span class="eyebrow"
-                    ><span class="category">{{ kindMeta(goal.kind).label }}</span
-                    ><template v-if="goal.tracking">
-                        · 目标 {{ number(goal.target) }} {{ goal.unit }}</template
-                    ><template v-else> · {{ scopeText(goal) }}</template></span
-                >
+                <div class="meta">
+                    <span class="category">{{ kindMeta(goal.kind).label }}</span>
+                    <span v-if="summary.kind === 'combo'">
+                        {{ summary.achieved }} / {{ summary.total }} 项达标
+                    </span>
+                    <span v-else-if="summary.kind === 'growth'">
+                        {{ summary.achieved }} / {{ summary.totalMembers }} 人达标
+                    </span>
+                    <span v-else-if="goal.members.length">{{ scopeText(goal) }}</span>
+                    <span v-if="summary.done" class="mark">已达成</span>
+                </div>
             </div>
-            <div class="goal-tools">
-                <PressButton
-                    icon="edit"
-                    label="编辑目标"
-                    size="sm"
-                    :disabled="disabled"
-                    @click="emit('edit')"
-                />
-                <PressButton
-                    icon="trash"
-                    label="删除目标"
-                    size="sm"
-                    danger
-                    :disabled="disabled"
-                    @click="emit('remove')"
-                />
-            </div>
+            <PressButton
+                icon="edit"
+                label="编辑目标"
+                size="sm"
+                :disabled="disabled"
+                @click="emit('edit')"
+            />
         </header>
-        <div class="progress-summary">
-            <span v-if="goal.tracking"
-                ><b>{{ summary.achieved }} / {{ summary.totalMembers }}</b> 达标</span
-            >
-            <span v-else>累计进度</span>
-            <span v-if="summary.done" class="mark">已达成</span>
-            <span
-                v-if="goal.tracking"
-                class="milestones"
-                role="img"
-                :aria-label="`${summary.achieved} / ${summary.totalMembers} 个角色达标`"
-            >
-                <i
-                    v-for="row in rows"
-                    :key="row.id"
-                    :class="{ on: row.exists && row.applicable && row.done }"
-                    :title="row.name + ' · ' + rowText(row)"
-                />
-            </span>
-            <span v-else class="target">目标 {{ number(goal.target) }} {{ goal.unit }}</span>
-        </div>
         <div class="progress-body">
             <GoalProgress shape="ring" :percent="summary.pct" :label="goal.title + '总体进度'" />
-            <ul v-if="goal.tracking" class="members">
-                <li
-                    v-for="row in rows"
-                    :key="row.id"
-                    class="member"
-                    :class="{
-                        muted: !row.exists || !row.applicable,
-                        complete: row.exists && row.applicable && row.done,
-                    }"
-                    :title="row.name + ' · ' + rowText(row)"
-                >
-                    <span class="who" :title="row.name">{{ row.name || '未命名' }}</span>
-                    <GoalProgress
-                        :percent="row.percent"
-                        :label="(row.name || '未命名') + '的进度'"
-                        :value-text="rowText(row)"
-                    />
-                    <span class="value">
-                        <template v-if="!row.exists">已删除</template>
-                        <template v-else-if="!row.applicable">不适用</template>
-                        <template v-else-if="row.value === null">待补录</template>
-                        <template v-else
-                            ><b>{{ number(row.value) }}</b
-                            ><small>{{ goal.unit }}</small></template
-                        >
-                    </span>
+            <div v-if="summary.kind === 'manual'" class="manual-value">
+                <b class="num">{{ number(summary.current) }}</b>
+                <span> / {{ number(summary.total) }} {{ goal.unit }}</span>
+            </div>
+            <ul v-else class="members">
+                <li v-for="row in rows" :key="row.id">
+                    <component
+                        :is="row.characterId ? 'button' : 'div'"
+                        class="member"
+                        :class="{ complete: row.done }"
+                        :type="row.characterId ? 'button' : undefined"
+                        :disabled="row.characterId ? disabled : undefined"
+                        :aria-label="row.characterId ? `更新${row.label}的组合进度` : undefined"
+                        :title="row.label + ' · ' + row.readout"
+                        @click="row.characterId && emit('growth', row.characterId)"
+                    >
+                        <span class="who">{{ row.label }}</span>
+                        <GoalProgress
+                            :percent="row.percent"
+                            :label="row.label + '的进度'"
+                            :value-text="row.readout"
+                        />
+                        <span class="value">
+                            <template v-if="row.value !== null">
+                                <b>{{ row.value }}</b>{{ row.targetText }}
+                            </template>
+                            <template v-else>{{ row.status }}</template>
+                        </span>
+                    </component>
                 </li>
             </ul>
-            <div v-else class="manual-progress">
-                <div class="manual-value">
-                    <b>{{ number(summary.current) }}</b
-                    ><small>/ {{ number(goal.target) }} {{ goal.unit }}</small>
-                </div>
-                <GoalProgress :percent="summary.pct" :label="goal.title + '累计进度'" />
-                <span v-if="!summary.done" class="remaining"
-                    >还差 {{ number(Math.max(0, goal.target - summary.current)) }}
-                    {{ goal.unit }}</span
-                >
-            </div>
         </div>
-        <p v-if="goal.note" class="goal-note" :title="goal.note">{{ goal.note }}</p>
+        <p v-if="goal.note" class="goal-note">{{ goal.note }}</p>
         <footer class="goal-actions">
             <span class="deadline" :class="{ over: deadline.startsWith('已逾期') }">{{
                 deadline || (summary.doneDate ? `${summary.doneDate} 达成` : '')
             }}</span>
             <PressButton
-                v-if="goal.tracking"
-                icon="edit"
-                text="更新"
-                label="更新各角色的当前值"
+                icon="history"
+                text="历史"
+                label="目标历史"
                 size="sm"
+                @click="emit('history')"
+            />
+            <PressButton
+                v-if="summary.kind !== 'manual'"
+                text="更新"
+                :label="summary.kind === 'combo' ? '更新组合进度' : '更新各角色的当前值'"
+                size="sm"
+                seal
                 :disabled="disabled || !summary.totalMembers"
                 @click="emit('growth')"
             />
             <template v-else>
+                <PressButton
+                    text="记录"
+                    label="记录目标进度"
+                    size="sm"
+                    :seal="goal.kind !== 'gear' || summary.done"
+                    :disabled="disabled"
+                    @click="emit('record')"
+                />
                 <PressButton
                     v-if="goal.kind === 'gear' && !summary.done"
                     icon="add"
                     text="购入"
                     label="买了一件，进度加一"
                     size="sm"
+                    seal
                     :disabled="disabled"
                     @click="emit('bought')"
-                />
-                <PressButton
-                    icon="edit"
-                    text="记录"
-                    label="记录目标进度"
-                    size="sm"
-                    :disabled="disabled"
-                    @click="emit('record')"
                 />
             </template>
         </footer>
@@ -176,12 +168,13 @@ function rowText(row: GoalRow): string {
 <style scoped>
 .goal {
     --progress-color: var(--ochre);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    flex: 1 1 340px;
+    max-width: 380px;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 10px;
     min-width: 0;
-    padding: 11px 12px;
-    background-image: var(--income-board-texture);
+    padding: 12px;
 }
 .goal.done,
 .complete {
@@ -190,175 +183,118 @@ function rowText(row: GoalRow): string {
 .goal-head {
     display: flex;
     align-items: flex-start;
+    justify-content: space-between;
     gap: 8px;
 }
 .heading {
-    flex: 1;
     min-width: 0;
 }
-.eyebrow {
-    color: var(--muted);
-    font-size: var(--fs-xs);
-}
-.category {
-    color: var(--indigo-ink);
-}
 h2 {
-    margin: 0 0 2px;
+    margin: 0 0 4px;
     color: var(--accent);
     font-size: var(--fs-md);
     font-weight: 400;
     line-height: 1.4;
     overflow-wrap: anywhere;
 }
-.goal-tools {
+.meta {
     display: flex;
-    flex: none;
-    gap: 4px;
-}
-.progress-summary {
-    display: flex;
-    align-items: baseline;
     flex-wrap: wrap;
-    gap: 6px 10px;
+    align-items: center;
+    gap: 4px 8px;
     color: var(--muted);
     font-size: var(--fs-xs);
 }
-.progress-summary b {
-    color: var(--ink);
-    font-weight: 400;
-    font-size: var(--fs-md);
-    font-variant-numeric: tabular-nums;
+.category {
+    padding: 1px 6px;
+    border-radius: var(--r-3);
+    background: var(--paper-2);
+    color: var(--indigo-ink);
 }
 .mark {
     color: var(--success);
 }
-.milestones {
-    display: flex;
-    align-self: center;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 4px;
-    margin-left: auto;
-    max-width: 55%;
-}
-.milestones i {
-    width: 16px;
-    height: 6px;
-    border-radius: 1px;
-    background: var(--well);
-    box-shadow:
-        inset 0 1px 1px var(--shadow-lg),
-        0 1px 0 var(--bevel-hi);
-}
-.milestones .on {
-    background: linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--success) 65%, var(--bevel-hi)),
-        var(--success) 55%
-    );
-    box-shadow:
-        inset 0 1px 0 var(--bevel-hi),
-        inset 0 -1px 0 var(--bevel-lo),
-        0 1px 0 color-mix(in srgb, var(--success) 75%, var(--ink-base)),
-        0 2px 2px var(--shadow);
-}
-.target {
-    margin-left: auto;
-}
 .progress-body {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: min(21%, 70px) minmax(0, 1fr);
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+}
+.progress-body > :deep(.ring) {
+    width: 100%;
 }
 .members {
     display: grid;
-    grid-template-columns: minmax(32px, 0.8fr) minmax(40px, 1.5fr) max-content;
-    align-items: center;
-    gap: 5px 7px;
+    grid-template-columns: minmax(0, 1fr) minmax(22px, 22%) max-content;
+    gap: 4px 6px;
+    min-width: 0;
     margin: 0;
     padding: 0;
     list-style: none;
 }
+.members > li,
 .member {
     display: grid;
-    grid-template-columns: subgrid;
     grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    min-width: 0;
+}
+.member {
     align-items: center;
-    gap: 7px;
-    min-height: calc(20px * var(--fs-scale));
+    padding: 3px 5px;
+    border: 0;
+    border-radius: var(--r-3);
+    background: var(--paper-2);
     color: var(--ink-2);
-    font-size: var(--fs-sm);
+    font: inherit;
+    font-size: var(--fs-xs);
+    text-align: start;
+}
+button.member:not(:disabled) {
+    cursor: pointer;
+}
+button.member:not(:disabled):hover {
+    background: var(--well);
 }
 .who {
+    min-width: 0;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
 }
 .value {
-    display: inline-flex;
-    align-items: baseline;
-    justify-content: flex-end;
-    gap: 2px;
     color: var(--muted);
-    white-space: nowrap;
     font-variant-numeric: tabular-nums;
+    text-align: end;
+    white-space: nowrap;
 }
 .value b {
     color: var(--num);
     font-weight: 400;
 }
-.complete .value b {
-    color: var(--success);
-}
-.value small {
-    color: var(--muted);
-    font-size: var(--fs-xs);
-}
-.muted {
-    color: var(--muted);
-}
-.manual-progress {
-    display: grid;
-    gap: 6px;
-    min-width: 0;
-}
 .manual-value {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 4px;
-    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    overflow-wrap: anywhere;
 }
 .manual-value b {
     color: var(--num);
-    font-size: var(--fs-xl);
+    font-size: var(--fs-amount);
     font-weight: 400;
-    line-height: 1.2;
-}
-.manual-value small,
-.remaining {
-    color: var(--muted);
-    font-size: var(--fs-xs);
 }
 .goal-note {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
     margin: 0;
     color: var(--muted);
     font-size: var(--fs-xs);
-    line-height: 1.4;
     overflow-wrap: anywhere;
 }
 .goal-actions {
     display: flex;
-    align-items: center;
     flex-wrap: wrap;
-    gap: 8px;
-    padding-top: 6px;
+    align-items: center;
+    gap: 5px;
+    align-self: end;
+    padding-top: 7px;
     border-top: var(--w-hair) solid var(--rule);
 }
 .deadline {

@@ -6,11 +6,11 @@ import NumberField from '../../components/NumberField.vue';
 import FormActions from '../../components/FormActions.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import { useDraftGuard } from '../../composables/use-draft-guard';
-import { useRoster } from '../characters/roster';
-import { comboGoalRows, groupComboRows, type ReadonlyGoal, type GoalProgressInput } from './goals';
+import { groupComboRows, type ComboGoalRow, type ReadonlyGoal, type GoalProgressInput } from './goals';
 
 const props = defineProps<{
     goal: ReadonlyGoal;
+    rows: readonly ComboGoalRow[];
     initialCharacter?: string;
     saving: boolean;
     locked: boolean;
@@ -18,9 +18,8 @@ const props = defineProps<{
     error: string;
 }>();
 const emit = defineEmits<{ save: [values: GoalProgressInput[]]; close: [] }>();
-const { roster } = useRoster();
 const prefix = `combo-progress-${useId()}`;
-const rows = comboGoalRows(props.goal, roster.value);
+const rows = props.rows;
 const groups = groupComboRows(rows);
 const active = ref(
     groups.find((group) => group.id === props.initialCharacter)?.id ??

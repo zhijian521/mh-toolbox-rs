@@ -106,9 +106,9 @@ function values(
         add('角色', label, character[key]);
     for (const group of character.attrGroups)
         for (const row of group.rows) add(group.title, row.label, row.value);
-    for (const row of character.skills) add('师门', row.name, row.level);
+    for (const row of character.skills) add('师门', row.name, row.off ? 0 : row.level);
     for (const row of character.assists)
-        add(row.kind === 'story' ? '剧情技能' : '生活技能', row.name, row.level);
+        add(row.kind === 'story' ? '剧情技能' : '生活技能', row.name, row.off ? 0 : row.level);
     for (const group of character.trainings)
         for (const row of group.rows) add(group.title, row.name, row.level);
     return result;
