@@ -287,6 +287,7 @@ export function filterAssets(
             items: section.items.filter((item) => {
                 if (filter.subgroup && item.subgroup !== filter.subgroup) return false;
                 if (filter.level !== undefined && item.level !== filter.level) return false;
+                if (!words.length) return true;
                 const text = [
                     section.title,
                     item.name,

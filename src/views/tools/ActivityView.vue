@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useRouter } from 'vue-router';
 import { useMinuteNow } from '../../composables/use-minute-now';
-import PageShell from '../../components/PageShell.vue';
-import PressButton from '../../components/PressButton.vue';
+import ToolPageShell from './ToolPageShell.vue';
 import { notify } from '../../composables/use-notify';
 import ActivityCard from './ActivityCard.vue';
 import ActivityRemindDialog from './ActivityRemindDialog.vue';
@@ -11,23 +9,7 @@ import { ACTIVITIES, groupActivities, type Activity } from './activities';
 import { nextReminder, type AlarmDraft } from './alarms';
 import { useAlarms } from './alarm-store';
 
-/**
- * 活动日历：把游戏里那些固定活动按「最近一次」排开，点一张卡就能加提醒。
- *
- * ---- 三件事，缺一不可 ----
- *
- * ① 分组：今天 / 明天 / 本周内 / 之后 / 每天。用户来这一页问的是「这几天有什么」，
- *    不是「一共有多少条活动」——所以按时间分，不按类别分。
- * ② 每张卡说清「什么时候、多久一次」，以及最近一次是哪天（右上那枚签）。
- * ③ 点卡加提醒，落进已有的闹钟里。**不另起一套提醒机制**：闹钟那边已经有计时、
- *    全站浮层、右下角小卡与 Windows 系统通知，这一页再造一份只会两套时间对不上。
- *
- * ---- 为什么活动数据是这个文件之外的常量 ----
- *
- * `activities.ts` 里那张表是游戏规则，不是用户数据；这里只负责摆和接线。
- * 分组、文案、与闹钟的换算都是那边的纯函数，所以能单测。
- */
-const router = useRouter();
+/** 日历显示游戏场次，提醒的保存、启停和调度共用闹钟。 */
 const { alarms, add, setEnabled } = useAlarms();
 
 const minuteNow = useMinuteNow();
@@ -46,12 +28,17 @@ const remindedIds = computed(
 );
 
 const picked = ref<Activity | null>(null);
+const reminderError = ref('');
+
+function openReminder(activity: Activity) {
+    reminderError.value = '';
+    picked.value = activity;
+}
 
 function onConfirm(draft: AlarmDraft) {
     const result = add(draft);
     if (!result.ok) {
-        /* 留在窗内说：关掉窗再报错，用户得重新点一次卡。 */
-        notify.error(result.error);
+        reminderError.value = result.error;
         return;
     }
     notify.success(`已加提醒：${picked.value?.name ?? '活动'}`);
@@ -61,7 +48,7 @@ function onConfirm(draft: AlarmDraft) {
 function onToggle(id: number, enabled: boolean) {
     const result = setEnabled(id, enabled);
     if (!result.ok) {
-        notify.error(result.error);
+        reminderError.value = result.error;
         return;
     }
     notify.success(enabled ? '已开启提醒' : '已停用提醒');
@@ -70,16 +57,7 @@ function onToggle(id: number, enabled: boolean) {
 </script>
 
 <template>
-    <PageShell title="活动日历" desc="日常活动 · 日程提醒">
-        <template #actions>
-            <PressButton
-                icon="back"
-                text="返回"
-                label="返回工具列表"
-                @click="router.push('/tools')"
-            />
-        </template>
-
+    <ToolPageShell title="活动日历" desc="活动场次 · 开场提醒">
         <!-- 直接摆在台面上，与物价页同一个摆法。
              中间试过「便签墙」——一块更深、带点阵的板，卡片微斜着贴在上面；
              用户否了：那层点阵与斜纸不属于这套设计。现在卡片自己就是一块压印的纸
@@ -98,7 +76,7 @@ function onToggle(id: number, enabled: boolean) {
                     :next="one.next"
                     :now="now"
                     :reminded="remindedIds.has(one.activity.id)"
-                    @open="picked = one.activity"
+                    @open="openReminder(one.activity)"
                 />
             </div>
         </section>
@@ -108,11 +86,12 @@ function onToggle(id: number, enabled: boolean) {
             :activity="picked"
             :now="now"
             :alarms="alarms"
+            :error="reminderError"
             @close="picked = null"
             @confirm="onConfirm"
             @toggle-reminder="onToggle"
         />
-    </PageShell>
+    </ToolPageShell>
 </template>
 
 <style scoped>

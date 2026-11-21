@@ -16,6 +16,7 @@ import { createGrowthExtra, GROWTH_EXTRA_OPTIONS, type GrowthExtra } from './gro
 import {
     createGrowthPlan,
     GROWTH_GROUPS,
+    sumGrowthResources,
     summarizeGrowthPlan,
     type GrowthLine,
     type GrowthResources,
@@ -60,12 +61,7 @@ const groups = computed(() => {
         }));
     return [...fixed, ...added].map((group) => ({
         ...group,
-        subtotal: detail(
-            summarizeGrowthPlan(
-                props.costs,
-                group.rows.map((row) => row.line),
-            ).total,
-        ),
+        subtotal: detail(sumGrowthResources(group.rows)),
     }));
 });
 const count = (value: number) => value.toLocaleString('zh-CN');
@@ -201,6 +197,7 @@ watch([character, () => props.costs], reset, { immediate: true });
                 <LedgerSection
                     v-for="group in groups"
                     :key="group.key"
+                    plain
                     class="plan-group growth-card"
                     :title="group.name"
                 >
@@ -282,6 +279,7 @@ watch([character, () => props.costs], reset, { immediate: true });
                 </div>
             </div>
             <LedgerSection
+                plain
                 class="plan-summary growth-card growth-result-card"
                 title="资源合计"
                 :hint="`${summary.changed} 项升级 · ${extras.length} 项附加`"

@@ -64,7 +64,7 @@ const count = (value: number) => value.toLocaleString('zh-CN');
 </script>
 
 <template>
-    <LedgerSection class="growth-card" :title="item.name">
+    <LedgerSection plain class="growth-card" :title="item.name">
         <template #actions
             ><SlotButton
                 icon="trash"

@@ -233,10 +233,9 @@ export function dueAlarms(alarms: readonly AlarmLike[], from: Date, to: Date): D
         for (const alarm of alarms) {
             if (!alarm.enabled) continue;
             for (const at of occurrences(alarm, day)) {
-                /* 同一次只提醒一次。重载、切回窗口都会重新扫这一段，
-                 * 少了这一条就会反复弹。 */
+                // 已提醒时刻是水位，系统时钟回拨时也跳过更早的场次。
                 const key = firedKey(day, at);
-                if (alarm.fired === key) continue;
+                if (key <= alarm.fired) continue;
                 const remind = at.getTime() - LEAD_MS;
                 if (remind > from.getTime() && remind <= to.getTime()) {
                     hits.push({ alarm, key, remindAt: new Date(remind) });
@@ -256,14 +255,17 @@ export function dueAlarms(alarms: readonly AlarmLike[], from: Date, to: Date): D
 export function nextReminder(alarm: AlarmLike, now: Date): Date | null {
     if (!alarm.enabled) return null;
     if (alarm.repeat === 'once') {
-        const remind = reminderAt(alarm, alarm.date);
-        return remind.getTime() > now.getTime() ? remind : null;
+        const at = fireAt(alarm, alarm.date);
+        const remind = new Date(at.getTime() - LEAD_MS);
+        return remind.getTime() > now.getTime() && firedKey(alarm.date, at) > alarm.fired
+            ? remind
+            : null;
     }
     for (let offset = 0; offset <= (alarm.repeat === 'activity' ? 70 : 8); offset += 1) {
         const day = daysAgo(-offset, now);
         for (const at of occurrences(alarm, day)) {
             const remind = at.getTime() - LEAD_MS;
-            if (remind > now.getTime()) return new Date(remind);
+            if (remind > now.getTime() && firedKey(day, at) > alarm.fired) return new Date(remind);
         }
     }
     return null;

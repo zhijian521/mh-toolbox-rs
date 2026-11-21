@@ -130,6 +130,13 @@ export default async function run(ctx) {
                     document.querySelector('[aria-label="选区上边距"]').value === '40' &&
                     document.querySelector('[aria-label="选区高度"]').value === '120'
                 `));
+                await cdp.click('.fy-adjust summary');
+                await ui.fill('选区上边距', '55');
+                await cdp.click('[aria-label="柳林坡刷妖提醒"] [role="radio"]:first-child');
+                t.check('切换提醒地图保留原选区，未确认的修改留在草稿', await cdp.evaluate(`
+                    document.querySelector('[aria-label="选区上边距"]').value === '55' &&
+                    JSON.parse(localStorage.getItem('mh-fengyao-preferences')).region.y === 40
+                `));
                 await cdp.evaluate(`
                     window.__e2eFengyao.fake.config = window.__e2eFengyao.config;
                     window.__e2eFengyao.fake.running = true;
@@ -377,7 +384,7 @@ export default async function run(ctx) {
             t.check('默认只摆武器一类', cards === 1, `${cards} 张，${total}`);
             t.check('计数是这一类的总数', /^共 \d+ 项$/.test(total), total);
             const layout = await cdp.evaluate(`(() => {
-                const input = document.querySelector('.asset-search');
+                const input = document.querySelector('.asset-bar input[type=search]');
                 const bar = document.querySelector('.asset-bar');
                 const heading = document.querySelector('.asset-sub');
                 const marker = heading.querySelector('.section-mark').getBoundingClientRect();

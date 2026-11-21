@@ -3,7 +3,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import AppIcon from './AppIcon.vue';
 import PaperCard from './PaperCard.vue';
 import { notify } from '../composables/use-notify';
-import { notifySystem } from '../services/desktop';
+import { hasDesktop, notifySystem } from '../services/desktop';
 import { countdownText, dueAlarms, LEAD_MINUTES, LEAD_MS } from '../views/tools/alarms';
 import { useAlarms } from '../views/tools/alarm-store';
 
@@ -39,14 +39,14 @@ import { useAlarms } from '../views/tools/alarm-store';
  * Toast 由系统画在屏幕右下角，与应用窗口谁在前面无关。
  *
  * 三层说的是同一件事，谁也挡不着谁；哪一层不可用（浏览器预览、系统不让发）就少一层，
- * 不报错——`notifySystem()` 失败只返回 false。
+ * 系统通知提交失败时提示一次，应用内提醒仍会显示。
  */
 const { alarms, markFired } = useAlarms();
 
 /** 多久看一眼。不做精确到秒：判定靠区间，频率只影响「最晚多久发现」。 */
 const TICK_MS = 15_000;
 
-/** 迟到这个程度就不弹了（仍记 `fired`）。五分钟够覆盖一次短暂的挂起。 */
+/** 窗口唤醒后最多补发最近五分钟的提醒。 */
 const GRACE_MS = 5 * 60_000;
 
 interface Ring {
@@ -65,6 +65,7 @@ const rings = ref<Ring[]>([]);
  * 启动时不该先补一串昨天的闹钟。 */
 let last = new Date(Date.now() - 90_000);
 let timer: ReturnType<typeof setInterval> | undefined;
+let systemError = false;
 
 /**
  * 弹一条提醒。`time` 是**这一次**的响铃时刻，不是 `alarm.time`：
@@ -80,9 +81,12 @@ function ring(
     const remaining = countdownText(new Date(hit.remindAt.getTime() + LEAD_MS), now);
     const message = remaining ? `${remaining}到点` : '已到设定时间';
     notify.info(`${name} ${time} ${message}`);
-    /* 系统那一条不等它：`notifySystem` 写盘/跨进程要几毫秒，而 `tick()` 是同步循环，
-     * 等它就等于把同一批的其它闹钟一起压后。失败了也只是少一层。 */
-    void notifySystem(`${name} ${time}`, message);
+    if (hasDesktop()) {
+        void notifySystem(`${name} ${time}`, message).then((ok) => {
+            if (!ok && !systemError) notify.info('系统通知发送失败，应用内提醒仍可查看');
+            systemError = !ok;
+        });
+    }
     rings.value = [
         ...rings.value.filter((one) => one.id !== hit.alarm.id),
         {
@@ -96,13 +100,14 @@ function ring(
 
 function tick() {
     const now = new Date();
-    const hits = dueAlarms(alarms.value, last, now);
+    // 唤醒只补宽限期内的提醒，避免回扫休眠期间的所有日程。
+    const from = new Date(Math.max(last.getTime(), now.getTime() - GRACE_MS - 1));
+    const hits = dueAlarms(alarms.value, from, now);
     last = now;
 
     for (const hit of hits) {
         /* 先记「这一次发过了」。写盘失败也已在内存里生效，这一次不会再弹。 */
         markFired(hit.alarm.id, hit.key);
-        if (now.getTime() - hit.remindAt.getTime() > GRACE_MS) continue;
         ring(hit, now);
     }
 

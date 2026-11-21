@@ -88,6 +88,7 @@ const cardLabel = computed(() => {
 
 <template>
     <PaperCard
+        plain
         as="article"
         class="alarm-card"
         :data-repeat="alarm.repeat"

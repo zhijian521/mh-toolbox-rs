@@ -267,7 +267,10 @@ export function useGhostWatch() {
         if (!valid()) return;
         windows.value = found;
         // 用户没手动选过时，若恰好只剩一个候选就替它选上，省一次操作。
-        if (selectedHwnd.value === null && windows.value.length === 1) {
+        if (selectedHwnd.value !== null && !found.some((one) => one.hwnd === selectedHwnd.value)) {
+            selectedHwnd.value = null;
+        }
+        if (selectedHwnd.value === null && found.length === 1) {
             selectedHwnd.value = windows.value[0].hwnd;
         }
     }
@@ -330,7 +333,7 @@ export function useGhostWatch() {
         try {
             if (maps.value.length === 0) maps.value = await loadGhostMaps();
             if (!isCurrent(seq)) return;
-            if (windows.value.length === 0) await refreshWindows(() => isCurrent(seq));
+            await refreshWindows(() => isCurrent(seq));
             if (!isCurrent(seq)) return;
             running.value = true;
             resetHeld();
@@ -370,13 +373,6 @@ export function useGhostWatch() {
         else void start();
     }
 
-    /** 页面打开就先加载地图与窗口列表：用户还没点开始，就该能选要监听哪个窗口。 */
-    async function prepare() {
-        if (maps.value.length === 0) maps.value = await loadGhostMaps();
-        if (disposed) return;
-        await refreshWindows();
-    }
-
     // 开关一改立刻重算，不等下一帧——开它就是为了马上看到那块深红。
     watch(hot, recompute);
 
@@ -409,7 +405,6 @@ export function useGhostWatch() {
         scalePercent,
         start,
         toggle,
-        prepare,
         applyTest,
         clearTest,
     };

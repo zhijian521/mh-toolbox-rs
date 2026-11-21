@@ -1,14 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, defineAsyncComponent, onMounted, reactive, ref, watch } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
 import NumberField from '../../components/NumberField.vue';
-import PageShell from '../../components/PageShell.vue';
-import PressButton from '../../components/PressButton.vue';
+import ToolPageShell from './ToolPageShell.vue';
 import SelectField from '../../components/SelectField.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
-import GrowthPlan from './GrowthPlan.vue';
 import { useRovingFocus } from '../../composables/use-roving-focus';
 import { ledgerMoneyText } from '../../services/format';
 import {
@@ -34,8 +31,12 @@ import {
 } from '../../services/level-costs';
 
 /** 单项计算保留各自输入；综合预算读取角色草稿，共用官网代价表。 */
-const router = useRouter();
+const GrowthPlan = defineAsyncComponent(() => import('./GrowthPlan.vue'));
 const mode = ref<'single' | 'plan'>('single');
+const openedPlan = ref(false);
+watch(mode, () => {
+    openedPlan.value = true;
+}, { once: true });
 const MODES = [
     { value: 'single' as const, label: '单项计算' },
     { value: 'plan' as const, label: '综合计算' },
@@ -592,17 +593,7 @@ const outcome = computed<Outcome>(() => {
 </script>
 
 <template>
-    <PageShell title="养成计算器" desc="单项代价 · 角色预算">
-        <template #actions>
-            <!-- 与捉鬼、闹钟页同一枚：图标读动作方向，字只写动词，完整语义在 label 里。 -->
-            <PressButton
-                icon="back"
-                text="返回"
-                label="返回工具列表"
-                @click="router.push('/tools')"
-            />
-        </template>
-
+    <ToolPageShell title="养成计算器" desc="单项计算 · 角色预算">
         <div class="growth-calculator">
             <LoadNotice :error="levelCostsError" :load="reload" />
 
@@ -613,7 +604,7 @@ const outcome = computed<Outcome>(() => {
                     label="计算方式"
                     class="calc-mode"
                 />
-                <div v-show="mode === 'plan'">
+                <div v-if="openedPlan" v-show="mode === 'plan'">
                     <GrowthPlan :costs="costs" />
                 </div>
                 <template v-if="mode === 'single'">
@@ -631,7 +622,7 @@ const outcome = computed<Outcome>(() => {
                             :key="one.key"
                             ref="cells"
                             type="button"
-                            class="board calc-pick"
+                            class="board board-plain calc-pick"
                             role="radio"
                             :aria-checked="one.key === active"
                             :tabindex="tabIndexFor(i)"
@@ -645,6 +636,7 @@ const outcome = computed<Outcome>(() => {
 
                     <div class="calc-panel growth-layout">
                         <LedgerSection
+                            plain
                             class="growth-card"
                             :title="activeType.name"
                             :hint="activeType.inputHint"
@@ -720,6 +712,7 @@ const outcome = computed<Outcome>(() => {
                         </LedgerSection>
 
                         <LedgerSection
+                            plain
                             class="growth-card growth-result-card"
                             title="需要多少"
                             :hint="activeType.resultHint"
@@ -755,7 +748,7 @@ const outcome = computed<Outcome>(() => {
                 </template>
             </template>
         </div>
-    </PageShell>
+    </ToolPageShell>
 </template>
 
 <style src="./growth-calculator.css"></style>

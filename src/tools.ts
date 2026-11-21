@@ -29,25 +29,12 @@ import type { IconName } from './components/icons';
  */
 export type ToolGroup = 'daily' | 'lookup' | 'game';
 
-/**
- * 分类的**顺序**与中文名。列表页按这个数组的顺序摆块，块内按 `TOOLS` 的原顺序。
- *
- * 顺序即优先级：日程排第一（每天都要碰），资料其次（想起来才查），游戏最后
- * （专门坐下来做某件事时才用）。以后加类也按这个直觉插，不要按「加进来的先后」。
- *
- * 想调块与块的先后就改这个数组；想知道某一类叫什么，从 `TOOL_GROUP_LABEL` 取——
- * 后者由它派生，别另写一份（两份名字迟早漂）。
- */
+/** 分类和工具在目录中的顺序由登记表决定。 */
 export const TOOL_GROUPS = [
     { key: 'daily', label: '日程' },
     { key: 'lookup', label: '资料' },
     { key: 'game', label: '游戏' },
 ] as const satisfies readonly { key: ToolGroup; label: string }[];
-
-/** 类别的中文名，`aria-label` 用（块头已经印了一个，读屏仍需要它自己带上）。 */
-export const TOOL_GROUP_LABEL = Object.fromEntries(
-    TOOL_GROUPS.map((group) => [group.key, group.label]),
-) as Record<ToolGroup, string>;
 
 interface ToolBase {
     key: string;

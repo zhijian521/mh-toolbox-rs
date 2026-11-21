@@ -100,11 +100,11 @@ export function createGrowthPlan(costs: LevelCosts, role: ReadonlyCharacter): Gr
         add(kind, '人物', name, value, cap);
     }
     role.skills.forEach((skill) =>
-        add('school', '师门', skill.name, skill.level, costs.schoolSkill.cap),
+        add('school', '师门', skill.name, skill.off ? 0 : skill.level, costs.schoolSkill.cap),
     );
     for (const skill of role.assists.filter((one) => one.kind === 'life')) {
         const type = costs.lifeSkill.skills.find((one) => one.name === skill.name);
-        if (type) add('life', '辅助', skill.name, skill.level, type.cap, type.id);
+        if (type) add('life', '辅助', skill.name, skill.off ? 0 : skill.level, type.cap, type.id);
     }
     // 按名称匹配，不依赖角色档案内分组顺序；育兽术没有官网代价表，不套用宠修。
     for (const row of role.trainings.flatMap((group) => group.rows)) {
@@ -204,18 +204,10 @@ export function growthLineCost(
     return { resources, error: '' };
 }
 
-export function summarizeGrowthPlan(
-    costs: LevelCosts,
-    lines: readonly GrowthLine[],
-    ownedExp = 0,
-    extras: readonly GrowthExtra[] = [],
-) {
+export function sumGrowthResources(
+    rows: readonly ReturnType<typeof growthLineCost>[],
+): GrowthResources {
     const total = emptyResources();
-    const rows = lines.map((line) => ({ line, ...growthLineCost(costs, line) }));
-    const errors = rows.filter((row) => row.error);
-    const ownedExpError =
-        Number.isSafeInteger(ownedExp) && ownedExp >= 0 ? '' : '现有经验需为有效的非负整数';
-    const extraRows = extras.map((item) => ({ item, ...growthExtraCost(costs, item) }));
     for (const { resources, error } of rows) {
         if (error) continue;
         for (const key of Object.keys(total) as (keyof GrowthResources)[]) {
@@ -225,6 +217,21 @@ export function summarizeGrowthPlan(
                     : total[key] + resources[key];
         }
     }
+    return total;
+}
+
+export function summarizeGrowthPlan(
+    costs: LevelCosts,
+    lines: readonly GrowthLine[],
+    ownedExp = 0,
+    extras: readonly GrowthExtra[] = [],
+) {
+    const rows = lines.map((line) => ({ line, ...growthLineCost(costs, line) }));
+    const errors = rows.filter((row) => row.error);
+    const ownedExpError =
+        Number.isSafeInteger(ownedExp) && ownedExp >= 0 ? '' : '现有经验需为有效的非负整数';
+    const extraRows = extras.map((item) => ({ item, ...growthExtraCost(costs, item) }));
+    const total = sumGrowthResources(rows);
     for (const row of extraRows) {
         if (row.error) continue;
         total.exp += row.exp;

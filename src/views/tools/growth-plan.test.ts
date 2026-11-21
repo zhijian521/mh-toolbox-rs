@@ -83,6 +83,20 @@ describe('角色综合养成预算', () => {
         expect(JSON.stringify(role)).toBe(before);
     });
 
+    it('旧档标为未学的技能以零级开始预算，保留已录入状态', () => {
+        const role = character();
+        role.skills[0] = { ...role.skills[0], level: 50, off: true };
+        role.assists[0] = { ...role.assists[0], level: 40, off: true };
+        const lines = createGrowthPlan(costs, role);
+        for (const name of ['十方无敌', '强身术']) {
+            expect(lines.find((line) => line.name === name)).toMatchObject({
+                from: 0,
+                to: 0,
+                recorded: true,
+            });
+        }
+    });
+
     it('多项目人物经验与梦幻币累加；人物和宠物修炼经验独立', () => {
         const lines = createGrowthPlan(costs, character());
         for (const row of lines) {

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
-import PageShell from '../../components/PageShell.vue';
+import ToolPageShell from './ToolPageShell.vue';
 import PaperCard from '../../components/PaperCard.vue';
 import PressButton from '../../components/PressButton.vue';
 import SelectField from '../../components/SelectField.vue';
@@ -20,7 +19,6 @@ import {
 import { timeText } from '../../services/clock';
 
 /** 区域校准与当前回执；持续捕获、解析、去重和系统提醒均由宿主负责。 */
-const router = useRouter();
 const desktop = hasDesktop();
 const remembered = readFengyaoPreferences();
 const preferences = remembered.ok ? remembered.value : null;
@@ -35,6 +33,8 @@ const startAfterSelection = ref(false);
 const region = ref<MessageRegion | null>(null);
 const busy = ref(false);
 const error = ref('');
+const statusError = ref('');
+const preferencePending = ref<{ windowTitle: string; region: MessageRegion } | null>(null);
 let timer: ReturnType<typeof setInterval> | undefined;
 let disposed = false;
 let polling = false;
@@ -47,6 +47,7 @@ const validRegion = computed(() => isMessageRegion(region.value));
 const recentAlerts = computed(() => status.value?.alerts.slice(0, 3) ?? []);
 const stateText = computed(() => {
     if (!desktop) return '请在桌面应用中使用';
+    if (!status.value) return statusError.value ? '读取监听状态失败' : '正在读取监听状态';
     if (status.value?.error && running.value) return status.value.error;
     if (!running.value) return '未开始';
     return status.value?.baselineReady ? '监听中 · 新公告符合条件时提醒' : '正在建立消息基线';
@@ -62,14 +63,23 @@ watch(hwnd, () => {
     startAfterSelection.value = false;
     calibrationOpen.value = false;
     shot.value = null;
-    region.value = null;
+    const title = windows.value.find((window) => String(window.hwnd) === hwnd.value)?.title;
+    const saved = readFengyaoPreferences();
+    const calibration = preferencePending.value ?? (saved.ok ? saved.value : null);
+    const unique = windows.value.filter((window) => window.title === title).length === 1;
+    region.value = unique && calibration?.windowTitle === title && calibration?.region
+        ? { ...calibration.region }
+        : null;
 }, { flush: 'sync' });
 
 async function refreshWindows() {
     const found = await listGhostWindows();
+    if (disposed) return;
     windows.value = found.filter((w) => /梦幻西游|mhtab/i.test(w.title));
     if (windows.value.some((w) => String(w.hwnd) === hwnd.value)) return;
-    const rememberedWindow = windows.value.filter((w) => w.title === preferences?.windowTitle);
+    const saved = readFengyaoPreferences();
+    const title = saved.ok ? saved.value?.windowTitle : undefined;
+    const rememberedWindow = windows.value.filter((w) => w.title === title);
     const chatWindows = windows.value.filter((w) => /聊天窗口/.test(w.title));
     const selected = rememberedWindow.length === 1 ? rememberedWindow[0]
         : chatWindows.length === 1 ? chatWindows[0]
@@ -91,6 +101,7 @@ async function capture() {
     await act(async () => {
         startAfterSelection.value = false;
         const image = await captureFengyaoWindow(Number(hwnd.value));
+        if (disposed) return;
         shot.value = image;
         if (region.value?.frameWidth !== image.width || region.value.frameHeight !== image.height) {
             region.value = null;
@@ -133,23 +144,25 @@ function toggleScene(name: string, enabled: boolean) {
     savePreferences();
 }
 
-function savePreferences() {
-    if (!remembered.ok) return;
+function savePreferences(saveRegion = false) {
+    const windowTitle = windows.value.find((window) => String(window.hwnd) === hwnd.value)?.title;
+    if (saveRegion && windowTitle && isMessageRegion(region.value)) {
+        preferencePending.value = { windowTitle, region: { ...region.value } };
+    }
     const stored = readFengyaoPreferences();
     if (!stored.ok) {
         preferenceError.value = stored.error;
         return;
     }
-    const windowTitle = windows.value.find((w) => String(w.hwnd) === hwnd.value)?.title;
+    // 场景开关只更新场景，窗口与区域以最后一次确认的校准为准。
+    const calibration = preferencePending.value ?? stored.value;
     const saved = saveFengyaoPreferences({
         scenes: [...scenes.value],
-        windowTitle: windowTitle ?? stored.value?.windowTitle ?? '',
-        // 游戏暂未打开时修改地图，仍保留上次完成的消息选区。
-        region: windowTitle
-            ? validRegion.value && region.value ? { ...region.value } : null
-            : stored.value?.region ?? null,
+        windowTitle: calibration?.windowTitle ?? '',
+        region: calibration?.region ?? null,
     });
-    preferenceError.value = saved ? '' : '地图设置保存失败，本次仍可监听；请稍后重试';
+    if (saved) preferencePending.value = null;
+    preferenceError.value = saved ? '' : '设置保存失败，可重试';
 }
 
 async function beginWatching() {
@@ -161,7 +174,7 @@ async function beginWatching() {
         scenes: [...scenes.value], region: { ...region.value } });
     calibrationOpen.value = false;
     startAfterSelection.value = false;
-    savePreferences();
+    savePreferences(true);
 }
 
 async function completeSelection() {
@@ -172,7 +185,7 @@ async function completeSelection() {
             return;
         }
         calibrationOpen.value = false;
-        savePreferences();
+        savePreferences(true);
     });
 }
 
@@ -184,8 +197,10 @@ async function toggle() {
         }
         if (!scenes.value.length) throw new Error('请先开启至少一个提醒地图');
         await refreshWindows();
+        if (disposed) return;
         if (!hwnd.value) throw new Error('请先选择游戏窗口，未找到时请打开游戏后刷新');
         const image = await captureFengyaoWindow(Number(hwnd.value));
+        if (disposed) return;
         // 保存的相对选区只在同尺寸下复用，不能把旧窗口句柄或缩放带入新监听。
         if (!isMessageRegion(region.value) || region.value.frameWidth !== image.width
             || region.value.frameHeight !== image.height) {
@@ -199,67 +214,74 @@ async function toggle() {
     });
 }
 
+function acceptStatus(next: WatchStatus) {
+    const previous = status.value;
+    status.value = next;
+    statusError.value = '';
+    if (!previous) {
+        const allowed = new Set(next.rules.scenes.map((scene) => scene.name));
+        scenes.value = scenes.value.filter((name) => allowed.has(name));
+    }
+    if (!previous?.running && next.running && next.config) {
+        hwnd.value = String(next.config.hwnd);
+        region.value = { ...next.config.region };
+        scenes.value = [...next.config.scenes];
+    }
+}
+
 async function poll() {
     if (polling || busy.value || disposed) return;
     polling = true;
     const current = revision;
     try {
         const next = await fengyaoStatus();
-        if (!disposed && current === revision) status.value = next;
+        if (!disposed && current === revision) acceptStatus(next);
     } catch (cause) {
-        if (!disposed && current === revision) error.value = String(cause);
-    } finally { polling = false; }
+        if (!disposed && current === revision) statusError.value = String(cause);
+    } finally {
+        polling = false;
+    }
 }
 
 onMounted(async () => {
     if (!desktop) return;
-    await act(async () => {
-        const [next] = await Promise.all([fengyaoStatus(), refreshWindows()]);
-        if (disposed) return;
-        status.value = next;
-        scenes.value = scenes.value.filter((name) => next.rules.scenes.some((s) => s.name === name));
-        // 停止的任务只是历史快照，不能覆盖用户后来保存的新窗口或选区。
-        if (next.running && next.config) {
-            hwnd.value = String(next.config.hwnd);
-            region.value = { ...next.config.region };
-            scenes.value = [...next.config.scenes];
-        }
-        if (!region.value && preferences && preferences.windowTitle === windows.value.find((w) => String(w.hwnd) === hwnd.value)?.title) {
-            region.value = preferences.region ? { ...preferences.region } : null;
-        }
-    });
+    await refreshWindows();
+    await poll();
     if (!disposed) timer = setInterval(() => void poll(), 1200);
 });
 onBeforeUnmount(() => {
     disposed = true;
     // 页面只销毁状态轮询；后台监听只由用户点击停止或退出应用结束。
-    if (timer) clearInterval(timer);
+    if (timer !== undefined) clearInterval(timer);
 });
 </script>
 
 <template>
-    <PageShell title="封妖助手" desc="系统公告 · 按场景提醒">
+    <ToolPageShell title="封妖助手" desc="系统公告 · 场景提醒">
         <template #actions>
-            <PressButton icon="back" text="返回" label="返回工具列表" @click="router.push('/tools')" />
             <PressButton
                 :icon="running ? 'stop' : 'play'"
                 :text="running ? '停止监听' : '开始监听'"
                 :label="running ? '停止封妖监听' : '开始封妖监听'"
                 seal
-                :disabled="busy || !desktop"
+                :disabled="busy || !desktop || !status"
                 @click="toggle"
             />
         </template>
         <div class="fengyao">
             <div class="fy-status-row">
                 <p class="fy-status" role="status" :class="{ live: running && !status?.error }">{{ stateText }}</p>
-                <p class="note">离开此页或最小化后继续提醒；关闭应用后停止。</p>
+                <p class="note">应用运行时持续监听。</p>
             </div>
             <p v-if="error" class="note danger-text" role="alert">{{ error }}</p>
-            <p v-if="preferenceError" class="note danger-text" role="alert">{{ preferenceError }}</p>
+            <p v-if="statusError" class="note danger-text" role="alert">{{ statusError }}</p>
+            <div v-if="preferenceError" class="fy-feedback">
+                <p class="note danger-text" role="alert">{{ preferenceError }}</p>
+                <PressButton text="重试" label="重试保存监听设置" size="sm" @click="savePreferences()" />
+            </div>
             <p v-if="status?.notificationError" class="note danger-text" role="alert">{{ status.notificationError }}</p>
 
-            <PaperCard class="fy-settings">
+            <PaperCard plain class="fy-settings">
                 <div class="fy-card-head">
                     <GroupHead as="h3">监听设置</GroupHead>
                     <span class="meta">已开启 {{ scenes.length }} 个场景</span>
@@ -296,10 +318,10 @@ onBeforeUnmount(() => {
                         />
                     </div>
                 </div>
-                <p class="note">已选地图自动保存。点击“开始监听”，首次使用时框选系统消息；修改设置前请先停止。</p>
+
             </PaperCard>
 
-            <PaperCard v-if="calibrationOpen && shot" class="fy-calibration">
+            <PaperCard v-if="calibrationOpen && shot" plain class="fy-calibration">
                 <div class="fy-card-head">
                     <GroupHead as="h3">框选系统消息</GroupHead>
                     <PressButton :text="startAfterSelection ? '完成并开始监听' : '完成框选'" label="完成系统消息区域框选" :disabled="busy || !validRegion" @click="completeSelection" />
@@ -320,7 +342,7 @@ onBeforeUnmount(() => {
                 </details>
             </PaperCard>
 
-            <PaperCard class="fy-history">
+            <PaperCard plain class="fy-history">
                 <GroupHead as="h3">最近提醒</GroupHead>
                 <p v-if="!recentAlerts.length" class="note">暂无新提醒，所选场景刷妖时会弹出系统通知。</p>
                 <ol v-else class="fy-alerts">
@@ -345,15 +367,18 @@ onBeforeUnmount(() => {
                 </details>
             </PaperCard>
         </div>
-    </PageShell>
+    </ToolPageShell>
 </template>
 
 <style scoped>
 .fengyao {
     display: grid;
-    gap: 16px;
+    gap: 12px;
+    max-width: 1000px;
 }
-.fy-status-row, .fy-card-head {
+.fy-status-row,
+.fy-card-head,
+.fy-feedback {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -368,10 +393,12 @@ onBeforeUnmount(() => {
 .fy-status.live {
     color: var(--seal);
 }
-.fy-settings, .fy-history, .fy-calibration {
+.fy-settings,
+.fy-history,
+.fy-calibration {
     display: grid;
-    gap: 18px;
-    padding: 22px;
+    gap: 14px;
+    padding: 16px;
     min-width: 0;
 }
 .fengyao .group-head {
@@ -409,14 +436,17 @@ onBeforeUnmount(() => {
 }
 .fy-scenes {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 14px 28px;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 145px), 1fr));
+    gap: 6px;
 }
 .fy-scene {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: var(--r-3);
+    background: var(--paper-2);
     font-size: var(--fs-sm);
 }
 .fy-alerts {

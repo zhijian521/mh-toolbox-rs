@@ -2,10 +2,9 @@
 import SelectField from '../../components/SelectField.vue';
 import PaperCard from '../../components/PaperCard.vue';
 import { computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 import AppIcon from '../../components/AppIcon.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
-import PageShell from '../../components/PageShell.vue';
+import ToolPageShell from './ToolPageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import MapCanvas from '../../components/ghost/MapCanvas.vue';
 import { useDevMode } from '../../composables/use-dev-mode';
@@ -30,9 +29,6 @@ import GhostTestPanel from './GhostTestPanel.vue';
  * 右下角那块「测试文字」不在这一页里（`GhostTestPanel`）：它是没有游戏时的临时替身，
  * 寿命比这一页短——真机能测之后删一个文件就干净了，这里一行都不用改。
  */
-
-const router = useRouter();
-
 const {
     running,
     starting,
@@ -51,7 +47,6 @@ const {
     degraded,
     scalePercent,
     toggle,
-    prepare,
     start,
     applyTest,
     clearTest,
@@ -74,30 +69,14 @@ function mapLabel(plan: GhostPlan): string {
     return plan.mode === 'invalid' ? plan.task.mapText : plan.map.name;
 }
 
-onMounted(async () => {
-    await prepare();
-    // 进页面就自动开始：这一页的存在意义就是「不用手输坐标」，
-    // 再让用户点一次开始是多余的。读不到游戏窗口时会立刻停下并说明原因。
-    if (desktop) await start();
+onMounted(() => {
+    if (desktop) void start();
 });
 </script>
 
 <template>
-    <PageShell title="捉鬼助手" desc="任务识别 · 地图指引">
+    <ToolPageShell title="捉鬼助手" desc="任务识别 · 地图指引">
         <template #actions>
-            <!-- 页头两个动作走 `PressButton`：内容落在一块凸起的纸上，按下去被压回纸里。
-                 主操作（开始/停止）用 `seal` 变体——块面灌朱，一眼能看出这页在跑什么。
-                 尺寸用默认档 `md`（26px）：`lg` 是 31，加上下 padding 到 50，会把页头
-                 顶高 4px 以上，与左栏牌记、其余页面的页头横线全部错开一格（2026-11-03 改，
-                 原先这里写的 `lg` 正是那个错位的来源）。
-                 文案只留动词（返回 / 开始 / 停止）：四个字会把按钮拉成一条，
-                 动作方向先由图标读出——字是补充，不是主角。完整语义留在 label 里给读屏与悬停。 -->
-            <PressButton
-                icon="back"
-                text="返回"
-                label="返回工具列表"
-                @click="router.push('/tools')"
-            />
             <PressButton
                 :icon="running ? 'stop' : 'play'"
                 :text="running ? '停止' : '开始'"
@@ -109,7 +88,7 @@ onMounted(async () => {
         </template>
 
         <div class="hunt">
-            <PaperCard class="map-card">
+            <PaperCard class="map-card" plain>
                 <!-- 两条任务共用一张卡、卡内上下分栏：分两张卡等于给同一件事
                      加了道边框和一段额外间距，读的时候还多一层「这是两个物件」的错觉。 -->
                 <div v-for="plan in plans" :key="plan.task.kind" class="map-item">
@@ -134,20 +113,15 @@ onMounted(async () => {
             </PaperCard>
 
             <aside class="hunt-side">
-                <PaperCard class="side-block">
+                <PaperCard class="side-block" plain>
                     <div class="status" :class="statusKind">
                         <span class="status-dot" aria-hidden="true" />
                         <span class="status-text">{{ statusText }}</span>
                     </div>
-                    <p v-if="stats" class="meta status-meta">
-                        截屏 {{ stats.grabMs }}ms · 识别 {{ stats.ocrMs }}ms · 系统
-                        {{ scalePercent }}%
-                    </p>
                     <!-- 降级摊开在状态区，不藏进折叠的「识别原文」：
                          链路照跑、灯照样绿，不说的话看起来完全正常，只是字全认错。 -->
                     <p v-if="degraded" class="meta engine-warn">
-                        模型没加载，正用系统 OCR
-                        兜底：黄色、绿色的字基本认不出。重启应用可重试加载。
+                        已切换到系统 OCR，彩色文字可能识别不全。
                     </p>
 
                     <div class="form-row">
@@ -168,20 +142,10 @@ onMounted(async () => {
                             "
                         />
                     </div>
-                    <!-- 两条说明都压到**一行**：原文各 28 字，在 306px 的侧栏里各折成两行，
-                         两条摞起来占掉四行高度，中间还夹着「高概率区域」那行开关，
-                         读起来像三段互不相干的备注。改成同一句式（短句 + 分号 + 短句）、
-                         各 ≤24 字之后，两条都单行，长度也接近，才是「一对」说明。 -->
-                    <p class="meta field-note">换窗口前先停止识别；游戏在前台，遮挡处截不到。</p>
-
                     <div class="form-row">
                         <span class="field-label">高概率区域</span>
                         <CostSwitch v-model="hot" off-label="关" on-label="开" class="hot-switch" />
                     </div>
-                    <!-- 判定写死成一句，不再给三档选择：`≤50 / ≥150` 是社区共识的
-                         唯一口径，「按比例」是把这两条线除以「假设坐标域 200」得来的，
-                         坐标域不是 200 的图上两种口径会给出相反结论。 -->
-                    <p class="meta field-note">假坐标 ≥150 往大、≤50 往小；51–149 无方向。</p>
                     <div class="legend">
                         <span class="legend-item">
                             <i class="legend-swatch legend-wash" aria-hidden="true" />官方 ±50
@@ -190,9 +154,10 @@ onMounted(async () => {
                             <i class="legend-swatch legend-hot" aria-hidden="true" />高概率区域
                         </span>
                     </div>
+                    <p class="meta field-note">识别时请保持游戏任务栏可见。</p>
                 </PaperCard>
 
-                <PaperCard v-if="report" as="details" class="detail-block">
+                <PaperCard v-if="report" as="details" plain class="detail-block">
                     <summary class="detail-head">
                         <AppIcon name="chevron-right" class="detail-arrow" />
                         识别原文
@@ -203,6 +168,9 @@ onMounted(async () => {
                     </summary>
                     <!-- 按行原样列出而不是给拼接后的整串：任务栏会按像素折行，
                          「这个地名是不是被切断过」只有对着折行才看得出来。 -->
+                    <p v-if="stats" class="meta status-meta">
+                        截屏 {{ stats.grabMs }}ms · 识别 {{ stats.ocrMs }}ms · 系统 {{ scalePercent }}%
+                    </p>
                     <ol class="detail-lines">
                         <li v-for="(line, index) in report.lines" :key="index">{{ line }}</li>
                     </ol>
@@ -233,7 +201,7 @@ onMounted(async () => {
                 @exit="clearTest"
             />
         </div>
-    </PageShell>
+    </ToolPageShell>
 </template>
 
 <style scoped>

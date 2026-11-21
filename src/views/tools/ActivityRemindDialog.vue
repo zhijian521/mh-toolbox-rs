@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
-import PressButton from '../../components/PressButton.vue';
+import FormActions from '../../components/FormActions.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import {
     remindDraft,
@@ -28,6 +28,7 @@ const props = defineProps<{
     activity: Activity;
     now: Date;
     alarms: readonly AlarmLike[];
+    error: string;
 }>();
 
 const emit = defineEmits<{
@@ -115,13 +116,14 @@ function submit() {
         </div>
 
         <template #footer>
-            <PressButton data-modal-cancel text="取消" label="不加了" @click="emit('close')" />
-            <PressButton
-                icon="check"
-                :text="matchingAlarm ? (matchingAlarm.enabled ? '停用' : '开启') : '保存'"
-                label="保存这一场的提醒设置"
-                seal
-                @click="submit"
+            <FormActions
+                :error="error"
+                error-role="alert"
+                cancel-label="不加了"
+                :submit-text="matchingAlarm ? (matchingAlarm.enabled ? '停用' : '开启') : '保存'"
+                submit-label="保存这一场的提醒设置"
+                @cancel="emit('close')"
+                @submit="submit"
             />
         </template>
     </ModalShell>

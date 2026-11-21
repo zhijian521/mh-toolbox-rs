@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
 import AppIcon from '../../components/AppIcon.vue';
 import GroupHead from '../../components/GroupHead.vue';
 import RecordPager from '../../components/RecordPager.vue';
 import ModalShell from '../../components/ModalShell.vue';
-import PageShell from '../../components/PageShell.vue';
+import ToolPageShell from './ToolPageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SelectField from '../../components/SelectField.vue';
 import {
@@ -18,7 +17,6 @@ import AssetImage from './AssetImage.vue';
 
 /** 图鉴先筛全部索引，再切分页；图片懒加载不能代替对 DOM 数量的限制。 */
 const PAGE_SIZE = 120;
-const router = useRouter();
 const sections = ref<AssetSection[]>([]);
 const loading = ref(false);
 const failed = ref(false);
@@ -172,20 +170,11 @@ function turnPage(next: number) {
 </script>
 
 <template>
-    <PageShell title="游戏资源" desc="图标图鉴 · 分类检索与预览">
-        <template #actions>
-            <PressButton
-                icon="back"
-                text="返回"
-                label="返回工具列表"
-                @click="router.push('/tools')"
-            />
-        </template>
-
-        <div class="asset-bar">
+    <ToolPageShell title="游戏资源" desc="图标检索 · 图鉴预览">
+        <div class="asset-bar page-filters">
             <input
                 v-model="keyword"
-                class="field asset-search"
+                class="field filter-search"
                 type="search"
                 aria-label="搜索资源名"
                 :placeholder="
@@ -227,7 +216,7 @@ function turnPage(next: number) {
             <h3>正在加载资源</h3>
         </div>
 
-        <section v-for="section in visible" :key="section.kind" class="board asset-section">
+        <section v-for="section in visible" :key="section.kind" class="board board-plain asset-section">
             <header class="asset-head">
                 <h3 class="asset-title">{{ section.title }}</h3>
                 <span class="asset-total">{{ section.summary }}</span>
@@ -283,12 +272,12 @@ function turnPage(next: number) {
         <ModalShell
             v-if="preview"
             :title="preview.name"
-            width="min(420px, calc(100vw - 48px))"
+            :width="420"
             initial-focus="cancel"
             @close="preview = null"
         >
             <div class="asset-preview">
-                <AssetImage :key="imageVersion" :src="preview.img" :name="preview.name" />
+                <AssetImage :key="imageVersion" :src="preview.img" :name="preview.name" eager />
                 <dl class="asset-details">
                     <dt>分类</dt>
                     <dd>{{ previewSection?.title }}</dd>
@@ -312,23 +301,10 @@ function turnPage(next: number) {
                 />
             </template>
         </ModalShell>
-    </PageShell>
+    </ToolPageShell>
 </template>
 
 <style scoped>
-.asset-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 12px;
-}
-.asset-search {
-    flex: none;
-    width: calc(260px * var(--fs-scale));
-    max-width: 100%;
-    min-width: 0;
-}
 /* SelectField 默认 flex: 1，图鉴筛选应按自身内容宽度换行。 */
 .asset-bar .asset-kind,
 .asset-bar .asset-filter {

@@ -83,6 +83,13 @@ describe('该提醒谁', () => {
         expect(dueAlarms([alarm], at(SUNDAY, 8, 24), at(SUNDAY, 8, 30))).toEqual([]);
     });
 
+    it('时钟回拨跨过旧场次时，不重复提醒已经经过的时间', () => {
+        const alarm = make({ repeat: 'hourly', time: '00:30', fired: `${SUNDAY} 09:30` });
+        expect(dueAlarms([alarm], at(SUNDAY, 8, 24), at(SUNDAY, 9, 30))).toEqual([]);
+        expect(dueAlarms([alarm], at(SUNDAY, 10, 24), at(SUNDAY, 10, 30))).toHaveLength(1);
+        expect(nextReminder(alarm, at(SUNDAY, 8, 24))).toEqual(at(SUNDAY, 10, 25));
+    });
+
     it('停用的不命中', () => {
         const alarm = make({ enabled: false });
         expect(dueAlarms([alarm], at(SUNDAY, 8, 24), at(SUNDAY, 8, 30))).toEqual([]);

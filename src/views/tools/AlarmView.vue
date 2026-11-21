@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useRouter } from 'vue-router';
 import { useMinuteNow } from '../../composables/use-minute-now';
 import { useRouteAction } from '../../composables/use-route-action';
 import AlarmCard from './AlarmCard.vue';
 import AlarmDialog from './AlarmDialog.vue';
 import AppIcon from '../../components/AppIcon.vue';
-import PageShell from '../../components/PageShell.vue';
+import ToolPageShell from './ToolPageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import { askConfirm } from '../../composables/use-confirm';
 import { notify } from '../../composables/use-notify';
@@ -31,7 +30,6 @@ const { alarms, error, add, update, remove, setEnabled } = useAlarms();
 /* 返回工具目录。用 `push('/tools')` 而不是 `router.back()`：这一页可能由地址直接进
  * （刷新、收藏），此时「上一页」是空的或者别的站外页面；工具子页的上一级永远只有
  * 目录一个，写死它才符合「返回」在这张纸上唯一的意思。 */
-const router = useRouter();
 
 const minuteNow = useMinuteNow();
 const now = computed(() => new Date(minuteNow.value));
@@ -76,7 +74,6 @@ function onSave(draft: AlarmDraft) {
         return;
     }
     closeDialog();
-    /* 先留一份引用：`closeDialog()` 会把 `editing` 清空，之后再判就成了「永远在新增」。 */
     notify.success('已保存');
 }
 
@@ -108,16 +105,8 @@ useRouteAction('/tools/alarm', { new: openNew });
 </script>
 
 <template>
-    <PageShell title="闹钟" desc="定时提醒 · 日程管理">
+    <ToolPageShell title="闹钟" desc="定时提醒 · 应用运行时生效">
         <template #actions>
-            <!-- 与捉鬼页同一枚：图标先读动作方向，字只写动词，完整语义在 `label` 里。
-                 排在最左——页头的右端留给主操作（这里是「新增」）。 -->
-            <PressButton
-                icon="back"
-                text="返回"
-                label="返回工具列表"
-                @click="router.push('/tools')"
-            />
             <!-- 到上限时按钮不置灰：置灰说不出「为什么点不动」。点下去由 `openNew` 说一句。 -->
             <PressButton icon="add" text="新增" label="新增一个闹钟" seal @click="openNew" />
         </template>
@@ -151,7 +140,7 @@ useRouteAction('/tools/alarm', { new: openNew });
             @save="onSave"
             @close="closeDialog"
         />
-    </PageShell>
+    </ToolPageShell>
 </template>
 
 <style scoped>

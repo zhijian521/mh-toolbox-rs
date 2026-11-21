@@ -90,6 +90,17 @@ describe('捉鬼轮询生命周期', () => {
         },
     );
 
+    it('重新开始时用重开的游戏窗口，丢弃已经失效的句柄', async () => {
+        const state = scope.run(useGhostWatch)!;
+        await state.start();
+        expect(mocks.probe).toHaveBeenLastCalledWith(1);
+        state.toggle();
+        mocks.windows.mockResolvedValue([{ hwnd: 2, title: '梦幻西游' }]);
+        await state.start();
+        expect(state.selectedHwnd.value).toBe(2);
+        expect(mocks.probe).toHaveBeenLastCalledWith(2);
+    });
+
     it('进入测试文字后迟到的真实帧不能覆盖测试结果', async () => {
         const request = deferred<ProbeResult>();
         mocks.probe.mockReturnValue(request.promise);

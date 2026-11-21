@@ -2,7 +2,7 @@
 import { ref, watch } from 'vue';
 
 /** 图鉴缩略图与预览共用缺图状态，坏图不留浏览器破图标。 */
-const props = defineProps<{ src: string; name: string }>();
+const props = defineProps<{ src: string; name: string; eager?: boolean }>();
 const failed = ref(false);
 watch(
     () => props.src,
@@ -18,7 +18,7 @@ watch(
             v-if="!failed"
             :src="src"
             :alt="name"
-            loading="lazy"
+            :loading="eager ? 'eager' : 'lazy'"
             decoding="async"
             @error="failed = true"
         />
