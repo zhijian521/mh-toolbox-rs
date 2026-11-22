@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import AppIcon from '../../components/AppIcon.vue';
+import { usePagination } from '../../composables/use-pagination';
 import { GlassButton } from '../../components/liquid-glass';
+import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import TrendChart from '../../components/TrendChart.vue';
 import { changeText, moneyText } from '../../services/format';
 import { chartPrices, pointDelta, sortedPoints, type PricePoint, type ReadonlyPriceItem } from './prices';
@@ -19,6 +22,8 @@ const rows = computed(() =>
         };
     }),
 );
+const selectedPage = defineModel<number>('page', { required: true });
+const { page, pages, visible } = usePagination(rows, 5, selectedPage);
 const chart = computed(() => chartPrices(props.item, undefined, points.value));
 const labels = computed(() => chart.value.map((point) => point.date));
 const series = computed(() => [
@@ -27,7 +32,7 @@ const series = computed(() => [
 </script>
 
 <template>
-    <div class="liquid-price-history">
+    <div class="liquid-price-history" @pointerdown.stop>
         <template v-if="rows.length">
             <section aria-labelledby="liquid-price-trend-title">
                 <h3 id="liquid-price-trend-title">
@@ -40,7 +45,7 @@ const series = computed(() => [
                     kind="money"
                     label="价格走势"
                     :value-text="moneyText"
-                    :height="176"
+                    :height="132"
                 />
             </section>
             <div class="price-history-records">
@@ -58,13 +63,14 @@ const series = computed(() => [
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="row in rows" :key="row.point.id">
+                        <tr v-for="row in visible" :key="row.point.id">
                             <td><time :datetime="row.point.date">{{ row.point.date }}</time></td>
                             <td>{{ row.amount }}</td>
                             <td :data-tone="row.tone">{{ row.change }}</td>
                             <td class="price-history-note">{{ row.point.note || '—' }}</td>
                             <td class="price-history-action">
                                 <GlassButton
+                                    class="lg-inline-action"
                                     size="small"
                                     variant="plain"
                                     :aria-label="`编辑 ${row.point.date} 的价格记录`"
@@ -78,25 +84,44 @@ const series = computed(() => [
                     </tbody>
                 </table>
             </div>
+            <nav v-if="pages > 1" class="price-history-pager" aria-label="价格记录分页">
+                <GlassButton class="lg-inline-action" size="small" shape="circle" aria-label="上一页" :disabled="page <= 1" @click="page--">
+                    <AppIcon name="chevron-left" />
+                </GlassButton>
+                <span aria-live="polite">{{ page }} / {{ pages }}</span>
+                <GlassButton class="lg-inline-action" size="small" shape="circle" aria-label="下一页" :disabled="page >= pages" @click="page++">
+                    <AppIcon name="chevron-right" />
+                </GlassButton>
+            </nav>
         </template>
-        <p v-else class="price-history-empty">这个物品还没有价格记录。</p>
+        <GlassEmptyState v-else />
     </div>
 </template>
 
 <style scoped>
 .liquid-price-history {
-    --accent: var(--lg-accent);
-    --muted: var(--price-muted);
+    --accent: light-dark(rgb(91 165 149 / 0.72), rgb(152 216 196 / 0.70));
+    --muted: var(--liquid-muted);
     --ink-2: var(--liquid-ink);
     --rule: var(--liquid-outline);
     --rule-2: var(--liquid-outline);
     --num: var(--liquid-ink);
     --bevel-hi: light-dark(#ffffff98, #e2f7e585);
-    --chart-surface-bg: light-dark(#edf8f346, #13282050);
-    --r-2: 10px;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
+    --chart-surface-bg: light-dark(rgb(248 253 250 / 0.22), rgb(24 40 38 / 0.24));
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    gap: 8px;
+}
+
+.liquid-price-history:has(.price-history-records) {
+    min-height: 300px;
+}
+.liquid-price-history > section,
+.price-history-pager {
+    flex: none;
 }
 
 .liquid-price-history h3,
@@ -112,8 +137,42 @@ const series = computed(() => [
     color: var(--muted);
 }
 
-.price-history-records {
+.liquid-price-history :deep(.chart-surface) {
+    border-radius: 10px;
+    background: var(--chart-surface-bg);
+}
+.liquid-price-history :deep(.chart-scroll) {
     overflow-x: auto;
+    scrollbar-width: none;
+    clip-path: inset(0 0 0 var(--trend-axis-width));
+}
+.liquid-price-history :deep(.chart-fixed-axis) {
+    background: transparent;
+}
+.liquid-price-history :deep(.chart-column) {
+    --chart-front-light: color-mix(in srgb, var(--chart-color) 80%, var(--bevel-hi));
+    --chart-front-dark: var(--chart-color);
+    --chart-side: color-mix(in srgb, var(--chart-color) 90%, var(--liquid-ink) 10%);
+    --chart-top: color-mix(in srgb, var(--chart-color) 72%, var(--bevel-hi));
+}
+.price-history-records {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+.price-history-pager {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    font-size: var(--fs-sm);
+    font-variant-numeric: tabular-nums;
+}
+.price-history-pager glass-button {
+    --icon-size: 14px;
+}
+.liquid-price-history > .glass-empty-state {
+    margin-block: auto;
 }
 
 .price-history-table {
@@ -124,10 +183,10 @@ const series = computed(() => [
 }
 
 .price-history-table :is(th, td) {
-    padding: 7px 6px;
+    padding: 8px 6px;
     border-bottom: 1px solid var(--rule);
     text-align: left;
-    vertical-align: top;
+    vertical-align: middle;
 }
 
 .price-history-table th {
@@ -148,24 +207,13 @@ const series = computed(() => [
     padding-block: 2px;
 }
 
-.price-history-action glass-button {
-    --glass-button-height: 26px;
-    --glass-button-padding: 7px;
-    white-space: nowrap;
-}
-
 .price-history-table [data-tone='up'] {
-    color: var(--price-up);
+    color: var(--liquid-up);
 }
 
 .price-history-table [data-tone='down'] {
-    color: var(--price-down);
+    color: var(--liquid-down);
 }
 
-.price-history-empty {
-    margin: 0;
-    padding: 12px 0;
-    color: var(--muted);
-}
 </style>
 

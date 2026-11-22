@@ -204,7 +204,7 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
         <div
             ref="host"
             class="chart chart-surface"
-            :style="{ '--trend-height': height + 'px' }"
+            :style="{ '--trend-height': height + 'px', '--trend-axis-width': chart.plot.left + 'px' }"
             @pointermove="move"
             @pointerleave="hoverIndex = null"
             @keydown="navigate"

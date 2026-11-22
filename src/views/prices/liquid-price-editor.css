@@ -1,6 +1,6 @@
 .liquid-price-editor {
     --num: var(--liquid-ink);
-    --muted: var(--price-muted);
+    --muted: var(--liquid-muted);
     --r-3: 10px;
     --ring: 2px solid var(--liquid-focus);
     --ring-offset: 1px;
@@ -19,10 +19,11 @@
 .price-editor-header p {
     margin: 3px 0 0;
     overflow-wrap: anywhere;
-    color: var(--price-muted);
+    color: var(--liquid-muted);
 }
 
 .price-editor-fields {
+    --glass-select-label-color: var(--liquid-muted);
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
@@ -32,14 +33,13 @@
     border: 0;
 }
 
-.price-editor-fields label,
-.price-editor-fields :deep(.price-field) {
+.price-editor-fields label {
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 4px;
     min-width: 0;
-    color: var(--price-muted);
+    color: var(--liquid-muted);
     font-size: var(--fs-xs);
 }
 
@@ -47,41 +47,9 @@
     grid-column: 1 / -1;
 }
 
-.price-editor-fields :is(label input, select),
-.price-editor-fields :deep(.pf-well) {
-    width: 100%;
-    min-height: 32px;
-    border: 1px solid var(--liquid-outline);
-    border-radius: 10px;
-    background: var(--price-surface);
-    color: var(--liquid-ink);
-    font: inherit;
-    font-size: var(--fs-base);
-}
-
-.price-editor-fields :is(label input, select) {
-    min-width: 0;
-    padding: 0 8px;
-}
-
-.price-editor-fields :deep(.pf-well) {
-    align-items: center;
-    justify-content: flex-start;
-    padding: 0 8px;
-}
-
-.price-editor-fields :deep(.pf-input) {
-    font-size: inherit;
-}
-
-.price-editor-fields :deep(.pf-unit) {
-    font-size: var(--fs-xs);
-}
-
 .price-editor-error,
-.price-editor-fields small,
-.price-editor-fields :deep(.pf-hint) {
-    color: var(--price-up);
+.price-editor-fields small {
+    color: var(--liquid-up);
     font-size: var(--fs-xs);
 }
 
@@ -90,4 +58,11 @@
     justify-content: flex-end;
     gap: 8px;
     margin-top: 14px;
+}
+
+.liquid-price-editor footer glass-button {
+    --glass-foreground: var(--liquid-ink);
+    --glass-accent-text: var(--liquid-ink);
+    --glass-text-shadow: none;
+    letter-spacing: normal;
 }

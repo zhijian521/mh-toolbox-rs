@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import { RouterView, useRoute, useRouter } from 'vue-router';
 import AppIcon from './components/AppIcon.vue';
 import TitleBar from './components/TitleBar.vue';
-import { GlassProvider, GlassTab, GlassTabBar } from './components/liquid-glass';
+import { GlassTab, GlassTabBar } from './components/liquid-glass';
 import { useLiquidPreferences } from './composables/use-liquid-preferences';
 import type { NavItem } from './navigation';
 import { hasDesktop } from './services/desktop';
@@ -19,11 +19,16 @@ const dockPage = computed({
 });
 
 const desktop = hasDesktop();
-const { appearance, material } = useLiquidPreferences();
+const { appearance, wallpaper, activeImage } = useLiquidPreferences();
 </script>
 
 <template>
-    <GlassProvider class="liquid-app" :mode="material" :data-appearance="appearance">
+    <div
+        class="liquid-app"
+        :data-appearance="appearance"
+        :class="{ 'has-online-wallpaper': activeImage }"
+        :style="{ '--liquid-wallpaper': `url(${wallpaper})` }"
+    >
         <TitleBar v-if="desktop" />
         <header v-else class="liquid-header">梦幻养老助手</header>
         <main class="liquid-content" aria-label="应用内容">
@@ -39,7 +44,7 @@ const { appearance, material } = useLiquidPreferences();
                 </GlassTab>
             </GlassTabBar>
         </nav>
-    </GlassProvider>
+    </div>
 </template>
 
 <style>
@@ -53,7 +58,7 @@ body {
     flex-direction: column;
     color-scheme: light;
     --lg-appearance: light;
-    --liquid-wallpaper: url('../assets/textures/liquid-wallpaper-light.webp');
+    timeline-scope: --dock-scroll;
     --lg-accent: light-dark(#276455, #b3e8c6);
     --lg-selected-text: light-dark(#17352d, #efffec);
     --liquid-ink: light-dark(#212b29, #ecf2ef);
@@ -68,10 +73,13 @@ body {
     font: var(--fs-base) / 1.5 var(--font-ui);
 }
 
+.has-online-wallpaper :where(.liquid-header, .liquid-content h1) {
+    text-shadow: 0 1px 2px light-dark(rgb(255 255 255 / 0.8), rgb(0 0 0 / 0.75));
+}
+
 .liquid-app[data-appearance='dark'] {
     color-scheme: dark;
     --lg-appearance: dark;
-    --liquid-wallpaper: url('../assets/textures/liquid-wallpaper-dark.webp');
 }
 
 .liquid-app *,
@@ -123,20 +131,37 @@ body {
     min-height: 0;
     overflow: auto;
     padding-bottom: var(--liquid-dock-clearance);
+    scroll-timeline: --dock-scroll block;
 }
 
 .liquid-content:has(> .component-catalog) {
     padding-bottom: 0;
+    scroll-timeline-name: none;
 }
 
-.liquid-app:has(.component-catalog)::after {
+.liquid-app::after {
     position: fixed;
     z-index: 2;
     inset: auto 0 0;
-    height: 84px;
-    background: linear-gradient(transparent, light-dark(#bed6d2d9, #1a3339e6));
+    height: var(--liquid-dock-clearance);
+    background: linear-gradient(transparent, light-dark(#dce9e4cc, #182c30d9));
+    opacity: 0;
     pointer-events: none;
     content: '';
+}
+
+/* 留白进入视口后收起渐隐，短页面的滚动时间线不激活。 */
+@supports (animation-timeline: scroll()) {
+    .liquid-app::after {
+        animation: dock-edge-fade auto linear both;
+        animation-timeline: --dock-scroll;
+        animation-range: calc(100% - var(--liquid-dock-clearance)) 100%;
+    }
+}
+
+@keyframes dock-edge-fade {
+    from { opacity: 1; }
+    to { opacity: 0; }
 }
 
 .liquid-dock {
@@ -151,7 +176,9 @@ body {
 .liquid-dock-bar {
     --glass-foreground: var(--liquid-ink);
     --glass-text-shadow: none;
+    --glass-tab-selection: light-dark(rgb(250 255 253 / 0.56), rgb(210 239 228 / 0.25));
     --glass-tab-bar-height: 50px;
+    --glass-tab-font-size: var(--fs-xs);
     --gl-item-icon: 18px;
     --icon-size: 18px;
     display: flex;

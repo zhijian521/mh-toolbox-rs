@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { parseLocalList, readLocalData, writeLocalData, writePreference } from './local-data';
+import {
+    parseLocalList,
+    readLocalData,
+    readPreference,
+    writeLocalData,
+    writePreference,
+} from './local-data';
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -41,7 +47,20 @@ describe('本地数据读取边界', () => {
     });
 });
 
-describe('偏好字符串写入', () => {
+describe('偏好字符串读写', () => {
+    it('保留已存的字符串，存储受限时允许界面使用默认偏好', () => {
+        vi.stubGlobal('localStorage', { getItem: () => 'dark' });
+        expect(readPreference('mh-liquid-appearance')).toBe('dark');
+        vi.stubGlobal('localStorage', {
+            getItem: () => {
+                throw new Error('blocked');
+            },
+        });
+        expect(readPreference('mh-liquid-appearance')).toBeNull();
+        vi.stubGlobal('localStorage', undefined);
+        expect(readPreference('mh-liquid-wallpaper')).toBeNull();
+    });
+
     it('沿用原始字符串，不改变已有偏好格式', () => {
         const setItem = vi.fn();
         vi.stubGlobal('localStorage', { setItem });

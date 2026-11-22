@@ -5,73 +5,42 @@ import {
     computed,
     defineComponent,
     h,
-    inject,
     mergeProps,
     onBeforeUnmount,
     onMounted,
-    onUpdated,
-    provide,
     shallowRef,
 } from 'vue';
-import type { Component, InjectionKey, PropType, Ref } from 'vue';
+import type { Component } from 'vue';
 
-export type GlassMode = 'clear' | 'frosted';
+type GlassTarget = 'surface' | 'content' | 'thumb' | 'selector' | 'tabBar' | 'menu' | 'sheet' | 'scrollEdge';
 
-type GlassTarget = 'surface' | 'thumb' | 'selector' | 'tabBar' | 'menu' | 'sheet' | 'scrollEdge';
-
-type SurfaceMaterial = GlassOptions &
-    Required<Pick<GlassOptions, 'material' | 'blur' | 'fill' | 'specular'>>;
-
-interface MaterialPreset {
-    glass: SurfaceMaterial;
-    popup: SurfaceMaterial;
-    lens: GlassOptions;
-    scrollBlur: number;
-}
-
-const presets: Record<GlassMode, MaterialPreset> = {
-    clear: {
-        glass: { material: 'clear', blur: 0.6, fill: 'rgb(0 0 0 / 0.10)', specular: 1.25 },
-        popup: {
-            material: 'regular',
-            blur: 7,
-            fill: 'light-dark(rgb(247 255 252 / 0.24), rgb(18 29 25 / 0.32))',
-            specular: 1.15,
-        },
-        lens: { material: 'clear', blur: undefined, fill: null },
-        scrollBlur: 4,
+const preset = {
+    glass: {
+        material: 'clear',
+        blur: 4,
+        fill: 'light-dark(rgb(249 252 250 / 0.26), rgb(21 32 31 / 0.35))',
+        specular: 1.25,
     },
-    frosted: {
-        glass: { material: 'regular', blur: 7, fill: 'rgb(16 23 22 / 0.35)', specular: 1.05 },
-        popup: { material: 'regular', blur: 18, fill: null, specular: 1.05 },
-        lens: { material: 'regular', blur: 4, fill: 'rgb(229 241 234 / 0.45)' },
-        scrollBlur: 12,
+    popup: {
+        material: 'regular',
+        blur: 7,
+        fill: 'light-dark(rgb(247 255 252 / 0.24), rgb(18 29 25 / 0.32))',
+        specular: 1.15,
     },
-};
-const glassModeKey: InjectionKey<Readonly<Ref<GlassMode>>> = Symbol('liquidglass-mode');
-const defaultMode = shallowRef<GlassMode>('frosted');
-
-export const GlassProvider = defineComponent({
-    name: 'GlassProvider',
-    props: {
-        mode: { type: String as PropType<GlassMode> },
-    },
-    setup(props, { slots }) {
-        const parentMode = inject(glassModeKey, defaultMode);
-        const mode = computed(() => props.mode ?? parentMode.value);
-        provide(glassModeKey, mode);
-        return () =>
-            h('div', { class: 'lg-provider', 'data-lg-mode': mode.value }, slots.default?.());
-    },
-});
+    lens: { material: 'clear', blur: 1.5, fill: null },
+    scrollBlur: 4,
+} satisfies { glass: GlassOptions; popup: GlassOptions; lens: GlassOptions; scrollBlur: number };
 
 function partSurface(host: HTMLElement, part: string) {
     const element = host.shadowRoot?.querySelector(`[part~="${part}"]`);
     return element ? getSurface(element) : undefined;
 }
 
-function updateMaterial(host: HTMLElement, target: GlassTarget, preset: MaterialPreset) {
+function updateMaterial(host: HTMLElement, target: GlassTarget) {
     switch (target) {
+        case 'content':
+            getSurface(host)?.set({ fill: 'var(--lg-content-fill, var(--lg-content-base))' });
+            break;
         case 'surface':
         case 'tabBar': {
             const surface = getSurface(host);
@@ -100,54 +69,39 @@ function updateMaterial(host: HTMLElement, target: GlassTarget, preset: Material
 }
 
 function themed<T extends Component>(component: T, target?: GlassTarget): T {
-    const hasMaterialProp = target === 'surface' || target === 'tabBar' || target === 'sheet';
+    const hasMaterialProp = target === 'surface' || target === 'content' || target === 'tabBar' || target === 'sheet';
     const wrapper = defineComponent({
         name: component.name,
         inheritAttrs: false,
         setup(_, { attrs, slots, expose }) {
-            const sharedMode = inject(glassModeKey, defaultMode);
             const child = shallowRef<{ el: HTMLElement | null } | null>(null);
             const el = computed(() => child.value?.el ?? null);
-            function resolveMode() {
-                if (hasMaterialProp && attrs.material === 'clear') return 'clear';
-                if (hasMaterialProp && attrs.material === 'regular') return 'frosted';
-                return sharedMode.value;
-            }
             expose({ el });
 
-            let appliedMode: GlassMode | undefined;
             function syncMaterial() {
-                const host = el.value;
-                const mode = resolveMode();
-                if (!host || !target || mode === appliedMode) return;
-                updateMaterial(host, target, presets[mode]);
-                appliedMode = mode;
-            }
-
-            function updateSheet() {
-                appliedMode = undefined;
-                syncMaterial();
+                if (el.value && target) updateMaterial(el.value, target);
             }
 
             onMounted(() => {
                 syncMaterial();
-                if (target === 'sheet') el.value?.addEventListener('toggle', updateSheet);
+                if (target === 'sheet') el.value?.addEventListener('toggle', syncMaterial);
             });
             onBeforeUnmount(() => {
-                if (target === 'sheet') el.value?.removeEventListener('toggle', updateSheet);
+                if (target === 'sheet') el.value?.removeEventListener('toggle', syncMaterial);
             });
-            onUpdated(syncMaterial);
 
             return () => {
-                const mode = resolveMode();
-                const preset = presets[mode];
                 const options: Record<string, unknown> = {};
                 if (hasMaterialProp) {
                     const surface = target === 'sheet' ? preset.popup : preset.glass;
                     options.material = surface.material;
                     options.blur = attrs.blur ?? surface.blur;
-                    if (target !== 'sheet')
-                        options.specular = attrs.specular ?? preset.glass.specular;
+                    if (target === 'content') {
+                        options.specular = attrs.specular ?? 0.52;
+                        options.shadow = attrs.shadow ?? '0 2px 6px rgb(16 35 30 / 0.07)';
+                    } else if (target !== 'sheet') {
+                        options.specular = attrs.specular ?? surface.specular;
+                    }
                 } else if (target === 'scrollEdge') {
                     options.blur = attrs.blur ?? preset.scrollBlur;
                 }
@@ -156,7 +110,6 @@ function themed<T extends Component>(component: T, target?: GlassTarget): T {
                     mergeProps(attrs, options, {
                         ref: child,
                         class: 'lg-component',
-                        'data-lg-mode': mode,
                         // 原生组件先等 Vue 绑定写入 props，再初始化表单值和菜单的 ARIA 状态。
                         'defer-hydration': '',
                     }),
@@ -170,7 +123,7 @@ function themed<T extends Component>(component: T, target?: GlassTarget): T {
 }
 
 export const GlassSurface = themed(Glass.GlassSurface, 'surface');
-export { GlassSurface as GlassCard };
+export const GlassCard = themed(Glass.GlassSurface, 'content');
 export const GlassButton = themed(Glass.GlassButton, 'surface');
 export const GlassSwitch = themed(Glass.GlassSwitch, 'thumb');
 export const GlassSlider = themed(Glass.GlassSlider, 'thumb');
@@ -185,7 +138,7 @@ export const GlassMenuSeparator = themed(Glass.GlassMenuSeparator);
 export const GlassToolbar = themed(Glass.GlassToolbar);
 export const GlassGroup = themed(Glass.GlassGroup, 'surface');
 export const GlassSpacer: typeof Glass.GlassSpacer = themed(Glass.GlassSpacer);
-export const GlassSearch = themed(Glass.GlassSearch, 'surface');
+export const GlassSearch = themed(Glass.GlassSearch, 'content');
 export const GlassSheet = themed(Glass.GlassSheet, 'sheet');
 export const GlassProgressiveBlur = themed(Glass.GlassProgressiveBlur, 'scrollEdge');
 export const GlassScene = themed(Glass.GlassScene);

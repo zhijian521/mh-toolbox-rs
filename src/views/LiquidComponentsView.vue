@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import AppIcon from '../components/AppIcon.vue';
 import {
     GlassButton,
     GlassCard,
@@ -21,452 +22,359 @@ import {
     GlassTabBar,
     GlassToolbar,
 } from '../components/liquid-glass';
+import GlassDialog from '../components/liquid-glass/GlassDialog.vue';
+import GlassEmptyState from '../components/liquid-glass/GlassEmptyState.vue';
+import GlassInput from '../components/liquid-glass/GlassInput.vue';
+import GlassPriceField from '../components/liquid-glass/GlassPriceField.vue';
+import GlassSelect from '../components/liquid-glass/GlassSelect.vue';
+import { useLiquidPreferences } from '../composables/use-liquid-preferences';
+import { moneyText, todayText } from '../services/format';
+import { makeId } from '../services/shape';
+import LiquidPriceCard from './prices/LiquidPriceCard.vue';
+import LiquidPriceEditor from './prices/LiquidPriceEditor.vue';
+import { sortedPoints, type PriceItem, type PricePointDraft } from './prices/prices';
 
-const game = `${import.meta.env.BASE_URL}game/`;
-const backgrounds = [
-    { name: '江南野外', src: `${game}maps/jiangnanyewai.webp` },
-    { name: '长寿村', src: `${game}maps/changshoucun.webp` },
-    { name: '傲来国', src: `${game}maps/aolaiguo.webp` },
+const { wallpaper } = useLiquidPreferences();
+const day = todayText();
+const sampleItem = ref<PriceItem>({
+    id: 'sample',
+    name: '金刚石',
+    category: '任务产出',
+    sub: '五宝',
+    unit: '个',
+    note: '',
+    createdAt: 0,
+    updatedAt: 0,
+    points: [
+        { id: 'first', date: day, price: 830_000, note: '', createdAt: 0 },
+        { id: 'second', date: day, price: 855_000, note: '', createdAt: 1 },
+    ],
+});
+const history = computed(() => sortedPoints(sampleItem.value));
+const sheetOpen = ref(false);
+const editorOpen = ref(false);
+function saveSample(draft: PricePointDraft) {
+    sampleItem.value.points.push({ ...draft, id: makeId('sample'), createdAt: Date.now() });
+    editorOpen.value = false;
+}
+
+const priceExample = ref<number | null>(3_200_000);
+const initialPrice = ref<number | null>(null);
+const name = ref('');
+const note = ref('');
+const category = ref('');
+const formCategory = ref('任务产出');
+const categories = [
+    { value: '任务产出', label: '任务产出' },
+    { value: '装备灵饰', label: '装备灵饰' },
+    { value: '召唤兽', label: '召唤兽' },
 ];
-const observations = [
-    '06:15 记录金刚石行情',
-    '07:40 更新角色状态',
-    '08:25 登记今日收益',
-    '09:50 补录账号费用',
-    '11:10 查看养成目标',
-];
-const photoIndex = ref(0);
-const wifi = ref(true);
-const brightness = ref(62);
-const currentTab = ref('overview');
+const filterOptions = [{ value: '', label: '全部分类' }, ...categories];
+const query = ref('');
+const names = ['金刚石', '定魂珠', '夜光珠'];
+const matches = computed(() => names.filter((item) => item.includes(query.value.trim())));
+const alerts = ref(true);
+const threshold = ref(62);
+const currentTab = ref('prices');
 const range = ref('week');
 const sort = ref('名称');
-const query = ref('');
-const menuOpen = ref(false);
-const sheetOpen = ref(false);
-const favorite = ref(false);
 const timeline = ref<HTMLElement | null>(null);
-const photo = computed(() => backgrounds[photoIndex.value] ?? backgrounds[0]!);
-const matches = computed(() =>
-    backgrounds.filter((item) => item.name.includes(query.value.trim())),
-);
-
-function nextPhoto() {
-    photoIndex.value = (photoIndex.value + 1) % backgrounds.length;
-}
-
-function applySearch() {
-    const [match] = matches.value;
-    if (match) photoIndex.value = backgrounds.indexOf(match);
-}
+const observations = [
+    '06:15　记录金刚石行情',
+    '07:40　更新定魂珠价格',
+    '08:25　查看历史',
+    '09:50　补记夜光珠价格',
+    '11:10　更新五宝行情',
+];
 </script>
 
 <template>
-    <div class="component-catalog" :style="{ '--preview-photo': `url(${photo.src})` }">
-        <header class="intro">
-            <h1>组件</h1>
-            <div class="pickers">
-                <fieldset>
-                    <legend>背景</legend>
-                    <label v-for="(background, index) in backgrounds" :key="background.name">
-                        <input v-model="photoIndex" type="radio" name="background" :value="index" />
-                        <span>{{ background.name }}</span>
-                    </label>
-                </fieldset>
-            </div>
-        </header>
-
+    <div class="component-catalog">
+        <header class="intro"><h1>组件</h1></header>
         <div class="gallery">
+            <h2>物价与录入</h2>
             <section>
-                <h2>按钮</h2>
+                <header><h3>物价卡片</h3></header>
                 <div class="stage">
-                    <glass-button shape="circle" aria-label="切换背景" @click="nextPhoto"
-                        >↻</glass-button
-                    >
-                    <glass-button @click="nextPhoto">切换背景</glass-button>
-                    <glass-button
-                        variant="prominent"
-                        tint="rgb(178 234 188 / 0.24)"
-                        @click="sheetOpen = true"
-                    >
-                        打开详情
-                    </glass-button>
-                </div>
-            </section>
-
-            <section>
-                <h2>卡片</h2>
-                <div class="stage">
-                    <glass-card class="quote" :radius="24">
-                        <div class="quote-item">
-                            <img
-                                :src="`${game}icons/item/item-8.png`"
-                                alt=""
-                                width="32"
-                                height="32"
-                            />
-                            <div>
-                                <small>五宝</small>
-                                <div>金刚石</div>
-                            </div>
-                        </div>
-                        <strong>85.5</strong> <small>万两</small>
-                    </glass-card>
-                </div>
-            </section>
-
-            <section>
-                <h2>开关</h2>
-                <div class="stage">
-                    <glass-card class="control" :radius="21">
-                        <div class="control-label">
-                            <span>无线网络</span>
-                            <glass-switch v-model:checked="wifi" aria-label="无线网络" />
-                        </div>
-                        <small>{{ wifi ? '无线网络已开启' : '无线网络已关闭' }}</small>
-                    </glass-card>
-                </div>
-            </section>
-
-            <section>
-                <h2>滑块</h2>
-                <div class="stage">
-                    <glass-card class="control" :radius="21">
-                        <label class="control-label" for="brightness"
-                            >亮度 <output>{{ brightness }}%</output></label
-                        >
-                        <glass-slider
-                            id="brightness"
-                            v-model:value="brightness"
-                            :step="1"
-                            aria-label="亮度"
-                        />
-                    </glass-card>
-                </div>
-            </section>
-
-            <section>
-                <h2>标签栏</h2>
-                <div class="stage">
-                    <glass-tab-bar
-                        v-model:value="currentTab"
-                        class="control-width"
-                        aria-label="旅行导航"
-                    >
-                        <glass-tab value="overview"
-                            ><span aria-hidden="true">⌂</span>概览</glass-tab
-                        >
-                        <glass-tab value="path"><span aria-hidden="true">↗</span>路线</glass-tab>
-                        <glass-tab value="saved"><span aria-hidden="true">♡</span>收藏</glass-tab>
-                    </glass-tab-bar>
-                </div>
-            </section>
-
-            <section>
-                <h2>分段选择</h2>
-                <div class="stage">
-                    <glass-segmented v-model:value="range" aria-label="时间范围">
-                        <glass-segment value="day">今天</glass-segment>
-                        <glass-segment value="week">本周</glass-segment>
-                        <glass-segment value="month">本月</glass-segment>
-                    </glass-segmented>
-                </div>
-            </section>
-
-            <section>
-                <h2>菜单</h2>
-                <div class="stage">
-                    <glass-menu v-model:open="menuOpen" @select="sort = $event">
-                        <template #trigger
-                            ><glass-button>排序 · {{ sort }} ⌄</glass-button></template
-                        >
-                        <glass-menu-label>排序方式</glass-menu-label>
-                        <glass-menu-item
-                            value="名称"
-                            group="sort"
-                            checkable
-                            :checked="sort === '名称'"
-                            >按名称</glass-menu-item
-                        >
-                        <glass-menu-item
-                            value="时间"
-                            group="sort"
-                            checkable
-                            :checked="sort === '时间'"
-                            >按时间</glass-menu-item
-                        >
-                        <glass-menu-separator />
-                        <glass-menu-item value="默认">恢复默认</glass-menu-item>
-                    </glass-menu>
-                </div>
-            </section>
-
-            <section>
-                <h2>工具栏</h2>
-                <div class="stage">
-                    <glass-toolbar class="control-width" aria-label="照片工具栏">
-                        <glass-button shape="circle" aria-label="下一张照片" @click="nextPhoto"
-                            >→</glass-button
-                        >
-                        <glass-spacer />
-                        <glass-group aria-label="照片操作">
-                            <glass-button
-                                variant="plain"
-                                shape="circle"
-                                aria-label="收藏照片"
-                                :aria-pressed="favorite"
-                                @click="favorite = !favorite"
-                                >{{ favorite ? '♥' : '♡' }}</glass-button
-                            >
-                            <glass-button
-                                variant="plain"
-                                shape="circle"
-                                aria-label="照片详情"
-                                @click="sheetOpen = true"
-                                >···</glass-button
-                            >
-                        </glass-group>
-                    </glass-toolbar>
-                </div>
-            </section>
-
-            <section>
-                <h2>搜索框</h2>
-                <div class="stage search-stage">
-                    <glass-search
-                        v-model:value="query"
-                        class="control-width"
-                        aria-label="搜索背景"
-                        placeholder="搜索背景"
-                        @search="applySearch"
+                    <LiquidPriceCard
+                        class="sample-card"
+                        :item="sampleItem"
+                        @history="sheetOpen = true"
+                        @record="editorOpen = true"
                     />
-                    <output>{{
-                        matches.map((item) => item.name).join(' · ') || '没有匹配的背景'
-                    }}</output>
                 </div>
             </section>
-
             <section>
-                <h2>底部弹层</h2>
-                <div class="stage">
-                    <glass-button @click="sheetOpen = true">打开弹层 ↑</glass-button>
-                </div>
-            </section>
-
-            <section>
-                <h2>滚动边缘</h2>
-                <div class="stage scroll-stage">
-                    <div ref="timeline" class="timeline" tabindex="0" aria-label="助手记录">
-                        <glass-card v-for="item in observations" :key="item" :radius="12">{{
-                            item
-                        }}</glass-card>
-                    </div>
-                    <glass-progressive-blur edge="top" :size="66" tint="rgb(3 16 12 / 0.3)" />
-                    <glass-toolbar class="timeline-bar" aria-label="记录工具栏">
-                        <strong>助手记录</strong><glass-spacer />
-                        <glass-button size="small" @click="timeline?.scrollTo({ top: 0 })"
-                            >回到顶部 ↑</glass-button
+                <header>
+                    <h3>按钮</h3>
+                    <small>行内 · 表单</small>
+                </header>
+                <div class="stage stack">
+                    <div class="example-row">
+                        <span class="sample-label">卡内操作</span>
+                        <GlassButton
+                            size="small"
+                            class="lg-inline-action"
+                            variant="plain"
+                            @click="sheetOpen = true"
+                            >历史</GlassButton
                         >
-                    </glass-toolbar>
+                        <GlassButton
+                            size="small"
+                            class="lg-inline-action"
+                            @click="editorOpen = true"
+                            >记价</GlassButton
+                        >
+                    </div>
+                    <div class="example-row">
+                        <span class="sample-label">表单操作</span>
+                        <GlassButton size="small" variant="prominent" @click="editorOpen = true"
+                            >编辑价格</GlassButton
+                        >
+                        <GlassButton
+                            size="small"
+                            shape="circle"
+                            aria-label="新增价格记录"
+                            @click="editorOpen = true"
+                            ><AppIcon name="add"
+                        /></GlassButton>
+                    </div>
+                </div>
+            </section>
+            <section>
+                <header>
+                    <h3>价格输入</h3>
+                    <small>记价 · 初始价</small>
+                </header>
+                <div class="stage stack">
+                    <GlassPriceField v-model="priceExample" label="这一笔多少钱" />
+                    <GlassPriceField v-model="initialPrice" label="初始价格（选填）" compact />
+                </div>
+            </section>
+            <section>
+                <header>
+                    <h3>输入框</h3>
+                    <small>表单 · 标准</small>
+                </header>
+                <div class="stage stack">
+                    <label class="field-example lg-form-fields"
+                        >物品名称<GlassInput v-model="name" placeholder="例如：金刚石"
+                    /></label>
+                    <label class="field-example"
+                        >备注<GlassInput v-model="note" placeholder="选填"
+                    /></label>
+                </div>
+            </section>
+            <section>
+                <header>
+                    <h3>下拉选择</h3>
+                    <small>筛选 · 表单</small>
+                </header>
+                <div class="stage select-examples">
+                    <GlassSelect
+                        v-model="category"
+                        class="lg-category-filter"
+                        label="一级分类"
+                        :options="filterOptions"
+                    />
+                    <GlassSelect
+                        v-model="formCategory"
+                        class="lg-category-filter lg-form-fields"
+                        label="录入分类"
+                        :options="categories"
+                    />
+                </div>
+            </section>
+            <section>
+                <header><h3>搜索框</h3></header>
+                <div class="stage stack">
+                    <GlassSearch
+                        v-model:value="query"
+                        class="lg-price-search"
+                        aria-label="搜索示例物品"
+                        placeholder="搜索物品"
+                    />
+                    <output v-if="matches.length" class="lg-caption">{{
+                        matches.join(' · ')
+                    }}</output>
+                    <GlassEmptyState v-else />
                 </div>
             </section>
 
+            <h2>选择与导航</h2>
             <section>
-                <h2>场景容器</h2>
-                <glass-scene class="scene" :src="photo.src">
-                    <glass-card class="scene-label" :radius="21"
-                        >{{ photo.name }} · 图像背景折射</glass-card
+                <header><h3>开关</h3></header>
+                <div class="stage">
+                    <div class="setting-row">
+                        <span>价格提醒</span><output>{{ alerts ? '开启' : '关闭' }}</output
+                        ><GlassSwitch v-model:checked="alerts" aria-label="价格提醒" />
+                    </div>
+                </div>
+            </section>
+            <section>
+                <header><h3>滑块</h3></header>
+                <div class="stage">
+                    <div class="field-example">
+                        <div class="setting-row">
+                            <span>提醒阈值</span><output>{{ threshold }} 万</output>
+                        </div>
+                        <GlassSlider
+                            v-model:value="threshold"
+                            :step="1"
+                            aria-label="提醒阈值（万）"
+                        />
+                    </div>
+                </div>
+            </section>
+            <section>
+                <header><h3>分段选择</h3></header>
+                <div class="stage">
+                    <GlassSegmented v-model:value="range" aria-label="时间范围">
+                        <GlassSegment value="day">今天</GlassSegment
+                        ><GlassSegment value="week">本周</GlassSegment
+                        ><GlassSegment value="month">本月</GlassSegment>
+                    </GlassSegmented>
+                </div>
+            </section>
+            <section>
+                <header><h3>标签栏</h3></header>
+                <div class="stage">
+                    <GlassTabBar v-model:value="currentTab" aria-label="示例导航">
+                        <GlassTab value="overview"><AppIcon name="overview" />概览</GlassTab>
+                        <GlassTab value="prices"><AppIcon name="prices" />物价</GlassTab>
+                        <GlassTab value="income"><AppIcon name="income" />收益</GlassTab>
+                    </GlassTabBar>
+                </div>
+            </section>
+            <section>
+                <header><h3>菜单</h3></header>
+                <div class="stage">
+                    <GlassMenu @select="sort = $event === 'reset' ? '名称' : $event">
+                        <template #trigger
+                            ><GlassButton size="small"
+                                >按{{ sort }}排序 <AppIcon name="chevron-down" /></GlassButton
+                        ></template>
+                        <GlassMenuLabel>排序方式</GlassMenuLabel>
+                        <GlassMenuItem
+                            v-for="option in ['名称', '时间']"
+                            :key="option"
+                            :value="option"
+                            group="sort"
+                            checkable
+                            :checked="sort === option"
+                            >{{ option }}</GlassMenuItem
+                        >
+                        <GlassMenuSeparator /><GlassMenuItem value="reset">恢复默认</GlassMenuItem>
+                    </GlassMenu>
+                </div>
+            </section>
+            <section>
+                <header><h3>工具栏</h3></header>
+                <div class="stage">
+                    <GlassToolbar aria-label="价格工具栏">
+                        <span>金刚石</span><GlassSpacer />
+                        <GlassGroup aria-label="价格操作">
+                            <GlassButton
+                                size="small"
+                                variant="plain"
+                                shape="circle"
+                                aria-label="查看示例历史"
+                                @click="sheetOpen = true"
+                                ><AppIcon name="history"
+                            /></GlassButton>
+                            <GlassButton
+                                size="small"
+                                variant="plain"
+                                shape="circle"
+                                aria-label="编辑示例价格"
+                                @click="editorOpen = true"
+                                ><AppIcon name="edit"
+                            /></GlassButton>
+                        </GlassGroup>
+                    </GlassToolbar>
+                </div>
+            </section>
+
+            <h2>弹层与反馈</h2>
+            <section>
+                <header><h3>对话框</h3></header>
+                <div class="stage">
+                    <GlassButton size="small" @click="editorOpen = true">打开记价表单</GlassButton>
+                </div>
+            </section>
+            <section>
+                <header><h3>底部弹层</h3></header>
+                <div class="stage">
+                    <GlassButton size="small" aria-haspopup="dialog" @click="sheetOpen = true"
+                        >查看价格历史</GlassButton
                     >
-                </glass-scene>
+                </div>
+            </section>
+            <section>
+                <header><h3>空状态</h3></header>
+                <div class="stage"><GlassEmptyState /></div>
+            </section>
+            <section>
+                <header><h3>滚动边缘</h3></header>
+                <div class="stage scroll-stage">
+                    <div ref="timeline" class="timeline" tabindex="0" aria-label="操作记录">
+                        <GlassCard v-for="item in observations" :key="item" :radius="10">{{
+                            item
+                        }}</GlassCard>
+                    </div>
+                    <GlassProgressiveBlur edge="top" :size="40" />
+                    <GlassToolbar class="timeline-bar" aria-label="记录工具栏">
+                        <span>操作记录</span><GlassSpacer /><GlassButton
+                            size="small"
+                            class="lg-inline-action"
+                            @click="timeline?.scrollTo({ top: 0 })"
+                            >回到顶部</GlassButton
+                        >
+                    </GlassToolbar>
+                </div>
+            </section>
+            <section>
+                <header><h3>场景容器</h3></header>
+                <GlassScene class="stage scene" :src="wallpaper"
+                    ><GlassCard :radius="15" class="scene-label">应用壁纸</GlassCard></GlassScene
+                >
             </section>
         </div>
-
-        <glass-sheet v-model:open="sheetOpen" detents="small medium" aria-label="金刚石行情" modal>
+        <GlassDialog v-model:open="editorOpen" label="示例记价">
+            <LiquidPriceEditor
+                v-if="editorOpen"
+                :item="sampleItem"
+                :categories="[]"
+                active
+                :saving="false"
+                :locked="false"
+                :retrying="false"
+                error=""
+                @save="saveSample"
+                @cancel="editorOpen = false"
+            />
+        </GlassDialog>
+        <GlassSheet
+            v-model:open="sheetOpen"
+            class="sample-history"
+            detents="small medium"
+            aria-label="示例价格历史"
+            modal
+        >
             <div class="sheet-content">
-                <h2>金刚石行情</h2>
-                <p>当前参考价 85.5 万两，较上次上涨 2.5 万两。</p>
-                <glass-button @click="sheetOpen = false">关闭</glass-button>
+                <header>
+                    <h2>金刚石 · 价格历史</h2>
+                    <GlassButton size="small" @click="sheetOpen = false">关闭</GlassButton>
+                </header>
+                <ol>
+                    <li v-for="point in history" :key="point.id">
+                        <time :datetime="point.date">{{ point.date }}</time
+                        >{{ moneyText(point.price) }}
+                    </li>
+                </ol>
             </div>
-        </glass-sheet>
+        </GlassSheet>
     </div>
 </template>
 
-<style scoped>
-.component-catalog {
-    --catalog-gutter: clamp(12px, 3vw, 48px);
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
-
-.intro {
-    flex: none;
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 14px 24px;
-    padding: 12px var(--catalog-gutter);
-    border-bottom: 1px solid var(--liquid-outline);
-}
-
-.intro h1 {
-    margin: 0;
-}
-
-.pickers {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 12px;
-}
-.pickers fieldset {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px;
-    min-width: 0;
-    margin: 0;
-    padding: 3px;
-    border: 1px solid var(--liquid-outline);
-    border-radius: 20px;
-    font-size: var(--fs-sm);
-}
-.pickers legend {
-    padding: 0 6px;
-}
-.pickers label {
-    position: relative;
-    cursor: pointer;
-}
-.pickers input {
-    position: absolute;
-    inset: 0;
-    margin: 0;
-    opacity: 0;
-    cursor: inherit;
-}
-.pickers span {
-    display: block;
-    padding: 4px 10px;
-    border-radius: 14px;
-    white-space: nowrap;
-}
-.pickers :checked + span {
-    background: light-dark(#fff, #3b544b);
-    box-shadow: 0 1px 3px #15241c22;
-}
-.pickers :focus-visible + span {
-    outline: 2px solid var(--liquid-focus);
-}
-
-.gallery {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    align-content: start;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 276px), 1fr));
-    gap: 20px 14px;
-    overflow: auto;
-    padding: 16px var(--catalog-gutter) calc(var(--liquid-dock-clearance) + 22px);
-    scroll-padding-bottom: var(--liquid-dock-clearance);
-}
-.gallery section {
-    min-width: 0;
-}
-.gallery h2 {
-    margin: 0 0 8px 3px;
-}
-
-.stage,
-.scene {
-    --lg-appearance: dark;
-    --lg-accent: #b3e8c6;
-    --lg-selected-text: #efffec;
-    color: #f7faf7;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 154px;
-    padding: 14px;
-    border-radius: 18px;
-}
-.stage {
-    position: relative;
-    flex-wrap: wrap;
-    gap: 8px;
-    background:
-        linear-gradient(150deg, #101b1f2b, #182b1e78),
-        var(--preview-photo) center / cover;
-    box-shadow: inset 0 0 0 1px #fff3;
-}
-.stage:focus-within {
-    z-index: 1;
-}
-
-.quote,
-.scene-label {
-    padding: 12px 17px;
-}
-.quote-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.quote-item small {
-    opacity: 0.85;
-}
-.quote strong {
-    font-size: var(--fs-amount);
-    font-weight: 400;
-}
-.control,
-.control-width {
-    width: min(280px, 100%);
-}
-.control {
-    display: grid;
-    gap: 10px;
-    padding: 12px 15px;
-}
-.control-label {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-.search-stage {
-    flex-direction: column;
-}
-.search-stage output {
-    font-size: var(--fs-sm);
-    text-shadow: 0 1px 4px #111;
-}
-.scroll-stage {
-    display: block;
-    overflow: hidden;
-    padding: 0;
-}
-.timeline {
-    display: grid;
-    gap: 6px;
-    overflow: auto;
-    height: 154px;
-    padding: 56px 10px 10px;
-}
-.timeline glass-surface {
-    padding: 7px 12px;
-}
-.timeline-bar {
-    position: absolute;
-    inset: 9px 12px auto;
-}
-.scene {
-    overflow: hidden;
-}
-.sheet-content {
-    max-width: 360px;
-    margin: 0 auto;
-}
-.sheet-content h2 {
-    margin: 0;
-}
-</style>
+<style scoped src="./liquid-components.css"></style>

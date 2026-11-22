@@ -1,0 +1,182 @@
+.component-catalog {
+    --glass-foreground: var(--liquid-ink);
+    --glass-text-shadow: none;
+    --catalog-gutter: max(16px, calc((100% - 1180px) / 2));
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.intro {
+    flex: none;
+    padding: 16px var(--catalog-gutter) 12px;
+    border-bottom: 1px solid var(--liquid-outline);
+}
+.intro h1,
+.gallery :is(h2, h3),
+.sheet-content h2 {
+    margin: 0;
+}
+.gallery {
+    display: grid;
+    flex: 1;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    align-content: start;
+    gap: 10px;
+    min-height: 0;
+    overflow: auto;
+    padding: 12px var(--catalog-gutter) calc(var(--liquid-dock-clearance) + 16px);
+    scroll-padding-bottom: var(--liquid-dock-clearance);
+    scroll-timeline: --dock-scroll block;
+}
+.gallery > h2 {
+    grid-column: 1 / -1;
+    margin-top: 12px;
+    font-size: var(--fs-md);
+}
+.gallery > h2:first-child {
+    margin-top: 0;
+}
+.gallery > section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid var(--liquid-outline);
+    border-radius: 15px;
+    background: light-dark(rgb(250 253 251 / 0.27), rgb(19 32 30 / 0.32));
+}
+.gallery > section:focus-within {
+    z-index: 1;
+}
+.gallery > section > header,
+.sheet-content header,
+.sheet-content li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+.gallery > section > header small,
+.sample-label,
+.field-example,
+.setting-row output,
+.sheet-content time {
+    color: var(--liquid-muted);
+    font-size: var(--fs-xs);
+}
+.stage {
+    position: relative;
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+    min-height: 78px;
+}
+.stack {
+    flex-direction: column;
+    gap: 10px;
+}
+.sample-card {
+    width: min(100%, 232px);
+}
+.example-row,
+.setting-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.example-row {
+    flex-wrap: wrap;
+    width: min(100%, 202px);
+}
+.sample-label {
+    margin-right: auto;
+}
+.field-example {
+    display: grid;
+    gap: 4px;
+    width: min(100%, 222px);
+}
+.setting-row {
+    width: min(100%, 222px);
+    font-size: var(--fs-base);
+    color: var(--liquid-ink);
+}
+.setting-row output {
+    margin-inline-start: auto;
+    font-variant-numeric: tabular-nums;
+}
+.select-examples {
+    align-content: center;
+}
+.select-examples .lg-category-filter {
+    flex: 1 1 100px;
+    max-width: 132px;
+}
+.stage glass-segmented {
+    --glass-segmented-height: 30px;
+}
+.stage glass-tab-bar {
+    --glass-tab-bar-height: 50px;
+    --glass-tab-font-size: var(--fs-xs);
+    --gl-item-icon: 18px;
+    --icon-size: 18px;
+    width: min(100%, 224px);
+}
+.stage glass-group {
+    --glass-button-height: var(--lg-form-height);
+}
+.stage > glass-toolbar {
+    width: min(100%, 232px);
+    font-size: var(--fs-sm);
+}
+.scroll-stage,
+.scene {
+    overflow: hidden;
+    border-radius: 10px;
+}
+.scroll-stage {
+    display: block;
+}
+.timeline {
+    display: grid;
+    gap: 4px;
+    height: 108px;
+    overflow: auto;
+    padding: 38px 6px 6px;
+    font-size: var(--fs-sm);
+}
+.timeline glass-surface {
+    padding: 4px 8px;
+}
+.stage .timeline-bar {
+    position: absolute;
+    inset: 4px 6px auto;
+    width: auto;
+}
+.scene-label {
+    padding: 6px 12px;
+    font-size: var(--fs-sm);
+}
+.sample-history {
+    --glass-sheet-max-width: 460px;
+}
+.sheet-content {
+    max-width: 400px;
+    margin: 0 auto;
+}
+.sheet-content ol {
+    margin: 8px 0 0;
+    padding: 0;
+}
+.sheet-content li {
+    padding: 6px 0;
+    border-top: 1px solid var(--liquid-outline);
+    font-variant-numeric: tabular-nums;
+}

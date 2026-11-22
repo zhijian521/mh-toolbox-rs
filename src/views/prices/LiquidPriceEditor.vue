@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, useId } from 'vue';
 import { GlassButton } from '../../components/liquid-glass';
-import PriceField from '../../components/PriceField.vue';
+import GlassInput from '../../components/liquid-glass/GlassInput.vue';
+import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
+import GlassPriceField from '../../components/liquid-glass/GlassPriceField.vue';
 import { todayText } from '../../services/format';
 import { DEFAULT_CATEGORY, type priceCategoryGroups } from './prices-catalog';
 import {
@@ -32,6 +34,7 @@ const emit = defineEmits<{
     cancel: [];
 }>();
 
+const fieldId = useId();
 const form = ref<HTMLFormElement | null>(null);
 const name = ref('');
 const category = ref(DEFAULT_CATEGORY);
@@ -43,13 +46,16 @@ const currentPrice = props.item ? currentPoint(props.item)?.price : undefined;
 const price = ref<number | null>(props.point?.price ?? currentPrice ?? null);
 const note = ref(props.point?.note ?? '');
 const submitted = ref(false);
+const priceTouched = ref(false);
 const title = computed(() => {
     if (!props.item) return '新增物品';
     return props.point ? '编辑价格记录' : '更新价格';
 });
-const subcategories = computed(
-    () => props.categories.find((group) => group.value === category.value)?.children ?? [],
-);
+const subcategoryOptions = computed(() => [
+    { value: '', label: '未分类' },
+    ...(props.categories.find((group) => group.value === category.value)?.children ?? []),
+    { value: customSubcategory, label: '自定义' },
+]);
 const itemDraft = computed(() => ({
     name: name.value,
     category: category.value,
@@ -63,13 +69,15 @@ const priceErrors = computed(() => pointDraftErrors(priceDraft.value));
 function submit() {
     if (props.saving) return;
     submitted.value = true;
-    if (props.item) {
-        if (!props.retrying && (priceErrors.value.date || priceErrors.value.price)) return;
-        emit('save', priceDraft.value);
-    } else {
-        if (!props.retrying && (itemErrors.value.name || itemErrors.value.sub)) return;
-        emit('add', itemDraft.value, price.value ?? 0);
+    const invalid = props.item
+        ? priceErrors.value.price || priceErrors.value.date
+        : itemErrors.value.name || itemErrors.value.sub;
+    if (!props.retrying && invalid) {
+        void nextTick(() => form.value?.querySelector<HTMLInputElement>('input[aria-invalid="true"]')?.focus());
+        return;
     }
+    if (props.item) emit('save', priceDraft.value);
+    else emit('add', itemDraft.value, price.value ?? 0);
 }
 
 function submitFromInput(event: KeyboardEvent) {
@@ -97,63 +105,73 @@ onMounted(() => {
             <h2>{{ title }}</h2>
             <p v-if="item">{{ item.name }}</p>
         </header>
-        <fieldset :disabled="locked" class="price-editor-fields">
+        <fieldset :disabled="locked" class="price-editor-fields lg-form-fields">
             <template v-if="!item">
                 <label class="editor-wide">
                     <span>名称</span>
-                    <input v-model="name" :maxlength="NAME_LIMIT" type="text" />
-                    <small v-if="submitted && itemErrors.name" role="alert">
+                    <GlassInput
+                        v-model="name"
+                        :maxlength="NAME_LIMIT"
+                        type="text"
+                        :aria-invalid="(submitted && !!itemErrors.name) || undefined"
+                        :aria-describedby="submitted && itemErrors.name ? fieldId + '-name' : undefined"
+                    />
+                    <small v-if="submitted && itemErrors.name" :id="fieldId + '-name'" role="alert">
                         {{ itemErrors.name }}
                     </small>
                 </label>
-                <label>
-                    <span>一级分类</span>
-                    <select v-model="category" @change="subcategory = ''">
-                        <option v-for="group in categories" :key="group.value" :value="group.value">
-                            {{ group.label }}
-                        </option>
-                    </select>
-                </label>
-                <label>
-                    <span>二级分类</span>
-                    <select v-model="subcategory">
-                        <option value="">未分类</option>
-                        <option
-                            v-for="option in subcategories"
-                            :key="option.value"
-                            :value="option.value"
-                        >
-                            {{ option.label }}
-                        </option>
-                        <option :value="customSubcategory">自定义</option>
-                    </select>
-                </label>
+                <GlassSelect
+                    v-model="category"
+                    label="一级分类"
+                    :options="categories"
+                    :disabled="locked"
+                    @update:model-value="subcategory = ''"
+                />
+                <GlassSelect
+                    v-model="subcategory"
+                    label="二级分类"
+                    :options="subcategoryOptions"
+                    :disabled="locked"
+                />
                 <label v-if="subcategory === customSubcategory" class="editor-wide">
                     <span>自定义子类</span>
-                    <input v-model="customSub" :maxlength="SUB_LIMIT" type="text" />
-                    <small v-if="submitted && itemErrors.sub" role="alert">
+                    <GlassInput
+                        v-model="customSub"
+                        :maxlength="SUB_LIMIT"
+                        type="text"
+                        :aria-invalid="(submitted && !!itemErrors.sub) || undefined"
+                        :aria-describedby="submitted && itemErrors.sub ? fieldId + '-customSub' : undefined"
+                    />
+                    <small v-if="submitted && itemErrors.sub" :id="fieldId + '-customSub'" role="alert">
                         {{ itemErrors.sub }}
                     </small>
                 </label>
             </template>
-            <label v-else>
+            <GlassPriceField
+                v-model="price"
+                class="editor-wide"
+                :label="item ? '这一笔多少钱' : '初始价格（选填）'"
+                :compact="!item"
+                :disabled="locked"
+                :reserve-error="!!item"
+                :error="item && (submitted || priceTouched) ? priceErrors.price : ''"
+                @blur="priceTouched = true"
+            />
+            <label v-if="item">
                 <span>记录日期</span>
-                <input v-model="date" type="date" />
-                <small v-if="submitted && priceErrors.date" role="alert">
+                <GlassInput
+                    v-model="date"
+                    type="date"
+                    :aria-invalid="(submitted && !!priceErrors.date) || undefined"
+                    :aria-describedby="submitted && priceErrors.date ? fieldId + '-date' : undefined"
+                />
+                <small v-if="submitted && priceErrors.date" :id="fieldId + '-date'" role="alert">
                     {{ priceErrors.date }}
                 </small>
             </label>
-            <PriceField
-                v-model="price"
-                :class="{ 'editor-wide': !item }"
-                :label="item ? '价格' : '初始价格（选填）'"
-                :error="item && submitted ? priceErrors.price : ''"
-                placeholder="0"
-                size="md"
-            />
-            <label class="editor-wide">
+            <label :class="{ 'editor-wide': !item }">
                 <span>备注（选填）</span>
-                <input v-model="note" type="text" />
+                <GlassInput v-model="note" type="text" />
             </label>
         </fieldset>
         <p v-if="error" class="price-editor-error" role="alert">{{ error }}</p>

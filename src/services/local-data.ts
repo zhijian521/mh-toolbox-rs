@@ -37,6 +37,15 @@ export function parseLocalList<T>(raw: unknown, parse: (raw: unknown) => T[]): T
     return list;
 }
 
+/** 偏好不可读时使用默认值，业务数据仍走带错误回执的独立读取路径。 */
+export function readPreference(key: string): string | null {
+    try {
+        return globalThis.localStorage?.getItem(key) ?? null;
+    } catch {
+        return null;
+    }
+}
+
 /** 偏好仍按原始字符串保存；记忆失败不撤销本次界面选择。 */
 export function writePreference(key: string, value: string): boolean {
     try {

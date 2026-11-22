@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useId, watch } from 'vue';
+import { computed, ref, useId, watch, type Component } from 'vue';
 import PressButton from './PressButton.vue';
 
 /**
@@ -26,6 +26,8 @@ const props = withDefaults(
         /** 游戏币**原值**。`null` 表示还没填。 */
         modelValue: number | null;
         label?: string;
+        wellComponent?: Component;
+        disabled?: boolean;
         error?: string;
         /** 失焦校验时保留提示位置，避免下方控件在按下与抬起之间移位。 */
         reserveError?: boolean;
@@ -41,7 +43,15 @@ const props = withDefaults(
         /** 万单位的小数位数；账目页传 2，物价保留原精度。 */
         precision?: number;
     }>(),
-    { label: '', error: '', size: 'lg', placeholder: '', stepper: false, precision: 4 },
+    {
+        label: '',
+        error: '',
+        size: 'lg',
+        placeholder: '',
+        stepper: false,
+        disabled: false,
+        precision: 4,
+    },
 );
 
 const emit = defineEmits<{
@@ -54,6 +64,14 @@ const emit = defineEmits<{
      * 声明成无参函数时两边的类型对不上（`() => void` 与 `(e: FocusEvent) => void`）。
      */
     blur: [event: FocusEvent];
+}>();
+defineSlots<{
+    step?(props: {
+        icon: 'subtract' | 'add';
+        label: string;
+        disabled: boolean;
+        step: () => void;
+    }): unknown;
 }>();
 const errorId = `price-error-${useId()}`;
 
@@ -169,21 +187,36 @@ function nudge(direction: 1 | -1) {
     <div class="price-field">
         <span v-if="label" class="field-label">{{ label }}</span>
         <div class="pf-row">
-            <PressButton
+            <slot
                 v-if="stepper"
-                class="pf-step"
+                name="step"
                 icon="subtract"
                 :label="`减 ${stepWan} 万`"
-                :disabled="!modelValue"
-                @click="nudge(-1)"
-            />
-            <span class="field pf-well" :class="[`pf-well--${size}`, { 'pf-bad': !!error }]">
+                :disabled="disabled || !modelValue"
+                :step="() => nudge(-1)"
+            >
+                <PressButton
+                    class="pf-step"
+                    icon="subtract"
+                    :label="`减 ${stepWan} 万`"
+                    :disabled="disabled || !modelValue"
+                    @click="nudge(-1)"
+                />
+            </slot>
+            <component
+                :is="wellComponent ?? 'span'"
+                :class="[
+                    wellComponent ? undefined : ['field', 'pf-well', 'pf-well--' + size],
+                    { 'pf-bad': !!error },
+                ]"
+            >
                 <input
                     class="pf-input"
                     :class="`pf-input--${size}`"
                     type="text"
                     inputmode="decimal"
                     autocomplete="off"
+                    :disabled="disabled"
                     :value="text"
                     :style="inputStyle"
                     :placeholder="placeholder"
@@ -194,14 +227,23 @@ function nudge(direction: 1 | -1) {
                     @blur="onBlur"
                 />
                 <span class="pf-unit" aria-hidden="true">万</span>
-            </span>
-            <PressButton
+            </component>
+            <slot
                 v-if="stepper"
-                class="pf-step"
+                name="step"
                 icon="add"
                 :label="`加 ${stepWan} 万`"
-                @click="nudge(1)"
-            />
+                :disabled="disabled"
+                :step="() => nudge(1)"
+            >
+                <PressButton
+                    class="pf-step"
+                    icon="add"
+                    :label="`加 ${stepWan} 万`"
+                    :disabled="disabled"
+                    @click="nudge(1)"
+                />
+            </slot>
         </div>
         <span
             v-if="error || reserveError"

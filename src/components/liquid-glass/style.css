@@ -1,13 +1,10 @@
-:where(.lg-provider, .lg-component) {
+:where(.liquid-app, .lg-component) {
     --glass-font: var(--font-ui, var(--font-rounded));
     --glass-appearance: var(--lg-appearance, dark);
     --glass-accent: var(--lg-accent, #b3e8c6);
     --glass-accent-text: var(--lg-selected-text, #efffec);
     --glass-tab-selected: var(--lg-selected-text, #efffec);
-    font-family: var(--glass-font);
-}
-
-:where(.lg-provider, .lg-component)[data-lg-mode='clear'] {
+    --lg-content-base: light-dark(rgb(255 255 255 / 0.32), rgb(28 38 39 / 0.40));
     --glass-switch-on: rgb(117 222 162 / 0.52);
     --glass-switch-off: rgb(217 246 237 / 0.22);
     --glass-slider-off: rgb(217 246 237 / 0.25);
@@ -15,40 +12,66 @@
     --glass-tab-selection: rgb(203 244 221 / 0.19);
     --glass-segmented-track: rgb(6 21 16 / 0.15);
     --glass-segmented-thumb: rgb(203 244 221 / 0.25);
-    --glass-segmented-backdrop: blur(0.6px);
+    --lg-control-backdrop: blur(3px);
+    --glass-segmented-backdrop: var(--lg-control-backdrop);
+    font-family: var(--glass-font);
 }
 
-:where(.lg-provider, .lg-component)[data-lg-mode='frosted'] {
-    --glass-switch-on: rgb(117 222 162 / 0.74);
-    --glass-switch-off: rgb(217 246 237 / 0.31);
-    --glass-slider-off: rgb(217 246 237 / 0.34);
-    --glass-thumb: rgb(243 255 247 / 0.96);
-    --glass-tab-selection: rgb(203 244 221 / 0.29);
-    --glass-segmented-track: rgb(16 23 22 / 0.42);
-    --glass-segmented-thumb: rgb(203 244 221 / 0.34);
-    --glass-segmented-backdrop: blur(7px);
+@media not (prefers-reduced-transparency: reduce) {
+    :where(glass-switch, glass-slider).lg-component::part(track) {
+        backdrop-filter: var(--lg-control-backdrop);
+    }
 }
 
-:where(glass-menu.lg-component, glass-sheet.lg-component)[data-lg-mode='clear'] {
+:where(glass-menu.lg-component, glass-sheet.lg-component) {
     color-scheme: var(--glass-appearance);
 }
 
 :where(glass-sheet.lg-component[modal]) {
-    --glass-scrim: rgb(8 16 14 / 0.34);
-}
-
-:where(glass-sheet.lg-component[modal])[data-lg-mode='clear'] {
     --glass-scrim: rgb(8 16 14 / 0.18);
-    --lg-sheet-scrim-blur: 2px;
 }
 
 :where(glass-sheet.lg-component[modal])::part(scrim) {
-    backdrop-filter: blur(var(--lg-sheet-scrim-blur, 4px));
+    backdrop-filter: blur(2px);
 }
 
 glass-button.lg-component {
     --glass-button-font-size: var(--fs-sm);
     font-weight: 400;
+}
+
+glass-button.lg-inline-action {
+    --glass-button-height: 26px;
+    --glass-button-padding: 7px;
+    white-space: nowrap;
+}
+
+.lg-category-filter {
+    --glass-select-label-color: var(--liquid-muted);
+    width: 132px;
+}
+
+.lg-price-search {
+    --glass-foreground: var(--liquid-ink);
+    --glass-text-shadow: none;
+    width: min(288px, 100%);
+    min-width: 0;
+}
+
+.lg-price-search:focus-within {
+    outline: 2px solid var(--liquid-focus);
+    outline-offset: 2px;
+}
+
+.lg-form-fields {
+    --glass-select-height: var(--lg-form-height);
+    --glass-input-height: var(--lg-form-height);
+}
+
+.lg-caption {
+    margin: 0;
+    color: var(--liquid-muted);
+    font-size: var(--fs-mini);
 }
 
 glass-segmented.lg-component,
@@ -58,7 +81,7 @@ glass-menu-item.lg-component {
 }
 
 glass-tab-bar.lg-component {
-    font-size: var(--fs-mini);
+    font-size: var(--glass-tab-font-size, var(--fs-mini));
     font-weight: 400;
 }
 
@@ -76,6 +99,11 @@ glass-menu-label.lg-component {
 }
 
 .liquid-app {
+    --liquid-muted: light-dark(#344842, #d1e2db);
+    --liquid-up: light-dark(#923b3b, #ffb8ae);
+    --liquid-down: light-dark(#245943, #a8e7c6);
+    --lg-form-height: 32px;
+    --glass-search-height: 44px;
     --lg-scroll-thumb: light-dark(rgb(44 70 59 / 0.43), rgb(213 240 226 / 0.39));
     --lg-scroll-thumb-hover: light-dark(rgb(44 70 59 / 0.60), rgb(213 240 226 / 0.58));
     scrollbar-color: var(--lg-scroll-thumb) transparent;

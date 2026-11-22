@@ -21,22 +21,17 @@ function loadCatalog() {
 import { computed, h, nextTick, onMounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 import AppIcon from '../../components/AppIcon.vue';
-import { GlassButton, GlassCard, GlassSearch, GlassSheet } from '../../components/liquid-glass';
+import { GlassButton, GlassCard, GlassSearch } from '../../components/liquid-glass';
+import GlassDialog from '../../components/liquid-glass/GlassDialog.vue';
+import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
+import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import { lazyDialog } from '../../components/lazy-dialog';
+import { useDraftGuard } from '../../composables/use-draft-guard';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
-import { moneyText } from '../../services/format';
+import LiquidPriceCard from './LiquidPriceCard.vue';
 import { usePriceViewState } from './price-view-state';
 import { priceCategoryGroups } from './prices-catalog';
-import {
-    currentPoint,
-    filterItems,
-    priceBadge,
-    sortedPoints,
-    updateSummary,
-    type PriceItemDraft,
-    type PricePoint,
-    type PricePointDraft,
-} from './prices';
+import { filterItems, type PriceItemDraft, type PricePoint, type PricePointDraft } from './prices';
 import type { PriceWrite } from './prices-store';
 
 type PriceDialog =
@@ -54,8 +49,18 @@ function dialogStatus(failed: boolean, retry: () => void) {
 
 const PriceHistory = lazyDialog(() => import('./LiquidPriceHistory.vue'), dialogStatus);
 const PriceEditor = lazyDialog(() => import('./LiquidPriceEditor.vue'), dialogStatus);
-const { items, loaded, loadError, writeError, pending, addItem, addPoint, savePoint, flush, retry } =
-    usePrices();
+const {
+    items,
+    loaded,
+    loadError,
+    writeError,
+    pending,
+    addItem,
+    addPoint,
+    savePoint,
+    flush,
+    retry,
+} = usePrices();
 const submit = usePersistedSubmit(flush, retry);
 const preparing = ref(false);
 const saving = computed(() => preparing.value || submit.saving.value);
@@ -68,8 +73,15 @@ let editorTrigger: HTMLElement | undefined;
 const loading = ref(false);
 const catalogError = ref('');
 const { keyword, category, sub } = usePriceViewState();
+const hasFilters = computed(() => Boolean(keyword.value || category.value || sub.value));
+const search = ref<{ el: HTMLElement | null } | null>(null);
 const sheetOpen = ref(false);
 const dialog = ref<PriceDialog>();
+const historyPage = ref(1);
+const historySheet = computed(() => {
+    const active = dialog.value;
+    return active?.kind === 'history' || (active?.kind === 'price' && active.fromHistory);
+});
 const historyHeading = ref<HTMLHeadingElement | null>(null);
 const error = computed(() => catalogError.value || loadError.value);
 const categories = computed(() => priceCategoryGroups(items.value));
@@ -85,20 +97,6 @@ const selectedItem = computed(() => {
 const matchingItems = computed(() =>
     filterItems(items.value, { keyword: keyword.value, category: category.value, sub: sub.value }),
 );
-const cards = computed(() =>
-    matchingItems.value.map((item) => {
-        const points = sortedPoints(item);
-        const current = currentPoint(item, points);
-        return {
-            item,
-            current,
-            amount: current ? moneyText(current.price) : '未记价',
-            change: priceBadge(item, points),
-            summary: current ? updateSummary(item, points) : '暂无记录',
-        };
-    }),
-);
-
 watch(subcategories, (options) => {
     if (sub.value && !options.some((option) => option.value === sub.value)) sub.value = '';
 });
@@ -122,7 +120,13 @@ function clearFilters() {
     sub.value = '';
 }
 
-function openHistory(itemId: string) {
+function resetFilters(event: MouseEvent) {
+    clearFilters();
+    if (event.detail === 0) search.value?.el?.focus({ preventScroll: true });
+}
+
+function openHistory(itemId: string, page = 1) {
+    historyPage.value = page;
     dialog.value = { kind: 'history', itemId };
     sheetOpen.value = true;
 }
@@ -141,12 +145,36 @@ function openEditor(next: Extract<PriceDialog, { kind: 'new-item' | 'price' }>) 
 function closeEditor() {
     const active = dialog.value;
     if (active?.kind === 'price' && active.fromHistory) {
-        openHistory(active.itemId);
+        openHistory(active.itemId, historyPage.value);
         void nextTick(() => historyHeading.value?.focus({ preventScroll: true }));
     } else {
         sheetOpen.value = false;
         const trigger = editorTrigger;
         void nextTick(() => trigger?.focus({ preventScroll: true }));
+    }
+}
+
+// 系统关窗也要看到准备联动收益账的阶段，此时还没有写队列可等待。
+const { requestClose } = useDraftGuard(
+    () => false,
+    () => saving.value,
+    closeEditor,
+);
+
+function onHistoryEscape(event: KeyboardEvent) {
+    const active = dialog.value;
+    if (active?.kind !== 'price' || !active.fromHistory || event.isComposing) return;
+    if (event.composedPath().some((el) => el instanceof Element && el.matches('glass-menu[open]')))
+        return;
+    event.preventDefault();
+    event.stopPropagation();
+    void requestClose();
+}
+
+function editHistoryPoint(point: PricePoint) {
+    const active = dialog.value;
+    if (active?.kind === 'history') {
+        openEditor({ kind: 'price', itemId: active.itemId, point, fromHistory: true });
     }
 }
 
@@ -248,146 +276,97 @@ onMounted(() => {
                     重试保存
                 </GlassButton>
             </GlassCard>
-            <div class="price-filters" role="group" aria-label="筛选物价">
+            <div v-if="items.length" class="price-filters" role="group" aria-label="筛选物价">
                 <GlassSearch
+                    ref="search"
                     v-model:value="keyword"
-                    class="price-search"
+                    class="lg-price-search"
                     aria-label="搜索物品"
                     placeholder="搜索物品、分类或备注"
                 />
-                <label class="price-filter">
-                    <span>一级分类</span>
-                    <select v-model="category" @change="sub = ''">
-                        <option value="">全部分类</option>
-                        <option v-for="option in categories" :key="option.value" :value="option.value">
-                            {{ option.label }}
-                        </option>
-                    </select>
-                </label>
-                <label class="price-filter">
-                    <span>二级分类</span>
-                    <select v-model="sub" :disabled="!subcategories.length">
-                        <option value="">全部子分类</option>
-                        <option
-                            v-for="option in subcategories"
-                            :key="option.value"
-                            :value="option.value"
-                        >
-                            {{ option.label }}
-                        </option>
-                    </select>
-                </label>
+                <div class="price-filter-actions">
+                    <GlassSelect
+                        v-model="category"
+                        class="lg-category-filter"
+                        label="一级分类"
+                        :options="[{ value: '', label: '全部分类' }, ...categories]"
+                        @update:model-value="sub = ''"
+                    />
+                    <GlassSelect
+                        v-if="subcategories.length"
+                        v-model="sub"
+                        class="lg-category-filter"
+                        label="二级分类"
+                        :options="[{ value: '', label: '全部子分类' }, ...subcategories]"
+                    />
+                    <GlassButton
+                        v-if="hasFilters"
+                        class="price-reset"
+                        size="small"
+                        shape="circle"
+                        aria-label="重置筛选"
+                        title="重置筛选"
+                        @click="resetFilters"
+                    >
+                        <AppIcon name="close" />
+                    </GlassButton>
+                </div>
             </div>
 
-            <div v-if="cards.length" class="price-grid">
-                <GlassCard
-                    v-for="card in cards"
-                    :key="card.item.id"
-                    class="price-card"
-                    :data-category="card.item.category"
-                    :radius="15"
-                >
-                    <header class="price-card-header">
-                        <h2>{{ card.item.name }}</h2>
-                        <p class="price-muted">
-                            <span class="price-category">{{ card.item.category }}</span>
-                            <template v-if="card.item.sub">
-                                / <span class="price-subcategory">{{ card.item.sub }}</span>
-                            </template>
-                        </p>
-                    </header>
-                    <div class="price-quote">
-                        <span v-if="card.current" class="price-value">{{ card.amount }}</span>
-                        <span v-else class="price-unpriced">{{ card.amount }}</span>
-                        <span
-                            v-if="card.change"
-                            class="price-change"
-                            :data-tone="card.change.tone"
-                            :title="card.change.title"
-                        >
-                            {{ card.change.text }}
-                        </span>
-                    </div>
-                    <p v-if="card.item.note" class="price-note price-muted" :title="card.item.note">
-                        {{ card.item.note }}
-                    </p>
-                    <footer class="price-card-footer">
-                        <span class="price-muted" :title="card.current?.date">{{ card.summary }}</span>
-                        <div class="price-card-actions">
-                            <GlassButton
-                                size="small"
-                                variant="plain"
-                                class="price-history-trigger"
-                                aria-haspopup="dialog"
-                                :aria-label="`查看${card.item.name}的价格历史`"
-                                @click="openHistory(card.item.id)"
-                            >
-                                历史
-                            </GlassButton>
-                            <GlassButton
-                                size="small"
-                                class="price-update-trigger"
-                                aria-haspopup="dialog"
-                                :aria-label="`更新${card.item.name}的价格`"
-                                :disabled="!canEdit || saving"
-                                @click="
-                                    openEditor({
-                                        kind: 'price',
-                                        itemId: card.item.id,
-                                        fromHistory: false,
-                                    })
-                                "
-                            >
-                                记价
-                            </GlassButton>
-                        </div>
-                    </footer>
-                </GlassCard>
+            <div v-if="matchingItems.length" class="price-grid">
+                <LiquidPriceCard
+                    v-for="item in matchingItems"
+                    :key="item.id"
+                    :item="item"
+                    :edit-disabled="!canEdit || saving"
+                    @history="openHistory(item.id)"
+                    @record="openEditor({ kind: 'price', itemId: item.id, fromHistory: false })"
+                />
             </div>
-            <GlassCard v-else class="price-state" :radius="18">
-                <p v-if="!items.length">当前账本还没有物品。</p>
-                <template v-else>
-                    <p>没有符合筛选条件的物品。</p>
-                    <GlassButton size="small" @click="clearFilters">清除筛选</GlassButton>
-                </template>
-            </GlassCard>
+            <GlassEmptyState v-else class="price-empty" />
         </template>
 
-        <GlassSheet
+        <GlassDialog
             v-model:open="sheetOpen"
             class="price-history-sheet"
-            :detents="dialog?.kind === 'history' ? '82% large' : '65% large'"
+            :bottom="historySheet"
+            :detents="historySheet ? '536' : '65% large'"
             :no-dismiss="saving"
-            aria-label="物价"
-            modal
+            @keydown.esc.capture="onHistoryEscape"
+            :class="{ 'is-history': dialog?.kind === 'history' }"
+            :label="
+                dialog?.kind === 'history'
+                    ? '物价历史'
+                    : dialog?.kind === 'new-item'
+                      ? '新增物品'
+                      : '编辑物价'
+            "
         >
             <template v-if="dialog?.kind === 'history'">
                 <header class="price-history-header">
-                    <h2 ref="historyHeading" tabindex="-1">{{ selectedItem?.name || '物价历史' }}</h2>
+                    <h2 ref="historyHeading" tabindex="-1">
+                        {{ selectedItem?.name || '物价历史' }}
+                    </h2>
                     <GlassButton size="small" @click="sheetOpen = false">关闭</GlassButton>
                 </header>
                 <template v-if="selectedItem">
-                    <p v-if="selectedItem.note" class="price-item-note price-muted">
+                    <p v-if="selectedItem.note" class="price-item-note lg-caption">
                         {{ selectedItem.note }}
                     </p>
                     <PriceHistory
                         :key="selectedItem.id"
+                        v-model:page="historyPage"
                         :item="selectedItem"
                         :edit-disabled="!canEdit || saving"
-                        @edit="
-                            openEditor({
-                                kind: 'price',
-                                itemId: selectedItem.id,
-                                point: $event,
-                                fromHistory: true,
-                            })
-                        "
+                        @edit="editHistoryPoint"
                     />
                 </template>
-                <p v-else class="price-muted">这件物品已不存在。</p>
+                <p v-else class="lg-caption">这件物品已不存在。</p>
             </template>
             <PriceEditor
-                v-else-if="dialog?.kind === 'new-item' || (dialog?.kind === 'price' && selectedItem)"
+                v-else-if="
+                    dialog?.kind === 'new-item' || (dialog?.kind === 'price' && selectedItem)
+                "
                 :key="editorVersion"
                 :item="selectedItem"
                 :point="dialog.kind === 'price' ? dialog.point : undefined"
@@ -399,13 +378,13 @@ onMounted(() => {
                 :error="editorError || writeError"
                 @add="onAddItem"
                 @save="onSavePoint"
-                @cancel="closeEditor"
+                @cancel="requestClose"
             />
             <template v-else-if="dialog?.kind === 'price'">
-                <p class="price-muted">这件物品已不存在。</p>
+                <p class="lg-caption">这件物品已不存在。</p>
                 <GlassButton size="small" @click="closeEditor">关闭</GlassButton>
             </template>
-        </GlassSheet>
+        </GlassDialog>
     </section>
 </template>
 
