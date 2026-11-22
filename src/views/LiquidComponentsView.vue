@@ -312,8 +312,6 @@ function applySearch() {
 
 .intro h1 {
     margin: 0;
-    font-size: 1.75rem;
-    font-weight: 400;
 }
 
 .pickers {
@@ -330,7 +328,7 @@ function applySearch() {
     padding: 3px;
     border: 1px solid var(--liquid-outline);
     border-radius: 20px;
-    font-size: 0.875rem;
+    font-size: var(--fs-sm);
 }
 .pickers legend {
     padding: 0 6px;
@@ -376,8 +374,6 @@ function applySearch() {
 }
 .gallery h2 {
     margin: 0 0 8px 3px;
-    font-size: 1rem;
-    font-weight: 400;
 }
 
 .stage,
@@ -419,7 +415,8 @@ function applySearch() {
     opacity: 0.85;
 }
 .quote strong {
-    font-size: 1.65rem;
+    font-size: var(--fs-amount);
+    font-weight: 400;
 }
 .control,
 .control-width {
@@ -440,6 +437,7 @@ function applySearch() {
     flex-direction: column;
 }
 .search-stage output {
+    font-size: var(--fs-sm);
     text-shadow: 0 1px 4px #111;
 }
 .scroll-stage {

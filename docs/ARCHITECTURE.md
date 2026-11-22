@@ -78,7 +78,7 @@ ModalShell 统一使用 useModalMotion 承接开关动画。modal-mask 负责事
 
 主题样式统一从 `src/styles/tokens.css` 加载，应用与独立预览共用入口，顺序为：
 
-- `token-core.css`：字体、基础语义、尺寸与动效。
+- `token-core.css`：字体选择、基础语义、尺寸与动效。字号与基础行高由两套界面共用的 `token-typography.css` 提供。
 - `token-categories.css`：物价、工具与门派分类色。
 - `token-themes.css`：六套主题的配色及根变量。
 - `materials.css`：公共控件材质，在实际元素上求值。
@@ -86,7 +86,7 @@ ModalShell 统一使用 useModalMotion 承接开关动画。modal-mask 负责事
 
 分层保持原声明顺序、选择器与变量名，不使用额外级联层；依赖局部染色的配方不提升到根节点。
 
-字体独立选择由 `use-font-family.ts` 单例维护，挂载前恢复 `mh-font-family` 并设置根属性 `data-font`；缺失或非法值使用原有文楷，旧黑体值 sans 映射为 system。保留随包文楷、资源圆体，另有“系统默认”使用 system-ui／sans-serif，由操作系统提供字体，无字体下载。字体族集中在 `token-core.css`，界面与 Canvas 共用 `--font-ui`；地图监听根属性和字体加载事件，切换系统字体也会重绘。关于页区分系统来源与随包 OFL 子集。随包文件的来源、许可与子集生成方式见 [assets/fonts/README.md](../assets/fonts/README.md)。
+字体独立选择由 `use-font-family.ts` 单例维护，挂载前恢复 `mh-font-family` 并设置根属性 `data-font`；缺失或非法值使用原有文楷，旧黑体值 sans 映射为 system。保留随包文楷、资源圆体，另有“系统默认”使用 system-ui／sans-serif，由操作系统提供字体，无字体下载。界面与 Canvas 共用 `--font-ui`，圆体字族与资源入口集中在 `rounded-font.css`；地图监听根属性和字体加载事件，切换系统字体也会重绘。关于页区分系统来源与随包 OFL 子集。随包文件的来源、许可与子集生成方式见 [assets/fonts/README.md](../assets/fonts/README.md)。
 
 公共 PaperTag 只承载插槽内容、镂空双孔、孔壁、薄纸层与断续压痕；深浅双棱材质在 materials.css，几何在组件，配色及尺寸由 CSS 变量传入。首页 ShortcutFace、账号快捷记账及开发页直接复用，不让业务字段进入外壳。
 

@@ -32,13 +32,10 @@ const { appearance, material } = useLiquidPreferences();
     width: var(--liquid-column-width);
     margin: 0 auto;
     padding: 16px 0;
-    font-size: 0.875rem;
 }
 
 .liquid-settings h1 {
     margin: 0 0 10px;
-    font-size: 1.125rem;
-    font-weight: 400;
 }
 
 .liquid-settings-panel {
@@ -71,8 +68,6 @@ const { appearance, material } = useLiquidPreferences();
         var(--glass-tab-selection)
     );
     --glass-segmented-selected: var(--glass-tab-selected);
-    font-size: 0.75rem;
-    font-weight: 400;
     letter-spacing: normal;
 }
 

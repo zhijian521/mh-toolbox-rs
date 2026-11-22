@@ -64,10 +64,8 @@ body {
     color: var(--liquid-ink);
     background: var(--liquid-wallpaper) center / cover no-repeat;
     background-color: light-dark(#e8eee9, #14211f);
-    font:
-        1rem/1.5 'MH Toolbox Rounded',
-        'Microsoft YaHei',
-        sans-serif;
+    --font-ui: var(--font-rounded);
+    font: var(--fs-base) / 1.5 var(--font-ui);
 }
 
 .liquid-app[data-appearance='dark'] {
@@ -82,10 +80,24 @@ body {
     box-sizing: border-box;
 }
 
+.liquid-app :where(h1, h2, h3, h4) {
+    font-weight: 400;
+}
+
+.liquid-app :where(h1, h2) {
+    font-size: var(--fs-md);
+    line-height: 1.25;
+}
+
+.liquid-app :where(h3, h4) {
+    font-size: var(--fs-base);
+}
+
+.liquid-app :where(small) {
+    font-size: var(--fs-xs);
+}
+
 .liquid-app > .titlebar {
-    --fs-scale: 1;
-    --fs-sm: 0.875rem;
-    --fs-mini: 0.75rem;
     --ink: var(--liquid-ink);
     --muted: var(--liquid-ink);
     --rule: var(--liquid-outline);
@@ -102,7 +114,7 @@ body {
 .liquid-header {
     flex: none;
     padding: 14px clamp(14px, 4vw, 48px) 6px;
-    font-weight: 700;
+    font-size: var(--fs-sm);
 }
 
 .liquid-content {
@@ -144,7 +156,6 @@ body {
     --icon-size: 18px;
     display: flex;
     width: 100%;
-    font-weight: 400;
 }
 
 .liquid-dock-bar .app-icon {

@@ -1,5 +1,5 @@
 :where(.lg-provider, .lg-component) {
-    --glass-font: var(--lg-font-family, 'MH Toolbox Rounded', 'Microsoft YaHei', sans-serif);
+    --glass-font: var(--font-ui, var(--font-rounded));
     --glass-appearance: var(--lg-appearance, dark);
     --glass-accent: var(--lg-accent, #b3e8c6);
     --glass-accent-text: var(--lg-selected-text, #efffec);
@@ -46,6 +46,64 @@
     backdrop-filter: blur(var(--lg-sheet-scrim-blur, 4px));
 }
 
+glass-button.lg-component {
+    --glass-button-font-size: var(--fs-sm);
+    font-weight: 400;
+}
+
+glass-segmented.lg-component,
+glass-menu-item.lg-component {
+    font-size: var(--fs-sm);
+    font-weight: 400;
+}
+
+glass-tab-bar.lg-component {
+    font-size: var(--fs-mini);
+    font-weight: 400;
+}
+
+glass-search.lg-component {
+    font-size: var(--fs-base);
+}
+
+/* 库在菜单标题元素上直接写入字号。 */
+glass-menu-label.lg-component {
+    font-size: var(--fs-xs) !important;
+}
+
 :where(.lg-component)::part(input) {
     font-family: var(--glass-font);
+}
+
+.liquid-app {
+    --lg-scroll-thumb: light-dark(rgb(44 70 59 / 0.43), rgb(213 240 226 / 0.39));
+    --lg-scroll-thumb-hover: light-dark(rgb(44 70 59 / 0.60), rgb(213 240 226 / 0.58));
+    scrollbar-color: var(--lg-scroll-thumb) transparent;
+}
+
+:where(.liquid-app, .liquid-app *),
+:where(.liquid-app glass-sheet)::part(body) {
+    scrollbar-width: thin;
+}
+
+@supports not (scrollbar-color: auto) {
+    :where(.liquid-app, .liquid-app *)::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    :where(.liquid-app, .liquid-app *)::-webkit-scrollbar-track,
+    :where(.liquid-app, .liquid-app *)::-webkit-scrollbar-corner {
+        background: transparent;
+    }
+
+    :where(.liquid-app, .liquid-app *)::-webkit-scrollbar-thumb {
+        border: 2px solid transparent;
+        border-radius: 99px;
+        background: var(--lg-scroll-thumb) padding-box;
+    }
+
+    :where(.liquid-app, .liquid-app *)::-webkit-scrollbar-thumb:hover {
+        background-color: var(--lg-scroll-thumb-hover);
+    }
 }

@@ -4,6 +4,7 @@ import type { RouteComponent } from 'vue-router';
 import LiquidApp from './LiquidApp.vue';
 import { DEFAULT_PATH, NAV_ITEMS } from './navigation';
 import './styles/rounded-font.css';
+import './styles/token-typography.css';
 import './components/liquid-glass/style.css';
 
 const components = { key: 'components', path: '/components', label: '组件', icon: 'grid' } as const;
