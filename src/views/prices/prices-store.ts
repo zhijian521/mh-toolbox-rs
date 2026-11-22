@@ -1,5 +1,5 @@
 /** 物价表的模块级状态；规则归 prices.ts，加载与写队列共用 services。 */
-import { computed, readonly, ref, type Ref } from 'vue';
+import { computed, readonly, ref, shallowRef, type Ref } from 'vue';
 import { readLocalData, writeLocalData } from '../../services/local-data';
 import { loadData } from '../../services/load-data';
 import { pricesLoad, pricesSave } from '../../services/storage';
@@ -40,13 +40,11 @@ const loadError = ref('');
 
 /** 当前数据已成功加载；读取中或失败时保持不可写。 */
 const loaded = ref(false);
-let incomeWriter: Persist | undefined;
-let incomeWriteError: Ref<string> | undefined;
+const linkedIncome = shallowRef<{ writer: Persist; error: Ref<string> }>();
 
 /** 收益模块接入联动后，两页保存回执共同等待行情与固定单价落盘。 */
 export function linkIncomePriceWrites(writer: Persist, error: Ref<string>): void {
-    incomeWriter = writer;
-    incomeWriteError = error;
+    linkedIncome.value = { writer, error };
 }
 
 /** 启动阶段读取，完成前由写队列阻止保存；旧版转换统一在启动导入入口处理。 */
@@ -119,7 +117,8 @@ function canWriteLinkedPrices(...names: string[]): boolean {
     const linked = quickItems().fixed.some((item) =>
         names.some((name) => name.trim() === item.name),
     );
-    if (!linked || !incomeWriter || incomeWriter.canWrite()) return true;
+    const income = linkedIncome.value;
+    if (!linked || !income || income.writer.canWrite()) return true;
     writeError.value = '收益账尚未读取成功，关联物价暂不能修改，请刷新后重试';
     return false;
 }
@@ -292,22 +291,28 @@ export function usePrices() {
     }
 
     return {
-        pending: computed(() => persist.pending.value + (incomeWriter?.pending.value ?? 0)),
+        pending: computed(
+            () => persist.pending.value + (linkedIncome.value?.writer.pending.value ?? 0),
+        ),
         async flush(): Promise<boolean> {
-            const results = await Promise.all([persist.flush(), incomeWriter?.flush() ?? true]);
+            const results = await Promise.all([
+                persist.flush(),
+                linkedIncome.value?.writer.flush() ?? true,
+            ]);
             return results.every(Boolean);
         },
         async retry(): Promise<boolean> {
+            const income = linkedIncome.value;
             const results = await Promise.all([
                 persist(),
-                incomeWriteError?.value ? (incomeWriter?.() ?? true) : true,
+                income?.error.value ? income.writer() : true,
             ]);
             return results.every(Boolean);
         },
         items: readonly(items),
         loaded: readonly(loaded),
         loadError,
-        writeError: computed(() => writeError.value || incomeWriteError?.value || ''),
+        writeError: computed(() => writeError.value || linkedIncome.value?.error.value || ''),
         addItem,
         saveItem,
         removeItem,

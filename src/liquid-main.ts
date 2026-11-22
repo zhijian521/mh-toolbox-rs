@@ -3,6 +3,7 @@ import { createRouter, createWebHashHistory } from 'vue-router';
 import type { RouteComponent } from 'vue-router';
 import LiquidApp from './LiquidApp.vue';
 import { DEFAULT_PATH, NAV_ITEMS } from './navigation';
+import { confirmDiscardDrafts } from './composables/use-draft-guard';
 import { guardWindowClose } from './services/desktop';
 import { flushPendingWrites } from './services/persist';
 import './styles/rounded-font.css';
@@ -36,6 +37,7 @@ const router = createRouter({
 
 createApp(LiquidApp, { items }).use(router).mount('#app');
 void guardWindowClose(async () => {
-    await flushPendingWrites();
-    return true;
+    if (!(await confirmDiscardDrafts())) return false;
+    if (await flushPendingWrites()) return true;
+    return window.confirm('仍有改动未保存，确定退出吗？取消后可在物价页重试保存。');
 });

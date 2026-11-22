@@ -145,13 +145,45 @@ describe('保存物品分类', () => {
         const { usePrices } = await loadStore(desktop);
         const { saveItem, flush } = usePrices();
 
-        expect(
-            saveItem('stone', { ...DRAFT, category: '装备灵饰', sub: ' 试验配饰 ' }).ok,
-        ).toBe(true);
+        expect(saveItem('stone', { ...DRAFT, category: '装备灵饰', sub: ' 试验配饰 ' }).ok).toBe(
+            true,
+        );
         await flush();
 
         expect(desktop.pricesSave).toHaveBeenLastCalledWith([
             expect.objectContaining({ id: 'stone', category: '装备灵饰', sub: '试验配饰' }),
         ]);
     });
+});
+
+it('先打开物价再加载收益账时，联动的写入状态、错误与重试仍同步', async () => {
+    const store = await loadStore(host(async () => []));
+    const market = store.usePrices();
+    expect(market.pending.value).toBe(0);
+    expect(market.writeError.value).toBe('');
+
+    const { ref } = await import('vue');
+    const error = ref('');
+    const pending = ref(1);
+    const writer = Object.assign(
+        vi.fn(async () => {
+            error.value = '';
+            return true;
+        }),
+        {
+            pending,
+            canWrite: () => true,
+            flush: async () => !error.value,
+        },
+    );
+    store.linkIncomePriceWrites(writer, error);
+    expect(market.pending.value).toBe(1);
+    pending.value = 0;
+    error.value = '收益账写入失败';
+    expect(market.pending.value).toBe(0);
+    expect(market.writeError.value).toBe(error.value);
+    expect(await market.flush()).toBe(false);
+    expect(await market.retry()).toBe(true);
+    expect(market.writeError.value).toBe('');
+    expect(writer).toHaveBeenCalledOnce();
 });
