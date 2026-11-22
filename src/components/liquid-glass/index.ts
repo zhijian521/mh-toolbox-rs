@@ -22,6 +22,7 @@ const preset = {
         specular: 1.25,
     },
     popup: {
+        radius: 26,
         material: 'regular',
         blur: 7,
         fill: 'light-dark(rgb(247 255 252 / 0.24), rgb(18 29 25 / 0.32))',
@@ -30,6 +31,8 @@ const preset = {
     lens: { material: 'clear', blur: 1.5, fill: null },
     scrollBlur: 4,
 } satisfies { glass: GlassOptions; popup: GlassOptions; lens: GlassOptions; scrollBlur: number };
+
+export const popupGlass = preset.popup;
 
 function partSurface(host: HTMLElement, part: string) {
     const element = host.shadowRoot?.querySelector(`[part~="${part}"]`);

@@ -1,15 +1,9 @@
 @import './rounded-font.css';
 @import './token-typography.css';
+/* 圆体与霞鹜文楷的 @font-face 各只维护一份，液态入口直接引同一批文件。 */
+@import './wenkai-font.css';
 
-/* 字体使用常用字子集，缺字回退系统字体；来源与再生成方式见 assets/fonts/README.md。 */
-@font-face {
-    font-family: 'LXGW WenKai Screen';
-    src: url('../../assets/fonts/LXGWWenKaiScreen.woff2') format('woff2');
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-}
-
+/* 全站字体由同一令牌驱动，缺字回退系统字体；字体选择独立于主题与字号。 */
 :root[data-font='system'] {
     --font-ui: system-ui, sans-serif;
 }
@@ -24,7 +18,7 @@
      * 全站由同一字体令牌驱动，默认霞鹜文楷。字体选择与主题、字号独立，
      * 标题、金额、元信息和数字列均跟随当前选择；越界字符使用对应系统回退。
      */
-    --font-ui: 'LXGW WenKai Screen', 'Microsoft YaHei', sans-serif;
+    --font-ui: var(--font-wenkai);
 
     /* 纸：--paper-base 与 --ink-base 是不随明暗翻面的混色锚点。 */
     --paper-base: #f8f3e6;

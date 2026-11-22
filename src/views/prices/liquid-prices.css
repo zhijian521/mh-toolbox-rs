@@ -1,7 +1,7 @@
 .liquid-prices {
     width: min(100% - 32px, 1180px);
     margin: 0 auto;
-    padding: 16px 0;
+    padding: 12px 0 16px;
 }
 
 .liquid-prices:has(> .price-empty) {
@@ -23,7 +23,7 @@
 }
 
 .price-page-header {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 .price-page-header h1 {
@@ -120,6 +120,41 @@
     margin-bottom: 10px;
 }
 
+.history-tools,
+.price-remove footer {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+}
+
+.price-remove {
+    max-width: 440px;
+    margin: 0 auto;
+    overflow-wrap: anywhere;
+}
+.price-remove h2 {
+    margin: 0;
+}
+.price-remove p {
+    margin: 10px 0;
+}
+.price-remove footer {
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+.price-remove [role='alert'],
+.confirm-removal {
+    color: var(--liquid-up);
+}
+.price-remove glass-button {
+    --glass-text-shadow: none;
+    letter-spacing: normal;
+}
+.confirm-removal {
+    --glass-foreground: var(--liquid-up);
+}
+
 .price-item-note {
     margin-bottom: 10px;
     overflow-wrap: anywhere;
@@ -138,4 +173,3 @@
         grid-template-columns: minmax(0, 1fr);
     }
 }
-

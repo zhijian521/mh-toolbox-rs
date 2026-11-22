@@ -39,12 +39,12 @@ const POINT_LIMIT: usize = 200;
 /// 自动备份的文件名前缀。清理旧备份时靠它把「自动备份」与用户自己导出到 `backups/` 的
 /// 文件分开——只按目录清理会把用户手工放进去的东西一起删掉。
 const AUTO_BACKUP_PREFIX: &str = "账本-before-import-";
-
-/// 自动备份最多留几份。它是「导入前那一手」的兜底，不是归档：攒到几百份之后，
-/// 用户反而找不到哪一份才是要退回去的。
-const AUTO_BACKUP_KEEP: usize = 10;
 const DAILY_PREFIX: &str = "账本-daily-";
-const DAILY_KEEP: usize = 14;
+
+/// 备份**合计**只留最近几份，日常与「替换前」共用一个名额，不分别设上限。
+/// 它是「导入前那一手」的兜底，不是归档：分两套上限时列表能涨到二十几条，
+/// 用户反而找不到哪一份才是要退回去的。列出来、能恢复的也只有这 5 条。
+const BACKUP_KEEP: usize = 5;
 const DAILY_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(300);
 static DAILY_ERROR: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
@@ -110,6 +110,10 @@ fn backup_entries(dir: &Path) -> Result<Vec<BackupEntry>, String> {
 
 fn daily_backup_at(base: &Path, now: i64) -> Result<(), String> {
     let dir = base.join("backups");
+    /* 先按合计上限收口：老版本分别留 14 / 10 份，升上来时目录里可能已有二十几份；
+     * 同日不生成新备份的那条早退路径也该把它们清掉。清理是尽力而为，
+     * 删不掉一份旧文件不该被当成「自动备份失败」。 */
+    prune_backups(&dir);
     let entries = backup_entries(&dir)?;
     if entries
         .iter()
@@ -122,13 +126,7 @@ fn daily_backup_at(base: &Path, now: i64) -> Result<(), String> {
     validate_backup(&file)?;
     std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     write_to(&dir.join(format!("{DAILY_PREFIX}{now}.json")), &file)?;
-    for one in backup_entries(&dir)?
-        .into_iter()
-        .filter(|one| one.kind == "daily")
-        .skip(DAILY_KEEP)
-    {
-        std::fs::remove_file(dir.join(one.name)).map_err(|error| error.to_string())?;
-    }
+    prune_backups(&dir);
     Ok(())
 }
 
@@ -148,7 +146,8 @@ pub(crate) fn start_daily_backups(app: AppHandle) {
 #[tauri::command]
 #[specta::specta]
 pub fn backups_list(app: AppHandle) -> Result<BackupList, String> {
-    let entries = backup_entries(&backup_dir(&app)?)?;
+    /* 与「只保留 5 条」同口径：磁盘清理是尽力而为，列出来的一定不超过 5 条。 */
+    let entries = listed_backups(&backup_dir(&app)?)?;
     let error = DAILY_ERROR
         .lock()
         .map_err(|error| error.to_string())?
@@ -160,7 +159,8 @@ pub fn backups_list(app: AppHandle) -> Result<BackupList, String> {
 #[specta::specta]
 pub async fn backup_restore(app: AppHandle, name: String) -> Result<ImportSummary, String> {
     let dir = backup_dir(&app)?;
-    if !backup_entries(&dir)?.iter().any(|one| one.name == name) {
+    /* 只认列得出来的那几条：列表之外的旧文件即使暂时没删掉，也不该能被盲恢复。 */
+    if !listed_backups(&dir)?.iter().any(|one| one.name == name) {
         return Err("备份不存在或不在可恢复列表中".to_string());
     }
     let path = dir.join(name);
@@ -339,7 +339,7 @@ fn replace_backup_with(
             saved
         }
     };
-    prune_auto_backups(&dir);
+    prune_backups(&dir);
 
     /* 到这里为止的失败都还是「什么都没换」，不需要报备份路径。下面两条是替换路径上
      * 仅有的失败点，两个都要带上路径。 */
@@ -819,42 +819,34 @@ fn backup_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-/// 只保留最近 `AUTO_BACKUP_KEEP` 份**自动备份**。
+/// 界面与恢复共用的可见备份：按时间从新到旧，只留最近 `BACKUP_KEEP` 条。
 ///
-/// 只认 `AUTO_BACKUP_PREFIX` + 时间戳 + `.json` 这个形状：用户手点的导出落在自己选的
-/// 位置，就算他恰好选到 `backups/`，文件名也不是这个形状，不会被误删。
-/// 损坏数据恢复前保存的 `.db` 原库快照也不参与自动清理。
+/// 磁盘清理是尽力而为（见 `prune_backups`），删不掉的那一份会留在目录里；这里再截一次，
+/// 保证「列出来的」和「能恢复的」始终是同一批，不会出现看不到的文件反而能恢复。
+/// 清理成功时两者自然一致，代价只是多一次 `truncate`。
+fn listed_backups(dir: &Path) -> Result<Vec<BackupEntry>, String> {
+    let mut entries = backup_entries(dir)?;
+    entries.truncate(BACKUP_KEEP);
+    Ok(entries)
+}
+
+/// 只保留最近 `BACKUP_KEEP` 份备份，日常与「替换前」**合计**算，不再各留一套。
+///
+/// 只认两个前缀 + 时间戳 + `.json` 这个形状（`backup_entries` 还排除了符号链接）：
+/// 用户手点的导出落在自己选的位置，就算他恰好选到 `backups/`，文件名也不是这个形状，
+/// 不会被误删；旧版原件与损坏数据恢复前保存的 `.db` 原库快照同样不参与清理。
 ///
 /// 全程尽力而为、不返回 `Err`：这是收尾动作，删不掉一份旧备份不该让一次成功的导入
-/// 变成失败。同理，`read_dir` 都不通就直接放弃。
-fn prune_auto_backups(dir: &Path) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
+/// 变成失败，也不该把「清理没做完」报成「自动备份失败」。目录读不通就直接放弃。
+fn prune_backups(dir: &Path) {
+    let Ok(entries) = backup_entries(dir) else {
         return;
     };
-    let mut backups: Vec<(i64, PathBuf)> = entries
-        .filter_map(Result::ok)
-        .filter_map(|entry| {
-            let stamp = entry
-                .file_name()
-                .into_string()
-                .ok()?
-                .strip_prefix(AUTO_BACKUP_PREFIX)?
-                .strip_suffix(".json")?
-                .parse::<i64>()
-                .ok()?;
-            Some((stamp, entry.path()))
-        })
-        .collect();
-
-    if backups.len() <= AUTO_BACKUP_KEEP {
-        return;
-    }
-    /* 按时间戳从新到旧；同一毫秒的两份顺序无所谓——它们本来就是同一批写的。 */
-    backups.sort_unstable_by_key(|(stamp, _)| std::cmp::Reverse(*stamp));
-    for (_, path) in backups.into_iter().skip(AUTO_BACKUP_KEEP) {
+    for one in entries.into_iter().skip(BACKUP_KEEP) {
+        let path = dir.join(&one.name);
         if let Err(error) = std::fs::remove_file(&path) {
             eprintln!(
-                "清理旧自动备份 {} 失败（不影响本次导入）：{error}",
+                "清理旧备份 {} 失败（不影响本次操作）：{error}",
                 path.display()
             );
         }

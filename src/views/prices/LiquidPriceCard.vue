@@ -23,13 +23,16 @@ const summary = computed(() =>
 <template>
     <GlassCard class="price-card" :data-category="item.category" :radius="15">
         <header class="price-card-header">
-            <h2>{{ item.name }}</h2>
-            <p class="lg-caption">
-                <span class="price-category">{{ item.category }}</span>
-                <template v-if="item.sub">
-                    / <span class="price-subcategory">{{ item.sub }}</span>
-                </template>
-            </p>
+            <div class="price-card-heading">
+                <h2>{{ item.name }}</h2>
+                <p class="lg-caption">
+                    <span class="price-category">{{ item.category }}</span>
+                    <template v-if="item.sub">
+                        / <span class="price-subcategory">{{ item.sub }}</span>
+                    </template>
+                </p>
+            </div>
+            <slot name="actions" />
         </header>
         <div class="price-quote">
             <span v-if="current" class="price-value">{{ moneyText(current.price) }}</span>
@@ -116,6 +119,17 @@ const summary = computed(() =>
 
 .price-card[data-category='通货账号'] {
     --price-category-tint: light-dark(#c6b16b, #dfcd90);
+}
+
+.price-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.price-card-heading {
+    min-width: 0;
 }
 
 .price-card-header h2 {

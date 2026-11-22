@@ -4,12 +4,13 @@ import AppIcon from '../../components/AppIcon.vue';
 import { usePagination } from '../../composables/use-pagination';
 import { GlassButton } from '../../components/liquid-glass';
 import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
+import PriceActionsMenu from './PriceActionsMenu.vue';
 import TrendChart from '../../components/TrendChart.vue';
 import { changeText, moneyText } from '../../services/format';
 import { chartPrices, pointDelta, sortedPoints, type PricePoint, type ReadonlyPriceItem } from './prices';
 
 const props = defineProps<{ item: ReadonlyPriceItem; editDisabled: boolean }>();
-const emit = defineEmits<{ edit: [point: PricePoint] }>();
+const emit = defineEmits<{ edit: [point: PricePoint]; remove: [point: PricePoint] }>();
 const points = computed(() => sortedPoints(props.item));
 const rows = computed(() =>
     points.value.map((point, index) => {
@@ -69,16 +70,24 @@ const series = computed(() => [
                             <td :data-tone="row.tone">{{ row.change }}</td>
                             <td class="price-history-note">{{ row.point.note || '—' }}</td>
                             <td class="price-history-action">
-                                <GlassButton
-                                    class="lg-inline-action"
-                                    size="small"
-                                    variant="plain"
-                                    :aria-label="`编辑 ${row.point.date} 的价格记录`"
-                                    :disabled="editDisabled"
-                                    @click="emit('edit', row.point)"
-                                >
-                                    编辑
-                                </GlassButton>
+                                <div class="record-actions">
+                                    <GlassButton
+                                        class="lg-inline-action"
+                                        size="small"
+                                        variant="plain"
+                                        :aria-label="`编辑 ${row.point.date} 的价格记录`"
+                                        :disabled="editDisabled"
+                                        @click="emit('edit', row.point)"
+                                    >
+                                        编辑
+                                    </GlassButton>
+                                    <PriceActionsMenu
+                                        record
+                                        :label="`${row.point.date} 的价格记录操作`"
+                                        :disabled="editDisabled"
+                                        @remove="emit('remove', row.point)"
+                                    />
+                                </div>
                             </td>
                         </tr>
                     </tbody>
@@ -144,6 +153,8 @@ const series = computed(() => [
 .liquid-price-history :deep(.chart-scroll) {
     overflow-x: auto;
     scrollbar-width: none;
+    /* 滚动条刻意不画，轨道也就不要常驻（覆盖 style.css 的全局 stable）。 */
+    scrollbar-gutter: auto;
     clip-path: inset(0 0 0 var(--trend-axis-width));
 }
 .liquid-price-history :deep(.chart-fixed-axis) {
@@ -205,6 +216,12 @@ const series = computed(() => [
 .price-history-table .price-history-action {
     width: 1%;
     padding-block: 2px;
+}
+
+.record-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
 }
 
 .price-history-table [data-tone='up'] {

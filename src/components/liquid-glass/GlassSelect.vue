@@ -5,6 +5,7 @@ import { GlassCard, GlassMenu, GlassMenuItem } from './index';
 
 const props = defineProps<{
     label: string;
+    hideLabel?: boolean;
     options: readonly { value: string; label: string }[];
     disabled?: boolean;
 }>();
@@ -30,17 +31,17 @@ function onEscape(event: KeyboardEvent) {
 
 <template>
     <div class="glass-select" @keydown.esc="onEscape" @toggle.stop>
-        <label :id="id + '-label'" :for="id">{{ label }}</label>
-        <GlassMenu v-model:open="open" @select="select">
+        <label :id="id + '-label'" :for="id" :hidden="hideLabel">{{ label }}</label>
+        <GlassMenu v-model:open="open" class="lg-popup-menu" @select="select">
             <template #trigger>
                 <button
                     :id="id"
                     type="button"
-                    class="glass-select-trigger"
+                    class="glass-select-trigger lg-popup-trigger"
                     :disabled="disabled"
                     :aria-labelledby="id + '-label ' + id + '-value'"
                 >
-                    <GlassCard class="glass-select-face" radius="capsule">
+                    <GlassCard class="glass-select-face lg-popup-face" radius="capsule">
                         <span :id="id + '-value'">{{ selected?.label ?? '请选择' }}</span>
                         <AppIcon name="chevron-down" />
                     </GlassCard>
@@ -73,17 +74,7 @@ function onEscape(event: KeyboardEvent) {
     font-size: var(--fs-xs);
 }
 .glass-select-trigger {
-    display: block;
     width: 100%;
-    padding: 0;
-    border: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-size: var(--fs-base);
-    text-align: start;
-    cursor: pointer;
 }
 .glass-select-face {
     display: flex;
@@ -98,43 +89,5 @@ function onEscape(event: KeyboardEvent) {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-/* 菜单的展开动画会逐帧写入内联 opacity，选择器需要持续显示当前值。 */
-.glass-select-trigger:enabled {
-    opacity: 1 !important;
-}
-.glass-select-trigger[aria-expanded='true'] .glass-select-face {
-    outline: 1px solid color-mix(in srgb, var(--liquid-focus) 48%, transparent);
-    outline-offset: -1px;
-}
-.glass-select-trigger:disabled {
-    opacity: 0.5;
-    pointer-events: none;
-}
-.glass-select glass-menu {
-    min-width: 0;
-    --glass-foreground: var(--liquid-ink);
-    --glass-text-shadow: none;
-}
-.glass-select glass-menu::part(panel) {
-    background-color: light-dark(rgb(246 251 248 / 0.68), rgb(25 37 34 / 0.76));
-}
-.glass-select glass-menu:not([open])::part(panel) {
-    opacity: 0;
-    pointer-events: none;
-}
-@media (prefers-reduced-motion: no-preference) {
-    .glass-select glass-menu:not([open])::part(panel) {
-        transition: opacity 80ms ease-out;
-    }
-}
-.glass-select glass-menu-item {
-    min-height: 32px;
-    gap: 6px;
-    padding: 6px 10px;
-    border-radius: 10px;
-    color: var(--liquid-ink);
-    letter-spacing: normal;
-    overflow-wrap: anywhere;
 }
 </style>

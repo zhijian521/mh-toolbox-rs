@@ -28,15 +28,19 @@ import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import { lazyDialog } from '../../components/lazy-dialog';
 import { useDraftGuard } from '../../composables/use-draft-guard';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
+import { moneyText } from '../../services/format';
+import PriceActionsMenu from './PriceActionsMenu.vue';
 import LiquidPriceCard from './LiquidPriceCard.vue';
 import { usePriceViewState } from './price-view-state';
 import { priceCategoryGroups } from './prices-catalog';
-import { filterItems, type PriceItemDraft, type PricePoint, type PricePointDraft } from './prices';
+import { filterItems, type PriceItemDraft, type PricePoint, type PricePointDraft, type ReadonlyPriceItem } from './prices';
 import type { PriceWrite } from './prices-store';
 
 type PriceDialog =
     | { kind: 'history'; itemId: string }
     | { kind: 'new-item' }
+    | { kind: 'edit-item'; itemId: string }
+    | { kind: 'remove'; itemId: string; name: string; count: number; point?: PricePoint }
     | { kind: 'price'; itemId: string; point?: PricePoint; fromHistory: boolean };
 
 function dialogStatus(failed: boolean, retry: () => void) {
@@ -56,6 +60,9 @@ const {
     writeError,
     pending,
     addItem,
+    saveItem,
+    removeItem,
+    removePoint,
     addPoint,
     savePoint,
     flush,
@@ -72,15 +79,36 @@ const editorVersion = ref(0);
 let editorTrigger: HTMLElement | undefined;
 const loading = ref(false);
 const catalogError = ref('');
-const { keyword, category, sub } = usePriceViewState();
+const { keyword, category, sub, scroll } = usePriceViewState();
+const page = ref<HTMLElement | null>(null);
 const hasFilters = computed(() => Boolean(keyword.value || category.value || sub.value));
 const search = ref<{ el: HTMLElement | null } | null>(null);
+const addButton = ref<{ el: HTMLElement | null } | null>(null);
+const cancelRemoval = ref<{ el: HTMLElement | null } | null>(null);
 const sheetOpen = ref(false);
 const dialog = ref<PriceDialog>();
 const historyPage = ref(1);
-const historySheet = computed(() => {
+const historyChild = computed(() => {
     const active = dialog.value;
-    return active?.kind === 'history' || (active?.kind === 'price' && active.fromHistory);
+    return (
+        (active?.kind === 'remove' && !!active.point) ||
+        (active?.kind === 'price' && active.fromHistory)
+    );
+});
+const historySheet = computed(() => dialog.value?.kind === 'history' || historyChild.value);
+const dialogLabel = computed(() => {
+    switch (dialog.value?.kind) {
+        case 'history':
+            return '物价历史';
+        case 'new-item':
+            return '新增物品';
+        case 'edit-item':
+            return '编辑物品';
+        case 'remove':
+            return dialog.value.point ? '删除价格记录' : '删除物品';
+        default:
+            return dialog.value?.point ? '编辑价格记录' : '更新价格';
+    }
 });
 const historyHeading = ref<HTMLHeadingElement | null>(null);
 const error = computed(() => catalogError.value || loadError.value);
@@ -97,6 +125,17 @@ const selectedItem = computed(() => {
 const matchingItems = computed(() =>
     filterItems(items.value, { keyword: keyword.value, category: category.value, sub: sub.value }),
 );
+// 当前路由拥有独立的 main；待列表完成布局后恢复，避免在加载卡片上被截为 0。
+const scrollHost = computed(() =>
+    loaded.value && !loading.value && !error.value ? page.value?.parentElement : null,
+);
+watch(scrollHost, (host) => {
+    if (host) host.scrollTop = scroll.value.top;
+}, { flush: 'post' });
+watch([keyword, category, sub], () => {
+    scroll.value.top = 0;
+    if (scrollHost.value) scrollHost.value.scrollTop = 0;
+});
 watch(subcategories, (options) => {
     if (sub.value && !options.some((option) => option.value === sub.value)) sub.value = '';
 });
@@ -131,7 +170,7 @@ function openHistory(itemId: string, page = 1) {
     sheetOpen.value = true;
 }
 
-function openEditor(next: Extract<PriceDialog, { kind: 'new-item' | 'price' }>) {
+function openEditor(next: Exclude<PriceDialog, { kind: 'history' }>) {
     if (!canEdit.value || saving.value) return;
     editorError.value = '';
     submit.reset();
@@ -144,13 +183,15 @@ function openEditor(next: Extract<PriceDialog, { kind: 'new-item' | 'price' }>) 
 
 function closeEditor() {
     const active = dialog.value;
-    if (active?.kind === 'price' && active.fromHistory) {
+    if (active && 'itemId' in active && historyChild.value && selectedItem.value) {
         openHistory(active.itemId, historyPage.value);
         void nextTick(() => historyHeading.value?.focus({ preventScroll: true }));
     } else {
         sheetOpen.value = false;
         const trigger = editorTrigger;
-        void nextTick(() => trigger?.focus({ preventScroll: true }));
+        void nextTick(() =>
+            (trigger?.isConnected ? trigger : addButton.value?.el)?.focus({ preventScroll: true }),
+        );
     }
 }
 
@@ -161,25 +202,61 @@ const { requestClose } = useDraftGuard(
     closeEditor,
 );
 
-function onHistoryEscape(event: KeyboardEvent) {
-    const active = dialog.value;
-    if (active?.kind !== 'price' || !active.fromHistory || event.isComposing) return;
-    if (event.composedPath().some((el) => el instanceof Element && el.matches('glass-menu[open]')))
-        return;
+async function onDialogOpenChange(open: boolean) {
+    if (sheetOpen.value === open) return;
+    sheetOpen.value = open;
+    if (open || !historyChild.value || !selectedItem.value) return;
+    // 遮罩和下拉手势已收起底层 sheet。先同步关闭状态，再在同一帧返回原历史页。
+    await nextTick();
+    closeEditor();
+}
+
+function onDialogEscape(event: KeyboardEvent) {
+    if (event.isComposing || (!historyChild.value && dialog.value?.kind !== 'remove')) return;
+    const inPopup = event.composedPath().some(
+        (el) => el instanceof Element && el.matches('glass-menu[open], [data-calendar-open]'),
+    );
+    if (inPopup) return;
     event.preventDefault();
     event.stopPropagation();
     void requestClose();
 }
 
-function editHistoryPoint(point: PricePoint) {
+function openHistoryPrice(point?: PricePoint) {
     const active = dialog.value;
     if (active?.kind === 'history') {
         openEditor({ kind: 'price', itemId: active.itemId, point, fromHistory: true });
     }
 }
 
-async function prepareLinkedPrice(name: string) {
-    if (!quickItems().fixed.some((item) => item.name === name.trim())) return true;
+function askRemoval(item: ReadonlyPriceItem, point?: PricePoint) {
+    if (!canEdit.value || saving.value) return;
+    openEditor({
+        kind: 'remove',
+        itemId: item.id,
+        name: item.name,
+        count: item.points.length,
+        point,
+    });
+    void nextTick(() => cancelRemoval.value?.el?.focus({ preventScroll: true }));
+}
+
+function askHistoryPointRemoval(point: PricePoint) {
+    const item = selectedItem.value;
+    if (item) askRemoval(item, point);
+}
+
+function confirmRemoval() {
+    const active = dialog.value;
+    if (active?.kind !== 'remove') return;
+    void saveChange([active.name], () =>
+        active.point ? removePoint(active.itemId, active.point.id) : removeItem(active.itemId),
+    );
+}
+
+async function prepareLinkedPrice(names: string[]) {
+    const affected = names.map((name) => name.trim());
+    if (!quickItems().fixed.some((item) => affected.includes(item.name))) return true;
     const { loadIncome, useIncome } = await import('../income/income-store');
     const income = useIncome();
     if (!income.loaded.value || income.loadError.value) {
@@ -190,19 +267,20 @@ async function prepareLinkedPrice(name: string) {
     return false;
 }
 
-async function saveChange(name: string, apply: () => PriceWrite) {
+async function saveChange(names: string[], apply: () => PriceWrite) {
     if (saving.value || (!submit.action.value && !canEdit.value)) return;
     editorError.value = '';
     preparing.value = true;
     try {
-        if (!submit.action.value && !(await prepareLinkedPrice(name))) return;
+        if (!submit.action.value && !(await prepareLinkedPrice(names))) return;
         const ok = await submit.run('price', () => {
             const result = apply();
             editorError.value = result.ok ? '' : result.error;
             return result.ok;
         });
         if (!ok) return;
-        if (dialog.value?.kind === 'new-item') clearFilters();
+        const active = dialog.value;
+        if (active?.kind === 'new-item') clearFilters();
         closeEditor();
     } catch (cause) {
         console.error('保存物价失败', cause);
@@ -213,13 +291,19 @@ async function saveChange(name: string, apply: () => PriceWrite) {
 }
 
 function onAddItem(draft: PriceItemDraft, initialPrice: number) {
-    void saveChange(draft.name, () => addItem(draft, initialPrice));
+    void saveChange([draft.name], () => addItem(draft, initialPrice));
+}
+
+function onUpdateItem(draft: PriceItemDraft) {
+    const item = selectedItem.value;
+    if (dialog.value?.kind !== 'edit-item' || !item) return;
+    void saveChange([item.name, draft.name], () => saveItem(item.id, draft));
 }
 
 function onSavePoint(draft: PricePointDraft) {
     const active = dialog.value;
     if (active?.kind !== 'price' || !selectedItem.value) return;
-    void saveChange(selectedItem.value.name, () =>
+    void saveChange([selectedItem.value.name], () =>
         active.point
             ? savePoint(active.itemId, active.point.id, draft)
             : addPoint(active.itemId, draft),
@@ -236,7 +320,11 @@ async function retryWrites() {
     }
 }
 
-onBeforeRouteLeave(() => !saving.value);
+onBeforeRouteLeave(() => {
+    if (saving.value) return false;
+    if (scrollHost.value) scroll.value.top = scrollHost.value.scrollTop;
+    return true;
+});
 
 onMounted(() => {
     if (!loaded.value || loadError.value) void refresh();
@@ -244,10 +332,11 @@ onMounted(() => {
 </script>
 
 <template>
-    <section class="liquid-prices" aria-labelledby="liquid-prices-title">
+    <section ref="page" class="liquid-prices" aria-labelledby="liquid-prices-title">
         <header class="price-page-header">
             <h1 id="liquid-prices-title">物价</h1>
             <GlassButton
+                ref="addButton"
                 class="price-add"
                 size="small"
                 shape="circle"
@@ -289,6 +378,7 @@ onMounted(() => {
                         v-model="category"
                         class="lg-category-filter"
                         label="一级分类"
+                        hide-label
                         :options="[{ value: '', label: '全部分类' }, ...categories]"
                         @update:model-value="sub = ''"
                     />
@@ -297,6 +387,7 @@ onMounted(() => {
                         v-model="sub"
                         class="lg-category-filter"
                         label="二级分类"
+                        hide-label
                         :options="[{ value: '', label: '全部子分类' }, ...subcategories]"
                     />
                     <GlassButton
@@ -321,33 +412,42 @@ onMounted(() => {
                     :edit-disabled="!canEdit || saving"
                     @history="openHistory(item.id)"
                     @record="openEditor({ kind: 'price', itemId: item.id, fromHistory: false })"
-                />
+                >
+                    <template #actions>
+                        <PriceActionsMenu
+                            :label="`${item.name}的物品操作`"
+                            :disabled="!canEdit || saving"
+                            @edit="openEditor({ kind: 'edit-item', itemId: item.id })"
+                            @remove="askRemoval(item)"
+                        />
+                    </template>
+                </LiquidPriceCard>
             </div>
             <GlassEmptyState v-else class="price-empty" />
         </template>
 
         <GlassDialog
-            v-model:open="sheetOpen"
+            :open="sheetOpen"
+            @update:open="onDialogOpenChange"
             class="price-history-sheet"
             :bottom="historySheet"
-            :detents="historySheet ? '536' : '65% large'"
-            :no-dismiss="saving"
-            @keydown.esc.capture="onHistoryEscape"
+            :detents="dialog?.kind === 'remove' ? '208' : historySheet ? '536' : '65% large'"
+            :no-dismiss="saving || dialog?.kind === 'remove'"
+            @keydown.esc.capture="onDialogEscape"
             :class="{ 'is-history': dialog?.kind === 'history' }"
-            :label="
-                dialog?.kind === 'history'
-                    ? '物价历史'
-                    : dialog?.kind === 'new-item'
-                      ? '新增物品'
-                      : '编辑物价'
-            "
+            :label="dialogLabel"
         >
             <template v-if="dialog?.kind === 'history'">
                 <header class="price-history-header">
                     <h2 ref="historyHeading" tabindex="-1">
                         {{ selectedItem?.name || '物价历史' }}
                     </h2>
-                    <GlassButton size="small" @click="sheetOpen = false">关闭</GlassButton>
+                    <!-- 历史只展示：记新价回卡片上的「记价」，改某笔走行内的「编辑」。 -->
+                    <div class="history-tools" @pointerdown.stop>
+                        <GlassButton size="small" variant="plain" @click="sheetOpen = false"
+                            >关闭</GlassButton
+                        >
+                    </div>
                 </header>
                 <template v-if="selectedItem">
                     <p v-if="selectedItem.note" class="price-item-note lg-caption">
@@ -358,17 +458,53 @@ onMounted(() => {
                         v-model:page="historyPage"
                         :item="selectedItem"
                         :edit-disabled="!canEdit || saving"
-                        @edit="editHistoryPoint"
+                        @edit="openHistoryPrice"
+                        @remove="askHistoryPointRemoval"
                     />
                 </template>
                 <p v-else class="lg-caption">这件物品已不存在。</p>
             </template>
+            <section v-else-if="dialog?.kind === 'remove'" class="price-remove" @pointerdown.stop>
+                <h2>{{ dialogLabel }}</h2>
+                <p v-if="dialog.point">
+                    确定删除「{{ dialog.name }}」在 {{ dialog.point.date }} 的这笔
+                    {{ moneyText(dialog.point.price) }} 记录吗？
+                </p>
+                <p v-else>
+                    确定删除「{{ dialog.name }}」{{
+                        dialog.count ? '及全部 ' + dialog.count + ' 条价格记录' : ''
+                    }}吗？
+                </p>
+                <p v-if="editorError || writeError" role="alert">{{ editorError || writeError }}</p>
+                <footer>
+                    <GlassButton
+                        ref="cancelRemoval"
+                        size="small"
+                        variant="plain"
+                        :disabled="saving"
+                        @click="requestClose"
+                        >{{ submit.action.value ? '关闭' : '取消' }}</GlassButton
+                    >
+                    <GlassButton
+                        class="confirm-removal"
+                        size="small"
+                        :disabled="saving"
+                        @click="confirmRemoval"
+                        >{{
+                            saving ? '正在保存…' : submit.action.value ? '重试保存' : '确认删除'
+                        }}</GlassButton
+                    >
+                </footer>
+            </section>
             <PriceEditor
                 v-else-if="
-                    dialog?.kind === 'new-item' || (dialog?.kind === 'price' && selectedItem)
+                    dialog?.kind === 'new-item' ||
+                    ((dialog?.kind === 'price' || dialog?.kind === 'edit-item') && selectedItem)
                 "
                 :key="editorVersion"
                 :item="selectedItem"
+                :edit-item="dialog.kind === 'edit-item'"
+                :prefill-current="dialog.kind === 'price' && !dialog.fromHistory"
                 :point="dialog.kind === 'price' ? dialog.point : undefined"
                 :categories="categories"
                 :active="sheetOpen"
@@ -377,10 +513,11 @@ onMounted(() => {
                 :retrying="!!submit.action.value"
                 :error="editorError || writeError"
                 @add="onAddItem"
+                @update="onUpdateItem"
                 @save="onSavePoint"
                 @cancel="requestClose"
             />
-            <template v-else-if="dialog?.kind === 'price'">
+            <template v-else-if="dialog?.kind === 'price' || dialog?.kind === 'edit-item'">
                 <p class="lg-caption">这件物品已不存在。</p>
                 <GlassButton size="small" @click="closeEditor">关闭</GlassButton>
             </template>

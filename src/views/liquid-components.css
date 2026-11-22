@@ -8,12 +8,6 @@
     min-height: 0;
 }
 
-.intro {
-    flex: none;
-    padding: 16px var(--catalog-gutter) 12px;
-    border-bottom: 1px solid var(--liquid-outline);
-}
-.intro h1,
 .gallery :is(h2, h3),
 .sheet-content h2 {
     margin: 0;
@@ -26,7 +20,7 @@
     gap: 10px;
     min-height: 0;
     overflow: auto;
-    padding: 12px var(--catalog-gutter) calc(var(--liquid-dock-clearance) + 16px);
+    padding: 16px var(--catalog-gutter) calc(var(--liquid-dock-clearance) + 16px);
     scroll-padding-bottom: var(--liquid-dock-clearance);
     scroll-timeline: --dock-scroll block;
 }

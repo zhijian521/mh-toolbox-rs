@@ -76,6 +76,43 @@ function dismiss() {
 .glass-dialog-body {
     padding: 18px 20px;
 }
+@media (prefers-reduced-motion: no-preference) {
+    /* display 和 overlay 延后切换，原生 close() 归还焦点时玻璃仍能完成淡出。 */
+    .glass-dialog,
+    .glass-dialog::backdrop {
+        opacity: 0;
+        transition:
+            opacity 160ms ease-in,
+            transform 160ms ease-in,
+            display 160ms allow-discrete,
+            overlay 160ms allow-discrete;
+    }
+    .glass-dialog {
+        transform: scale(0.975);
+    }
+    .glass-dialog[open],
+    .glass-dialog[open]::backdrop {
+        opacity: 1;
+        transition-duration: 220ms;
+        transition-timing-function: cubic-bezier(0.2, 0.8, 0.25, 1);
+    }
+    .glass-dialog[open] {
+        transform: none;
+    }
+    @starting-style {
+        .glass-dialog[open],
+        .glass-dialog[open]::backdrop {
+            opacity: 0;
+        }
+        .glass-dialog[open] {
+            transform: scale(0.965);
+        }
+    }
+    .glass-dialog:not([open]),
+    .glass-dialog:not([open])::backdrop {
+        pointer-events: none;
+    }
+}
 @media (prefers-reduced-transparency: reduce) {
     .glass-dialog {
         background: light-dark(#f4f8f6, #182426);

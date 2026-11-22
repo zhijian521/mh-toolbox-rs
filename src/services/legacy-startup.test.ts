@@ -5,19 +5,21 @@ const mocks = vi.hoisted(() => ({
     desktop: vi.fn(),
     read: vi.fn(),
     rules: vi.fn(),
+    ready: { value: true },
     convert: vi.fn(),
     import: vi.fn(),
 }));
 vi.mock('./bindings', () => ({ commands: { legacyStartupRead: mocks.read } }));
 vi.mock('./desktop', () => ({ hasDesktop: mocks.desktop }));
 vi.mock('./data-files', () => ({ legacyDataImport: mocks.import }));
-vi.mock('./game-data', () => ({ loadGameData: mocks.rules }));
+vi.mock('./game-data', () => ({ gameDataReady: mocks.ready, loadGameData: mocks.rules }));
 vi.mock('../import/legacy', () => ({ convertLegacyData: mocks.convert }));
 
 beforeEach(() => {
     vi.resetAllMocks();
     mocks.desktop.mockReturnValue(true);
     mocks.read.mockResolvedValue(null);
+    mocks.ready.value = true;
     mocks.rules.mockResolvedValue(undefined);
     mocks.convert.mockReturnValue({ backup: { characters: [{ id: 'c1' }] }, warnings: [] });
     mocks.import.mockResolvedValue({ status: 'ok', detail: '已导入' });
@@ -52,6 +54,19 @@ describe('首次旧版导入', () => {
         expect(notice?.title).toBe('已导入旧版本数据，可以直接使用');
         expect(notice?.note).toContain('部分目标需调整');
         expect(notice?.note).toContain('5 条');
+    });
+
+    it('规则缺失时不提交部分转换的账本', async () => {
+        mocks.ready.value = false;
+        mocks.read.mockResolvedValue('旧版原文');
+        const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            expect((await importLegacyOnStartup())?.note).toContain('游戏规则未能载入');
+            expect(mocks.convert).not.toHaveBeenCalled();
+            expect(mocks.import).not.toHaveBeenCalled();
+        } finally {
+            log.mockRestore();
+        }
     });
 
     it.each(['读取', '转换', '导入'])('%s失败说明原因及手动入口，不误报成功', async (stage) => {

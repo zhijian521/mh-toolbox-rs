@@ -3,7 +3,8 @@ import { onMounted, ref } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import SlotButton from '../../components/SlotButton.vue';
 import SettingsRow from './SettingsRow.vue';
-import { reloadWithDataNotice, takeDataNotice } from './data-notice';
+import { reloadWithDataNotice, takeDataNotice, truncationNote } from './data-notice';
+import { importLegacyLedger } from './import-legacy-ledger';
 import BackupHistory from './BackupHistory.vue';
 import { backupTime, useBackups } from './use-backups';
 import { hasDesktop } from '../../services/desktop';
@@ -12,18 +13,10 @@ import {
     dataClear,
     dataExport,
     dataImport,
-    legacyDataRead,
-    legacyDataImport,
     restoreBackup,
     type BackupEntry,
     type DataOutcome,
 } from '../../services/data-files';
-/* 单件物品的价格点位上限，**不在这里再写一个 200**：`prices.ts` 是它的真源，
- * `src-tauri/src/backup.rs` 里那份是镜像（那边不裁剪，只用它数「会丢多少」）。
- * 设置页反过来引一个页面模块看着别扭，但它是纯数据契约、不碰 vue 也不碰 DOM；
- * 在这里抄一个数反而会和真源悄悄分家——文案里的数字没人记得改。 */
-import { POINT_LIMIT } from '../prices/prices';
-
 /** 全部账本操作共用忙状态；替换前确认并备份，成功后重载领域单例。 */
 const busy = ref(false);
 const backupsOpen = ref(false);
@@ -58,22 +51,6 @@ const message = ref('');
 /** 导入成功但有代价时多出来的那一句（点位被截断）。没有代价时是空串。 */
 const warning = ref('');
 const messageKind = ref<'error' | 'positive'>('positive');
-
-/**
- * 「这批备份里有多少条会被裁掉」那句话；`truncation` 缺席（导出 / 清除）或一条都不丢时返回空串。
- *
- * 说**后果**而不是只报数：用户要知道的是「下次一存会少东西」，不是「有 100 条超限」。
- * 措辞与实际的时序对齐——Rust 侧如实搬进来（所以刚导入时看得到全部），
- * 前端保存时才按 `POINT_LIMIT` 裁（`prices.ts` 的 `normalizePriceItem`）。
- */
-function truncationNote(truncation: { points: number; items: number } | undefined): string {
-    if (!truncation || truncation.points <= 0) return '';
-    const { points, items } = truncation;
-    return (
-        `其中 ${points} 条价格超出单件 ${POINT_LIMIT} 条的上限（涉及 ${items} 件物品）：` +
-        `导入后会按每件最新的 ${POINT_LIMIT} 条保留，更早的那 ${points} 条会在下次保存时丢失。`
-    );
-}
 
 /**
  * 三条操作的共同外壳：置忙 → 跑 → 收起忙 → 把三种结局翻成界面上的一句话。
@@ -131,29 +108,7 @@ async function askImport() {
 }
 
 async function importLegacy() {
-    const outcome = await run(async () => {
-        const source = await legacyDataRead();
-        if (source.status !== 'ok') return source;
-        try {
-            const { convertLegacyData } = await import('../../import/legacy');
-            const { backup, warnings } = convertLegacyData(source.raw);
-            const counts = `${backup.characters.length} 个角色、${backup.prices.length} 件物价、${backup.income.length} 笔收益、${backup.accounts.length} 笔账号记录、${backup.online.length} 条上线记录、${backup.goals.length} 个目标`;
-            const ok = await askConfirm({
-                danger: true,
-                title: '导入旧版并替换当前账本？',
-                note: `可转换：${counts}。${warnings.join(' ')} 替换前自动备份当前账本，并完整留存旧版原件。`,
-                confirmText: '导入并替换',
-            });
-            if (!ok) return { status: 'canceled' };
-            const result = await legacyDataImport(source.raw, JSON.stringify(backup));
-            return result.status === 'ok' ? { ...result, warning: warnings.join(' ') } : result;
-        } catch (error) {
-            return {
-                status: 'failed',
-                error: error instanceof Error ? error.message : String(error),
-            };
-        }
-    });
+    const outcome = await run(importLegacyLedger);
     if (outcome.status === 'ok') reloadWithNotice();
 }
 
@@ -223,7 +178,7 @@ onMounted(() => {
                 :disabled="busy || !desktop"
                 @click="openBackups"
             />
-            <span class="hint">最近 14 份日常备份</span>
+            <span class="hint">最近 5 份备份</span>
             <template #detail>
                 <div class="backup-status" role="status">
                     <p v-if="!desktop" class="note">自动备份在桌面版可用</p>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, useId } from 'vue';
 import { GlassButton } from '../../components/liquid-glass';
+import GlassDateField from '../../components/liquid-glass/GlassDateField.vue';
 import GlassInput from '../../components/liquid-glass/GlassInput.vue';
 import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import GlassPriceField from '../../components/liquid-glass/GlassPriceField.vue';
@@ -8,6 +9,7 @@ import { todayText } from '../../services/format';
 import { DEFAULT_CATEGORY, type priceCategoryGroups } from './prices-catalog';
 import {
     currentPoint,
+    toItemDraft,
     itemDraftErrors,
     NAME_LIMIT,
     pointDraftErrors,
@@ -20,6 +22,8 @@ import {
 
 const props = defineProps<{
     item?: ReadonlyPriceItem;
+    editItem?: boolean;
+    prefillCurrent?: boolean;
     point?: PricePoint;
     categories: ReturnType<typeof priceCategoryGroups>;
     active: boolean;
@@ -30,24 +34,28 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
     add: [draft: PriceItemDraft, initialPrice: number];
+    update: [draft: PriceItemDraft];
     save: [draft: PricePointDraft];
     cancel: [];
 }>();
 
 const fieldId = useId();
 const form = ref<HTMLFormElement | null>(null);
-const name = ref('');
-const category = ref(DEFAULT_CATEGORY);
-const subcategory = ref('');
+const details = props.editItem && props.item ? toItemDraft(props.item) : undefined;
+const recording = computed(() => !!props.item && !props.editItem);
+const name = ref(details?.name ?? '');
+const category = ref(details?.category ?? DEFAULT_CATEGORY);
+const subcategory = ref(details?.sub ?? '');
 const customSubcategory = '__custom_subcategory__';
 const customSub = ref('');
 const date = ref(props.point?.date ?? todayText());
-const currentPrice = props.item ? currentPoint(props.item)?.price : undefined;
+const currentPrice = props.prefillCurrent && props.item ? currentPoint(props.item)?.price : null;
 const price = ref<number | null>(props.point?.price ?? currentPrice ?? null);
-const note = ref(props.point?.note ?? '');
+const note = ref(details?.note ?? props.point?.note ?? '');
 const submitted = ref(false);
 const priceTouched = ref(false);
 const title = computed(() => {
+    if (props.editItem) return '编辑物品';
     if (!props.item) return '新增物品';
     return props.point ? '编辑价格记录' : '更新价格';
 });
@@ -69,14 +77,15 @@ const priceErrors = computed(() => pointDraftErrors(priceDraft.value));
 function submit() {
     if (props.saving) return;
     submitted.value = true;
-    const invalid = props.item
+    const invalid = recording.value
         ? priceErrors.value.price || priceErrors.value.date
         : itemErrors.value.name || itemErrors.value.sub;
     if (!props.retrying && invalid) {
-        void nextTick(() => form.value?.querySelector<HTMLInputElement>('input[aria-invalid="true"]')?.focus());
+        void nextTick(() => form.value?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
         return;
     }
-    if (props.item) emit('save', priceDraft.value);
+    if (props.editItem) emit('update', itemDraft.value);
+    else if (recording.value) emit('save', priceDraft.value);
     else emit('add', itemDraft.value, price.value ?? 0);
 }
 
@@ -89,7 +98,7 @@ function submitFromInput(event: KeyboardEvent) {
 
 onMounted(() => {
     if (!props.active) return;
-    const firstInput = props.item ? '[inputmode="decimal"]' : 'input';
+    const firstInput = recording.value ? '[inputmode="decimal"]' : 'input';
     form.value?.querySelector<HTMLInputElement>(firstInput)?.focus({ preventScroll: true });
 });
 </script>
@@ -103,10 +112,10 @@ onMounted(() => {
     >
         <header class="price-editor-header">
             <h2>{{ title }}</h2>
-            <p v-if="item">{{ item.name }}</p>
+            <p v-if="recording">{{ item?.name }}</p>
         </header>
         <fieldset :disabled="locked" class="price-editor-fields lg-form-fields">
-            <template v-if="!item">
+            <template v-if="!recording">
                 <label class="editor-wide">
                     <span>名称</span>
                     <GlassInput
@@ -148,28 +157,24 @@ onMounted(() => {
                 </label>
             </template>
             <GlassPriceField
+                v-if="!editItem"
                 v-model="price"
                 class="editor-wide"
-                :label="item ? '这一笔多少钱' : '初始价格（选填）'"
-                :compact="!item"
+                :label="recording ? '这一笔多少钱' : '初始价格（选填）'"
+                :compact="!recording"
                 :disabled="locked"
-                :reserve-error="!!item"
-                :error="item && (submitted || priceTouched) ? priceErrors.price : ''"
+                :reserve-error="recording"
+                :error="recording && (submitted || priceTouched) ? priceErrors.price : ''"
                 @blur="priceTouched = true"
             />
-            <label v-if="item">
-                <span>记录日期</span>
-                <GlassInput
-                    v-model="date"
-                    type="date"
-                    :aria-invalid="(submitted && !!priceErrors.date) || undefined"
-                    :aria-describedby="submitted && priceErrors.date ? fieldId + '-date' : undefined"
-                />
-                <small v-if="submitted && priceErrors.date" :id="fieldId + '-date'" role="alert">
-                    {{ priceErrors.date }}
-                </small>
-            </label>
-            <label :class="{ 'editor-wide': !item }">
+            <GlassDateField
+                v-if="recording"
+                v-model="date"
+                label="记录日期"
+                :disabled="locked"
+                :error="submitted ? priceErrors.date : ''"
+            />
+            <label :class="{ 'editor-wide': !recording }">
                 <span>备注（选填）</span>
                 <GlassInput v-model="note" type="text" />
             </label>

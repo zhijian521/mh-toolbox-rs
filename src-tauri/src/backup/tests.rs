@@ -100,7 +100,7 @@ fn daily_backups_preserve_data_throttle_and_limit_only_daily_files() {
         daily_backup_at(&dir, start + index * 86_400_000).unwrap();
     }
     let entries = backup_entries(&dir.join("backups")).unwrap();
-    assert_eq!(entries.len(), DAILY_KEEP);
+    assert_eq!(entries.len(), BACKUP_KEEP);
     assert!(original.exists());
     assert!(backup_stamp("../账本-daily-123.json").is_none());
     assert!(backup_stamp("账本-daily-not-number.json").is_none());
@@ -608,24 +608,36 @@ fn ensure_json_extension_appends_when_missing() {
     }
 }
 
-/// 自动备份只留最近 10 份，且**不碰**别的东西（用户自己放进来的文件、
-/// 名字形状不对的同前缀文件都要留着）。
+/// 备份合计只留最近 5 份（两类混排按时间戳），且**不碰**别的东西（用户自己放进来的
+/// 文件、名字形状不对的同前缀文件都要留着）；列出来的也只该有 5 条。
 #[test]
-fn prune_auto_backups_keeps_latest_ten() {
+fn prune_backups_keeps_latest_five_across_kinds() {
     let dir = std::env::temp_dir().join(format!("mh-toolbox-prune-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("建临时目录");
 
-    for stamp in 0..15 {
-        std::fs::write(dir.join(format!("{AUTO_BACKUP_PREFIX}{stamp}.json")), b"{}")
-            .expect("写自动备份");
+    let prefix = |stamp: i32| {
+        if stamp % 2 == 0 {
+            DAILY_PREFIX
+        } else {
+            AUTO_BACKUP_PREFIX
+        }
+    };
+    for stamp in 1..=15 {
+        std::fs::write(dir.join(format!("{}{stamp}.json", prefix(stamp))), b"{}")
+            .expect("写备份");
     }
     /* 两个干扰项：同前缀但不是时间戳、以及用户自己的导出。 */
     std::fs::write(dir.join(format!("{AUTO_BACKUP_PREFIX}手改的.json")), b"{}")
         .expect("写干扰文件");
     std::fs::write(dir.join("账本-1700000000000.json"), b"{}").expect("写用户导出");
 
-    prune_auto_backups(&dir);
+    assert_eq!(
+        listed_backups(&dir).unwrap().len(),
+        BACKUP_KEEP,
+        "列出来的备份也只该有 5 条"
+    );
+    prune_backups(&dir);
 
     let mut left: Vec<String> = std::fs::read_dir(&dir)
         .expect("读目录")
@@ -634,15 +646,15 @@ fn prune_auto_backups_keeps_latest_ten() {
         .collect();
     left.sort();
 
-    let mut expected: Vec<String> = (5..15)
-        .map(|stamp| format!("{AUTO_BACKUP_PREFIX}{stamp}.json"))
+    let mut expected: Vec<String> = (11..=15)
+        .map(|stamp| format!("{}{stamp}.json", prefix(stamp)))
         .chain([
             format!("{AUTO_BACKUP_PREFIX}手改的.json"),
             "账本-1700000000000.json".to_string(),
         ])
         .collect();
     expected.sort();
-    assert_eq!(left, expected, "只该删掉最早的 5 份自动备份");
+    assert_eq!(left, expected, "只该留最近 5 份，且两类合计");
 
     let _ = std::fs::remove_dir_all(&dir);
 }

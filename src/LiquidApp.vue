@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { RouterView, useRoute, useRouter } from 'vue-router';
 import AppIcon from './components/AppIcon.vue';
 import TitleBar from './components/TitleBar.vue';
+import GlassConfirmHost from './components/liquid-glass/GlassConfirmHost.vue';
 import { GlassTab, GlassTabBar } from './components/liquid-glass';
 import { useLiquidPreferences } from './composables/use-liquid-preferences';
 import type { NavItem } from './navigation';
@@ -12,31 +13,80 @@ const props = defineProps<{ items: readonly Pick<NavItem, 'key' | 'label' | 'ico
 const route = useRoute();
 const router = useRouter();
 const dockPage = computed({
-    get: () => (typeof route.name === 'string' ? route.name : props.items[0]?.key),
+    get: () => {
+        const name = typeof route.name === 'string' ? route.name : props.items[0]?.key;
+        // 组件目录是隐藏页，Dock 里没有它的标签；选中态留在「设置」，
+        // 免得整条 Dock 失去落点，也免得把无效值写进标签栏的 value。
+        return name === 'components' ? 'settings' : name;
+    },
     set: (name: string) => {
         void router.push({ name });
     },
 });
 
+/**
+ * 组件目录的隐藏入口：连续 5 次点击 Dock 的「设置」。
+ *
+ * 标签栏只在 value 真的变化时才发 change，所以「已经在设置页、再点四次设置」
+ * 不会经过 v-model——计数只能挂在原生 click 上。捕获阶段先于标签栏自身的
+ * click 处理，第五下在这里截断事件，标签栏就不会再把它当成普通的切页。
+ */
+const HIDDEN_TAPS = 5;
+const HIDDEN_TAP_WINDOW = 3000;
+let settingsTaps = 0;
+let lastSettingsTap = 0;
+
+function dockTabValue(event: MouseEvent): string | null {
+    for (const node of event.composedPath()) {
+        if (node instanceof HTMLElement && node.localName === 'glass-tab') {
+            return node.getAttribute('value');
+        }
+    }
+    return null;
+}
+
+function onDockClick(event: MouseEvent) {
+    const value = dockTabValue(event);
+    // 隐藏页没有对应的 Dock 标签，标签栏不会再为「再点设置」发 change；
+    // 这一程由外壳直接接管，保证点任意标签都能回到正式页面。
+    if (route.name === 'components') {
+        if (!value) return;
+        event.stopPropagation();
+        void router.push({ name: value });
+        return;
+    }
+    if (value !== 'settings') {
+        settingsTaps = 0;
+        return;
+    }
+    const now = Date.now();
+    settingsTaps = now - lastSettingsTap <= HIDDEN_TAP_WINDOW ? settingsTaps + 1 : 1;
+    lastSettingsTap = now;
+    if (settingsTaps < HIDDEN_TAPS) return;
+    settingsTaps = 0;
+    event.stopPropagation();
+    void router.push({ name: 'components' });
+}
+
 const desktop = hasDesktop();
-const { appearance, wallpaper, activeImage } = useLiquidPreferences();
+const { appearance, font, wallpaper, activeImage } = useLiquidPreferences();
 </script>
 
 <template>
     <div
         class="liquid-app"
         :data-appearance="appearance"
+        :data-font="font"
         :class="{ 'has-online-wallpaper': activeImage }"
         :style="{ '--liquid-wallpaper': `url(${wallpaper})` }"
     >
         <TitleBar v-if="desktop" />
         <header v-else class="liquid-header">梦幻养老助手</header>
-        <main class="liquid-content" aria-label="应用内容">
-            <RouterView v-slot="{ Component, route }">
-                <component :is="Component" :key="route.name" />
-            </RouterView>
+        <main :key="route.name" class="liquid-content" aria-label="应用内容">
+            <RouterView v-if="route.matched.length" />
+            <p v-else class="liquid-startup-status" role="status">正在打开账本…</p>
         </main>
-        <nav class="liquid-dock" aria-label="底部导航">
+        <nav class="liquid-dock" aria-label="底部导航" @click.capture="onDockClick">
             <GlassTabBar v-model:value="dockPage" class="liquid-dock-bar" aria-label="页面">
                 <GlassTab v-for="item in items" :key="item.key" :value="item.key">
                     <AppIcon :name="item.icon" />
@@ -44,6 +94,7 @@ const { appearance, wallpaper, activeImage } = useLiquidPreferences();
                 </GlassTab>
             </GlassTabBar>
         </nav>
+        <GlassConfirmHost />
     </div>
 </template>
 
@@ -71,6 +122,12 @@ body {
     background-color: light-dark(#e8eee9, #14211f);
     --font-ui: var(--font-rounded);
     font: var(--fs-base) / 1.5 var(--font-ui);
+}
+
+/* 玻璃组件统一读 --glass-font: var(--font-ui)；切换只改这一枚令牌，
+ * 标题、Dock、卡片与弹层一起换字形，不需要在各处重写 font-family。 */
+.liquid-app[data-font='wenkai'] {
+    --font-ui: var(--font-wenkai);
 }
 
 .has-online-wallpaper :where(.liquid-header, .liquid-content h1) {
@@ -132,6 +189,11 @@ body {
     overflow: auto;
     padding-bottom: var(--liquid-dock-clearance);
     scroll-timeline: --dock-scroll block;
+}
+
+.liquid-startup-status {
+    margin: 16px;
+    color: var(--liquid-muted);
 }
 
 .liquid-content:has(> .component-catalog) {

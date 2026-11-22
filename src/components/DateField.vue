@@ -57,6 +57,10 @@ const props = withDefaults(
         modelValue: string;
         /** 读屏念的字段名。 */
         label: string;
+        triggerId?: string;
+        /** 在原弹窗的焦点范围内渲染，并通过原生浮层跨过滚动裁剪。 */
+        topLayer?: boolean;
+        placeholder?: string;
         /** 可选范围（`YYYY-MM-DD`），留空即不限。 */
         min?: string;
         max?: string;
@@ -76,6 +80,9 @@ const root = ref<HTMLElement | null>(null);
 const trigger = ref<HTMLButtonElement | null>(null);
 const panel = ref<HTMLElement | null>(null);
 const open = ref(false);
+const keepPopover = ref(false);
+const panelReady = ref(false);
+defineExpose({ panel });
 
 const today = useToday();
 
@@ -96,6 +103,7 @@ function monthOf(value: string): { year: number; month: number } {
 
 /** 触发条上那串字：`2026年11月5日`。年月日在同一行，比 `2026-11-05` 好读。 */
 const triggerText = computed(() => {
+    if (!props.modelValue && props.placeholder) return props.placeholder;
     const one = parseDay(props.modelValue || today.value);
     return `${one.getFullYear()}年${one.getMonth() + 1}月${one.getDate()}日`;
 });
@@ -176,9 +184,10 @@ function placePanel() {
     if (left + width > viewW - EDGE) left = viewW - EDGE - width;
     if (left < EDGE) left = EDGE;
 
-    let top = rect.bottom + GAP;
+    const gap = props.topLayer ? 8 : GAP;
+    let top = rect.bottom + gap;
     if (top + height > viewH - EDGE) {
-        const up = rect.top - GAP - height;
+        const up = rect.top - gap - height;
         top = up >= EDGE ? up : Math.max(EDGE, viewH - EDGE - height);
     }
 
@@ -186,6 +195,9 @@ function placePanel() {
         left: `${Math.round(left)}px`,
         top: `${Math.round(top)}px`,
         visibility: 'visible',
+        ...(props.topLayer && width && height ? {
+            '--date-anchor-transform': `translate(${rect.left - left}px, ${rect.top - top}px) scale(${rect.width / width}, ${rect.height / height})`,
+        } : {}),
     };
 }
 
@@ -215,17 +227,31 @@ function openPanel() {
     view.value = monthOf(seed);
     /* 先藏住再量：`v-if` 重建了纸片，沿用上一次的 left/top 会先画在旧位置一帧。 */
     panelStyle.value = { visibility: 'hidden' };
+    if (props.topLayer) keepPopover.value = true;
     open.value = true;
     void nextTick(() => {
+        if (!open.value || !panel.value) return;
+        if (props.topLayer) panel.value.showPopover();
         placePanel();
-        // 定位解除 hidden 后再聚焦，否则浏览器会忽略隐藏日历上的 focus。
-        void nextTick(focusCursor);
+        void nextTick(() => {
+            if (!open.value || !panel.value) return;
+            if (props.topLayer) {
+                // 先提交触发器的实际位置和大小，再向日历的最终矩形展开。
+                void panel.value.offsetWidth;
+                panelReady.value = true;
+            }
+            focusCursor(props.topLayer);
+        });
     });
 }
 
 function closePanel(focusTrigger = false) {
     if (!open.value) return;
     open.value = false;
+    if (props.topLayer) {
+        panelReady.value = false;
+        if (panel.value?.matches(':popover-open')) panel.value.hidePopover();
+    }
     if (focusTrigger) trigger.value?.focus();
 }
 
@@ -234,9 +260,9 @@ function toggle() {
     else openPanel();
 }
 
-function focusCursor() {
+function focusCursor(preventScroll = false) {
     const el = panel.value?.querySelector<HTMLElement>('.day[tabindex="0"]');
-    el?.focus();
+    el?.focus({ preventScroll });
 }
 
 /**
@@ -322,6 +348,7 @@ function onDayKeydown(event: KeyboardEvent) {
             break;
         case 'Enter':
         case ' ':
+            if (!(event.target instanceof Element) || !event.target.closest('.day')) return;
             event.preventDefault();
             choose(cursor.value);
             break;
@@ -339,6 +366,7 @@ function onDayKeydown(event: KeyboardEvent) {
              * 离开会突然跳到标题旁那枚按钮上。拦掉之后落点是触发条，下一次 Tab
              * 从它那里正常往下走。 */
             event.preventDefault();
+            event.stopPropagation();
             closePanel(true);
             break;
         default:
@@ -348,7 +376,14 @@ function onDayKeydown(event: KeyboardEvent) {
 
 function onTriggerKeydown(event: KeyboardEvent) {
     if (props.disabled) return;
-    if (open.value) return;
+    if (open.value) {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            closePanel(true);
+        }
+        return;
+    }
     if (['ArrowDown', 'Enter', ' '].includes(event.key)) {
         event.preventDefault();
         openPanel();
@@ -389,8 +424,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div ref="root" class="date-field">
+    <div ref="root" class="date-field" :data-calendar-open="topLayer && open ? '' : undefined">
         <button
+            :id="triggerId"
             ref="trigger"
             type="button"
             class="field date-trigger"
@@ -404,90 +440,99 @@ onBeforeUnmount(() => {
             @click="toggle"
             @keydown="onTriggerKeydown"
         >
-            <span class="date-text">{{ triggerText }}</span>
-            <AppIcon name="chevron-down" class="date-arrow" :class="{ on: open }" />
+            <slot name="trigger" :text="triggerText">
+                <span class="date-text">{{ triggerText }}</span>
+                <AppIcon name="chevron-down" class="date-arrow" :class="{ on: open }" />
+            </slot>
         </button>
 
-        <!-- 纸片挂在 body 上，不继承任何祖先的 `overflow`——见文件头「为什么落在 body 上」。
-             位置由 `placePanel()` 按触发条的视口坐标给。 -->
-        <Teleport to="body">
+        <!-- 原生浮层留在宿主的焦点范围内，两种挂载方式共用视口定位。 -->
+        <Teleport to="body" :disabled="topLayer">
             <div
-                v-if="open"
+                v-if="open || keepPopover"
+                :data-ready="panelReady || undefined"
+                :inert="topLayer && !open"
                 :id="panelId"
                 ref="panel"
                 class="date-panel"
+                :popover="topLayer ? 'manual' : undefined"
+                @toggle.stop
+                @pointerdown="topLayer && $event.stopPropagation()"
                 role="dialog"
                 :aria-label="label"
                 :style="panelStyle"
                 @keydown="onDayKeydown"
             >
-                <div class="date-head">
-                    <!-- ‹ › 用同一个 `chevron-right` 组件翻个身：图标库只有右折，
-                         为两个方向各加一枚字形不值得，而旋转出来的形状与它一模一样。 -->
-                    <button
-                        type="button"
-                        class="nav prev"
-                        aria-label="上一个月"
-                        @click="shiftMonth(-1)"
-                    >
-                        <AppIcon name="chevron-right" />
-                    </button>
-                    <span class="head-text">{{ headText }}</span>
-                    <button
-                        type="button"
-                        class="nav next"
-                        aria-label="下一个月"
-                        @click="shiftMonth(1)"
-                    >
-                        <AppIcon name="chevron-right" />
-                    </button>
-                    <button
-                        type="button"
-                        class="nav"
-                        aria-label="关闭日历"
-                        title="关闭日历"
-                        @keydown.enter.stop
-                        @keydown.space.stop
-                        @click="closePanel(true)"
-                    >
-                        <AppIcon name="close" />
-                    </button>
-                </div>
-
-                <div class="date-week">
-                    <span v-for="one in WEEK" :key="one">{{ one }}</span>
-                </div>
-
-                <div class="date-grid">
-                    <template v-for="cell in cells" :key="cell.key">
-                        <span v-if="cell.out" class="blank-cell"></span>
+                <div class="date-content">
+                    <div class="date-head">
+                        <!-- ‹ › 用同一个 `chevron-right` 组件翻个身：图标库只有右折，
+                             为两个方向各加一枚字形不值得，而旋转出来的形状与它一模一样。 -->
                         <button
-                            v-else
                             type="button"
-                            class="day"
-                            :class="{
-                                on: cell.value === modelValue,
-                                now: cell.value === today,
-                                off: dayDisabled(cell.value),
-                            }"
-                            :tabindex="cell.value === cursor ? 0 : -1"
-                            :disabled="dayDisabled(cell.value)"
-                            :aria-pressed="cell.value === modelValue"
-                            :aria-label="`${view.year}年${view.month + 1}月${cell.text}日`"
-                            @click="choose(cell.value)"
-                            @focus="cursor = cell.value"
+                            class="nav prev"
+                            aria-label="上一个月"
+                            @click="shiftMonth(-1)"
                         >
-                            {{ cell.text }}
+                            <AppIcon name="chevron-right" />
                         </button>
-                    </template>
-                </div>
+                        <span class="head-text">{{ headText }}</span>
+                        <button
+                            type="button"
+                            class="nav next"
+                            aria-label="下一个月"
+                            @click="shiftMonth(1)"
+                        >
+                            <AppIcon name="chevron-right" />
+                        </button>
+                        <button
+                            type="button"
+                            class="nav"
+                            aria-label="关闭日历"
+                            title="关闭日历"
+                            @keydown.enter.stop
+                            @keydown.space.stop
+                            @click="closePanel(true)"
+                        >
+                            <AppIcon name="close" />
+                        </button>
+                    </div>
 
-                <div class="date-foot">
-                    <button type="button" class="jump" @click="jumpToday">回到今天</button>
+                    <div class="date-week">
+                        <span v-for="one in WEEK" :key="one">{{ one }}</span>
+                    </div>
+
+                    <div class="date-grid">
+                        <template v-for="cell in cells" :key="cell.key">
+                            <span v-if="cell.out" class="blank-cell"></span>
+                            <button
+                                v-else
+                                type="button"
+                                class="day"
+                                :class="{
+                                    on: cell.value === modelValue,
+                                    now: cell.value === today,
+                                    off: dayDisabled(cell.value),
+                                }"
+                                :tabindex="cell.value === cursor ? 0 : -1"
+                                :disabled="dayDisabled(cell.value)"
+                                :aria-pressed="cell.value === modelValue"
+                                :aria-current="cell.value === today ? 'date' : undefined"
+                                :aria-label="`${view.year}年${view.month + 1}月${cell.text}日`"
+                                @click="choose(cell.value)"
+                                @focus="cursor = cell.value"
+                            >
+                                {{ cell.text }}
+                            </button>
+                        </template>
+                    </div>
+
+                    <div class="date-foot">
+                        <button type="button" class="jump" :disabled="dayDisabled(today)" @click="jumpToday">回到今天</button>
+                    </div>
                 </div>
             </div>
         </Teleport>
-        <span v-if="error" :id="errorId" class="note error field-error">{{ error }}</span>
+        <span v-if="error" :id="errorId" class="note error field-error" role="alert">{{ error }}</span>
     </div>
 </template>
 

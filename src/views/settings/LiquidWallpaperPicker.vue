@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import AppIcon from '../../components/AppIcon.vue';
 import { GlassButton, GlassSearch } from '../../components/liquid-glass';
 import { usePagination } from '../../composables/use-pagination';
 import { openExternal } from '../../services/desktop';
@@ -70,26 +71,46 @@ watch(
             <a :href="WALLPAPER_SITE" @click.prevent="openExternal(WALLPAPER_SITE)"
                 >梦幻西游壁纸站 ↗</a
             >
-            <div v-if="pages > 1" class="wallpaper-pages">
-                <GlassButton size="small" variant="plain" :disabled="page <= 1" @click="page--"
-                    >上一页</GlassButton
+            <nav v-if="pages > 1" class="wallpaper-pages" aria-label="壁纸分页">
+                <GlassButton
+                    class="lg-inline-action"
+                    size="small"
+                    shape="circle"
+                    aria-label="上一页"
+                    :disabled="page <= 1"
+                    @click="page--"
                 >
+                    <AppIcon name="chevron-left" />
+                </GlassButton>
                 <span aria-live="polite">{{ page }} / {{ pages }}</span>
-                <GlassButton size="small" variant="plain" :disabled="page >= pages" @click="page++"
-                    >下一页</GlassButton
+                <GlassButton
+                    class="lg-inline-action"
+                    size="small"
+                    shape="circle"
+                    aria-label="下一页"
+                    :disabled="page >= pages"
+                    @click="page++"
                 >
-            </div>
+                    <AppIcon name="chevron-right" />
+                </GlassButton>
+            </nav>
         </footer>
     </div>
 </template>
 
 <style scoped>
+/* 弹窗面板半透明，按钮文字统一用页面墨色并关掉材质文字阴影
+ * （阴影在 glass-button.lg-component 已全局关，这里只补前景与字距）。 */
 .wallpaper-picker {
+    --glass-foreground: var(--liquid-ink);
+    --glass-accent-text: var(--liquid-ink);
     display: grid;
     gap: 12px;
 }
-.wallpaper-picker :is(header, footer),
-.wallpaper-pages {
+.wallpaper-picker glass-button {
+    letter-spacing: normal;
+}
+.wallpaper-picker :is(header, footer) {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -149,8 +170,19 @@ watch(
 .wallpaper-picker a {
     color: var(--liquid-focus);
 }
-.wallpaper-pages {
+/* 与物价历史弹窗 .price-history-pager 同一套：纯图标圆形按钮 + 页码，
+ * 不写「上一页／下一页」文字，靠 aria-label 保留可访问名。 */
+/* 选择器带上 .wallpaper-picker：footer 另有 font-size: --fs-xs，
+ * 特异性更高，不加权会被它压回小字，与历史弹窗的 --fs-sm 不一致。 */
+.wallpaper-picker .wallpaper-pages {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: var(--fs-sm);
     font-variant-numeric: tabular-nums;
+}
+.wallpaper-pages glass-button {
+    --icon-size: 14px;
 }
 @media (max-width: 480px) {
     .wallpaper-grid {

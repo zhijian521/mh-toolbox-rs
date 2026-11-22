@@ -7,6 +7,12 @@ import darkWallpaper from '../../assets/textures/liquid-wallpaper-dark.webp';
 const themeKey = 'mh-liquid-appearance';
 const appearance = ref<'light' | 'dark'>(readPreference(themeKey) === 'dark' ? 'dark' : 'light');
 
+/** 液态支线只提供霞鹜文楷与资源圆体两档；不与正式版的三档 mh-font-family 共用，
+ *  免得「系统默认」流进来后玻璃组件失去统一的字形。默认仍是支线原本的圆体。 */
+export type LiquidFont = 'wenkai' | 'rounded';
+const fontKey = 'mh-liquid-font';
+const font = ref<LiquidFont>(readPreference(fontKey) === 'wenkai' ? 'wenkai' : 'rounded');
+
 const wallpaperKey = 'mh-liquid-wallpaper';
 const saved = readPreference(wallpaperKey) ?? '';
 const selectedWallpaper = ref(isWallpaperUrl(saved) ? saved : '');
@@ -65,10 +71,12 @@ if (import.meta.hot)
     });
 
 watch(appearance, (value) => writePreference(themeKey, value));
+watch(font, (value) => writePreference(fontKey, value));
 
 export function useLiquidPreferences() {
     return {
         appearance,
+        font,
         wallpaper,
         activeImage,
         selectedWallpaper,

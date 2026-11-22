@@ -37,6 +37,13 @@
 
 glass-button.lg-component {
     --glass-button-font-size: var(--fs-sm);
+    /* 引擎按材质把 --gl-text-shadow 写到 host 上（surface.js:247）：clear 材质
+     * 给「白字压亮背景」配的是三层黑色柔光阴影（materials.js:62/75）。项目把
+     * 按钮文字改成深墨（--glass-foreground: var(--liquid-ink)）后，这层暗影叠在
+     * 半透明弹窗面板上就把小字糊成一团；variant="plain" 连底色都关了，最明显。
+     * 库 :host 是 text-shadow: var(--glass-text-shadow, var(--gl-text-shadow, none))，
+     * 这里统一覆盖为 none，不再逐个弹窗打补丁。 */
+    --glass-text-shadow: none;
     font-weight: 400;
 }
 
@@ -80,6 +87,82 @@ glass-menu-item.lg-component {
     font-weight: 400;
 }
 
+.lg-popup-trigger {
+    display: block;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: var(--fs-base);
+    text-align: start;
+    cursor: pointer;
+}
+.lg-popup-trigger[aria-expanded='true'] .lg-popup-face {
+    outline: 1px solid color-mix(in srgb, var(--liquid-focus) 48%, transparent);
+    outline-offset: -1px;
+}
+.lg-popup-trigger:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+.lg-popup-menu {
+    min-width: 0;
+    --glass-foreground: var(--liquid-ink);
+    --glass-text-shadow: none;
+}
+.lg-popup-menu > glass-menu-item {
+    min-height: 32px;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    color: var(--liquid-ink);
+    letter-spacing: normal;
+    overflow-wrap: anywhere;
+}
+
+/* 菜单动画逐帧写入触发器透明度；按钮常显，面板在回缩起点淡出。 */
+.lg-popup-menu > [slot='trigger']:not([disabled]) {
+    opacity: 1 !important;
+}
+.lg-popup-menu::part(panel) {
+    background-color: var(--lg-popup-fill);
+}
+.lg-popup-menu:not([open])::part(panel) {
+    opacity: 0;
+    pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+    .lg-popup-menu:not([open])::part(panel) {
+        transition: opacity var(--lg-popup-fade) ease-out;
+    }
+
+    /* 三点菜单随玻璃面板从按钮展开，回缩时在触及按钮前淡出。 */
+    .lg-popup-menu-small[open]::part(panel) {
+        opacity: 1;
+        transition: opacity 200ms ease-out;
+    }
+    @starting-style {
+        .lg-popup-menu-small[open]::part(panel) {
+            opacity: 0;
+        }
+    }
+    .lg-popup-menu-small:not([open])::part(panel) {
+        transition: opacity 180ms ease-in-out;
+    }
+}
+
+/* 开场测量与动画用同一个 content 尺寸，覆盖库内联的 220px 下限。 */
+.lg-popup-menu-small::part(content) {
+    box-sizing: border-box;
+    min-width: min(132px, calc(100vw - 16px)) !important;
+    padding: 10px 12px;
+}
+.lg-popup-menu > glass-menu-item[destructive] {
+    color: var(--liquid-up);
+}
+
 glass-tab-bar.lg-component {
     font-size: var(--glass-tab-font-size, var(--fs-mini));
     font-weight: 400;
@@ -102,6 +185,8 @@ glass-menu-label.lg-component {
     --liquid-muted: light-dark(#344842, #d1e2db);
     --liquid-up: light-dark(#923b3b, #ffb8ae);
     --liquid-down: light-dark(#245943, #a8e7c6);
+    --lg-popup-fade: 80ms;
+    --lg-popup-fill: light-dark(rgb(246 251 248 / 0.68), rgb(25 37 34 / 0.76));
     --lg-form-height: 32px;
     --glass-search-height: 44px;
     --lg-scroll-thumb: light-dark(rgb(44 70 59 / 0.43), rgb(213 240 226 / 0.39));
@@ -109,9 +194,16 @@ glass-menu-label.lg-component {
     scrollbar-color: var(--lg-scroll-thumb) transparent;
 }
 
+/* 滚动条轨道常驻：内容高度跨过视口时，滚动条不再「出现／消失」地改变内容盒宽度。
+ * 液态页面大量用 auto-fill / auto-fit 网格，宽度差这 8px 就会在临界点整排换列、
+ * 高度又变回去，形成可见的抖动（2026-11-22 物价页）。一条规则覆盖页面、
+ * 弹窗、表格与 sheet 的 shadow body，新增页面无需单独声明。
+ * 例外：刻意隐藏滚动条的容器（.chart-scroll 等）要显式写 scrollbar-gutter: auto，
+ * 否则会白留一条轨道。 */
 :where(.liquid-app, .liquid-app *),
 :where(.liquid-app glass-sheet)::part(body) {
     scrollbar-width: thin;
+    scrollbar-gutter: stable;
 }
 
 @supports not (scrollbar-color: auto) {

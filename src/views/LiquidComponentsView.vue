@@ -22,6 +22,7 @@ import {
     GlassTabBar,
     GlassToolbar,
 } from '../components/liquid-glass';
+import GlassDateField from '../components/liquid-glass/GlassDateField.vue';
 import GlassDialog from '../components/liquid-glass/GlassDialog.vue';
 import GlassEmptyState from '../components/liquid-glass/GlassEmptyState.vue';
 import GlassInput from '../components/liquid-glass/GlassInput.vue';
@@ -36,6 +37,7 @@ import { sortedPoints, type PriceItem, type PricePointDraft } from './prices/pri
 
 const { wallpaper } = useLiquidPreferences();
 const day = todayText();
+const sampleDate = ref(day);
 const sampleItem = ref<PriceItem>({
     id: 'sample',
     name: '金刚石',
@@ -90,9 +92,9 @@ const observations = [
 
 <template>
     <div class="component-catalog">
-        <header class="intro"><h1>组件</h1></header>
+        <!-- 按组件类型分组，不按业务场景：卡片 / 按钮 / 输入 / 选择 / 容器 / 反馈。 -->
         <div class="gallery">
-            <h2>物价与录入</h2>
+            <h2>卡片</h2>
             <section>
                 <header><h3>物价卡片</h3></header>
                 <div class="stage">
@@ -104,6 +106,8 @@ const observations = [
                     />
                 </div>
             </section>
+
+            <h2>按钮与菜单</h2>
             <section>
                 <header>
                     <h3>按钮</h3>
@@ -142,15 +146,29 @@ const observations = [
                 </div>
             </section>
             <section>
-                <header>
-                    <h3>价格输入</h3>
-                    <small>记价 · 初始价</small>
-                </header>
-                <div class="stage stack">
-                    <GlassPriceField v-model="priceExample" label="这一笔多少钱" />
-                    <GlassPriceField v-model="initialPrice" label="初始价格（选填）" compact />
+                <header><h3>菜单</h3></header>
+                <div class="stage">
+                    <GlassMenu @select="sort = $event === 'reset' ? '名称' : $event">
+                        <template #trigger
+                            ><GlassButton size="small"
+                                >按{{ sort }}排序 <AppIcon name="chevron-down" /></GlassButton
+                        ></template>
+                        <GlassMenuLabel>排序方式</GlassMenuLabel>
+                        <GlassMenuItem
+                            v-for="option in ['名称', '时间']"
+                            :key="option"
+                            :value="option"
+                            group="sort"
+                            checkable
+                            :checked="sort === option"
+                            >{{ option }}</GlassMenuItem
+                        >
+                        <GlassMenuSeparator /><GlassMenuItem value="reset">恢复默认</GlassMenuItem>
+                    </GlassMenu>
                 </div>
             </section>
+
+            <h2>输入控件</h2>
             <section>
                 <header>
                     <h3>输入框</h3>
@@ -163,6 +181,16 @@ const observations = [
                     <label class="field-example"
                         >备注<GlassInput v-model="note" placeholder="选填"
                     /></label>
+                </div>
+            </section>
+            <section>
+                <header>
+                    <h3>价格输入</h3>
+                    <small>记价 · 初始价</small>
+                </header>
+                <div class="stage stack">
+                    <GlassPriceField v-model="priceExample" label="这一笔多少钱" />
+                    <GlassPriceField v-model="initialPrice" label="初始价格（选填）" compact />
                 </div>
             </section>
             <section>
@@ -186,6 +214,12 @@ const observations = [
                 </div>
             </section>
             <section>
+                <header><h3>日期选择</h3></header>
+                <div class="stage lg-form-fields">
+                    <GlassDateField v-model="sampleDate" class="field-example" label="记录日期" />
+                </div>
+            </section>
+            <section>
                 <header><h3>搜索框</h3></header>
                 <div class="stage stack">
                     <GlassSearch
@@ -201,7 +235,7 @@ const observations = [
                 </div>
             </section>
 
-            <h2>选择与导航</h2>
+            <h2>选择控件</h2>
             <section>
                 <header><h3>开关</h3></header>
                 <div class="stage">
@@ -246,28 +280,8 @@ const observations = [
                     </GlassTabBar>
                 </div>
             </section>
-            <section>
-                <header><h3>菜单</h3></header>
-                <div class="stage">
-                    <GlassMenu @select="sort = $event === 'reset' ? '名称' : $event">
-                        <template #trigger
-                            ><GlassButton size="small"
-                                >按{{ sort }}排序 <AppIcon name="chevron-down" /></GlassButton
-                        ></template>
-                        <GlassMenuLabel>排序方式</GlassMenuLabel>
-                        <GlassMenuItem
-                            v-for="option in ['名称', '时间']"
-                            :key="option"
-                            :value="option"
-                            group="sort"
-                            checkable
-                            :checked="sort === option"
-                            >{{ option }}</GlassMenuItem
-                        >
-                        <GlassMenuSeparator /><GlassMenuItem value="reset">恢复默认</GlassMenuItem>
-                    </GlassMenu>
-                </div>
-            </section>
+
+            <h2>容器与表面</h2>
             <section>
                 <header><h3>工具栏</h3></header>
                 <div class="stage">
@@ -294,25 +308,11 @@ const observations = [
                     </GlassToolbar>
                 </div>
             </section>
-
-            <h2>弹层与反馈</h2>
             <section>
-                <header><h3>对话框</h3></header>
-                <div class="stage">
-                    <GlassButton size="small" @click="editorOpen = true">打开记价表单</GlassButton>
-                </div>
-            </section>
-            <section>
-                <header><h3>底部弹层</h3></header>
-                <div class="stage">
-                    <GlassButton size="small" aria-haspopup="dialog" @click="sheetOpen = true"
-                        >查看价格历史</GlassButton
-                    >
-                </div>
-            </section>
-            <section>
-                <header><h3>空状态</h3></header>
-                <div class="stage"><GlassEmptyState /></div>
+                <header><h3>场景容器</h3></header>
+                <GlassScene class="stage scene" :src="wallpaper"
+                    ><GlassCard :radius="15" class="scene-label">应用壁纸</GlassCard></GlassScene
+                >
             </section>
             <section>
                 <header><h3>滚动边缘</h3></header>
@@ -333,17 +333,32 @@ const observations = [
                     </GlassToolbar>
                 </div>
             </section>
+
+            <h2>反馈与弹层</h2>
             <section>
-                <header><h3>场景容器</h3></header>
-                <GlassScene class="stage scene" :src="wallpaper"
-                    ><GlassCard :radius="15" class="scene-label">应用壁纸</GlassCard></GlassScene
-                >
+                <header><h3>对话框</h3></header>
+                <div class="stage">
+                    <GlassButton size="small" @click="editorOpen = true">打开记价表单</GlassButton>
+                </div>
+            </section>
+            <section>
+                <header><h3>底部弹层</h3></header>
+                <div class="stage">
+                    <GlassButton size="small" aria-haspopup="dialog" @click="sheetOpen = true"
+                        >查看价格历史</GlassButton
+                    >
+                </div>
+            </section>
+            <section>
+                <header><h3>空状态</h3></header>
+                <div class="stage"><GlassEmptyState /></div>
             </section>
         </div>
         <GlassDialog v-model:open="editorOpen" label="示例记价">
             <LiquidPriceEditor
                 v-if="editorOpen"
                 :item="sampleItem"
+                prefill-current
                 :categories="[]"
                 active
                 :saving="false"

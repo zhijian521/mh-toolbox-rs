@@ -106,6 +106,10 @@ export default async function run(ctx) {
                 '备份窗口说明恢复前会另存账本',
                 (await ui.text('.modal-panel')).includes('恢复前另存当前账本'),
             );
+            t.check(
+                '备份列表合计不超过 5 条',
+                (await ui.count('.backup-list .backup-row')) <= 5,
+            );
             await ui.clickLabel('关闭备份列表');
             t.check('备份窗口正常关闭', !(await ui.exists('[role="dialog"]')));
         });

@@ -1,11 +1,18 @@
 import { commands } from './bindings';
 import { legacyDataImport } from './data-files';
 import { hasDesktop } from './desktop';
-import { loadGameData } from './game-data';
+import { gameDataReady, loadGameData } from './game-data';
 
 export interface StartupNotice {
     title: string;
     note: string;
+}
+
+export async function prepareLegacyData(original: string) {
+    await loadGameData();
+    if (!gameDataReady.value) throw new Error('游戏规则未能载入，请重试导入');
+    const { convertLegacyData } = await import('../import/legacy');
+    return convertLegacyData(original);
 }
 
 /** 先于各领域加载和自动写入；转换与设置页共用，只有旧文件存在时加载转换模块。 */
@@ -14,9 +21,7 @@ export async function importLegacyOnStartup(): Promise<StartupNotice | undefined
     try {
         const original = await commands.legacyStartupRead();
         if (original === null) return;
-        await loadGameData();
-        const { convertLegacyData } = await import('../import/legacy');
-        const { backup, warnings } = convertLegacyData(original);
+        const { backup, warnings } = await prepareLegacyData(original);
         const outcome = await legacyDataImport(original, JSON.stringify(backup), true);
         if (outcome.status === 'failed') throw new Error(outcome.error);
         if (outcome.status !== 'ok') return;
