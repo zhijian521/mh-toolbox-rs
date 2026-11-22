@@ -183,6 +183,24 @@ describe('弹窗代码按需加载', () => {
         expect(loader).toHaveBeenCalledTimes(2);
     });
 
+    it('已有弹层时在窗内显示失败和重试，沿用现有遮罩', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        const loader = vi
+            .fn<() => Promise<{ default: typeof Dialog }>>()
+            .mockRejectedValueOnce(new Error('chunk unavailable'))
+            .mockResolvedValue({ default: Dialog });
+        const Lazy = lazyDialog(loader, (failed, retry) => h('inline-status', { failed, retry }));
+        const { root } = mount(Lazy, { name: '物价' });
+        await settle();
+        const status = find(root, 'inline-status')!;
+        expect(status.props.failed).toBe(true);
+        expect(find(root, 'modal')).toBeUndefined();
+        (status.props.retry as () => void)();
+        await settle();
+        expect(find(root, 'editor')?.props.name).toBe('物价');
+        expect(find(root, 'inline-status')).toBeUndefined();
+    });
+
     it('等待提示出现前卸载，延迟计时器不会留下加载窗口', async () => {
         const { root, visible } = mount(
             lazyDialog(() => new Promise<{ default: typeof Dialog }>(() => {})),

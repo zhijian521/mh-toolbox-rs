@@ -1,10 +1,23 @@
-import { defineComponent, h, onBeforeUnmount, provide, ref, shallowRef, type Component } from 'vue';
+import {
+    defineComponent,
+    h,
+    onBeforeUnmount,
+    provide,
+    ref,
+    shallowRef,
+    type Component,
+    type VNode,
+} from 'vue';
 import { MODAL_HANDOFF } from '../composables/use-modal-motion';
 import ModalShell from './ModalShell.vue';
 import PressButton from './PressButton.vue';
 
 /** 弹窗代码首次打开才加载；同一弹窗共享请求与成功缓存，失败后可重试。 */
-export function lazyDialog<T extends Component>(loader: () => Promise<{ default: T }>): T {
+export function lazyDialog<T extends Component>(
+    loader: () => Promise<{ default: T }>,
+    /** 已有弹窗壳时在窗内显示状态，沿用该窗口的遮罩和焦点。 */
+    inlineStatus?: (failed: boolean, retry: () => void) => VNode,
+): T {
     let cached: T | undefined;
     let pending: Promise<T> | undefined;
 
@@ -75,6 +88,7 @@ export function lazyDialog<T extends Component>(loader: () => Promise<{ default:
             return () => {
                 if (component.value) return h(component.value, attrs, slots);
                 if (!showLoading.value) return null;
+                if (inlineStatus) return inlineStatus(failed.value, open);
                 return h(
                     ModalShell,
                     { title: failed.value ? '加载失败' : '加载中', width: 320, onClose: close },

@@ -3,6 +3,8 @@ import { createRouter, createWebHashHistory } from 'vue-router';
 import type { RouteComponent } from 'vue-router';
 import LiquidApp from './LiquidApp.vue';
 import { DEFAULT_PATH, NAV_ITEMS } from './navigation';
+import { guardWindowClose } from './services/desktop';
+import { flushPendingWrites } from './services/persist';
 import './styles/rounded-font.css';
 import './styles/token-typography.css';
 import './components/liquid-glass/style.css';
@@ -15,6 +17,7 @@ const items = NAV_ITEMS.flatMap(({ key, path, label, icon }) => {
 
 const blankPage = { render: () => null };
 const views = new Map<string, () => Promise<RouteComponent>>([
+    ['prices', () => import('./views/prices/LiquidPricesView.vue').then((page) => page.default)],
     ['components', () => import('./views/LiquidComponentsView.vue').then((page) => page.default)],
     ['settings', () => import('./views/LiquidSettingsView.vue').then((page) => page.default)],
 ]);
@@ -32,3 +35,7 @@ const router = createRouter({
 });
 
 createApp(LiquidApp, { items }).use(router).mount('#app');
+void guardWindowClose(async () => {
+    await flushPendingWrites();
+    return true;
+});

@@ -420,6 +420,38 @@ describe('收益固定单价与物价卡片联动', () => {
         expect(market.items.value[0].points).toHaveLength(2);
     });
 
+    it('从物价页读取收益账时仅建立联动基线，随后记价同步该物品', async () => {
+        const { desktop, fixed, income, incomeModule, market, models, pricesModule } =
+            await loadLinkedStore();
+        const [linked, untouched] = fixed;
+        const card = models.makePriceItem(
+            { name: linked.name, category: '其他', sub: '', note: '' },
+            'linked-card',
+            100,
+        );
+        desktop.pricesLoad.mockResolvedValueOnce([card]);
+        desktop.incomeLoad.mockResolvedValueOnce({
+            entries: [],
+            prices: [
+                { itemId: linked.id, price: 200_000 },
+                { itemId: untouched.id, price: 300_000 },
+            ],
+        });
+        await incomeModule.loadIncome({ reconcilePrices: false });
+        await pricesModule.loadPrices();
+        expect(market.items.value).toHaveLength(1);
+        expect(income.prices.value[linked.id]).toBe(200_000);
+        expect(desktop.pricesSave).not.toHaveBeenCalled();
+        expect(desktop.incomeSave).not.toHaveBeenCalled();
+
+        const point = { date: '2026-11-22', price: 400_000, note: '' };
+        expect(market.addPoint(card.id, point).ok).toBe(true);
+        expect(await market.flush()).toBe(true);
+        expect(income.prices.value[linked.id]).toBe(400_000);
+        expect(income.prices.value[untouched.id]).toBe(300_000);
+        expect(market.items.value).toHaveLength(1);
+    });
+
     it('首次同名行情优先于旧固定价，不重复建卡或追加历史', async () => {
         const { income, market, fixed, desktop, incomeModule } = await loadLinkedStore();
         const item = fixed[0];

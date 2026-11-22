@@ -82,6 +82,7 @@ linkIncomePriceWrites(persist, writeError);
 const market = usePrices();
 let linkingPrices = false;
 let linksReady = false;
+let reconcilePricesOnLoad = true;
 let previousCards: readonly ReadonlyPriceItem[] = [];
 
 /** 两边都读成功才联动；首次只接已有固定价，清除过的单价不因重载恢复。 */
@@ -99,6 +100,12 @@ const stopPriceLinks = watch(
             return;
         }
         if (linkingPrices) return;
+        // 物价页首次为记价加载收益账时，仅建立本次改动的比较基线。
+        if (!linksReady && !reconcilePricesOnLoad) {
+            previousCards = cards;
+            linksReady = true;
+            return;
+        }
         const fixed = quickItems().fixed;
         if (!linksReady) {
             const missing = fixed
@@ -173,7 +180,8 @@ function applyLocal(stored: ReturnType<typeof parseStoredIncome> | null) {
 }
 
 /** 启动阶段读取，完成前由写队列阻止保存；旧版转换统一在启动导入入口处理。 */
-export async function loadIncome(): Promise<void> {
+export async function loadIncome({ reconcilePrices = true } = {}): Promise<void> {
+    reconcilePricesOnLoad = reconcilePrices;
     await loadData({
         loaded,
         loadError,

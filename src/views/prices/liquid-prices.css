@@ -1,0 +1,253 @@
+.liquid-prices {
+    --price-muted: light-dark(#344842, #d1e2db);
+    --price-up: light-dark(#923b3b, #ffb8ae);
+    --price-down: light-dark(#245943, #a8e7c6);
+    --price-surface: light-dark(#efffec45, #14241f40);
+    width: min(100% - 32px, 1180px);
+    margin: 0 auto;
+    padding: 16px 0;
+}
+
+.price-page-header,
+.price-card-footer,
+.price-history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+}
+
+.price-page-header {
+    margin-bottom: 12px;
+}
+
+.price-page-header h1 {
+    margin: 0;
+}
+
+.price-add {
+    --icon-size: 16px;
+    --glass-foreground: var(--liquid-ink);
+}
+
+.price-muted {
+    margin: 0;
+    color: var(--price-muted);
+    font-size: var(--fs-mini);
+}
+
+.price-filters {
+    display: grid;
+    grid-template-columns: minmax(0, 288px) repeat(2, minmax(132px, max-content));
+    align-items: end;
+    gap: 8px 12px;
+    margin-bottom: 14px;
+}
+
+.price-search {
+    --glass-search-height: 34px;
+    --glass-foreground: var(--liquid-ink);
+    --glass-text-shadow: none;
+    min-width: 0;
+    border-radius: 999px;
+    background-color: var(--price-surface);
+}
+
+.price-filter {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    color: var(--price-muted);
+    font-size: var(--fs-xs);
+}
+
+.price-filter select {
+    width: 100%;
+    min-height: 34px;
+    padding: 0 9px;
+    border: 1px solid var(--liquid-outline);
+    border-radius: 11px;
+    color: var(--liquid-ink);
+    background: var(--price-surface);
+    font: inherit;
+    font-size: var(--fs-base);
+}
+
+.price-filter select:disabled {
+    opacity: 0.72;
+}
+
+.price-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(208px, 100%), 1fr));
+    gap: 10px;
+}
+
+.price-card,
+.price-state {
+    --glass-foreground: var(--liquid-ink);
+    --glass-text-shadow: none;
+    background-color: var(--price-surface);
+}
+
+.price-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding: 8px 9px 6px;
+    background-color: color-mix(
+        in srgb,
+        var(--price-category-tint, var(--price-surface)) 10%,
+        var(--price-surface)
+    );
+}
+
+.price-card[data-category='装备灵饰'] {
+    --price-category-tint: light-dark(#81a2d5, #a8c0f6);
+}
+
+.price-card[data-category='召唤兽'] {
+    --price-category-tint: light-dark(#b090ca, #c7a9e8);
+}
+
+.price-card[data-category='兽决内丹'] {
+    --price-category-tint: light-dark(#d39c78, #e9b590);
+}
+
+.price-card[data-category='宝石符石'] {
+    --price-category-tint: light-dark(#69b5b4, #90d1d1);
+}
+
+.price-card[data-category='打造材料'] {
+    --price-category-tint: light-dark(#b89c67, #d7bb86);
+}
+
+.price-card[data-category='消耗补给'] {
+    --price-category-tint: light-dark(#7eb58a, #a0d3a9);
+}
+
+.price-card[data-category='任务产出'] {
+    --price-category-tint: light-dark(#ce92a9, #e6a9c0);
+}
+
+.price-card[data-category='通货账号'] {
+    --price-category-tint: light-dark(#c6b16b, #dfcd90);
+}
+
+.price-card-header h2,
+.price-history-header h2 {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.price-card-header p {
+    margin-top: 2px;
+    overflow-wrap: anywhere;
+}
+
+.price-quote {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+    font-variant-numeric: tabular-nums;
+}
+
+.price-value {
+    font-size: var(--fs-amount);
+}
+
+.price-unpriced {
+    color: var(--price-muted);
+    font-size: var(--fs-sm);
+}
+
+.price-change {
+    color: var(--price-muted);
+    font-size: var(--fs-mini);
+}
+
+.price-change[data-tone='up'] {
+    color: var(--price-up);
+}
+
+.price-change[data-tone='down'] {
+    color: var(--price-down);
+}
+
+.price-note {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.price-card-footer {
+    margin-top: auto;
+    gap: 4px;
+    padding-top: 4px;
+    border-top: 1px solid var(--liquid-outline);
+}
+
+.price-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.price-card-actions glass-button {
+    --glass-button-height: 26px;
+    --glass-button-padding: 7px;
+    white-space: nowrap;
+}
+
+.price-state {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding: 14px;
+}
+
+.price-write-error {
+    margin-bottom: 10px;
+}
+
+.price-state p,
+.price-history-sheet :deep(.price-history-status p) {
+    margin: 0;
+}
+
+.price-history-sheet {
+    --glass-foreground: var(--liquid-ink);
+    --glass-sheet-max-width: 720px;
+    --glass-sheet-padding: 3px 14px 14px;
+}
+
+.price-history-header {
+    margin-bottom: 10px;
+}
+
+.price-item-note {
+    margin-bottom: 10px;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.price-history-sheet :deep(.price-history-status) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+@media (max-width: 540px) {
+    .price-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .price-search {
+        grid-column: 1 / -1;
+        width: min(288px, 100%);
+    }
+}
+

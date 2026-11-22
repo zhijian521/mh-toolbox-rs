@@ -298,7 +298,10 @@ export function usePrices() {
             return results.every(Boolean);
         },
         async retry(): Promise<boolean> {
-            const results = await Promise.all([persist(), incomeWriter?.() ?? true]);
+            const results = await Promise.all([
+                persist(),
+                incomeWriteError?.value ? (incomeWriter?.() ?? true) : true,
+            ]);
             return results.every(Boolean);
         },
         items: readonly(items),
