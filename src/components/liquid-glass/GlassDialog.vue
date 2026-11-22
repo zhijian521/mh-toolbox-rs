@@ -2,10 +2,19 @@
 import { ref, watch, watchPostEffect } from 'vue';
 import { GlassSheet } from './index';
 
-const props = defineProps<{ open: boolean; bottom?: boolean; noDismiss?: boolean; detents?: string; label: string }>();
+const props = defineProps<{
+    open: boolean;
+    bottom?: boolean;
+    noDismiss?: boolean;
+    lazy?: boolean;
+    detents?: string;
+    label: string;
+}>();
 const emit = defineEmits<{ 'update:open': [value: boolean] }>();
 const panel = ref<HTMLDialogElement | null>(null);
 const desktop = ref(false);
+const sheet = ref<{ el: HTMLElement | null } | null>(null);
+const leavingContent = ref(false);
 let backdropPress = false;
 
 // 每次打开时选取呈现方式，调整窗口大小不会卸载正在编辑的表单。
@@ -16,11 +25,36 @@ watch(
     },
     { immediate: true },
 );
-watchPostEffect(() => {
+watchPostEffect((onCleanup) => {
     const dialog = panel.value;
-    if (!dialog) return;
-    if (props.open && !dialog.open) dialog.showModal();
-    if (!props.open && dialog.open) dialog.close();
+    if (dialog && props.open && !dialog.open) dialog.showModal();
+    if (dialog && !props.open && dialog.open) dialog.close();
+    if (!props.lazy) return;
+    if (props.open) {
+        leavingContent.value = true;
+        return;
+    }
+    if (!leavingContent.value) return;
+
+    // 原生 dialog 等实际过渡；sheet 在弹簧归位后才撤下 data-visible。
+    if (dialog) {
+        let canceled = false;
+        onCleanup(() => { canceled = true; });
+        void Promise.allSettled(dialog.getAnimations().map((motion) => motion.finished)).then(() => {
+            if (!canceled && !props.open) leavingContent.value = false;
+        });
+        return;
+    }
+    const host = sheet.value?.el;
+    if (!host?.hasAttribute('data-visible')) {
+        leavingContent.value = false;
+        return;
+    }
+    const observer = new MutationObserver(() => {
+        if (!props.open && !host.hasAttribute('data-visible')) leavingContent.value = false;
+    });
+    observer.observe(host, { attributes: true, attributeFilter: ['data-visible'] });
+    onCleanup(() => observer.disconnect());
 });
 
 function dismiss() {
@@ -38,9 +72,10 @@ function dismiss() {
         @pointerdown="backdropPress = $event.target === panel"
         @click.self="backdropPress && dismiss()"
     >
-        <div class="glass-dialog-body"><slot /></div>
+        <div class="glass-dialog-body"><slot v-if="!lazy || open || leavingContent" /></div>
     </dialog>
     <GlassSheet
+        ref="sheet"
         v-else
         :open="open"
         :detents="detents"
@@ -49,7 +84,7 @@ function dismiss() {
         modal
         @update:open="emit('update:open', $event)"
     >
-        <slot />
+        <slot v-if="!lazy || open || leavingContent" />
     </GlassSheet>
 </template>
 

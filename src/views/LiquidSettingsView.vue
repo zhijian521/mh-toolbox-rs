@@ -25,7 +25,6 @@ import catalog from './settings/xyq-wallpapers.json';
 
 const {
     appearance,
-    font,
     wallpaper,
     activeImage,
     selectedWallpaper,
@@ -35,12 +34,12 @@ const {
 } = useLiquidPreferences();
 const { info, version } = useAppInfo();
 const desktop = hasDesktop();
-const fontLabel = computed(() => (font.value === 'wenkai' ? '霞鹜文楷' : '资源圆体'));
 
 /* ---------- 数据：账本、备份与清除共用一份忙状态和一句回执 ----------
  * 与正式版 DataSection 同一口径：三个操作都整份动同一份账本，忙时一起停；
  * 成功后重载领域单例，回执与备份路径跨重载保留一次。 */
 const busy = ref(false);
+const ledgerDisabled = computed(() => !desktop || busy.value);
 const message = ref('');
 const warning = ref('');
 const messageKind = ref<'error' | 'positive'>('positive');
@@ -113,7 +112,7 @@ async function askClear() {
     const ok = await askConfirm({
         danger: true,
         title: '清空全部账本数据？',
-        note: '角色、物价、收益流水、速记单价、上线记录与点卡口径、账号记录与目标都会清空。清除前不会自动备份，想留一份就先「导出」。主题与字体不受影响。',
+        note: '角色、物价、收益流水、速记单价、上线记录与点卡口径、账号记录与目标都会清空。清除前不会自动备份，想留一份就先「导出」。',
         confirmText: '清除',
     });
     if (!ok) return;
@@ -213,25 +212,16 @@ function applyWallpaper(url: string) {
 <template>
     <section class="liquid-settings" aria-labelledby="liquid-settings-title">
         <h1 id="liquid-settings-title">设置</h1>
-        <!-- 与正式版设置页同一口径：一件事一张卡，宽度够就并排，够不着就自然竖排。 -->
         <div class="liquid-settings-grid">
             <GlassCard class="liquid-settings-panel" :radius="16">
                 <header class="card-heading">
                     <h2>外观</h2>
-                    <small>即时生效 · 自动记住</small>
                 </header>
                 <div class="liquid-settings-row">
                     <span id="liquid-theme-label">主题</span>
                     <GlassSegmented v-model:value="appearance" aria-labelledby="liquid-theme-label">
                         <GlassSegment value="light">浅色</GlassSegment>
                         <GlassSegment value="dark">深色</GlassSegment>
-                    </GlassSegmented>
-                </div>
-                <div class="liquid-settings-row">
-                    <span id="liquid-font-label">字体</span>
-                    <GlassSegmented v-model:value="font" aria-labelledby="liquid-font-label">
-                        <GlassSegment value="wenkai">霞鹜文楷</GlassSegment>
-                        <GlassSegment value="rounded">资源圆体</GlassSegment>
                     </GlassSegmented>
                 </div>
                 <div class="liquid-settings-row background-row">
@@ -272,19 +262,18 @@ function applyWallpaper(url: string) {
             <GlassCard class="liquid-settings-panel" :radius="16">
                 <header class="card-heading">
                     <h2>数据</h2>
-                    <small>备份与恢复</small>
                 </header>
                 <p v-if="!desktop" class="card-hint">账本与自动备份只在桌面版可用。</p>
                 <div class="liquid-settings-row">
                     <span>账本</span>
                     <div class="row-actions">
-                        <GlassButton size="small" :disabled="busy" @click="exportLedger"
+                        <GlassButton size="small" :disabled="ledgerDisabled" @click="exportLedger"
                             >导出</GlassButton
                         >
-                        <GlassButton size="small" :disabled="busy" @click="askImport"
+                        <GlassButton size="small" :disabled="ledgerDisabled" @click="askImport"
                             >导入</GlassButton
                         >
-                        <GlassButton size="small" :disabled="busy" @click="doImportLegacy"
+                        <GlassButton size="small" :disabled="ledgerDisabled" @click="doImportLegacy"
                             >导入旧版</GlassButton
                         >
                     </div>
@@ -295,7 +284,7 @@ function applyWallpaper(url: string) {
                     <div class="row-actions">
                         <GlassButton
                             size="small"
-                            :disabled="busy || !desktop"
+                            :disabled="ledgerDisabled"
                             aria-haspopup="dialog"
                             @click="openBackups"
                             >恢复</GlassButton
@@ -304,7 +293,9 @@ function applyWallpaper(url: string) {
                             >最近自动备份：{{ backupTime(latestDaily.createdAt) }}</small
                         >
                         <small v-else-if="backupsLoading">正在读取备份状态…</small>
-                        <small v-else-if="backupsLoaded && !backupsError">尚无自动备份</small>
+                        <small v-else-if="backupsLoaded && !backupsError">{{
+                            backups.length ? '保留的快照均为替换前备份' : '尚无自动备份'
+                        }}</small>
                     </div>
                 </div>
                 <p v-if="backupsWarning" role="status" class="receipt error">
@@ -315,7 +306,7 @@ function applyWallpaper(url: string) {
                 </p>
                 <div class="liquid-settings-row">
                     <span>清除</span>
-                    <GlassButton size="small" class="danger-action" :disabled="busy" @click="askClear"
+                    <GlassButton size="small" class="danger-action" :disabled="ledgerDisabled" @click="askClear"
                         >清除</GlassButton
                     >
                 </div>
@@ -325,56 +316,46 @@ function applyWallpaper(url: string) {
                     <p v-if="warning" class="receipt warning">{{ warning }}</p>
                 </div>
             </GlassCard>
+        </div>
 
-            <GlassCard class="liquid-settings-panel" :radius="16">
-                <header class="card-heading">
-                    <h2>关于</h2>
-                    <small>版本与应用信息</small>
-                </header>
+        <section class="settings-about" aria-labelledby="liquid-about-title">
+            <header class="about-heading">
+                <h2 id="liquid-about-title">关于</h2>
+                <span>{{ info?.productName ?? '梦幻养老助手' }} · {{ version }}</span>
+            </header>
+            <div class="update-check">
+                <span
+                    role="status"
+                    :class="{ error: !!updateError, available: update?.status === 'available' }"
+                    >{{ updateMessage }}</span
+                >
+                <GlassButton
+                    v-if="update?.status === 'available'"
+                    size="small"
+                    @click="download"
+                    >下载</GlassButton
+                >
+                <GlassButton size="small" :disabled="checking" @click="check"
+                    >检查更新</GlassButton
+                >
+            </div>
+            <details class="about-details">
+                <summary>运行信息</summary>
                 <dl class="about-list">
-                    <dt>产品名</dt>
-                    <dd>{{ info?.productName ?? '梦幻养老助手' }}</dd>
-                    <dt>版本</dt>
-                    <dd>{{ version }}</dd>
                     <dt>数据目录</dt>
                     <dd><code>{{ info?.dataDir ?? '%APPDATA%\\mh-tool-rs' }}</code></dd>
                     <dt>字体</dt>
-                    <dd>{{ fontLabel }}（SIL OFL 1.1，常用字子集）</dd>
+                    <dd>资源圆体（SIL OFL 1.1，常用字子集）</dd>
+                    <dt>标识</dt>
+                    <dd><code>{{ info?.identifier ?? 'com.zhijian.mhtoolbox.rs' }}</code></dd>
+                    <dt>数据库</dt>
+                    <dd><code>mh-toolbox.db</code>（SQLite · WAL）</dd>
+                    <dt>运行环境</dt>
+                    <dd>{{ info?.webview ?? '系统 WebView2（Tauri 2）' }}</dd>
                 </dl>
-                <div class="update-check">
-                    <span
-                        role="status"
-                        :class="{ error: !!updateError, available: update?.status === 'available' }"
-                        >{{ updateMessage }}</span
-                    >
-                    <GlassButton
-                        v-if="update?.status === 'available'"
-                        size="small"
-                        @click="download"
-                        >下载</GlassButton
-                    >
-                    <GlassButton size="small" :disabled="checking" @click="check"
-                        >检查更新</GlassButton
-                    >
-                </div>
-                <details class="runtime-details">
-                    <summary>运行信息</summary>
-                    <dl class="about-list">
-                        <dt>标识</dt>
-                        <dd><code>{{ info?.identifier ?? 'com.zhijian.mhtoolbox.rs' }}</code></dd>
-                        <dt>数据库</dt>
-                        <dd><code>mh-toolbox.db</code>（SQLite · WAL）</dd>
-                        <dt>运行环境</dt>
-                        <dd>{{ info?.webview ?? '系统 WebView2（Tauri 2）' }}</dd>
-                    </dl>
-                </details>
-            </GlassCard>
-
-            <GlassCard class="liquid-settings-panel" :radius="16">
-                <header class="card-heading">
-                    <h2>许可</h2>
-                    <small>非商业许可</small>
-                </header>
+            </details>
+            <details class="about-details">
+                <summary>使用许可</summary>
                 <p class="license-lead">本软件免费使用，源码公开。</p>
                 <p class="license-notice">
                     采用 PolyForm Noncommercial 1.0.0 许可；<b>任何以营利为目的的使用均不在授权范围内</b>。
@@ -396,17 +377,18 @@ function applyWallpaper(url: string) {
                 <p class="card-hint">
                     非官方工具，与游戏发行商无关；游戏图标与名称版权归原权利人。
                 </p>
-            </GlassCard>
-        </div>
+            </details>
+        </section>
 
         <GlassDialog
             v-model:open="pickerOpen"
+            lazy
             class="wallpaper-dialog"
             label="选择官网壁纸"
             detents="82% large"
         >
             <LiquidWallpaperPicker
-                v-if="pickerOpen"
+                :active="pickerOpen"
                 :selected="selectedWallpaper"
                 @select="applyWallpaper"
                 @close="pickerOpen = false"
@@ -415,11 +397,12 @@ function applyWallpaper(url: string) {
 
         <GlassDialog
             v-model:open="backupsOpen"
+            lazy
             class="backup-dialog"
             label="备份与恢复"
             detents="82% large"
         >
-            <section v-if="backupsOpen" class="backup-history">
+            <section class="backup-history">
                 <header class="card-heading">
                     <h2>备份与恢复</h2>
                     <GlassButton size="small" variant="plain" @click="backupsOpen = false"
@@ -444,7 +427,7 @@ function applyWallpaper(url: string) {
                             <span>{{ backupTime(entry.createdAt) }}</span>
                             <small>{{ entry.kind === 'daily' ? '日常' : '替换前' }} · {{ Math.max(1, Math.round(entry.bytes / 1024)) }} KB</small>
                         </div>
-                        <GlassButton size="small" :disabled="busy" @click="restore(entry)"
+                        <GlassButton size="small" :disabled="ledgerDisabled" @click="restore(entry)"
                             >恢复</GlassButton
                         >
                     </div>
@@ -453,7 +436,7 @@ function applyWallpaper(url: string) {
                     <GlassButton
                         size="small"
                         variant="plain"
-                        :disabled="busy || backupsLoading"
+                        :disabled="ledgerDisabled || backupsLoading"
                         @click="refreshBackups"
                         >刷新</GlassButton
                     >
@@ -466,7 +449,7 @@ function applyWallpaper(url: string) {
 <style scoped>
 .liquid-settings {
     --liquid-danger: var(--liquid-up, light-dark(#923b3b, #ffb8ae));
-    width: min(1180px, calc(100% - 32px));
+    width: min(960px, calc(100% - 32px));
     margin: 0 auto;
     padding: 16px 0;
 }
@@ -477,7 +460,7 @@ function applyWallpaper(url: string) {
 
 .liquid-settings-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
     align-items: start;
     gap: 14px;
 }
@@ -505,8 +488,34 @@ function applyWallpaper(url: string) {
     margin: 0;
 }
 
-.card-heading small {
-    opacity: 0.72;
+.settings-about {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0 16px;
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: light-dark(rgb(249 251 249 / 0.76), rgb(27 37 35 / 0.8));
+}
+.about-heading {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+}
+.about-heading h2 {
+    margin: 0;
+}
+.about-heading span {
+    font-size: var(--fs-xs);
+    color: var(--liquid-muted);
+}
+@media (max-width: 640px) {
+    .settings-about {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 6px;
+    }
 }
 
 .liquid-settings-row {
@@ -637,12 +646,10 @@ function applyWallpaper(url: string) {
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
-    margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px solid var(--liquid-outline);
+    justify-content: flex-end;
 }
 .update-check > span {
-    flex: 1 1 120px;
+    flex: 0 1 auto;
     min-width: 0;
     font-size: var(--fs-xs);
     opacity: 0.72;
@@ -654,18 +661,16 @@ function applyWallpaper(url: string) {
     color: var(--lg-accent);
 }
 
-.runtime-details {
-    margin-top: 10px;
-    color: var(--liquid-ink);
+.about-details {
+    grid-column: 1 / -1;
+    margin-top: 6px;
+    border-top: 1px solid var(--liquid-outline);
     font-size: var(--fs-xs);
-    opacity: 0.8;
 }
-.runtime-details summary {
-    cursor: pointer;
+.about-details summary {
     width: fit-content;
-}
-.runtime-details .about-list {
-    opacity: 1;
+    padding-block: 5px 2px;
+    cursor: pointer;
 }
 
 .license-lead {

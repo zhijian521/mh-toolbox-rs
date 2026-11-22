@@ -1,5 +1,5 @@
 /* 霞鹜文楷常用字子集；原件版本与再生成方式见 assets/fonts/README.md。
- * 正式版 tokens.css 与液态入口共用这一份定义，不各自写 @font-face。 */
+ * 正式版主题通过 token-core.css 加载此字形。 */
 @font-face {
     font-family: 'LXGW WenKai Screen';
     src: url('../../assets/fonts/LXGWWenKaiScreen.woff2') format('woff2');

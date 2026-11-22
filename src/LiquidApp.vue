@@ -69,14 +69,13 @@ function onDockClick(event: MouseEvent) {
 }
 
 const desktop = hasDesktop();
-const { appearance, font, wallpaper, activeImage } = useLiquidPreferences();
+const { appearance, wallpaper, activeImage } = useLiquidPreferences();
 </script>
 
 <template>
     <div
         class="liquid-app"
         :data-appearance="appearance"
-        :data-font="font"
         :class="{ 'has-online-wallpaper': activeImage }"
         :style="{ '--liquid-wallpaper': `url(${wallpaper})` }"
     >
@@ -122,12 +121,6 @@ body {
     background-color: light-dark(#e8eee9, #14211f);
     --font-ui: var(--font-rounded);
     font: var(--fs-base) / 1.5 var(--font-ui);
-}
-
-/* 玻璃组件统一读 --glass-font: var(--font-ui)；切换只改这一枚令牌，
- * 标题、Dock、卡片与弹层一起换字形，不需要在各处重写 font-family。 */
-.liquid-app[data-font='wenkai'] {
-    --font-ui: var(--font-wenkai);
 }
 
 .has-online-wallpaper :where(.liquid-header, .liquid-content h1) {

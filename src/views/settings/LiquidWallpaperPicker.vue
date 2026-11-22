@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
 import { GlassButton, GlassSearch } from '../../components/liquid-glass';
 import { usePagination } from '../../composables/use-pagination';
@@ -7,7 +7,7 @@ import { openExternal } from '../../services/desktop';
 import { loadWallpaperImage, WALLPAPER_CDN, WALLPAPER_SITE } from '../../services/xyq-wallpapers';
 import catalog from './xyq-wallpapers.json';
 
-const props = defineProps<{ selected: string }>();
+const props = defineProps<{ selected: string; active: boolean }>();
 const emit = defineEmits<{ select: [url: string]; close: [] }>();
 const query = ref('');
 const matches = computed(() => catalog.filter((item) => item.name.includes(query.value.trim())));
@@ -17,21 +17,25 @@ if (currentIndex >= 0) page.value = Math.floor(currentIndex / 6) + 1;
 watch(query, () => (page.value = 1));
 
 const previews = ref<Record<string, string>>({});
+let images: string[] = [];
+function releasePreviews() {
+    for (const url of images) URL.revokeObjectURL(url);
+    images = [];
+}
+onBeforeUnmount(releasePreviews);
 watch(
-    visible,
-    (items, _, onCleanup) => {
+    [visible, () => props.active],
+    ([items, active], _, onCleanup) => {
+        if (!active) return;
+        releasePreviews();
         const controller = new AbortController();
-        const images = new Map<string, string>();
         previews.value = {};
-        onCleanup(() => {
-            controller.abort();
-            for (const image of images.values()) URL.revokeObjectURL(image);
-        });
+        onCleanup(() => controller.abort());
         for (const path of new Set(items.map((item) => item.thumb))) {
             void loadWallpaperImage(WALLPAPER_CDN + path, controller.signal)
                 .then((image) => {
                     if (controller.signal.aborted) return URL.revokeObjectURL(image);
-                    images.set(path, image);
+                    images.push(image);
                     previews.value[path] = image;
                 })
                 .catch(() => {

@@ -54,7 +54,7 @@ fn native_backup_over_sixteen_mb_round_trips_and_rejects_truncated_json() {
 }
 
 #[test]
-fn daily_backups_preserve_data_throttle_and_limit_only_daily_files() {
+fn daily_backups_preserve_data_and_throttle_after_rotation() {
     let dir = std::env::temp_dir().join(format!("mh-daily-{}-{}", std::process::id(), now_ms()));
     let conn = store::open_at(&dir).expect("临时库");
     let mut conn = conn;
@@ -96,7 +96,22 @@ fn daily_backups_preserve_data_throttle_and_limit_only_daily_files() {
     validate_backup(&saved).expect("备份完整有效");
     let original = dir.join("backups/旧版原件-1.json");
     std::fs::write(&original, b"{}").unwrap();
-    for index in 1..=16 {
+    // 模拟旧版本，仅日常快照留有时间。首轮检查跨版本补记后，五次替换将它淘汰。
+    let backups = dir.join("backups");
+    std::fs::remove_file(backups.join(DAILY_STAMP)).unwrap();
+    for offset in 1..=BACKUP_KEEP {
+        let path = backups.join(format!("{AUTO_BACKUP_PREFIX}{}.json", start + offset as i64));
+        write_to(&path, &saved).unwrap();
+    }
+    for offset in [60_000, 86_399_999] {
+        daily_backup_at(&dir, start + offset).unwrap();
+        let kept = backup_entries(&backups).unwrap();
+        assert_eq!(kept.len(), BACKUP_KEEP);
+        assert!(kept.iter().all(|entry| entry.kind == "before-import"));
+    }
+    daily_backup_at(&dir, start + 86_400_000).unwrap();
+    assert_eq!(listed_backups(&backups).unwrap()[0].kind, "daily");
+    for index in 2..=16 {
         daily_backup_at(&dir, start + index * 86_400_000).unwrap();
     }
     let entries = backup_entries(&dir.join("backups")).unwrap();
@@ -637,7 +652,7 @@ fn prune_backups_keeps_latest_five_across_kinds() {
         BACKUP_KEEP,
         "列出来的备份也只该有 5 条"
     );
-    prune_backups(&dir);
+    prune_backups(&dir, &backup_entries(&dir).unwrap());
 
     let mut left: Vec<String> = std::fs::read_dir(&dir)
         .expect("读目录")
@@ -655,6 +670,21 @@ fn prune_backups_keeps_latest_five_across_kinds() {
         .collect();
     expected.sort();
     assert_eq!(left, expected, "只该留最近 5 份，且两类合计");
+
+    let mut previous = None;
+    for _ in 0..2 {
+        let path = managed_snapshot_path(&dir, AUTO_BACKUP_PREFIX, 3, &backup_entries(&dir).unwrap())
+            .expect("时钟回拨后仍可创建新快照");
+        assert_ne!(previous.as_ref(), Some(&path));
+        write_to(&path, &sample()).unwrap();
+        prune_backups(&dir, &backup_entries(&dir).unwrap());
+        let kept = listed_backups(&dir).unwrap();
+        assert_eq!(kept.len(), BACKUP_KEEP);
+        assert_eq!(dir.join(&kept[0].name), path);
+        assert_eq!(kept[0].created_at, 3, "界面显示实际创建时间");
+        validate_backup(&read_backup(&path).unwrap()).unwrap();
+        previous = Some(path);
+    }
 
     let _ = std::fs::remove_dir_all(&dir);
 }

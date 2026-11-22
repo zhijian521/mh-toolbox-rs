@@ -442,8 +442,13 @@ onMounted(() => {
                     <h2 ref="historyHeading" tabindex="-1">
                         {{ selectedItem?.name || '物价历史' }}
                     </h2>
-                    <!-- 历史只展示：记新价回卡片上的「记价」，改某笔走行内的「编辑」。 -->
                     <div class="history-tools" @pointerdown.stop>
+                        <GlassButton
+                            size="small"
+                            variant="plain"
+                            :disabled="!selectedItem || !canEdit || saving"
+                            @click="openHistoryPrice()"
+                        >记价</GlassButton>
                         <GlassButton size="small" variant="plain" @click="sheetOpen = false"
                             >关闭</GlassButton
                         >
@@ -504,7 +509,7 @@ onMounted(() => {
                 :key="editorVersion"
                 :item="selectedItem"
                 :edit-item="dialog.kind === 'edit-item'"
-                :prefill-current="dialog.kind === 'price' && !dialog.fromHistory"
+                :prefill-current="dialog.kind === 'price' && !dialog.point"
                 :point="dialog.kind === 'price' ? dialog.point : undefined"
                 :categories="categories"
                 :active="sheetOpen"

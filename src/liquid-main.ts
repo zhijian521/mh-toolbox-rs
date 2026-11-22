@@ -9,7 +9,6 @@ import { confirmDiscardDrafts } from './composables/use-draft-guard';
 import { guardWindowClose } from './services/desktop';
 import { flushPendingWrites } from './services/persist';
 import './styles/rounded-font.css';
-import './styles/wenkai-font.css';
 import './styles/token-typography.css';
 import './components/liquid-glass/style.css';
 

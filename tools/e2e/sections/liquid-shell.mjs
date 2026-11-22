@@ -113,9 +113,11 @@ async function checkPriceMaintenance({ cdp, t, ui }, sheet, editor) {
     await waitClosed();
     await cdp.click(historyButton(renamed));
     await waitHistory(renamed);
-    t.check('历史弹窗右上角只保留关闭，不再有记价入口', await cdp.evaluate(
-        `[...document.querySelectorAll('${header} glass-button')].every(button => button.textContent.trim() === '关闭')`,
-    ));
+    await ui.clickText(`${header} glass-button`, '记价', { exact: true });
+    await ui.waitFor(`!!document.querySelector('${price}')`);
+    t.check('历史记价带入当前金额', await cdp.evaluate(`document.querySelector('${price}').value === '12'`));
+    await cdp.key('Escape');
+    await waitHistory(renamed);
     t.check('物品操作位于卡片右上角，历史标题收起该菜单', await ui.exists(itemMenu(renamed)) && !(await ui.exists(`${header} glass-menu`)));
     t.check('修改名称、分类、子类和备注后保留原有价格记录', await cdp.evaluate(`(() => {
         const card = document.querySelector('${historyButton(renamed)}').closest('.price-card');
@@ -126,7 +128,6 @@ async function checkPriceMaintenance({ cdp, t, ui }, sheet, editor) {
             document.querySelector('${history} tbody').textContent.includes('12 万');
     })()`));
 
-    // 历史弹窗不再提供记价入口，改价走行内「编辑」，打开时回填原有金额。
     await cdp.click(`${history} tbody .price-history-action glass-button`);
     await ui.waitFor(`!!document.querySelector('${price}')`);
     t.check('历史行内编辑回填原有金额', await cdp.evaluate(`document.querySelector('${price}').value === '12'`));
@@ -167,6 +168,16 @@ async function checkPriceMaintenance({ cdp, t, ui }, sheet, editor) {
     await waitHistory(renamed);
     t.check('删除唯一一笔后历史显示空态', await cdp.evaluate(`document.querySelectorAll('${history} tbody tr').length === 0 &&
         !!document.querySelector('${history} .glass-empty-state')`));
+
+    await ui.clickText(`${header} glass-button`, '记价', { exact: true });
+    await ui.waitFor(`!!document.querySelector('${price}')`);
+    await ui.fillSel(price, '31');
+    await save();
+    await waitHistory(renamed);
+    t.check('空历史记价成功后返回同一物品并显示新增记录', await cdp.evaluate(
+        `document.querySelectorAll('${history} tbody tr').length === 1 &&
+        document.querySelector('${history} tbody').textContent.includes('31 万')`,
+    ));
 
     await ui.clickText(`${header} glass-button`, '关闭', { exact: true });
     await waitClosed();
@@ -457,6 +468,12 @@ async function checkPrices({ cdp, t, ui }) {
                     !!document.querySelector('${sheet} [aria-label="上一页"]:not([disabled])')`,
             ));
         }
+        await ui.clickText(`${sheet} .history-tools glass-button`, '记价', { exact: true });
+        await ui.waitFor(`!!document.querySelector('${editor}')`);
+        await cdp.click(`${editor} footer glass-button[variant="plain"]`);
+        await ui.waitFor(`!!document.querySelector('${sheet} .price-history-header')`);
+        t.check('取消记价保留历史页码', await cdp.evaluate(`${!hasSecondPage} ||
+            document.querySelector('${sheet} .price-history-pager span').textContent.trim().startsWith('2 /')`));
         const edit = `${sheet} tbody .price-history-action glass-button`;
         if (await ui.exists(edit)) {
             await cdp.click(edit);
@@ -481,7 +498,6 @@ async function checkPrices({ cdp, t, ui }) {
                     [...buttons].every(button => getComputedStyle(button).textShadow === 'none');
             })()`));
             for (const gesture of ['遮罩', '下拉']) {
-                // 入口换成行内「编辑」：关闭编辑器后同样应回到原历史页码。
                 await ui.waitFor(`!!document.querySelector('${edit}')`);
                 await cdp.click(edit);
                 await ui.waitFor(`!!document.querySelector('${editor}')`);
@@ -694,37 +710,36 @@ export default async function liquidShell({ cdp, t, ui }) {
                 label.fontSize === '13.5px' && option.fontSize === '12px';
         })()`),
     );
-    t.check(
-        '设置页按正式版拆成外观 / 数据 / 关于 / 许可多张卡，使用并排网格而不是单列居中',
+    t.check('设置页由外观与数据主卡、可折叠的关于资料组成，整页固定使用圆体',
         await cdp.evaluate(`(() => {
-            const grid = document.querySelector('.liquid-settings-grid');
-            if (!grid) return false;
-            const cards = [...grid.querySelectorAll('.liquid-settings-panel')];
-            return cards.length === 4 && getComputedStyle(grid).display === 'grid' &&
-                cards.map(card => card.querySelector('.card-heading h2').textContent.trim()).join(',') ===
-                    '外观,数据,关于,许可';
+            const cards = [...document.querySelectorAll('.liquid-settings-grid .card-heading h2')];
+            const about = document.querySelector('.settings-about');
+            return cards.map(el => el.textContent.trim()).join(',') === '外观,数据' &&
+                !!about?.querySelector('.license-links a') &&
+                [...about.querySelectorAll('details')].every(el => !el.open) &&
+                getComputedStyle(about).fontFamily.includes('MH Toolbox Rounded');
         })()`),
     );
-    const fontOption = (value) =>
-        `.liquid-settings #liquid-font-label + glass-segmented [value="${value}"]`;
-    await cdp.click(fontOption('wenkai'));
-    await ui.waitFor(
-        `getComputedStyle(document.querySelector('.liquid-app')).fontFamily.includes('LXGW WenKai Screen')`,
-    );
-    t.check(
-        '外观卡只提供霞鹜 / 圆体两档，切换后整页字体令牌同步变化',
-        await cdp.evaluate(`(() => {
-            const bar = document.querySelector('#liquid-font-label + glass-segmented');
-            const app = document.querySelector('.liquid-app');
-            return [...bar.querySelectorAll('glass-segment')].map(s => s.value).join(',') ===
-                    'wenkai,rounded' && app.dataset.font === 'wenkai' &&
-                getComputedStyle(app).fontFamily.includes('LXGW WenKai Screen');
-        })()`),
-    );
-    await cdp.click(fontOption('rounded'));
-    await ui.waitFor(
-        `getComputedStyle(document.querySelector('.liquid-app')).fontFamily.includes('MH Toolbox Rounded')`,
-    );
+    const desktop = await cdp.evaluate("'__TAURI_INTERNALS__' in window");
+    t.check('账本操作与当前环境的能力一致', await cdp.evaluate(`(() => {
+        const actions = [...document.querySelectorAll('.liquid-settings-panel:nth-child(2) glass-button')];
+        return actions.length === 5 && actions.every(el => el.hasAttribute('disabled') === ${!desktop});
+    })()`));
+    const dialogs = [['选择壁纸', '.wallpaper-dialog', '.wallpaper-picker']];
+    if (desktop) dialogs.push(['恢复', '.backup-dialog', '.backup-history']);
+    for (const [name, selector, content] of dialogs) {
+        await ui.clickText('.liquid-settings-panel glass-button', name, { exact: true });
+        await ui.waitFor(`!!document.querySelector('${selector} ${content}')`);
+        const retained = await cdp.evaluate(`(async () => {
+            const host = document.querySelector('${selector}');
+            await Promise.allSettled(host.getAnimations().map(a => a.finished));
+            host.querySelector('header glass-button').click();
+            await new Promise(requestAnimationFrame);
+            return !host.getClientRects().length || !!host.querySelector('${content}');
+        })()`);
+        t.check(name + '退场期间保留面板内容', retained);
+        await ui.waitFor(`!document.querySelector('${selector} ${content}')`);
+    }
     t.check(
         '滚动条轨道常驻且玻璃按钮不带材质文字阴影，避免内容宽度与弹窗小字抖动',
         await cdp.evaluate(`(() => {
@@ -743,10 +758,10 @@ export default async function liquidShell({ cdp, t, ui }) {
         await ui.reload();
         await ui.waitFor(`!!document.querySelector('.liquid-settings glass-segment[role="tab"]')`);
         t.check(
-            '刷新后恢复主题，设置页提供主题与字体两组分段切换，Dock 使用通透材质',
+            '刷新后恢复主题，设置仅提供一组分段切换，Dock 使用通透材质',
             await cdp.evaluate(`${ready('settings')} &&
                 document.querySelector('.liquid-app').dataset.appearance === ${JSON.stringify(theme)} &&
-                document.querySelectorAll('.liquid-settings glass-segmented').length === 2 &&
+                document.querySelectorAll('.liquid-settings glass-segmented').length === 1 &&
                 document.querySelector('.liquid-dock-bar').getAttribute('material') === 'clear'`),
         );
         // 刷新后仍停在设置页，直接连点五次即可重新进入隐藏目录。

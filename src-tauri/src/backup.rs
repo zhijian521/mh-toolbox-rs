@@ -46,6 +46,9 @@ const DAILY_PREFIX: &str = "账本-daily-";
 /// 用户反而找不到哪一份才是要退回去的。列出来、能恢复的也只有这 5 条。
 const BACKUP_KEEP: usize = 5;
 const DAILY_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(300);
+const DAILY_STAMP: &str = "last-daily.json";
+// 日常任务和导入共用轮换顺序，同一毫秒内也不能覆盖另一份还原点。
+static BACKUP_WRITER: std::sync::Mutex<()> = std::sync::Mutex::new(());
 static DAILY_ERROR: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
 #[derive(Debug, Serialize, specta::Type)]
@@ -64,7 +67,7 @@ pub struct BackupList {
     error: Option<String>,
 }
 
-fn backup_stamp(name: &str) -> Option<(i64, &'static str)> {
+fn backup_stamp(name: &str) -> Option<(i64, i64, &'static str)> {
     for (prefix, kind) in [
         (DAILY_PREFIX, "daily"),
         (AUTO_BACKUP_PREFIX, "before-import"),
@@ -73,9 +76,12 @@ fn backup_stamp(name: &str) -> Option<(i64, &'static str)> {
             .strip_prefix(prefix)
             .and_then(|one| one.strip_suffix(".json"))
         {
-            let stamp = stamp.parse::<i64>().ok()?;
-            if stamp > 0 {
-                return Some((stamp, kind));
+            // 老文件只有一个时间戳；时钟回拨或同毫秒写入时另存实际时间。
+            let (order, created_at) = stamp.split_once('@').unwrap_or((stamp, stamp));
+            let order = order.parse::<i64>().ok()?;
+            let created_at = created_at.parse::<i64>().ok()?;
+            if order > 0 && created_at >= 0 && order >= created_at {
+                return Some((order, created_at, kind));
             }
         }
     }
@@ -90,47 +96,89 @@ fn backup_entries(dir: &Path) -> Result<Vec<BackupEntry>, String> {
     for item in std::fs::read_dir(dir).map_err(|error| error.to_string())? {
         let item = item.map_err(|error| error.to_string())?;
         let name = item.file_name().to_string_lossy().into_owned();
-        let Some((created_at, kind)) = backup_stamp(&name) else {
+        let Some((order, created_at, kind)) = backup_stamp(&name) else {
             continue;
         };
         let meta = std::fs::symlink_metadata(item.path()).map_err(|error| error.to_string())?;
         if !meta.is_file() || meta.file_type().is_symlink() {
             continue;
         }
-        entries.push(BackupEntry {
-            name,
-            created_at,
-            bytes: meta.len(),
-            kind: kind.to_string(),
-        });
+        entries.push((
+            order,
+            BackupEntry {
+                name,
+                created_at,
+                bytes: meta.len(),
+                kind: kind.to_string(),
+            },
+        ));
     }
-    entries.sort_by_key(|one| std::cmp::Reverse(one.created_at));
-    Ok(entries)
+    entries.sort_by(|(a, left), (b, right)| b.cmp(a).then_with(|| right.name.cmp(&left.name)));
+    Ok(entries.into_iter().map(|(_, entry)| entry).collect())
+}
+
+/// 沿用旧文件名；只有系统时间不能区分写入先后时才附加轮换序号。
+fn managed_snapshot_path(
+    dir: &Path,
+    prefix: &str,
+    now: i64,
+    entries: &[BackupEntry],
+) -> Result<PathBuf, String> {
+    let newest = entries
+        .first()
+        .and_then(|entry| backup_stamp(&entry.name))
+        .map_or(0, |(order, _, _)| order);
+    let stamp = if now > newest {
+        now.to_string()
+    } else {
+        let order = newest.checked_add(1).ok_or("备份序号已达上限")?;
+        format!("{order}@{now}")
+    };
+    Ok(dir.join(format!("{prefix}{stamp}.json")))
+}
+
+/// 首次升级从旧文件补记；若上次在快照落盘后中断，也从完整快照补回时间。
+fn last_daily_at(dir: &Path, entries: &[BackupEntry]) -> Result<Option<i64>, String> {
+    let path = dir.join(DAILY_STAMP);
+    let stored: Option<i64> = match std::fs::File::open(&path) {
+        Ok(input) => match serde_json::from_reader(input) {
+            Ok(stamp) => Some(stamp),
+            Err(err) if err.is_io() => return Err(err.to_string()),
+            Err(_) => None, // 元数据受损时，从留存的日常快照重建。
+        },
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
+        Err(err) => return Err(err.to_string()),
+    };
+    let latest = entries
+        .iter()
+        .find(|entry| entry.kind == "daily")
+        .map(|entry| entry.created_at);
+    if let Some(stamp) = latest.filter(|stamp| Some(*stamp) > stored) {
+        write_to(&path, &stamp)?;
+    }
+    Ok(stored.max(latest))
 }
 
 fn daily_backup_at(base: &Path, now: i64) -> Result<(), String> {
+    let _writer = BACKUP_WRITER.lock().map_err(|err| err.to_string())?;
     let dir = base.join("backups");
-    /* 先按合计上限收口：老版本分别留 14 / 10 份，升上来时目录里可能已有二十几份；
-     * 同日不生成新备份的那条早退路径也该把它们清掉。清理是尽力而为，
-     * 删不掉一份旧文件不该被当成「自动备份失败」。 */
-    prune_backups(&dir);
     let entries = backup_entries(&dir)?;
-    if entries
-        .iter()
-        .any(|one| one.kind == "daily" && now.saturating_sub(one.created_at) < 86_400_000)
-    {
+    if last_daily_at(&dir, &entries)?.is_some_and(|last| now.saturating_sub(last) < 86_400_000) {
+        prune_backups(&dir, &entries);
         return Ok(());
     }
     let conn = store::open_at(base)?;
     let file = store::backup(&conn)?;
     validate_backup(&file)?;
     std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
-    write_to(&dir.join(format!("{DAILY_PREFIX}{now}.json")), &file)?;
-    prune_backups(&dir);
+    let path = managed_snapshot_path(&dir, DAILY_PREFIX, now, &entries)?;
+    write_to(&path, &file)?;
+    write_to(&dir.join(DAILY_STAMP), &now)?;
+    prune_backups(&dir, &backup_entries(&dir)?);
     Ok(())
 }
 
-/// 建窗后独立调度，间隔至少 24 小时留存完整快照；读写命令不等待备份或文件扫描。
+/// 建窗后独立调度，间隔至少 24 小时留存完整快照，普通账本读写不参与轮换锁。
 pub(crate) fn start_daily_backups(app: AppHandle) {
     std::thread::spawn(move || loop {
         let error = store::base_dir(&app)
@@ -323,10 +371,14 @@ fn replace_backup_with(
     /* 校验放在备份和替换之前：与直接保存共用身份规则，不补造 ID 或合并重复记录。 */
     let truncation = validate_backup(&file)?;
 
+    let _writer = BACKUP_WRITER.lock().map_err(|err| err.to_string())?;
     let dir = backup_dir(app)?;
+    let entries = backup_entries(&dir)?;
+    // 调度标记故障不阻断账本恢复；保留旧文件，供后台下次补记后清理。
+    let can_prune = last_daily_at(&dir, &entries).is_ok();
     let saved = match build(app) {
         Ok(current) => {
-            let saved = dir.join(format!("{AUTO_BACKUP_PREFIX}{}.json", now_ms()));
+            let saved = managed_snapshot_path(&dir, AUTO_BACKUP_PREFIX, now_ms(), &entries)?;
             write_to(&saved, &current)?;
             saved
         }
@@ -339,7 +391,6 @@ fn replace_backup_with(
             saved
         }
     };
-    prune_backups(&dir);
 
     /* 到这里为止的失败都还是「什么都没换」，不需要报备份路径。下面两条是替换路径上
      * 仅有的失败点，两个都要带上路径。 */
@@ -349,6 +400,11 @@ fn replace_backup_with(
     let counts = store::replace_backup(&mut conn, file, startup)
         .map_err(|error| format!("{error}；替换前的数据已备份到 {backup_path}"))?;
 
+    if can_prune {
+        if let Ok(entries) = backup_entries(&dir) {
+            prune_backups(&dir, &entries);
+        }
+    }
     Ok(ImportSummary {
         warehouse: counts.warehouse,
         characters: counts.characters,
@@ -819,7 +875,7 @@ fn backup_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-/// 界面与恢复共用的可见备份：按时间从新到旧，只留最近 `BACKUP_KEEP` 条。
+/// 界面与恢复共用的可见备份，按写入顺序只留最近 `BACKUP_KEEP` 条。
 ///
 /// 磁盘清理是尽力而为（见 `prune_backups`），删不掉的那一份会留在目录里；这里再截一次，
 /// 保证「列出来的」和「能恢复的」始终是同一批，不会出现看不到的文件反而能恢复。
@@ -838,11 +894,8 @@ fn listed_backups(dir: &Path) -> Result<Vec<BackupEntry>, String> {
 ///
 /// 全程尽力而为、不返回 `Err`：这是收尾动作，删不掉一份旧备份不该让一次成功的导入
 /// 变成失败，也不该把「清理没做完」报成「自动备份失败」。目录读不通就直接放弃。
-fn prune_backups(dir: &Path) {
-    let Ok(entries) = backup_entries(dir) else {
-        return;
-    };
-    for one in entries.into_iter().skip(BACKUP_KEEP) {
+fn prune_backups(dir: &Path, entries: &[BackupEntry]) {
+    for one in entries.iter().skip(BACKUP_KEEP) {
         let path = dir.join(&one.name);
         if let Err(error) = std::fs::remove_file(&path) {
             eprintln!(
