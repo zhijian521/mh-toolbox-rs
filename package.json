@@ -41,6 +41,7 @@
         "@dnd-kit/vue": "0.5.3",
         "@tabler/icons-vue": "^3.50.0",
         "@tauri-apps/api": "^2",
+        "glassy-liquid": "0.1.0",
         "vue": "^3.5.13",
         "vue-router": "^4.6.4"
     },

@@ -16,6 +16,7 @@ import finish from './sections/10-finish.mjs';
 import goals from './sections/06-goals.mjs';
 import income from './sections/04-income.mjs';
 import nav from './sections/01-nav.mjs';
+import liquidShell from './sections/liquid-shell.mjs';
 import preflight from './sections/00-preflight.mjs';
 import prices from './sections/03-prices.mjs';
 import settings from './sections/07-settings.mjs';
@@ -48,6 +49,16 @@ try {
 
 const ui = createUi(cdp);
 const t = createReporter({ cdp });
+
+if (process.argv.includes('--shell')) {
+    try {
+        await liquidShell({ cdp, t, ui });
+        process.exitCode = await t.summary();
+    } finally {
+        cdp.close();
+    }
+    process.exit(process.exitCode);
+}
 
 await ui.dismiss();
 

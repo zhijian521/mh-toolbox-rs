@@ -1,17 +1,9 @@
+@import './rounded-font.css';
+
 /* 字体使用常用字子集，缺字回退系统字体；来源与再生成方式见 assets/fonts/README.md。 */
 @font-face {
     font-family: 'LXGW WenKai Screen';
     src: url('../../assets/fonts/LXGWWenKaiScreen.woff2') format('woff2');
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-}
-
-/* 圆体为常用字子集，原件版本与生成方式见 tools/font/import-ui-fonts.py。
- * 仅当前字体被使用时加载；内部名称区分于上游原件。 */
-@font-face {
-    font-family: 'MH Toolbox Rounded';
-    src: url('../../assets/fonts/MHRounded.woff2') format('woff2');
     font-style: normal;
     font-weight: 400;
     font-display: swap;
