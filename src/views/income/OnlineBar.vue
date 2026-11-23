@@ -19,6 +19,7 @@ import { clockText, ownersOf, sessionMinutes, type ReadonlyOnlineSession } from 
 import { onlineSummaryItems } from './online-summary';
 import { useOnline } from './online-store';
 
+defineProps<{ reloadRoster?: () => Promise<void> }>();
 const emit = defineEmits<{ backfill: []; records: [] }>();
 
 const {
@@ -225,7 +226,7 @@ function whoText(one: ReadonlyOnlineSession): string {
             <div class="online-roster">
                 <LoadNotice
                     :error="rosterError"
-                    :load="loadRoster"
+                    :load="reloadRoster ?? loadRoster"
                     :blocked="changing || rosterPending > 0 || !!rosterWriteError"
                 />
                 <div v-if="roles.length" class="role-list" aria-label="全部角色">

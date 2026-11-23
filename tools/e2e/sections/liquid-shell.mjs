@@ -623,7 +623,52 @@ export default async function liquidShell({ cdp, t, ui }) {
         t.check('Dock 返回物价恢复原列表位置', await cdp.evaluate(`Math.abs(document.querySelector('.liquid-content').scrollTop - ${scrollTop}) < 1`));
     }
 
-    for (const key of ['income', 'accounts', 'characters', 'goals', 'tools']) {
+    await cdp.click(tab('overview'));
+    await ui.waitFor(`!!document.querySelector('[aria-label="选择角色上线"]')`);
+    await cdp.click('[aria-label="选择角色上线"]');
+    await ui.waitFor(ready('income'));
+    const income = '.liquid-income-page';
+    const incomeDialog = '.liquid-income .modal-panel:not([inert])';
+    const waitIncomeDialog = (title) => ui.waitFor(`document.querySelector('${incomeDialog} h2')?.textContent === '${title}'`);
+    await waitIncomeDialog('开始计时');
+    t.check('总览上线打开收益计时，角色支持全选', await cdp.evaluate(`(() => {
+        const dialog = document.querySelector('${incomeDialog}');
+        return Array.from(dialog.querySelectorAll('button')).some((button) => button.textContent.trim() === '全部');
+    })()`));
+    await cdp.click(`${incomeDialog} [data-modal-close]`);
+    await ui.waitFor(`!document.querySelector('${incomeDialog}')`);
+    t.check('收益主界面保留在线、速记和两张走势图', await cdp.evaluate(`(() => {
+        const page = document.querySelector('${income}');
+        const headings = Array.from(page.querySelectorAll('h2, h3'), (node) => node.textContent.trim());
+        return page.querySelectorAll('glass-surface.ledger-section').length === 4 &&
+            ['在线点卡', '物品速记', '今日速记', '每日时长', '每日收益'].every((text) => headings.includes(text));
+    })()`));
+    for (const [selector, title] of [
+        ['[aria-label="查看历史收益，按角色与按天"]', '历史收益'],
+        ['[aria-label="查看全部上线记录"]', '上线记录'],
+        ['[aria-label="补记一段已经过去的在线时长"]', '补记一段'],
+        ['.price-tag', '点卡单价'],
+    ]) {
+        await cdp.click(`${income} ${selector}`);
+        await waitIncomeDialog(title);
+        t.check(`收益可打开${title}并使用右上角关闭`, await cdp.evaluate(`!!document.querySelector('${incomeDialog} [data-modal-close]')`));
+        if (title === '历史收益') await cdp.click(`${incomeDialog} [data-modal-close]`);
+        else await cdp.key('Escape');
+        await ui.waitFor(`!document.querySelector('.liquid-income.modal-mask') &&
+            document.querySelector('.liquid-content').style.overflow !== 'hidden'`);
+    }
+    const trendMonth = `${income} [aria-label="走势范围"] button:last-child`;
+    await cdp.click(trendMonth);
+    await ui.waitFor(`document.querySelector('${trendMonth}')?.getAttribute('aria-checked') === 'true'`);
+    t.check('收益可切换近一月走势', await cdp.evaluate(`document.querySelector('${income} .chart-section').textContent.includes('30 天')`));
+
+    const variableItem = `${income} .grid:has(.item):last-child .item`;
+    await cdp.click(variableItem);
+    await ui.waitFor(`!!document.querySelector('${incomeDialog} .price-field input')`);
+    await cdp.key('Escape');
+    await ui.waitFor(`!document.querySelector('${incomeDialog}')`);
+
+    for (const key of ['accounts', 'characters', 'goals', 'tools']) {
         await cdp.click(tab(key));
         await ui.waitFor(ready(key));
         t.check(

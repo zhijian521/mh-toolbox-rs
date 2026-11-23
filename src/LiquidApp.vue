@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { RouterView, useRoute, useRouter } from 'vue-router';
 import AppIcon from './components/AppIcon.vue';
 import TitleBar from './components/TitleBar.vue';
+import NotifyHost from './components/NotifyHost.vue';
 import GlassConfirmHost from './components/liquid-glass/GlassConfirmHost.vue';
 import { GlassTab, GlassTabBar } from './components/liquid-glass';
 import { useLiquidPreferences } from './composables/use-liquid-preferences';
@@ -14,7 +15,7 @@ const route = useRoute();
 const router = useRouter();
 const hideContentScrollbar = computed(() => {
     const name = route.name;
-    return name === 'overview' || name === 'prices' || name === 'components';
+    return name === 'overview' || name === 'income' || name === 'prices' || name === 'components';
 });
 const dockControl = ref<{ el: HTMLElement | null }>();
 const dockPage = computed(() => {
@@ -110,6 +111,7 @@ const { appearance, wallpaper, activeImage } = useLiquidPreferences();
             </GlassTabBar>
         </nav>
         <GlassConfirmHost />
+        <NotifyHost inline />
     </div>
 </template>
 

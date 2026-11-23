@@ -48,6 +48,7 @@ import { useNotifyState } from '../composables/use-notify';
  * 压在上面不挡内容；排在页头下方反而会盖住第一张卡的上半截。
  * 多条向下堆叠，最新的在最下面——眼睛顺着刚发生的事往下读。
  */
+defineProps<{ inline?: boolean }>();
 const { notices, hold, resume, dismiss } = useNotifyState();
 
 /**
@@ -63,7 +64,7 @@ function onResume(id: number) {
 </script>
 
 <template>
-    <Teleport to="body">
+    <Teleport to="body" :disabled="inline">
         <!-- `aria-live` 挂在这一层而不是每条上：读屏只在「区域已经存在、内容变了」时才播报，
              一条随生随灭的 `role="status"` 有可能整条被略过。这一层常驻，纸条从里面进出。 -->
         <div class="notice-layer" aria-live="polite" aria-atomic="false">

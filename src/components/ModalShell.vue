@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, ref } from 'vue';
 import PressButton from './PressButton.vue';
+import { glassLedger } from './glass-ledger';
 import { useModal } from '../composables/use-modal';
 import { useModalSize } from '../composables/use-modal-size';
 import { MODAL_HANDOFF, useModalMotion } from '../composables/use-modal-motion';
@@ -120,6 +121,7 @@ const titleId = `modal-title-${Math.random().toString(36).slice(2, 9)}`;
 const mask = ref<HTMLElement | null>(null);
 const panel = ref<HTMLElement | null>(null);
 useModalSize(panel, () => props.height !== undefined);
+const glass = inject(glassLedger, null);
 const loading = inject(MODAL_HANDOFF, null);
 const handoff = loading?.pending === true;
 if (loading && handoff) loading.pending = false;
@@ -128,6 +130,7 @@ if (loading && handoff) loading.pending = false;
  * 这个组件从此只管「它长什么样」——`CONVENTIONS.md` §2.3-3。 */
 const { isTop, isNested, finishLeave } = useModal({
     panel,
+    nativeLayers: !!glass,
     initialFocus: props.initialFocus,
     onClose: () => emit('close'),
     deferCleanup: true,
@@ -162,14 +165,14 @@ const panelStyle = computed(() => {
 </script>
 
 <template>
-    <Teleport to="body">
+    <Teleport :to="glass ? '.liquid-app' : 'body'">
         <!-- 点遮罩关闭。只听 `click` 一处：`mousedown` 与 `click` 同时挂，
              一次点击会 `emit('close')` 两次——虽然父级的 close 都幂等，
              但读代码的人会以为有两条关闭路径。 -->
         <div
             ref="mask"
             class="modal-mask"
-            :class="{ 'modal-mask-nested': isNested }"
+            :class="[{ 'modal-mask-nested': isNested }, glass?.overlayClass]"
             @vue:before-unmount="beforeUnmount"
             @click.self="onMaskClick"
         >

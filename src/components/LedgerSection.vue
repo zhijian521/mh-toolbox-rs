@@ -1,5 +1,9 @@
 <script setup lang="ts">
+import { inject } from 'vue';
 import PaperCard from './PaperCard.vue';
+import { glassLedger } from './glass-ledger';
+
+const glassCard = inject(glassLedger, null)?.card;
 /**
  * 账簿语境里的「一块」：一张抬起的纸片 + 区块标 + 标题 + 右侧提示/操作。
  *
@@ -43,9 +47,11 @@ withDefaults(
 </script>
 
 <template>
-    <PaperCard
+    <component
+        :is="glassCard ?? PaperCard"
         class="ledger-section"
-        :plain="plain"
+        :plain="glassCard ? undefined : plain"
+        :radius="glassCard ? 18 : undefined"
         :class="{ capped: maxHeight || height, fixed: height }"
         :style="
             height
@@ -73,7 +79,7 @@ withDefaults(
         <div class="section-body" :tabindex="maxHeight && !height ? 0 : undefined">
             <slot />
         </div>
-    </PaperCard>
+    </component>
 </template>
 
 <style scoped>

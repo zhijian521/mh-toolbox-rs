@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import AppIcon from '../../components/AppIcon.vue';
 import TrendChart from '../../components/TrendChart.vue';
 import { GlassButton, GlassCard } from '../../components/liquid-glass';
@@ -16,6 +17,7 @@ import { teamActivity } from './team-activity';
 
 const { roster, income, accounts, online, goals, loading, errors, loadOverview } =
     useLiquidOverviewData();
+const router = useRouter();
 const today = useToday();
 const now = useMinuteNow();
 const goalsUnavailable = computed(() => Boolean(goals.loadError.value || roster.loadError.value));
@@ -85,6 +87,14 @@ onMounted(loadOverview);
                             >
                                 {{ onlineCount }} 个在线
                             </span>
+                            <GlassButton
+                                size="small"
+                                class="overview-online-action"
+                                aria-label="选择角色上线"
+                                @click="router.push({ name: 'income', query: { action: 'start' } })"
+                            >
+                                <AppIcon name="play" />上线
+                            </GlassButton>
                         </div>
                     </div>
                     <div class="overview-periods">

@@ -37,14 +37,20 @@ export function useModalMotion(
         curve: string,
         delay = 0,
     ) {
-        const animation = element.animate(frames, {
-            duration: ms,
-            delay,
-            easing: getComputedStyle(element).getPropertyValue(curve).trim(),
-            fill: 'both',
-        });
-        animations.push(animation);
-        return animation.finished.catch(() => {});
+        const style = getComputedStyle(element);
+        const easing =
+            style.getPropertyValue(curve).trim() ||
+            style.getPropertyValue('--ease-soft').trim() ||
+            'ease';
+        try {
+            const animation = element.animate(frames, { duration: ms, delay, easing, fill: 'both' });
+            animations.push(animation);
+            return animation.finished.catch(() => {});
+        } catch (error) {
+            // 动效不可用时仍要移除遮罩，并恢复滚动与焦点。
+            console.warn('弹窗动画不可用', error);
+            return Promise.resolve();
+        }
     }
 
     function layersOf(face: HTMLElement) {

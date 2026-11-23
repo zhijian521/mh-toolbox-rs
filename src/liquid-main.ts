@@ -16,6 +16,7 @@ const items = NAV_ITEMS.map(({ key, path, label, icon }) => ({ key, path, label,
 
 const blankPage = { render: () => null };
 const views = new Map<string, () => Promise<RouteComponent>>([
+    ['income', () => import('./views/income/LiquidIncomeView.vue').then((page) => page.default)],
     ['overview', () => import('./views/overview/LiquidOverviewView.vue').then((page) => page.default)],
     ['prices', () => import('./views/prices/LiquidPricesView.vue').then((page) => page.default)],
     ['components', () => import('./views/LiquidComponentsView.vue').then((page) => page.default)],
@@ -50,6 +51,9 @@ void startup.then(async (notice) => {
 void guardWindowClose(async () => {
     if (!(await confirmDiscardDrafts())) return false;
     await startup;
-    if (await flushPendingWrites()) return true;
-    return window.confirm('仍有改动未保存，确定退出吗？取消后可在物价页重试保存。');
+    const { flushLiquidDailySync } = await import('./views/income/liquid-income-data');
+    const synced = await flushLiquidDailySync();
+    const saved = await flushPendingWrites();
+    if (synced && saved) return true;
+    return window.confirm('仍有改动未保存，确定退出吗？');
 });

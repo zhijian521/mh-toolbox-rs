@@ -231,6 +231,44 @@ glass-menu-label.lg-component {
     scrollbar-color: var(--lg-scroll-thumb) transparent;
 }
 
+.liquid-app .chart-in-card .chart-column {
+    --chart-front-light: color-mix(in srgb, var(--chart-color) 80%, var(--bevel-hi));
+    --chart-front-dark: var(--chart-color);
+    --chart-side: color-mix(in srgb, var(--chart-color) 90%, var(--liquid-ink) 10%);
+    --chart-top: color-mix(in srgb, var(--chart-color) 72%, var(--bevel-hi));
+}
+
+.liquid-app .chart-in-card .chart-tooltip {
+    --tooltip-bg: light-dark(#eef5f1, #223631);
+    --tooltip-ink: var(--liquid-ink);
+    --tooltip-shadow: var(--lg-dialog-shadow);
+    border-radius: 8px;
+}
+
+.liquid-app .notice-layer {
+    z-index: 150;
+    width: min(380px, calc(100% - 24px));
+    --ink: var(--liquid-ink);
+    --ink-2: var(--liquid-ink);
+    --muted: var(--liquid-muted);
+    --success: var(--liquid-down);
+    --danger-ink: var(--liquid-up);
+    --notice-background: var(--lg-dialog-fill);
+    --notice-edge: var(--liquid-outline);
+    --notice-shadow: var(--lg-dialog-shadow);
+    --ring: 1px solid var(--liquid-focus);
+    --ring-offset: 2px;
+    --r-2: 12px;
+    --w-hair: 1px;
+    --t-mid: 175ms;
+    --t-shape: 160ms;
+    --ease-soft: ease-out;
+}
+
+.liquid-app .notice-layer .notice {
+    backdrop-filter: blur(var(--lg-dialog-blur));
+}
+
 @media (forced-colors: active) {
     .liquid-app :is(.glass-input, glass-search.lg-component):focus-within,
     .glass-select-trigger:is(:focus-visible, [aria-expanded='true']) .glass-select-face,

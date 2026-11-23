@@ -232,9 +232,10 @@
     --rule: var(--liquid-outline);
     --rule-2: var(--liquid-outline);
     --bevel-hi: light-dark(#ffffff98, #e2f7e585);
-    --tooltip-bg: light-dark(#eef5f1, #223631);
-    --tooltip-ink: var(--liquid-ink);
-    --tooltip-shadow: 0 3px 12px rgb(0 0 0 / 0.16);
+}
+
+.overview-online-action {
+    --glass-foreground: var(--liquid-ink);
 }
 
 .overview-trend :deep(.chart-scroll) {
@@ -242,17 +243,6 @@
     scrollbar-width: none;
     scrollbar-gutter: auto;
     clip-path: inset(0 0 0 var(--trend-axis-width));
-}
-
-.overview-trend :deep(.chart-column) {
-    --chart-front-light: color-mix(in srgb, var(--chart-color) 80%, var(--bevel-hi));
-    --chart-front-dark: var(--chart-color);
-    --chart-side: color-mix(in srgb, var(--chart-color) 90%, var(--liquid-ink) 10%);
-    --chart-top: color-mix(in srgb, var(--chart-color) 72%, var(--bevel-hi));
-}
-
-.overview-trend :deep(.chart-tooltip) {
-    border-radius: 8px;
 }
 
 .overview-focus .overview-note {

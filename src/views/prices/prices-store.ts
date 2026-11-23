@@ -48,6 +48,17 @@ export function linkIncomePriceWrites(writer: Persist, error: Ref<string>): void
 }
 
 /** 启动阶段读取，完成前由写队列阻止保存；旧版转换统一在启动导入入口处理。 */
+let glassPricesLoad: Promise<void> | undefined;
+
+/** 收益和物价共用同一次读取，快速切页时保留正在保存的价格。 */
+export function ensureGlassPricesLoaded(): Promise<void> {
+    if (loaded.value && !loadError.value) return Promise.resolve();
+    glassPricesLoad ??= loadPrices().finally(() => {
+        glassPricesLoad = undefined;
+    });
+    return glassPricesLoad;
+}
+
 export async function loadPrices(): Promise<void> {
     await loadData({
         loaded,

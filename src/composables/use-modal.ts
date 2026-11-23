@@ -62,6 +62,8 @@ interface UseModalOptions {
      * 否则焦点留在遮罩下的页面上，读屏会念背景内容。
      */
     initialFocus?: 'first' | 'cancel' | 'none';
+    /** 在玻璃外壳里锁定内容区，并让原生顶层接管键盘操作。 */
+    nativeLayers?: boolean;
     /** 请求关闭。Esc 按下时调用，由组件决定发出哪个事件。 */
     onClose: () => void;
     /** ModalShell 在真实面板退场后释放栈与焦点，其他宿主仍随卸载清理。 */
@@ -129,6 +131,8 @@ export function useModal(options: UseModalOptions): UseModalResult {
         if (event.defaultPrevented) return;
         /* 只有栈顶的窗响应：叠着开时一次 Esc 不能关掉两层。 */
         if (topToken.value !== token) return;
+        // 玻璃确认框使用原生顶层，交由浏览器处理该层的 Esc 和焦点。
+        if (options.nativeLayers && document.querySelector('dialog:modal')) return;
         if (leaving) {
             if (event.key === 'Escape' || event.key === 'Tab') {
                 event.preventDefault();
@@ -183,7 +187,9 @@ export function useModal(options: UseModalOptions): UseModalResult {
          * 容器，把它的 `overflow` 关住才有意义；body 本来就不滚，锁它等于什么都没做。 */
         if (modalStack.value.length === 1) {
             lockedEl =
-                document.querySelector<HTMLElement>('.page-content') ??
+                document.querySelector<HTMLElement>(
+                    options.nativeLayers ? '.liquid-content' : '.page-content',
+                ) ??
                 document.querySelector<HTMLElement>('.app');
             if (lockedEl) {
                 lockedOverflow = lockedEl.style.overflow;

@@ -202,7 +202,7 @@ export async function loadIncome({ reconcilePrices = true } = {}): Promise<void>
 
 let glassIncomeLoad: Promise<void> | undefined;
 
-/** 总览与物价共用首次读取，避免切页时重复读取覆盖已加载的收益。 */
+/** 玻璃版总览、收益和物价共用首次读取，避免切页覆盖已加载的收益。 */
 export function ensureGlassIncomeLoaded(): Promise<void> {
     if (loaded.value && !loadError.value) return Promise.resolve();
     glassIncomeLoad ??= loadIncome({ reconcilePrices: false }).finally(() => {

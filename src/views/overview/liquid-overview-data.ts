@@ -1,10 +1,14 @@
-import { computed, ref, type Ref } from 'vue';
-import { gameDataReady, loadGameData } from '../../services/game-data';
-import { loadAccounts, useAccounts } from '../accounts/accounts-store';
-import { loadRoster, useRoster } from '../characters/roster';
+import { computed, ref } from 'vue';
+import { useAccounts } from '../accounts/accounts-store';
+import { useRoster } from '../characters/roster';
 import { loadGoals, useGoals } from '../goals/goals-store';
 import { ensureGlassIncomeLoaded, useIncome } from '../income/income-store';
-import { loadOnline, useOnline } from '../income/online-store';
+import { useOnline } from '../income/online-store';
+import {
+    loadLiquidAccounts,
+    loadLiquidOnline,
+    loadLiquidRoster,
+} from '../income/liquid-income-data';
 
 const roster = useRoster();
 const income = useIncome();
@@ -12,27 +16,15 @@ const accounts = useAccounts();
 const online = useOnline();
 const goals = useGoals();
 
-// 名册与交易的装备、召唤兽快照都需要游戏规则才能归一。
-function afterGameRules(load: () => Promise<void>, error: Ref<string>) {
-    return async () => {
-        await loadGameData();
-        if (!gameDataReady.value) {
-            error.value = '游戏数据未读取，请重试';
-            return;
-        }
-        await load();
-    };
-}
-
 const sources = [
-    { label: '角色', error: roster.loadError, load: afterGameRules(loadRoster, roster.loadError) },
+    { label: '角色', error: roster.loadError, load: loadLiquidRoster },
     { label: '收益', error: income.loadError, load: ensureGlassIncomeLoaded },
     {
         label: '账号',
         error: accounts.loadError,
-        load: afterGameRules(loadAccounts, accounts.loadError),
+        load: loadLiquidAccounts,
     },
-    { label: '上线', error: online.loadError, load: loadOnline },
+    { label: '上线', error: online.loadError, load: loadLiquidOnline },
     { label: '目标', error: goals.loadError, load: loadGoals },
 ];
 const loading = ref(true);

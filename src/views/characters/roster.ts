@@ -533,6 +533,7 @@ export function useRoster() {
 
     return {
         roster: readonly(roster),
+        loaded: readonly(loaded),
         loadError,
         writeError,
         pending: persist.pending,

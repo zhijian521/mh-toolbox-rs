@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import { inject } from 'vue';
 import AppIcon from './AppIcon.vue';
 import PressTile from './PressTile.vue';
 import type { IconName } from './icons';
+import { glassLedger } from './glass-ledger';
+
+const glassButton = inject(glassLedger, null)?.button;
 
 /**
  * 压印块按钮：内容落在一块**凸起的纸**上。
@@ -64,7 +68,23 @@ withDefaults(
 </script>
 
 <template>
+    <component
+        :is="glassButton"
+        v-if="glassButton"
+        class="glass-ledger-button"
+        :class="[`size-${size}`, { 'danger-action': danger }]"
+        :variant="seal ? 'prominent' : undefined"
+        :shape="icon && !text ? 'circle' : undefined"
+        size="small"
+        :title="label"
+        :aria-label="label"
+        :disabled="disabled"
+    >
+        <AppIcon v-if="icon" :name="icon" />
+        <span v-if="text">{{ text }}</span>
+    </component>
     <button
+        v-else
         type="button"
         class="press-btn"
         :class="[`size-${size}`, { 'icon-only': icon && !text, seal, 'danger-action': danger }]"

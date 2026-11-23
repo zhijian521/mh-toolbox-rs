@@ -13,18 +13,31 @@ import PressButton from '../../components/PressButton.vue';
 import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
 import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
-import type { QuickItemEntry } from '../../services/game-data';
+import { gameDataReady, type QuickItemEntry } from '../../services/game-data';
 import { daysAgo, ledgerMoneyText, parseDay, toWan } from '../../services/format';
 import { amountText, entriesOn, factsOf, recordSummary, statRowsOf, totalsOf } from './income';
-import { loadIncome, useIncome } from './income-store';
+import { ensureGlassIncomeLoaded, loadIncome, useIncome } from './income-store';
 import OnlineBar from './OnlineBar.vue';
 import OnlinePanel from './OnlinePanel.vue';
 import QuickPanel from './QuickPanel.vue';
 import TodayDump from './TodayDump.vue';
 import { type ReadonlyOnlineSession } from './online';
 import { loadOnline, useOnline } from './online-store';
+import { useAccounts } from '../accounts/accounts-store';
 import { useDailySync } from '../accounts/daily-sync';
 import { useRoster } from '../characters/roster';
+import { usePrices } from '../prices/prices-store';
+import LiquidIncomeFrame from './LiquidIncomeFrame.vue';
+import { loadLiquidIncome, loadLiquidOnline, loadLiquidRoster } from './liquid-income-data';
+
+const props = defineProps<{ liquid?: boolean }>();
+const { loadError: accountError } = useAccounts();
+const { loadError: marketError } = usePrices();
+const setupError = computed(() => {
+    if (!props.liquid) return '';
+    if (!gameDataReady.value) return '游戏数据未读取，物品速记暂不可用。';
+    return marketError.value || accountError.value;
+});
 
 const IncomeHistoryDialog = lazyDialog(() => import('./IncomeHistoryDialog.vue'));
 const ItemPriceDialog = lazyDialog(() => import('./ItemPriceDialog.vue'));
@@ -33,6 +46,7 @@ const OnlineRecords = lazyDialog(() => import('./OnlineRecords.vue'));
 
 const {
     entries,
+    loaded,
     loadError,
     writeError,
     recordEntry,
@@ -57,8 +71,11 @@ const previousTotals = computed(() =>
 
 const totals = computed(() => totalsOf(scoped.value));
 
-const statItems = computed<StatItem[]>(() =>
-    statRowsOf(totals.value, previousTotals.value, factsOf(scoped.value))
+const statItems = computed<StatItem[]>(() => {
+    if (props.liquid && (!loaded.value || loadError.value)) {
+        return ['净额', '笔数'].map((cap) => ({ cap, value: '未读取', unavailable: true }));
+    }
+    return statRowsOf(totals.value, previousTotals.value, factsOf(scoped.value))
         .filter((row) => row.cap === '净额' || row.cap === '笔数')
         .map((row) => ({
             ...row,
@@ -69,8 +86,8 @@ const statItems = computed<StatItem[]>(() =>
                           zero: 'dash',
                       }).replaceAll(' ', '')}`
                     : `昨日${previousTotals.value.count}笔`,
-        })),
-);
+        }));
+});
 
 interface PriceAsk {
     item: QuickItemEntry;
@@ -208,7 +225,11 @@ useRouteAction('/income', {
 </script>
 
 <template>
-    <PageShell title="收益" desc="物品速记 · 按天分账">
+    <component
+        :is="liquid ? LiquidIncomeFrame : PageShell"
+        title="收益"
+        desc="物品速记 · 按天分账"
+    >
         <template #actions>
             <PressButton
                 icon="history"
@@ -234,22 +255,27 @@ useRouteAction('/income', {
             />
         </template>
 
+        <LoadNotice v-if="setupError" :error="setupError" :load="loadLiquidIncome" />
         <LoadNotice
             :error="loadError"
-            :load="loadIncome"
+            :load="liquid ? ensureGlassIncomeLoaded : loadIncome"
             :blocked="pending > 0 || !!writeError || !!priceAsk"
         />
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
         <LoadNotice
             :error="onlineLoadError"
-            :load="loadOnline"
+            :load="liquid ? loadLiquidOnline : loadOnline"
             :blocked="onlinePending > 0 || !!onlineWriteError || !!onlineDialog"
         />
         <SaveNotice :error="onlineWriteError" :pending="onlinePending" @retry="retryOnline" />
         <SaveNotice :error="syncError" :pending="syncPending" @retry="retrySync" />
 
         <div class="income-stack">
-            <OnlineBar @records="openRecords" @backfill="onlineDialog = 'backfill'">
+            <OnlineBar
+                :reload-roster="liquid ? loadLiquidRoster : undefined"
+                @records="openRecords"
+                @backfill="onlineDialog = 'backfill'"
+            >
                 <template v-if="!loadError" #summary>
                     <StatStrip
                         class="income-summary"
@@ -306,7 +332,7 @@ useRouteAction('/income', {
             @close="recordsOpen = false"
             @edit="editOnline"
         />
-    </PageShell>
+    </component>
 </template>
 
 <style scoped>

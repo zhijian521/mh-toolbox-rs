@@ -1,6 +1,6 @@
 <script lang="ts">
 import { gameDataReady, loadGameData, quickItems } from '../../services/game-data';
-import { loadPrices, usePrices } from './prices-store';
+import { ensureGlassPricesLoaded, usePrices } from './prices-store';
 
 let catalogRequest: Promise<void> | undefined;
 
@@ -8,7 +8,7 @@ function loadCatalog() {
     catalogRequest ??= loadGameData()
         .then(async () => {
             if (!gameDataReady.value) throw new Error('游戏分类数据加载失败');
-            await loadPrices();
+            await ensureGlassPricesLoaded();
         })
         .finally(() => {
             catalogRequest = undefined;

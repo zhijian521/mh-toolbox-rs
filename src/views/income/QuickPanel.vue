@@ -9,7 +9,7 @@ import { askConfirm } from '../../composables/use-confirm';
 import { saved } from '../../composables/save-feedback';
 import { notify } from '../../composables/use-notify';
 import { priceFileExport, priceFileImport } from '../../services/data-files';
-import { quickItems, type QuickItemEntry } from '../../services/game-data';
+import { gameDataReady, quickItems, type QuickItemEntry } from '../../services/game-data';
 import { quickItemIcon } from '../../services/game-icons';
 import { compactAmount, recordSummary } from './income';
 import { useIncome } from './income-store';
@@ -24,9 +24,8 @@ const emit = defineEmits<{
 const { prices, target, recordEntry, setTarget, mergePrices, flush } = useIncome();
 const { roster } = useRoster();
 
-/* 清单在启动时已装好（`startup.ts` 完成规则装配后才开放业务路由），这里取一次就够。
- * 模板里每次渲染都调 `quickItems()` 也能跑，但那是 59 项的表，没必要每帧找一遍。 */
-const groups = quickItems();
+// 玻璃版允许游戏资源读取失败后在原页重试。
+const groups = computed(() => (gameDataReady.value ? quickItems() : { fixed: [], variable: [] }));
 
 const targetOptions = computed(() => [
     { value: '', label: '不指定' },
