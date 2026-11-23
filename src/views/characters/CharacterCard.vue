@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import PaperCard from '../../components/PaperCard.vue';
-import { computed, ref, watch } from 'vue';
+import { computed, inject, ref, watch } from 'vue';
+import { glassLedger } from '../../components/glass-ledger';
 import PressButton from '../../components/PressButton.vue';
 import NumberField from '../../components/NumberField.vue';
 import SelectField from '../../components/SelectField.vue';
@@ -116,6 +117,7 @@ const emit = defineEmits<{
     quick: [target: QuickTarget];
 }>();
 
+const glassCard = inject(glassLedger, null)?.card;
 const active = ref<PaneKey>(props.pane);
 const fitAttrs = computed(() => props.tabs && !props.preview && !props.editable);
 watch(
@@ -185,9 +187,11 @@ function openDetail(index: number) {
          空门派时属性为空串，不匹配任何一条 → 卡底回落纸色。
          原先还挂着 `dual-rule`（离卡缘 3px 的一圈 1px 内衬线），2026-11-06
          用户要求「最外面的一圈细边框去掉」——卡边只剩纸自己的棱与落影。 -->
-    <PaperCard
+    <component
+        :is="glassCard ?? PaperCard"
         :id="editable || preview ? undefined : 'character-' + character.id"
-        as="article"
+        :as="glassCard ? undefined : 'article'"
+        :role="glassCard ? 'article' : undefined"
         tabindex="-1"
         :aria-label="character.name || '未命名角色'"
         class="char character-theme"
@@ -398,7 +402,7 @@ function openDetail(index: number) {
         </div>
 
         <GearTip :anchor="tipAnchor" :detail="tip" :slot-name="tipSlot" />
-    </PaperCard>
+    </component>
 </template>
 
 <style scoped src="./character-card.css"></style>

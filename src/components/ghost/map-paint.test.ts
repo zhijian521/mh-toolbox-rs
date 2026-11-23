@@ -9,6 +9,13 @@ async function setup() {
         ['--ghost-wash', 'rgb(240, 184, 170)'],
     ]);
     const root = {};
+    const scopedValues = new Map(values);
+    let probeValues = values;
+    const scope = {
+        append: vi.fn(() => {
+            probeValues = scopedValues;
+        }),
+    } as unknown as HTMLElement;
     const probe = {
         style: { color: '', fontSize: '', fontFamily: '', display: '' },
         remove: vi.fn(),
@@ -16,15 +23,20 @@ async function setup() {
     const createElement = vi.fn(() => probe);
     vi.stubGlobal('document', {
         documentElement: root,
-        body: { append: vi.fn() },
+        body: {
+            append: vi.fn(() => {
+                probeValues = values;
+            }),
+        },
         createElement,
     });
-    const tokenValue = (value: string) => values.get(value.slice(4, -1)) ?? value;
+    const tokenValue = (value: string) => probeValues.get(value.slice(4, -1)) ?? value;
     vi.stubGlobal('getComputedStyle', (element: unknown) => {
-        if (element === root) {
+        if (element === root || element === scope) {
+            const tokens = element === scope ? scopedValues : values;
             return {
-                colorScheme: 'light',
-                getPropertyValue: (name: string) => values.get(name) ?? '',
+                colorScheme: element === scope ? 'dark' : 'light',
+                getPropertyValue: (name: string) => tokens.get(name) ?? '',
             };
         }
         return {
@@ -34,7 +46,7 @@ async function setup() {
         };
     });
     const { resolveColors } = await import('./map-paint');
-    return { values, probe, createElement, resolveColors };
+    return { values, scope, scopedValues, probe, createElement, resolveColors };
 }
 
 afterEach(() => {
@@ -59,7 +71,16 @@ describe('地图样式读取', () => {
         expect(after.wash).toBe('rgb(100, 160, 140)');
     });
 
-    it('地图字体和字号都读取全局令牌', async () => {
+    it('地图读取所在外壳的令牌，来回切换外壳不串色', async () => {
+        const env = await setup();
+        env.scopedValues.set('--ghost-wash', 'rgb(100, 160, 140)');
+        expect(env.resolveColors().wash).toBe('rgb(240, 184, 170)');
+        expect(env.resolveColors(env.scope).wash).toBe('rgb(100, 160, 140)');
+        expect(env.scope.append).toHaveBeenCalledWith(env.probe);
+        expect(env.resolveColors().wash).toBe('rgb(240, 184, 170)');
+    });
+
+    it('直接读取时字体和字号取网页根元素的令牌', async () => {
         const env = await setup();
         expect(env.resolveColors().fontLabel).toBe('12px WenKai, sans-serif');
         env.values.set('--font-ui', 'AnotherFont, serif');

@@ -7,6 +7,7 @@ import PressButton from '../../components/PressButton.vue';
 import FormActions from '../../components/FormActions.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import { useToday } from '../../composables/use-today';
+import { useDraftGuard } from '../../composables/use-draft-guard';
 import { signedText, type ReadonlyGoal, type GoalSummary } from './goals';
 import type { LogInput } from './goals-store';
 
@@ -30,6 +31,15 @@ const date = ref(today.value);
 const direction = ref('add');
 const delta = ref(0);
 const note = ref('');
+const entryOptions = () => `${date.value}:${direction.value}`;
+let savedOptions = entryOptions();
+const { requestClose } = useDraftGuard(
+    () =>
+        !props.retrying &&
+        (delta.value !== 0 || !!note.value.trim() || entryOptions() !== savedOptions),
+    () => props.saving,
+    () => emit('close'),
+);
 const ordered = computed(() =>
     [...props.goal.logs].sort((a, b) =>
         a.date === b.date ? b.createdAt - a.createdAt : a.date < b.date ? 1 : -1,
@@ -41,6 +51,7 @@ watch(
     () => {
         delta.value = 0;
         note.value = '';
+        savedOptions = entryOptions();
     },
 );
 function submit() {
@@ -59,7 +70,7 @@ function enter(event: KeyboardEvent) {
 </script>
 
 <template>
-    <ModalShell title="进度记录" :width="600" :min-height="360" @close="!saving && emit('close')">
+    <ModalShell title="进度记录" :width="600" :min-height="360" @close="requestClose">
         <div class="record-summary">
             <span>{{ goal.title }}</span
             ><b
@@ -140,7 +151,7 @@ function enter(event: KeyboardEvent) {
                 :submit-text="saving ? '保存中' : retrying ? '重试保存' : '记入'"
                 submit-label="记入这一笔"
                 :submit-disabled="saving || (!retrying && (locked || !ready))"
-                @cancel="emit('close')"
+                @cancel="requestClose"
                 @submit="submit"
             >
                 <PressButton

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, inject } from 'vue';
+import { glassLedger } from '../../components/glass-ledger';
 import PaperCard from '../../components/PaperCard.vue';
 import PressButton from '../../components/PressButton.vue';
 import GoalProgress from './GoalProgress.vue';
@@ -26,6 +27,7 @@ const emit = defineEmits<{
     growth: [characterId?: string];
     bought: [];
 }>();
+const glassCard = inject(glassLedger, null)?.card;
 const deadline = computed(() => deadlineText(props.goal.deadline, props.today, props.summary.done));
 const number = (value: number) => value.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
 const rows = computed(() => {
@@ -62,9 +64,11 @@ const rows = computed(() => {
 </script>
 
 <template>
-    <PaperCard
-        as="article"
-        plain
+    <component
+        :is="glassCard ?? PaperCard"
+        :as="glassCard ? undefined : 'article'"
+        :plain="glassCard ? undefined : true"
+        :role="glassCard ? 'article' : undefined"
         class="goal"
         :class="{ done: summary.done }"
         :data-goal-id="goal.id"
@@ -169,12 +173,12 @@ const rows = computed(() => {
                 />
             </template>
         </footer>
-    </PaperCard>
+    </component>
 </template>
 
 <style scoped>
 .goal {
-    --progress-color: var(--ochre);
+    --progress-color: var(--goal-progress-color, var(--ochre));
     flex: 1 1 340px;
     max-width: 380px;
     display: grid;

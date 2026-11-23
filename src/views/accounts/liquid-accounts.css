@@ -1,0 +1,81 @@
+.liquid-accounts .accounts-layout {
+    gap: 12px;
+}
+
+.liquid-accounts :is(.books, .account-bottom, .shortcuts) {
+    gap: 10px;
+}
+
+.liquid-accounts .shortcuts {
+    --shortcut-min-w: calc(206px * var(--fs-scale));
+    --shortcut-max-w: 100%;
+    padding: 0;
+}
+
+.liquid-accounts glass-button.shortcut {
+    --glass-button-height: calc(68px * var(--fs-scale));
+    --glass-button-padding: 12px;
+    display: block;
+    border-radius: var(--r-3);
+}
+
+.liquid-accounts .shortcut-face {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+}
+
+.liquid-accounts .sc-icon {
+    --icon-size: calc(20px * var(--fs-scale));
+}
+
+.liquid-accounts .sc-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.liquid-accounts :is(.account-overview, .flow-card) .section-head {
+    margin-bottom: 10px;
+}
+
+.liquid-accounts .book .v {
+    overflow-wrap: anywhere;
+}
+
+.liquid-accounts .account-record-summary {
+    gap: 8px;
+}
+
+.liquid-accounts .account-record-total {
+    padding: 8px 10px;
+}
+
+.liquid-accounts .account-record-controls .record-filters {
+    margin-bottom: 8px;
+}
+
+.liquid-accounts .account-asset-tray {
+    box-shadow: none;
+}
+
+.liquid-accounts .chart-in-card {
+    --chart-depth: 4px;
+    --chart-surface-bg: transparent;
+}
+
+.liquid-accounts .chart-bar-face {
+    --chart-front: var(--chart-color);
+    --chart-side: color-mix(in srgb, var(--chart-color), var(--liquid-ink) 12%);
+    --chart-top: color-mix(in srgb, var(--chart-color), var(--bevel-hi) 20%);
+    --chart-bar-shadow: inset 1px 0 0 var(--bevel-hi);
+}
+
+.liquid-accounts .warehouse-item .press-tile {
+    border-radius: var(--r-2);
+}
+
+.liquid-accounts .account-bottom > :only-child {
+    grid-column: 1 / -1;
+}

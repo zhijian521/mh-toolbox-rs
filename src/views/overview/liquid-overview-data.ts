@@ -1,14 +1,15 @@
 import { computed, ref } from 'vue';
 import { useAccounts } from '../accounts/accounts-store';
 import { useRoster } from '../characters/roster';
-import { loadGoals, useGoals } from '../goals/goals-store';
+import { useGoals } from '../goals/goals-store';
 import { ensureGlassIncomeLoaded, useIncome } from '../income/income-store';
 import { useOnline } from '../income/online-store';
 import {
     loadLiquidAccounts,
+    loadLiquidGoals,
     loadLiquidOnline,
     loadLiquidRoster,
-} from '../income/liquid-income-data';
+} from '../../liquid-ledger-data';
 
 const roster = useRoster();
 const income = useIncome();
@@ -25,7 +26,7 @@ const sources = [
         load: loadLiquidAccounts,
     },
     { label: '上线', error: online.loadError, load: loadLiquidOnline },
-    { label: '目标', error: goals.loadError, load: loadGoals },
+    { label: '目标', error: goals.loadError, load: loadLiquidGoals },
 ];
 const loading = ref(true);
 const errors = computed(() => sources.filter(({ error }) => error.value));

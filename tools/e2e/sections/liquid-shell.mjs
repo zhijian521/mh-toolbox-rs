@@ -44,8 +44,10 @@ async function checkPriceMaintenance({ cdp, t, ui }, sheet, editor) {
     t.check('继续编辑保留原草稿', await cdp.evaluate(`
         document.querySelector('${price}').value === '18' &&
         !!document.querySelector('${sheet}:is([open], [data-visible])')`));
-    // 编辑弹窗遮住 Dock，用 DOM 点击发起导航，覆盖取消后标签栏自更新的回退。
-    await cdp.evaluate(`document.querySelector('.liquid-dock-bar glass-tab[value="settings"]').click()`);
+    // 弹窗遮住 Dock，从标签栏自身的键盘入口发起导航，覆盖取消后的选中态回退。
+    await cdp.evaluate(`document.querySelector('.liquid-dock-bar').dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true })
+    )`);
     await ui.waitFor(`!!document.querySelector('${discard}')`);
     await cdp.click(`${discard} footer glass-button:first-child`);
     await ui.waitFor(`!document.querySelector('${discard}') &&
@@ -553,8 +555,9 @@ export default async function liquidShell({ cdp, t, ui }) {
     t.section('Liquid Glass 应用壳');
     const dock = '.liquid-dock';
     const tab = (key) => `${dock} glass-tab[value="${key}"]`;
+    const dockSettled = "!document.querySelector('.liquid-page-pane[inert]')";
     const ready = (key) =>
-        `location.hash === '#/${key}' && !!document.querySelector('${tab(key)}[aria-selected="true"]')`;
+        `location.hash === '#/${key}' && !!document.querySelector('${tab(key)}[aria-selected="true"]') && ${dockSettled}`;
     // 组件目录没有 Dock 标签，只认地址与页面内容；入口是连点设置五次。
     const atComponents = () =>
         "location.hash === '#/components' && !!document.querySelector('.component-catalog')";
@@ -624,13 +627,26 @@ export default async function liquidShell({ cdp, t, ui }) {
     }
 
     await cdp.click(tab('overview'));
-    await ui.waitFor(`!!document.querySelector('[aria-label="选择角色上线"]')`);
+    await ui.waitFor(`${ready('overview')} && !!document.querySelector('[aria-label="选择角色上线"]')`);
+    await cdp.click(tab('income'));
+    await ui.waitFor(`${ready('income')} && !!document.querySelector('.liquid-income-page')`);
+    t.check('Dock 从总览切到右侧的收益页，由右入场', await cdp.evaluate(`
+        document.querySelector('.liquid-content').dataset.dockEntry === 'right'
+    `));
+    await cdp.click(tab('overview'));
+    await ui.waitFor(`${ready('overview')} && !!document.querySelector('[aria-label="选择角色上线"]')`);
+    t.check('Dock 从收益切回左侧的总览，由左入场', await cdp.evaluate(`
+        document.querySelector('.liquid-content').dataset.dockEntry === 'left'
+    `));
     await cdp.click('[aria-label="选择角色上线"]');
     await ui.waitFor(ready('income'));
     const income = '.liquid-income-page';
     const incomeDialog = '.liquid-income .modal-panel:not([inert])';
     const waitIncomeDialog = (title) => ui.waitFor(`document.querySelector('${incomeDialog} h2')?.textContent === '${title}'`);
     await waitIncomeDialog('开始计时');
+    t.check('总览快捷入口打开弹窗时不叠加页面动画，且已消费路由动作', await cdp.evaluate(`
+        !document.querySelector('.liquid-content').hasAttribute('data-dock-entry') && ${ready('income')}
+    `));
     t.check('总览上线打开收益计时，角色支持全选', await cdp.evaluate(`(() => {
         const dialog = document.querySelector('${incomeDialog}');
         return Array.from(dialog.querySelectorAll('button')).some((button) => button.textContent.trim() === '全部');
@@ -668,14 +684,304 @@ export default async function liquidShell({ cdp, t, ui }) {
     await cdp.key('Escape');
     await ui.waitFor(`!document.querySelector('${incomeDialog}')`);
 
-    for (const key of ['accounts', 'characters', 'goals', 'tools']) {
-        await cdp.click(tab(key));
-        await ui.waitFor(ready(key));
-        t.check(
-            `${key} 暂为空白页`,
-            await cdp.evaluate(`!document.querySelector('.liquid-content').textContent.trim()`),
-        );
+
+    await cdp.click(tab('overview'));
+    await ui.waitFor(ready('overview'));
+    const addEntry = '[aria-label="记一笔账号收支"]';
+    const warehouse = '[aria-label="打开装备和召唤兽仓库"]';
+    await ui.waitFor(`!!document.querySelector('${addEntry}')`);
+    await cdp.click(addEntry);
+    await ui.waitFor(ready('accounts'));
+    const accounts = '.liquid-ledger-page.liquid-accounts';
+    const accountMask = '.liquid-accounts.modal-mask';
+    const accountDialog = `${accountMask} .modal-panel:not([inert])`;
+    const waitAccountDialog = (title) =>
+        ui.waitFor(`document.querySelector('${accountDialog} h2')?.textContent === '${title}'`);
+    const closeAccountDialog = () => cdp.click(`${accountDialog} [data-modal-close]`);
+    const waitAccountClosed = () => ui.waitFor(`!document.querySelector('${accountMask}')`);
+
+    await waitAccountDialog('记一笔');
+    await cdp.click(`${accountDialog} [aria-label="记账日期"]`);
+    const datePanel = '.liquid-app > .date-panel.liquid-ledger';
+    await ui.waitFor(`!!document.querySelector('${datePanel}[data-ready]')`);
+    await cdp.key('Escape');
+    await ui.waitFor(`!document.querySelector('${datePanel}')`);
+    await waitAccountDialog('记一笔');
+    await closeAccountDialog();
+    await waitAccountClosed();
+    t.check('账号保留双币种、快捷记账、收支图表和近期记录', await cdp.evaluate(`(() => {
+        const page = document.querySelector('${accounts}');
+        return page.querySelectorAll('[data-book-currency]').length === 2 &&
+            !!page.querySelector('glass-button.shortcut .sc-total') &&
+            !!page.querySelector('.channel-card .bar-chart') &&
+            !!page.querySelector('.records') &&
+            page.querySelectorAll('.account-charts .trend-block').length === 2 &&
+            getComputedStyle(page.closest('.liquid-content')).scrollbarWidth === 'none';
+    })()`));
+
+    await cdp.click(`${accounts} [aria-label="查看账号历史记录"]`);
+    await waitAccountDialog('历史记录');
+    await cdp.click(`${accountDialog} [aria-label="展开或收起账号筛选"]`);
+    t.check('账号历史可展开组合筛选并保留双币种汇总', await cdp.evaluate(`(() => {
+        const panel = document.querySelector('${accountDialog}');
+        return !!panel.querySelector('[aria-expanded="true"][aria-controls]') &&
+            panel.querySelectorAll('.account-record-filter-grid .select-field').length === 6 &&
+            panel.querySelectorAll('.account-record-summary .account-record-total').length === 2 &&
+            !!panel.querySelector('.record-table-frame > .income-log-scroll');
+    })()`));
+    await closeAccountDialog();
+    await waitAccountClosed();
+
+    await cdp.click(`${accounts} glass-button.shortcut[aria-label^="卖出装备"]`);
+    await waitAccountDialog('记一笔');
+    const assetSwitch = `${accountDialog} [aria-label="是否关联仓库物品"]`;
+    await cdp.click(`${assetSwitch} button:last-child`);
+    t.check('卖出装备继续提供手续费和仓库关联', await cdp.evaluate(`
+        !!document.querySelector('${accountDialog} [aria-label="手续费"] [aria-checked="true"]:last-child') &&
+        !!document.querySelector('${accountDialog} [aria-label="录入交易物品"]')
+    `));
+    await cdp.click(`${accountDialog} [aria-label="设置交易关联物品"]`);
+    await waitAccountDialog('选择卖出的装备');
+    await closeAccountDialog();
+    await waitAccountDialog('记一笔');
+    await cdp.click(`${assetSwitch} button:first-of-type`);
+    await closeAccountDialog();
+    await waitAccountClosed();
+
+    await cdp.click(tab('overview'));
+    await ui.waitFor(ready('overview'));
+    await ui.waitFor(`!!document.querySelector('${warehouse}')`);
+    await cdp.click(warehouse);
+    await ui.waitFor(ready('accounts'));
+    await waitAccountDialog('仓库');
+    const stock = `${accountDialog} [aria-label="仓库状态"]`;
+    await cdp.click(`${stock} button:last-child`);
+    t.check('已售出仓位支持浏览，录入入口随状态隐藏', await cdp.evaluate(`
+        !!document.querySelector('${stock} button:last-child[aria-checked="true"]') &&
+        !document.querySelector('${accountDialog} [data-warehouse-add]')
+    `));
+    await cdp.click(`${stock} button:first-child`);
+    await cdp.click(`${accountDialog} [aria-label="仓库分类"] button:last-child`);
+    await cdp.click(`${accountDialog} [aria-label="新增或截图录入召唤兽"]`);
+    await waitAccountDialog('召唤兽入仓');
+    await ui.waitFor(`!!document.querySelector('${accountDialog} .pet-screenshot')`);
+    await closeAccountDialog();
+    await waitAccountDialog('仓库');
+    await closeAccountDialog();
+    await waitAccountClosed();
+
+    await cdp.click(tab('characters'));
+    await ui.waitFor(ready('characters'));
+    const characters = '.liquid-ledger-page.liquid-characters';
+    const characterMask = '.liquid-characters.modal-mask';
+    const characterDialog = `${characterMask} .modal-panel:not([inert])`;
+    const waitCharacterDialog = (title) =>
+        ui.waitFor(`document.querySelector('${characterDialog} h2')?.textContent === '${title}'`);
+    const closeCharacterDialog = () => cdp.click(`${characterDialog} [data-modal-close]`);
+    const waitCharacterClosed = () => ui.waitFor(`!document.querySelector('${characterMask}')`);
+    const newCharacter = `${characters} [aria-label="新建角色"]`;
+    await ui.waitFor(`!!document.querySelector('${newCharacter}:not([disabled])')`);
+    await cdp.click(newCharacter);
+    await waitCharacterDialog('新角色');
+    const sections = `${characterDialog} [aria-label="修改分区"] button`;
+    t.check('新角色保留六个编辑分区和角色属性识别入口', await cdp.evaluate(`
+        document.querySelectorAll('${sections}').length === 6 &&
+        !!document.querySelector('${characterDialog} [aria-label="角色名"]') &&
+        !!document.querySelector('${characterDialog} [aria-label="属性截图文件"]')
+    `));
+    for (const [section, kind, selector] of [
+        [5, '装备', 'input[aria-label="装备截图文件"]'],
+        [6, '召唤兽', 'input[aria-label="召唤兽截图文件"]'],
+    ]) {
+        await cdp.click(`${sections}:nth-of-type(${section})`);
+        const picker = `${characterDialog} [aria-label="从仓库选择${kind}"]`;
+        await ui.waitFor(`!!document.querySelector('${picker}')`);
+        t.check(`角色${kind}分区保留截图识别入口`, await cdp.evaluate(`
+            !!document.querySelector('${characterDialog} ${selector}')
+        `));
+        await cdp.click(picker);
+        await waitCharacterDialog(`从仓库选择${kind}`);
+        await closeCharacterDialog();
+        await waitCharacterDialog('新角色');
     }
+    await closeCharacterDialog();
+    await waitCharacterClosed();
+
+    const quick = `${characters} .roster-card .slip-row.quickable`;
+    if (await cdp.evaluate(`!!document.querySelector('${quick}')`)) {
+        await cdp.click(quick);
+        await ui.waitFor(`!!document.querySelector('${characterDialog} input')`);
+        await closeCharacterDialog();
+        await waitCharacterClosed();
+    }
+    await cdp.click(`${characters} [aria-label="查看角色成长历史"]`);
+    await waitCharacterDialog('成长历史');
+    await closeCharacterDialog();
+    await waitCharacterClosed();
+    await cdp.click(`${characters} [aria-label="打开装备和召唤兽仓库"]`);
+    await waitCharacterDialog('仓库');
+    await closeCharacterDialog();
+    await waitCharacterClosed();
+
+    const goals = '.liquid-ledger-page.liquid-goals';
+    const goalMask = '.liquid-goals.modal-mask';
+    const goalDialog = `${goalMask} .modal-panel:not([inert])`;
+    const goalTitle = `document.querySelector('${goalDialog} h2')?.textContent`;
+    const closeGoals = () => cdp.click(`${goalDialog} [data-modal-close]`);
+    const waitGoalsClosed = () => ui.waitFor(`!document.querySelector('${goalMask}')`);
+    const discardGoalDraft = async () => {
+        const confirm = '.glass-dialog[open]:has(.glass-confirm)';
+        await ui.waitFor(`document.querySelector('${confirm} h2')?.textContent === '放弃未保存的修改？'`);
+        await cdp.click(`${confirm} footer glass-button:last-child`);
+        await waitGoalsClosed();
+    };
+
+    await cdp.click(tab('overview'));
+    await ui.waitFor(`${ready('overview')} && !!document.querySelector('.overview-goal-card')`);
+    const linkedGoal = '.overview-goal-link';
+    const newOverviewGoal = '.overview-goal-empty [aria-label="新建目标"]';
+    if (await ui.exists(linkedGoal)) {
+        await cdp.click(linkedGoal);
+        await ui.waitFor(`${ready('goals')} && ['更新进度', '更新组合进度', '进度记录'].includes(${goalTitle})`);
+        if ((await cdp.evaluate(goalTitle)) === '进度记录') {
+            await ui.fillSel(`${goalDialog} input[aria-label="备注"]`, '未保存的记录');
+            await closeGoals();
+            await discardGoalDraft();
+        } else {
+            await closeGoals();
+            await waitGoalsClosed();
+        }
+    } else if (await ui.exists(newOverviewGoal)) {
+        await cdp.click(newOverviewGoal);
+        await ui.waitFor(`${ready('goals')} && ${goalTitle} === '新增目标'`);
+        await closeGoals();
+        await waitGoalsClosed();
+    } else {
+        await cdp.click(tab('goals'));
+        await ui.waitFor(ready('goals'));
+    }
+
+    const goalFilters = `${goals} [aria-label="目标状态"]`;
+    await ui.waitFor(`!!document.querySelector('${goalFilters}')`);
+    await cdp.click(`${goalFilters} button:last-child`);
+    t.check('目标页保留三档状态筛选', await cdp.evaluate(`
+        document.querySelectorAll('${goalFilters} [role="radio"]').length === 3 &&
+        document.querySelector('${goalFilters} [aria-checked="true"]').textContent.includes('全部')
+    `));
+    await cdp.click(`${goals} [aria-label="新建目标"]`);
+    await ui.waitFor(`${goalTitle} === '新增目标'`);
+    const kinds = `${goalDialog} [aria-label="目标类型"]`;
+    t.check('目标编辑器有养成、存钱、装备、手动和组合五种类型', await cdp.evaluate(`
+        [...document.querySelectorAll('${kinds} button')].map(button => button.textContent.trim()).join(',') ===
+        '养成,存钱,装备,手动,组合'
+    `));
+    await cdp.click(`${kinds} button:last-child`);
+    await ui.waitFor(`!!document.querySelector('${goalDialog} .combo-settings')`);
+    await ui.fillSel(`${goalDialog} input[aria-label="组合名称"]`, '玻璃组合草稿');
+    await closeGoals();
+    await discardGoalDraft();
+
+    const toolList = '.liquid-tools .tool-grid';
+    const atToolList = () => ui.waitFor(`${ready('tools')} && !!document.querySelector('${toolList}')`);
+    const toolTile = (name) => `${toolList} button[aria-label="${name}"]`;
+    const atToolDetail = (name, page) => ui.waitFor(`location.hash === '#/tools/${page}' &&
+        !!document.querySelector('${tab('tools')}[aria-selected="true"]') &&
+        document.querySelector('.liquid-tool-detail h1')?.textContent === ${JSON.stringify(name)}`);
+    const openTool = async (name, page) => {
+        await cdp.click(toolTile(name));
+        await atToolDetail(name, page);
+    };
+    const toolBack = '.liquid-tool-detail [aria-label="返回工具列表"]';
+    const toolMask = '.liquid-tools.modal-mask';
+    const toolDialog = `${toolMask} .modal-panel:not([inert])`;
+    const waitToolDialog = (selector) => ui.waitFor(`!!document.querySelector('${toolDialog} ${selector}')`);
+    const closeToolDialog = async () => {
+        await cdp.click(`${toolDialog} [data-modal-close]`);
+        await ui.waitFor(`!document.querySelector('${toolMask}')`);
+    };
+    await cdp.click(tab('tools'));
+    await atToolList();
+    t.check('工具目录登记六个站内工具和维护外链', await cdp.evaluate(`
+        document.querySelectorAll('${toolList} [data-kind="page"]').length === 6 &&
+        !!document.querySelector('${toolList} [data-kind="link"][aria-label="维护公告（浏览器打开）"]')
+    `));
+
+    // 点击工具前保留刚设置的滚动位置，避免 CDP 点击助手将按钮滚到中间。
+    const directoryTop = await cdp.evaluate(`(() => {
+        const pane = document.querySelector('.liquid-content');
+        pane.scrollTop = 36;
+        const top = pane.scrollTop;
+        document.querySelector('${toolTile('活动日历')}').click();
+        return top;
+    })()`);
+    await atToolDetail('活动日历', 'activities');
+    t.check('打开工具详情从右侧进入并从顶部开始', await cdp.evaluate(`(() => {
+        const pane = document.querySelector('.liquid-content');
+        return pane.dataset.pageEntry === 'tool-in' && pane.scrollTop === 0;
+    })()`));
+    const activity = '.liquid-tool-detail .activity-card';
+    await ui.waitFor(`!!document.querySelector('${activity}')`);
+    await cdp.click(activity);
+    await waitToolDialog('.remind');
+    t.check('活动提醒弹窗保留开场前五分钟和保存入口', await cdp.evaluate(`
+        document.querySelector('${toolDialog} .remind').textContent.includes('开场前 5 分钟提醒') &&
+        !!document.querySelector('${toolDialog} [aria-label="保存这一场的提醒设置"]')
+    `));
+    await closeToolDialog();
+    await cdp.click(toolBack);
+    await atToolList();
+    t.check('返回工具目录方向相反，并恢复原滚动位置', await cdp.evaluate(`(() => {
+        const pane = document.querySelector('.liquid-content');
+        return pane.dataset.pageEntry === 'tool-back' && Math.abs(pane.scrollTop - ${directoryTop}) < 1;
+    })()`));
+
+    await openTool('闹钟', 'alarm');
+    await cdp.click('.liquid-tool-detail [aria-label="新增一个闹钟"]');
+    await waitToolDialog('.alarm-form');
+    t.check('闹钟支持四类重复方式和提前五分钟', await cdp.evaluate(`
+        document.querySelectorAll('${toolDialog} [aria-label="重复方式"] button').length === 4 &&
+        document.querySelector('${toolDialog} .alarm-hint').textContent.includes('提前 5 分钟提醒')
+    `));
+    await ui.fillSel(`${toolDialog} input[aria-label="备注"]`, '未保存的闹钟备注');
+    await cdp.click(`${toolDialog} [data-modal-close]`);
+    const alarmDiscard = '.glass-dialog[open]:has(.glass-confirm)';
+    await ui.waitFor(`document.querySelector('${alarmDiscard} h2')?.textContent === '放弃未保存的修改？'`);
+    await cdp.click(`${alarmDiscard} footer glass-button:last-child`);
+    await ui.waitFor(`!document.querySelector('${toolMask}')`);
+    await cdp.click(tab('tools'));
+    await atToolList();
+
+    await openTool('游戏资源', 'assets');
+    const assetCell = '.liquid-tool-detail .asset-cell';
+    await ui.waitFor(`!!document.querySelector('${assetCell}')`);
+    await cdp.click(assetCell);
+    await waitToolDialog('.asset-preview');
+    await closeToolDialog();
+    await cdp.click(toolBack);
+    await atToolList();
+
+    await openTool('养成计算器', 'growth');
+    const plan = '.liquid-tool-detail [aria-label="计算方式"] button:last-child';
+    await ui.waitFor(`!!document.querySelector('${plan}')`);
+    await cdp.click(plan);
+    await ui.waitFor(`!document.querySelector('.liquid-tool-detail .record-empty[role="status"]') &&
+        !!document.querySelector('.liquid-tool-detail .plan-toolbar, .liquid-tool-detail .record-empty, .liquid-tool-detail [role="alert"]')`);
+    await cdp.click(toolBack);
+    await atToolList();
+
+    await openTool('捉鬼助手', 'ghost');
+    t.check('捉鬼助手保留地图和识别入口', await cdp.evaluate(`
+        document.querySelector('.liquid-tool-detail .map-stage').clientHeight >= 240 &&
+        !!document.querySelector('.liquid-tool-detail [aria-label="开始识别任务栏"]')
+    `));
+    await cdp.click(toolBack);
+    await atToolList();
+
+    await openTool('封妖助手', 'fengyao');
+    t.check('封妖助手保留场景配置和监听入口', await cdp.evaluate(`
+        !!document.querySelector('.liquid-tool-detail [aria-label="提醒场景"]') &&
+        !!document.querySelector('.liquid-tool-detail .fy-status')
+    `));
 
     // 已在设置页时标签栏不会再发 change，隐藏入口的计数必须只靠原生 click。
     await cdp.click(tab('settings'));
@@ -787,7 +1093,7 @@ export default async function liquidShell({ cdp, t, ui }) {
     );
 
     await cdp.click(tab('settings'));
-    await ui.waitFor(`!!document.querySelector('.liquid-settings glass-segment[role="tab"]')`);
+    await ui.waitFor(`${ready('settings')} && !!document.querySelector('.liquid-settings glass-segment[role="tab"]')`);
     t.check(
         '设置标题使用紧凑的分栏字号，设置项与分段控件使用正文和控件字号',
         await cdp.evaluate(`(() => {
@@ -891,7 +1197,7 @@ export default async function liquidShell({ cdp, t, ui }) {
         }
     } finally {
         await cdp.click(tab('settings'));
-        await ui.waitFor(`!!document.querySelector('.liquid-settings glass-segment[role="tab"]')`);
+        await ui.waitFor(`${ready('settings')} && !!document.querySelector('.liquid-settings glass-segment[role="tab"]')`);
         await cdp.click(themeOption(initialTheme));
     }
 }

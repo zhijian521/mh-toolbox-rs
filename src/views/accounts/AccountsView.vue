@@ -2,10 +2,12 @@
 import { lazyDialog } from '../../components/lazy-dialog';
 import { useRouteAction } from '../../composables/use-route-action';
 import { ALL_OPTIONS as ALL_ACCOUNTS } from '../../components/select-options';
-import { computed, ref } from 'vue';
+import { computed, inject, ref } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import PageShell from '../../components/PageShell.vue';
+import LiquidLedgerFrame from '../../components/LiquidLedgerFrame.vue';
+import { glassLedger } from '../../components/glass-ledger';
 import PressButton from '../../components/PressButton.vue';
 import PaperTag from '../../components/PaperTag.vue';
 import StatStrip from '../../components/StatStrip.vue';
@@ -34,6 +36,12 @@ import { accountSummaryBooks } from './account-summary';
 import { loadAccounts, useAccounts, type EntryInput } from './accounts-store';
 import { useDailySync } from './daily-sync';
 
+const props = defineProps<{
+    reloadLedger?: () => Promise<void>;
+    reloadRoster?: () => Promise<void>;
+}>();
+const glass = inject(glassLedger, null);
+
 const AccountEditor = lazyDialog(() => import('./AccountEditor.vue'));
 const AccountRecords = lazyDialog(() => import('./AccountRecords.vue'));
 const WarehouseDialog = lazyDialog(() => import('../warehouse/WarehouseDialog.vue'));
@@ -41,7 +49,7 @@ const warehouseOpen = ref(false);
 
 const { entries, loadError, writeError, addEntry, updateEntry, pending, flush, retry } =
     useAccounts();
-const { roster } = useRoster();
+const { roster, loadError: rosterError } = useRoster();
 const { error: syncError, retry: retrySync } = useDailySync();
 const preset = ref<RangePreset>('month');
 const today = useToday();
@@ -116,11 +124,19 @@ useRouteAction('/accounts', {
     history() {
         openRecords();
     },
+    warehouse() {
+        warehouseOpen.value = true;
+    },
 });
 </script>
 
 <template>
-    <PageShell title="账号" desc="收支记账 · 分类统计">
+    <component
+        :is="glass ? LiquidLedgerFrame : PageShell"
+        :class="glass ? 'liquid-accounts' : undefined"
+        title="账号"
+        desc="收支记账 · 分类统计"
+    >
         <template #actions>
             <PressButton icon="history" text="历史" label="查看账号历史记录" @click="openRecords" />
             <PressButton
@@ -134,8 +150,14 @@ useRouteAction('/accounts', {
         <div class="accounts-layout">
             <LoadNotice
                 :error="loadError"
-                :load="loadAccounts"
+                :load="props.reloadLedger ?? loadAccounts"
                 :blocked="pending > 0 || !!writeError || !!editing"
+            />
+            <LoadNotice
+                v-if="props.reloadRoster"
+                :error="rosterError"
+                :load="props.reloadRoster"
+                :blocked="pending > 0 || !!writeError"
             />
             <SaveNotice
                 :error="writeError || (loadError ? '' : syncError)"
@@ -171,7 +193,8 @@ useRouteAction('/accounts', {
 
             <LedgerSection title="快捷记账" plain>
                 <div class="shortcuts">
-                    <button
+                    <component
+                        :is="glass?.button ?? 'button'"
                         v-for="one in shortcuts"
                         :key="one.id"
                         type="button"
@@ -181,7 +204,7 @@ useRouteAction('/accounts', {
                         :class="one.preset.kind"
                         @click="openBlank({ ...one.preset })"
                     >
-                        <PaperTag class="shortcut-face">
+                        <component :is="glass ? 'span' : PaperTag" class="shortcut-face">
                             <span class="shortcut-body">
                                 <span class="sc-icon" aria-hidden="true"
                                     ><AppIcon :name="one.icon"
@@ -210,8 +233,8 @@ useRouteAction('/accounts', {
                                     </span>
                                 </span>
                             </span>
-                        </PaperTag>
-                    </button>
+                        </component>
+                    </component>
                 </div>
             </LedgerSection>
 
@@ -236,6 +259,7 @@ useRouteAction('/accounts', {
         <AccountRecords
             v-if="recordsOpen"
             v-model="historyFilters"
+            :reload-ledger="props.reloadLedger"
             @close="recordsOpen = false"
             @edit="openEntry"
         />
@@ -250,7 +274,7 @@ useRouteAction('/accounts', {
             @save="save"
             @close="closeEditor"
         />
-    </PageShell>
+    </component>
 </template>
 
 <style scoped src="./accounts-page.css"></style>

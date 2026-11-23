@@ -1,0 +1,53 @@
+.liquid-tools {
+    --action-ink: var(--accent);
+    --seal-edge: var(--accent);
+    --warning: var(--ochre);
+    --warn-bg: var(--popover-bg);
+    --page-pad: 16px;
+    --shadow-lift: var(--lg-dialog-shadow);
+    --ghost-wash: color-mix(in srgb, var(--danger) 46%, var(--popover-bg));
+    --ghost-wash-edge: color-mix(in srgb, var(--danger) 75%, var(--ink));
+    --ghost-hot: var(--danger);
+    --ghost-hot-edge: color-mix(in srgb, var(--danger) 60%, var(--ink));
+    --map-seal: var(--danger);
+    --map-seal-ink: var(--danger);
+    --map-halo: var(--popover-bg);
+}
+
+.liquid-tools .tool-item[data-group] {
+    --tint: var(--ledger-highlight);
+}
+
+.liquid-tools .tool-tile {
+    --tile-r: 16px;
+}
+
+.liquid-tools.liquid-tool-detail .hunt {
+    height: auto;
+    min-height: max(360px, calc(100dvh - 200px));
+    grid-template-rows: auto;
+}
+
+.liquid-tools .hunt .map-card {
+    padding: var(--block-pad);
+}
+
+.liquid-tools .hunt .map-stage {
+    min-height: 240px;
+}
+
+.liquid-tools.liquid-tool-detail .map-alert span {
+    background: var(--popover-bg);
+}
+
+.liquid-tools .test-panel.frame {
+    bottom: max(var(--liquid-dock-clearance), env(safe-area-inset-bottom));
+    max-height: calc(100dvh - var(--liquid-dock-clearance) - 16px);
+    background: var(--popover-bg);
+}
+
+@media (max-width: 680px) {
+    .liquid-tools.liquid-tool-detail .hunt {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

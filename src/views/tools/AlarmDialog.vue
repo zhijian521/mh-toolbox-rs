@@ -8,6 +8,7 @@ import SegmentedPills from '../../components/SegmentedPills.vue';
 import TimeField from '../../components/TimeField.vue';
 import TogglePills from '../../components/TogglePills.vue';
 import { useToday } from '../../composables/use-today';
+import { useDraftGuard } from '../../composables/use-draft-guard';
 import { minuteText } from '../../services/clock';
 import { activityRuleText, activitySlotText } from '../../services/game-activities';
 import {
@@ -75,6 +76,12 @@ const draft = reactive<AlarmDraft>(
               weekdays: [1, 2, 3, 4, 5],
               date: today.value,
           },
+);
+const original = JSON.stringify(draft);
+const { requestClose } = useDraftGuard(
+    () => JSON.stringify(draft) !== original,
+    () => false,
+    () => emit('close'),
 );
 const linkedActivity = computed(() => activityOf(draft));
 const activitySlots = computed(
@@ -152,7 +159,7 @@ function onEnter(event: KeyboardEvent) {
         :title="alarm ? '修改闹钟' : '新增闹钟'"
         :width="440"
         :scroll="false"
-        @close="emit('close')"
+        @close="requestClose"
     >
         <form
             id="alarm-form"
@@ -254,7 +261,7 @@ function onEnter(event: KeyboardEvent) {
                 data-modal-cancel
                 text="取消"
                 label="放弃这次编辑"
-                @click="emit('close')"
+                @click="requestClose"
             />
             <PressButton icon="check" text="保存" label="保存这个闹钟" seal @click="submit" />
         </template>

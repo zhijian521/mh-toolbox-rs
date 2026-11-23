@@ -30,6 +30,8 @@ import {
     schoolSkillCost,
 } from '../../services/level-costs';
 
+defineProps<{ reloadRoster?: () => Promise<void> }>();
+
 /** 单项计算保留各自输入；综合预算读取角色草稿，共用官网代价表。 */
 const GrowthPlan = defineAsyncComponent(() => import('./GrowthPlan.vue'));
 const mode = ref<'single' | 'plan'>('single');
@@ -609,7 +611,7 @@ const outcome = computed<Outcome>(() => {
                     class="calc-mode"
                 />
                 <div v-if="openedPlan" v-show="mode === 'plan'">
-                    <GrowthPlan :costs="costs" />
+                    <GrowthPlan :costs="costs" :reload-roster="reloadRoster" />
                 </div>
                 <template v-if="mode === 'single'">
                     <!-- 类型卡共用纸面材质。用 `button` 而不是把纸包在按钮里——按钮里只能放行内内容，

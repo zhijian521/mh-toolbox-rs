@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import GroupHead from '../../components/GroupHead.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
@@ -23,7 +23,15 @@ import {
 } from './growth-plan';
 
 /** 综合预算只保留本页草稿；切换角色重新取档案，不将试算写回账本。 */
-const props = defineProps<{ costs: LevelCosts }>();
+const props = defineProps<{ costs: LevelCosts; reloadRoster?: () => Promise<void> }>();
+const loadingRoster = ref(Boolean(props.reloadRoster));
+onMounted(async () => {
+    try {
+        await props.reloadRoster?.();
+    } finally {
+        loadingRoster.value = false;
+    }
+});
 const { roster, loadError, pending, writeError } = useRoster();
 const roleId = ref('');
 const lines = ref<GrowthLine[]>([]);
@@ -184,8 +192,13 @@ watch([character, () => props.costs], reset, { immediate: true });
 </script>
 
 <template>
-    <LoadNotice :error="loadError" :load="loadRoster" :blocked="pending > 0 || !!writeError" />
-    <template v-if="!loadError">
+    <LoadNotice
+        :error="loadError"
+        :load="props.reloadRoster ?? loadRoster"
+        :blocked="loadingRoster || pending > 0 || !!writeError"
+    />
+    <p v-if="loadingRoster" class="record-empty" role="status">正在读取角色档案…</p>
+    <template v-else-if="!loadError">
         <div v-if="roster.length" class="plan-toolbar">
             <SegmentedPills v-model="roleId" :options="options" label="计算角色" wrap />
             <SlotButton text="重置" label="恢复所选角色档案的当前等级" @click="reset" />

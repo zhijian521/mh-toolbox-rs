@@ -17,14 +17,21 @@
 
 | 页面 | 分支现状 |
 | --- | --- |
-| [总览](../src/views/overview/LiquidOverviewView.vue) | 已接入工作台统计、收益趋势、队伍和目标。上线打开收益页的计时弹窗。记一笔和仓库入口待接入。 |
+| [总览](../src/views/overview/LiquidOverviewView.vue) | 已接入工作台统计、收益趋势、队伍和目标。上线打开收益页的计时弹窗。记一笔和仓库打开账号页中的对应弹窗。点击进行中的目标可直接更新进度。 |
 | [收益](../src/views/income/LiquidIncomeView.vue) | 已接入在线点卡、角色计时、物品速记、今日明细、每日走势，以及点卡单价、补记和历史记录等弹窗。 |
+| [账号](../src/views/accounts/LiquidAccountsView.vue) | 已接入双币种收支、快捷记账、历史筛选与编辑、趋势和仓库。沿用装备及召唤兽的截图录入、交易关联、手续费和撤销售出回仓。 |
+| [角色](../src/views/characters/LiquidCharactersView.vue) | 已接入名册、六个角色分区、成长历史、快速修改、截图识别和仓库选择。角色与装备归属沿用现有存储。 |
 | [物价](../src/views/prices/LiquidPricesView.vue) | 已接入。含物品维护、记价、历史明细、趋势和保存失败重试。 |
+| [目标](../src/views/goals/LiquidGoalsView.vue) | 已接入状态筛选、五类目标编辑、进度记录、养成档案更新和历史。总览可直接新建或打开对应的进度弹窗。 |
 | [设置](../src/views/LiquidSettingsView.vue) | 已接入。含外观、壁纸、账本导入导出、备份恢复和关于。 |
 | [组件目录](../src/views/LiquidComponentsView.vue) | 已接入隐藏路由，供组件开发时对照。 |
-| 账号、角色、目标、工具 | 已有 Dock 入口，正文待迁移。 |
+| [工具](../src/views/tools/LiquidToolsView.vue) | 已接入活动日历、闹钟、游戏资源、养成计算器、捉鬼助手、封妖助手和维护外链。进入详情时 Dock 保持「工具」选中。 |
 
-总览在旧账检测完成后读取各领域账本。周统计和七天趋势沿用速记与在线数据，月收支按账号账本的已入账记录分别汇总梦幻币和人民币。首次进入收益后，收益和点卡按原有规则自动同步到账号。总览继续从账号账本读取月收支。读取失败时，对应数据标记为「未读取」，可重试失败的来源。
+总览在旧账检测完成后读取各领域账本。周统计和七天趋势沿用速记与在线数据，月收支按账号账本的已入账记录分别汇总梦幻币和人民币。首次进入收益或账号后，收益和点卡按原有规则自动同步到账号。总览继续从账号账本读取月收支。读取失败时，对应数据标记为「未读取」，可重试失败的来源。
+
+工具目录与子路由共用工具清单。启动时读取活动等游戏规则，活动日历读取失败时可重试。活动提醒沿用闹钟存储，由玻璃外壳按原规则提前五分钟提醒。养成综合试算按需读取角色档案。
+
+从 Dock 切换功能页时，标签即时反馈，路由就绪后按 Dock 顺序横向切页。点左边从左侧进入，点右边从右侧进入，只移动内容区，跨多个标签直接到目标页。工具目录与详情按进入、返回两个方向入场，回到目录时恢复滚动位置。快捷入口直开弹窗时沿用弹窗自身动画。开启系统降动效时，页面直接显示。
 
 ## 改动放在哪里
 
@@ -34,6 +41,7 @@
 | 字体与字号 | [liquid-main.ts](../src/liquid-main.ts) 加载资源圆体和[共享字号](../src/styles/token-typography.css)。标题、正文和辅助文字沿用现有字号档位。 |
 | 玻璃材质与控件 | 从[项目封装](../src/components/liquid-glass/index.ts)引入组件。正文卡片用 `GlassCard`，操作用 `GlassButton`。要调整同类表面的填充、高光或模糊，改封装里的材质预设；跨页面的控件样式归[公共样式](../src/components/liquid-glass/style.css)。滚动条占位、**隐藏滚动条但仍可滚**、表单的小一号尺寸档、**下拉面板自适应宽度**、**glass-sheet 禁用 shadow prop**、弹窗文字和图标分页见[工程规范 §2.4 第 51、52、54、55、56、57 条](CONVENTIONS.md#24-样式)。 |
 | 表单与弹窗 | 参考[物价编辑器](../src/views/prices/LiquidPriceEditor.vue)组合玻璃输入、日期和价格字段。[GlassDialog](../src/components/liquid-glass/GlassDialog.vue) 在打开时按窗口宽度选用居中对话框或底部面板。标题由 `label` 提供，使用 `lazy` 时内容会保留到退场结束。 |
+| 收益、账号、角色、目标和工具 | 页面共用 [LiquidLedgerFrame](../src/components/LiquidLedgerFrame.vue) 和[账本玻璃样式](../src/components/liquid-glass/ledger.css)。业务区块和弹窗通过原有入口复用，收益和账号共用日汇总。角色读数行的公共布局在 [character-fields.css](../src/styles/character-fields.css)。 |
 | 页面与数据 | 玻璃视图负责排版和交互。查询、校验和写入沿用对应领域的 store；桌面调用统一走 `src/services/`。共享字段或保存逻辑有改动时，同时核对账簿界面的调用方。 |
 
 ## 迁移一个页面

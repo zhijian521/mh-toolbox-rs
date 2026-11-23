@@ -1,14 +1,23 @@
 <script setup lang="ts">
+import { inject } from 'vue';
 import { useRouter } from 'vue-router';
+import { glassLedger } from '../../components/glass-ledger';
+import LiquidLedgerFrame from '../../components/LiquidLedgerFrame.vue';
 import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 
 defineProps<{ title: string; desc: string }>();
 const router = useRouter();
+const glass = inject(glassLedger, null);
 </script>
 
 <template>
-    <PageShell :title="title" :desc="desc">
+    <component
+        :is="glass ? LiquidLedgerFrame : PageShell"
+        :class="glass ? 'liquid-tools liquid-tool-detail' : undefined"
+        :title="title"
+        :desc="desc"
+    >
         <template #actions>
             <PressButton
                 icon="back"
@@ -19,5 +28,5 @@ const router = useRouter();
             <slot name="actions" />
         </template>
         <slot />
-    </PageShell>
+    </component>
 </template>

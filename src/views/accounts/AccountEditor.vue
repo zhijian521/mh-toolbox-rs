@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useId, watch } from 'vue';
+import { computed, inject, ref, useId, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import CostSwitch from '../../components/CostSwitch.vue';
 import DateField from '../../components/DateField.vue';
@@ -10,6 +10,7 @@ import PressButton from '../../components/PressButton.vue';
 import FormActions from '../../components/FormActions.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
+import { glassLedger } from '../../components/glass-ledger';
 import { withCurrentOption } from '../../components/select-options';
 import { lazyDialog } from '../../components/lazy-dialog';
 import { accountAssetKind, type AccountAssetSource } from './account-assets';
@@ -44,6 +45,7 @@ const props = withDefaults(
 );
 const emit = defineEmits<{ save: [input: EntryInput]; close: [] }>();
 const router = useRouter();
+const glass = inject(glassLedger, null);
 const automatic = computed(() => props.entry?.source === 'auto');
 const WarehouseDialog = lazyDialog(() => import('../warehouse/WarehouseDialog.vue'));
 const assetDialog = ref<'pick' | 'draft' | null>(null);
@@ -185,8 +187,25 @@ function submit() {
     });
 }
 
+const formSnapshot = () => JSON.stringify([
+    date.value,
+    characterId.value,
+    kind.value,
+    currency.value,
+    category.value,
+    channel.value,
+    amount.value,
+    deductCbgFee.value,
+    linked.value,
+    note.value,
+]);
+const original = formSnapshot();
 const { requestClose } = useDraftGuard(
-    () => !props.retrying && !fixedAssets.value && linked.value && assets.value.length > 0,
+    () => {
+        if (props.retrying || automatic.value) return false;
+        if (!fixedAssets.value && linked.value && assets.value.length > 0) return true;
+        return glass !== null && formSnapshot() !== original;
+    },
     () => props.saving || assetDialog.value !== null,
     () => emit('close'),
 );

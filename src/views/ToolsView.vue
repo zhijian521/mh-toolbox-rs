@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { inject } from 'vue';
 import { useRouter } from 'vue-router';
+import { glassLedger } from '../components/glass-ledger';
+import LiquidLedgerFrame from '../components/LiquidLedgerFrame.vue';
 import AppIcon from '../components/AppIcon.vue';
 import LedgerSection from '../components/LedgerSection.vue';
 import PageShell from '../components/PageShell.vue';
@@ -9,6 +12,7 @@ import { openExternal } from '../services/desktop';
 import { TOOL_GROUPS, TOOLS, type ToolEntry } from '../tools';
 
 const router = useRouter();
+const glass = inject(glassLedger, null);
 
 async function open(tool: ToolEntry) {
     if (tool.kind === 'link') {
@@ -25,7 +29,12 @@ const groups = TOOL_GROUPS.map((group) => ({
 </script>
 
 <template>
-    <PageShell title="工具" desc="日常工具 · 游戏资料">
+    <component
+        :is="glass ? LiquidLedgerFrame : PageShell"
+        :class="glass ? 'liquid-tools' : undefined"
+        title="工具"
+        desc="日常工具 · 游戏资料"
+    >
         <div class="tool-blocks">
             <LedgerSection v-for="group in groups" :key="group.key" :title="group.label" plain>
                 <ul class="tool-grid">
@@ -50,7 +59,7 @@ const groups = TOOL_GROUPS.map((group) => ({
                 </ul>
             </LedgerSection>
         </div>
-    </PageShell>
+    </component>
 </template>
 
 <style scoped>

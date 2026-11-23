@@ -165,7 +165,7 @@ function clearFilters() {
 function turnPage(next: number) {
     page.value = Math.max(1, Math.min(next, pages.value));
     // 页面内容滚动，不滚窗口外壳；焦点留在翻页按钮上，连续翻页不丢位置。
-    document.querySelector('.page-content')?.scrollTo({ top: 0, behavior: 'instant' });
+    document.querySelector('.page-content, .liquid-content')?.scrollTo({ top: 0, behavior: 'instant' });
 }
 </script>
 

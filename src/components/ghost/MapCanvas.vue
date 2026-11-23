@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
-import { useTheme } from '../../composables/use-theme';
 import type { GhostPlan } from '../../services/ghost-model';
 import { paintMap, resolveColors, type Layout } from './map-paint';
 
@@ -22,8 +21,6 @@ const stage = ref<HTMLDivElement | null>(null);
 const canvas = ref<HTMLCanvasElement | null>(null);
 const image = shallowRef<HTMLImageElement | null>(null);
 const loading = ref(false);
-
-const { isDark } = useTheme();
 
 const currentMap = computed(() => props.plan?.map ?? null);
 
@@ -75,8 +72,8 @@ function draw() {
         plan,
         layout,
         bitmap,
-        colors: resolveColors(),
-        dark: isDark.value,
+        colors: resolveColors(host),
+        dark: getComputedStyle(host).colorScheme === 'dark',
     });
 }
 
@@ -129,9 +126,11 @@ onMounted(() => {
         observer = new ResizeObserver(scheduleDraw);
         observer.observe(host);
     }
-    // Canvas 不继承 CSS；根元素切换明暗、字号或风格后，用更新后的令牌重画。
+    // Canvas 不继承 CSS，外壳切换外观或网页根元素改变令牌时要重新绘制。
     appearanceObserver = new MutationObserver(scheduleDraw);
     appearanceObserver.observe(document.documentElement, { attributes: true });
+    const shell = host?.closest('.liquid-app');
+    if (shell) appearanceObserver.observe(shell, { attributeFilter: ['data-appearance'] });
     // canvas 里画的是自定义字体，字体没加载完就画会用回退字形，宽度也算错。
     void document.fonts.ready.then(scheduleDraw);
     document.fonts.addEventListener('loadingdone', scheduleDraw);

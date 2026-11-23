@@ -76,22 +76,22 @@ const COLOR_TOKENS = {
     rule: '--rule-2',
 } as const;
 
-export function resolveColors(): MapColors {
+export function resolveColors(scope = document.documentElement): MapColors {
     // 同一明暗模式内也可能换色、换字；缓存跟随实际令牌，不以 light / dark 代替风格。
-    const root = getComputedStyle(document.documentElement);
+    const style = getComputedStyle(scope);
     const key = JSON.stringify([
-        root.colorScheme,
-        ...Object.values(COLOR_TOKENS).map((name) => root.getPropertyValue(name)),
-        root.getPropertyValue('--font-ui'),
-        root.getPropertyValue('--fs-sm'),
-        root.getPropertyValue('--fs-base'),
+        style.colorScheme,
+        ...Object.values(COLOR_TOKENS).map((name) => style.getPropertyValue(name)),
+        style.getPropertyValue('--font-ui'),
+        style.getPropertyValue('--fs-sm'),
+        style.getPropertyValue('--fs-base'),
     ]);
     if (colorCache?.key === key) return colorCache.colors;
 
     const probe = document.createElement('span');
     probe.style.display = 'none';
     probe.style.fontFamily = 'var(--font-ui)';
-    document.body.append(probe);
+    (scope === document.documentElement ? document.body : scope).append(probe);
     const readColor = (name: string): string => {
         probe.style.color = `var(${name})`;
         return getComputedStyle(probe).color;

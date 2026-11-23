@@ -2,19 +2,28 @@
 import { lazyDialog } from '../components/lazy-dialog';
 import SaveNotice from '../components/SaveNotice.vue';
 import LoadNotice from '../components/LoadNotice.vue';
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, inject, nextTick, onScopeDispose, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useRouteAction } from '../composables/use-route-action';
 import PageShell from '../components/PageShell.vue';
+import LiquidLedgerFrame from '../components/LiquidLedgerFrame.vue';
+import { glassLedger } from '../components/glass-ledger';
 import PressButton from '../components/PressButton.vue';
+import { notify } from '../composables/use-notify';
 import { usePersistedSubmit } from '../composables/use-persisted-submit';
 import { useConfirmedRemoval } from '../composables/use-confirmed-removal';
 import CharacterCard from './characters/CharacterCard.vue';
 import type { QuickTarget } from './characters/quick/quick-target';
 import { PANES, type ReadonlyCharacter, type PaneKey } from './characters/character';
 import { emptyCharacter, loadRoster, useRoster } from './characters/roster';
-import { goalsOfCharacter } from './goals/goals-store';
+import { goalsOfCharacter, useGoals } from './goals/goals-store';
 import { gameDataError, gameDataLoading, gameDataReady, loadGameData } from '../services/game-data';
+
+const props = defineProps<{
+    reloadRoster?: () => Promise<void>;
+    ensureGoals?: () => Promise<void>;
+}>();
+const glass = inject(glassLedger, null);
 
 const CharacterHistory = lazyDialog(() => import('./characters/CharacterHistory.vue'));
 const CharacterEditor = lazyDialog(() => import('./characters/CharacterEditor.vue'));
@@ -25,6 +34,12 @@ const warehouseOpen = ref(false);
 const { roster, loadError, writeError, pending, flush, retry, add, update, remove } = useRoster();
 const route = useRoute();
 const historyOpen = ref(false);
+const preparingRemoval = ref(false);
+const goals = useGoals();
+let active = true;
+onScopeDispose(() => {
+    active = false;
+});
 watch(
     () => route.query.character,
     async (id) => {
@@ -45,7 +60,12 @@ const removal = useConfirmedRemoval(
 );
 const { removing } = removal;
 const editingDisabled = computed(
-    () => !!loadError.value || !gameDataReady.value || pending.value > 0 || removing.value,
+    () =>
+        !!loadError.value ||
+        !gameDataReady.value ||
+        pending.value > 0 ||
+        removing.value ||
+        preparingRemoval.value,
 );
 
 function openEditor(character: ReadonlyCharacter, pane: PaneKey) {
@@ -55,7 +75,7 @@ function openEditor(character: ReadonlyCharacter, pane: PaneKey) {
 }
 
 async function retryGameData() {
-    await loadGameData();
+    await (props.reloadRoster ?? loadGameData)();
 }
 
 /** 新建或修改由打开时固定，内存先新增而落盘失败时仍保持新建模式。 */
@@ -128,6 +148,20 @@ async function onSave(character: ReadonlyCharacter) {
  * 时才发现「5 个角色达标」变成了「4 个角色达标」。 */
 async function askRemove(character: ReadonlyCharacter) {
     if (editingDisabled.value) return;
+    if (props.ensureGoals) {
+        preparingRemoval.value = true;
+        try {
+            await props.ensureGoals();
+        } finally {
+            preparingRemoval.value = false;
+        }
+        if (!active) return;
+        if (goals.loadError.value || !goals.loaded.value) {
+            notify.error('无法读取关联目标，请稍后重试删除');
+            return;
+        }
+        if (editingDisabled.value) return;
+    }
     const name = character.name || '这个角色';
     const related = goalsOfCharacter(character.id);
     const titles = related
@@ -159,7 +193,12 @@ useRouteAction('/characters', {
 </script>
 
 <template>
-    <PageShell title="角色" desc="角色档案">
+    <component
+        :is="glass ? LiquidLedgerFrame : PageShell"
+        :class="glass ? 'liquid-characters' : undefined"
+        title="角色"
+        desc="角色档案"
+    >
         <template #actions>
             <PressButton
                 icon="history"
@@ -190,8 +229,8 @@ useRouteAction('/characters', {
              样式只用现成的 `.note.error`（`base.css` 的朱色状态），不新造类。 -->
         <LoadNotice
             :error="loadError"
-            :load="loadRoster"
-            :blocked="pending > 0 || !!writeError || !!editing || !!quicking || removing"
+            :load="props.reloadRoster ?? loadRoster"
+            :blocked="pending > 0 || !!writeError || !!editing || !!quicking || removing || preparingRemoval"
         />
         <p v-if="!gameDataReady" class="note error" role="alert">
             {{ gameDataError || '正在加载游戏数据，暂时无法修改角色' }}
@@ -254,7 +293,7 @@ useRouteAction('/characters', {
             @save="onQuickSave"
             @close="closeQuick"
         />
-    </PageShell>
+    </component>
     <CharacterHistory v-if="historyOpen" @close="historyOpen = false" />
     <WarehouseDialog v-if="warehouseOpen" @close="warehouseOpen = false" />
 </template>

@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue';
 import { useMinuteNow } from '../../composables/use-minute-now';
 import ToolPageShell from './ToolPageShell.vue';
+import LoadNotice from '../../components/LoadNotice.vue';
+import { gameDataReady, loadGameData } from '../../services/game-data';
 import { notify } from '../../composables/use-notify';
 import ActivityCard from './ActivityCard.vue';
 import ActivityRemindDialog from './ActivityRemindDialog.vue';
@@ -15,17 +17,21 @@ const { alarms, add, setEnabled } = useAlarms();
 const minuteNow = useMinuteNow();
 const now = computed(() => new Date(minuteNow.value));
 
-const groups = computed(() => groupActivities(ACTIVITIES, now.value));
+const groups = computed(() => (gameDataReady.value ? groupActivities(ACTIVITIES, now.value) : []));
+const rulesError = computed(() => (gameDataReady.value ? '' : '活动规则未读取，请重试'));
+async function retryRules() {
+    await loadGameData();
+}
 
 /** 只有具备有效下一次提醒的活动关联记录才算已设置，旧同名手动闹钟不推测归属。 */
-const remindedIds = computed(
-    () =>
-        new Set(
-            alarms.value
-                .filter((one) => one.repeat === 'activity' && nextReminder(one, now.value))
-                .map((one) => one.activityId),
-        ),
-);
+const remindedIds = computed(() => {
+    if (!gameDataReady.value) return new Set<string | undefined>();
+    return new Set(
+        alarms.value
+            .filter((one) => one.repeat === 'activity' && nextReminder(one, now.value))
+            .map((one) => one.activityId),
+    );
+});
 
 const picked = ref<Activity | null>(null);
 const reminderError = ref('');
@@ -58,6 +64,7 @@ function onToggle(id: number, enabled: boolean) {
 
 <template>
     <ToolPageShell title="活动日历" desc="活动场次 · 开场提醒">
+        <LoadNotice :error="rulesError" :load="retryRules" />
         <!-- 直接摆在台面上，与物价页同一个摆法。
              中间试过「便签墙」——一块更深、带点阵的板，卡片微斜着贴在上面；
              用户否了：那层点阵与斜纸不属于这套设计。现在卡片自己就是一块压印的纸

@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue';
 import AppIcon from './AppIcon.vue';
 import PaperCard from './PaperCard.vue';
 import { notify } from '../composables/use-notify';
 import { hasDesktop, notifySystem } from '../services/desktop';
 import { countdownText, dueAlarms, LEAD_MINUTES, LEAD_MS } from '../views/tools/alarms';
 import { useAlarms } from '../views/tools/alarm-store';
+import { gameDataReady } from '../services/game-data';
 
 /**
- * 闹钟的计时与提醒。全站只有一个，挂在 `App.vue` 里，与 `NotifyHost` 并列。
+ * 闹钟的计时与提醒。每个应用外壳只挂一个，与 `NotifyHost` 并列。
  *
  * ---- 为什么计时必须在页面之外 ----
  *
@@ -41,6 +42,7 @@ import { useAlarms } from '../views/tools/alarm-store';
  * 三层说的是同一件事，谁也挡不着谁；哪一层不可用（浏览器预览、系统不让发）就少一层，
  * 系统通知提交失败时提示一次，应用内提醒仍会显示。
  */
+defineProps<{ glassCard?: Component }>();
 const { alarms, markFired } = useAlarms();
 
 /** 多久看一眼。不做精确到秒：判定靠区间，频率只影响「最晚多久发现」。 */
@@ -64,6 +66,7 @@ const rings = ref<Ring[]>([]);
  * （先关窗、再打开，很可能就是 8:25:20），这一次也该提醒。再早的不管——
  * 启动时不该先补一串昨天的闹钟。 */
 let last = new Date(Date.now() - 90_000);
+let lastActivity = last;
 let timer: ReturnType<typeof setInterval> | undefined;
 let systemError = false;
 
@@ -101,8 +104,19 @@ function ring(
 function tick() {
     const now = new Date();
     // 唤醒只补宽限期内的提醒，避免回扫休眠期间的所有日程。
-    const from = new Date(Math.max(last.getTime(), now.getTime() - GRACE_MS - 1));
+    const earliest = now.getTime() - GRACE_MS - 1;
+    const from = new Date(Math.max(last.getTime(), earliest));
     const hits = dueAlarms(alarms.value, from, now);
+    if (gameDataReady.value) {
+        // 规则加载期间只推进普通闹钟的检查时间，规则到齐后补查活动。
+        if (lastActivity < last) {
+            const activityAlarms = alarms.value.filter((alarm) => alarm.repeat === 'activity');
+            const activityFrom = new Date(Math.max(lastActivity.getTime(), earliest));
+            const activityTo = new Date(Math.min(from.getTime(), now.getTime()));
+            hits.unshift(...dueAlarms(activityAlarms, activityFrom, activityTo));
+        }
+        lastActivity = now;
+    }
     last = now;
 
     for (const hit of hits) {
@@ -135,6 +149,10 @@ onMounted(() => {
     document.addEventListener('visibilitychange', onVisible);
 });
 
+watch(gameDataReady, (ready) => {
+    if (ready) tick();
+});
+
 onBeforeUnmount(() => {
     if (timer) clearInterval(timer);
     window.removeEventListener('focus', tick);
@@ -145,10 +163,15 @@ onBeforeUnmount(() => {
 <template>
     <!-- 只在有提醒时出现。`role="status"` 不设：`NotifyHost` 那一层已经是 `aria-live`，
          两层同时播报会念两遍。这里只是「留在屏幕上的那一条」，读屏由浮层负责。 -->
-    <Teleport to="body">
+    <Teleport to="body" :disabled="Boolean(glassCard)">
         <Transition name="ring">
-            <div v-if="rings.length" class="ring-layer">
-                <PaperCard as="article" class="ring-card">
+            <div v-if="rings.length" class="ring-layer" :class="{ 'liquid-ledger': glassCard }">
+                <component
+                    :is="glassCard ?? PaperCard"
+                    :as="glassCard ? undefined : 'article'"
+                    :role="glassCard ? 'article' : undefined"
+                    class="ring-card"
+                >
                     <header class="ring-head">
                         <AppIcon name="alarm" class="ring-icon" />
                         <span class="ring-title">闹钟提醒</span>
@@ -168,7 +191,7 @@ onBeforeUnmount(() => {
                         </li>
                     </ul>
                     <p class="ring-note">提前 {{ LEAD_MINUTES }} 分钟提醒</p>
-                </PaperCard>
+                </component>
             </div>
         </Transition>
     </Teleport>
@@ -184,6 +207,10 @@ onBeforeUnmount(() => {
     right: 18px;
     bottom: 18px;
     z-index: 88;
+}
+
+.ring-layer.liquid-ledger {
+    bottom: max(var(--liquid-dock-clearance), env(safe-area-inset-bottom));
 }
 
 .ring-card {

@@ -3,19 +3,30 @@ import { createRouter, createWebHashHistory } from 'vue-router';
 import type { RouteComponent } from 'vue-router';
 import LiquidApp from './LiquidApp.vue';
 import { DEFAULT_PATH, NAV_ITEMS } from './navigation';
+import { TOOLS, type ToolPage } from './tools';
 import { askConfirm } from './composables/use-confirm';
 import { importLegacyOnStartup } from './services/legacy-startup';
 import { confirmDiscardDrafts } from './composables/use-draft-guard';
 import { guardWindowClose } from './services/desktop';
+import { loadGameData } from './services/game-data';
 import { flushPendingWrites } from './services/persist';
 import './styles/rounded-font.css';
 import './styles/token-typography.css';
+import './styles/blocks.css';
+import './styles/character-fields.css';
 import './components/liquid-glass/style.css';
+import './components/liquid-glass/ledger.css';
 
 const items = NAV_ITEMS.map(({ key, path, label, icon }) => ({ key, path, label, icon }));
 
 const blankPage = { render: () => null };
 const views = new Map<string, () => Promise<RouteComponent>>([
+    ['accounts', () => import('./views/accounts/LiquidAccountsView.vue').then((page) => page.default)],
+    [
+        'characters',
+        () => import('./views/characters/LiquidCharactersView.vue').then((page) => page.default),
+    ],
+    ['goals', () => import('./views/goals/LiquidGoalsView.vue').then((page) => page.default)],
     ['income', () => import('./views/income/LiquidIncomeView.vue').then((page) => page.default)],
     ['overview', () => import('./views/overview/LiquidOverviewView.vue').then((page) => page.default)],
     ['prices', () => import('./views/prices/LiquidPricesView.vue').then((page) => page.default)],
@@ -26,21 +37,39 @@ const router = createRouter({
     history: createWebHashHistory(),
     routes: [
         { path: '/', redirect: DEFAULT_PATH },
-        ...items.map(({ key, path }) => ({
+        ...items.filter(({ key }) => key !== 'tools').map(({ key, path }) => ({
             path,
             name: key,
             component: views.get(key) ?? blankPage,
         })),
+        {
+            path: '/tools',
+            component: () => import('./views/tools/LiquidToolsView.vue').then((page) => page.default),
+            children: [
+                {
+                    path: '',
+                    name: 'tools',
+                    component: () => import('./views/ToolsView.vue').then((page) => page.default),
+                },
+                ...TOOLS.filter((tool): tool is ToolPage => tool.kind === 'page').map((tool) => ({
+                    path: tool.path,
+                    name: `tool-${tool.key}`,
+                    component: tool.view,
+                    meta: { nav: 'tools' },
+                })),
+            ],
+        },
         // 组件目录是开发用隐藏页：不进 Dock、不进 NAV_ITEMS，只留一条地址给设置项的彩蛋跳转。
         { path: '/components', name: 'components', component: views.get('components') ?? blankPage },
         { path: '/:pathMatch(.*)*', redirect: DEFAULT_PATH },
     ],
 });
 
-// 先绘制外壳；自动导入完成前不加载业务路由，直接打开 #/prices 也不能抢先写入。
+// 外壳可以先绘制。业务页进入前等待旧账检测和游戏规则，直达工具时也能读到活动。
 const startup = importLegacyOnStartup();
+const gameRules = loadGameData();
 router.beforeEach(async () => {
-    await startup;
+    await Promise.all([startup, gameRules]);
 });
 createApp(LiquidApp, { items }).use(router).mount('#app');
 void startup.then(async (notice) => {
@@ -51,7 +80,7 @@ void startup.then(async (notice) => {
 void guardWindowClose(async () => {
     if (!(await confirmDiscardDrafts())) return false;
     await startup;
-    const { flushLiquidDailySync } = await import('./views/income/liquid-income-data');
+    const { flushLiquidDailySync } = await import('./liquid-ledger-data');
     const synced = await flushLiquidDailySync();
     const saved = await flushPendingWrites();
     if (synced && saved) return true;

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-/** 浮片常驻 body，避免滚动容器裁剪；内容更新后沿用同一套锚点定位。 */
-import { watch } from 'vue';
+/** 浮片传送到主题外壳，避免滚动容器裁剪。 */
+import { inject, watch } from 'vue';
+import { glassLedger } from './glass-ledger';
 import { useAnchoredTip } from '../composables/use-anchored-tip';
 
 defineOptions({ inheritAttrs: false });
+const glass = inject(glassLedger, null);
 const props = defineProps<{
     open: boolean;
     anchor: DOMRect | null;
@@ -34,13 +36,13 @@ watch(
 </script>
 
 <template>
-    <Teleport to="body">
+    <Teleport :to="glass ? '.liquid-app' : 'body'">
         <div
             :id="tooltipId"
             ref="el"
             v-bind="$attrs"
             class="detail-tip dual-rule"
-            :class="{ on: open, interactive }"
+            :class="[glass?.overlayClass, { on: open, interactive }]"
             :style="{ left: `${pos.left}px`, top: `${pos.top}px`, zIndex: layer }"
             role="tooltip"
             :aria-hidden="!open"

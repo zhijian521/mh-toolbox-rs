@@ -27,8 +27,8 @@ import { useAccounts } from '../accounts/accounts-store';
 import { useDailySync } from '../accounts/daily-sync';
 import { useRoster } from '../characters/roster';
 import { usePrices } from '../prices/prices-store';
-import LiquidIncomeFrame from './LiquidIncomeFrame.vue';
-import { loadLiquidIncome, loadLiquidOnline, loadLiquidRoster } from './liquid-income-data';
+import LiquidLedgerFrame from '../../components/LiquidLedgerFrame.vue';
+import { loadLiquidIncome, loadLiquidOnline, loadLiquidRoster } from '../../liquid-ledger-data';
 
 const props = defineProps<{ liquid?: boolean }>();
 const { loadError: accountError } = useAccounts();
@@ -226,7 +226,8 @@ useRouteAction('/income', {
 
 <template>
     <component
-        :is="liquid ? LiquidIncomeFrame : PageShell"
+        :is="liquid ? LiquidLedgerFrame : PageShell"
+        :class="liquid ? 'liquid-income liquid-income-page' : undefined"
         title="收益"
         desc="物品速记 · 按天分账"
     >

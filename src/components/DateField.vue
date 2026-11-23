@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import type { CSSProperties } from 'vue';
 import AppIcon from './AppIcon.vue';
+import { glassLedger } from './glass-ledger';
+
 import { useToday } from '../composables/use-today';
 import { dateText, parseDay } from '../services/format';
+
+const glass = inject(glassLedger, null);
 
 /**
  * 日期选择：一条**槽** + 一张**纸片上的月历**。
@@ -447,7 +451,7 @@ onBeforeUnmount(() => {
         </button>
 
         <!-- 原生浮层留在宿主的焦点范围内，两种挂载方式共用视口定位。 -->
-        <Teleport to="body" :disabled="topLayer">
+        <Teleport :to="glass ? '.liquid-app' : 'body'" :disabled="topLayer">
             <div
                 v-if="open || keepPopover"
                 :data-ready="panelReady || undefined"
@@ -455,6 +459,7 @@ onBeforeUnmount(() => {
                 :id="panelId"
                 ref="panel"
                 class="date-panel"
+                :class="glass?.overlayClass"
                 :popover="topLayer ? 'manual' : undefined"
                 @toggle.stop
                 @pointerdown="topLayer && $event.stopPropagation()"

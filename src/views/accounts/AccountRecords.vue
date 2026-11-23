@@ -33,6 +33,7 @@ import { loadAccounts, useAccounts } from './accounts-store';
 import { warehouseName } from '../warehouse/warehouse';
 import { accountSummaryBooks } from './account-summary';
 
+defineProps<{ reloadLedger?: () => Promise<void> }>();
 const emit = defineEmits<{ close: []; edit: [entry: AccountEntry] }>();
 const filters = defineModel<AccountRecordFilters>({ required: true });
 const {
@@ -191,7 +192,7 @@ async function remove(one: AccountEntry) {
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
         <LoadNotice
             :error="loadError"
-            :load="loadAccounts"
+            :load="reloadLedger ?? loadAccounts"
             :blocked="pending > 0 || !!writeError || removing"
         />
         <div class="account-record-controls">

@@ -2,7 +2,7 @@
 export const ROUTE_ACTIONS = {
     '/characters': ['new', 'edit'],
     '/income': ['quick', 'history', 'start', 'backfill', 'records'],
-    '/accounts': ['new', 'history'],
+    '/accounts': ['new', 'history', 'warehouse'],
     '/prices': ['new'],
     '/goals': ['new', 'update'],
     '/tools/alarm': ['new'],

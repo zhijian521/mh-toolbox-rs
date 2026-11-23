@@ -1,0 +1,378 @@
+.liquid-ledger {
+    --glass-foreground: var(--liquid-ink);
+    --glass-text-shadow: none;
+    --ink: var(--liquid-ink);
+    --ink-2: var(--liquid-ink);
+    --muted: var(--liquid-muted);
+    --num: var(--liquid-ink);
+    --accent: var(--liquid-focus);
+    --positive: var(--liquid-down);
+    --negative: var(--liquid-up);
+    --danger: var(--liquid-up);
+    --paper: var(--ledger-surface);
+    --paper-2: var(--ledger-surface);
+    --rule: var(--liquid-outline);
+    --rule-2: var(--liquid-outline);
+    --w-hair: 1px;
+    --well: var(--ledger-surface);
+    --seal: var(--liquid-focus);
+    --on-seal: light-dark(white, #172b23);
+    --ring: 1px solid var(--liquid-focus);
+    --ring-offset: 2px;
+    --ring-inv: var(--ring);
+    --r-1: 8px;
+    --r-2: 10px;
+    --r-3: 18px;
+    --r-pill: 999px;
+    --r-tile: 10px;
+    --block-pad: clamp(12px, 2vw, 18px);
+    --scrollbar-w: 8px;
+    --t-quick: 140ms;
+    --t-mid: 180ms;
+    --t-shape: 160ms;
+    --t-thumb: 160ms;
+    --t-modal-enter: 210ms;
+    --t-modal-leave: 150ms;
+    --t-modal-stagger: 0ms;
+    --ease-soft: ease-out;
+    --ease-snap: ease-out;
+    --ledger-surface: light-dark(rgb(255 255 255 / 0.22), rgb(177 226 209 / 0.08));
+    --ledger-highlight: light-dark(rgb(255 255 255 / 0.50), rgb(230 255 247 / 0.15));
+    --bevel-hi: var(--ledger-highlight);
+    --bevel-lo: var(--liquid-outline);
+    --slip-background: var(--ledger-surface);
+    --slip-shadow: var(--ledger-rim);
+    --moss: var(--positive);
+    --cinnabar: var(--negative);
+    --ochre: light-dark(#785619, #eccc8b);
+    --indigo-ink: light-dark(#50597e, #bdc8f3);
+    --t-tip: var(--t-quick);
+    --block-pad-tight: 12px;
+    --shadow: rgb(15 35 29 / 0.14);
+    --ledger-selected: color-mix(in srgb, var(--liquid-focus) 15%, var(--ledger-highlight));
+    --ledger-rim: inset 0 1px 0 var(--ledger-highlight), inset 0 0 0 1px var(--liquid-outline);
+    --popover-bg: light-dark(#f0f7f3, #263a34);
+    --popover-edge: var(--liquid-outline);
+    --popover-shadow: var(--lg-dialog-shadow);
+    color: var(--liquid-ink);
+}
+
+.liquid-ledger-page {
+    width: min(100% - 32px, 1180px);
+    margin-inline: auto;
+    padding-block: 12px 16px;
+}
+.liquid-ledger-header,
+.liquid-ledger-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+}
+.liquid-ledger-header {
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.liquid-ledger :is(h1, h2, h3, p, fieldset, dl, dd, figure) {
+    margin: 0;
+}
+.liquid-ledger :is(button, input, select, textarea) {
+    font-family: inherit;
+}
+.liquid-ledger :is(.section-head, .section-actions) {
+    align-items: center;
+    flex-wrap: wrap;
+}
+.liquid-ledger .section-head h2 {
+    white-space: nowrap;
+}
+.liquid-ledger .section-mark {
+    display: none;
+}
+.liquid-ledger .stats.stats-folded {
+    padding: 12px;
+    background: var(--ledger-surface);
+    box-shadow: var(--ledger-rim);
+    border-radius: 14px;
+}
+.liquid-ledger .stats-folded :is(.stats-head, .v, .sub) {
+    font-weight: 400;
+}
+.liquid-ledger .stats-folded::before,
+.liquid-ledger .stats-folded::after {
+    display: none;
+}
+.liquid-ledger .stats-folded .stats-head {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 7px;
+}
+.liquid-ledger :is(.num, .v, .c-num, .time-readout) {
+    font-variant-numeric: tabular-nums;
+}
+.liquid-ledger :is(.gain, .live) { color: var(--positive); }
+.liquid-ledger :is(.loss, .error, .danger-action) { color: var(--negative); }
+.liquid-ledger .note {
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+}
+.liquid-ledger .note[role] {
+    padding-block: 4px;
+}
+.liquid-ledger .note button {
+    color: inherit;
+}
+
+/* 保留胶囊和瓷键的状态语义与键盘操作，材质使用全页统一的浅色反光与内缘。 */
+.liquid-ledger :is(.press-tile, .keycap-face, .bevel-pill, .step-thumb, .cost-thumb) {
+    background: var(--ledger-surface);
+    color: inherit;
+    box-shadow: var(--ledger-rim);
+}
+.liquid-ledger :is(.press-tile, .keycap-face, .bevel-pill, .step-thumb, .cost-thumb)::before,
+.liquid-ledger :is(.press-tile, .keycap-face, .bevel-pill, .step-thumb, .cost-thumb)::after {
+    pointer-events: none;
+}
+.liquid-ledger .glass-ledger-button {
+    --glass-button-height: 28px;
+    --glass-button-padding: 10px;
+    --icon-size: 14px;
+    white-space: nowrap;
+}
+.liquid-ledger .glass-ledger-button.size-sm {
+    --glass-button-height: 24px;
+    --glass-button-padding: 6px;
+    --icon-size: 12px;
+}
+.liquid-ledger .glass-ledger-button.size-lg { --glass-button-height: 32px; }
+.liquid-ledger .glass-ledger-button.danger-action { --glass-foreground: var(--negative); }
+.liquid-ledger :is(.bevel-pill.on, .step-thumb, .cost-thumb, .is-active .keycap-face) {
+    background: var(--ledger-selected);
+}
+.liquid-ledger :is(.item, .g):hover:not(:disabled) .press-tile,
+.liquid-ledger :is(.bevel-pill, .keycap-btn .keycap-face):hover {
+    background-color: var(--ledger-highlight);
+}
+.liquid-ledger :is(.item-tile, .g-tile) {
+    border-radius: 12px;
+}
+.liquid-ledger .num-tag {
+    background: var(--ledger-surface);
+    border-radius: 5px;
+    padding-inline: 4px;
+    box-shadow: var(--ledger-rim);
+}
+.liquid-ledger .pill-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    min-width: 0;
+}
+.liquid-ledger :is(.pill-group, .bevel-pill, .cost-opt, .step-opt) {
+    font-size: var(--fs-sm);
+}
+.liquid-ledger .bevel-pill {
+    min-height: 28px;
+    padding-inline: 10px;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+}
+.liquid-ledger .cost-switch {
+    position: relative;
+    isolation: isolate;
+    display: inline-grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    white-space: nowrap;
+}
+.liquid-ledger :is(.stepped, .cost-switch) {
+    border-radius: 999px;
+    background: var(--ledger-surface);
+    box-shadow: var(--ledger-rim);
+}
+.liquid-ledger .cost-thumb {
+    position: absolute;
+    inset: 2px auto 2px 2px;
+    width: calc(50% - 2px);
+    border-radius: 999px;
+    transition: transform var(--t-thumb) var(--ease-soft);
+}
+.liquid-ledger .cost-thumb.right { transform: translateX(100%); }
+.liquid-ledger :is(.cost-opt, .step-opt) {
+    position: relative;
+    padding: 4px 8px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+.liquid-ledger .cost-opt { min-height: var(--online-action-h, 26px); }
+.liquid-ledger .track-opt[aria-checked='true'] { color: var(--ink); }
+.liquid-ledger :is(.chart-scroll, .record-role-slider) {
+    scrollbar-width: none;
+    scrollbar-gutter: auto;
+}
+.liquid-ledger .chart-head .cap {
+    color: var(--muted);
+}
+.liquid-ledger .chart-legend-shelf {
+    margin-top: 4px;
+    background: transparent;
+}
+
+/* 表单和记录弹窗与现有历史窗口共用布局和滚动，紧凑表头在滚动区内固定。 */
+.liquid-ledger.modal-mask {
+    --modal-mask: rgb(12 27 23 / 0.23);
+    --modal-backdrop-blur: 2px;
+    --modal-bg: light-dark(rgb(241 249 245 / 0.91), rgb(24 37 33 / 0.92));
+    --modal-edge: var(--liquid-outline);
+    --modal-shadow: var(--lg-dialog-shadow);
+}
+.liquid-ledger .modal-panel {
+    backdrop-filter: blur(var(--lg-dialog-blur));
+}
+.liquid-ledger .modal-head { padding-block: 9px; }
+.liquid-ledger .modal-foot {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 8px 16px 12px;
+    border-top: 1px solid var(--rule);
+}
+.liquid-ledger .save-error { flex-basis: 100%; }
+.liquid-ledger :is(.foot-left, .record-foot-note) { margin-right: auto; }
+.liquid-ledger .form-field {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+}
+.liquid-ledger .form-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+.liquid-ledger fieldset {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+}
+.liquid-ledger .field-label {
+    color: var(--muted);
+    font-size: var(--fs-sm);
+}
+.liquid-ledger :is(.field, .time-readout) {
+    min-width: 0;
+    min-height: var(--lg-form-height);
+    border: 0;
+    border-radius: 10px;
+    padding-inline: 10px;
+    background: var(--ledger-surface);
+    color: var(--ink);
+    box-shadow: var(--ledger-rim);
+    font-size: var(--fs-base);
+}
+.liquid-ledger .field:is(:focus, :focus-within, [aria-expanded='true']) {
+    outline: none;
+    background-color: var(--ledger-highlight);
+}
+.liquid-ledger :is(button, [tabindex]):focus-visible { outline-offset: 2px; }
+.liquid-ledger :is(button, input):disabled { cursor: default; opacity: 0.56; }
+.liquid-ledger :is(.record-filters, .income-ops) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.liquid-ledger :is(.record-filters, .record-roles, .record-summary) {
+    flex: none;
+    min-width: 0;
+    margin-bottom: 8px;
+}
+.liquid-ledger .record-roles { overflow-x: auto; }
+.liquid-ledger .record-role-slider { min-width: max-content; }
+.liquid-ledger .record-role-slider .step-opt { white-space: nowrap; }
+.liquid-ledger .record-role-value {
+    display: inline-block;
+    margin-left: 4px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+.liquid-ledger :is(.record-summary, .record-foot-note) {
+    color: var(--muted);
+    font-size: var(--fs-sm);
+}
+.liquid-ledger :is(.record-table-frame, .record-content-frame) {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    background: var(--ledger-surface);
+}
+.liquid-ledger .record-table-frame.is-empty {
+    border-color: transparent;
+    background: transparent;
+}
+.liquid-ledger .record-table-frame > .income-log-scroll {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: auto;
+}
+.liquid-ledger .income-table {
+    width: 100%;
+    border-spacing: 0;
+}
+.liquid-ledger .income-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--popover-bg);
+}
+.liquid-ledger .income-table :is(th, td) {
+    padding: 8px;
+    border-bottom: 1px solid var(--rule);
+    font-weight: 400;
+}
+.liquid-ledger .income-table tbody tr:last-child td { border-bottom: 0; }
+.liquid-ledger .record-empty {
+    padding: 22px 10px;
+    color: var(--muted);
+    text-align: center;
+}
+.liquid-ledger .income-ops { flex-wrap: nowrap; }
+@media (max-width: 560px) {
+    .liquid-ledger.modal-mask { padding: 10px; }
+    .liquid-ledger .modal-panel {
+        width: min(var(--modal-w), calc(100dvw - 20px));
+        max-height: calc(100dvh - 20px);
+    }
+    .liquid-ledger .income-table:not(.rec-table) { min-width: 500px; }
+}
+
+/* 旧业务组件共用表单几何，玻璃层统一提供底色与聚焦反馈。 */
+.liquid-ledger :is(.muted, .meta, .hint) {
+    color: var(--muted);
+}
+.liquid-ledger .meta {
+    font-size: var(--fs-xs);
+}
+.liquid-ledger :is(.board, .well) {
+    background: var(--ledger-surface);
+    border-radius: var(--r-2);
+    box-shadow: var(--ledger-rim);
+}
+.liquid-ledger .field:not(:disabled)::placeholder {
+    color: var(--muted);
+}
+.liquid-ledger :is(.select-list, .date-panel, .detail-tip),
+.liquid-ledger:is(.date-panel, .detail-tip) {
+    border-radius: var(--r-2);
+}
+.liquid-ledger .chart-scroll {
+    overflow-x: auto;
+}
+.liquid-ledger .chart-legend-shelf {
+    color: var(--muted);
+}

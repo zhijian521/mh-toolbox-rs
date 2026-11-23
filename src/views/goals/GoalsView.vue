@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { lazyDialog } from '../../components/lazy-dialog';
 import { useRouteAction } from '../../composables/use-route-action';
-import { computed, ref } from 'vue';
+import { computed, inject, ref } from 'vue';
+import { glassLedger } from '../../components/glass-ledger';
+import LiquidLedgerFrame from '../../components/LiquidLedgerFrame.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
 import PageShell from '../../components/PageShell.vue';
@@ -24,6 +26,12 @@ import {
     type GoalSummary,
 } from './goals';
 import { loadGoals, useGoals, type GoalInput, type LogInput } from './goals-store';
+
+const props = defineProps<{
+    reloadGoals?: () => Promise<void>;
+    reloadRoster?: () => Promise<void>;
+}>();
+const glass = inject(glassLedger, null);
 
 const GoalEditor = lazyDialog(() => import('./GoalEditor.vue'));
 const GoalGrowth = lazyDialog(() => import('./GoalGrowth.vue'));
@@ -288,25 +296,31 @@ useRouteAction('/goals', {
 </script>
 
 <template>
-    <PageShell title="目标" desc="养成计划 · 进度跟踪">
-        <template #actions
-            ><PressButton
+    <component
+        :is="glass ? LiquidLedgerFrame : PageShell"
+        :class="glass ? 'liquid-goals' : undefined"
+        title="目标"
+        desc="养成计划 · 进度跟踪"
+    >
+        <template #actions>
+            <PressButton
                 icon="add"
                 text="新增"
                 label="新建目标"
                 seal
                 :disabled="blocked"
                 @click="openEditor()"
-        /></template>
+            />
+        </template>
         <LoadNotice
             :error="loadError"
-            :load="loadGoals"
+            :load="props.reloadGoals ?? loadGoals"
             :blocked="pending > 0 || !!writeError || !!editing || !!growth || !!logs"
         />
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
         <LoadNotice
             :error="rosterLoadError"
-            :load="loadRoster"
+            :load="props.reloadRoster ?? loadRoster"
             :blocked="rosterPending > 0 || !!rosterWriteError || !!editing || !!growth"
         />
         <SaveNotice
@@ -340,7 +354,7 @@ useRouteAction('/goals', {
                 @bought="bought(entry.goal)"
             />
         </div>
-    </PageShell>
+    </component>
     <GoalEditor
         v-if="editing"
         :goal="editing.goal"
@@ -383,6 +397,9 @@ useRouteAction('/goals', {
 </template>
 
 <style scoped>
+.liquid-goals {
+    --goal-progress-color: var(--accent);
+}
 .grid {
     display: flex;
     flex-wrap: wrap;

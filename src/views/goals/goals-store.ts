@@ -245,6 +245,7 @@ export function useGoals() {
         flush: persist.flush,
         retry: persist,
         goals: readonly(goals),
+        loaded: readonly(loaded),
         loadError,
         writeError,
         addGoal,

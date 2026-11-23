@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { RouterView, useRoute, useRouter } from 'vue-router';
+import { computed, nextTick, ref, watch } from 'vue';
+import { RouterView, useRoute, useRouter, type RouteLocationNormalizedLoaded } from 'vue-router';
+import AlarmHost from './components/AlarmHost.vue';
 import AppIcon from './components/AppIcon.vue';
 import TitleBar from './components/TitleBar.vue';
 import NotifyHost from './components/NotifyHost.vue';
 import GlassConfirmHost from './components/liquid-glass/GlassConfirmHost.vue';
-import { GlassTab, GlassTabBar } from './components/liquid-glass';
+import { GlassCard, GlassTab, GlassTabBar } from './components/liquid-glass';
 import { useLiquidPreferences } from './composables/use-liquid-preferences';
 import type { NavItem } from './navigation';
 import { hasDesktop } from './services/desktop';
@@ -13,21 +14,109 @@ import { hasDesktop } from './services/desktop';
 const props = defineProps<{ items: readonly Pick<NavItem, 'key' | 'label' | 'icon'>[] }>();
 const route = useRoute();
 const router = useRouter();
+const content = ref<HTMLElement | null>(null);
+const pageEntry = ref<'tool-in' | 'tool-back'>();
+const dockEntry = ref<'left' | 'right'>();
+const dockAnimations = new Set<Animation>();
+let dockRequest: { name: string; from: RouteLocationNormalizedLoaded } | undefined;
+let toolDirectoryScrollTop = 0;
+
+watch(router.currentRoute, (to, from) => {
+    if (to.name === from.name) return;
+
+    // 快速切页先结束上一段，下一程只保留正在交接的两个页面。
+    for (const animation of dockAnimations) animation.finish();
+    dockEntry.value = undefined;
+    if (dockRequest?.name === to.name && dockRequest?.from === from && !to.query.action) {
+        const previous = props.items.findIndex(({ key }) => key === dockKey(from));
+        const next = props.items.findIndex(({ key }) => key === to.name);
+        if (previous >= 0 && next >= 0 && next !== previous) {
+            dockEntry.value = next < previous ? 'left' : 'right';
+        }
+    }
+
+    const enteringTool = from.name === 'tools' && to.meta.nav === 'tools';
+    const returningToDirectory = from.meta.nav === 'tools' && to.name === 'tools';
+    if (enteringTool) toolDirectoryScrollTop = content.value?.scrollTop ?? 0;
+    if (to.name !== 'tools' && to.meta.nav !== 'tools') toolDirectoryScrollTop = 0;
+    if (returningToDirectory) {
+        const top = toolDirectoryScrollTop;
+        void nextTick(() => {
+            if (route.name === 'tools' && content.value) content.value.scrollTop = top;
+        });
+    }
+
+    // 快捷入口已有弹窗入场，避免页面同时淡入。
+    pageEntry.value = undefined;
+    if (to.query.action) return;
+    if (enteringTool) pageEntry.value = 'tool-in';
+    else if (returningToDirectory) pageEntry.value = 'tool-back';
+});
+
 const hideContentScrollbar = computed(() => {
     const name = route.name;
-    return name === 'overview' || name === 'income' || name === 'prices' || name === 'components';
+    return (
+        name === 'overview' ||
+        name === 'income' ||
+        name === 'accounts' ||
+        name === 'characters' ||
+        name === 'goals' ||
+        name === 'tools' ||
+        route.meta.nav === 'tools' ||
+        name === 'prices' ||
+        name === 'components'
+    );
 });
 const dockControl = ref<{ el: HTMLElement | null }>();
+function dockKey(location: Pick<RouteLocationNormalizedLoaded, 'name' | 'meta'>) {
+    if (location.meta.nav === 'tools') return 'tools';
+    if (location.name === 'components') return 'settings';
+    return location.name;
+}
 const dockPage = computed(() => {
-    const name = typeof route.name === 'string' ? route.name : props.items[0]?.key;
-    // 隐藏组件目录沿用「设置」的 Dock 选中态。
-    return name === 'components' ? 'settings' : name;
+    const key = dockKey(route);
+    return typeof key === 'string' ? key : props.items[0]?.key;
 });
 
 async function navigateDock(name: string) {
-    const failure = await router.push({ name });
-    // 自定义标签栏先切选中项，取消导航时按当前路由恢复。
-    if (failure && dockPage.value) dockControl.value?.el?.setAttribute('value', dockPage.value);
+    const request = { name, from: router.currentRoute.value };
+    dockRequest = request;
+    try {
+        await router.push({ name });
+    } finally {
+        // 标签栏即时选中。只有最后一次请求可以用实际路由恢复选中项。
+        if (dockRequest === request) {
+            dockRequest = undefined;
+            if (dockPage.value) dockControl.value?.el?.setAttribute('value', dockPage.value);
+        }
+    }
+}
+
+function slidePane(el: Element, done: () => void, leaving: boolean) {
+    if (
+        !dockEntry.value ||
+        !el.animate ||
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+        done();
+        return;
+    }
+    const edge = dockEntry.value === 'left' ? -100 : 100;
+    if (leaving) {
+        // 让弹窗锁滚动等逻辑只找到新页面；旧页留在原位置即刻开始退场。
+        el.classList.remove('liquid-content');
+        el.setAttribute('inert', '');
+    }
+    const animation = el.animate(
+        [{ translate: leaving ? '0' : `${edge}%` }, { translate: leaving ? `${-edge}%` : '0' }],
+        { id: 'liquid-dock-slide', duration: 220, easing: 'cubic-bezier(0.25, 0.72, 0.25, 1)' },
+    );
+    dockAnimations.add(animation);
+    const settle = () => {
+        dockAnimations.delete(animation);
+        done();
+    };
+    void animation.finished.then(settle, settle);
 }
 
 /**
@@ -58,11 +147,15 @@ function onDockClick(event: MouseEvent) {
     if (route.name === 'components') {
         if (!value) return;
         event.stopPropagation();
-        void router.push({ name: value });
+        void navigateDock(value);
         return;
     }
     if (value !== 'settings') {
         settingsTaps = 0;
+        if (value === 'tools' && route.meta.nav === 'tools') {
+            event.stopPropagation();
+            void navigateDock(value);
+        }
         return;
     }
     const now = Date.now();
@@ -87,15 +180,26 @@ const { appearance, wallpaper, activeImage } = useLiquidPreferences();
     >
         <TitleBar v-if="desktop" />
         <header v-else class="liquid-header">梦幻养老助手</header>
-        <main
-            :key="route.name"
-            class="liquid-content"
-            :class="{ 'lg-scroll-hidden': hideContentScrollbar }"
-            aria-label="应用内容"
-        >
-            <RouterView v-if="route.matched.length" />
-            <p v-else class="liquid-startup-status" role="status">正在打开账本…</p>
-        </main>
+        <div class="liquid-page-stage">
+            <Transition
+                :css="false"
+                @enter="(el, done) => slidePane(el, done, false)"
+                @leave="(el, done) => slidePane(el, done, true)"
+            >
+                <main
+                    :key="route.name"
+                    ref="content"
+                    :data-dock-entry="dockEntry"
+                    :data-page-entry="pageEntry"
+                    class="liquid-page-pane liquid-content"
+                    :class="{ 'lg-scroll-hidden': hideContentScrollbar }"
+                    aria-label="应用内容"
+                >
+                    <RouterView v-if="route.matched.length" />
+                    <p v-else class="liquid-startup-status" role="status">正在打开账本…</p>
+                </main>
+            </Transition>
+        </div>
         <nav class="liquid-dock" aria-label="底部导航" @click.capture="onDockClick">
             <GlassTabBar
                 ref="dockControl"
@@ -112,6 +216,7 @@ const { appearance, wallpaper, activeImage } = useLiquidPreferences();
         </nav>
         <GlassConfirmHost />
         <NotifyHost inline />
+        <AlarmHost :glass-card="GlassCard" />
     </div>
 </template>
 
@@ -141,7 +246,7 @@ body {
     font: var(--fs-base) / 1.5 var(--font-ui);
 }
 
-.has-online-wallpaper :where(.liquid-header, .liquid-content h1) {
+.has-online-wallpaper :where(.liquid-header, .liquid-page-pane h1) {
     text-shadow: 0 1px 2px light-dark(rgb(255 255 255 / 0.8), rgb(0 0 0 / 0.75));
 }
 
@@ -193,13 +298,53 @@ body {
     font-size: var(--fs-sm);
 }
 
-.liquid-content {
+.liquid-page-stage {
+    position: relative;
     flex: 1;
     min-width: 0;
     min-height: 0;
+    overflow: clip;
+}
+
+.liquid-page-pane {
+    position: absolute;
+    inset: 0;
     overflow: auto;
     padding-bottom: var(--liquid-dock-clearance);
+}
+
+.liquid-content {
     scroll-timeline: --dock-scroll block;
+}
+
+.liquid-page-pane[inert] {
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .liquid-content:is([data-page-entry='tool-in'], [data-page-entry='tool-back']) > .liquid-tools {
+        animation: liquid-page-enter 180ms var(--ease-modal-enter, ease-out);
+    }
+
+    .liquid-content[data-page-entry='tool-in'] {
+        --liquid-page-translate: 12px 0;
+    }
+
+    .liquid-content[data-page-entry='tool-back'] {
+        --liquid-page-translate: -12px 0;
+    }
+}
+
+@keyframes liquid-page-enter {
+    from {
+        opacity: 0.5;
+        translate: var(--liquid-page-translate, none);
+    }
+
+    to {
+        opacity: 1;
+        translate: none;
+    }
 }
 
 .liquid-startup-status {
@@ -207,7 +352,7 @@ body {
     color: var(--liquid-muted);
 }
 
-.liquid-content:has(> .component-catalog) {
+.liquid-page-pane:has(> .component-catalog) {
     padding-bottom: 0;
     scroll-timeline-name: none;
 }

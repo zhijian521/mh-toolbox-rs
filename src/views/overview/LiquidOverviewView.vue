@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import AppIcon from '../../components/AppIcon.vue';
 import TrendChart from '../../components/TrendChart.vue';
 import { GlassButton, GlassCard } from '../../components/liquid-glass';
@@ -87,13 +87,31 @@ onMounted(loadOverview);
                             >
                                 {{ onlineCount }} 个在线
                             </span>
+                        </div>
+                        <div class="workbench-actions">
                             <GlassButton
                                 size="small"
-                                class="overview-online-action"
+                                class="overview-workbench-action"
                                 aria-label="选择角色上线"
                                 @click="router.push({ name: 'income', query: { action: 'start' } })"
                             >
                                 <AppIcon name="play" />上线
+                            </GlassButton>
+                            <GlassButton
+                                size="small"
+                                class="overview-workbench-action"
+                                aria-label="记一笔账号收支"
+                                @click="router.push({ name: 'accounts', query: { action: 'new' } })"
+                            >
+                                <AppIcon name="edit" />记一笔
+                            </GlassButton>
+                            <GlassButton
+                                size="small"
+                                class="overview-workbench-action"
+                                aria-label="打开装备和召唤兽仓库"
+                                @click="router.push({ name: 'accounts', query: { action: 'warehouse' } })"
+                            >
+                                <AppIcon name="archive" />仓库
                             </GlassButton>
                         </div>
                     </div>
@@ -198,35 +216,50 @@ onMounted(loadOverview);
                 <section aria-labelledby="overview-goals-title">
                     <GlassCard class="overview-card overview-goal-card" :radius="18">
                         <h2 id="overview-goals-title">进行中的目标</h2>
-                        <p v-if="goalsUnavailable || !ongoing.length" class="overview-note">
-                            {{ goalEmptyText }}
-                        </p>
+                        <div v-if="goalsUnavailable || !ongoing.length" class="overview-goal-empty">
+                            <p class="overview-note">{{ goalEmptyText }}</p>
+                            <GlassButton
+                                v-if="!goalsUnavailable"
+                                size="small"
+                                aria-label="新建目标"
+                                @click="router.push({ name: 'goals', query: { action: 'new' } })"
+                            >
+                                <AppIcon name="add" />
+                                新增
+                            </GlassButton>
+                        </div>
                         <ul v-else class="overview-goals">
                             <li v-for="{ goal, summary } in ongoing.slice(0, 3)" :key="goal.id">
-                                <div class="goal-copy">
-                                    <h3>{{ goal.title }}</h3>
-                                    <p class="goal-detail">
-                                        <span class="goal-kind">{{ kindMeta(goal.kind).label }}</span>
-                                        <span v-if="goal.tracking">
-                                            {{ summary.achieved }} / {{ summary.totalMembers }} 个角色达标
-                                        </span>
-                                        <span v-else-if="goal.kind === 'combo'">
-                                            {{ summary.achieved }} / {{ summary.total }} 项达标
-                                        </span>
-                                        <span v-if="goal.deadline">
-                                            {{ deadlineText(goal.deadline, today, summary.done) }}
-                                        </span>
-                                    </p>
-                                </div>
-                                <div
-                                    class="goal-progress"
-                                    role="progressbar"
-                                    :aria-label="`${goal.title}进度`"
-                                    :aria-valuenow="summary.pct"
-                                    :style="{ '--goal-progress': `${summary.pct}%` }"
+                                <RouterLink
+                                    class="overview-goal-link"
+                                    :to="{ name: 'goals', query: { action: 'update', goal: goal.id } }"
+                                    :aria-label="`更新目标：${goal.title}`"
                                 >
-                                    <span aria-hidden="true">{{ summary.pct }}%</span>
-                                </div>
+                                    <div class="goal-copy">
+                                        <h3>{{ goal.title }}</h3>
+                                        <p class="goal-detail">
+                                            <span class="goal-kind">{{ kindMeta(goal.kind).label }}</span>
+                                            <span v-if="goal.tracking">
+                                                {{ summary.achieved }} / {{ summary.totalMembers }} 个角色达标
+                                            </span>
+                                            <span v-else-if="goal.kind === 'combo'">
+                                                {{ summary.achieved }} / {{ summary.total }} 项达标
+                                            </span>
+                                            <span v-if="goal.deadline">
+                                                {{ deadlineText(goal.deadline, today, summary.done) }}
+                                            </span>
+                                        </p>
+                                    </div>
+                                    <div
+                                        class="goal-progress"
+                                        role="progressbar"
+                                        :aria-label="`${goal.title}进度`"
+                                        :aria-valuenow="summary.pct"
+                                        :style="{ '--goal-progress': `${summary.pct}%` }"
+                                    >
+                                        <span aria-hidden="true">{{ summary.pct }}%</span>
+                                    </div>
+                                </RouterLink>
                             </li>
                         </ul>
                     </GlassCard>
