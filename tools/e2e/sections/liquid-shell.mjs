@@ -628,13 +628,47 @@ export default async function liquidShell({ cdp, t, ui }) {
 
     await cdp.click(tab('overview'));
     await ui.waitFor(`${ready('overview')} && !!document.querySelector('[aria-label="选择角色上线"]')`);
+    // 在页面容器出现时记录动画，业务内容可能在下一帧才挂载。
+    await cdp.evaluate(`(() => {
+        const stage = document.querySelector('.liquid-page-stage');
+        const bar = document.querySelector('.liquid-dock-bar');
+        window.__dockHandoff = undefined;
+        const observer = new MutationObserver(() => {
+            if (location.hash !== '#/income' || !stage.querySelector('.liquid-content[data-dock-entry]')) return;
+            const parts = bar.shadowRoot.querySelectorAll('[part="indicator"], [part="lens"]');
+            const panes = stage.querySelectorAll('.liquid-page-pane');
+            window.__dockHandoff = [...panes, ...parts].flatMap(el =>
+                el.getAnimations().filter(motion => motion.id === 'liquid-dock-slide'));
+            observer.disconnect();
+        });
+        observer.observe(stage, { childList: true, subtree: true });
+    })()`);
     await cdp.click(tab('income'));
     await ui.waitFor(`${ready('income')} && !!document.querySelector('.liquid-income-page')`);
+    t.check('Dock 选中胶囊与新旧页面共用起点、时长和缓动，降动效时直接切换', await cdp.evaluate(`(() => {
+        const motions = window.__dockHandoff;
+        delete window.__dockHandoff;
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches) return motions?.length === 0;
+        if (motions?.length !== 4 || motions[0].startTime === null) return false;
+        const timing = motions[0].effect.getTiming();
+        return motions.every(motion => motion.startTime === motions[0].startTime &&
+            motion.effect.getTiming().duration === timing.duration && motion.effect.getTiming().easing === timing.easing);
+    })()`));
     t.check('Dock 从总览切到右侧的收益页，由右入场', await cdp.evaluate(`
         document.querySelector('.liquid-content').dataset.dockEntry === 'right'
     `));
-    await cdp.click(tab('overview'));
-    await ui.waitFor(`${ready('overview')} && !!document.querySelector('[aria-label="选择角色上线"]')`);
+    await cdp.evaluate(`(() => {
+        const bar = document.querySelector('.liquid-dock-bar');
+        for (const key of ['Home', 'End', 'Home']) {
+            bar.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+        }
+    })()`);
+    await ui.waitFor(`${ready('overview')} && !!document.querySelector('.liquid-content [aria-label="选择角色上线"]') &&
+        !document.querySelector('.liquid-page-pane[inert]')`);
+    t.check('Dock 连续改选后停在最后选中的总览页', await cdp.evaluate(`
+        document.querySelector('.liquid-dock-bar').getAttribute('value') === 'overview' &&
+        document.querySelectorAll('.liquid-page-pane').length === 1
+    `));
     t.check('Dock 从收益切回左侧的总览，由左入场', await cdp.evaluate(`
         document.querySelector('.liquid-content').dataset.dockEntry === 'left'
     `));
@@ -1102,14 +1136,23 @@ export default async function liquidShell({ cdp, t, ui }) {
     await cdp.key('ArrowRight');
     await ui.waitFor(ready('overview'));
     t.check(
-        '从隐藏页返回设置后，键盘切换仍同步 Dock 选中项',
-        await cdp.evaluate(
-            `document.activeElement === document.querySelector('${tab('overview')}')`,
-        ),
+        '键盘切换同步 Dock 选中项，并且只画一道焦点框',
+        await cdp.evaluate(`(() => {
+            const item = document.querySelector('${tab('overview')}');
+            const style = getComputedStyle(item);
+            return document.activeElement === item && item.matches(':focus-visible') &&
+                style.outlineStyle === 'solid' && style.boxShadow === 'none';
+        })()`),
     );
 
     await cdp.click(tab('settings'));
     await ui.waitFor(`${ready('settings')} && !!document.querySelector('.liquid-settings glass-segment[role="tab"]')`);
+    t.check('鼠标点选 Dock 只显示选中胶囊', await cdp.evaluate(`(() => {
+        const item = document.querySelector('${tab('settings')}');
+        const style = getComputedStyle(item);
+        return item.getAttribute('aria-selected') === 'true' &&
+            style.outlineStyle === 'none' && style.boxShadow === 'none';
+    })()`));
     t.check(
         '设置标题使用紧凑的分栏字号，设置项与分段控件使用正文和控件字号',
         await cdp.evaluate(`(() => {
@@ -1165,6 +1208,14 @@ export default async function liquidShell({ cdp, t, ui }) {
         `.liquid-settings #liquid-theme-label + glass-segmented [value="${value}"]`;
     try {
         await cdp.click(themeOption(theme));
+        const settingsMaterialMatches = `(() => {
+            const panels = [...document.querySelectorAll('.liquid-settings-panel')];
+            return panels.length === 3 && panels.every(
+                panel => panel.dataset.glassAppearance === ${JSON.stringify(theme)},
+            );
+        })()`;
+        await ui.waitFor(settingsMaterialMatches);
+        t.check('切换主题后设置三张卡片的玻璃材质随之更新', await cdp.evaluate(settingsMaterialMatches));
         await ui.reload();
         await ui.waitFor(`!!document.querySelector('.liquid-settings glass-segment[role="tab"]')`);
         t.check(

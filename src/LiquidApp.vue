@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
-import { RouterView, useRoute, useRouter, type RouteLocationNormalizedLoaded } from 'vue-router';
+import { updateAppearance } from 'glassy-liquid';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { loadRouteLocation, RouterView, useRoute, useRouter, type RouteLocationNormalizedLoaded } from 'vue-router';
 import AlarmHost from './components/AlarmHost.vue';
 import AppIcon from './components/AppIcon.vue';
 import TitleBar from './components/TitleBar.vue';
@@ -17,21 +18,48 @@ const router = useRouter();
 const content = ref<HTMLElement | null>(null);
 const pageEntry = ref<'tool-in' | 'tool-back'>();
 const dockEntry = ref<'left' | 'right'>();
+const deferDockView = ref(false);
+const dockTiming = { duration: 280, easing: 'cubic-bezier(0.32, 0, 0.18, 1)' };
 const dockAnimations = new Set<Animation>();
+let dockSteps = 0;
+const warmingPages = new Set<string>();
+let dragListeners: AbortController | undefined;
+onBeforeUnmount(() => {
+    dragListeners?.abort();
+    removeDockGuard();
+    for (const animation of dockAnimations) animation.cancel();
+    dockRequest = undefined;
+});
 let dockRequest: { name: string; from: RouteLocationNormalizedLoaded } | undefined;
 let toolDirectoryScrollTop = 0;
 
-watch(router.currentRoute, (to, from) => {
+watch(router.currentRoute, (to, from, onCleanup) => {
+    deferDockView.value = false;
     if (to.name === from.name) return;
 
-    // 快速切页先结束上一段，下一程只保留正在交接的两个页面。
+    // 快捷入口、后退等外部导航可打断 Dock 交接。
     for (const animation of dockAnimations) animation.finish();
     dockEntry.value = undefined;
     if (dockRequest?.name === to.name && dockRequest?.from === from && !to.query.action) {
         const previous = props.items.findIndex(({ key }) => key === dockKey(from));
         const next = props.items.findIndex(({ key }) => key === to.name);
         if (previous >= 0 && next >= 0 && next !== previous) {
-            dockEntry.value = next < previous ? 'left' : 'right';
+            dockSteps = next - previous;
+            dockEntry.value = dockSteps < 0 ? 'left' : 'right';
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                // 先绘制切页首帧，玻璃卡片的同步挂载留到下一任务。
+                deferDockView.value = true;
+                let mountTask: number | undefined;
+                const frame = requestAnimationFrame(() => {
+                    mountTask = window.setTimeout(() => {
+                        deferDockView.value = false;
+                    }, 0);
+                });
+                onCleanup(() => {
+                    cancelAnimationFrame(frame);
+                    window.clearTimeout(mountTask);
+                });
+            }
         }
     }
 
@@ -78,10 +106,51 @@ const dockPage = computed(() => {
     return typeof key === 'string' ? key : props.items[0]?.key;
 });
 
+const dockIndex = computed(() => Math.max(0, props.items.findIndex(({ key }) => key === dockPage.value)));
+
+// 拖过标签时保留原生玻璃透镜跟手预览；点击和键盘切换由已确认的路由定位。
+function trackDockDrag(event: PointerEvent) {
+    const bar = dockControl.value?.el;
+    if (!bar || !event.isPrimary || event.button !== 0) return;
+    dragListeners?.abort();
+    const listeners = new AbortController();
+    dragListeners = listeners;
+    const options = { signal: listeners.signal };
+    const end = (up: PointerEvent) => {
+        if (up.pointerId !== event.pointerId) return;
+        bar.removeAttribute('data-drag-preview');
+        listeners.abort();
+    };
+    window.addEventListener('pointermove', (move) => {
+        if (move.pointerId === event.pointerId && Math.abs(move.clientX - event.clientX) > 6) {
+            bar.setAttribute('data-drag-preview', '');
+        }
+    }, options);
+    window.addEventListener('pointerup', end, options);
+    window.addEventListener('pointercancel', end, options);
+}
+
+// 只预取指向的路由模块。预取失败仍由真正的导航重试。
+function warmDockPage(name: string) {
+    if (name === dockPage.value || warmingPages.has(name)) return;
+    warmingPages.add(name);
+    void loadRouteLocation(router.resolve({ name }))
+        .catch(() => {})
+        .finally(() => warmingPages.delete(name));
+}
+
+// 路由解析与上一段收尾并行；已缓存的页面也只需等待短暂的最后几帧。
+const removeDockGuard = router.beforeResolve(async (to, from) => {
+    if (dockRequest?.name === to.name && dockRequest.from === from && dockAnimations.size) {
+        await Promise.allSettled(Array.from(dockAnimations, (motion) => motion.finished));
+    }
+});
+
 async function navigateDock(name: string) {
     const request = { name, from: router.currentRoute.value };
     dockRequest = request;
     try {
+        for (const motion of dockAnimations) motion.updatePlaybackRate(5);
         await router.push({ name });
     } finally {
         // 标签栏即时选中。只有最后一次请求可以用实际路由恢复选中项。
@@ -90,6 +159,20 @@ async function navigateDock(name: string) {
             if (dockPage.value) dockControl.value?.el?.setAttribute('value', dockPage.value);
         }
     }
+}
+
+function slide(target: Element, from: number, to: number, done?: () => void) {
+    const animation = target.animate(
+        [{ translate: `${from}%` }, { translate: `${to}%` }],
+        { ...dockTiming, id: 'liquid-dock-slide', fill: 'backwards' },
+    );
+    // 同一轮 DOM 更新创建的动画由文档时间线在同一次绘制启动。
+    dockAnimations.add(animation);
+    const settled = () => {
+        dockAnimations.delete(animation);
+        done?.();
+    };
+    void animation.finished.then(settled, settled);
 }
 
 function slidePane(el: Element, done: () => void, leaving: boolean) {
@@ -107,16 +190,12 @@ function slidePane(el: Element, done: () => void, leaving: boolean) {
         el.classList.remove('liquid-content');
         el.setAttribute('inert', '');
     }
-    const animation = el.animate(
-        [{ translate: leaving ? '0' : `${edge}%` }, { translate: leaving ? `${-edge}%` : '0' }],
-        { id: 'liquid-dock-slide', duration: 220, easing: 'cubic-bezier(0.25, 0.72, 0.25, 1)' },
-    );
-    dockAnimations.add(animation);
-    const settle = () => {
-        dockAnimations.delete(animation);
-        done();
-    };
-    void animation.finished.then(settle, settle);
+    slide(el, leaving ? 0 : edge, leaving ? -edge : 0, done);
+    if (!leaving) {
+        // 两个公开的 part 与页面在同一次渲染提交中加入文档动画时间线。
+        const parts = dockControl.value?.el?.shadowRoot?.querySelectorAll('[part="indicator"], [part="lens"]');
+        parts?.forEach((part) => slide(part, -dockSteps * 100, 0));
+    }
 }
 
 /**
@@ -169,6 +248,8 @@ function onDockClick(event: MouseEvent) {
 
 const desktop = hasDesktop();
 const { appearance, wallpaper, activeImage } = useLiquidPreferences();
+// 玻璃引擎不会监听应用容器，等主题写入 DOM 后通知它重算材质。
+watch(appearance, () => updateAppearance(), { flush: 'post' });
 </script>
 
 <template>
@@ -195,8 +276,8 @@ const { appearance, wallpaper, activeImage } = useLiquidPreferences();
                     :class="{ 'lg-scroll-hidden': hideContentScrollbar }"
                     aria-label="应用内容"
                 >
-                    <RouterView v-if="route.matched.length" />
-                    <p v-else class="liquid-startup-status" role="status">正在打开账本…</p>
+                    <RouterView v-if="route.matched.length && !deferDockView" />
+                    <p v-else-if="!route.matched.length" class="liquid-startup-status" role="status">正在打开账本…</p>
                 </main>
             </Transition>
         </div>
@@ -204,11 +285,20 @@ const { appearance, wallpaper, activeImage } = useLiquidPreferences();
             <GlassTabBar
                 ref="dockControl"
                 :value="dockPage"
+                :style="{ '--dock-index': dockIndex, '--dock-count': items.length }"
+                @pointerdown.capture="trackDockDrag"
                 class="liquid-dock-bar"
                 aria-label="页面"
                 @update:value="navigateDock"
             >
-                <GlassTab v-for="item in items" :key="item.key" :value="item.key">
+                <GlassTab
+                    v-for="item in items"
+                    :key="item.key"
+                    :value="item.key"
+                    @pointerenter="warmDockPage(item.key)"
+                    @pointerdown="warmDockPage(item.key)"
+                    @focus="warmDockPage(item.key)"
+                >
                     <AppIcon :name="item.icon" />
                     {{ item.label }}
                 </GlassTab>
@@ -401,6 +491,25 @@ body {
     --icon-size: 18px;
     display: flex;
     width: 100%;
+}
+
+/* 保留标签栏原有高光、按压和拖动材质。静止位置来自路由，平移由外壳统一驱动。 */
+.liquid-dock-bar::part(indicator),
+.liquid-dock-bar:not([data-drag-preview])::part(lens) {
+    left: var(--glass-selector-padding, 4px);
+    top: var(--glass-selector-padding, 4px);
+    width: calc((100% - 2 * var(--glass-selector-padding, 4px)) / var(--dock-count)) !important;
+    height: calc(100% - 2 * var(--glass-selector-padding, 4px)) !important;
+    transform: translateX(calc(var(--dock-index) * 100%)) !important;
+}
+
+.liquid-dock-bar:not([data-drag-preview]) glass-tab::part(content) {
+    scale: 1 !important;
+}
+
+/* 路由尚在解析时，按下的菜单也立即给出反馈。 */
+.liquid-dock-bar:not([data-drag-preview]) glass-tab:active::part(content) {
+    opacity: 0.68;
 }
 
 .liquid-dock-bar .app-icon {

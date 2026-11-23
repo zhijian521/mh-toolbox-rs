@@ -35,8 +35,18 @@
     backdrop-filter: blur(2px);
 }
 
+/* 焦点框由应用统一绘制，去掉库自带的选项内框和开关外圈。 */
+.liquid-app :is(glass-tab, glass-segment, glass-switch, glass-slider).lg-component:focus-visible {
+    box-shadow: none;
+}
+
+.liquid-app :is(glass-tab, glass-segment).lg-component:focus-visible {
+    outline-offset: -2px;
+}
+
 glass-button.lg-component {
     --glass-button-font-size: var(--fs-sm);
+    --glass-focus: transparent;
     /* 引擎按材质把 --gl-text-shadow 写到 host 上（surface.js:247）：clear 材质
      * 给「白字压亮背景」配的是三层黑色柔光阴影（materials.js:62/75）。项目把
      * 按钮文字改成深墨（--glass-foreground: var(--liquid-ink)）后，这层暗影叠在
