@@ -32,7 +32,7 @@ function onEscape(event: KeyboardEvent) {
 <template>
     <div class="glass-select" @keydown.esc="onEscape" @toggle.stop>
         <label :id="id + '-label'" :for="id" :hidden="hideLabel">{{ label }}</label>
-        <GlassMenu v-model:open="open" class="lg-popup-menu" @select="select">
+        <GlassMenu v-model:open="open" class="lg-popup-menu lg-select-menu" @select="select">
             <template #trigger>
                 <button
                     :id="id"
@@ -41,7 +41,7 @@ function onEscape(event: KeyboardEvent) {
                     :disabled="disabled"
                     :aria-labelledby="id + '-label ' + id + '-value'"
                 >
-                    <GlassCard class="glass-select-face lg-popup-face" radius="capsule">
+                    <GlassCard class="glass-select-face" radius="capsule">
                         <span :id="id + '-value'">{{ selected?.label ?? '请选择' }}</span>
                         <AppIcon name="chevron-down" />
                     </GlassCard>

@@ -11,9 +11,9 @@ export async function importLegacyLedger(): Promise<DataOutcome> {
         const counts = `${backup.characters.length} 个角色、${backup.prices.length} 件物价、${backup.income.length} 笔收益、${backup.accounts.length} 笔账号记录、${backup.online.length} 条上线记录、${backup.goals.length} 个目标`;
         const ok = await askConfirm({
             danger: true,
-            title: '导入旧版并替换当前账本？',
-            note: `可转换：${counts}。${warnings.join(' ')} 替换前自动备份当前账本，并完整留存旧版原件。`,
-            confirmText: '导入并替换',
+            title: '用旧版数据替换当前账本？',
+            note: `替换前会自动备份当前账本。可转换：${counts}。${warnings.join(' ')}`.trim(),
+            confirmText: '替换并导入',
         });
         if (!ok) return { status: 'canceled' };
         const result = await legacyDataImport(source.raw, JSON.stringify(backup));

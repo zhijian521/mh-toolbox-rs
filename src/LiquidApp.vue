@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { RouterView, useRoute, useRouter } from 'vue-router';
 import AppIcon from './components/AppIcon.vue';
 import TitleBar from './components/TitleBar.vue';
@@ -12,17 +12,18 @@ import { hasDesktop } from './services/desktop';
 const props = defineProps<{ items: readonly Pick<NavItem, 'key' | 'label' | 'icon'>[] }>();
 const route = useRoute();
 const router = useRouter();
-const dockPage = computed({
-    get: () => {
-        const name = typeof route.name === 'string' ? route.name : props.items[0]?.key;
-        // 组件目录是隐藏页，Dock 里没有它的标签；选中态留在「设置」，
-        // 免得整条 Dock 失去落点，也免得把无效值写进标签栏的 value。
-        return name === 'components' ? 'settings' : name;
-    },
-    set: (name: string) => {
-        void router.push({ name });
-    },
+const dockControl = ref<{ el: HTMLElement | null }>();
+const dockPage = computed(() => {
+    const name = typeof route.name === 'string' ? route.name : props.items[0]?.key;
+    // 隐藏组件目录沿用「设置」的 Dock 选中态。
+    return name === 'components' ? 'settings' : name;
 });
+
+async function navigateDock(name: string) {
+    const failure = await router.push({ name });
+    // 自定义标签栏先切选中项，取消导航时按当前路由恢复。
+    if (failure && dockPage.value) dockControl.value?.el?.setAttribute('value', dockPage.value);
+}
 
 /**
  * 组件目录的隐藏入口：连续 5 次点击 Dock 的「设置」。
@@ -69,25 +70,37 @@ function onDockClick(event: MouseEvent) {
 }
 
 const desktop = hasDesktop();
-const { appearance, material, wallpaper, activeImage } = useLiquidPreferences();
+const { appearance, wallpaper, activeImage } = useLiquidPreferences();
 </script>
 
 <template>
     <div
         class="liquid-app"
         :data-appearance="appearance"
-        :data-glass-style="material"
         :class="{ 'has-online-wallpaper': activeImage }"
         :style="{ '--liquid-wallpaper': `url(${wallpaper})` }"
     >
         <TitleBar v-if="desktop" />
         <header v-else class="liquid-header">梦幻养老助手</header>
-        <main :key="route.name" class="liquid-content" aria-label="应用内容">
+        <!-- 物价页的主滚动在这层；组件目录自己的 `.gallery` 才是滚动区（也挂同一个类）。
+             设置页不挂，仍显示细滚动条——要统一的后续页面直接补到这个判断里即可。 -->
+        <main
+            :key="route.name"
+            class="liquid-content"
+            :class="{ 'lg-scroll-hidden': route.name === 'prices' || route.name === 'components' }"
+            aria-label="应用内容"
+        >
             <RouterView v-if="route.matched.length" />
             <p v-else class="liquid-startup-status" role="status">正在打开账本…</p>
         </main>
         <nav class="liquid-dock" aria-label="底部导航" @click.capture="onDockClick">
-            <GlassTabBar v-model:value="dockPage" class="liquid-dock-bar" aria-label="页面">
+            <GlassTabBar
+                ref="dockControl"
+                :value="dockPage"
+                class="liquid-dock-bar"
+                aria-label="页面"
+                @update:value="navigateDock"
+            >
                 <GlassTab v-for="item in items" :key="item.key" :value="item.key">
                     <AppIcon :name="item.icon" />
                     {{ item.label }}

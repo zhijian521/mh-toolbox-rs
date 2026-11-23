@@ -1,6 +1,5 @@
 /** 官网壁纸站的原图和缩略图均来自此目录。 */
 export const WALLPAPER_CDN = 'https://nie.res.netease.com/r/pic/';
-export const WALLPAPER_SITE = 'https://xyq.163.com/bz/';
 
 export function isWallpaperUrl(url: string): boolean {
     return (

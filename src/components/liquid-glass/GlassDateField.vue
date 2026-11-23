@@ -12,10 +12,10 @@ const triggerId = useId();
 const calendar = ref<InstanceType<typeof DateField> | null>(null);
 
 watch(
-    [() => calendar.value?.panel, popupGlass],
-    ([panel, options], _, cleanup) => {
+    () => calendar.value?.panel,
+    (panel, _, cleanup) => {
         if (!panel) return;
-        const surface = glass(panel, options);
+        const surface = glass(panel, popupGlass);
         cleanup(() => surface.destroy());
     },
     { flush: 'post' },
@@ -79,10 +79,6 @@ watch(
     background: transparent;
     color: var(--liquid-ink);
     font: inherit;
-}
-.glass-date-field :deep(.date-trigger:is(:focus-visible, [aria-expanded='true'])) {
-    outline: var(--ring);
-    outline-offset: 1px;
 }
 .glass-date-field :deep(.date-trigger:disabled) {
     opacity: 0.55;

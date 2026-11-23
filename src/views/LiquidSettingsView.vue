@@ -89,8 +89,8 @@ async function exportLedger() {
 async function askImport() {
     const ok = await askConfirm({
         danger: true,
-        title: '用选中的备份替换现在的账本？',
-        note: '全部账本数据（角色、物价、收益流水、速记单价、账号记录与目标）会被整份替换。动手前会自动备份一份，回执里写着它的位置。',
+        title: '替换当前账本？',
+        note: '选中的备份会覆盖全部数据。',
         confirmText: '替换',
     });
     if (!ok) return;
@@ -111,8 +111,8 @@ async function doImportLegacy() {
 async function askClear() {
     const ok = await askConfirm({
         danger: true,
-        title: '清空全部账本数据？',
-        note: '角色、物价、收益流水、速记单价、上线记录与点卡口径、账号记录与目标都会清空。清除前不会自动备份，想留一份就先「导出」。',
+        title: '清空全部账本？',
+        note: '所有数据会被删除，无法撤销。',
         confirmText: '清除',
     });
     if (!ok) return;
@@ -123,10 +123,8 @@ async function askClear() {
 const {
     entries: backups,
     loading: backupsLoading,
-    loaded: backupsLoaded,
     error: backupsError,
     warning: backupsWarning,
-    latestDaily,
     refresh: refreshBackups,
 } = useBackups();
 const backupsOpen = ref(false);
@@ -140,8 +138,8 @@ async function restore(entry: BackupEntry) {
     if (busy.value) return;
     const ok = await askConfirm({
         danger: true,
-        title: '恢复这份备份并替换当前账本？',
-        note: `${new Date(entry.createdAt).toLocaleString('zh-CN')} 的全部账本数据将覆盖当前内容，恢复前会自动另存当前账本。`,
+        title: '恢复这份备份？',
+        note: `${new Date(entry.createdAt).toLocaleString('zh-CN')} 的账本会覆盖当前内容。`,
         confirmText: '恢复',
     });
     if (!ok) return;
@@ -278,7 +276,6 @@ function applyWallpaper(url: string) {
                         >
                     </div>
                 </div>
-                <p class="card-hint">导入将替换全部账本，替换前自动备份。</p>
                 <div class="liquid-settings-row">
                     <span>备份</span>
                     <div class="row-actions">
@@ -289,13 +286,6 @@ function applyWallpaper(url: string) {
                             @click="openBackups"
                             >恢复</GlassButton
                         >
-                        <small v-if="latestDaily"
-                            >最近自动备份：{{ backupTime(latestDaily.createdAt) }}</small
-                        >
-                        <small v-else-if="backupsLoading">正在读取备份状态…</small>
-                        <small v-else-if="backupsLoaded && !backupsError">{{
-                            backups.length ? '保留的快照均为替换前备份' : '尚无自动备份'
-                        }}</small>
                     </div>
                 </div>
                 <p v-if="backupsWarning" role="status" class="receipt error">
@@ -310,75 +300,65 @@ function applyWallpaper(url: string) {
                         >清除</GlassButton
                     >
                 </div>
-                <p class="card-hint">不可撤销，不会自动备份，请先导出。</p>
                 <div role="status" class="receipts">
                     <p v-if="message" class="receipt" :class="messageKind">{{ message }}</p>
                     <p v-if="warning" class="receipt warning">{{ warning }}</p>
                 </div>
             </GlassCard>
-        </div>
-
-        <section class="settings-about" aria-labelledby="liquid-about-title">
-            <header class="about-heading">
-                <h2 id="liquid-about-title">关于</h2>
-                <span>{{ info?.productName ?? '梦幻养老助手' }} · {{ version }}</span>
-            </header>
-            <div class="update-check">
-                <span
-                    role="status"
-                    :class="{ error: !!updateError, available: update?.status === 'available' }"
-                    >{{ updateMessage }}</span
-                >
-                <GlassButton
-                    v-if="update?.status === 'available'"
-                    size="small"
-                    @click="download"
-                    >下载</GlassButton
-                >
-                <GlassButton size="small" :disabled="checking" @click="check"
-                    >检查更新</GlassButton
-                >
-            </div>
-            <details class="about-details">
-                <summary>运行信息</summary>
-                <dl class="about-list">
-                    <dt>数据目录</dt>
-                    <dd><code>{{ info?.dataDir ?? '%APPDATA%\\mh-tool-rs' }}</code></dd>
-                    <dt>字体</dt>
-                    <dd>资源圆体（SIL OFL 1.1，常用字子集）</dd>
-                    <dt>标识</dt>
-                    <dd><code>{{ info?.identifier ?? 'com.zhijian.mhtoolbox.rs' }}</code></dd>
-                    <dt>数据库</dt>
-                    <dd><code>mh-toolbox.db</code>（SQLite · WAL）</dd>
-                    <dt>运行环境</dt>
-                    <dd>{{ info?.webview ?? '系统 WebView2（Tauri 2）' }}</dd>
-                </dl>
-            </details>
-            <details class="about-details">
-                <summary>使用许可</summary>
-                <p class="license-lead">本软件免费使用，源码公开。</p>
-                <p class="license-notice">
-                    采用 PolyForm Noncommercial 1.0.0 许可；<b>任何以营利为目的的使用均不在授权范围内</b>。
-                </p>
-                <dl class="license-terms">
-                    <div class="allow">
-                        <dt>可以</dt>
-                        <dd>运行、修改、再发布</dd>
+            <GlassCard
+                class="liquid-settings-panel settings-about"
+                :radius="16"
+                aria-labelledby="liquid-about-title"
+            >
+                <header class="card-heading">
+                    <h2 id="liquid-about-title">关于</h2>
+                    <span class="about-version"
+                        >{{ info?.productName ?? '梦幻养老助手' }} · {{ version }}</span
+                    >
+                </header>
+                <div class="liquid-settings-row">
+                    <span
+                        class="update-status"
+                        role="status"
+                        :class="{ error: !!updateError, available: update?.status === 'available' }"
+                        >{{ updateMessage }}</span
+                    >
+                    <div class="row-actions">
+                        <GlassButton
+                            v-if="update?.status === 'available'"
+                            size="small"
+                            @click="download"
+                            >下载</GlassButton
+                        >
+                        <GlassButton size="small" :disabled="checking" @click="check"
+                            >检查更新</GlassButton
+                        >
                     </div>
-                    <div class="deny">
-                        <dt>不可以</dt>
-                        <dd>商业用途</dd>
-                    </div>
-                </dl>
-                <div class="license-links">
-                    <a :href="REPO_URL" @click.prevent="openExternal(REPO_URL)">项目源码 ↗</a>
-                    <a :href="LICENSE_URL" @click.prevent="openExternal(LICENSE_URL)">许可证全文 ↗</a>
                 </div>
-                <p class="card-hint">
-                    非官方工具，与游戏发行商无关；游戏图标与名称版权归原权利人。
-                </p>
-            </details>
-        </section>
+                <!-- 不折叠：三行清单与外观／数据同构。运行信息只留找账本用得上的
+                     数据目录，字体／标识／数据库／运行环境等一眼不看的信息收掉。 -->
+                <div class="liquid-settings-row">
+                    <span>数据目录</span>
+                    <code class="about-path">{{ info?.dataDir ?? '%APPDATA%\\mh-tool-rs' }}</code>
+                </div>
+                <div class="liquid-settings-row">
+                    <span>使用许可</span>
+                    <div class="row-actions">
+                        <span class="about-license-note"
+                            >PolyForm Noncommercial 1.0.0 · 禁止商业用途 · 非官方工具</span
+                        >
+                        <div class="license-links">
+                            <a :href="REPO_URL" @click.prevent="openExternal(REPO_URL)"
+                                >项目源码 ↗</a
+                            >
+                            <a :href="LICENSE_URL" @click.prevent="openExternal(LICENSE_URL)"
+                                >许可证全文 ↗</a
+                            >
+                        </div>
+                    </div>
+                </div>
+            </GlassCard>
+        </div>
 
         <GlassDialog
             v-model:open="pickerOpen"
@@ -488,34 +468,12 @@ function applyWallpaper(url: string) {
     margin: 0;
 }
 
-.settings-about {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 0 16px;
-    margin-top: 14px;
-    padding: 10px 12px;
-    border-radius: 12px;
-    background: light-dark(rgb(249 251 249 / 0.76), rgb(27 37 35 / 0.8));
-}
-.about-heading {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 2px 10px;
-}
-.about-heading h2 {
-    margin: 0;
-}
-.about-heading span {
+/* 关于与外观／数据共用同一张 GlassCard，也占 grid 的**一列**（不再通栏）：
+ * 右边那一格留给后续新增的卡片。卡头的线、行与行的线都由公共规则给，
+ * 这张卡自己只剩下面这几条字号／字体／链接的例外。 */
+.about-version {
     font-size: var(--fs-xs);
     color: var(--liquid-muted);
-}
-@media (max-width: 640px) {
-    .settings-about {
-        grid-template-columns: minmax(0, 1fr);
-        gap: 6px;
-    }
 }
 
 .liquid-settings-row {
@@ -615,113 +573,43 @@ function applyWallpaper(url: string) {
     color: light-dark(#8a6420, #e6c07b);
 }
 
-.about-list {
-    display: grid;
-    grid-template-columns: 5em minmax(0, 1fr);
-    align-items: baseline;
-    gap: 6px 12px;
-    margin: 10px 0 0;
-    font-size: var(--fs-xs);
-}
-
-.about-list dt {
-    opacity: 0.72;
-}
-
-.about-list dd {
-    margin: 0;
-    overflow-wrap: anywhere;
-}
-
 /* 路径写在 <code> 里：浏览器 UA 的 monospace 会直接盖掉继承自 .liquid-app 的字体。
  * 与正式版 AboutSection.vue 的 .about code、blocks.css 的 .note code 同一口径。 */
-.about-list code {
+.about-path {
+    min-width: 0;
     font-family: var(--font-ui);
     font-size: var(--fs-xs);
     letter-spacing: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
 }
 
-.update-check {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: flex-end;
-}
-.update-check > span {
-    flex: 0 1 auto;
+/* 版本状态是一行清单的左侧标签，右侧是按钮组（`.row-actions`）。 */
+.update-status {
     min-width: 0;
     font-size: var(--fs-xs);
     opacity: 0.72;
+    overflow-wrap: anywhere;
 }
-.update-check > span.error {
+.update-status.error {
     color: var(--liquid-danger);
 }
-.update-check > span.available {
+.update-status.available {
     color: var(--lg-accent);
 }
 
-.about-details {
-    grid-column: 1 / -1;
-    margin-top: 6px;
-    border-top: 1px solid var(--liquid-outline);
+.about-license-note {
     font-size: var(--fs-xs);
-}
-.about-details summary {
-    width: fit-content;
-    padding-block: 5px 2px;
-    cursor: pointer;
-}
-
-.license-lead {
-    margin: 10px 0 2px;
-    font-size: var(--fs-base);
-}
-.license-notice {
-    margin: 8px 0 11px;
-    padding: 8px 11px;
-    border-left: 2px solid var(--liquid-danger);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--liquid-danger) 7%, transparent);
-    font-size: var(--fs-xs);
-}
-.license-notice b {
-    font-weight: 400;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-}
-.license-terms {
-    display: grid;
-    gap: 5px;
-    margin: 0 0 12px;
-}
-.license-terms div {
-    display: grid;
-    grid-template-columns: 4em minmax(0, 1fr);
-    gap: 10px;
-}
-.license-terms dt {
-    font-size: var(--fs-xs);
-}
-.license-terms dd {
-    margin: 0;
-    font-size: var(--fs-sm);
-}
-.license-terms .allow dt {
-    color: var(--lg-accent);
-}
-.license-terms .deny dt {
-    color: var(--liquid-danger);
+    color: var(--liquid-muted);
 }
 .license-links {
     display: flex;
     flex-wrap: wrap;
     gap: 8px 14px;
-    margin-bottom: 8px;
 }
 .license-links a {
     color: var(--lg-accent);
-    font-size: var(--fs-sm);
+    font-size: var(--fs-xs);
     text-underline-offset: 3px;
 }
 

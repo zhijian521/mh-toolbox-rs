@@ -5,7 +5,10 @@ import { GlassSheet } from './index';
 const props = defineProps<{
     open: boolean;
     bottom?: boolean;
+    centered?: boolean;
     noDismiss?: boolean;
+    /** 由调用方决定是否关闭，避免底部面板先退场再询问。 */
+    guardDismiss?: boolean;
     lazy?: boolean;
     detents?: string;
     label: string;
@@ -60,11 +63,26 @@ watchPostEffect((onCleanup) => {
 function dismiss() {
     if (!props.noDismiss) emit('update:open', false);
 }
+
+function onSheetScrim(event: MouseEvent) {
+    if (!props.guardDismiss) return;
+    const scrim = sheet.value?.el?.shadowRoot?.querySelector('[part~="scrim"]');
+    if (scrim && event.composedPath().includes(scrim)) dismiss();
+}
+
+function onSheetKeydown(event: KeyboardEvent) {
+    if (
+        !props.guardDismiss || event.defaultPrevented || event.isComposing || event.key !== 'Escape'
+    ) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dismiss();
+}
 </script>
 
 <template>
     <dialog
-        v-if="desktop && !bottom"
+        v-if="centered || (desktop && !bottom)"
         ref="panel"
         class="glass-dialog"
         :aria-label="label"
@@ -79,9 +97,11 @@ function dismiss() {
         v-else
         :open="open"
         :detents="detents"
-        :no-dismiss="noDismiss"
+        :no-dismiss="noDismiss || guardDismiss"
         :aria-label="label"
         modal
+        @click.capture="onSheetScrim"
+        @keydown="onSheetKeydown"
         @update:open="emit('update:open', $event)"
     >
         <slot v-if="!lazy || open || leavingContent" />
@@ -99,9 +119,9 @@ function dismiss() {
     border: 1px solid light-dark(#ffffffbb, #c5dad849);
     border-radius: 20px;
     color: var(--liquid-ink);
-    background: var(--lg-dialog-fill, light-dark(rgb(245 252 249 / 0.66), rgb(21 34 35 / 0.74)));
-    box-shadow: var(--lg-dialog-shadow, 0 16px 54px rgb(12 28 25 / 0.19), inset 0 1px rgb(255 255 255 / 0.13));
-    backdrop-filter: blur(var(--lg-dialog-blur, 10px));
+    background: var(--lg-dialog-fill);
+    box-shadow: var(--lg-dialog-shadow);
+    backdrop-filter: blur(var(--lg-dialog-blur));
     font: inherit;
 }
 .glass-dialog::backdrop {

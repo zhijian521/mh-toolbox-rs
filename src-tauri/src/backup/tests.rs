@@ -124,6 +124,29 @@ fn daily_backups_preserve_data_and_throttle_after_rotation() {
 }
 
 #[test]
+fn daily_backup_restarts_schedule_after_clock_rollback() {
+    let dir = std::env::temp_dir().join(format!("mh-daily-clock-{}-{}", std::process::id(), now_ms()));
+    let start = 1_800_000_000_000;
+    let future = start + 100 * 86_400_000;
+    let backups = dir.join("backups");
+    daily_backup_at(&dir, future).unwrap();
+    daily_backup_at(&dir, start).unwrap();
+    let saved = backup_entries(&backups).unwrap();
+    assert_eq!(saved.len(), 2);
+    assert_eq!((saved[0].created_at, saved[1].created_at), (start, future));
+
+    // 模拟新快照写完但调度标记还没更新就退出。
+    write_to(&backups.join(DAILY_STAMP), &future).unwrap();
+    daily_backup_at(&dir, start + 86_399_999).unwrap();
+    assert_eq!(backup_entries(&backups).unwrap().len(), 2);
+    daily_backup_at(&dir, start + 86_400_000).unwrap();
+    let saved = backup_entries(&backups).unwrap();
+    assert_eq!(saved.len(), 3);
+    assert_eq!(saved[0].created_at, start + 86_400_000);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn daily_backup_reads_committed_snapshot_without_waiting_for_pending_write() {
     let dir = std::env::temp_dir().join(format!(
         "mh-daily-snapshot-{}-{}",

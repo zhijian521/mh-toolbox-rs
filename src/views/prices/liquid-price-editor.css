@@ -24,6 +24,9 @@
 
 .price-editor-fields {
     --glass-select-label-color: var(--liquid-muted);
+    /* 这两只下拉是两列网格，触发器约 190px；菜单下限跟着它，别比触发器还窄。
+     * 筛选行那两只走公共类的 132px。见 style.css 的 .lg-select-menu。 */
+    --lg-select-menu-min: 190px;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;

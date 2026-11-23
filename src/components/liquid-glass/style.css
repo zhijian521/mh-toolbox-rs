@@ -4,7 +4,7 @@
     --glass-accent: var(--lg-accent, #b3e8c6);
     --glass-accent-text: var(--lg-selected-text, #efffec);
     --glass-tab-selected: var(--lg-selected-text, #efffec);
-    --lg-content-base: light-dark(rgb(255 255 255 / 0.32), rgb(28 38 39 / 0.40));
+    --lg-content-base: light-dark(#fafffd49, #18262971);
     --glass-switch-on: rgb(117 222 162 / 0.52);
     --glass-switch-off: rgb(217 246 237 / 0.22);
     --glass-slider-off: rgb(217 246 237 / 0.25);
@@ -12,21 +12,9 @@
     --glass-tab-selection: rgb(203 244 221 / 0.19);
     --glass-segmented-track: rgb(6 21 16 / 0.15);
     --glass-segmented-thumb: rgb(203 244 221 / 0.25);
-    --lg-control-backdrop: blur(3px);
+    --lg-control-backdrop: blur(1.5px);
     --glass-segmented-backdrop: var(--lg-control-backdrop);
     font-family: var(--glass-font);
-}
-
-.lg-component[data-glass-style='lens'] {
-    --lg-content-base: light-dark(#fafffd49, #18262971);
-    --lg-control-backdrop: blur(1.5px);
-}
-
-.liquid-app[data-glass-style='lens'] {
-    --lg-popup-fill: light-dark(rgb(246 251 248 / 0.60), rgb(25 37 34 / 0.72));
-    --lg-dialog-fill: var(--lg-popup-fill);
-    --lg-dialog-blur: 6px;
-    --lg-dialog-shadow: 0 6px 22px rgb(12 28 25 / 0.15), inset 0 1px rgb(255 255 255 / 0.20);
 }
 
 @media not (prefers-reduced-transparency: reduce) {
@@ -77,14 +65,42 @@ glass-button.lg-inline-action {
     min-width: 0;
 }
 
-.lg-price-search:focus-within {
-    outline: 2px solid var(--liquid-focus);
-    outline-offset: 2px;
+/* 表单聚焦只改变玻璃底色；系统强制配色时用 Highlight 标记焦点。 */
+glass-search.lg-component {
+    --glass-focus: transparent;
 }
-
+.liquid-app .glass-input input:focus-visible,
+.liquid-app .glass-select-trigger:focus-visible,
+.liquid-app .glass-date-field .date-trigger:focus-visible {
+    outline: none;
+}
+.liquid-app :is(.glass-input, glass-search.lg-component):focus-within,
+.glass-select-trigger:is(:focus-visible, [aria-expanded='true']) .glass-select-face,
+.glass-date-field .date-trigger:is(:focus-visible, [aria-expanded='true']) .glass-date-face {
+    outline: none;
+    --lg-content-fill: color-mix(in srgb, var(--lg-field-accent, var(--liquid-focus)) 18%, var(--lg-content-base));
+}
+.glass-input:has(input[aria-invalid='true']),
+.glass-date-field .date-trigger[aria-invalid='true'] {
+    --lg-field-accent: var(--liquid-up);
+}
+/* 「小一号」表单档：32px 高，供筛选行与录入弹窗共用（`--lg-form-height` 是唯一真源）。
+ * `--glass-search-height` 必须一起给：库只在 `<glass-search>` 的 :host 上读它，
+ * 漏掉就会出现「搜索胶囊比旁边的下拉高 12px」。
+ * 库的放大镜 19px、清除按钮 30px 是按 44px 高画的，32px 里要等比收，
+ * 否则图标几乎贴满上下边，看起来反而更挤。 */
 .lg-form-fields {
+    --glass-search-height: var(--lg-form-height);
     --glass-select-height: var(--lg-form-height);
     --glass-input-height: var(--lg-form-height);
+}
+.lg-form-fields glass-search.lg-component::part(icon) {
+    width: 16px;
+    height: 16px;
+}
+.lg-form-fields glass-search.lg-component::part(clear) {
+    width: 24px;
+    height: 24px;
 }
 
 .lg-caption {
@@ -110,10 +126,6 @@ glass-menu-item.lg-component {
     font-size: var(--fs-base);
     text-align: start;
     cursor: pointer;
-}
-.lg-popup-trigger[aria-expanded='true'] .lg-popup-face {
-    outline: 1px solid color-mix(in srgb, var(--liquid-focus) 48%, transparent);
-    outline-offset: -1px;
 }
 .lg-popup-trigger:disabled {
     opacity: 0.5;
@@ -165,7 +177,17 @@ glass-menu-item.lg-component {
     }
 }
 
-/* 开场测量与动画用同一个 content 尺寸，覆盖库内联的 220px 下限。 */
+/* 库在 open() 里给 `.content` 写内联 `minWidth: 220px`，再按 `width: max-content`
+ * 量一次宽度：只有「全部分类」四个字的下拉也被撑成 220px 的宽面板。两条规则都
+ * 必须用 `!important` 才压得过内联，把下限换成触发器的常见宽度；宽度本身仍交给
+ * 库的 max-content 自适应——短选项与触发器齐宽，长选项自然撑开，上限仍取库内联的
+ * `min(320px, 100vw - 16px)`。`--lg-select-menu-min` 留给更宽的触发器自行覆盖。 */
+.lg-select-menu::part(content) {
+    box-sizing: border-box;
+    min-width: min(var(--lg-select-menu-min, 132px), calc(100vw - 16px)) !important;
+}
+
+/* 三点菜单（PriceActionsMenu）：开场测量与动画用同一个 content 尺寸。 */
 .lg-popup-menu-small::part(content) {
     box-sizing: border-box;
     min-width: min(132px, calc(100vw - 16px)) !important;
@@ -198,12 +220,24 @@ glass-menu-label.lg-component {
     --liquid-up: light-dark(#923b3b, #ffb8ae);
     --liquid-down: light-dark(#245943, #a8e7c6);
     --lg-popup-fade: 80ms;
-    --lg-popup-fill: light-dark(rgb(246 251 248 / 0.68), rgb(25 37 34 / 0.76));
+    --lg-popup-fill: light-dark(rgb(246 251 248 / 0.60), rgb(25 37 34 / 0.72));
+    --lg-dialog-fill: var(--lg-popup-fill);
+    --lg-dialog-blur: 6px;
+    --lg-dialog-shadow: 0 6px 22px rgb(12 28 25 / 0.15), inset 0 1px rgb(255 255 255 / 0.20);
     --lg-form-height: 32px;
     --glass-search-height: 44px;
     --lg-scroll-thumb: light-dark(rgb(44 70 59 / 0.43), rgb(213 240 226 / 0.39));
     --lg-scroll-thumb-hover: light-dark(rgb(44 70 59 / 0.60), rgb(213 240 226 / 0.58));
     scrollbar-color: var(--lg-scroll-thumb) transparent;
+}
+
+@media (forced-colors: active) {
+    .liquid-app :is(.glass-input, glass-search.lg-component):focus-within,
+    .glass-select-trigger:is(:focus-visible, [aria-expanded='true']) .glass-select-face,
+    .glass-date-field .date-trigger:is(:focus-visible, [aria-expanded='true']) .glass-date-face {
+        background-color: Highlight;
+        color: HighlightText;
+    }
 }
 
 /* 滚动条轨道常驻：内容高度跨过视口时，滚动条不再「出现／消失」地改变内容盒宽度。
@@ -238,4 +272,23 @@ glass-menu-label.lg-component {
     :where(.liquid-app, .liquid-app *)::-webkit-scrollbar-thumb:hover {
         background-color: var(--lg-scroll-thumb-hover);
     }
+}
+
+/* 页面主滚动区：**看不见滚动条，但仍能滚**（滚轮、触控板、键盘、拖动全部照常）。
+ * 上面那条公共规则给 `.liquid-app` 全后代铺了 thin + stable，这里要逐条撤掉：
+ *   ① `scrollbar-width: none` 关掉 Firefox / Blink 的原生条；
+ *   ② `scrollbar-gutter: auto` 撤掉常驻轨道，否则右侧白留 8px 的槽；
+ *   ③ `::-webkit-scrollbar { display: none }` 兜住旧 Blink / WebKit。
+ * 三条缺一不可，且选择器要压过 `:where(...)` 的零特异性（用普通类，不用 :where）。
+ *
+ * **绝不能用 `overflow: hidden`**：那会把滚动能力一起关掉，内容就真看不到了；
+ * 也不要用已废弃的 `overflow: overlay`。
+ * 只挂在页面主滚动容器上；内部独立滚动区（弹窗表格、组件演示的小样例）不挂，
+ * 仍走第 51 条的 thin + stable，读得出「这里还有东西」。 */
+.lg-scroll-hidden {
+    scrollbar-width: none;
+    scrollbar-gutter: auto;
+}
+.lg-scroll-hidden::-webkit-scrollbar {
+    display: none;
 }

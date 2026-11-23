@@ -3,8 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
 import { GlassButton, GlassSearch } from '../../components/liquid-glass';
 import { usePagination } from '../../composables/use-pagination';
-import { openExternal } from '../../services/desktop';
-import { loadWallpaperImage, WALLPAPER_CDN, WALLPAPER_SITE } from '../../services/xyq-wallpapers';
+import { loadWallpaperImage, WALLPAPER_CDN } from '../../services/xyq-wallpapers';
 import catalog from './xyq-wallpapers.json';
 
 const props = defineProps<{ selected: string; active: boolean }>();
@@ -53,7 +52,12 @@ watch(
             <h2>选择官网壁纸</h2>
             <GlassButton size="small" variant="plain" @click="emit('close')">关闭</GlassButton>
         </header>
-        <GlassSearch v-model:value="query" aria-label="搜索壁纸名称" placeholder="搜索壁纸名称" />
+        <GlassSearch
+            v-model:value="query"
+            class="lg-price-search"
+            aria-label="搜索壁纸名称"
+            placeholder="搜索壁纸名称"
+        />
         <div v-if="visible.length" class="wallpaper-grid">
             <button
                 v-for="item in visible"
@@ -71,11 +75,8 @@ watch(
             </button>
         </div>
         <p v-else role="status">没有找到匹配的壁纸。</p>
-        <footer>
-            <a :href="WALLPAPER_SITE" @click.prevent="openExternal(WALLPAPER_SITE)"
-                >梦幻西游壁纸站 ↗</a
-            >
-            <nav v-if="pages > 1" class="wallpaper-pages" aria-label="壁纸分页">
+        <footer v-if="pages > 1">
+            <nav class="wallpaper-pages" aria-label="壁纸分页">
                 <GlassButton
                     class="lg-inline-action"
                     size="small"
@@ -135,6 +136,10 @@ watch(
 .wallpaper-tile {
     padding: 0;
     overflow: hidden;
+    /* `overflow: hidden` 也是滚动容器，会被公共规则的 `scrollbar-gutter: stable`
+     * 预留一条 10px 轨道：卡片 170px、内容只剩 158px，缩略图铺满后右侧露出
+     * 一条白底。与 .lg-scroll-hidden 同一口径，这里显式撤掉 gutter。 */
+    scrollbar-gutter: auto;
     border: 1px solid var(--liquid-outline);
     border-radius: 10px;
     background: light-dark(#ffffff4a, #1a292b83);
@@ -168,17 +173,14 @@ watch(
     font-size: var(--fs-sm);
     overflow-wrap: anywhere;
 }
+/* 页头是「标题 + 关闭」两端对齐；页脚只剩翻页，居中放。
+ * 链接（跳转壁纸站）删掉后页脚不再需要小字档，也就没有压住页码字号的规则了。 */
 .wallpaper-picker footer {
-    font-size: var(--fs-xs);
-}
-.wallpaper-picker a {
-    color: var(--liquid-focus);
+    justify-content: center;
 }
 /* 与物价历史弹窗 .price-history-pager 同一套：纯图标圆形按钮 + 页码，
  * 不写「上一页／下一页」文字，靠 aria-label 保留可访问名。 */
-/* 选择器带上 .wallpaper-picker：footer 另有 font-size: --fs-xs，
- * 特异性更高，不加权会被它压回小字，与历史弹窗的 --fs-sm 不一致。 */
-.wallpaper-picker .wallpaper-pages {
+.wallpaper-pages {
     display: flex;
     align-items: center;
     gap: 12px;

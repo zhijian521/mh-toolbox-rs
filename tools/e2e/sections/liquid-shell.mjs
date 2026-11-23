@@ -20,7 +20,7 @@ async function checkPriceMaintenance({ cdp, t, ui }, sheet, editor) {
     const calendar = `${editor} .date-panel:popover-open`;
     const itemMenu = (title) => `.price-card-header glass-menu:has([aria-label="${title}的物品操作"])`;
     const waitClosed = () => ui.waitFor(`!document.querySelector('${sheet}:is([open], [data-visible])')`);
-    const rowMenu = `${history} tbody tr:first-child glass-menu`;
+    const removeRow = `${history} tbody tr:first-child .record-remove`;
 
     await cdp.click('.liquid-prices .price-add');
     await ui.waitFor(`!!document.querySelector('${nameInput}')`);
@@ -32,7 +32,28 @@ async function checkPriceMaintenance({ cdp, t, ui }, sheet, editor) {
     await ui.clickLabel(`更新${name}的价格`);
     await ui.waitFor(`!!document.querySelector('${sheet}:is([open], [data-visible]) .glass-price-field input')`);
     t.check('卡片记价自动带入当前的 12 万', await cdp.evaluate(`document.querySelector('${price}').value === '12'`));
+    const discard = '.glass-dialog[open]:has(.glass-confirm)';
     await ui.fillSel(price, '18');
+    await cdp.key('Escape');
+    await ui.waitFor(`!!document.querySelector('${discard}')`);
+    t.check('Esc 先确认是否放弃记价草稿', await cdp.evaluate(`
+        document.querySelector('${discard} h2').textContent.trim() === '放弃未保存的修改？' &&
+        document.querySelector('${price}').value === '18'`));
+    await cdp.click(`${discard} footer glass-button:first-child`);
+    await ui.waitFor(`!document.querySelector('${discard}')`);
+    t.check('继续编辑保留原草稿', await cdp.evaluate(`
+        document.querySelector('${price}').value === '18' &&
+        !!document.querySelector('${sheet}:is([open], [data-visible])')`));
+    // 编辑弹窗遮住 Dock，用 DOM 点击发起导航，覆盖取消后标签栏自更新的回退。
+    await cdp.evaluate(`document.querySelector('.liquid-dock-bar glass-tab[value="settings"]').click()`);
+    await ui.waitFor(`!!document.querySelector('${discard}')`);
+    await cdp.click(`${discard} footer glass-button:first-child`);
+    await ui.waitFor(`!document.querySelector('${discard}') &&
+        document.querySelector('.liquid-dock-bar').getAttribute('value') === 'prices'`);
+    t.check('取消切页后保留当前 Dock 选中项和草稿', await cdp.evaluate(`
+        location.hash === '#/prices' && document.querySelector('${price}').value === '18'`));
+    await cdp.click(`${editor} footer glass-button:first-child`);
+    await ui.waitFor(`!!document.querySelector('${discard}')`);
     const desktopMotion = await cdp.evaluate(`document.querySelector('${sheet}').matches('dialog:modal') &&
         matchMedia('(prefers-reduced-motion: no-preference)').matches`);
     if (desktopMotion) {
@@ -40,7 +61,7 @@ async function checkPriceMaintenance({ cdp, t, ui }, sheet, editor) {
             const dialog = document.querySelector('${sheet}');
             await Promise.all(dialog.getAnimations().map(animation => animation.finished));
             const closed = new Promise(resolve => dialog.addEventListener('close', resolve, { once: true }));
-            dialog.querySelector('footer glass-button:first-child').click();
+            document.querySelector('${discard} footer glass-button:last-child').click();
             await closed;
             const shrinking = dialog.getAnimations().some(animation => animation.transitionProperty === 'transform');
             return !dialog.open && dialog.getClientRects().length > 0 && shrinking;
@@ -48,7 +69,7 @@ async function checkPriceMaintenance({ cdp, t, ui }, sheet, editor) {
         t.check('取消记价后表单在退出动画期间仍然可见', leaving);
         await ui.waitFor(`!document.querySelector('${sheet}').getClientRects().length`);
     } else {
-        await cdp.click(`${editor} footer glass-button:first-child`);
+        await cdp.click(`${discard} footer glass-button:last-child`);
     }
     await waitClosed();
     const menu = itemMenu(name);
@@ -113,11 +134,7 @@ async function checkPriceMaintenance({ cdp, t, ui }, sheet, editor) {
     await waitClosed();
     await cdp.click(historyButton(renamed));
     await waitHistory(renamed);
-    await ui.clickText(`${header} glass-button`, '记价', { exact: true });
-    await ui.waitFor(`!!document.querySelector('${price}')`);
-    t.check('历史记价带入当前金额', await cdp.evaluate(`document.querySelector('${price}').value === '12'`));
-    await cdp.key('Escape');
-    await waitHistory(renamed);
+    /* 历史弹窗不再放「记价」，新增记录回卡片；「卡片记价带入当前金额」本节开头已验。 */
     t.check('物品操作位于卡片右上角，历史标题收起该菜单', await ui.exists(itemMenu(renamed)) && !(await ui.exists(`${header} glass-menu`)));
     t.check('修改名称、分类、子类和备注后保留原有价格记录', await cdp.evaluate(`(() => {
         const card = document.querySelector('${historyButton(renamed)}').closest('.price-card');
@@ -128,7 +145,7 @@ async function checkPriceMaintenance({ cdp, t, ui }, sheet, editor) {
             document.querySelector('${history} tbody').textContent.includes('12 万');
     })()`));
 
-    await cdp.click(`${history} tbody .price-history-action glass-button`);
+    await cdp.click(`${history} tbody .record-edit`);
     await ui.waitFor(`!!document.querySelector('${price}')`);
     t.check('历史行内编辑回填原有金额', await cdp.evaluate(`document.querySelector('${price}').value === '12'`));
     await cdp.click(dateTrigger);
@@ -158,23 +175,28 @@ async function checkPriceMaintenance({ cdp, t, ui }, sheet, editor) {
     await save();
     await waitHistory(renamed);
     t.check('月历所选日期写回编辑的记录', await cdp.evaluate(`document.querySelector('${history} tbody time').dateTime === ${JSON.stringify(chosenDate)}`));
-    await choose(rowMenu, 'remove');
+    await cdp.click(removeRow);
     await ui.waitFor(`document.querySelector('${confirm} p')?.textContent.includes('23 万')`);
     await cdp.key('Escape');
     await waitHistory(renamed);
     t.check('取消删除保留这笔记录', (await ui.count(`${history} tbody tr`)) === 1);
-    await choose(rowMenu, 'remove');
+    await cdp.click(removeRow);
     await cdp.click(`${confirm} .confirm-removal`);
     await waitHistory(renamed);
     t.check('删除唯一一笔后历史显示空态', await cdp.evaluate(`document.querySelectorAll('${history} tbody tr').length === 0 &&
         !!document.querySelector('${history} .glass-empty-state')`));
 
-    await ui.clickText(`${header} glass-button`, '记价', { exact: true });
+    /* 删掉唯一一笔后，新增记录只能从卡片发起：关历史 → 卡片记价 → 重开历史。 */
+    await ui.clickText(`${header} glass-button`, '关闭', { exact: true });
+    await waitClosed();
+    await ui.clickLabel(`更新${renamed}的价格`);
     await ui.waitFor(`!!document.querySelector('${price}')`);
     await ui.fillSel(price, '31');
     await save();
+    await waitClosed();
+    await cdp.click(historyButton(renamed));
     await waitHistory(renamed);
-    t.check('空历史记价成功后返回同一物品并显示新增记录', await cdp.evaluate(
+    t.check('空历史从卡片记价后重新打开显示新增记录', await cdp.evaluate(
         `document.querySelectorAll('${history} tbody tr').length === 1 &&
         document.querySelector('${history} tbody').textContent.includes('31 万')`,
     ));
@@ -468,13 +490,9 @@ async function checkPrices({ cdp, t, ui }) {
                     !!document.querySelector('${sheet} [aria-label="上一页"]:not([disabled])')`,
             ));
         }
-        await ui.clickText(`${sheet} .history-tools glass-button`, '记价', { exact: true });
-        await ui.waitFor(`!!document.querySelector('${editor}')`);
-        await cdp.click(`${editor} footer glass-button[variant="plain"]`);
-        await ui.waitFor(`!!document.querySelector('${sheet} .price-history-header')`);
-        t.check('取消记价保留历史页码', await cdp.evaluate(`${!hasSecondPage} ||
-            document.querySelector('${sheet} .price-history-pager span').textContent.trim().startsWith('2 /')`));
-        const edit = `${sheet} tbody .price-history-action glass-button`;
+        /* 历史弹窗不再有「记价」入口；下面改用行内「编辑」走同一条取消返回路径，
+         * 顺带验页码保留（与原先「取消记价保留历史页码」重复，故删去那一段）。 */
+        const edit = `${sheet} tbody .record-edit`;
         if (await ui.exists(edit)) {
             await cdp.click(edit);
             await ui.waitFor(`!!document.querySelector('${editor}')`);
@@ -631,36 +649,9 @@ export default async function liquidShell({ cdp, t, ui }) {
             near('.glass-price-field.compact .glass-input', 36);
     })()`));
 
-    const scenes = '.material-comparison .comparison-stage';
-    const startingTone = await cdp.evaluate(`document.querySelector('${scenes}').dataset.tone`);
-    const otherTone = startingTone === 'light' ? 'dark' : 'light';
-    const previewSwitch = '.material-comparison glass-segment';
-    await cdp.click(`${previewSwitch}[value="${otherTone}"]`);
-    await ui.waitFor(`document.querySelectorAll('${scenes}[data-tone="${otherTone}"]').length === 2`);
-    t.check('两组材质切换同一壁纸，应用外观保持原设置', await cdp.evaluate(`
-        document.querySelector('.liquid-app').dataset.appearance === '${startingTone}' &&
-        document.querySelector('${scenes}[data-lens="false"] .price-value').textContent ===
-        document.querySelector('${scenes}[data-lens="true"] .price-value').textContent`));
-    await cdp.click(`${previewSwitch}[value="${startingTone}"]`);
-
-    const initialMaterial = await cdp.evaluate("document.querySelector('.liquid-app').dataset.glassStyle");
-    const savedMaterial = await cdp.evaluate("localStorage.getItem('mh-liquid-material')");
-    const alternate = initialMaterial === 'classic' ? 'lens' : 'classic';
-    const materialOption = (style) => `.material-choice glass-segment[value="${style}"]`;
-    try {
-        await cdp.click(materialOption(alternate));
-        await ui.waitFor(`document.querySelector('.liquid-dock-bar').dataset.glassStyle === '${alternate}'`);
-        await ui.reload();
-        await ui.waitFor(`!!document.querySelector('${scenes} .sample-card')`);
-        t.check('全局材质重载后保留，左右样例始终展示各自的折射参数', await cdp.evaluate(`
-            document.querySelector('.liquid-dock-bar').dataset.glassStyle === '${alternate}' &&
-            !document.querySelector('${scenes}[data-lens="false"] .sample-card').hasAttribute('refraction') &&
-            Number(document.querySelector('${scenes}[data-lens="true"] .sample-card').getAttribute('refraction')) > 0`));
-    } finally {
-        await cdp.click(materialOption(initialMaterial));
-        await ui.waitFor(`document.querySelector('.liquid-dock-bar').dataset.glassStyle === '${initialMaterial}'`);
-        if (savedMaterial === null) await cdp.evaluate("localStorage.removeItem('mh-liquid-material')");
-    }
+    t.check('卡片和按钮分别使用清透折射的内容面与操作面', await cdp.evaluate(`
+        Number(document.querySelector('.component-catalog .sample-card').getAttribute('refraction')) === 10 &&
+        Number(document.querySelector('.component-catalog .sample-card glass-button').getAttribute('refraction')) === 15`));
 
     const demoPrice = '.component-catalog .glass-price-field:not(.compact)';
     await cdp.click(`${demoPrice} [aria-label="加 10 万"]`);
@@ -741,13 +732,13 @@ export default async function liquidShell({ cdp, t, ui }) {
                 label.fontSize === '13.5px' && option.fontSize === '12px';
         })()`),
     );
-    t.check('设置页由外观与数据主卡、可折叠的关于资料组成，整页固定使用圆体',
+    t.check('设置页展示外观、数据和关于三张卡，关于提供数据目录和许可入口',
         await cdp.evaluate(`(() => {
             const cards = [...document.querySelectorAll('.liquid-settings-grid .card-heading h2')];
             const about = document.querySelector('.settings-about');
-            return cards.map(el => el.textContent.trim()).join(',') === '外观,数据' &&
-                !!about?.querySelector('.license-links a') &&
-                [...about.querySelectorAll('details')].every(el => !el.open) &&
+            return cards.map(el => el.textContent.trim()).join(',') === '外观,数据,关于' &&
+                !!about?.querySelector('.about-path')?.textContent.trim() &&
+                [...about.querySelectorAll('.license-links a')].length === 2 &&
                 getComputedStyle(about).fontFamily.includes('MH Toolbox Rounded');
         })()`),
     );

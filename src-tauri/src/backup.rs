@@ -138,7 +138,7 @@ fn managed_snapshot_path(
 }
 
 /// 首次升级从旧文件补记；若上次在快照落盘后中断，也从完整快照补回时间。
-fn last_daily_at(dir: &Path, entries: &[BackupEntry]) -> Result<Option<i64>, String> {
+fn last_daily_at(dir: &Path, entries: &[BackupEntry], now: i64) -> Result<Option<i64>, String> {
     let path = dir.join(DAILY_STAMP);
     let stored: Option<i64> = match std::fs::File::open(&path) {
         Ok(input) => match serde_json::from_reader(input) {
@@ -149,10 +149,13 @@ fn last_daily_at(dir: &Path, entries: &[BackupEntry]) -> Result<Option<i64>, Str
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
         Err(err) => return Err(err.to_string()),
     };
+    // 时钟回拨后，未来时间不能作为调度基准。按轮换顺序取日常快照，避免旧的未来快照覆盖新基准。
+    let stored = stored.filter(|stamp| (0..=now).contains(stamp));
     let latest = entries
         .iter()
         .find(|entry| entry.kind == "daily")
-        .map(|entry| entry.created_at);
+        .map(|entry| entry.created_at)
+        .filter(|stamp| *stamp <= now);
     if let Some(stamp) = latest.filter(|stamp| Some(*stamp) > stored) {
         write_to(&path, &stamp)?;
     }
@@ -163,7 +166,7 @@ fn daily_backup_at(base: &Path, now: i64) -> Result<(), String> {
     let _writer = BACKUP_WRITER.lock().map_err(|err| err.to_string())?;
     let dir = base.join("backups");
     let entries = backup_entries(&dir)?;
-    if last_daily_at(&dir, &entries)?.is_some_and(|last| now.saturating_sub(last) < 86_400_000) {
+    if last_daily_at(&dir, &entries, now)?.is_some_and(|last| now.saturating_sub(last) < 86_400_000) {
         prune_backups(&dir, &entries);
         return Ok(());
     }
@@ -375,7 +378,7 @@ fn replace_backup_with(
     let dir = backup_dir(app)?;
     let entries = backup_entries(&dir)?;
     // 调度标记故障不阻断账本恢复；保留旧文件，供后台下次补记后清理。
-    let can_prune = last_daily_at(&dir, &entries).is_ok();
+    let can_prune = last_daily_at(&dir, &entries, now_ms()).is_ok();
     let saved = match build(app) {
         Ok(current) => {
             let saved = managed_snapshot_path(&dir, AUTO_BACKUP_PREFIX, now_ms(), &entries)?;

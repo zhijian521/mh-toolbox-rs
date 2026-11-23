@@ -26,7 +26,7 @@ import GlassDialog from '../../components/liquid-glass/GlassDialog.vue';
 import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import { lazyDialog } from '../../components/lazy-dialog';
-import { useDraftGuard } from '../../composables/use-draft-guard';
+import { confirmDiscardDrafts, useDraftGuard } from '../../composables/use-draft-guard';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import { moneyText } from '../../services/format';
 import PriceActionsMenu from './PriceActionsMenu.vue';
@@ -86,6 +86,10 @@ const search = ref<{ el: HTMLElement | null } | null>(null);
 const addButton = ref<{ el: HTMLElement | null } | null>(null);
 const cancelRemoval = ref<{ el: HTMLElement | null } | null>(null);
 const sheetOpen = ref(false);
+const editorDirty = ref(false);
+const hasUnsavedDraft = computed(
+    () => sheetOpen.value && editorDirty.value && !submit.action.value,
+);
 const dialog = ref<PriceDialog>();
 const historyPage = ref(1);
 const historyChild = computed(() => {
@@ -173,6 +177,7 @@ function openHistory(itemId: string, page = 1) {
 function openEditor(next: Exclude<PriceDialog, { kind: 'history' }>) {
     if (!canEdit.value || saving.value) return;
     editorError.value = '';
+    editorDirty.value = false;
     submit.reset();
     const trigger = document.activeElement;
     editorTrigger = trigger instanceof HTMLElement ? trigger : undefined;
@@ -182,6 +187,7 @@ function openEditor(next: Exclude<PriceDialog, { kind: 'history' }>) {
 }
 
 function closeEditor() {
+    editorDirty.value = false;
     const active = dialog.value;
     if (active && 'itemId' in active && historyChild.value && selectedItem.value) {
         openHistory(active.itemId, historyPage.value);
@@ -197,13 +203,17 @@ function closeEditor() {
 
 // 系统关窗也要看到准备联动收益账的阶段，此时还没有写队列可等待。
 const { requestClose } = useDraftGuard(
-    () => false,
+    () => hasUnsavedDraft.value,
     () => saving.value,
     closeEditor,
 );
 
 async function onDialogOpenChange(open: boolean) {
     if (sheetOpen.value === open) return;
+    if (!open && hasUnsavedDraft.value) {
+        await requestClose();
+        return;
+    }
     sheetOpen.value = open;
     if (open || !historyChild.value || !selectedItem.value) return;
     // 遮罩和下拉手势已收起底层 sheet。先同步关闭状态，再在同一帧返回原历史页。
@@ -320,8 +330,8 @@ async function retryWrites() {
     }
 }
 
-onBeforeRouteLeave(() => {
-    if (saving.value) return false;
+onBeforeRouteLeave(async () => {
+    if (!(await confirmDiscardDrafts())) return false;
     if (scrollHost.value) scroll.value.top = scrollHost.value.scrollTop;
     return true;
 });
@@ -365,7 +375,12 @@ onMounted(() => {
                     重试保存
                 </GlassButton>
             </GlassCard>
-            <div v-if="items.length" class="price-filters" role="group" aria-label="筛选物价">
+            <div
+                v-if="items.length"
+                class="price-filters lg-form-fields"
+                role="group"
+                aria-label="筛选物价"
+            >
                 <GlassSearch
                     ref="search"
                     v-model:value="keyword"
@@ -433,6 +448,7 @@ onMounted(() => {
             :bottom="historySheet"
             :detents="dialog?.kind === 'remove' ? '208' : historySheet ? '536' : '65% large'"
             :no-dismiss="saving || dialog?.kind === 'remove'"
+            :guard-dismiss="hasUnsavedDraft"
             @keydown.esc.capture="onDialogEscape"
             :class="{ 'is-history': dialog?.kind === 'history' }"
             :label="dialogLabel"
@@ -443,12 +459,6 @@ onMounted(() => {
                         {{ selectedItem?.name || '物价历史' }}
                     </h2>
                     <div class="history-tools" @pointerdown.stop>
-                        <GlassButton
-                            size="small"
-                            variant="plain"
-                            :disabled="!selectedItem || !canEdit || saving"
-                            @click="openHistoryPrice()"
-                        >记价</GlassButton>
                         <GlassButton size="small" variant="plain" @click="sheetOpen = false"
                             >关闭</GlassButton
                         >
@@ -521,6 +531,7 @@ onMounted(() => {
                 @update="onUpdateItem"
                 @save="onSavePoint"
                 @cancel="requestClose"
+                @update:dirty="editorDirty = $event"
             />
             <template v-else-if="dialog?.kind === 'price' || dialog?.kind === 'edit-item'">
                 <p class="lg-caption">这件物品已不存在。</p>

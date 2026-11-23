@@ -4,7 +4,6 @@ import AppIcon from '../../components/AppIcon.vue';
 import { usePagination } from '../../composables/use-pagination';
 import { GlassButton } from '../../components/liquid-glass';
 import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
-import PriceActionsMenu from './PriceActionsMenu.vue';
 import TrendChart from '../../components/TrendChart.vue';
 import { changeText, moneyText } from '../../services/format';
 import { chartPrices, pointDelta, sortedPoints, type PricePoint, type ReadonlyPriceItem } from './prices';
@@ -72,7 +71,7 @@ const series = computed(() => [
                             <td class="price-history-action">
                                 <div class="record-actions">
                                     <GlassButton
-                                        class="lg-inline-action"
+                                        class="lg-inline-action record-edit"
                                         size="small"
                                         variant="plain"
                                         :aria-label="`编辑 ${row.point.date} 的价格记录`"
@@ -81,12 +80,16 @@ const series = computed(() => [
                                     >
                                         编辑
                                     </GlassButton>
-                                    <PriceActionsMenu
-                                        record
-                                        :label="`${row.point.date} 的价格记录操作`"
+                                    <GlassButton
+                                        class="lg-inline-action record-remove"
+                                        size="small"
+                                        variant="plain"
+                                        :aria-label="`删除 ${row.point.date} 的价格记录`"
                                         :disabled="editDisabled"
-                                        @remove="emit('remove', row.point)"
-                                    />
+                                        @click="emit('remove', row.point)"
+                                    >
+                                        删除
+                                    </GlassButton>
                                 </div>
                             </td>
                         </tr>
@@ -221,7 +224,14 @@ const series = computed(() => [
 .record-actions {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
+}
+
+/* 删除不再藏在三点菜单里，直接用朱色标出后果。plain 按钮的前景色取自
+ * --glass-foreground，只写 color 会被库的内部规则压掉。 */
+.record-remove {
+    --glass-foreground: var(--liquid-up);
+    color: var(--liquid-up);
 }
 
 .price-history-table [data-tone='up'] {

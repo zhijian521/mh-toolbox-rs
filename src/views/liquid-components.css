@@ -76,52 +76,6 @@
     flex-direction: column;
     gap: 10px;
 }
-.gallery > .material-comparison {
-    grid-column: 1 / -1;
-}
-.material-comparison > header {
-    flex-wrap: wrap;
-}
-.material-choice {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-inline-end: auto;
-    font-size: var(--fs-sm);
-}
-.comparison-pair {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 235px), 1fr));
-    gap: 12px;
-}
-.comparison-pair figure {
-    min-width: 0;
-    margin: 0;
-}
-.comparison-pair figcaption {
-    margin-bottom: 5px;
-    font-size: var(--fs-sm);
-}
-.comparison-stage {
-    display: grid;
-    place-items: center;
-    gap: 14px;
-    padding: 22px 12px;
-    border-radius: 12px;
-    color-scheme: light;
-    --lg-appearance: light;
-    color: var(--liquid-ink);
-    background: url('../../assets/textures/liquid-wallpaper-light.webp') center / cover;
-}
-.comparison-stage[data-tone='dark'] {
-    color-scheme: dark;
-    --lg-appearance: dark;
-    background-image: repeating-linear-gradient(118deg, transparent 0 24px, #adcbdc35 25px, transparent 27px 42px),
-        url('../../assets/textures/liquid-wallpaper-dark.webp');
-}
-.comparison-button {
-    --glass-button-padding: 22px;
-}
 .sample-card {
     width: min(100%, 232px);
 }

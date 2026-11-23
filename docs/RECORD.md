@@ -1,5 +1,24 @@
 # 改动记录
 
+- 2026-11-23：物价编辑器按初值识别草稿，取消、遮罩、Esc、切页和关窗统一确认。旧账导入确认明确整份覆盖及自动备份。日常备份忽略未来时间戳，回拨后恢复 24 小时调度。同步设置页结构、草稿交互、旧账确认和备份回拨的断言，日常未运行验证。
+
+- 2026-11-23：玻璃分支统一使用清透折射，移除对照方案、贴图、着色器和材质切换。组件目录保留可操作的物价卡片，烟测断言调整为公共材质参数。日常档未运行验证。
+
+- 2026-11-23：物价历史弹窗去掉右上角「记价」，新增记录统一回卡片；表格操作列的三点菜单换成两个常显文字按钮「编辑 / 删除」，删除取 `--liquid-up` 朱色（plain 按钮前景要经 `--glass-foreground` 才压得住库内部规则）。`openHistoryPrice()` 仍由行内编辑事件调用，未删；`PriceActionsMenu` 保留给物品卡右上角。烟测 `liquid-shell.mjs` 同步：三处「历史记价」改为从卡片记价或删去（与既有断言重复）、`rowMenu` 换成 `.record-remove`、行内编辑选择器换成 `.record-edit`。实测右上仅「关闭」、操作列无 `glass-menu`、删除弹二次确认且 Esc 取消后记录仍在、编辑打开「编辑价格记录」。日常档未跑全量检查与烟测。
+
+- 2026-11-23：**修好物价历史弹窗打不开**。根因不是弹窗状态，是 `themed()` 的材质循环把 `shadow: undefined` 透传给 `<glass-sheet>`；库把 ShadowRoot 存在实例字段 `this.shadow`，Vue 对自定义元素会把同名属性写成 DOM property，于是 ShadowRoot 被覆盖成 undefined、`connectedCallback` 抛 `adoptedStyleSheets of undefined`，面板停在 0×0。循环里对 sheet 跳过 `shadow`、并统一不传 undefined 的键；材质循环是 09:39 那批通透风格重构新加的，属其回归。实测重载后 `shadow` 恢复为 ShadowRoot、`initialized: true`、面板 1280×860，无 console 异常。`CONVENTIONS.md` 新增第 57 条。
+- 2026-11-23：壁纸选择弹窗四处收尾——删掉「梦幻西游壁纸站 ↗」外链（连带 `openExternal` import、全局唯一的 `WALLPAPER_SITE` 常量与链接样式），翻页移到页脚正中（`justify-content: center`，页脚只在 `pages > 1` 时出现），搜索框复用物价的 `.lg-price-search`（288×32，不再撑满 528px 面板）。缩略图右侧白边是公共 `scrollbar-gutter: stable` 命中 `overflow: hidden` 的卡片、白留 10px 轨道，卡片显式改回 `auto` 后内容宽 158→168、缩略图铺满；第 54 条补了这个例外。实测链接 0 个、翻页中心与页脚中心同为 635、搜索 288×32、缩略图 168。
+
+- 2026-11-23：下拉选择的展开面板改为「小下限 + 按内容自适应」。根因是库在 `open()` 里给 `::part(content)` 内联写 `minWidth: 220px`，短选项也被撑成 220px（触发器才 132px）。`GlassSelect` 的菜单加 `.lg-select-menu`，公共样式用 `!important` 把下限换成 `min(var(--lg-select-menu-min, 132px), 100vw - 16px)`，宽度仍由库的 `width: max-content` 决定、上限保留 320px；三点菜单原有覆盖不变。录入弹窗两列触发器较宽，在 `.price-editor-fields` 覆盖变量为 190px。`CONVENTIONS.md` 新增第 56 条（含「不许从外部写 width」），`LIQUID-GLASS.md` 同步指针。日常档未运行验证。
+
+- 2026-11-23：物价页筛选区的搜索框与两个分类下拉改用已有的「小一号」表单档（`.lg-form-fields`，32px），此前它们吃 `.liquid-app` 的 44px 默认档，比同排的重置按钮高一截。公共类补齐 `--glass-search-height`（原先只给 select / input），并按 32px 等比收小库的放大镜与清除按钮；物价页 `.price-filters` 挂类即可，未新增第三套尺寸，也未改组件目录里刻意陈列的两档示例。`CONVENTIONS.md` 新增第 55 条写明两档口径与「search / GlassSelect 没有 size 属性」，`LIQUID-GLASS.md` 同步指针。日常档未运行验证。
+
+- 2026-11-23：物价页与组件目录的**主滚动条隐藏但保留滚动**。公共样式新增 `.lg-scroll-hidden`，三条声明一次给全（`scrollbar-width: none` / `scrollbar-gutter: auto` / `::-webkit-scrollbar { display: none }`），压过第 51 条给 `.liquid-app` 全后代铺的 thin + stable；普通类选择器避开 `:where()` 的零特异性。物价页挂在外壳 `.liquid-content`（按 `route.name` 判断），组件目录挂在 `.gallery`；设置页与内部独立滚动区（弹窗表格、组件演示）不挂，仍显示细条。`CONVENTIONS.md` 新增第 54 条、第 51 条的例外指向它，`LIQUID-GLASS.md` 同步指针。日常档未运行验证。
+
+- 2026-11-23：承接上批，把「关于」从通栏改为占 grid **一列**（与外观／数据同宽），右边那一格留给后续新增卡片；运行信息与使用许可**不再折叠**，改成同构的清单行。运行信息只留「数据目录」（找账本用得上），字体／标识／数据库／运行环境收掉；许可压成一句「PolyForm Noncommercial 1.0.0 · 禁止商业用途 · 非官方工具」加两个文字链接。`details` / `about-list` / `license-*` 折叠与框样式全部删除，关于卡自身只留字号、字体与链接的例外。日常档未运行验证。
+
+- 2026-11-23：玻璃设置页「关于」改用与外观／数据同一套卡片（`.liquid-settings-panel` + `card-heading` + `liquid-settings-row`），通栏放置，运行信息与许可两列；原先那份纯色浅底 + 12px 圆角是玻璃页里唯一不同材质的卡。数据卡删掉「导入将替换全部账本，替换前自动备份」「最近自动备份 / 保留的快照 / 尚无自动备份」「不可撤销，不会自动备份，请先导出」三段常驻说明，连带从 `useBackups()` 解构里去掉不再使用的 `latestDaily` / `backupsLoaded`；动态错误回执保留。导入、清除、恢复及共用的导入旧版四处二次确认压缩为「一句后果 + 一个动作」，去掉备份流程的自述；导入旧版改在 `settings/import-legacy-ledger.ts`，正式版设置页同步生效。日常档未运行验证。
+
 - 2026-11-23：玻璃界面默认使用清透折射，在隐藏组件目录可切回经典玻璃。两套预设同时用于全局控件和固定对照样例。补充了材质切换与重载的烟测断言，日常未运行。
 
 - 2026-11-23：新增 [Liquid Glass 分支开发指南](LIQUID-GLASS.md)，区分正式版功能与玻璃页面迁移进度，补充玻璃烟测的快照前提。

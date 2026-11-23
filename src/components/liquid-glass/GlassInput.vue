@@ -36,10 +36,6 @@ const value = defineModel<string>();
     color: inherit;
     font: inherit;
 }
-.glass-input:focus-within {
-    outline: 2px solid var(--liquid-focus);
-    outline-offset: 2px;
-}
 .glass-input:has(input:disabled) {
     opacity: 0.55;
 }

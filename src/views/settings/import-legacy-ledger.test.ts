@@ -16,7 +16,13 @@ beforeEach(() => {
 it('在确认前预览差异，取消替换不会写账本', async () => {
     mocks.confirm.mockResolvedValue(false);
     expect(await importLegacyLedger()).toEqual({ status: 'canceled' });
-    expect(mocks.confirm).toHaveBeenCalledWith(expect.objectContaining({ note: expect.stringContaining('需核对分类') }));
+    expect(mocks.confirm).toHaveBeenCalledWith(
+        expect.objectContaining({
+            title: '用旧版数据替换当前账本？',
+            confirmText: '替换并导入',
+            note: expect.stringContaining('需核对分类'),
+        }),
+    );
     expect(mocks.save).not.toHaveBeenCalled();
 });
 

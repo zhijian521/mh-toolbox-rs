@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, useId } from 'vue';
+import { computed, nextTick, onMounted, ref, useId, watch } from 'vue';
 import { GlassButton } from '../../components/liquid-glass';
 import GlassDateField from '../../components/liquid-glass/GlassDateField.vue';
 import GlassInput from '../../components/liquid-glass/GlassInput.vue';
@@ -37,6 +37,7 @@ const emit = defineEmits<{
     update: [draft: PriceItemDraft];
     save: [draft: PricePointDraft];
     cancel: [];
+    'update:dirty': [value: boolean];
 }>();
 
 const fieldId = useId();
@@ -71,6 +72,15 @@ const itemDraft = computed(() => ({
     note: note.value,
 }));
 const priceDraft = computed(() => ({ date: date.value, price: price.value ?? 0, note: note.value }));
+const draftSnapshot = computed(() => {
+    if (recording.value) return JSON.stringify(priceDraft.value);
+    return JSON.stringify({
+        ...itemDraft.value,
+        initialPrice: props.editItem ? 0 : (price.value ?? 0),
+    });
+});
+const initialDraft = draftSnapshot.value;
+watch(draftSnapshot, (snapshot) => emit('update:dirty', snapshot !== initialDraft), { flush: 'sync' });
 const itemErrors = computed(() => itemDraftErrors(itemDraft.value));
 const priceErrors = computed(() => pointDraftErrors(priceDraft.value));
 

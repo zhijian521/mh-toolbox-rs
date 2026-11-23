@@ -12,11 +12,12 @@ watch(pending, (request) => {
 </script>
 
 <template>
+    <!-- 确认框可能叠在底部面板上，交给原生 dialog 管理最上层焦点。 -->
     <GlassDialog
         v-if="content"
         :open="!!pending"
         :label="content.title"
-        detents="medium large"
+        centered
         @update:open="!$event && settle(false)"
     >
         <section class="glass-confirm" @pointerdown.stop>

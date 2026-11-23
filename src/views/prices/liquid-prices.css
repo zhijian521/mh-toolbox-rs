@@ -57,6 +57,8 @@
     --glass-text-shadow: none;
     --icon-size: 14px;
     flex: none;
+    /* 让圆按钮与筛选控件在同一条中线上。筛选行挂了 `.lg-form-fields`，
+     * 两个高度都是 32px，这一项自然算成 0；不写死是为了换回大号档时仍能对齐。 */
     margin-bottom: calc((var(--glass-search-height) - var(--glass-button-height)) / 2);
 }
 
