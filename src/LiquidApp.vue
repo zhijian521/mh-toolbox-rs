@@ -12,6 +12,10 @@ import { hasDesktop } from './services/desktop';
 const props = defineProps<{ items: readonly Pick<NavItem, 'key' | 'label' | 'icon'>[] }>();
 const route = useRoute();
 const router = useRouter();
+const hideContentScrollbar = computed(() => {
+    const name = route.name;
+    return name === 'overview' || name === 'prices' || name === 'components';
+});
 const dockControl = ref<{ el: HTMLElement | null }>();
 const dockPage = computed(() => {
     const name = typeof route.name === 'string' ? route.name : props.items[0]?.key;
@@ -82,12 +86,10 @@ const { appearance, wallpaper, activeImage } = useLiquidPreferences();
     >
         <TitleBar v-if="desktop" />
         <header v-else class="liquid-header">梦幻养老助手</header>
-        <!-- 物价页的主滚动在这层；组件目录自己的 `.gallery` 才是滚动区（也挂同一个类）。
-             设置页不挂，仍显示细滚动条——要统一的后续页面直接补到这个判断里即可。 -->
         <main
             :key="route.name"
             class="liquid-content"
-            :class="{ 'lg-scroll-hidden': route.name === 'prices' || route.name === 'components' }"
+            :class="{ 'lg-scroll-hidden': hideContentScrollbar }"
             aria-label="应用内容"
         >
             <RouterView v-if="route.matched.length" />

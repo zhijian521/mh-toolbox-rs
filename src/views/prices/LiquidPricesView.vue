@@ -267,11 +267,9 @@ function confirmRemoval() {
 async function prepareLinkedPrice(names: string[]) {
     const affected = names.map((name) => name.trim());
     if (!quickItems().fixed.some((item) => affected.includes(item.name))) return true;
-    const { loadIncome, useIncome } = await import('../income/income-store');
+    const { ensureGlassIncomeLoaded, useIncome } = await import('../income/income-store');
     const income = useIncome();
-    if (!income.loaded.value || income.loadError.value) {
-        await loadIncome({ reconcilePrices: false });
-    }
+    await ensureGlassIncomeLoaded();
     if (income.loaded.value && !income.loadError.value) return true;
     editorError.value = '收益账读取失败，暂时无法保存与固定单价关联的物品。';
     return false;

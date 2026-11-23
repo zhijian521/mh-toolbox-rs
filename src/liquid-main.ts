@@ -16,6 +16,7 @@ const items = NAV_ITEMS.map(({ key, path, label, icon }) => ({ key, path, label,
 
 const blankPage = { render: () => null };
 const views = new Map<string, () => Promise<RouteComponent>>([
+    ['overview', () => import('./views/overview/LiquidOverviewView.vue').then((page) => page.default)],
     ['prices', () => import('./views/prices/LiquidPricesView.vue').then((page) => page.default)],
     ['components', () => import('./views/LiquidComponentsView.vue').then((page) => page.default)],
     ['settings', () => import('./views/LiquidSettingsView.vue').then((page) => page.default)],

@@ -200,6 +200,17 @@ export async function loadIncome({ reconcilePrices = true } = {}): Promise<void>
     });
 }
 
+let glassIncomeLoad: Promise<void> | undefined;
+
+/** 总览与物价共用首次读取，避免切页时重复读取覆盖已加载的收益。 */
+export function ensureGlassIncomeLoaded(): Promise<void> {
+    if (loaded.value && !loadError.value) return Promise.resolve();
+    glassIncomeLoad ??= loadIncome({ reconcilePrices: false }).finally(() => {
+        glassIncomeLoad = undefined;
+    });
+    return glassIncomeLoad;
+}
+
 /* 仅同步浏览器同源 localStorage，桌面数据不走此通道。 */
 onLocalDataSync(STORAGE_KEY, { parse: parseStoredIncome, apply: applyLocal, loadError });
 

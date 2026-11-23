@@ -579,6 +579,34 @@ export default async function liquidShell({ cdp, t, ui }) {
         })()`),
     );
 
+    await cdp.click(tab('overview'));
+    await ui.waitFor(ready('overview'));
+    await ui.waitFor(`!!document.querySelector('#overview-workbench-title')`);
+    t.check(
+        '总览读取账本，展示周月统计、趋势、队伍与在途目标',
+        await cdp.evaluate(`(() => {
+            const page = document.querySelector('.liquid-overview');
+            const trend = page.querySelector('.overview-trend');
+            const goals = page.querySelector('.overview-goal-card');
+            const amount = page.querySelector('.workbench-metrics dd');
+            const scrollHost = page.closest('.liquid-content');
+            const plotScroll = trend.querySelector('.chart-scroll');
+            return !page.querySelector('[role="alert"]') &&
+                page.querySelectorAll('.workbench-metrics > div').length === 4 &&
+                page.querySelectorAll('.month-ledger tbody tr').length === 2 &&
+                page.querySelectorAll('.month-ledger td').length === 4 &&
+                goals.querySelectorAll('.overview-goals li').length === goals.querySelectorAll('[role="progressbar"][aria-valuenow]').length &&
+                !!trend.querySelector('.trend, .overview-note') &&
+                !!page.querySelector('#overview-team-title') &&
+                !!goals.querySelector('#overview-goals-title') &&
+                getComputedStyle(amount).color === getComputedStyle(page).color &&
+                getComputedStyle(amount).fontWeight === '400' &&
+                getComputedStyle(scrollHost).scrollbarWidth === 'none' &&
+                (!plotScroll || getComputedStyle(plotScroll).scrollbarWidth === 'none') &&
+                (innerWidth <= 620 || trend.getBoundingClientRect().top === goals.getBoundingClientRect().top);
+        })()`),
+    );
+
     await cdp.click(tab('prices'));
     await ui.waitFor(ready('prices'));
     await checkPrices({ cdp, t, ui });
@@ -595,14 +623,7 @@ export default async function liquidShell({ cdp, t, ui }) {
         t.check('Dock 返回物价恢复原列表位置', await cdp.evaluate(`Math.abs(document.querySelector('.liquid-content').scrollTop - ${scrollTop}) < 1`));
     }
 
-    for (const key of [
-        'overview',
-        'income',
-        'accounts',
-        'characters',
-        'goals',
-        'tools',
-    ]) {
+    for (const key of ['income', 'accounts', 'characters', 'goals', 'tools']) {
         await cdp.click(tab(key));
         await ui.waitFor(ready(key));
         t.check(
