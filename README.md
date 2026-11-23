@@ -4,6 +4,8 @@
 
 [下载安装](https://github.com/zhijian521/mh-toolbox-rs/releases) · [发布说明](docs/RELEASE.md) · [开发文档](docs/README.md) · [架构说明](docs/ARCHITECTURE.md)
 
+本分支正在迁移到 mac 风格的 Liquid Glass 界面。下方截图和功能列表展示正式版；分支预览入口与已接入页面见 [Liquid Glass 开发指南](docs/LIQUID-GLASS.md)。
+
 ## 预览
 
 <table>

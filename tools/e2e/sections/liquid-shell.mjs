@@ -631,6 +631,37 @@ export default async function liquidShell({ cdp, t, ui }) {
             near('.glass-price-field.compact .glass-input', 36);
     })()`));
 
+    const scenes = '.material-comparison .comparison-stage';
+    const startingTone = await cdp.evaluate(`document.querySelector('${scenes}').dataset.tone`);
+    const otherTone = startingTone === 'light' ? 'dark' : 'light';
+    const previewSwitch = '.material-comparison glass-segment';
+    await cdp.click(`${previewSwitch}[value="${otherTone}"]`);
+    await ui.waitFor(`document.querySelectorAll('${scenes}[data-tone="${otherTone}"]').length === 2`);
+    t.check('两组材质切换同一壁纸，应用外观保持原设置', await cdp.evaluate(`
+        document.querySelector('.liquid-app').dataset.appearance === '${startingTone}' &&
+        document.querySelector('${scenes}[data-lens="false"] .price-value').textContent ===
+        document.querySelector('${scenes}[data-lens="true"] .price-value').textContent`));
+    await cdp.click(`${previewSwitch}[value="${startingTone}"]`);
+
+    const initialMaterial = await cdp.evaluate("document.querySelector('.liquid-app').dataset.glassStyle");
+    const savedMaterial = await cdp.evaluate("localStorage.getItem('mh-liquid-material')");
+    const alternate = initialMaterial === 'classic' ? 'lens' : 'classic';
+    const materialOption = (style) => `.material-choice glass-segment[value="${style}"]`;
+    try {
+        await cdp.click(materialOption(alternate));
+        await ui.waitFor(`document.querySelector('.liquid-dock-bar').dataset.glassStyle === '${alternate}'`);
+        await ui.reload();
+        await ui.waitFor(`!!document.querySelector('${scenes} .sample-card')`);
+        t.check('全局材质重载后保留，左右样例始终展示各自的折射参数', await cdp.evaluate(`
+            document.querySelector('.liquid-dock-bar').dataset.glassStyle === '${alternate}' &&
+            !document.querySelector('${scenes}[data-lens="false"] .sample-card').hasAttribute('refraction') &&
+            Number(document.querySelector('${scenes}[data-lens="true"] .sample-card').getAttribute('refraction')) > 0`));
+    } finally {
+        await cdp.click(materialOption(initialMaterial));
+        await ui.waitFor(`document.querySelector('.liquid-dock-bar').dataset.glassStyle === '${initialMaterial}'`);
+        if (savedMaterial === null) await cdp.evaluate("localStorage.removeItem('mh-liquid-material')");
+    }
+
     const demoPrice = '.component-catalog .glass-price-field:not(.compact)';
     await cdp.click(`${demoPrice} [aria-label="加 10 万"]`);
     await ui.waitFor(`document.querySelector('${demoPrice} input').value === '330'`);

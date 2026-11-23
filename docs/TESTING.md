@@ -3,6 +3,8 @@
 默认日常开发不自动运行验证。用户指定测试时选择相关范围；只有明确要求全量检查才执行整套。
 本文维护测试归属、分区选择、场景前置与断言维护规则；触发条件、Windows 环境、运行命令与完整清单以 [AGENTS.md](../AGENTS.md) 为准。
 
+玻璃分支的启动与关窗断言见 [liquid-main.test.ts](../src/liquid-main.test.ts)。指定玻璃真窗口烟测时，先用 `node tools/e2e/db.mjs backup` 快照账本，记下 ID，再用 `start.bat --force debug` 启动并运行 `npm run e2e -- --shell`。该参数直接进入[玻璃场景](../tools/e2e/sections/liquid-shell.mjs)，会跳过常规分区的预检与快照。结束后关闭应用，按 AGENTS.md §五用该 ID 还原，失败时也要还原。
+
 ## 测试放在哪里
 
 | 类型     | 归属                             | 负责什么                                      |

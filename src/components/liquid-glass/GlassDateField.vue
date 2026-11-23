@@ -12,10 +12,10 @@ const triggerId = useId();
 const calendar = ref<InstanceType<typeof DateField> | null>(null);
 
 watch(
-    () => calendar.value?.panel,
-    (panel, _, cleanup) => {
+    [() => calendar.value?.panel, popupGlass],
+    ([panel, options], _, cleanup) => {
         if (!panel) return;
-        const surface = glass(panel, popupGlass);
+        const surface = glass(panel, options);
         cleanup(() => surface.destroy());
     },
     { flush: 'post' },

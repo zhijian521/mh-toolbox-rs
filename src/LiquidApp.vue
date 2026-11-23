@@ -69,13 +69,14 @@ function onDockClick(event: MouseEvent) {
 }
 
 const desktop = hasDesktop();
-const { appearance, wallpaper, activeImage } = useLiquidPreferences();
+const { appearance, material, wallpaper, activeImage } = useLiquidPreferences();
 </script>
 
 <template>
     <div
         class="liquid-app"
         :data-appearance="appearance"
+        :data-glass-style="material"
         :class="{ 'has-online-wallpaper': activeImage }"
         :style="{ '--liquid-wallpaper': `url(${wallpaper})` }"
     >

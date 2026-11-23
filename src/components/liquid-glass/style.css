@@ -17,6 +17,18 @@
     font-family: var(--glass-font);
 }
 
+.lg-component[data-glass-style='lens'] {
+    --lg-content-base: light-dark(#fafffd49, #18262971);
+    --lg-control-backdrop: blur(1.5px);
+}
+
+.liquid-app[data-glass-style='lens'] {
+    --lg-popup-fill: light-dark(rgb(246 251 248 / 0.60), rgb(25 37 34 / 0.72));
+    --lg-dialog-fill: var(--lg-popup-fill);
+    --lg-dialog-blur: 6px;
+    --lg-dialog-shadow: 0 6px 22px rgb(12 28 25 / 0.15), inset 0 1px rgb(255 255 255 / 0.20);
+}
+
 @media not (prefers-reduced-transparency: reduce) {
     :where(glass-switch, glass-slider).lg-component::part(track) {
         backdrop-filter: var(--lg-control-backdrop);

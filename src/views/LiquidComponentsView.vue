@@ -35,7 +35,12 @@ import LiquidPriceCard from './prices/LiquidPriceCard.vue';
 import LiquidPriceEditor from './prices/LiquidPriceEditor.vue';
 import { sortedPoints, type PriceItem, type PricePointDraft } from './prices/prices';
 
-const { wallpaper } = useLiquidPreferences();
+const { wallpaper, appearance, material } = useLiquidPreferences();
+const previewAppearance = ref(appearance.value);
+const samples = [
+    { label: 'A · 经典玻璃', style: 'classic' },
+    { label: 'B · 清透折射', style: 'lens' },
+] as const;
 const day = todayText();
 const sampleDate = ref(day);
 const sampleItem = ref<PriceItem>({
@@ -95,15 +100,42 @@ const observations = [
         <!-- 按组件类型分组，不按业务场景：卡片 / 按钮 / 输入 / 选择 / 容器 / 反馈。 -->
         <div class="gallery">
             <h2>卡片</h2>
-            <section>
-                <header><h3>物价卡片</h3></header>
-                <div class="stage">
-                    <LiquidPriceCard
-                        class="sample-card"
-                        :item="sampleItem"
-                        @history="sheetOpen = true"
-                        @record="editorOpen = true"
-                    />
+            <section class="material-comparison" aria-label="玻璃材质对照">
+                <header>
+                    <h3>玻璃材质对照</h3>
+                    <div class="material-choice">
+                        <span>全局材质</span>
+                        <GlassSegmented v-model:value="material" aria-label="全局玻璃材质">
+                            <GlassSegment value="classic">经典玻璃</GlassSegment>
+                            <GlassSegment value="lens">清透折射</GlassSegment>
+                        </GlassSegmented>
+                    </div>
+                    <GlassSegmented v-model:value="previewAppearance" aria-label="对照背景">
+                        <GlassSegment value="light">浅色壁纸</GlassSegment>
+                        <GlassSegment value="dark">深色壁纸</GlassSegment>
+                    </GlassSegmented>
+                </header>
+                <div class="comparison-pair">
+                    <figure v-for="sample in samples" :key="sample.label">
+                        <figcaption>{{ sample.label }}</figcaption>
+                        <div class="comparison-stage" :data-tone="previewAppearance" :data-lens="sample.style === 'lens'">
+                            <GlassButton
+                                class="comparison-button"
+                                :appearance="previewAppearance"
+                                :material-style="sample.style"
+                                aria-haspopup="dialog"
+                                @click="editorOpen = true"
+                            >记价</GlassButton>
+                            <LiquidPriceCard
+                                class="sample-card"
+                                :appearance="previewAppearance"
+                                :material-style="sample.style"
+                                :item="sampleItem"
+                                @history="sheetOpen = true"
+                                @record="editorOpen = true"
+                            />
+                        </div>
+                    </figure>
                 </div>
             </section>
 

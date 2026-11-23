@@ -7,6 +7,11 @@ import darkWallpaper from '../../assets/textures/liquid-wallpaper-dark.webp';
 const themeKey = 'mh-liquid-appearance';
 const appearance = ref<'light' | 'dark'>(readPreference(themeKey) === 'dark' ? 'dark' : 'light');
 
+export type LiquidMaterial = 'classic' | 'lens';
+const materialKey = 'mh-liquid-material';
+const material = ref<LiquidMaterial>(readPreference(materialKey) === 'classic' ? 'classic' : 'lens');
+watch(material, (value) => writePreference(materialKey, value));
+
 const wallpaperKey = 'mh-liquid-wallpaper';
 const saved = readPreference(wallpaperKey) ?? '';
 const selectedWallpaper = ref(isWallpaperUrl(saved) ? saved : '');
@@ -69,6 +74,7 @@ watch(appearance, (value) => writePreference(themeKey, value));
 export function useLiquidPreferences() {
     return {
         appearance,
+        material,
         wallpaper,
         activeImage,
         selectedWallpaper,

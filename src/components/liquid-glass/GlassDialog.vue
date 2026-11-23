@@ -99,9 +99,9 @@ function dismiss() {
     border: 1px solid light-dark(#ffffffbb, #c5dad849);
     border-radius: 20px;
     color: var(--liquid-ink);
-    background: light-dark(rgb(245 252 249 / 0.66), rgb(21 34 35 / 0.74));
-    box-shadow: 0 16px 54px rgb(12 28 25 / 0.19), inset 0 1px rgb(255 255 255 / 0.13);
-    backdrop-filter: blur(10px);
+    background: var(--lg-dialog-fill, light-dark(rgb(245 252 249 / 0.66), rgb(21 34 35 / 0.74)));
+    box-shadow: var(--lg-dialog-shadow, 0 16px 54px rgb(12 28 25 / 0.19), inset 0 1px rgb(255 255 255 / 0.13));
+    backdrop-filter: blur(var(--lg-dialog-blur, 10px));
     font: inherit;
 }
 .glass-dialog::backdrop {
