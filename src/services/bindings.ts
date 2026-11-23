@@ -36,6 +36,7 @@ export const commands = {
 	fengyaoStatus: () => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_status"),
 	fengyaoStart: (config: WatchConfig) => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_start", { config }),
 	fengyaoStop: () => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_stop"),
+	fengyaoUpdate: (reminders: ReminderFilter[]) => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_update", { reminders }),
 	fengyaoCapture: (hwnd: number) => __TAURI_INVOKE<WindowShot>("fengyao_capture", { hwnd }),
 	/**
 	 *  列出可见窗口，供前端选择要监听哪一个。
@@ -543,6 +544,13 @@ export type QuickPrice = {
 	price: number | null,
 };
 
+export type ReminderFilter = {
+	kind: ReminderKind,
+	scenes: string[],
+};
+
+export type ReminderKind = "fengyao" | "yaowang" | "yecha" | "yiguan";
+
 /**
  *  关注区域，**按客户区像素**表达，不用归一化比例。
  * 
@@ -634,9 +642,22 @@ export type SceneRule = {
 	aliases: string[],
 };
 
-export type SpawnAlert = {
+export type SpawnAlert = SpawnAlert_Serialize | SpawnAlert_Deserialize;
+
+export type SpawnAlert_Deserialize = {
 	id: string,
+	kind: ReminderKind,
 	scene: string,
+	coordinates?: string | null,
+	text: string,
+	at: number,
+};
+
+export type SpawnAlert_Serialize = {
+	id: string,
+	kind: ReminderKind,
+	scene: string,
+	coordinates: string | null,
 	text: string,
 	at: number,
 };
@@ -675,7 +696,7 @@ export type Value = null | boolean | number | string | Value[] | { [key in strin
 
 export type WatchConfig = {
 	hwnd: number,
-	scenes: string[],
+	reminders: ReminderFilter[],
 	region: MessageRegion,
 };
 
@@ -691,7 +712,7 @@ export type WatchStatus_Deserialize = {
 	checkedAt: number,
 	ocrMs: number,
 	baselineReady: boolean,
-	alerts: SpawnAlert[],
+	alerts: SpawnAlert_Deserialize[],
 	notificationError: string,
 	rules: Rules,
 };
@@ -706,7 +727,7 @@ export type WatchStatus_Serialize = {
 	checkedAt: number,
 	ocrMs: number,
 	baselineReady: boolean,
-	alerts: SpawnAlert[],
+	alerts: SpawnAlert_Serialize[],
 	notificationError: string,
 	rules: Rules,
 };

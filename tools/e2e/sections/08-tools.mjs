@@ -24,7 +24,7 @@ export default async function run(ctx) {
             t.check('回到工具列表', back, await ui.hash());
         });
 
-        await t.step('封妖助手：简洁首屏与切页继续监听', async () => {
+        await t.step('提醒助手：简洁首屏与切页继续监听', async () => {
             // IPC 替身只验证页面生命周期，不开始或停止用户正在使用的游戏监听。
             const stubbed = await cdp.evaluate(`(async () => {
                 const internals = window.__TAURI_INTERNALS__;
@@ -34,20 +34,20 @@ export default async function run(ctx) {
                 const fake = {
                     ...actual, running: false, baselineReady: true, error: '',
                     config: {
-                        hwnd: 1, scenes: ['柳林坡'],
+                        hwnd: 1, reminders: [{ kind: 'fengyao', scenes: ['柳林坡'] }],
                         region: { x: 0, y: 0, width: 400, height: 100,
                             frameWidth: 800, frameHeight: 600 },
                     },
                     text: ['E2E 识别原文'],
                     alerts: Array.from({ length: 4 }, (_, i) => ({
-                        id: 'e2e-' + i, scene: '麒麟山', at: Date.now() - i * 1000,
+                        id: 'e2e-' + i, kind: 'yiguan', scene: '大唐国境', coordinates: '321,123', at: Date.now() - i * 1000,
                         text: 'E2E 公告正文',
                     })),
                 };
                 window.__e2eFengyao = {
                     invoke, fake, config: fake.config,
                     preference: localStorage.getItem('mh-fengyao-preferences'),
-                    stopCalls: 0, statusCalls: 0,
+                    stopCalls: 0, statusCalls: 0, updateCalls: 0,
                 };
                 fake.config = null;
                 localStorage.setItem('mh-fengyao-preferences', JSON.stringify({
@@ -65,6 +65,12 @@ export default async function run(ctx) {
                         return Promise.resolve({ image: '', title: '梦幻西游 聊天窗口',
                             width: 800, height: 600 });
                     }
+                    if (cmd === 'fengyao_update') {
+                        window.__e2eFengyao.updateCalls += 1;
+                        fake.config = { ...fake.config, reminders: rest[0].reminders };
+                        fake.running = fake.config.reminders.length > 0;
+                        return Promise.resolve(fake);
+                    }
                     if (cmd === 'fengyao_stop' || cmd === 'fengyao_start') {
                         window.__e2eFengyao.stopCalls += 1;
                         return Promise.reject(new Error('页面进出不应控制监听'));
@@ -77,25 +83,26 @@ export default async function run(ctx) {
             try {
                 await cdp.evaluate(`location.hash = '#/tools/fengyao'`);
                 const loaded = await cdp.waitFor(
-                    `document.querySelectorAll('.fy-scene').length > 0`,
+                    `document.querySelectorAll('.fy-type').length === 4 &&
+                        !document.querySelector('[aria-label="开始公告监听"]').disabled`,
                     { timeout: 5000 },
                 );
                 t.check(
-                    '提醒场景直接展示，默认全部关闭',
+                    '四种提醒独立设置，保留旧设置的主动全关',
                     loaded &&
                         (await cdp.evaluate(`
-                    !document.querySelector('.fy-scenes').closest('details') &&
-                    [...document.querySelectorAll('.fy-scene .cost-switch')].every(s =>
+                    document.querySelectorAll('.fy-type-button[aria-expanded="false"]').length === 4 &&
+                    [...document.querySelectorAll('.fy-type .cost-switch')].every(s =>
                         s.classList.contains('off')) &&
-                    !document.querySelector('[aria-label="开始封妖监听"]').disabled
+                    !document.querySelector('[aria-label="开始公告监听"]').disabled
                 `)),
                 );
-                await ui.clickLabel('开始封妖监听');
+                await ui.clickLabel('开始公告监听');
                 t.check(
-                    '无地图时点击开始给出明确原因',
+                    '未开启类型时提示配置',
                     await cdp.evaluate(`
                     [...document.querySelectorAll('[role="alert"]')].some(el =>
-                        el.textContent.includes('请先开启至少一个提醒地图'))
+                        el.textContent.includes('请先开启至少一种提醒'))
                 `),
                 );
                 t.check(
@@ -106,14 +113,16 @@ export default async function run(ctx) {
                     !document.querySelector('[aria-label="打开官网封妖等级规则"]')
                 `),
                 );
-                await cdp.click('[aria-label="柳林坡刷妖提醒"] [role="radio"]:last-child');
+                await cdp.click('[aria-label="封妖提醒"] [role="radio"]:last-child');
+                await cdp.click('.fy-type:first-child .fy-type-button');
+                await ui.clickText('#fy-maps-fengyao button', '柳林坡');
                 t.check(
-                    '场景可手动开启，不受等级筛选',
+                    '封妖可以单独开启并选择地图',
                     await cdp.evaluate(`
-                    !document.querySelector('[aria-label="柳林坡刷妖提醒"]').classList.contains('off')
+                    !document.querySelector('[aria-label="封妖提醒"]').classList.contains('off')
                 `),
                 );
-                await ui.clickLabel('开始封妖监听');
+                await ui.clickLabel('开始公告监听');
                 t.check(
                     '首次开始引导框选，完成后可直接监听',
                     await cdp.evaluate(`
@@ -123,13 +132,13 @@ export default async function run(ctx) {
                 );
                 await cdp.evaluate(`location.hash = '#/tools'`);
                 await ui.waitFor(`!document.querySelector('.fengyao')`);
-                await ui.clickText('button, a', '封妖助手');
-                await ui.waitFor(`!!document.querySelector('.fy-scenes')`);
+                await ui.clickText('button, a', '提醒助手');
+                await ui.waitFor(`!!document.querySelector('.fy-types')`);
                 t.check(
                     '页面重新创建后恢复手动地图选择',
                     await cdp.evaluate(`
-                    !document.querySelector('[aria-label="柳林坡刷妖提醒"]').classList.contains('off') &&
-                    JSON.parse(localStorage.getItem('mh-fengyao-preferences')).scenes.includes('柳林坡')
+                    !document.querySelector('[aria-label="封妖提醒"]').classList.contains('off') &&
+                    JSON.parse(localStorage.getItem('mh-fengyao-preferences')).reminders.find(x => x.kind === 'fengyao').scenes.includes('柳林坡')
                 `),
                 );
                 await cdp.evaluate(`(() => {
@@ -141,8 +150,8 @@ export default async function run(ctx) {
                     location.hash = '#/tools';
                 })()`);
                 await ui.waitFor(`!document.querySelector('.fengyao')`);
-                await ui.clickText('button, a', '封妖助手');
-                await ui.waitFor(`!!document.querySelector('.fy-scenes')`);
+                await ui.clickText('button, a', '提醒助手');
+                await ui.waitFor(`!!document.querySelector('.fy-types')`);
                 await ui.clickLabel('截取游戏画面并框选系统消息区域');
                 await ui.waitFor(`!!document.querySelector('.fy-adjust')`);
                 t.check(
@@ -154,7 +163,8 @@ export default async function run(ctx) {
                 );
                 await cdp.click('.fy-adjust summary');
                 await ui.fill('选区上边距', '55');
-                await cdp.click('[aria-label="柳林坡刷妖提醒"] [role="radio"]:first-child');
+                await cdp.click('.fy-type:first-child .fy-type-button');
+                await ui.clickText('#fy-maps-fengyao button', '全部地图');
                 t.check(
                     '切换提醒地图保留原选区，未确认的修改留在草稿',
                     await cdp.evaluate(`
@@ -168,7 +178,7 @@ export default async function run(ctx) {
                     location.hash = '#/tools';
                 `);
                 await ui.waitFor(`!document.querySelector('.fengyao')`);
-                await ui.clickText('button, a', '封妖助手');
+                await ui.clickText('button, a', '提醒助手');
                 await ui.waitFor(
                     `document.querySelector('.fy-status')?.textContent.includes('监听中')`,
                 );
@@ -188,11 +198,32 @@ export default async function run(ctx) {
                 `),
                 );
                 t.check(
-                    '最近提醒最多展示三条，不展开公告正文',
-                    (await ui.count('.fy-alerts .fy-alert-tile.press-tile.still')) === 3 &&
-                        !(await cdp.evaluate(
-                            `document.querySelector('.fy-alerts').textContent.includes('E2E 公告正文')`,
-                        )),
+                    '最近提醒展示类型和坐标，按需展开原文',
+                    await cdp.evaluate(`
+                        document.querySelectorAll('.fy-reminders .fy-reminder').length === 3 &&
+                        document.querySelector('.fy-reminder summary').textContent.includes('衣冠古丘') &&
+                        document.querySelector('.fy-reminder summary').textContent.includes('321,123') &&
+                        !document.querySelector('.fy-reminder').open
+                    `),
+                );
+                await cdp.click('.fy-reminder summary');
+                t.check(
+                    '展开一条提醒显示对应原文',
+                    await cdp.evaluate(`
+                    document.querySelector('.fy-reminder[open] .fy-transcript').textContent === 'E2E 公告正文'
+                `),
+                );
+                await cdp.click('[aria-label="梦魇夜叉提醒"] [role="radio"]:last-child');
+                await ui.waitFor(
+                    `window.__e2eFengyao.updateCalls === 1 && !document.querySelector('[aria-label="梦魇夜叉提醒"]').classList.contains('off')`,
+                );
+                t.check(
+                    '监听中开启夜叉保留封妖，并且复用当前任务',
+                    await cdp.evaluate(`
+                    window.__e2eFengyao.fake.running && window.__e2eFengyao.stopCalls === 0 &&
+                    window.__e2eFengyao.fake.config.reminders.some(x => x.kind === 'fengyao') &&
+                    window.__e2eFengyao.fake.config.reminders.some(x => x.kind === 'yecha')
+                `),
                 );
                 await ui.clickLabel('返回工具列表');
                 await ui.waitFor(
@@ -202,7 +233,7 @@ export default async function run(ctx) {
                     '离开页面没有停止后台监听',
                     await cdp.evaluate('window.__e2eFengyao.stopCalls === 0'),
                 );
-                await ui.clickText('button, a', '封妖助手');
+                await ui.clickText('button, a', '提醒助手');
                 await ui.waitFor(
                     `document.querySelector('.fy-status')?.textContent.includes('监听中')`,
                 );
@@ -210,8 +241,8 @@ export default async function run(ctx) {
                     '回来读取后台状态，保留手动选择与选区',
                     await cdp.evaluate(`
                     window.__e2eFengyao.statusCalls >= 2 &&
-                    !document.querySelector('[aria-label="柳林坡刷妖提醒"]').classList.contains('off') &&
-                    !document.querySelector('[aria-label="停止封妖监听"]').disabled
+                    !document.querySelector('[aria-label="封妖提醒"]').classList.contains('off') &&
+                    !document.querySelector('[aria-label="停止公告监听"]').disabled
                 `),
                 );
             } finally {

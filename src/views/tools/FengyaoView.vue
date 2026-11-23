@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import ToolPageShell from './ToolPageShell.vue';
 import PaperCard from '../../components/PaperCard.vue';
 import PressButton from '../../components/PressButton.vue';
@@ -8,40 +8,61 @@ import NumberField from '../../components/NumberField.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import GroupHead from '../../components/GroupHead.vue';
 import AppIcon from '../../components/AppIcon.vue';
-import PressTile from '../../components/PressTile.vue';
+import { GlassSwitch } from '../../components/liquid-glass';
+import GlassInput from '../../components/liquid-glass/GlassInput.vue';
+import { glassLedger } from '../../components/glass-ledger';
+import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import { hasDesktop } from '../../services/desktop';
-import { listGhostWindows, type GhostWindow } from '../../services/ghost';
+import type { GhostWindow } from '../../services/ghost';
 import {
+    activeReminders,
     captureFengyaoWindow,
+    defaultReminders,
     fengyaoStatus,
+    fengyaoRegionMatchesFrame,
+    listFengyaoWindows,
+    parseReminderMaps,
+    reminderLabels,
     startFengyao,
     stopFengyao,
+    updateFengyao,
     isMessageRegion,
     readFengyaoPreferences,
     saveFengyaoPreferences,
+    wholeFengyaoFrame,
+    type FengyaoPreferences,
     type MessageRegion,
     type WatchStatus,
     type WindowShot,
 } from '../../services/fengyao';
+import type { ReminderKind } from '../../services/bindings';
 import { timeText } from '../../services/clock';
 
 /** 区域校准与当前回执；持续捕获、解析、去重和系统提醒均由宿主负责。 */
 const desktop = hasDesktop();
+const glass = inject(glassLedger, null);
+const card = glass?.card ?? PaperCard;
+const cardProps = glass ? { radius: 16 } : { plain: true };
 const remembered = readFengyaoPreferences();
 const preferences = remembered.ok ? remembered.value : null;
 const preferenceError = ref(remembered.ok ? '' : remembered.error);
 const windows = ref<GhostWindow[]>([]);
 const hwnd = ref('');
-const scenes = ref<string[]>(preferences?.scenes ?? []);
+type ReminderSetting = FengyaoPreferences['reminders'][number];
+const reminders = ref(preferences?.reminders ?? defaultReminders());
+const expanded = ref<ReminderKind | null>(null);
+const mapInput = ref('');
 const status = ref<WatchStatus | null>(null);
 const shot = ref<WindowShot | null>(null);
 const calibrationOpen = ref(false);
+const calibrationHeading = ref<HTMLElement | null>(null);
 const startAfterSelection = ref(false);
 const region = ref<MessageRegion | null>(null);
+const draftRegion = ref<MessageRegion | null>(null);
 const busy = ref(false);
 const error = ref('');
 const statusError = ref('');
-const preferencePending = ref<{ windowTitle: string; region: MessageRegion } | null>(null);
+const preferencePending = ref<{ windowTitle: string; region: MessageRegion | null } | null>(null);
 let timer: ReturnType<typeof setInterval> | undefined;
 let disposed = false;
 let polling = false;
@@ -53,6 +74,7 @@ const windowOptions = computed(() =>
 );
 const sceneRules = computed(() => status.value?.rules.scenes ?? []);
 const validRegion = computed(() => isMessageRegion(region.value));
+const validDraftRegion = computed(() => isMessageRegion(draftRegion.value));
 const recentAlerts = computed(() => status.value?.alerts.slice(0, 3) ?? []);
 const stateText = computed(() => {
     if (!desktop) return '请在桌面应用中使用';
@@ -62,7 +84,7 @@ const stateText = computed(() => {
     return status.value?.baselineReady ? '监听中 · 新公告符合条件时提醒' : '正在建立消息基线';
 });
 const selectionStyle = computed(() => {
-    const r = region.value;
+    const r = draftRegion.value;
     if (!r) return {};
     return {
         left: `${(r.x / r.frameWidth) * 100}%`,
@@ -75,9 +97,7 @@ const selectionStyle = computed(() => {
 watch(
     hwnd,
     () => {
-        startAfterSelection.value = false;
-        calibrationOpen.value = false;
-        shot.value = null;
+        closeCalibration();
         const title = windows.value.find((window) => String(window.hwnd) === hwnd.value)?.title;
         const saved = readFengyaoPreferences();
         const calibration = preferencePending.value ?? (saved.ok ? saved.value : null);
@@ -90,10 +110,18 @@ watch(
     { flush: 'sync' },
 );
 
+watch(
+    calibrationOpen,
+    (open) => {
+        if (open && glass) calibrationHeading.value?.focus();
+    },
+    { flush: 'post' },
+);
+
 async function refreshWindows() {
-    const found = await listGhostWindows();
+    const found = await listFengyaoWindows();
     if (disposed) return;
-    windows.value = found.filter((w) => /梦幻西游|mhtab/i.test(w.title));
+    windows.value = found;
     if (windows.value.some((w) => String(w.hwnd) === hwnd.value)) return;
     const saved = readFengyaoPreferences();
     const title = saved.ok ? saved.value?.windowTitle : undefined;
@@ -124,16 +152,25 @@ async function act(action: () => Promise<void>) {
     }
 }
 
+function openCalibration(image: WindowShot, start = false) {
+    shot.value = image;
+    draftRegion.value = fengyaoRegionMatchesFrame(region.value, image) ? { ...region.value } : null;
+    startAfterSelection.value = start;
+    calibrationOpen.value = true;
+}
+
+function closeCalibration() {
+    calibrationOpen.value = false;
+    startAfterSelection.value = false;
+    shot.value = null;
+    draftRegion.value = null;
+    anchor = null;
+}
+
 async function capture() {
     await act(async () => {
-        startAfterSelection.value = false;
         const image = await captureFengyaoWindow(Number(hwnd.value));
-        if (disposed) return;
-        shot.value = image;
-        if (region.value?.frameWidth !== image.width || region.value.frameHeight !== image.height) {
-            region.value = null;
-        }
-        calibrationOpen.value = true;
+        if (!disposed) openCalibration(image);
     });
 }
 
@@ -161,7 +198,7 @@ function beginSelection(event: PointerEvent) {
 function moveSelection(event: PointerEvent) {
     if (!anchor || !shot.value) return;
     const to = point(event);
-    region.value = {
+    draftRegion.value = {
         x: Math.min(anchor.x, to.x),
         y: Math.min(anchor.y, to.y),
         width: Math.abs(to.x - anchor.x),
@@ -175,55 +212,95 @@ function endSelection() {
     anchor = null;
 }
 
-function toggleScene(name: string, enabled: boolean) {
-    scenes.value = enabled ? [...scenes.value, name] : scenes.value.filter((s) => s !== name);
+function expandReminder(setting: ReminderSetting) {
+    expanded.value = expanded.value === setting.kind ? null : setting.kind;
+    mapInput.value = setting.scenes.join('、');
+}
+
+async function changeReminder(
+    setting: ReminderSetting,
+    patch: Partial<Omit<ReminderSetting, 'kind'>>,
+) {
+    const next = reminders.value.map((entry) =>
+        entry.kind === setting.kind ? { ...entry, ...patch } : entry,
+    );
+    if (running.value) status.value = await updateFengyao(activeReminders(next));
+    reminders.value = next;
     savePreferences();
 }
 
-function savePreferences(saveRegion = false) {
+function toggleScene(setting: ReminderSetting, name: string) {
+    return act(() =>
+        changeReminder(setting, {
+            scenes: setting.scenes.includes(name)
+                ? setting.scenes.filter((scene) => scene !== name)
+                : [...setting.scenes, name],
+        }),
+    );
+}
+
+function applyMaps(setting: ReminderSetting) {
+    return act(async () => {
+        const scenes = parseReminderMaps(mapInput.value);
+        await changeReminder(setting, { scenes });
+        if (expanded.value === setting.kind) mapInput.value = scenes.join('、');
+    });
+}
+
+function selectWindow(value: string) {
+    hwnd.value = value;
+    savePreferences(true);
+}
+
+function useWholeWindow() {
+    region.value = null;
+    closeCalibration();
+    savePreferences(true);
+}
+
+function savePreferences(saveWindow = false) {
     const windowTitle = windows.value.find((window) => String(window.hwnd) === hwnd.value)?.title;
-    if (saveRegion && windowTitle && isMessageRegion(region.value)) {
-        preferencePending.value = { windowTitle, region: { ...region.value } };
+    if (saveWindow && windowTitle) {
+        preferencePending.value = { windowTitle, region: region.value && { ...region.value } };
     }
     const stored = readFengyaoPreferences();
     if (!stored.ok) {
         preferenceError.value = stored.error;
         return;
     }
-    // 场景开关只更新场景，窗口与区域以最后一次确认的校准为准。
+    // 自动选中的窗口仅作首选项，变更场景时保留已有窗口和确认过的选区。
     const calibration = preferencePending.value ?? stored.value;
+    const initialWindow = glass && !calibrationOpen.value ? windowTitle : undefined;
     const saved = saveFengyaoPreferences({
-        scenes: [...scenes.value],
-        windowTitle: calibration?.windowTitle ?? '',
+        reminders: reminders.value,
+        windowTitle: calibration?.windowTitle || initialWindow || '',
         region: calibration?.region ?? null,
     });
     if (saved) preferencePending.value = null;
     preferenceError.value = saved ? '' : '设置保存失败，可重试';
 }
 
-async function beginWatching() {
-    if (!desktop) throw new Error('请在桌面应用中开始监听');
-    if (!scenes.value.length) throw new Error('请先开启至少一个提醒地图');
-    if (!hwnd.value) throw new Error('请先选择游戏窗口');
-    if (!isMessageRegion(region.value)) throw new Error('请框选完整系统消息区域');
+async function beginWatching(frame: MessageRegion, customRegion: MessageRegion | null) {
     status.value = await startFengyao({
         hwnd: Number(hwnd.value),
-        scenes: [...scenes.value],
-        region: { ...region.value },
+        reminders: activeReminders(reminders.value),
+        region: frame,
     });
-    calibrationOpen.value = false;
-    startAfterSelection.value = false;
+    region.value = customRegion;
+    closeCalibration();
     savePreferences(true);
 }
 
 async function completeSelection() {
     await act(async () => {
-        if (!isMessageRegion(region.value)) throw new Error('请框选完整系统消息区域');
+        if (!isMessageRegion(draftRegion.value)) throw new Error('请框选完整系统消息区域');
+        const selected = { ...draftRegion.value };
         if (startAfterSelection.value) {
-            await beginWatching();
+            await beginWatching(selected, selected);
             return;
         }
-        calibrationOpen.value = false;
+        region.value = selected;
+        closeCalibration();
         savePreferences(true);
     });
 }
@@ -234,25 +311,20 @@ async function toggle() {
             status.value = await stopFengyao();
             return;
         }
-        if (!scenes.value.length) throw new Error('请先开启至少一个提醒地图');
+        if (!activeReminders(reminders.value).length) throw new Error('请先开启至少一种提醒');
         await refreshWindows();
         if (disposed) return;
         if (!hwnd.value) throw new Error('请先选择游戏窗口，未找到时请打开游戏后刷新');
         const image = await captureFengyaoWindow(Number(hwnd.value));
         if (disposed) return;
-        // 保存的相对选区只在同尺寸下复用，不能把旧窗口句柄或缩放带入新监听。
-        if (
-            !isMessageRegion(region.value) ||
-            region.value.frameWidth !== image.width ||
-            region.value.frameHeight !== image.height
-        ) {
-            shot.value = image;
-            region.value = null;
-            startAfterSelection.value = true;
-            calibrationOpen.value = true;
-            return;
+        const selected = region.value;
+        if (glass && !selected) {
+            await beginWatching(wholeFengyaoFrame(image), null);
+        } else if (fengyaoRegionMatchesFrame(selected, image)) {
+            await beginWatching(selected, selected);
+        } else {
+            openCalibration(image, true);
         }
-        await beginWatching();
     });
 }
 
@@ -262,12 +334,26 @@ function acceptStatus(next: WatchStatus) {
     statusError.value = '';
     if (!previous) {
         const allowed = new Set(next.rules.scenes.map((scene) => scene.name));
-        scenes.value = scenes.value.filter((name) => allowed.has(name));
+        const fengyao = reminders.value.find(({ kind }) => kind === 'fengyao');
+        if (fengyao?.scenes.length) {
+            fengyao.scenes = fengyao.scenes.filter((name) => allowed.has(name));
+            if (!fengyao.scenes.length) fengyao.enabled = false;
+        }
     }
     if (!previous?.running && next.running && next.config) {
         hwnd.value = String(next.config.hwnd);
-        region.value = { ...next.config.region };
-        scenes.value = [...next.config.scenes];
+        const frame = next.config.region;
+        const whole =
+            frame.x === 0 &&
+            frame.y === 0 &&
+            frame.width === frame.frameWidth &&
+            frame.height === frame.frameHeight;
+        region.value = glass && whole ? null : { ...frame };
+        const active = next.config.reminders;
+        reminders.value = reminders.value.map((setting) => {
+            const filter = active.find(({ kind }) => kind === setting.kind);
+            return { ...setting, enabled: !!filter, scenes: filter?.scenes ?? setting.scenes };
+        });
     }
 }
 
@@ -287,7 +373,7 @@ async function poll() {
 
 onMounted(async () => {
     if (!desktop) return;
-    await refreshWindows();
+    await act(refreshWindows);
     await poll();
     if (!disposed) timer = setInterval(() => void poll(), 1200);
 });
@@ -299,23 +385,24 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <ToolPageShell title="封妖助手" desc="系统公告 · 场景提醒">
+    <ToolPageShell title="提醒助手" desc="游戏系统公告">
         <template #actions>
             <PressButton
+                class="fy-listen-action"
                 :icon="running ? 'stop' : 'play'"
                 :text="running ? '停止监听' : '开始监听'"
-                :label="running ? '停止封妖监听' : '开始封妖监听'"
+                :label="running ? '停止公告监听' : '开始公告监听'"
                 seal
                 :disabled="busy || !desktop || !status"
                 @click="toggle"
             />
         </template>
-        <div class="fengyao">
+        <div class="fengyao" :class="{ 'fy-glass': glass, 'fy-calibrating': calibrationOpen }">
             <div class="fy-status-row">
                 <p class="fy-status" role="status" :class="{ live: running && !status?.error }">
                     {{ stateText }}
                 </p>
-                <p class="note">应用运行时持续监听。</p>
+                <p v-if="!glass" class="note">应用运行时持续监听。</p>
             </div>
             <p v-if="error" class="note danger-text" role="alert">{{ error }}</p>
             <p v-if="statusError" class="note danger-text" role="alert">{{ statusError }}</p>
@@ -332,16 +419,26 @@ onBeforeUnmount(() => {
                 {{ status.notificationError }}
             </p>
 
-            <PaperCard plain class="fy-settings">
+            <component :is="card" v-bind="cardProps" class="fy-settings">
                 <div class="fy-card-head">
                     <GroupHead as="h3">监听设置</GroupHead>
-                    <span class="meta">已开启 {{ scenes.length }} 个场景</span>
                 </div>
-                <div class="fy-fields">
+                <div class="fy-fields" :class="{ 'lg-form-fields': glass }">
                     <div class="form-field">
                         <span>游戏窗口</span>
                         <div class="fy-window-control">
+                            <GlassSelect
+                                v-if="glass"
+                                :model-value="hwnd"
+                                class="fy-window-select"
+                                @update:model-value="selectWindow"
+                                :options="windowOptions"
+                                label="监听的游戏窗口"
+                                :disabled="running || busy"
+                                hide-label
+                            />
                             <SelectField
+                                v-else
                                 v-model="hwnd"
                                 :options="windowOptions"
                                 label="监听的游戏窗口"
@@ -356,7 +453,26 @@ onBeforeUnmount(() => {
                             />
                         </div>
                     </div>
-                    <div class="form-field">
+                    <div v-if="glass" class="form-field">
+                        <span>监听范围</span>
+                        <div class="fy-scope-control">
+                            <span>{{ validRegion ? '自定义选区' : '整个窗口' }}</span>
+                            <PressButton
+                                :text="validRegion ? '重新框选' : '框选区域'"
+                                label="截取游戏画面并框选系统消息区域"
+                                :disabled="running || busy || !hwnd"
+                                @click="capture"
+                            />
+                            <PressButton
+                                v-if="validRegion"
+                                text="用整个窗口"
+                                label="改用整个游戏窗口"
+                                :disabled="running || busy"
+                                @click="useWholeWindow"
+                            />
+                        </div>
+                    </div>
+                    <div v-else class="form-field">
                         <span
                             >系统消息区域
                             <small class="meta">{{
@@ -371,36 +487,150 @@ onBeforeUnmount(() => {
                         />
                     </div>
                 </div>
-                <div class="fy-scenes" role="group" aria-label="提醒场景">
-                    <div v-for="scene in sceneRules" :key="scene.name" class="fy-scene">
-                        <span>{{ scene.name }}</span>
-                        <CostSwitch
-                            :model-value="scenes.includes(scene.name)"
-                            off-label="关"
-                            on-label="开"
-                            :label="`${scene.name}刷妖提醒`"
-                            :disabled="running || busy"
-                            @update:model-value="toggleScene(scene.name, $event)"
+                <section class="fy-types" aria-label="提醒类型">
+                    <div v-for="setting in reminders" :key="setting.kind" class="fy-type">
+                        <div class="fy-type-row">
+                            <button
+                                type="button"
+                                class="fy-type-button"
+                                :aria-expanded="expanded === setting.kind"
+                                :aria-controls="`fy-maps-${setting.kind}`"
+                                @click="expandReminder(setting)"
+                            >
+                                <span>{{ reminderLabels[setting.kind] }}</span>
+                                <span class="meta">{{
+                                    setting.scenes.length
+                                        ? `已选 ${setting.scenes.length} 个地图`
+                                        : '全部地图'
+                                }}</span>
+                                <AppIcon
+                                    :name="
+                                        expanded === setting.kind ? 'chevron-down' : 'chevron-right'
+                                    "
+                                />
+                            </button>
+                            <GlassSwitch
+                                v-if="glass"
+                                :checked="setting.enabled"
+                                :aria-label="`${reminderLabels[setting.kind]}提醒`"
+                                :disabled="busy || !status"
+                                @update:checked="
+                                    act(() => changeReminder(setting, { enabled: $event }))
+                                "
+                            />
+                            <CostSwitch
+                                v-else
+                                :model-value="setting.enabled"
+                                :label="`${reminderLabels[setting.kind]}提醒`"
+                                :disabled="busy || !status"
+                                off-label="关"
+                                on-label="开"
+                                @update:model-value="
+                                    act(() => changeReminder(setting, { enabled: $event }))
+                                "
+                            />
+                        </div>
+                        <div
+                            v-show="expanded === setting.kind"
+                            :id="`fy-maps-${setting.kind}`"
+                            class="fy-map-settings"
+                        >
+                            <div
+                                v-if="expanded === setting.kind && setting.kind === 'fengyao'"
+                                class="fy-map-grid"
+                                role="group"
+                                aria-label="封妖地图"
+                            >
+                                <button
+                                    type="button"
+                                    :aria-pressed="!setting.scenes.length"
+                                    :disabled="busy || !status"
+                                    @click="act(() => changeReminder(setting, { scenes: [] }))"
+                                >
+                                    全部地图
+                                </button>
+                                <button
+                                    v-for="scene in sceneRules"
+                                    :key="scene.name"
+                                    type="button"
+                                    :aria-pressed="setting.scenes.includes(scene.name)"
+                                    :disabled="busy"
+                                    @click="toggleScene(setting, scene.name)"
+                                >
+                                    {{ scene.name }}
+                                </button>
+                            </div>
+                            <form
+                                v-else-if="expanded === setting.kind"
+                                class="fy-map-form"
+                                @submit.prevent="applyMaps(setting)"
+                            >
+                                <GlassInput
+                                    v-if="glass"
+                                    v-model="mapInput"
+                                    :aria-label="`${reminderLabels[setting.kind]}地图`"
+                                    placeholder="留空为全部地图，多个地图用逗号分隔"
+                                    maxlength="512"
+                                    :disabled="busy || !status"
+                                />
+                                <input
+                                    v-else
+                                    v-model="mapInput"
+                                    :aria-label="`${reminderLabels[setting.kind]}地图`"
+                                    placeholder="留空为全部地图，多个地图用逗号分隔"
+                                    maxlength="512"
+                                    :disabled="busy || !status"
+                                />
+                                <button
+                                    type="submit"
+                                    class="fy-type-button"
+                                    :disabled="busy || !status"
+                                >
+                                    应用
+                                </button>
+                            </form>
+                            <p
+                                v-if="expanded === 'yecha' && setting.kind === 'yecha'"
+                                class="meta fy-map-note"
+                            >
+                                当前识别携宝龙龟的夜叉刷新公告
+                            </p>
+                        </div>
+                    </div>
+                </section>
+            </component>
+
+            <component
+                v-if="calibrationOpen && shot"
+                :is="card"
+                v-bind="cardProps"
+                class="fy-calibration"
+            >
+                <div class="fy-card-head">
+                    <h3 v-if="glass" ref="calibrationHeading" tabindex="-1">框选系统消息</h3>
+                    <GroupHead v-else as="h3">框选系统消息</GroupHead>
+                    <div class="fy-calibration-actions">
+                        <PressButton
+                            v-if="glass"
+                            text="取消"
+                            label="取消框选"
+                            :disabled="busy"
+                            @click="closeCalibration"
+                        />
+                        <PressButton
+                            :text="startAfterSelection ? '完成并开始监听' : '完成框选'"
+                            label="完成系统消息区域框选"
+                            :disabled="busy || !validDraftRegion"
+                            @click="completeSelection"
                         />
                     </div>
-                </div>
-            </PaperCard>
-
-            <PaperCard v-if="calibrationOpen && shot" plain class="fy-calibration">
-                <div class="fy-card-head">
-                    <GroupHead as="h3">框选系统消息</GroupHead>
-                    <PressButton
-                        :text="startAfterSelection ? '完成并开始监听' : '完成框选'"
-                        label="完成系统消息区域框选"
-                        :disabled="busy || !validRegion"
-                        @click="completeSelection"
-                    />
                 </div>
                 <p class="note">
                     拖动框住最新几条公告，保留“[系统]”标记和完整正文。游戏内保持消息区展开；改变窗口尺寸后需重新框选。
                 </p>
                 <div
                     class="fy-canvas"
+                    :style="glass ? { '--fy-frame-ratio': shot.width / shot.height } : undefined"
                     role="group"
                     aria-label="拖动框选系统消息区域"
                     @pointerdown.prevent="beginSelection"
@@ -413,43 +643,52 @@ onBeforeUnmount(() => {
                         alt="用于选择系统消息区域的当前游戏画面"
                         draggable="false"
                     />
-                    <div v-if="region" class="fy-selection" :style="selectionStyle" />
+                    <div v-if="draftRegion" class="fy-selection" :style="selectionStyle" />
                 </div>
-                <details v-if="region" class="fy-details fy-adjust">
+                <details v-if="draftRegion" class="fy-details fy-adjust">
                     <summary>手动设置选区</summary>
                     <div class="fy-coordinates fy-details-body">
                         <label class="form-field"
-                            >左边距<NumberField v-model="region.x" label="选区左边距"
+                            >左边距<NumberField v-model="draftRegion.x" label="选区左边距"
                         /></label>
                         <label class="form-field"
-                            >上边距<NumberField v-model="region.y" label="选区上边距"
+                            >上边距<NumberField v-model="draftRegion.y" label="选区上边距"
                         /></label>
                         <label class="form-field"
-                            >宽度<NumberField v-model="region.width" label="选区宽度"
+                            >宽度<NumberField v-model="draftRegion.width" label="选区宽度"
                         /></label>
                         <label class="form-field"
-                            >高度<NumberField v-model="region.height" label="选区高度"
+                            >高度<NumberField v-model="draftRegion.height" label="选区高度"
                         /></label>
                     </div>
                 </details>
-            </PaperCard>
+            </component>
 
-            <PaperCard plain class="fy-history">
+            <component :is="card" v-bind="cardProps" class="fy-history">
                 <GroupHead as="h3">最近提醒</GroupHead>
-                <p v-if="!recentAlerts.length" class="note">
-                    暂无新提醒，所选场景刷妖时会弹出系统通知。
+                <p v-if="!recentAlerts.length" class="note" :class="{ 'fy-empty-alerts': glass }">
+                    暂无提醒
                 </p>
-                <ol v-else class="fy-alerts">
+                <ol v-else class="fy-reminders">
                     <li v-for="alert in recentAlerts" :key="alert.id">
-                        <PressTile class="fy-alert-tile" still>
-                            <AppIcon name="pin" class="fy-alert-icon" />
-                            <span class="fy-alert-copy">
-                                <strong>{{ alert.scene }}</strong>
-                                <time :datetime="new Date(alert.at).toISOString()"
-                                    >{{ timeText(new Date(alert.at)) }} · 刷妖提醒</time
-                                >
-                            </span>
-                        </PressTile>
+                        <details class="fy-reminder">
+                            <summary>
+                                <span class="fy-reminder-kind">{{
+                                    reminderLabels[alert.kind]
+                                }}</span>
+                                <span class="fy-reminder-place">
+                                    {{ alert.scene
+                                    }}<small v-if="alert.coordinates">
+                                        · {{ alert.coordinates }}</small
+                                    >
+                                </span>
+                                <time :datetime="new Date(alert.at).toISOString()">{{
+                                    timeText(new Date(alert.at))
+                                }}</time>
+                                <AppIcon name="chevron-right" aria-hidden="true" />
+                            </summary>
+                            <p class="fy-transcript">{{ alert.text }}</p>
+                        </details>
                     </li>
                 </ol>
                 <details class="fy-details fy-reading">
@@ -465,10 +704,10 @@ onBeforeUnmount(() => {
                         <p v-else class="note">
                             开始监听后显示识别原文，首次读取仅建立基线，不提醒旧公告。
                         </p>
-                        <p class="note">仅提醒普通放妖公告；公告不代表妖怪仍未被击败。</p>
+                        <p class="note">提醒内容来自游戏内系统公告。</p>
                     </div>
                 </details>
-            </PaperCard>
+            </component>
         </div>
     </ToolPageShell>
 </template>
@@ -537,70 +776,6 @@ onBeforeUnmount(() => {
     gap: 16px;
     margin-top: 16px;
 }
-.fy-scenes {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 145px), 1fr));
-    gap: 6px;
-}
-.fy-scene {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 4px 8px;
-    border-radius: var(--r-3);
-    background: var(--paper-2);
-    font-size: var(--fs-sm);
-}
-.fy-alerts {
-    list-style: none;
-    padding: 2px 0 5px;
-    margin: 0;
-    display: grid;
-    grid-template-columns: repeat(
-        auto-fill,
-        minmax(min(100%, max(calc(160px * var(--fs-scale)), calc((100% - 30px) / 4))), 1fr)
-    );
-    gap: 10px;
-}
-.fy-alerts li {
-    min-width: 0;
-}
-.fy-alert-tile {
-    --tile-w: 100%;
-    --tile-h: auto;
-    --tile-r: var(--r-2);
-    --tile-drop: 1.4;
-    --tile-face: color-mix(in srgb, var(--accent) 5%, var(--paper));
-    min-height: calc(76px * var(--fs-scale));
-    padding: 9px 12px;
-}
-.fy-alert-tile :deep(.press-content) {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 10px;
-    width: 100%;
-    min-width: 0;
-}
-.fy-alert-icon {
-    --icon-size: calc(19px * var(--fs-scale));
-    color: var(--accent);
-}
-.fy-alert-copy {
-    display: grid;
-    gap: 4px;
-    min-width: 0;
-}
-.fy-alert-copy strong {
-    color: var(--accent);
-    font-size: var(--fs-sm);
-    font-weight: 400;
-}
-.fy-alert-copy time {
-    color: var(--muted);
-    font-size: var(--fs-mini);
-}
 .fy-transcript {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
@@ -637,6 +812,174 @@ onBeforeUnmount(() => {
 }
 .fy-coordinates {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+glass-button.fy-listen-action {
+    --glass-on-accent: var(--liquid-ink);
+    --lg-surface-fill: var(--ledger-selected);
+}
+.fy-glass {
+    max-width: none;
+    gap: 10px;
+    align-items: start;
+}
+.fy-glass > :not(.fy-settings, .fy-history) {
+    grid-column: 1 / -1;
+}
+.fy-glass :is(.fy-settings, .fy-history, .fy-calibration) {
+    --glass-foreground: var(--liquid-ink);
+    --glass-text-shadow: none;
+    gap: 12px;
+    padding: 12px 14px;
+}
+.fy-glass .fy-fields {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+}
+.fy-window-select {
+    flex: 1;
+    min-width: 0;
+}
+.fy-scope-control,
+.fy-calibration-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+.fy-scope-control > span {
+    color: var(--liquid-muted);
+    font-size: var(--fs-sm);
+}
+.fy-types {
+    border-top: 1px solid var(--liquid-outline, var(--rule));
+}
+.fy-type + .fy-type,
+.fy-reminders li + li {
+    border-top: 1px solid var(--liquid-outline, var(--rule));
+}
+.fy-type-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding-block: 4px;
+}
+.fy-type-button,
+.fy-map-grid button {
+    border: 0;
+    border-radius: var(--r-1);
+    background: transparent;
+    color: inherit;
+    font-size: var(--fs-sm);
+    cursor: pointer;
+}
+.fy-type-button {
+    --icon-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 4px 7px;
+    text-align: start;
+}
+.fy-type-button .meta {
+    margin-inline-start: auto;
+}
+.fy-map-settings {
+    padding: 3px 0 9px;
+}
+.fy-map-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 106px), 1fr));
+    gap: 3px 6px;
+}
+.fy-map-grid button {
+    min-height: 29px;
+    padding: 4px 8px;
+    text-align: start;
+}
+.fy-type-button:hover:not(:disabled),
+.fy-map-grid button:hover:not(:disabled) {
+    background: var(--ledger-surface, var(--paper-2));
+}
+.fy-map-grid button[aria-pressed='true'] {
+    background: var(--ledger-selected, var(--paper-2));
+    color: var(--liquid-focus, var(--accent));
+}
+.fy-map-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+}
+.fy-map-note {
+    margin: 5px 0 0;
+}
+.fy-map-form :deep(.glass-input) {
+    font-size: var(--fs-sm);
+}
+.fy-reminders {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.fy-reminder summary {
+    --icon-size: 11px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: baseline;
+    gap: 6px;
+    padding: 7px 1px;
+    cursor: pointer;
+    font-size: var(--fs-sm);
+}
+.fy-reminder summary::-webkit-details-marker {
+    display: none;
+}
+.fy-reminder[open] summary .app-icon {
+    transform: rotate(90deg);
+}
+.fy-reminder-kind {
+    padding: 2px 5px;
+    border-radius: var(--r-1);
+    background: var(--ledger-surface, var(--paper-2));
+    font-size: var(--fs-mini);
+}
+.fy-reminder-place {
+    overflow-wrap: anywhere;
+}
+.fy-reminder time,
+.fy-reminder-place small {
+    color: var(--liquid-muted, var(--muted));
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.fy-reminder .fy-transcript {
+    padding: 2px 1px 8px;
+}
+.fy-glass .fy-empty-alerts {
+    padding: 8px;
+    border-radius: var(--r-1);
+    background: var(--ledger-surface);
+    text-align: center;
+}
+.fy-glass .fy-canvas {
+    max-width: min(680px, max(220px, calc((100dvh - 230px) * var(--fy-frame-ratio))));
+}
+.fy-calibration h3[tabindex] {
+    margin: 0;
+    font-size: var(--fs-base);
+    font-weight: 400;
+}
+@media (min-width: 840px) {
+    .fy-glass:not(.fy-calibrating) {
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    }
+}
+@media (max-width: 620px) {
+    .fy-glass .fy-fields {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 @media (max-width: 760px) {
     .fy-fields {

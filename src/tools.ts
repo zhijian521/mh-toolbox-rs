@@ -82,8 +82,8 @@ export const TOOLS: ToolEntry[] = [
     {
         key: 'fengyao',
         kind: 'page',
-        name: '封妖助手',
-        desc: '持续读取系统公告，按手动开启的场景弹窗提醒',
+        name: '提醒助手',
+        desc: '按类型监听游戏系统公告并发送桌面提醒',
         path: '/tools/fengyao',
         icon: 'notice',
         group: 'game',

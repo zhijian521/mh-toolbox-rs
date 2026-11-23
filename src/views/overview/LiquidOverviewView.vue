@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import AppIcon from '../../components/AppIcon.vue';
 import TrendChart from '../../components/TrendChart.vue';
 import { GlassButton, GlassCard } from '../../components/liquid-glass';
 import { useMinuteNow } from '../../composables/use-minute-now';
+import { notify } from '../../composables/use-notify';
 import { useToday } from '../../composables/use-today';
+import { hasDesktop } from '../../services/desktop';
+import { fengyaoStatus, startSavedFengyao, stopFengyao } from '../../services/fengyao';
 import { accountValueText } from '../accounts/account-analysis';
 import { rangeOf } from '../accounts/accounts';
 import { deadlineText, kindMeta } from '../goals/goals';
@@ -18,6 +21,9 @@ import { teamActivity } from './team-activity';
 const { roster, income, accounts, online, goals, loading, errors, loadOverview } =
     useLiquidOverviewData();
 const router = useRouter();
+const desktop = hasDesktop();
+const fengyaoBusy = ref(desktop);
+const fengyaoRunning = ref(false);
 const today = useToday();
 const now = useMinuteNow();
 const goalsUnavailable = computed(() => Boolean(goals.loadError.value || roster.loadError.value));
@@ -59,7 +65,41 @@ const goalEmptyText = computed(() => {
     return goals.goals.value.length ? '目标已全部达成' : '暂无目标';
 });
 
-onMounted(loadOverview);
+async function toggleFengyaoFromOverview() {
+    if (fengyaoBusy.value) return;
+    const stopping = fengyaoRunning.value;
+    fengyaoBusy.value = true;
+    try {
+        if (stopping) {
+            fengyaoRunning.value = (await stopFengyao()).running;
+            notify.success('公告监听已停止');
+            return;
+        }
+        const result = await startSavedFengyao();
+        fengyaoRunning.value = true;
+        notify.success(result === 'running' ? '提醒助手正在监听' : '提醒助手已按上次设置开启');
+    } catch (cause) {
+        notify.error(cause instanceof Error ? cause.message : String(cause));
+        if (!stopping && router.currentRoute.value.name === 'overview') {
+            void router.push({ name: 'tool-fengyao' });
+        }
+    } finally {
+        fengyaoBusy.value = false;
+    }
+}
+
+onMounted(() => {
+    void loadOverview();
+    if (!desktop) return;
+    void fengyaoStatus()
+        .then(({ running }) => {
+            fengyaoRunning.value = running;
+        })
+        .catch(() => {})
+        .finally(() => {
+            fengyaoBusy.value = false;
+        });
+});
 </script>
 
 <template>
@@ -112,6 +152,17 @@ onMounted(loadOverview);
                                 @click="router.push({ name: 'accounts', query: { action: 'warehouse' } })"
                             >
                                 <AppIcon name="archive" />仓库
+                            </GlassButton>
+                            <GlassButton
+                                v-if="desktop"
+                                size="small"
+                                class="overview-workbench-action"
+                                :aria-label="fengyaoRunning ? '停止公告监听' : '按上次设置开启提醒助手'"
+                                :disabled="fengyaoBusy"
+                                @click="toggleFengyaoFromOverview"
+                            >
+                                <AppIcon :name="fengyaoRunning ? 'stop' : 'notice'" />
+                                {{ fengyaoRunning ? '停止提醒' : '开启提醒' }}
                             </GlassButton>
                         </div>
                     </div>

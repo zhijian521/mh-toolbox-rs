@@ -977,10 +977,26 @@ export default async function liquidShell({ cdp, t, ui }) {
     await cdp.click(toolBack);
     await atToolList();
 
-    await openTool('封妖助手', 'fengyao');
-    t.check('封妖助手保留场景配置和监听入口', await cdp.evaluate(`
-        !!document.querySelector('.liquid-tool-detail [aria-label="提醒场景"]') &&
-        !!document.querySelector('.liquid-tool-detail .fy-status')
+    await openTool('提醒助手', 'fengyao');
+    await ui.waitFor("document.querySelectorAll('.fy-type glass-switch:not([disabled])').length === 4");
+    t.check('提醒助手以玻璃卡片显示类型和提醒，校准与识别详情按需打开', await cdp.evaluate(`
+        document.querySelectorAll('.fengyao > glass-surface').length === 2 &&
+        document.querySelectorAll('.fy-type glass-switch').length === 4 &&
+        document.querySelectorAll('.fy-type-button[aria-expanded="false"]').length === 4 &&
+        !!document.querySelector('.fy-status') &&
+        !document.querySelector('.fy-calibration') &&
+        !document.querySelector('.fy-reading').open
+    `));
+    await cdp.click(tab('overview'));
+    const overviewFengyao = '.liquid-overview .workbench-actions glass-button';
+    const fengyaoAction = await cdp.evaluate(`(async () => {
+        const status = await window.__TAURI_INTERNALS__.invoke('fengyao_status');
+        return status.running ? '停止公告监听' : '按上次设置开启提醒助手';
+    })()`);
+    await ui.waitFor(`!!document.querySelector('${overviewFengyao}[aria-label="${fengyaoAction}"]:not([disabled])')`);
+    t.check('总览提醒按钮反映桌面监听状态', await cdp.evaluate(`
+        location.hash === '#/overview' &&
+        !!document.querySelector('${overviewFengyao}[aria-label="${fengyaoAction}"]')
     `));
 
     // 已在设置页时标签栏不会再发 change，隐藏入口的计数必须只靠原生 click。
