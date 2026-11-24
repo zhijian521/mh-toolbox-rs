@@ -1,26 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, inject } from 'vue';
+import AppIcon from '../../components/AppIcon.vue';
 import PressTile from '../../components/PressTile.vue';
+import { glassLedger } from '../../components/glass-ledger';
+import { GlassCard } from '../../components/liquid-glass';
 import { repeatText, timesText, weekdayName, type Activity } from './activities';
 
-/**
- * 活动卡：一张纸片，说清「这件事什么时候来」。
- *
- * 四段，与原型一致：名称 / 时刻 / 规则 / 右上角那枚签。签回答的是「最近一次是哪天」，
- * 所以它随分组变——今天那组写「今天」，之后那组写「11/15 周日」。
- *
- * 整张卡是 `<button>`：点它加提醒。用按钮而不是给 div 挂 click，是因为键盘要能
- * Tab 到、回车能开——这张页上除了卡片没有第二个可点的东西，一个都不能少。
- * 按钮里只放 `<span>`（`display: block` 撑开）：`<button>` 的内容模型是 phrasing
- * content，塞 `<div>` 是无效结构，读屏也会把内部当成独立的段。
- *
- * ---- 材质是 `PressTile`，与物价卡同一套 ----
- *
- * 原先这张卡自己拼了四层影 + 微斜，做「贴在墙上的便签」。用户否了：那套斜着的纸片
- * 读起来不像这套设计里的东西。现在换成全站那一块**压印的纸**——物价卡的
- * `PressTile`：左上角一点偏光、上左 1px 亮线、下 2px 右 1px 暗线、3px 硬影 + 8px 软影。
- * 棱与影一份都不在这里重写，只给块面染色（`--tile-face`）。
- */
+/** 活动卡使用原生按钮承接键盘与点击；日期、场次和提醒状态共享同一套业务数据。 */
 const props = withDefaults(
     defineProps<{
         activity: Activity;
@@ -30,11 +16,13 @@ const props = withDefaults(
         now: Date;
         /** 已经加过提醒（不分时段）。 */
         reminded?: boolean;
+        disabled?: boolean;
     }>(),
     { reminded: false },
 );
 
 const emit = defineEmits<{ open: [] }>();
+const glass = inject(glassLedger, null);
 
 const isToday = computed(() => {
     const next = props.next;
@@ -53,7 +41,7 @@ const isDaily = computed(() => {
 });
 
 const tagText = computed(() => {
-    if (props.reminded) return '已设提醒';
+    if (props.reminded && !glass) return '已设提醒';
     /* 每天的活动不写「今天」：它每天都是今天，写出来等于没说，还容易被读成
      * 「只有今天有」。写「每天」，与所在的那一组同一个词。 */
     if (isDaily.value) return '每天';
@@ -91,7 +79,7 @@ const cardLabel = computed(() =>
         timesText(props.activity),
         metaText.value,
         props.reminded ? '已加提醒' : '',
-        '点开加提醒',
+        props.disabled ? '提醒暂不可用' : props.reminded ? '点开管理提醒' : '点开加提醒',
     ]
         .filter(Boolean)
         .join('，'),
@@ -102,25 +90,32 @@ const cardLabel = computed(() =>
     <button
         type="button"
         class="card activity-card"
-        :class="[`t-${activity.tone}`, { reminded }]"
+        :class="[`t-${activity.tone}`, { reminded, 'is-glass': glass }]"
+        :disabled="disabled"
         :aria-label="cardLabel"
         @click="emit('open')"
     >
-        <!-- 压印块只当**背景层**，与物价卡同一个摆法：它是材质，不认识内容。
-             内容塞进它的默认插槽会被 `place-items: center` 按住，从父级用 `:deep`
-             覆盖已验证压不住（物价卡那段注释里记着）。 -->
-        <PressTile wide class="card-surface" aria-hidden="true" />
+        <!-- 材质只作背景，原生按钮统一承接点击、键盘操作和焦点。 -->
+        <GlassCard v-if="glass" :radius="15" class="card-surface" aria-hidden="true" />
+        <PressTile v-else wide class="card-surface" aria-hidden="true" />
 
         <span class="card-body">
-            <span class="tag" :class="{ hot: (isToday && !isDaily) || reminded }">{{
-                tagText
-            }}</span>
-            <span class="name">{{ activity.name }}</span>
+            <span class="card-heading">
+                <span class="name">{{ activity.name }}</span>
+                <span
+                    class="tag"
+                    :class="{ hot: (isToday && !isDaily) || (!glass && reminded) }"
+                >{{ tagText }}</span>
+            </span>
             <span class="when">{{ timesText(activity) }}</span>
             <span class="rule">{{ metaText }}</span>
-            <!-- 右下角这枚印：没加过是「＋」，加过是朱底白勾。它是「这张卡能点」的唯一提示，
-                 所以常驻，不做悬停才出现——触屏上没有悬停。 -->
-            <span class="mark" :class="{ on: reminded }" aria-hidden="true">
+            <!-- 提醒入口常驻，触屏和键盘用户也能看见；状态已包含在按钮名称里。 -->
+            <span v-if="glass" class="card-reminder" :class="{ on: reminded }" aria-hidden="true">
+                <AppIcon :name="reminded ? 'check' : 'alarm'" />
+                {{ disabled ? '提醒暂不可用' : reminded ? '已设提醒' : '设置提醒' }}
+                <AppIcon name="chevron-right" class="card-direction" />
+            </span>
+            <span v-else class="mark" :class="{ on: reminded }" aria-hidden="true">
                 {{ reminded ? '✓' : '＋' }}
             </span>
         </span>
@@ -321,5 +316,93 @@ const cardLabel = computed(() =>
     border-color: var(--seal-edge);
     background: var(--seal);
     color: var(--on-seal);
+}
+
+.card.is-glass {
+    min-width: 0;
+    border-radius: 15px;
+}
+.is-glass .card-surface {
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+.is-glass .card-body {
+    width: 100%;
+    min-width: 0;
+    min-height: 126px;
+    gap: 6px;
+    padding: 12px;
+}
+.is-glass:active .card-body {
+    transform: none;
+}
+.is-glass .card-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    width: 100%;
+}
+.is-glass .name {
+    flex: 1 1 7em;
+    min-width: 0;
+    padding: 0;
+    letter-spacing: normal;
+    overflow-wrap: anywhere;
+}
+.is-glass .tag {
+    position: static;
+    flex: none;
+    padding: 2px 7px;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: var(--ledger-surface);
+    letter-spacing: normal;
+}
+.is-glass .tag.hot {
+    background: var(--ledger-selected);
+}
+.is-glass .when {
+    margin: 0;
+    color: var(--liquid-ink);
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+}
+.is-glass .rule {
+    margin: 0;
+    padding: 0;
+    font-size: var(--fs-xs);
+    line-height: 1.5;
+}
+.card-reminder {
+    --icon-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    margin-top: auto;
+    padding-top: 6px;
+    border-top: 1px solid var(--liquid-outline);
+    color: var(--liquid-muted);
+    font-size: var(--fs-xs);
+}
+.card-reminder.on {
+    color: var(--liquid-focus);
+}
+.card-direction {
+    margin-left: auto;
+}
+@media (hover: hover) {
+    .is-glass:hover .card-surface {
+        --lg-content-fill: var(--ledger-highlight);
+    }
+    .is-glass:hover .card-reminder {
+        color: var(--liquid-focus);
+    }
+}
+.is-glass:focus-visible {
+    outline: 2px solid var(--liquid-focus);
+    outline-offset: 3px;
 }
 </style>

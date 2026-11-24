@@ -16,7 +16,8 @@
 
 .liquid-ledger-page.liquid-tools .tool-blocks {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 248px), 1fr));
-    max-width: none;
+    max-width: 1080px;
+    margin-inline: auto;
 }
 
 .liquid-ledger-page.liquid-tools .tool-grid {

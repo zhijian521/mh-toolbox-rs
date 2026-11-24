@@ -96,7 +96,7 @@ export default async function run(ctx) {
                     '四种提醒独立设置，保留旧设置的主动全关',
                     loaded &&
                         (await cdp.evaluate(`
-                    document.querySelectorAll('.fy-types > .fy-type.board').length === 4 &&
+                    document.querySelectorAll('.fy-settings .fy-types > .fy-type').length === 4 &&
                     document.querySelectorAll('.fy-maps-toggle[aria-expanded="false"]').length === 1 &&
                     [...document.querySelectorAll('.fy-type .cost-switch')].every(s =>
                         s.classList.contains('off')) &&
@@ -134,16 +134,16 @@ export default async function run(ctx) {
                 t.check('窗口为空时只提示，不启动后台监听', await cdp.evaluate('window.__e2eFengyao.startCalls === 0'));
                 await cdp.evaluate('window.__e2eFengyao.hideChatWindow = false');
                 await ui.clickLabel('开始公告监听');
-                await ui.waitFor(`document.querySelector('.fy-settings .fy-status')?.textContent.includes('监听中')`);
+                await ui.waitFor(`document.querySelector('.fy-settings .fy-window-control + .fy-status')?.textContent.includes('监听中')`);
                 t.check(
-                    '首次直接监听完整聊天窗口，状态显示在监听设置内',
+                    '首次直接监听完整聊天窗口，窗口选择框下方显示监听状态',
                     await cdp.evaluate(`
                     (() => {
                         const { hwnd, region } = window.__e2eFengyao.fake.config ?? {};
                         return hwnd === 1 && region?.x === 0 && region.y === 0 &&
                             region.width === 800 && region.height === 600 &&
                             region.frameWidth === 800 && region.frameHeight === 600 &&
-                            document.querySelector('.fy-settings .fy-status').textContent.includes(
+                            document.querySelector('.fy-settings .fy-window-control + .fy-status').textContent.includes(
                                 '监听中 · 新公告符合条件时提醒') &&
                             document.querySelector('.fy-guide').textContent.includes('避免最小化或隐藏') &&
                             !document.querySelector('[aria-label*="框选"]');
@@ -165,13 +165,13 @@ export default async function run(ctx) {
                     await cdp.evaluate(`!document.querySelector('.fy-reading').open`),
                 );
                 t.check(
-                    '最近提醒以可换行的标签卡片显示类型和坐标',
+                    '时间线纵向展示最近三条提醒，保留类型和坐标',
                     await cdp.evaluate(`
                         (() => {
                             const list = document.querySelector('.fy-reminders');
                             const tags = list.querySelectorAll('.fy-reminder');
-                            const layout = getComputedStyle(list);
-                            return layout.display === 'flex' && layout.flexWrap === 'wrap' &&
+                            const rows = [...tags].map(tag => tag.getBoundingClientRect());
+                            return rows.every((row, i) => !i || row.top >= rows[i - 1].bottom) &&
                                 tags.length === 3 && tags[0].textContent.includes('衣冠古丘') &&
                                 tags[0].textContent.includes('321,123') &&
                                 [...tags].every(tag => tag.getAttribute('aria-expanded') === 'false');
@@ -180,18 +180,18 @@ export default async function run(ctx) {
                 );
                 await cdp.click('.fy-reminders li:first-child .fy-reminder');
                 t.check(
-                    '点标签在下方显示对应原文',
+                    '点时间线条目在该条下方显示原文',
                     await cdp.evaluate(`
                         document.querySelector('.fy-reminder[aria-expanded="true"]') !== null &&
-                        document.querySelector('.fy-alert-text').textContent.trim() === 'E2E 公告正文 0'
+                        document.querySelector('.fy-reminder[aria-expanded="true"] + .fy-alert-text')?.innerText.trim() === 'E2E 公告正文 0'
                     `),
                 );
                 await cdp.click('.fy-reminders li:nth-child(2) .fy-reminder');
                 t.check(
-                    '切换标签只保留一条原文',
+                    '切换时间线条目只展开当前原文',
                     await cdp.evaluate(`
                         document.querySelectorAll('.fy-reminder[aria-expanded="true"]').length === 1 &&
-                        document.querySelector('.fy-alert-text').textContent.trim() === 'E2E 公告正文 1'
+                        document.querySelector('.fy-reminder[aria-expanded="true"] + .fy-alert-text')?.innerText.trim() === 'E2E 公告正文 1'
                     `),
                 );
                 await cdp.click('[aria-label="梦魇夜叉提醒"] [role="radio"]:last-child');
@@ -216,7 +216,7 @@ export default async function run(ctx) {
                 );
                 await ui.clickText('button, a', '提醒助手');
                 await ui.waitFor(
-                    `document.querySelector('.fy-status')?.textContent.includes('监听中')`,
+                    `document.querySelector('.fy-settings .fy-window-control + .fy-status')?.textContent.includes('监听中')`,
                 );
                 t.check(
                     '回来读取后台状态与手动选择，复用已启动的监听',

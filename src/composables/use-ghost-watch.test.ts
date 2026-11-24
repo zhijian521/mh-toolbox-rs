@@ -55,6 +55,17 @@ afterEach(() => {
 });
 
 describe('捉鬼轮询生命周期', () => {
+    it('多个窗口先选择目标，随后只识别所选窗口', async () => {
+        mocks.windows.mockResolvedValue([{ hwnd: 1, title: '窗口一' }, { hwnd: 2, title: '窗口二' }]);
+        const state = scope.run(useGhostWatch)!;
+        await state.start();
+        expect(state.running.value).toBe(false);
+        expect(mocks.probe).not.toHaveBeenCalled();
+        state.selectedHwnd.value = 2;
+        await state.start();
+        expect(mocks.probe).toHaveBeenCalledWith(2);
+    });
+
     it('加载地图期间停止，返回后不再启动识别和定时器', async () => {
         const maps = deferred<[]>();
         mocks.maps.mockReturnValue(maps.promise);

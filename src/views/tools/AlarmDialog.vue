@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import AppNotice from '../../components/AppNotice.vue';
-import { computed, reactive, ref } from 'vue';
+import { computed, inject, reactive, ref } from 'vue';
+import { glassLedger } from '../../components/glass-ledger';
+import GlassDateField from '../../components/liquid-glass/GlassDateField.vue';
+import GlassInput from '../../components/liquid-glass/GlassInput.vue';
 import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
@@ -54,6 +57,7 @@ const emit = defineEmits<{
     close: [];
 }>();
 
+const glass = inject(glassLedger, null);
 const today = useToday();
 
 /* 父级用 `:key` 保证换编辑对象时这个组件重建，所以草稿只初始化读一次。 */
@@ -230,7 +234,15 @@ function onEnter(event: KeyboardEvent) {
                     <span v-if="showWeekdayError" class="note error">选几天</span>
                 </div>
 
-                <label v-if="draft.repeat === 'once'" class="alarm-day">
+                <GlassDateField
+                    v-if="glass && draft.repeat === 'once'"
+                    v-model="draft.date"
+                    class="alarm-glass-date"
+                    :min="today"
+                    label="闹钟响的日期"
+                    :error="showDateError ? '选一个日子' : ''"
+                />
+                <label v-else-if="draft.repeat === 'once'" class="alarm-day">
                     <span class="field-label">哪一天</span>
                     <DateField
                         v-model="draft.date"
@@ -243,7 +255,11 @@ function onEnter(event: KeyboardEvent) {
 
             <label class="alarm-label">
                 <span class="field-label">备注（可空）</span>
+                <GlassInput v-if="glass" class="alarm-input">
+                    <input v-model="draft.label" :maxlength="LABEL_LIMIT" aria-label="备注" placeholder="签到 / 摆摊收摊" />
+                </GlassInput>
                 <input
+                    v-else
                     v-model="draft.label"
                     class="field alarm-input"
                     :maxlength="LABEL_LIMIT"
@@ -332,6 +348,9 @@ function onEnter(event: KeyboardEvent) {
     right: calc(8px * var(--fs-scale));
 }
 
+.alarm-glass-date {
+    width: min(100%, 208px);
+}
 .alarm-label {
     display: flex;
     flex-direction: column;

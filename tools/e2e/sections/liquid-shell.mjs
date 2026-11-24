@@ -958,13 +958,40 @@ export default async function liquidShell({ cdp, t, ui }) {
     })()`));
     const activity = '.liquid-tool-detail .activity-card';
     await ui.waitFor(`!!document.querySelector('${activity}')`);
-    await cdp.click(activity);
-    await waitToolDialog('.remind');
-    t.check('活动提醒弹窗保留开场前五分钟和保存入口', await cdp.evaluate(`
-        document.querySelector('${toolDialog} .remind').textContent.includes('开场前 5 分钟提醒') &&
-        !!document.querySelector('${toolDialog} [aria-label="保存这一场的提醒设置"]')
+    t.check('活动页直接显示紧凑卡片，日期与提醒状态分开', await cdp.evaluate(`
+        !document.querySelector('.activity-page .tool-context') &&
+        [...document.querySelectorAll('${activity}')].every(card => {
+            const tag = card.querySelector('.tag');
+            const reminder = card.querySelector('.card-reminder');
+            const scale = Number(getComputedStyle(card).getPropertyValue('--fs-scale'));
+            return tag && reminder && !tag.textContent.includes('已设提醒') &&
+                reminder.textContent.includes(card.classList.contains('reminded') ? '已设提醒' : '设置提醒') &&
+                card.getBoundingClientRect().width <= 248 * scale + 1 &&
+                card.scrollWidth <= card.clientWidth + 1;
+        })
     `));
-    await closeToolDialog();
+    await cdp.evaluate(`document.querySelector('${activity}').focus()`);
+    await cdp.key('Enter');
+    const reminderDialog = '.activity-reminder-dialog:is([open], [data-visible])';
+    await ui.waitFor(`!!document.querySelector('${reminderDialog} .activity-reminder')`);
+    t.check('活动提醒使用玻璃弹窗，保留五分钟提示和保存入口', await cdp.evaluate(`
+        document.querySelector('${reminderDialog} .activity-reminder').textContent.includes('开场前 5 分钟提醒') &&
+        !!document.querySelector('${reminderDialog} glass-button[aria-label="保存这一场的提醒设置"]') &&
+        !document.querySelector('${toolMask}')
+    `));
+    const reminderSelect = `${reminderDialog} .glass-select-trigger`;
+    if (await ui.exists(reminderSelect)) {
+        await cdp.click(reminderSelect);
+        await ui.waitFor(`!!document.querySelector('${reminderDialog} glass-menu[open]')`);
+        await cdp.key('Escape');
+        await ui.waitFor(`!document.querySelector('${reminderDialog} glass-menu[open]')`);
+        t.check('活动场次菜单 Esc 只关闭选项，弹窗保持打开', await ui.exists(reminderDialog));
+    }
+    await cdp.key('Escape');
+    await ui.waitFor(`!document.querySelector('${reminderDialog}')`);
+    t.check('键盘打开活动提醒后关闭，焦点返回活动卡', await cdp.evaluate(`
+        document.activeElement === document.querySelector('${activity}')
+    `));
     await cdp.click(toolBack);
     await atToolList();
     t.check('返回工具目录方向相反，并恢复原滚动位置', await cdp.evaluate(`(() => {
@@ -973,6 +1000,27 @@ export default async function liquidShell({ cdp, t, ui }) {
     })()`));
 
     await openTool('闹钟', 'alarm');
+    t.check('闹钟隐藏页首摘要，紧凑卡片内操作文字不溢出', await cdp.evaluate(`(() => {
+        const page = document.querySelector('.alarm-page');
+        const cards = [...page.querySelectorAll('.alarm-card')];
+        return !page.querySelector('.tool-context') &&
+            (cards.length ? cards.every(card => {
+                const rect = card.getBoundingClientRect();
+                const scale = Number(getComputedStyle(card).getPropertyValue('--fs-scale'));
+                const actions = [...card.querySelectorAll('.alarm-glass-action')];
+                return card.querySelector('glass-switch')?.getAttribute('aria-checked') === String(!card.classList.contains('off')) &&
+                    rect.width <= 224 * scale + 1 && card.scrollWidth <= card.clientWidth + 1 &&
+                    actions.length === 2 && actions.every(button => {
+                        const bounds = button.getBoundingClientRect();
+                        const range = document.createRange();
+                        range.selectNodeContents(button);
+                        const text = range.getBoundingClientRect();
+                        return bounds.left >= rect.left && bounds.right <= rect.right &&
+                            text.left >= bounds.left - 1 && text.right <= bounds.right + 1 &&
+                            text.top >= bounds.top - 1 && text.bottom <= bounds.bottom + 1;
+                    });
+            }) : !!page.querySelector('.alarm-void'));
+    })()`));
     await cdp.click('.liquid-tool-detail [aria-label="新增一个闹钟"]');
     await waitToolDialog('.alarm-form');
     t.check('闹钟支持四类重复方式和提前五分钟', await cdp.evaluate(`
@@ -991,14 +1039,45 @@ export default async function liquidShell({ cdp, t, ui }) {
     await openTool('游戏资源', 'assets');
     const assetCell = '.liquid-tool-detail .asset-cell';
     await ui.waitFor(`!!document.querySelector('${assetCell}')`);
-    await cdp.click(assetCell);
+    t.check('资源页直接展示检索与图鉴，移除顶部说明', await cdp.evaluate(`
+        !document.querySelector('.asset-page .tool-context')
+    `));
+    const resourceSearch = '.asset-bar input[aria-label="搜索资源名"]';
+    await ui.fillSel(resourceSearch, '__E2E_NO_RESOURCE__');
+    await ui.waitFor(`document.querySelector('.asset-void h3')?.textContent === '没有匹配的资源'`);
+    t.check('玻璃资源搜索同步结果数并隐藏分页', await cdp.evaluate(`
+        document.querySelector('.asset-count').textContent.trim() === '找到 0 项' &&
+        !document.querySelector('.asset-pages')
+    `));
+    await cdp.click('.asset-bar [aria-label="清除资源筛选"]');
+    await ui.waitFor(`!!document.querySelector('${assetCell}')`);
+    t.check('清除搜索恢复图鉴，筛选栏与图标保持在页面内', await cdp.evaluate(`(() => {
+        const page = document.querySelector('.asset-page');
+        return document.querySelector('${resourceSearch}').value === '' &&
+            document.querySelectorAll('${assetCell}').length <= 120 &&
+            [...page.querySelectorAll('.asset-bar, .asset-section, .asset-cell')].every(element =>
+                element.scrollWidth <= element.clientWidth + 1);
+    })()`));
+    await cdp.evaluate(`document.querySelector('${assetCell}').focus()`);
+    await cdp.key('Enter');
     await waitToolDialog('.asset-preview');
     await closeToolDialog();
+    t.check('资源大图关闭后焦点回到原图标', await cdp.evaluate(`
+        document.activeElement === document.querySelector('${assetCell}')
+    `));
     await cdp.click(toolBack);
     await atToolList();
 
     await openTool('养成计算器', 'growth');
-    const plan = '.liquid-tool-detail [aria-label="计算方式"] button:last-child';
+    const projects = '.calc-directory [aria-label="计算项目"]';
+    await ui.waitFor(`!!document.querySelector('${projects}')`);
+    await ui.clickText('.calc-directory [aria-label="计算类别"] button', '技能', { exact: true });
+    t.check('养成项目按类别显示并同步输入和结果', await cdp.evaluate(`
+        document.querySelector('${projects} [aria-checked="true"]').textContent.includes('师门技能') &&
+        document.querySelector('.calc-panel .section-head h2').textContent.includes('师门技能') &&
+        !!document.querySelector('.calc-panel .growth-result-card')
+    `));
+    const plan = '.liquid-tool-detail [aria-label="计算方式"] glass-segment[value="plan"]';
     await ui.waitFor(`!!document.querySelector('${plan}')`);
     await cdp.click(plan);
     await ui.waitFor(`!document.querySelector('.liquid-tool-detail .record-empty[role="status"]') &&
@@ -1009,24 +1088,38 @@ export default async function liquidShell({ cdp, t, ui }) {
     await openTool('捉鬼助手', 'ghost');
     t.check('捉鬼助手保留地图和识别入口', await cdp.evaluate(`
         document.querySelector('.liquid-tool-detail .map-stage').clientHeight >= 240 &&
-        !!document.querySelector('.liquid-tool-detail [aria-label="开始识别任务栏"]')
+        !!document.querySelector('.hunt > .map-card + .hunt-side .hunt-controls .glass-select-trigger') &&
+        !!document.querySelector('.hunt-controls glass-switch[aria-label="高概率区域"]') &&
+        !!document.querySelector('.liquid-tool-detail :is([aria-label="开始识别任务栏"], [aria-label="停止识别（回到未开始）"])')
     `));
     await cdp.click(toolBack);
     await atToolList();
 
     await openTool('提醒助手', 'fengyao');
     await ui.waitFor("document.querySelectorAll('.fy-type glass-switch:not([disabled])').length === 4");
-    t.check('提醒助手以玻璃卡片显示独立设置、使用说明和提醒', await cdp.evaluate(`
-        document.querySelectorAll('.fy-setup > glass-surface').length === 2 &&
-        document.querySelectorAll('.fy-types > glass-surface.fy-type').length === 4 &&
+    t.check('提醒时间线按实际内容宽度并排或堆叠，设置行样式已加载', await cdp.evaluate(`
+        (() => {
+            const layout = document.querySelector('.fy-layout');
+            const history = layout.querySelector('.fy-history').getBoundingClientRect();
+            const settings = layout.querySelector('.fy-settings').getBoundingClientRect();
+            return getComputedStyle(layout).display === 'grid' &&
+                getComputedStyle(layout.querySelector('.fy-type-row')).display === 'flex' &&
+                (layout.clientWidth > 640
+                    ? settings.left >= history.right && Math.abs(settings.top - history.top) < 1
+                    : settings.top >= history.bottom);
+        })()
+    `));
+    t.check('提醒助手先显示时间线，再显示集中设置的四种提醒', await cdp.evaluate(`
+        !!document.querySelector('.fy-layout > glass-surface.fy-history + glass-surface.fy-settings') &&
+        document.querySelectorAll('.fy-settings .fy-type glass-switch').length === 4 &&
+        !!document.querySelector('.fy-history .fy-reminders, .fy-history .fy-empty-alerts') &&
         document.querySelectorAll('.fy-maps-toggle[aria-expanded="false"]').length === 1 &&
-        !!document.querySelector('.fy-settings .fy-status') &&
-        !document.querySelector('.fy-settings .app-notice') &&
-        document.querySelector('.fy-guide .app-notice')?.textContent.includes('保持窗口可见') &&
-        !!document.querySelector('glass-surface.fy-guide') &&
+        !!document.querySelector('.fy-settings .fy-window-control + .fy-status[role="status"]') &&
+        new Set([...document.querySelectorAll('.fy-type-row .fy-mark img')].map((img) => img.src)).size === 4 &&
+        document.querySelector('.fy-settings .fy-guide')?.textContent.includes('保持窗口可见') &&
         [...document.querySelectorAll('.fy-type glass-switch')].every(
             (toggle) => Math.abs(toggle.getBoundingClientRect().width - 56) <= 1) &&
-        !document.querySelector('.fy-reading').open
+        !document.querySelector('.fy-history .fy-reading').open
     `));
     await cdp.click(tab('overview'));
     const overviewFengyao = '.liquid-overview .workbench-actions glass-button';

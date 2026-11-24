@@ -1,37 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, inject } from 'vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import PaperCard from '../../components/PaperCard.vue';
+import { glassLedger } from '../../components/glass-ledger';
+import { GlassButton, GlassCard, GlassSwitch } from '../../components/liquid-glass';
 import { minuteText } from '../../services/clock';
 import { activityOf, countdownText, nextReminder, repeatText, type AlarmLike } from './alarms';
 
-/**
- * 一张闹钟卡。
- *
- * 照物价卡那四段：`时刻 + 开关` / 虚线 / `备注 + 状态` / `改 · 删`。虚线的意思与那边
- * 一样——「上半写的是哪个闹钟、下半写的是它现在怎么样」，不是装饰。
- *
- * ---- 时刻是这张卡的唯一主角 ----
- *
- * 一屏可能摆着六个闹钟，扫过去先要认出「哪个是 07:30」。所以字号提到 `--fs-xl`、
- * 用 `tabular-nums`（等宽数字）：`07:30` 与 `11:45` 在竖排里宽度一致，六张卡的时刻
- * 不会一行长一行短；而后面的备注与状态都降到次级墨，不与它抢。
- *
- * ---- 开关是站里那枚「两格位移开关」 ----
- *
- * 2026-11-09 换成 `CostSwitch`（开发页、捉鬼页、收益页用的同一枚）：一枚朱印在两格里
- * 滑过去，关的时候不是变灰而是**灭灯**。早先这里是 `SegmentedPills` 的两枚独立胶囊——
- * 材质虽然同源，读法却差一层：胶囊说「两个各自能按的键」，位移开关说「一个东西在两端」，
- * 而闹钟只有「开着 / 关掉」这一件事。全站能拨的地方都该是后者。
- *
- * 左关右开（`CostSwitch` 的固定顺序）。原先胶囊是左开右关，看着相反；统一到组件那一边，
- * 因为「往右拨是开」与捉鬼页、开发页同一个方向。
- *
- * ---- 卡片本身不可点 ----
- *
- * 与物价卡同一条：底行还有「改 / 删」，整卡可点就会出现「想点删除却开了编辑」。
- * 只有开关与底行两个动作是热区。
- */
+/** 时刻与状态共用提醒算法；玻璃和纸面只切换展示，整卡不承接编辑或删除。 */
 const props = defineProps<{
     alarm: AlarmLike;
     /** 当前时刻。由共享分钟时钟刷新，倒计时才会走。 */
@@ -47,6 +23,7 @@ const emit = defineEmits<{
     'toggle-enabled': [enabled: boolean];
 }>();
 
+const glass = inject(glassLedger, null);
 const next = computed(() => nextReminder(props.alarm, props.now));
 
 /**
@@ -87,16 +64,24 @@ const cardLabel = computed(() => {
 </script>
 
 <template>
-    <PaperCard
-        plain
-        as="article"
+    <component
+        :is="glass ? GlassCard : PaperCard"
+        v-bind="glass ? { role: 'article', radius: 15 } : { plain: true, as: 'article' }"
         class="alarm-card"
         :data-repeat="alarm.repeat"
-        :class="{ off: !alarm.enabled, soon }"
+        :class="{ off: !alarm.enabled, soon, 'is-glass': glass }"
     >
         <header class="alarm-head">
             <time class="alarm-time" :datetime="alarm.time">{{ timeText }}</time>
+            <GlassSwitch
+                v-if="glass"
+                class="alarm-switch"
+                :checked="alarm.enabled"
+                :aria-label="`${cardLabel}；开或关`"
+                @update:checked="emit('toggle-enabled', $event)"
+            />
             <CostSwitch
+                v-else
                 class="alarm-switch"
                 :model-value="alarm.enabled"
                 off-label="关"
@@ -106,7 +91,7 @@ const cardLabel = computed(() => {
             />
         </header>
 
-        <span class="alarm-rule" aria-hidden="true"></span>
+        <span v-if="!glass" class="alarm-rule" aria-hidden="true"></span>
 
         <p class="alarm-label" :title="nameText">{{ nameText }}</p>
         <p class="alarm-note">
@@ -115,14 +100,37 @@ const cardLabel = computed(() => {
         </p>
 
         <footer class="alarm-foot">
-            <span class="alarm-acts">
+            <span v-if="glass" class="alarm-state" :class="{ enabled: alarm.enabled }">
+                <span aria-hidden="true"></span>{{ alarm.enabled ? '已开启' : '已停用' }}
+            </span>
+            <span v-if="glass" class="alarm-acts">
+                <GlassButton
+                    class="lg-inline-action alarm-glass-action"
+                    size="small"
+                    variant="plain"
+                    :aria-label="`编辑${nameText}`"
+                    @click="emit('edit')"
+                >
+                    编辑
+                </GlassButton>
+                <GlassButton
+                    class="lg-inline-action alarm-glass-action danger-action"
+                    size="small"
+                    variant="plain"
+                    :aria-label="`删除${nameText}`"
+                    @click="emit('remove')"
+                >
+                    删除
+                </GlassButton>
+            </span>
+            <span v-else class="alarm-acts">
                 <button type="button" class="alarm-act" @click="emit('edit')">改</button>
                 <button type="button" class="alarm-act danger-action" @click="emit('remove')">
                     删
                 </button>
             </span>
         </footer>
-    </PaperCard>
+    </component>
 </template>
 
 <style scoped>
@@ -288,5 +296,83 @@ const cardLabel = computed(() => {
 .alarm-card.off .alarm-time,
 .alarm-card.off .alarm-label {
     color: var(--ink-2);
+}
+
+.alarm-card.is-glass {
+    gap: 6px;
+    padding: 12px 12px 8px;
+}
+.is-glass .alarm-head {
+    gap: 10px;
+    padding-bottom: 2px;
+}
+.is-glass .alarm-time {
+    font-size: var(--fs-xl);
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+}
+.is-glass .alarm-label {
+    font-size: var(--fs-base);
+}
+.is-glass .alarm-note {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px 8px;
+    font-size: var(--fs-xs);
+}
+.is-glass .alarm-repeat,
+.is-glass .alarm-status {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: start;
+}
+.is-glass .alarm-status {
+    color: var(--liquid-focus);
+}
+.is-glass .alarm-status.warn {
+    color: var(--danger);
+}
+.is-glass.off :is(.alarm-time, .alarm-label, .alarm-status) {
+    color: var(--liquid-muted);
+}
+.is-glass .alarm-foot {
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding-top: 6px;
+    border-top: 1px solid var(--liquid-outline);
+}
+.alarm-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--liquid-muted);
+    font-size: var(--fs-xs);
+}
+.alarm-state > span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+}
+.alarm-state.enabled > span {
+    color: var(--liquid-focus);
+}
+.is-glass .alarm-acts {
+    gap: 2px;
+    margin-left: auto;
+}
+.alarm-glass-action {
+    --glass-foreground: var(--liquid-muted);
+    --glass-accent-text: var(--liquid-muted);
+    --glass-button-font-size: var(--fs-xs);
+    flex: none;
+    letter-spacing: normal;
+}
+.alarm-glass-action.danger-action {
+    --glass-foreground: var(--danger);
+    --glass-accent-text: var(--danger);
 }
 </style>

@@ -1,7 +1,11 @@
 /* 单项与综合计算共用尺寸、结果层级及数字强调，不影响其他页面的数值墨。 */
 .growth-calculator {
-    max-width: 1376px;
+    width: min(100%, 1160px);
+    margin-inline: auto;
     container-type: inline-size;
+}
+.growth-calculator.growth-single {
+    max-width: 840px;
 }
 .growth-calculator .growth-card {
     --block-pad: 12px;
@@ -12,22 +16,19 @@
 }
 .growth-calculator .growth-layout {
     display: grid;
-    grid-template-columns: minmax(0, 360px) minmax(0, 380px);
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
     gap: 12px;
     align-items: start;
     justify-content: start;
 }
-/* 列数随内容区宽度变化；每张卡保留上限，最后一张不会独占一整行。 */
-.growth-calculator .plan-layout {
-    grid-template-columns: minmax(0, 984px);
+.growth-calculator .calc-panel {
+    align-items: stretch;
 }
-.growth-calculator .plan-layout .plan-summary {
-    width: 100%;
-    max-width: 380px;
+.growth-calculator .plan-layout {
+    grid-template-columns: minmax(0, 1fr);
 }
 .growth-calculator .growth-result-card {
-    border-top: 3px solid var(--accent);
-    background: color-mix(in srgb, var(--accent) 6%, var(--paper));
+    --lg-content-fill: color-mix(in srgb, var(--accent) 7%, var(--lg-content-base));
 }
 .growth-calculator .growth-result-card .section-head h2,
 .growth-calculator .num,
@@ -42,38 +43,50 @@
 .growth-calculator .growth-input-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 144px);
-    gap: 6px;
+    align-items: center;
+    gap: 12px;
     height: auto;
     min-height: calc(32px * var(--fs-scale));
-    padding: 3px 8px;
+    padding: 2px 0;
 }
 .growth-calculator .growth-input-row .field-label {
-    font-size: var(--fs-xs);
+    font-size: var(--fs-sm);
     line-height: 1.35;
 }
 .growth-calculator .growth-input-row .number-field {
     width: 100%;
     min-width: 0;
-    height: calc(24px * var(--fs-scale));
-    padding: 2px 4px;
-    font-size: var(--fs-xs);
+    height: 28px;
+    padding: 2px 10px;
+    text-align: end;
+    font-size: var(--fs-sm);
+}
+.growth-calculator .number-field {
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
 }
 .growth-calculator .growth-pick-row {
     grid-column: 1 / -1;
 }
-.growth-calculator .growth-pick-row .select-field {
+.growth-calculator .growth-pick-row :is(.select-field, .glass-select) {
     justify-self: end;
     width: min(100%, 200px);
 }
 .growth-calculator .growth-amounts {
     display: grid;
-    grid-template-columns: repeat(var(--amount-n, 2), minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 115px), 1fr));
     gap: 8px;
+}
+.growth-calculator .plan-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .growth-calculator .growth-amount {
     display: grid;
     gap: 2px;
     min-width: 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 .growth-calculator .growth-amount > span {
     color: var(--muted);
@@ -82,7 +95,7 @@
 .growth-calculator .growth-amount > strong {
     overflow-wrap: anywhere;
     font-size: var(--fs-amount);
-    font-weight: 500;
+    font-weight: 400;
     line-height: 1.3;
     font-variant-numeric: tabular-nums;
 }
@@ -103,23 +116,53 @@
     overflow-wrap: anywhere;
     font-variant-numeric: tabular-nums;
 }
-/* 以页面可用宽度为准，侧栏与窗口大小均不会把卡片挤窄。 */
+.calc-mode { width: 160px; }
+.calc-directory {
+    display: grid;
+    gap: 8px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+}
+.calc-choice {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline;
+    gap: 12px;
+}
+.calc-choice > span { color: var(--muted); font-size: var(--fs-sm); }
+.calc-choice .pill-group { justify-self: start; max-width: 100%; }
+.calc-choice + .calc-choice { border-top: 1px solid var(--rule); padding-top: 8px; }
+.liquid-ledger .calc-choice:first-child .bevel-pill:not([aria-checked='true']) {
+    background: transparent;
+    box-shadow: none;
+}
+.liquid-ledger .calc-choice:first-child .bevel-pill:hover {
+    background: var(--ledger-highlight);
+}
+.liquid-ledger .calc-choice .bevel-pill[aria-checked='true'] {
+    color: var(--accent);
+    background: var(--ledger-selected);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.growth-calculator .calc-amount:only-child {
+    background: transparent;
+    padding: 4px 0;
+}
+.growth-calculator .calc-amount:only-child strong {
+    font-size: 1.65rem;
+}
 @container (max-width: 640px) {
-    .growth-calculator .growth-layout {
-        grid-template-columns: minmax(0, 380px);
-    }
+    .growth-calculator .growth-layout { grid-template-columns: minmax(0, 1fr); }
 }
-@container (min-width: 1044px) {
+@container (min-width: 810px) {
     .growth-calculator .plan-layout {
-        grid-template-columns: minmax(0, 652px) minmax(0, 380px);
+        grid-template-columns: minmax(0, 1fr) minmax(274px, 31%);
+        grid-template-areas: 'groups summary';
     }
-    .growth-calculator .plan-layout .plan-summary {
+    .growth-calculator .plan-groups { grid-area: groups; }
+    .growth-calculator .plan-summary {
+        grid-area: summary;
         position: sticky;
-        top: 12px;
-    }
-}
-@container (min-width: 1376px) {
-    .growth-calculator .plan-layout {
-        grid-template-columns: minmax(0, 984px) minmax(0, 380px);
+        top: 10px;
     }
 }

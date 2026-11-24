@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, inject, ref } from 'vue';
+import { glassLedger } from '../../components/glass-ledger';
 import { useMinuteNow } from '../../composables/use-minute-now';
 import { useRouteAction } from '../../composables/use-route-action';
+import LoadNotice from '../../components/LoadNotice.vue';
 import AlarmCard from './AlarmCard.vue';
 import AlarmDialog from './AlarmDialog.vue';
 import AppIcon from '../../components/AppIcon.vue';
@@ -12,24 +14,9 @@ import { notify } from '../../composables/use-notify';
 import { LEAD_MINUTES, MAX_ALARMS, type AlarmDraft, type AlarmLike } from './alarms';
 import { useAlarms } from './alarm-store';
 
-/**
- * 闹钟页：一屏摆着几个闹钟，每张卡一个。
- *
- * 三段，没有第四段：`页头` / `卡片网格` / `空态`。**不套最外层的卡片**——与物价、角色、
- * 工具页同一条：`PageShell` 下面直接就是一张张纸卡。
- *
- * ---- 这一页只负责「摆」与「开窗」----
- *
- * 数据在 `useAlarms()`（模块级单例），提醒的计时在 `AlarmHost`（全站一个，挂在外壳里）。
- * 这一页不自己算什么时候响：它使用共享分钟时钟刷新「现在几点」，卡片拿它算倒计时。
- * 两处各算一份时间的话，卡片说「1 分钟后」、提示却在半分钟后就弹，用户会以为它不准。
- *
- */
-const { alarms, error, add, update, remove, setEnabled } = useAlarms();
-
-/* 返回工具目录。用 `push('/tools')` 而不是 `router.back()`：这一页可能由地址直接进
- * （刷新、收藏），此时「上一页」是空的或者别的站外页面；工具子页的上一级永远只有
- * 目录一个，写死它才符合「返回」在这张纸上唯一的意思。 */
+/** 闹钟页负责列表与编辑入口，提醒调度和倒计时共用全局分钟时钟。 */
+const { alarms, error, loadError, retryLoad, add, update, remove, setEnabled } = useAlarms();
+const glass = inject(glassLedger, null);
 
 const minuteNow = useMinuteNow();
 const now = computed(() => new Date(minuteNow.value));
@@ -42,6 +29,7 @@ const dialogError = ref('');
 const dialogKey = ref(0);
 
 function openNew() {
+    if (loadError.value) return;
     if (alarms.value.length >= MAX_ALARMS) {
         notify.error(`最多 ${MAX_ALARMS} 个，先删掉几个`);
         return;
@@ -105,12 +93,18 @@ useRouteAction('/tools/alarm', { new: openNew });
 </script>
 
 <template>
-    <ToolPageShell title="闹钟" desc="定时提醒 · 应用运行时生效">
+    <ToolPageShell
+        title="闹钟"
+        desc="定时提醒 · 应用运行时生效"
+        class="alarm-page"
+        :class="{ 'is-glass': glass }"
+    >
         <template #actions>
             <!-- 到上限时按钮不置灰：置灰说不出「为什么点不动」。点下去由 `openNew` 说一句。 -->
-            <PressButton icon="add" text="新增" label="新增一个闹钟" seal @click="openNew" />
+            <PressButton icon="add" text="新增" label="新增一个闹钟" :disabled="!!loadError" seal @click="openNew" />
         </template>
 
+        <LoadNotice :error="loadError" :load="retryLoad" />
         <p v-if="error" class="note error alarm-error" role="alert">{{ error }}</p>
 
         <div v-if="alarms.length" class="alarm-grid compact-card-grid">
@@ -125,7 +119,7 @@ useRouteAction('/tools/alarm', { new: openNew });
             />
         </div>
 
-        <div v-else class="alarm-void page-empty">
+        <div v-else-if="!loadError" class="alarm-void page-empty">
             <AppIcon name="alarm" class="void-icon page-empty-icon" />
             <h3>设第一个闹钟</h3>
             <p class="note">应用运行时，提前 {{ LEAD_MINUTES }} 分钟提醒。</p>
@@ -146,5 +140,16 @@ useRouteAction('/tools/alarm', { new: openNew });
 <style scoped>
 .alarm-error {
     margin: 0 0 10px;
+}
+.is-glass .alarm-grid {
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(min(100%, calc(204px * var(--fs-scale))), calc(224px * var(--fs-scale)))
+    );
+    gap: 10px;
+}
+.is-glass .alarm-void {
+    min-height: 280px;
+    justify-content: center;
 }
 </style>

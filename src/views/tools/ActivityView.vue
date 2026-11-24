@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, inject, nextTick, ref } from 'vue';
+import { glassLedger } from '../../components/glass-ledger';
 import { useMinuteNow } from '../../composables/use-minute-now';
 import ToolPageShell from './ToolPageShell.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
@@ -12,7 +13,8 @@ import { nextReminder, type AlarmDraft } from './alarms';
 import { useAlarms } from './alarm-store';
 
 /** 日历显示游戏场次，提醒的保存、启停和调度共用闹钟。 */
-const { alarms, add, setEnabled } = useAlarms();
+const { alarms, loadError, retryLoad, add, setEnabled } = useAlarms();
+const glass = inject(glassLedger, null);
 
 const minuteNow = useMinuteNow();
 const now = computed(() => new Date(minuteNow.value));
@@ -34,11 +36,25 @@ const remindedIds = computed(() => {
 });
 
 const picked = ref<Activity | null>(null);
+const reminderOpen = ref(false);
+const reminderKey = ref(0);
 const reminderError = ref('');
+let reminderTrigger: HTMLElement | null = null;
 
 function openReminder(activity: Activity) {
+    const trigger = document.activeElement;
+    reminderTrigger = trigger instanceof HTMLElement ? trigger : null;
     reminderError.value = '';
     picked.value = activity;
+    reminderKey.value++;
+    reminderOpen.value = true;
+}
+
+function closeReminder() {
+    reminderOpen.value = false;
+    if (glass) {
+        void nextTick(() => reminderTrigger?.focus({ preventScroll: true }));
+    }
 }
 
 function onConfirm(draft: AlarmDraft) {
@@ -48,7 +64,7 @@ function onConfirm(draft: AlarmDraft) {
         return;
     }
     notify.success(`已加提醒：${picked.value?.name ?? '活动'}`);
-    picked.value = null;
+    closeReminder();
 }
 
 function onToggle(id: number, enabled: boolean) {
@@ -58,17 +74,19 @@ function onToggle(id: number, enabled: boolean) {
         return;
     }
     notify.success(enabled ? '已开启提醒' : '已停用提醒');
-    picked.value = null;
+    closeReminder();
 }
 </script>
 
 <template>
-    <ToolPageShell title="活动日历" desc="活动场次 · 开场提醒">
+    <ToolPageShell
+        title="活动日历"
+        desc="活动场次 · 开场提醒"
+        class="activity-page"
+        :class="{ 'is-glass': glass }"
+    >
+        <LoadNotice :error="loadError" :load="retryLoad" />
         <LoadNotice :error="rulesError" :load="retryRules" />
-        <!-- 直接摆在台面上，与物价页同一个摆法。
-             中间试过「便签墙」——一块更深、带点阵的板，卡片微斜着贴在上面；
-             用户否了：那层点阵与斜纸不属于这套设计。现在卡片自己就是一块压印的纸
-             （`PressTile`），底下不需要再垫一块东西。 -->
         <section v-for="group in groups" :key="group.key" class="group">
             <h2 class="group-title">
                 <span>{{ group.title }}</span>
@@ -83,18 +101,21 @@ function onToggle(id: number, enabled: boolean) {
                     :next="one.next"
                     :now="now"
                     :reminded="remindedIds.has(one.activity.id)"
+                    :disabled="!!loadError"
                     @open="openReminder(one.activity)"
                 />
             </div>
         </section>
 
         <ActivityRemindDialog
-            v-if="picked"
+            v-if="picked && (glass || reminderOpen)"
+            :key="reminderKey"
+            :open="reminderOpen"
             :activity="picked"
             :now="now"
             :alarms="alarms"
             :error="reminderError"
-            @close="picked = null"
+            @close="closeReminder"
             @confirm="onConfirm"
             @toggle-reminder="onToggle"
         />
@@ -150,5 +171,29 @@ function onToggle(id: number, enabled: boolean) {
     justify-content: start;
     align-items: stretch;
     gap: 12px;
+}
+.is-glass .group + .group {
+    margin-top: 18px;
+}
+.is-glass .group-title {
+    gap: 8px;
+    margin-bottom: 8px;
+    color: var(--liquid-ink);
+    font-size: var(--fs-md);
+    letter-spacing: normal;
+}
+.is-glass .group-title::before {
+    display: none;
+}
+.is-glass .group-title i {
+    opacity: 1;
+    font-size: var(--fs-xs);
+}
+.is-glass .cards {
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(min(100%, calc(220px * var(--fs-scale))), calc(248px * var(--fs-scale)))
+    );
+    gap: 10px;
 }
 </style>

@@ -27,6 +27,17 @@ async function setup(raw: string | null = null) {
 }
 
 describe('闹钟保存回执', () => {
+    it('读取失败时保护原数据，重读成功后才恢复写入', async () => {
+        const { store, storage } = await setup('{');
+        expect(store.loadError.value).not.toBe('');
+        expect(store.add(draft).ok).toBe(false);
+        expect(storage.setItem).not.toHaveBeenCalled();
+        storage.getItem.mockReturnValue('[]');
+        await store.retryLoad();
+        expect(store.loadError.value).toBe('');
+        expect(store.add(draft).ok).toBe(true);
+    });
+
     it('活动同一场次复用记录，改备注后仍关联，停用后可重新开启并重载', async () => {
         const { store, storage } = await setup();
         await import('../../services/game-data.fixture');

@@ -103,12 +103,12 @@ const DEFAULT_ROI: Roi = {
     scale: 2,
 };
 
-/** 列出可见窗口。没起 Tauri（浏览器预览）时返回空数组，让界面走「不可用」分支。 */
+/** 枚举成功但没有游戏窗口时返回空列表。 */
 export async function listGhostWindows(): Promise<GhostWindow[]> {
     try {
         return await commands.ghostWindows();
-    } catch {
-        return [];
+    } catch (cause) {
+        throw new Error('无法读取游戏窗口，请重试', { cause });
     }
 }
 

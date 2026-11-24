@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import SelectField from '../../components/SelectField.vue';
 import PaperCard from '../../components/PaperCard.vue';
-import { computed, onMounted } from 'vue';
+import { computed, inject, onMounted } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import ToolPageShell from './ToolPageShell.vue';
@@ -10,25 +10,12 @@ import MapCanvas from '../../components/ghost/MapCanvas.vue';
 import { useDevMode } from '../../composables/use-dev-mode';
 import { useGhostWatch } from '../../composables/use-ghost-watch';
 import type { GhostPlan } from '../../services/ghost-model';
+import { glassLedger } from '../../components/glass-ledger';
+import { GlassSwitch } from '../../components/liquid-glass';
+import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
+import AppNotice from '../../components/AppNotice.vue';
 import GhostTestPanel from './GhostTestPanel.vue';
 
-/**
- * 捉鬼助手。
- *
- * 页面只负责三件事：把 composable 的状态画出来、把每条任务画成一张地图、把
- * 开始/停止接到按钮上。时序与判定全在 `use-ghost-watch` 里——这一页不该知道
- * 轮询间隔是多少，也不该知道「连不稳要等两帧」「失败三次才报错」。
- * 状态那句话（`statusText`）连同灯色、引擎名、降级提示、缩放比一起住在
- * composable：它们是**判定**，换个页面还得是同一个结论，不是这一页的版式。
- *
- * 大小鬼是一起捉的，两条任务同时成立，所以两张图同卡上下分栏，一眼同时看到
- * 「小鬼往哪走、大鬼往哪走」。做成切换是把「看两个」变成「看一个再点一下」，
- * 而实际动作恰恰是两边来回跑。只有一条任务时就是单张吃满——
- * 分栏是内容的结果，不是布局的默认。
- *
- * 右下角那块「测试文字」不在这一页里（`GhostTestPanel`）：它是没有游戏时的临时替身，
- * 寿命比这一页短——真机能测之后删一个文件就干净了，这里一行都不用改。
- */
 const {
     running,
     starting,
@@ -52,6 +39,17 @@ const {
     clearTest,
 } = useGhostWatch();
 
+const glass = inject(glassLedger, null);
+const card = glass?.card ?? PaperCard;
+const cardProps = glass ? { radius: 16 } : { plain: true };
+const windowOptions = computed(() => [
+    { value: '', label: windows.value.length > 1 ? '请选择游戏窗口' : '自动选择' },
+    ...windows.value.map(({ hwnd, title }) => ({ value: String(hwnd), label: title })),
+]);
+const windowValue = computed({
+    get: () => selectedHwnd.value === null ? '' : String(selectedHwnd.value),
+    set: (value: string) => { selectedHwnd.value = value ? Number(value) : null; },
+});
 const { devMode } = useDevMode();
 
 /** 纠错对（`甲→乙`）按空格连成一句话，挂在「识别原文」的标题上。 */
@@ -60,7 +58,6 @@ const corrections = computed(() => {
     return list.map((item) => `${item.from}→${item.to}`).join(' ');
 });
 
-/** 头上只写「哪一条」。坐标与范围全在图上，这行不重复。 */
 function kindLabel(plan: GhostPlan): string {
     return plan.task.kind === 'small' ? '小鬼' : '大鬼';
 }
@@ -88,7 +85,7 @@ onMounted(() => {
         </template>
 
         <div class="hunt">
-            <PaperCard class="map-card" plain>
+            <component :is="card" v-bind="cardProps" class="map-card">
                 <!-- 两条任务共用一张卡、卡内上下分栏：分两张卡等于给同一件事
                      加了道边框和一段额外间距，读的时候还多一层「这是两个物件」的错觉。 -->
                 <div v-for="plan in plans" :key="plan.task.kind" class="map-item">
@@ -110,41 +107,43 @@ onMounted(() => {
                 <div v-if="!plans.length" class="map-item">
                     <MapCanvas :plan="null" />
                 </div>
-            </PaperCard>
+            </component>
 
             <aside class="hunt-side">
-                <PaperCard class="side-block" plain>
+                <component :is="card" v-bind="cardProps" class="side-block hunt-controls">
                     <div class="status" :class="statusKind">
                         <span class="status-dot" aria-hidden="true" />
                         <span class="status-text">{{ statusText }}</span>
                     </div>
                     <!-- 降级摊开在状态区，不藏进折叠的「识别原文」：
                          链路照跑、灯照样绿，不说的话看起来完全正常，只是字全认错。 -->
-                    <p v-if="degraded" class="meta engine-warn">
+                    <AppNotice v-if="degraded" class="engine-warn" tone="warning" role="status">
                         已切换到系统 OCR，彩色文字可能识别不全。
-                    </p>
+                    </AppNotice>
 
                     <div class="form-row">
                         <span class="field-label">监听窗口</span>
-                        <SelectField
-                            :model-value="selectedHwnd === null ? '' : String(selectedHwnd)"
-                            :options="[
-                                { value: '', label: '自动选择' },
-                                ...windows.map((item) => ({
-                                    value: String(item.hwnd),
-                                    label: item.title,
-                                })),
-                            ]"
+                        <GlassSelect
+                            v-if="glass"
+                            v-model="windowValue"
+                            class="lg-form-fields"
+                            :options="windowOptions"
                             label="监听窗口"
-                            :disabled="running"
-                            @update:model-value="
-                                selectedHwnd = $event === '' ? null : Number($event)
-                            "
+                            hide-label
+                            :disabled="running || starting"
+                        />
+                        <SelectField
+                            v-else
+                            v-model="windowValue"
+                            :options="windowOptions"
+                            label="监听窗口"
+                            :disabled="running || starting"
                         />
                     </div>
                     <div class="form-row">
                         <span class="field-label">高概率区域</span>
-                        <CostSwitch v-model="hot" off-label="关" on-label="开" class="hot-switch" />
+                        <GlassSwitch v-if="glass" v-model:checked="hot" aria-label="高概率区域" class="hot-switch" />
+                        <CostSwitch v-else v-model="hot" label="高概率区域" off-label="关" on-label="开" class="hot-switch" />
                     </div>
                     <div class="legend">
                         <span class="legend-item">
@@ -155,30 +154,32 @@ onMounted(() => {
                         </span>
                     </div>
                     <p class="meta field-note">识别时请保持游戏任务栏可见。</p>
-                </PaperCard>
+                </component>
 
-                <PaperCard v-if="report" as="details" plain class="detail-block">
-                    <summary class="detail-head">
-                        <AppIcon name="chevron-right" class="detail-arrow" />
-                        识别原文
-                        <span v-if="engineLabel" class="meta detail-tag">{{ engineLabel }}</span>
-                        <span v-if="corrections" class="meta detail-tag"
-                            >纠错 {{ corrections }}</span
-                        >
-                    </summary>
-                    <!-- 按行原样列出而不是给拼接后的整串：任务栏会按像素折行，
-                         「这个地名是不是被切断过」只有对着折行才看得出来。 -->
-                    <p v-if="stats" class="meta status-meta">
-                        截屏 {{ stats.grabMs }}ms · 识别 {{ stats.ocrMs }}ms · 系统
-                        {{ scalePercent }}%
-                    </p>
-                    <ol class="detail-lines">
-                        <li v-for="(line, index) in report.lines" :key="index">{{ line }}</li>
-                    </ol>
-                    <p v-for="issue in report.issues" :key="issue" class="meta detail-issue">
-                        {{ issue }}
-                    </p>
-                </PaperCard>
+                <component :is="card" v-if="report" v-bind="cardProps" class="detail-block">
+                    <details>
+                        <summary class="detail-head">
+                            <AppIcon name="chevron-right" class="detail-arrow" />
+                            识别原文
+                            <span v-if="engineLabel" class="meta detail-tag">{{ engineLabel }}</span>
+                            <span v-if="corrections" class="meta detail-tag"
+                                >纠错 {{ corrections }}</span
+                            >
+                        </summary>
+                        <!-- 按行原样列出而不是给拼接后的整串：任务栏会按像素折行，
+                             「这个地名是不是被切断过」只有对着折行才看得出来。 -->
+                        <p v-if="stats" class="meta status-meta">
+                            截屏 {{ stats.grabMs }}ms · 识别 {{ stats.ocrMs }}ms · 系统
+                            {{ scalePercent }}%
+                        </p>
+                        <ol class="detail-lines">
+                            <li v-for="(line, index) in report.lines" :key="index">{{ line }}</li>
+                        </ol>
+                        <p v-for="issue in report.issues" :key="issue" class="meta detail-issue">
+                            {{ issue }}
+                        </p>
+                    </details>
+                </component>
             </aside>
 
             <!-- 测试文字：不开游戏也能把整条链跑起来。它受「开发者模式」管（`useDevMode`），
@@ -319,9 +320,7 @@ onMounted(() => {
  * 状态灯说的是「有没有在跑」，这条说的是「跑得对不对」，两件事不该共用一个灯。 */
 .engine-warn {
     margin: 9px 0 0;
-    padding: 7px 9px;
-    border-radius: var(--r-2);
-    background: var(--warn-bg);
+
 }
 
 /* ---------- 表单 ----------
@@ -334,7 +333,7 @@ onMounted(() => {
 }
 /* `.field-label` 是全局的（`base.css`）：设置页的「主题 / 字号」与这里的
  * 「监听窗口 / 高概率区域」是同一种标签，原先两处各写一份逐字相同的规则。 */
-.form-row :deep(.select-field) {
+.form-row :is(.glass-select, .select-field) {
     flex: 1;
     min-width: 0;
 }
@@ -343,6 +342,9 @@ onMounted(() => {
 }
 /* 开关靠右与「监听窗口」的下拉同一条竖线：两行都是「标签在左、控件在右」，
  * 对齐之后侧栏才读成一列表单，而不是一堆各在各处的零件。 */
+glass-switch.hot-switch {
+    zoom: 0.875;
+}
 .hot-switch {
     margin-left: auto;
 }
@@ -398,7 +400,7 @@ onMounted(() => {
 .detail-arrow {
     transition: transform var(--t-quick) var(--ease-soft);
 }
-.detail-block[open] .detail-arrow {
+.detail-block details[open] .detail-arrow {
     transform: rotate(90deg);
 }
 .detail-tag {

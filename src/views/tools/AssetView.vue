@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, inject, onMounted, ref, watch } from 'vue';
+import { glassLedger } from '../../components/glass-ledger';
+import { GlassCard } from '../../components/liquid-glass';
+import GlassInput from '../../components/liquid-glass/GlassInput.vue';
+import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import AppIcon from '../../components/AppIcon.vue';
 import GroupHead from '../../components/GroupHead.vue';
 import RecordPager from '../../components/RecordPager.vue';
@@ -17,6 +21,7 @@ import AssetImage from './AssetImage.vue';
 
 /** 图鉴先筛全部索引，再切分页；图片懒加载不能代替对 DOM 数量的限制。 */
 const PAGE_SIZE = 120;
+const glass = inject(glassLedger, null);
 const sections = ref<AssetSection[]>([]);
 const loading = ref(false);
 const failed = ref(false);
@@ -27,6 +32,7 @@ const level = ref('all');
 const page = ref(1);
 const preview = ref<AssetItem | null>(null);
 const imageVersion = ref(0);
+const previewVersion = ref(0);
 
 async function load() {
     if (loading.value) return;
@@ -170,9 +176,26 @@ function turnPage(next: number) {
 </script>
 
 <template>
-    <ToolPageShell title="游戏资源" desc="图标检索 · 图鉴预览">
-        <div class="asset-bar page-filters">
+    <ToolPageShell
+        title="游戏资源"
+        desc="图标检索 · 图鉴预览"
+        class="asset-page"
+        :class="{ 'is-glass': glass }"
+    >
+        <div class="asset-bar page-filters" :class="{ 'lg-form-fields': glass }">
+            <GlassInput v-if="glass" class="asset-search">
+                <AppIcon name="search" />
+                <input
+                    v-model="keyword"
+                    type="search"
+                    aria-label="搜索资源名"
+                    :placeholder="
+                        kind === 'all' ? '搜索全部资源、名称或别名' : '搜索当前分类、名称或别名'
+                    "
+                />
+            </GlassInput>
             <input
+                v-else
                 v-model="keyword"
                 class="field filter-search"
                 type="search"
@@ -181,26 +204,32 @@ function turnPage(next: number) {
                     kind === 'all' ? '搜索全部资源、名称或别名' : '搜索当前分类、名称或别名'
                 "
             />
-            <SelectField
+            <component
+                :is="glass ? GlassSelect : SelectField"
                 v-model="kind"
                 class="asset-kind"
                 :options="kindOptions"
                 label="按类别筛选"
+                :hide-label="!!glass"
                 :disabled="!sections.length"
             />
-            <SelectField
+            <component
+                :is="glass ? GlassSelect : SelectField"
                 v-if="kind !== 'all' && subgroupOptions.length > 1"
                 v-model="subgroup"
                 class="asset-filter"
                 :options="subgroupOptions"
                 label="按分组筛选"
+                :hide-label="!!glass"
             />
-            <SelectField
+            <component
+                :is="glass ? GlassSelect : SelectField"
                 v-if="kind !== 'all' && levelOptions.length > 1"
                 v-model="level"
                 class="asset-filter"
                 :options="levelOptions"
                 label="按等级筛选"
+                :hide-label="!!glass"
             />
             <PressButton v-if="hasFilters" text="清除" label="清除资源筛选" @click="clearFilters" />
             <span class="asset-count" role="status">{{ countText }}</span>
@@ -216,10 +245,15 @@ function turnPage(next: number) {
             <h3>正在加载资源</h3>
         </div>
 
-        <section
+        <component
+            :is="glass ? GlassCard : 'section'"
             v-for="section in visible"
             :key="section.kind"
-            class="board board-plain asset-section"
+            class="asset-section"
+            :class="{ 'board board-plain': !glass }"
+            :radius="glass ? 20 : undefined"
+            :role="glass ? 'region' : undefined"
+            :aria-label="section.title"
         >
             <header class="asset-head">
                 <h3 class="asset-title">{{ section.title }}</h3>
@@ -245,7 +279,7 @@ function turnPage(next: number) {
                     </li>
                 </ul>
             </div>
-        </section>
+        </component>
 
         <RecordPager
             class="asset-pages"
@@ -280,8 +314,8 @@ function turnPage(next: number) {
             initial-focus="cancel"
             @close="preview = null"
         >
-            <div class="asset-preview">
-                <AssetImage :key="imageVersion" :src="preview.img" :name="preview.name" eager />
+            <div class="asset-preview" :class="{ 'is-glass': glass }">
+                <AssetImage :key="previewVersion" :src="preview.img" :name="preview.name" eager />
                 <dl class="asset-details">
                     <dt>分类</dt>
                     <dd>{{ previewSection?.title }}</dd>
@@ -296,7 +330,7 @@ function turnPage(next: number) {
                 </dl>
             </div>
             <template #footer>
-                <PressButton text="重试图片" label="重试预览图片" @click="imageVersion++" />
+                <PressButton text="重试图片" label="重试预览图片" @click="previewVersion++" />
                 <PressButton
                     text="关闭"
                     label="关闭资源预览"
@@ -440,5 +474,88 @@ function turnPage(next: number) {
 .asset-details dd {
     margin: 0;
     overflow-wrap: anywhere;
+}
+
+.is-glass .asset-bar {
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+.asset-search {
+    --icon-size: 16px;
+    flex: 0 1 290px;
+    width: min(290px, 100%);
+    color: var(--liquid-muted);
+}
+.asset-search input {
+    color: var(--liquid-ink);
+}
+.is-glass .asset-count {
+    padding-block: 6px;
+}
+.is-glass .asset-section {
+    display: block;
+    padding: 20px;
+}
+.is-glass .asset-section + .asset-section {
+    margin-top: 16px;
+}
+.is-glass .asset-head {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.is-glass .asset-title {
+    font-size: var(--fs-md);
+    font-weight: 400;
+}
+.is-glass .asset-total {
+    font-size: var(--fs-xs);
+}
+.is-glass .asset-sub {
+    margin-block: 18px 10px;
+    font-size: var(--fs-sm);
+}
+.is-glass .asset-group:first-of-type .asset-sub {
+    margin-top: 0;
+}
+.is-glass .asset-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(100px * var(--fs-scale))), 1fr));
+    gap: 10px 8px;
+}
+.is-glass .asset-cell {
+    --asset-image-size: calc(60px * var(--fs-scale));
+    gap: 7px;
+    padding: 12px 6px;
+    border-radius: 14px;
+}
+.is-glass .asset-cell:hover {
+    background: var(--ledger-highlight);
+}
+.is-glass .asset-cell:focus-visible {
+    outline: 2px solid var(--liquid-focus);
+    outline-offset: -2px;
+    background: var(--ledger-selected);
+}
+.is-glass .asset-name {
+    font-size: var(--fs-xs);
+    line-height: 1.5;
+}
+.is-glass .asset-meta {
+    font-size: var(--fs-mini);
+}
+.is-glass .asset-pages {
+    justify-content: space-between;
+    margin-top: 18px;
+    padding-inline: 4px;
+}
+.asset-preview.is-glass {
+    gap: 24px;
+    padding-top: 8px;
+}
+.asset-preview.is-glass .asset-details {
+    gap: 12px 20px;
+    padding-top: 18px;
+    border-top: 1px solid var(--liquid-outline);
 }
 </style>

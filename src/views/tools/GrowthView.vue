@@ -1,18 +1,20 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, reactive, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, inject, onMounted, reactive, ref, watch } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
 import NumberField from '../../components/NumberField.vue';
+import { MENPAI_OPTIONS } from './growth-extras';
 import ToolPageShell from './ToolPageShell.vue';
+import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import SelectField from '../../components/SelectField.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
-import { useRovingFocus } from '../../composables/use-roving-focus';
+import { glassLedger } from '../../components/glass-ledger';
+import { GlassSegment, GlassSegmented } from '../../components/liquid-glass';
+import PaperCard from '../../components/PaperCard.vue';
 import { ledgerMoneyText } from '../../services/format';
 import {
     cultivationCost,
     expToGrade,
-    gemCost,
-    guildShopQuota,
     levelCosts,
     levelCostsError,
     lifeSkillCost,
@@ -43,6 +45,10 @@ watch(
     },
     { once: true },
 );
+const glass = inject(glassLedger, null);
+const selectControl = glass ? GlassSelect : SelectField;
+const surface = glass?.card ?? PaperCard;
+const surfaceProps = glass ? { radius: 16 } : { plain: true };
 const MODES = [
     { value: 'single' as const, label: '单项计算' },
     { value: 'plan' as const, label: '综合计算' },
@@ -75,8 +81,6 @@ type CalcKey =
     | 'qianYuanDan'
     | 'qianNengGuo'
     | 'menpai'
-    | 'gem'
-    | 'guildShop'
     | 'petScene';
 
 interface CalcType {
@@ -172,20 +176,6 @@ const TYPES: CalcType[] = [
         resultHint: '经验封顶 10 亿',
     },
     {
-        key: 'gem',
-        tag: '物品',
-        name: '宝石合成',
-        inputHint: '普通 20 级、星辉 11 级',
-        resultHint: '要几颗 1 级',
-    },
-    {
-        key: 'guildShop',
-        tag: '帮派',
-        name: '商会免税',
-        inputHint: '商业指数与间数',
-        resultHint: '需卖出的营业额',
-    },
-    {
         key: 'petScene',
         tag: '召唤兽',
         name: '练级场景',
@@ -208,14 +198,12 @@ const FIELD_LABELS: Record<CalcKey, { a: string; b: string; c: string }> = {
     qianNengGuo: { a: '已有颗数', b: '目标颗数', c: '' },
     /* 未飞升只填前两格；已飞升多一格「已吃潜能果」。 */
     menpai: { a: '人物等级', b: '人物总经验', c: '已吃潜能果' },
-    gem: { a: '目标等级', b: '1 级单价（万）', c: '' },
-    guildShop: { a: '商业指数', b: '店铺间数', c: '' },
     petScene: { a: '召唤兽等级', b: '', c: '' },
 };
 
 /**
- * 十四项的输入各自存一份：换卡再换回来，刚才填的数还在。
- * `pick` 是「这一项里选哪一个」：辅助技能、修炼类型、宝石档位、转门派是否飞升。
+ * 各项目的输入各自存一份：换卡再换回来，刚才填的数还在。
+ * `pick` 是「这一项里选哪一个」：辅助技能、修炼类型、转门派是否飞升。
  */
 const form = reactive<Record<CalcKey, { a: number; b: number; c: number; pick: string }>>({
     role: { a: 0, b: 175, c: 0, pick: '' },
@@ -230,8 +218,6 @@ const form = reactive<Record<CalcKey, { a: number; b: number; c: number; pick: s
     qianYuanDan: { a: 0, b: 9, c: 0, pick: '' },
     qianNengGuo: { a: 0, b: 50, c: 0, pick: '' },
     menpai: { a: 129, b: 0, c: 0, pick: 'nofly' },
-    gem: { a: 5, b: 1, c: 0, pick: 'putong' },
-    guildShop: { a: 100, b: 2, c: 0, pick: '' },
     petScene: { a: 80, b: 0, c: 0, pick: '' },
 });
 
@@ -240,16 +226,23 @@ const activeType = computed(() => TYPES.find((one) => one.key === active.value) 
 const current = computed(() => form[active.value]);
 const labels = computed(() => FIELD_LABELS[active.value]);
 
-/* 换项目只换卡，键盘仍按「一组里选一个」走：整组一个 Tab 停靠点、方向键换卡。 */
-const { cells, tabIndexFor, onKeydown } = useRovingFocus<CalcKey>({
-    values: () => TYPES.map((one) => one.key),
-    activeValue: () => active.value,
-    pick: (index) => {
-        const next = TYPES[index];
-        if (next) active.value = next.key;
+const categories = [...new Set(TYPES.map((item) => item.tag))].map((tag) => ({
+    value: tag,
+    label: tag,
+}));
+const category = computed({
+    get: () => activeType.value.tag,
+    set: (tag: string) => {
+        const first = TYPES.find((item) => item.tag === tag);
+        if (first) active.value = first.key;
     },
-    axis: 'horizontal',
 });
+const projects = computed(() =>
+    TYPES.filter((item) => item.tag === category.value).map((item) => ({
+        value: item.key,
+        label: item.name,
+    })),
+);
 
 const lifeOptions = computed(() =>
     (costs.value?.lifeSkill.skills ?? []).map((one) => ({
@@ -263,17 +256,15 @@ const cultOptions = computed(() =>
         label: one.name,
     })),
 );
-const gemOptions = computed(() =>
-    (costs.value?.gem.types ?? []).map((one) => ({
-        value: one.id,
-        label: `${one.name}（${one.cap} 级）`,
-    })),
-);
-/* 转门派两条分支：官网是两个独立入口，公式只差「潜能果」那一格。 */
-const MENPAI_OPTIONS = [
-    { value: 'nofly', label: '未飞升' },
-    { value: 'fly', label: '已飞升' },
-];
+
+const pickField = computed(() => {
+    switch (active.value) {
+        case 'lifeSkill': return { label: '辅助技能', options: lifeOptions.value };
+        case 'cultivation': return { label: '修炼类型', options: cultOptions.value };
+        case 'menpai': return { label: '飞升阶段', options: MENPAI_OPTIONS };
+        default: return null;
+    }
+});
 
 /**
  * 换技能 / 换修炼类型时把目标等级收进新上限。
@@ -295,16 +286,8 @@ watch(
                 : active.value === 'cultivation'
                   ? (table.cultivation.types.find((one) => one.id === Number(current.value.pick))
                         ?.cap ?? 0)
-                  : active.value === 'gem'
-                    ? (table.gem.types.find((one) => one.id === current.value.pick)?.cap ?? 0)
-                    : 0;
-        /* 宝石那一格是「目标等级」（`a`），其余几项收的是「目标等级」（`b`）。 */
-        if (!cap) return;
-        const level = active.value === 'gem' ? current.value.a : current.value.b;
-        if (level > cap) {
-            if (active.value === 'gem') current.value.a = cap;
-            else current.value.b = cap;
-        }
+                  : 0;
+        if (cap && current.value.b > cap) current.value.b = cap;
     },
 );
 
@@ -536,47 +519,6 @@ const outcome = computed<Outcome>(() => {
                 details,
             };
         }
-        case 'gem': {
-            const type = table.gem.types.find((one) => one.id === input.pick);
-            if (!type) return { ...NONE, note: '请选择宝石档位' };
-            const result = gemCost(table, type.id, input.a, input.b * 10_000);
-            if (!result)
-                return { ...NONE, note: `等级需在 1 到 ${type.cap} 之间，单价需为有效金额` };
-            return {
-                note: '',
-                headline: [{ cap: '需要 1 级', value: count(result.total) + ' 颗' }],
-                details: [
-                    ...(input.a >= 2
-                        ? [{ cap: `${input.a - 1} 级等价数量`, value: count(result.lower) + ' 颗' }]
-                        : []),
-                    ...(input.a >= 3
-                        ? [
-                              {
-                                  cap: `${input.a - 2} 级等价数量`,
-                                  value: count(result.lower2) + ' 颗',
-                              },
-                          ]
-                        : []),
-                    { cap: '折合花费', value: ledgerMoneyText(result.money) },
-                ],
-            };
-        }
-        case 'guildShop': {
-            if (input.a <= 0) return { ...NONE, note: '商业指数要大于 0' };
-            if (input.b < 1) return { ...NONE, note: '店铺间数至少 1 间' };
-            const quota = guildShopQuota(input.a, input.b);
-            if (!Number.isSafeInteger(quota)) return { ...NONE, note: '营业额超出计算范围' };
-            return {
-                note: '',
-                headline: [
-                    {
-                        cap: '需卖出的营业额',
-                        value: ledgerMoneyText(quota),
-                    },
-                ],
-                details: [{ cap: '换算口径', value: '指数 × 1000 × 间数' }],
-            };
-        }
         case 'petScene': {
             if (input.a < 0 || input.a > 175)
                 return { ...NONE, note: '召唤兽等级需在 0 到 175 之间' };
@@ -600,45 +542,30 @@ const outcome = computed<Outcome>(() => {
 
 <template>
     <ToolPageShell title="养成计算器" desc="单项计算 · 角色预算">
-        <div class="growth-calculator">
+        <template v-if="costs" #actions>
+            <GlassSegmented v-if="glass" v-model:value="mode" class="calc-mode" aria-label="计算方式">
+                <GlassSegment v-for="option in MODES" :key="option.value" :value="option.value">{{ option.label }}</GlassSegment>
+            </GlassSegmented>
+            <SegmentedPills v-else v-model="mode" :options="MODES" label="计算方式" />
+        </template>
+        <div class="growth-calculator" :class="{ 'growth-single': mode === 'single' }">
             <LoadNotice :error="levelCostsError" :load="reload" />
 
             <template v-if="costs">
-                <SegmentedPills
-                    v-model="mode"
-                    :options="MODES"
-                    label="计算方式"
-                    class="calc-mode"
-                />
                 <div v-if="openedPlan" v-show="mode === 'plan'">
                     <GrowthPlan :costs="costs" :reload-roster="reloadRoster" />
                 </div>
                 <template v-if="mode === 'single'">
-                    <!-- 类型卡共用纸面材质。用 `button` 而不是把纸包在按钮里——按钮里只能放行内内容，
-                 而这一格既要是纸（`.board`）、又要能被点与键盘选中。材质仍走全局那一条，
-                 这里只加边与选中记号。 -->
-                    <div
-                        class="calc-picks"
-                        role="radiogroup"
-                        aria-label="计算项目"
-                        @keydown="onKeydown"
-                    >
-                        <button
-                            v-for="(one, i) in TYPES"
-                            :key="one.key"
-                            ref="cells"
-                            type="button"
-                            class="board board-plain calc-pick"
-                            role="radio"
-                            :aria-checked="one.key === active"
-                            :tabindex="tabIndexFor(i)"
-                            @click="active = one.key"
-                        >
-                            <span class="calc-pick-tag">{{ one.tag }}</span>
-                            <span class="calc-pick-name">{{ one.name }}</span>
-                            <span class="calc-pick-mark" aria-hidden="true" />
-                        </button>
-                    </div>
+                    <component :is="surface" v-bind="surfaceProps" class="calc-directory">
+                        <div class="calc-choice">
+                            <span>类别</span>
+                            <SegmentedPills v-model="category" :options="categories" label="计算类别" wrap />
+                        </div>
+                        <div class="calc-choice">
+                            <span>项目</span>
+                            <SegmentedPills v-model="active" :options="projects" label="计算项目" wrap />
+                        </div>
+                    </component>
 
                     <div class="calc-panel growth-layout">
                         <LedgerSection
@@ -648,42 +575,17 @@ const outcome = computed<Outcome>(() => {
                             :hint="activeType.inputHint"
                         >
                             <div class="calc-fields growth-field-grid">
-                                <label
-                                    v-if="active === 'lifeSkill'"
-                                    class="slip-row sm growth-input-row growth-pick-row"
-                                >
-                                    <span class="field-label">技能</span>
-                                    <SelectField
+                                <div v-if="pickField" class="growth-input-row growth-pick-row">
+                                    <span class="field-label">{{ pickField.label }}</span>
+                                    <component
+                                        :is="selectControl"
                                         v-model="current.pick"
-                                        :options="lifeOptions"
-                                        label="辅助技能"
+                                        :label="pickField.label"
+                                        :options="pickField.options"
+                                        :hide-label="glass ? true : undefined"
                                     />
-                                </label>
-                                <label
-                                    v-if="active === 'cultivation'"
-                                    class="slip-row sm growth-input-row growth-pick-row"
-                                >
-                                    <span class="field-label">类型</span>
-                                    <SelectField
-                                        v-model="current.pick"
-                                        :options="cultOptions"
-                                        label="修炼类型"
-                                    />
-                                </label>
-                                <label
-                                    v-if="active === 'gem' || active === 'menpai'"
-                                    class="slip-row sm growth-input-row growth-pick-row"
-                                >
-                                    <span class="field-label">{{
-                                        active === 'gem' ? '档位' : '阶段'
-                                    }}</span>
-                                    <SelectField
-                                        v-model="current.pick"
-                                        :options="active === 'gem' ? gemOptions : MENPAI_OPTIONS"
-                                        :label="active === 'gem' ? '宝石档位' : '飞升阶段'"
-                                    />
-                                </label>
-                                <label class="slip-row sm growth-input-row">
+                                </div>
+                                <label class="growth-input-row">
                                     <span class="field-label">{{ labels.a }}</span>
                                     <NumberField
                                         v-model="current.a"
@@ -691,12 +593,11 @@ const outcome = computed<Outcome>(() => {
                                         update-on-input
                                     />
                                 </label>
-                                <label v-if="labels.b" class="slip-row sm growth-input-row">
+                                <label v-if="labels.b" class="growth-input-row">
                                     <span class="field-label">{{ labels.b }}</span>
                                     <NumberField
                                         v-model="current.b"
                                         :label="labels.b"
-                                        :precision="active === 'gem' ? 2 : 0"
                                         update-on-input
                                     />
                                 </label>
@@ -705,7 +606,7 @@ const outcome = computed<Outcome>(() => {
                                     v-if="
                                         labels.c && (active !== 'menpai' || current.pick === 'fly')
                                     "
-                                    class="slip-row sm growth-input-row"
+                                    class="growth-input-row"
                                 >
                                     <span class="field-label">{{ labels.c }}</span>
                                     <NumberField
@@ -720,7 +621,7 @@ const outcome = computed<Outcome>(() => {
                         <LedgerSection
                             plain
                             class="growth-card growth-result-card"
-                            title="需要多少"
+                            title="计算结果"
                             :hint="activeType.resultHint"
                         >
                             <p v-if="outcome.note" class="note error" role="alert">
@@ -731,7 +632,6 @@ const outcome = computed<Outcome>(() => {
                                 <div
                                     v-if="outcome.headline.length"
                                     class="calc-amounts growth-amounts"
-                                    :style="{ '--amount-n': outcome.headline.length }"
                                 >
                                     <div
                                         v-for="one in outcome.headline"
@@ -758,55 +658,3 @@ const outcome = computed<Outcome>(() => {
 </template>
 
 <style src="./growth-calculator.css"></style>
-
-<style scoped>
-.calc-mode {
-    width: fit-content;
-    margin-bottom: 12px;
-}
-/* 项目入口保持统一窄卡宽度，窗口加宽只增加列数。 */
-.calc-picks {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 152px), 168px));
-    justify-content: start;
-    gap: 8px;
-    margin-bottom: 12px;
-}
-/* 留一圈透明边：选中时只换边色，卡片不会因此跳 2px（与 `.character-choice` 同一手法）。 */
-.calc-pick {
-    display: grid;
-    gap: 3px;
-    min-width: 0;
-    padding: 8px 10px;
-    border: var(--w-hair) solid transparent;
-    text-align: left;
-    cursor: pointer;
-}
-.calc-pick:hover {
-    border-color: var(--rule-2);
-}
-.calc-pick[aria-checked='true'] {
-    border-color: var(--seal-edge);
-}
-.calc-pick-tag {
-    color: var(--muted);
-    font-size: var(--fs-mini);
-    letter-spacing: 0.08em;
-}
-.calc-pick-name {
-    color: var(--ink);
-    font-size: var(--fs-sm);
-    line-height: 1.4;
-}
-/* 选中记号是一道短朱条，不换字号字重（CONVENTIONS §2.4-9）。 */
-.calc-pick-mark {
-    width: 22px;
-    height: 2px;
-    margin-top: 3px;
-    border-radius: 1px;
-    background: transparent;
-}
-.calc-pick[aria-checked='true'] .calc-pick-mark {
-    background: var(--accent);
-}
-</style>

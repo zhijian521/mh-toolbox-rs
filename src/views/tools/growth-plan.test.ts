@@ -58,16 +58,6 @@ describe('角色综合养成预算', () => {
         }
     });
 
-    it('宝石单价按万换算并保留两位；过大营业额拒绝显示失真结果', () => {
-        const gem = { ...createGrowthExtra(costs, 'gem', 'gem-a', 100), a: 5, b: 1.25 };
-        expect(growthExtraCost(costs, gem).cash).toBe(200_000);
-        const shop = {
-            ...createGrowthExtra(costs, 'guildShop', 'shop-a', 100),
-            a: Number.MAX_SAFE_INTEGER,
-        };
-        expect(growthExtraCost(costs, shop).error).not.toBe('');
-    });
-
     it('读取当前值但不修改档案；空颗数与真实零区分，剧情与育兽术不套用公式', () => {
         const role = character();
         const before = JSON.stringify(role);
@@ -200,29 +190,27 @@ describe('角色综合养成预算', () => {
     });
 
     it('新增卡片成本参与合计；删除后移除成本，参考读数不成为支出', () => {
-        const gem = { ...createGrowthExtra(costs, 'gem', 'gem-a', 100), a: 5, b: 1 };
-        const shop = createGrowthExtra(costs, 'guildShop', 'shop-a', 100);
-        const transfer = createGrowthExtra(costs, 'menpai', 'transfer-a', 69);
-        const extras = [gem, shop, transfer];
+        const reference = createGrowthExtra('petScene', 'scene-a', 100);
+        const transfer = createGrowthExtra('menpai', 'transfer-a', 69);
+        const extras = [reference, transfer];
         const summary = summarizeGrowthPlan(costs, [], 1_000_000, extras);
-        expect(summary.total.cash).toBe(160_000);
+        expect(summary.total.cash).toBe(0);
         expect(summary.total.exp).toBe(39_750_864);
         expect(summary.remainingExp).toBe(38_750_864);
-        expect(summary.extraRows).toHaveLength(3);
+        expect(summary.extraRows).toHaveLength(2);
         expect(
             summarizeGrowthPlan(
                 costs,
                 [],
                 0,
-                extras.filter((one) => one.key !== gem.key),
-            ).total.cash,
+                extras.filter((one) => one.key !== transfer.key),
+            ).total.exp,
         ).toBe(0);
-        expect(growthExtraCost(costs, shop).readings[0].value).toBe(200_000);
     });
 
     it('飞升转门派只累计潜能果消耗，换算经验不重复记账', () => {
         const extra = {
-            ...createGrowthExtra(costs, 'menpai', 'transfer-a', 175),
+            ...createGrowthExtra('menpai', 'transfer-a', 175),
             pick: 'fly',
             c: 200,
         };
@@ -233,24 +221,24 @@ describe('角色综合养成预算', () => {
     });
 
     it('额外卡片非法输入阻止合计，重复类型卡片独立累加', () => {
-        const first = { ...createGrowthExtra(costs, 'gem', 'gem-a', 100), a: 5, b: 1 };
-        const second = { ...first, key: 'gem-b' };
-        expect(summarizeGrowthPlan(costs, [], 0, [first, second]).total.cash).toBe(320_000);
-        const invalid = { ...first, a: 99 };
+        const first = createGrowthExtra('menpai', 'transfer-a', 69);
+        const second = { ...first, key: 'transfer-b' };
+        expect(summarizeGrowthPlan(costs, [], 0, [first, second]).total.exp).toBe(79_501_728);
+        const invalid = { ...first, a: -1 };
         const result = summarizeGrowthPlan(costs, [], 0, [invalid]);
         expect(result.errorCount).toBe(1);
-        expect(result.total.cash).toBe(0);
+        expect(result.total.exp).toBe(0);
     });
 
     it('经验换算、人物常规与场景卡片保留独立读数，不改变养成总额', () => {
-        const grade = { ...createGrowthExtra(costs, 'expGrade', 'grade-a', 10), b: 100000 };
+        const grade = { ...createGrowthExtra('expGrade', 'grade-a', 10), b: 100000 };
         expect(growthExtraCost(costs, grade).readings).toEqual([
             { label: '可达等级', value: 16 },
             { label: '剩余经验', value: 22826 },
         ]);
-        const convention = createGrowthExtra(costs, 'convention', 'convention-a', 175);
+        const convention = createGrowthExtra('convention', 'convention-a', 175);
         expect(growthExtraCost(costs, convention).readings[1]).toMatchObject({ value: 30_000_000 });
-        const scene = createGrowthExtra(costs, 'petScene', 'scene-a', 100);
+        const scene = createGrowthExtra('petScene', 'scene-a', 100);
         expect(growthExtraCost(costs, scene).readings).toHaveLength(7);
         expect(summarizeGrowthPlan(costs, [], 0, [grade, convention, scene]).total).toMatchObject({
             exp: 0,

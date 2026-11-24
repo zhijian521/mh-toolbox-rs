@@ -1,24 +1,24 @@
 /** 综合预算中的可选计算项；参考读数不进入资源消耗。 */
 import {
     expToGrade,
-    gemCost,
-    guildShopQuota,
     menpaiCost,
     petScenesAt,
     roleConvention,
     type LevelCosts,
 } from '../../services/level-costs';
 
-export type GrowthExtraKind =
-    'gem' | 'menpai' | 'guildShop' | 'petScene' | 'expGrade' | 'convention';
+export type GrowthExtraKind = 'menpai' | 'petScene' | 'expGrade' | 'convention';
 
 export const GROWTH_EXTRA_OPTIONS: { value: GrowthExtraKind; label: string }[] = [
-    { value: 'gem', label: '宝石合成' },
     { value: 'menpai', label: '转门派' },
-    { value: 'guildShop', label: '商会免税' },
     { value: 'petScene', label: '练级场景' },
     { value: 'expGrade', label: '经验换算等级' },
     { value: 'convention', label: '人物常规' },
+];
+
+export const MENPAI_OPTIONS = [
+    { value: 'nofly', label: '未飞升' },
+    { value: 'fly', label: '已飞升' },
 ];
 
 export interface GrowthExtra {
@@ -41,7 +41,6 @@ export interface GrowthExtraResult {
 }
 
 export function createGrowthExtra(
-    costs: LevelCosts,
     kind: GrowthExtraKind,
     key: string,
     roleLevel: number,
@@ -50,10 +49,10 @@ export function createGrowthExtra(
         key,
         kind,
         name: GROWTH_EXTRA_OPTIONS.find((one) => one.value === kind)?.label ?? '',
-        a: kind === 'gem' ? 5 : kind === 'guildShop' ? 100 : kind === 'petScene' ? 80 : roleLevel,
-        b: kind === 'guildShop' ? 2 : 0,
+        a: kind === 'petScene' ? 80 : roleLevel,
+        b: 0,
         c: 0,
-        pick: kind === 'gem' ? costs.gem.types[0].id : 'nofly',
+        pick: 'nofly',
     };
 }
 
@@ -74,16 +73,8 @@ export function growthExtraCost(costs: LevelCosts, item: GrowthExtra): GrowthExt
     ) {
         return invalid('请输入有效的非负数值');
     }
-    if (!Number.isSafeInteger(item.a)) return invalid('等级或指数需为整数');
+    if (!Number.isSafeInteger(item.a)) return invalid('等级需为整数');
     switch (item.kind) {
-        case 'gem': {
-            const value = gemCost(costs, item.pick, item.a, item.b * 10_000);
-            if (!value) return invalid('宝石等级或单价超出范围');
-            result.cash = value.money;
-            result.readings = [{ label: '需要 1 级宝石', value: value.total }];
-            result.note = '按理想合成数量计算，不含失败损耗与手续费。';
-            break;
-        }
         case 'menpai': {
             const fly = item.pick === 'fly';
             const value = menpaiCost(costs, item.a, item.b, fly ? item.c : null);
@@ -99,15 +90,6 @@ export function growthExtraCost(costs: LevelCosts, item: GrowthExtra): GrowthExt
                 result.exp = value.exp;
                 result.note = '经验计入合计；不含仙玉及其他条件。';
             }
-            break;
-        }
-        case 'guildShop': {
-            if (!Number.isSafeInteger(item.b) || item.a < 1 || item.b < 1)
-                return invalid('指数和店铺间数需为正整数');
-            const quota = guildShopQuota(item.a, item.b);
-            if (!Number.isSafeInteger(quota)) return invalid('营业额超出计算范围');
-            result.readings = [{ label: '所需营业额', value: quota, money: true }];
-            result.note = '营业额仅供参考，不计入支出。';
             break;
         }
         case 'petScene': {

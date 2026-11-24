@@ -309,8 +309,20 @@ export function useGhostWatch() {
             if (message.includes(WINDOW_GONE)) {
                 selectedHwnd.value = null;
                 failCount = 0;
-                await refreshWindows(() => isCurrent(seq) && running.value);
+                try {
+                    await refreshWindows(() => isCurrent(seq) && running.value);
+                } catch (cause) {
+                    if (!isCurrent(seq)) return;
+                    stop();
+                    error.value = cause instanceof Error ? cause.message : String(cause);
+                    return;
+                }
                 if (!isCurrent(seq) || !running.value) return;
+                if (selectedHwnd.value === null) {
+                    stop();
+                    error.value = windows.value.length ? '请选择一个游戏窗口，再开始识别' : '未找到游戏窗口，请打开游戏后重试';
+                    return;
+                }
                 error.value = '游戏窗口已重开，正在重新查找';
                 return;
             }
@@ -335,6 +347,10 @@ export function useGhostWatch() {
             if (!isCurrent(seq)) return;
             await refreshWindows(() => isCurrent(seq));
             if (!isCurrent(seq)) return;
+            if (selectedHwnd.value === null) {
+                error.value = windows.value.length ? '请选择一个游戏窗口，再开始识别' : '未找到游戏窗口，请打开游戏后重试';
+                return;
+            }
             running.value = true;
             resetHeld();
             /* `resetHeld` 只清 `plans`，`report` 还留着上一轮——从测试文字点「开始」

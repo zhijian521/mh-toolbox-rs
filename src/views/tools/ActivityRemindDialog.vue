@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import AppNotice from '../../components/AppNotice.vue';
-import { computed, ref } from 'vue';
+import { computed, inject, ref } from 'vue';
+import { glassLedger } from '../../components/glass-ledger';
+import { GlassButton } from '../../components/liquid-glass';
+import GlassDialog from '../../components/liquid-glass/GlassDialog.vue';
+import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import FormActions from '../../components/FormActions.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
@@ -26,11 +30,13 @@ import { LEAD_MINUTES, type AlarmDraft, type AlarmLike } from './alarms';
  * 日期与场次按共享活动规则计算，弹窗只负责选择和管理对应提醒。
  */
 const props = defineProps<{
+    open: boolean;
     activity: Activity;
     now: Date;
     alarms: readonly AlarmLike[];
     error: string;
 }>();
+const glass = inject(glassLedger, null);
 
 const emit = defineEmits<{
     close: [];
@@ -91,7 +97,56 @@ function submit() {
 </script>
 
 <template>
-    <ModalShell title="活动提醒" :width="440" @close="emit('close')">
+    <GlassDialog
+        v-if="glass"
+        :open="open"
+        class="activity-reminder-dialog"
+        label="活动提醒"
+        detents="360 large"
+        lazy
+        @update:open="!$event && emit('close')"
+    >
+        <section class="activity-reminder lg-form-fields" @pointerdown.stop>
+            <header class="reminder-header">
+                <h2>活动提醒</h2>
+                <p>{{ activity.name }}</p>
+            </header>
+            <dl class="reminder-details">
+                <dt>重复规则</dt>
+                <dd>{{ ruleLine }}</dd>
+                <template v-if="whenLine">
+                    <dt>活动场次</dt>
+                    <dd>{{ whenLine }}</dd>
+                </template>
+            </dl>
+            <GlassSelect
+                v-if="slotOptions.length > 1"
+                v-model="pickedStart"
+                class="reminder-slot"
+                :options="slotOptions"
+                label="提醒哪一场"
+            />
+            <p v-if="matchingAlarm" class="reminder-hint">
+                {{ matchingAlarm.enabled ? '这一场已开启提醒。' : '这一场的提醒已停用。' }}
+            </p>
+            <p class="reminder-hint">应用运行时，开场前 {{ LEAD_MINUTES }} 分钟提醒。</p>
+            <p v-if="note" class="reminder-hint">{{ note }}</p>
+            <p v-if="error" class="reminder-error" role="alert">{{ error }}</p>
+            <footer class="reminder-actions">
+                <GlassButton size="small" variant="plain" @click="emit('close')">
+                    取消
+                </GlassButton>
+                <GlassButton
+                    size="small"
+                    aria-label="保存这一场的提醒设置"
+                    @click="submit"
+                >
+                    {{ matchingAlarm ? (matchingAlarm.enabled ? '停用' : '开启') : '保存' }}
+                </GlassButton>
+            </footer>
+        </section>
+    </GlassDialog>
+    <ModalShell v-else title="活动提醒" :width="440" @close="emit('close')">
         <div class="remind modal-form">
             <div class="head">
                 <h3 class="name">{{ activity.name }}</h3>
@@ -131,6 +186,70 @@ function submit() {
 </template>
 
 <style scoped>
+.activity-reminder-dialog {
+    --glass-dialog-width: 420px;
+}
+.activity-reminder {
+    --glass-foreground: var(--liquid-ink);
+    --glass-accent-text: var(--liquid-ink);
+    --glass-text-shadow: none;
+    --glass-select-label-color: var(--liquid-muted);
+    max-width: 380px;
+    margin: 0 auto;
+    color: var(--liquid-ink);
+}
+.reminder-header {
+    margin-bottom: 14px;
+}
+.reminder-header h2 {
+    margin: 0;
+}
+.reminder-header p {
+    margin: 3px 0 0;
+    color: var(--liquid-muted);
+    overflow-wrap: anywhere;
+}
+.reminder-details {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px 14px;
+    margin: 0;
+    font-size: var(--fs-sm);
+}
+.reminder-details dt {
+    color: var(--liquid-muted);
+}
+.reminder-details dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+}
+.reminder-slot {
+    margin-top: 12px;
+}
+.reminder-hint,
+.reminder-error {
+    margin: 10px 0 0;
+    color: var(--liquid-muted);
+    font-size: var(--fs-xs);
+    line-height: 1.6;
+}
+.reminder-error {
+    color: var(--liquid-up);
+}
+.reminder-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+}
+.reminder-actions glass-button {
+    --glass-foreground: var(--liquid-ink);
+    --glass-accent-text: var(--liquid-ink);
+    --glass-text-shadow: none;
+    letter-spacing: normal;
+}
+
 /* 一列、居中、间距 12。这张窗只讲一件事：给哪一场加提醒。 */
 .remind {
     display: flex;

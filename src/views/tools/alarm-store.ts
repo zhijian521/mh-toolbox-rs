@@ -18,7 +18,7 @@ const error = ref('');
 
 /** 读过一轮没有。`npm run dev` 里改文件会让模块重算，重算后就回到空表——它挡住「空表把库顶掉」。 */
 let loaded = false;
-let loadFailed = false;
+const loadError = ref('');
 
 function sortAlarms(list: Alarm[]): Alarm[] {
     /* 按时刻升序，同一时刻按 id。停用的不往后挪：一条「已停用」的 07:30 停在中间，
@@ -28,8 +28,7 @@ function sortAlarms(list: Alarm[]): Alarm[] {
     );
 }
 
-function ensureLoaded() {
-    if (loaded) return;
+function loadAlarms() {
     loaded = true;
     const stored = readLocalData(STORAGE_KEY, (raw) => {
         if (!Array.isArray(raw)) throw new TypeError('闹钟不是数组');
@@ -44,15 +43,19 @@ function ensureLoaded() {
         return sortAlarms(result).slice(0, MAX_ALARMS);
     });
     if (!stored.ok) {
-        loadFailed = true;
-        error.value = stored.error;
+        loadError.value = stored.error;
         return;
     }
+    loadError.value = '';
     alarms.value = stored.value ?? [];
 }
 
+async function retryLoad() {
+    if (loadError.value) loadAlarms();
+}
+
 function write(next: Alarm[]): AlarmResult {
-    if (loadFailed) return { ok: false, error: error.value };
+    if (loadError.value) return { ok: false, error: loadError.value };
     try {
         writeLocalData(STORAGE_KEY, next);
         alarms.value = next;
@@ -93,7 +96,7 @@ function fieldsOf(draft: AlarmDraft) {
 }
 
 export function useAlarms() {
-    ensureLoaded();
+    if (!loaded) loadAlarms();
 
     /**
      * 新建。时间先归一（`7:5` → `07:05`），再校验。
@@ -193,6 +196,8 @@ export function useAlarms() {
     return {
         alarms: readonly(alarms),
         error: readonly(error),
+        loadError: readonly(loadError),
+        retryLoad,
         add,
         update,
         remove,

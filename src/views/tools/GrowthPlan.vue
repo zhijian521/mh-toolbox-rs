@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, inject, onMounted, ref, watch } from 'vue';
+import { askConfirm } from '../../composables/use-confirm';
 import GroupHead from '../../components/GroupHead.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
 import NumberField from '../../components/NumberField.vue';
 import SelectField from '../../components/SelectField.vue';
+import { glassLedger } from '../../components/glass-ledger';
+import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
+import PaperCard from '../../components/PaperCard.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
-import SlotButton from '../../components/SlotButton.vue';
+import PressButton from '../../components/PressButton.vue';
 import { ledgerMoneyText } from '../../services/format';
 import type { LevelCosts } from '../../services/level-costs';
 import { expWanValue } from '../characters/character';
@@ -24,6 +28,10 @@ import {
 
 /** 综合预算只保留本页草稿；切换角色重新取档案，不将试算写回账本。 */
 const props = defineProps<{ costs: LevelCosts; reloadRoster?: () => Promise<void> }>();
+const glass = inject(glassLedger, null);
+const selectControl = glass ? GlassSelect : SelectField;
+const surface = glass?.card ?? PaperCard;
+const surfaceProps = glass ? { radius: 16 } : { plain: true };
 const loadingRoster = ref(Boolean(props.reloadRoster));
 onMounted(async () => {
     try {
@@ -37,7 +45,7 @@ const roleId = ref('');
 const lines = ref<GrowthLine[]>([]);
 const ownedExp = ref(0);
 const addSkillId = ref('');
-const extraKind = ref('gem');
+const extraKind = ref<string>(GROWTH_EXTRA_OPTIONS[0].value);
 const extras = ref<GrowthExtra[]>([]);
 let extraSequence = 0;
 const character = computed(() => roster.value.find((one) => one.id === roleId.value));
@@ -128,6 +136,26 @@ const resources = computed(() => {
     }));
 });
 
+// 草稿只在当前计算器实例中保留，切换角色时按角色恢复。
+function currentDraft() {
+    return { lines: lines.value, extras: extras.value, ownedExp: ownedExp.value };
+}
+const drafts = new Map<string, { draft: ReturnType<typeof currentDraft>; baseline: string }>();
+let baseline = '';
+
+async function requestReset() {
+    const id = roleId.value;
+    if (JSON.stringify(currentDraft()) !== baseline) {
+        const confirmed = await askConfirm({
+            title: '重置当前角色的试算？',
+            note: '等级和经验将恢复为角色档案值，附加项目将清空。',
+            confirmText: '重置',
+        });
+        if (!confirmed || roleId.value !== id) return;
+    }
+    reset();
+}
+
 function reset() {
     const role = character.value;
     lines.value = role ? createGrowthPlan(props.costs, role) : [];
@@ -135,6 +163,7 @@ function reset() {
     ownedExp.value = Number.isSafeInteger(exp) ? exp : 0;
     addSkillId.value = '';
     extras.value = [];
+    baseline = JSON.stringify(currentDraft());
 }
 
 function addSkill() {
@@ -169,7 +198,6 @@ function addExtra() {
     if (!character.value || !option) return;
     extras.value.push(
         createGrowthExtra(
-            props.costs,
             option.value,
             `extra:${++extraSequence}`,
             character.value.level,
@@ -188,7 +216,20 @@ watch(
     },
     { immediate: true },
 );
-watch([character, () => props.costs], reset, { immediate: true });
+watch(
+    () => character.value?.id,
+    (id, previous) => {
+        if (previous) drafts.set(previous, { draft: currentDraft(), baseline });
+        const saved = id && drafts.get(id);
+        if (!saved) return reset();
+        lines.value = saved.draft.lines;
+        extras.value = saved.draft.extras;
+        ownedExp.value = saved.draft.ownedExp;
+        addSkillId.value = '';
+        baseline = saved.baseline;
+    },
+    { immediate: true },
+);
 </script>
 
 <template>
@@ -199,105 +240,22 @@ watch([character, () => props.costs], reset, { immediate: true });
     />
     <p v-if="loadingRoster" class="record-empty" role="status">正在读取角色档案…</p>
     <template v-else-if="!loadError">
-        <div v-if="roster.length" class="plan-toolbar">
-            <SegmentedPills v-model="roleId" :options="options" label="计算角色" wrap />
-            <SlotButton text="重置" label="恢复所选角色档案的当前等级" @click="reset" />
+        <component :is="surface" v-if="roster.length" v-bind="surfaceProps" class="plan-toolbar lg-form-fields">
+            <span class="role-label">计算角色</span>
+            <GlassSelect v-if="glass" v-model="roleId" :options="options" label="计算角色" hide-label />
+            <SegmentedPills v-else v-model="roleId" :options="options" label="计算角色" wrap />
+            <PressButton text="重置" label="恢复所选角色档案的当前等级" @click="requestReset" />
             <span class="muted">仅试算，不修改角色</span>
-        </div>
+        </component>
         <p v-else class="record-empty">先在角色页添加角色，即可带入养成数据。</p>
         <div v-if="character" :key="roleId" class="plan-layout growth-layout">
-            <div class="plan-groups">
-                <LedgerSection
-                    v-for="group in groups"
-                    :key="group.key"
-                    plain
-                    class="plan-group growth-card"
-                    :title="group.name"
-                >
-                    <template v-if="group.removeKey" #actions>
-                        <SlotButton
-                            icon="trash"
-                            :label="`删除${group.name}计算卡片`"
-                            danger
-                            @click="lines = lines.filter((one) => one.key !== group.removeKey)"
-                        />
-                    </template>
-                    <div class="plan-column-head muted">
-                        <span>项目</span><span>当前</span><span>目标</span>
-                    </div>
-                    <div v-for="row in group.rows" :key="row.line.key" class="plan-item">
-                        <div class="slip-row sm plan-line">
-                            <span class="plan-name"
-                                >{{ row.line.name
-                                }}<small v-if="!row.line.recorded" class="muted"
-                                    >未记录</small
-                                ></span
-                            >
-                            <NumberField
-                                v-model="row.line.from"
-                                :label="`${row.line.name}当前`"
-                                update-on-input
-                            />
-                            <NumberField
-                                v-model="row.line.to"
-                                :label="`${row.line.name}目标`"
-                                update-on-input
-                            />
-                        </div>
-                        <p v-if="row.error" class="note error">{{ row.error }}</p>
-                        <p
-                            v-else-if="row.line.to > row.line.from"
-                            class="plan-detail num"
-                            :title="detail(row.resources, true)"
-                        >
-                            需要：{{ detail(row.resources) }}
-                        </p>
-                    </div>
-                    <p
-                        v-if="group.subtotal && !group.rows.some((row) => row.error)"
-                        class="plan-subtotal"
-                    >
-                        <span>小计</span><span class="num">{{ group.subtotal }}</span>
-                    </p>
-                </LedgerSection>
-                <GrowthExtraCard
-                    v-for="extra in extras"
-                    :key="extra.key"
-                    :item="extra"
-                    :costs="costs"
-                    @update:item="changeExtra"
-                    @remove="extras = extras.filter((one) => one.key !== extra.key)"
-                />
-                <div v-if="availableSkills.length" class="plan-add">
-                    <SelectField
-                        v-model="addSkillId"
-                        :options="availableSkills"
-                        label="新增辅助技能计算"
-                    />
-                    <SlotButton
-                        icon="add"
-                        text="新增"
-                        label="新增辅助技能计算项目"
-                        :disabled="!addSkillId"
-                        @click="addSkill"
-                    />
-                </div>
-                <div class="plan-add">
-                    <SelectField
-                        v-model="extraKind"
-                        :options="GROWTH_EXTRA_OPTIONS"
-                        label="新增计算卡片"
-                    />
-                    <SlotButton icon="add" text="新增" label="新增计算卡片" @click="addExtra" />
-                </div>
-            </div>
             <LedgerSection
                 plain
                 class="plan-summary growth-card growth-result-card"
                 title="资源合计"
                 :hint="`${summary.changed} 项升级 · ${extras.length} 项附加`"
             >
-                <label class="form-row plan-owned"
+                <label class="plan-owned"
                     ><span>现有经验</span
                     ><NumberField
                         v-model="ownedExp"
@@ -369,6 +327,95 @@ watch([character, () => props.costs], reset, { immediate: true });
                     <p class="note">未记录项可补填当前值；剧情技能、育兽术暂不计入。</p>
                 </template>
             </LedgerSection>
+            <div class="plan-groups">
+                <LedgerSection
+                    v-for="group in groups"
+                    :key="group.key"
+                    plain
+                    class="plan-group growth-card"
+                    :title="group.name"
+                >
+                    <template v-if="group.removeKey" #actions>
+                        <PressButton
+                            icon="trash"
+                            :label="`删除${group.name}计算卡片`"
+                            danger
+                            @click="lines = lines.filter((one) => one.key !== group.removeKey)"
+                        />
+                    </template>
+                    <div class="plan-column-head muted">
+                        <span>项目</span><span>当前</span><span>目标</span>
+                    </div>
+                    <div v-for="row in group.rows" :key="row.line.key" class="plan-item">
+                        <div class="plan-line">
+                            <span class="plan-name"
+                                >{{ row.line.name
+                                }}<small v-if="!row.line.recorded" class="muted"
+                                    >未记录</small
+                                ></span
+                            >
+                            <NumberField
+                                v-model="row.line.from"
+                                :label="`${row.line.name}当前`"
+                                update-on-input
+                            />
+                            <NumberField
+                                v-model="row.line.to"
+                                :label="`${row.line.name}目标`"
+                                update-on-input
+                            />
+                        </div>
+                        <p v-if="row.error" class="note error">{{ row.error }}</p>
+                        <p
+                            v-else-if="row.line.to > row.line.from"
+                            class="plan-detail num"
+                            :title="detail(row.resources, true)"
+                        >
+                            需要：{{ detail(row.resources) }}
+                        </p>
+                    </div>
+                    <p
+                        v-if="group.subtotal && !group.rows.some((row) => row.error)"
+                        class="plan-subtotal"
+                    >
+                        <span>小计</span><span class="num">{{ group.subtotal }}</span>
+                    </p>
+                </LedgerSection>
+                <GrowthExtraCard
+                    v-for="extra in extras"
+                    :key="extra.key"
+                    :item="extra"
+                    :costs="costs"
+                    @update:item="changeExtra"
+                    @remove="extras = extras.filter((one) => one.key !== extra.key)"
+                />
+                <div v-if="availableSkills.length" class="plan-add">
+                    <component
+                        :is="selectControl"
+                        :hide-label="glass ? true : undefined"
+                        v-model="addSkillId"
+                        :options="availableSkills"
+                        label="新增辅助技能计算"
+                    />
+                    <PressButton
+                        icon="add"
+                        text="新增"
+                        label="新增辅助技能计算项目"
+                        :disabled="!addSkillId"
+                        @click="addSkill"
+                    />
+                </div>
+                <div class="plan-add">
+                    <component
+                        :is="selectControl"
+                        :hide-label="glass ? true : undefined"
+                        v-model="extraKind"
+                        :options="GROWTH_EXTRA_OPTIONS"
+                        label="新增计算卡片"
+                    />
+                    <PressButton icon="add" text="新增" label="新增计算卡片" @click="addExtra" />
+                </div>
+            </div>
         </div>
     </template>
 </template>
@@ -382,9 +429,14 @@ watch([character, () => props.costs], reset, { immediate: true });
     gap: 8px;
     margin-bottom: 12px;
 }
-.plan-add :deep(.select-field) {
+.plan-add :is(.select-field, .glass-select) {
     width: 168px;
 }
+.plan-toolbar {
+    padding: 10px 14px;
+}
+.plan-toolbar > .glass-select { width: min(190px, 100%); }
+.plan-toolbar > .muted { margin-inline-start: auto; }
 .plan-toolbar > .pill-group {
     min-width: 0;
     max-width: 100%;
@@ -394,7 +446,7 @@ watch([character, () => props.costs], reset, { immediate: true });
 }
 .plan-groups {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 320px));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 276px), 1fr));
     gap: 12px;
     justify-content: start;
     align-items: start;
@@ -412,7 +464,7 @@ watch([character, () => props.costs], reset, { immediate: true });
     align-items: center;
 }
 .plan-column-head {
-    padding: 0 8px 4px;
+    padding: 0 0 6px;
     font-size: var(--fs-xs);
     text-align: center;
 }
@@ -420,22 +472,23 @@ watch([character, () => props.costs], reset, { immediate: true });
     text-align: left;
 }
 .plan-item + .plan-item {
-    margin-top: 4px;
+    border-top: 1px solid var(--rule);
 }
 .plan-line {
     height: auto;
     min-height: calc(32px * var(--fs-scale));
-    padding: 3px 8px;
+    padding: 4px 0;
 }
 .plan-line :deep(.number-field) {
     width: 100%;
     min-width: 0;
     height: calc(24px * var(--fs-scale));
-    padding: 2px 4px;
-    font-size: var(--fs-xs);
+    padding: 2px 6px;
+    text-align: center;
+    font-size: var(--fs-sm);
 }
 .plan-name {
-    font-size: var(--fs-xs);
+    font-size: var(--fs-sm);
     line-height: 1.35;
 }
 .plan-name small {
@@ -465,15 +518,18 @@ watch([character, () => props.costs], reset, { immediate: true });
 }
 .plan-total:last-child {
     grid-column: 1 / -1;
-    padding: 10px 12px;
-    border-radius: var(--r-2);
-    background: var(--paper-2);
+
 }
 .plan-owned {
+    display: grid;
+    grid-template-columns: 1fr minmax(0, 110px) auto;
+    align-items: center;
+    gap: 8px;
     margin-bottom: 12px;
 }
 .plan-owned :deep(.number-field) {
-    width: 130px;
+    width: 100%;
+    text-align: end;
     min-width: 0;
 }
 .plan-resources {
