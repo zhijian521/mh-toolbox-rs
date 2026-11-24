@@ -180,8 +180,7 @@
                 "end": "22:00"
             }
         ],
-        "fuzzy": true,
-        "playerSourced": true
+        "fuzzy": true
     },
     {
         "id": "food",
@@ -294,8 +293,7 @@
                 "start": "10:00",
                 "end": "11:30"
             }
-        ],
-        "playerSourced": true
+        ]
     },
     {
         "id": "subdue",
@@ -328,8 +326,7 @@
                 "start": "19:30",
                 "end": "21:30"
             }
-        ],
-        "playerSourced": true
+        ]
     },
     {
         "id": "war-build",
@@ -398,8 +395,7 @@
                 "end": "22:00"
             }
         ],
-        "note": "只在没有帮战的那两周",
-        "playerSourced": true
+        "note": "只在没有帮战的那两周"
     },
     {
         "id": "sect-run",

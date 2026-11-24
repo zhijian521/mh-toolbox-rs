@@ -2,6 +2,8 @@
 import AppNotice from '../../components/AppNotice.vue';
 import { computed, inject, reactive, ref } from 'vue';
 import { glassLedger } from '../../components/glass-ledger';
+import { GlassButton, GlassSegment, GlassSegmented } from '../../components/liquid-glass';
+import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import GlassDateField from '../../components/liquid-glass/GlassDateField.vue';
 import GlassInput from '../../components/liquid-glass/GlassInput.vue';
 import DateField from '../../components/DateField.vue';
@@ -110,6 +112,12 @@ const WEEKDAY_PILLS = WEEKDAY_OPTIONS.map((one) => ({
     label: one.label,
 }));
 
+function toggleWeekday(day: number) {
+    draft.weekdays = draft.weekdays.includes(day)
+        ? draft.weekdays.filter((selected) => selected !== day)
+        : [...draft.weekdays, day];
+}
+
 const weekdaysPicked = computed<string[]>({
     get: () => draft.weekdays.map(String),
     set: (list) => {
@@ -124,9 +132,11 @@ const weekdaysPicked = computed<string[]>({
  * 不搬的话，`07:30` 会以裸数字进到「分钟」格、或者 `30` 以小时进到「时刻」格，
  * 用户看到的是一个自己没打过的数。
  */
-function pickRepeat(value: AlarmRepeat) {
+function pickRepeat(value: string) {
+    const option = REPEAT_OPTIONS.find((one) => one.value === value);
+    if (!option) return;
     const stored = alarmTime(draft.repeat, draft.time);
-    draft.repeat = value;
+    draft.repeat = option.value;
     if (!stored) return;
     draft.time = value === 'hourly' ? minuteText(stored) : stored;
 }
@@ -162,18 +172,31 @@ function onEnter(event: KeyboardEvent) {
 <template>
     <ModalShell
         :title="alarm ? '修改闹钟' : '新增闹钟'"
-        :width="440"
-        :scroll="false"
+        :class="{ 'alarm-glass-editor': glass }"
+        :width="glass ? 400 : 440"
+        :scroll="!!glass"
         @close="requestClose"
     >
         <form
             id="alarm-form"
             class="alarm-form modal-form"
+            :class="{ 'lg-form-fields': glass }"
             @submit.prevent="submit"
             @keydown.enter="onEnter"
         >
+            <GlassSegmented
+                v-if="glass && draft.repeat !== 'activity'"
+                :value="draft.repeat"
+                class="alarm-repeat"
+                aria-label="重复方式"
+                @update:value="pickRepeat"
+            >
+                <GlassSegment v-for="option in REPEAT_OPTIONS" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                </GlassSegment>
+            </GlassSegmented>
             <SteppedSlider
-                v-if="draft.repeat !== 'activity'"
+                v-else-if="draft.repeat !== 'activity'"
                 class="alarm-repeat"
                 :model-value="draft.repeat"
                 :options="REPEAT_OPTIONS"
@@ -188,8 +211,14 @@ function onEnter(event: KeyboardEvent) {
                             : '活动规则已更新，请在活动日历重新设置。'
                     }}
                 </AppNotice>
+                <GlassSelect
+                    v-if="glass && activitySlots.length > 1"
+                    v-model="draft.time"
+                    :options="activitySlots"
+                    label="提醒哪一场"
+                />
                 <SegmentedPills
-                    v-if="activitySlots.length > 1"
+                    v-else-if="activitySlots.length > 1"
                     v-model="draft.time"
                     :options="activitySlots"
                     label="提醒哪一场"
@@ -211,6 +240,7 @@ function onEnter(event: KeyboardEvent) {
                  否则日期会被 14 的间距推得像另一件事。 -->
             <div v-if="draft.repeat !== 'activity'" class="alarm-when">
                 <TimeField
+                    :glass="!!glass"
                     v-model="draft.time"
                     :label="draft.repeat === 'hourly' ? '每小时的几分' : '时刻'"
                     :mode="draft.repeat === 'hourly' ? 'minute' : 'clock'"
@@ -225,7 +255,21 @@ function onEnter(event: KeyboardEvent) {
                 />
 
                 <div v-if="draft.repeat === 'weekly'" class="alarm-row">
+                    <div v-if="glass" class="alarm-weekdays" role="group" aria-label="每周的哪几天">
+                        <GlassButton
+                            v-for="day in WEEKDAY_OPTIONS"
+                            :key="day.value"
+                            size="small"
+                            :variant="draft.weekdays.includes(day.value) ? 'prominent' : 'plain'"
+                            :aria-label="'星期' + day.label"
+                            :aria-pressed="draft.weekdays.includes(day.value)"
+                            @click="toggleWeekday(day.value)"
+                        >
+                            {{ day.label }}
+                        </GlassButton>
+                    </div>
                     <TogglePills
+                        v-else
                         v-model="weekdaysPicked"
                         :options="WEEKDAY_PILLS"
                         label="每周的哪几天"
@@ -348,6 +392,12 @@ function onEnter(event: KeyboardEvent) {
     right: calc(8px * var(--fs-scale));
 }
 
+.alarm-weekdays {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+}
 .alarm-glass-date {
     width: min(100%, 208px);
 }

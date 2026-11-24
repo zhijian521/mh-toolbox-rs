@@ -4,6 +4,7 @@
     --glass-accent: var(--lg-accent, #b3e8c6);
     --glass-accent-text: var(--lg-selected-text, #efffec);
     --glass-tab-selected: var(--lg-selected-text, #efffec);
+    --lg-readable-card-fill: light-dark(rgb(250 255 253 / 45%), rgb(24 38 41 / 58%));
     --lg-content-base: light-dark(#fafffd49, #18262971);
     --glass-switch-on: rgb(117 222 162 / 0.52);
     --glass-switch-off: rgb(217 246 237 / 0.22);

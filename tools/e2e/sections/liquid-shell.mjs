@@ -961,11 +961,11 @@ export default async function liquidShell({ cdp, t, ui }) {
     t.check('活动页直接显示紧凑卡片，日期与提醒状态分开', await cdp.evaluate(`
         !document.querySelector('.activity-page .tool-context') &&
         [...document.querySelectorAll('${activity}')].every(card => {
-            const tag = card.querySelector('.tag');
+            const time = card.querySelector('.calendar-time');
             const reminder = card.querySelector('.card-reminder');
             const scale = Number(getComputedStyle(card).getPropertyValue('--fs-scale'));
-            return tag && reminder && !tag.textContent.includes('已设提醒') &&
-                reminder.textContent.includes(card.classList.contains('reminded') ? '已设提醒' : '设置提醒') &&
+            return time?.textContent.trim() && reminder && card.closest('glass-surface') &&
+                card.getAttribute('aria-haspopup') === 'dialog' &&
                 card.getBoundingClientRect().width <= 248 * scale + 1 &&
                 card.scrollWidth <= card.clientWidth + 1;
         })
@@ -975,8 +975,9 @@ export default async function liquidShell({ cdp, t, ui }) {
     const reminderDialog = '.activity-reminder-dialog:is([open], [data-visible])';
     await ui.waitFor(`!!document.querySelector('${reminderDialog} .activity-reminder')`);
     t.check('活动提醒使用玻璃弹窗，保留五分钟提示和保存入口', await cdp.evaluate(`
-        document.querySelector('${reminderDialog} .activity-reminder').textContent.includes('开场前 5 分钟提醒') &&
-        !!document.querySelector('${reminderDialog} glass-button[aria-label="保存这一场的提醒设置"]') &&
+        /(?:开场|时段开始)前 5 分钟提醒/.test(document.querySelector('${reminderDialog} .activity-reminder').textContent) &&
+        [...document.querySelectorAll('${reminderDialog} footer glass-button')].some(button =>
+            button.getAttribute('aria-label') === button.textContent.trim() + '这一场的提醒设置') &&
         !document.querySelector('${toolMask}')
     `));
     const reminderSelect = `${reminderDialog} .glass-select-trigger`;
@@ -1024,7 +1025,8 @@ export default async function liquidShell({ cdp, t, ui }) {
     await cdp.click('.liquid-tool-detail [aria-label="新增一个闹钟"]');
     await waitToolDialog('.alarm-form');
     t.check('闹钟支持四类重复方式和提前五分钟', await cdp.evaluate(`
-        document.querySelectorAll('${toolDialog} [aria-label="重复方式"] button').length === 4 &&
+        document.querySelectorAll('${toolDialog} glass-segmented[aria-label="重复方式"] glass-segment').length === 4 &&
+        !!document.querySelector('${toolDialog} .glass-input .time-input') &&
         document.querySelector('${toolDialog} .alarm-hint').textContent.includes('提前 5 分钟提醒')
     `));
     await ui.fillSel(`${toolDialog} input[aria-label="备注"]`, '未保存的闹钟备注');

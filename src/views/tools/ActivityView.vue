@@ -3,6 +3,7 @@ import { computed, inject, nextTick, ref } from 'vue';
 import { glassLedger } from '../../components/glass-ledger';
 import { useMinuteNow } from '../../composables/use-minute-now';
 import ToolPageShell from './ToolPageShell.vue';
+import GroupHead from '../../components/GroupHead.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
 import { gameDataReady, loadGameData } from '../../services/game-data';
 import { notify } from '../../composables/use-notify';
@@ -88,10 +89,10 @@ function onToggle(id: number, enabled: boolean) {
         <LoadNotice :error="loadError" :load="retryLoad" />
         <LoadNotice :error="rulesError" :load="retryRules" />
         <section v-for="group in groups" :key="group.key" class="group">
-            <h2 class="group-title">
+            <GroupHead as="h2" class="group-title">
                 <span>{{ group.title }}</span>
                 <i>{{ group.items.length }}</i>
-            </h2>
+            </GroupHead>
 
             <div class="cards">
                 <ActivityCard
@@ -139,13 +140,6 @@ function onToggle(id: number, enabled: boolean) {
     letter-spacing: 0.05em;
 }
 
-.group-title::before {
-    content: '';
-    width: 2px;
-    height: 12px;
-    border-radius: 1px;
-    background: var(--rule-2);
-}
 
 /* 条数是「这里有几条」的读数，用等宽数字；不写成「共 8 项」，组标题已经说了是什么。 */
 .group-title i {
@@ -181,9 +175,6 @@ function onToggle(id: number, enabled: boolean) {
     color: var(--liquid-ink);
     font-size: var(--fs-md);
     letter-spacing: normal;
-}
-.is-glass .group-title::before {
-    display: none;
 }
 .is-glass .group-title i {
     opacity: 1;

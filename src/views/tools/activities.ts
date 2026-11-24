@@ -99,13 +99,21 @@ export function timesText(activity: Activity): string {
     return activity.slots.map(activitySlotText).join('、');
 }
 
+/** 多场活动在卡片显示首场和场数，具体场次由弹窗列出。 */
+export function cardTimesText(activity: Activity): string {
+    if (activity.fuzzy) return `${timesText(activity)} 随机出现`;
+    if (activity.slots.length <= 2) return timesText(activity);
+    const first = activity.slots.map((slot) => slot.start).sort()[0];
+    return `${first} 首场 · 共 ${activity.slots.length} 场`;
+}
+
 /** 规则那行：不含时刻，只说「多久来一次」。 */
 export function repeatText(activity: Activity): string {
     return activityRuleText(activity);
 }
 
 /* ============================================================
-   分组（方案丙：今天 / 明天 / 本周内 / 之后 / 每天）
+   分组（方案丙：今天 / 明天 / 未来一周 / 之后 / 每天）
    ============================================================ */
 
 export type GroupKey = 'today' | 'tomorrow' | 'week' | 'later' | 'daily';
@@ -124,7 +132,7 @@ export interface ActivityGroup {
 const GROUP_TITLES: { key: GroupKey; title: string }[] = [
     { key: 'today', title: '今天' },
     { key: 'tomorrow', title: '明天' },
-    { key: 'week', title: '本周内' },
+    { key: 'week', title: '未来一周' },
     { key: 'later', title: '之后' },
     { key: 'daily', title: '每天' },
 ];
@@ -141,7 +149,7 @@ export function dayGap(from: Date, to: Date): number {
 /**
  * 按「最近一次」分五组。
  *
- * 顺序是固定的（今天 → 明天 → 本周内 → 之后 → 每天），空组不返回。每天那一批永远
+ * 顺序是固定的（今天 → 明天 → 未来一周 → 之后 → 每天），空组不返回。每天那一批永远
  * 排在最后：它们是背景，不是这周要赶的事。
  */
 export function groupActivities(activities: readonly Activity[], now: Date): ActivityGroup[] {
@@ -227,7 +235,7 @@ export function remindNote(activity: Activity): string {
     const rule = activity.rule;
 
     if (activity.fuzzy) {
-        return '时段是随机的，提醒落在开始的整点，不等于活动就在那一刻开。';
+        return '活动会在这段时间内随机出现。';
     }
     if (rule.type === 'hourly') {
         return '每小时都提醒一次，一直到你把这条闹钟关掉。';

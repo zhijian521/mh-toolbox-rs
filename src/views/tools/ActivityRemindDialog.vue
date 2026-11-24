@@ -62,6 +62,9 @@ const pickedSlot = computed<ActivitySlot>(() => {
 });
 
 const note = computed(() => remindNote(props.activity));
+const leadHint = computed(() =>
+    `应用运行时，${props.activity.fuzzy ? '时段开始' : '开场'}前 ${LEAD_MINUTES} 分钟提醒。`,
+);
 const matchingAlarm = computed(() => {
     const draft = remindDraft(props.activity, pickedSlot.value);
     return props.alarms.find(
@@ -88,6 +91,12 @@ const whenLine = computed(() => {
     if (slots.length === 1) return activitySlotText(slots[0]);
     return '';
 });
+
+const actionText = computed(() => {
+    if (!matchingAlarm.value) return '保存';
+    return matchingAlarm.value.enabled ? '停用' : '开启';
+});
+const actionLabel = computed(() => `${actionText.value}这一场的提醒设置`);
 
 function submit() {
     const existing = matchingAlarm.value;
@@ -129,7 +138,9 @@ function submit() {
             <p v-if="matchingAlarm" class="reminder-hint">
                 {{ matchingAlarm.enabled ? '这一场已开启提醒。' : '这一场的提醒已停用。' }}
             </p>
-            <p class="reminder-hint">应用运行时，开场前 {{ LEAD_MINUTES }} 分钟提醒。</p>
+            <p class="reminder-hint">{{ leadHint }}</p>
+            <p v-if="activity.note && activity.note !== note" class="reminder-hint">{{ activity.note }}</p>
+            <p v-if="activity.playerSourced" class="reminder-hint">时间据玩家整理，以游戏公告为准。</p>
             <p v-if="note" class="reminder-hint">{{ note }}</p>
             <p v-if="error" class="reminder-error" role="alert">{{ error }}</p>
             <footer class="reminder-actions">
@@ -138,10 +149,10 @@ function submit() {
                 </GlassButton>
                 <GlassButton
                     size="small"
-                    aria-label="保存这一场的提醒设置"
+                    :aria-label="actionLabel"
                     @click="submit"
                 >
-                    {{ matchingAlarm ? (matchingAlarm.enabled ? '停用' : '开启') : '保存' }}
+                    {{ actionText }}
                 </GlassButton>
             </footer>
         </section>
@@ -167,7 +178,7 @@ function submit() {
                 {{ matchingAlarm.enabled ? '这一场已开启提醒。' : '这一场的提醒已停用。' }}
             </AppNotice>
 
-            <AppNotice class="hint">应用运行时，开场前 {{ LEAD_MINUTES }} 分钟提醒。</AppNotice>
+            <AppNotice class="hint">{{ leadHint }}</AppNotice>
             <AppNotice v-if="note" class="hint warn" tone="warning">{{ note }}</AppNotice>
         </div>
 
@@ -176,8 +187,8 @@ function submit() {
                 :error="error"
                 error-role="alert"
                 cancel-label="不加了"
-                :submit-text="matchingAlarm ? (matchingAlarm.enabled ? '停用' : '开启') : '保存'"
-                submit-label="保存这一场的提醒设置"
+                :submit-text="actionText"
+                :submit-label="actionLabel"
                 @cancel="emit('close')"
                 @submit="submit"
             />

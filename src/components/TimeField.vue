@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, useId, watch } from 'vue';
+import GlassInput from './liquid-glass/GlassInput.vue';
 import { minuteText, normalizeTime } from '../services/clock';
 
 /**
@@ -31,6 +32,7 @@ const props = withDefaults(
         /** `clock` 收完整时刻；`minute` 只收「每小时的几分」（0–59）。 */
         mode?: 'clock' | 'minute';
         error?: string;
+        glass?: boolean;
     }>(),
     { mode: 'clock', error: '' },
 );
@@ -101,18 +103,24 @@ function commit() {
 <template>
     <label class="time-field">
         <span class="field-label">{{ label }}</span>
-        <input
-            :value="text"
-            :aria-invalid="!!error || undefined"
-            :aria-describedby="error ? errorId : undefined"
-            class="field time-input"
-            :class="{ 'is-minute': mode === 'minute' }"
-            inputmode="numeric"
-            :maxlength="mode === 'minute' ? 2 : 5"
-            :placeholder="mode === 'minute' ? '30' : '07:30'"
-            @input="onInput"
-            @blur="commit"
-        />
+        <component
+            :is="glass ? GlassInput : 'span'"
+            class="time-control"
+            :class="{ 'is-minute': mode === 'minute', 'is-glass': glass }"
+        >
+            <input
+                :value="text"
+                :aria-invalid="!!error || undefined"
+                :aria-describedby="error ? errorId : undefined"
+                class="time-input"
+                :class="{ field: !glass }"
+                inputmode="numeric"
+                :maxlength="mode === 'minute' ? 2 : 5"
+                :placeholder="mode === 'minute' ? '30' : '07:30'"
+                @input="onInput"
+                @blur="commit"
+            />
+        </component>
         <span v-if="error" :id="errorId" class="note error field-error">{{ error }}</span>
     </label>
 </template>
@@ -128,9 +136,22 @@ function commit() {
 
 /* 外观（凹槽四件套）整份来自 `.field`，这里只改尺寸与字的排布。
  * 双类名是为了压过 `base.css` 里那条 `.field`（同为 0-1-0，靠样式顺序不保险）。 */
+.time-control {
+    width: min(100%, calc(208px * var(--fs-scale)));
+}
+.time-control.is-minute {
+    width: min(100%, calc(136px * var(--fs-scale)));
+}
+.time-control.is-glass {
+    --glass-input-height: 40px;
+    font-size: var(--fs-xl);
+    font-variant-numeric: tabular-nums;
+}
+.time-control.is-glass .time-input {
+    text-align: center;
+}
 .field.time-input {
-    width: calc(208px * var(--fs-scale));
-    max-width: 100%;
+    width: 100%;
     height: calc(56px * var(--fs-scale));
     /* 右侧多留 0.1em：`letter-spacing` 会在末字后面也加一格，不补的话整串看着偏左。 */
     padding: 0 calc(10px * var(--fs-scale)) 0 calc(10px * var(--fs-scale) + 0.1em);
@@ -142,9 +163,5 @@ function commit() {
     letter-spacing: 0.1em;
     text-align: center;
     color: var(--ink);
-}
-/* 只填分钟时不需要为四位数字留宽度，收窄到三字宽，仍居中。 */
-.field.time-input.is-minute {
-    width: calc(136px * var(--fs-scale));
 }
 </style>

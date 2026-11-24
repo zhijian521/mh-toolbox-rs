@@ -12,7 +12,7 @@
  * 间距仍由调用方按容器覆写（`.assist-group .group-head` 之类）：那些值是有意的
  * 差异，不是漏改。组件根就是 `.group-head`，父级的 scoped 选择器照样够得着。
  */
-withDefaults(defineProps<{ as?: 'div' | 'h3' | 'h4' }>(), { as: 'div' });
+withDefaults(defineProps<{ as?: 'div' | 'h2' | 'h3' | 'h4' }>(), { as: 'div' });
 </script>
 
 <template>

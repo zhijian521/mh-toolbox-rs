@@ -101,7 +101,7 @@ useRouteAction('/tools/alarm', { new: openNew });
     >
         <template #actions>
             <!-- 到上限时按钮不置灰：置灰说不出「为什么点不动」。点下去由 `openNew` 说一句。 -->
-            <PressButton icon="add" text="新增" label="新增一个闹钟" :disabled="!!loadError" seal @click="openNew" />
+            <PressButton icon="add" text="新增" label="新增一个闹钟" :disabled="!!loadError" @click="openNew" />
         </template>
 
         <LoadNotice :error="loadError" :load="retryLoad" />
@@ -119,12 +119,17 @@ useRouteAction('/tools/alarm', { new: openNew });
             />
         </div>
 
-        <div v-else-if="!loadError" class="alarm-void page-empty">
+        <component
+            :is="glass?.card ?? 'div'"
+            v-else-if="!loadError"
+            v-bind="glass ? { radius: 15 } : {}"
+            class="alarm-void page-empty"
+        >
             <AppIcon name="alarm" class="void-icon page-empty-icon" />
             <h3>设第一个闹钟</h3>
             <p class="note">应用运行时，提前 {{ LEAD_MINUTES }} 分钟提醒。</p>
-            <PressButton icon="add" text="新增" label="设第一个闹钟" seal @click="openNew" />
-        </div>
+            <PressButton icon="add" text="新增" label="设第一个闹钟" @click="openNew" />
+        </component>
 
         <AlarmDialog
             v-if="dialogOpen"
@@ -149,7 +154,13 @@ useRouteAction('/tools/alarm', { new: openNew });
     gap: 10px;
 }
 .is-glass .alarm-void {
-    min-height: 280px;
+    --lg-content-base: var(--lg-readable-card-fill);
+    --glass-foreground: var(--liquid-ink);
+    --glass-text-shadow: none;
+    width: min(100%, 300px);
+    min-height: 0;
+    margin: 20px auto;
+    padding: 18px 14px;
     justify-content: center;
 }
 </style>

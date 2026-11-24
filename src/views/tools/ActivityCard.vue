@@ -4,7 +4,7 @@ import AppIcon from '../../components/AppIcon.vue';
 import PressTile from '../../components/PressTile.vue';
 import { glassLedger } from '../../components/glass-ledger';
 import { GlassCard } from '../../components/liquid-glass';
-import { repeatText, timesText, weekdayName, type Activity } from './activities';
+import { cardTimesText, repeatText, timesText, weekdayName, type Activity } from './activities';
 
 /** 活动卡使用原生按钮承接键盘与点击；日期、场次和提醒状态共享同一套业务数据。 */
 const props = withDefaults(
@@ -48,7 +48,7 @@ const tagText = computed(() => {
     if (isToday.value) return '今天';
 
     const next = props.next;
-    if (!next) return '本月已过';
+    if (!next) return '日期待定';
     return `${next.getMonth() + 1}/${next.getDate()} ${weekdayName(next.getDay())}`;
 });
 
@@ -76,6 +76,7 @@ const metaText = computed(() =>
 const cardLabel = computed(() =>
     [
         props.activity.name,
+        tagText.value,
         timesText(props.activity),
         metaText.value,
         props.reminded ? '已加提醒' : '',
@@ -87,17 +88,37 @@ const cardLabel = computed(() =>
 </script>
 
 <template>
+    <GlassCard v-if="glass" class="calendar-surface" :radius="15">
+        <button
+            type="button"
+            class="activity-card calendar-entry"
+            :class="{ reminded }"
+            :aria-label="cardLabel"
+            aria-haspopup="dialog"
+            :disabled="disabled"
+            @click="emit('open')"
+        >
+            <span class="calendar-heading">
+                <span>{{ activity.name }}</span>
+                <AppIcon :name="reminded ? 'check' : 'alarm'" class="card-reminder" :title="reminded ? '已设提醒' : '设置提醒'" />
+            </span>
+            <span class="calendar-time">{{ cardTimesText(activity) }}</span>
+            <span v-if="(!isDaily && !isToday) || activity.playerSourced" class="calendar-meta">
+                <span v-if="!isDaily && !isToday">{{ tagText }}</span>
+                <span v-if="activity.playerSourced">据玩家整理</span>
+            </span>
+        </button>
+    </GlassCard>
     <button
+        v-else
         type="button"
         class="card activity-card"
-        :class="[`t-${activity.tone}`, { reminded, 'is-glass': glass }]"
+        :class="[`t-${activity.tone}`, { reminded } ]"
         :disabled="disabled"
         :aria-label="cardLabel"
         @click="emit('open')"
     >
-        <!-- 材质只作背景，原生按钮统一承接点击、键盘操作和焦点。 -->
-        <GlassCard v-if="glass" :radius="15" class="card-surface" aria-hidden="true" />
-        <PressTile v-else wide class="card-surface" aria-hidden="true" />
+        <PressTile wide class="card-surface" aria-hidden="true" />
 
         <span class="card-body">
             <span class="card-heading">
@@ -109,13 +130,7 @@ const cardLabel = computed(() =>
             </span>
             <span class="when">{{ timesText(activity) }}</span>
             <span class="rule">{{ metaText }}</span>
-            <!-- 提醒入口常驻，触屏和键盘用户也能看见；状态已包含在按钮名称里。 -->
-            <span v-if="glass" class="card-reminder" :class="{ on: reminded }" aria-hidden="true">
-                <AppIcon :name="reminded ? 'check' : 'alarm'" />
-                {{ disabled ? '提醒暂不可用' : reminded ? '已设提醒' : '设置提醒' }}
-                <AppIcon name="chevron-right" class="card-direction" />
-            </span>
-            <span v-else class="mark" :class="{ on: reminded }" aria-hidden="true">
+            <span class="mark" :class="{ on: reminded }" aria-hidden="true">
                 {{ reminded ? '✓' : '＋' }}
             </span>
         </span>
@@ -318,91 +333,67 @@ const cardLabel = computed(() =>
     color: var(--on-seal);
 }
 
-.card.is-glass {
-    min-width: 0;
-    border-radius: 15px;
-}
-.is-glass .card-surface {
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-}
-.is-glass .card-body {
-    width: 100%;
-    min-width: 0;
-    min-height: 126px;
-    gap: 6px;
-    padding: 12px;
-}
-.is-glass:active .card-body {
-    transform: none;
-}
-.is-glass .card-heading {
+.calendar-surface {
+    --lg-content-base: var(--lg-readable-card-fill);
+    --glass-foreground: var(--liquid-ink);
+    --glass-text-shadow: none;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 10px;
-    width: 100%;
-}
-.is-glass .name {
-    flex: 1 1 7em;
     min-width: 0;
-    padding: 0;
-    letter-spacing: normal;
-    overflow-wrap: anywhere;
 }
-.is-glass .tag {
-    position: static;
-    flex: none;
-    padding: 2px 7px;
+.calendar-entry {
+    position: relative;
+    display: grid;
+    align-content: start;
+    gap: 4px;
+    width: 100%;
+    min-height: 62px;
+    padding: 10px 12px;
     border: 0;
-    border-radius: var(--r-pill);
-    background: var(--ledger-surface);
-    letter-spacing: normal;
-}
-.is-glass .tag.hot {
-    background: var(--ledger-selected);
-}
-.is-glass .when {
-    margin: 0;
+    border-radius: inherit;
     color: var(--liquid-ink);
-    font-size: var(--fs-sm);
-    line-height: 1.5;
+    background: transparent;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
 }
-.is-glass .rule {
-    margin: 0;
-    padding: 0;
-    font-size: var(--fs-xs);
-    line-height: 1.5;
-}
-.card-reminder {
-    --icon-size: 13px;
+.calendar-heading, .calendar-meta {
     display: flex;
     align-items: center;
     gap: 6px;
-    width: 100%;
-    margin-top: auto;
-    padding-top: 6px;
-    border-top: 1px solid var(--liquid-outline);
+}
+.calendar-heading { justify-content: space-between; }
+.calendar-time, .calendar-meta {
     color: var(--liquid-muted);
     font-size: var(--fs-xs);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
 }
-.card-reminder.on {
-    color: var(--liquid-focus);
-}
-.card-direction {
-    margin-left: auto;
-}
-@media (hover: hover) {
-    .is-glass:hover .card-surface {
-        --lg-content-fill: var(--ledger-highlight);
+.card-reminder { --icon-size: 14px; flex: none; color: var(--liquid-muted); }
+.reminded .card-reminder { color: var(--liquid-focus); }
+.calendar-entry:focus-visible { outline: 2px solid var(--liquid-focus); outline-offset: -2px; }
+.calendar-entry:disabled { cursor: default; }
+@media (hover: hover) and (pointer: fine) {
+    .calendar-entry::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        background: linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--ledger-highlight) 32%, transparent),
+            transparent 65%
+        );
+        opacity: 0;
+        transition: opacity 140ms ease-out;
     }
-    .is-glass:hover .card-reminder {
-        color: var(--liquid-focus);
+
+    .calendar-entry:enabled:hover::before {
+        opacity: 1;
     }
-}
-.is-glass:focus-visible {
-    outline: 2px solid var(--liquid-focus);
-    outline-offset: 3px;
+
+    .calendar-entry:enabled:hover:not(.reminded) .card-reminder {
+        color: var(--liquid-ink);
+    }
 }
 </style>

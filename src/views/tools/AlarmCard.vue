@@ -96,12 +96,12 @@ const cardLabel = computed(() => {
         <p class="alarm-label" :title="nameText">{{ nameText }}</p>
         <p class="alarm-note">
             <span class="alarm-repeat">{{ repeatText(alarm) }}</span>
-            <span class="alarm-status" :class="{ warn: soon }">{{ status }}</span>
+            <span v-if="!glass" class="alarm-status" :class="{ warn: soon }">{{ status }}</span>
         </p>
 
         <footer class="alarm-foot">
-            <span v-if="glass" class="alarm-state" :class="{ enabled: alarm.enabled }">
-                <span aria-hidden="true"></span>{{ alarm.enabled ? '已开启' : '已停用' }}
+            <span v-if="glass" class="alarm-state" :class="{ enabled: alarm.enabled, warn: soon }">
+                <span aria-hidden="true"></span>{{ status }}
             </span>
             <span v-if="glass" class="alarm-acts">
                 <GlassButton
@@ -299,7 +299,11 @@ const cardLabel = computed(() => {
 }
 
 .alarm-card.is-glass {
-    gap: 6px;
+    --lg-content-base: var(--lg-readable-card-fill);
+    --glass-foreground: var(--liquid-ink);
+    --glass-text-shadow: none;
+    min-height: 0;
+    gap: 4px;
     padding: 12px 12px 8px;
 }
 .is-glass .alarm-head {
@@ -320,20 +324,13 @@ const cardLabel = computed(() => {
     gap: 3px 8px;
     font-size: var(--fs-xs);
 }
-.is-glass .alarm-repeat,
-.is-glass .alarm-status {
+.is-glass .alarm-repeat {
     max-width: 100%;
     white-space: normal;
     overflow-wrap: anywhere;
     text-align: start;
 }
-.is-glass .alarm-status {
-    color: var(--liquid-focus);
-}
-.is-glass .alarm-status.warn {
-    color: var(--danger);
-}
-.is-glass.off :is(.alarm-time, .alarm-label, .alarm-status) {
+.is-glass.off :is(.alarm-time, .alarm-label) {
     color: var(--liquid-muted);
 }
 .is-glass .alarm-foot {
@@ -342,7 +339,7 @@ const cardLabel = computed(() => {
     flex-wrap: wrap;
     gap: 4px;
     padding-top: 6px;
-    border-top: 1px solid var(--liquid-outline);
+    border-top: 1px solid color-mix(in srgb, var(--liquid-outline) 65%, transparent);
 }
 .alarm-state {
     display: inline-flex;
@@ -351,13 +348,17 @@ const cardLabel = computed(() => {
     color: var(--liquid-muted);
     font-size: var(--fs-xs);
 }
+.alarm-state.warn {
+    color: var(--liquid-up);
+}
 .alarm-state > span {
+    flex: none;
     width: 5px;
     height: 5px;
     border-radius: 50%;
     background: currentColor;
 }
-.alarm-state.enabled > span {
+.alarm-state.enabled:not(.warn) > span {
     color: var(--liquid-focus);
 }
 .is-glass .alarm-acts {

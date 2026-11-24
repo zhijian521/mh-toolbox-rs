@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { activityOf, dueAlarms, nextReminder, readAlarm, reminderAt } from './alarms';
 import {
     ACTIVITIES,
+    cardTimesText,
     dayGap,
     groupActivities,
     nextOccurrence,
@@ -154,12 +155,18 @@ describe('文案', () => {
     });
 });
 
+it('卡片区分首场、全天多场和随机时段', () => {
+    expect(cardTimesText(byId('disha'))).toBe('09:30 首场 · 共 8 场');
+    expect(cardTimesText(byId('sect-guard'))).toBe('12:00–22:00 随机出现');
+    expect(cardTimesText(byId('stars'))).toBe('每个整点');
+});
+
 describe('分组', () => {
     const groups = groupActivities(ACTIVITIES, at(11, 8, 21));
     const idsIn = (key: string) =>
         groups.find((one) => one.key === key)?.items.map((one) => one.activity.id) ?? [];
 
-    it('按「今天 / 明天 / 本周内 / 之后 / 每天」排，空组不返回', () => {
+    it('按「今天 / 明天 / 未来一周 / 之后 / 每天」排，空组不返回', () => {
         expect(groups.map((one) => one.key)).toEqual([
             'today',
             'tomorrow',

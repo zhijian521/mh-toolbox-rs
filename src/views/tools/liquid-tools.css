@@ -90,3 +90,26 @@
     background: var(--popover-bg);
 }
 
+.liquid-tools .modal-panel.alarm-glass-editor {
+    --modal-bg: var(--lg-dialog-fill);
+    --modal-shadow: var(--lg-dialog-shadow);
+    --glass-foreground: var(--liquid-ink);
+    --glass-accent-text: var(--liquid-ink);
+    --glass-text-shadow: none;
+    border-radius: 20px;
+    backdrop-filter: blur(var(--lg-dialog-blur));
+}
+.alarm-glass-editor .modal-head {
+    padding: 14px 18px 4px;
+    border-bottom: 0;
+}
+.alarm-glass-editor .modal-foot {
+    padding: 4px 18px 14px;
+    border-top: 0;
+}
+.alarm-glass-editor .alarm-form {
+    gap: 12px;
+}
+.alarm-glass-editor .alarm-repeat {
+    --step-pad-y: 5px;
+}

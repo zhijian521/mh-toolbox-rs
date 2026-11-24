@@ -88,7 +88,7 @@ const summary = computed(() =>
 
 <style scoped>
 .price-card {
-    --lg-content-base: light-dark(rgb(250 255 253 / 45%), rgb(24 38 41 / 58%));
+    --lg-content-base: var(--lg-readable-card-fill);
     --liquid-ink: light-dark(#17211f, #f5f9f7);
     --liquid-muted: light-dark(#30413b, #dee9e4);
     --glass-foreground: var(--liquid-ink);
