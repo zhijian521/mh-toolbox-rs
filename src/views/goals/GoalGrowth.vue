@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue';
+import { computed, inject, reactive } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
+import { glassLedger } from '../../components/glass-ledger';
+import GlassNumberField from '../../components/liquid-glass/GlassNumberField.vue';
 import NumberField from '../../components/NumberField.vue';
 import FormActions from '../../components/FormActions.vue';
 import type { GoalProgressInput, GoalRow, ReadonlyGoal } from './goals';
 import { useDraftGuard } from '../../composables/use-draft-guard';
 
+const glass = inject(glassLedger, null);
 const props = defineProps<{
     goal: ReadonlyGoal;
     rows: readonly GoalRow[];
@@ -49,7 +52,7 @@ function enter(event: KeyboardEvent) {
 
 <template>
     <ModalShell title="更新进度" :width="460" @close="requestClose">
-        <form class="modal-form" @submit.prevent="submit" @keydown.enter="enter">
+        <form class="modal-form" :class="{ 'lg-form-fields': glass }" @submit.prevent="submit" @keydown.enter="enter">
             <p class="metric-title">
                 {{ goal.tracking?.key }} <span>目标 {{ goal.target }} {{ goal.unit }}</span>
             </p>
@@ -59,7 +62,8 @@ function enter(event: KeyboardEvent) {
                         >{{ row.name || '未命名'
                         }}<small v-if="row.value === null">待补录</small></span
                     >
-                    <NumberField
+                    <component
+                        :is="glass ? GlassNumberField : NumberField"
                         :model-value="inputs[row.id]"
                         :label="`${row.name || '未命名'} 的当前值`"
                         update-on-input

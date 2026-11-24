@@ -6,6 +6,7 @@ import { GlassMenu, GlassMenuItem } from './index';
 const props = defineProps<{
     label: string;
     hideLabel?: boolean;
+    placeholder?: string;
     options: readonly { value: string; label: string }[];
     disabled?: boolean;
 }>();
@@ -39,7 +40,7 @@ function onEscape(event: KeyboardEvent) {
                     :disabled="disabled"
                     :aria-labelledby="id + '-label ' + id + '-value'"
                     :value-id="id + '-value'"
-                    :text="selected?.label ?? '请选择'"
+                    :text="selected?.label ?? placeholder ?? '请选择'"
                 />
             </template>
             <GlassMenuItem

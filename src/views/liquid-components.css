@@ -128,9 +128,6 @@
     display: flex;
     justify-content: start;
 }
-.stage glass-segmented {
-    --glass-segmented-height: 30px;
-}
 .stage glass-tab-bar {
     --glass-tab-bar-height: 50px;
     --glass-tab-font-size: var(--fs-xs);

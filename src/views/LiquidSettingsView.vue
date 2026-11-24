@@ -497,7 +497,9 @@ function applyWallpaper(url: string) {
 }
 
 .liquid-settings-row glass-segmented {
-    width: 112px;
+    flex: none;
+    width: max-content;
+    white-space: nowrap;
     letter-spacing: normal;
 }
 

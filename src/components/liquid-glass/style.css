@@ -206,8 +206,36 @@ glass-search.lg-component {
     font-size: var(--fs-mini);
 }
 
+glass-segmented.lg-component,
+.glass-multi-select {
+    --lg-choice-height: var(--lg-form-height);
+    --lg-choice-inset: 3px;
+    --lg-choice-gap: 6px;
+    --lg-choice-padding-inline: 16px;
+}
+glass-segmented.lg-component[data-size='standard'],
+.glass-multi-select[data-size='standard'] {
+    --lg-choice-height: var(--lg-form-standard-height);
+    --lg-choice-padding-inline: 18px;
+}
+glass-segmented.lg-status-tabs {
+    width: max-content;
+}
+.lg-status-tabs > glass-segment {
+    flex: 1 0 auto;
+    min-inline-size: 0;
+    white-space: nowrap;
+    box-sizing: content-box;
+}
+glass-segmented.lg-component[data-size='standard'] {
+    --glass-selector-padding: calc(var(--lg-choice-inset) + 1px);
+    column-gap: var(--lg-choice-gap);
+}
+glass-segmented.lg-component > glass-segment {
+    padding-inline: var(--lg-choice-padding-inline);
+}
 glass-segmented.lg-component {
-    --glass-segmented-height: 30px;
+    --glass-segmented-height: var(--lg-choice-height);
     --glass-selector-padding: 3px;
     --glass-segmented-track: var(--lg-bar-fill);
     --glass-segmented-thumb: var(--lg-selector-lens);
@@ -326,7 +354,8 @@ glass-menu-label.lg-component {
     --lg-dialog-blur: 6px;
     --lg-dialog-shadow: var(--lg-edge-rim), 0 6px 22px rgb(12 28 25 / 0.15);
     --lg-form-height: 32px;
-    --glass-search-height: 44px;
+    --lg-form-standard-height: 44px;
+    --glass-search-height: var(--lg-form-standard-height);
     --lg-scroll-thumb: light-dark(rgb(44 70 59 / 0.43), rgb(213 240 226 / 0.39));
     --lg-scroll-thumb-hover: light-dark(rgb(44 70 59 / 0.60), rgb(213 240 226 / 0.58));
     scrollbar-color: var(--lg-scroll-thumb) transparent;

@@ -154,7 +154,9 @@ export default async function run(ctx) {
             '总体圆环与角色分格进度分别呈现',
             await cdp.evaluate(`(() => {
                 const node = ${card(title)};
-                return node?.querySelectorAll('.progress-body > .ring[role="progressbar"]').length === 1
+                return node?.querySelectorAll('.goal-figure > .ring[role="progressbar"]').length === 1
+                    && !!node.querySelector('.goal-figure > .ring + figcaption.category')
+                    && !node.textContent.includes('人达标')
                     && [...node.querySelectorAll('.member')].every((row) => row.querySelectorAll('.tick').length === 10);
             })()`),
         );
@@ -341,7 +343,7 @@ export default async function run(ctx) {
             await cdp.evaluate(`(() => {
             const node = ${card(title)};
             return node?.querySelectorAll('.member').length === 4
-                && node.querySelectorAll('.progress-body > .ring[role="progressbar"]').length === 1
+                && node.querySelectorAll('.goal-figure > .ring[role="progressbar"]').length === 1
                 && node.textContent.includes('强身术');
         })()`),
         );

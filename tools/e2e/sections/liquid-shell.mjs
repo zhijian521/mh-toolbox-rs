@@ -898,19 +898,64 @@ export default async function liquidShell({ cdp, t, ui }) {
 
     const goalFilters = `${goals} [aria-label="目标状态"]`;
     await ui.waitFor(`!!document.querySelector('${goalFilters}')`);
-    await cdp.click(`${goalFilters} button:last-child`);
+    await cdp.click(`${goalFilters} glass-segment[value="all"]`);
     t.check('目标页保留三档状态筛选', await cdp.evaluate(`
-        document.querySelectorAll('${goalFilters} [role="radio"]').length === 3 &&
-        document.querySelector('${goalFilters} [aria-checked="true"]').textContent.includes('全部')
+        [...document.querySelectorAll('${goalFilters} glass-segment')].map(el => el.textContent.trim()).join(',') === '进行中,已达成,全部' &&
+        document.querySelector('${goalFilters} [aria-selected="true"]').textContent.includes('全部')
     `));
+    t.check('目标列表保留环形总体进度与直接可用的操作', await cdp.evaluate(`(() => {
+        const page = document.querySelector('${goals}');
+        const cards = [...page.querySelectorAll('.goal[data-goal-id]')];
+        if (!cards.length) return !!page.querySelector('.glass-empty-state');
+        return cards.every(card => card.querySelector('.progress-body .ring[role="progressbar"]') &&
+            card.querySelector('.goal-actions [aria-label="目标历史"]'));
+    })()`));
+    const memberTicks = `${goals} .members .ticks`;
+    if (await ui.exists(memberTicks)) {
+        t.check('角色刻度实际填色宽度与各自进度一致', await cdp.evaluate(`
+            [...document.querySelectorAll('${memberTicks}')].every(bar => {
+                const ticks = [...bar.querySelectorAll('.tick')];
+                const width = ticks.reduce((sum, tick) => sum + tick.getBoundingClientRect().width, 0);
+                const filled = ticks.reduce((sum, tick) => sum + tick.firstElementChild.getBoundingClientRect().width, 0);
+                return width > 0 && Math.abs(100 * filled / width - Number(bar.getAttribute('aria-valuenow'))) <= 1;
+            })
+        `));
+    }
+    if (await ui.exists(`${goals} .goal-actions [aria-label="目标历史"]`)) {
+        await cdp.click(`${goals} .goal-actions [aria-label="目标历史"]`);
+        const sheet = `${goals} glass-sheet.goal-history-sheet[data-visible]`;
+        await ui.waitFor(`!!document.querySelector('${sheet} .history-content')`);
+        t.check('目标历史只显示一个底部弹层', await cdp.evaluate(`
+            document.querySelectorAll('${sheet}').length === 1 && !document.querySelector('.modal-mask, dialog[open]')
+        `));
+        t.check('目标历史在底部展示表格或空状态', await cdp.evaluate(`
+            !!document.querySelector('${sheet} table.glass-table.progress-history, ${sheet} .glass-empty-state')
+        `));
+        await cdp.click(`${sheet} [aria-label="关闭目标历史"]`);
+        await ui.waitFor(`!document.querySelector('${sheet}')`);
+    }
     await cdp.click(`${goals} [aria-label="新建目标"]`);
     await ui.waitFor(`${goalTitle} === '新增目标'`);
     const kinds = `${goalDialog} [aria-label="目标类型"]`;
     t.check('目标编辑器有养成、存钱、装备、手动和组合五种类型', await cdp.evaluate(`
-        [...document.querySelectorAll('${kinds} button')].map(button => button.textContent.trim()).join(',') ===
+        [...document.querySelectorAll('${kinds} glass-segment')].map(button => button.textContent.trim()).join(',') ===
         '养成,存钱,装备,手动,组合'
     `));
-    await cdp.click(`${kinds} button:last-child`);
+    t.check('目标筛选和编辑器标签均与紧凑字段等高', await cdp.evaluate(`
+        ['${goalFilters}', '${kinds}'].every(selector => {
+            const el = document.querySelector(selector);
+            return Math.abs(el.getBoundingClientRect().height - parseFloat(getComputedStyle(el).getPropertyValue('--lg-form-height'))) < 1;
+        })
+    `));
+    const member = `${goalDialog} .glass-multi-select glass-button:not([disabled])`;
+    if (await ui.exists(member)) {
+        const selected = await cdp.evaluate(`document.querySelector('${member}').getAttribute('aria-pressed')`);
+        await cdp.click(member);
+        await ui.waitFor(`document.querySelector('${member}').getAttribute('aria-pressed') !== '${selected}'`);
+        await cdp.click(member);
+        await ui.waitFor(`document.querySelector('${member}').getAttribute('aria-pressed') === '${selected}'`);
+    }
+    await cdp.click(`${kinds} glass-segment[value="combo"]`);
     await ui.waitFor(`!!document.querySelector('${goalDialog} .combo-settings')`);
     await ui.fillSel(`${goalDialog} input[aria-label="组合名称"]`, '玻璃组合草稿');
     await closeGoals();
@@ -1224,6 +1269,13 @@ export default async function liquidShell({ cdp, t, ui }) {
         await cdp.evaluate(`${atComponents()} &&
             !document.querySelector('.component-catalog input[type=radio]') &&
             !!document.querySelector('.component-catalog .glass-select-trigger') &&
+            ['compact', 'standard'].every(size => {
+                const root = document.querySelector('.component-catalog');
+                const multi = root.querySelector('.glass-multi-select[data-size=' + size + ']');
+                const tabs = root.querySelector('glass-segmented[data-size=' + size + ']');
+                return multi?.querySelectorAll('[aria-pressed="true"]').length === 2 && !!tabs;
+            }) &&
+            !!document.querySelector('.component-catalog table.glass-table tbody tr') &&
             !!document.querySelector('.component-catalog .sample-notice') &&
             !!document.querySelector('.component-catalog .glass-input input') &&
             !!document.querySelector('.component-catalog .glass-price-field.compact') &&
@@ -1381,6 +1433,16 @@ export default async function liquidShell({ cdp, t, ui }) {
                 label.fontSize === '13.5px' && option.fontSize === '12px';
         })()`),
     );
+    t.check('主题选项文字各占一行并位于选项内', await cdp.evaluate(`(() => {
+        const options = document.querySelectorAll('#liquid-theme-label + glass-segmented > glass-segment');
+        return options.length === 2 && [...options].every(option => {
+            const range = document.createRange();
+            range.selectNodeContents(option);
+            const text = range.getBoundingClientRect();
+            const item = option.getBoundingClientRect();
+            return range.getClientRects().length === 1 && text.left >= item.left && text.right <= item.right;
+        });
+    })()`));
     t.check('主题分段的静止高光覆盖选中的一整项', await cdp.evaluate(`(() => {
         const selected = document.querySelector('.liquid-settings glass-segment[aria-selected="true"]');
         const item = selected.getBoundingClientRect();

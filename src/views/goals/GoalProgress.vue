@@ -47,7 +47,7 @@ const fills = computed(() => {
         <template v-if="shape === 'ring'">
             <svg viewBox="0 0 84 84" aria-hidden="true">
                 <defs>
-                    <linearGradient :id="gradientId" x1="0" y1="1" x2="1" y2="0">
+                    <linearGradient :id="gradientId" x1="100%" y1="0%" x2="0%" y2="100%">
                         <stop offset="0" class="ring-light" />
                         <stop offset="0.45" class="ring-color" />
                         <stop offset="1" class="ring-dark" />
@@ -92,7 +92,7 @@ const fills = computed(() => {
 <style scoped>
 .goal-progress {
     --progress-light: color-mix(in srgb, var(--progress-color) 65%, var(--bevel-hi));
-    --progress-dark: color-mix(in srgb, var(--progress-color) 75%, var(--ink-base));
+    --progress-dark: color-mix(in srgb, var(--progress-color) 75%, var(--ink-base, var(--ink)));
     min-width: 0;
 }
 .ring {
@@ -170,8 +170,10 @@ const fills = computed(() => {
 }
 .tick {
     position: relative;
-    height: calc(7px * var(--fs-scale));
-    overflow: hidden;
+    height: calc(7px * var(--fs-scale, 1));
+    /* 刻度只裁切填色，不能让全局滚动条留白占满单格。 */
+    overflow: clip;
+    scrollbar-gutter: auto;
     border-radius: 1px;
     background: var(--well);
     box-shadow:

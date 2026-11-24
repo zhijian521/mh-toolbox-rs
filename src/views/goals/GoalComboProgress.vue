@@ -1,7 +1,9 @@
 <script setup lang="ts">
 /** 组合更新保留全部角色的草稿，只有统一保存才回写名册。 */
-import { computed, reactive, ref, useId } from 'vue';
+import { computed, inject, reactive, ref, useId } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
+import { glassLedger } from '../../components/glass-ledger';
+import GlassNumberField from '../../components/liquid-glass/GlassNumberField.vue';
 import NumberField from '../../components/NumberField.vue';
 import FormActions from '../../components/FormActions.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
@@ -13,6 +15,7 @@ import {
     type GoalProgressInput,
 } from './goals';
 
+const glass = inject(glassLedger, null);
 const props = defineProps<{
     goal: ReadonlyGoal;
     rows: readonly ComboGoalRow[];
@@ -93,6 +96,7 @@ function enter(event: KeyboardEvent) {
     <ModalShell title="更新组合进度" :width="600" @close="requestClose">
         <form
             class="modal-form combo-progress-form"
+            :class="{ 'lg-form-fields': glass }"
             @submit.prevent="submit"
             @keydown.enter="enter"
         >
@@ -145,7 +149,8 @@ function enter(event: KeyboardEvent) {
                                         v-if="row.exists && row.applicable"
                                         class="combo-current-input"
                                     >
-                                        <NumberField
+                                        <component
+                                            :is="glass ? GlassNumberField : NumberField"
                                             :model-value="inputs[row.id]"
                                             :label="`${row.name}的${row.tracking.key}当前值`"
                                             update-on-input

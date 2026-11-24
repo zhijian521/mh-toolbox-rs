@@ -1,11 +1,18 @@
 <script setup lang="ts">
-import { computed, ref, useId, watch } from 'vue';
+import { computed, inject, ref, useId, watch } from 'vue';
+import { glassLedger } from '../../components/glass-ledger';
+import { GlassSegment, GlassSegmented } from '../../components/liquid-glass';
+import GlassMultiSelect from '../../components/liquid-glass/GlassMultiSelect.vue';
+import GlassInput from '../../components/liquid-glass/GlassInput.vue';
+import GlassDateField from '../../components/liquid-glass/GlassDateField.vue';
+import GlassNumberField from '../../components/liquid-glass/GlassNumberField.vue';
 import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import FormActions from '../../components/FormActions.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
+import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import SelectField from '../../components/SelectField.vue';
 import TogglePills from '../../components/TogglePills.vue';
 import GoalComboEditor from './GoalComboEditor.vue';
@@ -39,6 +46,7 @@ const emit = defineEmits<{ save: [input: GoalInput]; close: []; remove: [] }>();
 const { roster } = useRoster();
 const titleId = useId();
 const noteId = useId();
+const glass = inject(glassLedger, null);
 const kind = ref<GoalKind>(props.goal?.kind ?? 'growth');
 const comboItems = ref<GoalItem[]>(
     props.goal?.items?.map((item) => ({ ...item, tracking: { ...item.tracking } })) ?? [],
@@ -163,6 +171,17 @@ const { requestClose } = useDraftGuard(
     () => emit('close'),
 );
 
+const kindTab = ref(kind.value);
+async function pickKindTab(value: string) {
+    const option = kindOptions.find((item) => item.value === value);
+    if (!option) return;
+    kindTab.value = option.value;
+    try {
+        await pickKind(option.value);
+    } finally {
+        kindTab.value = kind.value;
+    }
+}
 async function pickKind(next: GoalKind) {
     if (props.locked || props.goal || kind.value === next) return;
     if (kind.value === 'combo' && comboDraft.value) {
@@ -210,12 +229,18 @@ function enter(event: KeyboardEvent) {
     >
         <form
             class="goal-form modal-form"
-            :class="{ 'combo-goal-form': kind === 'combo' }"
+            :class="{ 'combo-goal-form': kind === 'combo', 'lg-form-fields': glass }"
             @submit.prevent="submit"
             @keydown.enter="enter"
         >
             <fieldset :disabled="locked" :inert="locked">
-                <SegmentedPills
+                <GlassSegmented v-if="glass" class="goal-kind-tabs" :value="kindTab" aria-label="目标类型" @update:value="pickKindTab">
+                    <GlassSegment v-for="option in kindOptions" :key="option.value" :value="option.value"
+                        :disabled="locked || (!!goal && option.value !== kind)">
+                        {{ option.label }}
+                    </GlassSegment>
+                </GlassSegmented>
+                <SegmentedPills v-else
                     :disabled="locked"
                     :model-value="kind"
                     :options="
@@ -229,7 +254,8 @@ function enter(event: KeyboardEvent) {
                 />
                 <label class="form-field goal-name" :for="titleId"
                     ><span>{{ kind === 'combo' ? '组合名称' : '目标名称' }}</span
-                    ><input
+                    ><GlassInput v-if="glass" :id="titleId" v-model="title" :aria-label="kind === 'combo' ? '组合名称' : '目标名称'" placeholder="留空自动生成" autocomplete="off" />
+                    <input v-else
                         :id="titleId"
                         v-model="title"
                         class="field"
@@ -257,7 +283,8 @@ function enter(event: KeyboardEvent) {
                             @click="selected = roster.map((character) => character.id)"
                         />
                     </div>
-                    <TogglePills
+                    <component
+                        :is="glass ? GlassMultiSelect : TogglePills"
                         v-model="selected"
                         :options="memberOptions"
                         label="目标角色（多选）"
@@ -268,28 +295,35 @@ function enter(event: KeyboardEvent) {
                     </p>
                 </section>
                 <div v-if="kind === 'growth'" class="pair form-pair">
-                    <label class="form-field control"
-                        ><span>养成分类</span
-                        ><SelectField
+                    <div class="form-field control">
+                        <span>养成分类</span>
+                        <component
+                            :is="glass ? GlassSelect : SelectField"
+                            :hide-label="glass ? true : undefined"
                             :model-value="group"
                             :options="groupOptions"
                             label="养成项目分类"
                             :disabled="locked"
                             @update:model-value="group = $event as MetricGroup"
-                    /></label>
-                    <label class="form-field control"
-                        ><span>项目</span
-                        ><SelectField
+                        />
+                    </div>
+                    <div class="form-field control">
+                        <span>项目</span>
+                        <component
+                            :is="glass ? GlassSelect : SelectField"
+                            :hide-label="glass ? true : undefined"
                             v-model="metric"
                             :options="metricOptions"
                             label="具体项目"
                             placeholder="选择项目"
                             :disabled="locked"
-                    /></label>
+                        />
+                    </div>
                 </div>
                 <label v-if="kind !== 'combo'" class="target-field">
                     <span>{{ tracking ? '每个角色达到' : '累计目标' }}（{{ unit }}）</span>
-                    <NumberField
+                    <component
+                        :is="glass ? GlassNumberField : NumberField"
                         v-model="target"
                         label="目标值"
                         class="value-emphasis"
@@ -310,7 +344,8 @@ function enter(event: KeyboardEvent) {
                     </div>
                     <label v-else-if="kind === 'manual'" class="form-field control"
                         ><span>单位</span
-                        ><input
+                        ><GlassInput v-if="glass" v-model="unitInput" aria-label="目标单位" :disabled="!!goal?.logs.length" maxlength="6" />
+                        <input v-else
                             v-model="unitInput"
                             class="field"
                             aria-label="目标单位"
@@ -330,9 +365,10 @@ function enter(event: KeyboardEvent) {
                     <summary>更多设置</summary>
                     <div class="extras">
                         <div class="form-field control">
-                            <span>期限</span>
+                            <span v-if="!glass">期限</span>
                             <div class="deadline-row">
-                                <DateField
+                                <component
+                                    :is="glass ? GlassDateField : DateField"
                                     v-model="deadline"
                                     label="期望完成日期"
                                     :disabled="locked"
@@ -348,7 +384,8 @@ function enter(event: KeyboardEvent) {
                         </div>
                         <label class="form-field control" :for="noteId"
                             ><span>备注</span
-                            ><input
+                            ><GlassInput v-if="glass" :id="noteId" v-model="note" aria-label="目标备注" autocomplete="off" />
+                            <input v-else
                                 :id="noteId"
                                 v-model="note"
                                 class="field"
@@ -394,6 +431,7 @@ function enter(event: KeyboardEvent) {
 </template>
 
 <style scoped>
+.goal-kind-tabs { width: 100%; min-width: 0; }
 .combo-goal-form {
     max-width: none;
 }
@@ -471,6 +509,10 @@ function enter(event: KeyboardEvent) {
     color: var(--muted);
     font-size: var(--fs-sm);
     text-align: center;
+}
+.target-field :deep(.glass-number-field) {
+    width: min(100%, 180px);
+    --number-align: center;
 }
 .unit-row {
     align-self: center;

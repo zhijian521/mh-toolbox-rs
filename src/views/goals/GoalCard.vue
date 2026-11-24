@@ -29,6 +29,12 @@ const emit = defineEmits<{
 }>();
 const glassCard = inject(glassLedger, null)?.card;
 const deadline = computed(() => deadlineText(props.goal.deadline, props.today, props.summary.done));
+const detail = computed(() => {
+    const { goal, summary } = props;
+    if (summary.kind === 'combo') return `${summary.achieved} / ${summary.total} 项达标`;
+    if (summary.kind === 'manual' && goal.members.length) return scopeText(goal);
+    return '';
+});
 const number = (value: number) => value.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
 const rows = computed(() => {
     const { goal, summary } = props;
@@ -76,15 +82,8 @@ const rows = computed(() => {
         <header class="goal-head">
             <div class="heading">
                 <h2>{{ goal.title }}</h2>
-                <div class="meta">
-                    <span class="category">{{ kindMeta(goal.kind).label }}</span>
-                    <span v-if="summary.kind === 'combo'">
-                        {{ summary.achieved }} / {{ summary.total }} 项达标
-                    </span>
-                    <span v-else-if="summary.kind === 'growth'">
-                        {{ summary.achieved }} / {{ summary.totalMembers }} 人达标
-                    </span>
-                    <span v-else-if="goal.members.length">{{ scopeText(goal) }}</span>
+                <div v-if="detail || summary.done" class="meta">
+                    <span v-if="detail">{{ detail }}</span>
                     <span v-if="summary.done" class="mark">已达成</span>
                 </div>
             </div>
@@ -97,7 +96,10 @@ const rows = computed(() => {
             />
         </header>
         <div class="progress-body">
-            <GoalProgress shape="ring" :percent="summary.pct" :label="goal.title + '总体进度'" />
+            <figure class="goal-figure">
+                <GoalProgress shape="ring" :percent="summary.pct" :label="goal.title + '总体进度'" />
+                <figcaption class="category">{{ kindMeta(goal.kind).label }}</figcaption>
+            </figure>
             <div v-if="summary.kind === 'manual'" class="manual-value">
                 <b class="num">{{ number(summary.current) }}</b>
                 <span> / {{ number(summary.total) }} {{ goal.unit }}</span>
@@ -231,7 +233,15 @@ h2 {
     align-items: center;
     gap: 8px;
 }
-.progress-body > :deep(.ring) {
+.goal-figure {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    min-width: 0;
+    margin: 0;
+    font-size: var(--fs-xs);
+}
+.goal-figure > :deep(.ring) {
     width: 100%;
 }
 .members {

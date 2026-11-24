@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
+import GlassTable from '../../components/liquid-glass/GlassTable.vue';
+import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import RecordPager from '../../components/RecordPager.vue';
 import { useRoster } from '../characters/roster';
 import { goalProgressHistory, type ReadonlyGoal } from './goals';
 
-const props = defineProps<{ goal: ReadonlyGoal }>();
+const props = defineProps<{ goal: ReadonlyGoal; embedded?: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 const { roster } = useRoster();
 const page = ref(1);
-const PAGE_SIZE = 10;
+const pageSize = props.embedded ? 5 : 10;
 const clock = new Intl.DateTimeFormat('zh-CN', {
     year: 'numeric',
     month: '2-digit',
@@ -22,9 +23,9 @@ const clock = new Intl.DateTimeFormat('zh-CN', {
 });
 const tracked = computed(() => props.goal.kind === 'combo' || !!props.goal.tracking);
 const rows = computed(() => goalProgressHistory(props.goal, roster.value));
-const pages = computed(() => Math.max(1, Math.ceil(rows.value.length / PAGE_SIZE)));
+const pages = computed(() => Math.max(1, Math.ceil(rows.value.length / pageSize)));
 const visible = computed(() =>
-    rows.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE),
+    rows.value.slice((page.value - 1) * pageSize, page.value * pageSize),
 );
 watch(pages, (total) => {
     page.value = Math.min(page.value, total);
@@ -37,30 +38,40 @@ function timeText(at: number, date: string) {
 </script>
 
 <template>
-    <ModalShell title="目标历史" :width="620" @close="emit('close')">
-        <p class="history-title">{{ goal.title }}</p>
-        <table v-if="rows.length" class="income-table progress-history" aria-label="目标更新历史">
-            <thead>
-                <tr>
-                    <th scope="col">更新时间</th>
-                    <th scope="col">{{ tracked ? '项目' : '备注' }}</th>
-                    <th scope="col">变动</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr v-for="row in visible" :key="row.id">
-                    <td class="when num">{{ timeText(row.at, row.date) }}</td>
-                    <td>{{ row.name }}</td>
-                    <td class="change num">{{ row.change }}</td>
-                </tr>
-            </tbody>
-        </table>
-        <p v-else class="record-empty">暂无更新记录</p>
-        <template #footer>
-            <RecordPager v-if="pages > 1" v-model="page" :pages="pages" />
+    <section :class="{ 'history-content': embedded }">
+        <header v-if="embedded" class="history-heading">
+            <div><h2>目标历史</h2><p>{{ goal.title }}</p></div>
             <PressButton text="关闭" label="关闭目标历史" @click="emit('close')" />
-        </template>
-    </ModalShell>
+        </header>
+        <p v-else class="history-title">{{ goal.title }}</p>
+        <div class="history-scroll">
+            <component
+                :is="embedded ? GlassTable : 'table'"
+                v-if="rows.length"
+                class="progress-history"
+                :class="{ 'income-table': !embedded }"
+                aria-label="目标更新历史"
+            >
+                <thead>
+                    <tr>
+                        <th scope="col">更新时间</th>
+                        <th scope="col">{{ tracked ? '项目' : '备注' }}</th>
+                        <th scope="col">变动</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="row in visible" :key="row.id">
+                        <td class="when num">{{ timeText(row.at, row.date) }}</td>
+                        <td>{{ row.name }}</td>
+                        <td class="change num">{{ row.change }}</td>
+                    </tr>
+                </tbody>
+            </component>
+            <GlassEmptyState v-else-if="embedded">暂无更新记录</GlassEmptyState>
+            <p v-else class="record-empty">暂无更新记录</p>
+        </div>
+        <RecordPager v-if="pages > 1" v-model="page" :pages="pages" label="目标历史分页" />
+    </section>
 </template>
 
 <style scoped>
@@ -82,4 +93,17 @@ function timeText(at: number, date: string) {
 .progress-history th:last-child {
     text-align: end;
 }
+.history-content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    gap: 12px;
+    padding: 6px 16px 14px;
+}
+.history-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.history-heading h2 { margin: 0; font-size: var(--fs-md); font-weight: 400; }
+.history-heading p { margin: 3px 0 0; color: var(--liquid-muted); overflow-wrap: anywhere; }
+.history-content .history-scroll { flex: 1; min-height: 0; overflow: auto; }
+.history-content .when { color: var(--liquid-muted); white-space: normal; }
 </style>

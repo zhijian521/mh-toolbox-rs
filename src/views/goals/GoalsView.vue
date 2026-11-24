@@ -15,7 +15,12 @@ import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import { useToday } from '../../composables/use-today';
 import { loadRoster, useRoster } from '../characters/roster';
+import { GlassSegment, GlassSegmented } from '../../components/liquid-glass';
+import GlassDialog from '../../components/liquid-glass/GlassDialog.vue';
+import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
+import ModalShell from '../../components/ModalShell.vue';
 import GoalCard from './GoalCard.vue';
+import GoalHistory from './GoalHistory.vue';
 import {
     goalSummary,
     orderGoals,
@@ -37,7 +42,6 @@ const GoalEditor = lazyDialog(() => import('./GoalEditor.vue'));
 const GoalGrowth = lazyDialog(() => import('./GoalGrowth.vue'));
 const GoalComboProgress = lazyDialog(() => import('./GoalComboProgress.vue'));
 const GoalLogs = lazyDialog(() => import('./GoalLogs.vue'));
-const GoalHistory = lazyDialog(() => import('./GoalHistory.vue'));
 
 const {
     goals,
@@ -67,24 +71,34 @@ const entries = computed(() =>
 );
 const byId = computed(() => new Map(entries.value.map((entry) => [entry.goal.id, entry])));
 const ordered = computed(() => orderGoals(entries.value));
-const active = computed(() => entries.value.filter((entry) => !entry.summary.done));
 const status = ref<'active' | 'done' | 'all'>('active');
-const statusOptions = computed(() => [
-    { value: 'active' as const, label: `进行中 ${active.value.length}` },
-    { value: 'done' as const, label: `已达成 ${entries.value.length - active.value.length}` },
-    { value: 'all' as const, label: `全部 ${entries.value.length}` },
-]);
+const statusOptions = [
+    { value: 'active' as const, label: '进行中' },
+    { value: 'done' as const, label: '已达成' },
+    { value: 'all' as const, label: '全部' },
+];
 const visible = computed(() =>
     ordered.value.filter(
         ({ summary }) => status.value === 'all' || summary.done === (status.value === 'done'),
     ),
 );
 
+const emptyText = computed(() => {
+    if (loadError.value && !goals.value.length) return '暂时无法读取目标，请重新读取。';
+    if (!goals.value.length) return '暂无目标';
+    return status.value === 'done' ? '暂无已达成目标' : '暂无进行中的目标';
+});
+
 const editing = ref<{ goal?: ReadonlyGoal } | null>(null);
 const growthId = ref('');
 const growthCharacter = ref('');
 const logsId = ref('');
 const historyGoal = ref<ReadonlyGoal | null>(null);
+const historyOpen = ref(false);
+function openHistory(goal: ReadonlyGoal) {
+    historyGoal.value = goal;
+    historyOpen.value = true;
+}
 const growth = computed(() => byId.value.get(growthId.value));
 const logEntry = computed(() => byId.value.get(logsId.value));
 const logs = computed(() => logEntry.value?.goal);
@@ -330,14 +344,16 @@ useRouteAction('/goals', {
             @retry="retryRoster"
         />
         <div class="filters page-filters">
-            <SegmentedPills v-model="status" :options="statusOptions" label="目标状态" />
+            <GlassSegmented v-if="glass" v-model:value="status" class="lg-status-tabs" data-size="compact" aria-label="目标状态">
+                <GlassSegment v-for="option in statusOptions" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                </GlassSegment>
+            </GlassSegmented>
+            <SegmentedPills v-else v-model="status" :options="statusOptions" label="目标状态" />
         </div>
-        <div v-if="loadError && !goals.length" class="record-empty">
-            暂时无法读取目标，请重新读取。
-        </div>
-        <div v-else-if="!goals.length" class="record-empty">暂无目标</div>
-        <div v-else-if="!visible.length" class="record-empty">
-            {{ status === 'done' ? '暂无已达成目标' : '暂无进行中的目标' }}
+        <div v-if="!visible.length" class="goal-empty">
+            <GlassEmptyState v-if="glass">{{ emptyText }}</GlassEmptyState>
+            <div v-else class="record-empty">{{ emptyText }}</div>
         </div>
         <div v-else class="grid">
             <GoalCard
@@ -348,12 +364,15 @@ useRouteAction('/goals', {
                 :today="today"
                 :disabled="blocked"
                 @edit="openEditor(entry.goal)"
-                @history="historyGoal = entry.goal"
+                @history="openHistory(entry.goal)"
                 @growth="openGrowth(entry.goal, $event)"
                 @record="openLogs(entry.goal)"
                 @bought="bought(entry.goal)"
             />
         </div>
+        <GlassDialog v-if="glass" v-model:open="historyOpen" class="goal-history-sheet" bottom lazy detents="400" label="目标历史">
+            <GoalHistory v-if="historyGoal" :key="historyGoal.id" :goal="historyGoal" embedded @close="historyOpen = false" />
+        </GlassDialog>
     </component>
     <GoalEditor
         v-if="editing"
@@ -393,16 +412,42 @@ useRouteAction('/goals', {
         @retry="retry"
         @close="closeLogs"
     />
-    <GoalHistory v-if="historyGoal" :goal="historyGoal" @close="historyGoal = null" />
+    <ModalShell v-if="!glass && historyOpen && historyGoal" title="目标历史" :width="620" @close="historyOpen = false">
+        <GoalHistory :goal="historyGoal" />
+        <template #footer>
+            <PressButton text="关闭" label="关闭目标历史" @click="historyOpen = false" />
+        </template>
+    </ModalShell>
 </template>
 
 <style scoped>
 .liquid-goals {
-    --goal-progress-color: var(--accent);
+    --goal-progress-color: var(--liquid-focus);
 }
+.liquid-goals :deep(.goal-progress) {
+    --progress-light: color-mix(in srgb, var(--progress-color) 72%, white);
+    --progress-dark: color-mix(in srgb, var(--progress-color) 80%, black);
+}
+.liquid-goals :deep(.tick) {
+    border-radius: 2px;
+    background: var(--ledger-surface);
+    box-shadow: inset 0 1px 1px rgb(0 0 0 / 18%), 0 1px 0 var(--lg-edge-light);
+}
+.liquid-goals :deep(.tick i) {
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 26%), inset 0 -1px 0 rgb(0 0 0 / 14%);
+}
+.goal-history-sheet {
+    --glass-sheet-max-width: 660px;
+    --glass-foreground: var(--liquid-ink);
+}
+.goal-history-sheet::part(sheet) { max-height: calc(100dvh - 24px); }
+.goal-history-sheet::part(body) { display: flex; flex-direction: column; }
 .grid {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
+}
+.liquid-goals .goal-empty {
+    padding-block: 28px;
 }
 </style>

@@ -1,8 +1,12 @@
 <script setup lang="ts">
+import GlassTable from '../../components/liquid-glass/GlassTable.vue';
 /** 全部角色均可设置，只有已添加的项目参与目标；切换页签保留未完成输入。 */
-import { computed, reactive, ref, useId, watch } from 'vue';
+import { computed, inject, reactive, ref, useId, watch } from 'vue';
+import { glassLedger } from '../../components/glass-ledger';
+import GlassNumberField from '../../components/liquid-glass/GlassNumberField.vue';
 import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
+import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import SelectField from '../../components/SelectField.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import { useRoster } from '../characters/roster';
@@ -17,6 +21,7 @@ import {
     type MetricGroup,
 } from './goals';
 
+const glass = inject(glassLedger, null);
 const props = defineProps<{ modelValue: GoalItem[]; members: GoalMember[]; disabled: boolean }>();
 const emit = defineEmits<{
     'update:modelValue': [items: GoalItem[]];
@@ -170,7 +175,12 @@ function cancelAdd() {
             class="combo-projects"
         >
             <div v-if="currentRows.length" class="combo-table-scroll">
-                <table class="ledger-table combo-items-table" aria-label="组合目标项目">
+                <component
+                    :is="glass ? GlassTable : 'table'"
+                    class="combo-items-table"
+                    :class="{ 'ledger-table': !glass }"
+                    aria-label="组合目标项目"
+                >
                     <colgroup>
                         <col />
                         <col class="combo-current-col" />
@@ -204,7 +214,8 @@ function cancelAdd() {
                                 }}
                             </td>
                             <td>
-                                <NumberField
+                                <component
+                                    :is="glass ? GlassNumberField : NumberField"
                                     :model-value="item.target"
                                     :label="`${item.tracking.key}目标值`"
                                     update-on-input
@@ -222,32 +233,39 @@ function cancelAdd() {
                             </td>
                         </tr>
                     </tbody>
-                </table>
+                </component>
             </div>
             <p v-if="!character" class="note">该角色已删除，可移除其目标设置。</p>
             <template v-else-if="currentDraft.open">
                 <div class="combo-add-fields" @keydown.enter="enter">
-                    <label class="form-field"
-                        ><span>分类</span
-                        ><SelectField
+                    <div class="form-field">
+                        <span>分类</span>
+                        <component
+                            :is="glass ? GlassSelect : SelectField"
+                            :hide-label="glass ? true : undefined"
                             :model-value="currentDraft.group"
                             :options="groups"
                             label="组合项目分类"
                             :disabled="disabled"
                             @update:model-value="currentDraft.group = $event as MetricGroup"
-                    /></label>
-                    <label class="form-field"
-                        ><span>项目</span
-                        ><SelectField
+                        />
+                    </div>
+                    <div class="form-field">
+                        <span>项目</span>
+                        <component
+                            :is="glass ? GlassSelect : SelectField"
+                            :hide-label="glass ? true : undefined"
                             v-model="currentDraft.metric"
                             :options="metricOptions"
                             label="组合具体项目"
                             placeholder="选择项目"
                             :disabled="disabled"
-                    /></label>
+                        />
+                    </div>
                     <label class="form-field"
                         ><span>目标值</span
-                        ><NumberField
+                        ><component
+                            :is="glass ? GlassNumberField : NumberField"
                             v-model="currentDraft.target"
                             label="组合项目目标值"
                             update-on-input
@@ -323,6 +341,9 @@ function cancelAdd() {
 }
 .combo-remove-col {
     width: calc(34px * var(--fs-scale));
+}
+.glass-table .combo-remove-col {
+    width: calc(52px * var(--fs-scale));
 }
 .combo-project-name {
     display: flex;

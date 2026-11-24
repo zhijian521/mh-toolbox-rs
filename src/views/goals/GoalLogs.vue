@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, inject, ref, watch } from 'vue';
+import GlassDateField from '../../components/liquid-glass/GlassDateField.vue';
+import GlassInput from '../../components/liquid-glass/GlassInput.vue';
 import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
+import { glassLedger } from '../../components/glass-ledger';
+import GlassNumberField from '../../components/liquid-glass/GlassNumberField.vue';
 import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import FormActions from '../../components/FormActions.vue';
@@ -11,6 +15,7 @@ import { useDraftGuard } from '../../composables/use-draft-guard';
 import { signedText, type ReadonlyGoal, type GoalSummary } from './goals';
 import type { LogInput } from './goals-store';
 
+const glass = inject(glassLedger, null);
 const props = defineProps<{
     goal: ReadonlyGoal;
     summary: GoalSummary;
@@ -78,7 +83,7 @@ function enter(event: KeyboardEvent) {
                 {{ goal.target }} {{ goal.unit }}</b
             >
         </div>
-        <form class="modal-form" @submit.prevent="submit" @keydown.enter="enter">
+        <form class="modal-form" :class="{ 'lg-form-fields': glass }" @submit.prevent="submit" @keydown.enter="enter">
             <fieldset class="entry" :disabled="locked" :inert="locked">
                 <SegmentedPills
                     v-model="direction"
@@ -90,8 +95,9 @@ function enter(event: KeyboardEvent) {
                     :disabled="locked"
                 />
                 <div class="entry-row">
-                    <DateField v-model="date" label="记在哪一天" :max="today" :disabled="locked" />
-                    <NumberField
+                    <component :is="glass ? GlassDateField : DateField" v-model="date" label="记在哪一天" :max="today" :disabled="locked" />
+                    <component
+                        :is="glass ? GlassNumberField : NumberField"
                         v-model="delta"
                         label="这一笔的变化量"
                         update-on-input
@@ -100,7 +106,8 @@ function enter(event: KeyboardEvent) {
                     />
                     <span>{{ goal.unit }}</span>
                 </div>
-                <input
+                <GlassInput v-if="glass" v-model="note" aria-label="备注" placeholder="备注" autocomplete="off" />
+                <input v-else
                     v-model="note"
                     class="field"
                     aria-label="备注"

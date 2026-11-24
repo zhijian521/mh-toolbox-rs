@@ -29,6 +29,8 @@ import GlassEmptyState from '../components/liquid-glass/GlassEmptyState.vue';
 import GlassInput from '../components/liquid-glass/GlassInput.vue';
 import GlassPriceField from '../components/liquid-glass/GlassPriceField.vue';
 import GlassMenuTrigger from '../components/liquid-glass/GlassMenuTrigger.vue';
+import GlassMultiSelect from '../components/liquid-glass/GlassMultiSelect.vue';
+import GlassTable from '../components/liquid-glass/GlassTable.vue';
 import GlassSelect from '../components/liquid-glass/GlassSelect.vue';
 import { useLiquidPreferences } from '../composables/use-liquid-preferences';
 import { moneyText, todayText } from '../services/format';
@@ -85,7 +87,12 @@ function searchExamples(query: string) {
 const alerts = ref(true);
 const threshold = ref(62);
 const currentTab = ref('prices');
-const range = ref('week');
+const choiceExamples = ref((['compact', 'standard'] as const).map((size) => ({
+    size,
+    label: size === 'compact' ? '紧凑' : '标准',
+    status: 'active',
+    categories: ['任务产出', '召唤兽'],
+})));
 const sort = ref('名称');
 const timeline = ref<HTMLElement | null>(null);
 const observations = [
@@ -234,16 +241,24 @@ const observations = [
                     </div>
                 </div>
             </section>
-            <section>
-                <header><h3>分段选择</h3></header>
-                <div class="stage">
-                    <GlassSegmented v-model:value="range" aria-label="时间范围">
-                        <GlassSegment value="day">今天</GlassSegment
-                        ><GlassSegment value="week">本周</GlassSegment
-                        ><GlassSegment value="month">本月</GlassSegment>
-                    </GlassSegmented>
-                </div>
-            </section>
+            <template v-for="example in choiceExamples" :key="example.size">
+                <section>
+                    <header><h3>{{ example.label }}分段选择</h3></header>
+                    <div class="stage">
+                        <GlassSegmented v-model:value="example.status" class="lg-status-tabs" :data-size="example.size" :aria-label="example.label + '目标状态'">
+                            <GlassSegment value="active">进行中</GlassSegment>
+                            <GlassSegment value="done">已达成</GlassSegment>
+                            <GlassSegment value="all">全部</GlassSegment>
+                        </GlassSegmented>
+                    </div>
+                </section>
+                <section>
+                    <header><h3>{{ example.label }}多选</h3></header>
+                    <div class="stage">
+                        <GlassMultiSelect v-model="example.categories" :options="categories" :size="example.size" :label="example.label + '示例物品分类'" />
+                    </div>
+                </section>
+            </template>
             <section>
                 <header><h3>标签栏</h3></header>
                 <div class="stage">
@@ -256,6 +271,19 @@ const observations = [
             </section>
 
             <h2>容器与表面</h2>
+            <section>
+                <header><h3>表格</h3></header>
+                <div class="stage">
+                    <GlassTable aria-label="示例物价记录">
+                        <thead><tr><th scope="col">日期</th><th scope="col">价格</th></tr></thead>
+                        <tbody>
+                            <tr v-for="point in history" :key="point.id">
+                                <td>{{ point.date }}</td><td>{{ moneyText(point.price) }}</td>
+                            </tr>
+                        </tbody>
+                    </GlassTable>
+                </div>
+            </section>
             <section>
                 <header><h3>工具栏</h3></header>
                 <div class="stage">

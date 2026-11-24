@@ -7,7 +7,7 @@ import DateField from '../DateField.vue';
 import GlassInput from './GlassInput.vue';
 
 const value = defineModel<string>({ required: true });
-defineProps<{ label: string; min?: string; disabled?: boolean; error?: string }>();
+defineProps<{ label: string; min?: string; max?: string; disabled?: boolean; error?: string }>();
 const triggerId = useId();
 const calendar = ref<InstanceType<typeof DateField> | null>(null);
 
@@ -31,6 +31,7 @@ watch(
             :trigger-id="triggerId"
             :label="label"
             :min="min"
+            :max="max"
             :disabled="disabled"
             :error="error"
             placeholder="选择日期"
