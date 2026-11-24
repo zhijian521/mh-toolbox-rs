@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { GlassCard } from './index';
+import { GlassFieldSurface } from './index';
 
 defineOptions({ inheritAttrs: false });
 const value = defineModel<string>();
 </script>
 
 <template>
-    <GlassCard radius="capsule" class="glass-input" v-bind="$slots.default ? $attrs : {}">
+    <GlassFieldSurface radius="capsule" class="glass-input" v-bind="$slots.default ? $attrs : {}">
         <slot><input v-model="value" v-bind="$attrs" /></slot>
-    </GlassCard>
+    </GlassFieldSurface>
 </template>
 
 <style scoped>

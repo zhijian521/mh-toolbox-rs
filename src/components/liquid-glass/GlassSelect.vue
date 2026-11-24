@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, useId, watch } from 'vue';
-import AppIcon from '../AppIcon.vue';
-import { GlassCard, GlassMenu, GlassMenuItem } from './index';
+import GlassMenuTrigger from './GlassMenuTrigger.vue';
+import { GlassMenu, GlassMenuItem } from './index';
 
 const props = defineProps<{
     label: string;
@@ -34,18 +34,13 @@ function onEscape(event: KeyboardEvent) {
         <label :id="id + '-label'" :for="id" :hidden="hideLabel">{{ label }}</label>
         <GlassMenu v-model:open="open" class="lg-popup-menu lg-select-menu" @select="select">
             <template #trigger>
-                <button
+                <GlassMenuTrigger
                     :id="id"
-                    type="button"
-                    class="glass-select-trigger lg-popup-trigger"
                     :disabled="disabled"
                     :aria-labelledby="id + '-label ' + id + '-value'"
-                >
-                    <GlassCard class="glass-select-face" radius="capsule">
-                        <span :id="id + '-value'">{{ selected?.label ?? '请选择' }}</span>
-                        <AppIcon name="chevron-down" />
-                    </GlassCard>
-                </button>
+                    :value-id="id + '-value'"
+                    :text="selected?.label ?? '请选择'"
+                />
             </template>
             <GlassMenuItem
                 v-for="option in options"
@@ -72,22 +67,5 @@ function onEscape(event: KeyboardEvent) {
 .glass-select label {
     color: var(--glass-select-label-color, inherit);
     font-size: var(--fs-xs);
-}
-.glass-select-trigger {
-    width: 100%;
-}
-.glass-select-face {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    min-height: var(--glass-select-height, var(--glass-search-height));
-    padding-inline: 14px 12px;
-    pointer-events: none;
-}
-.glass-select-face > span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 </style>

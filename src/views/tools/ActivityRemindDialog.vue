@@ -254,12 +254,6 @@ function submit() {
     gap: 8px;
     margin-top: 14px;
 }
-.reminder-actions glass-button {
-    --glass-foreground: var(--liquid-ink);
-    --glass-accent-text: var(--liquid-ink);
-    --glass-text-shadow: none;
-    letter-spacing: normal;
-}
 
 /* 一列、居中、间距 12。这张窗只讲一件事：给哪一场加提醒。 */
 .remind {

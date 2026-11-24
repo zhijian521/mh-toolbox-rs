@@ -11,7 +11,6 @@ import {
     type LevelCosts,
 } from '../../services/level-costs';
 import { findAttrRow, type ReadonlyCharacter } from '../characters/character';
-import { growthExtraCost, type GrowthExtra } from './growth-extras';
 
 export const GROWTH_GROUPS = ['师门', '辅助', '任务修炼', '召唤兽修炼', '人物', '召唤兽升级'];
 
@@ -46,7 +45,6 @@ export interface GrowthResources {
     minRoleLevel: number;
     moonDew: number;
     rounds100: number;
-    fruits: number;
 }
 
 const emptyResources = (): GrowthResources => ({
@@ -62,7 +60,6 @@ const emptyResources = (): GrowthResources => ({
     minRoleLevel: 0,
     moonDew: 0,
     rounds100: 0,
-    fruits: 0,
 });
 
 export function createGrowthPlan(costs: LevelCosts, role: ReadonlyCharacter): GrowthLine[] {
@@ -224,28 +221,18 @@ export function summarizeGrowthPlan(
     costs: LevelCosts,
     lines: readonly GrowthLine[],
     ownedExp = 0,
-    extras: readonly GrowthExtra[] = [],
 ) {
     const rows = lines.map((line) => ({ line, ...growthLineCost(costs, line) }));
     const errors = rows.filter((row) => row.error);
     const ownedExpError =
         Number.isSafeInteger(ownedExp) && ownedExp >= 0 ? '' : '现有经验需为有效的非负整数';
-    const extraRows = extras.map((item) => ({ item, ...growthExtraCost(costs, item) }));
     const total = sumGrowthResources(rows);
-    for (const row of extraRows) {
-        if (row.error) continue;
-        total.exp += row.exp;
-        total.cash += row.cash;
-        total.fruits += row.fruits;
-    }
     return {
         total,
         rows,
         errors,
-        extraRows,
         ownedExpError,
-        errorCount:
-            errors.length + extraRows.filter((row) => row.error).length + Number(!!ownedExpError),
+        errorCount: errors.length + Number(!!ownedExpError),
         remainingExp: Math.max(0, total.exp - (ownedExpError ? 0 : ownedExp)),
         changed: rows.filter((row) => !row.error && row.line.to > row.line.from).length,
     };

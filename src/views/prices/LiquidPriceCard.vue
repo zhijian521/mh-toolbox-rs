@@ -72,7 +72,6 @@ const summary = computed(() =>
                 </GlassButton>
                 <GlassButton
                     size="small"
-                    variant="plain"
                     class="lg-inline-action price-update-trigger"
                     aria-haspopup="dialog"
                     :aria-label="`更新${item.name}的价格`"
@@ -88,7 +87,6 @@ const summary = computed(() =>
 
 <style scoped>
 .price-card {
-    --lg-content-base: var(--lg-readable-card-fill);
     --liquid-ink: light-dark(#17211f, #f5f9f7);
     --liquid-muted: light-dark(#30413b, #dee9e4);
     --glass-foreground: var(--liquid-ink);
@@ -223,12 +221,4 @@ const summary = computed(() =>
     gap: 4px;
 }
 
-.price-update-trigger {
-    border-radius: 999px;
-    background-color: light-dark(#3c706514, #c2e9db1f);
-}
-
-.price-update-trigger:not([disabled]):is(:hover, :focus-visible) {
-    background-color: light-dark(#3c706528, #c2e9db38);
-}
 </style>

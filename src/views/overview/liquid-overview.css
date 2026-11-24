@@ -50,7 +50,6 @@
 }
 
 .workbench {
-    --lg-content-fill: light-dark(rgb(250 255 253 / 0.43), rgb(24 38 41 / 0.54));
     display: grid;
     grid-template-columns: minmax(150px, 1fr) minmax(0, 3fr);
     gap: 16px;

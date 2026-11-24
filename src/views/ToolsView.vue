@@ -41,6 +41,7 @@ const groups = TOOL_GROUPS.map((group) => ({
                     <li v-for="tool in group.tools" :key="tool.key">
                         <button
                             class="tool-item"
+                            :class="{ 'lg-hover-sheen': glass }"
                             type="button"
                             :data-group="tool.group"
                             :data-kind="tool.kind"

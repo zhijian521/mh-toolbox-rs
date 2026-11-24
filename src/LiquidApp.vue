@@ -484,7 +484,6 @@ body {
 .liquid-dock-bar {
     --glass-foreground: var(--liquid-ink);
     --glass-text-shadow: none;
-    --glass-tab-selection: light-dark(rgb(250 255 253 / 0.56), rgb(210 239 228 / 0.25));
     --glass-tab-bar-height: 50px;
     --glass-tab-font-size: var(--fs-xs);
     --gl-item-icon: 18px;

@@ -28,17 +28,17 @@ import GlassDialog from '../components/liquid-glass/GlassDialog.vue';
 import GlassEmptyState from '../components/liquid-glass/GlassEmptyState.vue';
 import GlassInput from '../components/liquid-glass/GlassInput.vue';
 import GlassPriceField from '../components/liquid-glass/GlassPriceField.vue';
+import GlassMenuTrigger from '../components/liquid-glass/GlassMenuTrigger.vue';
 import GlassSelect from '../components/liquid-glass/GlassSelect.vue';
 import { useLiquidPreferences } from '../composables/use-liquid-preferences';
 import { moneyText, todayText } from '../services/format';
 import { makeId } from '../services/shape';
 import LiquidPriceCard from './prices/LiquidPriceCard.vue';
 import LiquidPriceEditor from './prices/LiquidPriceEditor.vue';
-import { sortedPoints, type PriceItem, type PricePointDraft } from './prices/prices';
+import { sortedPoints, type PriceItem, type PricePoint, type PricePointDraft } from './prices/prices';
 
 const { wallpaper } = useLiquidPreferences();
 const day = todayText();
-const sampleDate = ref(day);
 const sampleItem = ref<PriceItem>({
     id: 'sample',
     name: '金刚石',
@@ -56,26 +56,32 @@ const sampleItem = ref<PriceItem>({
 const history = computed(() => sortedPoints(sampleItem.value));
 const sheetOpen = ref(false);
 const editorOpen = ref(false);
+const editingPoint = ref<PricePoint>();
+function openSample(mode: 'add' | 'edit') {
+    editingPoint.value = mode === 'edit' ? history.value[0] : undefined;
+    editorOpen.value = true;
+}
 function saveSample(draft: PricePointDraft) {
-    sampleItem.value.points.push({ ...draft, id: makeId('sample'), createdAt: Date.now() });
+    if (editingPoint.value) Object.assign(editingPoint.value, draft);
+    else sampleItem.value.points.push({ ...draft, id: makeId('sample'), createdAt: Date.now() });
     editorOpen.value = false;
 }
 
 const priceExample = ref<number | null>(3_200_000);
 const initialPrice = ref<number | null>(null);
-const name = ref('');
-const note = ref('');
-const category = ref('');
-const formCategory = ref('任务产出');
+const fieldRows = ref(['紧凑', '标准'].map((size) => ({ size, name: '', category: '', date: day, query: '' })));
+const invalidPrice = ref<number | null>(0);
+const unavailableCategory = ref('');
 const categories = [
     { value: '任务产出', label: '任务产出' },
     { value: '装备灵饰', label: '装备灵饰' },
     { value: '召唤兽', label: '召唤兽' },
 ];
 const filterOptions = [{ value: '', label: '全部分类' }, ...categories];
-const query = ref('');
 const names = ['金刚石', '定魂珠', '夜光珠'];
-const matches = computed(() => names.filter((item) => item.includes(query.value.trim())));
+function searchExamples(query: string) {
+    return names.filter((item) => item.includes(query.trim()));
+}
 const alerts = ref(true);
 const threshold = ref(62);
 const currentTab = ref('prices');
@@ -103,7 +109,7 @@ const observations = [
                         class="sample-card"
                         :item="sampleItem"
                         @history="sheetOpen = true"
-                        @record="editorOpen = true"
+                        @record="openSample('add')"
                     />
                 </div>
             </section>
@@ -127,20 +133,20 @@ const observations = [
                         <GlassButton
                             size="small"
                             class="lg-inline-action"
-                            @click="editorOpen = true"
+                            @click="openSample('add')"
                             >记价</GlassButton
                         >
                     </div>
                     <div class="example-row">
                         <span class="sample-label">表单操作</span>
-                        <GlassButton size="small" variant="prominent" @click="editorOpen = true"
+                        <GlassButton size="small" @click="openSample('edit')"
                             >编辑价格</GlassButton
                         >
                         <GlassButton
                             size="small"
                             shape="circle"
                             aria-label="新增价格记录"
-                            @click="editorOpen = true"
+                            @click="openSample('add')"
                             ><AppIcon name="add"
                         /></GlassButton>
                     </div>
@@ -149,11 +155,10 @@ const observations = [
             <section>
                 <header><h3>菜单</h3></header>
                 <div class="stage">
-                    <GlassMenu @select="sort = $event === 'reset' ? '名称' : $event">
-                        <template #trigger
-                            ><GlassButton size="small"
-                                >按{{ sort }}排序 <AppIcon name="chevron-down" /></GlassButton
-                        ></template>
+                    <GlassMenu class="lg-popup-menu lg-select-menu lg-form-fields" @select="sort = $event === 'reset' ? '名称' : $event">
+                        <template #trigger>
+                            <GlassMenuTrigger :text="'按' + sort + '排序'" aria-label="选择排序方式" />
+                        </template>
                         <GlassMenuLabel>排序方式</GlassMenuLabel>
                         <GlassMenuItem
                             v-for="option in ['名称', '时间']"
@@ -170,18 +175,28 @@ const observations = [
             </section>
 
             <h2>输入控件</h2>
+            <section v-for="row in fieldRows" :key="row.size" class="field-comparison"
+                :class="{ 'lg-form-fields': row.size === '紧凑' }">
+                <header><h3>{{ row.size }}输入控件</h3><small>{{ row.size === '紧凑' ? '32' : '44' }} px</small></header>
+                <div class="comparison-grid">
+                    <div class="field-example">
+                        <span>搜索物品</span>
+                        <GlassSearch v-model:value="row.query" class="lg-price-search" :aria-label="row.size + '搜索物品'" placeholder="搜索物品" />
+                    </div>
+                    <label class="field-example">物品名称<GlassInput v-model="row.name" placeholder="例如：金刚石" /></label>
+                    <GlassSelect v-model="row.category" :options="filterOptions" label="一级分类" />
+                    <GlassDateField v-model="row.date" label="记录日期" />
+                </div>
+                <div v-if="row.query.trim()" class="comparison-results" role="status">
+                    <output v-if="searchExamples(row.query).length" class="lg-caption">{{ searchExamples(row.query).join(' · ') }}</output>
+                    <GlassEmptyState v-else />
+                </div>
+            </section>
             <section>
-                <header>
-                    <h3>输入框</h3>
-                    <small>表单 · 标准</small>
-                </header>
-                <div class="stage stack">
-                    <label class="field-example lg-form-fields"
-                        >物品名称<GlassInput v-model="name" placeholder="例如：金刚石"
-                    /></label>
-                    <label class="field-example"
-                        >备注<GlassInput v-model="note" placeholder="选填"
-                    /></label>
+                <header><h3>输入状态</h3><small>错误 · 禁用</small></header>
+                <div class="stage stack lg-form-fields">
+                    <GlassPriceField v-model="invalidPrice" compact label="记录价格" :error="(invalidPrice ?? 0) > 0 ? '' : '价格要大于 0'" reserve-error />
+                    <GlassSelect v-model="unavailableCategory" class="field-example" label="二级分类" :options="[]" disabled />
                 </div>
             </section>
             <section>
@@ -194,48 +209,6 @@ const observations = [
                     <GlassPriceField v-model="initialPrice" label="初始价格（选填）" compact />
                 </div>
             </section>
-            <section>
-                <header>
-                    <h3>下拉选择</h3>
-                    <small>筛选 · 表单</small>
-                </header>
-                <div class="stage select-examples">
-                    <GlassSelect
-                        v-model="category"
-                        class="lg-category-filter"
-                        label="一级分类"
-                        :options="filterOptions"
-                    />
-                    <GlassSelect
-                        v-model="formCategory"
-                        class="lg-category-filter lg-form-fields"
-                        label="录入分类"
-                        :options="categories"
-                    />
-                </div>
-            </section>
-            <section>
-                <header><h3>日期选择</h3></header>
-                <div class="stage lg-form-fields">
-                    <GlassDateField v-model="sampleDate" class="field-example" label="记录日期" />
-                </div>
-            </section>
-            <section>
-                <header><h3>搜索框</h3></header>
-                <div class="stage stack">
-                    <GlassSearch
-                        v-model:value="query"
-                        class="lg-price-search"
-                        aria-label="搜索示例物品"
-                        placeholder="搜索物品"
-                    />
-                    <output v-if="matches.length" class="lg-caption">{{
-                        matches.join(' · ')
-                    }}</output>
-                    <GlassEmptyState v-else />
-                </div>
-            </section>
-
             <h2>选择控件</h2>
             <section>
                 <header><h3>开关</h3></header>
@@ -284,14 +257,6 @@ const observations = [
 
             <h2>容器与表面</h2>
             <section>
-                <header><h3>提示</h3></header>
-                <div class="stage">
-                    <GlassButton size="small" class="sample-notice" @click="notify.info('这是一条顶部消息提示。')">
-                        显示顶部提示
-                    </GlassButton>
-                </div>
-            </section>
-            <section>
                 <header><h3>工具栏</h3></header>
                 <div class="stage">
                     <GlassToolbar aria-label="价格工具栏">
@@ -310,7 +275,7 @@ const observations = [
                                 variant="plain"
                                 shape="circle"
                                 aria-label="编辑示例价格"
-                                @click="editorOpen = true"
+                                @click="openSample('edit')"
                                 ><AppIcon name="edit"
                             /></GlassButton>
                         </GlassGroup>
@@ -345,9 +310,17 @@ const observations = [
 
             <h2>反馈与弹层</h2>
             <section>
+                <header><h3>提示</h3></header>
+                <div class="stage">
+                    <GlassButton size="small" class="sample-notice" @click="notify.info('这是一条顶部消息提示。')">
+                        显示顶部提示
+                    </GlassButton>
+                </div>
+            </section>
+            <section>
                 <header><h3>对话框</h3></header>
                 <div class="stage">
-                    <GlassButton size="small" @click="editorOpen = true">打开记价表单</GlassButton>
+                    <GlassButton size="small" @click="openSample('add')">打开记价表单</GlassButton>
                 </div>
             </section>
             <section>
@@ -363,10 +336,11 @@ const observations = [
                 <div class="stage"><GlassEmptyState /></div>
             </section>
         </div>
-        <GlassDialog v-model:open="editorOpen" label="示例记价">
+        <GlassDialog v-model:open="editorOpen" :label="editingPoint ? '编辑示例价格' : '示例记价'">
             <LiquidPriceEditor
                 v-if="editorOpen"
                 :item="sampleItem"
+                :point="editingPoint"
                 prefill-current
                 :categories="[]"
                 active

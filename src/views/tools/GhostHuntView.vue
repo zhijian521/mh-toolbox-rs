@@ -12,7 +12,7 @@ import { useDevMode } from '../../composables/use-dev-mode';
 import { useGhostWatch } from '../../composables/use-ghost-watch';
 import type { GhostPlan } from '../../services/ghost-model';
 import { glassLedger } from '../../components/glass-ledger';
-import { GlassSwitch } from '../../components/liquid-glass';
+import GlassSmallSwitch from '../../components/liquid-glass/GlassSmallSwitch.vue';
 import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import AppNotice from '../../components/AppNotice.vue';
 import GhostTestPanel from './GhostTestPanel.vue';
@@ -136,7 +136,7 @@ onMounted(() => {
                         </AppNotice>
                         <div class="hot-row">
                             <span class="field-label">高概率区域</span>
-                            <GlassSwitch v-if="glass" v-model:checked="hot" aria-label="高概率区域" class="hot-switch" />
+                            <GlassSmallSwitch v-if="glass" v-model:checked="hot" aria-label="高概率区域" class="hot-switch" />
                             <CostSwitch v-else v-model="hot" label="高概率区域" off-label="关" on-label="开" class="hot-switch" />
                         </div>
                         <p class="field-note">识别时请保持游戏任务栏可见。</p>
@@ -291,7 +291,6 @@ onMounted(() => {
 .status.live { color: var(--positive); }
 .status.warn, .detail-issue { color: var(--warning); }
 .hot-row { justify-content: space-between; }
-glass-switch.hot-switch { zoom: 0.875; }
 .field-note,
 .detail-head,
 .detail-lines {

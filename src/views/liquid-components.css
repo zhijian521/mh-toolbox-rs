@@ -26,8 +26,16 @@
 }
 .gallery > h2 {
     grid-column: 1 / -1;
-    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
     font-size: var(--fs-md);
+}
+.gallery > h2::after {
+    content: '';
+    flex: 1;
+    border-top: 1px solid var(--liquid-outline);
 }
 .gallery > h2:first-child {
     margin-top: 0;
@@ -37,10 +45,7 @@
     flex-direction: column;
     gap: 10px;
     min-width: 0;
-    padding: 12px;
-    border: 1px solid var(--liquid-outline);
-    border-radius: 15px;
-    background: light-dark(rgb(250 253 251 / 0.27), rgb(19 32 30 / 0.32));
+    padding: 6px 10px 12px;
 }
 .gallery > section:focus-within {
     z-index: 1;
@@ -106,12 +111,22 @@
     margin-inline-start: auto;
     font-variant-numeric: tabular-nums;
 }
-.select-examples {
-    align-content: center;
+.field-comparison {
+    grid-column: 1 / -1;
 }
-.select-examples .lg-category-filter {
-    flex: 1 1 100px;
-    max-width: 132px;
+.comparison-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 175px), 1fr));
+    align-items: end;
+    gap: 10px 14px;
+}
+.comparison-grid .field-example,
+.comparison-grid .lg-price-search {
+    width: 100%;
+}
+.comparison-results {
+    display: flex;
+    justify-content: start;
 }
 .stage glass-segmented {
     --glass-segmented-height: 30px;

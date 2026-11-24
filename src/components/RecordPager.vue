@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue';
+import { computed, inject, nextTick, ref } from 'vue';
 import { pagerItems, type PagerItem } from '../composables/use-pagination';
+import { glassLedger } from './glass-ledger';
 import PressButton from './PressButton.vue';
 
 const props = withDefaults(
@@ -14,6 +15,7 @@ const props = withDefaults(
     { label: '记录分页', previousLabel: '上一页', nextLabel: '下一页' },
 );
 const emit = defineEmits<{ 'update:modelValue': [page: number] }>();
+const glass = inject(glassLedger, null);
 const pager = ref<HTMLElement | null>(null);
 const items = computed(() => pagerItems(props.modelValue, props.pages));
 
@@ -48,10 +50,11 @@ async function pick(page: number, focusCurrent = false) {
                 v-for="item in items"
                 :key="item.gap ?? item.page"
                 class="record-page"
+                :class="{ 'lg-choice-button': glass && !item.gap }"
                 :icon="item.gap ? 'dots' : undefined"
                 :text="item.gap ? '' : String(item.page)"
                 :label="itemLabel(item)"
-                :seal="!item.gap && item.page === modelValue"
+                :seal="!glass && !item.gap && item.page === modelValue"
                 :aria-current="!item.gap && item.page === modelValue ? 'page' : undefined"
                 :data-page="item.gap ? undefined : item.page"
                 :data-page-gap="item.gap"

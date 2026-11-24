@@ -21,6 +21,7 @@ import { ref, watch } from 'vue';
 const props = withDefaults(
     defineProps<{
         modelValue: number;
+        bare?: boolean;
         /** 读屏念的字段名。表单里每个格子都必须有，否则读屏只念「编辑框」。 */
         label: string;
         placeholder?: string;
@@ -83,7 +84,8 @@ function commit(event: Event) {
 
 <template>
     <input
-        class="field num number-field"
+        class="num number-field"
+        :class="{ field: !bare }"
         type="text"
         :inputmode="precision > 0 ? 'decimal' : 'numeric'"
         autocomplete="off"

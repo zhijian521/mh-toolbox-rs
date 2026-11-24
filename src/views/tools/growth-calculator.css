@@ -53,7 +53,7 @@
     font-size: var(--fs-sm);
     line-height: 1.35;
 }
-.growth-calculator .growth-input-row .number-field {
+.growth-calculator .growth-input-row .field.number-field {
     width: 100%;
     min-width: 0;
     height: 28px;
@@ -78,7 +78,7 @@
     gap: 8px;
 }
 .growth-calculator .plan-totals {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 1fr));
 }
 .growth-calculator .growth-amount {
     display: grid;
@@ -132,17 +132,26 @@
 .calc-choice > span { color: var(--muted); font-size: var(--fs-sm); }
 .calc-choice .pill-group { justify-self: start; max-width: 100%; }
 .calc-choice + .calc-choice { border-top: 1px solid var(--rule); padding-top: 8px; }
-.liquid-ledger .calc-choice:first-child .bevel-pill:not([aria-checked='true']) {
-    background: transparent;
-    box-shadow: none;
+.calc-controls {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
 }
-.liquid-ledger .calc-choice:first-child .bevel-pill:hover {
-    background: var(--ledger-highlight);
+.calc-controls > glass-segmented {
+    width: min(100%, 360px);
 }
-.liquid-ledger .calc-choice .bevel-pill[aria-checked='true'] {
-    color: var(--accent);
-    background: var(--ledger-selected);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+.calc-project-scroll {
+    min-width: 0;
+    overflow-x: auto;
+    padding: 2px;
+}
+.calc-project {
+    width: max-content;
+    max-width: none;
+}
+.calc-project glass-segment {
+    min-width: max-content;
+    white-space: nowrap;
 }
 .growth-calculator .calc-amount:only-child {
     background: transparent;
@@ -153,16 +162,4 @@
 }
 @container (max-width: 640px) {
     .growth-calculator .growth-layout { grid-template-columns: minmax(0, 1fr); }
-}
-@container (min-width: 810px) {
-    .growth-calculator .plan-layout {
-        grid-template-columns: minmax(0, 1fr) minmax(274px, 31%);
-        grid-template-areas: 'groups summary';
-    }
-    .growth-calculator .plan-groups { grid-area: groups; }
-    .growth-calculator .plan-summary {
-        grid-area: summary;
-        position: sticky;
-        top: 10px;
-    }
 }

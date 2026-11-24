@@ -3,7 +3,8 @@ import { computed, inject } from 'vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import PaperCard from '../../components/PaperCard.vue';
 import { glassLedger } from '../../components/glass-ledger';
-import { GlassButton, GlassCard, GlassSwitch } from '../../components/liquid-glass';
+import { GlassButton, GlassCard } from '../../components/liquid-glass';
+import GlassSmallSwitch from '../../components/liquid-glass/GlassSmallSwitch.vue';
 import { minuteText } from '../../services/clock';
 import { activityOf, countdownText, nextReminder, repeatText, type AlarmLike } from './alarms';
 
@@ -73,7 +74,7 @@ const cardLabel = computed(() => {
     >
         <header class="alarm-head">
             <time class="alarm-time" :datetime="alarm.time">{{ timeText }}</time>
-            <GlassSwitch
+            <GlassSmallSwitch
                 v-if="glass"
                 class="alarm-switch"
                 :checked="alarm.enabled"
@@ -299,7 +300,6 @@ const cardLabel = computed(() => {
 }
 
 .alarm-card.is-glass {
-    --lg-content-base: var(--lg-readable-card-fill);
     --glass-foreground: var(--liquid-ink);
     --glass-text-shadow: none;
     min-height: 0;
@@ -366,9 +366,6 @@ const cardLabel = computed(() => {
     margin-left: auto;
 }
 .alarm-glass-action {
-    --glass-foreground: var(--liquid-muted);
-    --glass-accent-text: var(--liquid-muted);
-    --glass-button-font-size: var(--fs-xs);
     flex: none;
     letter-spacing: normal;
 }

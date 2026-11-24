@@ -8,7 +8,6 @@ import {
     growthLineCost,
     summarizeGrowthPlan,
 } from './growth-plan';
-import { createGrowthExtra, growthExtraCost } from './growth-extras';
 
 const costs = parseLevelCosts(rawCosts);
 const character = (): CharacterData => ({
@@ -187,65 +186,6 @@ describe('角色综合养成预算', () => {
         const plan = createGrowthPlan(costs, character());
         expect([...new Set(plan.map((one) => one.group))]).toEqual(GROWTH_GROUPS.slice(0, 5));
         expect(plan.find((one) => one.kind === 'cultivation')?.group).toBe('任务修炼');
-    });
-
-    it('新增卡片成本参与合计；删除后移除成本，参考读数不成为支出', () => {
-        const reference = createGrowthExtra('petScene', 'scene-a', 100);
-        const transfer = createGrowthExtra('menpai', 'transfer-a', 69);
-        const extras = [reference, transfer];
-        const summary = summarizeGrowthPlan(costs, [], 1_000_000, extras);
-        expect(summary.total.cash).toBe(0);
-        expect(summary.total.exp).toBe(39_750_864);
-        expect(summary.remainingExp).toBe(38_750_864);
-        expect(summary.extraRows).toHaveLength(2);
-        expect(
-            summarizeGrowthPlan(
-                costs,
-                [],
-                0,
-                extras.filter((one) => one.key !== transfer.key),
-            ).total.exp,
-        ).toBe(0);
-    });
-
-    it('飞升转门派只累计潜能果消耗，换算经验不重复记账', () => {
-        const extra = {
-            ...createGrowthExtra('menpai', 'transfer-a', 175),
-            pick: 'fly',
-            c: 200,
-        };
-        const summary = summarizeGrowthPlan(costs, [], 0, [extra]);
-        expect(summary.errorCount).toBe(0);
-        expect(summary.total.fruits).toBe(9);
-        expect(summary.total.exp).toBe(0);
-    });
-
-    it('额外卡片非法输入阻止合计，重复类型卡片独立累加', () => {
-        const first = createGrowthExtra('menpai', 'transfer-a', 69);
-        const second = { ...first, key: 'transfer-b' };
-        expect(summarizeGrowthPlan(costs, [], 0, [first, second]).total.exp).toBe(79_501_728);
-        const invalid = { ...first, a: -1 };
-        const result = summarizeGrowthPlan(costs, [], 0, [invalid]);
-        expect(result.errorCount).toBe(1);
-        expect(result.total.exp).toBe(0);
-    });
-
-    it('经验换算、人物常规与场景卡片保留独立读数，不改变养成总额', () => {
-        const grade = { ...createGrowthExtra('expGrade', 'grade-a', 10), b: 100000 };
-        expect(growthExtraCost(costs, grade).readings).toEqual([
-            { label: '可达等级', value: 16 },
-            { label: '剩余经验', value: 22826 },
-        ]);
-        const convention = createGrowthExtra('convention', 'convention-a', 175);
-        expect(growthExtraCost(costs, convention).readings[1]).toMatchObject({ value: 30_000_000 });
-        const scene = createGrowthExtra('petScene', 'scene-a', 100);
-        expect(growthExtraCost(costs, scene).readings).toHaveLength(7);
-        expect(summarizeGrowthPlan(costs, [], 0, [grade, convention, scene]).total).toMatchObject({
-            exp: 0,
-            cash: 0,
-            petExp: 0,
-            fruits: 0,
-        });
     });
 
     it('新增辅助卡片可删除，删除后帮贡要求与消耗一并移除', () => {

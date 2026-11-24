@@ -4,21 +4,24 @@ import * as Glass from 'glassy-liquid/vue';
 import { computed, defineComponent, h, mergeProps, onBeforeUnmount, onMounted, shallowRef } from 'vue';
 import type { Component } from 'vue';
 
-type GlassTarget = 'surface' | 'content' | 'thumb' | 'selector' | 'tabBar' | 'menu' | 'sheet' | 'scrollEdge';
+type GlassTarget = 'surface' | 'content' | 'field' | 'thumb' | 'selector' | 'tabBar' | 'menu' | 'sheet' | 'scrollEdge';
 
 // Dock 的弧边由材质引擎绘制。共用折射和高光，让内容底色、弹层模糊度各自独立。
 const dockEdge = { bezel: 8, refraction: 15, specular: 1.1 } satisfies GlassOptions;
 const controlGlass = {
     bezel: 6, refraction: 12, specular: 0.72, material: 'clear', blur: 0.6,
-    fill: 'light-dark(#f8fffc16, #15222530)', shadow: '0 1px 3px #152a3424',
+    fill: 'var(--lg-bar-fill)', shadow: '0 1px 3px #152a3424',
 } satisfies GlassOptions;
 const contentGlass = {
     ...controlGlass, bezel: 5, refraction: 10, specular: 0.56, blur: 1.8, shadow: '0 2px 5px #152a3419',
 } satisfies GlassOptions;
+const fieldGlass = {
+    ...contentGlass, bezel: 4, refraction: 8, specular: 0.48, shadow: '0 1px 2px #152a3414',
+} satisfies GlassOptions;
 const dockGlass = { ...controlGlass, ...dockEdge };
 export const popupGlass = {
     ...dockEdge, radius: 26, material: 'regular', blur: 4,
-    fill: 'light-dark(rgb(247 255 252 / 0.24), rgb(18 29 25 / 0.32))',
+    fill: 'var(--lg-popup-fill)',
 } satisfies GlassOptions;
 const thumbGlass = { material: 'clear', blur: 0.6, fill: null } satisfies GlassOptions;
 
@@ -31,6 +34,9 @@ function updateMaterial(host: HTMLElement, target: GlassTarget) {
     switch (target) {
         case 'content':
             getSurface(host)?.set({ fill: 'var(--lg-content-fill, var(--lg-content-base))' });
+            break;
+        case 'field':
+            getSurface(host)?.set({ fill: 'var(--lg-field-fill)' });
             break;
         case 'surface':
         case 'tabBar': {
@@ -62,7 +68,7 @@ function updateMaterial(host: HTMLElement, target: GlassTarget) {
 }
 
 function themed<T extends Component>(component: T, target?: GlassTarget): T {
-    const hasMaterialProp = target === 'surface' || target === 'content' || target === 'tabBar' || target === 'sheet';
+    const hasMaterialProp = target === 'surface' || target === 'content' || target === 'field' || target === 'tabBar' || target === 'sheet';
     const wrapper = defineComponent({
         name: component.name,
         inheritAttrs: false,
@@ -85,9 +91,14 @@ function themed<T extends Component>(component: T, target?: GlassTarget): T {
 
             return () => {
                 const options: Record<string, unknown> = {};
+                if (component === Glass.GlassButton && attrs.variant === 'prominent' && attrs.tint == null) {
+                    options.tint = '#8abfa744';
+                    options['data-lg-form-action'] = '';
+                }
                 if (hasMaterialProp) {
                     const surface: GlassOptions = target === 'sheet' ? popupGlass
                         : target === 'content' ? contentGlass
+                        : target === 'field' ? fieldGlass
                         : target === 'tabBar' ? dockGlass : controlGlass;
                     options.material = surface.material;
                     for (const key of ['blur', 'specular', 'bezel', 'refraction', 'shadow'] as const) {
@@ -125,6 +136,7 @@ function themed<T extends Component>(component: T, target?: GlassTarget): T {
 
 export const GlassSurface = themed(Glass.GlassSurface, 'surface');
 export const GlassCard = themed(Glass.GlassSurface, 'content');
+export const GlassFieldSurface = themed(Glass.GlassSurface, 'field');
 export const GlassButton = themed(Glass.GlassButton, 'surface');
 export const GlassSwitch = themed(Glass.GlassSwitch, 'thumb');
 export const GlassSlider = themed(Glass.GlassSlider, 'thumb');
@@ -139,7 +151,7 @@ export const GlassMenuSeparator = themed(Glass.GlassMenuSeparator);
 export const GlassToolbar = themed(Glass.GlassToolbar);
 export const GlassGroup = themed(Glass.GlassGroup, 'surface');
 export const GlassSpacer: typeof Glass.GlassSpacer = themed(Glass.GlassSpacer);
-export const GlassSearch = themed(Glass.GlassSearch, 'content');
+export const GlassSearch = themed(Glass.GlassSearch, 'field');
 export const GlassSheet = themed(Glass.GlassSheet, 'sheet');
 export const GlassProgressiveBlur = themed(Glass.GlassProgressiveBlur, 'scrollEdge');
 export const GlassScene = themed(Glass.GlassScene);

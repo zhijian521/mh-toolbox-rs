@@ -224,7 +224,7 @@ function applyWallpaper(url: string) {
                     </header>
                     <div class="liquid-settings-row">
                         <span id="liquid-theme-label">主题</span>
-                        <GlassSegmented v-model:value="appearance" aria-labelledby="liquid-theme-label">
+                        <GlassSegmented v-model:value="appearance" class="lg-equal-pair" aria-labelledby="liquid-theme-label">
                             <GlassSegment value="light">浅色</GlassSegment>
                             <GlassSegment value="dark">深色</GlassSegment>
                         </GlassSegmented>
@@ -457,7 +457,6 @@ function applyWallpaper(url: string) {
     --glass-text-shadow: none;
     display: block;
     padding: 10px 12px 12px;
-    background-color: light-dark(#efffec45, #14241f40);
 }
 
 .card-heading {
@@ -639,7 +638,7 @@ function applyWallpaper(url: string) {
     padding: 8px 10px;
     border: 1px solid var(--liquid-outline);
     border-radius: 10px;
-    background: light-dark(#ffffff55, #00000026);
+    background: var(--lg-field-fill);
 }
 .backup-info {
     display: flex;

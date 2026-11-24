@@ -10,7 +10,7 @@ import { notify } from '../../composables/use-notify';
 import AppNotice from '../../components/AppNotice.vue';
 import leopardHumanoid from './fengyao-leopard-humanoid.webp';
 import AppIcon from '../../components/AppIcon.vue';
-import { GlassSwitch } from '../../components/liquid-glass';
+import GlassSmallSwitch from '../../components/liquid-glass/GlassSmallSwitch.vue';
 import { glassLedger } from '../../components/glass-ledger';
 import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import { hasDesktop } from '../../services/desktop';
@@ -396,9 +396,8 @@ onBeforeUnmount(() => {
                                 :disabled="!desktop || previewing || busy"
                                 @click="previewSpeech"
                             />
-                            <GlassSwitch
+                            <GlassSmallSwitch
                                 v-if="glass"
-                                class="fy-type-switch"
                                 :checked="speechEnabled"
                                 aria-label="语音播报"
                                 :disabled="busy || !status"
@@ -424,9 +423,8 @@ onBeforeUnmount(() => {
                                         <h4>{{ reminderLabels[setting.kind] }}</h4>
                                         <small>{{ reminderDetails[setting.kind] }}</small>
                                     </div>
-                                    <GlassSwitch
+                                    <GlassSmallSwitch
                                         v-if="glass"
-                                        class="fy-type-switch"
                                         :checked="setting.enabled"
                                         :aria-label="`${reminderLabels[setting.kind]}提醒`"
                                         :disabled="busy || !status"
@@ -599,9 +597,6 @@ onBeforeUnmount(() => {
 }
 .fy-speech > span:first-child {
     margin-inline-end: auto;
-}
-.fy-type-switch {
-    zoom: 0.875;
 }
 .fy-type-row :deep(.cost-opt) {
     padding: 2px 7px;

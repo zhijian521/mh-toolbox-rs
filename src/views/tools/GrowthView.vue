@@ -2,8 +2,8 @@
 import { computed, defineAsyncComponent, inject, onMounted, reactive, ref, watch } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
+import GlassNumberField from '../../components/liquid-glass/GlassNumberField.vue';
 import NumberField from '../../components/NumberField.vue';
-import { MENPAI_OPTIONS } from './growth-extras';
 import ToolPageShell from './ToolPageShell.vue';
 import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import SelectField from '../../components/SelectField.vue';
@@ -24,10 +24,8 @@ import {
     menpaiCost,
     petCultivationCost,
     petLevelCost,
-    petScenesAt,
     qianNengGuoCost,
     qianYuanDanCost,
-    roleConvention,
     roleExpBetween,
     schoolSkillCost,
 } from '../../services/level-costs';
@@ -46,6 +44,7 @@ watch(
     { once: true },
 );
 const glass = inject(glassLedger, null);
+const numberControl = glass ? GlassNumberField : NumberField;
 const selectControl = glass ? GlassSelect : SelectField;
 const surface = glass?.card ?? PaperCard;
 const surfaceProps = glass ? { radius: 16 } : { plain: true };
@@ -72,7 +71,6 @@ const count = (value: number) => value.toLocaleString('zh-CN');
 type CalcKey =
     | 'role'
     | 'expGrade'
-    | 'convention'
     | 'schoolSkill'
     | 'lifeSkill'
     | 'cultivation'
@@ -80,8 +78,7 @@ type CalcKey =
     | 'petLevel'
     | 'qianYuanDan'
     | 'qianNengGuo'
-    | 'menpai'
-    | 'petScene';
+    | 'menpai';
 
 interface CalcType {
     key: CalcKey;
@@ -111,13 +108,6 @@ const TYPES: CalcType[] = [
         name: '经验换算等级',
         inputHint: '当前等级 + 手上经验',
         resultHint: '逐级扣减后的落点',
-    },
-    {
-        key: 'convention',
-        tag: '人物',
-        name: '人物常规',
-        inputHint: '1 到 175 级',
-        resultHint: '升级技能要求与携带金钱',
     },
     {
         key: 'schoolSkill',
@@ -175,20 +165,12 @@ const TYPES: CalcType[] = [
         inputHint: '60 到 175 级',
         resultHint: '经验封顶 10 亿',
     },
-    {
-        key: 'petScene',
-        tag: '召唤兽',
-        name: '练级场景',
-        inputHint: '0 到 175 级',
-        resultHint: '能满经验的场景',
-    },
 ];
 
 /** 每张卡的格子叫什么。空串表示这一格不显示；`c` 只在少数几项出现。 */
 const FIELD_LABELS: Record<CalcKey, { a: string; b: string; c: string }> = {
     role: { a: '当前等级', b: '目标等级', c: '' },
     expGrade: { a: '当前等级', b: '手上经验', c: '' },
-    convention: { a: '人物等级', b: '', c: '' },
     schoolSkill: { a: '当前等级', b: '目标等级', c: '' },
     lifeSkill: { a: '当前等级', b: '目标等级', c: '' },
     cultivation: { a: '当前等级', b: '目标等级', c: '' },
@@ -198,7 +180,6 @@ const FIELD_LABELS: Record<CalcKey, { a: string; b: string; c: string }> = {
     qianNengGuo: { a: '已有颗数', b: '目标颗数', c: '' },
     /* 未飞升只填前两格；已飞升多一格「已吃潜能果」。 */
     menpai: { a: '人物等级', b: '人物总经验', c: '已吃潜能果' },
-    petScene: { a: '召唤兽等级', b: '', c: '' },
 };
 
 /**
@@ -208,7 +189,6 @@ const FIELD_LABELS: Record<CalcKey, { a: string; b: string; c: string }> = {
 const form = reactive<Record<CalcKey, { a: number; b: number; c: number; pick: string }>>({
     role: { a: 0, b: 175, c: 0, pick: '' },
     expGrade: { a: 100, b: 100000, c: 0, pick: '' },
-    convention: { a: 175, b: 0, c: 0, pick: '' },
     schoolSkill: { a: 0, b: 180, c: 0, pick: '' },
     /* 默认强身术：上限 140，是 21 项里最常点的一项。 */
     lifeSkill: { a: 0, b: 140, c: 0, pick: '201' },
@@ -218,7 +198,6 @@ const form = reactive<Record<CalcKey, { a: number; b: number; c: number; pick: s
     qianYuanDan: { a: 0, b: 9, c: 0, pick: '' },
     qianNengGuo: { a: 0, b: 50, c: 0, pick: '' },
     menpai: { a: 129, b: 0, c: 0, pick: 'nofly' },
-    petScene: { a: 80, b: 0, c: 0, pick: '' },
 });
 
 const active = ref<CalcKey>('role');
@@ -244,6 +223,11 @@ const projects = computed(() =>
     })),
 );
 
+function pickProject(key: string) {
+    const project = projects.value.find((item) => item.value === key);
+    if (project) active.value = project.value;
+}
+
 const lifeOptions = computed(() =>
     (costs.value?.lifeSkill.skills ?? []).map((one) => ({
         value: String(one.id),
@@ -256,6 +240,11 @@ const cultOptions = computed(() =>
         label: one.name,
     })),
 );
+
+const MENPAI_OPTIONS = [
+    { value: 'nofly', label: '未飞升' },
+    { value: 'fly', label: '已飞升' },
+];
 
 const pickField = computed(() => {
     switch (active.value) {
@@ -358,23 +347,6 @@ const outcome = computed<Outcome>(() => {
                 note: '',
                 headline: [{ cap: '剩余经验', value: count(result.left) }],
                 details: [{ cap: '可达等级', value: String(result.grade) }],
-            };
-        }
-        case 'convention': {
-            if (input.a < 1 || input.a > table.role.cap) {
-                return { ...NONE, note: `人物等级需在 1 到 ${table.role.cap} 之间` };
-            }
-            const result = roleConvention(input.a);
-            return {
-                note: '',
-                headline: [{ cap: '携带金钱上限', value: ledgerMoneyText(result.moneyCap) }],
-                /* 这里是升级所需技能要求，不是师门技能可学上限。 */
-                details: [
-                    {
-                        cap: '人物技能要求',
-                        value: result.skillCap === null ? '无' : String(result.skillCap),
-                    },
-                ],
             };
         }
         case 'schoolSkill': {
@@ -519,21 +491,6 @@ const outcome = computed<Outcome>(() => {
                 details,
             };
         }
-        case 'petScene': {
-            if (input.a < 0 || input.a > 175)
-                return { ...NONE, note: '召唤兽等级需在 0 到 175 之间' };
-            const scenes = petScenesAt(table, input.a);
-            if (!scenes.length) return { ...NONE, note: '这一级没有能吃满经验的场景' };
-            return {
-                note: '',
-                /* 场景经验是「五人组队领双」的单场值，与召唤兽等级无关，所以不求和只列区间。 */
-                headline: [{ cap: '满经验场景', value: scenes.length + ' 处' }],
-                details: scenes.map((one) => ({
-                    cap: one.name,
-                    value: `${one.min}–${one.max} 级 · ${count(one.exp)}`,
-                })),
-            };
-        }
         default:
             return NONE;
     }
@@ -543,12 +500,12 @@ const outcome = computed<Outcome>(() => {
 <template>
     <ToolPageShell title="养成计算器" desc="单项计算 · 角色预算">
         <template v-if="costs" #actions>
-            <GlassSegmented v-if="glass" v-model:value="mode" class="calc-mode" aria-label="计算方式">
+            <GlassSegmented v-if="glass" v-model:value="mode" class="calc-mode lg-equal-pair" aria-label="计算方式">
                 <GlassSegment v-for="option in MODES" :key="option.value" :value="option.value">{{ option.label }}</GlassSegment>
             </GlassSegmented>
             <SegmentedPills v-else v-model="mode" :options="MODES" label="计算方式" />
         </template>
-        <div class="growth-calculator" :class="{ 'growth-single': mode === 'single' }">
+        <div class="growth-calculator" :class="{ 'growth-single': mode === 'single', 'lg-form-fields': glass }">
             <LoadNotice :error="levelCostsError" :load="reload" />
 
             <template v-if="costs">
@@ -557,11 +514,25 @@ const outcome = computed<Outcome>(() => {
                 </div>
                 <template v-if="mode === 'single'">
                     <component :is="surface" v-bind="surfaceProps" class="calc-directory">
-                        <div class="calc-choice">
+                        <div v-if="glass" class="calc-controls">
+                            <GlassSegmented v-model:value="category" aria-label="计算类别">
+                                <GlassSegment v-for="item in categories" :key="item.value" :value="item.value">
+                                    {{ item.label }}
+                                </GlassSegment>
+                            </GlassSegmented>
+                            <div class="calc-project-scroll">
+                                <GlassSegmented :key="category" class="calc-project" :value="active" aria-label="计算项目" @update:value="pickProject">
+                                    <GlassSegment v-for="item in projects" :key="item.value" :value="item.value">
+                                        {{ item.label }}
+                                    </GlassSegment>
+                                </GlassSegmented>
+                            </div>
+                        </div>
+                        <div v-else class="calc-choice">
                             <span>类别</span>
                             <SegmentedPills v-model="category" :options="categories" label="计算类别" wrap />
                         </div>
-                        <div class="calc-choice">
+                        <div v-if="!glass" class="calc-choice">
                             <span>项目</span>
                             <SegmentedPills v-model="active" :options="projects" label="计算项目" wrap />
                         </div>
@@ -587,7 +558,8 @@ const outcome = computed<Outcome>(() => {
                                 </div>
                                 <label class="growth-input-row">
                                     <span class="field-label">{{ labels.a }}</span>
-                                    <NumberField
+                                    <component
+                                        :is="numberControl"
                                         v-model="current.a"
                                         :label="labels.a"
                                         update-on-input
@@ -595,7 +567,8 @@ const outcome = computed<Outcome>(() => {
                                 </label>
                                 <label v-if="labels.b" class="growth-input-row">
                                     <span class="field-label">{{ labels.b }}</span>
-                                    <NumberField
+                                    <component
+                                        :is="numberControl"
                                         v-model="current.b"
                                         :label="labels.b"
                                         update-on-input
@@ -609,7 +582,8 @@ const outcome = computed<Outcome>(() => {
                                     class="growth-input-row"
                                 >
                                     <span class="field-label">{{ labels.c }}</span>
-                                    <NumberField
+                                    <component
+                                        :is="numberControl"
                                         v-model="current.c"
                                         :label="labels.c"
                                         update-on-input

@@ -100,7 +100,7 @@ watch(
     padding: 0;
     border: 0;
     border-radius: v-bind('popupGlass.radius + "px"');
-    background: var(--lg-popup-fill);
+    background: transparent;
     box-shadow: none;
     color: var(--liquid-ink);
     font: inherit;

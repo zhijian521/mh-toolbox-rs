@@ -91,7 +91,7 @@ const cardLabel = computed(() =>
     <GlassCard v-if="glass" class="calendar-surface" :radius="15">
         <button
             type="button"
-            class="activity-card calendar-entry"
+            class="activity-card calendar-entry lg-hover-sheen"
             :class="{ reminded }"
             :aria-label="cardLabel"
             aria-haspopup="dialog"
@@ -334,14 +334,12 @@ const cardLabel = computed(() =>
 }
 
 .calendar-surface {
-    --lg-content-base: var(--lg-readable-card-fill);
     --glass-foreground: var(--liquid-ink);
     --glass-text-shadow: none;
     display: flex;
     min-width: 0;
 }
 .calendar-entry {
-    position: relative;
     display: grid;
     align-content: start;
     gap: 4px;
@@ -368,30 +366,11 @@ const cardLabel = computed(() =>
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
 }
-.card-reminder { --icon-size: 14px; flex: none; color: var(--liquid-muted); }
+.card-reminder { --icon-size: 18px; flex: none; color: var(--liquid-muted); }
 .reminded .card-reminder { color: var(--liquid-focus); }
 .calendar-entry:focus-visible { outline: 2px solid var(--liquid-focus); outline-offset: -2px; }
 .calendar-entry:disabled { cursor: default; }
 @media (hover: hover) and (pointer: fine) {
-    .calendar-entry::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        pointer-events: none;
-        background: linear-gradient(
-            135deg,
-            color-mix(in srgb, var(--ledger-highlight) 32%, transparent),
-            transparent 65%
-        );
-        opacity: 0;
-        transition: opacity 140ms ease-out;
-    }
-
-    .calendar-entry:enabled:hover::before {
-        opacity: 1;
-    }
-
     .calendar-entry:enabled:hover:not(.reminded) .card-reminder {
         color: var(--liquid-ink);
     }

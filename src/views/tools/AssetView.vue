@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, ref, watch } from 'vue';
 import { glassLedger } from '../../components/glass-ledger';
-import { GlassCard } from '../../components/liquid-glass';
-import GlassInput from '../../components/liquid-glass/GlassInput.vue';
+import { GlassCard, GlassSearch } from '../../components/liquid-glass';
 import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import AppIcon from '../../components/AppIcon.vue';
 import GroupHead from '../../components/GroupHead.vue';
@@ -183,17 +182,13 @@ function turnPage(next: number) {
         :class="{ 'is-glass': glass }"
     >
         <div class="asset-bar page-filters" :class="{ 'lg-form-fields': glass }">
-            <GlassInput v-if="glass" class="asset-search">
-                <AppIcon name="search" />
-                <input
-                    v-model="keyword"
-                    type="search"
-                    aria-label="搜索资源名"
-                    :placeholder="
-                        kind === 'all' ? '搜索全部资源、名称或别名' : '搜索当前分类、名称或别名'
-                    "
-                />
-            </GlassInput>
+            <GlassSearch
+                v-if="glass"
+                v-model:value="keyword"
+                class="asset-search lg-price-search"
+                aria-label="搜索资源名"
+                :placeholder="kind === 'all' ? '搜索全部资源、名称或别名' : '搜索当前分类、名称或别名'"
+            />
             <input
                 v-else
                 v-model="keyword"
@@ -476,13 +471,8 @@ function turnPage(next: number) {
     margin-bottom: 10px;
 }
 .asset-search {
-    --icon-size: 16px;
     flex: 0 1 240px;
     width: min(240px, 100%);
-    color: var(--liquid-muted);
-}
-.asset-search input {
-    color: var(--liquid-ink);
 }
 .is-glass .asset-section {
     display: block;

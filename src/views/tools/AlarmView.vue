@@ -154,7 +154,6 @@ useRouteAction('/tools/alarm', { new: openNew });
     gap: 10px;
 }
 .is-glass .alarm-void {
-    --lg-content-base: var(--lg-readable-card-fill);
     --glass-foreground: var(--liquid-ink);
     --glass-text-shadow: none;
     width: min(100%, 300px);

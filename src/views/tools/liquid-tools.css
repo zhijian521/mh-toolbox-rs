@@ -36,7 +36,15 @@
     border-radius: 12px;
     text-align: start;
     color: var(--liquid-ink);
-    transition: background-color 140ms ease-out;
+}
+.liquid-tools .tool-item[data-group='daily'] {
+    --tool-icon-fill: light-dark(#906a3e, #805f39);
+}
+.liquid-tools .tool-item[data-group='lookup'] {
+    --tool-icon-fill: light-dark(#55728b, #4d6780);
+}
+.liquid-tools .tool-item[data-group='game'] {
+    --tool-icon-fill: light-dark(#52765f, #496c58);
 }
 .liquid-ledger-page.liquid-tools .tool-symbol {
     --icon-size: 19px;
@@ -45,9 +53,14 @@
     width: 36px;
     height: 36px;
     border-radius: 11px;
-    color: var(--liquid-ink);
-    background: linear-gradient(145deg, color-mix(in srgb, var(--tint) 78%, white), var(--tint) 70%);
-    box-shadow: var(--lg-edge-rim), 0 1px 3px rgb(12 29 25 / 0.1);
+    color: #fff;
+    background-color: var(--tool-icon-fill, #596c67);
+}
+@media not (prefers-reduced-transparency: reduce) {
+    .liquid-ledger-page.liquid-tools .tool-symbol {
+        background-color: color-mix(in srgb, var(--tool-icon-fill, #596c67) 74%, transparent);
+        backdrop-filter: blur(3px);
+    }
 }
 .liquid-ledger-page.liquid-tools .tool-copy {
     display: grid;
@@ -70,11 +83,6 @@
     width: 16px;
     color: var(--liquid-muted);
 }
-@media (hover: hover) {
-    .liquid-ledger-page.liquid-tools .tool-item:hover {
-        background-color: color-mix(in srgb, var(--tint) 44%, transparent);
-    }
-}
 .liquid-ledger-page.liquid-tools .tool-item:focus-visible {
     outline: 2px solid var(--liquid-focus);
     outline-offset: -2px;
@@ -91,7 +99,6 @@
 }
 
 .liquid-tools .modal-panel.alarm-glass-editor {
-    --modal-bg: var(--lg-dialog-fill);
     --modal-shadow: var(--lg-dialog-shadow);
     --glass-foreground: var(--liquid-ink);
     --glass-accent-text: var(--liquid-ink);

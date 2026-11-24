@@ -223,7 +223,7 @@
 .liquid-ledger.modal-mask {
     --modal-mask: rgb(12 27 23 / 0.23);
     --modal-backdrop-blur: 2px;
-    --modal-bg: light-dark(rgb(241 249 245 / 0.91), rgb(24 37 33 / 0.92));
+    --modal-bg: var(--lg-dialog-fill);
     --modal-edge: var(--liquid-outline);
     --modal-shadow: var(--lg-dialog-shadow);
 }

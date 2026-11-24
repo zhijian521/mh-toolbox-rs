@@ -54,12 +54,12 @@ watch(
 </script>
 
 <template>
-    <div class="wallpaper-picker">
+    <div class="wallpaper-picker lg-form-fields">
         <header>
             <h2>选择壁纸</h2>
             <GlassButton size="small" variant="plain" @click="emit('close')">关闭</GlassButton>
         </header>
-        <GlassSegmented v-model:value="source" class="wallpaper-sources" aria-label="壁纸来源">
+        <GlassSegmented v-model:value="source" class="wallpaper-sources lg-equal-pair" aria-label="壁纸来源">
             <GlassSegment value="system">系统壁纸</GlassSegment>
             <GlassSegment value="online">官网壁纸</GlassSegment>
         </GlassSegmented>
@@ -156,9 +156,6 @@ watch(
 .wallpaper-picker :is(h2, p) {
     margin: 0;
 }
-.wallpaper-picker glass-search {
-    --glass-search-height: 32px;
-}
 .wallpaper-sources {
     width: min(168px, 100%);
 }
@@ -176,17 +173,22 @@ watch(
     scrollbar-gutter: auto;
     border: 1px solid var(--liquid-outline);
     border-radius: 10px;
-    background: light-dark(#ffffff4a, #1a292b83);
+    background: var(--lg-content-base);
     color: inherit;
     font: inherit;
     text-align: left;
     cursor: pointer;
 }
-.wallpaper-tile:is(:hover, [aria-pressed='true']) {
-    border-color: var(--liquid-focus);
+@media (hover: hover) {
+    .wallpaper-tile:hover { background-color: var(--lg-field-fill); border-color: var(--liquid-muted); }
 }
 .wallpaper-tile[aria-pressed='true'] {
-    box-shadow: 0 0 0 1px var(--liquid-focus);
+    border-color: var(--liquid-focus);
+    background: color-mix(in srgb, var(--liquid-focus) 12%, var(--lg-content-base));
+}
+.wallpaper-tile:focus-visible {
+    border-color: transparent;
+    outline-offset: -2px;
 }
 .wallpaper-thumb {
     display: grid;

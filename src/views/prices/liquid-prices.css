@@ -52,7 +52,7 @@
 }
 
 .price-reset {
-    --glass-button-height: 32px;
+    --glass-button-height: var(--lg-form-height);
     --glass-foreground: var(--liquid-ink);
     --glass-text-shadow: none;
     --icon-size: 14px;

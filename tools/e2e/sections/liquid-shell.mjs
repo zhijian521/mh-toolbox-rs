@@ -106,15 +106,16 @@ async function checkPriceMaintenance({ cdp, t, ui }, sheet, editor) {
         const top = panel.height <= below + 1 || below >= anchor.top - 16 ? anchor.bottom + 8 : anchor.top - 8 - panel.height;
         return Math.abs(panel.left - left) < 2 && Math.abs(panel.top - top) < 2 && node.getAttribute('placement') === 'bottom-start';
     })()`));
-    const menuFadeEnabled = () => cdp.evaluate(`(() => {
+    const menuFadeEnabled = (opening) => cdp.evaluate(`(() => {
         const panel = document.querySelector('${menu}').shadowRoot.querySelector('[part="panel"]');
         const style = getComputedStyle(panel);
         return matchMedia('(prefers-reduced-motion: reduce)').matches ||
-            (style.transitionProperty === 'opacity' && parseFloat(style.transitionDuration) >= 0.15);
+            (style.transitionProperty === 'opacity' && (${opening} ? parseFloat(style.transitionDuration) >= 0.15 :
+                Math.abs(parseFloat(style.transitionDuration) * 1000 - parseFloat(style.getPropertyValue('--lg-popup-fade'))) < 1));
     })()`);
-    t.check('三点菜单展开有淡入过渡', await menuFadeEnabled());
+    t.check('三点菜单展开有淡入过渡', await menuFadeEnabled(true));
     await cdp.click(`${menu} [slot="trigger"]`);
-    t.check('三点菜单收起有淡出过渡', await menuFadeEnabled());
+    t.check('三点菜单使用下拉菜单的收起时长', await menuFadeEnabled(false));
     await ui.waitFor(`(() => {
         const node = document.querySelector('${menu}');
         return !node.open && getComputedStyle(node.shadowRoot.querySelector('[part="panel"]')).opacity === '0';
@@ -1009,7 +1010,7 @@ export default async function liquidShell({ cdp, t, ui }) {
                 const rect = card.getBoundingClientRect();
                 const scale = Number(getComputedStyle(card).getPropertyValue('--fs-scale'));
                 const actions = [...card.querySelectorAll('.alarm-glass-action')];
-                return card.querySelector('glass-switch')?.getAttribute('aria-checked') === String(!card.classList.contains('off')) &&
+                return card.querySelector('glass-switch.lg-small-switch')?.getAttribute('aria-checked') === String(!card.classList.contains('off')) &&
                     rect.width <= 224 * scale + 1 && card.scrollWidth <= card.clientWidth + 1 &&
                     actions.length === 2 && actions.every(button => {
                         const bounds = button.getBoundingClientRect();
@@ -1029,6 +1030,17 @@ export default async function liquidShell({ cdp, t, ui }) {
         !!document.querySelector('${toolDialog} .glass-input .time-input') &&
         document.querySelector('${toolDialog} .alarm-hint').textContent.includes('提前 5 分钟提醒')
     `));
+    await ui.clickText(`${toolDialog} glass-segment`, '每周', { exact: true });
+    const monday = `${toolDialog} .alarm-weekdays [aria-label="星期一"]`;
+    await ui.waitFor(`document.querySelector('${monday}')?.getAttribute('aria-pressed') === 'true'`);
+    const weekdayFill = () => cdp.evaluate(`getComputedStyle(document.querySelector('${monday}')).backgroundColor`);
+    const defaultFill = await weekdayFill();
+    await cdp.click(monday);
+    await ui.waitFor(`document.querySelector('${monday}').getAttribute('aria-pressed') === 'false'`);
+    const clearedFill = await weekdayFill();
+    await cdp.click(monday);
+    await ui.waitFor(`document.querySelector('${monday}').getAttribute('aria-pressed') === 'true'`);
+    t.check('每周默认与重新选中的底色一致', defaultFill !== clearedFill && await weekdayFill() === defaultFill);
     await ui.fillSel(`${toolDialog} input[aria-label="备注"]`, '未保存的闹钟备注');
     await cdp.click(`${toolDialog} [data-modal-close]`);
     const alarmDiscard = '.glass-dialog[open]:has(.glass-confirm)';
@@ -1052,11 +1064,13 @@ export default async function liquidShell({ cdp, t, ui }) {
         const section = document.querySelector('.asset-section');
         const buttons = document.querySelector('.asset-pages .record-page-buttons');
         const summary = document.querySelector('.asset-pages .asset-page-info');
-        return buttons && summary && [buttons, summary].every(element =>
+        const current = buttons?.querySelector('[aria-current="page"]');
+        return current && getComputedStyle(current).textDecorationLine.includes('underline') && summary && [buttons, summary].every(element =>
             Math.abs(middle(element) - middle(section)) <= 1);
     })()`));
-    const resourceSearch = '.asset-bar input[aria-label="搜索资源名"]';
-    await ui.fillSel(resourceSearch, '__E2E_NO_RESOURCE__');
+    const resourceSearch = '.asset-bar glass-search[aria-label="搜索资源名"]';
+    await cdp.click(resourceSearch);
+    await cdp.send('Input.insertText', { text: '__E2E_NO_RESOURCE__' });
     await ui.waitFor(`document.querySelector('.asset-void h3')?.textContent === '没有匹配的资源'`);
     t.check('玻璃资源搜索同步结果数并隐藏分页', await cdp.evaluate(`
         document.querySelector('.asset-count').textContent.trim() === '找到 0 项' &&
@@ -1082,11 +1096,15 @@ export default async function liquidShell({ cdp, t, ui }) {
     await atToolList();
 
     await openTool('养成计算器', 'growth');
-    const projects = '.calc-directory [aria-label="计算项目"]';
+    const projects = '.calc-directory glass-segmented[aria-label="计算项目"]';
     await ui.waitFor(`!!document.querySelector('${projects}')`);
-    await ui.clickText('.calc-directory [aria-label="计算类别"] button', '技能', { exact: true });
+    t.check('人物单项保留转门派和经验换算等级', await cdp.evaluate(`
+        ['menpai', 'expGrade'].every(key => document.querySelector('${projects} glass-segment[value="' + key + '"]'))
+    `));
+    await ui.clickText('.calc-directory [aria-label="计算类别"] glass-segment', '技能', { exact: true });
     t.check('养成项目按类别显示并同步输入和结果', await cdp.evaluate(`
-        document.querySelector('${projects} [aria-checked="true"]').textContent.includes('师门技能') &&
+        document.querySelector('${projects} glass-segment[aria-selected="true"]')?.textContent.trim() === '师门技能' &&
+        !!document.querySelector('.calc-fields .glass-number-field input[inputmode="numeric"]') &&
         document.querySelector('.calc-panel .section-head h2').textContent.includes('师门技能') &&
         !!document.querySelector('.calc-panel .growth-result-card')
     `));
@@ -1095,6 +1113,28 @@ export default async function liquidShell({ cdp, t, ui }) {
     await cdp.click(plan);
     await ui.waitFor(`!document.querySelector('.liquid-tool-detail .record-empty[role="status"]') &&
         !!document.querySelector('.liquid-tool-detail .plan-toolbar, .liquid-tool-detail .record-empty, .liquid-tool-detail [role="alert"]')`);
+    if (await cdp.evaluate("!!document.querySelector('.plan-toolbar')")) {
+        t.check('总消耗位于编辑区末尾', await cdp.evaluate(`
+            document.querySelector('.plan-groups + .plan-summary:last-child .section-head h2')?.textContent.trim() === '总消耗'
+        `));
+        if (await cdp.evaluate("!!document.querySelector('.plan-summary') && !document.querySelector('.plan-summary [role=alert]')")) {
+            await ui.fillSel('.plan-groups input[aria-label="人物等级当前"]', '69');
+            await ui.fillSel('.plan-groups input[aria-label="人物等级目标"]', '70');
+            await ui.waitFor("!!document.querySelector('.plan-totals .growth-amount')");
+            const breakdown = '.plan-summary .plan-breakdown';
+            t.check('试算后消耗明细默认收起', await cdp.evaluate(`!document.querySelector('${breakdown}').open`));
+            await cdp.click(`${breakdown} > summary`);
+            await ui.waitFor(`document.querySelector('${breakdown}').open &&
+                [...document.querySelectorAll('${breakdown} dt')].some(row => row.textContent === '人物等级 69 → 70')`);
+        }
+        t.check('角色综合预算只提供辅助技能扩展入口', await cdp.evaluate(`(() => {
+            const groups = document.querySelector('.plan-groups');
+            return !!groups && !groups.querySelector('[aria-label="新增计算卡片"]') &&
+                !/转门派|经验换算等级/.test(groups.textContent) &&
+                [...groups.querySelectorAll('.plan-add')].every(row =>
+                    row.querySelector('[aria-label="新增辅助技能计算项目"]'));
+        })()`));
+    }
     await cdp.click(toolBack);
     await atToolList();
 
@@ -1111,7 +1151,7 @@ export default async function liquidShell({ cdp, t, ui }) {
                 ? side.left >= map.right
                 : side.top >= map.bottom;
         })() &&
-        !!document.querySelector('.hunt-controls glass-switch[aria-label="高概率区域"]') &&
+        !!document.querySelector('.hunt-controls glass-switch.lg-small-switch[aria-label="高概率区域"]') &&
         !!document.querySelector('.liquid-tool-detail :is([aria-label="开始识别任务栏"], [aria-label="停止识别（回到未开始）"])')
     `));
     await cdp.click(toolBack);
@@ -1144,7 +1184,12 @@ export default async function liquidShell({ cdp, t, ui }) {
         new Set([...document.querySelectorAll('.fy-type-row .fy-mark img')].map((img) => img.src)).size === 6 &&
         document.querySelector('.fy-settings .fy-guide')?.textContent.includes('保持窗口可见') &&
         [...document.querySelectorAll('.fy-type glass-switch')].every(
-            (toggle) => Math.abs(toggle.getBoundingClientRect().width - 56) <= 1) &&
+            (toggle) => {
+                const rect = toggle.getBoundingClientRect();
+                const hit = getComputedStyle(toggle, '::before');
+                return Math.abs(rect.width - 44) <= 1 && hit.content !== 'none' &&
+                    rect.height - (parseFloat(hit.top) + parseFloat(hit.bottom)) * 0.6875 >= 30;
+            }) &&
         !document.querySelector('.fy-history .fy-reading').open
     `));
     await cdp.click(tab('overview'));
@@ -1200,9 +1245,11 @@ export default async function liquidShell({ cdp, t, ui }) {
         const height = selector => gallery.querySelector(selector).getBoundingClientRect().height;
         const near = (selector, expected) => Math.abs(height(selector) - expected) < 1;
         return near('.sample-card .lg-inline-action', 26) &&
-            near('.field-example.lg-form-fields .glass-input', 32) &&
-            near('.lg-price-search', 44) && near('.lg-category-filter .glass-select-face', 44) &&
-            near('.lg-category-filter.lg-form-fields .glass-select-face', 32) &&
+            ['.lg-price-search', '.glass-input', '.glass-select-face', '.glass-date-face'].every(face =>
+                near('.field-comparison.lg-form-fields ' + face, 32) &&
+                near('.field-comparison:not(.lg-form-fields) ' + face, 44)) &&
+            !!gallery.querySelector('.glass-price-field input[aria-invalid="true"]') &&
+            !!gallery.querySelector('.glass-select-trigger:disabled') &&
             near('.glass-price-field:not(.compact) .glass-input', 44) &&
             near('.glass-price-field.compact .glass-input', 36);
     })()`));
@@ -1212,6 +1259,39 @@ export default async function liquidShell({ cdp, t, ui }) {
         Number(document.querySelector('.component-catalog .sample-card glass-button').getAttribute('refraction')) === 12 &&
         Number(document.querySelector('.component-catalog .sample-card').getAttribute('specular')) <
             Number(document.querySelector('.component-catalog .sample-card glass-button').getAttribute('specular'))`));
+
+    t.check('四种字段共用同一折射档，示例区直接展示壁纸', await cdp.evaluate(`(() => {
+        const gallery = document.querySelector('.component-catalog .gallery');
+        const faces = ['.field-example .glass-input', '.glass-select-face', '.glass-date-face', '.lg-price-search'];
+        return faces.every(selector => gallery.querySelector(selector)?.getAttribute('refraction') === '8') &&
+            [...gallery.querySelectorAll(':scope > section')].every(section => {
+                const style = getComputedStyle(section);
+                return style.backgroundColor === 'rgba(0, 0, 0, 0)' && style.borderTopWidth === '0px';
+            });
+    })()`));
+
+    t.check('排序菜单复用下拉触发器，编辑价格使用标准按钮', await cdp.evaluate(`(() => {
+        const catalog = document.querySelector('.component-catalog');
+        const menu = catalog.querySelector('.lg-select-menu:has([aria-label="选择排序方式"])');
+        const action = [...catalog.querySelectorAll('.example-row glass-button')]
+            .find(button => button.textContent.trim() === '编辑价格');
+        return !!menu?.querySelector('.glass-select-trigger .glass-select-face') && action &&
+            !action.hasAttribute('tint') && action.getAttribute('variant') !== 'prominent';
+    })()`));
+
+    const sampleForm = '.component-catalog .liquid-price-editor';
+    await ui.clickText('.component-catalog .example-row glass-button', '编辑价格', { exact: true });
+    await ui.waitFor(`document.querySelector('${sampleForm} h2')?.textContent === '编辑价格记录'`);
+    await ui.fillSel(`${sampleForm} input[inputmode="decimal"]`, '88');
+    await ui.clickText(`${sampleForm} glass-button`, '保存', { exact: true });
+    await ui.waitFor(`!document.querySelector('${sampleForm}')`);
+    const sampleCount = "document.querySelector('.component-catalog .sample-card .price-spark polyline')?.points.numberOfItems";
+    t.check('编辑最新示例价格后仍为两笔记录', await cdp.evaluate(`${sampleCount} === 2`));
+    await cdp.click('.component-catalog .example-row [aria-label="新增价格记录"]');
+    await ui.waitFor(`document.querySelector('${sampleForm} h2')?.textContent === '更新价格'`);
+    t.check('新增示例带入编辑后的当前价', await cdp.evaluate(`document.querySelector('${sampleForm} input[inputmode="decimal"]').value === '88'`));
+    await ui.clickText(`${sampleForm} glass-button`, '保存', { exact: true });
+    await ui.waitFor(`${sampleCount} === 3`);
 
     const demoPrice = '.component-catalog .glass-price-field:not(.compact)';
     await cdp.click(`${demoPrice} [aria-label="加 10 万"]`);
