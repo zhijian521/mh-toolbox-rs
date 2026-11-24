@@ -36,7 +36,7 @@ export const GHOST_TEST_SAMPLES: GhostTestSample[] = [
     {
         label: '小鬼 · 已开眼',
         note: '开天眼后「附近」被游戏直接删掉，句尾为空 → 精确点',
-        text: '钟馗抓鬼（第2个）：去江南野外82,60抓巳时四刻偷尸鬼。',
+        text: '钟馗抓鬼（第2个）：去建邺城82,60抓巳时四刻偷尸鬼。',
     },
     {
         label: '大鬼 · 全角逗号',

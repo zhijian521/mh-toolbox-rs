@@ -6,8 +6,8 @@ import { paintMap, resolveColors, type Layout } from './map-paint';
 /**
  * 地图底图 + 范围框。
  *
- * 用 Canvas 而不是 DOM 叠层：范围框的边必须与底图**像素级**对齐，而底图尺寸各异
- * （从 214×426 到 960×182），用绝对定位的 div 按百分比摆，边缘会因为各层取整规则
+ * 用 Canvas 而不是 DOM 叠层：范围框的边必须与底图**像素级**对齐，而底图尺寸各异，
+ * 用绝对定位的 div 按百分比摆，边缘会因为各层取整规则
  * 不同差半个像素，框线看起来像「浮在地图上面」而不是「画在地图上」。
  *
  * 这个组件只管**什么时候画**：尺寸变了、主题变了、换图了、字号变了。画出来什么
@@ -92,27 +92,26 @@ function scheduleDraw() {
 
 watch(
     () => currentMap.value?.img ?? null,
-    async (src) => {
-        if (!src) {
-            image.value = null;
-            scheduleDraw();
-            return;
-        }
-        loading.value = true;
+    async (src, _, onCleanup) => {
+        image.value = null;
+        loading.value = Boolean(src);
+        scheduleDraw();
+        if (!src) return;
+
+        let current = true;
+        onCleanup(() => { current = false; });
         const bitmap = new Image();
         bitmap.src = src;
         try {
             await bitmap.decode();
+            if (current) image.value = bitmap;
         } catch {
-            // 解码失败就当没有底图，交给空状态处理，不抛——抛了页面会白掉。
-            loading.value = false;
-            return;
-        }
-        // 期间用户可能已经切到别的任务，别用旧图覆盖新图。
-        if (currentMap.value?.img === src) {
-            image.value = bitmap;
-            loading.value = false;
-            scheduleDraw();
+            // 当前底图解码失败时，由模板显示加载失败提示。
+        } finally {
+            if (current) {
+                loading.value = false;
+                scheduleDraw();
+            }
         }
     },
     { immediate: true },

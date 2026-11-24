@@ -1089,6 +1089,15 @@ export default async function liquidShell({ cdp, t, ui }) {
     t.check('捉鬼助手保留地图和识别入口', await cdp.evaluate(`
         document.querySelector('.liquid-tool-detail .map-stage').clientHeight >= 240 &&
         !!document.querySelector('.hunt > .map-card + .hunt-side .hunt-controls .glass-select-trigger') &&
+        document.querySelector('.map-card .group-head')?.textContent.includes('任务地图') &&
+        !!document.querySelector('.hunt-controls .window-field [role="status"]') &&
+        (() => {
+            const map = document.querySelector('.hunt .map-card').getBoundingClientRect();
+            const side = document.querySelector('.hunt .hunt-side').getBoundingClientRect();
+            return document.querySelector('.hunt-frame').clientWidth > 660
+                ? side.left >= map.right
+                : side.top >= map.bottom;
+        })() &&
         !!document.querySelector('.hunt-controls glass-switch[aria-label="高概率区域"]') &&
         !!document.querySelector('.liquid-tool-detail :is([aria-label="开始识别任务栏"], [aria-label="停止识别（回到未开始）"])')
     `));

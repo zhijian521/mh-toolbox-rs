@@ -80,20 +80,6 @@
     outline-offset: -2px;
 }
 
-.liquid-tools.liquid-tool-detail .hunt {
-    height: auto;
-    min-height: max(360px, calc(100dvh - 200px));
-    grid-template-rows: auto;
-}
-
-.liquid-tools .hunt .map-card {
-    padding: var(--block-pad);
-}
-
-.liquid-tools .hunt .map-stage {
-    min-height: 240px;
-}
-
 .liquid-tools.liquid-tool-detail .map-alert span {
     background: var(--popover-bg);
 }
@@ -104,8 +90,3 @@
     background: var(--popover-bg);
 }
 
-@media (max-width: 680px) {
-    .liquid-tools.liquid-tool-detail .hunt {
-        grid-template-columns: minmax(0, 1fr);
-    }
-}

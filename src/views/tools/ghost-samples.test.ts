@@ -57,6 +57,7 @@ describe('测试样例', () => {
     it('小鬼 · 已开眼：句尾为空也判精确点，不是「未知」', () => {
         const report = parse(sample('小鬼 · 已开眼'));
         const [task] = report.tasks;
+        expect(task?.map?.name).toBe('建邺城');
         expect([task?.x, task?.y]).toEqual([82, 60]);
         // 游戏开天眼是把「附近」删掉，句尾留空。判成 unknown 就永远停在 ±50 上。
         expect(task?.reveal).toBe('silent');
