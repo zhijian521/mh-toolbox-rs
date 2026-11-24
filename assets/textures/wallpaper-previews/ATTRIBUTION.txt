@@ -1,0 +1,25 @@
+GNOME wallpapers (curvy, blendpills, glass-chip, fold)
+
+Artwork by Jakub Steiner for GNOME Backgrounds.
+
+02 Curvy (2025)
+https://github.com/GNOME/gnome-backgrounds/blob/main/backgrounds/curvy.xml.in
+
+03 Blendpills (2026)
+https://github.com/GNOME/gnome-backgrounds/blob/main/backgrounds/blendpills.xml.in
+
+04 Glass Chip (2024)
+https://github.com/GNOME/gnome-backgrounds/blob/main/backgrounds/glass-chip.xml.in
+
+06 Fold (2024)
+https://github.com/GNOME/gnome-backgrounds/blob/main/backgrounds/fold.xml.in
+
+The light and dark originals are licensed under Creative Commons Attribution-ShareAlike 3.0.
+https://github.com/GNOME/gnome-backgrounds/blob/main/COPYING
+https://creativecommons.org/licenses/by-sa/3.0/
+
+The JPEG XL originals were center-cropped to 16:9 and encoded as 3840 × 2160 WebP backgrounds and 480 × 270 WebP thumbnails.
+The derived WebP files are available under the same license.
+
+macOS wallpapers (tahoe, monterey, beach)
+Artwork by Apple. The GNOME license above applies only to the four GNOME sets.

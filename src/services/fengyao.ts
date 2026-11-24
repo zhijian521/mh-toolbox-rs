@@ -6,18 +6,11 @@ import {
     type ReminderKind,
     type WatchConfig,
 } from './bindings';
-import { listGhostWindows } from './ghost';
 import { readLocalData, writePreference } from './local-data';
 
-export type {
-    MessageRegion,
-    WatchConfig,
-    WatchStatus_Serialize as WatchStatus,
-    WindowShot,
-} from './bindings';
+export type { WatchStatus_Serialize as WatchStatus } from './bindings';
 
 export const fengyaoStatus = () => commands.fengyaoStatus();
-export const captureFengyaoWindow = (hwnd: number) => commands.fengyaoCapture(hwnd);
 export const startFengyao = (config: WatchConfig) => commands.fengyaoStart(config);
 export const updateFengyao = (reminders: ReminderFilter[]) => commands.fengyaoUpdate(reminders);
 export const stopFengyao = () => commands.fengyaoStop();
@@ -38,7 +31,6 @@ interface ReminderSetting extends ReminderFilter {
 export interface FengyaoPreferences {
     reminders: ReminderSetting[];
     windowTitle: string;
-    region: MessageRegion | null;
 }
 
 export function defaultReminders(scenes?: string[]): ReminderSetting[] {
@@ -50,7 +42,9 @@ export function defaultReminders(scenes?: string[]): ReminderSetting[] {
 }
 
 export function activeReminders(settings: ReminderSetting[]): ReminderFilter[] {
-    return settings.filter(({ enabled }) => enabled).map(({ kind, scenes }) => ({ kind, scenes }));
+    return settings
+        .filter(({ enabled }) => enabled)
+        .map(({ kind, scenes }) => ({ kind, scenes: kind === 'fengyao' ? scenes : [] }));
 }
 
 function isSceneList(value: unknown): value is string[] {
@@ -63,48 +57,13 @@ function isSceneList(value: unknown): value is string[] {
     );
 }
 
-export function parseReminderMaps(input: string): string[] {
-    const scenes = [
-        ...new Set(
-            input
-                .split(/[，,、]/u)
-                .map((name) => name.trim())
-                .filter(Boolean),
-        ),
-    ];
-    if (!isSceneList(scenes)) throw new Error('请输入地图名称，多个地图用逗号分隔');
-    return scenes;
-}
-
-/** 选区同时用于启动条件和偏好读取，拒绝越界与无法识别的小区域。 */
-export function isMessageRegion(raw: unknown): raw is MessageRegion {
-    if (!raw || typeof raw !== 'object') return false;
-    const r = raw as MessageRegion;
-    return (
-        [r.x, r.y, r.width, r.height, r.frameWidth, r.frameHeight].every(
-            (value) => Number.isInteger(value) && value >= 0,
-        ) &&
-        r.width >= 80 &&
-        r.height >= 25 &&
-        r.frameWidth <= 16384 &&
-        r.frameHeight <= 16384 &&
-        r.x + r.width <= r.frameWidth &&
-        r.y + r.height <= r.frameHeight
-    );
-}
-
 function parsePreferences(raw: unknown): FengyaoPreferences {
     if (!raw || typeof raw !== 'object') throw new TypeError('提醒设置无效');
     const value = raw as Record<string, unknown>;
-    if (
-        typeof value.windowTitle !== 'string' ||
-        (value.region !== null && !isMessageRegion(value.region))
-    ) {
-        throw new TypeError('提醒设置无效');
-    }
-    const calibration = { windowTitle: value.windowTitle, region: value.region };
+    if (typeof value.windowTitle !== 'string') throw new TypeError('提醒设置无效');
+    const windowTitle = value.windowTitle;
     if (value.reminders === undefined && isSceneList(value.scenes)) {
-        return { ...calibration, reminders: defaultReminders([...new Set(value.scenes)]) };
+        return { windowTitle, reminders: defaultReminders([...new Set(value.scenes)]) };
     }
     if (!Array.isArray(value.reminders)) throw new TypeError('提醒设置无效');
     const reminders = defaultReminders();
@@ -122,10 +81,10 @@ function parsePreferences(raw: unknown): FengyaoPreferences {
         if (!setting || seen.has(setting.kind)) throw new TypeError('提醒设置无效');
         seen.add(setting.kind);
         setting.enabled = rawSetting.enabled;
-        setting.scenes = [...new Set(rawSetting.scenes)];
+        setting.scenes = setting.kind === 'fengyao' ? [...new Set(rawSetting.scenes)] : [];
     }
     if (seen.size !== reminders.length) throw new TypeError('提醒设置无效');
-    return { ...calibration, reminders };
+    return { windowTitle, reminders };
 }
 
 export const readFengyaoPreferences = () => readLocalData(PREFERENCES_KEY, parsePreferences);
@@ -137,25 +96,20 @@ export function saveFengyaoPreferences(value: FengyaoPreferences): boolean {
 }
 
 export async function listFengyaoWindows() {
-    const windows = await listGhostWindows();
-    return windows.filter(({ title }) => /梦幻西游|mhtab/i.test(title));
+    const windows = await commands.ghostWindows();
+    return windows.filter(
+        ({ title }) =>
+            title.trim() === '聊天窗口' || (/聊天窗口/u.test(title) && /梦幻西游|mhtab/iu.test(title)),
+    );
 }
 
-export function wholeFengyaoFrame({
-    width,
-    height,
-}: Pick<WindowShot, 'width' | 'height'>): MessageRegion {
+export async function readFengyaoFrame(hwnd: number, expectedTitle: string): Promise<MessageRegion> {
+    const { width, height, title } = await commands.fengyaoCapture(hwnd);
+    if (title !== expectedTitle) throw new Error('聊天窗口已变化，请刷新后重新选择');
     return { x: 0, y: 0, width, height, frameWidth: width, frameHeight: height };
 }
 
-export function fengyaoRegionMatchesFrame(
-    region: MessageRegion | null,
-    { width, height }: Pick<WindowShot, 'width' | 'height'>,
-): region is MessageRegion {
-    return isMessageRegion(region) && region.frameWidth === width && region.frameHeight === height;
-}
-
-/** 窗口句柄每次重新获取。整窗模式按截图尺寸生成选区。 */
+/** 窗口句柄和完整画面尺寸在每次开启时重新读取。 */
 export async function startSavedFengyao() {
     const status = await fengyaoStatus();
     if (status.running) return 'running';
@@ -163,7 +117,7 @@ export async function startSavedFengyao() {
     const saved = readFengyaoPreferences();
     if (!saved.ok) throw new Error(saved.error);
     const preferences = saved.value;
-    if (!preferences?.windowTitle) throw new Error('首次使用请先选择游戏窗口');
+    if (!preferences?.windowTitle) throw new Error('首次使用请先打开并选择独立聊天窗口');
     const reminders = activeReminders(preferences.reminders);
     if (!reminders.length) throw new Error('请先开启至少一种提醒');
     const fengyao = reminders.find(({ kind }) => kind === 'fengyao');
@@ -174,16 +128,11 @@ export async function startSavedFengyao() {
     const matches = (await listFengyaoWindows()).filter(
         ({ title }) => title === preferences.windowTitle,
     );
-    if (!matches.length) throw new Error('未找到上次使用的游戏窗口');
-    if (matches.length > 1) throw new Error('有多个同名游戏窗口，请手动选择');
+    if (!matches.length) throw new Error('未找到上次使用的独立聊天窗口，请在提醒助手中重新选择');
+    if (matches.length > 1) throw new Error('有多个同名聊天窗口，请手动选择');
     const [{ hwnd }] = matches;
-    const region = preferences.region;
-    const image = await captureFengyaoWindow(hwnd);
-    if (image.title !== preferences.windowTitle) throw new Error('游戏窗口已变化，请重新选择');
-    if (region && !fengyaoRegionMatchesFrame(region, image)) {
-        throw new Error('游戏窗口尺寸已变化，请重新框选或改用整个窗口');
-    }
+    const region = await readFengyaoFrame(hwnd, preferences.windowTitle);
     if ((await fengyaoStatus()).running) return 'running';
-    await startFengyao({ hwnd, reminders, region: region ?? wholeFengyaoFrame(image) });
+    await startFengyao({ hwnd, reminders, region });
     return 'started';
 }

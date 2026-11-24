@@ -14,12 +14,69 @@
     --map-halo: var(--popover-bg);
 }
 
-.liquid-tools .tool-item[data-group] {
-    --tint: var(--ledger-highlight);
+.liquid-ledger-page.liquid-tools .tool-blocks {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 248px), 1fr));
+    max-width: none;
 }
 
-.liquid-tools .tool-tile {
-    --tile-r: 16px;
+.liquid-ledger-page.liquid-tools .tool-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+    margin: 0;
+}
+
+.liquid-ledger-page.liquid-tools .tool-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 5px;
+    border-radius: 12px;
+    text-align: start;
+    color: var(--liquid-ink);
+    transition: background-color 140ms ease-out;
+}
+.liquid-ledger-page.liquid-tools .tool-symbol {
+    --icon-size: 19px;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    color: var(--liquid-ink);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--tint) 78%, white), var(--tint) 70%);
+    box-shadow: var(--lg-edge-rim), 0 1px 3px rgb(12 29 25 / 0.1);
+}
+.liquid-ledger-page.liquid-tools .tool-copy {
+    display: grid;
+    gap: 2px;
+}
+.liquid-ledger-page.liquid-tools .tool-name {
+    width: auto;
+    text-align: start;
+    font-size: var(--fs-base);
+}
+.liquid-ledger-page.liquid-tools .tool-desc {
+    color: var(--liquid-muted);
+    font-size: var(--fs-xs);
+    line-height: 1.45;
+}
+.liquid-ledger-page.liquid-tools .tool-direction {
+    --icon-size: 13px;
+    display: grid;
+    place-items: center;
+    width: 16px;
+    color: var(--liquid-muted);
+}
+@media (hover: hover) {
+    .liquid-ledger-page.liquid-tools .tool-item:hover {
+        background-color: color-mix(in srgb, var(--tint) 44%, transparent);
+    }
+}
+.liquid-ledger-page.liquid-tools .tool-item:focus-visible {
+    outline: 2px solid var(--liquid-focus);
+    outline-offset: -2px;
 }
 
 .liquid-tools.liquid-tool-detail .hunt {

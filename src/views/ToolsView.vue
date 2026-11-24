@@ -47,13 +47,24 @@ const groups = TOOL_GROUPS.map((group) => ({
                             :aria-label="
                                 tool.kind === 'link' ? `${tool.name}（浏览器打开）` : tool.name
                             "
-                            :title="tool.desc"
+                            :title="glass ? undefined : tool.desc"
+                            :aria-describedby="glass ? `tool-desc-${tool.key}` : undefined"
                             @click="open(tool)"
                         >
-                            <PressTile class="tool-tile">
+                            <span v-if="glass" class="tool-symbol" aria-hidden="true">
+                                <AppIcon :name="tool.icon" />
+                            </span>
+                            <PressTile v-else class="tool-tile">
                                 <AppIcon :name="tool.icon" />
                             </PressTile>
-                            <span class="tool-name">{{ tool.name }}</span>
+                            <span class="tool-copy">
+                                <span class="tool-name">{{ tool.name }}</span>
+                                <span v-if="glass" :id="`tool-desc-${tool.key}`" class="tool-desc">{{ tool.desc }}</span>
+                            </span>
+                            <span v-if="glass" class="tool-direction" aria-hidden="true">
+                                <span v-if="tool.kind === 'link'">↗</span>
+                                <AppIcon v-else name="chevron-right" />
+                            </span>
                         </button>
                     </li>
                 </ul>

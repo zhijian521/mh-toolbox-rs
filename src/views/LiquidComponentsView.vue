@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { notify } from '../composables/use-notify';
 import AppIcon from '../components/AppIcon.vue';
 import {
     GlassButton,
@@ -282,6 +283,14 @@ const observations = [
             </section>
 
             <h2>容器与表面</h2>
+            <section>
+                <header><h3>提示</h3></header>
+                <div class="stage">
+                    <GlassButton size="small" class="sample-notice" @click="notify.info('这是一条顶部消息提示。')">
+                        显示顶部提示
+                    </GlassButton>
+                </div>
+            </section>
             <section>
                 <header><h3>工具栏</h3></header>
                 <div class="stage">

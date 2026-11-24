@@ -6,17 +6,18 @@ import type { Component } from 'vue';
 
 type GlassTarget = 'surface' | 'content' | 'thumb' | 'selector' | 'tabBar' | 'menu' | 'sheet' | 'scrollEdge';
 
-// 清透折射：操作面、内容面和弹层各自保留适合当前用途的厚度。
+// Dock 的弧边由材质引擎绘制。共用折射和高光，让内容底色、弹层模糊度各自独立。
+const dockEdge = { bezel: 8, refraction: 15, specular: 1.1 } satisfies GlassOptions;
 const controlGlass = {
-    material: 'clear', bezel: 8, refraction: 15, blur: 0.6, specular: 1.1,
+    bezel: 6, refraction: 12, specular: 0.72, material: 'clear', blur: 0.6,
     fill: 'light-dark(#f8fffc16, #15222530)', shadow: '0 1px 3px #152a3424',
 } satisfies GlassOptions;
 const contentGlass = {
-    ...controlGlass, bezel: 7, refraction: 10, blur: 1.8, specular: 0.85,
-    shadow: '0 2px 5px #152a3419',
+    ...controlGlass, bezel: 5, refraction: 10, specular: 0.56, blur: 1.8, shadow: '0 2px 5px #152a3419',
 } satisfies GlassOptions;
+const dockGlass = { ...controlGlass, ...dockEdge };
 export const popupGlass = {
-    radius: 26, material: 'regular', blur: 4, specular: 0.85,
+    ...dockEdge, radius: 26, material: 'regular', blur: 4,
     fill: 'light-dark(rgb(247 255 252 / 0.24), rgb(18 29 25 / 0.32))',
 } satisfies GlassOptions;
 const thumbGlass = { material: 'clear', blur: 0.6, fill: null } satisfies GlassOptions;
@@ -41,10 +42,10 @@ function updateMaterial(host: HTMLElement, target: GlassTarget) {
             break;
         }
         case 'selector':
-            partSurface(host, 'lens')?.set(thumbGlass);
+            partSurface(host, 'lens')?.set({ ...thumbGlass, ...dockEdge });
             break;
         case 'thumb':
-            partSurface(host, 'thumb')?.set(thumbGlass);
+            partSurface(host, 'thumb')?.set({ ...thumbGlass, ...dockEdge });
             break;
         case 'menu':
             // 菜单在第一次展开时读取 glass。已创建的面板需要同步更新。
@@ -53,8 +54,8 @@ function updateMaterial(host: HTMLElement, target: GlassTarget) {
             break;
         case 'sheet':
             partSurface(host, 'sheet')?.set({
+                ...dockEdge,
                 fill: popupGlass.fill,
-                specular: popupGlass.specular,
             });
             break;
     }
@@ -86,7 +87,8 @@ function themed<T extends Component>(component: T, target?: GlassTarget): T {
                 const options: Record<string, unknown> = {};
                 if (hasMaterialProp) {
                     const surface: GlassOptions = target === 'sheet' ? popupGlass
-                        : target === 'content' ? contentGlass : controlGlass;
+                        : target === 'content' ? contentGlass
+                        : target === 'tabBar' ? dockGlass : controlGlass;
                     options.material = surface.material;
                     for (const key of ['blur', 'specular', 'bezel', 'refraction', 'shadow'] as const) {
                         // Vue 对自定义元素会把「元素实例上已存在的同名属性」直接写成 DOM

@@ -12,6 +12,9 @@
     --glass-tab-selection: rgb(203 244 221 / 0.19);
     --glass-segmented-track: rgb(6 21 16 / 0.15);
     --glass-segmented-thumb: rgb(203 244 221 / 0.25);
+    --lg-edge-light: light-dark(rgb(255 255 255 / 0.43), rgb(224 249 255 / 0.26));
+    --lg-edge-shade: light-dark(rgb(56 89 95 / 0.16), rgb(2 16 21 / 0.32));
+    --lg-edge-rim: inset 0 1px 0 var(--lg-edge-light), inset 0 -1px 0 var(--lg-edge-shade);
     --lg-control-backdrop: blur(1.5px);
     --glass-segmented-backdrop: var(--lg-control-backdrop);
     font-family: var(--glass-font);
@@ -57,6 +60,34 @@ glass-button.lg-component {
     font-weight: 400;
 }
 
+/* 平面轨道和轻量按钮共用上下两道内高光；拖动时的折射交给原生玻璃镜片。 */
+:where(glass-switch, glass-slider, glass-segmented).lg-component::part(track),
+glass-button.lg-component[variant='plain']:not([disabled]),
+glass-button.lg-component:not([disabled]):active {
+    box-shadow: var(--lg-edge-rim);
+}
+
+glass-segmented.lg-component::part(indicator) {
+    box-shadow: var(--lg-edge-rim), 0 1px 3px rgb(12 28 25 / 0.14);
+}
+/* 两项分段的静止高光由轨道定位，拖动镜片继续使用组件的弹簧动画。 */
+glass-segmented.lg-component:has(> glass-segment:nth-child(2):last-child)::part(indicator) {
+    inset-inline-start: var(--glass-selector-padding);
+    top: var(--glass-selector-padding);
+    width: calc(50% - var(--glass-selector-padding)) !important;
+    height: calc(100% - 2 * var(--glass-selector-padding)) !important;
+    transform: translateX(var(--lg-segment-position, 0%)) !important;
+}
+
+glass-segmented.lg-component:has(> glass-segment:nth-child(2)[aria-selected='true']) {
+    --lg-segment-position: 100%;
+}
+@media (prefers-reduced-motion: no-preference) {
+    glass-segmented.lg-component::part(indicator) {
+        transition: transform 160ms ease-out;
+    }
+}
+
 glass-button.lg-inline-action {
     --glass-button-height: 26px;
     --glass-button-padding: 7px;
@@ -75,7 +106,7 @@ glass-button.lg-inline-action {
     min-width: 0;
 }
 
-/* 表单聚焦只改变玻璃底色；系统强制配色时用 Highlight 标记焦点。 */
+/* 贴着玻璃内沿绘制焦点，避免触发按钮与表面各画一圈。 */
 glass-search.lg-component {
     --glass-focus: transparent;
 }
@@ -87,7 +118,8 @@ glass-search.lg-component {
 .liquid-app :is(.glass-input, glass-search.lg-component):focus-within,
 .glass-select-trigger:is(:focus-visible, [aria-expanded='true']) .glass-select-face,
 .glass-date-field .date-trigger:is(:focus-visible, [aria-expanded='true']) .glass-date-face {
-    outline: none;
+    outline: 2px solid var(--lg-field-accent, var(--liquid-focus));
+    outline-offset: -2px;
     --lg-content-fill: color-mix(in srgb, var(--lg-field-accent, var(--liquid-focus)) 18%, var(--lg-content-base));
 }
 .glass-input:has(input[aria-invalid='true']),
@@ -117,6 +149,14 @@ glass-search.lg-component {
     margin: 0;
     color: var(--liquid-muted);
     font-size: var(--fs-mini);
+}
+
+glass-segmented.lg-component {
+    --glass-segmented-height: 30px;
+    --glass-selector-padding: 3px;
+    --glass-segmented-track: light-dark(#a9bdb3a8, #0c191dc2);
+    --glass-segmented-thumb: light-dark(#f4fbf7ed, #48605bee);
+    --glass-segmented-selected: light-dark(#183b32, #f3fff9);
 }
 
 glass-segmented.lg-component,
@@ -233,7 +273,7 @@ glass-menu-label.lg-component {
     --lg-popup-fill: light-dark(rgb(246 251 248 / 0.60), rgb(25 37 34 / 0.72));
     --lg-dialog-fill: var(--lg-popup-fill);
     --lg-dialog-blur: 6px;
-    --lg-dialog-shadow: 0 6px 22px rgb(12 28 25 / 0.15), inset 0 1px rgb(255 255 255 / 0.20);
+    --lg-dialog-shadow: var(--lg-edge-rim), 0 6px 22px rgb(12 28 25 / 0.15);
     --lg-form-height: 32px;
     --glass-search-height: 44px;
     --lg-scroll-thumb: light-dark(rgb(44 70 59 / 0.43), rgb(213 240 226 / 0.39));
@@ -283,6 +323,7 @@ glass-menu-label.lg-component {
     .liquid-app :is(.glass-input, glass-search.lg-component):focus-within,
     .glass-select-trigger:is(:focus-visible, [aria-expanded='true']) .glass-select-face,
     .glass-date-field .date-trigger:is(:focus-visible, [aria-expanded='true']) .glass-date-face {
+        outline-color: Highlight;
         background-color: Highlight;
         color: HighlightText;
     }

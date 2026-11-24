@@ -3,7 +3,7 @@ import { GlassCard } from './index';
 </script>
 
 <template>
-    <GlassCard class="glass-empty-state" :radius="14" role="status">暂无数据</GlassCard>
+    <GlassCard class="glass-empty-state" :radius="14" :bezel="3" :refraction="5" :specular="0.48" shadow="none" role="status">暂无数据</GlassCard>
 </template>
 
 <style scoped>
@@ -14,8 +14,8 @@ import { GlassCard } from './index';
     width: fit-content;
     max-width: 100%;
     margin-inline: auto;
-    padding: 14px 24px;
-    font-size: var(--fs-base);
+    padding: 10px 20px;
+    font-size: var(--fs-sm);
     text-align: center;
 }
 </style>

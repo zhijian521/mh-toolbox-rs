@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { GlassButton, GlassCard } from '../../components/liquid-glass';
+import { sparkLinePoints } from './price-chart-path';
 import { moneyText } from '../../services/format';
 import {
     currentPoint,
     priceBadge,
+    recentPrices,
     sortedPoints,
     updateSummary,
     type ReadonlyPriceItem,
@@ -15,6 +17,8 @@ const emit = defineEmits<{ history: []; record: [] }>();
 const points = computed(() => sortedPoints(props.item));
 const current = computed(() => currentPoint(props.item, points.value));
 const change = computed(() => priceBadge(props.item, points.value));
+const recent = computed(() => recentPrices(props.item, 8, points.value));
+const spark = computed(() => sparkLinePoints(recent.value, 58, 18));
 const summary = computed(() =>
     current.value ? updateSummary(props.item, points.value) : '暂无记录',
 );
@@ -34,12 +38,21 @@ const summary = computed(() =>
             </div>
             <slot name="actions" />
         </header>
-        <div class="price-quote">
+        <div class="price-quote" :data-tone="change?.tone">
             <span v-if="current" class="price-value">{{ moneyText(current.price) }}</span>
             <span v-else class="price-unpriced">未记价</span>
-            <span v-if="change" class="price-change" :data-tone="change.tone" :title="change.title">
+            <span v-if="change" class="price-change" :title="change.title">
                 {{ change.text }}
             </span>
+            <svg
+                v-if="spark"
+                class="price-spark"
+                viewBox="0 0 58 18"
+                role="img"
+                :aria-label="`最近 ${recent.length} 笔价格，由早到晚：${recent.map(value => moneyText(value)).join('、')}`"
+            >
+                <polyline :points="spark" />
+            </svg>
         </div>
         <p v-if="item.note" class="price-note lg-caption" :title="item.note">
             {{ item.note }}
@@ -75,6 +88,9 @@ const summary = computed(() =>
 
 <style scoped>
 .price-card {
+    --lg-content-base: light-dark(rgb(250 255 253 / 45%), rgb(24 38 41 / 58%));
+    --liquid-ink: light-dark(#17211f, #f5f9f7);
+    --liquid-muted: light-dark(#30413b, #dee9e4);
     --glass-foreground: var(--liquid-ink);
     --glass-text-shadow: none;
     display: flex;
@@ -84,7 +100,7 @@ const summary = computed(() =>
     padding: 8px 9px 6px;
     --lg-content-fill: color-mix(
         in srgb,
-        var(--price-category-tint, transparent) 9%,
+        var(--price-category-tint, var(--lg-content-base)) 9%,
         var(--lg-content-base)
     );
 }
@@ -160,16 +176,29 @@ const summary = computed(() =>
 }
 
 .price-change {
-    color: var(--liquid-muted);
+    color: var(--trend-ink, var(--liquid-muted));
     font-size: var(--fs-mini);
 }
 
-.price-change[data-tone='up'] {
-    color: var(--liquid-up);
+.price-quote[data-tone='up'] {
+    --trend-ink: var(--liquid-up);
 }
 
-.price-change[data-tone='down'] {
-    color: var(--liquid-down);
+.price-quote[data-tone='down'] {
+    --trend-ink: var(--liquid-down);
+}
+
+.price-spark {
+    width: 58px;
+    height: 18px;
+    align-self: center;
+    margin-inline-start: auto;
+    fill: none;
+    stroke: var(--trend-ink, var(--liquid-muted));
+    stroke-opacity: 0.76;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .price-note {

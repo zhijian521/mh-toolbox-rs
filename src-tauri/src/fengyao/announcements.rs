@@ -124,7 +124,9 @@ fn yaowang(body: &str) -> Option<(&str, &str)> {
 }
 
 fn yecha(body: &str) -> Option<(&str, &str)> {
-    let (intro, location) = body.split_once("携带宝贝的梦魇夜叉")?;
+    let (intro, location) = body
+        .split_once("携带宝贝的梦魇夜叉")
+        .or_else(|| body.split_once("携带宝贝的梦夜叉"))?;
     let sender = intro.strip_prefix("突然受到")?.split_once("的惊扰")?.0;
     let location = location.trim_start_matches('又').strip_prefix("跑到了")?;
     let (scene, _) = location.split_once(['，', ','])?;
@@ -281,6 +283,28 @@ mod tests {
         assert_eq!(tomb[0].coordinates.as_deref(), Some("321,123"));
         assert!(candidates(&lines, &filter(ReminderKind::Yaowang, &["花果山"])).is_empty());
         assert!(candidates(&lines, &filter(ReminderKind::Fengyao, &[])).is_empty());
+    }
+
+    #[test]
+    fn matches_wrapped_yecha_announcement_with_missing_character() {
+        let lines = [
+            "[系统]突然受到一梦8.年的惊扰，一群携带宝贝的梦夜叉跑到了花果山，三界勇士们赶",
+            "紧去寻找他们吧，若有幸碰到多只携宝龙龟，将获得意想不到的物品奖励哦",
+            "[世界]突然受到玩家的惊扰，一群携带宝贝的梦夜叉跑到了花果山，",
+            "[系统]（梦夜叉）少侠追捕梦夜叉后获得了奖励！",
+        ]
+        .map(String::from);
+        let hits = candidates(&lines, &filter(ReminderKind::Yecha, &[]));
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].scene, "花果山");
+        assert_eq!(hits[0].key, "花果山:一梦8.年");
+        assert!(hits[0].text.contains("赶紧去寻找他们吧"));
+
+        let mut seen = SeenMessages::default();
+        assert!(seen.absorb(Vec::new(), 1).is_empty());
+        let alerts = seen.absorb(hits, 2);
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].1.kind, ReminderKind::Yecha);
     }
 
     #[test]

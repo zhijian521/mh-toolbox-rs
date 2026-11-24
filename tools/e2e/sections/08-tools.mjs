@@ -33,23 +33,18 @@ export default async function run(ctx) {
                 const actual = await invoke.call(internals, 'fengyao_status');
                 const fake = {
                     ...actual, running: false, baselineReady: true, error: '',
-                    config: {
-                        hwnd: 1, reminders: [{ kind: 'fengyao', scenes: ['柳林坡'] }],
-                        region: { x: 0, y: 0, width: 400, height: 100,
-                            frameWidth: 800, frameHeight: 600 },
-                    },
+                    config: null,
                     text: ['E2E 识别原文'],
                     alerts: Array.from({ length: 4 }, (_, i) => ({
                         id: 'e2e-' + i, kind: 'yiguan', scene: '大唐国境', coordinates: '321,123', at: Date.now() - i * 1000,
-                        text: 'E2E 公告正文',
+                        text: 'E2E 公告正文 ' + i,
                     })),
                 };
                 window.__e2eFengyao = {
-                    invoke, fake, config: fake.config,
+                    invoke, fake, hideChatWindow: false,
                     preference: localStorage.getItem('mh-fengyao-preferences'),
-                    stopCalls: 0, statusCalls: 0, updateCalls: 0,
+                    startCalls: 0, stopCalls: 0, statusCalls: 0, updateCalls: 0,
                 };
-                fake.config = null;
                 localStorage.setItem('mh-fengyao-preferences', JSON.stringify({
                     scenes: [], windowTitle: '', region: null,
                 }));
@@ -59,7 +54,11 @@ export default async function run(ctx) {
                         return Promise.resolve(fake);
                     }
                     if (cmd === 'ghost_windows') {
-                        return Promise.resolve([{ hwnd: 1, title: '梦幻西游 聊天窗口' }]);
+                        if (window.__e2eFengyao.hideChatWindow) return Promise.resolve([]);
+                        return Promise.resolve([
+                            { hwnd: 1, title: '梦幻西游 聊天窗口' },
+                            { hwnd: 2, title: '梦幻西游 主窗口' },
+                        ]);
                     }
                     if (cmd === 'fengyao_capture') {
                         return Promise.resolve({ image: '', title: '梦幻西游 聊天窗口',
@@ -71,7 +70,13 @@ export default async function run(ctx) {
                         fake.running = fake.config.reminders.length > 0;
                         return Promise.resolve(fake);
                     }
-                    if (cmd === 'fengyao_stop' || cmd === 'fengyao_start') {
+                    if (cmd === 'fengyao_start') {
+                        window.__e2eFengyao.startCalls += 1;
+                        fake.config = rest[0].config;
+                        fake.running = true;
+                        return Promise.resolve(fake);
+                    }
+                    if (cmd === 'fengyao_stop') {
                         window.__e2eFengyao.stopCalls += 1;
                         return Promise.reject(new Error('页面进出不应控制监听'));
                     }
@@ -91,7 +96,8 @@ export default async function run(ctx) {
                     '四种提醒独立设置，保留旧设置的主动全关',
                     loaded &&
                         (await cdp.evaluate(`
-                    document.querySelectorAll('.fy-type-button[aria-expanded="false"]').length === 4 &&
+                    document.querySelectorAll('.fy-types > .fy-type.board').length === 4 &&
+                    document.querySelectorAll('.fy-maps-toggle[aria-expanded="false"]').length === 1 &&
                     [...document.querySelectorAll('.fy-type .cost-switch')].every(s =>
                         s.classList.contains('off')) &&
                     !document.querySelector('[aria-label="开始公告监听"]').disabled
@@ -114,7 +120,7 @@ export default async function run(ctx) {
                 `),
                 );
                 await cdp.click('[aria-label="封妖提醒"] [role="radio"]:last-child');
-                await cdp.click('.fy-type:first-child .fy-type-button');
+                await cdp.click('.fy-maps-toggle');
                 await ui.clickText('#fy-maps-fengyao button', '柳林坡');
                 t.check(
                     '封妖可以单独开启并选择地图',
@@ -122,96 +128,71 @@ export default async function run(ctx) {
                     !document.querySelector('[aria-label="封妖提醒"]').classList.contains('off')
                 `),
                 );
+                await cdp.evaluate('window.__e2eFengyao.hideChatWindow = true');
                 await ui.clickLabel('开始公告监听');
+                await ui.waitFor("document.querySelector('.notice-layer')?.textContent.includes('请选择独立聊天窗口')");
+                t.check('窗口为空时只提示，不启动后台监听', await cdp.evaluate('window.__e2eFengyao.startCalls === 0'));
+                await cdp.evaluate('window.__e2eFengyao.hideChatWindow = false');
+                await ui.clickLabel('开始公告监听');
+                await ui.waitFor(`document.querySelector('.fy-settings .fy-status')?.textContent.includes('监听中')`);
                 t.check(
-                    '首次开始引导框选，完成后可直接监听',
+                    '首次直接监听完整聊天窗口，状态显示在监听设置内',
                     await cdp.evaluate(`
-                    !!document.querySelector('.fy-calibration') &&
-                    document.querySelector('[aria-label="完成系统消息区域框选"]').textContent.includes('完成并开始监听')
-                `),
-                );
-                await cdp.evaluate(`location.hash = '#/tools'`);
-                await ui.waitFor(`!document.querySelector('.fengyao')`);
-                await ui.clickText('button, a', '提醒助手');
-                await ui.waitFor(`!!document.querySelector('.fy-types')`);
-                t.check(
-                    '页面重新创建后恢复手动地图选择',
-                    await cdp.evaluate(`
-                    !document.querySelector('[aria-label="封妖提醒"]').classList.contains('off') &&
-                    JSON.parse(localStorage.getItem('mh-fengyao-preferences')).reminders.find(x => x.kind === 'fengyao').scenes.includes('柳林坡')
-                `),
-                );
-                await cdp.evaluate(`(() => {
-                    const saved = JSON.parse(localStorage.getItem('mh-fengyao-preferences'));
-                    saved.windowTitle = '梦幻西游 聊天窗口';
-                    saved.region = { ...window.__e2eFengyao.config.region, y: 40, height: 120 };
-                    localStorage.setItem('mh-fengyao-preferences', JSON.stringify(saved));
-                    window.__e2eFengyao.fake.config = window.__e2eFengyao.config;
-                    location.hash = '#/tools';
-                })()`);
-                await ui.waitFor(`!document.querySelector('.fengyao')`);
-                await ui.clickText('button, a', '提醒助手');
-                await ui.waitFor(`!!document.querySelector('.fy-types')`);
-                await ui.clickLabel('截取游戏画面并框选系统消息区域');
-                await ui.waitFor(`!!document.querySelector('.fy-adjust')`);
-                t.check(
-                    '停止任务的旧选区不覆盖后来保存的新选区',
-                    await cdp.evaluate(`
-                    document.querySelector('[aria-label="选区上边距"]').value === '40' &&
-                    document.querySelector('[aria-label="选区高度"]').value === '120'
-                `),
-                );
-                await cdp.click('.fy-adjust summary');
-                await ui.fill('选区上边距', '55');
-                await cdp.click('.fy-type:first-child .fy-type-button');
-                await ui.clickText('#fy-maps-fengyao button', '全部地图');
-                t.check(
-                    '切换提醒地图保留原选区，未确认的修改留在草稿',
-                    await cdp.evaluate(`
-                    document.querySelector('[aria-label="选区上边距"]').value === '55' &&
-                    JSON.parse(localStorage.getItem('mh-fengyao-preferences')).region.y === 40
-                `),
-                );
-                await cdp.evaluate(`
-                    window.__e2eFengyao.fake.config = window.__e2eFengyao.config;
-                    window.__e2eFengyao.fake.running = true;
-                    location.hash = '#/tools';
-                `);
-                await ui.waitFor(`!document.querySelector('.fengyao')`);
-                await ui.clickText('button, a', '提醒助手');
-                await ui.waitFor(
-                    `document.querySelector('.fy-status')?.textContent.includes('监听中')`,
-                );
-                t.check(
-                    '区块标题使用独立装饰条',
-                    await cdp.evaluate(`
-                    [...document.querySelectorAll('.fengyao h3')].length === 2 &&
-                    [...document.querySelectorAll('.fengyao h3')].every((h) =>
-                        !h.classList.contains('section-mark') && h.querySelector('.section-mark'))
+                    (() => {
+                        const { hwnd, region } = window.__e2eFengyao.fake.config ?? {};
+                        return hwnd === 1 && region?.x === 0 && region.y === 0 &&
+                            region.width === 800 && region.height === 600 &&
+                            region.frameWidth === 800 && region.frameHeight === 600 &&
+                            document.querySelector('.fy-settings .fy-status').textContent.includes(
+                                '监听中 · 新公告符合条件时提醒') &&
+                            document.querySelector('.fy-guide').textContent.includes('避免最小化或隐藏') &&
+                            !document.querySelector('[aria-label*="框选"]');
+                    })()
                 `),
                 );
                 t.check(
-                    '识别详情和校准画面默认收起',
+                    '开始监听后保存地图和所选聊天窗口',
                     await cdp.evaluate(`
-                    !document.querySelector('.fy-reading').open &&
-                    !document.querySelector('.fy-calibration')
+                    (() => {
+                        const saved = JSON.parse(localStorage.getItem('mh-fengyao-preferences'));
+                        return saved.windowTitle === '梦幻西游 聊天窗口' && !('region' in saved) &&
+                            saved.reminders.find(x => x.kind === 'fengyao').scenes.includes('柳林坡');
+                    })()
                 `),
                 );
                 t.check(
-                    '最近提醒展示类型和坐标，按需展开原文',
+                    '识别详情默认收起',
+                    await cdp.evaluate(`!document.querySelector('.fy-reading').open`),
+                );
+                t.check(
+                    '最近提醒以可换行的标签卡片显示类型和坐标',
                     await cdp.evaluate(`
-                        document.querySelectorAll('.fy-reminders .fy-reminder').length === 3 &&
-                        document.querySelector('.fy-reminder summary').textContent.includes('衣冠古丘') &&
-                        document.querySelector('.fy-reminder summary').textContent.includes('321,123') &&
-                        !document.querySelector('.fy-reminder').open
+                        (() => {
+                            const list = document.querySelector('.fy-reminders');
+                            const tags = list.querySelectorAll('.fy-reminder');
+                            const layout = getComputedStyle(list);
+                            return layout.display === 'flex' && layout.flexWrap === 'wrap' &&
+                                tags.length === 3 && tags[0].textContent.includes('衣冠古丘') &&
+                                tags[0].textContent.includes('321,123') &&
+                                [...tags].every(tag => tag.getAttribute('aria-expanded') === 'false');
+                        })()
                     `),
                 );
-                await cdp.click('.fy-reminder summary');
+                await cdp.click('.fy-reminders li:first-child .fy-reminder');
                 t.check(
-                    '展开一条提醒显示对应原文',
+                    '点标签在下方显示对应原文',
                     await cdp.evaluate(`
-                    document.querySelector('.fy-reminder[open] .fy-transcript').textContent === 'E2E 公告正文'
-                `),
+                        document.querySelector('.fy-reminder[aria-expanded="true"]') !== null &&
+                        document.querySelector('.fy-alert-text').textContent.trim() === 'E2E 公告正文 0'
+                    `),
+                );
+                await cdp.click('.fy-reminders li:nth-child(2) .fy-reminder');
+                t.check(
+                    '切换标签只保留一条原文',
+                    await cdp.evaluate(`
+                        document.querySelectorAll('.fy-reminder[aria-expanded="true"]').length === 1 &&
+                        document.querySelector('.fy-alert-text').textContent.trim() === 'E2E 公告正文 1'
+                    `),
                 );
                 await cdp.click('[aria-label="梦魇夜叉提醒"] [role="radio"]:last-child');
                 await ui.waitFor(
@@ -222,7 +203,7 @@ export default async function run(ctx) {
                     await cdp.evaluate(`
                     window.__e2eFengyao.fake.running && window.__e2eFengyao.stopCalls === 0 &&
                     window.__e2eFengyao.fake.config.reminders.some(x => x.kind === 'fengyao') &&
-                    window.__e2eFengyao.fake.config.reminders.some(x => x.kind === 'yecha')
+                    window.__e2eFengyao.fake.config.reminders.some(x => x.kind === 'yecha' && x.scenes.length === 0)
                 `),
                 );
                 await ui.clickLabel('返回工具列表');
@@ -238,9 +219,9 @@ export default async function run(ctx) {
                     `document.querySelector('.fy-status')?.textContent.includes('监听中')`,
                 );
                 t.check(
-                    '回来读取后台状态，保留手动选择与选区',
+                    '回来读取后台状态与手动选择，复用已启动的监听',
                     await cdp.evaluate(`
-                    window.__e2eFengyao.statusCalls >= 2 &&
+                    window.__e2eFengyao.statusCalls >= 2 && window.__e2eFengyao.startCalls === 1 &&
                     !document.querySelector('[aria-label="封妖提醒"]').classList.contains('off') &&
                     !document.querySelector('[aria-label="停止公告监听"]').disabled
                 `),

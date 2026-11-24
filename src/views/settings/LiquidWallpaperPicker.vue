@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
-import { GlassButton, GlassSearch } from '../../components/liquid-glass';
+import { GlassButton, GlassSearch, GlassSegment, GlassSegmented } from '../../components/liquid-glass';
 import { usePagination } from '../../composables/use-pagination';
 import { loadWallpaperImage, WALLPAPER_CDN } from '../../services/xyq-wallpapers';
+import { useLiquidPreferences, SYSTEM_WALLPAPERS } from '../../composables/use-liquid-preferences';
 import catalog from './xyq-wallpapers.json';
 
 const props = defineProps<{ selected: string; active: boolean }>();
 const emit = defineEmits<{ select: [url: string]; close: [] }>();
+const { appearance, systemWallpaper, selectSystemWallpaper } = useLiquidPreferences();
+const source = ref<'system' | 'online'>(props.selected ? 'online' : 'system');
+function applySystemWallpaper(option: (typeof SYSTEM_WALLPAPERS)[number]) {
+    selectSystemWallpaper(option);
+    emit('close');
+}
 const query = ref('');
 const matches = computed(() => catalog.filter((item) => item.name.includes(query.value.trim())));
 const { page, pages, visible } = usePagination(matches, 6);
@@ -23,10 +30,10 @@ function releasePreviews() {
 }
 onBeforeUnmount(releasePreviews);
 watch(
-    [visible, () => props.active],
+    [visible, () => props.active && source.value === 'online'],
     ([items, active], _, onCleanup) => {
-        if (!active) return;
         releasePreviews();
+        if (!active) return;
         const controller = new AbortController();
         previews.value = {};
         onCleanup(() => controller.abort());
@@ -49,57 +56,81 @@ watch(
 <template>
     <div class="wallpaper-picker">
         <header>
-            <h2>选择官网壁纸</h2>
+            <h2>选择壁纸</h2>
             <GlassButton size="small" variant="plain" @click="emit('close')">关闭</GlassButton>
         </header>
-        <GlassSearch
-            v-model:value="query"
-            class="lg-price-search"
-            aria-label="搜索壁纸名称"
-            placeholder="搜索壁纸名称"
-        />
-        <div v-if="visible.length" class="wallpaper-grid">
-            <button
-                v-for="item in visible"
-                :key="item.image"
-                type="button"
-                class="wallpaper-tile"
-                :aria-pressed="WALLPAPER_CDN + item.image === selected"
-                @click="emit('select', WALLPAPER_CDN + item.image)"
-            >
-                <span class="wallpaper-thumb">
-                    <img v-if="previews[item.thumb]" :src="previews[item.thumb]" alt="" />
-                    <small v-else>{{ previews[item.thumb] === '' ? '暂无预览' : '载入中…' }}</small>
-                </span>
-                <span class="wallpaper-name">{{ item.name }}</span>
-            </button>
-        </div>
-        <p v-else role="status">没有找到匹配的壁纸。</p>
-        <footer v-if="pages > 1">
-            <nav class="wallpaper-pages" aria-label="壁纸分页">
-                <GlassButton
-                    class="lg-inline-action"
-                    size="small"
-                    shape="circle"
-                    aria-label="上一页"
-                    :disabled="page <= 1"
-                    @click="page--"
+        <GlassSegmented v-model:value="source" class="wallpaper-sources" aria-label="壁纸来源">
+            <GlassSegment value="system">系统壁纸</GlassSegment>
+            <GlassSegment value="online">官网壁纸</GlassSegment>
+        </GlassSegmented>
+        <template v-if="source === 'system'">
+            <p class="lg-caption">随浅色和深色主题自动切换。</p>
+            <div class="wallpaper-grid" role="group" aria-label="系统壁纸">
+                <button
+                    v-for="option in SYSTEM_WALLPAPERS"
+                    :key="option.id"
+                    type="button"
+                    class="wallpaper-tile"
+                    :aria-pressed="systemWallpaper?.id === option.id"
+                    @click="applySystemWallpaper(option)"
                 >
-                    <AppIcon name="chevron-left" />
-                </GlassButton>
-                <span aria-live="polite">{{ page }} / {{ pages }}</span>
-                <GlassButton
-                    class="lg-inline-action"
-                    size="small"
-                    shape="circle"
-                    aria-label="下一页"
-                    :disabled="page >= pages"
-                    @click="page++"
+                    <span class="wallpaper-thumb">
+                        <img :src="option.thumbnail[appearance]" alt="" decoding="async" />
+                    </span>
+                    <span class="wallpaper-name">{{ option.name }}</span>
+                </button>
+            </div>
+        </template>
+        <template v-else>
+            <GlassSearch
+                v-model:value="query"
+                class="lg-price-search"
+                aria-label="搜索壁纸名称"
+                placeholder="搜索壁纸名称"
+            />
+            <div v-if="visible.length" class="wallpaper-grid">
+                <button
+                    v-for="item in visible"
+                    :key="item.image"
+                    type="button"
+                    class="wallpaper-tile"
+                    :aria-pressed="WALLPAPER_CDN + item.image === selected"
+                    @click="emit('select', WALLPAPER_CDN + item.image)"
                 >
-                    <AppIcon name="chevron-right" />
-                </GlassButton>
-            </nav>
-        </footer>
+                    <span class="wallpaper-thumb">
+                        <img v-if="previews[item.thumb]" :src="previews[item.thumb]" alt="" />
+                        <small v-else>{{ previews[item.thumb] === '' ? '暂无预览' : '载入中…' }}</small>
+                    </span>
+                    <span class="wallpaper-name">{{ item.name }}</span>
+                </button>
+            </div>
+            <p v-else role="status">没有找到匹配的壁纸。</p>
+            <footer v-if="pages > 1">
+                <nav class="wallpaper-pages" aria-label="壁纸分页">
+                    <GlassButton
+                        class="lg-inline-action"
+                        size="small"
+                        shape="circle"
+                        aria-label="上一页"
+                        :disabled="page <= 1"
+                        @click="page--"
+                    >
+                        <AppIcon name="chevron-left" />
+                    </GlassButton>
+                    <span aria-live="polite">{{ page }} / {{ pages }}</span>
+                    <GlassButton
+                        class="lg-inline-action"
+                        size="small"
+                        shape="circle"
+                        aria-label="下一页"
+                        :disabled="page >= pages"
+                        @click="page++"
+                    >
+                        <AppIcon name="chevron-right" />
+                    </GlassButton>
+                </nav>
+            </footer>
+        </template>
     </div>
 </template>
 
@@ -127,6 +158,9 @@ watch(
 }
 .wallpaper-picker glass-search {
     --glass-search-height: 32px;
+}
+.wallpaper-sources {
+    width: min(168px, 100%);
 }
 .wallpaper-grid {
     display: grid;

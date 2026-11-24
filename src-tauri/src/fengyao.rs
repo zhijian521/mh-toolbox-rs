@@ -83,7 +83,7 @@ pub struct WatchConfig {
 fn validate(config: &WatchConfig) -> Result<(), String> {
     let r = &config.region;
     if config.hwnd <= 0 {
-        return Err("请选择游戏窗口".into());
+        return Err("请选择独立聊天窗口".into());
     }
     if r.width < 80
         || r.height < 25
@@ -92,7 +92,7 @@ fn validate(config: &WatchConfig) -> Result<(), String> {
         || r.x.saturating_add(r.width) > r.frame_width
         || r.y.saturating_add(r.height) > r.frame_height
     {
-        return Err("请在游戏截图中重新框选消息区域".into());
+        return Err("聊天窗口画面尺寸无效，请调整窗口大小后重试".into());
     }
     if config.reminders.is_empty() {
         return Err("请至少开启一种提醒".into());
@@ -290,12 +290,12 @@ pub fn fengyao_capture(hwnd: i64) -> Result<WindowShot, String> {
         let title = crate::screen::list_windows()
             .into_iter()
             .find(|w| w.hwnd == hwnd)
-            .ok_or("游戏窗口已关闭，请刷新列表")?
+            .ok_or("聊天窗口已关闭，请刷新列表")?
             .title;
         let capture = crate::window_capture::WindowCapture::open(hwnd)?;
         let frame = capture.frame()?;
         if frame.is_blank() {
-            return Err("游戏画面全黑，请还原游戏窗口".into());
+            return Err("聊天窗口画面不可见，请还原窗口".into());
         }
         Ok(WindowShot {
             image: crate::window_capture::image_url(&frame),
@@ -392,11 +392,11 @@ fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
                 Err(error) => return Err(error),
             };
             if frame.is_blank() {
-                return Err("捕获画面全黑，暂停读取；请检查游戏或锁屏状态".into());
+                return Err("聊天窗口画面不可见，暂停读取；请还原窗口".into());
             }
             let r = &config.region;
             if frame.width != r.frame_width || frame.height != r.frame_height {
-                return Err("游戏窗口尺寸或缩放已变化，请停止并重新框选消息区域".into());
+                return Err("聊天窗口尺寸或缩放已变化，请停止后重新开始监听".into());
             }
             let mut pixels = Vec::with_capacity((r.width * r.height * 4) as usize);
             for y in r.y..r.y + r.height {

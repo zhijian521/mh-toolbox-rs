@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppNotice from './AppNotice.vue';
 import { ref } from 'vue';
 import { useNotifyState } from '../composables/use-notify';
 
@@ -83,9 +84,7 @@ function onResume(id: number) {
                     @keydown.enter.prevent="dismiss(one.id)"
                     @keydown.space.prevent="dismiss(one.id)"
                 >
-                    <!-- 空心的，不是一个色点：语气是「记号」，实心块会跟朱印抢同一种重量。 -->
-                    <span class="dot" aria-hidden="true"></span>
-                    <span class="text">{{ one.text }}</span>
+                    <AppNotice :tone="one.tone" bare><span class="text">{{ one.text }}</span></AppNotice>
                     <i :key="runs[one.id] ?? 0" class="drain" aria-hidden="true"></i>
                 </div>
             </TransitionGroup>
@@ -157,22 +156,6 @@ function onResume(id: number) {
 .notice:focus-visible {
     outline: var(--ring);
     outline-offset: var(--ring-offset);
-}
-
-/* 正文吃掉剩下的宽度：不 `min-width: 0` 的话，一句长错误会把槽撑到 `max-width` 之外
- * （flex 项默认 `min-width: auto` 按内容宽度算），`overflow-wrap` 也就没有发挥的余地。 */
-.text {
-    min-width: 0;
-}
-
-/* 语气圆印：15px 的环，内壁再描一圈同色 26%——一枚印该有的两道边，不是一块色块。 */
-.dot {
-    flex: none;
-    width: 15px;
-    height: 15px;
-    border-radius: 50%;
-    border: 2px solid var(--notice-tone);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--notice-tone) 26%, transparent);
 }
 
 /* 三档只换颜色，不换结构、不换尺寸。多一套形态就等于多一个「这是哪一类消息」的

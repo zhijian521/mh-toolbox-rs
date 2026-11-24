@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppNotice from '../../components/AppNotice.vue';
 import { computed, ref } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import FormActions from '../../components/FormActions.vue';
@@ -107,12 +108,12 @@ function submit() {
             </div>
 
             <p v-if="whenLine" class="when">{{ whenLine }}</p>
-            <p v-if="matchingAlarm" class="hint">
+            <AppNotice v-if="matchingAlarm" class="hint">
                 {{ matchingAlarm.enabled ? '这一场已开启提醒。' : '这一场的提醒已停用。' }}
-            </p>
+            </AppNotice>
 
-            <p class="hint">应用运行时，开场前 {{ LEAD_MINUTES }} 分钟提醒。</p>
-            <p v-if="note" class="hint warn">{{ note }}</p>
+            <AppNotice class="hint">应用运行时，开场前 {{ LEAD_MINUTES }} 分钟提醒。</AppNotice>
+            <AppNotice v-if="note" class="hint warn" tone="warning">{{ note }}</AppNotice>
         </div>
 
         <template #footer>

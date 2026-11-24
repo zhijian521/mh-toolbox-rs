@@ -940,6 +940,9 @@ export default async function liquidShell({ cdp, t, ui }) {
         !!document.querySelector('${toolList} [data-kind="link"][aria-label="维护公告（浏览器打开）"]')
     `));
 
+    t.check('每个工具入口展示可读的用途说明', await cdp.evaluate(`[...document.querySelectorAll('${toolList} button')].every(button =>
+        !!document.getElementById(button.getAttribute('aria-describedby'))?.textContent.trim())`));
+
     // 点击工具前保留刚设置的滚动位置，避免 CDP 点击助手将按钮滚到中间。
     const directoryTop = await cdp.evaluate(`(() => {
         const pane = document.querySelector('.liquid-content');
@@ -1013,12 +1016,16 @@ export default async function liquidShell({ cdp, t, ui }) {
 
     await openTool('提醒助手', 'fengyao');
     await ui.waitFor("document.querySelectorAll('.fy-type glass-switch:not([disabled])').length === 4");
-    t.check('提醒助手以玻璃卡片显示类型和提醒，校准与识别详情按需打开', await cdp.evaluate(`
-        document.querySelectorAll('.fengyao > glass-surface').length === 2 &&
-        document.querySelectorAll('.fy-type glass-switch').length === 4 &&
-        document.querySelectorAll('.fy-type-button[aria-expanded="false"]').length === 4 &&
-        !!document.querySelector('.fy-status') &&
-        !document.querySelector('.fy-calibration') &&
+    t.check('提醒助手以玻璃卡片显示独立设置、使用说明和提醒', await cdp.evaluate(`
+        document.querySelectorAll('.fy-setup > glass-surface').length === 2 &&
+        document.querySelectorAll('.fy-types > glass-surface.fy-type').length === 4 &&
+        document.querySelectorAll('.fy-maps-toggle[aria-expanded="false"]').length === 1 &&
+        !!document.querySelector('.fy-settings .fy-status') &&
+        !document.querySelector('.fy-settings .app-notice') &&
+        document.querySelector('.fy-guide .app-notice')?.textContent.includes('保持窗口可见') &&
+        !!document.querySelector('glass-surface.fy-guide') &&
+        [...document.querySelectorAll('.fy-type glass-switch')].every(
+            (toggle) => Math.abs(toggle.getBoundingClientRect().width - 56) <= 1) &&
         !document.querySelector('.fy-reading').open
     `));
     await cdp.click(tab('overview'));
@@ -1053,12 +1060,22 @@ export default async function liquidShell({ cdp, t, ui }) {
         await cdp.evaluate(`${atComponents()} &&
             !document.querySelector('.component-catalog input[type=radio]') &&
             !!document.querySelector('.component-catalog .glass-select-trigger') &&
+            !!document.querySelector('.component-catalog .sample-notice') &&
             !!document.querySelector('.component-catalog .glass-input input') &&
             !!document.querySelector('.component-catalog .glass-price-field.compact') &&
+            document.querySelector('.component-catalog .sample-card .price-spark polyline')?.points.numberOfItems === 2 &&
             !!document.querySelector('.component-catalog .sample-card .price-history-trigger') &&
             !!document.querySelector('.component-catalog .gallery > section .glass-empty-state')`),
     );
 
+    await cdp.click('.component-catalog .sample-notice');
+    await ui.waitFor("document.querySelector('.notice-layer')?.textContent.includes('这是一条顶部消息提示。')");
+    t.check('组件示例使用固定的顶部消息层', await cdp.evaluate(`(() => {
+        const layer = document.querySelector('.notice-layer');
+        const rect = layer.getBoundingClientRect();
+        return getComputedStyle(layer).position === 'fixed' && rect.top >= 0 && rect.top < 64 &&
+            Math.abs(rect.left + rect.width / 2 - innerWidth / 2) < 2;
+    })()`));
     t.check('示例复用卡内操作、表单和筛选尺寸，金额保留标准与紧凑两档', await cdp.evaluate(`(() => {
         const gallery = document.querySelector('.component-catalog .gallery');
         const height = selector => gallery.querySelector(selector).getBoundingClientRect().height;
@@ -1073,7 +1090,9 @@ export default async function liquidShell({ cdp, t, ui }) {
 
     t.check('卡片和按钮分别使用清透折射的内容面与操作面', await cdp.evaluate(`
         Number(document.querySelector('.component-catalog .sample-card').getAttribute('refraction')) === 10 &&
-        Number(document.querySelector('.component-catalog .sample-card glass-button').getAttribute('refraction')) === 15`));
+        Number(document.querySelector('.component-catalog .sample-card glass-button').getAttribute('refraction')) === 12 &&
+        Number(document.querySelector('.component-catalog .sample-card').getAttribute('specular')) <
+            Number(document.querySelector('.component-catalog .sample-card glass-button').getAttribute('specular'))`));
 
     const demoPrice = '.component-catalog .glass-price-field:not(.compact)';
     await cdp.click(`${demoPrice} [aria-label="加 10 万"]`);
@@ -1163,11 +1182,17 @@ export default async function liquidShell({ cdp, t, ui }) {
                 label.fontSize === '13.5px' && option.fontSize === '12px';
         })()`),
     );
+    t.check('主题分段的静止高光覆盖选中的一整项', await cdp.evaluate(`(() => {
+        const selected = document.querySelector('.liquid-settings glass-segment[aria-selected="true"]');
+        const item = selected.getBoundingClientRect();
+        const pill = selected.parentElement.shadowRoot.querySelector('[part="indicator"]').getBoundingClientRect();
+        return ['left', 'top', 'width', 'height'].every(key => Math.abs(item[key] - pill[key]) <= 1);
+    })()`));
     t.check('设置页展示外观、数据和关于三张卡，关于提供数据目录和许可入口',
         await cdp.evaluate(`(() => {
             const cards = [...document.querySelectorAll('.liquid-settings-grid .card-heading h2')];
             const about = document.querySelector('.settings-about');
-            return cards.map(el => el.textContent.trim()).join(',') === '外观,数据,关于' &&
+            return cards.map(el => el.textContent.trim()).join(',') === '外观,关于,数据' &&
                 !!about?.querySelector('.about-path')?.textContent.trim() &&
                 [...about.querySelectorAll('.license-links a')].length === 2 &&
                 getComputedStyle(about).fontFamily.includes('MH Toolbox Rounded');
@@ -1175,7 +1200,7 @@ export default async function liquidShell({ cdp, t, ui }) {
     );
     const desktop = await cdp.evaluate("'__TAURI_INTERNALS__' in window");
     t.check('账本操作与当前环境的能力一致', await cdp.evaluate(`(() => {
-        const actions = [...document.querySelectorAll('.liquid-settings-panel:nth-child(2) glass-button')];
+        const actions = [...document.querySelectorAll('.settings-data glass-button')];
         return actions.length === 5 && actions.every(el => el.hasAttribute('disabled') === ${!desktop});
     })()`));
     const dialogs = [['选择壁纸', '.wallpaper-dialog', '.wallpaper-picker']];
@@ -1206,7 +1231,25 @@ export default async function liquidShell({ cdp, t, ui }) {
     const theme = initialTheme === 'light' ? 'dark' : 'light';
     const themeOption = (value) =>
         `.liquid-settings #liquid-theme-label + glass-segmented [value="${value}"]`;
+    const backgroundActions = '.background-actions glass-button';
+    const previewOption = '.wallpaper-picker .wallpaper-tile';
+    const savedWallpaper = await cdp.evaluate("localStorage.getItem('mh-liquid-wallpaper')");
+    async function chooseSystem(name) {
+        await ui.clickText(backgroundActions, '选择壁纸', { exact: true });
+        const trial = '.wallpaper-sources [value="system"]';
+        await ui.waitFor(`!!document.querySelector('${trial}[role="tab"]')`);
+        await cdp.click(trial);
+        await ui.clickText(previewOption, name, { exact: true });
+        await ui.waitFor("!document.querySelector('.wallpaper-picker')");
+    }
+    const backgroundUses = (file) =>
+        `document.querySelector('.liquid-app').style.getPropertyValue('--liquid-wallpaper').includes(${JSON.stringify(file)})`;
     try {
+        await chooseSystem('彩色胶囊');
+        const previewSelected = `document.querySelector('.liquid-app').dataset.wallpaperSource === 'system' &&
+            ${backgroundUses(`blendpills-${initialTheme}`)}`;
+        await ui.waitFor(previewSelected);
+        t.check('点击系统壁纸后选中对应图片并更新应用背景', await cdp.evaluate(previewSelected));
         await cdp.click(themeOption(theme));
         const settingsMaterialMatches = `(() => {
             const panels = [...document.querySelectorAll('.liquid-settings-panel')];
@@ -1216,8 +1259,13 @@ export default async function liquidShell({ cdp, t, ui }) {
         })()`;
         await ui.waitFor(settingsMaterialMatches);
         t.check('切换主题后设置三张卡片的玻璃材质随之更新', await cdp.evaluate(settingsMaterialMatches));
+        t.check('切换主题会应用同组的另一张图片', await cdp.evaluate(backgroundUses(`blendpills-${theme}`)));
+        await ui.clickText(backgroundActions, '恢复默认', { exact: true });
+        t.check('恢复默认后移除系统壁纸', await cdp.evaluate(`!(${backgroundUses('blendpills-')})`));
+        await chooseSystem('玻璃花瓣');
         await ui.reload();
         await ui.waitFor(`!!document.querySelector('.liquid-settings glass-segment[role="tab"]')`);
+        t.check('重新加载后保留选择的系统壁纸', await cdp.evaluate(backgroundUses(`glass-chip-${theme}`)));
         t.check(
             '刷新后恢复主题，设置仅提供一组分段切换，Dock 使用通透材质',
             await cdp.evaluate(`${ready('settings')} &&
@@ -1266,5 +1314,9 @@ export default async function liquidShell({ cdp, t, ui }) {
         await cdp.click(tab('settings'));
         await ui.waitFor(`${ready('settings')} && !!document.querySelector('.liquid-settings glass-segment[role="tab"]')`);
         await cdp.click(themeOption(initialTheme));
+        await cdp.evaluate(savedWallpaper === null
+            ? "localStorage.removeItem('mh-liquid-wallpaper')"
+            : `localStorage.setItem('mh-liquid-wallpaper', ${JSON.stringify(savedWallpaper)})`);
+        await ui.reload();
     }
 }

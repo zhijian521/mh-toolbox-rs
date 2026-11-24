@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppNotice from '../../components/AppNotice.vue';
 import { computed, reactive, ref } from 'vue';
 import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
@@ -176,13 +177,13 @@ function onEnter(event: KeyboardEvent) {
                 @update:model-value="pickRepeat"
             />
             <template v-else>
-                <p class="note alarm-hint">
+                <AppNotice class="note alarm-hint">
                     {{
                         linkedActivity
                             ? activityRuleText(linkedActivity)
                             : '活动规则已更新，请在活动日历重新设置。'
                     }}
-                </p>
+                </AppNotice>
                 <SegmentedPills
                     v-if="activitySlots.length > 1"
                     v-model="draft.time"
@@ -190,13 +191,13 @@ function onEnter(event: KeyboardEvent) {
                     label="提醒哪一场"
                     radius="sm"
                 />
-                <p v-else class="note alarm-hint">
+                <AppNotice v-else class="note alarm-hint">
                     {{
                         linkedActivity?.rule.type === 'hourly'
                             ? '每小时 ' + minuteText(draft.time) + ' 分开场'
                             : draft.time + ' 开场'
                     }}
-                </p>
+                </AppNotice>
                 <p v-if="submitted && !linkedActivity" class="note error">
                     活动场次已更新，请重新选择
                 </p>
@@ -251,9 +252,9 @@ function onEnter(event: KeyboardEvent) {
                 />
             </label>
 
-            <p class="note alarm-hint">应用运行时提前 {{ LEAD_MINUTES }} 分钟提醒。</p>
+            <AppNotice class="note alarm-hint">应用运行时提前 {{ LEAD_MINUTES }} 分钟提醒。</AppNotice>
 
-            <p v-if="error" class="note error alarm-note" role="alert">{{ error }}</p>
+            <AppNotice v-if="error" class="note error alarm-note" role="alert" tone="error">{{ error }}</AppNotice>
         </form>
 
         <template #footer>

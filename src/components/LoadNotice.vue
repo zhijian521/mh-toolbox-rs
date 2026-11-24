@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppNotice from './AppNotice.vue';
 import SlotButton from './SlotButton.vue';
 import { useLoadRecovery } from '../composables/use-load-recovery';
 
@@ -14,7 +15,7 @@ const { loading, failure, canRetry, retryLoad } = useLoadRecovery(
 </script>
 
 <template>
-    <p v-if="error" class="note error" role="alert" :aria-busy="loading">
+    <AppNotice v-if="error" tone="error" class="note error" role="alert" :aria-busy="loading">
         {{ failure || error }}
         <SlotButton
             :text="loading ? '读取中…' : '重新读取'"
@@ -23,5 +24,5 @@ const { loading, failure, canRetry, retryLoad } = useLoadRecovery(
             @click="retryLoad"
         />
         <span v-if="blocked">请先结束编辑或重试保存，再重新读取。</span>
-    </p>
+    </AppNotice>
 </template>

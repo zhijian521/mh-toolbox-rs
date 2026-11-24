@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppNotice from '../components/AppNotice.vue';
 import { computed, onMounted, ref } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 import { hasDesktop, openExternal } from '../services/desktop';
@@ -26,6 +27,7 @@ import catalog from './settings/xyq-wallpapers.json';
 const {
     appearance,
     wallpaper,
+    systemWallpaper,
     activeImage,
     selectedWallpaper,
     loadingWallpaper,
@@ -195,11 +197,15 @@ const LICENSE_URL = 'https://polyformproject.org/licenses/noncommercial/1.0.0';
 
 /* ---------- 外观 ---------- */
 const pickerOpen = ref(false);
-const currentName = computed(
-    () =>
+const wallpaperStatus = computed(() => {
+    if (loadingWallpaper.value) return '正在载入壁纸…';
+    if (systemWallpaper.value) return systemWallpaper.value.name;
+    if (!activeImage.value) return '默认壁纸 · 随主题切换';
+    return (
         catalog.find((item) => WALLPAPER_CDN + item.image === selectedWallpaper.value)?.name ??
-        '官网壁纸',
-);
+        '官网壁纸'
+    );
+});
 
 function applyWallpaper(url: string) {
     pickerOpen.value = false;
@@ -211,57 +217,105 @@ function applyWallpaper(url: string) {
     <section class="liquid-settings" aria-labelledby="liquid-settings-title">
         <h1 id="liquid-settings-title">设置</h1>
         <div class="liquid-settings-grid">
-            <GlassCard class="liquid-settings-panel" :radius="16">
-                <header class="card-heading">
-                    <h2>外观</h2>
-                </header>
-                <div class="liquid-settings-row">
-                    <span id="liquid-theme-label">主题</span>
-                    <GlassSegmented v-model:value="appearance" aria-labelledby="liquid-theme-label">
-                        <GlassSegment value="light">浅色</GlassSegment>
-                        <GlassSegment value="dark">深色</GlassSegment>
-                    </GlassSegmented>
-                </div>
-                <div class="liquid-settings-row background-row">
-                    <div class="background-label">
-                        <img :src="wallpaper" alt="" class="current-wallpaper" />
-                        <div>
-                            <span>应用背景</span>
-                            <small aria-live="polite">{{
-                                loadingWallpaper
-                                    ? '正在载入壁纸…'
-                                    : activeImage
-                                      ? currentName
-                                      : '默认壁纸 · 随主题切换'
-                            }}</small>
+            <div class="settings-stack">
+                <GlassCard class="liquid-settings-panel" :radius="16">
+                    <header class="card-heading">
+                        <h2>外观</h2>
+                    </header>
+                    <div class="liquid-settings-row">
+                        <span id="liquid-theme-label">主题</span>
+                        <GlassSegmented v-model:value="appearance" aria-labelledby="liquid-theme-label">
+                            <GlassSegment value="light">浅色</GlassSegment>
+                            <GlassSegment value="dark">深色</GlassSegment>
+                        </GlassSegmented>
+                    </div>
+                    <div class="liquid-settings-row background-row">
+                        <div class="background-label">
+                            <img :src="wallpaper" alt="" class="current-wallpaper" />
+                            <div>
+                                <span>应用背景</span>
+                                <small aria-live="polite">{{ wallpaperStatus }}</small>
+                            </div>
+                        </div>
+                        <div class="background-actions">
+                            <GlassButton
+                                v-if="systemWallpaper || selectedWallpaper || loadingWallpaper || failedWallpaper"
+                                size="small"
+                                variant="plain"
+                                @click="applyWallpaper('')"
+                                >恢复默认</GlassButton
+                            >
+                            <GlassButton size="small" aria-haspopup="dialog" @click="pickerOpen = true"
+                                >选择壁纸</GlassButton
+                            >
                         </div>
                     </div>
-                    <div class="background-actions">
-                        <GlassButton
-                            v-if="selectedWallpaper || loadingWallpaper || failedWallpaper"
-                            size="small"
-                            variant="plain"
-                            @click="applyWallpaper('')"
-                            >恢复默认</GlassButton
+                    <AppNotice v-if="failedWallpaper" tone="error" role="status">
+                        壁纸未能载入，请检查网络。
+                        <template #action>
+                            <GlassButton size="small" variant="plain" @click="selectWallpaper(failedWallpaper)">重试</GlassButton>
+                        </template>
+                    </AppNotice>
+                </GlassCard>
+                <GlassCard
+                    class="liquid-settings-panel settings-about"
+                    :radius="16"
+                    aria-labelledby="liquid-about-title"
+                >
+                    <header class="card-heading">
+                        <h2 id="liquid-about-title">关于</h2>
+                        <span class="about-version"
+                            >{{ info?.productName ?? '梦幻养老助手' }} · {{ version }}</span
                         >
-                        <GlassButton size="small" aria-haspopup="dialog" @click="pickerOpen = true"
-                            >选择壁纸</GlassButton
+                    </header>
+                    <div class="liquid-settings-row">
+                        <span
+                            class="update-status"
+                            role="status"
+                            :class="{ error: !!updateError, available: update?.status === 'available' }"
+                            >{{ updateMessage }}</span
                         >
+                        <div class="row-actions">
+                            <GlassButton
+                                v-if="update?.status === 'available'"
+                                size="small"
+                                @click="download"
+                                >下载</GlassButton
+                            >
+                            <GlassButton size="small" :disabled="checking" @click="check"
+                                >检查更新</GlassButton
+                            >
+                        </div>
                     </div>
-                </div>
-                <div v-if="failedWallpaper" role="status" class="background-error">
-                    <span>壁纸未能载入，请检查网络。</span>
-                    <GlassButton size="small" variant="plain" @click="selectWallpaper(failedWallpaper)"
-                        >重试</GlassButton
-                    >
-                </div>
-            </GlassCard>
-
-            <GlassCard class="liquid-settings-panel" :radius="16">
+                    <!-- 不折叠：三行清单与外观／数据同构。运行信息只留找账本用得上的
+                         数据目录，字体／标识／数据库／运行环境等一眼不看的信息收掉。 -->
+                    <div class="liquid-settings-row">
+                        <span>数据目录</span>
+                        <code class="about-path">{{ info?.dataDir ?? '%APPDATA%\\mh-tool-rs' }}</code>
+                    </div>
+                    <div class="liquid-settings-row">
+                        <span>使用许可</span>
+                        <div class="row-actions">
+                            <span class="about-license-note"
+                                >PolyForm Noncommercial 1.0.0 · 禁止商业用途 · 非官方工具</span
+                            >
+                            <div class="license-links">
+                                <a :href="REPO_URL" @click.prevent="openExternal(REPO_URL)"
+                                    >项目源码 ↗</a
+                                >
+                                <a :href="LICENSE_URL" @click.prevent="openExternal(LICENSE_URL)"
+                                    >许可证全文 ↗</a
+                                >
+                            </div>
+                        </div>
+                    </div>
+                </GlassCard>
+            </div>
+            <GlassCard class="liquid-settings-panel settings-data" :radius="16">
                 <header class="card-heading">
                     <h2>数据</h2>
                 </header>
-                <p v-if="!desktop" class="card-hint">账本与自动备份只在桌面版可用。</p>
+                <AppNotice v-if="!desktop" class="card-hint">账本与自动备份只在桌面版可用。</AppNotice>
                 <div class="liquid-settings-row">
                     <span>账本</span>
                     <div class="row-actions">
@@ -288,12 +342,12 @@ function applyWallpaper(url: string) {
                         >
                     </div>
                 </div>
-                <p v-if="backupsWarning" role="status" class="receipt error">
+                <AppNotice v-if="backupsWarning" role="status" class="receipt error" tone="error">
                     自动备份未完成：{{ backupsWarning }}
-                </p>
-                <p v-if="backupsError" role="status" class="receipt error">
+                </AppNotice>
+                <AppNotice v-if="backupsError" role="status" class="receipt error" tone="error">
                     备份状态读取失败：{{ backupsError }}
-                </p>
+                </AppNotice>
                 <div class="liquid-settings-row">
                     <span>清除</span>
                     <GlassButton size="small" class="danger-action" :disabled="ledgerDisabled" @click="askClear"
@@ -301,61 +355,8 @@ function applyWallpaper(url: string) {
                     >
                 </div>
                 <div role="status" class="receipts">
-                    <p v-if="message" class="receipt" :class="messageKind">{{ message }}</p>
-                    <p v-if="warning" class="receipt warning">{{ warning }}</p>
-                </div>
-            </GlassCard>
-            <GlassCard
-                class="liquid-settings-panel settings-about"
-                :radius="16"
-                aria-labelledby="liquid-about-title"
-            >
-                <header class="card-heading">
-                    <h2 id="liquid-about-title">关于</h2>
-                    <span class="about-version"
-                        >{{ info?.productName ?? '梦幻养老助手' }} · {{ version }}</span
-                    >
-                </header>
-                <div class="liquid-settings-row">
-                    <span
-                        class="update-status"
-                        role="status"
-                        :class="{ error: !!updateError, available: update?.status === 'available' }"
-                        >{{ updateMessage }}</span
-                    >
-                    <div class="row-actions">
-                        <GlassButton
-                            v-if="update?.status === 'available'"
-                            size="small"
-                            @click="download"
-                            >下载</GlassButton
-                        >
-                        <GlassButton size="small" :disabled="checking" @click="check"
-                            >检查更新</GlassButton
-                        >
-                    </div>
-                </div>
-                <!-- 不折叠：三行清单与外观／数据同构。运行信息只留找账本用得上的
-                     数据目录，字体／标识／数据库／运行环境等一眼不看的信息收掉。 -->
-                <div class="liquid-settings-row">
-                    <span>数据目录</span>
-                    <code class="about-path">{{ info?.dataDir ?? '%APPDATA%\\mh-tool-rs' }}</code>
-                </div>
-                <div class="liquid-settings-row">
-                    <span>使用许可</span>
-                    <div class="row-actions">
-                        <span class="about-license-note"
-                            >PolyForm Noncommercial 1.0.0 · 禁止商业用途 · 非官方工具</span
-                        >
-                        <div class="license-links">
-                            <a :href="REPO_URL" @click.prevent="openExternal(REPO_URL)"
-                                >项目源码 ↗</a
-                            >
-                            <a :href="LICENSE_URL" @click.prevent="openExternal(LICENSE_URL)"
-                                >许可证全文 ↗</a
-                            >
-                        </div>
-                    </div>
+                    <AppNotice v-if="message" class="receipt" :class="messageKind" :tone="messageKind === 'positive' ? 'success' : 'error'">{{ message }}</AppNotice>
+                    <AppNotice v-if="warning" class="receipt warning" tone="warning">{{ warning }}</AppNotice>
                 </div>
             </GlassCard>
         </div>
@@ -364,7 +365,7 @@ function applyWallpaper(url: string) {
             v-model:open="pickerOpen"
             lazy
             class="wallpaper-dialog"
-            label="选择官网壁纸"
+            label="选择壁纸"
             detents="82% large"
         >
             <LiquidWallpaperPicker
@@ -389,18 +390,18 @@ function applyWallpaper(url: string) {
                         >关闭</GlassButton
                     >
                 </header>
-                <p class="card-hint">
+                <AppNotice class="card-hint">
                     日常备份间隔至少 24 小时；日常与替换前备份合计保留最近 5 份，较早的会自动清理；恢复前另存当前账本。
-                </p>
-                <p v-if="backupsWarning" role="alert" class="receipt error">
+                </AppNotice>
+                <AppNotice v-if="backupsWarning" role="alert" class="receipt error" tone="error">
                     自动备份未完成：{{ backupsWarning }}
-                </p>
-                <p v-if="backupsError" role="alert" class="receipt error">{{ backupsError }}</p>
-                <p v-if="messageKind === 'error' && message" role="alert" class="receipt error">
+                </AppNotice>
+                <AppNotice v-if="backupsError" role="alert" class="receipt error" tone="error">{{ backupsError }}</AppNotice>
+                <AppNotice v-if="messageKind === 'error' && message" role="alert" class="receipt error" tone="error">
                     {{ message }}
-                </p>
-                <p v-if="backupsLoading" role="status" class="receipt">正在读取…</p>
-                <p v-else-if="!backups.length && !backupsError" class="receipt">暂无备份</p>
+                </AppNotice>
+                <AppNotice v-if="backupsLoading" role="status" class="receipt">正在读取…</AppNotice>
+                <AppNotice v-else-if="!backups.length && !backupsError" class="receipt">暂无备份</AppNotice>
                 <div v-else class="backup-list">
                     <div v-for="entry in backups" :key="entry.name" class="backup-row">
                         <div class="backup-info">
@@ -445,6 +446,12 @@ function applyWallpaper(url: string) {
     gap: 14px;
 }
 
+.settings-stack {
+    display: grid;
+    min-width: 0;
+    gap: inherit;
+}
+
 .liquid-settings-panel {
     --glass-foreground: var(--liquid-ink);
     --glass-text-shadow: none;
@@ -468,9 +475,6 @@ function applyWallpaper(url: string) {
     margin: 0;
 }
 
-/* 关于与外观／数据共用同一张 GlassCard，也占 grid 的**一列**（不再通栏）：
- * 右边那一格留给后续新增的卡片。卡头的线、行与行的线都由公共规则给，
- * 这张卡自己只剩下面这几条字号／字体／链接的例外。 */
 .about-version {
     font-size: var(--fs-xs);
     color: var(--liquid-muted);
@@ -494,18 +498,8 @@ function applyWallpaper(url: string) {
 }
 
 .liquid-settings-row glass-segmented {
-    --glass-segmented-height: 30px;
-    --glass-segmented-track: light-dark(#d8e8dfbd, #091511bd);
-    --glass-segmented-thumb: light-dark(
-        color-mix(in srgb, var(--glass-tab-selection), #f6fff9 82%),
-        var(--glass-tab-selection)
-    );
-    --glass-segmented-selected: var(--glass-tab-selected);
+    width: 112px;
     letter-spacing: normal;
-}
-
-.liquid-settings-row glass-segment {
-    padding-inline: 10px;
 }
 
 .row-actions,
@@ -546,6 +540,9 @@ function applyWallpaper(url: string) {
     object-fit: cover;
     border: 1px solid var(--liquid-outline);
     border-radius: 7px;
+}
+.background-actions {
+    flex-wrap: wrap;
 }
 .background-error {
     padding-bottom: 8px;

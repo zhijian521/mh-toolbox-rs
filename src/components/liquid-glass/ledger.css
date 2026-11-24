@@ -50,7 +50,7 @@
     --block-pad-tight: 12px;
     --shadow: rgb(15 35 29 / 0.14);
     --ledger-selected: color-mix(in srgb, var(--liquid-focus) 15%, var(--ledger-highlight));
-    --ledger-rim: inset 0 1px 0 var(--ledger-highlight), inset 0 0 0 1px var(--liquid-outline);
+    --ledger-rim: var(--lg-edge-rim);
     --popover-bg: light-dark(#f0f7f3, #263a34);
     --popover-edge: var(--liquid-outline);
     --popover-shadow: var(--lg-dialog-shadow);

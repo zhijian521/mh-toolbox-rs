@@ -247,7 +247,7 @@ function onDockClick(event: MouseEvent) {
 }
 
 const desktop = hasDesktop();
-const { appearance, wallpaper, activeImage } = useLiquidPreferences();
+const { appearance, wallpaper, wallpaperSource } = useLiquidPreferences();
 // 玻璃引擎不会监听应用容器，等主题写入 DOM 后通知它重算材质。
 watch(appearance, () => updateAppearance(), { flush: 'post' });
 </script>
@@ -256,7 +256,7 @@ watch(appearance, () => updateAppearance(), { flush: 'post' });
     <div
         class="liquid-app"
         :data-appearance="appearance"
-        :class="{ 'has-online-wallpaper': activeImage }"
+        :data-wallpaper-source="wallpaperSource"
         :style="{ '--liquid-wallpaper': `url(${wallpaper})` }"
     >
         <TitleBar v-if="desktop" />
@@ -336,7 +336,7 @@ body {
     font: var(--fs-base) / 1.5 var(--font-ui);
 }
 
-.has-online-wallpaper :where(.liquid-header, .liquid-page-pane h1) {
+.liquid-app:is([data-wallpaper-source='system'], [data-wallpaper-source='online']) :where(.liquid-header, .liquid-page-pane h1) {
     text-shadow: 0 1px 2px light-dark(rgb(255 255 255 / 0.8), rgb(0 0 0 / 0.75));
 }
 

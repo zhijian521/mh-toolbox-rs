@@ -40,7 +40,7 @@ interface ToolBase {
     key: string;
     /** 列表上的名字，也是详情页的标题。 */
     name: string;
-    /** 一句话说清它干什么。列表上不显示，只进 `aria-label`。 */
+    /** 一句话说清它干什么。用作玻璃目录的副标题与经典目录的悬停提示。 */
     desc: string;
     icon: IconName;
     /** 决定图标块的底色（`tokens.css` 的 `--tint-工具*`）。 */
@@ -83,7 +83,7 @@ export const TOOLS: ToolEntry[] = [
         key: 'fengyao',
         kind: 'page',
         name: '提醒助手',
-        desc: '按类型监听游戏系统公告并发送桌面提醒',
+        desc: '监听游戏公告，接收桌面提醒',
         path: '/tools/fengyao',
         icon: 'notice',
         group: 'game',
@@ -93,7 +93,7 @@ export const TOOLS: ToolEntry[] = [
         key: 'ghost',
         kind: 'page',
         name: '捉鬼助手',
-        desc: '读任务栏里的假坐标，在地图上画出该往哪找',
+        desc: '根据任务坐标标出搜索范围',
         path: '/tools/ghost',
         icon: 'pin',
         group: 'game',
@@ -103,7 +103,7 @@ export const TOOLS: ToolEntry[] = [
         key: 'growth',
         kind: 'page',
         name: '养成计算器',
-        desc: '等级、技能、修炼、宝石 · 单项计算与角色养成预算',
+        desc: '估算升级、技能与修炼花费',
         path: '/tools/growth',
         icon: 'growth',
         group: 'game',
@@ -113,7 +113,7 @@ export const TOOLS: ToolEntry[] = [
         key: 'alarm',
         kind: 'page',
         name: '闹钟',
-        desc: '到点前五分钟提醒，不在这一页也会弹出来',
+        desc: '设定时间，提前五分钟提醒',
         path: '/tools/alarm',
         icon: 'alarm',
         group: 'daily',
@@ -125,7 +125,7 @@ export const TOOLS: ToolEntry[] = [
         key: 'notice',
         kind: 'link',
         name: '维护公告',
-        desc: '每周二上午例行停机 · 在浏览器里打开官网的每周维护栏目',
+        desc: '在官网查看每周维护安排',
         href: 'https://xyq.163.com/news/update/',
         icon: 'notice',
         group: 'lookup',
@@ -134,7 +134,7 @@ export const TOOLS: ToolEntry[] = [
         key: 'assets',
         kind: 'page',
         name: '游戏资源',
-        desc: '装备、技能与召唤兽头像图鉴，支持跨分类检索和大图预览',
+        desc: '检索装备、技能与召唤兽图鉴',
         path: '/tools/assets',
         icon: 'grid',
         group: 'lookup',
@@ -144,7 +144,7 @@ export const TOOLS: ToolEntry[] = [
         key: 'activities',
         kind: 'page',
         name: '活动日历',
-        desc: '今天有什么、这周哪天忙 · 点一张卡就能加提醒',
+        desc: '查看每日活动，添加开场提醒',
         path: '/tools/activities',
         icon: 'calendar',
         group: 'daily',

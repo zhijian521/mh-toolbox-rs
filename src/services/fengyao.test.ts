@@ -3,7 +3,6 @@ import { commands } from './bindings';
 import {
     activeReminders,
     defaultReminders,
-    parseReminderMaps,
     readFengyaoPreferences,
     saveFengyaoPreferences,
     startSavedFengyao,
@@ -12,15 +11,14 @@ import {
 } from './fengyao';
 
 const key = 'mh-fengyao-preferences';
-const region = { x: 0, y: 330, width: 740, height: 200, frameWidth: 740, frameHeight: 1024 };
+const region = { x: 0, y: 0, width: 740, height: 1024, frameWidth: 740, frameHeight: 1024 };
 const legacy = {
     scenes: ['麒麟山', '蓬莱仙岛'],
     windowTitle: '梦幻西游 聊天窗口',
-    region,
+    region: { ...region, y: 330, height: 200 },
 };
 const preferences: FengyaoPreferences = {
     windowTitle: legacy.windowTitle,
-    region,
     reminders: defaultReminders(legacy.scenes),
 };
 const disabled = { ...preferences, reminders: defaultReminders([]) };
@@ -31,7 +29,7 @@ afterEach(() => {
 });
 
 describe('提醒助手偏好持久化', () => {
-    it('首次没有设置，保存后再次读取还原地图和选区，主动全关也保留', () => {
+    it('保存后还原地图和窗口，主动全关也保留', () => {
         const storage = new Map<string, string>();
         vi.stubGlobal('localStorage', {
             getItem: (name: string) => storage.get(name) ?? null,
@@ -41,11 +39,12 @@ describe('提醒助手偏好持久化', () => {
         expect(saveFengyaoPreferences(preferences)).toBe(true);
         expect(readFengyaoPreferences()).toEqual({ ok: true, value: preferences });
         expect(storage.get(key)).not.toContain('hwnd');
+        expect(storage.get(key)).not.toContain('region');
         expect(saveFengyaoPreferences(disabled)).toBe(true);
         expect(readFengyaoPreferences()).toEqual({ ok: true, value: disabled });
     });
 
-    it('迁移旧设置并保留主动全关，新增类型分别保存自己的地图', () => {
+    it('迁移旧设置时保留封妖地图和各类型开关，忽略旧选区与其他地图限制', () => {
         let raw = JSON.stringify(legacy);
         vi.stubGlobal('localStorage', {
             getItem: () => raw,
@@ -61,25 +60,30 @@ describe('提醒助手偏好持久化', () => {
                 ? {
                       ...setting,
                       enabled: true,
-                      scenes: parseReminderMaps(' 花果山、花果山，长寿郊外 '),
+                      scenes: ['花果山', '长寿郊外'],
                   }
                 : setting,
         );
         expect(saveFengyaoPreferences({ ...preferences, reminders })).toBe(true);
         expect(activeReminders(reminders)).toEqual([
             { kind: 'fengyao', scenes: legacy.scenes },
-            { kind: 'yecha', scenes: ['花果山', '长寿郊外'] },
+            { kind: 'yecha', scenes: [] },
         ]);
         expect(readFengyaoPreferences()).toEqual({
             ok: true,
-            value: { ...preferences, reminders },
+            value: {
+                ...preferences,
+                reminders: reminders.map((setting) =>
+                    setting.kind === 'yecha' ? { ...setting, scenes: [] } : setting,
+                ),
+            },
         });
     });
 
     it.each([
         '{broken',
         JSON.stringify({ ...legacy, scenes: ['麒麟山', null] }),
-        JSON.stringify({ ...preferences, region: { ...preferences.region, x: 1000 } }),
+        JSON.stringify({ ...preferences, windowTitle: null }),
     ])('读取失败保留原设置，暂停覆盖：%s', (raw) => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
         const setItem = vi.fn();
@@ -133,7 +137,9 @@ describe('总览按上次设置启动提醒助手', () => {
     };
 
     function mockSession() {
-        vi.stubGlobal('localStorage', { getItem: () => JSON.stringify(preferences) });
+        vi.stubGlobal('localStorage', {
+            getItem: () => JSON.stringify({ ...preferences, region: legacy.region }),
+        });
         return {
             status: vi.spyOn(commands, 'fengyaoStatus').mockResolvedValue(status),
             windows: vi.spyOn(commands, 'ghostWindows').mockResolvedValue([window]),
@@ -146,7 +152,7 @@ describe('总览按上次设置启动提醒助手', () => {
         };
     }
 
-    it('找回当前窗口句柄，并沿用已保存的场景和选区', async () => {
+    it('找回聊天窗口句柄，沿用地图设置并忽略旧选区', async () => {
         const session = mockSession();
         await expect(startSavedFengyao()).resolves.toBe('started');
         expect(session.capture).toHaveBeenCalledWith(window.hwnd);
@@ -157,11 +163,8 @@ describe('总览按上次设置启动提醒助手', () => {
         });
     });
 
-    it('整窗模式按当前截图尺寸启动，无需保存裁切选区', async () => {
+    it('聊天窗口变更尺寸后按当前整窗尺寸启动', async () => {
         const session = mockSession();
-        vi.stubGlobal('localStorage', {
-            getItem: () => JSON.stringify({ ...preferences, region: null }),
-        });
         session.capture.mockResolvedValue({ ...window, width: 900, height: 700, image: '' });
         await expect(startSavedFengyao()).resolves.toBe('started');
         expect(session.start).toHaveBeenCalledExactlyOnceWith({
@@ -171,7 +174,7 @@ describe('总览按上次设置启动提醒助手', () => {
         });
     });
 
-    it('只开启新类型时按其地图启动，封妖关闭也可以使用', async () => {
+    it('从总览只开启衣冠古丘时忽略旧地图限制', async () => {
         const session = mockSession();
         const reminders = defaultReminders([]).map((setting) =>
             setting.kind === 'yiguan'
@@ -184,7 +187,7 @@ describe('总览按上次设置启动提醒助手', () => {
         await expect(startSavedFengyao()).resolves.toBe('started');
         expect(session.start).toHaveBeenCalledExactlyOnceWith({
             hwnd: window.hwnd,
-            reminders: [{ kind: 'yiguan', scenes: ['大唐国境'] }],
+            reminders: [{ kind: 'yiguan', scenes: [] }],
             region,
         });
     });
@@ -197,18 +200,31 @@ describe('总览按上次设置启动提醒助手', () => {
         expect(session.start).not.toHaveBeenCalled();
     });
 
-    it('匹配多个同名窗口时不抓取，也不启动', async () => {
+    it('窗口列表读取失败时保留原错误，停止启动', async () => {
         const session = mockSession();
-        session.windows.mockResolvedValue([window, { ...window, hwnd: 88 }]);
-        await expect(startSavedFengyao()).rejects.toThrow('多个同名游戏窗口');
+        session.windows.mockRejectedValue(new Error('窗口列表读取失败'));
+        await expect(startSavedFengyao()).rejects.toThrow('窗口列表读取失败');
         expect(session.capture).not.toHaveBeenCalled();
         expect(session.start).not.toHaveBeenCalled();
     });
 
-    it('窗口尺寸变化时要求重新框选', async () => {
+    it('匹配多个同名窗口时不抓取，也不启动', async () => {
         const session = mockSession();
-        session.capture.mockResolvedValue({ ...window, width: 900, image: '' });
-        await expect(startSavedFengyao()).rejects.toThrow('尺寸已变化');
+        session.windows.mockResolvedValue([window, { ...window, hwnd: 88 }]);
+        await expect(startSavedFengyao()).rejects.toThrow('多个同名聊天窗口');
+        expect(session.capture).not.toHaveBeenCalled();
+        expect(session.start).not.toHaveBeenCalled();
+    });
+
+    it('旧偏好指向游戏主窗口时要求重新选择聊天窗口', async () => {
+        const session = mockSession();
+        const game = { ...window, title: '梦幻西游 主窗口' };
+        session.windows.mockResolvedValue([game]);
+        vi.stubGlobal('localStorage', {
+            getItem: () => JSON.stringify({ ...preferences, windowTitle: game.title }),
+        });
+        await expect(startSavedFengyao()).rejects.toThrow('未找到上次使用的独立聊天窗口');
+        expect(session.capture).not.toHaveBeenCalled();
         expect(session.start).not.toHaveBeenCalled();
     });
 
