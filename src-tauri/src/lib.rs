@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 mod fengyao;
+mod speech;
 #[cfg(windows)]
 mod window_capture;
 
@@ -322,6 +323,8 @@ fn command_table() -> tauri_specta::Builder<tauri::Wry> {
             fengyao::fengyao_stop,
             fengyao::fengyao_update,
             fengyao::fengyao_capture,
+            fengyao::fengyao_set_speech,
+            fengyao::fengyao_preview_speech,
             ghost::ghost_windows,
             ghost::ghost_probe,
             ocr_image::ocr_frame,
@@ -370,6 +373,8 @@ fn command_table() -> tauri_specta::Builder<tauri::Wry> {
             fengyao::fengyao_stop,
             fengyao::fengyao_update,
             fengyao::fengyao_capture,
+            fengyao::fengyao_set_speech,
+            fengyao::fengyao_preview_speech,
             backup::data_export,
             backup::data_import,
             backup::data_import_payload,

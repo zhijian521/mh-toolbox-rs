@@ -18,6 +18,7 @@ const legacy = {
     region: { ...region, y: 330, height: 200 },
 };
 const preferences: FengyaoPreferences = {
+    speechEnabled: false,
     windowTitle: legacy.windowTitle,
     reminders: defaultReminders(legacy.scenes),
 };
@@ -80,6 +81,16 @@ describe('提醒助手偏好持久化', () => {
         });
     });
 
+    it('旧四类设置保留原选择，二十八星宿默认关闭', () => {
+        const old = { ...preferences, speechEnabled: true,
+            reminders: preferences.reminders.filter(({ kind }) => kind !== 'stars'),
+        };
+        vi.stubGlobal('localStorage', { getItem: () => JSON.stringify(old) });
+        expect(readFengyaoPreferences()).toEqual({
+            ok: true, value: { ...preferences, speechEnabled: true },
+        });
+    });
+
     it.each([
         '{broken',
         JSON.stringify({ ...legacy, scenes: ['麒麟山', null] }),
@@ -128,6 +139,7 @@ describe('总览按上次设置启动提醒助手', () => {
         baselineReady: false,
         alerts: [],
         notificationError: '',
+        speechError: '',
         rules: {
             sourceUrl: '',
             checkedOn: '',
@@ -154,10 +166,14 @@ describe('总览按上次设置启动提醒助手', () => {
 
     it('找回聊天窗口句柄，沿用地图设置并忽略旧选区', async () => {
         const session = mockSession();
+        vi.stubGlobal('localStorage', {
+            getItem: () => JSON.stringify({ ...preferences, speechEnabled: true, region: legacy.region }),
+        });
         await expect(startSavedFengyao()).resolves.toBe('started');
         expect(session.capture).toHaveBeenCalledWith(window.hwnd);
         expect(session.start).toHaveBeenCalledExactlyOnceWith({
             hwnd: window.hwnd,
+            speechEnabled: true,
             reminders: activeReminders(preferences.reminders),
             region,
         });
@@ -169,6 +185,7 @@ describe('总览按上次设置启动提醒助手', () => {
         await expect(startSavedFengyao()).resolves.toBe('started');
         expect(session.start).toHaveBeenCalledExactlyOnceWith({
             hwnd: window.hwnd,
+            speechEnabled: false,
             reminders: activeReminders(preferences.reminders),
             region: { x: 0, y: 0, width: 900, height: 700, frameWidth: 900, frameHeight: 700 },
         });
@@ -187,6 +204,7 @@ describe('总览按上次设置启动提醒助手', () => {
         await expect(startSavedFengyao()).resolves.toBe('started');
         expect(session.start).toHaveBeenCalledExactlyOnceWith({
             hwnd: window.hwnd,
+            speechEnabled: false,
             reminders: [{ kind: 'yiguan', scenes: [] }],
             region,
         });

@@ -43,7 +43,7 @@ export default async function run(ctx) {
                 window.__e2eFengyao = {
                     invoke, fake, hideChatWindow: false,
                     preference: localStorage.getItem('mh-fengyao-preferences'),
-                    startCalls: 0, stopCalls: 0, statusCalls: 0, updateCalls: 0,
+                    previewCalls: 0, startCalls: 0, stopCalls: 0, statusCalls: 0, updateCalls: 0,
                 };
                 localStorage.setItem('mh-fengyao-preferences', JSON.stringify({
                     scenes: [], windowTitle: '', region: null,
@@ -63,6 +63,14 @@ export default async function run(ctx) {
                     if (cmd === 'fengyao_capture') {
                         return Promise.resolve({ image: '', title: '梦幻西游 聊天窗口',
                             width: 800, height: 600 });
+                    }
+                    if (cmd === 'fengyao_preview_speech') {
+                        window.__e2eFengyao.previewCalls += 1;
+                        return Promise.resolve(null);
+                    }
+                    if (cmd === 'fengyao_set_speech') {
+                        if (fake.config) fake.config.speechEnabled = rest[0].enabled;
+                        return Promise.resolve(null);
                     }
                     if (cmd === 'fengyao_update') {
                         window.__e2eFengyao.updateCalls += 1;
@@ -88,21 +96,26 @@ export default async function run(ctx) {
             try {
                 await cdp.evaluate(`location.hash = '#/tools/fengyao'`);
                 const loaded = await cdp.waitFor(
-                    `document.querySelectorAll('.fy-type').length === 4 &&
+                    `document.querySelectorAll('.fy-type').length === 5 &&
                         !document.querySelector('[aria-label="开始公告监听"]').disabled`,
                     { timeout: 5000 },
                 );
                 t.check(
-                    '四种提醒独立设置，保留旧设置的主动全关',
+                    '五种提醒独立设置，保留旧设置的主动全关',
                     loaded &&
                         (await cdp.evaluate(`
-                    document.querySelectorAll('.fy-settings .fy-types > .fy-type').length === 4 &&
+                    document.querySelectorAll('.fy-settings .fy-types > .fy-type').length === 5 &&
                     document.querySelectorAll('.fy-maps-toggle[aria-expanded="false"]').length === 1 &&
                     [...document.querySelectorAll('.fy-type .cost-switch')].every(s =>
                         s.classList.contains('off')) &&
                     !document.querySelector('[aria-label="开始公告监听"]').disabled
                 `)),
                 );
+                await ui.clickLabel('试听语音提醒');
+                t.check('未监听时也能独立试听', await cdp.evaluate(
+                    'window.__e2eFengyao.previewCalls === 1 && window.__e2eFengyao.startCalls === 0',
+                ));
+                await cdp.click('[aria-label="语音播报"] [role="radio"]:last-child');
                 await ui.clickLabel('开始公告监听');
                 t.check(
                     '未开启类型时提示配置',
@@ -139,8 +152,8 @@ export default async function run(ctx) {
                     '首次直接监听完整聊天窗口，窗口选择框下方显示监听状态',
                     await cdp.evaluate(`
                     (() => {
-                        const { hwnd, region } = window.__e2eFengyao.fake.config ?? {};
-                        return hwnd === 1 && region?.x === 0 && region.y === 0 &&
+                        const { hwnd, region, speechEnabled } = window.__e2eFengyao.fake.config ?? {};
+                        return speechEnabled === true && hwnd === 1 && region?.x === 0 && region.y === 0 &&
                             region.width === 800 && region.height === 600 &&
                             region.frameWidth === 800 && region.frameHeight === 600 &&
                             document.querySelector('.fy-settings .fy-window-control + .fy-status').textContent.includes(

@@ -4,16 +4,20 @@ import {
     type MessageRegion,
     type ReminderFilter,
     type ReminderKind,
-    type WatchConfig,
+    type WatchConfig_Deserialize,
 } from './bindings';
 import { readLocalData, writePreference } from './local-data';
 
 export type { WatchStatus_Serialize as WatchStatus } from './bindings';
 
 export const fengyaoStatus = () => commands.fengyaoStatus();
-export const startFengyao = (config: WatchConfig) => commands.fengyaoStart(config);
+export const startFengyao = (config: WatchConfig_Deserialize) =>
+    commands.fengyaoStart(config);
 export const updateFengyao = (reminders: ReminderFilter[]) => commands.fengyaoUpdate(reminders);
 export const stopFengyao = () => commands.fengyaoStop();
+
+export const setFengyaoSpeech = (enabled: boolean) => commands.fengyaoSetSpeech(enabled);
+export const previewFengyaoSpeech = () => commands.fengyaoPreviewSpeech();
 
 const PREFERENCES_KEY = 'mh-fengyao-preferences';
 
@@ -22,6 +26,7 @@ export const reminderLabels = {
     yaowang: '妖王',
     yecha: '梦魇夜叉',
     yiguan: '衣冠古丘',
+    stars: '二十八星宿',
 } satisfies Record<ReminderKind, string>;
 
 interface ReminderSetting extends ReminderFilter {
@@ -31,6 +36,7 @@ interface ReminderSetting extends ReminderFilter {
 export interface FengyaoPreferences {
     reminders: ReminderSetting[];
     windowTitle: string;
+    speechEnabled: boolean;
 }
 
 export function defaultReminders(scenes?: string[]): ReminderSetting[] {
@@ -63,7 +69,11 @@ function parsePreferences(raw: unknown): FengyaoPreferences {
     if (typeof value.windowTitle !== 'string') throw new TypeError('提醒设置无效');
     const windowTitle = value.windowTitle;
     if (value.reminders === undefined && isSceneList(value.scenes)) {
-        return { windowTitle, reminders: defaultReminders([...new Set(value.scenes)]) };
+        return {
+            windowTitle,
+            reminders: defaultReminders([...new Set(value.scenes)]),
+            speechEnabled: false,
+        };
     }
     if (!Array.isArray(value.reminders)) throw new TypeError('提醒设置无效');
     const reminders = defaultReminders();
@@ -83,8 +93,11 @@ function parsePreferences(raw: unknown): FengyaoPreferences {
         setting.enabled = rawSetting.enabled;
         setting.scenes = setting.kind === 'fengyao' ? [...new Set(rawSetting.scenes)] : [];
     }
-    if (seen.size !== reminders.length) throw new TypeError('提醒设置无效');
-    return { windowTitle, reminders };
+    // 旧版只有前四类，新类型沿用默认关闭。
+    if (reminders.some(({ kind }) => kind !== 'stars' && !seen.has(kind))) {
+        throw new TypeError('提醒设置无效');
+    }
+    return { windowTitle, reminders, speechEnabled: value.speechEnabled === true };
 }
 
 export const readFengyaoPreferences = () => readLocalData(PREFERENCES_KEY, parsePreferences);
@@ -133,6 +146,6 @@ export async function startSavedFengyao() {
     const [{ hwnd }] = matches;
     const region = await readFengyaoFrame(hwnd, preferences.windowTitle);
     if ((await fengyaoStatus()).running) return 'running';
-    await startFengyao({ hwnd, reminders, region });
+    await startFengyao({ hwnd, reminders, region, speechEnabled: preferences.speechEnabled });
     return 'started';
 }

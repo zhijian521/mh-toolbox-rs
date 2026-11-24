@@ -9,6 +9,8 @@ use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
 
+const SPEECH_SOURCE: &str = "reminder-assistant";
+
 #[derive(Clone, Deserialize, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SceneRule {
@@ -52,6 +54,7 @@ pub enum ReminderKind {
     Yaowang,
     Yecha,
     Yiguan,
+    Stars,
 }
 
 impl ReminderKind {
@@ -61,6 +64,7 @@ impl ReminderKind {
             Self::Yaowang => "妖王",
             Self::Yecha => "梦魇夜叉",
             Self::Yiguan => "衣冠古丘",
+            Self::Stars => "二十八星宿",
         }
     }
 }
@@ -76,6 +80,8 @@ pub struct ReminderFilter {
 #[serde(rename_all = "camelCase")]
 pub struct WatchConfig {
     pub hwnd: i64,
+    #[serde(default)]
+    pub speech_enabled: bool,
     pub reminders: Vec<ReminderFilter>,
     pub region: MessageRegion,
 }
@@ -146,6 +152,7 @@ pub struct WatchStatus {
     baseline_ready: bool,
     alerts: Vec<SpawnAlert>,
     notification_error: String,
+    speech_error: String,
     rules: Rules,
 }
 
@@ -163,6 +170,7 @@ impl Default for WatchStatus {
             baseline_ready: false,
             alerts: Vec::new(),
             notification_error: String::new(),
+            speech_error: String::new(),
             rules: rules().clone(),
         }
     }
@@ -209,13 +217,37 @@ fn runtime() -> &'static Mutex<Runtime> {
 #[specta::specta]
 pub fn fengyao_status() -> Result<WatchStatus, String> {
     let state = runtime().lock().map_err(|_| "监听状态不可读，请重启应用")?;
-    Ok(state.status.clone())
+    let mut status = state.status.clone();
+    status.speech_error = crate::speech::error(SPEECH_SOURCE);
+    Ok(status)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn fengyao_preview_speech() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(|| crate::speech::preview(SPEECH_SOURCE, "花果山，发现梦魇夜叉。"))
+        .await
+        .map_err(|e| format!("试听失败：{e}"))?
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn fengyao_set_speech(enabled: bool) -> Result<(), String> {
+    let mut state = runtime().lock().map_err(|_| "监听状态不可读，请重启应用")?;
+    if let Some(config) = state.status.config.as_mut() {
+        config.speech_enabled = enabled;
+    }
+    if !enabled {
+        crate::speech::cancel(SPEECH_SOURCE);
+    }
+    Ok(())
 }
 
 #[tauri::command(async)]
 #[specta::specta]
 pub fn fengyao_stop() -> Result<WatchStatus, String> {
     let mut state = runtime().lock().map_err(|_| "监听状态不可读，请重启应用")?;
+    crate::speech::cancel(SPEECH_SOURCE);
     state.generation += 1;
     state.status.running = false;
     state.seen.clear();
@@ -231,6 +263,7 @@ pub fn fengyao_update(reminders: Vec<ReminderFilter>) -> Result<WatchStatus, Str
         return Err("监听已停止，请重新开始".into());
     }
     state.replace_filters(&reminders)?;
+    crate::speech::cancel(SPEECH_SOURCE);
     if reminders.is_empty() {
         state.generation += 1;
         state.status.running = false;
@@ -255,6 +288,7 @@ pub fn fengyao_start(app: tauri::AppHandle, config: WatchConfig) -> Result<Watch
         let mut state = runtime().lock().map_err(|_| "监听状态不可读，请重启应用")?;
         state.generation += 1;
         let generation = state.generation;
+        crate::speech::cancel(SPEECH_SOURCE);
         state.seen.clear();
         state.status = WatchStatus {
             running: true,
@@ -447,8 +481,17 @@ fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
                         .find(|w| w.hwnd == config.hwnd)
                         .map(|w| w.title)
                         .unwrap_or_default();
+                    if state.status.config.as_ref().is_some_and(|cfg| cfg.speech_enabled) {
+                        for text in spoken_alerts(&alerts) {
+                            crate::speech::announce(SPEECH_SOURCE, text);
+                        }
+                    }
                     for (_, alert) in alerts {
-                        let title = format!("{}提醒 · {}", alert.kind.label(), alert.scene);
+                        let title = if alert.scene.is_empty() {
+                            format!("{}提醒", alert.kind.label())
+                        } else {
+                            format!("{}提醒 · {}", alert.kind.label(), alert.scene)
+                        };
                         let body = match &alert.coordinates {
                             Some(coordinates) => format!("刷新坐标（{coordinates}）"),
                             None => "已读到刷新公告，请到游戏内确认".into(),
@@ -477,6 +520,26 @@ fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
     }
 }
 
+#[cfg(any(windows, test))]
+fn spoken_alerts(alerts: &[(usize, SpawnAlert)]) -> Vec<String> {
+    let mut spoken = Vec::new();
+    for (_, alert) in alerts {
+        let mut text = if alert.scene.is_empty() {
+            format!("{}提醒", alert.kind.label())
+        } else {
+            format!("{}，{}提醒", alert.scene, alert.kind.label())
+        };
+        if let Some(coordinates) = &alert.coordinates {
+            text.push_str(&format!("，坐标{}", coordinates.replace(',', "，")));
+        }
+        text.push('。');
+        if !spoken.contains(&text) {
+            spoken.push(text);
+        }
+    }
+    spoken
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -484,6 +547,7 @@ mod tests {
     fn config() -> WatchConfig {
         WatchConfig {
             hwnd: 1,
+            speech_enabled: false,
             reminders: vec![ReminderFilter {
                 kind: ReminderKind::Fengyao,
                 scenes: vec![],

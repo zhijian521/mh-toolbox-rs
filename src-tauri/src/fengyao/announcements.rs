@@ -53,6 +53,11 @@ pub(super) fn candidates(lines: &[String], filter: &ReminderFilter) -> Vec<Candi
                     add(scene, sender, None);
                 }
             }
+            ReminderKind::Stars => {
+                if let Some(locations) = star_locations(body) {
+                    add(&locations, "星宿现身", None);
+                }
+            }
             ReminderKind::Yiguan => {
                 if let Some((scene, coordinates)) = yiguan(body) {
                     add(scene, &coordinates, Some(coordinates.clone()));
@@ -61,6 +66,39 @@ pub(super) fn candidates(lines: &[String], filter: &ReminderFilter) -> Vec<Candi
         }
     }
     result
+}
+
+fn star_locations(body: &str) -> Option<String> {
+    let (_, announcement) = body
+        .split_once("二十八星宿")
+        .or_else(|| body.split_once("传说中的二十八星"))?;
+    // 战报也会提到星宿。只在结果词之前找到现身动作时才视作刷新公告。
+    let arrival = ["降临", "下凡", "降落", "现身", "云游", "出现", "散落"]
+        .iter()
+        .filter_map(|cue| announcement.find(cue))
+        .min()?;
+    let before_arrival = &body[..body.len() - announcement.len() + arrival];
+    if ["获得", "奖励", "称谓", "击败", "战胜", "击杀"]
+        .iter()
+        .any(|cue| before_arrival.contains(cue))
+    {
+        return None;
+    }
+    // 地点缺字仍提示。只播报原文中读到的地名，多地公告合为一条。
+    let maps = [
+        "傲来国", "蓬莱仙岛", "女儿村", "花果山", "龙宫", "东海湾", "普陀山",
+        "大唐国境", "大唐境外", "大唐官府", "长安城", "建邺城", "长寿村", "长寿郊外",
+        "北俱芦洲", "女娲神迹", "五庄观", "魔王寨", "阴曹地府", "盘丝岭", "墨家村",
+        "狮驼岭", "化生寺", "方寸山", "天宫", "麒麟山", "宝象国", "碗子山",
+        "凤巢一层", "凤巢二层", "龙窟一层", "龙窟二层", "西梁女国", "解阳山",
+        "月宫", "朱紫国", "子母河底", "江南野外",
+    ];
+    let mut found: Vec<_> = maps
+        .iter()
+        .filter_map(|&map| announcement.find(map).map(|i| (i, map)))
+        .collect();
+    found.sort_by_key(|&(index, _)| index);
+    Some(found.into_iter().map(|(_, map)| map).collect::<Vec<_>>().join("、"))
 }
 
 fn ordinary_spawn(body: &str, mut add: impl FnMut(&str, &str)) {
@@ -286,6 +324,26 @@ mod tests {
     }
 
     #[test]
+    fn stars_only_report_new_system_announcements() {
+        let lines = [
+            "[世界]传说中的二十八星宿在花果山现身。",
+            "[系统]传说中的二十八星宿降临花果山、",
+            "龙宫，等待有缘人。",
+            "[系统]少侠击败传说中的二十八星宿，获得奖励。",
+            "[系统]传说中的二十八星宿挑战结束，少侠获得奖励。",
+            "[系统]二十八星宿被击败，新的挑战者现身了。",
+        ].map(String::from);
+        let hits = || candidates(&lines, &filter(ReminderKind::Stars, &[]));
+        assert_eq!(hits().len(), 1);
+        let mut seen = SeenMessages::default();
+        assert!(seen.absorb(Vec::new(), 0).is_empty());
+        let alerts = seen.absorb(hits(), 1);
+        assert_eq!(alerts[0].1.scene, "花果山、龙宫");
+        assert!(seen.absorb(hits(), 2).is_empty());
+        assert_eq!(star_locations("二十八星宿已经下凡"), Some(String::new()));
+    }
+
+    #[test]
     fn matches_wrapped_yecha_announcement_with_missing_character() {
         let lines = [
             "[系统]突然受到一梦8.年的惊扰，一群携带宝贝的梦夜叉跑到了花果山，三界勇士们赶",
@@ -305,6 +363,11 @@ mod tests {
         let alerts = seen.absorb(hits, 2);
         assert_eq!(alerts.len(), 1);
         assert_eq!(alerts[0].1.kind, ReminderKind::Yecha);
+        let speech = super::super::spoken_alerts;
+        assert_eq!(speech(&[alerts.clone(), alerts].concat()), ["花果山，梦魇夜叉提醒。"]);
+        let hits = || candidates(&lines, &filter(ReminderKind::Yecha, &[]));
+        assert!(speech(&seen.absorb(hits(), 3)).is_empty());
+        assert!(speech(&SeenMessages::default().absorb(hits(), 4)).is_empty());
     }
 
     #[test]

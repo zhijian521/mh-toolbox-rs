@@ -21,6 +21,8 @@ import {
     fengyaoStatus,
     listFengyaoWindows,
     reminderLabels,
+    setFengyaoSpeech,
+    previewFengyaoSpeech,
     startFengyao,
     stopFengyao,
     updateFengyao,
@@ -45,12 +47,15 @@ const hwnd = ref('');
 const windowHint = '请选择独立聊天窗口。若列表为空，请先在游戏中弹出聊天窗口，再点击“刷新”。';
 type ReminderSetting = FengyaoPreferences['reminders'][number];
 const reminders = ref(preferences?.reminders ?? defaultReminders());
+const speechEnabled = ref(preferences?.speechEnabled ?? false);
+const previewing = ref(false);
 const mapsOpen = ref(false);
 const reminderDetails = {
     fengyao: '按所选地图提醒封妖公告',
     yaowang: '挖宝触发的妖王刷新',
     yecha: '携宝龙龟刷新',
     yiguan: '墓碑出现公告',
+    stars: '星宿现身公告',
 };
 const status = ref<WatchStatus | null>(null);
 const busy = ref(false);
@@ -75,6 +80,7 @@ const reminderPortraits = {
     yaowang: portraitRoot + 'pet-2087.webp', // 净瓶女娲
     yecha: portraitRoot + 'pet-2107.webp', // 携宝龙龟
     yiguan: portraitRoot + 'pet-2076.webp', // 鬼将
+    stars: portraitRoot + 'pet-2061.webp', // 天兵
 } satisfies Record<ReminderSetting['kind'], string>;
 const stateText = computed(() => {
     if (!desktop) return '请在桌面应用中使用';
@@ -124,6 +130,26 @@ async function changeReminder(
     savePreferences();
 }
 
+async function changeSpeech(enabled: boolean) {
+    await act(async () => {
+        await setFengyaoSpeech(enabled);
+        speechEnabled.value = enabled;
+        savePreferences();
+    });
+}
+
+async function previewSpeech() {
+    if (previewing.value) return;
+    previewing.value = true;
+    try {
+        await previewFengyaoSpeech();
+    } catch (cause) {
+        notify.error(String(cause));
+    } finally {
+        previewing.value = false;
+    }
+}
+
 function toggleScene(setting: ReminderSetting, name: string) {
     return act(() =>
         changeReminder(setting, {
@@ -149,6 +175,7 @@ function savePreferences(saveWindow = false) {
     }
     const saved = saveFengyaoPreferences({
         reminders: reminders.value,
+        speechEnabled: speechEnabled.value,
         windowTitle: pendingWindowTitle.value || stored.value?.windowTitle || windowTitle || '',
     });
     if (saved) pendingWindowTitle.value = '';
@@ -172,7 +199,12 @@ async function toggle() {
         }
         const region = await readFengyaoFrame(selected.hwnd, selected.title);
         if (disposed) return;
-        status.value = await startFengyao({ hwnd: selected.hwnd, reminders: filters, region });
+        status.value = await startFengyao({
+            hwnd: selected.hwnd,
+            reminders: filters,
+            region,
+            speechEnabled: speechEnabled.value,
+        });
         savePreferences(true);
     });
 }
@@ -190,6 +222,7 @@ function acceptStatus(next: WatchStatus) {
         }
     }
     if (!previous?.running && next.running && next.config) {
+        speechEnabled.value = next.config.speechEnabled;
         hwnd.value = String(next.config.hwnd);
         const active = next.config.reminders;
         reminders.value = reminders.value.map((setting) => {
@@ -255,6 +288,9 @@ onBeforeUnmount(() => {
                     />
                 </template>
             </AppNotice>
+            <AppNotice v-if="status?.speechError" tone="error" role="alert">
+                {{ status.speechError }}
+            </AppNotice>
             <AppNotice v-if="status?.notificationError" tone="error" role="alert">
                 {{ status.notificationError }}
             </AppNotice>
@@ -281,7 +317,7 @@ onBeforeUnmount(() => {
                                             {{ timeText(new Date(alert.at)) }}
                                         </time>
                                         <span class="fy-place">
-                                            {{ alert.scene }}
+                                            {{ alert.scene || '查看公告' }}
                                             <small v-if="alert.coordinates">坐标 {{ alert.coordinates }}</small>
                                         </span>
                                         <AppIcon name="chevron-down" aria-hidden="true" />
@@ -350,6 +386,32 @@ onBeforeUnmount(() => {
                         <p class="fy-status" role="status" :class="{ live: running && !statusError && !status?.error }">
                             {{ stateText }}
                         </p>
+                        <div class="fy-speech">
+                            <span>语音播报</span>
+                            <PressButton
+                                :text="previewing ? '试听中' : '试听'"
+                                label="试听语音提醒"
+                                :disabled="!desktop || previewing || busy"
+                                @click="previewSpeech"
+                            />
+                            <GlassSwitch
+                                v-if="glass"
+                                class="fy-type-switch"
+                                :checked="speechEnabled"
+                                aria-label="语音播报"
+                                :disabled="busy || !status"
+                                @update:checked="changeSpeech"
+                            />
+                            <CostSwitch
+                                v-else
+                                :model-value="speechEnabled"
+                                label="语音播报"
+                                off-label="关"
+                                on-label="开"
+                                :disabled="busy || !status"
+                                @update:model-value="changeSpeech"
+                            />
+                        </div>
                         <section class="fy-types" aria-label="提醒类型">
                             <div v-for="setting in reminders" :key="setting.kind" class="fy-type">
                                 <div class="fy-type-row">
@@ -527,6 +589,14 @@ onBeforeUnmount(() => {
     font-size: var(--fs-base);
     font-weight: 400;
     margin: 0;
+}
+.fy-speech {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.fy-speech > span:first-child {
+    margin-inline-end: auto;
 }
 .fy-type-switch {
     zoom: 0.875;

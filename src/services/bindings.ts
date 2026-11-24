@@ -34,10 +34,12 @@ export const commands = {
 	 */
 	notifyAlarm: (title: string, body: string) => __TAURI_INVOKE<null>("notify_alarm", { title, body }),
 	fengyaoStatus: () => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_status"),
-	fengyaoStart: (config: WatchConfig) => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_start", { config }),
+	fengyaoStart: (config: WatchConfig_Deserialize) => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_start", { config }),
 	fengyaoStop: () => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_stop"),
 	fengyaoUpdate: (reminders: ReminderFilter[]) => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_update", { reminders }),
 	fengyaoCapture: (hwnd: number) => __TAURI_INVOKE<WindowShot>("fengyao_capture", { hwnd }),
+	fengyaoSetSpeech: (enabled: boolean) => __TAURI_INVOKE<null>("fengyao_set_speech", { enabled }),
+	fengyaoPreviewSpeech: () => __TAURI_INVOKE<null>("fengyao_preview_speech"),
 	/**
 	 *  列出可见窗口，供前端选择要监听哪一个。
 	 * 
@@ -549,7 +551,7 @@ export type ReminderFilter = {
 	scenes: string[],
 };
 
-export type ReminderKind = "fengyao" | "yaowang" | "yecha" | "yiguan";
+export type ReminderKind = "fengyao" | "yaowang" | "yecha" | "yiguan" | "stars";
 
 /**
  *  关注区域，**按客户区像素**表达，不用归一化比例。
@@ -694,8 +696,18 @@ export type TextLine = {
 
 export type Value = null | boolean | number | string | Value[] | { [key in string]: Value };
 
-export type WatchConfig = {
+export type WatchConfig = WatchConfig_Serialize | WatchConfig_Deserialize;
+
+export type WatchConfig_Deserialize = {
 	hwnd: number,
+	speechEnabled?: boolean,
+	reminders: ReminderFilter[],
+	region: MessageRegion,
+};
+
+export type WatchConfig_Serialize = {
+	hwnd: number,
+	speechEnabled: boolean,
 	reminders: ReminderFilter[],
 	region: MessageRegion,
 };
@@ -704,7 +716,7 @@ export type WatchStatus = WatchStatus_Serialize | WatchStatus_Deserialize;
 
 export type WatchStatus_Deserialize = {
 	running: boolean,
-	config?: WatchConfig | null,
+	config?: WatchConfig_Deserialize | null,
 	title: string,
 	error: string,
 	text: string[],
@@ -714,12 +726,13 @@ export type WatchStatus_Deserialize = {
 	baselineReady: boolean,
 	alerts: SpawnAlert_Deserialize[],
 	notificationError: string,
+	speechError: string,
 	rules: Rules,
 };
 
 export type WatchStatus_Serialize = {
 	running: boolean,
-	config: WatchConfig | null,
+	config: WatchConfig_Serialize | null,
 	title: string,
 	error: string,
 	text: string[],
@@ -729,6 +742,7 @@ export type WatchStatus_Serialize = {
 	baselineReady: boolean,
 	alerts: SpawnAlert_Serialize[],
 	notificationError: string,
+	speechError: string,
 	rules: Rules,
 };
 
