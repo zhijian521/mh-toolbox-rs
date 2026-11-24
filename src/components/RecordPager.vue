@@ -77,17 +77,21 @@ async function pick(page: number, focusCurrent = false) {
 <style scoped>
 .record-pager {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
+    min-width: 0;
     max-width: 100%;
-    margin-right: auto;
+    margin-inline: auto;
+    text-align: center;
     color: var(--muted);
     font-size: var(--fs-mini);
     font-variant-numeric: tabular-nums;
 }
 .record-page-buttons {
     display: flex;
+    justify-content: center;
+    max-width: 100%;
     flex-wrap: wrap;
     align-items: center;
     gap: 4px;

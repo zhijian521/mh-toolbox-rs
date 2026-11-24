@@ -251,7 +251,7 @@ function turnPage(next: number) {
             :key="section.kind"
             class="asset-section"
             :class="{ 'board board-plain': !glass }"
-            :radius="glass ? 20 : undefined"
+            :radius="glass ? 16 : undefined"
             :role="glass ? 'region' : undefined"
             :aria-label="section.title"
         >
@@ -346,7 +346,7 @@ function turnPage(next: number) {
 /* SelectField 默认 flex: 1，图鉴筛选应按自身内容宽度换行。 */
 .asset-bar .asset-kind,
 .asset-bar .asset-filter {
-    flex: 0 1 calc(140px * var(--fs-scale));
+    flex: 0 1 calc(120px * var(--fs-scale));
     min-width: 0;
 }
 .asset-count,
@@ -401,8 +401,8 @@ function turnPage(next: number) {
 }
 .asset-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(88px * var(--fs-scale))), 1fr));
-    gap: 8px 6px;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(80px * var(--fs-scale))), 1fr));
+    gap: 4px 6px;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -418,7 +418,7 @@ function turnPage(next: number) {
     gap: 4px;
     width: 100%;
     height: 100%;
-    padding: 6px 3px;
+    padding: 5px 3px;
     border: 0;
     border-radius: var(--r-2);
     background: transparent;
@@ -446,12 +446,7 @@ function turnPage(next: number) {
     line-height: 1.3;
 }
 .asset-pages {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    margin: 16px 0 0;
+    margin-top: 10px;
 }
 .asset-preview {
     --asset-image-size: min(180px, 45vw);
@@ -477,57 +472,35 @@ function turnPage(next: number) {
 }
 
 .is-glass .asset-bar {
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 18px;
+    gap: 6px 8px;
+    margin-bottom: 10px;
 }
 .asset-search {
     --icon-size: 16px;
-    flex: 0 1 290px;
-    width: min(290px, 100%);
+    flex: 0 1 240px;
+    width: min(240px, 100%);
     color: var(--liquid-muted);
 }
 .asset-search input {
     color: var(--liquid-ink);
 }
-.is-glass .asset-count {
-    padding-block: 6px;
-}
 .is-glass .asset-section {
     display: block;
-    padding: 20px;
-}
-.is-glass .asset-section + .asset-section {
-    margin-top: 16px;
+    padding: 12px 14px;
 }
 .is-glass .asset-head {
     flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 16px;
+    margin-bottom: 8px;
 }
 .is-glass .asset-title {
-    font-size: var(--fs-md);
     font-weight: 400;
 }
 .is-glass .asset-total {
     font-size: var(--fs-xs);
 }
-.is-glass .asset-sub {
-    margin-block: 18px 10px;
-    font-size: var(--fs-sm);
-}
-.is-glass .asset-group:first-of-type .asset-sub {
-    margin-top: 0;
-}
-.is-glass .asset-grid {
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(100px * var(--fs-scale))), 1fr));
-    gap: 10px 8px;
-}
 .is-glass .asset-cell {
-    --asset-image-size: calc(60px * var(--fs-scale));
-    gap: 7px;
-    padding: 12px 6px;
-    border-radius: 14px;
+    --asset-image-size: calc(48px * var(--fs-scale));
+    border-radius: 10px;
 }
 .is-glass .asset-cell:hover {
     background: var(--ledger-highlight);
@@ -539,23 +512,13 @@ function turnPage(next: number) {
 }
 .is-glass .asset-name {
     font-size: var(--fs-xs);
-    line-height: 1.5;
-}
-.is-glass .asset-meta {
-    font-size: var(--fs-mini);
-}
-.is-glass .asset-pages {
-    justify-content: space-between;
-    margin-top: 18px;
-    padding-inline: 4px;
 }
 .asset-preview.is-glass {
-    gap: 24px;
-    padding-top: 8px;
+    gap: 16px;
 }
 .asset-preview.is-glass .asset-details {
-    gap: 12px 20px;
-    padding-top: 18px;
+    gap: 6px 14px;
+    padding-top: 12px;
     border-top: 1px solid var(--liquid-outline);
 }
 </style>

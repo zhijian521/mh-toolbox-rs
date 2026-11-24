@@ -1042,6 +1042,17 @@ export default async function liquidShell({ cdp, t, ui }) {
     t.check('资源页直接展示检索与图鉴，移除顶部说明', await cdp.evaluate(`
         !document.querySelector('.asset-page .tool-context')
     `));
+    t.check('资源页的页码行与分页摘要均对齐图鉴中线', await cdp.evaluate(`(() => {
+        const middle = element => {
+            const rect = element.getBoundingClientRect();
+            return rect.left + rect.width / 2;
+        };
+        const section = document.querySelector('.asset-section');
+        const buttons = document.querySelector('.asset-pages .record-page-buttons');
+        const summary = document.querySelector('.asset-pages .asset-page-info');
+        return buttons && summary && [buttons, summary].every(element =>
+            Math.abs(middle(element) - middle(section)) <= 1);
+    })()`));
     const resourceSearch = '.asset-bar input[aria-label="搜索资源名"]';
     await ui.fillSel(resourceSearch, '__E2E_NO_RESOURCE__');
     await ui.waitFor(`document.querySelector('.asset-void h3')?.textContent === '没有匹配的资源'`);
