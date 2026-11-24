@@ -27,6 +27,7 @@ export const reminderLabels = {
     yecha: '梦魇夜叉',
     yiguan: '衣冠古丘',
     stars: '二十八星宿',
+    nursery: '宝宝幼儿园',
 } satisfies Record<ReminderKind, string>;
 
 interface ReminderSetting extends ReminderFilter {
@@ -94,7 +95,7 @@ function parsePreferences(raw: unknown): FengyaoPreferences {
         setting.scenes = setting.kind === 'fengyao' ? [...new Set(rawSetting.scenes)] : [];
     }
     // 旧版只有前四类，新类型沿用默认关闭。
-    if (reminders.some(({ kind }) => kind !== 'stars' && !seen.has(kind))) {
+    if (reminders.some(({ kind }) => !['stars', 'nursery'].includes(kind) && !seen.has(kind))) {
         throw new TypeError('提醒设置无效');
     }
     return { windowTitle, reminders, speechEnabled: value.speechEnabled === true };

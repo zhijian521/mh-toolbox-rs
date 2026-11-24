@@ -96,15 +96,15 @@ export default async function run(ctx) {
             try {
                 await cdp.evaluate(`location.hash = '#/tools/fengyao'`);
                 const loaded = await cdp.waitFor(
-                    `document.querySelectorAll('.fy-type').length === 5 &&
+                    `document.querySelectorAll('.fy-type').length === 6 &&
                         !document.querySelector('[aria-label="开始公告监听"]').disabled`,
                     { timeout: 5000 },
                 );
                 t.check(
-                    '五种提醒独立设置，保留旧设置的主动全关',
+                    '六种提醒独立设置，保留旧设置的主动全关',
                     loaded &&
                         (await cdp.evaluate(`
-                    document.querySelectorAll('.fy-settings .fy-types > .fy-type').length === 5 &&
+                    document.querySelectorAll('.fy-settings .fy-types > .fy-type').length === 6 &&
                     document.querySelectorAll('.fy-maps-toggle[aria-expanded="false"]').length === 1 &&
                     [...document.querySelectorAll('.fy-type .cost-switch')].every(s =>
                         s.classList.contains('off')) &&

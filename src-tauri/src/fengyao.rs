@@ -55,6 +55,7 @@ pub enum ReminderKind {
     Yecha,
     Yiguan,
     Stars,
+    Nursery,
 }
 
 impl ReminderKind {
@@ -65,6 +66,7 @@ impl ReminderKind {
             Self::Yecha => "梦魇夜叉",
             Self::Yiguan => "衣冠古丘",
             Self::Stars => "二十八星宿",
+            Self::Nursery => "宝宝幼儿园",
         }
     }
 }

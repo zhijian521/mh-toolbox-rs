@@ -53,6 +53,11 @@ pub(super) fn candidates(lines: &[String], filter: &ReminderFilter) -> Vec<Candi
                     add(scene, sender, None);
                 }
             }
+            ReminderKind::Nursery => {
+                if let Some((sender, scene)) = nursery(body) {
+                    add(scene, sender, None);
+                }
+            }
             ReminderKind::Stars => {
                 if let Some(locations) = star_locations(body) {
                     add(&locations, "星宿现身", None);
@@ -66,6 +71,31 @@ pub(super) fn candidates(lines: &[String], filter: &ReminderFilter) -> Vec<Candi
         }
     }
     result
+}
+
+fn nursery(body: &str) -> Option<(&str, &str)> {
+    let (intro, babies) = body.rsplit_once("幼儿园")?;
+    let (actor, _) = ["砸坏", "挖塌", "挖破", "挖坏", "挖垮", "挖倒", "挖到", "挖出"]
+        .iter()
+        .find_map(|cue| intro.split_once(cue))?;
+    let sender = actor.split_once("挖宝").map_or(actor, |(name, _)| name);
+    let sender = sender.trim_end_matches("一不小心").trim_end_matches("不小心");
+    let (_, message) = babies.split_once("宝宝")?;
+    if !["哭闹", "领养", "逃", "跑到"].iter().any(|cue| message.contains(cue)) {
+        return None;
+    }
+    let place = ["跑到了", "跑到", "逃到了", "逃到", "正在", "在"]
+        .iter()
+        .find_map(|cue| message.split_once(cue).map(|(_, rest)| rest));
+    let scene = place.and_then(|rest| {
+        let end = ["哭闹", "等待", "等着", "，", ",", "。", "！", "!", "四处", "到处", "逃窜", "逃跑"]
+            .iter()
+            .filter_map(|cue| rest.find(cue))
+            .min()
+            .unwrap_or(rest.len());
+        map_name(&rest[..end]).filter(|name| name.chars().count() <= 8)
+    });
+    Some((sender, scene.unwrap_or_default()))
 }
 
 fn star_locations(body: &str) -> Option<String> {
@@ -116,7 +146,7 @@ fn ordinary_spawn(body: &str, mut add: impl FnMut(&str, &str)) {
         return;
     };
     let (prefix, body) = body.split_at(cue);
-    if !(body.contains("妖怪") || body.contains("妖魔")) {
+    if body.contains("幼儿园") || !(body.contains("妖怪") || body.contains("妖魔")) {
         return;
     }
     let sender = prefix
@@ -321,6 +351,28 @@ mod tests {
         assert_eq!(tomb[0].coordinates.as_deref(), Some("321,123"));
         assert!(candidates(&lines, &filter(ReminderKind::Yaowang, &["花果山"])).is_empty());
         assert!(candidates(&lines, &filter(ReminderKind::Fengyao, &[])).is_empty());
+    }
+
+    #[test]
+    fn nursery_reports_the_babies_location_once_and_only_from_system_chat() {
+        let lines = [
+            "[系统]长安城的小甲挖宝时砸坏了怪物幼儿园，一群宝宝正在",
+            "建邺城哭闹，各路英雄快来领养！",
+            "[世界]小乙挖宝时砸坏了怪物幼儿园，一群宝宝正在龙宫哭闹。",
+            "[系统]小乙首次挖出怪物幼儿园，达成了成就。",
+        ].map(String::from);
+        let hits = || candidates(&lines, &filter(ReminderKind::Nursery, &[]));
+        assert!(SeenMessages::default().absorb(hits(), 0).is_empty());
+        let mut seen = SeenMessages::default();
+        seen.absorb(Vec::new(), 0);
+        let alerts = seen.absorb(hits(), 1);
+        assert_eq!(alerts.len(), 1);
+        assert_eq!(alerts[0].1.scene, "建邺城");
+        assert_eq!(nursery("小甲不小心挖塌了怪物幼儿园，一群宝宝逃到了花果山！"), Some(("小甲", "花果山")));
+        assert_eq!(nursery("小甲挖塌了怪物幼儿园，宝宝正在到处逃窜！"), Some(("小甲", "")));
+        let ordinary = ["[系统]幼儿园小甲挖塌了妖怪的房子，妖怪正在碗子山四处肆虐！".into()];
+        assert_eq!(candidates(&ordinary, &filter(ReminderKind::Fengyao, &[])).len(), 1);
+        assert!(seen.absorb(hits(), 2).is_empty());
     }
 
     #[test]

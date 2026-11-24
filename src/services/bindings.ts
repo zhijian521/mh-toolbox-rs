@@ -551,7 +551,7 @@ export type ReminderFilter = {
 	scenes: string[],
 };
 
-export type ReminderKind = "fengyao" | "yaowang" | "yecha" | "yiguan" | "stars";
+export type ReminderKind = "fengyao" | "yaowang" | "yecha" | "yiguan" | "stars" | "nursery";
 
 /**
  *  关注区域，**按客户区像素**表达，不用归一化比例。

@@ -56,6 +56,7 @@ const reminderDetails = {
     yecha: '携宝龙龟刷新',
     yiguan: '墓碑出现公告',
     stars: '星宿现身公告',
+    nursery: '挖宝放出的宝宝及所在地图',
 };
 const status = ref<WatchStatus | null>(null);
 const busy = ref(false);
@@ -81,6 +82,7 @@ const reminderPortraits = {
     yecha: portraitRoot + 'pet-2107.webp', // 携宝龙龟
     yiguan: portraitRoot + 'pet-2076.webp', // 鬼将
     stars: portraitRoot + 'pet-2061.webp', // 天兵
+    nursery: portraitRoot + 'pet-2041.webp', // 古代瑞兽
 } satisfies Record<ReminderSetting['kind'], string>;
 const stateText = computed(() => {
     if (!desktop) return '请在桌面应用中使用';

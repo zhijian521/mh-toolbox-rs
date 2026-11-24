@@ -83,12 +83,21 @@ describe('提醒助手偏好持久化', () => {
 
     it('旧四类设置保留原选择，二十八星宿默认关闭', () => {
         const old = { ...preferences, speechEnabled: true,
-            reminders: preferences.reminders.filter(({ kind }) => kind !== 'stars'),
+            reminders: preferences.reminders.filter(({ kind }) => kind !== 'stars' && kind !== 'nursery'),
         };
         vi.stubGlobal('localStorage', { getItem: () => JSON.stringify(old) });
         expect(readFengyaoPreferences()).toEqual({
             ok: true, value: { ...preferences, speechEnabled: true },
         });
+    });
+
+    it('升级五类设置时保留星宿开关，宝宝幼儿园默认关闭', () => {
+        const reminders = preferences.reminders.map((entry) =>
+            entry.kind === 'stars' ? { ...entry, enabled: true } : entry,
+        );
+        const old = { ...preferences, reminders: reminders.filter(({ kind }) => kind !== 'nursery') };
+        vi.stubGlobal('localStorage', { getItem: () => JSON.stringify(old) });
+        expect(readFengyaoPreferences()).toEqual({ ok: true, value: { ...preferences, reminders } });
     });
 
     it.each([

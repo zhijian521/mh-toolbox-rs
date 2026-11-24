@@ -1096,7 +1096,7 @@ export default async function liquidShell({ cdp, t, ui }) {
     await atToolList();
 
     await openTool('提醒助手', 'fengyao');
-    await ui.waitFor("document.querySelectorAll('.fy-type glass-switch:not([disabled])').length === 5");
+    await ui.waitFor("document.querySelectorAll('.fy-type glass-switch:not([disabled])').length === 6");
     t.check('提醒时间线按实际内容宽度并排或堆叠，设置行样式已加载', await cdp.evaluate(`
         (() => {
             const layout = document.querySelector('.fy-layout');
@@ -1109,15 +1109,17 @@ export default async function liquidShell({ cdp, t, ui }) {
                     : settings.top >= history.bottom);
         })()
     `));
-    t.check('提醒助手先显示时间线，再显示集中设置的五种提醒', await cdp.evaluate(`
+    t.check('提醒助手先显示时间线，再显示集中设置的六种提醒', await cdp.evaluate(`
         !!document.querySelector('.fy-layout > glass-surface.fy-history + glass-surface.fy-settings') &&
-        document.querySelectorAll('.fy-settings .fy-type glass-switch').length === 5 &&
+        document.querySelectorAll('.fy-settings .fy-type glass-switch').length === 6 &&
         document.querySelector('[aria-label="二十八星宿提醒"]')?.closest('.fy-type-row')
             ?.querySelector('img')?.src.endsWith('/pet-2061.webp') &&
+        document.querySelector('[aria-label="宝宝幼儿园提醒"]')?.closest('.fy-type-row')
+            ?.querySelector('img')?.src.endsWith('/pet-2041.webp') &&
         !!document.querySelector('.fy-history .fy-reminders, .fy-history .fy-empty-alerts') &&
         document.querySelectorAll('.fy-maps-toggle[aria-expanded="false"]').length === 1 &&
         !!document.querySelector('.fy-settings .fy-window-control + .fy-status[role="status"]') &&
-        new Set([...document.querySelectorAll('.fy-type-row .fy-mark img')].map((img) => img.src)).size === 5 &&
+        new Set([...document.querySelectorAll('.fy-type-row .fy-mark img')].map((img) => img.src)).size === 6 &&
         document.querySelector('.fy-settings .fy-guide')?.textContent.includes('保持窗口可见') &&
         [...document.querySelectorAll('.fy-type glass-switch')].every(
             (toggle) => Math.abs(toggle.getBoundingClientRect().width - 56) <= 1) &&
