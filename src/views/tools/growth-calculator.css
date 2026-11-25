@@ -7,6 +7,9 @@
 .growth-calculator.growth-single {
     max-width: 840px;
 }
+.liquid-tool-detail .growth-calculator {
+    margin-inline: 0;
+}
 .growth-calculator .growth-card {
     --block-pad: 12px;
     min-width: 0;
@@ -52,6 +55,12 @@
 .growth-calculator .growth-input-row .field-label {
     font-size: var(--fs-sm);
     line-height: 1.35;
+}
+.growth-calculator.lg-form-fields .growth-input-row:not(.growth-pick-row) {
+    grid-template-columns: minmax(0, 1fr) 50%;
+}
+.growth-calculator .growth-input-row > .glass-compact-number-field {
+    justify-self: end;
 }
 .growth-calculator .growth-input-row .field.number-field {
     width: 100%;
@@ -116,7 +125,6 @@
     overflow-wrap: anywhere;
     font-variant-numeric: tabular-nums;
 }
-.calc-mode { width: 160px; }
 .calc-directory {
     display: grid;
     gap: 8px;

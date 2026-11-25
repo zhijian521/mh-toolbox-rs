@@ -31,12 +31,18 @@ const groups = TOOL_GROUPS.map((group) => ({
 <template>
     <component
         :is="glass ? LiquidLedgerFrame : PageShell"
-        :class="glass ? 'liquid-tools' : undefined"
+        :class="glass ? 'liquid-tools liquid-tools-directory' : undefined"
         title="工具"
         desc="日常工具 · 游戏资料"
     >
         <div class="tool-blocks">
-            <LedgerSection v-for="group in groups" :key="group.key" :title="group.label" plain>
+            <component
+                :is="glass ? 'section' : LedgerSection"
+                v-for="group in groups"
+                :key="group.key"
+                v-bind="glass ? { 'aria-labelledby': `tool-group-${group.key}` } : { title: group.label, plain: true }"
+            >
+                <h2 v-if="glass" :id="`tool-group-${group.key}`" class="tool-group-title">{{ group.label }}</h2>
                 <ul class="tool-grid">
                     <li v-for="tool in group.tools" :key="tool.key">
                         <button
@@ -48,7 +54,7 @@ const groups = TOOL_GROUPS.map((group) => ({
                             :aria-label="
                                 tool.kind === 'link' ? `${tool.name}（浏览器打开）` : tool.name
                             "
-                            :title="glass ? undefined : tool.desc"
+                            :title="tool.desc"
                             :aria-describedby="glass ? `tool-desc-${tool.key}` : undefined"
                             @click="open(tool)"
                         >
@@ -58,10 +64,8 @@ const groups = TOOL_GROUPS.map((group) => ({
                             <PressTile v-else class="tool-tile">
                                 <AppIcon :name="tool.icon" />
                             </PressTile>
-                            <span class="tool-copy">
-                                <span class="tool-name">{{ tool.name }}</span>
-                                <span v-if="glass" :id="`tool-desc-${tool.key}`" class="tool-desc">{{ tool.desc }}</span>
-                            </span>
+                            <span class="tool-name">{{ tool.name }}</span>
+                            <span v-if="glass" :id="`tool-desc-${tool.key}`" hidden>{{ tool.desc }}</span>
                             <span v-if="glass" class="tool-direction" aria-hidden="true">
                                 <span v-if="tool.kind === 'link'">↗</span>
                                 <AppIcon v-else name="chevron-right" />
@@ -69,7 +73,7 @@ const groups = TOOL_GROUPS.map((group) => ({
                         </button>
                     </li>
                 </ul>
-            </LedgerSection>
+            </component>
         </div>
     </component>
 </template>

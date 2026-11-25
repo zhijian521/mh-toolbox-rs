@@ -2,7 +2,8 @@
 import AppNotice from '../../components/AppNotice.vue';
 import { computed, inject, reactive, ref } from 'vue';
 import { glassLedger } from '../../components/glass-ledger';
-import { GlassButton, GlassSegment, GlassSegmented } from '../../components/liquid-glass';
+import { GlassSegment, GlassSegmented } from '../../components/liquid-glass';
+import GlassMultiSelect from '../../components/liquid-glass/GlassMultiSelect.vue';
 import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import GlassDateField from '../../components/liquid-glass/GlassDateField.vue';
 import GlassInput from '../../components/liquid-glass/GlassInput.vue';
@@ -106,17 +107,12 @@ const REPEAT_OPTIONS: { value: AlarmRepeat; label: string }[] = [
     { value: 'once', label: '仅一次' },
 ];
 
-/* 星期几的多选。`TogglePills` 只吃字符串值，这里与 `draft.weekdays` 的数字编号来回换。 */
+/* 多选组件使用字符串值，账本仍使用 Date.getDay() 的数字编号。 */
 const WEEKDAY_PILLS = WEEKDAY_OPTIONS.map((one) => ({
     value: String(one.value),
     label: one.label,
+    ariaLabel: `星期${one.label}`,
 }));
-
-function toggleWeekday(day: number) {
-    draft.weekdays = draft.weekdays.includes(day)
-        ? draft.weekdays.filter((selected) => selected !== day)
-        : [...draft.weekdays, day];
-}
 
 const weekdaysPicked = computed<string[]>({
     get: () => draft.weekdays.map(String),
@@ -160,12 +156,11 @@ function submit() {
     emit('save', { ...draft, time: alarmTime(draft.repeat, draft.time) as string });
 }
 
-/* 表单里没有 `type="submit"` 的按钮时，隐式提交什么都不做，所以回车要自己接。
- * 只认输入框上的回车：焦点在「保存」上时不能再走一遍。 */
+/* 回车从编辑输入框提交；复选框用空格切换，操作按钮自行处理回车。 */
 function onEnter(event: KeyboardEvent) {
-    if (!(event.target instanceof HTMLInputElement)) return;
+    if (event.isComposing || !(event.target instanceof HTMLInputElement)) return;
     event.preventDefault();
-    submit();
+    if (event.target.type !== 'checkbox') submit();
 }
 </script>
 
@@ -255,20 +250,13 @@ function onEnter(event: KeyboardEvent) {
                 />
 
                 <div v-if="draft.repeat === 'weekly'" class="alarm-row">
-                    <div v-if="glass" class="alarm-weekdays" role="group" aria-label="每周的哪几天">
-                        <GlassButton
-                            v-for="day in WEEKDAY_OPTIONS"
-                            :key="day.value"
-                            size="small"
-                            class="lg-choice-button"
-                            variant="plain"
-                            :aria-label="'星期' + day.label"
-                            :aria-pressed="draft.weekdays.includes(day.value)"
-                            @click="toggleWeekday(day.value)"
-                        >
-                            {{ day.label }}
-                        </GlassButton>
-                    </div>
+                    <GlassMultiSelect
+                        v-if="glass"
+                        v-model="weekdaysPicked"
+                        class="alarm-weekdays"
+                        :options="WEEKDAY_PILLS"
+                        label="每周的哪几天"
+                    />
                     <TogglePills
                         v-else
                         v-model="weekdaysPicked"
@@ -361,6 +349,7 @@ function onEnter(event: KeyboardEvent) {
     display: flex;
     flex-direction: column;
     align-items: center;
+    width: 100%;
     gap: 6px;
 }
 
@@ -394,10 +383,7 @@ function onEnter(event: KeyboardEvent) {
 }
 
 .alarm-weekdays {
-    display: flex;
-    flex-wrap: wrap;
     justify-content: center;
-    gap: 4px;
 }
 .alarm-glass-date {
     width: min(100%, 208px);

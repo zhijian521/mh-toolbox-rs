@@ -17,15 +17,8 @@ import type { IconName } from './components/icons';
  */
 
 /**
- * 工具归三类，列表页**按类别分块**（一块一张 `LedgerSection`，图标块再按类别染色）。
- *
- * **分类只有三个**，且刻意不是「一件工具一类」：淡底的色相分辨力有限，四五类以上
- * 相邻两个就几乎同色，读起来像随机（门派浅染踩过同一条，见 `tokens.css`）。
- * 现在五件工具是「日程两件、资料两件、游戏一件」，正好把三类都占上。
- *
- * **开第四类要同时改三处**：`tokens.css` 补一对色号、下面 `TOOL_GROUPS` 补一项、
- * `ToolsView` 补一条 `[data-group]` 的映射。漏掉最后一处不会报错，只是那一类的块
- * 默认回落纸色——所以 `tools.ts` 里这一句与那一处注释都写着「三处」。
+ * 三类工具共用一份登记表与显示顺序。分类文字提供语义，图标色只辅助辨认；
+ * 调整分类时同步维护经典目录和 `liquid-tools.css` 的图标配色。
  */
 export type ToolGroup = 'daily' | 'lookup' | 'game';
 
@@ -40,7 +33,7 @@ interface ToolBase {
     key: string;
     /** 列表上的名字，也是详情页的标题。 */
     name: string;
-    /** 一句话说清它干什么。用作玻璃目录的副标题与经典目录的悬停提示。 */
+    /** 工具目录的悬停提示。 */
     desc: string;
     icon: IconName;
     /** 决定图标块的底色（`tokens.css` 的 `--tint-工具*`）。 */

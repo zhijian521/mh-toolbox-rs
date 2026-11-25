@@ -14,78 +14,80 @@
     --map-halo: var(--popover-bg);
 }
 
-.liquid-ledger-page.liquid-tools .tool-blocks {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 248px), 1fr));
-    max-width: 1080px;
-    margin-inline: auto;
+.liquid-ledger-page.liquid-tools-directory .tool-blocks {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+    gap: 16px;
+    max-width: none;
 }
 
-.liquid-ledger-page.liquid-tools .tool-grid {
+.liquid-tools-directory .tool-group-title {
+    margin: 0 2px 8px;
+}
+
+.liquid-ledger-page.liquid-tools-directory .tool-grid {
     grid-template-columns: minmax(0, 1fr);
-    gap: 2px;
+    gap: 5px;
     margin: 0;
 }
 
-.liquid-ledger-page.liquid-tools .tool-item {
+.liquid-ledger-page.liquid-tools-directory .tool-item {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 10px;
+    gap: 9px;
     width: 100%;
-    padding: 8px 5px;
-    border-radius: 12px;
+    min-height: 48px;
+    padding: 6px 10px;
+    border: 1px solid var(--liquid-outline);
+    border-radius: 10px;
+    background-color: var(--lg-content-base);
+    box-shadow: var(--lg-edge-rim);
     text-align: start;
     color: var(--liquid-ink);
 }
-.liquid-tools .tool-item[data-group='daily'] {
-    --tool-icon-fill: light-dark(#906a3e, #805f39);
+.liquid-tools-directory .tool-item[data-group='daily'] {
+    --tool-icon-ink: light-dark(#745123, #f1ca90);
 }
-.liquid-tools .tool-item[data-group='lookup'] {
-    --tool-icon-fill: light-dark(#55728b, #4d6780);
+.liquid-tools-directory .tool-item[data-group='lookup'] {
+    --tool-icon-ink: light-dark(#3d5d7c, #bfdbf1);
 }
-.liquid-tools .tool-item[data-group='game'] {
-    --tool-icon-fill: light-dark(#52765f, #496c58);
+.liquid-tools-directory .tool-item[data-group='game'] {
+    --tool-icon-ink: var(--lg-accent);
 }
-.liquid-ledger-page.liquid-tools .tool-symbol {
-    --icon-size: 19px;
+.liquid-tools-directory .tool-symbol {
+    --icon-size: 17px;
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 11px;
-    color: #fff;
-    background-color: var(--tool-icon-fill, #596c67);
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    color: var(--tool-icon-ink, var(--lg-accent));
+    background-color: color-mix(in srgb, currentColor 13%, var(--lg-content-base));
 }
-@media not (prefers-reduced-transparency: reduce) {
-    .liquid-ledger-page.liquid-tools .tool-symbol {
-        background-color: color-mix(in srgb, var(--tool-icon-fill, #596c67) 74%, transparent);
-        backdrop-filter: blur(3px);
-    }
-}
-.liquid-ledger-page.liquid-tools .tool-copy {
-    display: grid;
-    gap: 2px;
-}
-.liquid-ledger-page.liquid-tools .tool-name {
+.liquid-ledger-page.liquid-tools-directory .tool-name {
     width: auto;
     text-align: start;
     font-size: var(--fs-base);
+    overflow-wrap: anywhere;
 }
-.liquid-ledger-page.liquid-tools .tool-desc {
-    color: var(--liquid-muted);
-    font-size: var(--fs-xs);
-    line-height: 1.45;
-}
-.liquid-ledger-page.liquid-tools .tool-direction {
+.liquid-tools-directory .tool-direction {
     --icon-size: 13px;
     display: grid;
     place-items: center;
     width: 16px;
     color: var(--liquid-muted);
 }
-.liquid-ledger-page.liquid-tools .tool-item:focus-visible {
+.liquid-tools-directory .tool-item:focus-visible {
     outline: 2px solid var(--liquid-focus);
     outline-offset: -2px;
+}
+
+.liquid-tool-detail .tool-back {
+    flex: none;
+}
+
+.liquid-tool-detail .liquid-ledger-actions {
+    margin-inline-start: auto;
 }
 
 .liquid-tools.liquid-tool-detail .map-alert span {

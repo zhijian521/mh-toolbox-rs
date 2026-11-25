@@ -101,7 +101,14 @@ useRouteAction('/tools/alarm', { new: openNew });
     >
         <template #actions>
             <!-- 到上限时按钮不置灰：置灰说不出「为什么点不动」。点下去由 `openNew` 说一句。 -->
-            <PressButton icon="add" text="新增" label="新增一个闹钟" :disabled="!!loadError" @click="openNew" />
+            <PressButton
+                icon="add"
+                text="新增"
+                label="新增一个闹钟"
+                :seal="!!glass"
+                :disabled="!!loadError"
+                @click="openNew"
+            />
         </template>
 
         <LoadNotice :error="loadError" :load="retryLoad" />

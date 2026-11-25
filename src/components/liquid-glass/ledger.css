@@ -81,6 +81,16 @@
     flex-wrap: wrap;
     gap: 8px 12px;
 }
+.liquid-ledger-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.liquid-ledger-heading h1 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
 .liquid-ledger-header {
     justify-content: space-between;
     margin-bottom: 12px;

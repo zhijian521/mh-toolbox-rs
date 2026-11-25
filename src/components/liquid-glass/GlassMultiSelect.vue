@@ -2,7 +2,7 @@
 import AppIcon from '../AppIcon.vue';
 
 defineProps<{
-    options: readonly { value: string; label: string; disabled?: boolean }[];
+    options: readonly { value: string; label: string; ariaLabel?: string; disabled?: boolean }[];
     label: string;
     size?: 'compact' | 'standard';
     disabled?: boolean;
@@ -17,6 +17,7 @@ const selected = defineModel<string[]>({ required: true });
                 v-model="selected"
                 type="checkbox"
                 :value="option.value"
+                :aria-label="option.ariaLabel"
                 :disabled="disabled || option.disabled"
             />
             <span class="glass-multi-mark" aria-hidden="true"><AppIcon name="check" /></span>

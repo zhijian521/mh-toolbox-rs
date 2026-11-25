@@ -18,8 +18,17 @@ const glass = inject(glassLedger, null);
         :title="title"
         :desc="desc"
     >
-        <template #actions>
+        <template v-if="glass" #leading>
             <PressButton
+                icon="chevron-left"
+                label="返回工具列表"
+                class="tool-back"
+                @click="router.push('/tools')"
+            />
+        </template>
+        <template v-if="!glass || $slots.actions" #actions>
+            <PressButton
+                v-if="!glass"
                 icon="back"
                 text="返回"
                 label="返回工具列表"

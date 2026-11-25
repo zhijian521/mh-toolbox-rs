@@ -8,8 +8,11 @@ const titleId = useId();
 <template>
     <section class="liquid-ledger liquid-ledger-page" :aria-labelledby="titleId">
         <header class="liquid-ledger-header">
-            <h1 :id="titleId">{{ title }}</h1>
-            <div class="liquid-ledger-actions"><slot name="actions" /></div>
+            <div class="liquid-ledger-heading">
+                <slot name="leading" />
+                <h1 :id="titleId">{{ title }}</h1>
+            </div>
+            <div v-if="$slots.actions" class="liquid-ledger-actions"><slot name="actions" /></div>
         </header>
         <slot />
     </section>

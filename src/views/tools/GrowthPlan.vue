@@ -3,7 +3,7 @@ import { computed, inject, onMounted, ref, watch } from 'vue';
 import { askConfirm } from '../../composables/use-confirm';
 import LedgerSection from '../../components/LedgerSection.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
-import GlassNumberField from '../../components/liquid-glass/GlassNumberField.vue';
+import GlassCompactNumberField from '../../components/liquid-glass/GlassCompactNumberField.vue';
 import NumberField from '../../components/NumberField.vue';
 import SelectField from '../../components/SelectField.vue';
 import { glassLedger } from '../../components/glass-ledger';
@@ -26,7 +26,7 @@ import {
 /** 综合预算只保留本页草稿；切换角色重新取档案，不将试算写回账本。 */
 const props = defineProps<{ costs: LevelCosts; reloadRoster?: () => Promise<void> }>();
 const glass = inject(glassLedger, null);
-const numberControl = glass ? GlassNumberField : NumberField;
+const numberControl = glass ? GlassCompactNumberField : NumberField;
 const selectControl = glass ? GlassSelect : SelectField;
 const surface = glass?.card ?? PaperCard;
 const surfaceProps = glass ? { radius: 16 } : { plain: true };
@@ -194,14 +194,77 @@ watch(
             <SegmentedPills v-else v-model="roleId" :options="options" label="计算角色" wrap />
             <label class="plan-owned">
                 <span>现有经验（点）</span>
-                <component :is="numberControl" v-model="ownedExp" label="现有人物经验（点）" update-on-input />
+                <component
+                    :is="numberControl"
+                    v-model="ownedExp"
+                    label="现有人物经验（点）"
+                    v-bind="glass ? { wide: true } : {}"
+                    update-on-input
+                />
             </label>
             <PressButton text="重置" label="恢复所选角色档案的当前等级" @click="requestReset" />
             <span class="muted">仅试算，不修改角色</span>
+            <p v-if="character && summary.ownedExpError" class="plan-exp-error note error" role="alert">
+                {{ summary.ownedExpError }}
+            </p>
         </component>
-        <p v-if="character && summary.ownedExpError" class="note error" role="alert">{{ summary.ownedExpError }}</p>
         <p v-if="!roster.length" class="record-empty">先在角色页添加角色，即可带入养成数据。</p>
         <div v-if="character" :key="roleId" class="plan-layout growth-layout">
+            <LedgerSection plain class="plan-summary growth-card growth-result-card" title="总消耗">
+                <p v-if="summary.errorCount" class="note error" role="alert">
+                    请先修正 {{ summary.errorCount }} 项输入，暂不汇总。
+                </p>
+                <p v-else-if="!resources.length" class="note">暂无消耗</p>
+                <template v-else>
+                    <div class="growth-amounts plan-totals">
+                        <div v-for="item in costsInPlan" :key="item.key" class="growth-amount">
+                            <span class="muted">{{ item.label }}</span>
+                            <strong class="num">{{ item.value }}</strong>
+                            <small v-if="item.key === 'exp' && ownedExp > 0" class="muted">
+                                还需 {{ count(summary.remainingExp) }} 点
+                            </small>
+                        </div>
+                    </div>
+                    <p
+                        v-if="
+                            summary.total.minRoleLevel >
+                            Math.max(
+                                character.level,
+                                lines.find((one) => one.kind === 'role')?.to ?? 0,
+                            )
+                        "
+                        class="note error"
+                    >
+                        计划人物等级尚未达到修炼要求。
+                    </p>
+                    <details class="plan-breakdown">
+                        <summary>消耗明细</summary>
+                        <div class="plan-breakdown-grid">
+                            <component
+                                :is="surface"
+                                v-for="item in resources"
+                                :key="item.key"
+                                v-bind="surfaceProps"
+                                class="plan-resource"
+                            >
+                                <h3>
+                                    <span>{{ item.label }}</span>
+                                    <span class="num">{{ item.max ? '最高要求 ' : '' }}{{ item.value }}</span>
+                                </h3>
+                                <dl v-if="item.sources.length">
+                                    <template v-for="source in item.sources" :key="source.key">
+                                        <dt>{{ source.name }}</dt>
+                                        <dd class="num">{{ source.value }}</dd>
+                                    </template>
+                                </dl>
+                            </component>
+                        </div>
+                        <p v-if="summary.total.moonDew" class="note">月华露为召唤兽升级的替代途径。</p>
+                        <p v-if="summary.total.rounds100" class="note">宠修按每项每 100 环 760 经验估算。</p>
+                        <p class="note">剧情技能、育兽术暂不计入。</p>
+                    </details>
+                </template>
+            </LedgerSection>
             <div class="plan-groups">
                 <LedgerSection
                     v-for="group in groups"
@@ -262,50 +325,6 @@ watch(
                     />
                 </div>
             </div>
-            <LedgerSection plain class="plan-summary growth-card growth-result-card" title="总消耗">
-                <p v-if="summary.errorCount" class="note error" role="alert">
-                    请先修正 {{ summary.errorCount }} 项输入，暂不汇总。
-                </p>
-                <p v-else-if="!resources.length" class="note">暂无消耗</p>
-                <template v-else>
-                    <div class="growth-amounts plan-totals">
-                        <div v-for="item in costsInPlan" :key="item.key" class="growth-amount">
-                            <span class="muted">{{ item.label }}</span>
-                            <strong class="num">{{ item.value }}</strong>
-                            <small v-if="item.key === 'exp' && ownedExp > 0" class="muted">
-                                还需 {{ count(summary.remainingExp) }} 点
-                            </small>
-                        </div>
-                    </div>
-                    <p
-                        v-if="
-                            summary.total.minRoleLevel >
-                            Math.max(
-                                character.level,
-                                lines.find((one) => one.kind === 'role')?.to ?? 0,
-                            )
-                        "
-                        class="note error"
-                    >
-                        计划人物等级尚未达到修炼要求。
-                    </p>
-                    <details class="plan-breakdown">
-                        <summary>消耗明细</summary>
-                        <section v-for="item in resources" :key="item.key" class="plan-resource">
-                            <h3>{{ item.label }} · {{ item.max ? '最高要求 ' : '' }}{{ item.value }}</h3>
-                            <dl>
-                                <template v-for="source in item.sources" :key="source.key">
-                                    <dt>{{ source.name }}</dt>
-                                    <dd class="num">{{ source.value }}</dd>
-                                </template>
-                            </dl>
-                        </section>
-                        <p v-if="summary.total.moonDew" class="note">月华露为召唤兽升级的替代途径。</p>
-                        <p v-if="summary.total.rounds100" class="note">宠修按每项每 100 环 760 经验估算。</p>
-                        <p class="note">剧情技能、育兽术暂不计入。</p>
-                    </details>
-                </template>
-            </LedgerSection>
         </div>
     </template>
 </template>
@@ -333,6 +352,9 @@ watch(
 }
 .plan-toolbar .muted {
     font-size: var(--fs-xs);
+}
+.plan-exp-error {
+    flex-basis: 100%;
 }
 .plan-groups {
     display: grid;
@@ -369,9 +391,6 @@ watch(
     min-height: calc(32px * var(--fs-scale));
     padding: 4px 0;
 }
-.plan-line .glass-number-field {
-    --number-align: center;
-}
 .plan-line :deep(.field.number-field) {
     width: 100%;
     min-width: 0;
@@ -392,9 +411,10 @@ watch(
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    max-width: 100%;
     font-size: var(--fs-sm);
 }
-.plan-owned > :last-child {
+.plan-owned > .field {
     width: 110px;
     min-width: 0;
 }
@@ -407,20 +427,34 @@ watch(
     padding-block: 5px;
     cursor: pointer;
 }
+.plan-breakdown-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 208px), 1fr));
+    align-items: start;
+    gap: 8px;
+    margin-top: 4px;
+}
 .plan-resource {
-    padding-block: 8px;
-    border-top: 1px solid var(--rule-2);
+    min-width: 0;
+    padding: 8px 10px;
 }
 .plan-resource h3 {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 2px 8px;
     margin: 0;
     font-size: var(--fs-sm);
     font-weight: 400;
+    overflow-wrap: anywhere;
 }
 .plan-resource dl {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 5px 10px;
-    margin: 8px 0 0;
+    grid-template-columns: minmax(0, 1fr) fit-content(52%);
+    gap: 3px 8px;
+    margin: 5px 0 0;
+    font-size: var(--fs-xs);
 }
 .plan-resource dt {
     color: var(--muted);

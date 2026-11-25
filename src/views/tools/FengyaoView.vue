@@ -12,6 +12,7 @@ import AppIcon from '../../components/AppIcon.vue';
 import GlassSmallSwitch from '../../components/liquid-glass/GlassSmallSwitch.vue';
 import { glassLedger } from '../../components/glass-ledger';
 import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
+import GlassMultiSelect from '../../components/liquid-glass/GlassMultiSelect.vue';
 import { hasDesktop } from '../../services/desktop';
 import type { GhostWindow } from '../../services/ghost';
 import {
@@ -49,6 +50,7 @@ const reminders = ref(preferences?.reminders ?? defaultReminders());
 const speechEnabled = ref(preferences?.speechEnabled ?? false);
 const previewing = ref(false);
 const mapsOpen = ref(false);
+const pendingScenes = ref<string[] | null>(null);
 const reminderDetails = {
     fengyao: '按所选地图提醒封妖公告',
     yaowang: '挖宝触发的妖王刷新',
@@ -71,6 +73,9 @@ const windowOptions = computed(() =>
     windows.value.map((w) => ({ value: String(w.hwnd), label: w.title })),
 );
 const sceneRules = computed(() => status.value?.rules.scenes ?? []);
+const sceneOptions = computed(() =>
+    sceneRules.value.map(({ name }) => ({ value: name, label: name })),
+);
 const recentAlerts = computed(() => status.value?.alerts.slice(0, 3) ?? []);
 const alertTextId = useId();
 const openAlertId = ref<string | null>(null);
@@ -151,13 +156,23 @@ async function previewSpeech() {
     }
 }
 
+function pickScenes(setting: ReminderSetting, scenes: string[]) {
+    return act(async () => {
+        pendingScenes.value = scenes;
+        try {
+            await changeReminder(setting, { scenes });
+        } finally {
+            pendingScenes.value = null;
+        }
+    });
+}
+
 function toggleScene(setting: ReminderSetting, name: string) {
-    return act(() =>
-        changeReminder(setting, {
-            scenes: setting.scenes.includes(name)
-                ? setting.scenes.filter((scene) => scene !== name)
-                : [...setting.scenes, name],
-        }),
+    return pickScenes(
+        setting,
+        setting.scenes.includes(name)
+            ? setting.scenes.filter((scene) => scene !== name)
+            : [...setting.scenes, name],
     );
 }
 
@@ -271,6 +286,7 @@ onBeforeUnmount(() => {
                 :icon="running ? 'stop' : 'play'"
                 :text="running ? '停止监听' : '开始监听'"
                 :label="running ? '停止公告监听' : '开始公告监听'"
+                :seal="!!glass && !running"
                 :disabled="busy || !desktop || !status"
                 @click="toggle"
             />
@@ -458,31 +474,43 @@ onBeforeUnmount(() => {
                                         }}
                                         <AppIcon :name="mapsOpen ? 'chevron-down' : 'chevron-right'" />
                                     </button>
-                                    <div
-                                        v-show="mapsOpen"
-                                        id="fy-maps-fengyao"
-                                        class="fy-map-grid"
-                                        role="group"
-                                        aria-label="封妖地图"
-                                    >
-                                        <button
-                                            type="button"
-                                            :aria-pressed="!setting.scenes.length"
-                                            :disabled="busy || !status"
-                                            @click="act(() => changeReminder(setting, { scenes: [] }))"
-                                        >
-                                            全部地图
-                                        </button>
-                                        <button
-                                            v-for="scene in sceneRules"
-                                            :key="scene.name"
-                                            type="button"
-                                            :aria-pressed="setting.scenes.includes(scene.name)"
-                                            :disabled="busy || !status"
-                                            @click="toggleScene(setting, scene.name)"
-                                        >
-                                            {{ scene.name }}
-                                        </button>
+                                    <div v-show="mapsOpen" id="fy-maps-fengyao">
+                                        <div v-if="glass" class="fy-map-picker">
+                                            <GlassMultiSelect
+                                                :model-value="pendingScenes ?? setting.scenes"
+                                                :options="sceneOptions"
+                                                label="封妖地图"
+                                                :disabled="busy || !status"
+                                                @update:model-value="pickScenes(setting, $event)"
+                                            />
+                                            <PressButton
+                                                size="sm"
+                                                text="全部地图"
+                                                label="恢复全部地图"
+                                                :disabled="busy || !status || !setting.scenes.length"
+                                                @click="pickScenes(setting, [])"
+                                            />
+                                        </div>
+                                        <div v-else class="fy-map-grid" role="group" aria-label="封妖地图">
+                                            <button
+                                                type="button"
+                                                :aria-pressed="!setting.scenes.length"
+                                                :disabled="busy || !status"
+                                                @click="pickScenes(setting, [])"
+                                            >
+                                                全部地图
+                                            </button>
+                                            <button
+                                                v-for="scene in sceneRules"
+                                                :key="scene.name"
+                                                type="button"
+                                                :aria-pressed="setting.scenes.includes(scene.name)"
+                                                :disabled="busy || !status"
+                                                @click="toggleScene(setting, scene.name)"
+                                            >
+                                                {{ scene.name }}
+                                            </button>
+                                        </div>
                                     </div>
                                 </template>
                             </div>
@@ -651,6 +679,12 @@ onBeforeUnmount(() => {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 78px), 1fr));
     gap: 4px;
+    margin-top: 6px;
+}
+.fy-map-picker {
+    display: grid;
+    justify-items: start;
+    gap: 6px;
     margin-top: 6px;
 }
 .fy-map-grid button {

@@ -1018,8 +1018,14 @@ export default async function liquidShell({ cdp, t, ui }) {
         !!document.querySelector('${toolList} [data-kind="link"][aria-label="维护公告（浏览器打开）"]')
     `));
 
-    t.check('每个工具入口展示可读的用途说明', await cdp.evaluate(`[...document.querySelectorAll('${toolList} button')].every(button =>
-        !!document.getElementById(button.getAttribute('aria-describedby'))?.textContent.trim())`));
+    t.check('工具目录按类别分组，入口用途可悬停查看或由读屏读取', await cdp.evaluate(`(() => {
+        const groups = [...document.querySelectorAll('.liquid-tools-directory section[aria-labelledby]')];
+        return groups.map(group => document.getElementById(group.getAttribute('aria-labelledby'))?.textContent.trim()).join(',') === '日程,资料,游戏' &&
+            [...document.querySelectorAll('${toolList} button')].every(button => {
+                const description = document.getElementById(button.getAttribute('aria-describedby'));
+                return button.title.trim() && description?.hidden && description.textContent.trim() === button.title;
+            });
+    })()`));
 
     // 点击工具前保留刚设置的滚动位置，避免 CDP 点击助手将按钮滚到中间。
     const directoryTop = await cdp.evaluate(`(() => {
@@ -1100,7 +1106,15 @@ export default async function liquidShell({ cdp, t, ui }) {
                     });
             }) : !!page.querySelector('.alarm-void'));
     })()`));
-    await cdp.click('.liquid-tool-detail [aria-label="新增一个闹钟"]');
+    const alarmAdd = '.liquid-tool-detail [aria-label="新增一个闹钟"]';
+    t.check('详情页头返回在标题左侧，新增闹钟在右侧操作区', await cdp.evaluate(`(() => {
+        const back = document.querySelector('${toolBack}');
+        const add = document.querySelector('${alarmAdd}');
+        const title = back?.parentElement.querySelector('h1');
+        return !!title && back.getBoundingClientRect().right <= title.getBoundingClientRect().left + 1 &&
+            !!add?.closest('.liquid-ledger-actions') && add.getAttribute('variant') === 'prominent';
+    })()`));
+    await cdp.click(alarmAdd);
     await waitToolDialog('.alarm-form');
     t.check('闹钟支持四类重复方式和提前五分钟', await cdp.evaluate(`
         document.querySelectorAll('${toolDialog} glass-segmented[aria-label="重复方式"] glass-segment').length === 4 &&
@@ -1108,16 +1122,42 @@ export default async function liquidShell({ cdp, t, ui }) {
         document.querySelector('${toolDialog} .alarm-hint').textContent.includes('提前 5 分钟提醒')
     `));
     await ui.clickText(`${toolDialog} glass-segment`, '每周', { exact: true });
-    const monday = `${toolDialog} .alarm-weekdays [aria-label="星期一"]`;
-    await ui.waitFor(`document.querySelector('${monday}')?.getAttribute('aria-pressed') === 'true'`);
+    const weekdays = `${toolDialog} .alarm-weekdays.glass-multi-select`;
+    const mondayInput = `${weekdays} input[aria-label="星期一"]`;
+    const monday = `${weekdays} .glass-multi-option:has(input[aria-label="星期一"])`;
+    await ui.waitFor(`document.querySelector('${mondayInput}')?.checked === true`);
+    t.check('星期选项各行居中，控件不超出弹窗内容区', await cdp.evaluate(`(() => {
+        const group = document.querySelector('${weekdays}');
+        const bounds = group.getBoundingClientRect();
+        const parent = group.parentElement.getBoundingClientRect();
+        const rows = new Map();
+        for (const option of group.querySelectorAll('.glass-multi-option')) {
+            const rect = option.getBoundingClientRect();
+            const row = Math.round(rect.top);
+            const [left, right] = rows.get(row) ?? [rect.left, rect.right];
+            rows.set(row, [Math.min(left, rect.left), Math.max(right, rect.right)]);
+        }
+        return rows.size > 0 && bounds.left >= parent.left - 1 && bounds.right <= parent.right + 1 &&
+            [...rows.values()].every(([left, right]) => left >= bounds.left - 1 && right <= bounds.right + 1 &&
+                Math.abs(left + right - bounds.left - bounds.right) <= 2);
+    })()`));
     const weekdayFill = () => cdp.evaluate(`getComputedStyle(document.querySelector('${monday}')).backgroundColor`);
     const defaultFill = await weekdayFill();
     await cdp.click(monday);
-    await ui.waitFor(`document.querySelector('${monday}').getAttribute('aria-pressed') === 'false'`);
+    await ui.waitFor(`document.querySelector('${mondayInput}')?.checked === false`);
     const clearedFill = await weekdayFill();
+    t.check('取消星期一不影响其他已选日期', await cdp.evaluate(`
+        document.querySelector('${weekdays} input[aria-label="星期二"]')?.checked === true &&
+        document.querySelector('${weekdays} input[aria-label="星期日"]')?.checked === false
+    `));
     await cdp.click(monday);
-    await ui.waitFor(`document.querySelector('${monday}').getAttribute('aria-pressed') === 'true'`);
+    await ui.waitFor(`document.querySelector('${mondayInput}')?.checked === true`);
     t.check('每周默认与重新选中的底色一致', defaultFill !== clearedFill && await weekdayFill() === defaultFill);
+    await cdp.evaluate(`document.querySelector('${mondayInput}').focus()`);
+    await cdp.key('Enter');
+    t.check('星期复选框上的回车不提交闹钟', await cdp.evaluate(`
+        document.querySelector('${mondayInput}')?.checked === true
+    `));
     await ui.fillSel(`${toolDialog} input[aria-label="备注"]`, '未保存的闹钟备注');
     await cdp.click(`${toolDialog} [data-modal-close]`);
     const alarmDiscard = '.glass-dialog[open]:has(.glass-confirm)';
@@ -1178,31 +1218,72 @@ export default async function liquidShell({ cdp, t, ui }) {
     t.check('人物单项保留转门派和经验换算等级', await cdp.evaluate(`
         ['menpai', 'expGrade'].every(key => document.querySelector('${projects} glass-segment[value="' + key + '"]'))
     `));
+    await cdp.click(`${projects} glass-segment[value="expGrade"]`);
+    t.check('单项计算给长经验值留出更宽的输入空间', await cdp.evaluate(`(() => {
+        const level = document.querySelector('.calc-fields input[aria-label="当前等级"]');
+        const experience = document.querySelector('.calc-fields input[aria-label="手上经验"]');
+        return level?.closest('.glass-compact-number-field') && experience?.closest('.glass-compact-number-field') &&
+            experience.getBoundingClientRect().width > level.getBoundingClientRect().width &&
+            getComputedStyle(level).textAlign === 'center' && getComputedStyle(experience).textAlign === 'end';
+    })()`));
     await ui.clickText('.calc-directory [aria-label="计算类别"] glass-segment', '技能', { exact: true });
     t.check('养成项目按类别显示并同步输入和结果', await cdp.evaluate(`
         document.querySelector('${projects} glass-segment[aria-selected="true"]')?.textContent.trim() === '师门技能' &&
-        !!document.querySelector('.calc-fields .glass-number-field input[inputmode="numeric"]') &&
+        document.querySelectorAll('.calc-fields .glass-compact-number-field input[inputmode="numeric"]').length === 2 &&
         document.querySelector('.calc-panel .section-head h2').textContent.includes('师门技能') &&
         !!document.querySelector('.calc-panel .growth-result-card')
     `));
-    const plan = '.liquid-tool-detail [aria-label="计算方式"] glass-segment[value="plan"]';
+    const mode = '.liquid-tool-detail glass-segmented[aria-label="计算方式"]';
+    const plan = `${mode} glass-segment[value="plan"]`;
     await ui.waitFor(`!!document.querySelector('${plan}')`);
+    t.check('两种计算模式同排且标签不换行', await cdp.evaluate(`(() => {
+        const control = document.querySelector('${mode}');
+        const bounds = control.getBoundingClientRect();
+        const options = [...control.querySelectorAll('glass-segment')];
+        return options.length === 2 && options.every(option => {
+            const rect = option.getBoundingClientRect();
+            const range = document.createRange();
+            range.selectNodeContents(option);
+            const [text, ...extraLines] = range.getClientRects();
+            return text && extraLines.length === 0 && text.left >= rect.left - 1 && text.right <= rect.right + 1 &&
+                text.top >= rect.top - 1 && text.bottom <= rect.bottom + 1 &&
+                rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1 &&
+                Math.abs(rect.top - options[0].getBoundingClientRect().top) <= 1;
+        });
+    })()`));
     await cdp.click(plan);
     await ui.waitFor(`!document.querySelector('.liquid-tool-detail .record-empty[role="status"]') &&
         !!document.querySelector('.liquid-tool-detail .plan-toolbar, .liquid-tool-detail .record-empty, .liquid-tool-detail [role="alert"]')`);
     if (await cdp.evaluate("!!document.querySelector('.plan-toolbar')")) {
-        t.check('总消耗位于编辑区末尾', await cdp.evaluate(`
-            document.querySelector('.plan-groups + .plan-summary:last-child .section-head h2')?.textContent.trim() === '总消耗'
+        t.check('总消耗紧跟角色选择并位于计算项目之前', await cdp.evaluate(`
+            document.querySelector('.plan-toolbar + .plan-layout > .plan-summary:first-child:has(+ .plan-groups) .section-head h2')
+                ?.textContent.trim() === '总消耗'
         `));
+        t.check('综合计算的当前和目标两列共用小数字框', await cdp.evaluate(`(() => {
+            const row = document.querySelector('.plan-line');
+            const fields = [...(row?.querySelectorAll('.glass-compact-number-field') ?? [])];
+            return fields.length === 2 && fields.every(field =>
+                field.getBoundingClientRect().right <= row.getBoundingClientRect().right + 1) &&
+                !!document.querySelector('.plan-owned .glass-compact-number-field.is-wide input');
+        })()`));
         if (await cdp.evaluate("!!document.querySelector('.plan-summary') && !document.querySelector('.plan-summary [role=alert]')")) {
             await ui.fillSel('.plan-groups input[aria-label="人物等级当前"]', '69');
             await ui.fillSel('.plan-groups input[aria-label="人物等级目标"]', '70');
-            await ui.waitFor("!!document.querySelector('.plan-totals .growth-amount')");
+            await ui.fillSel('.plan-groups input[aria-label="乾元丹当前"]', '0');
+            await ui.fillSel('.plan-groups input[aria-label="乾元丹目标"]', '1');
             const breakdown = '.plan-summary .plan-breakdown';
-            t.check('试算后消耗明细默认收起', await cdp.evaluate(`!document.querySelector('${breakdown}').open`));
+            t.check('试算后消耗明细默认收起', await ui.waitFor(`document.querySelector('${breakdown}')?.open === false`));
             await cdp.click(`${breakdown} > summary`);
-            await ui.waitFor(`document.querySelector('${breakdown}').open &&
-                [...document.querySelectorAll('${breakdown} dt')].some(row => row.textContent === '人物等级 69 → 70')`);
+            t.check('消耗明细分卡显示人物经验、梦幻币及对应来源', await ui.waitFor(`(() => {
+                const details = document.querySelector('${breakdown}');
+                if (!details?.open) return false;
+                const cards = [...details.querySelectorAll('.plan-breakdown-grid > .plan-resource')];
+                const hasSource = (label, name) => cards.some(card =>
+                    card.querySelector('h3 > span')?.textContent.trim() === label &&
+                    [...card.querySelectorAll('dt')].some(row => row.textContent === name)
+                );
+                return hasSource('人物经验', '人物等级 69 → 70') && hasSource('梦幻币', '乾元丹 0 → 1');
+            })()`));
         }
         t.check('角色综合预算只提供辅助技能扩展入口', await cdp.evaluate(`(() => {
             const groups = document.querySelector('.plan-groups');
@@ -1269,6 +1350,19 @@ export default async function liquidShell({ cdp, t, ui }) {
             }) &&
         !document.querySelector('.fy-history .fy-reading').open
     `));
+    const mapsToggle = '.fy-maps-toggle';
+    const mapChoices = '#fy-maps-fengyao .glass-multi-select[aria-label="封妖地图"]';
+    await cdp.click(mapsToggle);
+    t.check('封妖地图展开后用独立复选项显示监听规则所列地图', await cdp.evaluate(`(async () => {
+        const status = await window.__TAURI_INTERNALS__.invoke('fengyao_status');
+        const groups = document.querySelector('${mapChoices}');
+        const choices = [...(groups?.querySelectorAll('input[type="checkbox"]') ?? [])];
+        return document.querySelector('${mapsToggle}').getAttribute('aria-expanded') === 'true' &&
+            !!groups?.getClientRects().length && choices.length > 0 &&
+            JSON.stringify(choices.map(choice => choice.value)) === JSON.stringify(status.rules.scenes.map(scene => scene.name)) &&
+            !!document.querySelector('#fy-maps-fengyao [aria-label="恢复全部地图"]');
+    })()`));
+    await cdp.click(mapsToggle);
     await cdp.click(tab('overview'));
     const overviewFengyao = '.liquid-overview .workbench-actions glass-button';
     const fengyaoAction = await cdp.evaluate(`(async () => {

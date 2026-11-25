@@ -2,7 +2,7 @@
 import { computed, defineAsyncComponent, inject, onMounted, reactive, ref, watch } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
-import GlassNumberField from '../../components/liquid-glass/GlassNumberField.vue';
+import GlassCompactNumberField from '../../components/liquid-glass/GlassCompactNumberField.vue';
 import NumberField from '../../components/NumberField.vue';
 import ToolPageShell from './ToolPageShell.vue';
 import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
@@ -44,7 +44,7 @@ watch(
     { once: true },
 );
 const glass = inject(glassLedger, null);
-const numberControl = glass ? GlassNumberField : NumberField;
+const numberControl = glass ? GlassCompactNumberField : NumberField;
 const selectControl = glass ? GlassSelect : SelectField;
 const surface = glass?.card ?? PaperCard;
 const surfaceProps = glass ? { radius: 16 } : { plain: true };
@@ -204,6 +204,10 @@ const active = ref<CalcKey>('role');
 const activeType = computed(() => TYPES.find((one) => one.key === active.value) ?? TYPES[0]);
 const current = computed(() => form[active.value]);
 const labels = computed(() => FIELD_LABELS[active.value]);
+const secondFieldProps = computed(() => {
+    if (!glass) return {};
+    return { wide: active.value === 'expGrade' || active.value === 'menpai' };
+});
 
 const categories = [...new Set(TYPES.map((item) => item.tag))].map((tag) => ({
     value: tag,
@@ -500,7 +504,7 @@ const outcome = computed<Outcome>(() => {
 <template>
     <ToolPageShell title="养成计算器" desc="单项计算 · 角色预算">
         <template v-if="costs" #actions>
-            <GlassSegmented v-if="glass" v-model:value="mode" class="calc-mode lg-equal-pair" aria-label="计算方式">
+            <GlassSegmented v-if="glass" v-model:value="mode" class="lg-status-tabs" aria-label="计算方式">
                 <GlassSegment v-for="option in MODES" :key="option.value" :value="option.value">{{ option.label }}</GlassSegment>
             </GlassSegmented>
             <SegmentedPills v-else v-model="mode" :options="MODES" label="计算方式" />
@@ -571,6 +575,7 @@ const outcome = computed<Outcome>(() => {
                                         :is="numberControl"
                                         v-model="current.b"
                                         :label="labels.b"
+                                        v-bind="secondFieldProps"
                                         update-on-input
                                     />
                                 </label>

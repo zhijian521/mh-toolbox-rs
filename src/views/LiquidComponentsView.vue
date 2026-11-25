@@ -34,6 +34,7 @@ import GlassPriceField from '../components/liquid-glass/GlassPriceField.vue';
 import GlassMenuTrigger from '../components/liquid-glass/GlassMenuTrigger.vue';
 import GlassMultiSelect from '../components/liquid-glass/GlassMultiSelect.vue';
 import GlassNumberField from '../components/liquid-glass/GlassNumberField.vue';
+import GlassCompactNumberField from '../components/liquid-glass/GlassCompactNumberField.vue';
 import GlassSmallSwitch from '../components/liquid-glass/GlassSmallSwitch.vue';
 import GlassTable from '../components/liquid-glass/GlassTable.vue';
 import GlassSelect from '../components/liquid-glass/GlassSelect.vue';
@@ -106,6 +107,8 @@ function saveSample(draft: PricePointDraft) {
 const priceExample = ref<number | null>(3_200_000);
 const initialPrice = ref<number | null>(null);
 const fieldRows = ref(['紧凑', '标准'].map((size) => ({ size, name: '', category: '', date: day, query: '', quantity: 12 })));
+const compactLevel = ref(69);
+const compactExperience = ref(1_200_000);
 const invalidQuantity = ref(0);
 const disabledQuantity = ref(12);
 const smallAlerts = ref(true);
@@ -282,6 +285,17 @@ const observations = [
                         <div v-if="row.query.trim()" class="comparison-results" role="status">
                             <output v-if="searchExamples(row.query).length" class="lg-caption">{{ searchExamples(row.query).join(' · ') }}</output>
                             <GlassEmptyState v-else />
+                        </div>
+                    </section>
+                    <section>
+                        <header><h3>卡片内数字输入</h3></header>
+                        <div class="stage">
+                            <label class="field-example">等级
+                                <GlassCompactNumberField v-model="compactLevel" label="示例等级" update-on-input />
+                            </label>
+                            <label class="field-example">经验（点）
+                                <GlassCompactNumberField v-model="compactExperience" label="示例经验" wide update-on-input />
+                            </label>
                         </div>
                     </section>
                     <section>

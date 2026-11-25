@@ -470,9 +470,13 @@ function turnPage(next: number) {
     gap: 6px 8px;
     margin-bottom: 10px;
 }
+.is-glass .asset-bar .glass-ledger-button {
+    --glass-button-height: var(--lg-form-height);
+}
 .asset-search {
     flex: 0 1 240px;
     width: min(240px, 100%);
+    min-width: 0;
 }
 .is-glass .asset-section {
     display: block;

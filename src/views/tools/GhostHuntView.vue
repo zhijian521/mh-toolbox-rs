@@ -81,6 +81,7 @@ onMounted(() => {
                 :icon="running ? 'stop' : 'play'"
                 :text="running ? '停止识别' : '开始识别'"
                 :label="running ? '停止识别（回到未开始）' : '开始识别任务栏'"
+                :seal="!!glass && !running"
                 :disabled="!desktop || starting"
                 @click="toggle"
             />
@@ -180,6 +181,9 @@ onMounted(() => {
     max-width: 1080px;
     margin-inline: auto;
     container-type: inline-size;
+}
+.hunt-frame.hunt-glass {
+    max-width: none;
 }
 .hunt {
     display: grid;
