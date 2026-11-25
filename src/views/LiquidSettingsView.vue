@@ -28,7 +28,7 @@ const {
     appearance,
     wallpaper,
     systemWallpaper,
-    activeImage,
+    canResetWallpaper,
     selectedWallpaper,
     loadingWallpaper,
     failedWallpaper,
@@ -200,7 +200,6 @@ const pickerOpen = ref(false);
 const wallpaperStatus = computed(() => {
     if (loadingWallpaper.value) return '正在载入壁纸…';
     if (systemWallpaper.value) return systemWallpaper.value.name;
-    if (!activeImage.value) return '默认壁纸 · 随主题切换';
     return (
         catalog.find((item) => WALLPAPER_CDN + item.image === selectedWallpaper.value)?.name ??
         '官网壁纸'
@@ -239,7 +238,7 @@ function applyWallpaper(url: string) {
                         </div>
                         <div class="background-actions">
                             <GlassButton
-                                v-if="systemWallpaper || selectedWallpaper || loadingWallpaper || failedWallpaper"
+                                v-if="canResetWallpaper"
                                 size="small"
                                 variant="plain"
                                 @click="applyWallpaper('')"

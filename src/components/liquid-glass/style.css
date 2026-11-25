@@ -135,7 +135,7 @@ glass-button.lg-inline-action {
     min-width: 0;
 }
 
-/* 贴着玻璃内沿绘制焦点，避免触发按钮与表面各画一圈。 */
+/* 文本输入用底色标记焦点；按钮型触发器仅在键盘聚焦时显示内沿轮廓。 */
 glass-search.lg-component {
     --glass-focus: transparent;
 }
@@ -145,14 +145,24 @@ glass-search.lg-component {
     outline: none;
 }
 .liquid-app :is(.glass-input, glass-search.lg-component):focus-within,
-.glass-select-trigger:is(:focus-visible, [aria-expanded='true']) .glass-select-face,
-.glass-date-field .date-trigger:is(:focus-visible, [aria-expanded='true']) .glass-date-face {
+.glass-select-trigger:is(:focus, [aria-expanded='true']) .glass-select-face,
+.glass-date-field .date-trigger:is(:focus, [aria-expanded='true']) .glass-date-face {
+    --lg-field-fill: var(--lg-field-active-fill);
+}
+.glass-select-trigger:focus-visible .glass-select-face,
+.glass-date-field .date-trigger:focus-visible .glass-date-face,
+.glass-input:has(button:focus-visible) {
     outline: 2px solid var(--lg-field-accent, var(--liquid-focus));
     outline-offset: -2px;
 }
 .glass-input:has(input[aria-invalid='true']),
 .glass-date-field .date-trigger[aria-invalid='true'] {
     --lg-field-accent: var(--liquid-up);
+}
+.glass-input:has(input[aria-invalid='true']),
+.glass-date-field .date-trigger[aria-invalid='true'] .glass-date-face {
+    outline: 1px solid var(--liquid-up);
+    outline-offset: -1px;
 }
 /* 「小一号」表单档：32px 高，供筛选行与录入弹窗共用（`--lg-form-height` 是唯一真源）。
  * `--glass-search-height` 必须一起给：库只在 `<glass-search>` 的 :host 上读它，
@@ -206,15 +216,13 @@ glass-search.lg-component {
     font-size: var(--fs-mini);
 }
 
-glass-segmented.lg-component,
-.glass-multi-select {
+glass-segmented.lg-component {
     --lg-choice-height: var(--lg-form-height);
     --lg-choice-inset: 3px;
     --lg-choice-gap: 6px;
     --lg-choice-padding-inline: 16px;
 }
-glass-segmented.lg-component[data-size='standard'],
-.glass-multi-select[data-size='standard'] {
+glass-segmented.lg-component[data-size='standard'] {
     --lg-choice-height: var(--lg-form-standard-height);
     --lg-choice-padding-inline: 18px;
 }
@@ -349,6 +357,8 @@ glass-menu-label.lg-component {
     --liquid-up: light-dark(#923b3b, #ffb8ae);
     --liquid-down: light-dark(#245943, #a8e7c6);
     --lg-popup-fade: 80ms;
+    --lg-field-active-fill: light-dark(rgb(250 255 253 / 0.48), rgb(39 57 57 / 0.62));
+    --lg-table-header-fill: light-dark(rgb(224 239 231 / 0.60), rgb(36 56 50 / 0.68));
     --lg-popup-fill: light-dark(rgb(246 251 248 / 0.60), rgb(25 37 34 / 0.72));
     --lg-dialog-fill: var(--lg-popup-fill);
     --lg-dialog-blur: 6px;
@@ -403,7 +413,8 @@ glass-menu-label.lg-component {
     .liquid-app :is(.glass-input, glass-search.lg-component):focus-within,
     .glass-select-trigger:is(:focus-visible, [aria-expanded='true']) .glass-select-face,
     .glass-date-field .date-trigger:is(:focus-visible, [aria-expanded='true']) .glass-date-face {
-        outline-color: Highlight;
+        outline: 2px solid Highlight;
+        outline-offset: -2px;
         background-color: Highlight;
         color: HighlightText;
     }

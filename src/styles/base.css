@@ -1,4 +1,5 @@
 @import './character-fields.css';
+@import './reduced-motion.css';
 
 /* 元素重置、跨页材质与最小工具类。组合排版归 blocks.css，令牌归 tokens.css。 */
 
@@ -525,19 +526,6 @@ svg {
 }
 
 /* 减少动态效果时统一降级位移与回弹。保留 1ms 而非 0，确保 transitionend 仍可驱动收尾。 */
-@media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-        transition-duration: 1ms !important;
-        transition-delay: 0ms !important;
-        animation-duration: 1ms !important;
-        animation-iteration-count: 1 !important;
-        animation-delay: 0ms !important;
-        scroll-behavior: auto !important;
-    }
-}
-
 /* 图表共用厚底板、嵌入绘图区与图例底栏；材质配方在 tokens.css。 */
 .chart-panel {
     min-width: 0;

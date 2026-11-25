@@ -64,7 +64,7 @@ git blame，收益低于成本。其余约定：
 4. 间距就地写 px，不增加间距刻度令牌。
 5. 内容靠层级区分，避免层层描边；卡片与浮层各用对应公共基座。
 6. 动效用 --t-* 与 --ease-*；位移使用 --ease-snap，时长按移动距离选。
-7. 支持 prefers-reduced-motion；公共降级规则不得被局部动画绕开。
+7. 支持 prefers-reduced-motion；两套入口共用 `src/styles/reduced-motion.css`，CSS 动画、过渡和滚动统一降级，公共降级规则不得被局部动画绕开。Web Animations 与 Shadow DOM 内动效由宿主单独响应系统偏好。
 8. 样式唯一真源在 src/styles/；tokens.css 按固定顺序加载令牌与材质分层，base.css 管元素基座，blocks.css 管组合排版。独立 HTML 方案引用同一入口，不复制样式。
 9. 选中态改变底色，不改变字重、字号、字距或内容尺寸。
 10. 互斥组选项共用一个 Tab 停靠点，使用 radiogroup / radio / aria-checked 与方向键导航。
@@ -109,7 +109,7 @@ git blame，收益低于成本。其余约定：
 49. 补记、记录、单价导入导出、首页常用功能自定义等低频辅助操作使用 TextButton，默认无底板、描边或阴影，悬停提示可点击，保留焦点、禁用及完整说明；可选图标，默认 26px 高随字号缩放，局部等高通过 --text-button-h 控制。主操作继续使用 PressButton，不批量迁移无关入口。
 50. 弹窗开关统一经 ModalShell／useModalMotion：遮罩轻度虚化背景并与面板分别淡显，面板仅短距离位移，标题／正文／底部操作小间隔淡入；正文不另加位移，不缩放文字，不推迟业务关闭事件。嵌套只进入面板，同拍换窗承接原遮罩，避免背景先亮后暗，加载交接不重复分层入场。时长、间隔、虚化强度和曲线由 token-core.css 的 modal 令牌统一维护。父级卸载时保留真实面板至退场结束，期间面板 inert、遮罩挡点击、背景保持锁滚动，结束后释放栈和恢复焦点。Web Animations 显式响应降动效且取消分层延迟；入场期间不叠加高度动画，后续内容变动合并到下一帧，关闭中断时保留当前高度及分层透明度。初始及返回焦点不带动页面滚动。
 51. 液态玻璃支线的滚动容器统一常驻轨道：`src/components/liquid-glass/style.css` 对 `.liquid-app` 全后代与 `glass-sheet::part(body)` 设 `scrollbar-width: thin` + `scrollbar-gutter: stable`。页面大量使用 `auto-fill` / `auto-fit` 网格，滚动条出现／消失会改变内容盒宽度（约 8px），在临界点整排换列、高度又变回去，形成可见抖动（2026-11-22 物价页）。新增页面、弹窗、列表不要另写 gutter，也不要用已废弃的 `overflow: overlay`；刻意隐藏滚动条的容器统一走第 54 条的 `.lg-scroll-hidden`（`.chart-scroll` 是等价的既有写法），否则白留一条轨道。正式版 `base.css` / `blocks.css` 的 `scrollbar-gutter: stable` 与角色卡隐藏滑块是同一问题的两种取向，写需求时先定「要不要看见滑块」。
-52. 玻璃弹窗内的 `GlassButton` 不得叠材质文字阴影：引擎按材质把 `--gl-text-shadow` 写到 host 上（`engine/surface.js:247`），`clear` 材质为「白字压亮背景」配了三层黑色柔光阴影（`engine/materials.js:62/75`）；库的 `:host` 用 `text-shadow: var(--glass-text-shadow, var(--gl-text-shadow, none))`，而项目把按钮文字改成深墨后，这层暗影叠在半透明面板上就把小字糊成一团，`variant="plain"` 连底色都关掉、最明显。`glass-button.lg-component` 已在公共样式统一设 `--glass-text-shadow: none`；弹窗容器再给 `--glass-foreground: var(--liquid-ink)`、`--glass-accent-text: var(--liquid-ink)` 与 `letter-spacing: normal`（备份、壁纸、确认、价格编辑器同一口径）。分页沿用物价历史弹窗的 `lg-inline-action` + `shape="circle"` 纯图标按钮配 `aria-label`，不要退回文字按钮。
+52. 玻璃弹窗内的 `GlassButton` 不得叠材质文字阴影：引擎按材质把 `--gl-text-shadow` 写到 host 上（`engine/surface.js:247`），`clear` 材质为「白字压亮背景」配了三层黑色柔光阴影（`engine/materials.js:62/75`）；库的 `:host` 用 `text-shadow: var(--glass-text-shadow, var(--gl-text-shadow, none))`，而项目把按钮文字改成深墨后，这层暗影叠在半透明面板上就把小字糊成一团，`variant="plain"` 连底色都关掉、最明显。`glass-button.lg-component` 已在公共样式统一设 `--glass-text-shadow: none`；弹窗容器再给 `--glass-foreground: var(--liquid-ink)`、`--glass-accent-text: var(--liquid-ink)` 与 `letter-spacing: normal`（备份、壁纸、确认、价格编辑器同一口径）。仅上一页／下一页的紧凑分页（如物价历史）使用 `lg-inline-action` + `shape="circle"` 纯图标按钮并提供 `aria-label`；需要页码跳转的列表复用 `RecordPager`，布局与行为见 §2.7。
 53. 备份保留只有一个口径：`backup.rs` 的 `BACKUP_KEEP = 5`，日常备份与「替换前」备份**合计**按时间从新到旧留 5 份，不再按类型分设上限；`listed_backups` 同时供 `backups_list` 与 `backup_restore` 使用，保证「列得出来」＝「能恢复」。`prune_backups` 只认两个自动备份前缀，排除符号链接、旧版原件与 `.db` 原库快照，用户手工放进 `backups/` 的文件不动；清理尽力而为，删不掉旧文件不让导入失败，也不报成自动备份失败。调整份数时同步 README、RELEASE、ARCHITECTURE、两版设置页与恢复弹窗文案、`backup/tests.rs`；写需求时不要把「列表显示条数」和「磁盘保留份数」当成两件事。
 54. 液态玻璃页面主滚动区**隐藏滚动条但保留滚动**：统一挂 `.lg-scroll-hidden`（`src/components/liquid-glass/style.css`），由这个类一次性给出三条声明，缺一不可——`scrollbar-width: none` 关掉原生条、`scrollbar-gutter: auto` 撤掉第 51 条铺的常驻轨道（否则右侧白留 8px）、`::-webkit-scrollbar { display: none }` 兜住旧 Blink／WebKit；选择器用普通类以压过 `:where(...)` 的零特异性。**不许用 `overflow: hidden`**：那会把滚动能力一起关掉，内容就真看不到了；也不要用废弃的 `overflow: overlay`。只挂页面主滚动容器：物价页是 `LiquidApp.vue` 的 `.liquid-content`（按 `route.name` 判断），组件目录是 `.gallery`；内部独立滚动区（弹窗表格、组件演示的小样例）不挂，仍走第 51 条的 thin + stable，读得出「这里还有东西」。后续新增页面直接挂类，不另写一套隐藏规则。滚轮、触控板、键盘与拖动照常可用，隐藏的只是那根条。另：`overflow: hidden` **也是滚动容器**，裁剪型卡片（壁纸缩略图）同样要显式写 `scrollbar-gutter: auto`，否则右侧白留一条 10px 轨道（170px 的卡片内容只剩 158px，缩略图铺不满）。
 55. 液态玻璃表单**只有两档尺寸**：默认 44px（`.liquid-app` 的 `--glass-search-height`）与「小一号」32px（`.lg-form-fields`，取 `--lg-form-height`）。筛选行、录入弹窗一律挂这个公共类（物价页 `.price-filters`、编辑器 `.price-editor-fields`、组件目录的输入／日期样例），**不许在页面里再写 `--glass-*-height: 30px` 之类的第三档**。这个类一次性给全 `--glass-search-height` / `--glass-select-height` / `--glass-input-height`，并等比收小搜索框的放大镜（19→16px）与清除按钮（30→24px）——漏掉第一条就会同排控件高度不齐，漏掉零件缩放则 32px 胶囊里塞着按 44px 画的图标。库只在 `glass-button` 上提供 `size="small"`（32/44/52px），`glass-search` 与自封装的 `GlassSelect` **没有 size 属性**，缩小它们只能经这个类。组件目录刻意同时陈列两档，改公共类时一起核对。
@@ -117,6 +117,16 @@ git blame，收益低于成本。其余约定：
 56. 玻璃下拉菜单的面板宽度**按内容自适应**：`glassy-liquid` 在 `open()` 里给 `::part(content)` 内联写入 `minWidth: 220px` 与 `width: max-content`，于是只有「全部分类」四个字的菜单也被撑成 220px。项目统一用 `.lg-select-menu::part(content)`（`GlassSelect`）与 `.lg-popup-menu-small::part(content)`（三点菜单）把下限压到 132px，**必须带 `!important`** 才盖得过内联样式；宽度本身仍交给 max-content，长选项自然撑开，上限保留库内联的 `min(320px, 100vw - 16px)`。触发器更宽时覆盖 `--lg-select-menu-min`（录入弹窗两列网格设 190px），**不要从外部写 `width`**：库量完 `offsetWidth` 会把面板宽写成像素值，外部再插一条 width 只会和开场动画的尺寸打架。
 
 57. **不许给 `<glass-sheet>` 传名为 `shadow` 的 prop／attr**：库把 ShadowRoot 存在实例字段 `this.shadow`（`dist/components/sheet.js:116`），而 Vue 对自定义元素会把「元素上已存在的同名属性」直接写成 DOM property（`'shadow' in el` → `el.shadow = value`）。`themed()` 的材质循环曾把预设里缺省的 `shadow: undefined` 一起透传，ShadowRoot 被覆盖成 undefined，`connectedCallback` 调 `adoptStyles(this.shadow)` 抛 `adoptedStyleSheets of undefined`，面板停在 **0×0**，所有走 sheet 的弹窗（物价历史等）看得见 DOM 却打不开。修法在 `src/components/liquid-glass/index.ts`：`target === 'sheet'` 跳过 `shadow`，并且**任何 undefined 的材质键都不传**；面板阴影由 `updateMaterial('sheet')` 经 `part(sheet).set` 设置。给玻璃自定义元素加材质字段前，先确认它没占用库的实例字段名。
+
+58. 玻璃文本输入与搜索聚焦时只轻微改变底色，不显示常态主题色描边；下拉、日期触发器在鼠标聚焦或展开时同样使用底色反馈，键盘 `:focus-visible` 保留内沿轮廓。错误输入保留独立错误色与说明，强制颜色模式保留系统焦点提示。旧 `.field` 的反馈仍由 `ledger.css` 适配。
+
+59. 玻璃入口不加载旧纸张材质；角色子组件仍消费的 `--card-bg`、`--slip-base` 与图块表面变量由 `ledger.css` 映射到玻璃语义色，覆盖页面卡片、仓库和编辑浮层，明暗随 `color-scheme` 变化，不依赖 `html.dark`。
+
+60. `GlassTable` 用玻璃底和浅色交替行区分记录，金额等数字列可给表头和单元格添加 `data-align="end"`。固定表头按需启用 `stickyHeader`，由调用方提供有高度限制的滚动容器。整条表头共用半透明磨砂底，减弱滚动行透字；系统开启降透明度时改用实色底。新增公共控件同步补组件目录演示，状态只保存在内存。
+
+61. 玻璃组件目录按左侧分类、右侧详情组织；右侧独立滚动，切组保留示例值与滚动位置。只挂载当前分类，避免隐藏控件初始化时测得零宽；导航复用 `useRovingFocus` 的竖向键盘行为。演示仍使用内存数据，不写入账本。
+
+62. `GlassMultiSelect` 用独立复选项与方形勾选标记表示多个选中状态，沿用 32px／44px 两档控件高度并按宽度换行。默认底色与选中高光分别复用 `--lg-field-fill` 和 `--lg-selector-lens`，都保留 `--lg-edge-rim` 内沿。单选模式切换继续用有共用底槽的 `GlassSegmented`。
 
 #### 总览作为后续页面的参考
 

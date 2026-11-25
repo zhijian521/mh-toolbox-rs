@@ -57,6 +57,18 @@
     color: var(--liquid-ink);
 }
 
+/* 旧角色子组件仍消费纸面变量，玻璃入口在此映射到内容面。
+ * 同时覆盖页面内卡片和传送到应用根部的编辑窗，不依赖旧门派染色或 html.dark。 */
+.liquid-ledger.character-theme,
+.liquid-ledger .character-theme {
+    --character-paper: var(--ledger-surface);
+    --card-bg: var(--ledger-surface);
+    --slip-base: var(--ledger-surface);
+    --tile-face: var(--ledger-surface);
+    --tile-face-hover: var(--ledger-highlight);
+    --tile-face-active: var(--ledger-selected);
+}
+
 .liquid-ledger-page {
     width: min(100% - 32px, 1180px);
     margin-inline: auto;

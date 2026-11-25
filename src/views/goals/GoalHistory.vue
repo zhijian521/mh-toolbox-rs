@@ -47,6 +47,7 @@ function timeText(at: number, date: string) {
         <div class="history-scroll">
             <component
                 :is="embedded ? GlassTable : 'table'"
+                :sticky-header="embedded ? true : undefined"
                 v-if="rows.length"
                 class="progress-history"
                 :class="{ 'income-table': !embedded }"

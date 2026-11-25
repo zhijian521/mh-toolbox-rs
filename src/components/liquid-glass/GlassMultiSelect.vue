@@ -1,76 +1,120 @@
 <script setup lang="ts">
-import { GlassButton } from './index';
+import AppIcon from '../AppIcon.vue';
 
-const props = defineProps<{
+defineProps<{
     options: readonly { value: string; label: string; disabled?: boolean }[];
     label: string;
     size?: 'compact' | 'standard';
     disabled?: boolean;
 }>();
 const selected = defineModel<string[]>({ required: true });
-function toggle(value: string) {
-    if (props.disabled || props.options.find((option) => option.value === value)?.disabled) return;
-    selected.value = selected.value.includes(value)
-        ? selected.value.filter((item) => item !== value)
-        : [...selected.value, value];
-}
 </script>
 
 <template>
     <div class="glass-multi-select" role="group" :data-size="size ?? 'compact'" :aria-label="label">
-        <GlassButton
-            v-for="option in options"
-            :key="option.value"
-            size="small"
-            variant="plain"
-            class="lg-choice-button"
-            :aria-pressed="selected.includes(option.value)"
-            :disabled="disabled || option.disabled"
-            @click="toggle(option.value)"
-        >
-            <span :title="option.label">{{ option.label }}</span>
-        </GlassButton>
+        <label v-for="option in options" :key="option.value" class="glass-multi-option">
+            <input
+                v-model="selected"
+                type="checkbox"
+                :value="option.value"
+                :disabled="disabled || option.disabled"
+            />
+            <span class="glass-multi-mark" aria-hidden="true"><AppIcon name="check" /></span>
+            <span class="glass-multi-label">{{ option.label }}</span>
+        </label>
     </div>
 </template>
 
 <style scoped>
 .glass-multi-select {
+    --lg-multi-height: var(--lg-form-height);
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
     width: fit-content;
     max-width: 100%;
-    box-sizing: border-box;
-    gap: 4px var(--lg-choice-gap);
-    min-height: var(--lg-choice-height);
-    padding: var(--lg-choice-inset);
-    border: 1px solid var(--liquid-outline);
-    border-radius: calc(var(--lg-choice-height) / 2);
-    background: var(--lg-bar-fill);
-    box-shadow: var(--lg-edge-rim);
+    gap: 6px;
 }
-@media not (prefers-reduced-transparency: reduce) {
-    .glass-multi-select {
-        backdrop-filter: var(--lg-control-backdrop);
+.glass-multi-select[data-size='standard'] {
+    --lg-multi-height: var(--lg-form-standard-height);
+}
+.glass-multi-option {
+    box-sizing: border-box;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    max-width: 100%;
+    min-height: var(--lg-multi-height);
+    padding: 4px 9px;
+    border: 1px solid var(--liquid-outline);
+    border-radius: 8px;
+    background: var(--lg-field-fill);
+    box-shadow: var(--lg-edge-rim);
+    color: var(--liquid-ink);
+    font-size: var(--fs-sm);
+    cursor: pointer;
+}
+.glass-multi-option:has(input:checked) {
+    border-color: color-mix(in srgb, var(--liquid-focus) 28%, var(--liquid-outline));
+    background: color-mix(in srgb, var(--liquid-focus) 10%, var(--lg-selector-lens));
+}
+@media (hover: hover) {
+    .glass-multi-option:hover:not(:has(input:is(:disabled, :checked))) {
+        background: var(--lg-field-active-fill);
     }
 }
-.glass-multi-select .lg-choice-button {
-    --glass-button-height: calc(var(--lg-choice-height) - 2 * var(--lg-choice-inset) - 2px);
-    max-width: 100%;
-    --glass-button-padding: var(--lg-choice-padding-inline);
-    --glass-foreground: var(--liquid-muted);
+.glass-multi-option:has(input:focus-visible) {
+    outline: 2px solid var(--liquid-focus);
+    outline-offset: -2px;
 }
-.glass-multi-select .lg-choice-button[aria-pressed='true'] {
-    background: var(--lg-selector-lens);
-    box-shadow: var(--lg-edge-rim), 0 1px 3px rgb(12 28 25 / 0.14);
-    --glass-foreground: var(--liquid-ink);
+.glass-multi-option:has(input:disabled) {
+    opacity: 0.55;
+    cursor: default;
 }
-.lg-choice-button span {
+.glass-multi-option input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+}
+.glass-multi-mark {
+    box-sizing: border-box;
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: calc(15px * var(--fs-scale));
+    height: calc(15px * var(--fs-scale));
+    border: 1px solid color-mix(in srgb, var(--liquid-muted) 60%, transparent);
+    border-radius: 4px;
+    --icon-size: calc(12px * var(--fs-scale));
+}
+.glass-multi-mark .app-icon {
+    visibility: hidden;
+}
+.glass-multi-option input:checked + .glass-multi-mark {
+    border-color: transparent;
+    background: var(--liquid-focus);
+    color: light-dark(#fff, #172b24);
+}
+.glass-multi-option input:checked + .glass-multi-mark .app-icon {
+    visibility: visible;
+}
+.glass-multi-label {
     min-width: 0;
-    overflow: hidden;
-    scrollbar-gutter: auto;
-    text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
+}
+@media (forced-colors: active) {
+    .glass-multi-option input {
+        position: static;
+        width: auto;
+        height: auto;
+        opacity: 1;
+    }
+    .glass-multi-mark {
+        display: none;
+    }
 }
 </style>

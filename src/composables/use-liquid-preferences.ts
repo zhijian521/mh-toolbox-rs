@@ -1,8 +1,6 @@
 import { computed, ref, shallowRef, watch } from 'vue';
 import { readPreference, writePreference } from '../services/local-data';
 import { isWallpaperUrl, loadWallpaperImage } from '../services/xyq-wallpapers';
-import lightWallpaper from '../../assets/textures/liquid-wallpaper-light.webp';
-import darkWallpaper from '../../assets/textures/liquid-wallpaper-dark.webp';
 
 function wallpaperPair(id: string, name: string) {
     return {
@@ -17,35 +15,33 @@ function wallpaperPair(id: string, name: string) {
     };
 }
 
+const defaultWallpaper = wallpaperPair('beach', 'macOS Tahoe · 湖畔昼夜');
 export const SYSTEM_WALLPAPERS = [
+    defaultWallpaper,
     wallpaperPair('curvy', '银灰曲线'),
     wallpaperPair('blendpills', '彩色胶囊'),
     wallpaperPair('glass-chip', '玻璃花瓣'),
     wallpaperPair('fold', '暖色折面'),
     wallpaperPair('tahoe', 'macOS Tahoe · 玻璃波纹'),
     wallpaperPair('monterey', 'macOS Monterey · 紫色山脊'),
-    wallpaperPair('beach', 'macOS Tahoe · 湖畔昼夜'),
 ];
-
 
 const themeKey = 'mh-liquid-appearance';
 const appearance = ref<'light' | 'dark'>(readPreference(themeKey) === 'dark' ? 'dark' : 'light');
 
 const wallpaperKey = 'mh-liquid-wallpaper';
 const saved = readPreference(wallpaperKey) ?? '';
-const systemWallpaper = shallowRef(SYSTEM_WALLPAPERS.find((item) => `system:${item.id}` === saved));
+const chosenSystemWallpaper = shallowRef(SYSTEM_WALLPAPERS.find((item) => `system:${item.id}` === saved));
 const selectedWallpaper = ref(isWallpaperUrl(saved) ? saved : '');
 const activeImage = ref('');
 const loadingWallpaper = ref('');
 const failedWallpaper = ref('');
-const displayedWallpaper = computed(() => {
-    const theme = appearance.value;
-    if (systemWallpaper.value) return { source: 'system', image: systemWallpaper.value[theme] };
-    if (activeImage.value) return { source: 'online', image: activeImage.value };
-    return { source: 'default', image: theme === 'dark' ? darkWallpaper : lightWallpaper };
-});
-const wallpaper = computed(() => displayedWallpaper.value.image);
-const wallpaperSource = computed(() => displayedWallpaper.value.source);
+const systemWallpaper = computed(() => activeImage.value ? undefined : chosenSystemWallpaper.value ?? defaultWallpaper);
+const wallpaper = computed(() => systemWallpaper.value?.[appearance.value] ?? activeImage.value);
+const wallpaperSource = computed(() => systemWallpaper.value ? 'system' : 'online');
+const canResetWallpaper = computed(() =>
+    systemWallpaper.value?.id !== defaultWallpaper.id || !!(loadingWallpaper.value || failedWallpaper.value),
+);
 let request: AbortController | undefined;
 
 function replaceImage(next: string) {
@@ -60,8 +56,9 @@ function selectSystemWallpaper(option: (typeof SYSTEM_WALLPAPERS)[number] | unde
     failedWallpaper.value = '';
     replaceImage('');
     selectedWallpaper.value = '';
-    systemWallpaper.value = option;
-    writePreference(wallpaperKey, option ? `system:${option.id}` : '');
+    const choice = option?.id === defaultWallpaper.id ? undefined : option;
+    chosenSystemWallpaper.value = choice;
+    writePreference(wallpaperKey, choice ? `system:${choice.id}` : '');
 }
 
 async function selectWallpaper(url: string) {
@@ -79,7 +76,7 @@ async function selectWallpaper(url: string) {
             URL.revokeObjectURL(image);
             return;
         }
-        systemWallpaper.value = undefined;
+        chosenSystemWallpaper.value = undefined;
         replaceImage(image);
         selectedWallpaper.value = url;
         writePreference(wallpaperKey, url);
@@ -108,8 +105,8 @@ export function useLiquidPreferences() {
         wallpaper,
         wallpaperSource,
         systemWallpaper,
+        canResetWallpaper,
         selectSystemWallpaper,
-        activeImage,
         selectedWallpaper,
         loadingWallpaper,
         failedWallpaper,

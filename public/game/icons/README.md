@@ -19,6 +19,7 @@ icons/
 ├── pet-advanced/ pet-advanced-<ID>.png 52
 ├── pet-super/ pet-super-<ID>.png 48
 ├── pet-special/ pet-special-<ID>.png 185（含升星扩展 89）
+├── reminder/ reminder-fengyao.webp（提醒助手的狂豹人形图标）
 └── pet-portrait/ pet-<编号>.png|webp（每物种仅一张普通头像）
 ```
 

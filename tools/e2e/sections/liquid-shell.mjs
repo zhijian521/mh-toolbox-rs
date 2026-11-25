@@ -819,6 +819,34 @@ export default async function liquidShell({ cdp, t, ui }) {
     await cdp.click(newCharacter);
     await waitCharacterDialog('新角色');
     const sections = `${characterDialog} [aria-label="修改分区"] button`;
+    t.check('角色编辑内层表面在明暗主题下均有有效颜色', await cdp.evaluate(`(() => {
+        const app = document.querySelector('.liquid-app');
+        const root = document.querySelector('${characterMask}.character-theme');
+        if (!root) return false;
+        const original = app.dataset.appearance;
+        try {
+            const colors = ['light', 'dark'].map(theme => {
+                app.dataset.appearance = theme;
+                const style = getComputedStyle(root);
+                return ['--slip-base', '--card-bg', '--tile-face-hover'].map(name =>
+                    style.getPropertyValue(name).trim());
+            });
+            return colors.flat().every(value => value && CSS.supports('background', value));
+        } finally {
+            app.dataset.appearance = original;
+        }
+    })()`));
+    try {
+        await cdp.send('Emulation.setEmulatedMedia', {
+            features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+        });
+        t.check('降动效模式覆盖角色编辑器复用的旧滑块', await cdp.evaluate(`(() => {
+            const thumb = document.querySelector('${characterDialog} .step-thumb');
+            return thumb && getComputedStyle(thumb).transitionDuration === '0.001s';
+        })()`));
+    } finally {
+        await cdp.send('Emulation.setEmulatedMedia', { features: [] });
+    }
     t.check('新角色保留六个编辑分区和角色属性识别入口', await cdp.evaluate(`
         document.querySelectorAll('${sections}').length === 6 &&
         !!document.querySelector('${characterDialog} [aria-label="角色名"]') &&
@@ -931,6 +959,10 @@ export default async function liquidShell({ cdp, t, ui }) {
         t.check('目标历史在底部展示表格或空状态', await cdp.evaluate(`
             !!document.querySelector('${sheet} table.glass-table.progress-history, ${sheet} .glass-empty-state')
         `));
+        t.check('目标历史有记录时表头固定在滚动区域顶部', await cdp.evaluate(`(() => {
+            const head = document.querySelector('${sheet} thead');
+            return !head || getComputedStyle(head).position === 'sticky';
+        })()`));
         await cdp.click(`${sheet} [aria-label="关闭目标历史"]`);
         await ui.waitFor(`!document.querySelector('${sheet}')`);
     }
@@ -947,13 +979,13 @@ export default async function liquidShell({ cdp, t, ui }) {
             return Math.abs(el.getBoundingClientRect().height - parseFloat(getComputedStyle(el).getPropertyValue('--lg-form-height'))) < 1;
         })
     `));
-    const member = `${goalDialog} .glass-multi-select glass-button:not([disabled])`;
+    const member = `${goalDialog} .glass-multi-option:has(input:not(:disabled))`;
     if (await ui.exists(member)) {
-        const selected = await cdp.evaluate(`document.querySelector('${member}').getAttribute('aria-pressed')`);
+        const selected = await cdp.evaluate(`document.querySelector('${member} input').checked`);
         await cdp.click(member);
-        await ui.waitFor(`document.querySelector('${member}').getAttribute('aria-pressed') !== '${selected}'`);
+        await ui.waitFor(`document.querySelector('${member} input').checked === ${!selected}`);
         await cdp.click(member);
-        await ui.waitFor(`document.querySelector('${member}').getAttribute('aria-pressed') === '${selected}'`);
+        await ui.waitFor(`document.querySelector('${member} input').checked === ${selected}`);
     }
     await cdp.click(`${kinds} glass-segment[value="combo"]`);
     await ui.waitFor(`!!document.querySelector('${goalDialog} .combo-settings')`);
@@ -1263,41 +1295,60 @@ export default async function liquidShell({ cdp, t, ui }) {
     await cdp.click(tab('settings'));
     await ui.waitFor(ready('settings'));
     await tapSettings(4);
-    await ui.waitFor(`!!document.querySelector('.component-catalog glass-switch[role="switch"]')`);
-    t.check(
-        '连点设置五次进入组件目录，页面默认在应用壁纸上展示全部独立示例',
-        await cdp.evaluate(`${atComponents()} &&
-            !document.querySelector('.component-catalog input[type=radio]') &&
-            !!document.querySelector('.component-catalog .glass-select-trigger') &&
-            ['compact', 'standard'].every(size => {
-                const root = document.querySelector('.component-catalog');
-                const multi = root.querySelector('.glass-multi-select[data-size=' + size + ']');
-                const tabs = root.querySelector('glass-segmented[data-size=' + size + ']');
-                return multi?.querySelectorAll('[aria-pressed="true"]').length === 2 && !!tabs;
-            }) &&
-            !!document.querySelector('.component-catalog table.glass-table tbody tr') &&
-            !!document.querySelector('.component-catalog .sample-notice') &&
-            !!document.querySelector('.component-catalog .glass-input input') &&
-            !!document.querySelector('.component-catalog .glass-price-field.compact') &&
-            document.querySelector('.component-catalog .sample-card .price-spark polyline')?.points.numberOfItems === 2 &&
-            !!document.querySelector('.component-catalog .sample-card .price-history-trigger') &&
-            !!document.querySelector('.component-catalog .gallery > section .glass-empty-state')`),
-    );
+    await ui.waitFor(atComponents());
+    const catalogTab = key => '#catalog-tab-' + key;
+    const pickCatalog = async key => {
+        await cdp.click(catalogTab(key));
+        await ui.waitFor(`!!document.querySelector('#catalog-panel-${key}') &&
+            document.querySelector('#catalog-tab-${key}').getAttribute('aria-selected') === 'true'`);
+    };
+    t.check('组件目录默认展示卡片，左侧提供六个分类', await cdp.evaluate(`(() => {
+        const root = document.querySelector('.component-catalog');
+        const tabs = [...root.querySelectorAll('.catalog-menu [role="tab"]')];
+        return tabs.map(item => item.textContent.trim()).join(',') ===
+            '卡片,按钮与菜单,输入控件,选择控件,容器与表面,反馈与弹层' &&
+            tabs.filter(item => item.tabIndex === 0).length === 1 &&
+            tabs[0].getAttribute('aria-selected') === 'true' &&
+            !!root.querySelector('#catalog-panel-cards .sample-card');
+    })()`));
+    t.check('卡片和按钮分别使用清透折射的内容面与操作面', await cdp.evaluate(`
+        Number(document.querySelector('.component-catalog .sample-card').getAttribute('refraction')) === 10 &&
+        Number(document.querySelector('.component-catalog .sample-card glass-button').getAttribute('refraction')) === 12 &&
+        Number(document.querySelector('.component-catalog .sample-card').getAttribute('specular')) <
+            Number(document.querySelector('.component-catalog .sample-card glass-button').getAttribute('specular'))`));
+    t.check('组件示例和 Dock 共用正文、按钮与金额字号', await cdp.evaluate(`(() => {
+        const catalog = document.querySelector('.component-catalog');
+        const text = getComputedStyle(catalog);
+        const button = getComputedStyle(catalog.querySelector('glass-button'));
+        const amount = getComputedStyle(catalog.querySelector('.price-card .price-value'));
+        const dock = getComputedStyle(document.querySelector('.liquid-dock-bar'));
+        return text.fontSize === '13.5px' && text.fontFamily.includes('MH Toolbox Rounded') &&
+            button.fontSize === '12px' && button.fontWeight === '400' &&
+            Math.abs(parseFloat(amount.fontSize) - 18.9) < 0.1 && dock.fontSize === '11px';
+    })()`));
 
+    await cdp.evaluate("document.querySelector('#catalog-tab-cards').focus()");
+    await cdp.key('ArrowDown');
+    await ui.waitFor("!!document.querySelector('#catalog-panel-actions')");
+    t.check('侧栏方向键切换分类并移动焦点', await cdp.evaluate(`
+        document.activeElement.id === 'catalog-tab-actions' &&
+        document.activeElement.getAttribute('aria-selected') === 'true'`));
+    await cdp.key('End');
+    await ui.waitFor("!!document.querySelector('#catalog-panel-feedback')");
     await cdp.click('.component-catalog .sample-notice');
     await ui.waitFor("document.querySelector('.notice-layer')?.textContent.includes('这是一条顶部消息提示。')");
-    t.check('组件示例使用固定的顶部消息层', await cdp.evaluate(`(() => {
+    t.check('组件提示沿用固定顶部消息层', await cdp.evaluate(`(() => {
         const layer = document.querySelector('.notice-layer');
         const rect = layer.getBoundingClientRect();
         return getComputedStyle(layer).position === 'fixed' && rect.top >= 0 && rect.top < 64 &&
             Math.abs(rect.left + rect.width / 2 - innerWidth / 2) < 2;
     })()`));
-    t.check('示例复用卡内操作、表单和筛选尺寸，金额保留标准与紧凑两档', await cdp.evaluate(`(() => {
+
+    await pickCatalog('inputs');
+    t.check('输入示例保留标准、紧凑、错误与禁用状态', await cdp.evaluate(`(() => {
         const gallery = document.querySelector('.component-catalog .gallery');
-        const height = selector => gallery.querySelector(selector).getBoundingClientRect().height;
-        const near = (selector, expected) => Math.abs(height(selector) - expected) < 1;
-        return near('.sample-card .lg-inline-action', 26) &&
-            ['.lg-price-search', '.glass-input', '.glass-select-face', '.glass-date-face'].every(face =>
+        const near = (selector, height) => Math.abs(gallery.querySelector(selector).getBoundingClientRect().height - height) < 1;
+        return ['.lg-price-search', '.glass-input', '.glass-select-face', '.glass-date-face'].every(face =>
                 near('.field-comparison.lg-form-fields ' + face, 32) &&
                 near('.field-comparison:not(.lg-form-fields) ' + face, 44)) &&
             !!gallery.querySelector('.glass-price-field input[aria-invalid="true"]') &&
@@ -1305,100 +1356,76 @@ export default async function liquidShell({ cdp, t, ui }) {
             near('.glass-price-field:not(.compact) .glass-input', 44) &&
             near('.glass-price-field.compact .glass-input', 36);
     })()`));
-
-    t.check('卡片和按钮分别使用清透折射的内容面与操作面', await cdp.evaluate(`
-        Number(document.querySelector('.component-catalog .sample-card').getAttribute('refraction')) === 10 &&
-        Number(document.querySelector('.component-catalog .sample-card glass-button').getAttribute('refraction')) === 12 &&
-        Number(document.querySelector('.component-catalog .sample-card').getAttribute('specular')) <
-            Number(document.querySelector('.component-catalog .sample-card glass-button').getAttribute('specular'))`));
-
-    t.check('四种字段共用同一折射档，示例区直接展示壁纸', await cdp.evaluate(`(() => {
-        const gallery = document.querySelector('.component-catalog .gallery');
-        const faces = ['.field-example .glass-input', '.glass-select-face', '.glass-date-face', '.lg-price-search'];
-        return faces.every(selector => gallery.querySelector(selector)?.getAttribute('refraction') === '8') &&
-            [...gallery.querySelectorAll(':scope > section')].every(section => {
-                const style = getComputedStyle(section);
-                return style.backgroundColor === 'rgba(0, 0, 0, 0)' && style.borderTopWidth === '0px';
-            });
+    t.check('输入控件保持公共折射档', await cdp.evaluate(`
+        ['.field-example .glass-input', '.glass-select-face', '.glass-date-face', '.lg-price-search']
+            .every(selector => document.querySelector('.gallery ' + selector)?.getAttribute('refraction') === '8')`));
+    const demoPrice = '.component-catalog .glass-price-field:not(.compact)';
+    await cdp.click(`${demoPrice} [aria-label="加 10 万"]`);
+    await ui.waitFor(`document.querySelector('${demoPrice} input').value === '330'`);
+    await cdp.click(`${demoPrice} [aria-label="减 10 万"]`);
+    await ui.fillSel('.component-catalog input[aria-label="紧凑数量"]', '27');
+    await pickCatalog('choices');
+    t.check('选择示例提供两档单选、多选及紧凑开关', await cdp.evaluate(`(() => {
+        const root = document.querySelector('.gallery');
+        return ['compact', 'standard'].every(size => {
+            const multi = root.querySelector('.glass-multi-select[data-size=' + size + ']');
+            return multi?.querySelectorAll('input[type="checkbox"]:checked').length === 2 &&
+                !!root.querySelector('glass-segmented[data-size=' + size + ']');
+        }) && !!root.querySelector('glass-switch.lg-small-switch');
+    })()`));
+    const compactMulti = '.gallery .glass-multi-select[data-size="compact"]';
+    const extraOption = `${compactMulti} .glass-multi-option:has(input[value="装备灵饰"])`;
+    await cdp.click(extraOption);
+    t.check('新增勾选保留其他选项，并且不影响另一组多选', await cdp.evaluate(`
+        document.querySelectorAll('${compactMulti} input:checked').length === 3 &&
+        document.querySelectorAll('.gallery .glass-multi-select[data-size="standard"] input:checked').length === 2`));
+    await cdp.click(extraOption);
+    await pickCatalog('inputs');
+    t.check('切换分类保留数字与价格示例值', await cdp.evaluate(`
+        document.querySelector('.gallery input[aria-label="紧凑数量"]').value === '27' &&
+        document.querySelector('${demoPrice} input').value === '320'`));
+    const scrollPosition = await cdp.evaluate(`(() => {
+        const gallery = document.querySelector('.gallery');
+        gallery.scrollTop = gallery.scrollHeight;
+        return gallery.scrollTop;
+    })()`);
+    await pickCatalog('surfaces');
+    t.check('容器分类展示表格与滚动场景', await ui.exists('.gallery table.glass-table tbody tr') && await ui.exists('.gallery .timeline'));
+    await pickCatalog('inputs');
+    t.check('回到分类时恢复详情滚动位置', await cdp.evaluate(`
+        Math.abs(document.querySelector('.gallery').scrollTop - ${scrollPosition}) <= 1`));
+    t.check('侧栏与详情左右排列，详情滚动不移动菜单和标题', await cdp.evaluate(`(() => {
+        const sidebar = document.querySelector('.catalog-sidebar');
+        const detail = document.querySelector('.catalog-detail');
+        const heading = document.querySelector('.catalog-detail-heading');
+        const gallery = document.querySelector('.gallery');
+        const before = [sidebar, heading].map(el => el.getBoundingClientRect().top);
+        const old = gallery.scrollTop;
+        gallery.scrollTop = 0;
+        const stable = [sidebar, heading].every((el, i) => el.getBoundingClientRect().top === before[i]);
+        gallery.scrollTop = old;
+        return sidebar.getBoundingClientRect().right <= detail.getBoundingClientRect().left && stable &&
+            gallery.scrollWidth <= gallery.clientWidth + 1 && getComputedStyle(gallery).overflowY === 'auto';
     })()`));
 
-    t.check('排序菜单复用下拉触发器，编辑价格使用标准按钮', await cdp.evaluate(`(() => {
-        const catalog = document.querySelector('.component-catalog');
-        const menu = catalog.querySelector('.lg-select-menu:has([aria-label="选择排序方式"])');
-        const action = [...catalog.querySelectorAll('.example-row glass-button')]
-            .find(button => button.textContent.trim() === '编辑价格');
-        return !!menu?.querySelector('.glass-select-trigger .glass-select-face') && action &&
-            !action.hasAttribute('tint') && action.getAttribute('variant') !== 'prominent';
-    })()`));
-
+    await pickCatalog('actions');
+    t.check('排序菜单和表单操作沿用公共控件', await ui.exists('.gallery .glass-select-trigger .glass-select-face'));
     const sampleForm = '.component-catalog .liquid-price-editor';
     await ui.clickText('.component-catalog .example-row glass-button', '编辑价格', { exact: true });
     await ui.waitFor(`document.querySelector('${sampleForm} h2')?.textContent === '编辑价格记录'`);
     await ui.fillSel(`${sampleForm} input[inputmode="decimal"]`, '88');
     await ui.clickText(`${sampleForm} glass-button`, '保存', { exact: true });
     await ui.waitFor(`!document.querySelector('${sampleForm}')`);
-    const sampleCount = "document.querySelector('.component-catalog .sample-card .price-spark polyline')?.points.numberOfItems";
+    const sampleCount = "document.querySelectorAll('.component-catalog .sample-history li').length";
     t.check('编辑最新示例价格后仍为两笔记录', await cdp.evaluate(`${sampleCount} === 2`));
     await cdp.click('.component-catalog .example-row [aria-label="新增价格记录"]');
     await ui.waitFor(`document.querySelector('${sampleForm} h2')?.textContent === '更新价格'`);
     t.check('新增示例带入编辑后的当前价', await cdp.evaluate(`document.querySelector('${sampleForm} input[inputmode="decimal"]').value === '88'`));
     await ui.clickText(`${sampleForm} glass-button`, '保存', { exact: true });
     await ui.waitFor(`${sampleCount} === 3`);
-
-    const demoPrice = '.component-catalog .glass-price-field:not(.compact)';
-    await cdp.click(`${demoPrice} [aria-label="加 10 万"]`);
-    await ui.waitFor(`document.querySelector('${demoPrice} input').value === '330'`);
-    await cdp.click(`${demoPrice} [aria-label="减 10 万"]`);
-    t.check('价格示例按金额量级加减并还原为 320 万', await cdp.evaluate(
-        `document.querySelector('${demoPrice} input').value === '320'`,
-    ));
-
-    t.check(
-        '组件示例和 Dock 共用正式版正文、按钮、金额和小字尺寸',
-        await cdp.evaluate(`(() => {
-            const catalog = document.querySelector('.component-catalog');
-            const text = getComputedStyle(catalog);
-            const button = getComputedStyle(catalog.querySelector('glass-button'));
-            const amount = getComputedStyle(catalog.querySelector('.price-card .price-value'));
-            const dock = getComputedStyle(document.querySelector('.liquid-dock-bar'));
-            return text.fontSize === '13.5px' && text.fontFamily.includes('MH Toolbox Rounded') &&
-                button.fontSize === '12px' && button.fontWeight === '400' &&
-                Math.abs(parseFloat(amount.fontSize) - 18.9) < 0.1 &&
-                dock.fontSize === '11px' && dock.fontWeight === '400';
-        })()`),
-    );
-
-    t.check(
-        '组件示例按组件类型分组，不再按业务场景',
-        await cdp.evaluate(`(() => {
-            const headings = [...document.querySelectorAll('.component-catalog .gallery > h2')];
-            return headings.map(item => item.textContent.trim()).join(',') ===
-                '卡片,按钮与菜单,输入控件,选择控件,容器与表面,反馈与弹层';
-        })()`),
-    );
-
-    t.check(
-        '组件页没有独立页面标题，分组标题随画廊滚动、窗口栏保持在顶部',
-        await cdp.evaluate(`(() => {
-            const catalog = document.querySelector('.component-catalog');
-            const gallery = catalog.querySelector('.gallery');
-            const heading = gallery.querySelector('h2');
-            const bar = document.querySelector('.liquid-app > :is(.titlebar, .liquid-header)');
-            const { paddingLeft, paddingRight, gridTemplateColumns, overflowY } = getComputedStyle(gallery);
-            const width = gallery.clientWidth - parseFloat(paddingLeft) - parseFloat(paddingRight);
-            const headingTop = heading.getBoundingClientRect().top;
-            const barTop = bar.getBoundingClientRect().top;
-            const scrollTop = gallery.scrollTop;
-            gallery.scrollTop = gallery.scrollHeight;
-            const scrolled = gallery.scrollHeight <= gallery.clientHeight || gallery.scrollTop > 0;
-            const headingMoves = gallery.scrollTop === 0 || heading.getBoundingClientRect().top < headingTop;
-            const barStays = bar.getBoundingClientRect().top === barTop;
-            gallery.scrollTop = scrollTop;
-            return !catalog.querySelector('.intro, h1') && !!heading && headingMoves && barStays &&
-                overflowY === 'auto' && scrolled &&
-                (width < 566 || gridTemplateColumns.split(' ').length > 1);
-        })()`),
-    );
+    await pickCatalog('cards');
+    t.check('返回卡片后展示跨分类更新的示例记录', await cdp.evaluate(`
+        document.querySelector('.sample-card .price-spark polyline')?.points.numberOfItems === 3`));
 
     await cdp.evaluate('history.back()');
     await ui.waitFor(ready('settings'));
@@ -1505,7 +1532,14 @@ export default async function liquidShell({ cdp, t, ui }) {
     }
     const backgroundUses = (file) =>
         `document.querySelector('.liquid-app').style.getPropertyValue('--liquid-wallpaper').includes(${JSON.stringify(file)})`;
+    const usesDefaultWallpaper = (value) => `${backgroundUses(`beach-${value}`)} &&
+        document.querySelector('.background-label small')?.textContent.includes('macOS Tahoe · 湖畔昼夜') &&
+        ![...document.querySelectorAll('${backgroundActions}')].some(button => button.textContent.trim() === '恢复默认')`;
     try {
+        await cdp.evaluate("localStorage.removeItem('mh-liquid-wallpaper')");
+        await ui.reload();
+        await ui.waitFor(`${ready('settings')} && !!document.querySelector('.background-label small')`);
+        t.check('没有壁纸偏好时默认使用湖畔昼夜', await cdp.evaluate(usesDefaultWallpaper(initialTheme)));
         await chooseSystem('彩色胶囊');
         const previewSelected = `document.querySelector('.liquid-app').dataset.wallpaperSource === 'system' &&
             ${backgroundUses(`blendpills-${initialTheme}`)}`;
@@ -1522,7 +1556,7 @@ export default async function liquidShell({ cdp, t, ui }) {
         t.check('切换主题后设置三张卡片的玻璃材质随之更新', await cdp.evaluate(settingsMaterialMatches));
         t.check('切换主题会应用同组的另一张图片', await cdp.evaluate(backgroundUses(`blendpills-${theme}`)));
         await ui.clickText(backgroundActions, '恢复默认', { exact: true });
-        t.check('恢复默认后移除系统壁纸', await cdp.evaluate(`!(${backgroundUses('blendpills-')})`));
+        t.check('恢复默认后回到当前主题的湖畔昼夜', await cdp.evaluate(usesDefaultWallpaper(theme)));
         await chooseSystem('玻璃花瓣');
         await ui.reload();
         await ui.waitFor(`!!document.querySelector('.liquid-settings glass-segment[role="tab"]')`);
@@ -1536,15 +1570,14 @@ export default async function liquidShell({ cdp, t, ui }) {
         );
         // 刷新后仍停在设置页，直接连点五次即可重新进入隐藏目录。
         await tapSettings(5);
-        await ui.waitFor(
-            `!!document.querySelector('.component-catalog glass-switch[role="switch"]')`,
-        );
+        await ui.waitFor(atComponents());
         t.check(
             '组件示例卡片使用通透材质',
             await cdp.evaluate(
                 `document.querySelector('.component-catalog .sample-card').getAttribute('material') === 'clear'`,
             ),
         );
+        await pickCatalog('choices');
         await cdp.click('.component-catalog glass-switch');
         t.check(
             '开关同步更新 Vue 状态',
@@ -1553,6 +1586,51 @@ export default async function liquidShell({ cdp, t, ui }) {
         );
 
         const sheet = '.component-catalog .sample-history';
+        await pickCatalog('inputs');
+        const numberExample = '.component-catalog input[aria-label="紧凑数量"]';
+        await ui.fillSel(numberExample, '23');
+        await cdp.key('Tab');
+        t.check('数字示例保留输入值，禁用与错误状态各自独立', await cdp.evaluate(`(() => {
+            const value = document.querySelector('${numberExample}');
+            const disabled = document.querySelector('input[aria-label="禁用数量"]');
+            const invalid = document.querySelector('input[aria-label="示例数量"]');
+            return value.value === '23' && disabled.disabled &&
+                invalid.getAttribute('aria-invalid') === 'true' &&
+                document.getElementById(invalid.getAttribute('aria-describedby'))?.textContent.includes('大于 0');
+        })()`));
+        const idleFill = await cdp.evaluate(`getComputedStyle(document.querySelector('${numberExample}').closest('.glass-input')).getPropertyValue('--lg-field-fill')`);
+        await cdp.click(numberExample);
+        t.check('鼠标聚焦数字输入只改变底色，不增加主题色描边', await cdp.evaluate(`(() => {
+            const input = document.querySelector('${numberExample}');
+            const face = input.closest('.glass-input');
+            const style = getComputedStyle(face);
+            return document.activeElement === input && style.outlineStyle === 'none' &&
+                getComputedStyle(input).outlineStyle === 'none' &&
+                style.getPropertyValue('--lg-field-fill') !== ${JSON.stringify(idleFill)};
+        })()`));
+        await pickCatalog('choices');
+        await cdp.click('.component-catalog glass-switch[aria-label="紧凑提醒示例"]');
+        t.check('紧凑开关更新示例状态，禁用开关保持关闭', await cdp.evaluate(`(() => {
+            const active = document.querySelector('glass-switch[aria-label="紧凑提醒示例"]');
+            const disabled = document.querySelector('glass-switch[aria-label="禁用提醒示例"]');
+            return active.checked === false && active.parentElement.querySelector('output').textContent === '关闭' &&
+                disabled.hasAttribute('disabled') && disabled.checked === false;
+        })()`));
+        await pickCatalog('surfaces');
+        t.check('表格滚动后表头仍停留在可视区顶部', await cdp.evaluate(`(async () => {
+            const frame = document.querySelector('.sample-table-scroll');
+            const head = frame.querySelector('thead');
+            const previous = frame.scrollTop;
+            try {
+                frame.scrollTop = 100;
+                await new Promise(requestAnimationFrame);
+                return frame.scrollTop > 0 &&
+                    Math.abs(head.getBoundingClientRect().top - frame.getBoundingClientRect().top) <= 2;
+            } finally {
+                frame.scrollTop = previous;
+            }
+        })()`));
+        await pickCatalog('cards');
         await cdp.click('.component-catalog .sample-card .price-history-trigger');
         try {
             await ui.waitFor(`!!document.querySelector('${sheet}[data-visible]')`);

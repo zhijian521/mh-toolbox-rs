@@ -8,7 +8,6 @@ import CostSwitch from '../../components/CostSwitch.vue';
 import GroupHead from '../../components/GroupHead.vue';
 import { notify } from '../../composables/use-notify';
 import AppNotice from '../../components/AppNotice.vue';
-import leopardHumanoid from './fengyao-leopard-humanoid.webp';
 import AppIcon from '../../components/AppIcon.vue';
 import GlassSmallSwitch from '../../components/liquid-glass/GlassSmallSwitch.vue';
 import { glassLedger } from '../../components/glass-ledger';
@@ -77,7 +76,7 @@ const alertTextId = useId();
 const openAlertId = ref<string | null>(null);
 const portraitRoot = import.meta.env.BASE_URL + 'game/icons/pet-portrait/';
 const reminderPortraits = {
-    fengyao: leopardHumanoid, // 狂豹（人形）
+    fengyao: import.meta.env.BASE_URL + 'game/icons/reminder/reminder-fengyao.webp', // 狂豹（人形）
     yaowang: portraitRoot + 'pet-2087.webp', // 净瓶女娲
     yecha: portraitRoot + 'pet-2107.webp', // 携宝龙龟
     yiguan: portraitRoot + 'pet-2076.webp', // 鬼将

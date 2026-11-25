@@ -14,6 +14,7 @@ import './styles/rounded-font.css';
 import './styles/token-typography.css';
 import './styles/blocks.css';
 import './styles/character-fields.css';
+import './styles/reduced-motion.css';
 import './components/liquid-glass/style.css';
 import './components/liquid-glass/ledger.css';
 
