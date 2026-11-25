@@ -4,6 +4,7 @@ import { usePagination } from '../../composables/use-pagination';
 import { GlassButton } from '../../components/liquid-glass';
 import GlassCompactPager from '../../components/liquid-glass/GlassCompactPager.vue';
 import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
+import GlassTable from '../../components/liquid-glass/GlassTable.vue';
 import TrendChart from '../../components/TrendChart.vue';
 import { changeText, moneyText } from '../../services/format';
 import { chartPrices, pointDelta, sortedPoints, type PricePoint, type ReadonlyPriceItem } from './prices';
@@ -49,7 +50,7 @@ const series = computed(() => [
                 />
             </section>
             <div class="price-history-records">
-                <table class="price-history-table">
+                <GlassTable class="price-history-table" sticky-header>
                     <caption>
                         价格记录（{{ rows.length }} 笔）
                     </caption>
@@ -94,7 +95,7 @@ const series = computed(() => [
                             </td>
                         </tr>
                     </tbody>
-                </table>
+                </GlassTable>
             </div>
             <GlassCompactPager
                 v-model:page="page"
@@ -109,14 +110,14 @@ const series = computed(() => [
 
 <style scoped>
 .liquid-price-history {
-    --accent: light-dark(rgb(91 165 149 / 0.72), rgb(152 216 196 / 0.70));
+    --accent: var(--liquid-focus);
     --muted: var(--liquid-muted);
     --ink-2: var(--liquid-ink);
     --rule: var(--liquid-outline);
     --rule-2: var(--liquid-outline);
     --num: var(--liquid-ink);
-    --bevel-hi: light-dark(#ffffff98, #e2f7e585);
-    --chart-surface-bg: light-dark(rgb(248 253 250 / 0.22), rgb(24 40 38 / 0.24));
+    --bevel-hi: var(--lg-edge-light);
+    --chart-surface-bg: var(--lg-bar-fill);
     display: flex;
     flex: 1 1 0;
     flex-direction: column;
@@ -173,25 +174,6 @@ const series = computed(() => [
 }
 .liquid-price-history > .glass-empty-state {
     margin-block: auto;
-}
-
-.price-history-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--fs-sm);
-    font-variant-numeric: tabular-nums;
-}
-
-.price-history-table :is(th, td) {
-    padding: 8px 6px;
-    border-bottom: 1px solid var(--rule);
-    text-align: left;
-    vertical-align: middle;
-}
-
-.price-history-table th {
-    color: var(--muted);
-    font-weight: 400;
 }
 
 .price-history-table :is(th, td):nth-child(-n + 3) {

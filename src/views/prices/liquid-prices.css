@@ -23,11 +23,14 @@
 }
 
 .price-page-header {
-    margin-bottom: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
 }
 
 .price-page-header h1 {
+    min-width: 0;
     margin: 0;
+    overflow-wrap: anywhere;
 }
 
 .price-add {
@@ -40,8 +43,17 @@
     display: flex;
     flex-wrap: wrap;
     align-items: end;
-    gap: 8px 12px;
-    margin-bottom: 14px;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.price-filters .lg-price-search {
+    width: min(240px, 100%);
+}
+
+.price-filters .lg-category-filter {
+    width: min(calc(144px * var(--fs-scale)), 100%);
+    min-width: 0;
 }
 
 .price-filter-actions {
@@ -66,8 +78,9 @@
 
 .price-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(208px, 100%), 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+    align-items: start;
+    gap: 12px;
 }
 
 .price-history-header h2 {

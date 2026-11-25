@@ -369,6 +369,20 @@ async function checkPrices({ cdp, t, ui }) {
                 trigger.getAttribute('aria-labelledby').split(' ').includes(label.id);
         })()`),
     );
+    t.check('物价卡片将历史放在标题区，价格与记价入口不越过卡片边界', await cdp.evaluate(`(() => {
+        const cards = [...document.querySelectorAll('${card}')];
+        return cards.length > 0 && cards.every(node => {
+            const bounds = node.getBoundingClientRect();
+            const reading = node.querySelector('.price-reading');
+            const history = node.querySelector('.price-card-header .price-history-trigger');
+            const update = node.querySelector('.price-card-footer .price-update-trigger');
+            return reading && history?.getAttribute('aria-label') && update &&
+                [reading, history, update].every(element => {
+                    const rect = element.getBoundingClientRect();
+                    return rect.width > 0 && rect.left >= bounds.left && rect.right <= bounds.right;
+                });
+        });
+    })()`));
     t.check(
         '物价搜索框与分类触发按钮使用等高的胶囊玻璃表面',
         await cdp.evaluate(`(() => {
@@ -478,7 +492,8 @@ async function checkPrices({ cdp, t, ui }) {
                 return sheet.matches('glass-sheet[detents="536"]') &&
                     sheet.querySelector('h2').textContent.trim() === ${JSON.stringify(first.name)} &&
                     (!!sheet.querySelector('.liquid-price-history .glass-empty-state') ||
-                        (!!sheet.querySelector('.chart-svg') && !!sheet.querySelector('tbody tr')));
+                        (!!sheet.querySelector('.chart-svg') &&
+                            !!sheet.querySelector('table.glass-table.has-sticky-header tbody tr')));
             })()`),
         );
         const next = `${sheet} .price-history-pager [aria-label="下一页"]`;
