@@ -32,7 +32,8 @@
 
 .price-add {
     --icon-size: 16px;
-    --glass-foreground: var(--liquid-ink);
+    flex: none;
+    white-space: nowrap;
 }
 
 .price-filters {
@@ -45,6 +46,7 @@
 
 .price-filter-actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-end;
     gap: 8px;
     max-width: 100%;

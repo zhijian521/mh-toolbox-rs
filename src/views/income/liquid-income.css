@@ -1,12 +1,12 @@
 .liquid-income-page .income-stack {
-    margin-top: 10px;
+    gap: 12px;
 }
 .liquid-income-page .split {
-    grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
+    gap: 12px;
 }
-@container income (max-width: 720px) {
+@container income (width > 760px) {
     .liquid-income-page .split {
-        grid-template-columns: minmax(0, 1fr);
+        grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
     }
 }
 

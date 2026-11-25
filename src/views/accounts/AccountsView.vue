@@ -8,6 +8,7 @@ import LedgerSection from '../../components/LedgerSection.vue';
 import PageShell from '../../components/PageShell.vue';
 import LiquidLedgerFrame from '../../components/LiquidLedgerFrame.vue';
 import { glassLedger } from '../../components/glass-ledger';
+import { GlassSegment, GlassSegmented } from '../../components/liquid-glass';
 import PressButton from '../../components/PressButton.vue';
 import PaperTag from '../../components/PaperTag.vue';
 import StatStrip from '../../components/StatStrip.vue';
@@ -166,7 +167,22 @@ useRouteAction('/accounts', {
             />
             <LedgerSection title="收支概览" class="account-overview" plain>
                 <template #actions>
-                    <div class="filters">
+                    <GlassSegmented
+                        v-if="glass"
+                        v-model:value="preset"
+                        class="lg-status-tabs"
+                        data-size="compact"
+                        aria-label="账目时间范围"
+                    >
+                        <GlassSegment
+                            v-for="option in RANGE_PRESETS"
+                            :key="option.value"
+                            :value="option.value"
+                        >
+                            {{ option.label }}
+                        </GlassSegment>
+                    </GlassSegmented>
+                    <div v-else class="filters">
                         <SegmentedPills
                             v-model="preset"
                             :options="RANGE_PRESETS"

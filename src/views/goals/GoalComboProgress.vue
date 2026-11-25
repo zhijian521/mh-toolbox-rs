@@ -3,7 +3,9 @@
 import { computed, inject, reactive, ref, useId } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import { glassLedger } from '../../components/glass-ledger';
-import GlassNumberField from '../../components/liquid-glass/GlassNumberField.vue';
+import GlassCompactNumberField from '../../components/liquid-glass/GlassCompactNumberField.vue';
+import GlassTable from '../../components/liquid-glass/GlassTable.vue';
+import { GlassSegment, GlassSegmented } from '../../components/liquid-glass';
 import NumberField from '../../components/NumberField.vue';
 import FormActions from '../../components/FormActions.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
@@ -103,7 +105,17 @@ function enter(event: KeyboardEvent) {
             <p class="combo-name">{{ goal.title }}</p>
             <fieldset :disabled="locked" :inert="locked">
                 <div class="combo-tabs-scroll">
+                    <GlassSegmented v-if="glass" v-model:value="active" aria-label="更新组合角色">
+                        <GlassSegment
+                            v-for="tab in tabs"
+                            :id="`${prefix}-tab-${tab.value}`"
+                            :key="tab.value"
+                            :value="tab.value"
+                            :aria-controls="`${prefix}-pane-${tab.value}`"
+                        >{{ tab.label }}</GlassSegment>
+                    </GlassSegmented>
                     <SteppedSlider
+                        v-else
                         v-model="active"
                         :options="tabs"
                         as="tab"
@@ -119,7 +131,12 @@ function enter(event: KeyboardEvent) {
                     :aria-labelledby="`${prefix}-tab-${active}`"
                     class="combo-value-list"
                 >
-                    <table class="ledger-table combo-progress-table" aria-label="组合项目进度">
+                    <component
+                        :is="glass ? GlassTable : 'table'"
+                        class="combo-progress-table"
+                        :class="{ 'ledger-table': !glass }"
+                        aria-label="组合项目进度"
+                    >
                         <colgroup>
                             <col />
                             <col class="combo-input-col" />
@@ -150,7 +167,7 @@ function enter(event: KeyboardEvent) {
                                         class="combo-current-input"
                                     >
                                         <component
-                                            :is="glass ? GlassNumberField : NumberField"
+                                            :is="glass ? GlassCompactNumberField : NumberField"
                                             :model-value="inputs[row.id]"
                                             :label="`${row.name}的${row.tracking.key}当前值`"
                                             update-on-input
@@ -194,7 +211,7 @@ function enter(event: KeyboardEvent) {
                                 </td>
                             </tr>
                         </tbody>
-                    </table>
+                    </component>
                 </section>
                 <p v-else class="note">暂无可更新的项目，请先编辑组合设置。</p>
             </fieldset>
@@ -242,8 +259,19 @@ fieldset {
     border: 0;
 }
 .combo-tabs-scroll {
+    min-width: 0;
     overflow-x: auto;
     padding: 4px;
+}
+.combo-tabs-scroll > glass-segmented {
+    display: inline-flex;
+    height: calc(36px * var(--fs-scale));
+    width: max-content;
+    min-width: 100%;
+}
+.combo-tabs-scroll glass-segment {
+    flex: 1 0 auto;
+    white-space: nowrap;
 }
 .combo-tabs-scroll :deep(.stepped) {
     min-width: 100%;
@@ -261,7 +289,7 @@ fieldset {
     table-layout: fixed;
 }
 .combo-input-col {
-    width: calc(98px * var(--fs-scale));
+    width: calc(112px * var(--fs-scale));
 }
 .combo-target-col {
     width: calc(82px * var(--fs-scale));
@@ -283,9 +311,19 @@ fieldset {
 .combo-current-input {
     display: grid;
     gap: 4px;
+    min-width: 0;
+    width: 100%;
+}
+.combo-current-input > .glass-compact-number-field {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
 }
 .combo-current-input :deep(.number-field) {
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 .combo-current-input > small {
     color: var(--accent);

@@ -509,7 +509,7 @@ const outcome = computed<Outcome>(() => {
             </GlassSegmented>
             <SegmentedPills v-else v-model="mode" :options="MODES" label="计算方式" />
         </template>
-        <div class="growth-calculator" :class="{ 'growth-single': mode === 'single', 'lg-form-fields': glass }">
+        <div class="growth-calculator" :class="{ 'lg-form-fields': glass }">
             <LoadNotice :error="levelCostsError" :load="reload" />
 
             <template v-if="costs">

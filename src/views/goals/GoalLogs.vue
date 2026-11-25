@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, ref, watch } from 'vue';
+import { computed, inject, ref, useId, watch } from 'vue';
 import GlassDateField from '../../components/liquid-glass/GlassDateField.vue';
 import GlassInput from '../../components/liquid-glass/GlassInput.vue';
 import DateField from '../../components/DateField.vue';
@@ -10,9 +10,11 @@ import NumberField from '../../components/NumberField.vue';
 import PressButton from '../../components/PressButton.vue';
 import FormActions from '../../components/FormActions.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
+import { GlassSegment, GlassSegmented } from '../../components/liquid-glass';
+import GoalReadouts from './GoalReadouts.vue';
 import { useToday } from '../../composables/use-today';
 import { useDraftGuard } from '../../composables/use-draft-guard';
-import { signedText, type ReadonlyGoal, type GoalSummary } from './goals';
+import type { ReadonlyGoal, GoalSummary } from './goals';
 import type { LogInput } from './goals-store';
 
 const glass = inject(glassLedger, null);
@@ -27,7 +29,6 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
     add: [input: LogInput];
-    remove: [logId: string];
     retry: [];
     close: [];
 }>();
@@ -36,6 +37,20 @@ const date = ref(today.value);
 const direction = ref('add');
 const delta = ref(0);
 const note = ref('');
+const amountId = useId();
+const directions = [
+    { value: 'add', label: '增加' },
+    { value: 'subtract', label: '减少' },
+];
+const readings = computed(() => [
+    { key: 'name', label: '目标', text: props.goal.title },
+    {
+        key: 'progress',
+        label: '当前 / 目标',
+        text: `${props.summary.current.toLocaleString('zh-CN', { maximumFractionDigits: 2 })} / ${props.goal.target.toLocaleString('zh-CN')}`,
+        unit: props.goal.unit,
+    },
+]);
 const entryOptions = () => `${date.value}:${direction.value}`;
 let savedOptions = entryOptions();
 const { requestClose } = useDraftGuard(
@@ -44,11 +59,6 @@ const { requestClose } = useDraftGuard(
         (delta.value !== 0 || !!note.value.trim() || entryOptions() !== savedOptions),
     () => props.saving,
     () => emit('close'),
-);
-const ordered = computed(() =>
-    [...props.goal.logs].sort((a, b) =>
-        a.date === b.date ? b.createdAt - a.createdAt : a.date < b.date ? 1 : -1,
-    ),
 );
 const ready = computed(() => Number.isFinite(delta.value) && delta.value > 0 && !!date.value);
 watch(
@@ -75,36 +85,36 @@ function enter(event: KeyboardEvent) {
 </script>
 
 <template>
-    <ModalShell title="进度记录" :width="600" :min-height="360" @close="requestClose">
-        <div class="record-summary">
-            <span>{{ goal.title }}</span
-            ><b
-                >{{ summary.current.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) }} /
-                {{ goal.target }} {{ goal.unit }}</b
-            >
-        </div>
-        <form class="modal-form" :class="{ 'lg-form-fields': glass }" @submit.prevent="submit" @keydown.enter="enter">
+    <ModalShell title="进度记录" :width="600" @close="requestClose">
+        <form class="modal-form goal-log-form" :class="{ 'lg-form-fields': glass }" @submit.prevent="submit" @keydown.enter="enter">
+            <GoalReadouts :items="readings" />
             <fieldset class="entry" :disabled="locked" :inert="locked">
+                <GlassSegmented v-if="glass" v-model:value="direction" aria-label="进度方向">
+                    <GlassSegment v-for="option in directions" :key="option.value" :value="option.value">
+                        {{ option.label }}
+                    </GlassSegment>
+                </GlassSegmented>
                 <SegmentedPills
+                    v-else
                     v-model="direction"
-                    :options="[
-                        { value: 'add', label: '增加' },
-                        { value: 'subtract', label: '减少' },
-                    ]"
+                    :options="directions"
                     label="进度方向"
                     :disabled="locked"
                 />
                 <div class="entry-row">
                     <component :is="glass ? GlassDateField : DateField" v-model="date" label="记在哪一天" :max="today" :disabled="locked" />
-                    <component
-                        :is="glass ? GlassNumberField : NumberField"
-                        v-model="delta"
-                        label="这一笔的变化量"
-                        update-on-input
-                        :precision="goal.kind === 'gear' ? 0 : 2"
-                        zero-as-empty
-                    />
-                    <span>{{ goal.unit }}</span>
+                    <div class="entry-amount">
+                        <label :for="amountId">变化数量（{{ goal.unit }}）</label>
+                        <component
+                            :is="glass ? GlassNumberField : NumberField"
+                            :id="amountId"
+                            v-model="delta"
+                            label="这一笔的变化量"
+                            update-on-input
+                            :precision="goal.kind === 'gear' ? 0 : 2"
+                            zero-as-empty
+                        />
+                    </div>
                 </div>
                 <GlassInput v-if="glass" v-model="note" aria-label="备注" placeholder="备注" autocomplete="off" />
                 <input v-else
@@ -116,38 +126,6 @@ function enter(event: KeyboardEvent) {
                 />
             </fieldset>
         </form>
-        <table v-if="ordered.length" class="income-table log-table" aria-label="进度流水">
-            <thead>
-                <tr>
-                    <th scope="col">日期</th>
-                    <th scope="col">变动</th>
-                    <th scope="col">备注</th>
-                    <th scope="col">操作</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr v-for="log in ordered" :key="log.id" class="log-row">
-                    <td class="num">
-                        <time :datetime="log.date">{{ log.date }}</time>
-                    </td>
-                    <td class="delta num">{{ signedText(log.delta, goal.unit) }}</td>
-                    <td class="note-text">{{ log.note }}</td>
-                    <td>
-                        <span class="income-ops">
-                            <PressButton
-                                icon="trash"
-                                label="删掉这一笔"
-                                size="sm"
-                                danger
-                                :disabled="locked"
-                                @click="emit('remove', log.id)"
-                            />
-                        </span>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-        <p v-else class="record-empty">暂无记录</p>
         <template #footer>
             <FormActions
                 :error="error"
@@ -174,26 +152,17 @@ function enter(event: KeyboardEvent) {
 </template>
 
 <style scoped>
-.record-summary {
-    display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 14px;
-}
-.record-summary span {
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-.record-summary b {
-    color: var(--num);
-    font-weight: 400;
-    font-variant-numeric: tabular-nums;
+.goal-log-form {
+    display: grid;
+    gap: 16px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
 }
 .entry {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 10px;
     min-width: 0;
     margin: 0;
@@ -203,10 +172,13 @@ function enter(event: KeyboardEvent) {
 .entry > .field {
     width: 100%;
 }
+.entry > :is(glass-segmented, .pill-group) {
+    align-self: flex-start;
+}
 .entry-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(100px, 1fr) auto;
-    align-items: center;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
     gap: 8px;
     width: 100%;
     color: var(--muted);
@@ -215,19 +187,13 @@ function enter(event: KeyboardEvent) {
 .entry-row :deep(.number-field) {
     width: 100%;
 }
-.log-table :is(th, td):last-child {
-    width: 1%;
-    text-align: end;
-    white-space: nowrap;
+.entry-amount {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
 }
-.log-table time,
-.delta {
-    white-space: nowrap;
-}
-.delta {
-    color: var(--num);
-}
-.note-text {
-    overflow-wrap: anywhere;
+.entry-amount > label {
+    color: var(--muted);
+    font-size: var(--fs-xs);
 }
 </style>

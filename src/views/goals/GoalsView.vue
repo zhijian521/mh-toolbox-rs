@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { lazyDialog } from '../../components/lazy-dialog';
 import { useRouteAction } from '../../composables/use-route-action';
-import { computed, inject, ref } from 'vue';
+import { computed, inject, ref, watch } from 'vue';
 import { glassLedger } from '../../components/glass-ledger';
 import LiquidLedgerFrame from '../../components/LiquidLedgerFrame.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
@@ -10,6 +10,7 @@ import PageShell from '../../components/PageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import { gameDataError, gameDataReady } from '../../services/game-data';
+import { levelCosts, levelCostsError, loadLevelCosts } from '../../services/level-costs';
 import { notify } from '../../composables/use-notify';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
@@ -21,6 +22,7 @@ import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import GoalCard from './GoalCard.vue';
 import GoalHistory from './GoalHistory.vue';
+import { goalResources, type GoalResources } from './goal-resources';
 import {
     goalSummary,
     orderGoals,
@@ -69,6 +71,32 @@ const today = useToday();
 const entries = computed(() =>
     goals.value.map((goal) => ({ goal, summary: goalSummary(goal, roster.value) })),
 );
+const hasGrowthGoals = computed(() => entries.value.some(({ summary }) => summary.kind !== 'manual'));
+async function reloadCosts() {
+    await loadLevelCosts();
+}
+watch(
+    hasGrowthGoals,
+    (needed) => {
+        if (needed) void reloadCosts();
+    },
+    { immediate: true },
+);
+const resourceStatus = computed(() => {
+    if (rosterLoadError.value) return '角色资料读取失败，暂不估算';
+    if (!gameDataReady.value) return gameDataError.value || '角色规则加载中…';
+    return levelCostsError.value;
+});
+const resourceEstimates = computed<Map<string, GoalResources | null>>(() => {
+    const costs = levelCosts.value;
+    if (!costs || resourceStatus.value) return new Map();
+    return new Map(
+        entries.value.map(({ goal, summary }) => [
+            goal.id,
+            goalResources(costs, goal, summary, roster.value),
+        ]),
+    );
+});
 const byId = computed(() => new Map(entries.value.map((entry) => [entry.goal.id, entry])));
 const ordered = computed(() => orderGoals(entries.value));
 const status = ref<'active' | 'done' | 'all'>('active');
@@ -95,6 +123,9 @@ const growthCharacter = ref('');
 const logsId = ref('');
 const historyGoal = ref<ReadonlyGoal | null>(null);
 const historyOpen = ref(false);
+const activeHistoryGoal = computed(() =>
+    historyGoal.value ? byId.value.get(historyGoal.value.id)?.goal ?? null : null,
+);
 function openHistory(goal: ReadonlyGoal) {
     historyGoal.value = goal;
     historyOpen.value = true;
@@ -266,25 +297,8 @@ async function record(input: LogInput) {
     recorded.value += 1;
     announce(beforeProgress, goal.id);
 }
-async function bought(goal: ReadonlyGoal) {
-    if (blocked.value) return;
-    beforeProgress = summaryOf(goal.id);
-    const ok = await progressSubmit.run(`bought:${goal.id}`, () => {
-        const result = addLog(goal.id, { date: today.value, delta: 1, note: '买了一件' });
-        if (!result.ok) {
-            notify.error(result.error);
-            return false;
-        }
-        return true;
-    });
-    if (ok) announce(beforeProgress, goal.id);
-    else if (progressAction.value) {
-        progressError.value = '';
-        logsId.value = goal.id;
-    }
-}
 async function dropLog(logId: string) {
-    const goal = logs.value;
+    const goal = activeHistoryGoal.value;
     if (!goal) return;
     await removal.run(
         {
@@ -317,6 +331,21 @@ useRouteAction('/goals', {
         desc="养成计划 · 进度跟踪"
     >
         <template #actions>
+            <GlassSegmented
+                v-if="glass"
+                v-model:value="status"
+                class="lg-status-tabs"
+                data-size="compact"
+                aria-label="目标状态"
+            >
+                <GlassSegment
+                    v-for="option in statusOptions"
+                    :key="option.value"
+                    :value="option.value"
+                >
+                    {{ option.label }}
+                </GlassSegment>
+            </GlassSegmented>
             <PressButton
                 icon="add"
                 text="新增"
@@ -332,6 +361,7 @@ useRouteAction('/goals', {
             :blocked="pending > 0 || !!writeError || !!editing || !!growth || !!logs"
         />
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
+        <LoadNotice v-if="hasGrowthGoals" :error="levelCostsError" :load="reloadCosts" />
         <LoadNotice
             :error="rosterLoadError"
             :load="props.reloadRoster ?? loadRoster"
@@ -343,13 +373,8 @@ useRouteAction('/goals', {
             :pending="rosterPending"
             @retry="retryRoster"
         />
-        <div class="filters page-filters">
-            <GlassSegmented v-if="glass" v-model:value="status" class="lg-status-tabs" data-size="compact" aria-label="目标状态">
-                <GlassSegment v-for="option in statusOptions" :key="option.value" :value="option.value">
-                    {{ option.label }}
-                </GlassSegment>
-            </GlassSegmented>
-            <SegmentedPills v-else v-model="status" :options="statusOptions" label="目标状态" />
+        <div v-if="!glass" class="filters page-filters">
+            <SegmentedPills v-model="status" :options="statusOptions" label="目标状态" />
         </div>
         <div v-if="!visible.length" class="goal-empty">
             <GlassEmptyState v-if="glass">{{ emptyText }}</GlassEmptyState>
@@ -361,17 +386,29 @@ useRouteAction('/goals', {
                 :key="entry.goal.id"
                 :goal="entry.goal"
                 :summary="entry.summary"
+                :resources="resourceEstimates.get(entry.goal.id)"
+                :resource-status="resourceStatus"
                 :today="today"
                 :disabled="blocked"
                 @edit="openEditor(entry.goal)"
                 @history="openHistory(entry.goal)"
                 @growth="openGrowth(entry.goal, $event)"
                 @record="openLogs(entry.goal)"
-                @bought="bought(entry.goal)"
             />
         </div>
         <GlassDialog v-if="glass" v-model:open="historyOpen" class="goal-history-sheet" bottom lazy detents="400" label="目标历史">
-            <GoalHistory v-if="historyGoal" :key="historyGoal.id" :goal="historyGoal" embedded @close="historyOpen = false" />
+            <GoalHistory
+                v-if="activeHistoryGoal"
+                :key="activeHistoryGoal.id"
+                :goal="activeHistoryGoal"
+                embedded
+                :locked="blocked"
+                :error="writeError"
+                :pending="pending"
+                @remove="dropLog"
+                @retry="retry"
+                @close="historyOpen = false"
+            />
         </GlassDialog>
     </component>
     <GoalEditor
@@ -408,12 +445,18 @@ useRouteAction('/goals', {
         :error="progressError || writeError"
         :recorded="recorded"
         @add="record"
-        @remove="dropLog"
         @retry="retry"
         @close="closeLogs"
     />
-    <ModalShell v-if="!glass && historyOpen && historyGoal" title="目标历史" :width="620" @close="historyOpen = false">
-        <GoalHistory :goal="historyGoal" />
+    <ModalShell v-if="!glass && historyOpen && activeHistoryGoal" title="目标历史" :width="620" @close="historyOpen = false">
+        <GoalHistory
+            :goal="activeHistoryGoal"
+            :locked="blocked"
+            :error="writeError"
+            :pending="pending"
+            @remove="dropLog"
+            @retry="retry"
+        />
         <template #footer>
             <PressButton text="关闭" label="关闭目标历史" @click="historyOpen = false" />
         </template>
@@ -446,6 +489,11 @@ useRouteAction('/goals', {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
+}
+.liquid-goals .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    align-items: start;
 }
 .liquid-goals .goal-empty {
     padding-block: 28px;

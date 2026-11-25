@@ -97,15 +97,30 @@ export default async function run(ctx) {
         await ui.clickText(`${dialog} button`, '装备', { exact: true });
         await setMembers([names[0]]);
         await saveNamed(title, 3);
+        await ui.clickIn('[data-goal-id]', title, { label: '更新目标进度' });
+        await cdp.click(`${dialog} .date-trigger`);
+        await ui.waitFor(`document.activeElement?.matches('.date-panel .day')`);
+        await cdp.key('ArrowLeft');
+        const recordedDate = await cdp.evaluate(`(() => {
+            const label = document.activeElement.getAttribute('aria-label');
+            const parts = label.match(/[0-9]+/g);
+            return parts[0] + '-' + parts[1].padStart(2, '0') + '-' + parts[2].padStart(2, '0');
+        })()`);
+        await cdp.key('Enter');
+        await ui.waitFor(`!document.querySelector('.date-panel')`);
         for (let i = 0; i < 3; i += 1) {
-            await ui.clickIn('[data-goal-id]', title, { label: '买了一件，进度加一' });
-            await sleep(350);
+            await ui.fill('这一笔的变化量', '1');
+            await ui.clickLabel('记入这一笔');
+            await ui.waitFor(
+                `document.querySelector('input[aria-label="这一笔的变化量"]')?.value === '' &&
+                    document.querySelector('${dialog} fieldset')?.disabled === false`,
+                { timeout: 5000 },
+            );
         }
         t.check(
             '买满即达成且留在眼前',
             await cdp.evaluate(`!!${card(title)}?.querySelector('.mark')`),
         );
-        await ui.clickIn('[data-goal-id]', title, { text: '记录' });
         await ui.clickText(`${dialog} button`, '减少', { exact: true });
         await ui.fill('这一笔的变化量', '1');
         t.check(
@@ -116,7 +131,8 @@ export default async function run(ctx) {
         );
         await cdp.key('Enter');
         await ui.waitFor(
-            `document.querySelectorAll('${dialog} table[aria-label="进度流水"] tbody tr').length === 4`,
+            `document.querySelector('input[aria-label="这一笔的变化量"]')?.value === '' &&
+                document.querySelector('${dialog} fieldset')?.disabled === false`,
             {
                 timeout: 5000,
             },
@@ -130,9 +146,25 @@ export default async function run(ctx) {
                     && !node.querySelector('.mark');
             })()`),
         );
-        await ui.clickLabel('删掉这一笔');
+        t.check('更新弹窗只录入进度，不重复显示历史表格',
+            !(await ui.exists(`${dialog} table[aria-label="进度流水"]`)));
+        await ui.clickLabel('关闭记录');
+        await ui.waitFor(`!document.querySelector('${dialog}')`, { timeout: 5000 });
+        await ui.clickIn('[data-goal-id]', title, { label: '目标历史' });
+        await ui.waitFor(
+            `document.querySelectorAll('${dialog} table[aria-label="目标更新历史"] tbody tr').length === 4`,
+            { timeout: 5000 },
+        );
+        t.check('手动类历史展示补记日期，录入时间保留在悬停说明', await cdp.evaluate(`(() => {
+            const times = [...document.querySelectorAll('${dialog} .progress-history tbody time')];
+            return times.length === 4 && times.every(time =>
+                time.textContent.trim() === ${q(recordedDate)} &&
+                time.getAttribute('datetime') === ${q(recordedDate)} &&
+                time.title.startsWith('录入时间：'));
+        })()`));
+        await cdp.click(`${dialog} table[aria-label="目标更新历史"] tbody tr:first-child [aria-label="删掉这一笔"]`);
         await ui.clickText(`${dialog} button`, '删除', { exact: true });
-        await ui.waitFor(`document.querySelectorAll('${dialog} .log-row').length === 3`, {
+        await ui.waitFor(`document.querySelectorAll('${dialog} table[aria-label="目标更新历史"] tbody tr').length === 3`, {
             timeout: 5000,
         });
         t.check(
@@ -248,7 +280,7 @@ export default async function run(ctx) {
         await setMembers([names[0]]);
         await ui.fill('目标单位', '点');
         await saveNamed(title, 1.5);
-        await ui.clickIn('[data-goal-id]', title, { label: '记录目标进度' });
+        await ui.clickIn('[data-goal-id]', title, { label: '更新目标进度' });
         for (const value of ['0.5', '1']) {
             await ui.fill('这一笔的变化量', value);
             await ui.clickLabel('记入这一笔');
@@ -404,15 +436,21 @@ export default async function run(ctx) {
             '统一保存后各角色按达标项数满进度',
             await cdp.evaluate(`(() => {
             const node = ${card(title)};
-            return node?.textContent.includes('4 / 4 项达标')
-                && node.querySelector('.ring')?.getAttribute('aria-valuenow') === '100'
+            return node?.querySelector('.ring')?.getAttribute('aria-valuenow') === '100'
+                && node.querySelectorAll('.member [role="progressbar"]').length === 4
                 && [...node.querySelectorAll('.member [role="progressbar"]')].every((bar) => bar.getAttribute('aria-valuenow') === '100');
         })()`),
         );
         await ui.reload();
         await ui.gotoReady('目标');
         await all();
-        t.check('组合定义与整批档案修改重载保留', (await textOf(title)).includes('4 / 4 项达标'));
+        t.check('组合定义与整批档案修改重载保留', await cdp.evaluate(`(() => {
+            const node = ${card(title)};
+            const bars = [...(node?.querySelectorAll('.member [role="progressbar"]') ?? [])];
+            return node?.querySelector('.ring')?.getAttribute('aria-valuenow') === '100'
+                && bars.length === 4
+                && bars.every((bar) => bar.getAttribute('aria-valuenow') === '100');
+        })()`));
     });
     await t.step('清理临时目标与角色', async () => {
         await sweep();

@@ -116,16 +116,15 @@ onMounted(() => {
 
             <section aria-labelledby="overview-workbench-title">
                 <GlassCard class="overview-card workbench" :radius="20">
-                    <div class="workbench-intro">
-                        <h2 id="overview-workbench-title">工作台</h2>
-                        <div v-if="!roster.loadError.value" class="workbench-status">
-                            <span>{{ roster.roster.value.length }} 个角色</span>
+                    <header class="workbench-intro">
+                        <div class="workbench-heading">
+                            <h2 id="overview-workbench-title">工作台</h2>
                             <span
-                                v-if="!online.loadError.value"
+                                v-if="!roster.loadError.value && !online.loadError.value"
                                 class="online-count"
                                 :class="{ 'is-active': onlineCount > 0 }"
                             >
-                                {{ onlineCount }} 个在线
+                                {{ onlineCount ? `${onlineCount} 个在线` : '暂无角色在线' }}
                             </span>
                         </div>
                         <div class="workbench-actions">
@@ -165,7 +164,7 @@ onMounted(() => {
                                 {{ fengyaoRunning ? '停止提醒' : '开启提醒' }}
                             </GlassButton>
                         </div>
-                    </div>
+                    </header>
                     <div class="overview-periods">
                         <section class="workbench-period" aria-labelledby="overview-week-title">
                             <h3 id="overview-week-title">

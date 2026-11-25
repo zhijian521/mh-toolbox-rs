@@ -239,9 +239,9 @@ async function checkPrices({ cdp, t, ui }) {
     try {
         await ui.waitFor(`!!document.querySelector('${sheet}:is([open], [data-visible]) .liquid-price-editor')`);
         t.check(
-            '顶部加号打开新增物品，页头没有数量统计',
+            '页头显示新增物品按钮并打开录入弹窗',
             await cdp.evaluate(`document.querySelector('${editor} h2').textContent.trim() === '新增物品' &&
-                !document.querySelector('${page} .price-page-header').textContent.includes('件物品')`),
+                document.querySelector('${page} .price-add').textContent.trim() === '新增物品'`),
         );
         t.check('居中新增弹窗和遮罩随系统动效偏好淡入', await cdp.evaluate(`(() => {
             const dialog = document.querySelector('${sheet}');
@@ -346,7 +346,7 @@ async function checkPrices({ cdp, t, ui }) {
     if (!first) {
         t.check(
             '空账本仅展示空态卡片，仍可从页头新增物品',
-            await cdp.evaluate(`document.querySelector('${emptyState}')?.textContent.trim() === '暂无数据' &&
+            await cdp.evaluate(`document.querySelector('${emptyState}')?.textContent.trim() === '还没有物品，点击右上角新增' &&
                 !!document.querySelector('${page} .price-add:not([disabled])') && !document.querySelector('${filters}')`),
         );
         await cdp.click(`${page} .price-add`);
@@ -424,7 +424,9 @@ async function checkPrices({ cdp, t, ui }) {
     const search = `${filters} glass-search`;
     await cdp.click(search);
     await cdp.send('Input.insertText', { text: `不存在的搜索词${Date.now()}` });
-    await ui.waitFor(`document.querySelector('${emptyState}')?.textContent.trim() === '暂无数据'`);
+    t.check('搜索无匹配时显示筛选结果空态', await ui.waitFor(
+        `document.querySelector('${emptyState}')?.textContent.trim() === '没有符合条件的物品'`,
+    ));
     await cdp.click(reset);
     await ui.waitFor(`!!document.querySelector('${card}') && !document.querySelector('${reset}')`);
     t.check(
@@ -595,7 +597,10 @@ export default async function liquidShell({ cdp, t, ui }) {
             const amount = page.querySelector('.workbench-metrics dd');
             const scrollHost = page.closest('.liquid-content');
             const plotScroll = trend.querySelector('.chart-scroll');
+            const actions = page.querySelector('.workbench-intro .workbench-actions');
+            const periods = page.querySelector('.overview-periods');
             return !page.querySelector('[role="alert"]') &&
+                actions.getBoundingClientRect().bottom <= periods.getBoundingClientRect().top &&
                 page.querySelectorAll('.workbench-metrics > div').length === 4 &&
                 page.querySelectorAll('.month-ledger tbody tr').length === 2 &&
                 page.querySelectorAll('.month-ledger td').length === 4 &&
@@ -688,10 +693,11 @@ export default async function liquidShell({ cdp, t, ui }) {
     })()`));
     await cdp.click(`${incomeDialog} [data-modal-close]`);
     await ui.waitFor(`!document.querySelector('${incomeDialog}')`);
-    t.check('收益主界面保留在线、速记和两张走势图', await cdp.evaluate(`(() => {
+    t.check('收益主界面保留在线、速记和走势图，点卡计入使用紧凑开关', await cdp.evaluate(`(() => {
         const page = document.querySelector('${income}');
         const headings = Array.from(page.querySelectorAll('h2, h3'), (node) => node.textContent.trim());
         return page.querySelectorAll('glass-surface.ledger-section').length === 4 &&
+            !!page.querySelector('glass-switch.lg-small-switch[aria-label="点卡计入账号收支"]') &&
             ['在线点卡', '物品速记', '今日速记', '每日时长', '每日收益'].every((text) => headings.includes(text));
     })()`));
     for (const [selector, title] of [
@@ -744,6 +750,12 @@ export default async function liquidShell({ cdp, t, ui }) {
     await waitAccountDialog('记一笔');
     await closeAccountDialog();
     await waitAccountClosed();
+    const accountRange = `${accounts} glass-segmented[aria-label="账目时间范围"]`;
+    await cdp.click(`${accountRange} glass-segment[value="week"]`);
+    t.check('账号收支可使用公共分段控件切换时间范围', await ui.waitFor(
+        `document.querySelector('${accountRange} glass-segment[aria-selected="true"]')?.getAttribute('value') === 'week'`,
+    ));
+    await cdp.click(`${accountRange} glass-segment[value="month"]`);
     t.check('账号保留双币种、快捷记账、收支图表和近期记录', await cdp.evaluate(`(() => {
         const page = document.querySelector('${accounts}');
         return page.querySelectorAll('[data-book-currency]').length === 2 &&
@@ -816,6 +828,20 @@ export default async function liquidShell({ cdp, t, ui }) {
     const waitCharacterClosed = () => ui.waitFor(`!document.querySelector('${characterMask}')`);
     const newCharacter = `${characters} [aria-label="新建角色"]`;
     await ui.waitFor(`!!document.querySelector('${newCharacter}:not([disabled])')`);
+    const rosterSearch = `${characters} glass-search[aria-label="搜索角色"]`;
+    if (await ui.exists(rosterSearch)) {
+        const cards = `${characters} .roster-card`;
+        const count = await cdp.evaluate(`document.querySelectorAll('${cards}').length`);
+        await cdp.click(rosterSearch);
+        await cdp.send('Input.insertText', { text: `没有这个角色${Date.now()}` });
+        t.check('角色搜索无匹配时显示空态', await ui.waitFor(
+            `document.querySelector('${characters} .roster-empty')?.textContent.trim() === '没有符合条件的角色'`,
+        ));
+        await cdp.key('Escape');
+        t.check('清空角色搜索后恢复名册', await ui.waitFor(
+            `document.querySelectorAll('${cards}').length === ${count} && document.querySelector('${rosterSearch}').value === ''`,
+        ));
+    }
     await cdp.click(newCharacter);
     await waitCharacterDialog('新角色');
     const sections = `${characterDialog} [aria-label="修改分区"] button`;
@@ -927,7 +953,9 @@ export default async function liquidShell({ cdp, t, ui }) {
     const goalFilters = `${goals} [aria-label="目标状态"]`;
     await ui.waitFor(`!!document.querySelector('${goalFilters}')`);
     await cdp.click(`${goalFilters} glass-segment[value="all"]`);
-    t.check('目标页保留三档状态筛选', await cdp.evaluate(`
+    t.check('目标页在页头显示三档状态筛选和新增入口', await cdp.evaluate(`
+        !!document.querySelector('${goals} .liquid-ledger-actions [aria-label="目标状态"]') &&
+        !!document.querySelector('${goals} .liquid-ledger-actions [aria-label="新建目标"]') &&
         [...document.querySelectorAll('${goalFilters} glass-segment')].map(el => el.textContent.trim()).join(',') === '进行中,已达成,全部' &&
         document.querySelector('${goalFilters} [aria-selected="true"]').textContent.includes('全部')
     `));
@@ -936,7 +964,11 @@ export default async function liquidShell({ cdp, t, ui }) {
         const cards = [...page.querySelectorAll('.goal[data-goal-id]')];
         if (!cards.length) return !!page.querySelector('.glass-empty-state');
         return cards.every(card => card.querySelector('.progress-body .ring[role="progressbar"]') &&
-            card.querySelector('.goal-actions [aria-label="目标历史"]'));
+            card.querySelector('.goal-head-actions [aria-label="目标历史"]') &&
+            card.querySelector('.goal-head-actions [aria-label^="更新"]') &&
+            card.querySelector('.goal-head-actions [aria-label="编辑目标"]') &&
+            !/个角色|项达标/.test(card.querySelector('.heading')?.textContent.replace(card.querySelector('h2')?.textContent || '', '') || '') &&
+            !card.querySelector('.goal-actions button, .goal-actions glass-button'));
     })()`));
     const memberTicks = `${goals} .members .ticks`;
     if (await ui.exists(memberTicks)) {
@@ -949,8 +981,8 @@ export default async function liquidShell({ cdp, t, ui }) {
             })
         `));
     }
-    if (await ui.exists(`${goals} .goal-actions [aria-label="目标历史"]`)) {
-        await cdp.click(`${goals} .goal-actions [aria-label="目标历史"]`);
+    if (await ui.exists(`${goals} .goal-head-actions [aria-label="目标历史"]`)) {
+        await cdp.click(`${goals} .goal-head-actions [aria-label="目标历史"]`);
         const sheet = `${goals} glass-sheet.goal-history-sheet[data-visible]`;
         await ui.waitFor(`!!document.querySelector('${sheet} .history-content')`);
         t.check('目标历史只显示一个底部弹层', await cdp.evaluate(`
@@ -965,6 +997,66 @@ export default async function liquidShell({ cdp, t, ui }) {
         })()`));
         await cdp.click(`${sheet} [aria-label="关闭目标历史"]`);
         await ui.waitFor(`!document.querySelector('${sheet}')`);
+    }
+    const comboMember = `${goals} .goal button.member:not(:disabled)`;
+    if (await ui.exists(comboMember)) {
+        const member = await cdp.evaluate(`(() => {
+            const row = document.querySelector('${comboMember}');
+            return {
+                name: row.querySelector('.who').textContent.trim(),
+                count: row.closest('.members').children.length,
+            };
+        })()`);
+        await cdp.click(comboMember);
+        t.check('组合卡按角色合并进度并打开对应角色', await ui.waitFor(`(() => {
+            const tabs = document.querySelector('${goalDialog} [aria-label="更新组合角色"]');
+            return tabs?.querySelectorAll('[role="tab"]').length === ${member.count} &&
+                tabs.querySelector('[aria-selected="true"]')?.textContent.trim().startsWith(${JSON.stringify(member.name + ' · ')});
+        })()`));
+        t.check('组合更新共用玻璃表格和紧凑数字输入', await cdp.evaluate(`
+            !!document.querySelector('${goalDialog} table.glass-table.combo-progress-table input.compact-number-input')
+        `));
+        t.check('组合角色切换横向单行排列，标签不互相重叠', await cdp.evaluate(`(() => {
+            const tabs = document.querySelector('${goalDialog} [aria-label="更新组合角色"]');
+            const items = [...tabs.querySelectorAll('glass-segment')];
+            const rects = items.map(item => item.getBoundingClientRect());
+            return rects.length > 0 && rects.every((rect, index) =>
+                rect.width > 0 && Math.abs(rect.top - rects[0].top) <= 1 &&
+                (index === 0 || rect.left >= rects[index - 1].right - 1));
+        })()`));
+        t.check('组合当前值输入不侵入目标列', await cdp.evaluate(`(() => {
+            const inputs = [...document.querySelectorAll('${goalDialog} .combo-current-input input')];
+            return inputs.length > 0 && inputs.every(input => {
+                const field = input.getBoundingClientRect();
+                const cell = input.closest('td').getBoundingClientRect();
+                const target = input.closest('td').nextElementSibling.getBoundingClientRect();
+                return field.width > 0 && field.left >= cell.left && field.right <= cell.right &&
+                    field.right <= target.left;
+            });
+        })()`));
+        await closeGoals();
+        await waitGoalsClosed();
+    }
+    const manualUpdate = `${goals} [aria-label="更新目标进度"]`;
+    if (await ui.exists(manualUpdate)) {
+        await cdp.click(manualUpdate);
+        t.check('手动类更新的摘要、增减切换和输入使用公共组件', await ui.waitFor(`
+            !!document.querySelector('${goalDialog} .goal-log-form .resource-grid') &&
+            !!document.querySelector('${goalDialog} glass-segmented[aria-label="进度方向"]') &&
+            !!document.querySelector('${goalDialog} .glass-date-face') &&
+            !!document.querySelector('${goalDialog} .glass-number-field')
+        `));
+        t.check('日期和数值输入等高对齐，摘要与表单两侧对齐', await cdp.evaluate(`(() => {
+            const form = document.querySelector('${goalDialog} .goal-log-form');
+            const date = form.querySelector('.glass-date-face').getBoundingClientRect();
+            const number = form.querySelector('.glass-number-field').getBoundingClientRect();
+            const summary = form.querySelector('.resource-grid').getBoundingClientRect();
+            const fields = form.querySelector('.entry-row').getBoundingClientRect();
+            return Math.abs(date.top - number.top) <= 1 && Math.abs(date.bottom - number.bottom) <= 1 &&
+                Math.abs(summary.left - fields.left) <= 1 && Math.abs(summary.right - fields.right) <= 1;
+        })()`));
+        await closeGoals();
+        await waitGoalsClosed();
     }
     await cdp.click(`${goals} [aria-label="新建目标"]`);
     await ui.waitFor(`${goalTitle} === '新增目标'`);
@@ -1251,9 +1343,19 @@ export default async function liquidShell({ cdp, t, ui }) {
                 Math.abs(rect.top - options[0].getBoundingClientRect().top) <= 1;
         });
     })()`));
+    const calculator = '.liquid-tool-detail .growth-calculator';
+    const calculatorEdges = `(() => {
+        const { left, right } = document.querySelector('${calculator}').getBoundingClientRect();
+        return { left, right };
+    })()`;
+    const singleEdges = await cdp.evaluate(calculatorEdges);
     await cdp.click(plan);
     await ui.waitFor(`!document.querySelector('.liquid-tool-detail .record-empty[role="status"]') &&
         !!document.querySelector('.liquid-tool-detail .plan-toolbar, .liquid-tool-detail .record-empty, .liquid-tool-detail [role="alert"]')`);
+    const planEdges = await cdp.evaluate(calculatorEdges);
+    t.check('切换计算方式时内容区左右边缘保持对齐',
+        Math.abs(planEdges.left - singleEdges.left) <= 1 && Math.abs(planEdges.right - singleEdges.right) <= 1);
+
     if (await cdp.evaluate("!!document.querySelector('.plan-toolbar')")) {
         t.check('总消耗紧跟角色选择并位于计算项目之前', await cdp.evaluate(`
             document.querySelector('.plan-toolbar + .plan-layout > .plan-summary:first-child:has(+ .plan-groups) .section-head h2')

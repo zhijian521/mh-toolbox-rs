@@ -4,10 +4,12 @@ import { glassLedger } from '../../components/glass-ledger';
 import PaperCard from '../../components/PaperCard.vue';
 import PressButton from '../../components/PressButton.vue';
 import GoalProgress from './GoalProgress.vue';
+import GoalResources from './GoalResources.vue';
+import type { GoalResources as ResourceEstimate } from './goal-resources';
 import {
     deadlineText,
+    groupComboRows,
     kindMeta,
-    scopeText,
     type ComboGoalRow,
     type GoalRow,
     type GoalSummary,
@@ -19,26 +21,42 @@ const props = defineProps<{
     summary: GoalSummary;
     today: string;
     disabled: boolean;
+    resources?: ResourceEstimate | null;
+    resourceStatus?: string;
 }>();
 const emit = defineEmits<{
     edit: [];
     history: [];
     record: [];
     growth: [characterId?: string];
-    bought: [];
 }>();
 const glassCard = inject(glassLedger, null)?.card;
 const deadline = computed(() => deadlineText(props.goal.deadline, props.today, props.summary.done));
-const detail = computed(() => {
-    const { goal, summary } = props;
-    if (summary.kind === 'combo') return `${summary.achieved} / ${summary.total} 项达标`;
-    if (summary.kind === 'manual' && goal.members.length) return scopeText(goal);
-    return '';
-});
 const number = (value: number) => value.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
 const rows = computed(() => {
     const { goal, summary } = props;
     if (summary.kind === 'manual') return [];
+    if (glassCard && summary.kind === 'combo') {
+        return groupComboRows(summary.rows)
+            .map((group) => {
+                const name = group.name || '未命名';
+                const readout = `${group.achieved} / ${group.total} 项达标`;
+                const status = group.rows.some((row) => row.exists) ? '无适用项' : '已删除';
+                return {
+                    id: group.id,
+                    label: name,
+                    done: group.done,
+                    value: group.total ? String(group.achieved) : null,
+                    targetValue: String(group.total),
+                    unit: '项',
+                    status,
+                    characterId: group.total ? group.id : '',
+                    percent: group.total ? group.pct : null,
+                    readout: group.total ? readout : status,
+                };
+            })
+            .sort((a, b) => Number(a.done) - Number(b.done));
+    }
     return summary.rows
         .map((row: GoalRow | ComboGoalRow) => {
             const item = 'characterId' in row ? row : null;
@@ -55,7 +73,8 @@ const rows = computed(() => {
                 label,
                 done: row.done,
                 value,
-                targetText,
+                targetValue: number(target),
+                unit,
                 status,
                 characterId: item && row.exists && row.applicable ? item.characterId : '',
                 percent:
@@ -76,31 +95,60 @@ const rows = computed(() => {
         :plain="glassCard ? undefined : true"
         :role="glassCard ? 'article' : undefined"
         class="goal"
-        :class="{ done: summary.done }"
+        :class="{ done: summary.done, 'is-liquid-goal': glassCard }"
         :data-goal-id="goal.id"
     >
         <header class="goal-head">
             <div class="heading">
+                <div v-if="glassCard && summary.done" class="goal-eyebrow meta">
+                    <span class="mark">已达成</span>
+                </div>
                 <h2>{{ goal.title }}</h2>
-                <div v-if="detail || summary.done" class="meta">
-                    <span v-if="detail">{{ detail }}</span>
-                    <span v-if="summary.done" class="mark">已达成</span>
+                <div v-if="!glassCard && summary.done" class="meta">
+                    <span class="mark">已达成</span>
                 </div>
             </div>
-            <PressButton
-                icon="edit"
-                label="编辑目标"
-                size="sm"
-                :disabled="disabled"
-                @click="emit('edit')"
-            />
+            <div class="goal-head-actions">
+                <PressButton
+                    icon="history"
+                    label="目标历史"
+                    size="sm"
+                    @click="emit('history')"
+                />
+                <PressButton
+                    icon="refresh"
+                    :label="summary.kind === 'manual' ? '更新目标进度' : summary.kind === 'combo' ? '更新组合进度' : '更新各角色的当前值'"
+                    size="sm"
+                    :disabled="disabled || (summary.kind !== 'manual' && !summary.totalMembers)"
+                    @click="summary.kind === 'manual' ? emit('record') : emit('growth')"
+                />
+                <PressButton
+                    icon="edit"
+                    label="编辑目标"
+                    size="sm"
+                    :disabled="disabled"
+                    @click="emit('edit')"
+                />
+            </div>
         </header>
         <div class="progress-body">
             <figure class="goal-figure">
                 <GoalProgress shape="ring" :percent="summary.pct" :label="goal.title + '总体进度'" />
-                <figcaption class="category">{{ kindMeta(goal.kind).label }}</figcaption>
+                <figcaption class="category">
+                    {{ kindMeta(goal.kind).label }}
+                </figcaption>
             </figure>
-            <div v-if="summary.kind === 'manual'" class="manual-value">
+            <dl v-if="glassCard && summary.kind === 'manual'" class="goal-figures">
+                <div>
+                    <dt>当前</dt>
+                    <dd>{{ number(summary.current) }} <small>{{ goal.unit }}</small></dd>
+                </div>
+                <div>
+                    <dt>目标</dt>
+                    <dd>{{ number(summary.total) }} <small>{{ goal.unit }}</small></dd>
+                </div>
+            </dl>
+            <div v-else-if="summary.kind === 'manual'" class="manual-value">
                 <b class="num">{{ number(summary.current) }}</b>
                 <span> / {{ number(summary.total) }} {{ goal.unit }}</span>
             </div>
@@ -124,8 +172,7 @@ const rows = computed(() => {
                         />
                         <span class="value">
                             <template v-if="row.value !== null">
-                                <b>{{ row.value }}</b
-                                >{{ row.targetText }}
+                                <b>{{ row.value }}</b> / <b>{{ row.targetValue }}</b> {{ row.unit }}
                             </template>
                             <template v-else>{{ row.status }}</template>
                         </span>
@@ -134,46 +181,15 @@ const rows = computed(() => {
             </ul>
         </div>
         <p v-if="goal.note" class="goal-note">{{ goal.note }}</p>
-        <footer class="goal-actions">
+        <GoalResources
+            v-if="summary.kind !== 'manual'"
+            :resources="resources"
+            :status="resourceStatus"
+        />
+        <footer v-if="deadline || summary.doneDate" class="goal-actions">
             <span class="deadline" :class="{ over: deadline.startsWith('已逾期') }">{{
                 deadline || (summary.doneDate ? `${summary.doneDate} 达成` : '')
             }}</span>
-            <PressButton
-                icon="history"
-                text="历史"
-                label="目标历史"
-                size="sm"
-                @click="emit('history')"
-            />
-            <PressButton
-                v-if="summary.kind !== 'manual'"
-                text="更新"
-                :label="summary.kind === 'combo' ? '更新组合进度' : '更新各角色的当前值'"
-                size="sm"
-                seal
-                :disabled="disabled || !summary.totalMembers"
-                @click="emit('growth')"
-            />
-            <template v-else>
-                <PressButton
-                    text="记录"
-                    label="记录目标进度"
-                    size="sm"
-                    :seal="goal.kind !== 'gear' || summary.done"
-                    :disabled="disabled"
-                    @click="emit('record')"
-                />
-                <PressButton
-                    v-if="goal.kind === 'gear' && !summary.done"
-                    icon="add"
-                    text="购入"
-                    label="买了一件，进度加一"
-                    size="sm"
-                    seal
-                    :disabled="disabled"
-                    @click="emit('bought')"
-                />
-            </template>
         </footer>
     </component>
 </template>
@@ -202,6 +218,12 @@ const rows = computed(() => {
 .heading {
     min-width: 0;
 }
+.goal-head-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 5px;
+}
 h2 {
     margin: 0 0 4px;
     color: var(--accent);
@@ -219,10 +241,9 @@ h2 {
     font-size: var(--fs-xs);
 }
 .category {
-    padding: 1px 6px;
-    border-radius: var(--r-3);
-    background: var(--paper-2);
-    color: var(--indigo-ink);
+    color: var(--muted);
+    font-size: var(--fs-xs);
+    white-space: nowrap;
 }
 .mark {
     color: var(--success);
@@ -290,7 +311,8 @@ button.member:not(:disabled):hover {
     white-space: nowrap;
 }
 .value b {
-    color: var(--num);
+    color: var(--goal-progress-color, var(--accent));
+    font-size: var(--fs-md);
     font-weight: 400;
 }
 .manual-value {
@@ -325,5 +347,79 @@ button.member:not(:disabled):hover {
 }
 .deadline.over {
     color: var(--danger);
+}
+
+.is-liquid-goal {
+    max-width: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+}
+.is-liquid-goal h2 {
+    color: var(--liquid-ink);
+    margin-block: 3px;
+}
+.goal-eyebrow .mark {
+    color: var(--success);
+}
+.is-liquid-goal .progress-body {
+    grid-template-columns: min(25%, calc(78px * var(--fs-scale))) minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+}
+.is-liquid-goal .goal-figure > :deep(.ring) {
+    background: var(--ledger-surface);
+    box-shadow: inset 0 0 0 1px var(--rule);
+}
+.is-liquid-goal .goal-figure :deep(.ring svg) {
+    filter: none;
+}
+.is-liquid-goal .goal-figure :deep(.ring-bed),
+.is-liquid-goal .goal-figure :deep(.ring-depth) {
+    display: none;
+}
+.is-liquid-goal .goal-figure :deep(.ring-track) {
+    stroke: var(--rule);
+}
+.is-liquid-goal .members {
+    grid-template-columns: minmax(0, 1fr) minmax(22px, 27%) minmax(0, auto);
+}
+.is-liquid-goal .member {
+    min-height: 24px;
+    padding-inline: 7px;
+    background: var(--ledger-surface);
+}
+.is-liquid-goal button.member:not(:disabled):hover {
+    background: var(--lg-field-fill);
+}
+.is-liquid-goal .value {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.goal-figures {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 68px), 1fr));
+    gap: 8px 12px;
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+.goal-figures dt,
+.goal-figures small {
+    color: var(--muted);
+    font-size: var(--fs-xs);
+}
+.goal-figures dd {
+    margin: 2px 0 0;
+    color: var(--num);
+    font-size: var(--fs-amount);
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+.is-liquid-goal .goal-actions {
+    align-self: stretch;
+    margin-top: auto;
+    padding-top: 10px;
+    gap: 6px;
 }
 </style>

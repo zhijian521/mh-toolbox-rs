@@ -4,11 +4,18 @@ import PressButton from '../../components/PressButton.vue';
 import GlassTable from '../../components/liquid-glass/GlassTable.vue';
 import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import RecordPager from '../../components/RecordPager.vue';
+import SaveNotice from '../../components/SaveNotice.vue';
 import { useRoster } from '../characters/roster';
 import { goalProgressHistory, type ReadonlyGoal } from './goals';
 
-const props = defineProps<{ goal: ReadonlyGoal; embedded?: boolean }>();
-const emit = defineEmits<{ close: [] }>();
+const props = defineProps<{
+    goal: ReadonlyGoal;
+    embedded?: boolean;
+    locked?: boolean;
+    error?: string;
+    pending?: number;
+}>();
+const emit = defineEmits<{ close: []; remove: [id: string]; retry: [] }>();
 const { roster } = useRoster();
 const page = ref(1);
 const pageSize = props.embedded ? 5 : 10;
@@ -44,6 +51,7 @@ function timeText(at: number, date: string) {
             <PressButton text="关闭" label="关闭目标历史" @click="emit('close')" />
         </header>
         <p v-else class="history-title">{{ goal.title }}</p>
+        <SaveNotice :error="error || ''" :pending="pending || 0" @retry="emit('retry')" />
         <div class="history-scroll">
             <component
                 :is="embedded ? GlassTable : 'table'"
@@ -55,16 +63,32 @@ function timeText(at: number, date: string) {
             >
                 <thead>
                     <tr>
-                        <th scope="col">更新时间</th>
+                        <th scope="col">{{ tracked ? '更新时间' : '记录日期' }}</th>
                         <th scope="col">{{ tracked ? '项目' : '备注' }}</th>
                         <th scope="col">变动</th>
+                        <th v-if="!tracked" scope="col">操作</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-for="row in visible" :key="row.id">
-                        <td class="when num">{{ timeText(row.at, row.date) }}</td>
+                        <td class="when num">
+                            <template v-if="tracked">{{ timeText(row.at, row.date) }}</template>
+                            <time v-else :datetime="row.date" :title="`录入时间：${timeText(row.at, row.date)}`">
+                                {{ row.date }}
+                            </time>
+                        </td>
                         <td>{{ row.name }}</td>
                         <td class="change num">{{ row.change }}</td>
+                        <td v-if="!tracked" class="history-operation">
+                            <PressButton
+                                icon="trash"
+                                label="删掉这一笔"
+                                size="sm"
+                                danger
+                                :disabled="locked"
+                                @click="emit('remove', row.id)"
+                            />
+                        </td>
                     </tr>
                 </tbody>
             </component>
@@ -92,6 +116,10 @@ function timeText(at: number, date: string) {
     text-align: end;
 }
 .progress-history th:last-child {
+    text-align: end;
+}
+.history-operation {
+    width: 1%;
     text-align: end;
 }
 .history-content {

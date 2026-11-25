@@ -347,14 +347,14 @@ onMounted(() => {
                 ref="addButton"
                 class="price-add"
                 size="small"
-                shape="circle"
+                variant="prominent"
                 aria-label="新增物品"
                 aria-haspopup="dialog"
                 title="新增物品"
                 :disabled="!canEdit || saving"
                 @click="openEditor({ kind: 'new-item' })"
             >
-                <AppIcon name="add" />
+                <AppIcon name="add" />新增物品
             </GlassButton>
         </header>
 
@@ -436,7 +436,9 @@ onMounted(() => {
                     </template>
                 </LiquidPriceCard>
             </div>
-            <GlassEmptyState v-else class="price-empty" />
+            <GlassEmptyState v-else class="price-empty">
+                {{ items.length ? '没有符合条件的物品' : '还没有物品，点击右上角新增' }}
+            </GlassEmptyState>
         </template>
 
         <GlassDialog

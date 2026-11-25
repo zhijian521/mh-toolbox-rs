@@ -4,9 +4,6 @@
     margin-inline: auto;
     container-type: inline-size;
 }
-.growth-calculator.growth-single {
-    max-width: 840px;
-}
 .liquid-tool-detail .growth-calculator {
     margin-inline: 0;
 }

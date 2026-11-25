@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, inject, ref } from 'vue';
 import AppIcon from '../../components/AppIcon.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import KeycapButton from '../../components/KeycapButton.vue';
+import { glassLedger } from '../../components/glass-ledger';
+import GlassSmallSwitch from '../../components/liquid-glass/GlassSmallSwitch.vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
 import TextButton from '../../components/TextButton.vue';
@@ -21,6 +23,7 @@ import { useOnline } from './online-store';
 
 defineProps<{ reloadRoster?: () => Promise<void> }>();
 const emit = defineEmits<{ backfill: []; records: [] }>();
+const glass = inject(glassLedger, null);
 
 const {
     sessions,
@@ -197,7 +200,17 @@ function whoText(one: ReadonlyOnlineSession): string {
                         <span class="price-unit">/ 点</span>
                         <AppIcon name="edit" class="mark" />
                     </button>
+                    <span v-if="glass" class="card-cost-control">
+                        <span aria-hidden="true">计入收支</span>
+                        <GlassSmallSwitch
+                            :checked="settings.cardCost"
+                            :disabled="controlsLocked"
+                            aria-label="点卡计入账号收支"
+                            @update:checked="toggleCost"
+                        />
+                    </span>
                     <CostSwitch
+                        v-else
                         :model-value="settings.cardCost"
                         off-label="不计入"
                         on-label="计入"
@@ -323,6 +336,15 @@ function whoText(one: ReadonlyOnlineSession): string {
 .card-settings,
 .online-actions {
     gap: 8px;
+}
+.card-cost-control {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink-2);
+    font-size: var(--fs-xs);
+    white-space: nowrap;
 }
 .price-tag {
     display: inline-flex;
