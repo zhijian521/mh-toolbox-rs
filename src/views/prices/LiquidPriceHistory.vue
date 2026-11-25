@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import AppIcon from '../../components/AppIcon.vue';
 import { usePagination } from '../../composables/use-pagination';
 import { GlassButton } from '../../components/liquid-glass';
+import GlassCompactPager from '../../components/liquid-glass/GlassCompactPager.vue';
 import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import TrendChart from '../../components/TrendChart.vue';
 import { changeText, moneyText } from '../../services/format';
@@ -96,15 +96,12 @@ const series = computed(() => [
                     </tbody>
                 </table>
             </div>
-            <nav v-if="pages > 1" class="price-history-pager" aria-label="价格记录分页">
-                <GlassButton class="lg-inline-action" size="small" shape="circle" aria-label="上一页" :disabled="page <= 1" @click="page--">
-                    <AppIcon name="chevron-left" />
-                </GlassButton>
-                <span aria-live="polite">{{ page }} / {{ pages }}</span>
-                <GlassButton class="lg-inline-action" size="small" shape="circle" aria-label="下一页" :disabled="page >= pages" @click="page++">
-                    <AppIcon name="chevron-right" />
-                </GlassButton>
-            </nav>
+            <GlassCompactPager
+                v-model:page="page"
+                :pages="pages"
+                class="price-history-pager"
+                label="价格记录分页"
+            />
         </template>
         <GlassEmptyState v-else />
     </div>
@@ -173,17 +170,6 @@ const series = computed(() => [
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
-}
-.price-history-pager {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 12px;
-    font-size: var(--fs-sm);
-    font-variant-numeric: tabular-nums;
-}
-.price-history-pager glass-button {
-    --icon-size: 14px;
 }
 .liquid-price-history > .glass-empty-state {
     margin-block: auto;

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import AppIcon from '../../components/AppIcon.vue';
 import { GlassButton, GlassSearch, GlassSegment, GlassSegmented } from '../../components/liquid-glass';
+import GlassCompactPager from '../../components/liquid-glass/GlassCompactPager.vue';
 import { usePagination } from '../../composables/use-pagination';
 import { loadWallpaperImage, WALLPAPER_CDN } from '../../services/xyq-wallpapers';
 import { useLiquidPreferences, SYSTEM_WALLPAPERS } from '../../composables/use-liquid-preferences';
@@ -105,31 +105,7 @@ watch(
                 </button>
             </div>
             <p v-else role="status">没有找到匹配的壁纸。</p>
-            <footer v-if="pages > 1">
-                <nav class="wallpaper-pages" aria-label="壁纸分页">
-                    <GlassButton
-                        class="lg-inline-action"
-                        size="small"
-                        shape="circle"
-                        aria-label="上一页"
-                        :disabled="page <= 1"
-                        @click="page--"
-                    >
-                        <AppIcon name="chevron-left" />
-                    </GlassButton>
-                    <span aria-live="polite">{{ page }} / {{ pages }}</span>
-                    <GlassButton
-                        class="lg-inline-action"
-                        size="small"
-                        shape="circle"
-                        aria-label="下一页"
-                        :disabled="page >= pages"
-                        @click="page++"
-                    >
-                        <AppIcon name="chevron-right" />
-                    </GlassButton>
-                </nav>
-            </footer>
+            <GlassCompactPager v-model:page="page" :pages="pages" label="壁纸分页" />
         </template>
     </div>
 </template>
@@ -146,7 +122,7 @@ watch(
 .wallpaper-picker glass-button {
     letter-spacing: normal;
 }
-.wallpaper-picker :is(header, footer) {
+.wallpaper-picker header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -208,23 +184,6 @@ watch(
     padding: 5px 7px;
     font-size: var(--fs-sm);
     overflow-wrap: anywhere;
-}
-/* 页头是「标题 + 关闭」两端对齐；页脚只剩翻页，居中放。
- * 链接（跳转壁纸站）删掉后页脚不再需要小字档，也就没有压住页码字号的规则了。 */
-.wallpaper-picker footer {
-    justify-content: center;
-}
-/* 与物价历史弹窗 .price-history-pager 同一套：纯图标圆形按钮 + 页码，
- * 不写「上一页／下一页」文字，靠 aria-label 保留可访问名。 */
-.wallpaper-pages {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: var(--fs-sm);
-    font-variant-numeric: tabular-nums;
-}
-.wallpaper-pages glass-button {
-    --icon-size: 14px;
 }
 @media (max-width: 480px) {
     .wallpaper-grid {

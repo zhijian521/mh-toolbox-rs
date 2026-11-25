@@ -1391,6 +1391,15 @@ export default async function liquidShell({ cdp, t, ui }) {
     })()`);
     await pickCatalog('surfaces');
     t.check('容器分类展示表格与滚动场景', await ui.exists('.gallery table.glass-table tbody tr') && await ui.exists('.gallery .timeline'));
+    const pager = '.gallery nav[aria-label="示例分页"]';
+    t.check('紧凑分页首页禁用上一页', await cdp.evaluate(`
+        document.querySelector('${pager} [aria-label="上一页"]')?.hasAttribute('disabled') === true`));
+    await cdp.click(`${pager} [aria-label="下一页"]`);
+    await ui.waitFor(`document.querySelector('${pager} [aria-live="polite"]')?.textContent.trim() === '2 / 3'`);
+    await cdp.click(`${pager} [aria-label="下一页"]`);
+    await ui.waitFor(`document.querySelector('${pager} [aria-live="polite"]')?.textContent.trim() === '3 / 3'`);
+    t.check('紧凑分页尾页禁用下一页', await cdp.evaluate(`
+        document.querySelector('${pager} [aria-label="下一页"]')?.hasAttribute('disabled') === true`));
     await pickCatalog('inputs');
     t.check('回到分类时恢复详情滚动位置', await cdp.evaluate(`
         Math.abs(document.querySelector('.gallery').scrollTop - ${scrollPosition}) <= 1`));
@@ -1460,8 +1469,9 @@ export default async function liquidShell({ cdp, t, ui }) {
                 label.fontSize === '13.5px' && option.fontSize === '12px';
         })()`),
     );
+    const themeControl = '.liquid-settings glass-segmented[aria-labelledby="liquid-theme-label"]';
     t.check('主题选项文字各占一行并位于选项内', await cdp.evaluate(`(() => {
-        const options = document.querySelectorAll('#liquid-theme-label + glass-segmented > glass-segment');
+        const options = document.querySelectorAll('${themeControl} > glass-segment');
         return options.length === 2 && [...options].every(option => {
             const range = document.createRange();
             range.selectNodeContents(option);
@@ -1491,6 +1501,17 @@ export default async function liquidShell({ cdp, t, ui }) {
         const actions = [...document.querySelectorAll('.settings-data glass-button')];
         return actions.length === 5 && actions.every(el => el.hasAttribute('disabled') === ${!desktop});
     })()`));
+    if (desktop) {
+        const clearConfirm = '.glass-dialog[open][aria-label="清空全部账本？"]';
+        await ui.clickText('.settings-data glass-button', '清除', { exact: true });
+        await ui.waitFor(`!!document.querySelector('${clearConfirm}')`);
+        t.check('清空账本前提示不可撤销、不会自动备份并建议先导出', await cdp.evaluate(`(() => {
+            const note = document.querySelector('${clearConfirm} p')?.textContent ?? '';
+            return ['无法撤销', '不会自动备份', '先导出'].every(text => note.includes(text));
+        })()`));
+        await ui.clickText(`${clearConfirm} footer glass-button`, '取消', { exact: true });
+        await ui.waitFor(`!document.querySelector('${clearConfirm}')`);
+    }
     const dialogs = [['选择壁纸', '.wallpaper-dialog', '.wallpaper-picker']];
     if (desktop) dialogs.push(['恢复', '.backup-dialog', '.backup-history']);
     for (const [name, selector, content] of dialogs) {
@@ -1517,9 +1538,8 @@ export default async function liquidShell({ cdp, t, ui }) {
     );
     const initialTheme = await cdp.evaluate("document.querySelector('.liquid-app').dataset.appearance");
     const theme = initialTheme === 'light' ? 'dark' : 'light';
-    const themeOption = (value) =>
-        `.liquid-settings #liquid-theme-label + glass-segmented [value="${value}"]`;
-    const backgroundActions = '.background-actions glass-button';
+    const themeOption = (value) => `${themeControl} [value="${value}"]`;
+    const backgroundActions = '.background-row glass-button';
     const previewOption = '.wallpaper-picker .wallpaper-tile';
     const savedWallpaper = await cdp.evaluate("localStorage.getItem('mh-liquid-wallpaper')");
     async function chooseSystem(name) {

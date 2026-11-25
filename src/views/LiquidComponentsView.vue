@@ -25,6 +25,7 @@ import {
     GlassTabBar,
     GlassToolbar,
 } from '../components/liquid-glass';
+import GlassCompactPager from '../components/liquid-glass/GlassCompactPager.vue';
 import GlassDateField from '../components/liquid-glass/GlassDateField.vue';
 import GlassDialog from '../components/liquid-glass/GlassDialog.vue';
 import GlassEmptyState from '../components/liquid-glass/GlassEmptyState.vue';
@@ -48,7 +49,7 @@ const catalogSections = [
     { key: 'actions', label: '按钮与菜单', icon: 'dots', description: '行内操作、表单按钮与下拉菜单。' },
     { key: 'inputs', label: '输入控件', icon: 'edit', description: '紧凑与标准尺寸，以及错误、禁用状态。' },
     { key: 'choices', label: '选择控件', icon: 'settings', description: '开关、滑块、单选、多选与标签栏。' },
-    { key: 'surfaces', label: '容器与表面', icon: 'grid', description: '表格、工具栏与滚动区域。' },
+    { key: 'surfaces', label: '容器与表面', icon: 'grid', description: '表格、紧凑分页、工具栏与滚动区域。' },
     { key: 'feedback', label: '反馈与弹层', icon: 'info', description: '消息提示、表单弹窗、历史面板与空状态。' },
 ] as const satisfies readonly { key: string; label: string; icon: IconName; description: string }[];
 type CatalogSection = (typeof catalogSections)[number]['key'];
@@ -88,6 +89,7 @@ const sampleItem = ref<PriceItem>({
     ],
 });
 const history = computed(() => sortedPoints(sampleItem.value));
+const samplePage = ref(1);
 const sheetOpen = ref(false);
 const editorOpen = ref(false);
 const editingPoint = ref<PricePoint>();
@@ -397,6 +399,12 @@ const observations = [
                                     </tr>
                                 </tbody>
                             </GlassTable>
+                        </div>
+                    </section>
+                    <section>
+                        <header><h3>紧凑分页</h3></header>
+                        <div class="stage">
+                            <GlassCompactPager v-model:page="samplePage" :pages="3" label="示例分页" />
                         </div>
                     </section>
                     <section>

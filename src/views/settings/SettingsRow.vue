@@ -1,11 +1,13 @@
 <script setup lang="ts">
 /** 设置领域共用的标签／控件排版；不持有偏好或账本状态。 */
-defineProps<{ label: string }>();
+defineProps<{ label?: string; layout?: 'grid' | 'glass' }>();
 </script>
 
 <template>
-    <div class="settings-row">
-        <span class="field-label">{{ label }}</span>
+    <div class="settings-row" :class="{ 'settings-row--glass': layout === 'glass' }">
+        <slot name="label">
+            <span :class="{ 'field-label': layout !== 'glass' }">{{ label }}</span>
+        </slot>
         <div class="settings-control">
             <div class="settings-options"><slot /></div>
             <slot name="detail" />
@@ -36,5 +38,24 @@ defineProps<{ label: string }>();
 }
 .settings-row + .settings-row {
     margin-top: 16px;
+}
+.settings-row--glass {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px 12px;
+    min-height: 44px;
+    padding-block: 6px;
+    border-top: 1px solid var(--liquid-outline);
+}
+.settings-row + .settings-row--glass {
+    margin-top: 0;
+}
+.settings-row--glass .settings-control {
+    max-width: 100%;
+}
+.settings-row--glass .settings-options {
+    justify-content: flex-end;
 }
 </style>
