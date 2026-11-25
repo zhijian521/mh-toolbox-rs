@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import PaperCard from '../../components/PaperCard.vue';
-import { computed, inject, ref, watch } from 'vue';
-import { glassLedger } from '../../components/glass-ledger';
+import CharacterTextField from './CharacterTextField.vue';
+import { useCharacterFields } from './use-character-fields';
+import { computed, ref, watch } from 'vue';
 import PressButton from '../../components/PressButton.vue';
-import NumberField from '../../components/NumberField.vue';
-import SelectField from '../../components/SelectField.vue';
 import { withCurrentOption } from '../../components/select-options';
 import { schoolNames } from '../../services/game-data';
-import SteppedSlider from '../../components/SteppedSlider.vue';
+import CharacterPaneTabs from './CharacterPaneTabs.vue';
 import GearTip from './GearTip.vue';
 import AssistPane from './panes/AssistPane.vue';
 import AttrPane from './panes/AttrPane.vue';
@@ -16,7 +14,6 @@ import PetPane from './panes/PetPane.vue';
 import SkillPane from './panes/SkillPane.vue';
 import TrainingPane from './panes/TrainingPane.vue';
 import {
-    PANE_OPTIONS,
     type AssistKind,
     type AssistSkill,
     type ReadonlyCharacter,
@@ -87,6 +84,7 @@ import type { QuickTarget } from './quick/quick-target';
  *
  * 截图识别右侧的卡直接编辑草稿，不开快速修改窗；`quick` 由名册传入，默认关闭。
  */
+const { glass, DetailCard, NumberField, SelectField, selectProps } = useCharacterFields();
 const props = withDefaults(
     defineProps<{
         character: ReadonlyCharacter;
@@ -117,7 +115,6 @@ const emit = defineEmits<{
     quick: [target: QuickTarget];
 }>();
 
-const glassCard = inject(glassLedger, null)?.card;
 const active = ref<PaneKey>(props.pane);
 const fitAttrs = computed(() => props.tabs && !props.preview && !props.editable);
 watch(
@@ -134,10 +131,6 @@ const schoolOptions = computed(() =>
         props.character.school,
     ),
 );
-function editIdentity(key: string, event: Event) {
-    emit('edit-value', key, (event.target as HTMLInputElement).value);
-}
-
 function choose(key: PaneKey) {
     active.value = key;
     closeAll();
@@ -188,10 +181,10 @@ function openDetail(index: number) {
          原先还挂着 `dual-rule`（离卡缘 3px 的一圈 1px 内衬线），2026-11-06
          用户要求「最外面的一圈细边框去掉」——卡边只剩纸自己的棱与落影。 -->
     <component
-        :is="glassCard ?? PaperCard"
+        :is="DetailCard"
         :id="editable || preview ? undefined : 'character-' + character.id"
-        :as="glassCard ? undefined : 'article'"
-        :role="glassCard ? 'article' : undefined"
+        :as="glass ? undefined : 'article'"
+        :role="glass ? 'article' : undefined"
         tabindex="-1"
         :aria-label="character.name || '未命名角色'"
         class="char character-theme"
@@ -201,14 +194,14 @@ function openDetail(index: number) {
         <header class="char-head">
             <div class="who-block" :class="{ 'identity-edit': editable && active === 'attrs' }">
                 <div v-if="editable && active === 'attrs'" class="who who-edit">
-                    <input
-                        class="field identity-name"
-                        :value="character.name"
+                    <CharacterTextField
+                        layout="identity-name"
+                        :model-value="character.name"
                         aria-label="角色名"
                         required
                         :aria-invalid="!character.name.trim()"
                         placeholder="名称"
-                        @input="editIdentity('name', $event)"
+                        @update:model-value="emit('edit-value', 'name', $event)"
                     />
                     <NumberField
                         update-on-input
@@ -219,6 +212,7 @@ function openDetail(index: number) {
                         @update:model-value="emit('edit-value', 'level', String($event))"
                     />
                     <SelectField
+                        v-bind="selectProps"
                         class="identity-school"
                         :model-value="character.school"
                         :options="schoolOptions"
@@ -237,19 +231,17 @@ function openDetail(index: number) {
                 <!-- 名字下面那行小字：区服 · 帮派。两项各自 `v-if`，
                      只填了一项时不是「A · 」，也不会留下一个空的点。 -->
                 <div v-if="editable && active === 'attrs'" class="identity-sub">
-                    <input
-                        class="field"
-                        :value="character.server"
+                    <CharacterTextField
+                        :model-value="character.server"
                         aria-label="区服"
                         placeholder="区服"
-                        @input="editIdentity('server', $event)"
+                        @update:model-value="emit('edit-value', 'server', $event)"
                     />
-                    <input
-                        class="field"
-                        :value="character.guild"
+                    <CharacterTextField
+                        :model-value="character.guild"
                         aria-label="角色帮派"
                         placeholder="帮派"
-                        @input="editIdentity('guild', $event)"
+                        @update:model-value="emit('edit-value', 'guild', $event)"
                     />
                 </div>
                 <p v-else-if="character.server || character.guild" class="meta char-sub">
@@ -281,12 +273,10 @@ function openDetail(index: number) {
             </div>
         </header>
 
-        <SteppedSlider
+        <CharacterPaneTabs
             v-if="props.tabs"
             class="tabs"
             :model-value="active"
-            :options="PANE_OPTIONS"
-            as="tab"
             :prefix="character.id"
             :label="`${character.name} 的分区`"
             @update:model-value="choose"

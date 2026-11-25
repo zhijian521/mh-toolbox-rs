@@ -237,7 +237,7 @@ useRouteAction('/characters', {
                 icon="add"
                 text="新增"
                 label="新建角色"
-                seal
+                :seal="!glass"
                 :disabled="editingDisabled"
                 @click="startNew"
             />

@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import CharacterTextField from '../CharacterTextField.vue';
+import { useCharacterFields } from '../use-character-fields';
 import { computed, watch } from 'vue';
-import SelectField from '../../../components/SelectField.vue';
+import { GlassFieldSurface } from '../../../components/liquid-glass';
 import { withCurrentOption } from '../../../components/select-options';
 import GearProperties from '../GearProperties.vue';
 import {
@@ -13,8 +15,6 @@ import {
     gearStatOptions,
     withGearBaseStats,
 } from '../gear-properties';
-import PaperCard from '../../../components/PaperCard.vue';
-import NumberField from '../../../components/NumberField.vue';
 import PressButton from '../../../components/PressButton.vue';
 import IconTile from '../IconTile.vue';
 import { GEAR_STAT_LABELS } from '../../../services/game-rules';
@@ -29,6 +29,7 @@ import {
 } from '../gear';
 
 /** 分类、名称和数值分格对齐，各入口只编辑自己的装备草稿。 */
+const { glass, SelectField, selectProps, DetailCard, NumberField } = useCharacterFields();
 const props = defineProps<{ slotName: GearSlotName }>();
 const detail = defineModel<GearDetail>({ required: true });
 const caption = defineModel<string | undefined>('caption');
@@ -86,8 +87,7 @@ const { icon: gearIcon } = useGearIcon();
 const icon = computed(() =>
     gearIcon({ slot: props.slotName, caption: caption.value, detail: detail.value }),
 );
-function setName(event: Event) {
-    const value = (event.target as HTMLInputElement).value;
+function setName(value: string) {
     detail.value.name = value;
     caption.value = value;
 }
@@ -102,7 +102,7 @@ function addLine(label: string) {
 </script>
 
 <template>
-    <PaperCard class="gear-form character-detail">
+    <DetailCard class="gear-form character-detail">
         <div class="gear-content character-detail-content">
             <header class="gear-identity character-detail-identity">
                 <IconTile v-if="icon" class="gear-form-icon" :src="icon" />
@@ -110,12 +110,12 @@ function addLine(label: string) {
                 <div class="gear-id character-detail-id">
                     <div class="gear-name-row character-detail-name-row">
                         <label class="gear-name-field character-detail-name-field">
-                            <input
-                                class="field gear-name-input character-detail-name-input"
-                                :value="detail.name || caption"
+                            <CharacterTextField
+                                layout="gear-name-input character-detail-name-input"
+                                :model-value="detail.name || caption"
                                 :aria-label="slotName + ' 的装备名'"
                                 :placeholder="slotName + '装备名'"
-                                @input="setName"
+                                @update:model-value="setName"
                             />
                         </label>
                         <slot name="name-extra" />
@@ -129,9 +129,9 @@ function addLine(label: string) {
                     <div class="id-pair gear-kind character-detail-pair">
                         <label class="slip-row sm">
                             <span class="slip-name">类型</span>
-                            <input
+                            <CharacterTextField
                                 v-model="detail.kind"
-                                class="field num-slot slip-input"
+                                layout="num-slot slip-input"
                                 aria-label="装备类型"
                                 placeholder="类型"
                             />
@@ -140,7 +140,7 @@ function addLine(label: string) {
                             <span class="slip-name">等级</span>
                             <NumberField
                                 update-on-input
-                                class="field num-slot slip-input"
+                                class="num-slot slip-input"
                                 :model-value="detail.level ?? 0"
                                 label="装备等级"
                                 zero-as-empty
@@ -155,6 +155,7 @@ function addLine(label: string) {
                 <template #label="{ group }">
                     <SelectField
                         v-if="group.items[0].source === 'lines'"
+                        v-bind="selectProps"
                         v-model="group.items[0].row.label"
                         :options="
                             withCurrentOption(gearEffectOptions(slotName), group.items[0].row.label)
@@ -171,6 +172,7 @@ function addLine(label: string) {
                         }}</span>
                         <SelectField
                             v-else
+                            v-bind="selectProps"
                             :model-value="item.row.label"
                             :options="statOptions(item.row)"
                             class="stat-select row-name slip-row sm"
@@ -178,15 +180,15 @@ function addLine(label: string) {
                             @update:model-value="item.row.label = $event"
                         />
                         <div class="stat-number">
-                            <input
+                            <CharacterTextField
                                 v-model="item.row.value"
-                                class="field num num-slot value-field"
+                                layout="num num-slot value-field"
                                 :aria-label="item.row.label + '属性值'"
                             />
                             <span v-if="hasExtra(item.row)" class="stat-extra">
-                                <input
+                                <CharacterTextField
                                     v-model="item.row.extra"
-                                    class="field num num-slot value-field"
+                                    layout="num num-slot value-field"
                                     aria-label="括号值"
                                 />
                             </span>
@@ -204,6 +206,7 @@ function addLine(label: string) {
                 <template #cond="{ item }">
                     <div class="detail-row condition-row">
                         <SelectField
+                            v-bind="selectProps"
                             v-model="item.row.label"
                             :options="
                                 withCurrentOption(gearConditionOptions(slotName), item.row.label)
@@ -211,9 +214,9 @@ function addLine(label: string) {
                             class="condition-select row-name slip-row sm"
                             label="状态名"
                         />
-                        <input
+                        <CharacterTextField
                             v-model="item.row.value"
-                            class="field num num-slot value-field"
+                            layout="num num-slot value-field"
                             :aria-label="item.row.label"
                         />
                         <PressButton
@@ -229,16 +232,17 @@ function addLine(label: string) {
                     <div class="detail-row effect-row">
                         <SelectField
                             v-if="['特技', '特效'].includes(item.row.label)"
+                            v-bind="selectProps"
                             v-model="item.row.value"
                             :options="effectValues(item.row.label, item.row.value)"
                             label="特殊内容"
                             placeholder="未选"
                             class="effect-select row-name slip-row sm"
                         />
-                        <input
+                        <CharacterTextField
                             v-else
                             v-model="item.row.value"
-                            class="field num-slot effect-value"
+                            layout="num-slot effect-value"
                             aria-label="特殊内容"
                         />
                         <PressButton
@@ -256,14 +260,15 @@ function addLine(label: string) {
                 <span class="field-label">命魂之玉</span>
                 <div v-for="(row, index) in soul" :key="index" class="detail-row stat-row">
                     <SelectField
+                        v-bind="selectProps"
                         v-model="row.label"
                         :options="withCurrentOption(soulOptions, row.label)"
                         class="stat-select row-name slip-row sm"
                         label="命魂之玉属性名"
                     />
-                    <input
+                    <CharacterTextField
                         v-model="row.value"
-                        class="field num num-slot value-field"
+                        layout="num num-slot value-field"
                         :aria-label="'命魂之玉' + row.label + '属性值'"
                     />
                     <PressButton
@@ -284,7 +289,10 @@ function addLine(label: string) {
 
             <label class="gear-note">
                 <span class="field-label">备注</span>
-                <textarea v-model="detail.note" class="field area" rows="3" aria-label="装备备注" />
+                <GlassFieldSurface v-if="glass" :radius="10" class="gear-note-surface">
+                    <textarea v-model="detail.note" rows="3" aria-label="装备备注" />
+                </GlassFieldSurface>
+                <textarea v-else v-model="detail.note" class="field area" rows="3" aria-label="装备备注" />
             </label>
         </div>
         <div class="gear-add">
@@ -316,7 +324,7 @@ function addLine(label: string) {
                 @click="addCond"
             />
         </div>
-    </PaperCard>
+    </DetailCard>
 </template>
 
 <style scoped>
@@ -479,6 +487,15 @@ function addLine(label: string) {
 }
 .gear-note textarea {
     width: 100%;
+}
+.gear-note-surface textarea {
+    display: block;
+    padding: 6px 9px;
+    border: 0;
+    background: transparent;
+    color: var(--liquid-ink);
+    font: inherit;
+    resize: vertical;
 }
 .gear-add {
     display: flex;

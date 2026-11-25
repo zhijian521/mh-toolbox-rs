@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CharacterTextField from '../CharacterTextField.vue';
 import { computed, nextTick, type DeepReadonly } from 'vue';
 import MeterBar from '../../../components/MeterBar.vue';
 import GroupHead from '../../../components/GroupHead.vue';
@@ -142,10 +143,10 @@ const expText = computed(() => {
                             <!-- 可改的那一态：签的落点上换成一枚**同一尺寸**的格
                                  （材质与编辑页的数值格是同一份 `.field.num-slot`），
                                  所以「这枚签能点」不用再加提示字。 -->
-                            <input
+                            <CharacterTextField
                                 v-if="editable"
-                                class="field num num-slot attr-field slip-input"
-                                :value="row.value"
+                                layout="num num-slot attr-field slip-input"
+                                :model-value="row.value"
                                 :aria-label="row.label"
                                 @input="commit(row.label, $event)"
                                 @compositionend="commit(row.label, $event)"
@@ -173,17 +174,17 @@ const expText = computed(() => {
                  比任何「已保存」的提示都直接。 -->
             <MeterBar :percent="expPercentValue" label="经验进度" :text="editable ? '' : expText" />
             <span v-if="editable" class="exp-edit">
-                <input
-                    class="field num num-slot exp-field"
-                    :value="experience.value"
+                <CharacterTextField
+                    layout="num num-slot exp-field"
+                    :model-value="experience.value"
                     aria-label="当前经验"
                     @input="commit('experience.value', $event)"
                     @compositionend="commit('experience.value', $event)"
                 />
                 <span class="exp-slash">/</span>
-                <input
-                    class="field num num-slot exp-field"
-                    :value="experience.need"
+                <CharacterTextField
+                    layout="num num-slot exp-field"
+                    :model-value="experience.need"
                     aria-label="升级所需经验"
                     @input="commit('experience.need', $event)"
                     @compositionend="commit('experience.need', $event)"
@@ -194,3 +195,4 @@ const expText = computed(() => {
 </template>
 
 <style scoped src="./attr-pane.css"></style>
+

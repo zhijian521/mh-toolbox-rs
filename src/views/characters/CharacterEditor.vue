@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, useId, watch } from 'vue';
+import { computed, inject, nextTick, onMounted, ref, useId, watch } from 'vue';
+import { glassLedger } from '../../components/glass-ledger';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import FormActions from '../../components/FormActions.vue';
-import SteppedSlider from '../../components/SteppedSlider.vue';
+import CharacterPaneTabs from './CharacterPaneTabs.vue';
 import CharacterCard from './CharacterCard.vue';
 import { hasPetName } from './pets';
 import {
-    PANE_OPTIONS,
     PANES,
     type CharacterData,
     type ReadonlyCharacter,
@@ -61,6 +61,16 @@ const content = ref<HTMLElement | null>(null);
 const petEditor = ref<InstanceType<typeof PetEditor> | null>(null);
 const gearEditor = ref<InstanceType<typeof GearEditor> | null>(null);
 const validationId = useId();
+const editorId = useId();
+const glass = inject(glassLedger, null);
+function panelAttrs(key: PaneKey) {
+    if (!glass) return {};
+    return {
+        id: `${editorId}-pane-${key}`,
+        role: 'tabpanel',
+        'aria-labelledby': `${editorId}-tab-${key}`,
+    };
+}
 const wide = computed(() => pane.value === 'gear' || pane.value === 'pets');
 const paneLabel = computed(() => PANES.find(({ key }) => key === pane.value)?.label ?? '角色');
 
@@ -143,10 +153,11 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
     >
         <div ref="content" :inert="locked || saving" class="ocr">
             <div class="ocr-bar">
-                <SteppedSlider
+                <CharacterPaneTabs
                     v-model="pane"
                     class="ocr-tabs"
-                    :options="PANE_OPTIONS"
+                    :data-size="glass ? 'standard' : undefined"
+                    :prefix="glass ? editorId : undefined"
                     label="修改分区"
                 />
                 <span v-if="screenshot?.total" class="ocr-count">
@@ -156,6 +167,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
             <GearEditor
                 v-if="openedPanes.has('gear')"
                 v-show="pane === 'gear'"
+                v-bind="panelAttrs('gear')"
                 ref="gearEditor"
                 v-model="draft.gear"
                 v-model:meta="draft.gearMeta"
@@ -165,6 +177,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
             <PetEditor
                 v-if="openedPanes.has('pets')"
                 v-show="pane === 'pets'"
+                v-bind="panelAttrs('pets')"
                 ref="petEditor"
                 v-model="draft.pets"
                 :intake="intake"
@@ -172,6 +185,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
             />
             <ScreenshotUpload
                 v-show="!wide"
+                v-bind="wide ? {} : panelAttrs(pane)"
                 class="ocr-standard"
                 :label="paneLabel"
                 :src="screenshot?.url"
@@ -240,6 +254,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
 .ocr-bar {
     display: flex;
     flex: none;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
 }
@@ -248,6 +263,12 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
     max-width: 100%;
     --step-pad-y: 6px;
     --step-pad-x: 10px;
+}
+@container screenshot-editor (max-width: 480px) {
+    .ocr-tabs[data-size='standard'] {
+        --lg-choice-padding-inline: clamp(4px, 2cqi, 9px);
+        --lg-choice-gap: 2px;
+    }
 }
 .ocr-count {
     white-space: nowrap;

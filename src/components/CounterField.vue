@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, inject, ref, watch } from 'vue';
+import { glassLedger } from './glass-ledger';
+import { GlassFieldSurface } from './liquid-glass';
 import PressButton from './PressButton.vue';
 
 /**
@@ -50,6 +52,7 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
+const glass = inject(glassLedger, null);
 
 /** 去掉后缀只留数字部分。`3968.6万` → `3968.6`。 */
 function digits(raw: string): string {
@@ -157,7 +160,11 @@ const inputStyle = computed(() => ({
             :disabled="!text"
             @click="nudge(-1)"
         />
-        <span class="field cf-well">
+        <component
+            :is="glass ? GlassFieldSurface : 'span'"
+            class="cf-well"
+            v-bind="glass ? { radius: 12 } : { class: 'field' }"
+        >
             <input
                 class="cf-input"
                 type="text"
@@ -172,7 +179,7 @@ const inputStyle = computed(() => ({
                 @keydown.enter="onBlur"
             />
             <span v-if="unit" class="cf-unit" aria-hidden="true">{{ unit }}</span>
-        </span>
+        </component>
         <PressButton class="cf-step" icon="add" :label="`加 ${stepLabel}`" @click="nudge(1)" />
     </div>
 </template>
@@ -236,7 +243,7 @@ const inputStyle = computed(() => ({
 
 /* 焦点环画在槽上：input 自己没有边框，环贴着数字会读成「光标框」。
  * 与 `PriceField` 同一条。 */
-.cf-well:focus-within {
+.field.cf-well:focus-within {
     outline: var(--ring);
     outline-offset: var(--ring-offset);
 }

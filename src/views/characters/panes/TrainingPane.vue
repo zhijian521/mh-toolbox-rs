@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { useCharacterFields } from '../use-character-fields';
 import { useId, type DeepReadonly } from 'vue';
-import NumberField from '../../../components/NumberField.vue';
 import GroupHead from '../../../components/GroupHead.vue';
 import NumTag from '../../../components/NumTag.vue';
 import type { TrainingGroup, TrainingRow } from '../character';
@@ -8,6 +8,7 @@ import type { QuickTarget } from '../quick/quick-target';
 import { quickRowBinds, useQuickable } from '../quick-row';
 
 /** 卡内「修炼」页。拆法与理由见 `AttrPane.vue` 顶部。 */
+const { NumberField } = useCharacterFields();
 const props = withDefaults(
     defineProps<{
         groups: readonly DeepReadonly<TrainingGroup>[];

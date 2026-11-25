@@ -1,9 +1,8 @@
 <script setup lang="ts">
+import { useCharacterFields } from '../use-character-fields';
 import { computed, useId } from 'vue';
-import NumberField from '../../../components/NumberField.vue';
 import GroupHead from '../../../components/GroupHead.vue';
 import NumTag from '../../../components/NumTag.vue';
-import SelectField from '../../../components/SelectField.vue';
 import PressButton from '../../../components/PressButton.vue';
 import { lifeSkills, storySkills } from '../../../services/game-data';
 import AssistIcon from '../AssistIcon.vue';
@@ -12,6 +11,7 @@ import type { QuickTarget } from '../quick/quick-target';
 import { quickRowBinds, useQuickable } from '../quick-row';
 
 /** 卡内「辅助」页。拆法与理由见 `AttrPane.vue` 顶部。 */
+const { NumberField, SelectField, selectProps } = useCharacterFields();
 const props = withDefaults(
     defineProps<{
         assists: readonly AssistSkill[];
@@ -86,6 +86,7 @@ function optionsFor(row: AssistSkill) {
                         <AssistIcon :name="row.name" :kind="row.kind" />
                         <SelectField
                             v-if="editable"
+                            v-bind="selectProps"
                             class="assist-select"
                             :model-value="row.name"
                             :options="optionsFor(row)"

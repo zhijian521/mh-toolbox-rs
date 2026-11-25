@@ -2,12 +2,12 @@
 import NumberField from '../NumberField.vue';
 
 defineOptions({ inheritAttrs: false });
-defineProps<{ label: string; wide?: boolean; updateOnInput?: boolean }>();
+const props = defineProps<{ class?: string; label: string; wide?: boolean; updateOnInput?: boolean }>();
 const value = defineModel<number>({ required: true });
 </script>
 
 <template>
-    <span class="glass-compact-number-field" :class="{ 'is-wide': wide }">
+    <span class="glass-compact-number-field" :class="[props.class, { 'is-wide': wide }]">
         <NumberField
             v-model="value"
             bare

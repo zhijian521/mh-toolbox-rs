@@ -1,7 +1,7 @@
 /* 六分区共用窗宽：右详情 460，左截图使用剩余宽度。 */
 .screenshot-upload {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) var(--char-editor-w);
+    grid-template-columns: minmax(0, 1fr) min(var(--char-editor-w), 62%);
     flex: 1;
     gap: 16px;
     min-width: 0;
@@ -142,7 +142,7 @@
     min-height: 0;
     overflow: hidden;
 }
-@media (max-width: 960px) {
+@container screenshot-editor (max-width: 639px) {
     .screenshot-upload {
         grid-template-columns: minmax(0, 1fr);
         grid-template-rows: max-content minmax(400px, auto);

@@ -83,7 +83,7 @@ export function usePetPickerPanel(
         if (!active || !open.value || !panel.value || !anchor.value) return;
         place();
         panel.value
-            .querySelector<HTMLInputElement>('input[type="search"]')
+            .querySelector<HTMLElement>('glass-search, input[type="search"]')
             ?.focus({ preventScroll: true });
         observer.observe(panel.value);
         observer.observe(anchor.value);

@@ -1,15 +1,19 @@
 <script setup lang="ts">
+import { useCharacterFields } from './use-character-fields';
 import { computed, ref, watch } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import FoldedCard from '../../components/FoldedCard.vue';
-import SelectField from '../../components/SelectField.vue';
 import DateField from '../../components/DateField.vue';
+import GlassDateField from '../../components/liquid-glass/GlassDateField.vue';
+import GlassCompactPager from '../../components/liquid-glass/GlassCompactPager.vue';
+import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import RecordPager from '../../components/RecordPager.vue';
 import PressButton from '../../components/PressButton.vue';
 import { useRoster } from './roster';
 import { selectGrowthHistory } from './growth-history';
 
 const PAGE_SIZE = 10;
+const { glass, SelectField } = useCharacterFields();
 const emit = defineEmits<{ close: [] }>();
 const { roster } = useRoster();
 const selected = ref(''),
@@ -47,19 +51,20 @@ watch(pages, (total) => {
 
 <template>
     <ModalShell title="成长历史" :width="780" :min-height="440" @close="emit('close')">
-        <div class="growth-filters">
+        <div class="growth-filters" :class="{ 'lg-form-fields': glass }">
             <SelectField v-model="selected" :options="options" label="成长历史角色" />
-            <DateField v-model="from" label="成长历史开始日期" :max="to" />
+            <component :is="glass ? GlassDateField : DateField" v-model="from" label="成长历史开始日期" :max="to" />
             <span>至</span>
-            <DateField v-model="to" label="成长历史结束日期" :min="from" />
+            <component :is="glass ? GlassDateField : DateField" v-model="to" label="成长历史结束日期" :min="from" />
         </div>
-        <div v-if="!entries.length" class="record-empty">暂无成长记录</div>
+        <GlassEmptyState v-if="glass && !entries.length">暂无成长记录</GlassEmptyState>
+        <div v-else-if="!entries.length" class="record-empty">暂无成长记录</div>
         <div v-else class="growth-list">
-            <FoldedCard
+            <component
+                :is="glass?.card ?? FoldedCard"
                 v-for="entry in visible"
                 :key="`${entry.characterId}-${entry.id}`"
-                as="article"
-                spine="left"
+                v-bind="glass ? { role: 'article' } : { as: 'article', spine: 'left' }"
                 class="growth-entry"
             >
                 <header class="growth-heading ticket-rule">
@@ -95,10 +100,11 @@ watch(pages, (total) => {
                         </dd>
                     </div>
                 </dl>
-            </FoldedCard>
+            </component>
         </div>
         <template #footer>
-            <RecordPager v-model="page" :pages="pages" />
+            <GlassCompactPager v-if="glass" v-model:page="page" :pages="pages" label="成长历史分页" />
+            <RecordPager v-else v-model="page" :pages="pages" />
             <PressButton text="关闭" label="关闭成长历史" @click="emit('close')" />
         </template>
     </ModalShell>
@@ -115,6 +121,16 @@ watch(pages, (total) => {
 .growth-list {
     display: grid;
     gap: 12px;
+}
+.growth-filters.lg-form-fields {
+    align-items: end;
+}
+.growth-filters.lg-form-fields > span {
+    line-height: var(--lg-form-height);
+}
+glass-surface.growth-entry {
+    padding: 10px 12px;
+    overflow-wrap: anywhere;
 }
 .folded-card.growth-entry {
     --folded-pad-block: 10px;

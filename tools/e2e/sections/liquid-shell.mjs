@@ -843,6 +843,13 @@ export default async function liquidShell({ cdp, t, ui }) {
     const waitCharacterClosed = () => ui.waitFor(`!document.querySelector('${characterMask}')`);
     const newCharacter = `${characters} [aria-label="新建角色"]`;
     await ui.waitFor(`!!document.querySelector('${newCharacter}:not([disabled])')`);
+    t.check('角色页头的历史、仓库和新增按钮同排，新增使用默认材质', await cdp.evaluate(`(() => {
+        const add = document.querySelector('${newCharacter}');
+        const buttons = add.closest('.liquid-ledger-actions').querySelectorAll('glass-button');
+        const top = add.getBoundingClientRect().top;
+        return buttons.length === 3 && add.getAttribute('variant') !== 'prominent' &&
+            Array.from(buttons).every(button => Math.abs(button.getBoundingClientRect().top - top) < 1);
+    })()`));
     const rosterSearch = `${characters} glass-search[aria-label="搜索角色"]`;
     if (await ui.exists(rosterSearch)) {
         const cards = `${characters} .roster-card`;
@@ -859,10 +866,23 @@ export default async function liquidShell({ cdp, t, ui }) {
     }
     await cdp.click(newCharacter);
     await waitCharacterDialog('新角色');
-    const sections = `${characterDialog} [aria-label="修改分区"] button`;
+    const sections = `${characterDialog} glass-segmented[aria-label="修改分区"] > glass-segment`;
+    const screenshotLayout = (file) => cdp.evaluate(`(() => {
+        const upload = document.querySelector('${characterDialog} ${file}')?.closest('.screenshot-upload');
+        if (!upload?.getClientRects().length) return false;
+        const body = upload.closest('.modal-body');
+        const style = getComputedStyle(body);
+        const width = body.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        const left = upload.querySelector('.upload-left').getBoundingClientRect();
+        const right = upload.querySelector('.upload-detail').getBoundingClientRect();
+        if (!left.width || !right.width) return false;
+        return width > 639
+            ? right.left >= left.right && Math.abs(right.top - left.top) < 1
+            : right.top >= left.bottom;
+    })()`);
     t.check('角色编辑内层表面在明暗主题下均有有效颜色', await cdp.evaluate(`(() => {
         const app = document.querySelector('.liquid-app');
-        const root = document.querySelector('${characterMask}.character-theme');
+        const root = document.querySelector('${characterDialog}.character-theme');
         if (!root) return false;
         const original = app.dataset.appearance;
         try {
@@ -881,18 +901,24 @@ export default async function liquidShell({ cdp, t, ui }) {
         await cdp.send('Emulation.setEmulatedMedia', {
             features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
         });
-        t.check('降动效模式覆盖角色编辑器复用的旧滑块', await cdp.evaluate(`(() => {
-            const thumb = document.querySelector('${characterDialog} .step-thumb');
-            return thumb && getComputedStyle(thumb).transitionDuration === '0.001s';
-        })()`));
+        await cdp.evaluate(`document.querySelector('${sections}[aria-selected="true"]').focus()`);
+        await cdp.key('ArrowRight');
+        t.check('降动效时方向键仍可切换到师门', await ui.waitFor(
+            `document.querySelector('${sections}[aria-selected="true"]')?.textContent.trim() === '师门' &&
+                !!document.querySelector('${characterDialog} [aria-label="师门截图文件"]')`,
+        ));
+        await cdp.key('ArrowLeft');
     } finally {
         await cdp.send('Emulation.setEmulatedMedia', { features: [] });
     }
     t.check('新角色保留六个编辑分区和角色属性识别入口', await cdp.evaluate(`
         document.querySelectorAll('${sections}').length === 6 &&
-        !!document.querySelector('${characterDialog} [aria-label="角色名"]') &&
+        !!document.querySelector('${characterDialog} .glass-input input[aria-label="角色名"]') &&
+        !!document.querySelector('${characterDialog} .glass-compact-number-field input[aria-label="角色等级"]') &&
+        !!document.querySelector('${characterDialog} .identity-school.glass-select') &&
         !!document.querySelector('${characterDialog} [aria-label="属性截图文件"]')
     `));
+    t.check('属性截图与表单按弹窗可用宽度排列', await screenshotLayout('[aria-label="属性截图文件"]'));
     for (const [section, kind, selector] of [
         [5, '装备', 'input[aria-label="装备截图文件"]'],
         [6, '召唤兽', 'input[aria-label="召唤兽截图文件"]'],
@@ -903,6 +929,7 @@ export default async function liquidShell({ cdp, t, ui }) {
         t.check(`角色${kind}分区保留截图识别入口`, await cdp.evaluate(`
             !!document.querySelector('${characterDialog} ${selector}')
         `));
+        t.check(`${kind}截图与详情按弹窗可用宽度排列`, await screenshotLayout(selector));
         await cdp.click(picker);
         await waitCharacterDialog(`从仓库选择${kind}`);
         await closeCharacterDialog();

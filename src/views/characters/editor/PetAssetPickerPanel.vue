@@ -1,7 +1,9 @@
 <script setup lang="ts">
 /** 头像与技能共用候选区；触发方式、选中值和清除动作由各自入口决定。 */
-import { computed, onMounted, ref } from 'vue';
+import { computed, inject, onMounted, ref, watch } from 'vue';
 import PressButton from '../../../components/PressButton.vue';
+import { glassLedger } from '../../../components/glass-ledger';
+import { GlassSearch } from '../../../components/liquid-glass';
 import {
     findPetPortrait,
     loadPetAssets,
@@ -19,6 +21,10 @@ const props = defineProps<{
 const emit = defineEmits<{ choose: [value: string]; clear: [] }>();
 const query = ref('');
 const limit = ref(48);
+const glass = inject(glassLedger, null);
+watch(query, () => {
+    limit.value = 48;
+});
 const portrait = computed(() => props.kind === 'portrait');
 const subject = computed(() => (portrait.value ? '头像' : '技能'));
 const prefix = computed(() => (portrait.value ? 'portrait' : 'skill'));
@@ -42,14 +48,21 @@ onMounted(load);
 
 <template>
     <div class="pet-picker-tools" :class="`${prefix}-tools`">
+        <GlassSearch
+            v-if="glass"
+            v-model:value="query"
+            :placeholder="portrait ? '搜索召唤兽' : '搜索技能'"
+            :aria-label="'搜索召唤兽' + subject"
+            :disabled="!petAssets"
+        />
         <input
+            v-else
             v-model="query"
             class="field"
             type="search"
             :placeholder="portrait ? '搜索召唤兽' : '搜索技能'"
             :aria-label="'搜索召唤兽' + subject"
             :disabled="!petAssets"
-            @input="limit = 48"
         />
         <PressButton
             v-if="selected"

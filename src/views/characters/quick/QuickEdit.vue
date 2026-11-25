@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CharacterTextField from '../CharacterTextField.vue';
 import { computed, onMounted, ref } from 'vue';
 import ModalShell from '../../../components/ModalShell.vue';
 import CounterField from '../../../components/CounterField.vue';
@@ -129,10 +130,9 @@ onMounted(() => focusInput(form, 'input'));
                     :unit="field.unit"
                     @update:model-value="draft[field.key] = $event"
                 />
-                <input
+                <CharacterTextField
                     v-else
                     v-model="draft[field.key]"
-                    class="field"
                     :aria-label="field.label"
                     autocomplete="off"
                 />

@@ -1,3 +1,16 @@
+.liquid-characters .liquid-ledger-header,
+.liquid-characters .liquid-ledger-actions {
+    flex-wrap: nowrap;
+}
+.liquid-characters .liquid-ledger-actions {
+    min-width: 0;
+    justify-content: flex-end;
+    gap: 8px;
+}
+.liquid-characters .liquid-ledger-actions > .glass-ledger-button {
+    flex: none;
+}
+
 .liquid-characters .roster {
     --char-w: 100%;
     display: grid;
@@ -10,13 +23,40 @@
     background: transparent;
 }
 
-.liquid-characters :is(.char > .tabs, .ocr-tabs) .step-opt {
-    min-width: 0;
-    padding-inline: 4px;
-    font-size: var(--fs-xs);
+.liquid-characters .identity-sub > .glass-input {
+    flex: 1;
+    width: 0;
 }
 
-.liquid-characters .slip-row .field.slip-input {
-    min-height: 0;
-    font-weight: 400;
+/* 师门、辅助共用图标格，缺图时的首字也占同样的空间。 */
+.liquid-characters .slip-cols .slip-row > :is(.icon-tile, .seal-tile) {
+    --tile-w: 32px;
+    --tile-h: var(--tile-w);
+    --shot: calc(var(--tile-w) - 4px);
+    margin-inline-start: 2px;
+}
+
+.liquid-characters .press-tile:is(.beast-plate, .portrait-plate, .pet-portrait) {
+    background: var(--lg-field-active-fill);
+    box-shadow: var(--lg-edge-rim);
+}
+.liquid-characters .beast-id .skill-line {
+    height: auto;
+    min-height: 28px;
+    padding: 3px;
+}
+.liquid-characters .skill-line .skill-icons {
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    max-height: none;
+}
+.liquid-characters .skill-line .skill-icons .pet-image {
+    --pet-icon-size: 22px;
+}
+.liquid-characters .skill-trigger .pet-image {
+    --pet-icon-size: 36px;
+    max-width: 100%;
+    height: auto;
+    aspect-ratio: 1;
 }

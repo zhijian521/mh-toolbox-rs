@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import CharacterTextField from '../CharacterTextField.vue';
+import { useCharacterFields } from '../use-character-fields';
 import { computed, onMounted } from 'vue';
 import AppIcon from '../../../components/AppIcon.vue';
 import GroupHead from '../../../components/GroupHead.vue';
-import PaperCard from '../../../components/PaperCard.vue';
-import NumberField from '../../../components/NumberField.vue';
 import PressButton from '../../../components/PressButton.vue';
 import { hasPetName, PET_QUALITY_FIELDS, type Pet } from '../pets';
 import {
@@ -16,6 +16,7 @@ import PetPortraitPicker from './PetPortraitPicker.vue';
 import PetSkillPicker from './PetSkillPicker.vue';
 
 /** 全部修改和单只快速修改共用的分组表单。 */
+const { DetailCard, NumberField } = useCharacterFields();
 const pet = defineModel<Pet>({ required: true });
 const attrs = computed(
     () => petAssets.value?.panel.attributes ?? pet.value.attrs.map((row) => row.label),
@@ -34,9 +35,8 @@ onMounted(load);
 function valueFor(kind: 'attrs' | 'points', label: string): string {
     return pet.value[kind]?.find((row) => row.label === label)?.value ?? '';
 }
-function setValue(kind: 'attrs' | 'points', label: string, event: Event) {
+function setValue(kind: 'attrs' | 'points', label: string, value: string) {
     const rows = (pet.value[kind] ??= []);
-    const value = (event.target as HTMLInputElement).value;
     const row = rows.find((one) => one.label === label);
     if (row) row.value = value;
     else rows.push({ label, value });
@@ -55,7 +55,7 @@ function addSkill() {
 </script>
 
 <template>
-    <PaperCard class="pet-form character-detail">
+    <DetailCard class="pet-form character-detail">
         <div class="pet-content character-detail-content">
             <!-- 头像只占一枚头像位，名称 / 等级 / 参战等级挪到它右边（2026-11-10 用户：
                  「选择召唤兽头像占据了很大一行，只占据个头像就行，后面我们可以把名称 等级
@@ -73,9 +73,9 @@ function addSkill() {
                          用插槽而不是把删除写进表单：这张表单两处共用，删除属于外壳的职责。 -->
                     <div class="pet-name-row character-detail-name-row">
                         <label class="pet-name-field character-detail-name-field">
-                            <input
+                            <CharacterTextField
                                 v-model="pet.name"
-                                class="field character-detail-name-input"
+                                layout="character-detail-name-input"
                                 aria-label="召唤兽名称"
                                 placeholder="召唤兽名称"
                                 required
@@ -126,12 +126,12 @@ function addSkill() {
                             class="id-cell slip-row sm"
                         >
                             <span class="slip-name">{{ label }}</span>
-                            <input
-                                class="field num num-slot value-field slip-input"
+                            <CharacterTextField
+                                layout="num num-slot value-field slip-input"
                                 inputmode="numeric"
                                 :aria-label="'召唤兽' + label"
-                                :value="valueFor(group.key, label)"
-                                @input="setValue(group.key, label, $event)"
+                                :model-value="valueFor(group.key, label)"
+                                @update:model-value="setValue(group.key, label, $event)"
                             />
                         </label>
                     </div>
@@ -158,9 +158,9 @@ function addSkill() {
                     <div class="pet-facts">
                         <label class="slip-row sm"
                             ><span class="slip-name">成长</span
-                            ><input
+                            ><CharacterTextField
                                 v-model="pet.growth"
-                                class="field num num-slot value-field slip-input"
+                                layout="num num-slot value-field slip-input"
                                 inputmode="decimal"
                                 aria-label="成长"
                         /></label>
@@ -176,9 +176,9 @@ function addSkill() {
                         /></label>
                         <label class="slip-row sm"
                             ><span class="slip-name">五行</span
-                            ><input
+                            ><CharacterTextField
                                 v-model="pet.element"
-                                class="field num-slot value-field slip-input"
+                                layout="num-slot value-field slip-input"
                                 aria-label="五行"
                         /></label>
                     </div>
@@ -231,7 +231,7 @@ function addSkill() {
                 />
             </div>
         </div>
-    </PaperCard>
+    </DetailCard>
 </template>
 
 <style scoped src="./pet-detail-form.css"></style>

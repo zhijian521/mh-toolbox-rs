@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useCharacterFields } from './use-character-fields';
 /**
  * 师门技能的一行：图标印 ｜ 名称 ｜ 等级。
  *
@@ -35,7 +36,6 @@
  * 空格会被读成「这一行坏了」，而首字至少还是个落点。
  */
 import { computed } from 'vue';
-import NumberField from '../../components/NumberField.vue';
 import NumTag from '../../components/NumTag.vue';
 import PressTile from '../../components/PressTile.vue';
 import { schoolSkillIcon } from '../../services/game-icons';
@@ -43,6 +43,7 @@ import IconTile from './IconTile.vue';
 import { isMaxed, type SkillRow as SkillRowData } from './character';
 import { quickRowBinds, useQuickable } from './quick-row';
 
+const { NumberField } = useCharacterFields();
 const props = withDefaults(
     defineProps<{
         row: SkillRowData;

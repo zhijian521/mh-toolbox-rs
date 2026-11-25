@@ -156,3 +156,30 @@
     padding: 5px 0;
     font-size: var(--fs-mini);
 }
+:root {
+    --char-editor-w: 460px;
+}
+
+.modal-body:has(.screenshot-upload) {
+    container: screenshot-editor / inline-size;
+}
+
+.liquid-ledger .character-theme {
+    --glass-select-height: 28px;
+}
+.liquid-ledger .slip-row .slip-input:is(.glass-input, .glass-compact-number-field) {
+    flex: none;
+    width: var(--tag-w);
+    text-align: center;
+}
+.liquid-ledger .slip-row .glass-compact-number-field.compact {
+    width: calc(36px * var(--fs-scale));
+}
+.liquid-ledger .slip-row.sm {
+    --character-input-h: 24px;
+}
+.liquid-ledger .slip-row.sm .compact-number-input {
+    min-height: 24px;
+    padding-block: 1px;
+}
+
