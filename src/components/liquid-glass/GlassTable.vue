@@ -42,11 +42,13 @@ defineProps<{ stickyHeader?: boolean }>();
 }
 @media (prefers-reduced-transparency: reduce) {
     .glass-table :deep(thead) {
-        background: light-dark(#dce9e3, #263a34);
+        background: var(--lg-popup-solid);
     }
 }
 .glass-table :deep(thead th) {
-    box-shadow: inset 0 1px 0 var(--lg-edge-light), inset 0 -1px 0 var(--liquid-outline);
+    box-shadow:
+        inset 0 1px 0 var(--lg-edge-light),
+        inset 0 -1px 0 var(--liquid-outline);
     color: var(--liquid-muted);
     font-size: var(--fs-xs);
     font-weight: 400;

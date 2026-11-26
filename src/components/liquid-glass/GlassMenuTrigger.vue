@@ -2,11 +2,11 @@
 import AppIcon from '../AppIcon.vue';
 import { GlassFieldSurface } from './index';
 
-defineProps<{ text: string; valueId?: string }>();
+defineProps<{ text: string; valueId?: string; disabled?: boolean }>();
 </script>
 
 <template>
-    <button type="button" class="glass-select-trigger lg-popup-trigger">
+    <button :disabled="disabled" type="button" class="glass-select-trigger lg-popup-trigger">
         <GlassFieldSurface class="glass-select-face" radius="capsule">
             <span :id="valueId">{{ text }}</span>
             <AppIcon name="chevron-down" />

@@ -3,11 +3,10 @@ import { computed, ref, useId, watch, type Component } from 'vue';
 import PressButton from './PressButton.vue';
 
 /**
- * 价格格：大号数字 + 固定的「万」后缀，可选两侧加减。
+ * 价格格：大号数字、币种单位和可选的两侧加减。
  *
  * 梦幻币的价格几乎都在万以上——界面上让人打 `3200000` 再自己数零，是把换算的活推给了人。
- * 这一格只收「万」（320），但 **v-model 进出的都是游戏币原值**（3200000）：
- * 换算关在组件里，调用方拿到的仍是 `prices.ts` 那一套口径，不必每处都记得 ×10000。
+ * 梦幻币按万输入，模型保存游戏币原值。人民币按元输入，模型保存元。
  *
  * ## 为什么单独做一个，不直接给 `NumberField` 加后缀
  *
@@ -23,8 +22,9 @@ import PressButton from './PressButton.vue';
  */
 const props = withDefaults(
     defineProps<{
-        /** 游戏币**原值**。`null` 表示还没填。 */
+        /** 游戏币原值或人民币元。`null` 表示还没填。 */
         modelValue: number | null;
+        unit?: '元' | '万';
         label?: string;
         wellComponent?: Component;
         disabled?: boolean;
@@ -40,7 +40,7 @@ const props = withDefaults(
         placeholder?: string;
         /** 两侧的加减印块。开了之后输入格自己收窄，让出两边。 */
         stepper?: boolean;
-        /** 万单位的小数位数；账目页传 2，物价保留原精度。 */
+        /** 显示金额的小数位数。记账使用两位，物价按万输入时默认四位。 */
         precision?: number;
     }>(),
     {
@@ -50,7 +50,7 @@ const props = withDefaults(
         placeholder: '',
         stepper: false,
         disabled: false,
-        precision: 4,
+        unit: '万',
     },
 );
 
@@ -74,32 +74,33 @@ defineSlots<{
     }): unknown;
 }>();
 const errorId = `price-error-${useId()}`;
+const scale = computed(() => (props.unit === '万' ? 10000 : 1));
+const precision = computed(() => props.precision ?? (props.unit === '万' ? 4 : 2));
 
-/**
- * 原值 → 输入框里的「万」，小数位由 precision 决定。
- *
- * **不叫 `toWan`**：`services/format.ts` 里那个 `toWan` 是「原值 → 万的数」，
- * `character.ts` 里那个是「万/亿 的文本 → 数」。三个同名不同义，改一个查半天。
- * 这里返回的是**给输入框的字符串**（空值给空串、按指定精度四舍五入），
- * 名字里点明「input」才分得清。
- */
-function wanInput(value: number | null): string {
+function inputText(value: number | null): string {
     if (value === null || !Number.isFinite(value) || value <= 0) return '';
-    return String(Number((value / 10000).toFixed(props.precision)));
+    return String(Number((value / scale.value).toFixed(precision.value)));
 }
 
-const text = ref(wanInput(props.modelValue));
+function modelAmount(display: number) {
+    return props.unit === '万'
+        ? Math.round(display * 10000)
+        : Number(display.toFixed(precision.value));
+}
+
+const text = ref(inputText(props.modelValue));
 
 watch(
-    () => props.modelValue,
-    (value) => {
+    [() => props.modelValue, () => props.unit, precision],
+    ([value, unit, digits], [, lastUnit, lastDigits]) => {
         /* 只有「外面真的改了」才覆盖输入框。
          *
          * 判定用「回算成原值后是否相等」，而不是比字符串：用户正在打 `3.` 的时候，
          * 上游已经把 30000 写回来了；字符串 `3.` 与 `3` 不等，但它们是同一个值。
          * 直接按字符串覆盖会把刚敲的小数点吃掉——于是永远输不进 3.5 万。 */
-        const current = Math.round(Number(text.value) * 10000);
-        if (current !== (value ?? 0)) text.value = wanInput(value);
+        const current = modelAmount(Number(text.value));
+        if (unit !== lastUnit || digits !== lastDigits || current !== (value ?? 0))
+            text.value = inputText(value);
     },
 );
 
@@ -108,9 +109,9 @@ function onInput(event: Event) {
     /* 只留数字与一个小数点。在输入时清，不是失焦时清——
      * 失焦才清的话，用户会先看着一串非法字符停在那儿，然后才消失。 */
     const raw = input.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
-    const factor = 10 ** props.precision;
+    const factor = 10 ** precision.value;
     const cleaned =
-        (raw.split('.')[1]?.length ?? 0) > props.precision
+        (raw.split('.')[1]?.length ?? 0) > precision.value
             ? String(Math.round(Number(raw) * factor) / factor)
             : raw;
     text.value = cleaned;
@@ -121,11 +122,8 @@ function onInput(event: Event) {
     /* 空就写 `0`，不写 `null`：`PricePointDraft.price` 与 `initialPrice` 都是 `number`，
      * emit 一个 null 过去类型上不报、运行时靠 `amount()` 兜——这种「说得清但写不对」
      * 的接口，迟早有人写成 `if (price === null)` 然后判错。两个「空」收成一个。
-     * `wanInput(0)` 本来回空串，显示与写入仍然对得上。 */
-    emit(
-        'update:modelValue',
-        cleaned === '' || !Number.isFinite(parsed) ? 0 : Math.round(parsed * 10000),
-    );
+     * 零值显示为空串。 */
+    emit('update:modelValue', cleaned === '' || !Number.isFinite(parsed) ? 0 : modelAmount(parsed));
 }
 
 /**
@@ -136,7 +134,7 @@ function onInput(event: Event) {
  * 归一口径与 `watch` 一致——都按「回算成原值」再格式化一遍。
  */
 function onBlur(event: FocusEvent) {
-    text.value = wanInput(props.modelValue);
+    text.value = inputText(props.modelValue);
     emit('blur', event);
 }
 
@@ -147,14 +145,12 @@ function onBlur(event: FocusEvent) {
  * 那就不是快捷键，是惩罚。三档按当前值的数量级分：
  * 一千万以上 ±100 万，一百万以上 ±10 万，其余 ±1 万。
  */
-function stepSize(value: number): number {
-    if (value >= 10000000) return 1000000;
-    if (value >= 1000000) return 100000;
-    return 10000;
-}
-
-/** 读屏念的「减 10 万」与按钮实际步长用同一个数。 */
-const stepWan = computed(() => stepSize(props.modelValue ?? 0) / 10000);
+const step = computed(() => {
+    const display = (props.modelValue ?? 0) / scale.value;
+    if (display >= 1000) return 100;
+    if (display >= 100) return 10;
+    return 1;
+});
 
 /**
  * 输入框宽度跟着内容收放。
@@ -173,11 +169,13 @@ const inputStyle = computed(() => ({
 }));
 
 function nudge(direction: 1 | -1) {
-    const base = props.modelValue ?? 0;
-    const quantum = 10000 / 10 ** props.precision;
-    const next = Math.round(Math.max(0, base + direction * stepSize(base)) / quantum) * quantum;
-    text.value = wanInput(next);
-    emit('update:modelValue', Math.round(next));
+    const base = (props.modelValue ?? 0) / scale.value;
+    const factor = 10 ** precision.value;
+    const next = modelAmount(
+        Math.round(Math.max(0, base + direction * step.value) * factor) / factor,
+    );
+    text.value = inputText(next);
+    emit('update:modelValue', next);
 }
 </script>
 
@@ -191,14 +189,14 @@ function nudge(direction: 1 | -1) {
                 v-if="stepper"
                 name="step"
                 icon="subtract"
-                :label="`减 ${stepWan} 万`"
+                :label="`减 ${step} ${unit}`"
                 :disabled="disabled || !modelValue"
                 :step="() => nudge(-1)"
             >
                 <PressButton
                     class="pf-step"
                     icon="subtract"
-                    :label="`减 ${stepWan} 万`"
+                    :label="`减 ${step} ${unit}`"
                     :disabled="disabled || !modelValue"
                     @click="nudge(-1)"
                 />
@@ -220,26 +218,26 @@ function nudge(direction: 1 | -1) {
                     :value="text"
                     :style="inputStyle"
                     :placeholder="placeholder"
-                    :aria-label="label ? `${label}，以万为单位` : '价格，以万为单位'"
+                    :aria-label="`${label || '价格'}，以${unit}为单位`"
                     :aria-invalid="!!error || undefined"
                     :aria-describedby="error ? errorId : undefined"
                     @input="onInput"
                     @blur="onBlur"
                 />
-                <span class="pf-unit" aria-hidden="true">万</span>
+                <span class="pf-unit" aria-hidden="true">{{ unit }}</span>
             </component>
             <slot
                 v-if="stepper"
                 name="step"
                 icon="add"
-                :label="`加 ${stepWan} 万`"
+                :label="`加 ${step} ${unit}`"
                 :disabled="disabled"
                 :step="() => nudge(1)"
             >
                 <PressButton
                     class="pf-step"
                     icon="add"
-                    :label="`加 ${stepWan} 万`"
+                    :label="`加 ${step} ${unit}`"
                     :disabled="disabled"
                     @click="nudge(1)"
                 />

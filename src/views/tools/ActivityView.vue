@@ -140,7 +140,6 @@ function onToggle(id: number, enabled: boolean) {
     letter-spacing: 0.05em;
 }
 
-
 /* 条数是「这里有几条」的读数，用等宽数字；不写成「共 8 项」，组标题已经说了是什么。 */
 .group-title i {
     color: var(--muted);

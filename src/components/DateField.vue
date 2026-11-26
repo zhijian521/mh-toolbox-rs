@@ -7,8 +7,6 @@ import { glassLedger } from './glass-ledger';
 import { useToday } from '../composables/use-today';
 import { dateText, parseDay } from '../services/format';
 
-const glass = inject(glassLedger, null);
-
 /**
  * 日期选择：一条**槽** + 一张**纸片上的月历**。
  *
@@ -75,6 +73,8 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
+
+const glass = inject(glassLedger, null);
 
 const WEEK = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -199,9 +199,11 @@ function placePanel() {
         left: `${Math.round(left)}px`,
         top: `${Math.round(top)}px`,
         visibility: 'visible',
-        ...(props.topLayer && width && height ? {
-            '--date-anchor-transform': `translate(${rect.left - left}px, ${rect.top - top}px) scale(${rect.width / width}, ${rect.height / height})`,
-        } : {}),
+        ...(props.topLayer && width && height
+            ? {
+                  '--date-anchor-transform': `translate(${rect.left - left}px, ${rect.top - top}px) scale(${rect.width / width}, ${rect.height / height})`,
+              }
+            : {}),
     };
 }
 
@@ -454,18 +456,18 @@ onBeforeUnmount(() => {
         <Teleport :to="glass ? '.liquid-app' : 'body'" :disabled="topLayer">
             <div
                 v-if="open || keepPopover"
-                :data-ready="panelReady || undefined"
-                :inert="topLayer && !open"
                 :id="panelId"
                 ref="panel"
+                :data-ready="panelReady || undefined"
+                :inert="topLayer && !open"
                 class="date-panel"
                 :class="glass?.overlayClass"
-                :popover="topLayer ? 'manual' : undefined"
-                @toggle.stop
-                @pointerdown="topLayer && $event.stopPropagation()"
+                v-bind="topLayer ? { popover: 'manual' } : {}"
                 role="dialog"
                 :aria-label="label"
                 :style="panelStyle"
+                @toggle.stop
+                @pointerdown="topLayer && $event.stopPropagation()"
                 @keydown="onDayKeydown"
             >
                 <div class="date-content">
@@ -532,12 +534,21 @@ onBeforeUnmount(() => {
                     </div>
 
                     <div class="date-foot">
-                        <button type="button" class="jump" :disabled="dayDisabled(today)" @click="jumpToday">回到今天</button>
+                        <button
+                            type="button"
+                            class="jump"
+                            :disabled="dayDisabled(today)"
+                            @click="jumpToday"
+                        >
+                            回到今天
+                        </button>
                     </div>
                 </div>
             </div>
         </Teleport>
-        <span v-if="error" :id="errorId" class="note error field-error" role="alert">{{ error }}</span>
+        <span v-if="error" :id="errorId" class="note error field-error" role="alert">{{
+            error
+        }}</span>
     </div>
 </template>
 

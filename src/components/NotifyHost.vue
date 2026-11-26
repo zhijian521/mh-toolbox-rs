@@ -84,7 +84,9 @@ function onResume(id: number) {
                     @keydown.enter.prevent="dismiss(one.id)"
                     @keydown.space.prevent="dismiss(one.id)"
                 >
-                    <AppNotice :tone="one.tone" bare><span class="text">{{ one.text }}</span></AppNotice>
+                    <AppNotice :tone="one.tone" bare
+                        ><span class="text">{{ one.text }}</span></AppNotice
+                    >
                     <i :key="runs[one.id] ?? 0" class="drain" aria-hidden="true"></i>
                 </div>
             </TransitionGroup>

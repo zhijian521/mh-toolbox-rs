@@ -92,16 +92,16 @@ R01—R06 与 S01／S02 均已修改，等待用户查看和指定动态验收�
 
 ## 实施映射与交付状态
 
-| 项目 | 本轮实施 | 文件 |
-| ---- | -------- | ---- |
-| R01 | 收益与上线 store 只读暴露 loaded；今日速记区分读取中、失败及成功空账，失败隐藏笔数、净额和撤回，保存期间或保存失败禁用撤回。两图按各自来源降级，失败来源的旧角色不再混入另一图；恢复沿父页面 LoadNotice | income-store.ts、online-store.ts、TodayDump.vue、OnlinePanel.vue |
-| R02 | 每个聚合错误旁显示 TextButton，直达角色／收益／账号／目标的原恢复入口；上线和自动记账明确前往收益页。总览只导航，不执行跨域重载，不触碰待保存草稿 | OverviewView.vue |
-| R03 | 总览命名容器按实际内容宽度在 900／500px 收列，与收益和账号的响应口径一致 | overview.css |
-| R04 | 上线记录筛选重置迁移 TextButton，保留出现条件、标签和回调 | OnlineRecords.vue |
-| R05 | 三个编辑窗的普通字段、配对组复用 form-field／form-pair，移除重复布局；账号金额继续居中，长角色名保留局部换行规则 | AccountEditor.vue、EntryEditDialog.vue、OnlineDialog.vue |
-| R06 | 只读结束时刻保留 output 与可读标签，移除 field 凹槽，读数高度仍与开始时间对齐；可编辑分支继续使用 TimeField | OnlineDialog.vue |
-| S01 | PressTile side-tab 与角色复合容器共用 side-tab-surface；材质变量集中于 materials.css，结构在 blocks.css。保留 C 方案短签、2px 底边、在线色、156px 宽、三行高度和独立结束按钮，沿用明暗主题优先级 | PressTile.vue、OnlineBar.vue、materials.css、blocks.css |
-| S02 | 三类历史均保留固定外框与同一滚动宿主；有数据和筛选无匹配保留边界，首次无数据／读取失败仅将边框和底板透明化。失败不继续绘制旧表格，空态在剩余内容区居中 | AccountRecords.vue、IncomeHistoryDialog.vue、OnlineRecords.vue、blocks.css |
+| 项目 | 本轮实施                                                                                                                                                                                                | 文件                                                                       |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| R01  | 收益与上线 store 只读暴露 loaded；今日速记区分读取中、失败及成功空账，失败隐藏笔数、净额和撤回，保存期间或保存失败禁用撤回。两图按各自来源降级，失败来源的旧角色不再混入另一图；恢复沿父页面 LoadNotice | income-store.ts、online-store.ts、TodayDump.vue、OnlinePanel.vue           |
+| R02  | 每个聚合错误旁显示 TextButton，直达角色／收益／账号／目标的原恢复入口；上线和自动记账明确前往收益页。总览只导航，不执行跨域重载，不触碰待保存草稿                                                       | OverviewView.vue                                                           |
+| R03  | 总览命名容器按实际内容宽度在 900／500px 收列，与收益和账号的响应口径一致                                                                                                                                | overview.css                                                               |
+| R04  | 上线记录筛选重置迁移 TextButton，保留出现条件、标签和回调                                                                                                                                               | OnlineRecords.vue                                                          |
+| R05  | 三个编辑窗的普通字段、配对组复用 form-field／form-pair，移除重复布局；账号金额继续居中，长角色名保留局部换行规则                                                                                        | AccountEditor.vue、EntryEditDialog.vue、OnlineDialog.vue                   |
+| R06  | 只读结束时刻保留 output 与可读标签，移除 field 凹槽，读数高度仍与开始时间对齐；可编辑分支继续使用 TimeField                                                                                             | OnlineDialog.vue                                                           |
+| S01  | PressTile side-tab 与角色复合容器共用 side-tab-surface；材质变量集中于 materials.css，结构在 blocks.css。保留 C 方案短签、2px 底边、在线色、156px 宽、三行高度和独立结束按钮，沿用明暗主题优先级        | PressTile.vue、OnlineBar.vue、materials.css、blocks.css                    |
+| S02  | 三类历史均保留固定外框与同一滚动宿主；有数据和筛选无匹配保留边界，首次无数据／读取失败仅将边框和底板透明化。失败不继续绘制旧表格，空态在剩余内容区居中                                                  | AccountRecords.vue、IncomeHistoryDialog.vue、OnlineRecords.vue、blocks.css |
 
 维护原导航、收益和账号烟测：收益／上线独立失败与恢复、全部来源恢复入口、总览内容宽度收列、历史失败保留滚动宿主、无匹配外框及文字重置，并同步表单选择器。断言只编写，未执行；不新增测试分区或组件镜像单测。未读取或修改真实账本。
 

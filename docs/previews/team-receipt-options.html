@@ -1,208 +1,1023 @@
 <!doctype html>
 <html lang="zh-CN" data-style="ledger" data-font="wenkai">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>我的队伍 · 六套小票方案</title>
-    <link rel="stylesheet" href="../../src/styles/tokens.css">
-    <link rel="stylesheet" href="../../src/styles/base.css">
-    <style>
-        /* 布局和小票造型仅用于提案；字体、配色、纸面材质共用项目样式入口。 */
-        html { scroll-behavior: smooth; scroll-padding-top: 100px; }
-        body { height: auto; min-height: 100vh; background: var(--paper); }
-        button, select { font: inherit; }
-        button { border: 0; background: none; }
-        a, button, select { touch-action: manipulation; }
-        .icon { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-        .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
-        .shell { max-width: 1300px; padding: 40px 34px 70px; margin: auto; }
-        .intro { padding-bottom: 26px; }
-        .eyebrow { color: var(--accent); font-size: var(--fs-xs); letter-spacing: .18em; margin-bottom: 10px; }
-        .intro h1 { font-size: 30px; }
-        .intro p { margin-top: 10px; color: var(--muted); font-size: var(--fs-sm); }
-        .toolbar { position: sticky; top: 0; z-index: 20; display: flex; justify-content: space-between; gap: 10px 24px; flex-wrap: wrap; align-items: center; padding: 12px 0; border-block: 1px solid var(--rule); background: var(--paper); }
-        .toolbar-start, .toolbar-end { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .toolbar-start { color: var(--muted); font-size: var(--fs-xs); }
-        .toolbar label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-xs); }
-        select { border: 1px solid var(--rule); border-radius: 4px; padding: 6px 24px 6px 8px; background: var(--paper); color: var(--ink-2); }
-        .control { font-size: var(--fs-sm); border: 1px solid var(--rule); padding: 6px 12px; border-radius: 4px; }
-        .control:hover { background: var(--paper-2); }
-        .control[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
-        .scheme-nav { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 18px; }
-        .scheme-nav a { border: 1px solid var(--rule); border-radius: 4px; padding: 6px 12px; font-size: var(--fs-sm); }
-        .scheme-nav a:hover { background: var(--paper-2); }
-        .scheme-nav b { color: var(--accent); font-weight: 400; margin-right: 7px; }
-        .proposal { margin-top: 32px; }
-        .proposal-head { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 13px; }
-        .proposal-title { display: flex; align-items: center; gap: 13px; }
-        .letter { width: 33px; font-size: 29px; line-height: 1; color: var(--accent); }
-        .proposal-head h2 { font-size: 18px; }
-        .proposal-head p { margin-top: 3px; font-size: var(--fs-sm); color: var(--muted); }
-        .pick { flex: none; padding: 7px 14px; border-radius: 4px; border: 1px solid var(--rule-2); font-size: var(--fs-sm); }
-        .pick:hover { color: var(--accent); border-color: var(--accent); }
-        .pick[aria-pressed="true"] { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
-        .canvas { margin: auto; padding: 23px; border-radius: 9px; border: 1px solid var(--rule); background: var(--page-surface); container: demo / inline-size; }
-        body.compact .canvas { max-width: 790px; }
-        .team-board { padding: 17px 18px 16px; }
-        .board-head { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 7px; }
-        .board-title { display: flex; align-items: center; gap: 8px; }
-        .board-title h3 { font-size: var(--fs-md); }
-        .board-actions { display: flex; align-items: center; gap: 10px; }
-        .text-button { font-size: var(--fs-xs); color: var(--muted); padding: 3px 1px; }
-        .text-button:hover { color: var(--accent); }
-        .arrow { display: grid; place-items: center; width: 26px; height: 26px; border: 1px solid var(--rule); border-radius: 4px; color: var(--ink-2); }
-        .arrow:hover { background: var(--paper-2); }
-        .arrow .icon { width: 14px; height: 14px; }
-        .receipts { display: grid; grid-auto-flow: column; grid-auto-columns: 290px; gap: 20px; justify-content: start; overflow-x: auto; padding: 20px 10px 22px; scrollbar-width: none; overscroll-behavior-x: contain; scroll-snap-type: x proximity; }
-        .receipts::-webkit-scrollbar { display: none; }
-        .receipt { position: relative; isolation: isolate; min-width: 0; height: 346px; padding: 17px 18px 16px; display: flex; flex-direction: column; scroll-snap-align: start; color: var(--ink-2); }
-        .receipt::before, .receipt::after { content: ''; position: absolute; pointer-events: none; z-index: -1; }
-        .identity { flex: none; display: flex; align-items: flex-start; gap: 10px; min-height: 53px; padding-bottom: 12px; border-bottom: 1px dashed var(--rule-2); }
-        .identity-copy { flex: 1; min-width: 0; }
-        .name { display: block; max-width: 100%; padding: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-size: 17px; line-height: 1.4; }
-        .name:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 4px; }
-        .school-row { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 4px; color: var(--muted); font-size: var(--fs-xs); }
-        .level { color: var(--ochre); font-variant-numeric: tabular-nums; }
-        .profile-arrow { padding-top: 2px; color: var(--rule-2); font-size: 17px; }
-        .records { flex: 1; display: grid; align-content: start; min-height: 0; padding-top: 9px; }
-        .record { min-width: 0; padding: 8px 0; }
-        .record + .record { border-top: 1px dotted var(--rule); }
-        .record h4 { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; color: var(--muted); font-size: var(--fs-xs); }
-        .record h4 .icon { width: 13px; height: 13px; }
-        .entry { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-sm); line-height: 1.55; }
-        .entry + .entry { margin-top: 6px; }
-        .entry-copy { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-        .entry-value { flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; font-size: var(--fs-base); color: var(--indigo-ink); }
-        .entry-date { flex: none; color: var(--muted); font-size: var(--fs-mini); }
-        .entry .gain { color: var(--positive); }
-        .entry .loss { color: var(--negative); }
-        .direction { color: var(--positive); margin-right: 5px; font-size: var(--fs-mini); }
-        .direction.out { color: var(--negative); }
-        .empty { font-size: var(--fs-sm); color: var(--muted); }
-        .receipt-foot { flex: none; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-mini); margin-top: 7px; }
-        .receipt-foot::before, .receipt-foot::after { content: ''; height: 1px; flex: 1; background: var(--rule); }
-        .online { color: var(--positive); }
-        .online::before { content: ''; display: inline-block; width: 4px; height: 4px; vertical-align: 2px; margin-right: 5px; background: currentColor; border-radius: 50%; }
-        .scheme-a, .scheme-c, .scheme-f { --receipt-paper: color-mix(in srgb, var(--paper) 98%, var(--paper-base)); }
-        .scheme-b, .scheme-d, .scheme-e { --receipt-paper: var(--paper); }
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>我的队伍 · 六套小票方案</title>
+        <link rel="stylesheet" href="../../src/styles/tokens.css" />
+        <link rel="stylesheet" href="../../src/styles/base.css" />
+        <style>
+            /* 布局和小票造型仅用于提案；字体、配色、纸面材质共用项目样式入口。 */
+            html {
+                scroll-behavior: smooth;
+                scroll-padding-top: 100px;
+            }
+            body {
+                height: auto;
+                min-height: 100vh;
+                background: var(--paper);
+            }
+            button,
+            select {
+                font: inherit;
+            }
+            button {
+                border: 0;
+                background: none;
+            }
+            a,
+            button,
+            select {
+                touch-action: manipulation;
+            }
+            .icon {
+                width: 17px;
+                height: 17px;
+                stroke: currentColor;
+                fill: none;
+                stroke-width: 1.7;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+            }
+            .sprite {
+                position: absolute;
+                width: 0;
+                height: 0;
+                overflow: hidden;
+            }
+            .shell {
+                max-width: 1300px;
+                padding: 40px 34px 70px;
+                margin: auto;
+            }
+            .intro {
+                padding-bottom: 26px;
+            }
+            .eyebrow {
+                color: var(--accent);
+                font-size: var(--fs-xs);
+                letter-spacing: 0.18em;
+                margin-bottom: 10px;
+            }
+            .intro h1 {
+                font-size: 30px;
+            }
+            .intro p {
+                margin-top: 10px;
+                color: var(--muted);
+                font-size: var(--fs-sm);
+            }
+            .toolbar {
+                position: sticky;
+                top: 0;
+                z-index: 20;
+                display: flex;
+                justify-content: space-between;
+                gap: 10px 24px;
+                flex-wrap: wrap;
+                align-items: center;
+                padding: 12px 0;
+                border-block: 1px solid var(--rule);
+                background: var(--paper);
+            }
+            .toolbar-start,
+            .toolbar-end {
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            .toolbar-start {
+                color: var(--muted);
+                font-size: var(--fs-xs);
+            }
+            .toolbar label {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                color: var(--muted);
+                font-size: var(--fs-xs);
+            }
+            select {
+                border: 1px solid var(--rule);
+                border-radius: 4px;
+                padding: 6px 24px 6px 8px;
+                background: var(--paper);
+                color: var(--ink-2);
+            }
+            .control {
+                font-size: var(--fs-sm);
+                border: 1px solid var(--rule);
+                padding: 6px 12px;
+                border-radius: 4px;
+            }
+            .control:hover {
+                background: var(--paper-2);
+            }
+            .control[aria-pressed='true'] {
+                border-color: var(--accent);
+                color: var(--accent);
+            }
+            .scheme-nav {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                padding-top: 18px;
+            }
+            .scheme-nav a {
+                border: 1px solid var(--rule);
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-size: var(--fs-sm);
+            }
+            .scheme-nav a:hover {
+                background: var(--paper-2);
+            }
+            .scheme-nav b {
+                color: var(--accent);
+                font-weight: 400;
+                margin-right: 7px;
+            }
+            .proposal {
+                margin-top: 32px;
+            }
+            .proposal-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 20px;
+                margin-bottom: 13px;
+            }
+            .proposal-title {
+                display: flex;
+                align-items: center;
+                gap: 13px;
+            }
+            .letter {
+                width: 33px;
+                font-size: 29px;
+                line-height: 1;
+                color: var(--accent);
+            }
+            .proposal-head h2 {
+                font-size: 18px;
+            }
+            .proposal-head p {
+                margin-top: 3px;
+                font-size: var(--fs-sm);
+                color: var(--muted);
+            }
+            .pick {
+                flex: none;
+                padding: 7px 14px;
+                border-radius: 4px;
+                border: 1px solid var(--rule-2);
+                font-size: var(--fs-sm);
+            }
+            .pick:hover {
+                color: var(--accent);
+                border-color: var(--accent);
+            }
+            .pick[aria-pressed='true'] {
+                color: var(--on-accent);
+                background: var(--accent);
+                border-color: var(--accent);
+            }
+            .canvas {
+                margin: auto;
+                padding: 23px;
+                border-radius: 9px;
+                border: 1px solid var(--rule);
+                background: var(--page-surface);
+                container: demo / inline-size;
+            }
+            body.compact .canvas {
+                max-width: 790px;
+            }
+            .team-board {
+                padding: 17px 18px 16px;
+            }
+            .board-head {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 15px;
+                margin-bottom: 7px;
+            }
+            .board-title {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .board-title h3 {
+                font-size: var(--fs-md);
+            }
+            .board-actions {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .text-button {
+                font-size: var(--fs-xs);
+                color: var(--muted);
+                padding: 3px 1px;
+            }
+            .text-button:hover {
+                color: var(--accent);
+            }
+            .arrow {
+                display: grid;
+                place-items: center;
+                width: 26px;
+                height: 26px;
+                border: 1px solid var(--rule);
+                border-radius: 4px;
+                color: var(--ink-2);
+            }
+            .arrow:hover {
+                background: var(--paper-2);
+            }
+            .arrow .icon {
+                width: 14px;
+                height: 14px;
+            }
+            .receipts {
+                display: grid;
+                grid-auto-flow: column;
+                grid-auto-columns: 290px;
+                gap: 20px;
+                justify-content: start;
+                overflow-x: auto;
+                padding: 20px 10px 22px;
+                scrollbar-width: none;
+                overscroll-behavior-x: contain;
+                scroll-snap-type: x proximity;
+            }
+            .receipts::-webkit-scrollbar {
+                display: none;
+            }
+            .receipt {
+                position: relative;
+                isolation: isolate;
+                min-width: 0;
+                height: 346px;
+                padding: 17px 18px 16px;
+                display: flex;
+                flex-direction: column;
+                scroll-snap-align: start;
+                color: var(--ink-2);
+            }
+            .receipt::before,
+            .receipt::after {
+                content: '';
+                position: absolute;
+                pointer-events: none;
+                z-index: -1;
+            }
+            .identity {
+                flex: none;
+                display: flex;
+                align-items: flex-start;
+                gap: 10px;
+                min-height: 53px;
+                padding-bottom: 12px;
+                border-bottom: 1px dashed var(--rule-2);
+            }
+            .identity-copy {
+                flex: 1;
+                min-width: 0;
+            }
+            .name {
+                display: block;
+                max-width: 100%;
+                padding: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                color: var(--ink);
+                font-size: 17px;
+                line-height: 1.4;
+            }
+            .name:hover {
+                color: var(--accent);
+                text-decoration: underline;
+                text-underline-offset: 4px;
+            }
+            .school-row {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 9px;
+                margin-top: 4px;
+                color: var(--muted);
+                font-size: var(--fs-xs);
+            }
+            .level {
+                color: var(--ochre);
+                font-variant-numeric: tabular-nums;
+            }
+            .profile-arrow {
+                padding-top: 2px;
+                color: var(--rule-2);
+                font-size: 17px;
+            }
+            .records {
+                flex: 1;
+                display: grid;
+                align-content: start;
+                min-height: 0;
+                padding-top: 9px;
+            }
+            .record {
+                min-width: 0;
+                padding: 8px 0;
+            }
+            .record + .record {
+                border-top: 1px dotted var(--rule);
+            }
+            .record h4 {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                margin-bottom: 6px;
+                color: var(--muted);
+                font-size: var(--fs-xs);
+            }
+            .record h4 .icon {
+                width: 13px;
+                height: 13px;
+            }
+            .entry {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                min-width: 0;
+                font-size: var(--fs-sm);
+                line-height: 1.55;
+            }
+            .entry + .entry {
+                margin-top: 6px;
+            }
+            .entry-copy {
+                flex: 1;
+                min-width: 0;
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+            }
+            .entry-value {
+                flex: none;
+                white-space: nowrap;
+                font-variant-numeric: tabular-nums;
+                font-size: var(--fs-base);
+                color: var(--indigo-ink);
+            }
+            .entry-date {
+                flex: none;
+                color: var(--muted);
+                font-size: var(--fs-mini);
+            }
+            .entry .gain {
+                color: var(--positive);
+            }
+            .entry .loss {
+                color: var(--negative);
+            }
+            .direction {
+                color: var(--positive);
+                margin-right: 5px;
+                font-size: var(--fs-mini);
+            }
+            .direction.out {
+                color: var(--negative);
+            }
+            .empty {
+                font-size: var(--fs-sm);
+                color: var(--muted);
+            }
+            .receipt-foot {
+                flex: none;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                color: var(--muted);
+                font-size: var(--fs-mini);
+                margin-top: 7px;
+            }
+            .receipt-foot::before,
+            .receipt-foot::after {
+                content: '';
+                height: 1px;
+                flex: 1;
+                background: var(--rule);
+            }
+            .online {
+                color: var(--positive);
+            }
+            .online::before {
+                content: '';
+                display: inline-block;
+                width: 4px;
+                height: 4px;
+                vertical-align: 2px;
+                margin-right: 5px;
+                background: currentColor;
+                border-radius: 50%;
+            }
+            .scheme-a,
+            .scheme-c,
+            .scheme-f {
+                --receipt-paper: color-mix(in srgb, var(--paper) 98%, var(--paper-base));
+            }
+            .scheme-b,
+            .scheme-d,
+            .scheme-e {
+                --receipt-paper: var(--paper);
+            }
 
-        /* A / 热敏卷纸：整张薄纸、柔和接触影与真实锯齿撕边。 */
-        .scheme-a .receipt { filter: drop-shadow(0 1px 1px var(--shadow)) drop-shadow(1px 5px 4px var(--shadow-lg)); }
-        .scheme-a .receipt::before { inset: 0; border-radius: 2px 2px 0 0; background: linear-gradient(90deg, var(--bevel-hi), transparent 9%, transparent 92%, var(--shadow)), var(--paper-grain, none), var(--receipt-paper); }
-        .scheme-a .receipt::after { height: 5px; bottom: -5px; left: 0; right: 0; background: linear-gradient(135deg, var(--receipt-paper) 25%, transparent 25%), linear-gradient(225deg, var(--receipt-paper) 25%, transparent 25%); background-size: 10px 10px; background-position: -5px 0; }
-        .scheme-a .identity { justify-content: center; text-align: center; }
-        .scheme-a .school-row { justify-content: center; }
-        .scheme-a .profile-arrow { display: none; }
-        .scheme-a .receipt-foot { letter-spacing: .2em; }
+            /* A / 热敏卷纸：整张薄纸、柔和接触影与真实锯齿撕边。 */
+            .scheme-a .receipt {
+                filter: drop-shadow(0 1px 1px var(--shadow))
+                    drop-shadow(1px 5px 4px var(--shadow-lg));
+            }
+            .scheme-a .receipt::before {
+                inset: 0;
+                border-radius: 2px 2px 0 0;
+                background:
+                    linear-gradient(
+                        90deg,
+                        var(--bevel-hi),
+                        transparent 9%,
+                        transparent 92%,
+                        var(--shadow)
+                    ),
+                    var(--paper-grain, none), var(--receipt-paper);
+            }
+            .scheme-a .receipt::after {
+                height: 5px;
+                bottom: -5px;
+                left: 0;
+                right: 0;
+                background:
+                    linear-gradient(135deg, var(--receipt-paper) 25%, transparent 25%),
+                    linear-gradient(225deg, var(--receipt-paper) 25%, transparent 25%);
+                background-size: 10px 10px;
+                background-position: -5px 0;
+            }
+            .scheme-a .identity {
+                justify-content: center;
+                text-align: center;
+            }
+            .scheme-a .school-row {
+                justify-content: center;
+            }
+            .scheme-a .profile-arrow {
+                display: none;
+            }
+            .scheme-a .receipt-foot {
+                letter-spacing: 0.2em;
+            }
 
-        /* B / 奶茶贴签：圆润厚边，顶部小色条与右下揭角。 */
-        .scheme-b .receipt { padding-top: 22px; border-radius: 11px; border: 1px solid var(--rule); background: var(--receipt-paper); box-shadow: inset 0 1px 0 var(--bevel-hi), inset -1px -2px 0 var(--bevel-lo), 0 3px 0 var(--rule), 0 7px 10px -3px var(--shadow-lg); }
-        .scheme-b .receipt::before { left: 18px; top: 0; width: 44px; height: 5px; border-radius: 0 0 3px 3px; background: var(--accent); box-shadow: inset 0 1px 0 var(--bevel-hi); }
-        .scheme-b .receipt::after { bottom: 0; right: 0; width: 22px; height: 22px; border-radius: 0 0 9px 0; background: linear-gradient(135deg, transparent 47%, var(--rule) 49%, var(--paper-2) 52%, var(--bevel-hi)); }
-        .scheme-b .name { color: var(--accent); }
-        .scheme-b .level { padding: 0 6px; border: 1px solid var(--rule); border-radius: 3px; }
-        .scheme-b .record h4 { color: var(--indigo-ink); }
-        .scheme-b .receipt-foot { justify-content: flex-start; padding-top: 3px; }
-        .scheme-b .receipt-foot::before { display: none; }
+            /* B / 奶茶贴签：圆润厚边，顶部小色条与右下揭角。 */
+            .scheme-b .receipt {
+                padding-top: 22px;
+                border-radius: 11px;
+                border: 1px solid var(--rule);
+                background: var(--receipt-paper);
+                box-shadow:
+                    inset 0 1px 0 var(--bevel-hi),
+                    inset -1px -2px 0 var(--bevel-lo),
+                    0 3px 0 var(--rule),
+                    0 7px 10px -3px var(--shadow-lg);
+            }
+            .scheme-b .receipt::before {
+                left: 18px;
+                top: 0;
+                width: 44px;
+                height: 5px;
+                border-radius: 0 0 3px 3px;
+                background: var(--accent);
+                box-shadow: inset 0 1px 0 var(--bevel-hi);
+            }
+            .scheme-b .receipt::after {
+                bottom: 0;
+                right: 0;
+                width: 22px;
+                height: 22px;
+                border-radius: 0 0 9px 0;
+                background: linear-gradient(
+                    135deg,
+                    transparent 47%,
+                    var(--rule) 49%,
+                    var(--paper-2) 52%,
+                    var(--bevel-hi)
+                );
+            }
+            .scheme-b .name {
+                color: var(--accent);
+            }
+            .scheme-b .level {
+                padding: 0 6px;
+                border: 1px solid var(--rule);
+                border-radius: 3px;
+            }
+            .scheme-b .record h4 {
+                color: var(--indigo-ink);
+            }
+            .scheme-b .receipt-foot {
+                justify-content: flex-start;
+                padding-top: 3px;
+            }
+            .scheme-b .receipt-foot::before {
+                display: none;
+            }
 
-        /* C / 夹单挂票：细挂轨与夹子承担厚度，票面保持平整。 */
-        .scheme-c .receipts { background: linear-gradient(var(--rule-2), var(--rule-2)) 0 13px / 100% 2px no-repeat; }
-        .scheme-c .receipt { margin-top: 7px; height: 339px; padding-top: 24px; border: 1px solid var(--rule); border-radius: 2px; background: var(--receipt-paper); box-shadow: inset 0 1px 0 var(--bevel-hi), 0 2px 1px var(--shadow), 0 7px 10px -5px var(--shadow-lg); }
-        .scheme-c .receipt::before { width: 32px; height: 19px; left: calc(50% - 16px); top: -12px; z-index: 2; border: 1px solid color-mix(in srgb, var(--ochre) 50%, var(--rule-2)); border-radius: 3px 3px 5px 5px; background: linear-gradient(180deg, var(--bevel-hi), transparent 40%, var(--bevel-lo)), var(--rule); box-shadow: inset 0 1px 0 var(--bevel-hi), 0 2px 2px var(--shadow); }
-        .scheme-c .receipt::after { bottom: -3px; left: 4px; right: 4px; height: 3px; background: var(--paper-2); border-bottom: 1px solid var(--rule); }
-        .scheme-c .identity { border-bottom-style: solid; }
-        .scheme-c .record { padding-block: 7px; }
+            /* C / 夹单挂票：细挂轨与夹子承担厚度，票面保持平整。 */
+            .scheme-c .receipts {
+                background: linear-gradient(var(--rule-2), var(--rule-2)) 0 13px / 100% 2px
+                    no-repeat;
+            }
+            .scheme-c .receipt {
+                margin-top: 7px;
+                height: 339px;
+                padding-top: 24px;
+                border: 1px solid var(--rule);
+                border-radius: 2px;
+                background: var(--receipt-paper);
+                box-shadow:
+                    inset 0 1px 0 var(--bevel-hi),
+                    0 2px 1px var(--shadow),
+                    0 7px 10px -5px var(--shadow-lg);
+            }
+            .scheme-c .receipt::before {
+                width: 32px;
+                height: 19px;
+                left: calc(50% - 16px);
+                top: -12px;
+                z-index: 2;
+                border: 1px solid color-mix(in srgb, var(--ochre) 50%, var(--rule-2));
+                border-radius: 3px 3px 5px 5px;
+                background:
+                    linear-gradient(180deg, var(--bevel-hi), transparent 40%, var(--bevel-lo)),
+                    var(--rule);
+                box-shadow:
+                    inset 0 1px 0 var(--bevel-hi),
+                    0 2px 2px var(--shadow);
+            }
+            .scheme-c .receipt::after {
+                bottom: -3px;
+                left: 4px;
+                right: 4px;
+                height: 3px;
+                background: var(--paper-2);
+                border-bottom: 1px solid var(--rule);
+            }
+            .scheme-c .identity {
+                border-bottom-style: solid;
+            }
+            .scheme-c .record {
+                padding-block: 7px;
+            }
 
-        /* D / 复写联单：可见底联和折角，偏硬的纸边。 */
-        .scheme-d .receipt { border: 1px solid var(--rule-2); border-radius: 2px; background: var(--receipt-paper); box-shadow: inset 0 1px 0 var(--bevel-hi), 2px 3px 0 var(--paper-2), 2px 4px 0 var(--rule), 5px 6px 0 color-mix(in srgb, var(--accent) 6%, var(--paper)), 5px 7px 0 var(--rule-2), 6px 11px 9px -4px var(--shadow-lg); }
-        .scheme-d .receipt::before { top: 0; right: 0; width: 24px; height: 24px; background: linear-gradient(45deg, transparent 48%, var(--rule) 50%, var(--paper-2) 54%); box-shadow: -1px 1px 1px var(--shadow); }
-        .scheme-d .identity { padding-right: 16px; }
-        .scheme-d .profile-arrow { display: none; }
-        .scheme-d .record h4 { padding-left: 7px; border-left: 2px solid var(--rule-2); }
-        .scheme-d .record + .record { border-top-style: dashed; }
-        .scheme-d .receipt-foot { color: var(--ochre); }
+            /* D / 复写联单：可见底联和折角，偏硬的纸边。 */
+            .scheme-d .receipt {
+                border: 1px solid var(--rule-2);
+                border-radius: 2px;
+                background: var(--receipt-paper);
+                box-shadow:
+                    inset 0 1px 0 var(--bevel-hi),
+                    2px 3px 0 var(--paper-2),
+                    2px 4px 0 var(--rule),
+                    5px 6px 0 color-mix(in srgb, var(--accent) 6%, var(--paper)),
+                    5px 7px 0 var(--rule-2),
+                    6px 11px 9px -4px var(--shadow-lg);
+            }
+            .scheme-d .receipt::before {
+                top: 0;
+                right: 0;
+                width: 24px;
+                height: 24px;
+                background: linear-gradient(
+                    45deg,
+                    transparent 48%,
+                    var(--rule) 50%,
+                    var(--paper-2) 54%
+                );
+                box-shadow: -1px 1px 1px var(--shadow);
+            }
+            .scheme-d .identity {
+                padding-right: 16px;
+            }
+            .scheme-d .profile-arrow {
+                display: none;
+            }
+            .scheme-d .record h4 {
+                padding-left: 7px;
+                border-left: 2px solid var(--rule-2);
+            }
+            .scheme-d .record + .record {
+                border-top-style: dashed;
+            }
+            .scheme-d .receipt-foot {
+                color: var(--ochre);
+            }
 
-        /* E / 订书票：顶部双订针、薄叠纸和内页装订边。 */
-        .scheme-e .receipt { padding: 23px 16px 16px 24px; border: 1px solid var(--rule); border-radius: 2px; background: linear-gradient(90deg, var(--paper-2) 12px, var(--rule) 12px 13px, transparent 13px), var(--receipt-paper); box-shadow: inset 0 1px 0 var(--bevel-hi), 0 2px 0 var(--paper-2), 0 3px 0 var(--rule), 0 5px 0 var(--paper), 0 6px 0 var(--rule), 0 9px 10px -5px var(--shadow-lg); }
-        .scheme-e .receipt::before, .scheme-e .receipt::after { top: -3px; width: 18px; height: 5px; border: 1px solid var(--rule-2); border-radius: 2px; background: linear-gradient(var(--bevel-hi), var(--rule), var(--bevel-lo)); box-shadow: 0 1px 1px var(--shadow); }
-        .scheme-e .receipt::before { left: 38px; }
-        .scheme-e .receipt::after { right: 38px; }
-        .scheme-e .identity { border-bottom-style: double; border-bottom-width: 3px; }
-        .scheme-e .name { font-size: 16px; }
-        .scheme-e .record h4 { color: var(--ochre); }
+            /* E / 订书票：顶部双订针、薄叠纸和内页装订边。 */
+            .scheme-e .receipt {
+                padding: 23px 16px 16px 24px;
+                border: 1px solid var(--rule);
+                border-radius: 2px;
+                background:
+                    linear-gradient(
+                        90deg,
+                        var(--paper-2) 12px,
+                        var(--rule) 12px 13px,
+                        transparent 13px
+                    ),
+                    var(--receipt-paper);
+                box-shadow:
+                    inset 0 1px 0 var(--bevel-hi),
+                    0 2px 0 var(--paper-2),
+                    0 3px 0 var(--rule),
+                    0 5px 0 var(--paper),
+                    0 6px 0 var(--rule),
+                    0 9px 10px -5px var(--shadow-lg);
+            }
+            .scheme-e .receipt::before,
+            .scheme-e .receipt::after {
+                top: -3px;
+                width: 18px;
+                height: 5px;
+                border: 1px solid var(--rule-2);
+                border-radius: 2px;
+                background: linear-gradient(var(--bevel-hi), var(--rule), var(--bevel-lo));
+                box-shadow: 0 1px 1px var(--shadow);
+            }
+            .scheme-e .receipt::before {
+                left: 38px;
+            }
+            .scheme-e .receipt::after {
+                right: 38px;
+            }
+            .scheme-e .identity {
+                border-bottom-style: double;
+                border-bottom-width: 3px;
+            }
+            .scheme-e .name {
+                font-size: 16px;
+            }
+            .scheme-e .record h4 {
+                color: var(--ochre);
+            }
 
-        /* F / 点单联票：切角与两侧缺口，宽标题带，偏厚的立边。 */
-        .scheme-f .receipt { filter: drop-shadow(0 2px 0 var(--rule-2)) drop-shadow(0 5px 4px var(--shadow)); }
-        .scheme-f .receipt::before { inset: 0; border-radius: 3px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, var(--receipt-paper)) 0 78px, var(--receipt-paper) 78px); box-shadow: inset 0 1px 0 var(--bevel-hi); -webkit-mask-image: radial-gradient(circle at 0 78px, transparent 6px, var(--ink-base) 6.5px), radial-gradient(circle at 100% 78px, transparent 6px, var(--ink-base) 6.5px); mask-image: radial-gradient(circle at 0 78px, transparent 6px, var(--ink-base) 6.5px), radial-gradient(circle at 100% 78px, transparent 6px, var(--ink-base) 6.5px); -webkit-mask-composite: source-in; mask-composite: intersect; }
-        .scheme-f .receipt::after { bottom: -4px; height: 4px; left: 5px; right: 5px; background: repeating-linear-gradient(90deg, var(--receipt-paper) 0 7px, transparent 7px 9px); }
-        .scheme-f .identity { min-height: 62px; }
-        .scheme-f .name { color: var(--accent); }
-        .scheme-f .records { padding-top: 10px; }
-        .scheme-f .record + .record { border-top-style: dashed; }
-        .scheme-f .receipt-foot::before, .scheme-f .receipt-foot::after { height: 3px; border-block: 1px solid var(--rule); background: none; }
+            /* F / 点单联票：切角与两侧缺口，宽标题带，偏厚的立边。 */
+            .scheme-f .receipt {
+                filter: drop-shadow(0 2px 0 var(--rule-2)) drop-shadow(0 5px 4px var(--shadow));
+            }
+            .scheme-f .receipt::before {
+                inset: 0;
+                border-radius: 3px;
+                background: linear-gradient(
+                    180deg,
+                    color-mix(in srgb, var(--accent) 8%, var(--receipt-paper)) 0 78px,
+                    var(--receipt-paper) 78px
+                );
+                box-shadow: inset 0 1px 0 var(--bevel-hi);
+                -webkit-mask-image:
+                    radial-gradient(circle at 0 78px, transparent 6px, var(--ink-base) 6.5px),
+                    radial-gradient(circle at 100% 78px, transparent 6px, var(--ink-base) 6.5px);
+                mask-image:
+                    radial-gradient(circle at 0 78px, transparent 6px, var(--ink-base) 6.5px),
+                    radial-gradient(circle at 100% 78px, transparent 6px, var(--ink-base) 6.5px);
+                -webkit-mask-composite: source-in;
+                mask-composite: intersect;
+            }
+            .scheme-f .receipt::after {
+                bottom: -4px;
+                height: 4px;
+                left: 5px;
+                right: 5px;
+                background: repeating-linear-gradient(
+                    90deg,
+                    var(--receipt-paper) 0 7px,
+                    transparent 7px 9px
+                );
+            }
+            .scheme-f .identity {
+                min-height: 62px;
+            }
+            .scheme-f .name {
+                color: var(--accent);
+            }
+            .scheme-f .records {
+                padding-top: 10px;
+            }
+            .scheme-f .record + .record {
+                border-top-style: dashed;
+            }
+            .scheme-f .receipt-foot::before,
+            .scheme-f .receipt-foot::after {
+                height: 3px;
+                border-block: 1px solid var(--rule);
+                background: none;
+            }
 
-        .proposal-note { color: var(--muted); font-size: var(--fs-xs); margin-top: 12px; padding-left: 3px; }
-        .footer { border-top: 1px solid var(--rule); padding-top: 21px; margin-top: 35px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: var(--fs-sm); }
-        #selection { color: var(--accent); }
-        .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); z-index: 30; border: 1px solid var(--popover-edge); background: var(--popover-bg); padding: 10px 18px; border-radius: 5px; box-shadow: var(--shadow-lift); font-size: var(--fs-sm); max-width: calc(100vw - 30px); text-align: center; }
-        [hidden] { display: none !important; }
-        @container demo (max-width: 620px) { .receipts { grid-auto-columns: min(290px, 90%); gap: 16px; padding-inline: 6px; } .team-board { padding-inline: 14px; } }
-        @media (max-width: 700px) { .shell { padding: 25px 16px 45px; } .intro h1 { font-size: 25px; } .toolbar { position: relative; } .toolbar-start { width: 100%; } .canvas { padding: 13px; } .proposal-head { gap: 12px; align-items: flex-start; } .proposal-head h2 { font-size: 16px; } .proposal-head p { font-size: var(--fs-xs); } .proposal-title { gap: 8px; } .letter { font-size: 25px; width: 25px; } .board-actions { gap: 8px; } }
-        @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { transition-duration: .001s !important; animation-duration: .001s !important; } }
-    </style>
-</head>
-<body>
-    <!-- Icons: Tabler Icons v3.50.0, MIT, https://github.com/tabler/tabler-icons/blob/main/LICENSE -->
-    <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-<symbol id="i-calendar" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12"></path><path d="M16 3v4"></path><path d="M8 3v4"></path><path d="M4 11h16"></path><path d="M11 15h1"></path><path d="M12 15v3"></path></symbol>
-<symbol id="i-wallet" viewBox="0 0 24 24"><path d="M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12"></path><path d="M20 12v4h-4a2 2 0 0 1 0 -4h4"></path></symbol>
-<symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"></path><path d="M13.5 6.5l4 4"></path></symbol>
-<symbol id="i-history" viewBox="0 0 24 24"><path d="M12 8l0 4l2 2"></path><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"></path></symbol>
-<symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13 -8l-13 -8"></path></symbol>
-<symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"></path><path d="M12 7v5l3 3"></path></symbol>
-<symbol id="i-scan" viewBox="0 0 24 24"><path d="M5 12h14"></path><path d="M3 7v-2a2 2 0 0 1 2 -2h2"></path><path d="M3 17v2a2 2 0 0 0 2 2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M17 21h2a2 2 0 0 0 2 -2v-2"></path></symbol>
-<symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path><path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3"></path></symbol>
-<symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 5a5 5 0 0 1 7 0a5 5 0 0 0 7 0v9a5 5 0 0 1 -7 0a5 5 0 0 0 -7 0v-9"></path><path d="M5 21v-7"></path></symbol>
-    </svg>
-    <main class="shell">
-        <header class="intro">
-            <div class="eyebrow">梦幻助手 / 我的队伍</div>
-            <h1>把角色近况，印在小票上。</h1>
-            <p>六种纸面与厚度，同一份角色记录。先挑整体感觉，再确定正式样式。</p>
-        </header>
-        <div class="toolbar" aria-label="方案预览设置">
-            <div class="toolbar-start"><span>示例数据 · 横向滚动，无滚动条</span><button type="button" class="control" id="width-toggle" aria-pressed="false">紧凑宽度</button></div>
-            <div class="toolbar-end">
-                <label>主题 <select id="theme"><option value="ledger">账簿</option><option value="celadon">青瓷</option><option value="azure">霁蓝</option><option value="crystal">水晶</option><option value="dunhuang">敦煌岩彩</option><option value="rosewood">紫檀书斋</option></select></label>
-                <label>字体 <select id="font"><option value="wenkai">文楷</option><option value="rounded">圆体</option><option value="system">系统默认</option></select></label>
-                <button type="button" class="control" id="dark-toggle" aria-pressed="false">暗色</button>
+            .proposal-note {
+                color: var(--muted);
+                font-size: var(--fs-xs);
+                margin-top: 12px;
+                padding-left: 3px;
+            }
+            .footer {
+                border-top: 1px solid var(--rule);
+                padding-top: 21px;
+                margin-top: 35px;
+                display: flex;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 12px;
+                color: var(--muted);
+                font-size: var(--fs-sm);
+            }
+            #selection {
+                color: var(--accent);
+            }
+            .toast {
+                position: fixed;
+                bottom: 26px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 30;
+                border: 1px solid var(--popover-edge);
+                background: var(--popover-bg);
+                padding: 10px 18px;
+                border-radius: 5px;
+                box-shadow: var(--shadow-lift);
+                font-size: var(--fs-sm);
+                max-width: calc(100vw - 30px);
+                text-align: center;
+            }
+            [hidden] {
+                display: none !important;
+            }
+            @container demo (max-width: 620px) {
+                .receipts {
+                    grid-auto-columns: min(290px, 90%);
+                    gap: 16px;
+                    padding-inline: 6px;
+                }
+                .team-board {
+                    padding-inline: 14px;
+                }
+            }
+            @media (max-width: 700px) {
+                .shell {
+                    padding: 25px 16px 45px;
+                }
+                .intro h1 {
+                    font-size: 25px;
+                }
+                .toolbar {
+                    position: relative;
+                }
+                .toolbar-start {
+                    width: 100%;
+                }
+                .canvas {
+                    padding: 13px;
+                }
+                .proposal-head {
+                    gap: 12px;
+                    align-items: flex-start;
+                }
+                .proposal-head h2 {
+                    font-size: 16px;
+                }
+                .proposal-head p {
+                    font-size: var(--fs-xs);
+                }
+                .proposal-title {
+                    gap: 8px;
+                }
+                .letter {
+                    font-size: 25px;
+                    width: 25px;
+                }
+                .board-actions {
+                    gap: 8px;
+                }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                html {
+                    scroll-behavior: auto;
+                }
+                *,
+                *::before,
+                *::after {
+                    transition-duration: 0.001s !important;
+                    animation-duration: 0.001s !important;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Icons: Tabler Icons v3.50.0, MIT, https://github.com/tabler/tabler-icons/blob/main/LICENSE -->
+        <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <symbol id="i-calendar" viewBox="0 0 24 24">
+                <path
+                    d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12"
+                ></path>
+                <path d="M16 3v4"></path>
+                <path d="M8 3v4"></path>
+                <path d="M4 11h16"></path>
+                <path d="M11 15h1"></path>
+                <path d="M12 15v3"></path>
+            </symbol>
+            <symbol id="i-wallet" viewBox="0 0 24 24">
+                <path
+                    d="M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12"
+                ></path>
+                <path d="M20 12v4h-4a2 2 0 0 1 0 -4h4"></path>
+            </symbol>
+            <symbol id="i-pencil" viewBox="0 0 24 24">
+                <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"></path>
+                <path d="M13.5 6.5l4 4"></path>
+            </symbol>
+            <symbol id="i-history" viewBox="0 0 24 24">
+                <path d="M12 8l0 4l2 2"></path>
+                <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"></path>
+            </symbol>
+            <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13 -8l-13 -8"></path></symbol>
+            <symbol id="i-clock" viewBox="0 0 24 24">
+                <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"></path>
+                <path d="M12 7v5l3 3"></path>
+            </symbol>
+            <symbol id="i-scan" viewBox="0 0 24 24">
+                <path d="M5 12h14"></path>
+                <path d="M3 7v-2a2 2 0 0 1 2 -2h2"></path>
+                <path d="M3 17v2a2 2 0 0 0 2 2h2"></path>
+                <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+                <path d="M17 21h2a2 2 0 0 0 2 -2v-2"></path>
+            </symbol>
+            <symbol id="i-tag" viewBox="0 0 24 24">
+                <path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path>
+                <path
+                    d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3"
+                ></path>
+            </symbol>
+            <symbol id="i-flag" viewBox="0 0 24 24">
+                <path
+                    d="M5 5a5 5 0 0 1 7 0a5 5 0 0 0 7 0v9a5 5 0 0 1 -7 0a5 5 0 0 0 -7 0v-9"
+                ></path>
+                <path d="M5 21v-7"></path>
+            </symbol>
+        </svg>
+        <main class="shell">
+            <header class="intro">
+                <div class="eyebrow">梦幻助手 / 我的队伍</div>
+                <h1>把角色近况，印在小票上。</h1>
+                <p>六种纸面与厚度，同一份角色记录。先挑整体感觉，再确定正式样式。</p>
+            </header>
+            <div class="toolbar" aria-label="方案预览设置">
+                <div class="toolbar-start">
+                    <span>示例数据 · 横向滚动，无滚动条</span
+                    ><button type="button" class="control" id="width-toggle" aria-pressed="false">
+                        紧凑宽度
+                    </button>
+                </div>
+                <div class="toolbar-end">
+                    <label
+                        >主题
+                        <select id="theme">
+                            <option value="ledger">账簿</option>
+                            <option value="celadon">青瓷</option>
+                            <option value="azure">霁蓝</option>
+                            <option value="crystal">水晶</option>
+                            <option value="dunhuang">敦煌岩彩</option>
+                            <option value="rosewood">紫檀书斋</option>
+                        </select></label
+                    >
+                    <label
+                        >字体
+                        <select id="font">
+                            <option value="wenkai">文楷</option>
+                            <option value="rounded">圆体</option>
+                            <option value="system">系统默认</option>
+                        </select></label
+                    >
+                    <button type="button" class="control" id="dark-toggle" aria-pressed="false">
+                        暗色
+                    </button>
+                </div>
             </div>
-        </div>
-        <nav class="scheme-nav" aria-label="方案导航"></nav>
-        <div id="proposals"></div>
-        <footer class="footer"><span>可以直接告诉我字母，也可以选一套纸边，搭配另一套排版。</span><span id="selection" role="status" aria-live="polite">尚未选择方案</span></footer>
-    </main>
-    <div class="toast" role="status" id="toast" hidden></div>
-    <script>
-        const schemes = [
-            { id: 'A', name: '热敏卷纸', desc: '薄纸、居中抬头、锯齿撕边。最接近一张刚打印出来的小票。', note: '整张纸只有轻微接触影，内部用点线分区，不再套小卡片。' },
-            { id: 'B', name: '奶茶贴签', desc: '圆润贴纸、顶部色签、右下揭角。厚度集中在边缘。', note: '纸签更完整，圆角更柔和，角色名和分区标题适度强调。' },
-            { id: 'C', name: '夹单挂票', desc: '小夹子挂在细轨上，纸面平整。像柜台后排好的点单。', note: '立体感由挂轨和夹子承担，正文保持干净，不做悬停位移。' },
-            { id: 'D', name: '复写联单', desc: '两层底联、硬纸边、右上折角。比薄票更有分量。', note: '侧面露出复写底联，适合希望卡片 3D 厚度更明显的方向。' },
-            { id: 'E', name: '订书票', desc: '双订针、装订边、细叠纸。像整理好的一小叠账单。', note: '装订只放在票头，记录区仍沿用现有三类信息，方便快速扫读。' },
-            { id: 'F', name: '点单联票', desc: '淡色票头、两侧缺口、短齿纸边。规整而有层次。', note: '人物身份区与最近记录分得更清楚，撕线处真实镂空。' },
-        ];
-        const people = [
-            { name: '长安听雨', school: '大唐官府', level: 175, online: '11-19 09:20 · 进行中', duration: '2时36分', active: true, income: ['抓鬼任务', '11-19', '+42.8 万'], accountIn: ['卖出游戏币', '11-18', '+286 元'], accountOut: ['点卡消耗', '11-19', '−8.6 万'] },
-            { name: '月落花间', school: '普陀山', level: 175, online: '11-18 19:10–22:45', duration: '3时35分', income: ['副本奖励', '11-18', '+31.6 万'], accountIn: ['物品收入', '11-18', '+68 万'], accountOut: ['买入装备', '11-17', '−120 元'] },
-            { name: '一川烟雨', school: '龙宫', level: 159, online: '11-19 09:20 · 进行中', duration: '2时36分', active: true, income: ['师门任务', '11-19', '+18.2 万'], accountIn: ['卖出召唤兽', '11-16', '+380 元'], accountOut: ['点卡消耗', '11-19', '−7.2 万'] },
-            { name: '山海有归途', school: '无底洞', level: 129, online: '11-17 20:00–22:20', duration: '2时20分', income: ['周末活动', '11-17', '+26.4 万'], accountIn: ['卖出物品', '11-17', '+45 万'], accountOut: ['学习技能', '11-16', '−32 万'] },
-            { name: '新建角色与较长名称示例', school: '未选门派', level: 69, online: null, income: null, accountIn: null, accountOut: null },
-        ];
-        const icon = name => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
-        const accountRow = (record, expense) => record ? `<div class="entry"><span class="entry-copy"><span class="direction ${expense ? 'out' : ''}">${expense ? '出' : '入'}</span>${record[0]}</span><span class="entry-date">${record[1]}</span><span class="entry-value ${expense ? 'loss' : 'gain'}">${record[2]}</span></div>` : `<p class="empty">暂无${expense ? '支出' : '收入'}</p>`;
-        function personMarkup(person) {
-            return `<article class="receipt">
+            <nav class="scheme-nav" aria-label="方案导航"></nav>
+            <div id="proposals"></div>
+            <footer class="footer">
+                <span>可以直接告诉我字母，也可以选一套纸边，搭配另一套排版。</span
+                ><span id="selection" role="status" aria-live="polite">尚未选择方案</span>
+            </footer>
+        </main>
+        <div class="toast" role="status" id="toast" hidden></div>
+        <script>
+            const schemes = [
+                {
+                    id: 'A',
+                    name: '热敏卷纸',
+                    desc: '薄纸、居中抬头、锯齿撕边。最接近一张刚打印出来的小票。',
+                    note: '整张纸只有轻微接触影，内部用点线分区，不再套小卡片。',
+                },
+                {
+                    id: 'B',
+                    name: '奶茶贴签',
+                    desc: '圆润贴纸、顶部色签、右下揭角。厚度集中在边缘。',
+                    note: '纸签更完整，圆角更柔和，角色名和分区标题适度强调。',
+                },
+                {
+                    id: 'C',
+                    name: '夹单挂票',
+                    desc: '小夹子挂在细轨上，纸面平整。像柜台后排好的点单。',
+                    note: '立体感由挂轨和夹子承担，正文保持干净，不做悬停位移。',
+                },
+                {
+                    id: 'D',
+                    name: '复写联单',
+                    desc: '两层底联、硬纸边、右上折角。比薄票更有分量。',
+                    note: '侧面露出复写底联，适合希望卡片 3D 厚度更明显的方向。',
+                },
+                {
+                    id: 'E',
+                    name: '订书票',
+                    desc: '双订针、装订边、细叠纸。像整理好的一小叠账单。',
+                    note: '装订只放在票头，记录区仍沿用现有三类信息，方便快速扫读。',
+                },
+                {
+                    id: 'F',
+                    name: '点单联票',
+                    desc: '淡色票头、两侧缺口、短齿纸边。规整而有层次。',
+                    note: '人物身份区与最近记录分得更清楚，撕线处真实镂空。',
+                },
+            ];
+            const people = [
+                {
+                    name: '长安听雨',
+                    school: '大唐官府',
+                    level: 175,
+                    online: '11-19 09:20 · 进行中',
+                    duration: '2时36分',
+                    active: true,
+                    income: ['抓鬼任务', '11-19', '+42.8 万'],
+                    accountIn: ['卖出游戏币', '11-18', '+286 元'],
+                    accountOut: ['点卡消耗', '11-19', '−8.6 万'],
+                },
+                {
+                    name: '月落花间',
+                    school: '普陀山',
+                    level: 175,
+                    online: '11-18 19:10–22:45',
+                    duration: '3时35分',
+                    income: ['副本奖励', '11-18', '+31.6 万'],
+                    accountIn: ['物品收入', '11-18', '+68 万'],
+                    accountOut: ['买入装备', '11-17', '−120 元'],
+                },
+                {
+                    name: '一川烟雨',
+                    school: '龙宫',
+                    level: 159,
+                    online: '11-19 09:20 · 进行中',
+                    duration: '2时36分',
+                    active: true,
+                    income: ['师门任务', '11-19', '+18.2 万'],
+                    accountIn: ['卖出召唤兽', '11-16', '+380 元'],
+                    accountOut: ['点卡消耗', '11-19', '−7.2 万'],
+                },
+                {
+                    name: '山海有归途',
+                    school: '无底洞',
+                    level: 129,
+                    online: '11-17 20:00–22:20',
+                    duration: '2时20分',
+                    income: ['周末活动', '11-17', '+26.4 万'],
+                    accountIn: ['卖出物品', '11-17', '+45 万'],
+                    accountOut: ['学习技能', '11-16', '−32 万'],
+                },
+                {
+                    name: '新建角色与较长名称示例',
+                    school: '未选门派',
+                    level: 69,
+                    online: null,
+                    income: null,
+                    accountIn: null,
+                    accountOut: null,
+                },
+            ];
+            const icon = (name) =>
+                `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+            const accountRow = (record, expense) =>
+                record
+                    ? `<div class="entry"><span class="entry-copy"><span class="direction ${expense ? 'out' : ''}">${expense ? '出' : '入'}</span>${record[0]}</span><span class="entry-date">${record[1]}</span><span class="entry-value ${expense ? 'loss' : 'gain'}">${record[2]}</span></div>`
+                    : `<p class="empty">暂无${expense ? '支出' : '收入'}</p>`;
+            function personMarkup(person) {
+                return `<article class="receipt">
                 <header class="identity"><div class="identity-copy"><button type="button" class="name" data-profile="${person.name}" title="${person.name}">${person.name}</button><p class="school-row"><span>${person.school}</span><span class="level">${person.level} 级</span></p></div><span class="profile-arrow" aria-hidden="true">›</span></header>
                 <div class="records">
                     <section class="record"><h4>${icon('history')}最近上线</h4>${person.online ? `<div class="entry"><span class="entry-copy" title="${person.online}">${person.online}</span><span class="entry-value">${person.duration}</span></div>` : '<p class="empty">暂无上线记录</p>'}</section>
@@ -211,9 +1026,13 @@
                 </div>
                 <div class="receipt-foot">${person.active ? '<span class="online">在线中</span>' : '<span>最近记录</span>'}</div>
             </article>`;
-        }
-        document.querySelector('.scheme-nav').innerHTML = schemes.map(s => `<a href="#scheme-${s.id}"><b>${s.id}</b>${s.name}</a>`).join('');
-        document.querySelector('#proposals').innerHTML = schemes.map(s => `
+            }
+            document.querySelector('.scheme-nav').innerHTML = schemes
+                .map((s) => `<a href="#scheme-${s.id}"><b>${s.id}</b>${s.name}</a>`)
+                .join('');
+            document.querySelector('#proposals').innerHTML = schemes
+                .map(
+                    (s) => `
             <section class="proposal" id="scheme-${s.id}" aria-labelledby="title-${s.id}">
                 <header class="proposal-head"><div class="proposal-title"><span class="letter">${s.id}</span><div><h2 id="title-${s.id}">${s.name}</h2><p>${s.desc}</p></div></div><button type="button" class="pick" data-pick="${s.id}" aria-pressed="false">选这套</button></header>
                 <div class="canvas scheme-${s.id.toLowerCase()}"><section class="board team-board">
@@ -221,31 +1040,63 @@
                     <div class="receipts" tabindex="0" aria-label="${s.name}，角色列表，左右滚动查看">${people.map(personMarkup).join('')}</div>
                 </section></div>
                 <p class="proposal-note">${s.note}</p>
-            </section>`).join('');
-        let toastTimer;
-        function showToast(text) { const toast = document.querySelector('#toast'); toast.textContent = text; toast.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.hidden = true; }, 2300); }
-        document.addEventListener('click', event => {
-            const scroll = event.target.closest('[data-scroll]');
-            if (scroll) {
-                const strip = scroll.closest('.team-board').querySelector('.receipts');
-                strip.scrollBy({ left: Number(scroll.dataset.scroll) * 310, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+            </section>`,
+                )
+                .join('');
+            let toastTimer;
+            function showToast(text) {
+                const toast = document.querySelector('#toast');
+                toast.textContent = text;
+                toast.hidden = false;
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => {
+                    toast.hidden = true;
+                }, 2300);
             }
-            const pick = event.target.closest('[data-pick]');
-            if (pick) {
-                document.querySelectorAll('[data-pick]').forEach(button => button.setAttribute('aria-pressed', String(button === pick)));
-                const scheme = schemes.find(s => s.id === pick.dataset.pick);
-                document.querySelector('#selection').textContent = `已选 ${scheme.id} · ${scheme.name}`;
-                showToast(`已记下方案 ${scheme.id}，把这个选择告诉我即可`);
-            }
-            const profile = event.target.closest('[data-profile]');
-            if (profile) showToast(`${profile.dataset.profile} · 示例角色`);
-            const demo = event.target.closest('[data-demo]');
-            if (demo) showToast(`${demo.dataset.demo} · 示例入口`);
-        });
-        document.querySelector('#theme').addEventListener('change', event => { document.documentElement.dataset.style = event.target.value; });
-        document.querySelector('#font').addEventListener('change', event => { document.documentElement.dataset.font = event.target.value; });
-        document.querySelector('#dark-toggle').addEventListener('click', event => { const dark = document.documentElement.classList.toggle('dark'); event.currentTarget.setAttribute('aria-pressed', String(dark)); event.currentTarget.textContent = dark ? '亮色' : '暗色'; });
-        document.querySelector('#width-toggle').addEventListener('click', event => { const compact = document.body.classList.toggle('compact'); event.currentTarget.setAttribute('aria-pressed', String(compact)); event.currentTarget.textContent = compact ? '恢复宽度' : '紧凑宽度'; });
-    </script>
-</body>
+            document.addEventListener('click', (event) => {
+                const scroll = event.target.closest('[data-scroll]');
+                if (scroll) {
+                    const strip = scroll.closest('.team-board').querySelector('.receipts');
+                    strip.scrollBy({
+                        left: Number(scroll.dataset.scroll) * 310,
+                        behavior: matchMedia('(prefers-reduced-motion: reduce)').matches
+                            ? 'instant'
+                            : 'smooth',
+                    });
+                }
+                const pick = event.target.closest('[data-pick]');
+                if (pick) {
+                    document
+                        .querySelectorAll('[data-pick]')
+                        .forEach((button) =>
+                            button.setAttribute('aria-pressed', String(button === pick)),
+                        );
+                    const scheme = schemes.find((s) => s.id === pick.dataset.pick);
+                    document.querySelector('#selection').textContent =
+                        `已选 ${scheme.id} · ${scheme.name}`;
+                    showToast(`已记下方案 ${scheme.id}，把这个选择告诉我即可`);
+                }
+                const profile = event.target.closest('[data-profile]');
+                if (profile) showToast(`${profile.dataset.profile} · 示例角色`);
+                const demo = event.target.closest('[data-demo]');
+                if (demo) showToast(`${demo.dataset.demo} · 示例入口`);
+            });
+            document.querySelector('#theme').addEventListener('change', (event) => {
+                document.documentElement.dataset.style = event.target.value;
+            });
+            document.querySelector('#font').addEventListener('change', (event) => {
+                document.documentElement.dataset.font = event.target.value;
+            });
+            document.querySelector('#dark-toggle').addEventListener('click', (event) => {
+                const dark = document.documentElement.classList.toggle('dark');
+                event.currentTarget.setAttribute('aria-pressed', String(dark));
+                event.currentTarget.textContent = dark ? '亮色' : '暗色';
+            });
+            document.querySelector('#width-toggle').addEventListener('click', (event) => {
+                const compact = document.body.classList.toggle('compact');
+                event.currentTarget.setAttribute('aria-pressed', String(compact));
+                event.currentTarget.textContent = compact ? '恢复宽度' : '紧凑宽度';
+            });
+        </script>
+    </body>
 </html>

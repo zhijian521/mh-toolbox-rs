@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, useId } from 'vue';
+import { computed, inject, ref, useId } from 'vue';
+import { glassLedger } from '../../components/glass-ledger';
+import GlassInput from '../../components/liquid-glass/GlassInput.vue';
+import GlassPriceField from '../../components/liquid-glass/GlassPriceField.vue';
+import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import FormActions from '../../components/FormActions.vue';
 import PriceField from '../../components/PriceField.vue';
@@ -22,6 +26,7 @@ const emit = defineEmits<{
 }>();
 
 const { roster } = useRoster();
+const glass = inject(glassLedger, null);
 
 const itemId = useId();
 const amount = ref<number | null>(props.entry.amount);
@@ -46,12 +51,32 @@ function submit() {
 
 <template>
     <ModalShell title="修改记录" :width="380" :scroll="false" @close="!saving && emit('close')">
-        <form class="income-form modal-form" @submit.prevent="submit">
+        <form
+            class="income-form modal-form"
+            :class="{ 'lg-form-fields': glass }"
+            @submit.prevent="submit"
+        >
             <fieldset class="income-form" :disabled="locked" :inert="locked">
-                <PriceField v-model="amount" :precision="2" label="金额" />
+                <component
+                    :is="glass ? GlassPriceField : PriceField"
+                    v-model="amount"
+                    :precision="2"
+                    :disabled="locked"
+                    label="金额"
+                />
                 <div class="form-field">
                     <label class="field-label" :for="itemId">物品</label>
+                    <GlassInput
+                        v-if="glass"
+                        :id="itemId"
+                        v-model="item"
+                        :disabled="locked"
+                        type="text"
+                        placeholder="未记物品"
+                        autocomplete="off"
+                    />
                     <input
+                        v-else
                         :id="itemId"
                         v-model="item"
                         class="field"
@@ -62,10 +87,12 @@ function submit() {
                 </div>
                 <div class="form-field">
                     <span class="field-label">记给谁</span>
-                    <SelectField
+                    <component
+                        :is="glass ? GlassSelect : SelectField"
                         v-model="who"
                         :options="whoOptions"
                         label="这笔账记给谁"
+                        :hide-label="glass ? true : undefined"
                         :disabled="locked"
                     />
                 </div>
@@ -86,4 +113,3 @@ function submit() {
         </template>
     </ModalShell>
 </template>
-

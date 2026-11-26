@@ -6,9 +6,13 @@ import { GlassButton } from './index';
 
 const { pending, settle } = useConfirmState();
 const content = shallowRef<ConfirmOptions>();
-watch(pending, (request) => {
-    if (request) content.value = request;
-}, { immediate: true });
+watch(
+    pending,
+    (request) => {
+        if (request) content.value = request;
+    },
+    { immediate: true },
+);
 </script>
 
 <template>
@@ -24,7 +28,12 @@ watch(pending, (request) => {
             <h2>{{ content.title }}</h2>
             <p v-if="content.note">{{ content.note }}</p>
             <footer>
-                <GlassButton v-if="content.cancelText" size="small" variant="plain" @click="settle(false)">
+                <GlassButton
+                    v-if="content.cancelText"
+                    size="small"
+                    variant="plain"
+                    @click="settle(false)"
+                >
                     {{ content.cancelText }}
                 </GlassButton>
                 <GlassButton size="small" :class="{ danger: content.danger }" @click="settle(true)">

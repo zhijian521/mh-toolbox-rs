@@ -26,7 +26,6 @@ export async function assets(ctx) {
     async function choose(kind, name) {
         await ui.clickLabel(`从仓库选择${kind}`);
         await ui.waitFor(`!!document.querySelector('.warehouse-content')`);
-        if (kind === '召唤兽') await ui.fill('搜索仓库物品', name);
         await ui.clickLabel(`选择穿戴 ${name}`);
         await ui.clickLabel('确认选择角色物品');
         await ui.waitFor(`!document.querySelector('.warehouse-content')`);
@@ -66,7 +65,7 @@ export async function assets(ctx) {
             '已穿戴分类不包含卸下的武器',
             await ui.waitFor(`!document.querySelector('.warehouse-item[aria-label$=" E2E刀"]')`),
         );
-        await ui.clickLabel('关闭仓库');
+        await cdp.click('.warehouse-dialog:not([inert]) [data-modal-close]');
     });
 
     await t.step('装备从仓库选入后取消，物品归属不变', async () => {
@@ -122,27 +121,29 @@ export async function assets(ctx) {
                 })()`,
             ),
         );
-        await ui.clickLabel('关闭仓库');
+        await cdp.click('.warehouse-dialog:not([inert]) [data-modal-close]');
     });
 
     await t.step('穿戴装备和携带召唤兽可补记买入或选择出售，取消不改关联', async () => {
         const before = await read();
         await ui.gotoReady('账号');
         for (const [direction, kind, name] of [
-            ['买入', '装备', 'E2E刀'], ['买入', '召唤兽', 'E2E兽'],
-            ['卖出', '装备', 'E2E刀'], ['卖出', '召唤兽', 'E2E兽'],
+            ['买入', '装备', 'E2E刀'],
+            ['买入', '召唤兽', 'E2E兽'],
+            ['卖出', '装备', 'E2E刀'],
+            ['卖出', '召唤兽', 'E2E兽'],
         ]) {
             await ui.clickText('.shortcut', `${direction}${kind}`);
             await ui.clickText('[aria-label="是否关联仓库物品"] button', '是');
             await ui.clickLabel('设置交易关联物品');
             await ui.waitFor(`!!document.querySelector('.warehouse-content')`);
-            if (kind === '召唤兽') await ui.fill('搜索仓库物品', name);
             await ui.clickLabel(`选择${direction} ${name}`);
             await ui.clickLabel('确认选择交易物品');
             await ui.waitFor(`!document.querySelector('.warehouse-content')`);
-            t.check(`${kind}穿戴物品可加入${direction}草稿`, await ui.exists(
-                `.account-asset-list [aria-label="查看物品属性 ${name}"]`,
-            ));
+            t.check(
+                `${kind}穿戴物品可加入${direction}草稿`,
+                await ui.exists(`.account-asset-list [aria-label="查看物品属性 ${name}"]`),
+            );
             await ui.clickLabel('关闭账目编辑');
             await ui.clickLabel('确认放弃修改');
             await ui.waitFor(`!document.querySelector('.modal-mask')`);

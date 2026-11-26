@@ -181,11 +181,7 @@ function whoText(one: ReadonlyOnlineSession): string {
                         :disabled="controlsLocked"
                         @click="emit('backfill')"
                     />
-                    <TextButton
-                        text="记录"
-                        label="查看全部上线记录"
-                        @click="emit('records')"
-                    />
+                    <TextButton text="记录" label="查看全部上线记录" @click="emit('records')" />
                 </div>
                 <div class="card-settings" role="group" aria-label="点卡设置">
                     <button
@@ -285,7 +281,9 @@ function whoText(one: ReadonlyOnlineSession): string {
                     >
                         <span class="role-copy">
                             <span class="name">{{ whoText(one) }}</span>
-                            <span class="role-state">{{ clockText(sessionMinutes(one, now)) }}</span>
+                            <span class="role-state">{{
+                                clockText(sessionMinutes(one, now))
+                            }}</span>
                         </span>
                     </KeycapButton>
                 </div>

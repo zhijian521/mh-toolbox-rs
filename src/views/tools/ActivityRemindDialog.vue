@@ -36,13 +36,13 @@ const props = defineProps<{
     alarms: readonly AlarmLike[];
     error: string;
 }>();
-const glass = inject(glassLedger, null);
-
 const emit = defineEmits<{
     close: [];
     confirm: [draft: AlarmDraft];
     'toggle-reminder': [id: number, enabled: boolean];
 }>();
+
+const glass = inject(glassLedger, null);
 
 /* 多段的活动先挑一段；只有一段时没什么可挑的，直接用它。 */
 const slotOptions = computed(() =>
@@ -62,8 +62,8 @@ const pickedSlot = computed<ActivitySlot>(() => {
 });
 
 const note = computed(() => remindNote(props.activity));
-const leadHint = computed(() =>
-    `应用运行时，${props.activity.fuzzy ? '时段开始' : '开场'}前 ${LEAD_MINUTES} 分钟提醒。`,
+const leadHint = computed(
+    () => `应用运行时，${props.activity.fuzzy ? '时段开始' : '开场'}前 ${LEAD_MINUTES} 分钟提醒。`,
 );
 const matchingAlarm = computed(() => {
     const draft = remindDraft(props.activity, pickedSlot.value);
@@ -139,19 +139,19 @@ function submit() {
                 {{ matchingAlarm.enabled ? '这一场已开启提醒。' : '这一场的提醒已停用。' }}
             </p>
             <p class="reminder-hint">{{ leadHint }}</p>
-            <p v-if="activity.note && activity.note !== note" class="reminder-hint">{{ activity.note }}</p>
-            <p v-if="activity.playerSourced" class="reminder-hint">时间据玩家整理，以游戏公告为准。</p>
+            <p v-if="activity.note && activity.note !== note" class="reminder-hint">
+                {{ activity.note }}
+            </p>
+            <p v-if="activity.playerSourced" class="reminder-hint">
+                时间据玩家整理，以游戏公告为准。
+            </p>
             <p v-if="note" class="reminder-hint">{{ note }}</p>
             <p v-if="error" class="reminder-error" role="alert">{{ error }}</p>
             <footer class="reminder-actions">
                 <GlassButton size="small" variant="plain" @click="emit('close')">
                     取消
                 </GlassButton>
-                <GlassButton
-                    size="small"
-                    :aria-label="actionLabel"
-                    @click="submit"
-                >
+                <GlassButton size="small" :aria-label="actionLabel" @click="submit">
                     {{ actionText }}
                 </GlassButton>
             </footer>

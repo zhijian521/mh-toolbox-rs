@@ -95,15 +95,21 @@ describe('交易物品与库存计划', () => {
         expect(plan.inventory).toEqual([item]);
         expect(plan.inventory[0]).not.toBe(item);
         expect(JSON.stringify(item)).toBe(before);
+        expect(() => planAssetTrade('召唤兽交易', 'expense', [item], [], 'warehouse')).toThrow(
+            '修改或移出',
+        );
         expect(() =>
-            planAssetTrade('召唤兽交易', 'expense', [item], [], 'warehouse'),
+            planAssetTrade(
+                '召唤兽交易',
+                'expense',
+                [{ ...item, server: '旧区服' }],
+                [item],
+                'warehouse',
+            ),
         ).toThrow('修改或移出');
-        expect(() =>
-            planAssetTrade('召唤兽交易', 'expense', [{ ...item, server: '旧区服' }], [item], 'warehouse'),
-        ).toThrow('修改或移出');
-        expect(() =>
-            planAssetTrade('召唤兽交易', 'income', [item], [item], 'draft'),
-        ).toThrow('已在仓库');
+        expect(() => planAssetTrade('召唤兽交易', 'income', [item], [item], 'draft')).toThrow(
+            '已在仓库',
+        );
     });
 
     it('卖出直接录入只留成交快照，删除卖出后资料回仓', () => {

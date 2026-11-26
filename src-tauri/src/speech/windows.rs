@@ -3,11 +3,11 @@ use std::sync::atomic::Ordering;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::{Duration, Instant};
 use windows::core::{Error, Result as WinResult, HSTRING};
-use windows::Win32::Foundation::E_FAIL;
 use windows::Foundation::TypedEventHandler;
 use windows::Media::Core::MediaSource;
 use windows::Media::Playback::MediaPlayer;
 use windows::Media::SpeechSynthesis::{SpeechSynthesizer, VoiceInformation};
+use windows::Win32::Foundation::E_FAIL;
 use windows::Win32::System::WinRT::{RoInitialize, RoUninitialize, RO_INIT_MULTITHREADED};
 
 struct Apartment;
@@ -20,9 +20,16 @@ impl Drop for Apartment {
 
 fn voice_rank(language: &str, name: &str) -> Option<u8> {
     if language.eq_ignore_ascii_case("zh-CN") {
-        return Some(if name.to_ascii_lowercase().contains("yaoyao") { 0 } else { 1 });
+        return Some(if name.to_ascii_lowercase().contains("yaoyao") {
+            0
+        } else {
+            1
+        });
     }
-    language.to_ascii_lowercase().starts_with("zh-").then_some(2)
+    language
+        .to_ascii_lowercase()
+        .starts_with("zh-")
+        .then_some(2)
 }
 
 fn chinese_voice() -> WinResult<Option<VoiceInformation>> {
@@ -31,7 +38,10 @@ fn chinese_voice() -> WinResult<Option<VoiceInformation>> {
     let mut best_rank = u8::MAX;
     for index in 0..voices.Size()? {
         let voice = voices.GetAt(index)?;
-        let Some(rank) = voice_rank(&voice.Language()?.to_string(), &voice.DisplayName()?.to_string()) else {
+        let Some(rank) = voice_rank(
+            &voice.Language()?.to_string(),
+            &voice.DisplayName()?.to_string(),
+        ) else {
             continue;
         };
         if rank < best_rank {
@@ -46,9 +56,11 @@ fn chinese_voice() -> WinResult<Option<VoiceInformation>> {
 }
 
 pub(super) fn play(job: &Job) -> Result<(), String> {
-    unsafe { RoInitialize(RO_INIT_MULTITHREADED) }.map_err(|e| format!("无法初始化系统语音：{e}"))?;
+    unsafe { RoInitialize(RO_INIT_MULTITHREADED) }
+        .map_err(|e| format!("无法初始化系统语音：{e}"))?;
     let _apartment = Apartment;
-    let voice = chinese_voice().map_err(|e| format!("无法读取语音列表：{e}"))?
+    let voice = chinese_voice()
+        .map_err(|e| format!("无法读取语音列表：{e}"))?
         .ok_or("未找到中文语音，请在 Windows 语言设置中安装中文语音包后重试")?;
     play_with_voice(job, &voice).map_err(|e| format!("无法播放语音：{e}"))
 }
@@ -80,7 +92,8 @@ fn play_with_voice(job: &Job, voice: &VoiceInformation) -> WinResult<()> {
     }))?;
     player.MediaFailed(&TypedEventHandler::new(move |_, _| {
         let _ = failed.send(Err(windows::core::Error::new(
-            windows::Win32::Foundation::E_FAIL, "音频输出失败，请检查播放设备",
+            windows::Win32::Foundation::E_FAIL,
+            "音频输出失败，请检查播放设备",
         )));
         Ok(())
     }))?;
@@ -99,7 +112,9 @@ fn wait_for_audio<T>(job: &Job, result: mpsc::Receiver<WinResult<T>>) -> WinResu
     while !job.cancelled.load(Ordering::Acquire) {
         match result.recv_timeout(Duration::from_millis(40)) {
             Ok(outcome) => return outcome.map(Some),
-            Err(RecvTimeoutError::Timeout) if started.elapsed() < Duration::from_secs(60) => continue,
+            Err(RecvTimeoutError::Timeout) if started.elapsed() < Duration::from_secs(60) => {
+                continue
+            }
             _ => return Err(Error::new(E_FAIL, "语音处理已中断或超时")),
         }
     }

@@ -17,7 +17,6 @@ import { useDraftGuard } from '../../composables/use-draft-guard';
 import type { ReadonlyGoal, GoalSummary } from './goals';
 import type { LogInput } from './goals-store';
 
-const glass = inject(glassLedger, null);
 const props = defineProps<{
     goal: ReadonlyGoal;
     summary: GoalSummary;
@@ -32,6 +31,7 @@ const emit = defineEmits<{
     retry: [];
     close: [];
 }>();
+const glass = inject(glassLedger, null);
 const today = useToday();
 const date = ref(today.value);
 const direction = ref('add');
@@ -86,11 +86,20 @@ function enter(event: KeyboardEvent) {
 
 <template>
     <ModalShell title="进度记录" :width="600" @close="requestClose">
-        <form class="modal-form goal-log-form" :class="{ 'lg-form-fields': glass }" @submit.prevent="submit" @keydown.enter="enter">
+        <form
+            class="modal-form goal-log-form"
+            :class="{ 'lg-form-fields': glass }"
+            @submit.prevent="submit"
+            @keydown.enter="enter"
+        >
             <GoalReadouts :items="readings" />
             <fieldset class="entry" :disabled="locked" :inert="locked">
                 <GlassSegmented v-if="glass" v-model:value="direction" aria-label="进度方向">
-                    <GlassSegment v-for="option in directions" :key="option.value" :value="option.value">
+                    <GlassSegment
+                        v-for="option in directions"
+                        :key="option.value"
+                        :value="option.value"
+                    >
                         {{ option.label }}
                     </GlassSegment>
                 </GlassSegmented>
@@ -102,7 +111,13 @@ function enter(event: KeyboardEvent) {
                     :disabled="locked"
                 />
                 <div class="entry-row">
-                    <component :is="glass ? GlassDateField : DateField" v-model="date" label="记在哪一天" :max="today" :disabled="locked" />
+                    <component
+                        :is="glass ? GlassDateField : DateField"
+                        v-model="date"
+                        label="记在哪一天"
+                        :max="today"
+                        :disabled="locked"
+                    />
                     <div class="entry-amount">
                         <label :for="amountId">变化数量（{{ goal.unit }}）</label>
                         <component
@@ -116,8 +131,15 @@ function enter(event: KeyboardEvent) {
                         />
                     </div>
                 </div>
-                <GlassInput v-if="glass" v-model="note" aria-label="备注" placeholder="备注" autocomplete="off" />
-                <input v-else
+                <GlassInput
+                    v-if="glass"
+                    v-model="note"
+                    aria-label="备注"
+                    placeholder="备注"
+                    autocomplete="off"
+                />
+                <input
+                    v-else
                     v-model="note"
                     class="field"
                     aria-label="备注"

@@ -43,7 +43,6 @@ import IconTile from './IconTile.vue';
 import { isMaxed, type SkillRow as SkillRowData } from './character';
 import { quickRowBinds, useQuickable } from './quick-row';
 
-const { NumberField } = useCharacterFields();
 const props = withDefaults(
     defineProps<{
         row: SkillRowData;
@@ -61,9 +60,8 @@ const props = withDefaults(
     }>(),
     { editable: false, inputId: undefined, quick: false },
 );
-
 const emit = defineEmits<{ 'update:level': [level: number]; quick: [] }>();
-
+const { NumberField } = useCharacterFields();
 const quickable = useQuickable(props);
 
 function open() {
@@ -97,7 +95,7 @@ const seal = computed(() => [...props.row.name][0] ?? '');
         </PressTile>
 
         <label v-if="editable" class="slip-name" :for="inputId">{{ row.name }}</label>
-        <span v-else class="slip-name">{{ row.name }}</span>
+        <span v-else class="slip-name" :title="row.name">{{ row.name }}</span>
 
         <!-- 只读：等级包在一枚「数值签」里（`NumTag`，票上挖出的一小格）。
              上限不写出来（2026-11-03 用户：「180 大家默认都知道」）；留下的「满」

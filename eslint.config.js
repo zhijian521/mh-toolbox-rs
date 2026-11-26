@@ -140,7 +140,7 @@ export default tseslint.config(
     // 上一块给整个 `tools/**` 装了 Node 全局，在这里是错的：`window` 会被报 no-undef。
     // 按运行环境分组（而不是按目录），这条覆盖必须放在 Node 那块**之后**才会生效。
     {
-        files: ['tools/probe/fixtures/**/*.js'],
+        files: ['tools/probe/fixtures/**/*.js', 'docs/previews/**/*.js'],
         languageOptions: {
             globals: { ...globals.browser },
         },

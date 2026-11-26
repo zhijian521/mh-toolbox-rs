@@ -127,11 +127,14 @@ describe('账本备份：三种结局不能互相冒充', () => {
     it('模拟账本使用新版内容导入入口，回执保留替换前备份位置', async () => {
         const { dataImportPayload } = await load();
         invokeMock.mockResolvedValue({
-            backupPath: 'D:/备份/模拟前.json', truncated: 0, truncatedItems: 0,
+            backupPath: 'D:/备份/模拟前.json',
+            truncated: 0,
+            truncatedItems: 0,
         });
         const raw = '{"format":2,"app":"mh-toolbox-rs"}';
         expect(await dataImportPayload(raw)).toMatchObject({
-            status: 'ok', detail: '已导入模拟账本。替换前的数据备份在 D:/备份/模拟前.json',
+            status: 'ok',
+            detail: '已导入模拟账本。替换前的数据备份在 D:/备份/模拟前.json',
         });
         expect(invokeMock).toHaveBeenCalledWith('data_import_payload', { raw });
     });
@@ -140,7 +143,8 @@ describe('账本备份：三种结局不能互相冒充', () => {
         const { dataImportPayload } = await load();
         invokeMock.mockRejectedValue('备份无法写入，未执行导入');
         expect(await dataImportPayload('{}')).toEqual({
-            status: 'failed', error: '备份无法写入，未执行导入',
+            status: 'failed',
+            error: '备份无法写入，未执行导入',
         });
         invokeMock.mockClear();
         const browser = await load(false);

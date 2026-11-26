@@ -33,7 +33,11 @@ function onEscape(event: KeyboardEvent) {
 <template>
     <div class="glass-select" @keydown.esc="onEscape" @toggle.stop>
         <label :id="id + '-label'" :for="id" :hidden="hideLabel">{{ label }}</label>
-        <GlassMenu v-model:open="open" class="lg-popup-menu lg-select-menu" @select="select">
+        <GlassMenu
+            v-model:open="open"
+            class="lg-popup-menu lg-select-menu"
+            @select="typeof $event === 'string' && select($event)"
+        >
             <template #trigger>
                 <GlassMenuTrigger
                     :id="id"
@@ -52,7 +56,8 @@ function onEscape(event: KeyboardEvent) {
                 :checked="value === option.value"
                 :aria-checked="value === option.value"
                 :role="open ? 'menuitemradio' : undefined"
-            >{{ option.label }}</GlassMenuItem>
+                >{{ option.label }}</GlassMenuItem
+            >
         </GlassMenu>
     </div>
 </template>

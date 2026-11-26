@@ -112,9 +112,12 @@ export default async function run(ctx) {
                 `)),
                 );
                 await ui.clickLabel('试听语音提醒');
-                t.check('未监听时也能独立试听', await cdp.evaluate(
-                    'window.__e2eFengyao.previewCalls === 1 && window.__e2eFengyao.startCalls === 0',
-                ));
+                t.check(
+                    '未监听时也能独立试听',
+                    await cdp.evaluate(
+                        'window.__e2eFengyao.previewCalls === 1 && window.__e2eFengyao.startCalls === 0',
+                    ),
+                );
                 await cdp.click('[aria-label="语音播报"] [role="radio"]:last-child');
                 await ui.clickLabel('开始公告监听');
                 t.check(
@@ -143,11 +146,18 @@ export default async function run(ctx) {
                 );
                 await cdp.evaluate('window.__e2eFengyao.hideChatWindow = true');
                 await ui.clickLabel('开始公告监听');
-                await ui.waitFor("document.querySelector('.notice-layer')?.textContent.includes('请选择独立聊天窗口')");
-                t.check('窗口为空时只提示，不启动后台监听', await cdp.evaluate('window.__e2eFengyao.startCalls === 0'));
+                await ui.waitFor(
+                    "document.querySelector('.notice-layer')?.textContent.includes('请选择独立聊天窗口')",
+                );
+                t.check(
+                    '窗口为空时只提示，不启动后台监听',
+                    await cdp.evaluate('window.__e2eFengyao.startCalls === 0'),
+                );
                 await cdp.evaluate('window.__e2eFengyao.hideChatWindow = false');
                 await ui.clickLabel('开始公告监听');
-                await ui.waitFor(`document.querySelector('.fy-settings .fy-window-control + .fy-status')?.textContent.includes('监听中')`);
+                await ui.waitFor(
+                    `document.querySelector('.fy-settings .fy-window-control + .fy-status')?.textContent.includes('监听中')`,
+                );
                 t.check(
                     '首次直接监听完整聊天窗口，窗口选择框下方显示监听状态',
                     await cdp.evaluate(`

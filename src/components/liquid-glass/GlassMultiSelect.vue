@@ -98,7 +98,7 @@ const selected = defineModel<string[]>({ required: true });
 .glass-multi-option input:checked + .glass-multi-mark {
     border-color: transparent;
     background: var(--liquid-focus);
-    color: light-dark(#fff, #172b24);
+    color: light-dark(white, #222);
 }
 .glass-multi-option input:checked + .glass-multi-mark .app-icon {
     visibility: visible;

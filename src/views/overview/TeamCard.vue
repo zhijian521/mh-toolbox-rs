@@ -54,11 +54,9 @@ function sessionTitle() {
                     >{{ activity.character.name || '未命名' }}</RouterLink
                 >
                 <span class="team-level num">{{ activity.character.level }} 级</span>
-                <span
-                    class="team-school-name"
-                    :title="activity.character.school || '未选门派'"
-                    >{{ activity.character.school || '未选门派' }}</span
-                >
+                <span class="team-school-name" :title="activity.character.school || '未选门派'">{{
+                    activity.character.school || '未选门派'
+                }}</span>
             </div>
             <AppIcon name="chevron-right" aria-hidden="true" />
         </header>

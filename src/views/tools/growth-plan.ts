@@ -217,11 +217,7 @@ export function sumGrowthResources(
     return total;
 }
 
-export function summarizeGrowthPlan(
-    costs: LevelCosts,
-    lines: readonly GrowthLine[],
-    ownedExp = 0,
-) {
+export function summarizeGrowthPlan(costs: LevelCosts, lines: readonly GrowthLine[], ownedExp = 0) {
     const rows = lines.map((line) => ({ line, ...growthLineCost(costs, line) }));
     const errors = rows.filter((row) => row.error);
     const ownedExpError =

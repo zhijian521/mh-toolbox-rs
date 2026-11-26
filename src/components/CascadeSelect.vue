@@ -107,7 +107,10 @@ function focusOption(level: number, position?: number) {
 }
 
 function focusGroup(value: string) {
-    focusOption(1, columnOptions(1).findIndex((option) => (option.dataset.group ?? '') === value));
+    focusOption(
+        1,
+        columnOptions(1).findIndex((option) => (option.dataset.group ?? '') === value),
+    );
 }
 
 function clearHover() {
@@ -119,7 +122,11 @@ function activate(value: string) {
     clearHover();
     if (activeValue.value === value) return;
     const focused = document.activeElement;
-    if (focused instanceof HTMLButtonElement && focused.dataset.level === '2' && root.value?.contains(focused)) {
+    if (
+        focused instanceof HTMLButtonElement &&
+        focused.dataset.level === '2' &&
+        root.value?.contains(focused)
+    ) {
         focusGroup(value);
     }
     activeValue.value = value;
@@ -426,7 +433,9 @@ onBeforeUnmount(() => {
     align-items: stretch;
     border-radius: var(--r-2);
     background: var(--popover-bg);
-    box-shadow: var(--popover-shadow), 0 0 0 var(--w-hair) var(--popover-edge);
+    box-shadow:
+        var(--popover-shadow),
+        0 0 0 var(--w-hair) var(--popover-edge);
 }
 .cascade-popup.opens-above {
     top: auto;

@@ -25,7 +25,7 @@ export default async function run(ctx) {
                     `!!document.querySelector('article.folded-card.growth-entry[data-spine="left"] .growth-change')`,
                 ),
             );
-            await ctx.ui.clickLabel('关闭成长历史');
+            await ctx.ui.clickLabel('关闭弹窗');
         });
     }
     await cleanup(ctx, { hasPet: steps.has('pets') });

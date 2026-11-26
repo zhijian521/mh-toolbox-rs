@@ -58,43 +58,43 @@ OnlineBar 移除角色旁的独立结束键，由 toggleRole 在点击当下读�
 
 ### 按计划十二维度复核
 
-| 维度 | 已读证据、结论与边界 |
-| ---- | -------------------- |
-| 业务语义 | income.ts、history-summary、online.ts、online-time／summary 和两域 store：金额沿原单位与精度，角色筛选不缩减其他角色小计，历史单价不被当前价追改。普通固定价点击仍新增一条；跨天 23:00～次日 01:00，选次日只计 60 分钟，结束恰在区间首日零点不计入。日期筛选保留原记录，编辑删除操作整段。边界有断言，未执行。 |
-| 展示必要性 | 见下表。保留任务必需摘要与速记小计，历史角色选择与小计合并；长名称省略且保留全名，金额完整。无新增常驻技术说明或重复组件。 |
-| 操作路径 | 固定单价速记仍为选人后点物品一次；今日撤回仍一键并等待落盘回执。上线记录原只有搜索／角色，现“记录→日期→角色／搜索→明细→编辑／删除”，减少人工定位日期；同页重开保持条件与页码。分页支持直接选页和五页跳转。失败回执本批修复，恢复入口保留。 |
-| 组件与主题 | PageShell／LedgerSection／StatStrip／TicketCard／NumTag 负责壳与摘要；TextButton 为低频入口；DateRangeField、SteppedSlider、RecordFilters、RecordPager、ModalShell 和 FormActions 继续复用。两种记录窗共用 blocks.css 的 record-* 排版，材质来自 tokens 入口；角色上线和速记格保留业务专属布局。 |
-| 状态完整性 | 阅读初始／读取中、读失败恢复、空表与无匹配、旧角色、保存锁定、失败重试和取消草稿路径。LoadNotice／SaveNotice 与 usePersistedSubmit／useConfirmedRemoval 沿用；本批补齐拒绝变更的结果。过期异步 OCR 结果不属于本页，未新增识别任务；真实窗口状态组合未运行。 |
-| 数据可靠性 | 完整追踪两域 UI→store→createPersist→storage→生成绑定→lib.rs 两张登记表→store.rs→store/income.rs、store/online.rs→SQLite。读取失败不写空账；收益与单价、在线段与设置分别在事务保存。daily-sync 稳定 ID、受影响日期队列和关闭排空保持。未覆盖全仓迁移与所有跨窗口故障。 |
-| 生命周期 | 读取共享 useToday／useMinuteNow：首订阅刷新、按分钟对齐、焦点／可见恢复刷新，末订阅清理。OnlineBar 观察器与 rAF、QuickPanel 回执计时器均有卸载清理。启动对账与 main 关闭先排同步再排保存。睡眠、手调系统时钟与真实退出仍待专项。 |
-| 性能 | 页码生成最多七项，避免按总页数创建长数组；不新增计时器、IPC 或重复数据源。记录筛选／汇总仍随数据规模计算，不凭静态阅读宣称已提速。首次加载、长账本筛选、图表重算与关闭队列耗时均待采样。 |
-| 安全与隐私 | 本页系统读写继续只经 services，单价导入导出沿 data-files→既有命令和校验；后端写入使用参数化 SQL 与事务。未增加外链、截图、日志敏感信息或调试钩子。生产 CSP、导入恶意输入和备份完整性不在本批动态结论内。 |
-| 可用与无障碍 | 读取公共滑块单选／键盘契约、分页原生禁用、完整标签、aria-current、状态播报和省略号跳转焦点；preventScroll 避免抢业务滚动。窄宽／大字号／长金额断言已维护，六主题明暗和真实键盘操作尚未验收。 |
-| 测试效率 | 复用 store、online、use-pagination 原测试文件和现有历史／上线／图鉴烟测；只补变更风险，不新增测试分区或组件覆盖工程。未执行任何断言，未计运行数量或耗时，B02／T 系列测试选择优化仍未开展。 |
-| 可维护性 | 页码纯逻辑留在 use-pagination，日期交集留在 online，角色摘要留在 history-summary；持久化入口仍单份。删除重复局部记录样式和无用滚动逻辑；开发页示例、规范和架构同步。无需新增组件库、Rust 接口、迁移或游戏资源。 |
+| 维度         | 已读证据、结论与边界                                                                                                                                                                                                                                                                                           |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 业务语义     | income.ts、history-summary、online.ts、online-time／summary 和两域 store：金额沿原单位与精度，角色筛选不缩减其他角色小计，历史单价不被当前价追改。普通固定价点击仍新增一条；跨天 23:00～次日 01:00，选次日只计 60 分钟，结束恰在区间首日零点不计入。日期筛选保留原记录，编辑删除操作整段。边界有断言，未执行。 |
+| 展示必要性   | 见下表。保留任务必需摘要与速记小计，历史角色选择与小计合并；长名称省略且保留全名，金额完整。无新增常驻技术说明或重复组件。                                                                                                                                                                                     |
+| 操作路径     | 固定单价速记仍为选人后点物品一次；今日撤回仍一键并等待落盘回执。上线记录原只有搜索／角色，现“记录→日期→角色／搜索→明细→编辑／删除”，减少人工定位日期；同页重开保持条件与页码。分页支持直接选页和五页跳转。失败回执本批修复，恢复入口保留。                                                                     |
+| 组件与主题   | PageShell／LedgerSection／StatStrip／TicketCard／NumTag 负责壳与摘要；TextButton 为低频入口；DateRangeField、SteppedSlider、RecordFilters、RecordPager、ModalShell 和 FormActions 继续复用。两种记录窗共用 blocks.css 的 record-* 排版，材质来自 tokens 入口；角色上线和速记格保留业务专属布局。               |
+| 状态完整性   | 阅读初始／读取中、读失败恢复、空表与无匹配、旧角色、保存锁定、失败重试和取消草稿路径。LoadNotice／SaveNotice 与 usePersistedSubmit／useConfirmedRemoval 沿用；本批补齐拒绝变更的结果。过期异步 OCR 结果不属于本页，未新增识别任务；真实窗口状态组合未运行。                                                    |
+| 数据可靠性   | 完整追踪两域 UI→store→createPersist→storage→生成绑定→lib.rs 两张登记表→store.rs→store/income.rs、store/online.rs→SQLite。读取失败不写空账；收益与单价、在线段与设置分别在事务保存。daily-sync 稳定 ID、受影响日期队列和关闭排空保持。未覆盖全仓迁移与所有跨窗口故障。                                          |
+| 生命周期     | 读取共享 useToday／useMinuteNow：首订阅刷新、按分钟对齐、焦点／可见恢复刷新，末订阅清理。OnlineBar 观察器与 rAF、QuickPanel 回执计时器均有卸载清理。启动对账与 main 关闭先排同步再排保存。睡眠、手调系统时钟与真实退出仍待专项。                                                                               |
+| 性能         | 页码生成最多七项，避免按总页数创建长数组；不新增计时器、IPC 或重复数据源。记录筛选／汇总仍随数据规模计算，不凭静态阅读宣称已提速。首次加载、长账本筛选、图表重算与关闭队列耗时均待采样。                                                                                                                       |
+| 安全与隐私   | 本页系统读写继续只经 services，单价导入导出沿 data-files→既有命令和校验；后端写入使用参数化 SQL 与事务。未增加外链、截图、日志敏感信息或调试钩子。生产 CSP、导入恶意输入和备份完整性不在本批动态结论内。                                                                                                       |
+| 可用与无障碍 | 读取公共滑块单选／键盘契约、分页原生禁用、完整标签、aria-current、状态播报和省略号跳转焦点；preventScroll 避免抢业务滚动。窄宽／大字号／长金额断言已维护，六主题明暗和真实键盘操作尚未验收。                                                                                                                   |
+| 测试效率     | 复用 store、online、use-pagination 原测试文件和现有历史／上线／图鉴烟测；只补变更风险，不新增测试分区或组件覆盖工程。未执行任何断言，未计运行数量或耗时，B02／T 系列测试选择优化仍未开展。                                                                                                                     |
+| 可维护性     | 页码纯逻辑留在 use-pagination，日期交集留在 online，角色摘要留在 history-summary；持久化入口仍单份。删除重复局部记录样式和无用滚动逻辑；开发页示例、规范和架构同步。无需新增组件库、Rust 接口、迁移或游戏资源。                                                                                                |
 
 ### 页面内容取舍
 
-| 区块 | 处理与理由 |
-| ---- | ---------- |
-| 今日在线／今日收益 | 保留双票据，分别表示耗时成本与产出；昨日对比缩短，不隐藏金额或失败状态。 |
-| 角色上线区与右上操作 | 保留单人上线、独立结束和原补记／记录／单价／计入口径；一键上号已按用户反馈移除。 |
-| 速记与单价 | 保留单格单动作、指定角色、固定／浮动价格和导入导出；低频文字入口复用 TextButton。 |
-| 今日清单 | 保留分组小计及撤回，用于核对刚记的内容；本批修正拒绝撤回的回执。 |
-| 时长／收益趋势 | 保留两图与各自单位，避免把产出和点卡口径混合。 |
-| 历史收益／上线记录 | 保留明细、日期、搜索、修改删除；角色选择与小计合并为紧凑滑块，统一表格框与分页。 |
-| 读取／保存提示 | 保留真实失败和恢复动作，不能为了精简隐藏。 |
+| 区块                 | 处理与理由                                                                        |
+| -------------------- | --------------------------------------------------------------------------------- |
+| 今日在线／今日收益   | 保留双票据，分别表示耗时成本与产出；昨日对比缩短，不隐藏金额或失败状态。          |
+| 角色上线区与右上操作 | 保留单人上线、独立结束和原补记／记录／单价／计入口径；一键上号已按用户反馈移除。  |
+| 速记与单价           | 保留单格单动作、指定角色、固定／浮动价格和导入导出；低频文字入口复用 TextButton。 |
+| 今日清单             | 保留分组小计及撤回，用于核对刚记的内容；本批修正拒绝撤回的回执。                  |
+| 时长／收益趋势       | 保留两图与各自单位，避免把产出和点卡口径混合。                                    |
+| 历史收益／上线记录   | 保留明细、日期、搜索、修改删除；角色选择与小计合并为紧凑滑块，统一表格框与分页。  |
+| 读取／保存提示       | 保留真实失败和恢复动作，不能为了精简隐藏。                                        |
 
 ### 本批变更覆盖台账
 
-| 文件组（仓库相对路径） | 数量 | 复核内容 |
-| -------------------- | ---- | -------- |
-| docs/ARCHITECTURE.md、CONVENTIONS.md、OPTIMIZATION-PLAN-2026-11-18.md、RECORD.md；docs/reviews/ 本报告与 U04 报告 | 6 | 公共契约、当前范围、历史批次和未执行验收区分明确。 |
-| src/components/RecordPager.vue、icons.ts；src/composables/use-pagination.ts、use-pagination.test.ts；src/styles/blocks.css；src/views/dev/AtomsSection.vue | 6 | 有限页码、边界禁用、焦点、样式唯一入口、开发示例与相关断言。 |
-| src/views/income/ 下 IncomeHistoryDialog.vue、IncomeView.vue、OnlineDialog.vue、OnlineRecords.vue、TodayDump.vue | 5 | 日期和筛选保留、整段操作提示、拒绝变更回执、嵌套表单及原保存链。 |
-| 同目录 history-summary.ts、income-store.ts、online-store.ts、online.ts | 4 | 汇总归属、日期交集、实际变更结果与写入保护。 |
-| 同目录 income-store.test.ts、online-store.test.ts、online.test.ts | 3 | 读失败／恢复、目标不存在、跨日与日期边界断言；未运行。 |
-| tools/e2e/sections/08-tools.mjs、income/history.mjs、income/online.mjs | 3 | 现有烟测维护日期、分页、焦点、嵌套定位和几何断言；未运行。 |
+| 文件组（仓库相对路径）                                                                                                                                     | 数量 | 复核内容                                                         |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ---------------------------------------------------------------- |
+| docs/ARCHITECTURE.md、CONVENTIONS.md、OPTIMIZATION-PLAN-2026-11-18.md、RECORD.md；docs/reviews/ 本报告与 U04 报告                                          | 6    | 公共契约、当前范围、历史批次和未执行验收区分明确。               |
+| src/components/RecordPager.vue、icons.ts；src/composables/use-pagination.ts、use-pagination.test.ts；src/styles/blocks.css；src/views/dev/AtomsSection.vue | 6    | 有限页码、边界禁用、焦点、样式唯一入口、开发示例与相关断言。     |
+| src/views/income/ 下 IncomeHistoryDialog.vue、IncomeView.vue、OnlineDialog.vue、OnlineRecords.vue、TodayDump.vue                                           | 5    | 日期和筛选保留、整段操作提示、拒绝变更回执、嵌套表单及原保存链。 |
+| 同目录 history-summary.ts、income-store.ts、online-store.ts、online.ts                                                                                     | 4    | 汇总归属、日期交集、实际变更结果与写入保护。                     |
+| 同目录 income-store.test.ts、online-store.test.ts、online.test.ts                                                                                          | 3    | 读失败／恢复、目标不存在、跨日与日期边界断言；未运行。           |
+| tools/e2e/sections/08-tools.mjs、income/history.mjs、income/online.mjs                                                                                     | 3    | 现有烟测维护日期、分页、焦点、嵌套定位和几何断言；未运行。       |
 
 本批共 27 个变更文件。额外只读审查包括收益图表／编辑／单价表单、共享过滤与保存组合逻辑、单价联动物价、账号 daily-sync、启动关闭及两域 Rust 存储；不把只读文件计为变更文件。
 
@@ -121,21 +121,21 @@ D06 当前页面与直接数据依赖的静态审查完成；睡眠／系统时�
 
 ## 已确认事实与证据
 
-| 范围 | 证据与处理 |
-| ---- | ---------- |
-| 页面入口 | IncomeView.vue 使用既有 PageShell、读取／保存提示、历史与批量上线入口。各 LedgerSection 显式 plain，不覆盖全部后代 .board。今日收益经 OnlineBar 的 summary 插槽进入左侧票据区；收益读取失败时不渲染该插槽。 |
-| 收益口径 | entriesOn／totalsOf／factsOf／statRowsOf 继续统计今天并与昨天比较，不改变日期、角色或自动分账口径。 |
-| 在线统计 | 新增 online-summary.ts，只派生展示。onlineTotalsOf 按本地日期切分跨午夜片段、按各记录单价快照汇总；useToday／useMinuteNow 负责跨天与分钟更新，不新增计时器。昨日为零沿用 ratioText 的不可比较占位，不编造涨幅。 |
-| 快速上下线 | OnlineBar → online-store.startOnline／stopOnline → createPersist。重复与重叠时段校验仍由 store 提供；当前入口仅允许名册中角色开始，ownersOf 兼容旧多人记录，停止旧共用段沿用整段停止。 |
-| 失败处理 | online 的 pending／loadError／writeError 和本地操作锁阻止重复提交；保存失败由 IncomeView 的 SaveNotice 重试。在线读取失败时票据显示未读取。名册错误通过 LoadNotice → loadRoster 恢复。 |
-| 高频记账 | QuickPanel 的指定人单选、固定价点击记账、右键改价、浮动价询价、导入导出与回执清理保持。TodayDump 继续按今天及物品单价分组，撤回 group.lastId。 |
-| 趋势 | OnlinePanel 沿用 7／30 天及角色排序；在线分钟与速记净额分开统计，不扣点卡的说明保留。 |
-| 公共组件 | 新增 TextButton，用于本页四个低频入口，沿用 AppIcon 和语义令牌，不碰业务。开发页 AtomsSection 的操作目录和示例同步，覆盖纯文字、可选图标与禁用。票据、外卡及图表继续复用现有公共组件；角色高度适配留在 income 领域，不增加仅一处调用的通用组件。 |
-| 服务与 Rust | 两个 store → createPersist／storage.ts → bindings → lib.rs 命令表 → store.rs → store/income.rs、store/online.rs → SQLite；名册沿用 characters 服务。已追踪入口与持久化配置，前批读取两域事务；本轮没有逐行重审迁移或全部存储测试。接口可提供全部信息，不需改服务、Rust 或数据结构。 |
-| 账号联动 | daily-sync.ts 从收益净额和在线点卡生成自动账目，稳定 ID 与同步排队保持；新入口使用同一 online store，未引入另一份在线数据。 |
-| 资源 | 速记继续使用现有 quick-items／quickItemIcon／itemIconOf；新展示只使用现有 AppIcon，无游戏规则或资源变化。 |
-| 断言 | online-summary.test.ts 保留统计边界断言。窗口烟测维护 TextButton 的可见文字、完整说明、无底板／阴影和工具等高，保留单角色上线／重载／停止与 C 方案断言；新增三行上下对齐、两行恢复的定向几何场景，仅临时样式控制展示数量／列宽并在 finally 移除，不修改名册或账本。原速记、单价文件往返及图表交互保持。所有断言未运行。 |
-| 文档 | 同步 CONVENTIONS 的低频 TextButton 契约、ARCHITECTURE、RECORD、优化计划和本报告。TESTING 已覆盖公共控件和使用页面联动，本批不重复增加测试分类。 |
+| 范围        | 证据与处理                                                                                                                                                                                                                                                                                                              |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 页面入口    | IncomeView.vue 使用既有 PageShell、读取／保存提示、历史与批量上线入口。各 LedgerSection 显式 plain，不覆盖全部后代 .board。今日收益经 OnlineBar 的 summary 插槽进入左侧票据区；收益读取失败时不渲染该插槽。                                                                                                             |
+| 收益口径    | entriesOn／totalsOf／factsOf／statRowsOf 继续统计今天并与昨天比较，不改变日期、角色或自动分账口径。                                                                                                                                                                                                                     |
+| 在线统计    | 新增 online-summary.ts，只派生展示。onlineTotalsOf 按本地日期切分跨午夜片段、按各记录单价快照汇总；useToday／useMinuteNow 负责跨天与分钟更新，不新增计时器。昨日为零沿用 ratioText 的不可比较占位，不编造涨幅。                                                                                                         |
+| 快速上下线  | OnlineBar → online-store.startOnline／stopOnline → createPersist。重复与重叠时段校验仍由 store 提供；当前入口仅允许名册中角色开始，ownersOf 兼容旧多人记录，停止旧共用段沿用整段停止。                                                                                                                                  |
+| 失败处理    | online 的 pending／loadError／writeError 和本地操作锁阻止重复提交；保存失败由 IncomeView 的 SaveNotice 重试。在线读取失败时票据显示未读取。名册错误通过 LoadNotice → loadRoster 恢复。                                                                                                                                  |
+| 高频记账    | QuickPanel 的指定人单选、固定价点击记账、右键改价、浮动价询价、导入导出与回执清理保持。TodayDump 继续按今天及物品单价分组，撤回 group.lastId。                                                                                                                                                                          |
+| 趋势        | OnlinePanel 沿用 7／30 天及角色排序；在线分钟与速记净额分开统计，不扣点卡的说明保留。                                                                                                                                                                                                                                   |
+| 公共组件    | 新增 TextButton，用于本页四个低频入口，沿用 AppIcon 和语义令牌，不碰业务。开发页 AtomsSection 的操作目录和示例同步，覆盖纯文字、可选图标与禁用。票据、外卡及图表继续复用现有公共组件；角色高度适配留在 income 领域，不增加仅一处调用的通用组件。                                                                        |
+| 服务与 Rust | 两个 store → createPersist／storage.ts → bindings → lib.rs 命令表 → store.rs → store/income.rs、store/online.rs → SQLite；名册沿用 characters 服务。已追踪入口与持久化配置，前批读取两域事务；本轮没有逐行重审迁移或全部存储测试。接口可提供全部信息，不需改服务、Rust 或数据结构。                                     |
+| 账号联动    | daily-sync.ts 从收益净额和在线点卡生成自动账目，稳定 ID 与同步排队保持；新入口使用同一 online store，未引入另一份在线数据。                                                                                                                                                                                             |
+| 资源        | 速记继续使用现有 quick-items／quickItemIcon／itemIconOf；新展示只使用现有 AppIcon，无游戏规则或资源变化。                                                                                                                                                                                                               |
+| 断言        | online-summary.test.ts 保留统计边界断言。窗口烟测维护 TextButton 的可见文字、完整说明、无底板／阴影和工具等高，保留单角色上线／重载／停止与 C 方案断言；新增三行上下对齐、两行恢复的定向几何场景，仅临时样式控制展示数量／列宽并在 finally 移除，不修改名册或账本。原速记、单价文件往返及图表交互保持。所有断言未运行。 |
+| 文档        | 同步 CONVENTIONS 的低频 TextButton 契约、ARCHITECTURE、RECORD、优化计划和本报告。TESTING 已覆盖公共控件和使用页面联动，本批不重复增加测试分类。                                                                                                                                                                         |
 
 ## 保留现状的理由
 

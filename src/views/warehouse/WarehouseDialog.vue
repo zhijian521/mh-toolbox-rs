@@ -3,10 +3,12 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import ModalShell from '../../components/ModalShell.vue';
 import GroupHead from '../../components/GroupHead.vue';
+import { GlassSegment, GlassSegmented } from '../../components/liquid-glass';
+import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import PressButton from '../../components/PressButton.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
-import SelectField from '../../components/SelectField.vue';
+import { useCharacterFields } from '../characters/use-character-fields';
 import RecordPager from '../../components/RecordPager.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
@@ -47,6 +49,7 @@ const emit = defineEmits<{
     pick: [items: readonly ReadonlyWarehouseItem[]];
     draft: [items: WarehouseItem[]];
 }>();
+const { glass, SelectField, selectProps } = useCharacterFields();
 const store = useWarehouse();
 const { items, owners, loaded, loadError, writeError, pending, tradePending, characterPending } =
     store;
@@ -82,14 +85,10 @@ const viewError = computed(
 );
 const viewLoaded = computed(() => loaded.value && (!showsSales.value || accounts.loaded.value));
 const kind = ref<WarehouseKind>(props.assetKind);
-const keyword = ref('');
 const slot = ref(props.gearSlot ?? '');
 const anyFilter = computed(
     () =>
-        Boolean(
-            (kind.value === 'pet' && keyword.value.trim()) ||
-            (kind.value === 'gear' && !props.gearSlot && slot.value),
-        ) ||
+        Boolean(kind.value === 'gear' && !props.gearSlot && slot.value) ||
         (props.mode === 'manage' && stockState.value !== 'all'),
 );
 const page = ref(1);
@@ -162,7 +161,9 @@ function focusPage(element: Element) {
     if (editing.value) {
         if (element.classList.contains('warehouse-editor-page')) {
             element
-                .querySelector<HTMLInputElement>('.gear-name-input, [aria-label="召唤兽名称"]')
+                .querySelector<HTMLInputElement>(
+                    'input.gear-name-input, .gear-name-input input, input[aria-label="召唤兽名称"]',
+                )
                 ?.focus({ preventScroll: true });
         }
         return;
@@ -171,9 +172,9 @@ function focusPage(element: Element) {
         (one) => one.dataset.assetId === returnItemId,
     );
     const fallback =
-        returnItemId !== null
-            ? element.querySelector<HTMLElement>('[data-warehouse-add]')
-            : element.querySelector<HTMLElement>('.warehouse-search, [aria-label="筛选装备部位"]');
+        element.querySelector<HTMLElement>(
+            '[data-warehouse-add], .warehouse-item:not(:disabled)',
+        ) ?? element.closest('.modal-panel')?.querySelector<HTMLElement>('[data-modal-close]');
     (item ?? fallback)?.focus({ preventScroll: true });
 }
 const options = computed(() => [
@@ -191,20 +192,15 @@ const slots = computed(() => [
     ...GEAR_SLOTS.map((value) => ({ value, label: value })),
 ]);
 const filtered = computed(() =>
-    filterWarehouse(
-        sourceItems.value,
-        kind.value,
-        kind.value === 'pet' ? keyword.value : '',
-        kind.value === 'gear' ? slot.value : '',
-    ),
+    filterWarehouse(sourceItems.value, kind.value, kind.value === 'gear' ? slot.value : ''),
 );
 const PAGE_SIZE = 48;
 const pages = computed(() => Math.max(1, Math.ceil(filtered.value.length / PAGE_SIZE)));
 const visible = computed(() =>
     filtered.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE),
 );
-watch([kind, keyword, slot, page, editing, sourceItems], hideTip);
-watch([kind, keyword, slot, stockState], () => {
+watch([kind, slot, page, editing, sourceItems], hideTip);
+watch([kind, slot, stockState], () => {
     page.value = 1;
     scrollTop.value = 0;
     if (content.value) content.value.scrollTop = 0;
@@ -262,7 +258,8 @@ function open(item: ReadonlyWarehouseItem) {
         blocked.value ||
         soldIds.value.has(item.id) ||
         (owners.value.has(item.id) && !choosingTrade.value)
-    ) return;
+    )
+        return;
     if (choosing.value) {
         if (props.mode === 'equip' && (kind.value === 'gear' || props.single)) {
             selectedIds.value = new Set([item.id]);
@@ -287,7 +284,7 @@ function confirmSelection() {
     <ModalShell
         class="warehouse-dialog character-theme"
         :title="title"
-        :width="EDITOR_W"
+        :width="glass ? 'var(--role-editor-width)' : EDITOR_W"
         :height="EDITOR_H"
         initial-focus="none"
         fill
@@ -316,7 +313,24 @@ function confirmSelection() {
                     <div class="warehouse-page-body warehouse-list-body">
                         <div class="warehouse-toolbar record-filters">
                             <div v-if="mode === 'manage'" class="warehouse-tabs">
+                                <GlassSegmented
+                                    v-if="glass"
+                                    v-model:value="kind"
+                                    class="lg-status-tabs"
+                                    aria-label="仓库分类"
+                                    data-size="compact"
+                                >
+                                    <GlassSegment
+                                        v-for="option in options"
+                                        :id="'warehouse-tab-' + option.value"
+                                        :key="option.value"
+                                        :value="option.value"
+                                        :aria-controls="'warehouse-pane-' + option.value"
+                                        >{{ option.label }}</GlassSegment
+                                    >
+                                </GlassSegmented>
                                 <SteppedSlider
+                                    v-else
                                     v-model="kind"
                                     :options="options"
                                     as="tab"
@@ -336,33 +350,40 @@ function confirmSelection() {
                                     kind === 'gear' ? '新增或截图录入装备' : '新增或截图录入召唤兽'
                                 "
                                 :disabled="blocked"
-                                seal
                                 @click="add"
                             />
                         </div>
                         <div
+                            v-if="mode === 'manage' || kind === 'gear'"
                             class="warehouse-filters record-filters"
                             role="group"
                             aria-label="仓库筛选"
                         >
+                            <GlassSegmented
+                                v-if="mode === 'manage' && glass"
+                                v-model:value="stockState"
+                                class="lg-status-tabs warehouse-stock-filter"
+                                aria-label="仓库状态"
+                                data-size="compact"
+                            >
+                                <GlassSegment
+                                    v-for="option in stockOptions"
+                                    :key="option.value"
+                                    :value="option.value"
+                                >
+                                    {{ option.label }}
+                                </GlassSegment>
+                            </GlassSegmented>
                             <SegmentedPills
-                                v-if="mode === 'manage'"
+                                v-else-if="mode === 'manage'"
                                 v-model="stockState"
                                 :options="stockOptions"
                                 label="仓库状态"
                                 class="warehouse-stock-filter"
                             />
-                            <input
-                                v-if="kind === 'pet'"
-                                v-model="keyword"
-                                class="field filter-search warehouse-search"
-                                type="search"
-                                autocomplete="off"
-                                aria-label="搜索仓库物品"
-                                placeholder="搜索名称、技能"
-                            />
                             <SelectField
                                 v-if="kind === 'gear'"
+                                v-bind="selectProps"
                                 v-model="slot"
                                 :options="slots"
                                 label="筛选装备部位"
@@ -416,7 +437,7 @@ function confirmSelection() {
                                     正在读取{{ soldView ? '卖出物品' : '仓库' }}…
                                 </p>
                                 <div v-else-if="!filtered.length" class="warehouse-empty">
-                                    <p>
+                                    <component :is="glass ? GlassEmptyState : 'p'">
                                         {{
                                             anyFilter
                                                 ? '没有符合条件的物品'
@@ -426,10 +447,10 @@ function confirmSelection() {
                                                     ? '还没有入仓装备'
                                                     : '还没有入仓召唤兽'
                                         }}
-                                    </p>
+                                    </component>
                                     <span v-if="!soldView" class="muted">{{
                                         anyFilter
-                                            ? '换个关键词或筛选条件试试'
+                                            ? '换个筛选条件试试'
                                             : choosing
                                               ? '暂无可选择的仓库物品'
                                               : '点击右上角入仓，支持截图识别和手动填写'
@@ -463,21 +484,10 @@ function confirmSelection() {
                             </section>
                         </div>
                     </div>
-                    <footer class="modal-actions">
-                        <span
-                            class="warehouse-count record-foot-note"
-                            aria-live="polite"
-                            aria-atomic="true"
-                        >
-                            <template v-if="viewError">读取失败</template>
-                            <template v-else-if="!viewLoaded">读取中…</template>
-                            <template v-else>
-                                {{ filtered.length }} {{ kind === 'gear' ? '件装备' : '只召唤兽' }}
-                                <span v-if="choosing" class="warehouse-selected-count">
-                                    · 已选 {{ selected.length }} {{ kind === 'gear' ? '件' : '只' }}
-                                </span>
-                            </template>
-                        </span>
+                    <footer
+                        v-if="choosing || (viewLoaded && !viewError && pages > 1)"
+                        class="modal-actions warehouse-list-actions"
+                    >
                         <RecordPager
                             v-if="viewLoaded && !viewError"
                             v-model="page"
@@ -485,16 +495,9 @@ function confirmSelection() {
                             label="仓库分页"
                         />
                         <PressButton
-                            data-modal-cancel
-                            :text="choosing ? '取消' : '关闭'"
-                            label="关闭仓库"
-                            @click="emit('close')"
-                        />
-                        <PressButton
                             v-if="choosing"
                             text="确定选择"
                             :label="mode === 'equip' ? '确认选择角色物品' : '确认选择交易物品'"
-                            seal
                             :disabled="blocked || (mode === 'equip' && !selected.length)"
                             @click="confirmSelection"
                         />

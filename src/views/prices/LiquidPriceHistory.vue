@@ -7,7 +7,13 @@ import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import GlassTable from '../../components/liquid-glass/GlassTable.vue';
 import TrendChart from '../../components/TrendChart.vue';
 import { changeText, moneyText } from '../../services/format';
-import { chartPrices, pointDelta, sortedPoints, type PricePoint, type ReadonlyPriceItem } from './prices';
+import {
+    chartPrices,
+    pointDelta,
+    sortedPoints,
+    type PricePoint,
+    type ReadonlyPriceItem,
+} from './prices';
 
 const props = defineProps<{ item: ReadonlyPriceItem; editDisabled: boolean }>();
 const emit = defineEmits<{ edit: [point: PricePoint]; remove: [point: PricePoint] }>();
@@ -52,7 +58,10 @@ const series = computed(() => [
             <div class="price-history-records">
                 <GlassTable class="price-history-table" sticky-header>
                     <caption>
-                        价格记录（{{ rows.length }} 笔）
+                        价格记录（{{
+                            rows.length
+                        }}
+                        笔）
                     </caption>
                     <thead>
                         <tr>
@@ -65,7 +74,9 @@ const series = computed(() => [
                     </thead>
                     <tbody>
                         <tr v-for="row in visible" :key="row.point.id">
-                            <td><time :datetime="row.point.date">{{ row.point.date }}</time></td>
+                            <td>
+                                <time :datetime="row.point.date">{{ row.point.date }}</time>
+                            </td>
                             <td>{{ row.amount }}</td>
                             <td :data-tone="row.tone">{{ row.change }}</td>
                             <td class="price-history-note">{{ row.point.note || '—' }}</td>
@@ -151,21 +162,8 @@ const series = computed(() => [
     border-radius: 10px;
     background: var(--chart-surface-bg);
 }
-.liquid-price-history :deep(.chart-scroll) {
-    overflow-x: auto;
-    scrollbar-width: none;
-    /* 滚动条刻意不画，轨道也就不要常驻（覆盖 style.css 的全局 stable）。 */
-    scrollbar-gutter: auto;
-    clip-path: inset(0 0 0 var(--trend-axis-width));
-}
 .liquid-price-history :deep(.chart-fixed-axis) {
     background: transparent;
-}
-.liquid-price-history :deep(.chart-column) {
-    --chart-front-light: color-mix(in srgb, var(--chart-color) 80%, var(--bevel-hi));
-    --chart-front-dark: var(--chart-color);
-    --chart-side: color-mix(in srgb, var(--chart-color) 90%, var(--liquid-ink) 10%);
-    --chart-top: color-mix(in srgb, var(--chart-color) 72%, var(--bevel-hi));
 }
 .price-history-records {
     flex: 1 1 auto;
@@ -209,6 +207,4 @@ const series = computed(() => [
 .price-history-table [data-tone='down'] {
     color: var(--liquid-down);
 }
-
 </style>
-

@@ -295,11 +295,7 @@ describe('filterItems：默认顺序', () => {
     const names = (list: readonly ReadonlyPriceItem[]) => list.map((item) => item.name);
 
     it('最近更新的在前', () => {
-        expect(names(filterItems(items, filterOf()))).toEqual([
-            '定魂珠',
-            '藏宝图',
-            '金刚石',
-        ]);
+        expect(names(filterItems(items, filterOf()))).toEqual(['定魂珠', '藏宝图', '金刚石']);
     });
 
     it('空表与「全被筛掉」都返回空数组', () => {
@@ -313,40 +309,30 @@ describe('filterItems：筛选条件', () => {
     const names = (list: readonly ReadonlyPriceItem[]) => list.map((item) => item.name);
 
     it('关键词命中名称、二级分类、单位、备注里的任意一个', () => {
-        expect(names(filterItems(items, filterOf({ keyword: '金刚' })))).toEqual([
-            '金刚石',
-        ]);
-        expect(names(filterItems(items, filterOf({ keyword: '五宝' })))).toEqual([
-            '金刚石',
-        ]);
-        expect(names(filterItems(items, filterOf({ keyword: '枚' })))).toEqual([
-            '金刚石',
-        ]);
-        expect(names(filterItems(items, filterOf({ keyword: 'OCR' })))).toEqual([
-            '金刚石',
-        ]);
+        expect(names(filterItems(items, filterOf({ keyword: '金刚' })))).toEqual(['金刚石']);
+        expect(names(filterItems(items, filterOf({ keyword: '五宝' })))).toEqual(['金刚石']);
+        expect(names(filterItems(items, filterOf({ keyword: '枚' })))).toEqual(['金刚石']);
+        expect(names(filterItems(items, filterOf({ keyword: 'OCR' })))).toEqual(['金刚石']);
     });
 
     it('关键词不分大小写', () => {
-        expect(names(filterItems(items, filterOf({ keyword: 'ocr' })))).toEqual([
-            '金刚石',
-        ]);
+        expect(names(filterItems(items, filterOf({ keyword: 'ocr' })))).toEqual(['金刚石']);
     });
 
     it('一级分类是精确匹配', () => {
         const other = makeItem('别的', [], { category: '召唤兽' });
-        expect(
-            names(filterItems([...items, other], filterOf({ category: '任务产出' }))),
-        ).toEqual(['定魂珠', '藏宝图', '金刚石']);
+        expect(names(filterItems([...items, other], filterOf({ category: '任务产出' })))).toEqual([
+            '定魂珠',
+            '藏宝图',
+            '金刚石',
+        ]);
         expect(filterItems(items, filterOf({ category: '召唤兽' }))).toEqual([]);
     });
 
     it('二级分类是精确匹配：「兽决」不会把「高级兽决」也捞进来', () => {
         const low = makeItem('低级兽决', [], { category: '兽决内丹', sub: '兽决' });
         const high = makeItem('高级兽决', [], { category: '兽决内丹', sub: '高级兽决' });
-        expect(names(filterItems([low, high], filterOf({ sub: '兽决' })))).toEqual([
-            '低级兽决',
-        ]);
+        expect(names(filterItems([low, high], filterOf({ sub: '兽决' })))).toEqual(['低级兽决']);
         expect(names(filterItems([low, high], filterOf({ sub: '高级兽决' })))).toEqual([
             '高级兽决',
         ]);

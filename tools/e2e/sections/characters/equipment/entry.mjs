@@ -74,7 +74,9 @@ export async function entry(ctx, tools) {
                     left: left.getBoundingClientRect().width,
                 };
             })()`);
-        await cdp.evaluate(`document.querySelector('.ocr-tabs .step-thumb').dataset.e2eRetained = 'true'`);
+        await cdp.evaluate(
+            `document.querySelector('.ocr-tabs .step-thumb').dataset.e2eRetained = 'true'`,
+        );
         const tabsState = () =>
             cdp.evaluate(`(() => {
                 const slider = document.querySelector('.ocr-tabs');

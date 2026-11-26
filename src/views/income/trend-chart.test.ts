@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildTrendChart, trendIndexAt, trendValueText } from '../../components/trend-chart';
+import { CHART_AXIS_GAP, CHART_INSET } from '../../components/chart-style';
 import { netByDay, trendSeriesOf } from './trend-chart';
 import type { IncomeEntry } from './income';
 
@@ -65,6 +66,26 @@ describe('趋势角色与样式', () => {
 });
 
 describe('趋势图：刻度写法', () => {
+    it('短刻度收紧左侧空白，长刻度仍自动扩宽且保留绘图区', () => {
+        const input = {
+            labels: LABELS,
+            series: [series([10000, 20000, 30000])],
+            width: 500,
+            height: 170,
+            kind: 'money' as const,
+        };
+        const short = buildTrendChart(input);
+        const long = buildTrendChart({ ...input, valueText: (value) => `${value} 梦幻币` });
+        expect(short.plot.left).toBeLessThan(62);
+        expect(long.plot.left).toBeGreaterThan(short.plot.left);
+        expect(long.plot.width).toBeGreaterThan(0);
+        expect(trendIndexAt(long.plot, LABELS.length, long.lines[0].points[1].x)).toBe(1);
+        const measured = buildTrendChart({ ...input, axisLabelWidth: 15.2, minPlotWidth: 600 });
+        expect(measured.plot.left).toBe(CHART_INSET + 16 + CHART_AXIS_GAP);
+        expect(measured.plot.width).toBe(600);
+        expect(measured.width - measured.plot.left - measured.plot.width).toBe(CHART_INSET);
+    });
+
     it('时长按小时为主，不到一小时回到分', () => {
         expect(trendValueText(180, 'minutes')).toBe('3 时');
         expect(trendValueText(150, 'minutes')).toBe('2.5 时');

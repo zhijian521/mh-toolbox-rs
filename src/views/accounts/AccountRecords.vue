@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ALL_OPTIONS as ALL } from '../../components/select-options';
-import { computed, ref, toRefs, useId, watch } from 'vue';
+import { computed, inject, ref, toRefs, useId, watch } from 'vue';
 import { useRecordScroll } from '../../composables/use-record-filters';
 import LoadNotice from '../../components/LoadNotice.vue';
 import { ledgerMoneyText } from '../../services/format';
@@ -10,6 +10,10 @@ import PressButton from '../../components/PressButton.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
 import SelectField from '../../components/SelectField.vue';
 import StatStrip from '../../components/StatStrip.vue';
+import { glassLedger } from '../../components/glass-ledger';
+import { GlassSearch } from '../../components/liquid-glass';
+import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
+import GlassTable from '../../components/liquid-glass/GlassTable.vue';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { notify } from '../../composables/use-notify';
 import { usePagination } from '../../composables/use-pagination';
@@ -35,6 +39,8 @@ import { accountSummaryBooks } from './account-summary';
 
 defineProps<{ reloadLedger?: () => Promise<void> }>();
 const emit = defineEmits<{ close: []; edit: [entry: AccountEntry] }>();
+const glass = inject(glassLedger, null);
+const FilterSelect = glass ? GlassSelect : SelectField;
 const filters = defineModel<AccountRecordFilters>({ required: true });
 const {
     currency,
@@ -92,17 +98,23 @@ const whoOptions = computed(() =>
 );
 const moreFiltersOpen = ref(false);
 const filterPanelId = useId();
+const filterFields = computed(
+    () =>
+        [
+            { key: 'currency', label: '币种筛选', options: currencyOptions },
+            { key: 'kind', label: '方向筛选', options: kindOptions },
+            { key: 'category', label: '分类筛选', options: categoryOptions.value },
+            { key: 'channel', label: '渠道筛选', options: channelOptions.value },
+            { key: 'who', label: '角色筛选', options: whoOptions.value },
+            { key: 'source', label: '来源筛选', options: sourceOptions },
+        ] as const,
+);
 const activeFilterLabels = computed(() =>
-    [
-        { value: currency.value, options: currencyOptions },
-        { value: kind.value, options: kindOptions },
-        { value: category.value, options: categoryOptions.value },
-        { value: channel.value, options: channelOptions.value },
-        { value: who.value, options: whoOptions.value },
-        { value: source.value, options: sourceOptions },
-    ]
-        .filter((one) => one.value !== ALL)
-        .map((one) => one.options.find((option) => option.value === one.value)?.label ?? one.value),
+    filterFields.value.flatMap(({ key, options }) => {
+        const value = filters.value[key];
+        if (value === ALL) return [];
+        return [options.find((option) => option.value === value)?.label ?? value];
+    }),
 );
 const filtered = computed(() => {
     const word = keyword.value.trim().toLocaleLowerCase();
@@ -195,16 +207,25 @@ async function remove(one: AccountEntry) {
             :load="reloadLedger ?? loadAccounts"
             :blocked="pending > 0 || !!writeError || removing"
         />
-        <div class="account-record-controls">
+        <div class="account-record-controls" :class="{ 'lg-form-fields': glass }">
             <div class="account-record-toolbar">
                 <div class="record-filters account-record-search">
                     <DateRangeField
                         v-model:from="from"
                         v-model:to="to"
-                        from-label="账号历史开始日期"
-                        to-label="账号历史结束日期"
+                        :glass="!!glass"
+                        :from-label="glass ? '开始日期' : '账号历史开始日期'"
+                        :to-label="glass ? '结束日期' : '账号历史结束日期'"
+                    />
+                    <GlassSearch
+                        v-if="glass"
+                        v-model:value="keyword"
+                        class="filter-search"
+                        placeholder="搜索记录或物品"
+                        aria-label="搜索记录"
                     />
                     <input
+                        v-else
                         v-model="keyword"
                         class="field filter-search"
                         type="search"
@@ -225,7 +246,8 @@ async function remove(one: AccountEntry) {
                         class="account-record-filter-toggle"
                         icon="chevron-down"
                         :text="
-                            '筛选' + (activeFilterLabels.length ? ' · ' + activeFilterLabels.length : '')
+                            '筛选' +
+                            (activeFilterLabels.length ? ' · ' + activeFilterLabels.length : '')
                         "
                         label="展开或收起账号筛选"
                         :aria-expanded="moreFiltersOpen"
@@ -245,12 +267,14 @@ async function remove(one: AccountEntry) {
                 role="group"
                 aria-label="账号记录筛选"
             >
-                <SelectField v-model="currency" :options="currencyOptions" label="币种筛选" />
-                <SelectField v-model="kind" :options="kindOptions" label="方向筛选" />
-                <SelectField v-model="category" :options="categoryOptions" label="分类筛选" />
-                <SelectField v-model="channel" :options="channelOptions" label="渠道筛选" />
-                <SelectField v-model="who" :options="whoOptions" label="角色筛选" />
-                <SelectField v-model="source" :options="sourceOptions" label="来源筛选" />
+                <FilterSelect
+                    v-for="field in filterFields"
+                    :key="field.key"
+                    v-model="filters[field.key]"
+                    :options="field.options"
+                    :label="field.label"
+                    :hide-label="glass ? true : undefined"
+                />
             </div>
         </div>
         <div v-if="!loadError" class="record-summary account-record-summary">
@@ -258,7 +282,7 @@ async function remove(one: AccountEntry) {
                 v-for="one in sums"
                 :key="one.currency"
                 class="account-record-total"
-                surface="folded"
+                :surface="glass ? 'glass' : 'folded'"
                 spine="left"
                 :heading="one.heading"
                 :hint="one.hint"
@@ -279,7 +303,13 @@ async function remove(one: AccountEntry) {
                               : '还没有账号记录'
                     }}
                 </p>
-                <table v-else class="income-table rec-table">
+                <component
+                    :is="glass ? GlassTable : 'table'"
+                    v-else
+                    class="rec-table"
+                    :class="{ 'income-table': !glass }"
+                    :sticky-header="glass ? true : undefined"
+                >
                     <thead>
                         <tr>
                             <th>日期</th>
@@ -295,7 +325,8 @@ async function remove(one: AccountEntry) {
                         <tr v-for="one in visible" :key="one.id">
                             <td class="c-date">{{ one.date }}</td>
                             <td class="c-category">
-                                {{ one.category }}<small v-if="one.source === 'auto'">自动同步</small>
+                                {{ one.category
+                                }}<small v-if="one.source === 'auto'">自动同步</small>
                             </td>
                             <td
                                 class="c-note"
@@ -343,27 +374,51 @@ async function remove(one: AccountEntry) {
                             </td>
                         </tr>
                     </tbody>
-                </table>
+                </component>
             </div>
         </div>
-        <template #footer>
-            <span v-if="loadError" class="record-foot-note">读取失败</span>
-            <span v-else class="record-foot-note"
-                >{{ filtered.length }} 笔{{ anyFilter ? ' · 已筛选' : '' }}</span
-            >
-            <RecordPager v-if="!loadError" v-model="page" :pages="pages" />
-            <PressButton
-                data-modal-cancel
-                text="关闭"
-                label="关闭账号历史记录"
-                :disabled="removing"
-                @click="emit('close')"
-            />
+        <template v-if="!glass || (!loadError && pages > 1)" #footer>
+            <div class="account-history-footer" :class="{ 'with-close': !glass }">
+                <RecordPager v-if="!loadError" v-model="page" :pages="pages" />
+                <PressButton
+                    v-if="!glass"
+                    data-modal-cancel
+                    text="关闭"
+                    label="关闭账号历史记录"
+                    :disabled="removing"
+                    @click="emit('close')"
+                />
+            </div>
         </template>
     </ModalShell>
 </template>
 
 <style scoped>
+.account-history-footer {
+    display: grid;
+    align-items: center;
+    justify-items: center;
+    width: 100%;
+}
+.account-history-footer.with-close {
+    grid-template-columns: minmax(0, 1fr) minmax(0, max-content) minmax(0, 1fr);
+}
+.with-close .record-pager {
+    grid-column: 2;
+}
+.with-close [data-modal-cancel] {
+    grid-column: 3;
+    justify-self: end;
+}
+@media (max-width: 540px) {
+    .account-history-footer.with-close {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 6px;
+    }
+    .with-close :is(.record-pager, [data-modal-cancel]) {
+        grid-column: 1;
+    }
+}
 .account-record-controls {
     --record-field-w: calc(148px * var(--fs-scale));
 
@@ -412,7 +467,7 @@ async function remove(one: AccountEntry) {
     display: flex;
     flex-wrap: wrap;
 }
-.account-record-filter-grid :deep(.select-field) {
+.account-record-filter-grid > :is(.select-field, .glass-select) {
     flex: 0 1 var(--record-field-w);
     width: var(--record-field-w);
     min-width: 0;
@@ -426,8 +481,9 @@ async function remove(one: AccountEntry) {
 }
 .account-record-total {
     --stat-columns: 3;
-    --folded-pad-block: 10px 12px;
-    --folded-pad-inline: 12px;
+    --block-pad: 18px;
+    --folded-pad-block: var(--block-pad);
+    --folded-pad-inline: var(--block-pad);
     --stats-ink: var(--accent);
 
     min-width: 0;

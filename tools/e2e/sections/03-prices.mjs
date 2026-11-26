@@ -113,16 +113,25 @@ export default async function run(ctx) {
                 return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
             })()`);
             await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...center });
-            t.check('悬停一级时二级展开在右侧，一级仍可见', await cdp.waitFor(`(() => {
+            t.check(
+                '悬停一级时二级展开在右侧，一级仍可见',
+                await cdp.waitFor(`(() => {
                 const group = document.querySelector(${JSON.stringify(equipmentGroup)});
                 const child = document.querySelector('[aria-label="装备灵饰的二级分类"]');
                 return !!child && child.getBoundingClientRect().left >= group.getBoundingClientRect().right;
-            })()`));
+            })()`),
+            );
             await cdp.evaluate(`document.querySelector(${JSON.stringify(equipmentGroup)}).focus()`);
             await cdp.key('ArrowRight');
-            t.check('右键进入二级列表', await cdp.evaluate(`document.activeElement?.dataset.level === '2'`));
+            t.check(
+                '右键进入二级列表',
+                await cdp.evaluate(`document.activeElement?.dataset.level === '2'`),
+            );
             await cdp.key('ArrowLeft');
-            t.check('左键回到一级分类', await cdp.evaluate(`document.activeElement?.dataset.group === '装备灵饰'`));
+            t.check(
+                '左键回到一级分类',
+                await cdp.evaluate(`document.activeElement?.dataset.group === '装备灵饰'`),
+            );
             await ui.clickText('.cascade-option[data-level="2"]', '自定义子类', { exact: true });
             t.check(
                 '选择自定义后焦点进入子类输入框',
@@ -158,7 +167,8 @@ export default async function run(ctx) {
             await ui.clickText('.cascade-option[data-level="2"]', 'E2E试验子类', { exact: true });
             t.check(
                 '按自定义子类筛选只显示新物品',
-                (await ui.count('article.price-card')) === 1 && (await ui.text()).includes('E2E测试物品'),
+                (await ui.count('article.price-card')) === 1 &&
+                    (await ui.text()).includes('E2E测试物品'),
             );
             t.check(
                 '自定义二级分类沿用一级分类的玻璃色，卡片直接放在公共台面上',
@@ -294,8 +304,7 @@ export default async function run(ctx) {
             await cdp.click('.modal-panel[aria-modal="true"] [data-modal-close]');
             t.check(
                 '确认窗关闭图标取消删除并保留物品',
-                (await ui.waitFor(historyReady)) &&
-                    (await ui.text()).includes('E2E测试物品'),
+                (await ui.waitFor(historyReady)) && (await ui.text()).includes('E2E测试物品'),
             );
             await ui.clickLabel('删除这件物品');
             await sleep(400);

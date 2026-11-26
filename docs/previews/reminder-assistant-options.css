@@ -455,10 +455,20 @@
     font-size: var(--fs-sm);
 }
 
-.fengyao-mark { background: var(--seal); }
-.yaowang-mark { background: var(--ochre); }
-.yecha-mark { background: var(--indigo); color: var(--indigo-ink); }
-.yiguan-mark { background: var(--paper-2); color: var(--ink-2); }
+.fengyao-mark {
+    background: var(--seal);
+}
+.yaowang-mark {
+    background: var(--ochre);
+}
+.yecha-mark {
+    background: var(--indigo);
+    color: var(--indigo-ink);
+}
+.yiguan-mark {
+    background: var(--paper-2);
+    color: var(--ink-2);
+}
 
 .toggle-pill {
     position: relative;

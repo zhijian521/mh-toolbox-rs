@@ -166,7 +166,8 @@ fn daily_backup_at(base: &Path, now: i64) -> Result<(), String> {
     let _writer = BACKUP_WRITER.lock().map_err(|err| err.to_string())?;
     let dir = base.join("backups");
     let entries = backup_entries(&dir)?;
-    if last_daily_at(&dir, &entries, now)?.is_some_and(|last| now.saturating_sub(last) < 86_400_000) {
+    if last_daily_at(&dir, &entries, now)?.is_some_and(|last| now.saturating_sub(last) < 86_400_000)
+    {
         prune_backups(&dir, &entries);
         return Ok(());
     }

@@ -82,12 +82,17 @@ describe('提醒助手偏好持久化', () => {
     });
 
     it('旧四类设置保留原选择，二十八星宿默认关闭', () => {
-        const old = { ...preferences, speechEnabled: true,
-            reminders: preferences.reminders.filter(({ kind }) => kind !== 'stars' && kind !== 'nursery'),
+        const old = {
+            ...preferences,
+            speechEnabled: true,
+            reminders: preferences.reminders.filter(
+                ({ kind }) => kind !== 'stars' && kind !== 'nursery',
+            ),
         };
         vi.stubGlobal('localStorage', { getItem: () => JSON.stringify(old) });
         expect(readFengyaoPreferences()).toEqual({
-            ok: true, value: { ...preferences, speechEnabled: true },
+            ok: true,
+            value: { ...preferences, speechEnabled: true },
         });
     });
 
@@ -95,9 +100,15 @@ describe('提醒助手偏好持久化', () => {
         const reminders = preferences.reminders.map((entry) =>
             entry.kind === 'stars' ? { ...entry, enabled: true } : entry,
         );
-        const old = { ...preferences, reminders: reminders.filter(({ kind }) => kind !== 'nursery') };
+        const old = {
+            ...preferences,
+            reminders: reminders.filter(({ kind }) => kind !== 'nursery'),
+        };
         vi.stubGlobal('localStorage', { getItem: () => JSON.stringify(old) });
-        expect(readFengyaoPreferences()).toEqual({ ok: true, value: { ...preferences, reminders } });
+        expect(readFengyaoPreferences()).toEqual({
+            ok: true,
+            value: { ...preferences, reminders },
+        });
     });
 
     it.each([
@@ -176,7 +187,8 @@ describe('总览按上次设置启动提醒助手', () => {
     it('找回聊天窗口句柄，沿用地图设置并忽略旧选区', async () => {
         const session = mockSession();
         vi.stubGlobal('localStorage', {
-            getItem: () => JSON.stringify({ ...preferences, speechEnabled: true, region: legacy.region }),
+            getItem: () =>
+                JSON.stringify({ ...preferences, speechEnabled: true, region: legacy.region }),
         });
         await expect(startSavedFengyao()).resolves.toBe('started');
         expect(session.capture).toHaveBeenCalledWith(window.hwnd);

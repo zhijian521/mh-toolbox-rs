@@ -60,7 +60,11 @@ const uid = useId();
 
              上限缺席（老数据）时那一排刻度与分母一起不画：没有分母的百分比是编出来的。 -->
         <GroupHead v-if="rows.length" class="school-head">门派技能</GroupHead>
-        <div v-if="rows.length" class="slip-rows slip-cols">
+        <div
+            v-if="rows.length"
+            class="slip-rows slip-cols"
+            :class="{ 'school-edit-list': editable }"
+        >
             <!-- 一行是 `SkillRow`：图标 / 名称 + 等级签。卡上只读、弹窗里可编辑，
                  两处共用同一份解剖与同一组尺寸（行内边距、印的大小、数字格的厚薄
                  都在那个组件里量过一次）。 -->

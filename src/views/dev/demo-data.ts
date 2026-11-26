@@ -241,7 +241,9 @@ function blankCharacter(): CharacterData {
 
 /** 导入用的四个角色，**每份都是新副本**（`normalizeCharacter` 逐字段新建）。 */
 export function demoCharacters(): CharacterData[] {
-    return [...CHARACTERS, maxedCharacter(), blankCharacter()].map((one) => identifyCharacterAssets(normalizeCharacter(one), true));
+    return [...CHARACTERS, maxedCharacter(), blankCharacter()].map((one) =>
+        identifyCharacterAssets(normalizeCharacter(one), true),
+    );
 }
 
 /* ======================================================================
@@ -450,10 +452,15 @@ export function buildDemoData(now = new Date()) {
             title: '模拟 · 攒一套装备钱',
             target: 3000,
             unit: '万',
-            logs: [{
-                id: 'demo-goal-deposit', date: today, delta: 850,
-                note: '起步存款', createdAt: stamp,
-            }],
+            logs: [
+                {
+                    id: 'demo-goal-deposit',
+                    date: today,
+                    delta: 850,
+                    note: '起步存款',
+                    createdAt: stamp,
+                },
+            ],
         },
         {
             ...baseGoal,
@@ -462,10 +469,15 @@ export function buildDemoData(now = new Date()) {
             title: '模拟 · 凑齐装备',
             target: 6,
             unit: '件',
-            logs: [{
-                id: 'demo-goal-gear-log', date: today, delta: 2,
-                note: '已备两件', createdAt: stamp,
-            }],
+            logs: [
+                {
+                    id: 'demo-goal-gear-log',
+                    date: today,
+                    delta: 2,
+                    note: '已备两件',
+                    createdAt: stamp,
+                },
+            ],
         },
         {
             ...baseGoal,
@@ -474,14 +486,21 @@ export function buildDemoData(now = new Date()) {
             title: '模拟 · 每周副本',
             target: 20,
             unit: '次',
-            logs: [{
-                id: 'demo-goal-manual-log', date: today, delta: 6,
-                note: '已完成六次', createdAt: stamp,
-            }],
+            logs: [
+                {
+                    id: 'demo-goal-manual-log',
+                    date: today,
+                    delta: 6,
+                    note: '已完成六次',
+                    createdAt: stamp,
+                },
+            ],
         },
     );
     const stock = demoWarehouseItems().map((item) => ({
-        ...item, createdAt: stamp, updatedAt: stamp,
+        ...item,
+        createdAt: stamp,
+        updatedAt: stamp,
     }));
     const pet = stock.find((one) => one.kind === 'pet')!;
     const bought = { ...pet, id: 'demo-bought-pet' };
@@ -503,20 +522,36 @@ export function buildDemoData(now = new Date()) {
     const accounts: AccountEntry[] = [
         entry('demo-account-card', { category: '点卡充值', channel: '官方充值', amount: 50 }),
         entry('demo-account-cash-in', {
-            category: '游戏币买入', currency: 'cash', kind: 'income', amount: wan(1000),
+            category: '游戏币买入',
+            currency: 'cash',
+            kind: 'income',
+            amount: wan(1000),
         }),
         entry('demo-account-rmb-out', { category: '游戏币买入', channel: '藏宝阁', amount: 80 }),
-        entry('demo-account-cash-out', { category: '游戏币卖出', currency: 'cash', amount: wan(600) }),
+        entry('demo-account-cash-out', {
+            category: '游戏币卖出',
+            currency: 'cash',
+            amount: wan(600),
+        }),
         entry('demo-account-rmb-in', {
-            category: '游戏币卖出', channel: '藏宝阁', kind: 'income', amount: 45.5,
+            category: '游戏币卖出',
+            channel: '藏宝阁',
+            kind: 'income',
+            amount: 45.5,
         }),
         entry('demo-account-pet-buy', { category: '召唤兽交易', amount: 3500, assets: [bought] }),
         entry('demo-account-gear-sale', {
-            category: '装备交易', kind: 'income', amount: 1800, assets: [sold],
+            category: '装备交易',
+            kind: 'income',
+            amount: 1800,
+            assets: [sold],
         }),
     ];
     const fixed = quickItems().fixed.slice(0, 3);
-    const quickPrices = fixed.map((item, index) => ({ itemId: item.id, price: wan(5 + index * 3) }));
+    const quickPrices = fixed.map((item, index) => ({
+        itemId: item.id,
+        price: wan(5 + index * 3),
+    }));
     // 固定单价和物价同名卡使用相同当前价，避免启动联动改写这份初始场景。
     for (const [index, item] of fixed.entries()) {
         const existing = prices.find((one) => one.name === item.name);

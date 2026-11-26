@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, inject, onBeforeUnmount, ref, watch } from 'vue';
+import { glassLedger } from '../../components/glass-ledger';
+import { GlassSegment, GlassSegmented } from '../../components/liquid-glass';
 import LedgerSection from '../../components/LedgerSection.vue';
 import TextButton from '../../components/TextButton.vue';
 import PressTile from '../../components/PressTile.vue';
@@ -23,6 +25,7 @@ const emit = defineEmits<{
 
 const { prices, target, recordEntry, setTarget, mergePrices, flush } = useIncome();
 const { roster } = useRoster();
+const glass = inject(glassLedger, null);
 
 // 玻璃版允许游戏资源读取失败后在原页重试。
 const groups = computed(() => (gameDataReady.value ? quickItems() : { fixed: [], variable: [] }));
@@ -165,7 +168,7 @@ async function importPrices() {
 </script>
 
 <template>
-    <LedgerSection title="物品速记" plain>
+    <LedgerSection title="物品速记" class="quick-panel" plain>
         <template #actions>
             <div class="prices-io" role="group" aria-label="物品单价管理">
                 <TextButton
@@ -184,7 +187,25 @@ async function importPrices() {
         </template>
 
         <div class="targets">
+            <GlassSegmented
+                v-if="glass"
+                :value="target[0] ?? ''"
+                class="lg-status-tabs"
+                data-size="compact"
+                aria-label="指定人"
+                @update:value="onTarget"
+            >
+                <GlassSegment
+                    v-for="option in targetOptions"
+                    :key="option.value"
+                    :value="option.value"
+                    :title="option.label"
+                >
+                    {{ option.label }}
+                </GlassSegment>
+            </GlassSegmented>
             <SegmentedPills
+                v-else
                 :model-value="target[0] ?? ''"
                 :options="targetOptions"
                 label="指定人"

@@ -319,7 +319,11 @@ onBeforeUnmount(() => {
                         <ol v-if="recentAlerts.length" class="fy-reminders">
                             <li v-for="alert in recentAlerts" :key="alert.id" class="fy-event">
                                 <span class="fy-mark" aria-hidden="true">
-                                    <img :src="reminderPortraits[alert.kind]" alt="" draggable="false" />
+                                    <img
+                                        :src="reminderPortraits[alert.kind]"
+                                        alt=""
+                                        draggable="false"
+                                    />
                                 </span>
                                 <div class="fy-event-body">
                                     <button
@@ -327,15 +331,21 @@ onBeforeUnmount(() => {
                                         class="fy-reminder"
                                         :aria-expanded="openAlertId === alert.id"
                                         :aria-controls="`${alertTextId}-${alert.id}`"
-                                        @click="openAlertId = openAlertId === alert.id ? null : alert.id"
+                                        @click="
+                                            openAlertId = openAlertId === alert.id ? null : alert.id
+                                        "
                                     >
-                                        <span class="fy-kind">{{ reminderLabels[alert.kind] }}</span>
+                                        <span class="fy-kind">{{
+                                            reminderLabels[alert.kind]
+                                        }}</span>
                                         <time :datetime="new Date(alert.at).toISOString()">
                                             {{ timeText(new Date(alert.at)) }}
                                         </time>
                                         <span class="fy-place">
                                             {{ alert.scene || '查看公告' }}
-                                            <small v-if="alert.coordinates">坐标 {{ alert.coordinates }}</small>
+                                            <small v-if="alert.coordinates"
+                                                >坐标 {{ alert.coordinates }}</small
+                                            >
                                         </span>
                                         <AppIcon name="chevron-down" aria-hidden="true" />
                                     </button>
@@ -343,7 +353,9 @@ onBeforeUnmount(() => {
                                         v-show="openAlertId === alert.id"
                                         :id="`${alertTextId}-${alert.id}`"
                                         class="fy-transcript fy-alert-text"
-                                    >{{ alert.text }}</p>
+                                    >
+                                        {{ alert.text }}
+                                    </p>
                                 </div>
                             </li>
                         </ol>
@@ -400,7 +412,11 @@ onBeforeUnmount(() => {
                                 @click="act(refreshWindows)"
                             />
                         </div>
-                        <p class="fy-status" role="status" :class="{ live: running && !statusError && !status?.error }">
+                        <p
+                            class="fy-status"
+                            role="status"
+                            :class="{ live: running && !statusError && !status?.error }"
+                        >
                             {{ stateText }}
                         </p>
                         <div class="fy-speech">
@@ -432,7 +448,11 @@ onBeforeUnmount(() => {
                             <div v-for="setting in reminders" :key="setting.kind" class="fy-type">
                                 <div class="fy-type-row">
                                     <span class="fy-mark" aria-hidden="true">
-                                        <img :src="reminderPortraits[setting.kind]" alt="" draggable="false" />
+                                        <img
+                                            :src="reminderPortraits[setting.kind]"
+                                            alt=""
+                                            draggable="false"
+                                        />
                                     </span>
                                     <div class="fy-type-copy">
                                         <h4>{{ reminderLabels[setting.kind] }}</h4>
@@ -472,7 +492,9 @@ onBeforeUnmount(() => {
                                                 ? `封妖地图 · 已选 ${setting.scenes.length} 个`
                                                 : '封妖地图 · 全部地图'
                                         }}
-                                        <AppIcon :name="mapsOpen ? 'chevron-down' : 'chevron-right'" />
+                                        <AppIcon
+                                            :name="mapsOpen ? 'chevron-down' : 'chevron-right'"
+                                        />
                                     </button>
                                     <div v-show="mapsOpen" id="fy-maps-fengyao">
                                         <div v-if="glass" class="fy-map-picker">
@@ -487,11 +509,18 @@ onBeforeUnmount(() => {
                                                 size="sm"
                                                 text="全部地图"
                                                 label="恢复全部地图"
-                                                :disabled="busy || !status || !setting.scenes.length"
+                                                :disabled="
+                                                    busy || !status || !setting.scenes.length
+                                                "
                                                 @click="pickScenes(setting, [])"
                                             />
                                         </div>
-                                        <div v-else class="fy-map-grid" role="group" aria-label="封妖地图">
+                                        <div
+                                            v-else
+                                            class="fy-map-grid"
+                                            role="group"
+                                            aria-label="封妖地图"
+                                        >
                                             <button
                                                 type="button"
                                                 :aria-pressed="!setting.scenes.length"
@@ -517,7 +546,9 @@ onBeforeUnmount(() => {
                         </section>
                         <details class="fy-details fy-guide">
                             <summary>使用说明</summary>
-                            <p>在游戏中将聊天区单独弹出，保持窗口可见，避免最小化或隐藏。请显示系统频道，并将聊天记录停留在最新消息。</p>
+                            <p>
+                                在游戏中将聊天区单独弹出，保持窗口可见，避免最小化或隐藏。请显示系统频道，并将聊天记录停留在最新消息。
+                            </p>
                         </details>
                     </div>
                 </component>

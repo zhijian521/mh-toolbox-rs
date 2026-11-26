@@ -17,7 +17,10 @@ const emit = defineEmits<{ close: []; restore: [entry: BackupEntry]; refresh: []
 
 <template>
     <ModalShell title="备份与恢复" :width="660" :min-height="360" @close="!busy && emit('close')">
-        <p class="note">日常备份间隔至少 24 小时；日常与替换前备份合计保留最近 5 份，较早的会自动清理；恢复前另存当前账本。</p>
+        <p class="note">
+            日常备份间隔至少 24 小时；日常与替换前备份合计保留最近 5
+            份，较早的会自动清理；恢复前另存当前账本。
+        </p>
         <p v-if="warning" class="note error" role="alert">自动备份未完成：{{ warning }}</p>
         <p v-if="error" class="note error" role="alert">{{ error }}</p>
         <p v-if="restoreError" class="note error" role="alert">{{ restoreError }}</p>

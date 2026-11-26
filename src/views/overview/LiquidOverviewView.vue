@@ -12,7 +12,7 @@ import { fengyaoStatus, startSavedFengyao, stopFengyao } from '../../services/fe
 import { accountValueText } from '../accounts/account-analysis';
 import { rangeOf } from '../accounts/accounts';
 import { deadlineText, kindMeta } from '../goals/goals';
-import { clockText, onlineTotalsOf, ownersOf } from '../income/online';
+import { clockText, onlineTotalsOf } from '../income/online';
 import LiquidTeamCard from './LiquidTeamCard.vue';
 import { useLiquidOverviewData } from './liquid-overview-data';
 import { activeGoals, weekSeries, workbenchSummary } from './overview';
@@ -45,13 +45,9 @@ const moneyDirections = ['income', 'expense'] as const;
 const trendNote = computed(() => {
     if (income.loadError.value) return '收益未读取';
     if (week.value.some(({ net }) => net !== 0)) return '';
-    return week.value.some(({ count }) => count > 0) ? '近七天每日净额均为零' : '近七天暂无速记记录';
-});
-const onlineCount = computed(() => {
-    const onlineIds = new Set(
-        online.sessions.value.filter(({ endAt }) => endAt === null).flatMap(ownersOf),
-    );
-    return roster.roster.value.filter(({ id }) => onlineIds.has(id)).length;
+    return week.value.some(({ count }) => count > 0)
+        ? '近七天每日净额均为零'
+        : '近七天暂无速记记录';
 });
 const trend = computed(() => [
     { id: 'net', name: '净额', values: week.value.map(({ net }) => net) },
@@ -114,19 +110,19 @@ onMounted(() => {
                 <GlassButton size="small" @click="loadOverview">重试</GlassButton>
             </GlassCard>
 
-            <section aria-labelledby="overview-workbench-title">
-                <GlassCard class="overview-card workbench" :radius="20">
-                    <header class="workbench-intro">
-                        <div class="workbench-heading">
-                            <h2 id="overview-workbench-title">工作台</h2>
-                            <span
-                                v-if="!roster.loadError.value && !online.loadError.value"
-                                class="online-count"
-                                :class="{ 'is-active': onlineCount > 0 }"
-                            >
-                                {{ onlineCount ? `${onlineCount} 个在线` : '暂无角色在线' }}
-                            </span>
-                        </div>
+            <section class="workbench" aria-labelledby="overview-workbench-title">
+                <header class="workbench-intro">
+                    <div class="workbench-heading">
+                        <h2 id="overview-workbench-title">工作台</h2>
+                    </div>
+                </header>
+                <div class="overview-periods">
+                    <GlassCard
+                        class="overview-card workbench-period workbench-shortcuts"
+                        :radius="18"
+                        aria-labelledby="overview-shortcuts-title"
+                    >
+                        <h3 id="overview-shortcuts-title">快捷操作</h3>
                         <div class="workbench-actions">
                             <GlassButton
                                 size="small"
@@ -136,6 +132,7 @@ onMounted(() => {
                             >
                                 <AppIcon name="play" />上线
                             </GlassButton>
+
                             <GlassButton
                                 size="small"
                                 class="overview-workbench-action"
@@ -144,107 +141,123 @@ onMounted(() => {
                             >
                                 <AppIcon name="edit" />记一笔
                             </GlassButton>
+
                             <GlassButton
                                 size="small"
                                 class="overview-workbench-action"
                                 aria-label="打开装备和召唤兽仓库"
-                                @click="router.push({ name: 'accounts', query: { action: 'warehouse' } })"
+                                @click="
+                                    router.push({
+                                        name: 'accounts',
+                                        query: { action: 'warehouse' },
+                                    })
+                                "
                             >
                                 <AppIcon name="archive" />仓库
                             </GlassButton>
+
                             <GlassButton
                                 v-if="desktop"
                                 size="small"
                                 class="overview-workbench-action"
-                                :aria-label="fengyaoRunning ? '停止公告监听' : '按上次设置开启提醒助手'"
+                                :aria-label="
+                                    fengyaoRunning ? '停止公告监听' : '按上次设置开启提醒助手'
+                                "
                                 :disabled="fengyaoBusy"
                                 @click="toggleFengyaoFromOverview"
                             >
                                 <AppIcon :name="fengyaoRunning ? 'stop' : 'notice'" />
+
                                 {{ fengyaoRunning ? '停止提醒' : '开启提醒' }}
                             </GlassButton>
                         </div>
-                    </header>
-                    <div class="overview-periods">
-                        <section class="workbench-period" aria-labelledby="overview-week-title">
-                            <h3 id="overview-week-title">
-                                <span class="period-icon"><AppIcon name="calendar" /></span>
-                                近一周
-                            </h3>
-                            <dl class="workbench-metrics">
-                                <div class="week-net">
-                                    <dt>速记净额</dt>
-                                    <dd>
+                    </GlassCard>
+                    <GlassCard
+                        class="overview-card workbench-period"
+                        :radius="18"
+                        aria-labelledby="overview-week-title"
+                    >
+                        <h3 id="overview-week-title">
+                            <span class="period-icon"><AppIcon name="calendar" /></span>
+                            近一周
+                        </h3>
+                        <dl class="workbench-metrics">
+                            <div class="week-net">
+                                <dt>速记净额</dt>
+                                <dd>
+                                    {{
+                                        income.loadError.value
+                                            ? '未读取'
+                                            : accountValueText(weekTotal, 'cash')
+                                    }}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt>在线时长</dt>
+                                <dd>
+                                    {{
+                                        online.loadError.value
+                                            ? '未读取'
+                                            : clockText(weekOnline.minutes)
+                                    }}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt>点卡消耗</dt>
+                                <dd>
+                                    {{
+                                        online.loadError.value
+                                            ? '未读取'
+                                            : accountValueText(weekOnline.cost, 'cash')
+                                    }}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt>进行中目标</dt>
+                                <dd>{{ goalsUnavailable ? '未读取' : `${ongoing.length} 项` }}</dd>
+                            </div>
+                        </dl>
+                    </GlassCard>
+                    <GlassCard
+                        class="overview-card workbench-period"
+                        :radius="18"
+                        aria-labelledby="overview-month-title"
+                    >
+                        <h3 id="overview-month-title">
+                            <span class="period-icon"><AppIcon name="accounts" /></span>
+                            近一个月
+                        </h3>
+                        <table class="month-ledger" aria-labelledby="overview-month-title">
+                            <thead>
+                                <tr>
+                                    <th scope="col">币种</th>
+                                    <th scope="col">收入</th>
+                                    <th scope="col">支出</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="book in workbench.books" :key="book.currency">
+                                    <th scope="row">{{ book.label }}</th>
+                                    <td
+                                        v-for="kind in moneyDirections"
+                                        :key="kind"
+                                        :data-kind="
+                                            !accounts.loadError.value && book.stats[kind] > 0
+                                                ? kind
+                                                : undefined
+                                        "
+                                    >
                                         {{
-                                            income.loadError.value
+                                            accounts.loadError.value
                                                 ? '未读取'
-                                                : accountValueText(weekTotal, 'cash')
+                                                : accountValueText(book.stats[kind], book.currency)
                                         }}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt>在线时长</dt>
-                                    <dd>
-                                        {{
-                                            online.loadError.value
-                                                ? '未读取'
-                                                : clockText(weekOnline.minutes)
-                                        }}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt>点卡消耗</dt>
-                                    <dd>
-                                        {{
-                                            online.loadError.value
-                                                ? '未读取'
-                                                : accountValueText(weekOnline.cost, 'cash')
-                                        }}
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt>进行中目标</dt>
-                                    <dd>{{ goalsUnavailable ? '未读取' : `${ongoing.length} 项` }}</dd>
-                                </div>
-                            </dl>
-                        </section>
-                        <section class="workbench-period" aria-labelledby="overview-month-title">
-                            <h3 id="overview-month-title">
-                                <span class="period-icon"><AppIcon name="accounts" /></span>
-                                近一个月
-                            </h3>
-                            <table class="month-ledger" aria-labelledby="overview-month-title">
-                                <thead>
-                                    <tr>
-                                        <th scope="col">币种</th>
-                                        <th scope="col">收入</th>
-                                        <th scope="col">支出</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="book in workbench.books" :key="book.currency">
-                                        <th scope="row">{{ book.label }}</th>
-                                        <td
-                                            v-for="kind in moneyDirections"
-                                            :key="kind"
-                                            :data-kind="
-                                                !accounts.loadError.value && book.stats[kind] > 0
-                                                    ? kind
-                                                    : undefined
-                                            "
-                                        >
-                                            {{
-                                                accounts.loadError.value
-                                                    ? '未读取'
-                                                    : accountValueText(book.stats[kind], book.currency)
-                                            }}
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </section>
-                    </div>
-                </GlassCard>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </GlassCard>
+                </div>
             </section>
 
             <div class="overview-focus">
@@ -265,7 +278,12 @@ onMounted(() => {
                 </section>
                 <section aria-labelledby="overview-goals-title">
                     <GlassCard class="overview-card overview-goal-card" :radius="18">
-                        <h2 id="overview-goals-title">进行中的目标</h2>
+                        <header class="overview-section-head">
+                            <h2 id="overview-goals-title">进行中的目标</h2>
+                            <GlassButton size="small" @click="router.push({ name: 'goals' })">
+                                查看全部
+                            </GlassButton>
+                        </header>
                         <div v-if="goalsUnavailable || !ongoing.length" class="overview-goal-empty">
                             <p class="overview-note">{{ goalEmptyText }}</p>
                             <GlassButton
@@ -282,21 +300,29 @@ onMounted(() => {
                             <li v-for="{ goal, summary } in ongoing.slice(0, 3)" :key="goal.id">
                                 <RouterLink
                                     class="overview-goal-link"
-                                    :to="{ name: 'goals', query: { action: 'update', goal: goal.id } }"
+                                    :to="{
+                                        name: 'goals',
+                                        query: { action: 'update', goal: goal.id },
+                                    }"
                                     :aria-label="`更新目标：${goal.title}`"
                                 >
                                     <div class="goal-copy">
                                         <h3>{{ goal.title }}</h3>
                                         <p class="goal-detail">
-                                            <span class="goal-kind">{{ kindMeta(goal.kind).label }}</span>
+                                            <span class="goal-kind">{{
+                                                kindMeta(goal.kind).label
+                                            }}</span>
                                             <span v-if="goal.tracking">
-                                                {{ summary.achieved }} / {{ summary.totalMembers }} 个角色达标
+                                                {{ summary.achieved }} /
+                                                {{ summary.totalMembers }} 个角色达标
                                             </span>
                                             <span v-else-if="goal.kind === 'combo'">
                                                 {{ summary.achieved }} / {{ summary.total }} 项达标
                                             </span>
                                             <span v-if="goal.deadline">
-                                                {{ deadlineText(goal.deadline, today, summary.done) }}
+                                                {{
+                                                    deadlineText(goal.deadline, today, summary.done)
+                                                }}
                                             </span>
                                         </p>
                                     </div>
@@ -345,7 +371,6 @@ onMounted(() => {
                     />
                 </div>
             </section>
-
         </template>
     </section>
 </template>

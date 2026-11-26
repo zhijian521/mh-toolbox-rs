@@ -4,6 +4,8 @@ import { useRovingFocus } from '../composables/use-roving-focus';
 import type { IconName } from '../components/icons';
 import { notify } from '../composables/use-notify';
 import AppIcon from '../components/AppIcon.vue';
+import TrendChart from '../components/TrendChart.vue';
+import CategoryBarChart from '../components/CategoryBarChart.vue';
 import {
     GlassButton,
     GlassCard,
@@ -39,23 +41,55 @@ import GlassSmallSwitch from '../components/liquid-glass/GlassSmallSwitch.vue';
 import GlassTable from '../components/liquid-glass/GlassTable.vue';
 import GlassSelect from '../components/liquid-glass/GlassSelect.vue';
 import { useLiquidPreferences } from '../composables/use-liquid-preferences';
-import { daysAgo, moneyText, todayText } from '../services/format';
+import { daysAgo, ledgerMoneyText, moneyText, todayText } from '../services/format';
 import { makeId } from '../services/shape';
 import LiquidPriceCard from './prices/LiquidPriceCard.vue';
 import LiquidPriceEditor from './prices/LiquidPriceEditor.vue';
-import { sortedPoints, type PriceItem, type PricePoint, type PricePointDraft } from './prices/prices';
+import {
+    sortedPoints,
+    type PriceItem,
+    type PricePoint,
+    type PricePointDraft,
+} from './prices/prices';
 
 const catalogSections = [
     { key: 'cards', label: '卡片', icon: 'card', description: '内容表面、价格走势与卡内操作。' },
-    { key: 'actions', label: '按钮与菜单', icon: 'dots', description: '行内操作、表单按钮与下拉菜单。' },
-    { key: 'inputs', label: '输入控件', icon: 'edit', description: '紧凑与标准尺寸，以及错误、禁用状态。' },
-    { key: 'choices', label: '选择控件', icon: 'settings', description: '开关、滑块、单选、多选与标签栏。' },
-    { key: 'surfaces', label: '容器与表面', icon: 'grid', description: '表格、紧凑分页、工具栏与滚动区域。' },
-    { key: 'feedback', label: '反馈与弹层', icon: 'info', description: '消息提示、表单弹窗、历史面板与空状态。' },
+    {
+        key: 'actions',
+        label: '按钮与菜单',
+        icon: 'dots',
+        description: '行内操作、表单按钮与下拉菜单。',
+    },
+    {
+        key: 'inputs',
+        label: '输入控件',
+        icon: 'edit',
+        description: '紧凑与标准尺寸，以及错误、禁用状态。',
+    },
+    {
+        key: 'choices',
+        label: '选择控件',
+        icon: 'settings',
+        description: '开关、滑块、单选、多选与标签栏。',
+    },
+    {
+        key: 'surfaces',
+        label: '容器与表面',
+        icon: 'grid',
+        description: '表格、紧凑分页、工具栏与滚动区域。',
+    },
+    {
+        key: 'feedback',
+        label: '反馈与弹层',
+        icon: 'info',
+        description: '消息提示、表单弹窗、历史面板与空状态。',
+    },
 ] as const satisfies readonly { key: string; label: string; icon: IconName; description: string }[];
 type CatalogSection = (typeof catalogSections)[number]['key'];
 const activeSection = ref<CatalogSection>('cards');
-const activeGroup = computed(() => catalogSections.find(item => item.key === activeSection.value)!);
+const activeGroup = computed(() =>
+    catalogSections.find((item) => item.key === activeSection.value)!,
+);
 const gallery = ref<HTMLElement | null>(null);
 const scrollPositions = new Map<CatalogSection, number>();
 async function selectSection(key: CatalogSection) {
@@ -68,13 +102,38 @@ async function selectSection(key: CatalogSection) {
     }
 }
 const { cells, tabIndexFor, onKeydown } = useRovingFocus<CatalogSection>({
-    values: () => catalogSections.map(item => item.key),
+    values: () => catalogSections.map((item) => item.key),
     activeValue: () => activeSection.value,
-    pick: index => { void selectSection(catalogSections[index].key); },
+    pick: (index) => {
+        void selectSection(catalogSections[index].key);
+    },
     axis: 'vertical',
 });
 const { wallpaper } = useLiquidPreferences();
 const day = todayText();
+const chartExample = ref('trend');
+const sampleDays = Array.from({ length: 7 }, (_, index) => daysAgo(6 - index));
+const sampleTrend = [
+    {
+        id: 'income',
+        name: '收入',
+        values: [820000, 560000, 740000, 980000, 620000, 830000, 910000],
+    },
+    {
+        id: 'expense',
+        name: '支出',
+        values: [420000, 360000, 520000, 610000, 380000, 460000, 330000],
+    },
+];
+const sampleSeries = [
+    { name: '收入', color: 'var(--liquid-down)' },
+    { name: '支出', color: 'var(--liquid-up)' },
+];
+const sampleColors = sampleSeries.map((item) => item.color);
+const sampleChannels = [
+    { id: 'cbg', name: '藏宝阁', values: [320, 180] },
+    { id: 'game', name: '游戏内', values: [210, 120] },
+];
 const sampleItem = ref<PriceItem>({
     id: 'sample',
     name: '金刚石',
@@ -106,7 +165,16 @@ function saveSample(draft: PricePointDraft) {
 
 const priceExample = ref<number | null>(3_200_000);
 const initialPrice = ref<number | null>(null);
-const fieldRows = ref(['紧凑', '标准'].map((size) => ({ size, name: '', category: '', date: day, query: '', quantity: 12 })));
+const fieldRows = ref(
+    ['紧凑', '标准'].map((size) => ({
+        size,
+        name: '',
+        category: '',
+        date: day,
+        query: '',
+        quantity: 12,
+    })),
+);
 const compactLevel = ref(69);
 const compactExperience = ref(1_200_000);
 const invalidQuantity = ref(0);
@@ -133,12 +201,14 @@ function searchExamples(query: string) {
 const alerts = ref(true);
 const threshold = ref(62);
 const currentTab = ref('prices');
-const choiceExamples = ref((['compact', 'standard'] as const).map((size) => ({
-    size,
-    label: size === 'compact' ? '紧凑' : '标准',
-    status: 'active',
-    categories: ['任务产出', '召唤兽'],
-})));
+const choiceExamples = ref(
+    (['compact', 'standard'] as const).map((size) => ({
+        size,
+        label: size === 'compact' ? '紧凑' : '标准',
+        status: 'active',
+        categories: ['任务产出', '召唤兽'],
+    })),
+);
 const sort = ref('名称');
 const timeline = ref<HTMLElement | null>(null);
 const observations = [
@@ -155,9 +225,18 @@ const observations = [
         <aside class="catalog-sidebar lg-scroll-hidden" aria-label="组件目录">
             <header class="catalog-heading">
                 <span class="catalog-emblem"><AppIcon name="grid" /></span>
-                <div><h1>组件展示</h1><p>Liquid Glass</p></div>
+                <div>
+                    <h1>组件展示</h1>
+                    <p>Liquid Glass</p>
+                </div>
             </header>
-            <div class="catalog-menu" role="tablist" aria-label="组件分类" aria-orientation="vertical" @keydown="onKeydown">
+            <div
+                class="catalog-menu"
+                role="tablist"
+                aria-label="组件分类"
+                aria-orientation="vertical"
+                @keydown="onKeydown"
+            >
                 <button
                     v-for="(section, index) in catalogSections"
                     :id="'catalog-tab-' + section.key"
@@ -203,7 +282,6 @@ const observations = [
                             />
                         </div>
                     </section>
-
                 </template>
                 <template v-if="activeSection === 'actions'">
                     <section>
@@ -246,9 +324,18 @@ const observations = [
                     <section>
                         <header><h3>菜单</h3></header>
                         <div class="stage">
-                            <GlassMenu class="lg-popup-menu lg-select-menu lg-form-fields" @select="sort = $event === 'reset' ? '名称' : $event">
+                            <GlassMenu
+                                class="lg-popup-menu lg-select-menu lg-form-fields"
+                                @select="
+                                    typeof $event === 'string' &&
+                                    (sort = $event === 'reset' ? '名称' : $event)
+                                "
+                            >
                                 <template #trigger>
-                                    <GlassMenuTrigger :text="'按' + sort + '排序'" aria-label="选择排序方式" />
+                                    <GlassMenuTrigger
+                                        :text="'按' + sort + '排序'"
+                                        aria-label="选择排序方式"
+                                    />
                                 </template>
                                 <GlassMenuLabel>排序方式</GlassMenuLabel>
                                 <GlassMenuItem
@@ -260,57 +347,127 @@ const observations = [
                                     :checked="sort === option"
                                     >{{ option }}</GlassMenuItem
                                 >
-                                <GlassMenuSeparator /><GlassMenuItem value="reset">恢复默认</GlassMenuItem>
+                                <GlassMenuSeparator /><GlassMenuItem value="reset"
+                                    >恢复默认</GlassMenuItem
+                                >
                             </GlassMenu>
                         </div>
                     </section>
-
                 </template>
                 <template v-if="activeSection === 'inputs'">
-                    <section v-for="row in fieldRows" :key="row.size" class="field-comparison"
-                        :class="{ 'lg-form-fields': row.size === '紧凑' }">
-                        <header><h3>{{ row.size }}输入控件</h3><small>{{ row.size === '紧凑' ? '32' : '44' }} px</small></header>
+                    <section
+                        v-for="row in fieldRows"
+                        :key="row.size"
+                        class="field-comparison"
+                        :class="{ 'lg-form-fields': row.size === '紧凑' }"
+                    >
+                        <header>
+                            <h3>{{ row.size }}输入控件</h3>
+                            <small>{{ row.size === '紧凑' ? '32' : '44' }} px</small>
+                        </header>
                         <div class="comparison-grid">
                             <div class="field-example">
                                 <span>搜索物品</span>
-                                <GlassSearch v-model:value="row.query" class="lg-price-search" :aria-label="row.size + '搜索物品'" placeholder="搜索物品" />
+                                <GlassSearch
+                                    v-model:value="row.query"
+                                    class="lg-price-search"
+                                    :aria-label="row.size + '搜索物品'"
+                                    placeholder="搜索物品"
+                                />
                             </div>
-                            <label class="field-example">物品名称<GlassInput v-model="row.name" placeholder="例如：金刚石" /></label>
-                            <GlassSelect v-model="row.category" :options="filterOptions" label="一级分类" />
+                            <label class="field-example"
+                                >物品名称<GlassInput v-model="row.name" placeholder="例如：金刚石"
+                            /></label>
+                            <GlassSelect
+                                v-model="row.category"
+                                :options="filterOptions"
+                                label="一级分类"
+                            />
                             <GlassDateField v-model="row.date" label="记录日期" />
-                            <label class="field-example">数量
-                                <GlassNumberField v-model="row.quantity" :label="row.size + '数量'" update-on-input />
+                            <label class="field-example"
+                                >数量
+                                <GlassNumberField
+                                    v-model="row.quantity"
+                                    :label="row.size + '数量'"
+                                    update-on-input
+                                />
                             </label>
                         </div>
                         <div v-if="row.query.trim()" class="comparison-results" role="status">
-                            <output v-if="searchExamples(row.query).length" class="lg-caption">{{ searchExamples(row.query).join(' · ') }}</output>
+                            <output v-if="searchExamples(row.query).length" class="lg-caption">{{
+                                searchExamples(row.query).join(' · ')
+                            }}</output>
                             <GlassEmptyState v-else />
                         </div>
                     </section>
                     <section>
                         <header><h3>卡片内数字输入</h3></header>
                         <div class="stage">
-                            <label class="field-example">等级
-                                <GlassCompactNumberField v-model="compactLevel" label="示例等级" update-on-input />
+                            <label class="field-example"
+                                >等级
+                                <GlassCompactNumberField
+                                    v-model="compactLevel"
+                                    label="示例等级"
+                                    update-on-input
+                                />
                             </label>
-                            <label class="field-example">经验（点）
-                                <GlassCompactNumberField v-model="compactExperience" label="示例经验" wide update-on-input />
+                            <label class="field-example"
+                                >经验（点）
+                                <GlassCompactNumberField
+                                    v-model="compactExperience"
+                                    label="示例经验"
+                                    wide
+                                    update-on-input
+                                />
                             </label>
                         </div>
                     </section>
                     <section>
-                        <header><h3>输入状态</h3><small>错误 · 禁用</small></header>
+                        <header>
+                            <h3>输入状态</h3>
+                            <small>错误 · 禁用</small>
+                        </header>
                         <div class="stage stack lg-form-fields">
-                            <GlassPriceField v-model="invalidPrice" compact label="记录价格" :error="(invalidPrice ?? 0) > 0 ? '' : '价格要大于 0'" reserve-error />
-                            <GlassSelect v-model="unavailableCategory" class="field-example" label="二级分类" :options="[]" disabled />
-                            <label class="field-example">数量
-                                <GlassNumberField v-model="invalidQuantity" label="示例数量" update-on-input
+                            <GlassPriceField
+                                v-model="invalidPrice"
+                                compact
+                                label="记录价格"
+                                :error="(invalidPrice ?? 0) > 0 ? '' : '价格要大于 0'"
+                                reserve-error
+                            />
+                            <GlassSelect
+                                v-model="unavailableCategory"
+                                class="field-example"
+                                label="二级分类"
+                                :options="[]"
+                                disabled
+                            />
+                            <label class="field-example"
+                                >数量
+                                <GlassNumberField
+                                    v-model="invalidQuantity"
+                                    label="示例数量"
+                                    update-on-input
                                     :aria-invalid="invalidQuantity <= 0 || undefined"
-                                    :aria-describedby="invalidQuantity <= 0 ? 'sample-quantity-error' : undefined" />
-                                <span v-if="invalidQuantity <= 0" id="sample-quantity-error" class="sample-error" role="status">数量要大于 0</span>
+                                    :aria-describedby="
+                                        invalidQuantity <= 0 ? 'sample-quantity-error' : undefined
+                                    "
+                                />
+                                <span
+                                    v-if="invalidQuantity <= 0"
+                                    id="sample-quantity-error"
+                                    class="sample-error"
+                                    role="status"
+                                    >数量要大于 0</span
+                                >
                             </label>
-                            <label class="field-example">只读示例
-                                <GlassNumberField v-model="disabledQuantity" label="禁用数量" disabled />
+                            <label class="field-example"
+                                >只读示例
+                                <GlassNumberField
+                                    v-model="disabledQuantity"
+                                    label="禁用数量"
+                                    disabled
+                                />
                             </label>
                         </div>
                     </section>
@@ -321,7 +478,11 @@ const observations = [
                         </header>
                         <div class="stage stack">
                             <GlassPriceField v-model="priceExample" label="这一笔多少钱" />
-                            <GlassPriceField v-model="initialPrice" label="初始价格（选填）" compact />
+                            <GlassPriceField
+                                v-model="initialPrice"
+                                label="初始价格（选填）"
+                                compact
+                            />
                         </div>
                     </section>
                 </template>
@@ -336,15 +497,26 @@ const observations = [
                         </div>
                     </section>
                     <section>
-                        <header><h3>紧凑开关</h3><small>常态 · 禁用</small></header>
+                        <header>
+                            <h3>紧凑开关</h3>
+                            <small>常态 · 禁用</small>
+                        </header>
                         <div class="stage stack">
                             <div class="setting-row">
-                                <span>提醒示例</span><output>{{ smallAlerts ? '开启' : '关闭' }}</output>
-                                <GlassSmallSwitch v-model:checked="smallAlerts" aria-label="紧凑提醒示例" />
+                                <span>提醒示例</span
+                                ><output>{{ smallAlerts ? '开启' : '关闭' }}</output>
+                                <GlassSmallSwitch
+                                    v-model:checked="smallAlerts"
+                                    aria-label="紧凑提醒示例"
+                                />
                             </div>
                             <div class="setting-row">
                                 <span>禁用示例</span><output>不可切换</output>
-                                <GlassSmallSwitch v-model:checked="disabledAlerts" disabled aria-label="禁用提醒示例" />
+                                <GlassSmallSwitch
+                                    v-model:checked="disabledAlerts"
+                                    disabled
+                                    aria-label="禁用提醒示例"
+                                />
                             </div>
                         </div>
                     </section>
@@ -365,9 +537,16 @@ const observations = [
                     </section>
                     <template v-for="example in choiceExamples" :key="example.size">
                         <section>
-                            <header><h3>{{ example.label }}分段选择</h3></header>
+                            <header>
+                                <h3>{{ example.label }}分段选择</h3>
+                            </header>
                             <div class="stage">
-                                <GlassSegmented v-model:value="example.status" class="lg-status-tabs" :data-size="example.size" :aria-label="example.label + '目标状态'">
+                                <GlassSegmented
+                                    v-model:value="example.status"
+                                    class="lg-status-tabs"
+                                    :data-size="example.size"
+                                    :aria-label="example.label + '目标状态'"
+                                >
                                     <GlassSegment value="active">进行中</GlassSegment>
                                     <GlassSegment value="done">已达成</GlassSegment>
                                     <GlassSegment value="all">全部</GlassSegment>
@@ -375,28 +554,76 @@ const observations = [
                             </div>
                         </section>
                         <section>
-                            <header><h3>{{ example.label }}多选</h3></header>
+                            <header>
+                                <h3>{{ example.label }}多选</h3>
+                            </header>
                             <div class="stage">
-                                <GlassMultiSelect v-model="example.categories" :options="categories" :size="example.size" :label="example.label + '示例物品分类'" />
+                                <GlassMultiSelect
+                                    v-model="example.categories"
+                                    :options="categories"
+                                    :size="example.size"
+                                    :label="example.label + '示例物品分类'"
+                                />
                             </div>
                         </section>
-                </template>
-                <section>
-                    <header><h3>标签栏</h3></header>
-                    <div class="stage">
-                        <GlassTabBar v-model:value="currentTab" aria-label="示例导航">
-                            <GlassTab value="overview"><AppIcon name="overview" />概览</GlassTab>
-                            <GlassTab value="prices"><AppIcon name="prices" />物价</GlassTab>
-                            <GlassTab value="income"><AppIcon name="income" />收益</GlassTab>
-                        </GlassTabBar>
-                    </div>
-                </section>
-
+                    </template>
+                    <section>
+                        <header><h3>标签栏</h3></header>
+                        <div class="stage">
+                            <GlassTabBar v-model:value="currentTab" aria-label="示例导航">
+                                <GlassTab value="overview"
+                                    ><AppIcon name="overview" />概览</GlassTab
+                                >
+                                <GlassTab value="prices"><AppIcon name="prices" />物价</GlassTab>
+                                <GlassTab value="income"><AppIcon name="income" />收益</GlassTab>
+                            </GlassTabBar>
+                        </div>
+                    </section>
                 </template>
                 <template v-if="activeSection === 'surfaces'">
+                    <section class="sample-chart">
+                        <header>
+                            <h3>图表</h3>
+                            <GlassSegmented
+                                v-model:value="chartExample"
+                                class="lg-status-tabs"
+                                data-size="compact"
+                                aria-label="图表示例"
+                            >
+                                <GlassSegment value="trend">趋势图</GlassSegment>
+                                <GlassSegment value="category">分类柱图</GlassSegment>
+                            </GlassSegmented>
+                        </header>
+                        <TrendChart
+                            v-if="chartExample === 'trend'"
+                            class="chart-in-card"
+                            :labels="sampleDays"
+                            :series="sampleTrend"
+                            :colors="sampleColors"
+                            kind="money"
+                            label="每日收支"
+                        />
+                        <CategoryBarChart
+                            v-else
+                            class="chart-in-card"
+                            :rows="sampleChannels"
+                            :series="sampleSeries"
+                            :value-text="(value) => ledgerMoneyText(value, 'rmb')"
+                            :axis-unit="1"
+                            label="渠道收支"
+                        />
+                    </section>
                     <section>
-                        <header><h3>表格</h3><small>滚动时固定表头</small></header>
-                        <div class="sample-table-scroll" tabindex="0" role="region" aria-label="滚动表格示例">
+                        <header>
+                            <h3>表格</h3>
+                            <small>滚动时固定表头</small>
+                        </header>
+                        <div
+                            class="sample-table-scroll"
+                            tabindex="0"
+                            role="region"
+                            aria-label="滚动表格示例"
+                        >
                             <GlassTable sticky-header aria-label="示例物价记录">
                                 <thead>
                                     <tr>
@@ -408,7 +635,9 @@ const observations = [
                                 <tbody>
                                     <tr v-for="point in tableExamples" :key="point.date">
                                         <td>{{ point.name }}</td>
-                                        <td><time :datetime="point.date">{{ point.date }}</time></td>
+                                        <td>
+                                            <time :datetime="point.date">{{ point.date }}</time>
+                                        </td>
                                         <td data-align="end">{{ moneyText(point.price) }}</td>
                                     </tr>
                                 </tbody>
@@ -418,7 +647,11 @@ const observations = [
                     <section>
                         <header><h3>紧凑分页</h3></header>
                         <div class="stage">
-                            <GlassCompactPager v-model:page="samplePage" :pages="3" label="示例分页" />
+                            <GlassCompactPager
+                                v-model:page="samplePage"
+                                :pages="3"
+                                label="示例分页"
+                            />
                         </div>
                     </section>
                     <section>
@@ -450,7 +683,9 @@ const observations = [
                     <section>
                         <header><h3>场景容器</h3></header>
                         <GlassScene class="stage scene" :src="wallpaper"
-                            ><GlassCard :radius="15" class="scene-label">应用壁纸</GlassCard></GlassScene
+                            ><GlassCard :radius="15" class="scene-label"
+                                >应用壁纸</GlassCard
+                            ></GlassScene
                         >
                     </section>
                     <section>
@@ -472,13 +707,16 @@ const observations = [
                             </GlassToolbar>
                         </div>
                     </section>
-
                 </template>
                 <template v-if="activeSection === 'feedback'">
                     <section>
                         <header><h3>提示</h3></header>
                         <div class="stage">
-                            <GlassButton size="small" class="sample-notice" @click="notify.info('这是一条顶部消息提示。')">
+                            <GlassButton
+                                size="small"
+                                class="sample-notice"
+                                @click="notify.info('这是一条顶部消息提示。')"
+                            >
                                 显示顶部提示
                             </GlassButton>
                         </div>
@@ -486,13 +724,18 @@ const observations = [
                     <section>
                         <header><h3>对话框</h3></header>
                         <div class="stage">
-                            <GlassButton size="small" @click="openSample('add')">打开记价表单</GlassButton>
+                            <GlassButton size="small" @click="openSample('add')"
+                                >打开记价表单</GlassButton
+                            >
                         </div>
                     </section>
                     <section>
                         <header><h3>底部弹层</h3></header>
                         <div class="stage">
-                            <GlassButton size="small" aria-haspopup="dialog" @click="sheetOpen = true"
+                            <GlassButton
+                                size="small"
+                                aria-haspopup="dialog"
+                                @click="sheetOpen = true"
                                 >查看价格历史</GlassButton
                             >
                         </div>

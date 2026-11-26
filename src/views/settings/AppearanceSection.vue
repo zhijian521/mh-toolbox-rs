@@ -21,7 +21,8 @@ const { font } = useFontFamily();
 </script>
 
 <template>
-    <LedgerSection title="外观" hint="即时生效 · 自动记住" plain>
+    <LedgerSection title="外观" hint="自动记住" plain>
+        <slot />
         <SettingsRow label="风格">
             <SegmentedPills v-model="style" :options="STYLE_OPTIONS" label="风格" wrap />
         </SettingsRow>

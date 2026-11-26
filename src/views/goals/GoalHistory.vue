@@ -47,7 +47,10 @@ function timeText(at: number, date: string) {
 <template>
     <section :class="{ 'history-content': embedded }">
         <header v-if="embedded" class="history-heading">
-            <div><h2>目标历史</h2><p>{{ goal.title }}</p></div>
+            <div>
+                <h2>目标历史</h2>
+                <p>{{ goal.title }}</p>
+            </div>
             <PressButton text="关闭" label="关闭目标历史" @click="emit('close')" />
         </header>
         <p v-else class="history-title">{{ goal.title }}</p>
@@ -55,8 +58,8 @@ function timeText(at: number, date: string) {
         <div class="history-scroll">
             <component
                 :is="embedded ? GlassTable : 'table'"
-                :sticky-header="embedded ? true : undefined"
                 v-if="rows.length"
+                :sticky-header="embedded ? true : undefined"
                 class="progress-history"
                 :class="{ 'income-table': !embedded }"
                 aria-label="目标更新历史"
@@ -73,7 +76,11 @@ function timeText(at: number, date: string) {
                     <tr v-for="row in visible" :key="row.id">
                         <td class="when num">
                             <template v-if="tracked">{{ timeText(row.at, row.date) }}</template>
-                            <time v-else :datetime="row.date" :title="`录入时间：${timeText(row.at, row.date)}`">
+                            <time
+                                v-else
+                                :datetime="row.date"
+                                :title="`录入时间：${timeText(row.at, row.date)}`"
+                            >
                                 {{ row.date }}
                             </time>
                         </td>
@@ -130,9 +137,29 @@ function timeText(at: number, date: string) {
     gap: 12px;
     padding: 6px 16px 14px;
 }
-.history-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.history-heading h2 { margin: 0; font-size: var(--fs-md); font-weight: 400; }
-.history-heading p { margin: 3px 0 0; color: var(--liquid-muted); overflow-wrap: anywhere; }
-.history-content .history-scroll { flex: 1; min-height: 0; overflow: auto; }
-.history-content .when { color: var(--liquid-muted); white-space: normal; }
+.history-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.history-heading h2 {
+    margin: 0;
+    font-size: var(--fs-md);
+    font-weight: 400;
+}
+.history-heading p {
+    margin: 3px 0 0;
+    color: var(--liquid-muted);
+    overflow-wrap: anywhere;
+}
+.history-content .history-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+.history-content .when {
+    color: var(--liquid-muted);
+    white-space: normal;
+}
 </style>

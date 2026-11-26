@@ -48,7 +48,7 @@ const position = computed(() => {
         >
             <i :style="{ background: row.color }" aria-hidden="true" />
             <span>{{ row.label }}</span>
-            <b>{{ row.value }}</b>
+            <span class="tooltip-value">{{ row.value }}</span>
         </div>
     </div>
 </template>
@@ -60,13 +60,18 @@ const position = computed(() => {
     width: max-content;
     max-width: min(320px, calc(100% - 16px));
     max-height: calc(100% - 20px);
+    box-sizing: border-box;
     overflow: auto;
+    scrollbar-gutter: auto;
     overscroll-behavior: contain;
-    padding: 10px 12px;
-    border-radius: var(--r-3);
+    padding: 9px 12px;
+    border: 1px solid color-mix(in srgb, var(--tooltip-ink) 16%, transparent);
+    border-radius: 10px;
     background: var(--tooltip-bg);
     color: var(--tooltip-ink);
-    box-shadow: var(--tooltip-shadow);
+    box-shadow:
+        inset 0 1px 0 var(--bevel-hi),
+        var(--tooltip-shadow);
     font-size: var(--fs-xs);
     line-height: 1.5;
 }
@@ -75,29 +80,32 @@ const position = computed(() => {
     margin-bottom: 4px;
     border-bottom: var(--w-hair) solid color-mix(in srgb, currentColor 18%, transparent);
     overflow-wrap: anywhere;
+    font-size: var(--fs-sm);
+    font-variant-numeric: tabular-nums;
 }
 .tooltip-row {
     display: grid;
-    grid-template-columns: 7px minmax(0, 1fr) auto;
-    align-items: baseline;
-    gap: 8px;
-    padding: 3px 0;
+    grid-template-columns: 6px minmax(0, 1fr) minmax(0, max-content);
+    align-items: center;
+    gap: 9px;
+    padding: 4px 0;
 }
 .tooltip-row i {
-    width: 7px;
-    height: 7px;
-    border-radius: var(--r-1);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
 }
 .tooltip-row span {
     overflow-wrap: anywhere;
 }
-.tooltip-row b {
-    font-weight: 400;
-    white-space: nowrap;
+.tooltip-value {
+    text-align: end;
     font-variant-numeric: tabular-nums;
 }
 .tooltip-row.detail {
-    padding-left: 12px;
+    margin-inline-start: 3px;
+    padding-inline-start: 11px;
+    border-inline-start: 1px solid color-mix(in srgb, currentColor 18%, transparent);
     font-size: var(--fs-mini);
 }
 </style>

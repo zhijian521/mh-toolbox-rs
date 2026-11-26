@@ -4,6 +4,8 @@
  * 页面与角色子流程选择、数据影响及前置见 docs/TESTING.md。
  */
 
+import { resolve } from 'node:path';
+import { dataDir, snapshot } from './db.mjs';
 import { attach, sleep, SetupError } from './cdp.mjs';
 import { createSelection } from './selection.mjs';
 import { createUi } from './ui.mjs';
@@ -50,8 +52,23 @@ try {
 const ui = createUi(cdp);
 const t = createReporter({ cdp });
 
-if (process.argv.includes('--shell')) {
+// 两种界面共用真窗口入口，先等外壳绘制，再选择对应交互。分区参数属于旧账簿场景。
+await cdp.waitFor("!!document.querySelector('.liquid-dock, .rail-nav')");
+if (
+    process.argv.includes('--shell') ||
+    (await cdp.evaluate("!!document.querySelector('.liquid-dock')"))
+) {
     try {
+        if (only || skip) {
+            throw new Error('请先在「设置 → 外观 → 界面」切换到经典账簿，再运行分区烟测。');
+        }
+        const info = await cdp.appInfo();
+        if (!info?.debug || !info.dataDir || resolve(info.dataDir) !== resolve(dataDir())) {
+            throw new Error('窗口和烟测必须连接同一调试账本，测试已中止。');
+        }
+        const snap = snapshot(dataDir());
+        t.info('账本已快照', snap.dir);
+        t.info('关闭窗口后还原', `node tools/e2e/db.mjs restore ${snap.id} --yes`);
         await liquidShell({ cdp, t, ui });
         process.exitCode = await t.summary();
     } finally {

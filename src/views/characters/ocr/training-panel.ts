@@ -60,9 +60,7 @@ export function applyTrainingPanel(
     rows: readonly SkillHit[],
 ): CharacterData {
     const found = new Map(
-        rows
-            .filter((row) => canApplySkillHit(row))
-            .map((row) => [row.name, row.level]),
+        rows.filter((row) => canApplySkillHit(row)).map((row) => [row.name, row.level]),
     );
     return {
         ...character,

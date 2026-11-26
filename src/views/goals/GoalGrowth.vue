@@ -8,7 +8,6 @@ import FormActions from '../../components/FormActions.vue';
 import type { GoalProgressInput, GoalRow, ReadonlyGoal } from './goals';
 import { useDraftGuard } from '../../composables/use-draft-guard';
 
-const glass = inject(glassLedger, null);
 const props = defineProps<{
     goal: ReadonlyGoal;
     rows: readonly GoalRow[];
@@ -18,6 +17,7 @@ const props = defineProps<{
     error: string;
 }>();
 const emit = defineEmits<{ save: [values: GoalProgressInput[]]; close: [] }>();
+const glass = inject(glassLedger, null);
 const rows = props.rows.filter((row) => row.exists && row.applicable);
 const inputs = reactive<Record<string, number>>(
     Object.fromEntries(rows.map((row) => [row.id, row.value ?? 0])),
@@ -52,7 +52,12 @@ function enter(event: KeyboardEvent) {
 
 <template>
     <ModalShell title="更新进度" :width="460" @close="requestClose">
-        <form class="modal-form" :class="{ 'lg-form-fields': glass }" @submit.prevent="submit" @keydown.enter="enter">
+        <form
+            class="modal-form"
+            :class="{ 'lg-form-fields': glass }"
+            @submit.prevent="submit"
+            @keydown.enter="enter"
+        >
             <p class="metric-title">
                 {{ goal.tracking?.key }} <span>目标 {{ goal.target }} {{ goal.unit }}</span>
             </p>

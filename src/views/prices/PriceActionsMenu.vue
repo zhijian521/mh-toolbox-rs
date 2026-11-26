@@ -12,9 +12,12 @@ async function select(action: string) {
     await nextTick();
     const host = menu.value?.el;
     const panel = host?.shadowRoot?.querySelector('[part="panel"]');
-    const fade = panel?.getAnimations().find(
-        (animation) => animation instanceof CSSTransition && animation.transitionProperty === 'opacity',
-    );
+    const fade = panel
+        ?.getAnimations()
+        .find(
+            (animation) =>
+                animation instanceof CSSTransition && animation.transitionProperty === 'opacity',
+        );
     if (fade) {
         try {
             await fade.finished;
@@ -39,7 +42,7 @@ async function select(action: string) {
             ref="menu"
             class="lg-popup-menu lg-popup-menu-small"
             placement="bottom-start"
-            @select="select"
+            @select="typeof $event === 'string' && select($event)"
         >
             <template #trigger>
                 <button
@@ -53,11 +56,12 @@ async function select(action: string) {
                 </button>
             </template>
             <GlassMenuItem v-if="!record" value="edit"
-                >编辑物品<AppIcon slot="icon" name="edit"
-            /></GlassMenuItem>
+                >编辑物品<template #icon><AppIcon name="edit" /></template
+            ></GlassMenuItem>
             <GlassMenuItem value="remove" destructive
-                >{{ record ? '删除此条记录' : '删除物品' }}<AppIcon slot="icon" name="trash"
-            /></GlassMenuItem>
+                >{{ record ? '删除此条记录' : '删除物品'
+                }}<template #icon><AppIcon name="trash" /></template
+            ></GlassMenuItem>
         </GlassMenu>
     </span>
 </template>

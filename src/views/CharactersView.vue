@@ -8,7 +8,6 @@ import { useRouteAction } from '../composables/use-route-action';
 import PageShell from '../components/PageShell.vue';
 import LiquidLedgerFrame from '../components/LiquidLedgerFrame.vue';
 import { glassLedger } from '../components/glass-ledger';
-import { GlassSearch } from '../components/liquid-glass';
 import GlassEmptyState from '../components/liquid-glass/GlassEmptyState.vue';
 import PressButton from '../components/PressButton.vue';
 import { notify } from '../composables/use-notify';
@@ -34,14 +33,6 @@ const WarehouseDialog = lazyDialog(() => import('./warehouse/WarehouseDialog.vue
 const warehouseOpen = ref(false);
 
 const { roster, loadError, writeError, pending, flush, retry, add, update, remove } = useRoster();
-const keyword = ref('');
-const visibleRoster = computed(() => {
-    const query = keyword.value.trim().toLocaleLowerCase();
-    if (!glass || !query) return roster.value;
-    return roster.value.filter(({ name, school, server }) =>
-        [name, school, server].some((value) => value.toLocaleLowerCase().includes(query)),
-    );
-});
 const route = useRoute();
 const historyOpen = ref(false);
 const preparingRemoval = ref(false);
@@ -54,7 +45,6 @@ watch(
     () => route.query.character,
     async (id) => {
         if (typeof id !== 'string') return;
-        if (keyword.value && roster.value.some((one) => one.id === id)) keyword.value = '';
         await nextTick();
         const card = document.getElementById('character-' + id);
         if (!card) return;
@@ -148,7 +138,6 @@ async function onSave(character: ReadonlyCharacter) {
         return roster.value.some((item) => item.id === character.id);
     });
     if (!ok || editing.value !== source) return;
-    if (source.isNew) keyword.value = '';
     closeEditor();
 }
 
@@ -213,13 +202,6 @@ useRouteAction('/characters', {
         desc="角色档案"
     >
         <template #actions>
-            <div v-if="glass && !loadError && roster.length" class="lg-form-fields roster-search">
-                <GlassSearch
-                    v-model:value="keyword"
-                    aria-label="搜索角色"
-                    placeholder="搜索角色名、门派或区服"
-                />
-            </div>
             <PressButton
                 icon="history"
                 text="历史"
@@ -250,7 +232,14 @@ useRouteAction('/characters', {
         <LoadNotice
             :error="loadError"
             :load="props.reloadRoster ?? loadRoster"
-            :blocked="pending > 0 || !!writeError || !!editing || !!quicking || removing || preparingRemoval"
+            :blocked="
+                pending > 0 ||
+                !!writeError ||
+                !!editing ||
+                !!quicking ||
+                removing ||
+                preparingRemoval
+            "
         />
         <p v-if="!gameDataReady" class="note error" role="alert">
             {{ gameDataError || '正在加载游戏数据，暂时无法修改角色' }}
@@ -269,16 +258,18 @@ useRouteAction('/characters', {
             @retry="retry"
         />
 
-        <GlassEmptyState v-if="glass && !loadError && !visibleRoster.length" class="roster-empty">
-            {{ roster.length ? '没有符合条件的角色' : '还没有角色，点击右上角新增' }}
+        <GlassEmptyState v-if="glass && !loadError && !roster.length" class="roster-empty">
+            还没有角色，点击右上角新增
         </GlassEmptyState>
-        <p v-else-if="!loadError && !roster.length" class="empty-note">还没有角色，点击右上角新增</p>
+        <p v-else-if="!loadError && !roster.length" class="empty-note">
+            还没有角色，点击右上角新增
+        </p>
         <div v-else-if="!loadError" class="roster">
             <!-- `quick`：点卡上的行 / 格就开「快速修改」。开关状态在**页面**这一层
                  （`quicking`），卡片只把「点了什么」抛上来——卡是循环渲染的，
                  每张卡各存一个弹窗状态就等于开了 N 个窗。 -->
             <CharacterCard
-                v-for="character in visibleRoster"
+                v-for="character in roster"
                 :key="character.id"
                 :character="character"
                 class="roster-card"
@@ -328,15 +319,6 @@ useRouteAction('/characters', {
     flex-wrap: wrap;
     align-items: flex-start;
     gap: 14px;
-}
-
-.roster-search {
-    width: min(220px, 100%);
-    min-width: 0;
-}
-
-.roster-search > glass-search {
-    width: 100%;
 }
 
 .roster-empty {

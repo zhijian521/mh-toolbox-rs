@@ -10,8 +10,6 @@ import { isMaxed, type AssistKind, type AssistSkill } from '../character';
 import type { QuickTarget } from '../quick/quick-target';
 import { quickRowBinds, useQuickable } from '../quick-row';
 
-/** 卡内「辅助」页。拆法与理由见 `AttrPane.vue` 顶部。 */
-const { NumberField, SelectField, selectProps } = useCharacterFields();
 const props = withDefaults(
     defineProps<{
         assists: readonly AssistSkill[];
@@ -21,13 +19,14 @@ const props = withDefaults(
     }>(),
     { quick: false, editable: false, tabbed: true },
 );
-
 const emit = defineEmits<{
     quick: [target: QuickTarget];
     'edit-row': [index: number, patch: Partial<AssistSkill>];
     'add-row': [kind: AssistKind];
     'remove-row': [index: number];
 }>();
+/** 卡内「辅助」页。拆法与理由见 `AttrPane.vue` 顶部。 */
+const { NumberField, SelectField, selectProps } = useCharacterFields();
 const uid = useId();
 const quickable = useQuickable(props);
 
@@ -74,7 +73,6 @@ function optionsFor(row: AssistSkill) {
                 <!-- 分组名同时区分游戏中的两个截图页签。 -->
                 <GroupHead>{{ group.title }}</GroupHead>
                 <div class="slip-rows slip-cols">
-                    <!-- 只读与编辑均一行两个，编辑控件在票内紧凑排列。 -->
                     <div
                         v-for="(row, index) in group.rows"
                         :key="`${row.kind}-${index}`"
@@ -96,7 +94,7 @@ function optionsFor(row: AssistSkill) {
                                 emit('edit-row', assists.indexOf(row), { name: $event })
                             "
                         />
-                        <span v-else class="slip-name">{{ row.name }}</span>
+                        <span v-else class="slip-name" :title="row.name">{{ row.name }}</span>
                         <!-- 等级包进一枚数值签（`NumTag`）：名目在左、读数在右，
                              与师门、修炼、属性三页同一个读法。 -->
                         <NumTag v-if="!editable" class="slip-val">

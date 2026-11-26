@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { GlassSwitch } from './index';
 
+defineProps<{ disabled?: boolean }>();
 const checked = defineModel<boolean>('checked', { required: true });
 </script>
 
 <template>
-    <GlassSwitch v-model:checked="checked" class="lg-small-switch" />
+    <GlassSwitch v-model:checked="checked" :disabled="disabled" class="lg-small-switch" />
 </template>
 
 <style scoped>

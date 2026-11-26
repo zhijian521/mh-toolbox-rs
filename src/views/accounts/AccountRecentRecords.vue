@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /** 最近记录只负责展示与回传原记录；编辑、自动账只读和保存由账号页面承接。 */
-import { computed } from 'vue';
-import AppIcon from '../../components/AppIcon.vue';
+import { computed, inject } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
+import { glassLedger } from '../../components/glass-ledger';
 import { ledgerMoneyText } from '../../services/format';
 import type { ReadonlyCharacter } from '../characters/character';
 import { characterName } from '../characters/roster';
@@ -14,6 +14,7 @@ const props = defineProps<{
     error: string;
 }>();
 const emit = defineEmits<{ edit: [entry: AccountEntry] }>();
+const glass = inject(glassLedger, null);
 const rows = computed(() =>
     props.entries.map((entry) => {
         const who = characterName(props.roster, entry.characterId);
@@ -35,33 +36,43 @@ const rows = computed(() =>
         <p v-if="error || !rows.length" class="blank">
             {{ error ? '暂时无法读取记录，请重新读取。' : '这个范围还没有记录' }}
         </p>
-        <div v-else class="recent-list" tabindex="0" aria-label="最近账号记录">
-            <button
-                v-for="one in rows"
-                :key="one.entry.id"
-                type="button"
-                class="recent-row"
-                :aria-label="
-                    one.description + (one.entry.source === 'auto' ? '，查看详情' : '，修改记录')
-                "
-                :title="one.description"
-                @click="emit('edit', one.entry)"
-            >
-                <span class="recent-date" :title="one.entry.date">{{ one.entry.date.slice(5) }}</span>
-                <span class="recent-copy">
-                    <span class="recent-title">
-                        <span class="recent-category">{{ one.entry.category }}</span>
-                        <small v-if="one.entry.source === 'auto'" class="source-tag">自动</small>
+        <ul v-else class="recent-list" aria-label="最近账号记录">
+            <li v-for="one in rows" :key="one.entry.id">
+                <component
+                    :is="glass?.button ?? 'button'"
+                    type="button"
+                    :radius="glass ? 10 : undefined"
+                    class="recent-row"
+                    :aria-label="
+                        one.description +
+                        (one.entry.source === 'auto' ? '，查看详情' : '，修改记录')
+                    "
+                    :title="one.description"
+                    @click="emit('edit', one.entry)"
+                >
+                    <span class="recent-copy">
+                        <span class="recent-heading">
+                            <span class="recent-title">{{ one.entry.category }}</span>
+                            <span class="recent-amount" :class="one.entry.kind">{{
+                                one.amount
+                            }}</span>
+                        </span>
+                        <span class="recent-meta">
+                            <time class="recent-date" :datetime="one.entry.date">{{
+                                one.entry.date.slice(5)
+                            }}</time>
+                            <span class="recent-who">{{ one.who }}</span>
+                            <span v-if="one.entry.channel" class="recent-channel">{{
+                                one.entry.channel
+                            }}</span>
+                            <small v-if="one.entry.source === 'auto'" class="source-tag"
+                                >自动</small
+                            >
+                        </span>
                     </span>
-                    <span class="recent-meta">
-                        <span class="recent-who">{{ one.who }}</span>
-                        <span class="recent-channel">{{ one.entry.channel }}</span>
-                    </span>
-                </span>
-                <span class="recent-amount" :class="one.entry.kind">{{ one.amount }}</span>
-                <AppIcon name="chevron-right" class="recent-arrow" />
-            </button>
-        </div>
+                </component>
+            </li>
+        </ul>
     </LedgerSection>
 </template>
 
@@ -81,75 +92,65 @@ const rows = computed(() =>
     min-height: 0;
 }
 .recent-list {
-    flex: 1;
-    min-height: 0;
-    max-height: 240px;
-    padding: 2px 4px;
-    overflow-y: auto;
-    scrollbar-gutter: stable;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    padding: 2px;
+    list-style: none;
+}
+.recent-list > li {
+    min-width: 0;
+    max-width: 100%;
 }
 .recent-row {
-    display: grid;
-    grid-template-columns: 36px minmax(0, 1fr) auto calc(12px * var(--fs-scale));
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    min-height: calc(54px * var(--fs-scale));
-    padding: 9px 4px;
-    border: 0;
-    border-bottom: var(--w-hair) solid var(--rule);
-    border-radius: var(--r-1);
-    background: transparent;
+    --glass-button-height: auto;
+    display: block;
+    box-sizing: border-box;
+    max-width: 100%;
+    padding: 7px 11px;
+    border-radius: 10px;
     color: var(--ink);
     font: inherit;
-    text-align: left;
+    text-align: start;
     cursor: pointer;
-    transition: background-color var(--t-quick) var(--ease-soft);
 }
-.recent-row:last-child {
-    border-bottom: 0;
-}
-.recent-row:hover {
+button.recent-row {
+    border: var(--w-hair) solid var(--rule);
     background: var(--paper-2);
+}
+button.recent-row:hover {
+    border-color: var(--rule-2);
+    background: var(--well);
 }
 .recent-copy {
     display: grid;
-    gap: 3px;
     min-width: 0;
+    gap: 3px;
+    line-height: 1.35;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
-.recent-title,
+.recent-heading,
 .recent-meta {
     display: flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
+    flex-wrap: wrap;
+    align-items: baseline;
 }
-.recent-title {
+.recent-heading {
+    justify-content: space-between;
+    gap: 2px 10px;
     font-size: var(--fs-sm);
 }
-.recent-category,
-.recent-who,
-.recent-channel {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.recent-who {
-    flex: 0 1 auto;
-}
-.recent-channel {
-    flex: 0 1 auto;
-}
-.recent-date,
 .recent-meta {
+    gap: 2px 6px;
     color: var(--muted);
     font-size: var(--fs-mini);
 }
 .recent-date,
 .recent-amount {
     font-variant-numeric: tabular-nums;
-    white-space: nowrap;
 }
 .source-tag {
     flex: none;
@@ -159,19 +160,11 @@ const rows = computed(() =>
     color: var(--muted);
     font-size: var(--fs-mini);
 }
-.recent-amount {
-    font-size: var(--fs-sm);
-    text-align: right;
-}
 .income {
     color: var(--positive);
 }
 .expense {
     color: var(--negative);
-}
-.recent-arrow {
-    --icon-size: calc(12px * var(--fs-scale));
-    color: var(--muted);
 }
 .blank {
     display: grid;

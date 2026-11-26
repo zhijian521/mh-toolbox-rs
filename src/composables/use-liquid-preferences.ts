@@ -6,11 +6,19 @@ function wallpaperPair(id: string, name: string) {
     return {
         id,
         name,
-        light: new URL(`../../assets/textures/wallpaper-previews/${id}-light.webp`, import.meta.url).href,
-        dark: new URL(`../../assets/textures/wallpaper-previews/${id}-dark.webp`, import.meta.url).href,
+        light: new URL(`../../assets/textures/wallpaper-previews/${id}-light.webp`, import.meta.url)
+            .href,
+        dark: new URL(`../../assets/textures/wallpaper-previews/${id}-dark.webp`, import.meta.url)
+            .href,
         thumbnail: {
-            light: new URL(`../../assets/textures/wallpaper-previews/thumbs/${id}-light.webp`, import.meta.url).href,
-            dark: new URL(`../../assets/textures/wallpaper-previews/thumbs/${id}-dark.webp`, import.meta.url).href,
+            light: new URL(
+                `../../assets/textures/wallpaper-previews/thumbs/${id}-light.webp`,
+                import.meta.url,
+            ).href,
+            dark: new URL(
+                `../../assets/textures/wallpaper-previews/thumbs/${id}-dark.webp`,
+                import.meta.url,
+            ).href,
         },
     };
 }
@@ -31,16 +39,22 @@ const appearance = ref<'light' | 'dark'>(readPreference(themeKey) === 'dark' ? '
 
 const wallpaperKey = 'mh-liquid-wallpaper';
 const saved = readPreference(wallpaperKey) ?? '';
-const chosenSystemWallpaper = shallowRef(SYSTEM_WALLPAPERS.find((item) => `system:${item.id}` === saved));
+const chosenSystemWallpaper = shallowRef(
+    SYSTEM_WALLPAPERS.find((item) => `system:${item.id}` === saved),
+);
 const selectedWallpaper = ref(isWallpaperUrl(saved) ? saved : '');
 const activeImage = ref('');
 const loadingWallpaper = ref('');
 const failedWallpaper = ref('');
-const systemWallpaper = computed(() => activeImage.value ? undefined : chosenSystemWallpaper.value ?? defaultWallpaper);
+const systemWallpaper = computed(() =>
+    activeImage.value ? undefined : (chosenSystemWallpaper.value ?? defaultWallpaper),
+);
 const wallpaper = computed(() => systemWallpaper.value?.[appearance.value] ?? activeImage.value);
-const wallpaperSource = computed(() => systemWallpaper.value ? 'system' : 'online');
-const canResetWallpaper = computed(() =>
-    systemWallpaper.value?.id !== defaultWallpaper.id || !!(loadingWallpaper.value || failedWallpaper.value),
+const wallpaperSource = computed(() => (systemWallpaper.value ? 'system' : 'online'));
+const canResetWallpaper = computed(
+    () =>
+        systemWallpaper.value?.id !== defaultWallpaper.id ||
+        !!(loadingWallpaper.value || failedWallpaper.value),
 );
 let request: AbortController | undefined;
 

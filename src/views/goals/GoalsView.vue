@@ -71,7 +71,9 @@ const today = useToday();
 const entries = computed(() =>
     goals.value.map((goal) => ({ goal, summary: goalSummary(goal, roster.value) })),
 );
-const hasGrowthGoals = computed(() => entries.value.some(({ summary }) => summary.kind !== 'manual'));
+const hasGrowthGoals = computed(() =>
+    entries.value.some(({ summary }) => summary.kind !== 'manual'),
+);
 async function reloadCosts() {
     await loadLevelCosts();
 }
@@ -124,7 +126,7 @@ const logsId = ref('');
 const historyGoal = ref<ReadonlyGoal | null>(null);
 const historyOpen = ref(false);
 const activeHistoryGoal = computed(() =>
-    historyGoal.value ? byId.value.get(historyGoal.value.id)?.goal ?? null : null,
+    historyGoal.value ? (byId.value.get(historyGoal.value.id)?.goal ?? null) : null,
 );
 function openHistory(goal: ReadonlyGoal) {
     historyGoal.value = goal;
@@ -396,7 +398,15 @@ useRouteAction('/goals', {
                 @record="openLogs(entry.goal)"
             />
         </div>
-        <GlassDialog v-if="glass" v-model:open="historyOpen" class="goal-history-sheet" bottom lazy detents="400" label="目标历史">
+        <GlassDialog
+            v-if="glass"
+            v-model:open="historyOpen"
+            class="goal-history-sheet"
+            bottom
+            lazy
+            detents="400"
+            label="目标历史"
+        >
             <GoalHistory
                 v-if="activeHistoryGoal"
                 :key="activeHistoryGoal.id"
@@ -448,7 +458,12 @@ useRouteAction('/goals', {
         @retry="retry"
         @close="closeLogs"
     />
-    <ModalShell v-if="!glass && historyOpen && activeHistoryGoal" title="目标历史" :width="620" @close="historyOpen = false">
+    <ModalShell
+        v-if="!glass && historyOpen && activeHistoryGoal"
+        title="目标历史"
+        :width="620"
+        @close="historyOpen = false"
+    >
         <GoalHistory
             :goal="activeHistoryGoal"
             :locked="blocked"
@@ -468,23 +483,33 @@ useRouteAction('/goals', {
     --goal-progress-color: var(--liquid-focus);
 }
 .liquid-goals :deep(.goal-progress) {
+    --progress-color: light-dark(#276455, #b3e8c6);
     --progress-light: color-mix(in srgb, var(--progress-color) 72%, white);
     --progress-dark: color-mix(in srgb, var(--progress-color) 80%, black);
 }
 .liquid-goals :deep(.tick) {
     border-radius: 2px;
     background: var(--ledger-surface);
-    box-shadow: inset 0 1px 1px rgb(0 0 0 / 18%), 0 1px 0 var(--lg-edge-light);
+    box-shadow:
+        inset 0 1px 1px rgb(0 0 0 / 18%),
+        0 1px 0 var(--lg-edge-light);
 }
 .liquid-goals :deep(.tick i) {
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 26%), inset 0 -1px 0 rgb(0 0 0 / 14%);
+    box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 26%),
+        inset 0 -1px 0 rgb(0 0 0 / 14%);
 }
 .goal-history-sheet {
     --glass-sheet-max-width: 660px;
     --glass-foreground: var(--liquid-ink);
 }
-.goal-history-sheet::part(sheet) { max-height: calc(100dvh - 24px); }
-.goal-history-sheet::part(body) { display: flex; flex-direction: column; }
+.goal-history-sheet::part(sheet) {
+    max-height: calc(100dvh - 24px);
+}
+.goal-history-sheet::part(body) {
+    display: flex;
+    flex-direction: column;
+}
 .grid {
     display: flex;
     flex-wrap: wrap;

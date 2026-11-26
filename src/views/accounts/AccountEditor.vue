@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, ref, useId, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import AppIcon from '../../components/AppIcon.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
@@ -11,15 +12,22 @@ import FormActions from '../../components/FormActions.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import SelectField from '../../components/SelectField.vue';
 import { glassLedger } from '../../components/glass-ledger';
+import { GlassSegment, GlassSegmented } from '../../components/liquid-glass';
+import GlassDateField from '../../components/liquid-glass/GlassDateField.vue';
+import GlassInput from '../../components/liquid-glass/GlassInput.vue';
+import GlassPriceField from '../../components/liquid-glass/GlassPriceField.vue';
+import GlassSmallSwitch from '../../components/liquid-glass/GlassSmallSwitch.vue';
+import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import { withCurrentOption } from '../../components/select-options';
 import { lazyDialog } from '../../components/lazy-dialog';
 import { accountAssetKind, type AccountAssetSource } from './account-assets';
 import WarehouseItems from '../warehouse/WarehouseItems.vue';
 import type { ReadonlyWarehouseItem, WarehouseItem } from '../warehouse/warehouse';
 import { useDraftGuard } from '../../composables/use-draft-guard';
-import { todayText } from '../../services/format';
+import { ledgerMoneyText, todayText } from '../../services/format';
 import { characterOptions, UNASSIGNED_CHARACTER as NOTHING } from '../characters/character-options';
 import { accountValueText } from './account-analysis';
+import AccountFilterTabs from './AccountFilterTabs.vue';
 import { cbgSaleRule, isCbgSale, quoteCbgFee } from './account-fees';
 import { characterName, useRoster } from '../characters/roster';
 import {
@@ -120,9 +128,16 @@ const preserveAmount = computed(() =>
 );
 
 const unit = computed(() => CURRENCY_META[currency.value].unit);
-const amountLabel = computed(() => {
-    const label = cbgSale.value ? (deductFee.value ? '成交总价' : '实得金额') : '金额';
-    return `${label}（${unit.value}）`;
+const amountLabel = computed(() =>
+    cbgSale.value ? (deductFee.value ? '成交总价' : '实得金额') : '金额',
+);
+// 价格输入绑定游戏币原值；记账草稿和手续费预览使用显示金额。
+const price = computed<number | null>({
+    get: () => (currency.value === 'cash' ? Math.round(amount.value * 10000) : amount.value),
+    set(value) {
+        amount.value = (value ?? 0) / (currency.value === 'cash' ? 10000 : 1);
+        amountEdited.value = true;
+    },
 });
 
 const currencyOptions: { value: Currency; label: string }[] = [
@@ -187,18 +202,19 @@ function submit() {
     });
 }
 
-const formSnapshot = () => JSON.stringify([
-    date.value,
-    characterId.value,
-    kind.value,
-    currency.value,
-    category.value,
-    channel.value,
-    amount.value,
-    deductCbgFee.value,
-    linked.value,
-    note.value,
-]);
+const formSnapshot = () =>
+    JSON.stringify([
+        date.value,
+        characterId.value,
+        kind.value,
+        currency.value,
+        category.value,
+        channel.value,
+        amount.value,
+        deductCbgFee.value,
+        linked.value,
+        note.value,
+    ]);
 const original = formSnapshot();
 const { requestClose } = useDraftGuard(
     () => {
@@ -217,43 +233,84 @@ const { requestClose } = useDraftGuard(
         :width="480"
         @close="requestClose"
     >
-        <dl v-if="automatic && entry" class="entry-detail">
-            <div class="detail-amount" :class="entry.kind">
-                <dt>{{ entry.kind === 'income' ? '收入' : '支出' }}</dt>
-                <dd>{{ accountValueText(entry.amount, entry.currency) }}</dd>
-            </div>
-            <div>
-                <dt>日期</dt>
-                <dd>{{ entry.date }}</dd>
-            </div>
-            <div>
-                <dt>分类</dt>
-                <dd>{{ entry.category }}</dd>
-            </div>
-            <div>
-                <dt>角色</dt>
-                <dd>{{ characterName(roster, entry.characterId) }}</dd>
-            </div>
-            <div>
-                <dt>渠道</dt>
-                <dd>{{ entry.channel }}</dd>
-            </div>
-            <div>
-                <dt>来源</dt>
-                <dd>收益页自动同步</dd>
-            </div>
-            <div v-if="entry.note">
-                <dt>备注</dt>
-                <dd>{{ entry.note }}</dd>
-            </div>
-        </dl>
-        <form v-else class="modal-form" @submit.prevent="submit">
+        <article v-if="automatic && entry" class="entry-detail">
+            <component
+                :is="glass?.card ?? PaperCard"
+                class="detail-summary"
+                :radius="glass ? 14 : undefined"
+            >
+                <div class="detail-summary-head">
+                    <span class="detail-currency">
+                        <AppIcon
+                            :name="entry.currency === 'cash' ? 'coins' : 'accounts'"
+                            aria-hidden="true"
+                        />
+                        {{ CURRENCY_META[entry.currency].label
+                        }}{{ entry.kind === 'income' ? '收入' : '支出' }}
+                    </span>
+                    <time :datetime="entry.date">{{ entry.date }}</time>
+                </div>
+                <p class="detail-amount" :class="entry.kind">
+                    {{
+                        ledgerMoneyText(
+                            entry.kind === 'expense' ? -entry.amount : entry.amount,
+                            entry.currency,
+                            { sign: 'always' },
+                        )
+                    }}
+                </p>
+            </component>
+            <dl class="detail-fields">
+                <div>
+                    <dt>分类</dt>
+                    <dd>{{ entry.category }}</dd>
+                </div>
+                <div>
+                    <dt>角色</dt>
+                    <dd>{{ characterName(roster, entry.characterId) }}</dd>
+                </div>
+                <div>
+                    <dt>渠道</dt>
+                    <dd>{{ entry.channel || '—' }}</dd>
+                </div>
+                <div>
+                    <dt>来源</dt>
+                    <dd>收益页自动同步</dd>
+                </div>
+                <div v-if="entry.note" class="detail-note">
+                    <dt>备注</dt>
+                    <dd>{{ entry.note }}</dd>
+                </div>
+            </dl>
+        </article>
+        <form
+            v-else
+            class="modal-form"
+            :class="{ 'account-glass-form lg-form-fields': glass }"
+            @submit.prevent="submit"
+        >
             <fieldset class="income-form" :disabled="locked" :inert="locked">
-                <!-- 币种单独一行、排在最前：它决定下面「金额」那一格说的是元还是万，
-                 放到后面等于让人先填一个数、再回头发现单位错了。 -->
+                <!-- 先选币种，金额单位随之切换为元或万。 -->
                 <div class="form-field">
                     <span class="field-label">币种</span>
+                    <GlassSegmented
+                        v-if="glass"
+                        v-model:value="currency"
+                        class="lg-status-tabs"
+                        data-size="compact"
+                        aria-label="记账币种"
+                    >
+                        <GlassSegment
+                            v-for="one in currencyOptions"
+                            :key="one.value"
+                            :value="one.value"
+                            :disabled="locked"
+                        >
+                            {{ one.label }}
+                        </GlassSegment>
+                    </GlassSegmented>
                     <SegmentedPills
+                        v-else
                         v-model="currency"
                         :options="currencyOptions"
                         label="记账币种"
@@ -262,21 +319,39 @@ const { requestClose } = useDraftGuard(
                 </div>
 
                 <div class="form-field amount-row">
-                    <span class="field-label">{{ amountLabel }}</span>
-                    <!-- 元、万两种输入都最多保留两位小数。 -->
-                    <NumberField
-                        v-model="amount"
-                        update-on-input
-                        :label="cbgSale && !deductFee ? '实得金额' : '成交金额'"
-                        zero-as-empty
+                    <GlassPriceField
+                        v-if="glass"
+                        v-model="price"
+                        :label="amountLabel"
+                        :unit="unit"
                         :precision="2"
-                        class="amount-field value-emphasis"
+                        :disabled="locked"
                         @input="amountEdited = true"
                     />
+                    <template v-else>
+                        <span class="field-label">{{ amountLabel }}（{{ unit }}）</span>
+                        <NumberField
+                            v-model="amount"
+                            update-on-input
+                            :label="cbgSale && !deductFee ? '实得金额' : '成交金额'"
+                            zero-as-empty
+                            :precision="2"
+                            class="amount-field value-emphasis"
+                            :disabled="locked"
+                            @input="amountEdited = true"
+                        />
+                    </template>
                     <div v-if="cbgSale || linkAvailable" class="trade-switches">
                         <div v-if="cbgSale" class="fee-switch">
                             <span class="field-label">手续费</span>
+                            <GlassSmallSwitch
+                                v-if="glass"
+                                v-model:checked="deductCbgFee"
+                                aria-label="手续费"
+                                :disabled="locked"
+                            />
                             <CostSwitch
+                                v-else
                                 v-model="deductCbgFee"
                                 off-label="否"
                                 on-label="是"
@@ -288,7 +363,14 @@ const { requestClose } = useDraftGuard(
                             <span class="field-label"
                                 >关联{{ assetKind === 'gear' ? '装备' : '召唤兽' }}</span
                             >
+                            <GlassSmallSwitch
+                                v-if="glass"
+                                v-model:checked="linked"
+                                aria-label="是否关联仓库物品"
+                                :disabled="locked || fixedAssets"
+                            />
                             <CostSwitch
+                                v-else
                                 v-model="linked"
                                 off-label="否"
                                 on-label="是"
@@ -312,7 +394,11 @@ const { requestClose } = useDraftGuard(
                     </div>
                 </div>
 
-                <PaperCard v-if="linkAvailable && linked" class="account-asset">
+                <component
+                    :is="glass ? 'section' : PaperCard"
+                    v-if="linkAvailable && linked"
+                    class="account-asset"
+                >
                     <div class="account-asset-head">
                         <span class="field-label"
                             >{{ fixedAssets ? '关联' : '选择'
@@ -356,24 +442,40 @@ const { requestClose } = useDraftGuard(
                             {{ assetKind === 'gear' ? '未选择装备' : '未选择召唤兽' }}
                         </p>
                     </div>
-                </PaperCard>
+                </component>
 
                 <div class="form-field">
                     <span class="field-label">角色</span>
-                    <SegmentedPills
-                        v-model="characterId"
-                        class="character-pick"
-                        :options="whoOptions"
-                        label="这笔账记给哪个角色"
-                        :disabled="locked"
-                        wrap
-                    />
+                    <div class="character-pick" :class="{ 'lg-scroll-hidden': glass }">
+                        <AccountFilterTabs
+                            v-model="characterId"
+                            :options="whoOptions"
+                            label="这笔账记给哪个角色"
+                            :disabled="locked"
+                        />
+                    </div>
                 </div>
 
                 <div class="form-pair">
                     <div class="form-field">
                         <span class="field-label">方向</span>
+                        <GlassSegmented
+                            v-if="glass"
+                            v-model:value="kind"
+                            class="lg-status-tabs"
+                            data-size="compact"
+                            aria-label="收支方向"
+                        >
+                            <GlassSegment
+                                v-for="one in kindOptions"
+                                :key="one.value"
+                                :value="one.value"
+                                :disabled="locked || fixedAssets"
+                                >{{ one.label }}</GlassSegment
+                            >
+                        </GlassSegmented>
                         <SegmentedPills
+                            v-else
                             v-model="kind"
                             :options="kindOptions"
                             label="收支方向"
@@ -381,27 +483,36 @@ const { requestClose } = useDraftGuard(
                         />
                     </div>
                     <div class="form-field">
-                        <span class="field-label">日期</span>
-                        <DateField v-model="date" label="记账日期" :disabled="locked" />
+                        <span v-if="!glass" class="field-label">日期</span>
+                        <component
+                            :is="glass ? GlassDateField : DateField"
+                            v-model="date"
+                            label="记账日期"
+                            :disabled="locked"
+                        />
                     </div>
                 </div>
 
                 <div class="form-pair">
                     <div class="form-field">
                         <span class="field-label">分类</span>
-                        <SelectField
+                        <component
+                            :is="glass ? GlassSelect : SelectField"
                             v-model="category"
                             :options="categoryOptions"
                             label="收支分类"
+                            :hide-label="glass ? true : undefined"
                             :disabled="locked || fixedAssets"
                         />
                     </div>
                     <div class="form-field">
                         <span class="field-label">渠道</span>
-                        <SelectField
+                        <component
+                            :is="glass ? GlassSelect : SelectField"
                             v-model="channel"
                             :options="channelOptions"
                             label="交易渠道"
+                            :hide-label="glass ? true : undefined"
                             :disabled="locked"
                         />
                     </div>
@@ -409,7 +520,16 @@ const { requestClose } = useDraftGuard(
 
                 <div class="form-field">
                     <label class="field-label" :for="noteId">备注</label>
+                    <GlassInput
+                        v-if="glass"
+                        :id="noteId"
+                        v-model="note"
+                        aria-label="备注"
+                        autocomplete="off"
+                        :disabled="locked"
+                    />
                     <input
+                        v-else
                         :id="noteId"
                         v-model="note"
                         class="field"
@@ -457,6 +577,36 @@ const { requestClose } = useDraftGuard(
 </template>
 
 <style scoped>
+.account-glass-form {
+    container: account-entry / inline-size;
+}
+.account-glass-form .income-form {
+    gap: 12px;
+}
+.account-glass-form .amount-row {
+    padding: 0;
+}
+.account-glass-form .account-asset {
+    margin-inline: 0;
+    padding: 0;
+}
+.account-glass-form .form-pair {
+    align-items: end;
+}
+.account-glass-form .character-pick {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    padding-block: 3px;
+}
+.account-glass-form :deep(.glass-date-field > label) {
+    font-size: var(--fs-sm);
+}
+@container account-entry (max-width: 390px) {
+    .account-glass-form .form-pair {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
 .account-asset {
     display: grid;
     min-width: 0;
@@ -551,30 +701,62 @@ const { requestClose } = useDraftGuard(
 }
 .entry-detail {
     display: grid;
-    gap: 0;
-    margin: 0;
+    gap: 16px;
+    min-width: 0;
 }
-.entry-detail > div {
+.detail-summary {
     display: grid;
-    grid-template-columns: 64px minmax(0, 1fr);
-    gap: 12px;
-    padding: 10px 0;
-    border-bottom: var(--w-hair) solid var(--rule);
+    gap: 8px;
+    min-width: 0;
+    padding: 16px 18px;
 }
-.entry-detail > div:last-child {
-    border-bottom: 0;
+.detail-summary-head,
+.detail-currency {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
-.entry-detail dt {
-    color: var(--muted);
+.detail-summary-head {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    color: var(--ink-2);
     font-size: var(--fs-sm);
 }
-.entry-detail dd {
+.detail-summary-head time,
+.detail-fields dt {
+    color: var(--muted);
+    font-size: var(--fs-xs);
+}
+.detail-summary-head time,
+.detail-amount {
+    font-variant-numeric: tabular-nums;
+}
+.detail-amount {
+    font-size: var(--fs-xl);
+    line-height: 1.2;
+}
+.detail-amount,
+.detail-fields dd {
     margin: 0;
     overflow-wrap: anywhere;
 }
-.detail-amount dd {
-    font-size: var(--fs-amount);
-    font-variant-numeric: tabular-nums;
+.detail-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+    gap: 14px 20px;
+    margin: 0;
+    padding-inline: 4px;
+}
+.detail-fields dt {
+    margin-bottom: 3px;
+}
+.detail-note {
+    grid-column: 1 / -1;
+    padding-top: 12px;
+    border-top: var(--w-hair) solid var(--rule);
+}
+.detail-note dd {
+    white-space: pre-wrap;
 }
 .income {
     color: var(--positive);

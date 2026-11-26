@@ -17,27 +17,27 @@
 
 ## 当前界面与组件归属
 
-| 场景 | 最终约定 | 数据与交互所有者 |
-| ---- | -------- | ---------------- |
-| 总览周月统计 | StatStrip folded，右侧纸脊，纯色面纸 | OverviewView／overview.ts，金额和日期先派生再传入 |
-| 队伍记录 | FoldedCard 左侧纸脊，身份与三类记录，固定卡高／内部滚动 | TeamCard／team-activity.ts；角色档案链接保留 |
-| 常用功能与账号快捷记账 | PaperTag 双孔纸签；首页与排序共用 ShortcutFace | 页面负责点击、偏好及排序，外壳不持有业务字段 |
-| 自定义、补记、记录等辅助入口 | TextButton，无重复底板 | 原弹窗／页面操作，取消与保存链不改 |
-| 收益在线点卡 | 今日在线／今日收益共用 StatStrip folded 左侧纸脊 | online-summary／IncomeView 派生；历史单价和昨日对比保留 |
-| 角色计时键 | 弧面瓷键 KeycapButton，同键开始／结束；自适应宽，不按排数拉高 | OnlineBar 在点击时判断当前会话，原同步保存锁阻止同拍反转 |
-| 图表 | 完整绘图区默认 CHART_HEIGHT，隐藏条的原生横滚；保留固定纵轴、悬停和键盘 | TrendChart／AccountBarChart；按日期／角色的数值仍由领域派生 |
-| 账号票据 | 保留 StatStrip embedded／TicketCard 侧缺口 | 账号自己的汇总口径，未为样式统一迁移为侧折 |
+| 场景                         | 最终约定                                                                | 数据与交互所有者                                            |
+| ---------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------- |
+| 总览周月统计                 | StatStrip folded，右侧纸脊，纯色面纸                                    | OverviewView／overview.ts，金额和日期先派生再传入           |
+| 队伍记录                     | FoldedCard 左侧纸脊，身份与三类记录，固定卡高／内部滚动                 | TeamCard／team-activity.ts；角色档案链接保留                |
+| 常用功能与账号快捷记账       | PaperTag 双孔纸签；首页与排序共用 ShortcutFace                          | 页面负责点击、偏好及排序，外壳不持有业务字段                |
+| 自定义、补记、记录等辅助入口 | TextButton，无重复底板                                                  | 原弹窗／页面操作，取消与保存链不改                          |
+| 收益在线点卡                 | 今日在线／今日收益共用 StatStrip folded 左侧纸脊                        | online-summary／IncomeView 派生；历史单价和昨日对比保留     |
+| 角色计时键                   | 弧面瓷键 KeycapButton，同键开始／结束；自适应宽，不按排数拉高           | OnlineBar 在点击时判断当前会话，原同步保存锁阻止同拍反转    |
+| 图表                         | 完整绘图区默认 CHART_HEIGHT，隐藏条的原生横滚；保留固定纵轴、悬停和键盘 | TrendChart／AccountBarChart；按日期／角色的数值仍由领域派生 |
+| 账号票据                     | 保留 StatStrip embedded／TicketCard 侧缺口                              | 账号自己的汇总口径，未为样式统一迁移为侧折                  |
 
 ## 已追踪的依赖与事实
 
-| 功能链 | 本轮确认 | 边界 |
-| ------ | -------- | ---- |
-| 总览摘要 | OverviewView → overview／team-activity → roster、goals、income、online、accounts 的只读状态；周数据来自收益与上线，月收支只从账号读取，避免自动账重复累加 | 聚合算法保持；未重新深审全部角色／目标领域 |
-| 首页入口 | OverviewShortcuts → 一次性路由 action；仓库 emit 交由 OverviewView 的唯一 lazy WarehouseDialog；偏好经 home-shortcuts 服务保存 | 检查唯一宿主、空偏好、取消、排序实例释放；仓库内部与 OCR 本批不改 |
-| 单键计时 | OnlineBar → startOne／stopOne → online-store → createPersist → services/storage → online 命令 → store/online.rs 的 SQLite 事务 | 开始前查重／重叠，保存失败保留 writeError；旧多人按完整名单结束，名册外保留结束入口 |
-| 点卡与收益 | online-summary／onlineTotalsOf → sessionSlices、历史单价快照；收益 statRowsOf／totalsOf 继续作为统一口径 | 检查超过 32 天的切片改动与相关断言；不重新计算旧单价 |
-| 自动账 | daily-sync 监听三域读取就绪，恢复后补历史，分钟变化只排入经过日期；applyAutoEntries 不替换手记 | 读取恢复／重读空账／时钟回拨相关断言已读，未执行；未做故障注入或睡眠采样 |
-| 共享展示 | FoldedCard／PaperTag／KeycapButton → materials；图表 → chart-style／chart-scroll | API 不碰服务／Rust；主题和降动效沿现有公共基座 |
+| 功能链     | 本轮确认                                                                                                                                                  | 边界                                                                                |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 总览摘要   | OverviewView → overview／team-activity → roster、goals、income、online、accounts 的只读状态；周数据来自收益与上线，月收支只从账号读取，避免自动账重复累加 | 聚合算法保持；未重新深审全部角色／目标领域                                          |
+| 首页入口   | OverviewShortcuts → 一次性路由 action；仓库 emit 交由 OverviewView 的唯一 lazy WarehouseDialog；偏好经 home-shortcuts 服务保存                            | 检查唯一宿主、空偏好、取消、排序实例释放；仓库内部与 OCR 本批不改                   |
+| 单键计时   | OnlineBar → startOne／stopOne → online-store → createPersist → services/storage → online 命令 → store/online.rs 的 SQLite 事务                            | 开始前查重／重叠，保存失败保留 writeError；旧多人按完整名单结束，名册外保留结束入口 |
+| 点卡与收益 | online-summary／onlineTotalsOf → sessionSlices、历史单价快照；收益 statRowsOf／totalsOf 继续作为统一口径                                                  | 检查超过 32 天的切片改动与相关断言；不重新计算旧单价                                |
+| 自动账     | daily-sync 监听三域读取就绪，恢复后补历史，分钟变化只排入经过日期；applyAutoEntries 不替换手记                                                            | 读取恢复／重读空账／时钟回拨相关断言已读，未执行；未做故障注入或睡眠采样            |
+| 共享展示   | FoldedCard／PaperTag／KeycapButton → materials；图表 → chart-style／chart-scroll                                                                          | API 不碰服务／Rust；主题和降动效沿现有公共基座                                      |
 
 Rust 只读取直接关联的 online 存取实现以核对载荷和事务边界，没有修改后端命令、Schema 或绑定，不声称完成全部 Rust 领域审查。公共样式兼容读取延伸至账号纸签／分类图与物价历史图；不扩大为这两个领域的完整业务验收。
 
@@ -61,79 +61,79 @@ Rust 只读取直接关联的 online 存取实现以核对载荷和事务边界�
 
 快照共 71 项：本轮目标 46 项已审查（目标覆盖 100%），25 项明确跳过；不是全工作区审查通过。
 
-| 路径 | Git 状态 | 本轮状态 |
-| ---- | -------- | -------- |
-| docs/ARCHITECTURE.md | M | 已审查 |
-| docs/CONVENTIONS.md | M | 已审查 |
-| docs/OPTIMIZATION-PLAN-2026-11-18.md | M | 已审查 |
-| docs/README.md | M | 已审查 |
-| docs/RECORD.md | M | 已审查 |
-| docs/TESTING.md | M | 已审查 |
-| docs/reviews/U02-INCOME-REVIEW-2026-11-19.md | M | 已审查 |
-| docs/reviews/U02-OVERVIEW-REVIEW-2026-11-19.md | M | 已审查 |
-| src/components/PressTile.vue | M | 已审查 |
-| src/components/StatStrip.vue | M | 已审查 |
-| src/components/TicketCard.vue | M | 已审查 |
-| src/components/TrendChart.vue | M | 已审查 |
-| src/components/chart-style.ts | M | 已审查 |
-| src/styles/base.css | M | 已审查 |
-| src/styles/blocks.css | M | 已审查 |
-| src/styles/materials.css | M | 已审查 |
-| src/styles/theme-materials.css | M | 已审查 |
-| src/views/accounts/AccountBarChart.vue | M | 已审查 |
-| src/views/accounts/AccountCharts.vue | M | 已审查 |
-| src/views/accounts/AccountsView.vue | M | 已审查 |
-| src/views/accounts/accounts-page.css | M | 已审查 |
-| src/views/accounts/daily-sync.test.ts | M | 已审查 |
-| src/views/accounts/daily-sync.ts | M | 已审查 |
-| src/views/dev/AtomsSection.vue | M | 已审查 |
-| src/views/dev/atoms-section.css | M | 已审查 |
-| src/views/income/IncomeView.vue | M | 已审查 |
-| src/views/income/OnlineBar.vue | M | 已审查 |
-| src/views/income/OnlinePanel.vue | M | 已审查 |
-| src/views/income/online.test.ts | M | 已审查 |
-| src/views/income/online.ts | M | 已审查 |
-| src/views/overview/OverviewGoals.vue | M | 已审查 |
-| src/views/overview/OverviewShortcuts.vue | M | 已审查 |
-| src/views/overview/OverviewView.vue | M | 已审查 |
-| src/views/overview/ShortcutFace.vue | M | 已审查 |
-| src/views/overview/ShortcutSortTile.vue | M | 已审查 |
-| src/views/overview/TeamCard.vue | M | 已审查 |
-| src/views/prices/PriceChart.vue | M | 已审查 |
-| src/views/prices/PriceHistoryDialog.vue | M | 已审查 |
-| tools/e2e/sections/01-nav.mjs | M | 已审查 |
-| tools/e2e/sections/05-accounts.mjs | M | 已审查 |
-| tools/e2e/sections/income/online.mjs | M | 已审查 |
-| tools/e2e/sections/income/quick.mjs | M | 已审查 |
-| docs/reviews/U02-OVERVIEW-INCOME-CLOSEOUT-2026-11-20.md | ?? | 已审查 |
-| src/components/FoldedCard.vue | ?? | 已审查 |
-| src/components/KeycapButton.vue | ?? | 已审查 |
-| src/components/PaperTag.vue | ?? | 已审查 |
+| 路径                                                    | Git 状态 | 本轮状态 |
+| ------------------------------------------------------- | -------- | -------- |
+| docs/ARCHITECTURE.md                                    | M        | 已审查   |
+| docs/CONVENTIONS.md                                     | M        | 已审查   |
+| docs/OPTIMIZATION-PLAN-2026-11-18.md                    | M        | 已审查   |
+| docs/README.md                                          | M        | 已审查   |
+| docs/RECORD.md                                          | M        | 已审查   |
+| docs/TESTING.md                                         | M        | 已审查   |
+| docs/reviews/U02-INCOME-REVIEW-2026-11-19.md            | M        | 已审查   |
+| docs/reviews/U02-OVERVIEW-REVIEW-2026-11-19.md          | M        | 已审查   |
+| src/components/PressTile.vue                            | M        | 已审查   |
+| src/components/StatStrip.vue                            | M        | 已审查   |
+| src/components/TicketCard.vue                           | M        | 已审查   |
+| src/components/TrendChart.vue                           | M        | 已审查   |
+| src/components/chart-style.ts                           | M        | 已审查   |
+| src/styles/base.css                                     | M        | 已审查   |
+| src/styles/blocks.css                                   | M        | 已审查   |
+| src/styles/materials.css                                | M        | 已审查   |
+| src/styles/theme-materials.css                          | M        | 已审查   |
+| src/views/accounts/AccountBarChart.vue                  | M        | 已审查   |
+| src/views/accounts/AccountCharts.vue                    | M        | 已审查   |
+| src/views/accounts/AccountsView.vue                     | M        | 已审查   |
+| src/views/accounts/accounts-page.css                    | M        | 已审查   |
+| src/views/accounts/daily-sync.test.ts                   | M        | 已审查   |
+| src/views/accounts/daily-sync.ts                        | M        | 已审查   |
+| src/views/dev/AtomsSection.vue                          | M        | 已审查   |
+| src/views/dev/atoms-section.css                         | M        | 已审查   |
+| src/views/income/IncomeView.vue                         | M        | 已审查   |
+| src/views/income/OnlineBar.vue                          | M        | 已审查   |
+| src/views/income/OnlinePanel.vue                        | M        | 已审查   |
+| src/views/income/online.test.ts                         | M        | 已审查   |
+| src/views/income/online.ts                              | M        | 已审查   |
+| src/views/overview/OverviewGoals.vue                    | M        | 已审查   |
+| src/views/overview/OverviewShortcuts.vue                | M        | 已审查   |
+| src/views/overview/OverviewView.vue                     | M        | 已审查   |
+| src/views/overview/ShortcutFace.vue                     | M        | 已审查   |
+| src/views/overview/ShortcutSortTile.vue                 | M        | 已审查   |
+| src/views/overview/TeamCard.vue                         | M        | 已审查   |
+| src/views/prices/PriceChart.vue                         | M        | 已审查   |
+| src/views/prices/PriceHistoryDialog.vue                 | M        | 已审查   |
+| tools/e2e/sections/01-nav.mjs                           | M        | 已审查   |
+| tools/e2e/sections/05-accounts.mjs                      | M        | 已审查   |
+| tools/e2e/sections/income/online.mjs                    | M        | 已审查   |
+| tools/e2e/sections/income/quick.mjs                     | M        | 已审查   |
+| docs/reviews/U02-OVERVIEW-INCOME-CLOSEOUT-2026-11-20.md | ??       | 已审查   |
+| src/components/FoldedCard.vue                           | ??       | 已审查   |
+| src/components/KeycapButton.vue                         | ??       | 已审查   |
+| src/components/PaperTag.vue                             | ??       | 已审查   |
 
-| 路径 | Git 状态 | 本轮状态与原因 |
-| ---- | -------- | ---------------- |
-| assets/fonts/MHHei.woff2 | D | 已跳过：字体调整独立批次，未纳入本轮两页收口。 |
-| assets/fonts/README.md | M | 已跳过：字体调整独立批次，未纳入本轮两页收口。 |
-| assets/fonts/SourceHanSans-OFL.txt | D | 已跳过：字体调整独立批次，未纳入本轮两页收口。 |
-| docs/previews/home-style-options.html | M | 已跳过：历史候选稿，仅字体选项等前批改动，不作为现行组件真源。 |
-| docs/previews/online-card-options.html | M | 已跳过：历史候选稿，仅字体选项等前批改动，不作为现行组件真源。 |
-| docs/previews/online-role-options.html | M | 已跳过：历史候选稿，仅字体选项等前批改动，不作为现行组件真源。 |
-| docs/previews/shortcut-button-options.html | M | 已跳过：历史候选稿，仅字体选项等前批改动，不作为现行组件真源。 |
-| docs/previews/shortcut-editor-options.html | M | 已跳过：历史候选稿，仅字体选项等前批改动，不作为现行组件真源。 |
-| docs/previews/team-receipt-options-v2.html | M | 已跳过：历史候选稿，仅字体选项等前批改动，不作为现行组件真源。 |
-| docs/previews/team-receipt-options.html | M | 已跳过：历史候选稿，仅字体选项等前批改动，不作为现行组件真源。 |
-| docs/reviews/U04-INCOME-HISTORY-2026-11-19.md | M | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
-| src/components/ModalShell.vue | M | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
-| src/components/lazy-dialog.test.ts | M | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
-| src/components/lazy-dialog.ts | M | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
-| src/composables/use-font-family.test.ts | M | 已跳过：字体调整独立批次，未纳入本轮两页收口。 |
-| src/composables/use-font-family.ts | M | 已跳过：字体调整独立批次，未纳入本轮两页收口。 |
-| src/composables/use-modal-motion.test.ts | M | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
-| src/composables/use-modal-motion.ts | M | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
-| src/composables/use-modal-size.ts | M | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
-| src/composables/use-modal.ts | M | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
-| src/styles/token-core.css | M | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
-| src/views/settings/AboutSection.vue | M | 已跳过：字体调整独立批次，未纳入本轮两页收口。 |
-| tools/e2e/sections/07-settings.mjs | M | 已跳过：字体调整独立批次，未纳入本轮两页收口。 |
-| tools/font/import-ui-fonts.py | M | 已跳过：字体调整独立批次，未纳入本轮两页收口。 |
-| docs/reviews/U02-THREE-PAGES-FOUNDATION-2026-11-20.md | ?? | 已跳过：前批独立报告，本轮仅引用相关事实，未重新审查全文。 |
+| 路径                                                  | Git 状态 | 本轮状态与原因                                                             |
+| ----------------------------------------------------- | -------- | -------------------------------------------------------------------------- |
+| assets/fonts/MHHei.woff2                              | D        | 已跳过：字体调整独立批次，未纳入本轮两页收口。                             |
+| assets/fonts/README.md                                | M        | 已跳过：字体调整独立批次，未纳入本轮两页收口。                             |
+| assets/fonts/SourceHanSans-OFL.txt                    | D        | 已跳过：字体调整独立批次，未纳入本轮两页收口。                             |
+| docs/previews/home-style-options.html                 | M        | 已跳过：历史候选稿，仅字体选项等前批改动，不作为现行组件真源。             |
+| docs/previews/online-card-options.html                | M        | 已跳过：历史候选稿，仅字体选项等前批改动，不作为现行组件真源。             |
+| docs/previews/online-role-options.html                | M        | 已跳过：历史候选稿，仅字体选项等前批改动，不作为现行组件真源。             |
+| docs/previews/shortcut-button-options.html            | M        | 已跳过：历史候选稿，仅字体选项等前批改动，不作为现行组件真源。             |
+| docs/previews/shortcut-editor-options.html            | M        | 已跳过：历史候选稿，仅字体选项等前批改动，不作为现行组件真源。             |
+| docs/previews/team-receipt-options-v2.html            | M        | 已跳过：历史候选稿，仅字体选项等前批改动，不作为现行组件真源。             |
+| docs/previews/team-receipt-options.html               | M        | 已跳过：历史候选稿，仅字体选项等前批改动，不作为现行组件真源。             |
+| docs/reviews/U04-INCOME-HISTORY-2026-11-19.md         | M        | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
+| src/components/ModalShell.vue                         | M        | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
+| src/components/lazy-dialog.test.ts                    | M        | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
+| src/components/lazy-dialog.ts                         | M        | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
+| src/composables/use-font-family.test.ts               | M        | 已跳过：字体调整独立批次，未纳入本轮两页收口。                             |
+| src/composables/use-font-family.ts                    | M        | 已跳过：字体调整独立批次，未纳入本轮两页收口。                             |
+| src/composables/use-modal-motion.test.ts              | M        | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
+| src/composables/use-modal-motion.ts                   | M        | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
+| src/composables/use-modal-size.ts                     | M        | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
+| src/composables/use-modal.ts                          | M        | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
+| src/styles/token-core.css                             | M        | 已跳过：全局弹窗／字体独立变更；仅读其调用或令牌前提，未重做整条专项审查。 |
+| src/views/settings/AboutSection.vue                   | M        | 已跳过：字体调整独立批次，未纳入本轮两页收口。                             |
+| tools/e2e/sections/07-settings.mjs                    | M        | 已跳过：字体调整独立批次，未纳入本轮两页收口。                             |
+| tools/font/import-ui-fonts.py                         | M        | 已跳过：字体调整独立批次，未纳入本轮两页收口。                             |
+| docs/reviews/U02-THREE-PAGES-FOUNDATION-2026-11-20.md | ??       | 已跳过：前批独立报告，本轮仅引用相关事实，未重新审查全文。                 |

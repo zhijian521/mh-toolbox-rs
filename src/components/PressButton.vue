@@ -5,8 +5,6 @@ import PressTile from './PressTile.vue';
 import type { IconName } from './icons';
 import { glassLedger } from './glass-ledger';
 
-const glassButton = inject(glassLedger, null)?.button;
-
 /**
  * 压印块按钮：内容落在一块**凸起的纸**上。
  *
@@ -65,6 +63,8 @@ withDefaults(
     }>(),
     { text: '', disabled: false, seal: false, danger: false, size: 'md' },
 );
+
+const glassButton = inject(glassLedger, null)?.button;
 </script>
 
 <template>
@@ -73,7 +73,6 @@ withDefaults(
         v-if="glassButton"
         class="glass-ledger-button"
         :class="[`size-${size}`, { 'danger-action': danger }]"
-        :variant="seal ? 'prominent' : undefined"
         :shape="icon && !text ? 'circle' : undefined"
         size="small"
         :title="label"

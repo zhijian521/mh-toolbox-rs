@@ -59,7 +59,7 @@
 }
 /* 票内数字格需要比票面更深；--bevel-lo 在明暗主题均压暗。
  * 特异性高于 num-slot 默认材质、低于输入焦点态，聚焦仍使用实槽。 */
-.slip-row .num-slot {
+.slip-row .num-slot:where(.field, .num-tag) {
     --num-slot-background: color-mix(in srgb, var(--bevel-lo) 50%, var(--paper-2));
     background: var(--num-slot-background);
 }
@@ -164,22 +164,72 @@
     container: screenshot-editor / inline-size;
 }
 
+.liquid-ledger {
+    --role-card-width: calc(376px * var(--fs-scale));
+    --editor-gap: 16px;
+    --role-editor-width: calc(
+        2 * var(--role-card-width) + 3 * var(--editor-gap) + 2 * var(--w-hair)
+    );
+}
 .liquid-ledger .character-theme {
     --glass-select-height: 28px;
 }
-.liquid-ledger .slip-row .slip-input:is(.glass-input, .glass-compact-number-field) {
+.liquid-ledger .character-theme:has(> .modal-body-fill .screenshot-upload) {
+    max-width: min(100%, var(--role-editor-width));
+    --screenshot-columns: repeat(2, minmax(0, 1fr));
+}
+.liquid-ledger .character-theme > .modal-body-fill:has(.screenshot-upload) {
+    scrollbar-gutter: auto;
+}
+.liquid-ledger .character-theme > .modal-body-fill:not(.modal-body-flush):has(.screenshot-upload),
+.liquid-ledger .character-theme .character-detail-content {
+    padding-inline: var(--editor-gap);
+}
+.liquid-ledger .character-theme :is(.ocr, .upload-detail) {
+    scrollbar-gutter: auto;
+}
+.liquid-ledger
+    .character-theme
+    :is(.upload-left, .screenshot-upload, .character-detail-content, .pet-grid) {
+    scrollbar-width: none;
+    scrollbar-gutter: auto;
+}
+.liquid-ledger .modal-panel.character-theme .slip-row:has(input, .glass-select),
+.liquid-ledger .modal-panel.character-theme .glass-select.slip-row {
+    background: transparent;
+    box-shadow: none;
+}
+.liquid-ledger .glass-compact-number-field.num-slot {
+    padding: 0;
+    height: auto;
+    background: transparent;
+    box-shadow: none;
+}
+.liquid-ledger .glass-compact-number-field.character-detail-name-input {
+    width: 100%;
+    height: auto;
+    padding: 0;
+}
+.liquid-ledger
+    :is(
+        .identity-name,
+        .identity-sub > span,
+        .character-detail-name-input
+    ).glass-compact-number-field {
+    --number-align: start;
+}
+.liquid-ledger .slip-row .slip-input.glass-compact-number-field {
     flex: none;
     width: var(--tag-w);
     text-align: center;
 }
 .liquid-ledger .slip-row .glass-compact-number-field.compact {
-    width: calc(36px * var(--fs-scale));
+    width: calc(44px * var(--fs-scale));
 }
 .liquid-ledger .slip-row.sm {
     --character-input-h: 24px;
 }
-.liquid-ledger .slip-row.sm .compact-number-input {
+.liquid-ledger .slip-row.sm .glass-compact-number-field input {
     min-height: 24px;
     padding-block: 1px;
 }
-

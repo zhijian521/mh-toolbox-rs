@@ -252,10 +252,14 @@ const MENPAI_OPTIONS = [
 
 const pickField = computed(() => {
     switch (active.value) {
-        case 'lifeSkill': return { label: '辅助技能', options: lifeOptions.value };
-        case 'cultivation': return { label: '修炼类型', options: cultOptions.value };
-        case 'menpai': return { label: '飞升阶段', options: MENPAI_OPTIONS };
-        default: return null;
+        case 'lifeSkill':
+            return { label: '辅助技能', options: lifeOptions.value };
+        case 'cultivation':
+            return { label: '修炼类型', options: cultOptions.value };
+        case 'menpai':
+            return { label: '飞升阶段', options: MENPAI_OPTIONS };
+        default:
+            return null;
     }
 });
 
@@ -504,8 +508,15 @@ const outcome = computed<Outcome>(() => {
 <template>
     <ToolPageShell title="养成计算器" desc="单项计算 · 角色预算">
         <template v-if="costs" #actions>
-            <GlassSegmented v-if="glass" v-model:value="mode" class="lg-status-tabs" aria-label="计算方式">
-                <GlassSegment v-for="option in MODES" :key="option.value" :value="option.value">{{ option.label }}</GlassSegment>
+            <GlassSegmented
+                v-if="glass"
+                v-model:value="mode"
+                class="lg-status-tabs"
+                aria-label="计算方式"
+            >
+                <GlassSegment v-for="option in MODES" :key="option.value" :value="option.value">{{
+                    option.label
+                }}</GlassSegment>
             </GlassSegmented>
             <SegmentedPills v-else v-model="mode" :options="MODES" label="计算方式" />
         </template>
@@ -520,13 +531,27 @@ const outcome = computed<Outcome>(() => {
                     <component :is="surface" v-bind="surfaceProps" class="calc-directory">
                         <div v-if="glass" class="calc-controls">
                             <GlassSegmented v-model:value="category" aria-label="计算类别">
-                                <GlassSegment v-for="item in categories" :key="item.value" :value="item.value">
+                                <GlassSegment
+                                    v-for="item in categories"
+                                    :key="item.value"
+                                    :value="item.value"
+                                >
                                     {{ item.label }}
                                 </GlassSegment>
                             </GlassSegmented>
                             <div class="calc-project-scroll">
-                                <GlassSegmented :key="category" class="calc-project" :value="active" aria-label="计算项目" @update:value="pickProject">
-                                    <GlassSegment v-for="item in projects" :key="item.value" :value="item.value">
+                                <GlassSegmented
+                                    :key="category"
+                                    class="calc-project"
+                                    :value="active"
+                                    aria-label="计算项目"
+                                    @update:value="pickProject"
+                                >
+                                    <GlassSegment
+                                        v-for="item in projects"
+                                        :key="item.value"
+                                        :value="item.value"
+                                    >
                                         {{ item.label }}
                                     </GlassSegment>
                                 </GlassSegmented>
@@ -534,11 +559,21 @@ const outcome = computed<Outcome>(() => {
                         </div>
                         <div v-else class="calc-choice">
                             <span>类别</span>
-                            <SegmentedPills v-model="category" :options="categories" label="计算类别" wrap />
+                            <SegmentedPills
+                                v-model="category"
+                                :options="categories"
+                                label="计算类别"
+                                wrap
+                            />
                         </div>
                         <div v-if="!glass" class="calc-choice">
                             <span>项目</span>
-                            <SegmentedPills v-model="active" :options="projects" label="计算项目" wrap />
+                            <SegmentedPills
+                                v-model="active"
+                                :options="projects"
+                                label="计算项目"
+                                wrap
+                            />
                         </div>
                     </component>
 

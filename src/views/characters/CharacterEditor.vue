@@ -7,12 +7,7 @@ import FormActions from '../../components/FormActions.vue';
 import CharacterPaneTabs from './CharacterPaneTabs.vue';
 import CharacterCard from './CharacterCard.vue';
 import { hasPetName } from './pets';
-import {
-    PANES,
-    type CharacterData,
-    type ReadonlyCharacter,
-    type PaneKey,
-} from './character';
+import { PANES, type CharacterData, type ReadonlyCharacter, type PaneKey } from './character';
 import type { OcrLine } from './ocr/attr-panel';
 import type { CharacterPanelResult } from './ocr/character-panel';
 import type { ScreenshotIntake } from './ocr/screenshot-input';
@@ -119,12 +114,7 @@ async function fillRequired() {
     else await petEditor.value?.focusName(issue.petIndex);
 }
 
-function applyScreenshot(
-    file: File,
-    panel: CharacterPanelResult,
-    lines: OcrLine[],
-    shot: string,
-) {
+function applyScreenshot(file: File, panel: CharacterPanelResult, lines: OcrLine[], shot: string) {
     if (panel.pane === 'gear') gearEditor.value?.acceptScreenshot(file, panel.value, lines);
     else if (panel.pane === 'pets') petEditor.value?.acceptScreenshot(file, panel.value, lines);
     else recognize(panel, shot);
@@ -156,7 +146,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
                 <CharacterPaneTabs
                     v-model="pane"
                     class="ocr-tabs"
-                    :data-size="glass ? 'standard' : undefined"
+                    :data-size="glass ? 'compact' : undefined"
                     :prefix="glass ? editorId : undefined"
                     label="修改分区"
                 />
@@ -241,7 +231,7 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
 </template>
 
 <style scoped>
-/* 六个分区共用截图布局，右栏宽度由 --char-editor-w 统一提供。 */
+/* 六个分区共用同一套截图与表单布局。 */
 .ocr {
     display: flex;
     flex: 1;
@@ -264,10 +254,17 @@ onMounted(() => focusInput(content, 'input[aria-label="角色名"]'));
     --step-pad-y: 6px;
     --step-pad-x: 10px;
 }
-@container screenshot-editor (max-width: 480px) {
-    .ocr-tabs[data-size='standard'] {
-        --lg-choice-padding-inline: clamp(4px, 2cqi, 9px);
-        --lg-choice-gap: 2px;
+.ocr-bar:has(.ocr-tabs[data-size='compact']) {
+    display: grid;
+    grid-template-columns: var(--screenshot-columns);
+    column-gap: var(--editor-gap);
+}
+.ocr-tabs[data-size='compact'] {
+    width: 100%;
+}
+@container screenshot-editor (max-width: 639px) {
+    .ocr-bar:has(.ocr-tabs[data-size='compact']) {
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 .ocr-count {

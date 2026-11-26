@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import CharacterTextField from './CharacterTextField.vue';
+import AppIcon from '../../components/AppIcon.vue';
 import { useCharacterFields } from './use-character-fields';
 import { computed, ref, watch } from 'vue';
 import PressButton from '../../components/PressButton.vue';
@@ -22,6 +23,35 @@ import {
 import type { ReadonlyGearDetail, GearSlotName } from './gear';
 import type { QuickTarget } from './quick/quick-target';
 
+const props = withDefaults(
+    defineProps<{
+        character: ReadonlyCharacter;
+        preview?: boolean;
+        editable?: boolean;
+        tabs?: boolean;
+        /** 要显示哪一页。缺省是属性页；父级改值时跟随。 */
+        pane?: PaneKey;
+        /** 点行 / 格开「快速修改」。 */
+        quick?: boolean;
+        disabled?: boolean;
+    }>(),
+    /* `tabs` 的缺省值**必须显式写 `true`**：Vue 对布尔 prop 的缺省是 `false` 而不是
+     * `undefined`（Boolean casting），所以模板里写 `props.tabs !== false` 不管用——
+     * 不传时它已经是 `false` 了，整张名册的页签条会被一起省掉（这一条当场红过）。
+     * `preview` / `editable` / `quick` 用不到反直觉的缺省，不写。 */
+    { tabs: true, pane: 'attrs', quick: false },
+);
+const emit = defineEmits<{
+    edit: [pane: PaneKey];
+    remove: [];
+    'edit-value': [key: string, value: string];
+    'edit-level': [name: string, level: number];
+    'edit-assist': [index: number, patch: Partial<AssistSkill>];
+    'add-assist': [kind: AssistKind];
+    'remove-assist': [index: number];
+    'edit-training': [name: string, level: number];
+    quick: [target: QuickTarget];
+}>();
 /**
  * 一张角色卡：**一张纸上的六个分区**，用卡内页签切换。
  *
@@ -85,36 +115,6 @@ import type { QuickTarget } from './quick/quick-target';
  * 截图识别右侧的卡直接编辑草稿，不开快速修改窗；`quick` 由名册传入，默认关闭。
  */
 const { glass, DetailCard, NumberField, SelectField, selectProps } = useCharacterFields();
-const props = withDefaults(
-    defineProps<{
-        character: ReadonlyCharacter;
-        preview?: boolean;
-        editable?: boolean;
-        tabs?: boolean;
-        /** 要显示哪一页。缺省是属性页；父级改值时跟随。 */
-        pane?: PaneKey;
-        /** 点行 / 格开「快速修改」。 */
-        quick?: boolean;
-        disabled?: boolean;
-    }>(),
-    /* `tabs` 的缺省值**必须显式写 `true`**：Vue 对布尔 prop 的缺省是 `false` 而不是
-     * `undefined`（Boolean casting），所以模板里写 `props.tabs !== false` 不管用——
-     * 不传时它已经是 `false` 了，整张名册的页签条会被一起省掉（这一条当场红过）。
-     * `preview` / `editable` / `quick` 用不到反直觉的缺省，不写。 */
-    { tabs: true, pane: 'attrs', quick: false },
-);
-const emit = defineEmits<{
-    edit: [pane: PaneKey];
-    remove: [];
-    'edit-value': [key: string, value: string];
-    'edit-level': [name: string, level: number];
-    'edit-assist': [index: number, patch: Partial<AssistSkill>];
-    'add-assist': [kind: AssistKind];
-    'remove-assist': [index: number];
-    'edit-training': [name: string, level: number];
-    quick: [target: QuickTarget];
-}>();
-
 const active = ref<PaneKey>(props.pane);
 const fitAttrs = computed(() => props.tabs && !props.preview && !props.editable);
 watch(
@@ -195,6 +195,7 @@ function openDetail(index: number) {
             <div class="who-block" :class="{ 'identity-edit': editable && active === 'attrs' }">
                 <div v-if="editable && active === 'attrs'" class="who who-edit">
                     <CharacterTextField
+                        compact
                         layout="identity-name"
                         :model-value="character.name"
                         aria-label="角色名"
@@ -232,12 +233,14 @@ function openDetail(index: number) {
                      只填了一项时不是「A · 」，也不会留下一个空的点。 -->
                 <div v-if="editable && active === 'attrs'" class="identity-sub">
                     <CharacterTextField
+                        compact
                         :model-value="character.server"
                         aria-label="区服"
                         placeholder="区服"
                         @update:model-value="emit('edit-value', 'server', $event)"
                     />
                     <CharacterTextField
+                        compact
                         :model-value="character.guild"
                         aria-label="角色帮派"
                         placeholder="帮派"
@@ -245,13 +248,23 @@ function openDetail(index: number) {
                     />
                 </div>
                 <p v-else-if="character.server || character.guild" class="meta char-sub">
-                    <span v-if="character.server" :title="character.server">{{
-                        character.server
-                    }}</span>
-                    <span v-if="character.server && character.guild" class="dot">·</span>
-                    <span v-if="character.guild" :title="character.guild">{{
-                        character.guild
-                    }}</span>
+                    <span
+                        v-if="character.server"
+                        class="identity-meta"
+                        :title="'区服 · ' + character.server"
+                    >
+                        <AppIcon v-if="glass" name="pin" aria-hidden="true" />
+                        <span>{{ character.server }}</span>
+                    </span>
+                    <span v-if="!glass && character.server && character.guild" class="dot">·</span>
+                    <span
+                        v-if="character.guild"
+                        class="identity-meta"
+                        :title="'帮派 · ' + character.guild"
+                    >
+                        <AppIcon v-if="glass" name="characters" aria-hidden="true" />
+                        <span>{{ character.guild }}</span>
+                    </span>
                 </p>
             </div>
             <!-- 卡头右侧：改与删。两枚都是纯图标 26px，与左栏、工具页同一种压印块。
@@ -297,9 +310,9 @@ function openDetail(index: number) {
             <template v-if="props.tabs || active === 'attrs'">
                 <AttrPane
                     v-show="fitAttrs || active === 'attrs'"
+                    :id="`${character.id}-pane-attrs`"
                     :class="{ 'pane-sizing': fitAttrs && active !== 'attrs' }"
                     :inert="fitAttrs && active !== 'attrs'"
-                    :id="`${character.id}-pane-attrs`"
                     :aria-labelledby="props.tabs ? `${character.id}-tab-attrs` : undefined"
                     :aria-label="props.tabs ? undefined : '属性'"
                     :tabbed="props.tabs"

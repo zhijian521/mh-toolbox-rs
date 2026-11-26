@@ -221,9 +221,15 @@ export default async function runQuick(ctx, tools) {
         t.check('摘要只保留两项', cells.length === 2, `实际 ${cells.length}`);
         const caps = cells.map((one) => one.cap).join('/');
         t.check('名目顺序为净额和笔数', caps === '净额/笔数', caps);
-        t.check('摘要保留副文与昨日对比', cells.every((one) => one.sub && one.delta));
-        t.check('底部统一为简短昨日读数', cells.every((one) => one.sub.startsWith('昨日') &&
-            !one.sub.includes(' ')), cells.map((one) => one.sub).join('/'));
+        t.check(
+            '摘要保留副文与昨日对比',
+            cells.every((one) => one.sub && one.delta),
+        );
+        t.check(
+            '底部统一为简短昨日读数',
+            cells.every((one) => one.sub.startsWith('昨日') && !one.sub.includes(' ')),
+            cells.map((one) => one.sub).join('/'),
+        );
         t.check('笔数对比是「±N 笔」', /^[+−±]\d+ 笔$/.test(cells[1].delta), cells[1].delta);
         const subtotal = await cdp.evaluate(
             "document.querySelector('.today-dump .total .v')?.textContent.trim()",
@@ -348,10 +354,17 @@ export default async function runQuick(ctx, tools) {
         t.check('角色键按内容自适应宽度，窄区不溢出', look.roleLayout.autoWidth);
         t.check('角色使用带状态灯的弧面瓷键，同一按钮开始和结束', look.roleLayout.keycaps);
         for (const [index, label] of ['净额', '笔数'].entries()) {
-            const expected = look.tones[index] === 'gain' ? look.positive :
-                look.tones[index] === 'loss' ? look.negative : look.neutral;
-            t.check(label + '读数使用对应业务色', look.colors[index] === expected,
-                look.colors[index] + ' / ' + expected);
+            const expected =
+                look.tones[index] === 'gain'
+                    ? look.positive
+                    : look.tones[index] === 'loss'
+                      ? look.negative
+                      : look.neutral;
+            t.check(
+                label + '读数使用对应业务色',
+                look.colors[index] === expected,
+                look.colors[index] + ' / ' + expected,
+            );
         }
     });
 
@@ -381,7 +394,8 @@ export default async function runQuick(ctx, tools) {
             return;
         }
         try {
-            const aligned = await cdp.waitFor(`(() => {
+            const aligned = await cdp.waitFor(
+                `(() => {
                     const list = document.querySelector('.role-list');
                     const boxes = [...list.querySelectorAll('.role-item')].filter(el => el.getClientRects().length)
                         .map(el => el.getBoundingClientRect());
@@ -389,12 +403,19 @@ export default async function runQuick(ctx, tools) {
                     return rows.size === 3 && boxes.every((box, index) =>
                         Math.abs(box.height - ${JSON.stringify(original)}[index].height) < 1 &&
                         Math.abs(box.width - ${JSON.stringify(original)}[index].width) < 1);
-                })()`, { timeout: 2500 });
+                })()`,
+                { timeout: 2500 },
+            );
             t.check('三行保持原有按钮高度，不跟随便签拉高', aligned);
             await cdp.evaluate(`document.getElementById('e2e-role-alignment').textContent =
-                ${JSON.stringify('.online-bar .role-list { display: grid !important; grid-template-columns: repeat(2, max-content) !important; justify-items: start; }' +
-                    '.online-bar .role-item:nth-child(n + 4) { display: none !important; }')}`);
-            t.check('两行与三行保持同样的自然尺寸', await cdp.waitFor(`(() => {
+                ${JSON.stringify(
+                    '.online-bar .role-list { display: grid !important; grid-template-columns: repeat(2, max-content) !important; justify-items: start; }' +
+                        '.online-bar .role-item:nth-child(n + 4) { display: none !important; }',
+                )}`);
+            t.check(
+                '两行与三行保持同样的自然尺寸',
+                await cdp.waitFor(
+                    `(() => {
                     const list = document.querySelector('.role-list');
                     const boxes = [...list.querySelectorAll('.role-item')].filter(el => el.getClientRects().length)
                         .map(el => el.getBoundingClientRect());
@@ -402,7 +423,10 @@ export default async function runQuick(ctx, tools) {
                     return rows.size === 2 && boxes.every((box, index) =>
                         Math.abs(box.height - ${JSON.stringify(original)}[index].height) < 1 &&
                         Math.abs(box.width - ${JSON.stringify(original)}[index].width) < 1);
-                })()`, { timeout: 2500 }));
+                })()`,
+                    { timeout: 2500 },
+                ),
+            );
         } finally {
             await cdp.evaluate(`document.getElementById('e2e-role-alignment')?.remove()`);
         }

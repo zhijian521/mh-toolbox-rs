@@ -1,9 +1,9 @@
-/* 六分区共用窗宽：右详情 460，左截图使用剩余宽度。 */
+/* 角色修改窗按比例分栏，其余入口默认给右侧详情预留固定宽度。 */
 .screenshot-upload {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) min(var(--char-editor-w), 62%);
+    grid-template-columns: var(--screenshot-columns, minmax(0, 1fr) min(var(--char-editor-w), 62%));
     flex: 1;
-    gap: 16px;
+    gap: var(--editor-gap, 16px);
     min-width: 0;
     min-height: 0;
 }

@@ -5,7 +5,6 @@ import { glassLedger } from './glass-ledger';
 import { useAnchoredTip } from '../composables/use-anchored-tip';
 
 defineOptions({ inheritAttrs: false });
-const glass = inject(glassLedger, null);
 const props = defineProps<{
     open: boolean;
     anchor: DOMRect | null;
@@ -14,6 +13,7 @@ const props = defineProps<{
     interactive?: boolean;
 }>();
 const emit = defineEmits<{ mouseenter: []; mouseleave: [] }>();
+const glass = inject(glassLedger, null);
 const { el, pos, place } = useAnchoredTip();
 function reposition() {
     if (props.open) void place(props.anchor);

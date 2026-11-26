@@ -7,8 +7,6 @@ import type { TrainingGroup, TrainingRow } from '../character';
 import type { QuickTarget } from '../quick/quick-target';
 import { quickRowBinds, useQuickable } from '../quick-row';
 
-/** 卡内「修炼」页。拆法与理由见 `AttrPane.vue` 顶部。 */
-const { NumberField } = useCharacterFields();
 const props = withDefaults(
     defineProps<{
         groups: readonly DeepReadonly<TrainingGroup>[];
@@ -18,11 +16,12 @@ const props = withDefaults(
     }>(),
     { quick: false, editable: false, tabbed: true },
 );
-
 const emit = defineEmits<{
     quick: [target: QuickTarget];
     'edit-level': [name: string, level: number];
 }>();
+/** 卡内「修炼」页。拆法与理由见 `AttrPane.vue` 顶部。 */
+const { NumberField } = useCharacterFields();
 const uid = useId();
 const quickable = useQuickable(props);
 

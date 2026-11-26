@@ -14,19 +14,19 @@
 
 ## 依赖链与已确认事实
 
-| 功能 | 路径与边界 |
-| ---- | ---------- |
-| 页面统计 | AccountsView → rangeOf／filterAccounts → accountSummaryBooks → accountStatsByCurrency／accountValueText → StatStrip／FoldedCard。历史以自己的 filtered 调同一生成函数；人民币元与梦幻币万分开，不合成总额。 |
-| 快捷记账 | SHORTCUTS → shortcutTotals（按分类和方向跨渠道、排除自动账）→ PaperTag → AccountEditor → usePersistedSubmit → accounts-store。自然换行和单卡限宽保留，三项统计及日期文字按用户最终选择保留。 |
-| 历史 | 主页面 useRecordFilters → AccountRecords 的日期、搜索、细分条件 → filtered → 公共统计和 usePagination → 固定外框／sticky 表头。折叠只影响展示，重开保留条件；删除仍经 useConfirmedRemoval 和原 flush／retry。 |
-| 仓库浏览 | WarehouseDialog → useWarehouse／useAccounts → soldWarehouseItems → warehouseItemsByState → filterWarehouse → 分页 → WarehouseItems／GearTip／PetTip。全部包含成交快照但售出只读；装备仅部位筛选、召唤兽关键词独立，隐藏关键词不影响装备。 |
-| 识别草稿 | WarehouseEditor → 现有 GearScreenshot／PetScreenshot 与解析结果 → 归一／预览 → 确认后回传 AccountEditor，或由仓库保存。取消不入仓、不记账；本轮不改 OCR 算法和游戏词典。 |
-| 四种交易 | AccountEditor.assetSource → EntryInput → planAssetTrade。录入买入新增、选择买入只关联原编号；选择卖出移出、录入卖出只留成交快照。买卖选择均允许穿戴／携带物品；既有交易关联保持只读。 |
-| 穿戴出售 | stageWarehouseTrade → stageSoldRosterAssets → detachSoldCharacterAssets，按编号清空装备位／移除宠物，其余档案保留，不新增成长记录。待保存时锁住仓库及名册，失败保留状态供账号队列重试；删除卖出只回仓，不自动重新穿戴。 |
-| 桌面落盘 | accounts-store → persist → services/storage.accountTradeSave → 现有生成绑定／store::account_trade_save → save_account_trade → detach_sales／check_worn → 同一 SQLite 事务保存角色、账号和库存。IPC 签名、两张命令表和 Schema 没变，无须改生成绑定；普通仓库删除仍不能移除穿戴物品。 |
-| 浏览器恢复 | asset-trade-local 日志保存账号、库存及可选名册；中断后保留日志，角色／仓库／账号读取前恢复。旧的两份数据日志仍可读，恢复测试维护第三份名册写入中断的场景。 |
-| 手续费／同步 | account-fees 从 services/gameplay 的游戏规则取得费率，按整数分向上收取，仅藏宝阁人民币卖出扣费；旧账修改默认实得。daily-sync 仍按稳定 ID 从收益与点卡单向同步，来源加载失败／恢复和原重试逻辑不改。 |
-| 公共样式／资源 | 材质只来自 styles 入口。共享柱色 65% 不透明度、220px 图高、横滚隐藏条及开发说明只核对引用与改动，不再调整用户已确认效果；游戏规则／图标与字体资源不新增、不搬动。 |
+| 功能           | 路径与边界                                                                                                                                                                                                                                                                          |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 页面统计       | AccountsView → rangeOf／filterAccounts → accountSummaryBooks → accountStatsByCurrency／accountValueText → StatStrip／FoldedCard。历史以自己的 filtered 调同一生成函数；人民币元与梦幻币万分开，不合成总额。                                                                         |
+| 快捷记账       | SHORTCUTS → shortcutTotals（按分类和方向跨渠道、排除自动账）→ PaperTag → AccountEditor → usePersistedSubmit → accounts-store。自然换行和单卡限宽保留，三项统计及日期文字按用户最终选择保留。                                                                                        |
+| 历史           | 主页面 useRecordFilters → AccountRecords 的日期、搜索、细分条件 → filtered → 公共统计和 usePagination → 固定外框／sticky 表头。折叠只影响展示，重开保留条件；删除仍经 useConfirmedRemoval 和原 flush／retry。                                                                       |
+| 仓库浏览       | WarehouseDialog → useWarehouse／useAccounts → soldWarehouseItems → warehouseItemsByState → filterWarehouse → 分页 → WarehouseItems／GearTip／PetTip。全部包含成交快照但售出只读；装备仅部位筛选、召唤兽关键词独立，隐藏关键词不影响装备。                                           |
+| 识别草稿       | WarehouseEditor → 现有 GearScreenshot／PetScreenshot 与解析结果 → 归一／预览 → 确认后回传 AccountEditor，或由仓库保存。取消不入仓、不记账；本轮不改 OCR 算法和游戏词典。                                                                                                            |
+| 四种交易       | AccountEditor.assetSource → EntryInput → planAssetTrade。录入买入新增、选择买入只关联原编号；选择卖出移出、录入卖出只留成交快照。买卖选择均允许穿戴／携带物品；既有交易关联保持只读。                                                                                               |
+| 穿戴出售       | stageWarehouseTrade → stageSoldRosterAssets → detachSoldCharacterAssets，按编号清空装备位／移除宠物，其余档案保留，不新增成长记录。待保存时锁住仓库及名册，失败保留状态供账号队列重试；删除卖出只回仓，不自动重新穿戴。                                                             |
+| 桌面落盘       | accounts-store → persist → services/storage.accountTradeSave → 现有生成绑定／store::account_trade_save → save_account_trade → detach_sales／check_worn → 同一 SQLite 事务保存角色、账号和库存。IPC 签名、两张命令表和 Schema 没变，无须改生成绑定；普通仓库删除仍不能移除穿戴物品。 |
+| 浏览器恢复     | asset-trade-local 日志保存账号、库存及可选名册；中断后保留日志，角色／仓库／账号读取前恢复。旧的两份数据日志仍可读，恢复测试维护第三份名册写入中断的场景。                                                                                                                          |
+| 手续费／同步   | account-fees 从 services/gameplay 的游戏规则取得费率，按整数分向上收取，仅藏宝阁人民币卖出扣费；旧账修改默认实得。daily-sync 仍按稳定 ID 从收益与点卡单向同步，来源加载失败／恢复和原重试逻辑不改。                                                                                 |
+| 公共样式／资源 | 材质只来自 styles 入口。共享柱色 65% 不透明度、220px 图高、横滚隐藏条及开发说明只核对引用与改动，不再调整用户已确认效果；游戏规则／图标与字体资源不新增、不搬动。                                                                                                                   |
 
 ## 覆盖台账
 
@@ -34,48 +34,48 @@
 
 台账 40 项，已审查 40 项，跳过 0 项；文件条目覆盖 100%，不代表动态验证覆盖。
 
-| 路径 | 状态 | 审查结果 |
-| ---- | ---- | -------- |
-| docs/ARCHITECTURE.md | M · 已审查 | 现行规范、进度与历史指向 |
-| docs/CONVENTIONS.md | M · 已审查 | 现行规范、进度与历史指向 |
-| docs/OPTIMIZATION-PLAN-2026-11-18.md | M · 已审查 | 现行规范、进度与历史指向 |
-| docs/RECORD.md | M · 已审查 | 现行规范、进度与历史指向 |
-| docs/TESTING.md | M · 已审查 | 现行规范、进度与历史指向 |
-| docs/reviews/D07-ACCOUNTS-REVIEW-2026-11-19.md | M · 已审查 | 现行规范、进度与历史指向 |
-| docs/reviews/U02-OVERVIEW-REVIEW-2026-11-19.md | M · 已审查 | 核对公共柱色及联动说明；本轮不改效果 |
-| src-tauri/src/store.rs | M · 已审查 | 穿戴保护、快照核对与事务边界 |
-| src-tauri/src/store/character_assets.rs | M · 已审查 | 穿戴保护、快照核对与事务边界 |
-| src-tauri/src/store/tests.rs | M · 已审查 | 成功／取消／失败／重载或回归断言，未执行 |
-| src/components/chart-style.ts | M · 已审查 | 核对公共柱色及联动说明；本轮不改效果 |
-| src/services/asset-trade-local.test.ts | M · 已审查 | 成功／取消／失败／重载或回归断言，未执行 |
-| src/services/asset-trade-local.ts | M · 已审查 | 恢复日志、落盘与错误边界 |
-| src/views/accounts/AccountEditor.vue | M · 已审查 | 账号／仓库呈现、状态与领域契约 |
-| src/views/accounts/AccountRecords.vue | M · 已审查 | 账号／仓库呈现、状态与领域契约 |
-| src/views/accounts/AccountsView.vue | M · 已审查 | 账号／仓库呈现、状态与领域契约 |
-| src/views/accounts/account-analysis.test.ts | M · 已审查 | 成功／取消／失败／重载或回归断言，未执行 |
-| src/views/accounts/account-assets-store.test.ts | M · 已审查 | 成功／取消／失败／重载或回归断言，未执行 |
-| src/views/accounts/account-assets.test.ts | M · 已审查 | 成功／取消／失败／重载或回归断言，未执行 |
-| src/views/accounts/account-assets.ts | M · 已审查 | 账号／仓库呈现、状态与领域契约 |
-| src/views/accounts/accounts-page.css | M · 已审查 | 账号／仓库呈现、状态与领域契约 |
-| src/views/accounts/accounts-store.ts | M · 已审查 | 账号／仓库呈现、状态与领域契约 |
-| src/views/characters/roster.ts | M · 已审查 | 售出解除归属及名册写入保护 |
-| src/views/dev/AtomsSection.vue | M · 已审查 | 核对已登记的共用外壳示例，无新业务原子 |
-| src/views/warehouse/WarehouseDialog.vue | M · 已审查 | 账号／仓库呈现、状态与领域契约 |
-| src/views/warehouse/WarehouseEditor.vue | M · 已审查 | 账号／仓库呈现、状态与领域契约 |
-| src/views/warehouse/WarehouseItems.vue | M · 已审查 | 账号／仓库呈现、状态与领域契约 |
-| src/views/warehouse/character-assets.test.ts | M · 已审查 | 成功／取消／失败／重载或回归断言，未执行 |
-| src/views/warehouse/character-assets.ts | M · 已审查 | 账号／仓库呈现、状态与领域契约 |
-| src/views/warehouse/warehouse-store.ts | M · 已审查 | 账号／仓库呈现、状态与领域契约 |
-| src/views/warehouse/warehouse.css | M · 已审查 | 账号／仓库呈现、状态与领域契约 |
-| src/views/warehouse/warehouse.test.ts | M · 已审查 | 成功／取消／失败／重载或回归断言，未执行 |
-| src/views/warehouse/warehouse.ts | M · 已审查 | 账号／仓库呈现、状态与领域契约 |
-| tools/e2e/sections/01-nav.mjs | M · 已审查 | 核对公共柱色及联动说明；本轮不改效果 |
-| tools/e2e/sections/05-accounts.mjs | M · 已审查 | 成功／取消／失败／重载或回归断言，未执行 |
-| tools/e2e/sections/characters/assets.mjs | M · 已审查 | 成功／取消／失败／重载或回归断言，未执行 |
-| docs/reviews/D07-ACCOUNTS-STYLE-2026-11-20.md | ?? · 已审查 | 现行规范、进度与历史指向 |
-| src/views/accounts/AccountRecentRecords.vue | ?? · 已审查 | 账号／仓库呈现、状态与领域契约 |
-| src/views/accounts/account-summary.ts | ?? · 已审查 | 双币种展示生成共用 |
-| docs/reviews/D07-ACCOUNTS-CLOSEOUT-2026-11-20.md | ?? · 已审查 | 本轮结论、覆盖与未验收项 |
+| 路径                                             | 状态        | 审查结果                                 |
+| ------------------------------------------------ | ----------- | ---------------------------------------- |
+| docs/ARCHITECTURE.md                             | M · 已审查  | 现行规范、进度与历史指向                 |
+| docs/CONVENTIONS.md                              | M · 已审查  | 现行规范、进度与历史指向                 |
+| docs/OPTIMIZATION-PLAN-2026-11-18.md             | M · 已审查  | 现行规范、进度与历史指向                 |
+| docs/RECORD.md                                   | M · 已审查  | 现行规范、进度与历史指向                 |
+| docs/TESTING.md                                  | M · 已审查  | 现行规范、进度与历史指向                 |
+| docs/reviews/D07-ACCOUNTS-REVIEW-2026-11-19.md   | M · 已审查  | 现行规范、进度与历史指向                 |
+| docs/reviews/U02-OVERVIEW-REVIEW-2026-11-19.md   | M · 已审查  | 核对公共柱色及联动说明；本轮不改效果     |
+| src-tauri/src/store.rs                           | M · 已审查  | 穿戴保护、快照核对与事务边界             |
+| src-tauri/src/store/character_assets.rs          | M · 已审查  | 穿戴保护、快照核对与事务边界             |
+| src-tauri/src/store/tests.rs                     | M · 已审查  | 成功／取消／失败／重载或回归断言，未执行 |
+| src/components/chart-style.ts                    | M · 已审查  | 核对公共柱色及联动说明；本轮不改效果     |
+| src/services/asset-trade-local.test.ts           | M · 已审查  | 成功／取消／失败／重载或回归断言，未执行 |
+| src/services/asset-trade-local.ts                | M · 已审查  | 恢复日志、落盘与错误边界                 |
+| src/views/accounts/AccountEditor.vue             | M · 已审查  | 账号／仓库呈现、状态与领域契约           |
+| src/views/accounts/AccountRecords.vue            | M · 已审查  | 账号／仓库呈现、状态与领域契约           |
+| src/views/accounts/AccountsView.vue              | M · 已审查  | 账号／仓库呈现、状态与领域契约           |
+| src/views/accounts/account-analysis.test.ts      | M · 已审查  | 成功／取消／失败／重载或回归断言，未执行 |
+| src/views/accounts/account-assets-store.test.ts  | M · 已审查  | 成功／取消／失败／重载或回归断言，未执行 |
+| src/views/accounts/account-assets.test.ts        | M · 已审查  | 成功／取消／失败／重载或回归断言，未执行 |
+| src/views/accounts/account-assets.ts             | M · 已审查  | 账号／仓库呈现、状态与领域契约           |
+| src/views/accounts/accounts-page.css             | M · 已审查  | 账号／仓库呈现、状态与领域契约           |
+| src/views/accounts/accounts-store.ts             | M · 已审查  | 账号／仓库呈现、状态与领域契约           |
+| src/views/characters/roster.ts                   | M · 已审查  | 售出解除归属及名册写入保护               |
+| src/views/dev/AtomsSection.vue                   | M · 已审查  | 核对已登记的共用外壳示例，无新业务原子   |
+| src/views/warehouse/WarehouseDialog.vue          | M · 已审查  | 账号／仓库呈现、状态与领域契约           |
+| src/views/warehouse/WarehouseEditor.vue          | M · 已审查  | 账号／仓库呈现、状态与领域契约           |
+| src/views/warehouse/WarehouseItems.vue           | M · 已审查  | 账号／仓库呈现、状态与领域契约           |
+| src/views/warehouse/character-assets.test.ts     | M · 已审查  | 成功／取消／失败／重载或回归断言，未执行 |
+| src/views/warehouse/character-assets.ts          | M · 已审查  | 账号／仓库呈现、状态与领域契约           |
+| src/views/warehouse/warehouse-store.ts           | M · 已审查  | 账号／仓库呈现、状态与领域契约           |
+| src/views/warehouse/warehouse.css                | M · 已审查  | 账号／仓库呈现、状态与领域契约           |
+| src/views/warehouse/warehouse.test.ts            | M · 已审查  | 成功／取消／失败／重载或回归断言，未执行 |
+| src/views/warehouse/warehouse.ts                 | M · 已审查  | 账号／仓库呈现、状态与领域契约           |
+| tools/e2e/sections/01-nav.mjs                    | M · 已审查  | 核对公共柱色及联动说明；本轮不改效果     |
+| tools/e2e/sections/05-accounts.mjs               | M · 已审查  | 成功／取消／失败／重载或回归断言，未执行 |
+| tools/e2e/sections/characters/assets.mjs         | M · 已审查  | 成功／取消／失败／重载或回归断言，未执行 |
+| docs/reviews/D07-ACCOUNTS-STYLE-2026-11-20.md    | ?? · 已审查 | 现行规范、进度与历史指向                 |
+| src/views/accounts/AccountRecentRecords.vue      | ?? · 已审查 | 账号／仓库呈现、状态与领域契约           |
+| src/views/accounts/account-summary.ts            | ?? · 已审查 | 双币种展示生成共用                       |
+| docs/reviews/D07-ACCOUNTS-CLOSEOUT-2026-11-20.md | ?? · 已审查 | 本轮结论、覆盖与未验收项                 |
 
 附加只读依赖：accounts.ts、account-analysis.ts、account-fees.ts／测试、daily-sync.ts、AccountCharts／AccountFlowCard／AccountBarChart、warehouse-store 既有测试、characters/details.ts、load-data.ts、persist.ts、storage.ts、startup.ts／App.vue、记录筛选／分页／提交 composable。首屏加载有 AppStartup 门控，因此未把“启动时先显示空账”列为缺陷；写入、读取和恢复仍按领域原入口承接。
 

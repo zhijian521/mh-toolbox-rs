@@ -18,7 +18,7 @@ import {
     type DataOutcome,
 } from '../../services/data-files';
 /** 全部账本操作共用忙状态；替换前确认并备份，成功后重载领域单例。 */
-const busy = ref(false);
+const busy = defineModel<boolean>('busy', { required: true });
 const backupsOpen = ref(false);
 const desktop = hasDesktop();
 const {

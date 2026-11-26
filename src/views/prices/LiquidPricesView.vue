@@ -33,7 +33,13 @@ import PriceActionsMenu from './PriceActionsMenu.vue';
 import LiquidPriceCard from './LiquidPriceCard.vue';
 import { usePriceViewState } from './price-view-state';
 import { priceCategoryGroups } from './prices-catalog';
-import { filterItems, type PriceItemDraft, type PricePoint, type PricePointDraft, type ReadonlyPriceItem } from './prices';
+import {
+    filterItems,
+    type PriceItemDraft,
+    type PricePoint,
+    type PricePointDraft,
+    type ReadonlyPriceItem,
+} from './prices';
 import type { PriceWrite } from './prices-store';
 
 type PriceDialog =
@@ -133,9 +139,13 @@ const matchingItems = computed(() =>
 const scrollHost = computed(() =>
     loaded.value && !loading.value && !error.value ? page.value?.parentElement : null,
 );
-watch(scrollHost, (host) => {
-    if (host) host.scrollTop = scroll.value.top;
-}, { flush: 'post' });
+watch(
+    scrollHost,
+    (host) => {
+        if (host) host.scrollTop = scroll.value.top;
+    },
+    { flush: 'post' },
+);
 watch([keyword, category, sub], () => {
     scroll.value.top = 0;
     if (scrollHost.value) scrollHost.value.scrollTop = 0;
@@ -223,9 +233,11 @@ async function onDialogOpenChange(open: boolean) {
 
 function onDialogEscape(event: KeyboardEvent) {
     if (event.isComposing || (!historyChild.value && dialog.value?.kind !== 'remove')) return;
-    const inPopup = event.composedPath().some(
-        (el) => el instanceof Element && el.matches('glass-menu[open], [data-calendar-open]'),
-    );
+    const inPopup = event
+        .composedPath()
+        .some(
+            (el) => el instanceof Element && el.matches('glass-menu[open], [data-calendar-open]'),
+        );
     if (inPopup) return;
     event.preventDefault();
     event.stopPropagation();
@@ -347,7 +359,6 @@ onMounted(() => {
                 ref="addButton"
                 class="price-add"
                 size="small"
-                variant="prominent"
                 aria-label="新增物品"
                 aria-haspopup="dialog"
                 title="新增物品"
@@ -443,15 +454,15 @@ onMounted(() => {
 
         <GlassDialog
             :open="sheetOpen"
-            @update:open="onDialogOpenChange"
             class="price-history-sheet"
             :bottom="historySheet"
             :detents="dialog?.kind === 'remove' ? '208' : historySheet ? '536' : '65% large'"
             :no-dismiss="saving || dialog?.kind === 'remove'"
             :guard-dismiss="hasUnsavedDraft"
-            @keydown.esc.capture="onDialogEscape"
             :class="{ 'is-history': dialog?.kind === 'history' }"
             :label="dialogLabel"
+            @update:open="onDialogOpenChange"
+            @keydown.esc.capture="onDialogEscape"
         >
             <template v-if="dialog?.kind === 'history'">
                 <header class="price-history-header">

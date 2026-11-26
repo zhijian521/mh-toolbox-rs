@@ -75,6 +75,7 @@ function addSkill() {
                         <label class="pet-name-field character-detail-name-field">
                             <CharacterTextField
                                 v-model="pet.name"
+                                compact
                                 layout="character-detail-name-input"
                                 aria-label="召唤兽名称"
                                 placeholder="召唤兽名称"
@@ -127,6 +128,7 @@ function addSkill() {
                         >
                             <span class="slip-name">{{ label }}</span>
                             <CharacterTextField
+                                compact
                                 layout="num num-slot value-field slip-input"
                                 inputmode="numeric"
                                 :aria-label="'召唤兽' + label"
@@ -160,6 +162,7 @@ function addSkill() {
                             ><span class="slip-name">成长</span
                             ><CharacterTextField
                                 v-model="pet.growth"
+                                compact
                                 layout="num num-slot value-field slip-input"
                                 inputmode="decimal"
                                 aria-label="成长"
@@ -178,6 +181,7 @@ function addSkill() {
                             ><span class="slip-name">五行</span
                             ><CharacterTextField
                                 v-model="pet.element"
+                                compact
                                 layout="num-slot value-field slip-input"
                                 aria-label="五行"
                         /></label>

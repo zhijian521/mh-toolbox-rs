@@ -234,13 +234,24 @@ function enter(event: KeyboardEvent) {
             @keydown.enter="enter"
         >
             <fieldset :disabled="locked" :inert="locked">
-                <GlassSegmented v-if="glass" class="goal-kind-tabs" :value="kindTab" aria-label="目标类型" @update:value="pickKindTab">
-                    <GlassSegment v-for="option in kindOptions" :key="option.value" :value="option.value"
-                        :disabled="locked || (!!goal && option.value !== kind)">
+                <GlassSegmented
+                    v-if="glass"
+                    class="goal-kind-tabs"
+                    :value="kindTab"
+                    aria-label="目标类型"
+                    @update:value="pickKindTab"
+                >
+                    <GlassSegment
+                        v-for="option in kindOptions"
+                        :key="option.value"
+                        :value="option.value"
+                        :disabled="locked || (!!goal && option.value !== kind)"
+                    >
                         {{ option.label }}
                     </GlassSegment>
                 </GlassSegmented>
-                <SegmentedPills v-else
+                <SegmentedPills
+                    v-else
                     :disabled="locked"
                     :model-value="kind"
                     :options="
@@ -254,8 +265,15 @@ function enter(event: KeyboardEvent) {
                 />
                 <label class="form-field goal-name" :for="titleId"
                     ><span>{{ kind === 'combo' ? '组合名称' : '目标名称' }}</span
-                    ><GlassInput v-if="glass" :id="titleId" v-model="title" :aria-label="kind === 'combo' ? '组合名称' : '目标名称'" placeholder="留空自动生成" autocomplete="off" />
-                    <input v-else
+                    ><GlassInput
+                        v-if="glass"
+                        :id="titleId"
+                        v-model="title"
+                        :aria-label="kind === 'combo' ? '组合名称' : '目标名称'"
+                        placeholder="留空自动生成"
+                        autocomplete="off" />
+                    <input
+                        v-else
                         :id="titleId"
                         v-model="title"
                         class="field"
@@ -311,8 +329,8 @@ function enter(event: KeyboardEvent) {
                         <span>项目</span>
                         <component
                             :is="glass ? GlassSelect : SelectField"
-                            :hide-label="glass ? true : undefined"
                             v-model="metric"
+                            :hide-label="glass ? true : undefined"
                             :options="metricOptions"
                             label="具体项目"
                             placeholder="选择项目"
@@ -344,8 +362,14 @@ function enter(event: KeyboardEvent) {
                     </div>
                     <label v-else-if="kind === 'manual'" class="form-field control"
                         ><span>单位</span
-                        ><GlassInput v-if="glass" v-model="unitInput" aria-label="目标单位" :disabled="!!goal?.logs.length" maxlength="6" />
-                        <input v-else
+                        ><GlassInput
+                            v-if="glass"
+                            v-model="unitInput"
+                            aria-label="目标单位"
+                            :disabled="!!goal?.logs.length"
+                            maxlength="6" />
+                        <input
+                            v-else
                             v-model="unitInput"
                             class="field"
                             aria-label="目标单位"
@@ -384,8 +408,14 @@ function enter(event: KeyboardEvent) {
                         </div>
                         <label class="form-field control" :for="noteId"
                             ><span>备注</span
-                            ><GlassInput v-if="glass" :id="noteId" v-model="note" aria-label="目标备注" autocomplete="off" />
-                            <input v-else
+                            ><GlassInput
+                                v-if="glass"
+                                :id="noteId"
+                                v-model="note"
+                                aria-label="目标备注"
+                                autocomplete="off" />
+                            <input
+                                v-else
                                 :id="noteId"
                                 v-model="note"
                                 class="field"
@@ -431,7 +461,10 @@ function enter(event: KeyboardEvent) {
 </template>
 
 <style scoped>
-.goal-kind-tabs { width: 100%; min-width: 0; }
+.goal-kind-tabs {
+    width: 100%;
+    min-width: 0;
+}
 .combo-goal-form {
     max-width: none;
 }

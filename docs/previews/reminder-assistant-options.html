@@ -1,14 +1,14 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN" data-style="celadon" data-font="rounded">
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta name="description" content="提醒助手布局方案预览">
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="description" content="提醒助手布局方案预览" />
         <title>提醒助手 · 布局方案预览</title>
-        <link rel="stylesheet" href="../../src/styles/tokens.css">
-        <link rel="stylesheet" href="../../src/styles/base.css">
-        <link rel="stylesheet" href="../../src/styles/blocks.css">
-        <link rel="stylesheet" href="./reminder-assistant-options.css">
+        <link rel="stylesheet" href="../../src/styles/tokens.css" />
+        <link rel="stylesheet" href="../../src/styles/base.css" />
+        <link rel="stylesheet" href="../../src/styles/blocks.css" />
+        <link rel="stylesheet" href="./reminder-assistant-options.css" />
     </head>
     <body>
         <!-- 页面介绍 -->
@@ -27,13 +27,31 @@
             <!-- 预览工具栏 -->
             <section class="preview-toolbar" aria-label="预览设置">
                 <div class="scheme-switch" role="tablist" aria-label="查看方案">
-                    <button class="scheme-tab is-active" type="button" role="tab" aria-selected="true" data-scheme="a">
+                    <button
+                        class="scheme-tab is-active"
+                        type="button"
+                        role="tab"
+                        aria-selected="true"
+                        data-scheme="a"
+                    >
                         A · 左右工作台
                     </button>
-                    <button class="scheme-tab" type="button" role="tab" aria-selected="false" data-scheme="b">
+                    <button
+                        class="scheme-tab"
+                        type="button"
+                        role="tab"
+                        aria-selected="false"
+                        data-scheme="b"
+                    >
                         B · 紧凑清单
                     </button>
-                    <button class="scheme-tab" type="button" role="tab" aria-selected="false" data-scheme="c">
+                    <button
+                        class="scheme-tab"
+                        type="button"
+                        role="tab"
+                        aria-selected="false"
+                        data-scheme="c"
+                    >
                         C · 提醒时间线
                     </button>
                 </div>
@@ -49,8 +67,17 @@
                             <option value="rosewood">紫檀书斋</option>
                         </select>
                     </label>
-                    <button class="tool-button" id="dark-toggle" type="button" aria-pressed="false">暗色</button>
-                    <button class="tool-button" id="compact-toggle" type="button" aria-pressed="false">紧凑宽度</button>
+                    <button class="tool-button" id="dark-toggle" type="button" aria-pressed="false">
+                        暗色
+                    </button>
+                    <button
+                        class="tool-button"
+                        id="compact-toggle"
+                        type="button"
+                        aria-pressed="false"
+                    >
+                        紧凑宽度
+                    </button>
                 </div>
             </section>
 
@@ -72,9 +99,13 @@
                                 <h2>设置和反馈同屏，启动路径最短</h2>
                             </div>
                         </div>
-                        <button class="choose-button" type="button" data-choose="A · 左右工作台">选 A</button>
+                        <button class="choose-button" type="button" data-choose="A · 左右工作台">
+                            选 A
+                        </button>
                     </header>
-                    <p class="scheme-summary">适合每天都会打开提醒助手的人：左侧完成设置，右侧持续看最近提醒和识别原文。</p>
+                    <p class="scheme-summary">
+                        适合每天都会打开提醒助手的人：左侧完成设置，右侧持续看最近提醒和识别原文。
+                    </p>
 
                     <div class="demo-window demo-a">
                         <div class="demo-topline">
@@ -82,8 +113,13 @@
                                 <p class="demo-crumb">工具 / 提醒助手</p>
                                 <h3>提醒助手</h3>
                             </div>
-                            <button class="primary-button demo-toggle" type="button" data-running="false">
-                                <span class="button-dot" aria-hidden="true"></span><span class="toggle-label">开始监听</span>
+                            <button
+                                class="primary-button demo-toggle"
+                                type="button"
+                                data-running="false"
+                            >
+                                <span class="button-dot" aria-hidden="true"></span
+                                ><span class="toggle-label">开始监听</span>
                             </button>
                         </div>
                         <div class="a-layout">
@@ -98,10 +134,15 @@
                                     </div>
                                     <div class="window-picker">
                                         <span class="window-icon" aria-hidden="true"></span>
-                                        <span class="picker-copy"><strong>梦幻西游 · 系统频道</strong><small>已找到 1 个可监听窗口</small></span>
+                                        <span class="picker-copy"
+                                            ><strong>梦幻西游 · 系统频道</strong
+                                            ><small>已找到 1 个可监听窗口</small></span
+                                        >
                                         <button class="text-action" type="button">刷新</button>
                                     </div>
-                                    <p class="panel-note">保持聊天窗口可见，并停留在最新消息。开始后会自动建立旧公告基线。</p>
+                                    <p class="panel-note">
+                                        保持聊天窗口可见，并停留在最新消息。开始后会自动建立旧公告基线。
+                                    </p>
                                 </section>
 
                                 <section class="demo-panel types-panel">
@@ -113,31 +154,59 @@
                                         <span class="panel-count">1 / 4 已开启</span>
                                     </div>
                                     <div class="type-grid">
-                                        <button class="type-tile is-on" type="button" data-type-toggle>
+                                        <button
+                                            class="type-tile is-on"
+                                            type="button"
+                                            data-type-toggle
+                                        >
                                             <span class="type-mark fengyao-mark">封</span>
-                                            <span class="type-copy"><strong>封妖</strong><small>全部地图</small></span>
-                                            <span class="toggle-pill" aria-hidden="true"><i></i></span>
+                                            <span class="type-copy"
+                                                ><strong>封妖</strong><small>全部地图</small></span
+                                            >
+                                            <span class="toggle-pill" aria-hidden="true"
+                                                ><i></i
+                                            ></span>
                                         </button>
                                         <button class="type-tile" type="button" data-type-toggle>
                                             <span class="type-mark yaowang-mark">王</span>
-                                            <span class="type-copy"><strong>妖王</strong><small>所有地图</small></span>
-                                            <span class="toggle-pill" aria-hidden="true"><i></i></span>
+                                            <span class="type-copy"
+                                                ><strong>妖王</strong><small>所有地图</small></span
+                                            >
+                                            <span class="toggle-pill" aria-hidden="true"
+                                                ><i></i
+                                            ></span>
                                         </button>
                                         <button class="type-tile" type="button" data-type-toggle>
                                             <span class="type-mark yecha-mark">夜</span>
-                                            <span class="type-copy"><strong>梦魇夜叉</strong><small>所有地图</small></span>
-                                            <span class="toggle-pill" aria-hidden="true"><i></i></span>
+                                            <span class="type-copy"
+                                                ><strong>梦魇夜叉</strong
+                                                ><small>所有地图</small></span
+                                            >
+                                            <span class="toggle-pill" aria-hidden="true"
+                                                ><i></i
+                                            ></span>
                                         </button>
                                         <button class="type-tile" type="button" data-type-toggle>
                                             <span class="type-mark yiguan-mark">衣</span>
-                                            <span class="type-copy"><strong>衣冠古丘</strong><small>地图 + 坐标</small></span>
-                                            <span class="toggle-pill" aria-hidden="true"><i></i></span>
+                                            <span class="type-copy"
+                                                ><strong>衣冠古丘</strong
+                                                ><small>地图 + 坐标</small></span
+                                            >
+                                            <span class="toggle-pill" aria-hidden="true"
+                                                ><i></i
+                                            ></span>
                                         </button>
                                     </div>
                                     <div class="map-filter-row">
                                         <span class="map-filter-label">封妖地图</span>
-                                        <div class="map-chips" role="group" aria-label="封妖地图筛选">
-                                            <button class="map-chip is-selected" type="button">全部</button>
+                                        <div
+                                            class="map-chips"
+                                            role="group"
+                                            aria-label="封妖地图筛选"
+                                        >
+                                            <button class="map-chip is-selected" type="button">
+                                                全部
+                                            </button>
                                             <button class="map-chip" type="button">建邺城</button>
                                             <button class="map-chip" type="button">大唐国境</button>
                                             <button class="map-chip" type="button">朱紫国</button>
@@ -158,15 +227,44 @@
                                         <span class="live-caption"><i></i> 等待监听</span>
                                     </div>
                                     <ol class="alert-list">
-                                        <li><button class="alert-row" type="button"><span class="alert-badge fengyao-mark">封</span><span><strong>大唐国境</strong><small>封妖 · 刚刚</small></span><span class="chevron">›</span></button></li>
-                                        <li><button class="alert-row" type="button"><span class="alert-badge yaowang-mark">王</span><span><strong>北俱芦洲</strong><small>妖王 · 08:42</small></span><span class="chevron">›</span></button></li>
-                                        <li><button class="alert-row" type="button"><span class="alert-badge yiguan-mark">衣</span><span><strong>朱紫国 · 116, 72</strong><small>衣冠古丘 · 昨天</small></span><span class="chevron">›</span></button></li>
+                                        <li>
+                                            <button class="alert-row" type="button">
+                                                <span class="alert-badge fengyao-mark">封</span
+                                                ><span
+                                                    ><strong>大唐国境</strong
+                                                    ><small>封妖 · 刚刚</small></span
+                                                ><span class="chevron">›</span>
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button class="alert-row" type="button">
+                                                <span class="alert-badge yaowang-mark">王</span
+                                                ><span
+                                                    ><strong>北俱芦洲</strong
+                                                    ><small>妖王 · 08:42</small></span
+                                                ><span class="chevron">›</span>
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button class="alert-row" type="button">
+                                                <span class="alert-badge yiguan-mark">衣</span
+                                                ><span
+                                                    ><strong>朱紫国 · 116, 72</strong
+                                                    ><small>衣冠古丘 · 昨天</small></span
+                                                ><span class="chevron">›</span>
+                                            </button>
+                                        </li>
                                     </ol>
-                                    <button class="panel-link" type="button">查看识别详情 <span>↗</span></button>
+                                    <button class="panel-link" type="button">
+                                        查看识别详情 <span>↗</span>
+                                    </button>
                                 </section>
                                 <section class="demo-panel guide-panel">
                                     <span class="guide-seal">阅</span>
-                                    <div><h4>使用提醒</h4><p>切页后监听仍会继续，退出工具箱时自动停止。</p></div>
+                                    <div>
+                                        <h4>使用提醒</h4>
+                                        <p>切页后监听仍会继续，退出工具箱时自动停止。</p>
+                                    </div>
                                 </section>
                             </aside>
                         </div>
@@ -183,30 +281,124 @@
                                 <h2>把设置压成一条工作流，内容更利落</h2>
                             </div>
                         </div>
-                        <button class="choose-button" type="button" data-choose="B · 紧凑清单">选 B</button>
+                        <button class="choose-button" type="button" data-choose="B · 紧凑清单">
+                            选 B
+                        </button>
                     </header>
-                    <p class="scheme-summary">适合窗口高度偏小或习惯快速扫一眼的人：左边固定当前状态，右边用清单快速启停各类提醒。</p>
+                    <p class="scheme-summary">
+                        适合窗口高度偏小或习惯快速扫一眼的人：左边固定当前状态，右边用清单快速启停各类提醒。
+                    </p>
 
                     <div class="demo-window demo-b">
                         <aside class="b-rail">
-                            <div class="rail-heading"><span class="rail-symbol">听</span><span><strong>提醒助手</strong><small>系统公告</small></span></div>
-                            <div class="rail-state"><span class="state-orb"></span><div><strong>未开始监听</strong><small>选择窗口后即可开始</small></div></div>
-                            <button class="primary-button demo-toggle" type="button" data-running="false"><span class="button-dot" aria-hidden="true"></span><span class="toggle-label">开始监听</span></button>
+                            <div class="rail-heading">
+                                <span class="rail-symbol">听</span
+                                ><span><strong>提醒助手</strong><small>系统公告</small></span>
+                            </div>
+                            <div class="rail-state">
+                                <span class="state-orb"></span>
+                                <div>
+                                    <strong>未开始监听</strong><small>选择窗口后即可开始</small>
+                                </div>
+                            </div>
+                            <button
+                                class="primary-button demo-toggle"
+                                type="button"
+                                data-running="false"
+                            >
+                                <span class="button-dot" aria-hidden="true"></span
+                                ><span class="toggle-label">开始监听</span>
+                            </button>
                             <div class="rail-divider"></div>
-                            <div class="rail-field"><span>监听窗口</span><strong>系统频道</strong><button class="text-action" type="button">更换</button></div>
+                            <div class="rail-field">
+                                <span>监听窗口</span><strong>系统频道</strong
+                                ><button class="text-action" type="button">更换</button>
+                            </div>
                             <p class="rail-note">窗口可见、消息最新，识别会更稳定。</p>
                             <div class="rail-foot"><span class="ready-dot"></span>后台状态正常</div>
                         </aside>
                         <div class="b-main">
-                            <div class="b-main-head"><div><p class="demo-crumb">任务簿 / 监听规则</p><h3>今天要关注什么？</h3></div><span class="b-summary">1 个提醒已开启</span></div>
-                            <div class="task-list">
-                                <button class="task-row is-on" type="button" data-type-toggle><span class="task-icon fengyao-mark">封</span><span class="task-main"><strong>封妖</strong><small>全部地图 · 发现后通知</small></span><span class="task-check">✓</span><span class="task-arrow">›</span></button>
-                                <button class="task-row" type="button" data-type-toggle><span class="task-icon yaowang-mark">王</span><span class="task-main"><strong>妖王</strong><small>所有地图 · 发现后通知</small></span><span class="task-check">✓</span><span class="task-arrow">›</span></button>
-                                <button class="task-row" type="button" data-type-toggle><span class="task-icon yecha-mark">夜</span><span class="task-main"><strong>梦魇夜叉</strong><small>所有地图 · 发现后通知</small></span><span class="task-check">✓</span><span class="task-arrow">›</span></button>
-                                <button class="task-row" type="button" data-type-toggle><span class="task-icon yiguan-mark">衣</span><span class="task-main"><strong>衣冠古丘</strong><small>地图 + 坐标 · 发现后通知</small></span><span class="task-check">✓</span><span class="task-arrow">›</span></button>
+                            <div class="b-main-head">
+                                <div>
+                                    <p class="demo-crumb">任务簿 / 监听规则</p>
+                                    <h3>今天要关注什么？</h3>
+                                </div>
+                                <span class="b-summary">1 个提醒已开启</span>
                             </div>
-                            <section class="b-map-drawer"><div><p class="panel-eyebrow">当前范围</p><strong>封妖地图</strong></div><div class="map-chips"><button class="map-chip is-selected" type="button">全部</button><button class="map-chip" type="button">建邺城</button><button class="map-chip" type="button">大唐国境</button><button class="map-chip" type="button">朱紫国</button><button class="map-chip" type="button">北俱芦洲</button></div></section>
-                            <section class="b-recent"><div class="section-line"><h4>最近提醒</h4><button class="panel-link" type="button">全部记录 ↗</button></div><div class="compact-alerts"><button class="compact-alert" type="button"><span class="alert-badge fengyao-mark">封</span><span><strong>大唐国境</strong><small>封妖 · 刚刚</small></span><time>现在</time></button><button class="compact-alert" type="button"><span class="alert-badge yaowang-mark">王</span><span><strong>北俱芦洲</strong><small>妖王 · 08:42</small></span><time>2 小时前</time></button><button class="compact-alert" type="button"><span class="alert-badge yiguan-mark">衣</span><span><strong>朱紫国 · 116, 72</strong><small>衣冠古丘 · 昨天</small></span><time>昨天</time></button></div></section>
+                            <div class="task-list">
+                                <button class="task-row is-on" type="button" data-type-toggle>
+                                    <span class="task-icon fengyao-mark">封</span
+                                    ><span class="task-main"
+                                        ><strong>封妖</strong
+                                        ><small>全部地图 · 发现后通知</small></span
+                                    ><span class="task-check">✓</span
+                                    ><span class="task-arrow">›</span>
+                                </button>
+                                <button class="task-row" type="button" data-type-toggle>
+                                    <span class="task-icon yaowang-mark">王</span
+                                    ><span class="task-main"
+                                        ><strong>妖王</strong
+                                        ><small>所有地图 · 发现后通知</small></span
+                                    ><span class="task-check">✓</span
+                                    ><span class="task-arrow">›</span>
+                                </button>
+                                <button class="task-row" type="button" data-type-toggle>
+                                    <span class="task-icon yecha-mark">夜</span
+                                    ><span class="task-main"
+                                        ><strong>梦魇夜叉</strong
+                                        ><small>所有地图 · 发现后通知</small></span
+                                    ><span class="task-check">✓</span
+                                    ><span class="task-arrow">›</span>
+                                </button>
+                                <button class="task-row" type="button" data-type-toggle>
+                                    <span class="task-icon yiguan-mark">衣</span
+                                    ><span class="task-main"
+                                        ><strong>衣冠古丘</strong
+                                        ><small>地图 + 坐标 · 发现后通知</small></span
+                                    ><span class="task-check">✓</span
+                                    ><span class="task-arrow">›</span>
+                                </button>
+                            </div>
+                            <section class="b-map-drawer">
+                                <div>
+                                    <p class="panel-eyebrow">当前范围</p>
+                                    <strong>封妖地图</strong>
+                                </div>
+                                <div class="map-chips">
+                                    <button class="map-chip is-selected" type="button">全部</button
+                                    ><button class="map-chip" type="button">建邺城</button
+                                    ><button class="map-chip" type="button">大唐国境</button
+                                    ><button class="map-chip" type="button">朱紫国</button
+                                    ><button class="map-chip" type="button">北俱芦洲</button>
+                                </div>
+                            </section>
+                            <section class="b-recent">
+                                <div class="section-line">
+                                    <h4>最近提醒</h4>
+                                    <button class="panel-link" type="button">全部记录 ↗</button>
+                                </div>
+                                <div class="compact-alerts">
+                                    <button class="compact-alert" type="button">
+                                        <span class="alert-badge fengyao-mark">封</span
+                                        ><span
+                                            ><strong>大唐国境</strong
+                                            ><small>封妖 · 刚刚</small></span
+                                        ><time>现在</time></button
+                                    ><button class="compact-alert" type="button">
+                                        <span class="alert-badge yaowang-mark">王</span
+                                        ><span
+                                            ><strong>北俱芦洲</strong
+                                            ><small>妖王 · 08:42</small></span
+                                        ><time>2 小时前</time></button
+                                    ><button class="compact-alert" type="button">
+                                        <span class="alert-badge yiguan-mark">衣</span
+                                        ><span
+                                            ><strong>朱紫国 · 116, 72</strong
+                                            ><small>衣冠古丘 · 昨天</small></span
+                                        ><time>昨天</time>
+                                    </button>
+                                </div>
+                            </section>
                         </div>
                     </div>
                 </article>
@@ -221,29 +413,120 @@
                                 <h2>先看发生了什么，再决定怎么监听</h2>
                             </div>
                         </div>
-                        <button class="choose-button" type="button" data-choose="C · 提醒时间线">选 C</button>
+                        <button class="choose-button" type="button" data-choose="C · 提醒时间线">
+                            选 C
+                        </button>
                     </header>
-                    <p class="scheme-summary">适合更关注结果的人：最近提醒成为页面主角，监听设置收在右侧，状态和上下文更直观。</p>
+                    <p class="scheme-summary">
+                        适合更关注结果的人：最近提醒成为页面主角，监听设置收在右侧，状态和上下文更直观。
+                    </p>
 
                     <div class="demo-window demo-c">
-                        <div class="c-head"><div><p class="demo-crumb">工具 / 提醒助手</p><h3>最近发生的系统公告</h3></div><div class="c-head-actions"><span class="state-chip"><i></i> 未开始</span><button class="primary-button demo-toggle" type="button" data-running="false"><span class="button-dot" aria-hidden="true"></span><span class="toggle-label">开始监听</span></button></div></div>
+                        <div class="c-head">
+                            <div>
+                                <p class="demo-crumb">工具 / 提醒助手</p>
+                                <h3>最近发生的系统公告</h3>
+                            </div>
+                            <div class="c-head-actions">
+                                <span class="state-chip"><i></i> 未开始</span
+                                ><button
+                                    class="primary-button demo-toggle"
+                                    type="button"
+                                    data-running="false"
+                                >
+                                    <span class="button-dot" aria-hidden="true"></span
+                                    ><span class="toggle-label">开始监听</span>
+                                </button>
+                            </div>
+                        </div>
                         <div class="c-layout">
                             <section class="c-timeline demo-panel">
-                                <div class="timeline-caption"><span>最近 24 小时</span><button class="panel-link" type="button">识别详情 ↗</button></div>
+                                <div class="timeline-caption">
+                                    <span>最近 24 小时</span
+                                    ><button class="panel-link" type="button">识别详情 ↗</button>
+                                </div>
                                 <ol class="timeline-list">
-                                    <li class="timeline-item"><span class="timeline-dot fengyao-mark">封</span><div><div class="timeline-meta"><strong>封妖</strong><time>刚刚</time></div><h4>大唐国境</h4><p>发现系统公告，已发送 Windows 通知。</p></div></li>
-                                    <li class="timeline-item"><span class="timeline-dot yaowang-mark">王</span><div><div class="timeline-meta"><strong>妖王</strong><time>08:42</time></div><h4>北俱芦洲</h4><p>妖王正在地图寻衅闹事。</p></div></li>
-                                    <li class="timeline-item"><span class="timeline-dot yiguan-mark">衣</span><div><div class="timeline-meta"><strong>衣冠古丘</strong><time>昨天</time></div><h4>朱紫国 <small>坐标 116, 72</small></h4><p>墓碑出现公告，点击可查看 OCR 原文。</p></div></li>
+                                    <li class="timeline-item">
+                                        <span class="timeline-dot fengyao-mark">封</span>
+                                        <div>
+                                            <div class="timeline-meta">
+                                                <strong>封妖</strong><time>刚刚</time>
+                                            </div>
+                                            <h4>大唐国境</h4>
+                                            <p>发现系统公告，已发送 Windows 通知。</p>
+                                        </div>
+                                    </li>
+                                    <li class="timeline-item">
+                                        <span class="timeline-dot yaowang-mark">王</span>
+                                        <div>
+                                            <div class="timeline-meta">
+                                                <strong>妖王</strong><time>08:42</time>
+                                            </div>
+                                            <h4>北俱芦洲</h4>
+                                            <p>妖王正在地图寻衅闹事。</p>
+                                        </div>
+                                    </li>
+                                    <li class="timeline-item">
+                                        <span class="timeline-dot yiguan-mark">衣</span>
+                                        <div>
+                                            <div class="timeline-meta">
+                                                <strong>衣冠古丘</strong><time>昨天</time>
+                                            </div>
+                                            <h4>朱紫国 <small>坐标 116, 72</small></h4>
+                                            <p>墓碑出现公告，点击可查看 OCR 原文。</p>
+                                        </div>
+                                    </li>
                                 </ol>
                             </section>
                             <aside class="c-settings demo-panel">
-                                <div class="panel-heading"><div><p class="panel-eyebrow">监听设置</p><h4>保持安静地工作</h4></div><span class="state-chip">1 / 4 开启</span></div>
-                                <div class="c-window"><span class="window-icon" aria-hidden="true"></span><div><strong>系统频道</strong><small>梦幻西游 · 已连接</small></div><button class="text-action" type="button">更换</button></div>
+                                <div class="panel-heading">
+                                    <div>
+                                        <p class="panel-eyebrow">监听设置</p>
+                                        <h4>保持安静地工作</h4>
+                                    </div>
+                                    <span class="state-chip">1 / 4 开启</span>
+                                </div>
+                                <div class="c-window">
+                                    <span class="window-icon" aria-hidden="true"></span>
+                                    <div>
+                                        <strong>系统频道</strong><small>梦幻西游 · 已连接</small>
+                                    </div>
+                                    <button class="text-action" type="button">更换</button>
+                                </div>
                                 <div class="c-rule"></div>
                                 <p class="panel-eyebrow">提醒类型</p>
-                                <div class="c-switch-list"><button class="c-switch-row is-on" type="button" data-type-toggle><span class="type-mark fengyao-mark">封</span><span>封妖</span><span class="toggle-pill"><i></i></span></button><button class="c-switch-row" type="button" data-type-toggle><span class="type-mark yaowang-mark">王</span><span>妖王</span><span class="toggle-pill"><i></i></span></button><button class="c-switch-row" type="button" data-type-toggle><span class="type-mark yecha-mark">夜</span><span>梦魇夜叉</span><span class="toggle-pill"><i></i></span></button><button class="c-switch-row" type="button" data-type-toggle><span class="type-mark yiguan-mark">衣</span><span>衣冠古丘</span><span class="toggle-pill"><i></i></span></button></div>
-                                <div class="c-map-summary"><span>封妖范围</span><button class="map-chip is-selected" type="button">全部地图</button></div>
-                                <p class="panel-note">切页和最小化后仍会继续监听，退出工具箱自动停止。</p>
+                                <div class="c-switch-list">
+                                    <button
+                                        class="c-switch-row is-on"
+                                        type="button"
+                                        data-type-toggle
+                                    >
+                                        <span class="type-mark fengyao-mark">封</span
+                                        ><span>封妖</span
+                                        ><span class="toggle-pill"><i></i></span></button
+                                    ><button class="c-switch-row" type="button" data-type-toggle>
+                                        <span class="type-mark yaowang-mark">王</span
+                                        ><span>妖王</span
+                                        ><span class="toggle-pill"><i></i></span></button
+                                    ><button class="c-switch-row" type="button" data-type-toggle>
+                                        <span class="type-mark yecha-mark">夜</span
+                                        ><span>梦魇夜叉</span
+                                        ><span class="toggle-pill"><i></i></span></button
+                                    ><button class="c-switch-row" type="button" data-type-toggle>
+                                        <span class="type-mark yiguan-mark">衣</span
+                                        ><span>衣冠古丘</span
+                                        ><span class="toggle-pill"><i></i></span>
+                                    </button>
+                                </div>
+                                <div class="c-map-summary">
+                                    <span>封妖范围</span
+                                    ><button class="map-chip is-selected" type="button">
+                                        全部地图
+                                    </button>
+                                </div>
+                                <p class="panel-note">
+                                    切页和最小化后仍会继续监听，退出工具箱自动停止。
+                                </p>
                             </aside>
                         </div>
                     </div>
@@ -252,11 +535,18 @@
 
             <footer class="preview-footer">
                 <p>演示只用于比较版式，不会修改正式页面或写入本机设置。</p>
-                <p id="choice" role="status" aria-live="polite">选好后告诉我方案字母，我再把它落到提醒助手页面。</p>
+                <p id="choice" role="status" aria-live="polite">
+                    选好后告诉我方案字母，我再把它落到提醒助手页面。
+                </p>
             </footer>
         </main>
         <dialog class="preview-dialog" aria-labelledby="dialog-title">
-            <div class="dialog-heading"><h2 id="dialog-title">预览详情</h2><button class="tool-button" type="button" data-close-dialog aria-label="关闭详情">关闭 ×</button></div>
+            <div class="dialog-heading">
+                <h2 id="dialog-title">预览详情</h2>
+                <button class="tool-button" type="button" data-close-dialog aria-label="关闭详情">
+                    关闭 ×
+                </button>
+            </div>
             <div id="dialog-body"></div>
         </dialog>
         <script src="./reminder-assistant-options.js"></script>

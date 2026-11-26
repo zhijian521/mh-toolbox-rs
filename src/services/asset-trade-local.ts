@@ -18,7 +18,11 @@ export function recoverAssetTradeLocal(): void {
     localStorage.removeItem(JOURNAL);
 }
 
-export function writeAssetTradeLocal(accounts: unknown, warehouse: unknown, roster?: unknown): void {
+export function writeAssetTradeLocal(
+    accounts: unknown,
+    warehouse: unknown,
+    roster?: unknown,
+): void {
     writeLocalData(JOURNAL, { accounts, warehouse, ...(roster == null ? {} : { roster }) });
     recoverAssetTradeLocal();
 }

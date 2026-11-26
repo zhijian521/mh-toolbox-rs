@@ -62,7 +62,7 @@ describe('仓库物品与截图草稿', () => {
         expect(source.gear.detail.stats).toEqual([]);
     });
 
-    it('宝宝保留成长、寿命和技能，按技能搜索，空名称不能入仓', () => {
+    it('宝宝保留成长、寿命和技能，空名称不能入仓', () => {
         const item = newWarehouseItem('pet');
         expect(normalizeWarehouseItem(item)).toBeNull();
         item.pet.name = '画魂';
@@ -70,8 +70,9 @@ describe('仓库物品与截图草稿', () => {
         item.pet.life = 8000;
         item.pet.skills = ['高级魔之心'];
         const restored = parseWarehouse([item]);
-        expect(restored[0]).toMatchObject({ pet: { growth: '1.287', life: 8000 } });
-        expect(filterWarehouse(restored, 'pet', '高级魔之心')).toHaveLength(1);
+        expect(filterWarehouse(restored, 'pet')).toMatchObject([
+            { pet: { growth: '1.287', life: 8000, skills: ['高级魔之心'] } },
+        ]);
         expect(filterWarehouse(restored, 'gear')).toHaveLength(0);
     });
 });

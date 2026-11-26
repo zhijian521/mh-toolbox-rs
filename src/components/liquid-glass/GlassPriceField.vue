@@ -4,15 +4,20 @@ import PriceField from '../PriceField.vue';
 import { GlassButton } from './index';
 import GlassInput from './GlassInput.vue';
 
-withDefaults(defineProps<{
-    label?: string;
-    error?: string;
-    disabled?: boolean;
-    compact?: boolean;
-    reserveError?: boolean;
-}>(), { label: '价格' });
-const value = defineModel<number | null>({ required: true });
+withDefaults(
+    defineProps<{
+        label?: string;
+        unit?: '万' | '元';
+        precision?: number;
+        error?: string;
+        disabled?: boolean;
+        compact?: boolean;
+        reserveError?: boolean;
+    }>(),
+    { label: '价格' },
+);
 const emit = defineEmits<{ blur: [event: FocusEvent] }>();
+const value = defineModel<number | null>({ required: true });
 </script>
 
 <template>
@@ -22,6 +27,8 @@ const emit = defineEmits<{ blur: [event: FocusEvent] }>();
         :class="{ compact }"
         :well-component="GlassInput"
         :label="label"
+        :unit="unit"
+        :precision="precision"
         :error="error"
         :disabled="disabled"
         :reserve-error="reserveError"

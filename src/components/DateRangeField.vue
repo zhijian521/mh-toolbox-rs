@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /** 日期区间共用边界与联动，外部仍分别持有起止日期。 */
 import DateField from './DateField.vue';
+import GlassDateField from './liquid-glass/GlassDateField.vue';
 
-defineProps<{ fromLabel: string; toLabel: string }>();
+defineProps<{ fromLabel: string; toLabel: string; glass?: boolean }>();
 const from = defineModel<string>('from', { required: true });
 const to = defineModel<string>('to', { required: true });
 
@@ -18,14 +19,21 @@ function pickTo(value: string) {
 
 <template>
     <div class="date-range-field" role="group" aria-label="日期范围">
-        <DateField
+        <component
+            :is="glass ? GlassDateField : DateField"
             :model-value="from"
             :label="fromLabel"
             :max="to"
             @update:model-value="pickFrom"
         />
         <span class="date-range-separator" aria-hidden="true">至</span>
-        <DateField :model-value="to" :label="toLabel" :min="from" @update:model-value="pickTo" />
+        <component
+            :is="glass ? GlassDateField : DateField"
+            :model-value="to"
+            :label="toLabel"
+            :min="from"
+            @update:model-value="pickTo"
+        />
     </div>
 </template>
 
@@ -38,7 +46,7 @@ function pickTo(value: string) {
     min-width: 0;
     max-width: 100%;
 }
-.date-range-field :deep(.date-field) {
+.date-range-field > :is(.date-field, .glass-date-field) {
     flex: 0 1 var(--range-date-width, calc(168px * var(--fs-scale)));
     width: var(--range-date-width, calc(168px * var(--fs-scale)));
     min-width: 0;

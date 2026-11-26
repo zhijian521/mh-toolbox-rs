@@ -26,8 +26,17 @@
 
 .liquid-ledger-page.liquid-tools-directory .tool-grid {
     grid-template-columns: minmax(0, 1fr);
-    gap: 5px;
+    gap: 8px;
     margin: 0;
+}
+
+.liquid-tools-directory .tool-card {
+    --glass-foreground: var(--liquid-ink);
+    --glass-text-shadow: none;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    border-radius: 18px;
 }
 
 .liquid-ledger-page.liquid-tools-directory .tool-item {
@@ -38,10 +47,9 @@
     width: 100%;
     min-height: 48px;
     padding: 6px 10px;
-    border: 1px solid var(--liquid-outline);
-    border-radius: 10px;
-    background-color: var(--lg-content-base);
-    box-shadow: var(--lg-edge-rim);
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
     text-align: start;
     color: var(--liquid-ink);
 }
@@ -80,6 +88,10 @@
 .liquid-tools-directory .tool-item:focus-visible {
     outline: 2px solid var(--liquid-focus);
     outline-offset: -2px;
+}
+
+.liquid-tools-directory .tool-item:is(:hover, :focus-visible) .tool-name {
+    color: var(--liquid-ink);
 }
 
 .liquid-tool-detail .tool-back {

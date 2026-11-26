@@ -3,7 +3,7 @@
 默认日常开发不自动运行验证。用户指定测试时选择相关范围；只有明确要求全量检查才执行整套。
 本文维护测试归属、分区选择、场景前置与断言维护规则；触发条件、Windows 环境、运行命令与完整清单以 [AGENTS.md](../AGENTS.md) 为准。
 
-玻璃分支的启动与关窗断言见 [liquid-main.test.ts](../src/liquid-main.test.ts)。指定玻璃真窗口烟测时，先用 `node tools/e2e/db.mjs backup` 快照账本，记下 ID，再用 `start.bat --force debug` 启动并运行 `npm run e2e -- --shell`。该参数直接进入[玻璃场景](../tools/e2e/sections/liquid-shell.mjs)，会跳过常规分区的预检与快照。结束后关闭应用，按 AGENTS.md §五用该 ID 还原，失败时也要还原。
+玻璃分支的启动与关窗断言见 [liquid-main.test.ts](../src/liquid-main.test.ts)。运行真窗口烟测前，用 `node tools/e2e/db.mjs backup` 备份初始账本，记下 ID。用 `start.bat --force debug` 启动后，`npm run e2e` 按当前窗口选择[玻璃场景](../tools/e2e/sections/liquid-shell.mjs)或旧账簿场景。玻璃场景先核对调试窗口的数据目录并创建快照，`--shell` 仍可显式指定。结束后关闭应用，用初始 ID 还原，失败时也要还原。
 
 公共主题回归断言归玻璃场景：角色内层表面在明暗主题下的有效颜色、旧滑块降动效、输入焦点与错误／禁用状态、紧凑开关以及固定表头滚动几何。组件目录同时覆盖左右布局、分类键盘导航、切组后的输入与滚动位置保留、独立复选项并存，以及跨分类的示例价格更新。断言编写与执行分开；壁纸下的实际对比度仍需指定视觉验收。
 
@@ -130,7 +130,7 @@ npm run test:rust -- ocr::tests::pipeline_runs_on_a_synthetic_frame -- --exact
 
 ## 窗口烟测分区
 
-先启动 debug 真窗口，再按需要执行：
+先启动 debug 真窗口，在「设置 → 外观 → 界面」切换到经典账簿，再按需要执行：
 
 ```sh
 npm run e2e -- --only=角色/截图

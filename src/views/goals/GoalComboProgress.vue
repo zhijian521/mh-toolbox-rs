@@ -17,7 +17,6 @@ import {
     type GoalProgressInput,
 } from './goals';
 
-const glass = inject(glassLedger, null);
 const props = defineProps<{
     goal: ReadonlyGoal;
     rows: readonly ComboGoalRow[];
@@ -28,6 +27,7 @@ const props = defineProps<{
     error: string;
 }>();
 const emit = defineEmits<{ save: [values: GoalProgressInput[]]; close: [] }>();
+const glass = inject(glassLedger, null);
 const prefix = `combo-progress-${useId()}`;
 const rows = props.rows;
 const groups = groupComboRows(rows);
@@ -112,7 +112,8 @@ function enter(event: KeyboardEvent) {
                             :key="tab.value"
                             :value="tab.value"
                             :aria-controls="`${prefix}-pane-${tab.value}`"
-                        >{{ tab.label }}</GlassSegment>
+                            >{{ tab.label }}</GlassSegment
+                        >
                     </GlassSegmented>
                     <SteppedSlider
                         v-else

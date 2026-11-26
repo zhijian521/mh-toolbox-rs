@@ -11,19 +11,15 @@ const glass = inject(glassLedger, null);
 </script>
 
 <template>
-    <GlassSegmented
-        v-if="glass"
-        v-model:value="pane"
-        :aria-label="label"
-        class="character-tabs"
-    >
+    <GlassSegmented v-if="glass" v-model:value="pane" :aria-label="label" class="character-tabs">
         <GlassSegment
             v-for="option in PANE_OPTIONS"
+            :id="prefix && `${prefix}-tab-${option.value}`"
             :key="option.value"
             :value="option.value"
-            :id="prefix && `${prefix}-tab-${option.value}`"
             :aria-controls="prefix && `${prefix}-pane-${option.value}`"
-        >{{ option.label }}</GlassSegment>
+            >{{ option.label }}</GlassSegment
+        >
     </GlassSegmented>
     <SteppedSlider
         v-else
@@ -40,14 +36,9 @@ const glass = inject(glassLedger, null);
     max-width: 100%;
     min-width: 0;
 }
-.character-tabs:not([data-size='standard']) > glass-segment {
+.character-tabs > glass-segment {
     flex: 1 1 0;
     padding-inline: 3px;
-}
-.character-tabs[data-size='standard'] > glass-segment {
-    flex: 1 1 auto;
-}
-.character-tabs > glass-segment {
     min-width: 0;
     white-space: nowrap;
 }

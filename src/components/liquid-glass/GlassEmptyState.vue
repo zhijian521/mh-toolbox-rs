@@ -3,7 +3,16 @@ import { GlassCard } from './index';
 </script>
 
 <template>
-    <GlassCard class="glass-empty-state" :radius="14" :bezel="3" :refraction="5" :specular="0.48" shadow="none" role="status"><slot>暂无数据</slot></GlassCard>
+    <GlassCard
+        class="glass-empty-state"
+        :radius="14"
+        :bezel="3"
+        :refraction="5"
+        :specular="0.48"
+        shadow="none"
+        role="status"
+        ><slot>暂无数据</slot></GlassCard
+    >
 </template>
 
 <style scoped>

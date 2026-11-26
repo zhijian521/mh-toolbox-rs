@@ -5,6 +5,7 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden;
+    scrollbar-gutter: auto;
     isolation: isolate;
 }
 .warehouse-pages :deep(.warehouse-page) {
@@ -26,6 +27,11 @@
 .warehouse-pages .warehouse-list-body {
     padding-right: 16px;
     container: warehouse-list / inline-size;
+}
+.warehouse-pages :deep(.glass-warehouse-editor) {
+    padding-inline: var(--editor-gap);
+    scrollbar-gutter: auto;
+    container: screenshot-editor / inline-size;
 }
 .warehouse-forward-enter-active,
 .warehouse-forward-leave-active,
@@ -68,9 +74,9 @@
     flex: none;
     max-width: 100%;
 }
-.warehouse-search {
-    flex: 1 1 180px;
-    max-width: calc(280px * var(--fs-scale));
+.warehouse-list-actions {
+    border-top: 0;
+    padding-top: 0;
 }
 .warehouse-slot-filter {
     flex: none;
@@ -117,7 +123,7 @@
     font-size: var(--fs-sm);
 }
 @container warehouse-list (max-width: 680px) {
-    .warehouse-stock-filter {
+    .warehouse-stock-filter:not(.lg-status-tabs) {
         flex-basis: 100%;
     }
 }

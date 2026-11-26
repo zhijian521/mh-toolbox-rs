@@ -63,6 +63,14 @@ export function parseDay(value: string): Date {
     return new Date(year, (month || 1) - 1, day || 1);
 }
 
+/** 含首尾的近一个月，上月没有同日时从月末算起。 */
+export function recentMonthRange(to = todayText()) {
+    const end = parseDay(to);
+    const start = new Date(end.getFullYear(), end.getMonth(), 0);
+    start.setDate(Math.min(start.getDate(), end.getDate()));
+    return { from: dateText(start), to };
+}
+
 /** 严格检查公历日期，拒绝自动进位的不存在日期。 */
 export function isDayText(value: unknown): value is string {
     if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;

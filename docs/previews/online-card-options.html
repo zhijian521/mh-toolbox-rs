@@ -1,82 +1,173 @@
 <!doctype html>
 <html lang="zh-CN" data-style="ledger" data-font="wenkai">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>在线与点卡 · 六套布局方案</title>
-    <link rel="stylesheet" href="../../src/styles/tokens.css">
-    <link rel="stylesheet" href="../../src/styles/base.css">
-    <link rel="stylesheet" href="/preview-components.css">
-    <link rel="stylesheet" href="./online-card-options.css">
-    <script src="./online-card-options.js" defer></script>
-</head>
-<body>
-    <!-- Icons: Tabler Icons v3.50.0, MIT, https://github.com/tabler/tabler-icons/blob/main/LICENSE -->
-    <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-<symbol id="i-calendar" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12"></path><path d="M16 3v4"></path><path d="M8 3v4"></path><path d="M4 11h16"></path><path d="M11 15h1"></path><path d="M12 15v3"></path></symbol>
-<symbol id="i-wallet" viewBox="0 0 24 24"><path d="M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12"></path><path d="M20 12v4h-4a2 2 0 0 1 0 -4h4"></path></symbol>
-<symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"></path><path d="M13.5 6.5l4 4"></path></symbol>
-<symbol id="i-history" viewBox="0 0 24 24"><path d="M12 8l0 4l2 2"></path><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"></path></symbol>
-<symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13 -8l-13 -8"></path></symbol>
-<symbol id="i-clock" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"></path><path d="M12 7v5l3 3"></path></symbol>
-<symbol id="i-scan" viewBox="0 0 24 24"><path d="M5 12h14"></path><path d="M3 7v-2a2 2 0 0 1 2 -2h2"></path><path d="M3 17v2a2 2 0 0 0 2 2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M17 21h2a2 2 0 0 0 2 -2v-2"></path></symbol>
-<symbol id="i-tag" viewBox="0 0 24 24"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path><path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3"></path></symbol>
-<symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 5a5 5 0 0 1 7 0a5 5 0 0 0 7 0v9a5 5 0 0 1 -7 0a5 5 0 0 0 -7 0v-9"></path><path d="M5 21v-7"></path></symbol>
-<symbol id="i-grip" viewBox="0 0 24 24"><path d="M8 5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path><path d="M8 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path><path d="M8 19a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path><path d="M14 5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path><path d="M14 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path><path d="M14 19a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path></symbol>
-<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6l-12 12"></path><path d="M6 6l12 12"></path></symbol>
-<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5l0 14"></path><path d="M5 12l14 0"></path></symbol>
-<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5l10 -10"></path></symbol>
-<symbol id="i-search" viewBox="0 0 24 24"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"></path><path d="M21 21l-6 -6"></path></symbol>
-<symbol id="i-tools" viewBox="0 0 24 24"><path d="M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5"></path></symbol>
-<symbol id="i-users" viewBox="0 0 24 24"><path d="M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"></path><path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path><path d="M21 21v-2a4 4 0 0 0 -3 -3.85"></path></symbol>
-    </svg>
-    <main class="design-page">
-        <header class="intro">
-            <div>
-                <p class="eyebrow">梦幻助手 / 收益页局部方案</p>
-                <h1>在线与点卡，重新排一版。</h1>
-                <p class="intro-note">六种布局放在同一组数据里比较。其他模块沿用现在的效果。</p>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>在线与点卡 · 六套布局方案</title>
+        <link rel="stylesheet" href="../../src/styles/tokens.css" />
+        <link rel="stylesheet" href="../../src/styles/base.css" />
+        <link rel="stylesheet" href="/preview-components.css" />
+        <link rel="stylesheet" href="./online-card-options.css" />
+        <script src="./online-card-options.js" defer></script>
+    </head>
+    <body>
+        <!-- Icons: Tabler Icons v3.50.0, MIT, https://github.com/tabler/tabler-icons/blob/main/LICENSE -->
+        <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <symbol id="i-calendar" viewBox="0 0 24 24">
+                <path
+                    d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12"
+                ></path>
+                <path d="M16 3v4"></path>
+                <path d="M8 3v4"></path>
+                <path d="M4 11h16"></path>
+                <path d="M11 15h1"></path>
+                <path d="M12 15v3"></path>
+            </symbol>
+            <symbol id="i-wallet" viewBox="0 0 24 24">
+                <path
+                    d="M17 8v-3a1 1 0 0 0 -1 -1h-10a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1 -1 1h-12a2 2 0 0 1 -2 -2v-12"
+                ></path>
+                <path d="M20 12v4h-4a2 2 0 0 1 0 -4h4"></path>
+            </symbol>
+            <symbol id="i-pencil" viewBox="0 0 24 24">
+                <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"></path>
+                <path d="M13.5 6.5l4 4"></path>
+            </symbol>
+            <symbol id="i-history" viewBox="0 0 24 24">
+                <path d="M12 8l0 4l2 2"></path>
+                <path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"></path>
+            </symbol>
+            <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13 -8l-13 -8"></path></symbol>
+            <symbol id="i-clock" viewBox="0 0 24 24">
+                <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"></path>
+                <path d="M12 7v5l3 3"></path>
+            </symbol>
+            <symbol id="i-scan" viewBox="0 0 24 24">
+                <path d="M5 12h14"></path>
+                <path d="M3 7v-2a2 2 0 0 1 2 -2h2"></path>
+                <path d="M3 17v2a2 2 0 0 0 2 2h2"></path>
+                <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+                <path d="M17 21h2a2 2 0 0 0 2 -2v-2"></path>
+            </symbol>
+            <symbol id="i-tag" viewBox="0 0 24 24">
+                <path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path>
+                <path
+                    d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3"
+                ></path>
+            </symbol>
+            <symbol id="i-flag" viewBox="0 0 24 24">
+                <path
+                    d="M5 5a5 5 0 0 1 7 0a5 5 0 0 0 7 0v9a5 5 0 0 1 -7 0a5 5 0 0 0 -7 0v-9"
+                ></path>
+                <path d="M5 21v-7"></path>
+            </symbol>
+            <symbol id="i-grip" viewBox="0 0 24 24">
+                <path d="M8 5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path>
+                <path d="M8 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path>
+                <path d="M8 19a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path>
+                <path d="M14 5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path>
+                <path d="M14 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path>
+                <path d="M14 19a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path>
+            </symbol>
+            <symbol id="i-x" viewBox="0 0 24 24">
+                <path d="M18 6l-12 12"></path>
+                <path d="M6 6l12 12"></path>
+            </symbol>
+            <symbol id="i-plus" viewBox="0 0 24 24">
+                <path d="M12 5l0 14"></path>
+                <path d="M5 12l14 0"></path>
+            </symbol>
+            <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5l10 -10"></path></symbol>
+            <symbol id="i-search" viewBox="0 0 24 24">
+                <path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"></path>
+                <path d="M21 21l-6 -6"></path>
+            </symbol>
+            <symbol id="i-tools" viewBox="0 0 24 24">
+                <path
+                    d="M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5"
+                ></path>
+            </symbol>
+            <symbol id="i-users" viewBox="0 0 24 24">
+                <path d="M5 7a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"></path>
+                <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                <path d="M21 21v-2a4 4 0 0 0 -3 -3.85"></path>
+            </symbol>
+        </svg>
+        <main class="design-page">
+            <header class="intro">
+                <div>
+                    <p class="eyebrow">梦幻助手 / 收益页局部方案</p>
+                    <h1>在线与点卡，重新排一版。</h1>
+                    <p class="intro-note">六种布局放在同一组数据里比较。其他模块沿用现在的效果。</p>
+                </div>
+                <span class="preview-label">独立演示 · 不写入账本</span>
+            </header>
+
+            <div class="settings" aria-label="方案预览设置">
+                <label
+                    >主题<select id="theme" aria-label="预览主题">
+                        <option value="ledger">账簿</option>
+                        <option value="celadon">青瓷</option>
+                        <option value="azure">天青</option>
+                        <option value="crystal">晶石</option>
+                        <option value="dunhuang">敦煌</option>
+                        <option value="rosewood">红木</option>
+                    </select></label
+                >
+                <label
+                    >字体<select id="font" aria-label="预览字体">
+                        <option value="wenkai">文楷</option>
+                        <option value="rounded">圆体</option>
+                        <option value="system">系统默认</option>
+                    </select></label
+                >
+                <label
+                    >字号<select id="size" aria-label="预览字号">
+                        <option value="1">标准</option>
+                        <option value="1.1">放大</option>
+                    </select></label
+                >
+                <button type="button" class="control" id="dark" aria-pressed="false">深色</button>
+                <button type="button" class="control" id="narrow" aria-pressed="false">窄窗</button>
+                <label
+                    >状态<select id="state" aria-label="示例状态">
+                        <option value="normal">3 个角色在线</option>
+                        <option value="many">8 个角色在线</option>
+                        <option value="idle">今日已下线</option>
+                        <option value="empty">今日未开始</option>
+                        <option value="error">收益未读取</option>
+                    </select></label
+                >
+                <button type="button" class="control reset" id="reset">重置演示</button>
             </div>
-            <span class="preview-label">独立演示 · 不写入账本</span>
-        </header>
 
-        <div class="settings" aria-label="方案预览设置">
-            <label>主题<select id="theme" aria-label="预览主题">
-                <option value="ledger">账簿</option><option value="celadon">青瓷</option>
-                <option value="azure">天青</option><option value="crystal">晶石</option>
-                <option value="dunhuang">敦煌</option><option value="rosewood">红木</option>
-            </select></label>
-            <label>字体<select id="font" aria-label="预览字体">
-                <option value="wenkai">文楷</option><option value="rounded">圆体</option><option value="system">系统默认</option>
-            </select></label>
-            <label>字号<select id="size" aria-label="预览字号">
-                <option value="1">标准</option><option value="1.1">放大</option>
-            </select></label>
-            <button type="button" class="control" id="dark" aria-pressed="false">深色</button>
-            <button type="button" class="control" id="narrow" aria-pressed="false">窄窗</button>
-            <label>状态<select id="state" aria-label="示例状态">
-                <option value="normal">3 个角色在线</option><option value="many">8 个角色在线</option>
-                <option value="idle">今日已下线</option><option value="empty">今日未开始</option>
-                <option value="error">收益未读取</option>
-            </select></label>
-            <button type="button" class="control reset" id="reset">重置演示</button>
-        </div>
+            <nav class="scheme-nav" aria-label="选择预览方案">
+                <button type="button" data-view="all" aria-pressed="true">全部对比</button>
+            </nav>
+            <p class="recommendation">
+                优先看 <a href="#scheme-B">B 左右账页</a> 和
+                <a href="#scheme-D">D 嵌入读数</a
+                >：分别保留票据感与突出简洁。下方按钮可演示结束计时、设置与记录。
+            </p>
+            <div id="proposals"></div>
+            <footer class="page-foot">
+                数字均为演示数据。今日在线是所有角色的累计时长；收益是速记净额，不扣点卡。
+            </footer>
+        </main>
 
-        <nav class="scheme-nav" aria-label="选择预览方案">
-            <button type="button" data-view="all" aria-pressed="true">全部对比</button>
-        </nav>
-        <p class="recommendation">优先看 <a href="#scheme-B">B 左右账页</a> 和 <a href="#scheme-D">D 嵌入读数</a>：分别保留票据感与突出简洁。下方按钮可演示结束计时、设置与记录。</p>
-        <div id="proposals"></div>
-        <footer class="page-foot">数字均为演示数据。今日在线是所有角色的累计时长；收益是速记净额，不扣点卡。</footer>
-    </main>
-
-    <dialog id="demo-dialog" aria-labelledby="dialog-title">
-        <form method="dialog" class="demo-dialog-body">
-            <header class="dialog-head"><h2 id="dialog-title"></h2><button class="control" value="close" aria-label="关闭演示弹窗">×</button></header>
-            <div id="dialog-content"></div>
-            <footer class="dialog-foot"><button class="control" value="close">关闭</button></footer>
-        </form>
-    </dialog>
-    <div id="toast" role="status" hidden></div>
-</body>
+        <dialog id="demo-dialog" aria-labelledby="dialog-title">
+            <form method="dialog" class="demo-dialog-body">
+                <header class="dialog-head">
+                    <h2 id="dialog-title"></h2>
+                    <button class="control" value="close" aria-label="关闭演示弹窗">×</button>
+                </header>
+                <div id="dialog-content"></div>
+                <footer class="dialog-foot">
+                    <button class="control" value="close">关闭</button>
+                </footer>
+            </form>
+        </dialog>
+        <div id="toast" role="status" hidden></div>
+    </body>
 </html>

@@ -1,8 +1,16 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { importLegacyLedger } from './import-legacy-ledger';
 
-const mocks = vi.hoisted(() => ({ read: vi.fn(), prepare: vi.fn(), confirm: vi.fn(), save: vi.fn() }));
-vi.mock('../../services/data-files', () => ({ legacyDataRead: mocks.read, legacyDataImport: mocks.save }));
+const mocks = vi.hoisted(() => ({
+    read: vi.fn(),
+    prepare: vi.fn(),
+    confirm: vi.fn(),
+    save: vi.fn(),
+}));
+vi.mock('../../services/data-files', () => ({
+    legacyDataRead: mocks.read,
+    legacyDataImport: mocks.save,
+}));
 vi.mock('../../services/legacy-startup', () => ({ prepareLegacyData: mocks.prepare }));
 vi.mock('../../composables/use-confirm', () => ({ askConfirm: mocks.confirm }));
 const backup = { characters: [], prices: [{}], income: [], accounts: [], online: [], goals: [] };
@@ -29,6 +37,10 @@ it('在确认前预览差异，取消替换不会写账本', async () => {
 it('确认后只提交预览过的旧账，保留备份回执和差异', async () => {
     mocks.confirm.mockResolvedValue(true);
     mocks.save.mockResolvedValue({ status: 'ok', detail: '备份位置' });
-    expect(await importLegacyLedger()).toEqual({ status: 'ok', detail: '备份位置', warning: '需核对分类' });
+    expect(await importLegacyLedger()).toEqual({
+        status: 'ok',
+        detail: '备份位置',
+        warning: '需核对分类',
+    });
     expect(mocks.save).toHaveBeenCalledWith('旧账原件', JSON.stringify(backup));
 });

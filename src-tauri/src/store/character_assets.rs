@@ -192,7 +192,10 @@ pub(super) fn detach_sales(
     entries: &[AccountEntry],
     inventory: &[Value],
 ) -> Result<(), String> {
-    let previous: HashSet<_> = load_accounts(conn)?.into_iter().map(|entry| entry.id).collect();
+    let previous: HashSet<_> = load_accounts(conn)?
+        .into_iter()
+        .map(|entry| entry.id)
+        .collect();
     let mut roster = load_records(conn, &CHARACTERS)?;
     let worn = merge(&[], &roster)?;
     let current = load(conn)?;
@@ -211,7 +214,10 @@ pub(super) fn detach_sales(
                 && entry.source != "auto"
                 && ((item["kind"] == "gear" && entry.category == "装备交易")
                     || (item["kind"] == "pet" && entry.category == "召唤兽交易"))
-                && entry.assets.iter().any(|asset| snapshot_content(asset) == snapshot)
+                && entry
+                    .assets
+                    .iter()
+                    .any(|asset| snapshot_content(asset) == snapshot)
         });
         if !matched {
             return Err("穿戴物品的成交资料已变化，请重新选择后出售".into());
@@ -228,17 +234,29 @@ pub(super) fn detach_sales(
         let mut has_jade = false;
         if let Some(gear) = character.get_mut("gear").and_then(Value::as_array_mut) {
             for part in gear {
-                let jade = part["slot"].as_str().is_some_and(|slot| slot.starts_with("玉魄"));
-                if part["warehouseId"].as_str().is_some_and(|id| sold.contains(id)) {
+                let jade = part["slot"]
+                    .as_str()
+                    .is_some_and(|slot| slot.starts_with("玉魄"));
+                if part["warehouseId"]
+                    .as_str()
+                    .is_some_and(|id| sold.contains(id))
+                {
                     sold_jade |= jade;
                     *part = json!({ "slot": part["slot"].clone() });
                 } else {
-                    has_jade |= jade && part["warehouseId"].as_str().is_some_and(|id| !id.is_empty());
+                    has_jade |= jade
+                        && part["warehouseId"]
+                            .as_str()
+                            .is_some_and(|id| !id.is_empty());
                 }
             }
         }
         if let Some(pets) = character.get_mut("pets").and_then(Value::as_array_mut) {
-            pets.retain(|pet| !pet["warehouseId"].as_str().is_some_and(|id| sold.contains(id)));
+            pets.retain(|pet| {
+                !pet["warehouseId"]
+                    .as_str()
+                    .is_some_and(|id| sold.contains(id))
+            });
         }
         if sold_jade && !has_jade {
             if let Some(meta) = character.get_mut("gearMeta").and_then(Value::as_object_mut) {

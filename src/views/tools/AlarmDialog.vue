@@ -186,7 +186,11 @@ function onEnter(event: KeyboardEvent) {
                 aria-label="重复方式"
                 @update:value="pickRepeat"
             >
-                <GlassSegment v-for="option in REPEAT_OPTIONS" :key="option.value" :value="option.value">
+                <GlassSegment
+                    v-for="option in REPEAT_OPTIONS"
+                    :key="option.value"
+                    :value="option.value"
+                >
                     {{ option.label }}
                 </GlassSegment>
             </GlassSegmented>
@@ -235,8 +239,8 @@ function onEnter(event: KeyboardEvent) {
                  否则日期会被 14 的间距推得像另一件事。 -->
             <div v-if="draft.repeat !== 'activity'" class="alarm-when">
                 <TimeField
-                    :glass="!!glass"
                     v-model="draft.time"
+                    :glass="!!glass"
                     :label="draft.repeat === 'hourly' ? '每小时的几分' : '时刻'"
                     :mode="draft.repeat === 'hourly' ? 'minute' : 'clock'"
                     :error="
@@ -289,7 +293,12 @@ function onEnter(event: KeyboardEvent) {
             <label class="alarm-label">
                 <span class="field-label">备注（可空）</span>
                 <GlassInput v-if="glass" class="alarm-input">
-                    <input v-model="draft.label" :maxlength="LABEL_LIMIT" aria-label="备注" placeholder="签到 / 摆摊收摊" />
+                    <input
+                        v-model="draft.label"
+                        :maxlength="LABEL_LIMIT"
+                        aria-label="备注"
+                        placeholder="签到 / 摆摊收摊"
+                    />
                 </GlassInput>
                 <input
                     v-else
@@ -301,18 +310,17 @@ function onEnter(event: KeyboardEvent) {
                 />
             </label>
 
-            <AppNotice class="note alarm-hint">应用运行时提前 {{ LEAD_MINUTES }} 分钟提醒。</AppNotice>
+            <AppNotice class="note alarm-hint"
+                >应用运行时提前 {{ LEAD_MINUTES }} 分钟提醒。</AppNotice
+            >
 
-            <AppNotice v-if="error" class="note error alarm-note" role="alert" tone="error">{{ error }}</AppNotice>
+            <AppNotice v-if="error" class="note error alarm-note" role="alert" tone="error">{{
+                error
+            }}</AppNotice>
         </form>
 
         <template #footer>
-            <PressButton
-                data-modal-cancel
-                text="取消"
-                label="放弃这次编辑"
-                @click="requestClose"
-            />
+            <PressButton data-modal-cancel text="取消" label="放弃这次编辑" @click="requestClose" />
             <PressButton icon="check" text="保存" label="保存这个闹钟" seal @click="submit" />
         </template>
     </ModalShell>

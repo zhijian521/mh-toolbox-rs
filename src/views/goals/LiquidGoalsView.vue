@@ -25,7 +25,11 @@ onMounted(async () => {
 </script>
 
 <template>
-    <section v-if="loading" class="liquid-ledger liquid-ledger-page" aria-labelledby="goals-loading-title">
+    <section
+        v-if="loading"
+        class="liquid-ledger liquid-ledger-page"
+        aria-labelledby="goals-loading-title"
+    >
         <h1 id="goals-loading-title">目标</h1>
         <p role="status">正在读取目标和角色…</p>
     </section>

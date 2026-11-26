@@ -16,6 +16,20 @@
 .pet-group.wide {
     grid-column: 1 / -1;
 }
+.pet-id .character-detail-pair {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+}
+.pet-id .character-detail-pair .slip-row {
+    flex: 1 0 auto;
+    gap: 5px;
+    --tag-w: calc(44px * var(--fs-scale));
+}
+.pet-id .character-detail-pair .slip-name {
+    flex: 1 0 auto;
+    white-space: nowrap;
+}
 .group-head {
     --gh-mb: 8px;
     margin-top: 2px;

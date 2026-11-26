@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
-import SegmentedPills from '../../components/SegmentedPills.vue';
-import AccountBarChart from './AccountBarChart.vue';
+import AccountFilterTabs from './AccountFilterTabs.vue';
+import CategoryBarChart from '../../components/CategoryBarChart.vue';
 import { characterName, useRoster } from '../characters/roster';
 import { ACCOUNT_CATEGORIES, type AccountEntry, type Currency } from './accounts';
-import { BOOK_OPTIONS, channelAccounts, characterCategoryAccounts } from './account-analysis';
+import {
+    BOOK_OPTIONS,
+    accountValueText,
+    channelAccounts,
+    characterCategoryAccounts,
+} from './account-analysis';
 
 const props = defineProps<{
     entries: readonly AccountEntry[];
@@ -71,13 +76,14 @@ const series = [
 <template>
     <LedgerSection :title="title" class="flow-card analysis-card chart-section" plain>
         <template #actions>
-            <SegmentedPills v-model="currency" :options="BOOK_OPTIONS" :label="title + '币种'" />
+            <AccountFilterTabs v-model="currency" :options="BOOK_OPTIONS" :label="title + '币种'" />
         </template>
-        <AccountBarChart
+        <CategoryBarChart
             class="chart-in-card"
             :rows="chartRows"
             :series="series"
-            :currency="currency"
+            :value-text="(value) => accountValueText(value, currency)"
+            :axis-unit="currency === 'cash' ? 10000 : 1"
             :label="title"
             :legend="group === 'character' ? legend : undefined"
             :fit="group === 'character'"

@@ -71,7 +71,12 @@ const groups = computed(() => {
     return [...fixed, ...added];
 });
 const count = (value: number) => value.toLocaleString('zh-CN');
-const RESOURCE_FIELDS: { key: keyof GrowthResources; label: string; max?: boolean; estimate?: boolean }[] = [
+const RESOURCE_FIELDS: {
+    key: keyof GrowthResources;
+    label: string;
+    max?: boolean;
+    estimate?: boolean;
+}[] = [
     { key: 'exp', label: '人物经验' },
     { key: 'cash', label: '梦幻币' },
     { key: 'cultivationExp', label: '任务修炼经验' },
@@ -188,9 +193,20 @@ watch(
     />
     <p v-if="loadingRoster" class="record-empty" role="status">正在读取角色档案…</p>
     <template v-else-if="!loadError">
-        <component :is="surface" v-if="roster.length" v-bind="surfaceProps" class="plan-toolbar lg-form-fields">
+        <component
+            :is="surface"
+            v-if="roster.length"
+            v-bind="surfaceProps"
+            class="plan-toolbar lg-form-fields"
+        >
             <span class="role-label">计算角色</span>
-            <GlassSelect v-if="glass" v-model="roleId" :options="options" label="计算角色" hide-label />
+            <GlassSelect
+                v-if="glass"
+                v-model="roleId"
+                :options="options"
+                label="计算角色"
+                hide-label
+            />
             <SegmentedPills v-else v-model="roleId" :options="options" label="计算角色" wrap />
             <label class="plan-owned">
                 <span>现有经验（点）</span>
@@ -204,7 +220,11 @@ watch(
             </label>
             <PressButton text="重置" label="恢复所选角色档案的当前等级" @click="requestReset" />
             <span class="muted">仅试算，不修改角色</span>
-            <p v-if="character && summary.ownedExpError" class="plan-exp-error note error" role="alert">
+            <p
+                v-if="character && summary.ownedExpError"
+                class="plan-exp-error note error"
+                role="alert"
+            >
                 {{ summary.ownedExpError }}
             </p>
         </component>
@@ -249,7 +269,9 @@ watch(
                             >
                                 <h3>
                                     <span>{{ item.label }}</span>
-                                    <span class="num">{{ item.max ? '最高要求 ' : '' }}{{ item.value }}</span>
+                                    <span class="num"
+                                        >{{ item.max ? '最高要求 ' : '' }}{{ item.value }}</span
+                                    >
                                 </h3>
                                 <dl v-if="item.sources.length">
                                     <template v-for="source in item.sources" :key="source.key">
@@ -259,8 +281,12 @@ watch(
                                 </dl>
                             </component>
                         </div>
-                        <p v-if="summary.total.moonDew" class="note">月华露为召唤兽升级的替代途径。</p>
-                        <p v-if="summary.total.rounds100" class="note">宠修按每项每 100 环 760 经验估算。</p>
+                        <p v-if="summary.total.moonDew" class="note">
+                            月华露为召唤兽升级的替代途径。
+                        </p>
+                        <p v-if="summary.total.rounds100" class="note">
+                            宠修按每项每 100 环 760 经验估算。
+                        </p>
                         <p class="note">剧情技能、育兽术暂不计入。</p>
                     </details>
                 </template>
@@ -311,8 +337,8 @@ watch(
                 <div v-if="availableSkills.length" class="plan-add">
                     <component
                         :is="selectControl"
-                        :hide-label="glass ? true : undefined"
                         v-model="addSkillId"
+                        :hide-label="glass ? true : undefined"
                         :options="availableSkills"
                         label="新增辅助技能计算"
                     />
@@ -344,8 +370,12 @@ watch(
 .plan-toolbar {
     padding: 10px 14px;
 }
-.plan-toolbar > .glass-select { width: min(190px, 100%); }
-.plan-toolbar > .muted { margin-inline-start: auto; }
+.plan-toolbar > .glass-select {
+    width: min(190px, 100%);
+}
+.plan-toolbar > .muted {
+    margin-inline-start: auto;
+}
 .plan-toolbar > .pill-group {
     min-width: 0;
     max-width: 100%;

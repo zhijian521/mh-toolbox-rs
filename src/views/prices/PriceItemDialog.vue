@@ -42,9 +42,9 @@ const initialPrice = ref(0);
 const groups = priceCategoryGroups([{ category: draft.category, sub: '' }]);
 const subCustom = ref(
     !!draft.sub &&
-        !groups.find((group) => group.value === draft.category)?.children.some(
-            (child) => child.value === draft.sub,
-        ),
+        !groups
+            .find((group) => group.value === draft.category)
+            ?.children.some((child) => child.value === draft.sub),
 );
 const categoryGroups = groups.map((group) => ({
     ...group,

@@ -164,7 +164,9 @@ export default async function runHistory(ctx, tools, quick) {
             Math.abs(look.headH - look.rowH) <= 1,
             `表头 ${look.headH} / 行 ${look.rowH}`,
         );
-        t.check('历史读取失败保留滚动宿主并隐藏表格和空白底板', await cdp.evaluate(`(async () => {
+        t.check(
+            '历史读取失败保留滚动宿主并隐藏表格和空白底板',
+            await cdp.evaluate(`(async () => {
             const { useIncome } = await ${importLoaded('/src/views/income/income-store.ts')};
             const error = useIncome().loadError;
             const before = error.value;
@@ -182,7 +184,8 @@ export default async function runHistory(ctx, tools, quick) {
                 error.value = before;
                 await new Promise(resolve => requestAnimationFrame(resolve));
             }
-        })()`));
+        })()`),
+        );
         /* 两段气各自判：原来筛选行下沿到表框只有 8，读起来像表头的一部分。 */
         t.check('筛选行与滑块之间留了气', look.gapTop >= 10, `实际 ${look.gapTop}px`);
         t.check('滑块与表格之间留了气', look.gapTable >= 6, `实际 ${look.gapTable}px`);
@@ -226,10 +229,15 @@ export default async function runHistory(ctx, tools, quick) {
                 box.scrollTop = top;
             }
         })()`);
-        t.check('表格实际滚动时表头与外框上下边缘不移动',
-            scrollLook.moved && scrollLook.top < 1 && scrollLook.bottom < 1 &&
-                scrollLook.header < 1 && parseFloat(scrollLook.border) > 0,
-            JSON.stringify(scrollLook));
+        t.check(
+            '表格实际滚动时表头与外框上下边缘不移动',
+            scrollLook.moved &&
+                scrollLook.top < 1 &&
+                scrollLook.bottom < 1 &&
+                scrollLook.header < 1 &&
+                parseFloat(scrollLook.border) > 0,
+            JSON.stringify(scrollLook),
+        );
 
         const motion = await cdp.evaluate(`(async () => {
             const mask = document.querySelector('.modal-mask');

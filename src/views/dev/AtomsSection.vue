@@ -654,7 +654,8 @@ const demoToggles = ref<string[]>(['task']);
                         <p class="note">
                             默认每格为独立纸面；卡内使用 <code>surface="embedded"</code>，票据直接
                             放在纸面上，保留虚线、镂空缺口、平直纸边和标题小图标。
-                            <code>TicketCard</code> 提供带缺口的票据外壳，圆角取 <code>--r-ticket</code>。
+                            <code>TicketCard</code> 提供带缺口的票据外壳，圆角取
+                            <code>--r-ticket</code>。
                             立体感来自左亮右暗的细纸棱、两侧薄纸层与顶部高光，不叠加模糊影。
                             金额、单位和未读取状态由业务提供。
                         </p>
@@ -707,10 +708,11 @@ const demoToggles = ref<string[]>(['task']);
                         </div>
                         <p class="note">
                             <code>FoldedCard</code> 只提供外壳，任意内容放入默认插槽。
-                            <code>spine="left"</code>／<code>spine="right"</code> 控制纸脊，默认右侧；
-                            正文不镜像，内边距自动为纸脊留空。统计条使用
+                            <code>spine="left"</code>／<code>spine="right"</code>
+                            控制纸脊，默认右侧； 正文不镜像，内边距自动为纸脊留空。统计条使用
                             <code>surface="folded"</code>，字号与票据模式一致。
-                            <code>--folded-pad-block</code>／<code>--folded-pad-inline</code> 控制留白，
+                            <code>--folded-pad-block</code>／<code>--folded-pad-inline</code>
+                            控制留白，
                             纸脊的避让统一由外壳处理。总览周月、队伍、收益和账号便签共用此组件，
                             内部排版由各自内容决定。
                         </p>
@@ -736,7 +738,8 @@ const demoToggles = ref<string[]>(['task']);
                             <code>material</code> 可选 <code>glass</code>、<code>frosted</code>、
                             <code>turned-metal</code>。内容放入默认插槽，可用
                             <code>--material-tint</code>、<code>--material-depth</code>、
-                            <code>--material-hue</code> 调色，<code>--material-pad</code> 调整内边距。
+                            <code>--material-hue</code> 调色，<code>--material-pad</code>
+                            调整内边距。
                         </p>
                     </div>
 
@@ -751,7 +754,11 @@ const demoToggles = ref<string[]>(['task']);
                                     class="chart-in-card"
                                     :labels="['2026-11-13', '2026-11-14', '2026-11-15']"
                                     :series="[
-                                        { id: 'net', name: '净额', values: [450000, -130000, 820000] },
+                                        {
+                                            id: 'net',
+                                            name: '净额',
+                                            values: [450000, -130000, 820000],
+                                        },
                                     ]"
                                     kind="money"
                                     label="示例收益趋势"
@@ -761,7 +768,8 @@ const demoToggles = ref<string[]>(['task']);
                         <p class="note">
                             图表单独使用时自带立体底板；放在卡片内使用 <code>.chart-in-card</code>，
                             由外层纸卡统一承载标题和阴影，图例透出同一底色，不额外绘制分隔线。
-                            完整绘图区默认 220px（含坐标与标签，不含图例），多数据横向滚动且隐藏滚动条，
+                            完整绘图区默认
+                            220px（含坐标与标签，不含图例），多数据横向滚动且隐藏滚动条，
                             保留悬停明细和键盘查看；账号分类图沿用同一默认高度与滚动基座。
                             柱色、图例和悬停色标共用 35% 透明度的浅染色，文字保持正常清晰度。
                             外层使用 <code>plain</code> 关闭纹理和渐变，仍保留公共圆角与立体阴影。
@@ -912,7 +920,8 @@ const demoToggles = ref<string[]>(['task']);
                             </button>
                         </div>
                         <p class="note">
-                            首页常用功能与账号快捷记账共用纸面、孔壁和断续压痕；内容经默认插槽传入，颜色与尺寸通过 CSS 变量调整，按钮、焦点与业务由外层负责。
+                            首页常用功能与账号快捷记账共用纸面、孔壁和断续压痕；内容经默认插槽传入，颜色与尺寸通过
+                            CSS 变量调整，按钮、焦点与业务由外层负责。
                         </p>
                     </div>
                 </div>

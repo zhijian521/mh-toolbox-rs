@@ -71,7 +71,11 @@ const itemDraft = computed(() => ({
     sub: subcategory.value === customSubcategory ? customSub.value : subcategory.value,
     note: note.value,
 }));
-const priceDraft = computed(() => ({ date: date.value, price: price.value ?? 0, note: note.value }));
+const priceDraft = computed(() => ({
+    date: date.value,
+    price: price.value ?? 0,
+    note: note.value,
+}));
 const draftSnapshot = computed(() => {
     if (recording.value) return JSON.stringify(priceDraft.value);
     return JSON.stringify({
@@ -80,7 +84,9 @@ const draftSnapshot = computed(() => {
     });
 });
 const initialDraft = draftSnapshot.value;
-watch(draftSnapshot, (snapshot) => emit('update:dirty', snapshot !== initialDraft), { flush: 'sync' });
+watch(draftSnapshot, (snapshot) => emit('update:dirty', snapshot !== initialDraft), {
+    flush: 'sync',
+});
 const itemErrors = computed(() => itemDraftErrors(itemDraft.value));
 const priceErrors = computed(() => pointDraftErrors(priceDraft.value));
 
@@ -91,7 +97,9 @@ function submit() {
         ? priceErrors.value.price || priceErrors.value.date
         : itemErrors.value.name || itemErrors.value.sub;
     if (!props.retrying && invalid) {
-        void nextTick(() => form.value?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
+        void nextTick(() =>
+            form.value?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(),
+        );
         return;
     }
     if (props.editItem) emit('update', itemDraft.value);
@@ -133,7 +141,9 @@ onMounted(() => {
                         :maxlength="NAME_LIMIT"
                         type="text"
                         :aria-invalid="(submitted && !!itemErrors.name) || undefined"
-                        :aria-describedby="submitted && itemErrors.name ? fieldId + '-name' : undefined"
+                        :aria-describedby="
+                            submitted && itemErrors.name ? fieldId + '-name' : undefined
+                        "
                     />
                     <small v-if="submitted && itemErrors.name" :id="fieldId + '-name'" role="alert">
                         {{ itemErrors.name }}
@@ -159,9 +169,15 @@ onMounted(() => {
                         :maxlength="SUB_LIMIT"
                         type="text"
                         :aria-invalid="(submitted && !!itemErrors.sub) || undefined"
-                        :aria-describedby="submitted && itemErrors.sub ? fieldId + '-customSub' : undefined"
+                        :aria-describedby="
+                            submitted && itemErrors.sub ? fieldId + '-customSub' : undefined
+                        "
                     />
-                    <small v-if="submitted && itemErrors.sub" :id="fieldId + '-customSub'" role="alert">
+                    <small
+                        v-if="submitted && itemErrors.sub"
+                        :id="fieldId + '-customSub'"
+                        role="alert"
+                    >
                         {{ itemErrors.sub }}
                     </small>
                 </label>

@@ -34,7 +34,9 @@ const { font, selectedFont } = useFontFamily();
             <summary>运行信息</summary>
             <dl class="about">
                 <dt>标识</dt>
-                <dd><code>{{ info?.identifier ?? 'com.zhijian.mhtoolbox.rs' }}</code></dd>
+                <dd>
+                    <code>{{ info?.identifier ?? 'com.zhijian.mhtoolbox.rs' }}</code>
+                </dd>
                 <dt>数据库</dt>
                 <dd><code>mh-toolbox.db</code>（SQLite · WAL）</dd>
                 <dt>运行环境</dt>

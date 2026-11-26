@@ -82,7 +82,7 @@ watch(
     /* 圆角比块小一档：同值会让图标的直角顶在块的圆角内侧，两圈弧线差半个像素，
      * 看着像没对齐。`overflow` 与它同值，图标才裁得进这圈弧线里。 */
     border-radius: calc(var(--r-2) - 2px);
-    overflow: hidden;
+    overflow: clip;
 }
 .img {
     display: block;

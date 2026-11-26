@@ -48,9 +48,11 @@ describe('账号概览统计', () => {
             { value: '−0.1 元', tone: 'loss' },
         ]);
         expect(books[1].items.map((item) => item.value)).toEqual(['1 万', '0 万', '1 万']);
-        expect(accountSummaryBooks([]).every((book) =>
-            book.hint === '0 笔' && book.items.every((item) => item.tone === 'num'),
-        )).toBe(true);
+        expect(
+            accountSummaryBooks([]).every(
+                (book) => book.hint === '0 笔' && book.items.every((item) => item.tone === 'num'),
+            ),
+        ).toBe(true);
     });
 
     it('双币种一次汇总不混账，分别按汇总后的金额取整', () => {

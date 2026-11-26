@@ -29,11 +29,14 @@ export interface AccountFilter {
     source?: string;
 }
 
+export function inAccountRange(date: string, range: Pick<AccountFilter, 'from' | 'to'>) {
+    return (!range.from || date >= range.from) && (!range.to || date <= range.to);
+}
+
 /** 空角色与不限必须分开；同一筛选供概览和历史使用。 */
 export function filterAccounts(entries: readonly AccountEntry[], filter: AccountFilter) {
     return entries.filter((one) => {
-        if (filter.from && one.date < filter.from) return false;
-        if (filter.to && one.date > filter.to) return false;
+        if (!inAccountRange(one.date, filter)) return false;
         if (filter.characterId && filter.characterId !== ALL_ACCOUNTS) {
             const id = filter.characterId === UNASSIGNED ? '' : filter.characterId;
             if (one.characterId !== id) return false;

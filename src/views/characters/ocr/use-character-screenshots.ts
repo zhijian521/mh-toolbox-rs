@@ -63,33 +63,34 @@ export function useCharacterScreenshots(
     let disposed = false;
     let readingPane = pane.value;
     const readPanel = createCharacterPanelReader();
-    const { result, rawLines, shotUrl, busy, error, takeFile } = useOcrImage<CharacterPanelResult | null>(
-        async (lines, image) => {
-            const version = generation;
-            const preferred = readingPane;
-            const current = () => !disposed && version === generation;
-            const readText = async () => {
-                const outcome = await scheduleOcr(
-                    () => ocrFrame(base64Of(swapToBgra(image.data)), image.width, image.height),
-                    current,
+    const { result, rawLines, shotUrl, busy, error, takeFile } =
+        useOcrImage<CharacterPanelResult | null>(
+            async (lines, image) => {
+                const version = generation;
+                const preferred = readingPane;
+                const current = () => !disposed && version === generation;
+                const readText = async () => {
+                    const outcome = await scheduleOcr(
+                        () => ocrFrame(base64Of(swapToBgra(image.data)), image.width, image.height),
+                        current,
+                    );
+                    if (!outcome || !current()) return [];
+                    if (outcome.status === 'failed') throw new Error(outcome.error);
+                    rawLines.value = outcome.lines;
+                    return outcome.lines;
+                };
+                const result = await readPanel(
+                    lines,
+                    image,
+                    draft.value.school,
+                    preferred,
+                    preferred === 'assist' ? readText : undefined,
                 );
-                if (!outcome || !current()) return [];
-                if (outcome.status === 'failed') throw new Error(outcome.error);
-                rawLines.value = outcome.lines;
-                return outcome.lines;
-            };
-            const result = await readPanel(
-                lines,
-                image,
-                draft.value.school,
-                preferred,
-                preferred === 'assist' ? readText : undefined,
-            );
-            return { result, error: result ? '' : '没认出可填写的内容，请截取完整的面板' };
-        },
-        undefined,
-        () => readingPane !== 'assist',
-    );
+                return { result, error: result ? '' : '没认出可填写的内容，请截取完整的面板' };
+            },
+            undefined,
+            () => readingPane !== 'assist',
+        );
 
     function remember(target: StandardPane, file: File, panel?: CharacterPanelResult) {
         const previous = previews.get(target);

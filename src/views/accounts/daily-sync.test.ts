@@ -280,9 +280,21 @@ describe('收益自动同步', () => {
         expect(accounts.entries.value).toContainEqual(manual);
         expect(accounts.entries.value.filter((one) => one.source === 'auto')).toEqual(
             expect.arrayContaining([
-                expect.objectContaining({ date: '2026-10-01', category: '游戏收益', amount: 10000 }),
-                expect.objectContaining({ date: '2026-11-12', category: '点卡消耗', amount: 90000 }),
-                expect.objectContaining({ date: '2026-11-13', category: '点卡消耗', amount: 90000 }),
+                expect.objectContaining({
+                    date: '2026-10-01',
+                    category: '游戏收益',
+                    amount: 10000,
+                }),
+                expect.objectContaining({
+                    date: '2026-11-12',
+                    category: '点卡消耗',
+                    amount: 90000,
+                }),
+                expect.objectContaining({
+                    date: '2026-11-13',
+                    category: '点卡消耗',
+                    amount: 90000,
+                }),
             ]),
         );
         expect(accounts.entries.value).toHaveLength(4);
@@ -328,15 +340,21 @@ describe('收益自动同步', () => {
         minute.value = Date.now();
         await nextTick();
         expect(await sync.flushDailySync()).toBe(true);
-        expect(accounts.entries.value.find((one) => one.date === '2026-11-13')?.amount).toBe(2160000);
-        expect(accounts.entries.value.find((one) => one.date === '2026-11-14')?.amount).toBe(2160000);
+        expect(accounts.entries.value.find((one) => one.date === '2026-11-13')?.amount).toBe(
+            2160000,
+        );
+        expect(accounts.entries.value.find((one) => one.date === '2026-11-14')?.amount).toBe(
+            2160000,
+        );
         expect(accounts.entries.value.find((one) => one.date === '2026-11-15')?.amount).toBe(90000);
 
         vi.setSystemTime(at(13));
         minute.value = Date.now();
         await nextTick();
         expect(await sync.flushDailySync()).toBe(true);
-        expect(accounts.entries.value.find((one) => one.date === '2026-11-13')?.amount).toBe(1080000);
+        expect(accounts.entries.value.find((one) => one.date === '2026-11-13')?.amount).toBe(
+            1080000,
+        );
         expect(accounts.entries.value.some((one) => one.date > '2026-11-13')).toBe(false);
     });
 });

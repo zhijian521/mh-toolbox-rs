@@ -56,7 +56,10 @@ afterEach(() => {
 
 describe('捉鬼轮询生命周期', () => {
     it('多个窗口先选择目标，随后只识别所选窗口', async () => {
-        mocks.windows.mockResolvedValue([{ hwnd: 1, title: '窗口一' }, { hwnd: 2, title: '窗口二' }]);
+        mocks.windows.mockResolvedValue([
+            { hwnd: 1, title: '窗口一' },
+            { hwnd: 2, title: '窗口二' },
+        ]);
         const state = scope.run(useGhostWatch)!;
         await state.start();
         expect(state.running.value).toBe(false);

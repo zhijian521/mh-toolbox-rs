@@ -1,6 +1,6 @@
 /** 仓库物品独立编号；识别只生成草稿，保存后才入仓，不隐式产生收支。 */
 import type { DeepReadonly } from 'vue';
-import { isObject, makeId, rawText, rows, stamp } from '../../services/shape';
+import { isObject, makeId, rawText, stamp } from '../../services/shape';
 import { normalizeGearDetail, normalizeGearMeta, normalizePet } from '../characters/details';
 import {
     GEAR_SLOTS,
@@ -93,27 +93,13 @@ export function warehouseName(item: ReadonlyWarehouseItem): string {
 export function filterWarehouse(
     items: readonly ReadonlyWarehouseItem[],
     kind: WarehouseKind,
-    keyword = '',
     slot = '',
 ): ReadonlyWarehouseItem[] {
-    const search = keyword.trim().toLocaleLowerCase();
     return items
-        .filter((item) => {
-            if (item.kind !== kind) return false;
-            if (slot && (item.kind !== 'gear' || item.gear.slot !== slot)) return false;
-            const fields = [warehouseName(item), item.server];
-            if (item.kind === 'gear') {
-                fields.push(
-                    item.gear.slot,
-                    item.gear.detail?.kind ?? '',
-                    item.gear.detail?.note ?? '',
-                );
-                for (const row of rows(item.gear.detail?.lines)) {
-                    if (isObject(row)) fields.push(rawText(row.value));
-                }
-            } else fields.push(...item.pet.skills);
-            return !search || fields.some((field) => field.toLocaleLowerCase().includes(search));
-        })
+        .filter(
+            (item) =>
+                item.kind === kind && (!slot || (item.kind === 'gear' && item.gear.slot === slot)),
+        )
         .sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id));
 }
 

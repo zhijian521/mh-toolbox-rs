@@ -95,7 +95,14 @@ impl WindowCapture {
         let session = pool.CreateCaptureSession(&item)?;
         session.SetIsCursorCaptureEnabled(false)?;
         session.StartCapture()?;
-        Ok(Self { hwnd, pool, session, device, context, _apartment: apartment })
+        Ok(Self {
+            hwnd,
+            pool,
+            session,
+            device,
+            context,
+            _apartment: apartment,
+        })
     }
 
     pub fn frame(&self) -> Result<Frame, String> {
@@ -105,7 +112,8 @@ impl WindowCapture {
         if unsafe { IsIconic(self.hwnd) }.as_bool() {
             return Err("游戏已最小化，暂停读取；还原后自动继续".into());
         }
-        self.read_frame().map_err(|error| format!("未读到新的游戏画面：{error}"))
+        self.read_frame()
+            .map_err(|error| format!("未读到新的游戏画面：{error}"))
     }
 
     fn read_frame(&self) -> windows::core::Result<Frame> {
@@ -115,7 +123,10 @@ impl WindowCapture {
                 break frame;
             }
             if Instant::now() >= until {
-                return Err(windows::core::Error::new(windows::core::HRESULT(0x800705B4u32 as i32), "捕获超时"));
+                return Err(windows::core::Error::new(
+                    windows::core::HRESULT(0x800705B4u32 as i32),
+                    "捕获超时",
+                ));
             }
             std::thread::sleep(Duration::from_millis(15));
         };
@@ -139,12 +150,16 @@ impl WindowCapture {
         desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ.0 as u32;
         desc.MiscFlags = 0;
         let mut staging = None;
-        unsafe { self.device.CreateTexture2D(&desc, None, Some(&mut staging))? };
+        unsafe {
+            self.device
+                .CreateTexture2D(&desc, None, Some(&mut staging))?
+        };
         let staging = staging.ok_or_else(windows::core::Error::from_thread)?;
         let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
         unsafe {
             self.context.CopyResource(&staging, &texture);
-            self.context.Map(&staging, 0, D3D11_MAP_READ, 0, Some(&mut mapped))?;
+            self.context
+                .Map(&staging, 0, D3D11_MAP_READ, 0, Some(&mut mapped))?;
         }
         let mut bgra = Vec::with_capacity((width * height * 4) as usize);
         for y in 0..height as usize {
@@ -158,7 +173,11 @@ impl WindowCapture {
         }
         unsafe { self.context.Unmap(&staging, 0) };
         captured.Close()?;
-        Ok(Frame { width, height, bgra })
+        Ok(Frame {
+            width,
+            height,
+            bgra,
+        })
     }
 }
 
@@ -185,7 +204,10 @@ pub fn image_url(frame: &Frame) -> String {
     bmp.extend_from_slice(&32u16.to_le_bytes());
     bmp.extend_from_slice(&[0; 24]);
     bmp.extend_from_slice(&frame.bgra);
-    format!("data:image/bmp;base64,{}", base64::engine::general_purpose::STANDARD.encode(bmp))
+    format!(
+        "data:image/bmp;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bmp)
+    )
 }
 
 #[cfg(test)]

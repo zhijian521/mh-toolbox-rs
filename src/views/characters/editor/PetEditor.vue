@@ -221,7 +221,7 @@ defineExpose({ focusName, acceptScreenshot });
     min-width: 0;
     min-height: 0;
     border-radius: var(--r-2);
-    overflow: hidden;
+    overflow: clip;
 }
 .pet-block {
     display: flex;

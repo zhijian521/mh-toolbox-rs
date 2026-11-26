@@ -1,13 +1,21 @@
 <script setup lang="ts">
+import type { InputHTMLAttributes } from 'vue';
 import { GlassFieldSurface } from './index';
 
 defineOptions({ inheritAttrs: false });
+defineProps<FieldProps>();
+interface FieldProps extends /* @vue-ignore */ Pick<
+    InputHTMLAttributes,
+    'autocomplete' | 'maxlength' | 'type' | 'placeholder' | 'required' | 'inputmode'
+> {
+    disabled?: boolean;
+}
 const value = defineModel<string>();
 </script>
 
 <template>
     <GlassFieldSurface radius="capsule" class="glass-input" v-bind="$slots.default ? $attrs : {}">
-        <slot><input v-model="value" v-bind="$attrs" /></slot>
+        <slot><input v-model="value" :disabled="disabled" v-bind="$attrs" /></slot>
     </GlassFieldSurface>
 </template>
 

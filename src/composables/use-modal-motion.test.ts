@@ -101,7 +101,9 @@ function mountMotion(reduced = false, supported = true, handoff = false) {
     });
     const root = new Node('root');
     const app = renderer.createApp(
-        defineComponent({ setup: () => () => (open.value ? h(Dialog, { key: version.value }) : null) }),
+        defineComponent({
+            setup: () => () => (open.value ? h(Dialog, { key: version.value }) : null),
+        }),
     );
     app.mount(root);
     return { root, motions, open, version, afterLeave, unmount: () => app.unmount() };
@@ -159,9 +161,9 @@ describe('弹窗真实节点退场', () => {
             ['body', 24],
             ['foot', 48],
         ]);
-        expect(layers.every((one) => one.frames.every((frame) => frame.transform === undefined))).toBe(
-            true,
-        );
+        expect(
+            layers.every((one) => one.frames.every((frame) => frame.transform === undefined)),
+        ).toBe(true);
         scene.unmount();
         scene.motions.forEach((motion) => motion.finish());
         await settle();
@@ -183,7 +185,9 @@ describe('弹窗真实节点退场', () => {
     it('快速关闭中断入场，保留同一面板，退场完毕只清理一次', async () => {
         const scene = mountMotion();
         const mask = scene.root.children[0];
-        const body = mask.querySelector('.modal-panel')!.children.find((one) => one.type === 'body')!;
+        const body = mask
+            .querySelector('.modal-panel')!
+            .children.find((one) => one.type === 'body')!;
         body.opacity = '0.35';
         const entering = scene.motions.length;
         scene.open.value = false;

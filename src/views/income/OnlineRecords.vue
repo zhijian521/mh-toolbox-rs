@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ALL_OPTIONS as ANY } from '../../components/select-options';
-import { computed, toRefs, watch } from 'vue';
+import { computed, inject, toRefs, watch } from 'vue';
 import { useRecordScroll, type RecordFilters } from '../../composables/use-record-filters';
 import { useMinuteNow } from '../../composables/use-minute-now';
 import { usePagination } from '../../composables/use-pagination';
@@ -10,7 +10,10 @@ import LoadNotice from '../../components/LoadNotice.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import TextButton from '../../components/TextButton.vue';
-import SteppedSlider from '../../components/SteppedSlider.vue';
+import { GlassSearch } from '../../components/liquid-glass';
+import IncomeRoleFilter from './IncomeRoleFilter.vue';
+import { glassLedger } from '../../components/glass-ledger';
+import GlassTable from '../../components/liquid-glass/GlassTable.vue';
 import DateRangeField from '../../components/DateRangeField.vue';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { notify } from '../../composables/use-notify';
@@ -31,6 +34,7 @@ import { loadOnline, useOnline } from './online-store';
 import { characterOptions } from '../characters/character-options';
 
 const emit = defineEmits<{ close: []; edit: [session: ReadonlyOnlineSession] }>();
+const glass = inject(glassLedger, null);
 const filters = defineModel<RecordFilters & { keyword: string }>({ required: true });
 const { from, to, who, keyword, page: selectedPage } = toRefs(filters.value);
 const { scroll, rememberScroll } = useRecordScroll(filters);
@@ -51,10 +55,12 @@ const now = useMinuteNow();
 const rangeRows = computed(() => sessionsIn(sessions.value, from.value, to.value, now.value));
 
 const whoOptions = computed(() =>
-    characterOptions(roster.value, sessions.value.flatMap(ownersOf), { all: true }).map((option) => ({
-        ...option,
-        label: option.value === ANY ? '总计' : option.label,
-    })),
+    characterOptions(roster.value, sessions.value.flatMap(ownersOf), { all: true }).map(
+        (option) => ({
+            ...option,
+            label: option.value === ANY ? '总计' : option.label,
+        }),
+    ),
 );
 
 const searched = computed(() => {
@@ -178,14 +184,23 @@ async function remove(one: ReadonlyOnlineSession) {
             :load="loadOnline"
             :blocked="pending > 0 || !!writeError || removing"
         />
-        <div class="record-filters">
+        <div class="record-filters" :class="{ 'lg-form-fields': glass }">
             <DateRangeField
                 v-model:from="from"
                 v-model:to="to"
-                from-label="从哪一天"
-                to-label="到哪一天"
+                :glass="!!glass"
+                :from-label="glass ? '开始日期' : '从哪一天'"
+                :to-label="glass ? '结束日期' : '到哪一天'"
+            />
+            <GlassSearch
+                v-if="glass"
+                v-model:value="keyword"
+                class="filter-search"
+                placeholder="搜备注 / 日期"
+                aria-label="搜索上线记录"
             />
             <input
+                v-else
                 v-model="keyword"
                 class="field filter-search"
                 type="search"
@@ -197,7 +212,7 @@ async function remove(one: ReadonlyOnlineSession) {
         </div>
 
         <div v-if="!loadError" class="record-roles">
-            <SteppedSlider
+            <IncomeRoleFilter
                 v-model="who"
                 :options="whoOptions"
                 label="按角色筛选上线记录"
@@ -209,7 +224,7 @@ async function remove(one: ReadonlyOnlineSession) {
                         ledgerMoneyText(whoTotals.get(option.value) ?? 0, 'cash', { zero: 'dash' })
                     }}</span>
                 </template>
-            </SteppedSlider>
+            </IncomeRoleFilter>
         </div>
 
         <p v-if="!loadError" class="record-summary">
@@ -236,14 +251,22 @@ async function remove(one: ReadonlyOnlineSession) {
                               : '还没有上线记录。'
                     }}
                 </p>
-                <table v-else class="rec-table income-table">
+                <component
+                    :is="glass ? GlassTable : 'table'"
+                    v-else
+                    class="rec-table"
+                    :class="{ 'income-table': !glass }"
+                    :sticky-header="glass ? true : undefined"
+                >
                     <thead>
                         <tr>
                             <th class="c-date">日期</th>
                             <th class="c-time">时段</th>
                             <th>角色</th>
                             <th class="c-dur" title="所选日期范围内的在线时长">时长</th>
-                            <th class="c-num" title="所选日期范围内的点卡花费">点卡</th>
+                            <th class="c-num" data-align="end" title="所选日期范围内的点卡花费">
+                                点卡
+                            </th>
                             <th class="c-note">备注</th>
                             <th class="c-ops">操作</th>
                         </tr>
@@ -258,7 +281,7 @@ async function remove(one: ReadonlyOnlineSession) {
                             </td>
                             <td class="c-who" :title="whoText(one)">{{ whoText(one) }}</td>
                             <td class="c-dur">{{ clockText(facts.minutes) }}</td>
-                            <td class="c-num">
+                            <td class="c-num" data-align="end">
                                 {{ facts.cost > 0 ? ledgerMoneyText(facts.cost) : '—' }}
                             </td>
                             <td class="c-note" :title="one.note">{{ one.note }}</td>
@@ -284,16 +307,17 @@ async function remove(one: ReadonlyOnlineSession) {
                             </td>
                         </tr>
                     </tbody>
-                </table>
+                </component>
             </div>
         </div>
 
-        <template #footer>
-            <span class="record-foot-note">{{
+        <template v-if="!glass || (!loadError && pages > 1)" #footer>
+            <span v-if="!glass" class="record-foot-note">{{
                 loadError ? '读取失败' : filtered.length + ' 段'
             }}</span>
             <RecordPager v-if="!loadError" v-model="page" :pages="pages" />
             <PressButton
+                v-if="!glass"
                 data-modal-cancel
                 text="关闭"
                 label="关闭上线记录"

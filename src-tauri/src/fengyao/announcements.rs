@@ -75,24 +75,33 @@ pub(super) fn candidates(lines: &[String], filter: &ReminderFilter) -> Vec<Candi
 
 fn nursery(body: &str) -> Option<(&str, &str)> {
     let (intro, babies) = body.rsplit_once("幼儿园")?;
-    let (actor, _) = ["砸坏", "挖塌", "挖破", "挖坏", "挖垮", "挖倒", "挖到", "挖出"]
-        .iter()
-        .find_map(|cue| intro.split_once(cue))?;
+    let (actor, _) = [
+        "砸坏", "挖塌", "挖破", "挖坏", "挖垮", "挖倒", "挖到", "挖出",
+    ]
+    .iter()
+    .find_map(|cue| intro.split_once(cue))?;
     let sender = actor.split_once("挖宝").map_or(actor, |(name, _)| name);
-    let sender = sender.trim_end_matches("一不小心").trim_end_matches("不小心");
+    let sender = sender
+        .trim_end_matches("一不小心")
+        .trim_end_matches("不小心");
     let (_, message) = babies.split_once("宝宝")?;
-    if !["哭闹", "领养", "逃", "跑到"].iter().any(|cue| message.contains(cue)) {
+    if !["哭闹", "领养", "逃", "跑到"]
+        .iter()
+        .any(|cue| message.contains(cue))
+    {
         return None;
     }
     let place = ["跑到了", "跑到", "逃到了", "逃到", "正在", "在"]
         .iter()
         .find_map(|cue| message.split_once(cue).map(|(_, rest)| rest));
     let scene = place.and_then(|rest| {
-        let end = ["哭闹", "等待", "等着", "，", ",", "。", "！", "!", "四处", "到处", "逃窜", "逃跑"]
-            .iter()
-            .filter_map(|cue| rest.find(cue))
-            .min()
-            .unwrap_or(rest.len());
+        let end = [
+            "哭闹", "等待", "等着", "，", ",", "。", "！", "!", "四处", "到处", "逃窜", "逃跑",
+        ]
+        .iter()
+        .filter_map(|cue| rest.find(cue))
+        .min()
+        .unwrap_or(rest.len());
         map_name(&rest[..end]).filter(|name| name.chars().count() <= 8)
     });
     Some((sender, scene.unwrap_or_default()))
@@ -116,19 +125,57 @@ fn star_locations(body: &str) -> Option<String> {
     }
     // 地点缺字仍提示。只播报原文中读到的地名，多地公告合为一条。
     let maps = [
-        "傲来国", "蓬莱仙岛", "女儿村", "花果山", "龙宫", "东海湾", "普陀山",
-        "大唐国境", "大唐境外", "大唐官府", "长安城", "建邺城", "长寿村", "长寿郊外",
-        "北俱芦洲", "女娲神迹", "五庄观", "魔王寨", "阴曹地府", "盘丝岭", "墨家村",
-        "狮驼岭", "化生寺", "方寸山", "天宫", "麒麟山", "宝象国", "碗子山",
-        "凤巢一层", "凤巢二层", "龙窟一层", "龙窟二层", "西梁女国", "解阳山",
-        "月宫", "朱紫国", "子母河底", "江南野外",
+        "傲来国",
+        "蓬莱仙岛",
+        "女儿村",
+        "花果山",
+        "龙宫",
+        "东海湾",
+        "普陀山",
+        "大唐国境",
+        "大唐境外",
+        "大唐官府",
+        "长安城",
+        "建邺城",
+        "长寿村",
+        "长寿郊外",
+        "北俱芦洲",
+        "女娲神迹",
+        "五庄观",
+        "魔王寨",
+        "阴曹地府",
+        "盘丝岭",
+        "墨家村",
+        "狮驼岭",
+        "化生寺",
+        "方寸山",
+        "天宫",
+        "麒麟山",
+        "宝象国",
+        "碗子山",
+        "凤巢一层",
+        "凤巢二层",
+        "龙窟一层",
+        "龙窟二层",
+        "西梁女国",
+        "解阳山",
+        "月宫",
+        "朱紫国",
+        "子母河底",
+        "江南野外",
     ];
     let mut found: Vec<_> = maps
         .iter()
         .filter_map(|&map| announcement.find(map).map(|i| (i, map)))
         .collect();
     found.sort_by_key(|&(index, _)| index);
-    Some(found.into_iter().map(|(_, map)| map).collect::<Vec<_>>().join("、"))
+    Some(
+        found
+            .into_iter()
+            .map(|(_, map)| map)
+            .collect::<Vec<_>>()
+            .join("、"),
+    )
 }
 
 fn ordinary_spawn(body: &str, mut add: impl FnMut(&str, &str)) {
@@ -360,7 +407,8 @@ mod tests {
             "建邺城哭闹，各路英雄快来领养！",
             "[世界]小乙挖宝时砸坏了怪物幼儿园，一群宝宝正在龙宫哭闹。",
             "[系统]小乙首次挖出怪物幼儿园，达成了成就。",
-        ].map(String::from);
+        ]
+        .map(String::from);
         let hits = || candidates(&lines, &filter(ReminderKind::Nursery, &[]));
         assert!(SeenMessages::default().absorb(hits(), 0).is_empty());
         let mut seen = SeenMessages::default();
@@ -368,10 +416,19 @@ mod tests {
         let alerts = seen.absorb(hits(), 1);
         assert_eq!(alerts.len(), 1);
         assert_eq!(alerts[0].1.scene, "建邺城");
-        assert_eq!(nursery("小甲不小心挖塌了怪物幼儿园，一群宝宝逃到了花果山！"), Some(("小甲", "花果山")));
-        assert_eq!(nursery("小甲挖塌了怪物幼儿园，宝宝正在到处逃窜！"), Some(("小甲", "")));
+        assert_eq!(
+            nursery("小甲不小心挖塌了怪物幼儿园，一群宝宝逃到了花果山！"),
+            Some(("小甲", "花果山"))
+        );
+        assert_eq!(
+            nursery("小甲挖塌了怪物幼儿园，宝宝正在到处逃窜！"),
+            Some(("小甲", ""))
+        );
         let ordinary = ["[系统]幼儿园小甲挖塌了妖怪的房子，妖怪正在碗子山四处肆虐！".into()];
-        assert_eq!(candidates(&ordinary, &filter(ReminderKind::Fengyao, &[])).len(), 1);
+        assert_eq!(
+            candidates(&ordinary, &filter(ReminderKind::Fengyao, &[])).len(),
+            1
+        );
         assert!(seen.absorb(hits(), 2).is_empty());
     }
 
@@ -384,7 +441,8 @@ mod tests {
             "[系统]少侠击败传说中的二十八星宿，获得奖励。",
             "[系统]传说中的二十八星宿挑战结束，少侠获得奖励。",
             "[系统]二十八星宿被击败，新的挑战者现身了。",
-        ].map(String::from);
+        ]
+        .map(String::from);
         let hits = || candidates(&lines, &filter(ReminderKind::Stars, &[]));
         assert_eq!(hits().len(), 1);
         let mut seen = SeenMessages::default();
@@ -416,7 +474,10 @@ mod tests {
         assert_eq!(alerts.len(), 1);
         assert_eq!(alerts[0].1.kind, ReminderKind::Yecha);
         let speech = super::super::spoken_alerts;
-        assert_eq!(speech(&[alerts.clone(), alerts].concat()), ["花果山，梦魇夜叉提醒。"]);
+        assert_eq!(
+            speech(&[alerts.clone(), alerts].concat()),
+            ["花果山，梦魇夜叉提醒。"]
+        );
         let hits = || candidates(&lines, &filter(ReminderKind::Yecha, &[]));
         assert!(speech(&seen.absorb(hits(), 3)).is_empty());
         assert!(speech(&SeenMessages::default().absorb(hits(), 4)).is_empty());

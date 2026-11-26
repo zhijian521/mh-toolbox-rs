@@ -99,7 +99,9 @@ watch(
         if (!src) return;
 
         let current = true;
-        onCleanup(() => { current = false; });
+        onCleanup(() => {
+            current = false;
+        });
         const bitmap = new Image();
         bitmap.src = src;
         try {

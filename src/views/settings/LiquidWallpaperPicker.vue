@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import { GlassButton, GlassSearch, GlassSegment, GlassSegmented } from '../../components/liquid-glass';
+import {
+    GlassButton,
+    GlassSearch,
+    GlassSegment,
+    GlassSegmented,
+} from '../../components/liquid-glass';
 import GlassCompactPager from '../../components/liquid-glass/GlassCompactPager.vue';
 import { usePagination } from '../../composables/use-pagination';
 import { loadWallpaperImage, WALLPAPER_CDN } from '../../services/xyq-wallpapers';
@@ -8,7 +13,7 @@ import { useLiquidPreferences, SYSTEM_WALLPAPERS } from '../../composables/use-l
 import catalog from './xyq-wallpapers.json';
 
 const props = defineProps<{ selected: string; active: boolean }>();
-const emit = defineEmits<{ select: [url: string]; close: [] }>();
+const emit = defineEmits<{ choose: [url: string]; close: [] }>();
 const { appearance, systemWallpaper, selectSystemWallpaper } = useLiquidPreferences();
 const source = ref<'system' | 'online'>(props.selected ? 'online' : 'system');
 function applySystemWallpaper(option: (typeof SYSTEM_WALLPAPERS)[number]) {
@@ -59,7 +64,11 @@ watch(
             <h2>选择壁纸</h2>
             <GlassButton size="small" variant="plain" @click="emit('close')">关闭</GlassButton>
         </header>
-        <GlassSegmented v-model:value="source" class="wallpaper-sources lg-equal-pair" aria-label="壁纸来源">
+        <GlassSegmented
+            v-model:value="source"
+            class="wallpaper-sources lg-equal-pair"
+            aria-label="壁纸来源"
+        >
             <GlassSegment value="system">系统壁纸</GlassSegment>
             <GlassSegment value="online">官网壁纸</GlassSegment>
         </GlassSegmented>
@@ -95,11 +104,13 @@ watch(
                     type="button"
                     class="wallpaper-tile"
                     :aria-pressed="WALLPAPER_CDN + item.image === selected"
-                    @click="emit('select', WALLPAPER_CDN + item.image)"
+                    @click="emit('choose', WALLPAPER_CDN + item.image)"
                 >
                     <span class="wallpaper-thumb">
                         <img v-if="previews[item.thumb]" :src="previews[item.thumb]" alt="" />
-                        <small v-else>{{ previews[item.thumb] === '' ? '暂无预览' : '载入中…' }}</small>
+                        <small v-else>{{
+                            previews[item.thumb] === '' ? '暂无预览' : '载入中…'
+                        }}</small>
                     </span>
                     <span class="wallpaper-name">{{ item.name }}</span>
                 </button>
@@ -156,11 +167,15 @@ watch(
     cursor: pointer;
 }
 @media (hover: hover) {
-    .wallpaper-tile:hover { background-color: var(--lg-field-fill); border-color: var(--liquid-muted); }
+    .wallpaper-tile:hover {
+        background-color: var(--lg-field-fill);
+        border-color: var(--liquid-muted);
+    }
 }
 .wallpaper-tile[aria-pressed='true'] {
-    border-color: var(--liquid-focus);
-    background: color-mix(in srgb, var(--liquid-focus) 12%, var(--lg-content-base));
+    border-color: var(--liquid-muted);
+    background: var(--lg-field-active-fill);
+    box-shadow: var(--lg-edge-rim);
 }
 .wallpaper-tile:focus-visible {
     border-color: transparent;

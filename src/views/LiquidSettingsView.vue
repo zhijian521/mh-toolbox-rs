@@ -23,6 +23,7 @@ import { useAppInfo } from '../composables/use-app-info';
 import { WALLPAPER_CDN } from '../services/xyq-wallpapers';
 import LiquidWallpaperPicker from './settings/LiquidWallpaperPicker.vue';
 import SettingsRow from './settings/SettingsRow.vue';
+import AppShellSwitch from './settings/AppShellSwitch.vue';
 import catalog from './settings/xyq-wallpapers.json';
 
 const {
@@ -154,7 +155,11 @@ async function restore(entry: BackupEntry) {
     if (outcome.status === 'ok') reloadWithNotice();
 }
 
-useDraftGuard(() => false, () => busy.value, () => {});
+useDraftGuard(
+    () => false,
+    () => busy.value,
+    () => {},
+);
 onBeforeRouteLeave(() => !busy.value);
 onMounted(() => {
     if (desktop) void refreshBackups();
@@ -226,6 +231,16 @@ function applyWallpaper(url: string) {
                     <header class="card-heading">
                         <h2>外观</h2>
                     </header>
+                    <AppShellSwitch v-slot="{ label, disabled, activate }" :disabled="busy">
+                        <GlassButton
+                            size="small"
+                            :disabled="disabled"
+                            :aria-label="label"
+                            title="切换并重新加载应用"
+                            @click="activate"
+                            >{{ label }}</GlassButton
+                        >
+                    </AppShellSwitch>
                     <SettingsRow layout="glass">
                         <template #label><span id="liquid-theme-label">主题</span></template>
                         <GlassSegmented
@@ -261,7 +276,12 @@ function applyWallpaper(url: string) {
                     <AppNotice v-if="failedWallpaper" tone="error" role="status">
                         壁纸未能载入，请检查网络。
                         <template #action>
-                            <GlassButton size="small" variant="plain" @click="selectWallpaper(failedWallpaper)">重试</GlassButton>
+                            <GlassButton
+                                size="small"
+                                variant="plain"
+                                @click="selectWallpaper(failedWallpaper)"
+                                >重试</GlassButton
+                            >
                         </template>
                     </AppNotice>
                 </GlassCard>
@@ -281,11 +301,17 @@ function applyWallpaper(url: string) {
                             <span
                                 class="update-status"
                                 role="status"
-                                :class="{ error: !!updateError, available: update?.status === 'available' }"
+                                :class="{
+                                    error: !!updateError,
+                                    available: update?.status === 'available',
+                                }"
                                 >{{ updateMessage }}</span
                             >
                         </template>
-                        <GlassButton v-if="update?.status === 'available'" size="small" @click="download"
+                        <GlassButton
+                            v-if="update?.status === 'available'"
+                            size="small"
+                            @click="download"
                             >下载</GlassButton
                         >
                         <GlassButton size="small" :disabled="checking" @click="check"
@@ -295,14 +321,18 @@ function applyWallpaper(url: string) {
                     <!-- 不折叠：三行清单与外观／数据同构。运行信息只留找账本用得上的
                          数据目录，字体／标识／数据库／运行环境等一眼不看的信息收掉。 -->
                     <SettingsRow layout="glass" label="数据目录">
-                        <code class="about-path">{{ info?.dataDir ?? '%APPDATA%\\mh-tool-rs' }}</code>
+                        <code class="about-path">{{
+                            info?.dataDir ?? '%APPDATA%\\mh-tool-rs'
+                        }}</code>
                     </SettingsRow>
                     <SettingsRow layout="glass" label="使用许可">
                         <span class="about-license-note"
                             >PolyForm Noncommercial 1.0.0 · 禁止商业用途 · 非官方工具</span
                         >
                         <div class="license-links">
-                            <a :href="REPO_URL" @click.prevent="openExternal(REPO_URL)">项目源码 ↗</a>
+                            <a :href="REPO_URL" @click.prevent="openExternal(REPO_URL)"
+                                >项目源码 ↗</a
+                            >
                             <a :href="LICENSE_URL" @click.prevent="openExternal(LICENSE_URL)">
                                 许可证全文 ↗
                             </a>
@@ -314,7 +344,9 @@ function applyWallpaper(url: string) {
                 <header class="card-heading">
                     <h2>数据</h2>
                 </header>
-                <AppNotice v-if="!desktop" class="card-hint">账本与自动备份只在桌面版可用。</AppNotice>
+                <AppNotice v-if="!desktop" class="card-hint"
+                    >账本与自动备份只在桌面版可用。</AppNotice
+                >
                 <SettingsRow layout="glass" label="账本">
                     <GlassButton size="small" :disabled="ledgerDisabled" @click="exportLedger"
                         >导出</GlassButton
@@ -342,13 +374,25 @@ function applyWallpaper(url: string) {
                     备份状态读取失败：{{ backupsError }}
                 </AppNotice>
                 <SettingsRow layout="glass" label="清除">
-                    <GlassButton size="small" class="danger-action" :disabled="ledgerDisabled" @click="askClear"
+                    <GlassButton
+                        size="small"
+                        class="danger-action"
+                        :disabled="ledgerDisabled"
+                        @click="askClear"
                         >清除</GlassButton
                     >
                 </SettingsRow>
                 <div role="status" class="receipts">
-                    <AppNotice v-if="message" class="receipt" :class="messageKind" :tone="messageKind === 'positive' ? 'success' : 'error'">{{ message }}</AppNotice>
-                    <AppNotice v-if="warning" class="receipt warning" tone="warning">{{ warning }}</AppNotice>
+                    <AppNotice
+                        v-if="message"
+                        class="receipt"
+                        :class="messageKind"
+                        :tone="messageKind === 'positive' ? 'success' : 'error'"
+                        >{{ message }}</AppNotice
+                    >
+                    <AppNotice v-if="warning" class="receipt warning" tone="warning">{{
+                        warning
+                    }}</AppNotice>
                 </div>
             </GlassCard>
         </div>
@@ -363,7 +407,7 @@ function applyWallpaper(url: string) {
             <LiquidWallpaperPicker
                 :active="pickerOpen"
                 :selected="selectedWallpaper"
-                @select="applyWallpaper"
+                @choose="applyWallpaper"
                 @close="pickerOpen = false"
             />
         </GlassDialog>
@@ -384,22 +428,35 @@ function applyWallpaper(url: string) {
                     >
                 </header>
                 <AppNotice class="card-hint">
-                    日常备份间隔至少 24 小时；日常与替换前备份合计保留最近 5 份，较早的会自动清理；恢复前另存当前账本。
+                    日常备份间隔至少 24 小时；日常与替换前备份合计保留最近 5
+                    份，较早的会自动清理；恢复前另存当前账本。
                 </AppNotice>
                 <AppNotice v-if="backupsWarning" role="alert" class="receipt error" tone="error">
                     自动备份未完成：{{ backupsWarning }}
                 </AppNotice>
-                <AppNotice v-if="backupsError" role="alert" class="receipt error" tone="error">{{ backupsError }}</AppNotice>
-                <AppNotice v-if="messageKind === 'error' && message" role="alert" class="receipt error" tone="error">
+                <AppNotice v-if="backupsError" role="alert" class="receipt error" tone="error">{{
+                    backupsError
+                }}</AppNotice>
+                <AppNotice
+                    v-if="messageKind === 'error' && message"
+                    role="alert"
+                    class="receipt error"
+                    tone="error"
+                >
                     {{ message }}
                 </AppNotice>
                 <AppNotice v-if="backupsLoading" role="status" class="receipt">正在读取…</AppNotice>
-                <AppNotice v-else-if="!backups.length && !backupsError" class="receipt">暂无备份</AppNotice>
+                <AppNotice v-else-if="!backups.length && !backupsError" class="receipt"
+                    >暂无备份</AppNotice
+                >
                 <div v-else class="backup-list">
                     <div v-for="entry in backups" :key="entry.name" class="backup-row">
                         <div class="backup-info">
                             <span>{{ backupTime(entry.createdAt) }}</span>
-                            <small>{{ entry.kind === 'daily' ? '日常' : '替换前' }} · {{ Math.max(1, Math.round(entry.bytes / 1024)) }} KB</small>
+                            <small
+                                >{{ entry.kind === 'daily' ? '日常' : '替换前' }} ·
+                                {{ Math.max(1, Math.round(entry.bytes / 1024)) }} KB</small
+                            >
                         </div>
                         <GlassButton size="small" :disabled="ledgerDisabled" @click="restore(entry)"
                             >恢复</GlassButton

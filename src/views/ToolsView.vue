@@ -40,37 +40,55 @@ const groups = TOOL_GROUPS.map((group) => ({
                 :is="glass ? 'section' : LedgerSection"
                 v-for="group in groups"
                 :key="group.key"
-                v-bind="glass ? { 'aria-labelledby': `tool-group-${group.key}` } : { title: group.label, plain: true }"
+                v-bind="
+                    glass
+                        ? { 'aria-labelledby': `tool-group-${group.key}` }
+                        : { title: group.label, plain: true }
+                "
             >
-                <h2 v-if="glass" :id="`tool-group-${group.key}`" class="tool-group-title">{{ group.label }}</h2>
+                <h2 v-if="glass" :id="`tool-group-${group.key}`" class="tool-group-title">
+                    {{ group.label }}
+                </h2>
                 <ul class="tool-grid">
                     <li v-for="tool in group.tools" :key="tool.key">
-                        <button
-                            class="tool-item"
-                            :class="{ 'lg-hover-sheen': glass }"
-                            type="button"
-                            :data-group="tool.group"
-                            :data-kind="tool.kind"
-                            :aria-label="
-                                tool.kind === 'link' ? `${tool.name}（浏览器打开）` : tool.name
-                            "
-                            :title="tool.desc"
-                            :aria-describedby="glass ? `tool-desc-${tool.key}` : undefined"
-                            @click="open(tool)"
+                        <component
+                            :is="glass?.card ?? 'div'"
+                            class="tool-card"
+                            :radius="glass ? 18 : undefined"
                         >
-                            <span v-if="glass" class="tool-symbol" aria-hidden="true">
-                                <AppIcon :name="tool.icon" />
-                            </span>
-                            <PressTile v-else class="tool-tile">
-                                <AppIcon :name="tool.icon" />
-                            </PressTile>
-                            <span class="tool-name">{{ tool.name }}</span>
-                            <span v-if="glass" :id="`tool-desc-${tool.key}`" hidden>{{ tool.desc }}</span>
-                            <span v-if="glass" class="tool-direction" aria-hidden="true">
-                                <span v-if="tool.kind === 'link'">↗</span>
-                                <AppIcon v-else name="chevron-right" />
-                            </span>
-                        </button>
+                            <button
+                                class="tool-item"
+                                type="button"
+                                :data-group="tool.group"
+                                :data-kind="tool.kind"
+                                :aria-label="
+                                    tool.kind === 'link' ? `${tool.name}（浏览器打开）` : tool.name
+                                "
+                                :title="tool.desc"
+                                :aria-describedby="glass ? `tool-desc-${tool.key}` : undefined"
+                                @click="open(tool)"
+                            >
+                                <span v-if="glass" class="tool-symbol" aria-hidden="true">
+                                    <AppIcon :name="tool.icon" />
+                                </span>
+
+                                <PressTile v-else class="tool-tile">
+                                    <AppIcon :name="tool.icon" />
+                                </PressTile>
+
+                                <span class="tool-name">{{ tool.name }}</span>
+
+                                <span v-if="glass" :id="`tool-desc-${tool.key}`" hidden>{{
+                                    tool.desc
+                                }}</span>
+
+                                <span v-if="glass" class="tool-direction" aria-hidden="true">
+                                    <span v-if="tool.kind === 'link'">↗</span>
+
+                                    <AppIcon v-else name="chevron-right" />
+                                </span>
+                            </button>
+                        </component>
                     </li>
                 </ul>
             </component>

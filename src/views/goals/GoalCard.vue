@@ -109,15 +109,16 @@ const rows = computed(() => {
                 </div>
             </div>
             <div class="goal-head-actions">
-                <PressButton
-                    icon="history"
-                    label="目标历史"
-                    size="sm"
-                    @click="emit('history')"
-                />
+                <PressButton icon="history" label="目标历史" size="sm" @click="emit('history')" />
                 <PressButton
                     icon="refresh"
-                    :label="summary.kind === 'manual' ? '更新目标进度' : summary.kind === 'combo' ? '更新组合进度' : '更新各角色的当前值'"
+                    :label="
+                        summary.kind === 'manual'
+                            ? '更新目标进度'
+                            : summary.kind === 'combo'
+                              ? '更新组合进度'
+                              : '更新各角色的当前值'
+                    "
                     size="sm"
                     :disabled="disabled || (summary.kind !== 'manual' && !summary.totalMembers)"
                     @click="summary.kind === 'manual' ? emit('record') : emit('growth')"
@@ -133,7 +134,11 @@ const rows = computed(() => {
         </header>
         <div class="progress-body">
             <figure class="goal-figure">
-                <GoalProgress shape="ring" :percent="summary.pct" :label="goal.title + '总体进度'" />
+                <GoalProgress
+                    shape="ring"
+                    :percent="summary.pct"
+                    :label="goal.title + '总体进度'"
+                />
                 <figcaption class="category">
                     {{ kindMeta(goal.kind).label }}
                 </figcaption>
@@ -141,11 +146,15 @@ const rows = computed(() => {
             <dl v-if="glassCard && summary.kind === 'manual'" class="goal-figures">
                 <div>
                     <dt>当前</dt>
-                    <dd>{{ number(summary.current) }} <small>{{ goal.unit }}</small></dd>
+                    <dd>
+                        {{ number(summary.current) }} <small>{{ goal.unit }}</small>
+                    </dd>
                 </div>
                 <div>
                     <dt>目标</dt>
-                    <dd>{{ number(summary.total) }} <small>{{ goal.unit }}</small></dd>
+                    <dd>
+                        {{ number(summary.total) }} <small>{{ goal.unit }}</small>
+                    </dd>
                 </div>
             </dl>
             <div v-else-if="summary.kind === 'manual'" class="manual-value">

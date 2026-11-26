@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ALL_OPTIONS as ANY } from '../../components/select-options';
-import { computed, ref, toRefs, watch } from 'vue';
+import { computed, inject, ref, toRefs, watch } from 'vue';
 import { useRecordScroll, type RecordFilters } from '../../composables/use-record-filters';
 import LoadNotice from '../../components/LoadNotice.vue';
 import { usePagination } from '../../composables/use-pagination';
@@ -10,7 +10,9 @@ import SaveNotice from '../../components/SaveNotice.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import DateRangeField from '../../components/DateRangeField.vue';
-import SteppedSlider from '../../components/SteppedSlider.vue';
+import IncomeRoleFilter from './IncomeRoleFilter.vue';
+import { glassLedger } from '../../components/glass-ledger';
+import GlassTable from '../../components/liquid-glass/GlassTable.vue';
 import { notify } from '../../composables/use-notify';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { characterName, useRoster } from '../characters/roster';
@@ -24,6 +26,7 @@ import { UNASSIGNED_CHARACTER as NOTHING } from '../characters/character-options
 import { historyGroupsOf } from './history-summary';
 
 const emit = defineEmits<{ close: [] }>();
+const glass = inject(glassLedger, null);
 const filters = defineModel<RecordFilters>({ required: true });
 const { from, to, who, page: selectedPage } = toRefs(filters.value);
 const { scroll, rememberScroll } = useRecordScroll(filters);
@@ -131,17 +134,18 @@ async function remove(one: IncomeEntry) {
             :load="loadIncome"
             :blocked="pending > 0 || !!writeError || removing || !!editing"
         />
-        <div class="record-filters">
+        <div class="record-filters" :class="{ 'lg-form-fields': glass }">
             <DateRangeField
                 v-model:from="from"
                 v-model:to="to"
-                from-label="从哪一天"
-                to-label="到哪一天"
+                :glass="!!glass"
+                :from-label="glass ? '开始日期' : '从哪一天'"
+                :to-label="glass ? '结束日期' : '到哪一天'"
             />
         </div>
 
         <div v-if="!loadError" class="history-roles record-roles">
-            <SteppedSlider
+            <IncomeRoleFilter
                 v-model="who"
                 :options="whoGroups"
                 label="按角色筛选"
@@ -155,7 +159,7 @@ async function remove(one: IncomeEntry) {
                         signedOf(whoTotals.get(option.value) ?? 0)
                     }}</span>
                 </template>
-            </SteppedSlider>
+            </IncomeRoleFilter>
         </div>
 
         <!-- 外框不参与滚动，表头在内层 sticky；仍是同一张原生表，列宽始终一致。 -->
@@ -173,13 +177,19 @@ async function remove(one: IncomeEntry) {
                               : '这一天还没有记录。'
                     }}
                 </p>
-                <table v-else class="log income-table">
+                <component
+                    :is="glass ? GlassTable : 'table'"
+                    v-else
+                    class="log"
+                    :class="{ 'income-table': !glass }"
+                    :sticky-header="glass ? true : undefined"
+                >
                     <thead>
                         <tr>
                             <th class="c-time" :class="{ wide: multiDay }">时间</th>
                             <th>物品</th>
                             <th class="c-who">角色</th>
-                            <th class="c-num">金额</th>
+                            <th class="c-num" data-align="end">金额</th>
                             <th class="c-ops">操作</th>
                         </tr>
                     </thead>
@@ -211,7 +221,11 @@ async function remove(one: IncomeEntry) {
                             <td class="c-who" :class="{ idle: !one.characterId }">
                                 {{ characterName(roster, one.characterId) }}
                             </td>
-                            <td class="c-num" :class="{ out: one.kind === 'expense' }">
+                            <td
+                                class="c-num"
+                                data-align="end"
+                                :class="{ out: one.kind === 'expense' }"
+                            >
                                 {{
                                     ledgerMoneyText(
                                         one.kind === 'expense' ? -one.amount : one.amount,
@@ -241,14 +255,17 @@ async function remove(one: IncomeEntry) {
                             </td>
                         </tr>
                     </tbody>
-                </table>
+                </component>
             </div>
         </div>
 
-        <template #footer>
-            <span class="record-foot-note">{{ loadError ? '读取失败' : rows.length + ' 笔' }}</span>
+        <template v-if="!glass || (!loadError && pages > 1)" #footer>
+            <span v-if="!glass" class="record-foot-note">{{
+                loadError ? '读取失败' : rows.length + ' 笔'
+            }}</span>
             <RecordPager v-if="!loadError" v-model="page" :pages="pages" />
             <PressButton
+                v-if="!glass"
                 text="关闭"
                 label="关闭历史收益"
                 :disabled="removing"
@@ -339,5 +356,4 @@ async function remove(one: IncomeEntry) {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-
 </style>

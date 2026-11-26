@@ -25,10 +25,10 @@ export type Currency = 'rmb' | 'cash';
 export type AccountKind = 'income' | 'expense';
 
 /** 币种的中文名与单位。单位进输入框的标签、也进明细表头。 */
-export const CURRENCY_META: Record<Currency, { label: string; unit: string }> = {
+export const CURRENCY_META = {
     rmb: { label: '人民币', unit: '元' },
     cash: { label: '梦幻币', unit: '万' },
-};
+} as const satisfies Record<Currency, { label: string; unit: string }>;
 
 /**
  * 分类：账号页记的是「钱包进出」，所以分类按**交易对象**分，不按物品分。

@@ -25,7 +25,11 @@ onMounted(async () => {
 </script>
 
 <template>
-    <section v-if="loading" class="liquid-ledger liquid-ledger-page" aria-labelledby="accounts-loading-title">
+    <section
+        v-if="loading"
+        class="liquid-ledger liquid-ledger-page"
+        aria-labelledby="accounts-loading-title"
+    >
         <h1 id="accounts-loading-title">账号</h1>
         <p role="status">正在读取账号账本…</p>
     </section>

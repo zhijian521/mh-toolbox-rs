@@ -28,10 +28,13 @@ describe('角色与仓库物品身份', () => {
         const character = role();
         const weapon = character.gear.find((item) => item.warehouseId)!;
         const before = JSON.stringify(character);
-        const next = detachSoldCharacterAssets([character], new Set([
-            weapon.warehouseId!, character.pets[0].warehouseId!,
-        ]));
-        expect(next[0].gear.find((item) => item.slot === weapon.slot)).toEqual({ slot: weapon.slot });
+        const next = detachSoldCharacterAssets(
+            [character],
+            new Set([weapon.warehouseId!, character.pets[0].warehouseId!]),
+        );
+        expect(next[0].gear.find((item) => item.slot === weapon.slot)).toEqual({
+            slot: weapon.slot,
+        });
         expect(next[0].pets).toEqual([character.pets[1]]);
         expect(characterAssetOwners(next).size).toBe(1);
         expect(JSON.stringify(character)).toBe(before);

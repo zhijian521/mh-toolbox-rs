@@ -40,7 +40,9 @@ export async function queue(ctx) {
             );
             await resolveImage(0, 7001);
             await ui.waitFor(`!document.querySelector('.ocr-standard .upload-busy')`);
-            const url = await cdp.evaluate(`document.querySelector('.ocr-standard .upload-preview img')?.src`);
+            const url = await cdp.evaluate(
+                `document.querySelector('.ocr-standard .upload-preview img')?.src`,
+            );
             await ui.clickText('.ocr-tabs button', '修炼');
             const otherHasImage = await ui.exists('.ocr-standard .upload-preview img');
             await ui.clickText('.ocr-tabs button', '属性');
@@ -48,7 +50,10 @@ export async function queue(ctx) {
                 '手工切页时显示各自原图，切回属性复用原图',
                 Boolean(url) &&
                     !otherHasImage &&
-                    url === (await cdp.evaluate(`document.querySelector('.ocr-standard .upload-preview img')?.src`)),
+                    url ===
+                        (await cdp.evaluate(
+                            `document.querySelector('.ocr-standard .upload-preview img')?.src`,
+                        )),
             );
             await paste();
             await ui.waitFor('window.__e2eOcrRequests.length === 2');
@@ -109,9 +114,6 @@ export async function queue(ctx) {
         await ui.waitText('E2E改名后');
         await ui.clickIn('.roster .char', 'E2E改名后', { text: '属性' });
         const card = await ui.text('.roster');
-        t.check(
-            '重载后保留手工修改的 7010',
-            card.includes('7010') && !card.includes('7004'),
-        );
+        t.check('重载后保留手工修改的 7010', card.includes('7010') && !card.includes('7004'));
     });
 }

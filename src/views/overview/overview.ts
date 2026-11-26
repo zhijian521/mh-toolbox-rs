@@ -1,4 +1,4 @@
-import { dateText, daysAgo, parseDay } from '../../services/format';
+import { daysAgo, parseDay, recentMonthRange } from '../../services/format';
 import { filterAccounts } from '../accounts/account-analysis';
 import { accountStatsByCurrency, CURRENCY_META, type AccountEntry } from '../accounts/accounts';
 import type { ReadonlyCharacter } from '../characters/character';
@@ -9,12 +9,7 @@ import type { IncomeEntry } from '../income/income';
 
 /** 收支沿用账号账本，已同步的速记与点卡不再从收益页重复累加。 */
 export function workbenchSummary(entries: readonly AccountEntry[], today: string) {
-    const end = parseDay(today);
-    const start = new Date(end.getFullYear(), end.getMonth() - 1, 1);
-    // 目标月没有同一日时取月末，避免 3 月 31 日减一个月反而进位到 3 月。
-    const lastDay = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
-    start.setDate(Math.min(end.getDate(), lastDay));
-    const range = { from: dateText(start), to: today };
+    const range = recentMonthRange(today);
     const stats = accountStatsByCurrency(filterAccounts(entries, range));
     return {
         range,

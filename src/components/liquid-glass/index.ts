@@ -1,26 +1,60 @@
 import { getSurface } from 'glassy-liquid/elements';
 import type { GlassOptions } from 'glassy-liquid';
 import * as Glass from 'glassy-liquid/vue';
-import { computed, defineComponent, h, mergeProps, onBeforeUnmount, onMounted, shallowRef } from 'vue';
+import {
+    computed,
+    defineComponent,
+    h,
+    mergeProps,
+    onBeforeUnmount,
+    onMounted,
+    shallowRef,
+} from 'vue';
 import type { Component } from 'vue';
 
-type GlassTarget = 'surface' | 'content' | 'field' | 'thumb' | 'selector' | 'tabBar' | 'menu' | 'sheet' | 'scrollEdge';
+type GlassTarget =
+    | 'surface'
+    | 'content'
+    | 'field'
+    | 'thumb'
+    | 'selector'
+    | 'tabBar'
+    | 'menu'
+    | 'sheet'
+    | 'scrollEdge';
 
 // Dock 的弧边由材质引擎绘制。共用折射和高光，让内容底色、弹层模糊度各自独立。
 const dockEdge = { bezel: 8, refraction: 15, specular: 1.1 } satisfies GlassOptions;
 const controlGlass = {
-    bezel: 6, refraction: 12, specular: 0.72, material: 'clear', blur: 0.6,
-    fill: 'var(--lg-bar-fill)', shadow: '0 1px 3px #152a3424',
+    bezel: 6,
+    refraction: 12,
+    specular: 0.72,
+    material: 'clear',
+    blur: 0.6,
+    fill: 'var(--lg-bar-fill)',
+    shadow: '0 1px 3px #22222224',
 } satisfies GlassOptions;
 const contentGlass = {
-    ...controlGlass, bezel: 5, refraction: 10, specular: 0.56, blur: 1.8, shadow: '0 2px 5px #152a3419',
+    ...controlGlass,
+    bezel: 5,
+    refraction: 10,
+    specular: 0.56,
+    blur: 1.8,
+    shadow: '0 2px 5px #22222219',
 } satisfies GlassOptions;
 const fieldGlass = {
-    ...contentGlass, bezel: 4, refraction: 8, specular: 0.48, shadow: '0 1px 2px #152a3414',
+    ...contentGlass,
+    bezel: 4,
+    refraction: 8,
+    specular: 0.48,
+    shadow: '0 1px 2px #22222214',
 } satisfies GlassOptions;
 const dockGlass = { ...controlGlass, ...dockEdge };
 export const popupGlass = {
-    ...dockEdge, radius: 26, material: 'regular', blur: 4,
+    ...dockEdge,
+    radius: 26,
+    material: 'regular',
+    blur: 4,
     fill: 'var(--lg-popup-fill)',
 } satisfies GlassOptions;
 const thumbGlass = { material: 'clear', blur: 0.6, fill: null } satisfies GlassOptions;
@@ -68,7 +102,12 @@ function updateMaterial(host: HTMLElement, target: GlassTarget) {
 }
 
 function themed<T extends Component>(component: T, target?: GlassTarget): T {
-    const hasMaterialProp = target === 'surface' || target === 'content' || target === 'field' || target === 'tabBar' || target === 'sheet';
+    const hasMaterialProp =
+        target === 'surface' ||
+        target === 'content' ||
+        target === 'field' ||
+        target === 'tabBar' ||
+        target === 'sheet';
     const wrapper = defineComponent({
         name: component.name,
         inheritAttrs: false,
@@ -91,17 +130,25 @@ function themed<T extends Component>(component: T, target?: GlassTarget): T {
 
             return () => {
                 const options: Record<string, unknown> = {};
-                if (component === Glass.GlassButton && attrs.variant === 'prominent' && attrs.tint == null) {
-                    options.tint = '#8abfa744';
-                    options['data-lg-form-action'] = '';
-                }
                 if (hasMaterialProp) {
-                    const surface: GlassOptions = target === 'sheet' ? popupGlass
-                        : target === 'content' ? contentGlass
-                        : target === 'field' ? fieldGlass
-                        : target === 'tabBar' ? dockGlass : controlGlass;
+                    const surface: GlassOptions =
+                        target === 'sheet'
+                            ? popupGlass
+                            : target === 'content'
+                              ? contentGlass
+                              : target === 'field'
+                                ? fieldGlass
+                                : target === 'tabBar'
+                                  ? dockGlass
+                                  : controlGlass;
                     options.material = surface.material;
-                    for (const key of ['blur', 'specular', 'bezel', 'refraction', 'shadow'] as const) {
+                    for (const key of [
+                        'blur',
+                        'specular',
+                        'bezel',
+                        'refraction',
+                        'shadow',
+                    ] as const) {
                         // Vue 对自定义元素会把「元素实例上已存在的同名属性」直接写成 DOM
                         // property（`'shadow' in el` → `el.shadow = value`）。`<glass-sheet>`
                         // 把 ShadowRoot 存在实例字段 `this.shadow` 上，任何同名 prop——

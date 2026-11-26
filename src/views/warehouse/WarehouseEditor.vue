@@ -3,7 +3,9 @@
 import { computed, ref } from 'vue';
 import PressButton from '../../components/PressButton.vue';
 import FormActions from '../../components/FormActions.vue';
-import SelectField from '../../components/SelectField.vue';
+import { GlassSegment, GlassSegmented } from '../../components/liquid-glass';
+import CharacterTextField from '../characters/CharacterTextField.vue';
+import { useCharacterFields } from '../characters/use-character-fields';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import { useDraftGuard } from '../../composables/use-draft-guard';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
@@ -49,6 +51,7 @@ const emit = defineEmits<{
     removed: [];
     confirm: [items: WarehouseItem[]];
 }>();
+const { glass, SelectField } = useCharacterFields();
 const store = useWarehouse();
 store.operationError.value = '';
 const { operationError, writeError } = store;
@@ -212,7 +215,7 @@ async function remove() {
 
 <template>
     <section class="warehouse-page warehouse-editor-page">
-        <div class="warehouse-page-body">
+        <div class="warehouse-page-body" :class="{ 'glass-warehouse-editor': glass }">
             <div class="warehouse-edit-meta" :inert="locked || reading || confirming">
                 <SelectField
                     v-if="active.kind === 'gear' && !existing"
@@ -221,24 +224,32 @@ async function remove() {
                     label="装备部位"
                     class="warehouse-slot"
                 />
-                <span v-else class="tag">{{
-                    active.kind === 'gear' ? active.gear.slot : '召唤兽'
-                }}</span>
+                <span v-else-if="active.kind === 'gear'" class="tag">{{ active.gear.slot }}</span>
                 <label class="warehouse-server">
                     <span class="muted">区服</span>
-                    <input
+                    <CharacterTextField
                         v-model="active.server"
-                        class="field"
+                        compact
+                        layout="warehouse-server-input"
                         aria-label="物品区服"
                         placeholder="选填"
                     />
                 </label>
-                <span class="warehouse-edit-hint muted">{{
-                    draftOnly ? '截图识别后核对，记账后生效' : '截图识别后核对，保存入仓'
-                }}</span>
+                <span v-if="draftOnly" class="muted">记账后生效</span>
             </div>
+            <GlassSegmented
+                v-if="glass && drafts.length > 1"
+                v-model:value="index"
+                aria-label="核对同图物品"
+                data-size="compact"
+                :inert="reading || locked || confirming"
+            >
+                <GlassSegment v-for="choice in choices" :key="choice.value" :value="choice.value">
+                    {{ choice.label }}
+                </GlassSegment>
+            </GlassSegmented>
             <SegmentedPills
-                v-if="drafts.length > 1"
+                v-else-if="drafts.length > 1"
                 v-model="index"
                 :options="choices"
                 :disabled="reading || locked || confirming"
@@ -320,12 +331,20 @@ async function remove() {
     align-items: center;
     gap: 8px;
 }
-.warehouse-server input {
+.warehouse-server .warehouse-server-input {
     width: 160px;
 }
-.warehouse-edit-hint {
-    margin-left: auto;
-    font-size: var(--fs-mini);
+.glass-warehouse-editor .warehouse-edit-meta {
+    align-items: end;
+    margin: 0;
+}
+.glass-warehouse-editor .warehouse-server {
+    display: grid;
+    gap: 4px;
+    font-size: var(--fs-sm);
+}
+.glass-warehouse-editor .warehouse-server-input {
+    --number-align: start;
 }
 .warehouse-edit-content {
     display: flex;

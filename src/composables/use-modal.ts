@@ -189,8 +189,7 @@ export function useModal(options: UseModalOptions): UseModalResult {
             lockedEl =
                 document.querySelector<HTMLElement>(
                     options.nativeLayers ? '.liquid-content' : '.page-content',
-                ) ??
-                document.querySelector<HTMLElement>('.app');
+                ) ?? document.querySelector<HTMLElement>('.app');
             if (lockedEl) {
                 lockedOverflow = lockedEl.style.overflow;
                 lockedEl.style.overflow = 'hidden';

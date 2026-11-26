@@ -79,23 +79,36 @@
     max-width: 100%;
 }
 
-/* 四个读数分区沿用属性票，只统一名册内的列距和数字签宽度。 */
+/* 名册共用列距；属性值与技能等级各按自己的读数宽度排版。 */
 .roster-card :deep(:is(.attr-layout, .slip-cols, .training-groups)) {
     column-gap: var(--roster-column-gap);
 }
 .roster-card :deep(.attr-layout) {
     --pair-gap: var(--roster-column-gap);
 }
-.roster-card :deep(:is(.attr-layout, .slip-cols, .training-list) .slip-row) {
+.roster-card :deep(.attr-layout .slip-row) {
     --tag-w: var(--roster-number-width);
 }
 .roster-card :deep(.slip-cols .slip-row) {
-    gap: 6px;
-    padding-inline: 7px;
+    gap: 3px;
+    padding-inline: 5px;
+}
+.roster-card :deep(:is(.slip-cols, .training-list) .slip-val) {
+    --tag-w: calc(54px * var(--fs-scale));
+    flex: none;
+    gap: 2px;
+    padding-inline: calc(5px * var(--fs-scale));
+}
+.roster-card :deep(.slip-val .slip-note) {
+    font-size: var(--fs-xs);
 }
 .roster-card :deep(.slip-cols .slip-name) {
-    overflow-wrap: anywhere;
-    white-space: normal;
+    white-space: nowrap;
+}
+.roster-card :deep(.group-head) {
+    padding-block: 3px;
+    font-size: var(--fs-xs);
+    line-height: 1.35;
 }
 .roster-card .tabs {
     --step-pad-x: 2px;

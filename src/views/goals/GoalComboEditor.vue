@@ -21,13 +21,13 @@ import {
     type MetricGroup,
 } from './goals';
 
-const glass = inject(glassLedger, null);
 const props = defineProps<{ modelValue: GoalItem[]; members: GoalMember[]; disabled: boolean }>();
 const emit = defineEmits<{
     'update:modelValue': [items: GoalItem[]];
     pending: [value: boolean];
     draft: [value: string];
 }>();
+const glass = inject(glassLedger, null);
 const { roster } = useRoster();
 const prefix = `combo-editor-${useId()}`;
 const active = ref(props.members[0]?.id ?? roster.value[0]?.id ?? '');
@@ -254,8 +254,8 @@ function cancelAdd() {
                         <span>项目</span>
                         <component
                             :is="glass ? GlassSelect : SelectField"
-                            :hide-label="glass ? true : undefined"
                             v-model="currentDraft.metric"
+                            :hide-label="glass ? true : undefined"
                             :options="metricOptions"
                             label="组合具体项目"
                             placeholder="选择项目"

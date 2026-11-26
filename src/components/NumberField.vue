@@ -22,6 +22,7 @@ const props = withDefaults(
     defineProps<{
         modelValue: number;
         bare?: boolean;
+        disabled?: boolean;
         /** 读屏念的字段名。表单里每个格子都必须有，否则读屏只念「编辑框」。 */
         label: string;
         placeholder?: string;
@@ -84,6 +85,7 @@ function commit(event: Event) {
 
 <template>
     <input
+        :disabled="disabled"
         class="num number-field"
         :class="{ field: !bare }"
         type="text"

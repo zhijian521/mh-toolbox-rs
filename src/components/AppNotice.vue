@@ -7,7 +7,11 @@ defineProps<{ tone?: NoticeTone | 'warning'; bare?: boolean }>();
 
 <template>
     <div class="app-notice" :data-tone="tone ?? 'info'" :class="{ bare }">
-        <AppIcon class="notice-icon" :name="tone === 'success' ? 'check' : tone === 'error' ? 'close' : 'info'" aria-hidden="true" />
+        <AppIcon
+            class="notice-icon"
+            :name="tone === 'success' ? 'check' : tone === 'error' ? 'close' : 'info'"
+            aria-hidden="true"
+        />
         <div class="notice-body"><slot /></div>
         <div v-if="$slots.action" class="notice-action"><slot name="action" /></div>
     </div>
@@ -31,11 +35,34 @@ defineProps<{ tone?: NoticeTone | 'warning'; bare?: boolean }>();
     line-height: 1.5;
     text-align: start;
 }
-.app-notice[data-tone='error'] { --notice-accent: var(--liquid-up, var(--danger-ink)); }
-.app-notice[data-tone='warning'] { --notice-accent: var(--ochre, var(--liquid-focus)); }
-.app-notice[data-tone='success'] { --notice-accent: var(--liquid-down, var(--success)); }
-.app-notice.bare { padding: 0; background: none; box-shadow: none; }
-.notice-icon { --icon-size: 15px; flex: none; margin-top: 0.15em; color: var(--notice-accent); }
-.notice-body { flex: 1; min-width: 0; white-space: pre-line; overflow-wrap: anywhere; }
-.notice-action { align-self: center; flex: none; }
+.app-notice[data-tone='error'] {
+    --notice-accent: var(--liquid-up, var(--danger-ink));
+}
+.app-notice[data-tone='warning'] {
+    --notice-accent: var(--ochre, var(--liquid-focus));
+}
+.app-notice[data-tone='success'] {
+    --notice-accent: var(--liquid-down, var(--success));
+}
+.app-notice.bare {
+    padding: 0;
+    background: none;
+    box-shadow: none;
+}
+.notice-icon {
+    --icon-size: 15px;
+    flex: none;
+    margin-top: 0.15em;
+    color: var(--notice-accent);
+}
+.notice-body {
+    flex: 1;
+    min-width: 0;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+.notice-action {
+    align-self: center;
+    flex: none;
+}
 </style>

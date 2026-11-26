@@ -199,7 +199,9 @@ export function addEntry(input: EntryInput): AccountWrite {
                 useWarehouse().items.value,
                 input.assetSource,
             );
-            const soldIds = new Set(input.kind === 'income' ? plan.assets.map((item) => item.id) : []);
+            const soldIds = new Set(
+                input.kind === 'income' ? plan.assets.map((item) => item.id) : [],
+            );
             if (!stageWarehouseTrade(plan.inventory, soldIds))
                 return { ok: false, error: '仓库暂不可写，请先完成仓库的读取或保存' };
             entry.assets = plan.assets;

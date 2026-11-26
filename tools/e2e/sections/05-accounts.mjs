@@ -8,11 +8,12 @@ export default async function run(ctx) {
         t.section('5 账号 · 两本账 · 角色分类堆叠图 · 记一笔 → 历史里删掉');
         let baseline;
         const rmbNumber = (text) => Number(text.replace('−', '-').replace(/[^0-9.-]/g, ''));
-        const warehouseItems = (name) => `[...document.querySelectorAll('.warehouse-item')].filter((one) =>
+        const warehouseItems = (
+            name,
+        ) => `[...document.querySelectorAll('.warehouse-item')].filter((one) =>
             one.getAttribute('aria-label')?.includes(${JSON.stringify(name)}))`;
-        async function narrowWarehouse(kind, name) {
-            if (kind === '召唤兽') await ui.fill('搜索仓库物品', name);
-            else {
+        async function filterWeaponSlot(kind) {
+            if (kind === '装备') {
                 await ui.clickLabel('筛选装备部位');
                 await ui.clickText('[role="option"]', '武器', { exact: true });
             }
@@ -21,7 +22,7 @@ export default async function run(ctx) {
         await t.step('两本账与十一个快捷入口都在', async () => {
             await ui.gotoReady('账号');
             const shape = await cdp.evaluate(`(() => ({
-                books: document.querySelectorAll('.account-overview .books .book.folded-card[data-spine=left]').length,
+                books: document.querySelectorAll('.account-overview.books > .book.folded-card[data-spine=left]').length,
                 bookValues: [...document.querySelectorAll('.books .book')].every((one) =>
                     one.querySelectorAll('[data-stat-id]').length === 3 &&
                     !!one.querySelector('.stats-heading-icon') &&
@@ -30,7 +31,7 @@ export default async function run(ctx) {
                     [...one.querySelectorAll('[data-stat-id]')].every((cell) =>
                         cell.getBoundingClientRect().left >=
                             one.querySelector('.folded-spine').getBoundingClientRect().right + 15)),
-                overviewHeading: document.querySelector('.account-overview .section-head h2')?.textContent.trim(),
+                overviewHeadings: [...document.querySelectorAll('.books .book h3')].map(one => one.textContent.trim()),
                 noRangeText: !document.querySelector('.account-overview .range-text'),
                 booksFill: (() => {
                     const host = document.querySelector('.books');
@@ -78,14 +79,14 @@ export default async function run(ctx) {
                 })(),
                 recentCount: document.querySelectorAll('.account-bottom .recent-row').length,
                 recentRows: [...document.querySelectorAll('.recent-row')].every((row) => {
-                    const copy = row.querySelector('.recent-copy');
-                    const title = row.querySelector('.recent-title');
+                    const list = row.closest('.recent-list');
+                    const heading = row.querySelector('.recent-heading');
                     const meta = row.querySelector('.recent-meta');
                     const amount = row.querySelector('.recent-amount');
-                    return copy && title && meta && amount && !!row.querySelector('.recent-arrow') &&
-                        !!meta.querySelector('.recent-who') && !!meta.querySelector('.recent-channel') &&
-                        title.getBoundingClientRect().bottom <= meta.getBoundingClientRect().top + 1 &&
-                        copy.getBoundingClientRect().right <= amount.getBoundingClientRect().left &&
+                    return list && heading?.contains(amount) && meta && amount &&
+                        getComputedStyle(list).flexWrap === 'wrap' &&
+                        !!meta.querySelector('time[datetime]') && !!meta.querySelector('.recent-who') &&
+                        heading.getBoundingClientRect().bottom <= meta.getBoundingClientRect().top + 1 &&
                         row.title.includes(amount.textContent.trim()) &&
                         row.scrollWidth <= row.clientWidth + 1;
                 }),
@@ -100,11 +101,13 @@ export default async function run(ctx) {
                     [...one.querySelectorAll('.sc-currency')].every((row) => row.querySelector('.sc-value') && row.querySelector('small') && row.title.includes('笔')) &&
                     (() => {
                         const [cash, rmb] = [...one.querySelectorAll('.sc-currency')].map((row) => row.getBoundingClientRect());
-                        return cash && rmb && Math.abs(cash.top - rmb.top) < 1 && cash.right < rmb.left;
+                        return cash && rmb && (cash.bottom <= rmb.top ||
+                            (Math.abs(cash.top - rmb.top) < 1 && cash.right < rmb.left)) &&
+                            [...one.querySelectorAll('.sc-value')].every(value => value.scrollWidth <= value.clientWidth + 1);
                     })() &&
                     one.scrollWidth <= one.clientWidth + 1),
                 charts: document.querySelectorAll('.account-charts .analysis-card').length,
-                trendBlocks: document.querySelectorAll('.account-charts .trend-block .chart-in-card').length,
+                trendBlocks: document.querySelectorAll('.account-charts .trend.chart-in-card').length,
                 recordsBeforeCharts: !!(document.querySelector('.account-bottom')?.compareDocumentPosition(
                     document.querySelector('.account-charts')) & Node.DOCUMENT_POSITION_FOLLOWING),
                 chartSurfaces: document.querySelectorAll('.account-charts .chart-panel > .chart-surface').length,
@@ -152,7 +155,8 @@ export default async function run(ctx) {
                 noRoleFilter: !document.querySelector('.accounts-layout [aria-label="按角色筛选"]'),
                 chartSpacing: [...document.querySelectorAll('.accounts-layout .analysis-card')].every((one) =>
                     one.classList.contains('chart-section') &&
-                    parseFloat(getComputedStyle(one).paddingBottom) === 8) &&
+                    ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'].every(
+                        side => getComputedStyle(one)[side] === '16px')) &&
                     getComputedStyle(document.querySelector('.account-bottom')).alignItems === 'stretch',
                 contentWidth: document.querySelector('.accounts-layout')?.getBoundingClientRect().width,
                 history: !!document.querySelector('[aria-label="查看账号历史记录"]'),
@@ -177,20 +181,46 @@ export default async function run(ctx) {
 
             /* 两本账是这一页的立论：合成一张「总收支」等于把元与万加起来。
              * 少一张就是回到了那个错。 */
-            t.check('收支概览复用左侧纸脊双账，等宽铺满内容区且标题保持简洁',
-                shape.books === 2 && shape.overviewHeading === '收支概览' && shape.booksFill);
-            t.check('独立币种票据保留收入、支出与差额，外卡统一纯色', shape.bookValues && shape.plainCards);
+            t.check(
+                '收支概览复用左侧纸脊双账，等宽铺满内容区且标题保持简洁',
+                shape.books === 2 &&
+                    shape.overviewHeadings.includes('人民币') &&
+                    shape.overviewHeadings.includes('梦幻币') &&
+                    shape.booksFill,
+            );
+            t.check(
+                '独立币种票据保留收入、支出与差额，外卡统一纯色',
+                shape.bookValues && shape.plainCards,
+            );
             t.check('概览只保留时间范围切换，不重复显示起止日期文字', shape.noRangeText);
             t.check('快捷入口 11 个', shape.shortcuts === 11, `实际 ${shape.shortcuts}`);
             t.check('快捷纸签限宽，图标跟随总览尺寸与字号缩放', shape.shortcutSizing);
             t.check('快捷纸签随可用宽度自动换行，宽窗不限制为四列或三行', shape.shortcutWrapping);
-            t.check('快捷卡一行左梦幻币右人民币，笔数悬停显示且无横向溢出', shape.shortcutContent);
-            t.check('双币种走势共用外卡，保留角色分类图', shape.charts === 2 && shape.trendBlocks === 2);
-            t.check('历史使用普通按钮，仓库保留主操作，移除独立记一笔入口', shape.headerActions && shape.noGenericEntry);
-            t.check('最近记录分类和角色渠道分两行，金额右对齐并保留完整悬停', shape.recentRows);
-            t.check('最近记录先于走势，区块移除辅助小字', shape.recordsBeforeCharts && shape.noSectionHints);
+            t.check(
+                '快捷卡依次显示梦幻币与人民币，两项可换行且金额完整，悬停显示笔数',
+                shape.shortcutContent,
+            );
+            t.check(
+                '双币种共用一张走势图，保留角色分类图',
+                shape.charts === 2 && shape.trendBlocks === 1,
+            );
+            t.check(
+                '历史使用普通按钮，仓库保留主操作，移除独立记一笔入口',
+                shape.headerActions && shape.noGenericEntry,
+            );
+            t.check(
+                '最近记录标签横排换行，分类金额在上，日期角色在下，悬停可读完整记录',
+                shape.recentRows,
+            );
+            t.check(
+                '最近记录先于走势，区块移除辅助小字',
+                shape.recordsBeforeCharts && shape.noSectionHints,
+            );
             t.check('账号图表统一卡内样式，不重复绘制底板与外影', shape.chartsInCards);
-            t.check('账号趋势与分类图统一为 220px，窄区可横滚且隐藏滚动条', shape.chartHeight && shape.chartScroll);
+            t.check(
+                '账号趋势与分类图统一为 220px，窄区可横滚且隐藏滚动条',
+                shape.chartHeight && shape.chartScroll,
+            );
             t.check(
                 '账号图表共用台面材质，非零柱带亮面与侧面',
                 shape.chartSurfaces >= 2 && shape.barDepth && shape.barFrame,
@@ -201,14 +231,20 @@ export default async function run(ctx) {
                 shape.roleChart?.fullWidth && shape.roleChart?.readable,
             );
             t.check('账号主页移除角色筛选，统一展示日期范围内的全部角色', shape.noRoleFilter);
-            t.check('图表底部沿用总览 8px 留白，渠道与记录卡片拉伸对齐', shape.chartSpacing);
-            t.check('最近记录最多四笔，渠道图表下方不留整行以上空白', shape.recentCount <= 4 && shape.bottom?.compact);
+            t.check('图表卡片四边等距，渠道与记录卡片拉伸对齐', shape.chartSpacing);
+            t.check(
+                '最近记录最多四笔，渠道图表下方不留整行以上空白',
+                shape.recentCount <= 4 && shape.bottom?.compact,
+            );
             t.check('仓库使用带收纳图标的主操作色', shape.primary);
             t.check(
                 '渠道与最近记录宽屏等高并排，窄屏上下排列',
-                shape.bottom?.sameWidth && (shape.contentWidth > 760
-                    ? shape.bottom.sameRow && shape.bottom.sameHeight && shape.bottom.channelFirst
-                    : shape.bottom.stacked),
+                shape.bottom?.sameWidth &&
+                    (shape.contentWidth > 760
+                        ? shape.bottom.sameRow &&
+                          shape.bottom.sameHeight &&
+                          shape.bottom.channelFirst
+                        : shape.bottom.stacked),
             );
             baseline = await cdp.evaluate(`(() => {
                 const book = [...document.querySelectorAll('.books .book')].find((one) => one.textContent.includes('人民币'));
@@ -220,17 +256,17 @@ export default async function run(ctx) {
             await ui.clickLabel('打开装备和召唤兽仓库');
             await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
             const before = await cdp.evaluate(
-                `document.querySelector('.warehouse-count').textContent`,
+                `Array.from(document.querySelectorAll('.warehouse-item'), item => item.dataset.assetId).join(',')`,
             );
             t.check(
-                '仓库沿用固定内容外框和分页页脚，只有物品区滚动',
+                '仓库物品区独立滚动，页脚只在分页时出现',
                 await cdp.evaluate(`(() => {
                     const dialog = document.querySelector('.warehouse-dialog');
                     const body = dialog?.querySelector('.warehouse-list-body');
                     const frame = body?.querySelector('.record-content-frame');
                     const content = frame?.querySelector('.warehouse-content');
                     const footer = dialog?.querySelector('.modal-actions');
-                    if (!body || !frame || !content || !footer) return false;
+                    if (!body || !frame || !content) return false;
                     const a = frame.getBoundingClientRect();
                     const b = body.getBoundingClientRect();
                     return getComputedStyle(frame).overflow === 'hidden' &&
@@ -238,23 +274,29 @@ export default async function run(ctx) {
                         getComputedStyle(content).overflowY === 'auto' &&
                         Math.abs(a.left - b.left - 16) <= 1 &&
                         Math.abs(b.right - a.right - 16) <= 1 &&
-                        !!footer.querySelector('.warehouse-count.record-foot-note') &&
-                        !body.querySelector('.warehouse-count') &&
+                        (!footer || (!!footer.querySelector('.record-pager') && getComputedStyle(footer).borderTopWidth === '0px')) &&
+                        !dialog.querySelector('.warehouse-count, [aria-label="关闭仓库"]') &&
                         !!body.querySelector('.warehouse-filters [aria-label="仓库状态"]');
                 })()`),
             );
-            t.check('装备仅显示部位筛选，分类滑块按内容定宽', await cdp.evaluate(`(() => {
+            t.check(
+                '装备仅显示部位筛选，分类滑块按内容定宽',
+                await cdp.evaluate(`(() => {
                 const tabs = document.querySelector('.warehouse-tabs');
                 const scale = Number(getComputedStyle(tabs).getPropertyValue('--fs-scale')) || 1;
                 return !document.querySelector('.warehouse-search') &&
                     tabs.getBoundingClientRect().width < 250 * scale;
-            })()`));
-            t.check('部位下拉在筛选行右对齐且没有重置按钮', await cdp.evaluate(`(() => {
+            })()`),
+            );
+            t.check(
+                '部位下拉在筛选行右对齐且没有重置按钮',
+                await cdp.evaluate(`(() => {
                 const filters = document.querySelector('.warehouse-filters');
                 const slot = filters.querySelector('.warehouse-slot-filter');
                 return Math.abs(filters.getBoundingClientRect().right - slot.getBoundingClientRect().right) <= 1 &&
                     !filters.querySelector('[aria-label="清空仓库筛选"]');
-            })()`));
+            })()`),
+            );
             await ui.clickLabel('筛选装备部位');
             await ui.clickText('[role="option"]', '武器', { exact: true });
             await ui.clickLabel('筛选装备部位');
@@ -262,7 +304,9 @@ export default async function run(ctx) {
             t.check(
                 '选择全部部位恢复原列表',
                 before ===
-                    (await cdp.evaluate(`document.querySelector('.warehouse-count').textContent`)),
+                    (await cdp.evaluate(
+                        `Array.from(document.querySelectorAll('.warehouse-item'), item => item.dataset.assetId).join(',')`,
+                    )),
             );
             await cdp.evaluate(`window.__warehouseMask = document.querySelector('.modal-mask')`);
             await ui.clickLabel('新增或截图录入装备');
@@ -293,7 +337,9 @@ export default async function run(ctx) {
             t.check(
                 '空草稿取消不入仓',
                 before ===
-                    (await cdp.evaluate(`document.querySelector('.warehouse-count').textContent`)),
+                    (await cdp.evaluate(
+                        `Array.from(document.querySelectorAll('.warehouse-item'), item => item.dataset.assetId).join(',')`,
+                    )),
             );
             await ui.clickText('[aria-label="仓库分类"] button', '召唤兽', { exact: false });
             await ui.clickLabel('新增或截图录入召唤兽');
@@ -306,7 +352,7 @@ export default async function run(ctx) {
             await ui.clickLabel('返回仓库列表');
             await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
             await ui.waitFor(warehouseIdle);
-            await ui.clickLabel('关闭仓库');
+            await cdp.click('.warehouse-dialog:not([inert]) [data-modal-close]');
             await cdp.evaluate(`delete window.__warehouseMask`);
         });
 
@@ -331,7 +377,7 @@ export default async function run(ctx) {
                 await ui.clickLabel('保存仓库物品');
                 await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
                 await ui.waitFor(warehouseIdle);
-                await narrowWarehouse(kind, name);
+                await filterWeaponSlot(kind);
                 await ui.waitFor(`${warehouseItems(name)}.length === 1`);
                 t.check(
                     `${kind}列表仅保留图标`,
@@ -423,9 +469,8 @@ export default async function run(ctx) {
                     '删除后回列表，筛选中不再有该物品',
                     await ui.waitFor(`${warehouseItems(name)}.length === 0`),
                 );
-                if (kind === '召唤兽') await ui.fill('搜索仓库物品', '');
             }
-            await ui.clickLabel('关闭仓库');
+            await cdp.click('.warehouse-dialog:not([inert]) [data-modal-close]');
             t.check('关闭仓库不残留详情浮层', !(await ui.exists('.detail-tip.on')));
         });
 
@@ -730,9 +775,9 @@ export default async function run(ctx) {
                 })()`),
             );
             t.check(
-                '账号历史共用筛选、汇总和页脚读数',
+                '账号历史保留筛选与汇总，页脚移除筛选笔数',
                 await cdp.evaluate(
-                    "!!document.querySelector('[role=dialog] .record-filters') && !!document.querySelector('[role=dialog] .record-summary') && !!document.querySelector('[role=dialog] .record-foot-note')",
+                    "!!document.querySelector('[role=dialog] .record-filters') && !!document.querySelector('[role=dialog] .record-summary') && !document.querySelector('[role=dialog] .record-foot-note')",
                 ),
             );
             t.check(
@@ -799,7 +844,9 @@ export default async function run(ctx) {
             );
             await ui.clickLabel('方向筛选');
             await ui.clickText('[role="option"]', '收入', { exact: true });
-            const selectedRows = await cdp.evaluate(`document.querySelectorAll('.rec-table tbody tr').length`);
+            const selectedRows = await cdp.evaluate(
+                `document.querySelectorAll('.rec-table tbody tr').length`,
+            );
             await ui.clickLabel('展开或收起账号筛选');
             t.check(
                 '收起筛选仍显示已选条件并保留筛选结果',
@@ -902,7 +949,7 @@ export default async function run(ctx) {
                     );
                     await ui.clickLabel('设置交易关联物品');
                     await ui.waitFor(`!!document.querySelector('.warehouse-content')`);
-                    await ui.clickLabel('关闭仓库');
+                    await cdp.click('.warehouse-dialog:not([inert]) [data-modal-close]');
                     await ui.waitFor(`!document.querySelector('.warehouse-content')`);
                     await ui.clickLabel('录入交易物品');
                     await ui.waitFor(`!!document.querySelector('.warehouse-editor-page')`);
@@ -953,10 +1000,8 @@ export default async function run(ctx) {
                 await ui.waitFor(`!document.querySelector('.warehouse-editor-page')`);
                 await ui.clickLabel('设置交易关联物品');
                 await ui.waitFor(`!!document.querySelector('.warehouse-content')`);
-                await narrowWarehouse(kind, name);
-                await ui.waitFor(
-                    `${warehouseItems(name)}.length === 2`,
-                );
+                await filterWeaponSlot(kind);
+                await ui.waitFor(`${warehouseItems(name)}.length === 2`);
                 t.check(
                     `${kind}仓库标题横排且装饰条独立`,
                     await cdp.evaluate(`(() => {
@@ -1039,7 +1084,7 @@ export default async function run(ctx) {
                     ),
                 );
                 await ui.clickLabel(`选择卖出 ${names[0]}`);
-                await ui.clickLabel('关闭仓库');
+                await cdp.click('.warehouse-dialog:not([inert]) [data-modal-close]');
                 await ui.waitFor(`!document.querySelector('.warehouse-content')`);
                 t.check(
                     `${kind}取消选择不改变账目草稿`,
@@ -1054,7 +1099,7 @@ export default async function run(ctx) {
                 await ui.clickLabel('打开装备和召唤兽仓库');
                 await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
                 await ui.clickText('[aria-label="仓库分类"] button', kind);
-                await narrowWarehouse(kind, name);
+                await filterWeaponSlot(kind);
                 t.check(
                     `${kind}全部包含两件已售出快照，状态只使用下方文字`,
                     await ui.waitFor(`${warehouseItems(name)}.length === 2 &&
@@ -1098,7 +1143,7 @@ export default async function run(ctx) {
                     ),
                 );
                 await cdp.key('Escape');
-                await ui.clickLabel('关闭仓库');
+                await cdp.click('.warehouse-dialog:not([inert]) [data-modal-close]');
                 await ui.clickLabel('查看账号历史记录');
                 await ui.waitFor(`!!document.querySelector('[aria-label="搜索记录"]')`);
                 await ui.fill('搜索记录', name);
@@ -1132,7 +1177,7 @@ export default async function run(ctx) {
                 await ui.clickLabel('打开装备和召唤兽仓库');
                 await ui.waitFor(`!!document.querySelector('.warehouse-toolbar')`);
                 await ui.clickText('[aria-label="仓库分类"] button', kind);
-                await narrowWarehouse(kind, name);
+                await filterWeaponSlot(kind);
                 t.check(
                     `${kind}删除卖出后重载回仓，删除买入不再改变库存`,
                     await ui.waitFor(`${warehouseItems(name)}.length === 2`),
@@ -1156,7 +1201,7 @@ export default async function run(ctx) {
                     `${kind}回仓测试物品已清理`,
                     await ui.waitFor(`${warehouseItems(name)}.length === 0`),
                 );
-                await ui.clickLabel('关闭仓库');
+                await cdp.click('.warehouse-dialog:not([inert]) [data-modal-close]');
             }
         });
     }

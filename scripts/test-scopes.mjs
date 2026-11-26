@@ -77,7 +77,14 @@ export const TEST_SCOPES = {
         'src/services/legacy-startup.test.',
         'src/import/',
     ],
-    core: ['src/services/', 'src/import/', 'src/main.test.', 'src/startup.test.', 'src/views/dev/'],
+    core: [
+        'src/services/',
+        'src/import/',
+        'src/main.test.',
+        'src/liquid-main.test.',
+        'src/startup.test.',
+        'src/views/dev/',
+    ],
     assets: [
         'src/services/game-',
         'src/services/pet-assets',

@@ -70,7 +70,7 @@ async function undo(group: ItemGroup) {
         </div>
 
         <!-- 一格一个「物品 + 单价」，点一下只撤掉该组最近一条。 -->
-        <div v-else class="grid">
+        <div v-else class="grid" tabindex="0" role="region" aria-label="今日速记物品">
             <button
                 v-for="group in groups"
                 :key="group.key"

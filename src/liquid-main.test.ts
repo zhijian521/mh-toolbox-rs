@@ -72,10 +72,16 @@ it('账号日同步写入失败时需要确认退出', async () => {
 
 it('直接进入业务路由前等待游戏规则读取', async () => {
     let finishRules!: () => void;
-    host.rules.mockReturnValue(new Promise<void>((resolve) => { finishRules = resolve; }));
+    host.rules.mockReturnValue(
+        new Promise<void>((resolve) => {
+            finishRules = resolve;
+        }),
+    );
     await import('./liquid-main');
     let entered = false;
-    const entering = host.beforeRoute.mock.calls[0][0]().then(() => { entered = true; });
+    const entering = host.beforeRoute.mock.calls[0][0]().then(() => {
+        entered = true;
+    });
     await Promise.resolve();
     expect(entered).toBe(false);
     expect(host.rules).toHaveBeenCalledOnce();
@@ -87,12 +93,18 @@ it('直接进入业务路由前等待游戏规则读取', async () => {
 it('直达业务页与系统退出都等待同一次旧账检测，完成后提示导入结果', async () => {
     const notice = { title: '已导入', note: '旧版原件已保留' };
     let finish!: (result: typeof notice) => void;
-    host.startup.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    host.startup.mockReturnValue(
+        new Promise((resolve) => {
+            finish = resolve;
+        }),
+    );
     host.canDiscard.mockResolvedValue(true);
     host.flush.mockResolvedValue(true);
     await import('./liquid-main');
     let entered = false;
-    const entering = host.beforeRoute.mock.calls[0][0]().then(() => { entered = true; });
+    const entering = host.beforeRoute.mock.calls[0][0]().then(() => {
+        entered = true;
+    });
     const closing = host.guard.mock.calls[0][0]();
     await Promise.resolve();
     expect(entered).toBe(false);

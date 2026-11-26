@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { useChartHover } from '../../composables/use-chart-hover';
+import { useChartHover } from '../composables/use-chart-hover';
 import { computed, ref, useId } from 'vue';
-import ChartTooltip from '../../components/ChartTooltip.vue';
-import { integerAxis } from '../../components/chart-axis';
-import { CHART_HEIGHT, chartColor } from '../../components/chart-style';
-import { type Currency } from './accounts';
-import { accountAxisText, accountValueText } from './account-analysis';
+import ChartTooltip from './ChartTooltip.vue';
+import ChartPanel from './ChartPanel.vue';
+import { integerAxis } from './chart-axis';
+import { CHART_AXIS_GAP, CHART_HEIGHT, CHART_INSET, chartColor } from './chart-style';
 
 const props = defineProps<{
     rows: {
@@ -15,7 +14,8 @@ const props = defineProps<{
         segments?: { name: string; amount: number; color: string }[][];
     }[];
     series: { name: string; color: string }[];
-    currency: Currency;
+    valueText: (value: number) => string;
+    axisUnit: number;
     label: string;
     legend?: { name: string; color: string }[];
     fit?: boolean;
@@ -45,12 +45,12 @@ const hovered = computed(() => {
         rows: props.series.flatMap((one, seriesIndex) => [
             {
                 label: one.name,
-                value: accountValueText(row.values[seriesIndex] ?? 0, props.currency),
+                value: props.valueText(row.values[seriesIndex] ?? 0),
                 color: chartColor(one.color),
             },
             ...(row.segments?.[seriesIndex] ?? []).map((part) => ({
                 label: one.name + ' · ' + part.name,
-                value: accountValueText(part.amount, props.currency),
+                value: props.valueText(part.amount),
                 color: chartColor(part.color),
                 detail: true,
             })),
@@ -60,11 +60,18 @@ const hovered = computed(() => {
 const axis = computed(() =>
     integerAxis(
         props.rows.flatMap((one) => one.values),
-        props.currency === 'cash' ? 10000 : 1,
+        props.axisUnit,
     ),
 );
 const maximum = computed(() => axis.value.max);
 const ticks = computed(() => axis.value.ticks);
+const legendItems = computed(() =>
+    (props.legend ?? props.series).map((item) => ({
+        id: item.name,
+        name: item.name,
+        color: chartColor(item.color),
+    })),
+);
 const description = (row: (typeof props.rows)[number]) =>
     row.name +
     '：' +
@@ -73,14 +80,11 @@ const description = (row: (typeof props.rows)[number]) =>
             (one, index) =>
                 one.name +
                 ' ' +
-                accountValueText(row.values[index] ?? 0, props.currency) +
+                props.valueText(row.values[index] ?? 0) +
                 (row.segments?.[index]?.length
                     ? '（' +
                       row.segments[index]
-                          .map(
-                              (part) =>
-                                  part.name + ' ' + accountValueText(part.amount, props.currency),
-                          )
+                          .map((part) => part.name + ' ' + props.valueText(part.amount))
                           .join('，') +
                       '）'
                     : ''),
@@ -89,23 +93,27 @@ const description = (row: (typeof props.rows)[number]) =>
 </script>
 
 <template>
-    <div
-        ref="host"
-        class="bar-chart chart-panel"
+    <ChartPanel
+        class="bar-chart"
+        :legend="legendItems"
+        :legend-label="label + '图例'"
         :class="{ fit, stacked: !!legend }"
-        :style="{ '--chart-height': CHART_HEIGHT + 'px' }"
-        @pointerleave="hoveredId = null"
-        @focusout="leaveFocus"
-        @keydown.esc="dismissTooltip"
+        :style="{
+            '--chart-height': CHART_HEIGHT + 'px',
+            '--chart-inset': CHART_INSET + 'px',
+            '--chart-axis-gap': CHART_AXIS_GAP + 'px',
+        }"
     >
-        <div v-if="rows.length" class="bar-frame chart-surface">
+        <div
+            v-if="rows.length"
+            ref="host"
+            class="bar-frame chart-surface"
+            @pointerleave="hoveredId = null"
+            @focusout="leaveFocus"
+            @keydown.esc="dismissTooltip"
+        >
             <div class="bar-axis" aria-hidden="true">
-                <span
-                    v-for="(tick, index) in ticks"
-                    :key="index"
-                    :style="{ top: (index / (ticks.length - 1)) * 100 + '%' }"
-                    >{{ accountAxisText(tick, currency) }}</span
-                >
+                <span v-for="tick in ticks" :key="tick">{{ valueText(tick) }}</span>
             </div>
             <div
                 class="columns-scroll chart-scroll"
@@ -161,7 +169,7 @@ const description = (row: (typeof props.rows)[number]) =>
                                     one.name
                                 }}</small>
                                 <span class="column-value">{{
-                                    accountAxisText(row.values[index] ?? 0, currency)
+                                    valueText(row.values[index] ?? 0)
                                 }}</span>
                             </div>
                         </div>
@@ -169,63 +177,36 @@ const description = (row: (typeof props.rows)[number]) =>
                     </div>
                 </div>
             </div>
+            <ChartTooltip
+                v-if="hovered"
+                :id="tooltipId"
+                :title="hovered.title"
+                :rows="hovered.rows"
+                :anchor="hoverPoint"
+            />
         </div>
         <p v-else class="chart-blank">这个范围还没有记录</p>
-        <div class="bar-legend chart-legend-shelf" aria-hidden="true">
-            <span v-for="one in legend ?? series" :key="one.name"
-                ><i :style="{ background: chartColor(one.color) }" />{{ one.name }}</span
-            >
-        </div>
-        <ChartTooltip
-            v-if="hovered"
-            :id="tooltipId"
-            :title="hovered.title"
-            :rows="hovered.rows"
-            :anchor="hoverPoint"
-        />
-    </div>
+    </ChartPanel>
 </template>
 
 <style scoped>
 .bar-chart {
     --column-label-h: 36px;
-
-    position: relative;
-    min-width: 0;
-    margin-bottom: 5px;
-}
-.bar-chart.chart-in-card {
-    margin-bottom: 0;
-}
-.bar-legend {
-    flex-wrap: wrap;
-    display: flex;
-    justify-content: flex-start;
-    gap: 16px;
-    color: var(--ink-2);
-    font-size: var(--fs-xs);
-}
-.bar-legend > span {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-.bar-legend i {
-    width: 7px;
-    height: 7px;
-    border-radius: var(--r-1);
 }
 .bar-frame {
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     height: var(--chart-height);
-    gap: 8px;
-    padding: 10px 10px 4px;
+    gap: var(--chart-axis-gap);
+    padding: var(--chart-inset);
 }
 .bar-axis {
-    position: relative;
-    min-width: 58px;
+    display: grid;
+    grid-auto-rows: 0;
+    align-content: space-between;
+    align-items: center;
+    justify-items: end;
     height: calc(100% - 18px - var(--column-label-h));
     margin-top: 18px;
     color: var(--muted);
@@ -235,10 +216,7 @@ const description = (row: (typeof props.rows)[number]) =>
     font-variant-numeric: tabular-nums;
 }
 .bar-axis > span {
-    position: absolute;
-    right: 0;
     line-height: 1;
-    transform: translateY(-50%);
 }
 .columns-scroll {
     min-height: 0;
@@ -275,7 +253,6 @@ const description = (row: (typeof props.rows)[number]) =>
     flex-direction: column;
     flex: 1 0 100px;
     min-width: 100px;
-    max-width: 180px;
     padding: 0 10px;
 }
 .column-group.paired {
@@ -342,13 +319,15 @@ const description = (row: (typeof props.rows)[number]) =>
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
 }
-.column-group.hovered .column,
-.column-group:focus-visible .column {
-    outline: var(--w-hair) solid color-mix(in srgb, var(--ink) 18%, transparent);
+.column-group.hovered .column-stage {
+    border-radius: 4px;
+    background: var(--chart-hover-fill);
 }
 .column-label {
     display: block;
     flex: none;
+    align-self: center;
+    width: 100%;
     overflow: hidden;
     max-width: 150px;
     height: var(--column-label-h);
@@ -389,7 +368,6 @@ const description = (row: (typeof props.rows)[number]) =>
     padding-top: 26px;
 }
 .fit .column-group {
-    max-width: none;
     padding: 0 6px;
 }
 .fit .column-stage {

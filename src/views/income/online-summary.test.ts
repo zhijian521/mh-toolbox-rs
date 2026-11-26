@@ -3,7 +3,12 @@ import { onlineSummaryItems } from './online-summary';
 import type { OnlineSession } from './online';
 
 const at = (day: number, hour: number) => new Date(2026, 10, day, hour).getTime();
-function session(id: string, startAt: number, endAt: number | null, cardPrice = 15000): OnlineSession {
+function session(
+    id: string,
+    startAt: number,
+    endAt: number | null,
+    cardPrice = 15000,
+): OnlineSession {
     return {
         id,
         date: '2026-11-19',

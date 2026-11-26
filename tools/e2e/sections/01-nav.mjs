@@ -57,15 +57,19 @@ export default async function run(ctx) {
             })()`);
             try {
                 for (const [source, page, hash] of [
-                    ['角色', '角色', '#/characters'], ['收益', '收益', '#/income'],
-                    ['账号', '账号', '#/accounts'], ['目标', '目标', '#/goals'],
-                    ['上线', '收益', '#/income'], ['自动记账', '收益', '#/income'],
+                    ['角色', '角色', '#/characters'],
+                    ['收益', '收益', '#/income'],
+                    ['账号', '账号', '#/accounts'],
+                    ['目标', '目标', '#/goals'],
+                    ['上线', '收益', '#/income'],
+                    ['自动记账', '收益', '#/income'],
                 ]) {
                     const label = `前往${page}页面处理${source}错误`;
                     await ui.clickLabel(label);
-                    t.check(`${source}错误前往对应恢复页面`, await cdp.waitFor(
-                        `location.hash === ${JSON.stringify(hash)}`,
-                    ));
+                    t.check(
+                        `${source}错误前往对应恢复页面`,
+                        await cdp.waitFor(`location.hash === ${JSON.stringify(hash)}`),
+                    );
                     await ui.gotoReady('总览');
                 }
             } finally {
@@ -74,10 +78,13 @@ export default async function run(ctx) {
                     delete window.__restoreOverviewErrors;
                 })()`);
             }
-            t.check('恢复后来源提示消失', await cdp.waitFor(
-                `!document.querySelector('.source-error')`,
-            ));
-            t.check('工作台按实际内容宽度收列', await cdp.evaluate(`(async () => {
+            t.check(
+                '恢复后来源提示消失',
+                await cdp.waitFor(`!document.querySelector('.source-error')`),
+            );
+            t.check(
+                '工作台按实际内容宽度收列',
+                await cdp.evaluate(`(async () => {
                 const root = document.querySelector('.overview');
                 const before = root.style.width;
                 try {
@@ -90,7 +97,8 @@ export default async function run(ctx) {
                 } finally {
                     root.style.width = before;
                 }
-            })()`));
+            })()`),
+            );
         });
 
         const shortcutPreference = await cdp.evaluate("localStorage.getItem('mh-home-shortcuts')");
@@ -98,11 +106,9 @@ export default async function run(ctx) {
             // 入口允许用户隐藏和排序；仅此节临时使用默认配置，结束后恢复本机偏好。
             await cdp.evaluate("localStorage.removeItem('mh-home-shortcuts')");
             await ui.reload();
-            await t.step(
-                '工作台：周月概览、功能入口、养成目标、我的队伍和收益趋势',
-                async () => {
-                    await ui.gotoReady('总览');
-                    const shape = await cdp.evaluate(`(() => ({
+            await t.step('工作台：周月概览、功能入口、养成目标、我的队伍和收益趋势', async () => {
+                await ui.gotoReady('总览');
+                const shape = await cdp.evaluate(`(() => ({
                 hero: !!document.querySelector('.day-hero'),
                 heroTitle: document.querySelector('.day-intro h2')?.textContent.trim(),
                 overviewActions: !document.querySelector('[aria-label="查看收益历史"]') &&
@@ -355,7 +361,8 @@ export default async function run(ctx) {
                     return section && chart && surface && legend && column &&
                         reference && section.classList.contains('board') &&
                         section.classList.contains('chart-section') &&
-                        parseFloat(getComputedStyle(section).paddingBottom) === 8 &&
+                        ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'].every(
+                            side => getComputedStyle(section)[side] === '16px') &&
                         !!section.querySelector('.section-head h2') &&
                         !section.querySelector('.section-head .hint') &&
                         !document.querySelector('.team-section > .section-head .hint') &&
@@ -366,7 +373,7 @@ export default async function run(ctx) {
                         Math.abs(surface.getBoundingClientRect().height - 220) < 1 &&
                         getComputedStyle(chart.querySelector('.chart-scroll')).overflowX === 'auto' &&
                         getComputedStyle(chart.querySelector('.chart-scroll')).scrollbarWidth === 'none' &&
-                        section.getBoundingClientRect().bottom - legend.getBoundingClientRect().bottom <= 9 &&
+                        section.getBoundingClientRect().bottom - legend.getBoundingClientRect().bottom <= 17 &&
                         getComputedStyle(legend).borderTopWidth === '0px' &&
                         getComputedStyle(legend).boxShadow === 'none' &&
                         Math.abs(legend.getBoundingClientRect().left - surface.getBoundingClientRect().left) < 1 &&
@@ -393,31 +400,35 @@ export default async function run(ctx) {
                 }),
                 links: [...document.querySelectorAll('.goal-row')].every(el => el.getAttribute('href')?.includes('action=update')),
             }))()`);
-                    t.check('顶部显示四项近一周概览', shape.hero && shape.stats === 4);
-                    t.check('总览省去历史、队伍新增和管理、目标全部按钮', shape.overviewActions);
-                    t.check('常用功能自定义采用文字按钮', shape.customizeTextButton);
-                    t.check('首页外层卡片使用纯色背景并保留立体阴影', shape.solidBoards);
-                    t.check('趋势柱与图例的共用色保留适度透明度', shape.chartPigment);
-                    t.check('周月统计采用限宽侧折纸卡，标题保留小图标并为纸脊留空', shape.foldedReadouts);
-                    t.check('侧折纸卡支持左右换向，正文不镜像且两侧留白互换', shape.foldedDirections);
-                    t.check('周月统计与队伍小票的四角共用同一圆角', shape.ticketCorners);
-                    t.check('队伍使用左侧纸脊，与周月共用侧折材质，内容避开折边', shape.teamFoldedCards);
-                    t.check('常用功能与目标并排时卡片等高', shape.pairedCards);
-                    t.check(
-                        '工作台并排展示近一周概览和四项双币种收支',
-                        shape.heroTitle === '工作台' &&
-                            shape.cashflow === 4 &&
-                            shape.pairedReadouts,
-                    );
-                    t.check(
-                        '两个区块使用固定周月标题，不再提供范围切换',
-                        shape.weekTitle === '近一周' &&
-                            shape.monthTitle === '近一个月' &&
-                            shape.periodControls === 0,
-                    );
-                    t.check('队伍小票保留身份与三类最近记录', shape.teamCards);
-                    t.check('队伍签头独立一行，名称、等级与门派在分隔线上方同排', shape.teamNameFlow);
-                    const teamLongName = await cdp.evaluate(`(() => {
+                t.check('顶部显示四项近一周概览', shape.hero && shape.stats === 4);
+                t.check('总览省去历史、队伍新增和管理、目标全部按钮', shape.overviewActions);
+                t.check('常用功能自定义采用文字按钮', shape.customizeTextButton);
+                t.check('首页外层卡片使用纯色背景并保留立体阴影', shape.solidBoards);
+                t.check('趋势柱与图例的共用色保留适度透明度', shape.chartPigment);
+                t.check(
+                    '周月统计采用限宽侧折纸卡，标题保留小图标并为纸脊留空',
+                    shape.foldedReadouts,
+                );
+                t.check('侧折纸卡支持左右换向，正文不镜像且两侧留白互换', shape.foldedDirections);
+                t.check('周月统计与队伍小票的四角共用同一圆角', shape.ticketCorners);
+                t.check(
+                    '队伍使用左侧纸脊，与周月共用侧折材质，内容避开折边',
+                    shape.teamFoldedCards,
+                );
+                t.check('常用功能与目标并排时卡片等高', shape.pairedCards);
+                t.check(
+                    '工作台并排展示近一周概览和四项双币种收支',
+                    shape.heroTitle === '工作台' && shape.cashflow === 4 && shape.pairedReadouts,
+                );
+                t.check(
+                    '两个区块使用固定周月标题，不再提供范围切换',
+                    shape.weekTitle === '近一周' &&
+                        shape.monthTitle === '近一个月' &&
+                        shape.periodControls === 0,
+                );
+                t.check('队伍小票保留身份与三类最近记录', shape.teamCards);
+                t.check('队伍签头独立一行，名称、等级与门派在分隔线上方同排', shape.teamNameFlow);
+                const teamLongName = await cdp.evaluate(`(() => {
                         const card = document.querySelector('.team-person');
                         if (!card) return false;
                         const name = card.querySelector('.team-name');
@@ -445,26 +456,29 @@ export default async function run(ctx) {
                             name.textContent = original;
                         }
                     })()`);
-                    t.check('长名称完整换行，等级、门派避开纸脊，底部状态不被挤出', teamLongName);
-                    t.check('队伍只保留清晰薄纸底边，没有模糊投影', shape.paperTeam);
-                    t.check('队伍首张卡片与收益趋势绘图区左边界对齐', shape.teamAligned);
-                    t.check(
-                        '队伍单排紧凑横滚、卡高固定、记录单行且默认完整展示',
-                        shape.teamScroll,
-                        JSON.stringify(shape.teamSizes),
-                    );
-                    t.check(
-                        '我的队伍与角色名册一致，每个档案可定位',
-                        shape.chars === charsInDb &&
-                            shape.names.every((href) => href.includes('character=')),
-                    );
-                    t.check(
-                        '首页使用功能按钮，默认包含仓库入口',
-                        !shape.quickForm && shape.shortcuts.some((one) => one.id === 'warehouse'),
-                    );
-                    t.check('常用功能使用双孔纸签、装订虚线和右侧箭头，说明保留在悬停提示', shape.punchedShortcuts);
-                    t.check('常用功能按宽度排一至三列，按钮限宽且名称不换行', shape.shortcutColumns);
-                    const shortcutPoint = await cdp.evaluate(`(() => {
+                t.check('长名称完整换行，等级、门派避开纸脊，底部状态不被挤出', teamLongName);
+                t.check('队伍只保留清晰薄纸底边，没有模糊投影', shape.paperTeam);
+                t.check('队伍首张卡片与收益趋势绘图区左边界对齐', shape.teamAligned);
+                t.check(
+                    '队伍单排紧凑横滚、卡高固定、记录单行且默认完整展示',
+                    shape.teamScroll,
+                    JSON.stringify(shape.teamSizes),
+                );
+                t.check(
+                    '我的队伍与角色名册一致，每个档案可定位',
+                    shape.chars === charsInDb &&
+                        shape.names.every((href) => href.includes('character=')),
+                );
+                t.check(
+                    '首页使用功能按钮，默认包含仓库入口',
+                    !shape.quickForm && shape.shortcuts.some((one) => one.id === 'warehouse'),
+                );
+                t.check(
+                    '常用功能使用双孔纸签、装订虚线和右侧箭头，说明保留在悬停提示',
+                    shape.punchedShortcuts,
+                );
+                t.check('常用功能按宽度排一至三列，按钮限宽且名称不换行', shape.shortcutColumns);
+                const shortcutPoint = await cdp.evaluate(`(() => {
                         const button = document.querySelector('.workbench-shortcut');
                         const face = button?.querySelector('.shortcut-face');
                         if (!button || !face) return null;
@@ -474,51 +488,54 @@ export default async function run(ctx) {
                         return { x: box.left + box.width / 2, y: box.top + box.height / 2,
                             left: initial.left, top: initial.top };
                     })()`);
-                    if (shortcutPoint) {
-                        await cdp.send('Input.dispatchMouseEvent', {
-                            type: 'mouseMoved', x: shortcutPoint.x, y: shortcutPoint.y,
-                        });
-                        const hoveredShortcut = await cdp.evaluate(`new Promise(resolve => {
+                if (shortcutPoint) {
+                    await cdp.send('Input.dispatchMouseEvent', {
+                        type: 'mouseMoved',
+                        x: shortcutPoint.x,
+                        y: shortcutPoint.y,
+                    });
+                    const hoveredShortcut = await cdp.evaluate(`new Promise(resolve => {
                             requestAnimationFrame(() => requestAnimationFrame(() => {
                                 const face = document.querySelector('.workbench-shortcut .shortcut-face');
                                 const box = face.getBoundingClientRect();
                                 resolve({ left: box.left, top: box.top, transform: getComputedStyle(face).transform });
                             }));
                         })`);
-                        t.check('常用功能悬停时按钮保持原位',
-                            hoveredShortcut.transform === 'none' &&
+                    t.check(
+                        '常用功能悬停时按钮保持原位',
+                        hoveredShortcut.transform === 'none' &&
                             Math.abs(hoveredShortcut.left - shortcutPoint.left) < 0.1 &&
-                            Math.abs(hoveredShortcut.top - shortcutPoint.top) < 0.1);
-                        await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 0, y: 0 });
-                    } else t.check('常用功能悬停时按钮保持原位', false);
-                    t.check(
-                        '添加物价入口保留稳定标识',
-                        shape.shortcuts.some(
-                            (one) => one.name === '添加物价' && one.id === 'price-new',
-                        ),
+                            Math.abs(hoveredShortcut.top - shortcutPoint.top) < 0.1,
                     );
-                    t.check(
-                        '捉鬼助手、闹钟和活动日历入口就绪',
-                        ['tool-ghost', 'tool-alarm', 'tool-activities'].every((id) =>
-                            shape.shortcuts.some((one) => one.id === id),
-                        ),
-                    );
-                    t.check(
-                        '趋势与队伍省去副标题，趋势图例融入纸卡且不显示分隔线',
-                        shape.chart === 1 && shape.trendTitle === '收益趋势' && shape.raisedChart,
-                    );
-                    t.check('收益趋势位于我的队伍上方', shape.trendBeforeTeam);
-                    t.check('移除底部重复的最近收益和本月收支区块', shape.duplicateSections === 0);
-                    t.check(
-                        '最多三项目标并直达更新',
-                        shape.goals <= 3 && shape.goals === shape.ticks && shape.links,
-                    );
-                    t.check(
-                        '目标保留十格刻度，颜色随进度过渡并保留轻高光',
-                        shape.goalTitle === '目标' && shape.tickStyles,
-                    );
-                },
-            );
+                    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 0, y: 0 });
+                } else t.check('常用功能悬停时按钮保持原位', false);
+                t.check(
+                    '添加物价入口保留稳定标识',
+                    shape.shortcuts.some(
+                        (one) => one.name === '添加物价' && one.id === 'price-new',
+                    ),
+                );
+                t.check(
+                    '捉鬼助手、闹钟和活动日历入口就绪',
+                    ['tool-ghost', 'tool-alarm', 'tool-activities'].every((id) =>
+                        shape.shortcuts.some((one) => one.id === id),
+                    ),
+                );
+                t.check(
+                    '趋势与队伍省去副标题，趋势图例融入纸卡且不显示分隔线',
+                    shape.chart === 1 && shape.trendTitle === '收益趋势' && shape.raisedChart,
+                );
+                t.check('收益趋势位于我的队伍上方', shape.trendBeforeTeam);
+                t.check('移除底部重复的最近收益和本月收支区块', shape.duplicateSections === 0);
+                t.check(
+                    '最多三项目标并直达更新',
+                    shape.goals <= 3 && shape.goals === shape.ticks && shape.links,
+                );
+                t.check(
+                    '目标保留十格刻度，颜色随进度过渡并保留轻高光',
+                    shape.goalTitle === '目标' && shape.tickStyles,
+                );
+            });
 
             await t.step('工作台固定周月统计与源记录一致', async () => {
                 const result = await cdp.evaluate(`(async () => {
@@ -568,74 +585,116 @@ export default async function run(ctx) {
                     cdp.evaluate(
                         "[...document.querySelectorAll('.workbench-shortcut')].map(el => el.dataset.shortcutId)",
                     );
-                const draftIds = () => cdp.evaluate(
-                    "[...document.querySelectorAll('.selected-list > li')].map(el => el.dataset.shortcutId)",
-                );
-                const waitForDrop = () => cdp.waitFor(
-                    "!document.querySelector('.shortcut-editor [data-dnd-dragging], .shortcut-editor [data-dnd-dropping]')",
-                );
+                const draftIds = () =>
+                    cdp.evaluate(
+                        "[...document.querySelectorAll('.selected-list > li')].map(el => el.dataset.shortcutId)",
+                    );
+                const waitForDrop = () =>
+                    cdp.waitFor(
+                        "!document.querySelector('.shortcut-editor [data-dnd-dragging], .shortcut-editor [data-dnd-dropping]')",
+                    );
                 const dragFirstTileAfterSecond = async () => {
                     const before = await draftIds();
-                    const points = await cdp.evaluate('(() => {' +
-                        'const list = document.querySelector(".selected-list"); list.scrollTop = 0;' +
-                        'const rows = list.querySelectorAll("li");' +
-                        'const source = rows[0].querySelector(".shortcut-name").getBoundingClientRect();' +
-                        'const target = rows[1].getBoundingClientRect();' +
-                        'return { x: source.left + source.width / 2, y: source.top + source.height / 2,' +
-                        'toX: target.left + target.width / 2, toY: target.top + target.height / 2 }; })()');
+                    const points = await cdp.evaluate(
+                        '(() => {' +
+                            'const list = document.querySelector(".selected-list"); list.scrollTop = 0;' +
+                            'const rows = list.querySelectorAll("li");' +
+                            'const source = rows[0].querySelector(".shortcut-name").getBoundingClientRect();' +
+                            'const target = rows[1].getBoundingClientRect();' +
+                            'return { x: source.left + source.width / 2, y: source.top + source.height / 2,' +
+                            'toX: target.left + target.width / 2, toY: target.top + target.height / 2 }; })()',
+                    );
                     await cdp.send('Input.dispatchMouseEvent', {
-                        type: 'mouseMoved', x: points.x, y: points.y,
+                        type: 'mouseMoved',
+                        x: points.x,
+                        y: points.y,
                     });
                     await cdp.send('Input.dispatchMouseEvent', {
-                        type: 'mousePressed', x: points.x, y: points.y, button: 'left', buttons: 1, clickCount: 1,
+                        type: 'mousePressed',
+                        x: points.x,
+                        y: points.y,
+                        button: 'left',
+                        buttons: 1,
+                        clickCount: 1,
                     });
                     await cdp.send('Input.dispatchMouseEvent', {
-                        type: 'mouseMoved', x: points.x + 9, y: points.y, buttons: 1,
+                        type: 'mouseMoved',
+                        x: points.x + 9,
+                        y: points.y,
+                        buttons: 1,
                     });
-                    await cdp.waitFor("!!document.querySelector('.shortcut-editor [data-dnd-dragging]')");
-                    t.check('dnd-kit 拿起条目后保留原位占位',
-                        await ui.exists('.selected-list [data-dnd-placeholder]'));
+                    await cdp.waitFor(
+                        "!!document.querySelector('.shortcut-editor [data-dnd-dragging]')",
+                    );
+                    t.check(
+                        'dnd-kit 拿起条目后保留原位占位',
+                        await ui.exists('.selected-list [data-dnd-placeholder]'),
+                    );
                     for (let step = 1; step <= 6; step++) {
                         await cdp.send('Input.dispatchMouseEvent', {
-                            type: 'mouseMoved', buttons: 1,
-                            x: points.x + (points.toX - points.x) * step / 6,
-                            y: points.y + (points.toY - points.y) * step / 6,
+                            type: 'mouseMoved',
+                            buttons: 1,
+                            x: points.x + ((points.toX - points.x) * step) / 6,
+                            y: points.y + ((points.toY - points.y) * step) / 6,
                         });
                         await sleep(60);
                     }
-                    await cdp.waitFor('document.querySelector(".selected-list > li").dataset.shortcutId === ' + JSON.stringify(before[1]));
+                    await cdp.waitFor(
+                        'document.querySelector(".selected-list > li").dataset.shortcutId === ' +
+                            JSON.stringify(before[1]),
+                    );
                     await cdp.send('Input.dispatchMouseEvent', {
-                        type: 'mouseReleased', x: points.toX, y: points.toY, button: 'left', buttons: 0, clickCount: 1,
+                        type: 'mouseReleased',
+                        x: points.toX,
+                        y: points.toY,
+                        button: 'left',
+                        buttons: 0,
+                        clickCount: 1,
                     });
                     await waitForDrop();
                     const after = await draftIds();
-                    t.check('拖动卡片正文可排序，其他项相对顺序不变',
-                        JSON.stringify(after) === JSON.stringify([before[1], before[0], ...before.slice(2)]));
+                    t.check(
+                        '拖动卡片正文可排序，其他项相对顺序不变',
+                        JSON.stringify(after) ===
+                            JSON.stringify([before[1], before[0], ...before.slice(2)]),
+                    );
                     return after;
                 };
                 const cancelKeyboardSort = async () => {
                     const before = await draftIds();
-                    const direction = await cdp.evaluate('(() => {' +
-                        'const rows = document.querySelectorAll(".selected-list > li");' +
-                        'rows[0].scrollIntoView({block:"nearest"}); rows[0].focus();' +
-                        'return Math.abs(rows[0].getBoundingClientRect().top - rows[1].getBoundingClientRect().top) < 5 ? "ArrowRight" : "ArrowDown"; })()');
+                    const direction = await cdp.evaluate(
+                        '(() => {' +
+                            'const rows = document.querySelectorAll(".selected-list > li");' +
+                            'rows[0].scrollIntoView({block:"nearest"}); rows[0].focus();' +
+                            'return Math.abs(rows[0].getBoundingClientRect().top - rows[1].getBoundingClientRect().top) < 5 ? "ArrowRight" : "ArrowDown"; })()',
+                    );
                     await cdp.key('Enter');
-                    await cdp.waitFor("!!document.querySelector('.shortcut-editor [data-dnd-dragging]')");
+                    await cdp.waitFor(
+                        "!!document.querySelector('.shortcut-editor [data-dnd-dragging]')",
+                    );
                     await cdp.key(direction);
                     await cdp.key('Escape');
                     await waitForDrop();
-                    t.check('拖动时 Esc 只取消排序，保留弹窗和原顺序',
-                        await ui.exists('.shortcut-editor') && JSON.stringify(await draftIds()) === JSON.stringify(before));
+                    t.check(
+                        '拖动时 Esc 只取消排序，保留弹窗和原顺序',
+                        (await ui.exists('.shortcut-editor')) &&
+                            JSON.stringify(await draftIds()) === JSON.stringify(before),
+                    );
                 };
                 const original = await ids();
                 await ui.clickLabel('自定义常用功能');
-                t.check('功能目录分组展示，已添加项保持明确状态', await cdp.evaluate(`(() => {
+                t.check(
+                    '功能目录分组展示，已添加项保持明确状态',
+                    await cdp.evaluate(`(() => {
                     const added = [...document.querySelectorAll('.catalog-item.is-added')];
                     return !!document.querySelector('.catalog-group .catalog-items') &&
                         added.length === document.querySelectorAll('.selected-list > li').length &&
                         added.every(button => button.disabled && !!button.querySelector('.catalog-state'));
-                })()`));
-                t.check('排序草稿与首页沿用相同双孔纸签', await cdp.evaluate(`(() => {
+                })()`),
+                );
+                t.check(
+                    '排序草稿与首页沿用相同双孔纸签',
+                    await cdp.evaluate(`(() => {
                     const reference = document.querySelector('.workbench-shortcut .shortcut-face');
                     const drafts = [...document.querySelectorAll('.selected-list .shortcut-face')];
                     return reference && drafts.length > 0 && drafts.every(face =>
@@ -643,15 +702,30 @@ export default async function run(ctx) {
                         getComputedStyle(face, '::before').maskImage === getComputedStyle(reference, '::before').maskImage &&
                         getComputedStyle(face.querySelector('.shortcut-name')).fontSize ===
                             getComputedStyle(reference.querySelector('.shortcut-name')).fontSize);
-                })()`));
-                const expandedWidth = await cdp.evaluate("document.querySelector('.selected-pane').getBoundingClientRect().width");
+                })()`),
+                );
+                const expandedWidth = await cdp.evaluate(
+                    "document.querySelector('.selected-pane').getBoundingClientRect().width",
+                );
                 await cdp.click('.catalog-toggle');
-                t.check('收起功能库后编排区铺开', await cdp.evaluate('(() => {' +
-                    'return getComputedStyle(document.querySelector(".catalog-pane")).display === "none" &&' +
-                    'document.querySelector(".catalog-toggle").getAttribute("aria-expanded") === "false" &&' +
-                    'document.querySelector(".selected-pane").getBoundingClientRect().width >= ' + expandedWidth + '; })()'));
+                t.check(
+                    '收起功能库后编排区铺开',
+                    await cdp.evaluate(
+                        '(() => {' +
+                            'return getComputedStyle(document.querySelector(".catalog-pane")).display === "none" &&' +
+                            'document.querySelector(".catalog-toggle").getAttribute("aria-expanded") === "false" &&' +
+                            'document.querySelector(".selected-pane").getBoundingClientRect().width >= ' +
+                            expandedWidth +
+                            '; })()',
+                    ),
+                );
                 await cdp.click('.catalog-toggle');
-                t.check('功能库可重新展开', await cdp.evaluate("document.querySelector('.catalog-toggle').getAttribute('aria-expanded') === 'true'"));
+                t.check(
+                    '功能库可重新展开',
+                    await cdp.evaluate(
+                        "document.querySelector('.catalog-toggle').getAttribute('aria-expanded') === 'true'",
+                    ),
+                );
                 await cancelKeyboardSort();
                 await ui.clickLabel('移除：记一笔');
                 await ui.clickLabel('添加：新增闹钟');
@@ -700,10 +774,13 @@ export default async function run(ctx) {
 
             await t.step('工作台上线、记一笔和仓库入口接入原有流程', async () => {
                 await ui.gotoReady('总览');
-                t.check('工作台只展示上线、记一笔、仓库', await cdp.evaluate(`
+                t.check(
+                    '工作台只展示上线、记一笔、仓库',
+                    await cdp.evaluate(`
                     JSON.stringify([...document.querySelectorAll('.hero-actions button')]
                         .map(button => button.textContent.trim())) === JSON.stringify(['上线', '记一笔', '仓库'])
-                `));
+                `),
+                );
                 await ui.clickLabel('记一笔账号收支');
                 await cdp.waitFor("!!document.querySelector('.modal-panel .amount-row')");
                 t.check('记一笔打开账号新增表单', (await ui.hash()).startsWith('#/accounts'));
@@ -712,15 +789,23 @@ export default async function run(ctx) {
                 await ui.gotoReady('总览');
                 const homeHash = await ui.hash();
                 await ui.clickLabel('打开工作台仓库');
-                await cdp.waitFor("!!document.querySelector('.modal-panel[aria-modal=true] .warehouse-pages')");
-                t.check('工作台仓库原地打开且只有一个实例', await cdp.evaluate(`
+                await cdp.waitFor(
+                    "!!document.querySelector('.modal-panel[aria-modal=true] .warehouse-pages')",
+                );
+                t.check(
+                    '工作台仓库原地打开且只有一个实例',
+                    (await cdp.evaluate(`
                     document.querySelectorAll('.warehouse-pages').length === 1
-                `) && await ui.hash() === homeHash);
-                await ui.clickLabel('关闭仓库');
+                `)) && (await ui.hash()) === homeHash,
+                );
+                await cdp.click('.warehouse-dialog:not([inert]) [data-modal-close]');
                 await cdp.waitFor("!document.querySelector('.modal-panel')");
-                t.check('关闭后焦点回到工作台仓库', await cdp.evaluate(
-                    "document.activeElement?.getAttribute('aria-label') === '打开工作台仓库'",
-                ));
+                t.check(
+                    '关闭后焦点回到工作台仓库',
+                    await cdp.evaluate(
+                        "document.activeElement?.getAttribute('aria-label') === '打开工作台仓库'",
+                    ),
+                );
             });
 
             await t.step('首页仓库直接弹出，关闭与再次打开均保留首页', async () => {
@@ -730,18 +815,23 @@ export default async function run(ctx) {
                     "!!document.querySelector('.modal-panel[aria-modal=true] .warehouse-pages')";
                 await ui.clickLabelPrefix('仓库：');
                 await cdp.waitFor(warehouseVisible);
-                t.check('仓库复用完整管理弹窗且首页地址不变',
-                    await ui.hash() === homeHash && await ui.exists('.warehouse-tabs'));
-                await ui.clickLabel('关闭仓库');
+                t.check(
+                    '仓库复用完整管理弹窗且首页地址不变',
+                    (await ui.hash()) === homeHash && (await ui.exists('.warehouse-tabs')),
+                );
+                await cdp.click('.warehouse-dialog:not([inert]) [data-modal-close]');
                 await cdp.waitFor("!document.querySelector('.modal-panel')");
-                t.check('关闭后回到仓库快捷按钮', await cdp.evaluate(
-                    "document.activeElement?.matches('.workbench-shortcut[data-shortcut-id=warehouse]')",
-                ));
+                t.check(
+                    '关闭后回到仓库快捷按钮',
+                    await cdp.evaluate(
+                        "document.activeElement?.matches('.workbench-shortcut[data-shortcut-id=warehouse]')",
+                    ),
+                );
                 await ui.clickLabelPrefix('仓库：');
                 await cdp.waitFor(warehouseVisible);
                 await cdp.click('.modal-panel[aria-modal=true] [data-modal-close]');
                 await cdp.waitFor("!document.querySelector('.modal-panel')");
-                t.check('可再次打开并用右上角关闭，仍停留首页', await ui.hash() === homeHash);
+                t.check('可再次打开并用右上角关闭，仍停留首页', (await ui.hash()) === homeHash);
             });
 
             await t.step('我的队伍定位对应角色档案', async () => {

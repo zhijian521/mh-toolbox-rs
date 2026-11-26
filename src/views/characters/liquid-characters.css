@@ -14,7 +14,7 @@
 .liquid-characters .roster {
     --char-w: 100%;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
+    grid-template-columns: repeat(auto-fill, min(100%, var(--role-card-width)));
     gap: 14px;
 }
 
@@ -23,9 +23,79 @@
     background: transparent;
 }
 
-.liquid-characters .identity-sub > .glass-input {
+.liquid-characters .who-block {
+    flex: 1;
+}
+.liquid-characters .who:not(.who-edit) {
+    flex-wrap: wrap;
+    gap: 4px 7px;
+}
+.liquid-characters .who h2 {
+    max-width: 100%;
+    margin: 0;
+    color: var(--liquid-ink);
+    font-size: var(--fs-lg);
+    font-weight: 500;
+    letter-spacing: normal;
+}
+.liquid-characters .who .lv {
+    color: var(--liquid-muted);
+    font-size: var(--fs-sm);
+    font-weight: 400;
+}
+.liquid-characters .who .school {
+    padding: 1px 7px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--lg-field-fill);
+    color: var(--liquid-ink);
+}
+.liquid-characters .char-sub {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px 12px;
+    margin-block: 6px 0;
+    overflow: visible;
+    color: var(--liquid-muted);
+    letter-spacing: normal;
+}
+.liquid-characters .char-sub .identity-meta {
+    --icon-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    overflow: clip;
+}
+.liquid-characters .identity-meta > span {
+    min-width: 0;
+    overflow: clip;
+    text-overflow: ellipsis;
+}
+.liquid-characters .identity-sub > .glass-compact-number-field {
     flex: 1;
     width: 0;
+}
+
+.liquid-characters .character-theme .group-head {
+    margin-block-end: var(--gh-mb, 0px);
+    font-size: var(--fs-xs);
+}
+.liquid-characters .character-theme .exp-row .group-head {
+    margin-block-end: 0;
+}
+.liquid-characters .editing .assist-select .glass-select-face {
+    gap: 4px;
+    padding-inline: 8px;
+}
+.liquid-characters .editing .assist-select .glass-select-face > span {
+    scrollbar-gutter: auto;
+}
+.liquid-characters .editing .slip-cols {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(225px * var(--fs-scale))), 1fr));
+}
+.liquid-characters .school-edit-list {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 /* 师门、辅助共用图标格，缺图时的首字也占同样的空间。 */
@@ -40,19 +110,23 @@
     background: var(--lg-field-active-fill);
     box-shadow: var(--lg-edge-rim);
 }
-.liquid-characters .beast-id .skill-line {
+.liquid-characters .beast-id .slip-row.skill-line {
     height: auto;
     min-height: 28px;
-    padding: 3px;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
 }
 .liquid-characters .skill-line .skill-icons {
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     gap: 4px;
     max-height: none;
 }
 .liquid-characters .skill-line .skill-icons .pet-image {
-    --pet-icon-size: 22px;
+    --pet-icon-size: 28px;
+    border-radius: 4px;
+    background: transparent;
 }
 .liquid-characters .skill-trigger .pet-image {
     --pet-icon-size: 36px;

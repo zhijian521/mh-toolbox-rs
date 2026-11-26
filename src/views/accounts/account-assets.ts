@@ -36,7 +36,8 @@ export function planAssetTrade(
     const assets = normalizeAccountAssets(drafts);
     if (!kind || !assets.length || assets.some((item) => item.kind !== kind))
         throw new Error('请选择与交易分类一致的物品');
-    if (source !== 'draft' && source !== 'warehouse') throw new Error('物品来源无效，请重新录入或选择');
+    if (source !== 'draft' && source !== 'warehouse')
+        throw new Error('物品来源无效，请重新录入或选择');
     const byId = new Map(inventory.map((item) => [item.id, item]));
     for (const item of assets) {
         const current = byId.get(item.id);

@@ -28,9 +28,9 @@ import {
     type GearStatGroup,
 } from '../gear';
 
+const props = defineProps<{ slotName: GearSlotName }>();
 /** 分类、名称和数值分格对齐，各入口只编辑自己的装备草稿。 */
 const { glass, SelectField, selectProps, DetailCard, NumberField } = useCharacterFields();
-const props = defineProps<{ slotName: GearSlotName }>();
 const detail = defineModel<GearDetail>({ required: true });
 const caption = defineModel<string | undefined>('caption');
 const soul = defineModel<GearStat[]>('soul');
@@ -102,7 +102,7 @@ function addLine(label: string) {
 </script>
 
 <template>
-    <DetailCard class="gear-form character-detail">
+    <DetailCard class="gear-form character-detail" :class="{ 'glass-gear-form': glass }">
         <div class="gear-content character-detail-content">
             <header class="gear-identity character-detail-identity">
                 <IconTile v-if="icon" class="gear-form-icon" :src="icon" />
@@ -111,6 +111,7 @@ function addLine(label: string) {
                     <div class="gear-name-row character-detail-name-row">
                         <label class="gear-name-field character-detail-name-field">
                             <CharacterTextField
+                                compact
                                 layout="gear-name-input character-detail-name-input"
                                 :model-value="detail.name || caption"
                                 :aria-label="slotName + ' 的装备名'"
@@ -131,6 +132,7 @@ function addLine(label: string) {
                             <span class="slip-name">类型</span>
                             <CharacterTextField
                                 v-model="detail.kind"
+                                compact
                                 layout="num-slot slip-input"
                                 aria-label="装备类型"
                                 placeholder="类型"
@@ -154,7 +156,7 @@ function addLine(label: string) {
             <GearProperties :detail="detail" :slot-name="slotName" editable>
                 <template #label="{ group }">
                     <SelectField
-                        v-if="group.items[0].source === 'lines'"
+                        v-if="!glass && group.items[0].source === 'lines'"
                         v-bind="selectProps"
                         v-model="group.items[0].row.label"
                         :options="
@@ -182,12 +184,14 @@ function addLine(label: string) {
                         <div class="stat-number">
                             <CharacterTextField
                                 v-model="item.row.value"
+                                compact
                                 layout="num num-slot value-field"
                                 :aria-label="item.row.label + '属性值'"
                             />
                             <span v-if="hasExtra(item.row)" class="stat-extra">
                                 <CharacterTextField
                                     v-model="item.row.extra"
+                                    compact
                                     layout="num num-slot value-field"
                                     aria-label="括号值"
                                 />
@@ -216,6 +220,7 @@ function addLine(label: string) {
                         />
                         <CharacterTextField
                             v-model="item.row.value"
+                            compact
                             layout="num num-slot value-field"
                             :aria-label="item.row.label"
                         />
@@ -242,6 +247,7 @@ function addLine(label: string) {
                         <CharacterTextField
                             v-else
                             v-model="item.row.value"
+                            compact
                             layout="num-slot effect-value"
                             aria-label="特殊内容"
                         />
@@ -268,6 +274,7 @@ function addLine(label: string) {
                     />
                     <CharacterTextField
                         v-model="row.value"
+                        compact
                         layout="num num-slot value-field"
                         :aria-label="'命魂之玉' + row.label + '属性值'"
                     />
@@ -292,7 +299,13 @@ function addLine(label: string) {
                 <GlassFieldSurface v-if="glass" :radius="10" class="gear-note-surface">
                     <textarea v-model="detail.note" rows="3" aria-label="装备备注" />
                 </GlassFieldSurface>
-                <textarea v-else v-model="detail.note" class="field area" rows="3" aria-label="装备备注" />
+                <textarea
+                    v-else
+                    v-model="detail.note"
+                    class="field area"
+                    rows="3"
+                    aria-label="装备备注"
+                />
             </label>
         </div>
         <div class="gear-add">
@@ -372,6 +385,31 @@ function addLine(label: string) {
 }
 .stat-row:has(.stat-extra) {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) calc(26px * var(--fs-scale));
+}
+.glass-gear-form :deep(.editable .property-group) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+}
+.glass-gear-form :deep(.editable .property-label) {
+    justify-self: start;
+    height: auto;
+    padding-inline: 6px;
+    font-size: var(--fs-xs);
+    line-height: 1.6;
+}
+.glass-gear-form :deep(.editable .property-items.paired) {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13em), 1fr));
+}
+.glass-gear-form .stat-row:has(.stat-extra) {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
+}
+.glass-gear-form .row-name :deep(.glass-select-face) {
+    gap: 4px;
+    padding-inline: 8px;
+}
+.glass-gear-form .row-name :deep(.glass-select-face > span) {
+    scrollbar-gutter: auto;
+    white-space: nowrap;
 }
 .stat-number {
     display: grid;

@@ -48,12 +48,16 @@ const windowOptions = computed(() => [
     ...windows.value.map(({ hwnd, title }) => ({ value: String(hwnd), label: title })),
 ]);
 const windowValue = computed({
-    get: () => selectedHwnd.value === null ? '' : String(selectedHwnd.value),
-    set: (value: string) => { selectedHwnd.value = value ? Number(value) : null; },
+    get: () => (selectedHwnd.value === null ? '' : String(selectedHwnd.value)),
+    set: (value: string) => {
+        selectedHwnd.value = value ? Number(value) : null;
+    },
 });
 const { devMode } = useDevMode();
 const hasRange = computed(() => plans.value.some((plan) => plan.mode === 'range'));
-const hasLikelyRange = computed(() => plans.value.some((plan) => plan.mode === 'range' && plan.range.likely));
+const hasLikelyRange = computed(() =>
+    plans.value.some((plan) => plan.mode === 'range' && plan.range.likely),
+);
 
 /** 纠错对（`甲→乙`）按空格连成一句话，挂在「识别原文」的标题上。 */
 const corrections = computed(() => {
@@ -94,7 +98,9 @@ onMounted(() => {
                         <GroupHead as="h3">任务地图</GroupHead>
                         <div v-if="hasRange" class="legend" aria-label="地图图例">
                             <span><i class="legend-wash" aria-hidden="true" />官方 ±50</span>
-                            <span v-if="hasLikelyRange"><i class="legend-hot" aria-hidden="true" />高概率区域</span>
+                            <span v-if="hasLikelyRange"
+                                ><i class="legend-hot" aria-hidden="true" />高概率区域</span
+                            >
                         </div>
                     </header>
                     <div v-for="plan in plans" :key="plan.task.kind" class="map-item">
@@ -130,22 +136,38 @@ onMounted(() => {
                                 label="监听窗口"
                                 :disabled="running || starting"
                             />
-                            <span class="status" :class="statusKind" role="status">{{ statusText }}</span>
+                            <span class="status" :class="statusKind" role="status">{{
+                                statusText
+                            }}</span>
                         </div>
                         <AppNotice v-if="degraded" tone="warning" role="status">
                             已切换到系统 OCR，彩色文字可能识别不全。
                         </AppNotice>
                         <div class="hot-row">
                             <span class="field-label">高概率区域</span>
-                            <GlassSmallSwitch v-if="glass" v-model:checked="hot" aria-label="高概率区域" class="hot-switch" />
-                            <CostSwitch v-else v-model="hot" label="高概率区域" off-label="关" on-label="开" class="hot-switch" />
+                            <GlassSmallSwitch
+                                v-if="glass"
+                                v-model:checked="hot"
+                                aria-label="高概率区域"
+                                class="hot-switch"
+                            />
+                            <CostSwitch
+                                v-else
+                                v-model="hot"
+                                label="高概率区域"
+                                off-label="关"
+                                on-label="开"
+                                class="hot-switch"
+                            />
                         </div>
                         <p class="field-note">识别时请保持游戏任务栏可见。</p>
                         <details v-if="report" class="detail-block">
                             <summary class="detail-head">
                                 <AppIcon name="chevron-right" class="detail-arrow" />
                                 识别原文
-                                <span v-if="engineLabel" class="meta detail-tag">{{ engineLabel }}</span>
+                                <span v-if="engineLabel" class="meta detail-tag">{{
+                                    engineLabel
+                                }}</span>
                                 <span v-if="corrections" class="meta detail-tag"
                                     >纠错 {{ corrections }}</span
                                 >
@@ -155,9 +177,15 @@ onMounted(() => {
                                 {{ scalePercent }}%
                             </p>
                             <ol class="detail-lines">
-                                <li v-for="(line, index) in report.lines" :key="index">{{ line }}</li>
+                                <li v-for="(line, index) in report.lines" :key="index">
+                                    {{ line }}
+                                </li>
                             </ol>
-                            <p v-for="issue in report.issues" :key="issue" class="meta detail-issue">
+                            <p
+                                v-for="issue in report.issues"
+                                :key="issue"
+                                class="meta detail-issue"
+                            >
                                 {{ issue }}
                             </p>
                         </details>
@@ -292,9 +320,16 @@ onMounted(() => {
     border-radius: 50%;
     background: currentColor;
 }
-.status.live { color: var(--positive); }
-.status.warn, .detail-issue { color: var(--warning); }
-.hot-row { justify-content: space-between; }
+.status.live {
+    color: var(--positive);
+}
+.status.warn,
+.detail-issue {
+    color: var(--warning);
+}
+.hot-row {
+    justify-content: space-between;
+}
 .field-note,
 .detail-head,
 .detail-lines {
@@ -302,23 +337,35 @@ onMounted(() => {
     font-size: var(--fs-sm);
     line-height: 1.5;
 }
-.field-note { margin: 0; }
+.field-note {
+    margin: 0;
+}
 .detail-head {
     flex-wrap: wrap;
     cursor: pointer;
     list-style: none;
 }
-.detail-head::-webkit-details-marker { display: none; }
-.detail-block[open] .detail-arrow { transform: rotate(90deg); }
+.detail-head::-webkit-details-marker {
+    display: none;
+}
+.detail-block[open] .detail-arrow {
+    transform: rotate(90deg);
+}
 .detail-lines {
     max-height: 12rem;
     overflow: auto;
     overflow-wrap: anywhere;
     padding-inline-start: 24px;
 }
-.detail-tag { overflow-wrap: anywhere; }
+.detail-tag {
+    overflow-wrap: anywhere;
+}
 @container (max-width: 660px) {
-    .hunt { grid-template-columns: minmax(0, 1fr); }
-    .map-item > .map-stage { height: clamp(240px, 38dvh, 360px); }
+    .hunt {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .map-item > .map-stage {
+        height: clamp(240px, 38dvh, 360px);
+    }
 }
 </style>

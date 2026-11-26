@@ -61,7 +61,8 @@ export function detachSoldCharacterAssets(
             (item) => !item.warehouseId || !soldIds.has(item.warehouseId),
         );
         const soldJade = character.gear.some(
-            (item) => item.slot.startsWith('玉魄') && item.warehouseId && soldIds.has(item.warehouseId),
+            (item) =>
+                item.slot.startsWith('玉魄') && item.warehouseId && soldIds.has(item.warehouseId),
         );
         const gearMeta = { ...character.gearMeta };
         if (soldJade && !gear.some((item) => item.slot.startsWith('玉魄') && item.warehouseId))

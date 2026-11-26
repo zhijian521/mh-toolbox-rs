@@ -1,6 +1,7 @@
 /** 每日分组柱图的坐标与数据派生；比例和悬停位置均按日期槽计算。 */
 import { columnGeometry, type ChartColumnGeometry } from './chart-columns';
 import { integerAxis } from './chart-axis';
+import { CHART_AXIS_GAP, CHART_INSET } from './chart-style';
 import { ledgerMoneyText, shortDate } from '../services/format';
 
 /** 一个系列：某个角色在 `labels` 那几天里的值，长度必须与 `labels` 相同（没数据的那天补 0）。 */
@@ -53,9 +54,6 @@ interface TrendGeometry {
     height: number;
 }
 
-/** 刻度、日期与柱体侧面留足纸面，避免贴边。 */
-const PAD = { left: 62, right: 18, top: 18, bottom: 30 };
-
 /** 两个日期刻度之间的最小间距（px）。14 天挤在一张 500 宽的图里时全靠它分批。 */
 const TICK_GAP = 56;
 
@@ -91,11 +89,13 @@ export function buildTrendChart(input: {
     series: TrendSeries[];
     kind: TrendKind;
     axisUnit?: number;
+    axisLabelWidth?: number;
+    minPlotWidth?: number;
     valueText?: (value: number) => string;
     dateText?: (label: string) => string;
 }): TrendGeometry {
     /* 容器还没布局完时 `clientWidth` 是 0，`viewBox` 宽写成 0 会让整张图消失（且不报错）。 */
-    const width = Math.max(160, Math.round(input.width));
+    const viewportWidth = Math.max(160, Math.round(input.width));
     const height = Math.max(100, Math.round(input.height));
 
     const labels = input.labels;
@@ -111,17 +111,22 @@ export function buildTrendChart(input: {
             input.kind === 'money'
                 ? trendValueText(value, input.kind)
                 : (value / axisUnit).toLocaleString('zh-CN') + (axisUnit === 60 ? ' 时' : ' 分'));
-    // 固定元、万后大额刻度会变长，按文字长度预留左侧空间。
-    const left = Math.min(
-        width * 0.45,
-        Math.max(PAD.left, ...axis.ticks.map((value) => valueText(value).length * 7 + 14)),
+    // 首帧估宽；挂载后以当前字体绘制的整组刻度实宽为准。
+    const labelWidth =
+        input.axisLabelWidth ?? Math.max(...axis.ticks.map((value) => valueText(value).length * 7));
+    const left = CHART_INSET + Math.ceil(labelWidth) + CHART_AXIS_GAP;
+    const width = Math.max(
+        viewportWidth,
+        left + Math.max(10, input.minPlotWidth ?? 0) + CHART_INSET,
     );
+    const top = CHART_INSET + 6;
+    const bottom = CHART_INSET + 16;
 
     const plot: TrendPlot = {
         left,
-        top: PAD.top,
-        width: Math.max(10, width - left - PAD.right),
-        height: Math.max(10, height - PAD.top - PAD.bottom),
+        top,
+        width: width - left - CHART_INSET,
+        height: Math.max(10, height - top - bottom),
     };
 
     /* 全零不画柱面，沿用业务页的空态口径。 */

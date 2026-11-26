@@ -60,7 +60,10 @@ const combo = (items: GoalItem[]) =>
         kind: 'combo',
         tracking: null,
         items,
-        members: [...new Set(items.map((item) => item.characterId))].map((id) => ({ id, name: id })),
+        members: [...new Set(items.map((item) => item.characterId))].map((id) => ({
+            id,
+            name: id,
+        })),
     });
 const estimate = (target: Goal, roster: CharacterData[]) =>
     goalResources(costs, target, goalSummary(target, roster), roster)!;
@@ -139,7 +142,11 @@ describe('目标剩余资源', () => {
                 tracking: { category: 'attr', key: '潜能果' },
                 target: costs.qianNengGuo.cap + 1,
             },
-            { characterId: 'deleted', tracking: { category: 'level', key: '角色等级' }, target: 10 },
+            {
+                characterId: 'deleted',
+                tracking: { category: 'level', key: '角色等级' },
+                target: 10,
+            },
         ]);
         const result = estimate(target, [character()]);
         expect(result.total.exp).toBe(150);

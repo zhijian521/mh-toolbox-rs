@@ -6,8 +6,8 @@ import AppIcon from '../AppIcon.vue';
 import DateField from '../DateField.vue';
 import GlassInput from './GlassInput.vue';
 
-const value = defineModel<string>({ required: true });
 defineProps<{ label: string; min?: string; max?: string; disabled?: boolean; error?: string }>();
+const value = defineModel<string>({ required: true });
 const triggerId = useId();
 const calendar = ref<InstanceType<typeof DateField> | null>(null);
 
@@ -59,7 +59,7 @@ watch(
     --muted: var(--liquid-muted);
     --rule: var(--liquid-outline);
     --seal: var(--liquid-focus);
-    --on-seal: light-dark(white, #132c21);
+    --on-seal: light-dark(white, #222);
     --accent: var(--liquid-focus);
     --r-1: 8px;
     --w-hair: 1px;
@@ -144,7 +144,7 @@ watch(
 }
 @media (prefers-reduced-transparency: reduce) {
     .glass-date-field :deep(.date-panel) {
-        background: light-dark(#f6fbf8, #192522);
+        background: var(--lg-popup-solid);
     }
 }
 </style>

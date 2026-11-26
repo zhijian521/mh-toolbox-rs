@@ -22,14 +22,20 @@ const items = NAV_ITEMS.map(({ key, path, label, icon }) => ({ key, path, label,
 
 const blankPage = { render: () => null };
 const views = new Map<string, () => Promise<RouteComponent>>([
-    ['accounts', () => import('./views/accounts/LiquidAccountsView.vue').then((page) => page.default)],
+    [
+        'accounts',
+        () => import('./views/accounts/LiquidAccountsView.vue').then((page) => page.default),
+    ],
     [
         'characters',
         () => import('./views/characters/LiquidCharactersView.vue').then((page) => page.default),
     ],
     ['goals', () => import('./views/goals/LiquidGoalsView.vue').then((page) => page.default)],
     ['income', () => import('./views/income/LiquidIncomeView.vue').then((page) => page.default)],
-    ['overview', () => import('./views/overview/LiquidOverviewView.vue').then((page) => page.default)],
+    [
+        'overview',
+        () => import('./views/overview/LiquidOverviewView.vue').then((page) => page.default),
+    ],
     ['prices', () => import('./views/prices/LiquidPricesView.vue').then((page) => page.default)],
     ['components', () => import('./views/LiquidComponentsView.vue').then((page) => page.default)],
     ['settings', () => import('./views/LiquidSettingsView.vue').then((page) => page.default)],
@@ -38,14 +44,17 @@ const router = createRouter({
     history: createWebHashHistory(),
     routes: [
         { path: '/', redirect: DEFAULT_PATH },
-        ...items.filter(({ key }) => key !== 'tools').map(({ key, path }) => ({
-            path,
-            name: key,
-            component: views.get(key) ?? blankPage,
-        })),
+        ...items
+            .filter(({ key }) => key !== 'tools')
+            .map(({ key, path }) => ({
+                path,
+                name: key,
+                component: views.get(key) ?? blankPage,
+            })),
         {
             path: '/tools',
-            component: () => import('./views/tools/LiquidToolsView.vue').then((page) => page.default),
+            component: () =>
+                import('./views/tools/LiquidToolsView.vue').then((page) => page.default),
             children: [
                 {
                     path: '',
@@ -56,12 +65,16 @@ const router = createRouter({
                     path: tool.path,
                     name: `tool-${tool.key}`,
                     component: tool.view,
-                    meta: { nav: 'tools' },
+                    meta: { title: tool.name, nav: 'tools' },
                 })),
             ],
         },
         // 组件目录是开发用隐藏页：不进 Dock、不进 NAV_ITEMS，只留一条地址给设置项的彩蛋跳转。
-        { path: '/components', name: 'components', component: views.get('components') ?? blankPage },
+        {
+            path: '/components',
+            name: 'components',
+            component: views.get('components') ?? blankPage,
+        },
         { path: '/:pathMatch(.*)*', redirect: DEFAULT_PATH },
     ],
 });

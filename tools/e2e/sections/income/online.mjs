@@ -30,7 +30,8 @@ export default async function runOnline(ctx) {
             return;
         }
         const selector = '.role-item[data-character-id=' + JSON.stringify(baseline.id) + ']';
-        const extraCount = () => cdp.evaluate(`(async () => {
+        const extraCount = () =>
+            cdp.evaluate(`(async () => {
                 const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
                 return useOnline().sessions.value.filter(one => one.characterId === ${JSON.stringify(baseline.id)} &&
                     !${JSON.stringify(baseline.ids)}.includes(one.id)).length;
@@ -42,13 +43,23 @@ export default async function runOnline(ctx) {
                 button.click();
                 button.click();
             })()`);
-            await ui.waitFor(`!!document.querySelector(${JSON.stringify(selector + '.is-running .role-start:not(:disabled)')})`);
-            t.check('点击角色直接开始，不弹表单', await cdp.evaluate(`!document.querySelector('[role="dialog"]')`));
-            t.check('保存期间同拍连点只开始一次，不反向结束', (await extraCount()) === 1 &&
-                await cdp.evaluate(`!!document.querySelector(${JSON.stringify(selector + '.is-running')}) &&
-                    !document.querySelector(${JSON.stringify(selector + ' .role-stop')})`));
+            await ui.waitFor(
+                `!!document.querySelector(${JSON.stringify(selector + '.is-running .role-start:not(:disabled)')})`,
+            );
+            t.check(
+                '点击角色直接开始，不弹表单',
+                await cdp.evaluate(`!document.querySelector('[role="dialog"]')`),
+            );
+            t.check(
+                '保存期间同拍连点只开始一次，不反向结束',
+                (await extraCount()) === 1 &&
+                    (await cdp.evaluate(`!!document.querySelector(${JSON.stringify(selector + '.is-running')}) &&
+                    !document.querySelector(${JSON.stringify(selector + ' .role-stop')})`)),
+            );
             await ui.reload();
-            await ui.waitFor(`!!document.querySelector(${JSON.stringify(selector + '.is-running .role-start:not(:disabled)')})`);
+            await ui.waitFor(
+                `!!document.querySelector(${JSON.stringify(selector + '.is-running .role-start:not(:disabled)')})`,
+            );
             t.check('重载后角色仍在计时，记录不重复', (await extraCount()) === 1);
             const stopped = await cdp.evaluate(`(async () => {
                 const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
@@ -62,7 +73,9 @@ export default async function runOnline(ctx) {
             })()`);
             await ui.waitFor(`!document.querySelector(${JSON.stringify(selector + '.is-running')}) &&
                 document.querySelector(${JSON.stringify(selector + ' .role-start')})?.disabled === false`);
-            t.check('同键结束且连点不重开，不足一分钟按原规则移除', await cdp.evaluate(`(async () => {
+            t.check(
+                '同键结束且连点不重开，不足一分钟按原规则移除',
+                await cdp.evaluate(`(async () => {
                     const { useOnline } = await ${importLoaded('/src/views/income/online-store.ts')};
                     const sessions = useOnline().sessions.value;
                     const running = sessions.filter(one => one.endAt === null).map(one => one.id).sort();
@@ -73,7 +86,8 @@ export default async function runOnline(ctx) {
                         ? created.length === 1 && ended.endAt !== null && ended.endAt - ended.startAt >= 60000
                         : created.length === 0 && ${stopped.before - stopped.startAt} < 60000;
                     return settled && JSON.stringify(running) === ${JSON.stringify(JSON.stringify(baseline.running))};
-                })()`));
+                })()`),
+            );
         } finally {
             // 只删除本次角色新增的记录；保留测试前已存在的计时和历史。
             await cdp.evaluate(`(async () => {
@@ -343,10 +357,18 @@ export default async function runOnline(ctx) {
                 }));
             })()`);
         t.check('两张走势图都在', charts.length === 2, `实际 ${charts.length} 张`);
-        t.check('每日时长与每日收益标题一致', charts.map((one) => one.head).join('/') === '每日时长/每日收益');
-        t.check('两张图与总览同为 220px 高，横向滚动但不显示滚动条',
-            charts.every((one) => Math.abs(one.height - 220) < 1 && one.hiddenScroll));
-        t.check('每日走势外卡底部与总览同为 8px 留白', charts.every((one) => one.bottomPadding === 8));
+        t.check(
+            '每日时长与每日收益标题一致',
+            charts.map((one) => one.head).join('/') === '每日时长/每日收益',
+        );
+        t.check(
+            '两张图与总览同为 220px 高，横向滚动但不显示滚动条',
+            charts.every((one) => Math.abs(one.height - 220) < 1 && one.hiddenScroll),
+        );
+        t.check(
+            '每日走势外卡底部与总览同为 8px 留白',
+            charts.every((one) => one.bottomPadding === 8),
+        );
         t.check(
             '绘图区立体边沿覆盖在固定纵轴之上且不拦截操作',
             charts.every((one) => one.edge),
@@ -489,7 +511,8 @@ export default async function runOnline(ctx) {
             '上线记录沿用历史收益的弹窗尺寸与固定表格外框',
             Math.abs(layout.width - Math.min(900, layout.viewport.width - 48)) <= 2 &&
                 layout.height >= Math.min(600, layout.viewport.height - 48) - 2 &&
-                layout.frame && layout.sticky,
+                layout.frame &&
+                layout.sticky,
             JSON.stringify(layout),
         );
         t.check(
@@ -517,10 +540,8 @@ export default async function runOnline(ctx) {
         if (!range) throw new Error('日期筛选场景缺少本轮补记记录');
         t.check(
             '上线记录使用与历史收益相同的起止日期，默认今天',
-            JSON.stringify(range.defaults) === JSON.stringify([
-                '从哪一天：' + range.today,
-                '到哪一天：' + range.today,
-            ]),
+            JSON.stringify(range.defaults) ===
+                JSON.stringify(['从哪一天：' + range.today, '到哪一天：' + range.today]),
             JSON.stringify(range.defaults),
         );
         // 扩到记录开始前一天，跨零点运行也保留原有整段修改断言。
@@ -535,12 +556,15 @@ export default async function runOnline(ctx) {
             '结束日期收窄后不展示区间外记录',
             await cdp.waitFor(`!document.querySelector('.online-records .rec-table')`),
         );
-        t.check('筛选无匹配保留固定内容区，重置使用文字按钮', await cdp.evaluate(`(() => {
+        t.check(
+            '筛选无匹配保留固定内容区，重置使用文字按钮',
+            await cdp.evaluate(`(() => {
             const frame = document.querySelector('.online-records .record-table-frame');
             return !!frame?.querySelector('.income-log-scroll .record-empty') &&
                 !frame.classList.contains('is-empty') &&
                 !!document.querySelector('.online-records .text-btn[aria-label="清空筛选"]');
-        })()`));
+        })()`),
+        );
         await ui.clickLabelPrefix('到哪一天：');
         await ui.clickText('button', '回到今天', { exact: true });
         await ui.waitFor(

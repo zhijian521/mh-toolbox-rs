@@ -8,19 +8,18 @@ import LedgerSection from '../../components/LedgerSection.vue';
 import PageShell from '../../components/PageShell.vue';
 import LiquidLedgerFrame from '../../components/LiquidLedgerFrame.vue';
 import { glassLedger } from '../../components/glass-ledger';
-import { GlassSegment, GlassSegmented } from '../../components/liquid-glass';
 import PressButton from '../../components/PressButton.vue';
 import PaperTag from '../../components/PaperTag.vue';
 import StatStrip from '../../components/StatStrip.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
 import { useRecordFilters } from '../../composables/use-record-filters';
-import SegmentedPills from '../../components/SegmentedPills.vue';
 import { notify } from '../../composables/use-notify';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import { useToday } from '../../composables/use-today';
 import { useRoster } from '../characters/roster';
 import AccountCharts from './AccountCharts.vue';
+import AccountFilterTabs from './AccountFilterTabs.vue';
 import AccountFlowCard from './AccountFlowCard.vue';
 import AccountRecentRecords from './AccountRecentRecords.vue';
 import {
@@ -30,9 +29,10 @@ import {
     newestFirst,
     rangeOf,
     type AccountEntry,
+    type Currency,
     type RangePreset,
 } from './accounts';
-import { accountValueText, filterAccounts, shortcutTotals } from './account-analysis';
+import { accountValueText, inAccountRange, shortcutTotals } from './account-analysis';
 import { accountSummaryBooks } from './account-summary';
 import { loadAccounts, useAccounts, type EntryInput } from './accounts-store';
 import { useDailySync } from './daily-sync';
@@ -52,10 +52,15 @@ const { entries, loadError, writeError, addEntry, updateEntry, pending, flush, r
     useAccounts();
 const { roster, loadError: rosterError } = useRoster();
 const { error: syncError, retry: retrySync } = useDailySync();
-const preset = ref<RangePreset>('month');
+const presets = ref<Record<Currency, RangePreset>>({ rmb: 'month', cash: 'month' });
 const today = useToday();
-const range = computed(() => rangeOf(preset.value, today.value));
-const scoped = computed(() => filterAccounts(entries.value, range.value));
+const ranges = computed(() => ({
+    rmb: rangeOf(presets.value.rmb, today.value),
+    cash: rangeOf(presets.value.cash, today.value),
+}));
+const scoped = computed(() =>
+    entries.value.filter((one) => inAccountRange(one.date, ranges.value[one.currency])),
+);
 const books = computed(() => accountSummaryBooks(scoped.value));
 const shortcuts = computed(() => {
     const totals = shortcutTotals(
@@ -71,7 +76,11 @@ const recent = computed(() => newestFirst(scoped.value).slice(0, 4));
 const editing = ref<{ entry?: AccountEntry; seed?: Partial<EntryInput> } | null>(null);
 const recordsOpen = ref(false);
 const { filters: historyFilters, syncScope } = useRecordFilters(
-    () => ({ ...range.value, who: ALL_ACCOUNTS }),
+    () => {
+        // 两个限定区间均截至今天；起点较早的区间（含“全部”）覆盖两本账。
+        const { rmb, cash } = ranges.value;
+        return { ...(rmb.from <= cash.from ? rmb : cash), who: ALL_ACCOUNTS };
+    },
     {
         currency: ALL_ACCOUNTS,
         kind: ALL_ACCOUNTS,
@@ -165,47 +174,28 @@ useRouteAction('/accounts', {
                 :pending="pending"
                 @retry="writeError ? retry() : retrySync()"
             />
-            <LedgerSection title="收支概览" class="account-overview" plain>
-                <template #actions>
-                    <GlassSegmented
-                        v-if="glass"
-                        v-model:value="preset"
-                        class="lg-status-tabs"
-                        data-size="compact"
-                        aria-label="账目时间范围"
-                    >
-                        <GlassSegment
-                            v-for="option in RANGE_PRESETS"
-                            :key="option.value"
-                            :value="option.value"
-                        >
-                            {{ option.label }}
-                        </GlassSegment>
-                    </GlassSegmented>
-                    <div v-else class="filters">
-                        <SegmentedPills
-                            v-model="preset"
+            <section v-if="!loadError" class="account-overview books" aria-label="收支概览">
+                <StatStrip
+                    v-for="book in books"
+                    :key="book.currency"
+                    class="book"
+                    :surface="glass ? 'glass' : 'folded'"
+                    spine="left"
+                    :heading="book.heading"
+                    :hint="book.hint"
+                    :icon="book.currency === 'cash' ? 'coins' : 'accounts'"
+                    :items="book.items"
+                    :data-book-currency="book.currency"
+                >
+                    <template #actions>
+                        <AccountFilterTabs
+                            v-model="presets[book.currency]"
+                            :label="book.heading + '时间范围'"
                             :options="RANGE_PRESETS"
-                            label="账目时间范围"
-                            wrap
                         />
-                    </div>
-                </template>
-                <div v-if="!loadError" class="books">
-                    <StatStrip
-                        v-for="book in books"
-                        :key="book.currency"
-                        class="book"
-                        surface="folded"
-                        spine="left"
-                        :heading="book.heading"
-                        :hint="book.hint"
-                        :icon="book.currency === 'cash' ? 'coins' : 'accounts'"
-                        :items="book.items"
-                        :data-book-currency="book.currency"
-                    />
-                </div>
-            </LedgerSection>
+                    </template>
+                </StatStrip>
+            </section>
 
             <LedgerSection title="快捷记账" plain>
                 <div class="shortcuts">
@@ -214,6 +204,7 @@ useRouteAction('/accounts', {
                         v-for="one in shortcuts"
                         :key="one.id"
                         type="button"
+                        :radius="glass ? 10 : undefined"
                         class="shortcut"
                         :aria-label="one.title + '，' + one.hint"
                         :title="one.hint"
@@ -269,7 +260,7 @@ useRouteAction('/accounts', {
                 />
             </div>
 
-            <AccountCharts v-if="!loadError" :entries="scoped" :range="range" />
+            <AccountCharts v-if="!loadError" :entries="scoped" :ranges="ranges" />
         </div>
         <WarehouseDialog v-if="warehouseOpen" @close="warehouseOpen = false" />
         <AccountRecords

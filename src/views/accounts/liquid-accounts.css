@@ -6,24 +6,29 @@
     gap: 10px;
 }
 
-.liquid-accounts .shortcuts {
+.liquid-accounts .accounts-layout .shortcuts {
     --shortcut-min-w: calc(206px * var(--fs-scale));
-    --shortcut-max-w: 100%;
+    --shortcut-max-w: calc(268px * var(--fs-scale));
     padding: 0;
 }
 
 .liquid-accounts glass-button.shortcut {
-    --glass-button-height: calc(68px * var(--fs-scale));
-    --glass-button-padding: 12px;
-    display: block;
-    border-radius: var(--r-3);
+    --glass-button-height: auto;
+    display: grid;
+    align-content: center;
+    min-height: calc(74px * var(--fs-scale));
+    padding: 11px 12px;
+    box-sizing: border-box;
+    border-radius: var(--r-2);
 }
 
 .liquid-accounts .shortcut-face {
     display: grid;
     width: 100%;
+    height: auto;
     min-width: 0;
     align-items: center;
+    white-space: normal;
 }
 
 .liquid-accounts .sc-icon {
@@ -36,40 +41,46 @@
     white-space: nowrap;
 }
 
-.liquid-accounts :is(.account-overview, .flow-card) .section-head {
+.liquid-accounts .flow-card .section-head {
     margin-bottom: 10px;
 }
 
-.liquid-accounts .book .v {
-    overflow-wrap: anywhere;
+.liquid-accounts .records .blank {
+    min-height: calc(80px * var(--fs-scale));
 }
 
 .liquid-accounts .account-record-summary {
-    gap: 8px;
+    align-items: stretch;
 }
 
-.liquid-accounts .account-record-total {
-    padding: 8px 10px;
+.liquid-accounts .account-record-toolbar,
+.liquid-accounts .account-record-search {
+    align-items: flex-end;
 }
 
-.liquid-accounts .account-record-controls .record-filters {
-    margin-bottom: 8px;
+.liquid-accounts .account-record-search {
+    margin-bottom: 0;
+}
+
+.liquid-accounts .account-record-search .date-range-separator {
+    align-self: flex-end;
+    line-height: var(--lg-form-height);
+}
+
+.liquid-accounts .account-record-total:only-child {
+    grid-column: 1 / -1;
+}
+
+.liquid-accounts .account-history .glass-table {
+    table-layout: fixed;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
 }
 
 .liquid-accounts .account-asset-tray {
     box-shadow: none;
-}
-
-.liquid-accounts .chart-in-card {
-    --chart-depth: 4px;
-    --chart-surface-bg: transparent;
-}
-
-.liquid-accounts .chart-bar-face {
-    --chart-front: var(--chart-color);
-    --chart-side: color-mix(in srgb, var(--chart-color), var(--liquid-ink) 12%);
-    --chart-top: color-mix(in srgb, var(--chart-color), var(--bevel-hi) 20%);
-    --chart-bar-shadow: inset 1px 0 0 var(--bevel-hi);
 }
 
 .liquid-accounts .warehouse-item .press-tile {

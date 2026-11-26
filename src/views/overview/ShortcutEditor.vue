@@ -236,7 +236,9 @@ function cancelDrag(event: KeyboardEvent) {
                                         <small>{{ one.description }}</small>
                                     </span>
                                     <span class="catalog-state">
-                                        <AppIcon :name="selectedIds.has(one.id) ? 'check' : 'add'" />
+                                        <AppIcon
+                                            :name="selectedIds.has(one.id) ? 'check' : 'add'"
+                                        />
                                         <small v-if="selectedIds.has(one.id)">已添加</small>
                                     </span>
                                 </button>

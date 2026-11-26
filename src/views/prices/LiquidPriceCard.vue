@@ -66,7 +66,7 @@ const summary = computed(() =>
                 class="price-spark"
                 viewBox="0 0 58 18"
                 role="img"
-                :aria-label="`最近 ${recent.length} 笔价格，由早到晚：${recent.map(value => moneyText(value)).join('、')}`"
+                :aria-label="`最近 ${recent.length} 笔价格，由早到晚：${recent.map((value) => moneyText(value)).join('、')}`"
             >
                 <polyline :points="spark" />
             </svg>
@@ -211,5 +211,4 @@ const summary = computed(() =>
     flex: none;
     margin-inline-start: auto;
 }
-
 </style>

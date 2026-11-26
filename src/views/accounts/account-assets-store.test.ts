@@ -22,10 +22,18 @@ async function setup(stock = false, failLoad = false, worn = false) {
         pet: { name: '画魂', growth: '1.287', life: '9999', skills: ['高级必杀'] },
     })!;
     const warehouseLoad = vi.fn().mockResolvedValue(failLoad ? null : stock ? [item] : []);
-    const charactersLoad = vi.fn().mockResolvedValue(worn ? [{
-        id: 'owner', name: '角色甲', updatedAt: 1,
-        pets: [{ ...('pet' in item ? item.pet : {}), warehouseId: item.id }],
-    }] : []);
+    const charactersLoad = vi.fn().mockResolvedValue(
+        worn
+            ? [
+                  {
+                      id: 'owner',
+                      name: '角色甲',
+                      updatedAt: 1,
+                      pets: [{ ...('pet' in item ? item.pet : {}), warehouseId: item.id }],
+                  },
+              ]
+            : [],
+    );
     vi.doMock('../../services/storage', () => ({
         accountLoad,
         accountSave,
@@ -86,7 +94,11 @@ describe('账号与仓库关联交易', () => {
         const { useRoster } = await import('../characters/roster');
         expect(s.useWarehouse().owners.value.has(s.item.id)).toBe(true);
         s.accountTradeSave.mockResolvedValueOnce(false);
-        const result = s.addEntry({ ...INPUT, kind: 'income', assets: [...s.useWarehouse().items.value] });
+        const result = s.addEntry({
+            ...INPUT,
+            kind: 'income',
+            assets: [...s.useWarehouse().items.value],
+        });
         if (!result.ok) throw new Error(result.error);
         expect(useRoster().roster.value[0].pets).toEqual([]);
         expect(await s.useAccounts().flush()).toBe(false);

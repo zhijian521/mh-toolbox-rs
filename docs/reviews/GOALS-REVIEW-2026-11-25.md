@@ -20,22 +20,22 @@
 
 以当前工作区相对 HEAD 的目标域改动为范围，14 项均已静态审查，无范围内跳过项。多领域文件仅覆盖目标相关片段，不代表其余页面已审查。
 
-| 文件 | 状态 | 审查重点 |
-| --- | --- | --- |
-| `src/views/goals/GoalCard.vue` | 已审查，修改 | 分类位置、五类目标操作入口、资源展示 |
-| `src/views/goals/GoalComboProgress.vue` | 已审查，修改 | 角色切换、草稿保留、表格及输入尺寸 |
-| `src/views/goals/GoalHistory.vue` | 已审查，修改 | 历史读取、分页、删除入口及失败反馈 |
-| `src/views/goals/GoalLogs.vue` | 已审查，修改 | 增减录入、摘要、日期、草稿关闭保护 |
-| `src/views/goals/GoalsView.vue` | 已审查，修改 | 数据加载、实时历史、保存及删除重试 |
-| `src/views/goals/GoalReadouts.vue` | 已审查，新增 | 共用读数、紧凑尺寸、换行 |
-| `src/views/goals/GoalResources.vue` | 已审查，新增 | 单位、精度、原始值与空态 |
-| `src/views/goals/goal-resources.ts` | 已审查，新增 | 当前进度到目标的资源汇总与遗漏规则 |
-| `src/views/goals/goal-resources.test.ts` | 已审查，新增 | 缺值、上限、删除角色、分类经验及库存口径 |
-| `tools/e2e/sections/06-goals.mjs` | 已审查，修改 | 新入口、录入与历史删除路径 |
-| `tools/e2e/sections/liquid-shell.mjs` | 已审查，目标片段 | 角色页签、输入边界与摘要对齐断言 |
-| `docs/LIQUID-GLASS.md` | 已审查，目标片段 | 分支组件及行为说明 |
-| `docs/TESTING.md` | 已审查，目标片段 | 测试归属及场景说明 |
-| `docs/RECORD.md` | 已审查，目标片段 | 分批变更记录 |
+| 文件                                     | 状态             | 审查重点                                 |
+| ---------------------------------------- | ---------------- | ---------------------------------------- |
+| `src/views/goals/GoalCard.vue`           | 已审查，修改     | 分类位置、五类目标操作入口、资源展示     |
+| `src/views/goals/GoalComboProgress.vue`  | 已审查，修改     | 角色切换、草稿保留、表格及输入尺寸       |
+| `src/views/goals/GoalHistory.vue`        | 已审查，修改     | 历史读取、分页、删除入口及失败反馈       |
+| `src/views/goals/GoalLogs.vue`           | 已审查，修改     | 增减录入、摘要、日期、草稿关闭保护       |
+| `src/views/goals/GoalsView.vue`          | 已审查，修改     | 数据加载、实时历史、保存及删除重试       |
+| `src/views/goals/GoalReadouts.vue`       | 已审查，新增     | 共用读数、紧凑尺寸、换行                 |
+| `src/views/goals/GoalResources.vue`      | 已审查，新增     | 单位、精度、原始值与空态                 |
+| `src/views/goals/goal-resources.ts`      | 已审查，新增     | 当前进度到目标的资源汇总与遗漏规则       |
+| `src/views/goals/goal-resources.test.ts` | 已审查，新增     | 缺值、上限、删除角色、分类经验及库存口径 |
+| `tools/e2e/sections/06-goals.mjs`        | 已审查，修改     | 新入口、录入与历史删除路径               |
+| `tools/e2e/sections/liquid-shell.mjs`    | 已审查，目标片段 | 角色页签、输入边界与摘要对齐断言         |
+| `docs/LIQUID-GLASS.md`                   | 已审查，目标片段 | 分支组件及行为说明                       |
+| `docs/TESTING.md`                        | 已审查，目标片段 | 测试归属及场景说明                       |
+| `docs/RECORD.md`                         | 已审查，目标片段 | 分批变更记录                             |
 
 ## 依赖链与保留理由
 
@@ -54,17 +54,17 @@
 
 用户随后明确要求整体 Review 并提交，范围扩展为当前全部未提交文件：共 25 项，已静态审查 25 项，跳过 0 项。包含上表 14 项、本报告自身及下列 10 项；原目标页审查的范围限制仅描述首次审查。
 
-| 文件 | 状态 | 审查重点 |
-| --- | --- | --- |
-| `src/views/CharactersView.vue` | 已审查，修改 | 搜索、空态、新建后清空筛选、链接定位 |
-| `src/views/accounts/AccountsView.vue` | 已审查，修改 | 时间范围控件绑定、旧界面回退 |
-| `src/views/income/OnlineBar.vue` | 已审查，修改 | 点卡开关布尔事件、禁用与保存链 |
-| `src/views/income/liquid-income.css` | 已审查，修改 | 容器断点与原收益布局兼容 |
-| `src/views/overview/LiquidOverviewView.vue` | 已审查，修改 | 工作台状态、入口及读取失败条件 |
-| `src/views/overview/liquid-overview.css` | 已审查，修改 | 标题操作换行、统计布局 |
-| `src/views/prices/LiquidPricesView.vue` | 已审查，修改 | 新增入口、筛选空态、保存保护 |
-| `src/views/prices/liquid-prices.css` | 已审查，修改 | 按钮收缩与筛选换行 |
-| `src/views/tools/GrowthView.vue` | 已审查，修改 | 切换模式保留内容区宽度 |
-| `src/views/tools/growth-calculator.css` | 已审查，修改 | 移除单项模式独立限宽 |
+| 文件                                        | 状态         | 审查重点                             |
+| ------------------------------------------- | ------------ | ------------------------------------ |
+| `src/views/CharactersView.vue`              | 已审查，修改 | 搜索、空态、新建后清空筛选、链接定位 |
+| `src/views/accounts/AccountsView.vue`       | 已审查，修改 | 时间范围控件绑定、旧界面回退         |
+| `src/views/income/OnlineBar.vue`            | 已审查，修改 | 点卡开关布尔事件、禁用与保存链       |
+| `src/views/income/liquid-income.css`        | 已审查，修改 | 容器断点与原收益布局兼容             |
+| `src/views/overview/LiquidOverviewView.vue` | 已审查，修改 | 工作台状态、入口及读取失败条件       |
+| `src/views/overview/liquid-overview.css`    | 已审查，修改 | 标题操作换行、统计布局               |
+| `src/views/prices/LiquidPricesView.vue`     | 已审查，修改 | 新增入口、筛选空态、保存保护         |
+| `src/views/prices/liquid-prices.css`        | 已审查，修改 | 按钮收缩与筛选换行                   |
+| `src/views/tools/GrowthView.vue`            | 已审查，修改 | 切换模式保留内容区宽度               |
+| `src/views/tools/growth-calculator.css`     | 已审查，修改 | 移除单项模式独立限宽                 |
 
 目标列表最终为横向网格、自然卡高与顶部对齐；标题下数量摘要已删除。除上面已修复的历史日期问题及烟测等待竞态，未发现其他明确阻塞项。未新增依赖、IPC、Rust 或账本格式变更，无需为本批改动拆新存储层。未运行任何验证命令，未做视觉／性能验收或真实数据操作。后续物价页优化单独作为下一批。

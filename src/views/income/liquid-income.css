@@ -19,15 +19,50 @@
     --keycap-indicator: var(--muted);
     --keycap-shadow: 0 2px 3px rgb(14 39 31 / 0.12);
 }
-.liquid-income .keycap-btn.is-active { --keycap-indicator: var(--positive); }
+.liquid-income .keycap-btn.is-active {
+    --keycap-indicator: var(--positive);
+}
 
-.liquid-income .chart-block {
-    --chart-surface-bg: transparent;
-    border: 0;
-    padding: 12px;
-    background: var(--ledger-surface);
-    box-shadow: var(--ledger-rim);
-    border-radius: 14px;
+.liquid-income-page .online-bar .section-head {
+    margin-bottom: 12px;
+    gap: 8px 12px;
+}
+.liquid-income-page .online-layout {
+    gap: 16px;
+}
+.liquid-income-page .online-tickets {
+    gap: 12px;
+}
+.liquid-income-page .quick-panel .targets {
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 2px 2px 6px;
+    margin-bottom: 10px;
+    border-bottom: 0;
+}
+.liquid-income-page .quick-panel .targets > glass-segmented {
+    flex: none;
+    min-width: max-content;
+}
+.liquid-income-page .quick-panel .group-label {
+    margin-block: 12px 8px;
+}
+.liquid-income-page .quick-panel .targets + .group-label {
+    margin-top: 0;
+}
+.liquid-income-page .today-dump .section-body {
+    gap: 12px;
+}
+.liquid-income-page .today-dump .grid {
+    max-height: 320px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    padding: 3px;
+}
+.liquid-income-page .chart-block .section-head {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 12px;
 }
 .liquid-income .chart-block .trend {
     --series-1: light-dark(#397b67, #9adcc0);
@@ -37,7 +72,28 @@
     --series-5: light-dark(#9b5772, #edabc5);
     --series-6: light-dark(#6d722c, #dbe3a2);
 }
-.liquid-income .chart-block + .chart-block {
-    border-top: 0;
-    padding-top: 12px;
+
+.liquid-income :is(.income-history, .online-records) .glass-table {
+    table-layout: fixed;
+    min-width: 680px;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+.liquid-income :is(.income-history, .online-records) .record-roles {
+    scrollbar-width: none;
+    scrollbar-gutter: auto;
+}
+.liquid-income .online-records .filter-search {
+    width: min(100%, 220px);
+    min-width: 0;
+}
+.liquid-income .online-editor .character-pick .glass-multi-select {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+}
+.liquid-income .online-editor .time-readout {
+    height: 40px;
+    font-size: var(--fs-xl);
 }

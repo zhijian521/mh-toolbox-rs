@@ -3,7 +3,6 @@ import { inject } from 'vue';
 import PaperCard from './PaperCard.vue';
 import { glassLedger } from './glass-ledger';
 
-const glassCard = inject(glassLedger, null)?.card;
 /**
  * 账簿语境里的「一块」：一张抬起的纸片 + 区块标 + 标题 + 右侧提示/操作。
  *
@@ -44,6 +43,7 @@ withDefaults(
     }>(),
     { hint: '', maxHeight: '', height: '', plain: false },
 );
+const glassCard = inject(glassLedger, null)?.card;
 </script>
 
 <template>

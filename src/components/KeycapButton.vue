@@ -28,7 +28,9 @@ withDefaults(
         <span class="keycap-face">
             <span v-if="indicator" class="keycap-indicator" aria-hidden="true" />
             <AppIcon v-if="icon" :name="icon" />
-            <slot><span v-if="text">{{ text }}</span></slot>
+            <slot
+                ><span v-if="text">{{ text }}</span></slot
+            >
         </span>
     </button>
 </template>

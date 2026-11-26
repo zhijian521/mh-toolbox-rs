@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, inject, ref } from 'vue';
+import { glassLedger } from '../../components/glass-ledger';
+import { GlassSegment, GlassSegmented } from '../../components/liquid-glass';
 import LedgerSection from '../../components/LedgerSection.vue';
 import SteppedSlider from '../../components/SteppedSlider.vue';
 import { CHART_HEIGHT } from '../../components/chart-style';
@@ -16,6 +18,7 @@ import { netByDay, trendSeriesOf } from './trend-chart';
 const { sessions, loaded: onlineLoaded, loadError: onlineError } = useOnline();
 const { entries, loaded: incomeLoaded, loadError: incomeError } = useIncome();
 const { roster } = useRoster();
+const glass = inject(glassLedger, null);
 const onlineReadable = computed(() => onlineLoaded.value && !onlineError.value);
 const incomeReadable = computed(() => incomeLoaded.value && !incomeError.value);
 const today = useToday();
@@ -72,17 +75,36 @@ const netSeries = computed(() => seriesOf(net.value));
 </script>
 
 <template>
-    <LedgerSection title="每日走势" class="chart-section" plain>
-        <template #actions>
-            <SteppedSlider v-model="span" :options="SPANS" label="走势范围" class="span-slider" />
-        </template>
+    <section class="income-trends" aria-label="每日走势">
+        <header class="trends-head">
+            <h2>每日走势</h2>
+            <GlassSegmented
+                v-if="glass"
+                v-model:value="span"
+                class="lg-status-tabs"
+                data-size="compact"
+                aria-label="走势范围"
+            >
+                <GlassSegment v-for="option in SPANS" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                </GlassSegment>
+            </GlassSegmented>
+            <SteppedSlider
+                v-else
+                v-model="span"
+                :options="SPANS"
+                label="走势范围"
+                class="span-slider"
+            />
+        </header>
 
         <div class="charts" :style="{ '--chart-height': CHART_HEIGHT + 'px' }">
-            <section class="chart-block">
-                <header class="chart-head">
-                    <h3>每日时长</h3>
-                    <span class="cap">按号分线 · {{ DAYS[span] }} 天</span>
-                </header>
+            <LedgerSection
+                title="每日时长"
+                :hint="`按号分线 · ${DAYS[span]} 天`"
+                class="chart-block chart-section"
+                plain
+            >
                 <TrendChart
                     v-if="onlineReadable"
                     class="chart-in-card"
@@ -92,15 +114,18 @@ const netSeries = computed(() => seriesOf(net.value));
                     label="每日时长"
                 />
                 <p v-else class="chart-unavailable empty-note" role="status">
-                    {{ onlineError ? '上线记录未读取，请在页面上方重新读取。' : '正在读取上线记录…' }}
+                    {{
+                        onlineError ? '上线记录未读取，请在页面上方重新读取。' : '正在读取上线记录…'
+                    }}
                 </p>
-            </section>
+            </LedgerSection>
 
-            <section class="chart-block">
-                <header class="chart-head">
-                    <h3>每日收益</h3>
-                    <span class="cap">速记净额 · 不扣点卡</span>
-                </header>
+            <LedgerSection
+                title="每日收益"
+                hint="速记净额 · 不扣点卡"
+                class="chart-block chart-section"
+                plain
+            >
                 <TrendChart
                     v-if="incomeReadable"
                     class="chart-in-card"
@@ -112,12 +137,30 @@ const netSeries = computed(() => seriesOf(net.value));
                 <p v-else class="chart-unavailable empty-note" role="status">
                     {{ incomeError ? '收益未读取，请在页面上方重新读取。' : '正在读取收益…' }}
                 </p>
-            </section>
+            </LedgerSection>
         </div>
-    </LedgerSection>
+    </section>
 </template>
 
 <style scoped>
+.income-trends {
+    display: grid;
+    /* 月视图的 SVG 可以宽于视口，但不能通过网格最小内容宽度撑大外卡。 */
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    min-width: 0;
+}
+.trends-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.trends-head h2 {
+    margin: 0;
+    font-size: var(--fs-md);
+}
 /* 走势标题栏只保留范围；上线操作归状态条。 */
 .span-slider {
     width: calc(148px * var(--fs-scale));
@@ -131,45 +174,19 @@ const netSeries = computed(() => seriesOf(net.value));
 .charts {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    min-width: 0;
+    gap: 12px;
 }
 
 .chart-block {
     display: flex;
     flex-direction: column;
-    gap: 12px;
     min-width: 0;
-}
-.chart-block + .chart-block {
-    padding-top: 18px;
-    border-top: var(--w-hair) solid var(--rule);
 }
 .chart-unavailable {
     display: grid;
     place-content: center;
     min-height: var(--chart-height);
     margin: 0;
-}
-
-.chart-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px 12px;
-}
-
-/* 图下的小标题比区块标题小一档：它属于卡内的一层，不另开一块纸。 */
-.chart-head h3 {
-    margin: 0;
-    color: var(--ink-2);
-    font-size: var(--fs-sm);
-    font-weight: 400;
-    letter-spacing: 0.02em;
-}
-
-.chart-head .cap {
-    margin-left: auto;
-    color: var(--muted);
-    font-size: var(--fs-xs);
 }
 </style>

@@ -2,8 +2,9 @@
 import { useChartHover } from '../composables/use-chart-hover';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import ChartColumn from './ChartColumn.vue';
+import ChartPanel from './ChartPanel.vue';
 import ChartTooltip from './ChartTooltip.vue';
-import { CHART_HEIGHT, chartColor } from './chart-style';
+import { CHART_AXIS_GAP, CHART_HEIGHT, CHART_INSET, chartColor } from './chart-style';
 import { shortDate } from '../services/format';
 import {
     buildTrendChart,
@@ -42,6 +43,28 @@ const scrollHost = ref<HTMLDivElement | null>(null);
 /* 量到之前先给一个假宽度：`buildTrendChart` 会把它抬到 160 下限，
  * 画出来比例不对但至少有东西，等挂载量到真宽度立刻重算。 */
 const width = ref(420);
+const axisLabels = ref<SVGGElement | null>(null);
+const axisLabelWidth = ref<number>();
+
+watch(
+    axisLabels,
+    (group, _, cleanup) => {
+        if (!group) {
+            axisLabelWidth.value = undefined;
+            return;
+        }
+        const measure = () => {
+            const measured = group.getBBox().width;
+            if (measured > 0) axisLabelWidth.value = Math.ceil(measured);
+        };
+        measure();
+        if (typeof ResizeObserver === 'undefined') return;
+        const labelsObserver = new ResizeObserver(measure);
+        labelsObserver.observe(group);
+        cleanup(() => labelsObserver.disconnect());
+    },
+    { flush: 'post' },
+);
 
 let observer: ResizeObserver | null = null;
 
@@ -66,17 +89,16 @@ onBeforeUnmount(() => {
 
 const chart = computed(() =>
     buildTrendChart({
-        width: Math.max(
-            width.value,
+        width: width.value,
+        axisLabelWidth: axisLabelWidth.value,
+        minPlotWidth:
             props.labels.length *
-                Math.max(
-                    22,
-                    props.series.filter((one) => one.values.length === props.labels.length).length *
-                        14 +
-                        10,
-                ) +
-                100,
-        ),
+            Math.max(
+                22,
+                props.series.filter((one) => one.values.length === props.labels.length).length *
+                    14 +
+                    10,
+            ),
         height: props.height,
         labels: props.labels,
         series: props.series,
@@ -88,7 +110,15 @@ const chart = computed(() =>
 );
 
 /* 柱组与图例共用系列顺序及末日值，过滤无效系列后仍保留角色颜色序号。 */
-const legend = computed(() => chart.value.lines);
+const legend = computed(() =>
+    chart.value.lines.map((line) => ({
+        id: line.id,
+        name: line.name,
+        color: seriesColor(line.index),
+        value: formatValue(line.lastValue),
+        pattern: Math.floor(line.index / 6),
+    })),
+);
 
 watch(
     () => chart.value.width,
@@ -146,8 +176,9 @@ function move(event: PointerEvent) {
     const x = ((event.clientX - box.left) * chart.value.width) / box.width;
     const y = ((event.clientY - box.top) * chart.value.height) / box.height;
     const plot = chart.value.plot;
+    const axisRight = (scrollHost.value?.scrollLeft ?? 0) + plot.left;
     const next =
-        y < plot.top || y > plot.top + plot.height
+        x < axisRight || y < plot.top || y > plot.top + plot.height
             ? null
             : trendIndexAt(plot, props.labels.length, x);
     locate(event);
@@ -159,7 +190,7 @@ function reveal(index: number) {
     if (!viewport || x === undefined) return;
     if (
         x < viewport.scrollLeft + chart.value.plot.left ||
-        x > viewport.scrollLeft + viewport.clientWidth - 18
+        x > viewport.scrollLeft + viewport.clientWidth - CHART_INSET
     )
         viewport.scrollLeft = Math.max(0, x - viewport.clientWidth / 2);
 }
@@ -200,11 +231,19 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
 </script>
 
 <template>
-    <div class="trend chart-panel">
+    <ChartPanel
+        class="trend"
+        :legend="legend"
+        :caption="formatDate(lastDay)"
+        :legend-label="lastDay + ' 读数'"
+    >
         <div
             ref="host"
             class="chart chart-surface"
-            :style="{ '--trend-height': height + 'px', '--trend-axis-width': chart.plot.left + 'px' }"
+            :style="{
+                '--trend-height': height + 'px',
+                '--trend-axis-width': chart.plot.left + 'px',
+            }"
             @pointermove="move"
             @pointerleave="hoverIndex = null"
             @keydown="navigate"
@@ -236,6 +275,16 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
                         />
                     </g>
 
+                    <rect
+                        v-if="hovered"
+                        class="chart-hover-band"
+                        :x="hovered.x - chart.plot.width / labels.length / 2"
+                        :y="chart.plot.top"
+                        :width="chart.plot.width / labels.length"
+                        :height="chart.plot.height"
+                        rx="4"
+                        aria-hidden="true"
+                    />
                     <line
                         class="chart-latest"
                         :x1="chart.lines[0].last.x"
@@ -269,23 +318,6 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
                             :y1="chart.plot.top"
                             :y2="chart.plot.top + chart.plot.height"
                         />
-                        <rect
-                            v-for="line in chart.lines"
-                            :key="line.id"
-                            :x="line.points[hovered.index].column.x - 2"
-                            :y="line.points[hovered.index].column.y - 2"
-                            :width="
-                                line.points[hovered.index].column.width +
-                                line.points[hovered.index].column.depth +
-                                4
-                            "
-                            :height="
-                                line.points[hovered.index].column.height +
-                                line.points[hovered.index].column.depth +
-                                4
-                            "
-                            :style="{ stroke: seriesColor(line.index) }"
-                        />
                     </g>
 
                     <g class="chart-axis chart-dates" aria-hidden="true">
@@ -293,7 +325,7 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
                             v-for="tick in chart.ticks"
                             :key="`x-${tick.x}`"
                             :x="tick.x"
-                            :y="chart.height - 9"
+                            :y="chart.height - CHART_INSET"
                             :text-anchor="tick.anchor"
                             v-text="tick.text"
                         />
@@ -308,11 +340,11 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
                 :height="chart.height"
                 aria-hidden="true"
             >
-                <g class="chart-axis">
+                <g ref="axisLabels" class="chart-axis">
                     <text
                         v-for="(guide, index) in chart.guides"
                         :key="index"
-                        :x="chart.plot.left - 8"
+                        :x="chart.plot.left - CHART_AXIS_GAP"
                         :y="guide.y + 3"
                         text-anchor="end"
                         v-text="guide.label"
@@ -328,28 +360,7 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
                 :anchor="hoverPoint"
             />
         </div>
-
-        <div
-            v-if="legend.length"
-            class="trend-legend chart-legend-shelf"
-            :aria-label="lastDay + ' 读数'"
-        >
-            <span class="legend-date">{{ formatDate(lastDay) }}</span>
-            <span v-for="one in legend" :key="one.id" class="legend-item">
-                <i
-                    class="swatch"
-                    :class="{ patterned: one.index >= 6 }"
-                    :style="{
-                        backgroundColor: seriesColor(one.index),
-                        '--swatch-step': 4 + Math.floor(one.index / 6) * 2 + 'px',
-                    }"
-                    aria-hidden="true"
-                />
-                <span class="legend-name">{{ one.name }}</span>
-                <span class="legend-value">{{ formatValue(one.lastValue) }}</span>
-            </span>
-        </div>
-    </div>
+    </ChartPanel>
 </template>
 
 <style scoped>
@@ -361,16 +372,6 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
     --series-4: var(--moss);
     --series-5: color-mix(in oklch, var(--cinnabar) 55%, var(--indigo-ink));
     --series-6: color-mix(in oklch, var(--moss) 45%, var(--indigo-ink));
-
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    min-width: 0;
-    margin-bottom: 5px;
-}
-.trend.chart-in-card {
-    /* 卡内图表由外壳投影，不再额外预留独立底板的落影间距。 */
-    margin-bottom: 0;
 }
 
 .chart {
@@ -385,6 +386,9 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
     min-width: 100%;
     height: auto;
     overflow: hidden;
+}
+.chart-scroll {
+    clip-path: inset(0 0 0 var(--trend-axis-width));
 }
 .chart-fixed-axis {
     position: absolute;
@@ -421,56 +425,13 @@ const emptyText = computed(() => '暂无' + props.label + '记录');
     pointer-events: none;
 }
 .chart-hover-mark line {
-    stroke: var(--muted);
+    stroke: var(--chart-hover-line);
     stroke-width: 1;
     stroke-dasharray: 3 4;
 }
-.chart-hover-mark rect {
-    fill: none;
-    stroke-width: 1;
-}
-.trend > .trend-legend {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 18px;
-    margin: 4px 0 0;
-    padding: 8px 0 10px;
-    border-top: 0;
-    box-shadow: none;
-    font-size: var(--fs-mini);
-}
-.legend-date {
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
-}
-.legend-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-    color: var(--ink-2);
-}
-.swatch {
-    flex: none;
-    width: 9px;
-    height: 9px;
-    border-radius: 1px;
-}
-.swatch.patterned {
-    background-image: repeating-linear-gradient(
-        35deg,
-        transparent 0 calc(var(--swatch-step) - 1px),
-        var(--bevel-hi) calc(var(--swatch-step) - 1px) var(--swatch-step)
-    );
-}
-.legend-name {
-    overflow-wrap: anywhere;
-}
-.legend-value {
-    color: var(--num);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
+.chart-hover-band {
+    fill: var(--chart-hover-fill);
+    pointer-events: none;
 }
 .trend-empty {
     display: grid;

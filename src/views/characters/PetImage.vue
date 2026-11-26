@@ -40,11 +40,12 @@ onMounted(() => {
 <style scoped>
 .pet-image {
     display: inline-grid;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
     flex: none;
     place-items: center;
     width: var(--pet-icon-size, 32px);
     height: var(--pet-icon-size, 32px);
-    overflow: hidden;
+    overflow: clip;
     border-radius: var(--r-2);
     background: var(--well);
     color: var(--muted);
@@ -52,6 +53,9 @@ onMounted(() => {
     vertical-align: middle;
 }
 .pet-image img {
+    display: block;
+    min-width: 0;
+    min-height: 0;
     width: 100%;
     height: 100%;
     object-fit: contain;

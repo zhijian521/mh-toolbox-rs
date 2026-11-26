@@ -100,7 +100,11 @@ const cardLabel = computed(() =>
         >
             <span class="calendar-heading">
                 <span>{{ activity.name }}</span>
-                <AppIcon :name="reminded ? 'check' : 'alarm'" class="card-reminder" :title="reminded ? '已设提醒' : '设置提醒'" />
+                <AppIcon
+                    :name="reminded ? 'check' : 'alarm'"
+                    class="card-reminder"
+                    :title="reminded ? '已设提醒' : '设置提醒'"
+                />
             </span>
             <span class="calendar-time">{{ cardTimesText(activity) }}</span>
             <span v-if="(!isDaily && !isToday) || activity.playerSourced" class="calendar-meta">
@@ -113,7 +117,7 @@ const cardLabel = computed(() =>
         v-else
         type="button"
         class="card activity-card"
-        :class="[`t-${activity.tone}`, { reminded } ]"
+        :class="[`t-${activity.tone}`, { reminded }]"
         :disabled="disabled"
         :aria-label="cardLabel"
         @click="emit('open')"
@@ -123,10 +127,9 @@ const cardLabel = computed(() =>
         <span class="card-body">
             <span class="card-heading">
                 <span class="name">{{ activity.name }}</span>
-                <span
-                    class="tag"
-                    :class="{ hot: (isToday && !isDaily) || (!glass && reminded) }"
-                >{{ tagText }}</span>
+                <span class="tag" :class="{ hot: (isToday && !isDaily) || (!glass && reminded) }">{{
+                    tagText
+                }}</span>
             </span>
             <span class="when">{{ timesText(activity) }}</span>
             <span class="rule">{{ metaText }}</span>
@@ -354,22 +357,37 @@ const cardLabel = computed(() =>
     text-align: start;
     cursor: pointer;
 }
-.calendar-heading, .calendar-meta {
+.calendar-heading,
+.calendar-meta {
     display: flex;
     align-items: center;
     gap: 6px;
 }
-.calendar-heading { justify-content: space-between; }
-.calendar-time, .calendar-meta {
+.calendar-heading {
+    justify-content: space-between;
+}
+.calendar-time,
+.calendar-meta {
     color: var(--liquid-muted);
     font-size: var(--fs-xs);
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
 }
-.card-reminder { --icon-size: 18px; flex: none; color: var(--liquid-muted); }
-.reminded .card-reminder { color: var(--liquid-focus); }
-.calendar-entry:focus-visible { outline: 2px solid var(--liquid-focus); outline-offset: -2px; }
-.calendar-entry:disabled { cursor: default; }
+.card-reminder {
+    --icon-size: 18px;
+    flex: none;
+    color: var(--liquid-muted);
+}
+.reminded .card-reminder {
+    color: var(--liquid-focus);
+}
+.calendar-entry:focus-visible {
+    outline: 2px solid var(--liquid-focus);
+    outline-offset: -2px;
+}
+.calendar-entry:disabled {
+    cursor: default;
+}
 @media (hover: hover) and (pointer: fine) {
     .calendar-entry:enabled:hover:not(.reminded) .card-reminder {
         color: var(--liquid-ink);

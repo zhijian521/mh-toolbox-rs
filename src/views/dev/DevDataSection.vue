@@ -15,7 +15,7 @@ const { devMode } = useDevMode();
 const desktop = hasDesktop();
 const busy = ref(false);
 const error = ref('');
-const counts = computed(() => gameDataReady.value ? demoCounts(buildDemoData()) : null);
+const counts = computed(() => (gameDataReady.value ? demoCounts(buildDemoData()) : null));
 
 async function importDemo() {
     if (busy.value || !desktop || !gameDataReady.value) return;
@@ -79,7 +79,9 @@ async function importDemo() {
             <p class="note">包含角色、物价、收益、账号交易、目标、仓库与上线记录。</p>
             <p class="note">替换全部账本，先自动备份；可在设置页恢复。后续示例统一在此维护。</p>
             <p v-if="!desktop" class="note">请在桌面版导入，浏览器预览不写入账本。</p>
-            <div role="status"><p v-if="error" class="note error">{{ error }}</p></div>
+            <div role="status">
+                <p v-if="error" class="note error">{{ error }}</p>
+            </div>
         </LedgerSection>
     </div>
 </template>

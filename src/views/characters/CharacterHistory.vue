@@ -8,17 +8,18 @@ import GlassDateField from '../../components/liquid-glass/GlassDateField.vue';
 import GlassCompactPager from '../../components/liquid-glass/GlassCompactPager.vue';
 import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import RecordPager from '../../components/RecordPager.vue';
-import PressButton from '../../components/PressButton.vue';
+import { recentMonthRange } from '../../services/format';
 import { useRoster } from './roster';
 import { selectGrowthHistory } from './growth-history';
 
+const emit = defineEmits<{ close: [] }>();
 const PAGE_SIZE = 10;
 const { glass, SelectField } = useCharacterFields();
-const emit = defineEmits<{ close: [] }>();
 const { roster } = useRoster();
+const initialRange = recentMonthRange();
 const selected = ref(''),
-    from = ref(''),
-    to = ref(''),
+    from = ref(initialRange.from),
+    to = ref(initialRange.to),
     page = ref(1);
 const options = computed(() => [
     { value: '', label: '全部角色' },
@@ -52,10 +53,20 @@ watch(pages, (total) => {
 <template>
     <ModalShell title="成长历史" :width="780" :min-height="440" @close="emit('close')">
         <div class="growth-filters" :class="{ 'lg-form-fields': glass }">
-            <SelectField v-model="selected" :options="options" label="成长历史角色" />
-            <component :is="glass ? GlassDateField : DateField" v-model="from" label="成长历史开始日期" :max="to" />
+            <SelectField v-model="selected" :options="options" label="角色" />
+            <component
+                :is="glass ? GlassDateField : DateField"
+                v-model="from"
+                label="开始日期"
+                :max="to"
+            />
             <span>至</span>
-            <component :is="glass ? GlassDateField : DateField" v-model="to" label="成长历史结束日期" :min="from" />
+            <component
+                :is="glass ? GlassDateField : DateField"
+                v-model="to"
+                label="结束日期"
+                :min="from"
+            />
         </div>
         <GlassEmptyState v-if="glass && !entries.length">暂无成长记录</GlassEmptyState>
         <div v-else-if="!entries.length" class="record-empty">暂无成长记录</div>
@@ -68,7 +79,7 @@ watch(pages, (total) => {
                 class="growth-entry"
             >
                 <header class="growth-heading ticket-rule">
-                    <strong>{{ entry.name }}</strong>
+                    <span class="growth-name">{{ entry.name }}</span>
                     <div class="growth-meta">
                         <span>
                             {{
@@ -102,10 +113,14 @@ watch(pages, (total) => {
                 </dl>
             </component>
         </div>
-        <template #footer>
-            <GlassCompactPager v-if="glass" v-model:page="page" :pages="pages" label="成长历史分页" />
+        <template v-if="pages > 1" #footer>
+            <GlassCompactPager
+                v-if="glass"
+                v-model:page="page"
+                :pages="pages"
+                label="成长历史分页"
+            />
             <RecordPager v-else v-model="page" :pages="pages" />
-            <PressButton text="关闭" label="关闭成长历史" @click="emit('close')" />
         </template>
     </ModalShell>
 </template>
@@ -156,7 +171,7 @@ glass-surface.growth-entry {
 .growth-meta time {
     white-space: nowrap;
 }
-.growth-heading strong {
+.growth-name {
     color: var(--ink);
     font-size: var(--fs-md);
     line-height: 1.45;

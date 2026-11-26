@@ -43,7 +43,12 @@ export function useModalMotion(
             style.getPropertyValue('--ease-soft').trim() ||
             'ease';
         try {
-            const animation = element.animate(frames, { duration: ms, delay, easing, fill: 'both' });
+            const animation = element.animate(frames, {
+                duration: ms,
+                delay,
+                easing,
+                fill: 'both',
+            });
             animations.push(animation);
             return animation.finished.catch(() => {});
         } catch (error) {
@@ -178,12 +183,7 @@ export function useModalMotion(
                 ];
                 if (backdrop) {
                     motions.push(
-                        animate(
-                            backdrop,
-                            [{ opacity: shade }, { opacity: 0 }],
-                            ms,
-                            '--ease-soft',
-                        ),
+                        animate(backdrop, [{ opacity: shade }, { opacity: 0 }], ms, '--ease-soft'),
                     );
                 }
                 void Promise.all(motions).then(finish);

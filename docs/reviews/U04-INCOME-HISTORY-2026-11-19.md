@@ -12,11 +12,11 @@
 
 用户反馈部分弹窗像弹出两次，要求全局优化开关动画。静态追踪确认三条路径：lazy-dialog 首开立即挂载加载窗，成功后卸载它并挂正式窗，两次面板动画重叠；普通换窗时新窗沿用透明嵌套背景而旧背景淡出，旧栈移除后新背景又出现；自然高度窗在初次内容补齐时叠加尺寸过渡。
 
-| 范围 | 本批处理 |
-| ---- | -------- |
-| 首次加载 | 180ms 内完成不挂占位窗；慢加载和失败仍可取消／重试。正式窗同拍替换已挂载占位窗，旧窗不再退场，新面板轻淡入并保留背景；延时器随完成、失败或卸载清理，取消后不会因模块到达而重开。 |
-| 全局开关 | 遮罩压暗与面板分开，正常面板 220ms／6px 淡入、140ms／3px 淡出，使用专用缓出／缓入曲线；不缩放文字，不增加模糊或回弹。时长及曲线只维护在 token-core.css。 |
-| 换窗与嵌套 | 同拍新窗承接正在退场背景的当前透明度，隐藏旧背景，旧面板完成自身退出；常规嵌套隐藏附加背景。快速关闭继续从当前面板透明度和位移退场，保留真实节点、锁滚动、inert 和一次性清理。 |
+| 范围       | 本批处理                                                                                                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 首次加载   | 180ms 内完成不挂占位窗；慢加载和失败仍可取消／重试。正式窗同拍替换已挂载占位窗，旧窗不再退场，新面板轻淡入并保留背景；延时器随完成、失败或卸载清理，取消后不会因模块到达而重开。            |
+| 全局开关   | 遮罩压暗与面板分开，正常面板 220ms／6px 淡入、140ms／3px 淡出，使用专用缓出／缓入曲线；不缩放文字，不增加模糊或回弹。时长及曲线只维护在 token-core.css。                                    |
+| 换窗与嵌套 | 同拍新窗承接正在退场背景的当前透明度，隐藏旧背景，旧面板完成自身退出；常规嵌套隐藏附加背景。快速关闭继续从当前面板透明度和位移退场，保留真实节点、锁滚动、inert 和一次性清理。              |
 | 尺寸与焦点 | 入场中只更新高度基线，之后的内容变动合并到下一帧并以较短过渡接续。占位交接直接传原触发点，避开父窗 inert 导致的聚焦失败；初始和返回焦点使用 preventScroll，关闭打断尺寸动画仍保留当前高度。 |
 
 改动覆盖 ModalShell、lazy-dialog、use-modal-motion、use-modal-size、use-modal 和动效令牌。维护 lazy-dialog 与真实 Vue 移除钩子断言：快速／慢速加载、取消／提前卸载／失败重试、遮罩和面板分别入场、同拍替换承接背景、占位立即交接、快速关闭、降动效与无动画 API；账号仓库烟测改为检查嵌套 backdrop 实际隐藏。断言尚未运行。没有新增 UI 依赖、业务字段、存储、服务、Rust 或资源。
@@ -31,19 +31,19 @@
 
 ## 已确认事实与改动
 
-| 范围 | 证据与处理 |
-| ---- | ---------- |
-| 弹窗开关 | 原 ModalShell 只有 mask-in／panel-in 入场 CSS，卸载即消失。新增 useModalMotion，以既有时长与曲线淡显、短位移，取消文字缩放。遮罩 VNode 的 Vue 移除钩子保留真实 DOM 至退场结束，避免父级 v-if 同时卸载内部 Transition 而跳过 leave；不复制表单／Canvas、不推迟业务关闭事件。 |
-| 动画生命周期 | 入场中关闭读取当前透明度与位置，取消旧动画后接续退场；动画 Promise 的取消被接住。降动效将开关均缩至 1ms，无动画 API 时直接清理。useModalSize 卸载时保存动画当前高度，避免先跳到最终内容高度。 |
-| 栈与焦点 | useModal 在卸载时停止面板操作、标记 inert 与 aria-hidden，退场完成再移出栈、解锁背景及恢复焦点。只允许栈顶处理 Esc；退出期间拦截 Esc／Tab；旧窗口退场时不抢后来窗口焦点。栈变为响应式列表，底层离开后存活的面板可接管遮罩。 |
-| 筛选与汇总 | IncomeHistoryDialog 原角色下拉和 sum-tag 删除。history-summary.ts 先从整个日期区间汇总，再由 who 过滤明细；总计、未指定、现存角色及有记录的已删角色分别呈现，当前旧选项在空区间仍保留。无记录金额为占位，筛选状态不被静默清空。 |
-| 公共选择器 | 历史收益使用原 SteppedSlider 与现有 #option 插槽，保持单选、单 Tab 停靠点、方向键和滑动印面。名称与金额使用同一按钮，单行按容器等分，左右仅 4px 留白，名称最多四字宽后省略并保留完整 title。取消横向滚动及对应自动滚动监听；公共组件无需修改。 |
-| 表格 | 原 border 在 table 本体，随滚动内容离开可视区。新增页面私有 history-table-frame 持有外框及裁剪，内部容器滚动、thead sticky；仍为一张原生表，保留列宽计算、斑马纹、图标、编辑和删除。无需为单个调用提取新通用表组件。 |
-| 日期、分页、回看 | 仍使用 DateRangeField、RecordFilters、useRecordScroll 和 usePagination；筛选重置页码及滚动，同上下文重开保留状态。没有修改日期包含边界、排序或每页条数。 |
+| 范围             | 证据与处理                                                                                                                                                                                                                                                                   |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 弹窗开关         | 原 ModalShell 只有 mask-in／panel-in 入场 CSS，卸载即消失。新增 useModalMotion，以既有时长与曲线淡显、短位移，取消文字缩放。遮罩 VNode 的 Vue 移除钩子保留真实 DOM 至退场结束，避免父级 v-if 同时卸载内部 Transition 而跳过 leave；不复制表单／Canvas、不推迟业务关闭事件。  |
+| 动画生命周期     | 入场中关闭读取当前透明度与位置，取消旧动画后接续退场；动画 Promise 的取消被接住。降动效将开关均缩至 1ms，无动画 API 时直接清理。useModalSize 卸载时保存动画当前高度，避免先跳到最终内容高度。                                                                                |
+| 栈与焦点         | useModal 在卸载时停止面板操作、标记 inert 与 aria-hidden，退场完成再移出栈、解锁背景及恢复焦点。只允许栈顶处理 Esc；退出期间拦截 Esc／Tab；旧窗口退场时不抢后来窗口焦点。栈变为响应式列表，底层离开后存活的面板可接管遮罩。                                                  |
+| 筛选与汇总       | IncomeHistoryDialog 原角色下拉和 sum-tag 删除。history-summary.ts 先从整个日期区间汇总，再由 who 过滤明细；总计、未指定、现存角色及有记录的已删角色分别呈现，当前旧选项在空区间仍保留。无记录金额为占位，筛选状态不被静默清空。                                              |
+| 公共选择器       | 历史收益使用原 SteppedSlider 与现有 #option 插槽，保持单选、单 Tab 停靠点、方向键和滑动印面。名称与金额使用同一按钮，单行按容器等分，左右仅 4px 留白，名称最多四字宽后省略并保留完整 title。取消横向滚动及对应自动滚动监听；公共组件无需修改。                               |
+| 表格             | 原 border 在 table 本体，随滚动内容离开可视区。新增页面私有 history-table-frame 持有外框及裁剪，内部容器滚动、thead sticky；仍为一张原生表，保留列宽计算、斑马纹、图标、编辑和删除。无需为单个调用提取新通用表组件。                                                         |
+| 日期、分页、回看 | 仍使用 DateRangeField、RecordFilters、useRecordScroll 和 usePagination；筛选重置页码及滚动，同上下文重开保留状态。没有修改日期包含边界、排序或每页条数。                                                                                                                     |
 | 业务、数据与服务 | 历史明细仍经 income-store → createPersist／storage.ts → bindings → lib.rs → store/income.rs → SQLite；角色名册沿原 roster 读取链。编辑与删除仍经原保存队列、确认及 daily-sync 自动分账。现有数据足够派生新摘要，无需新增 IPC、Rust、迁移或账本字段；本批未逐行重审后端事务。 |
-| 资源 | 继续使用 itemIconOf 与已有图标，无新增游戏事实、OCR、字体或图像资源。无需改 public/game。 |
-| 断言 | 新增区间收支、未指定、已删角色、空区间和角色切换不缩减汇总断言；新增真实 Vue 卸载路径的动画节点保留、快速关闭、降动效及无 API 清理断言。历史烟测改用滑块，维护重开保留、总计还原、单 Tab、固定外框／表头及退出后焦点断言；临时滚动尺寸在 finally 还原。全部未执行。 |
-| 文档 | 更新规范、架构、RECORD 与计划。TESTING 已覆盖公共 composable 及收益窗口场景，无需新增重复测试分类。 |
+| 资源             | 继续使用 itemIconOf 与已有图标，无新增游戏事实、OCR、字体或图像资源。无需改 public/game。                                                                                                                                                                                    |
+| 断言             | 新增区间收支、未指定、已删角色、空区间和角色切换不缩减汇总断言；新增真实 Vue 卸载路径的动画节点保留、快速关闭、降动效及无 API 清理断言。历史烟测改用滑块，维护重开保留、总计还原、单 Tab、固定外框／表头及退出后焦点断言；临时滚动尺寸在 finally 还原。全部未执行。          |
+| 文档             | 更新规范、架构、RECORD 与计划。TESTING 已覆盖公共 composable 及收益窗口场景，无需新增重复测试分类。                                                                                                                                                                          |
 
 ## 上线记录布局对齐
 
@@ -75,18 +75,18 @@
 
 用户本轮明确要求 Review 后提交并推送。复核覆盖当前全部 34 个变更文件，没有跳过文件；未发现需要阻塞本批提交的确定性问题。本节记录本轮归档范围，上文及其他批次的“未提交”保留实施当时状态，最终提交与推送状态以 Git 记录为准。
 
-| 文件（仓库相对路径） | 数量 | 已审查内容 |
-| ------------------ | ---- | ---------- |
-| `docs/ARCHITECTURE.md`、`docs/CONVENTIONS.md`、`docs/OPTIMIZATION-PLAN-2026-11-18.md`、`docs/RECORD.md` | 4 | 实现、规范和计划一致，区分静态审查与未执行的验收，不将局部批次标为整包完成。 |
-| `docs/reviews/U02-INCOME-REVIEW-2026-11-19.md`、本报告 | 2 | 收益口径、依赖证据、未逐行重审的后端范围与动态验收遗留明确。 |
-| `docs/previews/online-card-options.html`、`.css`、`.js`；`docs/previews/online-role-options.html`、`.css`、`.js` | 6 | 历史方案仅操作演示内存，不调用业务或保存；正式采用的 C 方案与未采用的一键演示有说明。 |
-| `src/components/ModalShell.vue`、`SteppedSlider.vue`、`TextButton.vue` | 3 | 关闭事件与卸载交接、单选插槽和键盘契约、文字按钮的原生禁用与说明。 |
-| `src/composables/use-modal.ts`、`use-modal-size.ts`、`use-modal-motion.ts`、`use-modal-motion.test.ts` | 4 | 阅读当前 Vue 卸载实现确认移除钩子路径；检查入场取消、退场清理、栈顶、焦点、锁滚动、尺寸中断和降动效。断言已写，未运行。 |
-| `src/views/dev/AtomsSection.vue` | 1 | 公共文字按钮和滑块插槽说明与正式调用一致。 |
-| `src/views/income/IncomeView.vue`、`OnlineBar.vue`、`OnlinePanel.vue`、`QuickPanel.vue`、`TodayDump.vue` | 5 | 统计和保存链未改口径；快速上下线复用 store 校验与持久化，保留旧多人、名册外结束及失败恢复；观察器和动画帧随生命周期清理。 |
-| `src/views/income/IncomeHistoryDialog.vue`、`history-summary.ts`、`history-summary.test.ts` | 3 | 日期全集汇总与明细筛选分离，未指定及已删角色保留，滚动外框、原生表头及编辑删除链保持。断言未运行。 |
-| `src/views/income/online-summary.ts`、`online-summary.test.ts` | 2 | 复用按日切分及历史单价，只派生今日／昨日展示，不写账本。边界断言未运行。 |
-| `tools/e2e/sections/income/history.mjs`、`online.mjs`、`quick.mjs`、`shared.mjs` | 4 | 定位与新布局一致，覆盖筛选、焦点、几何及快速操作；临时样式在 finally 移除。烟测未运行。 |
+| 文件（仓库相对路径）                                                                                             | 数量 | 已审查内容                                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------- |
+| `docs/ARCHITECTURE.md`、`docs/CONVENTIONS.md`、`docs/OPTIMIZATION-PLAN-2026-11-18.md`、`docs/RECORD.md`          | 4    | 实现、规范和计划一致，区分静态审查与未执行的验收，不将局部批次标为整包完成。                                              |
+| `docs/reviews/U02-INCOME-REVIEW-2026-11-19.md`、本报告                                                           | 2    | 收益口径、依赖证据、未逐行重审的后端范围与动态验收遗留明确。                                                              |
+| `docs/previews/online-card-options.html`、`.css`、`.js`；`docs/previews/online-role-options.html`、`.css`、`.js` | 6    | 历史方案仅操作演示内存，不调用业务或保存；正式采用的 C 方案与未采用的一键演示有说明。                                     |
+| `src/components/ModalShell.vue`、`SteppedSlider.vue`、`TextButton.vue`                                           | 3    | 关闭事件与卸载交接、单选插槽和键盘契约、文字按钮的原生禁用与说明。                                                        |
+| `src/composables/use-modal.ts`、`use-modal-size.ts`、`use-modal-motion.ts`、`use-modal-motion.test.ts`           | 4    | 阅读当前 Vue 卸载实现确认移除钩子路径；检查入场取消、退场清理、栈顶、焦点、锁滚动、尺寸中断和降动效。断言已写，未运行。   |
+| `src/views/dev/AtomsSection.vue`                                                                                 | 1    | 公共文字按钮和滑块插槽说明与正式调用一致。                                                                                |
+| `src/views/income/IncomeView.vue`、`OnlineBar.vue`、`OnlinePanel.vue`、`QuickPanel.vue`、`TodayDump.vue`         | 5    | 统计和保存链未改口径；快速上下线复用 store 校验与持久化，保留旧多人、名册外结束及失败恢复；观察器和动画帧随生命周期清理。 |
+| `src/views/income/IncomeHistoryDialog.vue`、`history-summary.ts`、`history-summary.test.ts`                      | 3    | 日期全集汇总与明细筛选分离，未指定及已删角色保留，滚动外框、原生表头及编辑删除链保持。断言未运行。                        |
+| `src/views/income/online-summary.ts`、`online-summary.test.ts`                                                   | 2    | 复用按日切分及历史单价，只派生今日／昨日展示，不写账本。边界断言未运行。                                                  |
+| `tools/e2e/sections/income/history.mjs`、`online.mjs`、`quick.mjs`、`shared.mjs`                                 | 4    | 定位与新布局一致，覆盖筛选、焦点、几何及快速操作；临时样式在 finally 移除。烟测未运行。                                   |
 
 历史 HTML 方案依赖本机预览服务从 Vue 源文件提供 `/preview-components.css`，并非可直接双击的独立页面；服务位于被忽略的 `.runtime/online-card-preview-server.cjs`，本轮只读、不纳入正式应用。该限制只影响设计稿重开，不影响收益页运行；需要跨机器复用预览时再单独整理预览工具。
 

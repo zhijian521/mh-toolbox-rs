@@ -9,7 +9,8 @@ defineProps<{
         <div v-for="item in items" :key="item.key" class="resource-cell">
             <dt>{{ item.label }}</dt>
             <dd :title="item.exact ? item.label + ' ' + item.exact : undefined">
-                <span>{{ item.text }}</span><small v-if="item.unit">{{ item.unit }}</small>
+                <span>{{ item.text }}</span
+                ><small v-if="item.unit">{{ item.unit }}</small>
             </dd>
         </div>
     </dl>

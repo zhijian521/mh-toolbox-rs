@@ -227,9 +227,11 @@ pub fn fengyao_status() -> Result<WatchStatus, String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn fengyao_preview_speech() -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(|| crate::speech::preview(SPEECH_SOURCE, "花果山，发现梦魇夜叉。"))
-        .await
-        .map_err(|e| format!("试听失败：{e}"))?
+    tauri::async_runtime::spawn_blocking(|| {
+        crate::speech::preview(SPEECH_SOURCE, "花果山，发现梦魇夜叉。")
+    })
+    .await
+    .map_err(|e| format!("试听失败：{e}"))?
 }
 
 #[tauri::command(async)]
@@ -483,7 +485,12 @@ fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
                         .find(|w| w.hwnd == config.hwnd)
                         .map(|w| w.title)
                         .unwrap_or_default();
-                    if state.status.config.as_ref().is_some_and(|cfg| cfg.speech_enabled) {
+                    if state
+                        .status
+                        .config
+                        .as_ref()
+                        .is_some_and(|cfg| cfg.speech_enabled)
+                    {
                         for text in spoken_alerts(&alerts) {
                             crate::speech::announce(SPEECH_SOURCE, text);
                         }
@@ -658,7 +665,7 @@ mod tests {
             .seen
             .entry(spawn.kind)
             .or_default()
-            .absorb(candidates(&[old_spawn.clone()], &spawn), 0);
+            .absorb(candidates(std::slice::from_ref(&old_spawn), &spawn), 0);
         state
             .replace_filters(&[spawn.clone(), king.clone()])
             .unwrap();

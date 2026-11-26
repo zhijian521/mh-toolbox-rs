@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { updateAppearance } from 'glassy-liquid';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import { loadRouteLocation, RouterView, useRoute, useRouter, type RouteLocationNormalizedLoaded } from 'vue-router';
+import {
+    loadRouteLocation,
+    RouterView,
+    useRoute,
+    useRouter,
+    type RouteLocationNormalizedLoaded,
+} from 'vue-router';
 import AlarmHost from './components/AlarmHost.vue';
 import AppIcon from './components/AppIcon.vue';
 import TitleBar from './components/TitleBar.vue';
@@ -106,7 +112,12 @@ const dockPage = computed(() => {
     return typeof key === 'string' ? key : props.items[0]?.key;
 });
 
-const dockIndex = computed(() => Math.max(0, props.items.findIndex(({ key }) => key === dockPage.value)));
+const dockIndex = computed(() =>
+    Math.max(
+        0,
+        props.items.findIndex(({ key }) => key === dockPage.value),
+    ),
+);
 
 // 拖过标签时保留原生玻璃透镜跟手预览；点击和键盘切换由已确认的路由定位。
 function trackDockDrag(event: PointerEvent) {
@@ -121,11 +132,15 @@ function trackDockDrag(event: PointerEvent) {
         bar.removeAttribute('data-drag-preview');
         listeners.abort();
     };
-    window.addEventListener('pointermove', (move) => {
-        if (move.pointerId === event.pointerId && Math.abs(move.clientX - event.clientX) > 6) {
-            bar.setAttribute('data-drag-preview', '');
-        }
-    }, options);
+    window.addEventListener(
+        'pointermove',
+        (move) => {
+            if (move.pointerId === event.pointerId && Math.abs(move.clientX - event.clientX) > 6) {
+                bar.setAttribute('data-drag-preview', '');
+            }
+        },
+        options,
+    );
     window.addEventListener('pointerup', end, options);
     window.addEventListener('pointercancel', end, options);
 }
@@ -141,7 +156,12 @@ function warmDockPage(name: string) {
 
 // 路由解析与上一段收尾并行；已缓存的页面也只需等待短暂的最后几帧。
 const removeDockGuard = router.beforeResolve(async (to, from) => {
-    if (dockRequest?.name === to.name && dockRequest.from === from && dockAnimations.size) {
+    if (
+        dockRequest &&
+        dockRequest.name === to.name &&
+        dockRequest.from === from &&
+        dockAnimations.size
+    ) {
         await Promise.allSettled(Array.from(dockAnimations, (motion) => motion.finished));
     }
 });
@@ -162,10 +182,11 @@ async function navigateDock(name: string) {
 }
 
 function slide(target: Element, from: number, to: number, done?: () => void) {
-    const animation = target.animate(
-        [{ translate: `${from}%` }, { translate: `${to}%` }],
-        { ...dockTiming, id: 'liquid-dock-slide', fill: 'backwards' },
-    );
+    const animation = target.animate([{ translate: `${from}%` }, { translate: `${to}%` }], {
+        ...dockTiming,
+        id: 'liquid-dock-slide',
+        fill: 'backwards',
+    });
     // 同一轮 DOM 更新创建的动画由文档时间线在同一次绘制启动。
     dockAnimations.add(animation);
     const settled = () => {
@@ -193,7 +214,9 @@ function slidePane(el: Element, done: () => void, leaving: boolean) {
     slide(el, leaving ? 0 : edge, leaving ? -edge : 0, done);
     if (!leaving) {
         // 两个公开的 part 与页面在同一次渲染提交中加入文档动画时间线。
-        const parts = dockControl.value?.el?.shadowRoot?.querySelectorAll('[part="indicator"], [part="lens"]');
+        const parts = dockControl.value?.el?.shadowRoot?.querySelectorAll(
+            '[part="indicator"], [part="lens"]',
+        );
         parts?.forEach((part) => slide(part, -dockSteps * 100, 0));
     }
 }
@@ -277,7 +300,13 @@ watch(appearance, () => updateAppearance(), { flush: 'post' });
                     aria-label="应用内容"
                 >
                     <RouterView v-if="route.matched.length && !deferDockView" />
-                    <p v-else-if="!route.matched.length" class="liquid-startup-status" role="status">正在打开账本…</p>
+                    <p
+                        v-else-if="!route.matched.length"
+                        class="liquid-startup-status"
+                        role="status"
+                    >
+                        正在打开账本…
+                    </p>
                 </main>
             </Transition>
         </div>
@@ -286,9 +315,9 @@ watch(appearance, () => updateAppearance(), { flush: 'post' });
                 ref="dockControl"
                 :value="dockPage"
                 :style="{ '--dock-index': dockIndex, '--dock-count': items.length }"
-                @pointerdown.capture="trackDockDrag"
                 class="liquid-dock-bar"
                 aria-label="页面"
+                @pointerdown.capture="trackDockDrag"
                 @update:value="navigateDock"
             >
                 <GlassTab
@@ -322,21 +351,22 @@ body {
     color-scheme: light;
     --lg-appearance: light;
     timeline-scope: --dock-scroll;
-    --lg-accent: light-dark(#276455, #b3e8c6);
-    --lg-selected-text: light-dark(#17352d, #efffec);
-    --liquid-ink: light-dark(#212b29, #ecf2ef);
-    --liquid-focus: light-dark(#276455, #b3e8c6);
-    --liquid-outline: light-dark(#344b3e30, #d1eee32b);
+    --liquid-focus: light-dark(#555, white);
+    --lg-accent: var(--liquid-focus);
+    --lg-selected-text: var(--liquid-ink);
+    --liquid-ink: light-dark(#272727, #f0f0f0);
+    --liquid-outline: light-dark(#40404030, #e4e4e42b);
     --liquid-column-width: min(496px, calc(100% - 24px));
     --liquid-dock-clearance: 88px;
     color: var(--liquid-ink);
     background: var(--liquid-wallpaper) center / cover no-repeat;
-    background-color: light-dark(#e8eee9, #14211f);
+    background-color: light-dark(white, #1c1c1c);
     --font-ui: var(--font-rounded);
     font: var(--fs-base) / 1.5 var(--font-ui);
 }
 
-.liquid-app:is([data-wallpaper-source='system'], [data-wallpaper-source='online']) :where(.liquid-header, .liquid-page-pane h1) {
+.liquid-app:is([data-wallpaper-source='system'], [data-wallpaper-source='online'])
+    :where(.liquid-header, .liquid-page-pane h1) {
     text-shadow: 0 1px 2px light-dark(rgb(255 255 255 / 0.8), rgb(0 0 0 / 0.75));
 }
 
@@ -373,7 +403,7 @@ body {
     --muted: var(--liquid-ink);
     --rule: var(--liquid-outline);
     --paper: light-dark(#ffffff55, #00000026);
-    --paper-2: light-dark(#151f1514, #ffffff21);
+    --paper-2: light-dark(#18181814, #ffffff21);
     --well: var(--paper-2);
     --seal: #b52935;
     --on-seal: #fff;
@@ -452,7 +482,7 @@ body {
     z-index: 2;
     inset: auto 0 0;
     height: var(--liquid-dock-clearance);
-    background: linear-gradient(transparent, light-dark(#dce9e4cc, #182c30d9));
+    background: linear-gradient(transparent, light-dark(#ffffffcc, #282828d9));
     opacity: 0;
     pointer-events: none;
     content: '';
@@ -468,8 +498,12 @@ body {
 }
 
 @keyframes dock-edge-fade {
-    from { opacity: 1; }
-    to { opacity: 0; }
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
 }
 
 .liquid-dock {

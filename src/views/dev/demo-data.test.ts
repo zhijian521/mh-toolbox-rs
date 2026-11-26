@@ -107,13 +107,30 @@ describe('开发页的模拟数据', () => {
         const data = buildDemoData();
         const ids = new Set(data.characters.map((one) => one.id));
         expect(data).toMatchObject({ format: 2, app: 'mh-toolbox-rs' });
-        for (const rows of [data.characters, data.prices, data.income, data.online, data.accounts, data.goals, data.warehouse]) {
+        for (const rows of [
+            data.characters,
+            data.prices,
+            data.income,
+            data.online,
+            data.accounts,
+            data.goals,
+            data.warehouse,
+        ]) {
             expect(rows.length).toBeGreaterThan(0);
             expect(new Set(rows.map((one) => one.id)).size).toBe(rows.length);
         }
         expect(data.income.every((one) => ids.has(one.characterId))).toBe(true);
-        expect(data.online.every((one) => ids.has(one.characterId) && one.endAt! > one.startAt && one.endAt! <= Date.now())).toBe(true);
-        expect(data.goals.every((one) => one.members.every((member) => ids.has(member.id)))).toBe(true);
+        expect(
+            data.online.every(
+                (one) =>
+                    ids.has(one.characterId) &&
+                    one.endAt! > one.startAt &&
+                    one.endAt! <= Date.now(),
+            ),
+        ).toBe(true);
+        expect(data.goals.every((one) => one.members.every((member) => ids.has(member.id)))).toBe(
+            true,
+        );
         expect(new Set(data.goals.map((one) => one.kind))).toEqual(
             new Set(['growth', 'combo', 'money', 'gear', 'manual']),
         );
@@ -121,27 +138,41 @@ describe('开发页的模拟数据', () => {
         expect(data.income.some((one) => one.kind === 'income')).toBe(true);
         expect(data.income.some((one) => one.kind === 'expense')).toBe(true);
         expect(new Set(data.accounts.map((one) => one.currency))).toEqual(new Set(['cash', 'rmb']));
-        expect(new Set(data.accounts.map((one) => one.kind))).toEqual(new Set(['income', 'expense']));
+        expect(new Set(data.accounts.map((one) => one.kind))).toEqual(
+            new Set(['income', 'expense']),
+        );
         const counts = demoCounts(data);
         expect(counts).toEqual({
-            characters: data.characters.length, prices: data.prices.length,
-            income: data.income.length, accounts: data.accounts.length,
-            goals: data.goals.length, warehouse: data.warehouse.length, online: data.online.length,
+            characters: data.characters.length,
+            prices: data.prices.length,
+            income: data.income.length,
+            accounts: data.accounts.length,
+            goals: data.goals.length,
+            warehouse: data.warehouse.length,
+            online: data.online.length,
         });
     });
 
     it('穿戴与买入资产在仓库，已售出仅留成交快照，删除售出后有资料可回仓', () => {
         const data = buildDemoData();
         const stocked = new Set(data.warehouse.map((one) => one.id));
-        const owned = data.characters.flatMap((one) => [...one.gear, ...one.pets])
-            .map((one) => one.warehouseId).filter(Boolean);
+        const owned = data.characters
+            .flatMap((one) => [...one.gear, ...one.pets])
+            .map((one) => one.warehouseId)
+            .filter(Boolean);
         expect(owned.every((id) => stocked.has(id!))).toBe(true);
         expect(stocked.has('demo-bought-pet')).toBe(true);
         expect(stocked.has('demo-sold-gear')).toBe(false);
-        expect(data.accounts.find((one) => one.id === 'demo-account-pet-buy')?.assets?.[0])
-            .toMatchObject({ id: 'demo-bought-pet', kind: 'pet' });
-        expect(data.accounts.find((one) => one.id === 'demo-account-gear-sale')?.assets?.[0])
-            .toMatchObject({ id: 'demo-sold-gear', kind: 'gear', gear: { detail: { name: '霜冷九州' } } });
+        expect(
+            data.accounts.find((one) => one.id === 'demo-account-pet-buy')?.assets?.[0],
+        ).toMatchObject({ id: 'demo-bought-pet', kind: 'pet' });
+        expect(
+            data.accounts.find((one) => one.id === 'demo-account-gear-sale')?.assets?.[0],
+        ).toMatchObject({
+            id: 'demo-sold-gear',
+            kind: 'gear',
+            gear: { detail: { name: '霜冷九州' } },
+        });
     });
 
     it('固定单价对应同名物价的当前价，重复生成编号稳定且没有共享可变对象', () => {
@@ -150,8 +181,11 @@ describe('开发页的模拟数据', () => {
         expect(next.characters.map((one) => one.id)).toEqual(first.characters.map((one) => one.id));
         expect(next.warehouse.map((one) => one.id)).toEqual(first.warehouse.map((one) => one.id));
         for (const price of first.quickPrices) {
-            expect(first.prices.find((one) => one.id === `demo-quick-price-${price.itemId}`)?.points.at(-1)?.price)
-                .toBe(price.price);
+            expect(
+                first.prices
+                    .find((one) => one.id === `demo-quick-price-${price.itemId}`)
+                    ?.points.at(-1)?.price,
+            ).toBe(price.price);
         }
         first.characters[0].name = '临时修改';
         first.warehouse[0].server = '临时修改';

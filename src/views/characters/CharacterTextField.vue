@@ -1,20 +1,28 @@
 <script setup lang="ts">
-import { computed, inject } from 'vue';
+import type { InputHTMLAttributes } from 'vue';
+import { inject } from 'vue';
 import { glassLedger } from '../../components/glass-ledger';
 import GlassInput from '../../components/liquid-glass/GlassInput.vue';
+import GlassCompactField from '../../components/liquid-glass/GlassCompactField.vue';
 
 defineOptions({ inheritAttrs: false });
-const props = defineProps<{ layout?: string; modelValue?: string }>();
-const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
-const value = computed({
-    get: () => props.modelValue ?? '',
-    set: (next: string) => emit('update:modelValue', next),
-});
+defineProps<FieldProps>();
+interface FieldProps extends /* @vue-ignore */ Pick<
+    InputHTMLAttributes,
+    'required' | 'autocomplete' | 'maxlength' | 'placeholder' | 'type'
+> {
+    layout?: string;
+    compact?: boolean;
+}
+const value = defineModel<string>({ default: '' });
 const glass = inject(glassLedger, null);
 </script>
 
 <template>
-    <GlassInput v-if="glass" :class="layout" class="character-text-field">
+    <GlassCompactField v-if="glass && compact" :class="layout">
+        <input v-model="value" v-bind="$attrs" />
+    </GlassCompactField>
+    <GlassInput v-else-if="glass" :class="layout" class="character-text-field">
         <input v-model="value" v-bind="$attrs" />
     </GlassInput>
     <input v-else v-model="value" v-bind="$attrs" class="field" :class="layout" />

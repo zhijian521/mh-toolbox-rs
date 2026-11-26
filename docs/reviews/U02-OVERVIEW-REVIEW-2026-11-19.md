@@ -84,12 +84,12 @@ StatStrip 新增显式 folded 模式，复用已有读数模板、字号、颜�
 
 按用户最新反馈以账号页为字号基准：账号快捷名称用 --fs-base，统计便签采用 StatStrip embedded 默认规格。总览对应项直接沿用，不保留上一轮的专用紧凑字号；队伍名称继续采用 GoalCard 同档的 --fs-md，不缩小已有 10／11px 元信息。
 
-| 内容 | 最终规格 | 作用范围 |
-| ---- | -------- | -------- |
-| 近一周／近一个月标题 | --fs-base × 0.96，约 13px | 与账号统计便签相同 |
-| 周月主要读数 | --fs-amount × 0.9，约 17px | 与账号统计便签相同 |
-| 常用功能名称 | --fs-base，13.5px | 首页、排序草稿及账号快捷名称一致 |
-| 队伍卡片名称 | --fs-md，14.5px | 首页队伍卡片，原约 18.9px |
+| 内容                 | 最终规格                   | 作用范围                         |
+| -------------------- | -------------------------- | -------------------------------- |
+| 近一周／近一个月标题 | --fs-base × 0.96，约 13px  | 与账号统计便签相同               |
+| 周月主要读数         | --fs-amount × 0.9，约 17px | 与账号统计便签相同               |
+| 常用功能名称         | --fs-base，13.5px          | 首页、排序草稿及账号快捷名称一致 |
+| 队伍卡片名称         | --fs-md，14.5px            | 首页队伍卡片，原约 18.9px        |
 
 撤销 StatStrip 的专用字号变量、首页覆盖以及快捷名称的缩小改动，既有快捷字号断言恢复。总览与账号直接共用统计组件的文字和固定票口公式。TeamCard 仍由 TicketCard 的 header 观察实际高度，完整名称换行和等级／门派同行逻辑保留。按钮高度、图标大小、布局、统计口径和数据链均不调整，文字仍随全局字号缩放。
 
@@ -121,18 +121,18 @@ StatStrip 新增显式 folded 模式，复用已有读数模板、字号、颜�
 
 本轮直接改动文件共 10 项，静态核对 10 项、跳过 0 项；这是本轮变更覆盖率 100%，不表示运行验证通过或全仓覆盖。下表之外的既有审查范围与跳过理由继续见后文。
 
-| 文件 | 状态 | 本轮核对 |
-| ---- | ---- | -------- |
-| src/views/overview/TeamCard.vue | 已审查 | 同行结构、换行、语义链接、签头和记录滚动。 |
-| src/components/TicketCard.vue | 已审查 | 可选插槽、引用时序、观察器清理、装饰与内容边界。 |
-| src/views/dev/AtomsSection.vue | 已审查 | header 插槽样例及正确说明。 |
-| src/views/dev/atoms-section.css | 已审查 | 清理样例固定票口公式，线后间距归内容。 |
-| tools/e2e/sections/01-nav.mjs | 已审查 | 同行／长名称／票口几何断言；只暂改展示文字，finally 还原，不写名册。未运行。 |
-| docs/CONVENTIONS.md | 已审查 | 固定与可变签头各自契约。 |
-| docs/ARCHITECTURE.md | 已审查 | 组件职责及观察器生命周期。 |
-| docs/RECORD.md | 已审查 | 最新行为与未执行范围。 |
-| docs/OPTIMIZATION-PLAN-2026-11-18.md | 已审查 | 仅更新 U02 当前批次，不推进其他包。 |
-| docs/reviews/U02-OVERVIEW-REVIEW-2026-11-19.md | 已审查 | 更新覆盖、结论与待验项，保留既有证据。 |
+| 文件                                           | 状态   | 本轮核对                                                                     |
+| ---------------------------------------------- | ------ | ---------------------------------------------------------------------------- |
+| src/views/overview/TeamCard.vue                | 已审查 | 同行结构、换行、语义链接、签头和记录滚动。                                   |
+| src/components/TicketCard.vue                  | 已审查 | 可选插槽、引用时序、观察器清理、装饰与内容边界。                             |
+| src/views/dev/AtomsSection.vue                 | 已审查 | header 插槽样例及正确说明。                                                  |
+| src/views/dev/atoms-section.css                | 已审查 | 清理样例固定票口公式，线后间距归内容。                                       |
+| tools/e2e/sections/01-nav.mjs                  | 已审查 | 同行／长名称／票口几何断言；只暂改展示文字，finally 还原，不写名册。未运行。 |
+| docs/CONVENTIONS.md                            | 已审查 | 固定与可变签头各自契约。                                                     |
+| docs/ARCHITECTURE.md                           | 已审查 | 组件职责及观察器生命周期。                                                   |
+| docs/RECORD.md                                 | 已审查 | 最新行为与未执行范围。                                                       |
+| docs/OPTIMIZATION-PLAN-2026-11-18.md           | 已审查 | 仅更新 U02 当前批次，不推进其他包。                                          |
+| docs/reviews/U02-OVERVIEW-REVIEW-2026-11-19.md | 已审查 | 更新覆盖、结论与待验项，保留既有证据。                                       |
 
 新增烟测会暂改真实签头的 DOM 文字，使原生观察器响应长名称，再读取换行、等级／门派、票口及记录区几何，最后恢复文字和装饰节点；不调用名册修改或保存。日常档未执行该断言，也未运行任何其他测试、检查、构建、截图或性能采样。
 
@@ -140,36 +140,36 @@ StatStrip 新增显式 folded 模式，复用已有读数模板、字号、颜�
 
 按下列审查单元登记：13 项已静态审查，3 项明确跳过。表中的依赖审查仅指首页直接使用的入口和相关区段，不等于整个依赖文件或领域的全面审查。
 
-| 单元 | 状态 | 范围与结论 |
-| ---- | ---- | ---------- |
-| OverviewView.vue、overview.css | 已审查 | 数据源、错误映射、区块次序、周月读数、上线按钮状态、横滚及响应布局；保留页面聚合与编排职责。 |
-| overview.ts、overview.test.ts | 已审查 | 七天连续趋势、日历月回退、月末处理、双币汇总与边界断言；不改变统计口径。 |
-| TeamCard.vue、team-activity.ts 及测试 | 已审查 | 按业务发生日期选最近记录，账号收支独立、名册次序不变、缺失值与错误分开；底影与名称／等级／门派同行调整如上。 |
-| shortcuts.ts、shortcuts.test.ts | 已审查 | 目录、路由、默认入口、去重、失效项、明确清空和移动边界；已有自定义顺序不强插仓库。 |
-| OverviewShortcuts.vue、ShortcutFace.vue | 已审查 | 页面入口、角色选择、外链错误、仓库弹窗、保存失败保留草稿，以及本批展示提取。 |
-| ShortcutEditor.vue、ShortcutSortTile.vue、shortcut-editor.css | 已审查 | 独立草稿、添加移除、搜索分类、管理器销毁、指针与键盘、取消与保存边界；未认定未复现的拖动手感为功能缺陷。 |
-| PaperCard.vue、LedgerSection.vue、TicketCard.vue | 已审查 | 标签与属性透传、plain 默认值、标题操作插槽、固定高度与滚动边界；卡内票据的可变签头与观察器由组件管理，内容与焦点不参与遮罩。 |
-| PressTile、StatStrip、TrendChart、GoalProgress | 已审查 | 首页使用模式及相关变更：侧签不位移、统计只展示、图表一层外壳、主题刻度。图表既有监听清理与键盘入口保留。 |
-| token-core、base、materials、theme-materials | 已审查 | 首页关联的圆角、配色、卡面、票据及主题覆盖；维持唯一真源，不复制到页面或预览。 |
-| startup、五领域 store、daily-sync、共享时钟 | 已审查 | 启动先加载，首页读同一状态；日期和分钟来自共享时钟；日同步保留原入口及错误展示，无新增写入链。 |
-| home-shortcuts 及测试、storage、desktop、lazy-dialog | 已审查 | 偏好读写失败、IPC 返回失败、外链打开结果、加载取消及失败重试；系统能力仍仅由 services 暴露。 |
-| bindings、Rust 命令与 store 读取实现 | 已审查 | 核对角色、收益、账号、目标、上线五条读取命令、两张命令登记及字段；本批不改命令、库结构与事务。 |
-| package.json／lock、开发样例、01-nav、现行文档 | 已审查 | dnd-kit Vue／DOM 固定 0.5.3，Vue peer 范围兼容，lock 指向 npm 且有完整性记录，无新增安装脚本；样例及相关断言、规范同步。 |
-| 仓库／角色／目标等被打开页面的内部编辑和 OCR 全流程 | 已跳过 | 本批只追踪入口与现有加载链，未改内部表单、识别或保存；这些领域仍按对应工作包审查。 |
-| 游戏规则、图集生成、字体制作及打包流水线 | 已跳过 | 本批没有新资源或业务规则，沿用既有图标与游戏规则加载。未审资源真实性和再生成过程。 |
-| 未选 HTML 提案及其余页面 | 已跳过 | 历史提案不参与正式首页运行；未改其余页面，不宣称全仓覆盖。 |
+| 单元                                                          | 状态   | 范围与结论                                                                                                                   |
+| ------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| OverviewView.vue、overview.css                                | 已审查 | 数据源、错误映射、区块次序、周月读数、上线按钮状态、横滚及响应布局；保留页面聚合与编排职责。                                 |
+| overview.ts、overview.test.ts                                 | 已审查 | 七天连续趋势、日历月回退、月末处理、双币汇总与边界断言；不改变统计口径。                                                     |
+| TeamCard.vue、team-activity.ts 及测试                         | 已审查 | 按业务发生日期选最近记录，账号收支独立、名册次序不变、缺失值与错误分开；底影与名称／等级／门派同行调整如上。                 |
+| shortcuts.ts、shortcuts.test.ts                               | 已审查 | 目录、路由、默认入口、去重、失效项、明确清空和移动边界；已有自定义顺序不强插仓库。                                           |
+| OverviewShortcuts.vue、ShortcutFace.vue                       | 已审查 | 页面入口、角色选择、外链错误、仓库弹窗、保存失败保留草稿，以及本批展示提取。                                                 |
+| ShortcutEditor.vue、ShortcutSortTile.vue、shortcut-editor.css | 已审查 | 独立草稿、添加移除、搜索分类、管理器销毁、指针与键盘、取消与保存边界；未认定未复现的拖动手感为功能缺陷。                     |
+| PaperCard.vue、LedgerSection.vue、TicketCard.vue              | 已审查 | 标签与属性透传、plain 默认值、标题操作插槽、固定高度与滚动边界；卡内票据的可变签头与观察器由组件管理，内容与焦点不参与遮罩。 |
+| PressTile、StatStrip、TrendChart、GoalProgress                | 已审查 | 首页使用模式及相关变更：侧签不位移、统计只展示、图表一层外壳、主题刻度。图表既有监听清理与键盘入口保留。                     |
+| token-core、base、materials、theme-materials                  | 已审查 | 首页关联的圆角、配色、卡面、票据及主题覆盖；维持唯一真源，不复制到页面或预览。                                               |
+| startup、五领域 store、daily-sync、共享时钟                   | 已审查 | 启动先加载，首页读同一状态；日期和分钟来自共享时钟；日同步保留原入口及错误展示，无新增写入链。                               |
+| home-shortcuts 及测试、storage、desktop、lazy-dialog          | 已审查 | 偏好读写失败、IPC 返回失败、外链打开结果、加载取消及失败重试；系统能力仍仅由 services 暴露。                                 |
+| bindings、Rust 命令与 store 读取实现                          | 已审查 | 核对角色、收益、账号、目标、上线五条读取命令、两张命令登记及字段；本批不改命令、库结构与事务。                               |
+| package.json／lock、开发样例、01-nav、现行文档                | 已审查 | dnd-kit Vue／DOM 固定 0.5.3，Vue peer 范围兼容，lock 指向 npm 且有完整性记录，无新增安装脚本；样例及相关断言、规范同步。     |
+| 仓库／角色／目标等被打开页面的内部编辑和 OCR 全流程           | 已跳过 | 本批只追踪入口与现有加载链，未改内部表单、识别或保存；这些领域仍按对应工作包审查。                                           |
+| 游戏规则、图集生成、字体制作及打包流水线                      | 已跳过 | 本批没有新资源或业务规则，沿用既有图标与游戏规则加载。未审资源真实性和再生成过程。                                           |
+| 未选 HTML 提案及其余页面                                      | 已跳过 | 历史提案不参与正式首页运行；未改其余页面，不宣称全仓覆盖。                                                                   |
 
 ## 数据、服务与 Rust 证据链
 
-| 展示 | 从页面到数据源 | 已确认的边界 |
-| ---- | -------------- | ------------ |
-| 近一周净额、收益趋势 | OverviewView → weekSeries → income-store → storage.incomeLoad → bindings.incomeLoad → store::income_load → store/income.rs::load_income → income_entries | 今天及此前六天、支出为负；按业务日期筛选，不按创建时间跨入区间。 |
-| 周在线时长与点卡 | OverviewView → rangeOf('week')／onlineTotalsOf → online-store → storage.onlineLoad → online_load → store/online.rs::load_online → online_sessions／online_settings | 用同一切天口径计算，存储分钟与消费单价来自原领域。cardCost 控制是否自动记账号支出，关闭不会让已发生的点卡消耗消失。 |
-| 近一个月双币收支 | OverviewView → workbenchSummary → filterAccounts／accountStatsByCurrency → accounts-store → storage.accountLoad → account_load → store/accounts.rs::load_accounts → account_entries | 近一月按日历回退、月末夹取；区间含两端；人民币与梦幻币独立汇总，只读取账号账，不再次加收益或点卡。 |
-| 目标进度 | OverviewGoals → activeGoals → goals-store + roster → storage.goalLoad／charactersLoad → goals_load／characters_load → load_records | 使用原目标摘要和排序，不另存一套首页进度；角色与目标读取失败有提示，不显示为零目标。 |
-| 队伍最近记录 | TeamCard → teamActivity → roster／income／online／accounts 的现有只读状态 | 每个角色分别选最近记录，账号收入与支出各一条，金额保留记录本身币种。 |
-| 自定义快捷入口 | OverviewShortcuts → normalizeShortcutIds／moveShortcut → services/home-shortcuts → localStorage | 只在保存时写本机偏好；取消不写，保存失败不关闭或丢草稿，不写 SQLite，也不随账本导出。 |
-| 仓库和截图入口 | OverviewShortcuts → lazyDialog(WarehouseDialog)；截图入口 → characters 路由 | 共用原模块，不复制识别与物品状态；启动链先加载规则、名册和库存，内部编辑链本轮未全审。 |
+| 展示                 | 从页面到数据源                                                                                                                                                                      | 已确认的边界                                                                                                        |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 近一周净额、收益趋势 | OverviewView → weekSeries → income-store → storage.incomeLoad → bindings.incomeLoad → store::income_load → store/income.rs::load_income → income_entries                            | 今天及此前六天、支出为负；按业务日期筛选，不按创建时间跨入区间。                                                    |
+| 周在线时长与点卡     | OverviewView → rangeOf('week')／onlineTotalsOf → online-store → storage.onlineLoad → online_load → store/online.rs::load_online → online_sessions／online_settings                  | 用同一切天口径计算，存储分钟与消费单价来自原领域。cardCost 控制是否自动记账号支出，关闭不会让已发生的点卡消耗消失。 |
+| 近一个月双币收支     | OverviewView → workbenchSummary → filterAccounts／accountStatsByCurrency → accounts-store → storage.accountLoad → account_load → store/accounts.rs::load_accounts → account_entries | 近一月按日历回退、月末夹取；区间含两端；人民币与梦幻币独立汇总，只读取账号账，不再次加收益或点卡。                  |
+| 目标进度             | OverviewGoals → activeGoals → goals-store + roster → storage.goalLoad／charactersLoad → goals_load／characters_load → load_records                                                  | 使用原目标摘要和排序，不另存一套首页进度；角色与目标读取失败有提示，不显示为零目标。                                |
+| 队伍最近记录         | TeamCard → teamActivity → roster／income／online／accounts 的现有只读状态                                                                                                           | 每个角色分别选最近记录，账号收入与支出各一条，金额保留记录本身币种。                                                |
+| 自定义快捷入口       | OverviewShortcuts → normalizeShortcutIds／moveShortcut → services/home-shortcuts → localStorage                                                                                     | 只在保存时写本机偏好；取消不写，保存失败不关闭或丢草稿，不写 SQLite，也不随账本导出。                               |
+| 仓库和截图入口       | OverviewShortcuts → lazyDialog(WarehouseDialog)；截图入口 → characters 路由                                                                                                         | 共用原模块，不复制识别与物品状态；启动链先加载规则、名册和库存，内部编辑链本轮未全审。                              |
 
 storage 对命令异常返回失败结果，由 store 的 loadData 与写保护处理；Rust 查询保留失败信息。角色与目标的 load_records 对损坏 JSON 报错，未把损坏数据静默视为空表。首页不直接调用 invoke，不新增数据库读写或改变固定数据目录。
 

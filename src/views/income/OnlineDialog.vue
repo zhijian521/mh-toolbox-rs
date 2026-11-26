@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch, useId } from 'vue';
+import { computed, inject, ref, watch, useId } from 'vue';
+import { glassLedger } from '../../components/glass-ledger';
+import GlassMultiSelect from '../../components/liquid-glass/GlassMultiSelect.vue';
+import GlassDateField from '../../components/liquid-glass/GlassDateField.vue';
+import GlassInput from '../../components/liquid-glass/GlassInput.vue';
 import DateField from '../../components/DateField.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
@@ -26,6 +30,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{ close: [] }>();
+const glass = inject(glassLedger, null);
 
 const { startOnline, backfillOnline, updateOnline, removeOnline, flush, retry, writeError } =
     useOnline();
@@ -232,12 +237,17 @@ const submitText = computed(() => {
 </script>
 
 <template>
-    <ModalShell :title="title" :width="420" :scroll="false" @close="close">
-        <form class="income-form modal-form" @submit.prevent="submit">
+    <ModalShell class="online-editor" :title="title" :width="460" @close="close">
+        <form
+            class="income-form modal-form"
+            :class="{ 'lg-form-fields': glass }"
+            @submit.prevent="submit"
+        >
             <fieldset class="income-form" :disabled="locked" :inert="locked">
                 <div class="form-field character-pick">
                     <span class="field-label">记给谁</span>
-                    <TogglePills
+                    <component
+                        :is="glass ? GlassMultiSelect : TogglePills"
                         v-model="selectedIds"
                         class="wrap"
                         :options="roleOptions"
@@ -251,13 +261,15 @@ const submitText = computed(() => {
 
                 <template v-if="mode !== 'start'">
                     <div :class="editableEnd ? 'form-pair' : 'form-field'">
-                        <DateField
+                        <component
+                            :is="glass ? GlassDateField : DateField"
                             v-model="date"
                             :label="editableEnd ? '开始日期' : '日期'"
                             :max="todayText()"
                             :disabled="locked"
                         />
-                        <DateField
+                        <component
+                            :is="glass ? GlassDateField : DateField"
                             v-if="editableEnd"
                             v-model="endDate"
                             label="结束日期"
@@ -266,11 +278,12 @@ const submitText = computed(() => {
                         />
                     </div>
                     <div class="times form-pair">
-                        <TimeField v-model="startTime" label="开始" />
+                        <TimeField v-model="startTime" label="开始" :glass="!!glass" />
                         <TimeField
                             v-if="mode === 'backfill' || editableEnd"
                             v-model="endTime"
                             label="结束"
+                            :glass="!!glass"
                         />
                         <div v-else class="form-field end-time">
                             <span class="field-label">结束</span>
@@ -286,7 +299,17 @@ const submitText = computed(() => {
 
                 <div class="form-field">
                     <label class="field-label" :for="noteId">备注</label>
+                    <GlassInput
+                        v-if="glass"
+                        :id="noteId"
+                        v-model="note"
+                        :disabled="locked"
+                        type="text"
+                        autocomplete="off"
+                        maxlength="40"
+                    />
                     <input
+                        v-else
                         :id="noteId"
                         v-model="note"
                         class="field"

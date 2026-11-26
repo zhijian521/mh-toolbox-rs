@@ -65,7 +65,9 @@ export function lazyDialog<T extends Component>(
                     clearTimeout(loadingTimer);
                     // 显示过占位窗时直接交接原触发点，避免聚焦仍被 inert 的父窗。
                     if (status.value) {
-                        status.value?.closest('.modal-mask')?.setAttribute('data-modal-replaced', '');
+                        status.value
+                            ?.closest('.modal-mask')
+                            ?.setAttribute('data-modal-replaced', '');
                         handoff.pending = true;
                     }
                     component.value = loaded;

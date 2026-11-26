@@ -3,13 +3,20 @@ import NumberField from '../NumberField.vue';
 import GlassInput from './GlassInput.vue';
 
 defineOptions({ inheritAttrs: false });
-defineProps<{ label: string; updateOnInput?: boolean }>();
+defineProps<{ label: string; updateOnInput?: boolean; disabled?: boolean }>();
 const value = defineModel<number>({ required: true });
 </script>
 
 <template>
     <GlassInput class="glass-number-field">
-        <NumberField v-model="value" bare :label="label" :update-on-input="updateOnInput" v-bind="$attrs" />
+        <NumberField
+            v-model="value"
+            bare
+            :label="label"
+            :disabled="disabled"
+            :update-on-input="updateOnInput"
+            v-bind="$attrs"
+        />
     </GlassInput>
 </template>
 

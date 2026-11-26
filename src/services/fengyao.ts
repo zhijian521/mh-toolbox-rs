@@ -11,8 +11,7 @@ import { readLocalData, writePreference } from './local-data';
 export type { WatchStatus_Serialize as WatchStatus } from './bindings';
 
 export const fengyaoStatus = () => commands.fengyaoStatus();
-export const startFengyao = (config: WatchConfig_Deserialize) =>
-    commands.fengyaoStart(config);
+export const startFengyao = (config: WatchConfig_Deserialize) => commands.fengyaoStart(config);
 export const updateFengyao = (reminders: ReminderFilter[]) => commands.fengyaoUpdate(reminders);
 export const stopFengyao = () => commands.fengyaoStop();
 
@@ -92,7 +91,7 @@ function parsePreferences(raw: unknown): FengyaoPreferences {
         if (!setting || seen.has(setting.kind)) throw new TypeError('提醒设置无效');
         seen.add(setting.kind);
         setting.enabled = rawSetting.enabled;
-        setting.scenes = setting.kind === 'fengyao' ? [...new Set(rawSetting.scenes)] : [];
+        setting.scenes = setting.kind === 'fengyao' ? [...new Set<string>(rawSetting.scenes)] : [];
     }
     // 旧版只有前四类，新类型沿用默认关闭。
     if (reminders.some(({ kind }) => !['stars', 'nursery'].includes(kind) && !seen.has(kind))) {
@@ -113,11 +112,15 @@ export async function listFengyaoWindows() {
     const windows = await commands.ghostWindows();
     return windows.filter(
         ({ title }) =>
-            title.trim() === '聊天窗口' || (/聊天窗口/u.test(title) && /梦幻西游|mhtab/iu.test(title)),
+            title.trim() === '聊天窗口' ||
+            (/聊天窗口/u.test(title) && /梦幻西游|mhtab/iu.test(title)),
     );
 }
 
-export async function readFengyaoFrame(hwnd: number, expectedTitle: string): Promise<MessageRegion> {
+export async function readFengyaoFrame(
+    hwnd: number,
+    expectedTitle: string,
+): Promise<MessageRegion> {
     const { width, height, title } = await commands.fengyaoCapture(hwnd);
     if (title !== expectedTitle) throw new Error('聊天窗口已变化，请刷新后重新选择');
     return { x: 0, y: 0, width, height, frameWidth: width, frameHeight: height };

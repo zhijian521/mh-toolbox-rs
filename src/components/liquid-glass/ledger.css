@@ -16,7 +16,7 @@
     --w-hair: 1px;
     --well: var(--ledger-surface);
     --seal: var(--liquid-focus);
-    --on-seal: light-dark(white, #172b23);
+    --on-seal: light-dark(white, #222);
     --ring: 1px solid var(--liquid-focus);
     --ring-offset: 2px;
     --ring-inv: var(--ring);
@@ -36,8 +36,8 @@
     --t-modal-stagger: 0ms;
     --ease-soft: ease-out;
     --ease-snap: ease-out;
-    --ledger-surface: light-dark(rgb(255 255 255 / 0.22), rgb(177 226 209 / 0.08));
-    --ledger-highlight: light-dark(rgb(255 255 255 / 0.50), rgb(230 255 247 / 0.15));
+    --ledger-surface: light-dark(rgb(255 255 255 / 0.22), rgb(255 255 255 / 0.08));
+    --ledger-highlight: light-dark(rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.15));
     --bevel-hi: var(--ledger-highlight);
     --bevel-lo: var(--liquid-outline);
     --slip-background: var(--ledger-surface);
@@ -48,10 +48,10 @@
     --indigo-ink: light-dark(#50597e, #bdc8f3);
     --t-tip: var(--t-quick);
     --block-pad-tight: 12px;
-    --shadow: rgb(15 35 29 / 0.14);
+    --shadow: rgb(28 28 28 / 0.14);
     --ledger-selected: color-mix(in srgb, var(--liquid-focus) 15%, var(--ledger-highlight));
     --ledger-rim: var(--lg-edge-rim);
-    --popover-bg: light-dark(#f0f7f3, #263a34);
+    --popover-bg: var(--lg-popup-solid);
     --popover-edge: var(--liquid-outline);
     --popover-shadow: var(--lg-dialog-shadow);
     color: var(--liquid-ink);
@@ -131,8 +131,12 @@
 .liquid-ledger :is(.num, .v, .c-num, .time-readout) {
     font-variant-numeric: tabular-nums;
 }
-.liquid-ledger :is(.gain, .live) { color: var(--positive); }
-.liquid-ledger :is(.loss, .error, .danger-action) { color: var(--negative); }
+.liquid-ledger :is(.gain, .live) {
+    color: var(--positive);
+}
+.liquid-ledger :is(.loss, .error, .danger-action) {
+    color: var(--negative);
+}
 .liquid-ledger .note {
     font-size: var(--fs-sm);
     line-height: 1.5;
@@ -165,8 +169,12 @@
     --glass-button-padding: 6px;
     --icon-size: 12px;
 }
-.liquid-ledger .glass-ledger-button.size-lg { --glass-button-height: 32px; }
-.liquid-ledger .glass-ledger-button.danger-action { --glass-foreground: var(--negative); }
+.liquid-ledger .glass-ledger-button.size-lg {
+    --glass-button-height: 32px;
+}
+.liquid-ledger .glass-ledger-button.danger-action {
+    --glass-foreground: var(--negative);
+}
 .liquid-ledger :is(.bevel-pill.on, .step-thumb, .cost-thumb, .is-active .keycap-face) {
     background: var(--ledger-selected);
 }
@@ -218,7 +226,9 @@
     border-radius: 999px;
     transition: transform var(--t-thumb) var(--ease-soft);
 }
-.liquid-ledger .cost-thumb.right { transform: translateX(100%); }
+.liquid-ledger .cost-thumb.right {
+    transform: translateX(100%);
+}
 .liquid-ledger :is(.cost-opt, .step-opt) {
     position: relative;
     padding: 4px 8px;
@@ -227,8 +237,12 @@
     color: inherit;
     cursor: pointer;
 }
-.liquid-ledger .cost-opt { min-height: var(--online-action-h, 26px); }
-.liquid-ledger .track-opt[aria-checked='true'] { color: var(--ink); }
+.liquid-ledger .cost-opt {
+    min-height: var(--online-action-h, 26px);
+}
+.liquid-ledger .track-opt[aria-checked='true'] {
+    color: var(--ink);
+}
 .liquid-ledger :is(.chart-scroll, .record-role-slider) {
     scrollbar-width: none;
     scrollbar-gutter: auto;
@@ -252,7 +266,9 @@
 .liquid-ledger .modal-panel {
     backdrop-filter: blur(var(--lg-dialog-blur));
 }
-.liquid-ledger .modal-head { padding-block: 9px; }
+.liquid-ledger .modal-head {
+    padding-block: 9px;
+}
 .liquid-ledger .modal-foot {
     display: flex;
     align-items: center;
@@ -262,8 +278,12 @@
     padding: 8px 16px 12px;
     border-top: 1px solid var(--rule);
 }
-.liquid-ledger .save-error { flex-basis: 100%; }
-.liquid-ledger :is(.foot-left, .record-foot-note) { margin-right: auto; }
+.liquid-ledger .save-error {
+    flex-basis: 100%;
+}
+.liquid-ledger :is(.foot-left, .record-foot-note) {
+    margin-right: auto;
+}
 .liquid-ledger .form-field {
     display: grid;
     gap: 5px;
@@ -298,8 +318,13 @@
     outline: none;
     background-color: var(--ledger-highlight);
 }
-.liquid-ledger :is(button, [tabindex]):focus-visible { outline-offset: 2px; }
-.liquid-ledger :is(button, input):disabled { cursor: default; opacity: 0.56; }
+.liquid-ledger :is(button, [tabindex]):focus-visible {
+    outline-offset: 2px;
+}
+.liquid-ledger :is(button, input):disabled {
+    cursor: default;
+    opacity: 0.56;
+}
 .liquid-ledger :is(.record-filters, .income-ops) {
     display: flex;
     flex-wrap: wrap;
@@ -311,9 +336,15 @@
     min-width: 0;
     margin-bottom: 8px;
 }
-.liquid-ledger .record-roles { overflow-x: auto; }
-.liquid-ledger .record-role-slider { min-width: max-content; }
-.liquid-ledger .record-role-slider .step-opt { white-space: nowrap; }
+.liquid-ledger .record-roles {
+    overflow-x: auto;
+}
+.liquid-ledger .record-role-slider {
+    min-width: max-content;
+}
+.liquid-ledger .record-role-slider .step-opt {
+    white-space: nowrap;
+}
 .liquid-ledger .record-role-value {
     display: inline-block;
     margin-left: 4px;
@@ -357,20 +388,28 @@
     border-bottom: 1px solid var(--rule);
     font-weight: 400;
 }
-.liquid-ledger .income-table tbody tr:last-child td { border-bottom: 0; }
+.liquid-ledger .income-table tbody tr:last-child td {
+    border-bottom: 0;
+}
 .liquid-ledger .record-empty {
     padding: 22px 10px;
     color: var(--muted);
     text-align: center;
 }
-.liquid-ledger .income-ops { flex-wrap: nowrap; }
+.liquid-ledger .income-ops {
+    flex-wrap: nowrap;
+}
 @media (max-width: 560px) {
-    .liquid-ledger.modal-mask { padding: 10px; }
+    .liquid-ledger.modal-mask {
+        padding: 10px;
+    }
     .liquid-ledger .modal-panel {
         width: min(var(--modal-w), calc(100dvw - 20px));
         max-height: calc(100dvh - 20px);
     }
-    .liquid-ledger .income-table:not(.rec-table) { min-width: 500px; }
+    .liquid-ledger .income-table:not(.rec-table) {
+        min-width: 500px;
+    }
 }
 
 /* 旧业务组件共用表单几何，玻璃层统一提供底色与聚焦反馈。 */

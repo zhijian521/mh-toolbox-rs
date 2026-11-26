@@ -50,15 +50,16 @@ import FoldedCard from './FoldedCard.vue';
 import type { IconName } from './icons';
 import PaperCard from './PaperCard.vue';
 import TicketCard from './TicketCard.vue';
+import { GlassCard } from './liquid-glass';
 
 /**
- * 独立统计沿用 PaperCard；embedded 用票据，folded 用侧折纸卡，共用读数排版。
+ * standalone 每项独立成卡，embedded、folded 和 glass 在同一张卡内排列读数。
  * 组件只排列已格式化读数，统计口径、加载状态和正负判断由业务提供。
  */
 withDefaults(
     defineProps<{
         items: StatItem[];
-        surface?: 'standalone' | 'embedded' | 'folded';
+        surface?: 'standalone' | 'embedded' | 'folded' | 'glass';
         spine?: 'left' | 'right';
         heading?: string;
         hint?: string;
@@ -67,21 +68,31 @@ withDefaults(
     { surface: 'standalone', spine: 'right', heading: '', hint: '' },
 );
 
-const surfaces = { standalone: 'section', embedded: TicketCard, folded: FoldedCard };
+const surfaces = {
+    standalone: 'section',
+    embedded: TicketCard,
+    folded: FoldedCard,
+    glass: GlassCard,
+};
 </script>
 
 <template>
     <component
         :is="surfaces[surface]"
+        :radius="surface === 'glass' ? 18 : undefined"
         :spine="surface === 'folded' ? spine : undefined"
         class="stats"
-        :class="{ 'stats-embedded': surface !== 'standalone', 'stats-folded': surface === 'folded' }"
+        :class="{
+            'stats-embedded': surface !== 'standalone',
+            'stats-folded': surface === 'folded',
+            'stats-glass': surface === 'glass',
+        }"
         :style="{ '--stat-n': items.length }"
     >
         <header
             v-if="heading"
             class="stats-head"
-            :class="{ 'ticket-rule': surface !== 'standalone' }"
+            :class="{ 'ticket-rule': surface === 'embedded' || surface === 'folded' }"
             :title="hint"
         >
             <AppIcon
@@ -90,6 +101,7 @@ const surfaces = { standalone: 'section', embedded: TicketCard, folded: FoldedCa
                 class="stats-heading-icon"
             />
             <h3>{{ heading }}</h3>
+            <div v-if="$slots.actions" class="stats-actions"><slot name="actions" /></div>
         </header>
         <component
             :is="surface !== 'standalone' ? 'div' : PaperCard"
@@ -200,7 +212,7 @@ const surfaces = { standalone: 'section', embedded: TicketCard, folded: FoldedCa
     white-space: nowrap;
 }
 
-.stats-embedded:not(.stats-folded) {
+.stats-embedded:not(.stats-folded, .stats-glass) {
     --ticket-notch-y: calc(12px + var(--fs-base) * 0.96 * 1.3 + 10.5px);
 
     padding: 12px 16px 15px;
@@ -213,6 +225,14 @@ const surfaces = { standalone: 'section', embedded: TicketCard, folded: FoldedCa
 .stats-head {
     grid-column: 1 / -1;
     min-width: 0;
+}
+.stats-head:has(.stats-actions) {
+    flex-wrap: wrap;
+}
+.stats-actions {
+    min-width: 0;
+    max-width: 100%;
+    margin-inline-start: auto;
 }
 .stats-folded {
     --folded-pad-block: 15px 18px;
@@ -238,6 +258,14 @@ const surfaces = { standalone: 'section', embedded: TicketCard, folded: FoldedCa
 .stats-embedded .stats-head h3 {
     color: var(--ink);
     line-height: 1.3;
+}
+.stats-glass {
+    padding: var(--block-pad);
+}
+.stats-glass .stats-head {
+    margin: 0;
+    padding: 0;
+    border: 0;
 }
 .stats-embedded .stat {
     position: relative;

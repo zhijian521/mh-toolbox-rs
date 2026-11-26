@@ -54,7 +54,10 @@ function recordAmount(record: NonNullable<TeamActivity['income' | 'accountIncome
                     <dd v-if="incomeUnavailable" class="team-detail">未读取</dd>
                     <dd v-else-if="activity.income" class="team-record-line">
                         <span class="team-detail">
-                            {{ activity.income.item || (activity.income.kind === 'income' ? '收入' : '支出') }}
+                            {{
+                                activity.income.item ||
+                                (activity.income.kind === 'income' ? '收入' : '支出')
+                            }}
                         </span>
                         <time class="team-date" :datetime="activity.income.date">
                             {{ shortDate(activity.income.date) }}
@@ -70,7 +73,10 @@ function recordAmount(record: NonNullable<TeamActivity['income' | 'accountIncome
                     <dd v-if="accountsUnavailable" class="team-detail">未读取</dd>
                     <template v-else>
                         <dd
-                            v-for="(record, index) in [activity.accountIncome, activity.accountExpense]"
+                            v-for="(record, index) in [
+                                activity.accountIncome,
+                                activity.accountExpense,
+                            ]"
                             :key="index"
                             class="team-record-line"
                         >

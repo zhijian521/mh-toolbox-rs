@@ -123,7 +123,12 @@ const chart = computed(() => chartPrices(props.item, undefined, points.value));
         </table>
         <p v-else class="note hist-blank">还没有价格记录</p>
 
-        <PriceChart v-if="rows.length" class="hist-chart" :points="chart" :total="item.points.length" />
+        <PriceChart
+            v-if="rows.length"
+            class="hist-chart"
+            :points="chart"
+            :total="item.points.length"
+        />
 
         <template #footer>
             <PressButton text="改物品" label="编辑这件物品的名称与分类" @click="emit('editItem')" />

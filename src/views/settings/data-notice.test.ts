@@ -22,8 +22,12 @@ describe('整本替换后的回执交接', () => {
 
     it('回执存储不可用也必须重载，不能继续使用替换前的内存', () => {
         vi.stubGlobal('sessionStorage', {
-            setItem: () => { throw new Error('不可写'); },
-            getItem: () => { throw new Error('不可读'); },
+            setItem: () => {
+                throw new Error('不可写');
+            },
+            getItem: () => {
+                throw new Error('不可读');
+            },
         });
         const reload = vi.fn();
         vi.stubGlobal('location', { reload });

@@ -49,6 +49,12 @@ const items = computed(() => {
 </template>
 
 <style scoped>
-.goal-resources { min-width: 0; }
-.resource-note { margin: 0; color: var(--muted); font-size: var(--fs-xs); }
+.goal-resources {
+    min-width: 0;
+}
+.resource-note {
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+}
 </style>

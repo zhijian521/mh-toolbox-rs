@@ -100,7 +100,10 @@ fn daily_backups_preserve_data_and_throttle_after_rotation() {
     let backups = dir.join("backups");
     std::fs::remove_file(backups.join(DAILY_STAMP)).unwrap();
     for offset in 1..=BACKUP_KEEP {
-        let path = backups.join(format!("{AUTO_BACKUP_PREFIX}{}.json", start + offset as i64));
+        let path = backups.join(format!(
+            "{AUTO_BACKUP_PREFIX}{}.json",
+            start + offset as i64
+        ));
         write_to(&path, &saved).unwrap();
     }
     for offset in [60_000, 86_399_999] {
@@ -125,7 +128,11 @@ fn daily_backups_preserve_data_and_throttle_after_rotation() {
 
 #[test]
 fn daily_backup_restarts_schedule_after_clock_rollback() {
-    let dir = std::env::temp_dir().join(format!("mh-daily-clock-{}-{}", std::process::id(), now_ms()));
+    let dir = std::env::temp_dir().join(format!(
+        "mh-daily-clock-{}-{}",
+        std::process::id(),
+        now_ms()
+    ));
     let start = 1_800_000_000_000;
     let future = start + 100 * 86_400_000;
     let backups = dir.join("backups");
@@ -662,8 +669,7 @@ fn prune_backups_keeps_latest_five_across_kinds() {
         }
     };
     for stamp in 1..=15 {
-        std::fs::write(dir.join(format!("{}{stamp}.json", prefix(stamp))), b"{}")
-            .expect("写备份");
+        std::fs::write(dir.join(format!("{}{stamp}.json", prefix(stamp))), b"{}").expect("写备份");
     }
     /* 两个干扰项：同前缀但不是时间戳、以及用户自己的导出。 */
     std::fs::write(dir.join(format!("{AUTO_BACKUP_PREFIX}手改的.json")), b"{}")
@@ -696,8 +702,9 @@ fn prune_backups_keeps_latest_five_across_kinds() {
 
     let mut previous = None;
     for _ in 0..2 {
-        let path = managed_snapshot_path(&dir, AUTO_BACKUP_PREFIX, 3, &backup_entries(&dir).unwrap())
-            .expect("时钟回拨后仍可创建新快照");
+        let path =
+            managed_snapshot_path(&dir, AUTO_BACKUP_PREFIX, 3, &backup_entries(&dir).unwrap())
+                .expect("时钟回拨后仍可创建新快照");
         assert_ne!(previous.as_ref(), Some(&path));
         write_to(&path, &sample()).unwrap();
         prune_backups(&dir, &backup_entries(&dir).unwrap());

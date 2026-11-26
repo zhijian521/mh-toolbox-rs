@@ -145,6 +145,7 @@ const expText = computed(() => {
                                  所以「这枚签能点」不用再加提示字。 -->
                             <CharacterTextField
                                 v-if="editable"
+                                compact
                                 layout="num num-slot attr-field slip-input"
                                 :model-value="row.value"
                                 :aria-label="row.label"
@@ -175,6 +176,7 @@ const expText = computed(() => {
             <MeterBar :percent="expPercentValue" label="经验进度" :text="editable ? '' : expText" />
             <span v-if="editable" class="exp-edit">
                 <CharacterTextField
+                    compact
                     layout="num num-slot exp-field"
                     :model-value="experience.value"
                     aria-label="当前经验"
@@ -183,6 +185,7 @@ const expText = computed(() => {
                 />
                 <span class="exp-slash">/</span>
                 <CharacterTextField
+                    compact
                     layout="num num-slot exp-field"
                     :model-value="experience.need"
                     aria-label="升级所需经验"
@@ -195,4 +198,3 @@ const expText = computed(() => {
 </template>
 
 <style scoped src="./attr-pane.css"></style>
-

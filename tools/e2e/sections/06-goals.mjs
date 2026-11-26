@@ -146,8 +146,10 @@ export default async function run(ctx) {
                     && !node.querySelector('.mark');
             })()`),
         );
-        t.check('更新弹窗只录入进度，不重复显示历史表格',
-            !(await ui.exists(`${dialog} table[aria-label="进度流水"]`)));
+        t.check(
+            '更新弹窗只录入进度，不重复显示历史表格',
+            !(await ui.exists(`${dialog} table[aria-label="进度流水"]`)),
+        );
         await ui.clickLabel('关闭记录');
         await ui.waitFor(`!document.querySelector('${dialog}')`, { timeout: 5000 });
         await ui.clickIn('[data-goal-id]', title, { label: '目标历史' });
@@ -155,18 +157,26 @@ export default async function run(ctx) {
             `document.querySelectorAll('${dialog} table[aria-label="目标更新历史"] tbody tr').length === 4`,
             { timeout: 5000 },
         );
-        t.check('手动类历史展示补记日期，录入时间保留在悬停说明', await cdp.evaluate(`(() => {
+        t.check(
+            '手动类历史展示补记日期，录入时间保留在悬停说明',
+            await cdp.evaluate(`(() => {
             const times = [...document.querySelectorAll('${dialog} .progress-history tbody time')];
             return times.length === 4 && times.every(time =>
                 time.textContent.trim() === ${q(recordedDate)} &&
                 time.getAttribute('datetime') === ${q(recordedDate)} &&
                 time.title.startsWith('录入时间：'));
-        })()`));
-        await cdp.click(`${dialog} table[aria-label="目标更新历史"] tbody tr:first-child [aria-label="删掉这一笔"]`);
+        })()`),
+        );
+        await cdp.click(
+            `${dialog} table[aria-label="目标更新历史"] tbody tr:first-child [aria-label="删掉这一笔"]`,
+        );
         await ui.clickText(`${dialog} button`, '删除', { exact: true });
-        await ui.waitFor(`document.querySelectorAll('${dialog} table[aria-label="目标更新历史"] tbody tr').length === 3`, {
-            timeout: 5000,
-        });
+        await ui.waitFor(
+            `document.querySelectorAll('${dialog} table[aria-label="目标更新历史"] tbody tr').length === 3`,
+            {
+                timeout: 5000,
+            },
+        );
         t.check(
             '删除减少记录后恢复达成',
             await cdp.evaluate(`!!${card(title)}?.querySelector('.mark')`),
@@ -444,13 +454,16 @@ export default async function run(ctx) {
         await ui.reload();
         await ui.gotoReady('目标');
         await all();
-        t.check('组合定义与整批档案修改重载保留', await cdp.evaluate(`(() => {
+        t.check(
+            '组合定义与整批档案修改重载保留',
+            await cdp.evaluate(`(() => {
             const node = ${card(title)};
             const bars = [...(node?.querySelectorAll('.member [role="progressbar"]') ?? [])];
             return node?.querySelector('.ring')?.getAttribute('aria-valuenow') === '100'
                 && bars.length === 4
                 && bars.every((bar) => bar.getAttribute('aria-valuenow') === '100');
-        })()`));
+        })()`),
+        );
     });
     await t.step('清理临时目标与角色', async () => {
         await sweep();

@@ -170,7 +170,9 @@ function clearFilters() {
 function turnPage(next: number) {
     page.value = Math.max(1, Math.min(next, pages.value));
     // 页面内容滚动，不滚窗口外壳；焦点留在翻页按钮上，连续翻页不丢位置。
-    document.querySelector('.page-content, .liquid-content')?.scrollTo({ top: 0, behavior: 'instant' });
+    document
+        .querySelector('.page-content, .liquid-content')
+        ?.scrollTo({ top: 0, behavior: 'instant' });
 }
 </script>
 
@@ -187,7 +189,9 @@ function turnPage(next: number) {
                 v-model:value="keyword"
                 class="asset-search lg-price-search"
                 aria-label="搜索资源名"
-                :placeholder="kind === 'all' ? '搜索全部资源、名称或别名' : '搜索当前分类、名称或别名'"
+                :placeholder="
+                    kind === 'all' ? '搜索全部资源、名称或别名' : '搜索当前分类、名称或别名'
+                "
             />
             <input
                 v-else
