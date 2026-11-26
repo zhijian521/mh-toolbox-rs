@@ -2684,18 +2684,21 @@ export default async function liquidShell({ cdp, t, ui }) {
         await cdp.click(toClassic);
         await cdp.waitForReload(beforeClassic, { waitFor: toGlass });
         t.check(
-            '切换经典账簿后重新加载设置页',
+            '切换经典账簿后重新加载设置页并应用账簿基础样式',
             await cdp.evaluate(`location.hash === '#/settings' && !!document.querySelector('.rail-nav') &&
-                localStorage.getItem('mh-app-shell') === 'legacy'`),
+                localStorage.getItem('mh-app-shell') === 'legacy' &&
+                getComputedStyle(document.querySelector('.app-root')).display === 'flex' &&
+                getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() !== ''`),
         );
         await ui.reload({ waitFor: toGlass });
         const beforeGlass = await cdp.timeOrigin();
         await cdp.click(toGlass);
         await cdp.waitForReload(beforeGlass, { waitFor: toClassic });
         t.check(
-            '再次启动记住经典账簿，可从同一设置项切回透明玻璃',
+            '再次启动记住经典账簿，切回后恢复玻璃基础样式',
             await cdp.evaluate(`location.hash === '#/settings' && !!document.querySelector('.liquid-dock') &&
-                localStorage.getItem('mh-app-shell') === 'liquid'`),
+                localStorage.getItem('mh-app-shell') === 'liquid' &&
+                getComputedStyle(document.querySelector('.liquid-app')).getPropertyValue('--lg-field-fill').trim() !== ''`),
         );
     } finally {
         await cdp.evaluate(
