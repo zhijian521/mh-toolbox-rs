@@ -420,7 +420,7 @@ button.member:not(:disabled):hover {
 }
 .goal-figures dd {
     margin: 2px 0 0;
-    color: var(--num);
+    color: var(--goal-progress-color, var(--num));
     font-size: var(--fs-amount);
     line-height: 1.2;
     overflow-wrap: anywhere;

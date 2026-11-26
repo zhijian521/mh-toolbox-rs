@@ -352,6 +352,7 @@ useRouteAction('/goals', {
                 icon="add"
                 text="新增"
                 label="新建目标"
+                class="goal-create"
                 seal
                 :disabled="blocked"
                 @click="openEditor()"
@@ -479,11 +480,11 @@ useRouteAction('/goals', {
 </template>
 
 <style scoped>
-.liquid-goals {
-    --goal-progress-color: var(--liquid-focus);
+.liquid-goals :deep(.goal-create) {
+    --glass-foreground: light-dark(#000, var(--liquid-ink));
 }
-.liquid-goals :deep(.goal-progress) {
-    --progress-color: light-dark(#276455, #b3e8c6);
+.liquid-goals .grid :deep(.goal-progress) {
+    --progress-color: var(--goal-progress-color);
     --progress-light: color-mix(in srgb, var(--progress-color) 72%, white);
     --progress-dark: color-mix(in srgb, var(--progress-color) 80%, black);
 }
@@ -516,6 +517,7 @@ useRouteAction('/goals', {
     gap: 12px;
 }
 .liquid-goals .grid {
+    --goal-progress-color: var(--lg-progress-color);
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
     align-items: start;

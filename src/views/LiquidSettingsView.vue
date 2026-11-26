@@ -231,21 +231,28 @@ function applyWallpaper(url: string) {
                     <header class="card-heading">
                         <h2>外观</h2>
                     </header>
-                    <AppShellSwitch v-slot="{ label, disabled, activate }" :disabled="busy">
-                        <GlassButton
-                            size="small"
-                            :disabled="disabled"
-                            :aria-label="label"
-                            title="切换并重新加载应用"
-                            @click="activate"
-                            >{{ label }}</GlassButton
+                    <AppShellSwitch v-slot="{ value, options, disabled, select }" :disabled="busy">
+                        <GlassSegmented
+                            :value="value"
+                            class="lg-equal-pair appearance-options"
+                            aria-label="界面"
+                            @update:value="select"
                         >
+                            <GlassSegment
+                                v-for="option in options"
+                                :key="option.value"
+                                :value="option.value"
+                                :disabled="disabled"
+                            >
+                                {{ option.label }}
+                            </GlassSegment>
+                        </GlassSegmented>
                     </AppShellSwitch>
                     <SettingsRow layout="glass">
                         <template #label><span id="liquid-theme-label">主题</span></template>
                         <GlassSegmented
                             v-model:value="appearance"
-                            class="lg-equal-pair theme-options"
+                            class="lg-equal-pair appearance-options"
                             aria-labelledby="liquid-theme-label"
                         >
                             <GlassSegment value="light">浅色</GlassSegment>
@@ -534,7 +541,7 @@ function applyWallpaper(url: string) {
     border-top: 0;
 }
 
-.theme-options {
+.appearance-options {
     flex: none;
     width: max-content;
     white-space: nowrap;

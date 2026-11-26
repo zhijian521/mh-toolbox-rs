@@ -58,8 +58,8 @@ const selected = defineModel<string[]>({ required: true });
     cursor: pointer;
 }
 .glass-multi-option:has(input:checked) {
-    border-color: color-mix(in srgb, var(--liquid-focus) 28%, var(--liquid-outline));
-    background: color-mix(in srgb, var(--liquid-focus) 10%, var(--lg-selector-lens));
+    border-color: color-mix(in srgb, var(--lg-progress-color) 38%, var(--liquid-outline));
+    background: color-mix(in srgb, var(--lg-progress-color) 22%, var(--lg-selector-lens));
 }
 @media (hover: hover) {
     .glass-multi-option:hover:not(:has(input:is(:disabled, :checked))) {
@@ -97,7 +97,7 @@ const selected = defineModel<string[]>({ required: true });
 }
 .glass-multi-option input:checked + .glass-multi-mark {
     border-color: transparent;
-    background: var(--liquid-focus);
+    background: var(--lg-active-track-fill);
     color: light-dark(white, #222);
 }
 .glass-multi-option input:checked + .glass-multi-mark .app-icon {

@@ -2676,8 +2676,10 @@ export default async function liquidShell({ cdp, t, ui }) {
     }
 
     const previousShell = await cdp.evaluate("localStorage.getItem('mh-app-shell')");
-    const toClassic = '[aria-label="切换到经典账簿"]';
-    const toGlass = '[aria-label="切换到透明玻璃"]';
+    const glassOptions = 'glass-segmented[aria-label="界面"]';
+    const classicOptions = '[role="radiogroup"][aria-label="界面"]';
+    const toClassic = `${glassOptions} glass-segment[value="legacy"]`;
+    const toGlass = `${classicOptions} button:first-child`;
     try {
         await ui.waitFor(`!!document.querySelector('${toClassic}')`);
         const beforeClassic = await cdp.timeOrigin();
@@ -2687,6 +2689,7 @@ export default async function liquidShell({ cdp, t, ui }) {
             '切换经典账簿后重新加载设置页并应用账簿基础样式',
             await cdp.evaluate(`location.hash === '#/settings' && !!document.querySelector('.rail-nav') &&
                 localStorage.getItem('mh-app-shell') === 'legacy' &&
+                document.querySelector('${classicOptions} button[aria-checked="true"]')?.textContent.trim() === '经典账簿' &&
                 getComputedStyle(document.querySelector('.app-root')).display === 'flex' &&
                 getComputedStyle(document.documentElement).getPropertyValue('--paper').trim() !== ''`),
         );
@@ -2698,6 +2701,7 @@ export default async function liquidShell({ cdp, t, ui }) {
             '再次启动记住经典账簿，切回后恢复玻璃基础样式',
             await cdp.evaluate(`location.hash === '#/settings' && !!document.querySelector('.liquid-dock') &&
                 localStorage.getItem('mh-app-shell') === 'liquid' &&
+                !!document.querySelector('${glassOptions} glass-segment[value="liquid"][aria-selected="true"]') &&
                 getComputedStyle(document.querySelector('.liquid-app')).getPropertyValue('--lg-field-fill').trim() !== ''`),
         );
     } finally {

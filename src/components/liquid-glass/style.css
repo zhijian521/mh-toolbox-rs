@@ -9,7 +9,7 @@
     --lg-field-fill: light-dark(rgb(255 255 255 / 0.32), rgb(34 34 34 / 0.45));
     --lg-selector-lens: light-dark(rgb(255 255 255 / 0.56), rgb(255 255 255 / 0.25));
     --glass-switch-off: light-dark(rgb(68 68 68 / 0.19), rgb(212 212 212 / 0.16));
-    --lg-active-track-fill: color-mix(in srgb, var(--liquid-focus) 58%, var(--lg-bar-fill));
+    --lg-active-track-fill: color-mix(in srgb, var(--lg-progress-color) 75%, var(--lg-bar-fill));
     --glass-switch-on: var(--lg-active-track-fill);
     --glass-slider-off: var(--lg-bar-fill);
     --glass-thumb: var(--lg-selector-lens);
@@ -355,6 +355,7 @@ glass-menu-label.lg-component {
     --liquid-muted: light-dark(#444, #ddd);
     --liquid-up: light-dark(#923b3b, #ffb8ae);
     --liquid-down: light-dark(#245943, #a8e7c6);
+    --lg-progress-color: light-dark(#276455, #b3e8c6);
     --lg-popup-fade: 80ms;
     --lg-field-active-fill: light-dark(rgb(255 255 255 / 0.48), rgb(52 52 52 / 0.62));
     --lg-table-header-fill: light-dark(rgb(255 255 255 / 0.6), rgb(48 48 48 / 0.68));
