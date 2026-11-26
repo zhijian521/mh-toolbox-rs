@@ -115,22 +115,6 @@ describe('捉鬼轮询生命周期', () => {
         expect(mocks.probe).toHaveBeenLastCalledWith(2);
     });
 
-    it('进入测试文字后迟到的真实帧不能覆盖测试结果', async () => {
-        const request = deferred<ProbeResult>();
-        mocks.probe.mockReturnValue(request.promise);
-        const state = scope.run(useGhostWatch)!;
-        const starting = state.start();
-        await settle();
-        await state.applyTest('无任务');
-        const report = state.report.value;
-        request.resolve(frame);
-        await starting;
-        expect(state.testing.value).toBe(true);
-        expect(state.report.value).toBe(report);
-        expect(state.stats.value).toBeNull();
-        expect(vi.getTimerCount()).toBe(0);
-    });
-
     it('停止后重新开始，旧请求失败不影响新一轮，且仍串行识别', async () => {
         const request = deferred<ProbeResult>();
         mocks.probe.mockReturnValueOnce(request.promise);

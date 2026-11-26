@@ -8,14 +8,12 @@ import CostSwitch from '../../components/CostSwitch.vue';
 import ToolPageShell from './ToolPageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import MapCanvas from '../../components/ghost/MapCanvas.vue';
-import { useDevMode } from '../../composables/use-dev-mode';
 import { useGhostWatch } from '../../composables/use-ghost-watch';
 import type { GhostPlan } from '../../services/ghost-model';
 import { glassLedger } from '../../components/glass-ledger';
 import GlassSmallSwitch from '../../components/liquid-glass/GlassSmallSwitch.vue';
 import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import AppNotice from '../../components/AppNotice.vue';
-import GhostTestPanel from './GhostTestPanel.vue';
 
 const {
     running,
@@ -28,7 +26,6 @@ const {
     engineLabel,
     ages,
     hot,
-    testing,
     desktop,
     statusText,
     statusKind,
@@ -36,8 +33,6 @@ const {
     scalePercent,
     toggle,
     start,
-    applyTest,
-    clearTest,
 } = useGhostWatch();
 
 const glass = inject(glassLedger, null);
@@ -53,7 +48,6 @@ const windowValue = computed({
         selectedHwnd.value = value ? Number(value) : null;
     },
 });
-const { devMode } = useDevMode();
 const hasRange = computed(() => plans.value.some((plan) => plan.mode === 'range'));
 const hasLikelyRange = computed(() =>
     plans.value.some((plan) => plan.mode === 'range' && plan.range.likely),
@@ -193,13 +187,6 @@ onMounted(() => {
                 </aside>
             </div>
         </div>
-        <GhostTestPanel
-            v-if="devMode"
-            :testing="testing"
-            :count="plans.length"
-            @apply="applyTest"
-            @exit="clearTest"
-        />
     </ToolPageShell>
 </template>
 

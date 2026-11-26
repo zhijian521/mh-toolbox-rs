@@ -117,7 +117,6 @@ const ICON_META = {
     back: { glyph: IconArrowLeft, label: '返回', group: 'action' },
     play: { glyph: IconPlayerPlay, label: '开始', group: 'action' },
     stop: { glyph: IconPlayerStop, label: '停止', group: 'action' },
-    // 测试文字入口：烧瓶＝「不进正式流程的试跑」，比齿轮/扳手更像实验而不是设置。
     flask: { glyph: IconFlask, label: '测试', group: 'action' },
     add: { glyph: IconPlus, label: '新增', group: 'action' },
     subtract: { glyph: IconMinus, label: '减少', group: 'action' },

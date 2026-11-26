@@ -58,19 +58,6 @@ describe('偏好记忆失败仍应用本次选择', () => {
         expect(errorNotice).toHaveBeenCalledOnce();
     });
 
-    it('开发模式写入失败不抛异常，当前开关仍可关闭', async () => {
-        await setup();
-        const { useDevMode } = await import('./use-dev-mode');
-        const { devMode } = useDevMode();
-        expect(() => {
-            devMode.value = true;
-        }).not.toThrow();
-        expect(devMode.value).toBe(true);
-        devMode.value = false;
-        expect(devMode.value).toBe(false);
-        expect(errorNotice).toHaveBeenCalledTimes(2);
-    });
-
     it('主题初始化和系统明暗变化不提示存储错误，用户更改才提示', async () => {
         const { nextTick, dataset, classList, systemChange } = await setup();
         const { useTheme } = await import('./use-theme');

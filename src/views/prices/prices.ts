@@ -25,7 +25,7 @@ export const POINT_LIMIT = 200;
 export const CHART_LIMIT = 40;
 /** 新建物品的单位。界面上不填单位（老系统也不填），统一记「个」。 */
 const DEFAULT_UNIT = '个';
-/** 存储键。与角色名册（`mh-roster`）、开发者模式（`mh-dev-mode`）同一命名节奏。
+/** 存储键。与角色名册（`mh-roster`）的命名方式一致。
  *  导出是给 `prices-store` 的跨窗口监听用的：它只认这个 key 的 `storage` 事件。 */
 export const STORAGE_KEY = 'mh-prices';
 
