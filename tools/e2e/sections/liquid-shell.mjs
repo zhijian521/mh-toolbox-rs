@@ -756,7 +756,7 @@ export default async function liquidShell({ cdp, t, ui }) {
 
     await cdp.click(tab('overview'));
     await ui.waitFor(ready('overview'));
-    await ui.waitFor(`!!document.querySelector('#overview-workbench-title')`);
+    await ui.waitFor(`!!document.querySelector('.liquid-overview .overview-periods')`);
     t.check(
         '总览读取账本，展示周月统计、趋势、队伍与在途目标',
         await cdp.evaluate(`(() => {
@@ -777,7 +777,9 @@ export default async function liquidShell({ cdp, t, ui }) {
                 trendStyle.paddingBottom === trendStyle.paddingLeft &&
                 cards.length === 3 && !periods.closest('glass-surface') &&
                 Math.abs(cards[0].getBoundingClientRect().width - cards[1].getBoundingClientRect().width) < 1 &&
-                actions.closest('glass-surface') === cards[0] &&
+                actions.closest('glass-surface') === cards[2] &&
+                [...actions.querySelectorAll('glass-button')].every(button =>
+                    button.getBoundingClientRect().width < actions.clientWidth) &&
                 (periods.clientWidth < 774 || cards.every((card) =>
                     Math.abs(card.getBoundingClientRect().top - cards[0].getBoundingClientRect().top) < 1)) &&
                 page.querySelectorAll('.workbench-metrics > div').length === 4 &&
@@ -785,8 +787,8 @@ export default async function liquidShell({ cdp, t, ui }) {
                 page.querySelectorAll('.month-ledger td').length === 4 &&
                 goals.querySelectorAll('.overview-goals li').length === goals.querySelectorAll('[role="progressbar"][aria-valuenow]').length &&
                 !!trend.querySelector('.trend, .overview-note') &&
-                !!page.querySelector('#overview-team-title') &&
-                !!goals.querySelector('#overview-goals-title') &&
+                !!page.querySelector('section[aria-label="我的队伍"]') &&
+                goals.querySelector('#overview-goals-title')?.textContent.trim() === '目标' &&
                 getComputedStyle(amount).color === getComputedStyle(page).color &&
                 getComputedStyle(amount).fontWeight === '400' &&
                 getComputedStyle(scrollHost).scrollbarWidth === 'none' &&
@@ -915,6 +917,8 @@ export default async function liquidShell({ cdp, t, ui }) {
             getComputedStyle(target).overflowX === 'auto' &&
             getComputedStyle(target).scrollbarWidth === 'none' &&
             !!page.querySelector('glass-switch.lg-small-switch[aria-label="点卡计入账号收支"]') &&
+            !headings.includes('每日走势') &&
+            charts.every((card) => !!card.querySelector('.section-head glass-segmented')) &&
             ['在线点卡', '物品速记', '今日速记', '每日时长', '每日收益'].every((text) => headings.includes(text));
     })()`),
     );
@@ -959,7 +963,9 @@ export default async function liquidShell({ cdp, t, ui }) {
         await ui.waitFor(`!document.querySelector('.liquid-income.modal-mask') &&
             document.querySelector('.liquid-content').style.overflow !== 'hidden'`);
     }
-    const trendMonth = `${income} [aria-label="走势范围"] glass-segment[value="month"]`;
+    const durationRange = `${income} [aria-label="每日时长范围"]`;
+    const earningsRange = `${income} [aria-label="每日收益范围"]`;
+    const trendMonth = `${durationRange} glass-segment[value="month"]`;
     const trendSize = () =>
         cdp.evaluate(`
         [...document.querySelectorAll('${income} .chart-block')].map((card) => {
@@ -973,13 +979,12 @@ export default async function liquidShell({ cdp, t, ui }) {
         `document.querySelector('${trendMonth}')?.getAttribute('aria-selected') === 'true'`,
     );
     t.check(
-        '收益可切换近一月走势',
-        await cdp.evaluate(
-            `document.querySelector('${income} .chart-section').textContent.includes('30 天')`,
-        ),
+        '每日时长切到近一月时，每日收益同步更新范围',
+        await cdp.evaluate(`document.querySelector('${income} .chart-section').textContent.includes('30 天') &&
+            !!document.querySelector('${earningsRange} glass-segment[value="month"][aria-selected="true"]')`),
     );
     const monthSize = await trendSize();
-    const trendWeek = `${income} [aria-label="走势范围"] glass-segment[value="week"]`;
+    const trendWeek = `${earningsRange} glass-segment[value="week"]`;
     await cdp.click(trendWeek);
     await ui.waitFor(
         `document.querySelector('${trendWeek}')?.getAttribute('aria-selected') === 'true'`,

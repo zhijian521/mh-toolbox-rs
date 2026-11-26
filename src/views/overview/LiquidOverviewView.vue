@@ -110,154 +110,147 @@ onMounted(() => {
                 <GlassButton size="small" @click="loadOverview">重试</GlassButton>
             </GlassCard>
 
-            <section class="workbench" aria-labelledby="overview-workbench-title">
-                <header class="workbench-intro">
-                    <div class="workbench-heading">
-                        <h2 id="overview-workbench-title">工作台</h2>
-                    </div>
-                </header>
-                <div class="overview-periods">
-                    <GlassCard
-                        class="overview-card workbench-period workbench-shortcuts"
-                        :radius="18"
-                        aria-labelledby="overview-shortcuts-title"
-                    >
-                        <h3 id="overview-shortcuts-title">快捷操作</h3>
-                        <div class="workbench-actions">
-                            <GlassButton
-                                size="small"
-                                class="overview-workbench-action"
-                                aria-label="选择角色上线"
-                                @click="router.push({ name: 'income', query: { action: 'start' } })"
-                            >
-                                <AppIcon name="play" />上线
-                            </GlassButton>
-
-                            <GlassButton
-                                size="small"
-                                class="overview-workbench-action"
-                                aria-label="记一笔账号收支"
-                                @click="router.push({ name: 'accounts', query: { action: 'new' } })"
-                            >
-                                <AppIcon name="edit" />记一笔
-                            </GlassButton>
-
-                            <GlassButton
-                                size="small"
-                                class="overview-workbench-action"
-                                aria-label="打开装备和召唤兽仓库"
-                                @click="
-                                    router.push({
-                                        name: 'accounts',
-                                        query: { action: 'warehouse' },
-                                    })
-                                "
-                            >
-                                <AppIcon name="archive" />仓库
-                            </GlassButton>
-
-                            <GlassButton
-                                v-if="desktop"
-                                size="small"
-                                class="overview-workbench-action"
-                                :aria-label="
-                                    fengyaoRunning ? '停止公告监听' : '按上次设置开启提醒助手'
-                                "
-                                :disabled="fengyaoBusy"
-                                @click="toggleFengyaoFromOverview"
-                            >
-                                <AppIcon :name="fengyaoRunning ? 'stop' : 'notice'" />
-
-                                {{ fengyaoRunning ? '停止提醒' : '开启提醒' }}
-                            </GlassButton>
+            <section class="overview-periods" aria-label="周月统计与快捷操作">
+                <GlassCard
+                    class="overview-card workbench-period"
+                    :radius="18"
+                    aria-labelledby="overview-week-title"
+                >
+                    <h3 id="overview-week-title">
+                        <span class="period-icon"><AppIcon name="calendar" /></span>
+                        近一周
+                    </h3>
+                    <dl class="workbench-metrics">
+                        <div class="week-net">
+                            <dt>速记净额</dt>
+                            <dd>
+                                {{
+                                    income.loadError.value
+                                        ? '未读取'
+                                        : accountValueText(weekTotal, 'cash')
+                                }}
+                            </dd>
                         </div>
-                    </GlassCard>
-                    <GlassCard
-                        class="overview-card workbench-period"
-                        :radius="18"
-                        aria-labelledby="overview-week-title"
-                    >
-                        <h3 id="overview-week-title">
-                            <span class="period-icon"><AppIcon name="calendar" /></span>
-                            近一周
-                        </h3>
-                        <dl class="workbench-metrics">
-                            <div class="week-net">
-                                <dt>速记净额</dt>
-                                <dd>
+                        <div>
+                            <dt>在线时长</dt>
+                            <dd>
+                                {{
+                                    online.loadError.value
+                                        ? '未读取'
+                                        : clockText(weekOnline.minutes)
+                                }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt>点卡消耗</dt>
+                            <dd>
+                                {{
+                                    online.loadError.value
+                                        ? '未读取'
+                                        : accountValueText(weekOnline.cost, 'cash')
+                                }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt>进行中目标</dt>
+                            <dd>{{ goalsUnavailable ? '未读取' : `${ongoing.length} 项` }}</dd>
+                        </div>
+                    </dl>
+                </GlassCard>
+                <GlassCard
+                    class="overview-card workbench-period"
+                    :radius="18"
+                    aria-labelledby="overview-month-title"
+                >
+                    <h3 id="overview-month-title">
+                        <span class="period-icon"><AppIcon name="accounts" /></span>
+                        近一个月
+                    </h3>
+                    <table class="month-ledger" aria-labelledby="overview-month-title">
+                        <thead>
+                            <tr>
+                                <th scope="col">币种</th>
+                                <th scope="col">收入</th>
+                                <th scope="col">支出</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="book in workbench.books" :key="book.currency">
+                                <th scope="row">{{ book.label }}</th>
+                                <td
+                                    v-for="kind in moneyDirections"
+                                    :key="kind"
+                                    :data-kind="
+                                        !accounts.loadError.value && book.stats[kind] > 0
+                                            ? kind
+                                            : undefined
+                                    "
+                                >
                                     {{
-                                        income.loadError.value
+                                        accounts.loadError.value
                                             ? '未读取'
-                                            : accountValueText(weekTotal, 'cash')
+                                            : accountValueText(book.stats[kind], book.currency)
                                     }}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt>在线时长</dt>
-                                <dd>
-                                    {{
-                                        online.loadError.value
-                                            ? '未读取'
-                                            : clockText(weekOnline.minutes)
-                                    }}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt>点卡消耗</dt>
-                                <dd>
-                                    {{
-                                        online.loadError.value
-                                            ? '未读取'
-                                            : accountValueText(weekOnline.cost, 'cash')
-                                    }}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt>进行中目标</dt>
-                                <dd>{{ goalsUnavailable ? '未读取' : `${ongoing.length} 项` }}</dd>
-                            </div>
-                        </dl>
-                    </GlassCard>
-                    <GlassCard
-                        class="overview-card workbench-period"
-                        :radius="18"
-                        aria-labelledby="overview-month-title"
-                    >
-                        <h3 id="overview-month-title">
-                            <span class="period-icon"><AppIcon name="accounts" /></span>
-                            近一个月
-                        </h3>
-                        <table class="month-ledger" aria-labelledby="overview-month-title">
-                            <thead>
-                                <tr>
-                                    <th scope="col">币种</th>
-                                    <th scope="col">收入</th>
-                                    <th scope="col">支出</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="book in workbench.books" :key="book.currency">
-                                    <th scope="row">{{ book.label }}</th>
-                                    <td
-                                        v-for="kind in moneyDirections"
-                                        :key="kind"
-                                        :data-kind="
-                                            !accounts.loadError.value && book.stats[kind] > 0
-                                                ? kind
-                                                : undefined
-                                        "
-                                    >
-                                        {{
-                                            accounts.loadError.value
-                                                ? '未读取'
-                                                : accountValueText(book.stats[kind], book.currency)
-                                        }}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </GlassCard>
-                </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </GlassCard>
+                <GlassCard
+                    class="overview-card workbench-period workbench-shortcuts"
+                    :radius="18"
+                    aria-labelledby="overview-shortcuts-title"
+                >
+                    <h3 id="overview-shortcuts-title">快捷操作</h3>
+                    <div class="workbench-actions">
+                        <GlassButton
+                            size="small"
+                            class="overview-workbench-action"
+                            aria-label="选择角色上线"
+                            @click="router.push({ name: 'income', query: { action: 'start' } })"
+                        >
+                            <AppIcon name="play" />上线
+                        </GlassButton>
+
+                        <GlassButton
+                            size="small"
+                            class="overview-workbench-action"
+                            aria-label="记一笔账号收支"
+                            @click="router.push({ name: 'accounts', query: { action: 'new' } })"
+                        >
+                            <AppIcon name="edit" />记一笔
+                        </GlassButton>
+
+                        <GlassButton
+                            size="small"
+                            class="overview-workbench-action"
+                            aria-label="打开装备和召唤兽仓库"
+                            @click="
+                                router.push({
+                                    name: 'accounts',
+                                    query: { action: 'warehouse' },
+                                })
+                            "
+                        >
+                            <AppIcon name="archive" />仓库
+                        </GlassButton>
+
+                        <GlassButton
+                            v-if="desktop"
+                            size="small"
+                            class="overview-workbench-action"
+                            :aria-label="
+                                fengyaoRunning ? '停止公告监听' : '按上次设置开启提醒助手'
+                            "
+                            :disabled="fengyaoBusy"
+                            @click="toggleFengyaoFromOverview"
+                        >
+                            <AppIcon :name="fengyaoRunning ? 'stop' : 'notice'" />
+
+                            {{ fengyaoRunning ? '停止提醒' : '开启提醒' }}
+                        </GlassButton>
+                    </div>
+                </GlassCard>
             </section>
 
             <div class="overview-focus">
@@ -279,7 +272,7 @@ onMounted(() => {
                 <section aria-labelledby="overview-goals-title">
                     <GlassCard class="overview-card overview-goal-card" :radius="18">
                         <header class="overview-section-head">
-                            <h2 id="overview-goals-title">进行中的目标</h2>
+                            <h2 id="overview-goals-title">目标</h2>
                             <GlassButton size="small" @click="router.push({ name: 'goals' })">
                                 查看全部
                             </GlassButton>
@@ -342,8 +335,7 @@ onMounted(() => {
                 </section>
             </div>
 
-            <section aria-labelledby="overview-team-title">
-                <h2 id="overview-team-title">我的队伍</h2>
+            <section aria-label="我的队伍">
                 <GlassCard
                     v-if="roster.loadError.value || !team.length"
                     class="overview-state"

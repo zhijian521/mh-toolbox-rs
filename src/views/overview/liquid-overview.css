@@ -49,42 +49,11 @@
     color: var(--liquid-muted);
 }
 
-.workbench {
-    display: grid;
-    gap: 12px;
-    padding: 0;
-}
-
-.workbench-intro,
-.workbench-heading {
+.workbench-actions {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-}
-
-.workbench-intro {
-    justify-content: space-between;
-    gap: 10px 16px;
-}
-
-.workbench-heading {
-    gap: 6px 12px;
-}
-
-.workbench-heading h2 {
-    margin: 0;
-}
-
-.workbench-actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
     margin-top: 14px;
-}
-
-.workbench-actions .overview-workbench-action {
-    width: 100%;
-    min-width: 0;
 }
 
 .overview-periods {

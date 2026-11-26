@@ -76,21 +76,9 @@ const netSeries = computed(() => seriesOf(net.value));
 
 <template>
     <section class="income-trends" aria-label="每日走势">
-        <header class="trends-head">
+        <header v-if="!glass" class="trends-head">
             <h2>每日走势</h2>
-            <GlassSegmented
-                v-if="glass"
-                v-model:value="span"
-                class="lg-status-tabs"
-                data-size="compact"
-                aria-label="走势范围"
-            >
-                <GlassSegment v-for="option in SPANS" :key="option.value" :value="option.value">
-                    {{ option.label }}
-                </GlassSegment>
-            </GlassSegmented>
             <SteppedSlider
-                v-else
                 v-model="span"
                 :options="SPANS"
                 label="走势范围"
@@ -105,6 +93,22 @@ const netSeries = computed(() => seriesOf(net.value));
                 class="chart-block chart-section"
                 plain
             >
+                <template v-if="glass" #actions>
+                    <GlassSegmented
+                        v-model:value="span"
+                        class="lg-status-tabs"
+                        data-size="compact"
+                        aria-label="每日时长范围"
+                    >
+                        <GlassSegment
+                            v-for="option in SPANS"
+                            :key="option.value"
+                            :value="option.value"
+                        >
+                            {{ option.label }}
+                        </GlassSegment>
+                    </GlassSegmented>
+                </template>
                 <TrendChart
                     v-if="onlineReadable"
                     class="chart-in-card"
@@ -126,6 +130,22 @@ const netSeries = computed(() => seriesOf(net.value));
                 class="chart-block chart-section"
                 plain
             >
+                <template v-if="glass" #actions>
+                    <GlassSegmented
+                        v-model:value="span"
+                        class="lg-status-tabs"
+                        data-size="compact"
+                        aria-label="每日收益范围"
+                    >
+                        <GlassSegment
+                            v-for="option in SPANS"
+                            :key="option.value"
+                            :value="option.value"
+                        >
+                            {{ option.label }}
+                        </GlassSegment>
+                    </GlassSegmented>
+                </template>
                 <TrendChart
                     v-if="incomeReadable"
                     class="chart-in-card"
