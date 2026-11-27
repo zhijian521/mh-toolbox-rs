@@ -414,25 +414,14 @@
 .brief-row dd.suit .item-name {
     color: var(--ochre);
 }
-/* 值里的数字：赭色 + 加粗。文楷只装 400，700 由浏览器合成，**字宽不变**，
- * 所以「头 26」这种紧挨着的排法不会因为加粗被顶歪（实测）。 */
 .brief-row dd b {
     color: var(--num);
-    font-weight: 700;
+    font-weight: 500;
 }
-.brief-row dd.suit b {
-    color: var(--ochre);
-}
-/* 退灰：套装不足三件（游戏里不激活）、段数 0（这一件还没练）。
- * 用 `--muted` 而不是压 opacity——压了之后底色会透上来，纸面上读成「脏」。
- *
- * 选择器要跟上面那几条同权重再往后写：`.dd.suit b` 是 0-2-2，光写
- * `.brief-item.dim b`（0-2-1）压不住它，退灰的套装数会仍是赭的。 */
 .brief-row dd .brief-item.dim {
     color: var(--muted);
 }
-.brief-row dd .brief-item.dim .item-name,
-.brief-row dd .brief-item.dim b {
+.brief-row dd .brief-item.dim .item-name {
     color: var(--muted);
 }
 /* 这一项整套装备里没有：写一个淡「—」，比留白更清楚（留白读作「漏了一行」）。

@@ -71,6 +71,10 @@
     background: var(--card-bg);
 }
 
+.char :deep(.slip-row:is(.full, .idle) .slip-val .lv) {
+    color: var(--num);
+}
+
 .char.roster-card {
     --card-pad-x: 14px;
     --roster-column-gap: 12px;
@@ -202,20 +206,6 @@
     line-height: 1.2;
     white-space: nowrap;
 }
-/* 数字一律用数值墨、比名目大一档（2026-11-03 用户：「数字都不是黑色了，
- * 稍微放大一点，用一些其他颜色表示」）。`.lv` 在卡上只剩两处：卡头的「130 级」
- * 与召唤兽的「136 级」——都是读数，不是说明。
- *
- * **选择器必须带容器**（2026-11-04）。原先写裸 `.lv`，而这份样式是 `scoped` 的：
- * 编译成 `.lv[data-v-…]` 之后特异性从 0-1-0 涨到 0-2-0，正好与 `base.css` 的
- * `.slip-val .lv`（0-2-0）打平，于是**谁在后面谁赢**——`page.css` 注入得晚，票里的
- * 数就被按成 13px；而师门那一列的数长在 `SkillRow` 自己的作用域里，不匹配这个
- * `data-v`，仍是 15.5px。同一张卡上「门派 15.5 / 辅助 13」就是这么来的。
- * 现在只认卡头，票里的字**只有 base.css 一个来源**。
- *
- * 召唤兽那块牌上的「136 级」原先也挂在这条上（`.plate .lv`）。牌搬进 `PetPane.vue`
- * 之后这条够不着了——那边自己有一份 `.beast-id .lv`（2026-11-11 起等级挪到名字下面），
- * 值一模一样，两边不必再各写一遍。 */
 .char-head .lv {
     flex: none;
     white-space: nowrap;

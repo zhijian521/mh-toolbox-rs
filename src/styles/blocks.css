@@ -72,8 +72,15 @@
     --tile-face-active: color-mix(in srgb, var(--slip-base) 76%, var(--well));
 }
 /* 角色卡与修改窗的读数共用字重，传送到 body 的装备浮片不受影响。 */
+.character-theme:is(.char, .modal-panel) {
+    --num: var(--lg-progress-color, var(--accent));
+}
 .character-theme :is(.num, .slip-val, .meter-text) {
-    font-weight: 700;
+    font-weight: 500;
+}
+.character-theme :is(input.num, input.cf-input, .glass-compact-number-field.num > input) {
+    color: var(--num);
+    font-weight: 500;
 }
 
 /* 装备与召唤兽目录共用交互；图块尺寸和标记位置由各自目录决定。 */

@@ -39,9 +39,7 @@
     letter-spacing: normal;
 }
 .liquid-characters .who .lv {
-    color: var(--liquid-muted);
     font-size: var(--fs-sm);
-    font-weight: 400;
 }
 .liquid-characters .who .school {
     padding: 1px 7px;
