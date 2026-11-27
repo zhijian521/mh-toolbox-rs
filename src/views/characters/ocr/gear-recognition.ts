@@ -6,6 +6,7 @@ import type { OcrLine } from './attr-panel';
 import { gearExtraFrame, gearExtraRegions, restoreGearExtras } from './gear-extra-image';
 import { parseGearPanel, type GearPanelResult } from './gear-panel';
 import { gearAmbushFrame, gearBaseFrame, gearFrame } from './gear-image';
+import type { Frame } from './pixels';
 import { jadeIdentity, jadePanels } from './jade-panels';
 import { base64Of, swapToBgra } from './pixels';
 
@@ -32,6 +33,7 @@ async function recognizeExtras(
     image: ImageData,
     names: readonly EquipmentName[],
     slot: GearSlotName,
+    read: (frame: Frame) => ReturnType<typeof ocrFrame>,
 ) {
     const context = lines.filter((line) => /^(?:耐久|精炼等级|灵尘等级)/.test(line.text.trim()));
     const rowLines = (source: { x: number; y: number; height: number }, rows: readonly OcrLine[]) =>
@@ -48,7 +50,7 @@ async function recognizeExtras(
     );
     if (!missing.length) return null;
     const frame = gearExtraFrame(image, missing);
-    const outcome = await ocrFrame(frame.pixels, frame.width, frame.height);
+    const outcome = await read(frame);
     if (outcome.status !== 'ok') return null;
     const restored = restoreGearExtras(outcome.lines, missing);
     const recovered = missing.filter(({ source }) => hasStat(rowLines(source, restored)));
@@ -68,12 +70,18 @@ async function recognizeExtras(
     );
 }
 
+interface GearReadOptions {
+    rawLines?: readonly OcrLine[];
+    onPreview?: (result: GearPanelResult) => void;
+}
+
 /** 按部位补读漏项，保留主识别的名称、状态与效果，避免背包文字混入。 */
 export async function recognizeGearPanel(
     lines: readonly OcrLine[],
     image: ImageData,
     names: readonly EquipmentName[],
     fallbackSlot?: GearSlotName,
+    options?: GearReadOptions,
 ): Promise<GearPanelResult> {
     const result = parseGearPanel(lines, names, fallbackSlot, image);
     const panels = jadePanels(lines, image);
@@ -98,8 +106,17 @@ export async function recognizeGearPanel(
     if (jadeIdentity(lines).conflict) throw new Error('同一件玉魄出现阴阳两类属性，请核对截图');
     const slot = result.slot;
     if (!slot) return result;
+    let preview = options?.onPreview;
+    function showPreview() {
+        if (result.hit) preview?.(result);
+        preview = undefined;
+    }
+    function read(frame: Frame) {
+        showPreview();
+        return ocrFrame(frame.pixels, frame.width, frame.height);
+    }
     if (['戒指', '耳饰', '配饰', '手镯', '玉魄·阴', '玉魄·阳'].includes(slot)) {
-        const retry = await recognizeExtras(lines, image, names, slot);
+        const retry = await recognizeExtras(lines, image, names, slot, read);
         const best =
             retry && (retry.detail.stats?.length ?? 0) >= (result.detail.stats?.length ?? 0)
                 ? retry
@@ -110,7 +127,7 @@ export async function recognizeGearPanel(
         ) {
             const frame = gearAmbushFrame(image, lines);
             if (frame) {
-                const outcome = await ocrFrame(frame.pixels, frame.width, frame.height);
+                const outcome = await read(frame);
                 const recovered =
                     outcome.status === 'ok'
                         ? parseGearPanel(outcome.lines, [], slot).detail.stats?.find(
@@ -151,7 +168,7 @@ export async function recognizeGearPanel(
     let base: GearStat[] = [];
     const frame = gearBaseFrame(image, lines);
     if (frame) {
-        const local = await ocrFrame(frame.pixels, frame.width, frame.height);
+        const local = await read(frame);
         if (local.status === 'ok') {
             const recovered = readBase(
                 local.lines.map((line) => ({ ...line, x: line.x + frame.x, y: line.y + frame.y })),
@@ -162,9 +179,13 @@ export async function recognizeGearPanel(
         }
     }
     if (!base.length) {
-        const raw = await ocrFrame(base64Of(swapToBgra(image.data)), image.width, image.height);
-        if (raw.status !== 'ok') return result;
-        base = readBase(raw.lines);
+        if (options?.rawLines) {
+            base = readBase(options.rawLines);
+        } else {
+            showPreview();
+            const raw = await ocrFrame(base64Of(swapToBgra(image.data)), image.width, image.height);
+            if (raw.status === 'ok') base = readBase(raw.lines);
+        }
     }
     if (!base.length) return result;
     // 同排的字和数字会一起受预处理影响；补读命中时一起替换该排的基础项。

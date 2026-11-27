@@ -3,6 +3,7 @@ import { lazyDialog } from '../../components/lazy-dialog';
 import { useRouteAction } from '../../composables/use-route-action';
 import { computed, inject, ref, watch } from 'vue';
 import { glassLedger } from '../../components/glass-ledger';
+import { useProgressiveList } from '../../composables/use-progressive-list';
 import LiquidLedgerFrame from '../../components/LiquidLedgerFrame.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
 import LoadNotice from '../../components/LoadNotice.vue';
@@ -112,6 +113,7 @@ const visible = computed(() =>
         ({ summary }) => status.value === 'all' || summary.done === (status.value === 'done'),
     ),
 );
+const mountedGoals = useProgressiveList(visible, 4, () => !glass || status.value !== 'active');
 
 const emptyText = computed(() => {
     if (loadError.value && !goals.value.length) return '暂时无法读取目标，请重新读取。';
@@ -381,7 +383,7 @@ useRouteAction('/goals', {
         </div>
         <div v-else class="grid">
             <GoalCard
-                v-for="entry in visible"
+                v-for="entry in mountedGoals"
                 :key="entry.goal.id"
                 :goal="entry.goal"
                 :summary="entry.summary"

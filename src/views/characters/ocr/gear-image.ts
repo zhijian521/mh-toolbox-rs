@@ -25,7 +25,7 @@ export function gearTextPixels(image: Pick<ImageData, 'data' | 'width' | 'height
 
 export function gearFrame(image: ImageData): Frame {
     return {
-        pixels: base64Of(swapToBgra(gearTextPixels(image))),
+        pixels: base64Of(gearTextPixels(image)),
         width: image.width,
         height: image.height,
     };

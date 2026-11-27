@@ -5,6 +5,8 @@ mod announcements;
 use announcements::{candidates, SeenMessages};
 
 use std::collections::HashMap;
+#[cfg(windows)]
+use std::ops::Range;
 use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
@@ -414,6 +416,112 @@ fn message_rows(mut lines: Vec<crate::ocr::TextLine>) -> Vec<String> {
 }
 
 #[cfg(windows)]
+struct ChatFrame {
+    pixels: Vec<u8>,
+    lines: Vec<crate::ocr::TextLine>,
+}
+
+#[cfg(windows)]
+fn changed_rows(previous: &[u8], pixels: &[u8], stride: usize) -> Option<Range<usize>> {
+    let mut rows = previous.chunks_exact(stride).zip(pixels.chunks_exact(stride));
+    let first = rows.position(|(a, b)| a != b)?;
+    let last = rows
+        .rposition(|(a, b)| a != b)
+        .map_or(first, |i| first + 1 + i);
+    Some(first..last + 1)
+}
+
+#[cfg(windows)]
+fn line_intersects(line: &crate::ocr::TextLine, rows: &Range<usize>) -> bool {
+    line.y < rows.end as i32 && line.y + line.height > rows.start as i32
+}
+
+#[cfg(windows)]
+fn recognition_rows(
+    changed: Range<usize>,
+    height: usize,
+    lines: &[crate::ocr::TextLine],
+) -> Range<usize> {
+    // 保留临近文字的留白；裁边碰到已知文字框时扩大到完整行。
+    let mut rows = changed.start.saturating_sub(24)..(changed.end + 24).min(height);
+    loop {
+        let before = rows.clone();
+        for line in lines {
+            if line_intersects(line, &rows) {
+                rows.start = rows.start.min(line.y.max(0) as usize);
+                rows.end = rows.end.max((line.y + line.height).max(0) as usize).min(height);
+            }
+        }
+        if rows == before {
+            break;
+        }
+    }
+    if rows.len() * 4 >= height * 3 {
+        return 0..height;
+    }
+    rows
+}
+
+#[cfg(windows)]
+fn recognize_chat_frame(
+    previous: Option<&ChatFrame>,
+    pixels: Vec<u8>,
+    width: u32,
+    height: u32,
+    read: impl Fn(&[u8], u32, u32) -> Result<Vec<crate::ocr::TextLine>, String>,
+) -> Result<Option<ChatFrame>, String> {
+    let read_full = || read(&pixels, width, height);
+    let lines = if let Some(previous) = previous {
+        let stride = width as usize * 4;
+        let Some(changed) = changed_rows(&previous.pixels, &pixels, stride) else {
+            return Ok(None);
+        };
+        let rows = recognition_rows(changed.clone(), height as usize, &previous.lines);
+        if rows.len() == height as usize {
+            read_full()?
+        } else {
+            let band = read(
+                &pixels[rows.start * stride..rows.end * stride],
+                width,
+                rows.len() as u32,
+            );
+            // 裁边出现文字或变化行的旧文字突然读不到时，回整图确认。
+            let needs_full_read = |lines: &[crate::ocr::TextLine]| {
+                (lines.is_empty()
+                    && previous
+                        .lines
+                        .iter()
+                        .any(|line| line_intersects(line, &changed)))
+                    || lines.iter().any(|line| {
+                        (rows.start > 0 && line.y <= 2)
+                            || (rows.end < height as usize
+                                && line.y + line.height >= rows.len() as i32 - 2)
+                    })
+            };
+            match band {
+                Ok(mut lines) if !needs_full_read(&lines) => {
+                    for line in &mut lines {
+                        line.y += rows.start as i32;
+                    }
+                    lines.extend(
+                        previous
+                            .lines
+                            .iter()
+                            .filter(|line| !line_intersects(line, &rows))
+                            .cloned(),
+                    );
+                    lines
+                }
+                _ => read_full()?,
+            }
+        }
+    } else {
+        read_full()?
+    };
+    Ok(Some(ChatFrame { pixels, lines }))
+}
+
+#[cfg(windows)]
 fn now_ms() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -423,11 +531,10 @@ fn now_ms() -> i64 {
 
 #[cfg(windows)]
 fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
-    use std::hash::{Hash, Hasher};
     use std::time::{Duration, Instant};
 
     let mut capture = None;
-    let mut previous_hash = None;
+    let mut previous = None;
     loop {
         if !runtime()
             .lock()
@@ -436,14 +543,14 @@ fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
             return;
         }
         let started = Instant::now();
-        let read = (|| -> Result<Option<(Vec<String>, u64)>, String> {
+        let read = (|| -> Result<Option<ChatFrame>, String> {
             if capture.is_none() {
                 capture = Some(crate::window_capture::WindowCapture::open(config.hwnd)?);
             }
             let frame = match capture.as_ref().ok_or("捕获尚未建立")?.frame() {
                 Ok(frame) => frame,
                 // 静止聊天窗没有新帧是正常等待，不能清掉基线后漏报下一条公告。
-                Err(error) if previous_hash.is_some() && error.contains("捕获超时") => {
+                Err(error) if previous.is_some() && error.contains("捕获超时") => {
                     return Ok(None);
                 }
                 Err(error) => return Err(error),
@@ -460,28 +567,24 @@ fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
                 let offset = ((y * frame.width + r.x) * 4) as usize;
                 pixels.extend_from_slice(&frame.bgra[offset..offset + (r.width * 4) as usize]);
             }
-            let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            pixels.hash(&mut hasher);
-            let hash = hasher.finish();
-            if previous_hash == Some(hash) {
-                return Ok(None);
-            }
-            let lines = crate::ocr_paddle::recognize(&pixels, r.width, r.height, 2)?;
-            // 只在完整 OCR 成功后更新指纹；失败的画面下一轮仍须重试。
-            Ok(Some((message_rows(lines), hash)))
-        })();
+            recognize_chat_frame(previous.as_ref(), pixels, r.width, r.height, |buf, w, h| {
+                crate::ocr_paddle::recognize(buf, w, h, 2)
+            })
+        })()
+        .map(|frame| frame.map(|frame| (message_rows(frame.lines.clone()), frame)));
         let Ok(mut state) = runtime().lock() else {
             return;
         };
         if state.generation != generation || !state.status.running {
             return;
         }
+        let recognized = read.as_ref().is_ok_and(Option::is_some);
         match read {
             Ok(result) => {
                 state.status.error.clear();
                 state.status.checked_at = now_ms();
-                if let Some((text, hash)) = result {
-                    previous_hash = Some(hash);
+                if let Some((text, frame)) = result {
+                    previous = Some(frame);
                     let now = now_ms();
                     let filters = state
                         .status
@@ -538,13 +641,20 @@ fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
                 state.status.error = error;
                 // 恢复读取时重新建立基线，避免把暂停期间的公告当成新消息。
                 state.seen.clear();
-                previous_hash = None;
+                previous = None;
                 state.status.baseline_ready = false;
                 capture = None;
             }
         }
         drop(state);
-        std::thread::sleep(Duration::from_millis(900).saturating_sub(started.elapsed()));
+        let remaining = Duration::from_millis(900).saturating_sub(started.elapsed());
+        // 持续滚屏时给共享 OCR 引擎留出间隔；捕获会直接取最新画面。
+        let pause = if recognized {
+            remaining.max(Duration::from_millis(180))
+        } else {
+            remaining
+        };
+        std::thread::sleep(pause);
     }
 }
 
@@ -657,6 +767,69 @@ mod tests {
             650,
         )]);
         assert_eq!(candidates(&rows, &config().reminders[0]).len(), 1);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn changed_band_keeps_unchanged_start_of_a_wrapped_announcement() {
+        let line = |text: &str, y| crate::ocr::TextLine {
+            text: text.into(),
+            x: 0,
+            y,
+            width: 70,
+            height: 16,
+            score: 0.99,
+        };
+        let width = 80;
+        let height = 180;
+        let stride = width as usize * 4;
+        let previous = ChatFrame {
+            pixels: vec![0; stride * height as usize],
+            lines: vec![
+                line("[系统]少侠甲挖塌了妖怪的房子，妖怪正在", 48),
+                line("旧画面", 100),
+            ],
+        };
+        let mut pixels = previous.pixels.clone();
+        pixels[100 * stride] = 1;
+        let frame = recognize_chat_frame(Some(&previous), pixels, width, height, |buf, w, h| {
+            assert_eq!(w, width);
+            assert_eq!(h, 49);
+            assert_eq!(buf.len(), stride * h as usize);
+            Ok(vec![line("碗子山四处肆虐！", 24)])
+        })
+        .unwrap()
+        .unwrap();
+        assert_eq!(frame.lines[0].y, 100);
+        let messages = message_rows(frame.lines);
+        assert_eq!(candidates(&messages, &config().reminders[0])[0].scene, "碗子山");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn unchanged_rows_skip_inference_and_large_changes_use_the_full_frame() {
+        let previous = ChatFrame {
+            pixels: vec![0; 4 * 80 * 160],
+            lines: vec![],
+        };
+        let unchanged = recognize_chat_frame(
+            Some(&previous),
+            previous.pixels.clone(),
+            80,
+            160,
+            |_, _, _| panic!("unchanged frame must skip OCR"),
+        )
+        .unwrap();
+        assert!(unchanged.is_none());
+        let mut pixels = previous.pixels.clone();
+        pixels[0] = 1;
+        *pixels.last_mut().unwrap() = 1;
+        let frame = recognize_chat_frame(Some(&previous), pixels, 80, 160, |_, w, h| {
+            assert_eq!((w, h), (80, 160));
+            Ok(vec![])
+        })
+        .unwrap();
+        assert!(frame.is_some());
     }
 
     #[test]

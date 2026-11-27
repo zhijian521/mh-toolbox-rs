@@ -111,6 +111,18 @@ describe('弹窗代码按需加载', () => {
         return { root, visible };
     }
 
+    it('预加载和打开共用同一次模块请求', async () => {
+        const request = deferred<{ default: typeof Dialog }>();
+        const loader = vi.fn(() => request.promise);
+        const Lazy = lazyDialog(loader);
+        const preload = Lazy.preload();
+        expect(Lazy.preload()).toBe(preload);
+        request.resolve({ default: Dialog });
+        await expect(preload).resolves.toBe(Dialog);
+        await expect(Lazy.preload()).resolves.toBe(Dialog);
+        expect(loader).toHaveBeenCalledOnce();
+    });
+
     it('定义不加载，首次打开共享请求，后续打开复用成功组件', async () => {
         const request = deferred<{ default: typeof Dialog }>();
         const loader = vi.fn(() => request.promise);

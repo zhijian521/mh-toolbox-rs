@@ -610,7 +610,7 @@ async function checkPrices({ cdp, t, ui }) {
     await cdp.click(trigger);
     try {
         await ui.waitFor(
-            `!!document.querySelector('${sheet}:is([open], [data-visible]) .liquid-price-history')`,
+            `!!document.querySelector('${sheet}:is([open], [data-visible]) .liquid-price-history :is(.chart-svg, .glass-empty-state)')`,
         );
         t.check(
             '历史弹层显示所选物品和走势及流水，或未记价提示',

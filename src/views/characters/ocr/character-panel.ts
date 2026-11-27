@@ -28,6 +28,7 @@ export function createCharacterPanelReader() {
         school: string,
         preferred: PaneKey,
         readText?: () => Promise<OcrLine[]>,
+        onGearPreview?: (result: GearPanelResult) => void,
     ): Promise<CharacterPanelResult | null> => {
         // 辅助页仍先走图标与等级小图；只有传入其他面板时才读取整图。
         if (preferred === 'assist' && readText) {
@@ -50,12 +51,17 @@ export function createCharacterPanelReader() {
         }
         if (gear) {
             const frame = gearFrame(image);
-            const outcome = await ocrFrame(frame.pixels, frame.width, frame.height);
+            const [outcome, equipmentNames] = await Promise.all([
+                ocrFrame(frame.pixels, frame.width, frame.height),
+                loadEquipmentNames(),
+            ]);
             if (outcome.status === 'failed') throw new Error(outcome.error);
             const value = await recognizeGearPanel(
                 outcome.lines,
                 image,
-                await loadEquipmentNames(),
+                equipmentNames,
+                undefined,
+                { rawLines: lines, onPreview: onGearPreview },
             );
             return value.slot && value.hit ? { pane: 'gear', value } : null;
         }

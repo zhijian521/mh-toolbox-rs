@@ -17,7 +17,7 @@ export function lazyDialog<T extends Component>(
     loader: () => Promise<{ default: T }>,
     /** 已有弹窗壳时在窗内显示状态，沿用该窗口的遮罩和焦点。 */
     inlineStatus?: (failed: boolean, retry: () => void) => VNode,
-): T {
+): T & { preload: () => Promise<T> } {
     let cached: T | undefined;
     let pending: Promise<T> | undefined;
 
@@ -122,5 +122,7 @@ export function lazyDialog<T extends Component>(
     });
 
     // 透明转发原弹窗的 props、事件和插槽，调用点保留原组件的类型约束。
-    return wrapper as unknown as T;
+    return Object.assign(wrapper, { preload: load }) as unknown as T & {
+        preload: () => Promise<T>;
+    };
 }

@@ -127,6 +127,24 @@ describe('装备原图补读', () => {
         );
     });
 
+    it('先给出主结果，再用已读原图补基础属性', async () => {
+        const primary = primaryWeapon();
+        const onPreview = vi.fn();
+        vi.mocked(ocrFrame).mockImplementationOnce(async () => {
+            expect(onPreview).toHaveBeenCalledOnce();
+            expect(onPreview.mock.calls[0][0].detail.stats).not.toContainEqual(
+                expect.objectContaining({ label: '伤害', value: '+731' }),
+            );
+            return { status: 'ok', lines: [] };
+        });
+        const result = await recognizeGearPanel(primary, image(), names, undefined, {
+            rawLines: [{ ...lines(['伤害+731命中+561'])[0], x: 50, y: 32 }],
+            onPreview,
+        });
+        expect(ocrFrame).toHaveBeenCalledOnce();
+        expect(result.detail.stats).toContainEqual({ label: '伤害', value: '+731', group: 'base' });
+    });
+
     it('局部仅认出部分基础且整图失败时保留主结果，不采纳半排补读', async () => {
         const primary = primaryWeapon();
         const expected = parseGearPanel(primary, names, undefined, image());

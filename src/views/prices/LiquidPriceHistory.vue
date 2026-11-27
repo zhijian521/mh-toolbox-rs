@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { usePagination } from '../../composables/use-pagination';
 import { GlassButton } from '../../components/liquid-glass';
 import GlassCompactPager from '../../components/liquid-glass/GlassCompactPager.vue';
@@ -36,6 +36,21 @@ const labels = computed(() => chart.value.map((point) => point.date));
 const series = computed(() => [
     { id: 'price', name: '价格', values: chart.value.map((point) => point.price) },
 ]);
+const chartHeight = 132;
+const showChart = ref(false);
+let chartFrame: number;
+let chartTask: number | undefined;
+onMounted(() => {
+    chartFrame = requestAnimationFrame(() => {
+        chartTask = window.setTimeout(() => {
+            showChart.value = true;
+        }, 0);
+    });
+});
+onBeforeUnmount(() => {
+    cancelAnimationFrame(chartFrame);
+    window.clearTimeout(chartTask);
+});
 </script>
 
 <template>
@@ -46,14 +61,17 @@ const series = computed(() => [
                     价格走势
                     <small v-if="chart.length < rows.length">最近 {{ chart.length }} 笔</small>
                 </h3>
-                <TrendChart
-                    :labels="labels"
-                    :series="series"
-                    kind="money"
-                    label="价格走势"
-                    :value-text="moneyText"
-                    :height="132"
-                />
+                <div :style="{ minHeight: `${chartHeight}px` }">
+                    <TrendChart
+                        v-if="showChart"
+                        :labels="labels"
+                        :series="series"
+                        kind="money"
+                        label="价格走势"
+                        :value-text="moneyText"
+                        :height="chartHeight"
+                    />
+                </div>
             </section>
             <div class="price-history-records lg-history-scroll">
                 <GlassTable class="price-history-table" sticky-header>

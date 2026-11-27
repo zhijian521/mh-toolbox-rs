@@ -41,7 +41,6 @@ const warmingPages = new Set<string>();
 let dragListeners: AbortController | undefined;
 onBeforeUnmount(() => {
     dragListeners?.abort();
-    removeDockGuard();
     for (const animation of dockAnimations) animation.cancel();
     dockRequest = undefined;
 });
@@ -147,18 +146,6 @@ function warmDockPage(name: string) {
         .catch(() => {})
         .finally(() => warmingPages.delete(name));
 }
-
-// 路由解析与上一段收尾并行；已缓存的页面也只需等待短暂的最后几帧。
-const removeDockGuard = router.beforeResolve(async (to, from) => {
-    if (
-        dockRequest &&
-        dockRequest.name === to.name &&
-        dockRequest.from === from &&
-        dockAnimations.size
-    ) {
-        await Promise.allSettled(Array.from(dockAnimations, (motion) => motion.finished));
-    }
-});
 
 async function navigateDock(name: string) {
     const request = { name, from: router.currentRoute.value };

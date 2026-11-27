@@ -18,7 +18,7 @@ function loadCatalog() {
 </script>
 
 <script setup lang="ts">
-import { computed, h, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 import AppIcon from '../../components/AppIcon.vue';
 import { GlassButton, GlassCard, GlassSearch } from '../../components/liquid-glass';
@@ -28,6 +28,7 @@ import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import { lazyDialog } from '../../components/lazy-dialog';
 import { useDraftGuard } from '../../composables/use-draft-guard';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
+import { useProgressiveList } from '../../composables/use-progressive-list';
 import { moneyText } from '../../services/format';
 import PriceActionsMenu from './PriceActionsMenu.vue';
 import LiquidPriceCard from './LiquidPriceCard.vue';
@@ -134,6 +135,11 @@ const selectedItem = computed(() => {
 });
 const matchingItems = computed(() =>
     filterItems(items.value, { keyword: keyword.value, category: category.value, sub: sub.value }),
+);
+const mountedItems = useProgressiveList(
+    matchingItems,
+    12,
+    () => hasFilters.value || scroll.value.top > 0,
 );
 // 当前路由拥有独立的 main；待列表完成布局后恢复，避免在加载卡片上被截为 0。
 const scrollHost = computed(() =>
@@ -340,8 +346,23 @@ onBeforeRouteLeave(() => {
     if (scrollHost.value) scroll.value.top = scrollHost.value.scrollTop;
 });
 
+let preloadTimer: number | undefined;
+let preloadIdle: number | undefined;
 onMounted(() => {
     if (!loaded.value || loadError.value) void refresh();
+    const preload = () => {
+        void PriceHistory.preload().catch(() => {});
+        void PriceEditor.preload().catch(() => {});
+    };
+    // 等切页动效结束再借浏览器空闲时间预载，失败由真正打开弹窗时重试。
+    preloadTimer = window.setTimeout(() => {
+        if (window.requestIdleCallback) preloadIdle = window.requestIdleCallback(preload);
+        else preload();
+    }, 400);
+});
+onBeforeUnmount(() => {
+    window.clearTimeout(preloadTimer);
+    if (preloadIdle !== undefined) window.cancelIdleCallback(preloadIdle);
 });
 </script>
 
@@ -424,7 +445,7 @@ onMounted(() => {
 
             <div v-if="matchingItems.length" class="price-grid">
                 <LiquidPriceCard
-                    v-for="item in matchingItems"
+                    v-for="item in mountedItems"
                     :key="item.id"
                     :item="item"
                     :edit-disabled="!canEdit || saving"

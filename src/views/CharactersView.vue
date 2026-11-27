@@ -8,6 +8,7 @@ import { useRouteAction } from '../composables/use-route-action';
 import PageShell from '../components/PageShell.vue';
 import LiquidLedgerFrame from '../components/LiquidLedgerFrame.vue';
 import { glassLedger } from '../components/glass-ledger';
+import { useProgressiveList } from '../composables/use-progressive-list';
 import GlassEmptyState from '../components/liquid-glass/GlassEmptyState.vue';
 import PressButton from '../components/PressButton.vue';
 import { notify } from '../composables/use-notify';
@@ -34,6 +35,7 @@ const warehouseOpen = ref(false);
 
 const { roster, loadError, writeError, pending, flush, retry, add, update, remove } = useRoster();
 const route = useRoute();
+const mountedRoster = useProgressiveList(roster, 3, () => !glass || !!route.query.character);
 const historyOpen = ref(false);
 const preparingRemoval = ref(false);
 const goals = useGoals();
@@ -269,7 +271,7 @@ useRouteAction('/characters', {
                  （`quicking`），卡片只把「点了什么」抛上来——卡是循环渲染的，
                  每张卡各存一个弹窗状态就等于开了 N 个窗。 -->
             <CharacterCard
-                v-for="character in roster"
+                v-for="character in mountedRoster"
                 :key="character.id"
                 :character="character"
                 class="roster-card"

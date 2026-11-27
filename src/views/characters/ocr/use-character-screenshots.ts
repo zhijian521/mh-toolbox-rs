@@ -4,6 +4,7 @@ import { PANES, type PaneKey, type ReadonlyCharacter } from '../character';
 import { normalizeGear } from '../roster';
 import type { OcrLine } from './attr-panel';
 import { createCharacterPanelReader, type CharacterPanelResult } from './character-panel';
+import type { GearPanelResult } from './gear-panel';
 import { base64Of, swapToBgra } from './pixels';
 import { emptyPet } from './pet-panel';
 import { useOcrImage } from './use-ocr-image';
@@ -62,6 +63,7 @@ export function useCharacterScreenshots(
     let generation = 0;
     let disposed = false;
     let readingPane = pane.value;
+    let showGearPreview: ((result: GearPanelResult) => void) | undefined;
     const readPanel = createCharacterPanelReader();
     const { result, rawLines, shotUrl, busy, error, takeFile } =
         useOcrImage<CharacterPanelResult | null>(
@@ -85,6 +87,7 @@ export function useCharacterScreenshots(
                     draft.value.school,
                     preferred,
                     preferred === 'assist' ? readText : undefined,
+                    showGearPreview,
                 );
                 return { result, error: result ? '' : '没认出可填写的内容，请截取完整的面板' };
             },
@@ -119,6 +122,13 @@ export function useCharacterScreenshots(
                 if (!current()) return;
                 const startPane = pane.value;
                 readingPane = startPane;
+                let gearBefore: ReturnType<typeof characterSnapshot> | undefined;
+                showGearPreview = (value) => {
+                    if (!current() || pane.value !== 'gear' || !unchanged('gear')) return;
+                    gearBefore = characterSnapshot(draft.value, 'gear');
+                    apply(file, { pane: 'gear', value }, rawLines.value, shotUrl.value);
+                    drafts.set('gear', paneDraft(draft.value, 'gear'));
+                };
                 await takeFile(file);
                 if (!current()) return;
                 const panel = result.value;
@@ -140,12 +150,14 @@ export function useCharacterScreenshots(
                     if (!current()) return;
                 }
                 const character = draft.value;
-                const before = characterSnapshot(
-                    target === 'pets' && !character.pets.length
-                        ? { ...character, pets: [{ ...emptyPet(), name: '' }] }
-                        : character,
-                    target,
-                );
+                const before =
+                    gearBefore ??
+                    characterSnapshot(
+                        target === 'pets' && !character.pets.length
+                            ? { ...character, pets: [{ ...emptyPet(), name: '' }] }
+                            : character,
+                        target,
+                    );
                 const attrsUnchanged = target === 'skills' && unchanged('attrs');
                 apply(file, panel, rawLines.value, shotUrl.value);
                 // 同一批的后续图片可以继续覆盖本批回填，手工修改仍会被检测到。
@@ -170,6 +182,7 @@ export function useCharacterScreenshots(
             }
         } finally {
             if (current()) {
+                showGearPreview = undefined;
                 feedback.value = failures.join('；');
                 queued.value = false;
             }
