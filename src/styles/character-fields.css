@@ -202,6 +202,10 @@
     background: transparent;
     box-shadow: none;
 }
+.liquid-ledger .slip-row.sm:has(.glass-compact-number-field) {
+    height: auto;
+    min-height: 28px;
+}
 .liquid-ledger .glass-compact-number-field.num-slot {
     padding: 0;
     height: auto;
