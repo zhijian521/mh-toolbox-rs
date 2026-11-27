@@ -171,7 +171,7 @@ function askClear() {
     </LedgerSection>
     <BackupHistory
         v-if="backupsOpen"
-        :operationBusy="operationBusy"
+        :busy="operationBusy"
         :entries="entries"
         :loading="loading"
         :error="error"
