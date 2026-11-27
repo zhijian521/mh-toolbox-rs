@@ -17,8 +17,8 @@ import {
 } from '../../services/data-files';
 /** 全部账本操作共用忙状态；替换前确认并备份，成功后重载领域单例。 */
 const dataBusy = defineModel<boolean>('busy', { required: true });
-const { busy, message, messageKind, warning, run } = useLedgerOperations();
-watch(busy, (value) => (dataBusy.value = value), { flush: 'sync' });
+const { busy: operationBusy, message, messageKind, warning, run } = useLedgerOperations();
+watch(operationBusy, (value) => (dataBusy.value = value), { flush: 'sync' });
 const backupsOpen = ref(false);
 const desktop = hasDesktop();
 const {
@@ -93,21 +93,21 @@ function askClear() {
                 icon="download"
                 label="导出账本到文件"
                 text="导出"
-                :disabled="busy"
+                :disabled="operationBusy"
                 @click="exportLedger"
             />
             <SlotButton
                 icon="upload"
                 label="从备份文件导入账本"
                 text="导入"
-                :disabled="busy"
+                :disabled="operationBusy"
                 @click="askImport"
             />
             <SlotButton
                 icon="upload"
                 label="导入旧版 Electron 完整备份"
                 text="导入旧版"
-                :disabled="busy"
+                :disabled="operationBusy"
                 @click="importLegacy"
             />
             <template #detail>
@@ -119,7 +119,7 @@ function askClear() {
                 icon="history"
                 text="恢复"
                 label="查看本地备份与恢复"
-                :disabled="busy || !desktop"
+                :disabled="operationBusy || !desktop"
                 @click="openBackups"
             />
             <span class="hint">最近 5 份备份</span>
@@ -140,7 +140,7 @@ function askClear() {
                             v-if="error"
                             text="重新读取"
                             label="重新读取备份状态"
-                            :disabled="loading || busy"
+                            :disabled="loading || operationBusy"
                             @click="refresh"
                         />
                     </template>
@@ -155,7 +155,7 @@ function askClear() {
                     icon="trash"
                     label="清空全部账本数据"
                     text="清除"
-                    :disabled="busy"
+                    :disabled="operationBusy"
                     @click="askClear"
                 />
                 <template #detail>
@@ -171,7 +171,7 @@ function askClear() {
     </LedgerSection>
     <BackupHistory
         v-if="backupsOpen"
-        :busy="busy"
+        :operationBusy="operationBusy"
         :entries="entries"
         :loading="loading"
         :error="error"
