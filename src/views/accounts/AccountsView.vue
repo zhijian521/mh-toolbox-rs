@@ -179,6 +179,7 @@ useRouteAction('/accounts', {
                     v-for="book in books"
                     :key="book.currency"
                     class="book"
+                    centered
                     :surface="glass ? 'glass' : 'folded'"
                     spine="left"
                     :heading="book.heading"

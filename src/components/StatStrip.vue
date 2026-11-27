@@ -60,6 +60,7 @@ withDefaults(
     defineProps<{
         items: StatItem[];
         surface?: 'standalone' | 'embedded' | 'folded' | 'glass';
+        centered?: boolean;
         spine?: 'left' | 'right';
         heading?: string;
         hint?: string;
@@ -84,6 +85,7 @@ const surfaces = {
         class="stats"
         :class="{
             'stats-embedded': surface !== 'standalone',
+            'stats-centered': centered && surface !== 'standalone',
             'stats-folded': surface === 'folded',
             'stats-glass': surface === 'glass',
         }"
@@ -289,6 +291,27 @@ const surfaces = {
 }
 .stats-embedded .num {
     color: var(--ink);
+}
+.stats-centered.stats-embedded {
+    column-gap: 0;
+}
+.stats-centered.stats-embedded .stat {
+    align-items: center;
+    padding: 6px 4px;
+    text-align: center;
+}
+.stats-centered .stat + .stat::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 0;
+    top: 50%;
+    height: 1.25em;
+    border-inline-start: 1px solid var(--rule);
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+.stats-centered .v {
+    max-width: 100%;
 }
 .v.unavailable {
     color: var(--muted);

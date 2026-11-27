@@ -28,6 +28,7 @@ const glass = inject(glassLedger, null);
 const {
     sessions,
     settings,
+    loaded,
     setCardCost,
     setCardPrice,
     startOnline,
@@ -81,7 +82,7 @@ const unlisted = computed(() => {
     return running.value.filter((one) => ownersOf(one).every((id) => !ids.has(id)));
 });
 const onlineItems = computed<StatItem[]>(() =>
-    loadError.value
+    loadError.value || (glass && !loaded.value)
         ? ['在线时长', '点卡花费'].map((cap, index) => ({
               id: index === 0 ? 'minutes' : 'cost',
               cap,
@@ -168,153 +169,188 @@ function whoText(one: ReadonlyOnlineSession): string {
     const names = ownersOf(one).map((id) => characterName(roster.value, id));
     return names.length ? names.join('、') : '未指定';
 }
+
+function roleButtonAttrs(active: boolean, label: string) {
+    return glass
+        ? { size: 'small', 'aria-label': label, title: label }
+        : { active, indicator: true, label };
+}
 </script>
 
 <template>
-    <LedgerSection title="在线点卡" plain class="online-bar" aria-label="在线点卡">
-        <template #actions>
-            <div class="online-tools">
-                <div class="online-actions" role="group" aria-label="上线记录管理">
-                    <TextButton
-                        text="补记"
-                        label="补记一段已经过去的在线时长"
-                        :disabled="controlsLocked"
-                        @click="emit('backfill')"
-                    />
-                    <TextButton text="记录" label="查看全部上线记录" @click="emit('records')" />
-                </div>
-                <div class="card-settings" role="group" aria-label="点卡设置">
-                    <button
-                        type="button"
-                        class="price-tag"
-                        :title="`点卡单价 ${ledgerMoneyText(settings.cardPrice)}/点，点一下改`"
-                        :aria-label="`点卡单价 ${ledgerMoneyText(settings.cardPrice)}/点，点一下改`"
-                        :disabled="controlsLocked"
-                        @click="priceOpen = true"
-                    >
-                        <span class="val">{{ ledgerMoneyText(settings.cardPrice) }}</span>
-                        <span class="price-unit">/ 点</span>
-                        <AppIcon name="edit" class="mark" />
-                    </button>
-                    <span v-if="glass" class="card-cost-control">
-                        <span aria-hidden="true">计入收支</span>
-                        <GlassSmallSwitch
-                            :checked="settings.cardCost"
+    <div class="online-bar" :class="{ 'online-bar-glass': glass }">
+        <StatStrip
+            v-if="glass"
+            class="online-summary"
+            :items="onlineItems"
+            surface="glass"
+            centered
+            heading="今日在线"
+            icon="play"
+            aria-label="今日在线统计"
+        />
+        <slot v-if="glass" name="summary" />
+
+        <LedgerSection
+            :title="glass ? '角色记录' : '在线点卡'"
+            plain
+            class="online-role-card"
+            :aria-label="glass ? '角色记录' : '在线点卡'"
+        >
+            <template #actions>
+                <div class="online-tools">
+                    <div class="online-actions" role="group" aria-label="上线记录管理">
+                        <TextButton
+                            text="补记"
+                            label="补记一段已经过去的在线时长"
                             :disabled="controlsLocked"
-                            aria-label="点卡计入账号收支"
-                            @update:checked="toggleCost"
+                            @click="emit('backfill')"
                         />
-                    </span>
-                    <CostSwitch
-                        v-else
-                        :model-value="settings.cardCost"
-                        off-label="不计入"
-                        on-label="计入"
-                        label="点卡计入账号收支"
-                        :disabled="controlsLocked"
-                        @update:model-value="toggleCost"
-                    />
-                </div>
-            </div>
-        </template>
-
-        <div class="online-layout">
-            <div class="online-tickets">
-                <StatStrip
-                    class="online-summary"
-                    :items="onlineItems"
-                    surface="folded"
-                    spine="left"
-                    heading="今日在线"
-                    icon="play"
-                    aria-label="今日在线统计"
-                />
-                <slot name="summary" />
-            </div>
-
-            <div class="online-roster">
-                <LoadNotice
-                    :error="rosterError"
-                    :load="reloadRoster ?? loadRoster"
-                    :blocked="changing || rosterPending > 0 || !!rosterWriteError"
-                />
-                <div v-if="roles.length" class="role-list" aria-label="全部角色">
-                    <div
-                        v-for="one in roles"
-                        :key="one.id"
-                        class="role-item"
-                        :class="{ 'is-running': one.session }"
-                        :data-character-id="one.id"
-                    >
-                        <KeycapButton
-                            class="role-start"
-                            indicator
-                            :active="!!one.session"
-                            :disabled="controlsLocked || (!one.session && !!rosterError)"
-                            :label="
-                                one.session
-                                    ? `结束 ${whoText(one.session)} 的计时`
-                                    : `快速上线 ${one.name}`
-                            "
-                            @click="toggleRole(one.id)"
+                        <TextButton text="记录" label="查看全部上线记录" @click="emit('records')" />
+                    </div>
+                    <div class="card-settings" role="group" aria-label="点卡设置">
+                        <component
+                            :is="glass?.button ?? 'button'"
+                            type="button"
+                            :size="glass ? 'small' : undefined"
+                            class="price-tag"
+                            :title="`点卡单价 ${ledgerMoneyText(settings.cardPrice)}/点，点一下改`"
+                            :aria-label="`点卡单价 ${ledgerMoneyText(settings.cardPrice)}/点，点一下改`"
+                            :disabled="controlsLocked"
+                            @click="priceOpen = true"
                         >
-                            <span class="role-copy">
-                                <span class="name">{{ one.name }}</span>
-                                <span v-if="one.session" class="role-state">
-                                    {{ clockText(sessionMinutes(one.session, now)) }}
-                                </span>
-                            </span>
-                        </KeycapButton>
+                            <span class="val">{{ ledgerMoneyText(settings.cardPrice) }}</span>
+                            <span class="price-unit">/ 点</span>
+                            <AppIcon name="edit" class="mark" />
+                        </component>
+                        <span v-if="glass" class="card-cost-control">
+                            <span aria-hidden="true">计入收支</span>
+                            <GlassSmallSwitch
+                                :checked="settings.cardCost"
+                                :disabled="controlsLocked"
+                                aria-label="点卡计入账号收支"
+                                @update:checked="toggleCost"
+                            />
+                        </span>
+                        <CostSwitch
+                            v-else
+                            :model-value="settings.cardCost"
+                            off-label="不计入"
+                            on-label="计入"
+                            label="点卡计入账号收支"
+                            :disabled="controlsLocked"
+                            @update:model-value="toggleCost"
+                        />
                     </div>
                 </div>
-                <p v-else-if="!rosterError" class="idle">添加角色后，点一下即可上线</p>
-                <div v-if="unlisted.length" class="unlisted" aria-label="名册外正在计时的记录">
-                    <KeycapButton
-                        v-for="one in unlisted"
-                        :key="one.id"
-                        class="unlisted-row"
-                        active
-                        indicator
-                        :disabled="controlsLocked"
-                        :label="`结束 ${whoText(one)} 的计时`"
-                        @click="stopOne(one)"
-                    >
-                        <span class="role-copy">
-                            <span class="name">{{ whoText(one) }}</span>
-                            <span class="role-state">{{
-                                clockText(sessionMinutes(one, now))
-                            }}</span>
-                        </span>
-                    </KeycapButton>
+            </template>
+
+            <div :class="{ 'online-layout': !glass }">
+                <div v-if="!glass" class="online-tickets">
+                    <StatStrip
+                        class="online-summary"
+                        :items="onlineItems"
+                        surface="folded"
+                        spine="left"
+                        heading="今日在线"
+                        icon="play"
+                        aria-label="今日在线统计"
+                    />
+                    <slot name="summary" />
+                </div>
+
+                <div class="online-roster">
+                    <LoadNotice
+                        :error="rosterError"
+                        :load="reloadRoster ?? loadRoster"
+                        :blocked="changing || rosterPending > 0 || !!rosterWriteError"
+                    />
+                    <div v-if="roles.length" class="role-list" aria-label="全部角色">
+                        <div
+                            v-for="one in roles"
+                            :key="one.id"
+                            class="role-item"
+                            :class="{ 'is-running': one.session }"
+                            :data-character-id="one.id"
+                        >
+                            <component
+                                :is="glass?.button ?? KeycapButton"
+                                class="role-start"
+                                v-bind="
+                                    roleButtonAttrs(
+                                        !!one.session,
+                                        one.session
+                                            ? `结束 ${whoText(one.session)} 的计时`
+                                            : `快速上线 ${one.name}`,
+                                    )
+                                "
+                                :disabled="controlsLocked || (!one.session && !!rosterError)"
+                                @click="toggleRole(one.id)"
+                            >
+                                <AppIcon
+                                    v-if="glass"
+                                    :name="one.session ? 'stop' : 'play'"
+                                    class="role-icon"
+                                />
+                                <span class="role-copy">
+                                    <span class="name">{{ one.name }}</span>
+                                    <span v-if="one.session" class="role-state">
+                                        {{ clockText(sessionMinutes(one.session, now)) }}
+                                    </span>
+                                </span>
+                            </component>
+                        </div>
+                    </div>
+                    <p v-else-if="!rosterError" class="idle">添加角色后，点一下即可上线</p>
+                    <div v-if="unlisted.length" class="unlisted" aria-label="名册外正在计时的记录">
+                        <component
+                            :is="glass?.button ?? KeycapButton"
+                            v-for="one in unlisted"
+                            :key="one.id"
+                            class="unlisted-row"
+                            :class="{ 'is-running': glass }"
+                            v-bind="roleButtonAttrs(true, `结束 ${whoText(one)} 的计时`)"
+                            :disabled="controlsLocked"
+                            @click="stopOne(one)"
+                        >
+                            <AppIcon v-if="glass" name="stop" class="role-icon" />
+                            <span class="role-copy">
+                                <span class="name">{{ whoText(one) }}</span>
+                                <span class="role-state">{{
+                                    clockText(sessionMinutes(one, now))
+                                }}</span>
+                            </span>
+                        </component>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <CardPriceDialog
-            v-if="priceOpen"
-            :current="settings.cardPrice"
-            :card-cost="settings.cardCost"
-            :saving="saving"
-            :locked="locked"
-            :retrying="action !== null"
-            :save-error="writeError"
-            @save="savePrice"
-            @close="closePrice"
-        />
-    </LedgerSection>
+            <CardPriceDialog
+                v-if="priceOpen"
+                :current="settings.cardPrice"
+                :card-cost="settings.cardCost"
+                :saving="saving"
+                :locked="locked"
+                :retrying="action !== null"
+                :save-error="writeError"
+                @save="savePrice"
+                @close="closePrice"
+            />
+        </LedgerSection>
+    </div>
 </template>
 
 <style scoped>
 .online-bar {
     min-width: 0;
 }
-.online-bar :deep(.section-head) {
+.online-bar:not(.online-bar-glass) .online-role-card :deep(.section-head) {
     align-items: center;
     flex-wrap: wrap;
     gap: 12px 20px;
     margin-bottom: 18px;
 }
-.online-bar :deep(.section-actions) {
+.online-role-card :deep(.section-actions) {
     min-width: 0;
 }
 .online-tools,
@@ -344,7 +380,7 @@ function whoText(one: ReadonlyOnlineSession): string {
     font-size: var(--fs-xs);
     white-space: nowrap;
 }
-.price-tag {
+button.price-tag {
     display: inline-flex;
     flex: none;
     align-items: center;
@@ -363,7 +399,7 @@ function whoText(one: ReadonlyOnlineSession): string {
         border-color var(--t-quick) var(--ease-soft),
         background-color var(--t-quick) var(--ease-soft);
 }
-.price-tag:hover:not(:disabled) {
+button.price-tag:hover:not(:disabled) {
     border-color: color-mix(in srgb, var(--accent) 45%, var(--rule));
     background-color: color-mix(in srgb, var(--accent) 7%, var(--paper));
 }
@@ -464,7 +500,7 @@ function whoText(one: ReadonlyOnlineSession): string {
 .is-running .role-state {
     color: var(--num);
 }
-.price-tag:focus-visible {
+button.price-tag:focus-visible {
     outline: var(--ring);
     outline-offset: var(--ring-offset);
 }

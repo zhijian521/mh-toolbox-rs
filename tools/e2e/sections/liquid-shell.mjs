@@ -905,7 +905,32 @@ export default async function liquidShell({ cdp, t, ui }) {
     await cdp.click(`${incomeDialog} [data-modal-close]`);
     await ui.waitFor(`!document.querySelector('${incomeDialog}')`);
     t.check(
-        '收益主界面保留在线、速记和走势图，点卡计入使用紧凑开关',
+        '收益顶部并列三张玻璃卡，角色计时、点卡和记录操作留在角色卡',
+        await cdp.evaluate(`(() => {
+        const top = document.querySelector('${income} .online-bar-glass');
+        const cards = [...(top?.children ?? [])];
+        const roles = cards[2];
+        return cards.length === 3 && cards.every((card) => card.matches('glass-surface')) &&
+            cards[0].matches('.online-summary.stats-glass.stats-centered') &&
+            cards[0].querySelector('h3')?.textContent.trim() === '今日在线' &&
+            cards[1].matches('.income-summary.stats-glass.stats-centered') &&
+            cards[1].querySelector('h3')?.textContent.trim() === '今日收益' &&
+            roles.querySelector('h2')?.textContent.trim() === '角色记录' &&
+            !!roles.querySelector('glass-button.price-tag') &&
+            !!roles.querySelector('glass-switch.lg-small-switch[aria-label="点卡计入账号收支"]') &&
+            [...roles.querySelectorAll('.role-item')].every((role) => {
+                const action = role.querySelector('glass-button.role-start[size="small"]');
+                if (!action) return false;
+                const label = action.getAttribute('aria-label') ?? '';
+                const running = role.matches('.is-running');
+                return label.startsWith(running ? '结束 ' : '快速上线 ') &&
+                    !!action.querySelector('svg.role-icon') &&
+                    !!action.querySelector('.role-state') === running;
+            });
+    })()`),
+    );
+    t.check(
+        '收益主界面保留物品速记、今日速记和走势图',
         await cdp.evaluate(`(() => {
         const page = document.querySelector('${income}');
         const headings = Array.from(page.querySelectorAll('h2, h3'), (node) => node.textContent.trim());
@@ -916,10 +941,9 @@ export default async function liquidShell({ cdp, t, ui }) {
             !!target.querySelector('glass-segmented[data-size="compact"][aria-label="指定人"]') &&
             getComputedStyle(target).overflowX === 'auto' &&
             getComputedStyle(target).scrollbarWidth === 'none' &&
-            !!page.querySelector('glass-switch.lg-small-switch[aria-label="点卡计入账号收支"]') &&
             !headings.includes('每日走势') &&
             charts.every((card) => !!card.querySelector('.section-head glass-segmented')) &&
-            ['在线点卡', '物品速记', '今日速记', '每日时长', '每日收益'].every((text) => headings.includes(text));
+            ['物品速记', '今日速记', '每日时长', '每日收益'].every((text) => headings.includes(text));
     })()`),
     );
     for (const [selector, title] of [
@@ -945,6 +969,14 @@ export default async function liquidShell({ cdp, t, ui }) {
                     (!table || table.matches('.glass-table.has-sticky-header')) &&
                     !dialog.querySelector('[aria-label="关闭历史收益"], [aria-label="关闭上线记录"]');
             })()`),
+            );
+        }
+        if (title === '上线记录') {
+            t.check(
+                '玻璃上线记录移除关键词搜索',
+                await cdp.evaluate(`
+                    !document.querySelector('${incomeDialog} :is(.filter-search, [aria-label="搜索上线记录"])')
+                `),
             );
         }
         if (title === '补记一段') {

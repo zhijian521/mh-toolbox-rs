@@ -10,7 +10,6 @@ import LoadNotice from '../../components/LoadNotice.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import TextButton from '../../components/TextButton.vue';
-import { GlassSearch } from '../../components/liquid-glass';
 import IncomeRoleFilter from './IncomeRoleFilter.vue';
 import { glassLedger } from '../../components/glass-ledger';
 import GlassTable from '../../components/liquid-glass/GlassTable.vue';
@@ -64,9 +63,9 @@ const whoOptions = computed(() =>
 );
 
 const searched = computed(() => {
-    const word = keyword.value.trim().toLocaleLowerCase();
+    const word = glass ? '' : keyword.value.trim().toLocaleLowerCase();
+    if (!word) return rangeRows.value;
     return rangeRows.value.filter((one) => {
-        if (!word) return true;
         return [one.note, one.date, ...ownersOf(one).map((id) => characterName(roster.value, id))]
             .join(' ')
             .toLocaleLowerCase()
@@ -129,12 +128,12 @@ const anyFilter = computed(() => {
         from.value !== today ||
         to.value !== today ||
         who.value !== ANY ||
-        Boolean(keyword.value.trim())
+        (!glass && Boolean(keyword.value.trim()))
     );
 });
 
 /* 筛选一变就回第一页：留在第 5 页而结果只剩两条时屏幕是空的，用户会以为没记录。 */
-watch([from, to, who, keyword], () => {
+watch(glass ? [from, to, who] : [from, to, who, keyword], () => {
     page.value = 1;
     if (scroll.value) scroll.value.scrollTop = 0;
     filters.value.scrollTop = 0;
@@ -192,15 +191,8 @@ async function remove(one: ReadonlyOnlineSession) {
                 :from-label="glass ? '开始日期' : '从哪一天'"
                 :to-label="glass ? '结束日期' : '到哪一天'"
             />
-            <GlassSearch
-                v-if="glass"
-                v-model:value="keyword"
-                class="filter-search"
-                placeholder="搜备注 / 日期"
-                aria-label="搜索上线记录"
-            />
             <input
-                v-else
+                v-if="!glass"
                 v-model="keyword"
                 class="field filter-search"
                 type="search"

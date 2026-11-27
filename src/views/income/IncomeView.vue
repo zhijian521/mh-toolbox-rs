@@ -277,11 +277,12 @@ useRouteAction('/income', {
                 @records="openRecords"
                 @backfill="onlineDialog = 'backfill'"
             >
-                <template v-if="!loadError" #summary>
+                <template v-if="liquid || !loadError" #summary>
                     <StatStrip
                         class="income-summary"
                         :items="statItems"
-                        surface="folded"
+                        :surface="liquid ? 'glass' : 'folded'"
+                        :centered="liquid"
                         spine="left"
                         heading="今日收益"
                         icon="coins"

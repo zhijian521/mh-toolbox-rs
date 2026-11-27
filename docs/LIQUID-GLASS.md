@@ -14,7 +14,7 @@
 
 ## 页面迁移进度
 
-收益的历史收益与上线记录使用玻璃日期筛选、紧凑角色分段和固定表头表格；上线记录搜索复用 GlassSearch。角色小计按原日期与搜索范围计算，切换角色仅筛明细。历史窗仅多页时显示分页，关闭统一走右上角或 Esc。上线、补记与修改时段使用 GlassMultiSelect、GlassDateField、TimeField 的玻璃模式和 GlassInput；历史收益的记录编辑使用 GlassPriceField 与 GlassSelect。保存期间的禁用、失败重试及原账本计算保持领域原有契约。
+收益页顶部是今日在线、今日收益和角色记录三张独立玻璃卡。两张统计卡沿用账号页的居中读数和短分隔线，角色卡使用玻璃按钮开始或结束计时。历史收益与上线记录使用玻璃日期筛选、紧凑角色分段和固定表头表格。上线记录按日期和角色筛选，角色小计按所选日期计算，切换角色仅筛明细。历史窗仅多页时显示分页，关闭统一走右上角或 Esc。上线、补记与修改时段使用 GlassMultiSelect、GlassDateField、TimeField 的玻璃模式和 GlassInput；历史收益的记录编辑使用 GlassPriceField 与 GlassSelect。保存期间的禁用、失败重试及原账本计算保持领域原有契约。
 
 截至 2026-11-25。Dock 的名称和顺序来自[导航定义](../src/navigation.ts)，玻璃页面的实际挂载位置见[玻璃路由](../src/liquid-main.ts)。
 
