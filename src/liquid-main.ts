@@ -64,11 +64,11 @@ const router = createRouter({
         { path: '/', redirect: DEFAULT_PATH },
         ...items
             .filter(({ key }) => key !== 'tools')
-            .map(({ key, path }) => ({
+            .map(({ key, path, label }) => ({
                 path,
                 name: key,
                 component: resolveView(key),
-                meta: { hideScrollbar: key !== 'settings' },
+                meta: { title: label, hideScrollbar: key !== 'settings' },
             })),
         {
             path: '/tools',
@@ -79,7 +79,7 @@ const router = createRouter({
                 {
                     path: '',
                     name: 'tools',
-                    meta: { hideScrollbar: true },
+                    meta: { title: '工具', hideScrollbar: true },
                     component: timedRoute('tools', () =>
                         import('./views/ToolsView.vue').then((page) => page.default),
                     ),
@@ -96,7 +96,7 @@ const router = createRouter({
         {
             path: '/components',
             name: 'components',
-            meta: { dock: 'settings', hideScrollbar: true },
+            meta: { title: '组件展示', dock: 'settings', hideScrollbar: true },
             component: resolveView('components'),
         },
         { path: '/:pathMatch(.*)*', redirect: DEFAULT_PATH },

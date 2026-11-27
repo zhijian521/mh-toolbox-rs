@@ -78,12 +78,7 @@ const netSeries = computed(() => seriesOf(net.value));
     <section class="income-trends" aria-label="每日走势">
         <header v-if="!glass" class="trends-head">
             <h2>每日走势</h2>
-            <SteppedSlider
-                v-model="span"
-                :options="SPANS"
-                label="走势范围"
-                class="span-slider"
-            />
+            <SteppedSlider v-model="span" :options="SPANS" label="走势范围" class="span-slider" />
         </header>
 
         <div class="charts" :style="{ '--chart-height': CHART_HEIGHT + 'px' }">

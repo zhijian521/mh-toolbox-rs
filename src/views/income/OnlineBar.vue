@@ -209,6 +209,15 @@ function roleButtonAttrs(active: boolean, label: string) {
                         <TextButton text="记录" label="查看全部上线记录" @click="emit('records')" />
                     </div>
                     <div class="card-settings" role="group" aria-label="点卡设置">
+                        <span v-if="glass" class="card-cost-control">
+                            <span aria-hidden="true">计入收支</span>
+                            <GlassSmallSwitch
+                                :checked="settings.cardCost"
+                                :disabled="controlsLocked"
+                                aria-label="点卡计入账号收支"
+                                @update:checked="toggleCost"
+                            />
+                        </span>
                         <component
                             :is="glass?.button ?? 'button'"
                             type="button"
@@ -223,17 +232,8 @@ function roleButtonAttrs(active: boolean, label: string) {
                             <span class="price-unit">/ 点</span>
                             <AppIcon name="edit" class="mark" />
                         </component>
-                        <span v-if="glass" class="card-cost-control">
-                            <span aria-hidden="true">计入收支</span>
-                            <GlassSmallSwitch
-                                :checked="settings.cardCost"
-                                :disabled="controlsLocked"
-                                aria-label="点卡计入账号收支"
-                                @update:checked="toggleCost"
-                            />
-                        </span>
                         <CostSwitch
-                            v-else
+                            v-if="!glass"
                             :model-value="settings.cardCost"
                             off-label="不计入"
                             on-label="计入"

@@ -49,8 +49,15 @@ const { requestClose } = useDraftGuard(
 
 function submit() {
     submitted.value = true;
-    if (props.saving || (props.retryAction !== 'save' && (!canSave.value || props.locked))) return;
-    emit('save', Math.round(amount.value));
+    const value = amount.value;
+    if (
+        value === null ||
+        props.saving ||
+        (props.retryAction !== 'save' && (!canSave.value || props.locked))
+    ) {
+        return;
+    }
+    emit('save', Math.round(value));
 }
 
 function onEnter(event: KeyboardEvent) {

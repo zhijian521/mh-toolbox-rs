@@ -96,8 +96,11 @@
     --moss: var(--liquid-up);
     --cinnabar: var(--liquid-down);
 }
-.workbench-period :is(.workbench-summary, .month-books) {
-    margin-block-start: 10px;
+.workbench-period .workbench-summary {
+    padding-block-start: 10px;
+}
+.workbench-period .workbench-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .overview-retries {
     display: flex;
@@ -108,7 +111,7 @@
 
 .month-books {
     display: grid;
-    gap: 6px;
+    gap: 4px;
 }
 
 .month-book {

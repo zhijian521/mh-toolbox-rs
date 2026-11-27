@@ -10,6 +10,7 @@ import GlassCompactNumberField from '../../components/liquid-glass/GlassCompactN
 import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import type { GalleryExamples } from './gallery-examples';
 
+const { samples } = defineProps<{ samples: GalleryExamples }>();
 const {
     priceExample,
     initialPrice,
@@ -22,7 +23,7 @@ const {
     unavailableCategory,
     filterOptions,
     searchExamples,
-} = defineProps<{ samples: GalleryExamples }>().samples;
+} = samples;
 </script>
 
 <template>

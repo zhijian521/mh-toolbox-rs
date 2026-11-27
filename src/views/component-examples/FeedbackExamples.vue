@@ -4,7 +4,8 @@ import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import { notify } from '../../composables/use-notify';
 import type { GalleryExamples } from './gallery-examples';
 
-const { sheetOpen, openSample } = defineProps<{ samples: GalleryExamples }>().samples;
+const { samples } = defineProps<{ samples: GalleryExamples }>();
+const { sheetOpen, openSample } = samples;
 </script>
 
 <template>

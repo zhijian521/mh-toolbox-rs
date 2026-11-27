@@ -66,7 +66,10 @@ const NO_HOST: { status: 'failed'; error: string } = {
 };
 
 // 成功替换后，保留写锁直到调用方重载。首次启动导入在领域模块读取前完成。
-async function replaceLedger(action: () => Promise<DataOutcome>, reload = true): Promise<DataOutcome> {
+async function replaceLedger(
+    action: () => Promise<DataOutcome>,
+    reload = true,
+): Promise<DataOutcome> {
     if (!hasDesktop()) return NO_HOST;
     try {
         return await withLedgerReplacement(action, (result) => reload && result.status === 'ok');

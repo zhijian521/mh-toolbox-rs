@@ -12,7 +12,8 @@ import AppIcon from '../../components/AppIcon.vue';
 import GlassMenuTrigger from '../../components/liquid-glass/GlassMenuTrigger.vue';
 import type { GalleryExamples } from './gallery-examples';
 
-const { sheetOpen, openSample, sort } = defineProps<{ samples: GalleryExamples }>().samples;
+const { samples } = defineProps<{ samples: GalleryExamples }>();
+const { sheetOpen, openSample, sort } = samples;
 </script>
 
 <template>

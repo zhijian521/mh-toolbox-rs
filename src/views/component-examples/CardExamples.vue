@@ -2,7 +2,8 @@
 import LiquidPriceCard from '../prices/LiquidPriceCard.vue';
 import type { GalleryExamples } from './gallery-examples';
 
-const { sampleItem, sheetOpen, openSample } = defineProps<{ samples: GalleryExamples }>().samples;
+const { samples } = defineProps<{ samples: GalleryExamples }>();
+const { sampleItem, sheetOpen, openSample } = samples;
 </script>
 
 <template>

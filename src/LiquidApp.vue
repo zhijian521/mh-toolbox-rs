@@ -293,7 +293,10 @@ watch(appearance, () => updateAppearance(), { flush: 'post' });
                     :class="{ 'lg-scroll-hidden': hideContentScrollbar }"
                     aria-label="应用内容"
                 >
-                    <RouterView v-if="route.matched.length && !deferDockView" v-slot="{ Component }">
+                    <RouterView
+                        v-if="route.matched.length && !deferDockView"
+                        v-slot="{ Component }"
+                    >
                         <component
                             :is="Component"
                             @vue:before-mount="startRouteMount"

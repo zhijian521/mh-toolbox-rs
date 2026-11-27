@@ -19,6 +19,7 @@ import GlassTable from '../../components/liquid-glass/GlassTable.vue';
 import { ledgerMoneyText, moneyText } from '../../services/format';
 import type { GalleryExamples } from './gallery-examples';
 
+const { samples } = defineProps<{ samples: GalleryExamples }>();
 const {
     wallpaper,
     chartExample,
@@ -32,7 +33,7 @@ const {
     openSample,
     tableExamples,
     observations,
-} = defineProps<{ samples: GalleryExamples }>().samples;
+} = samples;
 const timeline = ref<HTMLElement | null>(null);
 </script>
 

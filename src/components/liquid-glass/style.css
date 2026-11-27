@@ -370,7 +370,6 @@ glass-menu-label.lg-component {
     scrollbar-color: var(--lg-scroll-thumb) transparent;
 }
 
-
 .liquid-app .record-table-frame.is-empty .glass-empty-state {
     margin-block: auto;
 }

@@ -482,7 +482,11 @@ function confirmSelection() {
                         class="modal-actions warehouse-list-actions record-footer-grid"
                     >
                         <span v-if="viewLoaded && !viewError" class="record-footer-count">
-                            {{ filtered.length }} 件{{ choosing && selected.length ? ' · 已选 ' + selected.length + ' 件' : '' }}
+                            {{ filtered.length }} 件{{
+                                choosing && selected.length
+                                    ? ' · 已选 ' + selected.length + ' 件'
+                                    : ''
+                            }}
                         </span>
                         <RecordPager
                             v-if="viewLoaded && !viewError"

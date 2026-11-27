@@ -12,6 +12,7 @@ import GlassMultiSelect from '../../components/liquid-glass/GlassMultiSelect.vue
 import GlassSmallSwitch from '../../components/liquid-glass/GlassSmallSwitch.vue';
 import type { GalleryExamples } from './gallery-examples';
 
+const { samples } = defineProps<{ samples: GalleryExamples }>();
 const {
     smallAlerts,
     disabledAlerts,
@@ -22,7 +23,7 @@ const {
     currentTab,
     choiceExamples,
     checkboxCategories,
-} = defineProps<{ samples: GalleryExamples }>().samples;
+} = samples;
 </script>
 
 <template>
