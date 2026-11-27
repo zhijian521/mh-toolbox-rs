@@ -1,24 +1,24 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import SlotButton from '../../components/SlotButton.vue';
 import SettingsRow from './SettingsRow.vue';
-import { reloadWithDataNotice, takeDataNotice, truncationNote } from './data-notice';
 import { importLegacyLedger } from './import-legacy-ledger';
 import BackupHistory from './BackupHistory.vue';
 import { backupTime, useBackups } from './use-backups';
+import { useLedgerOperations } from './use-ledger-operations';
 import { hasDesktop } from '../../services/desktop';
-import { askConfirm } from '../../composables/use-confirm';
 import {
     dataClear,
     dataExport,
     dataImport,
     restoreBackup,
     type BackupEntry,
-    type DataOutcome,
 } from '../../services/data-files';
 /** 全部账本操作共用忙状态；替换前确认并备份，成功后重载领域单例。 */
-const busy = defineModel<boolean>('busy', { required: true });
+const dataBusy = defineModel<boolean>('busy', { required: true });
+const { busy, message, messageKind, warning, run } = useLedgerOperations();
+watch(busy, (value) => (dataBusy.value = value), { flush: 'sync' });
 const backupsOpen = ref(false);
 const desktop = hasDesktop();
 const {
@@ -35,81 +35,37 @@ function openBackups() {
     backupsOpen.value = true;
     void refresh();
 }
-async function restore(entry: BackupEntry) {
-    if (busy.value) return;
-    const ok = await askConfirm({
-        danger: true,
-        title: '恢复这份备份并替换当前账本？',
-        note: `${new Date(entry.createdAt).toLocaleString('zh-CN')} 的全部账本数据将覆盖当前内容，恢复前会自动另存当前账本。`,
-        confirmText: '恢复',
+function restore(entry: BackupEntry) {
+    return run(() => restoreBackup(entry.name), {
+        reload: true,
+        confirm: {
+            danger: true,
+            title: '恢复这份备份并替换当前账本？',
+            note: `${new Date(entry.createdAt).toLocaleString('zh-CN')} 的全部账本数据将覆盖当前内容，恢复前会自动另存当前账本。`,
+            confirmText: '恢复',
+        },
     });
-    if (!ok) return;
-    const outcome = await run(() => restoreBackup(entry.name));
-    if (outcome.status === 'ok') reloadWithNotice();
 }
-const message = ref('');
-/** 导入成功但有代价时多出来的那一句（点位被截断）。没有代价时是空串。 */
-const warning = ref('');
-const messageKind = ref<'error' | 'positive'>('positive');
-
-/**
- * 三条操作的共同外壳：置忙 → 跑 → 收起忙 → 把三种结局翻成界面上的一句话。
- *
- * `busy` 是**一个** ref 而不是每个按钮一个：这三件事共用同一份数据。导入正在整份替换
- * 的时候点一下「导出」，导出来的是一份半新半旧的账，而那份账会被用户当成备份收着。
- * 所以忙是整卡的忙，按钮一起停。
- */
-async function run(action: () => Promise<DataOutcome>): Promise<DataOutcome> {
-    busy.value = true;
-    try {
-        const outcome = await action();
-        if (outcome.status === 'ok') {
-            messageKind.value = 'positive';
-            message.value = outcome.detail;
-            /* 两句话分开放：一句是「办成了」，一句是「不过有东西会丢」。拼成一串就只能
-             * 整段用一种颜色，而这两件事不该看起来一样重。 */
-            warning.value = [outcome.warning, truncationNote(outcome.truncation)]
-                .filter(Boolean)
-                .join(' ');
-        } else if (outcome.status === 'failed') {
-            messageKind.value = 'error';
-            message.value = outcome.error;
-            warning.value = '';
-        } else {
-            /* 取消：**清掉**上一句，不留着。上一句可能是上一次的「已导出到 C:\…」，
-             * 留着会让刚取消了这一次的人以为那一次又发生了一遍。 */
-            message.value = '';
-            warning.value = '';
-        }
-        return outcome;
-    } finally {
-        /* 用 `finally` 而不是每条分支里各写一次：`action` 抛错（`invoke` 之外的原因，
-         * 比如 IPC 通道断了）时按钮也必须能再按下去，否则这张卡就永久停在禁用态。 */
-        busy.value = false;
-    }
-}
-
 /** 导出没有二次确认：它不改变现有数据，选完位置还能在系统对话框里取消。 */
 async function exportLedger() {
     await run(dataExport);
 }
 
 /** 导入先问：这一步整体顶掉现有账本，问句里必须写着「替换」。 */
-async function askImport() {
-    const ok = await askConfirm({
-        danger: true,
-        title: '用选中的备份替换现在的账本？',
-        note: '全部账本数据（角色、物价、收益流水、速记单价、账号记录与目标）会被整份替换。动手前会自动备份一份，回执里写着它的位置。',
-        confirmText: '替换',
+function askImport() {
+    return run(dataImport, {
+        reload: true,
+        confirm: {
+            danger: true,
+            title: '用选中的备份替换现在的账本？',
+            note: '全部账本数据（角色、物价、收益流水、速记单价、账号记录与目标）会被整份替换。动手前会自动备份一份，回执里写着它的位置。',
+            confirmText: '替换',
+        },
     });
-    if (!ok) return;
-    const outcome = await run(dataImport);
-    if (outcome.status === 'ok') reloadWithNotice();
 }
 
-async function importLegacy() {
-    const outcome = await run(importLegacyLedger);
-    if (outcome.status === 'ok') reloadWithNotice();
+function importLegacy() {
+    return run(importLegacyLedger, { reload: true });
 }
 
 /**
@@ -117,29 +73,17 @@ async function importLegacy() {
  *
  * 确认窗关掉、按钮置灰，界面在说同一件事：这一下已经按下去了。
  */
-async function askClear() {
-    const ok = await askConfirm({
-        danger: true,
-        title: '清空全部账本数据？',
-        note: '角色、物价、收益流水、速记单价、上线记录与点卡口径、账号记录与目标都会清空。清除前不会自动备份，想留一份就先「导出」。主题与字号不受影响。',
-        confirmText: '清除',
+function askClear() {
+    return run(dataClear, {
+        reload: true,
+        confirm: {
+            danger: true,
+            title: '清空全部账本数据？',
+            note: '角色、物价、收益流水、速记单价、上线记录与点卡口径、账号记录与目标都会清空。清除前不会自动备份，想留一份就先「导出」。主题与字号不受影响。',
+            confirmText: '清除',
+        },
     });
-    if (!ok) return;
-    const outcome = await run(dataClear);
-    if (outcome.status === 'ok') reloadWithNotice();
 }
-
-function reloadWithNotice() {
-    reloadWithDataNotice(message.value, warning.value);
-}
-
-onMounted(() => {
-    const saved = takeDataNotice();
-    if (!saved.text) return;
-    messageKind.value = 'positive';
-    message.value = saved.text;
-    warning.value = saved.warning;
-});
 </script>
 
 <template>

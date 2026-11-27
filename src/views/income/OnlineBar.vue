@@ -293,7 +293,7 @@ function roleButtonAttrs(active: boolean, label: string) {
                                     class="role-icon"
                                 />
                                 <span class="role-copy">
-                                    <span class="name">{{ one.name }}</span>
+                                    <span class="name" :title="one.name">{{ one.name }}</span>
                                     <span v-if="one.session" class="role-state">
                                         {{ clockText(sessionMinutes(one.session, now)) }}
                                     </span>

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildAssets, filterAssets, type AssetSources } from './game-assets';
+import { buildAssets, filterAssets, sliceAssetSections, type AssetSources } from './game-assets';
 
 /** 一份最小可用的原材料，各用例只改自己关心的那几项。 */
 function make(patch: Partial<AssetSources> = {}): AssetSources {
@@ -366,4 +366,16 @@ describe('资源清单缓存与补读', () => {
         expect(await loadAssetSections()).not.toBe(first);
         expect(fetcher).toHaveBeenCalledTimes(6);
     });
+});
+
+it('图鉴一页可以跨分类，分组只包含本页条目', () => {
+    const sections = buildAssets(make()).filter(({ items }) => items.length);
+    const [first, second] = sections;
+    const start = first.items.length - 1;
+    const page = sliceAssetSections(sections, start, start + 2);
+    expect(page.map(({ kind }) => kind)).toEqual([first.kind, second.kind]);
+    expect(page.flatMap(({ groups }) => groups.flatMap(({ items }) => items))).toEqual([
+        first.items.at(-1),
+        second.items[0],
+    ]);
 });

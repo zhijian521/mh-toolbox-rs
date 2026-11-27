@@ -96,11 +96,6 @@
     color: var(--muted);
     font-size: var(--fs-mini);
 }
-.upload-error {
-    margin: 0;
-    color: var(--danger);
-    font-size: var(--fs-sm);
-}
 .upload-raw {
     flex: none;
 }

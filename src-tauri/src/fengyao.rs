@@ -215,6 +215,25 @@ fn runtime() -> &'static Mutex<Runtime> {
     RUNTIME.get_or_init(|| Mutex::new(Runtime::default()))
 }
 
+#[derive(Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct WatchSummary {
+    running: bool,
+    error: String,
+    baseline_ready: bool,
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn fengyao_summary() -> Result<WatchSummary, String> {
+    let state = runtime().lock().map_err(|_| "监听状态不可读，请重启应用")?;
+    Ok(WatchSummary {
+        running: state.status.running,
+        error: state.status.error.clone(),
+        baseline_ready: state.status.baseline_ready,
+    })
+}
+
 #[tauri::command(async)]
 #[specta::specta]
 pub fn fengyao_status() -> Result<WatchStatus, String> {

@@ -123,7 +123,8 @@ async function remove(one: IncomeEntry) {
         :width="900"
         min-height="min(600px, calc(100vh - 48px))"
         fill
-        @close="!removing && emit('close')"
+        :no-dismiss="removing"
+        @close="emit('close')"
     >
         <!-- 筛选在上：选哪段看哪段，不用滚动找。三个控件各管一件事——起、止、谁。
              「回到今天」长在纸片自己的页脚里（`DateField` 的能力，不只服务这一页），

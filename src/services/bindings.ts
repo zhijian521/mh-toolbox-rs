@@ -34,6 +34,7 @@ export const commands = {
 	 */
 	notifyAlarm: (title: string, body: string) => __TAURI_INVOKE<null>("notify_alarm", { title, body }),
 	fengyaoStatus: () => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_status"),
+	fengyaoSummary: () => __TAURI_INVOKE<WatchSummary>("fengyao_summary"),
 	fengyaoStart: (config: WatchConfig_Deserialize) => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_start", { config }),
 	fengyaoStop: () => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_stop"),
 	fengyaoUpdate: (reminders: ReminderFilter[]) => __TAURI_INVOKE<WatchStatus_Serialize>("fengyao_update", { reminders }),
@@ -710,6 +711,12 @@ export type WatchConfig_Serialize = {
 	speechEnabled: boolean,
 	reminders: ReminderFilter[],
 	region: MessageRegion,
+};
+
+export type WatchSummary = {
+	running: boolean,
+	error: string,
+	baselineReady: boolean,
 };
 
 export type WatchStatus = WatchStatus_Serialize | WatchStatus_Deserialize;

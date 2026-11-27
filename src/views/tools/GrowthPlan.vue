@@ -11,7 +11,7 @@ import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import PaperCard from '../../components/PaperCard.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import PressButton from '../../components/PressButton.vue';
-import { ledgerMoneyText } from '../../services/format';
+import { growthAmount } from './growth-outcome';
 import type { LevelCosts } from '../../services/level-costs';
 import { expWanValue } from '../characters/character';
 import { loadRoster, useRoster } from '../characters/roster';
@@ -70,7 +70,6 @@ const groups = computed(() => {
         }));
     return [...fixed, ...added];
 });
-const count = (value: number) => value.toLocaleString('zh-CN');
 const RESOURCE_FIELDS: {
     key: keyof GrowthResources;
     label: string;
@@ -91,7 +90,7 @@ const RESOURCE_FIELDS: {
     { key: 'rounds100', label: '100 环估算（轮）', estimate: true },
 ];
 const resourceText = (key: keyof GrowthResources, value: number) =>
-    key === 'cash' ? ledgerMoneyText(value) : count(value);
+    growthAmount(value, key === 'cash' ? 'cash' : 'count');
 const resources = computed(() => {
     const contributions = summary.value.rows
         .filter((row) => !row.error && row.line.to > row.line.from)
@@ -241,7 +240,7 @@ watch(
                             <span class="muted">{{ item.label }}</span>
                             <strong class="num">{{ item.value }}</strong>
                             <small v-if="item.key === 'exp' && ownedExp > 0" class="muted">
-                                还需 {{ count(summary.remainingExp) }} 点
+                                还需 {{ growthAmount(summary.remainingExp) }} 点
                             </small>
                         </div>
                     </div>

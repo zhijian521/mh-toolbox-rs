@@ -289,6 +289,10 @@ export function countdownText(at: Date, now: Date): string {
  * 四种模式都只说「按什么重复」，**时刻不在这里说**——它在卡片左侧的大字里，
  * 再说一遍就是同一行字出现两次。
  */
+export function alarmStatusText(enabled: boolean) {
+    return enabled ? '已开启' : '已停用';
+}
+
 export function repeatText(alarm: AlarmLike): string {
     switch (alarm.repeat) {
         case 'activity': {

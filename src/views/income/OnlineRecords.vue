@@ -13,6 +13,7 @@ import TextButton from '../../components/TextButton.vue';
 import IncomeRoleFilter from './IncomeRoleFilter.vue';
 import { glassLedger } from '../../components/glass-ledger';
 import GlassTable from '../../components/liquid-glass/GlassTable.vue';
+import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import DateRangeField from '../../components/DateRangeField.vue';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { notify } from '../../composables/use-notify';
@@ -23,9 +24,8 @@ import {
     clockText,
     factsOfSession,
     minutesText,
-    onlineTotalsOf,
+    onlineRecordFacts,
     ownersOf,
-    cardCostOf,
     sessionsIn,
     type ReadonlyOnlineSession,
 } from './online';
@@ -74,18 +74,15 @@ const searched = computed(() => {
 });
 
 // 角色小计基于日期与搜索全集，切换角色只过滤明细，不缩减其他角色的小计。
+const recordFacts = computed(() =>
+    onlineRecordFacts(searched.value, from.value, to.value, now.value),
+);
 const whoTotals = computed(
     () =>
         new Map(
-            whoOptions.value.map((option) => [
-                option.value,
-                cardCostOf(
-                    searched.value,
-                    from.value,
-                    to.value,
-                    option.value === ANY ? '' : option.value,
-                    now.value,
-                ),
+            whoOptions.value.map(({ value }) => [
+                value,
+                value === ANY ? recordFacts.value.total.cost : recordFacts.value.owner(value).cost,
             ]),
         ),
 );
@@ -101,25 +98,12 @@ const filtered = computed(() =>
 const { page, pages, visible } = usePagination(filtered, 20, selectedPage);
 
 const totals = computed(() =>
-    onlineTotalsOf(
-        filtered.value,
-        from.value,
-        to.value,
-        now.value,
-        who.value === ANY ? '' : who.value,
-    ),
+    who.value === ANY ? recordFacts.value.total : recordFacts.value.owner(who.value),
 );
-
 const visibleRows = computed(() =>
     visible.value.map((one) => ({
         one,
-        facts: onlineTotalsOf(
-            [one],
-            from.value,
-            to.value,
-            now.value,
-            who.value === ANY ? '' : who.value,
-        ),
+        facts: recordFacts.value.session(one, who.value === ANY ? '' : who.value),
     })),
 );
 const anyFilter = computed(() => {
@@ -175,7 +159,8 @@ async function remove(one: ReadonlyOnlineSession) {
         :width="900"
         min-height="min(600px, calc(100vh - 48px))"
         fill
-        @close="!removing && emit('close')"
+        :no-dismiss="removing"
+        @close="emit('close')"
     >
         <SaveNotice :error="writeError" :pending="pending" @retry="retry" />
         <LoadNotice
@@ -231,10 +216,13 @@ async function remove(one: ReadonlyOnlineSession) {
 
         <div
             class="online-table-frame record-table-frame"
-            :class="{ 'is-empty': !!loadError || !sessions.length }"
+            :class="{ 'is-empty': !!loadError || !filtered.length }"
         >
             <div ref="scroll" class="income-log-scroll" @scroll="rememberScroll">
-                <p v-if="loadError || !filtered.length" class="record-empty">
+                <GlassEmptyState v-if="glass && !loadError && !filtered.length">
+                    {{ sessions.length ? '当前筛选下暂无记录' : '暂无上线记录' }}
+                </GlassEmptyState>
+                <p v-else-if="loadError || !filtered.length" class="record-empty">
                     {{
                         loadError
                             ? '暂时无法读取上线记录，请重新读取。'

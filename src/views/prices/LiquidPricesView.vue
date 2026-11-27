@@ -26,7 +26,7 @@ import GlassDialog from '../../components/liquid-glass/GlassDialog.vue';
 import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import { lazyDialog } from '../../components/lazy-dialog';
-import { confirmDiscardDrafts, useDraftGuard } from '../../composables/use-draft-guard';
+import { useDraftGuard } from '../../composables/use-draft-guard';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import { moneyText } from '../../services/format';
 import PriceActionsMenu from './PriceActionsMenu.vue';
@@ -53,7 +53,7 @@ function dialogStatus(failed: boolean, retry: () => void) {
     return h('div', { class: 'price-history-status' }, [
         h('p', { role: 'status' }, failed ? '加载失败。' : '正在加载…'),
         failed ? h(GlassButton, { size: 'small', onClick: retry }, () => '重试') : null,
-        h(GlassButton, { size: 'small', variant: 'plain', onClick: closeEditor }, () => '取消'),
+        h(GlassButton, { size: 'small', variant: 'plain', onClick: requestClose }, () => '取消'),
     ]);
 }
 
@@ -82,7 +82,6 @@ const canEdit = computed(
 );
 const editorError = ref('');
 const editorVersion = ref(0);
-let editorTrigger: HTMLElement | undefined;
 const loading = ref(false);
 const catalogError = ref('');
 const { keyword, category, sub, scroll } = usePriceViewState();
@@ -121,6 +120,7 @@ const dialogLabel = computed(() => {
     }
 });
 const historyHeading = ref<HTMLHeadingElement | null>(null);
+const historyContent = ref<HTMLElement | null>(null);
 const error = computed(() => catalogError.value || loadError.value);
 const categories = computed(() => priceCategoryGroups(items.value));
 const subcategories = computed(
@@ -189,8 +189,6 @@ function openEditor(next: Exclude<PriceDialog, { kind: 'history' }>) {
     editorError.value = '';
     editorDirty.value = false;
     submit.reset();
-    const trigger = document.activeElement;
-    editorTrigger = trigger instanceof HTMLElement ? trigger : undefined;
     editorVersion.value += 1;
     dialog.value = next;
     sheetOpen.value = true;
@@ -201,13 +199,26 @@ function closeEditor() {
     const active = dialog.value;
     if (active && 'itemId' in active && historyChild.value && selectedItem.value) {
         openHistory(active.itemId, historyPage.value);
-        void nextTick(() => historyHeading.value?.focus({ preventScroll: true }));
+        const point = 'point' in active ? active.point : undefined;
+        const action = active.kind === 'remove' ? 'remove' : 'edit';
+        void nextTick(() => {
+            const trigger =
+                point &&
+                historyContent.value?.querySelector<HTMLElement>(
+                    '[data-history-id="' +
+                        CSS.escape(point.id) +
+                        '"] [data-history-action="' +
+                        action +
+                        '"]',
+                );
+            if (trigger && !trigger.hasAttribute('disabled')) {
+                trigger.focus({ preventScroll: true });
+                if (document.activeElement === trigger) return;
+            }
+            historyHeading.value?.focus({ preventScroll: true });
+        });
     } else {
         sheetOpen.value = false;
-        const trigger = editorTrigger;
-        void nextTick(() =>
-            (trigger?.isConnected ? trigger : addButton.value?.el)?.focus({ preventScroll: true }),
-        );
     }
 }
 
@@ -218,30 +229,15 @@ const { requestClose } = useDraftGuard(
     closeEditor,
 );
 
-async function onDialogOpenChange(open: boolean) {
-    if (sheetOpen.value === open) return;
-    if (!open && hasUnsavedDraft.value) {
-        await requestClose();
-        return;
+function onDialogOpenChange(open: boolean) {
+    if (!open && sheetOpen.value) void requestClose();
+    else if (open && dialog.value?.kind === 'history') {
+        void nextTick(() => historyHeading.value?.focus({ preventScroll: true }));
     }
-    sheetOpen.value = open;
-    if (open || !historyChild.value || !selectedItem.value) return;
-    // 遮罩和下拉手势已收起底层 sheet。先同步关闭状态，再在同一帧返回原历史页。
-    await nextTick();
-    closeEditor();
 }
 
-function onDialogEscape(event: KeyboardEvent) {
-    if (event.isComposing || (!historyChild.value && dialog.value?.kind !== 'remove')) return;
-    const inPopup = event
-        .composedPath()
-        .some(
-            (el) => el instanceof Element && el.matches('glass-menu[open], [data-calendar-open]'),
-        );
-    if (inPopup) return;
-    event.preventDefault();
-    event.stopPropagation();
-    void requestClose();
+function fallbackDialogFocus() {
+    return addButton.value?.el;
 }
 
 function openHistoryPrice(point?: PricePoint) {
@@ -340,10 +336,8 @@ async function retryWrites() {
     }
 }
 
-onBeforeRouteLeave(async () => {
-    if (!(await confirmDiscardDrafts())) return false;
+onBeforeRouteLeave(() => {
     if (scrollHost.value) scroll.value.top = scrollHost.value.scrollTop;
-    return true;
 });
 
 onMounted(() => {
@@ -457,12 +451,12 @@ onMounted(() => {
             class="price-history-sheet"
             :bottom="historySheet"
             :detents="dialog?.kind === 'remove' ? '208' : historySheet ? '536' : '65% large'"
-            :no-dismiss="saving || dialog?.kind === 'remove'"
-            :guard-dismiss="hasUnsavedDraft"
+            :no-dismiss="saving"
+            :guard-dismiss="historyChild || hasUnsavedDraft"
+            :fallback-focus="fallbackDialogFocus"
             :class="{ 'is-history': dialog?.kind === 'history' }"
             :label="dialogLabel"
             @update:open="onDialogOpenChange"
-            @keydown.esc.capture="onDialogEscape"
         >
             <template v-if="dialog?.kind === 'history'">
                 <header class="price-history-header">
@@ -470,12 +464,12 @@ onMounted(() => {
                         {{ selectedItem?.name || '物价历史' }}
                     </h2>
                     <div class="history-tools" @pointerdown.stop>
-                        <GlassButton size="small" variant="plain" @click="sheetOpen = false"
+                        <GlassButton size="small" variant="plain" @click="requestClose"
                             >关闭</GlassButton
                         >
                     </div>
                 </header>
-                <template v-if="selectedItem">
+                <div v-if="selectedItem" ref="historyContent" class="price-history-focus-scope">
                     <p v-if="selectedItem.note" class="price-item-note lg-caption">
                         {{ selectedItem.note }}
                     </p>
@@ -487,7 +481,7 @@ onMounted(() => {
                         @edit="openHistoryPrice"
                         @remove="askHistoryPointRemoval"
                     />
-                </template>
+                </div>
                 <p v-else class="lg-caption">这件物品已不存在。</p>
             </template>
             <section v-else-if="dialog?.kind === 'remove'" class="price-remove" @pointerdown.stop>
@@ -546,7 +540,7 @@ onMounted(() => {
             />
             <template v-else-if="dialog?.kind === 'price' || dialog?.kind === 'edit-item'">
                 <p class="lg-caption">这件物品已不存在。</p>
-                <GlassButton size="small" @click="closeEditor">关闭</GlassButton>
+                <GlassButton size="small" @click="requestClose">关闭</GlassButton>
             </template>
         </GlassDialog>
     </section>

@@ -10,6 +10,7 @@ import SteppedSlider from '../../components/SteppedSlider.vue';
 import SegmentedPills from '../../components/SegmentedPills.vue';
 import { useCharacterFields } from '../characters/use-character-fields';
 import RecordPager from '../../components/RecordPager.vue';
+import { usePagination } from '../../composables/use-pagination';
 import LoadNotice from '../../components/LoadNotice.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
 import WarehouseItems from './WarehouseItems.vue';
@@ -195,22 +196,14 @@ const filtered = computed(() =>
     filterWarehouse(sourceItems.value, kind.value, kind.value === 'gear' ? slot.value : ''),
 );
 const PAGE_SIZE = 48;
-const pages = computed(() => Math.max(1, Math.ceil(filtered.value.length / PAGE_SIZE)));
-const visible = computed(() =>
-    filtered.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE),
-);
+const { pages, visible } = usePagination(filtered, PAGE_SIZE, page);
 watch([kind, slot, page, editing, sourceItems], hideTip);
 watch([kind, slot, stockState], () => {
     page.value = 1;
+});
+watch([page, kind, slot, stockState], () => {
     scrollTop.value = 0;
     if (content.value) content.value.scrollTop = 0;
-});
-watch(page, () => {
-    scrollTop.value = 0;
-    if (content.value) content.value.scrollTop = 0;
-});
-watch(pages, (value) => {
-    page.value = Math.min(page.value, value);
 });
 const blocked = computed(
     () =>
@@ -485,9 +478,12 @@ function confirmSelection() {
                         </div>
                     </div>
                     <footer
-                        v-if="choosing || (viewLoaded && !viewError && pages > 1)"
-                        class="modal-actions warehouse-list-actions"
+                        v-if="choosing || (viewLoaded && !viewError && filtered.length)"
+                        class="modal-actions warehouse-list-actions record-footer-grid"
                     >
+                        <span v-if="viewLoaded && !viewError" class="record-footer-count">
+                            {{ filtered.length }} 件{{ choosing && selected.length ? ' · 已选 ' + selected.length + ' 件' : '' }}
+                        </span>
                         <RecordPager
                             v-if="viewLoaded && !viewError"
                             v-model="page"
@@ -496,6 +492,7 @@ function confirmSelection() {
                         />
                         <PressButton
                             v-if="choosing"
+                            class="record-footer-action"
                             text="确定选择"
                             :label="mode === 'equip' ? '确认选择角色物品' : '确认选择交易物品'"
                             :disabled="blocked || (mode === 'equip' && !selected.length)"

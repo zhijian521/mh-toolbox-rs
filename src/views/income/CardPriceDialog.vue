@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { usePositiveAmount } from '../../composables/use-positive-amount';
+import { useDraftGuard } from '../../composables/use-draft-guard';
 import ModalShell from '../../components/ModalShell.vue';
 import PriceField from '../../components/PriceField.vue';
 import FormActions from '../../components/FormActions.vue';
@@ -24,12 +25,19 @@ const emit = defineEmits<{ save: [amount: number]; close: [] }>();
  *
  * 预填现值：进来是「改」不是「填」，让人对着空白格重打一遍 1.5 万既多一步、又容易打错，
  * 而错的是单价，之后每一笔成本都跟着错。 */
-const amount = ref<number | null>(props.current > 0 ? props.current : null);
+const initialAmount = props.current > 0 ? props.current : null;
+const amount = ref<number | null>(initialAmount);
 
 const { typed, submitted, canSave, error, showError } = usePositiveAmount(amount, () => '单价');
 
 /** 每小时每号大约多少钱：改价的人真正在权衡的那个数。 */
 const hourly = computed(() => Math.round((amount.value ?? 0) * POINTS_PER_HOUR));
+
+const { requestClose } = useDraftGuard(
+    () => !props.retrying && amount.value !== initialAmount,
+    () => !!props.saving,
+    () => emit('close'),
+);
 
 function submit() {
     submitted.value = true;
@@ -39,7 +47,13 @@ function submit() {
 </script>
 
 <template>
-    <ModalShell title="点卡单价" :width="360" :scroll="false" @close="!saving && emit('close')">
+    <ModalShell
+        title="点卡单价"
+        :width="360"
+        :scroll="false"
+        :no-dismiss="saving"
+        @close="requestClose"
+    >
         <form class="income-form modal-form" @submit.prevent="submit">
             <fieldset class="income-form" :disabled="locked" :inert="locked">
                 <PriceField
@@ -66,7 +80,7 @@ function submit() {
                 :submit-text="retrying ? '重试保存' : '保存'"
                 submit-label="保存点卡单价"
                 :submit-disabled="saving || (!canSave && !retrying)"
-                @cancel="!saving && emit('close')"
+                @cancel="requestClose"
                 @submit="submit"
             />
         </template>

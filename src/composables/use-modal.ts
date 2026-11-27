@@ -128,7 +128,7 @@ export function useModal(options: UseModalOptions): UseModalResult {
 
     function onKeydown(event: KeyboardEvent) {
         /* 内层已经处理过就别再管（见头注释 ①）。 */
-        if (event.defaultPrevented) return;
+        if (event.defaultPrevented || event.isComposing) return;
         /* 只有栈顶的窗响应：叠着开时一次 Esc 不能关掉两层。 */
         if (topToken.value !== token) return;
         // 玻璃确认框使用原生顶层，交由浏览器处理该层的 Esc 和焦点。

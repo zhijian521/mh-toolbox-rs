@@ -36,7 +36,7 @@
     --t-modal-stagger: 0ms;
     --ease-soft: ease-out;
     --ease-snap: ease-out;
-    --ledger-surface: light-dark(rgb(255 255 255 / 0.22), rgb(255 255 255 / 0.08));
+    --ledger-surface: var(--lg-content-base);
     --ledger-highlight: light-dark(rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.15));
     --bevel-hi: var(--ledger-highlight);
     --bevel-lo: var(--liquid-outline);
@@ -170,7 +170,7 @@
     --icon-size: 12px;
 }
 .liquid-ledger .glass-ledger-button.size-lg {
-    --glass-button-height: 32px;
+    --glass-button-height: var(--lg-form-height);
 }
 .liquid-ledger .glass-ledger-button.danger-action {
     --glass-foreground: var(--negative);
@@ -243,7 +243,7 @@
 .liquid-ledger .track-opt[aria-checked='true'] {
     color: var(--ink);
 }
-.liquid-ledger :is(.chart-scroll, .record-role-slider) {
+.liquid-ledger .record-role-slider {
     scrollbar-width: none;
     scrollbar-gutter: auto;
 }
@@ -430,10 +430,4 @@
 .liquid-ledger :is(.select-list, .date-panel, .detail-tip),
 .liquid-ledger:is(.date-panel, .detail-tip) {
     border-radius: var(--r-2);
-}
-.liquid-ledger .chart-scroll {
-    overflow-x: auto;
-}
-.liquid-ledger .chart-legend-shelf {
-    color: var(--muted);
 }

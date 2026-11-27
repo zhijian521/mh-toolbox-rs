@@ -237,7 +237,12 @@ async function checkPriceMaintenance({ cdp, t, ui }, sheet, editor) {
     await ui.waitFor(`document.querySelector('${confirm} p')?.textContent.includes('23 万')`);
     await cdp.key('Escape');
     await waitHistory(renamed);
-    t.check('取消删除保留这笔记录', (await ui.count(`${history} tbody tr`)) === 1);
+    t.check(
+        'Esc 取消删除后保持历史弹层展开，并还原删除按钮焦点',
+        await cdp.evaluate(`document.querySelector('${sheet}').hasAttribute('open') &&
+            document.querySelectorAll('${history} tbody tr').length === 1 &&
+            document.activeElement === document.querySelector('${removeRow}')`),
+    );
     await cdp.click(removeRow);
     await ui.waitFor(`!!document.querySelector('${confirm} .confirm-removal')`);
     await cdp.click(`${confirm} .confirm-removal`);
@@ -538,10 +543,14 @@ async function checkPrices({ cdp, t, ui }) {
 
     const reset = `${filters} .price-reset`;
     t.check(
-        '仅选择分类也能从最后一个选择器之后重置',
-        await cdp.evaluate(
-            `document.querySelector('${reset}')?.previousElementSibling?.matches('.lg-category-filter') === true`,
-        ),
+        '物价重置位于最后一个选择器后，与搜索和分类同高',
+        await cdp.evaluate(`(() => {
+        const action = document.querySelector('${reset}');
+        const category = action?.previousElementSibling;
+        return category?.matches('.lg-category-filter') &&
+            [action, category.querySelector('.glass-select-face'), document.querySelector('${filters} glass-search')]
+                .every(element => Math.abs(element.getBoundingClientRect().height - 32) < 1);
+    })()`),
     );
     const search = `${filters} glass-search`;
     await cdp.click(search);
@@ -652,9 +661,12 @@ async function checkPrices({ cdp, t, ui }) {
             await cdp.click(edit);
             await ui.waitFor(`!!document.querySelector('${editor} input[inputmode="decimal"]')`);
             await cdp.key('Escape');
-            await ui.waitFor(`!!document.querySelector('${edit}')`);
+            await ui.waitFor(
+                `!!document.querySelector('${edit}') &&
+                document.activeElement === document.querySelector('${edit}')`,
+            );
             t.check(
-                '取消和 Esc 返回历史后保留页码，编辑和关闭按钮文字无阴影',
+                '取消和 Esc 返回历史后保留页码并聚焦原编辑按钮，编辑和关闭按钮文字无阴影',
                 await cdp.evaluate(`(() => {
                 const sheet = document.querySelector('${sheet}');
                 const buttons = sheet.querySelectorAll('.price-history-header glass-button, tbody glass-button');
@@ -763,13 +775,22 @@ export default async function liquidShell({ cdp, t, ui }) {
             const page = document.querySelector('.liquid-overview');
             const trend = page.querySelector('.overview-trend');
             const goals = page.querySelector('.overview-goal-card');
-            const amount = page.querySelector('.workbench-metrics dd');
+            const week = page.querySelector('[aria-labelledby=overview-week-title] .workbench-metrics');
+            const amount = week.querySelector('dd');
+            const books = [...page.querySelectorAll('.month-book')];
             const scrollHost = page.closest('.liquid-content');
             const plotScroll = trend.querySelector('.chart-scroll');
+            const series = trend.querySelector('.chart-series');
             const actions = page.querySelector('.workbench-shortcuts .workbench-actions');
             const periods = page.querySelector('.overview-periods');
             const cards = [...periods.querySelectorAll(':scope > glass-surface')];
             const trendStyle = getComputedStyle(trend);
+            const trendBox = trend.getBoundingClientRect();
+            const goalsBox = goals.getBoundingClientRect();
+            const goalItems = [...goals.querySelectorAll('.overview-goals li')];
+            const goalCount = parseInt(week.lastElementChild.querySelector('dd').textContent, 10);
+            const visibleRows = new Set(goalItems.filter(item => item.getClientRects().length)
+                .map(item => item.getBoundingClientRect().top));
             return !page.querySelector('[role="alert"]') &&
                 !page.querySelector('.online-count') &&
                 trendStyle.paddingTop === trendStyle.paddingRight &&
@@ -782,10 +803,18 @@ export default async function liquidShell({ cdp, t, ui }) {
                     button.getBoundingClientRect().width < actions.clientWidth) &&
                 (periods.clientWidth < 774 || cards.every((card) =>
                     Math.abs(card.getBoundingClientRect().top - cards[0].getBoundingClientRect().top) < 1)) &&
-                page.querySelectorAll('.workbench-metrics > div').length === 4 &&
-                page.querySelectorAll('.month-ledger tbody tr').length === 2 &&
-                page.querySelectorAll('.month-ledger td').length === 4 &&
-                goals.querySelectorAll('.overview-goals li').length === goals.querySelectorAll('[role="progressbar"][aria-valuenow]').length &&
+                week.matches('.stats-bare') && week.querySelectorAll('dd').length === 4 &&
+                books.map(book => book.getAttribute('aria-label')).join(',') === '梦幻币,人民币' &&
+                books.every(book => [...book.querySelectorAll('dt')].map(el => el.textContent.trim()).join(',') === '收入,支出') &&
+                goalItems.length === Math.min(goalCount, 6) && visibleRows.size <= 2 &&
+                goalItems.every(item => {
+                    const link = item.querySelector('.overview-goal-link');
+                    const ring = link?.querySelector('.ring-glass.ring-compact[role="progressbar"][aria-valuenow]');
+                    return !!ring && link.children.length === 2 && !!link.querySelector('h3') &&
+                        getComputedStyle(link).borderTopWidth === '0px' &&
+                        getComputedStyle(ring.querySelector('.ring-bed')).display !== 'none';
+                }) &&
+                (!series || series.style.getPropertyValue('--chart-color').includes('var(--lg-progress-color)')) &&
                 !!trend.querySelector('.trend, .overview-note') &&
                 !!page.querySelector('section[aria-label="我的队伍"]') &&
                 goals.querySelector('#overview-goals-title')?.textContent.trim() === '目标' &&
@@ -793,7 +822,8 @@ export default async function liquidShell({ cdp, t, ui }) {
                 getComputedStyle(amount).fontWeight === '400' &&
                 getComputedStyle(scrollHost).scrollbarWidth === 'none' &&
                 (!plotScroll || getComputedStyle(plotScroll).scrollbarWidth === 'none') &&
-                (innerWidth <= 620 || trend.getBoundingClientRect().top === goals.getBoundingClientRect().top);
+                (innerWidth <= 620 || ['top', 'width', 'height'].every(key =>
+                    Math.abs(trendBox[key] - goalsBox[key]) <= 1));
         })()`),
     );
 
@@ -902,7 +932,28 @@ export default async function liquidShell({ cdp, t, ui }) {
             !!dialog.querySelector('.glass-input input[maxlength="40"]');
     })()`),
     );
+    const incomeDiscard = '.glass-dialog[open]:has(.glass-confirm)';
+    const onlineNote = `${incomeDialog} .glass-input input[maxlength="40"]`;
+    await ui.fillSel(onlineNote, '保留上线草稿');
+    await cdp.key('Escape');
+    await ui.waitFor(
+        `document.querySelector('${incomeDiscard} h2')?.textContent === '放弃未保存的修改？'`,
+    );
+    await cdp.click(`${incomeDiscard} footer glass-button:first-child`);
+    await ui.waitFor(`!document.querySelector('${incomeDiscard}')`);
+    await cdp.evaluate(`document.querySelector('.liquid-dock-bar').dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true })
+    )`);
+    await ui.waitFor(`!!document.querySelector('${incomeDiscard}')`);
+    await cdp.click(`${incomeDiscard} footer glass-button:first-child`);
+    await ui.waitFor(`!document.querySelector('${incomeDiscard}') && location.hash === '#/income'`);
+    t.check(
+        '收益上线草稿经 Esc 和切页确认后仍保留',
+        await cdp.evaluate(`document.querySelector('${onlineNote}')?.value === '保留上线草稿'`),
+    );
     await cdp.click(`${incomeDialog} [data-modal-close]`);
+    await ui.waitFor(`!!document.querySelector('${incomeDiscard}')`);
+    await cdp.click(`${incomeDiscard} footer glass-button:last-child`);
     await ui.waitFor(`!document.querySelector('${incomeDialog}')`);
     t.check(
         '收益顶部并列三张玻璃卡，角色计时、点卡和记录操作留在角色卡',
@@ -984,9 +1035,11 @@ export default async function liquidShell({ cdp, t, ui }) {
                 '补记使用玻璃多选、日期和时间输入',
                 await cdp.evaluate(`(() => {
                 const dialog = document.querySelector('${incomeDialog}');
-                return !!dialog.querySelector('.glass-multi-select') &&
-                    !!dialog.querySelector('.glass-date-field') &&
-                    dialog.querySelectorAll('.time-control.is-glass').length === 2;
+                const times = [...dialog.querySelectorAll('.time-control.is-glass')];
+                const date = dialog.querySelector('.glass-date-face');
+                return !!dialog.querySelector('.glass-multi-select:not(.is-segmented)') &&
+                    !!date && times.length === 2 && [date, ...times].every(element =>
+                        Math.abs(element.getBoundingClientRect().height - 32) < 1);
             })()`),
             );
         }
@@ -1284,13 +1337,19 @@ export default async function liquidShell({ cdp, t, ui }) {
     await cdp.click(`${stock} glass-segment[value="all"]`);
     await cdp.click(`${accountDialog} [aria-label="仓库分类"] glass-segment[value="pet"]`);
     t.check(
-        '召唤兽仓库无搜索框，浏览时底栏仅用于翻页',
+        '召唤兽仓库无搜索框，浏览时底栏复用结果数和居中分页',
         await cdp.evaluate(`(() => {
         const panel = document.querySelector('${accountDialog}');
         const footer = panel.querySelector('.warehouse-list-actions');
         return !!panel.querySelector('[data-modal-close]') &&
             !panel.querySelector('.warehouse-filters input, .warehouse-filters glass-input') &&
-            (!footer || (footer.children.length === 1 && footer.firstElementChild.matches('.record-pager')));
+            (!footer || (footer.matches('.record-footer-grid') &&
+                !!footer.querySelector('.record-footer-count') &&
+                !footer.querySelector('.record-footer-action') &&
+                (!footer.querySelector('.record-pager') ||
+                    Math.abs(footer.querySelector('.record-pager').getBoundingClientRect().left +
+                        footer.querySelector('.record-pager').getBoundingClientRect().width / 2 -
+                        (footer.getBoundingClientRect().left + footer.getBoundingClientRect().width / 2)) < 2)));
     })()`),
     );
     await cdp.click(`${accountDialog} [aria-label="新增或截图录入召唤兽"]`);
@@ -1496,7 +1555,7 @@ export default async function liquidShell({ cdp, t, ui }) {
         const page = document.querySelector('${goals}');
         const cards = [...page.querySelectorAll('.goal[data-goal-id]')];
         if (!cards.length) return !!page.querySelector('.glass-empty-state');
-        return cards.every(card => card.querySelector('.progress-body .ring[role="progressbar"]') &&
+        return cards.every(card => card.querySelector('.progress-body .ring-glass[role="progressbar"]') &&
             card.querySelector('.goal-head-actions [aria-label="目标历史"]') &&
             card.querySelector('.goal-head-actions [aria-label^="更新"]') &&
             card.querySelector('.goal-head-actions [aria-label="编辑目标"]') &&
@@ -1924,7 +1983,13 @@ export default async function liquidShell({ cdp, t, ui }) {
         !document.querySelector('.asset-pages')
     `),
     );
-    await cdp.click('.asset-bar [aria-label="清除资源筛选"]');
+    const resourceReset = '.asset-bar [aria-label="清除资源筛选"]';
+    t.check(
+        '资源搜索与清除按钮共用紧凑高度',
+        await cdp.evaluate(`['${resourceSearch}', '${resourceReset}'].every(selector =>
+            Math.abs(document.querySelector(selector).getBoundingClientRect().height - 32) < 1)`),
+    );
+    await cdp.click(resourceReset);
     await ui.waitFor(`!!document.querySelector('${assetCell}')`);
     t.check(
         '清除搜索恢复图鉴，筛选栏与图标保持在页面内',
@@ -2124,6 +2189,7 @@ export default async function liquidShell({ cdp, t, ui }) {
         '提醒助手先显示时间线，再显示集中设置的六种提醒',
         await cdp.evaluate(`
         !!document.querySelector('.fy-layout > glass-surface.fy-history + glass-surface.fy-settings') &&
+        !!document.querySelector('.fy-listen-actions [aria-label="开始公告监听"], .fy-listen-actions [aria-label="停止公告监听"]') &&
         document.querySelectorAll('.fy-settings .fy-type glass-switch').length === 6 &&
         document.querySelector('[aria-label="二十八星宿提醒"]')?.closest('.fy-type-row')
             ?.querySelector('img')?.src.endsWith('/pet-2061.webp') &&
@@ -2131,7 +2197,7 @@ export default async function liquidShell({ cdp, t, ui }) {
             ?.querySelector('img')?.src.endsWith('/pet-2041.webp') &&
         !!document.querySelector('.fy-history .fy-reminders, .fy-history .fy-empty-alerts') &&
         document.querySelectorAll('.fy-maps-toggle[aria-expanded="false"]').length === 1 &&
-        !!document.querySelector('.fy-settings .fy-window-control + .fy-status[role="status"]') &&
+        !!document.querySelector('.fy-settings .fy-window-control + .fy-listen-actions .watch-status[role="status"]') &&
         new Set([...document.querySelectorAll('.fy-type-row .fy-mark img')].map((img) => img.src)).size === 6 &&
         document.querySelector('.fy-settings .fy-guide')?.textContent.includes('保持窗口可见') &&
         [...document.querySelectorAll('.fy-type glass-switch')].every(
@@ -2195,7 +2261,7 @@ export default async function liquidShell({ cdp, t, ui }) {
     const catalogTab = (key) => '#catalog-tab-' + key;
     const pickCatalog = async (key) => {
         await cdp.click(catalogTab(key));
-        await ui.waitFor(`!!document.querySelector('#catalog-panel-${key}') &&
+        await ui.waitFor(`!!document.querySelector('#catalog-panel-${key}:not([hidden])') &&
             document.querySelector('#catalog-tab-${key}').getAttribute('aria-selected') === 'true'`);
     };
     t.check(
@@ -2207,7 +2273,13 @@ export default async function liquidShell({ cdp, t, ui }) {
             '卡片,按钮与菜单,输入控件,选择控件,容器与表面,反馈与弹层' &&
             tabs.filter(item => item.tabIndex === 0).length === 1 &&
             tabs[0].getAttribute('aria-selected') === 'true' &&
-            !!root.querySelector('#catalog-panel-cards .sample-card');
+            tabs.every(tab => {
+                const panel = document.getElementById(tab.getAttribute('aria-controls'));
+                const active = tab.getAttribute('aria-selected') === 'true';
+                return panel?.getAttribute('role') === 'tabpanel' &&
+                    panel.getAttribute('aria-labelledby') === tab.id && panel.hidden === !active &&
+                    (active ? panel.tabIndex === 0 : !panel.children.length);
+            }) && !!root.querySelector('#catalog-panel-cards .sample-card');
     })()`),
     );
     t.check(
@@ -2234,7 +2306,7 @@ export default async function liquidShell({ cdp, t, ui }) {
 
     await cdp.evaluate("document.querySelector('#catalog-tab-cards').focus()");
     await cdp.key('ArrowDown');
-    await ui.waitFor("!!document.querySelector('#catalog-panel-actions')");
+    await ui.waitFor("!!document.querySelector('#catalog-panel-actions:not([hidden])')");
     t.check(
         '侧栏方向键切换分类并移动焦点',
         await cdp.evaluate(`
@@ -2242,7 +2314,7 @@ export default async function liquidShell({ cdp, t, ui }) {
         document.activeElement.getAttribute('aria-selected') === 'true'`),
     );
     await cdp.key('End');
-    await ui.waitFor("!!document.querySelector('#catalog-panel-feedback')");
+    await ui.waitFor("!!document.querySelector('#catalog-panel-feedback:not([hidden])')");
     await cdp.click('.component-catalog .sample-notice');
     await ui.waitFor(
         "document.querySelector('.notice-layer')?.textContent.includes('这是一条顶部消息提示。')",
@@ -2263,13 +2335,14 @@ export default async function liquidShell({ cdp, t, ui }) {
         await cdp.evaluate(`(() => {
         const gallery = document.querySelector('.component-catalog .gallery');
         const near = (selector, height) => Math.abs(gallery.querySelector(selector).getBoundingClientRect().height - height) < 1;
-        return ['.lg-price-search', '.glass-input', '.glass-select-face', '.glass-date-face'].every(face =>
+        return ['.lg-price-search', '.glass-input', '.glass-select-face', '.glass-date-face', '.time-control'].every(face =>
                 near('.field-comparison.lg-form-fields ' + face, 32) &&
                 near('.field-comparison:not(.lg-form-fields) ' + face, 44)) &&
             !!gallery.querySelector('.glass-price-field input[aria-invalid="true"]') &&
             !!gallery.querySelector('.glass-select-trigger:disabled') &&
             near('.glass-price-field:not(.compact) .glass-input', 44) &&
-            near('.glass-price-field.compact .glass-input', 36);
+            near('.glass-price-field.compact .glass-input', 32) &&
+            near('.glass-compact-number-field input', 32);
     })()`),
     );
     t.check(
@@ -2289,13 +2362,20 @@ export default async function liquidShell({ cdp, t, ui }) {
         await cdp.evaluate(`(() => {
         const root = document.querySelector('.gallery');
         return ['compact', 'standard'].every(size => {
-            const multi = root.querySelector('.glass-multi-select[data-size=' + size + ']');
-            return multi?.querySelectorAll('input[type="checkbox"]:checked').length === 2 &&
-                !!root.querySelector('glass-segmented[data-size=' + size + ']');
-        }) && !!root.querySelector('glass-switch.lg-small-switch');
+            const multi = root.querySelector('.glass-multi-select.is-segmented[data-size=' + size + ']');
+            const segmented = root.querySelector('glass-segmented[data-size=' + size + ']');
+            const option = multi.querySelector('.glass-multi-option');
+            const inset = parseFloat(getComputedStyle(multi).paddingTop);
+            const height = option.getBoundingClientRect().height + 2 * inset;
+            return multi.querySelectorAll('input[type="checkbox"]:checked').length === 2 &&
+                !multi.querySelector('.glass-multi-mark') &&
+                Math.abs(height - (size === 'compact' ? 32 : 44)) < 1 &&
+                Math.abs(height - segmented.getBoundingClientRect().height) < 1;
+        }) && !!root.querySelector('.glass-multi-select:not(.is-segmented) input:disabled') &&
+            !!root.querySelector('glass-switch.lg-small-switch');
     })()`),
     );
-    const compactMulti = '.gallery .glass-multi-select[data-size="compact"]';
+    const compactMulti = '.gallery .glass-multi-select.is-segmented[data-size="compact"]';
     const extraOption = `${compactMulti} .glass-multi-option:has(input[value="装备灵饰"])`;
     await cdp.click(extraOption);
     t.check(
@@ -2454,16 +2534,18 @@ export default async function liquidShell({ cdp, t, ui }) {
     );
     const themeControl = '.liquid-settings glass-segmented[aria-labelledby="liquid-theme-label"]';
     t.check(
-        '主题选项文字各占一行并位于选项内',
+        '主题分段使用紧凑档，选项各占一行并位于选项内',
         await cdp.evaluate(`(() => {
-        const options = document.querySelectorAll('${themeControl} > glass-segment');
-        return options.length === 2 && [...options].every(option => {
-            const range = document.createRange();
-            range.selectNodeContents(option);
-            const text = range.getBoundingClientRect();
-            const item = option.getBoundingClientRect();
-            return range.getClientRects().length === 1 && text.left >= item.left && text.right <= item.right;
-        });
+        const control = document.querySelector('${themeControl}');
+        const options = control.querySelectorAll('glass-segment');
+        return Math.abs(control.getBoundingClientRect().height - 32) < 1 &&
+            options.length === 2 && [...options].every(option => {
+                const range = document.createRange();
+                range.selectNodeContents(option);
+                const text = range.getBoundingClientRect();
+                const item = option.getBoundingClientRect();
+                return range.getClientRects().length === 1 && text.left >= item.left && text.right <= item.right;
+            });
     })()`),
     );
     t.check(

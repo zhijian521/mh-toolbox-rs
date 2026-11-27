@@ -136,6 +136,7 @@ const rows = computed(() => {
             <figure class="goal-figure">
                 <GoalProgress
                     shape="ring"
+                    :glass="!!glassCard"
                     :percent="summary.pct"
                     :label="goal.title + '总体进度'"
                 />
@@ -376,20 +377,6 @@ button.member:not(:disabled):hover {
     grid-template-columns: min(25%, calc(78px * var(--fs-scale))) minmax(0, 1fr);
     gap: 12px;
     align-items: center;
-}
-.is-liquid-goal .goal-figure > :deep(.ring) {
-    background: var(--ledger-surface);
-    box-shadow: inset 0 0 0 1px var(--rule);
-}
-.is-liquid-goal .goal-figure :deep(.ring svg) {
-    filter: none;
-}
-.is-liquid-goal .goal-figure :deep(.ring-bed),
-.is-liquid-goal .goal-figure :deep(.ring-depth) {
-    display: none;
-}
-.is-liquid-goal .goal-figure :deep(.ring-track) {
-    stroke: var(--rule);
 }
 .is-liquid-goal .members {
     grid-template-columns: minmax(0, 1fr) minmax(22px, 27%) minmax(0, auto);

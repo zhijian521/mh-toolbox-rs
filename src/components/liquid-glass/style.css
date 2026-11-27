@@ -4,7 +4,7 @@
     --glass-accent: var(--lg-accent, white);
     --glass-accent-text: var(--lg-selected-text, white);
     --glass-tab-selected: var(--lg-selected-text, white);
-    --lg-content-base: var(--lg-field-fill);
+    --lg-content-base: light-dark(rgb(255 255 255 / 0.28), rgb(34 34 34 / 0.4));
     --lg-bar-fill: light-dark(#ffffff16, #20202030);
     --lg-field-fill: light-dark(rgb(255 255 255 / 0.32), rgb(34 34 34 / 0.45));
     --lg-selector-lens: light-dark(rgb(255 255 255 / 0.56), rgb(255 255 255 / 0.25));
@@ -18,6 +18,7 @@
     --lg-edge-shade: light-dark(rgb(80 80 80 / 0.16), rgb(12 12 12 / 0.32));
     --lg-edge-rim: inset 0 1px 0 var(--lg-edge-light), inset 0 -1px 0 var(--lg-edge-shade);
     --lg-control-backdrop: blur(1.5px);
+    --lg-selection-shadow: var(--lg-edge-rim), 0 1px 3px rgb(22 22 22 / 0.14);
     --glass-segmented-backdrop: var(--lg-control-backdrop);
     font-family: var(--glass-font);
 }
@@ -79,9 +80,10 @@ glass-slider.lg-component::part(fill) {
 }
 
 glass-segmented.lg-component::part(indicator) {
-    box-shadow:
-        var(--lg-edge-rim),
-        0 1px 3px rgb(22 22 22 / 0.14);
+    box-shadow: var(--lg-selection-shadow);
+}
+glass-segmented.lg-equal-pair > glass-segment {
+    white-space: nowrap;
 }
 /* 仅固定等宽的两项使用整格高光；按内容排宽的标签由组件测量。 */
 glass-segmented.lg-equal-pair:has(> glass-segment:nth-child(2):last-child)::part(indicator) {
@@ -136,19 +138,18 @@ glass-button.lg-inline-action {
 glass-search.lg-component {
     --glass-focus: transparent;
 }
-.liquid-app .glass-input input:focus-visible,
-.liquid-app .glass-select-trigger:focus-visible,
-.liquid-app .glass-date-field .date-trigger:focus-visible {
+.liquid-app
+    :is(.glass-input input, .glass-select-trigger, .glass-date-field .date-trigger):focus-visible {
     outline: none;
 }
 .liquid-app :is(.glass-input, glass-search.lg-component):focus-within,
-.glass-select-trigger:is(:focus, [aria-expanded='true']) .glass-select-face,
-.glass-date-field .date-trigger:is(:focus, [aria-expanded='true']) .glass-date-face {
+:is(.glass-select-trigger, .glass-date-field .date-trigger):is(:focus, [aria-expanded='true'])
+    > :is(.glass-select-face, .glass-date-face) {
     --lg-field-fill: var(--lg-field-active-fill);
 }
-.glass-select-trigger:focus-visible .glass-select-face,
-.glass-date-field .date-trigger:focus-visible .glass-date-face,
-.glass-input:has(button:focus-visible) {
+.glass-input:has(button:focus-visible),
+:is(.glass-select-trigger, .glass-date-field .date-trigger):focus-visible
+    > :is(.glass-select-face, .glass-date-face) {
     outline: 2px solid var(--lg-field-accent, var(--liquid-focus));
     outline-offset: -2px;
 }
@@ -156,20 +157,17 @@ glass-search.lg-component {
 .glass-date-field .date-trigger[aria-invalid='true'] {
     --lg-field-accent: var(--liquid-up);
 }
-.glass-input:has(input[aria-invalid='true']),
-.glass-date-field .date-trigger[aria-invalid='true'] .glass-date-face {
+.glass-input:has(input[aria-invalid='true']):where(:not(:has(button:focus-visible))),
+.glass-date-field
+    .date-trigger[aria-invalid='true']:where(:not(:focus-visible))
+    > .glass-date-face {
     outline: 1px solid var(--liquid-up);
     outline-offset: -1px;
 }
-/* 「小一号」表单档：32px 高，供筛选行与录入弹窗共用（`--lg-form-height` 是唯一真源）。
- * `--glass-search-height` 必须一起给：库只在 `<glass-search>` 的 :host 上读它，
- * 漏掉就会出现「搜索胶囊比旁边的下拉高 12px」。
- * 库的放大镜 19px、清除按钮 30px 是按 44px 高画的，32px 里要等比收，
- * 否则图标几乎贴满上下边，看起来反而更挤。 */
+/* 搜索、文本、下拉和日期共用高度。搜索的图标和清除按钮也随紧凑档缩小。 */
 .lg-form-fields {
-    --glass-search-height: var(--lg-form-height);
-    --glass-select-height: var(--lg-form-height);
-    --glass-input-height: var(--lg-form-height);
+    --lg-field-height: var(--lg-form-height);
+    --glass-search-height: var(--lg-field-height);
 }
 .lg-form-fields glass-search.lg-component::part(icon) {
     width: 16px;
@@ -215,15 +213,18 @@ glass-search.lg-component {
     font-size: var(--fs-mini);
 }
 
-glass-segmented.lg-component {
+:is(glass-segmented.lg-component, .glass-multi-select) {
     --lg-choice-height: var(--lg-form-height);
     --lg-choice-inset: 3px;
-    --lg-choice-gap: 6px;
     --lg-choice-padding-inline: 16px;
 }
-glass-segmented.lg-component[data-size='standard'] {
+:is(glass-segmented.lg-component, .glass-multi-select)[data-size='standard'] {
     --lg-choice-height: var(--lg-form-standard-height);
+    --lg-choice-inset: 4px;
     --lg-choice-padding-inline: 18px;
+}
+glass-segmented.lg-component[data-size='standard'] {
+    column-gap: 6px;
 }
 glass-segmented.lg-status-tabs {
     width: max-content;
@@ -234,16 +235,12 @@ glass-segmented.lg-status-tabs {
     white-space: nowrap;
     box-sizing: content-box;
 }
-glass-segmented.lg-component[data-size='standard'] {
-    --glass-selector-padding: calc(var(--lg-choice-inset) + 1px);
-    column-gap: var(--lg-choice-gap);
-}
 glass-segmented.lg-component > glass-segment {
     padding-inline: var(--lg-choice-padding-inline);
 }
 glass-segmented.lg-component {
     --glass-segmented-height: var(--lg-choice-height);
-    --glass-selector-padding: 3px;
+    --glass-selector-padding: var(--lg-choice-inset);
     --glass-segmented-track: var(--lg-bar-fill);
     --glass-segmented-thumb: var(--lg-selector-lens);
     --glass-segmented-selected: var(--liquid-ink);
@@ -366,19 +363,37 @@ glass-menu-label.lg-component {
     --lg-dialog-shadow: var(--lg-edge-rim), 0 6px 22px rgb(22 22 22 / 0.15);
     --lg-form-height: 32px;
     --lg-form-standard-height: 44px;
-    --glass-search-height: var(--lg-form-standard-height);
+    --lg-field-height: var(--lg-form-standard-height);
+    --glass-search-height: var(--lg-field-height);
     --lg-scroll-thumb: light-dark(rgb(60 60 60 / 0.43), rgb(230 230 230 / 0.39));
     --lg-scroll-thumb-hover: light-dark(rgb(60 60 60 / 0.6), rgb(230 230 230 / 0.58));
     scrollbar-color: var(--lg-scroll-thumb) transparent;
 }
 
+
+.liquid-app .record-table-frame.is-empty .glass-empty-state {
+    margin-block: auto;
+}
+
+.lg-history-scroll {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
 .liquid-app .chart-panel {
+    --series-1: var(--lg-progress-color);
+    --series-2: var(--liquid-down);
+    --series-3: var(--liquid-up);
     --accent: var(--liquid-focus);
     --muted: var(--liquid-muted);
     --ink-2: var(--liquid-ink);
     --num: var(--liquid-ink);
-    --rule: var(--liquid-outline);
+    --rule: color-mix(in srgb, var(--liquid-outline) 82%, transparent);
     --rule-2: var(--liquid-outline);
+    --chart-hover-fill: color-mix(in srgb, var(--liquid-focus) 7%, transparent);
+    --chart-hover-line: color-mix(in srgb, var(--liquid-focus) 38%, transparent);
     --w-hair: 1px;
     --bevel-hi: var(--lg-edge-light);
     --chart-depth: 4px;
@@ -423,10 +438,20 @@ glass-menu-label.lg-component {
     backdrop-filter: blur(var(--lg-dialog-blur));
 }
 
+@media (prefers-reduced-transparency: reduce) {
+    .liquid-app {
+        --lg-popup-fill: var(--lg-popup-solid);
+        --lg-dialog-blur: 0px;
+    }
+}
+
 @media (forced-colors: active) {
     .liquid-app :is(.glass-input, glass-search.lg-component):focus-within,
-    .glass-select-trigger:is(:focus-visible, [aria-expanded='true']) .glass-select-face,
-    .glass-date-field .date-trigger:is(:focus-visible, [aria-expanded='true']) .glass-date-face {
+    :is(.glass-select-trigger, .glass-date-field .date-trigger):is(
+            :focus-visible,
+            [aria-expanded='true']
+        )
+        > :is(.glass-select-face, .glass-date-face) {
         outline: 2px solid Highlight;
         outline-offset: -2px;
         background-color: Highlight;

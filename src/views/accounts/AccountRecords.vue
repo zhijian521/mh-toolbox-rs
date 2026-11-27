@@ -14,6 +14,7 @@ import { glassLedger } from '../../components/glass-ledger';
 import { GlassSearch } from '../../components/liquid-glass';
 import GlassSelect from '../../components/liquid-glass/GlassSelect.vue';
 import GlassTable from '../../components/liquid-glass/GlassTable.vue';
+import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { notify } from '../../composables/use-notify';
 import { usePagination } from '../../composables/use-pagination';
@@ -292,9 +293,12 @@ async function remove(one: AccountEntry) {
                 :aria-label="CURRENCY_META[one.currency].label + '汇总'"
             />
         </div>
-        <div class="record-table-frame" :class="{ 'is-empty': !!loadError || !entries.length }">
+        <div class="record-table-frame" :class="{ 'is-empty': !!loadError || !filtered.length }">
             <div ref="scroll" class="income-log-scroll" @scroll="rememberScroll">
-                <p v-if="loadError || !filtered.length" class="record-empty">
+                <GlassEmptyState v-if="glass && !loadError && !filtered.length">
+                    {{ entries.length ? '当前筛选下暂无记录' : '暂无账号记录' }}
+                </GlassEmptyState>
+                <p v-else-if="loadError || !filtered.length" class="record-empty">
                     {{
                         loadError
                             ? '暂时无法读取记录'
@@ -377,12 +381,16 @@ async function remove(one: AccountEntry) {
                 </component>
             </div>
         </div>
-        <template v-if="!glass || (!loadError && pages > 1)" #footer>
-            <div class="account-history-footer" :class="{ 'with-close': !glass }">
+        <template v-if="!glass || !loadError" #footer>
+            <div class="account-history-footer record-footer-grid">
+                <span v-if="!loadError" class="record-footer-count"
+                    >{{ filtered.length }} 条记录</span
+                >
                 <RecordPager v-if="!loadError" v-model="page" :pages="pages" />
                 <PressButton
                     v-if="!glass"
                     data-modal-cancel
+                    class="record-footer-action"
                     text="关闭"
                     label="关闭账号历史记录"
                     :disabled="removing"
@@ -394,31 +402,6 @@ async function remove(one: AccountEntry) {
 </template>
 
 <style scoped>
-.account-history-footer {
-    display: grid;
-    align-items: center;
-    justify-items: center;
-    width: 100%;
-}
-.account-history-footer.with-close {
-    grid-template-columns: minmax(0, 1fr) minmax(0, max-content) minmax(0, 1fr);
-}
-.with-close .record-pager {
-    grid-column: 2;
-}
-.with-close [data-modal-cancel] {
-    grid-column: 3;
-    justify-self: end;
-}
-@media (max-width: 540px) {
-    .account-history-footer.with-close {
-        grid-template-columns: minmax(0, 1fr);
-        gap: 6px;
-    }
-    .with-close :is(.record-pager, [data-modal-cancel]) {
-        grid-column: 1;
-    }
-}
 .account-record-controls {
     --record-field-w: calc(148px * var(--fs-scale));
 

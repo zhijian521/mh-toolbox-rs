@@ -18,7 +18,7 @@ import {
     type ActivitySlot,
 } from './activities';
 import { activitySlotText } from '../../services/game-activities';
-import { LEAD_MINUTES, type AlarmDraft, type AlarmLike } from './alarms';
+import { alarmStatusText, LEAD_MINUTES, type AlarmDraft, type AlarmLike } from './alarms';
 
 /**
  * 「给这条活动加个提醒」：确认是哪一场，然后把它翻成一份闹钟。
@@ -136,7 +136,7 @@ function submit() {
                 label="提醒哪一场"
             />
             <p v-if="matchingAlarm" class="reminder-hint">
-                {{ matchingAlarm.enabled ? '这一场已开启提醒。' : '这一场的提醒已停用。' }}
+                这一场的提醒{{ alarmStatusText(matchingAlarm.enabled) }}。
             </p>
             <p class="reminder-hint">{{ leadHint }}</p>
             <p v-if="activity.note && activity.note !== note" class="reminder-hint">
@@ -175,7 +175,7 @@ function submit() {
 
             <p v-if="whenLine" class="when">{{ whenLine }}</p>
             <AppNotice v-if="matchingAlarm" class="hint">
-                {{ matchingAlarm.enabled ? '这一场已开启提醒。' : '这一场的提醒已停用。' }}
+                这一场的提醒{{ alarmStatusText(matchingAlarm.enabled) }}。
             </AppNotice>
 
             <AppNotice class="hint">{{ leadHint }}</AppNotice>

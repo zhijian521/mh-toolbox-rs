@@ -50,7 +50,7 @@ interface ToolBase {
 export interface ToolPage extends ToolBase {
     kind: 'page';
     path: string;
-    view: RouteComponent | (() => Promise<RouteComponent>);
+    view: () => Promise<RouteComponent>;
 }
 
 /**

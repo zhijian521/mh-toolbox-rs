@@ -605,6 +605,39 @@
     flex-direction: column;
 }
 
+.record-footer-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, max-content) minmax(0, 1fr);
+    align-items: center;
+    width: 100%;
+}
+.modal-actions.record-footer-grid {
+    display: grid;
+}
+.record-footer-grid .record-pager {
+    grid-column: 2;
+    justify-self: center;
+}
+.record-footer-count {
+    grid-column: 1;
+    justify-self: start;
+    color: var(--muted);
+    font-size: var(--fs-xs);
+}
+.record-footer-action {
+    grid-column: 3;
+    justify-self: end;
+}
+@media (max-width: 540px) {
+    .record-footer-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 6px;
+    }
+    .record-footer-grid :is(.record-pager, .record-footer-action) {
+        grid-column: 1;
+    }
+}
+
 .record-filters {
     display: flex;
     flex: none;

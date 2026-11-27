@@ -395,3 +395,29 @@ export function loadAssetSections(): Promise<AssetSection[]> {
     });
     return pending;
 }
+
+/** 同一页可跨多个分类，分组只包含当前页的条目。 */
+export function sliceAssetSections(sections: readonly AssetSection[], start: number, end: number) {
+    let offset = 0;
+    return sections.flatMap((section) => {
+        const items = section.items.slice(Math.max(0, start - offset), Math.max(0, end - offset));
+        offset += section.items.length;
+        if (!items.length) return [];
+        const groups = new Map<string, AssetItem[]>();
+        for (const item of items) {
+            const group = groups.get(item.subgroup) ?? [];
+            group.push(item);
+            groups.set(item.subgroup, group);
+        }
+        return [
+            {
+                ...section,
+                groups: [...groups].map(([name, entries]) => ({ name, items: entries })),
+                summary:
+                    items.length === section.items.length
+                        ? `${section.items.length} 项`
+                        : `本页 ${items.length} / ${section.items.length} 项`,
+            },
+        ];
+    });
+}

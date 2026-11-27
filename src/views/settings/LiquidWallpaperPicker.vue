@@ -13,8 +13,22 @@ import { useLiquidPreferences, SYSTEM_WALLPAPERS } from '../../composables/use-l
 import catalog from './xyq-wallpapers.json';
 
 const props = defineProps<{ selected: string; active: boolean }>();
-const emit = defineEmits<{ choose: [url: string]; close: [] }>();
-const { appearance, systemWallpaper, selectSystemWallpaper } = useLiquidPreferences();
+const emit = defineEmits<{ close: [] }>();
+const {
+    appearance,
+    systemWallpaper,
+    selectSystemWallpaper,
+    selectedWallpaper,
+    loadingWallpaper,
+    failedWallpaper,
+    selectWallpaper,
+} = useLiquidPreferences();
+
+async function applyOnlineWallpaper(path: string) {
+    const url = WALLPAPER_CDN + path;
+    await selectWallpaper(url);
+    if (props.active && selectedWallpaper.value === url && !failedWallpaper.value) emit('close');
+}
 const source = ref<'system' | 'online'>(props.selected ? 'online' : 'system');
 function applySystemWallpaper(option: (typeof SYSTEM_WALLPAPERS)[number]) {
     selectSystemWallpaper(option);
@@ -104,7 +118,8 @@ watch(
                     type="button"
                     class="wallpaper-tile"
                     :aria-pressed="WALLPAPER_CDN + item.image === selected"
-                    @click="emit('choose', WALLPAPER_CDN + item.image)"
+                    :disabled="WALLPAPER_CDN + item.image === loadingWallpaper"
+                    @click="applyOnlineWallpaper(item.image)"
                 >
                     <span class="wallpaper-thumb">
                         <img v-if="previews[item.thumb]" :src="previews[item.thumb]" alt="" />
@@ -113,6 +128,12 @@ watch(
                         }}</small>
                     </span>
                     <span class="wallpaper-name">{{ item.name }}</span>
+                    <small v-if="WALLPAPER_CDN + item.image === loadingWallpaper" role="status">
+                        正在应用…
+                    </small>
+                    <small v-else-if="WALLPAPER_CDN + item.image === failedWallpaper" role="status">
+                        未能应用，点击重试
+                    </small>
                 </button>
             </div>
             <p v-else role="status">没有找到匹配的壁纸。</p>

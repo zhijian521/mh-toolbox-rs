@@ -23,7 +23,7 @@ defineProps<{ text: string; valueId?: string; disabled?: boolean }>();
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    min-height: var(--glass-select-height, var(--glass-search-height));
+    min-height: var(--lg-field-height);
     padding-inline: 14px 12px;
     pointer-events: none;
 }

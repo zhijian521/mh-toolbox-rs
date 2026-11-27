@@ -24,6 +24,35 @@ export interface Persist {
 }
 
 const writers = new Map<string, Persist>();
+const replacementActive = ref(false);
+export const ledgerWritesBlocked = readonly(replacementActive);
+const ledgerDrains = new Set<() => boolean>();
+
+export function registerLedgerDrain(drain: () => boolean) {
+    ledgerDrains.add(drain);
+    return () => ledgerDrains.delete(drain);
+}
+
+/** 整账替换前先收齐防抖队列，替换期间暂停领域写入。 */
+export async function withLedgerReplacement<T>(
+    replace: () => Promise<T>,
+    waitsForReload: (result: T) => boolean,
+): Promise<T> {
+    if (replacementActive.value) throw new Error('账本正在替换，请稍候');
+    for (const drain of ledgerDrains) {
+        if (!drain()) throw new Error('仍有数据未同步，请先重试同步');
+    }
+    replacementActive.value = true;
+    let reloading = false;
+    try {
+        if (!(await flushPendingWrites())) throw new Error('仍有数据未保存，请先重试保存');
+        const result = await replace();
+        reloading = waitsForReload(result);
+        return result;
+    } finally {
+        if (!reloading) replacementActive.value = false;
+    }
+}
 
 /** 导出、替换和关闭窗口前等待所有队列，失败时由调用方保留窗口并告知用户。 */
 export async function flushPendingWrites(): Promise<boolean> {
@@ -39,7 +68,7 @@ export function createPersist(options: PersistOptions): Persist {
     let queued: Promise<boolean> | undefined;
     const pending = ref(0);
     const canWrite = () => {
-        if (options.loadError.value) return false;
+        if (ledgerWritesBlocked.value || options.loadError.value) return false;
         if (!options.loaded.value) {
             options.loadError.value = '这一页还没读到数据，刷新一次再记';
             return false;

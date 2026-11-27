@@ -30,7 +30,7 @@ import {
     prepareGrowthUpdates,
     type GoalProgressInput,
     type ReadonlyGoal,
-    type GoalSummary,
+    trackGoalChange,
 } from './goals';
 import { loadGoals, useGoals, type GoalInput, type LogInput } from './goals-store';
 
@@ -145,10 +145,12 @@ const editError = ref('');
 const growthError = ref('');
 const progressError = ref('');
 const recorded = ref(0);
-let savedGoalId = '';
-let beforeSave: GoalSummary | null = null;
-let beforeProgress: GoalSummary | null = null;
-let beforeGrowth: GoalSummary | null = null;
+function summaryOf(id: string) {
+    return byId.value.get(id)?.summary;
+}
+const editChange = trackGoalChange(summaryOf);
+const growthChange = trackGoalChange(summaryOf);
+const progressChange = trackGoalChange(summaryOf);
 const removal = useConfirmedRemoval(
     () =>
         !!loadError.value ||
@@ -171,18 +173,14 @@ const blocked = computed(
         removing.value,
 );
 
-function summaryOf(id: string) {
-    return byId.value.get(id)?.summary ?? null;
-}
-function announce(before: GoalSummary | null, id: string) {
-    if (before?.done || !summaryOf(id)?.done) return;
+function announce(completed: boolean) {
+    if (!completed) return;
     notify.success('目标达成');
     if (status.value === 'active') status.value = 'all';
 }
 function openEditor(goal?: ReadonlyGoal) {
     if (blocked.value) return;
     editSubmit.reset();
-    savedGoalId = '';
     editError.value = '';
     editing.value = { goal };
 }
@@ -196,17 +194,15 @@ async function save(input: GoalInput) {
     const ok = await editSubmit.run('editor', () => {
         editError.value = '';
         const goal = editing.value?.goal;
-        beforeSave = goal ? summaryOf(goal.id) : null;
-        const result = goal ? updateGoal(goal.id, input) : addGoal(input);
-        if (!result.ok) {
+        return editChange.apply(goal?.id, () => {
+            const result = goal ? updateGoal(goal.id, input) : addGoal(input);
+            if (result.ok) return result.goal.id;
             editError.value = result.error;
             return false;
-        }
-        savedGoalId = result.goal.id;
-        return true;
+        });
     });
     if (!ok) return;
-    announce(beforeSave, savedGoalId);
+    announce(editChange.completed());
     closeEditor();
     notify.success('已保存');
 }
@@ -261,12 +257,13 @@ async function applyGrowth(values: GoalProgressInput[]) {
             growthError.value = '角色或数值已变化，请重新打开后修改';
             return false;
         }
-        beforeGrowth = summaryOf(goal.id);
-        for (const character of prepared) updateCharacter(character, 'goal', goal.title);
-        return true;
+        return growthChange.apply(goal.id, () => {
+            for (const character of prepared) updateCharacter(character, 'goal', goal.title);
+            return goal.id;
+        });
     });
     if (!ok) return;
-    announce(beforeGrowth, goal.id);
+    announce(growthChange.completed());
     closeGrowth();
     notify.success('角色档案已更新');
 }
@@ -286,18 +283,17 @@ async function record(input: LogInput) {
     if (!goal || removing.value || (!progressAction.value && !!writeError.value)) return;
     const ok = await progressSubmit.run(progressAction.value ?? `log:${goal.id}`, () => {
         progressError.value = '';
-        beforeProgress = summaryOf(goal.id);
-        const result = addLog(goal.id, input);
-        if (!result.ok) {
+        return progressChange.apply(goal.id, () => {
+            const result = addLog(goal.id, input);
+            if (result.ok) return goal.id;
             progressError.value = result.error;
             return false;
-        }
-        return true;
+        });
     });
     if (!ok) return;
     progressError.value = '';
     recorded.value += 1;
-    announce(beforeProgress, goal.id);
+    announce(progressChange.completed());
 }
 async function dropLog(logId: string) {
     const goal = activeHistoryGoal.value;
@@ -483,7 +479,7 @@ useRouteAction('/goals', {
 .liquid-goals :deep(.goal-create) {
     --glass-foreground: light-dark(#000, var(--liquid-ink));
 }
-.liquid-goals .grid :deep(.goal-progress) {
+.liquid-goals .grid :deep(.goal-progress.ticks) {
     --progress-color: var(--goal-progress-color);
     --progress-light: color-mix(in srgb, var(--progress-color) 72%, white);
     --progress-dark: color-mix(in srgb, var(--progress-color) 80%, black);

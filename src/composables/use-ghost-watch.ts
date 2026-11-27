@@ -113,7 +113,7 @@ export function useGhostWatch() {
         // 「识别中」不是「还没读到」：画面上的结果是留住的那一份，只是这一帧读到了
         // 另一套内容、还没连稳到足够可信。这句话必须说清楚在等什么，否则用户看到
         // 地图不动、灯在跳，只会以为卡住了。
-        if (settling.value) return `另一套读法等 ${CONFIRM_FRAMES} 帧确认`;
+        if (settling.value) return `正在确认新的任务识别结果（${CONFIRM_FRAMES} 帧）`;
         return '监听中';
     });
 

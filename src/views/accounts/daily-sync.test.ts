@@ -80,6 +80,52 @@ afterEach(() => {
 });
 
 describe('收益自动同步', () => {
+    it.each(['ok', 'canceled', 'failed'] as const)(
+        '整账替换先落盘防抖队列，结果为 %s 时按结果恢复同步',
+        async (outcome) => {
+            const { sync, accounts, income, minute, storage } = await loadSync({
+                entries: [entry('2026-11-13', 'source')],
+                sessions: [session({ startAt: at(13, 11), endAt: null })],
+            });
+            const { ledgerWritesBlocked, withLedgerReplacement } = await import('../../services/persist');
+            sync.syncAllDays();
+            await accounts.flush();
+            storage.accountSave.mockClear();
+            stop = sync.startDailySync();
+            expect(income.updateEntry('source', { amount: 24000 }).ok).toBe(true);
+
+            let begin!: () => void;
+            const started = new Promise<void>((resolve) => (begin = resolve));
+            let finish!: () => void;
+            const awaitingDialog = new Promise<void>((resolve) => (finish = resolve));
+            const replace = vi.fn(async () => {
+                begin();
+                await awaitingDialog;
+                if (outcome === 'failed') throw new Error('导入失败');
+                return outcome;
+            });
+            const replacing = withLedgerReplacement(replace, (result) => result === 'ok');
+            const completed = replacing.catch((error: Error) => error.message);
+            await started;
+            expect(ledgerWritesBlocked.value).toBe(true);
+            expect(storage.accountSave).toHaveBeenCalledOnce();
+            const autoIncome = accounts.entries.value.find((one) => one.category === sync.AUTO_INCOME);
+            expect(autoIncome?.amount).toBe(24000);
+            await expect(withLedgerReplacement(replace, () => true)).rejects.toThrow('账本正在替换');
+
+            vi.setSystemTime(at(13, 13));
+            minute.value = Date.now();
+            await vi.advanceTimersByTimeAsync(500);
+            expect(storage.accountSave).toHaveBeenCalledOnce();
+
+            finish();
+            expect(await completed).toBe(outcome === 'failed' ? '导入失败' : outcome);
+            await vi.advanceTimersByTimeAsync(500);
+            expect(ledgerWritesBlocked.value).toBe(outcome === 'ok');
+            expect(storage.accountSave).toHaveBeenCalledTimes(outcome === 'ok' ? 1 : 2);
+        },
+    );
+
     it('净亏损同步为支出，盈转亏沿用原记录，归零后移除且不影响手记', async () => {
         const { sync, accounts, income } = await loadSync({
             entries: [entry('2026-11-13', 'source')],

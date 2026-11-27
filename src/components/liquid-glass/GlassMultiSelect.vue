@@ -5,13 +5,20 @@ defineProps<{
     options: readonly { value: string; label: string; ariaLabel?: string; disabled?: boolean }[];
     label: string;
     size?: 'compact' | 'standard';
+    variant?: 'checkbox' | 'segmented';
     disabled?: boolean;
 }>();
 const selected = defineModel<string[]>({ required: true });
 </script>
 
 <template>
-    <div class="glass-multi-select" role="group" :data-size="size ?? 'compact'" :aria-label="label">
+    <div
+        class="glass-multi-select"
+        :class="{ 'is-segmented': variant === 'segmented' }"
+        role="group"
+        :data-size="size ?? 'compact'"
+        :aria-label="label"
+    >
         <label v-for="option in options" :key="option.value" class="glass-multi-option">
             <input
                 v-model="selected"
@@ -20,7 +27,9 @@ const selected = defineModel<string[]>({ required: true });
                 :aria-label="option.ariaLabel"
                 :disabled="disabled || option.disabled"
             />
-            <span class="glass-multi-mark" aria-hidden="true"><AppIcon name="check" /></span>
+            <span v-if="variant !== 'segmented'" class="glass-multi-mark" aria-hidden="true">
+                <AppIcon name="check" />
+            </span>
             <span class="glass-multi-label">{{ option.label }}</span>
         </label>
     </div>
@@ -28,7 +37,6 @@ const selected = defineModel<string[]>({ required: true });
 
 <style scoped>
 .glass-multi-select {
-    --lg-multi-height: var(--lg-form-height);
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
@@ -36,8 +44,17 @@ const selected = defineModel<string[]>({ required: true });
     max-width: 100%;
     gap: 6px;
 }
-.glass-multi-select[data-size='standard'] {
-    --lg-multi-height: var(--lg-form-standard-height);
+.glass-multi-select.is-segmented {
+    gap: var(--lg-choice-inset) 4px;
+    padding: var(--lg-choice-inset);
+    border-radius: calc(var(--lg-choice-height) / 2);
+    background: var(--lg-bar-fill);
+    box-shadow: var(--lg-edge-rim);
+}
+@media not (prefers-reduced-transparency: reduce) {
+    .glass-multi-select.is-segmented {
+        backdrop-filter: var(--lg-control-backdrop);
+    }
 }
 .glass-multi-option {
     box-sizing: border-box;
@@ -47,7 +64,7 @@ const selected = defineModel<string[]>({ required: true });
     gap: 7px;
     min-width: 0;
     max-width: 100%;
-    min-height: var(--lg-multi-height);
+    min-height: var(--lg-choice-height);
     padding: 4px 9px;
     border: 1px solid var(--liquid-outline);
     border-radius: 8px;
@@ -65,6 +82,22 @@ const selected = defineModel<string[]>({ required: true });
     .glass-multi-option:hover:not(:has(input:is(:disabled, :checked))) {
         background: var(--lg-field-active-fill);
     }
+}
+.is-segmented .glass-multi-option {
+    justify-content: center;
+    min-height: calc(var(--lg-choice-height) - 2 * var(--lg-choice-inset));
+    padding: 2px var(--lg-choice-padding-inline);
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    box-shadow: none;
+    color: var(--liquid-muted);
+    text-align: center;
+}
+.is-segmented .glass-multi-option:has(input:checked) {
+    background: var(--lg-selector-lens);
+    box-shadow: var(--lg-selection-shadow);
+    color: var(--liquid-ink);
 }
 .glass-multi-option:has(input:focus-visible) {
     outline: 2px solid var(--liquid-focus);

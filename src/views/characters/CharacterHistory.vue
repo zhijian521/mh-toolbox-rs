@@ -8,6 +8,7 @@ import GlassDateField from '../../components/liquid-glass/GlassDateField.vue';
 import GlassCompactPager from '../../components/liquid-glass/GlassCompactPager.vue';
 import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import RecordPager from '../../components/RecordPager.vue';
+import { usePagination } from '../../composables/use-pagination';
 import { recentMonthRange } from '../../services/format';
 import { useRoster } from './roster';
 import { selectGrowthHistory } from './growth-history';
@@ -19,8 +20,7 @@ const { roster } = useRoster();
 const initialRange = recentMonthRange();
 const selected = ref(''),
     from = ref(initialRange.from),
-    to = ref(initialRange.to),
-    page = ref(1);
+    to = ref(initialRange.to);
 const options = computed(() => [
     { value: '', label: '全部角色' },
     ...roster.value.map((one) => ({ value: one.id, label: one.name })),
@@ -32,21 +32,16 @@ const entries = computed(() =>
         to: to.value,
     }),
 );
-const pages = computed(() => Math.max(1, Math.ceil(entries.value.length / PAGE_SIZE)));
+const { page, pages, visible: pagedEntries } = usePagination(entries, PAGE_SIZE);
 const visible = computed(() =>
-    entries.value
-        .slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE)
-        .map(({ character, entry }) => ({
-            ...entry,
-            name: character.name,
-            characterId: character.id,
-        })),
+    pagedEntries.value.map(({ character, entry }) => ({
+        ...entry,
+        name: character.name,
+        characterId: character.id,
+    })),
 );
 watch([selected, from, to], () => {
     page.value = 1;
-});
-watch(pages, (total) => {
-    page.value = Math.min(page.value, total);
 });
 </script>
 
@@ -79,7 +74,7 @@ watch(pages, (total) => {
                 class="growth-entry"
             >
                 <header class="growth-heading ticket-rule">
-                    <span class="growth-name">{{ entry.name }}</span>
+                    <span class="growth-name" :title="entry.name">{{ entry.name }}</span>
                     <div class="growth-meta">
                         <span>
                             {{

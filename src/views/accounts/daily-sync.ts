@@ -1,6 +1,7 @@
 /** 收益与上线记录是自动账目的真源；按受影响日期替换，手记不参与同步。 */
 import { computed, effectScope, onScopeDispose, ref, watch } from 'vue';
 import { useMinuteNow } from '../../composables/use-minute-now';
+import { ledgerWritesBlocked, registerLedgerDrain } from '../../services/persist';
 import { useAccounts, type AutoInput } from './accounts-store';
 import { useOnline } from '../income/online-store';
 import { useIncome } from '../income/income-store';
@@ -61,6 +62,7 @@ export function autoRowsOf(date: string, now = Date.now()): AutoInput[] {
 }
 
 function syncDates(dates: readonly string[]) {
+    if (ledgerWritesBlocked.value) return { ok: false as const, error: '账本正在替换，请稍候' };
     const sources = [useIncome(), useOnline(), useAccounts()];
     const sourceError =
         sources.find((source) => source.loadError.value)?.loadError.value ||
@@ -104,6 +106,7 @@ function flushQueued() {
 }
 
 function schedule() {
+    if (ledgerWritesBlocked.value || !queued.size) return;
     clearTimeout(timer);
     timer = setTimeout(flushQueued, 400);
 }
@@ -123,14 +126,31 @@ export function startDailySync(): () => void {
     scope.run(() => {
         const now = useMinuteNow();
         const sources = [useIncome(), useOnline(), useAccounts()];
+        const unregisterDrain = registerLedgerDrain(() => flushQueued().ok);
+        let needsFullSync = false;
+        function reconcile() {
+            if (!syncAllDays().ok) return;
+            queued.clear();
+            clearTimeout(timer);
+            timer = undefined;
+        }
+        watch(
+            ledgerWritesBlocked,
+            (blocked) => {
+                if (blocked) return;
+                if (needsFullSync) reconcile();
+                needsFullSync = false;
+                schedule();
+            },
+            { flush: 'sync' },
+        );
         // 恢复读取后重新核对全部日期；仅监听源数组会漏掉账号自身恢复的情况。
         watch(
             () => sources.every((source) => source.loaded.value && !source.loadError.value),
             (ready) => {
-                if (!ready || !syncAllDays().ok) return;
-                queued.clear();
-                clearTimeout(timer);
-                timer = undefined;
+                if (!ready) return;
+                if (ledgerWritesBlocked.value) needsFullSync = true;
+                else reconcile();
             },
             { flush: 'sync' },
         );
@@ -162,7 +182,10 @@ export function startDailySync(): () => void {
             }
             if (queued.size) schedule();
         });
-        onScopeDispose(() => clearTimeout(timer));
+        onScopeDispose(() => {
+            clearTimeout(timer);
+            unregisterDrain();
+        });
     });
     return () => scope.stop();
 }

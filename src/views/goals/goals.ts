@@ -378,6 +378,25 @@ export function manualProgress(logs: readonly GoalLog[]): number {
     );
 }
 
+/** 跨重试保留首次写入前的达成状态。 */
+export function trackGoalChange(summary: (id: string) => GoalSummary | undefined) {
+    let change: { id: string; wasDone: boolean } | undefined;
+    return {
+        apply(id: string | undefined, mutate: () => string | false) {
+            const wasDone = id ? summary(id)?.done === true : false;
+            const updated = mutate();
+            if (!updated) return false;
+            change = { id: updated, wasDone };
+            return true;
+        },
+        completed() {
+            const saved = change;
+            change = undefined;
+            return !!saved && !saved.wasDone && summary(saved.id)?.done === true;
+        },
+    };
+}
+
 /**
  * 一份汇总，页面上的所有数都从它出。
  *

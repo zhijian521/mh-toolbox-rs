@@ -11,24 +11,14 @@ import SegmentedPills from '../../components/SegmentedPills.vue';
 import { glassLedger } from '../../components/glass-ledger';
 import { GlassSegment, GlassSegmented } from '../../components/liquid-glass';
 import PaperCard from '../../components/PaperCard.vue';
-import { ledgerMoneyText } from '../../services/format';
 import {
-    cultivationCost,
-    expToGrade,
     levelCosts,
     levelCostsError,
-    lifeSkillCost,
     lifeSkillOf,
     loadLevelCosts,
     MENPAI_FLY_MIN_LEVEL,
-    menpaiCost,
-    petCultivationCost,
-    petLevelCost,
-    qianNengGuoCost,
-    qianYuanDanCost,
-    roleExpBetween,
-    schoolSkillCost,
 } from '../../services/level-costs';
+import { growthOutcome, type CalcKey, type GrowthInput } from './growth-outcome';
 
 defineProps<{ reloadRoster?: () => Promise<void> }>();
 
@@ -64,21 +54,6 @@ const reload = async () => {
 
 /* 读数与「哪些格子没填好」都从这一处出：`costs` 为空时整页只剩提示条。 */
 const costs = computed(() => levelCosts.value);
-
-/** 千分位整数。经验动辄十亿，不分位读不出量级。 */
-const count = (value: number) => value.toLocaleString('zh-CN');
-
-type CalcKey =
-    | 'role'
-    | 'expGrade'
-    | 'schoolSkill'
-    | 'lifeSkill'
-    | 'cultivation'
-    | 'petCultivation'
-    | 'petLevel'
-    | 'qianYuanDan'
-    | 'qianNengGuo'
-    | 'menpai';
 
 interface CalcType {
     key: CalcKey;
@@ -186,7 +161,7 @@ const FIELD_LABELS: Record<CalcKey, { a: string; b: string; c: string }> = {
  * 各项目的输入各自存一份：换卡再换回来，刚才填的数还在。
  * `pick` 是「这一项里选哪一个」：辅助技能、修炼类型、转门派是否飞升。
  */
-const form = reactive<Record<CalcKey, { a: number; b: number; c: number; pick: string }>>({
+const form = reactive<Record<CalcKey, GrowthInput>>({
     role: { a: 0, b: 175, c: 0, pick: '' },
     expGrade: { a: 100, b: 100000, c: 0, pick: '' },
     schoolSkill: { a: 0, b: 180, c: 0, pick: '' },
@@ -288,221 +263,7 @@ watch(
     },
 );
 
-/** 两个等级是否构成一个官网接受的区间；不构成时给出**这句话**。 */
-function rangeNote(from: number, to: number, min: number, cap: number): string {
-    if (![from, to].every(Number.isSafeInteger)) return '等级需为有效整数';
-    if (from < min || from > cap) return '起始等级需在 ' + min + ' 到 ' + cap + ' 之间';
-    if (to < min || to > cap) return '目标等级需在 ' + min + ' 到 ' + cap + ' 之间';
-    if (from >= to) return '目标等级要比起始等级高';
-    return '';
-}
-
-interface Reading {
-    cap: string;
-    value: string;
-}
-
-interface Outcome {
-    /** 区间不成立时的说明；非空时读数整块空着，只显示这句。 */
-    note: string;
-    /** 这一项的答案：经验、梦幻币这类主数字，大字摆在读数卡上半。 */
-    headline: Reading[];
-    /** 附带条件：等级要求、帮贡、轮次这类小字。 */
-    details: Reading[];
-}
-
-const NONE: Outcome = { note: '', headline: [], details: [] };
-
-/**
- * 各项读数共用一个出口：页面只认识「主数字 + 附带条件」两栏，
- * 不认识「修炼」与「乾元丹」的区别——那些口径住在 `level-costs.ts` 里。
- */
-const outcome = computed<Outcome>(() => {
-    const table = costs.value;
-    if (!table) return NONE;
-    const input = current.value;
-    const values = [
-        input.a,
-        ...(labels.value.b ? [input.b] : []),
-        ...(active.value === 'menpai' && input.pick === 'fly' ? [input.c] : []),
-    ];
-    if (
-        values.some(
-            (value) => !Number.isFinite(value) || value < 0 || value > Number.MAX_SAFE_INTEGER,
-        )
-    ) {
-        return { ...NONE, note: '请输入有效的非负数值' };
-    }
-
-    switch (active.value) {
-        case 'role': {
-            const note = rangeNote(input.a, input.b, 0, table.role.cap);
-            if (note) return { ...NONE, note };
-            return {
-                note: '',
-                headline: [
-                    { cap: '需要经验', value: count(roleExpBetween(table, input.a, input.b)) },
-                ],
-                details: [],
-            };
-        }
-        case 'expGrade': {
-            if (input.a < 1 || input.a > table.role.cap) {
-                return { ...NONE, note: `当前等级需在 1 到 ${table.role.cap} 之间` };
-            }
-            const result = expToGrade(table, input.a, input.b);
-            return {
-                note: '',
-                headline: [{ cap: '剩余经验', value: count(result.left) }],
-                details: [{ cap: '可达等级', value: String(result.grade) }],
-            };
-        }
-        case 'schoolSkill': {
-            const note = rangeNote(input.a, input.b, 0, table.schoolSkill.cap);
-            if (note) return { ...NONE, note };
-            const result = schoolSkillCost(table, input.a, input.b);
-            return {
-                note: '',
-                headline: [
-                    { cap: '需要经验', value: count(result.exp) },
-                    { cap: '需要梦幻币', value: ledgerMoneyText(result.cash) },
-                ],
-                details: [],
-            };
-        }
-        case 'lifeSkill': {
-            const skill = lifeSkillOf(table, Number(input.pick));
-            if (!skill) return { ...NONE, note: '请选择一项辅助技能' };
-            const note = rangeNote(input.a, input.b, 0, skill.cap);
-            if (note) return { ...NONE, note };
-            const result = lifeSkillCost(table, skill.id, input.a, input.b);
-            if (!result) return { ...NONE, note: `目标等级需在 0 到 ${skill.cap} 之间` };
-            return {
-                note: '',
-                headline: [
-                    { cap: '需要经验', value: count(result.exp) },
-                    { cap: '需要梦幻币', value: ledgerMoneyText(result.cash) },
-                ],
-                /* 帮贡两列都由等级推出：需要 = 5×目标等级，消耗 = 区间三角数之差。 */
-                details: [
-                    { cap: '需要帮贡', value: count(result.reqBond) },
-                    { cap: '消耗帮贡', value: count(result.usedBond) },
-                ],
-            };
-        }
-        case 'cultivation': {
-            const type = table.cultivation.types.find((one) => one.id === Number(input.pick));
-            if (!type) return { ...NONE, note: '请选择一类修炼' };
-            const note = rangeNote(input.a, input.b, 0, type.cap);
-            if (note) return { ...NONE, note };
-            const result = cultivationCost(table, type.id, input.a, input.b);
-            if (!result) return { ...NONE, note: `目标等级需在 0 到 ${type.cap} 之间` };
-            return {
-                note: '',
-                headline: [
-                    { cap: '需要修炼经验', value: count(result.exp) },
-                    { cap: '需要梦幻币', value: ledgerMoneyText(result.cash) },
-                ],
-                /* 帮贡与人物等级要求取目标等级那一级，不随区间增长。 */
-                details: [
-                    { cap: '需要资材', value: count(result.material) },
-                    { cap: '需要帮贡', value: count(result.bond) },
-                    { cap: '人物等级要求', value: String(result.minRoleLevel) },
-                ],
-            };
-        }
-        case 'petCultivation': {
-            const note = rangeNote(input.a, input.b, 0, 25);
-            if (note) return { ...NONE, note };
-            const result = petCultivationCost(table, input.a, input.b);
-            return {
-                note: '',
-                headline: [{ cap: '需要修炼经验', value: count(result.exp) }],
-                details: [
-                    { cap: '人物等级要求', value: String(result.minRoleLevel) },
-                    { cap: '100 环数量', value: result.rounds100 + ' 轮' },
-                ],
-            };
-        }
-        case 'petLevel': {
-            const note = rangeNote(input.a, input.b, 1, table.petLevel.cap);
-            if (note) return { ...NONE, note };
-            const result = petLevelCost(table, input.a, input.b);
-            return {
-                note: '',
-                headline: [{ cap: '需要经验', value: count(result.exp) }],
-                details: [{ cap: '需要月华露', value: count(result.moonDew) + ' 个' }],
-            };
-        }
-        case 'qianYuanDan': {
-            if (input.a < 0 || input.a > table.qianYuanDan.cap) {
-                return { ...NONE, note: `已有颗数需在 0 到 ${table.qianYuanDan.cap} 之间` };
-            }
-            if (input.b < input.a || input.b > table.qianYuanDan.cap) {
-                return {
-                    ...NONE,
-                    note: `目标颗数需在 ${input.a} 到 ${table.qianYuanDan.cap} 之间`,
-                };
-            }
-            const result = qianYuanDanCost(table, input.a, input.b);
-            if (!result) return { ...NONE, note: '颗数超出范围' };
-            return {
-                note: '',
-                headline: [
-                    { cap: '需要经验', value: count(result.exp) },
-                    { cap: '需要梦幻币', value: ledgerMoneyText(result.cash) },
-                ],
-                details: [],
-            };
-        }
-        case 'qianNengGuo': {
-            const cap = table.qianNengGuo.cap;
-            if (input.a < 0 || input.a > cap) {
-                return { ...NONE, note: `已有颗数需在 0 到 ${cap} 之间` };
-            }
-            if (input.b < input.a || input.b > cap) {
-                return { ...NONE, note: `目标颗数需在 ${input.a} 到 ${cap} 之间` };
-            }
-            const result = qianNengGuoCost(table, input.a, input.b);
-            if (!result) return { ...NONE, note: '颗数超出范围' };
-            return {
-                note: '',
-                headline: [{ cap: '需要经验', value: count(result.exp) }],
-                /* 只算新增那几颗：0→200 与 150→200 的差价，取决于从第几颗开始吃。 */
-                details: [{ cap: '新增颗数', value: count(result.fruits) + ' 颗' }],
-            };
-        }
-        case 'menpai': {
-            const fly = input.pick === 'fly';
-            const floor = fly ? MENPAI_FLY_MIN_LEVEL : table.menpai.min;
-            if (input.a < floor || input.a > table.menpai.max) {
-                return { ...NONE, note: `人物等级需在 ${floor} 到 ${table.menpai.max} 之间` };
-            }
-            if (fly && (input.c < 0 || input.c > table.qianNengGuo.cap)) {
-                return { ...NONE, note: `已吃潜能果需在 0 到 ${table.qianNengGuo.cap} 之间` };
-            }
-            const result = menpaiCost(table, input.a, input.b, fly ? input.c : null);
-            if (!result) return { ...NONE, note: '等级超出可转范围' };
-            const details: Reading[] = [];
-            if (result.capped) {
-                details.push({ cap: '已按上限计', value: '10 亿' });
-            }
-            if (result.fruit !== null) {
-                details.push({ cap: '需扣除潜能果', value: count(result.fruit) + ' 颗' });
-                if (result.fruitShort) {
-                    details.push({ cap: '还需再吃', value: count(result.fruitShort) + ' 颗' });
-                }
-            }
-            return {
-                note: '',
-                headline: [{ cap: '需要经验', value: count(result.exp) }],
-                details,
-            };
-        }
-        default:
-            return NONE;
-    }
-});
+const outcome = computed(() => growthOutcome(costs.value, active.value, current.value));
 </script>
 
 <template>

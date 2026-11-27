@@ -59,7 +59,7 @@ import { GlassCard } from './liquid-glass';
 withDefaults(
     defineProps<{
         items: StatItem[];
-        surface?: 'standalone' | 'embedded' | 'folded' | 'glass';
+        surface?: 'standalone' | 'embedded' | 'folded' | 'glass' | 'bare';
         centered?: boolean;
         spine?: 'left' | 'right';
         heading?: string;
@@ -74,6 +74,7 @@ const surfaces = {
     embedded: TicketCard,
     folded: FoldedCard,
     glass: GlassCard,
+    bare: 'dl',
 };
 </script>
 
@@ -88,6 +89,7 @@ const surfaces = {
             'stats-centered': centered && surface !== 'standalone',
             'stats-folded': surface === 'folded',
             'stats-glass': surface === 'glass',
+            'stats-bare': surface === 'bare',
         }"
         :style="{ '--stat-n': items.length }"
     >
@@ -113,12 +115,18 @@ const surfaces = {
             class="stat"
             :data-stat-id="item.id"
         >
-            <div class="cap" :title="item.hint">{{ item.cap }}</div>
+            <component :is="surface === 'bare' ? 'dt' : 'div'" class="cap" :title="item.hint">{{
+                item.cap
+            }}</component>
             <!-- 品名与读数之间那道虚线，与物价卡同一个说法：上半写名目、下半写数目。 -->
             <span class="dash" aria-hidden="true" />
-            <div class="v" :class="[item.tone ?? 'num', { unavailable: item.unavailable }]">
+            <component
+                :is="surface === 'bare' ? 'dd' : 'div'"
+                class="v"
+                :class="[item.tone ?? 'num', { unavailable: item.unavailable }]"
+            >
                 {{ item.value }}<small v-if="item.unit" class="stat-unit">{{ item.unit }}</small>
-            </div>
+            </component>
             <div v-if="item.sub || item.delta" class="subrow">
                 <span class="sub">{{ item.sub }}</span>
                 <span class="delta">{{ item.delta }}</span>
@@ -214,7 +222,7 @@ const surfaces = {
     white-space: nowrap;
 }
 
-.stats-embedded:not(.stats-folded, .stats-glass) {
+.stats-embedded:not(.stats-folded, .stats-glass, .stats-bare) {
     --ticket-notch-y: calc(12px + var(--fs-base) * 0.96 * 1.3 + 10.5px);
 
     padding: 12px 16px 15px;
@@ -312,6 +320,27 @@ const surfaces = {
 }
 .stats-centered .v {
     max-width: 100%;
+}
+.stats-bare.stats-centered.stats-embedded {
+    gap: 4px 0;
+    margin: 0;
+}
+.stats-bare.stats-centered.stats-embedded .stat {
+    min-height: 0;
+    padding: 3px 5px;
+}
+.stats-bare.stats-centered .stat:nth-child(odd)::before {
+    content: none;
+}
+.stats-bare .dash {
+    display: none;
+}
+.stats-bare .v {
+    margin: 3px 0 0;
+    font-size: var(--fs-md);
+    font-weight: 400;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
 }
 .v.unavailable {
     color: var(--muted);

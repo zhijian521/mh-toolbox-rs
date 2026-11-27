@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import SlotButton from '../../components/SlotButton.vue';
 import { askConfirm } from '../../composables/use-confirm';
+import { useDraftGuard } from '../../composables/use-draft-guard';
 import { hasDesktop } from '../../services/desktop';
 import { dataImportPayload } from '../../services/data-files';
 import { gameDataReady } from '../../services/game-data';
@@ -11,6 +12,11 @@ import { buildDemoData, demoCounts } from './demo-data';
 
 const desktop = hasDesktop();
 const busy = ref(false);
+useDraftGuard(
+    () => false,
+    () => busy.value,
+    () => {},
+);
 const error = ref('');
 const counts = computed(() => (gameDataReady.value ? demoCounts(buildDemoData()) : null));
 

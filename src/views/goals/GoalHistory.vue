@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed } from 'vue';
+import { usePagination } from '../../composables/use-pagination';
 import PressButton from '../../components/PressButton.vue';
 import GlassTable from '../../components/liquid-glass/GlassTable.vue';
+import GlassCompactPager from '../../components/liquid-glass/GlassCompactPager.vue';
 import GlassEmptyState from '../../components/liquid-glass/GlassEmptyState.vue';
 import RecordPager from '../../components/RecordPager.vue';
 import SaveNotice from '../../components/SaveNotice.vue';
@@ -17,7 +19,6 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ close: []; remove: [id: string]; retry: [] }>();
 const { roster } = useRoster();
-const page = ref(1);
 const pageSize = props.embedded ? 5 : 10;
 const clock = new Intl.DateTimeFormat('zh-CN', {
     year: 'numeric',
@@ -30,13 +31,7 @@ const clock = new Intl.DateTimeFormat('zh-CN', {
 });
 const tracked = computed(() => props.goal.kind === 'combo' || !!props.goal.tracking);
 const rows = computed(() => goalProgressHistory(props.goal, roster.value));
-const pages = computed(() => Math.max(1, Math.ceil(rows.value.length / pageSize)));
-const visible = computed(() =>
-    rows.value.slice((page.value - 1) * pageSize, page.value * pageSize),
-);
-watch(pages, (total) => {
-    page.value = Math.min(page.value, total);
-});
+const { page, pages, visible } = usePagination(rows, pageSize);
 
 function timeText(at: number, date: string) {
     const time = new Date(at);
@@ -55,7 +50,7 @@ function timeText(at: number, date: string) {
         </header>
         <p v-else class="history-title">{{ goal.title }}</p>
         <SaveNotice :error="error || ''" :pending="pending || 0" @retry="emit('retry')" />
-        <div class="history-scroll">
+        <div :class="{ 'lg-history-scroll': embedded }">
             <component
                 :is="embedded ? GlassTable : 'table'"
                 v-if="rows.length"
@@ -102,7 +97,13 @@ function timeText(at: number, date: string) {
             <GlassEmptyState v-else-if="embedded">暂无更新记录</GlassEmptyState>
             <p v-else class="record-empty">暂无更新记录</p>
         </div>
-        <RecordPager v-if="pages > 1" v-model="page" :pages="pages" label="目标历史分页" />
+        <GlassCompactPager
+            v-if="embedded && pages > 1"
+            v-model:page="page"
+            :pages="pages"
+            label="目标历史分页"
+        />
+        <RecordPager v-else-if="pages > 1" v-model="page" :pages="pages" label="目标历史分页" />
     </section>
 </template>
 
@@ -152,11 +153,6 @@ function timeText(at: number, date: string) {
     margin: 3px 0 0;
     color: var(--liquid-muted);
     overflow-wrap: anywhere;
-}
-.history-content .history-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
 }
 .history-content .when {
     color: var(--liquid-muted);

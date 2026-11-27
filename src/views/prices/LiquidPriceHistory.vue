@@ -55,7 +55,7 @@ const series = computed(() => [
                     :height="132"
                 />
             </section>
-            <div class="price-history-records">
+            <div class="price-history-records lg-history-scroll">
                 <GlassTable class="price-history-table" sticky-header>
                     <caption>
                         价格记录（{{
@@ -73,7 +73,11 @@ const series = computed(() => [
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="row in visible" :key="row.point.id">
+                        <tr
+                            v-for="row in visible"
+                            :key="row.point.id"
+                            :data-history-id="row.point.id"
+                        >
                             <td>
                                 <time :datetime="row.point.date">{{ row.point.date }}</time>
                             </td>
@@ -88,6 +92,7 @@ const series = computed(() => [
                                         variant="plain"
                                         :aria-label="`编辑 ${row.point.date} 的价格记录`"
                                         :disabled="editDisabled"
+                                        data-history-action="edit"
                                         @click="emit('edit', row.point)"
                                     >
                                         编辑
@@ -98,6 +103,7 @@ const series = computed(() => [
                                         variant="plain"
                                         :aria-label="`删除 ${row.point.date} 的价格记录`"
                                         :disabled="editDisabled"
+                                        data-history-action="remove"
                                         @click="emit('remove', row.point)"
                                     >
                                         删除
@@ -164,11 +170,6 @@ const series = computed(() => [
 }
 .liquid-price-history :deep(.chart-fixed-axis) {
     background: transparent;
-}
-.price-history-records {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: auto;
 }
 .liquid-price-history > .glass-empty-state {
     margin-block: auto;

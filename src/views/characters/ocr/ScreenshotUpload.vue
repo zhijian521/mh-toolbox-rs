@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import PressButton from '../../../components/PressButton.vue';
+import AppNotice from '../../../components/AppNotice.vue';
 import type { OcrLine } from './attr-panel';
 import { imageFiles, pastedImages } from './screenshot-input';
 
@@ -100,7 +101,7 @@ onBeforeUnmount(() => document.removeEventListener('paste', onPaste));
                     status
                 }}</span>
             </div>
-            <p v-if="error && !busy" class="upload-error" role="alert">{{ error }}</p>
+            <AppNotice v-if="error && !busy" tone="error" role="alert">{{ error }}</AppNotice>
             <slot name="feedback" />
             <details v-if="rawLines?.length" class="upload-raw">
                 <summary>识别原文 · {{ rawLines.length }} 行</summary>

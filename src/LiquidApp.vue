@@ -15,6 +15,7 @@ import NotifyHost from './components/NotifyHost.vue';
 import GlassConfirmHost from './components/liquid-glass/GlassConfirmHost.vue';
 import { GlassCard, GlassTab, GlassTabBar } from './components/liquid-glass';
 import { useLiquidPreferences } from './composables/use-liquid-preferences';
+import { startLiquidTiming } from './liquid-timing';
 import type { NavItem } from './navigation';
 import { hasDesktop } from './services/desktop';
 
@@ -22,6 +23,14 @@ const props = defineProps<{ items: readonly Pick<NavItem, 'key' | 'label' | 'ico
 const route = useRoute();
 const router = useRouter();
 const content = ref<HTMLElement | null>(null);
+let endRouteMount: (() => void) | undefined;
+function startRouteMount() {
+    endRouteMount = startLiquidTiming('首次挂载', String(route.name));
+}
+function finishRouteMount() {
+    endRouteMount?.();
+    endRouteMount = undefined;
+}
 const pageEntry = ref<'tool-in' | 'tool-back'>();
 const dockEntry = ref<'left' | 'right'>();
 const deferDockView = ref(false);
@@ -87,25 +96,10 @@ watch(router.currentRoute, (to, from, onCleanup) => {
     else if (returningToDirectory) pageEntry.value = 'tool-back';
 });
 
-const hideContentScrollbar = computed(() => {
-    const name = route.name;
-    return (
-        name === 'overview' ||
-        name === 'income' ||
-        name === 'accounts' ||
-        name === 'characters' ||
-        name === 'goals' ||
-        name === 'tools' ||
-        route.meta.nav === 'tools' ||
-        name === 'prices' ||
-        name === 'components'
-    );
-});
+const hideContentScrollbar = computed(() => route.meta.hideScrollbar === true);
 const dockControl = ref<{ el: HTMLElement | null }>();
 function dockKey(location: Pick<RouteLocationNormalizedLoaded, 'name' | 'meta'>) {
-    if (location.meta.nav === 'tools') return 'tools';
-    if (location.name === 'components') return 'settings';
-    return location.name;
+    return location.meta.dock ?? location.name;
 }
 const dockPage = computed(() => {
     const key = dockKey(route);
@@ -299,7 +293,13 @@ watch(appearance, () => updateAppearance(), { flush: 'post' });
                     :class="{ 'lg-scroll-hidden': hideContentScrollbar }"
                     aria-label="应用内容"
                 >
-                    <RouterView v-if="route.matched.length && !deferDockView" />
+                    <RouterView v-if="route.matched.length && !deferDockView" v-slot="{ Component }">
+                        <component
+                            :is="Component"
+                            @vue:before-mount="startRouteMount"
+                            @vue:mounted="finishRouteMount"
+                        />
+                    </RouterView>
                     <p
                         v-else-if="!route.matched.length"
                         class="liquid-startup-status"

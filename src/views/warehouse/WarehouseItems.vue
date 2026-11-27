@@ -113,6 +113,7 @@ defineExpose({ hideTip });
                 'warehouse-item-sold': itemState(item) === 'sold',
             }"
             :aria-label="itemLabel(item)"
+            :title="warehouseName(item)"
             :aria-pressed="selectable ? selectedIds?.has(item.id) === true : undefined"
             :aria-describedby="hovered?.id === item.id ? `${tipId}-${item.kind}` : undefined"
             :disabled="disabled"

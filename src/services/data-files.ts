@@ -1,6 +1,6 @@
 import { commands, type QuickPrice } from './bindings';
 import { hasDesktop } from './desktop';
-import { flushPendingWrites } from './persist';
+import { flushPendingWrites, ledgerWritesBlocked, withLedgerReplacement } from './persist';
 export type { BackupEntry } from './bindings';
 
 export async function listBackups() {
@@ -9,18 +9,14 @@ export async function listBackups() {
 }
 
 export async function restoreBackup(name: string): Promise<DataOutcome> {
-    if (!hasDesktop()) return NO_HOST;
-    if (!(await flushPendingWrites())) return failure('仍有数据未保存，请先重试保存');
-    try {
+    return replaceLedger(async () => {
         const summary = await commands.backupRestore(name);
         return {
             status: 'ok',
             detail: `已恢复账本。恢复前的数据备份在 ${summary.backupPath}`,
             truncation: { points: summary.truncated, items: summary.truncatedItems },
         };
-    } catch (error) {
-        return failure(error);
-    }
+    });
 }
 
 /* ---------- 账本备份：导出 / 导入 / 清除 ----------
@@ -69,9 +65,20 @@ const NO_HOST: { status: 'failed'; error: string } = {
     error: '浏览器预览里没有数据层',
 };
 
+// 成功替换后，保留写锁直到调用方重载。首次启动导入在领域模块读取前完成。
+async function replaceLedger(action: () => Promise<DataOutcome>, reload = true): Promise<DataOutcome> {
+    if (!hasDesktop()) return NO_HOST;
+    try {
+        return await withLedgerReplacement(action, (result) => reload && result.status === 'ok');
+    } catch (error) {
+        return failure(error);
+    }
+}
+
 /** 导出到用户自己选的位置。`detail` 带上落盘路径，用户要去那个目录拿文件。 */
 export async function dataExport(): Promise<DataOutcome> {
     if (!hasDesktop()) return NO_HOST;
+    if (ledgerWritesBlocked.value) return failure('账本正在替换，请稍候');
     if (!(await flushPendingWrites())) return failure('仍有数据未保存，请先重试保存再导出');
     try {
         const path = await commands.dataExport();
@@ -89,9 +96,7 @@ export async function dataExport(): Promise<DataOutcome> {
  * 调用方据此决定要不要多那一句。
  */
 export async function dataImport(): Promise<DataOutcome> {
-    if (!hasDesktop()) return NO_HOST;
-    if (!(await flushPendingWrites())) return failure('仍有数据未保存，请先重试保存');
-    try {
+    return replaceLedger(async () => {
         const summary = await commands.dataImport();
         if (summary === null) return { status: 'canceled' };
         return {
@@ -102,25 +107,19 @@ export async function dataImport(): Promise<DataOutcome> {
                 `${summary.online} 条上线记录、${summary.goals} 个目标、${summary.warehouse} 件仓库物品。速记单价已一并替换。替换前的数据备份在 ${summary.backupPath}`,
             truncation: { points: summary.truncated, items: summary.truncatedItems },
         };
-    } catch (error) {
-        return failure(error);
-    }
+    });
 }
 
 /** 内置演示账本与文件导入共用后端校验、备份和事务；成功后调用方必须重载。 */
 export async function dataImportPayload(raw: string): Promise<DataOutcome> {
-    if (!hasDesktop()) return NO_HOST;
-    if (!(await flushPendingWrites())) return failure('仍有数据未保存，请先重试保存');
-    try {
+    return replaceLedger(async () => {
         const summary = await commands.dataImportPayload(raw);
         return {
             status: 'ok',
             detail: `已导入模拟账本。替换前的数据备份在 ${summary.backupPath}`,
             truncation: { points: summary.truncated, items: summary.truncatedItems },
         };
-    } catch (error) {
-        return failure(error);
-    }
+    });
 }
 
 /** 专用旧版入口只读取选中文件，预览阶段不写库。 */
@@ -142,9 +141,7 @@ export async function legacyDataImport(
     converted: string,
     startup = false,
 ): Promise<DataOutcome> {
-    if (!hasDesktop()) return NO_HOST;
-    if (!(await flushPendingWrites())) return failure('仍有数据未保存，请先重试保存');
-    try {
+    return replaceLedger(async () => {
         const { summary, originalPath } = await commands.legacyDataImport(
             original,
             converted,
@@ -155,16 +152,12 @@ export async function legacyDataImport(
             detail: `已导入 ${summary.characters} 个角色、${summary.prices} 件物价、${summary.entries} 笔收益、${summary.accounts} 笔账号记录、${summary.online} 条上线记录和 ${summary.goals} 个目标。当前账本备份在 ${summary.backupPath}；旧版原件在 ${originalPath}`,
             truncation: { points: summary.truncated, items: summary.truncatedItems },
         };
-    } catch (error) {
-        return failure(error);
-    }
+    }, !startup);
 }
 
 /** 清空全部账本数据。报出数量，用户才分得清「清掉了一份账」和「本来就是空的」。 */
 export async function dataClear(): Promise<DataOutcome> {
-    if (!hasDesktop()) return NO_HOST;
-    if (!(await flushPendingWrites())) return failure('仍有数据未保存，请先重试保存');
-    try {
+    return replaceLedger(async () => {
         const summary = await commands.dataClear();
         return {
             status: 'ok',
@@ -173,9 +166,7 @@ export async function dataClear(): Promise<DataOutcome> {
                 `${summary.entries} 笔收益流水、${summary.accounts} 笔账号记录、${summary.online} 条上线记录、` +
                 `${summary.goals} 个目标、${summary.warehouse} 件仓库物品，速记单价已清空`,
         };
-    } catch (error) {
-        return failure(error);
-    }
+    });
 }
 
 /* ---------- 速记单价的导入 / 导出（第 123 批） ----------

@@ -2,6 +2,7 @@ import { createApp } from 'vue';
 import { createRouter, createWebHashHistory } from 'vue-router';
 import type { RouteComponent } from 'vue-router';
 import LiquidApp from './LiquidApp.vue';
+import { startLiquidTiming } from './liquid-timing';
 import { DEFAULT_PATH, NAV_ITEMS } from './navigation';
 import { TOOLS, type ToolPage } from './tools';
 import { askConfirm } from './composables/use-confirm';
@@ -40,6 +41,23 @@ const views = new Map<string, () => Promise<RouteComponent>>([
     ['components', () => import('./views/LiquidComponentsView.vue').then((page) => page.default)],
     ['settings', () => import('./views/LiquidSettingsView.vue').then((page) => page.default)],
 ]);
+function timedRoute(name: string, load: () => Promise<RouteComponent>) {
+    if (!import.meta.env.DEV) return load;
+    return async () => {
+        const endTiming = startLiquidTiming('路由模块', name);
+        try {
+            return await load();
+        } finally {
+            endTiming?.();
+        }
+    };
+}
+
+function resolveView(name: string) {
+    const load = views.get(name);
+    return load ? timedRoute(name, load) : blankPage;
+}
+
 const router = createRouter({
     history: createWebHashHistory(),
     routes: [
@@ -49,23 +67,28 @@ const router = createRouter({
             .map(({ key, path }) => ({
                 path,
                 name: key,
-                component: views.get(key) ?? blankPage,
+                component: resolveView(key),
+                meta: { hideScrollbar: key !== 'settings' },
             })),
         {
             path: '/tools',
-            component: () =>
+            component: timedRoute('tool-shell', () =>
                 import('./views/tools/LiquidToolsView.vue').then((page) => page.default),
+            ),
             children: [
                 {
                     path: '',
                     name: 'tools',
-                    component: () => import('./views/ToolsView.vue').then((page) => page.default),
+                    meta: { hideScrollbar: true },
+                    component: timedRoute('tools', () =>
+                        import('./views/ToolsView.vue').then((page) => page.default),
+                    ),
                 },
                 ...TOOLS.filter((tool): tool is ToolPage => tool.kind === 'page').map((tool) => ({
                     path: tool.path,
                     name: `tool-${tool.key}`,
-                    component: tool.view,
-                    meta: { title: tool.name, nav: 'tools' },
+                    component: timedRoute('tool-' + tool.key, tool.view),
+                    meta: { title: tool.name, nav: 'tools', dock: 'tools', hideScrollbar: true },
                 })),
             ],
         },
@@ -73,7 +96,8 @@ const router = createRouter({
         {
             path: '/components',
             name: 'components',
-            component: views.get('components') ?? blankPage,
+            meta: { dock: 'settings', hideScrollbar: true },
+            component: resolveView('components'),
         },
         { path: '/:pathMatch(.*)*', redirect: DEFAULT_PATH },
     ],
@@ -85,6 +109,7 @@ const gameRules = loadGameData();
 router.beforeEach(async () => {
     await Promise.all([startup, gameRules]);
 });
+router.beforeEach((to, from) => to.path === from.path || confirmDiscardDrafts());
 createApp(LiquidApp, { items }).use(router).mount('#app');
 void startup.then(async (notice) => {
     if (!notice) return;

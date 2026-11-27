@@ -172,7 +172,7 @@
     );
 }
 .liquid-ledger .character-theme {
-    --glass-select-height: 28px;
+    --lg-field-height: var(--lg-form-height);
 }
 .liquid-ledger .character-theme:has(> .modal-body-fill .screenshot-upload) {
     max-width: min(100%, var(--role-editor-width));
@@ -225,11 +225,4 @@
 }
 .liquid-ledger .slip-row .glass-compact-number-field.compact {
     width: calc(44px * var(--fs-scale));
-}
-.liquid-ledger .slip-row.sm {
-    --character-input-h: 24px;
-}
-.liquid-ledger .slip-row.sm .glass-compact-number-field input {
-    min-height: 24px;
-    padding-block: 1px;
 }

@@ -363,6 +363,74 @@ export function onlineTotalsOf(
     return { minutes, cost, count, running };
 }
 
+/** 记录页一次切分时段，同时收集每条和每个角色的区间读数。 */
+export function onlineRecordFacts(
+    sessions: readonly ReadonlyOnlineSession[],
+    from: string,
+    to: string,
+    now: number,
+) {
+    const bounds = dateBounds(from, to);
+    const empty = (): OnlineTotals => ({ minutes: 0, cost: 0, count: 0, running: 0 });
+    const total = empty();
+    const byOwner = new Map<string, OnlineTotals>();
+    const bySession = new Map<
+        ReadonlyOnlineSession,
+        { facts: OnlineTotals; shares: Map<string, number> }
+    >();
+
+    function add(target: OnlineTotals, facts: OnlineTotals, cost: number) {
+        target.minutes += facts.minutes;
+        target.cost += cost;
+        target.count += facts.count;
+        target.running += facts.running;
+    }
+
+    for (const session of sessions) {
+        const owners = ownersOf(session);
+        const facts = empty();
+        const shares = owners.map(() => 0);
+        if (
+            owners.length &&
+            (session.endAt ?? now) > bounds.start &&
+            session.startAt < bounds.end
+        ) {
+            for (const slice of sessionSlices(session, now, bounds)) {
+                if (slice.date < from || slice.date > to) continue;
+                const cost = sliceCost(slice.minutes, owners.length, session.cardPrice);
+                facts.minutes += slice.minutes;
+                facts.cost += cost;
+                const amounts = shareOfSlice(cost, owners.length);
+                amounts.forEach((amount, index) => (shares[index] += amount));
+                if (session.endAt === null) facts.running = 1;
+                else facts.count = 1;
+            }
+        }
+        add(total, facts, facts.cost);
+        const ownerShares = new Map<string, number>();
+        owners.forEach((owner, index) => {
+            const amount = shares[index];
+            ownerShares.set(owner, amount);
+            const ownerTotals = byOwner.get(owner) ?? empty();
+            add(ownerTotals, facts, amount);
+            byOwner.set(owner, ownerTotals);
+        });
+        bySession.set(session, { facts, shares: ownerShares });
+    }
+
+    return {
+        total,
+        owner: (id: string) => byOwner.get(id) ?? empty(),
+        session(one: ReadonlyOnlineSession, owner: string) {
+            const result = bySession.get(one);
+            if (!result) return empty();
+            if (!owner) return result.facts;
+            const cost = result.shares.get(owner);
+            return cost === undefined ? empty() : { ...result.facts, cost };
+        },
+    };
+}
+
 /** 时长写法：`3 小时 20 分` / `48 分` / `—`（0 分钟）。 */
 export function minutesText(minutes: number): string {
     const total = Math.max(0, Math.round(minutes));

@@ -143,7 +143,6 @@ function commit() {
     width: min(100%, calc(136px * var(--fs-scale)));
 }
 .time-control.is-glass {
-    --glass-input-height: 40px;
     font-size: var(--fs-xl);
     font-variant-numeric: tabular-nums;
 }

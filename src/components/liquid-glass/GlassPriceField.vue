@@ -54,7 +54,7 @@ const value = defineModel<number | null>({ required: true });
 
 <style scoped>
 .glass-price-field {
-    --glass-input-height: 44px;
+    --lg-field-height: var(--lg-form-standard-height);
     --price-well-width: 180px;
     --price-figure-size: var(--fs-xl);
     align-items: center;
@@ -63,7 +63,7 @@ const value = defineModel<number | null>({ required: true });
     color: var(--liquid-ink);
 }
 .glass-price-field.compact {
-    --glass-input-height: 36px;
+    --lg-field-height: var(--lg-form-height);
     --price-well-width: 156px;
     --price-figure-size: var(--fs-amount);
 }

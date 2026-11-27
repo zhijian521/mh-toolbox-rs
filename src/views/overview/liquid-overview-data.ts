@@ -1,4 +1,5 @@
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
+import { startLiquidTiming } from '../../liquid-timing';
 import { useAccounts } from '../accounts/accounts-store';
 import { useRoster } from '../characters/roster';
 import { useGoals } from '../goals/goals-store';
@@ -17,36 +18,38 @@ const accounts = useAccounts();
 const online = useOnline();
 const goals = useGoals();
 
-const sources = [
-    { label: '角色', error: roster.loadError, load: loadLiquidRoster },
-    { label: '收益', error: income.loadError, load: ensureGlassIncomeLoaded },
-    {
-        label: '账号',
-        error: accounts.loadError,
-        load: loadLiquidAccounts,
-    },
-    { label: '上线', error: online.loadError, load: loadLiquidOnline },
-    { label: '目标', error: goals.loadError, load: loadLiquidGoals },
-];
+const sources = {
+    roster: { label: '角色', error: roster.loadError, load: loadLiquidRoster },
+    income: { label: '收益', error: income.loadError, load: ensureGlassIncomeLoaded },
+    accounts: { label: '账号', error: accounts.loadError, load: loadLiquidAccounts },
+    online: { label: '上线', error: online.loadError, load: loadLiquidOnline },
+    goals: { label: '目标', error: goals.loadError, load: loadLiquidGoals },
+};
+type Source = keyof typeof sources;
 const loading = ref(true);
-const errors = computed(() => sources.filter(({ error }) => error.value));
+const retrying = ref<Partial<Record<Source, boolean>>>({});
 let pending: Promise<void> | undefined;
 
+async function retrySource(key: Source) {
+    if (retrying.value[key]) return;
+    const { label, error, load } = sources[key];
+    const endReading = startLiquidTiming('账本读取', '总览 ' + label);
+    retrying.value[key] = true;
+    try {
+        await load();
+    } catch (cause) {
+        console.error('总览读取失败', label, cause);
+        error.value = '读取失败，请重试';
+    } finally {
+        retrying.value[key] = false;
+        endReading?.();
+    }
+}
+
 function loadOverview() {
-    if (pending) return pending;
-    const requested = loading.value ? sources : errors.value;
-    if (!requested.length) return;
-    loading.value = true;
-    pending = Promise.all(
-        requested.map(async ({ label, error, load }) => {
-            try {
-                await load();
-            } catch (cause) {
-                console.error(`${label}读取失败`, cause);
-                error.value = '读取失败，请重试';
-            }
-        }),
-    ).then(() => {
+    if (!loading.value || pending) return pending;
+    const keys: Source[] = ['roster', 'income', 'accounts', 'online', 'goals'];
+    pending = Promise.all(keys.map(retrySource)).then(() => {
         loading.value = false;
         pending = undefined;
     });
@@ -54,5 +57,15 @@ function loadOverview() {
 }
 
 export function useLiquidOverviewData() {
-    return { roster, income, accounts, online, goals, loading, errors, loadOverview };
+    return {
+        roster,
+        income,
+        accounts,
+        online,
+        goals,
+        loading,
+        retrying,
+        retrySource,
+        loadOverview,
+    };
 }

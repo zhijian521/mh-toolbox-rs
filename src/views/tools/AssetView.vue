@@ -13,6 +13,7 @@ import SelectField from '../../components/SelectField.vue';
 import {
     filterAssets,
     loadAssetSections,
+    sliceAssetSections,
     type AssetItem,
     type AssetSection,
 } from '../../services/game-assets';
@@ -105,34 +106,7 @@ const pages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)));
 const currentPage = computed(() => Math.min(page.value, pages.value));
 const start = computed(() => (currentPage.value - 1) * PAGE_SIZE);
 const end = computed(() => Math.min(start.value + PAGE_SIZE, total.value));
-
-const visible = computed(() => {
-    let offset = 0;
-    return filtered.value.flatMap((section) => {
-        const items = section.items.slice(
-            Math.max(0, start.value - offset),
-            Math.max(0, end.value - offset),
-        );
-        offset += section.items.length;
-        if (!items.length) return [];
-        const groups = new Map<string, AssetItem[]>();
-        for (const item of items) {
-            const group = groups.get(item.subgroup) ?? [];
-            group.push(item);
-            groups.set(item.subgroup, group);
-        }
-        return [
-            {
-                ...section,
-                groups: [...groups].map(([name, entries]) => ({ name, items: entries })),
-                summary:
-                    items.length === section.items.length
-                        ? `${section.items.length} 项`
-                        : `本页 ${items.length} / ${section.items.length} 项`,
-            },
-        ];
-    });
-});
+const visible = computed(() => sliceAssetSections(filtered.value, start.value, end.value));
 const unavailable = computed(() => sections.value.filter((one) => one.status === 'failed'));
 const missingHere = computed(() =>
     unavailable.value.some((one) => kind.value === 'all' || one.kind === kind.value),
@@ -475,7 +449,7 @@ function turnPage(next: number) {
     margin-bottom: 10px;
 }
 .is-glass .asset-bar .glass-ledger-button {
-    --glass-button-height: var(--lg-form-height);
+    --glass-button-height: var(--lg-field-height);
 }
 .asset-search {
     flex: 0 1 240px;

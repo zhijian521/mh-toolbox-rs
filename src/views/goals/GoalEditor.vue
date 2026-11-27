@@ -306,6 +306,7 @@ function enter(event: KeyboardEvent) {
                         v-model="selected"
                         :options="memberOptions"
                         label="目标角色（多选）"
+                        :variant="glass ? 'segmented' : undefined"
                         :disabled="locked"
                     />
                     <p v-if="!memberOptions.length" class="note member-note">

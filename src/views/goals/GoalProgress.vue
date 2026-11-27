@@ -6,6 +6,8 @@ const props = withDefaults(
         percent: number | null;
         label: string;
         shape?: 'ring' | 'ticks';
+        glass?: boolean;
+        compact?: boolean;
         valueText?: string;
         steps?: number;
         adaptive?: boolean;
@@ -31,7 +33,10 @@ const fills = computed(() => {
 <template>
     <div
         class="goal-progress"
-        :class="[shape, { 'progress-adaptive': adaptive }]"
+        :class="[
+            shape,
+            { 'ring-glass': glass, 'ring-compact': compact, 'progress-adaptive': adaptive },
+        ]"
         :style="{
             gridTemplateColumns:
                 steps === undefined ? undefined : `repeat(${stepCount}, minmax(0, 1fr))`,
@@ -78,7 +83,7 @@ const fills = computed(() => {
             <span class="ring-readout" aria-hidden="true">
                 <b v-if="value !== null">{{ Math.round(value) }}<small>%</small></b>
                 <b v-else>待补录</b>
-                <span>总体进度</span>
+                <span v-if="!compact">总体进度</span>
             </span>
         </template>
         <template v-else>
@@ -106,6 +111,22 @@ const fills = computed(() => {
     box-shadow:
         inset 0 1px 2px var(--shadow),
         0 1px 0 var(--bevel-hi);
+}
+.ring.ring-glass {
+    --progress-color: var(--goal-progress-color, var(--lg-progress-color));
+    --progress-light: color-mix(in srgb, var(--progress-color) 72%, white);
+    --progress-dark: color-mix(in srgb, var(--progress-color) 80%, black);
+    --well-background: var(--lg-bar-fill);
+    --well: var(--liquid-outline);
+    --rule-2: var(--liquid-outline);
+    --bevel-hi: var(--lg-edge-light);
+    --bevel-lo: var(--lg-edge-shade);
+    --shadow: var(--lg-edge-shade);
+    --muted: var(--liquid-muted);
+    --num: var(--liquid-ink);
+}
+.ring.ring-compact {
+    width: calc(46px * var(--fs-scale));
 }
 .ring svg {
     width: 100%;
@@ -155,6 +176,9 @@ const fills = computed(() => {
     font-size: var(--fs-amount);
     font-weight: 400;
     font-variant-numeric: tabular-nums;
+}
+.ring-compact .ring-readout b {
+    font-size: var(--fs-base);
 }
 .ring-readout small {
     margin-left: 1px;

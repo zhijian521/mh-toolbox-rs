@@ -10,7 +10,7 @@ import { notify } from '../../composables/use-notify';
 import ActivityCard from './ActivityCard.vue';
 import ActivityRemindDialog from './ActivityRemindDialog.vue';
 import { ACTIVITIES, groupActivities, type Activity } from './activities';
-import { nextReminder, type AlarmDraft } from './alarms';
+import { alarmStatusText, nextReminder, type AlarmDraft } from './alarms';
 import { useAlarms } from './alarm-store';
 
 /** 日历显示游戏场次，提醒的保存、启停和调度共用闹钟。 */
@@ -74,7 +74,7 @@ function onToggle(id: number, enabled: boolean) {
         reminderError.value = result.error;
         return;
     }
-    notify.success(enabled ? '已开启提醒' : '已停用提醒');
+    notify.success('提醒' + alarmStatusText(enabled));
     closeReminder();
 }
 </script>

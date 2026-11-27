@@ -11,7 +11,13 @@ import ToolPageShell from './ToolPageShell.vue';
 import PressButton from '../../components/PressButton.vue';
 import { askConfirm } from '../../composables/use-confirm';
 import { notify } from '../../composables/use-notify';
-import { LEAD_MINUTES, MAX_ALARMS, type AlarmDraft, type AlarmLike } from './alarms';
+import {
+    alarmStatusText,
+    LEAD_MINUTES,
+    MAX_ALARMS,
+    type AlarmDraft,
+    type AlarmLike,
+} from './alarms';
 import { useAlarms } from './alarm-store';
 
 /** 闹钟页负责列表与编辑入口，提醒调度和倒计时共用全局分钟时钟。 */
@@ -69,7 +75,7 @@ function onSave(draft: AlarmDraft) {
 function onToggle(alarm: AlarmLike, enabled: boolean) {
     const result = setEnabled(alarm.id, enabled);
     if (!result.ok) notify.error(result.error);
-    else notify.info(enabled ? '已开启' : '已停用');
+    else notify.success('提醒' + alarmStatusText(enabled));
 }
 
 /* ---------- 删除 ---------- */

@@ -6,7 +6,14 @@ import { glassLedger } from '../../components/glass-ledger';
 import { GlassButton, GlassCard } from '../../components/liquid-glass';
 import GlassSmallSwitch from '../../components/liquid-glass/GlassSmallSwitch.vue';
 import { minuteText } from '../../services/clock';
-import { activityOf, countdownText, nextReminder, repeatText, type AlarmLike } from './alarms';
+import {
+    alarmStatusText,
+    activityOf,
+    countdownText,
+    nextReminder,
+    repeatText,
+    type AlarmLike,
+} from './alarms';
 
 /** 时刻与状态共用提醒算法；玻璃和纸面只切换展示，整卡不承接编辑或删除。 */
 const props = defineProps<{
@@ -44,7 +51,7 @@ const soon = computed(() => {
 });
 
 const status = computed(() => {
-    if (!props.alarm.enabled) return '已停用';
+    if (!props.alarm.enabled) return alarmStatusText(false);
     const at = next.value;
     if (at) return `${countdownText(at, props.now)}提醒`;
     // 关联活动已下架或修改了开场时刻时不继续按过时规则提醒。
@@ -55,7 +62,7 @@ const nameText = computed(() => props.alarm.label || '未命名闹钟');
 
 /** 读屏念的一句：时刻、备注、重复、当前状态，最后是「按开关键停用」。 */
 const cardLabel = computed(() => {
-    const state = props.alarm.enabled ? status.value : '已停用';
+    const state = props.alarm.enabled ? status.value : alarmStatusText(false);
     const time =
         props.alarm.repeat === 'hourly' || activityOf(props.alarm)?.rule.type === 'hourly'
             ? `每小时第 ${minuteText(props.alarm.time)} 分`

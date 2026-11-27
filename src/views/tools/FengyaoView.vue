@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, ref, useId } from 'vue';
+import { computed, inject, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import ToolPageShell from './ToolPageShell.vue';
+import WatchStatusTag from './WatchStatusTag.vue';
 import PaperCard from '../../components/PaperCard.vue';
 import PressButton from '../../components/PressButton.vue';
 import SelectField from '../../components/SelectField.vue';
@@ -18,7 +19,6 @@ import type { GhostWindow } from '../../services/ghost';
 import {
     activeReminders,
     defaultReminders,
-    fengyaoStatus,
     listFengyaoWindows,
     reminderLabels,
     setFengyaoSpeech,
@@ -26,13 +26,13 @@ import {
     startFengyao,
     stopFengyao,
     updateFengyao,
-    readFengyaoFrame,
+    readFengyaoConfig,
     readFengyaoPreferences,
-    saveFengyaoPreferences,
     type FengyaoPreferences,
     type WatchStatus,
 } from '../../services/fengyao';
 import { timeText } from '../../services/clock';
+import { useFengyaoWatch } from './use-fengyao-watch';
 
 /** 挑选聊天窗口并查看回执，持续捕获、解析和系统提醒由宿主负责。 */
 const desktop = hasDesktop();
@@ -59,16 +59,22 @@ const reminderDetails = {
     stars: '星宿现身公告',
     nursery: '挖宝放出的宝宝及所在地图',
 };
-const status = ref<WatchStatus | null>(null);
-const busy = ref(false);
+const {
+    status,
+    statusError,
+    busy,
+    known,
+    running,
+    refreshing,
+    refreshStatus,
+    runAction,
+    rememberPreferences,
+} = useFengyaoWatch();
 const error = ref('');
-const statusError = ref('');
+const windowError = ref('');
+const refreshingWindows = ref(false);
 const pendingWindowTitle = ref('');
-let timer: ReturnType<typeof setInterval> | undefined;
 let disposed = false;
-let polling = false;
-let revision = 0;
-const running = computed(() => status.value?.running === true);
 const windowOptions = computed(() =>
     windows.value.map((w) => ({ value: String(w.hwnd), label: w.title })),
 );
@@ -101,7 +107,12 @@ async function refreshWindows() {
     const found = await listFengyaoWindows();
     if (disposed) return;
     windows.value = found;
-    if (windows.value.some((w) => String(w.hwnd) === hwnd.value)) return;
+    const current = status.value;
+    if (current?.running && current.config) {
+        hwnd.value = String(current.config.hwnd);
+        return;
+    }
+    if (found.some((w) => String(w.hwnd) === hwnd.value)) return;
     const saved = readFengyaoPreferences();
     const title = saved.ok ? saved.value?.windowTitle : undefined;
     const rememberedWindow = windows.value.filter((w) => w.title === title);
@@ -110,17 +121,27 @@ async function refreshWindows() {
     hwnd.value = selected ? String(selected.hwnd) : '';
 }
 
-async function act(action: () => Promise<void>) {
-    if (busy.value) return;
-    busy.value = true;
-    revision += 1;
+async function refreshWindowList() {
+    if (refreshingWindows.value) return;
+    refreshingWindows.value = true;
+    windowError.value = '';
     error.value = '';
     try {
-        await action();
+        await refreshWindows();
+    } catch (cause) {
+        windowError.value = cause instanceof Error ? cause.message : String(cause);
+    } finally {
+        refreshingWindows.value = false;
+    }
+}
+
+async function act(action: () => Promise<WatchStatus | void>) {
+    if (busy.value || !known.value) return;
+    error.value = '';
+    try {
+        await runAction(action);
     } catch (cause) {
         error.value = cause instanceof Error ? cause.message : String(cause);
-    } finally {
-        busy.value = false;
     }
 }
 
@@ -131,9 +152,10 @@ async function changeReminder(
     const next = reminders.value.map((entry) =>
         entry.kind === setting.kind ? { ...entry, ...patch } : entry,
     );
-    if (running.value) status.value = await updateFengyao(activeReminders(next));
+    const updated = running.value ? await updateFengyao(activeReminders(next)) : undefined;
     reminders.value = next;
     savePreferences();
+    return updated;
 }
 
 async function changeSpeech(enabled: boolean) {
@@ -160,7 +182,7 @@ function pickScenes(setting: ReminderSetting, scenes: string[]) {
     return act(async () => {
         pendingScenes.value = scenes;
         try {
-            await changeReminder(setting, { scenes });
+            return await changeReminder(setting, { scenes });
         } finally {
             pendingScenes.value = null;
         }
@@ -184,26 +206,19 @@ function selectWindow(value: string) {
 function savePreferences(saveWindow = false) {
     const windowTitle = windows.value.find((window) => String(window.hwnd) === hwnd.value)?.title;
     if (saveWindow && windowTitle) pendingWindowTitle.value = windowTitle;
-    const stored = readFengyaoPreferences();
-    if (!stored.ok) {
-        preferenceError.value = stored.error;
-        return;
-    }
-    const saved = saveFengyaoPreferences({
-        reminders: reminders.value,
-        speechEnabled: speechEnabled.value,
-        windowTitle: pendingWindowTitle.value || stored.value?.windowTitle || windowTitle || '',
-    });
-    if (saved) pendingWindowTitle.value = '';
-    preferenceError.value = saved ? '' : '设置保存失败，可重试';
+    preferenceError.value = rememberPreferences(
+        { reminders: reminders.value, speechEnabled: speechEnabled.value },
+        pendingWindowTitle.value,
+        windowTitle ?? '',
+    );
+    if (!preferenceError.value) pendingWindowTitle.value = '';
 }
 
 async function toggle() {
     await act(async () => {
-        if (running.value) {
-            status.value = await stopFengyao();
-            return;
-        }
+        if (running.value) return stopFengyao();
+        if (refreshingWindows.value) return;
+        windowError.value = '';
         const filters = activeReminders(reminders.value);
         if (!filters.length) throw new Error('请先开启至少一种提醒');
         await refreshWindows();
@@ -213,87 +228,55 @@ async function toggle() {
             notify.info(windowHint);
             return;
         }
-        const region = await readFengyaoFrame(selected.hwnd, selected.title);
+        const config = await readFengyaoConfig(selected, filters, speechEnabled.value);
         if (disposed) return;
-        status.value = await startFengyao({
-            hwnd: selected.hwnd,
-            reminders: filters,
-            region,
-            speechEnabled: speechEnabled.value,
-        });
+        const next = await startFengyao(config);
         savePreferences(true);
+        return next;
     });
 }
 
-function acceptStatus(next: WatchStatus) {
-    const previous = status.value;
-    status.value = next;
-    statusError.value = '';
-    if (!previous) {
-        const allowed = new Set(next.rules.scenes.map((scene) => scene.name));
-        const fengyao = reminders.value.find(({ kind }) => kind === 'fengyao');
-        if (fengyao?.scenes.length) {
-            fengyao.scenes = fengyao.scenes.filter((name) => allowed.has(name));
-            if (!fengyao.scenes.length) fengyao.enabled = false;
+watch(
+    status,
+    (next, previous) => {
+        if (!next) return;
+        if (!previous) {
+            const allowed = new Set(next.rules.scenes.map((scene) => scene.name));
+            const fengyao = reminders.value.find(({ kind }) => kind === 'fengyao');
+            if (fengyao?.scenes.length) {
+                fengyao.scenes = fengyao.scenes.filter((name) => allowed.has(name));
+                if (!fengyao.scenes.length) fengyao.enabled = false;
+            }
         }
-    }
-    if (!previous?.running && next.running && next.config) {
-        speechEnabled.value = next.config.speechEnabled;
-        hwnd.value = String(next.config.hwnd);
-        const active = next.config.reminders;
+
+        const config = next.config;
+        if (!next.running || !config) return;
+        speechEnabled.value = config.speechEnabled;
+        hwnd.value = String(config.hwnd);
+        if (previous?.running) return;
         reminders.value = reminders.value.map((setting) => {
-            const filter = active.find(({ kind }) => kind === setting.kind);
+            const filter = config.reminders.find(({ kind }) => kind === setting.kind);
             return {
                 ...setting,
                 enabled: !!filter,
                 scenes: setting.kind === 'fengyao' ? (filter?.scenes ?? setting.scenes) : [],
             };
         });
-    }
-}
+    },
+    { immediate: true },
+);
 
-async function poll() {
-    if (polling || busy.value || disposed) return;
-    polling = true;
-    const current = revision;
-    try {
-        const next = await fengyaoStatus();
-        if (!disposed && current === revision) acceptStatus(next);
-    } catch (cause) {
-        if (!disposed && current === revision) statusError.value = String(cause);
-    } finally {
-        polling = false;
-    }
-}
-
-onMounted(async () => {
-    if (!desktop) return;
-    await act(refreshWindows);
-    await poll();
-    if (!disposed) timer = setInterval(() => void poll(), 1200);
+onMounted(() => {
+    if (desktop) void refreshWindowList();
 });
 onBeforeUnmount(() => {
     disposed = true;
-    // 页面只销毁状态轮询；后台监听只由用户点击停止或退出应用结束。
-    if (timer !== undefined) clearInterval(timer);
 });
 </script>
 
 <template>
     <ToolPageShell title="提醒助手" desc="游戏系统公告">
-        <template #actions>
-            <PressButton
-                :icon="running ? 'stop' : 'play'"
-                :text="running ? '停止监听' : '开始监听'"
-                :label="running ? '停止公告监听' : '开始公告监听'"
-                :seal="!!glass && !running"
-                :disabled="busy || !desktop || !status"
-                @click="toggle"
-            />
-        </template>
         <div class="fengyao" :class="{ 'fy-glass': glass }">
-            <AppNotice v-if="error" tone="error" role="alert">{{ error }}</AppNotice>
-            <AppNotice v-if="statusError" tone="error" role="alert">{{ statusError }}</AppNotice>
             <AppNotice v-if="preferenceError" tone="error" role="alert">
                 {{ preferenceError }}
                 <template #action>
@@ -390,7 +373,7 @@ onBeforeUnmount(() => {
                                 class="fy-window-select"
                                 :options="windowOptions"
                                 label="监听的聊天窗口"
-                                :disabled="running || busy"
+                                :disabled="running || busy || !known || refreshingWindows"
                                 hide-label
                                 @update:model-value="selectWindow"
                             />
@@ -401,24 +384,54 @@ onBeforeUnmount(() => {
                                 :options="windowOptions"
                                 label="监听的聊天窗口"
                                 placeholder="请选择聊天窗口"
-                                :disabled="running || busy"
+                                :disabled="running || busy || !known || refreshingWindows"
                                 @update:model-value="selectWindow"
                             />
                             <span v-else class="fy-window-hint">请先在游戏中弹出独立聊天窗口</span>
                             <PressButton
                                 text="刷新"
                                 label="重新查找聊天窗口"
-                                :disabled="running || busy || !desktop"
-                                @click="act(refreshWindows)"
+                                :disabled="running || busy || !desktop || refreshingWindows"
+                                @click="refreshWindowList"
                             />
                         </div>
-                        <p
-                            class="fy-status"
-                            role="status"
-                            :class="{ live: running && !statusError && !status?.error }"
-                        >
-                            {{ stateText }}
-                        </p>
+                        <div class="fy-listen-actions">
+                            <WatchStatusTag
+                                :tone="
+                                    status?.error || statusError
+                                        ? 'warn'
+                                        : running
+                                          ? 'live'
+                                          : 'idle'
+                                "
+                            >
+                                {{ stateText }}
+                            </WatchStatusTag>
+                            <PressButton
+                                :icon="running ? 'stop' : 'play'"
+                                :text="known ? (running ? '停止监听' : '开始监听') : '监听状态'"
+                                :label="
+                                    known ? (running ? '停止公告监听' : '开始公告监听') : '监听状态'
+                                "
+                                :disabled="busy || !known || (!running && refreshingWindows)"
+                                @click="toggle"
+                            />
+                        </div>
+                        <AppNotice v-if="error || windowError" tone="error" role="alert">
+                            {{ error || windowError }}
+                        </AppNotice>
+                        <AppNotice v-if="statusError" tone="error" role="alert">
+                            {{ statusError }}
+                            <template #action>
+                                <PressButton
+                                    text="重试"
+                                    label="重试读取监听状态"
+                                    size="sm"
+                                    :disabled="refreshing"
+                                    @click="refreshStatus()"
+                                />
+                            </template>
+                        </AppNotice>
                         <div class="fy-speech">
                             <span>语音播报</span>
                             <PressButton
@@ -431,7 +444,7 @@ onBeforeUnmount(() => {
                                 v-if="glass"
                                 :checked="speechEnabled"
                                 aria-label="语音播报"
-                                :disabled="busy || !status"
+                                :disabled="busy || !known"
                                 @update:checked="changeSpeech"
                             />
                             <CostSwitch
@@ -440,7 +453,7 @@ onBeforeUnmount(() => {
                                 label="语音播报"
                                 off-label="关"
                                 on-label="开"
-                                :disabled="busy || !status"
+                                :disabled="busy || !known"
                                 @update:model-value="changeSpeech"
                             />
                         </div>
@@ -462,7 +475,7 @@ onBeforeUnmount(() => {
                                         v-if="glass"
                                         :checked="setting.enabled"
                                         :aria-label="`${reminderLabels[setting.kind]}提醒`"
-                                        :disabled="busy || !status"
+                                        :disabled="busy || !known"
                                         @update:checked="
                                             act(() => changeReminder(setting, { enabled: $event }))
                                         "
@@ -471,7 +484,7 @@ onBeforeUnmount(() => {
                                         v-else
                                         :model-value="setting.enabled"
                                         :label="`${reminderLabels[setting.kind]}提醒`"
-                                        :disabled="busy || !status"
+                                        :disabled="busy || !known"
                                         off-label="关"
                                         on-label="开"
                                         @update:model-value="
@@ -502,16 +515,14 @@ onBeforeUnmount(() => {
                                                 :model-value="pendingScenes ?? setting.scenes"
                                                 :options="sceneOptions"
                                                 label="封妖地图"
-                                                :disabled="busy || !status"
+                                                :disabled="busy || !known"
                                                 @update:model-value="pickScenes(setting, $event)"
                                             />
                                             <PressButton
                                                 size="sm"
                                                 text="全部地图"
                                                 label="恢复全部地图"
-                                                :disabled="
-                                                    busy || !status || !setting.scenes.length
-                                                "
+                                                :disabled="busy || !known || !setting.scenes.length"
                                                 @click="pickScenes(setting, [])"
                                             />
                                         </div>
@@ -524,7 +535,7 @@ onBeforeUnmount(() => {
                                             <button
                                                 type="button"
                                                 :aria-pressed="!setting.scenes.length"
-                                                :disabled="busy || !status"
+                                                :disabled="busy || !known"
                                                 @click="pickScenes(setting, [])"
                                             >
                                                 全部地图
@@ -534,7 +545,7 @@ onBeforeUnmount(() => {
                                                 :key="scene.name"
                                                 type="button"
                                                 :aria-pressed="setting.scenes.includes(scene.name)"
-                                                :disabled="busy || !status"
+                                                :disabled="busy || !known"
                                                 @click="toggleScene(setting, scene.name)"
                                             >
                                                 {{ scene.name }}
@@ -590,7 +601,6 @@ onBeforeUnmount(() => {
     align-items: center;
     gap: 10px;
 }
-.fy-status,
 .fy-window-hint,
 .fy-type-copy small,
 .fy-reminder time,
@@ -598,28 +608,12 @@ onBeforeUnmount(() => {
     color: var(--muted);
     font-size: var(--fs-sm);
 }
-.fy-status {
-    display: inline-flex;
+.fy-listen-actions {
+    display: flex;
     align-items: center;
-    justify-self: start;
-    gap: 6px;
-    max-width: 100%;
-    margin: -7px 0 0;
-    padding: 3px 9px;
-    border-radius: 999px;
-    background: color-mix(in srgb, currentColor 9%, transparent);
-    overflow-wrap: anywhere;
-    line-height: 1.4;
-}
-.fy-status::before {
-    content: '';
-    flex: 0 0 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-}
-.fy-status.live {
-    color: var(--positive);
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 .fy-window-select,
 .fy-window-hint,

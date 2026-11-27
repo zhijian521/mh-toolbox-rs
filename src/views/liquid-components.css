@@ -29,7 +29,7 @@
 }
 .catalog-heading h1,
 .catalog-detail-heading h2,
-.gallery h3,
+.gallery :deep(h3),
 .sheet-content h2 {
     margin: 0;
 }
@@ -127,7 +127,7 @@
     border-radius: 12px;
     scroll-timeline: --dock-scroll block;
 }
-.gallery > section {
+.gallery > :deep(section) {
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -137,10 +137,10 @@
     border-radius: 14px;
     background: var(--lg-bar-fill);
 }
-.gallery > section:focus-within {
+.gallery > :deep(section:focus-within) {
     z-index: 1;
 }
-.gallery > section > header,
+.gallery > :deep(section > header),
 .sheet-content header,
 .sheet-content li {
     display: flex;
@@ -149,10 +149,10 @@
     justify-content: space-between;
     gap: 4px 8px;
 }
-.gallery > section > header small,
-.sample-label,
-.field-example,
-.setting-row output,
+.gallery > :deep(section > header small),
+.gallery :deep(.sample-label),
+.gallery :deep(.field-example),
+.gallery :deep(.setting-row output),
 .sheet-content time {
     color: var(--liquid-muted);
     font-size: var(--fs-xs);
@@ -180,12 +180,12 @@
         gap: 6px;
         padding-inline: 6px;
     }
-    .gallery > section {
+    .gallery > :deep(section) {
         padding: 12px;
     }
 }
 
-.stage {
+.gallery :deep(.stage) {
     position: relative;
     display: flex;
     flex: 1;
@@ -196,93 +196,93 @@
     min-width: 0;
     min-height: 78px;
 }
-.stack {
+.gallery :deep(.stack) {
     flex-direction: column;
     gap: 10px;
 }
-.sample-card {
+.gallery :deep(.sample-card) {
     width: min(100%, 232px);
 }
-.example-row,
-.setting-row {
+.gallery :deep(.example-row),
+.gallery :deep(.setting-row) {
     display: flex;
     align-items: center;
     gap: 6px;
 }
-.example-row {
+.gallery :deep(.example-row) {
     flex-wrap: wrap;
     width: min(100%, 202px);
 }
-.sample-label {
+.gallery :deep(.sample-label) {
     margin-right: auto;
 }
-.field-example {
+.gallery :deep(.field-example) {
     display: grid;
     gap: 4px;
     width: min(100%, 222px);
 }
-.setting-row {
+.gallery :deep(.setting-row) {
     width: min(100%, 222px);
     font-size: var(--fs-base);
     color: var(--liquid-ink);
 }
-.setting-row output {
+.gallery :deep(.setting-row output) {
     margin-inline-start: auto;
     font-variant-numeric: tabular-nums;
 }
-.sample-chart,
-.field-comparison {
+.gallery :deep(.sample-chart),
+.gallery :deep(.field-comparison) {
     grid-column: 1 / -1;
 }
-.comparison-grid {
+.gallery :deep(.comparison-grid) {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 175px), 1fr));
     align-items: end;
     gap: 10px 14px;
 }
-.comparison-grid .field-example,
-.comparison-grid .lg-price-search {
+.gallery :deep(.comparison-grid .field-example),
+.gallery :deep(.comparison-grid .lg-price-search) {
     width: 100%;
 }
-.sample-error {
+.gallery :deep(.sample-error) {
     color: var(--liquid-up);
     font-size: var(--fs-xs);
 }
-.sample-table-scroll {
+.gallery :deep(.sample-table-scroll) {
     max-height: 200px;
     overflow: auto;
     border-radius: 12px;
 }
-.sample-table-scroll time {
+.gallery :deep(.sample-table-scroll time) {
     color: var(--liquid-muted);
 }
-.comparison-results {
+.gallery :deep(.comparison-results) {
     display: flex;
     justify-content: start;
 }
-.stage glass-tab-bar {
+.gallery :deep(.stage glass-tab-bar) {
     --glass-tab-bar-height: 50px;
     --glass-tab-font-size: var(--fs-xs);
     --gl-item-icon: 18px;
     --icon-size: 18px;
     width: min(100%, 224px);
 }
-.stage glass-group {
+.gallery :deep(.stage glass-group) {
     --glass-button-height: var(--lg-form-height);
 }
-.stage > glass-toolbar {
+.gallery :deep(.stage > glass-toolbar) {
     width: min(100%, 232px);
     font-size: var(--fs-sm);
 }
-.scroll-stage,
-.scene {
+.gallery :deep(.scroll-stage),
+.gallery :deep(.scene) {
     overflow: hidden;
     border-radius: 10px;
 }
-.scroll-stage {
+.gallery :deep(.scroll-stage) {
     display: block;
 }
-.timeline {
+.gallery :deep(.timeline) {
     display: grid;
     gap: 4px;
     height: 108px;
@@ -290,18 +290,35 @@
     padding: 38px 6px 6px;
     font-size: var(--fs-sm);
 }
-.timeline glass-surface {
+.gallery :deep(.timeline glass-surface) {
     padding: 4px 8px;
 }
-.stage .timeline-bar {
+.gallery :deep(.stage .timeline-bar) {
     position: absolute;
     inset: 4px 6px auto;
     width: auto;
 }
-.scene-label {
+.gallery :deep(.scene-label) {
     padding: 6px 12px;
     font-size: var(--fs-sm);
 }
+.gallery :deep(.sample-theme) {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--liquid-outline);
+    border-radius: 12px;
+    background: var(--lg-content-base);
+    color: var(--liquid-ink);
+}
+.gallery :deep(.sample-focus) {
+    outline: 2px solid var(--liquid-focus);
+    outline-offset: 2px;
+    border-radius: 999px;
+}
+
 .sample-history {
     --glass-sheet-max-width: 460px;
 }

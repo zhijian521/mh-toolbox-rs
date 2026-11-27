@@ -23,7 +23,7 @@ defineProps<{ wide?: boolean }>();
     display: block;
     width: 100%;
     min-width: 0;
-    min-height: 28px;
+    min-height: var(--lg-form-height);
     padding: 4px 8px;
     border: 1px solid transparent;
     border-radius: var(--r-2, 10px);

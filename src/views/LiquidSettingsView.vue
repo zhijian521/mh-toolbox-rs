@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import AppNotice from '../components/AppNotice.vue';
 import { computed, onMounted, ref } from 'vue';
-import { onBeforeRouteLeave } from 'vue-router';
 import { hasDesktop, openExternal } from '../services/desktop';
-import { useDraftGuard } from '../composables/use-draft-guard';
-import { askConfirm } from '../composables/use-confirm';
-import { reloadWithDataNotice, takeDataNotice, truncationNote } from './settings/data-notice';
 import { backupTime, useBackups } from './settings/use-backups';
+import { useLedgerOperations } from './settings/use-ledger-operations';
 import {
     dataClear,
     dataExport,
@@ -39,67 +36,23 @@ const {
 const { info, version } = useAppInfo();
 const desktop = hasDesktop();
 
-/* ---------- 数据：账本、备份与清除共用一份忙状态和一句回执 ----------
- * 与正式版 DataSection 同一口径：三个操作都整份动同一份账本，忙时一起停；
- * 成功后重载领域单例，回执与备份路径跨重载保留一次。 */
-const busy = ref(false);
+const { busy, message, messageKind, warning, run } = useLedgerOperations();
 const ledgerDisabled = computed(() => !desktop || busy.value);
-const message = ref('');
-const warning = ref('');
-const messageKind = ref<'error' | 'positive'>('positive');
-
-async function run(action: () => Promise<DataOutcome>): Promise<DataOutcome> {
-    busy.value = true;
-    try {
-        let outcome: DataOutcome;
-        try {
-            outcome = await action();
-        } catch (error) {
-            // 动态导入失败、IPC 通道断开等不走 DataOutcome 的错误也要落下回执，
-            // 否则按钮会永远停在禁用态。
-            outcome = {
-                status: 'failed',
-                error: error instanceof Error ? error.message : String(error),
-            };
-        }
-        if (outcome.status === 'ok') {
-            messageKind.value = 'positive';
-            message.value = outcome.detail;
-            warning.value = [outcome.warning, truncationNote(outcome.truncation)]
-                .filter(Boolean)
-                .join(' ');
-        } else if (outcome.status === 'failed') {
-            messageKind.value = 'error';
-            message.value = outcome.error;
-            warning.value = '';
-        } else {
-            message.value = '';
-            warning.value = '';
-        }
-        return outcome;
-    } finally {
-        busy.value = false;
-    }
-}
-
-function reloadWithNotice() {
-    reloadWithDataNotice(message.value, warning.value);
-}
 
 async function exportLedger() {
     await run(dataExport);
 }
 
-async function askImport() {
-    const ok = await askConfirm({
-        danger: true,
-        title: '替换当前账本？',
-        note: '选中的备份会覆盖全部数据。',
-        confirmText: '替换',
+function askImport() {
+    return run(dataImport, {
+        reload: true,
+        confirm: {
+            danger: true,
+            title: '替换当前账本？',
+            note: '选中的备份会覆盖全部数据。',
+            confirmText: '替换',
+        },
     });
-    if (!ok) return;
-    const outcome = await run(dataImport);
-    if (outcome.status === 'ok') reloadWithNotice();
 }
 
 async function importLegacy(): Promise<DataOutcome> {
@@ -108,20 +61,19 @@ async function importLegacy(): Promise<DataOutcome> {
 }
 
 async function doImportLegacy() {
-    const outcome = await run(importLegacy);
-    if (outcome.status === 'ok') reloadWithNotice();
+    await run(importLegacy, { reload: true });
 }
 
-async function askClear() {
-    const ok = await askConfirm({
-        danger: true,
-        title: '清空全部账本？',
-        note: '所有账本数据会被删除，无法撤销。清除前不会自动备份，需要留存请先导出。',
-        confirmText: '清除',
+function askClear() {
+    return run(dataClear, {
+        reload: true,
+        confirm: {
+            danger: true,
+            title: '清空全部账本？',
+            note: '所有账本数据会被删除，无法撤销。清除前不会自动备份，需要留存请先导出。',
+            confirmText: '清除',
+        },
     });
-    if (!ok) return;
-    const outcome = await run(dataClear);
-    if (outcome.status === 'ok') reloadWithNotice();
 }
 
 const {
@@ -142,32 +94,20 @@ function closeBackups() {
     if (!busy.value) backupsOpen.value = false;
 }
 
-async function restore(entry: BackupEntry) {
-    if (busy.value) return;
-    const ok = await askConfirm({
-        danger: true,
-        title: '恢复这份备份？',
-        note: `${new Date(entry.createdAt).toLocaleString('zh-CN')} 的账本会覆盖当前内容。`,
-        confirmText: '恢复',
+function restore(entry: BackupEntry) {
+    return run(() => restoreBackup(entry.name), {
+        reload: true,
+        confirm: {
+            danger: true,
+            title: '恢复这份备份？',
+            note: `${new Date(entry.createdAt).toLocaleString('zh-CN')} 的账本会覆盖当前内容。`,
+            confirmText: '恢复',
+        },
     });
-    if (!ok) return;
-    const outcome = await run(() => restoreBackup(entry.name));
-    if (outcome.status === 'ok') reloadWithNotice();
 }
 
-useDraftGuard(
-    () => false,
-    () => busy.value,
-    () => {},
-);
-onBeforeRouteLeave(() => !busy.value);
 onMounted(() => {
     if (desktop) void refreshBackups();
-    const saved = takeDataNotice();
-    if (!saved.text) return;
-    messageKind.value = 'positive';
-    message.value = saved.text;
-    warning.value = saved.warning;
 });
 
 /* ---------- 关于：手动检查正式 Release ---------- */
@@ -414,7 +354,6 @@ function applyWallpaper(url: string) {
             <LiquidWallpaperPicker
                 :active="pickerOpen"
                 :selected="selectedWallpaper"
-                @choose="applyWallpaper"
                 @close="pickerOpen = false"
             />
         </GlassDialog>
@@ -544,7 +483,6 @@ function applyWallpaper(url: string) {
 .appearance-options {
     flex: none;
     width: max-content;
-    white-space: nowrap;
     letter-spacing: normal;
 }
 

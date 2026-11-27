@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
+type Route = { path: string };
+type RouteGuard = (to?: Route, from?: Route) => Promise<void | boolean> | boolean;
+
 const host = vi.hoisted(() => ({
     startup: vi.fn<typeof import('./services/legacy-startup').importLegacyOnStartup>(),
     rules: vi.fn<() => Promise<void>>(),
     flushDaily: vi.fn<() => Promise<boolean>>(),
-    beforeRoute: vi.fn<(guard: () => Promise<void>) => void>(),
+    beforeRoute: vi.fn<(guard: RouteGuard) => void>(),
     notify: vi.fn(),
     guard: vi.fn<(beforeClose: () => Promise<boolean>) => void>(),
     canDiscard: vi.fn<() => Promise<boolean>>(),
@@ -79,7 +82,7 @@ it('直接进入业务路由前等待游戏规则读取', async () => {
     );
     await import('./liquid-main');
     let entered = false;
-    const entering = host.beforeRoute.mock.calls[0][0]().then(() => {
+    const entering = Promise.resolve(host.beforeRoute.mock.calls[0][0]()).then(() => {
         entered = true;
     });
     await Promise.resolve();
@@ -102,7 +105,7 @@ it('直达业务页与系统退出都等待同一次旧账检测，完成后提�
     host.flush.mockResolvedValue(true);
     await import('./liquid-main');
     let entered = false;
-    const entering = host.beforeRoute.mock.calls[0][0]().then(() => {
+    const entering = Promise.resolve(host.beforeRoute.mock.calls[0][0]()).then(() => {
         entered = true;
     });
     const closing = host.guard.mock.calls[0][0]();
@@ -114,4 +117,15 @@ it('直达业务页与系统退出都等待同一次旧账检测，完成后提�
     expect(await closing).toBe(true);
     expect(host.startup).toHaveBeenCalledTimes(1);
     expect(host.notify).toHaveBeenCalledWith({ ...notice, confirmText: '知道了', cancelText: '' });
+});
+
+it('玻璃收益页切换受草稿保护，同页面操作地址直接通过', async () => {
+    host.canDiscard.mockResolvedValue(false);
+    await import('./liquid-main');
+    const [guard] = host.beforeRoute.mock.calls[1];
+    const income = { path: '/income' };
+    expect(await guard(income, income)).toBe(true);
+    expect(host.canDiscard).not.toHaveBeenCalled();
+    expect(await guard({ path: '/prices' }, income)).toBe(false);
+    expect(host.canDiscard).toHaveBeenCalledOnce();
 });

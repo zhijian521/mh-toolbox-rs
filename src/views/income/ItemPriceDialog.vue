@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { usePositiveAmount } from '../../composables/use-positive-amount';
+import { useDraftGuard } from '../../composables/use-draft-guard';
 import ModalShell from '../../components/ModalShell.vue';
 import PriceField from '../../components/PriceField.vue';
 import PressButton from '../../components/PressButton.vue';
@@ -22,9 +23,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{ save: [amount: number]; clear: []; close: [] }>();
 
-const amount = ref(
-    props.mode === 'fixed' && !props.thenAdd && (props.current ?? 0) > 0 ? (props.current ?? 0) : 0,
-);
+const initialAmount =
+    props.mode === 'fixed' && !props.thenAdd && (props.current ?? 0) > 0 ? (props.current ?? 0) : 0;
+const amount = ref<number | null>(initialAmount);
 
 const isMoney = computed(() => props.item.name === '金币');
 const title = computed(() => {
@@ -38,6 +39,12 @@ const { typed, submitted, canSave, error, showError } = usePositiveAmount(amount
 
 const canClear = computed(
     () => props.mode === 'fixed' && !props.thenAdd && (props.current ?? 0) > 0,
+);
+
+const { requestClose } = useDraftGuard(
+    () => !props.retryAction && (amount.value ?? 0) !== initialAmount,
+    () => !!props.saving,
+    () => emit('close'),
 );
 
 function submit() {
@@ -54,7 +61,13 @@ function onEnter(event: KeyboardEvent) {
 </script>
 
 <template>
-    <ModalShell :title="title" :width="360" :scroll="false" @close="!saving && emit('close')">
+    <ModalShell
+        :title="title"
+        :width="360"
+        :scroll="false"
+        :no-dismiss="saving"
+        @close="requestClose"
+    >
         <form class="income-form modal-form" @submit.prevent="submit" @keydown.enter="onEnter">
             <fieldset class="income-form" :disabled="locked" :inert="locked">
                 <PriceField
@@ -76,7 +89,7 @@ function onEnter(event: KeyboardEvent) {
                 :submit-text="retryAction === 'save' ? '重试保存' : thenAdd ? '记下' : '保存'"
                 :submit-label="thenAdd ? '记下这一条' : '保存单价'"
                 :submit-disabled="saving || retryAction === 'clear' || (!canSave && !retryAction)"
-                @cancel="!saving && emit('close')"
+                @cancel="requestClose"
                 @submit="submit"
             >
                 <PressButton

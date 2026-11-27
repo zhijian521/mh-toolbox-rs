@@ -6,6 +6,7 @@ import GroupHead from '../../components/GroupHead.vue';
 import AppIcon from '../../components/AppIcon.vue';
 import CostSwitch from '../../components/CostSwitch.vue';
 import ToolPageShell from './ToolPageShell.vue';
+import WatchStatusTag from './WatchStatusTag.vue';
 import PressButton from '../../components/PressButton.vue';
 import MapCanvas from '../../components/ghost/MapCanvas.vue';
 import { useGhostWatch } from '../../composables/use-ghost-watch';
@@ -130,9 +131,7 @@ onMounted(() => {
                                 label="监听窗口"
                                 :disabled="running || starting"
                             />
-                            <span class="status" :class="statusKind" role="status">{{
-                                statusText
-                            }}</span>
+                            <WatchStatusTag :tone="statusKind">{{ statusText }}</WatchStatusTag>
                         </div>
                         <AppNotice v-if="degraded" tone="warning" role="status">
                             已切换到系统 OCR，彩色文字可能识别不全。
@@ -287,30 +286,6 @@ onMounted(() => {
     gap: 6px;
     min-width: 0;
 }
-.status {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    justify-self: start;
-    max-width: 100%;
-    overflow-wrap: anywhere;
-    border-radius: 999px;
-    padding: 3px 9px;
-    color: var(--muted);
-    background: color-mix(in srgb, currentColor 9%, transparent);
-    font-size: var(--fs-sm);
-}
-.status::before {
-    content: '';
-    flex: 0 0 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-}
-.status.live {
-    color: var(--positive);
-}
-.status.warn,
 .detail-issue {
     color: var(--warning);
 }

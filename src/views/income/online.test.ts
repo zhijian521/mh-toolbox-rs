@@ -11,6 +11,7 @@ import {
     minutesText,
     normalizeSession,
     normalizeSettings,
+    onlineRecordFacts,
     onlineTotalsOf,
     ownersOf,
     parseSessions,
@@ -534,4 +535,26 @@ describe('上线：单角色筛选口径', () => {
         expect(one?.date).toBe('2026-11-11');
         expect(one?.cardCost).toBe(false);
     });
+});
+
+it('上线明细和角色小计共用按日分摊，跨天和计时口径保持一致', () => {
+    const from = '2026-11-11';
+    const to = '2026-11-12';
+    const now = at(2026, 11, 12, 1, 30);
+    const shared = session({
+        startAt: at(2026, 11, 11, 23, 58),
+        endAt: at(2026, 11, 12, 0, 7),
+        roster: ['c1', 'c2'],
+        cardPrice: 19,
+    });
+    const active = session({ id: 'running', startAt: at(2026, 11, 12, 1), endAt: null });
+    const rows = [shared, active];
+    const facts = onlineRecordFacts(rows, from, to, now);
+    expect(facts.total).toEqual(onlineTotalsOf(rows, from, to, now));
+    for (const owner of ['c1', 'c2']) {
+        expect(facts.owner(owner)).toEqual(onlineTotalsOf(rows, from, to, now, owner));
+        expect(facts.session(shared, owner)).toEqual(
+            onlineTotalsOf([shared], from, to, now, owner),
+        );
+    }
 });

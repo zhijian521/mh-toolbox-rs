@@ -190,7 +190,10 @@ describe('总览按上次设置启动提醒助手', () => {
             getItem: () =>
                 JSON.stringify({ ...preferences, speechEnabled: true, region: legacy.region }),
         });
-        await expect(startSavedFengyao()).resolves.toBe('started');
+        await expect(startSavedFengyao()).resolves.toMatchObject({
+            started: true,
+            status: { running: true },
+        });
         expect(session.capture).toHaveBeenCalledWith(window.hwnd);
         expect(session.start).toHaveBeenCalledExactlyOnceWith({
             hwnd: window.hwnd,
@@ -203,7 +206,10 @@ describe('总览按上次设置启动提醒助手', () => {
     it('聊天窗口变更尺寸后按当前整窗尺寸启动', async () => {
         const session = mockSession();
         session.capture.mockResolvedValue({ ...window, width: 900, height: 700, image: '' });
-        await expect(startSavedFengyao()).resolves.toBe('started');
+        await expect(startSavedFengyao()).resolves.toMatchObject({
+            started: true,
+            status: { running: true },
+        });
         expect(session.start).toHaveBeenCalledExactlyOnceWith({
             hwnd: window.hwnd,
             speechEnabled: false,
@@ -222,7 +228,10 @@ describe('总览按上次设置启动提醒助手', () => {
         vi.stubGlobal('localStorage', {
             getItem: () => JSON.stringify({ ...preferences, reminders }),
         });
-        await expect(startSavedFengyao()).resolves.toBe('started');
+        await expect(startSavedFengyao()).resolves.toMatchObject({
+            started: true,
+            status: { running: true },
+        });
         expect(session.start).toHaveBeenCalledExactlyOnceWith({
             hwnd: window.hwnd,
             speechEnabled: false,
@@ -269,8 +278,11 @@ describe('总览按上次设置启动提醒助手', () => {
 
     it('已经监听时不重开任务', async () => {
         const session = mockSession();
-        session.status.mockResolvedValue({ ...status, running: true });
-        await expect(startSavedFengyao()).resolves.toBe('running');
+        const running = { ...status, running: true };
+        session.status.mockResolvedValue(running);
+        const result = await startSavedFengyao();
+        expect(result.started).toBe(false);
+        expect(result.status).toBe(running);
         expect(session.windows).not.toHaveBeenCalled();
         expect(session.start).not.toHaveBeenCalled();
     });

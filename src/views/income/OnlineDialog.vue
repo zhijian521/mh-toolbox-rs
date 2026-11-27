@@ -11,6 +11,7 @@ import FormActions from '../../components/FormActions.vue';
 import TimeField from '../../components/TimeField.vue';
 import TogglePills from '../../components/TogglePills.vue';
 import { ALL_OPTIONS } from '../../components/select-options';
+import { useDraftGuard } from '../../composables/use-draft-guard';
 import { askConfirm } from '../../composables/use-confirm';
 import { usePersistedSubmit } from '../../composables/use-persisted-submit';
 import { notify } from '../../composables/use-notify';
@@ -40,10 +41,6 @@ const { saving, action, locked } = draft;
 const noteId = useId();
 let successText = '';
 
-function close() {
-    if (!saving.value) emit('close');
-}
-
 const editing = computed(() => props.mode === 'edit');
 const editableEnd = computed(
     () => editing.value && props.session !== undefined && props.session.endAt !== null,
@@ -70,7 +67,8 @@ function baseIds(): string[] {
     return ownersOf(one);
 }
 
-const ids = ref<string[]>(baseIds());
+const initialIds = baseIds();
+const ids = ref([...initialIds]);
 
 const initial =
     props.mode === 'backfill'
@@ -83,8 +81,24 @@ const initial =
 const date = ref(initial.date);
 const startTime = ref(initial.startTime);
 const endTime = ref(initial.endTime);
-const endDate = ref(dateText(props.session?.endAt ?? Date.now()));
-const note = ref(props.session?.note ?? '');
+const initialEndDate = dateText(props.session?.endAt ?? Date.now());
+const initialNote = props.session?.note ?? '';
+const endDate = ref(initialEndDate);
+const note = ref(initialNote);
+
+const { requestClose } = useDraftGuard(
+    () =>
+        action.value === null &&
+        (ids.value.length !== initialIds.length ||
+            initialIds.some((id) => !ids.value.includes(id)) ||
+            note.value !== initialNote ||
+            (props.mode !== 'start' &&
+                (date.value !== initial.date || startTime.value !== initial.startTime)) ||
+            ((props.mode === 'backfill' || editableEnd.value) &&
+                (endDate.value !== initialEndDate || endTime.value !== initial.endTime))),
+    () => saving.value,
+    () => emit('close'),
+);
 
 const options = computed(() =>
     characterOptions(roster.value, baseIds()).map((one) => ({
@@ -237,7 +251,13 @@ const submitText = computed(() => {
 </script>
 
 <template>
-    <ModalShell class="online-editor" :title="title" :width="460" @close="close">
+    <ModalShell
+        class="online-editor"
+        :title="title"
+        :width="460"
+        :no-dismiss="saving"
+        @close="requestClose"
+    >
         <form
             class="income-form modal-form"
             :class="{ 'lg-form-fields': glass }"
@@ -334,7 +354,7 @@ const submitText = computed(() => {
                 :submit-text="submitText"
                 :submit-label="submitText"
                 :submit-disabled="!canSave"
-                @cancel="close"
+                @cancel="requestClose"
                 @submit="submit"
             >
                 <PressButton

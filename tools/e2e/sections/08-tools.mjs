@@ -156,7 +156,7 @@ export default async function run(ctx) {
                 await cdp.evaluate('window.__e2eFengyao.hideChatWindow = false');
                 await ui.clickLabel('开始公告监听');
                 await ui.waitFor(
-                    `document.querySelector('.fy-settings .fy-window-control + .fy-status')?.textContent.includes('监听中')`,
+                    `document.querySelector('.fy-settings .fy-window-control + .fy-listen-actions .watch-status')?.textContent.includes('监听中')`,
                 );
                 t.check(
                     '首次直接监听完整聊天窗口，窗口选择框下方显示监听状态',
@@ -166,7 +166,7 @@ export default async function run(ctx) {
                         return speechEnabled === true && hwnd === 1 && region?.x === 0 && region.y === 0 &&
                             region.width === 800 && region.height === 600 &&
                             region.frameWidth === 800 && region.frameHeight === 600 &&
-                            document.querySelector('.fy-settings .fy-window-control + .fy-status').textContent.includes(
+                            document.querySelector('.fy-settings .fy-window-control + .fy-listen-actions .watch-status').textContent.includes(
                                 '监听中 · 新公告符合条件时提醒') &&
                             document.querySelector('.fy-guide').textContent.includes('避免最小化或隐藏') &&
                             !document.querySelector('[aria-label*="框选"]');
@@ -239,7 +239,7 @@ export default async function run(ctx) {
                 );
                 await ui.clickText('button, a', '提醒助手');
                 await ui.waitFor(
-                    `document.querySelector('.fy-settings .fy-window-control + .fy-status')?.textContent.includes('监听中')`,
+                    `document.querySelector('.fy-settings .fy-window-control + .fy-listen-actions .watch-status')?.textContent.includes('监听中')`,
                 );
                 t.check(
                     '回来读取后台状态与手动选择，复用已启动的监听',

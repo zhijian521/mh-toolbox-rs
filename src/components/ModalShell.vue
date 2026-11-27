@@ -36,6 +36,7 @@ const props = withDefaults(
     defineProps<{
         /** 标题栏文字。留空则不渲染标题栏——删除确认那种一句话弹窗不需要标题栏。 */
         title?: string;
+        noDismiss?: boolean;
         /**
          * 面板宽度。按内容给：物品表单 520、记价 380、确认窗 252、历史 620。
          *
@@ -132,16 +133,20 @@ const { isTop, isNested, finishLeave } = useModal({
     panel,
     nativeLayers: !!glass,
     initialFocus: props.initialFocus,
-    onClose: () => emit('close'),
+    onClose: requestClose,
     deferCleanup: true,
     restoreFocusTo: handoff ? loading?.origin : undefined,
 });
 const { beforeUnmount } = useModalMotion(mask, panel, finishLeave, handoff);
 
+function requestClose() {
+    if (isTop.value && !props.noDismiss) emit('close');
+}
+
 /** 点遮罩关闭 = 取消。点面板内部不关（面板是遮罩的子元素，靠 `currentTarget` 区分）。 */
 function onMaskClick(event: MouseEvent) {
     if ((event.currentTarget as HTMLElement).hasAttribute('data-modal-leaving')) return;
-    if (event.target === event.currentTarget) emit('close');
+    if (event.target === event.currentTarget) requestClose();
 }
 
 /**
@@ -200,7 +205,8 @@ const panelStyle = computed(() => {
                         data-modal-close
                         icon="close"
                         label="关闭弹窗"
-                        @click="emit('close')"
+                        :disabled="noDismiss"
+                        @click="requestClose"
                     />
                 </header>
 

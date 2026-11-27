@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, watchPostEffect } from 'vue';
+import { nextTick, ref, watch, watchPostEffect } from 'vue';
 import { GlassSheet } from './index';
 
 const props = defineProps<{
@@ -9,6 +9,7 @@ const props = defineProps<{
     noDismiss?: boolean;
     /** 由调用方决定是否关闭，避免底部面板先退场再询问。 */
     guardDismiss?: boolean;
+    fallbackFocus?: () => HTMLElement | null | undefined;
     lazy?: boolean;
     detents?: string;
     label: string;
@@ -19,12 +20,26 @@ const desktop = ref(false);
 const sheet = ref<{ el: HTMLElement | null } | null>(null);
 const leavingContent = ref(false);
 const backdropPress = ref(false);
+let returnFocus: HTMLElement | undefined;
 
 // 每次打开时选取呈现方式，调整窗口大小不会卸载正在编辑的表单。
 watch(
     () => props.open,
-    (open) => {
-        if (open) desktop.value = window.matchMedia('(min-width: 640px)').matches;
+    (open, wasOpen) => {
+        if (open) {
+            desktop.value = window.matchMedia('(min-width: 640px)').matches;
+            const active = document.activeElement;
+            returnFocus =
+                active instanceof HTMLElement && active !== document.body ? active : undefined;
+        } else if (wasOpen && props.fallbackFocus) {
+            void nextTick(() => {
+                if (props.open || document.activeElement !== document.body) return;
+                if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
+                if (document.activeElement === document.body) {
+                    props.fallbackFocus?.()?.focus({ preventScroll: true });
+                }
+            });
+        }
     },
     { immediate: true },
 );
@@ -66,6 +81,22 @@ watchPostEffect((onCleanup) => {
 
 function dismiss() {
     if (!props.noDismiss) emit('update:open', false);
+}
+
+async function onSheetOpenChange(open: boolean) {
+    if (!props.open) return;
+    const host = sheet.value?.el;
+    // 内层浮层也会冒泡 toggle，只有 sheet 自身改变时才响应。
+    if (!host || host.hasAttribute('open') !== open) return;
+    if (open) {
+        emit('update:open', true);
+        return;
+    }
+    dismiss();
+    await nextTick();
+    if (props.open && host.isConnected && host === sheet.value?.el && !host.hasAttribute('open')) {
+        host.setAttribute('open', '');
+    }
 }
 
 function onSheetScrim(event: MouseEvent) {
@@ -110,7 +141,7 @@ function onSheetKeydown(event: KeyboardEvent) {
         modal
         @click.capture="onSheetScrim"
         @keydown="onSheetKeydown"
-        @update:open="emit('update:open', $event)"
+        @update:open="onSheetOpenChange"
     >
         <slot v-if="!lazy || open || leavingContent" />
     </GlassSheet>

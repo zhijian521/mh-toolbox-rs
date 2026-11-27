@@ -28,7 +28,7 @@ const value = defineModel<string>();
     gap: 4px;
     width: 100%;
     min-width: 0;
-    min-height: var(--glass-input-height, var(--glass-search-height));
+    min-height: var(--lg-field-height);
     padding-inline: 14px;
     color: var(--liquid-ink);
     font-size: var(--fs-base);

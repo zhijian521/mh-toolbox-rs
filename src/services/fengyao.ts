@@ -11,6 +11,7 @@ import { readLocalData, writePreference } from './local-data';
 export type { WatchStatus_Serialize as WatchStatus } from './bindings';
 
 export const fengyaoStatus = () => commands.fengyaoStatus();
+export const fengyaoSummary = () => commands.fengyaoSummary();
 export const startFengyao = (config: WatchConfig_Deserialize) => commands.fengyaoStart(config);
 export const updateFengyao = (reminders: ReminderFilter[]) => commands.fengyaoUpdate(reminders);
 export const stopFengyao = () => commands.fengyaoStop();
@@ -126,10 +127,20 @@ export async function readFengyaoFrame(
     return { x: 0, y: 0, width, height, frameWidth: width, frameHeight: height };
 }
 
+/** 通过实时聊天窗口尺寸建立完整画面监听配置。 */
+export async function readFengyaoConfig(
+    window: { hwnd: number; title: string },
+    reminders: ReminderFilter[],
+    speechEnabled: boolean,
+): Promise<WatchConfig_Deserialize> {
+    const region = await readFengyaoFrame(window.hwnd, window.title);
+    return { hwnd: window.hwnd, reminders, region, speechEnabled };
+}
+
 /** 窗口句柄和完整画面尺寸在每次开启时重新读取。 */
 export async function startSavedFengyao() {
     const status = await fengyaoStatus();
-    if (status.running) return 'running';
+    if (status.running) return { status, started: false };
 
     const saved = readFengyaoPreferences();
     if (!saved.ok) throw new Error(saved.error);
@@ -147,9 +158,9 @@ export async function startSavedFengyao() {
     );
     if (!matches.length) throw new Error('未找到上次使用的独立聊天窗口，请在提醒助手中重新选择');
     if (matches.length > 1) throw new Error('有多个同名聊天窗口，请手动选择');
-    const [{ hwnd }] = matches;
-    const region = await readFengyaoFrame(hwnd, preferences.windowTitle);
-    if ((await fengyaoStatus()).running) return 'running';
-    await startFengyao({ hwnd, reminders, region, speechEnabled: preferences.speechEnabled });
-    return 'started';
+    const config = await readFengyaoConfig(matches[0], reminders, preferences.speechEnabled);
+    const current = await fengyaoStatus();
+    if (current.running) return { status: current, started: false };
+    const next = await startFengyao(config);
+    return { status: next, started: true };
 }

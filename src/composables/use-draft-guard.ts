@@ -36,7 +36,11 @@ export function useDraftGuard(changed: () => boolean, busy: () => boolean, close
 
     let closing = false;
     async function requestClose() {
-        if (closing) return;
+        if (closing || busy()) return;
+        if (!changed()) {
+            close();
+            return;
+        }
         closing = true;
         try {
             if ((await confirmDiscard([guard])) && guards.has(guard)) close();

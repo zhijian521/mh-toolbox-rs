@@ -23,7 +23,7 @@ type GlassTarget =
     | 'sheet'
     | 'scrollEdge';
 
-// Dock 的弧边由材质引擎绘制。共用折射和高光，让内容底色、弹层模糊度各自独立。
+// Dock 有独立的边缘折射，内容面、输入面与浮层分别使用合适的底色和模糊度。
 const dockEdge = { bezel: 8, refraction: 15, specular: 1.1 } satisfies GlassOptions;
 const controlGlass = {
     bezel: 6,
@@ -50,13 +50,15 @@ const fieldGlass = {
     shadow: '0 1px 2px #22222214',
 } satisfies GlassOptions;
 const dockGlass = { ...controlGlass, ...dockEdge };
-export const popupGlass = {
-    ...dockEdge,
-    radius: 26,
+const popupSurface = {
+    bezel: 6,
+    refraction: 10,
+    specular: 0.6,
     material: 'regular',
     blur: 4,
     fill: 'var(--lg-popup-fill)',
 } satisfies GlassOptions;
+export const popupGlass = { ...popupSurface, radius: 26 } satisfies GlassOptions;
 const thumbGlass = { material: 'clear', blur: 0.6, fill: null } satisfies GlassOptions;
 
 function partSurface(host: HTMLElement, part: string) {
@@ -93,10 +95,7 @@ function updateMaterial(host: HTMLElement, target: GlassTarget) {
             partSurface(host, 'panel')?.set(popupGlass);
             break;
         case 'sheet':
-            partSurface(host, 'sheet')?.set({
-                ...dockEdge,
-                fill: popupGlass.fill,
-            });
+            partSurface(host, 'sheet')?.set(popupSurface);
             break;
     }
 }
