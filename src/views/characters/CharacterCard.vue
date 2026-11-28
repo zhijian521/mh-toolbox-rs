@@ -34,6 +34,7 @@ const props = withDefaults(
         /** 点行 / 格开「快速修改」。 */
         quick?: boolean;
         disabled?: boolean;
+        shareDisabled?: boolean;
     }>(),
     /* `tabs` 的缺省值**必须显式写 `true`**：Vue 对布尔 prop 的缺省是 `false` 而不是
      * `undefined`（Boolean casting），所以模板里写 `props.tabs !== false` 不管用——
@@ -44,6 +45,7 @@ const props = withDefaults(
 const emit = defineEmits<{
     edit: [pane: PaneKey];
     remove: [];
+    share: [];
     'edit-value': [key: string, value: string];
     'edit-level': [name: string, level: number];
     'edit-assist': [index: number, patch: Partial<AssistSkill>];
@@ -267,9 +269,14 @@ function openDetail(index: number) {
                     </span>
                 </p>
             </div>
-            <!-- 卡头右侧：改与删。两枚都是纯图标 26px，与左栏、工具页同一种压印块。
-                 删除只把事件抛出去，确认窗由名册页开——卡上不出现第二种「确认」的问法。 -->
+            <slot name="header-end" />
             <div v-if="!preview" class="head-actions">
+                <PressButton
+                    icon="clipboardCopy"
+                    label="复制角色图片"
+                    :disabled="disabled || shareDisabled"
+                    @click="emit('share')"
+                />
                 <PressButton
                     icon="edit"
                     label="编辑这个角色"
@@ -404,7 +411,12 @@ function openDetail(index: number) {
             </div>
         </div>
 
-        <GearTip :anchor="tipAnchor" :detail="tip" :slot-name="tipSlot" />
+        <GearTip
+            v-if="props.tabs || active === 'gear'"
+            :anchor="tipAnchor"
+            :detail="tip"
+            :slot-name="tipSlot"
+        />
     </component>
 </template>
 

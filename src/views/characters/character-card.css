@@ -274,10 +274,10 @@
     letter-spacing: 0.04em;
 }
 
-/* 卡头右侧的改 / 删：`margin-left: auto` 把它们推到卡头右缘，与名字那一块分开。
- * 间距 5 与 `PressButton` 内部的图标—文字间距同值，两枚并排时读作一组。 */
+/* 卡头操作靠右排列，名称较长时也保留操作按钮宽度。 */
 .head-actions {
     display: flex;
+    flex: none;
     align-items: center;
     gap: 5px;
     margin-left: auto;

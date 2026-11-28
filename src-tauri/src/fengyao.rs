@@ -422,16 +422,6 @@ struct ChatFrame {
 }
 
 #[cfg(windows)]
-fn changed_rows(previous: &[u8], pixels: &[u8], stride: usize) -> Option<Range<usize>> {
-    let mut rows = previous.chunks_exact(stride).zip(pixels.chunks_exact(stride));
-    let first = rows.position(|(a, b)| a != b)?;
-    let last = rows
-        .rposition(|(a, b)| a != b)
-        .map_or(first, |i| first + 1 + i);
-    Some(first..last + 1)
-}
-
-#[cfg(windows)]
 fn line_intersects(line: &crate::ocr::TextLine, rows: &Range<usize>) -> bool {
     line.y < rows.end as i32 && line.y + line.height > rows.start as i32
 }
@@ -447,19 +437,116 @@ fn recognition_rows(
     loop {
         let before = rows.clone();
         for line in lines {
-            if line_intersects(line, &rows) {
-                rows.start = rows.start.min(line.y.max(0) as usize);
-                rows.end = rows.end.max((line.y + line.height).max(0) as usize).min(height);
+            let top = (line.y - 4).max(0) as usize;
+            let bottom = ((line.y + line.height + 4).max(0) as usize).min(height);
+            if top < rows.end && bottom > rows.start {
+                rows.start = rows.start.min(top);
+                rows.end = rows.end.max(bottom);
             }
         }
         if rows == before {
             break;
         }
     }
-    if rows.len() * 4 >= height * 3 {
-        return 0..height;
+    if rows.start < 24 {
+        rows.start = 0;
+    }
+    if height - rows.end < 24 {
+        rows.end = height;
     }
     rows
+}
+
+// 当聊天记录与另一处动画同时刷新时，在最长的静止区分开识别。
+// 只复用逐行完全相同的像素，并在两侧保留完整文字和识别边距。
+#[cfg(windows)]
+fn changed_bands(previous: &[u8], pixels: &[u8], stride: usize) -> Vec<Range<usize>> {
+    const MIN_GAP: usize = 128;
+    let mut changed = previous
+        .chunks_exact(stride)
+        .zip(pixels.chunks_exact(stride))
+        .enumerate()
+        .filter_map(|(y, (before, after))| (before != after).then_some(y));
+    let Some(first) = changed.next() else {
+        return Vec::new();
+    };
+    let mut last = first;
+    let mut gap = 0..0;
+    for y in changed {
+        let unchanged = last + 1..y;
+        if unchanged.len() >= MIN_GAP && unchanged.len() > gap.len() {
+            gap = unchanged;
+        }
+        last = y;
+    }
+    let mut bands = Vec::with_capacity(2);
+    if gap.is_empty() {
+        bands.push(first..last + 1);
+    } else {
+        bands.push(first..gap.start);
+        bands.push(gap.end..last + 1);
+    }
+    bands
+}
+
+#[cfg(windows)]
+fn read_changed_bands(
+    previous: &ChatFrame,
+    pixels: &[u8],
+    width: u32,
+    changed: &[Range<usize>],
+    read: &impl Fn(&[u8], u32, u32) -> Result<Vec<crate::ocr::TextLine>, String>,
+) -> Option<Vec<crate::ocr::TextLine>> {
+    let stride = width as usize * 4;
+    let height = pixels.len() / stride;
+    let mut bands: Vec<_> = changed
+        .iter()
+        .map(|rows| recognition_rows(rows.clone(), height, &previous.lines))
+        .collect();
+    let mut lines = Vec::new();
+    for i in 0..bands.len() {
+        for attempt in 0..2 {
+            if bands.iter().map(Range::len).sum::<usize>() * 4 >= height * 3
+                || bands.windows(2).any(|pair| pair[0].end >= pair[1].start)
+            {
+                return None;
+            }
+            let rows = &bands[i];
+            let mut band = read(
+                &pixels[rows.start * stride..rows.end * stride],
+                width,
+                rows.len() as u32,
+            )
+            .ok()?;
+            if band.is_empty() && previous.lines.iter().any(|line| line_intersects(line, rows)) {
+                return None;
+            }
+            if band.iter().any(|line| {
+                (rows.start > 0 && line.y <= 2)
+                    || (rows.end < height && line.y + line.height >= rows.len() as i32 - 2)
+            }) {
+                // 小区域裁到文字时先扩大一圈；仍然不完整才整窗重读。
+                if attempt == 1 || rows.len() * 3 >= height {
+                    return None;
+                }
+                bands[i] = recognition_rows(rows.clone(), height, &previous.lines);
+                continue;
+            }
+            for line in &mut band {
+                line.y += rows.start as i32;
+            }
+            lines.extend(band);
+            break;
+        }
+    }
+    lines.extend(
+        previous
+            .lines
+            .iter()
+            .filter(|line| !bands.iter().any(|rows| line_intersects(line, rows)))
+            .cloned(),
+    );
+    Some(lines)
 }
 
 #[cfg(windows)]
@@ -470,53 +557,18 @@ fn recognize_chat_frame(
     height: u32,
     read: impl Fn(&[u8], u32, u32) -> Result<Vec<crate::ocr::TextLine>, String>,
 ) -> Result<Option<ChatFrame>, String> {
-    let read_full = || read(&pixels, width, height);
-    let lines = if let Some(previous) = previous {
-        let stride = width as usize * 4;
-        let Some(changed) = changed_rows(&previous.pixels, &pixels, stride) else {
+    let updated = if let Some(previous) = previous {
+        let changes = changed_bands(&previous.pixels, &pixels, width as usize * 4);
+        if changes.is_empty() {
             return Ok(None);
-        };
-        let rows = recognition_rows(changed.clone(), height as usize, &previous.lines);
-        if rows.len() == height as usize {
-            read_full()?
-        } else {
-            let band = read(
-                &pixels[rows.start * stride..rows.end * stride],
-                width,
-                rows.len() as u32,
-            );
-            // 裁边出现文字或变化行的旧文字突然读不到时，回整图确认。
-            let needs_full_read = |lines: &[crate::ocr::TextLine]| {
-                (lines.is_empty()
-                    && previous
-                        .lines
-                        .iter()
-                        .any(|line| line_intersects(line, &changed)))
-                    || lines.iter().any(|line| {
-                        (rows.start > 0 && line.y <= 2)
-                            || (rows.end < height as usize
-                                && line.y + line.height >= rows.len() as i32 - 2)
-                    })
-            };
-            match band {
-                Ok(mut lines) if !needs_full_read(&lines) => {
-                    for line in &mut lines {
-                        line.y += rows.start as i32;
-                    }
-                    lines.extend(
-                        previous
-                            .lines
-                            .iter()
-                            .filter(|line| !line_intersects(line, &rows))
-                            .cloned(),
-                    );
-                    lines
-                }
-                _ => read_full()?,
-            }
         }
+        read_changed_bands(previous, &pixels, width, &changes, &read)
     } else {
-        read_full()?
+        None
+    };
+    let lines = match updated {
+        Some(lines) => lines,
+        None => read(&pixels, width, height)?,
     };
     Ok(Some(ChatFrame { pixels, lines }))
 }
@@ -562,11 +614,16 @@ fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
             if frame.width != r.frame_width || frame.height != r.frame_height {
                 return Err("聊天窗口尺寸或缩放已变化，请停止后重新开始监听".into());
             }
-            let mut pixels = Vec::with_capacity((r.width * r.height * 4) as usize);
-            for y in r.y..r.y + r.height {
-                let offset = ((y * frame.width + r.x) * 4) as usize;
-                pixels.extend_from_slice(&frame.bgra[offset..offset + (r.width * 4) as usize]);
-            }
+            let pixels = if r.width == frame.width && r.height == frame.height {
+                frame.bgra
+            } else {
+                let mut pixels = Vec::with_capacity((r.width * r.height * 4) as usize);
+                for y in r.y..r.y + r.height {
+                    let offset = ((y * frame.width + r.x) * 4) as usize;
+                    pixels.extend_from_slice(&frame.bgra[offset..offset + (r.width * 4) as usize]);
+                }
+                pixels
+            };
             recognize_chat_frame(previous.as_ref(), pixels, r.width, r.height, |buf, w, h| {
                 crate::ocr_paddle::recognize(buf, w, h, 2)
             })
@@ -647,7 +704,8 @@ fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
             }
         }
         drop(state);
-        let remaining = Duration::from_millis(900).saturating_sub(started.elapsed());
+        let interval = if previous.is_some() { 550 } else { 900 };
+        let remaining = Duration::from_millis(interval).saturating_sub(started.elapsed());
         // 持续滚屏时给共享 OCR 引擎留出间隔；捕获会直接取最新画面。
         let pause = if recognized {
             remaining.max(Duration::from_millis(180))
@@ -800,9 +858,36 @@ mod tests {
         })
         .unwrap()
         .unwrap();
-        assert_eq!(frame.lines[0].y, 100);
+        assert!(frame.lines.iter().any(|line| line.y == 100));
         let messages = message_rows(frame.lines);
         assert_eq!(candidates(&messages, &config().reminders[0])[0].scene, "碗子山");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn empty_crop_with_unchanged_text_in_its_margin_retries_the_full_frame() {
+        let width = 80;
+        let height = 200;
+        let stride = width as usize * 4;
+        let previous = ChatFrame {
+            pixels: vec![0; stride * height as usize],
+            lines: vec![crate::ocr::TextLine {
+                text: "[系统]".into(),
+                x: 0,
+                y: 90,
+                width: 50,
+                height: 12,
+                score: 0.99,
+            }],
+        };
+        let mut pixels = previous.pixels.clone();
+        pixels[110 * stride] = 1;
+        let frame = recognize_chat_frame(Some(&previous), pixels, width, height, |_, _, h| {
+            Ok(if h == height { previous.lines.clone() } else { Vec::new() })
+        })
+        .unwrap()
+        .unwrap();
+        assert_eq!(frame.lines[0].text, "[系统]");
     }
 
     #[cfg(windows)]
@@ -822,14 +907,61 @@ mod tests {
         .unwrap();
         assert!(unchanged.is_none());
         let mut pixels = previous.pixels.clone();
-        pixels[0] = 1;
-        *pixels.last_mut().unwrap() = 1;
+        pixels.fill(1);
         let frame = recognize_chat_frame(Some(&previous), pixels, 80, 160, |_, w, h| {
             assert_eq!((w, h), (80, 160));
             Ok(vec![])
         })
         .unwrap();
         assert!(frame.is_some());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn distant_updates_keep_the_middle_and_recover_from_clipped_text() {
+        let width = 80;
+        let height = 400;
+        let stride = width as usize * 4;
+        let line = |text: &str, y| crate::ocr::TextLine {
+            text: text.into(),
+            x: 0,
+            y,
+            width: 60,
+            height: 12,
+            score: 0.99,
+        };
+        let previous = ChatFrame {
+            pixels: vec![0; stride * height as usize],
+            lines: vec![line("保留的文字", 190)],
+        };
+        let mut pixels = previous.pixels.clone();
+        pixels[65 * stride] = 1;
+        pixels[320 * stride] = 2;
+        for clipped_reads in 0..=2 {
+            let calls = std::cell::RefCell::new(Vec::new());
+            let read = |_: &[u8], _: u32, h: u32| {
+                let mut calls = calls.borrow_mut();
+                calls.push(h);
+                let result = match calls.len() {
+                    1 => line("上方更新", 24),
+                    4 => line("整帧结果", 320),
+                    n if n <= clipped_reads + 1 => line("碰到裁边", 0),
+                    _ => line("下方更新", (h / 2) as i32),
+                };
+                Ok(vec![result])
+            };
+            let frame = recognize_chat_frame(Some(&previous), pixels.clone(), width, height, read)
+                .unwrap()
+                .unwrap();
+            let calls = calls.into_inner();
+            if clipped_reads == 2 {
+                assert_eq!(calls, [49, 49, 97, 400]);
+                assert_eq!(message_rows(frame.lines), ["整帧结果"]);
+            } else {
+                assert_eq!(calls, [49, 49, 97][..2 + clipped_reads]);
+                assert_eq!(message_rows(frame.lines), ["上方更新", "保留的文字", "下方更新"]);
+            }
+        }
     }
 
     #[test]

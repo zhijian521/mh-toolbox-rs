@@ -6,6 +6,7 @@
 use std::collections::HashSet;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use serde::{Deserialize, Serialize};
 /* `Manager` 是为了 `app.get_webview_window("main")`：`.dialog()` 来自插件的 `DialogExt`，
@@ -847,10 +848,11 @@ fn read_backup(path: &Path) -> Result<BackupFile, String> {
 ///
 /// **先写 `.tmp` 再改名**：`std::fs::write` 是「截断 + 写」，写到一半断电 / 磁盘满会在
 /// 正式名下留一个半截 JSON——而自动备份的文件名正是「导入前的数据」，用户最需要它的
-/// 时候它恰好是坏的。改名是原子替换，于是正式名要么不存在、要么完整。临时名带 pid：
-/// 两个实例同时导出时互不截断。
+/// 时候它恰好是坏的。改名是原子替换，于是正式文件总是完整。
 fn write_to<T: Serialize>(path: &Path, file: &T) -> Result<(), String> {
-    let tmp = path.with_extension(format!("{}.tmp", std::process::id()));
+    static NEXT_TEMP: AtomicUsize = AtomicUsize::new(0);
+    let suffix = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
+    let tmp = path.with_added_extension(format!("{}-{suffix}.tmp", std::process::id()));
     let result = (|| -> std::io::Result<()> {
         let mut output = BufWriter::new(std::fs::File::create(&tmp)?);
         serde_json::to_writer_pretty(&mut output, file).map_err(std::io::Error::other)?;

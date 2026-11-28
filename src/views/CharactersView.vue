@@ -12,9 +12,11 @@ import { useProgressiveList } from '../composables/use-progressive-list';
 import GlassEmptyState from '../components/liquid-glass/GlassEmptyState.vue';
 import PressButton from '../components/PressButton.vue';
 import { notify } from '../composables/use-notify';
+import { copySharePng } from '../services/share-image';
 import { usePersistedSubmit } from '../composables/use-persisted-submit';
 import { useConfirmedRemoval } from '../composables/use-confirmed-removal';
 import CharacterCard from './characters/CharacterCard.vue';
+import CharacterShareSheet from './characters/CharacterShareSheet.vue';
 import type { QuickTarget } from './characters/quick/quick-target';
 import { PANES, type ReadonlyCharacter, type PaneKey } from './characters/character';
 import { emptyCharacter, loadRoster, useRoster } from './characters/roster';
@@ -70,6 +72,36 @@ const editingDisabled = computed(
         removing.value ||
         preparingRemoval.value,
 );
+
+const sharing = ref(false);
+const shareSource = ref<ReadonlyCharacter | null>(null);
+const shareSheet = ref<InstanceType<typeof CharacterShareSheet>>();
+const shareDisabled = computed(() => sharing.value || editingDisabled.value || !!writeError.value);
+
+async function shareCharacter(character: ReadonlyCharacter) {
+    if (shareDisabled.value) return;
+    sharing.value = true;
+    try {
+        await copySharePng(async () => {
+            shareSource.value = character;
+            await nextTick();
+            const sheet = shareSheet.value?.sheet;
+            if (!sheet) throw new Error('角色页面已关闭');
+            const { renderCharacterShare } = await import('./characters/render-character-share');
+            const image = await renderCharacterShare(sheet, character);
+            if (!active) throw new Error('角色页面已关闭');
+            return image;
+        });
+        if (active) notify.success('角色图片已复制，可直接粘贴');
+    } catch (error) {
+        if (active) {
+            notify.error(`复制角色图片失败：${error instanceof Error ? error.message : String(error)}`);
+        }
+    } finally {
+        shareSource.value = null;
+        sharing.value = false;
+    }
+}
 
 function openEditor(character: ReadonlyCharacter, pane: PaneKey) {
     if (editingDisabled.value) return;
@@ -278,12 +310,15 @@ useRouteAction('/characters', {
                 :class="{ 'is-linked': route.query.character === character.id }"
                 :quick="!editingDisabled"
                 :disabled="editingDisabled"
+                :share-disabled="shareDisabled"
+                @share="shareCharacter(character)"
                 @edit="(pane) => openEditor(character, pane)"
                 @remove="askRemove(character)"
                 @quick="(target) => openQuick(character, target)"
             />
         </div>
 
+        <CharacterShareSheet v-if="shareSource" ref="shareSheet" :character="shareSource" />
         <CharacterEditor
             v-if="editing"
             :key="editing.character.id"

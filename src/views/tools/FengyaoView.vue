@@ -350,7 +350,9 @@ onBeforeUnmount(() => {
                             <div class="fy-details-body">
                                 <p v-if="status?.lastReadAt" class="meta">
                                     最近读取 {{ timeText(new Date(status.lastReadAt)) }} ·
-                                    {{ status.ocrMs }}ms
+                                    <span title="包含窗口捕获和文字识别，画面静止时保留上次读数">
+                                        耗时 {{ status.ocrMs }} ms
+                                    </span>
                                 </p>
                                 <pre v-if="status?.text.length" class="fy-transcript">{{
                                     status.text.join('\n')

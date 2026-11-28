@@ -713,12 +713,6 @@ export type WatchConfig_Serialize = {
 	region: MessageRegion,
 };
 
-export type WatchSummary = {
-	running: boolean,
-	error: string,
-	baselineReady: boolean,
-};
-
 export type WatchStatus = WatchStatus_Serialize | WatchStatus_Deserialize;
 
 export type WatchStatus_Deserialize = {
@@ -751,6 +745,12 @@ export type WatchStatus_Serialize = {
 	notificationError: string,
 	speechError: string,
 	rules: Rules,
+};
+
+export type WatchSummary = {
+	running: boolean,
+	error: string,
+	baselineReady: boolean,
 };
 
 /**

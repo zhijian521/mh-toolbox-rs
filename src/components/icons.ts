@@ -35,6 +35,7 @@ import {
     IconChevronDown,
     IconChevronLeft,
     IconChevronRight,
+    IconClipboardCopy,
     IconCoins,
     IconCopy,
     IconCreditCard,
@@ -142,6 +143,7 @@ const ICON_META = {
     trash: { glyph: IconTrash, label: '删除', group: 'action' },
     search: { glyph: IconSearch, label: '搜索', group: 'action' },
     archive: { glyph: IconArchive, label: '归档', group: 'action' },
+    clipboardCopy: { glyph: IconClipboardCopy, label: '复制到剪贴板', group: 'action' },
     // 方向按**文件**走，不按「数据流」走：导出是把账写成一份文件拿走（箭头朝下落到纸面），
     // 导入是把一份文件读回来（箭头朝上离开纸面）。两枚并排时方向相反才读得出是一进一出，
     // 用同一个盒子图标会读成两个一样的动作。
