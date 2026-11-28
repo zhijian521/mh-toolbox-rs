@@ -117,7 +117,7 @@ pub struct ProbeResult {
     pub dpi: u32,
     /// 行坐标已除回放大倍数，等于 ROI 内的像素偏移。
     pub lines: Vec<TextLine>,
-    /// 这一帧是哪个引擎认的：`paddle` / `windows`。
+    /// 这一帧是哪个引擎认的：`ncnn` / `paddle` / `windows`。
     /// 显示在「识别原文」标题上——两个引擎的错法完全不同，排查时先要知道看的是谁的输出。
     pub engine: String,
     /// 进命令到拿到底图：含窗口枚举、ROI 换算与 BitBlt。
@@ -160,7 +160,11 @@ pub fn ghost_windows() -> Vec<screen::WindowInfo> {
 /// 静默成功会让前端显示「监听中」却一直读到空文本，比直接报错难查得多。
 #[tauri::command(async)]
 #[specta::specta]
-pub fn ghost_probe(hwnd: Option<i64>, roi: Option<Roi>) -> Result<ProbeResult, String> {
+pub fn ghost_probe(
+    hwnd: Option<i64>,
+    roi: Option<Roi>,
+    fast_ocr: Option<bool>,
+) -> Result<ProbeResult, String> {
     let roi = roi.unwrap_or_default();
 
     // 计时从进命令就开始，把窗口枚举也算进 `grab_ms`：枚举一次要过一遍全部可见窗口，
@@ -204,7 +208,7 @@ pub fn ghost_probe(hwnd: Option<i64>, roi: Option<Roi>) -> Result<ProbeResult, S
     }
 
     let ocr_started = std::time::Instant::now();
-    let (lines, engine) = read_lines(&frame, scale)?;
+    let (lines, engine) = read_lines(&frame, scale, fast_ocr.unwrap_or(false))?;
     let ocr_ms = ocr_started.elapsed().as_millis() as u64;
 
     Ok(ProbeResult {
@@ -232,7 +236,18 @@ pub fn ghost_probe(hwnd: Option<i64>, roi: Option<Roi>) -> Result<ProbeResult, S
 /// 日志里打一行就够，不必在界面上再区分一遍。
 ///
 /// 返回的坐标都已经除回放大倍数，等于 ROI 内的像素偏移。
-fn read_lines(frame: &screen::Frame, scale: u32) -> Result<(Vec<TextLine>, &'static str), String> {
+fn read_lines(
+    frame: &screen::Frame,
+    scale: u32,
+    fast: bool,
+) -> Result<(Vec<TextLine>, &'static str), String> {
+    if fast {
+        if let Some(lines) =
+            ocr_paddle::ncnn::foreground(&frame.bgra, frame.width, frame.height, scale)
+        {
+            return Ok((lines, "ncnn"));
+        }
+    }
     match ocr_paddle::recognize(&frame.bgra, frame.width, frame.height, scale) {
         Ok(lines) => Ok((lines, "paddle")),
         Err(err) => {
@@ -379,7 +394,7 @@ mod tests {
         // 这把尺子的用处是回答「用户这一刻会看到什么」，所以引擎怎么选、退路怎么走
         // 都要和线上一致。只测 `ocr::recognize` 会得到一个永远通过、却和线上无关的结论。
         let ocr_started = std::time::Instant::now();
-        let (lines, engine) = read_lines(&frame, roi.scale).expect("OCR 失败");
+        let (lines, engine) = read_lines(&frame, roi.scale, false).expect("OCR 失败");
         println!(
             "OCR {}ms（引擎 {engine}，×{} 放大）",
             ocr_started.elapsed().as_millis(),

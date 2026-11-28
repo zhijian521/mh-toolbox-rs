@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex, MutexGuard, OnceLock};
 
 const QUEUE_LIMIT: usize = 8;
+type PlaybackStart = Arc<OnceLock<std::time::Instant>>;
 type Receipt = mpsc::Sender<Result<(), String>>;
 
 struct Job {
@@ -14,6 +15,7 @@ struct Job {
     text: String,
     cancelled: Arc<AtomicBool>,
     receipt: Option<Receipt>,
+    playback_start: Option<PlaybackStart>,
 }
 
 #[derive(Default)]
@@ -52,20 +54,27 @@ pub(crate) fn error(source: &'static str) -> String {
     queue().errors.get(source).cloned().unwrap_or_default()
 }
 
-pub(crate) fn announce(source: &'static str, text: String) {
-    if let Err(error) = enqueue(source, text, None) {
+pub(crate) fn announce(source: &'static str, text: String) -> PlaybackStart {
+    let started = PlaybackStart::default();
+    if let Err(error) = enqueue(source, text, None, Some(started.clone())) {
         queue().errors.insert(source, error);
     }
+    started
 }
 
 pub(crate) fn preview(source: &'static str, sample: &str) -> Result<(), String> {
     let (tx, rx) = mpsc::channel();
-    enqueue(source, sample.into(), Some(tx))?;
+    enqueue(source, sample.into(), Some(tx), None)?;
     // 排队期间被取消也是正常结束。
     rx.recv().unwrap_or(Ok(()))
 }
 
-fn enqueue(source: &'static str, text: String, receipt: Option<Receipt>) -> Result<(), String> {
+fn enqueue(
+    source: &'static str,
+    text: String,
+    receipt: Option<Receipt>,
+    playback_start: Option<PlaybackStart>,
+) -> Result<(), String> {
     let mut q = queue();
     if receipt.is_some() && (q.active.is_some() || !q.pending.is_empty()) {
         return Err("正在播报，请稍后试听".into());
@@ -85,6 +94,7 @@ fn enqueue(source: &'static str, text: String, receipt: Option<Receipt>) -> Resu
         text: text.chars().take(160).collect(),
         cancelled: Arc::default(),
         receipt,
+        playback_start,
     });
     Ok(())
 }
@@ -131,6 +141,7 @@ mod tests {
             source,
             text: String::from("提醒"),
             receipt: None,
+            playback_start: None,
             cancelled: Arc::default(),
         };
         let playing = Arc::new(AtomicBool::new(false));

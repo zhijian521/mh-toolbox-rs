@@ -16,6 +16,10 @@
 //! 最后减掉 padding 还原）。它**只缩不放**：`max_side_len` 大于原图长边时按原图跑。
 //! 所以「放大到能认」必须自己先做，见 `recognize` 的 `scale` 参数。
 
+pub mod chat;
+#[cfg(windows)]
+pub mod ncnn;
+
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
@@ -51,6 +55,13 @@ pub const MAX_SCALE: u32 = 4;
 
 /// 截图识别那条链的上限。为什么它能到 6 而捉鬼那条不能：见 `recognize_image`。
 pub const MAX_IMAGE_SCALE: u32 = 6;
+
+/// 与原生 OCR2 的输入预算一致，先校验尺寸再分配 BGRA 缓冲区。
+pub(super) fn bgra_bytes(width: u32, height: u32) -> Option<usize> {
+    let area = u64::from(width) * u64::from(height);
+    (width.max(height) <= 16384 && (1..=16 * 1024 * 1024).contains(&area))
+        .then(|| area as usize * 4)
+}
 
 /// 模型目录由 `lib.rs` 在启动时注入（开发时是 `<manifest>/models`，
 /// 打包后是资源目录）。放 `OnceLock` 而不是配置项：目录在进程生命周期里不会变。
@@ -251,42 +262,48 @@ fn run(
         .map_err(|err| format!("OCR 推理失败：{err}"))?;
     drop(ocr);
 
-    let factor = scale as f32;
-    let mut out: Vec<TextLine> = result
+    let mut out: Vec<_> = result
         .text_blocks
         .into_iter()
-        .filter_map(|block| {
-            let text = block.text.trim().to_string();
-            if text.is_empty() || block.text_score < MIN_SCORE {
-                return None;
-            }
-            // 四个角点取外接矩形。任务是单列排版，外接框就是这一行的范围。
-            let (mut x0, mut y0) = (u32::MAX, u32::MAX);
-            let (mut x1, mut y1) = (0u32, 0u32);
-            for point in &block.box_points {
-                x0 = x0.min(point.x);
-                y0 = y0.min(point.y);
-                x1 = x1.max(point.x);
-                y1 = y1.max(point.y);
-            }
-            if x0 == u32::MAX {
-                return None;
-            }
-            Some(TextLine {
-                text,
-                x: (x0 as f32 / factor) as i32,
-                y: (y0 as f32 / factor) as i32,
-                width: ((x1 - x0) as f32 / factor) as i32,
-                height: ((y1 - y0) as f32 / factor) as i32,
-                score: block.text_score,
-            })
-        })
+        .filter_map(|block| text_line(&block.box_points, &block.text, block.text_score, scale, 0))
         .collect();
 
     // 按 y 排：任务是单列，排完保证「同一块的行挨在一起」。
     // 同一行被检测成两段时按 x 排，免得右半截跑到左半截前面。
     out.sort_by(|a, b| a.y.cmp(&b.y).then(a.x.cmp(&b.x)));
     Ok(out)
+}
+
+/// 检测框坐标换回原图。直接使用检测网络时，框坐标仍包含模型的留白。
+fn text_line(
+    points: &[paddle_ocr_rs::ocr_result::Point],
+    text: &str,
+    score: f32,
+    scale: u32,
+    padding: u32,
+) -> Option<TextLine> {
+    let text = text.trim();
+    if points.is_empty() || text.is_empty() || score < MIN_SCORE {
+        return None;
+    }
+    let (mut x0, mut y0) = (u32::MAX, u32::MAX);
+    let (mut x1, mut y1) = (0, 0);
+    for point in points {
+        let x = point.x.saturating_sub(padding);
+        let y = point.y.saturating_sub(padding);
+        x0 = x0.min(x);
+        y0 = y0.min(y);
+        x1 = x1.max(x);
+        y1 = y1.max(y);
+    }
+    Some(TextLine {
+        text: text.to_owned(),
+        x: (x0 / scale) as i32,
+        y: (y0 / scale) as i32,
+        width: ((x1 - x0) / scale) as i32,
+        height: ((y1 - y0) / scale) as i32,
+        score,
+    })
 }
 
 /// BGRA → RGB，同时按整数倍放大。

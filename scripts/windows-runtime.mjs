@@ -12,6 +12,15 @@ const REQUIRED_RESOURCES = [
     'models/ch_ppocr_mobile_v2.0_cls_infer.onnx',
     'models/ch_PP-OCRv4_rec_infer.onnx',
     'models/ppocr_keys_v1.txt',
+    'models/chat-ncnn/chat-ocr.exe',
+    'models/chat-ncnn/vcomp140.dll',
+    'models/chat-ncnn/ch_PP-OCRv3_det_infer.param',
+    'models/chat-ncnn/ch_PP-OCRv3_det_infer.bin',
+    'models/chat-ncnn/ch_ppocr_mobile_v2.0_cls_infer.param',
+    'models/chat-ncnn/ch_ppocr_mobile_v2.0_cls_infer.bin',
+    'models/chat-ncnn/ch_PP-OCRv3_rec_infer.param',
+    'models/chat-ncnn/ch_PP-OCRv3_rec_infer.bin',
+    'models/chat-ncnn/NOTICES.txt',
     'DirectML.dll',
     ...REQUIRED_CRT,
 ];
@@ -38,7 +47,7 @@ export function validateWindowsResources(resources) {
         destinations.add(key);
         const stat = fs.statSync(file);
         if (!stat.isFile() || stat.size === 0) throw new Error(`安装资源为空或不是文件：${file}`);
-        if (/\.dll$/i.test(destination)) assertX64Binary(file);
+        if (/\.(dll|exe)$/i.test(destination)) assertX64Binary(file);
     }
     for (const name of REQUIRED_RESOURCES) {
         if (!destinations.has(name.toLowerCase())) throw new Error(`安装包缺少必需资源：${name}`);

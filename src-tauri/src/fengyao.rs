@@ -7,7 +7,8 @@ use announcements::{candidates, SeenMessages};
 use std::collections::HashMap;
 #[cfg(windows)]
 use std::ops::Range;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 
@@ -86,6 +87,8 @@ pub struct WatchConfig {
     pub hwnd: i64,
     #[serde(default)]
     pub speech_enabled: bool,
+    #[serde(default)]
+    pub fast_ocr: bool,
     pub reminders: Vec<ReminderFilter>,
     pub region: MessageRegion,
 }
@@ -153,6 +156,10 @@ pub struct WatchStatus {
     last_read_at: i64,
     checked_at: i64,
     ocr_ms: u32,
+    frame_wait_ms: u32,
+    engine: String,
+    engine_fallback: Option<String>,
+    alert_timing: Option<AlertTiming>,
     baseline_ready: bool,
     alerts: Vec<SpawnAlert>,
     notification_error: String,
@@ -171,6 +178,10 @@ impl Default for WatchStatus {
             last_read_at: 0,
             checked_at: 0,
             ocr_ms: 0,
+            frame_wait_ms: 0,
+            engine: String::new(),
+            engine_fallback: None,
+            alert_timing: None,
             baseline_ready: false,
             alerts: Vec::new(),
             notification_error: String::new(),
@@ -180,8 +191,46 @@ impl Default for WatchStatus {
     }
 }
 
+#[derive(Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+struct AlertTiming {
+    matched_ms: u32,
+    playback_ms: Option<u32>,
+    playback_p95_ms: Option<u32>,
+    playback_samples: usize,
+}
+
+struct TimedMatch {
+    arrived: Instant,
+    matched_ms: u32,
+    playback: Arc<OnceLock<Instant>>,
+}
+
+fn timing(samples: &std::collections::VecDeque<TimedMatch>) -> Option<AlertTiming> {
+    let last = samples.back()?;
+    let playback_ms = |sample: &TimedMatch| {
+        sample
+            .playback
+            .get()
+            .map(|at| at.duration_since(sample.arrived).as_millis() as u32)
+    };
+    let mut played: Vec<_> = samples.iter().filter_map(playback_ms).collect();
+    played.sort_unstable();
+    let p95 = (played.len() * 95)
+        .div_ceil(100)
+        .checked_sub(1)
+        .map(|index| played[index]);
+    Some(AlertTiming {
+        matched_ms: last.matched_ms,
+        playback_ms: playback_ms(last),
+        playback_p95_ms: p95,
+        playback_samples: played.len(),
+    })
+}
+
 #[derive(Default)]
 struct Runtime {
+    timings: std::collections::VecDeque<TimedMatch>,
     generation: u64,
     status: WatchStatus,
     seen: HashMap<ReminderKind, SeenMessages>,
@@ -241,6 +290,7 @@ pub fn fengyao_summary() -> Result<WatchSummary, String> {
 pub fn fengyao_status() -> Result<WatchStatus, String> {
     let state = runtime().lock().map_err(|_| "监听状态不可读，请重启应用")?;
     let mut status = state.status.clone();
+    status.alert_timing = timing(&state.timings);
     status.speech_error = crate::speech::error(SPEECH_SOURCE);
     Ok(status)
 }
@@ -315,6 +365,7 @@ pub fn fengyao_start(app: tauri::AppHandle, config: WatchConfig) -> Result<Watch
         let generation = state.generation;
         crate::speech::cancel(SPEECH_SOURCE);
         state.seen.clear();
+        state.timings.clear();
         state.status = WatchStatus {
             running: true,
             config: Some(config.clone()),
@@ -495,7 +546,7 @@ fn read_changed_bands(
     pixels: &[u8],
     width: u32,
     changed: &[Range<usize>],
-    read: &impl Fn(&[u8], u32, u32) -> Result<Vec<crate::ocr::TextLine>, String>,
+    read: &mut impl FnMut(&[u8], u32, u32) -> Result<Vec<crate::ocr::TextLine>, String>,
 ) -> Option<Vec<crate::ocr::TextLine>> {
     let stride = width as usize * 4;
     let height = pixels.len() / stride;
@@ -518,7 +569,12 @@ fn read_changed_bands(
                 rows.len() as u32,
             )
             .ok()?;
-            if band.is_empty() && previous.lines.iter().any(|line| line_intersects(line, rows)) {
+            if band.is_empty()
+                && previous
+                    .lines
+                    .iter()
+                    .any(|line| line_intersects(line, rows))
+            {
                 return None;
             }
             if band.iter().any(|line| {
@@ -555,14 +611,14 @@ fn recognize_chat_frame(
     pixels: Vec<u8>,
     width: u32,
     height: u32,
-    read: impl Fn(&[u8], u32, u32) -> Result<Vec<crate::ocr::TextLine>, String>,
+    mut read: impl FnMut(&[u8], u32, u32) -> Result<Vec<crate::ocr::TextLine>, String>,
 ) -> Result<Option<ChatFrame>, String> {
     let updated = if let Some(previous) = previous {
         let changes = changed_bands(&previous.pixels, &pixels, width as usize * 4);
         if changes.is_empty() {
             return Ok(None);
         }
-        read_changed_bands(previous, &pixels, width, &changes, &read)
+        read_changed_bands(previous, &pixels, width, &changes, &mut read)
     } else {
         None
     };
@@ -583,9 +639,10 @@ fn now_ms() -> i64 {
 
 #[cfg(windows)]
 fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     let mut capture = None;
+    let mut chat_ocr = None;
     let mut previous = None;
     loop {
         if !runtime()
@@ -594,19 +651,22 @@ fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
         {
             return;
         }
-        let started = Instant::now();
+        let mut arrived = None;
+        let mut ocr_start = None;
+        let mut ocr_duration = Duration::ZERO;
         let read = (|| -> Result<Option<ChatFrame>, String> {
             if capture.is_none() {
                 capture = Some(crate::window_capture::WindowCapture::open(config.hwnd)?);
             }
-            let frame = match capture.as_ref().ok_or("捕获尚未建立")?.frame() {
-                Ok(frame) => frame,
-                // 静止聊天窗没有新帧是正常等待，不能清掉基线后漏报下一条公告。
-                Err(error) if previous.is_some() && error.contains("捕获超时") => {
-                    return Ok(None);
-                }
-                Err(error) => return Err(error),
+            let Some((at, frame)) = capture.as_ref().ok_or("捕获尚未建立")?.next_frame()?
+            else {
+                return if previous.is_some() {
+                    Ok(None)
+                } else {
+                    Err("等待聊天窗口首帧超时".into())
+                };
             };
+            arrived = Some(at);
             if frame.is_blank() {
                 return Err("聊天窗口画面不可见，暂停读取；请还原窗口".into());
             }
@@ -625,7 +685,14 @@ fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
                 pixels
             };
             recognize_chat_frame(previous.as_ref(), pixels, r.width, r.height, |buf, w, h| {
-                crate::ocr_paddle::recognize(buf, w, h, 2)
+                let started = Instant::now();
+                ocr_start.get_or_insert(started);
+                let engine = chat_ocr.get_or_insert_with(|| {
+                    crate::ocr_paddle::ncnn::Recognizer::open(config.fast_ocr)
+                });
+                let lines = engine.recognize(buf, w, h);
+                ocr_duration += started.elapsed();
+                lines
             })
         })()
         .map(|frame| frame.map(|frame| (message_rows(frame.lines.clone()), frame)));
@@ -635,7 +702,9 @@ fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
         if state.generation != generation || !state.status.running {
             return;
         }
-        let recognized = read.as_ref().is_ok_and(Option::is_some);
+        // 静态游戏也可能持续呈帧。只在连续相同画面后限频，刷屏时立即读最新帧。
+        let unchanged = arrived.is_some() && matches!(&read, Ok(None));
+        let failed = read.is_err();
         match read {
             Ok(result) => {
                 state.status.error.clear();
@@ -657,13 +726,24 @@ fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
                     alerts.sort_by_key(|(index, _)| *index);
                     state.status.text = text;
                     state.status.last_read_at = now;
-                    state.status.ocr_ms = started.elapsed().as_millis() as u32;
+                    state.status.ocr_ms = ocr_duration.as_millis() as u32;
+                    let at = arrived.expect("识别结果来自捕获帧");
+                    state.status.frame_wait_ms =
+                        ocr_start.unwrap_or(at).duration_since(at).as_millis() as u32;
+                    if let Some(engine) = &chat_ocr {
+                        state.status.engine = engine.label().into();
+                        state.status.engine_fallback.clone_from(&engine.fallback);
+                    }
+                    let matched_ms = at.elapsed().as_millis() as u32;
+                    let mut playback = None;
                     state.status.baseline_ready = true;
-                    state.status.title = crate::screen::list_windows()
-                        .into_iter()
-                        .find(|w| w.hwnd == config.hwnd)
-                        .map(|w| w.title)
-                        .unwrap_or_default();
+                    if state.status.title.is_empty() {
+                        state.status.title = crate::screen::list_windows()
+                            .into_iter()
+                            .find(|w| w.hwnd == config.hwnd)
+                            .map(|w| w.title)
+                            .unwrap_or_default();
+                    }
                     if state
                         .status
                         .config
@@ -671,8 +751,19 @@ fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
                         .is_some_and(|cfg| cfg.speech_enabled)
                     {
                         for text in spoken_alerts(&alerts) {
-                            crate::speech::announce(SPEECH_SOURCE, text);
+                            let started = crate::speech::announce(SPEECH_SOURCE, text);
+                            playback.get_or_insert(started);
                         }
+                    }
+                    if !alerts.is_empty() {
+                        if state.timings.len() == 32 {
+                            state.timings.pop_front();
+                        }
+                        state.timings.push_back(TimedMatch {
+                            arrived: at,
+                            matched_ms,
+                            playback: playback.unwrap_or_default(),
+                        });
                     }
                     for (_, alert) in alerts {
                         let title = if alert.scene.is_empty() {
@@ -704,15 +795,11 @@ fn watch(app: tauri::AppHandle, config: WatchConfig, generation: u64) {
             }
         }
         drop(state);
-        let interval = if previous.is_some() { 550 } else { 900 };
-        let remaining = Duration::from_millis(interval).saturating_sub(started.elapsed());
-        // 持续滚屏时给共享 OCR 引擎留出间隔；捕获会直接取最新画面。
-        let pause = if recognized {
-            remaining.max(Duration::from_millis(180))
-        } else {
-            remaining
-        };
-        std::thread::sleep(pause);
+        if failed {
+            std::thread::sleep(Duration::from_millis(900));
+        } else if unchanged {
+            std::thread::sleep(Duration::from_millis(50));
+        }
     }
 }
 
@@ -740,10 +827,36 @@ fn spoken_alerts(alerts: &[(usize, SpawnAlert)]) -> Vec<String> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn playback_latency_ignores_alerts_that_never_played() {
+        let at = Instant::now();
+        let started = Arc::new(OnceLock::from(at + std::time::Duration::from_millis(310)));
+        let samples = [
+            TimedMatch {
+                arrived: at,
+                matched_ms: 110,
+                playback: started,
+            },
+            TimedMatch {
+                arrived: at,
+                matched_ms: 90,
+                playback: Arc::default(),
+            },
+        ]
+        .into();
+        let latest = timing(&samples).unwrap();
+        assert_eq!((latest.matched_ms, latest.playback_ms), (90, None));
+        assert_eq!(
+            (latest.playback_samples, latest.playback_p95_ms),
+            (1, Some(310))
+        );
+    }
+
     fn config() -> WatchConfig {
         WatchConfig {
             hwnd: 1,
             speech_enabled: false,
+            fast_ocr: false,
             reminders: vec![ReminderFilter {
                 kind: ReminderKind::Fengyao,
                 scenes: vec![],
@@ -860,7 +973,10 @@ mod tests {
         .unwrap();
         assert!(frame.lines.iter().any(|line| line.y == 100));
         let messages = message_rows(frame.lines);
-        assert_eq!(candidates(&messages, &config().reminders[0])[0].scene, "碗子山");
+        assert_eq!(
+            candidates(&messages, &config().reminders[0])[0].scene,
+            "碗子山"
+        );
     }
 
     #[cfg(windows)]
@@ -883,7 +999,11 @@ mod tests {
         let mut pixels = previous.pixels.clone();
         pixels[110 * stride] = 1;
         let frame = recognize_chat_frame(Some(&previous), pixels, width, height, |_, _, h| {
-            Ok(if h == height { previous.lines.clone() } else { Vec::new() })
+            Ok(if h == height {
+                previous.lines.clone()
+            } else {
+                Vec::new()
+            })
         })
         .unwrap()
         .unwrap();
@@ -959,7 +1079,10 @@ mod tests {
                 assert_eq!(message_rows(frame.lines), ["整帧结果"]);
             } else {
                 assert_eq!(calls, [49, 49, 97][..2 + clipped_reads]);
-                assert_eq!(message_rows(frame.lines), ["上方更新", "保留的文字", "下方更新"]);
+                assert_eq!(
+                    message_rows(frame.lines),
+                    ["上方更新", "保留的文字", "下方更新"]
+                );
             }
         }
     }

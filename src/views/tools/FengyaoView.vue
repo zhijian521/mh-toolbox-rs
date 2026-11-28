@@ -350,9 +350,27 @@ onBeforeUnmount(() => {
                             <div class="fy-details-body">
                                 <p v-if="status?.lastReadAt" class="meta">
                                     最近读取 {{ timeText(new Date(status.lastReadAt)) }} ·
-                                    <span title="包含窗口捕获和文字识别，画面静止时保留上次读数">
-                                        耗时 {{ status.ocrMs }} ms
-                                    </span>
+                                    {{ status.engine }} · 帧等待 {{ status.frameWaitMs }} ms · 识别
+                                    {{ status.ocrMs }} ms
+                                </p>
+                                <p
+                                    v-if="status?.engineFallback"
+                                    class="note"
+                                    :title="status.engineFallback"
+                                >
+                                    Vulkan 不可用，本次监听已切回 PP-OCRv4。
+                                </p>
+                                <p v-if="status?.alertTiming" class="meta">
+                                    最近提醒 · 取帧到匹配 {{ status.alertTiming.matchedMs }} ms
+                                    <template v-if="status.alertTiming.playbackMs != null">
+                                        · 取帧到开播 {{ status.alertTiming.playbackMs }} ms
+                                    </template>
+                                </p>
+                                <p v-if="status?.alertTiming?.playbackP95Ms != null" class="meta">
+                                    开播延迟 P95 {{ status.alertTiming.playbackP95Ms }} ms （{{
+                                        status.alertTiming.playbackSamples
+                                    }}
+                                    次）
                                 </p>
                                 <pre v-if="status?.text.length" class="fy-transcript">{{
                                     status.text.join('\n')

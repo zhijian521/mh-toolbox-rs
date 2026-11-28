@@ -54,7 +54,7 @@ export const commands = {
 	 *  `hwnd` 为空时自动挑一个标题像梦幻的窗口；挑不到返回错误而不是静默成功——
 	 *  静默成功会让前端显示「监听中」却一直读到空文本，比直接报错难查得多。
 	 */
-	ghostProbe: (hwnd: number | null, roi: Roi_Deserialize | null) => __TAURI_INVOKE<ProbeResult>("ghost_probe", { hwnd, roi }),
+	ghostProbe: (hwnd: number | null, roi: Roi_Deserialize | null, fastOcr: boolean | null) => __TAURI_INVOKE<ProbeResult>("ghost_probe", { hwnd, roi, fastOcr }),
 	/**
 	 *  识别一张图。
 	 * 
@@ -68,7 +68,7 @@ export const commands = {
 	 *  命令写成 `async fn`（而不是 `#[tauri::command(async)]` + 同步函数）：这里要 `.await`
 	 *  那个 `spawn_blocking`，同步函数里根本写不出 `await`。
 	 */
-	ocrFrame: (pixels: string, width: number, height: number) => __TAURI_INVOKE<TextLine[]>("ocr_frame", { pixels, width, height }),
+	ocrFrame: (pixels: string, width: number, height: number, fastOcr: boolean | null) => __TAURI_INVOKE<TextLine[]>("ocr_frame", { pixels, width, height, fastOcr }),
 	/**
 	 *  导出：系统「另存为」对话框选位置，写一份 JSON。
 	 * 
@@ -261,6 +261,22 @@ export type AccountEntry_Serialize = {
 	amount: number | null,
 	note: string,
 	createdAt: number,
+};
+
+export type AlertTiming = AlertTiming_Serialize | AlertTiming_Deserialize;
+
+export type AlertTiming_Deserialize = {
+	matchedMs: number,
+	playbackMs?: number | null,
+	playbackP95Ms?: number | null,
+	playbackSamples: number,
+};
+
+export type AlertTiming_Serialize = {
+	matchedMs: number,
+	playbackMs: number | null,
+	playbackP95Ms: number | null,
+	playbackSamples: number,
 };
 
 /**
@@ -526,7 +542,7 @@ export type ProbeResult = {
 	/**  行坐标已除回放大倍数，等于 ROI 内的像素偏移。 */
 	lines: TextLine[],
 	/**
-	 *  这一帧是哪个引擎认的：`paddle` / `windows`。
+	 *  这一帧是哪个引擎认的：`ncnn` / `paddle` / `windows`。
 	 *  显示在「识别原文」标题上——两个引擎的错法完全不同，排查时先要知道看的是谁的输出。
 	 */
 	engine: string,
@@ -702,6 +718,7 @@ export type WatchConfig = WatchConfig_Serialize | WatchConfig_Deserialize;
 export type WatchConfig_Deserialize = {
 	hwnd: number,
 	speechEnabled?: boolean,
+	fastOcr?: boolean,
 	reminders: ReminderFilter[],
 	region: MessageRegion,
 };
@@ -709,6 +726,7 @@ export type WatchConfig_Deserialize = {
 export type WatchConfig_Serialize = {
 	hwnd: number,
 	speechEnabled: boolean,
+	fastOcr: boolean,
 	reminders: ReminderFilter[],
 	region: MessageRegion,
 };
@@ -724,6 +742,10 @@ export type WatchStatus_Deserialize = {
 	lastReadAt: number,
 	checkedAt: number,
 	ocrMs: number,
+	frameWaitMs: number,
+	engine: string,
+	engineFallback?: string | null,
+	alertTiming?: AlertTiming_Deserialize | null,
 	baselineReady: boolean,
 	alerts: SpawnAlert_Deserialize[],
 	notificationError: string,
@@ -740,6 +762,10 @@ export type WatchStatus_Serialize = {
 	lastReadAt: number,
 	checkedAt: number,
 	ocrMs: number,
+	frameWaitMs: number,
+	engine: string,
+	engineFallback: string | null,
+	alertTiming: AlertTiming_Serialize | null,
 	baselineReady: boolean,
 	alerts: SpawnAlert_Serialize[],
 	notificationError: string,

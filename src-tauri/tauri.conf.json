@@ -22,6 +22,7 @@
         "resources": [
             "models/*.onnx",
             "models/*.txt",
+            "models/chat-ncnn/*",
             "../assets/fonts/*OFL*.txt",
             "../assets/textures/wallpaper-previews/ATTRIBUTION.txt"
         ],

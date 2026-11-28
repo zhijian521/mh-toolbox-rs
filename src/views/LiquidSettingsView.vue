@@ -20,6 +20,8 @@ import { useAppInfo } from '../composables/use-app-info';
 import { WALLPAPER_CDN } from '../services/xyq-wallpapers';
 import LiquidWallpaperPicker from './settings/LiquidWallpaperPicker.vue';
 import SettingsRow from './settings/SettingsRow.vue';
+import FastOcrSetting from './settings/FastOcrSetting.vue';
+import GlassSmallSwitch from '../components/liquid-glass/GlassSmallSwitch.vue';
 import AppShellSwitch from './settings/AppShellSwitch.vue';
 import catalog from './settings/xyq-wallpapers.json';
 
@@ -231,6 +233,17 @@ function applyWallpaper(url: string) {
                             >
                         </template>
                     </AppNotice>
+                </GlassCard>
+                <GlassCard class="liquid-settings-panel" :radius="16" aria-labelledby="ocr-heading">
+                    <header class="card-heading"><h2 id="ocr-heading">文字识别</h2></header>
+                    <FastOcrSetting v-slot="{ enabled, change }">
+                        <GlassSmallSwitch
+                            :checked="enabled"
+                            aria-label="快速识别（实验）"
+                            aria-describedby="fast-ocr-help"
+                            @update:checked="change"
+                        />
+                    </FastOcrSetting>
                 </GlassCard>
                 <GlassCard
                     class="liquid-settings-panel settings-about"

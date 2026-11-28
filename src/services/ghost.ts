@@ -1,3 +1,4 @@
+import { readOcrPreference } from './ocr-preference';
 import { commands } from './bindings';
 
 /**
@@ -68,7 +69,7 @@ export interface ProbeResult {
     roiWidth: number;
     roiHeight: number;
     lines: OcrLine[];
-    /** 这一帧是哪个引擎认的：`paddle`（PaddleOCR）或 `windows`（系统自带）。 */
+    /** 这一帧是哪个引擎认的：`ncnn`（Vulkan）、`paddle`（PaddleOCR）或 `windows`（系统自带）。 */
     engine: string;
     /** 目标窗口所在显示器的有效 DPI：96 = 100%，144 = 150%。ROI 按它换算。 */
     dpi: number;
@@ -123,7 +124,7 @@ export async function probeGhostTask(
     hwnd: number | null,
     roi: Roi = DEFAULT_ROI,
 ): Promise<ProbeResult> {
-    const result = await commands.ghostProbe(hwnd, roi);
+    const result = await commands.ghostProbe(hwnd, roi, readOcrPreference().enabled);
     /* 生成物把 `score` 标成 `number | null`：浮点在 JSON 里可能是 null
      * （`NaN` / `Infinity` 装不下，serde 会写成 null，见 `ocr.rs` 那段）。
      * 这个字段实际上只会是 OCR 给出的有限数，缺省时是 0——在这里收窄一次，

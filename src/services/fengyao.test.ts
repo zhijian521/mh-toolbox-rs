@@ -45,6 +45,21 @@ describe('提醒助手偏好持久化', () => {
         expect(readFengyaoPreferences()).toEqual({ ok: true, value: disabled });
     });
 
+    it('快速识别迁移写入失败时，仍能保存监听设置并保留旧选择', () => {
+        const entries = new Map([[key, JSON.stringify({ ...preferences, fastOcr: true })]]);
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        vi.stubGlobal('localStorage', {
+            getItem: (name: string) => entries.get(name) ?? null,
+            setItem: (name: string, value: string) => {
+                if (name !== key) throw new Error('空间不足');
+                entries.set(name, value);
+            },
+        });
+        expect(saveFengyaoPreferences(disabled)).toBe(true);
+        expect(readFengyaoPreferences()).toEqual({ ok: true, value: disabled });
+        expect(JSON.parse(entries.get(key)!)).toMatchObject({ fastOcr: true });
+    });
+
     it('迁移旧设置时保留封妖地图和各类型开关，忽略旧选区与其他地图限制', () => {
         let raw = JSON.stringify(legacy);
         vi.stubGlobal('localStorage', {
@@ -156,6 +171,10 @@ describe('总览按上次设置启动提醒助手', () => {
         lastReadAt: 0,
         checkedAt: 0,
         ocrMs: 0,
+        engine: '',
+        engineFallback: null,
+        frameWaitMs: 0,
+        alertTiming: null,
         baselineReady: false,
         alerts: [],
         notificationError: '',
@@ -187,8 +206,12 @@ describe('总览按上次设置启动提醒助手', () => {
     it('找回聊天窗口句柄，沿用地图设置并忽略旧选区', async () => {
         const session = mockSession();
         vi.stubGlobal('localStorage', {
-            getItem: () =>
-                JSON.stringify({ ...preferences, speechEnabled: true, region: legacy.region }),
+            getItem: (name: string) =>
+                name === key
+                    ? JSON.stringify({ ...preferences, speechEnabled: true, region: legacy.region })
+                    : name === 'mh-fast-ocr'
+                      ? 'true'
+                      : null,
         });
         await expect(startSavedFengyao()).resolves.toMatchObject({
             started: true,
@@ -197,6 +220,7 @@ describe('总览按上次设置启动提醒助手', () => {
         expect(session.capture).toHaveBeenCalledWith(window.hwnd);
         expect(session.start).toHaveBeenCalledExactlyOnceWith({
             hwnd: window.hwnd,
+            fastOcr: true,
             speechEnabled: true,
             reminders: activeReminders(preferences.reminders),
             region,
@@ -212,6 +236,7 @@ describe('总览按上次设置启动提醒助手', () => {
         });
         expect(session.start).toHaveBeenCalledExactlyOnceWith({
             hwnd: window.hwnd,
+            fastOcr: false,
             speechEnabled: false,
             reminders: activeReminders(preferences.reminders),
             region: { x: 0, y: 0, width: 900, height: 700, frameWidth: 900, frameHeight: 700 },
@@ -234,6 +259,7 @@ describe('总览按上次设置启动提醒助手', () => {
         });
         expect(session.start).toHaveBeenCalledExactlyOnceWith({
             hwnd: window.hwnd,
+            fastOcr: false,
             speechEnabled: false,
             reminders: [{ kind: 'yiguan', scenes: [] }],
             region,

@@ -1,10 +1,12 @@
 //! 捕获指定游戏窗口本身，避免屏幕 DC 把遮挡物当成游戏消息。
 
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
+use windows::Foundation::TypedEventHandler;
 
 use windows::core::Interface;
 use windows::Graphics::Capture::{
-    Direct3D11CaptureFramePool, GraphicsCaptureItem, GraphicsCaptureSession,
+    Direct3D11CaptureFrame, Direct3D11CaptureFramePool, GraphicsCaptureItem, GraphicsCaptureSession,
 };
 use windows::Graphics::DirectX::Direct3D11::IDirect3DDevice;
 use windows::Graphics::DirectX::DirectXPixelFormat;
@@ -39,13 +41,22 @@ fn frame_dimensions(
     if width <= 0 || height <= 0 || width as u32 > texture_width || height as u32 > texture_height {
         return Err(windows::core::Error::new(
             windows::core::HRESULT(0x80070057u32 as i32),
-            "游戏窗口尺寸已变化，请停止并重新框选消息区域",
+            "游戏窗口尺寸已变化，请停止后重新开始监听",
         ));
     }
     Ok((width as u32, height as u32))
 }
 
+// 回调仅接收 GPU 帧。OCR 忙时替换旧帧，只有消费者才把最终选中的纹理复制到 CPU。
+#[derive(Default)]
+struct LatestFrame {
+    frame: Mutex<Option<(Instant, Direct3D11CaptureFrame)>>,
+    ready: Condvar,
+}
+
 pub struct WindowCapture {
+    latest: Arc<LatestFrame>,
+    arrived_token: i64,
     hwnd: HWND,
     pool: Direct3D11CaptureFramePool,
     session: GraphicsCaptureSession,
@@ -94,8 +105,25 @@ impl WindowCapture {
         )?;
         let session = pool.CreateCaptureSession(&item)?;
         session.SetIsCursorCaptureEnabled(false)?;
+        let latest = Arc::new(LatestFrame::default());
+        let slot = latest.clone();
+        let arrived_token = pool.FrameArrived(&TypedEventHandler::<
+            Direct3D11CaptureFramePool,
+            windows::core::IInspectable,
+        >::new(move |sender, _| {
+            if let Some(frame) = sender.as_ref().and_then(|pool| pool.TryGetNextFrame().ok()) {
+                let mut pending = slot.frame.lock().unwrap_or_else(|e| e.into_inner());
+                if let Some((_, old)) = pending.replace((Instant::now(), frame)) {
+                    let _ = old.Close();
+                }
+                slot.ready.notify_one();
+            }
+            Ok(())
+        }))?;
         session.StartCapture()?;
         Ok(Self {
+            latest,
+            arrived_token,
             hwnd,
             pool,
             session,
@@ -106,39 +134,38 @@ impl WindowCapture {
     }
 
     pub fn frame(&self) -> Result<Frame, String> {
+        self.next_frame()?
+            .map(|(_, frame)| frame)
+            .ok_or_else(|| "等待游戏画面超时".into())
+    }
+
+    pub fn next_frame(&self) -> Result<Option<(Instant, Frame)>, String> {
         if !unsafe { IsWindow(Some(self.hwnd)) }.as_bool() {
             return Err("游戏窗口已关闭，请重新选择".into());
         }
         if unsafe { IsIconic(self.hwnd) }.as_bool() {
             return Err("游戏已最小化，暂停读取；还原后自动继续".into());
         }
-        self.read_frame()
-            .map_err(|error| format!("未读到新的游戏画面：{error}"))
+        let pending = self.latest.frame.lock().unwrap_or_else(|e| e.into_inner());
+        let (mut pending, _) = self
+            .latest
+            .ready
+            .wait_timeout_while(pending, Duration::from_millis(1200), |frame| {
+                frame.is_none()
+            })
+            .unwrap_or_else(|e| e.into_inner());
+        let frame = pending.take();
+        drop(pending);
+        frame
+            .map(|(arrived, captured)| {
+                self.read_frame(captured)
+                    .map(|frame| (arrived, frame))
+                    .map_err(|error| format!("未读到新的游戏画面：{error}"))
+            })
+            .transpose()
     }
 
-    fn read_frame(&self) -> windows::core::Result<Frame> {
-        let until = Instant::now() + Duration::from_millis(1200);
-        let mut captured = loop {
-            if let Ok(frame) = self.pool.TryGetNextFrame() {
-                break frame;
-            }
-            if Instant::now() >= until {
-                return Err(windows::core::Error::new(
-                    windows::core::HRESULT(0x800705B4u32 as i32),
-                    "捕获超时",
-                ));
-            }
-            std::thread::sleep(Duration::from_millis(15));
-        };
-        // 后台轮询只取最新画面，不能把队列中一秒前的帧冒充当前状态。
-        for _ in 0..2 {
-            if let Ok(next) = self.pool.TryGetNextFrame() {
-                captured.Close()?;
-                captured = next;
-            } else {
-                break;
-            }
-        }
+    fn read_frame(&self, captured: Direct3D11CaptureFrame) -> windows::core::Result<Frame> {
         let size = captured.ContentSize()?;
         let access: IDirect3DDxgiInterfaceAccess = captured.Surface()?.cast()?;
         let texture: ID3D11Texture2D = unsafe { access.GetInterface()? };
@@ -183,6 +210,7 @@ impl WindowCapture {
 
 impl Drop for WindowCapture {
     fn drop(&mut self) {
+        let _ = self.pool.RemoveFrameArrived(self.arrived_token);
         let _ = self.session.Close();
         let _ = self.pool.Close();
     }

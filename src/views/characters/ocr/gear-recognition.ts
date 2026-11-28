@@ -1,5 +1,6 @@
 import type { EquipmentName } from '../../../services/game-data';
 import { ocrFrame } from '../../../services/ocr';
+import { readOcrPreference } from '../../../services/ocr-preference';
 import type { GearSlotName, GearStat } from '../gear';
 import { fixedGearBaseLabels, gearStatGroup } from '../gear-properties';
 import type { OcrLine } from './attr-panel';
@@ -168,7 +169,8 @@ export async function recognizeGearPanel(
     let base: GearStat[] = [];
     const frame = gearBaseFrame(image, lines);
     if (frame) {
-        const local = await read(frame);
+        showPreview();
+        const local = await ocrFrame(frame.pixels, frame.width, frame.height, 'standard');
         if (local.status === 'ok') {
             const recovered = readBase(
                 local.lines.map((line) => ({ ...line, x: line.x + frame.x, y: line.y + frame.y })),
@@ -179,12 +181,22 @@ export async function recognizeGearPanel(
         }
     }
     if (!base.length) {
-        if (options?.rawLines) {
-            base = readBase(options.rawLines);
-        } else {
+        if (options?.rawLines) base = readBase(options.rawLines);
+        // 快速模式可能读出数字却漏掉标签。已有原图也缺项时，用标准引擎复核这一张。
+        const missing = labels.some((label) => !base.some((row) => row.label === label));
+        if (!options?.rawLines || (missing && readOcrPreference().enabled)) {
             showPreview();
-            const raw = await ocrFrame(base64Of(swapToBgra(image.data)), image.width, image.height);
-            if (raw.status === 'ok') base = readBase(raw.lines);
+            const raw = await ocrFrame(
+                base64Of(swapToBgra(image.data)),
+                image.width,
+                image.height,
+                'standard',
+            );
+            if (raw.status === 'ok') {
+                const recovered = readBase(raw.lines);
+                if (base.every(({ label }) => recovered.some((row) => row.label === label)))
+                    base = recovered;
+            }
         }
     }
     if (!base.length) return result;

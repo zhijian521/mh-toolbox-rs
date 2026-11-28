@@ -44,12 +44,6 @@ tauri-plugin-dialog = "2"
 # 而这一页的全部价值就是「认得准」。
 paddle-ocr-rs = "0.6"
 
-# 把 ort 钉死在 rc.10：`paddle-ocr-rs` 的 Cargo.toml 只写 `2.0.0-rc.10`，
-# 而预发布版本号在 caret 语义下会一路爬到 rc.15——rc.13 之后 `inputs!` 宏
-# 的返回值从 `Result` 变成裸 `Vec`，第三方 crate 里 15 处 `?` 全部编译失败。
-# 这类漂移只有在真正编译时才会暴露，写死在依赖里比等上游发版可靠。
-ort = "=2.0.0-rc.10"
-
 # `RgbImage` 只在构造 OCR 输入时用，编码器一个都不需要。
 image = { version = "0.25", default-features = false }
 # 截图识别把像素从 IPC 带进来，base64 是唯一不引新下载的选择：
@@ -71,6 +65,12 @@ specta-typescript = "=0.0.13"
 # feature 清单按「用到才开」列，不做通配：`windows` 开一个 Win32 分区会拖进上千个
 # 常量与函数签名，全开能让 rlib 从 3MB 涨到 40MB。
 [target.'cfg(windows)'.dependencies]
+# 把 ort 钉死在 rc.10：`paddle-ocr-rs` 的 Cargo.toml 只写 `2.0.0-rc.10`，
+# 而预发布版本号在 caret 语义下会一路爬到 rc.15——rc.13 之后 `inputs!` 宏
+# 的返回值从 `Result` 变成裸 `Vec`，第三方 crate 里 15 处 `?` 全部编译失败。
+# 这类漂移只有在真正编译时才会暴露，写死在依赖里比等上游发版可靠。
+ort = { version = "=2.0.0-rc.10", features = ["directml"] }
+
 windows = { version = "0.62", features = [
     "Foundation",
     "Globalization",

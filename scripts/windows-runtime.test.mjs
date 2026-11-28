@@ -9,6 +9,15 @@ const names = [
     'models/ch_ppocr_mobile_v2.0_cls_infer.onnx',
     'models/ch_PP-OCRv4_rec_infer.onnx',
     'models/ppocr_keys_v1.txt',
+    'models/chat-ncnn/chat-ocr.exe',
+    'models/chat-ncnn/vcomp140.dll',
+    'models/chat-ncnn/ch_PP-OCRv3_det_infer.param',
+    'models/chat-ncnn/ch_PP-OCRv3_det_infer.bin',
+    'models/chat-ncnn/ch_ppocr_mobile_v2.0_cls_infer.param',
+    'models/chat-ncnn/ch_ppocr_mobile_v2.0_cls_infer.bin',
+    'models/chat-ncnn/ch_PP-OCRv3_rec_infer.param',
+    'models/chat-ncnn/ch_PP-OCRv3_rec_infer.bin',
+    'models/chat-ncnn/NOTICES.txt',
     'DirectML.dll',
     'msvcp140.dll',
     'msvcp140_1.dll',
@@ -34,7 +43,7 @@ describe('Windows 安装资源', () => {
         for (const name of names) {
             const file = path.join(dir, name);
             fs.mkdirSync(path.dirname(file), { recursive: true });
-            fs.writeFileSync(file, name.endsWith('.dll') ? pe() : 'model');
+            fs.writeFileSync(file, /\.(dll|exe)$/.test(name) ? pe() : 'model');
             resources[file] = name;
         }
     });
@@ -54,10 +63,13 @@ describe('Windows 安装资源', () => {
         expect(() => validateWindowsResources(resources)).toThrow('安装资源为空');
     });
 
-    it('阻止错带 x86 DLL', () => {
-        fs.writeFileSync(path.join(dir, 'msvcp140.dll'), pe(0x14c));
-        expect(() => validateWindowsResources(resources)).toThrow('不是有效的 Windows x64');
-    });
+    it.each(['msvcp140.dll', 'models/chat-ncnn/chat-ocr.exe'])(
+        '阻止错带 x86 二进制：%s',
+        (name) => {
+            fs.writeFileSync(path.join(dir, name), pe(0x14c));
+            expect(() => validateWindowsResources(resources)).toThrow('不是有效的 Windows x64');
+        },
+    );
 
     it.each([Buffer.alloc(0), Buffer.from('MZ'), Buffer.alloc(80, 255)])(
         '截断或损坏的 PE 应正常报错',

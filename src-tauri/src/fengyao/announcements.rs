@@ -259,7 +259,7 @@ fn yiguan(body: &str) -> Option<(&str, String)> {
     let (_, location) = location.rsplit_once(['!', '！'])?;
     let (scene, coordinates) = location.split_once(['(', '（'])?;
     let coordinates = coordinates.strip_suffix([')', '）'])?;
-    let (x, y) = coordinates.split_once([',', '，'])?;
+    let (x, y) = coordinates.split_once([',', '，', '.', '。'])?;
     Some((
         map_name(scene)?,
         format!("{},{}", x.parse::<u16>().ok()?, y.parse::<u16>().ok()?),
@@ -393,6 +393,9 @@ mod tests {
         assert_eq!(king[0].scene, "女娲神迹");
         assert_eq!(night.len(), 1);
         assert_eq!(night[0].scene, "花果山");
+        let dotted = [lines[5].replace("321，123", "321.123")];
+        let corrected = candidates(&dotted, &filter(ReminderKind::Yiguan, &[]));
+        assert_eq!(corrected[0].coordinates.as_deref(), Some("321,123"));
         assert_eq!(tomb.len(), 1);
         assert_eq!(tomb[0].scene, "大唐国境");
         assert_eq!(tomb[0].coordinates.as_deref(), Some("321,123"));

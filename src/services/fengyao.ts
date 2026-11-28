@@ -7,6 +7,7 @@ import {
     type WatchConfig_Deserialize,
 } from './bindings';
 import { readLocalData, writePreference } from './local-data';
+import { readOcrPreference, REMINDER_PREFERENCES_KEY } from './ocr-preference';
 
 export type { WatchStatus_Serialize as WatchStatus } from './bindings';
 
@@ -18,8 +19,6 @@ export const stopFengyao = () => commands.fengyaoStop();
 
 export const setFengyaoSpeech = (enabled: boolean) => commands.fengyaoSetSpeech(enabled);
 export const previewFengyaoSpeech = () => commands.fengyaoPreviewSpeech();
-
-const PREFERENCES_KEY = 'mh-fengyao-preferences';
 
 export const reminderLabels = {
     fengyao: '封妖',
@@ -98,15 +97,23 @@ function parsePreferences(raw: unknown): FengyaoPreferences {
     if (reminders.some(({ kind }) => !['stars', 'nursery'].includes(kind) && !seen.has(kind))) {
         throw new TypeError('提醒设置无效');
     }
-    return { windowTitle, reminders, speechEnabled: value.speechEnabled === true };
+    return {
+        windowTitle,
+        reminders,
+        speechEnabled: value.speechEnabled === true,
+    };
 }
 
-export const readFengyaoPreferences = () => readLocalData(PREFERENCES_KEY, parsePreferences);
+export const readFengyaoPreferences = () =>
+    readLocalData(REMINDER_PREFERENCES_KEY, parsePreferences);
 
 /** 记住手动选择；读取失败时保留原件，本次监听仍可继续。 */
 export function saveFengyaoPreferences(value: FengyaoPreferences): boolean {
     if (!readFengyaoPreferences().ok) return false;
-    return writePreference(PREFERENCES_KEY, JSON.stringify(value));
+    const ocr = readOcrPreference();
+    // 全局键暂时写不进去时，沿用旧字段，下次读取还能继续迁移。
+    const settings = ocr.saved ? value : { ...value, fastOcr: ocr.enabled };
+    return writePreference(REMINDER_PREFERENCES_KEY, JSON.stringify(settings));
 }
 
 export async function listFengyaoWindows() {
@@ -134,7 +141,13 @@ export async function readFengyaoConfig(
     speechEnabled: boolean,
 ): Promise<WatchConfig_Deserialize> {
     const region = await readFengyaoFrame(window.hwnd, window.title);
-    return { hwnd: window.hwnd, reminders, region, speechEnabled };
+    return {
+        hwnd: window.hwnd,
+        reminders,
+        region,
+        speechEnabled,
+        fastOcr: readOcrPreference().enabled,
+    };
 }
 
 /** 窗口句柄和完整画面尺寸在每次开启时重新读取。 */

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ocrFrame } from '../../../services/ocr';
 import type { EquipmentName } from '../../../services/game-data';
 import { gearStatGroup } from '../gear-properties';
@@ -36,6 +36,8 @@ describe('装备原图补读', () => {
         vi.mocked(ocrFrame).mockReset();
     });
 
+    afterEach(() => vi.unstubAllGlobals());
+
     it.each([
         {
             title: '攫魂铃',
@@ -63,7 +65,7 @@ describe('装备原图补读', () => {
         ]);
         expect(result.detail.cond).toContainEqual({ label: '锻炼等级', value: '6' });
         expect(ocrFrame).toHaveBeenCalledTimes(1);
-        expect(vi.mocked(ocrFrame).mock.calls[0].slice(1)).toEqual([200, 200]);
+        expect(vi.mocked(ocrFrame).mock.calls[0].slice(1)).toEqual([200, 200, 'standard']);
     });
 
     const primaryWeapon = () => [
@@ -118,7 +120,7 @@ describe('装备原图补读', () => {
             });
         const result = await recognizeGearPanel(primaryWeapon(), image(), names);
         expect(ocrFrame).toHaveBeenCalledTimes(2);
-        expect(vi.mocked(ocrFrame).mock.calls[1].slice(1)).toEqual([200, 200]);
+        expect(vi.mocked(ocrFrame).mock.calls[1].slice(1)).toEqual([200, 200, 'standard']);
         expect(result.detail.stats).toEqual(
             expect.arrayContaining([
                 { label: '伤害', value: '+731', group: 'base' },
@@ -143,6 +145,22 @@ describe('装备原图补读', () => {
         });
         expect(ocrFrame).toHaveBeenCalledOnce();
         expect(result.detail.stats).toContainEqual({ label: '伤害', value: '+731', group: 'base' });
+    });
+
+    it('快速原图和局部均缺标签时，标准引擎补回整排', async () => {
+        vi.stubGlobal('localStorage', { getItem: () => 'true' });
+        const raw = [{ ...lines(['伤害+731命中+561'])[0], x: 50, y: 32 }];
+        vi.mocked(ocrFrame)
+            .mockResolvedValueOnce({ status: 'ok', lines: [] })
+            .mockResolvedValueOnce({ status: 'ok', lines: raw });
+        const result = await recognizeGearPanel(primaryWeapon(), image(), names, undefined, {
+            rawLines: [],
+        });
+        expect(vi.mocked(ocrFrame).mock.calls.map((call) => call[3])).toEqual([
+            'standard',
+            'standard',
+        ]);
+        expect(result.detail.stats).toContainEqual({ label: '命中', value: '+561', group: 'base' });
     });
 
     it('局部仅认出部分基础且整图失败时保留主结果，不采纳半排补读', async () => {

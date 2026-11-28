@@ -1,3 +1,4 @@
+import { readOcrPreference } from './ocr-preference';
 import { commands, type TextLine } from './bindings';
 import { hasDesktop } from './desktop';
 
@@ -37,10 +38,16 @@ export async function scheduleOcr<T>(
  * `pixels` 是 **BGRA 裸像素的 base64**（`views/characters/ocr/pixels.ts` 把它做出来），
  * `width` / `height` 是原图像素。坐标回来时是原图坐标系，放大倍数 Rust 侧已经除回去。
  */
-export async function ocrFrame(pixels: string, width: number, height: number): Promise<OcrOutcome> {
+export async function ocrFrame(
+    pixels: string,
+    width: number,
+    height: number,
+    mode: 'preferred' | 'standard' = 'preferred',
+): Promise<OcrOutcome> {
     if (!hasDesktop()) return { status: 'failed', error: '浏览器预览里没有 OCR 引擎' };
     try {
-        return { status: 'ok', lines: await commands.ocrFrame(pixels, width, height) };
+        const fast = mode === 'preferred' && readOcrPreference().enabled;
+        return { status: 'ok', lines: await commands.ocrFrame(pixels, width, height, fast) };
     } catch (error) {
         return { status: 'failed', error: error instanceof Error ? error.message : String(error) };
     }

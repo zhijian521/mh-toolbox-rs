@@ -60,10 +60,22 @@ fn auto_scale(width: u32, height: u32) -> u32 {
 /// 那个 `spawn_blocking`，同步函数里根本写不出 `await`。
 #[tauri::command]
 #[specta::specta]
-pub async fn ocr_frame(pixels: String, width: u32, height: u32) -> Result<Vec<TextLine>, String> {
+pub async fn ocr_frame(
+    pixels: String,
+    width: u32,
+    height: u32,
+    fast_ocr: Option<bool>,
+) -> Result<Vec<TextLine>, String> {
     let raw = decode(&pixels, width, height)?;
     let scale = auto_scale(width, height);
     tauri::async_runtime::spawn_blocking(move || {
+        if fast_ocr == Some(true) {
+            if let Some(lines) = crate::ocr_paddle::ncnn::foreground(&raw, width, height, scale) {
+                if !lines.is_empty() {
+                    return Ok(lines);
+                }
+            }
+        }
         crate::ocr_paddle::recognize_image(&raw, width, height, scale)
     })
     .await
@@ -78,11 +90,14 @@ fn decode(pixels: &str, width: u32, height: u32) -> Result<Vec<u8>, String> {
     if width == 0 || height == 0 {
         return Err("图片尺寸为 0".to_string());
     }
+    let expected = crate::ocr_paddle::bgra_bytes(width, height).ok_or("图片尺寸超出识别范围")?;
+    if pixels.len() > expected.div_ceil(3) * 4 {
+        return Err(format!("位图长度不符：图片数据超出 {width}×{height} 像素"));
+    }
     let raw = base64::engine::general_purpose::STANDARD
         .decode(pixels.as_bytes())
         .map_err(|err| format!("图片数据不是合法的 base64：{err}"))?;
 
-    let expected = width as usize * height as usize * 4;
     if raw.len() != expected {
         return Err(format!(
             "位图长度不符：期望 {expected}（{width}×{height}×4），实际 {}",
@@ -124,6 +139,13 @@ mod tests {
         // 4 字节 = 1 个像素，但声称是 2×2。
         let error = decode("AAAAAA==", 2, 2).unwrap_err();
         assert!(error.contains("位图长度不符"), "错误信息不对：{error}");
+    }
+
+    #[test]
+    fn rejects_oversized_images_before_decoding() {
+        assert!(decode("", u32::MAX, u32::MAX).unwrap_err().contains("尺寸"));
+        assert!(decode("", 8192, 8192).unwrap_err().contains("尺寸"));
+        assert!(decode("AAAAAAAAAAAA", 1, 1).unwrap_err().contains("长度"));
     }
 
     #[test]

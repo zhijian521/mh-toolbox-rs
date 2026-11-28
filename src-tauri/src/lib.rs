@@ -411,13 +411,13 @@ pub fn run() {
     let bindings = command_table();
 
     /* 只在 debug 里生成：发布版没有前端源码目录，也不该在用户的机器上写文件。
-     * 路径相对 `src-tauri/`（cargo 的工作目录），落到前端唯一的调用入口旁边。
+     * 按 crate 目录定位，避免从仓库根目录启动时把绑定写到相邻项目。
      * 生成时机是**每次启动**——改了命令却忘了重新生成，`npm run dev` 第一下就补回来。 */
     #[cfg(debug_assertions)]
     bindings
         .export(
             specta_typescript::Typescript::default(),
-            "../src/services/bindings.ts",
+            concat!(env!("CARGO_MANIFEST_DIR"), "/../src/services/bindings.ts"),
         )
         .expect("生成 TS 绑定失败");
 

@@ -129,6 +129,7 @@ export function useGhostWatch() {
      */
     const engineLabel = computed(() => {
         if (!engine.value) return '';
+        if (engine.value === 'ncnn') return 'ncnn / Vulkan';
         return engine.value === 'paddle' ? 'PP-OCRv4' : '系统 OCR';
     });
 

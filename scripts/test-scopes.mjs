@@ -14,6 +14,7 @@ export const TEST_SCOPES = {
         'src/views/overview/',
     ],
     ocr: [
+        'src/services/ocr-preference.test.',
         'src/views/characters/ocr/',
         'src/views/warehouse/warehouse.test.',
         'src/views/characters/gear.test.',
@@ -67,6 +68,7 @@ export const TEST_SCOPES = {
     ],
     ui: ['src/components/', 'src/composables/'],
     settings: [
+        'src/services/ocr-preference.test.',
         'src/views/settings/',
         'src/composables/preference-write.test.',
         'src/composables/use-theme.test.',

@@ -72,7 +72,7 @@ export default async function run(ctx) {
             }
         });
 
-        await t.step('设置保留四区与对齐控件，运行信息可展开', async () => {
+        await t.step('设置展示识别选项与对齐控件，运行信息可展开', async () => {
             await ui.goto('设置');
             const layout = await cdp.evaluate(`(() => {
                 const rows = [...document.querySelectorAll('.settings-row')];
@@ -80,13 +80,14 @@ export default async function run(ctx) {
                     cards: document.querySelectorAll('.ledger-section').length,
                     controls: rows.length === 8 && rows.every(row =>
                         row.querySelector('.field-label') && row.querySelector('.settings-control')),
+                    fastOcr: !!document.querySelector('.ocr-setting [aria-describedby="fast-ocr-help"]'),
                     collapsed: !document.querySelector('.runtime-details')?.open,
                     hasDataPath: document.querySelector('.about')?.textContent.includes('数据目录'),
                 };
             })()`);
             t.check(
-                '四张卡保留外观与数据入口，标签控件对齐',
-                layout.cards === 4 && layout.controls,
+                '设置提供文字识别开关及说明，标签控件对齐',
+                layout.cards === 5 && layout.controls && layout.fastOcr,
             );
             t.check(
                 '数据目录直接可见，低频运行信息默认收起',

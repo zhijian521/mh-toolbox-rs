@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use windows::core::{Error, Result as WinResult, HSTRING};
 use windows::Foundation::TypedEventHandler;
 use windows::Media::Core::MediaSource;
-use windows::Media::Playback::MediaPlayer;
+use windows::Media::Playback::{MediaPlaybackSession, MediaPlaybackState, MediaPlayer};
 use windows::Media::SpeechSynthesis::{SpeechSynthesizer, VoiceInformation};
 use windows::Win32::Foundation::E_FAIL;
 use windows::Win32::System::WinRT::{RoInitialize, RoUninitialize, RO_INIT_MULTITHREADED};
@@ -97,6 +97,21 @@ fn play_with_voice(job: &Job, voice: &VoiceInformation) -> WinResult<()> {
         )));
         Ok(())
     }))?;
+    if let Some(started) = job.playback_start.clone() {
+        player
+            .PlaybackSession()?
+            .PlaybackStateChanged(&TypedEventHandler::<
+                MediaPlaybackSession,
+                windows::core::IInspectable,
+            >::new(move |session, _| {
+                if session.as_ref().and_then(|s| s.PlaybackState().ok())
+                    == Some(MediaPlaybackState::Playing)
+                {
+                    let _ = started.set(Instant::now());
+                }
+                Ok(())
+            }))?;
+    }
     player.SetSource(&source)?;
     if job.cancelled.load(Ordering::Acquire) {
         return player.Close();
