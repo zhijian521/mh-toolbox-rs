@@ -239,9 +239,11 @@ fn yaowang(body: &str) -> Option<(&str, &str)> {
 }
 
 fn yecha(body: &str) -> Option<(&str, &str)> {
-    let (intro, location) = body
-        .split_once("携带宝贝的梦魇夜叉")
-        .or_else(|| body.split_once("携带宝贝的梦夜叉"))?;
+    let (intro, name_and_location) = body.split_once("携带宝贝的梦")?;
+    // 快速引擎在公告中会把「魇」读成「魔」、「叉」读成「又」。仍须匹配完整的出现地点句式。
+    let location = ["魇夜叉", "夜叉", "魔夜叉", "魔夜又"]
+        .iter()
+        .find_map(|name| name_and_location.strip_prefix(*name))?;
     let sender = intro.strip_prefix("突然受到")?.split_once("的惊扰")?.0;
     let location = location.trim_start_matches('又').strip_prefix("跑到了")?;
     let (scene, _) = location.split_once(['，', ','])?;
@@ -458,6 +460,10 @@ mod tests {
 
     #[test]
     fn matches_wrapped_yecha_announcement_with_missing_character() {
+        assert_eq!(
+            yecha("突然受到少侠的惊扰，一群携带宝贝的梦魔夜又跑到了花果山，"),
+            Some(("少侠", "花果山"))
+        );
         let lines = [
             "[系统]突然受到一梦8.年的惊扰，一群携带宝贝的梦夜叉跑到了花果山，三界勇士们赶",
             "紧去寻找他们吧，若有幸碰到多只携宝龙龟，将获得意想不到的物品奖励哦",

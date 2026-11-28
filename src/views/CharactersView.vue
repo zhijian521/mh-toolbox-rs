@@ -95,7 +95,9 @@ async function shareCharacter(character: ReadonlyCharacter) {
         if (active) notify.success('角色图片已复制，可直接粘贴');
     } catch (error) {
         if (active) {
-            notify.error(`复制角色图片失败：${error instanceof Error ? error.message : String(error)}`);
+            notify.error(
+                `复制角色图片失败：${error instanceof Error ? error.message : String(error)}`,
+            );
         }
     } finally {
         shareSource.value = null;

@@ -446,9 +446,12 @@ fn message_rows(mut lines: Vec<crate::ocr::TextLine>) -> Vec<String> {
                 let raw = compact(&line.text).replace("系統", "系统");
                 // 独立聊天窗的频道签会被检测成单独的文字框，必须按同一行拼回。
                 let label = raw.trim_matches(['[', ']', '【', '】', '［', '］']);
-                if line.x < 80 && raw.starts_with("系统") {
+                let system_body = raw
+                    .strip_prefix("系统")
+                    .or_else(|| raw.strip_prefix("（系统》"));
+                if let Some(body) = system_body.filter(|_| line.x < 80 && text.is_empty()) {
                     text.push_str("[系统]");
-                    text.push_str(raw.trim_start_matches("系统"));
+                    text.push_str(body);
                 } else if line.x < 80 && label == "系统" {
                     text.push_str("[系统]");
                 } else if line.x < 80
@@ -938,6 +941,15 @@ mod tests {
             650,
         )]);
         assert_eq!(candidates(&rows, &config().reminders[0]).len(), 1);
+        let sample = "（系统》突然受到少侠的惊扰，一群携带宝贝的梦魔夜叉跑到了花果山，";
+        let filter = ReminderFilter {
+            kind: ReminderKind::Yecha,
+            scenes: vec![],
+        };
+        let rows = message_rows(vec![line(sample, 2, 20, 650)]);
+        assert_eq!(candidates(&rows, &filter)[0].scene, "花果山");
+        let rows = message_rows(vec![line("[世界]", 2, 20, 30), line(sample, 45, 20, 650)]);
+        assert!(candidates(&rows, &filter).is_empty());
     }
 
     #[cfg(windows)]
