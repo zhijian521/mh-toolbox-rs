@@ -2,7 +2,7 @@
 import AppIcon from '../../components/AppIcon.vue';
 import { GlassCard } from '../../components/liquid-glass';
 import { timeText } from '../../services/clock';
-import { dateText, ledgerMoneyText, shortDate } from '../../services/format';
+import { dateText, ledgerMoneyText, ledgerMoneyTone, shortDate } from '../../services/format';
 import { clockText, sessionMinutes } from '../income/online';
 import type { TeamActivity } from './team-activity';
 
@@ -43,7 +43,7 @@ function recordAmount(record: NonNullable<TeamActivity['income' | 'accountIncome
                                 {{ timeText(activity.session.startAt) }}
                             </time>
                         </span>
-                        <span class="team-value">
+                        <span class="team-value" data-stat-tone="num">
                             {{ clockText(sessionMinutes(activity.session, now)) }}
                         </span>
                     </dd>
@@ -62,7 +62,12 @@ function recordAmount(record: NonNullable<TeamActivity['income' | 'accountIncome
                         <time class="team-date" :datetime="activity.income.date">
                             {{ shortDate(activity.income.date) }}
                         </time>
-                        <span class="team-value" :data-kind="activity.income.kind">
+                        <span
+                            class="team-value"
+                            :data-stat-tone="
+                                ledgerMoneyTone(activity.income.amount, activity.income.kind)
+                            "
+                        >
                             {{ recordAmount(activity.income) }}
                         </span>
                     </dd>
@@ -86,7 +91,13 @@ function recordAmount(record: NonNullable<TeamActivity['income' | 'accountIncome
                             <time v-if="record" class="team-date" :datetime="record.date">
                                 {{ shortDate(record.date) }}
                             </time>
-                            <span v-if="record" class="team-value" :data-kind="record.kind">
+                            <span
+                                v-if="record"
+                                class="team-value"
+                                :data-stat-tone="
+                                    ledgerMoneyTone(record.amount, record.kind, record.currency)
+                                "
+                            >
                                 {{ recordAmount(record) }}
                             </span>
                         </dd>
@@ -185,13 +196,5 @@ function recordAmount(record: NonNullable<TeamActivity['income' | 'accountIncome
     overflow-wrap: anywhere;
     text-align: end;
     max-width: 56%;
-}
-
-.team-value[data-kind='income'] {
-    color: var(--liquid-up);
-}
-
-.team-value[data-kind='expense'] {
-    color: var(--liquid-down);
 }
 </style>

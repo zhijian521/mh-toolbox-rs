@@ -89,12 +89,8 @@
 }
 
 .workbench-period .stats-bare {
-    --num: var(--liquid-ink);
-    --ink: var(--liquid-ink);
     --muted: var(--liquid-muted);
     --rule: var(--liquid-outline);
-    --moss: var(--liquid-up);
-    --cinnabar: var(--liquid-down);
 }
 .workbench-period .workbench-summary {
     padding-block-start: 10px;

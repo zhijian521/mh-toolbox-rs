@@ -1,3 +1,10 @@
+.liquid-app,
+.liquid-ledger {
+    --indigo-ink: light-dark(#50597e, #bdc8f3);
+    --positive: var(--liquid-down);
+    --negative: var(--liquid-up);
+}
+
 .liquid-ledger {
     --glass-foreground: var(--liquid-ink);
     --glass-text-shadow: none;
@@ -6,8 +13,6 @@
     --muted: var(--liquid-muted);
     --num: var(--liquid-ink);
     --accent: var(--liquid-focus);
-    --positive: var(--liquid-down);
-    --negative: var(--liquid-up);
     --danger: var(--liquid-up);
     --paper: var(--ledger-surface);
     --paper-2: var(--ledger-surface);
@@ -45,7 +50,6 @@
     --moss: var(--positive);
     --cinnabar: var(--negative);
     --ochre: light-dark(#785619, #eccc8b);
-    --indigo-ink: light-dark(#50597e, #bdc8f3);
     --t-tip: var(--t-quick);
     --block-pad-tight: 12px;
     --shadow: rgb(28 28 28 / 0.14);
@@ -348,7 +352,6 @@
 .liquid-ledger .record-role-value {
     display: inline-block;
     margin-left: 4px;
-    color: var(--muted);
     font-variant-numeric: tabular-nums;
 }
 .liquid-ledger :is(.record-summary, .record-foot-note) {

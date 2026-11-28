@@ -777,6 +777,17 @@ export default async function liquidShell({ cdp, t, ui }) {
             const goals = page.querySelector('.overview-goal-card');
             const week = page.querySelector('[aria-labelledby=overview-week-title] .workbench-metrics');
             const amount = week.querySelector('dd');
+            const statInks = { num: '--indigo-ink', gain: '--positive', loss: '--negative', unavailable: '--muted' };
+            function hasStatColor(reading) {
+                const token = statInks[reading.dataset.statTone];
+                if (!token) return false;
+                const sample = document.createElement('span');
+                sample.style.color = 'var(' + token + ')';
+                reading.append(sample);
+                const matches = getComputedStyle(sample).color === getComputedStyle(reading).color;
+                sample.remove();
+                return matches;
+            }
             const books = [...page.querySelectorAll('.month-book')];
             const scrollHost = page.closest('.liquid-content');
             const plotScroll = trend.querySelector('.chart-scroll');
@@ -806,6 +817,7 @@ export default async function liquidShell({ cdp, t, ui }) {
                 week.matches('.stats-bare') && week.querySelectorAll('dd').length === 4 &&
                 books.map(book => book.getAttribute('aria-label')).join(',') === '梦幻币,人民币' &&
                 books.every(book => [...book.querySelectorAll('dt')].map(el => el.textContent.trim()).join(',') === '收入,支出') &&
+                books.every(book => Array.from(book.querySelectorAll('dd'), el => el.dataset.statTone).join(',') === 'gain,loss') &&
                 goalItems.length === Math.min(goalCount, 6) && visibleRows.size <= 2 &&
                 goalItems.every(item => {
                     const link = item.querySelector('.overview-goal-link');
@@ -818,7 +830,8 @@ export default async function liquidShell({ cdp, t, ui }) {
                 !!trend.querySelector('.trend, .overview-note') &&
                 !!page.querySelector('section[aria-label="我的队伍"]') &&
                 goals.querySelector('#overview-goals-title')?.textContent.trim() === '目标' &&
-                getComputedStyle(amount).color === getComputedStyle(page).color &&
+                [...week.querySelectorAll('dd'), ...books.flatMap(book => [...book.querySelectorAll('dd')])]
+                    .every(hasStatColor) &&
                 getComputedStyle(amount).fontWeight === '400' &&
                 getComputedStyle(scrollHost).scrollbarWidth === 'none' &&
                 (!plotScroll || getComputedStyle(plotScroll).scrollbarWidth === 'none') &&
@@ -1188,17 +1201,24 @@ export default async function liquidShell({ cdp, t, ui }) {
     })()`),
     );
     t.check(
-        '快捷记账长金额按币种换行且完整落在按钮内',
+        '快捷记账两币种名称和金额同用收支色，长金额换行且完整落在按钮内',
         await cdp.evaluate(`(() => {
         const button = document.querySelector('${accounts} glass-button.shortcut');
         const values = Array.from(button.querySelectorAll('.sc-value'));
+        const sameCurrencyColors = Array.from(document.querySelectorAll('${accounts} glass-button.shortcut')).every(shortcut => {
+            const total = shortcut.querySelector('.sc-total');
+            if (!total || total.dataset.statTone !== (shortcut.classList.contains('income') ? 'gain' : 'loss')) return false;
+            const color = getComputedStyle(total).color;
+            const parts = total.querySelectorAll('.sc-currency small, .sc-value');
+            return parts.length === 4 && Array.from(parts).every(part => getComputedStyle(part).color === color);
+        });
         const original = values.map(value => value.textContent);
         try {
             values[0].textContent = '123,456,789,012.34 万';
             values[1].textContent = '987,654,321,098.76 元';
             const bounds = button.getBoundingClientRect();
             const [cash, rmb] = values.map(value => value.parentElement.getBoundingClientRect());
-            return cash.bottom <= rmb.top && values.every(value => {
+            return sameCurrencyColors && cash.bottom <= rmb.top && values.every(value => {
                 const range = document.createRange();
                 range.selectNodeContents(value);
                 return Array.from(range.getClientRects()).every(rect =>
@@ -2558,11 +2578,12 @@ export default async function liquidShell({ cdp, t, ui }) {
     })()`),
     );
     t.check(
-        '设置页展示外观、数据和关于三张卡，关于提供数据目录和许可入口',
+        '设置页提供全局快速识别，关于保留数据目录和许可入口',
         await cdp.evaluate(`(() => {
             const cards = [...document.querySelectorAll('.liquid-settings-grid .card-heading h2')];
             const about = document.querySelector('.settings-about');
-            return cards.map(el => el.textContent.trim()).join(',') === '外观,关于,数据' &&
+            return cards.map(el => el.textContent.trim()).join(',') === '外观,文字识别,关于,数据' &&
+                !!document.querySelector('.ocr-setting glass-switch[aria-describedby="fast-ocr-help"]') &&
                 !!about?.querySelector('.about-path')?.textContent.trim() &&
                 [...about.querySelectorAll('.license-links a')].length === 2 &&
                 getComputedStyle(about).fontFamily.includes('MH Toolbox Rounded');
@@ -2653,13 +2674,13 @@ export default async function liquidShell({ cdp, t, ui }) {
         await cdp.click(themeOption(theme));
         const settingsMaterialMatches = `(() => {
             const panels = [...document.querySelectorAll('.liquid-settings-panel')];
-            return panels.length === 3 && panels.every(
+            return panels.length === 4 && panels.every(
                 panel => panel.dataset.glassAppearance === ${JSON.stringify(theme)},
             );
         })()`;
         await ui.waitFor(settingsMaterialMatches);
         t.check(
-            '切换主题后设置三张卡片的玻璃材质随之更新',
+            '切换主题后设置卡片的玻璃材质随之更新',
             await cdp.evaluate(settingsMaterialMatches),
         );
         t.check(
@@ -2679,10 +2700,12 @@ export default async function liquidShell({ cdp, t, ui }) {
             await cdp.evaluate(backgroundUses(`glass-chip-${theme}`)),
         );
         t.check(
-            '刷新后恢复主题，设置仅提供一组分段切换，Dock 使用通透材质',
+            '刷新后保留界面和主题选择，快速识别使用独立开关，Dock 使用通透材质',
             await cdp.evaluate(`${ready('settings')} &&
                 document.querySelector('.liquid-app').dataset.appearance === ${JSON.stringify(theme)} &&
-                document.querySelectorAll('.liquid-settings glass-segmented').length === 1 &&
+                !!document.querySelector('.liquid-settings glass-segmented[aria-label="界面"] [aria-selected="true"]') &&
+                !!document.querySelector('.liquid-settings glass-segmented[aria-labelledby="liquid-theme-label"] [aria-selected="true"]') &&
+                !!document.querySelector('.ocr-setting [role="switch"][aria-describedby="fast-ocr-help"]') &&
                 document.querySelector('.liquid-dock-bar').getAttribute('material') === 'clear'`),
         );
         // 刷新后仍停在设置页，直接连点五次即可重新进入隐藏目录。

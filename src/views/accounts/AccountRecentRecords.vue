@@ -3,7 +3,7 @@
 import { computed, inject } from 'vue';
 import LedgerSection from '../../components/LedgerSection.vue';
 import { glassLedger } from '../../components/glass-ledger';
-import { ledgerMoneyText } from '../../services/format';
+import { ledgerMoneyText, ledgerMoneyTone } from '../../services/format';
 import type { ReadonlyCharacter } from '../characters/character';
 import { characterName } from '../characters/roster';
 import type { AccountEntry } from './accounts';
@@ -26,7 +26,8 @@ const rows = computed(() =>
         const description = [entry.date, entry.category, who, entry.channel, amount, entry.note]
             .filter(Boolean)
             .join(' · ');
-        return { entry, who, amount, description };
+        const tone = ledgerMoneyTone(entry.amount, entry.kind, entry.currency);
+        return { entry, who, amount, tone, description };
     }),
 );
 </script>
@@ -53,7 +54,7 @@ const rows = computed(() =>
                     <span class="recent-copy">
                         <span class="recent-heading">
                             <span class="recent-title">{{ one.entry.category }}</span>
-                            <span class="recent-amount" :class="one.entry.kind">{{
+                            <span class="recent-amount" :data-stat-tone="one.tone">{{
                                 one.amount
                             }}</span>
                         </span>
@@ -159,12 +160,6 @@ button.recent-row:hover {
     background: var(--well);
     color: var(--muted);
     font-size: var(--fs-mini);
-}
-.income {
-    color: var(--positive);
-}
-.expense {
-    color: var(--negative);
 }
 .blank {
     display: grid;

@@ -1,6 +1,6 @@
 /** 在线票据复用按日切分与历史单价快照；昨日对比只派生展示，不写回账本。 */
 import type { StatItem } from '../../components/StatStrip.vue';
-import { daysAgo, ledgerMoneyText, parseDay } from '../../services/format';
+import { daysAgo, ledgerMoneyText, ledgerMoneyTone, parseDay } from '../../services/format';
 import { ratioText } from './income';
 import { minutesText, onlineTotalsOf, type ReadonlyOnlineSession } from './online';
 
@@ -25,7 +25,7 @@ export function onlineSummaryItems(
             id: 'cost',
             cap: '点卡花费',
             value: ledgerMoneyText(current.cost, 'cash', { zero: 'dash' }),
-            tone: current.cost > 0 ? 'loss' : 'num',
+            tone: ledgerMoneyTone(current.cost, 'expense'),
             sub: `昨日${ledgerMoneyText(previous.cost, 'cash', { zero: 'dash' }).replaceAll(' ', '')}`,
             delta: ratioText(current.cost, previous.cost),
         },

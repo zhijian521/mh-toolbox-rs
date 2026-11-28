@@ -1,4 +1,6 @@
 <script lang="ts">
+import type { LedgerTone } from '../services/format';
+
 /**
  * 统计条里的一个数字。
  *
@@ -21,16 +23,8 @@ export interface StatItem {
     hint?: string;
     /** 未读取时保留业务提供的文字，并降低读数强调。 */
     unavailable?: boolean;
-    /**
-     * 读数色。三档各有方向：
-     *   - `gain` 苔绿：进账（收入、为正的净额）；
-     *   - `loss` 朱红：出账（支出、为负的净额）；
-     *   - `num` 赭：不带方向的数（笔数、支出为 0 时的「—」）。
-     *
-     * 2026-11-11 用户：「统计上的数字字体颜色优化一下，一般收益为绿色，花费为红色」。
-     * 用的是现有的 `--moss` / `--cinnabar`，不新造色号——它们本来就管「好」与「坏」。
-     */
-    tone?: 'num' | 'gain' | 'loss';
+    /** 金额使用 ledgerMoneyTone，时长和数量默认中性。 */
+    tone?: LedgerTone;
     /**
      * 副文左段：这一格由什么组成（「31 笔 · 均 14.9 万」「结余率 97.3%」「4 个号」）。
      *
@@ -123,7 +117,7 @@ const surfaces = {
             <component
                 :is="surface === 'bare' ? 'dd' : 'div'"
                 class="v"
-                :class="[item.tone ?? 'num', { unavailable: item.unavailable }]"
+                :data-stat-tone="item.unavailable ? 'unavailable' : (item.tone ?? 'num')"
             >
                 {{ item.value }}<small v-if="item.unit" class="stat-unit">{{ item.unit }}</small>
             </component>
@@ -179,18 +173,6 @@ const surfaces = {
     line-height: 1.3;
     white-space: nowrap;
     text-overflow: ellipsis;
-}
-/* 三档色（2026-11-11 用户「一般收益为绿色，花费为红色」）。
- * 用现成的 `--moss` / `--cinnabar`，它们本来就在亮暗两套里各翻过一次面，不必新调色号。 */
-.num {
-    color: var(--num);
-}
-.gain {
-    color: var(--positive);
-}
-/* 支出与净额为负时转朱：与卡上的三层（墨名目 / 赭读数 / 朱强调）同一条。 */
-.loss {
-    color: var(--negative);
 }
 
 /* 副文行两端对齐：左段吃满剩余宽度（放不下就省略号），右段永不让位。
@@ -297,9 +279,6 @@ const surfaces = {
     white-space: normal;
     overflow-wrap: anywhere;
 }
-.stats-embedded .num {
-    color: var(--ink);
-}
 .stats-centered.stats-embedded {
     column-gap: 0;
 }
@@ -341,9 +320,6 @@ const surfaces = {
     font-weight: 400;
     line-height: 1.25;
     overflow-wrap: anywhere;
-}
-.v.unavailable {
-    color: var(--muted);
 }
 .stat-unit {
     margin-left: 5px;

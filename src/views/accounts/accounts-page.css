@@ -88,7 +88,6 @@
     justify-content: space-between;
     gap: 4px 8px;
     min-width: 0;
-    color: var(--shortcut-color);
     font-size: var(--fs-sm);
     font-variant-numeric: tabular-nums;
 }
@@ -107,7 +106,6 @@
 .sc-total small {
     flex-shrink: 0;
     white-space: nowrap;
-    color: var(--muted);
     font-size: var(--fs-mini);
 }
 .account-bottom {

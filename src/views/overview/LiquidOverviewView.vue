@@ -9,6 +9,7 @@ import { GlassButton, GlassCard } from '../../components/liquid-glass';
 import { useMinuteNow } from '../../composables/use-minute-now';
 import { notify } from '../../composables/use-notify';
 import { useToday } from '../../composables/use-today';
+import { ledgerDirectionTone, ledgerMoneyTone } from '../../services/format';
 import { hasDesktop } from '../../services/desktop';
 import { startSavedFengyao, stopFengyao } from '../../services/fengyao';
 import { accountValueText } from '../accounts/account-analysis';
@@ -78,6 +79,7 @@ const weekStats = computed<StatItem[]>(() => [
         '速记净额',
         accountValueText(weekTotal.value, 'cash'),
         !!income.loadError.value || !!retrying.value.income,
+        ledgerMoneyTone(weekTotal.value),
     ),
     metric(
         '在线时长',
@@ -88,24 +90,30 @@ const weekStats = computed<StatItem[]>(() => [
         '点卡消耗',
         accountValueText(weekOnline.value.cost, 'cash'),
         !!online.loadError.value || !!retrying.value.online,
+        ledgerMoneyTone(weekOnline.value.cost, 'expense'),
     ),
     metric('进行中目标', ongoing.value.length + ' 项', goalsUnavailable.value),
 ]);
-function metric(cap: string, value: string, unavailable: boolean): StatItem {
-    return { cap, value: unavailable ? '未读取' : value, unavailable };
+function metric(
+    cap: string,
+    value: string,
+    unavailable: boolean,
+    tone: StatItem['tone'] = 'num',
+): StatItem {
+    return { cap, value: unavailable ? '未读取' : value, unavailable, tone };
 }
 const workbench = computed(() => workbenchSummary(accounts.entries.value, today.value));
 const monthBooks = computed(() =>
     workbench.value.books.map((book) => ({
         ...book,
-        readings: moneyDirections.map(({ kind, label }): StatItem => ({
-            ...metric(
+        readings: moneyDirections.map(({ kind, label }) =>
+            metric(
                 label,
                 accountValueText(book.stats[kind], book.currency),
                 !!accounts.loadError.value || !!retrying.value.accounts,
+                ledgerDirectionTone(kind),
             ),
-            tone: book.stats[kind] > 0 ? (kind === 'income' ? 'gain' : 'loss') : 'num',
-        })),
+        ),
     })),
 );
 const goalEmptyText = computed(() => {

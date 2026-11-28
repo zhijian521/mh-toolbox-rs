@@ -189,13 +189,36 @@ export function changeText(delta: number): string {
     return sign + moneyText(delta);
 }
 
+export type LedgerTone = 'num' | 'gain' | 'loss';
+type LedgerCurrency = 'rmb' | 'cash';
+
+/** 固定收支栏按栏目方向着色，金额为零时也保留方向。 */
+export function ledgerDirectionTone(kind: 'income' | 'expense'): 'gain' | 'loss' {
+    return kind === 'income' ? 'gain' : 'loss';
+}
+
+function displayedMagnitude(amount: number, currency: LedgerCurrency): number {
+    return Math.abs(amount) / (currency === 'cash' ? WAN : 1);
+}
+
+/** 金额颜色与显示精度一致。支出在账本中以正数存储，净额自带符号。 */
+export function ledgerMoneyTone(
+    amount: number,
+    kind: 'net' | 'income' | 'expense' = 'net',
+    currency: LedgerCurrency = 'cash',
+): LedgerTone {
+    const value = displayedMagnitude(amount, currency);
+    if (!Number.isFinite(value) || Math.round(value * 100) === 0) return 'num';
+    return kind === 'expense' || amount < 0 ? 'loss' : 'gain';
+}
+
 /** 账号、收益统一按元或万展示，最多两位小数；原值精度不变。 */
 export function ledgerMoneyText(
     amount: number,
-    currency: 'rmb' | 'cash' = 'cash',
+    currency: LedgerCurrency = 'cash',
     options: { sign?: 'auto' | 'always'; zero?: 'dash' } = {},
 ): string {
-    const value = Math.abs(amount) / (currency === 'cash' ? WAN : 1);
+    const value = displayedMagnitude(amount, currency);
     if (!Number.isFinite(value)) return '—';
     if (amount === 0 && options.zero === 'dash') return '—';
     const visible = Math.round(value * 100) > 0;

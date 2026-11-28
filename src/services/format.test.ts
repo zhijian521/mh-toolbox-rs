@@ -8,6 +8,7 @@ import {
     daysAgo,
     fromWan,
     ledgerMoneyText,
+    ledgerMoneyTone,
     moneyText,
     parseDay,
     priceLabel,
@@ -157,6 +158,22 @@ describe('parseDay：日期文本读回 Date', () => {
 });
 
 describe('账号与收益金额：元、万与两位小数', () => {
+    it('收入与正净额用收入色，正数存储的支出和负净额用支出色', () => {
+        expect(ledgerMoneyTone(12_000, 'income')).toBe('gain');
+        expect(ledgerMoneyTone(12_000, 'expense')).toBe('loss');
+        expect(ledgerMoneyTone(50)).toBe('gain');
+        expect(ledgerMoneyTone(-50)).toBe('loss');
+        expect(ledgerMoneyTone(0.005, 'expense', 'rmb')).toBe('loss');
+    });
+
+    it('两种币种按各自的显示精度判断零，空读数也使用中性色', () => {
+        for (const amount of [0, -0, 49, -49, NaN, Infinity, -Infinity]) {
+            expect(ledgerMoneyTone(amount, 'expense')).toBe('num');
+        }
+        expect(ledgerMoneyTone(-0.004, 'net', 'rmb')).toBe('num');
+        expect(ledgerMoneyTone(1, 'income', 'rmb')).toBe('gain');
+    });
+
     it('显式控制方向与空读数，不拼负零和双重符号', () => {
         expect(ledgerMoneyText(30000, 'cash', { sign: 'always' })).toBe('+3 万');
         expect(ledgerMoneyText(-30000, 'cash', { sign: 'auto' })).toBe('−3 万');

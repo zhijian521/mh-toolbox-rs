@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useToday } from '../../composables/use-today';
 import { computed } from 'vue';
-import { ledgerMoneyText } from '../../services/format';
+import { ledgerMoneyText, ledgerMoneyTone } from '../../services/format';
 import LedgerSection from '../../components/LedgerSection.vue';
 import PressTile from '../../components/PressTile.vue';
 import NumTag from '../../components/NumTag.vue';
@@ -95,14 +95,14 @@ async function undo(group: ItemGroup) {
                 <NumTag class="price">
                     <span class="v">{{ compactAmount(group.amount) }}</span>
                 </NumTag>
-                <span class="n">×{{ group.count }}</span>
+                <span class="n" data-stat-tone="num">×{{ group.count }}</span>
             </button>
         </div>
 
         <div v-if="readable" class="total">
             <span class="k">净额</span>
             <!-- 净额负数带 `−`，不能只靠颜色。 -->
-            <span class="v" :class="{ gain: totals.net > 0, loss: totals.net < 0 }">{{
+            <span class="v" :data-stat-tone="ledgerMoneyTone(totals.net)">{{
                 ledgerMoneyText(totals.net, 'cash', { sign: 'auto', zero: 'dash' })
             }}</span>
         </div>
@@ -193,12 +193,10 @@ async function undo(group: ItemGroup) {
 /* 数量跨图标与价格两行，不和单价混在一起。 */
 .g .n {
     grid-area: n;
-    color: var(--num);
     font-size: var(--fs-mini);
     line-height: 1;
     overflow-wrap: anywhere;
 }
-.g.out .n,
 .g.out .price .v {
     color: var(--negative);
 }
@@ -218,16 +216,9 @@ async function undo(group: ItemGroup) {
 }
 .total .v {
     margin-left: auto;
-    color: var(--num);
     font-size: var(--fs-amount);
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
-}
-.total .v.gain {
-    color: var(--positive);
-}
-.total .v.loss {
-    color: var(--negative);
 }
 .empty {
     display: grid;

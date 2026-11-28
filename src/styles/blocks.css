@@ -1,5 +1,22 @@
 /* 跨组件组合排版；元素材质归 base.css，设计令牌归 tokens.css。 */
 
+/* 统计主读数的方向由业务传入，所有表面共享同一套含义。 */
+[data-stat-tone] {
+    font-variant-numeric: tabular-nums;
+}
+[data-stat-tone='num'] {
+    color: var(--indigo-ink);
+}
+[data-stat-tone='gain'] {
+    color: var(--positive);
+}
+[data-stat-tone='loss'] {
+    color: var(--negative);
+}
+[data-stat-tone='unavailable'] {
+    color: var(--muted);
+}
+
 /* 图表卡片四边共用同一内距，坐标与图例在组件内排版。 */
 .chart-section {
     --block-pad: 16px;

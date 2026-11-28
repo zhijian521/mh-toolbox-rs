@@ -1154,7 +1154,9 @@ export default async function run(ctx) {
                      document.querySelectorAll('.record-assets').length === 3`,
                     ),
                 );
-                await ui.clickIn('.rec-table tbody tr:has(.c-num.in)', name, { label: '删这一条' });
+                await ui.clickIn('.rec-table tbody tr[data-kind="income"]', name, {
+                    label: '删这一条',
+                });
                 t.check(
                     `${kind}删除卖出前提示关联物品回仓`,
                     await ui.waitFor(

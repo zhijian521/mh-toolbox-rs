@@ -106,7 +106,7 @@
     --indigo: light-dark(#e8eef3, #1e2833);
     --indigo-ink: light-dark(#26425d, #a9c3d8);
 
-    /* 读数使用赭色，与名称及主操作、危险状态区分。 */
+    /* 常规数字细节使用赭色，统计主读数由 blocks.css 按收支语义配色。 */
     --num: var(--ochre);
 
     /* 地图范围靠明度区分内外层；Canvas 与侧栏图例共用这组颜色。 */

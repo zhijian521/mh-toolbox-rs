@@ -256,7 +256,7 @@ const demoSchool = ref('五庄观');
 /** 日期格的演示值取今天：才看得出「今天那枚朱点」与「选中的朱面」是两件事。 */
 const demoDate = ref(todayText());
 
-/** 统计条的演示：四格各给一种真实会出现的形态——进账苔绿、出账朱红、负数转朱、笔数赭。 */
+/** 统计条的演示：四格各给一种真实会出现的形态——收入、支出、净额和笔数。 */
 const DEMO_STATS: StatItem[] = [
     { cap: '收入', value: '462.5 万', tone: 'gain', sub: '31 笔 · 均 14.9 万', delta: '+12.4%' },
     { cap: '支出', value: '−12.3 万', tone: 'loss', sub: '6 笔 · 占收入 2.7%', delta: '+3.1%' },

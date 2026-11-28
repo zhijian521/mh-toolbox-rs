@@ -17,7 +17,7 @@ import { notify } from '../../composables/use-notify';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { characterName, useRoster } from '../characters/roster';
 import { timeText } from '../../services/clock';
-import { ledgerMoneyText, shortDate } from '../../services/format';
+import { ledgerMoneyText, ledgerMoneyTone, shortDate } from '../../services/format';
 import { amountText, entriesIn, type IncomeEntry } from './income';
 import { loadIncome, useIncome } from './income-store';
 import { itemIconOf } from './item-icons';
@@ -156,9 +156,11 @@ async function remove(one: IncomeEntry) {
                     <span class="history-role-name record-role-name" :title="option.label">{{
                         option.label
                     }}</span>
-                    <span class="history-role-net record-role-value">{{
-                        signedOf(whoTotals.get(option.value) ?? 0)
-                    }}</span>
+                    <span
+                        class="history-role-net record-role-value"
+                        :data-stat-tone="ledgerMoneyTone(whoTotals.get(option.value) ?? 0)"
+                        >{{ signedOf(whoTotals.get(option.value) ?? 0) }}</span
+                    >
                 </template>
             </IncomeRoleFilter>
         </div>
@@ -225,7 +227,7 @@ async function remove(one: IncomeEntry) {
                             <td
                                 class="c-num"
                                 data-align="end"
-                                :class="{ out: one.kind === 'expense' }"
+                                :data-stat-tone="ledgerMoneyTone(one.amount, one.kind)"
                             >
                                 {{
                                     ledgerMoneyText(
@@ -323,12 +325,8 @@ async function remove(one: IncomeEntry) {
 /* 数字列右对齐 + `tabular-nums`：这一页要能竖着比大小。 */
 .c-num {
     width: 104px;
-    color: var(--positive);
     text-align: right;
     font-variant-numeric: tabular-nums;
-}
-.c-num.out {
-    color: var(--negative);
 }
 .c-ops {
     width: 72px;

@@ -32,6 +32,7 @@ import {
     type Currency,
     type RangePreset,
 } from './accounts';
+import { ledgerDirectionTone } from '../../services/format';
 import { accountValueText, inAccountRange, shortcutTotals } from './account-analysis';
 import { accountSummaryBooks } from './account-summary';
 import { loadAccounts, useAccounts, type EntryInput } from './accounts-store';
@@ -221,6 +222,7 @@ useRouteAction('/accounts', {
                                 <span
                                     v-if="!loadError"
                                     class="sc-total"
+                                    :data-stat-tone="ledgerDirectionTone(one.preset.kind)"
                                     :title="one.preset.kind === 'income' ? '收入合计' : '支出合计'"
                                 >
                                     <span

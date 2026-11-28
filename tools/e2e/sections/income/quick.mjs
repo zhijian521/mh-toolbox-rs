@@ -333,11 +333,10 @@ export default async function runQuick(ctx, tools) {
                         };
                     })(),
                     colors: values.map((el) => getComputedStyle(el).color),
-                    tones: values.map((el) => el.classList.contains('loss') ? 'loss' :
-                        el.classList.contains('gain') ? 'gain' : 'num'),
+                    tones: values.map((el) => el.dataset.statTone),
                     positive: inkOf('var(--positive)'),
                     negative: inkOf('var(--negative)'),
-                    neutral: inkOf('var(--ink)'),
+                    neutral: inkOf('var(--indigo-ink)'),
                 };
             })()`);
         if (!look) throw new Error('收益页上没找到完整的统计摘要');

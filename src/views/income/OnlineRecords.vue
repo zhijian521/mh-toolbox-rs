@@ -18,7 +18,7 @@ import DateRangeField from '../../components/DateRangeField.vue';
 import { useConfirmedRemoval } from '../../composables/use-confirmed-removal';
 import { notify } from '../../composables/use-notify';
 import { timeText } from '../../services/clock';
-import { dateText, ledgerMoneyText, shortDate } from '../../services/format';
+import { dateText, ledgerMoneyText, ledgerMoneyTone, shortDate } from '../../services/format';
 import { characterName, useRoster } from '../characters/roster';
 import {
     clockText,
@@ -197,20 +197,33 @@ async function remove(one: ReadonlyOnlineSession) {
             >
                 <template #option="{ option }">
                     <span class="record-role-name" :title="option.label">{{ option.label }}</span>
-                    <span class="record-role-value">{{
-                        ledgerMoneyText(whoTotals.get(option.value) ?? 0, 'cash', { zero: 'dash' })
-                    }}</span>
+                    <span
+                        class="record-role-value"
+                        :data-stat-tone="
+                            ledgerMoneyTone(whoTotals.get(option.value) ?? 0, 'expense')
+                        "
+                        >{{
+                            ledgerMoneyText(whoTotals.get(option.value) ?? 0, 'cash', {
+                                zero: 'dash',
+                            })
+                        }}</span
+                    >
                 </template>
             </IncomeRoleFilter>
         </div>
 
         <p v-if="!loadError" class="record-summary">
-            <span class="sum-item">区间合计 {{ minutesText(totals.minutes) }}</span>
-            <span class="sum-item" :class="{ cost: totals.cost > 0 }">
-                点卡 {{ totals.cost > 0 ? ledgerMoneyText(totals.cost) : '—' }}
+            <span
+                >区间合计 <span data-stat-tone="num">{{ minutesText(totals.minutes) }}</span></span
+            >
+            <span>
+                点卡
+                <span :data-stat-tone="ledgerMoneyTone(totals.cost, 'expense')">{{
+                    ledgerMoneyText(totals.cost, 'cash', { zero: 'dash' })
+                }}</span>
             </span>
-            <span v-if="totals.running" class="sum-item live">
-                计时中 {{ totals.running }} 段
+            <span v-if="totals.running">
+                计时中 <span data-stat-tone="num">{{ totals.running }}</span> 段
             </span>
         </p>
 
@@ -260,8 +273,14 @@ async function remove(one: ReadonlyOnlineSession) {
                                 }}
                             </td>
                             <td class="c-who" :title="whoText(one)">{{ whoText(one) }}</td>
-                            <td class="c-dur">{{ clockText(facts.minutes) }}</td>
-                            <td class="c-num" data-align="end">
+                            <td class="c-dur" data-stat-tone="num">
+                                {{ clockText(facts.minutes) }}
+                            </td>
+                            <td
+                                class="c-num"
+                                data-align="end"
+                                :data-stat-tone="ledgerMoneyTone(facts.cost, 'expense')"
+                            >
                                 {{ facts.cost > 0 ? ledgerMoneyText(facts.cost) : '—' }}
                             </td>
                             <td class="c-note" :title="one.note">{{ one.note }}</td>
@@ -309,17 +328,6 @@ async function remove(one: ReadonlyOnlineSession) {
 </template>
 
 <style scoped>
-.sum-item {
-    color: var(--num);
-    font-variant-numeric: tabular-nums;
-}
-.sum-item.live {
-    color: var(--accent);
-}
-.sum-item.cost {
-    color: var(--negative);
-}
-
 .c-date {
     width: 58px;
     color: var(--muted);
@@ -344,13 +352,11 @@ async function remove(one: ReadonlyOnlineSession) {
 }
 .c-dur {
     width: 74px;
-    color: var(--muted);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
 .c-num {
     width: 96px;
-    color: var(--negative);
     text-align: right;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;

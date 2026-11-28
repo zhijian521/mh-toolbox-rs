@@ -13,7 +13,7 @@ import { isDayText } from '../../services/format';
  * 方向由 `kind` 说，**不用负数**：支出存正数 + `kind: 'expense'`。
  * 负数与「支出」两套写法混用，汇总时漏掉一处就会把净额算反。
  */
-import { ledgerMoneyText } from '../../services/format';
+import { ledgerMoneyText, ledgerMoneyTone, type LedgerTone } from '../../services/format';
 import { makeId } from '../../services/shape';
 
 export type IncomeKind = 'income' | 'expense';
@@ -290,8 +290,7 @@ export function factsOf(entries: readonly IncomeEntry[]): EntryFacts {
 export interface StatRow {
     cap: string;
     value: string;
-    /** 读数色：`gain` 苔绿（进账）/ `loss` 朱红（出账）/ `num` 赭（不带方向的数）。 */
-    tone: 'num' | 'gain' | 'loss';
+    tone: LedgerTone;
     /** 左下：这一格由什么组成（几笔、笔均、占比、结余率、几个号）。 */
     sub: string;
     /** 右下：较上一档的增减，已带符号；算不出时是「—」。 */
@@ -342,16 +341,11 @@ export function statRowsOf(current: Totals, previous: Totals | null, facts: Entr
             : `${facts.unassigned} 条未指定`
         : '—';
 
-    /* ---- 为什么收入与净额都上苔绿（2026-11-11）----
-     * 用户：「统计上的数字字体颜色优化一下，一般收益为绿色，花费为红色」。收入与净额都是
-     * 「进账」这一边，同色才读得出「这两个说的是同一件事」；支出与负净额同属另一边，共朱。
-     * 笔数不带方向，保持赭——它数的是条数，不是钱。 */
     return [
         {
             cap: '收入',
             value: amountText(current.income),
-            /* 有进账才上苔绿；一条都没有时读数是「—」，那不是「赚了 0」，不该带方向色。 */
-            tone: current.income ? 'gain' : 'num',
+            tone: ledgerMoneyTone(current.income),
             sub: incomeSub,
             delta: ratioText(current.income, prev.income),
         },
@@ -360,7 +354,7 @@ export function statRowsOf(current: Totals, previous: Totals | null, facts: Entr
              * （后者不存在）。这条沿用 `StatStrip` 抽取前的写法。 */
             cap: '支出',
             value: ledgerMoneyText(-current.expense, 'cash', { sign: 'auto', zero: 'dash' }),
-            tone: current.expense ? 'loss' : 'num',
+            tone: ledgerMoneyTone(current.expense, 'expense'),
             sub: expenseSub,
             delta: ratioText(current.expense, prev.expense),
         },
@@ -368,9 +362,7 @@ export function statRowsOf(current: Totals, previous: Totals | null, facts: Entr
             /* 负数必须带符号：只在颜色上转朱时，「15 万」会被读成「今天赚了 15 万」。 */
             cap: '净额',
             value: ledgerMoneyText(current.net, 'cash', { sign: 'auto', zero: 'dash' }),
-            /* 净额为正是这一页最想让人看见的那个数，给苔绿；为负给朱；
-             * 恰好为 0 时两边的意思都不成立，留赭。 */
-            tone: current.net < 0 ? 'loss' : current.net > 0 ? 'gain' : 'num',
+            tone: ledgerMoneyTone(current.net),
             sub: netSub,
             delta: ratioText(current.net, prev.net),
         },

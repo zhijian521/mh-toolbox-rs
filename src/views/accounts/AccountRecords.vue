@@ -3,7 +3,7 @@ import { ALL_OPTIONS as ALL } from '../../components/select-options';
 import { computed, inject, ref, toRefs, useId, watch } from 'vue';
 import { useRecordScroll } from '../../composables/use-record-filters';
 import LoadNotice from '../../components/LoadNotice.vue';
-import { ledgerMoneyText } from '../../services/format';
+import { ledgerMoneyText, ledgerMoneyTone } from '../../services/format';
 import DateRangeField from '../../components/DateRangeField.vue';
 import ModalShell from '../../components/ModalShell.vue';
 import PressButton from '../../components/PressButton.vue';
@@ -326,7 +326,7 @@ async function remove(one: AccountEntry) {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="one in visible" :key="one.id">
+                        <tr v-for="one in visible" :key="one.id" :data-kind="one.kind">
                             <td class="c-date">{{ one.date }}</td>
                             <td class="c-category">
                                 {{ one.category
@@ -347,7 +347,12 @@ async function remove(one: AccountEntry) {
                             </td>
                             <td class="c-who">{{ characterName(roster, one.characterId) }}</td>
                             <td class="c-channel">{{ one.channel }}</td>
-                            <td class="c-num" :class="one.kind === 'expense' ? 'out' : 'in'">
+                            <td
+                                class="c-num"
+                                :data-stat-tone="
+                                    ledgerMoneyTone(one.amount, one.kind, one.currency)
+                                "
+                            >
                                 {{
                                     ledgerMoneyText(
                                         one.kind === 'expense' ? -one.amount : one.amount,
@@ -473,12 +478,6 @@ async function remove(one: AccountEntry) {
 }
 .account-record-total[data-currency='cash'] {
     --stats-ink: var(--moss);
-}
-.in {
-    color: var(--positive);
-}
-.out {
-    color: var(--negative);
 }
 .rec-table {
     min-width: 740px;

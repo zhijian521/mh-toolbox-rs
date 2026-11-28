@@ -10,7 +10,7 @@ import TextButton from '../../components/TextButton.vue';
 import StatStrip, { type StatItem } from '../../components/StatStrip.vue';
 import { useMinuteNow } from '../../composables/use-minute-now';
 import { useToday } from '../../composables/use-today';
-import { ledgerMoneyText } from '../../services/format';
+import { ledgerDirectionTone, ledgerMoneyText, ledgerMoneyTone } from '../../services/format';
 import { accountValueText } from '../accounts/account-analysis';
 import { rangeOf } from '../accounts/accounts';
 import { useAccounts } from '../accounts/accounts-store';
@@ -86,14 +86,12 @@ const booksUnavailable = computed(
     () => !!(accountError.value || incomeError.value || onlineError.value || syncError.value),
 );
 const netText = (amount: number) => ledgerMoneyText(amount, 'cash', { sign: 'auto' });
-const tone = (amount: number): StatItem['tone'] =>
-    amount > 0 ? 'gain' : amount < 0 ? 'loss' : 'num';
 const weekStats = computed<StatItem[]>(() => [
     {
         id: 'net',
         cap: '速记净额',
         value: incomeError.value ? '未读取' : netText(weekTotal.value),
-        tone: tone(weekTotal.value),
+        tone: ledgerMoneyTone(weekTotal.value),
         unavailable: !!incomeError.value,
     },
     {
@@ -106,6 +104,7 @@ const weekStats = computed<StatItem[]>(() => [
         id: 'card-cost',
         cap: '点卡消耗',
         value: onlineError.value ? '未读取' : ledgerMoneyText(weekOnline.value.cost, 'cash'),
+        tone: ledgerMoneyTone(weekOnline.value.cost, 'expense'),
         unavailable: !!onlineError.value,
     },
     {
@@ -125,7 +124,7 @@ const monthStats = computed<StatItem[]>(() =>
             value: booksUnavailable.value
                 ? '未读取'
                 : accountValueText(book.stats[kind], book.currency),
-            tone: kind === 'income' ? 'gain' : 'loss',
+            tone: ledgerDirectionTone(kind),
             unavailable: booksUnavailable.value,
         })),
     ),

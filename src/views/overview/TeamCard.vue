@@ -3,7 +3,7 @@ import { RouterLink } from 'vue-router';
 import AppIcon from '../../components/AppIcon.vue';
 import FoldedCard from '../../components/FoldedCard.vue';
 import { timeText } from '../../services/clock';
-import { dateText, ledgerMoneyText } from '../../services/format';
+import { dateText, ledgerMoneyText, ledgerMoneyTone } from '../../services/format';
 import { clockText, sessionMinutes } from '../income/online';
 import type { TeamActivity } from './team-activity';
 
@@ -74,6 +74,7 @@ function sessionTitle() {
                     }}</span>
                     <b
                         class="record-value num"
+                        data-stat-tone="num"
                         :aria-label="'在线时长 ' + clockText(sessionMinutes(activity.session, now))"
                         >{{ clockText(sessionMinutes(activity.session, now)) }}</b
                     >
@@ -102,7 +103,9 @@ function sessionTitle() {
                     }}</small>
                     <b
                         class="record-value num"
-                        :class="activity.income.kind === 'expense' ? 'loss' : 'gain'"
+                        :data-stat-tone="
+                            ledgerMoneyTone(activity.income.amount, activity.income.kind)
+                        "
                         >{{
                             ledgerMoneyText(
                                 activity.income.kind === 'expense'
@@ -140,7 +143,9 @@ function sessionTitle() {
                             }}</small>
                             <b
                                 class="record-value num"
-                                :class="record.kind === 'expense' ? 'loss' : 'gain'"
+                                :data-stat-tone="
+                                    ledgerMoneyTone(record.amount, record.kind, record.currency)
+                                "
                                 >{{
                                     ledgerMoneyText(
                                         record.kind === 'expense' ? -record.amount : record.amount,
@@ -312,7 +317,6 @@ function sessionTitle() {
 }
 .record-value {
     flex: none;
-    color: var(--indigo-ink);
     font-weight: 400;
     font-size: var(--fs-base);
     white-space: nowrap;
@@ -363,11 +367,5 @@ function sessionTitle() {
     height: 4px;
     border-radius: 50%;
     background: currentColor;
-}
-.gain {
-    color: var(--positive);
-}
-.loss {
-    color: var(--negative);
 }
 </style>
